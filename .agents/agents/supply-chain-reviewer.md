@@ -109,14 +109,14 @@ Review checklist:
 
 **Files:** `pkg/invowkmod/command_scope.go`, `internal/app/deps/deps.go` (lines 176–225)
 
-`buildCommandScope()` returns `nil` for root invowkfile commands (no module metadata → no restrictions). Global modules (`~/.invowk/cmds/`) have their module IDs added to `scope.GlobalModules`, granting unconditional `CanCall()` access with no integrity verification — physical presence in the directory is the sole trust signal.
+`buildCommandScope()` returns `nil` for root invowkfile commands (no module metadata → no restrictions). Global modules (`~/.invowk/cmds/`) have their discovered command sources added to `scope.GlobalSources`, granting `CanCallTarget()` access with no integrity verification — physical presence in the directory is the sole trust signal.
 
 Review checklist:
 - [ ] Root invowkfile nil-scope bypass cannot be leveraged by module code
 - [ ] Global modules have no content hash or signature verification (accepted risk or needs fix)
 - [ ] `IsGlobalModule` propagation to vendored children (line 399 in `discovery_files.go`) is correct
-- [ ] `CanCall()` denials produce actionable error messages (suggesting `requires` addition)
-- [ ] `ExtractModuleFromCommand()` handles edge cases (empty string, whitespace-only, special chars)
+- [ ] `CanCallTarget()` denials produce actionable error messages (suggesting `requires` addition)
+- [ ] Scope checks use discovery-provided module IDs and source IDs, not parsed command-name prefixes
 - [ ] Scope enforcement runs before any command execution (in `ValidateHostDependencies()`)
 - [ ] `--ivk-env-var` override cannot bypass scope enforcement
 

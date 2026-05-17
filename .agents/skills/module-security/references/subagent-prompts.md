@@ -71,7 +71,7 @@ SC-08 Arbitrary interpreter paths:
   → No output: report "NOT FOUND — allowlist may have been removed"
 
 SC-09 Root invowkfile scope bypass:
-  Run: grep -n "CanCall\|CommandScope" internal/app/deps/deps.go
+  Run: grep -n "CanCallTarget\|CommandScope" internal/app/deps/deps.go
   → Lines found: report line numbers
   → No output: report "NOT FOUND"
 
@@ -138,7 +138,7 @@ Answer ONLY these three questions:
    (LockFile, Script, Network, Env, Symlink, ModuleMetadata)?
 
 3. **Trust boundary change?** Does this diff change who can invoke what?
-   Look for changes to `CanCall()`, `CommandScope`, `IsGlobalModule`,
+   Look for changes to `CanCallTarget()`, `CommandScope`, `IsGlobalModule`,
    or the `requires` resolution logic.
 
 ## Output Format

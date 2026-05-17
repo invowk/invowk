@@ -267,28 +267,15 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		moduleID = *cmdInfo.ModuleID
 	}
 
-	// Collect global module IDs from discovered commands.
-	var globalIDs []invowkmod.ModuleID
-	seenGlobal := make(map[invowkmod.ModuleID]bool)
-	for _, cmd := range available {
-		if cmd.IsGlobalModule && cmd.ModuleID != nil {
-			id := *cmd.ModuleID
-			if !seenGlobal[id] {
-				seenGlobal[id] = true
-				globalIDs = append(globalIDs, id)
-			}
-		}
-	}
-
 	requirements := cmdInfo.Invowkfile.Metadata.Requires()
 
 	// Wire direct dependencies from declarations resolved through lock-file
 	// identity. Raw aliases are command namespaces, not authorization proof.
-	scope := invowkmod.NewCommandScope(moduleID, globalIDs, requirements)
+	scope := invowkmod.NewCommandScope(moduleID)
 	scope.ModuleSourceID = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
 	for _, cmd := range available {
 		if cmd.IsGlobalModule {
-			scope.GlobalSources[invowkmod.ModuleSourceID(cmd.SourceID)] = true //goplint:ignore -- SourceID validated by discovery
+			scope.AddGlobalSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 		}
 	}
 

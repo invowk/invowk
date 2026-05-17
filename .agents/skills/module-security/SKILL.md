@@ -284,7 +284,7 @@ SC-08 Arbitrary interpreter paths:
   → If no allowlist: DRIFTED (regression)
 
 SC-09 Root invowkfile scope bypass:
-  grep -n "CanCall\|CommandScope" internal/app/deps/deps.go
+  grep -n "CanCallTarget\|CommandScope" internal/app/deps/deps.go
   → If scope check exists: CONFIRMED (By-design)
 
 SC-10 Global module trust:

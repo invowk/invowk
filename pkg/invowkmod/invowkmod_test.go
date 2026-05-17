@@ -337,83 +337,12 @@ version: "1.0.0"
 // Tests for CommandScope (command call restriction)
 // ============================================
 
-func TestCommandScope_CanCall(t *testing.T) {
-	t.Parallel()
-
-	scope := &CommandScope{
-		ModuleID:      "io.example.mymodule",
-		GlobalModules: map[ModuleID]bool{"global.tools": true},
-		DirectDeps:    map[ModuleID]bool{"io.example.utils": true, "myalias": true},
-	}
-
-	tests := []struct {
-		name       string
-		targetCmd  string
-		expectOK   bool
-		expectDesc string
-	}{
-		{
-			name:      "local command (no module prefix)",
-			targetCmd: "build",
-			expectOK:  true,
-		},
-		{
-			name:      "command from same module",
-			targetCmd: "io.example.mymodule test",
-			expectOK:  true,
-		},
-		{
-			name:      "command from global module",
-			targetCmd: "global.tools lint",
-			expectOK:  true,
-		},
-		{
-			name:      "command from direct dependency",
-			targetCmd: "io.example.utils helper",
-			expectOK:  true,
-		},
-		{
-			name:      "command from aliased dependency",
-			targetCmd: "myalias run",
-			expectOK:  true,
-		},
-		{
-			name:       "command from unknown module",
-			targetCmd:  "unknown.module cmd",
-			expectOK:   false,
-			expectDesc: "inaccessible",
-		},
-		{
-			name:       "transitive dependency (not allowed)",
-			targetCmd:  "transitive.dep cmd",
-			expectOK:   false,
-			expectDesc: "inaccessible",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			decision := scope.CanCall(CommandReference(tt.targetCmd))
-			if decision.Allowed != tt.expectOK {
-				t.Errorf("CanCall(%q).Allowed = %v, want %v", tt.targetCmd, decision.Allowed, tt.expectOK)
-			}
-			if !tt.expectOK && decision.Reason != CommandScopeDenyInaccessible {
-				t.Errorf("reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
-			}
-			if !tt.expectOK && tt.expectDesc != "" && !strings.Contains(string(decision.Reason), tt.expectDesc) {
-				t.Errorf("reason should contain %q, got %q", tt.expectDesc, decision.Reason)
-			}
-		})
-	}
-}
-
 func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 	t.Parallel()
 
-	scope := NewCommandScope("io.example.caller", nil, nil)
+	scope := NewCommandScope("io.example.caller")
 	scope.AddDirectDependency("io.example.tools", "allowed-tools")
+	scope.AddGlobalSource("global-tools")
 
 	t.Run("allows resolved direct dependency source pair", func(t *testing.T) {
 		t.Parallel()
@@ -459,10 +388,23 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 		}
 	})
 
+	t.Run("allows discovered global command source", func(t *testing.T) {
+		t.Parallel()
+
+		decision := scope.CanCallTarget(CommandTarget{
+			Reference: "global-tools lint",
+			SourceID:  "global-tools",
+			ModuleID:  "io.example.global",
+		})
+		if !decision.Allowed {
+			t.Fatalf("CanCallTarget() denied global source: %+v", decision)
+		}
+	})
+
 	t.Run("denies unrelated module whose source matches caller module id", func(t *testing.T) {
 		t.Parallel()
 
-		aliasedScope := NewCommandScope("io.example.caller", nil, nil)
+		aliasedScope := NewCommandScope("io.example.caller")
 		aliasedScope.ModuleSourceID = "caller-alias"
 
 		decision := aliasedScope.CanCallTarget(CommandTarget{
@@ -481,7 +423,7 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 	t.Run("denies non-global source sharing a global module id", func(t *testing.T) {
 		t.Parallel()
 
-		globalScope := NewCommandScope("io.example.caller", []ModuleID{"io.example.global"}, nil)
+		globalScope := NewCommandScope("io.example.caller")
 
 		decision := globalScope.CanCallTarget(CommandTarget{
 			Reference: "local-global lint",
@@ -499,7 +441,7 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 	t.Run("denies source matching global module id without discovered global source", func(t *testing.T) {
 		t.Parallel()
 
-		globalScope := NewCommandScope("io.example.caller", []ModuleID{"io.example.global"}, nil)
+		globalScope := NewCommandScope("io.example.caller")
 
 		decision := globalScope.CanCallTarget(CommandTarget{
 			Reference: "io.example.global lint",
@@ -515,60 +457,40 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 	})
 }
 
-func TestExtractModuleFromCommand(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		cmd      string
-		expected string
-	}{
-		{"io.invowk.sample hello", "io.invowk.sample"},
-		{"utils@1.2.3 build", "utils@1.2.3"},
-		{"build", ""},
-		{"", ""},
-		{"singleword", ""},
-		{"module.name command with args", "module.name"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.cmd, func(t *testing.T) {
-			t.Parallel()
-
-			result := ExtractModuleFromCommand(tt.cmd)
-			if result != tt.expected {
-				t.Errorf("ExtractModuleFromCommand(%q) = %q, want %q", tt.cmd, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestNewCommandScope(t *testing.T) {
 	t.Parallel()
 
-	globalIDs := []ModuleID{"global.module1", "global.module2"}
-	requirements := []ModuleRequirement{
-		{GitURL: "https://github.com/example/dep1.git", Version: "^1.0.0"},
-		{GitURL: "https://github.com/example/dep2.git", Version: "^2.0.0", Alias: "dep2alias"},
-	}
-
-	scope := NewCommandScope("mymodule", globalIDs, requirements)
+	scope := NewCommandScope("mymodule")
 
 	if scope.ModuleID != "mymodule" {
 		t.Errorf("ModuleID = %q, want %q", scope.ModuleID, "mymodule")
 	}
-
-	// Check global modules are set
-	if !scope.GlobalModules["global.module1"] {
-		t.Error("global.module1 should be in GlobalModules")
+	if scope.ModuleSourceID != "mymodule" {
+		t.Errorf("ModuleSourceID = %q, want %q", scope.ModuleSourceID, "mymodule")
 	}
-	if !scope.GlobalModules["global.module2"] {
-		t.Error("global.module2 should be in GlobalModules")
+	if scope.GlobalSources == nil {
+		t.Fatal("GlobalSources should be initialized")
 	}
+	if len(scope.GlobalSources) != 0 {
+		t.Errorf("GlobalSources length = %d, want 0", len(scope.GlobalSources))
+	}
+	if scope.DirectDependencySources == nil {
+		t.Fatal("DirectDependencySources should be initialized")
+	}
+	if len(scope.DirectDependencySources) != 0 {
+		t.Errorf("DirectDependencySources length = %d, want 0", len(scope.DirectDependencySources))
+	}
+}
 
-	// Aliases are command namespaces, not authorization proof. They are added
-	// only after discovery and lock-file identity checks.
-	if scope.DirectSources["dep2alias"] {
-		t.Error("dep2alias should not be in DirectSources before resolution")
+func TestCommandScope_AddGlobalSource(t *testing.T) {
+	t.Parallel()
+
+	scope := &CommandScope{ModuleID: "mymodule"}
+
+	scope.AddGlobalSource("global-tools")
+
+	if !scope.GlobalSources["global-tools"] {
+		t.Error("global-tools should be in GlobalSources after AddGlobalSource")
 	}
 }
 
@@ -581,12 +503,6 @@ func TestCommandScope_AddDirectDependency(t *testing.T) {
 
 	scope.AddDirectDependency("io.example.newdep", "newdep")
 
-	if !scope.DirectDeps["io.example.newdep"] {
-		t.Error("io.example.newdep should be in DirectDeps after AddDirectDependency")
-	}
-	if !scope.DirectSources["newdep"] {
-		t.Error("newdep should be in DirectSources after AddDirectDependency")
-	}
 	if !scope.DirectDependencySources["io.example.newdep"]["newdep"] {
 		t.Error("io.example.newdep/newdep pair should be in DirectDependencySources after AddDirectDependency")
 	}

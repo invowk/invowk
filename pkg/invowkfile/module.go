@@ -48,12 +48,6 @@ type (
 	CommandScope = invowkmod.CommandScope
 )
 
-// ExtractModuleFromCommand extracts the module prefix from a fully qualified command name.
-// This is a wrapper for invowkmod.ExtractModuleFromCommand.
-func ExtractModuleFromCommand(cmd string) string {
-	return invowkmod.ExtractModuleFromCommand(cmd)
-}
-
 // NewModuleMetadata creates a validated ModuleMetadata snapshot.
 // Module and Version are required; Description and Requires are optional
 // (zero values are valid). The requires slice is defensively copied.

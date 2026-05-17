@@ -31,10 +31,12 @@ type (
 	//  3. Commands from first-level requirements resolved in invowkmod.lock.cue
 	//
 	// CommandScope holds the commands visible to a module, populated post-construction
-	// via AddDirectDependency() after requires and lock metadata agree. Commands
+	// from discovered command sources. Global command sources are added via
+	// AddGlobalSource(), and direct dependency sources are added via
+	// AddDirectDependency() after requires and lock metadata agree. Commands
 	// CANNOT call transitive dependencies.
 	//
-	// SCOPE ENFORCEMENT BOUNDARY: CanCall() is a static analysis gate enforced at
+	// SCOPE ENFORCEMENT BOUNDARY: CanCallTarget() is a static analysis gate enforced at
 	// depends_on.cmds declaration validation time (via CheckCommandDependenciesExist),
 	// NOT a runtime subprocess interceptor. If a module script dynamically invokes
 	// `invowk cmd <forbidden-command>`, the scope check is not triggered because
@@ -49,14 +51,8 @@ type (
 		ModuleID ModuleID `json:"-"`
 		// ModuleSourceID is the command namespace for the module that owns this scope.
 		ModuleSourceID ModuleSourceID `json:"-"`
-		// GlobalModules are stable module IDs from globally installed modules.
-		GlobalModules map[ModuleID]bool `json:"-"`
 		// GlobalSources are command namespaces from globally installed modules.
 		GlobalSources map[ModuleSourceID]bool `json:"-"`
-		// DirectDeps are stable module IDs from first-level requirements.
-		DirectDeps map[ModuleID]bool `json:"-"`
-		// DirectSources are command namespaces from first-level requirements.
-		DirectSources map[ModuleSourceID]bool `json:"-"`
 		// DirectDependencySources maps stable module IDs to the command namespaces
 		// they are allowed to publish under after lock-file identity checks.
 		DirectDependencySources map[ModuleID]map[ModuleSourceID]bool `json:"-"`
@@ -168,45 +164,15 @@ func (d CommandScopeDecision) Validate() error {
 }
 
 // NewCommandScope creates a CommandScope for a parsed module.
-// globalModuleIDs should contain module IDs from ~/.invowk/cmds/
-// directRequirements is accepted for API compatibility. Direct dependency
-// sources and global command sources are added only after discovery metadata
-// identifies the actual command namespace.
-func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequirements []ModuleRequirement) *CommandScope {
-	scope := &CommandScope{
+// Direct dependency sources and global command sources are added only after
+// discovery metadata identifies the actual command namespace.
+func NewCommandScope(moduleID ModuleID) *CommandScope {
+	return &CommandScope{
 		ModuleID:                moduleID,
 		ModuleSourceID:          ModuleSourceID(moduleID),
-		GlobalModules:           make(map[ModuleID]bool),
 		GlobalSources:           make(map[ModuleSourceID]bool),
-		DirectDeps:              make(map[ModuleID]bool),
-		DirectSources:           make(map[ModuleSourceID]bool),
 		DirectDependencySources: make(map[ModuleID]map[ModuleSourceID]bool),
 	}
-
-	for _, id := range globalModuleIDs {
-		scope.GlobalModules[id] = true
-	}
-
-	_ = directRequirements
-
-	return scope
-}
-
-// CanCall checks if a command can call another command based on scope rules.
-func (s *CommandScope) CanCall(targetCmd CommandReference) CommandScopeDecision {
-	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
-	targetSource := ModuleSourceID(ExtractModuleFromCommand(string(targetCmd))) //goplint:ignore -- used only for equality comparison
-	decision := s.CanCallTarget(CommandTarget{Reference: targetCmd, SourceID: targetSource})
-	if decision.Allowed || targetSource == "" {
-		return decision
-	}
-	if s.targetIsLegacyLocalReference(targetSource) ||
-		s.targetIsLegacyGlobalReference(targetSource) ||
-		s.targetIsLegacyDirectReference(targetSource) {
-		decision.Allowed = true
-		decision.Reason = ""
-	}
-	return decision
 }
 
 // CanCallTarget checks if a discovered command target is visible from this scope.
@@ -251,11 +217,17 @@ func (s *CommandScope) CanCallTarget(target CommandTarget) CommandScopeDecision 
 	return decision
 }
 
+// AddGlobalSource adds a discovered global command source to the scope.
+func (s *CommandScope) AddGlobalSource(sourceID ModuleSourceID) {
+	if s.GlobalSources == nil {
+		s.GlobalSources = make(map[ModuleSourceID]bool)
+	}
+	s.GlobalSources[sourceID] = true
+}
+
 // AddDirectDependency adds a resolved direct dependency identity/source pair
 // to the scope.
 func (s *CommandScope) AddDirectDependency(moduleID ModuleID, sourceID ModuleSourceID) {
-	s.addDirectDep(moduleID)
-	s.addDirectSource(sourceID)
 	if s.DirectDependencySources == nil {
 		s.DirectDependencySources = make(map[ModuleID]map[ModuleSourceID]bool)
 	}
@@ -265,44 +237,12 @@ func (s *CommandScope) AddDirectDependency(moduleID ModuleID, sourceID ModuleSou
 	s.DirectDependencySources[moduleID][sourceID] = true
 }
 
-// addDirectDep records the stable module ID half of a resolved direct dependency.
-func (s *CommandScope) addDirectDep(moduleID ModuleID) {
-	if s.DirectDeps == nil {
-		s.DirectDeps = make(map[ModuleID]bool)
-	}
-	s.DirectDeps[moduleID] = true
-}
-
-// addDirectSource records the command namespace half of a resolved direct dependency.
-func (s *CommandScope) addDirectSource(sourceID ModuleSourceID) {
-	if s.DirectSources == nil {
-		s.DirectSources = make(map[ModuleSourceID]bool)
-	}
-	s.DirectSources[sourceID] = true
-}
-
-// ExtractModuleFromCommand extracts the module prefix from a fully qualified command name.
-// Returns empty string if no module prefix found.
-// Examples:
-//   - "io.invowk.sample hello" -> "io.invowk.sample"
-//   - "utils@1.2.3 build" -> "utils@1.2.3"
-//   - "build" -> ""
-func ExtractModuleFromCommand(cmd string) string {
-	// Command format: "module cmdname" where module may contain dots and @version
-	parts := strings.SplitN(cmd, " ", 2)
-	if len(parts) < 2 {
-		// No space means it's either a local command or just a module with no command
-		return ""
-	}
-	return parts[0]
-}
-
 func targetDecisionSource(target CommandTarget) ModuleSourceID {
 	if target.SourceID != "" {
 		return target.SourceID
 	}
 	if target.ModuleID != "" {
-		return ModuleSourceID(target.ModuleID) //goplint:ignore -- fallback only for diagnostics and legacy callers.
+		return ModuleSourceID(target.ModuleID) //goplint:ignore -- fallback only for diagnostics when source ID is unavailable.
 	}
 	return ""
 }
@@ -316,19 +256,4 @@ func (s *CommandScope) targetIsDirectDependency(target CommandTarget) bool {
 		return s.DirectDependencySources[target.ModuleID][target.SourceID]
 	}
 	return false
-}
-
-func (s *CommandScope) targetIsLegacyDirectReference(sourceID ModuleSourceID) bool {
-	return s.DirectSources[sourceID] || s.DirectDeps[ModuleID(sourceID)]
-}
-
-func (s *CommandScope) targetIsLegacyGlobalReference(sourceID ModuleSourceID) bool {
-	return s.GlobalSources[sourceID] || s.GlobalModules[ModuleID(sourceID)]
-}
-
-func (s *CommandScope) targetIsLegacyLocalReference(sourceID ModuleSourceID) bool {
-	if sourceID == s.ModuleSourceID {
-		return true
-	}
-	return ModuleID(sourceID) == s.ModuleID
 }
