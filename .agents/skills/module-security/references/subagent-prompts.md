@@ -131,6 +131,9 @@ Answer ONLY these three questions:
    mitigation for SC-01..SC-10? Check if functions like
    `validateScriptPathContainment`, `VerifyVendoredModuleHashes`,
    `InterpreterSpec.Validate()` are modified in ways that reduce protection.
+   For scanner path-boundary changes, verify that evaluated script paths are
+   compared against evaluated module/root paths, and that tests cover both a
+   symlink escape and a legitimate symlinked module/root.
 
 2. **New attack surface?** Does this diff introduce a new way for
    untrusted module content to reach host execution, file writes, or

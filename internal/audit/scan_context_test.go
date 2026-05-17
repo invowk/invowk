@@ -237,6 +237,30 @@ func TestReadScriptFileFactsSymlinkEscapeLeavesContentEmptyAndSymlinkFact(t *tes
 	}
 }
 
+func TestReadScriptFileFactsAllowsResolvedModuleBoundary(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := t.TempDir()
+	scriptContent := "#!/bin/sh\necho hello"
+	if err := os.WriteFile(filepath.Join(moduleDir, "run.sh"), []byte(scriptContent), 0o644); err != nil {
+		t.Fatalf("WriteFile(script) = %v", err)
+	}
+
+	aliasDir := t.TempDir()
+	moduleAlias := filepath.Join(aliasDir, "module.invowkmod")
+	if err := os.Symlink(moduleDir, moduleAlias); err != nil {
+		t.Skipf("symlink creation not supported: %v", err)
+	}
+
+	facts, err := readScriptFileFacts(t.Context(), "run.sh", moduleAlias)
+	if err != nil {
+		t.Fatalf("readScriptFileFacts() = %v", err)
+	}
+	if facts.Content != scriptContent {
+		t.Fatalf("script content = %q, want %q", facts.Content, scriptContent)
+	}
+}
+
 func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.T) {
 	root := t.TempDir()
 	otherDir := t.TempDir()

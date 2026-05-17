@@ -41,7 +41,12 @@ func readScriptFileFacts(ctx context.Context, scriptPath, modulePath string) (sc
 			facts.StatErr = evalErr
 			return facts, nil //nolint:nilerr // Symlink/path resolution failures are nonfatal scan facts for checkers.
 		}
-		if !isWithinBoundary(modulePath, evaluated) {
+		evaluatedModulePath, moduleEvalErr := filepath.EvalSymlinks(modulePath)
+		if moduleEvalErr != nil {
+			facts.StatErr = moduleEvalErr
+			return facts, nil //nolint:nilerr // Symlink/path resolution failures are nonfatal scan facts for checkers.
+		}
+		if !isWithinBoundary(evaluatedModulePath, evaluated) {
 			return facts, nil
 		}
 		readPath = evaluated
