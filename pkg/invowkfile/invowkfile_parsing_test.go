@@ -334,12 +334,17 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 		{name: "simple filename", containerfile: "Containerfile", shouldError: false},
 		{name: "subdirectory", containerfile: "docker/Containerfile", shouldError: false},
 		{name: "dot prefix", containerfile: "./Containerfile", shouldError: false},
+		{name: "dot segment", containerfile: "docker/./Containerfile", shouldError: false},
+		{name: "consecutive dots in filename", containerfile: "Containerfile..backup", shouldError: false},
+		{name: "consecutive dots in directory", containerfile: "docker/v1..2/Containerfile", shouldError: false},
 		{name: "deep path", containerfile: "a/b/c/Dockerfile", shouldError: false},
 
-		// Invalid paths - should be rejected by CUE schema
+		// Invalid paths - absolute paths are rejected by CUE shape checks;
+		// parent-directory segments are rejected by Go before path cleaning.
 		{name: "absolute path", containerfile: "/etc/Containerfile", shouldError: true, errorSubstring: "out of bound"},
-		{name: "path traversal parent", containerfile: "../Containerfile", shouldError: true, errorSubstring: "out of bound"},
-		{name: "path traversal middle", containerfile: "foo/../bar/Containerfile", shouldError: true, errorSubstring: "out of bound"},
+		{name: "path traversal parent", containerfile: "../Containerfile", shouldError: true, errorSubstring: "parent-directory segment"},
+		{name: "path traversal middle", containerfile: "foo/../bar/Containerfile", shouldError: true, errorSubstring: "parent-directory segment"},
+		{name: "path traversal backslash", containerfile: `foo\..\bar\Containerfile`, shouldError: true, errorSubstring: "parent-directory segment"},
 	}
 
 	for _, tt := range tests {
@@ -347,6 +352,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 			t.Parallel()
 
 			tmpDir := t.TempDir()
+			cueContainerfile := strings.ReplaceAll(tt.containerfile, "\\", "\\\\")
 
 			// Create invowkfile.cue with container runtime using the test containerfile path
 			cueContent := `cmds: [
@@ -356,7 +362,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 		implementations: [
 			{
 				script: "echo test"
-				runtimes: [{name: "container", containerfile: "` + tt.containerfile + `"}]
+				runtimes: [{name: "container", containerfile: "` + cueContainerfile + `"}]
 				platforms: [{name: "linux"}]
 			}
 		]

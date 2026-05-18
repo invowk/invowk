@@ -310,6 +310,8 @@ Habilita acesso SSH do container de volta para o host. Quando habilitado, o Invo
 
 Especifique a origem do container. São **mutuamente exclusivos**.
 
+`containerfile` deve ser um caminho relativo dentro do diretório do invowkfile. O Invowk rejeita caminhos absolutos e qualquer segmento bruto de caminho igual a `..`, inclusive segmentos separados por barra invertida, antes de resolver o caminho. Nomes que apenas contêm pontos consecutivos são válidos; portanto `Containerfile..backup` e `docker/v1..2/Containerfile` são aceitos.
+
 <Snippet id="reference/invowkfile/containerfile-image-examples" />
 
 ### persistent
@@ -398,6 +400,8 @@ O nome do campo para dependências de comandos é `cmds`, não `commands`. Usar 
 :::
 
 <Snippet id="reference/invowkfile/command-dependency-structure" />
+
+Alternativas de comando são referências de dependência. Uma referência simples como `"build"` ou `"test unit"` resolve apenas dentro da própria fonte do comando declarante. Dependências entre fontes usam a sintaxe explícita `@source command`, como `"@tools lint"` ou `"@com.company.tools lint"`. A forma antiga com prefixo separado por espaço não é qualificada por fonte: `"tools lint"` é um único nome de comando local.
 
 ### FilepathDependency
 

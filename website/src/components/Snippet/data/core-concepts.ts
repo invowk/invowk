@@ -257,9 +257,9 @@ From tools.invowkmod:
         implementations: [...]
         depends_on: {
             cmds: [
-                // Module-prefixed commands for dependencies
+                // Source-qualified commands for module dependencies
                 {alternatives: ["build"]},
-                {alternatives: ["com.company.tools lint"]},
+                {alternatives: ["@com.company.tools lint"]},
             ]
         }
     }
@@ -950,8 +950,12 @@ containerfile: "./docker/Dockerfile.build"`,
 
   'reference/invowkfile/command-dependency-structure': {
     language: 'cue',
-    code: `#CommandDependency: {
-    alternatives: [...string] & [_, ...]  // Command names
+    code: `#CommandDependencyRef: #BareCommandDependencyRef | #SourceQualifiedCommandDependencyRef
+#BareCommandDependencyRef: string
+#SourceQualifiedCommandDependencyRef: string  // @source command
+
+#CommandDependency: {
+    alternatives: [...#CommandDependencyRef] & [_, ...]
 }`,
   },
 

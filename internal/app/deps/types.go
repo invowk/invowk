@@ -109,8 +109,14 @@ type (
 	// resolvedCommandDependency records the discovery-qualified command name
 	// that satisfied a depends_on.cmds declaration.
 	resolvedCommandDependency struct {
-		Alternatives []invowkfile.CommandName
+		Alternatives []invowkfile.CommandDependencyRef
 		Command      *invowkfile.CommandName
+	}
+
+	//goplint:ignore -- dependency-resolution DTO holds already parsed and validated reference parts.
+	commandDependencyAlternative struct {
+		Ref   invowkfile.CommandDependencyRef
+		Parts invowkfile.CommandDependencyRefParts
 	}
 
 	// InvalidDependencyMessageError is returned when a DependencyMessage value
@@ -181,6 +187,13 @@ type (
 		ValueError   error
 	}
 )
+
+func (a commandDependencyAlternative) Validate() error {
+	if err := a.Ref.Validate(); err != nil {
+		return err
+	}
+	return a.Parts.Validate()
+}
 
 // Error implements the error interface for FlagValidationError.
 func (e *FlagValidationError) Error() string {

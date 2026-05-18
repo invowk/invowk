@@ -80,14 +80,26 @@ func ValidateContainerfilePath(containerfile, baseDir string) error {
 		return errors.New("containerfile path contains null byte")
 	}
 
-	// Normalize with slash semantics so validation is identical on every host.
-	cleanPath := slashpath.Clean(strings.ReplaceAll(containerfile, "\\", "/"))
-	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-		return fmt.Errorf("containerfile path '%s' escapes the invowkfile directory", containerfile)
+	// Normalize separators before cleaning so a raw parent-directory segment
+	// cannot be hidden by slashpath.Clean.
+	normalizedPath := strings.ReplaceAll(containerfile, "\\", "/")
+	if containsParentPathSegment(normalizedPath) {
+		return fmt.Errorf("containerfile path %q contains parent-directory segment '..'", containerfile)
 	}
+	cleanPath := slashpath.Clean(normalizedPath)
 
 	// Validate the filename component
 	return ValidateFilename(slashpath.Base(cleanPath))
+}
+
+//goplint:ignore -- low-level path scanner intentionally works on normalized raw path text before typed construction.
+func containsParentPathSegment(path string) bool {
+	for segment := range strings.SplitSeq(path, "/") {
+		if segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateEnvFilePath validates an env file path for security.
@@ -159,9 +171,7 @@ func ValidateToolName(name BinaryName) error {
 	return name.Validate()
 }
 
-// ValidateCommandDependencyName validates a command dependency name.
-// [CUE-VALIDATED] Format and length validation are in CUE:
-// alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
+// ValidateCommandDependencyName validates a bare command dependency name.
 func ValidateCommandDependencyName(name CommandName) error {
 	s := string(name)
 	if s == "" {
@@ -174,6 +184,14 @@ func ValidateCommandDependencyName(name CommandName) error {
 		return fmt.Errorf("command name '%s' is invalid (must start with letter, can include alphanumeric, underscores, hyphens, spaces)", s)
 	}
 	return nil
+}
+
+// ValidateCommandDependencyRef validates a command dependency reference.
+// [CUE-VALIDATED] CUE owns the static reference grammar. Invowk parses the
+// value after decode so dependency resolution can distinguish bare local refs
+// from explicit @source command refs.
+func ValidateCommandDependencyRef(ref CommandDependencyRef) error {
+	return ref.Validate()
 }
 
 // isAbsolutePath checks if a path is absolute in any of the four dialects

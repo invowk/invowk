@@ -489,7 +489,7 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 		{
 			name: "with commands",
 			deps: &DependsOn{
-				Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
+				Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 			},
 			expected: true,
 		},
@@ -540,12 +540,12 @@ func TestMergeDependsOnAll(t *testing.T) {
 	cmdDeps := &DependsOn{
 		Tools:     []ToolDependency{{Alternatives: []BinaryName{"bash"}}},
 		Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"/etc/hosts"}}},
-		Commands:  []CommandDependency{{Alternatives: []CommandName{"build"}}},
+		Commands:  []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 	}
 	implDeps := &DependsOn{
 		Tools:        []ToolDependency{{Alternatives: []BinaryName{"python3"}}},
 		EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
-		Commands:     []CommandDependency{{Alternatives: []CommandName{"test"}}},
+		Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{"test"}}},
 		CustomChecks: []CustomCheckDependency{{Name: "impl-check", CheckScript: "echo ok"}},
 	}
 

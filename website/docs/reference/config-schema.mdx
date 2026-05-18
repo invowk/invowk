@@ -206,7 +206,7 @@ Enables interactive mode by default (alternate screen buffer with PTY).
 
 ## LLMConfig
 
-Default LLM backend configuration. `DefaultConfig()` derives this from CUE and produces an empty no-backend `llm: {}` object until the user configures a provider or API endpoint.
+Common LLM defaults and backend configuration. `DefaultConfig()` derives this from CUE and produces an empty defaults-only `llm: {}` object until the user configures a provider or API endpoint.
 
 <Snippet id="reference/config/llm-config-structure" />
 

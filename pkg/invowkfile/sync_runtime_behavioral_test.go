@@ -282,24 +282,33 @@ func TestBehavioralSync_BinaryName(t *testing.T) {
 	)
 }
 
-// TestBehavioralSync_CommandDependencyName verifies Go
-// ValidateCommandDependencyName agrees with CUE #CommandDependency.alternatives
-// element constraint (regex + length).
-func TestBehavioralSync_CommandDependencyName(t *testing.T) {
+// TestBehavioralSync_CommandDependencyRef verifies Go CommandDependencyRef
+// validation agrees with CUE #CommandDependency.alternatives element grammar.
+func TestBehavioralSync_CommandDependencyRef(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
 	runBehavioralSyncListElement(t, schema, ctx, "#CommandDependency", "alternatives",
-		func(s string) error { return ValidateCommandDependencyName(CommandName(s)) },
+		func(s string) error { return ValidateCommandDependencyRef(CommandDependencyRef(s)) },
 		[]behavioralSyncCase{
 			{"build", true, true, ""},
 			{"test unit", true, true, ""},
 			{"deploy-prod", true, true, ""},
+			{"@tools lint", true, true, ""},
+			{"@com.company.tools lint", true, true, ""},
+			{"@tools test unit", true, true, ""},
+			{"tools lint", true, true, "bare command refs may contain spaces and resolve in the declaring source"},
 			{"a", true, true, ""},
 			{"", false, false, ""},
 			{"123bad", false, false, ""},
 			{"-flag", false, false, ""},
 			{"_private", false, false, ""},
+			{"@tools", false, false, ""},
+			{"@9tools lint", false, false, ""},
+			{"@tools 9lint", false, false, ""},
+			{"@tools  lint", false, false, ""},
+			{"@tools.lint", false, false, ""},
+			{"com.company.tools lint", false, false, ""},
 			{"a" + strings.Repeat("b", 255), true, true, ""},
 			{"a" + strings.Repeat("b", 256), false, false, ""},
 		},

@@ -51,6 +51,10 @@ func Parse(path FilesystemPath) (*Invowkfile, error) {
 // Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
 // compile schema → compile user data → validate and decode.
 func ParseBytes(data []byte, path string) (*Invowkfile, error) {
+	if errs := runtimeSchemaPreflightValidationErrors(data, path); len(errs) > 0 {
+		return nil, errs
+	}
+
 	result, err := cueutil.ParseAndDecode[Invowkfile](
 		invowkfileSchemaBytes,
 		data,

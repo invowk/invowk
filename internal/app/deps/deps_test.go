@@ -129,17 +129,18 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 	})
 	modCmdInfo := &discovery.CommandInfo{
 		Name:       invowkfile.CommandName("build"),
+		SourceID:   discovery.SourceID("mod"),
 		Command:    &invowkfile.Command{Name: "build"},
 		Invowkfile: &invowkfile.Invowkfile{Metadata: modMeta},
 	}
 
-	t.Run("accepts module-qualified alternatives", func(t *testing.T) {
+	t.Run("accepts module-local bare alternatives", func(t *testing.T) {
 		t.Parallel()
 
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{
 				{Name: invowkfile.CommandName("deploy")},
-				{Name: invowkfile.CommandName("mod build")},
+				{Name: invowkfile.CommandName("mod build"), SimpleName: "build", SourceID: discovery.SourceID("mod")},
 			},
 		}
 		disc := &stubCommandSetProvider{
@@ -147,11 +148,11 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"build"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"build"}},
 			},
 		}
 
-		// Module cmdInfo: "build" matches via qualified form "mod build".
+		// Module cmdInfo: bare "build" resolves only within the caller's source.
 		if err := CheckCommandDependenciesExist(disc, deps, modCmdInfo, ctx); err != nil {
 			t.Fatalf("CheckCommandDependenciesExist() = %v", err)
 		}
@@ -170,7 +171,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"deploy"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"deploy"}},
 			},
 		}
 
@@ -195,7 +196,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"missing", "other"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"missing", "other"}},
 			},
 		}
 
@@ -213,6 +214,64 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		if !strings.Contains(depErr.MissingCommands[0].String(), "none of [missing, other] found") {
 			t.Fatalf("depErr.MissingCommands[0] = %q", depErr.MissingCommands[0])
+		}
+	})
+
+	t.Run("distinguishes unknown qualified source from missing command", func(t *testing.T) {
+		t.Parallel()
+
+		commandSet := &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{{
+				Name:       invowkfile.CommandName("tools fmt"),
+				SimpleName: "fmt",
+				SourceID:   discovery.SourceID("tools"),
+			}},
+		}
+		disc := &stubCommandSetProvider{
+			result: discovery.CommandSetResult{Set: commandSet},
+		}
+
+		tests := []struct {
+			name string
+			ref  invowkfile.CommandDependencyRef
+			want string
+		}{
+			{
+				name: "unknown source",
+				ref:  "@missing-tools lint",
+				want: `@missing-tools lint - source "missing-tools" not found`,
+			},
+			{
+				name: "missing command in known source",
+				ref:  "@tools lint",
+				want: `@tools lint - command "lint" not found in source "tools"`,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				deps := &invowkfile.DependsOn{
+					Commands: []invowkfile.CommandDependency{
+						{Alternatives: []invowkfile.CommandDependencyRef{tt.ref}},
+					},
+				}
+
+				err := CheckCommandDependenciesExist(disc, deps, rootCmdInfo, ctx)
+				if err == nil {
+					t.Fatal("CheckCommandDependenciesExist() error = nil, want missing command dependency")
+				}
+				var depErr *DependencyError
+				if !errors.As(err, &depErr) {
+					t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+				}
+				if len(depErr.MissingCommands) != 1 {
+					t.Fatalf("len(depErr.MissingCommands) = %d, want 1", len(depErr.MissingCommands))
+				}
+				if !strings.Contains(depErr.MissingCommands[0].String(), tt.want) {
+					t.Fatalf("depErr.MissingCommands[0] = %q, want %q", depErr.MissingCommands[0], tt.want)
+				}
+			})
 		}
 	})
 
@@ -250,9 +309,10 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{{
-				Name:     invowkfile.CommandName("io.example.dep test"),
-				SourceID: discovery.SourceID(depID),
-				ModuleID: &depID,
+				Name:       invowkfile.CommandName("io.example.dep test"),
+				SimpleName: "test",
+				SourceID:   discovery.SourceID(depID),
+				ModuleID:   &depID,
 			}},
 		}
 		disc := &stubCommandSetProvider{
@@ -260,7 +320,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"io.example.dep test"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"@io.example.dep test"}},
 			},
 		}
 
@@ -302,9 +362,10 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{{
-				Name:     invowkfile.CommandName("other-tools test"),
-				SourceID: discovery.SourceID("other-tools"),
-				ModuleID: &depID,
+				Name:       invowkfile.CommandName("other-tools test"),
+				SimpleName: "test",
+				SourceID:   discovery.SourceID("other-tools"),
+				ModuleID:   &depID,
 			}},
 		}
 		disc := &stubCommandSetProvider{
@@ -312,7 +373,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"other-tools test"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"@other-tools test"}},
 			},
 		}
 
@@ -364,9 +425,10 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		unrelatedID := invowkmod.ModuleID("io.example.unrelated")
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{{
-				Name:     invowkfile.CommandName("tools build"),
-				SourceID: discovery.SourceID("tools"),
-				ModuleID: &unrelatedID,
+				Name:       invowkfile.CommandName("tools build"),
+				SimpleName: "build",
+				SourceID:   discovery.SourceID("tools"),
+				ModuleID:   &unrelatedID,
 			}},
 		}
 		disc := &stubCommandSetProvider{
@@ -374,7 +436,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"tools build"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"@tools build"}},
 			},
 		}
 
@@ -423,7 +485,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"build"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"build"}},
 			},
 		}
 
@@ -470,7 +532,7 @@ func TestFindMatchingCommand(t *testing.T) {
 			moduleBuild.Name: moduleBuild,
 		}
 
-		got := findMatchingCommand(available, "mod", []invowkfile.CommandName{"build"})
+		got := findMatchingCommand(available, "mod", commandDependencyAlternativesForTest(t, "build"))
 		if got != moduleBuild {
 			t.Fatalf("findMatchingCommand() = %v, want module-local command", got)
 		}
@@ -484,7 +546,7 @@ func TestFindMatchingCommand(t *testing.T) {
 			moduleBuild.Name: moduleBuild,
 		}
 
-		got := findMatchingCommand(available, "", []invowkfile.CommandName{"build"})
+		got := findMatchingCommand(available, "", commandDependencyAlternativesForTest(t, "build"))
 		if got != rootBuild {
 			t.Fatalf("findMatchingCommand() = %v, want root command", got)
 		}
@@ -497,7 +559,7 @@ func TestFindMatchingCommand(t *testing.T) {
 			rootBuild.Name: rootBuild,
 		}
 
-		got := findMatchingCommand(available, "mod", []invowkfile.CommandName{"build"})
+		got := findMatchingCommand(available, "mod", commandDependencyAlternativesForTest(t, "build"))
 		if got != nil {
 			t.Fatalf("findMatchingCommand() = %v, want nil for root command outside module scope", got)
 		}
@@ -511,11 +573,20 @@ func TestFindMatchingCommand(t *testing.T) {
 			depBuild.Name:    depBuild,
 		}
 
-		got := findMatchingCommand(available, "mod", []invowkfile.CommandName{"dep build"})
+		got := findMatchingCommand(available, "mod", commandDependencyAlternativesForTest(t, "@dep build"))
 		if got != depBuild {
 			t.Fatalf("findMatchingCommand() = %v, want explicit dependency command", got)
 		}
 	})
+}
+
+func commandDependencyAlternativesForTest(t testing.TB, refs ...invowkfile.CommandDependencyRef) []commandDependencyAlternative {
+	t.Helper()
+	alternatives := normalizedCommandAlternatives(invowkfile.CommandDependency{Alternatives: refs})
+	if len(alternatives) != len(refs) {
+		t.Fatalf("normalizedCommandAlternatives(%v) returned %d refs, want %d", refs, len(alternatives), len(refs))
+	}
+	return alternatives
 }
 
 func TestDiscoverAvailableCommands(t *testing.T) {
@@ -777,7 +848,7 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 					Name: invowkfile.RuntimeContainer,
 					DependsOn: &invowkfile.DependsOn{
 						Commands: []invowkfile.CommandDependency{
-							{Alternatives: []invowkfile.CommandName{"build"}},
+							{Alternatives: []invowkfile.CommandDependencyRef{"build"}},
 						},
 					},
 				},
@@ -844,7 +915,7 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 				Runtimes: []invowkfile.RuntimeConfig{{
 					Name: invowkfile.RuntimeContainer,
 					DependsOn: &invowkfile.DependsOn{
-						Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}},
+						Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"build"}}},
 					},
 				}},
 			}},
@@ -918,7 +989,7 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 				Runtimes: []invowkfile.RuntimeConfig{{
 					Name: invowkfile.RuntimeContainer,
 					DependsOn: &invowkfile.DependsOn{
-						Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"other-tools test"}}},
+						Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"@other-tools test"}}},
 					},
 				}},
 			}},
@@ -935,9 +1006,10 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 		}
 		disc := &stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{{
-				Name:     "other-tools test",
-				SourceID: "other-tools",
-				ModuleID: &depID,
+				Name:       "other-tools test",
+				SimpleName: "test",
+				SourceID:   "other-tools",
+				ModuleID:   &depID,
 			}},
 		}}}
 		probe := &filepathStubRuntime{

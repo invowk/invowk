@@ -47,14 +47,16 @@ func TestCheckCommandDependenciesExistRejectsPresentationAliasWithUnmatchedDisco
 	commandSet := &discovery.DiscoveredCommandSet{
 		Commands: []*discovery.CommandInfo{
 			{
-				Name:     invowkfile.CommandName("allowed-tools helper"),
-				SourceID: discovery.SourceID("allowed-tools"),
-				ModuleID: &depID,
+				Name:       invowkfile.CommandName("allowed-tools helper"),
+				SimpleName: "helper",
+				SourceID:   discovery.SourceID("allowed-tools"),
+				ModuleID:   &depID,
 			},
 			{
-				Name:     invowkfile.CommandName("allowed-tools test"),
-				SourceID: discovery.SourceID("other-tools"),
-				ModuleID: &depID,
+				Name:       invowkfile.CommandName("allowed-tools test"),
+				SimpleName: "test",
+				SourceID:   discovery.SourceID("other-tools"),
+				ModuleID:   &depID,
 			},
 		},
 	}
@@ -63,7 +65,7 @@ func TestCheckCommandDependenciesExistRejectsPresentationAliasWithUnmatchedDisco
 	}
 	deps := &invowkfile.DependsOn{
 		Commands: []invowkfile.CommandDependency{
-			{Alternatives: []invowkfile.CommandName{"allowed-tools test"}},
+			{Alternatives: []invowkfile.CommandDependencyRef{"@other-tools test"}},
 		},
 	}
 	ctx := testDependencyExecutionContext(t, &invowkfile.Command{Name: "build"}, "")

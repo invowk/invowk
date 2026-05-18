@@ -535,7 +535,7 @@ invowk cmd @tools lint    # Works even though lint is not ambiguous
 Command dependencies refer to other invowk commands by name. Invowk validates that the referenced commands are discoverable (it does not execute them automatically).
 
 - Same invowkfile: use unqualified names like `build` or `test unit`
-- Module commands: use the module prefix (or alias) like `tools deploy`
+- Module commands: use explicit source-qualified refs like `@tools deploy`
 
 ```cue
 cmds: [
@@ -545,7 +545,7 @@ cmds: [
             cmds: [
                 {alternatives: ["build"]},          // Same-file command
                 {alternatives: ["test unit"]},      // Same-file nested command
-                {alternatives: ["tools deploy"]},   // Command from a module
+                {alternatives: ["@tools deploy"]},  // Command from a module
             ]
         }
     }
@@ -577,7 +577,7 @@ depends_on: {
 
 ### Command Dependencies
 
-Require other invowk commands to be discoverable. Use the full command name as listed by `invowk cmd` (module prefix when applicable):
+Require other invowk commands to be discoverable. Use bare command names for the declaring source, or `@source command` for another module/source:
 
 ```cue
 depends_on: {

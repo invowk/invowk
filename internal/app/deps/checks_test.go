@@ -259,7 +259,7 @@ func TestContainerCommandValidation(t *testing.T) {
 	}
 
 	errorsList := collectContainerCommandErrors(
-		[]invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"missing", "other"}}},
+		[]invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"missing", "other"}}},
 		stub,
 		ctx,
 	)
@@ -268,7 +268,7 @@ func TestContainerCommandValidation(t *testing.T) {
 	}
 
 	err = CheckCommandDependenciesInContainer(
-		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"missing"}}}},
+		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"missing"}}}},
 		stub,
 		ctx,
 	)

@@ -41,14 +41,16 @@ func TestCommandDependencyScopeAlternatives(t *testing.T) {
 	commandSet := &discovery.DiscoveredCommandSet{
 		Commands: []*discovery.CommandInfo{
 			{
-				Name:     invowkfile.CommandName("other-tools test"),
-				SourceID: discovery.SourceID("other-tools"),
-				ModuleID: &depID,
+				Name:       invowkfile.CommandName("other-tools test"),
+				SimpleName: "test",
+				SourceID:   discovery.SourceID("other-tools"),
+				ModuleID:   &depID,
 			},
 			{
-				Name:     invowkfile.CommandName("allowed-tools test"),
-				SourceID: discovery.SourceID("allowed-tools"),
-				ModuleID: &depID,
+				Name:       invowkfile.CommandName("allowed-tools test"),
+				SimpleName: "test",
+				SourceID:   discovery.SourceID("allowed-tools"),
+				ModuleID:   &depID,
 			},
 		},
 	}
@@ -66,7 +68,7 @@ func TestCommandDependencyScopeAlternatives(t *testing.T) {
 		}
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
-				{Alternatives: []invowkfile.CommandName{"other-tools test", "allowed-tools test"}},
+				{Alternatives: []invowkfile.CommandDependencyRef{"@other-tools test", "@allowed-tools test"}},
 			},
 		}
 
@@ -93,7 +95,7 @@ func TestCommandDependencyScopeAlternatives(t *testing.T) {
 					Name: invowkfile.RuntimeContainer,
 					DependsOn: &invowkfile.DependsOn{
 						Commands: []invowkfile.CommandDependency{{
-							Alternatives: []invowkfile.CommandName{"other-tools test", "allowed-tools test"},
+							Alternatives: []invowkfile.CommandDependencyRef{"@other-tools test", "@allowed-tools test"},
 						}},
 					},
 				}},

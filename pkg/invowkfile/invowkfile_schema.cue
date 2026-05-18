@@ -105,17 +105,17 @@ import "strings"
 	// Default: false
 	enable_host_ssh?: bool
 
-	// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional)
-	// Used to build a container image for command execution
-	// Mutually exclusive with 'image'
-	// [GO-ONLY] Runtime-specific mutual exclusivity with 'image' is checked after decode
-	// Path must be relative (not start with /) and cannot contain path traversal (..)
-	// Note: Additional path security validation is performed in Go (see validation_filesystem.go)
-	containerfile?: #NonWhitespaceString & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
+	// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional).
+	// CUE validates non-empty, length, and relative-looking shape.
+	// Invowk rejects both containerfile+image, missing container source, absolute
+	// paths, parent-directory segments, and invalid filename components after decode.
+	// [GO-ONLY] Runtime source invariants and cross-platform path security require Go.
+	containerfile?: #NonWhitespaceString & strings.MaxRunes(4096) & =~"^[^/\\\\]"
 
 	// image specifies a pre-built container image to use (optional)
-	// Mutually exclusive with 'containerfile'
-	// [GO-ONLY] Runtime-specific mutual exclusivity with 'containerfile' is checked after decode
+	// CUE validates field shape only.
+	// Invowk rejects both image+containerfile and missing container source after decode.
+	// [GO-ONLY] Runtime source invariants depend on the selected runtime variant.
 	// Example: "debian:stable-slim", "golang:1.26", "python:3-slim"
 	image?: #NonWhitespaceString & strings.MaxRunes(512)
 
@@ -249,13 +249,20 @@ import "strings"
 	executable?: bool
 })
 
-// CommandDependency represents another invowk command that must be discoverable
+// CommandDependencyRef identifies a command dependency.
+// Bare refs resolve only in the declaring command's own source.
+// Source-qualified refs use "@source command" syntax, where the source ID can
+// contain dots and the command part follows the normal command-name grammar.
+#CommandDependencyRef: #BareCommandDependencyRef | #SourceQualifiedCommandDependencyRef
+#BareCommandDependencyRef: string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"
+#SourceQualifiedCommandDependencyRef: string & strings.MaxRunes(514) & =~"^@[a-zA-Z][a-zA-Z0-9._-]* [a-zA-Z][a-zA-Z0-9_ -]*$"
+
+// CommandDependency represents another invowk command that must be discoverable.
 #CommandDependency: close({
-	// alternatives is a list of command names where any match satisfies the dependency (required, at least one)
+	// alternatives is a list of command references where any match satisfies the dependency (required, at least one)
 	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
-	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
-	// Command names must be valid: starts with letter, can include letters, digits, underscores, hyphens, and spaces
-	alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
+	// This allows specifying alternative commands (e.g., ["build-debug", "@tools lint"]).
+	alternatives: [...#CommandDependencyRef] & [_, ...]
 })
 
 // CapabilityName defines the supported system capability types
@@ -300,7 +307,9 @@ import "strings"
 	// Each tool is checked for existence in PATH using 'command -v' or equivalent
 	// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
 	tools?: [...#ToolDependency]
-	// cmds lists invowk commands that must be discoverable for this command to run
+	// cmds lists invowk commands that must be discoverable for this command to run.
+	// Bare refs are local to the declaring command source. Cross-source refs must
+	// use the explicit "@source command" syntax.
 	// Uses OR semantics: if any alternative in the list is discoverable, the dependency is satisfied
 	cmds?: [...#CommandDependency]
 

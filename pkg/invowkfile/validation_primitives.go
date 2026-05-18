@@ -49,6 +49,9 @@ var (
 	// cmdDependencyNameRegex validates command dependency names.
 	// Command names must start with a letter, can include letters, digits, underscores, hyphens, and spaces.
 	cmdDependencyNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
+
+	// cmdDependencySourceIDRegex validates source IDs in @source command references.
+	cmdDependencySourceIDRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
 )
 
 // ValidateRegexPattern validates a user-provided regex pattern for safety and complexity.

@@ -4,6 +4,7 @@ package deps
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -195,14 +196,7 @@ func resolveCommandDependenciesWithLockProvider(disc CommandSetProvider, deps *i
 		return nil, err
 	}
 
-	// Derive currentModule for qualified-name lookup.
-	var currentModule invowkmod.ModuleSourceID
-	if cmdInfo.Invowkfile.Metadata != nil {
-		currentModule = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
-		if currentModule == "" {
-			currentModule = invowkmod.ModuleSourceID(cmdInfo.Invowkfile.Metadata.Module())
-		}
-	}
+	currentSource := currentCommandSourceID(cmdInfo)
 
 	lock, err := commandScopeLock(lockProvider, cmdInfo.Invowkfile)
 	if err != nil {
@@ -222,11 +216,11 @@ func resolveCommandDependenciesWithLockProvider(disc CommandSetProvider, deps *i
 			continue
 		}
 
-		matchedCmd, forbidden, found := findAccessibleCommand(available, currentModule, alternatives, scope)
+		matchedCmd, forbidden, found := findAccessibleCommand(available, currentSource, alternatives, scope)
 		if matchedCmd != nil {
 			matchedName := matchedCmd.Name
 			resolved = append(resolved, resolvedCommandDependency{
-				Alternatives: alternatives,
+				Alternatives: commandDependencyRefs(alternatives),
 				Command:      &matchedName,
 			})
 			continue
@@ -236,7 +230,7 @@ func resolveCommandDependenciesWithLockProvider(disc CommandSetProvider, deps *i
 			continue
 		}
 		if matchedCmd == nil {
-			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, false))
+			commandErrors = append(commandErrors, formatMissingDiscoveredCommandDependency(available, currentSource, alternatives, false))
 			continue
 		}
 	}
@@ -330,10 +324,10 @@ func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement,
 	return false
 }
 
-func findAccessibleCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule invowkmod.ModuleSourceID, alternatives []invowkfile.CommandName, scope *invowkmod.CommandScope) (*discovery.CommandInfo, []DependencyMessage, bool) {
+func findAccessibleCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentSource invowkmod.ModuleSourceID, alternatives []commandDependencyAlternative, scope *invowkmod.CommandScope) (*discovery.CommandInfo, []DependencyMessage, bool) {
 	var forbidden []DependencyMessage
 	for _, alt := range alternatives {
-		for _, candidate := range matchingCommandCandidates(available, currentModule, alt) {
+		for _, candidate := range matchingCommandCandidates(available, currentSource, alt) {
 			decision := commandScopeDecision(scope, candidate)
 			if decision.Allowed {
 				return candidate, nil, true
@@ -368,24 +362,39 @@ func discoverAvailableCommands(disc CommandSetProvider, ctx ExecutionContext) (m
 	return available, nil
 }
 
-func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []invowkfile.CommandName {
-	var alternatives []invowkfile.CommandName
-	for _, alt := range dep.Alternatives {
-		trimmed := strings.TrimSpace(string(alt))
-		if trimmed != "" {
-			alternatives = append(alternatives, invowkfile.CommandName(trimmed)) //goplint:ignore -- normalized from existing typed command dependency input.
+func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []commandDependencyAlternative {
+	var alternatives []commandDependencyAlternative
+	for _, ref := range dep.Alternatives {
+		parts, err := ref.Parse()
+		if err != nil {
+			continue
 		}
+		alt := commandDependencyAlternative{
+			Ref:   ref,
+			Parts: parts,
+		}
+		if err := alt.Validate(); err != nil {
+			continue
+		}
+		alternatives = append(alternatives, alt)
 	}
 	return alternatives
 }
 
-// findMatchingCommand returns the first CommandInfo matching any alternative,
-// or nil if none found. Module callers resolve bare alternatives against their
-// own source namespace and explicit module/global namespaces, but root
-// invowkfile commands are not visible from module command scopes.
-func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule invowkmod.ModuleSourceID, alternatives []invowkfile.CommandName) *discovery.CommandInfo {
+func commandDependencyRefs(alternatives []commandDependencyAlternative) []invowkfile.CommandDependencyRef {
+	refs := make([]invowkfile.CommandDependencyRef, 0, len(alternatives))
 	for _, alt := range alternatives {
-		candidates := matchingCommandCandidates(available, currentModule, alt)
+		refs = append(refs, alt.Ref)
+	}
+	return refs
+}
+
+// findMatchingCommand returns the first CommandInfo matching any alternative,
+// or nil if none found. Bare alternatives resolve only against the caller's
+// own command source; @source alternatives resolve by source ID and command name.
+func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentSource invowkmod.ModuleSourceID, alternatives []commandDependencyAlternative) *discovery.CommandInfo {
+	for _, alt := range alternatives {
+		candidates := matchingCommandCandidates(available, currentSource, alt)
 		if len(candidates) > 0 {
 			return candidates[0]
 		}
@@ -393,40 +402,133 @@ func findMatchingCommand(available map[invowkfile.CommandName]*discovery.Command
 	return nil
 }
 
-func matchingCommandCandidates(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule invowkmod.ModuleSourceID, alt invowkfile.CommandName) []*discovery.CommandInfo {
-	var candidates []*discovery.CommandInfo
-	exact := available[alt]
-	if isModuleScopedCommand(exact) {
-		candidates = append(candidates, exact)
+func matchingCommandCandidates(available map[invowkfile.CommandName]*discovery.CommandInfo, currentSource invowkmod.ModuleSourceID, alt commandDependencyAlternative) []*discovery.CommandInfo {
+	if alt.Parts.Qualified {
+		return sourceCommandCandidates(available, invowkmod.ModuleSourceID(alt.Parts.SourceID), alt.Parts.Command)
 	}
+	return sourceCommandCandidates(available, currentSource, alt.Parts.Command)
+}
 
-	if currentModule != "" {
-		qualified := invowkfile.CommandName(string(currentModule) + " " + string(alt)) //goplint:ignore -- map key lookup only
-		if cmd, ok := available[qualified]; ok && cmd != exact {
+func sourceCommandCandidates(available map[invowkfile.CommandName]*discovery.CommandInfo, source invowkmod.ModuleSourceID, command invowkfile.CommandName) []*discovery.CommandInfo {
+	var candidates []*discovery.CommandInfo
+	for _, cmd := range prioritizedCommandLookups(available, source, command) {
+		if commandMatchesSourceAndName(cmd, source, command) && !slices.Contains(candidates, cmd) {
 			candidates = append(candidates, cmd)
 		}
 	}
-
-	if currentModule == "" && exact != nil {
-		candidates = append(candidates, exact)
+	for _, cmd := range available {
+		if commandMatchesSourceAndName(cmd, source, command) && !slices.Contains(candidates, cmd) {
+			candidates = append(candidates, cmd)
+		}
 	}
 	return candidates
 }
 
-func isModuleScopedCommand(cmd *discovery.CommandInfo) bool {
+func prioritizedCommandLookups(available map[invowkfile.CommandName]*discovery.CommandInfo, source invowkmod.ModuleSourceID, command invowkfile.CommandName) []*discovery.CommandInfo {
+	var candidates []*discovery.CommandInfo
+	if source != "" {
+		qualified := invowkfile.CommandName(string(source) + " " + string(command)) //goplint:ignore -- map key lookup only
+		if cmd, ok := available[qualified]; ok {
+			candidates = append(candidates, cmd)
+		}
+	}
+	if cmd, ok := available[command]; ok {
+		candidates = append(candidates, cmd)
+	}
+	return candidates
+}
+
+func commandMatchesSourceAndName(cmd *discovery.CommandInfo, source invowkmod.ModuleSourceID, command invowkfile.CommandName) bool {
 	if cmd == nil {
 		return false
 	}
-	return cmd.ModuleID != nil || cmd.Invowkfile != nil && cmd.Invowkfile.Metadata != nil
+	cmdSource := commandInfoSourceID(cmd)
+	if source != "" && cmdSource != source {
+		return false
+	}
+	if source == "" && cmdSource != "" {
+		return false
+	}
+	return commandInfoSimpleName(cmd, cmdSource) == command
 }
 
-func formatMissingCommandDependency(alternatives []invowkfile.CommandName, inContainer bool) DependencyMessage {
+func commandInfoSourceID(cmd *discovery.CommandInfo) invowkmod.ModuleSourceID {
+	if cmd == nil || cmd.SourceID == "" {
+		return ""
+	}
+	return invowkmod.ModuleSourceID(cmd.SourceID) //goplint:ignore -- SourceID validated by discovery
+}
+
+func commandInfoSimpleName(cmd *discovery.CommandInfo, source invowkmod.ModuleSourceID) invowkfile.CommandName {
+	if cmd == nil {
+		return ""
+	}
+	if cmd.SimpleName != "" {
+		return cmd.SimpleName
+	}
+	prefix := string(source) + " "
+	if source != "" && strings.HasPrefix(string(cmd.Name), prefix) {
+		return invowkfile.CommandName(strings.TrimPrefix(string(cmd.Name), prefix)) //goplint:ignore -- derived from discovered command name
+	}
+	return cmd.Name
+}
+
+func commandSourceExists(available map[invowkfile.CommandName]*discovery.CommandInfo, source invowkmod.ModuleSourceID) bool {
+	for _, cmd := range available {
+		if commandInfoSourceID(cmd) == source {
+			return true
+		}
+	}
+	return false
+}
+
+func currentCommandSourceID(cmdInfo *discovery.CommandInfo) invowkmod.ModuleSourceID {
+	if cmdInfo == nil {
+		return ""
+	}
+	if cmdInfo.SourceID != "" {
+		return invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
+	}
+	if cmdInfo.Invowkfile != nil && cmdInfo.Invowkfile.Metadata != nil {
+		return invowkmod.ModuleSourceID(cmdInfo.Invowkfile.Metadata.Module())
+	}
+	return ""
+}
+
+func formatMissingDiscoveredCommandDependency(
+	available map[invowkfile.CommandName]*discovery.CommandInfo,
+	currentSource invowkmod.ModuleSourceID,
+	alternatives []commandDependencyAlternative,
+	inContainer bool,
+) DependencyMessage {
+	if len(alternatives) == 1 && alternatives[0].Parts.Qualified {
+		source := invowkmod.ModuleSourceID(alternatives[0].Parts.SourceID)
+		suffix := fmt.Sprintf("command %q not found in source %q", alternatives[0].Parts.Command, source)
+		if !commandSourceExists(available, source) {
+			suffix = fmt.Sprintf("source %q not found", source)
+		}
+		if inContainer {
+			suffix += " in container"
+		}
+		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0].Ref, suffix))
+	}
+	if len(alternatives) == 1 && currentSource != "" {
+		suffix := fmt.Sprintf("command not found in source %q", currentSource)
+		if inContainer {
+			suffix += " in container"
+		}
+		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0].Ref, suffix))
+	}
+	return formatMissingCommandDependency(alternatives, inContainer)
+}
+
+func formatMissingCommandDependency(alternatives []commandDependencyAlternative, inContainer bool) DependencyMessage {
 	if len(alternatives) == 1 {
 		suffix := "command not found"
 		if inContainer {
 			suffix = "command not found in container"
 		}
-		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0], suffix))
+		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0].Ref, suffix))
 	}
 
 	message := "none of [%s] found"
@@ -437,10 +539,10 @@ func formatMissingCommandDependency(alternatives []invowkfile.CommandName, inCon
 }
 
 //goplint:ignore -- dependency error rendering needs a comma-separated display string for typed command names.
-func commandNamesDisplay(names []invowkfile.CommandName) string {
+func commandNamesDisplay(names []commandDependencyAlternative) string {
 	display := make([]string, 0, len(names))
 	for _, name := range names {
-		display = append(display, name.String())
+		display = append(display, name.Ref.String())
 	}
 	return strings.Join(display, ", ")
 }

@@ -174,7 +174,7 @@ Selects a supported provider/harness. `auto` probes local Ollama, cloud credenti
 **Type:** `string`
 **Default:** *(unset)*
 
-Overrides the model used by the configured provider. CLI harnesses use their own current default when omitted, and API/Ollama flows use the resolver fallback `qwen2.5-coder:7b` when no model is configured or flagged.
+Sets the common model default for the configured backend. CLI harnesses use their own current default when omitted, and API/Ollama flows use the resolver fallback `qwen2.5-coder:7b` when no model is configured or flagged. When `llm.api.model` is also set, the API-specific model overrides this value.
 
 #### llm.timeout
 
@@ -210,7 +210,7 @@ OpenAI-compatible API base URL.
 **Type:** `string`
 **Default:** *(unset in config; resolver fallback: `qwen2.5-coder:7b`)*
 
-Model name sent to the API endpoint.
+Model name sent to the API endpoint. When set, this overrides the common `llm.model` default for API-backed execution.
 
 ##### llm.api.api_key_env
 

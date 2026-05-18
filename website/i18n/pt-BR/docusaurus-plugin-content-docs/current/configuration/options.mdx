@@ -174,7 +174,7 @@ Seleciona um provedor/harness suportado. `auto` procura Ollama local, credenciai
 **Tipo:** `string`
 **Padrão:** *(não definido)*
 
-Substitui o modelo usado pelo provedor configurado. Harnesses CLI usam seu próprio padrão atual quando omitido, e fluxos de API/Ollama usam o fallback do resolvedor `qwen2.5-coder:7b` quando nenhum modelo é configurado ou passado por flag.
+Define o modelo padrão comum para o backend configurado. Harnesses CLI usam seu próprio padrão atual quando omitido, e fluxos de API/Ollama usam o fallback do resolvedor `qwen2.5-coder:7b` quando nenhum modelo é configurado ou passado por flag. Quando `llm.api.model` também está definido, o modelo específico da API substitui este valor.
 
 #### llm.timeout
 
@@ -210,7 +210,7 @@ URL base da API compatível com OpenAI.
 **Tipo:** `string`
 **Padrão:** *(não definido na configuração; fallback do resolvedor: `qwen2.5-coder:7b`)*
 
-Nome do modelo enviado ao endpoint de API.
+Nome do modelo enviado ao endpoint de API. Quando definido, substitui o padrão comum `llm.model` para execução via API.
 
 ##### llm.api.api_key_env
 

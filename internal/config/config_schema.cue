@@ -47,8 +47,8 @@ import "strings"
 	// container configures container runtime behavior
 	container: *#ContainerConfig | #ContainerConfig
 
-	// llm configures the default LLM backend for LLM-aware commands
-	llm: *#LLMNoBackendConfig | #LLMConfig
+	// llm configures common LLM defaults and the default backend for LLM-aware commands
+	llm: *#LLMDefaultsConfig | #LLMConfig
 })
 
 // IncludeEntry specifies a module to include in command discovery.
@@ -117,12 +117,13 @@ import "strings"
 	interactive: *false | bool
 })
 
-// LLMConfig configures the default LLM backend.
+// LLMConfig configures common LLM defaults and the default LLM backend.
 // Use provider for supported local harnesses, or api for OpenAI-compatible endpoints.
-#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
-	// model overrides the provider model. CLI harnesses use their current default when omitted.
+	// model sets the common default model. CLI harnesses use their current default when omitted.
+	// For API backends, api.model overrides this value when both are set.
 	model?: string & !="" & strings.MaxRunes(256)
 
 	// timeout sets the per-request timeout as a Go duration string, e.g. "2m".
@@ -132,7 +133,7 @@ import "strings"
 	concurrency?: int & >=0
 }
 
-#LLMNoBackendConfig: close({
+#LLMDefaultsConfig: close({
 	#LLMCommonConfig
 })
 

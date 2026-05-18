@@ -66,6 +66,8 @@ Construa a partir de um Containerfile/Dockerfile local:
 
 <Snippet id="runtime-modes/container-containerfile" />
 
+Caminhos de Containerfile são relativos ao diretório do invowkfile. Segmentos de diretório pai (`..`) são rejeitados antes da resolução do caminho, enquanto nomes comuns com pontos, como `Containerfile..backup`, continuam válidos.
+
 Exemplo de `Containerfile`:
 
 <Snippet id="runtime-modes/containerfile-example" />

@@ -12,11 +12,11 @@ import (
 
 // TestContainerfilePath_Validate runs the canonical seven-vector matrix
 // against ContainerfilePath.Validate. ContainerfilePath has a strict
-// "relative-only" contract: every absolute form is rejected, traversal is
-// allowed (it's just a string forwarded to the container engine), and
-// valid relative names pass through. Behavior surfaced by the matrix:
+// "relative-only" contract: every absolute form is rejected, parent-directory
+// traversal is rejected before normalization, and valid relative names pass
+// through. Behavior surfaced by the matrix:
 //   - All four absolute dialects rejected on every platform.
-//   - Slash and backslash traversal accepted (delegated to the engine).
+//   - Slash and backslash traversal rejected on every platform.
 //   - Valid relative names accepted everywhere.
 func TestContainerfilePath_Validate(t *testing.T) {
 	t.Parallel()
@@ -29,8 +29,8 @@ func TestContainerfilePath_Validate(t *testing.T) {
 		WindowsDriveAbs:    rejectInvalid,
 		WindowsRooted:      rejectInvalid,
 		UNC:                rejectInvalid,
-		SlashTraversal:     pathmatrix.PassAny(nil),
-		BackslashTraversal: pathmatrix.PassAny(nil),
+		SlashTraversal:     rejectInvalid,
+		BackslashTraversal: rejectInvalid,
 		ValidRelative:      pathmatrix.PassAny(nil),
 
 		ExtraVectors: map[string]pathmatrix.VectorCase{
@@ -40,6 +40,8 @@ func TestContainerfilePath_Validate(t *testing.T) {
 			"windows_drive_with_slash": {Input: pathmatrix.InputWindowsDriveSlash, Expect: rejectInvalid},
 			"simple_filename":          {Input: "Containerfile", Expect: pathmatrix.PassAny(nil)},
 			"relative_dotted":          {Input: "./docker/Dockerfile", Expect: pathmatrix.PassAny(nil)},
+			"consecutive_dots":         {Input: "docker/v1..2/Containerfile", Expect: pathmatrix.PassAny(nil)},
+			"dotted_filename":          {Input: "Containerfile..backup", Expect: pathmatrix.PassAny(nil)},
 		},
 	})
 

@@ -251,17 +251,17 @@ func (s *Implementation) HasDependencies() bool {
 	return s.DependsOn != nil && !s.DependsOn.IsEmpty()
 }
 
-// GetCommandDependencies returns the list of command dependency names from this implementation.
+// GetCommandDependencies returns the list of command dependency references from this implementation.
 // For dependencies with alternatives, returns all alternatives flattened into a single list.
-func (s *Implementation) GetCommandDependencies() []CommandName {
+func (s *Implementation) GetCommandDependencies() []CommandDependencyRef {
 	if s.DependsOn == nil {
 		return nil
 	}
-	var names []CommandName
+	var refs []CommandDependencyRef
 	for _, dep := range s.DependsOn.Commands {
-		names = append(names, dep.Alternatives...)
+		refs = append(refs, dep.Alternatives...)
 	}
-	return names
+	return refs
 }
 
 // IsScriptFile returns true if the Implementation field appears to be a file path

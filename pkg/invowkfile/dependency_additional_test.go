@@ -34,7 +34,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 		},
 		{
 			name:     "command dependency",
-			err:      CommandDependency{Alternatives: []CommandName{""}}.Validate(),
+			err:      CommandDependency{Alternatives: []CommandDependencyRef{""}}.Validate(),
 			sentinel: ErrInvalidCommandDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
@@ -144,7 +144,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			name: "depends_on",
 			err: DependsOn{
 				Tools:        []ToolDependency{{Alternatives: []BinaryName{""}}},
-				Commands:     []CommandDependency{{Alternatives: []CommandName{""}}},
+				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{""}}},
 				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{""}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{"bogus"}}},
 				CustomChecks: []CustomCheckDependency{{Name: "", CheckScript: "   "}},
@@ -207,7 +207,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 		},
 		{
 			name: "command dependency",
-			err:  CommandDependency{Alternatives: []CommandName{"build"}}.Validate(),
+			err:  CommandDependency{Alternatives: []CommandDependencyRef{"build"}}.Validate(),
 		},
 		{
 			name: "capability dependency",
@@ -253,7 +253,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 			name: "depends_on",
 			err: DependsOn{
 				Tools:        []ToolDependency{{Alternatives: []BinaryName{"git"}}},
-				Commands:     []CommandDependency{{Alternatives: []CommandName{"build"}}},
+				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"scripts/install.sh"}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityTTY}}},
 				CustomChecks: []CustomCheckDependency{{Name: "shellcheck", CheckScript: "echo ok"}},
@@ -267,6 +267,52 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 			t.Parallel()
 			if tt.err != nil {
 				t.Fatalf("Validate() error = %v, want nil", tt.err)
+			}
+		})
+	}
+}
+
+func TestCommandDependencyRef_Parse(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		ref           CommandDependencyRef
+		wantQualified bool
+		wantSource    CommandDependencySourceID
+		wantCommand   CommandName
+		wantErr       bool
+	}{
+		{name: "bare", ref: "build", wantCommand: "build"},
+		{name: "bare with spaces", ref: "test unit", wantCommand: "test unit"},
+		{name: "qualified", ref: "@tools lint", wantQualified: true, wantSource: "tools", wantCommand: "lint"},
+		{name: "qualified dotted source", ref: "@com.company.tools test unit", wantQualified: true, wantSource: "com.company.tools", wantCommand: "test unit"},
+		{name: "empty", ref: "", wantErr: true},
+		{name: "missing command", ref: "@tools", wantErr: true},
+		{name: "invalid source", ref: "@9tools lint", wantErr: true},
+		{name: "invalid command", ref: "@tools 9lint", wantErr: true},
+		{name: "old dotted prefix syntax", ref: "com.company.tools lint", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := tt.ref.Parse()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Parse() error = nil, want error")
+				}
+				if !errors.Is(err, ErrInvalidCommandDependencyRef) {
+					t.Fatalf("Parse() error = %v, want ErrInvalidCommandDependencyRef", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			if got.Qualified != tt.wantQualified || got.SourceID != tt.wantSource || got.Command != tt.wantCommand {
+				t.Fatalf("Parse() = %+v, want qualified=%v source=%q command=%q", got, tt.wantQualified, tt.wantSource, tt.wantCommand)
 			}
 		})
 	}

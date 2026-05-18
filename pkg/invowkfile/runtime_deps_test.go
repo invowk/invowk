@@ -271,7 +271,7 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 					DependsOn: &DependsOn{
 						Tools:    []ToolDependency{{Alternatives: []BinaryName{"python3"}}},
 						EnvVars:  []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "API_KEY"}}}},
-						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
+						Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 					},
 				}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -328,7 +328,7 @@ func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
 						Tools:    []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
-						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
+						Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 						Filepaths: []FilepathDependency{{
 							Alternatives: []FilesystemPath{"/etc/hosts"},
 							Readable:     true,

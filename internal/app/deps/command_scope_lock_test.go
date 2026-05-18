@@ -34,9 +34,10 @@ func TestCheckCommandDependenciesDeclaredRequireWithoutLockEntryPointsToSync(t *
 	}
 	commandSet := &discovery.DiscoveredCommandSet{
 		Commands: []*discovery.CommandInfo{{
-			Name:     invowkfile.CommandName("tools test"),
-			SourceID: discovery.SourceID("tools"),
-			ModuleID: &depID,
+			Name:       invowkfile.CommandName("tools test"),
+			SimpleName: "test",
+			SourceID:   discovery.SourceID("tools"),
+			ModuleID:   &depID,
 		}},
 	}
 	disc := &stubCommandSetProvider{
@@ -44,7 +45,7 @@ func TestCheckCommandDependenciesDeclaredRequireWithoutLockEntryPointsToSync(t *
 	}
 	deps := &invowkfile.DependsOn{
 		Commands: []invowkfile.CommandDependency{
-			{Alternatives: []invowkfile.CommandName{"tools test"}},
+			{Alternatives: []invowkfile.CommandDependencyRef{"@tools test"}},
 		},
 	}
 

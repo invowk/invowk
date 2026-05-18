@@ -344,8 +344,8 @@ func collectContainerCommandErrors(commands []invowkfile.CommandDependency, prob
 			continue
 		}
 
-		found, lastErr := EvaluateAlternatives(alternatives, func(alt invowkfile.CommandName) error {
-			return probe.CheckCommand(alt)
+		found, lastErr := EvaluateAlternatives(alternatives, func(alt commandDependencyAlternative) error {
+			return probe.CheckCommand(probeCommandName(alt))
 		})
 		if !found && lastErr != nil {
 			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
@@ -364,12 +364,19 @@ func collectResolvedContainerCommandErrors(commands []resolvedCommandDependency,
 		if err := probe.CheckCommand(command); err != nil {
 			alternatives := dep.Alternatives
 			if len(alternatives) == 0 {
-				alternatives = []invowkfile.CommandName{command}
+				alternatives = []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(command)}
 			}
-			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
+			commandErrors = append(commandErrors, formatMissingCommandDependency(normalizedCommandAlternatives(invowkfile.CommandDependency{Alternatives: alternatives}), true))
 		}
 	}
 	return commandErrors
+}
+
+func probeCommandName(alt commandDependencyAlternative) invowkfile.CommandName {
+	if alt.Parts.Qualified {
+		return invowkfile.CommandName(string(alt.Parts.SourceID) + " " + string(alt.Parts.Command)) //goplint:ignore -- source and command were parsed from a validated dependency ref
+	}
+	return alt.Parts.Command
 }
 
 func uniqueCapabilityDependencies(capabilities []invowkfile.CapabilityDependency) []invowkfile.CapabilityDependency {

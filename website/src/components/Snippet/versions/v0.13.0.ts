@@ -732,9 +732,9 @@ invowk cmd test unit --ivk-runtime virtual`,
         implementations: [...]
         depends_on: {
             cmds: [
-                // Module-prefixed commands for dependencies
+                // Source-qualified commands for module dependencies
                 {alternatives: ["build"]},
-                {alternatives: ["com.company.tools lint"]},
+                {alternatives: ["@com.company.tools lint"]},
             ]
         }
     }
@@ -1532,7 +1532,7 @@ filepaths: [
   'dependencies/commands-cross-invowkfile': {
     language: 'cue',
     code: `depends_on: {
-    cmds: [{alternatives: ["shared generate-types"]}]
+    cmds: [{alternatives: ["@shared generate-types"]}]
 }`,
   },
   'dependencies/commands-multiple': {
@@ -6547,8 +6547,12 @@ container_engine: "docker"`,
   },
   'reference/invowkfile/command-dependency-structure': {
     language: 'cue',
-    code: `#CommandDependency: {
-    alternatives: [...string] & [_, ...]  // Command names
+    code: `#CommandDependencyRef: #BareCommandDependencyRef | #SourceQualifiedCommandDependencyRef
+#BareCommandDependencyRef: string
+#SourceQualifiedCommandDependencyRef: string  // @source command
+
+#CommandDependency: {
+    alternatives: [...#CommandDependencyRef] & [_, ...]
 }`,
   },
   'reference/invowkfile/command-description-example': {

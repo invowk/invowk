@@ -310,6 +310,8 @@ Enable SSH access from container back to the host. When enabled, Invowk starts a
 
 Specify the container source. These are **mutually exclusive**.
 
+`containerfile` must be a relative path under the invowkfile directory. Invowk rejects absolute paths and any raw path segment equal to `..`, including backslash-separated segments, before resolving the path. Names that merely contain consecutive dots are valid, so `Containerfile..backup` and `docker/v1..2/Containerfile` are accepted.
+
 <Snippet id="reference/invowkfile/containerfile-image-examples" />
 
 ### persistent
@@ -398,6 +400,8 @@ The field name for command dependencies is `cmds`, not `commands`. Using `comman
 :::
 
 <Snippet id="reference/invowkfile/command-dependency-structure" />
+
+Command alternatives are dependency references. A bare reference such as `"build"` or `"test unit"` resolves only inside the declaring command's own source. Cross-source dependencies use explicit `@source command` syntax, such as `"@tools lint"` or `"@com.company.tools lint"`. The older space-prefixed form is not source-qualified: `"tools lint"` is a single bare command name.
 
 ### FilepathDependency
 

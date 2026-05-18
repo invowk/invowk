@@ -38,7 +38,7 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 	}{
 		{name: "zero value", deps: DependsOn{}, expected: true},
 		{name: "only tools", deps: DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}}, expected: false},
-		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}, expected: false},
+		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}}}, expected: false},
 		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f.txt"}}}}, expected: false},
 		{name: "only capabilities", deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: false},
 		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: false},
@@ -47,7 +47,7 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 			name: "all populated",
 			deps: DependsOn{
 				Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh"}}},
-				Commands:     []CommandDependency{{Alternatives: []CommandName{"b"}}},
+				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{"b"}}},
 				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
@@ -93,14 +93,14 @@ func TestCommand_HasDependencies(t *testing.T) {
 		},
 		{
 			name:     "only commands",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}}}),
 			expected: true,
 		},
 		{
 			name: "both tools and commands",
 			cmd: testCommandWithDeps("test", "echo", &DependsOn{
 				Tools:    []ToolDependency{{Alternatives: []BinaryName{"git"}}},
-				Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
+				Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 			}),
 			expected: true,
 		},
@@ -134,7 +134,7 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 	tests := []struct {
 		name     string
 		cmd      Command
-		expected []CommandName
+		expected []CommandDependencyRef
 	}{
 		{
 			name:     "nil DependsOn",
@@ -144,28 +144,28 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 		{
 			name:     "empty DependsOn",
 			cmd:      testCommandWithDeps("test", "echo", &DependsOn{}),
-			expected: []CommandName{},
+			expected: []CommandDependencyRef{},
 		},
 		{
 			name:     "single command",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}),
-			expected: []CommandName{"build"},
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}}}),
+			expected: []CommandDependencyRef{"build"},
 		},
 		{
 			name: "multiple commands",
 			cmd: testCommandWithDeps("test", "echo", &DependsOn{
 				Commands: []CommandDependency{
-					{Alternatives: []CommandName{"clean"}},
-					{Alternatives: []CommandName{"build"}},
-					{Alternatives: []CommandName{"test unit"}},
+					{Alternatives: []CommandDependencyRef{"clean"}},
+					{Alternatives: []CommandDependencyRef{"build"}},
+					{Alternatives: []CommandDependencyRef{"test unit"}},
 				},
 			}),
-			expected: []CommandName{"clean", "build", "test unit"},
+			expected: []CommandDependencyRef{"clean", "build", "test unit"},
 		},
 		{
 			name:     "only tools no commands",
 			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"git"}}}}),
-			expected: []CommandName{},
+			expected: []CommandDependencyRef{},
 		},
 	}
 
@@ -207,7 +207,7 @@ func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
 		{name: "nil", deps: nil, expected: false},
 		{name: "empty", deps: &DependsOn{}, expected: false},
 		{name: "tools", deps: &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}}, expected: true},
-		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"b"}}}}, expected: true},
+		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"b"}}}}, expected: true},
 		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}}}, expected: true},
 		{name: "capabilities", deps: &DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: true},
 		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: true},

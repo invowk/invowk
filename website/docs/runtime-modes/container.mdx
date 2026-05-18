@@ -65,6 +65,8 @@ Build from a local Containerfile/Dockerfile:
 
 <Snippet id="runtime-modes/container-containerfile" />
 
+Containerfile paths are relative to the invowkfile directory. Parent-directory segments (`..`) are rejected before path resolution, while ordinary dotted names such as `Containerfile..backup` remain valid.
+
 Example `Containerfile`:
 
 <Snippet id="runtime-modes/containerfile-example" />

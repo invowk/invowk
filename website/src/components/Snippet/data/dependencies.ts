@@ -76,7 +76,7 @@ export const dependenciesSnippets = {
   'dependencies/commands-cross-invowkfile': {
     language: 'cue',
     code: `depends_on: {
-    cmds: [{alternatives: ["shared generate-types"]}]
+    cmds: [{alternatives: ["@shared generate-types"]}]
 }`,
   },
 

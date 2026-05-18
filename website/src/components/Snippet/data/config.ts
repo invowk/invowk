@@ -147,7 +147,7 @@ container: {
     virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
     ui: *#UIConfig | #UIConfig
     container: *#ContainerConfig | #ContainerConfig
-    llm: *#LLMNoBackendConfig | #LLMConfig
+    llm: *#LLMDefaultsConfig | #LLMConfig
 })
 
 #IncludeEntry: close({
@@ -165,7 +165,7 @@ container: {
     interactive: *false | bool
 })
 
-#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
     model?: string
@@ -173,7 +173,7 @@ container: {
     concurrency?: int
 }
 
-#LLMNoBackendConfig: close({
+#LLMDefaultsConfig: close({
     #LLMCommonConfig
 })
 
@@ -558,7 +558,7 @@ invowk cmd build --ivk-runtime container`,
     virtual_shell:    *#VirtualShellConfig | #VirtualShellConfig
     ui:               *#UIConfig | #UIConfig
     container:        *#ContainerConfig | #ContainerConfig
-    llm:              *#LLMNoBackendConfig | #LLMConfig
+    llm:              *#LLMDefaultsConfig | #LLMConfig
 })
 
 // Include entry for modules
@@ -580,7 +580,7 @@ invowk cmd build --ivk-runtime container`,
 })
 
 // LLM configuration
-#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
     model?:       string
@@ -588,7 +588,7 @@ invowk cmd build --ivk-runtime container`,
     concurrency?: int
 }
 
-#LLMNoBackendConfig: close({
+#LLMDefaultsConfig: close({
     #LLMCommonConfig
 })
 
@@ -639,7 +639,7 @@ invowk cmd build --ivk-runtime container`,
     virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
     ui: *#UIConfig | #UIConfig
     container: *#ContainerConfig | #ContainerConfig
-    llm: *#LLMNoBackendConfig | #LLMConfig
+    llm: *#LLMDefaultsConfig | #LLMConfig
 })
 
 #IncludeEntry: close({
@@ -657,7 +657,7 @@ invowk cmd build --ivk-runtime container`,
     interactive: *false | bool
 })
 
-#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
     model?: string
@@ -665,7 +665,7 @@ invowk cmd build --ivk-runtime container`,
     concurrency?: int
 }
 
-#LLMNoBackendConfig: close({
+#LLMDefaultsConfig: close({
     #LLMCommonConfig
 })
 
@@ -708,7 +708,7 @@ invowk cmd build --ivk-runtime container`,
     virtual_shell:    *#VirtualShellConfig | #VirtualShellConfig
     ui:               *#UIConfig | #UIConfig
     container:        *#ContainerConfig | #ContainerConfig
-    llm:              *#LLMNoBackendConfig | #LLMConfig
+    llm:              *#LLMDefaultsConfig | #LLMConfig
 })`,
   },
 
@@ -786,7 +786,7 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/llm-config-structure': {
     language: 'cue',
-    code: `#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+    code: `#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
     model?:       string
@@ -794,7 +794,7 @@ invowk cmd build --ivk-runtime container`,
     concurrency?: int
 }
 
-#LLMNoBackendConfig: close({
+#LLMDefaultsConfig: close({
     #LLMCommonConfig
 })
 

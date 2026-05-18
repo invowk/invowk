@@ -360,15 +360,15 @@ func (c *Command) HasCommandLevelDependencies() bool {
 	return c.DependsOn != nil && !c.DependsOn.IsEmpty()
 }
 
-// GetCommandDependencies returns the list of command dependency names (from command level)
+// GetCommandDependencies returns the list of command dependency references (from command level).
 // For dependencies with alternatives, returns all alternatives flattened into a single list
-func (c *Command) GetCommandDependencies() []CommandName {
+func (c *Command) GetCommandDependencies() []CommandDependencyRef {
 	if c.DependsOn == nil {
 		return nil
 	}
-	var names []CommandName
+	var refs []CommandDependencyRef
 	for _, dep := range c.DependsOn.Commands {
-		names = append(names, dep.Alternatives...)
+		refs = append(refs, dep.Alternatives...)
 	}
-	return names
+	return refs
 }

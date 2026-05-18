@@ -362,6 +362,18 @@ func TestLLMTimeoutDurationHelperIsConfigSpecific(t *testing.T) {
 	}
 }
 
+func TestLLMDefaultsHelperNameIsCurrent(t *testing.T) {
+	t.Parallel()
+
+	if !strings.Contains(configSchema, "#LLMDefaultsConfig") {
+		t.Fatal("config schema should define #LLMDefaultsConfig")
+	}
+	staleHelper := "#LLM" + "NoBackendConfig"
+	if strings.Contains(configSchema, staleHelper) {
+		t.Fatal("config schema must not keep stale LLM no-backend helper references")
+	}
+}
+
 // TestBinaryPathConstraints verifies container.auto_provision.binary_path accepts the
 // default empty string and enforces the 4096 rune limit for explicit overrides.
 func TestBinaryPathConstraints(t *testing.T) {

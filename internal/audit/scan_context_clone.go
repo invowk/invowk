@@ -165,7 +165,7 @@ func cloneCommandDependencies(deps []invowkfile.CommandDependency) []invowkfile.
 	cloned := make([]invowkfile.CommandDependency, len(deps))
 	for i := range deps {
 		cloned[i] = deps[i]
-		cloned[i].Alternatives = append([]invowkfile.CommandName(nil), deps[i].Alternatives...)
+		cloned[i].Alternatives = append([]invowkfile.CommandDependencyRef(nil), deps[i].Alternatives...)
 	}
 	return cloned
 }

@@ -122,6 +122,32 @@ func TestResolveAPIConfigUsesEnvReference(t *testing.T) {
 	}
 }
 
+func TestResolveAPIModelOverridesCommonModelDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	cfg.LLM.Model = "common-model"
+	cfg.LLM.API = config.LLMAPIConfig{
+		BaseURL: "https://example.invalid/v1",
+		Model:   "api-model",
+	}
+	loader := &testLoader{cfg: cfg}
+
+	got, err := Resolve(t.Context(), loader, ResolveOptions{
+		UseConfiguredDefault: true,
+		Defaults:             testDefaults(),
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if got.Mode != ModeAPI {
+		t.Fatalf("Mode = %v, want API", got.Mode)
+	}
+	if got.APIConfig.Model != "api-model" {
+		t.Fatalf("APIConfig.Model = %q, want api-specific override", got.APIConfig.Model)
+	}
+}
+
 func TestResolveRequiresConfigOrFlagWhenRequested(t *testing.T) {
 	t.Parallel()
 

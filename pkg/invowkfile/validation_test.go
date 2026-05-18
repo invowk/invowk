@@ -584,11 +584,16 @@ func TestValidateContainerfilePath(t *testing.T) {
 		{name: "simple filename", path: "Containerfile", baseDir: "/project", shouldError: false},
 		{name: "subdirectory path", path: "docker/Containerfile", baseDir: "/project", shouldError: false},
 		{name: "deep path", path: "a/b/c/Containerfile", baseDir: "/project", shouldError: false},
+		{name: "dot segment", path: "./Containerfile", baseDir: "/project", shouldError: false},
+		{name: "subdir dot segment", path: "docker/./Containerfile", baseDir: "/project", shouldError: false},
+		{name: "consecutive dots in filename", path: "Containerfile..backup", baseDir: "/project", shouldError: false},
+		{name: "consecutive dots in directory", path: "docker/v1..2/Containerfile", baseDir: "/project", shouldError: false},
 
 		// Invalid - path traversal
-		{name: "simple traversal", path: "../Containerfile", baseDir: "/project", shouldError: true, errorMsg: "escapes"},
-		{name: "nested traversal", path: "subdir/../../Containerfile", baseDir: "/project", shouldError: true, errorMsg: "escapes"},
-		{name: "deep traversal", path: "a/b/c/../../../../../../../etc/shadow", baseDir: "/project", shouldError: true, errorMsg: "escapes"},
+		{name: "simple traversal", path: "../Containerfile", baseDir: "/project", shouldError: true, errorMsg: "parent-directory segment"},
+		{name: "nested traversal", path: "subdir/../../Containerfile", baseDir: "/project", shouldError: true, errorMsg: "parent-directory segment"},
+		{name: "deep traversal", path: "a/b/c/../../../../../../../etc/shadow", baseDir: "/project", shouldError: true, errorMsg: "parent-directory segment"},
+		{name: "backslash traversal", path: `docker\..\Containerfile`, baseDir: "/project", shouldError: true, errorMsg: "parent-directory segment"},
 
 		// Invalid - absolute path
 		{name: "absolute path unix", path: "/etc/passwd", baseDir: "/project", shouldError: true, errorMsg: "must be relative"},

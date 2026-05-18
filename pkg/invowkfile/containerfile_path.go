@@ -33,8 +33,8 @@ func (p ContainerfilePath) String() string { return string(p) }
 
 // Validate returns nil if the ContainerfilePath is valid, or a validation error if not.
 // The zero value ("") is valid. Non-zero values must be relative, non-empty,
-// free of NUL bytes, and within the configured path length limit. Base-directory
-// traversal checks are context-dependent and remain in the structural validator.
+// free of parent-directory segments and NUL bytes, and within the configured
+// path length limit.
 func (p ContainerfilePath) Validate() error {
 	if p == "" {
 		return nil
@@ -51,6 +51,9 @@ func (p ContainerfilePath) Validate() error {
 	}
 	if strings.ContainsRune(path, '\x00') {
 		return &InvalidContainerfilePathError{Value: p, Reason: "path contains null byte"}
+	}
+	if containsParentPathSegment(strings.ReplaceAll(path, "\\", "/")) {
+		return &InvalidContainerfilePathError{Value: p, Reason: "path contains parent-directory segment '..'"}
 	}
 	return nil
 }

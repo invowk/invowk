@@ -41,7 +41,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 			continue
 		}
 		for j, alt := range dep.Alternatives {
-			if err := ValidateCommandDependencyName(alt); err != nil {
+			if err := ValidateCommandDependencyRef(alt); err != nil {
 				errs = append(errs, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Commands(i, j).String(),

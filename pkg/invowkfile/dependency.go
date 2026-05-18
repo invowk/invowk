@@ -22,6 +22,10 @@ var (
 	ErrInvalidToolDependency = errors.New("invalid tool dependency")
 	// ErrInvalidCommandDependency is the sentinel error wrapped by InvalidCommandDependencyError.
 	ErrInvalidCommandDependency = errors.New("invalid command dependency")
+	// ErrInvalidCommandDependencyRef is the sentinel error wrapped by InvalidCommandDependencyRefError.
+	ErrInvalidCommandDependencyRef = errors.New("invalid command dependency reference")
+	// ErrInvalidCommandDependencySourceID is the sentinel error wrapped by InvalidCommandDependencySourceIDError.
+	ErrInvalidCommandDependencySourceID = errors.New("invalid command dependency source id")
 	// ErrInvalidCapabilityDependency is the sentinel error wrapped by InvalidCapabilityDependencyError.
 	ErrInvalidCapabilityDependency = errors.New("invalid capability dependency")
 	// ErrInvalidEnvVarCheck is the sentinel error wrapped by InvalidEnvVarCheckError.
@@ -82,6 +86,16 @@ type (
 	InvalidToolDependencyError struct{ FieldErrors []error }
 	// InvalidCommandDependencyError is returned when a CommandDependency has invalid fields.
 	InvalidCommandDependencyError struct{ FieldErrors []error }
+	// InvalidCommandDependencyRefError is returned when a command dependency reference is invalid.
+	InvalidCommandDependencyRefError struct {
+		Value  CommandDependencyRef
+		Reason string
+	}
+	// InvalidCommandDependencySourceIDError is returned when a command dependency source ID is invalid.
+	InvalidCommandDependencySourceIDError struct {
+		Value  CommandDependencySourceID
+		Reason string
+	}
 	// InvalidCapabilityDependencyError is returned when a CapabilityDependency has invalid fields.
 	InvalidCapabilityDependencyError struct{ FieldErrors []error }
 	// InvalidEnvVarCheckError is returned when an EnvVarCheck has invalid fields.
@@ -148,10 +162,28 @@ type (
 	//
 	// CommandDependency represents another invowk command that must be discoverable.
 	CommandDependency struct {
-		// Alternatives is a list of command names where any match satisfies the dependency.
+		// Alternatives is a list of command references where any match satisfies the dependency.
 		// If any of the provided commands is discoverable, the dependency is satisfied (early return).
-		// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
-		Alternatives []CommandName `json:"alternatives"`
+		// Bare refs resolve only in the declaring command's source. Source-qualified refs
+		// use "@source command" syntax, e.g., "@tools lint".
+		Alternatives []CommandDependencyRef `json:"alternatives"`
+	}
+
+	// CommandDependencyRef is a depends_on.cmds reference.
+	// Bare refs identify commands in the declaring command's source. Qualified refs
+	// use "@source command" syntax to identify a command in an explicit command source.
+	CommandDependencyRef string
+
+	// CommandDependencySourceID identifies a command source in a qualified
+	// depends_on.cmds reference.
+	CommandDependencySourceID string
+
+	//goplint:ignore -- parsed DTO returned only after CommandDependencyRef.Parse validates source and command parts.
+	// CommandDependencyRefParts contains the parsed form of a command dependency reference.
+	CommandDependencyRefParts struct {
+		SourceID  CommandDependencySourceID
+		Command   CommandName //goplint:ignore -- every parsed ref has a command; zero never represents optionality.
+		Qualified bool
 	}
 
 	//goplint:validate-all
@@ -381,8 +413,8 @@ func (c CommandDependency) Validate() error {
 	if len(c.Alternatives) == 0 {
 		errs = append(errs, ErrMissingDependencyAlternatives)
 	}
-	for _, n := range c.Alternatives {
-		if err := n.Validate(); err != nil {
+	for _, ref := range c.Alternatives {
+		if err := ref.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -390,6 +422,166 @@ func (c CommandDependency) Validate() error {
 		return &InvalidCommandDependencyError{FieldErrors: errs}
 	}
 	return nil
+}
+
+// Parse returns the structured form of a command dependency reference.
+func (r CommandDependencyRef) Parse() (CommandDependencyRefParts, error) {
+	raw := string(r)
+	if strings.TrimSpace(raw) == "" {
+		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
+			Value:  r,
+			Reason: "must not be empty",
+		}
+	}
+	if strings.HasPrefix(raw, "@") {
+		return parseQualifiedCommandDependencyRef(r)
+	}
+	command := CommandName(raw)
+	if err := command.Validate(); err != nil {
+		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
+			Value:  r,
+			Reason: "expected bare command name or @source command reference",
+		}
+	}
+	parts := CommandDependencyRefParts{Command: command}
+	if err := parts.Validate(); err != nil {
+		return CommandDependencyRefParts{}, err
+	}
+	return parts, nil
+}
+
+// Validate returns nil if the command dependency reference is valid.
+func (r CommandDependencyRef) Validate() error {
+	_, err := r.Parse()
+	return err
+}
+
+// String returns the string representation of the command dependency reference.
+func (r CommandDependencyRef) String() string { return string(r) }
+
+// Validate returns nil if the parsed command dependency reference parts are internally consistent.
+func (p CommandDependencyRefParts) Validate() error {
+	if err := p.Command.Validate(); err != nil {
+		return &InvalidCommandDependencyRefError{
+			Value:  p.validationRef(),
+			Reason: "invalid command name",
+		}
+	}
+	if !p.Qualified {
+		if p.SourceID != "" {
+			return &InvalidCommandDependencyRefError{
+				Value:  p.validationRef(),
+				Reason: "bare references must not include a source",
+			}
+		}
+		return nil
+	}
+	if err := p.SourceID.Validate(); err != nil {
+		return &InvalidCommandDependencyRefError{
+			Value:  p.validationRef(),
+			Reason: err.Error(),
+		}
+	}
+	return nil
+}
+
+// String renders the parsed command dependency reference in user-facing syntax.
+func (p CommandDependencyRefParts) String() string {
+	if p.Qualified {
+		return "@" + p.SourceID.String() + " " + p.Command.String()
+	}
+	return p.Command.String()
+}
+
+func (p CommandDependencyRefParts) validationRef() CommandDependencyRef {
+	return CommandDependencyRef(p.String()) //goplint:ignore -- rendered parsed parts were already validated field-by-field.
+}
+
+// Validate returns nil if the command dependency source ID is valid.
+func (s CommandDependencySourceID) Validate() error {
+	value := string(s)
+	if strings.TrimSpace(value) == "" {
+		return &InvalidCommandDependencySourceIDError{Value: s, Reason: "must not be empty"}
+	}
+	if len(value) > MaxNameLength {
+		return &InvalidCommandDependencySourceIDError{Value: s, Reason: fmt.Sprintf("exceeds maximum length of %d chars", MaxNameLength)}
+	}
+	if !cmdDependencySourceIDRegex.MatchString(value) {
+		return &InvalidCommandDependencySourceIDError{
+			Value:  s,
+			Reason: "must start with a letter and contain only letters, digits, dots, underscores, or hyphens",
+		}
+	}
+	return nil
+}
+
+// String returns the string representation of the command dependency source ID.
+func (s CommandDependencySourceID) String() string { return string(s) }
+
+// Error implements the error interface for InvalidCommandDependencyRefError.
+func (e *InvalidCommandDependencyRefError) Error() string {
+	reason := e.Reason
+	if reason == "" {
+		reason = "expected bare command name or @source command reference"
+	}
+	return fmt.Sprintf("invalid command dependency reference %q: %s", e.Value, reason)
+}
+
+// Unwrap returns ErrInvalidCommandDependencyRef for errors.Is compatibility.
+func (e *InvalidCommandDependencyRefError) Unwrap() error { return ErrInvalidCommandDependencyRef }
+
+// Error implements the error interface for InvalidCommandDependencySourceIDError.
+func (e *InvalidCommandDependencySourceIDError) Error() string {
+	reason := e.Reason
+	if reason == "" {
+		reason = "must start with a letter and contain only letters, digits, dots, underscores, or hyphens"
+	}
+	return fmt.Sprintf("invalid command dependency source id %q: %s", e.Value, reason)
+}
+
+// Unwrap returns ErrInvalidCommandDependencySourceID for errors.Is compatibility.
+func (e *InvalidCommandDependencySourceIDError) Unwrap() error {
+	return ErrInvalidCommandDependencySourceID
+}
+
+func parseQualifiedCommandDependencyRef(ref CommandDependencyRef) (CommandDependencyRefParts, error) {
+	sourceAndCommand := strings.TrimPrefix(ref.String(), "@")
+	source, commandPart, ok := strings.Cut(sourceAndCommand, " ")
+	if !ok {
+		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
+			Value:  ref,
+			Reason: "qualified references must use @source command",
+		}
+	}
+	sourceID := CommandDependencySourceID(source)
+	if err := sourceID.Validate(); err != nil {
+		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
+			Value:  ref,
+			Reason: err.Error(),
+		}
+	}
+	command := CommandName(commandPart) //goplint:ignore -- command part is validated immediately below before returning parsed ref.
+	if command == "" {
+		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
+			Value:  ref,
+			Reason: "qualified references must include a command name after the source",
+		}
+	}
+	if err := command.Validate(); err != nil {
+		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
+			Value:  ref,
+			Reason: "invalid command name after source",
+		}
+	}
+	parts := CommandDependencyRefParts{
+		SourceID:  sourceID,
+		Command:   command,
+		Qualified: true,
+	}
+	if err := parts.Validate(); err != nil {
+		return CommandDependencyRefParts{}, err
+	}
+	return parts, nil
 }
 
 // Validate returns nil if the CapabilityDependency has valid fields.
