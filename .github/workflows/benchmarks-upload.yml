@@ -94,17 +94,32 @@ jobs:
 
           cp trusted/.dockerignore source/.dockerignore
           image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
+          run_bencher=false
+          skip_reason=""
           docker build --platform linux/amd64 -f trusted/build/bencher/Dockerfile -t "$image" source
           bencher_registry_login
-          docker push "$image"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
+          if bencher_registry_push_image "$image"; then
+            run_bencher=true
+          else
+            push_status=$?
+            if [[ "$push_status" -eq 75 ]]; then
+              skip_reason="bencher-registry-quota"
+            else
+              exit "$push_status"
+            fi
+          fi
+          {
+            echo "image=$image"
+            echo "run-bencher=$run_bencher"
+            echo "skip-reason=$skip_reason"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Install Bencher CLI
-        if: steps.pr.outputs.skip != 'true'
+        if: steps.pr.outputs.skip != 'true' && steps.image.outputs['run-bencher'] == 'true'
         uses: bencherdev/bencher@main
 
       - name: Upload benchmark data to Bencher
-        if: steps.pr.outputs.skip != 'true'
+        if: steps.pr.outputs.skip != 'true' && steps.image.outputs['run-bencher'] == 'true'
         shell: bash
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}

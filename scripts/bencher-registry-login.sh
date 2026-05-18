@@ -40,3 +40,26 @@ bencher_registry_login() {
 	subject="$(bencher_api_token_subject)"
 	echo "$BENCHER_API_TOKEN" | docker login registry.bencher.dev -u "$subject" --password-stdin
 }
+
+bencher_registry_push_image() {
+	local image="${1:?image is required}"
+	local log_file
+	local status
+
+	log_file="$(mktemp)"
+	status=0
+	docker push "$image" 2>&1 | tee "$log_file" || status=$?
+	if [[ "$status" -eq 0 ]]; then
+		rm -f "$log_file"
+		return 0
+	fi
+
+	if grep -qiE 'HTTP 429|daily OCI bandwidth limit|exceeded.*OCI bandwidth limit' "$log_file"; then
+		echo "::warning title=Bencher registry quota exceeded::Skipping Bencher benchmark tracking because the registry daily OCI bandwidth limit is exhausted." >&2
+		rm -f "$log_file"
+		return 75
+	fi
+
+	rm -f "$log_file"
+	return "$status"
+}

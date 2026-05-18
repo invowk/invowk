@@ -85,9 +85,96 @@ MOCK
 	assert_eq "docker login stdin" "$token" "$(cat "$stdin_file")"
 }
 
+test_registry_push_success() {
+	local tmp
+	local mock_docker
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	mock_docker="$tmp/docker"
+
+	cat >"$mock_docker" <<'MOCK'
+#!/usr/bin/env bash
+if [[ "$1" != "push" ]]; then
+	exit 99
+fi
+echo "pushed $2"
+MOCK
+	chmod +x "$mock_docker"
+
+	PATH="$tmp:$PATH" bencher_registry_push_image "registry.example.com/invowk:ok" >/dev/null
+}
+
+test_registry_push_quota_returns_soft_failure() {
+	local tmp
+	local mock_docker
+	local output
+	local status
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	mock_docker="$tmp/docker"
+
+	cat >"$mock_docker" <<'MOCK'
+#!/usr/bin/env bash
+if [[ "$1" != "push" ]]; then
+	exit 99
+fi
+cat <<'MSG'
+error parsing HTTP 429 response body: Organization has exceeded the daily OCI bandwidth limit (10 GiB).
+MSG
+exit 1
+MOCK
+	chmod +x "$mock_docker"
+
+	set +e
+	output="$(PATH="$tmp:$PATH" bencher_registry_push_image "registry.example.com/invowk:quota" 2>&1)"
+	status=$?
+	set -e
+
+	assert_eq "quota status" "75" "$status"
+	case "$output" in
+		*"::warning title=Bencher registry quota exceeded::"*) ;;
+		*)
+			printf 'FAIL: quota warning missing\n  output: %s\n' "$output" >&2
+			exit 1
+			;;
+	esac
+}
+
+test_registry_push_generic_failure_is_hard_failure() {
+	local tmp
+	local mock_docker
+	local status
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	mock_docker="$tmp/docker"
+
+	cat >"$mock_docker" <<'MOCK'
+#!/usr/bin/env bash
+if [[ "$1" != "push" ]]; then
+	exit 99
+fi
+echo "denied: generic registry failure"
+exit 42
+MOCK
+	chmod +x "$mock_docker"
+
+	set +e
+	PATH="$tmp:$PATH" bencher_registry_push_image "registry.example.com/invowk:fail" >/dev/null 2>&1
+	status=$?
+	set -e
+
+	assert_eq "generic failure status" "42" "$status"
+}
+
 test_subject_extraction
 export BENCHER_LOGIN_SCRIPT="$SCRIPT_DIR/bencher-registry-login.sh"
 test_invalid_tokens_fail
 test_registry_login_uses_subject
+test_registry_push_success
+test_registry_push_quota_returns_soft_failure
+test_registry_push_generic_failure_is_hard_failure
 
 echo "bencher registry login tests passed"

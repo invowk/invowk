@@ -87,12 +87,28 @@ jobs:
           source scripts/bencher-registry-login.sh
 
           image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
+          run_bencher=false
+          skip_reason=""
           docker build --platform linux/amd64 -f build/bencher/Dockerfile -t "$image" .
           bencher_registry_login
-          docker push "$image"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
+          if bencher_registry_push_image "$image"; then
+            run_bencher=true
+          else
+            push_status=$?
+            if [[ "$push_status" -eq 75 ]]; then
+              skip_reason="bencher-registry-quota"
+            else
+              exit "$push_status"
+            fi
+          fi
+          {
+            echo "image=$image"
+            echo "run-bencher=$run_bencher"
+            echo "skip-reason=$skip_reason"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Track benchmark data in Bencher
+        if: steps.image.outputs['run-bencher'] == 'true'
         shell: bash
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
