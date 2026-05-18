@@ -343,6 +343,57 @@ cmds: [
 	}
 }
 
+func TestParseWorkDir_RootLevelRejectsWhitespaceOnly(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+workdir: "   "
+
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+	}
+]
+`
+	_, err := ParseBytes([]byte(cueContent), "invowkfile.cue")
+	if err == nil {
+		t.Fatal("ParseBytes() error = nil, want whitespace-only root workdir rejection")
+	}
+}
+
+func TestParseWorkDir_RootLevelOmitted(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+	}
+]
+`
+	inv, err := ParseBytes([]byte(cueContent), "invowkfile.cue")
+	if err != nil {
+		t.Fatalf("ParseBytes() error = %v", err)
+	}
+	if inv.WorkDir != "" {
+		t.Fatalf("Invowkfile.WorkDir = %q, want empty", inv.WorkDir)
+	}
+}
+
 func TestParseWorkDir_CommandLevel(t *testing.T) {
 	t.Parallel()
 

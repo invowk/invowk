@@ -171,6 +171,53 @@ func TestVersionLengthConstraint(t *testing.T) {
 	}
 }
 
+func TestModuleRequirementVersionConstraint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		version    string
+		shouldPass bool
+	}{
+		{"exact", "1.2.3", true},
+		{"partial major minor", "1.2", true},
+		{"partial major", "1", true},
+		{"caret", "^1.2.3", true},
+		{"tilde", "~1.2.3", true},
+		{"greater than", ">1.2.3", true},
+		{"greater or equal", ">=1.2.3", true},
+		{"less than", "<2.0.0", true},
+		{"less or equal", "<=2.0.0", true},
+		{"equals operator", "=1.2.3", true},
+		{"pre release", ">=1.2.3-rc.1", true},
+		{"v prefix", "v1.2.3", false},
+		{"operator v prefix", ">=v1.2.3", false},
+		{"trailing junk", "1.2.3zzz", false},
+		{"range expression", ">=1.0.0 <2.0.0", false},
+		{"unsupported operator", "!=1.2.3", false},
+		{"empty", "", false},
+		{"non numeric", "latest", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cueData := `{
+	git_url: "https://github.com/user/test.git"
+	version: "` + tt.version + `"
+}`
+			err := validateCUEModuleRequirement(t, cueData)
+			if tt.shouldPass && err != nil {
+				t.Fatalf("version %q should be valid, got error: %v", tt.version, err)
+			}
+			if !tt.shouldPass && err == nil {
+				t.Fatalf("version %q should be invalid, but validation passed", tt.version)
+			}
+		})
+	}
+}
+
 // TestAliasLengthConstraint verifies #ModuleRequirement.alias has a 256 rune limit.
 func TestAliasLengthConstraint(t *testing.T) {
 	t.Parallel()
@@ -489,6 +536,36 @@ func TestBehavioralSync_SemVer(t *testing.T) {
 			{"01.0.0", true, false, "Go semver library accepts leading zeros; CUE regex rejects them"},
 			{"1.0", true, false, "Go semver library accepts incomplete version; CUE regex requires MAJOR.MINOR.PATCH"},
 			{"abc", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_DeclaredSemVerConstraint verifies the CUE requirement
+// version constraint matches the stricter declaration validator used after
+// decoding invowkmod.cue.
+func TestBehavioralSync_DeclaredSemVerConstraint(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#ModuleRequirement", "version",
+		func(s string) error { return ValidateDeclaredSemVerConstraint(SemVerConstraint(s)) },
+		[]behavioralSyncCase{
+			{"1.2.3", true, true, ""},
+			{"1.2", true, true, ""},
+			{"1", true, true, ""},
+			{"^1.2.3", true, true, ""},
+			{"~1.2.3", true, true, ""},
+			{">1.2.3", true, true, ""},
+			{">=1.2.3", true, true, ""},
+			{"<2.0.0", true, true, ""},
+			{"<=2.0.0", true, true, ""},
+			{"=1.2.3", true, true, ""},
+			{"1.2.3-rc.1", true, true, ""},
+			{"v1.2.3", false, false, ""},
+			{">=v1.2.3", false, false, ""},
+			{"1.2.3zzz", false, false, ""},
+			{">=1.0.0 <2.0.0", false, false, ""},
+			{"", false, false, ""},
 		},
 	)
 }

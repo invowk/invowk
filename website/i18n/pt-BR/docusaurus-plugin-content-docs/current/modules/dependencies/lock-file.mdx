@@ -34,6 +34,7 @@ Cada entrada em `modules` contém:
 | `git_commit` | SHA do commit da versão resolvida |
 | `alias` | Alias de namespace (se definido) |
 | `path` | Caminho de subdiretório (se definido) |
+| `module_id` | Identidade canônica do módulo lida de `invowkmod.cue` |
 | `namespace` | Namespace de exibição calculado para compatibilidade |
 | `command_source_id` | ID de origem usado ao publicar comandos para execução/desambiguação |
 | `content_hash` | Hash SHA-256 do conteúdo da árvore do módulo em cache (detecção de adulteração) |
@@ -43,6 +44,8 @@ Cada entrada em `modules` contém:
 A chave no mapa `modules` é derivada da URL Git e do caminho opcional:
 
 <Snippet id="modules/dependencies/lockfile-key" />
+
+Chaves de lock preservam a identidade da declaração de origem. O `module_id` lido é armazenado separadamente e é usado para nomes canônicos de diretórios locais de cache e vendor, como `invowk_modules/io.example.common.invowkmod`. Chaves de origem diferentes que resolvem para o mesmo `module_id` são rejeitadas como colisões canônicas de módulo em vez de sobrescreverem umas às outras.
 
 ## Notas de Uso
 

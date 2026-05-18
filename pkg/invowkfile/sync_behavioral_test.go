@@ -190,6 +190,24 @@ func TestBehavioralSync_WorkDir(t *testing.T) {
 	)
 }
 
+// TestBehavioralSync_RootWorkDir verifies the root invowkfile workdir uses the
+// same non-whitespace constraint as command and implementation workdir fields.
+func TestBehavioralSync_RootWorkDir(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#Invowkfile", "workdir",
+		func(s string) error { return WorkDir(s).Validate() },
+		[]behavioralSyncCase{
+			{"./build", true, true, ""},
+			{"/absolute/path", true, true, ""},
+			{"relative", true, true, ""},
+			{"", true, false, "Go zero-value means inherit invowkfile directory; CUE uses field optionality"},
+			{"   ", false, false, ""},
+		},
+	)
+}
+
 // TestBehavioralSync_CommandCategory verifies Go CommandCategory.Validate() agrees with
 // CUE #Command.category constraint (=~"^\\s*\\S.*$" & strings.MaxRunes(256), optional field).
 func TestBehavioralSync_CommandCategory(t *testing.T) {

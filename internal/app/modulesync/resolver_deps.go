@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -69,6 +68,7 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef, knownHashes map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error) {
 	var resolved []*ResolvedModule
 	visited := make(map[ModuleRefKey]bool)
+	moduleIDs := make(map[ModuleID]*ResolvedModule)
 
 	for _, req := range requirements {
 		// Check for context cancellation between modules.
@@ -87,6 +87,10 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef, kno
 
 		mod, err := m.resolveOne(ctx, req, knownHashes)
 		if err != nil {
+			return nil, err
+		}
+
+		if err := checkCanonicalModuleCollision(moduleIDs, mod); err != nil {
 			return nil, err
 		}
 
@@ -127,21 +131,15 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 		return nil, fmt.Errorf("failed to fetch %s@%s: %w", req.GitURL, resolvedVersion, err)
 	}
 
-	// Determine module path within the repository
-	modulePath := string(repoPath)
-	if req.Path != "" {
-		modulePath = filepath.Join(string(repoPath), string(req.Path))
-	}
-
-	// Find .invowkmod directory
-	moduleDirPath, moduleName, err := modulecache.LocateModuleInDir(types.FilesystemPath(modulePath)) //goplint:ignore -- path resolved from repository checkout and optional validated subpath
+	// Select the source module before deriving namespace or cache identity.
+	sourceModule, err := selectSourceModule(repoPath, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find module in %s: %w", modulePath, err)
+		return nil, fmt.Errorf("failed to select module source for %s: %w", req.Key(), err)
 	}
 
 	// Compute namespace
-	namespace := computeNamespace(moduleName, string(resolvedVersion), req.Alias)
-	commandSourceID := req.CommandSourceID()
+	namespace := computeNamespace(sourceModule.metadata.Module, string(resolvedVersion), req.Alias)
+	commandSourceID := computeCommandSourceID(sourceModule.metadata.Module, req.Alias)
 
 	// Look up known hash from the prior lock file for cache tamper detection.
 	// If the module is already cached, cacheModule verifies the cached content
@@ -152,8 +150,11 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 	}
 
 	// Cache the module in the versioned directory and compute content hash.
-	cachePath := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path))
-	contentHash, err := m.cacheModule(string(moduleDirPath), cachePath, expectedHash)
+	cachePath, err := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path), sourceModule.metadata.Module)
+	if err != nil {
+		return nil, err
+	}
+	contentHash, err := m.cacheModule(string(sourceModule.Path()), cachePath, expectedHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
@@ -165,6 +166,9 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transitive dependencies: %w", err)
 	}
+	if moduleID != sourceModule.metadata.Module {
+		return nil, fmt.Errorf("cached module identity changed: selected %q but cache contains %q", sourceModule.metadata.Module, moduleID)
+	}
 
 	return &ResolvedModule{
 		ModuleRef:       req,
@@ -173,7 +177,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 		CachePath:       types.FilesystemPath(cachePath),
 		Namespace:       namespace,
 		CommandSourceID: commandSourceID,
-		ModuleName:      moduleName,
+		ModuleName:      ModuleShortName(sourceModule.metadata.Module), //goplint:ignore -- legacy short-name field mirrors validated module ID for compatibility.
 		ModuleID:        moduleID,
 		TransitiveDeps:  transitiveDeps,
 		ContentHash:     contentHash,
@@ -228,11 +232,18 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) (refs []ModuleRef, modul
 }
 
 // computeNamespace generates the display namespace for a module.
-func computeNamespace(moduleName ModuleShortName, version string, alias ModuleAlias) ModuleNamespace {
+func computeNamespace(moduleID ModuleID, version string, alias ModuleAlias) ModuleNamespace {
 	if alias != "" {
 		return ModuleNamespace(alias)
 	}
-	return ModuleNamespace(fmt.Sprintf("%s@%s", moduleName, version))
+	return ModuleNamespace(fmt.Sprintf("%s@%s", moduleID, version))
+}
+
+func computeCommandSourceID(moduleID ModuleID, alias ModuleAlias) invowkmod.ModuleSourceID {
+	if alias != "" {
+		return invowkmod.ModuleSourceID(alias)
+	}
+	return invowkmod.ModuleSourceID(moduleID) //goplint:ignore -- module ID syntax is valid command source ID syntax.
 }
 
 // extractModuleName extracts the module name from a module key.

@@ -34,6 +34,7 @@ Each entry in `modules` contains:
 | `git_commit` | Commit SHA for the resolved version |
 | `alias` | Namespace alias (if set) |
 | `path` | Subdirectory path (if set) |
+| `module_id` | Canonical module identity parsed from `invowkmod.cue` |
 | `namespace` | Computed display namespace for compatibility |
 | `command_source_id` | Source ID used when publishing commands for execution/disambiguation |
 | `content_hash` | SHA-256 content hash of the cached module tree (tamper detection) |
@@ -43,6 +44,8 @@ Each entry in `modules` contains:
 The key in the `modules` map is derived from the Git URL and optional path:
 
 <Snippet id="modules/dependencies/lockfile-key" />
+
+Lock keys preserve the source declaration identity. The parsed `module_id` is stored separately and is used for canonical local cache and vendor directory names such as `invowk_modules/io.example.common.invowkmod`. Different source keys that resolve to the same `module_id` are rejected as canonical module collisions instead of overwriting each other.
 
 ## Usage Notes
 

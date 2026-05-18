@@ -31,7 +31,7 @@ type (
 		GitURL GitURL
 
 		// Version is the semver constraint for version selection.
-		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
+		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "<=2.0.0", "1.2.3"
 		Version SemVerConstraint
 
 		// Alias overrides the default command source for imported commands (optional).
@@ -171,14 +171,20 @@ func (r ModuleRef) CommandSourceID() ModuleSourceID {
 }
 
 // EffectiveCommandSourceID returns the persisted command source ID for this
-// lock entry, falling back to the historical alias/default-source derivation.
+// lock entry, falling back to canonical metadata before the historical
+// alias/default-source derivation.
 func (m LockedModule) EffectiveCommandSourceID() ModuleSourceID {
 	if m.CommandSourceID != "" {
 		return m.CommandSourceID
 	}
+	if m.Alias != "" {
+		return ModuleSourceID(m.Alias)
+	}
+	if m.ModuleID != "" {
+		return ModuleSourceID(m.ModuleID)
+	}
 	return ModuleRef{
 		GitURL: m.GitURL,
-		Alias:  m.Alias,
 		Path:   m.Path,
 	}.CommandSourceID()
 }

@@ -282,9 +282,9 @@ invowk module create mytools --scripts`,
 
   'reference/cli/module-add-examples': {
     language: 'bash',
-    code: `invowk module add https://github.com/user/utils.invowkmod.git ^1.0.0
-invowk module add git@github.com:user/tools.invowkmod.git ~2.1.0 --alias mytools
-invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/cli`,
+    code: `invowk module add https://github.com/user/utils.git ^1.0.0
+invowk module add git@github.com:user/tools.git ~2.1.0 --alias mytools
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/io.example.cli.invowkmod`,
   },
 
   'reference/cli/module-remove-syntax': {

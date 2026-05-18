@@ -23,7 +23,9 @@ Module dependencies are declared in the `requires` field of `invowkmod.cue`. Thi
 
 ### git_url
 
-The Git repository URL. Supports both HTTPS and SSH formats. The repository must contain a module (either a `.invowkmod` directory or an `invowkmod.cue` at the root).
+The Git repository URL. Supports both HTTPS and SSH formats. The repository name is only the source location; it does not have to end in `.invowkmod` and does not define the module identity.
+
+When `path` is omitted, the repository root must contain both `invowkmod.cue` and `invowkfile.cue`. If the module lives in a child directory, declare `path` explicitly.
 
 <Snippet id="modules/dependencies/git-url-examples" />
 
@@ -49,6 +51,8 @@ Invowk automatically resolves Git tags with or without the `v` prefix — both `
 
 However, the `version` constraint value in `invowkmod.cue` must **not** include the `v` prefix. Write `version: "^1.2.3"`, not `version: "^v1.2.3"`.
 
+Each requirement accepts one constraint expression. Use `version: ">=1.0.0"` or `version: "<=2.0.0"` as a single bound; compound ranges such as `">=1.0.0 <2.0.0"` are rejected.
+
 <Snippet id="modules/dependencies/version-example" />
 
 ### alias
@@ -56,6 +60,8 @@ However, the `version` constraint value in `invowkmod.cue` must **not** include 
 Override the default command source ID for the dependency's commands:
 
 <Snippet id="modules/dependencies/alias-example" />
+
+The default command source ID comes from `invowkmod.cue: module`, not from the Git repository basename. An alias changes only the command namespace used for execution and disambiguation; it does not change the canonical module identity, cache directory, vendor directory, or lock `module_id`.
 
 Usage with alias:
 
@@ -67,7 +73,9 @@ For monorepos containing multiple modules, specify the subdirectory:
 
 <Snippet id="modules/dependencies/path-example" />
 
-Paths must be relative and cannot contain `..` or absolute paths.
+Paths must be relative, cannot contain `..` or absolute paths, and must point directly to a directory whose basename ends in `.invowkmod`. For explicit subpaths, the basename prefix must match the selected module's `module` value. For example, `modules/io.example.cli.invowkmod` must contain `module: "io.example.cli"`.
+
+Synced and vendored dependencies are materialized locally as `<module-id>.invowkmod`, even when the source repository is named something ordinary like `tools.git`.
 
 ## Multiple Dependencies
 

@@ -164,8 +164,7 @@ func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	workDir := t.TempDir()
 	cacheDir := t.TempDir()
 	repoDir := t.TempDir()
-	writeTestModule(t, repoDir, "tools.invowkmod", `module: "io.example.tools"
-version: "1.2.3"`)
+	writeSourceModule(t, repoDir, "io.example.tools")
 
 	resolver, err := newResolverWithFetcher(
 		types.FilesystemPath(workDir),
@@ -255,17 +254,5 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	}
 	if len(reloaded.Modules) != 1 {
 		t.Fatalf("lock modules = %d, want 1 after rollback", len(reloaded.Modules))
-	}
-}
-
-func writeTestModule(t *testing.T, repoDir, name, invowkmodContent string) {
-	t.Helper()
-
-	moduleDir := filepath.Join(repoDir, name)
-	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
-		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
 	}
 }

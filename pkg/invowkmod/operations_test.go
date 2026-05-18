@@ -284,6 +284,62 @@ func TestParseModuleName(t *testing.T) {
 	}
 }
 
+func TestCanonicalModuleDirectoryName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		moduleID ModuleID
+		want     string
+		wantErr  bool
+	}{
+		{
+			name:     "simple module ID",
+			moduleID: "tools",
+			want:     "tools.invowkmod",
+		},
+		{
+			name:     "RDNS module ID",
+			moduleID: "com.example.tools",
+			want:     "com.example.tools.invowkmod",
+		},
+		{
+			name:     "module ID must not include suffix",
+			moduleID: "tools.invowkmod",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid module ID",
+			moduleID: "tools-helper",
+			wantErr:  true,
+		},
+		{
+			name:    "empty module ID",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := CanonicalModuleDirectoryName(tt.moduleID)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("CanonicalModuleDirectoryName(%q) error = nil, want error", tt.moduleID)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("CanonicalModuleDirectoryName(%q) error = %v", tt.moduleID, err)
+			}
+			if got.String() != tt.want {
+				t.Fatalf("CanonicalModuleDirectoryName(%q) = %q, want %q", tt.moduleID, got, tt.want)
+			}
+		})
+	}
+}
+
 // Helper function to create a valid module with both invowkmod.cue and invowkfile.cue
 func createValidModule(t *testing.T, dir, folderName, moduleID string) string {
 	t.Helper()

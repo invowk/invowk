@@ -172,7 +172,7 @@ description: "Commands from mytools module"
 // Uncomment to add dependencies:
 // requires: [
 //     {
-//         git_url: "https://github.com/example/utils.invowkmod.git"
+//         git_url: "https://github.com/example/utils.git"
 //         version: "^1.0.0"
 //     },
 // ]`,
@@ -671,7 +671,7 @@ invowk module import https://github.com/company/mytools/releases/download/v1.0.0
 
   'modules/dependencies/quick-add': {
     language: 'bash',
-    code: `invowk module add https://github.com/example/common.invowkmod.git ^1.0.0`,
+    code: `invowk module add https://github.com/example/common.git ^1.0.0`,
   },
 
   'modules/dependencies/quick-invowkmod': {
@@ -682,7 +682,7 @@ description: "My tools"
 
 requires: [
     {
-        git_url: "https://github.com/example/common.invowkmod.git"
+        git_url: "https://github.com/example/common.git"
         version: "^1.0.0"
         alias: "common"
     },
@@ -718,13 +718,14 @@ invowk cmd tools build`,
 ├── sources/
 │   └── github.com/
 │       └── example/
-│           └── common.invowkmod/
+│           └── common/
 └── github.com/
     └── example/
-        └── common.invowkmod/
+        └── common/
             └── 1.2.3/
-                ├── invowkmod.cue
-                └── invowkfile.cue`,
+                └── io.example.common.invowkmod/
+                    ├── invowkmod.cue
+                    └── invowkfile.cue`,
   },
 
   'modules/dependencies/cache-env': {
@@ -739,7 +740,7 @@ version: "1.0.0"
 
 requires: [
     {
-        git_url: "https://github.com/example/common.invowkmod.git"
+        git_url: "https://github.com/example/common.git"
         version: "^1.0.0"
     },
 ]`,
@@ -749,16 +750,16 @@ requires: [
     language: 'cue',
     code: `requires: [
     // HTTPS (works with public repos or GITHUB_TOKEN)
-    {git_url: "https://github.com/user/tools.invowkmod.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/tools.git", version: "^1.0.0"},
 
     // SSH (requires SSH key in ~/.ssh/)
-    {git_url: "git@github.com:user/tools.invowkmod.git", version: "^1.0.0"},
+    {git_url: "git@github.com:user/tools.git", version: "^1.0.0"},
 
     // GitLab
-    {git_url: "https://gitlab.com/user/tools.invowkmod.git", version: "^1.0.0"},
+    {git_url: "https://gitlab.com/user/tools.git", version: "^1.0.0"},
 
     // Self-hosted
-    {git_url: "https://git.example.com/user/tools.invowkmod.git", version: "^1.0.0"},
+    {git_url: "https://git.example.com/user/tools.git", version: "^1.0.0"},
 ]`,
   },
 
@@ -766,19 +767,19 @@ requires: [
     language: 'cue',
     code: `requires: [
     // Invowk tries both v1.0.0 and 1.0.0
-    {git_url: "https://github.com/user/tools.invowkmod.git", version: "^1.0.0"},
+    {git_url: "https://github.com/user/tools.git", version: "^1.0.0"},
 ]`,
   },
 
   'modules/dependencies/alias-example': {
     language: 'cue',
     code: `requires: [
-    // Default command source ID: common
-    {git_url: "https://github.com/user/common.invowkmod.git", version: "^1.0.0"},
+    // Default command source ID: io.example.common
+    {git_url: "https://github.com/user/common.git", version: "^1.0.0"},
 
     // Custom command source ID: tools
     {
-        git_url: "https://github.com/user/common.invowkmod.git"
+        git_url: "https://github.com/user/common.git"
         version: "^1.0.0"
         alias: "tools"
     },
@@ -795,14 +796,14 @@ invowk cmd tools build`,
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/user/monorepo.invowkmod.git"
+        git_url: "https://github.com/user/monorepo.git"
         version: "^1.0.0"
-        path: "modules/cli-tools"
+        path: "modules/io.example.cli.invowkmod"
     },
     {
-        git_url: "https://github.com/user/monorepo.invowkmod.git"
+        git_url: "https://github.com/user/monorepo.git"
         version: "^1.0.0"
-        path: "modules/deploy-utils"
+        path: "modules/io.example.deploy.invowkmod"
         alias: "deploy"
     },
 ]`,
@@ -812,18 +813,18 @@ invowk cmd tools build`,
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/company/build-tools.invowkmod.git"
+        git_url: "https://github.com/company/build-tools.git"
         version: "^2.0.0"
         alias: "build"
     },
     {
-        git_url: "https://github.com/company/deploy-tools.invowkmod.git"
+        git_url: "https://github.com/company/deploy-tools.git"
         version: "~1.5.0"
         alias: "deploy"
     },
     {
-        git_url: "https://github.com/company/test-utils.invowkmod.git"
-        version: ">=1.0.0 <2.0.0"
+        git_url: "https://github.com/company/test-utils.git"
+        version: ">=1.0.0"
     },
 ]`,
   },
@@ -851,7 +852,7 @@ export GIT_TOKEN=your-token`,
 
   'modules/dependencies/circular-error': {
     language: 'text',
-    code: `Error: circular dependency detected: https://github.com/user/module-a.invowkmod.git`,
+    code: `Error: circular dependency detected: https://github.com/user/module-a.git`,
   },
 
   'modules/dependencies/best-practices-version': {
@@ -866,7 +867,7 @@ export GIT_TOKEN=your-token`,
   'modules/dependencies/best-practices-alias': {
     language: 'cue',
     code: `{
-    git_url: "https://github.com/company/company-internal-build-tools.invowkmod.git"
+    git_url: "https://github.com/company/company-internal-build-tools.git"
     version: "^2.0.0"
     alias: "build"
 }`,
@@ -883,12 +884,13 @@ export GIT_TOKEN=your-token`,
 generated: "2025-01-10T12:34:56Z"
 
 modules: {
-    "https://github.com/example/common.invowkmod.git": {
-        git_url:          "https://github.com/example/common.invowkmod.git"
+    "https://github.com/example/common.git": {
+        git_url:          "https://github.com/example/common.git"
         version:          "^1.0.0"
         resolved_version: "1.2.3"
         git_commit:       "abc123def456789012345678901234567890abcd"
         alias:            "common"
+        module_id:        "io.example.common"
         namespace:        "common"
         command_source_id: "common"
         content_hash:     "sha256:a1b2c3d4e5f6..."
@@ -899,9 +901,9 @@ modules: {
   'modules/dependencies/lockfile-key': {
     language: 'cue',
     code: `modules: {
-    "https://github.com/example/monorepo.invowkmod.git#modules/cli": {
-        git_url: "https://github.com/example/monorepo.invowkmod.git"
-        path:    "modules/cli"
+    "https://github.com/example/monorepo.git#modules/io.example.cli.invowkmod": {
+        git_url: "https://github.com/example/monorepo.git"
+        path:    "modules/io.example.cli.invowkmod"
     }
 }`,
   },
@@ -924,29 +926,29 @@ git commit -m "Lock module dependencies"`,
   'modules/dependencies/cli/add-examples': {
     language: 'bash',
     code: `# Add a dependency with caret version
-invowk module add https://github.com/user/mod.invowkmod.git ^1.0.0
+invowk module add https://github.com/user/tools.git ^1.0.0
 
 # Add with SSH URL
-invowk module add git@github.com:user/mod.invowkmod.git ~2.0.0
+invowk module add git@github.com:user/tools.git ~2.0.0
 
 # Add with custom alias
-invowk module add https://github.com/user/common.invowkmod.git ^1.0.0 --alias tools
+invowk module add https://github.com/user/common.git ^1.0.0 --alias tools
 
 # Add from monorepo subdirectory
-invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path modules/cli`,
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/io.example.cli.invowkmod`,
   },
 
   'modules/dependencies/cli/add-output': {
     language: 'text',
     code: `Add Module Dependency
 
-ℹ Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
+ℹ Resolving https://github.com/user/tools.git@^1.0.0...
 ✓ Module resolved
 
-ℹ Git URL:   https://github.com/user/mod.invowkmod.git
+ℹ Git URL:   https://github.com/user/tools.git
 ℹ Version:   ^1.0.0 → 1.2.3
-ℹ Namespace: mod@1.2.3
-ℹ Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
+ℹ Namespace: io.example.tools@1.2.3
+ℹ Cache:     /home/user/.invowk/modules/github.com/user/tools/1.2.3/io.example.tools.invowkmod
 ✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry`,
   },
@@ -958,15 +960,15 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path m
 
   'modules/dependencies/cli/remove-example': {
     language: 'bash',
-    code: `invowk module remove https://github.com/user/mod.invowkmod.git`,
+    code: `invowk module remove https://github.com/user/tools.git`,
   },
 
   'modules/dependencies/cli/remove-output': {
     language: 'text',
     code: `Remove Module Dependency
 
-ℹ Removing https://github.com/user/mod.invowkmod.git...
-✓ Removed mod@1.2.3
+ℹ Removing https://github.com/user/tools.git...
+✓ Removed io.example.tools@1.2.3
 
 ✓ Lock file and invowkmod.cue updated`,
   },
@@ -983,16 +985,16 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path m
 • Found 2 module dependency(ies)
 
 ✓ build-tools@2.3.1
-   Git URL:  https://github.com/company/build-tools.invowkmod.git
+   Git URL:  https://github.com/company/build-tools.git
    Version:  ^2.0.0 → 2.3.1
    Commit:   abc123def456
-   Cache:    /home/user/.invowk/modules/github.com/company/build-tools.invowkmod/2.3.1
+   Cache:    /home/user/.invowk/modules/github.com/company/build-tools/2.3.1/io.company.buildtools.invowkmod
 
 ✓ deploy-utils@1.5.2
-   Git URL:  https://github.com/company/deploy-tools.invowkmod.git
+   Git URL:  https://github.com/company/deploy-tools.git
    Version:  ~1.5.0 → 1.5.2
    Commit:   789xyz012abc
-   Cache:    /home/user/.invowk/modules/github.com/company/deploy-tools.invowkmod/1.5.2`,
+   Cache:    /home/user/.invowk/modules/github.com/company/deploy-tools/1.5.2/io.company.deploytools.invowkmod`,
   },
 
   'modules/dependencies/cli/deps-empty': {
@@ -1039,7 +1041,7 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path m
 invowk module update
 
 # Update a specific module
-invowk module update https://github.com/user/mod.invowkmod.git`,
+invowk module update https://github.com/user/tools.git`,
   },
 
   'modules/dependencies/cli/update-output': {
@@ -1084,8 +1086,8 @@ invowk module update https://github.com/user/mod.invowkmod.git`,
   'modules/dependencies/cli/workflow-init': {
     language: 'bash',
     code: `# 1. Resolve dependencies
-invowk module add https://github.com/company/build-tools.invowkmod.git ^2.0.0 --alias build
-invowk module add https://github.com/company/deploy-tools.invowkmod.git ~1.5.0 --alias deploy
+invowk module add https://github.com/company/build-tools.git ^2.0.0 --alias build
+invowk module add https://github.com/company/deploy-tools.git ~1.5.0 --alias deploy
 
 # 2. Add requires to invowkmod.cue manually or verify
 cat invowkmod.cue
@@ -1159,7 +1161,7 @@ module: "io.github.username.cli"`,
     language: 'cue',
     code: `requires: [
     {
-        git_url: "https://github.com/example/common.invowkmod.git"
+        git_url: "https://github.com/example/common.git"
         version: "^1.0.0"
         alias: "common"
     },

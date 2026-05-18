@@ -93,8 +93,10 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			return nil, fmt.Errorf("failed to locate module in cache path %s: %w", mod.CachePath, err)
 		}
 
-		moduleDir := string(moduleDirPath)
-		dirBase := filepath.Base(moduleDir)
+		dirBase, err := canonicalVendorDirName(mod, moduleDirPath)
+		if err != nil {
+			return nil, err
+		}
 		if expectedDirs[dirBase] {
 			return nil, fmt.Errorf("%w: multiple modules resolve to the same directory name %q", ErrVendorConflict, dirBase)
 		}
@@ -129,10 +131,9 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			}
 		}
 
-		srcPath := types.FilesystemPath(moduleDir) //goplint:ignore -- OS-resolved path from resolver
 		result.Vendored = append(result.Vendored, VendoredEntry{
 			Namespace:  mod.Namespace,
-			SourcePath: srcPath,
+			SourcePath: moduleDirPath,
 			VendorPath: dstPath,
 		})
 	}
@@ -147,6 +148,27 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 	}
 
 	return result, nil
+}
+
+func canonicalVendorDirName(mod *invowkmod.ResolvedModule, moduleDirPath types.FilesystemPath) (string, error) {
+	meta, err := invowkmod.ParseModuleMetadataOnly(moduleDirPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse cached module metadata at %s: %w", moduleDirPath, err)
+	}
+
+	moduleID := mod.ModuleID
+	if moduleID == "" {
+		moduleID = meta.Module
+	}
+	if moduleID != meta.Module {
+		return "", fmt.Errorf("cached module metadata mismatch for %s: lock has module_id %q but invowkmod.cue declares %q", moduleDirPath, moduleID, meta.Module)
+	}
+
+	dirName, err := invowkmod.CanonicalModuleDirectoryName(moduleID)
+	if err != nil {
+		return "", err
+	}
+	return dirName.String(), nil
 }
 
 // GetVendoredModulesDir returns the path to the vendored modules directory for a given module.

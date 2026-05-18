@@ -223,7 +223,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		req := invowkmod.ModuleRequirement{
 			GitURL:  "https://github.com/example/mono.git",
 			Version: "^1.0.0",
-			Path:    "modules/dep-tools",
+			Path:    "modules/io.example.dep.invowkmod",
 		}
 		moduleDir := t.TempDir()
 		lock := invowkmod.NewLockFile()
@@ -233,8 +233,9 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			ResolvedVersion: "1.2.3",
 			GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 			Path:            req.Path,
-			Namespace:       "dep-tools@1.2.3",
+			Namespace:       "io.example.dep@1.2.3",
 			ModuleID:        depID,
+			CommandSourceID: invowkmod.ModuleSourceID(depID),
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
@@ -250,7 +251,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{{
 				Name:     invowkfile.CommandName("io.example.dep test"),
-				SourceID: discovery.SourceID("dep-tools"),
+				SourceID: discovery.SourceID(depID),
 				ModuleID: &depID,
 			}},
 		}

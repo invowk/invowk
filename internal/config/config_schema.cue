@@ -17,10 +17,11 @@ import "strings"
 // LLMProviderType defines valid LLM provider harnesses
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
-// DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
+// LLMTimeoutDurationString constrains a Go-style duration string for llm.timeout
+// (e.g., "30s", "5m", "1h30m").
 // [GO-ONLY] Positive-duration semantics are enforced by pkg/types because CUE
 // only validates the syntactic shape here.
-#DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
+#LLMTimeoutDurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
 // Config is the root configuration structure
 #Config: close({
@@ -118,6 +119,8 @@ import "strings"
 
 // LLMConfig configures the default LLM backend.
 // Use provider for supported local harnesses, or api for OpenAI-compatible endpoints.
+// [GO-ONLY] provider/api mutual exclusivity is checked after decode because an
+// optional api block only conflicts when at least one API field is configured.
 #LLMConfig: close({
 	// provider selects a supported LLM harness/provider.
 	provider?: #LLMProviderType
@@ -126,7 +129,7 @@ import "strings"
 	model?: string & !="" & strings.MaxRunes(256)
 
 	// timeout sets the per-request timeout as a Go duration string, e.g. "2m".
-	timeout?: #DurationString
+	timeout?: #LLMTimeoutDurationString
 
 	// concurrency limits concurrent LLM requests. Zero means use the built-in default.
 	concurrency?: int & >=0

@@ -746,7 +746,7 @@ version: "1.0.0"                // Semantic version
 description: "My useful module"
 requires: [
     {
-        git_url: "https://github.com/org/repo.invowkmod.git"
+        git_url: "https://github.com/org/repo.git"
         version: "^1.0.0"
     }
 ]`,

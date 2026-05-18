@@ -459,6 +459,84 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	}
 }
 
+func TestVendorModules_UsesCanonicalDestinationFromModuleID(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	cacheDir := filepath.Join(tmpDir, "cache", "github.com", "user", "tools", "1.2.3")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(cacheDir) error = %v", err)
+	}
+	sourcePath := createValidModuleForPackaging(t, cacheDir, "tools.invowkmod", "io.example.tools")
+	hash, err := invowkmod.ComputeModuleHash(sourcePath)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() error = %v", err)
+	}
+
+	result, err := VendorModules(VendorOptions{
+		ModulePath: types.FilesystemPath(modulePath),
+		Modules: []*invowkmod.ResolvedModule{{
+			CachePath:   types.FilesystemPath(cacheDir),
+			Namespace:   "io.example.tools@1.2.3",
+			ModuleID:    "io.example.tools",
+			ContentHash: hash,
+			ModuleRef:   invowkmod.ModuleRef{GitURL: "https://github.com/user/tools.git", Version: "^1.0.0"},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("VendorModules() error: %v", err)
+	}
+	if len(result.Vendored) != 1 {
+		t.Fatalf("VendorModules() vendored %d modules, want 1", len(result.Vendored))
+	}
+	if got := filepath.Base(string(result.Vendored[0].VendorPath)); got != "io.example.tools.invowkmod" {
+		t.Fatalf("vendored basename = %q, want io.example.tools.invowkmod", got)
+	}
+	if result.Vendored[0].SourcePath != types.FilesystemPath(sourcePath) {
+		t.Fatalf("SourcePath = %q, want %q", result.Vendored[0].SourcePath, sourcePath)
+	}
+}
+
+func TestVendorModules_PrunesRepositoryDerivedDestination(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	cacheDir := filepath.Join(tmpDir, "cache", "github.com", "user", "tools", "1.2.3")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(cacheDir) error = %v", err)
+	}
+	createValidModuleForPackaging(t, cacheDir, "tools.invowkmod", "io.example.tools")
+	vendorDir := filepath.Join(modulePath, VendoredModulesDir)
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(vendorDir) error = %v", err)
+	}
+	createValidModuleForPackaging(t, vendorDir, "tools.invowkmod", "io.example.tools")
+
+	result, err := VendorModules(VendorOptions{
+		ModulePath: types.FilesystemPath(modulePath),
+		Modules: []*invowkmod.ResolvedModule{{
+			CachePath: types.FilesystemPath(cacheDir),
+			Namespace: "io.example.tools@1.2.3",
+			ModuleID:  "io.example.tools",
+		}},
+		Prune: true,
+	})
+	if err != nil {
+		t.Fatalf("VendorModules() error: %v", err)
+	}
+	if len(result.Pruned) != 1 || result.Pruned[0] != "tools.invowkmod" {
+		t.Fatalf("Pruned = %v, want [tools.invowkmod]", result.Pruned)
+	}
+	if _, err := os.Stat(filepath.Join(vendorDir, "tools.invowkmod")); !os.IsNotExist(err) {
+		t.Fatalf("repository-derived destination still exists: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(vendorDir, "io.example.tools.invowkmod")); err != nil {
+		t.Fatalf("canonical destination missing: %v", err)
+	}
+}
+
 func TestVendorDependenciesIgnoresStaleLockEntriesWhenPruning(t *testing.T) {
 	tmpDir := t.TempDir()
 	cacheRoot := filepath.Join(tmpDir, "module-cache")
@@ -469,7 +547,7 @@ func TestVendorDependenciesIgnoresStaleLockEntriesWhenPruning(t *testing.T) {
 version: "1.0.0"
 requires: [
 	{
-		git_url: "https://github.com/example/dep.invowkmod.git"
+		git_url: "https://github.com/example/dep.git"
 		version: "^1.0.0"
 	},
 ]
@@ -478,7 +556,7 @@ requires: [
 		t.Fatalf("WriteFile(invowkmod.cue): %v", err)
 	}
 
-	depCacheDir := filepath.Join(cacheRoot, "github.com", "example", "dep.invowkmod", "1.0.0")
+	depCacheDir := filepath.Join(cacheRoot, "github.com", "example", "dep", "1.0.0")
 	if mkdirErr := os.MkdirAll(depCacheDir, 0o755); mkdirErr != nil {
 		t.Fatalf("MkdirAll(dep cache): %v", mkdirErr)
 	}
@@ -488,7 +566,7 @@ requires: [
 		t.Fatalf("ComputeModuleHash(dep): %v", err)
 	}
 
-	staleCacheDir := filepath.Join(cacheRoot, "github.com", "example", "stale.invowkmod", "1.0.0")
+	staleCacheDir := filepath.Join(cacheRoot, "github.com", "example", "stale", "1.0.0")
 	if mkdirErr := os.MkdirAll(staleCacheDir, 0o755); mkdirErr != nil {
 		t.Fatalf("MkdirAll(stale cache): %v", mkdirErr)
 	}
@@ -499,8 +577,8 @@ requires: [
 	}
 
 	lock := invowkmod.NewLockFile()
-	lock.Modules["https://github.com/example/dep.invowkmod.git"] = invowkmod.LockedModule{
-		GitURL:          "https://github.com/example/dep.invowkmod.git",
+	lock.Modules["https://github.com/example/dep.git"] = invowkmod.LockedModule{
+		GitURL:          "https://github.com/example/dep.git",
 		Version:         "^1.0.0",
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
@@ -509,8 +587,8 @@ requires: [
 		ModuleID:        "dep",
 		ContentHash:     depHash,
 	}
-	lock.Modules["https://github.com/example/stale.invowkmod.git"] = invowkmod.LockedModule{
-		GitURL:          "https://github.com/example/stale.invowkmod.git",
+	lock.Modules["https://github.com/example/stale.git"] = invowkmod.LockedModule{
+		GitURL:          "https://github.com/example/stale.git",
 		Version:         "^1.0.0",
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "def456789012345678901234567890abcdef1234",
@@ -865,22 +943,20 @@ func TestPruneVendorDir(t *testing.T) {
 	})
 }
 
-func TestVendorModules_SameBasenameFails(t *testing.T) {
+func TestVendorModules_CanonicalCollisionFails(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
 	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
 
-	// Create two cache entries that both contain a module named "dep.invowkmod"
-	// but with different module IDs (simulating two Git repos each shipping dep.invowkmod).
-	cache1 := createCacheModule(t, tmpDir, "dep.invowkmod", "dep-alpha")
-	cache2 := createCacheModule(t, tmpDir, "dep.invowkmod", "dep-beta")
+	cache1 := createCacheModule(t, tmpDir, "depone.invowkmod", "io.example.dep")
+	cache2 := createCacheModule(t, tmpDir, "deptwo.invowkmod", "io.example.dep")
 
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
 		Modules: []*invowkmod.ResolvedModule{
-			{CachePath: types.FilesystemPath(cache1), Namespace: "dep-alpha@1.0.0"},
-			{CachePath: types.FilesystemPath(cache2), Namespace: "dep-beta@2.0.0"},
+			{CachePath: types.FilesystemPath(cache1), Namespace: "dep@1.0.0", ModuleID: "io.example.dep"},
+			{CachePath: types.FilesystemPath(cache2), Namespace: "dep@2.0.0", ModuleID: "io.example.dep"},
 		},
 	})
 	if err == nil {
@@ -889,7 +965,7 @@ func TestVendorModules_SameBasenameFails(t *testing.T) {
 	if !errors.Is(err, ErrVendorConflict) {
 		t.Errorf("error should wrap ErrVendorConflict, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "dep.invowkmod") {
+	if !strings.Contains(err.Error(), "io.example.dep.invowkmod") {
 		t.Errorf("error should mention the conflicting directory name, got: %v", err)
 	}
 }

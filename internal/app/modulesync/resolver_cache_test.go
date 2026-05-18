@@ -24,45 +24,52 @@ func TestResolver_getCachePath(t *testing.T) {
 		gitURL  string
 		version string
 		subPath string
+		module  ModuleID
 		wantEnd string
 	}{
 		{
 			name:    "https_url",
 			gitURL:  "https://github.com/user/repo.git",
 			version: "1.0.0",
-			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0"),
+			module:  "io.example.tools",
+			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0", "io.example.tools.invowkmod"),
 		},
 		{
 			name:    "git_at_url",
 			gitURL:  "git@github.com:user/repo.git",
 			version: "2.0.0",
-			wantEnd: filepath.Join("github.com", "user", "repo", "2.0.0"),
+			module:  "io.example.tools",
+			wantEnd: filepath.Join("github.com", "user", "repo", "2.0.0", "io.example.tools.invowkmod"),
 		},
 		{
 			name:    "with_subpath",
 			gitURL:  "https://github.com/user/repo.git",
 			version: "1.0.0",
-			subPath: "modules/tools",
-			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0", "modules", "tools"),
+			subPath: "modules/tools.invowkmod",
+			module:  "io.example.tools",
+			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0", "modules", "io.example.tools.invowkmod"),
 		},
 		{
 			name:    "without_git_suffix",
 			gitURL:  "https://github.com/user/repo",
 			version: "1.0.0",
-			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0"),
+			module:  "io.example.tools",
+			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0", "io.example.tools.invowkmod"),
 		},
 		{
 			name:    "deeply_nested",
 			gitURL:  "https://gitlab.com/org/group/subgroup/repo.git",
 			version: "3.0.0",
-			wantEnd: filepath.Join("gitlab.com", "org", "group", "subgroup", "repo", "3.0.0"),
+			module:  "io.example.tools",
+			wantEnd: filepath.Join("gitlab.com", "org", "group", "subgroup", "repo", "3.0.0", "io.example.tools.invowkmod"),
 		},
 		{
 			name:    "no_subpath",
 			gitURL:  "https://github.com/user/repo.git",
 			version: "1.0.0",
 			subPath: "",
-			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0"),
+			module:  "io.example.tools",
+			wantEnd: filepath.Join("github.com", "user", "repo", "1.0.0", "io.example.tools.invowkmod"),
 		},
 	}
 
@@ -70,7 +77,10 @@ func TestResolver_getCachePath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := resolver.getCachePath(tt.gitURL, tt.version, tt.subPath)
+			got, err := resolver.getCachePath(tt.gitURL, tt.version, tt.subPath, tt.module)
+			if err != nil {
+				t.Fatalf("getCachePath() error = %v", err)
+			}
 
 			// The result should start with the cache directory
 			absCacheDir := string(resolver.CacheDir())
@@ -83,6 +93,19 @@ func TestResolver_getCachePath(t *testing.T) {
 				t.Errorf("getCachePath() = %q, want suffix %q", got, tt.wantEnd)
 			}
 		})
+	}
+}
+
+func TestResolver_getCachePathRejectsInvalidModuleID(t *testing.T) {
+	t.Parallel()
+
+	resolver := newTestResolver(t)
+	_, err := resolver.getCachePath("https://github.com/user/repo.git", "1.0.0", "", "tools.invowkmod")
+	if err == nil {
+		t.Fatal("getCachePath() error = nil, want invalid module ID")
+	}
+	if !errors.Is(err, invowkmod.ErrInvalidModuleID) {
+		t.Fatalf("getCachePath() error = %v, want ErrInvalidModuleID", err)
 	}
 }
 

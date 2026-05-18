@@ -184,6 +184,8 @@ func (p llmConfigPatch) Validate() error {
 		errs = appendValidationError(errs, p.API.Validate())
 	}
 	if p.Provider != nil && p.API != nil && p.API.HasConfig() {
+		// [GO-ONLY] provider/api exclusivity depends on whether the optional api
+		// block is semantically configured. CUE validates field shape only.
 		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))
 	}
 	if len(errs) > 0 {

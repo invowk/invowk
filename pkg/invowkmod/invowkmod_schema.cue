@@ -14,14 +14,14 @@ import "strings"
 // ModuleRequirement represents a dependency on another module from a Git repository
 #ModuleRequirement: close({
 	// git_url is the Git repository URL (required)
-	// Supports HTTPS and SSH URLs
-	// The repository name MUST end with .invowkmod suffix
-	// Examples: "https://github.com/user/mytools.invowkmod.git", "git@github.com:user/utils.invowkmod.git"
+	// Supports HTTPS and SSH URLs. The repository name is a source location only
+	// and does not need to end with .invowkmod.
+	// Examples: "https://github.com/user/tools.git", "git@github.com:user/utils.git"
 	git_url: string & =~"^(https://|git@|ssh://)" & strings.MaxRunes(2048)
 
 	// version is the semver constraint for version selection (required)
 	// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "1.2.3"
-	version: string & =~"^[~^>=<]?[0-9]+" & strings.MaxRunes(64)
+	version: string & =~"^(~|\\^|>=|<=|>|<|=)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?(\\.(0|[1-9][0-9]*))?(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$" & strings.MaxRunes(64)
 
 	// alias overrides the default namespace for imported commands (optional)
 	// If not specified, namespace is: <module>@<resolved-version>
@@ -65,7 +65,7 @@ import "strings"
 	license?: string & strings.MaxRunes(128)
 
 	// repository is the canonical source URL for this module (optional)
-	// Typically a Git repository URL (e.g., "https://github.com/org/name.invowkmod")
+	// Typically a Git repository URL (e.g., "https://github.com/org/tools.git")
 	// Only https://, git@, and ssh:// schemes are accepted to prevent URL injection
 	repository?: string & =~"^(https://|git@|ssh://)" & strings.MaxRunes(2048)
 
@@ -87,8 +87,8 @@ import "strings"
 //   description: "Sample module demonstrating invowk capabilities"
 //
 //   requires: [
-//       {
-//           git_url: "https://github.com/example/utils.invowkmod.git"
+	//       {
+	//           git_url: "https://github.com/example/utils.git"
 //           version: "^1.0.0"
 //       },
 //   ]

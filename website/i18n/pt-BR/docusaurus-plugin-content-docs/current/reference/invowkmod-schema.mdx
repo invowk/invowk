@@ -23,7 +23,7 @@ Todo módulo deve incluir um arquivo `invowkmod.cue` com esta estrutura:
 **Tipo:** `string` (padrão: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 **Obrigatório:** Sim
 
-O identificador do módulo. Deve corresponder ao prefixo do nome da pasta (antes de `.invowkmod`).
+O identificador do módulo. Diretórios de módulos instalados localmente usam este valor como `<module-id>.invowkmod`. Para subpaths explícitos de dependências, o basename do diretório selecionado deve corresponder a este prefixo antes de `.invowkmod`. Para uma origem na raiz de um repositório Git, o basename do repositório não precisa corresponder.
 
 <Snippet id="reference/invowkmod/module-examples" />
 
@@ -84,14 +84,16 @@ Define uma entrada de dependência:
 **Tipo:** `string`
 **Obrigatório:** Sim
 
-URL do repositório Git. Formas aceitas: HTTPS (`https://...`), SSH shorthand (`git@...`) ou URI SSH (`ssh://...`). O repositório deve conter um módulo.
+URL do repositório Git. Formas aceitas: HTTPS (`https://...`), SSH shorthand (`git@...`) ou URI SSH (`ssh://...`). O basename do repositório não precisa terminar em `.invowkmod`.
+
+Quando `path` é omitido, a raiz do repositório buscado deve conter `invowkmod.cue` e `invowkfile.cue`. Módulos filhos não são selecionados automaticamente; declare `path` em monorepos.
 
 ### version
 
 **Tipo:** `string`
 **Obrigatório:** Sim
 
-Restrição de versão semântica usada para resolver uma tag Git.
+Restrição de versão semântica usada para resolver uma tag Git. Os formatos aceitos são uma versão semântica simples ou um operador entre `^`, `~`, `>`, `>=`, `<`, `<=` ou `=` seguido por uma versão semântica. O valor da restrição não pode usar prefixo `v`, lixo no final ou ranges compostos como `>=1.0.0 <2.0.0`.
 
 ### alias
 
@@ -105,4 +107,4 @@ Sobrescreve o ID de origem de comando padrão para esta dependência. Aliases us
 **Tipo:** `string`
 **Obrigatório:** Não
 
-Subdiretório dentro do repositório que contém o módulo. Deve ser relativo e não pode conter sequências de travessia de caminho.
+Subdiretório dentro do repositório que contém o módulo. Deve ser relativo, não pode conter sequências de travessia de caminho e deve apontar diretamente para um diretório cujo basename termina em `.invowkmod`. O prefixo do basename deve corresponder ao valor `module` do módulo selecionado.

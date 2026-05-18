@@ -57,6 +57,9 @@ func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, er
 			}
 		}
 	}
+	if err := meta.Validate(); err != nil {
+		return nil, fmt.Errorf("invowkmod at %s: %w", path, err)
+	}
 
 	return meta, nil
 }

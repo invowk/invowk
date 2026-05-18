@@ -262,6 +262,143 @@ requires: [
 		}
 	})
 
+	t.Run("valid requirement versions with comparison operators", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: ">=1.0.0"},
+	{git_url: "ssh://git@example.com/utils.git", version: "<=2.0.0"},
+]
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		meta, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err != nil {
+			t.Fatalf("ParseInvowkmod() returned error: %v", err)
+		}
+		if len(meta.Requires) != 2 {
+			t.Fatalf("Requires length = %d, want 2", len(meta.Requires))
+		}
+	})
+
+	t.Run("invalid requirement version - trailing junk", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "1.0.0junk"},
+]
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for trailing junk in requirement version")
+		}
+	})
+
+	t.Run("invalid requirement alias", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", alias: "1tools"},
+]
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for invalid requirement alias")
+		}
+	})
+
+	t.Run("invalid requirement path", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", path: "../tools.invowkmod"},
+]
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for invalid requirement path")
+		}
+	})
+
+	t.Run("unsupported requirement URL scheme", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "http://github.com/example/tools.git", version: "^1.0.0"},
+]
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for unsupported URL scheme")
+		}
+	})
+
+	t.Run("full metadata validation rejects invalid load path", func(t *testing.T) {
+		t.Parallel()
+
+		content := []byte(`module: "mymodule"
+version: "1.0.0"
+`)
+		_, err := ParseInvowkmodBytes(content, " \t ")
+		if err == nil {
+			t.Error("ParseInvowkmodBytes() should return error for invalid metadata FilePath")
+		}
+		if !errors.Is(err, ErrInvalidInvowkmod) {
+			t.Fatalf("ParseInvowkmodBytes() error = %v, want ErrInvalidInvowkmod", err)
+		}
+		var invErr *InvalidInvowkmodError
+		if !errors.As(err, &invErr) {
+			t.Fatalf("ParseInvowkmodBytes() error = %T, want InvalidInvowkmodError", err)
+		}
+		hasPathErr := false
+		for _, fieldErr := range invErr.FieldErrors {
+			if errors.Is(fieldErr, types.ErrInvalidFilesystemPath) {
+				hasPathErr = true
+			}
+		}
+		if !hasPathErr {
+			t.Fatalf("InvalidInvowkmodError.FieldErrors = %v, want ErrInvalidFilesystemPath", invErr.FieldErrors)
+		}
+	})
+
 	t.Run("invalid module name format", func(t *testing.T) {
 		t.Parallel()
 

@@ -202,32 +202,32 @@ func TestComputeNamespace(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		moduleName ModuleShortName
-		version    string
-		alias      ModuleAlias
-		expected   ModuleNamespace
+		name     string
+		moduleID ModuleID
+		version  string
+		alias    ModuleAlias
+		expected ModuleNamespace
 	}{
 		{
-			name:       "without alias",
-			moduleName: "mymodule",
-			version:    "1.2.3",
-			alias:      "",
-			expected:   "mymodule@1.2.3",
+			name:     "without alias",
+			moduleID: "io.example.mymodule",
+			version:  "1.2.3",
+			alias:    "",
+			expected: "io.example.mymodule@1.2.3",
 		},
 		{
-			name:       "with alias",
-			moduleName: "mymodule",
-			version:    "1.2.3",
-			alias:      "mp",
-			expected:   "mp",
+			name:     "with alias",
+			moduleID: "io.example.mymodule",
+			version:  "1.2.3",
+			alias:    "mp",
+			expected: "mp",
 		},
 		{
-			name:       "version with v prefix",
-			moduleName: "tools",
-			version:    "v2.0.0",
-			alias:      "",
-			expected:   "tools@v2.0.0",
+			name:     "version with v prefix",
+			moduleID: "io.example.tools",
+			version:  "v2.0.0",
+			alias:    "",
+			expected: "io.example.tools@v2.0.0",
 		},
 	}
 
@@ -235,9 +235,42 @@ func TestComputeNamespace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := computeNamespace(tt.moduleName, tt.version, tt.alias)
+			result := computeNamespace(tt.moduleID, tt.version, tt.alias)
 			if result != tt.expected {
 				t.Errorf("computeNamespace() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestComputeCommandSourceID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		moduleID ModuleID
+		alias    ModuleAlias
+		want     invowkmod.ModuleSourceID
+	}{
+		{
+			name:     "default uses module identity",
+			moduleID: "io.example.tools",
+			want:     "io.example.tools",
+		},
+		{
+			name:     "alias overrides command source only",
+			moduleID: "io.example.tools",
+			alias:    "tools",
+			want:     "tools",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := computeCommandSourceID(tt.moduleID, tt.alias); got != tt.want {
+				t.Fatalf("computeCommandSourceID() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -741,13 +774,12 @@ func TestSyncUsesInjectedFetcher(t *testing.T) {
 	workDir := t.TempDir()
 	cacheDir := t.TempDir()
 	repoDir := t.TempDir()
-	moduleDir := filepath.Join(repoDir, "tools.invowkmod")
-	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(`module: "io.example.tools"
+	if err := os.WriteFile(filepath.Join(repoDir, "invowkmod.cue"), []byte(`module: "io.example.tools"
 version: "1.2.3"`), 0o644); err != nil {
 		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "invowkfile.cue"), []byte(`cmds: {}`), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkfile.cue) error = %v", err)
 	}
 
 	fetcher := &fakeModuleFetcher{
@@ -770,6 +802,186 @@ version: "1.2.3"`), 0o644); err != nil {
 	}
 	if fetcher.listCalls != 1 || fetcher.fetchCalls != 1 {
 		t.Fatalf("fetcher calls = list:%d fetch:%d, want 1 each", fetcher.listCalls, fetcher.fetchCalls)
+	}
+	if resolved[0].ModuleID != "io.example.tools" {
+		t.Fatalf("ModuleID = %q, want io.example.tools", resolved[0].ModuleID)
+	}
+	if resolved[0].Namespace != "io.example.tools@1.2.3" {
+		t.Fatalf("Namespace = %q, want io.example.tools@1.2.3", resolved[0].Namespace)
+	}
+	if resolved[0].CommandSourceID != "io.example.tools" {
+		t.Fatalf("CommandSourceID = %q, want io.example.tools", resolved[0].CommandSourceID)
+	}
+	if got := filepath.Base(string(resolved[0].CachePath)); got != "io.example.tools.invowkmod" {
+		t.Fatalf("cache basename = %q, want io.example.tools.invowkmod", got)
+	}
+}
+
+func TestSyncExplicitSubpathPreservesLockKeyAndAlias(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	repoDir := t.TempDir()
+	moduleDir := filepath.Join(repoDir, "modules", "io.example.tools.invowkmod")
+	writeSourceModule(t, moduleDir, "io.example.tools")
+
+	fetcher := &fakeModuleFetcher{
+		repoPath:     types.FilesystemPath(repoDir),
+		listVersions: []SemVer{"1.2.3"},
+	}
+	resolver, err := newResolverWithFetcher(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir), fetcher)
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+
+	resolved, err := resolver.Sync(t.Context(), []ModuleRef{{
+		GitURL:  "https://github.com/user/monorepo.git",
+		Version: "^1.0.0",
+		Alias:   "tools",
+		Path:    "modules/io.example.tools.invowkmod",
+	}})
+	if err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("Sync() resolved %d modules, want 1", len(resolved))
+	}
+	gotCacheSuffix := filepath.Join("github.com", "user", "monorepo", "1.2.3", "modules", "io.example.tools.invowkmod")
+	if !strings.HasSuffix(string(resolved[0].CachePath), gotCacheSuffix) {
+		t.Fatalf("CachePath = %q, want suffix %q", resolved[0].CachePath, gotCacheSuffix)
+	}
+	if resolved[0].ModuleID != "io.example.tools" {
+		t.Fatalf("ModuleID = %q, want io.example.tools", resolved[0].ModuleID)
+	}
+	if resolved[0].Namespace != "tools" {
+		t.Fatalf("Namespace = %q, want tools", resolved[0].Namespace)
+	}
+	if resolved[0].CommandSourceID != "tools" {
+		t.Fatalf("CommandSourceID = %q, want tools", resolved[0].CommandSourceID)
+	}
+
+	lock, err := invowkmod.LoadLockFile(filepath.Join(workDir, LockFileName))
+	if err != nil {
+		t.Fatalf("LoadLockFile() error = %v", err)
+	}
+	key := ModuleRefKey("https://github.com/user/monorepo.git#modules/io.example.tools.invowkmod")
+	entry, ok := lock.Modules[key]
+	if !ok {
+		t.Fatalf("lock missing key %q", key)
+	}
+	if entry.ModuleID != "io.example.tools" {
+		t.Fatalf("lock module_id = %q, want io.example.tools", entry.ModuleID)
+	}
+	if entry.Namespace != "tools" {
+		t.Fatalf("lock namespace = %q, want tools", entry.Namespace)
+	}
+	if entry.CommandSourceID != "tools" {
+		t.Fatalf("lock command_source_id = %q, want tools", entry.CommandSourceID)
+	}
+}
+
+func TestLoadFromLockUsesCanonicalCachePath(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
+		GitURL:          "https://github.com/user/tools.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.2.3",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "io.example.tools@1.2.3",
+		CommandSourceID: "io.example.tools",
+		ModuleID:        "io.example.tools",
+		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+	}
+	if err := lock.Save(filepath.Join(workDir, LockFileName)); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	resolver, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+	modules, err := resolver.LoadFromLock(t.Context())
+	if err != nil {
+		t.Fatalf("LoadFromLock() error = %v", err)
+	}
+	if len(modules) != 1 {
+		t.Fatalf("LoadFromLock() returned %d modules, want 1", len(modules))
+	}
+	wantSuffix := filepath.Join("github.com", "user", "tools", "1.2.3", "io.example.tools.invowkmod")
+	if !strings.HasSuffix(string(modules[0].CachePath), wantSuffix) {
+		t.Fatalf("CachePath = %q, want suffix %q", modules[0].CachePath, wantSuffix)
+	}
+	if modules[0].CommandSourceID != "io.example.tools" {
+		t.Fatalf("CommandSourceID = %q, want io.example.tools", modules[0].CommandSourceID)
+	}
+}
+
+func TestSyncDeduplicatesSameSourceRequirement(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	repoDir := t.TempDir()
+	writeSourceModule(t, repoDir, "io.example.tools")
+	fetcher := &fakeModuleFetcher{
+		repoPath:     types.FilesystemPath(repoDir),
+		listVersions: []SemVer{"1.2.3"},
+	}
+	resolver, err := newResolverWithFetcher(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir), fetcher)
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+
+	req := ModuleRef{GitURL: "https://github.com/user/tools.git", Version: "^1.0.0"}
+	resolved, err := resolver.Sync(t.Context(), []ModuleRef{req, req})
+	if err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("Sync() resolved %d modules, want 1", len(resolved))
+	}
+	if fetcher.listCalls != 1 || fetcher.fetchCalls != 1 {
+		t.Fatalf("fetcher calls = list:%d fetch:%d, want 1 each", fetcher.listCalls, fetcher.fetchCalls)
+	}
+}
+
+func TestSyncRejectsCanonicalModuleCollision(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	repoDir := t.TempDir()
+	writeSourceModule(t, repoDir, "io.example.tools")
+	fetcher := &fakeModuleFetcher{
+		repoPath:     types.FilesystemPath(repoDir),
+		listVersions: []SemVer{"1.2.3"},
+	}
+	resolver, err := newResolverWithFetcher(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir), fetcher)
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+
+	_, err = resolver.Sync(t.Context(), []ModuleRef{
+		{GitURL: "https://github.com/org-a/tools.git", Version: "^1.0.0"},
+		{GitURL: "https://github.com/org-b/tools.git", Version: "^1.0.0"},
+	})
+	if err == nil {
+		t.Fatal("Sync() error = nil, want canonical collision")
+	}
+	if !errors.Is(err, ErrCanonicalModuleCollision) {
+		t.Fatalf("Sync() error = %v, want ErrCanonicalModuleCollision", err)
+	}
+	var collision *CanonicalModuleCollisionError
+	if !errors.As(err, &collision) {
+		t.Fatalf("Sync() error = %T, want CanonicalModuleCollisionError", err)
+	}
+	if collision.DirectoryName.String() != "io.example.tools.invowkmod" {
+		t.Fatalf("DirectoryName = %q, want io.example.tools.invowkmod", collision.DirectoryName)
 	}
 }
 

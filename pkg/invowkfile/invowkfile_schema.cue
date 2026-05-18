@@ -108,12 +108,14 @@ import "strings"
 	// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional)
 	// Used to build a container image for command execution
 	// Mutually exclusive with 'image'
+	// [GO-ONLY] Runtime-specific mutual exclusivity with 'image' is checked after decode
 	// Path must be relative (not start with /) and cannot contain path traversal (..)
 	// Note: Additional path security validation is performed in Go (see validation_filesystem.go)
 	containerfile?: #NonWhitespaceString & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
 
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
+	// [GO-ONLY] Runtime-specific mutual exclusivity with 'containerfile' is checked after decode
 	// Example: "debian:stable-slim", "golang:1.26", "python:3-slim"
 	image?: #NonWhitespaceString & strings.MaxRunes(512)
 
@@ -493,7 +495,7 @@ import "strings"
 	// Can be absolute or relative to the invowkfile location.
 	// Paths should use forward slashes for cross-platform compatibility.
 	// Individual commands or implementations can override this with their own workdir.
-	workdir?: string & strings.MaxRunes(4096)
+	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)
 
 	// env contains global environment configuration for all commands (optional)
 	// Root-level env is applied first (lowest priority from invowkfile).

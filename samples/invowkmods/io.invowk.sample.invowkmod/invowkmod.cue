@@ -9,5 +9,5 @@ license: "MPL-2.0"
 repository: "https://github.com/invowk/invowk"
 
 // No external dependencies. To add one, declare a requires block:
-//   requires: [{git_url: "https://github.com/org/name.invowkmod.git", version: "^1.0.0"}]
+//   requires: [{git_url: "https://github.com/org/name.git", version: "^1.0.0"}]
 // Then run: invowk module sync

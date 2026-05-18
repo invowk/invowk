@@ -61,6 +61,61 @@ func TestModuleRef_MatchesSourceID(t *testing.T) {
 	}
 }
 
+func TestLockedModuleEffectiveCommandSourceIDPrefersCanonicalMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		mod  LockedModule
+		want ModuleSourceID
+	}{
+		{
+			name: "persisted command source wins",
+			mod: LockedModule{
+				CommandSourceID: "stored",
+				Alias:           "alias",
+				ModuleID:        "io.example.tools",
+				GitURL:          "https://github.com/example/tools.git",
+			},
+			want: "stored",
+		},
+		{
+			name: "alias overrides command source only",
+			mod: LockedModule{
+				Alias:    "tools",
+				ModuleID: "io.example.tools",
+				GitURL:   "https://github.com/example/tools.git",
+			},
+			want: "tools",
+		},
+		{
+			name: "module id is canonical fallback",
+			mod: LockedModule{
+				ModuleID: "io.example.tools",
+				GitURL:   "https://github.com/example/tools.git",
+			},
+			want: "io.example.tools",
+		},
+		{
+			name: "legacy fallback uses source basename",
+			mod: LockedModule{
+				GitURL: "https://github.com/example/tools.git",
+			},
+			want: "tools",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.mod.EffectiveCommandSourceID(); got != tt.want {
+				t.Fatalf("EffectiveCommandSourceID() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestModuleRefKey_NormalizesSubdirectorySeparators(t *testing.T) {
 	t.Parallel()
 

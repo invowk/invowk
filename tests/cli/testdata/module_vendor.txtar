@@ -38,10 +38,13 @@ env INVOWK_MODULES_PATH=$WORK/module-cache
 exec invowk module vendor ./depmod.invowkmod
 stdout 'Loading from lock file'
 stdout 'dep@1.0.0'
-stdout 'Vendored 1 module'
+stdout 'io.example.tools@1.0.0'
+stdout 'Vendored 2 module'
 # Verify vendored module files exist with correct structure
 exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
 exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkfile.cue
+exists depmod.invowkmod/invowk_modules/io.example.tools.invowkmod/invowkmod.cue
+exists depmod.invowkmod/invowk_modules/io.example.tools.invowkmod/invowkfile.cue
 
 # Test 8: Prune removes stale vendored modules
 # Create a stale module in invowk_modules/ that is not in declared requirements.
@@ -54,6 +57,7 @@ stdout 'Pruned 1 stale'
 stdout 'stale.invowkmod'
 ! exists depmod.invowkmod/invowk_modules/stale.invowkmod
 exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
+exists depmod.invowkmod/invowk_modules/io.example.tools.invowkmod/invowkmod.cue
 
 # Test 9: --update forces re-resolution (fails in offline test — verifies flag wiring)
 ! exec invowk module vendor --update ./depmod.invowkmod
@@ -66,9 +70,10 @@ stdout 'No dependencies declared'
 
 # Test 11: --prune no-op when nothing to prune
 exec invowk module vendor --prune ./depmod.invowkmod
-stdout 'Vendored 1 module'
+stdout 'Vendored 2 module'
 ! stdout 'Pruned'
 exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
+exists depmod.invowkmod/invowk_modules/io.example.tools.invowkmod/invowkmod.cue
 
 -- vendormod.invowkmod/invowkmod.cue --
 module:  "vendormod"
@@ -94,8 +99,13 @@ module:  "depmod"
 version: "0.1.0"
 requires: [
 	{
-		git_url: "https://github.com/example/dep.invowkmod.git"
+		git_url: "https://github.com/example/dep.git"
 		version: "^1.0.0"
+	},
+	{
+		git_url: "https://github.com/example/monorepo.git"
+		version: "^1.0.0"
+		path:    "modules/io.example.tools.invowkmod"
 	},
 ]
 
@@ -110,8 +120,8 @@ version: "2.0"
 generated: "2025-01-01T00:00:00Z"
 
 modules: {
-	"https://github.com/example/dep.invowkmod.git": {
-		git_url:          "https://github.com/example/dep.invowkmod.git"
+	"https://github.com/example/dep.git": {
+		git_url:          "https://github.com/example/dep.git"
 		version:          "^1.0.0"
 		resolved_version: "1.0.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
@@ -120,8 +130,19 @@ modules: {
 		module_id:        "dep"
 		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
 	}
-	"https://github.com/example/stale.invowkmod.git": {
-		git_url:          "https://github.com/example/stale.invowkmod.git"
+	"https://github.com/example/monorepo.git#modules/io.example.tools.invowkmod": {
+		git_url:          "https://github.com/example/monorepo.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "123def456789012345678901234567890abcdef4"
+		path:             "modules/io.example.tools.invowkmod"
+		namespace:        "io.example.tools@1.0.0"
+		command_source_id: "io.example.tools"
+		module_id:        "io.example.tools"
+		content_hash:     "sha256:e7afd0eadd716960d9e4677dc9e61028e0d70b375868c774319f899c5478e3bd"
+	}
+	"https://github.com/example/stale.git": {
+		git_url:          "https://github.com/example/stale.git"
 		version:          "^1.0.0"
 		resolved_version: "1.0.0"
 		git_commit:       "def456789012345678901234567890abcdef1234"
@@ -132,17 +153,34 @@ modules: {
 	}
 }
 
--- module-cache/github.com/example/dep.invowkmod/1.0.0/dep.invowkmod/invowkmod.cue --
+-- module-cache/github.com/example/dep/1.0.0/dep.invowkmod/invowkmod.cue --
 module:  "dep"
 version: "1.0.0"
 
--- module-cache/github.com/example/dep.invowkmod/1.0.0/dep.invowkmod/invowkfile.cue --
+-- module-cache/github.com/example/dep/1.0.0/dep.invowkmod/invowkfile.cue --
 cmds: [
 	{
 		name:        "greet"
 		description: "A greeting command"
 		implementations: [{
 			script:    "echo hello from dep"
+			runtimes:  [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- module-cache/github.com/example/monorepo/1.0.0/modules/io.example.tools.invowkmod/invowkmod.cue --
+module:  "io.example.tools"
+version: "1.0.0"
+
+-- module-cache/github.com/example/monorepo/1.0.0/modules/io.example.tools.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "tool"
+		description: "A tools command"
+		implementations: [{
+			script:    "echo hello from tools"
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

@@ -6,27 +6,27 @@ repository: "https://github.com/invowk/invowk"
 
 requires: [
 	{
-		git_url: "https://github.com/example/alpha.invowkmod.git"
+		git_url: "https://github.com/example/alpha.git"
 		version: ">0"
 	},
 	{
-		git_url: "https://github.com/example/beta.invowkmod.git"
+		git_url: "https://github.com/example/beta.git"
 		version: "^1.0.0"
 	},
 	{
-		git_url: "https://github.com/example/gamma.invowkmod.git"
+		git_url: "https://github.com/example/gamma.git"
 		version: "^1.0.0"
 	},
 	{
-		git_url: "https://github.com/example/delta.invowkmod.git"
+		git_url: "https://github.com/example/delta.git"
 		version: "^1.0.0"
 	},
 	{
-		git_url: "https://github.com/example/epsilon.invowkmod.git"
+		git_url: "https://github.com/example/epsilon.git"
 		version: "^1.0.0"
 	},
 	{
-		git_url: "https://github.com/example/zeta.invowkmod.git"
+		git_url: "https://github.com/example/zeta.git"
 		version: "^1.0.0"
 	},
 ]

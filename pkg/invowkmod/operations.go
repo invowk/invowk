@@ -92,6 +92,23 @@ func ParseModuleName(folderName string) (ModuleDirectoryName, error) {
 	return directoryName, nil
 }
 
+// CanonicalModuleDirectoryName returns the local directory basename for moduleID.
+// The returned name includes the standard .invowkmod suffix and is suitable for
+// cache and vendor materialization.
+func CanonicalModuleDirectoryName(moduleID ModuleID) (ModuleScaffoldDirectoryName, error) {
+	if err := moduleID.Validate(); err != nil {
+		return "", err
+	}
+	if strings.HasSuffix(moduleID.String(), ModuleSuffix) {
+		return "", &InvalidModuleIDError{Value: moduleID}
+	}
+	dirName := ModuleScaffoldDirectoryName(moduleID.String() + ModuleSuffix)
+	if err := dirName.Validate(); err != nil {
+		return "", err
+	}
+	return dirName, nil
+}
+
 // ValidateName checks if a module name is valid.
 // Returns nil if valid, or an error describing the problem.
 func ValidateName(name ModuleDirectoryName) error {

@@ -178,7 +178,7 @@ Overrides the model used by the configured provider. CLI harnesses use their own
 
 #### llm.timeout
 
-**Type:** Go duration string
+**Type:** Go duration string (`#LLMTimeoutDurationString`, max 64 runes)
 **Default:** *(unset in config; resolver fallback: `2m`)*
 
 Sets the per-request timeout used by LLM-backed commands.

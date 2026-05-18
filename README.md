@@ -2062,23 +2062,25 @@ version: "1.0.0"
 // Declare module dependencies
 requires: [
 	{
-		git_url: "https://github.com/user/common-tools.invowkmod.git"
+		git_url: "https://github.com/user/common-tools.git"
 		version: "^1.0.0"  // Compatible with 1.x.x
 	},
 	{
-		git_url: "https://github.com/user/deploy-utils.invowkmod.git"
+		git_url: "https://github.com/user/deploy-utils.git"
 		version: "~2.1.0"  // Approximately 2.1.x
 		alias:   "deploy"  // Custom command source ID (for collision disambiguation)
 	},
 	{
-		git_url: "https://github.com/user/monorepo.invowkmod.git"
+		git_url: "https://github.com/user/monorepo.git"
 		version: ">=1.0.0"
-		path:    "packages/cli-tools"  // Subdirectory within repo
+		path:    "packages/io.example.cli.invowkmod"  // Module directory within repo
 	},
 ]
 ```
 
-The repository must contain a module (either a `.invowkmod` directory or an `invowkmod.cue` file at the root).
+The Git URL is only the source location. Repository names do not need to end in `.invowkmod`, and the repository basename does not define the module identity. When `path` is omitted, the repository root must contain both `invowkmod.cue` and `invowkfile.cue`. When `path` is set, it must point to a relative, traversal-safe directory whose basename ends in `.invowkmod` and whose prefix matches the selected module's `module` value.
+
+The canonical module identity is the `module` value inside `invowkmod.cue`. Synced and vendored dependencies are materialized locally as `<module-id>.invowkmod`, even when the source repository is named something ordinary like `tools.git`.
 
 Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available).
 
@@ -2094,19 +2096,21 @@ Commands in a module can only call commands from direct dependencies or globally
 | `<2.0.0` | Less than | Maximum version |
 | `1.2.3` | Exact version | Pinned version |
 
+Constraint values must be a single expression. Tags may have a `v` prefix, but the constraint value must not: write `^1.2.3`, not `^v1.2.3`, and do not use compound ranges like `>=1.0.0 <2.0.0`.
+
 ### Module Dependency CLI Commands
 
 The `module` command provides subcommands for managing dependencies. Note that `add` and `remove` automatically update both the `invowkmod.lock.cue` lock file and the `requires` section in your `invowkmod.cue` file.
 
 ```bash
 # Add a new module dependency
-invowk module add https://github.com/user/module.invowkmod.git ^1.0.0
+invowk module add https://github.com/user/module.git ^1.0.0
 
 # Add with custom alias (for collision disambiguation)
-invowk module add https://github.com/user/module.invowkmod.git ^1.0.0 --alias myalias
+invowk module add https://github.com/user/module.git ^1.0.0 --alias myalias
 
 # Add from monorepo subdirectory
-invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path packages/tools
+invowk module add https://github.com/user/monorepo.git ^1.0.0 --path packages/io.example.tools.invowkmod
 
 # List all resolved dependencies
 invowk module deps
@@ -2122,10 +2126,10 @@ invowk module tidy
 invowk module update
 
 # Update a specific dependency
-invowk module update https://github.com/user/module.invowkmod.git
+invowk module update https://github.com/user/module.git
 
 # Remove a dependency
-invowk module remove https://github.com/user/module.invowkmod.git
+invowk module remove https://github.com/user/module.git
 ```
 
 ### Lock File
@@ -2140,14 +2144,14 @@ version: "2.0"
 generated: "2025-01-12T10:30:00Z"
 
 modules: {
-	"https://github.com/user/common-tools.invowkmod.git": {
-		git_url:          "https://github.com/user/common-tools.invowkmod.git"
+	"https://github.com/user/common-tools.git": {
+		git_url:          "https://github.com/user/common-tools.git"
 		version:          "^1.0.0"
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456789012345678901234567890abcd"
-		namespace:        "common-tools@1.2.3"
-		command_source_id: "common-tools"
 		module_id:        "com.example.commontools"
+		namespace:        "com.example.commontools@1.2.3"
+		command_source_id: "com.example.commontools"
 		content_hash:     "sha256:a1b2c3d4e5f6..."
 	}
 }
@@ -2157,18 +2161,18 @@ modules: {
 
 When dependency modules are installed or vendored, their commands are published under a command source ID to prevent conflicts:
 
-- **Default**: the derived module source ID (for example, `common-tools`)
+- **Default**: the parsed module ID (for example, `com.example.commontools`)
 - **With alias**: the specified alias (for example, `deploy`)
 
-The lock file's `namespace` field may include the resolved version for display and compatibility, but command execution uses `command_source_id` or the alias. Access dependency commands with a simple name when unique, or disambiguate with `@<source>` or `--ivk-from`:
+The lock file key preserves the Git URL plus optional normalized `path`; `module_id` stores the canonical module identity separately. The lock file's `namespace` field may include the resolved version for display and compatibility, but command execution uses `command_source_id` or the alias. Access dependency commands with a simple name when unique, or disambiguate with `@<source>` or `--ivk-from`:
 
 ```bash
 # Run a command from a dependency
-invowk cmd common-tools build
+invowk cmd build
 
 # Disambiguate when another source also defines "build"
-invowk cmd @common-tools build
-invowk cmd --ivk-from common-tools build
+invowk cmd @com.example.commontools build
+invowk cmd --ivk-from com.example.commontools build
 
 # With alias
 invowk cmd deploy production
@@ -2192,7 +2196,7 @@ Module dependencies are cached in `~/.invowk/modules/` by default. Override with
 export INVOWK_MODULES_PATH=/custom/path/to/modules
 ```
 
-Each module version is cached in a separate directory, allowing multiple versions to coexist.
+Each module version is cached in a separate source/version directory, and the module payload directory itself is named `<module-id>.invowkmod`. This keeps local installed modules compatible with Invowk's module directory rules while leaving the lock key tied to the original Git URL plus optional `path`.
 
 ### Vendoring
 

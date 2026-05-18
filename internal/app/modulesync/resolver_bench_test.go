@@ -49,7 +49,10 @@ description: "Benchmark tools"
 		GitURL:  "https://github.com/example/tools.invowkmod.git",
 		Version: "^1.0.0",
 	}}
-	cachePath := resolver.getCachePath(string(requirements[0].GitURL), "1.2.3", "")
+	cachePath, err := resolver.getCachePath(string(requirements[0].GitURL), "1.2.3", "", "io.example.bench")
+	if err != nil {
+		b.Fatalf("getCachePath() error = %v", err)
+	}
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
 		b.Fatalf("MkdirAll(cache parent) error = %v", err)
 	}

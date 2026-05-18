@@ -249,7 +249,7 @@ type (
 		// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
 		GitURL GitURL `json:"git_url"`
 		// Version is the semver constraint for version selection.
-		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
+		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "<=2.0.0", "1.2.3"
 		Version SemVerConstraint `json:"version"`
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
@@ -435,9 +435,8 @@ func (p SubdirectoryPath) Validate() error {
 			Reason: "contains null byte",
 		}
 	}
-	// SubdirectoryPath semantics are cross-platform and repository-relative.
-	// Normalize separators first so Windows-style inputs are validated consistently
-	// on all hosts (Linux/macOS/Windows).
+	// [GO-ONLY] Path traversal prevention and cross-platform separator/drive
+	// normalization require Go; CUE only applies portable string prefilters.
 	cleanPath := slashpath.Clean(strings.ReplaceAll(s, "\\", "/"))
 	if strings.HasPrefix(cleanPath, "/") {
 		return &InvalidSubdirectoryPathError{

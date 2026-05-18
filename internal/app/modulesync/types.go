@@ -2,7 +2,11 @@
 
 package modulesync
 
-import "github.com/invowk/invowk/pkg/invowkmod"
+import (
+	"errors"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
+)
 
 const (
 	// LockFileName is the name of the module dependency lock file.
@@ -26,6 +30,16 @@ var (
 	ErrTagNotFound = invowkmod.ErrTagNotFound
 	// ErrCloneFailed is returned when a Git clone operation fails for all attempted tag variants.
 	ErrCloneFailed = invowkmod.ErrCloneFailed
+	// ErrAmbiguousModuleSource is returned when a fetched repository contains child modules but no root module.
+	ErrAmbiguousModuleSource = errors.New("ambiguous module source")
+	// ErrModuleSourceNotFound is returned when the selected source directory is not a module source.
+	ErrModuleSourceNotFound = errors.New("module source not found")
+	// ErrInvalidModuleSubpath is returned when a requirement path does not select a valid module directory.
+	ErrInvalidModuleSubpath = errors.New("invalid module subpath")
+	// ErrModuleSubpathIdentityMismatch is returned when a subpath basename and module metadata disagree.
+	ErrModuleSubpathIdentityMismatch = errors.New("module subpath identity mismatch")
+	// ErrCanonicalModuleCollision is returned when different source identities resolve to one module ID.
+	ErrCanonicalModuleCollision = errors.New("canonical module collision")
 )
 
 type (

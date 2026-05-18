@@ -432,6 +432,9 @@ func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
 		return
 	}
 
+	// [GO-ONLY] containerfile/image cross-field invariants depend on the
+	// selected runtime variant after decode. CUE validates each field shape;
+	// Go owns semantic exclusivity and required-container-source checks.
 	if rc.Containerfile != "" && rc.Image != "" {
 		*errs = append(*errs, errors.New("containerfile and image are mutually exclusive"))
 	}

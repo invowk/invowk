@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -14,13 +15,18 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// getCachePath returns the cache path for a module.
+// getCachePath returns the canonical cache path for a module.
 //
 // Known limitation (L-07): URLs differing only by scheme (e.g., https://github.com/user/repo
 // and git@github.com:user/repo) normalize to the same cache path. The content hash check
 // provides a backstop when a prior lock file exists, but on first sync (no baseline) a
 // stale cached copy from a different scheme could be reused undetected.
-func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
+func (m *Resolver) getCachePath(gitURL, version, subPath string, moduleID ModuleID) (string, error) {
+	canonicalDirName, err := invowkmod.CanonicalModuleDirectoryName(moduleID)
+	if err != nil {
+		return "", fmt.Errorf("module ID %q for cache path: %w", moduleID, err)
+	}
+
 	urlPath := strings.TrimPrefix(gitURL, "https://")
 	urlPath = strings.TrimPrefix(urlPath, "git@")
 	urlPath = strings.TrimSuffix(urlPath, ".git")
@@ -28,10 +34,19 @@ func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
 
 	parts := []string{string(m.cacheDir), urlPath, version}
 	if subPath != "" {
-		parts = append(parts, subPath)
+		path := SubdirectoryPath(subPath)
+		if err := path.Validate(); err != nil {
+			return "", fmt.Errorf("module cache subpath: %w", err)
+		}
+		normalized := slashpath.Clean(strings.ReplaceAll(path.String(), "\\", "/"))
+		parent := slashpath.Dir(normalized)
+		if parent != "." {
+			parts = append(parts, strings.Split(parent, "/")...)
+		}
 	}
+	parts = append(parts, canonicalDirName.String())
 
-	return filepath.Join(parts...)
+	return filepath.Join(parts...), nil
 }
 
 // cacheModule copies a module to the cache directory and returns its content hash.

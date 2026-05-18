@@ -327,7 +327,11 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 	var modules []*ResolvedModule
 	for key := range lock.Modules {
 		entry := lock.Modules[key]
-		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
+		resolved, err := m.resolvedModuleFromLockEntry(key, entry)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, resolved)
 	}
 
 	return modules, nil
@@ -347,7 +351,11 @@ func (m *Resolver) LoadFromLock(_ context.Context) ([]*ResolvedModule, error) {
 	modules := make([]*ResolvedModule, 0, len(lock.Modules))
 	for key := range lock.Modules {
 		entry := lock.Modules[key]
-		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
+		resolved, err := m.resolvedModuleFromLockEntry(key, entry)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, resolved)
 	}
 	return modules, nil
 }
@@ -372,7 +380,11 @@ func (m *Resolver) LoadDeclaredFromLock(_ context.Context, requirements []Module
 		if !ok {
 			return nil, fmt.Errorf("declared module %s missing from lock file", key)
 		}
-		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
+		resolved, err := m.resolvedModuleFromLockEntry(key, entry)
+		if err != nil {
+			return nil, err
+		}
+		modules = append(modules, resolved)
 	}
 	return modules, nil
 }
@@ -389,7 +401,14 @@ func (m *Resolver) loadV2LockFile() (*LockFile, error) {
 	return lock, nil
 }
 
-func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedModule) *ResolvedModule {
+func (m *Resolver) resolvedModuleFromLockEntry(_ ModuleRefKey, entry LockedModule) (*ResolvedModule, error) {
+	if entry.ModuleID == "" {
+		return nil, errors.New("lock entry missing module_id; run 'invowk module sync' to refresh canonical module metadata")
+	}
+	cachePath, err := m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path), entry.ModuleID)
+	if err != nil {
+		return nil, err
+	}
 	return &ResolvedModule{
 		ModuleRef: ModuleRef{
 			GitURL:  entry.GitURL,
@@ -399,13 +418,13 @@ func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedMod
 		},
 		ResolvedVersion: entry.ResolvedVersion,
 		GitCommit:       entry.GitCommit,
-		CachePath:       types.FilesystemPath(m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path))),
+		CachePath:       types.FilesystemPath(cachePath),
 		Namespace:       entry.Namespace,
 		CommandSourceID: entry.EffectiveCommandSourceID(),
 		ModuleID:        entry.ModuleID,
-		ModuleName:      extractModuleName(key),
+		ModuleName:      ModuleShortName(entry.ModuleID), //goplint:ignore -- legacy short-name field mirrors validated module ID for compatibility.
 		ContentHash:     entry.ContentHash,
-	}
+	}, nil
 }
 
 // loadExistingLockHashes loads content hashes from the existing lock file for

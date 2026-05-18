@@ -23,7 +23,7 @@ Every module must include an `invowkmod.cue` file with this structure:
 **Type:** `string` (pattern: `^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 **Required:** Yes
 
-The module identifier. It must match the folder name prefix (before `.invowkmod`).
+The module identifier. Local installed module directories use this value as `<module-id>.invowkmod`. For explicit dependency subpaths, the selected directory basename must match this prefix before `.invowkmod`. For a root Git repository source, the repository basename does not have to match.
 
 <Snippet id="reference/invowkmod/module-examples" />
 
@@ -84,14 +84,16 @@ Defines a single dependency entry:
 **Type:** `string`
 **Required:** Yes
 
-Git repository URL. Accepted forms: HTTPS (`https://...`), SSH shorthand (`git@...`), or SSH URI (`ssh://...`). The repository must contain a module.
+Git repository URL. Accepted forms: HTTPS (`https://...`), SSH shorthand (`git@...`), or SSH URI (`ssh://...`). The repository basename does not have to end in `.invowkmod`.
+
+When `path` is omitted, the fetched repository root must contain `invowkmod.cue` and `invowkfile.cue`. Child modules are not auto-selected; declare `path` for monorepos.
 
 ### version
 
 **Type:** `string`
 **Required:** Yes
 
-Semantic version constraint used to resolve a Git tag.
+Semantic version constraint used to resolve a Git tag. Supported forms are a bare semantic version or one operator from `^`, `~`, `>`, `>=`, `<`, `<=`, or `=` followed by a semantic version. The constraint value must not use a `v` prefix, trailing junk, or compound ranges such as `>=1.0.0 <2.0.0`.
 
 ### alias
 
@@ -105,4 +107,4 @@ Overrides the default command source ID for this dependency. Aliases use command
 **Type:** `string`
 **Required:** No
 
-Subdirectory within the repository that contains the module. Must be relative and cannot contain path traversal sequences.
+Subdirectory within the repository that contains the module. Must be relative, cannot contain path traversal sequences, and must point directly to a directory whose basename ends in `.invowkmod`. The basename prefix must match the selected module's `module` value.

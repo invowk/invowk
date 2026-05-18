@@ -378,6 +378,17 @@ func TestLLMSchemaConstraints(t *testing.T) {
 	}
 }
 
+func TestLLMTimeoutDurationHelperIsConfigSpecific(t *testing.T) {
+	t.Parallel()
+
+	if !strings.Contains(configSchema, "#LLMTimeoutDurationString") {
+		t.Fatal("config schema should define #LLMTimeoutDurationString")
+	}
+	if strings.Contains(configSchema, "#DurationString:") {
+		t.Fatal("config schema should not define a shared-looking #DurationString helper with a config-only limit")
+	}
+}
+
 // TestBinaryPathConstraints verifies container.auto_provision.binary_path rejects empty
 // strings and enforces the 4096 rune limit.
 func TestBinaryPathConstraints(t *testing.T) {

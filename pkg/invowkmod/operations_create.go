@@ -67,7 +67,7 @@ description: %q
 // Uncomment to add dependencies:
 // requires: [
 //     {
-//         git_url: "https://github.com/example/utils.invowkmod.git"
+//         git_url: "https://github.com/example/utils.git"
 //         version: "^1.0.0"
 //     },
 // ]
