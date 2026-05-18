@@ -65,7 +65,7 @@ Global dependencies that apply to all commands. See [DependsOn](#dependson).
 List of commands defined in this invowkfile. See [Command](#command).
 
 :::caution Migration Note
-The field name is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the schema defines `commands?: _|_` (bottom value) to enforce the correct name.
+The field name is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the invowkfile schema is closed and `commands` is not a supported field.
 :::
 
 ---
@@ -394,7 +394,7 @@ Dependency specification:
 ### CommandDependency
 
 :::caution Field Name
-The field name for command dependencies is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the schema defines `commands?: _|_` (bottom value) to enforce the correct field name.
+The field name for command dependencies is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the dependency schema is closed and `commands` is not a supported field.
 :::
 
 <Snippet id="reference/invowkfile/command-dependency-structure" />

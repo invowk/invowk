@@ -39,7 +39,7 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | S1-C12 | Modules (L1711) module structure, RDNS naming, and file layout match conventions | `pkg/invowkmod/`, module directory conventions | WARNING | source-drift |
 | S1-C13 | Module Dependencies (L1977) `requires` syntax uses `git_url` (not `git`), lock file format correct, no `v` prefix in versions | `pkg/invowkmod/invowkmod_schema.cue` `#RequiredModule` | ERROR | schema-drift |
 | S1-C14 | Runtime Modes (L2157) runtime descriptions, capabilities, and selection logic match code | `internal/runtime/` | WARNING | source-drift |
-| S1-C15 | Configuration (L2301) config fields, default values, and file location match source of truth | `internal/config/config_schema.cue`, `internal/config/types.go` `DefaultConfig()` | ERROR | source-drift |
+| S1-C15 | Configuration (L2301) config fields, default values, and file location match source of truth | `internal/config/config_schema.cue`, CUE-derived `DefaultConfig()` | ERROR | source-drift |
 | S1-C16 | Shell Completion (L2379) supported shells and generation commands match code | `cmd/invowk/completion.go` | WARNING | cli-contract-drift |
 | S1-C17 | Command Examples (L2416) are accurate and produce described output | Actual CLI behavior | WARNING | cli-contract-drift |
 | S1-C18 | Interactive TUI Components (L2502) component list, flags, and behavior descriptions match code | `cmd/invowk/tui_*.go` | WARNING | source-drift |
@@ -64,8 +64,8 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | S2-C01 | Invowkfile schema reference page matches current schema field names, types, and constraints | `pkg/invowkfile/invowkfile_schema.cue` → `website/docs/reference/invowkfile-schema.mdx` | ERROR | schema-drift |
 | S2-C02 | Invowkmod schema reference matches current module schema | `pkg/invowkmod/invowkmod_schema.cue` → `website/docs/modules/` pages | ERROR | schema-drift |
 | S2-C03 | Module operation pages (validation, create, packaging, vendoring) match Go implementation | `pkg/invowkmod/operations*.go` → `website/docs/modules/` pages | WARNING | source-drift |
-| S2-C04 | Config schema reference default values and field names match schema and DefaultConfig() | `internal/config/config_schema.cue` → `website/docs/reference/config-schema.mdx` | ERROR | source-drift |
-| S2-C05 | Configuration options page default values match DefaultConfig() | `internal/config/types.go` → `website/docs/configuration/options.mdx` | ERROR | source-drift |
+| S2-C04 | Config schema reference default values and field names match schema-derived defaults | `internal/config/config_schema.cue` → `website/docs/reference/config-schema.mdx` | ERROR | source-drift |
+| S2-C05 | Configuration options page default values match schema-derived defaults | `internal/config/config_schema.cue` → `website/docs/configuration/options.mdx` | ERROR | source-drift |
 | S2-C06 | Container runtime page matches current container implementation | `internal/runtime/container*.go` → `website/docs/runtime-modes/container.mdx` | WARNING | source-drift |
 | S2-C07 | Quickstart page matches `invowk init` output and getting-started snippets | `cmd/invowk/init.go` → `website/docs/getting-started/quickstart.mdx` | ERROR | cli-contract-drift |
 | S2-C08 | CLI reference page matches current command structure, flags, and subcommands | `cmd/invowk/*.go` → `website/docs/reference/cli.mdx` | ERROR | cli-contract-drift |
@@ -207,11 +207,11 @@ with an implementation block but lack required fields.
 
 ---
 
-## §S7: DefaultConfig() vs Docs
+## §S7: Config Defaults vs Docs
 
 **File scope**:
-- Source of truth: `internal/config/types.go` (`DefaultConfig()` function)
-- Schema: `internal/config/config_schema.cue`
+- Source of truth: `internal/config/config_schema.cue`
+- Runtime default entrypoint: `internal/config/types.go` (`DefaultConfig()` function, CUE-derived)
 - Doc targets:
   - `website/docs/reference/config-schema.mdx`
   - `website/docs/configuration/options.mdx`
@@ -220,13 +220,13 @@ with an implementation block but lack required fields.
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
-| S7-C01 | All fields in `DefaultConfig()` are documented in `config-schema.mdx` with matching default values | `internal/config/types.go` → `config-schema.mdx` | ERROR | source-drift |
-| S7-C02 | All fields in `DefaultConfig()` are documented in `options.mdx` with matching default values | `internal/config/types.go` → `options.mdx` | ERROR | source-drift |
+| S7-C01 | All fields in the CUE-derived default config are documented in `config-schema.mdx` with matching default values | `internal/config/config_schema.cue` → `config-schema.mdx` | ERROR | source-drift |
+| S7-C02 | All fields in the CUE-derived default config are documented in `options.mdx` with matching default values | `internal/config/config_schema.cue` → `options.mdx` | ERROR | source-drift |
 | S7-C03 | Config field names in docs match CUE schema field names (JSON tags in Go struct match CUE field names) | `internal/config/config_schema.cue` | ERROR | schema-drift |
 | S7-C04 | pt-BR mirror of `config-schema.mdx` has matching default values and field names | English `config-schema.mdx` | ERROR | i18n-prose-staleness |
 | S7-C05 | pt-BR mirror of `options.mdx` has matching default values and field names | English `options.mdx` | ERROR | i18n-prose-staleness |
 | S7-C06 | Dual-prefix config snippets in `config.ts`: every `config/X` snippet has a corresponding `reference/config/X` with equivalent content | `website/src/components/Snippet/data/config.ts` | WARNING | snippet-drift |
-| S7-C07 | Config snippet content matches current `DefaultConfig()` values | `internal/config/types.go` | ERROR | snippet-drift |
+| S7-C07 | Config snippet content matches current CUE-derived default values | `internal/config/config_schema.cue` | ERROR | snippet-drift |
 
 **Total items**: 7
 
@@ -349,7 +349,7 @@ with an implementation block but lack required fields.
 | S4: i18n Parity | 6 |
 | S5: Architecture Diagrams | 11 |
 | S6: Container Image Policy | 6 |
-| S7: DefaultConfig() vs Docs | 7 |
+| S7: Config Defaults vs Docs | 7 |
 | S8: Homepage & Terminal Demo | 5 |
 | S9: Security Audit Docs | 10 |
 | S10: LLM-Assisted Command Authoring Docs | 8 |

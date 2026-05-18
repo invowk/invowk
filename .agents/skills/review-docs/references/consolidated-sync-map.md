@@ -11,7 +11,7 @@ The `/docs` skill and `/review-docs` skill both reference this file.
 | `pkg/invowkmod/invowkmod_schema.cue` | `website/docs/modules/` pages, module reference docs |
 | `pkg/invowkmod/operations*.go` | `website/docs/modules/` pages (validation, create, packaging, vendoring) |
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
-| `internal/config/types.go` (`DefaultConfig()`) | `website/docs/reference/config-schema.mdx` (default values), `website/docs/configuration/options.mdx` (default values), pt-BR mirrors |
+| `internal/config/types.go` (`DefaultConfig()` derives schema defaults) | `website/docs/reference/config-schema.mdx` (default values), `website/docs/configuration/options.mdx` (default values), pt-BR mirrors |
 | `internal/runtime/container*.go` | `website/docs/runtime-modes/container.mdx` |
 | `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, i18n mirror, `getting-started.ts` snippets, `index.tsx` terminal demo, `README.md` Quick Start |
 | `cmd/invowk/*.go` (general CLI) | `website/docs/reference/cli.mdx` + relevant feature docs |
@@ -47,7 +47,7 @@ Architecture prose docs in `docs/architecture/` reference these SVGs. Website pa
 
 1. **CUE snippet schema drift** — Missing `platforms` field in implementation blocks is the #1 pattern. See `references/cue-drift-patterns.md`.
 2. **Dual-prefix config snippets** — `config/*` and `reference/config/*` in `Snippet/data/config.ts` both need updates when config changes.
-3. **DefaultConfig() drift** — `internal/config/types.go` is the source of truth for default values. Docs at `config-schema.mdx` and `options.mdx` can lag behind.
+3. **Config default drift** — `internal/config/config_schema.cue` is the source of truth for default values, and `DefaultConfig()` must be CUE-derived. Docs at `config-schema.mdx` and `options.mdx` can lag behind.
 4. **Container image policy violations** — All examples must use `debian:stable-slim`. Language-specific images allowed only for language-specific demos.
 5. **pt-BR diagram ID divergence** — Diagram IDs in i18n MDX files can silently diverge from English. `npm run docs:parity` catches this.
 6. **Stale i18n content** — When fixing factual errors in English docs, the same stale content often persists in pt-BR translations and snippet data files.

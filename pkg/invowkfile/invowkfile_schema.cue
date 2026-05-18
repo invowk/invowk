@@ -304,8 +304,6 @@ import "strings"
 	// Uses OR semantics: if any alternative in the list is discoverable, the dependency is satisfied
 	cmds?: [...#CommandDependency]
 
-	// commands is not supported (use cmds)
-	commands?: _|_
 	// filepaths lists files or directories that must exist before running
 	// Uses OR semantics: if any alternative path exists, the dependency is satisfied
 	filepaths?: [...#FilepathDependency]
@@ -513,16 +511,6 @@ import "strings"
 
 	// cmds defines the available commands (required, at least one)
 	cmds: [...#Command] & [_, ...]
-
-	// commands is not supported (use cmds)
-	commands?: _|_
-
-	// module, version, description, requires are NOT allowed here
-	// These fields belong in invowkmod.cue
-	module?:      _|_
-	version?:     _|_
-	description?: _|_
-	requires?:    _|_
 })
 
 // Example usage with the cue command-line tool:

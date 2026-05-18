@@ -17,7 +17,7 @@ and speculative risk are not findings unless a checklist item explicitly require
 ## Purpose and Scope
 
 **Review**: README.md, website docs (next version only), MDX snippets, CUE examples, i18n
-parity, architecture diagrams, container image policy, DefaultConfig() accuracy, security/audit
+parity, architecture diagrams, container image policy, config default accuracy, security/audit
 docs, LLM-assisted authoring docs, and agent workflow docs.
 
 **Do NOT**:
@@ -87,10 +87,10 @@ ALL container examples across all documentation surfaces must use `debian:stable
 No `ubuntu:*`, no Alpine, no Windows containers. Language-specific images (`golang:1.26`,
 `python:3-slim`, `node:22-slim`) are allowed only in language-specific runtime demonstrations.
 
-### S7: DefaultConfig() vs Docs
+### S7: Config Defaults vs Docs
 
-`internal/config/types.go` `DefaultConfig()` is the source of truth for configuration
-defaults. Must match:
+`internal/config/config_schema.cue` is the source of truth for configuration defaults.
+`internal/config/types.go` `DefaultConfig()` must derive from that schema, and docs must match:
 - `website/docs/reference/config-schema.mdx` (default values)
 - `website/docs/configuration/options.mdx` (default values)
 - pt-BR mirrors of both pages
@@ -241,7 +241,7 @@ checklist review work assigned to any pending subagent.
 | **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via the deterministic S4-C05 command |
 | **SA-5: Architecture Diagrams** | S5 | `consolidated-sync-map.md` (diagram section), `surface-checklists.md` §S5 | D2 node/label accuracy vs current package names and code structure |
 | **SA-6: Container Image Policy** | S6 | `surface-checklists.md` §S6 | Deep scan beyond Step 1 grep — CUE runtime fields, Dockerfiles in examples |
-| **SA-7: DefaultConfig() vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of DefaultConfig() output vs 4 doc pages + snippets |
+| **SA-7: Config Defaults vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of CUE-derived defaults vs 4 doc pages + snippets |
 | **SA-8: Homepage & Terminal Demo** | S8 | `intentional-simplifications.md`, `surface-checklists.md` §S8 | Verify simplifications are valid and syntax is not actively misleading |
 | **SA-9: Security Audit Docs** | S9 | `surface-checklists.md` §S9, `consolidated-sync-map.md` | Verify audit command flags, JSON shape, checker categories, correlator rules, LLM opt-in behavior, and snippets |
 | **SA-10: LLM-Assisted Command Authoring** | S10 | `surface-checklists.md` §S10, `consolidated-sync-map.md` | Verify `invowk agent cmd` docs, shared LLM flags/config, write modes, validation behavior, and snippets |

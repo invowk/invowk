@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -85,7 +86,10 @@ func TestLLMConfigSchemaSync(t *testing.T) {
 	t.Parallel()
 
 	schema, _ := getCUESchema(t)
-	cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#LLMConfig"))
+	cueFields := make(map[string]bool)
+	for _, def := range []string{"#LLMCommonConfig", "#LLMProviderConfig", "#LLMAPIBackendConfig"} {
+		maps.Copy(cueFields, schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, def)))
+	}
 	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[LLMConfig]())
 
 	schematest.AssertFieldsSync(t, "LLMConfig", cueFields, goFields)
@@ -122,37 +126,6 @@ func TestAutoProvisionConfigSchemaSync(t *testing.T) {
 	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[AutoProvisionConfig]())
 
 	schematest.AssertFieldsSync(t, "AutoProvisionConfig", cueFields, goFields)
-}
-
-// TestConfigPatchSchemaSync verifies decode patch DTOs match their CUE definitions.
-func TestConfigPatchSchemaSync(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	tests := []struct {
-		name       string
-		definition string
-		goType     reflect.Type
-	}{
-		{name: "configPatch", definition: "#Config", goType: reflect.TypeFor[configPatch]()},
-		{name: "virtualShellConfigPatch", definition: "#VirtualShellConfig", goType: reflect.TypeFor[virtualShellConfigPatch]()},
-		{name: "uiConfigPatch", definition: "#UIConfig", goType: reflect.TypeFor[uiConfigPatch]()},
-		{name: "llmConfigPatch", definition: "#LLMConfig", goType: reflect.TypeFor[llmConfigPatch]()},
-		{name: "llmAPIConfigPatch", definition: "#LLMAPIConfig", goType: reflect.TypeFor[llmAPIConfigPatch]()},
-		{name: "containerConfigPatch", definition: "#ContainerConfig", goType: reflect.TypeFor[containerConfigPatch]()},
-		{name: "autoProvisionConfigPatch", definition: "#AutoProvisionConfig", goType: reflect.TypeFor[autoProvisionConfigPatch]()},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, tt.definition))
-			goFields := schematest.ExtractGoJSONTags(t, tt.goType)
-
-			schematest.AssertFieldsSync(t, tt.name, cueFields, goFields)
-		})
-	}
 }
 
 // =============================================================================
@@ -389,8 +362,8 @@ func TestLLMTimeoutDurationHelperIsConfigSpecific(t *testing.T) {
 	}
 }
 
-// TestBinaryPathConstraints verifies container.auto_provision.binary_path rejects empty
-// strings and enforces the 4096 rune limit.
+// TestBinaryPathConstraints verifies container.auto_provision.binary_path accepts the
+// default empty string and enforces the 4096 rune limit for explicit overrides.
 func TestBinaryPathConstraints(t *testing.T) {
 	t.Parallel()
 
@@ -400,9 +373,9 @@ func TestBinaryPathConstraints(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "empty string rejected",
+			name:    "empty string accepted as auto-detect default",
 			cueData: `container: auto_provision: { binary_path: "" }`,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "4096-char path accepted",
@@ -483,8 +456,8 @@ func TestAutoProvisionIncludesConstraints(t *testing.T) {
 	}
 }
 
-// TestCacheDirConstraints verifies container.auto_provision.cache_dir rejects empty
-// strings and enforces the 4096 rune limit.
+// TestCacheDirConstraints verifies container.auto_provision.cache_dir accepts the
+// default empty string and enforces the 4096 rune limit for explicit overrides.
 func TestCacheDirConstraints(t *testing.T) {
 	t.Parallel()
 
@@ -494,9 +467,9 @@ func TestCacheDirConstraints(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "empty string rejected",
+			name:    "empty string accepted as default cache directory",
 			cueData: `container: auto_provision: { cache_dir: "" }`,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "4096-char path accepted",
@@ -803,7 +776,7 @@ func TestBehavioralSync_ContainerEngine(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	// container_engine is an optional field in #Config — use field-level lookup
+	// container_engine is a default-bearing field in #Config — use field-level lookup.
 	runBehavioralSyncField(t, schema, ctx, "#Config", "container_engine",
 		func(s string) error { return ContainerEngine(s).Validate() },
 		[]behavioralSyncCase{
@@ -823,7 +796,7 @@ func TestBehavioralSync_ConfigRuntimeMode(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	// default_runtime is an optional field in #Config — use field-level lookup
+	// default_runtime is a default-bearing field in #Config — use field-level lookup.
 	runBehavioralSyncField(t, schema, ctx, "#Config", "default_runtime",
 		func(s string) error { return RuntimeMode(s).Validate() },
 		[]behavioralSyncCase{
@@ -861,9 +834,9 @@ func TestBehavioralSync_LLMTimeout(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	// timeout is an optional field in #LLMConfig. CUE enforces the Go-duration
+	// timeout is an optional field in #LLMCommonConfig. CUE enforces the Go-duration
 	// shape and max length; Go owns optional-zero and positive-duration semantics.
-	runBehavioralSyncField(t, schema, ctx, "#LLMConfig", "timeout",
+	runBehavioralSyncField(t, schema, ctx, "#LLMCommonConfig", "timeout",
 		func(s string) error { return LLMTimeout(s).Validate() },
 		[]behavioralSyncCase{
 			{"2m30s", true, true, ""},

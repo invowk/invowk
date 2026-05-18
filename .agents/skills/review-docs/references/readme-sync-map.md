@@ -19,7 +19,7 @@ During review, read the source of truth first, then compare with the README sect
 | Modules | L1711 | `pkg/invowkmod/`, module directory conventions | Module structure, RDNS naming, file layout |
 | Module Dependencies | L1977 | `pkg/invowkmod/invowkmod_schema.cue` `#RequiredModule` | `requires` syntax, lock file format, `git_url` (not `git`) |
 | Runtime Modes | L2157 | `internal/runtime/` | Runtime descriptions, capabilities, selection logic |
-| Configuration | L2301 | `internal/config/config_schema.cue`, `internal/config/types.go` `DefaultConfig()` | Config fields, default values, file location |
+| Configuration | L2301 | `internal/config/config_schema.cue`, CUE-derived `DefaultConfig()` | Config fields, default values, file location |
 | Shell Completion | L2379 | `cmd/invowk/completion.go` | Supported shells, generation commands |
 | Command Examples | L2416 | Actual CLI behavior | Example command accuracy, output format |
 | Interactive TUI Components | L2502 | `cmd/invowk/tui_*.go` | Component list, flags, behavior descriptions |

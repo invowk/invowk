@@ -2467,10 +2467,10 @@ container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
     strict: false                         // Hard error on provisioning failure instead of warning (default: false)
-    // binary_path: "/usr/local/bin/invowk" // Optional non-empty override; omit to auto-detect via os.Executable()
+    binary_path: ""                       // Empty default auto-detects via os.Executable()
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
-    // cache_dir: "/var/cache/invowk/provision" // Optional non-empty override; omit to use the platform default
+    cache_dir: ""                         // Empty default uses the platform cache directory
   }
 }
 
@@ -2482,7 +2482,7 @@ ui: {
 }
 
 // LLM provider defaults for LLM-aware commands (optional)
-// Invowk leaves this unset by default. `invowk agent cmd create`
+// Default config uses llm: {}. `invowk agent cmd create`
 // uses configured LLM settings automatically; `invowk audit` still
 // requires explicit opt-in with --llm or --llm-provider.
 llm: {

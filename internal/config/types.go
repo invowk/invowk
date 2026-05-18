@@ -929,30 +929,17 @@ func (cs ColorScheme) Validate() error {
 	}
 }
 
-// DefaultConfig returns the default configuration
+// DefaultConfig returns the default configuration derived from the embedded CUE schema.
 func DefaultConfig() *Config {
-	return &Config{
-		ContainerEngine: ContainerEnginePodman,
-		Includes:        []IncludeEntry{},
-		DefaultRuntime:  RuntimeNative,
-		VirtualShell: VirtualShellConfig{
-			EnableUrootUtils: true,
-		},
-		UI: UIConfig{
-			ColorScheme: ColorSchemeAuto,
-			Verbose:     false,
-			Interactive: false,
-		},
-		LLM: LLMConfig{},
-		Container: ContainerConfig{
-			AutoProvision: AutoProvisionConfig{
-				Enabled:         true,
-				Strict:          false,
-				BinaryPath:      "", // Will use os.Executable() if empty
-				Includes:        []IncludeEntry{},
-				InheritIncludes: true,
-				CacheDir:        "", // Will use default cache dir if empty
-			},
-		},
+	cfg, err := decodeCUEConfigSource(configCUESource{
+		data:     configCUEData("{}"),
+		filename: configCUEFilename("<defaults>"),
+	})
+	if err != nil {
+		panic(fmt.Sprintf("invalid embedded default config schema: %v", err))
 	}
+	if err := cfg.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid embedded default config: %v", err))
+	}
+	return cfg
 }

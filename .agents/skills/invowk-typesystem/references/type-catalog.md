@@ -89,13 +89,6 @@ This catalog is generated from repository source and documents current type-syst
 | `ScanSurfaceKey` | `primitive-wrapper` | `internal/audit/types.go:166` |
 | `SurfaceKind` | `primitive-wrapper` | `internal/audit/types.go:169` |
 | `LLMClientConfig` | `composite-validator` | `internal/auditllm/client.go:166` |
-| `autoProvisionConfigPatch` | `composite-validator` | `internal/config/config.go:220` |
-| `configPatch` | `composite-validator` | `internal/config/config.go:118` |
-| `containerConfigPatch` | `composite-validator` | `internal/config/config.go:157` |
-| `llmAPIConfigPatch` | `composite-validator` | `internal/config/config.go:206` |
-| `llmConfigPatch` | `composite-validator` | `internal/config/config.go:164` |
-| `uiConfigPatch` | `composite-validator` | `internal/config/config.go:150` |
-| `virtualShellConfigPatch` | `composite-validator` | `internal/config/config.go:146` |
 | `LoadOptions` | `composite-validator` | `internal/config/provider.go:66` |
 | `LoadResult` | `composite-validator` | `internal/config/provider.go:108` |
 | `AutoProvisionConfig` | `composite-validator` | `internal/config/types.go:707` |

@@ -20,25 +20,22 @@ func TestGenerateCUE_DefaultConfig(t *testing.T) {
 	t.Parallel()
 	output := GenerateCUE(DefaultConfig())
 
-	for _, want := range []string{"container_engine:", "default_runtime:", "virtual_shell:", "ui:", "container:"} {
+	for _, want := range []string{
+		"container_engine:",
+		"default_runtime:",
+		"includes:",
+		"virtual_shell:",
+		"ui:",
+		"llm:",
+		"container:",
+		"strict: false",
+		`binary_path: ""`,
+		"inherit_includes: true",
+		`cache_dir: ""`,
+	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("GenerateCUE(defaults) missing %q", want)
 		}
-	}
-	// Default config has no includes — top-level "includes:" section should be absent.
-	// The auto_provision section has "inherit_includes:" which is a different field.
-	if strings.Contains(output, "\nincludes:") {
-		t.Error("GenerateCUE(defaults) should not contain top-level 'includes:' when Includes is empty")
-	}
-	// Default config has empty BinaryPath and CacheDir — these conditional fields should be omitted.
-	if strings.Contains(output, "binary_path:") {
-		t.Error("GenerateCUE(defaults) should omit binary_path when empty")
-	}
-	if strings.Contains(output, "cache_dir:") {
-		t.Error("GenerateCUE(defaults) should omit cache_dir when empty")
-	}
-	if strings.Contains(output, "\nllm:") {
-		t.Error("GenerateCUE(defaults) should omit llm when no LLM default is configured")
 	}
 }
 

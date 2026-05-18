@@ -65,7 +65,7 @@ Dependências globais que se aplicam a todos os comandos. Veja [DependsOn](#depe
 Lista de comandos definidos neste invowkfile. Veja [Command](#command).
 
 :::caution Nota de Migração
-O nome do campo é `cmds`, não `commands`. Usar `commands` causará um erro de validação CUE porque o schema define `commands?: _|_` (valor bottom) para impor o nome correto.
+O nome do campo é `cmds`, não `commands`. Usar `commands` causará um erro de validação CUE porque o schema de invowkfile é fechado e `commands` não é um campo suportado.
 :::
 
 ---
@@ -394,7 +394,7 @@ Especificação de dependências:
 ### CommandDependency
 
 :::caution Nome do Campo
-O nome do campo para dependências de comandos é `cmds`, não `commands`. Usar `commands` causará um erro de validação CUE porque o schema define `commands?: _|_` (valor bottom) para impor o nome correto do campo.
+O nome do campo para dependências de comandos é `cmds`, não `commands`. Usar `commands` causará um erro de validação CUE porque o schema de dependências é fechado e `commands` não é um campo suportado.
 :::
 
 <Snippet id="reference/invowkfile/command-dependency-structure" />

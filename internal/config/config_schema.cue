@@ -23,32 +23,32 @@ import "strings"
 // only validates the syntactic shape here.
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
-// Config is the root configuration structure
+// Config is the root effective configuration structure.
 #Config: close({
 	// container_engine specifies which container runtime to use
 	// Valid values: "podman", "docker"
-	container_engine?: #ContainerEngineType
+	container_engine: *"podman" | #ContainerEngineType
 
 	// includes specifies modules to include in command discovery.
 	// Each entry points to a *.invowkmod directory.
 	// Modules may have an optional alias for collision disambiguation.
-	includes?: [...#IncludeEntry]
+	includes: *([]) | [...#IncludeEntry]
 
 	// default_runtime sets the global default runtime mode
 	// Valid values: "native", "virtual", "container"
-	default_runtime?: #ConfigRuntimeType
+	default_runtime: *"native" | #ConfigRuntimeType
 
 	// virtual_shell configures the virtual shell behavior
-	virtual_shell?: #VirtualShellConfig
+	virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
 
 	// ui configures the user interface
-	ui?: #UIConfig
+	ui: *#UIConfig | #UIConfig
 
 	// container configures container runtime behavior
-	container?: #ContainerConfig
+	container: *#ContainerConfig | #ContainerConfig
 
 	// llm configures the default LLM backend for LLM-aware commands
-	llm?: #LLMConfig
+	llm: *#LLMNoBackendConfig | #LLMConfig
 })
 
 // IncludeEntry specifies a module to include in command discovery.
@@ -68,63 +68,60 @@ import "strings"
 	// auto_provision controls automatic provisioning of invowk resources
 	// into containers. When enabled, invowk binary and modules are automatically
 	// added to container images, enabling nested invowk commands.
-	auto_provision?: #AutoProvisionConfig
+	auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
 })
 
 // AutoProvisionConfig controls auto-provisioning of invowk resources
 #AutoProvisionConfig: close({
 	// enabled enables/disables auto-provisioning (default: true)
-	enabled?: bool
+	enabled: *true | bool
 
 	// strict makes provisioning failure a hard error instead of falling back
 	// to the unprovisioned base image. When false (default), provisioning
 	// failure logs a warning and continues with the base image.
-	strict?: bool
+	strict: *false | bool
 
 	// binary_path overrides the path to the invowk binary to provision.
 	// If not set, the currently running invowk binary is used.
-	binary_path?: string & !="" & strings.MaxRunes(4096)
+	binary_path: *"" | (string & !="" & strings.MaxRunes(4096))
 
 	// includes specifies modules to provision into containers.
 	// Uses the same IncludeEntry format as root-level includes.
-	includes?: [...#IncludeEntry]
+	includes: *([]) | [...#IncludeEntry]
 
 	// inherit_includes controls whether root-level includes are automatically
 	// merged into container provisioning. Default: true.
-	inherit_includes?: bool
+	inherit_includes: *true | bool
 
 	// cache_dir specifies where to place provision build contexts and cached image metadata.
 	// Default: ~/.cache/invowk/provision
-	cache_dir?: string & !="" & strings.MaxRunes(4096)
+	cache_dir: *"" | (string & !="" & strings.MaxRunes(4096))
 })
 
 // VirtualShellConfig configures the virtual shell runtime
 #VirtualShellConfig: close({
 	// enable_uroot_utils enables u-root utilities in virtual shell
-	enable_uroot_utils?: bool
+	enable_uroot_utils: *true | bool
 })
 
 // UIConfig configures the user interface
 #UIConfig: close({
 	// color_scheme sets the color scheme
 	// Valid values: "auto", "dark", "light"
-	color_scheme?: #ColorSchemeType
+	color_scheme: *"auto" | #ColorSchemeType
 
 	// verbose enables verbose output
-	verbose?: bool
+	verbose: *false | bool
 
 	// interactive enables alternate screen buffer mode for command execution
-	interactive?: bool
+	interactive: *false | bool
 })
 
 // LLMConfig configures the default LLM backend.
 // Use provider for supported local harnesses, or api for OpenAI-compatible endpoints.
-// [GO-ONLY] provider/api mutual exclusivity is checked after decode because an
-// optional api block only conflicts when at least one API field is configured.
-#LLMConfig: close({
-	// provider selects a supported LLM harness/provider.
-	provider?: #LLMProviderType
+#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
+#LLMCommonConfig: {
 	// model overrides the provider model. CLI harnesses use their current default when omitted.
 	model?: string & !="" & strings.MaxRunes(256)
 
@@ -133,10 +130,25 @@ import "strings"
 
 	// concurrency limits concurrent LLM requests. Zero means use the built-in default.
 	concurrency?: int & >=0
+}
+
+#LLMNoBackendConfig: close({
+	#LLMCommonConfig
+})
+
+#LLMProviderConfig: close({
+	#LLMCommonConfig
+
+	// provider selects a supported LLM harness/provider.
+	provider: #LLMProviderType
+})
+
+#LLMAPIBackendConfig: close({
+	#LLMCommonConfig
 
 	// api configures an OpenAI-compatible endpoint. Do not store raw API keys here;
 	// use api_key_env to name an environment variable that contains the secret.
-	api?: #LLMAPIConfig
+	api: #LLMAPIConfig
 })
 
 // LLMAPIConfig configures an OpenAI-compatible LLM API endpoint.

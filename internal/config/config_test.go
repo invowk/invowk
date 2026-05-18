@@ -631,11 +631,10 @@ func TestLoad_EmptyFile(t *testing.T) {
 	}
 }
 
-func TestLoad_UnknownFields_Ignored(t *testing.T) {
+func TestLoad_UnknownFieldsRejected(t *testing.T) {
 	t.Parallel()
-	// A config.cue with valid fields plus unknown fields should load gracefully.
-	// This tests forward-compatibility: adding new config fields shouldn't
-	// break older versions that don't recognize them.
+	// Config is a closed effective schema. Unknown fields fail validation
+	// instead of being ignored as forward-compatible patch data.
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -650,25 +649,15 @@ some_future_field: "value"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	// The CUE schema may reject unknown fields or may ignore them.
-	// Either behavior is acceptable; the key invariant is that the
-	// function does not panic or return a nil config without an error.
-	cfg, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 		BaseDir:       types.FilesystemPath(tmpDir),
 	})
-	if err != nil {
-		// CUE schema rejects unknown fields — this is acceptable behavior.
-		// Verify the error message is meaningful.
-		if err.Error() == "" {
-			t.Error("expected non-empty error string when unknown fields are rejected")
-		}
-		return
+	if err == nil {
+		t.Fatal("loadWithOptions() succeeded, want unknown field error")
 	}
-
-	// If it succeeded, the known field should still be applied.
-	if cfg.ContainerEngine != ContainerEngineDocker {
-		t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+	if !errors.Is(err, ErrConfigLoadFailed) {
+		t.Fatalf("loadWithOptions() error = %v, want ErrConfigLoadFailed", err)
 	}
 }
 

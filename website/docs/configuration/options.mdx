@@ -10,7 +10,7 @@ This page documents all available configuration options for Invowk™.
 
 ## Configuration Schema
 
-The configuration file uses CUE format and follows this schema:
+The configuration file uses CUE format and follows the full effective config schema. You can omit defaulted fields in your own `config.cue`; CUE materializes those defaults before Go validation runs.
 
 <Snippet id="config/schema" />
 
@@ -148,7 +148,7 @@ This is equivalent to always passing `--ivk-interactive` on the command line.
 ### llm
 
 **Type:** `#LLMConfig`
-**Default:** *(unset)*
+**Default:** `{}`
 
 Configures a default LLM backend for LLM-aware commands. `invowk agent cmd create` uses this config automatically when no LLM flags are passed. `invowk audit` still requires explicit opt-in with `--llm` or `--llm-provider` before any script content is sent to an LLM.
 
@@ -196,6 +196,7 @@ Limits concurrent LLM requests. Set `0` or omit the field to use the built-in de
 **Default:** *(unset)*
 
 Configures an OpenAI-compatible API endpoint with `base_url`, `model`, and `api_key_env`.
+If `api` is present, set at least one of those fields.
 
 ##### llm.api.base_url
 
@@ -221,7 +222,7 @@ Environment variable name that holds the API key.
 ### container
 
 **Type:** `#ContainerConfig`
-**Default:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
+**Default:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}}`
 
 Configures container runtime behavior.
 

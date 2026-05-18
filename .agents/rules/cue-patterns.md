@@ -77,13 +77,15 @@ Use closed structs with discriminated unions for type-safe variant handling:
 implementations: [...#Implementation] & [_, ...]
 ```
 
-### Field Deprecation
+### Field Removal
 
-Use bottom (`_|_`) to forbid deprecated fields with clear error:
+For clean breaking schema changes, remove obsolete fields and rely on closed structs
+to reject unsupported input. Only add a bottom (`_|_`) tombstone when a change
+explicitly calls for compatibility-oriented diagnostics:
 
 ```cue
-// Forbid old field name
-commands?: _|_  // Use 'cmds' instead
+// Compatibility diagnostic only; do not use for clean removals.
+old_field?: _|_
 ```
 
 ## Validation Responsibilities

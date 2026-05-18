@@ -111,8 +111,8 @@ ui: {
     interactive: false    // Enable alternate screen buffer mode
 }
 
-// Example LLM backend override for invowk agent and audit --llm
-// Invowk leaves llm unset by default.
+// Example LLM backend override for invowk agent and audit --llm.
+// Default config uses llm: {} until a provider or API is configured.
 llm: {
     provider: "codex"
     model: "gpt-5.1-codex"
@@ -125,65 +125,86 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
+        binary_path: ""
         includes: []
         inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },
 
   'config/schema': {
     language: 'cue',
-    code: `#Config: {
-    container_engine?: "podman" | "docker"
-    includes?: [...#IncludeEntry]
-    default_runtime?: "native" | "virtual" | "container"
-    virtual_shell?: #VirtualShellConfig
-    ui?: #UIConfig
-    llm?: #LLMConfig
-    container?: #ContainerConfig
-}
+    code: `#ContainerEngineType: "podman" | "docker"
+#ConfigRuntimeType: "native" | "virtual" | "container"
+#ColorSchemeType: "auto" | "dark" | "light"
+#LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
-#IncludeEntry: {
+#Config: close({
+    container_engine: *"podman" | #ContainerEngineType
+    includes: *([]) | [...#IncludeEntry]
+    default_runtime: *"native" | #ConfigRuntimeType
+    virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
+    ui: *#UIConfig | #UIConfig
+    container: *#ContainerConfig | #ContainerConfig
+    llm: *#LLMNoBackendConfig | #LLMConfig
+})
+
+#IncludeEntry: close({
     path:   string  // Must be absolute and end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
-}
+})
 
-#VirtualShellConfig: {
-    enable_uroot_utils?: bool
-}
+#VirtualShellConfig: close({
+    enable_uroot_utils: *true | bool
+})
 
-#UIConfig: {
-    color_scheme?: "auto" | "dark" | "light"
-    verbose?: bool
-    interactive?: bool
-}
+#UIConfig: close({
+    color_scheme: *"auto" | #ColorSchemeType
+    verbose: *false | bool
+    interactive: *false | bool
+})
 
-#LLMConfig: {
-    provider?: "auto" | "claude" | "codex" | "gemini" | "ollama"
+#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+
+#LLMCommonConfig: {
     model?: string
     timeout?: string
     concurrency?: int
-    api?: #LLMAPIConfig
 }
 
-#LLMAPIConfig: {
+#LLMNoBackendConfig: close({
+    #LLMCommonConfig
+})
+
+#LLMProviderConfig: close({
+    #LLMCommonConfig
+    provider: #LLMProviderType
+})
+
+#LLMAPIBackendConfig: close({
+    #LLMCommonConfig
+    api: #LLMAPIConfig
+})
+
+#LLMAPIConfig: close({
     base_url?: string
     model?: string
     api_key_env?: string
-}
+})
 
-#ContainerConfig: {
-    auto_provision?: #AutoProvisionConfig
-}
+#ContainerConfig: close({
+    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+})
 
-#AutoProvisionConfig: {
-    enabled?: bool
-    strict?: bool
-    binary_path?: string
-    includes?: [...#IncludeEntry]
-    inherit_includes?: bool
-    cache_dir?: string
-}`,
+#AutoProvisionConfig: close({
+    enabled: *true | bool
+    strict: *false | bool
+    binary_path: *"" | (string & !="")
+    includes: *([]) | [...#IncludeEntry]
+    inherit_includes: *true | bool
+    cache_dir: *"" | (string & !="")
+})`,
   },
 
   'config/default-runtime': {
@@ -254,6 +275,7 @@ container: {
     code: `container: {
     auto_provision: {
         enabled: true
+        strict: false
         binary_path: "/usr/local/bin/invowk"
         includes: [
             {path: "/opt/company/modules/tools.invowkmod"},
@@ -346,7 +368,7 @@ ui: {
 // Example LLM backend override
 // ----------------------------
 // Used by invowk agent cmd create and by invowk audit --llm.
-// Invowk leaves llm unset by default.
+// Default config uses llm: {} until a provider or API is configured.
 // Bare invowk audit remains deterministic and does not call LLMs.
 llm: {
     provider: "codex"
@@ -361,8 +383,10 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
+        binary_path: ""
         includes: []
         inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },
@@ -480,8 +504,8 @@ ui: {
     interactive: false    // Enable alternate screen buffer mode
 }
 
-// Example LLM backend override for invowk agent and audit --llm
-// Invowk leaves llm unset by default.
+// Example LLM backend override for invowk agent and audit --llm.
+// Default config uses llm: {} until a provider or API is configured.
 llm: {
     provider: "codex"
     model: "gpt-5.1-codex"
@@ -494,8 +518,10 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
+        binary_path: ""
         includes: []
         inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },
@@ -520,132 +546,170 @@ invowk cmd build --ivk-runtime container`,
   'reference/config/schema-definition': {
     language: 'cue',
     code: `// Root configuration structure
-#Config: {
-    container_engine?: "podman" | "docker"
-    includes?:         [...#IncludeEntry]
-    default_runtime?:  "native" | "virtual" | "container"
-    virtual_shell?:    #VirtualShellConfig
-    ui?:               #UIConfig
-    llm?:              #LLMConfig
-    container?:        #ContainerConfig
-}
+#ContainerEngineType: "podman" | "docker"
+#ConfigRuntimeType: "native" | "virtual" | "container"
+#ColorSchemeType: "auto" | "dark" | "light"
+#LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
+
+#Config: close({
+    container_engine: *"podman" | #ContainerEngineType
+    includes:         *([]) | [...#IncludeEntry]
+    default_runtime:  *"native" | #ConfigRuntimeType
+    virtual_shell:    *#VirtualShellConfig | #VirtualShellConfig
+    ui:               *#UIConfig | #UIConfig
+    container:        *#ContainerConfig | #ContainerConfig
+    llm:              *#LLMNoBackendConfig | #LLMConfig
+})
 
 // Include entry for modules
-#IncludeEntry: {
+#IncludeEntry: close({
     path:   string  // Must be absolute and end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
-}
+})
 
 // Virtual shell configuration
-#VirtualShellConfig: {
-    enable_uroot_utils?: bool
-}
+#VirtualShellConfig: close({
+    enable_uroot_utils: *true | bool
+})
 
 // UI configuration
-#UIConfig: {
-    color_scheme?: "auto" | "dark" | "light"
-    verbose?:      bool
-    interactive?:  bool
-}
+#UIConfig: close({
+    color_scheme: *"auto" | #ColorSchemeType
+    verbose:      *false | bool
+    interactive:  *false | bool
+})
 
 // LLM configuration
-#LLMConfig: {
-    provider?:    "auto" | "claude" | "codex" | "gemini" | "ollama"
+#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+
+#LLMCommonConfig: {
     model?:       string
     timeout?:     string
     concurrency?: int
-    api?:         #LLMAPIConfig
 }
 
+#LLMNoBackendConfig: close({
+    #LLMCommonConfig
+})
+
+#LLMProviderConfig: close({
+    #LLMCommonConfig
+    provider: #LLMProviderType
+})
+
+#LLMAPIBackendConfig: close({
+    #LLMCommonConfig
+    api: #LLMAPIConfig
+})
+
 // OpenAI-compatible API configuration
-#LLMAPIConfig: {
+#LLMAPIConfig: close({
     base_url?:    string
     model?:       string
     api_key_env?: string
-}
+})
 
 // Container configuration
-#ContainerConfig: {
-    auto_provision?: #AutoProvisionConfig
-}
+#ContainerConfig: close({
+    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+})
 
 // Auto-provisioning configuration
-#AutoProvisionConfig: {
-    enabled?:          bool
-    strict?:           bool
-    binary_path?:      string
-    includes?:         [...#IncludeEntry]
-    inherit_includes?: bool
-    cache_dir?:        string
-}`,
+#AutoProvisionConfig: close({
+    enabled:          *true | bool
+    strict:           *false | bool
+    binary_path:      *"" | (string & !="")
+    includes:         *([]) | [...#IncludeEntry]
+    inherit_includes: *true | bool
+    cache_dir:        *"" | (string & !="")
+})`,
   },
 
   'reference/config/schema': {
     language: 'cue',
-    code: `#Config: {
-    container_engine?: "podman" | "docker"
-    includes?: [...#IncludeEntry]
-    default_runtime?: "native" | "virtual" | "container"
-    virtual_shell?: #VirtualShellConfig
-    ui?: #UIConfig
-    llm?: #LLMConfig
-    container?: #ContainerConfig
-}
+    code: `#ContainerEngineType: "podman" | "docker"
+#ConfigRuntimeType: "native" | "virtual" | "container"
+#ColorSchemeType: "auto" | "dark" | "light"
+#LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
-#IncludeEntry: {
+#Config: close({
+    container_engine: *"podman" | #ContainerEngineType
+    includes: *([]) | [...#IncludeEntry]
+    default_runtime: *"native" | #ConfigRuntimeType
+    virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
+    ui: *#UIConfig | #UIConfig
+    container: *#ContainerConfig | #ContainerConfig
+    llm: *#LLMNoBackendConfig | #LLMConfig
+})
+
+#IncludeEntry: close({
     path:   string  // Must be absolute and end with .invowkmod
     alias?: string  // Optional, for collision disambiguation
-}
+})
 
-#VirtualShellConfig: {
-    enable_uroot_utils?: bool
-}
+#VirtualShellConfig: close({
+    enable_uroot_utils: *true | bool
+})
 
-#UIConfig: {
-    color_scheme?: "auto" | "dark" | "light"
-    verbose?: bool
-    interactive?: bool
-}
+#UIConfig: close({
+    color_scheme: *"auto" | #ColorSchemeType
+    verbose: *false | bool
+    interactive: *false | bool
+})
 
-#LLMConfig: {
-    provider?: "auto" | "claude" | "codex" | "gemini" | "ollama"
+#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+
+#LLMCommonConfig: {
     model?: string
     timeout?: string
     concurrency?: int
-    api?: #LLMAPIConfig
 }
 
-#LLMAPIConfig: {
+#LLMNoBackendConfig: close({
+    #LLMCommonConfig
+})
+
+#LLMProviderConfig: close({
+    #LLMCommonConfig
+    provider: #LLMProviderType
+})
+
+#LLMAPIBackendConfig: close({
+    #LLMCommonConfig
+    api: #LLMAPIConfig
+})
+
+#LLMAPIConfig: close({
     base_url?: string
     model?: string
     api_key_env?: string
-}
+})
 
-#ContainerConfig: {
-    auto_provision?: #AutoProvisionConfig
-}
+#ContainerConfig: close({
+    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+})
 
-#AutoProvisionConfig: {
-    enabled?: bool
-    strict?: bool
-    binary_path?: string
-    includes?: [...#IncludeEntry]
-    inherit_includes?: bool
-    cache_dir?: string
-}`,
+#AutoProvisionConfig: close({
+    enabled: *true | bool
+    strict: *false | bool
+    binary_path: *"" | (string & !="")
+    includes: *([]) | [...#IncludeEntry]
+    inherit_includes: *true | bool
+    cache_dir: *"" | (string & !="")
+})`,
   },
 
   'reference/config/config-structure': {
     language: 'cue',
-    code: `#Config: {
-    container_engine?: "podman" | "docker"
-    includes?:         [...#IncludeEntry]
-    default_runtime?:  "native" | "virtual" | "container"
-    virtual_shell?:    #VirtualShellConfig
-    ui?:               #UIConfig
-    llm?:              #LLMConfig
-    container?:        #ContainerConfig
-}`,
+    code: `#Config: close({
+    container_engine: *"podman" | #ContainerEngineType
+    includes:         *([]) | [...#IncludeEntry]
+    default_runtime:  *"native" | #ConfigRuntimeType
+    virtual_shell:    *#VirtualShellConfig | #VirtualShellConfig
+    ui:               *#UIConfig | #UIConfig
+    container:        *#ContainerConfig | #ContainerConfig
+    llm:              *#LLMNoBackendConfig | #LLMConfig
+})`,
   },
 
   'reference/config/container-engine': {
@@ -688,15 +752,20 @@ invowk cmd build --ivk-runtime container`,
     code: `container: {
     auto_provision: {
         enabled: true
+        strict: false
+        binary_path: ""
+        includes: []
+        inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },
 
   'reference/config/virtual-shell-config-structure': {
     language: 'cue',
-    code: `#VirtualShellConfig: {
-    enable_uroot_utils?: bool
-}`,
+    code: `#VirtualShellConfig: close({
+    enable_uroot_utils: *true | bool
+})`,
   },
 
   'reference/config/enable-uroot-utils': {
@@ -708,50 +777,64 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/ui-config-structure': {
     language: 'cue',
-    code: `#UIConfig: {
-    color_scheme?: "auto" | "dark" | "light"
-    verbose?:      bool
-    interactive?:  bool
-}`,
+    code: `#UIConfig: close({
+    color_scheme: *"auto" | #ColorSchemeType
+    verbose:      *false | bool
+    interactive:  *false | bool
+})`,
   },
 
   'reference/config/llm-config-structure': {
     language: 'cue',
-    code: `#LLMConfig: {
-    provider?:    "auto" | "claude" | "codex" | "gemini" | "ollama"
+    code: `#LLMConfig: #LLMNoBackendConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+
+#LLMCommonConfig: {
     model?:       string
     timeout?:     string
     concurrency?: int
-    api?:         #LLMAPIConfig
-}`,
+}
+
+#LLMNoBackendConfig: close({
+    #LLMCommonConfig
+})
+
+#LLMProviderConfig: close({
+    #LLMCommonConfig
+    provider: #LLMProviderType
+})
+
+#LLMAPIBackendConfig: close({
+    #LLMCommonConfig
+    api: #LLMAPIConfig
+})`,
   },
 
   'reference/config/llm-api-config-structure': {
     language: 'cue',
-    code: `#LLMAPIConfig: {
+    code: `#LLMAPIConfig: close({
     base_url?:    string
     model?:       string
     api_key_env?: string
-}`,
+})`,
   },
 
   'reference/config/container-config-structure': {
     language: 'cue',
-    code: `#ContainerConfig: {
-    auto_provision?: #AutoProvisionConfig
-}`,
+    code: `#ContainerConfig: close({
+    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+})`,
   },
 
   'reference/config/auto-provision-config-structure': {
     language: 'cue',
-    code: `#AutoProvisionConfig: {
-    enabled?:          bool
-    strict?:           bool
-    binary_path?:      string
-    includes?:         [...#IncludeEntry]
-    inherit_includes?: bool
-    cache_dir?:        string
-}`,
+    code: `#AutoProvisionConfig: close({
+    enabled:          *true | bool
+    strict:           *false | bool
+    binary_path:      *"" | (string & !="")
+    includes:         *([]) | [...#IncludeEntry]
+    inherit_includes: *true | bool
+    cache_dir:        *"" | (string & !="")
+})`,
   },
 
   'reference/config/container-auto-provision': {
@@ -759,6 +842,7 @@ invowk cmd build --ivk-runtime container`,
     code: `container: {
     auto_provision: {
         enabled: true
+        strict: false
         binary_path: "/usr/local/bin/invowk"
         includes: [
             {path: "/opt/company/modules/tools.invowkmod"},
@@ -872,7 +956,7 @@ ui: {
 // Example LLM backend override
 // ----------------------------
 // Used by invowk agent cmd create and by invowk audit --llm.
-// Invowk leaves llm unset by default.
+// Default config uses llm: {} until a provider or API is configured.
 // Bare invowk audit remains deterministic and does not call LLMs.
 llm: {
     provider: "codex"
@@ -887,8 +971,10 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
+        binary_path: ""
         includes: []
         inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },

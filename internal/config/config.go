@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 
+	"cuelang.org/go/cue"
+
 	"github.com/invowk/invowk/pkg/cueutil"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
@@ -51,52 +53,13 @@ type (
 		Err  error
 	}
 
-	configPatch struct {
-		ContainerEngine *ContainerEngine         `json:"container_engine"`
-		Includes        *[]IncludeEntry          `json:"includes"`
-		DefaultRuntime  *RuntimeMode             `json:"default_runtime"`
-		VirtualShell    *virtualShellConfigPatch `json:"virtual_shell"`
-		UI              *uiConfigPatch           `json:"ui"`
-		LLM             *llmConfigPatch          `json:"llm"`
-		Container       *containerConfigPatch    `json:"container"`
+	configCUESource struct {
+		data     configCUEData
+		filename configCUEFilename
 	}
 
-	virtualShellConfigPatch struct {
-		EnableUrootUtils *bool `json:"enable_uroot_utils"`
-	}
-
-	uiConfigPatch struct {
-		ColorScheme *ColorScheme `json:"color_scheme"`
-		Verbose     *bool        `json:"verbose"`
-		Interactive *bool        `json:"interactive"`
-	}
-
-	containerConfigPatch struct {
-		AutoProvision *autoProvisionConfigPatch `json:"auto_provision"`
-	}
-
-	llmConfigPatch struct {
-		Provider    *LLMProvider       `json:"provider"`
-		Model       *LLMModelName      `json:"model"`
-		Timeout     *LLMTimeout        `json:"timeout"`
-		Concurrency *LLMConcurrency    `json:"concurrency"`
-		API         *llmAPIConfigPatch `json:"api"`
-	}
-
-	llmAPIConfigPatch struct {
-		BaseURL       *LLMBaseURL          `json:"base_url"`
-		Model         *LLMModelName        `json:"model"`
-		CredentialEnv *LLMCredentialEnvVar `json:"api_key_env"`
-	}
-
-	autoProvisionConfigPatch struct {
-		Enabled         *bool           `json:"enabled"`
-		Strict          *bool           `json:"strict"`
-		BinaryPath      *BinaryFilePath `json:"binary_path"`
-		Includes        *[]IncludeEntry `json:"includes"`
-		InheritIncludes *bool           `json:"inherit_includes"`
-		CacheDir        *CacheDirPath   `json:"cache_dir"`
-	}
+	configCUEData     []byte
+	configCUEFilename string
 )
 
 func (e *FileNotFoundError) Error() string {
@@ -115,125 +78,11 @@ func (e *LoadError) Unwrap() error {
 	return errors.Join(ErrConfigLoadFailed, e.Err)
 }
 
-func (p configPatch) Validate() error {
-	var errs []error
-	if p.ContainerEngine != nil {
-		errs = append(errs, p.ContainerEngine.Validate())
-	}
-	if p.Includes != nil {
-		for i := range *p.Includes {
-			errs = append(errs, (*p.Includes)[i].Validate())
-		}
-	}
-	if p.DefaultRuntime != nil {
-		errs = append(errs, p.DefaultRuntime.Validate())
-	}
-	if p.VirtualShell != nil {
-		errs = append(errs, p.VirtualShell.Validate())
-	}
-	if p.UI != nil {
-		errs = append(errs, p.UI.Validate())
-	}
-	if p.LLM != nil {
-		errs = append(errs, p.LLM.Validate())
-	}
-	if p.Container != nil {
-		errs = append(errs, p.Container.Validate())
-	}
-	return errors.Join(errs...)
-}
+func (s configCUESource) Validate() error { return s.filename.Validate() }
 
-func (p virtualShellConfigPatch) Validate() error {
-	return nil
-}
+func (f configCUEFilename) String() string { return string(f) }
 
-func (p uiConfigPatch) Validate() error {
-	if p.ColorScheme != nil {
-		return p.ColorScheme.Validate()
-	}
-	return nil
-}
-
-func (p containerConfigPatch) Validate() error {
-	if p.AutoProvision != nil {
-		return p.AutoProvision.Validate()
-	}
-	return nil
-}
-
-func (p llmConfigPatch) Validate() error {
-	var errs []error
-	if p.Provider != nil {
-		errs = appendValidationError(errs, p.Provider.Validate())
-	}
-	if p.Model != nil {
-		errs = appendValidationError(errs, p.Model.Validate())
-	}
-	if p.Timeout != nil {
-		errs = appendValidationError(errs, p.Timeout.Validate())
-	}
-	if p.Concurrency != nil {
-		errs = appendValidationError(errs, p.Concurrency.Validate())
-	}
-	if p.API != nil {
-		if !p.API.HasConfig() {
-			errs = append(errs, &InvalidLLMAPIConfigError{
-				FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
-			})
-		}
-		errs = appendValidationError(errs, p.API.Validate())
-	}
-	if p.Provider != nil && p.API != nil && p.API.HasConfig() {
-		// [GO-ONLY] provider/api exclusivity depends on whether the optional api
-		// block is semantically configured. CUE validates field shape only.
-		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))
-	}
-	if len(errs) > 0 {
-		return &InvalidLLMConfigError{FieldErrors: errs}
-	}
-	return nil
-}
-
-func appendValidationError(errs []error, err error) []error {
-	if err == nil {
-		return errs
-	}
-	return append(errs, err)
-}
-
-func (p llmAPIConfigPatch) HasConfig() bool {
-	return p.BaseURL != nil || p.Model != nil || p.CredentialEnv != nil
-}
-
-func (p llmAPIConfigPatch) Validate() error {
-	var errs []error
-	if p.BaseURL != nil {
-		errs = append(errs, p.BaseURL.Validate())
-	}
-	if p.Model != nil {
-		errs = append(errs, p.Model.Validate())
-	}
-	if p.CredentialEnv != nil {
-		errs = append(errs, p.CredentialEnv.Validate())
-	}
-	return errors.Join(errs...)
-}
-
-func (p autoProvisionConfigPatch) Validate() error {
-	var errs []error
-	if p.BinaryPath != nil {
-		errs = append(errs, p.BinaryPath.Validate())
-	}
-	if p.Includes != nil {
-		for i := range *p.Includes {
-			errs = append(errs, (*p.Includes)[i].Validate())
-		}
-	}
-	if p.CacheDir != nil {
-		errs = append(errs, p.CacheDir.Validate())
-	}
-	return errors.Join(errs...)
-}
+func (f configCUEFilename) Validate() error { return nil }
 
 // configDirFrom computes the config directory from injectable dependencies,
 // enabling tests to avoid mutating process-global environment variables.
@@ -416,111 +265,41 @@ func cueLoadError(path string, err error) error {
 	}
 }
 
-// decodeCUEConfigFile parses a CUE file through the shared schema parser and
-// applies the resulting patch over DefaultConfig().
+// decodeCUEConfigFile parses a CUE file through the shared schema parser.
 func decodeCUEConfigFile(path types.FilesystemPath) (*Config, error) {
 	data, err := os.ReadFile(string(path))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	parsed, err := cueutil.ParseAndDecodeString[configPatch](
+	return decodeCUEConfigSource(configCUESource{
+		data:     configCUEData(data),
+		filename: configCUEFilename(path),
+	})
+}
+
+func decodeCUEConfigSource(source configCUESource) (*Config, error) {
+	parsed, err := cueutil.ParseAndDecodeString[Config](
 		configSchema,
-		data,
+		[]byte(source.data),
 		"#Config",
-		cueutil.WithConcrete(false),
-		cueutil.WithFilename(string(path)),
+		cueutil.WithConcrete(true),
+		cueutil.WithFilename(string(source.filename)),
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := parsed.Value.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid config patch: %w", err)
-	}
-
-	return applyConfigPatch(DefaultConfig(), parsed.Value), nil
-}
-
-func applyConfigPatch(cfg *Config, patch *configPatch) *Config {
-	if patch == nil {
-		return cfg
-	}
-	if patch.ContainerEngine != nil {
-		cfg.ContainerEngine = *patch.ContainerEngine
-	}
-	if patch.Includes != nil {
-		cfg.Includes = *patch.Includes
-	}
-	if patch.DefaultRuntime != nil {
-		cfg.DefaultRuntime = *patch.DefaultRuntime
-	}
-	if patch.VirtualShell != nil && patch.VirtualShell.EnableUrootUtils != nil {
-		cfg.VirtualShell.EnableUrootUtils = *patch.VirtualShell.EnableUrootUtils
-	}
-	if patch.UI != nil {
-		if patch.UI.ColorScheme != nil {
-			cfg.UI.ColorScheme = *patch.UI.ColorScheme
-		}
-		if patch.UI.Verbose != nil {
-			cfg.UI.Verbose = *patch.UI.Verbose
-		}
-		if patch.UI.Interactive != nil {
-			cfg.UI.Interactive = *patch.UI.Interactive
+	apiValue := parsed.Unified.LookupPath(cue.ParsePath("llm.api"))
+	if apiValue.Exists() && !parsed.Value.LLM.API.HasConfig() {
+		return nil, &InvalidLLMConfigError{
+			FieldErrors: []error{
+				&InvalidLLMAPIConfigError{
+					FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
+				},
+			},
 		}
 	}
-	if patch.LLM != nil {
-		applyLLMConfigPatch(cfg, patch.LLM)
-	}
-	if patch.Container != nil && patch.Container.AutoProvision != nil {
-		auto := patch.Container.AutoProvision
-		if auto.Enabled != nil {
-			cfg.Container.AutoProvision.Enabled = *auto.Enabled
-		}
-		if auto.Strict != nil {
-			cfg.Container.AutoProvision.Strict = *auto.Strict
-		}
-		if auto.BinaryPath != nil {
-			cfg.Container.AutoProvision.BinaryPath = *auto.BinaryPath
-		}
-		if auto.Includes != nil {
-			cfg.Container.AutoProvision.Includes = *auto.Includes
-		}
-		if auto.InheritIncludes != nil {
-			cfg.Container.AutoProvision.InheritIncludes = *auto.InheritIncludes
-		}
-		if auto.CacheDir != nil {
-			cfg.Container.AutoProvision.CacheDir = *auto.CacheDir
-		}
-	}
-	return cfg
-}
-
-func applyLLMConfigPatch(cfg *Config, patch *llmConfigPatch) {
-	if patch.Provider != nil {
-		cfg.LLM.Provider = *patch.Provider
-		cfg.LLM.API = LLMAPIConfig{}
-	}
-	if patch.Model != nil {
-		cfg.LLM.Model = *patch.Model
-	}
-	if patch.Timeout != nil {
-		cfg.LLM.Timeout = *patch.Timeout
-	}
-	if patch.Concurrency != nil {
-		cfg.LLM.Concurrency = *patch.Concurrency
-	}
-	if patch.API != nil && patch.API.HasConfig() {
-		cfg.LLM.Provider = ""
-		if patch.API.BaseURL != nil {
-			cfg.LLM.API.BaseURL = *patch.API.BaseURL
-		}
-		if patch.API.Model != nil {
-			cfg.LLM.API.Model = *patch.API.Model
-		}
-		if patch.API.CredentialEnv != nil {
-			cfg.LLM.API.CredentialEnv = *patch.API.CredentialEnv
-		}
-	}
+	return parsed.Value, nil
 }
 
 // validateIncludes checks include collection constraints:
@@ -708,17 +487,15 @@ func GenerateCUE(cfg *Config) string {
 	fmt.Fprintf(&sb, "default_runtime: %q\n", cfg.DefaultRuntime)
 
 	// Includes
-	if len(cfg.Includes) > 0 {
-		sb.WriteString("\nincludes: [\n")
-		for _, entry := range cfg.Includes {
-			if entry.Alias != "" {
-				fmt.Fprintf(&sb, "\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
-			} else {
-				fmt.Fprintf(&sb, "\t{path: %q},\n", entry.Path)
-			}
+	sb.WriteString("\nincludes: [\n")
+	for _, entry := range cfg.Includes {
+		if entry.Alias != "" {
+			fmt.Fprintf(&sb, "\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
+		} else {
+			fmt.Fprintf(&sb, "\t{path: %q},\n", entry.Path)
 		}
-		sb.WriteString("]\n")
 	}
+	sb.WriteString("]\n")
 
 	// Virtual shell config
 	sb.WriteString("\nvirtual_shell: {\n")
@@ -733,61 +510,51 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("}\n")
 
 	// LLM config
-	if cfg.LLM.HasConfig() {
-		sb.WriteString("\nllm: {\n")
-		if cfg.LLM.Provider != "" {
-			fmt.Fprintf(&sb, "\tprovider: %q\n", cfg.LLM.Provider)
-		}
-		if cfg.LLM.Model != "" {
-			fmt.Fprintf(&sb, "\tmodel: %q\n", cfg.LLM.Model)
-		}
-		if cfg.LLM.Timeout != "" {
-			fmt.Fprintf(&sb, "\ttimeout: %q\n", cfg.LLM.Timeout)
-		}
-		if cfg.LLM.Concurrency != 0 {
-			fmt.Fprintf(&sb, "\tconcurrency: %d\n", cfg.LLM.Concurrency)
-		}
-		if cfg.LLM.API.HasConfig() {
-			sb.WriteString("\tapi: {\n")
-			if cfg.LLM.API.BaseURL != "" {
-				fmt.Fprintf(&sb, "\t\tbase_url: %q\n", cfg.LLM.API.BaseURL)
-			}
-			if cfg.LLM.API.Model != "" {
-				fmt.Fprintf(&sb, "\t\tmodel: %q\n", cfg.LLM.API.Model)
-			}
-			if cfg.LLM.API.CredentialEnv != "" {
-				fmt.Fprintf(&sb, "\t\tapi_key_env: %q\n", cfg.LLM.API.CredentialEnv)
-			}
-			sb.WriteString("\t}\n")
-		}
-		sb.WriteString("}\n")
+	sb.WriteString("\nllm: {\n")
+	if cfg.LLM.Provider != "" {
+		fmt.Fprintf(&sb, "\tprovider: %q\n", cfg.LLM.Provider)
 	}
+	if cfg.LLM.Model != "" {
+		fmt.Fprintf(&sb, "\tmodel: %q\n", cfg.LLM.Model)
+	}
+	if cfg.LLM.Timeout != "" {
+		fmt.Fprintf(&sb, "\ttimeout: %q\n", cfg.LLM.Timeout)
+	}
+	if cfg.LLM.Concurrency != 0 {
+		fmt.Fprintf(&sb, "\tconcurrency: %d\n", cfg.LLM.Concurrency)
+	}
+	if cfg.LLM.API.HasConfig() {
+		sb.WriteString("\tapi: {\n")
+		if cfg.LLM.API.BaseURL != "" {
+			fmt.Fprintf(&sb, "\t\tbase_url: %q\n", cfg.LLM.API.BaseURL)
+		}
+		if cfg.LLM.API.Model != "" {
+			fmt.Fprintf(&sb, "\t\tmodel: %q\n", cfg.LLM.API.Model)
+		}
+		if cfg.LLM.API.CredentialEnv != "" {
+			fmt.Fprintf(&sb, "\t\tapi_key_env: %q\n", cfg.LLM.API.CredentialEnv)
+		}
+		sb.WriteString("\t}\n")
+	}
+	sb.WriteString("}\n")
 
 	// Container config
 	sb.WriteString("\ncontainer: {\n")
 	sb.WriteString("\tauto_provision: {\n")
 	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled)
-	if cfg.Container.AutoProvision.Strict {
-		sb.WriteString("\t\tstrict: true\n")
-	}
-	if cfg.Container.AutoProvision.BinaryPath != "" {
-		fmt.Fprintf(&sb, "\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath)
-	}
-	if len(cfg.Container.AutoProvision.Includes) > 0 {
-		sb.WriteString("\t\tincludes: [\n")
-		for _, entry := range cfg.Container.AutoProvision.Includes {
-			if entry.Alias != "" {
-				fmt.Fprintf(&sb, "\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
-			} else {
-				fmt.Fprintf(&sb, "\t\t\t{path: %q},\n", entry.Path)
-			}
+	fmt.Fprintf(&sb, "\t\tstrict: %v\n", cfg.Container.AutoProvision.Strict)
+	fmt.Fprintf(&sb, "\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath)
+	sb.WriteString("\t\tincludes: [\n")
+	for _, entry := range cfg.Container.AutoProvision.Includes {
+		if entry.Alias != "" {
+			fmt.Fprintf(&sb, "\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
+		} else {
+			fmt.Fprintf(&sb, "\t\t\t{path: %q},\n", entry.Path)
 		}
-		sb.WriteString("\t\t]\n")
 	}
+	sb.WriteString("\t\t]\n")
 	fmt.Fprintf(&sb, "\t\tinherit_includes: %v\n", cfg.Container.AutoProvision.InheritIncludes)
-	if cfg.Container.AutoProvision.CacheDir != "" {
-		fmt.Fprintf(&sb, "\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir)
-	}
+	fmt.Fprintf(&sb, "\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir)
 	sb.WriteString("\t}\n")
 	sb.WriteString("}\n")
 

@@ -22,7 +22,7 @@ The configuration file uses [CUE](https://cuelang.org/) format and is located at
 | macOS    | `~/Library/Application Support/invowk/config.cue` |
 | Windows  | `%APPDATA%\invowk\config.cue` |
 
-Configuration files are validated as closed structs, so unknown fields cause a validation error.
+Configuration files are validated as closed structs, so unknown fields cause a validation error. The schema is the full effective configuration shape: user files may omit defaulted fields, and CUE materializes those defaults before Go validation runs.
 
 ## Schema Definition
 
@@ -33,6 +33,8 @@ Configuration files are validated as closed structs, so unknown fields cause a v
 The root configuration object.
 
 <Snippet id="reference/config/config-structure" />
+
+Fields marked as not required below may be omitted from a user-authored `config.cue`; they are still present in the effective `Config` after schema defaults are applied.
 
 ### container_engine
 
@@ -112,7 +114,7 @@ User interface configuration.
 
 **Type:** `#LLMConfig`
 **Required:** No
-**Default:** *(unset)*
+**Default:** `{}`
 
 Default LLM backend configuration for LLM-aware commands. `invowk agent cmd create` uses this config when no LLM flags are passed. `invowk audit` still requires explicit opt-in with `--llm` or `--llm-provider` before it sends script content to an LLM.
 
@@ -126,7 +128,7 @@ Use `llm.api` for OpenAI-compatible endpoints when you want to configure an API 
 
 **Type:** `#ContainerConfig`
 **Required:** No
-**Default:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
+**Default:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}}`
 
 Container runtime configuration.
 
@@ -204,7 +206,7 @@ Enables interactive mode by default (alternate screen buffer with PTY).
 
 ## LLMConfig
 
-Default LLM backend configuration. The whole `llm` object is unset by `DefaultConfig()` until the user configures a provider or API endpoint.
+Default LLM backend configuration. `DefaultConfig()` derives this from CUE and produces an empty no-backend `llm: {}` object until the user configures a provider or API endpoint.
 
 <Snippet id="reference/config/llm-config-structure" />
 
@@ -247,6 +249,7 @@ Limits concurrent LLM requests. Set `0` or omit the field to use the resolver fa
 **Default:** *(unset)*
 
 OpenAI-compatible API endpoint configuration. `provider` and `api` are mutually exclusive.
+If `api` is present, set at least one of `base_url`, `model`, or `api_key_env`.
 
 ---
 
@@ -292,7 +295,7 @@ Configuration for container runtime behavior.
 
 **Type:** `#AutoProvisionConfig`
 **Required:** No
-**Default:** `{enabled: true, strict: false, inherit_includes: true}`
+**Default:** `{enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}`
 
 Controls automatic provisioning of invowk resources into containers.
 

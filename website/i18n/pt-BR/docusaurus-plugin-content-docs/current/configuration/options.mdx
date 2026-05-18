@@ -10,7 +10,7 @@ Esta página documenta todas as opções de configuração disponíveis para o I
 
 ## Schema de Configuração
 
-O arquivo de configuração usa o formato CUE e segue este schema:
+O arquivo de configuração usa o formato CUE e segue o schema da configuração efetiva completa. Você pode omitir campos com padrão no seu `config.cue`; o CUE materializa esses padrões antes da validação em Go.
 
 <Snippet id="config/schema" />
 
@@ -148,7 +148,7 @@ Isso é equivalente a sempre passar `--ivk-interactive` na linha de comando.
 ### llm
 
 **Tipo:** `#LLMConfig`
-**Padrão:** *(não definido)*
+**Padrão:** `{}`
 
 Configura um backend LLM padrão para comandos que usam LLM. `invowk agent cmd create` usa essa configuração automaticamente quando nenhuma flag LLM é passada. `invowk audit` ainda exige opt-in explícito com `--llm` ou `--llm-provider` antes de enviar qualquer conteúdo de script para um LLM.
 
@@ -196,6 +196,7 @@ Limita requisições LLM concorrentes. Defina `0` ou omita o campo para usar o p
 **Padrão:** *(não definido)*
 
 Configura um endpoint de API compatível com OpenAI usando `base_url`, `model` e `api_key_env`.
+Se `api` estiver presente, defina pelo menos um desses campos.
 
 ##### llm.api.base_url
 
@@ -221,7 +222,7 @@ Nome da variável de ambiente que contém a chave de API.
 ### container
 
 **Tipo:** `#ContainerConfig`
-**Padrão:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
+**Padrão:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}}`
 
 Configura o comportamento do runtime container.
 
