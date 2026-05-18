@@ -1,0 +1,136 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Native
+
+O runtime **native** executa comandos usando o shell padrão do seu sistema. É a opção mais direta e a que você usará com mais frequência durante o desenvolvimento.
+
+## Como Funciona
+
+Quando você executa um comando com o runtime native, o Invowk™:
+
+1. Detecta o shell padrão do seu sistema
+2. Passa o script diretamente como argumento `-c` para o shell (nenhum arquivo temporário é criado)
+3. Executa-o através do shell
+4. Transmite a saída de volta para seu terminal
+
+:::note
+Quando um interpretador não-shell é especificado (ex.: Python, Ruby), um arquivo de script temporário é criado e passado para o interpretador.
+:::
+
+## Detecção de Shell
+
+O Invowk detecta automaticamente o melhor shell disponível:
+
+### Linux/macOS
+
+1. Usa a variável de ambiente `$SHELL` se definida
+2. Usa `bash` como fallback se disponível
+3. Usa `sh` como último recurso
+
+### Windows
+
+1. Tenta `pwsh` (PowerShell Core)
+2. Usa `powershell` (Windows PowerShell) como fallback
+3. Usa `cmd.exe` como último recurso
+
+## Uso Básico
+
+<Snippet id="runtime-modes/native-basic" />
+
+<Snippet id="runtime-modes/native-run" />
+
+## Sobrescrevendo o Shell Padrão
+
+Você pode sobrescrever o shell no nível do invowkfile:
+
+<Snippet id="runtime-modes/native-default-shell" />
+
+Isso é útil quando:
+- Você precisa de recursos específicos do bash
+- Seu script depende de um shell específico
+- Você quer comportamento consistente entre máquinas da equipe
+
+## Scripts Específicos por Shell
+
+### Bash/Zsh
+
+<Snippet id="runtime-modes/native-bash-script" />
+
+### PowerShell
+
+<Snippet id="runtime-modes/native-powershell-script" />
+
+### cmd.exe (Windows Batch)
+
+<Snippet id="runtime-modes/native-cmd-script" />
+
+## Usando Interpretadores
+
+O runtime native suporta interpretadores não-shell como Python, Ruby ou Node.js.
+
+### Auto-Detecção pelo Shebang
+
+<Snippet id="runtime-modes/native-shebang-script" />
+
+### Interpretador Explícito
+
+<Snippet id="runtime-modes/native-explicit-interpreter" />
+
+### Interpretador com Argumentos
+
+<Snippet id="runtime-modes/native-interpreter-args" />
+
+## Variáveis de Ambiente
+
+O runtime native tem acesso completo ao seu ambiente:
+
+<Snippet id="runtime-modes/native-env-vars" />
+
+## Acessando Flags e Argumentos
+
+Flags e argumentos ficam disponíveis como variáveis de ambiente:
+
+<Snippet id="runtime-modes/native-flags-args" />
+
+<Snippet id="runtime-modes/native-flags-run" />
+
+## Diretório de Trabalho
+
+Por padrão, scripts rodam no diretório atual. Sobrescreva com `workdir`:
+
+<Snippet id="runtime-modes/native-workdir" />
+
+## Dependências
+
+O runtime native valida dependências no seu sistema:
+
+<Snippet id="runtime-modes/native-deps" />
+
+## Vantagens
+
+- **Performance**: Sem overhead, execução direta no shell
+- **Acesso total**: Ferramentas do sistema e ambiente disponíveis
+- **Familiar**: Use seu shell preferido e seus recursos
+- **Interativo**: Pode executar comandos interativos
+
+## Limitações
+
+- **Diferenças de plataforma**: Scripts podem se comportar diferente entre SOs
+- **Dependência do ambiente**: Depende de ferramentas instaladas
+- **Reprodutibilidade**: Resultados podem variar entre máquinas
+
+## Quando Usar Native
+
+- **Desenvolvimento diário**: Iteração rápida, ferramentas familiares
+- **Integração com o sistema**: Quando precisa de acesso a recursos do sistema
+- **Tarefas interativas**: Prompts, editores, aplicações TUI
+- **Performance crítica**: Quando overhead de container importa
+
+## Próximos Passos
+
+- [Runtime Virtual](./virtual) - Para consistência multiplataforma
+- [Runtime Container](./container) - Para builds reprodutíveis

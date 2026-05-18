@@ -1,0 +1,59 @@
+---
+sidebar_position: 1
+---
+
+# Architecture Overview
+
+This section contains C4 model diagrams and supplementary architecture documentation for Invowk. These diagrams help developers understand the system structure, execution flows, and design decisions.
+
+## Diagram Overview
+
+| Diagram | Type | Purpose |
+|---------|------|---------|
+| [C4 Context (C1)](./c4-context) | C4 Model | System boundaries, users, external systems |
+| [C4 Container (C2)](./c4-container) | C4 Model | Internal components and data stores |
+| [C4 Component: Runtime (C3)](./c4-component-runtime) | C4 Model | Internal structure of the runtime package |
+| [C4 Component: Container (C3)](./c4-component-container) | C4 Model | Internal structure of the container package |
+| [Command Execution](./execution-flow) | Sequence | Temporal flow from CLI to execution |
+| [Runtime Selection](./runtime-selection) | Flowchart | Decision tree for choosing runtime |
+| [Discovery Precedence](./discovery) | Flowchart | How commands are found and conflicts resolved |
+
+## Reading Order
+
+For newcomers to the codebase:
+
+1. **Start with [C4 Context](./c4-context)** - Understand what Invowk is and what it interacts with
+2. **Then [C4 Container](./c4-container)** - See the major internal components
+3. **Optionally explore [Runtime Components](./c4-component-runtime) or [Container Components](./c4-component-container)** - Deep-dive into packages with non-trivial internal structure
+4. **Read [Command Execution](./execution-flow)** - Follow the main user journey
+5. **Reference others as needed** - Runtime selection and discovery when debugging or extending
+
+## Diagram Technology
+
+All diagrams use [D2](https://d2lang.com/) syntax. D2 is a modern diagramming language that compiles text definitions into SVG, making them easy to version control and maintain.
+
+### Editing Diagrams
+
+The [D2 Playground](https://play.d2lang.com/) is useful for testing changes before committing. Locally, run `make render-diagrams` to regenerate SVG renders from D2 sources.
+
+## C4 Model Background
+
+The [C4 model](https://c4model.com/) provides a hierarchical way to describe software architecture:
+
+| Level | Name | Description |
+|-------|------|-------------|
+| C1 | Context | System as black box with external actors |
+| C2 | Container | Major deployable/runnable units |
+| C3 | Component | Internal modules within containers |
+| C4 | Code | Class/code-level details |
+
+For Invowk (a single CLI binary), C1 and C2 are most valuable. C3 (Component) diagrams are provided selectively for packages whose internal structure is genuinely complex — specifically `internal/runtime/` (interface segregation, registry pattern, 3 implementations) and `internal/container/` (composition via embedding, decorator pattern, functional options). Other packages have flat enough structure that code documentation suffices.
+
+## Keeping Diagrams Updated
+
+When making significant architectural changes:
+
+1. **Check if diagrams need updates** - New components, changed relationships, removed features
+2. **Update the relevant diagram(s)** - Keep changes focused
+3. **Verify rendering** - Run `make render-diagrams` or test in the [D2 Playground](https://play.d2lang.com/)
+4. **Update tables and text** - Diagrams alone may not capture all context

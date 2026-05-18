@@ -1,0 +1,102 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Choose e Confirm
+
+Componentes de seleção e confirmação para decisões do usuário.
+
+## Choose
+
+Selecione uma ou mais opções de uma lista.
+
+### Uso Básico
+
+<Snippet id="tui/choose-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Prompt de seleção |
+| `--limit` | Máximo de seleções (padrão: 1) |
+| `--no-limit` | Seleções ilimitadas |
+| `--height` | Altura da lista |
+
+### Seleção Única
+
+<Snippet id="tui/choose-single" />
+
+### Seleção Múltipla
+
+<Snippet id="tui/choose-multiple" />
+
+Múltiplas seleções são retornadas como valores separados por nova linha:
+
+<Snippet id="tui/choose-multi-process" />
+
+### Exemplos do Mundo Real
+
+#### Seleção de Environment
+
+<Snippet id="tui/choose-env-selection" />
+
+#### Seleção de Serviço
+
+<Snippet id="tui/choose-service-selection" />
+
+---
+
+## Confirm
+
+Prompt de confirmação sim/não.
+
+### Uso Básico
+
+<Snippet id="tui/confirm-basic" />
+
+Retorna:
+- Código de saída 0 se o usuário confirmar (sim)
+- Código de saída 1 se o usuário recusar (não)
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Título exibido acima do prompt |
+| `--affirmative` | Label customizado para "sim" |
+| `--negative` | Label customizado para "não" |
+| `--default` | Padrão para sim |
+
+### Exemplos
+
+<Snippet id="tui/confirm-examples" />
+
+### Execução Condicional
+
+<Snippet id="tui/confirm-conditional" />
+
+### Operações Perigosas
+
+<Snippet id="tui/confirm-dangerous" />
+
+### Em Scripts
+
+<Snippet id="tui/confirm-script" />
+
+## Padrões Combinados
+
+### Seleção com Confirmação
+
+<Snippet id="tui/choose-confirm-combined" />
+
+### Wizard Multi-Etapa
+
+<Snippet id="tui/multistep-wizard" />
+
+## Próximos Passos
+
+- [Filter e File](./filter-and-file) - Busca e seleção de arquivo
+- [Visão Geral](./overview) - Todos os componentes TUI

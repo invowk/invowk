@@ -1,0 +1,102 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Invowkfile Format
+
+Invowkfiles are written in [CUE](https://cuelang.org/), a powerful configuration language that's like JSON with superpowers. If you've never used CUE before, don't worry - it's intuitive and you'll pick it up quickly.
+
+## Why CUE?
+
+We chose CUE over YAML or JSON because:
+
+- **Built-in validation** - CUE catches errors before you run anything
+- **No indentation nightmares** - Unlike YAML, a misplaced space won't break everything
+- **Comments!** - Yes, you can actually write comments
+- **Type safety** - Invowk™'s schema ensures your invowkfile is correct
+- **Templating** - Reduce repetition with CUE's powerful templating
+
+## Basic Syntax
+
+CUE looks like JSON, but more readable:
+
+<Snippet id="core-concepts/cue-basic-syntax" />
+
+Key differences from JSON:
+- No commas needed after fields (though they're allowed)
+- Trailing commas are fine
+- Comments with `//`
+- Multi-line strings with `"""`
+
+## Schema Overview
+
+Every invowkfile follows this structure:
+
+<Snippet id="core-concepts/schema-overview" />
+
+The `?` suffix means a field is optional.
+
+## Namespaces via Modules
+
+Invowkfiles define commands **without** a namespace. If you want namespacing, put your commands in a module and define the module ID in `invowkmod.cue`.
+
+See [Commands and Namespaces](./commands-and-namespaces) for module naming rules and command prefixes.
+
+## Commands Structure
+
+Each command has this structure:
+
+<Snippet id="core-concepts/command-structure" />
+
+### Implementations
+
+A command can have multiple implementations for different platforms/runtimes:
+
+<Snippet id="core-concepts/multi-platform-impl" />
+
+Invowk automatically picks the right implementation for your platform.
+
+## Scripts
+
+Scripts can be inline or reference external files:
+
+### Inline Scripts
+
+<Snippet id="core-concepts/script-inline" />
+
+### External Script Files
+
+<Snippet id="core-concepts/script-external" />
+
+Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+
+## Complete Example
+
+Here's a full-featured invowkfile:
+
+<Snippet id="core-concepts/full-example" />
+
+## CUE Tips & Tricks
+
+### Reduce Repetition
+
+Use CUE's templating to avoid repetition:
+
+<Snippet id="core-concepts/cue-template" />
+
+### Validation
+
+Run your invowkfile through the CUE validator:
+
+<Snippet id="cli/cue-validate" />
+
+Or just try to list commands - Invowk validates automatically:
+
+<Snippet id="cli/list-commands" />
+
+## Next Steps
+
+- [Commands and Namespaces](./commands-and-namespaces) - Naming conventions and module prefixes
+- [Implementations](./implementations) - Platforms, runtimes, and scripts

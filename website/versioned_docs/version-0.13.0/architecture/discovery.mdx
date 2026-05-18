@@ -1,0 +1,105 @@
+---
+sidebar_position: 8
+---
+
+import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
+
+# Discovery Precedence Flowchart
+
+This diagram shows how commands are discovered and how command name collisions are handled across sources.
+
+## Discovery Flow
+
+<Diagram id="architecture/discovery-flow" />
+
+## Conflict Resolution
+
+When names collide, Invowk handles two different cases:
+
+<Diagram id="architecture/discovery-conflict" />
+
+### Resolution Rules
+
+| Case | Behavior |
+|------|----------|
+| Same **full command name** discovered in multiple sources | First discovered source wins (precedence order) |
+| Same **simple command name** across different sources | Mark ambiguous; user must disambiguate (`@source` / `--ivk-from`) |
+
+**Discovery precedence order**:
+1. Current directory invowkfile (`./invowkfile.cue`)
+2. Local modules (`./*.invowkmod`)
+3. Configured includes (module paths from `config.Includes`)
+4. User commands directory (`~/.invowk/cmds/*.invowkmod`, modules only, non-recursive)
+
+Vendored modules (`invowk_modules/`) are scanned one level deep for each discovered module source.
+
+## Module Discovery Details
+
+<Diagram id="architecture/discovery-module-structure" />
+
+### Required Module Fields
+
+<Snippet id="architecture/discovery-module-fields" />
+
+## Dependency Resolution
+
+<Diagram id="architecture/discovery-deps" />
+
+### Transitive Dependency Visibility
+
+This visibility check applies to declared `depends_on.cmds` dependencies during static validation. It does not intercept arbitrary subprocess calls made at runtime.
+
+| From | Can Access | Cannot Access |
+|------|------------|---------------|
+| Module A | A's commands, B's commands | C's commands (transitive) |
+| Module B | B's commands, C's commands | - |
+| Root invowkfile | Own commands, direct deps | Transitive deps |
+
+**Why this restriction?**
+- Prevents implicit coupling to transitive dependencies
+- Makes dependencies explicit in each module
+- Enables dependency upgrades without breaking consumers
+
+## Includes Configuration
+
+Additional modules are configured in the resolved global config file:
+
+<Snippet id="architecture/discovery-includes-config" />
+
+### Entry Processing Order
+
+<Diagram id="architecture/discovery-includes" />
+
+## Discovery Caching
+
+<Diagram id="architecture/discovery-cache" />
+
+## Common Discovery Issues
+
+### Problem: Command Not Found
+
+<Diagram id="architecture/discovery-not-found" />
+
+### Problem: Wrong Command Version
+
+<Diagram id="architecture/discovery-wrong-version" />
+
+## Debug Commands
+
+```bash
+# List all discovered commands with sources
+invowk cmd --ivk-verbose
+
+# Validate workspace discovery (reports all diagnostics)
+invowk validate
+
+# Validate a specific module
+invowk validate ./mymodule.invowkmod
+```
+
+## Related Diagrams
+
+- [Command Execution Sequence](./execution-flow) - What happens after discovery
+- [Runtime Selection Flowchart](./runtime-selection) - How runtimes are chosen
+- [C4 Container Diagram](./c4-container) - Discovery component context
