@@ -37,7 +37,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -87,7 +87,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -126,7 +126,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -158,7 +158,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -194,7 +194,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -230,7 +230,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -266,7 +266,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -301,7 +301,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -347,7 +347,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -382,7 +382,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -414,7 +414,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}

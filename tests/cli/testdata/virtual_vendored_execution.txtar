@@ -25,7 +25,7 @@ cmds: [
 		name:        "hello"
 		description: "Local command"
 		implementations: [{
-			script:    "echo 'Hello from main'"
+			script: {content: "echo 'Hello from main'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -48,7 +48,7 @@ cmds: [
 		name:        "parent-cmd"
 		description: "Command from parent module"
 		implementations: [{
-			script:    "echo 'parent module command'"
+			script: {content: "echo 'parent module command'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -68,7 +68,7 @@ modules: {
 		namespace:        "dep@1.0.0"
 		command_source_id: "dep"
 		module_id:        "dep"
-		content_hash:     "sha256:2d4bf1c52b9fc0c35efac9360f7f46828a9716673ed2e31de9f1b31856f80957"
+		content_hash:     "sha256:082f1a40cda5751a8d344fdc56adf55be92d8edc441730a20589390e21349067"
 	}
 }
 
@@ -82,7 +82,7 @@ cmds: [
 		name:        "greet"
 		description: "Vendored command"
 		implementations: [{
-			script:    "echo 'Hello from vendored dep'"
+			script: {content: "echo 'Hello from vendored dep'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

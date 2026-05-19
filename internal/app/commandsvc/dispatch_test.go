@@ -258,7 +258,7 @@ func TestApplyExecutionTimeout(t *testing.T) {
 
 	validCtx := &runtimepkg.ExecutionContext{
 		Context:      t.Context(),
-		SelectedImpl: &invowkfile.Implementation{Timeout: "20ms"},
+		SelectedImpl: &invowkfile.Implementation{Timeout: "5s"},
 	}
 	cancel, err = applyExecutionTimeout(validCtx)
 	if err != nil {

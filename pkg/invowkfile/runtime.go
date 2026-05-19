@@ -61,10 +61,9 @@ var (
 	// ErrInvalidRuntimePersistentConfig is the sentinel error wrapped by InvalidRuntimePersistentConfigError.
 	ErrInvalidRuntimePersistentConfig = errors.New("invalid runtime persistent config")
 
-	// ErrInterpreterNotAllowed is returned when an interpreter is specified for a
-	// runtime that does not support custom interpreters (e.g., the virtual runtime
-	// uses mvdan/sh exclusively). Callers can use errors.Is to detect this condition
-	// programmatically.
+	// ErrInterpreterNotAllowed is returned when a script selects an interpreter
+	// that the chosen runtime cannot execute. Callers can use errors.Is to detect
+	// this condition programmatically.
 	ErrInterpreterNotAllowed = errors.New("interpreter not allowed for virtual runtime")
 
 	// containerImageRegex validates container image name format.
@@ -171,17 +170,9 @@ type (
 	//goplint:validate-all
 	//
 	// RuntimeConfig represents a runtime configuration with type-specific options
-	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	RuntimeConfig struct {
 		// Name specifies the runtime type (required)
 		Name RuntimeMode `json:"name"`
-		// Interpreter specifies how to execute the script (native and container only)
-		// - Omit field: defaults to "auto" (detect from shebang)
-		// - "auto": detect interpreter from shebang (#!) in first line of script
-		// - Specific value: use as interpreter (e.g., "python3", "node")
-		// When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
-		// Not allowed for virtual runtime (CUE schema enforces this, Go validates as fallback)
-		Interpreter InterpreterSpec `json:"interpreter,omitempty"`
 		// EnvInheritMode controls host environment inheritance (optional)
 		// Allowed values: "none", "allow", "all"
 		EnvInheritMode EnvInheritMode `json:"env_inherit_mode,omitempty"`
@@ -406,7 +397,6 @@ func (e *InvalidPlatformConfigError) Unwrap() error { return ErrInvalidPlatformC
 func (rc RuntimeConfig) Validate() error {
 	var errs []error
 	appendFieldError(&errs, rc.Name.Validate())
-	appendOptionalValidation(&errs, rc.Interpreter, rc.Interpreter != "")
 	appendOptionalValidation(&errs, rc.EnvInheritMode, rc.EnvInheritMode != "")
 	appendEachValidation(&errs, rc.EnvInheritAllow)
 	appendEachValidation(&errs, rc.EnvInheritDeny)
@@ -426,10 +416,6 @@ func (rc RuntimeConfig) Validate() error {
 func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
 	if len(rc.EnvInheritAllow) > 0 && rc.EnvInheritMode != EnvInheritAllow {
 		*errs = append(*errs, errors.New(`env_inherit_allow requires env_inherit_mode: "allow"`))
-	}
-
-	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
-		*errs = append(*errs, rc.ValidateInterpreterForRuntime())
 	}
 
 	if rc.Name != RuntimeContainer {
@@ -480,34 +466,6 @@ func (e *InvalidRuntimeConfigError) Error() string {
 // Unwrap returns ErrInvalidRuntimeConfig for errors.Is() compatibility.
 func (e *InvalidRuntimeConfigError) Unwrap() error {
 	return errors.Join(ErrInvalidRuntimeConfig, errors.Join(e.FieldErrors...))
-}
-
-// GetEffectiveInterpreter returns the effective interpreter value for a RuntimeConfig.
-// If the Interpreter field is empty, returns "auto" (the default).
-func (rc *RuntimeConfig) GetEffectiveInterpreter() string {
-	if rc.Interpreter == "" {
-		return InterpreterAuto
-	}
-	return string(rc.Interpreter)
-}
-
-// ResolveInterpreterFromScript resolves the interpreter for this runtime config
-// using the provided script content. This is a convenience method that combines
-// GetEffectiveInterpreter with shebang parsing.
-//
-// Returns the parsed ShebangInfo. If Found is false, the caller should use
-// the default shell-based execution.
-func (rc *RuntimeConfig) ResolveInterpreterFromScript(scriptContent string) ShebangInfo {
-	return ResolveInterpreter(rc.Interpreter, scriptContent)
-}
-
-// ValidateInterpreterForRuntime checks if the interpreter configuration is valid
-// for the runtime type. Returns an error if interpreter is set for virtual runtime.
-func (rc *RuntimeConfig) ValidateInterpreterForRuntime() error {
-	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
-		return fmt.Errorf("%w (got %q); virtual runtime uses mvdan/sh and cannot execute custom interpreters", ErrInterpreterNotAllowed, rc.Interpreter)
-	}
-	return nil
 }
 
 // ParseShebang extracts interpreter information from script content.
@@ -652,13 +610,13 @@ func GetExtensionForInterpreter(interpreter string) string {
 	return ""
 }
 
-// ResolveInterpreter resolves the effective interpreter for a RuntimeConfig.
+// ResolveInterpreter resolves the effective interpreter for a script.
 // If the interpreter field is empty, it defaults to "auto".
 // If "auto" (or empty), it parses the shebang from the script content.
 // Otherwise, it parses the explicit interpreter string.
 //
 // Parameters:
-//   - interpreter: the RuntimeConfig.Interpreter value (may be empty, "auto", or explicit)
+//   - interpreter: the script interpreter value (may be empty, "auto", or explicit)
 //   - scriptContent: the resolved script content (needed for shebang parsing)
 //
 // Returns the parsed ShebangInfo. If Found is false, the caller should use

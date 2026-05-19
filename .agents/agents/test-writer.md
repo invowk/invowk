@@ -30,7 +30,7 @@ cmds: [{
     name: "[command-name]"
     description: "[Description]"
     implementations: [{
-        script: "[shell script]"
+        script: {content: "[shell script]"}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -63,12 +63,12 @@ cmds: [{
     description: "[Description]"
     implementations: [
         {
-            script: "[bash/zsh script]"
+            script: {content: "[bash/zsh script]"}
             runtimes:  [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         {
-            script: "[PowerShell script]"
+            script: {content: "[PowerShell script]"}
             runtimes:  [{name: "native"}]
             platforms: [{name: "windows"}]
         },

@@ -41,12 +41,12 @@ cmds: [
 		description: "Hello from root invowkfile"
 		implementations: [
 			{
-				script:    "echo 'Hello from root!'"
+				script: {content: "echo 'Hello from root!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Hello from root!'"
+				script: {content: "Write-Output 'Hello from root!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -66,12 +66,12 @@ cmds: [
 		description: "Build from foo module"
 		implementations: [
 			{
-				script:    "echo 'Building from foo!'"
+				script: {content: "echo 'Building from foo!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Building from foo!'"
+				script: {content: "Write-Output 'Building from foo!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -91,12 +91,12 @@ cmds: [
 		description: "Test from bar module"
 		implementations: [
 			{
-				script:    "echo 'Testing from bar!'"
+				script: {content: "echo 'Testing from bar!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Testing from bar!'"
+				script: {content: "Write-Output 'Testing from bar!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

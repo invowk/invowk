@@ -18,7 +18,7 @@ cmds: [
 		name:        "uroot mktemp"
 		description: "Test mktemp temporary file and directory creation"
 		implementations: [{
-			script: """
+			script: {content: """
 				# Test creating a temp file
 				echo '=== mktemp file ==='
 				TMPFILE=$(mktemp)
@@ -36,7 +36,7 @@ cmds: [
 				rm -rf "$TMPDIR"
 
 				echo '=== uroot mktemp test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

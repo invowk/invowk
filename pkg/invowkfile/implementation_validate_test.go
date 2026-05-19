@@ -100,18 +100,20 @@ func TestInvalidImplementationMatchError_Unwrap(t *testing.T) {
 
 func TestImplementation_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
-	// Zero-value Implementation has no runtimes or platforms — should pass
-	// since Script is zero-valid and all slices are empty.
 	impl := Implementation{}
-	if err := impl.Validate(); err != nil {
-		t.Fatalf("Implementation{}.Validate() should pass (all zero-valid), got: %v", err)
+	err := impl.Validate()
+	if err == nil {
+		t.Fatal("Implementation{}.Validate() returned nil, want missing script source error")
+	}
+	if !errors.Is(err, ErrMissingImplementationScriptSource) {
+		t.Fatalf("Implementation{}.Validate() error = %v, want ErrMissingImplementationScriptSource", err)
 	}
 }
 
 func TestImplementation_Validate_Valid(t *testing.T) {
 	t.Parallel()
 	impl := Implementation{
-		Script:    "echo hello",
+		Script:    ImplementationScript{Content: "echo hello"},
 		Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 		Platforms: AllPlatformConfigs(),
 		Timeout:   "30s",
@@ -124,7 +126,7 @@ func TestImplementation_Validate_Valid(t *testing.T) {
 func TestImplementation_Validate_ValidWithEnvAndDeps(t *testing.T) {
 	t.Parallel()
 	impl := Implementation{
-		Script:    "echo hello",
+		Script:    ImplementationScript{Content: "echo hello"},
 		Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 		Platforms: AllPlatformConfigs(),
 		Env: &EnvConfig{
@@ -143,7 +145,7 @@ func TestImplementation_Validate_ValidWithEnvAndDeps(t *testing.T) {
 func TestImplementation_Validate_InvalidScript(t *testing.T) {
 	t.Parallel()
 	impl := Implementation{
-		Script: "   ", // whitespace-only
+		Script: ImplementationScript{Content: "   "}, // whitespace-only
 	}
 	err := impl.Validate()
 	if err == nil {
@@ -245,11 +247,11 @@ func TestImplementation_Validate_InvalidTimeout(t *testing.T) {
 func TestImplementation_Validate_MultipleErrors(t *testing.T) {
 	t.Parallel()
 	impl := Implementation{
-		Script:    "   ",                            // invalid
-		Runtimes:  []RuntimeConfig{{Name: "bogus"}}, // invalid
-		Platforms: []PlatformConfig{{Name: "beos"}}, // invalid
-		WorkDir:   "   ",                            // invalid
-		Timeout:   "not-a-duration",                 // invalid
+		Script:    ImplementationScript{Content: "   "}, // invalid
+		Runtimes:  []RuntimeConfig{{Name: "bogus"}},     // invalid
+		Platforms: []PlatformConfig{{Name: "beos"}},     // invalid
+		WorkDir:   "   ",                                // invalid
+		Timeout:   "not-a-duration",                     // invalid
 	}
 	err := impl.Validate()
 	if err == nil {

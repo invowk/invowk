@@ -1,7 +1,7 @@
 # Test: Custom check dependencies using native runtime
 # Mirrors virtual_deps_custom.txtar but with platform-split native implementations
-# Note: custom_checks.check_script runs in virtual runtime for dependency
-# evaluation regardless of main command runtime
+# Note: custom checks run on the host. Shell-compatible checks use the embedded
+# virtual shell; non-shell script.interpreter/shebang checks use that host interpreter.
 
 cd $WORK
 
@@ -22,12 +22,12 @@ cmds: [
 		description: "Command with custom check validating exit code"
 		implementations: [
 			{
-				script:    "echo 'Custom exit code check passed!'"
+				script: {content: "echo 'Custom exit code check passed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Custom exit code check passed!'"
+				script: {content: "Write-Output 'Custom exit code check passed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -36,7 +36,7 @@ cmds: [
 			custom_checks: [
 				{
 					name:          "true-command"
-					check_script:  "true"
+					script: {content: "true"}
 					expected_code: 0
 				},
 			]
@@ -47,12 +47,12 @@ cmds: [
 		description: "Command with custom check validating output pattern"
 		implementations: [
 			{
-				script:    "echo 'Custom output check passed!'"
+				script: {content: "echo 'Custom output check passed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Custom output check passed!'"
+				script: {content: "Write-Output 'Custom output check passed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -61,7 +61,7 @@ cmds: [
 			custom_checks: [
 				{
 					name:            "hostname-check"
-					check_script:    "hostname"
+					script: {content: "hostname"}
 					expected_code:   0
 					expected_output: ".*"
 				},

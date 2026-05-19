@@ -21,7 +21,7 @@ func TestInvowkfile_Validate_CollectsAllErrors(t *testing.T) {
 				Description: DescriptionText(strings.Repeat("x", MaxDescriptionLength+1)), // Error: too long
 				Implementations: []Implementation{
 					{
-						Script:   "", // Error: empty script
+						Script:   ImplementationScript{Content: ""}, // Error: empty script
 						Runtimes: []RuntimeConfig{},
 					},
 				},
@@ -52,7 +52,7 @@ func TestInvowkfile_Validate_DefaultValidators(t *testing.T) {
 				Description: "Build the project",
 				Implementations: []Implementation{
 					{
-						Script: "echo 'building'",
+						Script: ImplementationScript{Content: "echo 'building'"},
 						Runtimes: []RuntimeConfig{
 							{Name: RuntimeNative},
 						},
@@ -84,7 +84,7 @@ func TestParseBytesRejectsNonPositiveDurations(t *testing.T) {
 cmds: [{
 	name: "build"
 	implementations: [{
-		script: "echo build"
+		script: {content: "echo build"}
 		timeout: "0s"
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
@@ -103,7 +103,7 @@ cmds: [{
 		debounce: "0s"
 	}
 	implementations: [{
-		script: "echo build"
+		script: {content: "echo build"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -189,7 +189,7 @@ func TestInvowkfile_Validate_WithStrictMode(t *testing.T) {
 				Name: "test",
 				Implementations: []Implementation{
 					{
-						Script:    "echo test",
+						Script:    ImplementationScript{Content: "echo test"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
@@ -224,7 +224,7 @@ func validValidationInvowkfile() *Invowkfile {
 			Name:        "build",
 			Description: "Build the project",
 			Implementations: []Implementation{{
-				Script:    "echo 'building'",
+				Script:    ImplementationScript{Content: "echo 'building'"},
 				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			}},
@@ -247,7 +247,7 @@ func TestInvowkfile_Validate_WithFS(t *testing.T) {
 				Name: "container-cmd",
 				Implementations: []Implementation{
 					{
-						Script: "echo test",
+						Script: ImplementationScript{Content: "echo test"},
 						Runtimes: []RuntimeConfig{
 							{
 								Name:          RuntimeContainer,
@@ -287,7 +287,7 @@ func TestInvowkfile_Validate_WithAdditionalValidators(t *testing.T) {
 				Name: "test",
 				Implementations: []Implementation{
 					{
-						Script:    "echo test",
+						Script:    ImplementationScript{Content: "echo test"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
@@ -339,7 +339,7 @@ func TestInvowkfile_Validate_ContainerRuntimeErrors(t *testing.T) {
 				Name: "container-test",
 				Implementations: []Implementation{
 					{
-						Script: "echo test",
+						Script: ImplementationScript{Content: "echo test"},
 						Runtimes: []RuntimeConfig{
 							{
 								Name:          RuntimeContainer,
@@ -376,7 +376,7 @@ func TestInvowkfile_Validate_MultipleErrors(t *testing.T) {
 				Name: "test",
 				Implementations: []Implementation{
 					{
-						Script: "echo test",
+						Script: ImplementationScript{Content: "echo test"},
 						Runtimes: []RuntimeConfig{
 							{Name: RuntimeNative},
 						},

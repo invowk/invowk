@@ -83,7 +83,7 @@ description: "Benchmark module"
 	name: "build"
 	description: "Build"
 	implementations: [{
-		script: "echo build"
+		script: {content: "echo build"}
 		runtimes: [{name: "virtual"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]

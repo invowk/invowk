@@ -18,7 +18,7 @@ cmds: [
 		name:        "uroot ln"
 		description: "Test ln symbolic link operations"
 		implementations: [{
-			script: """
+			script: {content: """
 				mkdir -p $WORK/ln-test
 
 				# Create a target file
@@ -37,7 +37,7 @@ cmds: [
 
 				rm -rf $WORK/ln-test
 				echo '=== uroot ln test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

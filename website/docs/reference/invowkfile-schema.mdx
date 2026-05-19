@@ -177,14 +177,22 @@ Defines how a command is executed:
 
 ### script
 
-**Type:** `string` (non-empty)  
+**Type:** closed object with exactly one of `content` or `file`, plus optional `interpreter`
 **Required:** Yes
 
-The shell commands to execute OR a path to a script file.
+The executable script source. Use `script.content` for inline shell text and module-contained `script.file` references inside invowk modules. Root/project invowkfiles cannot use `script.file`; old `script: "..."` strings are rejected. Use `script.interpreter` to explicitly run the resolved script content with Python, Node.js, Ruby, PowerShell, or another supported interpreter.
 
 <Snippet id="reference/invowkfile/script-examples" />
 
-**Recognized extensions:** `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+#### script.interpreter
+
+**Type:** `string`
+**Available for:** implementation scripts and custom check scripts
+**Default:** `"auto"` (detect from shebang)
+
+Specifies how to execute the resolved script content. The value may be `auto` or a supported interpreter such as `python3`, `node`, `pwsh`, or `/usr/bin/env perl -w`. Runtime configs do not accept `interpreter`.
+
+<Snippet id="reference/invowkfile/interpreter-examples" />
 
 ### runtimes
 
@@ -248,20 +256,6 @@ Configuration for a specific runtime:
 **Required:** Yes
 
 The runtime type.
-
-### interpreter
-
-**Type:** `string`  
-**Available for:** `native`, `container`  
-**Default:** `"auto"` (detect from shebang)
-
-Specifies how to execute the script.
-
-<Snippet id="reference/invowkfile/interpreter-examples" />
-
-:::note
-Virtual runtime uses mvdan/sh which cannot execute non-shell interpreters.
-:::
 
 ### env_inherit_mode
 

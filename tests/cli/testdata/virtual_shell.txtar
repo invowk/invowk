@@ -19,7 +19,7 @@ cmds: [
 		name:        "virtual hello"
 		description: "Print greeting using virtual shell interpreter"
 		implementations: [{
-			script:    "echo 'Hello from the virtual shell!'"
+			script: {content: "echo 'Hello from the virtual shell!'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -28,7 +28,7 @@ cmds: [
 		name:        "multi runtime"
 		description: "Command that can run in native or virtual runtime"
 		implementations: [{
-			script:    "echo 'This can run in native (default) or virtual runtime'"
+			script: {content: "echo 'This can run in native (default) or virtual runtime'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

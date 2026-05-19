@@ -98,10 +98,11 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScriptFile("from-file", "./test.sh", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -347,6 +348,77 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	}
 	if result.Error == nil {
 		t.Error("Execute() expected error for interpreter with virtual runtime")
+	}
+}
+
+func TestVirtualRuntime_AcceptsShellCompatibleScriptInterpreter(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+
+	tests := []struct {
+		name        string
+		script      string
+		interpreter string
+	}{
+		{
+			name:        "explicit shell interpreter",
+			script:      `echo "ok"`,
+			interpreter: "bash",
+		},
+		{
+			name:   "shell shebang",
+			script: "#!/bin/sh\necho \"ok\"",
+		},
+		{
+			name:        "auto with shell shebang",
+			script:      "#!/usr/bin/env sh\necho \"ok\"",
+			interpreter: "auto",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := testCommandWithScript("virtual-shell-interpreter", tt.script, invowkfile.RuntimeVirtual)
+			if tt.interpreter != "" {
+				cmd.Implementations[0].Script.Interpreter = invowkfile.InterpreterSpec(tt.interpreter)
+			}
+
+			rt := NewVirtualRuntime(false)
+			ctx := NewExecutionContext(t.Context(), cmd, inv)
+			result := rt.ExecuteCapture(ctx)
+			if result.ExitCode != 0 || result.Error != nil {
+				t.Fatalf("ExecuteCapture() = exit %d, error %v", result.ExitCode, result.Error)
+			}
+			if got := strings.TrimSpace(result.Output); got != "ok" {
+				t.Fatalf("ExecuteCapture() output = %q, want ok", got)
+			}
+		})
+	}
+}
+
+func TestVirtualRuntime_RejectsNonShellShebang(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := testCommandWithScript("virtual-python-shebang", "#!/usr/bin/env python3\nprint('no')", invowkfile.RuntimeVirtual)
+
+	rt := NewVirtualRuntime(false)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+	err := rt.Validate(ctx)
+	if err == nil {
+		t.Fatal("Validate() error = nil, want non-shell shebang rejection")
+	}
+	if !errors.Is(err, invowkfile.ErrInterpreterNotAllowed) {
+		t.Fatalf("Validate() error = %v, want %v", err, invowkfile.ErrInterpreterNotAllowed)
 	}
 }
 
@@ -607,7 +679,7 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 			}
 
 			impl := invowkfile.Implementation{
-				Script:    "echo test",
+				Script:    invowkfile.ImplementationScript{Content: "echo test"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 				WorkDir:   invowkfile.WorkDir(tt.implWorkDir),

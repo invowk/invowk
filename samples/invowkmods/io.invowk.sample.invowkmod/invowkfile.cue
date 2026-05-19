@@ -8,7 +8,7 @@ cmds: [
 		description: "Print a friendly greeting from invowk"
 		implementations: [
 			{
-				script: "echo \"Hello, I'm invowk!\""
+				script: {content: "echo \"Hello, I'm invowk!\""}
 				// Compatible with all runtimes
 				runtimes: [
 					{name: "native"},

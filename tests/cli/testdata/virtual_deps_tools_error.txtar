@@ -23,7 +23,7 @@ cmds: [
 		name:        "deps tool missing"
 		description: "Command requiring a nonexistent tool"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -37,7 +37,7 @@ cmds: [
 		name:        "deps tools partial-missing"
 		description: "Command with mix of existing and missing tool deps"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

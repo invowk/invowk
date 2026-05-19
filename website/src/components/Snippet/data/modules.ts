@@ -23,7 +23,7 @@ export const modulesSnippets = {
         description: "Run linters"
         implementations: [
             {
-                script: "./scripts/lint.sh"
+                script: {file: "./scripts/lint.sh"}
                 runtimes: [{name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -106,7 +106,7 @@ cmds: [
     {
         name: "build"
         implementations: [{
-            script: "scripts/build.sh"  // Relative to module root
+            script: {file: "scripts/build.sh"}  // Relative to module root
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -114,7 +114,7 @@ cmds: [
     {
         name: "deploy"
         implementations: [{
-            script: "scripts/utils/helpers.sh"  // Nested path
+            script: {file: "scripts/utils/helpers.sh"}  // Nested path
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -189,7 +189,7 @@ cmds: [
         description: "A sample command"
         implementations: [
             {
-                script: "echo \\"Hello from mytools!\\""
+                script: {content: "echo \\"Hello from mytools!\\""
                 runtimes: [
                     {name: "native"},
                     {name: "virtual"},
@@ -219,7 +219,7 @@ touch mytools.invowkmod/invowkfile.cue`,
     {
         name: "quick"
         implementations: [{
-            script: "echo 'Quick task'"
+            script: {content: "echo 'Quick task'"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -229,7 +229,7 @@ touch mytools.invowkmod/invowkfile.cue`,
     {
         name: "complex"
         implementations: [{
-            script: "scripts/complex-task.sh"
+            script: {file: "scripts/complex-task.sh"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -254,14 +254,14 @@ touch mytools.invowkmod/invowkfile.cue`,
   'modules/script-paths-good-bad': {
     language: 'cue',
     code: `// Good
-script: "scripts/build.sh"
-script: "scripts/lib/logging.sh"
+script: {file: "scripts/build.sh"}
+script: {file: "scripts/lib/logging.sh"}
 
 // Bad - will fail on some platforms
-script: "scripts\\\\build.sh"
+script: {file: "scripts\\\\build.sh"}
 
 // Bad - escapes module directory
-script: "../outside.sh"`,
+script: {file: "../outside.sh"}`,
   },
 
   'modules/env-files-structure': {
@@ -314,7 +314,7 @@ script: "../outside.sh"`,
         name: "go"
         description: "Build Go project"
         implementations: [{
-            script: "scripts/build-go.sh"
+            script: {file: "scripts/build-go.sh"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -323,7 +323,7 @@ script: "../outside.sh"`,
         name: "node"
         description: "Build Node.js project"
         implementations: [{
-            script: "scripts/build-node.sh"
+            script: {file: "scripts/build-node.sh"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -332,7 +332,7 @@ script: "../outside.sh"`,
         name: "python"
         description: "Build Python project"
         implementations: [{
-            script: "scripts/build-python.sh"
+            script: {file: "scripts/build-python.sh"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -459,28 +459,28 @@ done`,
   'modules/path-separators-good-bad': {
     language: 'cue',
     code: `// Bad - Windows-style
-script: "scripts\\\\build.sh"
+script: {file: "scripts\\\\build.sh"}
 
 // Good - Forward slashes
-script: "scripts/build.sh"`,
+script: {file: "scripts/build.sh"}`,
   },
 
   'modules/escape-module-dir': {
     language: 'cue',
     code: `// Bad - tries to access parent
-script: "../outside/script.sh"
+script: {file: "../outside/script.sh"}
 
 // Good - stays within module
-script: "scripts/script.sh"`,
+script: {file: "scripts/script.sh"}`,
   },
 
   'modules/absolute-paths': {
     language: 'cue',
     code: `// Bad - absolute path
-script: "/usr/local/bin/script.sh"
+script: {file: "/usr/local/bin/script.sh"}
 
 // Good - relative path
-script: "scripts/script.sh"`,
+script: {file: "scripts/script.sh"}`,
   },
 
   // Distributing page snippets

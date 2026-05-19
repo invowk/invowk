@@ -72,7 +72,7 @@ cmds: [
 		name:        "args simple"
 		description: "Command with a single required argument"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Simple Positional Argument Demo ==="
 				echo ""
 				echo "You provided the following argument:"
@@ -81,7 +81,7 @@ cmds: [
 				echo "Hello, $INVOWK_ARG_NAME!"
 				echo ""
 				echo "Try: invowk cmd examples args simple Alice"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -93,7 +93,7 @@ cmds: [
 		name:        "args optional"
 		description: "Command with required and optional arguments"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Required + Optional Arguments Demo ==="
 				echo ""
 				echo "Arguments received:"
@@ -104,7 +104,7 @@ cmds: [
 				echo ""
 				echo "Try: invowk cmd examples args optional Alice"
 				echo "Try: invowk cmd examples args optional Alice 'Good morning'"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -117,7 +117,7 @@ cmds: [
 		name:        "args typed"
 		description: "Command with typed positional arguments"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Typed Arguments Demo ==="
 				echo ""
 				echo "Arguments received:"
@@ -130,7 +130,7 @@ cmds: [
 				echo "  - float: only valid floating-point numbers accepted"
 				echo ""
 				echo "Try: invowk cmd examples args typed 800 600 1.5"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -144,7 +144,7 @@ cmds: [
 		name:        "args validated"
 		description: "Command with regex-validated arguments"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Validated Arguments Demo ==="
 				echo ""
 				echo "Arguments received:"
@@ -154,7 +154,7 @@ cmds: [
 				echo "Deploying version $INVOWK_ARG_VERSION to $INVOWK_ARG_ENV..."
 				echo ""
 				echo "Try: invowk cmd examples args validated staging 2.1.0"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

@@ -34,7 +34,7 @@ version: "1.0.0"
 	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
 		t.Fatalf("failed to write invowkmod.cue: %v", err)
 	}
-	invowkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
+	invowkfileContent := `cmds: [{name: "` + cmdName + `", implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
 	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile.cue: %v", err)
 	}

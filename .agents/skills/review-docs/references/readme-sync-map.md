@@ -14,7 +14,7 @@ During review, read the source of truth first, then compare with the README sect
 | Command Flags | L722 | `pkg/invowkfile/invowkfile_schema.cue` `#FlagConfig` | Flag types, syntax, validation options |
 | Command Arguments | L986 | `pkg/invowkfile/invowkfile_schema.cue` `#ArgumentConfig` | Argument types, positional syntax, validation |
 | Platform Compatibility | L1362 | `pkg/invowkfile/invowkfile_schema.cue` `#PlatformConfig` | Platform names ("macos" not "darwin"), struct format |
-| Script Sources | L1493 | `pkg/invowkfile/invowkfile_schema.cue` `#Implementation` | `source_file` syntax, path resolution |
+| Script Sources | L1493 | `pkg/invowkfile/invowkfile_schema.cue` `#Implementation` | `script.content` / `script.file` syntax, path resolution |
 | Interpreter Support | L1554 | `pkg/invowkfile/invowkfile_schema.cue` `#Interpreter` | Interpreter config format |
 | Modules | L1711 | `pkg/invowkmod/`, module directory conventions | Module structure, RDNS naming, file layout |
 | Module Dependencies | L1977 | `pkg/invowkmod/invowkmod_schema.cue` `#RequiredModule` | `requires` syntax, lock file format, `git_url` (not `git`) |

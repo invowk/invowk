@@ -7,11 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 type (
@@ -69,6 +73,110 @@ func (m *countingMockEngine) Run(_ context.Context, opts container.RunOptions) (
 		fmt.Fprint(opts.Stderr, m.successStderr)
 	}
 	return &container.RunResult{ExitCode: 0}, nil
+}
+
+func TestContainerRuntimeExecuteCaptureUsesScriptInterpreter(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := &invowkfile.Command{
+		Name: "container-python",
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{
+				Content:     "print('ok')",
+				Interpreter: "python3",
+			},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:  invowkfile.RuntimeContainer,
+				Image: "python:3-slim",
+			}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+
+	engine := NewMockEngine()
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeContainer
+	ctx.SelectedImpl = &cmd.Implementations[0]
+
+	result := rt.ExecuteCapture(ctx)
+	if result.ExitCode != 0 || result.Error != nil {
+		t.Fatalf("ExecuteCapture() = exit %d, error %v", result.ExitCode, result.Error)
+	}
+	if len(engine.RunCalls) != 1 {
+		t.Fatalf("RunCalls = %d, want 1", len(engine.RunCalls))
+	}
+	got := engine.RunCalls[0].Command
+	if len(got) != 2 {
+		t.Fatalf("container command = %v, want interpreter plus script path", got)
+	}
+	if got[0] != "python3" {
+		t.Fatalf("container command[0] = %q, want python3", got[0])
+	}
+	if !strings.HasPrefix(got[1], "/workspace/invowk-script-") || !strings.HasSuffix(got[1], ".py") {
+		t.Fatalf("container script path = %q, want /workspace/invowk-script-*.py", got[1])
+	}
+}
+
+func TestContainerRuntimeExecuteCaptureUsesFileScriptInterpreter(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	scriptDir := filepath.Join(tmpDir, "scripts")
+	if err := os.Mkdir(scriptDir, 0o755); err != nil {
+		t.Fatalf("Mkdir() = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptDir, "check.py"), []byte("print('ok')"), 0o644); err != nil {
+		t.Fatalf("WriteFile() = %v", err)
+	}
+	scriptPath := invowkfile.FilesystemPath("scripts/check.py")
+	inv := &invowkfile.Invowkfile{
+		FilePath:   invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
+	}
+	cmd := &invowkfile.Command{
+		Name: "container-python-file",
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{
+				File:        &scriptPath,
+				Interpreter: "python3",
+			},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:  invowkfile.RuntimeContainer,
+				Image: "python:3-slim",
+			}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+
+	engine := NewMockEngine()
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeContainer
+	ctx.SelectedImpl = &cmd.Implementations[0]
+
+	result := rt.ExecuteCapture(ctx)
+	if result.ExitCode != 0 || result.Error != nil {
+		t.Fatalf("ExecuteCapture() = exit %d, error %v", result.ExitCode, result.Error)
+	}
+	if len(engine.RunCalls) != 1 {
+		t.Fatalf("RunCalls = %d, want 1", len(engine.RunCalls))
+	}
+	got := engine.RunCalls[0].Command
+	want := []string{"python3", "/workspace/scripts/check.py"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("container command = %v, want %v", got, want)
+	}
 }
 
 // TestRunWithRetry_StderrFlushedOnExhaustion verifies the C1 fix: when all

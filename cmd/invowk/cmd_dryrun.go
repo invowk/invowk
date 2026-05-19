@@ -34,7 +34,7 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("WorkDir:"), plan.WorkDir)
 	}
 
-	if plan.Script == "" {
+	if err := plan.Script.Validate(); err != nil {
 		fmt.Fprintln(w)
 		return
 	}
@@ -54,10 +54,10 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 	// Script content.
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Script:"))
-	if plan.ScriptIsFile {
-		fmt.Fprintf(w, "    (file: %s)\n", plan.Script)
+	if plan.Script.IsFile() {
+		fmt.Fprintf(w, "    (file: %s)\n", *plan.Script.File)
 	} else {
-		for line := range strings.SplitSeq(string(plan.Script), "\n") {
+		for line := range strings.SplitSeq(string(plan.Script.Content), "\n") {
 			fmt.Fprintf(w, "    %s\n", line)
 		}
 	}

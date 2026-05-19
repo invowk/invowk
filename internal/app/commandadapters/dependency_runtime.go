@@ -183,7 +183,10 @@ func (p dependencyRuntimeProbe) CheckCommand(command invowkfile.CommandName) err
 
 // RunCustomCheck runs a custom check against the selected container runtime.
 func (p dependencyRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
-	result, stdout, stderr, err := p.runContainerValidation(string(check.CheckScript))
+	result, stdout, stderr, err := p.runContainerValidationScript(invowkfile.ImplementationScript{
+		Content:     check.Script.Content,
+		Interpreter: check.Script.Interpreter,
+	})
 	if err != nil {
 		return deps.CustomCheckResult{}, fmt.Errorf(dependencyErrorFormat, check.Name, err)
 	}
@@ -215,16 +218,23 @@ func (p dependencyRuntimeProbe) checkFilepathAlternative(altPath string, fp invo
 
 //goplint:ignore -- runtime adapter captures shell script text and process streams from the container boundary.
 func (p dependencyRuntimeProbe) runContainerValidation(script string) (result *runtime.Result, stdout, stderr string, err error) {
+	return p.runContainerValidationScript(invowkfile.ImplementationScript{
+		Content: invowkfile.ScriptContent(script), //goplint:ignore -- validation probe text is generated internally and validated below.
+	})
+}
+
+//goplint:ignore -- runtime adapter captures shell script text and process streams from the container boundary.
+func (p dependencyRuntimeProbe) runContainerValidationScript(script invowkfile.ImplementationScript) (result *runtime.Result, stdout, stderr string, err error) {
 	rt, err := p.containerRuntime()
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	validationScript := containerValidationScript(script)
+	validationScript := containerValidationScript(script.Content)
 	if err := validationScript.Validate(); err != nil {
 		return nil, "", "", err
 	}
-	validationCtx, stdoutBuf, stderrBuf := p.newContainerValidationContext(validationScript)
+	validationCtx, stdoutBuf, stderrBuf := p.newContainerValidationContext(script)
 	result = rt.Execute(validationCtx)
 	if result.Error != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
@@ -237,7 +247,7 @@ func (p dependencyRuntimeProbe) runContainerValidation(script string) (result *r
 	return result, stdoutBuf.String(), stderrBuf.String(), nil
 }
 
-func (p dependencyRuntimeProbe) newContainerValidationContext(script containerValidationScript) (execCtx *runtime.ExecutionContext, stdout, stderr *bytes.Buffer) {
+func (p dependencyRuntimeProbe) newContainerValidationContext(script invowkfile.ImplementationScript) (execCtx *runtime.ExecutionContext, stdout, stderr *bytes.Buffer) {
 	stdout = &bytes.Buffer{}
 	stderr = &bytes.Buffer{}
 	selectedImpl := invowkfile.Implementation{
@@ -246,7 +256,7 @@ func (p dependencyRuntimeProbe) newContainerValidationContext(script containerVa
 	if p.parentCtx.SelectedImpl != nil {
 		selectedImpl = *p.parentCtx.SelectedImpl
 	}
-	selectedImpl.Script = invowkfile.ScriptContent(script) //goplint:ignore -- inline validation script owned by runtime adapter
+	selectedImpl.Script = script
 	selectedRuntime := p.parentCtx.SelectedRuntime
 	if selectedRuntime == "" {
 		selectedRuntime = invowkfile.RuntimeContainer

@@ -20,12 +20,12 @@ cmds: [
 		description: "A simple command"
 		implementations: [
 			{
-				script:    "echo hello"
+				script: {content: "echo hello"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'hello'"
+				script: {content: "Write-Output 'hello'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

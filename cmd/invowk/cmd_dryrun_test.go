@@ -56,7 +56,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 		Platform:    invowkfile.PlatformLinux,
 		WorkDir:     "/app",
 		Timeout:     "30s",
-		Script:      "echo deploying",
+		Script:      invowkfile.ImplementationScript{Content: "echo deploying"},
 		Env: map[string]string{
 			"INVOWK_CMD_NAME": "deploy",
 			"ARG1":            "production",
@@ -110,8 +110,8 @@ func TestRenderDryRun_NoImpl(t *testing.T) {
 	if strings.Contains(out, "Timeout:") {
 		t.Error("Timeout should not appear when impl is nil")
 	}
-	if strings.Contains(out, "Script:") {
-		t.Error("Script should not appear when impl is nil")
+	if strings.Contains(out, "Script: invowkfile.ImplementationScript{Content: ") {
+		t.Error("}Script should not appear when impl is nil")
 	}
 }
 
@@ -125,7 +125,7 @@ func TestRenderDryRun_PersistentContainer(t *testing.T) {
 		Runtime:                            invowkfile.RuntimeContainer,
 		Platform:                           invowkfile.PlatformLinux,
 		Timeout:                            "30s",
-		Script:                             "echo persistent",
+		Script:                             invowkfile.ImplementationScript{Content: "echo persistent"},
 		PersistentContainerMode:            "persistent",
 		PersistentContainerName:            "existing-dev",
 		PersistentContainerNameSource:      "cli",
@@ -161,7 +161,7 @@ func TestRenderDryRun_EphemeralContainer(t *testing.T) {
 		SourceID:                "invowkfile",
 		Runtime:                 invowkfile.RuntimeContainer,
 		Platform:                invowkfile.PlatformLinux,
-		Script:                  "echo ephemeral",
+		Script:                  invowkfile.ImplementationScript{Content: "echo ephemeral"},
 		PersistentContainerMode: "ephemeral",
 	}
 

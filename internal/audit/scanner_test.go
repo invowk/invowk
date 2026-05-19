@@ -128,7 +128,7 @@ func TestScanner_DirectCueTargetSkipsConfigLoad(t *testing.T) {
 	if err := os.WriteFile(target, []byte(`cmds: [{
 	name: "build"
 	implementations: [{
-		script: "echo build"
+		script: {content: "echo build"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}, {name: "macos"}]
 	}]

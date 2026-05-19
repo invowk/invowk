@@ -24,7 +24,7 @@ func TestCommand_Validate_Valid(t *testing.T) {
 		Category:    "dev",
 		Implementations: []Implementation{
 			{
-				Script:    "go build ./...",
+				Script:    ImplementationScript{Content: "go build ./..."},
 				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 				Platforms: AllPlatformConfigs(),
 			},
@@ -97,7 +97,7 @@ func TestCommand_Validate_InvalidImplementation(t *testing.T) {
 	c := Command{
 		Name: "build",
 		Implementations: []Implementation{
-			{Script: "   "}, // whitespace-only script
+			{Script: ImplementationScript{Content: "   "}}, // whitespace-only script
 		},
 	}
 	err := c.Validate()

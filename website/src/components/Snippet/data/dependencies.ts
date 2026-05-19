@@ -130,7 +130,7 @@ export const dependenciesSnippets = {
         {
             alternatives: [{
                 name: "docker-running"
-                check_script: "docker info > /dev/null 2>&1"
+                script: {content: "docker info > /dev/null 2>&1"}
             }]
         }
     ]
@@ -216,7 +216,7 @@ cmds: [...]`,
     name: "build"
     implementations: [
         {
-            script: "echo checking container dependencies"
+            script: {content: "echo checking container dependencies"}
             runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
             depends_on: {
@@ -244,7 +244,7 @@ cmds: [
         }
         implementations: [
             {
-                script: "go build ./..."
+                script: {content: "go build ./..."}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
                 // Implementation level: also requires make
@@ -291,7 +291,7 @@ cmds: [
     }
     implementations: [
         {
-            script: "./scripts/deploy.sh"
+            script: {content: "./scripts/deploy.sh"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
@@ -324,7 +324,7 @@ Install the missing tools and try again.`,
     name: "build"
     implementations: [
         {
-            script: "test -f /workspace/invowkfile.cue && echo ready"
+            script: {content: "test -f /workspace/invowkfile.cue && echo ready"}
             runtimes: [{
                 name: "container"
                 image: "debian:stable-slim"
@@ -349,7 +349,7 @@ Install the missing tools and try again.`,
     code: `{
     name: "deploy"
     implementations: [{
-        script: "./scripts/deploy.sh"
+        script: {content: "./scripts/deploy.sh"}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -396,10 +396,10 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: """
+        script: {content: """
             VERSION=$(git describe --tags --always)
             go build -ldflags="-X main.version=$VERSION" ./...
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -418,7 +418,7 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: "pnpm run build || npm run build"
+        script: {content: "pnpm run build || npm run build"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -437,10 +437,10 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: """
+        script: {content: """
             helm upgrade --install myapp ./charts/myapp
             kubectl rollout status deployment/myapp
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -460,7 +460,7 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: "poetry run python main.py"
+        script: {content: "poetry run python main.py"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -475,7 +475,7 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["go"]}]  // Checked on host
     }
     implementations: [{
-        script: "go build ./..."
+        script: {content: "go build ./..."}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -490,7 +490,7 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["go"]}]  // Checked on the host
     }
     implementations: [{
-        script: "go build ./..."
+        script: {content: "go build ./..."}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -502,7 +502,7 @@ Install the missing tools and try again.`,
     code: `{
     name: "build"
     implementations: [{
-        script: "echo running inside container"
+        script: {content: "echo running inside container"}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -524,7 +524,7 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["aws", "aws-cli"]}]
     }
     implementations: [{
-        script: "aws s3 sync ./dist s3://my-bucket"
+        script: {content: "aws s3 sync ./dist s3://my-bucket"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -542,7 +542,7 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: "migrate -path ./migrations -database $DATABASE_URL up"
+        script: {content: "migrate -path ./migrations -database $DATABASE_URL up"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -560,7 +560,7 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"
+        script: {content: "xdg-open http://localhost:3000/docs || open http://localhost:3000/docs"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -589,7 +589,7 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["internet"]}]
     }
     implementations: [{
-        script: "go mod download"
+        script: {content: "go mod download"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -602,7 +602,7 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["internet"]}]
     }
     implementations: [{
-        script: "kubectl apply -f k8s/"
+        script: {content: "kubectl apply -f k8s/"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -615,7 +615,7 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["internet"]}]
     }
     implementations: [{
-        script: "curl -o data.json https://api.example.com/data"
+        script: {content: "curl -o data.json https://api.example.com/data"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -640,7 +640,7 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["local-area-network"]}]
     }
     implementations: [{
-        script: "psql -h db.local -U admin"
+        script: {content: "psql -h db.local -U admin"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -653,7 +653,7 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["local-area-network"]}]
     }
     implementations: [{
-        script: "curl http://service.local:8080/health"
+        script: {content: "curl http://service.local:8080/health"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -680,7 +680,7 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["npm", "pnpm", "yarn"]}]
     }
     implementations: [{
-        script: "npm install"
+        script: {content: "npm install"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -702,11 +702,11 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: """
+        script: {content: """
             go mod download
             go build ./...
             go test ./...
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -723,13 +723,13 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["internet", "local-area-network"]}]
     }
     implementations: [{
-        script: """
+        script: {content: """
             if ping -c 1 nas.local > /dev/null 2>&1; then
                 rsync -av ./data nas.local:/backup/
             else
                 aws s3 sync ./data s3://my-backup-bucket/
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -746,7 +746,7 @@ Install the missing tools and try again.`,
             capabilities: [{alternatives: ["internet"]}]
         }
         implementations: [{
-            script: "go mod download"
+            script: {content: "go mod download"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -760,7 +760,7 @@ Install the missing tools and try again.`,
             filepaths: [{alternatives: ["go.mod"]}]
         }
         implementations: [{
-            script: "go build -mod=readonly ./..."
+            script: {content: "go build -mod=readonly ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -777,10 +777,10 @@ Install the missing tools and try again.`,
         capabilities: [{alternatives: ["internet"]}]
     }
     implementations: [{
-        script: """
+        script: {content: """
             apt-get update && apt-get install -y kubectl
             kubectl apply -f k8s/
-            """
+            """}
         runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
@@ -835,7 +835,7 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["aws"]}]
     }
     implementations: [{
-        script: "aws s3 sync ./dist s3://my-bucket"
+        script: {content: "aws s3 sync ./dist s3://my-bucket"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -858,7 +858,7 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["migrate", "goose"]}]
     }
     implementations: [{
-        script: "migrate -path ./migrations -database $DATABASE_URL up"
+        script: {content: "migrate -path ./migrations -database $DATABASE_URL up"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -878,10 +878,10 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["npm"]}]
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" > ~/.npmrc
             npm publish
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -903,10 +903,10 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying to $DEPLOY_ENV..."
             ./scripts/deploy-$DEPLOY_ENV.sh
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -930,10 +930,10 @@ Install the missing tools and try again.`,
         ]
     }
     implementations: [{
-        script: """
+        script: {content: """
             git tag -a "$VERSION" -m "$RELEASE_NOTES"
             git push origin "$VERSION"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1019,7 +1019,7 @@ Install the missing tools and try again.`,
     code: `custom_checks: [
     {
         name: "docker-running"
-        check_script: "docker info > /dev/null 2>&1"
+        script: {content: "docker info > /dev/null 2>&1"}
         // Passes if exit code is 0
     }
 ]`,
@@ -1030,9 +1030,9 @@ Install the missing tools and try again.`,
     code: `custom_checks: [
     {
         name: "not-production"
-        check_script: """
+        script: {content: """
             test "$ENV" = 'production'
-            """
+            """}
         expected_code: 1  // Should fail (not be production)
     }
 ]`,
@@ -1043,7 +1043,7 @@ Install the missing tools and try again.`,
     code: `custom_checks: [
     {
         name: "node-version"
-        check_script: "node --version"
+        script: {content: "node --version"}
         expected_output: "^v(18|20|22)\\\\."  // Major version 18, 20, or 22
     }
 ]`,
@@ -1054,7 +1054,7 @@ Install the missing tools and try again.`,
     code: `custom_checks: [
     {
         name: "go-version"
-        check_script: "go version"
+        script: {content: "go version"}
         expected_code: 0  // Must succeed
         expected_output: "go1\\\\.2[6-9]"  // Must be Go 1.26+
     }
@@ -1068,11 +1068,11 @@ Install the missing tools and try again.`,
         alternatives: [
             {
                 name: "go-1.26"
-                check_script: "go version | grep -q 'go1.26'"
+                script: {content: "go version | grep -q 'go1.26'"}
             },
             {
                 name: "go-1.27"
-                check_script: "go version | grep -q 'go1.27'"
+                script: {content: "go version | grep -q 'go1.27'"}
             }
         ]
     }
@@ -1088,12 +1088,12 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "go-1.26-or-higher"
-                check_script: """
+                script: {content: """
                     version=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | head -1)
                     major=$(echo $version | cut -d. -f1 | tr -d 'go')
                     minor=$(echo $version | cut -d. -f2)
                     [ "$major" -ge 1 ] && [ "$minor" -ge 26 ]
-                    """
+                    """}
             }
         ]
     }
@@ -1110,12 +1110,12 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "docker-daemon"
-                check_script: "docker info > /dev/null 2>&1"
+                script: {content: "docker info > /dev/null 2>&1"}
             }
         ]
     }
     implementations: [{
-        script: "docker build -t myapp ."
+        script: {content: "docker build -t myapp ."}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1131,20 +1131,20 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "clean-working-tree"
-                check_script: """
+                script: {content: """
                     test -z "$(git status --porcelain)"
-                    """
+                    """}
             },
             {
                 name: "on-main-branch"
-                check_script: """
+                script: {content: """
                     test "$(git branch --show-current)" = 'main'
-                    """
+                    """}
             }
         ]
     }
     implementations: [{
-        script: "./scripts/release.sh"
+        script: {content: "./scripts/release.sh"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1160,16 +1160,16 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "valid-yaml"
-                check_script: """
+                script: {content: """
                     python3 -c 'import yaml; yaml.safe_load(open("config.yaml"))'
-                    """
+                    """}
             },
             {
                 name: "has-required-fields"
-                check_script: """
+                script: {content: """
                     grep -q 'database:' config.yaml && 
                     grep -q 'server:' config.yaml
-                    """
+                    """}
             }
         ]
     }
@@ -1185,19 +1185,19 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "enough-memory"
-                check_script: """
+                script: {content: """
                     # Check for at least 4GB free memory
                     free_mb=$(free -m | awk '/^Mem:/{print $7}')
                     [ "$free_mb" -ge 4096 ]
-                    """
+                    """}
             },
             {
                 name: "enough-disk"
-                check_script: """
+                script: {content: """
                     # Check for at least 10GB free disk
                     free_gb=$(df -BG . | awk 'NR==2{print $4}' | tr -d 'G')
                     [ "$free_gb" -ge 10 ]
-                    """
+                    """}
             }
         ]
     }
@@ -1214,12 +1214,12 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "correct-context"
-                check_script: "kubectl config current-context"
+                script: {content: "kubectl config current-context"}
                 expected_output: "^production-cluster$"
             },
             {
                 name: "cluster-reachable"
-                check_script: "kubectl cluster-info > /dev/null 2>&1"
+                script: {content: "kubectl cluster-info > /dev/null 2>&1"}
             }
         ]
     }
@@ -1237,12 +1237,12 @@ Install the missing tools and try again.`,
                 alternatives: [
                     {
                         name: "python-3.11"
-                        check_script: "python3 --version"
+                        script: {content: "python3 --version"}
                         expected_output: "^Python 3\.11"
                     },
                     {
                         name: "python-3.12"
-                        check_script: "python3 --version"
+                        script: {content: "python3 --version"}
                         expected_output: "^Python 3\.12"
                     }
                 ]
@@ -1258,7 +1258,7 @@ Install the missing tools and try again.`,
     code: `{
     name: "build"
     implementations: [{
-        script: "echo running custom checks"
+        script: {content: "echo running custom checks"}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -1267,7 +1267,7 @@ Install the missing tools and try again.`,
                     {
                         name: "shell-ready"
                         // This runs INSIDE the container
-                        check_script: "test -x /bin/sh && echo ok"
+                        script: {content: "test -x /bin/sh && echo ok"}
                         expected_output: "^ok$"
                     }
                 ]
@@ -1281,32 +1281,32 @@ Install the missing tools and try again.`,
   'dependencies/custom-checks-tip-keep-simple': {
     language: 'cue',
     code: `// Good - simple and clear
-check_script: "go version | grep -q 'go1.26'"
+script: {content: "go version | grep -q 'go1.26'"}
 
 // Avoid - complex and fragile
-check_script: """
+script: {content: """
     set -e
     version=$(go version 2>&1)
     if [ $? -ne 0 ]; then exit 1; fi
     echo "$version" | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
-    """`,
+    """}`,
   },
 
   'dependencies/custom-checks-tip-exit-codes': {
     language: 'cue',
     code: `// Script should exit 0 for success, non-zero for failure
-check_script: """
+script: {content: """
     if [ -f "required-file" ]; then
         exit 0
     else
         exit 1
     fi
-    """`,
+    """}`,
   },
 
   'dependencies/custom-checks-tip-handle-missing': {
     language: 'cue',
-    code: `check_script: "command -v mytools > /dev/null && mytool --check"`,
+    code: `script: {content: "command -v mytools > /dev/null && mytool --check"}`,
   },
 
   // =============================================================================
@@ -1413,7 +1413,7 @@ check_script: """
         ]
     }
     implementations: [{
-        script: "go build ./..."
+        script: {content: "go build ./..."}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1434,7 +1434,7 @@ check_script: """
         ]
     }
     implementations: [{
-        script: "npm run build"
+        script: {content: "npm run build"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1454,7 +1454,7 @@ check_script: """
         ]
     }
     implementations: [{
-        script: "docker build -t myapp ."
+        script: {content: "docker build -t myapp ."}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1481,7 +1481,7 @@ check_script: """
         ]
     }
     implementations: [{
-        script: "./scripts/deploy.sh"
+        script: {content: "./scripts/deploy.sh"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1493,7 +1493,7 @@ check_script: """
     code: `{
     name: "build"
     implementations: [{
-        script: "test -f /workspace/invowkfile.cue && echo ready"
+        script: {content: "test -f /workspace/invowkfile.cue && echo ready"}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -1516,7 +1516,7 @@ check_script: """
     name: "read-config"
     implementations: [
         {
-            script: "cat $CONFIG_PATH"
+            script: {content: "cat $CONFIG_PATH"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
             depends_on: {
@@ -1524,7 +1524,7 @@ check_script: """
             }
         },
         {
-            script: "cat $CONFIG_PATH"
+            script: {content: "cat $CONFIG_PATH"}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
             depends_on: {

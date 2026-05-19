@@ -19,6 +19,9 @@ type (
 		Stdin  io.Reader
 	}
 
+	// ScriptFileReader reads module-contained script files for dependency checks.
+	ScriptFileReader func(path string) ([]byte, error)
+
 	// ExecutionContext carries dependency-validation state without importing a
 	// concrete runtime execution DTO.
 	//
@@ -29,6 +32,8 @@ type (
 		SelectedRuntime         invowkfile.RuntimeMode
 		ImplementationDependsOn *invowkfile.DependsOn //goplint:no-delegate -- dependency payload is validated before this adapter DTO is assembled.
 		RuntimeDependsOn        *invowkfile.DependsOn //goplint:no-delegate -- dependency payload is validated before this adapter DTO is assembled.
+		SourceModulePath        *invowkfile.FilesystemPath
+		ReadScriptFile          ScriptFileReader
 		IO                      IOContext
 	}
 )
@@ -45,6 +50,11 @@ func (ctx ExecutionContext) Validate() error {
 			return err
 		}
 	}
+	if ctx.SourceModulePath != nil {
+		if err := ctx.SourceModulePath.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -54,4 +64,15 @@ func (ctx ExecutionContext) GoContext() context.Context {
 		return context.Background()
 	}
 	return ctx.Context
+}
+
+func (ctx ExecutionContext) scriptFileReader() ScriptFileReader {
+	return ctx.ReadScriptFile
+}
+
+func (ctx ExecutionContext) modulePath() invowkfile.FilesystemPath {
+	if ctx.SourceModulePath == nil {
+		return ""
+	}
+	return *ctx.SourceModulePath
 }

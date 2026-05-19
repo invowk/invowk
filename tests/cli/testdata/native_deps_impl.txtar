@@ -21,7 +21,7 @@ cmds: [
 		name: "impl deps satisfied"
 		implementations: [
 			{
-				script:    "echo 'implementation deps passed'"
+				script: {content: "echo 'implementation deps passed'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 				depends_on: {
@@ -29,7 +29,7 @@ cmds: [
 				}
 			},
 			{
-				script:    "Write-Output 'implementation deps passed'"
+				script: {content: "Write-Output 'implementation deps passed'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 				depends_on: {
@@ -42,7 +42,7 @@ cmds: [
 		name: "impl deps missing"
 		implementations: [
 			{
-				script:    "echo 'should not run'"
+				script: {content: "echo 'should not run'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 				depends_on: {
@@ -50,7 +50,7 @@ cmds: [
 				}
 			},
 			{
-				script:    "Write-Output 'should not run'"
+				script: {content: "Write-Output 'should not run'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 				depends_on: {

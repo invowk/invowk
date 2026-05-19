@@ -46,5 +46,5 @@ Create a generated command from a file.
 #!/bin/sh
 cat >/dev/null
 cat <<'JSON'
-{"type":"result","result":"{\"command_cue\":\"{name:\\\"agenthello\\\",description:\\\"Print a generated greeting\\\",implementations:[{script:\\\"echo generated\\\",runtimes:[{name:\\\"virtual\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}\",\"summary\":\"generated command added\"}"}
+{"type":"result","result":"{\"command_cue\":\"{name:\\\"agenthello\\\",description:\\\"Print a generated greeting\\\",implementations:[{script:{content:\\\"echo generated\\\"},runtimes:[{name:\\\"virtual\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}\",\"summary\":\"generated command added\"}"}
 JSON

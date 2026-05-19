@@ -190,7 +190,7 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
 		return errContainerNoImpl
 	}
-	if ctx.SelectedImpl.Script == "" {
+	if err := ctx.SelectedImpl.Script.Validate(); err != nil {
 		return errContainerNoScript
 	}
 

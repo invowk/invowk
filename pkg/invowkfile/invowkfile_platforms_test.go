@@ -18,7 +18,7 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "make build"
+				script: {content: "make build"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
@@ -28,7 +28,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "deploy.sh"
+				script: {content: "deploy.sh"}
 
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
@@ -80,13 +80,13 @@ func TestGenerateCUE_WithPlatforms(t *testing.T) {
 			{
 				Name: "build",
 				Implementations: []Implementation{
-					{Script: "make build", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}, {Name: PlatformWindows}}},
+					{Script: ImplementationScript{Content: "make build"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}, {Name: PlatformWindows}}},
 				},
 			},
 			{
 				Name: "clean",
 				Implementations: []Implementation{
-					{Script: "rm -rf bin/", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}},
+					{Script: ImplementationScript{Content: "rm -rf bin/"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}},
 				},
 			},
 		},
@@ -124,7 +124,7 @@ cmds: [
 		description: "Container command with host SSH enabled"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 
 				runtimes: [{name: "container", image: "debian:stable-slim", enable_host_ssh: true}]
 				platforms: [{name: "linux"}]
@@ -183,7 +183,7 @@ cmds: [
 		name: "container-no-ssh"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
@@ -224,7 +224,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 		{
 			name: "container with enable_host_ssh true",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -234,7 +234,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 		{
 			name: "container with enable_host_ssh false",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -244,7 +244,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 		{
 			name: "native runtime (no enable_host_ssh)",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -254,7 +254,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 		{
 			name: "multiple runtimes, one with enable_host_ssh",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes: []RuntimeConfig{
 					{Name: RuntimeNative},
@@ -267,7 +267,7 @@ func TestScript_HasHostSSH(t *testing.T) {
 		{
 			name: "multiple container runtimes, none with enable_host_ssh",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes: []RuntimeConfig{
 					{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"},
@@ -303,7 +303,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 		{
 			name: "container runtime with enable_host_ssh true",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -314,7 +314,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 		{
 			name: "container runtime with enable_host_ssh false",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -325,7 +325,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 		{
 			name: "native runtime always returns false",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -336,7 +336,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 		{
 			name: "virtual runtime always returns false",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -347,7 +347,7 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 		{
 			name: "runtime not found returns false",
 			script: Implementation{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 
 				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -414,7 +414,7 @@ func TestGenerateCUE_WithEnableHostSSH(t *testing.T) {
 				Name: "container-ssh",
 				Implementations: []Implementation{
 					{
-						Script: "echo hello",
+						Script: ImplementationScript{Content: "echo hello"},
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: true, Image: "debian:stable-slim"}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -445,7 +445,7 @@ func TestGenerateCUE_WithEnableHostSSH_False(t *testing.T) {
 				Name: "container-no-ssh",
 				Implementations: []Implementation{
 					{
-						Script: "echo hello",
+						Script: ImplementationScript{Content: "echo hello"},
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeContainer, EnableHostSSH: false, Image: "debian:stable-slim"}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -471,7 +471,7 @@ cmds: [
 		name: "full-container"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 
 				runtimes: [{
 					name: "container"
@@ -548,7 +548,7 @@ cmds: [
 		name: "no-platforms"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 			}
 		]

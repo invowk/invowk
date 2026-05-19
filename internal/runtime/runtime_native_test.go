@@ -141,10 +141,11 @@ echo "Hello from script file"
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeNative)
+	cmd := testCommandWithScriptFile("from-file", "./test.sh", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -175,7 +176,8 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
 	// Script that echoes positional parameters
@@ -446,7 +448,7 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 		Name: "invalid-workdir",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    invowkfile.ScriptContent(script),
+				Script:    invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 				WorkDir:   "/nonexistent/directory/that/does/not/exist",
@@ -637,7 +639,7 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 				Name: "empty",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "",
+						Script:    invowkfile.ImplementationScript{Content: ""},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 					},
@@ -720,7 +722,7 @@ func TestExecutionContext_EffectiveWorkDir_Native(t *testing.T) {
 				WorkDir: invowkfile.WorkDir(tt.cmdWorkDir),
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "echo test",
+						Script:    invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}},
 					},

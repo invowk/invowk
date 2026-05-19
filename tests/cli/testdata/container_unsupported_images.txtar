@@ -24,7 +24,7 @@ cmds: [
 		name: "windows-image"
 		implementations: [
 			{
-				script: "echo unreachable"
+				script: {content: "echo unreachable"}
 				runtimes: [{name: "container", image: "mcr.microsoft.com/windows/servercore:ltsc2022"}]
 				platforms: [{name: "linux"}]
 			}
@@ -34,7 +34,7 @@ cmds: [
 		name: "alpine-image"
 		implementations: [
 			{
-				script: "echo unreachable"
+				script: {content: "echo unreachable"}
 				runtimes: [{name: "container", image: "alpine:latest"}]
 				platforms: [{name: "linux"}]
 			}

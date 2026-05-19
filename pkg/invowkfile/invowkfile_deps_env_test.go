@@ -17,7 +17,7 @@ cmds: [
 	{
 		name: "deploy"
 		implementations: [{
-			script: "echo deploy"
+			script: {content: "echo deploy"}
 			runtimes: [{name: "native"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -88,7 +88,7 @@ func TestGenerateCUE_WithEnvVars(t *testing.T) {
 		Commands: []Command{
 			{
 				Name:            "deploy",
-				Implementations: []Implementation{{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
+				Implementations: []Implementation{{Script: ImplementationScript{Content: "echo deploy"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
 				DependsOn: &DependsOn{
 					EnvVars: []EnvVarDependency{
 						{Alternatives: []EnvVarCheck{{Name: "AWS_ACCESS_KEY_ID"}}},

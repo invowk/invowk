@@ -19,7 +19,7 @@ cmds: [
 		name:        "deps check exitcode"
 		description: "Command with custom check validating exit code"
 		implementations: [{
-			script:   "echo 'Custom exit code check passed!'"
+			script: {content: "echo 'Custom exit code check passed!'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -27,7 +27,7 @@ cmds: [
 			custom_checks: [
 				{
 					name:          "true-command"
-					check_script:  "true"
+					script: {content: "true"}
 					expected_code: 0
 				},
 			]
@@ -37,7 +37,7 @@ cmds: [
 		name:        "deps check output"
 		description: "Command with custom check validating output pattern"
 		implementations: [{
-			script:   "echo 'Custom output check passed!'"
+			script: {content: "echo 'Custom output check passed!'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -45,7 +45,7 @@ cmds: [
 			custom_checks: [
 				{
 					name:            "hostname-check"
-					check_script:    "hostname"
+					script: {content: "hostname"}
 					expected_code:   0
 					expected_output: ".*"
 				},

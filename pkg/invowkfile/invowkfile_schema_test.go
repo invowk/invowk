@@ -24,7 +24,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -54,7 +54,7 @@ cmds: [
 }
 
 // TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives verifies that the CUE schema
-// rejects custom checks that have both direct fields (name, check_script) AND alternatives
+// rejects custom checks that have both direct fields (name, script) AND alternatives
 func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
 	t.Parallel()
 
@@ -64,7 +64,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -73,9 +73,9 @@ cmds: [
 			custom_checks: [
 				{
 					name: "should-not-have-both"
-					check_script: "echo test"
+					script: {content: "echo test"}
 					alternatives: [
-						{name: "alt1", check_script: "echo alt1"}
+						{name: "alt1", script: {content: "echo alt1"}}
 					]
 				}
 			]
@@ -111,7 +111,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -151,7 +151,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -191,7 +191,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -313,7 +313,7 @@ func TestGenerateCUE_OutputsCommandContent(t *testing.T) {
 			{
 				Name: "test",
 				Implementations: []Implementation{
-					{Script: "echo test", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
+					{Script: ImplementationScript{Content: "echo test"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 				},
 			},
 		},
@@ -347,8 +347,8 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
-				runtimes: [{name: "native", interpreter: ""}]
+				script: {content: "echo test", interpreter: ""}
+				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
 		]
@@ -392,8 +392,8 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
-				runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}]
+				script: {content: "echo test", interpreter: "` + tt.interpreter + `"}
+				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
 		]
@@ -425,8 +425,8 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
-				runtimes: [{name: "container", image: "debian:stable-slim", interpreter: ""}]
+				script: {content: "echo test", interpreter: ""}
+				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
 		]
@@ -445,12 +445,12 @@ cmds: [
 	}
 }
 
-// TestValidateRuntimeConfig_ValidInterpreters tests that validateRuntimeConfig accepts valid interpreters.
+// TestValidateImplementationScript_ValidInterpreters tests that script validation accepts valid interpreters.
 // Note: Whitespace-only interpreter rejection is now handled by CUE schema validation:
 // interpreter?: string & =~"^\\s*\\S.*$" (requires at least one non-whitespace char)
 // See TestParse_RejectsEmptyInterpreter_NativeRuntime and TestParse_RejectsEmptyInterpreter_ContainerRuntime
 // for CUE-level validation tests.
-func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
+func TestValidateImplementationScript_ValidInterpreters(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -467,14 +467,14 @@ func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			rt := &RuntimeConfig{
-				Name:        RuntimeNative,
+			script := ImplementationScript{
+				Content:     "echo test",
 				Interpreter: InterpreterSpec(tt.interpreter),
 			}
 
-			err := validateRuntimeConfig(rt, "test-cmd", 1)
+			err := script.Validate()
 			if err != nil {
-				t.Errorf("validateRuntimeConfig() unexpected error for interpreter %q: %v", tt.interpreter, err)
+				t.Errorf("ImplementationScript.Validate() unexpected error for interpreter %q: %v", tt.interpreter, err)
 			}
 		})
 	}
@@ -631,7 +631,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{
 					name: "native"
 					` + tt.mode + `
@@ -669,7 +669,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{
 					name: "native"
 					env_inherit_mode: "allow"
@@ -701,7 +701,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -734,7 +734,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -783,8 +783,8 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "print('hello')"
-				runtimes: [{name: "native", interpreter: "` + tt.interpreter + `"}]
+				script: {content: "print('hello')", interpreter: "` + tt.interpreter + `"}
+				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
 		]
@@ -802,9 +802,46 @@ cmds: [
 				t.Fatalf("Parse() should accept valid interpreter %q, got error: %v", tt.interpreter, err)
 			}
 
-			rt := inv.Commands[0].Implementations[0].Runtimes[0]
-			if rt.Interpreter != InterpreterSpec(tt.interpreter) {
-				t.Errorf("RuntimeConfig.Interpreter = %q, want %q", rt.Interpreter, tt.interpreter)
+			script := inv.Commands[0].Implementations[0].Script
+			if script.Interpreter != InterpreterSpec(tt.interpreter) {
+				t.Errorf("ImplementationScript.Interpreter = %q, want %q", script.Interpreter, tt.interpreter)
+			}
+		})
+	}
+}
+
+func TestParseInterpreter_RuntimeFieldRejected(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		runtime string
+	}{
+		{"native", `{name: "native", interpreter: "python3"}`},
+		{"virtual", `{name: "virtual", interpreter: "python3"}`},
+		{"container", `{name: "container", image: "debian:stable-slim", interpreter: "python3"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: {content: "print('hello')"}
+		runtimes: [` + tt.runtime + `]
+		platforms: [{name: "linux"}]
+	}]
+}]
+`
+			_, err := ParseBytes([]byte(cueContent), "runtime-interpreter.cue")
+			if err == nil {
+				t.Fatal("ParseBytes() error = nil, want runtime-level interpreter rejection")
+			}
+			if !strings.Contains(err.Error(), "interpreter") {
+				t.Fatalf("ParseBytes() error = %v, want interpreter field rejection", err)
 			}
 		})
 	}
@@ -821,7 +858,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -840,8 +877,8 @@ cmds: [
 		t.Fatalf("Parse() should accept omitted interpreter field, got error: %v", err)
 	}
 
-	rt := inv.Commands[0].Implementations[0].Runtimes[0]
-	if rt.Interpreter != "" {
-		t.Errorf("RuntimeConfig.Interpreter should be empty when omitted, got %q", rt.Interpreter)
+	script := inv.Commands[0].Implementations[0].Script
+	if script.Interpreter != "" {
+		t.Errorf("ImplementationScript.Interpreter should be empty when omitted, got %q", script.Interpreter)
 	}
 }

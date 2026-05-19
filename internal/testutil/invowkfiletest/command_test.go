@@ -31,7 +31,7 @@ func TestNewTestCommand_Defaults(t *testing.T) {
 		t.Errorf("Runtime = %v, want %v", impl.Runtimes[0].Name, invowkfile.RuntimeNative)
 	}
 
-	if impl.Script != "" {
+	if impl.Script != (invowkfile.ImplementationScript{}) {
 		t.Errorf("Script = %q, want empty", impl.Script)
 	}
 
@@ -45,8 +45,8 @@ func TestNewTestCommand_WithScript(t *testing.T) {
 
 	cmd := NewTestCommand("greet", WithScript("echo hello"))
 
-	if cmd.Implementations[0].Script != "echo hello" {
-		t.Errorf("Script = %q, want %q", cmd.Implementations[0].Script, "echo hello")
+	if cmd.Implementations[0].Script.Content != "echo hello" {
+		t.Errorf("Script.Content = %q, want %q", cmd.Implementations[0].Script.Content, "echo hello")
 	}
 }
 
@@ -181,8 +181,8 @@ func TestNewTestCommand_WithInterpreter(t *testing.T) {
 		t.Fatalf("len(Runtimes) = %d, want 1", len(cmd.Implementations[0].Runtimes))
 	}
 
-	if cmd.Implementations[0].Runtimes[0].Interpreter != "python3" {
-		t.Errorf("Interpreter = %q, want %q", cmd.Implementations[0].Runtimes[0].Interpreter, "python3")
+	if cmd.Implementations[0].Script.Interpreter != "python3" {
+		t.Errorf("Script.Interpreter = %q, want %q", cmd.Implementations[0].Script.Interpreter, "python3")
 	}
 }
 
@@ -342,7 +342,7 @@ func TestNewTestCommand_WithImplementation(t *testing.T) {
 	t.Parallel()
 
 	impl := invowkfile.Implementation{
-		Script: "echo linux",
+		Script: invowkfile.ImplementationScript{Content: "echo linux"},
 		Runtimes: []invowkfile.RuntimeConfig{
 			{Name: invowkfile.RuntimeNative},
 		},
@@ -357,8 +357,8 @@ func TestNewTestCommand_WithImplementation(t *testing.T) {
 		t.Fatalf("len(Implementations) = %d, want 2", len(cmd.Implementations))
 	}
 
-	if cmd.Implementations[1].Script != "echo linux" {
-		t.Errorf("Implementations[1].Script = %q, want %q", cmd.Implementations[1].Script, "echo linux")
+	if cmd.Implementations[1].Script.Content != "echo linux" {
+		t.Errorf("Implementations[1].Script.Content = %q, want %q", cmd.Implementations[1].Script.Content, "echo linux")
 	}
 }
 
@@ -367,11 +367,11 @@ func TestNewTestCommand_WithImplementations(t *testing.T) {
 
 	impls := []invowkfile.Implementation{
 		{
-			Script:   "echo linux",
+			Script:   invowkfile.ImplementationScript{Content: "echo linux"},
 			Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 		},
 		{
-			Script:   "echo mac",
+			Script:   invowkfile.ImplementationScript{Content: "echo mac"},
 			Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 		},
 	}
@@ -382,11 +382,11 @@ func TestNewTestCommand_WithImplementations(t *testing.T) {
 		t.Fatalf("len(Implementations) = %d, want 2", len(cmd.Implementations))
 	}
 
-	if cmd.Implementations[0].Script != "echo linux" {
-		t.Errorf("Implementations[0].Script = %q, want %q", cmd.Implementations[0].Script, "echo linux")
+	if cmd.Implementations[0].Script.Content != "echo linux" {
+		t.Errorf("Implementations[0].Script.Content = %q, want %q", cmd.Implementations[0].Script.Content, "echo linux")
 	}
-	if cmd.Implementations[1].Script != "echo mac" {
-		t.Errorf("Implementations[1].Script = %q, want %q", cmd.Implementations[1].Script, "echo mac")
+	if cmd.Implementations[1].Script.Content != "echo mac" {
+		t.Errorf("Implementations[1].Script.Content = %q, want %q", cmd.Implementations[1].Script.Content, "echo mac")
 	}
 }
 
@@ -440,8 +440,8 @@ func TestNewTestCommand_CombinedOptions(t *testing.T) {
 	if cmd.Description != "Deploy the app" {
 		t.Errorf("Description = %q, want %q", cmd.Description, "Deploy the app")
 	}
-	if cmd.Implementations[0].Script != "./deploy.sh $ENV" {
-		t.Errorf("Script = %q, want %q", cmd.Implementations[0].Script, "./deploy.sh $ENV")
+	if cmd.Implementations[0].Script.Content != "./deploy.sh $ENV" {
+		t.Errorf("Script.Content = %q, want %q", cmd.Implementations[0].Script.Content, "./deploy.sh $ENV")
 	}
 	if cmd.Implementations[0].Runtimes[0].Name != invowkfile.RuntimeNative {
 		t.Errorf("Runtime = %v, want %v", cmd.Implementations[0].Runtimes[0].Name, invowkfile.RuntimeNative)

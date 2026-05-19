@@ -39,6 +39,9 @@ Thumbs.db
 # Claude Code local overrides (personal, not shared)
 .claude.local.md
 
+# Local agent/tool project state
+.antigravitycli/
+
 # Generated benchmark output
 artifacts/benchmarks/
 

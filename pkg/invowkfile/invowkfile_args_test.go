@@ -24,7 +24,7 @@ cmds: [
 		description: "Greet a person"
 		implementations: [
 			{
-				script: "echo Hello $INVOWK_ARG_NAME"
+				script: {content: "echo Hello $INVOWK_ARG_NAME"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -108,7 +108,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -151,7 +151,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -192,7 +192,7 @@ cmds: [
 		description: "Copy files to a destination"
 		implementations: [
 			{
-				script: "cp $INVOWK_ARG_FILES $INVOWK_ARG_DEST"
+				script: {content: "cp $INVOWK_ARG_FILES $INVOWK_ARG_DEST"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -240,7 +240,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "echo deploying to $INVOWK_ARG_ENV"
+				script: {content: "echo deploying to $INVOWK_ARG_ENV"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -277,7 +277,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -311,7 +311,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -346,7 +346,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"
+				script: {content: "echo deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -438,7 +438,7 @@ func TestGenerateCUE_WithArgs(t *testing.T) {
 				Description: "Deploy to environment",
 				Implementations: []Implementation{
 					{
-						Script:    "echo deploying",
+						Script:    ImplementationScript{Content: "echo deploying"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
@@ -517,7 +517,7 @@ func TestGenerateCUE_WithArgs_StringTypeNotIncluded(t *testing.T) {
 				Description: "Greet someone",
 				Implementations: []Implementation{
 					{
-						Script:    "echo hello",
+						Script:    ImplementationScript{Content: "echo hello"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
@@ -557,7 +557,7 @@ func TestGenerateCUE_WithArgs_RoundTrip(t *testing.T) {
 				Description: "Deploy application",
 				Implementations: []Implementation{
 					{
-						Script:    "echo deploying",
+						Script:    ImplementationScript{Content: "echo deploying"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},

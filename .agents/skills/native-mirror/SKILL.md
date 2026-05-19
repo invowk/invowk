@@ -54,7 +54,7 @@ Replace each virtual implementation with a platform-split native pair:
 **From (virtual)**:
 ```cue
 implementations: [{
-    script: "echo 'Hello'"
+    script: {content: "echo 'Hello'"}
     runtimes: [{name: "virtual"}]
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }]
@@ -64,12 +64,12 @@ implementations: [{
 ```cue
 implementations: [
     {
-        script: "echo 'Hello'"
+        script: {content: "echo 'Hello'"}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: "Write-Output 'Hello'"
+        script: {content: "Write-Output 'Hello'"}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },
@@ -128,7 +128,7 @@ cmds: [{
     name: "hello"
     description: "Say hello"
     implementations: [{
-        script: "echo 'Hello from invowk!'"
+        script: {content: "echo 'Hello from invowk!'"}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -150,12 +150,12 @@ cmds: [{
     description: "Say hello"
     implementations: [
         {
-            script: "echo 'Hello from invowk!'"
+            script: {content: "echo 'Hello from invowk!'"}
             runtimes:  [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         {
-            script: "Write-Output 'Hello from invowk!'"
+            script: {content: "Write-Output 'Hello from invowk!'"}
             runtimes:  [{name: "native"}]
             platforms: [{name: "windows"}]
         },

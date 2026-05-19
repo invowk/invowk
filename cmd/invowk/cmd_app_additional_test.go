@@ -385,7 +385,7 @@ func testCommandInfo(t *testing.T, name, script string) *discovery.CommandInfo {
 		Name:        invowkfile.CommandName(name),
 		Description: "test command",
 		Implementations: []invowkfile.Implementation{{
-			Script:    invowkfile.ScriptContent(script),
+			Script:    invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
 			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 			Platforms: invowkfile.AllPlatformConfigs(),
 		}},

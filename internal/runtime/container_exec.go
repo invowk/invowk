@@ -148,7 +148,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	volumes = append(volumes, container.VolumeMountSpec(filepath.ToSlash(invowkDir)+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+	interpInfo := ctx.SelectedImpl.Script.ResolveInterpreterFromScript(script)
 
 	// Build shell command based on interpreter
 	var shellCmd []string

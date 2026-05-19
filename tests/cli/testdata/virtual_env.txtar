@@ -44,7 +44,7 @@ cmds: [
 			files: ["examples/.env"]
 		}
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=========================================="
 				echo "  Basic env.files Demo"
 				echo "=========================================="
@@ -60,7 +60,7 @@ cmds: [
 				echo "command execution. Paths are relative to the"
 				echo "invowkfile location."
 				echo "=========================================="
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -76,7 +76,7 @@ cmds: [
 			}
 		}
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=========================================="
 				echo "  env.files + env.vars Demo"
 				echo "=========================================="
@@ -92,7 +92,7 @@ cmds: [
 				echo "Precedence: env.files < env.vars"
 				echo "Inline vars always take priority over files."
 				echo "=========================================="
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

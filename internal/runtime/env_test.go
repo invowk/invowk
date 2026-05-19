@@ -371,7 +371,7 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 		Name: "precedence-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    "echo test",
+				Script:    invowkfile.ImplementationScript{Content: "echo test"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env: &invowkfile.EnvConfig{
@@ -451,7 +451,7 @@ func TestBuildRuntimeEnv_EnvFiles(t *testing.T) {
 		Name: "env-files-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    "echo test",
+				Script:    invowkfile.ImplementationScript{Content: "echo test"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env: &invowkfile.EnvConfig{
@@ -501,7 +501,7 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 		Name: "env-vars-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    "echo test",
+				Script:    invowkfile.ImplementationScript{Content: "echo test"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env: &invowkfile.EnvConfig{

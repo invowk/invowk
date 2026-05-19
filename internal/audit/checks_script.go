@@ -93,7 +93,7 @@ func (c *ScriptChecker) checkScriptPath(ref ScriptRef) []Finding {
 	}
 
 	var findings []Finding
-	script := strings.TrimSpace(string(ref.Script))
+	script := strings.TrimSpace(string(*ref.Script.File))
 
 	// Check for path traversal in module context.
 	if ref.ModulePath != "" {
@@ -213,7 +213,7 @@ func (c *ScriptChecker) checkObfuscation(ref ScriptRef, content string) []Findin
 	// Path traversal in script content (not just path field).
 	if ref.ModulePath != "" && pathTraversalPattern.MatchString(content) {
 		// Only flag if not already caught by checkScriptPath.
-		if !ref.IsFile || !strings.Contains(strings.TrimSpace(string(ref.Script)), "../") {
+		if !ref.IsFile || !strings.Contains(strings.TrimSpace(string(*ref.Script.File)), "../") {
 			findings = append(findings, Finding{
 				Code:           codeScriptContentPathTraversal,
 				Severity:       SeverityMedium,

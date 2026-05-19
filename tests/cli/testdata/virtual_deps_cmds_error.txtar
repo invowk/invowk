@@ -16,7 +16,7 @@ cmds: [
 		name:        "deps cmd missing-ref"
 		description: "Command referencing a nonexistent command dependency"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

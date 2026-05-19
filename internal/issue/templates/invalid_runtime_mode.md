@@ -17,7 +17,7 @@ cmds: [
     name: "build"
     implementations: [
       {
-        script: "make build"
+        script: {content: "make build"}
           runtimes: [{name: "container"}]  // Override for this command
       }
     ]

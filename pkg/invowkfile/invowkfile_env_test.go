@@ -19,7 +19,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -71,7 +71,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				env: {
@@ -123,7 +123,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				env: {
@@ -169,7 +169,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -206,7 +206,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -245,7 +245,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				env: {
@@ -315,7 +315,7 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 				Description: "Deploy the application",
 				Implementations: []Implementation{
 					{
-						Script: "echo deploying",
+						Script: ImplementationScript{Content: "echo deploying"},
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -357,7 +357,7 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 				Description: "Deploy the application",
 				Implementations: []Implementation{
 					{
-						Script: "echo deploying",
+						Script: ImplementationScript{Content: "echo deploying"},
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -429,7 +429,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -479,7 +479,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -530,7 +530,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				env: {
@@ -613,7 +613,7 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 				Description: "Deploy the application",
 				Implementations: []Implementation{
 					{
-						Script: "echo deploying",
+						Script: ImplementationScript{Content: "echo deploying"},
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -653,7 +653,7 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 				Description: "Deploy the application",
 				Implementations: []Implementation{
 					{
-						Script: "echo deploying",
+						Script: ImplementationScript{Content: "echo deploying"},
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},

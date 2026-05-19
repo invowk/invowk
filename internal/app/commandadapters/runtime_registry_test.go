@@ -46,7 +46,7 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 		Commands: []invowkfile.Command{{
 			Name: "hello",
 			Implementations: []invowkfile.Implementation{{
-				Script:    "echo hello",
+				Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			}},
@@ -122,7 +122,7 @@ func runtimeContext(t testing.TB, mode invowkfile.RuntimeMode) *runtime.Executio
 		Commands: []invowkfile.Command{{
 			Name: "hello",
 			Implementations: []invowkfile.Implementation{{
-				Script:    "true",
+				Script:    invowkfile.ImplementationScript{Content: "true"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: mode}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			}},

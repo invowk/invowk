@@ -24,7 +24,7 @@ cmds: [
 		name:        "deps cap single"
 		description: "Command requiring internet connectivity"
 		implementations: [{
-			script:   "echo 'Internet connectivity confirmed!'"
+			script: {content: "echo 'Internet connectivity confirmed!'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -38,10 +38,10 @@ cmds: [
 		name:        "deps cap alternatives"
 		description: "Command requiring any network connectivity"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "Network connectivity confirmed!"
 				echo "Either LAN or Internet is available."
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

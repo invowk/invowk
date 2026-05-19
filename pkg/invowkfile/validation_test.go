@@ -379,8 +379,8 @@ func TestValidateCustomChecks(t *testing.T) {
 		{
 			name: "valid check",
 			checks: []CustomCheckDependency{{
-				Name:        "check-docker",
-				CheckScript: "docker --version",
+				Name:   "check-docker",
+				Script: CustomCheckScript{Content: "docker --version"},
 			}},
 			shouldError: false,
 		},
@@ -388,7 +388,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "valid with expected_output regex",
 			checks: []CustomCheckDependency{{
 				Name:           "version-check",
-				CheckScript:    "echo v1.2.3",
+				Script:         CustomCheckScript{Content: "echo v1.2.3"},
 				ExpectedOutput: `^v[0-9]+\.[0-9]+`,
 			}},
 			shouldError: false,
@@ -397,8 +397,8 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "valid alternatives format",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
-					{Name: "check-docker", CheckScript: "docker --version"},
-					{Name: "check-podman", CheckScript: "podman --version"},
+					{Name: "check-docker", Script: CustomCheckScript{Content: "docker --version"}},
+					{Name: "check-podman", Script: CustomCheckScript{Content: "podman --version"}},
 				},
 			}},
 			shouldError: false,
@@ -413,27 +413,27 @@ func TestValidateCustomChecks(t *testing.T) {
 		{
 			name: "name too long",
 			checks: []CustomCheckDependency{{
-				Name:        CheckName(strings.Repeat("a", MaxNameLength+1)),
-				CheckScript: "echo test",
+				Name:   CheckName(strings.Repeat("a", MaxNameLength+1)),
+				Script: CustomCheckScript{Content: "echo test"},
 			}},
 			shouldError: true,
 			errorMsg:    "too long",
 		},
 
-		// Invalid cases - check_script too long
+		// Invalid cases - script.content too long
 		{
-			name: "direct check missing check_script",
+			name: "direct check missing script",
 			checks: []CustomCheckDependency{{
 				Name: "test",
 			}},
 			shouldError: true,
-			errorMsg:    "invalid script content",
+			errorMsg:    "must set content or file",
 		},
 		{
-			name: "check_script too long",
+			name: "script.content too long",
 			checks: []CustomCheckDependency{{
-				Name:        "test",
-				CheckScript: ScriptContent(strings.Repeat("a", MaxScriptLength+1)),
+				Name:   "test",
+				Script: CustomCheckScript{Content: ScriptContent(strings.Repeat("a", MaxScriptLength+1))},
 			}},
 			shouldError: true,
 			errorMsg:    "too long",
@@ -444,7 +444,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "expected_output dangerous pattern - nested quantifiers",
 			checks: []CustomCheckDependency{{
 				Name:           "test",
-				CheckScript:    "echo test",
+				Script:         CustomCheckScript{Content: "echo test"},
 				ExpectedOutput: "(a+)+",
 			}},
 			shouldError: true,
@@ -454,7 +454,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "expected_output dangerous pattern - overlapping alternation",
 			checks: []CustomCheckDependency{{
 				Name:           "test",
-				CheckScript:    "echo test",
+				Script:         CustomCheckScript{Content: "echo test"},
 				ExpectedOutput: "(a|aa)+",
 			}},
 			shouldError: true,
@@ -464,7 +464,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "expected_output invalid regex syntax",
 			checks: []CustomCheckDependency{{
 				Name:           "test",
-				CheckScript:    "echo test",
+				Script:         CustomCheckScript{Content: "echo test"},
 				ExpectedOutput: "[z-a]",
 			}},
 			shouldError: true,
@@ -474,7 +474,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "expected_output too long pattern",
 			checks: []CustomCheckDependency{{
 				Name:           "test",
-				CheckScript:    "echo test",
+				Script:         CustomCheckScript{Content: "echo test"},
 				ExpectedOutput: RegexPattern(strings.Repeat("a", MaxRegexPatternLength+1)),
 			}},
 			shouldError: true,
@@ -483,22 +483,22 @@ func TestValidateCustomChecks(t *testing.T) {
 
 		// Invalid cases - alternatives format
 		{
-			name: "alternatives with missing check_script",
+			name: "alternatives with missing script",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
 					{Name: "check"},
 				},
 			}},
 			shouldError: true,
-			errorMsg:    "invalid script content",
+			errorMsg:    "must set content or file",
 		},
 		{
 			name: "alternatives mixed with direct fields",
 			checks: []CustomCheckDependency{{
-				Name:        "direct",
-				CheckScript: "echo direct",
+				Name:   "direct",
+				Script: CustomCheckScript{Content: "echo direct"},
 				Alternatives: []CustomCheck{
-					{Name: "check", CheckScript: "echo test"},
+					{Name: "check", Script: CustomCheckScript{Content: "echo test"}},
 				},
 			}},
 			shouldError: true,
@@ -508,18 +508,18 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "alternatives with invalid name in second alternative",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
-					{Name: "good", CheckScript: "echo 1"},
-					{Name: CheckName(strings.Repeat("x", MaxNameLength+1)), CheckScript: "echo 2"},
+					{Name: "good", Script: CustomCheckScript{Content: "echo 1"}},
+					{Name: CheckName(strings.Repeat("x", MaxNameLength+1)), Script: CustomCheckScript{Content: "echo 2"}},
 				},
 			}},
 			shouldError: true,
 			errorMsg:    "too long",
 		},
 		{
-			name: "alternatives with invalid check_script",
+			name: "alternatives with invalid script.content",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
-					{Name: "check", CheckScript: ScriptContent(strings.Repeat("x", MaxScriptLength+1))},
+					{Name: "check", Script: CustomCheckScript{Content: ScriptContent(strings.Repeat("x", MaxScriptLength+1))}},
 				},
 			}},
 			shouldError: true,
@@ -529,7 +529,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "alternatives with dangerous expected_output",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
-					{Name: "check", CheckScript: "echo test", ExpectedOutput: "(a+)+"},
+					{Name: "check", Script: CustomCheckScript{Content: "echo test"}, ExpectedOutput: "(a+)+"},
 				},
 			}},
 			shouldError: true,
@@ -544,7 +544,8 @@ func TestValidateCustomChecks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			errs := v.validateCustomChecks(ctx, tt.checks, NewFieldPath().Root())
+			inv := &Invowkfile{FilePath: ctx.FilePath}
+			errs := v.validateCustomChecks(ctx, inv, tt.checks, NewFieldPath().Root())
 			if tt.shouldError {
 				if len(errs) == 0 {
 					t.Errorf("expected error containing %q, got none", tt.errorMsg)

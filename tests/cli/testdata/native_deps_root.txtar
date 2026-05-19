@@ -26,12 +26,12 @@ cmds: [
 		name: "hello"
 		implementations: [
 			{
-				script:    "echo 'hello from root deps test'"
+				script: {content: "echo 'hello from root deps test'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'hello from root deps test'"
+				script: {content: "Write-Output 'hello from root deps test'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -49,12 +49,12 @@ cmds: [
 		name: "hello"
 		implementations: [
 			{
-				script:    "echo 'should not run'"
+				script: {content: "echo 'should not run'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'should not run'"
+				script: {content: "Write-Output 'should not run'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

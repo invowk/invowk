@@ -18,7 +18,7 @@ cmds: [
 		name:        "uroot base64"
 		description: "Test base64 encoding and decoding"
 		implementations: [{
-			script: """
+			script: {content: """
 				mkdir -p $WORK/base64-test
 
 				# Test encoding: write known content to file and encode
@@ -33,7 +33,7 @@ cmds: [
 
 				rm -rf $WORK/base64-test
 				echo '=== uroot base64 test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

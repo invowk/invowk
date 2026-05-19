@@ -50,7 +50,7 @@ cmds: [
 		description: "Command with simple flags"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Simple Flags Demo ==="
 					echo ""
 					echo "Flags passed to this command are available as environment variables:"
@@ -65,12 +65,12 @@ cmds: [
 					fi
 					echo ""
 					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Simple Flags Demo ==="
 					Write-Output ""
 					Write-Output "Flags passed to this command are available as environment variables:"
@@ -85,7 +85,7 @@ cmds: [
 					}
 					Write-Output ""
 					Write-Output "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -100,7 +100,7 @@ cmds: [
 		description: "Command with flags that have default values"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Flags with Defaults Demo ==="
 					echo ""
 					echo "These flags have default values if not specified:"
@@ -115,12 +115,12 @@ cmds: [
 					fi
 					echo ""
 					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Flags with Defaults Demo ==="
 					Write-Output ""
 					Write-Output "These flags have default values if not specified:"
@@ -135,7 +135,7 @@ cmds: [
 					}
 					Write-Output ""
 					Write-Output "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -151,7 +151,7 @@ cmds: [
 		description: "Command with typed flags (bool, int, float, string)"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Typed Flags Demo ==="
 					echo ""
 					echo "These flags have explicit types:"
@@ -167,12 +167,12 @@ cmds: [
 					echo "  - string: any value accepted (default)"
 					echo ""
 					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Typed Flags Demo ==="
 					Write-Output ""
 					Write-Output "These flags have explicit types:"
@@ -188,7 +188,7 @@ cmds: [
 					Write-Output "  - string: any value accepted (default)"
 					Write-Output ""
 					Write-Output "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -205,7 +205,7 @@ cmds: [
 		description: "Command with short flag aliases"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Short Flag Aliases Demo ==="
 					echo ""
 					echo "These flags have short aliases:"
@@ -216,12 +216,12 @@ cmds: [
 					echo "Short aliases make command-line usage more convenient."
 					echo ""
 					echo "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Short Flag Aliases Demo ==="
 					Write-Output ""
 					Write-Output "These flags have short aliases:"
@@ -232,7 +232,7 @@ cmds: [
 					Write-Output "Short aliases make command-line usage more convenient."
 					Write-Output ""
 					Write-Output "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -248,7 +248,7 @@ cmds: [
 		description: "Command with flags validated by regex patterns"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Flag Validation Demo ==="
 					echo ""
 					echo "These flags are validated against regex patterns:"
@@ -258,12 +258,12 @@ cmds: [
 					echo "Invalid values will be rejected before the command runs."
 					echo ""
 					echo "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Flag Validation Demo ==="
 					Write-Output ""
 					Write-Output "These flags are validated against regex patterns:"
@@ -273,7 +273,7 @@ cmds: [
 					Write-Output "Invalid values will be rejected before the command runs."
 					Write-Output ""
 					Write-Output "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

@@ -49,7 +49,7 @@ cmds: [
 		name:        "flags simple"
 		description: "Command with simple flags"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Simple Flags Demo ==="
 				echo ""
 				echo "Flags passed to this command are available as environment variables:"
@@ -64,7 +64,7 @@ cmds: [
 				fi
 				echo ""
 				echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -77,7 +77,7 @@ cmds: [
 		name:        "flags defaults"
 		description: "Command with flags that have default values"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Flags with Defaults Demo ==="
 				echo ""
 				echo "These flags have default values if not specified:"
@@ -92,7 +92,7 @@ cmds: [
 				fi
 				echo ""
 				echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -106,7 +106,7 @@ cmds: [
 		name:        "flags typed"
 		description: "Command with typed flags (bool, int, float, string)"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Typed Flags Demo ==="
 				echo ""
 				echo "These flags have explicit types:"
@@ -122,7 +122,7 @@ cmds: [
 				echo "  - string: any value accepted (default)"
 				echo ""
 				echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -137,7 +137,7 @@ cmds: [
 		name:        "flags short"
 		description: "Command with short flag aliases"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Short Flag Aliases Demo ==="
 				echo ""
 				echo "These flags have short aliases:"
@@ -148,7 +148,7 @@ cmds: [
 				echo "Short aliases make command-line usage more convenient."
 				echo ""
 				echo "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -162,7 +162,7 @@ cmds: [
 		name:        "flags validation"
 		description: "Command with flags validated by regex patterns"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Flag Validation Demo ==="
 				echo ""
 				echo "These flags are validated against regex patterns:"
@@ -172,7 +172,7 @@ cmds: [
 				echo "Invalid values will be rejected before the command runs."
 				echo ""
 				echo "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

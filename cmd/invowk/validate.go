@@ -226,13 +226,22 @@ func detectPathType(absPath string) (detected pathType, resolvedPath string) {
 		return pathTypeModule, absPath
 	}
 
+	// Files inside an invowkmod directory need module-aware validation so
+	// module-contained script.file sources have the correct root.
+	if base == invowkfileCueFileName || base == invowkmodCueFileName {
+		parent := filepath.Dir(absPath)
+		if strings.HasSuffix(filepath.Base(parent), ".invowkmod") {
+			return pathTypeModule, parent
+		}
+	}
+
 	// File named invowkfile.cue → invowkfile
 	if base == invowkfileCueFileName {
 		return pathTypeInvowkfile, absPath
 	}
 
 	// File named invowkmod.cue → module (parent directory)
-	if base == "invowkmod.cue" {
+	if base == invowkmodCueFileName {
 		return pathTypeModule, filepath.Dir(absPath)
 	}
 
@@ -327,21 +336,26 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	}
 
 	// Deep validation: parse invowkfile and validate command tree if present.
-	if result.InvowkfilePath != "" {
-		inv, invErr := invowkfile.Parse(result.InvowkfilePath)
-		if invErr != nil {
-			result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
-		} else if inv != nil {
-			var commands []invowkfile.CommandTreeEntry
-			for name, cmdDef := range inv.FlattenCommands() {
-				commands = append(commands, invowkfile.CommandTreeEntry{
-					Name:     name,
-					FilePath: result.InvowkfilePath,
-					Command:  cmdDef,
-				})
-			}
-			if treeErr := invowkfile.ValidateCommandTree(commands); treeErr != nil {
-				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), string(result.InvowkfilePath))
+	if result.Valid && result.InvowkfilePath != "" {
+		loadedModule, loadErr := invowkmod.Load(types.FilesystemPath(absPath))
+		if loadErr != nil {
+			result.AddIssue(invowkmod.IssueTypeInvowkmod, loadErr.Error(), invowkmodCueFileName)
+		} else {
+			inv, invErr := invowkfile.ParseLoadedModuleInvowkfile(loadedModule)
+			if invErr != nil {
+				result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
+			} else if inv != nil {
+				var commands []invowkfile.CommandTreeEntry
+				for name, cmdDef := range inv.FlattenCommands() {
+					commands = append(commands, invowkfile.CommandTreeEntry{
+						Name:     name,
+						FilePath: result.InvowkfilePath,
+						Command:  cmdDef,
+					})
+				}
+				if treeErr := invowkfile.ValidateCommandTree(commands); treeErr != nil {
+					result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), string(result.InvowkfilePath))
+				}
 			}
 		}
 	}

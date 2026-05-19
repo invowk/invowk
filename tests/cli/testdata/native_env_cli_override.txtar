@@ -26,22 +26,22 @@ cmds: [
 		description: "Print environment variables"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "MY_VAR=$MY_VAR"
 					echo "NEW_VAR=$NEW_VAR"
 					echo "A=$A"
 					echo "B=$B"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "MY_VAR=$($env:MY_VAR)"
 					Write-Output "NEW_VAR=$($env:NEW_VAR)"
 					Write-Output "A=$($env:A)"
 					Write-Output "B=$($env:B)"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

@@ -9,7 +9,7 @@ import (
 )
 
 // validateDependsOn validates all dependency types in a DependsOn struct.
-func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *DependsOn, basePath *FieldPath) []ValidationError {
+func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, inv *Invowkfile, deps *DependsOn, basePath *FieldPath) []ValidationError {
 	if deps == nil {
 		return nil
 	}
@@ -106,7 +106,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	}
 
 	// Validate custom check dependencies (security-specific: length limits, ReDoS safety)
-	errs = append(errs, v.validateCustomChecks(ctx, deps.CustomChecks, basePath)...)
+	errs = append(errs, v.validateCustomChecks(ctx, inv, deps.CustomChecks, basePath)...)
 
 	return errs
 }
@@ -122,7 +122,7 @@ func dependencyValidationError(validator ValidatorName, fieldPath *FieldPath, ct
 }
 
 // validateCustomChecks validates custom check dependencies for security and correctness.
-func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks []CustomCheckDependency, basePath *FieldPath) []ValidationError {
+func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, inv *Invowkfile, checks []CustomCheckDependency, basePath *FieldPath) []ValidationError {
 	var errs []ValidationError
 
 	for i, checkDep := range checks {
@@ -139,47 +139,96 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 		for j, check := range checkDep.GetChecks() {
 			path := basePath.Copy().CustomCheck(i, j)
-
-			// [CUE-VALIDATED] Custom check name length also enforced by CUE schema (#CustomCheck.name MaxRunes(256))
-			if check.Name != "" {
-				if err := ValidateStringLength(string(check.Name), "custom_check name", MaxNameLength); err != nil {
-					errs = append(errs, ValidationError{
-						Validator: v.Name(),
-						Field:     path.String(),
-						Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-						Severity:  SeverityError,
-					})
-				}
-			}
-
-			// [CUE-VALIDATED] Check script length also enforced by CUE schema (#CustomCheck.check_script MaxRunes(10485760))
-			if check.CheckScript != "" {
-				if err := ValidateStringLength(string(check.CheckScript), "check_script", MaxScriptLength); err != nil {
-					errs = append(errs, ValidationError{
-						Validator: v.Name(),
-						Field:     path.String(),
-						Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-						Severity:  SeverityError,
-					})
-				}
-			}
-
-			// ReDoS pattern safety - CUE cannot analyze regex complexity
-			if check.ExpectedOutput != "" {
-				if err := ValidateRegexPattern(string(check.ExpectedOutput)); err != nil {
-					errs = append(errs, ValidationError{
-						Validator: v.Name(),
-						Field:     path.String(),
-						Message:   "expected_output: " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-						Severity:  SeverityError,
-						Cause:     err,
-					})
-				}
-			}
+			errs = append(errs, v.validateCustomCheck(ctx, inv, check, path)...)
 		}
 	}
 
 	return errs
+}
+
+func (v *StructureValidator) validateCustomCheck(ctx *ValidationContext, inv *Invowkfile, check CustomCheck, path *FieldPath) []ValidationError {
+	var errs []ValidationError
+	errs = append(errs, v.validateCustomCheckName(ctx, check, path)...)
+	errs = append(errs, v.validateCustomCheckScriptContent(ctx, check, path)...)
+	errs = append(errs, v.validateCustomCheckScriptFile(ctx, inv, check, path)...)
+	errs = append(errs, v.validateCustomCheckExpectedOutput(ctx, check, path)...)
+	return errs
+}
+
+func (v *StructureValidator) validateCustomCheckName(ctx *ValidationContext, check CustomCheck, path *FieldPath) []ValidationError {
+	if check.Name == "" {
+		return nil
+	}
+	// [CUE-VALIDATED] Custom check name length also enforced by CUE schema (#CustomCheck.name MaxRunes(256)).
+	if err := ValidateStringLength(string(check.Name), "custom_check name", MaxNameLength); err != nil {
+		return []ValidationError{{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		}}
+	}
+	return nil
+}
+
+func (v *StructureValidator) validateCustomCheckScriptContent(ctx *ValidationContext, check CustomCheck, path *FieldPath) []ValidationError {
+	if check.Script.Content == "" {
+		return nil
+	}
+	// [CUE-VALIDATED] Custom check script content length also enforced by CUE schema (#ScriptSourceContent.content MaxRunes(10485760)).
+	if err := ValidateStringLength(string(check.Script.Content), "script.content", MaxScriptLength); err != nil {
+		return []ValidationError{{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		}}
+	}
+	return nil
+}
+
+func (v *StructureValidator) validateCustomCheckScriptFile(ctx *ValidationContext, inv *Invowkfile, check CustomCheck, path *FieldPath) []ValidationError {
+	if check.Script.File == nil {
+		return nil
+	}
+
+	var errs []ValidationError
+	// [CUE-VALIDATED] Custom check script file length also enforced by CUE schema (#ScriptSourceFile.file MaxRunes(4096)).
+	if err := ValidateStringLength(string(*check.Script.File), "script.file", MaxPathLength); err != nil {
+		errs = append(errs, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		})
+	}
+	if err := validateModuleScriptFileSelection(check.Script.GetScriptFilePathWithModule(inv.ModulePath), inv.ModulePath); err != nil {
+		errs = append(errs, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("script").Field("file").String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+			Cause:     err,
+		})
+	}
+	return errs
+}
+
+func (v *StructureValidator) validateCustomCheckExpectedOutput(ctx *ValidationContext, check CustomCheck, path *FieldPath) []ValidationError {
+	if check.ExpectedOutput == "" {
+		return nil
+	}
+	// ReDoS pattern safety - CUE cannot analyze regex complexity.
+	if err := ValidateRegexPattern(string(check.ExpectedOutput)); err != nil {
+		return []ValidationError{{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   "expected_output: " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+			Cause:     err,
+		}}
+	}
+	return nil
 }
 
 //goplint:ignore -- returns human-readable validation detail for ValidationError.Message.
@@ -203,6 +252,12 @@ func customCheckFieldValidationMessage(err error) string {
 		for i := range checkErr.FieldErrors {
 			message.WriteString(": ")
 			message.WriteString(checkErr.FieldErrors[i].Error())
+		}
+	}
+	if scriptErr, ok := errors.AsType[*InvalidCustomCheckScriptError](err); ok {
+		for i := range scriptErr.FieldErrors {
+			message.WriteString(": ")
+			message.WriteString(scriptErr.FieldErrors[i].Error())
 		}
 	}
 	return message.String()

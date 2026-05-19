@@ -15,7 +15,7 @@ cmds: [
 		name:        "runtime deps invalid"
 		description: "Command with depends_on inside virtual runtime block (invalid)"
 		implementations: [{
-			script: "echo 'should not reach here'"
+			script: {content: "echo 'should not reach here'"}
 			runtimes: [{
 				name: "virtual"
 				depends_on: {

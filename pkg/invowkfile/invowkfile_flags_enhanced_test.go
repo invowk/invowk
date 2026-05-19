@@ -22,7 +22,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -59,7 +59,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -91,7 +91,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -123,7 +123,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -314,7 +314,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}

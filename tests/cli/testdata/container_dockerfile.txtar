@@ -26,9 +26,9 @@ cmds: [
 		description: "Parse JSON using jq (installed via Containerfile)"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo '{"greeting": "hello", "target": "world"}' | jq '.greeting, .target'
-					"""
+					"""}
 				runtimes: [{name: "container", containerfile: "Containerfile"}]
 				platforms: [{name: "linux"}]
 			}
@@ -39,9 +39,9 @@ cmds: [
 		description: "Check custom env var from Containerfile"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "CUSTOM_FROM_DOCKERFILE: ${CUSTOM_FROM_DOCKERFILE:-no}"
-					"""
+					"""}
 				runtimes: [{name: "container", containerfile: "Containerfile"}]
 				platforms: [{name: "linux"}]
 			}

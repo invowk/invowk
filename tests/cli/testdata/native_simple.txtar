@@ -30,12 +30,12 @@ cmds: [
 		description: "Print a simple greeting"
 		implementations: [
 			{
-				script:    "echo 'Hello from invowk!'"
+				script: {content: "echo 'Hello from invowk!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Hello from invowk!'"
+				script: {content: "Write-Output 'Hello from invowk!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -46,12 +46,12 @@ cmds: [
 		description: "Demonstrate environment variable precedence across levels"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Environment Variable Hierarchy ==="
 					echo "APP_ENV: $APP_ENV (from root-level, not overridden)"
 					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 				env: {
@@ -61,12 +61,12 @@ cmds: [
 				}
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Environment Variable Hierarchy ==="
 					Write-Output "APP_ENV: $($env:APP_ENV) (from root-level, not overridden)"
 					Write-Output "LOG_LEVEL: $($env:LOG_LEVEL) (from command-level, overrides root)"
 					Write-Output "RUNTIME: $($env:RUNTIME) (from implementation-level, overrides command)"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 				env: {

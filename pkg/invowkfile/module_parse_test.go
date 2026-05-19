@@ -47,7 +47,7 @@ version: "1.0.0"
 				Name: "build",
 				Implementations: []Implementation{
 					{
-						Script:    "echo build",
+						Script:    ImplementationScript{Content: "echo build"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 						Platforms: AllPlatformConfigs(),
 					},
@@ -85,7 +85,7 @@ version: "1.0.0"
 		Commands: []Command{{
 			Name: "build",
 			Implementations: []Implementation{{
-				Script:    "echo build",
+				Script:    ImplementationScript{Content: "echo build"},
 				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 				Platforms: AllPlatformConfigs(),
 			}},

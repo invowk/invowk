@@ -57,7 +57,7 @@ func TestValidateExecutionContextForRun(t *testing.T) {
 			name: "valid context",
 			ctx: &ExecutionContext{
 				Invowkfile:   &invowkfile.Invowkfile{},
-				SelectedImpl: &invowkfile.Implementation{Script: "echo ok"},
+				SelectedImpl: &invowkfile.Implementation{Script: invowkfile.ImplementationScript{Content: "echo ok"}},
 			},
 			noImplErr:   errNativeNoImpl,
 			noScriptErr: errNativeNoScript,
@@ -142,7 +142,7 @@ func testExecutionContextForGuard(t *testing.T, runtimeMode invowkfile.RuntimeMo
 				Name: "guard-test",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "echo hello",
+						Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: runtimeMode}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},

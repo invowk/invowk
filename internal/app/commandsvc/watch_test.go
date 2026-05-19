@@ -54,7 +54,7 @@ func TestNewWatchPlanContainerAbsoluteWorkdirUsesHostInvowkfileDir(t *testing.T)
 
 	dir := t.TempDir()
 	impl := invowkfile.Implementation{
-		Script:    "echo build",
+		Script:    invowkfile.ImplementationScript{Content: "echo build"},
 		Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 		Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.CurrentPlatform()}},
 	}
@@ -80,7 +80,7 @@ func TestNewWatchPlanNativeAbsoluteWorkdirUsesHostPath(t *testing.T) {
 	dir := t.TempDir()
 	hostWorkdir := filepath.Join(dir, "host")
 	impl := invowkfile.Implementation{
-		Script:    "echo build",
+		Script:    invowkfile.ImplementationScript{Content: "echo build"},
 		Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 		Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.CurrentPlatform()}},
 	}

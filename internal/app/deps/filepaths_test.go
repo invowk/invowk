@@ -147,7 +147,10 @@ func (s *filepathStubRuntime) CheckCommand(command invowkfile.CommandName) error
 }
 
 func (s *filepathStubRuntime) RunCustomCheck(check invowkfile.CustomCheck) (CustomCheckResult, error) {
-	result, stdout, stderr, err := s.runValidation(string(check.CheckScript))
+	result, stdout, stderr, err := s.runValidationScript(invowkfile.ImplementationScript{
+		Content:     check.Script.Content,
+		Interpreter: check.Script.Interpreter,
+	})
 	if err != nil {
 		return CustomCheckResult{}, fmt.Errorf("%s - %w", check.Name, err)
 	}
@@ -159,13 +162,17 @@ func (s *filepathStubRuntime) RunCustomCheck(check invowkfile.CustomCheck) (Cust
 }
 
 func (s *filepathStubRuntime) runValidation(script string) (result *runtimepkg.Result, stdout, stderr string, err error) {
+	return s.runValidationScript(invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)}) //goplint:ignore -- test runtime probe script
+}
+
+func (s *filepathStubRuntime) runValidationScript(script invowkfile.ImplementationScript) (result *runtimepkg.Result, stdout, stderr string, err error) {
 	stdoutBuf := &strings.Builder{}
 	stderrBuf := &strings.Builder{}
 	validationCtx := &runtimepkg.ExecutionContext{
 		Command:         &invowkfile.Command{Name: "build"},
 		SelectedRuntime: invowkfile.RuntimeContainer,
 		SelectedImpl: &invowkfile.Implementation{
-			Script:   invowkfile.ScriptContent(script), //goplint:ignore -- test runtime probe script
+			Script:   script,
 			Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}},
 		},
 		Context: context.Background(),

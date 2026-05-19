@@ -288,7 +288,7 @@ SC-06 --ivk-env-var priority override:
   grep -n "ivk-env-var\|IvkEnvVar" internal/runtime/env_builder.go
   → If present: CONFIRMED (By-design)
 
-SC-07 check_script host shell execution:
+SC-07 custom-check script.content host shell execution:
   grep -n "exec.Command\|os/exec" internal/app/deps/checks.go
   → If present: CONFIRMED (Partial — host exec still used)
   → If removed: status changed
@@ -459,7 +459,7 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:443, runtime.go:573-575` | Partial |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:131-170` | Mitigated |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
-| SC-07 | `check_script` host shell execution | High | `internal/app/deps/checks.go:70-72` | Partial |
+| SC-07 | Custom-check `script.content` host shell execution | High | `internal/app/deps/checks.go:70-72` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:435-438` | Mitigated (allowlist in Validate) |
 | SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go:199-201` | By-design |
 | SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial |

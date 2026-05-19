@@ -11,7 +11,7 @@ export const runtimeModesSnippets = {
     name: "build"
     implementations: [
         {
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }
@@ -38,7 +38,7 @@ cmds: [
     code: `{
     name: "build"
     implementations: [{
-        script: """
+        script: {content: """
             #!/bin/bash
             set -euo pipefail  # Bash strict mode
             
@@ -49,7 +49,7 @@ cmds: [
             )
             
             echo "Building for \${config[env]}..."
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -61,13 +61,13 @@ cmds: [
     code: `{
     name: "build"
     implementations: [{
-        script: """
+        script: {content: """
             $ErrorActionPreference = "Stop"
             
             Write-Host "Building..." -ForegroundColor Green
             dotnet build --configuration Release
             Write-Host "Done!" -ForegroundColor Green
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "windows"}]
     }]
@@ -79,12 +79,12 @@ cmds: [
     code: `{
     name: "build"
     implementations: [{
-        script: """
+        script: {content: """
             @echo off
             echo Building...
             msbuild /p:Configuration=Release
             echo Done!
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "windows"}]
     }]
@@ -96,7 +96,7 @@ cmds: [
     code: `{
     name: "analyze"
     implementations: [{
-        script: """
+        script: {content: """
             #!/usr/bin/env python3
             import sys
             import json
@@ -104,7 +104,7 @@ cmds: [
             print(f"Python {sys.version}")
             data = {"status": "ok", "items": [1, 2, 3]}
             print(json.dumps(data, indent=2))
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -116,14 +116,14 @@ cmds: [
     code: `{
     name: "analyze"
     implementations: [{
-        script: """
+        script: {
+            content: """
             import sys
             print(f"Hello from Python {sys.version_info.major}!")
             """
-        runtimes: [{
-            name: "native"
             interpreter: "python3"  // Explicit interpreter
-        }]
+        }
+        runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
@@ -134,13 +134,13 @@ cmds: [
     code: `{
     name: "script"
     implementations: [{
-        script: """
+        script: {
+            content: """
             print("Unbuffered output!")
             """
-        runtimes: [{
-            name: "native"
             interpreter: "python3 -u"  // With arguments
-        }]
+        }
+        runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
@@ -156,11 +156,11 @@ cmds: [
         }
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Home: $HOME"
             echo "User: $USER"
             echo "Deploy to: $DEPLOY_ENV"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -178,13 +178,13 @@ cmds: [
         {name: "name", description: "Name to greet", default_value: "World"}
     ]
     implementations: [{
-        script: """
+        script: {content: """
             if [ "$INVOWK_FLAG_LOUD" = "true" ]; then
                 echo "HELLO, $INVOWK_ARG_NAME!"
             else
                 echo "Hello, $INVOWK_ARG_NAME!"
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -203,7 +203,7 @@ cmds: [
     name: "build frontend"
     workdir: "./frontend"  // Run in frontend subdirectory
     implementations: [{
-        script: "npm run build"
+        script: {content: "npm run build"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -224,7 +224,7 @@ cmds: [
         ]
     }
     implementations: [{
-        script: "docker build -t myapp . && kubectl apply -f k8s/"
+        script: {content: "docker build -t myapp . && kubectl apply -f k8s/"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -236,11 +236,11 @@ cmds: [
     code: `{
     name: "build"
     implementations: [{
-        script: """
+        script: {content: """
             echo "Building..."
             go build -o bin/app ./...
             echo "Done!"
-            """
+            """}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -257,7 +257,7 @@ cmds: [
     code: `{
     name: "setup"
     implementations: [{
-        script: """
+        script: {content: """
             # This works the same everywhere!
             if [ -d "node_modules" ]; then
                 echo "Dependencies already installed"
@@ -265,7 +265,7 @@ cmds: [
                 echo "Installing dependencies..."
                 npm install
             fi
-            """
+            """}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -282,19 +282,19 @@ virtual_shell: {
 
   'runtime-modes/virtual-variables': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     NAME="World"
     echo "Hello, $NAME!"
     
     # Parameter expansion
     echo "\${NAME:-default}"
     echo "\${#NAME}"  # Length
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-conditionals': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     if [ "$ENV" = "production" ]; then
         echo "Production mode"
     elif [ "$ENV" = "staging" ]; then
@@ -302,12 +302,12 @@ virtual_shell: {
     else
         echo "Development mode"
     fi
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-loops': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     # For loop
     for file in *.go; do
         echo "Processing $file"
@@ -319,24 +319,24 @@ virtual_shell: {
         echo "Count: $count"
         count=$((count + 1))
     done
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-functions': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     greet() {
         echo "Hello, $1!"
     }
     
     greet "World"
     greet "Invowk"
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-subshells': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     # Command substitution
     current_date=$(date +%Y-%m-%d)
     echo "Today is $current_date"
@@ -344,18 +344,18 @@ virtual_shell: {
     # Subshell
     (cd /tmp && echo "In temp: $(pwd)")
     echo "Still in: $(pwd)"
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-external-commands': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     # Calls the real 'go' binary
     go version
     
     # Calls the real 'git' binary
     git status
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-env-vars': {
@@ -368,10 +368,10 @@ virtual_shell: {
         }
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Building in $BUILD_MODE mode"
             go build -ldflags="-s -w" ./...
-            """
+            """}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -384,13 +384,13 @@ virtual_shell: {
     name: "greet"
     args: [{name: "name", description: "Name to greet", default_value: "World"}]
     implementations: [{
-        script: """
+        script: {content: """
             # Using environment variable
             echo "Hello, $INVOWK_ARG_NAME!"
 
             # Or positional parameter
             echo "Hello, $1!"
-            """
+            """}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -400,19 +400,19 @@ virtual_shell: {
   'runtime-modes/virtual-no-interpreter': {
     language: 'cue',
     code: `// This will NOT work with virtual runtime!
-// The "interpreter" field is not allowed on #RuntimeConfigVirtual —
-// CUE schema validation will reject this at parse time.
+// Runtime validation rejects non-shell script interpreters because
+// virtual runtime always uses the embedded mvdan/sh interpreter.
 {
     name: "bad-example"
     implementations: [{
-        script: """
+        script: {
+            content: """
             #!/usr/bin/env python3
             print("This won't work!")
             """
-        runtimes: [{
-            name: "virtual"
-            interpreter: "python3"  // CUE validation error: field not allowed
-        }]
+            interpreter: "python3"
+        }
+        runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -421,7 +421,7 @@ virtual_shell: {
   'runtime-modes/virtual-bash-limitations': {
     language: 'cue',
     code: `// These won't work in virtual runtime:
-script: """
+script: {content: """
     # Bash arrays (use $@ instead)
     declare -a arr=(1 2 3)  # Not supported
     
@@ -431,7 +431,7 @@ script: """
     
     # Process substitution
     diff <(cmd1) <(cmd2)  # Not supported
-    """`,
+    """}`,
   },
 
   'runtime-modes/virtual-deps': {
@@ -446,7 +446,7 @@ script: """
         ]
     }
     implementations: [{
-        script: "go build ./..."
+        script: {content: "go build ./..."}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -471,7 +471,7 @@ virtual_shell: {
     name: "build"
     implementations: [
         {
-            script: "echo 'Hello from container' && ls /workspace"
+            script: {content: "echo 'Hello from container' && ls /workspace"}
             runtimes: [{
                 name: "container"
                 image: "debian:stable-slim"
@@ -486,7 +486,7 @@ virtual_shell: {
     language: 'cue',
     code: `// env belongs on the implementation, not on the runtime
 implementations: [{
-    script: "echo APP_ENV=$APP_ENV && echo DEBUG=$DEBUG"
+    script: {content: "echo APP_ENV=$APP_ENV && echo DEBUG=$DEBUG"}
     runtimes: [{name: "container", image: "debian:stable-slim"}]
     platforms: [{name: "linux"}]
     env: {
@@ -502,7 +502,7 @@ implementations: [{
     language: 'cue',
     code: `// workdir belongs on the implementation, not on the runtime
 implementations: [{
-    script: "pwd && ls"
+    script: {content: "pwd && ls"}
     runtimes: [{name: "container", image: "debian:stable-slim"}]
     platforms: [{name: "linux"}]
     workdir: "/workspace"
@@ -529,7 +529,7 @@ implementations: [{
     {
         name: "build native"
         implementations: [{
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -539,7 +539,7 @@ implementations: [{
     {
         name: "build virtual"
         implementations: [{
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "virtual"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -549,7 +549,7 @@ implementations: [{
     {
         name: "build container"
         implementations: [{
-            script: "echo building in container"
+            script: {content: "echo building in container"}
             runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
         }]
@@ -563,7 +563,7 @@ implementations: [{
     name: "build"
     implementations: [
         {
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [
                 {name: "native"},  // Default
                 {name: "virtual"}, // Alternative
@@ -571,7 +571,7 @@ implementations: [{
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         },
         {
-            script: "echo building in container"
+            script: {content: "echo building in container"}
             runtimes: [
                 {name: "container", image: "debian:stable-slim"}  // Reproducible
             ]
@@ -659,14 +659,16 @@ invowk cmd build --ivk-container-name dev-shell`,
     code: `{
     name: "analyze"
     implementations: [{
-        script: """
+        script: {
+            content: """
             import sys
             print(f"Running on Python {sys.version_info.major}")
             """
+            interpreter: "python3"
+        }
         runtimes: [{
             name: "container"
             image: "python:3-slim"
-            interpreter: "python3"
         }]
         platforms: [{name: "linux"}]
     }]
@@ -678,7 +680,7 @@ invowk cmd build --ivk-container-name dev-shell`,
     code: `{
     name: "deploy from container"
     implementations: [{
-        script: """
+        script: {content: """
             # Connection credentials are provided via environment variables
             echo "SSH Host: $INVOWK_SSH_HOST"
             echo "SSH Port: $INVOWK_SSH_PORT"
@@ -687,7 +689,7 @@ invowk cmd build --ivk-container-name dev-shell`,
             sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no 
                 $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT 
                 'echo "Hello from host!"'
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -714,11 +716,11 @@ invowk cmd build --ivk-container-name dev-shell`,
         filepaths: [{alternatives: ["invowkfile.cue"]}]
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Environment: $APP_ENV"
             test -f /workspace/invowkfile.cue
             echo "Workspace ready"
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -762,11 +764,11 @@ invowk cmd build --ivk-container-name dev-shell`,
     name: "analyze"
     implementations: [{
         platforms: [{name: "linux"}]
-        script: """
+        script: {content: """
             #!/usr/bin/env python3
             import sys
             print(f"Python {sys.version} in container!")
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "python:3-slim"
@@ -787,10 +789,10 @@ invowk cmd build --ivk-container-name dev-shell`,
     }
     implementations: [{
         platforms: [{name: "linux"}]
-        script: """
+        script: {content: """
             echo "Deploying to $DEPLOY_ENV"
             echo "API: $API_URL"
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -816,7 +818,7 @@ invowk cmd build --ivk-container-name dev-shell`,
     }
     implementations: [{
         platforms: [{name: "linux"}]
-        script: "test -f /workspace/invowkfile.cue && echo ready"
+        script: {content: "test -f /workspace/invowkfile.cue && echo ready"}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -837,10 +839,10 @@ container_engine: "podman"  // or "docker"`,
     name: "build"
     implementations: [{
         platforms: [{name: "linux"}]
-        script: """
+        script: {content: """
             pwd  # Outputs: /workspace
             ls   # Shows your project files
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -856,7 +858,7 @@ container_engine: "podman"  // or "docker"`,
     workdir: "./frontend"  // Mounted and used as workdir
     implementations: [{
         platforms: [{name: "linux"}]
-        script: "./build.sh"
+        script: {content: "./build.sh"}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -871,13 +873,13 @@ container_engine: "podman"  // or "docker"`,
     name: "deploy container"
     implementations: [{
         platforms: [{name: "linux"}]
-        script: """
+        script: {content: """
             # This TUI confirm appears as an overlay on your terminal
             if invowk tui confirm "Deploy to production?"; then
                 echo "Deploying..."
                 ./deploy.sh
             fi
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"

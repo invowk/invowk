@@ -106,7 +106,7 @@ func TestRuntimeConfigContainerSourceVariants(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [` + tt.runtime + `]
 		platforms: [{name: "linux"}]
 	}]
@@ -137,7 +137,7 @@ func TestImageLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "` + image512 + `"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -152,7 +152,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "` + image513 + `"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -162,24 +162,24 @@ cmds: [{
 	}
 }
 
-// TestInterpreterLengthConstraint verifies interpreter fields have a 1024 rune limit.
+// TestInterpreterLengthConstraint verifies script interpreter fields have a 1024 rune limit.
 // T091: Add boundary tests for interpreter length constraint (1024 chars)
 func TestInterpreterLengthConstraint(t *testing.T) {
 	t.Parallel()
 
-	// Test native interpreter - exactly 1024 characters should pass
+	// Test script interpreter - exactly 1024 characters should pass
 	interp1024 := strings.Repeat("a", 1024)
 	valid := `
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
-		runtimes: [{name: "native", interpreter: "` + interp1024 + `"}]
+		script: {content: "echo hello", interpreter: "` + interp1024 + `"}
+		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
 }]`
 	if err := validateCUE(t, valid); err != nil {
-		t.Errorf("1024-char native interpreter should be valid, got error: %v", err)
+		t.Errorf("1024-char script interpreter should be valid, got error: %v", err)
 	}
 
 	// 1025 characters should fail
@@ -188,41 +188,42 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
-		runtimes: [{name: "native", interpreter: "` + interp1025 + `"}]
+		script: {content: "echo hello", interpreter: "` + interp1025 + `"}
+		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
 }]`
 	if validateCUE(t, invalid) == nil {
-		t.Errorf("1025-char native interpreter should fail validation, but passed")
+		t.Errorf("1025-char script interpreter should fail validation, but passed")
 	}
 
-	// Test container interpreter - exactly 1024 characters should pass
-	validContainer := `
+	// Test custom-check script interpreter length on the same shared script source.
+	validCheck := `
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
-		runtimes: [{name: "container", image: "debian:stable-slim", interpreter: "` + interp1024 + `"}]
+		script: {content: "echo hello"}
+		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
+		depends_on: {custom_checks: [{name: "check", script: {content: "echo ok", interpreter: "` + interp1024 + `"}}]}
 	}]
 }]`
-	if err := validateCUE(t, validContainer); err != nil {
-		t.Errorf("1024-char container interpreter should be valid, got error: %v", err)
+	if err := validateCUE(t, validCheck); err != nil {
+		t.Errorf("1024-char custom-check interpreter should be valid, got error: %v", err)
 	}
 
-	// 1025 characters should fail for container interpreter too
-	invalidContainer := `
+	invalidCheck := `
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
-		runtimes: [{name: "container", image: "debian:stable-slim", interpreter: "` + interp1025 + `"}]
+		script: {content: "echo hello"}
+		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
+		depends_on: {custom_checks: [{name: "check", script: {content: "echo ok", interpreter: "` + interp1025 + `"}}]}
 	}]
 }]`
-	if validateCUE(t, invalidContainer) == nil {
-		t.Errorf("1025-char container interpreter should fail validation, but passed")
+	if validateCUE(t, invalidCheck) == nil {
+		t.Errorf("1025-char custom-check interpreter should fail validation, but passed")
 	}
 }
 
@@ -236,7 +237,7 @@ func TestEnvFilesElementConstraints(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -254,7 +255,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -272,7 +273,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -295,7 +296,7 @@ func TestEnvVarsKeyConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -314,7 +315,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -339,7 +340,7 @@ func TestEnvVarsValueLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -359,7 +360,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -384,7 +385,7 @@ func TestVolumesElementConstraints(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "debian:stable-slim", volumes: [""]}]
 		platforms: [{name: "linux"}]
 	}]
@@ -398,7 +399,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "debian:stable-slim", volumes: ["./data:/data"]}]
 		platforms: [{name: "linux"}]
 	}]
@@ -413,7 +414,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "debian:stable-slim", volumes: ["` + vol4097 + `"]}]
 		platforms: [{name: "linux"}]
 	}]
@@ -433,7 +434,7 @@ func TestPortsElementConstraints(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "debian:stable-slim", ports: [""]}]
 		platforms: [{name: "linux"}]
 	}]
@@ -447,7 +448,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "debian:stable-slim", ports: ["8080:80"]}]
 		platforms: [{name: "linux"}]
 	}]
@@ -462,7 +463,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "debian:stable-slim", ports: ["` + port257 + `"]}]
 		platforms: [{name: "linux"}]
 	}]
@@ -479,7 +480,7 @@ func TestPersistentContainerConfigConstraints(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{
 			name: "container"
 			image: "debian:stable-slim"
@@ -504,7 +505,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{
 			name: "native"
 			persistent: {create_if_missing: true}
@@ -527,14 +528,14 @@ func TestCustomCheckNameLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
 			name: "` + name256 + `"
-			check_script: "echo ok"
+			script: {content: "echo ok"}
 		}]
 	}
 }]`
@@ -548,14 +549,14 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
 			name: "` + name257 + `"
-			check_script: "echo ok"
+			script: {content: "echo ok"}
 		}]
 	}
 }]`
@@ -574,14 +575,14 @@ func TestExpectedOutputLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
 			name: "mycheck"
-			check_script: "echo ok"
+			script: {content: "echo ok"}
 			expected_output: "` + output1000 + `"
 		}]
 	}
@@ -596,14 +597,14 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
 	depends_on: {
 		custom_checks: [{
 			name: "mycheck"
-			check_script: "echo ok"
+			script: {content: "echo ok"}
 			expected_output: "` + output1001 + `"
 		}]
 	}
@@ -623,7 +624,7 @@ func TestDefaultShellNonWhitespaceConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -639,7 +640,7 @@ default_shell: " "
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -661,7 +662,7 @@ func TestImageNonEmptyConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: ""}]
 		platforms: [{name: "linux"}]
 	}]

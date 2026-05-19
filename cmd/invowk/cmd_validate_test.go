@@ -3,10 +3,14 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestDetectPathType(t *testing.T) {
@@ -51,6 +55,23 @@ func TestDetectPathType(t *testing.T) {
 					t.Fatal(err)
 				}
 				p := filepath.Join(modDir, "invowkmod.cue")
+				if err := os.WriteFile(p, []byte("{}"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return p
+			},
+			wantType:     pathTypeModule,
+			wantResolved: "test.invowkmod",
+		},
+		{
+			name: "module invowkfile.cue resolves to parent module",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				modDir := filepath.Join(dir, "test.invowkmod")
+				if err := os.MkdirAll(modDir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				p := filepath.Join(modDir, "invowkfile.cue")
 				if err := os.WriteFile(p, []byte("{}"), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -186,6 +207,47 @@ func TestPathType_String(t *testing.T) {
 				t.Errorf("pathType(%d).String() = %q, want %q", tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRunPathValidationAcceptsDirectModuleInvowkfileScriptFile(t *testing.T) {
+	t.Parallel()
+
+	modulePath := filepath.Join(t.TempDir(), "com.example.tools.invowkmod")
+	if err := os.MkdirAll(filepath.Join(modulePath, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkmod.cue"), []byte(`module: "com.example.tools"
+version: "1.0.0"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "scripts", "hello.sh"), []byte("echo hello\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkfile.cue"), []byte(`cmds: [{
+	name: "hello"
+	implementations: [{
+		script: {file: "scripts/hello.sh"}
+		runtimes: [{name: "virtual"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	targetPath := filepath.Join(modulePath, "invowkfile.cue")
+	if err := runPathValidation(cmd, targetPath); err != nil {
+		t.Fatalf("runPathValidation() error = %v, stderr = %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Module is valid") {
+		t.Fatalf("stdout = %q, want module-valid message", stdout.String())
 	}
 }
 

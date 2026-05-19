@@ -246,10 +246,10 @@ cmds: [
 		implementations: [
 			{
 				// Multi-line scripts use triple quotes
-				script: """
+				script: {content: """
 					echo "Building ${PROJECT_NAME}..."
 					echo "Build complete"
-					"""
+					"""}
 				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
 				runtimes: [
 					{name: "native"},
@@ -268,19 +268,19 @@ cmds: [
 		description: "Run unit tests"
 		implementations: [
 			{
-				script: "go test ./..."
+				script: {content: "go test ./..."}
 				runtimes: [{name: "native"}, {name: "virtual"}]  // Can run in native or virtual runtime
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
 	},
-	// Commands can also reference external script files
+	// Root invowkfiles invoke project scripts from inline content
 	{
 		name: "deploy"
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "./scripts/deploy.sh"
+				script: {content: "./scripts/deploy.sh"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			}
@@ -292,7 +292,7 @@ cmds: [
 		description: "Create a release"
 		implementations: [
 			{
-				script: "echo 'Creating release...'"
+				script: {content: "echo 'Creating release...'"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			}
@@ -313,7 +313,7 @@ cmds: [
 		description: "Print a greeting from a container"
 		implementations: [
 			{
-				script: "echo \"Hello, Invowk!\""
+				script: {content: "echo \"Hello, Invowk!\""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -387,7 +387,7 @@ cmds: [
 		workdir: "./packages/api"  // Command-level workdir
 		implementations: [
 			{
-				script: "go test ./..."
+				script: {content: "go test ./..."}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 				workdir: "./packages/api/v2"  // Implementation-level override
@@ -663,10 +663,10 @@ cmds: [
 		description: "Deploy to AWS"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "Deploying with AWS credentials..."
 					aws s3 sync ./dist s3://my-bucket
-					"""
+					"""}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			}
@@ -749,13 +749,13 @@ depends_on: {
 		// Simple exit code check (passes if script exits with 0)
 		{
 			name: "docker-running"
-			check_script: "docker info > /dev/null 2>&1"
+			script: {content: "docker info > /dev/null 2>&1"}
 		},
 
 		// Exit code + output validation
 		{
 			name: "go-version"
-			check_script: "go version"
+			script: {content: "go version"}
 			expected_code: 0
 			expected_output: "go1\\.2[6-9]"  // Must be Go 1.26+
 		},
@@ -765,12 +765,12 @@ depends_on: {
 			alternatives: [
 				{
 					name: "python-3.11"
-					check_script: "python3 --version"
+					script: {content: "python3 --version"}
 					expected_output: "^Python 3\\.11"
 				},
 				{
 					name: "python-3.12"
-					check_script: "python3 --version"
+					script: {content: "python3 --version"}
 					expected_output: "^Python 3\\.12"
 				},
 			]
@@ -784,7 +784,8 @@ depends_on: {
 | Property | Required | Description |
 |----------|----------|-------------|
 | `name` | Yes | Identifier for error messages |
-| `check_script` | Yes | Script to execute for validation |
+| `script.content` | Yes | Inline script content to execute for validation |
+| `script.file` | Module only | Script file contained in the source invowkmod |
 | `expected_code` | No | Expected exit code (default: 0) |
 | `expected_output` | No | Regex pattern to match against script output |
 
@@ -801,14 +802,14 @@ cmds: [
         description: "Deploy the application"
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "Deploying to ${INVOWK_FLAG_ENV}..."
                     if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
                         echo "DRY RUN - no changes made"
                     else
                         ./scripts/deploy.sh "$INVOWK_FLAG_ENV"
                     fi
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -1015,7 +1016,7 @@ cmds: [
 		name: "container-check"
 		implementations: [
 			{
-				script: "test -f /workspace/invowkfile.cue && echo ready"
+				script: {content: "test -f /workspace/invowkfile.cue && echo ready"}
 				runtimes: [{
 					name: "container"
 					image: "debian:stable-slim"
@@ -1065,11 +1066,11 @@ cmds: [
         description: "Deploy the application"
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "Deploying to ${INVOWK_ARG_ENV}..."
                     echo "Replicas: ${INVOWK_ARG_REPLICAS}"
                     echo "Services: ${INVOWK_ARG_SERVICES}"
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -1308,7 +1309,7 @@ cmds: [
         description: "Deploy services to an environment"
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "=== Deployment ==="
                     echo "Environment: $INVOWK_ARG_ENV"
                     echo "Replicas: $INVOWK_ARG_REPLICAS"
@@ -1322,7 +1323,7 @@ cmds: [
                             echo "Deploying $SERVICE with $INVOWK_ARG_REPLICAS replicas..."
                         done
                     fi
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -1384,11 +1385,11 @@ cmds: [
         env: {vars: {SHARED_CONFIG: "/etc/app/config.yaml"}}  // Inherited by children
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "Parent's INVOWK_ARG_NAME: $INVOWK_ARG_NAME"  # "parent-value"
                     invowk cmd examples child  # Child will NOT see INVOWK_ARG_NAME
                     # But child WILL see SHARED_CONFIG
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -1399,10 +1400,10 @@ cmds: [
         name: "child"
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "Child's INVOWK_ARG_NAME: ${INVOWK_ARG_NAME:-<not set>}"  # "<not set>"
                     echo "Child's SHARED_CONFIG: $SHARED_CONFIG"  # "/etc/app/config.yaml"
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -1441,7 +1442,7 @@ cmds: [
         description: "Build the project"
         implementations: [
             {
-                script: "make build"
+                script: {content: "make build"}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -1452,7 +1453,7 @@ cmds: [
         description: "Clean build artifacts"
         implementations: [
             {
-                script: "rm -rf bin/"
+                script: {content: "rm -rf bin/"}
                 runtimes: [{name: "native"}]
                 // Unix-only command
                 platforms: [{name: "linux"}, {name: "macos"}]
@@ -1482,19 +1483,19 @@ cmds: [
         implementations: [
             // Unix implementation (Linux and macOS)
             {
-                script: """
+                script: {content: """
                     echo "Hostname: $(hostname)"
                     echo "Kernel: $(uname -r)"
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             },
             // Windows implementation
             {
-                script: """
+                script: {content: """
                     echo Hostname: %COMPUTERNAME%
                     echo User: %USERNAME%
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "windows"}]
             }
@@ -1514,13 +1515,13 @@ cmds: [
         description: "Deploy with platform-specific config"
         implementations: [
             {
-                script: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""
+                script: {content: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}]
                 env: {vars: {PLATFORM_NAME: "Linux", CONFIG_PATH: "/etc/app/config.yaml"}}
             },
             {
-                script: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""
+                script: {content: "echo \"Platform: $PLATFORM_NAME, Config: $CONFIG_PATH\""}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "macos"}]
                 env: {vars: {PLATFORM_NAME: "macOS", CONFIG_PATH: "/usr/local/etc/app/config.yaml"}}
@@ -1573,12 +1574,12 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					#!/bin/bash
 					set -e
 					echo "Building..."
 					go build ./...
-					"""
+					"""}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
@@ -1589,27 +1590,30 @@ cmds: [
 
 ### Script Files
 
-Reference external script files using paths:
+`script.file` is for module-contained files only. In a root/project `invowkfile.cue`, invoke project-local scripts from `script.content`. In an invowkmod, use `script.file` for files contained in that same module.
 
 ```cue
+// Root/project invowkfile.cue
 cmds: [
-	// Relative to invowkfile location
 	{
 		name: "deploy"
 		implementations: [
 			{
-				script: "./scripts/deploy.sh"
+				script: {content: "./scripts/deploy.sh"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 		]
 	},
-	// Just the filename (if it has a recognized extension)
+]
+
+// Inside mytools.invowkmod/invowkfile.cue
+cmds: [
 	{
 		name: "test"
 		implementations: [
 			{
-				script: "run-tests.sh"
+				script: {file: "scripts/run-tests.sh"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
@@ -1635,11 +1639,11 @@ cmds: [
         description: "Python script with auto-detected interpreter"
         implementations: [
             {
-                script: """
+                script: {content: """
                     #!/usr/bin/env python3
                     import sys
                     print(f"Hello from Python {sys.version_info.major}.{sys.version_info.minor}!")
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -1655,7 +1659,7 @@ The shebang is parsed to extract both the interpreter and any arguments:
 
 ### Explicit Interpreter
 
-You can explicitly specify an interpreter using the `interpreter` field in the runtime configuration:
+You can explicitly specify an interpreter using the `interpreter` field on the `script` object:
 
 ```cue
 cmds: [
@@ -1665,11 +1669,14 @@ cmds: [
         implementations: [
             {
                 // No shebang needed when interpreter is explicit
-                script: """
+                script: {
+                    content: """
                     puts "Hello from Ruby!"
                     puts "Ruby version: #{RUBY_VERSION}"
                     """
-                runtimes: [{name: "native", interpreter: "ruby"}]
+                    interpreter: "ruby"
+                }
+                runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
         ]
@@ -1690,16 +1697,16 @@ cmds: [
         description: "Python script in container"
         implementations: [
             {
-                script: """
+                // The interpreter is auto-detected from the shebang in script.content.
+                script: {content: """
                     #!/usr/bin/env python3
                     import os
                     print("Hello from Python in a container!")
                     print(f"Working directory: {os.getcwd()}")
-                    """
+                    """}
                 runtimes: [{
                     name: "container"
                     image: "python:3-slim"
-                    // interpreter auto-detected from shebang
                 }]
                 platforms: [{name: "linux"}]
             }
@@ -1711,14 +1718,16 @@ cmds: [
         implementations: [
             {
                 // No shebang needed
-                script: """
+                script: {
+                    content: """
                     import sys
                     print(f"Python {sys.version}")
                     """
+                    interpreter: "python3"
+                }
                 runtimes: [{
                     name: "container"
                     image: "python:3-slim"
-                    interpreter: "python3"
                 }]
                 platforms: [{name: "linux"}]
             }
@@ -1738,12 +1747,12 @@ cmds: [
         description: "Python script with arguments"
         implementations: [
             {
-                script: """
+                script: {content: """
                     #!/usr/bin/env python3
                     import sys
                     name = sys.argv[1] if len(sys.argv) > 1 else "World"
                     print(f"Hello, {name}!")
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -1757,13 +1766,13 @@ cmds: [
 
 ### Fallback Behavior
 
-When no shebang is found and no explicit interpreter is specified, invowk falls back to shell execution:
+When no shebang is found and no `script.interpreter` is specified, invowk falls back to shell execution:
 - **Native runtime**: Uses the system's default shell
 - **Container runtime**: Uses `/bin/sh -c`
 
 ### Virtual Runtime Restriction
 
-The `interpreter` field is **not supported** with the virtual runtime. The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Attempting to use `interpreter` with virtual runtime will result in a validation error.
+The virtual runtime always uses the built-in mvdan/sh interpreter. Non-shell `script.interpreter` values such as `python3`, `ruby`, or `node` are rejected for virtual implementations; use native or container runtime for those scripts. Runtime configs do not accept an `interpreter` field for any runtime.
 
 ### Supported Interpreters
 
@@ -1845,7 +1854,7 @@ cmds: [
         implementations: [
             {
                 // Path relative to module root, using forward slashes
-                script: "scripts/build.sh"
+                script: {file: "scripts/build.sh"}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -1857,7 +1866,7 @@ cmds: [
         implementations: [
             {
                 // Nested script path
-                script: "scripts/utils/helper.sh"
+                script: {file: "scripts/utils/helper.sh"}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -2257,7 +2266,7 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "go build ./..."
+				script: {content: "go build ./..."}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
@@ -2276,10 +2285,10 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "Building..."
 					go build ./...
-					"""
+					"""}
 				runtimes: [{name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
@@ -2313,7 +2322,7 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "echo 'Running inside container'"
+				script: {content: "echo 'Running inside container'"}
 				// Container config is specified in the runtime
 				runtimes: [{
 					name: "container",
@@ -2353,7 +2362,7 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "make build"
+				script: {content: "make build"}
 				runtimes: [{
 					name:              "container",
 					image:             "debian:stable-slim",
@@ -2380,7 +2389,7 @@ cmds: [
 		name: "deploy from container"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					# Connection info is available via environment variables:
 					# - INVOWK_SSH_ENABLED: Set to "true" when host SSH is active
 					# - INVOWK_SSH_HOST: Host address (host.docker.internal or host.containers.internal)
@@ -2392,7 +2401,7 @@ cmds: [
 					sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \
 						$INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT \
 						'echo "Hello from host!"'
-					"""
+					"""}
 				// enable_host_ssh and image are specified inside the container runtime config
 				runtimes: [{name: "container", image: "debian:stable-slim", enable_host_ssh: true}]
 				platforms: [{name: "linux"}]
@@ -2633,7 +2642,7 @@ cmds: [{
     implementations: [{
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
-        script: "npm run dev"
+        script: {content: "npm run dev"}
     }]
     watch: {
         patterns: ["src/**/*.go", "*.ts"]
@@ -2872,7 +2881,7 @@ cmds: [
         description: "Interactive project setup wizard"
         implementations: [
             {
-                script: """
+                script: {content: """
                     #!/bin/bash
                     NAME=$(invowk tui input --title "Project name:")
                     TYPE=$(invowk tui choose --title "Project type" cli library api)
@@ -2881,7 +2890,7 @@ cmds: [
                         invowk tui spin --title "Creating project..." -- mkdir -p "$NAME"
                         echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
                     fi
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }

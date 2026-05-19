@@ -187,7 +187,7 @@ func TestErrorMessagesIncludeCUEPaths(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "container", image: "` + strings.Repeat("a", 600) + `"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -334,12 +334,12 @@ func TestBehavioralSync_CheckName(t *testing.T) {
 }
 
 // TestBehavioralSync_ScriptContent verifies Go ScriptContent.Validate() agrees with
-// CUE #CustomCheck.check_script constraint (!="" & strings.MaxRunes(10485760)).
+// the CUE script.content constraint (!="" & strings.MaxRunes(10485760)).
 func TestBehavioralSync_ScriptContent(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	runBehavioralSyncField(t, schema, ctx, "#CustomCheck", "check_script",
+	runBehavioralSyncField(t, schema, ctx, "#ScriptSourceContent", "content",
 		func(s string) error { return ScriptContent(s).Validate() },
 		[]behavioralSyncCase{
 			{"echo hello", true, true, ""},

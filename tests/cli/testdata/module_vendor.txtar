@@ -85,7 +85,7 @@ cmds: [
 		name:        "noop"
 		description: "A no-op command"
 		implementations: [{
-			script:    "echo noop"
+			script: {content: "echo noop"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -128,7 +128,7 @@ modules: {
 		namespace:        "dep@1.0.0"
 		command_source_id: "dep"
 		module_id:        "dep"
-		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
+		content_hash:     "sha256:c9e7dee3d0ff4e22b5e1dfb14083f7abbc1158ca3a353049ba44ead20fa719ee"
 	}
 	"https://github.com/example/monorepo.git#modules/io.example.tools.invowkmod": {
 		git_url:          "https://github.com/example/monorepo.git"
@@ -139,7 +139,7 @@ modules: {
 		namespace:        "io.example.tools@1.0.0"
 		command_source_id: "io.example.tools"
 		module_id:        "io.example.tools"
-		content_hash:     "sha256:e7afd0eadd716960d9e4677dc9e61028e0d70b375868c774319f899c5478e3bd"
+		content_hash:     "sha256:905004c639a1f66e779b0ae9da23f15501e42c3a3f59bcde4ad2d8f7fc99e02b"
 	}
 	"https://github.com/example/stale.git": {
 		git_url:          "https://github.com/example/stale.git"
@@ -163,7 +163,7 @@ cmds: [
 		name:        "greet"
 		description: "A greeting command"
 		implementations: [{
-			script:    "echo hello from dep"
+			script: {content: "echo hello from dep"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -180,7 +180,7 @@ cmds: [
 		name:        "tool"
 		description: "A tools command"
 		implementations: [{
-			script:    "echo hello from tools"
+			script: {content: "echo hello from tools"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

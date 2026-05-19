@@ -18,12 +18,17 @@ const (
 	scriptPathTraversalErrMsg = "script path escapes module boundary"
 	// scriptReaderRequiredErrMsg backs ErrScriptReaderRequired.
 	scriptReaderRequiredErrMsg = "script file reader required"
+	// scriptFileRequiresModuleErrMsg backs ErrScriptFileRequiresModule.
+	scriptFileRequiresModuleErrMsg = "script file requires module invowkfile"
+	// invalidImplementationScriptErrMsg backs ErrInvalidImplementationScript.
+	invalidImplementationScriptErrMsg = "invalid implementation script"
+	// missingImplementationScriptSourceErrMsg backs ErrMissingImplementationScriptSource.
+	missingImplementationScriptSourceErrMsg = "implementation script must set content or file"
+	// mixedImplementationScriptSourceErrMsg backs ErrMixedImplementationScriptSource.
+	mixedImplementationScriptSourceErrMsg = "implementation script must not set both content and file"
 )
 
 var (
-	// scriptFileExtensions contains extensions that indicate a script file
-	scriptFileExtensions = []string{".sh", ".bash", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".zsh", ".fish"}
-
 	// ErrInvalidImplementation is the sentinel error wrapped by InvalidImplementationError.
 	ErrInvalidImplementation = errors.New("invalid implementation")
 
@@ -37,6 +42,19 @@ var (
 	// ErrScriptReaderRequired is returned when resolving a script file without
 	// an explicit filesystem reader.
 	ErrScriptReaderRequired = errors.New(scriptReaderRequiredErrMsg)
+
+	// ErrScriptFileRequiresModule is returned when script.file is used outside
+	// an invowkmod-backed invowkfile.
+	ErrScriptFileRequiresModule = errors.New(scriptFileRequiresModuleErrMsg)
+
+	// ErrInvalidImplementationScript is the sentinel error wrapped by InvalidImplementationScriptError.
+	ErrInvalidImplementationScript = errors.New(invalidImplementationScriptErrMsg)
+
+	// ErrMissingImplementationScriptSource is returned when an implementation script selects no source.
+	ErrMissingImplementationScriptSource = errors.New(missingImplementationScriptSourceErrMsg)
+
+	// ErrMixedImplementationScriptSource is returned when an implementation script selects both sources.
+	ErrMixedImplementationScriptSource = errors.New(mixedImplementationScriptSourceErrMsg)
 )
 
 type (
@@ -56,11 +74,29 @@ type (
 
 	//goplint:validate-all
 	//
+	// ImplementationScript selects either inline script content or a script file reference.
+	ImplementationScript struct {
+		// Content contains inline script text.
+		Content ScriptContent `json:"content,omitempty"`
+		// File references a script file resolved at execution time.
+		File *FilesystemPath `json:"file,omitempty"`
+		// Interpreter specifies how to execute the resolved script content.
+		Interpreter InterpreterSpec `json:"interpreter,omitempty"`
+	}
+
+	// InvalidImplementationScriptError is returned when an ImplementationScript has invalid fields.
+	// It wraps ErrInvalidImplementationScript for errors.Is() compatibility.
+	InvalidImplementationScriptError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// Implementation represents an implementation with platform and runtime constraints
 	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Implementation struct {
-		// Script contains the shell commands to execute OR a path to a script file
-		Script ScriptContent `json:"script"`
+		// Script selects inline shell content or a script file reference.
+		Script ImplementationScript `json:"script"`
 		// Runtimes specifies which runtimes can execute this implementation (required, at least one)
 		// The first element is the default runtime for this platform combination
 		// Each runtime is a struct with a Name field and optional type-specific fields
@@ -105,6 +141,62 @@ type (
 		IsDefaultForPlatform bool
 	}
 )
+
+// Validate returns nil when the script selects exactly one valid source.
+func (s ImplementationScript) Validate() error {
+	hasContent := s.Content != ""
+	hasFile := s.File != nil
+	var errs []error
+	switch {
+	case hasContent && hasFile:
+		errs = append(errs, ErrMixedImplementationScriptSource)
+	case !hasContent && !hasFile:
+		errs = append(errs, ErrMissingImplementationScriptSource)
+	}
+	if hasContent {
+		if err := s.Content.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if hasFile {
+		if err := s.File.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	appendOptionalValidation(&errs, s.Interpreter, s.Interpreter != "")
+	if len(errs) > 0 {
+		return &InvalidImplementationScriptError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// ResolveInterpreterFromScript resolves the interpreter for this script using
+// the provided resolved script content.
+//
+//goplint:ignore -- interpreter resolution consumes already-validated script bytes from inline or file sources.
+func (s ImplementationScript) ResolveInterpreterFromScript(scriptContent string) ShebangInfo {
+	return ResolveInterpreter(s.Interpreter, scriptContent)
+}
+
+// IsContent returns true when this script contains inline script text.
+func (s ImplementationScript) IsContent() bool {
+	return s.Content != ""
+}
+
+// IsFile returns true when this script references a script file.
+func (s ImplementationScript) IsFile() bool {
+	return s.File != nil
+}
+
+// Error implements the error interface for InvalidImplementationScriptError.
+func (e *InvalidImplementationScriptError) Error() string {
+	return types.FormatFieldErrors("implementation script", e.FieldErrors)
+}
+
+// Unwrap returns ErrInvalidImplementationScript and field errors for errors.Is() compatibility.
+func (e *InvalidImplementationScriptError) Unwrap() error {
+	return errors.Join(ErrInvalidImplementationScript, errors.Join(e.FieldErrors...))
+}
 
 // Validate returns nil if both Platform and Runtime in the key are valid,
 // or a combined error from both fields.
@@ -180,8 +272,10 @@ func (e *InvalidImplementationError) Error() string {
 	return types.FormatFieldErrors("implementation", e.FieldErrors)
 }
 
-// Unwrap returns ErrInvalidImplementation for errors.Is() compatibility.
-func (e *InvalidImplementationError) Unwrap() error { return ErrInvalidImplementation }
+// Unwrap returns ErrInvalidImplementation and field errors for errors.Is() compatibility.
+func (e *InvalidImplementationError) Unwrap() error {
+	return errors.Join(ErrInvalidImplementation, errors.Join(e.FieldErrors...))
+}
 
 // MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
@@ -264,51 +358,20 @@ func (s *Implementation) GetCommandDependencies() []CommandDependencyRef {
 	return refs
 }
 
-// IsScriptFile returns true if the Implementation field appears to be a file path
-// rather than inline script content. It uses the following heuristics:
-//   - Path prefix: starts with "./", "../", or "/" (Unix-style absolute/relative paths)
-//   - Drive letter: second character is ':' (Windows-style paths like "C:\script.ps1")
-//   - Known extension: ends with a recognized script file extension
-//     (.sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish)
-func (s *Implementation) IsScriptFile() bool {
-	script := strings.TrimSpace(string(s.Script))
-	if script == "" {
-		return false
-	}
-
-	// Check for explicit path indicators
-	if strings.HasPrefix(script, "./") || strings.HasPrefix(script, "../") || strings.HasPrefix(script, "/") {
-		return true
-	}
-
-	// On Windows, check for drive letter paths
-	if len(script) >= 2 && script[1] == ':' {
-		return true
-	}
-
-	// Check for known script file extensions
-	lower := strings.ToLower(script)
-	for _, ext := range scriptFileExtensions {
-		if strings.HasSuffix(lower, ext) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // GetScriptFilePath returns the absolute path to the script file, if Implementation is a file reference.
 // Returns empty FilesystemPath if Implementation is inline content.
 // The invowkfilePath parameter is used to resolve relative paths.
-// If modulePath is provided (non-empty), script paths are resolved relative to the module root
-// and are expected to use forward slashes for cross-platform compatibility.
+//
+// Deprecated: script.file is only valid for module invowkfiles; use
+// GetScriptFilePathWithModule with a non-empty module path.
 func (s *Implementation) GetScriptFilePath(invowkfilePath FilesystemPath) FilesystemPath {
 	return s.GetScriptFilePathWithModule(invowkfilePath, "")
 }
 
 // GetScriptFilePathWithModule returns the absolute path to the script file, if Implementation is a file reference.
 // Returns empty FilesystemPath if Implementation is inline content.
-// The invowkfilePath parameter is used to resolve relative paths when not in a module.
+// The invowkfilePath parameter is retained for API stability but is not used for
+// file-backed script resolution because script.file is valid only in modules.
 // The modulePath parameter specifies the module root directory for module-relative paths.
 // When modulePath is non-empty, script paths are expected to use forward slashes for
 // cross-platform compatibility and are resolved relative to the module root.
@@ -318,12 +381,15 @@ func (s *Implementation) GetScriptFilePath(invowkfilePath FilesystemPath) Filesy
 // contexts MUST use ResolveScriptWithModule or ResolveScriptWithFSAndModule, which apply
 // validateScriptPathContainment (SC-01). Direct use of this method for file reads without
 // a subsequent containment check is a security risk.
-func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath FilesystemPath) FilesystemPath {
-	if !s.IsScriptFile() {
+func (s *Implementation) GetScriptFilePathWithModule(_, modulePath FilesystemPath) FilesystemPath {
+	if !s.Script.IsFile() {
+		return ""
+	}
+	if modulePath == "" {
 		return ""
 	}
 
-	script := strings.TrimSpace(string(s.Script))
+	script := strings.TrimSpace(string(*s.Script.File))
 
 	// Unix-style absolute paths (leading '/') are container-absolute and must
 	// pass through unchanged on every platform. On Windows, filepath.IsAbs("/foo")
@@ -339,15 +405,9 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 		return FilesystemPath(script) //goplint:ignore -- OS-absolute path from filepath.IsAbs guard
 	}
 
-	// If in a module, resolve relative to module root with cross-platform path conversion
-	if modulePath != "" {
-		// Convert forward slashes to native path separator for cross-platform compatibility
-		nativePath := filepath.FromSlash(script)
-		return fspath.JoinStr(modulePath, nativePath)
-	}
-
-	// Resolve relative to invowkfile directory
-	return fspath.JoinStr(fspath.Dir(invowkfilePath), script)
+	// Convert forward slashes to native path separator for cross-platform compatibility.
+	nativePath := filepath.FromSlash(script)
+	return fspath.JoinStr(modulePath, nativePath)
 }
 
 // ResolveScript returns inline script content.
@@ -383,19 +443,19 @@ func (s *Implementation) ResolveScriptWithFS(invowkfilePath FilesystemPath, read
 // This is useful for testing with virtual filesystems.
 // The modulePath parameter specifies the module root directory for module-relative paths.
 func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath FilesystemPath, readFile func(path string) ([]byte, error)) (string, error) {
-	script := string(s.Script)
-	if script == "" {
-		return "", errors.New("script has no content")
+	if err := s.Script.Validate(); err != nil {
+		return "", err
 	}
 
-	if s.IsScriptFile() {
+	if s.Script.IsFile() {
+		if modulePath == "" {
+			return "", ErrScriptFileRequiresModule
+		}
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
 
 		// Security: containment check for module contexts (SC-01).
-		if modulePath != "" {
-			if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
-				return "", err
-			}
+		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
+			return "", err
 		}
 
 		if readFile == nil {
@@ -403,7 +463,7 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 		}
 		content, err := readFile(string(scriptPath))
 		if err != nil {
-			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
+			return "", scriptFileReadError(*s.Script.File, scriptPath, err)
 		}
 		resolved, err := validateResolvedScriptContent("script file content", ScriptContent(content)) //goplint:ignore -- validated by helper before use.
 		if err != nil {
@@ -413,7 +473,7 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 	}
 
 	// Inline script - use directly
-	resolved, err := validateResolvedScriptContent("inline script content", ScriptContent(script)) //goplint:ignore -- validated by helper before use.
+	resolved, err := validateResolvedScriptContent("inline script content", s.Script.Content)
 	if err != nil {
 		return "", err
 	}
@@ -423,6 +483,14 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 //goplint:ignore -- reader adapter matches os.ReadFile-style boundary signature.
 func scriptReaderRequired(string) ([]byte, error) {
 	return nil, ErrScriptReaderRequired
+}
+
+func scriptFileReadError(selectedPath, scriptPath FilesystemPath, err error) error {
+	selected := strings.TrimSpace(selectedPath.String())
+	if selected == "" || selected == scriptPath.String() {
+		return fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
+	}
+	return fmt.Errorf("failed to read script file '%s' (resolved to '%s'): %w", selected, scriptPath, err)
 }
 
 //goplint:ignore -- helper validates transient script bytes from file readers and inline source.
@@ -447,6 +515,13 @@ func validateScriptPathContainment(scriptPath, modulePath FilesystemPath) error 
 			ErrScriptPathTraversal, scriptPath, modulePath)
 	}
 	return nil
+}
+
+func validateModuleScriptFileSelection(scriptPath, modulePath FilesystemPath) error {
+	if modulePath == "" {
+		return ErrScriptFileRequiresModule
+	}
+	return validateScriptPathContainment(scriptPath, modulePath)
 }
 
 // ParseTimeout parses the Timeout field into a time.Duration.

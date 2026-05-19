@@ -26,7 +26,7 @@ Common shebang patterns:
 
 ## Explicit Interpreter
 
-Specify an interpreter directly in the runtime config:
+Specify an interpreter directly on the `script` object:
 
 <Snippet id="advanced/interpreter-explicit" />
 
@@ -76,15 +76,15 @@ Interpreters not in this list are rejected with an `UnsafeInterpreterSpecError`.
 
 ## Virtual Runtime Limitation
 
-The `interpreter` field is **not supported** with the virtual runtime:
+Non-shell `script.interpreter` values are **not supported** with the virtual runtime:
 
 <Snippet id="advanced/interpreter-virtual-error" />
 
-The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Use native or container runtime instead.
+The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Use native or container runtime instead. Runtime configs do not accept `interpreter`; a shape like `runtimes: [{name: "native", interpreter: "python3"}]` is invalid.
 
 ## Fallback Behavior
 
-When no shebang and no explicit interpreter:
+When there is no shebang and no `script.interpreter`:
 
 - **Native runtime**: Uses system's default shell
 - **Container runtime**: Uses `/bin/sh -c`

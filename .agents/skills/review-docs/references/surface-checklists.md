@@ -34,7 +34,7 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | S1-C07 | Command Flags (L722) flag types, syntax, and validation options match `#FlagConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
 | S1-C08 | Command Arguments (L986) argument types, positional syntax, and validation match `#ArgumentConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
 | S1-C09 | Platform Compatibility (L1362) uses "macos" (not "darwin"), struct format matches `#PlatformConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C10 | Script Sources (L1493) `source_file` syntax and path resolution match `#Implementation` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C10 | Script Sources (L1493) `script.content` / `script.file` syntax and path resolution match `#Implementation` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
 | S1-C11 | Interpreter Support (L1554) config format matches `#Interpreter` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
 | S1-C12 | Modules (L1711) module structure, RDNS naming, and file layout match conventions | `pkg/invowkmod/`, module directory conventions | WARNING | source-drift |
 | S1-C13 | Module Dependencies (L1977) `requires` syntax uses `git_url` (not `git`), lock file format correct, no `v` prefix in versions | `pkg/invowkmod/invowkmod_schema.cue` `#RequiredModule` | ERROR | schema-drift |

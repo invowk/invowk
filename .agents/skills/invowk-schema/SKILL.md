@@ -102,22 +102,22 @@ This validation runs:
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "Hello from bash"
             if [ -f /etc/os-release ]; then
                 cat /etc/os-release
             fi
-            """
+            """}
         runtimes:  [{name: "native"}, {name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: """
+        script: {content: """
             echo "Hello from bash"
             if [ -f /etc/os-release ]; then
                 cat /etc/os-release
             fi
-            """
+            """}
         runtimes:  [{name: "virtual"}]
         platforms: [{name: "windows"}]
     },
@@ -128,12 +128,12 @@ implementations: [
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "Hello from bash"
             if [ -f /etc/os-release ]; then
                 cat /etc/os-release
             fi
-            """
+            """}
         runtimes: [{name: "native"}, {name: "virtual"}]
         // Missing platforms restriction - will fail on Windows!
     },
@@ -157,18 +157,18 @@ When writing native runtime mirror tests (`native_*.txtar`), use native-only imp
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "Hello from native shell"
             echo "VAR=$MY_VAR"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: """
+        script: {content: """
             Write-Output "Hello from native shell"
             Write-Output "VAR=$($env:MY_VAR)"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },

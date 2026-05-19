@@ -60,7 +60,7 @@ SC-06 --ivk-env-var priority override:
   → Lines found: report line numbers
   → No output: report "NOT FOUND"
 
-SC-07 check_script host shell execution:
+SC-07 custom-check script.content host shell execution:
   Run: grep -n "exec\.Command\|os/exec" internal/app/deps/checks.go
   → Lines found: report line numbers
   → No output: report "NOT FOUND"

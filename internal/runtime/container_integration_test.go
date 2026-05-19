@@ -85,7 +85,7 @@ func testContainerBasicExecution(t *testing.T) {
 		Name: "test-basic",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "echo 'Hello from container'",
+				Script: invowkfile.ImplementationScript{Content: "echo 'Hello from container'"},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -124,7 +124,7 @@ func testContainerEnvironmentVariables(t *testing.T) {
 		Name: "test-env",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`,
+				Script: invowkfile.ImplementationScript{Content: `echo "VAR1=$MY_VAR1 VAR2=$MY_VAR2"`},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -178,7 +178,7 @@ echo "Variable: $VAR"`
 		Name: "test-multiline",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: invowkfile.ScriptContent(script),
+				Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -229,7 +229,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 		WorkDir: "subdir",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "pwd",
+				Script: invowkfile.ImplementationScript{Content: "pwd"},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -285,7 +285,7 @@ func testContainerVolumeMounts(t *testing.T) {
 		Name: "test-volumes",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: `cat /workspace/test-data.txt && echo "" && cat /data/data.txt`,
+				Script: invowkfile.ImplementationScript{Content: `cat /workspace/test-data.txt && echo "" && cat /data/data.txt`},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{
@@ -330,7 +330,7 @@ func testContainerExitCode(t *testing.T) {
 		Name: "test-exit-code",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "exit 42",
+				Script: invowkfile.ImplementationScript{Content: "exit 42"},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -363,7 +363,7 @@ func testContainerPositionalArgs(t *testing.T) {
 		Name: "test-positional-args",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`,
+				Script: invowkfile.ImplementationScript{Content: `echo "ARG1=$1 ARG2=$2 ALL=$@ COUNT=$#"`},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -412,7 +412,7 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 		Name: "test-ssh-env",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`,
+				Script: invowkfile.ImplementationScript{Content: `echo "SSH_HOST=$INVOWK_SSH_HOST SSH_PORT=$INVOWK_SSH_PORT SSH_USER=$INVOWK_SSH_USER SSH_ENABLED=$INVOWK_SSH_ENABLED"`},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
@@ -463,7 +463,8 @@ func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
 	return tmpDir, inv

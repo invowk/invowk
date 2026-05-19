@@ -27,13 +27,13 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 			CustomChecks: []CustomCheckDependency{
 				{
 					Name:         "check-version",
-					CheckScript:  "sh --version",
+					Script:       CustomCheckScript{Content: "sh --version"},
 					ExpectedCode: &expectedCode,
 				},
 				{
 					Alternatives: []CustomCheck{
-						{Name: "alt1", CheckScript: "echo 1"},
-						{Name: "alt2", CheckScript: "echo 2"},
+						{Name: "alt1", Script: CustomCheckScript{Content: "echo 1"}},
+						{Name: "alt2", Script: CustomCheckScript{Content: "echo 2"}},
 					},
 				},
 			},
@@ -43,7 +43,7 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 				Name: "hello",
 				Implementations: []Implementation{
 					{
-						Script:    "echo hello",
+						Script:    ImplementationScript{Content: "echo hello"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
@@ -61,8 +61,8 @@ func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 	if !strings.Contains(result, `"check-version"`) {
 		t.Error("GenerateCUE should include 'check-version' custom check name")
 	}
-	if !strings.Contains(result, `"sh --version"`) {
-		t.Error("GenerateCUE should include 'sh --version' check_script")
+	if !strings.Contains(result, `script: {content: "sh --version"}`) {
+		t.Error("GenerateCUE should include 'sh --version' script.content")
 	}
 	if !strings.Contains(result, "expected_code: 0") {
 		t.Error("GenerateCUE should include 'expected_code: 0'")
@@ -79,17 +79,17 @@ func TestParse_RootLevelDependsOn_CustomChecks(t *testing.T) {
 	cueContent := `
 depends_on: {
 	custom_checks: [
-		{
-			name: "version-check"
-			check_script: "sh --version"
-			expected_code: 0
-		},
-		{
-			alternatives: [
-				{name: "bash-check", check_script: "bash --version"},
-				{name: "sh-check", check_script: "sh --version"}
-			]
-		}
+			{
+				name: "version-check"
+				script: {content: "sh --version"}
+				expected_code: 0
+			},
+			{
+				alternatives: [
+					{name: "bash-check", script: {content: "bash --version"}},
+					{name: "sh-check", script: {content: "sh --version"}}
+				]
+			}
 	]
 }
 
@@ -98,7 +98,7 @@ cmds: [
 		name: "hello"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -134,8 +134,8 @@ cmds: [
 	if check1.Name != "version-check" {
 		t.Errorf("First check name = %q, want %q", check1.Name, "version-check")
 	}
-	if check1.CheckScript != "sh --version" {
-		t.Errorf("First check script = %q, want %q", check1.CheckScript, "sh --version")
+	if check1.Script.Content != "sh --version" {
+		t.Errorf("First check script = %q, want %q", check1.Script.Content, "sh --version")
 	}
 
 	// Second check uses alternatives
@@ -165,7 +165,7 @@ cmds: [
 		name: "hello"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -207,7 +207,7 @@ cmds: [
 	}
 }
 
-func TestParseCustomChecks_ValidCheckScript(t *testing.T) {
+func TestParseCustomChecks_ValidScriptContent(t *testing.T) {
 	t.Parallel()
 
 	cueContent := `
@@ -216,7 +216,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -225,8 +225,8 @@ cmds: [
 ]
 depends_on: {
 	custom_checks: [
-		{name: "check-docker", check_script: "docker --version"},
-		{name: "version-check", check_script: "echo v1.0.0", expected_output: "^v[0-9]+\\.[0-9]+"},
+			{name: "check-docker", script: {content: "docker --version"}},
+			{name: "version-check", script: {content: "echo v1.0.0"}, expected_output: "^v[0-9]+\\.[0-9]+"},
 	]
 }
 `
@@ -246,10 +246,10 @@ depends_on: {
 	}
 }
 
-func TestParseCustomChecks_RejectsLongCheckScript(t *testing.T) {
+func TestParseCustomChecks_RejectsLongScriptContent(t *testing.T) {
 	t.Parallel()
 
-	// Create a check_script that exceeds MaxScriptLength (10MB).
+	// Create script.content that exceeds MaxScriptLength (10MB).
 	// Since DefaultMaxCUEFileSize is 5MB, the file size guard triggers first.
 	// This is correct behavior - the file size guard prevents OOM attacks.
 	longScript := strings.Repeat("echo test; ", MaxScriptLength/11+1)
@@ -260,7 +260,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -269,7 +269,7 @@ cmds: [
 ]
 depends_on: {
 	custom_checks: [
-		{name: "check", check_script: %q},
+			{name: "check", script: {content: %q}},
 	]
 }
 `, longScript)
@@ -299,7 +299,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -308,7 +308,7 @@ cmds: [
 ]
 depends_on: {
 	custom_checks: [
-		{name: "check", check_script: "echo test", expected_output: "(a+)+"},
+		{name: "check", script: {content: "echo test"}, expected_output: "(a+)+"},
 	]
 }
 `
@@ -339,14 +339,14 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
 			custom_checks: [
-				{name: "check-docker", check_script: "docker --version"},
+					{name: "check-docker", script: {content: "docker --version"}},
 			]
 		}
 	}
@@ -377,14 +377,14 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
 		]
 		depends_on: {
 			custom_checks: [
-				{name: "check", check_script: "echo test", expected_output: "(a+)+"},
+				{name: "check", script: {content: "echo test"}, expected_output: "(a+)+"},
 			]
 		}
 	}
@@ -414,12 +414,12 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				depends_on: {
 					custom_checks: [
-						{name: "check-docker", check_script: "docker --version"},
+						{name: "check-docker", script: {content: "docker --version"}},
 					]
 				}
 			}
@@ -444,10 +444,10 @@ cmds: [
 	}
 }
 
-func TestParseCustomChecks_ImplementationLevelRejectsLongCheckScript(t *testing.T) {
+func TestParseCustomChecks_ImplementationLevelRejectsLongScriptContent(t *testing.T) {
 	t.Parallel()
 
-	// Create a check_script that exceeds MaxScriptLength (10MB).
+	// Create script.content that exceeds MaxScriptLength (10MB).
 	// Since DefaultMaxCUEFileSize is 5MB, the file size guard triggers first.
 	longScript := strings.Repeat("echo test; ", MaxScriptLength/11+1)
 
@@ -457,12 +457,12 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				depends_on: {
 					custom_checks: [
-						{name: "check", check_script: %q},
+							{name: "check", script: {content: %q}},
 					]
 				}
 			}

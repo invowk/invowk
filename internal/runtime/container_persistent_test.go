@@ -552,7 +552,7 @@ func newPersistentExecutionContext(t *testing.T, persistent *invowkfile.RuntimeP
 	cmd := &invowkfile.Command{
 		Name: "persistent",
 		Implementations: []invowkfile.Implementation{{
-			Script: "echo persistent",
+			Script: invowkfile.ImplementationScript{Content: "echo persistent"},
 			Runtimes: []invowkfile.RuntimeConfig{{
 				Name:       invowkfile.RuntimeContainer,
 				Image:      "debian:stable-slim",

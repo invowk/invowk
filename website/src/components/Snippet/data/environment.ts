@@ -54,10 +54,10 @@ export const environmentSnippets = {
         }
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Building for $NODE_ENV"
             echo "Date: $BUILD_DATE"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -94,7 +94,7 @@ cmds: [...]  // All commands get PROJECT_NAME`,
     name: "build"
     implementations: [
         {
-            script: "npm run build"
+            script: {content: "npm run build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
@@ -112,13 +112,13 @@ cmds: [...]  // All commands get PROJECT_NAME`,
     code: `// Platform-specific env requires separate implementations
 implementations: [
     {
-        script: "echo $CONFIG_PATH"
+        script: {content: "echo $CONFIG_PATH"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}]
         env: {vars: {CONFIG_PATH: "/etc/myapp/config"}}
     },
     {
-        script: "echo $CONFIG_PATH"
+        script: {content: "echo $CONFIG_PATH"}
         runtimes: [{name: "native"}]
         platforms: [{name: "macos"}]
         env: {vars: {CONFIG_PATH: "/usr/local/etc/myapp/config"}}
@@ -151,7 +151,7 @@ invowk cmd build --ivk-env-file .env.local --ivk-env-var OVERRIDE=value`,
         }
     }
     implementations: [{
-        script: "echo $BUILD_ENV"  // Available inside container
+        script: {content: "echo $BUILD_ENV"}  // Available inside container
         runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
@@ -290,7 +290,7 @@ cmds: [...]`,
     name: "build"
     implementations: [
         {
-            script: "npm run build"
+            script: {content: "npm run build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
@@ -322,7 +322,7 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
         ]
     }
     implementations: [{
-        script: "node server.js"
+        script: {content: "node server.js"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -340,10 +340,10 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
         ]
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying with API_KEY..."
             ./deploy.sh
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -399,10 +399,10 @@ invowk cmd build --ivk-env-file .env.custom --ivk-env-file .env.secrets`,
         }
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Building for $NODE_ENV"
             echo "Date: $BUILD_DATE"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -488,7 +488,7 @@ cmds: [
     name: "build"
     implementations: [
         {
-            script: "npm run build"
+            script: {content: "npm run build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
@@ -498,7 +498,7 @@ cmds: [
             }
         },
         {
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             env: {
@@ -516,7 +516,7 @@ cmds: [
     code: `// Platform-specific env requires separate implementations
 implementations: [
     {
-        script: "echo $PLATFORM_CONFIG"
+        script: {content: "echo $PLATFORM_CONFIG"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}]
         env: {
@@ -527,7 +527,7 @@ implementations: [
         }
     },
     {
-        script: "echo $PLATFORM_CONFIG"
+        script: {content: "echo $PLATFORM_CONFIG"}
         runtimes: [{name: "native"}]
         platforms: [{name: "macos"}]
         env: {
@@ -538,7 +538,7 @@ implementations: [
         }
     },
     {
-        script: "echo %PLATFORM_CONFIG%"
+        script: {content: "echo %PLATFORM_CONFIG%"}
         runtimes: [{name: "native"}]
         platforms: [{name: "windows"}]
         env: {
@@ -583,7 +583,7 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
         }
     }
     implementations: [{
-        script: "npm run build"
+        script: {content: "npm run build"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -603,7 +603,7 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
         }
     }
     implementations: [{
-        script: "go run ./cmd/server"
+        script: {content: "go run ./cmd/server"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -628,10 +628,10 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
         }
     }
     implementations: [{
-        script: """
+        script: {content: """
             echo "Building $BUILD_ID at $BUILD_TIME"
             go build -ldflags="-X main.version=$BUILD_ID" ./...
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -653,7 +653,7 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
         }
     }
     implementations: [{
-        script: "migrate -database $DATABASE_URL up"
+        script: {content: "migrate -database $DATABASE_URL up"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -672,7 +672,7 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
         }
     }
     implementations: [{
-        script: "echo $TARGET_OS/$TARGET_ARCH in $BUILD_MODE mode"
+        script: {content: "echo $TARGET_OS/$TARGET_ARCH in $BUILD_MODE mode"}
         runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
@@ -726,7 +726,7 @@ cmds: [
             }
         }
         implementations: [{
-            script: "echo $API_URL $LOG_LEVEL $BUILD_MODE $NODE_ENV"
+            script: {content: "echo $API_URL $LOG_LEVEL $BUILD_MODE $NODE_ENV"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
             // Implementation level
@@ -792,7 +792,7 @@ CACHE_DIR=./cache                      # From .env.build file`,
     code: `// Platform-specific env requires separate implementations
 implementations: [
     {
-        script: "echo $CONFIG_PATH"
+        script: {content: "echo $CONFIG_PATH"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}]
         env: {
@@ -803,7 +803,7 @@ implementations: [
         }
     },
     {
-        script: "echo $CONFIG_PATH"
+        script: {content: "echo $CONFIG_PATH"}
         runtimes: [{name: "native"}]
         platforms: [{name: "macos"}]
         env: {
@@ -838,7 +838,7 @@ env: {
 
 // Implementation: specific to this runtime
 implementations: [{
-    script: "echo $BUILD_FLAGS"
+    script: {content: "echo $BUILD_FLAGS"}
     runtimes: [{name: "container", image: "debian:stable-slim"}]
     platforms: [{name: "linux"}]
     env: {
@@ -880,12 +880,12 @@ invowk cmd build --ivk-env-var DEBUG=true --ivk-env-var LOG_LEVEL=debug`,
     code: `{
     name: "debug-env"
     implementations: [{
-        script: """
+        script: {content: """
             echo "API_URL=$API_URL"
             echo "LOG_LEVEL=$LOG_LEVEL"
             echo "BUILD_MODE=$BUILD_MODE"
             env | sort
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]

@@ -19,7 +19,7 @@ cmds: [
 		name:        "isolation demo"
 		description: "Environment isolation demo"
 		implementations: [{
-			script: #"""
+			script: {content: #"""
 				echo "=== Runtime Isolation Demo ==="
 				echo ""
 				echo "Parent values:"
@@ -32,7 +32,7 @@ cmds: [
 				echo ""
 				echo "This ensures consistent behavior across native, virtual, and"
 				echo "container runtimes."
-				"""#
+				"""#}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

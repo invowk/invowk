@@ -34,7 +34,7 @@ cmds: [
 		name:        "hello"
 		description: "A simple command"
 		implementations: [{
-			script:    "echo hello world"
+			script: {content: "echo hello world"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -43,7 +43,7 @@ cmds: [
 		name:        "slow"
 		description: "Command with timeout"
 		implementations: [{
-			script:    "echo slow command"
+			script: {content: "echo slow command"}
 			timeout:   "30s"
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]

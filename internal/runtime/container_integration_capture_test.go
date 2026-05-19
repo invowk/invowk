@@ -59,7 +59,7 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 		Name: "test-capture-basic",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "echo 'Hello from captured container'",
+				Script: invowkfile.ImplementationScript{Content: "echo 'Hello from captured container'"},
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
@@ -92,7 +92,7 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 		Name: "test-capture-exit",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "echo 'before exit'; exit 42",
+				Script: invowkfile.ImplementationScript{Content: "echo 'before exit'; exit 42"},
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
@@ -125,7 +125,7 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 		Name: "test-capture-stderr",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "echo 'stdout message'; echo 'stderr message' >&2",
+				Script: invowkfile.ImplementationScript{Content: "echo 'stdout message'; echo 'stderr message' >&2"},
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},
@@ -162,7 +162,7 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 		Name: "test-capture-env",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: `echo "VAR=$MY_VAR"`,
+				Script: invowkfile.ImplementationScript{Content: `echo "VAR=$MY_VAR"`},
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
 				},

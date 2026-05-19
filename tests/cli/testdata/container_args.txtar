@@ -38,7 +38,7 @@ cmds: [
 		]
 		implementations: [
 			{
-				script: "echo \"Argument: $INVOWK_ARG_VALUE\""
+				script: {content: "echo \"Argument: $INVOWK_ARG_VALUE\""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -56,12 +56,12 @@ cmds: [
 		]
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "Argument count: $INVOWK_ARG_VALUES_COUNT"
 					echo "All arguments: $INVOWK_ARG_VALUES"
 					echo "First: ${INVOWK_ARG_VALUES_1:-<none>}"
 					echo "Second: ${INVOWK_ARG_VALUES_2:-<none>}"
-					"""
+					"""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}

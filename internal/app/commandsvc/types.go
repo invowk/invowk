@@ -148,10 +148,8 @@ type (
 		// PersistentContainerCreateIfMissing reports whether invowk would create
 		// a missing managed persistent container.
 		PersistentContainerCreateIfMissing bool
-		// Script is the selected implementation script or script-file path.
-		Script invowkfile.ScriptContent
-		// ScriptIsFile is true when Script names a script file.
-		ScriptIsFile bool
+		// Script is the selected implementation script source.
+		Script invowkfile.ImplementationScript
 		// Env contains projected execution environment variables.
 		Env map[string]string //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
 		// DependencyValidationSkipped is true because dry-run mode does not

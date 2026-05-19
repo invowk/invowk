@@ -56,9 +56,9 @@ func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, probe R
 	})
 }
 
-// CheckHostCustomCheckDependencies validates custom checks always using the native shell on the host.
-// Host-level custom checks always run in the native shell, regardless of the selected runtime,
-// ensuring host-side prerequisites are validated in a consistent, predictable environment.
+// CheckHostCustomCheckDependencies validates custom checks on the host.
+// Host-level custom checks use the embedded mvdan/sh shell by default and dispatch to
+// a host interpreter only when the resolved script selects a non-shell interpreter.
 func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx ExecutionContext) error {
 	return CheckHostCustomCheckDependenciesWithProbe(deps, ctx, nil)
 }
@@ -103,11 +103,15 @@ func evaluateCustomChecks(
 		}
 		checks := checkDep.GetChecks()
 		found, lastErr := EvaluateAlternatives(checks, func(check invowkfile.CustomCheck) error {
-			result, err := runner(goCtx, check)
+			resolvedCheck, err := resolveCustomCheckScript(check, ctx)
 			if err != nil {
 				return err
 			}
-			return ValidateCustomCheckOutput(check, result)
+			result, err := runner(goCtx, resolvedCheck)
+			if err != nil {
+				return err
+			}
+			return ValidateCustomCheckOutput(resolvedCheck, result)
 		})
 
 		if !found && lastErr != nil {
@@ -134,6 +138,18 @@ func evaluateCustomChecks(
 	return nil
 }
 
+func resolveCustomCheckScript(check invowkfile.CustomCheck, ctx ExecutionContext) (invowkfile.CustomCheck, error) {
+	resolvedScript, err := check.Script.ResolveWithFSAndModule(ctx.modulePath(), ctx.scriptFileReader())
+	if err != nil {
+		return invowkfile.CustomCheck{}, fmt.Errorf("%s - resolve custom check script: %w", check.Name, err)
+	}
+	check.Script = invowkfile.CustomCheckScript{
+		Content:     resolvedScript,
+		Interpreter: check.Script.Interpreter,
+	}
+	return check, nil
+}
+
 //goplint:ignore -- returns human-readable validation detail for DependencyMessage.
 func customCheckDependencyValidationMessage(err error) string {
 	var message strings.Builder
@@ -155,6 +171,12 @@ func customCheckFieldValidationMessage(err error) string {
 		for i := range checkErr.FieldErrors {
 			message.WriteString(": ")
 			message.WriteString(checkErr.FieldErrors[i].Error())
+		}
+	}
+	if scriptErr, ok := errors.AsType[*invowkfile.InvalidCustomCheckScriptError](err); ok {
+		for i := range scriptErr.FieldErrors {
+			message.WriteString(": ")
+			message.WriteString(scriptErr.FieldErrors[i].Error())
 		}
 	}
 	return message.String()

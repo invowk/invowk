@@ -22,11 +22,11 @@ cmds: [                  // Required: list of commands
         description: "Build the project"
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "Building..."
                     go build -o bin/app ./...
                     echo "Done! Binary at bin/app"
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -39,7 +39,7 @@ cmds: [                  // Required: list of commands
         description: "Run unit tests"
         implementations: [
             {
-                script: "go test -v ./..."
+                script: {content: "go test -v ./..."}
                 runtimes: [{name: "native"}, {name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -52,11 +52,11 @@ cmds: [                  // Required: list of commands
         description: "Run tests with coverage"
         implementations: [
             {
-                script: """
+                script: {content: """
                     go test -coverprofile=coverage.out ./...
                     go tool cover -html=coverage.out -o coverage.html
                     echo "Coverage report: coverage.html"
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -69,7 +69,7 @@ cmds: [                  // Required: list of commands
         description: "Remove build artifacts"
         implementations: [
             {
-                script: "rm -rf bin/ coverage.out coverage.html"
+                script: {content: "rm -rf bin/ coverage.out coverage.html"}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -95,11 +95,11 @@ cmds: [                  // Required: list of commands
     description: "Build the project"
     implementations: [
         {
-            script: """
+            script: {content: """
                 echo "Building..."
                 go build -o bin/app ./...
                 echo "Done!"
-                """
+                """}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }
@@ -135,7 +135,7 @@ cmds: [
         }
         implementations: [
             {
-                script: "go build -o bin/app ./..."
+                script: {content: "go build -o bin/app ./..."}
                 // Implementation-level env is most specific
                 env: {
                     vars: {
@@ -294,22 +294,22 @@ cmds: [
         description: "Print a greeting"
         implementations: [
             {
-                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+                script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             },
             {
-                script: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""
+                script: {content: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""
                 runtimes: [{name: "native"}]
                 platforms: [{name: "windows"}]
             },
             {
-                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+                script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             },
             {
-                script: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""
+                script: {content: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "container", image: "debian:stable-slim"}]
                 platforms: [{name: "linux"}]
             },
@@ -359,7 +359,7 @@ invowk cmd hello --ivk-runtime virtual`,
     code: `// The virtual runtime uses the built-in mvdan/sh interpreter
 // It works identically on Linux, macOS, and Windows
 {
-    script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+    script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
     runtimes: [{name: "virtual"}]
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,

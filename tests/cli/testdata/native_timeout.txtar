@@ -21,13 +21,13 @@ cmds: [
 		description: "Command that exceeds its timeout"
 		implementations: [
 			{
-				script:   "sleep 60"
+				script: {content: "sleep 60"}
 				timeout:  "1s"
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:   "Start-Sleep -Seconds 60"
+				script: {content: "Start-Sleep -Seconds 60"}
 				timeout:  "1s"
 				runtimes: [{name: "native"}]
 				platforms: [{name: "windows"}]
@@ -39,13 +39,13 @@ cmds: [
 		description: "Command that completes within its timeout"
 		implementations: [
 			{
-				script:   "echo done"
+				script: {content: "echo done"}
 				timeout:  "30s"
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:   "Write-Output done"
+				script: {content: "Write-Output done"}
 				timeout:  "30s"
 				runtimes: [{name: "native"}]
 				platforms: [{name: "windows"}]

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -165,16 +166,12 @@ func TestDependencyHostProbeCheckFilepath(t *testing.T) {
 func TestDependencyHostProbeRunCustomCheckContextCancellation(t *testing.T) {
 	t.Parallel()
 
-	if goruntime.GOOS == "windows" {
-		t.Skip("skipping: native shell check uses 'sh -c' which is not available on Windows")
-	}
-
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	check := invowkfile.CustomCheck{
-		Name:        "slow-check",
-		CheckScript: "sleep 60",
+		Name:   "slow-check",
+		Script: invowkfile.CustomCheckScript{Content: "sleep 60"},
 	}
 
 	_, err := dependencyHostProbe{}.RunCustomCheck(ctx, check)
@@ -183,6 +180,122 @@ func TestDependencyHostProbeRunCustomCheckContextCancellation(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "returned exit code 0") {
 		t.Error("expected context cancellation error, but check passed with exit code 0")
+	}
+}
+
+func TestDependencyHostProbeRunCustomCheckWithShellCompatibleInterpreter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		script invowkfile.CustomCheckScript
+	}{
+		{
+			name: "explicit shell interpreter",
+			script: invowkfile.CustomCheckScript{
+				Content:     "echo ok",
+				Interpreter: "bash",
+			},
+		},
+		{
+			name: "shell shebang",
+			script: invowkfile.CustomCheckScript{
+				Content: "#!/bin/sh\necho ok",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			check := invowkfile.CustomCheck{
+				Name:           "shell-check",
+				Script:         tt.script,
+				ExpectedOutput: "^ok$",
+			}
+
+			result, err := dependencyHostProbe{}.RunCustomCheck(t.Context(), check)
+			if err != nil {
+				t.Fatalf("RunCustomCheck() = %v", err)
+			}
+			if got := result.Output().String(); got != "ok" {
+				t.Fatalf("custom check output = %q, want ok", got)
+			}
+		})
+	}
+}
+
+func TestDependencyHostProbeRunCustomCheckWithInterpreter(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available")
+	}
+
+	tests := []struct {
+		name      string
+		checkName invowkfile.CheckName
+		script    invowkfile.CustomCheckScript
+	}{
+		{
+			name:      "explicit script interpreter",
+			checkName: "explicit-python",
+			script: invowkfile.CustomCheckScript{
+				Content:     "print('ok')",
+				Interpreter: "python3",
+			},
+		},
+		{
+			name:      "shebang interpreter",
+			checkName: "shebang-python",
+			script: invowkfile.CustomCheckScript{
+				Content: "#!/usr/bin/env python3\nprint('ok')",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			check := invowkfile.CustomCheck{
+				Name:           tt.checkName,
+				Script:         tt.script,
+				ExpectedOutput: "^ok$",
+			}
+
+			result, err := dependencyHostProbe{}.RunCustomCheck(t.Context(), check)
+			if err != nil {
+				t.Fatalf("RunCustomCheck() = %v", err)
+			}
+			if got := result.Output().String(); got != "ok" {
+				t.Fatalf("custom check output = %q, want ok", got)
+			}
+		})
+	}
+}
+
+func TestDependencyHostProbeRunCustomCheckReportsMissingInterpreterName(t *testing.T) {
+	t.Parallel()
+
+	check := invowkfile.CustomCheck{
+		Name: "missing-python",
+		Script: invowkfile.CustomCheckScript{
+			Content:     "print('no')",
+			Interpreter: "/definitely/missing/python3",
+		},
+	}
+
+	_, err := dependencyHostProbe{}.RunCustomCheck(t.Context(), check)
+	if err == nil {
+		t.Fatal("RunCustomCheck() error = nil, want missing interpreter error")
+	}
+	if !strings.Contains(err.Error(), "missing-python") {
+		t.Fatalf("RunCustomCheck() error = %v, want check name", err)
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("RunCustomCheck() error = %v, want missing interpreter detail", err)
 	}
 }
 

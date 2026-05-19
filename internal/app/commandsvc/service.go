@@ -35,6 +35,7 @@ type (
 		capabilityChecker deps.CapabilityChecker
 		hostProbe         deps.HostProbe
 		lockProvider      deps.CommandScopeLockProvider
+		scriptFileReader  deps.ScriptFileReader
 		userEnvFunc       UserEnvFunc
 		configFallback    ConfigFallbackFunc
 	}
@@ -48,6 +49,7 @@ type (
 		capabilityChecker deps.CapabilityChecker
 		hostProbe         deps.HostProbe
 		lockProvider      deps.CommandScopeLockProvider
+		scriptFileReader  deps.ScriptFileReader
 	}
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
@@ -65,6 +67,7 @@ func NewPorts(
 	capabilityChecker deps.CapabilityChecker,
 	hostProbe deps.HostProbe,
 	lockProvider deps.CommandScopeLockProvider,
+	scriptFileReader deps.ScriptFileReader,
 ) ports {
 	return ports{
 		hostAccess:        hostAccess,
@@ -75,6 +78,7 @@ func NewPorts(
 		capabilityChecker: capabilityChecker,
 		hostProbe:         hostProbe,
 		lockProvider:      lockProvider,
+		scriptFileReader:  scriptFileReader,
 	}
 }
 
@@ -128,6 +132,9 @@ func New(
 	}
 	if servicePorts.lockProvider != nil {
 		svc.lockProvider = servicePorts.lockProvider
+	}
+	if servicePorts.scriptFileReader != nil {
+		svc.scriptFileReader = servicePorts.scriptFileReader
 	}
 	return svc
 }
@@ -218,7 +225,6 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 	if impl != nil {
 		plan.Timeout = impl.Timeout
 		plan.Script = impl.Script
-		plan.ScriptIsFile = impl.IsScriptFile()
 	}
 	persistentPlan := newPersistentContainerPlan(execCtx, impl)
 	plan.PersistentContainerMode = persistentPlan.Mode().String()

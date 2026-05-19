@@ -23,7 +23,7 @@ cmds: [
 		name:        "deps env missing"
 		description: "Command requiring a missing environment variable"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -37,7 +37,7 @@ cmds: [
 		name:        "deps env bad-pattern"
 		description: "Command with env var validation regex that will fail"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

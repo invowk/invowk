@@ -35,12 +35,12 @@ cmds: [
 		description: "Demonstrate environment variables in container"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Container Environment ==="
 					echo "APP_NAME: $APP_NAME"
 					echo "APP_ENV: $APP_ENV"
 					echo "DEBUG: $DEBUG"
-					"""
+					"""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -58,7 +58,7 @@ cmds: [
 		description: "Show environment variable"
 		implementations: [
 			{
-				script: "echo \"MY_VAR: ${MY_VAR:-<not set>}\""
+				script: {content: "echo \"MY_VAR: ${MY_VAR:-<not set>}\""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -69,7 +69,7 @@ cmds: [
 		description: "Show environment variable with default from invowkfile"
 		implementations: [
 			{
-				script: "echo \"DEFAULT_VAR: ${DEFAULT_VAR:-<not set>}\""
+				script: {content: "echo \"DEFAULT_VAR: ${DEFAULT_VAR:-<not set>}\""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}

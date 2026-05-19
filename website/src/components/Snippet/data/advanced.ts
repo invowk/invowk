@@ -11,14 +11,17 @@ export const advancedSnippets = {
     name: "analyze"
     implementations: [
         {
-            script: """
+            script: {
+                content: """
                 import json
                 import sys
 
                 data = json.load(open('data.json'))
                 print(f"Found {len(data)} records")
                 """
-            runtimes: [{name: "native", interpreter: "python3"}]
+                interpreter: "python3"
+            }
+            runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
@@ -31,12 +34,15 @@ export const advancedSnippets = {
     name: "process"
     implementations: [
         {
-            script: """
+            script: {
+                content: """
                 const fs = require('fs');
                 const data = JSON.parse(fs.readFileSync('data.json'));
                 console.log(\`Processing \${data.length} items\`);
                 """
-            runtimes: [{name: "native", interpreter: "node"}]
+                interpreter: "node"
+            }
+            runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
     ]
@@ -64,17 +70,17 @@ cmds: [
     name: "open-browser"
     implementations: [
         {
-            script: "xdg-open $URL"
+            script: {content: "xdg-open $URL"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
         },
         {
-            script: "open $URL"
+            script: {content: "open $URL"}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
         },
         {
-            script: "start $URL"
+            script: {content: "start $URL"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -88,14 +94,14 @@ cmds: [
     code: `{
     name: "analyze"
     implementations: [{
-        script: """
+        script: {content: """
             #!/usr/bin/env python3
             import sys
             import json
             
             data = {"status": "ok", "python": sys.version}
             print(json.dumps(data, indent=2))
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -107,14 +113,14 @@ cmds: [
     code: `{
     name: "script"
     implementations: [{
-        script: """
+        script: {
+            content: """
             import sys
             print(f"Python {sys.version_info.major}.{sys.version_info.minor}")
             """
-        runtimes: [{
-            name: "native"
             interpreter: "python3"  // Explicit
-        }]
+        }
+        runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
@@ -125,16 +131,16 @@ cmds: [
     code: `{
     name: "unbuffered"
     implementations: [{
-        script: """
+        script: {
+            content: """
             import time
             for i in range(5):
                 print(f"Count: {i}")
                 time.sleep(1)
             """
-        runtimes: [{
-            name: "native"
             interpreter: "python3 -u"  // Unbuffered output
-        }]
+        }
+        runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
 }`,
@@ -143,13 +149,13 @@ cmds: [
   'advanced/interpreter-more-args': {
     language: 'cue',
     code: `// Perl with warnings
-interpreter: "perl -w"
+script: {content: "...", interpreter: "perl -w"}
 
 // Ruby with debug mode
-interpreter: "ruby -d"
+script: {content: "...", interpreter: "ruby -d"}
 
 // Node with specific options
-interpreter: "node --max-old-space-size=4096"`,
+script: {content: "...", interpreter: "node --max-old-space-size=4096"}`,
   },
 
   'advanced/interpreter-container-shebang': {
@@ -157,11 +163,11 @@ interpreter: "node --max-old-space-size=4096"`,
     code: `{
     name: "analyze"
     implementations: [{
-        script: """
+        script: {content: """
             #!/usr/bin/env python3
             import os
             print(f"Running in container at {os.getcwd()}")
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "python:3-slim"
@@ -176,14 +182,16 @@ interpreter: "node --max-old-space-size=4096"`,
     code: `{
     name: "script"
     implementations: [{
-        script: """
+        script: {
+            content: """
             console.log('Hello from Node in container!')
             console.log('Node version:', process.version)
             """
+            interpreter: "node"
+        }
         runtimes: [{
             name: "container"
             image: "node:22-slim"
-            interpreter: "node"
         }]
         platforms: [{name: "linux"}]
     }]
@@ -196,7 +204,7 @@ interpreter: "node --max-old-space-size=4096"`,
     name: "greet"
     args: [{name: "name", description: "Name to greet", default_value: "World"}]
     implementations: [{
-        script: """
+        script: {content: """
             #!/usr/bin/env python3
             import sys
             import os
@@ -208,7 +216,7 @@ interpreter: "node --max-old-space-size=4096"`,
             # Or via environment variable
             name = os.environ.get("INVOWK_ARG_NAME", "World")
             print(f"Hello again, {name}!")
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -217,17 +225,14 @@ interpreter: "node --max-old-space-size=4096"`,
 
   'advanced/interpreter-virtual-error': {
     language: 'cue',
-    code: `// This will NOT work!
-// CUE schema validation error: "interpreter" is not allowed on virtual runtime.
-// #RuntimeConfigVirtual is a closed struct that only accepts base fields.
+    code: `// This will NOT work with the virtual runtime.
+// Runtime validation error: virtual runtime uses mvdan/sh and
+// cannot execute non-shell script interpreters.
 {
     name: "bad"
     implementations: [{
-        script: "print('hello')"
-        runtimes: [{
-            name: "virtual"
-            interpreter: "python3"  // CUE validation error: field not allowed
-        }]
+        script: {content: "print('hello')", interpreter: "python3"}
+        runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -240,7 +245,7 @@ interpreter: "node --max-old-space-size=4096"`,
     name: "build frontend"
     workdir: "./frontend"  // Run in frontend subdirectory
     implementations: [{
-        script: "npm run build"
+        script: {content: "npm run build"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -253,13 +258,13 @@ interpreter: "node --max-old-space-size=4096"`,
     name: "build"
     implementations: [
         {
-            script: "npm run build"
+            script: {content: "npm run build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             workdir: "./web"  // This implementation runs in ./web
         },
         {
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             workdir: "./api"  // This implementation runs in ./api
@@ -321,7 +326,7 @@ cmds: [
         workdir: "./command"  // Override: ./command
         implementations: [
             {
-                script: "make"
+                script: {content: "make"}
                 workdir: "./implementation"  // Override: ./implementation
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
@@ -338,7 +343,7 @@ cmds: [
         name: "web build"
         workdir: "./packages/web"
         implementations: [{
-            script: "npm run build"
+            script: {content: "npm run build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -347,7 +352,7 @@ cmds: [
         name: "api build"
         workdir: "./packages/api"
         implementations: [{
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -356,7 +361,7 @@ cmds: [
         name: "mobile build"
         workdir: "./packages/mobile"
         implementations: [{
-            script: "flutter build"
+            script: {content: "flutter build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -369,10 +374,10 @@ cmds: [
     code: `{
     name: "build"
     implementations: [{
-        script: """
+        script: {content: """
             pwd  # /workspace
             ls   # Shows your project files
-            """
+            """}
         runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
@@ -385,10 +390,10 @@ cmds: [
     name: "build package"
     workdir: "./frontend"
     implementations: [{
-        script: """
+        script: {content: """
             pwd  # /workspace/frontend
             ./build.sh
-            """
+            """}
         runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
@@ -411,7 +416,7 @@ workdir: ".\\\\src\\\\app"`,
         name: "start frontend"
         workdir: "./frontend"
         implementations: [{
-            script: "npm run dev"
+            script: {content: "npm run dev"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -420,7 +425,7 @@ workdir: ".\\\\src\\\\app"`,
         name: "start backend"
         workdir: "./backend"
         implementations: [{
-            script: "go run ./cmd/server"
+            script: {content: "go run ./cmd/server"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -435,7 +440,7 @@ workdir: ".\\\\src\\\\app"`,
         name: "test unit"
         workdir: "./tests/unit"
         implementations: [{
-            script: "pytest"
+            script: {content: "pytest"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -444,7 +449,7 @@ workdir: ".\\\\src\\\\app"`,
         name: "test integration"
         workdir: "./tests/integration"
         implementations: [{
-            script: "pytest"
+            script: {content: "pytest"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }]
@@ -453,7 +458,7 @@ workdir: ".\\\\src\\\\app"`,
         name: "test e2e"
         workdir: "./tests/e2e"
         implementations: [{
-            script: "cypress run"
+            script: {content: "cypress run"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
@@ -467,10 +472,10 @@ workdir: ".\\\\src\\\\app"`,
     name: "build"
     workdir: "./src"
     implementations: [{
-        script: """
+        script: {content: """
             # Now in ./src
             go build -o ../bin/app ./...
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -484,17 +489,17 @@ workdir: ".\\\\src\\\\app"`,
     name: "open-browser"
     implementations: [
         {
-            script: "xdg-open http://localhost:3000"
+            script: {content: "xdg-open http://localhost:3000"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
         },
         {
-            script: "open http://localhost:3000"
+            script: {content: "open http://localhost:3000"}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
         },
         {
-            script: "start http://localhost:3000"
+            script: {content: "start http://localhost:3000"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -507,7 +512,7 @@ workdir: ".\\\\src\\\\app"`,
     code: `{
     name: "build"
     implementations: [{
-        script: "go build ./..."
+        script: {content: "go build ./..."}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -519,10 +524,10 @@ workdir: ".\\\\src\\\\app"`,
     code: `{
     name: "check-permissions"
     implementations: [{
-        script: """
+        script: {content: """
             chmod +x ./scripts/*.sh
             ls -la ./scripts/
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -536,7 +541,7 @@ workdir: ".\\\\src\\\\app"`,
     implementations: [
         // Linux implementation with platform-specific env
         {
-            script: "echo \\"Config: $CONFIG_PATH\\""
+            script: {content: "echo \\"Config: $CONFIG_PATH\\""
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
             env: {
@@ -548,7 +553,7 @@ workdir: ".\\\\src\\\\app"`,
         },
         // macOS implementation with platform-specific env
         {
-            script: "echo \\"Config: $CONFIG_PATH\\""
+            script: {content: "echo \\"Config: $CONFIG_PATH\\""
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
             env: {
@@ -560,7 +565,7 @@ workdir: ".\\\\src\\\\app"`,
         },
         // Windows implementation
         {
-            script: "echo \\"Config: %CONFIG_PATH%\\""
+            script: {content: "echo \\"Config: %CONFIG_PATH%\\""
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
             env: {
@@ -581,13 +586,13 @@ workdir: ".\\\\src\\\\app"`,
     implementations: [
         // Unix platforms (same output name)
         {
-            script: "go build -o bin/app ./..."
+            script: {content: "go build -o bin/app ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         // Windows (different output name)
         {
-            script: "go build -o bin/app.exe ./..."
+            script: {content: "go build -o bin/app.exe ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -611,13 +616,13 @@ cmds: [
         implementations: [
             // Unix implementation
             {
-                script: "rm -rf build/"
+                script: {content: "rm -rf build/"}
                 runtimes: [{name: "native"}]
                 platforms: _unix
             },
             // Windows implementation
             {
-                script: "rmdir /s /q build"
+                script: {content: "rmdir /s /q build"}
                 runtimes: [{name: "native"}]
                 platforms: [_windows]
             }
@@ -655,28 +660,28 @@ This command is only available on the platforms listed above.`,
     name: "sysinfo"
     implementations: [
         {
-            script: """
+            script: {content: """
                 echo "Hostname: \$(hostname)"
                 echo "Kernel: \$(uname -r)"
                 echo "Memory: \$(free -h | awk '/^Mem:/{print \$2}')"
-                """
+                """}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
         },
         {
-            script: """
+            script: {content: """
                 echo "Hostname: \$(hostname)"
                 echo "Kernel: \$(uname -r)"
                 echo "Memory: \$(sysctl -n hw.memsize | awk '{print \$0/1024/1024/1024 "GB"}')"
-                """
+                """}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
         },
         {
-            script: """
+            script: {content: """
                 echo Hostname: %COMPUTERNAME%
                 systeminfo | findstr "Total Physical Memory"
-                """
+                """}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -690,17 +695,17 @@ This command is only available on the platforms listed above.`,
     name: "install-deps"
     implementations: [
         {
-            script: "apt-get install -y build-essential"
+            script: {content: "apt-get install -y build-essential"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
         },
         {
-            script: "brew install coreutils"
+            script: {content: "brew install coreutils"}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
         },
         {
-            script: "choco install make"
+            script: {content: "choco install make"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -718,17 +723,17 @@ This command is only available on the platforms listed above.`,
     name: "build"
     implementations: [
         {
-            script: "nmake build"
+            script: {content: "nmake build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         },
         {
-            script: "make build"
+            script: {content: "make build"}
             runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
         },
         {
-            script: "make build"
+            script: {content: "make build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
         },

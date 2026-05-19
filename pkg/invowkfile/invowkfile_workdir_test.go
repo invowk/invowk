@@ -24,7 +24,7 @@ func TestGetEffectiveWorkDir_DefaultToInvowkfileDir(t *testing.T) {
 		FilePath: FilesystemPath(invowkfilePath),
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 
@@ -45,7 +45,7 @@ func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
 		WorkDir:  "build",
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "build")
@@ -67,7 +67,7 @@ func TestGetEffectiveWorkDir_CommandLevel(t *testing.T) {
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "cmd-workdir")
@@ -89,7 +89,7 @@ func TestGetEffectiveWorkDir_ImplementationLevel(t *testing.T) {
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
-	impl := &Implementation{Script: "echo test", WorkDir: "impl-workdir"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}, WorkDir: "impl-workdir"}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "impl-workdir")
@@ -111,7 +111,7 @@ func TestGetEffectiveWorkDir_CLIOverride(t *testing.T) {
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
-	impl := &Implementation{Script: "echo test", WorkDir: "impl-workdir"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}, WorkDir: "impl-workdir"}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "cli-workdir")
 	expected := filepath.Join(tmpDir, "cli-workdir")
@@ -134,7 +134,7 @@ func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
 		WorkDir:  WorkDir(absPath),
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 
@@ -155,7 +155,7 @@ func TestGetEffectiveWorkDir_ForwardSlashConversion(t *testing.T) {
 		WorkDir:  "nested/deep/path", // Forward slashes (CUE format)
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "nested", "deep", "path")
@@ -217,7 +217,7 @@ func TestGetEffectiveWorkDir_EmptyCommandWorkDir(t *testing.T) {
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: ""} // Empty command workdir
-	impl := &Implementation{Script: "echo test", WorkDir: ""}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}, WorkDir: ""}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "root-workdir")
@@ -243,7 +243,7 @@ func TestGetEffectiveWorkDir_ParentDirectory(t *testing.T) {
 		WorkDir:  "../sibling", // Go up and into sibling directory
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(subDir, "..", "sibling")
@@ -265,7 +265,7 @@ func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
 		WorkDir:  ".",
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, ".")
@@ -292,7 +292,7 @@ func TestGetEffectiveWorkDir_ModulePath(t *testing.T) {
 		WorkDir:    "scripts",
 	}
 	cmd := &Command{Name: "test"}
-	impl := &Implementation{Script: "echo test"}
+	impl := &Implementation{Script: ImplementationScript{Content: "echo test"}}
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	// Should resolve against module directory (via GetScriptBasePath)
@@ -319,7 +319,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -354,7 +354,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -377,7 +377,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -405,7 +405,7 @@ cmds: [
 		workdir: "cmd-specific"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -439,7 +439,7 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				workdir: "impl-specific"
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
@@ -477,7 +477,7 @@ cmds: [
 		workdir: "cmd-dir"
 		implementations: [
 			{
-				script: "echo test"
+				script: {content: "echo test"}
 				workdir: "impl-dir"
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
@@ -535,7 +535,7 @@ func TestGenerateCUE_WithWorkDir(t *testing.T) {
 				WorkDir: "deploy-dir",
 				Implementations: []Implementation{
 					{
-						Script:  "echo deploying",
+						Script:  ImplementationScript{Content: "echo deploying"},
 						WorkDir: "impl-dir",
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
@@ -576,7 +576,7 @@ func TestGenerateCUE_WithWorkDir_RoundTrip(t *testing.T) {
 				WorkDir: "cmd-workdir",
 				Implementations: []Implementation{
 					{
-						Script:  "echo building",
+						Script:  ImplementationScript{Content: "echo building"},
 						WorkDir: "impl-workdir",
 
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},

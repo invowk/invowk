@@ -108,7 +108,7 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
 		return errNativeNoImpl
 	}
-	if ctx.SelectedImpl.Script == "" {
+	if err := ctx.SelectedImpl.Script.Validate(); err != nil {
 		return errNativeNoScript
 	}
 	return nil
@@ -128,12 +128,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Create streaming output configuration
 	output := newStreamingOutput(ctx.IO.Stdout, ctx.IO.Stderr)
 
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		return r.executeShellCommon(ctx, script, output, nil, ctx.IO.Stdin)
-	}
-
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+	interpInfo := ctx.SelectedImpl.Script.ResolveInterpreterFromScript(script)
 	if interpInfo.Found {
 		return r.executeInterpreterCommon(ctx, script, interpInfo, output, nil, ctx.IO.Stdin)
 	}
@@ -155,12 +150,7 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Create capturing output configuration
 	output, captured := newCapturingOutput()
 
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		return r.executeShellCommon(ctx, script, output, captured, nil)
-	}
-
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+	interpInfo := ctx.SelectedImpl.Script.ResolveInterpreterFromScript(script)
 	if interpInfo.Found {
 		return r.executeInterpreterCommon(ctx, script, interpInfo, output, captured, nil)
 	}
@@ -192,12 +182,7 @@ func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand,
 		return nil, err
 	}
 
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		return r.prepareShellCommand(ctx, script)
-	}
-
-	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
+	interpInfo := ctx.SelectedImpl.Script.ResolveInterpreterFromScript(script)
 	if interpInfo.Found {
 		return r.prepareInterpreterCommand(ctx, script, interpInfo)
 	}
@@ -249,7 +234,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 
 	// Handle file vs inline script
 	var tempFile string
-	if ctx.SelectedImpl.IsScriptFile() {
+	if ctx.SelectedImpl.Script.IsFile() {
 		scriptPath := ctx.SelectedScriptFilePath()
 		cmdArgs = append(cmdArgs, string(scriptPath))
 	} else {
@@ -463,7 +448,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 
 	var tempFile string
 	var cleanup func()
-	if ctx.SelectedImpl.IsScriptFile() {
+	if ctx.SelectedImpl.Script.IsFile() {
 		scriptPath := ctx.SelectedScriptFilePath()
 		cmdArgs = append(cmdArgs, string(scriptPath))
 	} else {

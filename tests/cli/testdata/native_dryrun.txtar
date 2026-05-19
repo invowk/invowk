@@ -37,12 +37,12 @@ cmds: [
 		description: "A simple command"
 		implementations: [
 			{
-				script:    "echo hello world"
+				script: {content: "echo hello world"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'hello world'"
+				script: {content: "Write-Output 'hello world'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -53,13 +53,13 @@ cmds: [
 		description: "Command with timeout"
 		implementations: [
 			{
-				script:    "echo slow command"
+				script: {content: "echo slow command"}
 				timeout:   "30s"
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'slow command'"
+				script: {content: "Write-Output 'slow command'"}
 				timeout:   "30s"
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]

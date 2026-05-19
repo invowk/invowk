@@ -18,7 +18,7 @@ cmds: [
 		name:        "uroot gzip"
 		description: "Test gzip compression and decompression"
 		implementations: [{
-			script: """
+			script: {content: """
 				mkdir -p $WORK/gzip-test
 
 				# Create a file with content
@@ -36,7 +36,7 @@ cmds: [
 
 				rm -rf $WORK/gzip-test
 				echo '=== uroot gzip test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

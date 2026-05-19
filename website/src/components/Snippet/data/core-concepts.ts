@@ -18,10 +18,10 @@ cmds: [
 ]
 
 // Multi-line strings use triple quotes
-script: """
+script: {content: """
     echo "Line 1"
     echo "Line 2"
-    """`,
+    """}`,
   },
 
   'core-concepts/schema-overview': {
@@ -59,13 +59,13 @@ cmds: [...#Command] & [_, ...]  // at least one required`,
     implementations: [
         // Unix implementation
         {
-            script: "make build"
+            script: {content: "make build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         // Windows implementation
         {
-            script: "msbuild /p:Configuration=Release"
+            script: {content: "msbuild /p:Configuration=Release"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -76,24 +76,24 @@ cmds: [...#Command] & [_, ...]  // at least one required`,
   'core-concepts/script-inline': {
     language: 'cue',
     code: `// Single line
-script: "echo 'Hello!'"
+script: {content: "echo 'Hello!'"}
 
 // Multi-line
-script: """
+script: {content: """
     #!/bin/bash
     set -e
     echo "Building..."
     go build ./...
-    """`,
+    """}`,
   },
 
   'core-concepts/script-external': {
     language: 'cue',
-    code: `// Relative to invowkfile location
-script: "./scripts/build.sh"
+    code: `// Root/project invowkfile: invoke a project-local script from inline content
+script: {content: "./scripts/build.sh"}
 
-// Just the filename (recognized extensions)
-script: "deploy.sh"`,
+// Module invowkfile: reference a file contained in the invowkmod
+script: {file: "scripts/deploy.sh"}`,
   },
 
   'core-concepts/full-example': {
@@ -117,10 +117,10 @@ cmds: [
         description: "Build the application"
         implementations: [
             {
-                script: """
+                script: {content: """
                     echo "Building $APP_NAME..."
                     go build -o bin/$APP_NAME ./...
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
@@ -135,7 +135,7 @@ cmds: [
         description: "Deploy to production"
         implementations: [
             {
-                script: "./scripts/deploy.sh"
+                script: {content: "./scripts/deploy.sh"}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             }
@@ -164,13 +164,13 @@ cmds: [
     {
         name: "build"
         implementations: [
-            _nativeUnix & {script: "make build"}
+            _nativeUnix & {script: {content: "make build"}}
         ]
     },
     {
         name: "test"
         implementations: [
-            _nativeUnix & {script: "make test"}
+            _nativeUnix & {script: {content: "make test"}}
         ]
     }
 ]`,
@@ -277,7 +277,7 @@ From tools.invowkmod:
     implementations: [
         {
             // 1. The script to run
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             
             // 2. Target constraints (runtime + platform)
             runtimes: [{name: "native"}]
@@ -289,18 +289,18 @@ From tools.invowkmod:
 
   'implementations/inline-single': {
     language: 'cue',
-    code: `script: "echo 'Hello, World!'"`,
+    code: `script: {content: "echo 'Hello, World!'"}`,
   },
 
   'implementations/inline-multi': {
     language: 'cue',
-    code: `script: """
+    code: `script: {content: """
     #!/bin/bash
     set -e
     echo "Building..."
     go build -o bin/app ./...
     echo "Done!"
-    """`,
+    """}`,
   },
 
   'implementations/runtimes-list': {
@@ -330,13 +330,13 @@ platforms: [
     implementations: [
         // Unix implementation
         {
-            script: "rm -rf build/"
+            script: {content: "rm -rf build/"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         // Windows implementation
         {
-            script: "rmdir /s /q build"
+            script: {content: "rmdir /s /q build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -351,13 +351,13 @@ platforms: [
     implementations: [
         // Fast native build
         {
-            script: "go build ./..."
+            script: {content: "go build ./..."}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         },
         // Reproducible container build
         {
-            script: "echo building in container"
+            script: {content: "echo building in container"}
             runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
         }
@@ -372,7 +372,7 @@ platforms: [
     implementations: [
         // Linux implementation with platform-specific env
         {
-            script: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            script: {content: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
             env: {
@@ -384,7 +384,7 @@ platforms: [
         },
         // macOS implementation with platform-specific env
         {
-            script: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            script: {content: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
             env: {
@@ -404,7 +404,7 @@ platforms: [
     name: "build"
     implementations: [
         {
-            script: "npm run build"
+            script: {content: "npm run build"}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 
@@ -434,12 +434,12 @@ platforms: [
     name: "build"
     implementations: [
         {
-            script: "make build"
+            script: {content: "make build"}
             runtimes: [{name: "native"}, {name: "virtual"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         {
-            script: "msbuild"
+            script: {content: "msbuild"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -475,19 +475,19 @@ cmds: [
     {
         name: "build"
         implementations: [
-            _unixNative & {script: "make build"}
+            _unixNative & {script: {content: "make build"}}
         ]
     },
     {
         name: "test"
         implementations: [
-            _unixNative & {script: "make test"}
+            _unixNative & {script: {content: "make test"}}
         ]
     },
     {
         name: "version"
         implementations: [
-            _allPlatforms & {script: "cat VERSION"}
+            _allPlatforms & {script: {content: "cat VERSION"}}
         ]
     }
 ]`,
@@ -500,7 +500,7 @@ cmds: [
     implementations: [
         // Linux/macOS with multiple runtime options
         {
-            script: "make build"
+            script: {content: "make build"}
             runtimes: [
                 {name: "native"},
                 {name: "container", image: "debian:stable-slim"}
@@ -509,7 +509,7 @@ cmds: [
         },
         // Windows native only
         {
-            script: "msbuild /p:Configuration=Release"
+            script: {content: "msbuild /p:Configuration=Release"}
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
         }
@@ -556,7 +556,7 @@ invowk cmd database-cli --ivk-interactive`,
     name: "interactive-setup"
     description: "Setup with embedded TUI prompts"
     implementations: [{
-        script: """
+        script: {content: """
             # When run with --ivk-interactive, TUI components appear as overlays
             NAME=$(invowk tui input --title "Project name:")
             TYPE=$(invowk tui choose --title "Type:" api cli library)
@@ -565,7 +565,7 @@ invowk cmd database-cli --ivk-interactive`,
                 mkdir -p "$NAME"
                 echo "Created $NAME"
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -596,14 +596,14 @@ invowk cmd database-cli --ivk-interactive`,
     code: `{
     name: "deploy"
     implementations: [{
-        script: """
+        script: {content: """
             # TUI components work inside containers!
             ENV=$(invowk tui choose "Select environment" "dev" "staging" "prod")
 
             if invowk tui confirm "Deploy to \$ENV?"; then
                 ./deploy.sh "\$ENV"
             fi
-            """
+            """}
         runtimes: [{
             name: "container"
             image: "debian:stable-slim"
@@ -619,14 +619,14 @@ invowk cmd database-cli --ivk-interactive`,
     name: "deploy"
     description: "Deploy with confirmations"
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying to production..."
 
             # This sudo prompt works because we're in interactive mode
             sudo systemctl restart myapp
 
             echo "Deployment complete!"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -639,7 +639,7 @@ invowk cmd database-cli --ivk-interactive`,
     name: "db migrate"
     description: "Run database migrations"
     implementations: [{
-        script: """
+        script: {content: """
             echo "=== Database Migration ==="
 
             # Interactive confirmation
@@ -647,7 +647,7 @@ invowk cmd database-cli --ivk-interactive`,
                 # Password prompt works in interactive mode
                 psql -h prod-db -U admin -W -f migrations.sql
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -712,7 +712,7 @@ name: "deploy-prod"`,
   'reference/invowkfile/implementation-structure': {
     language: 'cue',
     code: `#Implementation: {
-    script:      string       // Required - inline script or file path
+    script:      #ImplementationScript       // Required - content or file
     runtimes:    [...#RuntimeConfig] & [_, ...]  // Required - runtime configurations
     platforms:   [...#PlatformConfig] & [_, ...]  // Required - at least one platform
     env?:        #EnvConfig   // Optional
@@ -725,18 +725,21 @@ name: "deploy-prod"`,
   'reference/invowkfile/script-examples': {
     language: 'cue',
     code: `// Inline script
-script: "echo 'Hello, World!'"
+script: {content: "echo 'Hello, World!'"}
 
 // Multi-line script
-script: """
+script: {content: """
     echo "Building..."
     go build -o app .
     echo "Done!"
-    """
+    """}
 
-// Script file reference
-script: "./scripts/build.sh"
-script: "deploy.py"`,
+// Explicit interpreter on inline script
+script: {content: "print('hello')", interpreter: "python3"}
+
+// Module-contained script file reference
+script: {file: "scripts/build.sh"}
+script: {file: "scripts/deploy.py", interpreter: "python3"}`,
   },
 
   'reference/invowkfile/runtimes-examples': {
@@ -780,25 +783,22 @@ platforms: [
     env_inherit_deny?:  [...string]
 }
 
-// Native runtime: supports interpreter
+// Native runtime: no additional fields
 #RuntimeConfigNative: close({
     #RuntimeConfigBase
-    name:         "native"
-    interpreter?: string  // "auto", "python3", "/usr/bin/env perl -w", etc.
+    name: "native"
 })
 
 // Virtual runtime: no additional fields
 #RuntimeConfigVirtual: close({
     #RuntimeConfigBase
     name: "virtual"
-    // NOTE: interpreter is NOT allowed here (CUE validation error)
 })
 
 // Container runtime: exactly one source + extras
 #RuntimeConfigContainerBase: {
     #RuntimeConfigBase
     name:              "container"
-    interpreter?:      string
     enable_host_ssh?:  bool
     volumes?:          [...string]
     ports?:            [...string]
@@ -838,16 +838,19 @@ platforms: [{name: "linux"}]`,
   'reference/invowkfile/interpreter-examples': {
     language: 'cue',
     code: `// Auto-detect from shebang
-interpreter: "auto"
+script: {content: """
+    #!/usr/bin/env python3
+    print("hello")
+    """, interpreter: "auto"}
 
 // Specific interpreter
-interpreter: "python3"
-interpreter: "node"
-interpreter: "/usr/bin/ruby"
+script: {content: "print('hello')", interpreter: "python3"}
+script: {content: "console.log('hello')", interpreter: "node"}
+script: {content: "puts 'hello'", interpreter: "/usr/bin/ruby"}
 
 // With arguments
-interpreter: "python3 -u"
-interpreter: "/usr/bin/env perl -w"`,
+script: {content: "print('hello')", interpreter: "python3 -u"}
+script: {content: "print qq(hello\\n)", interpreter: "/usr/bin/env perl -w"}`,
   },
 
   'reference/invowkfile/enable-host-ssh-example': {
@@ -1006,10 +1009,20 @@ containerfile: "./docker/Dockerfile.build"`,
 
 #CustomCheck: {
     name:             string  // Check identifier
-    check_script:     string  // Script to run
+    script:           #CustomCheckScript
     expected_code?:   int     // Expected exit code (default: 0)
     expected_output?: string  // Regex to match output
 }
+
+#CustomCheckScript: close({
+    content:      string
+    file?:        _|_
+    interpreter?: string
+}) | close({
+    file:         string
+    content?:     _|_
+    interpreter?: string
+})
 
 #CustomCheckAlternatives: {
     alternatives: [...#CustomCheck] & [_, ...]
@@ -1101,22 +1114,25 @@ cmds: [
         
         implementations: [
             {
-                script: """
+                script: {content: """
                     if [ "$INVOWK_FLAG_RELEASE" = "true" ]; then
                         go build -ldflags="-s -w" -o app .
                     else
                         go build -o app .
                     fi
-                    """
+                    """}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             },
             {
-                script: """
+                script: {
+                    content: """
                     $flags = if ($env:INVOWK_FLAG_RELEASE -eq "true") { "-ldflags=-s -w" } else { "" }
                     go build $flags -o app.exe .
                     """
-                runtimes: [{name: "native", interpreter: "pwsh"}]
+                    interpreter: "pwsh"
+                }
+                runtimes: [{name: "native"}]
                 platforms: [{name: "windows"}]
             },
         ]
@@ -1158,7 +1174,7 @@ cmds: [
     code: `{
     name: "build"
     implementations: [{
-        script: "make build"
+        script: {content: "make build"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
         timeout: "5m"
@@ -1195,7 +1211,7 @@ cmds: [
         ignore: ["vendor/**"]
     }
     implementations: [{
-        script: "go run ./cmd/server"
+        script: {content: "go run ./cmd/server"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]

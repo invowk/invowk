@@ -22,7 +22,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "rsync -avz ./dist/ user@server:/var/www/"
+				script: {content: "rsync -avz ./dist/ user@server:/var/www/"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -89,7 +89,7 @@ cmds: [
 		name: "interactive-build"
 		implementations: [
 			{
-				script: "echo 'ready'"
+				script: {content: "echo 'ready'"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -154,7 +154,7 @@ cmds: [
 		name: "sync"
 		implementations: [
 			{
-				script: "rsync -avz ./dist/ user@server:/var/www/"
+				script: {content: "rsync -avz ./dist/ user@server:/var/www/"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 				depends_on: {
@@ -213,7 +213,7 @@ func TestCommand_HasDependencies_WithCapabilities(t *testing.T) {
 
 	cmd := Command{
 		Name:            "test",
-		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
+		Implementations: []Implementation{{Script: ImplementationScript{Content: "echo"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 		},
@@ -229,7 +229,7 @@ func TestCommand_HasCommandLevelDependencies_WithCapabilities(t *testing.T) {
 
 	cmd := Command{
 		Name:            "test",
-		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
+		Implementations: []Implementation{{Script: ImplementationScript{Content: "echo"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
 		},
@@ -244,7 +244,7 @@ func TestScript_HasDependencies_WithCapabilities(t *testing.T) {
 	t.Parallel()
 
 	impl := Implementation{
-		Script:    "echo test",
+		Script:    ImplementationScript{Content: "echo test"},
 		Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 		Platforms: []PlatformConfig{{Name: PlatformLinux}},
 		DependsOn: &DependsOn{
@@ -297,7 +297,7 @@ func TestGenerateCUE_WithCapabilities(t *testing.T) {
 				Name: "deploy",
 				Implementations: []Implementation{
 					{
-						Script:    "rsync deploy",
+						Script:    ImplementationScript{Content: "rsync deploy"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},
@@ -337,7 +337,7 @@ func TestGenerateCUE_WithCapabilitiesAtImplementationLevel(t *testing.T) {
 				Name: "sync",
 				Implementations: []Implementation{
 					{
-						Script:    "rsync sync",
+						Script:    ImplementationScript{Content: "rsync sync"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 						DependsOn: &DependsOn{
@@ -384,7 +384,7 @@ cmds: [
 		name: "hello"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -496,7 +496,7 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 		{
 			name: "with custom_checks",
 			deps: &DependsOn{
-				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
+				CustomChecks: []CustomCheckDependency{{Name: "c", Script: CustomCheckScript{Content: "true"}}},
 			},
 			expected: true,
 		},
@@ -515,7 +515,7 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 
 			inv := &Invowkfile{
 				DependsOn: tt.deps,
-				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}}},
+				Commands:  []Command{{Name: "test", Implementations: []Implementation{{Script: ImplementationScript{Content: "echo"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}}}},
 			}
 			if got := inv.HasRootLevelDependencies(); got != tt.expected {
 				t.Errorf("HasRootLevelDependencies() = %v, want %v", got, tt.expected)
@@ -535,7 +535,7 @@ func TestMergeDependsOnAll(t *testing.T) {
 	rootDeps := &DependsOn{
 		Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh"}}},
 		Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityLocalAreaNetwork}}},
-		CustomChecks: []CustomCheckDependency{{Name: "root-check", CheckScript: "true"}},
+		CustomChecks: []CustomCheckDependency{{Name: "root-check", Script: CustomCheckScript{Content: "true"}}},
 	}
 	cmdDeps := &DependsOn{
 		Tools:     []ToolDependency{{Alternatives: []BinaryName{"bash"}}},
@@ -546,7 +546,7 @@ func TestMergeDependsOnAll(t *testing.T) {
 		Tools:        []ToolDependency{{Alternatives: []BinaryName{"python3"}}},
 		EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
 		Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{"test"}}},
-		CustomChecks: []CustomCheckDependency{{Name: "impl-check", CheckScript: "echo ok"}},
+		CustomChecks: []CustomCheckDependency{{Name: "impl-check", Script: CustomCheckScript{Content: "echo ok"}}},
 	}
 
 	merged := MergeDependsOnAll(rootDeps, cmdDeps, implDeps)
@@ -688,7 +688,7 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 				Name: "hello",
 				Implementations: []Implementation{
 					{
-						Script:    "echo hello",
+						Script:    ImplementationScript{Content: "echo hello"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 					},

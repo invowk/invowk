@@ -43,7 +43,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 	}
 
 	// Validate command-level depends_on (all dependency types including custom checks)
-	validationErrors = append(validationErrors, v.validateDependsOn(ctx, cmd.DependsOn, path.Copy())...)
+	validationErrors = append(validationErrors, v.validateDependsOn(ctx, inv, cmd.DependsOn, path.Copy())...)
 
 	// Validate command-level env configuration
 	validationErrors = append(validationErrors, v.validateEnvConfig(ctx, cmd.Env, path.Copy())...)
@@ -95,24 +95,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 	impl := &cmd.Implementations[implIdx]
 	path := NewFieldPath().Command(cmd.Name).Implementation(implIdx)
 
-	if impl.Script == "" {
-		validationErrors = append(validationErrors, ValidationError{
-			Validator: v.Name(),
-			Field:     path.String(),
-			Message:   "must have a script in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
-		})
-	} else if !impl.IsScriptFile() {
-		// [CUE-VALIDATED] Script length also enforced by CUE schema (#Implementation.script MaxRunes(10485760))
-		if err := ValidateStringLength(string(impl.Script), "script", MaxScriptLength); err != nil {
-			validationErrors = append(validationErrors, ValidationError{
-				Validator: v.Name(),
-				Field:     path.String(),
-				Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-				Severity:  SeverityError,
-			})
-		}
-	}
+	validationErrors = append(validationErrors, v.validateImplementationScript(ctx, inv, impl, path)...)
 
 	if len(impl.Runtimes) == 0 {
 		validationErrors = append(validationErrors, ValidationError{
@@ -139,7 +122,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 	}
 
 	// Validate implementation-level depends_on (all dependency types including custom checks)
-	validationErrors = append(validationErrors, v.validateDependsOn(ctx, impl.DependsOn, path.Copy())...)
+	validationErrors = append(validationErrors, v.validateDependsOn(ctx, inv, impl.DependsOn, path.Copy())...)
 
 	// Validate implementation-level env configuration
 	validationErrors = append(validationErrors, v.validateEnvConfig(ctx, impl.Env, path.Copy())...)
@@ -155,6 +138,65 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		})
 	}
 
+	return validationErrors
+}
+
+func (v *StructureValidator) validateImplementationScript(ctx *ValidationContext, inv *Invowkfile, impl *Implementation, path *FieldPath) []ValidationError {
+	if err := impl.Script.Validate(); err != nil {
+		return []ValidationError{{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("script").String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		}}
+	}
+
+	var validationErrors []ValidationError
+	validationErrors = append(validationErrors, v.validateImplementationScriptContent(ctx, impl, path)...)
+	validationErrors = append(validationErrors, v.validateImplementationScriptFile(ctx, inv, impl, path)...)
+	return validationErrors
+}
+
+func (v *StructureValidator) validateImplementationScriptContent(ctx *ValidationContext, impl *Implementation, path *FieldPath) []ValidationError {
+	if !impl.Script.IsContent() {
+		return nil
+	}
+	// [CUE-VALIDATED] Script content length also enforced by CUE schema (#ScriptSourceContent.content MaxRunes(10485760)).
+	if err := ValidateStringLength(string(impl.Script.Content), "script.content", MaxScriptLength); err != nil {
+		return []ValidationError{{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("script").Field("content").String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		}}
+	}
+	return nil
+}
+
+func (v *StructureValidator) validateImplementationScriptFile(ctx *ValidationContext, inv *Invowkfile, impl *Implementation, path *FieldPath) []ValidationError {
+	if !impl.Script.IsFile() {
+		return nil
+	}
+
+	var validationErrors []ValidationError
+	// [CUE-VALIDATED] Script file length also enforced by CUE schema (#ScriptSourceFile.file MaxRunes(4096)).
+	if err := ValidateStringLength(string(*impl.Script.File), "script.file", MaxPathLength); err != nil {
+		validationErrors = append(validationErrors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("script").Field("file").String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		})
+	}
+	if err := validateModuleScriptFileSelection(impl.GetScriptFilePathWithModule(ctx.FilePath, inv.ModulePath), inv.ModulePath); err != nil {
+		validationErrors = append(validationErrors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("script").Field("file").String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+			Cause:     err,
+		})
+	}
 	return validationErrors
 }
 
@@ -180,7 +222,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 				})
 			}
 		}
-		validationErrors = append(validationErrors, v.validateDependsOn(ctx, rt.DependsOn, path.Copy())...)
+		validationErrors = append(validationErrors, v.validateDependsOn(ctx, inv, rt.DependsOn, path.Copy())...)
 	}
 
 	return validationErrors

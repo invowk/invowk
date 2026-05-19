@@ -25,12 +25,12 @@ cmds: [
 		description: "Command requiring internet connectivity"
 		implementations: [
 			{
-				script:    "echo 'Internet connectivity confirmed!'"
+				script: {content: "echo 'Internet connectivity confirmed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Internet connectivity confirmed!'"
+				script: {content: "Write-Output 'Internet connectivity confirmed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -46,18 +46,18 @@ cmds: [
 		description: "Command requiring any network connectivity"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "Network connectivity confirmed!"
 					echo "Either LAN or Internet is available."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "Network connectivity confirmed!"
 					Write-Output "Either LAN or Internet is available."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

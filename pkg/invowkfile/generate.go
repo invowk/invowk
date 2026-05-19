@@ -209,16 +209,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	sb.WriteString("\t\t\t{\n")
 
-	// Handle multi-line scripts with CUE's multi-line string syntax
-	if strings.Contains(string(impl.Script), "\n") {
-		sb.WriteString("\t\t\t\tscript: \"\"\"\n")
-		for line := range strings.SplitSeq(string(impl.Script), "\n") {
-			fmt.Fprintf(sb, "\t\t\t\t\t%s\n", line)
-		}
-		sb.WriteString("\t\t\t\t\t\"\"\"\n")
-	} else {
-		fmt.Fprintf(sb, "\t\t\t\tscript: %q\n", impl.Script)
-	}
+	generateImplementationScript(sb, impl.Script)
 
 	// Runtimes
 	sb.WriteString("\t\t\t\truntimes: [\n")
@@ -252,6 +243,27 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	}
 
 	sb.WriteString("\t\t\t},\n")
+}
+
+// generateImplementationScript generates CUE for an explicit implementation script source.
+func generateImplementationScript(sb *strings.Builder, script ImplementationScript) {
+	switch {
+	case script.IsFile():
+		fmt.Fprintf(sb, "\t\t\t\tscript: {%s}\n", formatScriptFileFields(*script.File, script.Interpreter))
+	case strings.Contains(string(script.Content), "\n"):
+		sb.WriteString("\t\t\t\tscript: {\n")
+		sb.WriteString("\t\t\t\t\tcontent: \"\"\"\n")
+		for line := range strings.SplitSeq(string(script.Content), "\n") {
+			fmt.Fprintf(sb, "\t\t\t\t\t%s\n", line)
+		}
+		sb.WriteString("\t\t\t\t\t\"\"\"\n")
+		if script.Interpreter != "" {
+			fmt.Fprintf(sb, "\t\t\t\t\tinterpreter: %q\n", script.Interpreter)
+		}
+		sb.WriteString("\t\t\t\t}\n")
+	default:
+		fmt.Fprintf(sb, "\t\t\t\tscript: {%s}\n", formatScriptContentFields(script.Content, script.Interpreter))
+	}
 }
 
 // generateRuntimeConfig generates CUE for a single runtime config entry.
@@ -313,9 +325,6 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 		}
 	}
 
-	if r.Interpreter != "" && r.Name != RuntimeVirtual {
-		writeField("interpreter", fmt.Sprintf("%q", r.Interpreter))
-	}
 	if r.EnvInheritMode != "" {
 		writeField("env_inherit_mode", fmt.Sprintf("%q", r.EnvInheritMode))
 	}
@@ -466,7 +475,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				sb.WriteString(indent + cueAlternativesPrefix + "\n")
 				for _, alt := range check.Alternatives {
 					sb.WriteString(indent + "\t\t{")
-					fmt.Fprintf(sb, "name: %q, check_script: %q", alt.Name, alt.CheckScript)
+					fmt.Fprintf(sb, "name: %q, %s", alt.Name, formatCustomCheckScript(alt.Script))
 					if alt.ExpectedCode != nil {
 						fmt.Fprintf(sb, ", expected_code: %d", *alt.ExpectedCode)
 					}
@@ -478,7 +487,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				sb.WriteString(indent + "\t]},\n")
 			} else {
 				sb.WriteString(indent + "\t{")
-				fmt.Fprintf(sb, "name: %q, check_script: %q", check.Name, check.CheckScript)
+				fmt.Fprintf(sb, "name: %q, %s", check.Name, formatCustomCheckScript(check.Script))
 				if check.ExpectedCode != nil {
 					fmt.Fprintf(sb, ", expected_code: %d", *check.ExpectedCode)
 				}
@@ -510,4 +519,30 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 		}
 		sb.WriteString(indent + "]\n")
 	}
+}
+
+//goplint:ignore -- returns formatted CUE snippet text for GenerateCUE output.
+func formatCustomCheckScript(script CustomCheckScript) string {
+	if script.IsFile() {
+		return fmt.Sprintf("script: {%s}", formatScriptFileFields(*script.File, script.Interpreter))
+	}
+	return fmt.Sprintf("script: {%s}", formatScriptContentFields(script.Content, script.Interpreter))
+}
+
+//goplint:ignore -- CUE generation helpers return serialized source snippets.
+func formatScriptContentFields(content ScriptContent, interpreter InterpreterSpec) string {
+	fields := fmt.Sprintf("content: %q", content)
+	if interpreter != "" {
+		fields += fmt.Sprintf(", interpreter: %q", interpreter)
+	}
+	return fields
+}
+
+//goplint:ignore -- CUE generation helpers return serialized source snippets.
+func formatScriptFileFields(file FilesystemPath, interpreter InterpreterSpec) string {
+	fields := fmt.Sprintf("file: %q", file)
+	if interpreter != "" {
+		fields += fmt.Sprintf(", interpreter: %q", interpreter)
+	}
+	return fields
 }

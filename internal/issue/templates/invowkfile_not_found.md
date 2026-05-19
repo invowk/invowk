@@ -29,12 +29,12 @@ cmds: [
   {
     name: "build"
     description: "Build the project"
-    script: "go build -o myapp ./..."
+    script: {content: "go build -o myapp ./..."}
   },
   {
     name: "test"
     description: "Run tests"
-    script: "go test ./..."
+    script: {content: "go test ./..."}
   },
 ]
 ~~~

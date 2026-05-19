@@ -25,10 +25,10 @@ cmds: [
     description: "Build the project"
     implementations: [
       {
-        script: """
+        script: {content: """
           echo "Building..."
           go build ./...
-          """
+          """}
           runtimes: [{name: "native"}]  // or "virtual", "container"
       }
     ]
