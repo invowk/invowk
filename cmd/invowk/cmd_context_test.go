@@ -217,10 +217,10 @@ func TestRunDisambiguatedCommand_BuildsCompleteExecuteRequest(t *testing.T) {
 		Command: &invowkfile.Command{
 			Name: "deploy",
 			Flags: []invowkfile.Flag{
-				{Name: "profile", Type: invowkfile.FlagTypeString},
-				{Name: "retries", Type: invowkfile.FlagTypeInt},
+				{Name: "profile", Description: "Deployment profile", Type: invowkfile.FlagTypeString},
+				{Name: "retries", Description: "Retry count", Type: invowkfile.FlagTypeInt},
 			},
-			Args: []invowkfile.Argument{{Name: "target"}},
+			Args: []invowkfile.Argument{{Name: "target", Description: "Deployment target"}},
 		},
 	}
 	commands := &recordingCommandService{

@@ -437,7 +437,16 @@ func (p SubdirectoryPath) Validate() error {
 	}
 	// [GO-ONLY] Path traversal prevention and cross-platform separator/drive
 	// normalization require Go; CUE only applies portable string prefilters.
-	cleanPath := slashpath.Clean(strings.ReplaceAll(s, "\\", "/"))
+	normalized := strings.ReplaceAll(s, "\\", "/")
+	for segment := range strings.SplitSeq(normalized, "/") {
+		if segment == ".." {
+			return &InvalidSubdirectoryPathError{
+				Value:  p,
+				Reason: "path traversal not allowed",
+			}
+		}
+	}
+	cleanPath := slashpath.Clean(normalized)
 	if strings.HasPrefix(cleanPath, "/") {
 		return &InvalidSubdirectoryPathError{
 			Value:  p,

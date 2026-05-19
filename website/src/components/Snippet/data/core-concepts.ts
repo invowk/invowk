@@ -776,7 +776,7 @@ platforms: [
 #RuntimeConfigBase: {
     name:               #RuntimeType
     env_inherit_mode?:  "none" | "allow" | "all"
-    env_inherit_allow?: [...string]
+    env_inherit_allow?: [...string]  // Requires env_inherit_mode: "allow"
     env_inherit_deny?:  [...string]
 }
 
@@ -794,18 +794,30 @@ platforms: [
     // NOTE: interpreter is NOT allowed here (CUE validation error)
 })
 
-// Container runtime: image/containerfile + extras
-#RuntimeConfigContainer: close({
+// Container runtime: exactly one source + extras
+#RuntimeConfigContainerBase: {
     #RuntimeConfigBase
     name:              "container"
     interpreter?:      string
     enable_host_ssh?:  bool
-    containerfile?:    string  // mutually exclusive with image
-    image?:            string  // mutually exclusive with containerfile
     volumes?:          [...string]
     ports?:            [...string]
     depends_on?:       #DependsOn  // validated inside the container environment
+}
+
+#RuntimeConfigContainerWithImage: close({
+    #RuntimeConfigContainerBase
+    image:          string
+    containerfile?: _|_
 })
+
+#RuntimeConfigContainerWithContainerfile: close({
+    #RuntimeConfigContainerBase
+    containerfile: string
+    image?:        _|_
+})
+
+#RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
 
 // Discriminated union of all runtime types
 #RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer`,

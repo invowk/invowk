@@ -9,6 +9,15 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+type commandDependencyRefParseTestCase struct {
+	name          string
+	ref           CommandDependencyRef
+	wantQualified bool
+	wantSource    CommandDependencySourceID
+	wantCommand   CommandName
+	wantErr       bool
+}
+
 func TestDependencyValidators_InvalidCases(t *testing.T) {
 	t.Parallel()
 
@@ -275,14 +284,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 func TestCommandDependencyRef_Parse(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name          string
-		ref           CommandDependencyRef
-		wantQualified bool
-		wantSource    CommandDependencySourceID
-		wantCommand   CommandName
-		wantErr       bool
-	}{
+	tests := []commandDependencyRefParseTestCase{
 		{name: "bare", ref: "build", wantCommand: "build"},
 		{name: "bare with spaces", ref: "test unit", wantCommand: "test unit"},
 		{name: "qualified", ref: "@tools lint", wantQualified: true, wantSource: "tools", wantCommand: "lint"},
@@ -298,23 +300,35 @@ func TestCommandDependencyRef_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tt.ref.Parse()
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("Parse() error = nil, want error")
-				}
-				if !errors.Is(err, ErrInvalidCommandDependencyRef) {
-					t.Fatalf("Parse() error = %v, want ErrInvalidCommandDependencyRef", err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Parse() error = %v", err)
-			}
-			if got.Qualified != tt.wantQualified || got.SourceID != tt.wantSource || got.Command != tt.wantCommand {
-				t.Fatalf("Parse() = %+v, want qualified=%v source=%q command=%q", got, tt.wantQualified, tt.wantSource, tt.wantCommand)
-			}
+			assertCommandDependencyRefParse(t, tt)
 		})
+	}
+}
+
+func assertCommandDependencyRefParse(t *testing.T, tt commandDependencyRefParseTestCase) {
+	t.Helper()
+
+	got, err := tt.ref.Parse()
+	if tt.wantErr {
+		assertInvalidCommandDependencyRefParse(t, err)
+		return
+	}
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if got.Qualified != tt.wantQualified || got.SourceID != tt.wantSource || got.Command != tt.wantCommand {
+		t.Fatalf("Parse() = %+v, want qualified=%v source=%q command=%q", got, tt.wantQualified, tt.wantSource, tt.wantCommand)
+	}
+}
+
+func assertInvalidCommandDependencyRefParse(t *testing.T, err error) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("Parse() error = nil, want error")
+	}
+	if !errors.Is(err, ErrInvalidCommandDependencyRef) {
+		t.Fatalf("Parse() error = %v, want ErrInvalidCommandDependencyRef", err)
 	}
 }
 

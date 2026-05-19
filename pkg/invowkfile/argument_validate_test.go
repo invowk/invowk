@@ -30,10 +30,31 @@ func TestArgument_Validate_Valid(t *testing.T) {
 
 func TestArgument_Validate_ValidMinimal(t *testing.T) {
 	t.Parallel()
-	// Only Name is required; everything else is zero-value-valid.
-	a := Argument{Name: "file"}
+	a := Argument{
+		Name:        "file",
+		Description: "Input file",
+	}
 	if err := a.Validate(); err != nil {
 		t.Fatalf("minimal Argument.Validate() returned error: %v", err)
+	}
+}
+
+func TestArgument_Validate_MissingDescription(t *testing.T) {
+	t.Parallel()
+	a := Argument{Name: "file"}
+	err := a.Validate()
+	if err == nil {
+		t.Fatal("Argument without description should fail validation")
+	}
+	if !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("error should wrap ErrInvalidArgument, got: %v", err)
+	}
+	var argErr *InvalidArgumentError
+	if !errors.As(err, &argErr) {
+		t.Fatalf("error should be *InvalidArgumentError, got: %T", err)
+	}
+	if !fieldErrorsContain(argErr.FieldErrors, "description is required") {
+		t.Fatalf("field errors %v do not contain description requirement", argErr.FieldErrors)
 	}
 }
 
@@ -58,8 +79,9 @@ func TestArgument_Validate_InvalidName(t *testing.T) {
 func TestArgument_Validate_InvalidType(t *testing.T) {
 	t.Parallel()
 	a := Argument{
-		Name: "file",
-		Type: "bogus",
+		Name:        "file",
+		Description: "Input file",
+		Type:        "bogus",
 	}
 	err := a.Validate()
 	if err == nil {
@@ -88,9 +110,10 @@ func TestArgument_Validate_InvalidDescription(t *testing.T) {
 func TestArgument_Validate_MultipleErrors(t *testing.T) {
 	t.Parallel()
 	a := Argument{
-		Name:       "",      // invalid
-		Type:       "bogus", // invalid
-		Validation: "[",     // invalid regex
+		Name:        "",      // invalid
+		Description: "",      // invalid
+		Type:        "bogus", // invalid
+		Validation:  "[",     // invalid regex
 	}
 	err := a.Validate()
 	if err == nil {
@@ -100,8 +123,8 @@ func TestArgument_Validate_MultipleErrors(t *testing.T) {
 	if !errors.As(err, &argErr) {
 		t.Fatalf("error should be *InvalidArgumentError, got: %T", err)
 	}
-	if len(argErr.FieldErrors) < 2 {
-		t.Errorf("expected at least 2 field errors, got %d", len(argErr.FieldErrors))
+	if len(argErr.FieldErrors) < 3 {
+		t.Errorf("expected at least 3 field errors, got %d", len(argErr.FieldErrors))
 	}
 }
 

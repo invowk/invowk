@@ -107,4 +107,4 @@ Overrides the default command source ID for this dependency. Aliases use command
 **Type:** `string`
 **Required:** No
 
-Subdirectory within the repository that contains the module. Must be relative, cannot contain path traversal sequences, and must point directly to a directory whose basename ends in `.invowkmod`. The basename prefix must match the selected module's `module` value.
+Subdirectory within the repository that contains the module. Must be relative and must point directly to a directory whose basename ends in `.invowkmod`. The basename prefix must match the selected module's `module` value. Ordinary segment names containing consecutive dots are allowed, but parent-directory segments such as `..`, absolute paths, drive-qualified paths, and UNC/rooted paths are rejected after Invowk normalizes path separators.

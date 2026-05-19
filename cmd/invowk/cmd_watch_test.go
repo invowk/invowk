@@ -366,8 +366,8 @@ func TestRunWatchMode_ReexecutionUsesResolvedCommandRequest(t *testing.T) {
 
 	cmdInfo := newResolvedWatchCommand(t)
 	cmdInfo.Name = "tools build"
-	cmdInfo.Command.Flags = []invowkfile.Flag{{Name: "profile", Type: invowkfile.FlagTypeString}}
-	cmdInfo.Command.Args = []invowkfile.Argument{{Name: "target"}}
+	cmdInfo.Command.Flags = []invowkfile.Flag{{Name: "profile", Description: "Build profile", Type: invowkfile.FlagTypeString}}
+	cmdInfo.Command.Args = []invowkfile.Argument{{Name: "target", Description: "Build target"}}
 	commands := &fakeWatchCommandService{cmdInfo: cmdInfo}
 	watchers := &fakeWatchFactory{
 		run: func(ctx context.Context, cfg watch.Config) error {

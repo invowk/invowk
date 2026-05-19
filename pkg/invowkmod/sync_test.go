@@ -355,8 +355,8 @@ func TestInvowkmodVersionLengthConstraint(t *testing.T) {
 	}
 }
 
-// TestPathRegexConstraints verifies #ModuleRequirement.path rejects absolute paths and path traversal.
-func TestPathRegexConstraints(t *testing.T) {
+// TestPathPrefilterConstraints verifies #ModuleRequirement.path applies only portable shape checks.
+func TestPathPrefilterConstraints(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -366,10 +366,11 @@ func TestPathRegexConstraints(t *testing.T) {
 	}{
 		{"valid relative path", "subdir/module", true},
 		{"valid single segment", "mymodule", true},
+		{"consecutive dots in segment accepted", "modules/foo..bar", true},
 		{"absolute path rejected", "/absolute/path", false},
-		{"path traversal rejected", "sub/../escape", false},
-		{"path traversal at start rejected", "../escape", false},
-		{"double dot in middle rejected", "a/../../etc", false},
+		{"path traversal shape accepted for Go validation", "sub/../escape", true},
+		{"path traversal at start shape accepted for Go validation", "../escape", true},
+		{"double dot segment shape accepted for Go validation", "a/../../etc", true},
 	}
 
 	for _, tc := range tests {
@@ -591,10 +592,9 @@ func TestBehavioralSync_GitURL(t *testing.T) {
 	)
 }
 
-// TestBehavioralSync_SubdirectoryPath verifies Go SubdirectoryPath.Validate() agrees with
-// CUE #ModuleRequirement.path constraint (relative path, no traversal).
-// Note: Go performs additional security validation (path normalization via slashpath.Clean)
-// that CUE's regex cannot express.
+// TestBehavioralSync_SubdirectoryPath verifies Go SubdirectoryPath.Validate() and
+// the CUE #ModuleRequirement.path portable prefilter agree where CUE can express
+// the rule. Go performs additional cross-platform path security validation after decode.
 func TestBehavioralSync_SubdirectoryPath(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
@@ -606,12 +606,16 @@ func TestBehavioralSync_SubdirectoryPath(t *testing.T) {
 			{"subdir", true, true, ""},
 			{"a/b/c", true, true, ""},
 			{"module-name", true, true, ""},
+			{"modules/foo..bar", true, true, ""},
+			{"modules/v1..2/tools", true, true, ""},
 			// Go accepts "" (repo root), CUE path? is optional so absent means root.
 			// But if path is present in CUE, the field has constraints including =~"^[^/]".
 			// An explicit empty string would not match the regex, so CUE rejects "".
 			{"", true, false, "Go zero-value means repo root; CUE uses field optionality"},
 			{"/absolute", false, false, ""},
-			{"../traversal", false, false, ""},
+			{"../traversal", false, true, "Go rejects parent-directory segments; CUE only prefilters shape"},
+			{"modules/../tools", false, true, "Go rejects parent-directory segments; CUE only prefilters shape"},
+			{`modules\..\tools`, false, true, "Go normalizes backslash parent-directory segments; CUE only prefilters shape"},
 		},
 	)
 }

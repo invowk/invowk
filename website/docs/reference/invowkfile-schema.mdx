@@ -276,7 +276,7 @@ Controls whether the host environment is inherited by the runtime.
 **Type:** `[...string]`  
 **Available for:** `native`, `virtual`, `container`
 
-Allowlist of host env vars when `env_inherit_mode` is `"allow"`.
+Allowlist of host env vars. This field requires `env_inherit_mode: "allow"` in the same runtime configuration.
 
 ### env_inherit_deny
 
@@ -308,7 +308,7 @@ Enable SSH access from container back to the host. When enabled, Invowk starts a
 **Type:** `string`  
 **Available for:** `container`
 
-Specify the container source. These are **mutually exclusive**.
+Specify exactly one container source. `image` and `containerfile` are **mutually exclusive**.
 
 `containerfile` must be a relative path under the invowkfile directory. Invowk rejects absolute paths and any raw path segment equal to `..`, including backslash-separated segments, before resolving the path. Names that merely contain consecutive dots are valid, so `Containerfile..backup` and `docker/v1..2/Containerfile` are accepted.
 

@@ -529,6 +529,7 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "valid allow and deny lists",
 			rt: &RuntimeConfig{
 				Name:            RuntimeNative,
+				EnvInheritMode:  EnvInheritAllow,
 				EnvInheritAllow: []EnvVarName{"TERM", "LANG", "MY_VAR1"},
 				EnvInheritDeny:  []EnvVarName{"AWS_SECRET_ACCESS_KEY"},
 			},
@@ -564,6 +565,196 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 				t.Errorf("validateRuntimeConfig() unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestValidateRuntimeConfig_EnvInheritAllowRequiresAllowMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		mode    EnvInheritMode
+		wantErr bool
+	}{
+		{"omitted mode", "", true},
+		{"none mode", EnvInheritNone, true},
+		{"all mode", EnvInheritAll, true},
+		{"allow mode", EnvInheritAllow, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rt := &RuntimeConfig{
+				Name:            RuntimeNative,
+				EnvInheritMode:  tt.mode,
+				EnvInheritAllow: []EnvVarName{"PATH"},
+			}
+
+			err := validateRuntimeConfig(rt, "test-cmd", 1)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("validateRuntimeConfig() error = nil, want allow mode requirement error")
+				}
+				if !strings.Contains(err.Error(), `env_inherit_allow requires env_inherit_mode: "allow"`) {
+					t.Fatalf("validateRuntimeConfig() error = %v, want allow mode requirement", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateRuntimeConfig() error = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestParse_RejectsEnvInheritAllowWithoutAllowMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		mode string
+	}{
+		{"omitted mode", ""},
+		{"none mode", `env_inherit_mode: "none"`},
+		{"all mode", `env_inherit_mode: "all"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{
+					name: "native"
+					` + tt.mode + `
+					env_inherit_allow: ["PATH"]
+				}]
+				platforms: [{name: "linux"}]
+			}
+		]
+	}
+]
+`
+			tmpDir := t.TempDir()
+			invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); err != nil {
+				t.Fatalf("Failed to write invowkfile: %v", err)
+			}
+
+			_, err := Parse(FilesystemPath(invowkfilePath))
+			if err == nil {
+				t.Fatal("Parse() error = nil, want allow mode requirement error")
+			}
+			if !strings.Contains(err.Error(), `env_inherit_allow requires env_inherit_mode: "allow"`) {
+				t.Fatalf("Parse() error = %v, want allow mode requirement", err)
+			}
+		})
+	}
+}
+
+func TestParse_AcceptsEnvInheritAllowWithAllowMode(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{
+					name: "native"
+					env_inherit_mode: "allow"
+					env_inherit_allow: ["PATH", "TERM"]
+				}]
+				platforms: [{name: "linux"}]
+			}
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	if _, err := Parse(FilesystemPath(invowkfilePath)); err != nil {
+		t.Fatalf("Parse() error = %v, want nil", err)
+	}
+}
+
+func TestParse_RejectsFlagMissingDescription(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [{name: "verbose"}]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(FilesystemPath(invowkfilePath))
+	if err == nil {
+		t.Fatal("Parse() error = nil, want missing flag description error")
+	}
+	if !strings.Contains(err.Error(), "description") {
+		t.Fatalf("Parse() error = %v, want description error", err)
+	}
+}
+
+func TestParse_RejectsArgumentMissingDescription(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: "echo test"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		args: [{name: "file"}]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); err != nil {
+		t.Fatalf("Failed to write invowkfile: %v", err)
+	}
+
+	_, err := Parse(FilesystemPath(invowkfilePath))
+	if err == nil {
+		t.Fatal("Parse() error = nil, want missing argument description error")
+	}
+	if !strings.Contains(err.Error(), "description") {
+		t.Fatalf("Parse() error = %v, want description error", err)
 	}
 }
 

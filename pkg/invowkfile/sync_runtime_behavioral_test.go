@@ -74,7 +74,7 @@ func TestBehavioralSync_EnvInheritMode(t *testing.T) {
 }
 
 // TestBehavioralSync_ContainerImage verifies Go ContainerImage.Validate() agrees with
-// CUE #RuntimeConfigContainer.image constraint (non-empty + length).
+// CUE #RuntimeConfigContainerWithImage.image constraint (non-empty + length).
 // Note: ContainerImage("") is valid in Go (no image = use containerfile),
 // but CUE field image?: string & !="" means empty is rejected at the CUE level.
 // The CUE optionality handles the "no image" case (field is absent, not empty).
@@ -82,8 +82,8 @@ func TestBehavioralSync_ContainerImage(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	// image is an optional field in #RuntimeConfigContainer — use field-level lookup
-	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigContainer", "image",
+	// image is required in the image-source variant and optional in RuntimeConfig overall.
+	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigContainerWithImage", "image",
 		func(s string) error { return ContainerImage(s).Validate() },
 		[]behavioralSyncCase{
 			{"debian:stable-slim", true, true, ""},
@@ -142,12 +142,12 @@ func TestBehavioralSync_DotenvFilePath(t *testing.T) {
 }
 
 // TestBehavioralSync_VolumeMountSpec verifies Go VolumeMountSpec.Validate() agrees with
-// CUE #RuntimeConfigContainer.volumes element constraint (!="" & strings.MaxRunes(4096)).
+// CUE #RuntimeConfigContainerBase.volumes element constraint (!="" & strings.MaxRunes(4096)).
 func TestBehavioralSync_VolumeMountSpec(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	runBehavioralSyncListElement(t, schema, ctx, "#RuntimeConfigContainer", "volumes",
+	runBehavioralSyncListElement(t, schema, ctx, "#RuntimeConfigContainerBase", "volumes",
 		func(s string) error { return VolumeMountSpec(s).Validate() },
 		[]behavioralSyncCase{
 			{"./data:/data", true, true, ""},
@@ -160,12 +160,12 @@ func TestBehavioralSync_VolumeMountSpec(t *testing.T) {
 }
 
 // TestBehavioralSync_PortMappingSpec verifies Go PortMappingSpec.Validate() agrees with
-// CUE #RuntimeConfigContainer.ports element constraint (!="" & strings.MaxRunes(256)).
+// CUE #RuntimeConfigContainerBase.ports element constraint (!="" & strings.MaxRunes(256)).
 func TestBehavioralSync_PortMappingSpec(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	runBehavioralSyncListElement(t, schema, ctx, "#RuntimeConfigContainer", "ports",
+	runBehavioralSyncListElement(t, schema, ctx, "#RuntimeConfigContainerBase", "ports",
 		func(s string) error { return PortMappingSpec(s).Validate() },
 		[]behavioralSyncCase{
 			{"8080:80", true, true, ""},
@@ -353,12 +353,12 @@ func TestBehavioralSync_ScriptContent(t *testing.T) {
 }
 
 // TestBehavioralSync_ContainerfilePath verifies Go ContainerfilePath.Validate() agrees with
-// CUE #RuntimeConfigContainer.containerfile constraint (strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\.", optional).
+// CUE #RuntimeConfigContainerWithContainerfile.containerfile constraint.
 func TestBehavioralSync_ContainerfilePath(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
-	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigContainer", "containerfile",
+	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigContainerWithContainerfile", "containerfile",
 		func(s string) error { return ContainerfilePath(s).Validate() },
 		[]behavioralSyncCase{
 			{"Dockerfile", true, true, ""},
@@ -367,6 +367,8 @@ func TestBehavioralSync_ContainerfilePath(t *testing.T) {
 			// Go accepts "" (no containerfile), CUE rejects as optional field
 			{"", true, false, "Go zero-value means no containerfile; CUE uses field optionality"},
 			{"   ", false, false, ""},
+			{"/etc/Containerfile", false, true, "Go rejects absolute paths after decode; CUE only checks string shape"},
+			{"docker/../Containerfile", false, true, "Go rejects parent-directory segments after decode; CUE only checks string shape"},
 		},
 	)
 }

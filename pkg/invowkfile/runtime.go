@@ -185,7 +185,8 @@ type (
 		// EnvInheritMode controls host environment inheritance (optional)
 		// Allowed values: "none", "allow", "all"
 		EnvInheritMode EnvInheritMode `json:"env_inherit_mode,omitempty"`
-		// EnvInheritAllow lists host env vars to allow when EnvInheritMode is "allow"
+		// EnvInheritAllow lists host env vars to allow. When non-empty,
+		// EnvInheritMode must be EnvInheritAllow.
 		EnvInheritAllow []EnvVarName `json:"env_inherit_allow,omitempty"`
 		// EnvInheritDeny lists host env vars to block (applies to any mode)
 		EnvInheritDeny []EnvVarName `json:"env_inherit_deny,omitempty"`
@@ -423,6 +424,10 @@ func (rc RuntimeConfig) Validate() error {
 }
 
 func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
+	if len(rc.EnvInheritAllow) > 0 && rc.EnvInheritMode != EnvInheritAllow {
+		*errs = append(*errs, errors.New(`env_inherit_allow requires env_inherit_mode: "allow"`))
+	}
+
 	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
 		*errs = append(*errs, rc.ValidateInterpreterForRuntime())
 	}
@@ -432,9 +437,9 @@ func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
 		return
 	}
 
-	// [GO-ONLY] containerfile/image cross-field invariants depend on the
-	// selected runtime variant after decode. CUE validates each field shape;
-	// Go owns semantic exclusivity and required-container-source checks.
+	// Parsed CUE configs model source selection as closed runtime variants.
+	// Go keeps the same invariant for direct RuntimeConfig construction and
+	// as defense-in-depth after decode.
 	if rc.Containerfile != "" && rc.Image != "" {
 		*errs = append(*errs, errors.New("containerfile and image are mutually exclusive"))
 	}

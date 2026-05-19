@@ -237,6 +237,7 @@ func TestRuntimeConfig_Validate_InvalidEnvInheritAllow(t *testing.T) {
 	t.Parallel()
 	rc := RuntimeConfig{
 		Name:            RuntimeNative,
+		EnvInheritMode:  EnvInheritAllow,
 		EnvInheritAllow: []EnvVarName{"VALID", "123-INVALID"},
 	}
 	err := rc.Validate()
@@ -245,6 +246,51 @@ func TestRuntimeConfig_Validate_InvalidEnvInheritAllow(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidRuntimeConfig) {
 		t.Errorf("error should wrap ErrInvalidRuntimeConfig, got: %v", err)
+	}
+}
+
+func TestRuntimeConfig_Validate_EnvInheritAllowRequiresAllowMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		mode    EnvInheritMode
+		wantErr bool
+	}{
+		{"omitted mode", "", true},
+		{"none mode", EnvInheritNone, true},
+		{"all mode", EnvInheritAll, true},
+		{"allow mode", EnvInheritAllow, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rc := RuntimeConfig{
+				Name:            RuntimeNative,
+				EnvInheritMode:  tt.mode,
+				EnvInheritAllow: []EnvVarName{"PATH"},
+			}
+			err := rc.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("RuntimeConfig.Validate() error = nil, want allow mode requirement error")
+				}
+				var invalid *InvalidRuntimeConfigError
+				if !errors.As(err, &invalid) {
+					t.Fatalf("RuntimeConfig.Validate() error = %T %v, want *InvalidRuntimeConfigError", err, err)
+				}
+				if !fieldErrorsContain(invalid.FieldErrors, `env_inherit_allow requires env_inherit_mode: "allow"`) {
+					t.Fatalf("RuntimeConfig.Validate() error = %v, want allow mode requirement", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("RuntimeConfig.Validate() error = %v, want nil", err)
+			}
+		})
 	}
 }
 

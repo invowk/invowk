@@ -19,7 +19,8 @@ import (
 //
 // Note: The CUE schema uses a union type (#RuntimeConfig = #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer)
 // while Go uses a single RuntimeConfig struct with all fields. We need to extract the union of all fields
-// from the three CUE types. This requires custom merge logic, so it remains a separate test.
+// from the runtime variants, including the container source variants. This requires custom merge logic, so it
+// remains a separate test.
 func TestRuntimeConfigSchemaSync(t *testing.T) {
 	t.Parallel()
 
@@ -28,7 +29,8 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	// Extract fields from each runtime type variant
 	nativeFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigNative"))
 	virtualFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtual"))
-	containerFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainer"))
+	containerImageFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainerWithImage"))
+	containerfileFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainerWithContainerfile"))
 
 	// Merge all CUE fields (the Go struct has the union of all fields)
 	// We can't use maps.Copy because we need custom merge logic that OR's the optional flags
@@ -42,7 +44,20 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 			allCUEFields[field] = optional
 		}
 	}
-	for field, optional := range containerFields {
+	for field, optional := range containerImageFields {
+		if field == "image" || field == "containerfile" {
+			optional = true
+		}
+		if existing, ok := allCUEFields[field]; ok {
+			allCUEFields[field] = existing || optional
+		} else {
+			allCUEFields[field] = optional
+		}
+	}
+	for field, optional := range containerfileFields {
+		if field == "image" || field == "containerfile" {
+			optional = true
+		}
 		if existing, ok := allCUEFields[field]; ok {
 			allCUEFields[field] = existing || optional
 		} else {
@@ -53,6 +68,58 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[RuntimeConfig]())
 
 	schematest.AssertFieldsSync(t, "RuntimeConfig", allCUEFields, goFields)
+}
+
+func TestRuntimeConfigContainerSourceVariants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		runtime string
+		wantErr bool
+	}{
+		{
+			name:    "image source",
+			runtime: `{name: "container", image: "debian:stable-slim"}`,
+		},
+		{
+			name:    "containerfile source",
+			runtime: `{name: "container", containerfile: "Containerfile"}`,
+		},
+		{
+			name:    "missing source",
+			runtime: `{name: "container"}`,
+			wantErr: true,
+		},
+		{
+			name:    "duplicated source",
+			runtime: `{name: "container", image: "debian:stable-slim", containerfile: "Containerfile"}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			data := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [` + tt.runtime + `]
+		platforms: [{name: "linux"}]
+	}]
+}]`
+			err := validateCUE(t, data)
+			if tt.wantErr && err == nil {
+				t.Fatal("validateCUE() error = nil, want source variant error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("validateCUE() error = %v, want nil", err)
+			}
+		})
+	}
 }
 
 // =============================================================================

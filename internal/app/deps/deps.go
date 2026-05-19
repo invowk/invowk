@@ -12,6 +12,8 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
+const missingCommandDependencyDetailFormat = "%s - %s"
+
 // ValidateDependencies validates dependencies for a command in two phases:
 //
 // Phase 1 (Host Dependencies): Root, command, and implementation-level depends_on are merged
@@ -510,14 +512,14 @@ func formatMissingDiscoveredCommandDependency(
 		if inContainer {
 			suffix += " in container"
 		}
-		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0].Ref, suffix))
+		return dependencyMessageFromDetail(fmt.Sprintf(missingCommandDependencyDetailFormat, alternatives[0].Ref, suffix))
 	}
 	if len(alternatives) == 1 && currentSource != "" {
 		suffix := fmt.Sprintf("command not found in source %q", currentSource)
 		if inContainer {
 			suffix += " in container"
 		}
-		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0].Ref, suffix))
+		return dependencyMessageFromDetail(fmt.Sprintf(missingCommandDependencyDetailFormat, alternatives[0].Ref, suffix))
 	}
 	return formatMissingCommandDependency(alternatives, inContainer)
 }
@@ -528,7 +530,7 @@ func formatMissingCommandDependency(alternatives []commandDependencyAlternative,
 		if inContainer {
 			suffix = "command not found in container"
 		}
-		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0].Ref, suffix))
+		return dependencyMessageFromDetail(fmt.Sprintf(missingCommandDependencyDetailFormat, alternatives[0].Ref, suffix))
 	}
 
 	message := "none of [%s] found"

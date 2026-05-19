@@ -2078,7 +2078,7 @@ requires: [
 ]
 ```
 
-The Git URL is only the source location. Repository names do not need to end in `.invowkmod`, and the repository basename does not define the module identity. When `path` is omitted, the repository root must contain both `invowkmod.cue` and `invowkfile.cue`. When `path` is set, it must point to a relative, traversal-safe directory whose basename ends in `.invowkmod` and whose prefix matches the selected module's `module` value.
+The Git URL is only the source location. Repository names do not need to end in `.invowkmod`, and the repository basename does not define the module identity. When `path` is omitted, the repository root must contain both `invowkmod.cue` and `invowkfile.cue`. When `path` is set, it must point to a relative, traversal-safe directory whose basename ends in `.invowkmod` and whose prefix matches the selected module's `module` value. Ordinary segment names containing consecutive dots are allowed, but parent-directory segments such as `..`, absolute paths, drive-qualified paths, and UNC/rooted paths are rejected after Invowk normalizes path separators.
 
 The canonical module identity is the `module` value inside `invowkmod.cue`. Synced and vendored dependencies are materialized locally as `<module-id>.invowkmod`, even when the source repository is named something ordinary like `tools.git`.
 
@@ -2305,7 +2305,7 @@ cmds: [
 >
 > Scripts are executed using `/bin/sh` inside the container. Windows containers and Alpine images lack the required shell compatibility.
 
-Runs commands inside a Docker or Podman container. Requires an image or containerfile specification in the runtime config.
+Runs commands inside a Docker or Podman container. Requires exactly one container source, either `image` or `containerfile`, in the runtime config.
 
 ```cue
 cmds: [
@@ -2599,7 +2599,7 @@ invowk cmd deploy -e .env.production  # short alias
 invowk cmd deploy --ivk-env-var API_KEY=secret123
 invowk cmd deploy -E API_KEY=secret123  # short alias
 
-# Control host environment inheritance (allowlist/denylist)
+# Control host environment inheritance (allowlist requires allow mode)
 invowk cmd build --ivk-env-inherit-mode allow --ivk-env-inherit-allow TERM --ivk-env-inherit-allow LANG
 invowk cmd build --ivk-env-inherit-mode all --ivk-env-inherit-deny AWS_SECRET_ACCESS_KEY
 ```

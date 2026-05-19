@@ -276,7 +276,7 @@ Controla se o ambiente do host é herdado pelo runtime.
 **Tipo:** `[...string]`  
 **Disponível para:** `native`, `virtual`, `container`
 
-Lista de variáveis de ambiente permitidas quando `env_inherit_mode` é `"allow"`.
+Lista de variáveis de ambiente permitidas. Este campo exige `env_inherit_mode: "allow"` na mesma configuração de runtime.
 
 ### env_inherit_deny
 
@@ -308,7 +308,7 @@ Habilita acesso SSH do container de volta para o host. Quando habilitado, o Invo
 **Tipo:** `string`  
 **Disponível para:** `container`
 
-Especifique a origem do container. São **mutuamente exclusivos**.
+Especifique exatamente uma origem do container. `image` e `containerfile` são **mutuamente exclusivos**.
 
 `containerfile` deve ser um caminho relativo dentro do diretório do invowkfile. O Invowk rejeita caminhos absolutos e qualquer segmento bruto de caminho igual a `..`, inclusive segmentos separados por barra invertida, antes de resolver o caminho. Nomes que apenas contêm pontos consecutivos são válidos; portanto `Containerfile..backup` e `docker/v1..2/Containerfile` são aceitos.
 

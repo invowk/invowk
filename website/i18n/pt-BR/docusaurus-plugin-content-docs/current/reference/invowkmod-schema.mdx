@@ -107,4 +107,4 @@ Sobrescreve o ID de origem de comando padrão para esta dependência. Aliases us
 **Tipo:** `string`
 **Obrigatório:** Não
 
-Subdiretório dentro do repositório que contém o módulo. Deve ser relativo, não pode conter sequências de travessia de caminho e deve apontar diretamente para um diretório cujo basename termina em `.invowkmod`. O prefixo do basename deve corresponder ao valor `module` do módulo selecionado.
+Subdiretório dentro do repositório que contém o módulo. Deve ser relativo e apontar diretamente para um diretório cujo basename termina em `.invowkmod`. O prefixo do basename deve corresponder ao valor `module` do módulo selecionado. Nomes comuns de segmento com pontos consecutivos são permitidos, mas segmentos de diretório pai como `..`, caminhos absolutos, caminhos com drive e caminhos UNC/enraizados são rejeitados depois que o Invowk normaliza os separadores.

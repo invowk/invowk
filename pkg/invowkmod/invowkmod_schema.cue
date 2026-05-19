@@ -31,8 +31,9 @@ import "strings"
 
 	// path specifies a subdirectory containing the module (optional)
 	// Used for monorepos with multiple modules
-	// Must be relative and cannot contain path traversal sequences
-	path?: string & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
+	// CUE applies a portable string prefilter only. Go validation owns
+	// cross-platform traversal, absolute path, drive, and UNC checks after decode.
+	path?: string & strings.MaxRunes(4096) & =~"^[^/]"
 })
 
 // Invowkmod is the root schema for module metadata (invowkmod.cue)

@@ -162,10 +162,8 @@ func (a Argument) Validate() error {
 	if err := a.Name.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if a.Description != "" {
-		if err := a.Description.Validate(); err != nil {
-			errs = append(errs, err)
-		}
+	if err := validateRequiredDescriptionText(a.Description); err != nil {
+		errs = append(errs, err)
 	}
 	if err := a.Type.Validate(); err != nil {
 		errs = append(errs, err)

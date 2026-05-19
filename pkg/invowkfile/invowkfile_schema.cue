@@ -58,7 +58,8 @@ import "strings"
 	// Allowed values: "none", "allow", "all"
 	env_inherit_mode?: #EnvInheritMode
 
-	// env_inherit_allow lists host env vars to allow when env_inherit_mode is "allow"
+	// env_inherit_allow lists host env vars to allow.
+	// Requires env_inherit_mode: "allow"; Invowk rejects allowlists with omitted or non-allow modes after decode.
 	env_inherit_allow?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)]
 
 	// env_inherit_deny lists host env vars to block (applies to any mode)
@@ -84,7 +85,9 @@ import "strings"
 	name: "virtual"
 })
 
-#RuntimeConfigContainer: close({
+#RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
+
+#RuntimeConfigContainerBase: {
 	#RuntimeConfigBase
 	name: "container"
 
@@ -104,20 +107,6 @@ import "strings"
 	// INVOWK_SSH_USER, INVOWK_SSH_TOKEN, INVOWK_SSH_ENABLED
 	// Default: false
 	enable_host_ssh?: bool
-
-	// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile (optional).
-	// CUE validates non-empty, length, and relative-looking shape.
-	// Invowk rejects both containerfile+image, missing container source, absolute
-	// paths, parent-directory segments, and invalid filename components after decode.
-	// [GO-ONLY] Runtime source invariants and cross-platform path security require Go.
-	containerfile?: #NonWhitespaceString & strings.MaxRunes(4096) & =~"^[^/\\\\]"
-
-	// image specifies a pre-built container image to use (optional)
-	// CUE validates field shape only.
-	// Invowk rejects both image+containerfile and missing container source after decode.
-	// [GO-ONLY] Runtime source invariants depend on the selected runtime variant.
-	// Example: "debian:stable-slim", "golang:1.26", "python:3-slim"
-	image?: #NonWhitespaceString & strings.MaxRunes(512)
 
 	// volumes specifies volume mounts in "host:container" format (optional)
 	// Example: ["./data:/data", "/tmp:/tmp:ro"]
@@ -140,6 +129,34 @@ import "strings"
 	// the container image has the required tools, files, and configuration.
 	// Only checked when this container runtime is selected at execution time.
 	depends_on?: #DependsOn
+}
+
+#RuntimeConfigContainerWithImage: close({
+	#RuntimeConfigContainerBase
+
+	// image specifies the pre-built container image source.
+	// Exactly one of image or containerfile is required; CUE models the parsed
+	// user-config shape and Go keeps the invariant for direct RuntimeConfig values.
+	// Example: "debian:stable-slim", "golang:1.26", "python:3-slim"
+	image: #NonWhitespaceString & strings.MaxRunes(512)
+
+	// containerfile is not valid in the image-source variant.
+	containerfile?: _|_
+})
+
+#RuntimeConfigContainerWithContainerfile: close({
+	#RuntimeConfigContainerBase
+
+	// containerfile specifies the path to Containerfile/Dockerfile relative to invowkfile.
+	// Exactly one of containerfile or image is required; CUE models the parsed
+	// user-config shape and Go keeps the invariant for direct RuntimeConfig values.
+	// CUE validates non-empty and length. Invowk rejects absolute paths,
+	// parent-directory segments, and invalid filename components after decode.
+	// [GO-ONLY] Cross-platform path security requires Go.
+	containerfile: #NonWhitespaceString & strings.MaxRunes(4096)
+
+	// image is not valid in the containerfile-source variant.
+	image?: _|_
 })
 
 // PlatformConfig represents a platform configuration

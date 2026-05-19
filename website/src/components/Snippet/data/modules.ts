@@ -1174,7 +1174,7 @@ module: "io.github.username.cli"`,
     git_url: string
     version: string
     alias?:  string
-    path?:   string
+    path?:   string  // Relative subdirectory; traversal is rejected after decode
 }`,
   },
 } satisfies Record<string, Snippet>;

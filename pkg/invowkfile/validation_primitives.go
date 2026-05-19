@@ -99,6 +99,13 @@ func ValidateRegexPattern(pattern string) error {
 	return nil
 }
 
+func validateRequiredDescriptionText(description DescriptionText) error {
+	if strings.TrimSpace(string(description)) == "" {
+		return errors.New("description is required")
+	}
+	return description.Validate()
+}
+
 // checkDangerousPatterns looks for patterns known to cause catastrophic backtracking.
 // This is a heuristic check, not exhaustive.
 func checkDangerousPatterns(pattern string) error {

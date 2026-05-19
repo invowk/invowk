@@ -24,7 +24,7 @@ field?: string & !strings.Contains("..")
 
 // ✅ CORRECT - Use regex constraints
 field?: string & =~"^[^/]"      // Does not start with /
-field?: string & !~"\\.\\."    // Does not contain ..
+field?: string & !~"\\s"       // Does not contain whitespace
 ```
 
 ### Common Regex Patterns
@@ -32,7 +32,7 @@ field?: string & !~"\\.\\."    // Does not contain ..
 | Pattern | Meaning | Example Use |
 |---------|---------|-------------|
 | `=~"^[^/]"` | Does not start with `/` | Relative paths only |
-| `!~"\\.\\."` | Does not contain `..` | No path traversal |
+| `!~"\\s"` | Does not contain whitespace | Compact identifiers |
 | `=~"^[a-zA-Z]"` | Starts with letter | Identifiers |
 | `=~"^\\s*\\S.*$"` | Non-empty after trim | Required text fields |
 | `=~"^[A-Za-z_][A-Za-z0-9_]*$"` | POSIX identifier | Env var names |
@@ -106,9 +106,9 @@ old_field?: _|_
 When validation is split between CUE and Go, add comments:
 
 ```cue
-// Path must be relative (not start with /) and cannot contain path traversal (..)
-// Note: Additional path security validation is performed in Go (see validation_filesystem.go)
-containerfile?: string & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
+// Path must look relative at the portable string-shape layer.
+// Note: Cross-platform absolute path and traversal validation is performed in Go.
+containerfile?: string & strings.MaxRunes(4096) & =~"^[^/\\\\]"
 ```
 
 ## Common Pitfalls

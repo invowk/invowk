@@ -130,7 +130,7 @@ Review checklist:
 - [ ] 5MB file size guard in `cueutil.CheckFileSize` runs before CUE parsing
 - [ ] `close({...})` used on all CUE struct definitions (rejects extra fields)
 - [ ] `ValidateRegexPattern()` catches nested quantifiers and excessive nesting (ReDoS)
-- [ ] `invowkmod_schema.cue` `path` field rejects absolute paths and `..` traversal
+- [ ] `invowkmod_schema.cue` applies only a portable `path` prefilter; Go validation rejects absolute paths and `..` traversal after separator normalization
 - [ ] Env var names validated by regex: `^[A-Za-z_][A-Za-z0-9_]*$`
 - [ ] Container image names validated (injection chars rejected by `ContainerImage.Validate`)
 - [ ] Module ID and version fields have length limits (`strings.MaxRunes`)

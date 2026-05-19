@@ -339,9 +339,8 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 		{name: "consecutive dots in directory", containerfile: "docker/v1..2/Containerfile", shouldError: false},
 		{name: "deep path", containerfile: "a/b/c/Dockerfile", shouldError: false},
 
-		// Invalid paths - absolute paths are rejected by CUE shape checks;
-		// parent-directory segments are rejected by Go before path cleaning.
-		{name: "absolute path", containerfile: "/etc/Containerfile", shouldError: true, errorSubstring: "out of bound"},
+		// Invalid paths are rejected by Go after CUE validates string shape.
+		{name: "absolute path", containerfile: "/etc/Containerfile", shouldError: true, errorSubstring: "path must be relative"},
 		{name: "path traversal parent", containerfile: "../Containerfile", shouldError: true, errorSubstring: "parent-directory segment"},
 		{name: "path traversal middle", containerfile: "foo/../bar/Containerfile", shouldError: true, errorSubstring: "parent-directory segment"},
 		{name: "path traversal backslash", containerfile: `foo\..\bar\Containerfile`, shouldError: true, errorSubstring: "parent-directory segment"},

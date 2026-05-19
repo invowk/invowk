@@ -135,7 +135,11 @@ func TestSubdirectoryPath_Validate(t *testing.T) {
 		ExtraVectors: map[string]pathmatrix.VectorCase{
 			"empty_is_valid_repo_root": {Input: "", Expect: pathmatrix.PassAny(nil)},
 			"nested_valid_relative":    {Input: "a/b/c/d", Expect: pathmatrix.PassAny(nil)},
+			"consecutive_dots_name":    {Input: "modules/foo..bar", Expect: pathmatrix.PassAny(nil)},
+			"consecutive_dots_segment": {Input: "modules/v1..2/tools", Expect: pathmatrix.PassAny(nil)},
 			"single_dot_traversal":     {Input: "../escape", Expect: rejectInvalid},
+			"middle_parent_segment":    {Input: "modules/../tools", Expect: rejectInvalid},
+			"backslash_parent_segment": {Input: `modules\..\tools`, Expect: rejectInvalid},
 			"null_byte":                {Input: "path\x00evil", Expect: rejectInvalid},
 			"too_long":                 {Input: strings.Repeat("a", MaxPathLength+1), Expect: rejectInvalid},
 		},

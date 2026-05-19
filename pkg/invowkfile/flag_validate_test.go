@@ -31,10 +31,31 @@ func TestFlag_Validate_Valid(t *testing.T) {
 
 func TestFlag_Validate_ValidMinimal(t *testing.T) {
 	t.Parallel()
-	// Only Name is required; everything else is zero-value-valid.
-	f := Flag{Name: "verbose"}
+	f := Flag{
+		Name:        "verbose",
+		Description: "Enable verbose output",
+	}
 	if err := f.Validate(); err != nil {
 		t.Fatalf("minimal Flag.Validate() returned error: %v", err)
+	}
+}
+
+func TestFlag_Validate_MissingDescription(t *testing.T) {
+	t.Parallel()
+	f := Flag{Name: "verbose"}
+	err := f.Validate()
+	if err == nil {
+		t.Fatal("Flag without description should fail validation")
+	}
+	if !errors.Is(err, ErrInvalidFlag) {
+		t.Errorf("error should wrap ErrInvalidFlag, got: %v", err)
+	}
+	var flagErr *InvalidFlagError
+	if !errors.As(err, &flagErr) {
+		t.Fatalf("error should be *InvalidFlagError, got: %T", err)
+	}
+	if !fieldErrorsContain(flagErr.FieldErrors, "description is required") {
+		t.Fatalf("field errors %v do not contain description requirement", flagErr.FieldErrors)
 	}
 }
 
@@ -59,8 +80,9 @@ func TestFlag_Validate_InvalidName(t *testing.T) {
 func TestFlag_Validate_InvalidType(t *testing.T) {
 	t.Parallel()
 	f := Flag{
-		Name: "output",
-		Type: "bogus",
+		Name:        "output",
+		Type:        "bogus",
+		Description: "Output path",
 	}
 	err := f.Validate()
 	if err == nil {
@@ -74,8 +96,9 @@ func TestFlag_Validate_InvalidType(t *testing.T) {
 func TestFlag_Validate_InvalidShorthand(t *testing.T) {
 	t.Parallel()
 	f := Flag{
-		Name:  "output",
-		Short: "xx", // not a single letter
+		Name:        "output",
+		Description: "Output path",
+		Short:       "xx", // not a single letter
 	}
 	err := f.Validate()
 	if err == nil {
@@ -104,10 +127,11 @@ func TestFlag_Validate_InvalidDescription(t *testing.T) {
 func TestFlag_Validate_MultipleErrors(t *testing.T) {
 	t.Parallel()
 	f := Flag{
-		Name:       "",      // invalid
-		Type:       "bogus", // invalid
-		Short:      "xx",    // invalid
-		Validation: "[",     // invalid regex
+		Name:        "",      // invalid
+		Description: "",      // invalid
+		Type:        "bogus", // invalid
+		Short:       "xx",    // invalid
+		Validation:  "[",     // invalid regex
 	}
 	err := f.Validate()
 	if err == nil {
@@ -117,8 +141,8 @@ func TestFlag_Validate_MultipleErrors(t *testing.T) {
 	if !errors.As(err, &flagErr) {
 		t.Fatalf("error should be *InvalidFlagError, got: %T", err)
 	}
-	if len(flagErr.FieldErrors) < 3 {
-		t.Errorf("expected at least 3 field errors, got %d", len(flagErr.FieldErrors))
+	if len(flagErr.FieldErrors) < 4 {
+		t.Errorf("expected at least 4 field errors, got %d", len(flagErr.FieldErrors))
 	}
 }
 
