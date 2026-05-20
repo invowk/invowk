@@ -42,14 +42,14 @@ cmds: [
 	{
 		name: "mark"
 		implementations: [{
-			script: #"""
+			script: {content: #"""
 				if [ -f /tmp/invowk-persistent-marker ]; then
 					echo marker-present
 				else
 					echo marker-missing
 					touch /tmp/invowk-persistent-marker
 				fi
-				"""#
+				"""#}
 			runtimes: [{
 				name:  "container"
 				image: "debian:stable-slim"
@@ -63,7 +63,7 @@ cmds: [
 	{
 		name: "external"
 		implementations: [{
-			script:    "echo external-ok"
+			script: {content: "echo external-ok"}
 			runtimes:  [{name: "container", image: "debian:stable-slim"}]
 			platforms: [{name: "linux"}]
 		}]

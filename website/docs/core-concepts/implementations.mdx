@@ -16,7 +16,7 @@ An implementation has three main parts:
 
 ## Scripts
 
-The `script` field contains the commands to execute. It can be inline or reference an external file.
+The `script` field contains the commands to execute. Use `script.content` for inline commands. Inside invowk modules, `script.file` can reference a script file contained in that same module.
 
 ### Inline Scripts
 
@@ -30,16 +30,16 @@ Multi-line scripts use triple quotes:
 
 ### External Script Files
 
-Reference a script file instead of inline code:
+Inside an invowk module, reference a module-contained script file instead of inline code:
 
 <Snippet id="core-concepts/script-external" />
 
-Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+`script.file` is explicit, not extension-detected: extensionless files are valid, and root/project invowkfiles should call local scripts through `script.content`.
 
 ### When to Use External Scripts
 
 - **Inline**: Quick, simple commands; keeps everything in one file
-- **External**: Complex scripts; reusable across commands; easier to edit with syntax highlighting
+- **External**: Complex module-bundled scripts; reusable across module commands; easier to edit with syntax highlighting
 
 ## Runtime and Platform Constraints
 

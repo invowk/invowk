@@ -16,12 +16,12 @@ export const flagsArgsSnippets = {
     ]
     implementations: [
         {
-            script: """
+            script: {content: """
                 echo "Deploying to $INVOWK_FLAG_ENV with $INVOWK_FLAG_REPLICAS replicas"
                 if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then
                     echo "(dry run - no changes made)"
                 fi
-                """
+                """}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
@@ -39,13 +39,13 @@ export const flagsArgsSnippets = {
     ]
     implementations: [
         {
-            script: """
+            script: {content: """
                 if [ -n "$INVOWK_ARG_TITLE" ]; then
                     echo "Hello, $INVOWK_ARG_TITLE $INVOWK_ARG_NAME!"
                 else
                     echo "Hello, $INVOWK_ARG_NAME!"
                 fi
-                """
+                """}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         }
@@ -73,12 +73,12 @@ export const flagsArgsSnippets = {
     ]
     
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying to $INVOWK_ARG_ENVIRONMENT"
             echo "Replicas: $INVOWK_FLAG_REPLICAS"
             echo "Dry run: $INVOWK_FLAG_DRY_RUN"
             echo "Services: $INVOWK_ARG_SERVICES"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -131,7 +131,7 @@ invowk cmd build -v -o=./build`,
         {name: "last-name", description: "Last name"},
     ]
     implementations: [{
-        script: """
+        script: {content: """
             # Using environment variables
             echo "Hello, $INVOWK_ARG_FIRST_NAME $INVOWK_ARG_LAST_NAME!"
             
@@ -140,7 +140,7 @@ invowk cmd build -v -o=./build`,
             
             # All arguments
             echo "All: $@"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -348,7 +348,7 @@ invowk cmd deploy --env=production
         {name: "replica-count", description: "Replicas", type: "int", default_value: "1"},
     ]
     implementations: [{
-        script: """
+        script: {content: """
             echo "Environment: $INVOWK_FLAG_ENV"
             echo "Dry run: $INVOWK_FLAG_DRY_RUN"
             echo "Replicas: $INVOWK_FLAG_REPLICA_COUNT"
@@ -358,7 +358,7 @@ invowk cmd deploy --env=production
             else
                 ./deploy.sh "$INVOWK_FLAG_ENV" "$INVOWK_FLAG_REPLICA_COUNT"
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -377,7 +377,7 @@ invowk cmd deploy --env=production
         {name: "parallel", description: "Parallel jobs", type: "int", short: "j", default_value: "4"},
     ]
     implementations: [{
-        script: """
+        script: {content: """
             mkdir -p "$INVOWK_FLAG_OUTPUT"
             
             VERBOSE=""
@@ -386,7 +386,7 @@ invowk cmd deploy --env=production
             fi
             
             go build $VERBOSE -o "$INVOWK_FLAG_OUTPUT/app" ./...
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -427,7 +427,7 @@ invowk cmd deploy --env=production
         }
     ]
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying version \${INVOWK_FLAG_VERSION:-latest} to $INVOWK_FLAG_ENV"
             
             ARGS="--timeout=$INVOWK_FLAG_TIMEOUT"
@@ -436,7 +436,7 @@ invowk cmd deploy --env=production
             fi
             
             ./scripts/deploy.sh "$INVOWK_FLAG_ENV" $ARGS
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -577,7 +577,7 @@ args: [
         {name: "inputs", description: "Input files", variadic: true},
     ]
     implementations: [{
-        script: """
+        script: {content: """
             echo "Output: $INVOWK_ARG_OUTPUT"
             echo "Inputs: $INVOWK_ARG_INPUTS"
             echo "Count: $INVOWK_ARG_INPUTS_COUNT"
@@ -586,7 +586,7 @@ args: [
                 file=$(printenv "INVOWK_ARG_INPUTS_$i")
                 echo "Processing: $file"
             done
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -640,9 +640,9 @@ invowk cmd deploy production
         {name: "last-name", description: "Last name", default_value: "User"},
     ]
     implementations: [{
-        script: """
+        script: {content: """
             echo "Hello, $INVOWK_ARG_FIRST_NAME $INVOWK_ARG_LAST_NAME!"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -658,7 +658,7 @@ invowk cmd deploy production
         {name: "dest", description: "Destination path", required: true},
     ]
     implementations: [{
-        script: """
+        script: {content: """
             # Using environment variables
             cp "$INVOWK_ARG_SOURCE" "$INVOWK_ARG_DEST"
             
@@ -668,7 +668,7 @@ invowk cmd deploy production
             # All arguments
             echo "Args: $@"
             echo "Count: $#"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -699,10 +699,10 @@ invowk cmd deploy production
         }
     ]
     implementations: [{
-        script: """
+        script: {content: """
             echo "Converting $1 to $2 as $3"
             ./converter --input="$1" --output="$2" --format="$3"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -728,7 +728,7 @@ invowk cmd deploy production
         }
     ]
     implementations: [{
-        script: """
+        script: {content: """
             if [ -z "$INVOWK_ARG_FILES" ]; then
                 echo "No files specified!"
                 exit 1
@@ -736,7 +736,7 @@ invowk cmd deploy production
             
             # Use the space-separated list
             tar -czvf "$INVOWK_ARG_ARCHIVE" $INVOWK_ARG_FILES
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -768,7 +768,7 @@ invowk cmd deploy production
         }
     ]
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying to $INVOWK_ARG_ENV with $INVOWK_ARG_REPLICAS replicas"
             
             if [ -n "$INVOWK_ARG_SERVICES" ]; then
@@ -781,7 +781,7 @@ invowk cmd deploy production
                 echo "Deploying all services..."
                 kubectl scale deployment --all --replicas=$INVOWK_ARG_REPLICAS
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]

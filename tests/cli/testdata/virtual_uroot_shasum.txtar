@@ -17,7 +17,7 @@ cmds: [
 		name:        "uroot shasum"
 		description: "Test SHA checksum computation"
 		implementations: [{
-			script: """
+			script: {content: """
 				mkdir -p $WORK/shasum-test
 
 				# Use the fixture file with known content (hello + newline)
@@ -30,7 +30,7 @@ cmds: [
 
 				rm -rf $WORK/shasum-test
 				echo '=== uroot shasum test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

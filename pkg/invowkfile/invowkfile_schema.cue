@@ -69,15 +69,6 @@ import "strings"
 #RuntimeConfigNative: close({
 	#RuntimeConfigBase
 	name: "native"
-
-	// interpreter specifies how to execute the script (optional)
-	// - Omit: defaults to "auto" (detect from shebang)
-	// - "auto": detect interpreter from shebang (#!) in first line of script
-	// - Specific value: use as interpreter (e.g., "python3", "node", "/usr/bin/ruby")
-	// - Can include arguments: "python3 -u", "/usr/bin/env perl -w"
-	// If "auto" and no shebang is found, falls back to default shell behavior
-	// Note: When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
-	interpreter?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)
 })
 
 #RuntimeConfigVirtual: close({
@@ -90,16 +81,6 @@ import "strings"
 #RuntimeConfigContainerBase: {
 	#RuntimeConfigBase
 	name: "container"
-
-	// interpreter specifies how to execute the script (optional)
-	// - Omit: defaults to "auto" (detect from shebang)
-	// - "auto": detect interpreter from shebang (#!) in first line of script
-	// - Specific value: use as interpreter (e.g., "python3", "node", "/usr/bin/ruby")
-	// - Can include arguments: "python3 -u", "/usr/bin/env perl -w"
-	// If "auto" and no shebang is found, falls back to /bin/sh
-	// Note: The interpreter must exist inside the container
-	// Note: When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
-	interpreter?: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)
 
 	// enable_host_ssh enables SSH access from container back to host (optional)
 	// When enabled, invowk starts an SSH server and provides connection credentials
@@ -165,13 +146,60 @@ import "strings"
 	name: #PlatformType
 })
 
+// InterpreterSpec specifies how to execute a script source (optional).
+// - Omit: defaults to "auto" (detect from shebang)
+// - "auto": detect interpreter from shebang (#!) in first line of resolved script content
+// - Specific value: use as interpreter (e.g., "python3", "node", "/usr/bin/ruby")
+// - Can include arguments: "python3 -u", "/usr/bin/env perl -w"
+// If "auto" and no shebang is found, Invowk falls back to the selected runtime/check default shell behavior.
+// [GO-ONLY] The interpreter allowlist and shell metacharacter safety checks are enforced by InterpreterSpec.Validate().
+#InterpreterSpec: string & =~"^\\s*\\S.*$" & strings.MaxRunes(1024)
+
+// ScriptSourceCommon contains metadata shared by all script source variants.
+#ScriptSourceCommon: {
+	// interpreter specifies how to execute the resolved script content (optional).
+	interpreter?: #InterpreterSpec
+}
+
+// ScriptSource selects an executable script source.
+// Exactly one of content or file is required.
+#ScriptSource: #ScriptSourceContent | #ScriptSourceFile
+
+#ScriptSourceContent: close({
+	#ScriptSourceCommon
+
+	// content contains inline script text.
+	content: #NonWhitespaceString & strings.MaxRunes(10485760)
+
+	// file is not valid in the inline-content variant.
+	file?: _|_
+})
+
+#ScriptSourceFile: close({
+	#ScriptSourceCommon
+
+	// file references a script file resolved at execution time.
+	// File references are allowed only for invowkfiles loaded from an invowkmod,
+	// and the resolved target must stay inside that module. CUE validates local
+	// string shape and length. [GO-ONLY] Module-context checks, path resolution,
+	// containment, file reads, and resolved script-content validation happen in Go/runtime code.
+	file: #NonWhitespaceString & strings.MaxRunes(4096)
+
+	// content is not valid in the file-reference variant.
+	content?: _|_
+})
+
+// ImplementationScript selects the executable script source for an implementation.
+#ImplementationScript: #ScriptSource
+
+// CustomCheckScript selects the executable script source for a custom dependency check.
+#CustomCheckScript: #ScriptSource
+
 // Implementation represents an implementation with platform and runtime constraints
 #Implementation: close({
-	// script contains the shell commands to execute OR a path to a script file (required)
-	// - Inline: shell commands (single or multi-line using triple quotes)
-	// - File: path to script file (e.g., "./scripts/build.sh", "deploy.sh")
-	// Recognized script extensions: .sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish
-	script: string & !="" & strings.MaxRunes(10485760)
+	// script selects the executable script source (required).
+	// Use content for inline shell commands and file for script-file references.
+	script: #ImplementationScript
 
 	// runtimes specifies which runtimes can execute this implementation (required, at least one)
 	// The first element is the default runtime for this platform combination
@@ -188,10 +216,11 @@ import "strings"
 	// Implementation vars override command-level vars.
 	env?: #EnvConfig
 
-	// workdir specifies the working directory for this implementation (optional)
-	// Overrides both root-level and command-level workdir settings.
-	// Can be absolute or relative to the invowkfile location.
-	// Paths should use forward slashes for cross-platform compatibility.
+	// workdir specifies this implementation's working directory (optional).
+	// Effective precedence is CLI override > implementation > command > root > default.
+	// Applies across native, virtual, and container execution. Relative paths resolve
+	// from the invowkfile directory or module root; Go/runtime code owns final resolution
+	// and execution-time directory validation.
 	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)
 
 	// depends_on specifies dependencies validated against the HOST system (optional).
@@ -222,15 +251,15 @@ import "strings"
 	// Used for error reporting and identification
 	name: #NonWhitespaceString & strings.MaxRunes(256)
 
-	// check_script is the script to execute for validation (required)
-	// The script is executed using the runtime's shell
-	check_script: #NonWhitespaceString & strings.MaxRunes(10485760)
+	// script selects the custom-check script source (required).
+	// Use content for inline checks and file for module-contained script files.
+	script: #CustomCheckScript
 
-	// expected_code is the expected exit code from check_script (optional, default: 0)
+	// expected_code is the expected exit code from script (optional, default: 0)
 	// Must be in valid exit code range (0-255)
 	expected_code?: int & >=0 & <=255
 
-	// expected_output is a regex pattern to match against check_script output (optional)
+	// expected_output is a regex pattern to match against script output (optional)
 	// Can be used together with expected_code
 	expected_output?: string & !="" & strings.MaxRunes(1000)
 })

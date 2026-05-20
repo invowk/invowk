@@ -261,10 +261,11 @@ func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
 	}
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+		FilePath:   invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScript("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScriptFile("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtual)
 
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)

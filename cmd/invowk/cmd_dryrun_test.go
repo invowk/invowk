@@ -56,7 +56,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 		Platform:    invowkfile.PlatformLinux,
 		WorkDir:     "/app",
 		Timeout:     "30s",
-		Script:      "echo deploying",
+		Script:      invowkfile.ImplementationScript{Content: "echo deploying"},
 		Env: map[string]string{
 			"INVOWK_CMD_NAME": "deploy",
 			"ARG1":            "production",
@@ -110,8 +110,82 @@ func TestRenderDryRun_NoImpl(t *testing.T) {
 	if strings.Contains(out, "Timeout:") {
 		t.Error("Timeout should not appear when impl is nil")
 	}
-	if strings.Contains(out, "Script:") {
-		t.Error("Script should not appear when impl is nil")
+	if strings.Contains(out, "Script: invowkfile.ImplementationScript{Content: ") {
+		t.Error("}Script should not appear when impl is nil")
+	}
+}
+
+func TestRenderDryRunInterpreterProvenance(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		runtime invowkfile.RuntimeMode
+		script  invowkfile.ImplementationScript
+		want    []string
+	}{
+		{
+			name:    "explicit override warning",
+			runtime: invowkfile.RuntimeNative,
+			script: invowkfile.ImplementationScript{
+				Content:     "#!/bin/sh\nprint('ok')",
+				Interpreter: "python3",
+			},
+			want: []string{
+				"Interpreter:",
+				"explicit: python3",
+				"warning:",
+				"overrides shebang",
+				"script.interpreter takes precedence",
+			},
+		},
+		{
+			name:    "shebang detected",
+			runtime: invowkfile.RuntimeNative,
+			script: invowkfile.ImplementationScript{
+				Content: "#!/usr/bin/env python3\nprint('ok')",
+			},
+			want: []string{"Interpreter:", "shebang-detected: python3"},
+		},
+		{
+			name:    "default shell",
+			runtime: invowkfile.RuntimeContainer,
+			script:  invowkfile.ImplementationScript{Content: "echo ok"},
+			want:    []string{"Interpreter:", "default shell behavior"},
+		},
+		{
+			name:    "virtual shell",
+			runtime: invowkfile.RuntimeVirtual,
+			script: invowkfile.ImplementationScript{
+				Content:     "echo ok",
+				Interpreter: "bash",
+			},
+			want: []string{"Interpreter:", "virtual shell", "embedded mvdan/sh", "bash"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+			plan := commandsvc.DryRunPlan{
+				CommandName:       "demo",
+				SourceID:          "invowkfile",
+				Runtime:           tt.runtime,
+				Platform:          invowkfile.PlatformLinux,
+				Script:            tt.script,
+				ScriptInterpreter: tt.script.AnalyzeInterpreter(tt.script.Content, tt.runtime),
+			}
+
+			renderDryRun(&buf, plan)
+			out := buf.String()
+			for _, token := range tt.want {
+				if !strings.Contains(out, token) {
+					t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+				}
+			}
+		})
 	}
 }
 
@@ -125,7 +199,7 @@ func TestRenderDryRun_PersistentContainer(t *testing.T) {
 		Runtime:                            invowkfile.RuntimeContainer,
 		Platform:                           invowkfile.PlatformLinux,
 		Timeout:                            "30s",
-		Script:                             "echo persistent",
+		Script:                             invowkfile.ImplementationScript{Content: "echo persistent"},
 		PersistentContainerMode:            "persistent",
 		PersistentContainerName:            "existing-dev",
 		PersistentContainerNameSource:      "cli",
@@ -161,7 +235,7 @@ func TestRenderDryRun_EphemeralContainer(t *testing.T) {
 		SourceID:                "invowkfile",
 		Runtime:                 invowkfile.RuntimeContainer,
 		Platform:                invowkfile.PlatformLinux,
-		Script:                  "echo ephemeral",
+		Script:                  invowkfile.ImplementationScript{Content: "echo ephemeral"},
 		PersistentContainerMode: "ephemeral",
 	}
 

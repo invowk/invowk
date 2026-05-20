@@ -35,7 +35,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Name: "test",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: "echo test",
+						Script: invowkfile.ImplementationScript{Content: "echo test"},
 
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -61,7 +61,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Name: "test",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: "",
+						Script: invowkfile.ImplementationScript{Content: ""},
 
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -113,7 +113,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		Name: "test-ssh-no-server",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "echo test",
+				Script: invowkfile.ImplementationScript{Content: "echo test"},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim", EnableHostSSH: true},
@@ -170,7 +170,7 @@ RUN echo "Built from Containerfile" > /built.txt
 		Name: "test-build",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "cat /built.txt",
+				Script: invowkfile.ImplementationScript{Content: "cat /built.txt"},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Containerfile: "Containerfile"},

@@ -172,18 +172,17 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
 		return errVirtualNoImpl
 	}
-	if ctx.SelectedImpl.Script == "" {
+	if err := ctx.SelectedImpl.Script.Validate(); err != nil {
 		return errVirtualNoScript
-	}
-
-	if err := validateVirtualInterpreter(ctx); err != nil {
-		return err
 	}
 
 	// Resolve the script content
 	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return err
+	}
+	if interpErr := validateVirtualInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
+		return interpErr
 	}
 
 	// Try to parse the script to validate syntax
@@ -268,14 +267,13 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		return nil, err
 	}
 
-	if err := validateVirtualInterpreter(ctx); err != nil {
-		return nil, err
-	}
-
 	// Resolve the script content
 	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, err
+	}
+	if interpErr := validateVirtualInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
+		return nil, interpErr
 	}
 
 	// Validate script syntax before creating subprocess
@@ -402,13 +400,12 @@ func RunVirtualScript(ctx context.Context, opts VirtualScriptOptions) error {
 // an interpreter runner. The stdIO option determines whether output is streamed
 // or captured. Returns an error Result on failure.
 func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, context.Context, *Result) {
-	if err := validateVirtualInterpreter(ctx); err != nil {
-		return nil, nil, NewErrorResult(1, err)
-	}
-
 	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, nil, NewErrorResult(1, err)
+	}
+	if interpErr := validateVirtualInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
+		return nil, nil, NewErrorResult(1, interpErr)
 	}
 
 	prog, err := syntax.NewParser().Parse(strings.NewReader(script), "script")
@@ -450,15 +447,13 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 	return &virtualPreparedExec{prog: prog, runner: runner}, execCtx, nil
 }
 
-func validateVirtualInterpreter(ctx *ExecutionContext) error {
-	if ctx == nil || ctx.SelectedImpl == nil {
+//goplint:ignore -- virtual runtime validates resolved script text produced by the shared script resolver.
+func validateVirtualInterpreter(script invowkfile.ImplementationScript, scriptContent string) error {
+	interpInfo := script.ResolveInterpreterFromScript(scriptContent)
+	if !interpInfo.Found || invowkfile.IsShellInterpreter(interpInfo.Interpreter) {
 		return nil
 	}
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig == nil {
-		return nil
-	}
-	return rtConfig.ValidateInterpreterForRuntime()
+	return fmt.Errorf("%w (got %q); virtual runtime uses mvdan/sh and cannot execute non-shell interpreters", invowkfile.ErrInterpreterNotAllowed, interpInfo.Interpreter)
 }
 
 // execHandler handles external command execution

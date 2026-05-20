@@ -18,7 +18,7 @@ cmds: [
 		name:        "uroot basic"
 		description: "Test basic u-root file operations"
 		implementations: [{
-			script: """
+			script: {content: """
 				mkdir -p /tmp/invowk-uroot-test
 				echo 'Hello from u-root!' > /tmp/invowk-uroot-test/test.txt
 				echo '=== cat output ==='
@@ -27,7 +27,7 @@ cmds: [
 				ls /tmp/invowk-uroot-test
 				rm -rf /tmp/invowk-uroot-test
 				echo '=== uroot basic test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

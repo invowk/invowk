@@ -3,10 +3,15 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/spf13/cobra"
 )
 
 func TestDetectPathType(t *testing.T) {
@@ -51,6 +56,23 @@ func TestDetectPathType(t *testing.T) {
 					t.Fatal(err)
 				}
 				p := filepath.Join(modDir, "invowkmod.cue")
+				if err := os.WriteFile(p, []byte("{}"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return p
+			},
+			wantType:     pathTypeModule,
+			wantResolved: "test.invowkmod",
+		},
+		{
+			name: "module invowkfile.cue resolves to parent module",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				modDir := filepath.Join(dir, "test.invowkmod")
+				if err := os.MkdirAll(modDir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				p := filepath.Join(modDir, "invowkfile.cue")
 				if err := os.WriteFile(p, []byte("{}"), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -186,6 +208,122 @@ func TestPathType_String(t *testing.T) {
 				t.Errorf("pathType(%d).String() = %q, want %q", tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRunPathValidationAcceptsDirectModuleInvowkfileScriptFile(t *testing.T) {
+	t.Parallel()
+
+	modulePath := filepath.Join(t.TempDir(), "com.example.tools.invowkmod")
+	if err := os.MkdirAll(filepath.Join(modulePath, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkmod.cue"), []byte(`module: "com.example.tools"
+version: "1.0.0"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "scripts", "hello.sh"), []byte("echo hello\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkfile.cue"), []byte(`cmds: [{
+	name: "hello"
+	implementations: [{
+		script: {file: "scripts/hello.sh"}
+		runtimes: [{name: "virtual"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	targetPath := filepath.Join(modulePath, "invowkfile.cue")
+	if err := runPathValidation(cmd, targetPath); err != nil {
+		t.Fatalf("runPathValidation() error = %v, stderr = %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Module is valid") {
+		t.Fatalf("stdout = %q, want module-valid message", stdout.String())
+	}
+}
+
+func TestCollectInvowkfileInterpreterDiagnosticsSkipsInvalidOrUnreadableFiles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		readFile func(path string) ([]byte, error)
+	}{
+		{
+			name: "unreadable file",
+			readFile: func(string) ([]byte, error) {
+				return nil, os.ErrNotExist
+			},
+		},
+		{
+			name: "invalid resolved content",
+			readFile: func(string) ([]byte, error) {
+				return []byte(" \n\t"), nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			diagnostics := collectInvowkfileInterpreterDiagnostics(testInterpreterDiagnosticInvowkfile(), tt.readFile)
+			if len(diagnostics) != 0 {
+				t.Fatalf("diagnostics = %v, want none", diagnostics)
+			}
+		})
+	}
+}
+
+func TestCollectInvowkfileInterpreterDiagnosticsReportsAuthoredPath(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := collectInvowkfileInterpreterDiagnostics(
+		testInterpreterDiagnosticInvowkfile(),
+		func(string) ([]byte, error) {
+			return []byte("#!/bin/sh\nprint('ok')\n"), nil
+		},
+	)
+	if len(diagnostics) != 1 {
+		t.Fatalf("diagnostics = %d, want 1", len(diagnostics))
+	}
+	diagnostic := diagnostics[0]
+	if diagnostic.Code() != invowkfile.ScriptInterpreterDiagnosticShebangOverride {
+		t.Fatalf("diagnostic code = %q, want %q", diagnostic.Code(), invowkfile.ScriptInterpreterDiagnosticShebangOverride)
+	}
+	if got := diagnostic.Path().String(); got != "scripts/demo" {
+		t.Fatalf("diagnostic path = %q, want authored path", got)
+	}
+	if !strings.Contains(diagnostic.Message().String(), "script.interpreter takes precedence") {
+		t.Fatalf("diagnostic message = %q, want precedence text", diagnostic.Message())
+	}
+}
+
+func testInterpreterDiagnosticInvowkfile() *invowkfile.Invowkfile {
+	scriptFile := invowkfile.FilesystemPath("scripts/demo")
+	return &invowkfile.Invowkfile{
+		ModulePath: "/tmp/com.example.tools.invowkmod",
+		Commands: []invowkfile.Command{{
+			Name: "demo",
+			Implementations: []invowkfile.Implementation{{
+				Script: invowkfile.ImplementationScript{
+					File:        &scriptFile,
+					Interpreter: "python3",
+				},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			}},
+		}},
 	}
 }
 

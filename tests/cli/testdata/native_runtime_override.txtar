@@ -45,17 +45,17 @@ cmds: [
 		description: "Command with both native and virtual implementations"
 		implementations: [
 			{
-				script:    "echo 'RUNTIME=native'"
+				script: {content: "echo 'RUNTIME=native'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'RUNTIME=native'"
+				script: {content: "Write-Output 'RUNTIME=native'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
 			{
-				script:    "echo 'RUNTIME=virtual'"
+				script: {content: "echo 'RUNTIME=virtual'"}
 				runtimes:  [{name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
@@ -66,12 +66,12 @@ cmds: [
 		description: "Command with only native runtime"
 		implementations: [
 			{
-				script:    "echo 'native only'"
+				script: {content: "echo 'native only'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'native only'"
+				script: {content: "Write-Output 'native only'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

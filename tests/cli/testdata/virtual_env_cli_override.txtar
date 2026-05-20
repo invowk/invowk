@@ -25,12 +25,12 @@ cmds: [
 		name:        "show-env"
 		description: "Print environment variables"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "MY_VAR=$MY_VAR"
 				echo "NEW_VAR=$NEW_VAR"
 				echo "A=$A"
 				echo "B=$B"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

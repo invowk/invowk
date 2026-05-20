@@ -16,7 +16,7 @@ cmds: [
 		name:        "deps cap tty"
 		description: "Command requiring tty (always fails in testscript)"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

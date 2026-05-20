@@ -136,14 +136,6 @@ func TestRuntimeConfig_Validate_RuntimeSpecificInvariants(t *testing.T) {
 			wantErr: "enable_host_ssh is only valid for container runtime",
 		},
 		{
-			name: "virtual rejects interpreter",
-			config: RuntimeConfig{
-				Name:        RuntimeVirtual,
-				Interpreter: "python3",
-			},
-			wantErr: ErrInterpreterNotAllowed.Error(),
-		},
-		{
 			name: "container requires image or containerfile",
 			config: RuntimeConfig{
 				Name: RuntimeContainer,
@@ -381,16 +373,10 @@ func TestInvalidRuntimeConfigError_UnwrapsFieldErrors(t *testing.T) {
 	t.Parallel()
 
 	err := RuntimeConfig{
-		Name:        RuntimeVirtual,
-		Interpreter: "bash",
+		Name:      RuntimeNative,
+		DependsOn: &DependsOn{},
 	}.Validate()
-	if err == nil {
-		t.Fatal("RuntimeConfig.Validate() error = nil, want interpreter error")
-	}
 	if !errors.Is(err, ErrInvalidRuntimeConfig) {
 		t.Fatalf("errors.Is(%v, ErrInvalidRuntimeConfig) = false", err)
-	}
-	if !errors.Is(err, ErrInterpreterNotAllowed) {
-		t.Fatalf("errors.Is(%v, ErrInterpreterNotAllowed) = false", err)
 	}
 }

@@ -60,14 +60,14 @@ invowk tui input --title "Username" --char-limit 20`,
     code: `{
     name: "create-user"
     implementations: [{
-        script: """
+        script: {content: """
             USERNAME=$(invowk tui input --title "Username:" --char-limit 20)
             EMAIL=$(invowk tui input --title "Email:" --placeholder "user@example.com")
             PASSWORD=$(invowk tui input --title "Password:" --password)
             
             echo "Creating user: $USERNAME ($EMAIL)"
             ./scripts/create-user.sh "$USERNAME" "$EMAIL" "$PASSWORD"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -97,7 +97,7 @@ invowk tui write --title "Edit message:" --value "Initial text here"`,
     name: "commit"
     description: "Interactive commit with editor"
     implementations: [{
-        script: """
+        script: {content: """
             # Show staged changes
             git diff --cached --stat
             
@@ -110,7 +110,7 @@ invowk tui write --title "Edit message:" --value "Initial text here"`,
             fi
             
             git commit -m "$MESSAGE"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -164,7 +164,7 @@ echo "Success!" | invowk tui style --foreground "#00FF00" --bold`,
     name: "setup"
     description: "Interactive project setup"
     implementations: [{
-        script: """
+        script: {content: """
             #!/bin/bash
             
             # Gather information
@@ -183,7 +183,7 @@ echo "Success!" | invowk tui style --foreground "#00FF00" --bold`,
             
             # Success message
             echo "Project created!" | invowk tui style --foreground "#00FF00" --bold
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -287,14 +287,14 @@ echo "Hello, $NAME!"`,
     code: `{
     name: "create-user"
     implementations: [{
-        script: """
+        script: {content: """
             USERNAME=$(invowk tui input --title "Username:" --char-limit 20)
             EMAIL=$(invowk tui input --title "Email:" --placeholder "user@example.com")
             PASSWORD=$(invowk tui input --title "Password:" --password)
             
             echo "Creating user: $USERNAME ($EMAIL)"
             ./scripts/create-user.sh "$USERNAME" "$EMAIL" "$PASSWORD"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -338,7 +338,7 @@ gh release create v1.0.0 --notes "$NOTES"`,
     name: "commit"
     description: "Interactive commit with editor"
     implementations: [{
-        script: """
+        script: {content: """
             # Show staged changes
             git diff --cached --stat
             
@@ -351,7 +351,7 @@ gh release create v1.0.0 --notes "$NOTES"`,
             fi
             
             git commit -m "$MESSAGE"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -499,7 +499,7 @@ fi`,
     name: "clean"
     description: "Clean build artifacts"
     implementations: [{
-        script: """
+        script: {content: """
             echo "This will delete:"
             echo "  - ./build/"
             echo "  - ./dist/"
@@ -511,7 +511,7 @@ fi`,
             else
                 echo "Cancelled."
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -677,7 +677,7 @@ less "$LOG"`,
     name: "edit-config"
     description: "Edit a configuration file"
     implementations: [{
-        script: """
+        script: {content: """
             CONFIG=$(invowk tui file --allowed ".yaml,.yml,.json,.toml" ./config)
             
             if [ -z "$CONFIG" ]; then
@@ -687,7 +687,7 @@ less "$LOG"`,
             
             # Open in default editor
             \${EDITOR:-vim} "$CONFIG"
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -825,7 +825,7 @@ fi`,
     name: "deploy"
     description: "Deploy with progress indication"
     implementations: [{
-        script: """
+        script: {content: """
             echo "Deploying application..."
             
             invowk tui spin --title "Building Docker image..." -- 
@@ -841,7 +841,7 @@ fi`,
                 kubectl rollout status deployment/myapp
             
             echo "Deployment complete!" | invowk tui style --foreground "#00FF00" --bold
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1037,7 +1037,7 @@ invowk tui style
     name: "status"
     description: "Show system status"
     implementations: [{
-        script: """
+        script: {content: """
             invowk tui style --bold --foreground "#00BFFF" "System Status"
             echo ""
             
@@ -1057,7 +1057,7 @@ invowk tui style
                 echo "postgres: " | tr -d '\\\\n'
                 invowk tui style --foreground "#FF0000" "stopped"
             fi
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]
@@ -1121,11 +1121,11 @@ git log | invowk tui pager --title "Git History" --line-numbers`,
     name: "view-logs"
     description: "View application logs interactively"
     implementations: [{
-        script: """
+        script: {content: """
             # Get recent logs and display in pager
             journalctl -u myapp --no-pager -n 500 | 
                 invowk tui pager --title "Application Logs" --soft-wrap
-            """
+            """}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]

@@ -30,12 +30,12 @@ cmds: [
 		description: "Hello from root invowkfile"
 		implementations: [
 			{
-				script:    "echo 'Hello from root!'"
+				script: {content: "echo 'Hello from root!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Hello from root!'"
+				script: {content: "Write-Output 'Hello from root!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -46,12 +46,12 @@ cmds: [
 		description: "Deploy from root invowkfile"
 		implementations: [
 			{
-				script:    "echo 'Deploying from invowkfile!'"
+				script: {content: "echo 'Deploying from invowkfile!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Deploying from invowkfile!'"
+				script: {content: "Write-Output 'Deploying from invowkfile!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -71,12 +71,12 @@ cmds: [
 		description: "Build from foo module"
 		implementations: [
 			{
-				script:    "echo 'Building from foo!'"
+				script: {content: "echo 'Building from foo!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Building from foo!'"
+				script: {content: "Write-Output 'Building from foo!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -87,12 +87,12 @@ cmds: [
 		description: "Deploy from foo module"
 		implementations: [
 			{
-				script:    "echo 'Deploying from foo!'"
+				script: {content: "echo 'Deploying from foo!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Deploying from foo!'"
+				script: {content: "Write-Output 'Deploying from foo!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

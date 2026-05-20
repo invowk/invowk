@@ -421,7 +421,7 @@ cmds: [{
     name: "hello"
     description: "Test command"
     implementations: [{
-        script: "echo 'Hello!'"
+        script: {content: "echo 'Hello!'"}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -443,18 +443,18 @@ Native runtime tests use platform-split CUE with separate implementations for Un
 ````cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "Hello from native shell"
             echo "VAR=$MY_VAR"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: """
+        script: {content: """
             Write-Output "Hello from native shell"
             Write-Output "VAR=$($env:MY_VAR)"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },

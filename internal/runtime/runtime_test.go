@@ -682,7 +682,7 @@ func TestExecutionContextResolveSelectedScriptHonorsModuleBoundary(t *testing.T)
 		FilePath:   invowkfile.FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
 		ModulePath: invowkfile.FilesystemPath(moduleDir),
 	}
-	cmd := testCommandWithScript("test", "../outside.sh", invowkfile.RuntimeNative)
+	cmd := testCommandWithScriptFile("test", "../outside.sh", invowkfile.RuntimeNative)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	_, err := ctx.ResolveSelectedScript()

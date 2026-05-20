@@ -253,12 +253,12 @@ containerAvailable = func() bool {
 Scripts executed via `/bin/sh -c` do NOT have `set -e` by default. Always add `set -e` when you want scripts to fail on any command failure. **Note:** This applies to CUE command scripts executed in container runtimes, not to project-level bash scripts (for those, see the shell skill).
 
 ```cue
-script: """
+script: {content: """
     set -e  # Required for fail-on-error behavior
     echo "Starting..."
     some_command_that_might_fail
     echo "Done"
-    """
+    """}
 ```
 
 ## CLI Integration Tests (testscript)
@@ -415,7 +415,7 @@ cmds: [{
     name: "test-cmd"
     description: "Description"
     implementations: [{
-        script: "echo 'output'"
+        script: {content: "echo 'output'"}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -428,7 +428,7 @@ cmds: [{
     name: "test-cmd"
     description: "Description"
     implementations: [{
-        script: "echo 'output'"
+        script: {content: "echo 'output'"}
         runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
@@ -441,12 +441,12 @@ Basic hello (native-only, platform-split):
 ```cue
 implementations: [
     {
-        script:    "echo 'Hello from invowk!'"
+        script: {content: "echo 'Hello from invowk!'"}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script:    "Write-Output 'Hello from invowk!'"
+        script: {content: "Write-Output 'Hello from invowk!'"}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },
@@ -457,19 +457,19 @@ Env vars access (native with `$env:VAR` for Windows):
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "APP_ENV: $APP_ENV"
             echo "LOG_LEVEL: $LOG_LEVEL"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
         env: { vars: { LOG_LEVEL: "debug" } }
     },
     {
-        script: """
+        script: {content: """
             Write-Output "APP_ENV: $($env:APP_ENV)"
             Write-Output "LOG_LEVEL: $($env:LOG_LEVEL)"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
         env: { vars: { LOG_LEVEL: "debug" } }
@@ -481,18 +481,18 @@ Flags/args (native with `$env:INVOWK_ARG_NAME` for Windows):
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "Name: $INVOWK_ARG_NAME"
             echo "Env: $INVOWK_FLAG_ENV"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: """
+        script: {content: """
             Write-Output "Name: $($env:INVOWK_ARG_NAME)"
             Write-Output "Env: $($env:INVOWK_FLAG_ENV)"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },
@@ -503,24 +503,24 @@ Conditionals (native with `if`/`else` for each shell):
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             if [ "$INVOWK_FLAG_VERBOSE" = "true" ]; then
                 echo "Verbose mode ON"
             else
                 echo "Verbose mode OFF"
             fi
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: """
+        script: {content: """
             if ($env:INVOWK_FLAG_VERBOSE -eq 'true') {
                 Write-Output 'Verbose mode ON'
             } else {
                 Write-Output 'Verbose mode OFF'
             }
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },

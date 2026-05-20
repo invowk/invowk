@@ -267,7 +267,7 @@ function assertExecutable(binary) {
   }
 }
 
-function createCommandFixture() {
+export function createCommandFixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'invowk-command-bench-'));
   fs.writeFileSync(
     path.join(dir, 'invowkfile.cue'),
@@ -276,7 +276,7 @@ function createCommandFixture() {
     name: "native-basic"
     description: "Native command benchmark"
     implementations: [{
-      script: "echo ok"
+      script: {content: "echo ok"}
       runtimes: [{name: "native"}]
       platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
@@ -285,7 +285,7 @@ function createCommandFixture() {
     name: "virtual-basic"
     description: "Virtual command benchmark"
     implementations: [{
-      script: "echo ok"
+      script: {content: "echo ok"}
       runtimes: [{name: "virtual"}]
       platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]

@@ -43,7 +43,7 @@ func validateExecutionContextForRun(ctx *ExecutionContext, noImplErr, noScriptEr
 	if ctx.SelectedImpl == nil {
 		return noImplErr
 	}
-	if ctx.SelectedImpl.Script == "" {
+	if err := ctx.SelectedImpl.Script.Validate(); err != nil {
 		return noScriptErr
 	}
 	return nil

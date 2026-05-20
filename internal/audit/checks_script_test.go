@@ -9,6 +9,11 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+func filesystemPathPtr(path string) *invowkfile.FilesystemPath {
+	file := invowkfile.FilesystemPath(path)
+	return &file
+}
+
 func TestScriptChecker_RemoteExecution(t *testing.T) {
 	t.Parallel()
 
@@ -59,7 +64,7 @@ func TestScriptChecker_PathTraversal(t *testing.T) {
 			Commands: []invowkfile.Command{{
 				Name: "bad",
 				Implementations: []invowkfile.Implementation{{
-					Script:   invowkfile.ScriptContent("../../etc/passwd"),
+					Script:   invowkfile.ImplementationScript{File: filesystemPathPtr("../../etc/passwd")},
 					Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				}},
 			}},
@@ -94,7 +99,7 @@ func TestScriptChecker_AbsolutePathInModule(t *testing.T) {
 			Commands: []invowkfile.Command{{
 				Name: "bad",
 				Implementations: []invowkfile.Implementation{{
-					Script:   invowkfile.ScriptContent("/usr/local/bin/script.sh"),
+					Script:   invowkfile.ImplementationScript{File: filesystemPathPtr("/usr/local/bin/script.sh")},
 					Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				}},
 			}},

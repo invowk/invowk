@@ -247,7 +247,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 		Name: "strict-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    "echo hello",
+				Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			},
@@ -304,7 +304,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 		Name: "non-strict-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    "echo hello",
+				Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			},
@@ -380,7 +380,7 @@ func TestPrepareCommandIncludesProvisionedEnvVars(t *testing.T) {
 		Name: "env-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    "echo hello",
+				Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			},
@@ -445,7 +445,7 @@ func TestEnsureProvisionedImagePassesConfigScopedRequest(t *testing.T) {
 	cmd := &invowkfile.Command{
 		Name: "request-test",
 		Implementations: []invowkfile.Implementation{{
-			Script:    "echo hello",
+			Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 			Platforms: invowkfile.AllPlatformConfigs(),
 		}},

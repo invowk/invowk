@@ -29,7 +29,7 @@ cmds: [
 		description: "Print greeting from inside a container"
 		implementations: [
 			{
-				script: "echo 'Hello from inside the container!'"
+				script: {content: "echo 'Hello from inside the container!'"}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -40,7 +40,7 @@ cmds: [
 		description: "Container without host SSH access (isolated)"
 		implementations: [
 			{
-				script: #"""
+				script: {content: #"""
 					echo "=== Isolated Container ==="
 					echo "This container has NO SSH access to the host."
 					echo "It runs in complete isolation."
@@ -48,7 +48,7 @@ cmds: [
 					echo "Checking if SSH env vars are set (they should NOT be):"
 					echo "  INVOWK_SSH_HOST: ${INVOWK_SSH_HOST:-<not set>}"
 					echo "  INVOWK_SSH_PORT: ${INVOWK_SSH_PORT:-<not set>}"
-					"""#
+					"""#}
 				runtimes: [{
 					name: "container"
 					image: "debian:stable-slim"

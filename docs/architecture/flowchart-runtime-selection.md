@@ -28,12 +28,12 @@ cmds: [
             {
                 platforms: [{name: "windows"}]
                 runtimes: [{name: "native"}]
-                script: "nmake build"
+                script: {content: "nmake build"}
             },
             {
                 platforms: [{name: "linux"}]
                 runtimes: [{name: "container", image: "debian:stable-slim"}]
-                script: "make build"
+                script: {content: "make build"}
             },
         ]
     },

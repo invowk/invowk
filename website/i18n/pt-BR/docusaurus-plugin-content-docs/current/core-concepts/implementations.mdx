@@ -16,7 +16,7 @@ Uma implementação tem três partes principais:
 
 ## Scripts
 
-O campo `script` contém os comandos a serem executados. Pode ser inline ou referenciar um arquivo externo.
+O campo `script` contém os comandos a serem executados. Use `script.content` para comandos inline. Dentro de módulos invowk, `script.file` pode referenciar um arquivo de script contido no mesmo módulo.
 
 ### Scripts Inline
 
@@ -30,16 +30,16 @@ Scripts multilinha usam aspas triplas:
 
 ### Arquivos de Script Externos
 
-Referencie um arquivo de script em vez de código inline:
+Dentro de um módulo invowk, referencie um arquivo de script contido no módulo em vez de código inline:
 
 <Snippet id="core-concepts/script-external" />
 
-Extensões reconhecidas: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+`script.file` é explícito, não detectado por extensão: arquivos sem extensão são válidos, e invowkfiles de raiz/projeto devem chamar scripts locais por `script.content`.
 
 ### Quando Usar Scripts Externos
 
 - **Inline**: Comandos rápidos e simples; mantém tudo em um arquivo
-- **Externo**: Scripts complexos; reutilizáveis entre comandos; mais fácil de editar com syntax highlighting
+- **Externo**: Scripts complexos empacotados no módulo; reutilizáveis entre comandos do módulo; mais fáceis de editar com syntax highlighting
 
 ## Restrições de Runtime e Plataforma
 

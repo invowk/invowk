@@ -29,7 +29,7 @@ cmds: [
 		name:        "hello"
 		description: "Print a simple greeting"
 		implementations: [{
-			script:    "echo 'Hello from invowk!'"
+			script: {content: "echo 'Hello from invowk!'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -38,12 +38,12 @@ cmds: [
 		name:        "env hierarchy"
 		description: "Demonstrate environment variable precedence across levels"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Environment Variable Hierarchy ==="
 				echo "APP_ENV: $APP_ENV (from root-level, not overridden)"
 				echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 				echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
-				"""
+				"""}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			env: {

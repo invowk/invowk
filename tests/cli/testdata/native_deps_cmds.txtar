@@ -19,12 +19,12 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script:    "echo 'build done'"
+				script: {content: "echo 'build done'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'build done'"
+				script: {content: "Write-Output 'build done'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -34,12 +34,12 @@ cmds: [
 		name: "test"
 		implementations: [
 			{
-				script:    "echo 'test done'"
+				script: {content: "echo 'test done'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'test done'"
+				script: {content: "Write-Output 'test done'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -50,12 +50,12 @@ cmds: [
 		description: "Command that depends on 'build' existing"
 		implementations: [
 			{
-				script:    "echo 'deploy successful'"
+				script: {content: "echo 'deploy successful'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'deploy successful'"
+				script: {content: "Write-Output 'deploy successful'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -71,12 +71,12 @@ cmds: [
 		description: "Command that depends on any of 'ci' or 'test'"
 		implementations: [
 			{
-				script:    "echo 'release successful'"
+				script: {content: "echo 'release successful'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'release successful'"
+				script: {content: "Write-Output 'release successful'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

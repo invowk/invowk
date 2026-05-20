@@ -14,7 +14,7 @@ cmds: [{
     name: "safe"
     description: "Safe command"
     implementations: [{
-        script: "echo ok"
+        script: {content: "echo ok"}
         runtimes: [{name: "virtual"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]

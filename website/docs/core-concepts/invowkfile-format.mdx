@@ -60,7 +60,7 @@ Invowk automatically picks the right implementation for your platform.
 
 ## Scripts
 
-Scripts can be inline or reference external files:
+Scripts can be inline. Inside invowk modules, they can also reference files contained in the same module:
 
 ### Inline Scripts
 
@@ -70,7 +70,7 @@ Scripts can be inline or reference external files:
 
 <Snippet id="core-concepts/script-external" />
 
-Recognized extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+`script.file` is module-only and module-contained. It is not extension-detected; extensionless script files are valid. In root/project invowkfiles, invoke local script files through `script.content`.
 
 ## Complete Example
 

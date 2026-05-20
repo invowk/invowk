@@ -6,12 +6,43 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+const (
+	customCheckInterpreterTargetHost customCheckInterpreterTarget = iota
+	customCheckInterpreterTargetRuntime
+)
+
+// customCheckInterpreterTarget identifies host vs runtime custom-check analysis.
+//
+//goplint:constant-only
+type customCheckInterpreterTarget int
+
+func (t customCheckInterpreterTarget) String() string {
+	switch t {
+	case customCheckInterpreterTargetHost:
+		return "host"
+	case customCheckInterpreterTargetRuntime:
+		return "runtime"
+	default:
+		return fmt.Sprintf("unknown(%d)", t)
+	}
+}
+
+func (t customCheckInterpreterTarget) Validate() error {
+	switch t {
+	case customCheckInterpreterTargetHost, customCheckInterpreterTargetRuntime:
+		return nil
+	default:
+		return fmt.Errorf("invalid custom check interpreter target %s", t)
+	}
+}
 
 // ValidateCustomCheckOutput validates custom check script output against expected values.
 func ValidateCustomCheckOutput(check invowkfile.CustomCheck, result CustomCheckResult) error {
@@ -51,14 +82,19 @@ func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, probe R
 	if probe == nil {
 		return ErrRuntimeDependencyProbeRequired
 	}
-	return evaluateCustomChecks(deps, ctx, func(_ context.Context, check invowkfile.CustomCheck) (CustomCheckResult, error) {
-		return probe.RunCustomCheck(check)
-	})
+	return evaluateCustomChecks(
+		deps,
+		ctx,
+		customCheckInterpreterTargetRuntime,
+		func(_ context.Context, check invowkfile.CustomCheck) (CustomCheckResult, error) {
+			return probe.RunCustomCheck(check)
+		},
+	)
 }
 
-// CheckHostCustomCheckDependencies validates custom checks always using the native shell on the host.
-// Host-level custom checks always run in the native shell, regardless of the selected runtime,
-// ensuring host-side prerequisites are validated in a consistent, predictable environment.
+// CheckHostCustomCheckDependencies validates custom checks on the host.
+// Host-level custom checks use the embedded mvdan/sh shell by default and dispatch to
+// a host interpreter only when the resolved script selects a non-shell interpreter.
 func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx ExecutionContext) error {
 	return CheckHostCustomCheckDependenciesWithProbe(deps, ctx, nil)
 }
@@ -71,7 +107,7 @@ func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx E
 	if probe == nil {
 		return ErrHostProbeRequired
 	}
-	return evaluateCustomChecks(deps, ctx, probe.RunCustomCheck)
+	return evaluateCustomChecks(deps, ctx, customCheckInterpreterTargetHost, probe.RunCustomCheck)
 }
 
 // evaluateCustomChecks runs custom check dependencies through the provided validator
@@ -81,6 +117,7 @@ func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx E
 func evaluateCustomChecks(
 	deps *invowkfile.DependsOn,
 	ctx ExecutionContext,
+	target customCheckInterpreterTarget,
 	runner func(context.Context, invowkfile.CustomCheck) (CustomCheckResult, error),
 ) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
@@ -103,11 +140,16 @@ func evaluateCustomChecks(
 		}
 		checks := checkDep.GetChecks()
 		found, lastErr := EvaluateAlternatives(checks, func(check invowkfile.CustomCheck) error {
-			result, err := runner(goCtx, check)
+			resolvedCheck, diagnostics, err := resolveCustomCheckScript(check, ctx, target)
 			if err != nil {
 				return err
 			}
-			return ValidateCustomCheckOutput(check, result)
+			emitCustomCheckInterpreterDiagnostics(ctx.IO.Stderr, diagnostics)
+			result, err := runner(goCtx, resolvedCheck)
+			if err != nil {
+				return err
+			}
+			return ValidateCustomCheckOutput(resolvedCheck, result)
 		})
 
 		if !found && lastErr != nil {
@@ -134,6 +176,42 @@ func evaluateCustomChecks(
 	return nil
 }
 
+func resolveCustomCheckScript(check invowkfile.CustomCheck, ctx ExecutionContext, target customCheckInterpreterTarget) (invowkfile.CustomCheck, []invowkfile.ScriptInterpreterDiagnostic, error) {
+	resolvedScript, err := check.Script.ResolveWithFSAndModule(ctx.modulePath(), ctx.scriptFileReader())
+	if err != nil {
+		return invowkfile.CustomCheck{}, nil, fmt.Errorf("%s - resolve custom check script: %w", check.Name, err)
+	}
+	analysisRuntime := customCheckAnalysisRuntime(check.Script, resolvedScript, target)
+	label := invowkfile.ScriptInterpreterSourceLabel(fmt.Sprintf("custom check %q", check.Name))
+	analysis := check.Script.AnalyzeInterpreter(resolvedScript, analysisRuntime, label)
+	check.Script = invowkfile.CustomCheckScript{
+		Content:     resolvedScript,
+		Interpreter: check.Script.Interpreter,
+	}
+	return check, analysis.Diagnostics(), nil
+}
+
+func customCheckAnalysisRuntime(script invowkfile.CustomCheckScript, scriptText invowkfile.ScriptContent, target customCheckInterpreterTarget) invowkfile.RuntimeMode {
+	if target == customCheckInterpreterTargetRuntime {
+		return invowkfile.RuntimeContainer
+	}
+	interpInfo := script.ResolveInterpreterFromScript(scriptText.String())
+	if interpInfo.Found && !invowkfile.IsShellInterpreter(interpInfo.Interpreter) {
+		return invowkfile.RuntimeNative
+	}
+	return invowkfile.RuntimeVirtual
+}
+
+func emitCustomCheckInterpreterDiagnostics(stderr io.Writer, diagnostics []invowkfile.ScriptInterpreterDiagnostic) {
+	if stderr == nil {
+		return
+	}
+	for i := range diagnostics {
+		diagnostic := diagnostics[i]
+		_, _ = fmt.Fprintf(stderr, "warning: %s\n", diagnostic.Message())
+	}
+}
+
 //goplint:ignore -- returns human-readable validation detail for DependencyMessage.
 func customCheckDependencyValidationMessage(err error) string {
 	var message strings.Builder
@@ -155,6 +233,12 @@ func customCheckFieldValidationMessage(err error) string {
 		for i := range checkErr.FieldErrors {
 			message.WriteString(": ")
 			message.WriteString(checkErr.FieldErrors[i].Error())
+		}
+	}
+	if scriptErr, ok := errors.AsType[*invowkfile.InvalidCustomCheckScriptError](err); ok {
+		for i := range scriptErr.FieldErrors {
+			message.WriteString(": ")
+			message.WriteString(scriptErr.FieldErrors[i].Error())
 		}
 	}
 	return message.String()

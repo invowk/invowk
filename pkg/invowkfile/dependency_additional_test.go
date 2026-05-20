@@ -105,7 +105,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			name: "custom check",
 			err: CustomCheck{
 				Name:           "",
-				CheckScript:    "   ",
+				Script:         CustomCheckScript{Content: "   "},
 				ExpectedCode:   &invalidCode,
 				ExpectedOutput: "[",
 			}.Validate(),
@@ -122,7 +122,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			name: "custom check dependency direct fields",
 			err: CustomCheckDependency{
 				Name:           "",
-				CheckScript:    "   ",
+				Script:         CustomCheckScript{Content: "   "},
 				ExpectedCode:   &invalidCode,
 				ExpectedOutput: "[",
 			}.Validate(),
@@ -138,7 +138,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 		{
 			name: "custom check dependency alternatives",
 			err: CustomCheckDependency{
-				Alternatives: []CustomCheck{{Name: "", CheckScript: "   "}},
+				Alternatives: []CustomCheck{{Name: "", Script: CustomCheckScript{Content: "   "}}},
 			}.Validate(),
 			sentinel: ErrInvalidCustomCheckDependency,
 			checkAs: func(t *testing.T, err error) {
@@ -156,7 +156,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{""}}},
 				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{""}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{"bogus"}}},
-				CustomChecks: []CustomCheckDependency{{Name: "", CheckScript: "   "}},
+				CustomChecks: []CustomCheckDependency{{Name: "", Script: CustomCheckScript{Content: "   "}}},
 				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: ""}}}},
 			}.Validate(),
 			sentinel: ErrInvalidDependsOn,
@@ -238,7 +238,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 			name: "custom check",
 			err: CustomCheck{
 				Name:           "shellcheck",
-				CheckScript:    "echo ok",
+				Script:         CustomCheckScript{Content: "echo ok"},
 				ExpectedCode:   &validCode,
 				ExpectedOutput: "^ok$",
 			}.Validate(),
@@ -247,7 +247,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 			name: "custom check dependency direct",
 			err: CustomCheckDependency{
 				Name:           "shellcheck",
-				CheckScript:    "echo ok",
+				Script:         CustomCheckScript{Content: "echo ok"},
 				ExpectedCode:   &validCode,
 				ExpectedOutput: "^ok$",
 			}.Validate(),
@@ -255,7 +255,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 		{
 			name: "custom check dependency alternatives",
 			err: CustomCheckDependency{
-				Alternatives: []CustomCheck{{Name: "shellcheck", CheckScript: "echo ok"}},
+				Alternatives: []CustomCheck{{Name: "shellcheck", Script: CustomCheckScript{Content: "echo ok"}}},
 			}.Validate(),
 		},
 		{
@@ -265,7 +265,7 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}},
 				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"scripts/install.sh"}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityTTY}}},
-				CustomChecks: []CustomCheckDependency{{Name: "shellcheck", CheckScript: "echo ok"}},
+				CustomChecks: []CustomCheckDependency{{Name: "shellcheck", Script: CustomCheckScript{Content: "echo ok"}}},
 				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "PATH"}}}},
 			}.Validate(),
 		},
@@ -346,22 +346,22 @@ func TestCustomCheckDependencyValidateShape(t *testing.T) {
 			dep: CustomCheckDependency{
 				Name: "shellcheck",
 			},
-			wantErr: ErrInvalidScriptContent,
+			wantErr: ErrMissingCustomCheckScriptSource,
 		},
 		{
 			name: "alternative check requires script",
 			dep: CustomCheckDependency{
 				Alternatives: []CustomCheck{{Name: "shellcheck"}},
 			},
-			wantErr: ErrInvalidScriptContent,
+			wantErr: ErrMissingCustomCheckScriptSource,
 		},
 		{
 			name: "alternatives reject direct fields",
 			dep: CustomCheckDependency{
-				Name:        "direct",
-				CheckScript: "true",
+				Name:   "direct",
+				Script: CustomCheckScript{Content: "true"},
 				Alternatives: []CustomCheck{
-					{Name: "alt", CheckScript: "true"},
+					{Name: "alt", Script: CustomCheckScript{Content: "true"}},
 				},
 			},
 			wantErr: ErrMixedCustomCheckDependency,
@@ -371,7 +371,7 @@ func TestCustomCheckDependencyValidateShape(t *testing.T) {
 			dep: CustomCheckDependency{
 				ExpectedCode: &validCode,
 				Alternatives: []CustomCheck{
-					{Name: "alt", CheckScript: "true"},
+					{Name: "alt", Script: CustomCheckScript{Content: "true"}},
 				},
 			},
 			wantErr: ErrMixedCustomCheckDependency,

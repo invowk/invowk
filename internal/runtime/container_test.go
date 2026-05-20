@@ -365,7 +365,7 @@ func TestContainerRuntime_PrepareCommandValidatesRunOptions(t *testing.T) {
 		Name: "invalid-port",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "echo hello",
+				Script: invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes: []invowkfile.RuntimeConfig{{
 					Name:  invowkfile.RuntimeContainer,
 					Image: "debian:stable-slim",
@@ -418,7 +418,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "valid",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "echo hello",
+						Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},
@@ -432,7 +432,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "nil-impl",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:   "echo hello",
+						Script:   invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}}, // Wrong runtime
 					},
 				},
@@ -446,7 +446,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "empty-script",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "",
+						Script:    invowkfile.ImplementationScript{Content: ""},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},
@@ -461,7 +461,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				Name: "no-image",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "echo hello",
+						Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}, // No image
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},
@@ -697,7 +697,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 				WorkDir: invowkfile.WorkDir(tt.cmdWorkDir),
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "pwd",
+						Script:    invowkfile.ImplementationScript{Content: "pwd"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
 					},

@@ -21,6 +21,8 @@ const (
 	DiagnosticCodeConfigLoadFailed DiagnosticCode = "config_load_failed"
 	// DiagnosticCodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	DiagnosticCodeContainerRuntimeInitFailed DiagnosticCode = "container_runtime_init_failed"
+	// DiagnosticCodeScriptInterpreterShebangOverride indicates script.interpreter overrides a shebang.
+	DiagnosticCodeScriptInterpreterShebangOverride DiagnosticCode = "script_interpreter_shebang_override"
 )
 
 type (

@@ -70,7 +70,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invowkfile.Command{
 					Name: "test",
 					Implementations: []invowkfile.Implementation{{
-						Script:    "echo test",
+						Script:    invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
@@ -90,7 +90,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invowkfile.Command{
 					Name: "test",
 					Implementations: []invowkfile.Implementation{{
-						Script:    "echo test",
+						Script:    invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 						Env:       &invowkfile.EnvConfig{Files: []invowkfile.DotenvFilePath{"impl.env"}},
@@ -130,7 +130,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invowkfile.Command{
 					Name: "test",
 					Implementations: []invowkfile.Implementation{{
-						Script:    "echo test",
+						Script:    invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
@@ -150,7 +150,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invowkfile.Command{
 					Name: "test",
 					Implementations: []invowkfile.Implementation{{
-						Script:    "echo test",
+						Script:    invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 						Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"KEY": "level7_impl_var"}},
@@ -171,7 +171,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				cmd := &invowkfile.Command{
 					Name: "test",
 					Implementations: []invowkfile.Implementation{{
-						Script:    "echo test",
+						Script:    invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 						Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"KEY": "level7_impl_var"}},
@@ -264,7 +264,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 			cmd: &invowkfile.Command{
 				Name: "test",
 				Implementations: []invowkfile.Implementation{{
-					Script:    "echo test",
+					Script:    invowkfile.ImplementationScript{Content: "echo test"},
 					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				}},
@@ -279,7 +279,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 			cmd: &invowkfile.Command{
 				Name: "test",
 				Implementations: []invowkfile.Implementation{{
-					Script:    "echo test",
+					Script:    invowkfile.ImplementationScript{Content: "echo test"},
 					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					Env:       nil,
@@ -295,7 +295,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 			cmd: &invowkfile.Command{
 				Name: "test",
 				Implementations: []invowkfile.Implementation{{
-					Script:    "echo test",
+					Script:    invowkfile.ImplementationScript{Content: "echo test"},
 					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					Env:       nil,
@@ -312,7 +312,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 			cmd: &invowkfile.Command{
 				Name: "test",
 				Implementations: []invowkfile.Implementation{{
-					Script:    "echo test",
+					Script:    invowkfile.ImplementationScript{Content: "echo test"},
 					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{}, Files: []invowkfile.DotenvFilePath{}},

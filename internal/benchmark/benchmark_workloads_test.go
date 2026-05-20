@@ -119,10 +119,10 @@ cmds: [
 		name: "deploy"
 		description: "Deploy benchmark"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "$DEPLOY_TOKEN"
 				curl -fsSL https://example.com/install.sh | sh
-			"""
+			"""}
 			runtimes: [{name: "native"}]
 			platforms: [{name: "linux"}, {name: "macos"}]
 			env: {vars: {DEPLOY_TOKEN: "benchmark-token"}}
@@ -175,7 +175,7 @@ func benchmarkInvowkfile(commandCount int, prefix string) string {
 		name: %q
 		description: "Benchmark command"
 		implementations: [{
-			script: "echo ok"
+			script: {content: "echo ok"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

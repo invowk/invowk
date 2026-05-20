@@ -23,7 +23,7 @@ cmds: [
 		name:        "deps check fail-code"
 		description: "Command with custom check that fails on exit code"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -31,7 +31,7 @@ cmds: [
 			custom_checks: [
 				{
 					name:          "always-fail"
-					check_script:  "exit 1"
+					script: {content: "exit 1"}
 					expected_code: 0
 				},
 			]
@@ -41,7 +41,7 @@ cmds: [
 		name:        "deps check fail-output"
 		description: "Command with custom check that fails output matching"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -49,7 +49,7 @@ cmds: [
 			custom_checks: [
 				{
 					name:            "output-mismatch"
-					check_script:    "echo 'hello world'"
+					script: {content: "echo 'hello world'"}
 					expected_output: "^version [0-9]"
 				},
 			]

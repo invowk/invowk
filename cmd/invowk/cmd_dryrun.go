@@ -34,7 +34,7 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("WorkDir:"), plan.WorkDir)
 	}
 
-	if plan.Script == "" {
+	if err := plan.Script.Validate(); err != nil {
 		fmt.Fprintln(w)
 		return
 	}
@@ -54,13 +54,14 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 	// Script content.
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Script:"))
-	if plan.ScriptIsFile {
-		fmt.Fprintf(w, "    (file: %s)\n", plan.Script)
+	if plan.Script.IsFile() {
+		fmt.Fprintf(w, "    (file: %s)\n", *plan.Script.File)
 	} else {
-		for line := range strings.SplitSeq(string(plan.Script), "\n") {
+		for line := range strings.SplitSeq(string(plan.Script.Content), "\n") {
 			fmt.Fprintf(w, "    %s\n", line)
 		}
 	}
+	renderDryRunInterpreter(w, plan)
 
 	// Environment variables, split into metadata (INVOWK_*/ARG*) and user-defined.
 	invowkVars := make(map[string]string)
@@ -110,4 +111,49 @@ func isArgEnvVar(k string) bool {
 		}
 	}
 	return true
+}
+
+func renderDryRunInterpreter(w io.Writer, plan commandsvc.DryRunPlan) {
+	if plan.ScriptInterpreter.Provenance() == "" {
+		return
+	}
+	fmt.Fprintf(w, "    Interpreter: %s\n", dryRunInterpreterDescription(plan.Runtime, plan.ScriptInterpreter))
+	diagnostics := plan.ScriptInterpreter.Diagnostics()
+	for i := range diagnostics {
+		diag := diagnostics[i]
+		fmt.Fprintf(w, "    warning: %s\n", diag.Message())
+	}
+}
+
+//goplint:ignore -- CLI rendering helper returns human-readable display text.
+func dryRunInterpreterDescription(runtime invowkfile.RuntimeMode, analysis invowkfile.ScriptInterpreterAnalysis) string {
+	effective := analysis.Effective()
+	if runtime == invowkfile.RuntimeVirtual && (!effective.Found || invowkfile.IsShellInterpreter(effective.Interpreter)) {
+		return dryRunVirtualInterpreterDescription(analysis)
+	}
+	switch analysis.Provenance() {
+	case invowkfile.ScriptInterpreterProvenanceExplicit:
+		return "explicit: " + effective.CommandString()
+	case invowkfile.ScriptInterpreterProvenanceShebang:
+		return "shebang-detected: " + effective.CommandString()
+	case invowkfile.ScriptInterpreterProvenanceDefaultShell:
+		return "default shell behavior"
+	default:
+		return "default shell behavior"
+	}
+}
+
+//goplint:ignore -- CLI rendering helper returns human-readable display text.
+func dryRunVirtualInterpreterDescription(analysis invowkfile.ScriptInterpreterAnalysis) string {
+	effective := analysis.Effective()
+	switch analysis.Provenance() {
+	case invowkfile.ScriptInterpreterProvenanceExplicit:
+		return "virtual shell (embedded mvdan/sh; explicit shell-compatible interpreter: " + effective.CommandString() + ")"
+	case invowkfile.ScriptInterpreterProvenanceShebang:
+		return "virtual shell (embedded mvdan/sh; shell-compatible shebang: " + effective.CommandString() + ")"
+	case invowkfile.ScriptInterpreterProvenanceDefaultShell:
+		return "virtual shell (embedded mvdan/sh; default shell behavior)"
+	default:
+		return "virtual shell (embedded mvdan/sh; default shell behavior)"
+	}
 }

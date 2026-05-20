@@ -28,7 +28,7 @@ cmds: [
 		description: "Build the project"
 		implementations: [
 			{
-				script: "echo building..."
+				script: {content: "echo building..."}
 				runtimes: [{name: "native"}, {name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
@@ -46,7 +46,7 @@ cmds: [
 			description: "Run unit tests"
 			implementations: [
 				{
-					script: "echo testing..."
+					script: {content: "echo testing..."}
 					runtimes: [{name: "native"}, {name: "virtual"}]
 					platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				},
@@ -60,7 +60,7 @@ cmds: [
 		description: "Run integration tests"
 		implementations: [
 			{
-				script: "echo integration testing..."
+				script: {content: "echo integration testing..."}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
@@ -75,7 +75,7 @@ cmds: [
 		description: "Deploy the application"
 		implementations: [
 			{
-				script: "echo deploying..."
+				script: {content: "echo deploying..."}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 				env: {
@@ -93,7 +93,7 @@ cmds: [
 			description: "Clean build artifacts"
 			implementations: [
 				{
-					script: "echo cleaning..."
+					script: {content: "echo cleaning..."}
 					runtimes: [{name: "native"}, {name: "virtual"}]
 					platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				},
@@ -126,52 +126,52 @@ cmds: [
 	{
 		name: "cmd1"
 		description: "Command 1"
-		implementations: [{script: "echo 1", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 1"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd2"
 		description: "Command 2"
-		implementations: [{script: "echo 2", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 2"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd3"
 		description: "Command 3"
-		implementations: [{script: "echo 3", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 3"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd4"
 		description: "Command 4"
-		implementations: [{script: "echo 4", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 4"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd5"
 		description: "Command 5"
-		implementations: [{script: "echo 5", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 5"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd6"
 		description: "Command 6"
-		implementations: [{script: "echo 6", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 6"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd7"
 		description: "Command 7"
-		implementations: [{script: "echo 7", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 7"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd8"
 		description: "Command 8"
-		implementations: [{script: "echo 8", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo 8"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "nested cmd1"
 		description: "Nested command 1"
-		implementations: [{script: "echo nested1", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo nested1"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "nested cmd2"
 		description: "Nested command 2"
-		implementations: [{script: "echo nested2", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo nested2"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 	`
@@ -283,7 +283,7 @@ func BenchmarkRuntimeNative(b *testing.B) {
 				Description: "Test command",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: "echo hello",
+						Script: invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeNative},
 						},
@@ -333,7 +333,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 				Description: "Test command",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: "echo hello",
+						Script: invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeVirtual},
 						},
@@ -395,7 +395,7 @@ fi
 				Description: "Complex command",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: invowkfile.ScriptContent(script),
+						Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeVirtual},
 						},
@@ -447,7 +447,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 				Description: "Container test command",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: "echo hello from container",
+						Script: invowkfile.ImplementationScript{Content: "echo hello from container"},
 						Runtimes: []invowkfile.RuntimeConfig{
 							{
 								Name:  invowkfile.RuntimeContainer,
@@ -508,7 +508,7 @@ cmds: [
 		description: "Say hello"
 		implementations: [
 			{
-				script: "echo hello"
+				script: {content: "echo hello"}
 				runtimes: [{name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
@@ -625,7 +625,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 				},
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: "echo test",
+						Script: invowkfile.ImplementationScript{Content: "echo test"},
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeNative},
 						},

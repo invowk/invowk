@@ -18,7 +18,8 @@ func BenchmarkModuleSyncExplicitDeps(b *testing.B) {
 	workDir := b.TempDir()
 	cacheDir := b.TempDir()
 	repoDir := b.TempDir()
-	moduleDir := filepath.Join(repoDir, "tools.invowkmod")
+	modulePath := SubdirectoryPath("modules/io.example.tools.invowkmod")
+	moduleDir := filepath.Join(repoDir, filepath.FromSlash(modulePath.String()))
 	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
 		b.Fatalf("MkdirAll() error = %v", err)
 	}
@@ -30,7 +31,7 @@ description: "Benchmark tools"
 	name: "build"
 	description: "Build"
 	implementations: [{
-		script: "echo build"
+		script: {content: "echo build"}
 		runtimes: [{name: "virtual"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
@@ -48,8 +49,9 @@ description: "Benchmark tools"
 	requirements := []ModuleRef{{
 		GitURL:  "https://github.com/example/tools.invowkmod.git",
 		Version: "^1.0.0",
+		Path:    modulePath,
 	}}
-	cachePath, err := resolver.getCachePath(string(requirements[0].GitURL), "1.2.3", "", "io.example.bench")
+	cachePath, err := resolver.getCachePath(string(requirements[0].GitURL), "1.2.3", string(modulePath), "io.example.tools")
 	if err != nil {
 		b.Fatalf("getCachePath() error = %v", err)
 	}

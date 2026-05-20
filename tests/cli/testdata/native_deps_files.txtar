@@ -41,12 +41,12 @@ cmds: [
 		description: "Command requiring a specific file to exist"
 		implementations: [
 			{
-				script:    "echo 'README.md exists!'"
+				script: {content: "echo 'README.md exists!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'README.md exists!'"
+				script: {content: "Write-Output 'README.md exists!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -62,12 +62,12 @@ cmds: [
 		description: "Command requiring any README file"
 		implementations: [
 			{
-				script:    "echo 'A README file exists (one of: README.md, README, readme.md)'"
+				script: {content: "echo 'A README file exists (one of: README.md, README, readme.md)'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'A README file exists (one of: README.md, README, readme.md)'"
+				script: {content: "Write-Output 'A README file exists (one of: README.md, README, readme.md)'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -83,20 +83,20 @@ cmds: [
 		description: "Command requiring file with specific permissions"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "Permission checks passed!"
 					echo "  - Current directory is writable"
 					echo "  - README.md is readable"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "Permission checks passed!"
 					Write-Output "  - Current directory is writable"
 					Write-Output "  - README.md is readable"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -113,12 +113,12 @@ cmds: [
 		description: "Command requiring file with execute permission"
 		implementations: [
 			{
-				script:    "echo 'Executable check passed!'"
+				script: {content: "echo 'Executable check passed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Executable check passed!'"
+				script: {content: "Write-Output 'Executable check passed!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -134,12 +134,12 @@ cmds: [
 		description: "Command requiring executable that is not executable"
 		implementations: [
 			{
-				script:    "echo 'Should not reach here'"
+				script: {content: "echo 'Should not reach here'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Should not reach here'"
+				script: {content: "Write-Output 'Should not reach here'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

@@ -14,7 +14,7 @@ func testCommand(name, script string) Command {
 	return Command{
 		Name: CommandName(name),
 		Implementations: []Implementation{
-			{Script: ScriptContent(script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
+			{Script: ImplementationScript{Content: ScriptContent(script)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 		},
 	}
 }
@@ -23,7 +23,7 @@ func testCommand(name, script string) Command {
 func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 	return Command{
 		Name:            CommandName(name),
-		Implementations: []Implementation{{Script: ScriptContent(script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
+		Implementations: []Implementation{{Script: ImplementationScript{Content: ScriptContent(script)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn:       deps,
 	}
 }
@@ -41,7 +41,7 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}}}, expected: false},
 		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f.txt"}}}}, expected: false},
 		{name: "only capabilities", deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: false},
-		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: false},
+		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", Script: CustomCheckScript{Content: "true"}}}}, expected: false},
 		{name: "only env_vars", deps: DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: false},
 		{
 			name: "all populated",
@@ -50,7 +50,7 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{"b"}}},
 				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
-				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
+				CustomChecks: []CustomCheckDependency{{Name: "c", Script: CustomCheckScript{Content: "true"}}},
 				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "X"}}}},
 			},
 			expected: false,
@@ -111,7 +111,7 @@ func TestCommand_HasDependencies(t *testing.T) {
 		},
 		{
 			name:     "only custom_checks",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", Script: CustomCheckScript{Content: "true"}}}}),
 			expected: true,
 		},
 	}
@@ -210,7 +210,7 @@ func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
 		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"b"}}}}, expected: true},
 		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}}}, expected: true},
 		{name: "capabilities", deps: &DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: true},
-		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: true},
+		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", Script: CustomCheckScript{Content: "true"}}}}, expected: true},
 		{name: "env_vars", deps: &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: true},
 	}
 
@@ -220,7 +220,7 @@ func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
 
 			cmd := Command{
 				Name:            "test",
-				Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
+				Implementations: []Implementation{{Script: ImplementationScript{Content: "echo"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: AllPlatformConfigs()}},
 				DependsOn:       tt.deps,
 			}
 			if got := cmd.HasCommandLevelDependencies(); got != tt.expected {
@@ -239,7 +239,7 @@ cmds: [
 		name: "release"
 		implementations: [
 			{
-				script: "echo releasing"
+				script: {content: "echo releasing"}
 
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
@@ -255,7 +255,7 @@ cmds: [
 				{alternatives: ["test unit"]},
 			]
 			custom_checks: [
-				{name: "docker-version", check_script: "docker --version", expected_output: "Docker"},
+					{name: "docker-version", script: {content: "docker --version"}, expected_output: "Docker"},
 			]
 		}
 	}
@@ -310,8 +310,8 @@ cmds: [
 		t.Errorf("First custom_check name = %q, want %q", checks[0].Name, "docker-version")
 	}
 
-	if checks[0].CheckScript != "docker --version" {
-		t.Errorf("First custom_check check_script = %q, want %q", checks[0].CheckScript, "docker --version")
+	if checks[0].Script.Content != "docker --version" {
+		t.Errorf("First custom_check script.content = %q, want %q", checks[0].Script.Content, "docker --version")
 	}
 
 	if checks[0].ExpectedOutput != "Docker" {
@@ -341,7 +341,7 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "make build"
+				script: {content: "make build"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -391,7 +391,7 @@ cmds: [
 		name: "release"
 		implementations: [
 			{
-				script: "echo release"
+				script: {content: "echo release"}
 
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
@@ -442,7 +442,7 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "make build"
+				script: {content: "make build"}
 
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
@@ -456,7 +456,7 @@ cmds: [
 			custom_checks: [
 				{
 					name: "go-version"
-					check_script: "go version"
+						script: {content: "go version"}
 					expected_code: 0
 					expected_output: "go1\\."
 				},
@@ -510,8 +510,8 @@ cmds: [
 	if goCheck.Name != "go-version" {
 		t.Errorf("Custom check name = %q, want %q", goCheck.Name, "go-version")
 	}
-	if goCheck.CheckScript != "go version" {
-		t.Errorf("Custom check check_script = %q, want %q", goCheck.CheckScript, "go version")
+	if goCheck.Script.Content != "go version" {
+		t.Errorf("Custom check script.content = %q, want %q", goCheck.Script.Content, "go version")
 	}
 	if goCheck.ExpectedCode == nil {
 		t.Error("Custom check expected_code should not be nil")
@@ -532,7 +532,7 @@ cmds: [
 		name: "deploy"
 		implementations: [
 			{
-				script: "echo deploying"
+				script: {content: "echo deploying"}
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
 			}
@@ -616,7 +616,7 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 
 	cmd := Command{
 		Name:            "test",
-		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
+		Implementations: []Implementation{{Script: ImplementationScript{Content: "echo"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
 			Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"config.yaml"}}},
 		},
@@ -634,7 +634,7 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 		Commands: []Command{
 			{
 				Name:            "deploy",
-				Implementations: []Implementation{{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
+				Implementations: []Implementation{{Script: ImplementationScript{Content: "echo deploy"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
 						{Alternatives: []FilesystemPath{"config.yaml"}},

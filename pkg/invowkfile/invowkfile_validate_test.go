@@ -28,7 +28,7 @@ func TestInvowkfile_ValidateFields_Valid(t *testing.T) {
 				Name: "build",
 				Implementations: []Implementation{
 					{
-						Script:    "go build ./...",
+						Script:    ImplementationScript{Content: "go build ./..."},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: AllPlatformConfigs(),
 					},

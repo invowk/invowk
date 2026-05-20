@@ -30,12 +30,12 @@ cmds: [
 		description: "Command requiring a single tool (sh)"
 		implementations: [
 			{
-				script:    "echo 'sh is available!'"
+				script: {content: "echo 'sh is available!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'sh is available!'"
+				script: {content: "Write-Output 'sh is available!'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -51,18 +51,18 @@ cmds: [
 		description: "Command requiring any of: podman, docker, or nerdctl"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "Container runtime check passed!"
 					echo "At least one of podman/docker/nerdctl is available."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "Container runtime check passed!"
 					Write-Output "At least one of podman/docker/nerdctl is available."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -78,20 +78,20 @@ cmds: [
 		description: "Command with multiple tool dependencies"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "All tool dependencies satisfied!"
 					echo "  - sh is available"
 					echo "  - Either cat or type is available"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "All tool dependencies satisfied!"
 					Write-Output "  - sh is available"
 					Write-Output "  - Either cat or type is available"
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

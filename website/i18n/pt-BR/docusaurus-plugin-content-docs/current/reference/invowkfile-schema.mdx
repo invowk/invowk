@@ -177,14 +177,24 @@ Define como um comando é executado:
 
 ### script
 
-**Tipo:** `string` (não vazio)  
+**Tipo:** objeto fechado com exatamente um de `content` ou `file`, mais `interpreter` opcional
 **Obrigatório:** Sim
 
-Os comandos de shell a executar OU um caminho para um arquivo de script.
+A origem executável do script. Use `script.content` para texto shell inline e referências `script.file` contidas no módulo dentro de módulos invowk. Invowkfiles de raiz/projeto não podem usar `script.file`; strings antigas `script: "..."` são rejeitadas. Use `script.interpreter` para executar explicitamente o conteúdo resolvido com Python, Node.js, Ruby, PowerShell ou outro interpretador suportado.
 
 <Snippet id="reference/invowkfile/script-examples" />
 
-**Extensões reconhecidas:** `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+#### script.interpreter
+
+**Tipo:** `string`
+**Disponível para:** scripts de implementation e scripts de custom check
+**Padrão:** `"auto"` (detectar do shebang)
+
+Especifica como executar o conteúdo resolvido do script. O valor pode ser `auto` ou um interpretador suportado como `python3`, `node`, `pwsh` ou `/usr/bin/env perl -w`. Configurações de runtime não aceitam `interpreter`.
+
+Um `script.interpreter` concreto tem precedência sobre a detecção de shebang. Se ele for diferente do interpretador ou dos argumentos do shebang no script resolvido, `invowk validate` e `--ivk-dry-run` reportam um aviso informativo, mas a validação continua bem-sucedida. `script.interpreter` omitido e `interpreter: "auto"` seguem o shebang e não geram aviso.
+
+<Snippet id="reference/invowkfile/interpreter-examples" />
 
 ### runtimes
 
@@ -248,20 +258,6 @@ Configuração para um runtime específico:
 **Obrigatório:** Sim
 
 O tipo de runtime.
-
-### interpreter
-
-**Tipo:** `string`  
-**Disponível para:** `native`, `container`  
-**Padrão:** `"auto"` (detectar do shebang)
-
-Especifica como executar o script.
-
-<Snippet id="reference/invowkfile/interpreter-examples" />
-
-:::note
-O runtime virtual usa mvdan/sh e não consegue executar interpretadores não-shell.
-:::
 
 ### env_inherit_mode
 

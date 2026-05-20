@@ -149,6 +149,8 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 		fmt.Fprintf(stdout, "%s Configuration loaded\n", moduleSuccessIcon)
 	}
 
+	renderValidationInterpreterDiagnostics(stderr, collectCommandSetInterpreterDiagnostics(result.Set))
+
 	// Collect all issues (diagnostics + tree errors) and render in a single pass.
 	hasIssues := false
 
@@ -226,13 +228,22 @@ func detectPathType(absPath string) (detected pathType, resolvedPath string) {
 		return pathTypeModule, absPath
 	}
 
+	// Files inside an invowkmod directory need module-aware validation so
+	// module-contained script.file sources have the correct root.
+	if base == invowkfileCueFileName || base == invowkmodCueFileName {
+		parent := filepath.Dir(absPath)
+		if strings.HasSuffix(filepath.Base(parent), ".invowkmod") {
+			return pathTypeModule, parent
+		}
+	}
+
 	// File named invowkfile.cue → invowkfile
 	if base == invowkfileCueFileName {
 		return pathTypeInvowkfile, absPath
 	}
 
 	// File named invowkmod.cue → module (parent directory)
-	if base == "invowkmod.cue" {
+	if base == invowkmodCueFileName {
 		return pathTypeModule, filepath.Dir(absPath)
 	}
 
@@ -296,6 +307,8 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 
 	fmt.Fprintf(stdout, "%s Command tree validation passed\n", moduleSuccessIcon)
 
+	renderValidationInterpreterDiagnostics(stderr, collectInvowkfileInterpreterDiagnostics(inv, os.ReadFile))
+
 	cmdCount := len(commands)
 	fmt.Fprintln(stdout)
 	fmt.Fprintf(stdout, "%s Invowkfile is valid (%d command(s))\n", moduleSuccessIcon, cmdCount)
@@ -321,32 +334,40 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	if err != nil {
 		return fmt.Errorf("validation error: %w", err)
 	}
+	var interpreterDiagnostics []invowkfile.ScriptInterpreterDiagnostic
 
 	if result.ModuleName != "" {
 		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(result.ModuleName)))
 	}
 
 	// Deep validation: parse invowkfile and validate command tree if present.
-	if result.InvowkfilePath != "" {
-		inv, invErr := invowkfile.Parse(result.InvowkfilePath)
-		if invErr != nil {
-			result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
-		} else if inv != nil {
-			var commands []invowkfile.CommandTreeEntry
-			for name, cmdDef := range inv.FlattenCommands() {
-				commands = append(commands, invowkfile.CommandTreeEntry{
-					Name:     name,
-					FilePath: result.InvowkfilePath,
-					Command:  cmdDef,
-				})
-			}
-			if treeErr := invowkfile.ValidateCommandTree(commands); treeErr != nil {
-				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), string(result.InvowkfilePath))
+	if result.Valid && result.InvowkfilePath != "" {
+		loadedModule, loadErr := invowkmod.Load(types.FilesystemPath(absPath))
+		if loadErr != nil {
+			result.AddIssue(invowkmod.IssueTypeInvowkmod, loadErr.Error(), invowkmodCueFileName)
+		} else {
+			inv, invErr := invowkfile.ParseLoadedModuleInvowkfile(loadedModule)
+			if invErr != nil {
+				result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
+			} else if inv != nil {
+				interpreterDiagnostics = collectInvowkfileInterpreterDiagnostics(inv, os.ReadFile)
+				var commands []invowkfile.CommandTreeEntry
+				for name, cmdDef := range inv.FlattenCommands() {
+					commands = append(commands, invowkfile.CommandTreeEntry{
+						Name:     name,
+						FilePath: result.InvowkfilePath,
+						Command:  cmdDef,
+					})
+				}
+				if treeErr := invowkfile.ValidateCommandTree(commands); treeErr != nil {
+					result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), string(result.InvowkfilePath))
+				}
 			}
 		}
 	}
 
 	fmt.Fprintln(stdout)
+	renderValidationInterpreterDiagnostics(stderr, interpreterDiagnostics)
 
 	if result.Valid {
 		fmt.Fprintf(stdout, "%s Module is valid\n", moduleSuccessIcon)

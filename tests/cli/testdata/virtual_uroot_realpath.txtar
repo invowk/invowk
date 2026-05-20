@@ -18,7 +18,7 @@ cmds: [
 		name:        "uroot realpath"
 		description: "Test realpath path resolution"
 		implementations: [{
-			script: """
+			script: {content: """
 				mkdir -p $WORK/realpath-test/subdir
 				echo 'test' > $WORK/realpath-test/subdir/file.txt
 
@@ -33,7 +33,7 @@ cmds: [
 
 				rm -rf $WORK/realpath-test
 				echo '=== uroot realpath test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

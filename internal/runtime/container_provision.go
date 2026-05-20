@@ -288,7 +288,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 
 	var tempFilePath string
 
-	if ctx.SelectedImpl.IsScriptFile() {
+	if ctx.SelectedImpl.Script.IsFile() {
 		// File script: use the relative path within /workspace
 		scriptPath := ctx.SelectedScriptFilePath()
 		// Convert host path to container path (relative to /workspace)

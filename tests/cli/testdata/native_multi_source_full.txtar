@@ -32,12 +32,12 @@ cmds: [
 		description: "Command from main invowkfile"
 		implementations: [
 			{
-				script:    "echo 'from invowkfile'"
+				script: {content: "echo 'from invowkfile'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'from invowkfile'"
+				script: {content: "Write-Output 'from invowkfile'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -62,12 +62,12 @@ cmds: [
 		description: "Command from local module"
 		implementations: [
 			{
-				script:    "echo 'from local module'"
+				script: {content: "echo 'from local module'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'from local module'"
+				script: {content: "Write-Output 'from local module'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -88,7 +88,7 @@ modules: {
 		namespace:        "dep@1.0.0"
 		command_source_id: "dep"
 		module_id:        "dep"
-		content_hash:     "sha256:ebe6dbeee50a3f74055624ff5524ab02f4905d47bb2bffc20e74f9efc38c069d"
+		content_hash:     "sha256:15189e7bef58ce1c3a1845dbd01b57c32c0dbcfb498294cf27e5716dfd91034d"
 	}
 }
 
@@ -103,12 +103,12 @@ cmds: [
 		description: "Command from vendored module"
 		implementations: [
 			{
-				script:    "echo 'from vendored module'"
+				script: {content: "echo 'from vendored module'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'from vendored module'"
+				script: {content: "Write-Output 'from vendored module'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

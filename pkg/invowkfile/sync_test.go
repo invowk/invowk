@@ -200,7 +200,7 @@ func TestInvowkfileSchemaRejectsUnknownFieldsByClosure(t *testing.T) {
 module: "io.example.legacy"
 cmds: [{
 	name: "test"
-	implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -209,7 +209,7 @@ cmds: [{
 commands: []
 cmds: [{
 	name: "test"
-	implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -220,7 +220,7 @@ depends_on: {
 }
 cmds: [{
 	name: "test"
-	implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 		{
@@ -229,7 +229,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	future_field: true
-	implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
+	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
 }]`,
 		},
 	}
@@ -256,7 +256,7 @@ func TestDefaultValueLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -276,7 +276,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -295,7 +295,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -314,7 +314,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -365,7 +365,7 @@ cmds: [{
 	name: "test"
 	description: "` + escapedDesc + `"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -396,7 +396,7 @@ func TestCommandNameLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "` + name256 + `"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -411,7 +411,7 @@ cmds: [{
 cmds: [{
 	name: "` + name257 + `"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -432,7 +432,7 @@ cmds: [{
 	name: "test"
 	description: "` + desc10240 + `"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -448,7 +448,7 @@ cmds: [{
 	name: "test"
 	description: "` + desc10241 + `"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -468,7 +468,7 @@ func TestArgumentValidationLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -488,7 +488,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -513,7 +513,7 @@ func TestFlagValidationLengthConstraint(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -533,7 +533,7 @@ cmds: [{
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]

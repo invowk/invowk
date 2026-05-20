@@ -25,9 +25,9 @@ cmds: [
 		name:        "uroot seq error"
 		description: "Test seq error with missing operand"
 		implementations: [{
-			script: """
+			script: {content: """
 				seq
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -36,9 +36,9 @@ cmds: [
 		name:        "uroot ln error"
 		description: "Test ln error with missing file operand"
 		implementations: [{
-			script: """
+			script: {content: """
 				ln -s only_one_arg
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -47,9 +47,9 @@ cmds: [
 		name:        "uroot seq invalid"
 		description: "Test seq error with invalid argument"
 		implementations: [{
-			script: """
+			script: {content: """
 				seq abc
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

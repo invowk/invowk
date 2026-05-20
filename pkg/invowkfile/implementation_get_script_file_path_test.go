@@ -10,6 +10,11 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+func filesystemPathPtr(path string) *invowkfile.FilesystemPath {
+	file := invowkfile.FilesystemPath(path)
+	return &file
+}
+
 // TestGetScriptFilePathWithModule_Matrix exercises the seven canonical
 // cross-platform path vectors against Implementation.GetScriptFilePathWithModule.
 // This test is the runtime safety net for the A.2 fix from
@@ -21,7 +26,7 @@ import (
 //
 // GetScriptFilePathWithModule has two callable branches:
 //   - modulePath != "" (module context, the scenario A.2 fixed)
-//   - modulePath == "" (invowkfile-relative resolution)
+//   - modulePath == "" (non-module context, where script.file is disallowed)
 //
 // Both branches are exercised below. Platform-divergent vectors use
 // PassHostNativeAbs so the matrix delegates the pass-through-vs-join
@@ -36,9 +41,9 @@ func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 		invowkfileDir := t.TempDir()
 		invowkfilePath := invowkfile.FilesystemPath(filepath.Join(invowkfileDir, "invowkfile.cue"))
 
-		// Use a script-file-shaped content (extension makes IsScriptFile true).
+		// Use an explicit script file reference.
 		resolveFor := func(input string) (string, error) {
-			impl := &invowkfile.Implementation{Script: invowkfile.ScriptContent(input + ".sh")}
+			impl := &invowkfile.Implementation{Script: invowkfile.ImplementationScript{File: filesystemPathPtr(input + ".sh")}}
 			return string(impl.GetScriptFilePathWithModule(invowkfilePath, invowkfile.FilesystemPath(moduleDir))), nil
 		}
 
@@ -54,24 +59,33 @@ func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 		pathmatrix.Resolver(t, moduleDir, resolveFor, expect)
 	})
 
-	t.Run("no_module_path", func(t *testing.T) {
+	t.Run("no_module_path_returns_empty", func(t *testing.T) {
 		t.Parallel()
 		invowkfileDir := t.TempDir()
 		invowkfilePath := invowkfile.FilesystemPath(filepath.Join(invowkfileDir, "invowkfile.cue"))
 
 		resolveFor := func(input string) (string, error) {
-			impl := &invowkfile.Implementation{Script: invowkfile.ScriptContent(input + ".sh")}
+			impl := &invowkfile.Implementation{Script: invowkfile.ImplementationScript{File: filesystemPathPtr(input + ".sh")}}
 			return string(impl.GetScriptFilePathWithModule(invowkfilePath, "")), nil
 		}
 
+		wantEmpty := pathmatrix.Custom(func(t testing.TB, got string, gotErr error) {
+			t.Helper()
+			if gotErr != nil {
+				t.Fatalf("unexpected error: %v", gotErr)
+			}
+			if got != "" {
+				t.Fatalf("got %q, want empty path for non-module script.file", got)
+			}
+		})
 		expect := pathmatrix.Expectations{
-			UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute + ".sh"),
-			WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs + ".sh"),
-			WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted + ".sh"),
-			UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC + ".sh"),
-			SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal + ".sh"),
-			BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal + ".sh"),
-			ValidRelative:      pathmatrix.PassAny(nil),
+			UnixAbsolute:       wantEmpty,
+			WindowsDriveAbs:    wantEmpty,
+			WindowsRooted:      wantEmpty,
+			UNC:                wantEmpty,
+			SlashTraversal:     wantEmpty,
+			BackslashTraversal: wantEmpty,
+			ValidRelative:      wantEmpty,
 		}
 		pathmatrix.Resolver(t, invowkfileDir, resolveFor, expect)
 	})

@@ -30,7 +30,7 @@ cmds: [
 		name:        "uroot text ops"
 		description: "Test u-root text processing operations"
 		implementations: [{
-			script: """
+			script: {content: """
 				# Setup test files
 				mkdir -p /tmp/invowk-uroot-textops
 
@@ -76,7 +76,7 @@ cmds: [
 				rm -rf /tmp/invowk-uroot-textops
 
 				echo '=== uroot text ops test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

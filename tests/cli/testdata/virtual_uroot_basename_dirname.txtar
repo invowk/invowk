@@ -22,7 +22,7 @@ cmds: [
 		name:        "uroot paths"
 		description: "Test basename and dirname path operations"
 		implementations: [{
-			script: """
+			script: {content: """
 				# Test basename extracts filename
 				echo '=== basename ==='
 				basename /foo/bar/baz.txt
@@ -40,7 +40,7 @@ cmds: [
 				dirname /a/b/c.log
 
 				echo '=== uroot paths test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

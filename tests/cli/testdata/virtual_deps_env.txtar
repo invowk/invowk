@@ -31,7 +31,7 @@ cmds: [
 		name:        "deps env single"
 		description: "Command requiring a single environment variable"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Single Env Var Dependency Demo ==="
 				echo ""
 				echo "Required environment variable is set:"
@@ -39,7 +39,7 @@ cmds: [
 				echo ""
 				echo "The env_vars dependency validated that HOME exists in your"
 				echo "environment before the command started."
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -53,7 +53,7 @@ cmds: [
 		name:        "deps env multiple"
 		description: "Command requiring multiple environment variables"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "=== Multiple Env Var Dependencies Demo ==="
 				echo ""
 				echo "All required environment variables are set:"
@@ -63,7 +63,7 @@ cmds: [
 				echo ""
 				echo "Each entry in env_vars is validated independently."
 				echo "All entries must be satisfied for the command to run."
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

@@ -5,10 +5,18 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
+)
+
+const (
+	invalidCustomCheckScriptErrMsg       = "invalid custom check script"
+	missingCustomCheckScriptSourceErrMsg = "custom check script must set content or file"
+	mixedCustomCheckScriptSourceErrMsg   = "custom check script must not set both content and file"
 )
 
 var (
@@ -36,6 +44,12 @@ var (
 	ErrInvalidFilepathDependency = errors.New("invalid filepath dependency")
 	// ErrInvalidCustomCheck is the sentinel error wrapped by InvalidCustomCheckError.
 	ErrInvalidCustomCheck = errors.New("invalid custom check")
+	// ErrInvalidCustomCheckScript is the sentinel error wrapped by InvalidCustomCheckScriptError.
+	ErrInvalidCustomCheckScript = errors.New(invalidCustomCheckScriptErrMsg)
+	// ErrMissingCustomCheckScriptSource is returned when a custom check script selects no source.
+	ErrMissingCustomCheckScriptSource = errors.New(missingCustomCheckScriptSourceErrMsg)
+	// ErrMixedCustomCheckScriptSource is returned when a custom check script selects both sources.
+	ErrMixedCustomCheckScriptSource = errors.New(mixedCustomCheckScriptSourceErrMsg)
 	// ErrInvalidCustomCheckDependency is the sentinel error wrapped by InvalidCustomCheckDependencyError.
 	ErrInvalidCustomCheckDependency = errors.New("invalid custom check dependency")
 	// ErrInvalidDependsOn is the sentinel error wrapped by InvalidDependsOnError.
@@ -70,7 +84,7 @@ type (
 		Value CheckName
 	}
 
-	// ScriptContent holds inline script source code or a script file path.
+	// ScriptContent holds script source code for inline command content and dependency checks.
 	// The zero value ("") is valid. Non-zero values must not be whitespace-only.
 	//
 	//goplint:cue-fed-path
@@ -123,33 +137,51 @@ type (
 
 	//goplint:validate-all
 	//
+	// CustomCheckScript selects either inline custom-check script content or a module-contained file reference.
+	CustomCheckScript struct {
+		// Content contains inline custom-check script text.
+		Content ScriptContent `json:"content,omitempty"`
+		// File references a custom-check script file resolved from the source module.
+		File *FilesystemPath `json:"file,omitempty"`
+		// Interpreter specifies how to execute the resolved custom-check script content.
+		Interpreter InterpreterSpec `json:"interpreter,omitempty"`
+	}
+
+	// InvalidCustomCheckScriptError is returned when a CustomCheckScript has invalid fields.
+	// It wraps ErrInvalidCustomCheckScript for errors.Is() compatibility.
+	InvalidCustomCheckScriptError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// CustomCheck represents a custom validation script to verify system requirements
 	CustomCheck struct {
 		// Name is an identifier for this check (used for error reporting)
 		Name CheckName `json:"name"`
-		// CheckScript is the script to execute for validation
-		CheckScript ScriptContent `json:"check_script"`
-		// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
+		// Script selects inline shell content or a module-contained script file reference.
+		Script CustomCheckScript `json:"script"`
+		// ExpectedCode is the expected exit code from Script (optional, default: 0)
 		ExpectedCode *types.ExitCode `json:"expected_code,omitempty"`
-		// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
+		// ExpectedOutput is a regex pattern to match against Script output (optional)
 		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 	}
 
 	//goplint:validate-all
 	//
 	// CustomCheckDependency represents a custom check dependency that can be either:
-	// - A single CustomCheck (direct check with name, check_script, etc.)
+	// - A single CustomCheck (direct check with name, script, etc.)
 	// - An alternatives list of CustomChecks (OR semantics with early return)
 	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	CustomCheckDependency struct {
 		// Direct check fields (used when this is a single check)
 		// Name is an identifier for this check (used for error reporting)
 		Name CheckName `json:"name,omitempty"`
-		// CheckScript is the script to execute for validation
-		CheckScript ScriptContent `json:"check_script,omitempty"`
-		// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
+		// Script selects inline shell content or a module-contained script file reference.
+		Script CustomCheckScript `json:"script,omitzero"`
+		// ExpectedCode is the expected exit code from Script (optional, default: 0)
 		ExpectedCode *types.ExitCode `json:"expected_code,omitempty"`
-		// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
+		// ExpectedOutput is a regex pattern to match against Script output (optional)
 		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 
 		// Alternatives is a list of custom checks where any passing check satisfies the dependency
@@ -273,6 +305,67 @@ func (c *CustomCheckDependency) IsAlternatives() bool {
 	return len(c.Alternatives) > 0
 }
 
+// IsContent returns true when this custom-check script contains inline script text.
+func (s CustomCheckScript) IsContent() bool {
+	return s.Content != ""
+}
+
+// IsFile returns true when this custom-check script references a module-contained file.
+func (s CustomCheckScript) IsFile() bool {
+	return s.File != nil
+}
+
+// GetScriptFilePathWithModule returns the custom-check script file path resolved from the module root.
+// It returns an empty path for inline content or non-module contexts.
+func (s CustomCheckScript) GetScriptFilePathWithModule(modulePath FilesystemPath) FilesystemPath {
+	if !s.IsFile() || modulePath == "" {
+		return ""
+	}
+
+	script := strings.TrimSpace(string(*s.File))
+	if strings.HasPrefix(script, "/") {
+		return FilesystemPath(script) //goplint:ignore -- containment is validated before reads.
+	}
+	if filepath.IsAbs(script) {
+		return FilesystemPath(script) //goplint:ignore -- containment is validated before reads.
+	}
+	nativePath := filepath.FromSlash(script)
+	return fspath.JoinStr(modulePath, nativePath)
+}
+
+// ResolveWithFSAndModule resolves custom-check script content using the source module boundary.
+func (s CustomCheckScript) ResolveWithFSAndModule(modulePath FilesystemPath, readFile func(path string) ([]byte, error)) (ScriptContent, error) {
+	if err := s.Validate(); err != nil {
+		return "", err
+	}
+	if s.IsFile() {
+		if modulePath == "" {
+			return "", ErrScriptFileRequiresModule
+		}
+		scriptPath := s.GetScriptFilePathWithModule(modulePath)
+		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
+			return "", err
+		}
+		if readFile == nil {
+			return "", ErrScriptReaderRequired
+		}
+		content, err := readFile(string(scriptPath))
+		if err != nil {
+			return "", scriptFileReadError(*s.File, scriptPath, err)
+		}
+		return validateResolvedScriptContent("custom check script file content", ScriptContent(content)) //goplint:ignore -- validated before use.
+	}
+	return validateResolvedScriptContent("custom check inline script content", s.Content)
+}
+
+// ResolveInterpreterFromScript resolves the interpreter for this custom-check
+// script using the provided resolved script content.
+//
+//goplint:ignore -- interpreter resolution consumes already-validated custom-check script bytes.
+func (s CustomCheckScript) ResolveInterpreterFromScript(scriptContent string) ShebangInfo {
+	return ResolveInterpreter(s.Interpreter, scriptContent)
+}
+
 // GetChecks returns the list of CustomCheck to validate.
 // If Alternatives is set, returns those; otherwise returns a single-element list with the direct check.
 func (c *CustomCheckDependency) GetChecks() []CustomCheck {
@@ -282,7 +375,7 @@ func (c *CustomCheckDependency) GetChecks() []CustomCheck {
 	// Return as a single-element list
 	return []CustomCheck{{
 		Name:           c.Name,
-		CheckScript:    c.CheckScript,
+		Script:         c.Script,
 		ExpectedCode:   c.ExpectedCode,
 		ExpectedOutput: c.ExpectedOutput,
 	}}
@@ -651,17 +744,47 @@ func (f FilepathDependency) Validate() error {
 	return nil
 }
 
+// Validate returns nil when the custom-check script selects exactly one valid source.
+func (s CustomCheckScript) Validate() error {
+	hasContent := s.Content != ""
+	hasFile := s.File != nil
+	var errs []error
+	switch {
+	case hasContent && hasFile:
+		errs = append(errs, ErrMixedCustomCheckScriptSource)
+	case !hasContent && !hasFile:
+		errs = append(errs, ErrMissingCustomCheckScriptSource)
+	}
+	if hasContent {
+		if err := s.Content.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if hasFile {
+		if err := s.File.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	appendOptionalValidation(&errs, s.Interpreter, s.Interpreter != "")
+	if len(errs) > 0 {
+		return &InvalidCustomCheckScriptError{FieldErrors: errs}
+	}
+	return nil
+}
+
+func (s CustomCheckScript) hasSource() bool {
+	return s.IsContent() || s.IsFile()
+}
+
 // Validate returns nil if the CustomCheck has valid fields.
-// Delegates to Name.Validate() (nonzero), CheckScript.Validate() (required),
+// Delegates to Name.Validate() (nonzero), Script.Validate() (required),
 // ExpectedCode.Validate() (when non-nil), and ExpectedOutput.Validate() (zero-valid).
 func (c CustomCheck) Validate() error {
 	var errs []error
 	if err := c.Name.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if c.CheckScript == "" {
-		errs = append(errs, &InvalidScriptContentError{Value: c.CheckScript})
-	} else if err := c.CheckScript.Validate(); err != nil {
+	if err := c.Script.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if c.ExpectedCode != nil {
@@ -697,15 +820,11 @@ func (c CustomCheckDependency) Validate() error {
 		return nil
 	}
 
-	if c.Name == "" && c.CheckScript == "" {
+	if c.Name == "" && !c.Script.hasSource() {
 		errs = append(errs, ErrMissingDependencyAlternatives)
 	}
 	appendFieldError(&errs, c.Name.Validate())
-	if c.CheckScript == "" {
-		appendFieldError(&errs, &InvalidScriptContentError{Value: c.CheckScript})
-	} else {
-		appendFieldError(&errs, c.CheckScript.Validate())
-	}
+	appendFieldError(&errs, c.Script.Validate())
 	if c.ExpectedCode != nil {
 		appendFieldError(&errs, c.ExpectedCode.Validate())
 	}
@@ -719,7 +838,7 @@ func (c CustomCheckDependency) Validate() error {
 }
 
 func (c CustomCheckDependency) hasDirectFields() bool {
-	return c.Name != "" || c.CheckScript != "" || c.ExpectedCode != nil || c.ExpectedOutput != ""
+	return c.Name != "" || c.Script.hasSource() || c.ExpectedCode != nil || c.ExpectedOutput != ""
 }
 
 // Validate returns nil if the DependsOn has valid fields.
@@ -791,6 +910,14 @@ func (e *InvalidCustomCheckError) Error() string {
 
 func (e *InvalidCustomCheckError) Unwrap() error {
 	return errors.Join(ErrInvalidCustomCheck, errors.Join(e.FieldErrors...))
+}
+
+func (e *InvalidCustomCheckScriptError) Error() string {
+	return types.FormatFieldErrors("custom check script", e.FieldErrors)
+}
+
+func (e *InvalidCustomCheckScriptError) Unwrap() error {
+	return errors.Join(ErrInvalidCustomCheckScript, errors.Join(e.FieldErrors...))
 }
 
 func (e *InvalidCustomCheckDependencyError) Error() string {

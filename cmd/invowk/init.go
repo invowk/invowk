@@ -97,7 +97,7 @@ func generateInvowkfile(template string) string {
 					Description: helloDescription,
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+							Script:    invowkfile.ImplementationScript{Content: `echo "Hello, $INVOWK_ARG_NAME!"`},
 							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
@@ -122,7 +122,7 @@ func generateInvowkfile(template string) string {
 					Description: helloDescription,
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:    `echo "Hello, World!"`,
+							Script:    invowkfile.ImplementationScript{Content: `echo "Hello, World!"`},
 							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
@@ -133,7 +133,7 @@ func generateInvowkfile(template string) string {
 					Description: "Print a formal greeting with a title",
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:    `echo "$INVOWK_FLAG_TITLE $INVOWK_ARG_NAME, welcome!"`,
+							Script:    invowkfile.ImplementationScript{Content: `echo "$INVOWK_FLAG_TITLE $INVOWK_ARG_NAME, welcome!"`},
 							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
@@ -155,7 +155,7 @@ func generateInvowkfile(template string) string {
 					Description: "Run all greeting commands",
 					Implementations: []invowkfile.Implementation{
 						{
-							Script:    `echo "All greetings complete!"`,
+							Script:    invowkfile.ImplementationScript{Content: `echo "All greetings complete!"`},
 							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
@@ -199,22 +199,22 @@ func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfi
 		Description: helloDescription,
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+				Script:    invowkfile.ImplementationScript{Content: `echo "Hello, $INVOWK_ARG_NAME!"`},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: unixPlatforms,
 			},
 			{
-				Script:    `Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"`,
+				Script:    invowkfile.ImplementationScript{Content: `Write-Output "Hello, $($env:INVOWK_ARG_NAME)!"`},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformWindows}},
 			},
 			{
-				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
+				Script:    invowkfile.ImplementationScript{Content: `echo "Hello, $INVOWK_ARG_NAME!"`},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			},
 			{
-				Script:    `echo "Hello from container, $INVOWK_ARG_NAME!"`,
+				Script:    invowkfile.ImplementationScript{Content: `echo "Hello from container, $INVOWK_ARG_NAME!"`},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
 				Platforms: linuxOnly,
 			},

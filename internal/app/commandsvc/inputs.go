@@ -118,12 +118,17 @@ func requestPlatform(req Request) invowkfile.Platform {
 // cache avoids redundant filesystem scans.
 func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, session RuntimeSession, userEnv map[string]string) error {
 	runtimeProbe := session.DependencyProbe(execCtx)
-	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, dependencyExecutionContext(execCtx), userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
+	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, s.dependencyExecutionContext(execCtx), userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
 }
 
-func dependencyExecutionContext(execCtx *runtime.ExecutionContext) deps.ExecutionContext {
+func (s *Service) dependencyExecutionContext(execCtx *runtime.ExecutionContext) deps.ExecutionContext {
 	var implDeps *invowkfile.DependsOn
 	var runtimeDeps *invowkfile.DependsOn
+	var sourceModulePath *invowkfile.FilesystemPath
+	if execCtx.Invowkfile != nil && execCtx.Invowkfile.ModulePath != "" {
+		modulePath := execCtx.Invowkfile.ModulePath
+		sourceModulePath = &modulePath
+	}
 	if execCtx.SelectedImpl != nil {
 		implDeps = execCtx.SelectedImpl.DependsOn
 		if rc := invowkfile.FindRuntimeConfig(execCtx.SelectedImpl.Runtimes, execCtx.SelectedRuntime); rc != nil {
@@ -136,6 +141,8 @@ func dependencyExecutionContext(execCtx *runtime.ExecutionContext) deps.Executio
 		SelectedRuntime:         execCtx.SelectedRuntime,
 		ImplementationDependsOn: implDeps,
 		RuntimeDependsOn:        runtimeDeps,
+		SourceModulePath:        sourceModulePath,
+		ReadScriptFile:          s.scriptFileReader,
 		IO: deps.IOContext{
 			Stdout: execCtx.IO.Stdout,
 			Stderr: execCtx.IO.Stderr,

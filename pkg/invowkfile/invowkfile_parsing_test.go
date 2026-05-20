@@ -10,60 +10,40 @@ import (
 	"testing"
 )
 
-func TestIsScriptFile(t *testing.T) {
+func TestImplementationScriptExplicitMode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		script   string
-		expected bool
+		name       string
+		script     ImplementationScript
+		wantFile   bool
+		wantInline bool
 	}{
-		// Inline scripts (should return false)
-		{"empty script", "", false},
-		{"simple inline", "echo hello", false},
-		{"multi-line inline", "echo hello\necho world", false},
-		{"inline with semicolons", "echo hello; echo world", false},
-		{"inline command", "go build ./...", false},
-
-		// File paths (should return true)
-		{"relative path with ./", "./script.sh", true},
-		{"relative path with ../", "../scripts/build.sh", true},
-		{"absolute unix path", "/usr/local/bin/script.sh", true},
-		{"shell script extension", "build.sh", true},
-		{"bash script extension", "build.bash", true},
-		{"powershell extension", "build.ps1", true},
-		{"batch file extension", "deploy.bat", true},
-		{"cmd file extension", "deploy.cmd", true},
-		{"python script", "script.py", true},
-		{"ruby script", "script.rb", true},
-		{"perl script", "script.pl", true},
-		{"zsh script", "script.zsh", true},
-		{"fish script", "script.fish", true},
-		{"relative path to script", "scripts/build.sh", true},
-
-		// Edge cases
-		{"script with .sh in name but not extension", "my.sh.backup", false},
-		{"script path with spaces", "./my script.sh", true},
-		{"uppercase extension", "BUILD.SH", true},
+		{"simple inline", ImplementationScript{Content: "echo hello"}, false, true},
+		{"file-like inline content", ImplementationScript{Content: "scripts/build.sh"}, false, true},
+		{"extensionless file", ImplementationScript{File: filesystemPathPtr("scripts/build")}, true, false},
+		{"relative path with ./", ImplementationScript{File: filesystemPathPtr("./script.sh")}, true, false},
+		{"absolute unix path", ImplementationScript{File: filesystemPathPtr("/usr/local/bin/script.sh")}, true, false},
+		{"uppercase file extension is still explicit", ImplementationScript{File: filesystemPathPtr("BUILD.SH")}, true, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-			result := s.IsScriptFile()
-			if result != tt.expected {
-				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
+			if got := tt.script.IsFile(); got != tt.wantFile {
+				t.Errorf("IsFile() = %v, want %v for script %#v", got, tt.wantFile, tt.script)
+			}
+			if got := tt.script.IsContent(); got != tt.wantInline {
+				t.Errorf("IsContent() = %v, want %v for script %#v", got, tt.wantInline, tt.script)
 			}
 		})
 	}
 }
 
-func TestGetScriptFilePath(t *testing.T) {
+func TestGetScriptFilePath_NonModuleReturnsEmpty(t *testing.T) {
 	t.Parallel()
 
-	// Use platform-native paths for testing via t.TempDir()
 	baseDir := t.TempDir()
 	invowkfilePath := filepath.Join(baseDir, "invowkfile.cue")
 	absScriptPath := filepath.Join(t.TempDir(), "bin", "script.sh")
@@ -71,30 +51,27 @@ func TestGetScriptFilePath(t *testing.T) {
 	tests := []struct {
 		name           string
 		script         string
-		expectedPath   string
 		expectedResult bool // true if path should be non-empty
 	}{
-		{"inline script", "echo hello", "", false},
-		{"relative path", "./scripts/build.sh", filepath.Join(baseDir, "scripts", "build.sh"), true},
-		{"absolute path", absScriptPath, absScriptPath, true},
-		{"simple filename", "build.sh", filepath.Join(baseDir, "build.sh"), true},
-		{"nested relative path", "scripts/deploy/prod.sh", filepath.Join(baseDir, "scripts", "deploy", "prod.sh"), true},
+		{"inline script", "echo hello", false},
+		{"relative file", "./scripts/build.sh", true},
+		{"absolute file", absScriptPath, true},
+		{"simple file", "build.sh", true},
+		{"nested relative file", "scripts/deploy/prod.sh", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-			result := s.GetScriptFilePath(FilesystemPath(invowkfilePath))
+			script := ImplementationScript{Content: ScriptContent(tt.script)}
 			if tt.expectedResult {
-				if string(result) != tt.expectedPath {
-					t.Errorf("GetScriptFilePath() = %q, want %q", result, tt.expectedPath)
-				}
-			} else {
-				if result != "" {
-					t.Errorf("GetScriptFilePath() = %q, want empty string", result)
-				}
+				script = ImplementationScript{File: filesystemPathPtr(tt.script)}
+			}
+			s := &Implementation{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result := s.GetScriptFilePath(FilesystemPath(invowkfilePath))
+			if result != "" {
+				t.Errorf("GetScriptFilePath() = %q, want empty string for non-module context", result)
 			}
 		})
 	}
@@ -123,7 +100,7 @@ func TestResolveScript_Inline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			s := &Implementation{Script: ImplementationScript{Content: ScriptContent(tt.script)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result, err := s.ResolveScript(fakeInvowkfilePath)
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
@@ -150,12 +127,13 @@ func TestResolveScript_FromFile(t *testing.T) {
 
 	// Create invowkfile path
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	modulePath := FilesystemPath(tmpDir)
 
 	t.Run("resolve script from file", func(t *testing.T) {
 		t.Parallel()
 
-		s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
+		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./test.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -168,8 +146,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	t.Run("resolve script with absolute path", func(t *testing.T) {
 		t.Parallel()
 
-		s := &Implementation{Script: ScriptContent(scriptPath), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
+		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(scriptPath)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -182,8 +160,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	t.Run("error on missing script file", func(t *testing.T) {
 		t.Parallel()
 
-		s := &Implementation{Script: "./nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
+		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./nonexistent.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		_, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
 		}
@@ -214,12 +192,13 @@ func TestResolveScriptWithFS(t *testing.T) {
 	}
 
 	invowkfilePath := filepath.Join(projectDir, "invowkfile.cue")
+	modulePath := FilesystemPath(projectDir)
 
 	t.Run("resolve script from virtual fs", func(t *testing.T) {
 		t.Parallel()
 
-		s := &Implementation{Script: "./scripts/build.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
+		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./scripts/build.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -233,7 +212,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 	t.Run("inline script bypasses fs", func(t *testing.T) {
 		t.Parallel()
 
-		s := &Implementation{Script: "echo hello world", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		s := &Implementation{Script: ImplementationScript{Content: "echo hello world"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
@@ -247,8 +226,8 @@ func TestResolveScriptWithFS(t *testing.T) {
 	t.Run("error on missing file in virtual fs", func(t *testing.T) {
 		t.Parallel()
 
-		s := &Implementation{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
+		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./scripts/nonexistent.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		_, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, readFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
 		}
@@ -266,13 +245,15 @@ cmds: [
 		description: "Test multi-line script"
 		implementations: [
 			{
-				script: """
-					#!/bin/bash
-					set -e
-					echo "Line 1"
-					echo "Line 2"
-					echo "Line 3"
-					"""
+					script: {
+						content: """
+							#!/bin/bash
+							set -e
+							echo "Line 1"
+							echo "Line 2"
+							echo "Line 3"
+							"""
+					}
 
 				runtimes: [{name: "native"}]
 				platforms: [{name: "linux"}]
@@ -303,7 +284,7 @@ cmds: [
 	if len(cmd.Implementations) == 0 {
 		t.Fatal("Expected at least 1 script")
 	}
-	if !strings.Contains(string(cmd.Implementations[0].Script), "Line 1") || !strings.Contains(string(cmd.Implementations[0].Script), "Line 2") {
+	if !strings.Contains(string(cmd.Implementations[0].Script.Content), "Line 1") || !strings.Contains(string(cmd.Implementations[0].Script.Content), "Line 2") {
 		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Implementations[0].Script)
 	}
 
@@ -360,7 +341,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 		description: "Test command"
 		implementations: [
 			{
-				script: "echo test"
+					script: {content: "echo test"}
 				runtimes: [{name: "container", containerfile: "` + cueContainerfile + `"}]
 				platforms: [{name: "linux"}]
 			}
@@ -412,10 +393,11 @@ func TestResolveScriptWithFSReadsCurrentFileContent(t *testing.T) {
 	}
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+	modulePath := FilesystemPath(tmpDir)
+	s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./test.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 
 	// First resolution.
-	result1, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
+	result1, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
 	if err != nil {
 		t.Fatalf("First ResolveScriptWithFS() error = %v", err)
 	}
@@ -429,7 +411,7 @@ func TestResolveScriptWithFSReadsCurrentFileContent(t *testing.T) {
 	}
 
 	// Second resolution reads through the caller-owned filesystem boundary.
-	result2, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
+	result2, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
 	if err != nil {
 		t.Fatalf("Second ResolveScriptWithFS() error = %v", err)
 	}

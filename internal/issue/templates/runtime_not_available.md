@@ -21,7 +21,7 @@ cmds: [
     name: "build"
     implementations: [
       {
-        script: "echo 'hello'"
+        script: {content: "echo 'hello'"}
           runtimes: [{name: "virtual"}]
       }
     ]

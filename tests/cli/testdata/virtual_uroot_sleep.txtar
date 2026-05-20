@@ -16,14 +16,14 @@ cmds: [
 		name:        "uroot sleep"
 		description: "Test sleep command execution"
 		implementations: [{
-			script: """
+			script: {content: """
 				# Test sleep with zero duration (instant return)
 				echo '=== sleep zero ==='
 				sleep 0
 				echo 'sleep completed'
 
 				echo '=== uroot sleep test complete ==='
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

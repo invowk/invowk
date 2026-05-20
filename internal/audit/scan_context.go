@@ -22,6 +22,7 @@ import (
 const (
 	invowkfileCUEFileName     = "invowkfile.cue"
 	invowkfileNoExtFileName   = "invowkfile"
+	invowkmodCueFileName      = "invowkmod.cue"
 	invowkfileParseDiagFormat = "invowkfile parse error: %s: %v"
 
 	diagnosticInvowkfileParseError  DiagnosticCode = "invowkfile_parse_error"
@@ -97,7 +98,7 @@ type (
 		ModulePath  types.FilesystemPath
 		CommandName invowkfile.CommandName
 		ImplIndex   int
-		Script      invowkfile.ScriptContent
+		Script      invowkfile.ImplementationScript
 		IsFile      bool
 		Runtimes    []invowkfile.RuntimeConfig
 		ScriptPath  types.FilesystemPath
@@ -213,7 +214,7 @@ func (r ScriptRef) Content() string {
 		return r.resolvedContent
 	}
 	if !r.IsFile {
-		return string(r.Script)
+		return string(r.Script.Content)
 	}
 	return ""
 }
@@ -274,6 +275,7 @@ func (sc *ScanContext) addDiagnostic(code DiagnosticCode, message string, path t
 // path, producing an immutable snapshot for checkers to analyze.
 //
 // Detection logic:
+//   - If path points to invowkmod.cue or invowkfile.cue inside "*.invowkmod": single module
 //   - If path ends with ".cue": standalone invowkfile
 //   - If path ends with ".invowkmod": single module
 //   - Otherwise: directory tree scan using discovery
@@ -291,21 +293,8 @@ func BuildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *c
 		rootPath: absPath,
 	}
 
-	// filepath.Abs removes trailing separators and resolves "." components;
-	// suffix checks on the raw scanPath would fail for paths like "./foo.invowkmod/".
-	switch {
-	case strings.HasSuffix(string(absPath), ".cue"):
-		if loadErr := sc.loadStandaloneInvowkfile(ctx, absPath); loadErr != nil {
-			return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
-		}
-	case strings.HasSuffix(string(absPath), invowkmod.ModuleSuffix):
-		if loadErr := sc.loadSingleModule(ctx, absPath); loadErr != nil {
-			return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
-		}
-	default:
-		if loadErr := sc.loadDirectoryTree(ctx, absPath, cfg, includeGlobal); loadErr != nil {
-			return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
-		}
+	if loadErr := sc.loadScanTarget(ctx, absPath, cfg, includeGlobal); loadErr != nil {
+		return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
 	}
 
 	if len(sc.invowkfiles) == 0 && len(sc.modules) == 0 {
@@ -320,6 +309,35 @@ func BuildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *c
 	sc.scripts = scripts
 
 	return sc, nil
+}
+
+func (sc *ScanContext) loadScanTarget(ctx context.Context, absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
+	// filepath.Abs removes trailing separators and resolves "." components;
+	// suffix checks on the raw scanPath would fail for paths like "./foo.invowkmod/".
+	if modulePath, ok := modulePathForDirectModuleFile(absPath); ok {
+		return sc.loadSingleModule(ctx, modulePath)
+	}
+
+	switch {
+	case strings.HasSuffix(string(absPath), ".cue"):
+		return sc.loadStandaloneInvowkfile(ctx, absPath)
+	case strings.HasSuffix(string(absPath), invowkmod.ModuleSuffix):
+		return sc.loadSingleModule(ctx, absPath)
+	default:
+		return sc.loadDirectoryTree(ctx, absPath, cfg, includeGlobal)
+	}
+}
+
+func modulePathForDirectModuleFile(absPath types.FilesystemPath) (types.FilesystemPath, bool) {
+	base := filepath.Base(string(absPath))
+	if base != invowkfileCUEFileName && base != invowkmodCueFileName {
+		return "", false
+	}
+	parent := filepath.Dir(string(absPath))
+	if !strings.HasSuffix(filepath.Base(parent), invowkmod.ModuleSuffix) {
+		return "", false
+	}
+	return types.FilesystemPath(parent), true //goplint:ignore -- derived from already normalized absolute path.
 }
 
 func scanContextErr(ctx context.Context) error {
@@ -411,7 +429,7 @@ func (sc *ScanContext) loadScannedModule(
 	invPath := fspath.JoinStr(absPath, invowkfileCUEFileName)
 	if sm.Invowkfile == nil {
 		if _, statErr := os.Stat(string(invPath)); statErr == nil {
-			parsed, parseErr := invowkfile.Parse(invPath)
+			parsed, parseErr := invowkfile.ParseLoadedModuleInvowkfile(mod)
 			if parseErr == nil {
 				sm.Invowkfile = parsed
 			} else {
@@ -758,7 +776,7 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 				return nil, err
 			}
 			impl := &cmd.Implementations[i]
-			isFile := impl.IsScriptFile()
+			isFile := impl.Script.IsFile()
 			ref := ScriptRef{
 				SurfaceID:   surfaceID,
 				SurfaceKey:  surfaceKey,
@@ -787,7 +805,7 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 				ref.FileStatErr = facts.StatErr
 				ref.resolvedContent = facts.Content
 			} else {
-				ref.resolvedContent = string(impl.Script)
+				ref.resolvedContent = string(impl.Script.Content)
 			}
 
 			refs = append(refs, ref)

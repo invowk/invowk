@@ -45,7 +45,7 @@ cmds: [
 		}
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=========================================="
 					echo "  Basic env.files Demo"
 					echo "=========================================="
@@ -61,12 +61,12 @@ cmds: [
 					echo "command execution. Paths are relative to the"
 					echo "invowkfile location."
 					echo "=========================================="
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=========================================="
 					Write-Output "  Basic env.files Demo"
 					Write-Output "=========================================="
@@ -82,7 +82,7 @@ cmds: [
 					Write-Output "command execution. Paths are relative to the"
 					Write-Output "invowkfile location."
 					Write-Output "=========================================="
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -100,7 +100,7 @@ cmds: [
 		}
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=========================================="
 					echo "  env.files + env.vars Demo"
 					echo "=========================================="
@@ -116,12 +116,12 @@ cmds: [
 					echo "Precedence: env.files < env.vars"
 					echo "Inline vars always take priority over files."
 					echo "=========================================="
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=========================================="
 					Write-Output "  env.files + env.vars Demo"
 					Write-Output "=========================================="
@@ -137,7 +137,7 @@ cmds: [
 					Write-Output "Precedence: env.files < env.vars"
 					Write-Output "Inline vars always take priority over files."
 					Write-Output "=========================================="
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

@@ -4,7 +4,6 @@ package commandadapters
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
+	invowkruntime "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
@@ -24,7 +24,9 @@ import (
 	"golang.org/x/term"
 )
 
-const cmdWaitDelay = 10 * time.Second
+const (
+	cmdWaitDelay = 10 * time.Second
+)
 
 type (
 	dependencyHostProbe struct{}
@@ -37,6 +39,11 @@ type (
 // NewDependencyHostProbe creates the production host probe for dependency checks.
 func NewDependencyHostProbe() deps.HostProbe {
 	return dependencyHostProbe{}
+}
+
+// NewDependencyScriptFileReader returns the production reader for module-contained script files.
+func NewDependencyScriptFileReader() deps.ScriptFileReader {
+	return os.ReadFile
 }
 
 // NewDependencyLockProvider creates the production lock provider for command scope checks.
@@ -102,27 +109,69 @@ func (dependencyHostProbe) CheckFilepath(displayPath, resolvedPath types.Filesys
 	return nil
 }
 
-// RunCustomCheck runs a custom check script using the native shell.
+// RunCustomCheck runs a custom check script in the host dependency environment.
 func (dependencyHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
-	cmd := exec.CommandContext(ctx, "sh", "-c", string(check.CheckScript))
-	cmd.WaitDelay = cmdWaitDelay
-	output, err := cmd.CombinedOutput()
-	outputText := deps.CustomCheckOutput(strings.TrimSpace(string(output)))
+	result := runHostCustomCheck(ctx, check)
+	outputText := deps.CustomCheckOutput(strings.TrimSpace(result.Output + result.ErrOutput))
 	if validateErr := outputText.Validate(); validateErr != nil {
 		return deps.CustomCheckResult{}, fmt.Errorf("custom check output: %w", validateErr)
 	}
+	if result.Error != nil {
+		return deps.CustomCheckResult{}, fmt.Errorf(dependencyErrorFormat, check.Name, result.Error)
+	}
+	return deps.NewCustomCheckResult(outputText, result.ExitCode)
+}
 
-	if err == nil {
-		return deps.NewCustomCheckResult(outputText, 0)
+func runHostCustomCheck(ctx context.Context, check invowkfile.CustomCheck) *invowkruntime.Result {
+	scriptText := string(check.Script.Content)
+	interpInfo := check.Script.ResolveInterpreterFromScript(scriptText)
+	if interpInfo.Found && !invowkfile.IsShellInterpreter(interpInfo.Interpreter) {
+		return runHostCustomCheckNative(ctx, check.Script)
 	}
-	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-		exitCode := types.ExitCode(exitErr.ExitCode())
-		if validateErr := exitCode.Validate(); validateErr != nil {
-			return deps.CustomCheckResult{}, fmt.Errorf("exit code validation: %w", validateErr)
+	return runHostCustomCheckVirtual(ctx, check.Script)
+}
+
+func runHostCustomCheckNative(ctx context.Context, script invowkfile.CustomCheckScript) *invowkruntime.Result {
+	rt := invowkruntime.NewNativeRuntime(invowkruntime.WithEnvBuilder(hostCustomCheckEnvBuilder()))
+	return rt.ExecuteCapture(hostCustomCheckExecutionContext(ctx, script, invowkfile.RuntimeNative))
+}
+
+func runHostCustomCheckVirtual(ctx context.Context, script invowkfile.CustomCheckScript) *invowkruntime.Result {
+	rt := invowkruntime.NewVirtualRuntime(false, invowkruntime.WithVirtualEnvBuilder(hostCustomCheckEnvBuilder()))
+	return rt.ExecuteCapture(hostCustomCheckExecutionContext(ctx, script, invowkfile.RuntimeVirtual))
+}
+
+func hostCustomCheckExecutionContext(ctx context.Context, script invowkfile.CustomCheckScript, mode invowkfile.RuntimeMode) *invowkruntime.ExecutionContext {
+	return &invowkruntime.ExecutionContext{
+		Context:         ctx,
+		Invowkfile:      &invowkfile.Invowkfile{FilePath: "."},
+		Command:         &invowkfile.Command{},
+		SelectedRuntime: mode,
+		SelectedImpl: &invowkfile.Implementation{
+			Script: invowkfile.ImplementationScript{
+				Content:     script.Content,
+				Interpreter: script.Interpreter,
+			},
+			Runtimes:  []invowkfile.RuntimeConfig{{Name: mode}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		},
+	}
+}
+
+func hostCustomCheckEnvBuilder() invowkruntime.EnvBuilder {
+	return &invowkruntime.MockEnvBuilder{Env: hostCustomCheckEnvMap()}
+}
+
+//goplint:ignore -- os/exec environment is represented as primitive string keys and values.
+func hostCustomCheckEnvMap() map[string]string {
+	env := make(map[string]string)
+	for _, entry := range os.Environ() {
+		name, value, ok := strings.Cut(entry, "=")
+		if ok {
+			env[name] = value
 		}
-		return deps.NewCustomCheckResult(outputText, exitCode)
 	}
-	return deps.CustomCheckResult{}, fmt.Errorf(dependencyErrorFormat, check.Name, err)
+	return env
 }
 
 // LoadCommandScopeLock loads lock-file state for command-scope validation.

@@ -64,14 +64,8 @@ func validateRuntimePreflight(runtime *ast.StructLit, path string) ValidationErr
 }
 
 //goplint:ignore -- AST preflight helper builds display-only validation paths from parsed CUE syntax.
-func validateNonContainerRuntimePreflight(runtime *ast.StructLit, path string, mode RuntimeMode) ValidationErrors {
+func validateNonContainerRuntimePreflight(runtime *ast.StructLit, path string, _ RuntimeMode) ValidationErrors {
 	var errs ValidationErrors
-	if mode == RuntimeVirtual && hasField(runtime, "interpreter") {
-		errs = append(errs, runtimePreflightError(
-			path+".interpreter",
-			"interpreter is not valid for virtual runtime; virtual runtime always uses mvdan/sh",
-		))
-	}
 	for field := range nonContainerRuntimeFields {
 		if hasField(runtime, field) {
 			errs = append(errs, runtimePreflightError(

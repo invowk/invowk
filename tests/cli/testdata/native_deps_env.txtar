@@ -32,7 +32,7 @@ cmds: [
 		description: "Command requiring a single environment variable"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Single Env Var Dependency Demo ==="
 					echo ""
 					echo "Required environment variable is set:"
@@ -40,12 +40,12 @@ cmds: [
 					echo ""
 					echo "The env_vars dependency validated that HOME exists in your"
 					echo "environment before the command started."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Single Env Var Dependency Demo ==="
 					Write-Output ""
 					Write-Output "Required environment variable is set:"
@@ -53,7 +53,7 @@ cmds: [
 					Write-Output ""
 					Write-Output "The env_vars dependency validated that HOME exists in your"
 					Write-Output "environment before the command started."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -69,7 +69,7 @@ cmds: [
 		description: "Command requiring multiple environment variables"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					echo "=== Multiple Env Var Dependencies Demo ==="
 					echo ""
 					echo "All required environment variables are set:"
@@ -79,12 +79,12 @@ cmds: [
 					echo ""
 					echo "Each entry in env_vars is validated independently."
 					echo "All entries must be satisfied for the command to run."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: """
+				script: {content: """
 					Write-Output "=== Multiple Env Var Dependencies Demo ==="
 					Write-Output ""
 					Write-Output "All required environment variables are set:"
@@ -94,7 +94,7 @@ cmds: [
 					Write-Output ""
 					Write-Output "Each entry in env_vars is validated independently."
 					Write-Output "All entries must be satisfied for the command to run."
-					"""
+					"""}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

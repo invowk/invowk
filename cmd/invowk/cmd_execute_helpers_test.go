@@ -81,7 +81,7 @@ func runtimeContextForMode(t testing.TB, mode invowkfile.RuntimeMode) *runtime.E
 		Commands: []invowkfile.Command{{
 			Name: "hello",
 			Implementations: []invowkfile.Implementation{{
-				Script:    "true",
+				Script:    invowkfile.ImplementationScript{Content: "true"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: mode}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			}},

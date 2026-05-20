@@ -51,6 +51,11 @@ func Parse(path FilesystemPath) (*Invowkfile, error) {
 // Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
 // compile schema → compile user data → validate and decode.
 func ParseBytes(data []byte, path string) (*Invowkfile, error) {
+	return parseBytes(data, path, "", nil)
+}
+
+//goplint:ignore -- internal CUE parser boundary reuses public ParseBytes raw bytes and filename.
+func parseBytes(data []byte, path string, modulePath FilesystemPath, metadata *ModuleMetadata) (*Invowkfile, error) {
 	if errs := runtimeSchemaPreflightValidationErrors(data, path); len(errs) > 0 {
 		return nil, errs
 	}
@@ -71,6 +76,13 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 		return nil, fmt.Errorf("invowkfile path: %w", err)
 	}
 	inv.FilePath = filePath
+	if modulePath != "" {
+		if err := modulePath.Validate(); err != nil {
+			return nil, fmt.Errorf("module path: %w", err)
+		}
+		inv.ModulePath = modulePath
+		inv.Metadata = metadata
+	}
 
 	// Validate and collect all errors
 	if errs := inv.Validate(); len(errs) > 0 {
@@ -132,18 +144,16 @@ func ParseLoadedModuleInvowkfile(module *Module) (*Invowkfile, error) {
 		return nil, ErrModuleInvowkfileUnavailable
 	}
 
-	inv, err := Parse(module.InvowkfilePath())
+	data, err := os.ReadFile(string(module.InvowkfilePath()))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read invowkfile at %s: %w", module.InvowkfilePath(), err)
 	}
 	metadata, err := NewModuleMetadataFromInvowkmod(module.Metadata)
 	if err != nil {
 		return nil, fmt.Errorf("module metadata at %s: %w", module.Path, err)
 	}
 
-	inv.Metadata = metadata
-	inv.ModulePath = module.Path
-	return inv, nil
+	return parseBytes(data, string(module.InvowkfilePath()), module.Path, metadata)
 }
 
 // ParseEnvInheritMode parses a string into an EnvInheritMode.

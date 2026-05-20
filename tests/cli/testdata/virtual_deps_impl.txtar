@@ -20,7 +20,7 @@ cmds: [
 	{
 		name: "impl deps satisfied"
 		implementations: [{
-			script:    "echo 'implementation deps passed'"
+			script: {content: "echo 'implementation deps passed'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			depends_on: {
@@ -31,7 +31,7 @@ cmds: [
 	{
 		name: "impl deps missing"
 		implementations: [{
-			script:    "echo 'should not run'"
+			script: {content: "echo 'should not run'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			depends_on: {

@@ -154,6 +154,7 @@ func NewApp(d Dependencies) (*App, error) {
 				commandadapters.NewDependencyCapabilityChecker(),
 				commandadapters.NewDependencyHostProbe(),
 				commandadapters.NewDependencyLockProvider(),
+				commandadapters.NewDependencyScriptFileReader(),
 			),
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}

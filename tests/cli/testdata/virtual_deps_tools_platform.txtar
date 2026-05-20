@@ -13,7 +13,7 @@ cmds: [
 	{
 		name: "deps tool platform"
 		implementations: [{
-			script:    "echo 'platform tool dep check passed'"
+			script: {content: "echo 'platform tool dep check passed'"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

@@ -17,7 +17,7 @@ version: "1.0.0"
 cmds: [{
     name: "safe"
     implementations: [{
-        script: "echo safe"
+        script: {content: "echo safe"}
         runtimes: [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     }]

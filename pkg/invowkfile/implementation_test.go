@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+func filesystemPathPtr(path string) *FilesystemPath {
+	file := FilesystemPath(path)
+	return &file
+}
+
 func TestParseTimeout(t *testing.T) {
 	t.Parallel()
 
@@ -176,27 +181,27 @@ func TestResolveScriptWithModule_PathTraversal(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		script        ScriptContent
+		script        ImplementationScript
 		wantTraversal bool
 	}{
 		{
 			name:          "valid relative path within module",
-			script:        "./scripts/build.sh",
+			script:        ImplementationScript{File: filesystemPathPtr("./scripts/build.sh")},
 			wantTraversal: false,
 		},
 		{
 			name:          "path escaping module with parent traversal",
-			script:        "../../etc/passwd",
+			script:        ImplementationScript{File: filesystemPathPtr("../../etc/passwd")},
 			wantTraversal: true,
 		},
 		{
 			name:          "path escaping with multiple levels",
-			script:        "../../../tmp/evil.sh",
+			script:        ImplementationScript{File: filesystemPathPtr("../../../tmp/evil.sh")},
 			wantTraversal: true,
 		},
 		{
 			name:          "inline script not affected",
-			script:        "echo hello world",
+			script:        ImplementationScript{Content: "echo hello world"},
 			wantTraversal: false,
 		},
 	}
@@ -257,31 +262,31 @@ func TestResolveScriptWithFSAndModule_PathTraversal(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		script        ScriptContent
+		script        ImplementationScript
 		wantTraversal bool
 		wantErr       bool
 	}{
 		{
 			name:          "valid path within module",
-			script:        "./scripts/build.sh",
+			script:        ImplementationScript{File: filesystemPathPtr("./scripts/build.sh")},
 			wantTraversal: false,
 			wantErr:       false,
 		},
 		{
 			name:          "path escaping module boundary",
-			script:        "../../etc/passwd",
+			script:        ImplementationScript{File: filesystemPathPtr("../../etc/passwd")},
 			wantTraversal: true,
 			wantErr:       true,
 		},
 		{
 			name:          "deep traversal attack",
-			script:        "../../../../../../../tmp/evil.sh",
+			script:        ImplementationScript{File: filesystemPathPtr("../../../../../../../tmp/evil.sh")},
 			wantTraversal: true,
 			wantErr:       true,
 		},
 		{
 			name:          "inline script bypasses containment check",
-			script:        "echo no file lookup",
+			script:        ImplementationScript{Content: "echo no file lookup"},
 			wantTraversal: false,
 			wantErr:       false,
 		},
@@ -333,7 +338,7 @@ func TestResolveScriptWithFSAndModule_ValidatesResolvedContent(t *testing.T) {
 	}
 
 	impl := &Implementation{
-		Script:   "./scripts/empty.sh",
+		Script:   ImplementationScript{File: filesystemPathPtr("./scripts/empty.sh")},
 		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 	}
 
@@ -346,15 +351,11 @@ func TestResolveScriptWithFSAndModule_ValidatesResolvedContent(t *testing.T) {
 	}
 }
 
-// TestResolveScriptWithFSAndModule_NoModulePath_NoContainmentCheck verifies that
-// containment checking is NOT applied when modulePath is empty (non-module
-// context). This is the backwards-compatibility case.
-func TestResolveScriptWithFSAndModule_NoModulePath_NoContainmentCheck(t *testing.T) {
+// TestResolveScriptWithFSAndModule_NoModulePathRejectsFile verifies that file-backed
+// scripts require an invowkmod source module.
+func TestResolveScriptWithFSAndModule_NoModulePathRejectsFile(t *testing.T) {
 	t.Parallel()
 
-	// Create a script file in one directory and an invowkfile in another,
-	// where the script references a parent path. Without module context,
-	// this should NOT trigger ErrScriptPathTraversal.
 	baseDir := t.TempDir()
 	scriptContent := "#!/bin/sh\necho outside"
 	if err := os.WriteFile(filepath.Join(baseDir, "outside.sh"), []byte(scriptContent), 0o644); err != nil {
@@ -369,20 +370,13 @@ func TestResolveScriptWithFSAndModule_NoModulePath_NoContainmentCheck(t *testing
 	invowkfilePath := FilesystemPath(filepath.Join(subDir, "invowkfile.cue"))
 
 	impl := &Implementation{
-		Script:   "../outside.sh",
+		Script:   ImplementationScript{File: filesystemPathPtr("../outside.sh")},
 		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 	}
 
-	// Empty modulePath means no containment check.
-	result, err := impl.ResolveScriptWithFSAndModule(invowkfilePath, "", os.ReadFile)
-	if errors.Is(err, ErrScriptPathTraversal) {
-		t.Fatalf("unexpected ErrScriptPathTraversal without module context: %v", err)
-	}
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != scriptContent {
-		t.Errorf("ResolveScriptWithFSAndModule() = %q, want %q", result, scriptContent)
+	_, err := impl.ResolveScriptWithFSAndModule(invowkfilePath, "", os.ReadFile)
+	if !errors.Is(err, ErrScriptFileRequiresModule) {
+		t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrScriptFileRequiresModule", err)
 	}
 }
 

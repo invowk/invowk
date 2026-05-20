@@ -100,7 +100,7 @@ func TestNativeRuntimePrepareInteractive(t *testing.T) {
 cmds: [{
 	name: "hello"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
@@ -149,7 +149,7 @@ func TestVirtualRuntimePrepareInteractive(t *testing.T) {
 cmds: [{
 	name: "hello"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "virtual"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
@@ -225,7 +225,7 @@ func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 		Commands: []invowkfile.Command{{
 			Name: "list",
 			Implementations: []invowkfile.Implementation{{
-				Script:    "ls",
+				Script:    invowkfile.ImplementationScript{Content: "ls"},
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			}},

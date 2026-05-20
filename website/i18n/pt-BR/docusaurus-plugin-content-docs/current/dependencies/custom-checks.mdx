@@ -30,13 +30,17 @@ Ensure all requirements are met and try again.
 | Propriedade | Obrigatória | Descrição |
 |-------------|-------------|-----------|
 | `name` | Sim | Identificador para mensagens de erro |
-| `check_script` | Sim | Script a executar para a verificação |
+| `script.content` | Sim | Conteúdo inline do script a executar para a verificação |
+| `script.file` | Somente módulo | Arquivo de script contido no invowkmod de origem |
+| `script.interpreter` | Não | Interpretador para o conteúdo resolvido do script; por padrão usa detecção por shebang e depois o shell mvdan/sh embutido para verificações no host |
 | `expected_code` | Não | Código de saída esperado (padrão: 0) |
 | `expected_output` | Não | Padrão regex para corresponder à saída |
 
 :::info Execução no Host e no Container
 Verificações personalizadas no nível raiz, de comando e de implementação sempre rodam no host. Para executar uma verificação personalizada dentro de uma imagem de container, coloque `depends_on` dentro do bloco do runtime container selecionado.
 :::
+
+Custom checks no host sem shebang ou `script.interpreter` rodam pelo shell mvdan/sh embutido do Invowk. Um shebang não-shell ou `script.interpreter` como `python3` roda por esse interpretador no host. Custom checks em container usam o mesmo campo `script.interpreter` dentro do container selecionado. Se um `script.interpreter` concreto sobrescrever um shebang diferente, o Invowk reporta um aviso informativo e mantém o interpretador explícito como autoridade.
 
 ## Validação de Código de Saída
 

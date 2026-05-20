@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SHORT_BENCH_REGEX,
   TRACKED_GO_BENCHMARKS,
+  createCommandFixture,
   goMetricsToBmf,
   parseGoBenchOutput,
   validateBmf,
@@ -69,6 +70,17 @@ function testTrackedRegexUsesExplicitBenchmarks() {
   }
 }
 
+function testCommandFixtureUsesCurrentScriptShape() {
+  const fixtureDir = createCommandFixture();
+  try {
+    const fixture = fs.readFileSync(path.join(fixtureDir, 'invowkfile.cue'), 'utf8');
+    assert.match(fixture, /script:\s*\{content:\s*"echo ok"\}/);
+    assert.doesNotMatch(fixture, /script:\s*"echo ok"/);
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+}
+
 function testEmitterEndToEndWithFixtures() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'invowk-bmf-'));
   try {
@@ -115,6 +127,7 @@ function testEmitterEndToEndWithFixtures() {
 testParseGoBenchOutput();
 testValidateBmfRejectsInvalidPayload();
 testTrackedRegexUsesExplicitBenchmarks();
+testCommandFixtureUsesCurrentScriptShape();
 testEmitterEndToEndWithFixtures();
 
 console.log('bench-bmf tests passed');

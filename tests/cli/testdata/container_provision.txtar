@@ -31,7 +31,7 @@ cmds: [
 		description: "Verify invowkfile.cue is provisioned"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					if [ -f /workspace/invowkfile.cue ]; then
 						echo "invowkfile.cue exists: yes"
 					else
@@ -43,7 +43,7 @@ cmds: [
 					else
 						echo "Contains cmds: no"
 					fi
-					"""
+					"""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -54,7 +54,7 @@ cmds: [
 		description: "Verify custom files are provisioned"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					if [ -f /workspace/custom.txt ]; then
 						echo "custom.txt exists: yes"
 						echo "Content: $(cat /workspace/custom.txt)"
@@ -62,7 +62,7 @@ cmds: [
 						echo "custom.txt exists: no"
 						exit 1
 					fi
-					"""
+					"""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}
@@ -73,7 +73,7 @@ cmds: [
 		description: "Verify subdirectory files are provisioned"
 		implementations: [
 			{
-				script: """
+				script: {content: """
 					if [ -f /workspace/scripts/helper.sh ]; then
 						echo "scripts/helper.sh exists: yes"
 						sh /workspace/scripts/helper.sh
@@ -81,7 +81,7 @@ cmds: [
 						echo "scripts/helper.sh exists: no"
 						exit 1
 					fi
-					"""
+					"""}
 				runtimes: [{name: "container", image: "debian:stable-slim"}]
 				platforms: [{name: "linux"}]
 			}

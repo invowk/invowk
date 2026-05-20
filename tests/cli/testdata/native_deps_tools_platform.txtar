@@ -14,12 +14,12 @@ cmds: [
 		name: "deps tool platform"
 		implementations: [
 			{
-				script:    "echo 'platform tool dep check passed'"
+				script: {content: "echo 'platform tool dep check passed'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'platform tool dep check passed'"
+				script: {content: "Write-Output 'platform tool dep check passed'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

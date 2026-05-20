@@ -40,7 +40,7 @@ cmds: [
 		name:        "deps file single"
 		description: "Command requiring a specific file to exist"
 		implementations: [{
-			script:   "echo 'README.md exists!'"
+			script: {content: "echo 'README.md exists!'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -54,7 +54,7 @@ cmds: [
 		name:        "deps file alternatives"
 		description: "Command requiring any README file"
 		implementations: [{
-			script:   "echo 'A README file exists (one of: README.md, README, readme.md)'"
+			script: {content: "echo 'A README file exists (one of: README.md, README, readme.md)'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -68,11 +68,11 @@ cmds: [
 		name:        "deps file permissions"
 		description: "Command requiring file with specific permissions"
 		implementations: [{
-			script: """
+			script: {content: """
 				echo "Permission checks passed!"
 				echo "  - Current directory is writable"
 				echo "  - README.md is readable"
-				"""
+				"""}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -87,7 +87,7 @@ cmds: [
 		name:        "deps file executable"
 		description: "Command requiring file with execute permission"
 		implementations: [{
-			script:   "echo 'Executable check passed!'"
+			script: {content: "echo 'Executable check passed!'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -101,7 +101,7 @@ cmds: [
 		name:        "deps file not-executable"
 		description: "Command requiring executable that is not executable"
 		implementations: [{
-			script:   "echo 'Should not reach here'"
+			script: {content: "echo 'Should not reach here'"}
 			runtimes: [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

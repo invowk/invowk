@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	goruntime "runtime"
 	"strings"
 	"sync/atomic"
@@ -50,7 +52,7 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 	ctx := newDependencyExecutionContext(t)
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-			if strings.Contains(string(ctx.SelectedImpl.Script), "echo ok") {
+			if strings.Contains(string(ctx.SelectedImpl.Script.Content), "echo ok") {
 				_, _ = io.WriteString(ctx.IO.Stdout, "ok")
 				return &runtimepkg.Result{ExitCode: 0}
 			}
@@ -61,8 +63,8 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
 				Alternatives: []invowkfile.CustomCheck{
-					{Name: "first", CheckScript: "exit 1"},
-					{Name: "second", CheckScript: "echo ok", ExpectedOutput: "^ok$"},
+					{Name: "first", Script: invowkfile.CustomCheckScript{Content: "exit 1"}},
+					{Name: "second", Script: invowkfile.CustomCheckScript{Content: "echo ok"}, ExpectedOutput: "^ok$"},
 				},
 			},
 		},
@@ -76,8 +78,8 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 		&invowkfile.DependsOn{
 			CustomChecks: []invowkfile.CustomCheckDependency{{
 				Alternatives: []invowkfile.CustomCheck{
-					{Name: "first", CheckScript: "exit 1"},
-					{Name: "second", CheckScript: "exit 1"},
+					{Name: "first", Script: invowkfile.CustomCheckScript{Content: "exit 1"}},
+					{Name: "second", Script: invowkfile.CustomCheckScript{Content: "exit 1"}},
 				},
 			}},
 		},
@@ -99,7 +101,7 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 func TestValidateCustomCheckInContainer(t *testing.T) {
 	t.Parallel()
 
-	check := invowkfile.CustomCheck{Name: "demo", CheckScript: "echo ok", ExpectedOutput: "^ok$"}
+	check := invowkfile.CustomCheck{Name: "demo", Script: invowkfile.CustomCheckScript{Content: "echo ok"}, ExpectedOutput: "^ok$"}
 
 	probe := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
@@ -132,7 +134,7 @@ func TestContainerEnvVarValidation(t *testing.T) {
 	ctx := newDependencyExecutionContext(t)
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-			script := string(ctx.SelectedImpl.Script)
+			script := string(ctx.SelectedImpl.Script.Content)
 			switch {
 			case strings.Contains(script, `printf '%s' "$HOME" | grep -qE '^/home/'`):
 				return &runtimepkg.Result{ExitCode: 0}
@@ -188,7 +190,7 @@ func TestContainerCapabilityValidation(t *testing.T) {
 	ctx := newDependencyExecutionContext(t)
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-			if strings.Contains(string(ctx.SelectedImpl.Script), "command -v docker") {
+			if strings.Contains(string(ctx.SelectedImpl.Script.Content), "command -v docker") {
 				return &runtimepkg.Result{ExitCode: 0}
 			}
 			return &runtimepkg.Result{ExitCode: 1}
@@ -231,7 +233,7 @@ func TestContainerCommandValidation(t *testing.T) {
 	var seenScripts []string
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-			script := string(ctx.SelectedImpl.Script)
+			script := string(ctx.SelectedImpl.Script.Content)
 			seenScripts = append(seenScripts, script)
 			switch {
 			case strings.Contains(script, "check-cmd 'build'"):
@@ -404,7 +406,7 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 		deps := &invowkfile.DependsOn{
 			CustomChecks: []invowkfile.CustomCheckDependency{{
 				Alternatives: []invowkfile.CustomCheck{
-					{Name: "echo", CheckScript: "echo ok"},
+					{Name: "echo", Script: invowkfile.CustomCheckScript{Content: "echo ok"}},
 				},
 			}},
 		}
@@ -418,7 +420,7 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 		deps := &invowkfile.DependsOn{
 			CustomChecks: []invowkfile.CustomCheckDependency{{
 				Alternatives: []invowkfile.CustomCheck{
-					{Name: "fail", CheckScript: "exit 1"},
+					{Name: "fail", Script: invowkfile.CustomCheckScript{Content: "exit 1"}},
 				},
 			}},
 		}
@@ -462,11 +464,179 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 	})
 }
 
+func TestCustomCheckScriptFileResolution(t *testing.T) {
+	t.Parallel()
+
+	expectedCode := types.ExitCode(0)
+	moduleDir := t.TempDir()
+	scriptsDir := filepath.Join(moduleDir, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatalf("failed to create scripts dir: %v", err)
+	}
+	scriptPath := filepath.Join(scriptsDir, "check")
+	if err := os.WriteFile(scriptPath, []byte("echo from file"), 0o644); err != nil {
+		t.Fatalf("failed to write script file: %v", err)
+	}
+	scriptFile := invowkfile.FilesystemPath("scripts/check")
+	deps := &invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Name:           "file-check",
+			Script:         invowkfile.CustomCheckScript{File: &scriptFile, Interpreter: "bash"},
+			ExpectedCode:   &expectedCode,
+			ExpectedOutput: "^ok$",
+		}},
+	}
+	ctx := ExecutionContext{
+		CommandName:      "build",
+		Context:          t.Context(),
+		SourceModulePath: customCheckModulePath(moduleDir),
+		ReadScriptFile:   os.ReadFile,
+	}
+
+	t.Run("host probe receives resolved content", func(t *testing.T) {
+		t.Parallel()
+
+		probe := &recordingHostProbe{
+			checkResults: map[invowkfile.CheckName]CustomCheckResult{
+				"file-check": mustCustomCheckResult(t, "ok", 0),
+			},
+		}
+		if err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe); err != nil {
+			t.Fatalf("CheckHostCustomCheckDependenciesWithProbe() = %v", err)
+		}
+		if len(probe.checkScripts) != 1 || probe.checkScripts[0] != "echo from file" {
+			t.Fatalf("probe.checkScripts = %v, want resolved file content", probe.checkScripts)
+		}
+		if len(probe.checkInterps) != 1 || probe.checkInterps[0] != "bash" {
+			t.Fatalf("probe.checkInterps = %v, want bash", probe.checkInterps)
+		}
+	})
+
+	t.Run("container probe receives resolved content", func(t *testing.T) {
+		t.Parallel()
+
+		var seenScript string
+		var seenInterp invowkfile.InterpreterSpec
+		stub := &filepathStubRuntime{
+			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+				seenScript = string(ctx.SelectedImpl.Script.Content)
+				seenInterp = ctx.SelectedImpl.Script.Interpreter
+				_, _ = io.WriteString(ctx.IO.Stdout, "ok\n")
+				return &runtimepkg.Result{ExitCode: 0}
+			},
+		}
+		if err := CheckCustomCheckDependenciesInContainer(deps, stub, ctx); err != nil {
+			t.Fatalf("CheckCustomCheckDependenciesInContainer() = %v", err)
+		}
+		if seenScript != "echo from file" {
+			t.Fatalf("container script = %q, want resolved file content", seenScript)
+		}
+		if seenInterp != "bash" {
+			t.Fatalf("container interpreter = %q, want bash", seenInterp)
+		}
+	})
+}
+
+func TestCustomCheckScriptFileResolutionFailures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		ctx    ExecutionContext
+		script invowkfile.CustomCheckScript
+		want   string
+	}{
+		{
+			name: "non-module file rejected",
+			ctx: ExecutionContext{
+				CommandName: "build",
+				Context:     t.Context(),
+			},
+			script: customCheckFileScript("scripts/check.sh"),
+			want:   "script file requires module invowkfile",
+		},
+		{
+			name: "missing file reports selected path",
+			ctx: ExecutionContext{
+				CommandName:      "build",
+				Context:          t.Context(),
+				SourceModulePath: customCheckModulePath(t.TempDir()),
+				ReadScriptFile:   os.ReadFile,
+			},
+			script: customCheckFileScript("scripts/missing.sh"),
+			want:   "scripts/missing.sh",
+		},
+		{
+			name:   "invalid resolved content rejected",
+			ctx:    customCheckFileContext(t, "   \n\t"),
+			script: customCheckFileScript("scripts/check.sh"),
+			want:   "invalid script content",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			deps := &invowkfile.DependsOn{
+				CustomChecks: []invowkfile.CustomCheckDependency{{
+					Name:   "file-check",
+					Script: tt.script,
+				}},
+			}
+			probe := &recordingHostProbe{}
+			err := CheckHostCustomCheckDependenciesWithProbe(deps, tt.ctx, probe)
+			if err == nil {
+				t.Fatal("CheckHostCustomCheckDependenciesWithProbe() error = nil, want dependency error")
+			}
+			var depErr *DependencyError
+			if !errors.As(err, &depErr) {
+				t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+			}
+			if len(depErr.FailedCustomChecks) != 1 || !strings.Contains(depErr.FailedCustomChecks[0].String(), tt.want) {
+				t.Fatalf("FailedCustomChecks = %v, want containing %q", depErr.FailedCustomChecks, tt.want)
+			}
+			if len(probe.checks) != 0 {
+				t.Fatalf("probe executed %d checks, want 0", len(probe.checks))
+			}
+		})
+	}
+}
+
 func newDependencyExecutionContext(t *testing.T) ExecutionContext {
 	t.Helper()
 	return ExecutionContext{
 		CommandName: "build",
 		Context:     t.Context(),
+	}
+}
+
+func customCheckFileScript(path string) invowkfile.CustomCheckScript {
+	scriptFile := invowkfile.FilesystemPath(path)
+	return invowkfile.CustomCheckScript{File: &scriptFile}
+}
+
+func customCheckModulePath(path string) *invowkfile.FilesystemPath {
+	modulePath := invowkfile.FilesystemPath(path)
+	return &modulePath
+}
+
+func customCheckFileContext(t *testing.T, content string) ExecutionContext {
+	t.Helper()
+
+	moduleDir := t.TempDir()
+	scriptsDir := filepath.Join(moduleDir, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatalf("failed to create scripts dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "check.sh"), []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write script file: %v", err)
+	}
+	return ExecutionContext{
+		CommandName:      "build",
+		Context:          t.Context(),
+		SourceModulePath: customCheckModulePath(moduleDir),
+		ReadScriptFile:   os.ReadFile,
 	}
 }
 
@@ -528,7 +698,7 @@ func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Alternatives: []invowkfile.CustomCheck{
-				{Name: "check-ctx", CheckScript: "true"},
+				{Name: "check-ctx", Script: invowkfile.CustomCheckScript{Content: "true"}},
 			},
 		}},
 	}
@@ -539,7 +709,7 @@ func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
 		return CustomCheckResult{}, nil
 	}
 
-	_ = evaluateCustomChecks(deps, execCtx, validator)
+	_ = evaluateCustomChecks(deps, execCtx, customCheckInterpreterTargetHost, validator)
 
 	got := receivedCtx.Load()
 	if got == nil {
@@ -566,7 +736,7 @@ func TestEvaluateCustomChecks_NilContextFallback(t *testing.T) {
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Alternatives: []invowkfile.CustomCheck{
-				{Name: "check", CheckScript: "true"},
+				{Name: "check", Script: invowkfile.CustomCheckScript{Content: "true"}},
 			},
 		}},
 	}
@@ -577,7 +747,7 @@ func TestEvaluateCustomChecks_NilContextFallback(t *testing.T) {
 		return CustomCheckResult{}, nil
 	}
 
-	_ = evaluateCustomChecks(deps, execCtx, validator)
+	_ = evaluateCustomChecks(deps, execCtx, customCheckInterpreterTargetHost, validator)
 
 	got := receivedCtx.Load()
 	if got == nil {

@@ -17,7 +17,7 @@ func TestGenerateCUE_Category(t *testing.T) {
 				Category: "Build",
 				Implementations: []Implementation{
 					{
-						Script:    "echo building",
+						Script:    ImplementationScript{Content: "echo building"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 						Platforms: AllPlatformConfigs(),
 					},
@@ -42,7 +42,7 @@ func TestGenerateCUE_WatchConfig(t *testing.T) {
 				Name: "dev",
 				Implementations: []Implementation{
 					{
-						Script:    "echo running",
+						Script:    ImplementationScript{Content: "echo running"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 						Platforms: AllPlatformConfigs(),
 					},
@@ -82,7 +82,7 @@ func TestGenerateCUE_Timeout(t *testing.T) {
 				Name: "slow",
 				Implementations: []Implementation{
 					{
-						Script:    "sleep 10",
+						Script:    ImplementationScript{Content: "sleep 10"},
 						Timeout:   "30s",
 						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 						Platforms: AllPlatformConfigs(),
@@ -108,7 +108,7 @@ func TestGenerateCUE_WatchConfigMinimal(t *testing.T) {
 				Name: "dev",
 				Implementations: []Implementation{
 					{
-						Script:    "echo running",
+						Script:    ImplementationScript{Content: "echo running"},
 						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 						Platforms: AllPlatformConfigs(),
 					},
@@ -141,7 +141,7 @@ func TestGenerateCUE_FlagEnhancedFieldsRoundTrip(t *testing.T) {
 		Commands: []Command{{
 			Name: "deploy",
 			Implementations: []Implementation{{
-				Script:    "echo deploy",
+				Script:    ImplementationScript{Content: "echo deploy"},
 				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
 				Platforms: AllPlatformConfigs(),
 			}},
@@ -197,16 +197,17 @@ func TestGenerateCUE_RuntimeBaseFieldsRoundTrip(t *testing.T) {
 		Commands: []Command{{
 			Name: "run",
 			Implementations: []Implementation{{
-				Script: "echo run",
+				Script: ImplementationScript{
+					Content:     "echo run",
+					Interpreter: "bash",
+				},
 				Runtimes: []RuntimeConfig{{
 					Name:            RuntimeNative,
-					Interpreter:     "bash",
 					EnvInheritMode:  EnvInheritAllow,
 					EnvInheritAllow: []EnvVarName{"PATH", "TERM"},
 					EnvInheritDeny:  []EnvVarName{"SECRET_TOKEN"},
 				}, {
-					Name:        RuntimeVirtual,
-					Interpreter: "ignored",
+					Name: RuntimeVirtual,
 				}},
 				Platforms: AllPlatformConfigs(),
 			}},
@@ -215,7 +216,7 @@ func TestGenerateCUE_RuntimeBaseFieldsRoundTrip(t *testing.T) {
 
 	got := GenerateCUE(inv)
 	for _, want := range []string{
-		`interpreter: "bash"`,
+		`script: {content: "echo run", interpreter: "bash"}`,
 		`env_inherit_mode: "allow"`,
 		`env_inherit_allow: ["PATH", "TERM"]`,
 		`env_inherit_deny: ["SECRET_TOKEN"]`,
@@ -224,17 +225,17 @@ func TestGenerateCUE_RuntimeBaseFieldsRoundTrip(t *testing.T) {
 			t.Fatalf("generated CUE missing %q:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, `interpreter: "ignored"`) {
-		t.Fatalf("virtual runtime interpreter must remain omitted:\n%s", got)
-	}
 
 	parsed, err := ParseBytes([]byte(got), "roundtrip.cue")
 	if err != nil {
 		t.Fatalf("ParseBytes() error = %v\n%s", err, got)
 	}
+	if gotInterpreter := parsed.Commands[0].Implementations[0].Script.Interpreter; gotInterpreter != "bash" {
+		t.Fatalf("roundtrip script interpreter = %q, want bash", gotInterpreter)
+	}
 	runtimeCfg := parsed.Commands[0].Implementations[0].Runtimes[0]
-	if runtimeCfg.Interpreter != "bash" || runtimeCfg.EnvInheritMode != EnvInheritAllow {
-		t.Fatalf("roundtrip runtime = %+v, want interpreter and env inherit mode", runtimeCfg)
+	if runtimeCfg.EnvInheritMode != EnvInheritAllow {
+		t.Fatalf("roundtrip runtime = %+v, want env inherit mode", runtimeCfg)
 	}
 	if len(runtimeCfg.EnvInheritAllow) != 2 || runtimeCfg.EnvInheritAllow[0] != "PATH" || runtimeCfg.EnvInheritAllow[1] != "TERM" {
 		t.Fatalf("roundtrip env_inherit_allow = %v, want [PATH TERM]", runtimeCfg.EnvInheritAllow)
@@ -251,7 +252,7 @@ func TestGenerateCUE_RuntimePersistentFieldsRoundTrip(t *testing.T) {
 		Commands: []Command{{
 			Name: "run",
 			Implementations: []Implementation{{
-				Script: "echo run",
+				Script: ImplementationScript{Content: "echo run"},
 				Runtimes: []RuntimeConfig{{
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",

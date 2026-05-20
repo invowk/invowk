@@ -45,7 +45,7 @@ to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Path traversal | Script fields using `../` or absolute paths | Parse invowkfile, inspect `Implementation.Script` via `IsScriptFile()` heuristic | High | "Script references path outside module boundary" (SC-01) |
+| Path traversal | `script.file` values using `../` or absolute paths | Parse invowkfile, inspect explicit `Implementation.Script.File` references | High | "Script references path outside module boundary" (SC-01) |
 | Absolute paths in modules | Module script fields with absolute paths (`/usr/bin/...`) | Reject absolute paths for module commands (root invowkfile may allow them) | High | "Module script uses absolute path — bypasses module boundary" |
 | Missing bounds check | `GetScriptFilePathWithModule()` lacks `filepath.Rel` containment | Compare against `ValidateContainerfilePath` and `ValidateEnvFilePath` patterns | High | "Script path resolution unbounded — no containment check" |
 

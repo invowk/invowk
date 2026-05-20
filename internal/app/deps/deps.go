@@ -102,7 +102,8 @@ func ValidateHostDependenciesWithPorts(disc CommandSetProvider, cmdInfo *discove
 		return err
 	}
 
-	// Custom checks: always native shell on host
+	// Custom checks: host-side checks default to embedded mvdan/sh and use
+	// host interpreters only when the script selects a non-shell interpreter.
 	if err := CheckHostCustomCheckDependenciesWithProbe(mergedDeps, parentCtx, hostProbe); err != nil {
 		return err
 	}

@@ -132,6 +132,11 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/speckit.analyze/`](.agents/skills/speckit.analyze/) - **User-only** (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks. **Never auto-invoke.**
 - [`.agents/skills/speckit.checklist/`](.agents/skills/speckit.checklist/) - **User-only** (`/speckit.checklist`). Generate custom checklist for current feature based on requirements. **Never auto-invoke.**
 - [`.agents/skills/speckit.constitution/`](.agents/skills/speckit.constitution/) - **User-only** (`/speckit.constitution`). Create or update project constitution from principle inputs. **Never auto-invoke.**
+- [`.agents/skills/openspec-apply-change/`](.agents/skills/openspec-apply-change/) - **User-only** (`/openspec-apply-change`). Apply a proposed change and implement tasks using the openspec CLI. **Never auto-invoke.**
+- [`.agents/skills/openspec-archive-change/`](.agents/skills/openspec-archive-change/) - **User-only** (`/openspec-archive-change`). Archive a completed change and finalize specifications using the openspec CLI. **Never auto-invoke.**
+- [`.agents/skills/openspec-explore/`](.agents/skills/openspec-explore/) - **User-only** (`/openspec-explore`). Think through ideas and clarify requirements using the openspec CLI. **Never auto-invoke.**
+- [`.agents/skills/openspec-propose/`](.agents/skills/openspec-propose/) - **User-only** (`/openspec-propose`). Propose a new change with artifacts (proposal, design, tasks) in one step using the openspec CLI. **Never auto-invoke.**
+
 
 ### Code Area → Rules/Skills Mapping
 
@@ -165,6 +170,7 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/types/` | testing, licensing, package-design | go, invowk-typesystem, go-hexagonal-ddd |
 | `tests/cli/` | testing | go, testing, cli, invowk-schema, go-testing |
 | `internal/audit/` | testing, licensing, package-design | go, module-security, go-hexagonal-ddd |
+| `openspec/` | general-rules | openspec-apply-change, openspec-archive-change, openspec-explore, openspec-propose |
 | `tools/goplint/` | testing, licensing | go, go-testing |
 
 ## Quick Commands

@@ -58,7 +58,17 @@ func NewTestCommand(name string, opts ...CommandOption) *invowkfile.Command {
 func WithScript(script string) CommandOption {
 	return func(c *invowkfile.Command) {
 		if len(c.Implementations) > 0 {
-			c.Implementations[0].Script = invowkfile.ScriptContent(script)
+			c.Implementations[0].Script = invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)}
+		}
+	}
+}
+
+// WithScriptFile sets the first implementation script to an explicit file reference.
+func WithScriptFile(path string) CommandOption {
+	return func(c *invowkfile.Command) {
+		if len(c.Implementations) > 0 {
+			file := invowkfile.FilesystemPath(path)
+			c.Implementations[0].Script = invowkfile.ImplementationScript{File: &file}
 		}
 	}
 }
@@ -94,11 +104,11 @@ func WithRuntimes(rs ...invowkfile.RuntimeMode) CommandOption {
 	}
 }
 
-// WithInterpreter sets the interpreter spec on the first runtime of the first implementation.
+// WithInterpreter sets the interpreter spec on the first implementation script.
 func WithInterpreter(interpreter string) CommandOption {
 	return func(c *invowkfile.Command) {
-		if len(c.Implementations) > 0 && len(c.Implementations[0].Runtimes) > 0 {
-			c.Implementations[0].Runtimes[0].Interpreter = invowkfile.InterpreterSpec(interpreter)
+		if len(c.Implementations) > 0 {
+			c.Implementations[0].Script.Interpreter = invowkfile.InterpreterSpec(interpreter)
 		}
 	}
 }

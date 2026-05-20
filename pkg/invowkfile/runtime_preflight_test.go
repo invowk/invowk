@@ -23,12 +23,6 @@ func TestParseBytesRuntimePreflightDiagnostics(t *testing.T) {
 			wantMessage: "persistent is only valid for container runtime",
 		},
 		{
-			name:        "virtual rejects interpreter",
-			runtime:     `{name: "virtual", interpreter: "python3"}`,
-			wantField:   "cmds[0].implementations[0].runtimes[0].interpreter",
-			wantMessage: "virtual runtime always uses mvdan/sh",
-		},
-		{
 			name:        "container requires source",
 			runtime:     `{name: "container"}`,
 			wantField:   "cmds[0].implementations[0].runtimes[0]",
@@ -65,7 +59,7 @@ func invowkfileWithRuntime(runtime string) string {
 	return `cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo test"
+		script: {content: "echo test"}
 		runtimes: [` + runtime + `]
 		platforms: [{name: "linux"}]
 	}]

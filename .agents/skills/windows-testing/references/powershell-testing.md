@@ -374,18 +374,18 @@ Native tests need separate implementations for Unix and Windows:
 ```cue
 implementations: [
     {
-        script: """
+        script: {content: """
             echo "Hello from bash"
             echo "HOME=$HOME"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
-        script: """
+        script: {content: """
             Write-Output "Hello from bash"
             Write-Output "HOME=$($env:HOME)"
-            """
+            """}
         runtimes:  [{name: "native"}]
         platforms: [{name: "windows"}]
     },
@@ -407,14 +407,14 @@ stdout 'Hello from bash'
 
 ```cue
 # Unix implementation
-script: """
+script: {content: """
     echo "VAR=$MY_VAR"
-    """
+    """}
 
 # Windows implementation
-script: """
+script: {content: """
     Write-Output "VAR=$($env:MY_VAR)"
-    """
+    """}
 ```
 
 Note the `$(...)` subexpression syntax in PowerShell for embedding `$env:`
@@ -426,10 +426,10 @@ for simple cases but can break with adjacent text:
 
 ```cue
 # Windows implementation that should fail
-script: """
+script: {content: """
     Write-Error "something went wrong"
     exit 1
-    """
+    """}
 ```
 
 ```txtar

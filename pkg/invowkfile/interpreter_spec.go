@@ -45,7 +45,7 @@ var (
 )
 
 type (
-	// InterpreterSpec represents a command interpreter specification in runtime config.
+	// InterpreterSpec represents a script interpreter specification.
 	// The zero value ("") is valid and means "auto" (detect from shebang).
 	// Non-zero values must not be whitespace-only.
 	InterpreterSpec string

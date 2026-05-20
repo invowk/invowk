@@ -75,8 +75,9 @@ func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
-	// Script without shebang but with explicit interpreter
-	script := `import sys
+	// Script has a shell shebang, but the explicit interpreter must remain authoritative.
+	script := `#!/bin/sh
+import sys
 print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")`
 
 	cmd := testCommandWithInterpreter("python-explicit", script, "python3", invowkfile.RuntimeNative)
@@ -169,10 +170,11 @@ print("Hello from Python file")
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScript("python-file", "./test.py", invowkfile.RuntimeNative)
+	cmd := testCommandWithScriptFile("python-file", "./test.py", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -189,6 +191,47 @@ print("Hello from Python file")
 	output := strings.TrimSpace(stdout.String())
 	if output != "Hello from Python file" {
 		t.Errorf("Execute() output = %q, want %q", output, "Hello from Python file")
+	}
+}
+
+func TestNativeRuntime_InterpreterScriptFileExplicitInterpreter(t *testing.T) {
+	t.Parallel()
+
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available, skipping test")
+	}
+
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "test.py")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nprint(\"Hello from explicit Python file\")"), 0o644); err != nil {
+		t.Fatalf("Failed to write script: %v", err)
+	}
+
+	inv := &invowkfile.Invowkfile{
+		FilePath:   invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
+	}
+	cmd := testCommandWithScriptFile("python-file-explicit", "./test.py", invowkfile.RuntimeNative)
+	cmd.Implementations[0].Script.Interpreter = "python3"
+
+	rt := NewNativeRuntime()
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+	var stdout bytes.Buffer
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := rt.Execute(ctx)
+	if result.ExitCode != 0 {
+		t.Errorf("Execute() exit code = %d, want 0, error: %v", result.ExitCode, result.Error)
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	if output != "Hello from explicit Python file" {
+		t.Errorf("Execute() output = %q, want %q", output, "Hello from explicit Python file")
 	}
 }
 
@@ -209,7 +252,7 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 	// Script with a non-existent interpreter
 	script := `print("Hello")`
 
-	cmd := testCommandWithInterpreter("nonexistent-interp", script, "nonexistent-interpreter-xyz", invowkfile.RuntimeNative)
+	cmd := testCommandWithInterpreter("nonexistent-interp", script, "/definitely/missing/python3", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
 	ctx := NewExecutionContext(t.Context(), cmd, inv)

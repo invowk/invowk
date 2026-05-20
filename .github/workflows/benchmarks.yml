@@ -134,6 +134,8 @@ jobs:
 
           threshold_args=()
           bencher_threshold_args threshold_args
+          alert_args=()
+          bencher_error_on_alert_args alert_args
 
           bencher run \
             --project "$BENCHER_PROJECT" \
@@ -149,7 +151,7 @@ jobs:
             --github-actions "$GITHUB_TOKEN" \
             --ci-id bmf \
             "${threshold_args[@]}" \
-            --error-on-alert \
+            "${alert_args[@]}" \
             "${start_point_args[@]}" \
             "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
 

@@ -29,7 +29,7 @@ cmds: [
 		name:        "hello"
 		description: "A test command"
 		implementations: [{
-			script:    "echo hello"
+			script: {content: "echo hello"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

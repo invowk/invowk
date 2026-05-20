@@ -19,7 +19,7 @@ cmds: [{
 	name: "hello"
 	description: "Test command"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{name: "virtual"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]

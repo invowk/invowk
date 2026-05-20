@@ -18,7 +18,7 @@ func TestBuildUserPrompt_SingleScript(t *testing.T) {
 		{
 			CommandName:     "build",
 			FilePath:        types.FilesystemPath("/path/to/invowkfile.cue"),
-			Script:          invowkfile.ScriptContent("scripts/build.sh"),
+			Script:          invowkfile.ImplementationScript{File: filesystemPathPtr("scripts/build.sh")},
 			IsFile:          true,
 			resolvedContent: "#!/bin/bash\necho hello",
 			Runtimes: []invowkfile.RuntimeConfig{
@@ -50,8 +50,8 @@ func TestBuildUserPrompt_MultipleScripts(t *testing.T) {
 	t.Parallel()
 
 	scripts := []ScriptRef{
-		{CommandName: "build", Script: invowkfile.ScriptContent("make build")},
-		{CommandName: "test", Script: invowkfile.ScriptContent("make test")},
+		{CommandName: "build", Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make build")}},
+		{CommandName: "test", Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make test")}},
 	}
 
 	prompt := buildUserPrompt(scripts)
@@ -412,11 +412,11 @@ func TestPrepareScripts_FiltersAndTruncates(t *testing.T) {
 	t.Parallel()
 
 	scripts := []ScriptRef{
-		{CommandName: "build", Script: "make build", IsFile: false},
-		{CommandName: "deploy", Script: "", IsFile: false},
-		{CommandName: "test", Script: "scripts/test.sh", IsFile: true, resolvedContent: "make test"},
-		{CommandName: "lint", Script: "  \t\n  ", IsFile: false},
-		{CommandName: "clean", Script: "rm -rf dist", IsFile: false},
+		{CommandName: "build", Script: invowkfile.ImplementationScript{Content: "make build"}, IsFile: false},
+		{CommandName: "deploy", Script: invowkfile.ImplementationScript{Content: ""}, IsFile: false},
+		{CommandName: "test", Script: invowkfile.ImplementationScript{File: filesystemPathPtr("scripts/test.sh")}, IsFile: true, resolvedContent: "make test"},
+		{CommandName: "lint", Script: invowkfile.ImplementationScript{Content: "  \t\n  "}, IsFile: false},
+		{CommandName: "clean", Script: invowkfile.ImplementationScript{Content: "rm -rf dist"}, IsFile: false},
 	}
 
 	prepared := prepareScripts(scripts, maxScriptChars)

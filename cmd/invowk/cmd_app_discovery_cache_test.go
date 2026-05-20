@@ -73,7 +73,7 @@ func setupDiscoveryCacheTestDir(t *testing.T) {
 				Name: "build",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "echo build",
+						Script:    invowkfile.ImplementationScript{Content: "echo build"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},
@@ -105,7 +105,7 @@ func writeDiscoveryCacheTestInvowkfile(t *testing.T, dir string) {
 				Name: "build",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script:    "echo build",
+						Script:    invowkfile.ImplementationScript{Content: "echo build"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},

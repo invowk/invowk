@@ -10,174 +10,109 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestValidationIssue_Validate(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		issue     ValidationIssue
-		want      bool
-		wantErr   bool
-		wantCount int
-	}{
-		{
-			"valid issue with all fields",
-			ValidationIssue{
-				Type:    IssueTypeStructure,
-				Message: "missing file",
-				Path:    "some/path",
-			},
-			true, false, 0,
-		},
-		{
-			"valid issue with empty optional fields",
-			ValidationIssue{
-				Type:    IssueTypeNaming,
-				Message: "",
-				Path:    "",
-			},
-			true, false, 0,
-		},
-		{
-			"valid issue all types",
-			ValidationIssue{Type: IssueTypeInvowkmod},
-			true, false, 0,
-		},
-		{
-			"invalid type (empty)",
-			ValidationIssue{Type: ""},
-			false, true, 1,
-		},
-		{
-			"invalid type (unknown)",
-			ValidationIssue{Type: "unknown"},
-			false, true, 1,
-		},
-		{
-			"zero value",
-			ValidationIssue{},
-			false, true, 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := tt.issue.Validate()
-			if (err == nil) != tt.want {
-				t.Errorf("ValidationIssue.Validate() error = %v, wantValid %v", err, tt.want)
-			}
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("ValidationIssue.Validate() returned nil, want error")
-				}
-				if !errors.Is(err, ErrInvalidValidationIssue) {
-					t.Errorf("error should wrap ErrInvalidValidationIssue, got: %v", err)
-				}
-				var issueErr *InvalidValidationIssueError
-				if !errors.As(err, &issueErr) {
-					t.Fatalf("error should be *InvalidValidationIssueError, got: %T", err)
-				}
-				if len(issueErr.FieldErrors) != tt.wantCount {
-					t.Errorf("field errors count = %d, want %d", len(issueErr.FieldErrors), tt.wantCount)
-				}
-			} else if err != nil {
-				t.Errorf("ValidationIssue.Validate() returned unexpected error: %v", err)
-			}
-		})
-	}
-}
-
-func TestValidationResult_Validate(t *testing.T) {
+func TestInvowkmod_Validate(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name      string
-		result    ValidationResult
+		mod       Invowkmod
 		want      bool
 		wantErr   bool
 		wantCount int
 	}{
 		{
-			"valid complete result",
-			ValidationResult{
-				Valid:          true,
-				ModulePath:     types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod")),
-				ModuleName:     ModuleDirectoryName("mymodule"),
-				InvowkmodPath:  types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod", "invowkmod.cue")),
-				InvowkfilePath: types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod", "invowkfile.cue")),
-				Issues: []ValidationIssue{
-					{Type: IssueTypeStructure, Message: "test"},
+			"valid complete module",
+			Invowkmod{
+				Module:      "io.invowk.sample",
+				Version:     "1.0.0",
+				Description: "A sample module",
+				Requires: []ModuleRequirement{
+					{GitURL: GitURL("https://github.com/example/utils.git"), Version: SemVerConstraint("^1.0.0")},
 				},
+				FilePath: types.FilesystemPath(filepath.Join(tmpDir, "sample.invowkmod", "invowkmod.cue")),
 			},
 			true, false, 0,
 		},
 		{
-			"valid minimal result (zero values)",
-			ValidationResult{},
-			true, false, 0,
-		},
-		{
-			"valid with empty optional paths",
-			ValidationResult{
-				Valid:      true,
-				ModulePath: types.FilesystemPath(filepath.Join(tmpDir, "some-path")),
+			"valid minimal module (no optional fields)",
+			Invowkmod{
+				Module:  "io.invowk.minimal",
+				Version: "0.1.0",
 			},
 			true, false, 0,
 		},
 		{
-			"invalid module name",
-			ValidationResult{
-				ModuleName: ModuleDirectoryName("1invalid"),
+			"invalid module ID (empty)",
+			Invowkmod{
+				Module:  "",
+				Version: "1.0.0",
 			},
 			false, true, 1,
 		},
 		{
-			"invalid issue in slice",
-			ValidationResult{
-				Issues: []ValidationIssue{
-					{Type: "invalid-type"},
+			"invalid version (empty)",
+			Invowkmod{
+				Module:  "io.invowk.sample",
+				Version: "",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid description (whitespace-only)",
+			Invowkmod{
+				Module:      "io.invowk.sample",
+				Version:     "1.0.0",
+				Description: "   ",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid requirement (empty git URL)",
+			Invowkmod{
+				Module:  "io.invowk.sample",
+				Version: "1.0.0",
+				Requires: []ModuleRequirement{
+					{GitURL: GitURL(""), Version: SemVerConstraint("^1.0.0")},
 				},
 			},
 			false, true, 1,
 		},
 		{
 			"multiple invalid fields",
-			ValidationResult{
-				ModuleName: ModuleDirectoryName("1invalid"),
-				Issues: []ValidationIssue{
-					{Type: "bad-type"},
-				},
+			Invowkmod{
+				Module:      "",
+				Version:     "",
+				Description: "   ",
 			},
-			false, true, 2,
+			false, true, 3,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.result.Validate()
+			err := tt.mod.Validate()
 			if (err == nil) != tt.want {
-				t.Errorf("ValidationResult.Validate() error = %v, wantValid %v", err, tt.want)
+				t.Errorf("Invowkmod.Validate() error = %v, wantValid %v", err, tt.want)
 			}
 			if tt.wantErr {
 				if err == nil {
-					t.Fatalf("ValidationResult.Validate() returned nil, want error")
+					t.Fatalf("Invowkmod.Validate() returned nil, want error")
 				}
-				if !errors.Is(err, ErrInvalidValidationResult) {
-					t.Errorf("error should wrap ErrInvalidValidationResult, got: %v", err)
+				if !errors.Is(err, ErrInvalidInvowkmod) {
+					t.Errorf("error should wrap ErrInvalidInvowkmod, got: %v", err)
 				}
-				var resultErr *InvalidValidationResultError
-				if !errors.As(err, &resultErr) {
-					t.Fatalf("error should be *InvalidValidationResultError, got: %T", err)
+				var modErr *InvalidInvowkmodError
+				if !errors.As(err, &modErr) {
+					t.Fatalf("error should be *InvalidInvowkmodError, got: %T", err)
 				}
-				if len(resultErr.FieldErrors) != tt.wantCount {
-					t.Errorf("field errors count = %d, want %d", len(resultErr.FieldErrors), tt.wantCount)
+				if len(modErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(modErr.FieldErrors), tt.wantCount)
 				}
 			} else if err != nil {
-				t.Errorf("ValidationResult.Validate() returned unexpected error: %v", err)
+				t.Errorf("Invowkmod.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

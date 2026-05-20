@@ -84,7 +84,7 @@ func TestParseRuntimeDependsOn(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo hello"
+		script: {content: "echo hello"}
 		runtimes: [{
 			name: "container"
 			image: "debian:stable-slim"
@@ -140,7 +140,7 @@ func TestParseRuntimeDependsOn_AllDepTypes(t *testing.T) {
 cmds: [{
 	name: "full-deps"
 	implementations: [{
-		script: "echo test"
+		script: {content: "echo test"}
 		runtimes: [{
 			name: "container"
 			image: "debian:stable-slim"
@@ -149,7 +149,7 @@ cmds: [{
 				cmds: [{alternatives: ["build"]}]
 				filepaths: [{alternatives: ["/tmp"]}]
 				capabilities: [{alternatives: ["internet"]}]
-				custom_checks: [{name: "version", check_script: "echo 1"}]
+					custom_checks: [{name: "version", script: {content: "echo 1"}}]
 				env_vars: [{alternatives: [{name: "HOME"}]}]
 			}
 		}]
@@ -208,7 +208,7 @@ func TestParseRuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 cmds: [{
 	name: "test"
 	implementations: [{
-		script: "echo test"
+		script: {content: "echo test"}
 		runtimes: [{
 			name: "` + tt.runtime + `"
 			depends_on: {
@@ -239,7 +239,7 @@ func TestParseRuntimeDependsOn_NoDeps(t *testing.T) {
 cmds: [{
 	name: "no-deps"
 	implementations: [{
-		script: "echo test"
+		script: {content: "echo test"}
 		runtimes: [{name: "native"}]
 		platforms: [{name: "linux"}]
 	}]
@@ -264,7 +264,7 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 		Commands: []Command{{
 			Name: "test-gen",
 			Implementations: []Implementation{{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 				Runtimes: []RuntimeConfig{{
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
@@ -322,7 +322,7 @@ func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 		Commands: []Command{{
 			Name: "all-deps",
 			Implementations: []Implementation{{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 				Runtimes: []RuntimeConfig{{
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
@@ -338,7 +338,7 @@ func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 						}},
 						CustomChecks: []CustomCheckDependency{{
 							Name:         "version-check",
-							CheckScript:  "echo 1",
+							Script:       CustomCheckScript{Content: "echo 1"},
 							ExpectedCode: &expectedCode,
 						}},
 						EnvVars: []EnvVarDependency{{
@@ -416,7 +416,7 @@ func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 				Commands: []Command{{
 					Name: "test",
 					Implementations: []Implementation{{
-						Script: "echo test",
+						Script: ImplementationScript{Content: "echo test"},
 						Runtimes: []RuntimeConfig{{
 							Name: tt.runtime,
 							DependsOn: &DependsOn{
@@ -453,7 +453,7 @@ func TestStructureValidator_RuntimeDependsOn_AllowsContainer(t *testing.T) {
 		Commands: []Command{{
 			Name: "test",
 			Implementations: []Implementation{{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 				Runtimes: []RuntimeConfig{{
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
@@ -484,7 +484,7 @@ func TestGenerateCUE_RuntimeNoDeps_CompactFormat(t *testing.T) {
 		Commands: []Command{{
 			Name: "compact",
 			Implementations: []Implementation{{
-				Script: "echo test",
+				Script: ImplementationScript{Content: "echo test"},
 				Runtimes: []RuntimeConfig{{
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",

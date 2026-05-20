@@ -218,7 +218,7 @@ func TestRunWatchMode_InvalidDebounce(t *testing.T) {
 						Debounce: "not-a-duration",
 					},
 					Implementations: []invowkfile.Implementation{{
-						Script:    "echo hello",
+						Script:    invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					}},

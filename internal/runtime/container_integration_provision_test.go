@@ -13,6 +13,11 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+func filesystemPathPtr(path string) *invowkfile.FilesystemPath {
+	file := invowkfile.FilesystemPath(path)
+	return &file
+}
+
 // TestContainerRuntime_ProvisioningLayer_InvowkfileAccess tests that the invowkfile directory
 // is correctly provisioned at /workspace in the container.
 func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
@@ -37,7 +42,7 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 		Implementations: []invowkfile.Implementation{
 			{
 				// The script reads a file from /workspace to verify provisioning
-				Script: invowkfile.ScriptContent("cat /workspace/" + testFileName),
+				Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("cat /workspace/" + testFileName)},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -93,7 +98,7 @@ echo "Script executed from /workspace"
 		Implementations: []invowkfile.Implementation{
 			{
 				// Execute the script file that was provisioned to /workspace
-				Script: invowkfile.ScriptContent("./" + scriptFileName),
+				Script: invowkfile.ImplementationScript{File: filesystemPathPtr("./" + scriptFileName)},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -152,7 +157,7 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 		Name: "test-nested-provision",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: invowkfile.ScriptContent("cat /workspace/scripts/helpers/" + nestedFileName),
+				Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("cat /workspace/scripts/helpers/" + nestedFileName)},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -197,7 +202,7 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 		Name: "test-workspace-cwd",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: "pwd",
+				Script: invowkfile.ImplementationScript{Content: "pwd"},
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},

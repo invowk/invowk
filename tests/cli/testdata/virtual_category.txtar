@@ -17,7 +17,7 @@ cmds: [
 		name:        "uncategorized"
 		description: "No category"
 		implementations: [{
-			script:    "echo uncategorized"
+			script: {content: "echo uncategorized"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -27,7 +27,7 @@ cmds: [
 		description: "Compile the project"
 		category:    "Build"
 		implementations: [{
-			script:    "echo compiling"
+			script: {content: "echo compiling"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -37,7 +37,7 @@ cmds: [
 		description: "Run unit tests"
 		category:    "Test"
 		implementations: [{
-			script:    "echo testing"
+			script: {content: "echo testing"}
 			runtimes:  [{name: "virtual"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

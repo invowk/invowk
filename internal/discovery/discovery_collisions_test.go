@@ -827,7 +827,7 @@ func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverModule(t *testing.T)
 
 	// Create a regular invowkfile in current directory
 	currentContent := `
-cmds: [{name: "cmd", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "cmd", implementations: [{script: {content: "echo current"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(currentContent), 0o644); err != nil {
 		t.Fatalf("failed to write current invowkfile: %v", err)
@@ -883,7 +883,7 @@ func TestDiscoverAll_SkipsReservedModuleName(t *testing.T) {
 	invowkfileContent := `cmds: [{
 		name: "root-cmd"
 		description: "Root command"
-		implementations: [{script: "echo root", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo root"}, runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to create invowkfile: %v", err)
@@ -902,7 +902,7 @@ version: "1.0.0"
 	if err := os.WriteFile(filepath.Join(validModDir, "invowkfile.cue"), []byte(`cmds: [{
 		name: "valid-cmd"
 		description: "Valid command"
-		implementations: [{script: "echo valid", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo valid"}, runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`), 0o644); err != nil {
 		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}
@@ -920,7 +920,7 @@ version: "1.0.0"
 	if err := os.WriteFile(filepath.Join(reservedModDir, "invowkfile.cue"), []byte(`cmds: [{
 		name: "reserved-cmd"
 		description: "Reserved command"
-		implementations: [{script: "echo reserved", runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo reserved"}, runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`), 0o644); err != nil {
 		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}

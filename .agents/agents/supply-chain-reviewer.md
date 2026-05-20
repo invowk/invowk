@@ -16,7 +16,7 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial (scoped lifetime + FilterInvowkEnvVars) |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
 | SC-06 | `--ivk-env-var` highest-priority override | Low | `internal/runtime/env_builder.go` | By-design |
-| SC-07 | `check_script` arbitrary host shell execution | High | `internal/app/deps/checks.go:71` | Partial |
+| SC-07 | Custom-check `script.content` arbitrary host shell execution | High | `internal/app/deps/checks.go:71` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452-488` | Mitigated (allowlist in Validate; residual: `filepath.Base` bypass for absolute paths) |
 | SC-09 | Root invowkfile commands bypass scope | Low | `internal/app/deps/deps.go:199` | By-design |
 | SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial (shadowing detection) |

@@ -90,7 +90,7 @@ func TestCommandDependencyScopeAlternatives(t *testing.T) {
 		moduleCmd := &invowkfile.Command{
 			Name: "build",
 			Implementations: []invowkfile.Implementation{{
-				Script: "echo hello",
+				Script: invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes: []invowkfile.RuntimeConfig{{
 					Name: invowkfile.RuntimeContainer,
 					DependsOn: &invowkfile.DependsOn{
@@ -110,8 +110,8 @@ func TestCommandDependencyScopeAlternatives(t *testing.T) {
 		var scripts []string
 		probe := &filepathStubRuntime{
 			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				scripts = append(scripts, string(ctx.SelectedImpl.Script))
-				if strings.Contains(string(ctx.SelectedImpl.Script), "check-cmd 'allowed-tools test'") {
+				scripts = append(scripts, string(ctx.SelectedImpl.Script.Content))
+				if strings.Contains(string(ctx.SelectedImpl.Script.Content), "check-cmd 'allowed-tools test'") {
 					return &runtimepkg.Result{ExitCode: 0}
 				}
 				return &runtimepkg.Result{ExitCode: 1}

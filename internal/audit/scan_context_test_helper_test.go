@@ -28,7 +28,7 @@ func newSingleScriptContext(script string) *ScanContext {
 		Commands: []invowkfile.Command{{
 			Name: "cmd",
 			Implementations: []invowkfile.Implementation{{
-				Script:   invowkfile.ScriptContent(script),
+				Script:   invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
 				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 			}},
 		}},

@@ -238,8 +238,8 @@ version: "1.0.0"
 	}
 	// Create invowkfile.cue with commands
 	invowkfileContent := `cmds: [
-	{name: "cmd1", description: "First command", implementations: [{script: "echo 1", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
-	{name: "cmd2", description: "Second command", implementations: [{script: "echo 2", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
+	{name: "cmd1", description: "First command", implementations: [{script: {content: "echo 1"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "cmd2", description: "Second command", implementations: [{script: {content: "echo 2"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
@@ -333,7 +333,7 @@ description: "A test module"
 		t.Fatalf("failed to write invowkmod.cue: %v", err)
 	}
 	// Create invowkfile.cue with commands
-	invowkfileContent := `cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
+	invowkfileContent := `cmds: [{name: "test", implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]`
 	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile.cue: %v", err)
 	}

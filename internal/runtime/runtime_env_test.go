@@ -24,6 +24,14 @@ func testCommandWithScript(name, script string, rt invowkfile.RuntimeMode) *invo
 	)
 }
 
+func testCommandWithScriptFile(name, path string, rt invowkfile.RuntimeMode) *invowkfile.Command {
+	return invowkfiletest.NewTestCommand(name,
+		invowkfiletest.WithScriptFile(path),
+		invowkfiletest.WithRuntime(rt),
+		invowkfiletest.WithAllPlatforms(),
+	)
+}
+
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.
 // This helper is shared across test files in the runtime package.
 // Delegates to invowkfiletest.NewTestCommand for consistent test command construction.
@@ -43,10 +51,11 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(invowkfilePath),
+		FilePath:   invowkfile.FilesystemPath(invowkfilePath),
+		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
+	cmd := testCommandWithScriptFile("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
 
 	t.Run("native runtime", func(t *testing.T) {
 		t.Parallel()
@@ -65,7 +74,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	t.Run("virtual runtime", func(t *testing.T) {
 		t.Parallel()
 
-		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
+		cmdVirtual := testCommandWithScriptFile("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
 		rt := NewVirtualRuntime(false)
 		ctx := NewExecutionContext(t.Context(), cmdVirtual, inv)
 
@@ -94,7 +103,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		Name: "env-test",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`,
+				Script: invowkfile.ImplementationScript{Content: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`},
 
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},

@@ -83,7 +83,7 @@ cmds: [
 		description: "A sample command"
 		implementations: [
 			{
-				script: "echo \"Hello from %s!\""
+				script: {content: "echo \"Hello from %s!\""}
 				runtimes: [
 					{name: "native"},
 					{name: "virtual"},

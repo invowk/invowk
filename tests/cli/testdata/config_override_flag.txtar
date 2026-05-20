@@ -34,17 +34,17 @@ cmds: [
 		description: "Command with both virtual and native implementations"
 		implementations: [
 			{
-				script:    "echo 'RUNTIME=virtual'"
+				script: {content: "echo 'RUNTIME=virtual'"}
 				runtimes:  [{name: "virtual"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 			{
-				script:    "echo 'RUNTIME=native'"
+				script: {content: "echo 'RUNTIME=native'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'RUNTIME=native'"
+				script: {content: "Write-Output 'RUNTIME=native'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

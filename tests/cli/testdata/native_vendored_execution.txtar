@@ -27,12 +27,12 @@ cmds: [
 		description: "Local command"
 		implementations: [
 			{
-				script:    "echo 'Hello from main'"
+				script: {content: "echo 'Hello from main'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Hello from main'"
+				script: {content: "Write-Output 'Hello from main'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -57,12 +57,12 @@ cmds: [
 		description: "Command from parent module"
 		implementations: [
 			{
-				script:    "echo 'parent module command'"
+				script: {content: "echo 'parent module command'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'parent module command'"
+				script: {content: "Write-Output 'parent module command'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},
@@ -83,7 +83,7 @@ modules: {
 		namespace:        "dep@1.0.0"
 		command_source_id: "dep"
 		module_id:        "dep"
-		content_hash:     "sha256:c79061275db3b0428d9b9c8e901986c599a590c1d0a131c4ca28bb7ca9ae4873"
+		content_hash:     "sha256:1c91614c812c5aa358596014fff9c72f3b749f32c6bc16ad13088720446cf25b"
 	}
 }
 
@@ -98,12 +98,12 @@ cmds: [
 		description: "Vendored command"
 		implementations: [
 			{
-				script:    "echo 'Hello from vendored dep'"
+				script: {content: "echo 'Hello from vendored dep'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script:    "Write-Output 'Hello from vendored dep'"
+				script: {content: "Write-Output 'Hello from vendored dep'"}
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "windows"}]
 			},

@@ -189,7 +189,7 @@ cmds: [
 		name: "test"
 		description: "Run tests"
 		implementations: [{
-			script: "echo test"
+			script: {content: "echo test"}
 			runtimes: [{name: "native"}]
 			platforms: [{name: "linux"}, {name: "macos"}]
 		}]
@@ -238,7 +238,7 @@ cmds: [
 		name: "test"
 		description: "Run tests"
 		implementations: [{
-			script: "echo test"
+			script: {content: "echo test"}
 			runtimes: [{name: "native"}]
 			platforms: [{name: "linux"}, {name: "macos"}]
 		}]
@@ -270,7 +270,7 @@ func TestDiscoverAll_PrefersInvowkfileCue(t *testing.T) {
 
 	// Create both invowkfile and invowkfile.cue
 	content := `
-cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "test", implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile: %v", err)
@@ -313,7 +313,7 @@ func TestDiscoverAll_UserDirInvowkfileNotDiscovered(t *testing.T) {
 	}
 
 	content := `
-cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "user-cmd", implementations: [{script: {content: "echo user"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(userCmdsDir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile: %v", err)
@@ -396,7 +396,7 @@ description: "Test module for config includes"
 
 	// Create invowkfile.cue with a command
 	invowkfileContent := `
-cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "custom-cmd", implementations: [{script: {content: "echo custom"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(modulePath, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile.cue: %v", err)
@@ -464,7 +464,7 @@ func TestLoadFirst_WithValidFile(t *testing.T) {
 
 	// invowkfile.cue now only contains commands (module metadata is in invowkmod.cue for modules)
 	content := `
-cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "test", implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile: %v", err)
@@ -494,7 +494,7 @@ func TestLoadAll_WithMultipleFiles(t *testing.T) {
 
 	// Create current dir invowkfile
 	content := `
-cmds: [{name: "current", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "current", implementations: [{script: {content: "echo current"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile: %v", err)
@@ -532,8 +532,8 @@ func TestDiscoverCommands(t *testing.T) {
 	// invowkfile.cue now contains only commands - module metadata is in invowkmod.cue for modules
 	content := `
 cmds: [
-	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
-	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
+	{name: "build", description: "Build the project", implementations: [{script: {content: "go build"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "test", description: "Run tests", implementations: [{script: {content: "go test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
@@ -569,8 +569,8 @@ func TestGetCommand(t *testing.T) {
 	// invowkfile.cue now contains only commands - no module metadata
 	content := `
 cmds: [
-	{name: "build", description: "Build the project", implementations: [{script: "go build", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
-	{name: "test", description: "Run tests", implementations: [{script: "go test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
+	{name: "build", description: "Build the project", implementations: [{script: {content: "go build"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "test", description: "Run tests", implementations: [{script: {content: "go test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
@@ -621,9 +621,9 @@ func TestGetCommandsWithPrefix(t *testing.T) {
 	// invowkfile.cue now contains only commands - no module metadata
 	content := `
 cmds: [
-	{name: "build", implementations: [{script: "go build", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
-	{name: "build-dev", implementations: [{script: "go build -tags dev", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
-	{name: "test", implementations: [{script: "go test", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
+	{name: "build", implementations: [{script: {content: "go build"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "build-dev", implementations: [{script: {content: "go build -tags dev"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]},
+	{name: "test", implementations: [{script: {content: "go test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}
 ]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
@@ -683,7 +683,7 @@ func TestDiscoverCommands_Precedence(t *testing.T) {
 
 	// Create current dir invowkfile with "build" command
 	currentContent := `
-cmds: [{name: "build", description: "Current build", implementations: [{script: "echo current", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "build", description: "Current build", implementations: [{script: {content: "echo current"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(currentContent), 0o644); err != nil {
 		t.Fatalf("failed to write invowkfile: %v", err)
@@ -772,7 +772,7 @@ func TestDiscoverAll_SymlinkToInvowkfile(t *testing.T) {
 	testutil.MustMkdirAll(t, sourceDir, 0o755)
 
 	invowkfileContent := `
-cmds: [{name: "symlinked", implementations: [{script: "echo symlinked", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
+cmds: [{name: "symlinked", implementations: [{script: {content: "echo symlinked"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]}]}]
 `
 	sourcePath := filepath.Join(sourceDir, "invowkfile.cue")
 	if err := os.WriteFile(sourcePath, []byte(invowkfileContent), 0o644); err != nil {
