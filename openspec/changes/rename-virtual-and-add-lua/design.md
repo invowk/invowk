@@ -97,7 +97,7 @@ Rationale: This makes the safe behavior the default and makes every escape from 
 
 Rationale: Most users expect an explicitly allowed `git` or `python` to resolve as it does in their terminal. Strict mode is available for modules that want deterministic system-only lookup.
 
-### Decision 6: Hybrid path model with implementation-scoped mappings
+### Decision 6: Hybrid path model with platform-scoped virtual filesystem settings
 
 Implicit safe roots:
 - Effective work directory.
@@ -105,13 +105,27 @@ Implicit safe roots:
 - OS temp directory.
 - App-scoped anchors: `@config`, `@data`, `@cache`, `@state`.
 
-`@home` resolves to the user's home directory for metadata and explicit mapping convenience, but it does not grant blanket recursive home access by default. Full or partial home access requires an explicit `allowed_paths` mapping.
+`@home` resolves to the user's home directory for metadata and explicit mapping convenience, but restricted virtual filesystem access does not grant blanket recursive home access by default. Full or partial home access in restricted mode requires an explicit selected-platform `virtual.filesystem.paths` mapping.
 
-`allowed_paths` belongs on implementation config, not runtime config, because platform selection belongs to implementations. It supports:
-- A common string value for all selected platforms.
-- A platform-keyed value with `linux`, `macos`, and/or `windows` entries.
+Virtual filesystem settings belong under each implementation platform:
 
-Rationale: Platform-specific paths should not force duplicate implementation blocks. Scripts should consume logical names and anchors, while CUE carries platform-specific host path details.
+```cue
+platforms: [{
+	name: "linux"
+	virtual: {
+		filesystem: {
+			access: "restricted"
+			paths: {
+				DATA: "@data/my-tool"
+			}
+		}
+	}
+}]
+```
+
+`virtual.filesystem.access` supports `"restricted"` and `"full"`, defaulting to `"restricted"`. `virtual.filesystem.paths` maps safe logical names to platform-local path strings for the selected platform.
+
+Rationale: Host paths are platform facts, so the path map lives beside the platform selector. Scripts consume stable logical names and anchors, while CUE carries OS-specific host path details without nesting platform objects inside each path entry.
 
 ### Decision 7: Standard anchor mapping
 
@@ -132,7 +146,7 @@ Paths are resolved using OS-native rules, normalized before validation, and reje
 ### Decision 8: Lua bridge and stdlib surface
 
 `virtual-lua` injects an `invowk` table:
-- `invowk.path(name)` resolves anchors and logical mappings.
+- `invowk.path(name)` resolves anchors and platform virtual filesystem path handles.
 - `invowk.env` is a read-only environment view.
 - `invowk.state` exposes execution metadata, including `bin_path` for the most recently resolved host binary.
 - `invowk.cmd.<name>(...)` streams a u-root built-in or allowed host binary.

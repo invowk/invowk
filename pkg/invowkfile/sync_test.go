@@ -109,6 +109,8 @@ func TestSchemaSync(t *testing.T) {
 		{"#Argument", reflect.TypeFor[Argument]()},
 		{"#EnvConfig", reflect.TypeFor[EnvConfig]()},
 		{"#PlatformConfig", reflect.TypeFor[PlatformConfig]()},
+		{"#PlatformVirtualConfig", reflect.TypeFor[PlatformVirtualConfig]()},
+		{"#VirtualFilesystemConfig", reflect.TypeFor[VirtualFilesystemConfig]()},
 		{"#ToolDependency", reflect.TypeFor[ToolDependency]()},
 		{"#FilepathDependency", reflect.TypeFor[FilepathDependency]()},
 		{"#CapabilityDependency", reflect.TypeFor[CapabilityDependency]()},

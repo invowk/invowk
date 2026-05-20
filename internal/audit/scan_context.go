@@ -91,20 +91,20 @@ type (
 	// ScriptRef is a reference to a script within the scan context, annotated with
 	// the surface it belongs to. Used by content-analysis checkers.
 	ScriptRef struct {
-		SurfaceID    string
-		SurfaceKey   ScanSurfaceKey
-		SurfaceKind  SurfaceKind
-		FilePath     types.FilesystemPath
-		ModulePath   types.FilesystemPath
-		CommandName  invowkfile.CommandName
-		ImplIndex    int
-		Script       invowkfile.ImplementationScript
-		IsFile       bool
-		Runtimes     []invowkfile.RuntimeConfig
-		AllowedPaths invowkfile.AllowedPaths
-		ScriptPath   types.FilesystemPath
-		FileSize     int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
-		FileStatErr  error
+		SurfaceID   string
+		SurfaceKey  ScanSurfaceKey
+		SurfaceKind SurfaceKind
+		FilePath    types.FilesystemPath
+		ModulePath  types.FilesystemPath
+		CommandName invowkfile.CommandName
+		ImplIndex   int
+		Script      invowkfile.ImplementationScript
+		IsFile      bool
+		Runtimes    []invowkfile.RuntimeConfig
+		Platforms   []invowkfile.PlatformConfig
+		ScriptPath  types.FilesystemPath
+		FileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
+		FileStatErr error
 		// resolvedContent holds the actual script body for content analysis.
 		// For inline scripts this equals string(Script). For file-based scripts
 		// this holds the file contents (read during context building, capped at
@@ -784,17 +784,17 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 			impl := &cmd.Implementations[i]
 			isFile := impl.Script.IsFile()
 			ref := ScriptRef{
-				SurfaceID:    surfaceID,
-				SurfaceKey:   surfaceKey,
-				SurfaceKind:  surfaceKind,
-				FilePath:     filePath,
-				ModulePath:   modulePath,
-				CommandName:  cmd.Name,
-				ImplIndex:    i,
-				Script:       impl.Script,
-				IsFile:       isFile,
-				Runtimes:     impl.Runtimes,
-				AllowedPaths: impl.AllowedPaths,
+				SurfaceID:   surfaceID,
+				SurfaceKey:  surfaceKey,
+				SurfaceKind: surfaceKind,
+				FilePath:    filePath,
+				ModulePath:  modulePath,
+				CommandName: cmd.Name,
+				ImplIndex:   i,
+				Script:      impl.Script,
+				IsFile:      isFile,
+				Runtimes:    impl.Runtimes,
+				Platforms:   impl.Platforms,
 			}
 
 			// Resolve actual script content for content-analysis checkers.

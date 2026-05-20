@@ -229,7 +229,7 @@ func newDryRunPlan(
 		CommandName:                 invowkfile.CommandName(req.Name), //goplint:ignore -- request name was resolved through discovery
 		SourceID:                    cmdInfo.SourceID,
 		Runtime:                     execCtx.SelectedRuntime,
-		Platform:                    req.Platform,
+		Platform:                    execCtx.SelectedPlatform,
 		WorkDir:                     execCtx.WorkDir,
 		Env:                         dryRunEnv(execCtx),
 		DependencyValidationSkipped: true,
@@ -237,7 +237,9 @@ func newDryRunPlan(
 	if impl != nil {
 		plan.Timeout = impl.Timeout
 		plan.Script = impl.Script
-		plan.AllowedPaths = impl.AllowedPaths
+		filesystem := impl.VirtualFilesystemForPlatform(execCtx.SelectedPlatform)
+		plan.VirtualFilesystemAccess = filesystem.EffectiveAccess()
+		plan.VirtualFilesystemPaths = filesystem.Paths
 		if rtConfig := impl.GetRuntimeConfig(execCtx.SelectedRuntime); rtConfig != nil {
 			plan.AllowedBinaries = append([]invowkfile.AllowedBinary(nil), rtConfig.AllowedBinaries...)
 			plan.BinaryLookupMode = rtConfig.BinaryLookupMode

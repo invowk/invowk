@@ -4,12 +4,25 @@ package commandadapters
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 
 	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+type virtualFilesystemPathsJSON string
+
+func (p virtualFilesystemPathsJSON) String() string { return string(p) }
+
+func (p virtualFilesystemPathsJSON) Validate() error {
+	if !json.Valid([]byte(p)) {
+		return fmt.Errorf("invalid virtual filesystem paths JSON: %s", p)
+	}
+	return nil
+}
 
 func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommandSpec) (*exec.Cmd, error) {
 	if err := spec.Validate(); err != nil {
@@ -19,6 +32,10 @@ func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommand
 	if err != nil {
 		return nil, fmt.Errorf("get invowk executable path: %w", err)
 	}
+	filesystemPathsJSON, err := encodeVirtualFilesystemPathsJSON(spec.FilesystemPaths)
+	if err != nil {
+		return nil, err
+	}
 
 	args := []string{
 		"internal", "exec-virtual-sh",
@@ -27,6 +44,8 @@ func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommand
 		"--script-base-path", string(*spec.ScriptBasePath),
 		"--env-json", string(spec.EnvJSON),
 		"--binary-lookup-mode", spec.BinaryLookupMode.String(),
+		"--filesystem-access", spec.FilesystemAccess.String(),
+		"--filesystem-paths-json", filesystemPathsJSON.String(),
 	}
 	if spec.EnableUroot {
 		args = append(args, "--enable-uroot")
@@ -43,4 +62,15 @@ func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommand
 	// through the serialized environment above.
 	cmd.Env = runtime.FilterInvowkEnvVars(os.Environ())
 	return cmd, nil
+}
+
+func encodeVirtualFilesystemPathsJSON(paths invowkfile.VirtualFilesystemPaths) (virtualFilesystemPathsJSON, error) {
+	if len(paths) == 0 {
+		return "{}", nil
+	}
+	data, err := json.Marshal(paths.StringMap())
+	if err != nil {
+		return "", fmt.Errorf("serialize virtual filesystem paths: %w", err)
+	}
+	return virtualFilesystemPathsJSON(data), nil
 }

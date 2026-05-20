@@ -31,6 +31,8 @@ func newInternalExecLuaCommand() *cobra.Command {
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
 	cmd.Flags().StringArray("allowed-binary", nil, "host binary allowed by the virtual runtime")
 	cmd.Flags().String("binary-lookup-mode", invowkfile.BinaryLookupModeHost.String(), "host binary lookup mode")
+	cmd.Flags().String("filesystem-access", invowkfile.VirtualFilesystemAccessRestricted.String(), "virtual filesystem access mode")
+	cmd.Flags().String("filesystem-paths-json", "{}", "virtual filesystem paths as JSON object")
 	cmd.Flags().Uint64("cpu-limit", 0, "golua CPU quota")
 	cmd.Flags().String("memory-limit", "", "golua memory quota")
 	cmd.Flags().Bool("enable-uroot", false, "enable u-root utilities")
@@ -53,6 +55,8 @@ func runInternalExecLua(cmd *cobra.Command, _ []string) error {
 	envJSON, _ := cmd.Flags().GetString("env-json")
 	allowedBinaries, _ := cmd.Flags().GetStringArray("allowed-binary")
 	binaryLookupModeRaw, _ := cmd.Flags().GetString("binary-lookup-mode")
+	filesystemAccessRaw, _ := cmd.Flags().GetString("filesystem-access")
+	filesystemPathsRaw, _ := cmd.Flags().GetString("filesystem-paths-json")
 	cpuLimit, err := cmd.Flags().GetUint64("cpu-limit")
 	if err != nil {
 		return internalExecLuaExit(cmd, "Error reading Lua CPU limit: %v\n", err)
@@ -62,6 +66,14 @@ func runInternalExecLua(cmd *cobra.Command, _ []string) error {
 	binaryLookupMode := invowkfile.BinaryLookupMode(binaryLookupModeRaw)
 	if validateErr := binaryLookupMode.Validate(); validateErr != nil {
 		return internalExecLuaExit(cmd, "Error parsing binary lookup mode: %v\n", validateErr)
+	}
+	filesystemAccess := invowkfile.VirtualFilesystemAccess(filesystemAccessRaw)
+	if validateErr := filesystemAccess.Validate(); validateErr != nil {
+		return internalExecLuaExit(cmd, "Error parsing filesystem access: %v\n", validateErr)
+	}
+	filesystemPaths, err := parseVirtualFilesystemPathsJSON(filesystemPathsRaw)
+	if err != nil {
+		return internalExecLuaExit(cmd, "Error parsing filesystem paths: %v\n", err)
 	}
 	luaCPULimit := invowkfile.LuaCPULimit(cpuLimit)
 	if validateErr := luaCPULimit.Validate(); validateErr != nil {
@@ -91,6 +103,8 @@ func runInternalExecLua(cmd *cobra.Command, _ []string) error {
 		Args:             posArgs,
 		AllowedBinaries:  allowedBinaries,
 		BinaryLookupMode: binaryLookupMode,
+		FilesystemAccess: filesystemAccess,
+		FilesystemPaths:  filesystemPaths,
 		CPULimit:         luaCPULimit,
 		MemoryLimit:      luaMemoryLimit,
 		EnableUroot:      enableUroot,

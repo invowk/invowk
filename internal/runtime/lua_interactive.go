@@ -33,6 +33,8 @@ type (
 		Args             LuaInteractiveArgs
 		AllowedBinaries  []string
 		BinaryLookupMode invowkfile.BinaryLookupMode
+		FilesystemAccess invowkfile.VirtualFilesystemAccess
+		FilesystemPaths  invowkfile.VirtualFilesystemPaths
 		CPULimit         invowkfile.LuaCPULimit
 		MemoryLimit      invowkfile.MemoryLimit
 		EnableUroot      bool
@@ -53,6 +55,8 @@ type (
 		Args             []string
 		AllowedBinaries  []string
 		BinaryLookupMode invowkfile.BinaryLookupMode
+		FilesystemAccess invowkfile.VirtualFilesystemAccess
+		FilesystemPaths  invowkfile.VirtualFilesystemPaths
 		CPULimit         invowkfile.LuaCPULimit
 		MemoryLimit      invowkfile.MemoryLimit
 		EnableUroot      bool
@@ -107,6 +111,8 @@ func (s LuaInteractiveCommandSpec) Validate() error {
 		scriptBaseErr,
 		s.EnvJSON.Validate(),
 		s.BinaryLookupMode.Validate(),
+		s.FilesystemAccess.Validate(),
+		s.FilesystemPaths.Validate(),
 		s.CPULimit.Validate(),
 		s.MemoryLimit.Validate(),
 	)
@@ -166,6 +172,7 @@ func (r *LuaRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, er
 		_ = os.Remove(tmpFile.Name())
 		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
+	filesystem := selectedVirtualFilesystem(ctx)
 	pathResolver, err := newVirtualPathResolver(ctx)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
@@ -204,6 +211,8 @@ func (r *LuaRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, er
 		Args:             LuaInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
 		AllowedBinaries:  allowedBinaryStrings(runtimeCfg),
 		BinaryLookupMode: binaryLookupMode(runtimeCfg),
+		FilesystemAccess: pathResolver.access,
+		FilesystemPaths:  filesystem.Paths,
 		EnableUroot:      r.utilitiesEnabled,
 	}
 	if runtimeCfg != nil {
@@ -243,7 +252,17 @@ func RunLuaScript(ctx context.Context, opts LuaScriptOptions) error {
 	}
 
 	env := SliceToEnv(opts.Env)
-	pathResolver := newVirtualPathResolverForEnv(opts.WorkDir, opts.ScriptBasePath, env)
+	pathResolver, err := newVirtualPathResolverForInteractiveConfig(
+		opts.WorkDir,
+		opts.ScriptBasePath,
+		invowkfile.VirtualFilesystemConfig{
+			Access: opts.FilesystemAccess,
+			Paths:  opts.FilesystemPaths,
+		},
+	)
+	if err != nil {
+		return err
+	}
 	addVirtualRuntimeEnv(env, pathResolver)
 	pathValidator := virtualPathValidator{resolver: pathResolver}
 	binaryPolicy := &virtualHostBinaryPolicy{
@@ -309,6 +328,12 @@ func (o LuaScriptOptions) Validate() error {
 		}
 	}
 	if err := o.BinaryLookupMode.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := o.FilesystemAccess.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := o.FilesystemPaths.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := o.CPULimit.Validate(); err != nil {

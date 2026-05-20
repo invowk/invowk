@@ -35,7 +35,7 @@ Invowk SHALL expose shared virtual-family configuration under `virtual`. The `vi
 - **THEN** host binary execution SHALL remain governed by `allowed_binaries` and `binary_lookup_mode`
 
 ### Requirement: Path sanitization for virtual runtimes
-All `virtual-*` runtimes SHALL enforce shared path sanitization for VM-controlled filesystem operations. Access SHALL be allowed only for implicit safe roots, standard allowed anchors, or implementation-scoped `allowed_paths` mappings.
+All `virtual-*` runtimes SHALL enforce shared path sanitization for VM-controlled filesystem operations. In restricted mode, access SHALL be allowed only for implicit safe roots, standard allowed anchors, or selected-platform `virtual.filesystem.paths` mappings. In full mode, VM-controlled filesystem operations SHALL be allowed to access normalized host filesystem paths after resolver checks.
 
 #### Scenario: Relative workdir access is allowed
 - **WHEN** a `virtual-sh` or `virtual-lua` script reads `./manifest.json` inside the effective work directory
@@ -46,7 +46,7 @@ All `virtual-*` runtimes SHALL enforce shared path sanitization for VM-controlle
 - **THEN** Invowk SHALL allow the operation after resolving and validating the final host path
 
 #### Scenario: Unauthorized absolute path is blocked
-- **WHEN** a `virtual-sh` script attempts to read `/etc/passwd` without a matching anchor or `allowed_paths` mapping
+- **WHEN** a `virtual-sh` script attempts to read `/etc/passwd` in restricted mode without a matching anchor or selected-platform `virtual.filesystem.paths` mapping
 - **THEN** Invowk SHALL fail the operation with a permission-denied diagnostic from the shared path validator
 
 #### Scenario: Traversal out of an allowed root is blocked

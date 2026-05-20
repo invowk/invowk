@@ -35,6 +35,7 @@ type (
 		anchors      map[string]string
 		paths        map[string]string
 		allowedRoots []string
+		access       invowkfile.VirtualFilesystemAccess
 	}
 
 	virtualPathValidator struct {
@@ -60,34 +61,32 @@ func newVirtualPathValidator(ctx *ExecutionContext) (virtualPathValidator, error
 }
 
 func newVirtualPathResolver(ctx *ExecutionContext) (virtualPathResolver, error) {
-	allowedPaths := invowkfile.AllowedPaths(nil)
-	if ctx != nil && ctx.SelectedImpl != nil {
-		allowedPaths = ctx.SelectedImpl.AllowedPaths
-	}
-	return newVirtualPathResolverForAllowedPaths(
+	filesystem := selectedVirtualFilesystem(ctx)
+	return newVirtualPathResolverForFilesystem(
 		ctx.EffectiveWorkDir(),
 		string(ctx.Invowkfile.GetScriptBasePath()),
-		allowedPaths,
-		invowkfile.CurrentPlatform(),
+		filesystem,
 	)
 }
 
-func newVirtualPathResolverForPaths(workDir, scriptBasePath string) virtualPathResolver {
-	resolver, err := newVirtualPathResolverForAllowedPaths(workDir, scriptBasePath, nil, "")
-	if err != nil {
-		return virtualPathResolver{}
+func selectedVirtualFilesystem(ctx *ExecutionContext) invowkfile.VirtualFilesystemConfig {
+	if ctx == nil || ctx.SelectedImpl == nil {
+		return invowkfile.VirtualFilesystemConfig{}
 	}
-	return resolver
+	platform := invowkfile.CurrentPlatform()
+	if ctx.SelectedPlatform != "" {
+		platform = ctx.SelectedPlatform
+	}
+	return ctx.SelectedImpl.VirtualFilesystemForPlatform(platform)
 }
 
-func newVirtualPathResolverForAllowedPaths(
+func newVirtualPathResolverForFilesystem(
 	workDir string,
 	scriptBasePath string,
-	allowedPaths invowkfile.AllowedPaths,
-	platform invowkfile.PlatformType,
+	filesystem invowkfile.VirtualFilesystemConfig,
 ) (virtualPathResolver, error) {
 	anchors := standardVirtualAnchors(workDir)
-	paths, err := resolveAllowedPaths(allowedPaths, platform, scriptBasePath, anchors)
+	paths, err := resolveVirtualFilesystemPaths(filesystem.Paths, scriptBasePath, anchors)
 	if err != nil {
 		return virtualPathResolver{}, err
 	}
@@ -105,24 +104,20 @@ func newVirtualPathResolverForAllowedPaths(
 		anchors:      anchors,
 		paths:        paths,
 		allowedRoots: normalizedRoots(roots),
+		access:       filesystem.EffectiveAccess(),
 	}, nil
 }
 
-func newVirtualPathResolverForEnv(workDir, scriptBasePath string, env map[string]string) virtualPathResolver {
-	resolver := newVirtualPathResolverForPaths(workDir, scriptBasePath)
-	if len(env) == 0 {
-		return resolver
+func newVirtualPathResolverForInteractiveConfig(
+	workDir string,
+	scriptBasePath string,
+	filesystem invowkfile.VirtualFilesystemConfig,
+) (virtualPathResolver, error) {
+	resolver, err := newVirtualPathResolverForFilesystem(workDir, scriptBasePath, filesystem)
+	if err != nil {
+		return virtualPathResolver{}, err
 	}
-	resolver.paths = make(map[string]string)
-	for key, value := range env {
-		if !strings.HasPrefix(key, "INVOWK_PATH_") || strings.TrimSpace(value) == "" {
-			continue
-		}
-		name := strings.TrimPrefix(key, "INVOWK_PATH_")
-		resolver.paths[name] = value
-		resolver.allowedRoots = append(resolver.allowedRoots, normalizedRoots([]string{value})...)
-	}
-	return resolver
+	return resolver, nil
 }
 
 func defaultTempRoots() []string {
@@ -199,25 +194,17 @@ func normalizedRoots(paths []string) []string {
 	return roots
 }
 
-func resolveAllowedPaths(
-	allowedPaths invowkfile.AllowedPaths,
-	platform invowkfile.PlatformType,
+func resolveVirtualFilesystemPaths(
+	filesystemPaths invowkfile.VirtualFilesystemPaths,
 	scriptBasePath string,
 	anchors map[string]string,
 ) (map[string]string, error) {
-	if len(allowedPaths) == 0 {
+	if len(filesystemPaths) == 0 {
 		return map[string]string{}, nil
 	}
-	paths := make(map[string]string, len(allowedPaths))
-	for name := range allowedPaths {
-		rawPath, ok, err := allowedPaths.PathForPlatform(name, platform)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, fmt.Errorf("allowed_paths[%q] has no %q mapping", name, platform)
-		}
-		expanded, err := expandVirtualAnchorPath(rawPath, anchors)
+	paths := make(map[string]string, len(filesystemPaths))
+	for name, rawPath := range filesystemPaths {
+		expanded, err := expandVirtualAnchorPath(rawPath.String(), anchors)
 		if err != nil {
 			return nil, err
 		}
@@ -234,6 +221,9 @@ func (v virtualPathValidator) validate(cwd, path string) (string, error) {
 	normalized, err := v.resolver.resolve(path, cwd)
 	if err != nil {
 		return "", err
+	}
+	if v.resolver.access == invowkfile.VirtualFilesystemAccessFull {
+		return normalized, nil
 	}
 	for _, root := range v.resolver.allowedRoots {
 		if pathWithin(root, normalized) {

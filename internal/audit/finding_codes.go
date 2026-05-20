@@ -40,6 +40,7 @@ const (
 	codeLuaHostBinaryWildcard                FindingCode = "lua-execution-virtual-lua-allows-all-host-binaries"
 	codeLuaNetworkAllowedBinary              FindingCode = "lua-exfiltration-virtual-lua-allows-network-capable-host-binary"
 	codeLuaSensitiveEnvRead                  FindingCode = "lua-exfiltration-virtual-lua-reads-sensitive-environment-variable"
+	codeLuaFullFilesystemAccess              FindingCode = "lua-path-traversal-virtual-lua-full-filesystem-access"
 	codeLuaBroadPathMapping                  FindingCode = "lua-path-traversal-virtual-lua-broad-path-mapping"
 	codeEnvInheritAll                        FindingCode = "env-exfiltration-command-inherits-all-host-environment-variables"
 	codeEnvInheritDefaultAll                 FindingCode = "env-exfiltration-command-uses-default-env-inheritance-all-host-variables"

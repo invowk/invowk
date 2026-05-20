@@ -16,7 +16,8 @@ The current `virtual` runtime name is ambiguous now that Invowk is adding anothe
 - Add virtual runtime controls:
   - `allowed_binaries`: list of host binaries allowed to run; empty or omitted means no host binaries; `["*"]` explicitly allows all host binaries.
   - `binary_lookup_mode`: `"host"` by default, or `"strict"` for hardcoded platform system paths.
-  - `allowed_paths`: implementation-scoped logical path mappings with platform-specific values.
+  - `platforms[].virtual.filesystem.access`: `"restricted"` by default, or `"full"` for explicit broad host filesystem access by VM-controlled operations.
+  - `platforms[].virtual.filesystem.paths`: platform-scoped logical path mappings exposed as script handles.
   - `virtual.utilities.enabled`: config-level toggle for Invowk-provided Go-native utility commands shared by `virtual-sh` and `virtual-lua`.
 - Add cross-platform logical anchors and shell/Lua bridge exposure:
   - Lua: `invowk.path(...)`, `invowk.env`, `invowk.state`, `invowk.cmd`, and `invowk.capture`.
@@ -28,7 +29,7 @@ The current `virtual` runtime name is ambiguous now that Invowk is adding anothe
 
 ### New Capabilities
 - `virtual-runtime-sandbox`: Shared path validation, host-binary gating, binary lookup modes, and safety-boundary behavior for all `virtual-*` runtimes.
-- `cross-platform-path-anchors`: Standard anchors, implementation-scoped `allowed_paths`, platform resolution, and shell/Lua path exposure.
+- `cross-platform-path-anchors`: Standard anchors, platform-scoped virtual filesystem paths, platform resolution, and shell/Lua path exposure.
 - `virtual-lua-interpreter`: Lua runtime execution, Lua bridge API, Lua stdlib restrictions, resource limits, arguments, interactive streams, and module-local require behavior.
 - `virtual-lua-audit`: Deterministic and LLM-assisted auditing for Lua inline scripts, script files, and self-contained Lua module files.
 

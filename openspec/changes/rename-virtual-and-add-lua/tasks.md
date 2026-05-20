@@ -27,8 +27,8 @@
 
 - [x] 3.1 Implement the anchor resolver for `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work` on Linux, macOS, and Windows.
 - [x] 3.2 Make `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` implicit allowed roots, while keeping `@home` resolvable but not a blanket implicit home allow root.
-- [x] 3.3 Add implementation-scoped `allowed_paths` to the invowkfile CUE schema and Go types, supporting common string values and platform-keyed `linux`/`macos`/`windows` values.
-- [x] 3.4 Validate `allowed_paths` logical names as safe environment suffixes and reject missing platform mappings for selected platforms.
+- [x] 3.3 Add selected-platform `virtual.filesystem.paths` to the invowkfile CUE schema and Go types, supporting non-empty platform-local string values.
+- [x] 3.4 Validate `virtual.filesystem.paths` logical names as safe environment suffixes and reject nested platform-keyed path objects.
 - [x] 3.5 Inject `INVOWK_ANCHOR_*`, `INVOWK_PATH_*`, and `INVOWK_STATE_*` variables for `virtual-sh`.
 - [x] 3.6 Add tests for XDG, macOS Library, Windows AppData, temp, workdir, home metadata, platform-keyed mappings, traversal rejection, and shell/Lua path exposure.
 
@@ -65,7 +65,7 @@
 
 - [x] 7.1 Update all Go unit tests and fixtures that reference `virtual`.
 - [x] 7.2 Update all CLI testscript fixtures in `tests/cli/testdata/` from `virtual` to `virtual-sh` where shell behavior is intended.
-- [x] 7.3 Add CLI tests for `virtual-lua`, `virtual.utilities.enabled`, denied host binaries, named allowed binaries, wildcard allowed binaries, `binary_lookup_mode`, anchors, `allowed_paths`, and dry-run safety metadata.
+- [x] 7.3 Add CLI tests for `virtual-lua`, `virtual.utilities.enabled`, denied host binaries, named allowed binaries, wildcard allowed binaries, `binary_lookup_mode`, anchors, `virtual.filesystem.paths`, and dry-run safety metadata.
 - [x] 7.4 Update virtual/native mirror exemptions and mirror tests where runtime naming changes affect expectations.
 - [x] 7.5 Run targeted Go tests for schema, runtime, command adapters, audit, config, and CLI packages.
 - [x] 7.6 Run `make test-cli`, `make check-baseline`, `make lint`, `make test`, `openspec validate rename-virtual-and-add-lua --strict`, and `openspec validate --specs --strict`.

@@ -57,6 +57,8 @@ type (
 		Args             ShInteractiveArgs
 		AllowedBinaries  []string
 		BinaryLookupMode invowkfile.BinaryLookupMode
+		FilesystemAccess invowkfile.VirtualFilesystemAccess
+		FilesystemPaths  invowkfile.VirtualFilesystemPaths
 		EnableUroot      bool
 	}
 
@@ -83,6 +85,8 @@ type (
 		Args             []string
 		AllowedBinaries  []string
 		BinaryLookupMode invowkfile.BinaryLookupMode
+		FilesystemAccess invowkfile.VirtualFilesystemAccess
+		FilesystemPaths  invowkfile.VirtualFilesystemPaths
 		EnableUroot      bool
 		Stdin            *os.File
 		Stdout           *os.File
@@ -150,6 +154,8 @@ func (s ShInteractiveCommandSpec) Validate() error {
 		scriptBaseErr,
 		s.EnvJSON.Validate(),
 		s.BinaryLookupMode.Validate(),
+		s.FilesystemAccess.Validate(),
+		s.FilesystemPaths.Validate(),
 	)
 }
 
@@ -329,6 +335,7 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
+	filesystem := selectedVirtualFilesystem(ctx)
 	pathResolver, err := newVirtualPathResolver(ctx)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
@@ -369,6 +376,8 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 		Args:             ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
 		AllowedBinaries:  allowedBinaryStrings(runtimeCfg),
 		BinaryLookupMode: binaryLookupMode(runtimeCfg),
+		FilesystemAccess: pathResolver.access,
+		FilesystemPaths:  filesystem.Paths,
 		EnableUroot:      r.enableUrootUtils,
 	}
 	if validateErr := spec.Validate(); validateErr != nil {
@@ -398,6 +407,12 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if err := opts.FilesystemAccess.Validate(); err != nil {
+		return err
+	}
+	if err := opts.FilesystemPaths.Validate(); err != nil {
+		return err
+	}
 	prog, err := syntax.NewParser().Parse(strings.NewReader(opts.Script), opts.ScriptName)
 	if err != nil {
 		return fmt.Errorf("parse virtual script: %w", err)
@@ -405,7 +420,17 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 
 	rt := NewShRuntime(opts.EnableUroot)
 	env := SliceToEnv(opts.Env)
-	pathResolver := newVirtualPathResolverForEnv(opts.WorkDir, opts.ScriptBasePath, env)
+	pathResolver, err := newVirtualPathResolverForInteractiveConfig(
+		opts.WorkDir,
+		opts.ScriptBasePath,
+		invowkfile.VirtualFilesystemConfig{
+			Access: opts.FilesystemAccess,
+			Paths:  opts.FilesystemPaths,
+		},
+	)
+	if err != nil {
+		return err
+	}
 	addVirtualRuntimeEnv(env, pathResolver)
 	pathValidator := virtualPathValidator{resolver: pathResolver}
 	binaryPolicy := &virtualHostBinaryPolicy{

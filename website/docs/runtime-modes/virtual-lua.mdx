@@ -18,7 +18,7 @@ Lua scripts interact with Invowk through a read-only `invowk` table:
 
 | API | Purpose |
 |-----|---------|
-| `invowk.path(nameOrAnchor)` | Resolve standard anchors such as `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and implementation `allowed_paths` names |
+| `invowk.path(nameOrAnchor)` | Resolve standard anchors such as `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and selected-platform `virtual.filesystem.paths` names |
 | `invowk.env.NAME` / `os.getenv("NAME")` | Read the effective command environment |
 | `invowk.state.bin_path` | Inspect the last resolved host binary path |
 | `invowk.cmd.<name>(...)` | Stream an enabled utility or allowed host binary to the command's stdout/stderr |
@@ -30,9 +30,9 @@ Lua scripts interact with Invowk through a read-only `invowk` table:
 
 Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and the script or module source root.
 
-`@home` can be resolved for metadata, but it is not a blanket allowed root. To make a host path available to Lua file APIs, define an implementation-level `allowed_paths` entry. The key becomes `INVOWK_PATH_<KEY>` and can be resolved with `invowk.path("<KEY>/file")`.
+`@home` can be resolved for metadata, but restricted filesystem access does not make it a blanket allowed root. To make a host path available to Lua file APIs in restricted mode, define a `platforms[].virtual.filesystem.paths` entry. The key becomes `INVOWK_PATH_<KEY>` and can be resolved with `invowk.path("<KEY>/file")`. Set `platforms[].virtual.filesystem.access: "full"` only when VM-controlled Lua file operations should be allowed to access normalized host filesystem paths beyond those named handles.
 
-<Snippet id="runtime-modes/virtual-lua-allowed-paths" />
+<Snippet id="runtime-modes/virtual-lua-filesystem-paths" />
 
 ## Module-Local Require
 

@@ -717,11 +717,6 @@ name: "deploy-prod"`,
     platforms:   [...#PlatformConfig] & [_, ...]  // Required - at least one platform
     env?:        #EnvConfig   // Optional
     workdir?:    string       // Optional
-    allowed_paths?: [string]: string | {
-        linux?: string
-        macos?: string
-        windows?: string
-    }
     depends_on?: #DependsOn   // Optional
     timeout?:    #DurationString  // Optional - max execution time
 }`,
@@ -919,6 +914,12 @@ containerfile: "./docker/Dockerfile.build"`,
     language: 'cue',
     code: `#PlatformConfig: {
     name: "linux" | "macos" | "windows"
+    virtual?: {
+        filesystem?: {
+            access?: "restricted" | "full"
+            paths?: [string]: string  // Uppercase logical names, e.g. CACHE
+        }
+    }
 }`,
   },
 

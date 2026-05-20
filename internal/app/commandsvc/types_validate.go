@@ -230,6 +230,12 @@ func (p DryRunPlan) Validate() error {
 	if err := p.BinaryLookupMode.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	if err := p.VirtualFilesystemAccess.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.VirtualFilesystemPaths.Validate(); err != nil {
+		errs = append(errs, err)
+	}
 	if err := p.LuaCPULimit.Validate(); err != nil {
 		errs = append(errs, err)
 	}

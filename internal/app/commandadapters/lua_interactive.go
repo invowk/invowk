@@ -19,6 +19,10 @@ func luaInteractiveCommand(ctx context.Context, spec runtime.LuaInteractiveComma
 	if err != nil {
 		return nil, fmt.Errorf("get invowk executable path: %w", err)
 	}
+	filesystemPathsJSON, err := encodeVirtualFilesystemPathsJSON(spec.FilesystemPaths)
+	if err != nil {
+		return nil, err
+	}
 
 	args := []string{
 		"internal", "exec-virtual-lua",
@@ -27,6 +31,8 @@ func luaInteractiveCommand(ctx context.Context, spec runtime.LuaInteractiveComma
 		"--script-base-path", string(*spec.ScriptBasePath),
 		"--env-json", string(spec.EnvJSON),
 		"--binary-lookup-mode", spec.BinaryLookupMode.String(),
+		"--filesystem-access", spec.FilesystemAccess.String(),
+		"--filesystem-paths-json", filesystemPathsJSON.String(),
 		"--cpu-limit", fmt.Sprintf("%d", spec.CPULimit),
 		"--memory-limit", spec.MemoryLimit.String(),
 	}

@@ -62,7 +62,7 @@ func (c *LuaChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding, err
 			findings = append(findings, c.checkSensitiveEnvReads(ref, content)...)
 		}
 		findings = append(findings, c.checkRuntimeConfig(ref)...)
-		findings = append(findings, c.checkAllowedPaths(ref)...)
+		findings = append(findings, c.checkVirtualFilesystemConfig(ref)...)
 	}
 	return findings, nil
 }
@@ -174,11 +174,27 @@ func (c *LuaChecker) checkRuntimeConfig(ref ScriptRef) []Finding {
 	return findings
 }
 
-func (c *LuaChecker) checkAllowedPaths(ref ScriptRef) []Finding {
-	for name, value := range ref.AllowedPaths {
-		for _, raw := range allowedPathRawValues(value) {
-			if luaPathMappingIsBroad(raw) {
-				return []Finding{{
+func (c *LuaChecker) checkVirtualFilesystemConfig(ref ScriptRef) []Finding {
+	var findings []Finding
+	for _, platform := range ref.Platforms {
+		filesystem := platform.VirtualFilesystem()
+		if filesystem.EffectiveAccess() == invowkfile.VirtualFilesystemAccessFull {
+			findings = append(findings, Finding{
+				Code:           codeLuaFullFilesystemAccess,
+				Severity:       SeverityHigh,
+				Category:       CategoryPathTraversal,
+				SurfaceID:      ref.SurfaceID,
+				SurfaceKind:    ref.SurfaceKind,
+				CheckerName:    luaCheckerName,
+				FilePath:       ref.FilePath,
+				Title:          "Virtual-lua has full filesystem access",
+				Description:    fmt.Sprintf("Command %q enables virtual.filesystem.access: \"full\" for platform %q, giving Lua file APIs broad host filesystem reach", ref.CommandName, platform.Name),
+				Recommendation: "Use restricted filesystem access with narrow virtual.filesystem.paths, or move the command to the container runtime for isolation",
+			})
+		}
+		for name, path := range filesystem.Paths {
+			if luaPathMappingIsBroad(path.String()) {
+				findings = append(findings, Finding{
 					Code:           codeLuaBroadPathMapping,
 					Severity:       SeverityMedium,
 					Category:       CategoryPathTraversal,
@@ -186,35 +202,14 @@ func (c *LuaChecker) checkAllowedPaths(ref ScriptRef) []Finding {
 					SurfaceKind:    ref.SurfaceKind,
 					CheckerName:    luaCheckerName,
 					FilePath:       ref.FilePath,
-					Title:          "Virtual-lua exposes broad allowed path mapping",
-					Description:    fmt.Sprintf("Command %q maps allowed_paths.%s to %q, giving Lua file APIs broad host filesystem reach", ref.CommandName, name, raw),
-					Recommendation: "Map allowed_paths to a narrow project or module subdirectory instead of home, root, or traversal-capable paths",
-				}}
+					Title:          "Virtual-lua exposes broad filesystem path handle",
+					Description:    fmt.Sprintf("Command %q maps virtual.filesystem.paths.%s to %q for platform %q, giving Lua file APIs broad host filesystem reach in restricted mode", ref.CommandName, name, path, platform.Name),
+					Recommendation: "Map virtual.filesystem.paths to a narrow project or module subdirectory instead of home, root, or traversal-capable paths",
+				})
 			}
 		}
 	}
-	return nil
-}
-
-func allowedPathRawValues(value any) []string {
-	switch typed := value.(type) {
-	case string:
-		return []string{typed}
-	case map[string]string:
-		values := make([]string, 0, len(typed))
-		for _, raw := range typed {
-			values = append(values, raw)
-		}
-		return values
-	case map[invowkfile.PlatformType]string:
-		values := make([]string, 0, len(typed))
-		for _, raw := range typed {
-			values = append(values, raw)
-		}
-		return values
-	default:
-		return nil
-	}
+	return findings
 }
 
 func luaPathMappingIsBroad(raw string) bool {

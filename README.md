@@ -7,7 +7,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 - **Four Runtime Modes**:
   - **native**: Execute commands using the system's default shell (bash, sh, powershell, etc.)
   - **virtual-sh**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter with 28 [u-root](https://github.com/u-root/u-root) utilities (cat, cp, ls, grep, sort, seq, tar, etc.). Note: virtual-sh is **not a sandbox**; host binaries run only when explicitly allowed and still execute as native host processes.
-  - **virtual-lua**: Execute Lua scripts in an embedded Lua runtime with the shared virtual safety harness.
+  - **virtual-lua**: Execute Lua scripts in an embedded Lua runtime with the shared virtual safety harness. Like virtual-sh, it is not process isolation; explicitly allowed host binaries still execute as native host processes.
   - **container**: Execute commands inside a disposable Docker/Podman container
 
 - **CUE Configuration**: Define commands in `invowkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation
@@ -2299,6 +2299,48 @@ cmds: [
 	},
 ]
 ```
+
+### Virtual Runtime Filesystem Access
+
+The `virtual-sh` and `virtual-lua` runtimes share a Go-native filesystem safety harness for VM-controlled file operations, shell redirection, Lua file I/O, and built-in utility commands. It is not a kernel sandbox: use the container runtime when you need process-level isolation.
+
+Virtual filesystem settings live on the selected platform, because host paths are OS-specific:
+
+```cue
+cmds: [
+	{
+		name: "write-cache"
+		implementations: [
+			{
+				script: {content: """
+					local path = invowk.path("CACHE/report.txt")
+					local file = assert(io.open(path, "w"))
+					file:write("ok")
+					file:close()
+					"""}
+				runtimes: [{name: "virtual-lua"}]
+				platforms: [
+					{
+						name: "linux"
+						virtual: {
+							filesystem: {
+								access: "restricted"
+								paths: {
+									CACHE: "@cache/reports"
+								}
+							}
+						}
+					},
+				]
+			},
+		]
+	},
+]
+```
+
+`virtual.filesystem.access` defaults to `"restricted"`, which allows VM-controlled file operations only under implicit safe roots plus `virtual.filesystem.paths` roots. Set it to `"full"` only when those operations should be allowed to access normalized host filesystem paths after resolver checks. Path entries are named bridge handles: `virtual-sh` receives `INVOWK_PATH_<NAME>`, and `virtual-lua` resolves them with `invowk.path("<NAME>/file")`.
+
+Host binary policy remains runtime-scoped. `allowed_binaries` and `binary_lookup_mode` belong inside the selected `runtimes[]` entry and are not affected by filesystem access mode.
 
 ### Container Runtime
 

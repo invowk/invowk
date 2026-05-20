@@ -31,38 +31,33 @@ Invowk SHALL support logical path anchors `@config`, `@data`, `@cache`, `@state`
 - **THEN** `@work` SHALL resolve to the effective command work directory
 
 ### Requirement: Anchor allow roots are explicit
-Invowk SHALL automatically allow virtual runtime access to `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work`. Invowk SHALL resolve `@home` but MUST NOT grant blanket recursive home-directory access unless an implementation explicitly maps it through `allowed_paths`.
+Invowk SHALL automatically allow restricted virtual runtime access to `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work`. Invowk SHALL resolve `@home` but MUST NOT grant blanket recursive home-directory access in restricted mode unless the selected platform explicitly maps it through `virtual.filesystem.paths`.
 
 #### Scenario: App-scoped anchor access is allowed
 - **WHEN** a `virtual-lua` script opens `invowk.path("@cache/build.json")`
 - **THEN** Invowk SHALL allow the access if the resolved path remains under the `@cache` root
 
 #### Scenario: Home anchor does not grant implicit home access
-- **WHEN** a virtual script tries to read `@home/.ssh/id_rsa` without an explicit `allowed_paths` mapping
+- **WHEN** a virtual script tries to read `@home/.ssh/id_rsa` in restricted mode without an explicit selected-platform `virtual.filesystem.paths` mapping
 - **THEN** Invowk SHALL block the access
 
 #### Scenario: Home anchor can be explicitly mapped
-- **WHEN** an implementation declares an `allowed_paths` entry that resolves to a path under `@home`
+- **WHEN** an implementation platform declares a `virtual.filesystem.paths` entry that resolves to a path under `@home`
 - **THEN** virtual scripts SHALL be able to access only that mapped path subtree
 
-### Requirement: Implementation-scoped logical path mappings
-Invowk SHALL support `allowed_paths` on implementation configuration. Each key SHALL be a logical path name usable by scripts and shell environment injection. Values SHALL be either a common string path or a platform-keyed object with `linux`, `macos`, and/or `windows` fields.
+### Requirement: Platform-scoped virtual filesystem path mappings
+Invowk SHALL support `platforms[].virtual.filesystem.paths` on implementation platform configuration. Each key SHALL be a logical path name usable by scripts and shell environment injection. Values SHALL be non-empty platform-local path strings for the selected platform.
 
-#### Scenario: Common logical path mapping
-- **WHEN** an implementation declares `allowed_paths: { "DB_ROOT": "./db" }`
-- **THEN** Invowk SHALL resolve `DB_ROOT` relative to the invowkfile/module context and allow that subtree for the selected implementation
+#### Scenario: Selected platform logical path mapping
+- **WHEN** a selected implementation platform declares `virtual: {filesystem: {paths: {DB_ROOT: "./db"}}}`
+- **THEN** Invowk SHALL resolve `DB_ROOT` relative to the invowkfile/module context and expose that path handle for the selected platform
 
-#### Scenario: Platform-keyed logical path mapping
-- **WHEN** an implementation declares `allowed_paths: { "DB_ROOT": { linux: "/var/lib/app", windows: "C:/ProgramData/App" } }`
-- **THEN** Invowk SHALL choose the value for the active platform
-- **THEN** the script SHALL use the same logical key on both platforms
-
-#### Scenario: Missing platform mapping is rejected
-- **WHEN** an implementation supports Windows and declares `allowed_paths: { "DB_ROOT": { linux: "/var/lib/app" } }`
-- **THEN** Invowk SHALL reject or skip that implementation for Windows before execution with an actionable diagnostic
+#### Scenario: Path mappings are not platform-keyed objects
+- **WHEN** an implementation platform declares `virtual: {filesystem: {paths: {DB_ROOT: {linux: "/var/lib/app"}}}}`
+- **THEN** Invowk SHALL reject the configuration before execution
 
 #### Scenario: Logical path names are valid environment suffixes
-- **WHEN** an `allowed_paths` key contains lowercase letters, spaces, punctuation, or starts with a digit
+- **WHEN** a `virtual.filesystem.paths` key contains lowercase letters, spaces, punctuation, or starts with a digit
 - **THEN** Invowk SHALL reject the key before execution
 
 ### Requirement: Path bridge exposure is consistent
@@ -73,7 +68,7 @@ Invowk SHALL expose resolved anchors and logical path mappings consistently to `
 - **THEN** Invowk SHALL inject `INVOWK_ANCHOR_CONFIG`, `INVOWK_ANCHOR_DATA`, `INVOWK_ANCHOR_CACHE`, `INVOWK_ANCHOR_STATE`, `INVOWK_ANCHOR_TMP`, `INVOWK_ANCHOR_HOME`, and `INVOWK_ANCHOR_WORK`
 
 #### Scenario: Shell logical path variables are injected
-- **WHEN** an implementation declares `allowed_paths: { "DB_ROOT": "./db" }`
+- **WHEN** a selected implementation platform declares `virtual: {filesystem: {paths: {DB_ROOT: "./db"}}}`
 - **THEN** a `virtual-sh` command SHALL receive `INVOWK_PATH_DB_ROOT` with the resolved path
 
 #### Scenario: Lua path bridge resolves anchors and mappings

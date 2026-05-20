@@ -32,6 +32,21 @@ func testCommandWithScriptFile(name, path string, rt invowkfile.RuntimeMode) *in
 	)
 }
 
+func testPlatformsWithVirtualFilesystem(
+	access invowkfile.VirtualFilesystemAccess,
+	paths invowkfile.VirtualFilesystemPaths,
+) []invowkfile.PlatformConfig {
+	platforms := invowkfile.AllPlatformConfigs()
+	for i := range platforms {
+		filesystem := &invowkfile.VirtualFilesystemConfig{
+			Access: access,
+			Paths:  paths,
+		}
+		platforms[i].Virtual = &invowkfile.PlatformVirtualConfig{Filesystem: filesystem}
+	}
+	return platforms
+}
+
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.
 // This helper is shared across test files in the runtime package.
 // Delegates to invowkfiletest.NewTestCommand for consistent test command construction.

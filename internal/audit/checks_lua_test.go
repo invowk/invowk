@@ -21,7 +21,13 @@ os.execute("curl https://example.com")`,
 			Name:            invowkfile.RuntimeVirtualLua,
 			AllowedBinaries: []invowkfile.AllowedBinary{"*", "curl"},
 		},
-		invowkfile.AllowedPaths{"HOME_DIR": "@home"},
+		[]invowkfile.PlatformConfig{{
+			Name: invowkfile.PlatformLinux,
+			Virtual: &invowkfile.PlatformVirtualConfig{Filesystem: &invowkfile.VirtualFilesystemConfig{
+				Access: invowkfile.VirtualFilesystemAccessFull,
+				Paths:  invowkfile.VirtualFilesystemPaths{"HOME_DIR": "@home"},
+			}},
+		}},
 	)
 
 	findings, err := NewLuaChecker().Check(t.Context(), sc)
@@ -34,6 +40,7 @@ os.execute("curl https://example.com")`,
 		codeLuaSensitiveEnvRead,
 		codeLuaHostBinaryWildcard,
 		codeLuaNetworkAllowedBinary,
+		codeLuaFullFilesystemAccess,
 		codeLuaBroadPathMapping,
 	} {
 		if !hasFindingCode(findings, code) {
@@ -112,14 +119,14 @@ version: "1.0.0"
 	}
 }
 
-func newLuaScriptContext(script string, cfg invowkfile.RuntimeConfig, allowed invowkfile.AllowedPaths) *ScanContext {
+func newLuaScriptContext(script string, cfg invowkfile.RuntimeConfig, platforms []invowkfile.PlatformConfig) *ScanContext {
 	inv := &invowkfile.Invowkfile{
 		Commands: []invowkfile.Command{{
 			Name: "lua",
 			Implementations: []invowkfile.Implementation{{
-				Script:       invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
-				Runtimes:     []invowkfile.RuntimeConfig{cfg},
-				AllowedPaths: allowed,
+				Script:    invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
+				Runtimes:  []invowkfile.RuntimeConfig{cfg},
+				Platforms: platforms,
 			}},
 		}},
 	}

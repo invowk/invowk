@@ -72,6 +72,43 @@ func TestShRuntimeUrootBuiltinUsesPathValidator(t *testing.T) {
 	}
 }
 
+func TestShRuntimeFullFilesystemAccessAllowsHostPath(t *testing.T) {
+	t.Parallel()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir() error = %v", err)
+	}
+	hostFile, err := os.CreateTemp(homeDir, ".invowk-full-access-*")
+	if err != nil {
+		t.Fatalf("CreateTemp(home) error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(hostFile.Name()) })
+	if _, err := hostFile.WriteString("full-ok"); err != nil {
+		t.Fatalf("WriteString(host file) error = %v", err)
+	}
+	if err := hostFile.Close(); err != nil {
+		t.Fatalf("Close(host file) error = %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	script := fmt.Sprintf("cat %q", hostFile.Name())
+	cmd := testCommandWithScript("cat-full", script, invowkfile.RuntimeVirtualSh)
+	cmd.Implementations[0].Platforms = testPlatformsWithVirtualFilesystem(invowkfile.VirtualFilesystemAccessFull, nil)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+
+	result := NewShRuntime(true).ExecuteCapture(ctx)
+	if !result.Success() {
+		t.Fatalf("ExecuteCapture() result = %#v, want success", result)
+	}
+	if got := result.Output; got != "full-ok" {
+		t.Fatalf("output = %q, want full-ok", got)
+	}
+}
+
 func TestShVirtualRuntimeEnvOverridesUserInvowkState(t *testing.T) {
 	t.Parallel()
 
@@ -86,7 +123,10 @@ func TestShVirtualRuntimeEnvOverridesUserInvowkState(t *testing.T) {
 		"INVOWK_PATH_DB_ROOT":   "user-path",
 		"INVOWK_ANCHOR_WORK":    "user-work",
 	}}
-	cmd.Implementations[0].AllowedPaths = invowkfile.AllowedPaths{"DB_ROOT": "./db"}
+	cmd.Implementations[0].Platforms = testPlatformsWithVirtualFilesystem(
+		"",
+		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
+	)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := NewShRuntime(false).ExecuteCapture(ctx)

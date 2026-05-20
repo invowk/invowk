@@ -172,12 +172,12 @@ pattern = "runtime.standardVirtualAnchors*.*.*"
 reason = "anchor metadata returns OS environment/path text maps normalized by the resolver"
 
 [[exceptions]]
-pattern = "runtime.resolveAllowedPaths.*"
-reason = "allowed path resolver maps schema strings into normalized OS path strings"
+pattern = "runtime.resolveVirtualFilesystemPaths.*"
+reason = "virtual filesystem resolver maps schema strings into normalized OS path strings"
 
 [[exceptions]]
-pattern = "runtime.resolveAllowedPaths.*.*"
-reason = "allowed path resolver returns normalized OS path string maps"
+pattern = "runtime.resolveVirtualFilesystemPaths.*.*"
+reason = "virtual filesystem resolver returns normalized OS path string maps"
 
 [[exceptions]]
 pattern = "runtime.expandVirtualAnchorPath.*"
@@ -200,28 +200,8 @@ pattern = "runtime.splitVirtualAnchorPath.*.*"
 reason = "logical path parser returns string segments before resolver validation"
 
 [[exceptions]]
-pattern = "invowkfile.AllowedPaths.*.*.*"
-reason = "allowed_paths schema API exposes path strings selected by platform and validated by AllowedPaths.ValidateForPlatforms"
-
-[[exceptions]]
-pattern = "invowkfile.allowedPath*.*"
-reason = "allowed_paths parser normalizes CUE string/map values before validation"
-
-[[exceptions]]
-pattern = "invowkfile.allowedPath*.*.*"
-reason = "allowed_paths parser returns validated platform-to-path maps"
-
-[[exceptions]]
-pattern = "invowkfile.validateAllowedPathValue.*"
-reason = "allowed_paths value validator accepts raw schema path strings"
-
-[[exceptions]]
-pattern = "invowkfile.generateAllowedPathMap.*"
-reason = "CUE generator renders already-validated allowed_paths mappings"
-
-[[exceptions]]
-pattern = "invowkfile.generateAllowedPathMap.*.*"
-reason = "CUE generator renders already-validated allowed_paths mappings"
+pattern = "invowkfile.VirtualFilesystemPaths.*.*.*"
+reason = "virtual filesystem schema API exposes validated platform-local path strings"
 
 [[exceptions]]
 pattern = "audit.*Lua*.*"
@@ -234,14 +214,6 @@ reason = "Lua audit checker returns raw script/environment names as deterministi
 [[exceptions]]
 pattern = "audit.lua*.*"
 reason = "Lua audit helper scans raw script/path strings for deterministic findings"
-
-[[exceptions]]
-pattern = "audit.allowedPathRawValues.*"
-reason = "Lua audit checker inspects raw allowed_paths values for broad mappings"
-
-[[exceptions]]
-pattern = "audit.allowedPathRawValues.*.*"
-reason = "Lua audit checker returns raw allowed_paths values for broad mapping checks"
 
 [[exceptions]]
 pattern = "audit.isSensitiveEnvName.*"
@@ -1338,6 +1310,10 @@ reason = "Cobra flag binding (resolved later to FilesystemPath)"
 [[exceptions]]
 pattern = "invowk.isArgEnvVar.*"
 reason = "env var name pattern detection — raw text"
+
+[[exceptions]]
+pattern = "invowk.parseVirtualFilesystemPathsJSON.raw"
+reason = "internal CLI JSON flag boundary; decoded path keys and values are converted to value types and validated before use"
 
 [[exceptions]]
 pattern = "invowk.ParseSourceFilter.*"
@@ -4004,6 +3980,10 @@ pattern = "ExecutionContext.SelectedRuntime.nonzero"
 reason = "required value-field using a nonzero value type"
 
 [[exceptions]]
+pattern = "ExecutionContext.SelectedPlatform.nonzero"
+reason = "required value-field using a nonzero value type"
+
+[[exceptions]]
 pattern = "Finding.FilePath.nonzero"
 reason = "required value-field using a nonzero value type"
 
@@ -4233,6 +4213,10 @@ reason = "required value-field using a nonzero value type"
 
 [[exceptions]]
 pattern = "RuntimeSelection.mode.nonzero"
+reason = "required value-field using a nonzero value type"
+
+[[exceptions]]
+pattern = "RuntimeSelection.platform.nonzero"
 reason = "required value-field using a nonzero value type"
 
 [[exceptions]]

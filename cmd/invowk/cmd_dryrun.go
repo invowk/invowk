@@ -107,6 +107,15 @@ func renderDryRunVirtualSafety(w io.Writer, plan commandsvc.DryRunPlan) {
 		mode = invowkfile.BinaryLookupModeHost
 	}
 	fmt.Fprintf(w, "    BinaryLookupMode: %s\n", mode)
+	access := plan.VirtualFilesystemAccess.Effective()
+	fmt.Fprintln(w, "    VirtualFilesystem:")
+	fmt.Fprintf(w, "      Access: %s\n", access)
+	if len(plan.VirtualFilesystemPaths) > 0 {
+		fmt.Fprintln(w, "      Paths:")
+		for _, name := range slices.Sorted(maps.Keys(plan.VirtualFilesystemPaths)) {
+			fmt.Fprintf(w, "        %s=%s\n", name, plan.VirtualFilesystemPaths[name])
+		}
+	}
 	if plan.Runtime == invowkfile.RuntimeVirtualLua {
 		if plan.LuaCPULimit != 0 {
 			fmt.Fprintf(w, "    LuaCPULimit: %d\n", plan.LuaCPULimit)
@@ -114,13 +123,6 @@ func renderDryRunVirtualSafety(w io.Writer, plan commandsvc.DryRunPlan) {
 		if plan.LuaMemoryLimit != "" {
 			fmt.Fprintf(w, "    LuaMemoryLimit: %s\n", plan.LuaMemoryLimit)
 		}
-	}
-	if len(plan.AllowedPaths) == 0 {
-		return
-	}
-	fmt.Fprintln(w, "    AllowedPaths:")
-	for _, name := range slices.Sorted(maps.Keys(plan.AllowedPaths)) {
-		fmt.Fprintf(w, "      %s=%s\n", name, dryRunAllowedPathValue(plan.AllowedPaths[name]))
 	}
 }
 
@@ -133,31 +135,6 @@ func dryRunAllowedBinaries(allowed []invowkfile.AllowedBinary) string {
 		values = append(values, binary.String())
 	}
 	return strings.Join(values, ", ")
-}
-
-func dryRunAllowedPathValue(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case map[string]string:
-		return dryRunStringMap(typed)
-	case map[invowkfile.PlatformType]string:
-		values := make(map[string]string, len(typed))
-		for platform, path := range typed {
-			values[platform.String()] = path
-		}
-		return dryRunStringMap(values)
-	default:
-		return fmt.Sprintf("%v", value)
-	}
-}
-
-func dryRunStringMap(values map[string]string) string {
-	parts := make([]string, 0, len(values))
-	for _, key := range slices.Sorted(maps.Keys(values)) {
-		parts = append(parts, key+":"+values[key])
-	}
-	return strings.Join(parts, ",")
 }
 
 // isArgEnvVar checks if a key matches the ARG1, ARG2, ..., ARGC pattern

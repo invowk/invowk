@@ -28,6 +28,11 @@ const (
 	// BinaryLookupModeStrict resolves allowed host binaries only from Invowk's fixed safe directories.
 	BinaryLookupModeStrict BinaryLookupMode = "strict"
 
+	// VirtualFilesystemAccessRestricted limits VM-managed filesystem operations to safe roots and named paths.
+	VirtualFilesystemAccessRestricted VirtualFilesystemAccess = "restricted"
+	// VirtualFilesystemAccessFull allows VM-managed filesystem operations to access normalized host paths.
+	VirtualFilesystemAccessFull VirtualFilesystemAccess = "full"
+
 	// EnvInheritNone disables host environment inheritance
 	EnvInheritNone EnvInheritMode = "none"
 	// EnvInheritAllow inherits only allowlisted host environment variables
@@ -69,6 +74,8 @@ var (
 	ErrInvalidRuntimePersistentConfig = errors.New("invalid runtime persistent config")
 	// ErrInvalidBinaryLookupMode is returned when BinaryLookupMode is not recognized.
 	ErrInvalidBinaryLookupMode = errors.New("invalid binary lookup mode")
+	// ErrInvalidVirtualFilesystemAccess is returned when virtual filesystem access is not recognized.
+	ErrInvalidVirtualFilesystemAccess = errors.New("invalid virtual filesystem access")
 	// ErrInvalidAllowedBinary is returned when an allowed binary entry is invalid.
 	ErrInvalidAllowedBinary = errors.New("invalid allowed binary")
 	// ErrInvalidLuaCPULimit is returned when a Lua CPU limit is invalid.
@@ -182,9 +189,19 @@ type (
 	//goplint:enum-cue=#BinaryLookupMode
 	BinaryLookupMode string
 
+	// VirtualFilesystemAccess controls VM-managed filesystem access for virtual runtimes.
+	//
+	//goplint:enum-cue=#VirtualFilesystemAccess
+	VirtualFilesystemAccess string
+
 	// InvalidBinaryLookupModeError is returned when BinaryLookupMode is not recognized.
 	InvalidBinaryLookupModeError struct {
 		Value BinaryLookupMode
+	}
+
+	// InvalidVirtualFilesystemAccessError is returned when VirtualFilesystemAccess is not recognized.
+	InvalidVirtualFilesystemAccessError struct {
+		Value VirtualFilesystemAccess
 	}
 
 	// AllowedBinary identifies a host binary that a virtual runtime may execute.
@@ -271,6 +288,8 @@ type (
 	PlatformConfig struct {
 		// Name specifies the platform type (required)
 		Name PlatformType `json:"name"`
+		// Virtual contains platform-specific settings for virtual runtimes.
+		Virtual *PlatformVirtualConfig `json:"virtual,omitempty"`
 	}
 
 	// ShebangInfo contains parsed shebang information from a script.
@@ -462,6 +481,38 @@ func (m BinaryLookupMode) Validate() error {
 	}
 }
 
+// Error implements the error interface for InvalidVirtualFilesystemAccessError.
+func (e *InvalidVirtualFilesystemAccessError) Error() string {
+	return fmt.Sprintf("invalid virtual.filesystem.access %q (valid: restricted, full)", e.Value)
+}
+
+// Unwrap returns ErrInvalidVirtualFilesystemAccess for errors.Is() compatibility.
+func (e *InvalidVirtualFilesystemAccessError) Unwrap() error {
+	return ErrInvalidVirtualFilesystemAccess
+}
+
+// String returns the string representation of the VirtualFilesystemAccess.
+func (a VirtualFilesystemAccess) String() string { return string(a.Effective()) }
+
+// Effective returns the configured access mode, defaulting the zero value to restricted.
+func (a VirtualFilesystemAccess) Effective() VirtualFilesystemAccess {
+	if a == "" {
+		return VirtualFilesystemAccessRestricted
+	}
+	return a
+}
+
+// Validate returns nil if the virtual filesystem access mode is recognized.
+// The zero value is valid and means restricted.
+func (a VirtualFilesystemAccess) Validate() error {
+	switch a {
+	case "", VirtualFilesystemAccessRestricted, VirtualFilesystemAccessFull:
+		return nil
+	default:
+		return &InvalidVirtualFilesystemAccessError{Value: a}
+	}
+}
+
 // Error implements the error interface for InvalidAllowedBinaryError.
 func (e *InvalidAllowedBinaryError) Error() string {
 	return fmt.Sprintf("invalid allowed binary %q: must not be empty or whitespace-only", e.Value)
@@ -529,10 +580,20 @@ func (p PlatformConfig) Validate() error {
 	if err := p.Name.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	appendOptionalValidation(&errs, p.Virtual, p.Virtual != nil)
 	if len(errs) > 0 {
 		return &InvalidPlatformConfigError{FieldErrors: errs}
 	}
 	return nil
+}
+
+// VirtualFilesystem returns this platform's virtual filesystem config.
+// Missing nested config means restricted access with no named paths.
+func (p PlatformConfig) VirtualFilesystem() VirtualFilesystemConfig {
+	if p.Virtual == nil || p.Virtual.Filesystem == nil {
+		return VirtualFilesystemConfig{}
+	}
+	return *p.Virtual.Filesystem
 }
 
 // Error implements the error interface for InvalidPlatformConfigError.

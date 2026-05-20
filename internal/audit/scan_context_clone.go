@@ -50,7 +50,7 @@ func cloneScannedModule(module *ScannedModule) *ScannedModule {
 func cloneScriptRef(ref ScriptRef) ScriptRef {
 	cloned := ref
 	cloned.Runtimes = cloneRuntimeConfigs(ref.Runtimes)
-	cloned.AllowedPaths = maps.Clone(ref.AllowedPaths)
+	cloned.Platforms = clonePlatformConfigs(ref.Platforms)
 	return cloned
 }
 
@@ -101,9 +101,29 @@ func cloneImplementations(implementations []invowkfile.Implementation) []invowkf
 func cloneImplementation(impl invowkfile.Implementation) invowkfile.Implementation {
 	cloned := impl
 	cloned.Runtimes = cloneRuntimeConfigs(impl.Runtimes)
-	cloned.Platforms = append([]invowkfile.PlatformConfig(nil), impl.Platforms...)
+	cloned.Platforms = clonePlatformConfigs(impl.Platforms)
 	cloned.Env = cloneEnvConfig(impl.Env)
 	cloned.DependsOn = cloneDependsOn(impl.DependsOn)
+	return cloned
+}
+
+func clonePlatformConfigs(platforms []invowkfile.PlatformConfig) []invowkfile.PlatformConfig {
+	if platforms == nil {
+		return nil
+	}
+	cloned := make([]invowkfile.PlatformConfig, len(platforms))
+	for i := range platforms {
+		cloned[i] = platforms[i]
+		if platforms[i].Virtual != nil {
+			virtual := *platforms[i].Virtual
+			if virtual.Filesystem != nil {
+				filesystem := *virtual.Filesystem
+				filesystem.Paths = maps.Clone(virtual.Filesystem.Paths)
+				virtual.Filesystem = &filesystem
+			}
+			cloned[i].Virtual = &virtual
+		}
+	}
 	return cloned
 }
 

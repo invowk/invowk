@@ -156,8 +156,10 @@ type (
 		AllowedBinaries []invowkfile.AllowedBinary
 		// BinaryLookupMode controls allowed host binary resolution.
 		BinaryLookupMode invowkfile.BinaryLookupMode
-		// AllowedPaths lists logical path mappings exposed to virtual runtimes.
-		AllowedPaths invowkfile.AllowedPaths
+		// VirtualFilesystemAccess is the selected platform's virtual filesystem mode.
+		VirtualFilesystemAccess invowkfile.VirtualFilesystemAccess
+		// VirtualFilesystemPaths lists logical path handles exposed to virtual runtimes.
+		VirtualFilesystemPaths invowkfile.VirtualFilesystemPaths
 		// LuaCPULimit is the selected virtual-lua CPU quota, if any.
 		LuaCPULimit invowkfile.LuaCPULimit
 		// LuaMemoryLimit is the selected virtual-lua memory quota, if any.

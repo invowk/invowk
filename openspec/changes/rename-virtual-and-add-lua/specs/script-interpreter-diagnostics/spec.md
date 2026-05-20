@@ -44,8 +44,9 @@ Invowk dry-run output SHALL summarize virtual runtime safety settings that affec
 - **WHEN** `--ivk-dry-run` is used for a virtual runtime
 - **THEN** the dry-run output SHALL identify the effective `binary_lookup_mode`
 
-#### Scenario: Dry-run shows allowed path names
-- **WHEN** `--ivk-dry-run` is used for a virtual runtime with implementation-scoped `allowed_paths`
+#### Scenario: Dry-run shows virtual filesystem settings
+- **WHEN** `--ivk-dry-run` is used for a virtual runtime with selected-platform `virtual.filesystem` settings
+- **THEN** the dry-run output SHALL show the virtual filesystem access mode
 - **THEN** the dry-run output SHALL list logical path names without leaking unrelated host filesystem details
 
 ### Requirement: Custom checks surface interpreter override diagnostics

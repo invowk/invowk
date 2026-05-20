@@ -210,7 +210,7 @@ Os runtimes que podem executar esta implementation. O primeiro runtime é o padr
 **Tipo:** `[...#PlatformConfig]`
 **Obrigatório:** Sim (pelo menos um)
 
-Especifique quais sistemas operacionais esta implementation suporta.
+Especifique quais sistemas operacionais esta implementation suporta. Entradas de plataforma também podem carregar configurações de filesystem dos runtimes virtuais para aquele sistema operacional por `virtual.filesystem`.
 
 <Snippet id="reference/invowkfile/platforms-example" />
 
@@ -227,13 +227,6 @@ Configuração de environment para esta implementation. Mesclado com o env no n�
 **Obrigatório:** Não
 
 Diretório de trabalho para esta implementation. Sobrescreve as configurações de workdir tanto do nível raiz quanto do nível de comando. Pode ser absoluto ou relativo à localização do invowkfile.
-
-### allowed_paths
-
-**Tipo:** mapa de nomes lógicos em maiúsculas para caminho string ou caminhos por plataforma
-**Obrigatório:** Não
-
-Caminhos lógicos expostos aos runtimes virtuais. As chaves devem ser sufixos de ambiente seguros, como `CACHE` ou `DB_ROOT`; o Invowk expõe cada mapeamento como `INVOWK_PATH_<KEY>` e o resolve por `invowk.path("<KEY>/file")` no virtual-lua. Os valores podem ser uma string comum ou um mapa com entradas `linux`, `macos` e `windows` para as plataformas selecionadas.
 
 ### depends_on
 
@@ -384,6 +377,21 @@ Verificado apenas quando o runtime container é selecionado no momento da execu�
 ## PlatformConfig
 
 <Snippet id="reference/invowkfile/platform-config-structure" />
+
+### virtual.filesystem.access
+
+**Tipo:** `"restricted" | "full"`
+**Obrigatório:** Não
+**Padrão:** `"restricted"`
+
+Controla o acesso ao filesystem dos runtimes virtuais para a plataforma selecionada. No modo restrito, operações de arquivo controladas pela VM podem acessar apenas raízes seguras implícitas mais as raízes em `virtual.filesystem.paths` daquela plataforma. No modo full, operações de arquivo controladas pela VM podem acessar caminhos normalizados do filesystem do host depois das verificações do resolver. Isso não é isolamento de processo; use o runtime container para isolamento.
+
+### virtual.filesystem.paths
+
+**Tipo:** mapa de nomes lógicos em maiúsculas para caminhos string
+**Obrigatório:** Não
+
+Handles de caminho lógico expostos aos runtimes virtuais. As chaves devem ser sufixos de ambiente seguros, como `CACHE` ou `DB_ROOT`; o Invowk expõe cada mapeamento como `INVOWK_PATH_<KEY>` e o resolve por `invowk.path("<KEY>/file")` no virtual-lua. Os valores são caminhos string locais da plataforma na entrada selecionada.
 
 ---
 

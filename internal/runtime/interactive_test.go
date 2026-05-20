@@ -254,9 +254,12 @@ func TestShRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 		Commands: []invowkfile.Command{{
 			Name: "list",
 			Implementations: []invowkfile.Implementation{{
-				Script:    invowkfile.ImplementationScript{Content: "ls"},
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
-				Platforms: invowkfile.AllPlatformConfigs(),
+				Script:   invowkfile.ImplementationScript{Content: "ls"},
+				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
+				Platforms: testPlatformsWithVirtualFilesystem(
+					invowkfile.VirtualFilesystemAccessFull,
+					invowkfile.VirtualFilesystemPaths{"CACHE": "@cache/reports"},
+				),
 			}},
 		}},
 	}
@@ -295,7 +298,10 @@ func TestShRuntimePrepareInteractivePassesHostBinaryPolicy(t *testing.T) {
 					AllowedBinaries:  []invowkfile.AllowedBinary{"tool"},
 					BinaryLookupMode: invowkfile.BinaryLookupModeStrict,
 				}},
-				Platforms: invowkfile.AllPlatformConfigs(),
+				Platforms: testPlatformsWithVirtualFilesystem(
+					invowkfile.VirtualFilesystemAccessFull,
+					invowkfile.VirtualFilesystemPaths{"CACHE": "@cache/reports"},
+				),
 			}},
 		}},
 	}
@@ -321,6 +327,12 @@ func TestShRuntimePrepareInteractivePassesHostBinaryPolicy(t *testing.T) {
 	}
 	if len(gotSpec.AllowedBinaries) != 1 || gotSpec.AllowedBinaries[0] != "tool" {
 		t.Fatalf("launcher spec AllowedBinaries = %v, want [tool]", gotSpec.AllowedBinaries)
+	}
+	if gotSpec.FilesystemAccess != invowkfile.VirtualFilesystemAccessFull {
+		t.Fatalf("launcher spec FilesystemAccess = %q, want full", gotSpec.FilesystemAccess)
+	}
+	if got := gotSpec.FilesystemPaths["CACHE"]; got != "@cache/reports" {
+		t.Fatalf("launcher spec FilesystemPaths[CACHE] = %q, want @cache/reports", got)
 	}
 }
 
@@ -400,6 +412,9 @@ cmds: [{
 	}
 	if gotSpec.BinaryLookupMode != invowkfile.BinaryLookupModeStrict {
 		t.Fatalf("launcher spec BinaryLookupMode = %q, want strict", gotSpec.BinaryLookupMode)
+	}
+	if gotSpec.FilesystemAccess != invowkfile.VirtualFilesystemAccessRestricted {
+		t.Fatalf("launcher spec FilesystemAccess = %q, want restricted", gotSpec.FilesystemAccess)
 	}
 	if len(gotSpec.AllowedBinaries) != 1 || gotSpec.AllowedBinaries[0] != "tool" {
 		t.Fatalf("launcher spec AllowedBinaries = %v, want [tool]", gotSpec.AllowedBinaries)

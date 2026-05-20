@@ -36,7 +36,7 @@ stdout 'tool:wild:code=0'
 exec invowk cmd host-strict
 stdout 'code=126'
 
-# Test 8: anchors and allowed_paths are exposed to Lua
+# Test 8: anchors and virtual filesystem paths are exposed to Lua
 mkdir data
 exec invowk cmd lua-paths
 stdout 'env=true'
@@ -50,7 +50,9 @@ stdout 'HostBinaries: go'
 stdout 'BinaryLookupMode: strict'
 stdout 'LuaCPULimit: 100'
 stdout 'LuaMemoryLimit: 1M'
-stdout 'AllowedPaths:'
+stdout 'VirtualFilesystem:'
+stdout 'Access: full'
+stdout 'Paths:'
 stdout 'DATA=./data'
 
 -- invowkfile.cue --
@@ -147,20 +149,18 @@ cmds: [
 				print("env=" .. tostring(os.getenv("INVOWK_PATH_DATA") ~= nil))
 				print(path)
 				"""}
-			allowed_paths: {
-				DATA: "./data"
-			}
 			runtimes:  [{name: "virtual-lua"}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {paths: {DATA: "./data"}}}},
+				{name: "macos", virtual: {filesystem: {paths: {DATA: "./data"}}}},
+				{name: "windows", virtual: {filesystem: {paths: {DATA: "./data"}}}},
+			]
 		}]
 	},
 	{
 		name: "lua-dry"
 		implementations: [{
 			script: {content: "print('dry')"}
-			allowed_paths: {
-				DATA: "./data"
-			}
 			runtimes: [{
 				name: "virtual-lua"
 				allowed_binaries: ["go"]
@@ -168,7 +168,11 @@ cmds: [
 				cpu_limit: 100
 				memory_limit: "1M"
 			}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {access: "full", paths: {DATA: "./data"}}}},
+				{name: "macos", virtual: {filesystem: {access: "full", paths: {DATA: "./data"}}}},
+				{name: "windows", virtual: {filesystem: {access: "full", paths: {DATA: "./data"}}}},
+			]
 		}]
 	},
 ]

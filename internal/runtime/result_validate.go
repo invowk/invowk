@@ -121,6 +121,11 @@ func (ctx ExecutionContext) appendRuntimeSelectionValidationErrors(errs *[]error
 	if err := ctx.SelectedRuntime.Validate(); err != nil {
 		*errs = append(*errs, err)
 	}
+	if ctx.SelectedPlatform != "" {
+		if err := ctx.SelectedPlatform.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 	if ctx.WorkDir != "" {
 		if err := ctx.WorkDir.Validate(); err != nil {
 			*errs = append(*errs, err)

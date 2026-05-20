@@ -150,10 +150,10 @@ type (
 	//
 	//goplint:mutable
 	//
-	// SelectedRuntime and SelectedImpl are resolved together: SelectedImpl is the
-	// implementation matching SelectedRuntime + current platform. Both are populated
-	// by NewExecutionContext using the command's defaults and can be overridden by
-	// CLI flag processing (e.g., --ivk-runtime flag).
+	// SelectedRuntime, SelectedPlatform, and SelectedImpl are resolved together:
+	// SelectedImpl is the implementation matching SelectedRuntime + platform. They
+	// are populated by NewExecutionContext using the command's defaults and can be
+	// overridden by CLI flag processing (e.g., --ivk-runtime flag).
 	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	ExecutionContext struct {
 		// Command is the command to execute
@@ -164,6 +164,8 @@ type (
 		Context context.Context
 		// SelectedRuntime is the runtime to use for execution (may differ from default)
 		SelectedRuntime invowkfile.RuntimeMode
+		// SelectedPlatform is the platform used to resolve the selected implementation.
+		SelectedPlatform invowkfile.Platform
 		// SelectedImpl is the implementation to execute (based on platform and runtime)
 		SelectedImpl *invowkfile.Implementation
 		// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
@@ -463,13 +465,14 @@ func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invo
 	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
-		Command:         cmd,
-		Invowkfile:      inv,
-		Context:         ctx,
-		SelectedRuntime: defaultRuntime,
-		SelectedImpl:    defaultImpl,
-		IO:              DefaultIO(),
-		Env:             DefaultEnv(),
+		Command:          cmd,
+		Invowkfile:       inv,
+		Context:          ctx,
+		SelectedRuntime:  defaultRuntime,
+		SelectedPlatform: currentPlatform,
+		SelectedImpl:     defaultImpl,
+		IO:               DefaultIO(),
+		Env:              DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
 	}
 }

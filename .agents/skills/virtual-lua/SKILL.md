@@ -25,7 +25,7 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
 ## Bridge Contract
 
 - Expose a read-only global `invowk` table with:
-  - `invowk.path(nameOrAnchor)` resolving standard anchors and implementation `allowed_paths`.
+  - `invowk.path(nameOrAnchor)` resolving standard anchors and selected-platform `virtual.filesystem.paths` handles.
   - `invowk.env.NAME` plus controlled `os.getenv("NAME")` reading the effective command environment.
   - `invowk.state.bin_path` reflecting the last resolved host binary path.
   - `invowk.cmd.<name>(...)` for streaming execution.
@@ -38,8 +38,9 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
 
 - Route Lua file APIs and module-local `require` through the shared virtual path resolver/validator in `internal/runtime/virtual_policy.go`.
 - Standard anchors: `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`.
-- Implicit allowed roots: config/data/cache/state/tmp/work plus script/module source roots. `@home` is metadata/resolution only unless explicitly mapped through `allowed_paths`.
-- `allowed_paths` keys are environment suffixes; keep them uppercase and safe for `INVOWK_PATH_<KEY>`.
+- In restricted mode, implicit allowed roots are config/data/cache/state/tmp/work plus script/module source roots. `@home` is metadata/resolution only unless explicitly mapped through selected-platform `virtual.filesystem.paths`.
+- `virtual.filesystem.paths` keys are environment suffixes; keep them uppercase and safe for `INVOWK_PATH_<KEY>`.
+- In full mode, VM-controlled file operations can access normalized host paths after resolver checks; path handles remain bridge names, not the permission boundary.
 - Module-local `require` may load Lua source inside the inline script context or source invowkmod tree only. Block absolute/traversal escapes and native shared-library loading.
 
 ## Tests
@@ -59,6 +60,6 @@ Useful targeted gates:
 
 ```bash
 go test ./internal/runtime ./cmd/invowk ./internal/app/commandadapters
-go test ./pkg/invowkfile -run 'RuntimeConfig|Implementation|SchemaSync|Allowed'
+go test ./pkg/invowkfile -run 'RuntimeConfig|Implementation|SchemaSync|VirtualFilesystem'
 go test ./internal/audit ./tests/cli/...
 ```

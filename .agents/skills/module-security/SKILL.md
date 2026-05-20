@@ -166,7 +166,7 @@ The Go scanner already handles all of these deterministically:
 | ScriptChecker | Path traversal, remote exec, obfuscation, file size | `checks_script.go` |
 | NetworkChecker | Reverse shells, DNS exfil, encoded URLs, network commands | `checks_network.go` |
 | EnvChecker | Sensitive vars, env_inherit_mode, token extraction | `checks_env.go` |
-| LuaChecker | virtual-lua disabled API references, bridge env reads, host-binary opt-outs, network-capable host binaries, broad allowed paths | `checks_lua.go` |
+| LuaChecker | virtual-lua disabled API references, bridge env reads, host-binary opt-outs, network-capable host binaries, and full virtual filesystem access | `checks_lua.go` |
 | SymlinkChecker | Symlinks, boundary escapes, dangling, chains | `checks_symlink.go` |
 | ModuleMetadataChecker | Dep depth, typosquatting, global trust, version pinning | `checks_module.go` |
 | Correlator | Compound threat escalation (5 named rules + severity rules) | `correlator.go` |

@@ -34,7 +34,7 @@ func (e *InvalidBuildExecutionContextOptionsError) Unwrap() error {
 // It validates Selection, CommandFullName (when non-empty), Workdir
 // (when non-empty), ContainerName (when non-empty), EnvFiles, EnvInheritMode
 // (when non-empty), EnvInheritAllow, EnvInheritDeny, SourceID (when non-empty),
-// and Platform (when non-empty).
+// Platform (when non-empty), and explicit platform consistency with Selection.
 func (o BuildExecutionContextOptions) Validate() error {
 	var errs []error
 	o.appendSelectionValidationErrors(&errs)
@@ -100,5 +100,8 @@ func (o BuildExecutionContextOptions) appendMetadataValidationErrors(errs *[]err
 		if err := o.Platform.Validate(); err != nil {
 			*errs = append(*errs, err)
 		}
+	}
+	if o.Platform != "" && o.Selection.Platform() != "" && o.Platform != o.Selection.Platform() {
+		*errs = append(*errs, errors.New("platform must match runtime selection platform"))
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	ivkruntime "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -37,6 +38,8 @@ func newInternalExecShCommand() *cobra.Command {
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
 	cmd.Flags().StringArray("allowed-binary", nil, "host binary allowed by the virtual runtime")
 	cmd.Flags().String("binary-lookup-mode", invowkfile.BinaryLookupModeHost.String(), "host binary lookup mode")
+	cmd.Flags().String("filesystem-access", invowkfile.VirtualFilesystemAccessRestricted.String(), "virtual filesystem access mode")
+	cmd.Flags().String("filesystem-paths-json", "{}", "virtual filesystem paths as JSON object")
 	cmd.Flags().Bool("enable-uroot", false, "enable u-root utilities")
 
 	_ = cmd.MarkFlagRequired(flagScriptFile)
@@ -57,10 +60,26 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 	envJSON, _ := cmd.Flags().GetString("env-json")
 	allowedBinaries, _ := cmd.Flags().GetStringArray("allowed-binary")
 	binaryLookupModeRaw, _ := cmd.Flags().GetString("binary-lookup-mode")
+	filesystemAccessRaw, _ := cmd.Flags().GetString("filesystem-access")
+	filesystemPathsRaw, _ := cmd.Flags().GetString("filesystem-paths-json")
 	enableUroot, _ := cmd.Flags().GetBool("enable-uroot")
 	binaryLookupMode := invowkfile.BinaryLookupMode(binaryLookupModeRaw)
 	if err := binaryLookupMode.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing binary lookup mode: %v\n", err)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
+	}
+	filesystemAccess := invowkfile.VirtualFilesystemAccess(filesystemAccessRaw)
+	if err := filesystemAccess.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing filesystem access: %v\n", err)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
+	}
+	filesystemPaths, err := parseVirtualFilesystemPathsJSON(filesystemPathsRaw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing filesystem paths: %v\n", err)
 		cmd.SilenceErrors = true
 		cmd.SilenceUsage = true
 		return &ExitError{Code: 1}
@@ -94,6 +113,8 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 		Args:             posArgs,
 		AllowedBinaries:  allowedBinaries,
 		BinaryLookupMode: binaryLookupMode,
+		FilesystemAccess: filesystemAccess,
+		FilesystemPaths:  filesystemPaths,
 		EnableUroot:      enableUroot,
 		Stdin:            os.Stdin,
 		Stdout:           os.Stdout,
@@ -112,6 +133,32 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+func parseVirtualFilesystemPathsJSON(raw string) (invowkfile.VirtualFilesystemPaths, error) {
+	if strings.TrimSpace(raw) == "" {
+		return invowkfile.VirtualFilesystemPaths{}, nil
+	}
+	var decoded map[string]string
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		return nil, err
+	}
+	paths := make(invowkfile.VirtualFilesystemPaths, len(decoded))
+	for name, path := range decoded {
+		pathName := invowkfile.VirtualFilesystemPathName(name) //goplint:ignore -- internal CLI JSON boundary value validated immediately below.
+		if err := pathName.Validate(); err != nil {
+			return nil, err
+		}
+		filesystemPath := invowkfile.VirtualFilesystemPath(path) //goplint:ignore -- internal CLI JSON boundary value validated immediately below.
+		if err := filesystemPath.Validate(); err != nil {
+			return nil, err
+		}
+		paths[pathName] = filesystemPath
+	}
+	if err := paths.Validate(); err != nil {
+		return nil, err
+	}
+	return paths, nil
 }
 
 // buildShEnv builds the script-visible environment variable slice from flags and JSON.

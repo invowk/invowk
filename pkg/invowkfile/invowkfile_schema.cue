@@ -19,14 +19,13 @@ import "strings"
 // EnvInheritMode defines how environment variables are inherited
 #EnvInheritMode: "none" | "allow" | "all"
 
-// AllowedPathName defines a logical path name exposed as INVOWK_PATH_<NAME>.
-#AllowedPathName: string & =~"^[A-Z_][A-Z0-9_]*$" & strings.MaxRunes(256)
+// VirtualFilesystemAccess controls VM-managed filesystem access for virtual runtimes.
+#VirtualFilesystemAccess: *"restricted" | "full"
 
-#AllowedPathValue: (#NonWhitespaceString & strings.MaxRunes(4096)) | close({
-	linux?: #NonWhitespaceString & strings.MaxRunes(4096)
-	macos?: #NonWhitespaceString & strings.MaxRunes(4096)
-	windows?: #NonWhitespaceString & strings.MaxRunes(4096)
-})
+// VirtualFilesystemPathName defines a logical path name exposed as INVOWK_PATH_<NAME>.
+#VirtualFilesystemPathName: string & =~"^[A-Z_][A-Z0-9_]*$" & strings.MaxRunes(256)
+
+#VirtualFilesystemPath: #NonWhitespaceString & strings.MaxRunes(4096)
 
 // FlagType defines the valid types for command flags
 #FlagType: "string" | "bool" | "int" | "float"
@@ -175,10 +174,28 @@ import "strings"
 	image?: _|_
 })
 
-// PlatformConfig represents a platform configuration
+// VirtualFilesystemConfig configures virtual-runtime filesystem access for a platform.
+#VirtualFilesystemConfig: close({
+	// access controls whether VM-managed filesystem operations are limited to
+	// implicit safe roots plus named paths, or may access the full host filesystem.
+	access?: #VirtualFilesystemAccess
+
+	// paths maps logical uppercase path names to platform-local path handles.
+	paths?: [#VirtualFilesystemPathName]: #VirtualFilesystemPath
+})
+
+// PlatformVirtualConfig holds platform-specific settings for the virtual runtime family.
+#PlatformVirtualConfig: close({
+	filesystem?: #VirtualFilesystemConfig
+})
+
+// PlatformConfig represents a platform configuration.
 #PlatformConfig: close({
 	// name specifies the platform type (required)
 	name: #PlatformType
+
+	// virtual contains platform-specific settings for virtual-* runtimes.
+	virtual?: #PlatformVirtualConfig
 })
 
 // InterpreterSpec specifies how to execute a script source (optional).
@@ -257,11 +274,6 @@ import "strings"
 	// from the invowkfile directory or module root; Go/runtime code owns final resolution
 	// and execution-time directory validation.
 	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)
-
-	// allowed_paths maps logical uppercase path names to common or platform-keyed
-	// paths exposed as INVOWK_PATH_<NAME> and allowed by virtual runtimes.
-	// [GO-ONLY] Platform mapping completeness and path normalization require Go.
-	allowed_paths?: [#AllowedPathName]: #AllowedPathValue
 
 	// depends_on specifies dependencies validated against the HOST system (optional).
 	// Regardless of the selected runtime, these are always checked on the host.

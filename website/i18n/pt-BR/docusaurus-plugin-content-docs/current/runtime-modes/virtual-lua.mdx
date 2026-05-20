@@ -18,7 +18,7 @@ Scripts Lua interagem com o Invowk por meio de uma tabela `invowk` somente leitu
 
 | API | Finalidade |
 |-----|------------|
-| `invowk.path(nameOrAnchor)` | Resolver âncoras padrão como `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e nomes de `allowed_paths` da implementação |
+| `invowk.path(nameOrAnchor)` | Resolver âncoras padrão como `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e nomes de `virtual.filesystem.paths` da plataforma selecionada |
 | `invowk.env.NAME` / `os.getenv("NAME")` | Ler o ambiente efetivo do comando |
 | `invowk.state.bin_path` | Inspecionar o último caminho de binário de host resolvido |
 | `invowk.cmd.<name>(...)` | Enviar um utilitário habilitado ou binário de host permitido para stdout/stderr do comando |
@@ -30,9 +30,9 @@ Scripts Lua interagem com o Invowk por meio de uma tabela `invowk` somente leitu
 
 A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e a raiz do script ou módulo.
 
-`@home` pode ser resolvida para metadados, mas não é uma raiz ampla permitida. Para disponibilizar um caminho do host às APIs de arquivo Lua, defina uma entrada `allowed_paths` na implementação. A chave vira `INVOWK_PATH_<KEY>` e pode ser resolvida com `invowk.path("<KEY>/file")`.
+`@home` pode ser resolvida para metadados, mas o acesso restrito ao filesystem não a torna uma raiz ampla permitida. Para disponibilizar um caminho do host às APIs de arquivo Lua em modo restrito, defina uma entrada `platforms[].virtual.filesystem.paths`. A chave vira `INVOWK_PATH_<KEY>` e pode ser resolvida com `invowk.path("<KEY>/file")`. Use `platforms[].virtual.filesystem.access: "full"` apenas quando operações de arquivo Lua controladas pela VM puderem acessar caminhos normalizados do filesystem do host além desses handles nomeados.
 
-<Snippet id="runtime-modes/virtual-lua-allowed-paths" />
+<Snippet id="runtime-modes/virtual-lua-filesystem-paths" />
 
 ## Require Local Ao Módulo
 

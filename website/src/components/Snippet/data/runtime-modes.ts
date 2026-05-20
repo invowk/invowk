@@ -504,7 +504,7 @@ virtual: {
     """}`,
   },
 
-  'runtime-modes/virtual-lua-allowed-paths': {
+  'runtime-modes/virtual-lua-filesystem-paths': {
     language: 'cue',
     code: `{
     name: "write-cache"
@@ -515,11 +515,18 @@ virtual: {
             file:write("ok")
             file:close()
             """}
-        allowed_paths: {
-            CACHE: "@cache/reports"
-        }
         runtimes: [{name: "virtual-lua"}]
-        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        platforms: [{
+            name: "linux"
+            virtual: {
+                filesystem: {
+                    access: "restricted"
+                    paths: {
+                        CACHE: "@cache/reports"
+                    }
+                }
+            }
+        }]
     }]
 }`,
   },

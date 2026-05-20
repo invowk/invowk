@@ -67,7 +67,7 @@ print(tostring(cmdWriteOK))
 	}
 }
 
-func TestLuaBridgeAllowedPathsExposeResolvedPath(t *testing.T) {
+func TestLuaBridgeVirtualFilesystemPathsExposeResolvedPath(t *testing.T) {
 	t.Parallel()
 
 	script := `
@@ -77,7 +77,10 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 `
 	cfg := invowkfile.RuntimeConfig{Name: invowkfile.RuntimeVirtualLua}
 	ctx, stdout, _ := newLuaExecutionContext(t, script, cfg, nil)
-	ctx.SelectedImpl.AllowedPaths = invowkfile.AllowedPaths{"DB_ROOT": "./db"}
+	ctx.SelectedImpl.Platforms = testPlatformsWithVirtualFilesystem(
+		"",
+		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
+	)
 	dbRoot := filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db")
 	if err := os.MkdirAll(dbRoot, 0o755); err != nil {
 		t.Fatalf("MkdirAll(db root) error = %v", err)
@@ -117,7 +120,10 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 		"INVOWK_ANCHOR_WORK":    "user-work",
 	}
 	ctx, stdout, _ := newLuaExecutionContext(t, script, invowkfile.RuntimeConfig{Name: invowkfile.RuntimeVirtualLua}, env)
-	ctx.SelectedImpl.AllowedPaths = invowkfile.AllowedPaths{"DB_ROOT": "./db"}
+	ctx.SelectedImpl.Platforms = testPlatformsWithVirtualFilesystem(
+		"",
+		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
+	)
 	dbRoot := filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db")
 
 	result := NewLuaRuntime(false).Execute(ctx)
@@ -186,6 +192,42 @@ print(tostring(string.find(err, "virtual path denied") ~= nil))
 	want := "inside\ntrue\ntrue\n"
 	if got := stdout.String(); got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+func TestLuaFullFilesystemAccessAllowsHostPath(t *testing.T) {
+	t.Parallel()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir() error = %v", err)
+	}
+	hostFile, err := os.CreateTemp(homeDir, ".invowk-lua-full-access-*")
+	if err != nil {
+		t.Fatalf("CreateTemp(home) error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(hostFile.Name()) })
+	if _, err := hostFile.WriteString("lua-full-ok"); err != nil {
+		t.Fatalf("WriteString(host file) error = %v", err)
+	}
+	if err := hostFile.Close(); err != nil {
+		t.Fatalf("Close(host file) error = %v", err)
+	}
+
+	script := fmt.Sprintf(`
+local f = assert(io.open(%q, "r"))
+print(f:read("*a"))
+assert(f:close())
+`, hostFile.Name())
+	ctx, stdout, _ := newLuaExecutionContext(t, script, invowkfile.RuntimeConfig{Name: invowkfile.RuntimeVirtualLua}, nil)
+	ctx.SelectedImpl.Platforms = testPlatformsWithVirtualFilesystem(invowkfile.VirtualFilesystemAccessFull, nil)
+
+	result := NewLuaRuntime(false).Execute(ctx)
+	if !result.Success() {
+		t.Fatalf("Execute() result = %#v, want success", result)
+	}
+	if got := stdout.String(); got != "lua-full-ok\n" {
+		t.Fatalf("stdout = %q, want lua-full-ok newline", got)
 	}
 }
 
@@ -355,7 +397,7 @@ io.stderr:write("err:" .. line)
 		ScriptName:       "interactive.lua",
 		WorkDir:          tmpDir,
 		ScriptBasePath:   tmpDir,
-		Env:              []string{"INVOWK_PATH_DATA=" + tmpDir},
+		FilesystemPaths:  invowkfile.VirtualFilesystemPaths{"DATA": invowkfile.VirtualFilesystemPath(tmpDir)},
 		Args:             []string{"pos"},
 		BinaryLookupMode: invowkfile.BinaryLookupModeHost,
 		Stdin:            strings.NewReader("stdin-value\n"),

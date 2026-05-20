@@ -210,7 +210,7 @@ The runtimes that can execute this implementation. The first runtime is the defa
 **Type:** `[...#PlatformConfig]`
 **Required:** Yes (at least one)
 
-Specify which operating systems this implementation supports.
+Specify which operating systems this implementation supports. Platform entries can also carry virtual-runtime filesystem settings for that OS through `virtual.filesystem`.
 
 <Snippet id="reference/invowkfile/platforms-example" />
 
@@ -227,13 +227,6 @@ Environment configuration for this implementation. Merged with command-level env
 **Required:** No
 
 Working directory for this implementation. Overrides both root-level and command-level workdir settings. Can be absolute or relative to the invowkfile location.
-
-### allowed_paths
-
-**Type:** map of uppercase logical names to a string path or platform-keyed paths
-**Required:** No
-
-Logical paths exposed to virtual runtimes. Keys must be safe environment suffixes such as `CACHE` or `DB_ROOT`; Invowk exposes each mapping as `INVOWK_PATH_<KEY>` and resolves it through `invowk.path("<KEY>/file")` in virtual-lua. Values can be a common string or a map with `linux`, `macos`, and `windows` entries for selected platforms.
 
 ### depends_on
 
@@ -384,6 +377,21 @@ Only checked when the container runtime is selected at execution time.
 ## PlatformConfig
 
 <Snippet id="reference/invowkfile/platform-config-structure" />
+
+### virtual.filesystem.access
+
+**Type:** `"restricted" | "full"`
+**Required:** No
+**Default:** `"restricted"`
+
+Controls virtual-runtime filesystem access for the selected platform. In restricted mode, VM-controlled file operations can access only implicit safe roots plus the platform's `virtual.filesystem.paths` roots. In full mode, VM-controlled file operations may access normalized host filesystem paths after resolver checks. This is not process isolation; use the container runtime for isolation.
+
+### virtual.filesystem.paths
+
+**Type:** map of uppercase logical names to string paths
+**Required:** No
+
+Logical path handles exposed to virtual runtimes. Keys must be safe environment suffixes such as `CACHE` or `DB_ROOT`; Invowk exposes each mapping as `INVOWK_PATH_<KEY>` and resolves it through `invowk.path("<KEY>/file")` in virtual-lua. Values are platform-local string paths in the selected platform entry.
 
 ---
 
