@@ -56,6 +56,8 @@ const (
 	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	// Bridged from runtime.CodeContainerRuntimeInitFailed at the CLI layer boundary.
 	CodeContainerRuntimeInitFailed DiagnosticCode = "container_runtime_init_failed"
+	// CodeScriptInterpreterShebangOverride indicates script.interpreter overrides a script shebang.
+	CodeScriptInterpreterShebangOverride DiagnosticCode = "script_interpreter_shebang_override"
 	// CodeModuleShadowsGlobal indicates a local module has the same ID as a
 	// globally installed module, causing the local to take precedence. This is
 	// safe (local doesn't gain global trust) but may indicate typosquatting or
@@ -224,6 +226,7 @@ func (dc DiagnosticCode) Validate() error {
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
 		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
+		CodeScriptInterpreterShebangOverride,
 		CodeModuleShadowsGlobal, CodeModuleSymlinkSkipped, CodeVendoredSymlinkSkipped,
 		CodeVendoredUndeclaredSkipped, CodeVendoredTransitiveSkipped:
 		return nil

@@ -40,7 +40,7 @@ Ensure all requirements are met and try again.
 Root, command, and implementation-level custom checks always run on the host. To run a custom check inside a container image, put `depends_on` inside the selected container runtime block.
 :::
 
-Host custom checks without a shebang or `script.interpreter` run through Invowk's embedded mvdan/sh shell. A non-shell shebang or `script.interpreter` such as `python3` runs through that host interpreter. Container custom checks use the same `script.interpreter` field inside the selected container.
+Host custom checks without a shebang or `script.interpreter` run through Invowk's embedded mvdan/sh shell. A non-shell shebang or `script.interpreter` such as `python3` runs through that host interpreter. Container custom checks use the same `script.interpreter` field inside the selected container. If a concrete `script.interpreter` overrides a different shebang, Invowk reports an advisory warning and keeps the explicit interpreter authoritative.
 
 ## Exit Code Validation
 

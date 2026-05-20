@@ -186,6 +186,8 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnosti
 		return Result{}, diags, err
 	}
 
+	scriptAnalysis, hasScriptAnalysis := analyzeSelectedImplementationScript(execCtx)
+
 	// Dry-run mode returns structured data for the CLI adapter to render.
 	// It is intentionally before dependency validation and host/runtime setup
 	// so planning a command does not start infrastructure or touch containers.
@@ -193,9 +195,12 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnosti
 		return Result{
 			ExitCode: 0,
 			DryRunData: &DryRunData{
-				Plan: newDryRunPlan(req, cmdInfo, execCtx, resolved.Impl()),
+				Plan: newDryRunPlan(req, cmdInfo, execCtx, resolved.Impl(), scriptAnalysis, hasScriptAnalysis),
 			},
 		}, diags, nil
+	}
+	if hasScriptAnalysis {
+		diags = appendScriptInterpreterDiagnostics(diags, scriptAnalysis)
 	}
 
 	// Track whether we are the caller that starts host access so that only this
@@ -212,7 +217,14 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnosti
 	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
 }
 
-func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) DryRunPlan {
+func newDryRunPlan(
+	req Request,
+	cmdInfo *discovery.CommandInfo,
+	execCtx *runtime.ExecutionContext,
+	impl *invowkfile.Implementation,
+	scriptAnalysis invowkfile.ScriptInterpreterAnalysis,
+	hasScriptAnalysis bool,
+) DryRunPlan {
 	plan := DryRunPlan{
 		CommandName:                 invowkfile.CommandName(req.Name), //goplint:ignore -- request name was resolved through discovery
 		SourceID:                    cmdInfo.SourceID,
@@ -225,6 +237,9 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 	if impl != nil {
 		plan.Timeout = impl.Timeout
 		plan.Script = impl.Script
+	}
+	if hasScriptAnalysis {
+		plan.ScriptInterpreter = scriptAnalysis
 	}
 	persistentPlan := newPersistentContainerPlan(execCtx, impl)
 	plan.PersistentContainerMode = persistentPlan.Mode().String()

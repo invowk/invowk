@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/spf13/cobra"
 )
 
@@ -248,6 +249,81 @@ version: "1.0.0"
 	}
 	if !strings.Contains(stdout.String(), "Module is valid") {
 		t.Fatalf("stdout = %q, want module-valid message", stdout.String())
+	}
+}
+
+func TestCollectInvowkfileInterpreterDiagnosticsSkipsInvalidOrUnreadableFiles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		readFile func(path string) ([]byte, error)
+	}{
+		{
+			name: "unreadable file",
+			readFile: func(string) ([]byte, error) {
+				return nil, os.ErrNotExist
+			},
+		},
+		{
+			name: "invalid resolved content",
+			readFile: func(string) ([]byte, error) {
+				return []byte(" \n\t"), nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			diagnostics := collectInvowkfileInterpreterDiagnostics(testInterpreterDiagnosticInvowkfile(), tt.readFile)
+			if len(diagnostics) != 0 {
+				t.Fatalf("diagnostics = %v, want none", diagnostics)
+			}
+		})
+	}
+}
+
+func TestCollectInvowkfileInterpreterDiagnosticsReportsAuthoredPath(t *testing.T) {
+	t.Parallel()
+
+	diagnostics := collectInvowkfileInterpreterDiagnostics(
+		testInterpreterDiagnosticInvowkfile(),
+		func(string) ([]byte, error) {
+			return []byte("#!/bin/sh\nprint('ok')\n"), nil
+		},
+	)
+	if len(diagnostics) != 1 {
+		t.Fatalf("diagnostics = %d, want 1", len(diagnostics))
+	}
+	diagnostic := diagnostics[0]
+	if diagnostic.Code() != invowkfile.ScriptInterpreterDiagnosticShebangOverride {
+		t.Fatalf("diagnostic code = %q, want %q", diagnostic.Code(), invowkfile.ScriptInterpreterDiagnosticShebangOverride)
+	}
+	if got := diagnostic.Path().String(); got != "scripts/demo" {
+		t.Fatalf("diagnostic path = %q, want authored path", got)
+	}
+	if !strings.Contains(diagnostic.Message().String(), "script.interpreter takes precedence") {
+		t.Fatalf("diagnostic message = %q, want precedence text", diagnostic.Message())
+	}
+}
+
+func testInterpreterDiagnosticInvowkfile() *invowkfile.Invowkfile {
+	scriptFile := invowkfile.FilesystemPath("scripts/demo")
+	return &invowkfile.Invowkfile{
+		ModulePath: "/tmp/com.example.tools.invowkmod",
+		Commands: []invowkfile.Command{{
+			Name: "demo",
+			Implementations: []invowkfile.Implementation{{
+				Script: invowkfile.ImplementationScript{
+					File:        &scriptFile,
+					Interpreter: "python3",
+				},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			}},
+		}},
 	}
 }
 

@@ -192,6 +192,8 @@ The executable script source. Use `script.content` for inline shell text and mod
 
 Specifies how to execute the resolved script content. The value may be `auto` or a supported interpreter such as `python3`, `node`, `pwsh`, or `/usr/bin/env perl -w`. Runtime configs do not accept `interpreter`.
 
+A concrete `script.interpreter` takes precedence over shebang detection. If it differs from the resolved script's shebang interpreter or arguments, `invowk validate` and `--ivk-dry-run` report an advisory warning while keeping validation successful. Omitted `script.interpreter` and `interpreter: "auto"` are shebang-driven and do not warn.
+
 <Snippet id="reference/invowkfile/interpreter-examples" />
 
 ### runtimes

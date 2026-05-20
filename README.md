@@ -1684,7 +1684,7 @@ cmds: [
 ]
 ```
 
-The explicit interpreter takes precedence over shebang detection.
+The explicit interpreter takes precedence over shebang detection. If the resolved script has both a concrete `script.interpreter` and a different shebang interpreter or argument list, invowk keeps `script.interpreter` authoritative and emits an advisory warning from `invowk validate` and `--ivk-dry-run`. Omitted `script.interpreter` and `interpreter: "auto"` are shebang-driven and do not warn.
 
 ### Interpreter in Containers
 
@@ -1769,6 +1769,8 @@ cmds: [
 When no shebang is found and no `script.interpreter` is specified, invowk falls back to shell execution:
 - **Native runtime**: Uses the system's default shell
 - **Container runtime**: Uses `/bin/sh -c`
+
+`--ivk-dry-run` prints the resolved interpreter provenance, such as explicit interpreter, shebang-detected interpreter, or default shell behavior, before the command is executed.
 
 ### Virtual Runtime Restriction
 

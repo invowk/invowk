@@ -123,6 +123,15 @@ stdout 'Invowkfile Validation'
 stderr 'CUE schema validation failed'
 stderr 'interpreter'
 
+# Test 18: Interpreter/shebang mismatch is advisory and keeps validation successful
+exec invowk validate ./interpreterwarning.invowkmod
+stdout 'Module Validation'
+stdout 'Module is valid'
+stderr 'advisory warning'
+stderr 'script_interpreter_shebang_override'
+stderr 'scripts/build'
+stderr 'script.interpreter takes precedence'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -354,3 +363,26 @@ cmds: [
 		}]
 	},
 ]
+
+-- interpreterwarning.invowkmod/invowkmod.cue --
+module:  "interpreterwarning"
+version: "0.1.0"
+
+-- interpreterwarning.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "warn"
+		implementations: [{
+			script: {
+				file:        "scripts/build"
+				interpreter: "python3"
+			}
+			runtimes:  [{name: "native"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- interpreterwarning.invowkmod/scripts/build --
+#!/bin/sh
+print("ok")

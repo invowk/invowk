@@ -150,6 +150,8 @@ type (
 		PersistentContainerCreateIfMissing bool
 		// Script is the selected implementation script source.
 		Script invowkfile.ImplementationScript
+		// ScriptInterpreter describes effective interpreter selection for the script.
+		ScriptInterpreter invowkfile.ScriptInterpreterAnalysis
 		// Env contains projected execution environment variables.
 		Env map[string]string //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
 		// DependencyValidationSkipped is true because dry-run mode does not

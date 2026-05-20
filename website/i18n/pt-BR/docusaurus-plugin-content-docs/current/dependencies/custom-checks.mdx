@@ -40,7 +40,7 @@ Ensure all requirements are met and try again.
 Verificações personalizadas no nível raiz, de comando e de implementação sempre rodam no host. Para executar uma verificação personalizada dentro de uma imagem de container, coloque `depends_on` dentro do bloco do runtime container selecionado.
 :::
 
-Custom checks no host sem shebang ou `script.interpreter` rodam pelo shell mvdan/sh embutido do Invowk. Um shebang não-shell ou `script.interpreter` como `python3` roda por esse interpretador no host. Custom checks em container usam o mesmo campo `script.interpreter` dentro do container selecionado.
+Custom checks no host sem shebang ou `script.interpreter` rodam pelo shell mvdan/sh embutido do Invowk. Um shebang não-shell ou `script.interpreter` como `python3` roda por esse interpretador no host. Custom checks em container usam o mesmo campo `script.interpreter` dentro do container selecionado. Se um `script.interpreter` concreto sobrescrever um shebang diferente, o Invowk reporta um aviso informativo e mantém o interpretador explícito como autoridade.
 
 ## Validação de Código de Saída
 

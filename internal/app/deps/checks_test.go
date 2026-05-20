@@ -709,7 +709,7 @@ func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
 		return CustomCheckResult{}, nil
 	}
 
-	_ = evaluateCustomChecks(deps, execCtx, validator)
+	_ = evaluateCustomChecks(deps, execCtx, customCheckInterpreterTargetHost, validator)
 
 	got := receivedCtx.Load()
 	if got == nil {
@@ -747,7 +747,7 @@ func TestEvaluateCustomChecks_NilContextFallback(t *testing.T) {
 		return CustomCheckResult{}, nil
 	}
 
-	_ = evaluateCustomChecks(deps, execCtx, validator)
+	_ = evaluateCustomChecks(deps, execCtx, customCheckInterpreterTargetHost, validator)
 
 	got := receivedCtx.Load()
 	if got == nil {

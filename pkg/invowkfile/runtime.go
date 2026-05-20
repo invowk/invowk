@@ -222,6 +222,19 @@ type (
 	}
 )
 
+// CommandString returns the parsed interpreter command and arguments as display text.
+//
+//goplint:ignore -- display helper returns user-facing command text from parsed fields.
+func (s ShebangInfo) CommandString() string {
+	if !s.Found || strings.TrimSpace(s.Interpreter) == "" {
+		return ""
+	}
+	parts := make([]string, 0, len(s.Args)+1)
+	parts = append(parts, s.Interpreter)
+	parts = append(parts, s.Args...)
+	return strings.Join(parts, " ")
+}
+
 // AllPlatformNames returns all supported platform types in canonical order.
 // Useful for iteration where a complete platform list is needed (e.g., aggregation, validation).
 func AllPlatformNames() []PlatformType {

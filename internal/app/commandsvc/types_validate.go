@@ -219,6 +219,9 @@ func (p DryRunPlan) Validate() error {
 	if err := p.Script.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	if err := p.ScriptInterpreter.Validate(); err != nil {
+		errs = append(errs, err)
+	}
 	if len(errs) > 0 {
 		return &InvalidDryRunDataError{FieldErrors: errs}
 	}

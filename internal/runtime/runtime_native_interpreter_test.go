@@ -75,8 +75,9 @@ func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
-	// Script without shebang but with explicit interpreter
-	script := `import sys
+	// Script has a shell shebang, but the explicit interpreter must remain authoritative.
+	script := `#!/bin/sh
+import sys
 print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")`
 
 	cmd := testCommandWithInterpreter("python-explicit", script, "python3", invowkfile.RuntimeNative)
@@ -206,7 +207,7 @@ func TestNativeRuntime_InterpreterScriptFileExplicitInterpreter(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "test.py")
-	if err := os.WriteFile(scriptPath, []byte(`print("Hello from explicit Python file")`), 0o644); err != nil {
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nprint(\"Hello from explicit Python file\")"), 0o644); err != nil {
 		t.Fatalf("Failed to write script: %v", err)
 	}
 

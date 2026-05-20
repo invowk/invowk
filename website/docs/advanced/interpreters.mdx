@@ -30,7 +30,9 @@ Specify an interpreter directly on the `script` object:
 
 <Snippet id="advanced/interpreter-explicit" />
 
-The explicit interpreter takes precedence over shebang detection.
+The explicit interpreter takes precedence over shebang detection. If resolved script content also has a different shebang interpreter or argument list, Invowk keeps `script.interpreter` authoritative and reports an advisory warning during `invowk validate` and `--ivk-dry-run`.
+
+`interpreter: "auto"` behaves like an omitted interpreter: Invowk uses the shebang when present and falls back to runtime shell behavior otherwise.
 
 ## Interpreter with Arguments
 
@@ -88,6 +90,8 @@ When there is no shebang and no `script.interpreter`:
 
 - **Native runtime**: Uses system's default shell
 - **Container runtime**: Uses `/bin/sh -c`
+
+`--ivk-dry-run` prints interpreter provenance so you can see whether execution will use an explicit interpreter, a detected shebang, or default shell behavior.
 
 ## Best Practices
 

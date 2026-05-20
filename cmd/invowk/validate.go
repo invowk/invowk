@@ -149,6 +149,8 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 		fmt.Fprintf(stdout, "%s Configuration loaded\n", moduleSuccessIcon)
 	}
 
+	renderValidationInterpreterDiagnostics(stderr, collectCommandSetInterpreterDiagnostics(result.Set))
+
 	// Collect all issues (diagnostics + tree errors) and render in a single pass.
 	hasIssues := false
 
@@ -305,6 +307,8 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 
 	fmt.Fprintf(stdout, "%s Command tree validation passed\n", moduleSuccessIcon)
 
+	renderValidationInterpreterDiagnostics(stderr, collectInvowkfileInterpreterDiagnostics(inv, os.ReadFile))
+
 	cmdCount := len(commands)
 	fmt.Fprintln(stdout)
 	fmt.Fprintf(stdout, "%s Invowkfile is valid (%d command(s))\n", moduleSuccessIcon, cmdCount)
@@ -330,6 +334,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	if err != nil {
 		return fmt.Errorf("validation error: %w", err)
 	}
+	var interpreterDiagnostics []invowkfile.ScriptInterpreterDiagnostic
 
 	if result.ModuleName != "" {
 		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(result.ModuleName)))
@@ -345,6 +350,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 			if invErr != nil {
 				result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
 			} else if inv != nil {
+				interpreterDiagnostics = collectInvowkfileInterpreterDiagnostics(inv, os.ReadFile)
 				var commands []invowkfile.CommandTreeEntry
 				for name, cmdDef := range inv.FlattenCommands() {
 					commands = append(commands, invowkfile.CommandTreeEntry{
@@ -361,6 +367,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	}
 
 	fmt.Fprintln(stdout)
+	renderValidationInterpreterDiagnostics(stderr, interpreterDiagnostics)
 
 	if result.Valid {
 		fmt.Fprintf(stdout, "%s Module is valid\n", moduleSuccessIcon)
