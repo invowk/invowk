@@ -652,7 +652,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual)
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh)
 
 		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
 			t.Fatalf("ValidateDependencies() = %v", err)
@@ -740,7 +740,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual)
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh)
 
 		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
 			t.Fatalf("ValidateDependencies() = %v, expected nil (phase 2 skipped for non-container)", err)
@@ -759,7 +759,7 @@ func TestValidateDependencies(t *testing.T) {
 			},
 			Implementations: []invowkfile.Implementation{{
 				Script:   invowkfile.ImplementationScript{Content: "echo net"},
-				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 			}},
 		}
 		cmdInfo := &discovery.CommandInfo{
@@ -767,7 +767,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual)
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh)
 
 		err := ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, nil, execCtx, nil,
 			fakeCapabilityChecker{

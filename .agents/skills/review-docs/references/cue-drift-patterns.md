@@ -16,7 +16,7 @@ one platform. Snippets without `platforms` are technically invalid CUE.
 
 **Correct values by runtime**:
 - Container runtime: `platforms: [{name: "linux"}]`
-- Virtual runtime: `platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]`
+- Virtual-sh runtime: `platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]`
 - Native runtime: `platforms: [{name: "linux"}, {name: "macos"}]` (add `{name: "windows"}` if cross-platform)
 
 **Exception**: Partial/fragment snippets that show individual CUE fields (e.g., just `runtimes:` config
@@ -39,10 +39,10 @@ list syntax `cmds: [{ name: "...", ... }]`.
 
 ## Pattern 3: `runtimes`/`platforms` as String Arrays
 
-**What**: Snippets show `runtimes: ["virtual"]` or `platforms: ["linux", "macos"]` instead
+**What**: Snippets show `runtimes: ["virtual-sh"]` or `platforms: ["linux", "macos"]` instead
 of struct lists.
 
-**Correct**: `runtimes: [{name: "virtual"}]` and `platforms: [{name: "linux"}, {name: "macos"}]`.
+**Correct**: `runtimes: [{name: "virtual-sh"}]` and `platforms: [{name: "linux"}, {name: "macos"}]`.
 
 ## Pattern 4: `git` Instead of `git_url` in Module Requires
 

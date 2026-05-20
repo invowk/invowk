@@ -164,7 +164,7 @@ github.com/invowk/invowk/
 
 **Responsibilities**:
 - Define `Runtime` interface
-- Implement native, virtual, and container runtimes
+- Implement native, virtual-sh, and container runtimes
 - Handle interpreter resolution
 - Manage execution context
 

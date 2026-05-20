@@ -86,20 +86,20 @@ func TestNewExecutionContext(t *testing.T) {
 	}
 }
 
-// TestNewExecutionContext_VirtualRuntime tests context creation for virtual runtime.
-func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
+// TestNewExecutionContext_ShRuntime tests context creation for virtual runtime.
+func TestNewExecutionContext_ShRuntime(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
-	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeVirtualSh)
 
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
-	if ctx.SelectedRuntime != invowkfile.RuntimeVirtual {
-		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invowkfile.RuntimeVirtual)
+	if ctx.SelectedRuntime != invowkfile.RuntimeVirtualSh {
+		t.Errorf("NewExecutionContext() SelectedRuntime = %q, want %q", ctx.SelectedRuntime, invowkfile.RuntimeVirtualSh)
 	}
 }
 
@@ -238,7 +238,7 @@ func TestRegistry_Get(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := reg.Get(RuntimeTypeVirtual)
+		_, err := reg.Get(RuntimeTypeVirtualSh)
 		if err == nil {
 			t.Error("Get() expected error for unregistered runtime")
 		}
@@ -256,9 +256,9 @@ func TestRegistry_GetForContext(t *testing.T) {
 
 	reg := NewRegistry()
 	mockNative := &mockRuntime{name: "native", available: true}
-	mockVirtual := &mockRuntime{name: "virtual", available: true}
+	mockVirtual := &mockRuntime{name: "virtual-sh", available: true}
 	reg.Register(RuntimeTypeNative, mockNative)
-	reg.Register(RuntimeTypeVirtual, mockVirtual)
+	reg.Register(RuntimeTypeVirtualSh, mockVirtual)
 
 	tests := []struct {
 		name     string
@@ -273,8 +273,8 @@ func TestRegistry_GetForContext(t *testing.T) {
 		},
 		{
 			name:     "virtual runtime",
-			runtime:  invowkfile.RuntimeVirtual,
-			wantName: "virtual",
+			runtime:  invowkfile.RuntimeVirtualSh,
+			wantName: "virtual-sh",
 		},
 		{
 			name:    "unregistered runtime",
@@ -315,7 +315,7 @@ func TestRegistry_Available(t *testing.T) {
 
 	reg := NewRegistry()
 	reg.Register(RuntimeTypeNative, &mockRuntime{name: "native", available: true})
-	reg.Register(RuntimeTypeVirtual, &mockRuntime{name: "virtual", available: true})
+	reg.Register(RuntimeTypeVirtualSh, &mockRuntime{name: "virtual-sh", available: true})
 	reg.Register(RuntimeTypeContainer, &mockRuntime{name: "container", available: false})
 
 	available := reg.Available()
@@ -331,8 +331,8 @@ func TestRegistry_Available(t *testing.T) {
 	if available[0] != RuntimeTypeNative {
 		t.Errorf("Available()[0] = %q, want %q", available[0], RuntimeTypeNative)
 	}
-	if available[1] != RuntimeTypeVirtual {
-		t.Errorf("Available()[1] = %q, want %q", available[1], RuntimeTypeVirtual)
+	if available[1] != RuntimeTypeVirtualSh {
+		t.Errorf("Available()[1] = %q, want %q", available[1], RuntimeTypeVirtualSh)
 	}
 }
 

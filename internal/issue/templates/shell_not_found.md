@@ -12,5 +12,5 @@ Could not find a suitable shell for the 'native' runtime.
 - Set the SHELL environment variable
 - Use the 'virtual' runtime instead (built-in shell):
 ~~~cue
-default_runtime: "virtual"
+default_runtime: "virtual-sh"
 ~~~

@@ -307,7 +307,7 @@ From tools.invowkmod:
     language: 'cue',
     code: `runtimes: [
     {name: "native"},      // System shell
-    {name: "virtual"},     // Built-in POSIX shell
+    {name: "virtual-sh"},     // Built-in POSIX shell
     {name: "container", image: "debian:stable-slim"}  // Container
 ]
 platforms: [{name: "linux"}, {name: "macos"}]`,
@@ -435,7 +435,7 @@ platforms: [
     implementations: [
         {
             script: {content: "make build"}
-            runtimes: [{name: "native"}, {name: "virtual"}]
+            runtimes: [{name: "native"}, {name: "virtual-sh"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         {
@@ -453,7 +453,7 @@ platforms: [
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*, virtual] (linux, macos)
+  build - Build the project [native*, virtual-sh] (linux, macos)
   clean - Clean artifacts [native*] (linux, macos, windows)
   docker-build - Container build [container*] (linux, macos, windows)`,
   },
@@ -751,7 +751,7 @@ platforms: [{name: "linux"}, {name: "macos"}]
 // Multiple runtimes
 runtimes: [
     {name: "native"},
-    {name: "virtual"},
+    {name: "virtual-sh"},
 ]
 platforms: [{name: "linux"}, {name: "macos"}]
 
@@ -792,7 +792,7 @@ platforms: [
 // Virtual runtime: no additional fields
 #RuntimeConfigVirtual: close({
     #RuntimeConfigBase
-    name: "virtual"
+    name: "virtual-sh"
 })
 
 // Container runtime: exactly one source + extras

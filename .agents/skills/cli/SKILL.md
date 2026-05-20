@@ -61,7 +61,7 @@ The CLI is organized under `root.go` with these main command groups:
 - Used by container runtime, SSH server, TUI server internals
 
 **Current internal commands:**
-- `invowk internal exec-virtual` — Runs virtual shell in subprocess context
+- `invowk internal exec-virtual-sh` — Runs virtual-sh in subprocess context
 - `invowk internal check-cmd <name>` — Returns exit 0 if command is discoverable, exit 1 otherwise. Used by runtime-level `cmds` dependency validation inside containers to verify auto-provisioning worked.
 
 ---

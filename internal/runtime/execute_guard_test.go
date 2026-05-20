@@ -110,9 +110,9 @@ func TestRuntimeExecuteGuards_NoPanics(t *testing.T) {
 
 	t.Run("virtual execute nil implementation", func(t *testing.T) {
 		t.Parallel()
-		ctx := testExecutionContextForGuard(t, invowkfile.RuntimeVirtual)
+		ctx := testExecutionContextForGuard(t, invowkfile.RuntimeVirtualSh)
 		ctx.SelectedImpl = nil
-		rt := NewVirtualRuntime(true)
+		rt := NewShRuntime(true)
 		result := rt.Execute(ctx)
 		if result.Error == nil || !errors.Is(result.Error, errVirtualNoImpl) {
 			t.Fatalf("Execute() error = %v, want %v", result.Error, errVirtualNoImpl)

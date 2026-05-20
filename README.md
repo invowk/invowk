@@ -4,9 +4,10 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 ## Features
 
-- **Three Runtime Modes**:
+- **Four Runtime Modes**:
   - **native**: Execute commands using the system's default shell (bash, sh, powershell, etc.)
-  - **virtual**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter with 28 [u-root](https://github.com/u-root/u-root) utilities (cat, cp, ls, grep, sort, seq, tar, etc.). Note: the virtual shell is **not a sandbox** — commands not provided by the built-ins are resolved from the host system's PATH
+  - **virtual-sh**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter with 28 [u-root](https://github.com/u-root/u-root) utilities (cat, cp, ls, grep, sort, seq, tar, etc.). Note: virtual-sh is **not a sandbox**; host binaries run only when explicitly allowed and still execute as native host processes.
+  - **virtual-lua**: Execute Lua scripts in an embedded Lua runtime with the shared virtual safety harness.
   - **container**: Execute commands inside a disposable Docker/Podman container
 
 - **CUE Configuration**: Define commands in `invowkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation
@@ -173,7 +174,7 @@ Available Commands
   (* = default runtime)
 
 From invowkfile:
-  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)
+  hello - Print a greeting [native*, virtual-sh, virtual-lua, container] (linux, macos, windows)
 ```
 
 3. **Run a command**:
@@ -193,8 +194,8 @@ invowk cmd hello Alice
 5. **Use a different runtime**:
 
 ```bash
-# Use the virtual runtime (built-in cross-platform shell)
-invowk cmd hello --ivk-runtime virtual
+# Use the virtual-sh runtime (built-in cross-platform shell)
+invowk cmd hello --ivk-runtime virtual-sh
 
 # Use the container runtime (requires Docker/Podman, Linux only)
 invowk cmd hello --ivk-runtime container
@@ -269,7 +270,7 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "go test ./..."}
-				runtimes: [{name: "native"}, {name: "virtual"}]  // Can run in native or virtual runtime
+				runtimes: [{name: "native"}, {name: "virtual-sh"}]  // Can run in native or virtual-sh runtime
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
@@ -1002,7 +1003,7 @@ Invowk injects metadata variables during command execution:
 | Variable | Description | Always Set |
 |----------|-------------|------------|
 | `INVOWK_CMD_NAME` | Current command name | Yes |
-| `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual`, `container`) | Yes |
+| `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual-sh`, `virtual-lua`, `container`) | Yes |
 | `INVOWK_SOURCE` | Source origin (`invowkfile` for root commands, module name for module commands) | Yes |
 | `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | Yes |
 
@@ -1049,7 +1050,7 @@ Dependencies are validated in two phases depending on where they are declared:
 
 1. **Host dependencies** (root, command, or implementation level `depends_on`): Always validated against the **host system**, regardless of the selected runtime. Use these to ensure host-side prerequisites are met (e.g., `docker` is installed on the host).
 
-2. **Container runtime dependencies** (`depends_on` inside a container runtime block): Validated inside the **container** (verifies the container environment is correctly set up). This is only available for the container runtime — native and virtual runtimes do not support runtime-level `depends_on`.
+2. **Container runtime dependencies** (`depends_on` inside a container runtime block): Validated inside the **container** (verifies the container environment is correctly set up). This is only available for the container runtime — native, virtual-sh, and virtual-lua runtimes do not support runtime-level `depends_on`.
 
 Only the selected runtime's `depends_on` is checked at execution time.
 
@@ -1248,7 +1249,7 @@ done
 | bash, sh, zsh | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax |
 | PowerShell | `$args[0]`, `$args[1]` | Zero-indexed array |
 | cmd.exe | N/A | Use environment variables instead |
-| virtual (mvdan/sh) | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax |
+| virtual-sh (mvdan/sh) | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax |
 | container | `$1`, `$2`, `$@`, `$#` | Standard POSIX syntax (uses /bin/sh) |
 
 #### 2. Environment Variables
@@ -1772,9 +1773,9 @@ When no shebang is found and no `script.interpreter` is specified, invowk falls 
 
 `--ivk-dry-run` prints the resolved interpreter provenance, such as explicit interpreter, shebang-detected interpreter, or default shell behavior, before the command is executed.
 
-### Virtual Runtime Restriction
+### Virtual-Sh Runtime Restriction
 
-The virtual runtime always uses the built-in mvdan/sh interpreter. Non-shell `script.interpreter` values such as `python3`, `ruby`, or `node` are rejected for virtual implementations; use native or container runtime for those scripts. Runtime configs do not accept an `interpreter` field for any runtime.
+The virtual-sh runtime always uses the built-in mvdan/sh interpreter. Non-shell `script.interpreter` values such as `python3`, `ruby`, or `node` are rejected for virtual-sh implementations; use native, virtual-lua, or container runtime for those scripts. Runtime configs do not accept an `interpreter` field for any runtime.
 
 ### Supported Interpreters
 
@@ -2277,7 +2278,7 @@ cmds: [
 ]
 ```
 
-### Virtual Runtime
+### Virtual-Sh Runtime
 
 Uses the built-in [mvdan/sh](https://github.com/mvdan/sh) shell interpreter. This provides a consistent POSIX-like shell experience across platforms.
 
@@ -2291,7 +2292,7 @@ cmds: [
 					echo "Building..."
 					go build ./...
 					"""}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh", allowed_binaries: ["go"]}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
@@ -2459,7 +2460,7 @@ invowk config dump
 // Container engine preference: "podman" or "docker"
 container_engine: "podman"
 
-// Default runtime mode: "native", "virtual", or "container"
+// Default runtime mode: "native", "virtual-sh", "virtual-lua", or "container"
 default_runtime: "native"
 
 // Include additional modules in command discovery
@@ -2468,9 +2469,11 @@ includes: [
     {path: "/path/to/module.invowkmod", alias: "myalias"},
 ]
 
-// Virtual shell options
-virtual_shell: {
-  enable_uroot_utils: true
+// Shared virtual runtime options
+virtual: {
+  utilities: {
+    enabled: true
+  }
 }
 
 // Container runtime options
@@ -2569,9 +2572,9 @@ invowk cmd test unit
 
 ### Override Runtime
 ```bash
-invowk cmd build --ivk-runtime virtual
+invowk cmd build --ivk-runtime virtual-sh
 # or
-invowk cmd build -r virtual
+invowk cmd build -r virtual-sh
 ```
 
 ### Force Container Image Rebuild
@@ -2946,7 +2949,7 @@ The audit scanner runs 6 built-in security checkers concurrently:
 |---------|----------|-----------------|
 | **Script** | execution, path-traversal, obfuscation | Remote code execution (`curl \| bash`), path traversal (`../`), base64 obfuscation, eval patterns, hex sequences |
 | **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
-| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, unset native/virtual `env_inherit_mode` defaults that inherit all host variables, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
+| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, unset native/virtual-sh `env_inherit_mode` defaults that inherit all host variables, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
 | **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
 | **Symlink** | path-traversal | Any symlink in a module directory, symlinks pointing outside module boundaries, symlink chains, dangling or unreadable symlinks, incomplete directory walks |
 | **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, vendored modules missing from `requires`, module invowkfile parse failures, global module trust |
@@ -3158,7 +3161,7 @@ invowk/
 │   ├── llm/                    # Shared LLM completion interface and adapters
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
-│   ├── runtime/                # Runtime implementations (native, virtual, container)
+│   ├── runtime/                # Runtime implementations (native, virtual-sh, virtual-lua, container)
 │   ├── sshserver/              # SSH server for host access from containers
 │   ├── testutil/               # Test utilities
 │   ├── tui/                    # TUI component library and interactive execution

@@ -76,13 +76,13 @@ Invowk validates interpreter names against an allowlist for security ([SC-08](ht
 
 Interpreters not in this list are rejected with an `UnsafeInterpreterSpecError`. Shell metacharacters (`;|&` etc.) in interpreter specs are also rejected. When using `/usr/bin/env`, the actual interpreter (second argument) is validated against the same allowlist.
 
-## Virtual Runtime Limitation
+## Virtual-Sh Runtime Limitation
 
-Non-shell `script.interpreter` values are **not supported** with the virtual runtime:
+Non-shell `script.interpreter` values are **not supported** with the virtual-sh runtime:
 
 <Snippet id="advanced/interpreter-virtual-error" />
 
-The virtual runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Use native or container runtime instead. Runtime configs do not accept `interpreter`; a shape like `runtimes: [{name: "native", interpreter: "python3"}]` is invalid.
+The virtual-sh runtime uses the built-in mvdan/sh interpreter and cannot execute Python, Ruby, or other interpreters. Use native, virtual-lua, or container runtime instead. Runtime configs do not accept `interpreter`; a shape like `runtimes: [{name: "native", interpreter: "python3"}]` is invalid.
 
 ## Fallback Behavior
 

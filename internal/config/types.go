@@ -24,8 +24,10 @@ const (
 
 	// RuntimeNative runs commands in the host system shell.
 	RuntimeNative RuntimeMode = types.RuntimeNative
-	// RuntimeVirtual runs commands in the embedded mvdan/sh interpreter.
-	RuntimeVirtual RuntimeMode = types.RuntimeVirtual
+	// RuntimeVirtualSh runs commands in the embedded mvdan/sh interpreter.
+	RuntimeVirtualSh RuntimeMode = types.RuntimeVirtualSh
+	// RuntimeVirtualLua runs commands in the embedded Lua interpreter.
+	RuntimeVirtualLua RuntimeMode = types.RuntimeVirtualLua
 	// RuntimeContainer runs commands inside a container (Docker/Podman).
 	RuntimeContainer RuntimeMode = types.RuntimeContainer
 
@@ -293,8 +295,8 @@ type (
 		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
 		// DefaultRuntime sets the global default runtime mode
 		DefaultRuntime RuntimeMode `json:"default_runtime" mapstructure:"default_runtime"`
-		// VirtualShell configures the virtual shell behavior
-		VirtualShell VirtualShellConfig `json:"virtual_shell" mapstructure:"virtual_shell"`
+		// Virtual configures the virtual runtime family.
+		Virtual VirtualConfig `json:"virtual" mapstructure:"virtual"`
 		// UI configures the user interface
 		UI UIConfig `json:"ui" mapstructure:"ui"`
 		// LLM configures default LLM-backed agent/audit behavior.
@@ -362,13 +364,21 @@ type (
 
 	//goplint:validate-all
 	//
-	// VirtualShellConfig configures the virtual shell runtime.
+	// VirtualConfig configures the virtual runtime family.
+	VirtualConfig struct {
+		// Utilities configures built-in utility helpers for virtual runtimes.
+		Utilities VirtualUtilitiesConfig `json:"utilities" mapstructure:"utilities"`
+	}
+
+	//goplint:validate-all
+	//
+	// VirtualUtilitiesConfig configures virtual runtime utility helpers.
 	// Currently contains only bool fields; Validate() exists as scaffolding
 	// so that future typed fields are automatically covered by the
 	// //goplint:validate-all delegation check.
-	VirtualShellConfig struct {
-		// EnableUrootUtils enables u-root utilities in virtual shell
-		EnableUrootUtils bool `json:"enable_uroot_utils" mapstructure:"enable_uroot_utils"`
+	VirtualUtilitiesConfig struct {
+		// Enabled enables built-in utilities for virtual runtimes.
+		Enabled bool `json:"enabled" mapstructure:"enabled"`
 	}
 
 	//goplint:validate-all
@@ -384,10 +394,19 @@ type (
 	}
 )
 
-// Validate returns nil. VirtualShellConfig currently has only bool fields,
+// Validate returns an error if the virtual runtime family config has invalid fields.
+func (c VirtualConfig) Validate() error {
+	var errs []error
+	if err := c.Utilities.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// Validate returns nil. VirtualUtilitiesConfig currently has only bool fields,
 // which need no validation. This method exists as scaffolding so that adding
 // a typed field triggers a //goplint:validate-all delegation finding.
-func (c VirtualShellConfig) Validate() error { return nil }
+func (c VirtualUtilitiesConfig) Validate() error { return nil }
 
 // IsModule reports whether this entry points to a module directory (.invowkmod).
 func (e IncludeEntry) IsModule() bool {
@@ -764,7 +783,7 @@ func (e *InvalidContainerConfigError) Unwrap() error {
 
 // Validate returns an error if the Config has invalid fields.
 // It delegates to ContainerEngine.Validate(), DefaultRuntime.Validate(),
-// Includes collection validation, VirtualShell.Validate(), UI.Validate(), and
+// Includes collection validation, Virtual.Validate(), UI.Validate(), and
 // Container.Validate().
 func (c Config) Validate() error {
 	var errs []error
@@ -777,7 +796,7 @@ func (c Config) Validate() error {
 	if err := validateIncludes(IncludeCollectionRoot, c.Includes); err != nil {
 		errs = append(errs, err)
 	}
-	if err := c.VirtualShell.Validate(); err != nil {
+	if err := c.Virtual.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := c.UI.Validate(); err != nil {

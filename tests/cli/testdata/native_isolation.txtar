@@ -31,7 +31,7 @@ cmds: [
 					echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 					echo "inherited environment before each command execution."
 					echo ""
-					echo "This ensures consistent behavior across native, virtual, and"
+					echo "This ensures consistent behavior across native, virtual-sh, and"
 					echo "container runtimes."
 					"""#}
 				runtimes:  [{name: "native"}]
@@ -49,7 +49,7 @@ cmds: [
 					Write-Output "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 					Write-Output "inherited environment before each command execution."
 					Write-Output ""
-					Write-Output "This ensures consistent behavior across native, virtual, and"
+					Write-Output "This ensures consistent behavior across native, virtual-sh, and"
 					Write-Output "container runtimes."
 					"""#}
 				runtimes:  [{name: "native"}]

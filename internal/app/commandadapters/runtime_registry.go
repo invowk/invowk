@@ -80,10 +80,11 @@ func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc
 		dependencyProbeFactory: NewDependencyRuntimeProbeFactory(),
 	}
 	session.registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
-	session.registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(
-		cfg.VirtualShell.EnableUrootUtils,
-		runtime.WithInteractiveCommandFactory(virtualInteractiveCommand),
+	session.registry.Register(runtime.RuntimeTypeVirtualSh, runtime.NewShRuntime(
+		cfg.Virtual.Utilities.Enabled,
+		runtime.WithInteractiveCommandFactory(shInteractiveCommand),
 	))
+	session.registry.Register(runtime.RuntimeTypeVirtualLua, runtime.NewLuaRuntime(cfg.Virtual.Utilities.Enabled))
 
 	if !shouldInitializeContainerRuntime(selectedRuntime) {
 		return session

@@ -38,12 +38,12 @@ cmds: [
     {
         name: "hello"
         description: "Hello from root invowkfile"
-        implementations: [{script: "echo 'Hello from invowkfile!'", runtimes: [{name: "virtual"}]}]
+        implementations: [{script: "echo 'Hello from invowkfile!'", runtimes: [{name: "virtual-sh"}]}]
     },
     {
         name: "deploy"
         description: "Deploy from root"
-        implementations: [{script: "echo 'Deploying from root...'", runtimes: [{name: "virtual"}]}]
+        implementations: [{script: "echo 'Deploying from root...'", runtimes: [{name: "virtual-sh"}]}]
     },
 ]
 EOF
@@ -61,12 +61,12 @@ cmds: [
     {
         name: "build"
         description: "Build from foo module"
-        implementations: [{script: "echo 'Building from foo...'", runtimes: [{name: "virtual"}]}]
+        implementations: [{script: "echo 'Building from foo...'", runtimes: [{name: "virtual-sh"}]}]
     },
     {
         name: "deploy"
         description: "Deploy from foo module"
-        implementations: [{script: "echo 'Deploying from foo...'", runtimes: [{name: "virtual"}]}]
+        implementations: [{script: "echo 'Deploying from foo...'", runtimes: [{name: "virtual-sh"}]}]
     },
 ]
 EOF
@@ -84,7 +84,7 @@ cmds: [
     {
         name: "test"
         description: "Test from bar module"
-        implementations: [{script: "echo 'Testing from bar...'", runtimes: [{name: "virtual"}]}]
+        implementations: [{script: "echo 'Testing from bar...'", runtimes: [{name: "virtual-sh"}]}]
     },
 ]
 EOF

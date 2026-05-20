@@ -65,7 +65,7 @@ func TestScriptChecker_PathTraversal(t *testing.T) {
 				Name: "bad",
 				Implementations: []invowkfile.Implementation{{
 					Script:   invowkfile.ImplementationScript{File: filesystemPathPtr("../../etc/passwd")},
-					Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+					Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				}},
 			}},
 		},

@@ -4,7 +4,7 @@ The deterministic audit scanner already checks obvious patterns. Your job is to 
 
 Invowk-specific context:
 - Invowk modules are supply-chain inputs and should be treated as less trusted than the root project using them.
-- The virtual runtime is a portable shell interpreter, not a security sandbox. Unknown commands can still execute from the host PATH.
+- virtual-sh is a portable shell interpreter, not a security sandbox. Host binaries are denied by default and run only when explicitly allowed with `allowed_binaries`; allowed host binaries still execute as native host processes.
 - The container runtime is the isolation boundary when execution isolation is needed.
 - Command scope enforcement is static validation for declared command dependencies. It does not intercept a script that dynamically invokes invowk or other host commands.
 

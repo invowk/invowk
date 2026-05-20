@@ -192,7 +192,7 @@ func TestValidationError(t *testing.T) {
 			FilePath:   "invowkfile.cue",
 			CUEPath:    "cmds[0].runtime",
 			Message:    "invalid runtime mode",
-			Suggestion: "use 'native', 'virtual', or 'container'",
+			Suggestion: "use 'native', 'virtual-sh', 'virtual-lua', or 'container'",
 		}
 		// Suggestion is stored but not included in Error() output
 		if err.Suggestion == "" {

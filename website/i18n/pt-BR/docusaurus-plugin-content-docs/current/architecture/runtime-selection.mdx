@@ -62,11 +62,11 @@ Não há fallback implícito de `native → virtual` quando o native não está 
 
 <Diagram id="architecture/runtime-native-check" />
 
-### Runtime Virtual
+### Runtimes Virtual-Sh e Virtual-Lua
 
 <Diagram id="architecture/runtime-virtual-check" />
 
-O runtime virtual está sempre disponível porque está embutido no binário do Invowk.
+Os runtimes virtual-sh e virtual-lua estão sempre disponíveis porque estão embutidos no binário do Invowk.
 
 ### Runtime Container
 
@@ -101,10 +101,11 @@ Quando `enable_host_ssh: true` é definido, o Invowk inicia um servidor SSH temp
 | Caso de Uso | Runtime Recomendado | Por Quê |
 |-------------|---------------------|---------|
 | Scripts rápidos | `native` | Mais rápido, sem overhead |
-| Comandos multiplataforma | `virtual` | Funciona em todos os lugares |
+| Comandos shell multiplataforma | `virtual-sh` | Funciona em todos os lugares |
+| Comandos Lua multiplataforma | `virtual-lua` | Funciona em todos os lugares |
 | Pipelines CI/CD | `container` | Reproduzível |
 | Comandos que precisam de ferramentas específicas | `container` | Dependências isoladas |
-| TUI interativo | `native` ou `virtual` | Melhor suporte a terminal |
+| TUI interativo | `native` ou `virtual-sh` | Melhor suporte a terminal |
 
 ## Diagramas Relacionados
 

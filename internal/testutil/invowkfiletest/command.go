@@ -31,7 +31,7 @@ type (
 //	cmd := invowkfiletest.NewTestCommand("hello", invowkfiletest.WithScript("echo hello"))
 //	cmd := invowkfiletest.NewTestCommand("hello",
 //	    invowkfiletest.WithScript("echo $NAME"),
-//	    invowkfiletest.WithRuntime(invowkfile.RuntimeVirtual),
+//	    invowkfiletest.WithRuntime(invowkfile.RuntimeVirtualSh),
 //	    invowkfiletest.WithEnv("NAME", "world"),
 //	)
 func NewTestCommand(name string, opts ...CommandOption) *invowkfile.Command {

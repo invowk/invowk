@@ -1,5 +1,5 @@
 # Test: U-root file operations (cp, mv)
-# Tests the cp and mv utilities from u-root in virtual runtime
+# Tests the cp and mv utilities from u-root in virtual-sh runtime
 
 cd $WORK
 
@@ -39,7 +39,7 @@ cmds: [
 				rm -rf /tmp/invowk-uroot-fileops
 				echo '=== uroot file ops test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

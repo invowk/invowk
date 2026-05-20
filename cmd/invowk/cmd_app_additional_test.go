@@ -94,7 +94,7 @@ func TestCLICommandAdapterExecute_DryRun(t *testing.T) {
 	}
 
 	out := stdout.String()
-	for _, token := range []string{"Dry Run", "Command:", "build", "Runtime:", "virtual"} {
+	for _, token := range []string{"Dry Run", "Command:", "build", "Runtime:", "virtual-sh"} {
 		if !strings.Contains(out, token) {
 			t.Fatalf("dry-run output missing %q:\n%s", token, out)
 		}
@@ -340,7 +340,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		CommandName: "build",
 		Runtime:     invowkfile.RuntimeContainer,
 		Platform:    invowkfile.PlatformLinux,
-		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeVirtual},
+		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeVirtualSh},
 	}
 	wrapped = renderAndWrapServiceError(runtimeErr, ExecuteRequest{Name: "build", Runtime: invowkfile.RuntimeContainer})
 	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.InvalidRuntimeModeId {
@@ -386,7 +386,7 @@ func testCommandInfo(t *testing.T, name, script string) *discovery.CommandInfo {
 		Description: "test command",
 		Implementations: []invowkfile.Implementation{{
 			Script:    invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
-			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 			Platforms: invowkfile.AllPlatformConfigs(),
 		}},
 	}

@@ -82,7 +82,7 @@ cmds: [
 				echo ""
 				echo "Try: invowk cmd examples args simple Alice"
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		args: [
@@ -105,7 +105,7 @@ cmds: [
 				echo "Try: invowk cmd examples args optional Alice"
 				echo "Try: invowk cmd examples args optional Alice 'Good morning'"
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		args: [
@@ -131,7 +131,7 @@ cmds: [
 				echo ""
 				echo "Try: invowk cmd examples args typed 800 600 1.5"
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		args: [
@@ -155,7 +155,7 @@ cmds: [
 				echo ""
 				echo "Try: invowk cmd examples args validated staging 2.1.0"
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		args: [

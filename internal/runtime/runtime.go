@@ -23,9 +23,10 @@ import (
 
 // Runtime type constants for different execution environments.
 const (
-	RuntimeTypeNative    RuntimeType = "native"
-	RuntimeTypeVirtual   RuntimeType = "virtual"
-	RuntimeTypeContainer RuntimeType = "container"
+	RuntimeTypeNative     RuntimeType = "native"
+	RuntimeTypeVirtualSh  RuntimeType = "virtual-sh"
+	RuntimeTypeVirtualLua RuntimeType = "virtual-lua"
+	RuntimeTypeContainer  RuntimeType = "container"
 
 	// EnvVarCmdName is injected with the command name being executed.
 	EnvVarCmdName = "INVOWK_CMD_NAME"
@@ -48,9 +49,9 @@ var (
 	// ErrShellNotFound is returned when the native runtime cannot find a host shell.
 	ErrShellNotFound = errors.New("shell not found")
 
-	// ErrVirtualInteractiveLauncherNotConfigured is returned when virtual
+	// ErrShInteractiveLauncherNotConfigured is returned when virtual-sh
 	// interactive mode is requested without an injected subprocess launcher.
-	ErrVirtualInteractiveLauncherNotConfigured = errors.New("virtual interactive launcher not configured")
+	ErrShInteractiveLauncherNotConfigured = errors.New("virtual-sh interactive launcher not configured")
 
 	// ErrInvalidRuntimeType is returned when a RuntimeType value is not one of the defined runtime types.
 	ErrInvalidRuntimeType = errors.New("invalid runtime type")
@@ -287,7 +288,7 @@ type (
 
 // Error implements the error interface for InvalidRuntimeTypeError.
 func (e *InvalidRuntimeTypeError) Error() string {
-	return fmt.Sprintf("invalid runtime type %q (valid: native, virtual, container)", e.Value)
+	return fmt.Sprintf("invalid runtime type %q (valid: native, virtual-sh, virtual-lua, container)", e.Value)
 }
 
 // Unwrap returns the sentinel error for errors.Is() compatibility.
@@ -302,7 +303,7 @@ func (rt RuntimeType) String() string { return string(rt) }
 // or a validation error if it is not.
 func (rt RuntimeType) Validate() error {
 	switch rt {
-	case RuntimeTypeNative, RuntimeTypeVirtual, RuntimeTypeContainer:
+	case RuntimeTypeNative, RuntimeTypeVirtualSh, RuntimeTypeVirtualLua, RuntimeTypeContainer:
 		return nil
 	default:
 		return &InvalidRuntimeTypeError{Value: rt}
@@ -628,6 +629,19 @@ func EnvToSlice(env map[string]string) []string {
 		result = append(result, k+"="+v)
 	}
 	return result
+}
+
+// SliceToEnv converts KEY=VALUE entries into an environment map.
+func SliceToEnv(environ []string) map[string]string {
+	env := make(map[string]string, len(environ))
+	for _, entry := range environ {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		env[key] = value
+	}
+	return env
 }
 
 // FilterInvowkEnvVars filters out Invowk-specific environment variables from the given

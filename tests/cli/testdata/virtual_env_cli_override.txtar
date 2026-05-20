@@ -1,5 +1,5 @@
-# Test: --ivk-env-var flag on virtual runtime
-# Verifies CLI env var override works for virtual runtime (not just container).
+# Test: --ivk-env-var flag on virtual-sh runtime
+# Verifies CLI env var override works for virtual-sh runtime (not just container).
 
 cd $WORK
 
@@ -31,7 +31,7 @@ cmds: [
 				echo "A=$A"
 				echo "B=$B"
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		env: {

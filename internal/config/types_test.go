@@ -56,8 +56,10 @@ func TestConfigRuntimeMode_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{RuntimeNative, true, false},
-		{RuntimeVirtual, true, false},
+		{RuntimeVirtualSh, true, false},
+		{RuntimeVirtualLua, true, false},
 		{RuntimeContainer, true, false},
+		{"virtual", false, true},
 		{"", false, true},
 		{"invalid", false, true},
 		{"NATIVE", false, true},

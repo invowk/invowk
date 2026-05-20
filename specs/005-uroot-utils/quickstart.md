@@ -86,7 +86,7 @@ cmds: [
                     grep ERROR /var/log/app.log > /tmp/reports/errors.txt
                     wc -l /tmp/reports/errors.txt
                     """
-                runtimes: [{name: "virtual"}]
+                runtimes: [{name: "virtual-sh"}]
             },
         ]
     },
@@ -165,7 +165,7 @@ cmds: [
                     rm -rf /tmp/uroot-test
                     echo "Done!"
                     """
-                runtimes: [{name: "virtual"}]
+                runtimes: [{name: "virtual-sh"}]
             },
         ]
     },
@@ -203,7 +203,7 @@ cmds: [
 ### "command not found" for u-root commands
 
 1. Check config: `invowk config show | grep enable_uroot_utils`
-2. Ensure using virtual runtime: `runtimes: [{name: "virtual"}]`
+2. Ensure using virtual runtime: `runtimes: [{name: "virtual-sh"}]`
 
 ### Unexpected behavior compared to GNU coreutils
 

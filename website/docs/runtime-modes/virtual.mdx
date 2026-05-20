@@ -4,13 +4,13 @@ sidebar_position: 3
 
 import Snippet from '@site/src/components/Snippet';
 
-# Virtual Runtime
+# Virtual-Sh Runtime
 
-The **virtual** runtime uses Invowk™'s built-in POSIX-compatible shell interpreter (powered by [mvdan/sh](https://github.com/mvdan/sh)). It provides consistent shell behavior across all platforms without requiring an external shell.
+The **virtual-sh** runtime uses Invowk™'s built-in POSIX-compatible shell interpreter (powered by [mvdan/sh](https://github.com/mvdan/sh)). It provides consistent shell behavior across all platforms without requiring an external shell.
 
 ## How It Works
 
-When you run a command with the virtual runtime, Invowk:
+When you run a command with the virtual-sh runtime, Invowk:
 
 1. Parses the script using the built-in shell parser
 2. Executes it in an embedded POSIX-like environment
@@ -24,7 +24,7 @@ When you run a command with the virtual runtime, Invowk:
 
 ## Cross-Platform Consistency
 
-The virtual runtime behaves identically on Linux, macOS, and Windows:
+The virtual-sh runtime behaves identically on Linux, macOS, and Windows:
 
 <Snippet id="runtime-modes/virtual-cross-platform" />
 
@@ -32,7 +32,7 @@ No more "works on my machine" for shell scripts!
 
 ## Built-in Utilities
 
-The virtual shell includes core POSIX utilities:
+The virtual-sh shell includes core POSIX utilities:
 
 | Utility | Description |
 |---------|-------------|
@@ -109,11 +109,11 @@ Errors from u-root utilities are prefixed with `[uroot]` for easy identification
 
 #### No Silent Fallback
 
-If a u-root command fails, it returns an error immediately. The system does **not** fall back to host binaries, ensuring bugs are caught rather than masked
+If a u-root command fails, it returns an error immediately. The system does **not** fall back to host binaries, ensuring bugs are caught rather than masked.
 
 ## POSIX Shell Features
 
-The virtual shell supports standard POSIX constructs:
+The virtual-sh shell supports standard POSIX constructs:
 
 ### Variables
 
@@ -137,14 +137,14 @@ The virtual shell supports standard POSIX constructs:
 
 ## Calling External Commands
 
-The virtual shell can call external commands installed on your system:
+The virtual-sh runtime can call host commands only when an implementation explicitly opts in with `allowed_binaries`:
 
 <Snippet id="runtime-modes/virtual-external-commands" />
 
-External commands are found using the system's PATH.
+By default, host binary execution is denied. Named entries such as `go` and `git` are resolved according to `binary_lookup_mode`; `allowed_binaries: ["*"]` is the explicit opt-out that allows every host binary.
 
 :::caution Not a Sandbox
-The virtual runtime is **not a security sandbox**. It is a portable shell interpreter augmented with built-in utilities. Any command not provided by the built-ins (e.g., `git`, `curl`, `python`, `node`) is resolved from the host system's `PATH` and executed as a native process with full host access. By default, the host's environment variables are also inherited (`env_inherit_mode: "all"`).
+The virtual-sh runtime is **not a security sandbox**. It is a portable shell interpreter augmented with built-in utilities and host-binary gates. Any allowed host binary (for example `git`, `curl`, `python`, or `node`) still executes as a native process with host access. By default, the host's environment variables are also inherited (`env_inherit_mode: "all"`).
 
 If you need execution isolation, use the **container** runtime instead.
 :::
@@ -165,7 +165,7 @@ Access flags and arguments the same way:
 
 ### No Non-Shell Interpreter Support
 
-The virtual runtime **cannot** use non-shell `script.interpreter` values:
+The virtual-sh runtime **cannot** use non-shell `script.interpreter` values:
 
 <Snippet id="runtime-modes/virtual-no-interpreter" />
 
@@ -177,23 +177,23 @@ Some bash-specific features are not available:
 
 <Snippet id="runtime-modes/virtual-bash-limitations" />
 
-Stick to POSIX-compatible constructs for virtual runtime.
+Stick to POSIX-compatible constructs for virtual-sh runtime.
 
 ## Dependency Validation
 
-Dependencies are validated against the virtual shell's capabilities:
+Dependencies are validated against the virtual-sh shell's capabilities:
 
 <Snippet id="runtime-modes/virtual-deps" />
 
 ## Advantages
 
 - **Consistency**: Same behavior on Linux, macOS, and Windows
-- **No shell dependency**: Works even if system shell is unavailable (the interpreter is built-in, but external commands still require host binaries)
+- **No shell dependency**: Works even if system shell is unavailable (the interpreter is built in, but external commands still require explicit host-binary permission)
 - **Portability**: Scripts work across all platforms
 - **Built-in utilities**: Core utilities always available
 - **Faster startup**: No shell process to spawn
 
-## When to Use Virtual
+## When to Use Virtual-Sh
 
 - **Cross-platform scripts**: When the same script must work everywhere
 - **CI/CD pipelines**: Consistent behavior across build agents
@@ -202,7 +202,7 @@ Dependencies are validated against the virtual shell's capabilities:
 
 ## Configuration
 
-Configure the virtual shell in your Invowk config file:
+Configure shared virtual runtime utilities in your Invowk config file:
 
 <Snippet id="runtime-modes/virtual-config" />
 

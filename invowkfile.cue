@@ -41,12 +41,12 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo 'Hello from invowk!'"}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
 				script: {content: "echo 'Hello from invowk!'"}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -67,7 +67,7 @@ cmds: [
 					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 				env: {
 					vars: {
@@ -82,7 +82,7 @@ cmds: [
 					echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 					echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 				env: {
 					vars: {
@@ -100,7 +100,7 @@ cmds: [
 	},
 
 	// ============================================================================
-	// SECTION 2: Virtual Runtime Commands
+	// SECTION 2: Virtual-Sh Runtime Commands
 	// ============================================================================
 	// These commands demonstrate the built-in virtual shell interpreter.
 
@@ -111,25 +111,25 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo 'Hello from the virtual shell!'"}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
 	},
 
-	// Example 2.2: Command with both native and virtual runtime options
+	// Example 2.2: Command with both native and virtual-sh runtime options
 	{
 		name:        "multi runtime"
-		description: "Command that can run in native or virtual runtime"
+		description: "Command that can run in native or virtual-sh runtime"
 		implementations: [
 			{
-				script: {content: "echo 'This can run in native (default) or virtual runtime'"}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				script: {content: "echo 'This can run in native (default) or virtual-sh runtime'"}
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
-				script: {content: "echo 'This can run in native (default) or virtual runtime'"}
-				runtimes:  [{name: "virtual"}]
+				script: {content: "echo 'This can run in native (default) or virtual-sh runtime'"}
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -162,7 +162,7 @@ cmds: [
 
 					echo '=== uroot basic test complete ==='
 					"""}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
@@ -204,7 +204,7 @@ cmds: [
 
 					echo '=== uroot file ops test complete ==='
 					"""}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
@@ -263,7 +263,7 @@ cmds: [
 
 					echo '=== uroot text ops test complete ==='
 					"""}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
@@ -704,12 +704,12 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo 'sh is available!'"}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
 				script: {content: "echo 'sh is available!'"}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -730,7 +730,7 @@ cmds: [
 					echo "Container runtime check passed!"
 					echo "At least one of podman/docker/nerdctl is available."
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -738,7 +738,7 @@ cmds: [
 					echo "Container runtime check passed!"
 					echo "At least one of podman/docker/nerdctl is available."
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -761,7 +761,7 @@ cmds: [
 					echo "  - sh is available"
 					echo "  - Either cat or type is available"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -770,7 +770,7 @@ cmds: [
 					echo "  - sh is available"
 					echo "  - Either cat or type is available"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -962,12 +962,12 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo 'Custom exit code check passed!'"}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
 				script: {content: "echo 'Custom exit code check passed!'"}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -989,12 +989,12 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo 'Custom output check passed!'"}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
 				script: {content: "echo 'Custom output check passed!'"}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1175,7 +1175,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1195,7 +1195,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags simple --verbose=true --output=/tmp/out.txt"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1227,7 +1227,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1247,7 +1247,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags defaults --env=production --dry-run=true"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1281,7 +1281,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1302,7 +1302,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags typed --verbose --count=5 --threshold=0.95 --message='Hello World'"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1358,7 +1358,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1374,7 +1374,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags short -V -o=/tmp/out.txt -F"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1402,7 +1402,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1417,7 +1417,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples flags validation --env=staging --app-version=1.2.3"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1630,7 +1630,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args simple Alice"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1644,7 +1644,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args simple Alice"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1671,7 +1671,7 @@ cmds: [
 					echo "Try: invowk cmd examples args optional Alice"
 					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1687,7 +1687,7 @@ cmds: [
 					echo "Try: invowk cmd examples args optional Alice"
 					echo "Try: invowk cmd examples args optional Alice 'Good morning'"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1717,7 +1717,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args typed 800 600 1.5"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1735,7 +1735,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args typed 800 600 1.5"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -1763,7 +1763,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args validated staging 2.1.0"
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -1778,7 +1778,7 @@ cmds: [
 					echo ""
 					echo "Try: invowk cmd examples args validated staging 2.1.0"
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -2097,27 +2097,27 @@ cmds: [
 		}
 	},
 
-	// Example 14.3: Demonstrate isolation with virtual runtime
+	// Example 14.3: Demonstrate isolation with virtual-sh runtime
 	{
 		name:        "isolation virtual"
 		description: "Environment isolation demo using virtual shell runtime"
 		implementations: [
 			{
 				script: {content: #"""
-					echo "=== Virtual Runtime Isolation Demo ==="
+					echo "=== Virtual-Sh Runtime Isolation Demo ==="
 					echo ""
-					echo "Parent values (virtual runtime):"
+					echo "Parent values (virtual-sh runtime):"
 					echo "  INVOWK_ARG_DATA = '$INVOWK_ARG_DATA'"
 					echo "  INVOWK_FLAG_MODE = '$INVOWK_FLAG_MODE'"
 					echo ""
-					echo "The isolation mechanism works identically in virtual runtime."
+					echo "The isolation mechanism works identically in virtual-sh runtime."
 					echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 					echo "inherited environment before each command execution."
 					echo ""
 					echo "This ensures consistent behavior across native, virtual, and"
 					echo "container runtimes."
 					"""#}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
@@ -2382,7 +2382,7 @@ cmds: [
 					echo "invowkfile location."
 					echo "=========================================="
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -2403,7 +2403,7 @@ cmds: [
 					echo "invowkfile location."
 					echo "=========================================="
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -2543,7 +2543,7 @@ cmds: [
 					echo "Inline vars always take priority over files."
 					echo "=========================================="
 					"""}
-				runtimes:  [{name: "native"}, {name: "virtual"}]
+				runtimes:  [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
 			{
@@ -2564,7 +2564,7 @@ cmds: [
 					echo "Inline vars always take priority over files."
 					echo "=========================================="
 					"""}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "windows"}]
 			},
 		]
@@ -3148,7 +3148,7 @@ cmds: [
 					echo "without terminal ownership conflicts."
 					echo "=========================================="
 					"""}
-				runtimes: [{name: "native"},{name: "virtual"},{
+				runtimes: [{name: "native"},{name: "virtual-sh"},{
 					name: "container"
 					image: "python:3-slim"
 					}]

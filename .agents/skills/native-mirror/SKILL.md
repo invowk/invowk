@@ -55,7 +55,7 @@ Replace each virtual implementation with a platform-split native pair:
 ```cue
 implementations: [{
     script: {content: "echo 'Hello'"}
-    runtimes: [{name: "virtual"}]
+    runtimes: [{name: "virtual-sh"}]
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }]
 ```
@@ -129,7 +129,7 @@ cmds: [{
     description: "Say hello"
     implementations: [{
         script: {content: "echo 'Hello from invowk!'"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]

@@ -120,9 +120,9 @@ Given this command:
 | Platform | Command | Selected |
 |----------|---------|----------|
 | Linux | `invowk cmd myproject build` | First impl, native runtime |
-| Linux | `invowk cmd myproject build --ivk-runtime virtual` | First impl, virtual runtime |
+| Linux | `invowk cmd myproject build --ivk-runtime virtual-sh` | First impl, virtual-sh runtime |
 | Windows | `invowk cmd myproject build` | Second impl, native runtime |
-| Windows | `invowk cmd myproject build --ivk-runtime virtual` | Error: no matching impl |
+| Windows | `invowk cmd myproject build --ivk-runtime virtual-sh` | Error: no matching impl |
 
 ## Command Listing
 
@@ -130,7 +130,7 @@ The `invowk cmd` output shows available runtimes and platforms:
 
 <Snippet id="implementations/list-output" />
 
-- `[native*, virtual]` - Supports native (default) and virtual runtimes
+- `[native*, virtual-sh]` - Supports native (default) and virtual-sh runtimes
 - `(linux, macos)` - Only available on Linux and macOS
 
 ## Using CUE Templates
@@ -149,5 +149,5 @@ Reduce repetition with CUE templates:
 
 ## Next Steps
 
-- [Runtime Modes](../runtime-modes/overview) - Deep dive into native, virtual, and container runtimes
+- [Runtime Modes](../runtime-modes/overview) - Deep dive into native, virtual-sh, virtual-lua, and container runtimes
 - [Dependencies](../dependencies/overview) - Declare what your implementations need

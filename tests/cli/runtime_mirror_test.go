@@ -57,10 +57,10 @@ func loadRuntimeMirrorExemptions(t *testing.T) runtimeMirrorExemptions {
 	return exemptions
 }
 
-// TestVirtualRuntimeMirrorCoverage enforces that non-exempt virtual-runtime
+// TestShRuntimeMirrorCoverage enforces that non-exempt virtual-runtime
 // feature tests have a native-runtime mirror. It also detects stale and
 // superseded exemptions, and orphan native mirrors without a virtual counterpart.
-func TestVirtualRuntimeMirrorCoverage(t *testing.T) {
+func TestShRuntimeMirrorCoverage(t *testing.T) {
 	t.Parallel()
 
 	exemptions := loadRuntimeMirrorExemptions(t)
@@ -182,7 +182,7 @@ func TestVirtualNativeCommandPathAlignment(t *testing.T) {
 	for _, virtualFile := range virtualFiles {
 		nativeFile := "native_" + strings.TrimPrefix(virtualFile, "virtual_")
 		if !nativeSet[nativeFile] {
-			continue // No native mirror; existence is checked by TestVirtualRuntimeMirrorCoverage.
+			continue // No native mirror; existence is checked by TestShRuntimeMirrorCoverage.
 		}
 		if _, ok := exemptions.CommandPathExempt[virtualFile]; ok {
 			continue // Command-path divergence is intentional for this pair.

@@ -342,6 +342,26 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 		}
 		writeList("env_inherit_deny", items)
 	}
+	if r.Name == RuntimeVirtualSh || r.Name == RuntimeVirtualLua {
+		if len(r.AllowedBinaries) > 0 {
+			items := make([]string, len(r.AllowedBinaries))
+			for i, binary := range r.AllowedBinaries {
+				items[i] = string(binary)
+			}
+			writeList("allowed_binaries", items)
+		}
+		if r.BinaryLookupMode != "" {
+			writeField("binary_lookup_mode", fmt.Sprintf("%q", r.BinaryLookupMode))
+		}
+	}
+	if r.Name == RuntimeVirtualLua {
+		if r.CPULimit != 0 {
+			writeField("cpu_limit", r.CPULimit.String())
+		}
+		if r.MemoryLimit != "" {
+			writeField("memory_limit", fmt.Sprintf("%q", r.MemoryLimit))
+		}
+	}
 	if r.Name != RuntimeContainer {
 		return
 	}

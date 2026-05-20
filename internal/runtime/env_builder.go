@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"maps"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -106,6 +107,7 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 
 	// 8. Extra env from context (flags, args)
 	maps.Copy(env, ctx.Env.ExtraEnv)
+	reserved := reservedInvowkStateEnv(ctx.Env.ExtraEnv)
 
 	// 9. Runtime --ivk-env-file flag files
 	for _, path := range ctx.Env.RuntimeEnvFiles {
@@ -116,8 +118,19 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 
 	// 10. Runtime --ivk-env-var flag values (highest priority)
 	maps.Copy(env, ctx.Env.RuntimeEnvVars)
+	maps.Copy(env, reserved)
 
 	return env, nil
+}
+
+func reservedInvowkStateEnv(env map[string]string) map[string]string {
+	reserved := make(map[string]string)
+	for key, value := range env {
+		if strings.HasPrefix(key, "INVOWK_STATE_") {
+			reserved[key] = value
+		}
+	}
+	return reserved
 }
 
 // Build returns the mock environment or error.

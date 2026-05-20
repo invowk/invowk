@@ -18,7 +18,7 @@ cmds: [
 		description: "No category"
 		implementations: [{
 			script: {content: "echo uncategorized"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -28,7 +28,7 @@ cmds: [
 		category:    "Build"
 		implementations: [{
 			script: {content: "echo compiling"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -38,7 +38,7 @@ cmds: [
 		category:    "Test"
 		implementations: [{
 			script: {content: "echo testing"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

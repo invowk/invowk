@@ -1,5 +1,5 @@
 # Test: U-root error handling
-# Tests that u-root utility errors propagate correctly through the virtual runtime
+# Tests that u-root utility errors propagate correctly through the virtual-sh runtime
 
 cd $WORK
 
@@ -28,7 +28,7 @@ cmds: [
 			script: {content: """
 				seq
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -39,7 +39,7 @@ cmds: [
 			script: {content: """
 				ln -s only_one_arg
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -50,7 +50,7 @@ cmds: [
 			script: {content: """
 				seq abc
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

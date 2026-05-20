@@ -135,7 +135,7 @@ runtime_pkg: internal/runtime {
     |
   }
 
-  virtual: VirtualRuntime {
+  virtual: ShRuntime {
     style: {
       fill: "#85BBF0"
       font-color: "#000000"
@@ -144,7 +144,7 @@ runtime_pkg: internal/runtime {
       **Struct**
       Embedded shell interpreter using mvdan/sh.
       Supports u-root built-in utilities.
-      Not a sandbox: external commands run from host PATH.
+      Not a sandbox: allowed host binaries run as native host processes.
       Spawns subprocess for PTY-based interactive mode.
     |
   }
@@ -493,7 +493,7 @@ mvdan_sh: mvdan/sh {
   tooltip: |md
     **mvdan.cc/sh/v3**
     Pure Go shell interpreter.
-    Powers the VirtualRuntime execution engine.
+    Powers the ShRuntime execution engine.
   |
 }
 
@@ -509,16 +509,15 @@ uroot_builtins: u-root Builtins {
   |
 }
 
-host_exec: Host PATH Processes {
+host_exec: Allowed Host Binary Processes {
   style: {
     fill: "#999999"
     font-color: "#ffffff"
   }
   tooltip: |md
     **Host OS**
-    mvdan/sh DefaultExecHandler resolves commands
-    not handled by u-root from the host PATH
-    and starts native processes.
+    The virtual host-binary policy resolves explicitly allowed
+    binaries and starts native processes.
   |
 }
 
@@ -545,13 +544,13 @@ runtime_pkg.container_rt -> config_pkg: reads config {
   style.stroke: "#707070"
 }
 
-# VirtualRuntime external dependencies
+# ShRuntime external dependencies
 runtime_pkg.virtual -> mvdan_sh: "interprets\nshell scripts" {
   style.stroke: "#707070"
 }
 runtime_pkg.virtual -> uroot_builtins: "registers\nbuilt-in utils" {
   style.stroke: "#707070"
 }
-runtime_pkg.virtual -> host_exec: "falls through for\nexternal commands" {
+runtime_pkg.virtual -> host_exec: "runs allowed\nhost binaries" {
   style.stroke: "#707070"
 }

@@ -1,5 +1,5 @@
 # Test: U-root gzip utility
-# Tests gzip compression and decompression in virtual runtime
+# Tests gzip compression and decompression in virtual-sh runtime
 
 cd $WORK
 
@@ -37,7 +37,7 @@ cmds: [
 				rm -rf $WORK/gzip-test
 				echo '=== uroot gzip test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

@@ -38,7 +38,7 @@ Authoring rules:
 - Generate exactly one #Command object in command_cue, not a full invowkfile and not a cmds array.
 - Use "cmds" only when discussing the surrounding invowkfile; never put it inside command_cue.
 - Every command needs at least one implementation with non-empty script, runtimes, and platforms.
-- Prefer the virtual runtime for portable shell-like commands, but do not describe it as sandboxed or isolated. The virtual runtime is not a security sandbox and can still execute unknown commands from the host PATH.
+- Prefer the virtual-sh runtime for portable shell-like commands, but do not describe it as sandboxed or isolated. virtual-sh is not a security sandbox; host binaries are denied by default and run only when explicitly allowed with allowed_binaries.
 - Use the container runtime when execution isolation is needed. Container examples must use debian:stable-slim unless a language-specific slim image is necessary.
 - Use native runtime only for host-specific behavior or when an explicit host interpreter is required.
 - Use flags for named options and args for positional inputs. Required args must come before optional args, and only the last arg may be variadic.

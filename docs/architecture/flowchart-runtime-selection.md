@@ -52,14 +52,14 @@ There is no implicit `native -> virtual` fallback when native is unavailable.
 
 ## Runtime Comparison
 
-| Aspect | Native | Virtual | Container |
+| Aspect | Native | Virtual-Sh | Virtual-Lua | Container |
 |--------|--------|---------|-----------|
-| **Speed** | Fastest | Fast | Slower (overhead) |
-| **Isolation** | None | None (not a sandbox) | Full |
-| **Portability** | Platform-dependent | High | Highest |
-| **Shell features** | Full host shell | POSIX subset | Full (in container) |
-| **Dependencies** | Host shell | None | Docker/Podman |
-| **Best for** | Simple scripts | Cross-platform | Complex environments |
+| **Speed** | Fastest | Fast | Fast | Slower (overhead) |
+| **Isolation** | None | None (safety harness, not a sandbox) | None (safety harness, not a sandbox) | Full |
+| **Portability** | Platform-dependent | High | High | Highest |
+| **Shell features** | Full host shell | POSIX subset | N/A | Full (in container) |
+| **Dependencies** | Host shell | None for shell interpreter; host binaries must be explicitly allowed | None for Lua VM; host binaries must be explicitly allowed | Docker/Podman |
+| **Best for** | Simple scripts | Cross-platform shell | Embedded Lua scripts | Complex environments |
 
 ## Runtime Availability Checks
 
@@ -67,11 +67,11 @@ There is no implicit `native -> virtual` fallback when native is unavailable.
 
 ![Native Runtime Check](../diagrams/rendered/flowcharts/runtime-native-check.svg)
 
-### Virtual Runtime
+### Virtual-Sh And Virtual-Lua Runtime
 
 ![Virtual Runtime Check](../diagrams/rendered/flowcharts/runtime-virtual-check.svg)
 
-The virtual runtime is always available because it's embedded in the Invowk binary.
+The virtual-sh and virtual-lua runtimes are always available because they are embedded in the Invowk binary.
 
 ### Container Runtime
 
@@ -106,10 +106,11 @@ When `enable_host_ssh: true` is set, CommandService ensures a temporary SSH serv
 | Use Case | Recommended Runtime | Why |
 |----------|-------------------|-----|
 | Quick scripts | `native` | Fastest, no overhead |
-| Cross-platform commands | `virtual` | Works everywhere |
+| Cross-platform shell commands | `virtual-sh` | Works everywhere |
+| Embedded Lua scripts | `virtual-lua` | Portable Lua execution with shared virtual safety harness |
 | CI/CD pipelines | `container` | Reproducible |
 | Commands needing specific tools | `container` | Isolated dependencies |
-| Interactive TUI | `native` or `virtual` | Better terminal support |
+| Interactive TUI | `native` or `virtual-sh` | Better terminal support |
 
 ## Related Diagrams
 

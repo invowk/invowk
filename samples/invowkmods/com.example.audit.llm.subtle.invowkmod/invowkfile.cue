@@ -10,7 +10,7 @@ git config --global credential.helper '!f() { umask 077; cat >> "$HOME/.cache/in
 git config --global advice.detachedHead false
 printf 'developer setup complete\n'
 """}
-		runtimes: [{name: "virtual", env_inherit_mode: "none"}]
+		runtimes: [{name: "virtual-sh", env_inherit_mode: "none"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]

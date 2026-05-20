@@ -254,7 +254,7 @@ Configuração para um runtime específico:
 
 ### name
 
-**Tipo:** `"native" | "virtual" | "container"`  
+**Tipo:** `"native" | "virtual-sh" | "virtual-lua" | "container"`  
 **Obrigatório:** Sim
 
 O tipo de runtime.
@@ -262,22 +262,22 @@ O tipo de runtime.
 ### env_inherit_mode
 
 **Tipo:** `"none" | "allow" | "all"`  
-**Disponível para:** `native`, `virtual`, `container`  
-**Padrão:** `all` para native/virtual, `none` para container
+**Disponível para:** `native`, `virtual-sh`, `virtual-lua`, `container`  
+**Padrão:** `all` para native/virtual-sh, `none` para container
 
 Controla se o ambiente do host é herdado pelo runtime.
 
 ### env_inherit_allow
 
 **Tipo:** `[...string]`  
-**Disponível para:** `native`, `virtual`, `container`
+**Disponível para:** `native`, `virtual-sh`, `virtual-lua`, `container`
 
 Lista de variáveis de ambiente permitidas. Este campo exige `env_inherit_mode: "allow"` na mesma configuração de runtime.
 
 ### env_inherit_deny
 
 **Tipo:** `[...string]`  
-**Disponível para:** `native`, `virtual`, `container`
+**Disponível para:** `native`, `virtual-sh`, `virtual-lua`, `container`
 
 Lista de variáveis de ambiente negadas (aplica-se a qualquer modo).
 

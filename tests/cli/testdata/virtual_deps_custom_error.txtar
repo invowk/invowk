@@ -24,7 +24,7 @@ cmds: [
 		description: "Command with custom check that fails on exit code"
 		implementations: [{
 			script: {content: "echo 'should not run'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -42,7 +42,7 @@ cmds: [
 		description: "Command with custom check that fails output matching"
 		implementations: [{
 			script: {content: "echo 'should not run'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

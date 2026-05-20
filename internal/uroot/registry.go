@@ -97,7 +97,7 @@ func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 
 // BuildDefaultRegistry creates a new Registry pre-populated with all 28
 // built-in u-root command implementations. Each call returns a fresh,
-// independent instance suitable for injection into VirtualRuntime.
+// independent instance suitable for injection into ShRuntime.
 func BuildDefaultRegistry() *Registry {
 	r := NewRegistry()
 

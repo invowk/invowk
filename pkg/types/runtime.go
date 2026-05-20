@@ -10,8 +10,10 @@ import (
 const (
 	// RuntimeNative executes commands using the host system shell.
 	RuntimeNative RuntimeMode = "native"
-	// RuntimeVirtual executes commands using the embedded mvdan/sh interpreter.
-	RuntimeVirtual RuntimeMode = "virtual"
+	// RuntimeVirtualSh executes commands using the embedded mvdan/sh interpreter.
+	RuntimeVirtualSh RuntimeMode = "virtual-sh"
+	// RuntimeVirtualLua executes commands using the embedded Lua interpreter.
+	RuntimeVirtualLua RuntimeMode = "virtual-lua"
 	// RuntimeContainer executes commands inside a container.
 	RuntimeContainer RuntimeMode = "container"
 )
@@ -31,7 +33,7 @@ type (
 
 // Error implements the error interface.
 func (e *InvalidRuntimeModeError) Error() string {
-	return fmt.Sprintf("invalid runtime mode %q (must be one of: native, virtual, container)", e.Value)
+	return fmt.Sprintf("invalid runtime mode %q (must be one of: native, virtual-sh, virtual-lua, container)", e.Value)
 }
 
 // Unwrap returns ErrInvalidRuntimeMode so callers can use errors.Is for programmatic detection.
@@ -47,7 +49,7 @@ func (m RuntimeMode) String() string { return string(m) }
 //goplint:nonzero
 func (m RuntimeMode) Validate() error {
 	switch m {
-	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
+	case RuntimeNative, RuntimeVirtualSh, RuntimeVirtualLua, RuntimeContainer:
 		return nil
 	default:
 		return &InvalidRuntimeModeError{Value: m}

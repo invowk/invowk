@@ -42,7 +42,7 @@ type (
 		Name string
 		// Args are positional arguments to pass to the command script ($1, $2, etc.).
 		Args []string
-		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtual).
+		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtualSh).
 		// Zero value ("") means no override.
 		Runtime invowkfile.RuntimeMode
 		// Platform is the resolved execution platform. Zero value means use the

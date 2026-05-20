@@ -14,11 +14,11 @@ Navigate to any project directory and initialize an invowkfile:
 
 <Snippet id="quickstart/init" />
 
-This creates an `invowkfile.cue` with a `hello` command that works across all three runtimes (native, virtual, and container). Let's peek inside:
+This creates an `invowkfile.cue` with a `hello` command that works across the built-in runtime options (`native`, `virtual-sh`, `virtual-lua`, and `container`). Let's peek inside:
 
 <Snippet id="quickstart/default-invowkfile" />
 
-The default template gives you a single `hello` command with four implementations: native (Linux/macOS), native (Windows), virtual (all platforms), and container (Linux only). Each implementation declares which platforms it supports.
+The default template gives you a single `hello` command with four implementations: native (Linux/macOS), native (Windows), virtual-sh (all platforms), and container (Linux only). Each implementation declares which platforms it supports.
 
 ## List Available Commands
 
@@ -56,19 +56,19 @@ Output:
 
 Arguments are exposed as `INVOWK_ARG_<NAME>` environment variables, making them accessible from any runtime.
 
-## Try the Virtual Runtime
+## Try the Virtual-Sh Runtime
 
-One of Invowk's superpowers is the **virtual runtime** - a built-in shell interpreter that works the same on every platform:
+One of Invowk's superpowers is the **virtual-sh runtime** - a built-in shell interpreter that works the same on every platform:
 
 <Snippet id="quickstart/virtual-runtime" />
 
-The virtual runtime uses the [mvdan/sh](https://github.com/mvdan/sh) interpreter, giving you consistent POSIX shell behavior across all platforms - no need for separate Unix and Windows implementations.
+The virtual-sh runtime uses the [mvdan/sh](https://github.com/mvdan/sh) interpreter, giving you consistent POSIX shell behavior across all platforms - no need for separate Unix and Windows implementations.
 
 ## What's Next?
 
 You've just scratched the surface! Head to [Your First Invowkfile](./your-first-invowkfile) to learn how to build more powerful commands with:
 
-- Multiple runtime options (native, virtual, container)
+- Multiple runtime options (native, virtual-sh, virtual-lua, container)
 - Dependencies that are validated before running
 - Command flags and arguments
 - Environment variables

@@ -49,7 +49,7 @@ Regression tests for this area must cover:
 | `pkg/invowkmod/` | Lock files, content hashes, vendoring, module operations |
 | `pkg/invowkfile/` | Script path resolution, validation, filesystem checks |
 | `internal/provision/` | Container provisioning, module copying, symlink handling |
-| `internal/runtime/virtual.go` | Host PATH fallback behavior |
+| `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Virtual host-binary policy and path harness |
 | `internal/app/deps/` | Command scope enforcement |
 | `internal/discovery/` | Global module trust, `IsGlobalModule` propagation |
 | `internal/audit/` | Audit scanner package (14 production files, ~1,893 lines) |
@@ -265,10 +265,10 @@ SC-01 Script path traversal:
   → If function exists: CONFIRMED (Mitigated)
   → If not found: DRIFTED (mitigation may have been removed)
 
-SC-02 Virtual shell host PATH fallback:
-  grep -n "interp.ExecHandlers\|execHandler" internal/runtime/virtual.go
-  → If present: CONFIRMED (By-design, host fallback active via next() chain)
-  → If not found: DRIFTED (execution model changed)
+SC-02 Virtual host-binary policy:
+  grep -n "virtualHostBinaryPolicy\|allowed_binaries\|allowsAllHostBinaries" internal/runtime/virtual_policy.go internal/runtime/sh.go internal/runtime/lua.go
+  → If present: CONFIRMED (host binaries are policy-gated)
+  → If not found: DRIFTED (host-binary policy may have been removed)
 
 SC-03 InvowkDir R/W volume mount:
   grep -n "invowkDir" internal/runtime/container_exec.go
@@ -454,7 +454,7 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
 | SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:364-456` | Mitigated |
-| SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:320,345-357` | By-design |
+| SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:443, runtime.go:573-575` | Partial |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:131-170` | Mitigated |
@@ -609,7 +609,7 @@ When reviewing module-related changes, adapt the workflow:
 | `pkg/invowkmod/lockfile.go`, `content_hash.go` | SC-10 (integrity) |
 | `pkg/invowkfile/implementation.go`, `runtime.go` | SC-01 (path traversal), SC-08 (interpreters) |
 | `internal/provision/helpers.go` | SC-05 (symlinks) |
-| `internal/runtime/virtual.go`, `container_exec.go` | SC-02, SC-03, SC-04 (runtime surfaces) |
+| `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`, `container_exec.go` | SC-02, SC-03, SC-04 (runtime surfaces) |
 | `internal/discovery/`, `internal/app/deps/` | SC-09, SC-10 (scope, trust) |
 
 ---

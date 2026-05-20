@@ -286,7 +286,7 @@ export function createCommandFixture() {
     description: "Virtual command benchmark"
     implementations: [{
       script: {content: "echo ok"}
-      runtimes: [{name: "virtual"}]
+      runtimes: [{name: "virtual-sh"}]
       platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
   },

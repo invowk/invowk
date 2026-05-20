@@ -71,7 +71,7 @@ func TestSystemPromptEmbeddedMarkdownContract(t *testing.T) {
 		"You are a security auditor for Invowk",
 		"The deterministic audit scanner already checks obvious patterns",
 		"module supply-chain scenarios",
-		"The virtual runtime is a portable shell interpreter, not a security sandbox",
+		"virtual-sh is a portable shell interpreter, not a security sandbox",
 		"Command scope enforcement is static validation",
 		`"info", "low", "medium", "high", "critical"`,
 		`"integrity"`,

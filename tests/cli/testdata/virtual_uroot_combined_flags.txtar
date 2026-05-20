@@ -69,7 +69,7 @@ cmds: [
 				rm -rf $WORK/ln-combined
 				echo '=== uroot ln combined test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -90,7 +90,7 @@ cmds: [
 				rm -rf $WORK/grep-combined
 				echo '=== uroot grep combined test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -111,7 +111,7 @@ cmds: [
 				rm -rf $WORK/wc-combined
 				echo '=== uroot wc combined test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -133,7 +133,7 @@ cmds: [
 				rm -rf $WORK/sort-combined
 				echo '=== uroot sort combined test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -154,7 +154,7 @@ cmds: [
 				rm -rf $WORK/uniq-combined
 				echo '=== uroot uniq combined test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

@@ -29,7 +29,7 @@ cmds: [
           echo "Building..."
           go build ./...
           """}
-          runtimes: [{name: "native"}]  // or "virtual", "container"
+          runtimes: [{name: "native"}]  // or "virtual-sh", "virtual-lua", "container"
       }
     ]
   }

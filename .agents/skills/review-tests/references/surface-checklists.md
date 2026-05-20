@@ -129,7 +129,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T5-C07 | `stdout`/`stderr` regex patterns do not have unescaped parentheses or brackets | All txtar files | WARNING |
 | T5-C08 | Tests that need `--` flag separator use it correctly (invowk flags before `--`, command args after) | Txtar files with `--` | WARNING |
 | T5-C09 | No `env.Cd` set in test Setup function (tests must control own working directory) | `tests/cli/*_test.go` | ERROR |
-| T5-C10 | Virtual runtime tests declare all platforms: `[{name: "linux"}, {name: "macos"}, {name: "windows"}]` | `virtual_*.txtar` | WARNING |
+| T5-C10 | Virtual-sh runtime tests declare all platforms: `[{name: "linux"}, {name: "macos"}, {name: "windows"}]` | `virtual_*.txtar` | WARNING |
 | T5-C11 | Container txtar files use `platforms: [{name: "linux"}]` only (not macos/windows) | `container_*.txtar` | ERROR |
 | T5-C12 | No workspace contamination: tests needing broken fixtures isolate into subdirectories | Txtar files creating invalid fixtures | WARNING |
 | T5-C13 | CLI error tests check both stdout (handler formatting) and stderr (Cobra error rendering). Exception: exit-code propagation tests where the primary assertion is the exit code itself and invowk does not render to stderr — see `known-exceptions.md` Container Exit-Code Stderr Exceptions. Container stderr may include incidental noise (shell prompt `#`), making `! stderr .` fragile. | Error-path txtar files | WARNING |

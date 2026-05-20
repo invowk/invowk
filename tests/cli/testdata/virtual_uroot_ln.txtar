@@ -1,5 +1,5 @@
 # Test: U-root ln utility
-# Tests symbolic link creation and force overwrite in virtual runtime
+# Tests symbolic link creation and force overwrite in virtual-sh runtime
 
 cd $WORK
 
@@ -38,7 +38,7 @@ cmds: [
 				rm -rf $WORK/ln-test
 				echo '=== uroot ln test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

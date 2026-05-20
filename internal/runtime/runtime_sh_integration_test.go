@@ -12,9 +12,9 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// TestVirtualRuntime_Integration groups integration tests for the virtual (mvdan/sh) runtime.
+// TestShRuntime_Integration groups integration tests for the virtual (mvdan/sh) runtime.
 // These tests execute actual shell code through the embedded interpreter.
-func TestVirtualRuntime_Integration(t *testing.T) {
+func TestShRuntime_Integration(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
@@ -38,9 +38,9 @@ func testVirtualCommandSubstitution(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
-	cmd := testCommandWithScript("subst", `RESULT=$(echo "nested output"); echo "Got: $RESULT"`, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("subst", `RESULT=$(echo "nested output"); echo "Got: $RESULT"`, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(true)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -67,9 +67,9 @@ func testVirtualPipelines(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
-	cmd := testCommandWithScript("pipeline", `echo -e "line1\nline2\nline3" | grep line2`, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("pipeline", `echo -e "line1\nline2\nline3" | grep line2`, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(true)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -101,9 +101,9 @@ heredoc content
 with multiple lines
 EOF`
 
-	cmd := testCommandWithScript("heredoc", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("heredoc", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(true)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -139,9 +139,9 @@ echo "Braces: ${MYVAR}"
 echo "Default: ${UNSET:-default_value}"
 echo "Length: ${#MYVAR}"`
 
-	cmd := testCommandWithScript("env-expansion", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-expansion", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -180,9 +180,9 @@ func testVirtualArithmeticExpansion(t *testing.T) {
 	script := `echo "Sum: $((2 + 3))"
 echo "Product: $((4 * 5))"`
 
-	cmd := testCommandWithScript("arithmetic", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("arithmetic", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -215,9 +215,9 @@ func testVirtualConditionalExecution(t *testing.T) {
 	script := `true && echo "AND_SUCCESS"
 false || echo "OR_FALLBACK"`
 
-	cmd := testCommandWithScript("conditional", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("conditional", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -238,8 +238,8 @@ false || echo "OR_FALLBACK"`
 	}
 }
 
-// TestVirtualRuntime_ScriptFileFromSubdir tests executing a script file from a subdirectory.
-func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
+// TestShRuntime_ScriptFileFromSubdir tests executing a script file from a subdirectory.
+func TestShRuntime_ScriptFileFromSubdir(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
@@ -265,9 +265,9 @@ func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
 		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScriptFile("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScriptFile("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer

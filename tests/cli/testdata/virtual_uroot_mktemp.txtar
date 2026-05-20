@@ -1,5 +1,5 @@
 # Test: U-root mktemp utility
-# Tests temporary file and directory creation in virtual runtime
+# Tests temporary file and directory creation in virtual-sh runtime
 
 cd $WORK
 
@@ -37,7 +37,7 @@ cmds: [
 
 				echo '=== uroot mktemp test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

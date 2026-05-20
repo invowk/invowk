@@ -137,11 +137,15 @@ func runHostCustomCheckNative(ctx context.Context, script invowkfile.CustomCheck
 }
 
 func runHostCustomCheckVirtual(ctx context.Context, script invowkfile.CustomCheckScript) *invowkruntime.Result {
-	rt := invowkruntime.NewVirtualRuntime(false, invowkruntime.WithVirtualEnvBuilder(hostCustomCheckEnvBuilder()))
-	return rt.ExecuteCapture(hostCustomCheckExecutionContext(ctx, script, invowkfile.RuntimeVirtual))
+	rt := invowkruntime.NewShRuntime(false, invowkruntime.WithShEnvBuilder(hostCustomCheckEnvBuilder()))
+	return rt.ExecuteCapture(hostCustomCheckExecutionContext(ctx, script, invowkfile.RuntimeVirtualSh))
 }
 
 func hostCustomCheckExecutionContext(ctx context.Context, script invowkfile.CustomCheckScript, mode invowkfile.RuntimeMode) *invowkruntime.ExecutionContext {
+	rtConfig := invowkfile.RuntimeConfig{Name: mode}
+	if mode == invowkfile.RuntimeVirtualSh {
+		rtConfig.AllowedBinaries = []invowkfile.AllowedBinary{"*"}
+	}
 	return &invowkruntime.ExecutionContext{
 		Context:         ctx,
 		Invowkfile:      &invowkfile.Invowkfile{FilePath: "."},
@@ -152,7 +156,7 @@ func hostCustomCheckExecutionContext(ctx context.Context, script invowkfile.Cust
 				Content:     script.Content,
 				Interpreter: script.Interpreter,
 			},
-			Runtimes:  []invowkfile.RuntimeConfig{{Name: mode}},
+			Runtimes:  []invowkfile.RuntimeConfig{rtConfig},
 			Platforms: invowkfile.AllPlatformConfigs(),
 		},
 	}

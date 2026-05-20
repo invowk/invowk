@@ -254,7 +254,7 @@ Configuration for a specific runtime:
 
 ### name
 
-**Type:** `"native" | "virtual" | "container"`  
+**Type:** `"native" | "virtual-sh" | "virtual-lua" | "container"`  
 **Required:** Yes
 
 The runtime type.
@@ -262,22 +262,22 @@ The runtime type.
 ### env_inherit_mode
 
 **Type:** `"none" | "allow" | "all"`  
-**Available for:** `native`, `virtual`, `container`  
-**Default:** `all` for native/virtual, `none` for container
+**Available for:** `native`, `virtual-sh`, `virtual-lua`, `container`  
+**Default:** `all` for native/virtual-sh, `none` for container
 
 Controls whether the host environment is inherited by the runtime.
 
 ### env_inherit_allow
 
 **Type:** `[...string]`  
-**Available for:** `native`, `virtual`, `container`
+**Available for:** `native`, `virtual-sh`, `virtual-lua`, `container`
 
 Allowlist of host env vars. This field requires `env_inherit_mode: "allow"` in the same runtime configuration.
 
 ### env_inherit_deny
 
 **Type:** `[...string]`  
-**Available for:** `native`, `virtual`, `container`
+**Available for:** `native`, `virtual-sh`, `virtual-lua`, `container`
 
 Denylist of host env vars (applies to any mode).
 

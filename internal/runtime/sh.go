@@ -21,55 +21,57 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 )
 
+const errVirtualHostBinaryDeniedExitStatus interp.ExitStatus = 126
+
 type (
-	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities.
-	// The enableUrootUtils flag is immutable after construction via NewVirtualRuntime.
-	VirtualRuntime struct {
+	// ShRuntime executes commands using mvdan/sh with optional u-root utilities.
+	// The enableUrootUtils flag is immutable after construction via NewShRuntime.
+	ShRuntime struct {
 		//plint:internal -- required constructor param; immutable after construction
 		enableUrootUtils bool
-		//plint:internal -- has WithVirtualEnvBuilder(); field name doesn't match pattern
+		//plint:internal -- has WithShEnvBuilder(); field name doesn't match pattern
 		envBuilder EnvBuilder
 		// urootRegistry holds the u-root command registry for built-in utilities.
 		// Nil when enableUrootUtils is false.
 		urootRegistry *uroot.Registry
 		// interactiveCommandFactory creates the subprocess used for PTY-backed execution.
-		interactiveCommandFactory VirtualInteractiveCommandFactory
+		interactiveCommandFactory ShInteractiveCommandFactory
 	}
 
-	// VirtualRuntimeOption configures a VirtualRuntime.
-	VirtualRuntimeOption func(*VirtualRuntime)
+	// ShRuntimeOption configures a ShRuntime.
+	ShRuntimeOption func(*ShRuntime)
 
-	// VirtualInteractiveEnvJSON is the serialized environment passed to the virtual subprocess adapter.
-	VirtualInteractiveEnvJSON string
+	// ShInteractiveEnvJSON is the serialized environment passed to the virtual subprocess adapter.
+	ShInteractiveEnvJSON string
 
-	// VirtualInteractiveArgs contains command positional arguments passed to the virtual subprocess adapter.
-	VirtualInteractiveArgs []string
+	// ShInteractiveArgs contains command positional arguments passed to the virtual subprocess adapter.
+	ShInteractiveArgs []string
 
-	// VirtualInteractiveCommandSpec describes a prepared virtual interactive subprocess request.
+	// ShInteractiveCommandSpec describes a prepared virtual interactive subprocess request.
 	//goplint:ignore -- subprocess adapter DTO carries CLI-boundary argv and serialized env.
-	VirtualInteractiveCommandSpec struct {
+	ShInteractiveCommandSpec struct {
 		ScriptFile  *types.FilesystemPath
 		WorkDir     *types.FilesystemPath
-		EnvJSON     VirtualInteractiveEnvJSON
-		Args        VirtualInteractiveArgs
+		EnvJSON     ShInteractiveEnvJSON
+		Args        ShInteractiveArgs
 		EnableUroot bool
 	}
 
-	// VirtualInteractiveCommandFactory creates the subprocess command for virtual interactive execution.
-	VirtualInteractiveCommandFactory func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error)
+	// ShInteractiveCommandFactory creates the subprocess command for virtual interactive execution.
+	ShInteractiveCommandFactory func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error)
 
-	// virtualPreparedExec holds a parsed program and runner ready for execution.
+	// shPreparedExec holds a parsed program and runner ready for execution.
 	// This bundles the result of script resolution, parsing, env building, and
 	// runner creation shared between Execute and ExecuteCapture.
-	virtualPreparedExec struct {
+	shPreparedExec struct {
 		prog   *syntax.File
 		runner *interp.Runner
 	}
 
-	// VirtualScriptOptions configures direct virtual shell execution for the
+	// ShScriptOptions configures direct virtual shell execution for the
 	// internal interactive subprocess wrapper.
 	//goplint:ignore -- subprocess adapter DTO carries shell script text, argv, and env strings across the CLI boundary.
-	VirtualScriptOptions struct {
+	ShScriptOptions struct {
 		Script      string
 		ScriptName  string
 		WorkDir     string
@@ -82,34 +84,34 @@ type (
 	}
 )
 
-// WithVirtualEnvBuilder sets the environment builder for the virtual runtime.
+// WithShEnvBuilder sets the environment builder for the virtual runtime.
 // If not set, NewDefaultEnvBuilder() is used.
-func WithVirtualEnvBuilder(b EnvBuilder) VirtualRuntimeOption {
-	return func(r *VirtualRuntime) {
+func WithShEnvBuilder(b EnvBuilder) ShRuntimeOption {
+	return func(r *ShRuntime) {
 		r.envBuilder = b
 	}
 }
 
 // WithUrootRegistry sets the u-root command registry for the virtual runtime.
 // If not set and enableUroot is true, BuildDefaultRegistry() is used.
-func WithUrootRegistry(reg *uroot.Registry) VirtualRuntimeOption {
-	return func(r *VirtualRuntime) {
+func WithUrootRegistry(reg *uroot.Registry) ShRuntimeOption {
+	return func(r *ShRuntime) {
 		r.urootRegistry = reg
 	}
 }
 
 // WithInteractiveCommandFactory injects the subprocess factory used for PTY-backed virtual execution.
-func WithInteractiveCommandFactory(factory VirtualInteractiveCommandFactory) VirtualRuntimeOption {
-	return func(r *VirtualRuntime) {
+func WithInteractiveCommandFactory(factory ShInteractiveCommandFactory) ShRuntimeOption {
+	return func(r *ShRuntime) {
 		r.interactiveCommandFactory = factory
 	}
 }
 
 // String returns the serialized environment JSON.
-func (e VirtualInteractiveEnvJSON) String() string { return string(e) }
+func (e ShInteractiveEnvJSON) String() string { return string(e) }
 
 // Validate returns an error if the serialized environment is empty.
-func (e VirtualInteractiveEnvJSON) Validate() error {
+func (e ShInteractiveEnvJSON) Validate() error {
 	if strings.TrimSpace(string(e)) == "" {
 		return errors.New("virtual interactive env JSON must be non-empty")
 	}
@@ -117,7 +119,7 @@ func (e VirtualInteractiveEnvJSON) Validate() error {
 }
 
 // Validate returns nil when the subprocess request contains required paths and env data.
-func (s VirtualInteractiveCommandSpec) Validate() error {
+func (s ShInteractiveCommandSpec) Validate() error {
 	var scriptFileErr error
 	if s.ScriptFile == nil {
 		scriptFileErr = errors.New("virtual interactive script file is required")
@@ -137,9 +139,9 @@ func (s VirtualInteractiveCommandSpec) Validate() error {
 	)
 }
 
-// NewVirtualRuntime creates a new virtual runtime with optional configuration.
-func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualRuntime {
-	r := &VirtualRuntime{
+// NewShRuntime creates a new virtual runtime with optional configuration.
+func NewShRuntime(enableUroot bool, opts ...ShRuntimeOption) *ShRuntime {
+	r := &ShRuntime{
 		enableUrootUtils: enableUroot,
 		envBuilder:       NewDefaultEnvBuilder(),
 	}
@@ -154,21 +156,21 @@ func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualR
 }
 
 // UrootUtilsEnabled returns whether u-root utilities are enabled.
-func (r *VirtualRuntime) UrootUtilsEnabled() bool { return r.enableUrootUtils }
+func (r *ShRuntime) UrootUtilsEnabled() bool { return r.enableUrootUtils }
 
 // Name returns the runtime name
-func (r *VirtualRuntime) Name() string {
-	return "virtual"
+func (r *ShRuntime) Name() string {
+	return RuntimeTypeVirtualSh.String()
 }
 
 // Available returns whether this runtime is available
-func (r *VirtualRuntime) Available() bool {
+func (r *ShRuntime) Available() bool {
 	// Virtual runtime is always available as it's built-in
 	return true
 }
 
 // Validate checks if a command can be executed
-func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
+func (r *ShRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
 		return errVirtualNoImpl
 	}
@@ -181,7 +183,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	if err != nil {
 		return err
 	}
-	if interpErr := validateVirtualInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
+	if interpErr := validateShInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
 		return interpErr
 	}
 
@@ -195,12 +197,12 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 }
 
 // Execute runs a command using the virtual shell
-func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
+func (r *ShRuntime) Execute(ctx *ExecutionContext) *Result {
 	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
 		return NewErrorResult(1, err)
 	}
 
-	prepared, execCtx, errResult := r.prepareVirtualExec(ctx, interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr))
+	prepared, execCtx, errResult := r.prepareShExec(ctx, interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr))
 	if errResult != nil {
 		return errResult
 	}
@@ -217,14 +219,14 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 }
 
 // ExecuteCapture runs a command and captures its output
-func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
+func (r *ShRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
 		return NewErrorResult(1, err)
 	}
 
 	var stdout, stderr bytes.Buffer
 
-	prepared, execCtx, errResult := r.prepareVirtualExec(ctx, interp.StdIO(nil, &stdout, &stderr))
+	prepared, execCtx, errResult := r.prepareShExec(ctx, interp.StdIO(nil, &stdout, &stderr))
 	if errResult != nil {
 		return errResult
 	}
@@ -249,20 +251,20 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 // SupportsInteractive returns true as the virtual runtime always supports interactive mode.
 // Interactive mode is achieved by spawning a subprocess wrapper.
-func (r *VirtualRuntime) SupportsInteractive() bool {
+func (r *ShRuntime) SupportsInteractive() bool {
 	return true
 }
 
 // PrepareInteractive prepares the virtual runtime for interactive execution.
 // This is an alias for PrepareCommand to implement the InteractiveRuntime interface.
-func (r *VirtualRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error) {
+func (r *ShRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCommand, error) {
 	return r.PrepareCommand(ctx)
 }
 
 // PrepareCommand prepares the virtual execution for interactive mode.
 // Since mvdan/sh runs entirely in-process, we ask the composition adapter to
 // create a subprocess that can be attached to a PTY.
-func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
 	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
 		return nil, err
 	}
@@ -272,7 +274,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	if err != nil {
 		return nil, err
 	}
-	if interpErr := validateVirtualInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
+	if interpErr := validateShInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
 		return nil, interpErr
 	}
 
@@ -313,6 +315,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
+	env[EnvVarStateBinPath] = ""
 	ctx.AddTUIEnv(env)
 
 	// Serialize environment to JSON for passing to subprocess
@@ -324,7 +327,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 
 	if r.interactiveCommandFactory == nil {
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, ErrVirtualInteractiveLauncherNotConfigured
+		return nil, ErrShInteractiveLauncherNotConfigured
 	}
 
 	scriptFile := types.FilesystemPath(tmpFile.Name())
@@ -333,11 +336,11 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		return nil, fmt.Errorf("invalid virtual interactive script file: %w", validateErr)
 	}
 
-	spec := VirtualInteractiveCommandSpec{
+	spec := ShInteractiveCommandSpec{
 		ScriptFile:  &scriptFile,
 		WorkDir:     &workDirPath,
-		EnvJSON:     VirtualInteractiveEnvJSON(envJSON),
-		Args:        VirtualInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
+		EnvJSON:     ShInteractiveEnvJSON(envJSON),
+		Args:        ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
 		EnableUroot: r.enableUrootUtils,
 	}
 	if validateErr := spec.Validate(); validateErr != nil {
@@ -360,10 +363,10 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
 }
 
-// RunVirtualScript executes a virtual shell script with the same u-root command
-// handling semantics used by VirtualRuntime. It is used by the internal CLI
+// RunShScript executes a virtual shell script with the same u-root command
+// handling semantics used by ShRuntime. It is used by the internal CLI
 // subprocess wrapper for interactive PTY execution.
-func RunVirtualScript(ctx context.Context, opts VirtualScriptOptions) error {
+func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -372,11 +375,25 @@ func RunVirtualScript(ctx context.Context, opts VirtualScriptOptions) error {
 		return fmt.Errorf("parse virtual script: %w", err)
 	}
 
-	rt := NewVirtualRuntime(opts.EnableUroot)
+	rt := NewShRuntime(opts.EnableUroot)
+	env := SliceToEnv(opts.Env)
+	env[EnvVarStateBinPath] = ""
+	pathValidator := virtualPathValidator{roots: normalizedRoots(append([]string{opts.WorkDir, os.TempDir()}, defaultTempRoots()...))}
+	binaryPolicy := &virtualHostBinaryPolicy{
+		allowed:  nil,
+		mode:     invowkfile.BinaryLookupModeHost,
+		workDir:  opts.WorkDir,
+		envPath:  env["PATH"],
+		pathext:  env["PATHEXT"],
+		stateEnv: env,
+	}
 	runnerOpts := []interp.RunnerOption{
 		interp.StdIO(opts.Stdin, opts.Stdout, opts.Stderr),
-		interp.Env(expand.ListEnviron(opts.Env...)),
-		interp.ExecHandlers(rt.execHandler),
+		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
+		interp.ExecHandlers(rt.execHandler(binaryPolicy)),
+		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
+		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
+		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
 	}
 	if opts.WorkDir != "" {
 		runnerOpts = append(runnerOpts, interp.Dir(opts.WorkDir))
@@ -396,15 +413,15 @@ func RunVirtualScript(ctx context.Context, opts VirtualScriptOptions) error {
 	return nil
 }
 
-// prepareVirtualExec resolves script, parses it, builds environment, and creates
+// prepareShExec resolves script, parses it, builds environment, and creates
 // an interpreter runner. The stdIO option determines whether output is streamed
 // or captured. Returns an error Result on failure.
-func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, context.Context, *Result) {
+func (r *ShRuntime) prepareShExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*shPreparedExec, context.Context, *Result) {
 	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, nil, NewErrorResult(1, err)
 	}
-	if interpErr := validateVirtualInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
+	if interpErr := validateShInterpreter(ctx.SelectedImpl.Script, script); interpErr != nil {
 		return nil, nil, NewErrorResult(1, interpErr)
 	}
 
@@ -417,13 +434,19 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 	if err != nil {
 		return nil, nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
+	env[EnvVarStateBinPath] = ""
 	ctx.AddTUIEnv(env)
+	pathValidator := newVirtualPathValidator(ctx)
+	binaryPolicy := hostBinaryPolicy(ctx, env)
 
 	opts := []interp.RunnerOption{
 		interp.Dir(ctx.EffectiveWorkDir()),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
 		stdIO,
-		interp.ExecHandlers(r.execHandler),
+		interp.ExecHandlers(r.execHandler(binaryPolicy)),
+		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
+		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
+		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
 	}
 
 	// Add positional parameters for shell access ($1, $2, etc.)
@@ -444,48 +467,56 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 		execCtx = context.Background()
 	}
 
-	return &virtualPreparedExec{prog: prog, runner: runner}, execCtx, nil
+	return &shPreparedExec{prog: prog, runner: runner}, execCtx, nil
 }
 
 //goplint:ignore -- virtual runtime validates resolved script text produced by the shared script resolver.
-func validateVirtualInterpreter(script invowkfile.ImplementationScript, scriptContent string) error {
+func validateShInterpreter(script invowkfile.ImplementationScript, scriptContent string) error {
 	interpInfo := script.ResolveInterpreterFromScript(scriptContent)
 	if !interpInfo.Found || invowkfile.IsShellInterpreter(interpInfo.Interpreter) {
 		return nil
 	}
-	return fmt.Errorf("%w (got %q); virtual runtime uses mvdan/sh and cannot execute non-shell interpreters", invowkfile.ErrInterpreterNotAllowed, interpInfo.Interpreter)
+	return fmt.Errorf("%w (got %q); virtual-sh uses mvdan/sh and cannot execute non-shell interpreters", invowkfile.ErrInterpreterNotAllowed, interpInfo.Interpreter)
 }
 
 // execHandler handles external command execution
-func (r *VirtualRuntime) execHandler(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
-	return func(ctx context.Context, args []string) error {
-		// First try u-root builtins if enabled
-		if r.enableUrootUtils {
-			if handled, err := r.tryUrootBuiltin(ctx, args); handled {
-				return err
+func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy) func(interp.ExecHandlerFunc) interp.ExecHandlerFunc {
+	return func(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
+		return func(ctx context.Context, args []string) error {
+			if r.enableUrootUtils {
+				if handled, err := r.tryUrootBuiltin(ctx, args); handled {
+					return err
+				}
 			}
-		}
 
-		// Fall back to default handler (external commands)
-		return next(ctx, args)
+			if len(args) == 0 {
+				return nil
+			}
+			path, err := policy.resolve(args[0])
+			if err != nil {
+				fmt.Fprintln(interp.HandlerCtx(ctx).Stderr, err)
+				return errVirtualHostBinaryDeniedExitStatus
+			}
+			resolvedArgs := append([]string{path}, args[1:]...)
+			return next(ctx, resolvedArgs)
+		}
 	}
 }
 
 // tryUrootBuiltin attempts to handle a command with u-root builtins.
 //
-// Return semantics (User Story 3 - Gradual Adoption with Fallback):
+// Return semantics:
 //   - (true, nil): Command was handled successfully by u-root
 //   - (true, err): Command was handled by u-root but failed - error is propagated,
-//     NO fallback to system binary (error prefixed with [uroot])
-//   - (false, nil): Command is not registered in u-root registry - caller should
-//     fall back to system binary (enables gradual adoption)
+//     and the host-binary policy is not consulted.
+//   - (false, nil): Command is not registered in u-root registry; caller should
+//     evaluate the virtual host-binary policy.
 //
 // This design ensures:
-// 1. Unregistered commands (git, curl, etc.) transparently use system binaries
-// 2. Registered commands that fail return errors - no silent fallback that could
+// 1. Registered commands that fail return errors - no silent host-binary policy retry that could
 //
 //	mask implementation bugs or create confusing behavior
-func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, error) {
+func (r *ShRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, error) {
 	if len(args) == 0 {
 		return false, nil
 	}
@@ -494,14 +525,14 @@ func (r *VirtualRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bo
 
 	// Check if the command exists in the u-root registry.
 	// [US3-T046] Unregistered commands: Lookup returns (nil, false), we return (false, nil)
-	// This signals the caller to fall back to system binaries via next() handler.
+	// This signals the caller to evaluate the explicit host-binary policy.
 	if _, found := r.urootRegistry.Lookup(cmdName); !found {
 		return false, nil
 	}
 
 	// Execute via Registry.Run for centralized POSIX flag preprocessing.
 	// [US3-T047] If the command fails, we return (true, err) - the error is propagated
-	// directly to the caller, NO fallback to system binary occurs.
+	// directly to the caller, and the host-binary policy is not consulted.
 	// Registry.Run splits combined short flags (e.g., "-sf" → "-s", "-f") for custom
 	// implementations before dispatching to cmd.Run().
 	err := r.urootRegistry.Run(ctx, cmdName, args)

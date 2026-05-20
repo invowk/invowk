@@ -140,7 +140,7 @@ func TestExecutionContext_Validate(t *testing.T) {
 		{
 			name: "valid context with execution ID",
 			ctx: ExecutionContext{
-				SelectedRuntime: "virtual",
+				SelectedRuntime: "virtual-sh",
 				ExecutionID:     ExecutionID("123456-1"),
 			},
 			wantErr: false,

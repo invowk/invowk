@@ -373,7 +373,7 @@ Each test file exercises a specific runtime path through the system:
 
 | Runtime | Linux Shell | macOS Shell | Windows Shell | When Used |
 |---------|-------------|-------------|---------------|-----------|
-| **virtual** | mvdan/sh | mvdan/sh | mvdan/sh | Cross-platform POSIX scripts (default for feature tests) |
+| **virtual-sh** | mvdan/sh | mvdan/sh | mvdan/sh | Cross-platform POSIX scripts (default for shell feature tests) |
 | **native** | bash | zsh | PowerShell | Platform-specific shell integration |
 | **container** | /bin/sh (in container) | N/A | N/A | Linux-only container execution |
 
@@ -386,10 +386,10 @@ Each test file exercises a specific runtime path through the system:
 
 ### Full Feature Mirror Requirement
 
-**CRITICAL**: Every feature-level testscript file that uses the virtual runtime MUST have a corresponding native runtime mirror that tests the same behaviors using native shell implementations.
+**CRITICAL**: Every feature-level testscript file that uses the virtual-sh runtime MUST have a corresponding native runtime mirror that tests the same behaviors using native shell implementations.
 
 The pattern is:
-- `virtual_<feature>.txtar` — Tests with `runtimes: [{name: "virtual"}]`, all platforms
+- `virtual_<feature>.txtar` — Tests with `runtimes: [{name: "virtual-sh"}]`, all platforms
 - `native_<feature>.txtar` — Tests with `runtimes: [{name: "native"}]`, platform-split CUE (bash for Linux/macOS, PowerShell for Windows)
 
 This ensures that features work correctly through both the virtual shell (mvdan/sh) and each platform's native shell.
@@ -422,7 +422,7 @@ cmds: [{
     description: "Test command"
     implementations: [{
         script: {content: "echo 'Hello!'"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]
@@ -430,7 +430,7 @@ cmds: [{
 
 **Why inline CUE over referencing project invowkfile.cue:**
 - Self-contained: test is readable without cross-referencing
-- Cross-platform: can declare all platforms using virtual runtime
+- Cross-platform: can declare all platforms using virtual-sh runtime
 - Isolated: changes to project invowkfile.cue don't break feature tests
 - Portable: runs on all CI platforms without platform skips
 
@@ -484,7 +484,7 @@ implementations: [
 ### When Adding New Commands
 
 1. All implementations MUST declare all applicable platforms
-2. Use virtual runtime for cross-platform portability
+2. Use virtual-sh runtime for cross-platform portability
 3. Create both `virtual_<feature>.txtar` (all platforms) and `native_<feature>.txtar` (platform-split CUE for bash on Linux/macOS and PowerShell on Windows) mirrors
 4. Add testscript test with inline CUE covering all platforms
 5. Container runtime commands are exempt (Linux-only by design)

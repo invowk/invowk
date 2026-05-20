@@ -60,7 +60,7 @@ host_shell: Host Shell / PATH {
     fill: "#999999"
     font-color: "#ffffff"
   }
-  tooltip: bash/sh/PowerShell and external binaries resolved from host PATH
+  tooltip: bash/sh/PowerShell and explicitly allowed virtual host binaries
 }
 
 llm_providers: Optional LLM Providers {
@@ -282,7 +282,7 @@ invowk_cli: Invowk CLI {
       |
     }
 
-    runtime_virtual: Virtual Runtime {
+    runtime_virtual: Virtual-Sh Runtime {
       style: {
         fill: "#438DD5"
         font-color: "#ffffff"
@@ -290,7 +290,7 @@ invowk_cli: Invowk CLI {
       tooltip: |md
         **Go/mvdan-sh**
         Embedded shell interpreter with u-root builtins.
-        Not a sandbox: unknown commands fall through to host PATH.
+        Not a sandbox: allowed host binaries run as native host processes.
       |
     }
 
@@ -585,7 +585,7 @@ invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_container: "Dis
 invowk_cli.runtimes.runtime_native -> host_shell: "Spawns\n[exec]" {
   style.stroke: "#707070"
 }
-invowk_cli.runtimes.runtime_virtual -> host_shell: "Runs external commands\n[host PATH]" {
+invowk_cli.runtimes.runtime_virtual -> host_shell: "Runs allowed host binaries\n[native process]" {
   style.stroke: "#707070"
 }
 invowk_cli.runtimes.runtime_virtual -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {

@@ -84,7 +84,7 @@ func TestParseLoadedModuleInvowkfileAcceptsModuleScriptFiles(t *testing.T) {
 	name: "build"
 	implementations: [{
 		script: {file: "scripts/build"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}]
 	}]
 }]
@@ -123,7 +123,7 @@ func TestParseLoadedModuleInvowkfileRejectsOutsideModuleScriptFiles(t *testing.T
 	name: "build"
 	implementations: [{
 		script: {file: "../outside.sh"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}]
 	}]
 }]
@@ -162,7 +162,7 @@ func validCommandCUE(scriptLine string) string {
 	name: "test"
 	implementations: [{
 		` + scriptLine + `
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}]
 	}]
 }]

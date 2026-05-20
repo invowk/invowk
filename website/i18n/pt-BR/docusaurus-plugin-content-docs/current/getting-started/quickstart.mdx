@@ -14,11 +14,11 @@ Navegue até qualquer diretório de projeto e inicialize um invowkfile:
 
 <Snippet id="quickstart/init" />
 
-Isso cria um `invowkfile.cue` com um comando `hello` que funciona nos três runtimes (native, virtual e container). Vamos dar uma olhada:
+Isso cria um `invowkfile.cue` com um comando `hello` que funciona nas opções de runtime integradas (`native`, `virtual-sh`, `virtual-lua` e `container`). Vamos dar uma olhada:
 
 <Snippet id="quickstart/default-invowkfile" />
 
-O template padrão inclui um único comando `hello` com quatro implementações: native (Linux/macOS), native (Windows), virtual (todas as plataformas) e container (somente Linux). Cada implementação declara quais plataformas ela suporta.
+O template padrão inclui um único comando `hello` com quatro implementações: native (Linux/macOS), native (Windows), virtual-sh (todas as plataformas) e container (somente Linux). Cada implementação declara quais plataformas ela suporta.
 
 ## Listar Comandos Disponíveis
 
@@ -56,19 +56,19 @@ Saída:
 
 Argumentos são expostos como variáveis de ambiente `INVOWK_ARG_<NOME>`, tornando-os acessíveis de qualquer runtime.
 
-## Experimente o Runtime Virtual
+## Experimente o Runtime Virtual-Sh
 
-Um dos superpoderes do Invowk é o **runtime virtual** - um interpretador de shell integrado que funciona da mesma forma em todas as plataformas:
+Um dos superpoderes do Invowk é o **runtime virtual-sh** - um interpretador de shell integrado que funciona da mesma forma em todas as plataformas:
 
 <Snippet id="quickstart/virtual-runtime" />
 
-O runtime virtual usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas - sem necessidade de implementações separadas para Unix e Windows.
+O runtime virtual-sh usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas - sem necessidade de implementações separadas para Unix e Windows.
 
 ## Próximos Passos
 
 Você acabou de arranhar a superfície! Vá para [Seu Primeiro Invowkfile](./your-first-invowkfile) para aprender como criar comandos mais poderosos com:
 
-- Múltiplas opções de runtime (native, virtual, container)
+- Múltiplas opções de runtime (native, virtual-sh, virtual-lua, container)
 - Dependências que são validadas antes da execução
 - Flags e argumentos de comando
 - Variáveis de ambiente

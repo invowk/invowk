@@ -176,7 +176,7 @@ func benchmarkInvowkfile(commandCount int, prefix string) string {
 		description: "Benchmark command"
 		implementations: [{
 			script: {content: "echo ok"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

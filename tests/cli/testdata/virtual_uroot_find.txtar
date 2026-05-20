@@ -1,5 +1,5 @@
 # Test: U-root find utility
-# Tests file finding by name pattern in virtual runtime
+# Tests file finding by name pattern in virtual-sh runtime
 
 cd $WORK
 
@@ -37,7 +37,7 @@ cmds: [
 				rm -rf $WORK/find-test
 				echo '=== uroot find test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

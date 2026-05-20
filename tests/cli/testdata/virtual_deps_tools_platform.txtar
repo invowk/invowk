@@ -14,7 +14,7 @@ cmds: [
 		name: "deps tool platform"
 		implementations: [{
 			script: {content: "echo 'platform tool dep check passed'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

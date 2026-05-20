@@ -1,5 +1,5 @@
 # Test: U-root seq utility
-# Tests numeric sequence generation in virtual runtime
+# Tests numeric sequence generation in virtual-sh runtime
 
 cd $WORK
 
@@ -41,7 +41,7 @@ cmds: [
 
 				echo '=== uroot seq test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

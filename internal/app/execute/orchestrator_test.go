@@ -24,7 +24,7 @@ func TestResolveRuntime(t *testing.T) {
 				{
 					Runtimes: []invowkfile.RuntimeConfig{
 						{Name: invowkfile.RuntimeNative},
-						{Name: invowkfile.RuntimeVirtual},
+						{Name: invowkfile.RuntimeVirtualSh},
 					},
 					Platforms: []invowkfile.PlatformConfig{
 						{Name: invowkfile.PlatformLinux},
@@ -44,7 +44,7 @@ func TestResolveRuntime(t *testing.T) {
 			Implementations: []invowkfile.Implementation{
 				{
 					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeVirtual},
+						{Name: invowkfile.RuntimeVirtualSh},
 					},
 					Platforms: invowkfile.AllPlatformConfigs(),
 				},
@@ -64,8 +64,8 @@ func TestResolveRuntime(t *testing.T) {
 		{
 			name:     "CLI override success",
 			cmd:      mkCmd(),
-			override: invowkfile.RuntimeVirtual,
-			wantMode: invowkfile.RuntimeVirtual,
+			override: invowkfile.RuntimeVirtualSh,
+			wantMode: invowkfile.RuntimeVirtualSh,
 		},
 		{
 			name:                  "CLI override not allowed",
@@ -77,14 +77,14 @@ func TestResolveRuntime(t *testing.T) {
 		{
 			name:     "Config default success",
 			cmd:      mkCmd(),
-			cfg:      &config.Config{DefaultRuntime: config.RuntimeVirtual},
-			wantMode: invowkfile.RuntimeVirtual,
+			cfg:      &config.Config{DefaultRuntime: config.RuntimeVirtualSh},
+			wantMode: invowkfile.RuntimeVirtualSh,
 		},
 		{
 			name:     "Config default ignored if not allowed",
 			cmd:      mkVirtualOnlyCmd(),
 			cfg:      &config.Config{DefaultRuntime: config.RuntimeNative},
-			wantMode: invowkfile.RuntimeVirtual, // Falls back to command default (virtual)
+			wantMode: invowkfile.RuntimeVirtualSh, // Falls back to command default (virtual)
 		},
 		{
 			name:     "CLI override invalid mode (defense-in-depth)",
@@ -493,7 +493,7 @@ func TestRuntimeSelection_Validate(t *testing.T) {
 		},
 		{
 			name:      "valid virtual",
-			sel:       RuntimeSelection{mode: invowkfile.RuntimeVirtual, impl: &invowkfile.Implementation{}},
+			sel:       RuntimeSelection{mode: invowkfile.RuntimeVirtualSh, impl: &invowkfile.Implementation{}},
 			wantValid: true,
 		},
 		{
@@ -602,7 +602,7 @@ func TestRuntimeNotAllowedError_Format(t *testing.T) {
 		CommandName: "deploy",
 		Runtime:     invowkfile.RuntimeContainer,
 		Platform:    invowkfile.PlatformLinux,
-		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
+		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtualSh},
 	}
 
 	msg := err.Error()

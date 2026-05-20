@@ -12,7 +12,7 @@ cmds: [
 				// Compatible with all runtimes
 				runtimes: [
 					{name: "native"},
-					{name: "virtual"},
+					{name: "virtual-sh"},
 					// debian:stable-slim is a floating tag (project convention).
 					// For production modules, pin to a digest: "debian@sha256:<hash>"
 					{name: "container", image: "debian:stable-slim"},

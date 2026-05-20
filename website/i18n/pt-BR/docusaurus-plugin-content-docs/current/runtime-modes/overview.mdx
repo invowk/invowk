@@ -13,7 +13,8 @@ O Invowk™ oferece três formas diferentes de executar comandos, cada uma com s
 | Runtime | Descrição | Melhor Para |
 |---------|-----------|-------------|
 | **native** | Shell padrão do sistema | Desenvolvimento diário, performance |
-| **virtual** | Shell POSIX integrado | Scripts multiplataforma, portabilidade |
+| **virtual-sh** | Shell POSIX integrado | Scripts shell multiplataforma, portabilidade |
+| **virtual-lua** | Interpretador Lua integrado | Automação Lua multiplataforma |
 | **container** | Container Docker/Podman | Reprodutibilidade, isolamento |
 
 ## Comparação Rápida
@@ -32,16 +33,16 @@ Use **native** quando você quiser:
 
 <Snippet id="runtime-modes/native-basic" />
 
-### Runtime Virtual
+### Runtime Virtual-Sh
 
-Use **virtual** quando você quiser:
+Use **virtual-sh** quando você quiser:
 - Comportamento consistente entre plataformas
 - Scripts POSIX-compatíveis que funcionam em qualquer lugar
-- Sem dependência de shell externo (o interpretador é integrado, mas scripts ainda podem chamar binários do host via PATH)
+- Sem dependência de shell externo (o interpretador é integrado, e scripts podem chamar binários do host explicitamente permitidos)
 - Debug mais simples de scripts shell
 
 :::caution
-O runtime virtual **não é um sandbox**. Comandos não fornecidos pelos utilitários integrados são resolvidos a partir do PATH do host e executados como processos nativos. Para isolamento de execução, use o runtime **container**.
+O runtime `virtual-sh` **não é um sandbox**. Binários do host são negados a menos que sejam listados explicitamente em `allowed_binaries`. Para isolamento de execução, use o runtime **container**.
 :::
 
 <Snippet id="runtime-modes/virtual-basic" />
@@ -116,12 +117,14 @@ Dependências são validadas de acordo com o runtime:
 | Runtime | Dependências Validadas Contra |
 |---------|-------------------------------|
 | native | Shell e ferramentas do sistema host |
-| virtual | Shell integrado com utilitários core |
+| virtual-sh | Shell integrado com utilitários core |
+| virtual-lua | Lua integrado e helpers explicitamente permitidos |
 | container | Shell e ambiente do container |
 
 Isso significa que uma dependência `tools` como `go` é verificada:
 - **native**: O `go` está no PATH do host?
-- **virtual**: O `go` está disponível nos built-ins do shell virtual?
+- **virtual-sh**: O `go` está disponível como utilitário integrado ou binário do host explicitamente permitido?
+- **virtual-lua**: O `go` está disponível por um helper explicitamente permitido da ponte Lua?
 - **container**: O `go` está instalado na imagem do container?
 
 ## Próximos Passos
@@ -129,5 +132,5 @@ Isso significa que uma dependência `tools` como `go` é verificada:
 Aprofunde-se em cada runtime:
 
 - [Runtime Native](./native) - Execução no shell do sistema
-- [Runtime Virtual](./virtual) - Shell POSIX integrado
+- [Runtime Virtual-Sh](./virtual) - Runtime de shell POSIX integrado
 - [Runtime Container](./container) - Execução em Docker/Podman

@@ -10,8 +10,8 @@ exec invowk cmd multi-runtime
 stdout 'RUNTIME=native'
 ! stderr .
 
-# Test 2: with --ivk-config pointing to a config that sets default_runtime: "virtual",
-# the command should use the virtual runtime
+# Test 2: with --ivk-config pointing to a config that sets default_runtime: "virtual-sh",
+# the command should use the virtual-sh runtime
 exec invowk cmd multi-runtime --ivk-config custom-config/config.cue
 stdout 'RUNTIME=virtual'
 ! stderr .
@@ -35,7 +35,7 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo 'RUNTIME=virtual'"}
-				runtimes:  [{name: "virtual"}]
+				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 			{
@@ -53,4 +53,4 @@ cmds: [
 ]
 
 -- custom-config/config.cue --
-default_runtime: "virtual"
+default_runtime: "virtual-sh"

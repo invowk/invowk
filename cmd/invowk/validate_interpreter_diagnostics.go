@@ -133,7 +133,7 @@ func hostCustomCheckInterpreterRuntime(script invowkfile.CustomCheckScript, scri
 	if interpInfo.Found && !invowkfile.IsShellInterpreter(interpInfo.Interpreter) {
 		return invowkfile.RuntimeNative
 	}
-	return invowkfile.RuntimeVirtual
+	return invowkfile.RuntimeVirtualSh
 }
 
 func renderValidationInterpreterDiagnostics(stderr io.Writer, diagnostics []invowkfile.ScriptInterpreterDiagnostic) {

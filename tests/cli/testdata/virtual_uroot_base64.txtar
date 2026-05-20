@@ -1,5 +1,5 @@
 # Test: U-root base64 utility
-# Tests base64 encoding and decoding in virtual runtime
+# Tests base64 encoding and decoding in virtual-sh runtime
 
 cd $WORK
 
@@ -34,7 +34,7 @@ cmds: [
 				rm -rf $WORK/base64-test
 				echo '=== uroot base64 test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

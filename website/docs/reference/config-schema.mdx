@@ -76,7 +76,7 @@ Additional modules to include in command discovery. Each entry specifies a path 
 
 ### default_runtime
 
-**Type:** `"native" | "virtual" | "container"`
+**Type:** `"native" | "virtual-sh" | "virtual-lua" | "container"`
 **Required:** No
 **Default:** `"native"`
 
@@ -87,16 +87,17 @@ Sets the global default runtime mode for commands that don't specify a preferred
 | Value | Description |
 |-------|-------------|
 | `"native"` | Execute using the system's native shell |
-| `"virtual"` | Execute using Invowk's built-in shell interpreter |
+| `"virtual-sh"` | Execute using Invowk's built-in shell interpreter |
+| `"virtual-lua"` | Execute using Invowk's built-in Lua interpreter |
 | `"container"` | Execute inside a container |
 
-### virtual_shell
+### virtual
 
-**Type:** `#VirtualShellConfig`
+**Type:** `#VirtualConfig`
 **Required:** No
-**Default:** `{enable_uroot_utils: true}`
+**Default:** `{utilities: {enabled: true}}`
 
-Configuration for the virtual shell runtime.
+Configuration for the virtual runtime family.
 
 <Snippet id="reference/config/virtual-shell" />
 
@@ -136,19 +137,19 @@ Container runtime configuration.
 
 ---
 
-## VirtualShellConfig
+## VirtualConfig
 
-Configuration for the virtual shell runtime (mvdan/sh).
+Configuration for the virtual runtime family.
 
 <Snippet id="reference/config/virtual-shell-config-structure" />
 
-### enable_uroot_utils
+### utilities.enabled
 
 **Type:** `bool`
 **Required:** No
 **Default:** `true`
 
-Enables u-root utilities in the virtual shell environment. When enabled, provides additional commands beyond basic shell builtins.
+Enables u-root utilities in `virtual-sh` and command helpers in `virtual-lua`.
 
 <Snippet id="reference/config/enable-uroot-utils" />
 

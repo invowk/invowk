@@ -97,7 +97,7 @@ func (c *EnvChecker) checkEnvInheritMode(ref ScriptRef) []Finding {
 				Description:    fmt.Sprintf("Command %q runtime %q uses env_inherit_mode: \"all\" — all host env vars including credentials are visible", ref.CommandName, rt.Name),
 				Recommendation: "Use env_inherit_mode: \"allow\" with an explicit allowlist, or env_inherit_mode: \"none\"",
 			})
-		} else if rt.EnvInheritMode == "" && (rt.Name == invowkfile.RuntimeNative || rt.Name == invowkfile.RuntimeVirtual) {
+		} else if rt.EnvInheritMode == "" && (rt.Name == invowkfile.RuntimeNative || rt.Name == invowkfile.RuntimeVirtualSh) {
 			// Native and virtual runtimes default to EnvInheritAll when
 			// env_inherit_mode is unset — flag the implicit inheritance.
 			// Container runtimes are excluded: they follow a different env

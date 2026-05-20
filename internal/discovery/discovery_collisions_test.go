@@ -883,7 +883,7 @@ func TestDiscoverAll_SkipsReservedModuleName(t *testing.T) {
 	invowkfileContent := `cmds: [{
 		name: "root-cmd"
 		description: "Root command"
-		implementations: [{script: {content: "echo root"}, runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo root"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte(invowkfileContent), 0o644); err != nil {
 		t.Fatalf("failed to create invowkfile: %v", err)
@@ -902,7 +902,7 @@ version: "1.0.0"
 	if err := os.WriteFile(filepath.Join(validModDir, "invowkfile.cue"), []byte(`cmds: [{
 		name: "valid-cmd"
 		description: "Valid command"
-		implementations: [{script: {content: "echo valid"}, runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo valid"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`), 0o644); err != nil {
 		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}
@@ -920,7 +920,7 @@ version: "1.0.0"
 	if err := os.WriteFile(filepath.Join(reservedModDir, "invowkfile.cue"), []byte(`cmds: [{
 		name: "reserved-cmd"
 		description: "Reserved command"
-		implementations: [{script: {content: "echo reserved"}, runtimes: [{name: "virtual"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		implementations: [{script: {content: "echo reserved"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	}]`), 0o644); err != nil {
 		t.Fatalf("failed to create invowkfile.cue: %v", err)
 	}

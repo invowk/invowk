@@ -416,7 +416,7 @@ cmds: [{
     description: "Description"
     implementations: [{
         script: {content: "echo 'output'"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]
@@ -588,32 +588,32 @@ When writing native test mirrors for Windows, use these translations:
 
 | File | Runtime | Description | Strategy |
 |------|---------|-------------|----------|
-| `virtual_simple.txtar` | virtual | Basic hello + env hierarchy | Inline CUE, all platforms |
+| `virtual_simple.txtar` | virtual-sh | Basic hello + env hierarchy | Inline CUE, all platforms |
 | `native_simple.txtar` | native | Native mirror of virtual_simple.txtar | Inline CUE, platform-split |
-| `virtual_shell.txtar` | virtual | Virtual shell runtime tests | Inline CUE, all platforms |
-| `virtual_flags.txtar` | virtual | Command flags | Inline CUE, all platforms |
+| `virtual_shell.txtar` | virtual-sh | Virtual shell runtime tests | Inline CUE, all platforms |
+| `virtual_flags.txtar` | virtual-sh | Command flags | Inline CUE, all platforms |
 | `native_flags.txtar` | native | Native mirror of virtual_flags.txtar | Inline CUE, platform-split |
-| `virtual_args.txtar` | virtual | Positional arguments | Inline CUE, all platforms |
+| `virtual_args.txtar` | virtual-sh | Positional arguments | Inline CUE, all platforms |
 | `native_args.txtar` | native | Native mirror of virtual_args.txtar | Inline CUE, platform-split |
-| `virtual_env.txtar` | virtual | Environment configuration | Inline CUE, all platforms |
+| `virtual_env.txtar` | virtual-sh | Environment configuration | Inline CUE, all platforms |
 | `native_env.txtar` | native | Native mirror of virtual_env.txtar | Inline CUE, platform-split |
-| `virtual_isolation.txtar` | virtual | Variable isolation | Inline CUE, all platforms |
+| `virtual_isolation.txtar` | virtual-sh | Variable isolation | Inline CUE, all platforms |
 | `native_isolation.txtar` | native | Native mirror of virtual_isolation.txtar | Inline CUE, platform-split |
-| `virtual_deps_tools.txtar` | virtual | Tool dependency checks | Inline CUE, all platforms |
+| `virtual_deps_tools.txtar` | virtual-sh | Tool dependency checks | Inline CUE, all platforms |
 | `native_deps_tools.txtar` | native | Native mirror of virtual_deps_tools.txtar | Inline CUE, platform-split |
-| `virtual_deps_files.txtar` | virtual | File dependency checks | Inline CUE, all platforms |
+| `virtual_deps_files.txtar` | virtual-sh | File dependency checks | Inline CUE, all platforms |
 | `native_deps_files.txtar` | native | Native mirror of virtual_deps_files.txtar | Inline CUE, platform-split |
-| `virtual_deps_env.txtar` | virtual | Environment dependencies | Inline CUE, all platforms |
+| `virtual_deps_env.txtar` | virtual-sh | Environment dependencies | Inline CUE, all platforms |
 | `native_deps_env.txtar` | native | Native mirror of virtual_deps_env.txtar | Inline CUE, platform-split |
-| `virtual_deps_caps.txtar` | virtual | Capability checks | Inline CUE, all platforms |
+| `virtual_deps_caps.txtar` | virtual-sh | Capability checks | Inline CUE, all platforms |
 | `native_deps_caps.txtar` | native | Native mirror of virtual_deps_caps.txtar | Inline CUE, platform-split |
-| `virtual_deps_custom.txtar` | virtual | Custom validation | Inline CUE, all platforms |
+| `virtual_deps_custom.txtar` | virtual-sh | Custom validation | Inline CUE, all platforms |
 | `native_deps_custom.txtar` | native | Native mirror of virtual_deps_custom.txtar | Inline CUE, platform-split |
-| `virtual_deps_runtime.txtar` | — | Schema rejection: virtual runtime rejects depends_on | Inline CUE, negative test |
+| `virtual_deps_runtime.txtar` | — | Schema rejection: virtual-sh runtime rejects depends_on | Inline CUE, negative test |
 | `native_deps_runtime.txtar` | — | Schema rejection: native runtime rejects depends_on | Inline CUE, negative test |
-| `virtual_uroot_basic.txtar` | virtual | U-root basic utilities (exempt) | Inline CUE, all platforms |
-| `virtual_uroot_file_ops.txtar` | virtual | U-root file operations (exempt) | Inline CUE, all platforms |
-| `virtual_uroot_text_ops.txtar` | virtual | U-root text processing (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_basic.txtar` | virtual-sh | U-root basic utilities (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_file_ops.txtar` | virtual-sh | U-root file operations (exempt) | Inline CUE, all platforms |
+| `virtual_uroot_text_ops.txtar` | virtual-sh | U-root text processing (exempt) | Inline CUE, all platforms |
 | `virtual_multi_source.txtar` | virtual | Multi-source discovery | Inline CUE, all platforms |
 | `native_multi_source.txtar` | native | Native mirror of virtual_multi_source.txtar | Inline CUE, platform-split |
 | `virtual_ambiguity.txtar` | virtual | Ambiguous command detection | Inline CUE, all platforms |
@@ -680,7 +680,7 @@ Add CLI tests when:
 - Testing environment variable behavior
 
 **Native mirror creation checklist:**
-1. Create `virtual_<feature>.txtar` with virtual runtime (all platforms)
+1. Create `virtual_<feature>.txtar` with virtual-sh runtime (all platforms)
 2. Create `native_<feature>.txtar` with native runtime (platform-split)
 3. Verify both files produce identical `stdout` assertions
 4. Ensure Windows PowerShell implementations use `$env:VAR` and `Write-Output`

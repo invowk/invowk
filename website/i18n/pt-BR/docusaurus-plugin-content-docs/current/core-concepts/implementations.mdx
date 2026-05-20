@@ -120,9 +120,9 @@ Dado este comando:
 | Plataforma | Comando | Selecionado |
 |------------|---------|-------------|
 | Linux | `invowk cmd myproject build` | Primeira impl, runtime native |
-| Linux | `invowk cmd myproject build --ivk-runtime virtual` | Primeira impl, runtime virtual |
+| Linux | `invowk cmd myproject build --ivk-runtime virtual-sh` | Primeira impl, runtime virtual-sh |
 | Windows | `invowk cmd myproject build` | Segunda impl, runtime native |
-| Windows | `invowk cmd myproject build --ivk-runtime virtual` | Erro: nenhuma impl correspondente |
+| Windows | `invowk cmd myproject build --ivk-runtime virtual-sh` | Erro: nenhuma impl correspondente |
 
 ## Listagem de Comandos
 
@@ -130,7 +130,7 @@ A saída de `invowk cmd` mostra runtimes e plataformas disponíveis:
 
 <Snippet id="implementations/list-output" />
 
-- `[native*, virtual]` - Suporta runtimes native (padrão) e virtual
+- `[native*, virtual-sh]` - Suporta runtimes native (padrão) e virtual-sh
 - `(linux, macos)` - Disponível apenas no Linux e macOS
 
 ## Usando Templates CUE
@@ -149,5 +149,5 @@ Reduza repetição com templates CUE:
 
 ## Próximos Passos
 
-- [Modos de Runtime](../runtime-modes/overview) - Mergulho profundo nos runtimes native, virtual e container
+- [Modos de Runtime](../runtime-modes/overview) - Mergulho profundo nos runtimes native, virtual-sh, virtual-lua e container
 - [Dependências](../dependencies/overview) - Declare o que suas implementações precisam

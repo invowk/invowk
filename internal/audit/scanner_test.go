@@ -29,6 +29,10 @@ type (
 	failingConfigProvider struct {
 		called bool
 	}
+
+	staticConfigProvider struct {
+		cfg *config.Config
+	}
 )
 
 func (m *mockChecker) Name() string       { return m.name }
@@ -78,6 +82,21 @@ func (p *failingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*
 }
 
 func (p *failingConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
+}
+
+func (p staticConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
+	if p.cfg == nil {
+		return config.DefaultConfig(), nil
+	}
+	return p.cfg, nil
+}
+
+func (p staticConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
 	cfg, err := p.Load(ctx, opts)
 	if err != nil {
 		return config.LoadResult{}, err
@@ -163,7 +182,7 @@ func TestScannerCorrelationUsesScanSurfaceKey(t *testing.T) {
 	vendorDir := filepath.Join(localDir, invowkmod.VendoredModulesDir, "io.example.shared.invowkmod")
 	createAuditTestModule(t, vendorDir, "io.example.shared", "vendored-cmd")
 
-	scanner, err := NewScanner(config.NewProvider(), WithCheckers([]Checker{moduleIdentityChecker{}}))
+	scanner, err := NewScanner(staticConfigProvider{cfg: config.DefaultConfig()}, WithCheckers([]Checker{moduleIdentityChecker{}}))
 	if err != nil {
 		t.Fatalf("NewScanner() = %v", err)
 	}

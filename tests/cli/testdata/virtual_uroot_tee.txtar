@@ -1,5 +1,5 @@
 # Test: U-root tee utility
-# Tests tee output duplication to stdout and files in virtual runtime
+# Tests tee output duplication to stdout and files in virtual-sh runtime
 
 cd $WORK
 
@@ -45,7 +45,7 @@ cmds: [
 				rm -rf $WORK/tee-test
 				echo '=== uroot tee test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

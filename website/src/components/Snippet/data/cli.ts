@@ -26,8 +26,8 @@ invowk cmd test coverage`,
     code: `# Use the default (native)
 invowk cmd test unit
 
-# Explicitly use virtual runtime
-invowk cmd test unit --ivk-runtime virtual`,
+# Explicitly use virtual-sh runtime
+invowk cmd test unit --ivk-runtime virtual-sh`,
   },
 
   'cli/cue-validate': {
@@ -46,7 +46,7 @@ invowk cmd test unit --ivk-runtime virtual`,
 
 From invowkfile:
   build - Build the project [native*] (linux, macos, windows)
-  test unit - Run unit tests [native*, virtual] (linux, macos, windows)
+  test unit - Run unit tests [native*, virtual-sh] (linux, macos, windows)
   test coverage - Run tests with coverage [native*] (linux, macos, windows)
   clean - Remove build artifacts [native*] (linux, macos)`,
   },
@@ -106,7 +106,7 @@ invowk init --force`,
 invowk config set container_engine podman
 
 # Set default runtime
-invowk config set default_runtime virtual
+invowk config set default_runtime virtual-sh
 
 # Set nested value
 invowk config set ui.color_scheme dark`,
@@ -227,7 +227,7 @@ invowk init --force`,
 invowk config set container_engine podman
 
 # Set default runtime
-invowk config set default_runtime virtual
+invowk config set default_runtime virtual-sh
 
 # Set UI options
 invowk config set ui.color_scheme dark
@@ -235,7 +235,7 @@ invowk config set ui.verbose true
 invowk config set ui.interactive false
 
 # Set virtual shell options
-invowk config set virtual_shell.enable_uroot_utils true`,
+invowk config set virtual.utilities.enabled true`,
   },
 
   'reference/cli/module-syntax': {

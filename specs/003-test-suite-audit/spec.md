@@ -173,7 +173,7 @@ Developers modify container runtime code (Docker/Podman integration). Unit tests
 | `cmd/invowk/cmd_test.go`                    | 2,567 | Split into: dependencies, rendering, flags/args, source filtering               |
 | `internal/discovery/discovery_test.go`      | 1,842 | Split into: basic discovery, modules, collisions/precedence                     |
 | `pkg/invowkmod/operations_test.go`            | 1,683 | Consider split if scope grows                                                   |
-| `internal/runtime/runtime_test.go`          | 1,605 | Split into: native, virtual, container, common                                  |
+| `internal/runtime/runtime_test.go`          | 1,605 | Split into: native, virtual-sh, container, common                                  |
 | `internal/runtime/container_integration_test.go` | 847 | At threshold; monitor but acceptable                                            |
 
 ### Duplicated Helpers to Consolidate

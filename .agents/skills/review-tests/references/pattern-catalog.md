@@ -120,7 +120,7 @@ Additional container patterns:
 ### CUE Correctness
 
 - All `invowkfile.cue` implementations must declare `platforms:` with all applicable platforms.
-- Virtual runtime: `[{name: "linux"}, {name: "macos"}, {name: "windows"}]`.
+- Virtual-sh runtime: `[{name: "linux"}, {name: "macos"}, {name: "windows"}]`.
 - Native runtime: platform-split with separate Linux/macOS and Windows implementations.
 - Container runtime: `platforms: [{name: "linux"}]` only.
 - `runtimes` and `platforms` are struct lists, not string arrays.

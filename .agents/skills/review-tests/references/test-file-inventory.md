@@ -83,7 +83,7 @@ CLI adapter tests. Key files:
 
 ### By Category
 
-#### Virtual Runtime Tests (52 files)
+#### Virtual-Sh Runtime Tests (52 files)
 
 | File | Lines | Mirror Status |
 |---|---|---|

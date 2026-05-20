@@ -2,9 +2,10 @@
 
 // Package runtime provides command execution runtimes for Invowk.
 //
-// Three runtime implementations are available:
+// Four runtime implementations are available:
 //   - native: executes commands using the host shell (bash/sh/PowerShell)
-//   - virtual: executes commands using an embedded shell interpreter (mvdan/sh)
+//   - virtual-sh: executes commands using an embedded shell interpreter (mvdan/sh)
+//   - virtual-lua: executes commands using an embedded Lua runtime
 //   - container: executes commands inside a container (Docker/Podman)
 //
 // All runtimes implement the Runtime interface with Name(), Execute(), Available(), and Validate().

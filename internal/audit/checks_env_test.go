@@ -198,7 +198,7 @@ func TestEnvChecker_DefaultEnvInheritModeVirtual(t *testing.T) {
 			Implementations: []invowkfile.Implementation{{
 				Script: invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes: []invowkfile.RuntimeConfig{{
-					Name: invowkfile.RuntimeVirtual,
+					Name: invowkfile.RuntimeVirtualSh,
 				}},
 			}},
 		}},
@@ -236,7 +236,7 @@ func TestEnvChecker_InheritAll(t *testing.T) {
 			Implementations: []invowkfile.Implementation{{
 				Script: invowkfile.ImplementationScript{Content: "echo hello"},
 				Runtimes: []invowkfile.RuntimeConfig{{
-					Name:           invowkfile.RuntimeVirtual,
+					Name:           invowkfile.RuntimeVirtualSh,
 					EnvInheritMode: invowkfile.EnvInheritAll,
 				}},
 			}},

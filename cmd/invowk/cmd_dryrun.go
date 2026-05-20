@@ -128,7 +128,7 @@ func renderDryRunInterpreter(w io.Writer, plan commandsvc.DryRunPlan) {
 //goplint:ignore -- CLI rendering helper returns human-readable display text.
 func dryRunInterpreterDescription(runtime invowkfile.RuntimeMode, analysis invowkfile.ScriptInterpreterAnalysis) string {
 	effective := analysis.Effective()
-	if runtime == invowkfile.RuntimeVirtual && (!effective.Found || invowkfile.IsShellInterpreter(effective.Interpreter)) {
+	if runtime == invowkfile.RuntimeVirtualSh && (!effective.Found || invowkfile.IsShellInterpreter(effective.Interpreter)) {
 		return dryRunVirtualInterpreterDescription(analysis)
 	}
 	switch analysis.Provenance() {

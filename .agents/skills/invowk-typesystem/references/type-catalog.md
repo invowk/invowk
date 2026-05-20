@@ -172,8 +172,8 @@ This catalog is generated from repository source and documents current type-syst
 | `TUIContext` | `composite-validator` | `internal/runtime/runtime.go:379` |
 | `ScriptResolver` | `composite-validator` | `internal/runtime/script_resolver.go:36` |
 | `TUIServerToken` | `primitive-wrapper` | `internal/runtime/tui_types.go:54` |
-| `VirtualInteractiveCommandSpec` | `composite-validator` | `internal/runtime/virtual.go:120` |
-| `VirtualInteractiveEnvJSON` | `primitive-wrapper` | `internal/runtime/virtual.go:112` |
+| `ShInteractiveCommandSpec` | `composite-validator` | `internal/runtime/sh.go` |
+| `ShInteractiveEnvJSON` | `primitive-wrapper` | `internal/runtime/sh.go` |
 | `Config` | `composite-validator` | `internal/sshserver/server.go:119` |
 | `CommandID` | `primitive-wrapper` | `internal/sshserver/types.go:124` |
 | `ConnectionInfo` | `composite-validator` | `internal/sshserver/types.go:193` |
@@ -443,7 +443,7 @@ This catalog is generated from repository source and documents current type-syst
 | `ValidatorName` | `string` | `pkg/invowkfile/validation_types.go:49` |
 | `VendorResolutionStrategy` | `string` | `internal/app/moduleops/vendor_dependencies.go:28` |
 | `VendoredHashStatus` | `string` | `pkg/invowkmod/verify.go:43` |
-| `VirtualInteractiveEnvJSON` | `string` | `internal/runtime/virtual.go:43` |
+| `ShInteractiveEnvJSON` | `string` | `internal/runtime/sh.go` |
 | `VolumeMountSpec` | `string` | `internal/container/engine_base_types.go:84` |
 | `VolumeMountSpec` | `string` | `pkg/invowkfile/volume_mount.go:16` |
 | `WarningMessage` | `string` | `internal/provision/provisioner.go:15` |

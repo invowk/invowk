@@ -8,8 +8,9 @@ env XDG_CONFIG_HOME=$WORK/.config
 exec invowk config dump
 stdout 'container_engine: "podman"'
 stdout 'default_runtime: "native"'
-stdout 'virtual_shell:'
-stdout 'enable_uroot_utils: true'
+stdout 'virtual:'
+stdout 'utilities:'
+stdout 'enabled: true'
 stdout 'ui:'
 stdout 'color_scheme: "auto"'
 stdout 'verbose: false'
@@ -19,12 +20,12 @@ stdout 'interactive: false'
 # Test 2: After init + set, dump reflects the modified values
 exec invowk config init
 exec invowk config set container_engine docker
-exec invowk config set default_runtime virtual
+exec invowk config set default_runtime virtual-sh
 
 exec invowk config dump
 stdout 'container_engine: "docker"'
-stdout 'default_runtime: "virtual"'
-stdout 'enable_uroot_utils: true'
+stdout 'default_runtime: "virtual-sh"'
+stdout 'enabled: true'
 ! stderr .
 
 # Test 3: Dump includes the CUE file header comment

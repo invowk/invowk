@@ -35,9 +35,9 @@ SC-01 Script path traversal:
   → Lines found: report line numbers
   → No output: report "NOT FOUND"
 
-SC-02 Virtual shell host PATH fallback:
-  Run: grep -n "interp.ExecHandlers\|execHandler" internal/runtime/virtual.go
-  → Lines found: report line numbers (ExecHandlers registers middleware, execHandler method falls through to next() for host PATH)
+SC-02 Virtual host-binary policy:
+  Run: grep -n "virtualHostBinaryPolicy\|allowed_binaries\|allowsAllHostBinaries" internal/runtime/virtual_policy.go internal/runtime/sh.go internal/runtime/lua.go
+  → Lines found: report line numbers (host-binary execution is policy-gated)
   → No output: report "NOT FOUND"
 
 SC-03 InvowkDir R/W volume mount:

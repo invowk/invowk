@@ -1,5 +1,5 @@
 # Test: Basic command execution (01-simple.tape equivalent)
-# Tests the simplest commands using virtual runtime
+# Tests the simplest commands using virtual-sh runtime
 
 cd $WORK
 
@@ -30,7 +30,7 @@ cmds: [
 		description: "Print a simple greeting"
 		implementations: [{
 			script: {content: "echo 'Hello from invowk!'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -44,7 +44,7 @@ cmds: [
 				echo "LOG_LEVEL: $LOG_LEVEL (from command-level, overrides root)"
 				echo "RUNTIME: $RUNTIME (from implementation-level, overrides command)"
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			env: {
 				vars: {

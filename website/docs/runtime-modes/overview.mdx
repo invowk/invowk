@@ -6,14 +6,15 @@ import Snippet from '@site/src/components/Snippet';
 
 # Runtime Modes Overview
 
-Invowk™ gives you three different ways to execute commands, each with its own strengths. Choose the right runtime for your use case.
+Invowk™ gives you four different ways to execute commands, each with its own strengths. Choose the right runtime for your use case.
 
-## The Three Runtimes
+## The Four Runtimes
 
 | Runtime | Description | Best For |
 |---------|-------------|----------|
 | **native** | System's default shell | Daily development, performance |
-| **virtual** | Built-in POSIX shell | Cross-platform scripts, portability |
+| **virtual-sh** | Built-in POSIX shell | Cross-platform shell scripts, portability |
+| **virtual-lua** | Built-in Lua interpreter | Cross-platform Lua automation |
 | **container** | Docker/Podman container | Reproducibility, isolation |
 
 ## Quick Comparison
@@ -32,16 +33,16 @@ Use **native** when you want:
 
 <Snippet id="runtime-modes/native-basic" />
 
-### Virtual Runtime
+### Virtual-Sh Runtime
 
-Use **virtual** when you want:
+Use **virtual-sh** when you want:
 - Consistent behavior across platforms
 - POSIX-compatible scripts that work everywhere
-- No external shell dependency (the interpreter is built-in, but scripts can still call host binaries via PATH)
+- No external shell dependency (the interpreter is built in, and scripts can call explicitly allowed host binaries)
 - Simpler debugging of shell scripts
 
 :::caution
-The virtual runtime is **not a sandbox**. Commands not provided by the built-in utilities are resolved from the host's PATH and run as native processes. For execution isolation, use the **container** runtime.
+The virtual-sh runtime is **not a sandbox**. Host binaries are denied unless explicitly listed with `allowed_binaries`. For execution isolation, use the **container** runtime.
 :::
 
 <Snippet id="runtime-modes/virtual-basic" />
@@ -115,12 +116,14 @@ Dependencies are validated according to the runtime:
 | Runtime | Dependencies Validated Against |
 |---------|-------------------------------|
 | native | Host system's shell and tools |
-| virtual | Built-in shell with core utilities |
+| virtual-sh | Built-in shell with core utilities |
+| virtual-lua | Embedded Lua runtime and explicitly allowed helpers |
 | container | Container's shell and environment |
 
 This means a `tools` dependency like `go` is checked:
 - **native**: Is `go` in the host's PATH?
-- **virtual**: Is `go` available in the virtual shell environment (built-ins and system PATH)?
+- **virtual-sh**: Is `go` available as a built-in utility or explicitly allowed host binary?
+- **virtual-lua**: Is `go` available through an explicitly allowed host binary used by the Lua bridge?
 - **container**: Is `go` installed in the container image?
 
 ## Next Steps
@@ -128,5 +131,5 @@ This means a `tools` dependency like `go` is checked:
 Dive deeper into each runtime:
 
 - [Native Runtime](./native) - System shell execution
-- [Virtual Runtime](./virtual) - Built-in POSIX shell
+- [Virtual-Sh Runtime](./virtual) - Built-in POSIX shell runtime
 - [Container Runtime](./container) - Docker/Podman execution

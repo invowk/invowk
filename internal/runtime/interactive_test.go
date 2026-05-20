@@ -31,16 +31,16 @@ func TestInteractiveRuntimeInterface(t *testing.T) {
 		}
 	})
 
-	t.Run("VirtualRuntime implements InteractiveRuntime", func(t *testing.T) {
+	t.Run("ShRuntime implements InteractiveRuntime", func(t *testing.T) {
 		t.Parallel()
 
-		var rt Runtime = NewVirtualRuntime(false)
+		var rt Runtime = NewShRuntime(false)
 		ir, ok := rt.(InteractiveRuntime)
 		if !ok {
-			t.Error("VirtualRuntime does not implement InteractiveRuntime")
+			t.Error("ShRuntime does not implement InteractiveRuntime")
 		}
 		if !ir.SupportsInteractive() {
-			t.Error("VirtualRuntime.SupportsInteractive() returned false, expected true")
+			t.Error("ShRuntime.SupportsInteractive() returned false, expected true")
 		}
 	})
 
@@ -77,13 +77,13 @@ func TestGetInteractiveRuntime(t *testing.T) {
 		}
 	})
 
-	t.Run("returns InteractiveRuntime for VirtualRuntime", func(t *testing.T) {
+	t.Run("returns InteractiveRuntime for ShRuntime", func(t *testing.T) {
 		t.Parallel()
 
-		rt := NewVirtualRuntime(false)
+		rt := NewShRuntime(false)
 		ir := GetInteractiveRuntime(rt)
 		if ir == nil {
-			t.Error("GetInteractiveRuntime returned nil for VirtualRuntime")
+			t.Error("GetInteractiveRuntime returned nil for ShRuntime")
 		}
 	})
 }
@@ -137,8 +137,8 @@ cmds: [{
 	}
 }
 
-// TestVirtualRuntimePrepareInteractive tests the VirtualRuntime.PrepareInteractive method.
-func TestVirtualRuntimePrepareInteractive(t *testing.T) {
+// TestShRuntimePrepareInteractive tests the ShRuntime.PrepareInteractive method.
+func TestShRuntimePrepareInteractive(t *testing.T) {
 	t.Parallel()
 
 	// Create a temporary invowkfile (module metadata now in invowkmod.cue, not invowkfile.cue)
@@ -150,7 +150,7 @@ cmds: [{
 	name: "hello"
 	implementations: [{
 		script: {content: "echo hello"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]
@@ -168,17 +168,17 @@ cmds: [{
 	// Create execution context
 	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
 
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	var gotSpec VirtualInteractiveCommandSpec
-	factory := func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+	var gotSpec ShInteractiveCommandSpec
+	factory := func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error) {
 		gotSpec = spec
 		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
 	}
 
 	// Create virtual runtime and prepare for interactive execution
-	rt := NewVirtualRuntime(false, WithInteractiveCommandFactory(factory))
+	rt := NewShRuntime(false, WithInteractiveCommandFactory(factory))
 	prepared, err := rt.PrepareInteractive(ctx)
 	if err != nil {
 		t.Fatalf("PrepareInteractive failed: %v", err)
@@ -218,7 +218,7 @@ cmds: [{
 	}
 }
 
-func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
+func TestShRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 	t.Parallel()
 
 	inv := &invowkfile.Invowkfile{
@@ -226,22 +226,22 @@ func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 			Name: "list",
 			Implementations: []invowkfile.Implementation{{
 				Script:    invowkfile.ImplementationScript{Content: "ls"},
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			}},
 		}},
 	}
 	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	var gotSpec VirtualInteractiveCommandSpec
-	factory := func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+	var gotSpec ShInteractiveCommandSpec
+	factory := func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error) {
 		gotSpec = spec
 		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
 	}
 
-	rt := NewVirtualRuntime(true, WithInteractiveCommandFactory(factory))
+	rt := NewShRuntime(true, WithInteractiveCommandFactory(factory))
 	prepared, err := rt.PrepareInteractive(ctx)
 	if err != nil {
 		t.Fatalf("PrepareInteractive() error = %v", err)

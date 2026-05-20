@@ -336,7 +336,7 @@ version: "1.0.0"
 	name: "run"
 	implementations: [{
 		script: {file: "scripts/run.sh"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]

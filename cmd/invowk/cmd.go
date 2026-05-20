@@ -23,7 +23,7 @@ type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
 	cmdFlagValues struct {
-		// runtimeOverride is the --ivk-runtime flag value (e.g., "container", "virtual").
+		// runtimeOverride is the --ivk-runtime flag value (e.g., "container", "virtual-sh").
 		runtimeOverride string
 		// fromSource is the --ivk-from flag value for source disambiguation.
 		fromSource string

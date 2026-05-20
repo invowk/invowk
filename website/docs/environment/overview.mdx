@@ -81,7 +81,7 @@ Override at runtime:
 
 ## Host Environment Inheritance
 
-By default, native and virtual runtimes inherit the host environment, while container runtime starts with no host variables. You can control this per runtime or per invocation.
+By default, native, virtual-sh, and virtual-lua runtimes inherit the host environment, while container runtime starts with no host variables. You can control this per runtime or per invocation.
 
 <Snippet id="reference/invowkfile/env-inherit-example" />
 
@@ -99,7 +99,7 @@ Additionally, invowk injects metadata variables during command execution:
 | Variable | Description | Always Set |
 |----------|-------------|------------|
 | `INVOWK_CMD_NAME` | Current command name | Yes |
-| `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual`, `container`) | Yes |
+| `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual-sh`, `virtual-lua`, `container`) | Yes |
 | `INVOWK_SOURCE` | Source origin (`invowkfile` for root commands, module name for module commands) | Yes |
 | `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | Yes |
 

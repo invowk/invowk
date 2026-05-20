@@ -1,5 +1,5 @@
 # Test: U-root realpath utility
-# Tests absolute path resolution and symlink resolution in virtual runtime
+# Tests absolute path resolution and symlink resolution in virtual-sh runtime
 
 cd $WORK
 
@@ -34,7 +34,7 @@ cmds: [
 				rm -rf $WORK/realpath-test
 				echo '=== uroot realpath test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

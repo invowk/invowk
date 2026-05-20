@@ -199,7 +199,7 @@ func customCheckAnalysisRuntime(script invowkfile.CustomCheckScript, scriptText 
 	if interpInfo.Found && !invowkfile.IsShellInterpreter(interpInfo.Interpreter) {
 		return invowkfile.RuntimeNative
 	}
-	return invowkfile.RuntimeVirtual
+	return invowkfile.RuntimeVirtualSh
 }
 
 func emitCustomCheckInterpreterDiagnostics(stderr io.Writer, diagnostics []invowkfile.ScriptInterpreterDiagnostic) {

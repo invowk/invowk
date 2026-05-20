@@ -118,7 +118,7 @@ type CommandOption func(*invowkfile.Command)
 | Option | Effect |
 |--------|--------|
 | `WithScript(s string)` | Sets the implementation script |
-| `WithRuntime(r RuntimeType)` | Sets the runtime (native, virtual, container) |
+| `WithRuntime(r RuntimeType)` | Sets the runtime (native, virtual-sh, container) |
 | `WithRuntimes(rs ...RuntimeType)` | Sets multiple runtimes |
 | `WithPlatform(p string)` | Adds a platform constraint |
 | `WithEnv(key, value string)` | Adds an environment variable |

@@ -21,14 +21,14 @@ Use this skill when working on:
 
 - **Project name**: "u-root" (lowercase with hyphen) — use in prose, documentation, and comments
 - **Go identifiers**: "uroot" (lowercase, no hyphen) — use for package names, types, and variables
-- **Config option**: `enable_uroot_utils` — existing schema, follows Go/CUE convention
+- **Config option**: `virtual.utilities.enabled` — shared virtual runtime utility toggle
 
 **Examples:**
 - Prose: "The u-root integration provides built-in utilities..."
 - Package: `internal/uroot/`
 - Type: `UrootCommand`, `UrootHandler`
 - Function: `tryUrootBuiltin()`
-- Config: `virtual_shell.enable_uroot_utils: true`
+- Config: `virtual.utilities.enabled: true`
 
 **Rationale:** Consistent terminology reduces confusion. The hyphenated form matches the upstream project name (`github.com/u-root/u-root`), while the unhyphenated form follows Go naming conventions (hyphens are not allowed in identifiers).
 
@@ -193,7 +193,7 @@ New upstream wrappers that embed `baseWrapper` automatically inherit `NativePrep
 - `internal/uroot/command.go` — `NativePreprocessor` marker interface
 - `internal/uroot/wrapper.go` — `baseWrapper.nativePreprocessor()` implementation
 - `internal/uroot/registry.go` — `Run()` preprocessing logic
-- `internal/runtime/virtual.go` — `tryUrootBuiltin()` routes through `Registry.Run()`
+- `internal/runtime/sh.go` and `internal/runtime/virtual_policy.go` — virtual utility resolution routes through `Registry.Run()`
 
 ---
 

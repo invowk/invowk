@@ -11,7 +11,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 )
 
-func virtualInteractiveCommand(ctx context.Context, spec runtime.VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommandSpec) (*exec.Cmd, error) {
 	if err := spec.Validate(); err != nil {
 		return nil, err
 	}
@@ -21,7 +21,7 @@ func virtualInteractiveCommand(ctx context.Context, spec runtime.VirtualInteract
 	}
 
 	args := []string{
-		"internal", "exec-virtual",
+		"internal", "exec-virtual-sh",
 		"--script-file", string(*spec.ScriptFile),
 		"--workdir", string(*spec.WorkDir),
 		"--env-json", string(spec.EnvJSON),

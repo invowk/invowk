@@ -144,7 +144,7 @@ func TestPlatformRuntimeKey_String(t *testing.T) {
 		want string
 	}{
 		{"linux_native", PlatformRuntimeKey{Platform: PlatformLinux, Runtime: RuntimeNative}, "linux/native"},
-		{"macos_virtual", PlatformRuntimeKey{Platform: PlatformMac, Runtime: RuntimeVirtual}, "macos/virtual"},
+		{"macos_virtual_sh", PlatformRuntimeKey{Platform: PlatformMac, Runtime: RuntimeVirtualSh}, "macos/virtual-sh"},
 		{"windows_container", PlatformRuntimeKey{Platform: PlatformWindows, Runtime: RuntimeContainer}, "windows/container"},
 		{"empty_both", PlatformRuntimeKey{}, "/"},
 	}

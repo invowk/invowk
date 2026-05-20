@@ -20,23 +20,23 @@ import (
 const (
 	configFieldFmt  = "%s: %s\n"
 	configFileLabel = "Config file"
-	validConfigKeys = "container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env"
+	validConfigKeys = "container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual.utilities.enabled, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env"
 )
 
 var configSetters = map[string]configSetter{
-	"container_engine":                 setContainerEngineConfig,
-	"default_runtime":                  setDefaultRuntimeConfig,
-	"ui.verbose":                       setUIVerboseConfig,
-	"ui.interactive":                   setUIInteractiveConfig,
-	"ui.color_scheme":                  setUIColorSchemeConfig,
-	"virtual_shell.enable_uroot_utils": setVirtualShellUrootConfig,
-	"llm.provider":                     setLLMProviderConfig,
-	"llm.model":                        setLLMModelConfig,
-	"llm.timeout":                      setLLMTimeoutConfig,
-	"llm.concurrency":                  setLLMConcurrencyConfig,
-	"llm.api.base_url":                 setLLMAPIBaseURLConfig,
-	"llm.api.model":                    setLLMAPIModelConfig,
-	"llm.api.api_key_env":              setLLMAPIKeyEnvConfig,
+	"container_engine":          setContainerEngineConfig,
+	"default_runtime":           setDefaultRuntimeConfig,
+	"ui.verbose":                setUIVerboseConfig,
+	"ui.interactive":            setUIInteractiveConfig,
+	"ui.color_scheme":           setUIColorSchemeConfig,
+	"virtual.utilities.enabled": setVirtualUtilitiesEnabledConfig,
+	"llm.provider":              setLLMProviderConfig,
+	"llm.model":                 setLLMModelConfig,
+	"llm.timeout":               setLLMTimeoutConfig,
+	"llm.concurrency":           setLLMConcurrencyConfig,
+	"llm.api.base_url":          setLLMAPIBaseURLConfig,
+	"llm.api.model":             setLLMAPIModelConfig,
+	"llm.api.api_key_env":       setLLMAPIKeyEnvConfig,
 }
 
 type (
@@ -139,8 +139,9 @@ func showConfig(ctx context.Context, app *App) error {
 	printIncludes(cfg.Includes, valueStyle)
 
 	fmt.Println()
-	fmt.Printf("%s:\n", keyStyle.Render("virtual_shell"))
-	fmt.Printf("  enable_uroot_utils: %s\n", valueStyle.Render(strconv.FormatBool(cfg.VirtualShell.EnableUrootUtils)))
+	fmt.Printf("%s:\n", keyStyle.Render("virtual"))
+	fmt.Println("  utilities:")
+	fmt.Printf("    enabled: %s\n", valueStyle.Render(strconv.FormatBool(cfg.Virtual.Utilities.Enabled)))
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("ui"))
@@ -329,8 +330,8 @@ func setUIColorSchemeConfig(cfg *config.Config, value configValue) error {
 	return nil
 }
 
-func setVirtualShellUrootConfig(cfg *config.Config, value configValue) error {
-	cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"
+func setVirtualUtilitiesEnabledConfig(cfg *config.Config, value configValue) error {
+	cfg.Virtual.Utilities.Enabled = value == "true" || value == "1"
 	return nil
 }
 

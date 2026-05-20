@@ -338,10 +338,10 @@ func TestScript_GetHostSSHForRuntime(t *testing.T) {
 			script: Implementation{
 				Script: ImplementationScript{Content: "echo test"},
 
-				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
 			},
-			runtime:  RuntimeVirtual,
+			runtime:  RuntimeVirtualSh,
 			expected: false,
 		},
 		{

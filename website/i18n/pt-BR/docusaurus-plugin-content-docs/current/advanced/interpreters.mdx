@@ -76,13 +76,13 @@ O Invowk valida nomes de interpretadores contra uma lista de permissão por segu
 
 Interpretadores que não estão nesta lista são rejeitados com um `UnsafeInterpreterSpecError`. Metacaracteres de shell (`;|&` etc.) nas especificações de interpretador também são rejeitados. Ao usar `/usr/bin/env`, o interpretador real (segundo argumento) é validado contra a mesma lista de permissão.
 
-## Limitação do Runtime Virtual
+## Limitação do Runtime Virtual-Sh
 
-Valores não-shell em `script.interpreter` **não são suportados** com o runtime virtual:
+Valores não-shell em `script.interpreter` **não são suportados** com o runtime virtual-sh:
 
 <Snippet id="advanced/interpreter-virtual-error" />
 
-O runtime virtual usa o interpretador mvdan/sh embutido e não pode executar Python, Ruby ou outros interpretadores. Use runtime native ou container em vez disso. Configurações de runtime não aceitam `interpreter`; uma forma como `runtimes: [{name: "native", interpreter: "python3"}]` é inválida.
+O runtime virtual-sh usa o interpretador mvdan/sh embutido e não pode executar Python, Ruby ou outros interpretadores. Use runtime native, virtual-lua ou container em vez disso. Configurações de runtime não aceitam `interpreter`; uma forma como `runtimes: [{name: "native", interpreter: "python3"}]` é inválida.
 
 ## Comportamento de Fallback
 

@@ -818,7 +818,7 @@ func TestParseInterpreter_RuntimeFieldRejected(t *testing.T) {
 		runtime string
 	}{
 		{"native", `{name: "native", interpreter: "python3"}`},
-		{"virtual", `{name: "virtual", interpreter: "python3"}`},
+		{"virtual", `{name: "virtual-sh", interpreter: "python3"}`},
 		{"container", `{name: "container", image: "debian:stable-slim", interpreter: "python3"}`},
 	}
 

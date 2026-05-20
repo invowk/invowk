@@ -17,18 +17,15 @@ import (
 
 const flagScriptFile = "script-file"
 
-// newInternalExecVirtualCommand creates the `invowk internal exec-virtual` command.
-// This is an internal command used for interactive mode, where the parent
-// process needs to attach the execution to a PTY.
-//
-// The virtual runtime (mvdan/sh) runs entirely in-process, so we need
-// a subprocess wrapper to enable PTY attachment.
-func newInternalExecVirtualCommand() *cobra.Command {
+// newInternalExecShCommand creates the `invowk internal exec-virtual-sh` command.
+// This is an internal command used for virtual-sh interactive mode, where the
+// parent process needs to attach execution to a PTY.
+func newInternalExecShCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:    "exec-virtual",
-		Short:  "Execute a script using virtual runtime (internal use only)",
+		Use:    "exec-virtual-sh",
+		Short:  "Execute a script using virtual-sh runtime (internal use only)",
 		Hidden: true,
-		RunE:   runInternalExecVirtual,
+		RunE:   runInternalExecSh,
 	}
 
 	cmd.Flags().String(flagScriptFile, "", "path to script file to execute")
@@ -43,11 +40,11 @@ func newInternalExecVirtualCommand() *cobra.Command {
 	return cmd
 }
 
-// runInternalExecVirtual executes the virtual shell script.
+// runInternalExecSh executes the virtual-sh script.
 // It reads the script from the specified file and executes it using mvdan/sh
 // with stdin/stdout/stderr connected to the process's stdio (which will be
 // attached to a PTY by the parent process).
-func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
+func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 	scriptFile, _ := cmd.Flags().GetString(flagScriptFile)
 	workdir, _ := cmd.Flags().GetString("workdir")
 	envVars, _ := cmd.Flags().GetStringArray("env")
@@ -65,7 +62,7 @@ func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Build environment
-	env, err := buildVirtualEnv(envVars, envJSON)
+	env, err := buildShEnv(envVars, envJSON)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing environment JSON: %v\n", err)
 		cmd.SilenceErrors = true
@@ -74,7 +71,7 @@ func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Execute the script
-	err = ivkruntime.RunVirtualScript(cmd.Context(), ivkruntime.VirtualScriptOptions{
+	err = ivkruntime.RunShScript(cmd.Context(), ivkruntime.ShScriptOptions{
 		Script:      string(scriptContent),
 		ScriptName:  scriptFile,
 		WorkDir:     workdir,
@@ -100,9 +97,9 @@ func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// buildVirtualEnv builds the environment variable slice from flags and JSON.
+// buildShEnv builds the environment variable slice from flags and JSON.
 // It inherits the current process environment and overlays the provided values.
-func buildVirtualEnv(envVars []string, envJSON string) ([]string, error) {
+func buildShEnv(envVars []string, envJSON string) ([]string, error) {
 	// Start with current environment
 	env := os.Environ()
 

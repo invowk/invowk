@@ -52,7 +52,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 	plan := commandsvc.DryRunPlan{
 		CommandName: "deploy",
 		SourceID:    "my-module.invowkmod",
-		Runtime:     invowkfile.RuntimeVirtual,
+		Runtime:     invowkfile.RuntimeVirtualSh,
 		Platform:    invowkfile.PlatformLinux,
 		WorkDir:     "/app",
 		Timeout:     "30s",
@@ -73,7 +73,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 		"Dry Run",
 		"Command:", "deploy",
 		"Source:", "my-module.invowkmod",
-		"Runtime:", "virtual",
+		"Runtime:", "virtual-sh",
 		"WorkDir:", "/app",
 		"Timeout:", "30s",
 		"Script:",
@@ -155,7 +155,7 @@ func TestRenderDryRunInterpreterProvenance(t *testing.T) {
 		},
 		{
 			name:    "virtual shell",
-			runtime: invowkfile.RuntimeVirtual,
+			runtime: invowkfile.RuntimeVirtualSh,
 			script: invowkfile.ImplementationScript{
 				Content:     "echo ok",
 				Interpreter: "bash",

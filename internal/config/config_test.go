@@ -29,8 +29,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("expected default includes to be empty, got %v", cfg.Includes)
 	}
 
-	if !cfg.VirtualShell.EnableUrootUtils {
-		t.Error("expected EnableUrootUtils to be true by default")
+	if !cfg.Virtual.Utilities.Enabled {
+		t.Error("expected virtual utilities to be enabled by default")
 	}
 
 	if cfg.UI.ColorScheme != "auto" {
@@ -377,9 +377,7 @@ func TestLoadAndSave(t *testing.T) {
 			{Path: ModuleIncludePath(includePathThree)},
 		},
 		DefaultRuntime: "container",
-		VirtualShell: VirtualShellConfig{
-			EnableUrootUtils: false,
-		},
+		Virtual:        VirtualConfig{Utilities: VirtualUtilitiesConfig{Enabled: false}},
 		UI: UIConfig{
 			ColorScheme: "dark",
 			Verbose:     true,
@@ -423,8 +421,8 @@ func TestLoadAndSave(t *testing.T) {
 		t.Errorf("Includes length = %d, want 2", len(loaded.Includes))
 	}
 
-	if loaded.VirtualShell.EnableUrootUtils != false {
-		t.Error("EnableUrootUtils = true, want false")
+	if loaded.Virtual.Utilities.Enabled != false {
+		t.Error("Virtual.Utilities.Enabled = true, want false")
 	}
 
 	if loaded.UI.ColorScheme != "dark" {
@@ -762,7 +760,7 @@ func TestLoad_CustomPath_Valid(t *testing.T) {
 
 	// Write valid CUE content
 	validConfig := `container_engine: "docker"
-default_runtime: "virtual"
+default_runtime: "virtual-sh"
 `
 	if err := os.WriteFile(customConfigPath, []byte(validConfig), 0o644); err != nil {
 		t.Fatalf("failed to write custom config: %v", err)
@@ -781,8 +779,8 @@ default_runtime: "virtual"
 	if cfg.ContainerEngine != ContainerEngineDocker {
 		t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
 	}
-	if cfg.DefaultRuntime != "virtual" {
-		t.Errorf("DefaultRuntime = %s, want virtual", cfg.DefaultRuntime)
+	if cfg.DefaultRuntime != RuntimeVirtualSh {
+		t.Errorf("DefaultRuntime = %s, want virtual-sh", cfg.DefaultRuntime)
 	}
 
 	// Verify resolvedPath matches
@@ -828,7 +826,7 @@ func TestNewProvider_Load(t *testing.T) {
 	}
 
 	validConfig := `container_engine: "docker"
-default_runtime: "virtual"
+default_runtime: "virtual-sh"
 `
 	cfgPath := filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)
 	if err := os.WriteFile(cfgPath, []byte(validConfig), 0o644); err != nil {
@@ -850,8 +848,8 @@ default_runtime: "virtual"
 		if cfg.ContainerEngine != ContainerEngineDocker {
 			t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
 		}
-		if cfg.DefaultRuntime != "virtual" {
-			t.Errorf("DefaultRuntime = %s, want virtual", cfg.DefaultRuntime)
+		if cfg.DefaultRuntime != RuntimeVirtualSh {
+			t.Errorf("DefaultRuntime = %s, want virtual-sh", cfg.DefaultRuntime)
 		}
 	})
 

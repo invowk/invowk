@@ -16,7 +16,7 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-func TestVirtualRuntime_InlineScript(t *testing.T) {
+func TestShRuntime_InlineScript(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -27,9 +27,9 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
-	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -47,7 +47,7 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_MultiLineScript(t *testing.T) {
+func TestShRuntime_MultiLineScript(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -62,9 +62,9 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 echo "Variable is: $VAR"
 echo "Done"`
 
-	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("multiline", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -82,7 +82,7 @@ echo "Done"`
 	}
 }
 
-func TestVirtualRuntime_ScriptFile(t *testing.T) {
+func TestShRuntime_ScriptFile(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -102,9 +102,9 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 		ModulePath: invowkfile.FilesystemPath(tmpDir),
 	}
 
-	cmd := testCommandWithScriptFile("from-file", "./test.sh", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScriptFile("from-file", "./test.sh", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -122,7 +122,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
+func TestShRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -134,9 +134,9 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	}
 
 	// Invalid shell syntax
-	cmd := testCommandWithScript("invalid", "if then fi", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("invalid", "if then fi", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	err := rt.Validate(ctx)
@@ -145,7 +145,7 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_PositionalArgs(t *testing.T) {
+func TestShRuntime_PositionalArgs(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -158,9 +158,9 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	// Script that echoes positional parameters
 	script := `echo "arg1=$1 arg2=$2 all=$@"`
 
-	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("positional", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	ctx.PositionalArgs = []string{"foo", "bar"}
@@ -186,7 +186,7 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
+func TestShRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -199,9 +199,9 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	// Script that echoes the number of positional parameters
 	script := `echo "count=$#"`
 
-	cmd := testCommandWithScript("arg-count", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("arg-count", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	ctx.PositionalArgs = []string{"a", "b", "c", "d", "e"}
@@ -221,7 +221,7 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
+func TestShRuntime_PositionalArgs_Empty(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -234,9 +234,9 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	// Script that echoes the number of positional parameters
 	script := `echo "argc=$#"`
 
-	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("no-args", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	// No positional args set
@@ -256,7 +256,7 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_EnvIsolation(t *testing.T) {
+func TestShRuntime_EnvIsolation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -280,9 +280,9 @@ echo "INVOWK_FLAG_PARENT=${INVOWK_FLAG_PARENT:-unset}"
 echo "ARGC=${ARGC:-unset}"
 echo "ARG1=${ARG1:-unset}"`
 
-	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-isolation", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
@@ -310,7 +310,7 @@ echo "ARG1=${ARG1:-unset}"`
 	}
 }
 
-func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
+func TestShRuntime_RejectsInterpreter(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -323,9 +323,9 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	// Try to use interpreter with virtual runtime (should be rejected)
 	script := `echo "Hello"`
 
-	cmd := testCommandWithInterpreter("virtual-with-interp", script, "python3", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithInterpreter("virtual-with-interp", script, "python3", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	// Test Validate method
@@ -351,7 +351,7 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_AcceptsShellCompatibleScriptInterpreter(t *testing.T) {
+func TestShRuntime_AcceptsShellCompatibleScriptInterpreter(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -384,12 +384,12 @@ func TestVirtualRuntime_AcceptsShellCompatibleScriptInterpreter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmd := testCommandWithScript("virtual-shell-interpreter", tt.script, invowkfile.RuntimeVirtual)
+			cmd := testCommandWithScript("virtual-shell-interpreter", tt.script, invowkfile.RuntimeVirtualSh)
 			if tt.interpreter != "" {
 				cmd.Implementations[0].Script.Interpreter = invowkfile.InterpreterSpec(tt.interpreter)
 			}
 
-			rt := NewVirtualRuntime(false)
+			rt := NewShRuntime(false)
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
 			result := rt.ExecuteCapture(ctx)
 			if result.ExitCode != 0 || result.Error != nil {
@@ -402,16 +402,16 @@ func TestVirtualRuntime_AcceptsShellCompatibleScriptInterpreter(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_RejectsNonShellShebang(t *testing.T) {
+func TestShRuntime_RejectsNonShellShebang(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
-	cmd := testCommandWithScript("virtual-python-shebang", "#!/usr/bin/env python3\nprint('no')", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("virtual-python-shebang", "#!/usr/bin/env python3\nprint('no')", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	err := rt.Validate(ctx)
 	if err == nil {
@@ -422,16 +422,16 @@ func TestVirtualRuntime_RejectsNonShellShebang(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_ExecuteCaptureRejectsInterpreter(t *testing.T) {
+func TestShRuntime_ExecuteCaptureRejectsInterpreter(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
-	cmd := testCommandWithInterpreter("virtual-capture-with-interp", `echo "Hello"`, "python3", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithInterpreter("virtual-capture-with-interp", `echo "Hello"`, "python3", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(ctx)
@@ -446,7 +446,7 @@ func TestVirtualRuntime_ExecuteCaptureRejectsInterpreter(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_ContextCancellation(t *testing.T) {
+func TestShRuntime_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -459,9 +459,9 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	// Script that runs forever
 	script := `while true; do sleep 1; done`
 
-	cmd := testCommandWithScript("long-running", script, invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("long-running", script, invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 
 	// Create a context that we can cancel
 	ctx, cancel := context.WithCancel(t.Context())
@@ -485,7 +485,7 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestVirtualRuntime_ExitCode(t *testing.T) {
+func TestShRuntime_ExitCode(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -511,8 +511,8 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeVirtual)
-			rt := NewVirtualRuntime(false)
+			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeVirtualSh)
+			rt := NewShRuntime(false)
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 			ctx.IO.Stdout = &bytes.Buffer{}
@@ -530,38 +530,38 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 // Unit Tests (Phase 5 additions)
 // ============================================================================
 
-// TestVirtualRuntime_Name tests the Name method.
-func TestVirtualRuntime_Name(t *testing.T) {
+// TestShRuntime_Name tests the Name method.
+func TestShRuntime_Name(t *testing.T) {
 	t.Parallel()
 
-	rt := NewVirtualRuntime(false)
-	if got := rt.Name(); got != "virtual" {
-		t.Errorf("Name() = %q, want %q", got, "virtual")
+	rt := NewShRuntime(false)
+	if got := rt.Name(); got != "virtual-sh" {
+		t.Errorf("Name() = %q, want %q", got, "virtual-sh")
 	}
 }
 
-// TestVirtualRuntime_Available tests the Available method.
-func TestVirtualRuntime_Available(t *testing.T) {
+// TestShRuntime_Available tests the Available method.
+func TestShRuntime_Available(t *testing.T) {
 	t.Parallel()
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	if !rt.Available() {
 		t.Error("Available() = false, want true (virtual runtime is always available)")
 	}
 }
 
-// TestVirtualRuntime_SupportsInteractive tests the SupportsInteractive method.
-func TestVirtualRuntime_SupportsInteractive(t *testing.T) {
+// TestShRuntime_SupportsInteractive tests the SupportsInteractive method.
+func TestShRuntime_SupportsInteractive(t *testing.T) {
 	t.Parallel()
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	if !rt.SupportsInteractive() {
 		t.Error("SupportsInteractive() = false, want true")
 	}
 }
 
-// TestVirtualRuntime_Validate_EmptyScript tests validation for an empty script.
-func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
+// TestShRuntime_Validate_EmptyScript tests validation for an empty script.
+func TestShRuntime_Validate_EmptyScript(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -572,9 +572,9 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 	}
 
 	// Create a command with an empty script
-	cmd := testCommandWithScript("empty-script", "", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("empty-script", "", invowkfile.RuntimeVirtualSh)
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	err := rt.Validate(ctx)
@@ -586,8 +586,8 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 	}
 }
 
-// TestVirtualRuntime_Validate_NilImpl tests validation for nil implementation.
-func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
+// TestShRuntime_Validate_NilImpl tests validation for nil implementation.
+func TestShRuntime_Validate_NilImpl(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -601,7 +601,7 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 		Name: "nil-impl",
 	}
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.SelectedImpl = nil // Explicitly set to nil
 
@@ -680,7 +680,7 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 
 			impl := invowkfile.Implementation{
 				Script:    invowkfile.ImplementationScript{Content: "echo test"},
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 				WorkDir:   invowkfile.WorkDir(tt.implWorkDir),
 			}
@@ -703,8 +703,8 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 	}
 }
 
-// TestVirtualRuntime_NewVirtualRuntime tests constructor options.
-func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
+// TestShRuntime_NewShRuntime tests constructor options.
+func TestShRuntime_NewShRuntime(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -728,19 +728,19 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			rt := NewVirtualRuntime(tt.enableUroot)
+			rt := NewShRuntime(tt.enableUroot)
 			if rt.UrootUtilsEnabled() != tt.wantUroot {
-				t.Errorf("NewVirtualRuntime(%v).UrootUtilsEnabled() = %v, want %v",
+				t.Errorf("NewShRuntime(%v).UrootUtilsEnabled() = %v, want %v",
 					tt.enableUroot, rt.UrootUtilsEnabled(), tt.wantUroot)
 			}
 		})
 	}
 }
 
-// TestVirtualRuntime_PositionalArgs_DashPrefix verifies that positional arguments
+// TestShRuntime_PositionalArgs_DashPrefix verifies that positional arguments
 // starting with "-" or "--" are correctly passed as $1, $2, etc. and NOT interpreted
 // as shell options by interp.Params(). This exercises the "--" prefix guard in virtual.go.
-func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
+func TestShRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -761,8 +761,8 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmd := testCommandWithScript("dash-args", tt.script, invowkfile.RuntimeVirtual)
-			rt := NewVirtualRuntime(false)
+			cmd := testCommandWithScript("dash-args", tt.script, invowkfile.RuntimeVirtualSh)
+			rt := NewShRuntime(false)
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 			ctx.PositionalArgs = tt.args
@@ -782,9 +782,9 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 	}
 }
 
-// TestVirtualRuntime_ExecuteCapture tests that ExecuteCapture correctly captures
+// TestShRuntime_ExecuteCapture tests that ExecuteCapture correctly captures
 // stdout and stderr into separate Result fields.
-func TestVirtualRuntime_ExecuteCapture(t *testing.T) {
+func TestShRuntime_ExecuteCapture(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -795,8 +795,8 @@ func TestVirtualRuntime_ExecuteCapture(t *testing.T) {
 	script := `echo "captured stdout"
 echo "captured stderr" >&2`
 
-	cmd := testCommandWithScript("capture-test", script, invowkfile.RuntimeVirtual)
-	rt := NewVirtualRuntime(false)
+	cmd := testCommandWithScript("capture-test", script, invowkfile.RuntimeVirtualSh)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	ctx.IO.Stdout = &bytes.Buffer{}
@@ -815,9 +815,9 @@ echo "captured stderr" >&2`
 	}
 }
 
-// TestVirtualRuntime_MockEnvBuilder_Error tests that the virtual runtime correctly
+// TestShRuntime_MockEnvBuilder_Error tests that the virtual runtime correctly
 // propagates errors from the EnvBuilder during execution.
-func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
+func TestShRuntime_MockEnvBuilder_Error(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -825,10 +825,10 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
-	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeVirtual)
+	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeVirtualSh)
 
 	mockErr := errors.New("mock virtual env build failure")
-	rt := NewVirtualRuntime(false, WithVirtualEnvBuilder(&MockEnvBuilder{Err: mockErr}))
+	rt := NewShRuntime(false, WithShEnvBuilder(&MockEnvBuilder{Err: mockErr}))
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	ctx.IO.Stdout = &bytes.Buffer{}
@@ -846,10 +846,10 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 	}
 }
 
-// TestVirtualRuntime_SetE_StopsOnError verifies that "set -e" (errexit) in a virtual
+// TestShRuntime_SetE_StopsOnError verifies that "set -e" (errexit) in a virtual
 // script terminates execution immediately when a command fails, and the exit code
 // is propagated correctly through the interp.ExitStatus error type.
-func TestVirtualRuntime_SetE_StopsOnError(t *testing.T) {
+func TestShRuntime_SetE_StopsOnError(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -863,8 +863,8 @@ echo "before"
 false
 echo "after"`
 
-	cmd := testCommandWithScript("set-e", script, invowkfile.RuntimeVirtual)
-	rt := NewVirtualRuntime(false)
+	cmd := testCommandWithScript("set-e", script, invowkfile.RuntimeVirtualSh)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer

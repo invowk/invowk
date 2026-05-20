@@ -9,7 +9,7 @@ import Diagram from '@site/src/components/Diagram';
 Este diagrama amplia o container **Runtime** do [Diagrama de Container C2](./c4-container) para mostrar seus componentes internos -- as interfaces, implementações concretas e tipos de suporte que compõem a camada de execução de comandos do Invowk.
 
 :::note
-O pacote runtime (`internal/runtime/`) é responsável por executar comandos definidos pelo usuário. Ele fornece três backends de execução intercambiáveis por trás de uma hierarquia de interfaces comum, um registry para despacho de runtime, e um contexto de execução estruturado que desacopla I/O, ambiente e preocupações de TUI.
+O pacote runtime (`internal/runtime/`) é responsável por executar comandos definidos pelo usuário. Ele fornece quatro backends de execução intercambiáveis por trás de uma hierarquia de interfaces comum, um registry para despacho de runtime, e um contexto de execução estruturado que desacopla I/O, ambiente e preocupações de TUI.
 :::
 
 ## Diagrama
@@ -31,7 +31,8 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
 | **NativeRuntime** | Go | Executa comandos via shell do host (`bash`/`sh` no Unix, `PowerShell` no Windows). Opção mais rápida. Shell override configurável. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
-| **VirtualRuntime** | Go/mvdan-sh | Interpretador de shell POSIX embarcado com utilitários built-in u-root opcionais. Sem dependência de shell do host. Cria um subprocesso de si mesmo para modo interativo baseado em PTY. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **ShRuntime** | Go/mvdan-sh | Interpretador de shell POSIX embarcado com utilitários built-in u-root opcionais. Sem dependência de shell do host. Cria um subprocesso de si mesmo para modo interativo baseado em PTY. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **LuaRuntime** | Go/golua | Runtime Lua embarcado com o harness de segurança virtual compartilhado. Implementa Runtime e CapturingRuntime. |
 | **ContainerRuntime** | Go | Executa comandos dentro de containers Docker/Podman. Depende de `container.Engine`, `provision.LayerProvisioner`, a porta `runtime.HostCallbackServer` para callbacks opcionais do host e `config.Config`. Somente containers Linux. Implementa Runtime, CapturingRuntime, InteractiveRuntime e HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Implementação padrão de precedência de 10 níveis: env do host (filtrado) -> env files root/command/impl -> env vars root/command/impl -> ExtraEnv -> env files do runtime -> env vars do runtime. |
 | **MockEnvBuilder** | Go | Helper de teste que retorna um mapa de ambiente fixo. Permite testar runtimes isoladamente sem acesso real ao sistema de arquivos ou carregamento de env. |
@@ -41,7 +42,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | Tipo | Papel |
 |------|-------|
 | **Registry** | Despachante de runtime baseado em mapa. Armazena mapeamentos `RuntimeType -> Runtime`. Fornece `Get()`, `GetForContext()`, `Available()` e `Execute()` (que encadeia validar-e-executar). |
-| **RuntimeType** | Tipo string identificando variantes de runtime: `"native"`, `"virtual"`, `"container"`. |
+| **RuntimeType** | Tipo string identificando variantes de runtime: `"native"`, `"virtual-sh"`, `"virtual-lua"`, `"container"`. |
 | **ExecutionContext** | Estrutura de dados principal para execução de comandos. Composta de subtipos `IOContext`, `EnvContext` e `TUIContext` mais metadados do comando, runtime/implementação selecionados e ID de execução. |
 | **IOContext** | Agrupa streams de I/O: `Stdout`, `Stderr`, `Stdin`. Funções factory `DefaultIO()` e `CaptureIO()` fornecem configurações comuns. |
 | **EnvContext** | Agrupa configuração de variáveis de ambiente: `ExtraEnv` (INVOWK_FLAG_\*, INVOWK_ARG_\*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file) e overrides de herança. |
@@ -57,8 +58,9 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | `provision.LayerProvisioner` | ContainerRuntime | Cria camadas de imagem efêmeras com binário invowk e módulos |
 | `runtime.HostCallbackServer` | ContainerRuntime | Porta que fornece credenciais de callback do host baseadas em token para execuções em container; `internal/sshserver` adapta o servidor SSH concreto para essa porta |
 | `config.Config` | ContainerRuntime | Configuração da aplicação (preferência de engine de container, etc.) |
-| `mvdan.cc/sh/v3` | VirtualRuntime | Interpretador de shell POSIX embarcado |
-| `internal/uroot` | VirtualRuntime | Utilitários built-in para o shell virtual (cp, mv, cat, etc.) |
+| `mvdan.cc/sh/v3` | ShRuntime | Interpretador de shell POSIX embarcado |
+| `github.com/arnodel/golua` | LuaRuntime | Interpretador Lua embarcado |
+| `internal/uroot` | virtual-sh e virtual-lua | Utilitários built-in para a família de runtimes virtuais (cp, mv, cat, etc.) |
 | `pkg/invowkfile` | ExecutionContext | Tipos de Command e Invowkfile, RuntimeMode, EnvInheritMode |
 
 ## Relacionamentos Principais
@@ -71,7 +73,7 @@ O pacote runtime usa segregação de interface para permitir que chamadores depe
 - **CapturingRuntime** é uma interface standalone para captura de saída. Chamadores que precisam de saída capturada podem fazer type-assert para ela.
 - **InteractiveRuntime** embarca `Runtime` e adiciona suporte a PTY. A função helper `GetInteractiveRuntime()` combina type assertion com verificação de capacidade `SupportsInteractive()`.
 
-Todos os três runtimes concretos (Native, Virtual, Container) implementam todas as três interfaces.
+Native, Sh e Container implementam a interface interativa; Lua atualmente implementa execução e captura.
 
 ### Despacho via Registry
 

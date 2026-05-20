@@ -98,7 +98,7 @@ func generateInvowkfile(template string) string {
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:    invowkfile.ImplementationScript{Content: `echo "Hello, $INVOWK_ARG_NAME!"`},
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
 					},
@@ -123,7 +123,7 @@ func generateInvowkfile(template string) string {
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:    invowkfile.ImplementationScript{Content: `echo "Hello, World!"`},
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
 					},
@@ -134,7 +134,7 @@ func generateInvowkfile(template string) string {
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:    invowkfile.ImplementationScript{Content: `echo "$INVOWK_FLAG_TITLE $INVOWK_ARG_NAME, welcome!"`},
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
 					},
@@ -156,7 +156,7 @@ func generateInvowkfile(template string) string {
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:    invowkfile.ImplementationScript{Content: `echo "All greetings complete!"`},
-							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+							Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 							Platforms: invowkfile.AllPlatformConfigs(),
 						},
 					},
@@ -210,7 +210,7 @@ func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfi
 			},
 			{
 				Script:    invowkfile.ImplementationScript{Content: `echo "Hello, $INVOWK_ARG_NAME!"`},
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			},
 			{

@@ -590,8 +590,16 @@ pattern = "runtime.NativeRuntime.struct-validate"
 reason = "service object; shell='' valid for auto-detect"
 
 [[exceptions]]
-pattern = "runtime.VirtualRuntime.struct-validate"
+pattern = "runtime.ShRuntime.struct-validate"
 reason = "service object; invariants enforced by constructor"
+
+[[exceptions]]
+pattern = "runtime.LuaRuntime.struct-validate"
+reason = "service object; invariants enforced by constructor"
+
+[[exceptions]]
+pattern = "runtime.virtualHostBinaryPolicy.struct-validate-fields"
+reason = "execution policy helper; fields are assembled from already-validated runtime config and environment"
 
 # Service objects — module resolution
 [[exceptions]]
@@ -1272,8 +1280,164 @@ pattern = "runtime.NativeRuntime.appendPositionalArgs.args"
 reason = "exec boundary — shell positional args"
 
 [[exceptions]]
-pattern = "runtime.VirtualRuntime.tryUrootBuiltin.args"
+pattern = "runtime.ShRuntime.tryUrootBuiltin.args"
 reason = "exec boundary — command args"
+
+[[exceptions]]
+pattern = "runtime.ShScriptOptions.*"
+reason = "internal subprocess DTO for virtual-sh interactive execution"
+
+[[exceptions]]
+pattern = "runtime.virtualPathValidator.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.virtualPathValidator.*.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.virtualPathValidator.*.return.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.virtualHostBinaryPolicy.*"
+reason = "host binary execution policy mirrors OS PATH/PATHEXT inputs"
+
+[[exceptions]]
+pattern = "runtime.virtualHostBinaryPolicy.*.*"
+reason = "host binary execution policy mirrors OS PATH/PATHEXT inputs"
+
+[[exceptions]]
+pattern = "runtime.virtualHostBinaryPolicy.*.return.*"
+reason = "host binary execution policy mirrors OS PATH/PATHEXT inputs"
+
+[[exceptions]]
+pattern = "runtime.defaultTempRoots.return.*"
+reason = "platform filesystem boundary paths"
+
+[[exceptions]]
+pattern = "runtime.platformConfigDirs.return.*"
+reason = "platform filesystem boundary paths"
+
+[[exceptions]]
+pattern = "runtime.firstNonEmpty.*"
+reason = "platform environment fallback helper"
+
+[[exceptions]]
+pattern = "runtime.firstNonEmpty.return.*"
+reason = "platform environment fallback helper"
+
+[[exceptions]]
+pattern = "runtime.normalizedRoots.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.normalizedRoots.return.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.normalizeExistingOrParent.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.normalizeExistingOrParent.return.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.pathWithin.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.candidateExecutablePaths.*"
+reason = "host binary execution policy mirrors OS PATH/PATHEXT inputs"
+
+[[exceptions]]
+pattern = "runtime.candidateExecutablePaths.return.*"
+reason = "host binary execution policy mirrors OS PATH/PATHEXT inputs"
+
+[[exceptions]]
+pattern = "runtime.sameCleanPath.*"
+reason = "filesystem boundary helper for virtual runtime containment"
+
+[[exceptions]]
+pattern = "runtime.hostBinaryPolicy.env"
+reason = "exec/OS environment boundary"
+
+[[exceptions]]
+pattern = "runtime.allowedBinaryStrings.return.*"
+reason = "adapter from validated CUE value objects to OS exec policy strings"
+
+[[exceptions]]
+pattern = "runtime.SliceToEnv.*"
+reason = "exec/OS environment boundary"
+
+[[exceptions]]
+pattern = "runtime.SliceToEnv.return.*"
+reason = "exec/OS environment boundary"
+
+[[exceptions]]
+pattern = "runtime.reservedInvowkStateEnv.*"
+reason = "exec/OS environment boundary"
+
+[[exceptions]]
+pattern = "runtime.reservedInvowkStateEnv.return.*"
+reason = "exec/OS environment boundary"
+
+[[exceptions]]
+pattern = "runtime.compileLuaChunk.script"
+reason = "Lua interpreter boundary"
+
+[[exceptions]]
+pattern = "runtime.validateLuaInterpreter.scriptContent"
+reason = "Lua interpreter boundary"
+
+[[exceptions]]
+pattern = "runtime.parseLuaMemoryLimit.raw"
+reason = "Lua runtime limit parser boundary"
+
+[[exceptions]]
+pattern = "runtime.parseLuaMemoryLimit.return.*"
+reason = "Lua runtime limit parser boundary"
+
+[[exceptions]]
+pattern = "runtime.installInvowkLuaBridge.*"
+reason = "Lua bridge boundary maps Invowk execution state into golua tables"
+
+[[exceptions]]
+pattern = "runtime.luaCommandFunc.*"
+reason = "Lua bridge boundary maps Invowk execution state into golua tables"
+
+[[exceptions]]
+pattern = "runtime.luaCommandArgs.return.*"
+reason = "Lua bridge boundary converts script table values into exec args"
+
+[[exceptions]]
+pattern = "runtime.luaEnvTable.env"
+reason = "Lua bridge boundary maps environment strings into golua tables"
+
+[[exceptions]]
+pattern = "runtime.luaArgsTable.args"
+reason = "Lua bridge boundary maps positional args into golua tables"
+
+[[exceptions]]
+pattern = "runtime.runAllowedHostBinary.*"
+reason = "exec boundary for explicitly allowed host binaries"
+
+[[exceptions]]
+pattern = "runtime.runAllowedHostBinary.return.*"
+reason = "exec boundary for explicitly allowed host binaries"
+
+[[exceptions]]
+pattern = "invowk.runInternalExecSh._"
+reason = "Cobra command signature"
+
+[[exceptions]]
+pattern = "invowk.buildShEnv.*"
+reason = "internal virtual-sh subprocess environment boundary"
+
+[[exceptions]]
+pattern = "invowk.buildShEnv.return.*"
+reason = "internal virtual-sh subprocess environment boundary"
 
 [[exceptions]]
 pattern = "runtime.WithShellArgs.args"
@@ -2264,7 +2428,11 @@ pattern = "runtime.ContainerRuntime.generateImageTag.invowkfilePath"
 reason = "exec boundary — invowkfile path for image tag computation"
 
 [[exceptions]]
-pattern = "runtime.VirtualRuntime.Name.return.*"
+pattern = "runtime.ShRuntime.Name.return.*"
+reason = "display text — runtime display name"
+
+[[exceptions]]
+pattern = "runtime.LuaRuntime.Name.return.*"
 reason = "display text — runtime display name"
 
 [[exceptions]]
@@ -2579,6 +2747,10 @@ pattern = "invowkfile.IsShellInterpreter.interpreter"
 reason = "parse boundary — interpreter name for shell detection"
 
 [[exceptions]]
+pattern = "invowkfile.IsLuaInterpreter.interpreter"
+reason = "parse boundary — interpreter name for Lua detection"
+
+[[exceptions]]
 pattern = "invowkfile.GetExtensionForInterpreter.interpreter"
 reason = "parse boundary — interpreter name for extension lookup"
 
@@ -2703,6 +2875,10 @@ reason = "exec boundary — binary path for container spawn"
 
 [[exceptions]]
 pattern = "invowkfile.InvalidCapabilityNameError.Value.nonzero"
+reason = "error struct carries offending value for diagnostic output"
+
+[[exceptions]]
+pattern = "invowkfile.InvalidAllowedBinaryError.Value.nonzero"
 reason = "error struct carries offending value for diagnostic output"
 
 [[exceptions]]
@@ -4108,7 +4284,11 @@ pattern = "config.RuntimeMode.native.enum-cue-missing-go"
 reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
 
 [[exceptions]]
-pattern = "config.RuntimeMode.virtual.enum-cue-missing-go"
+pattern = "config.RuntimeMode.virtual-lua.enum-cue-missing-go"
+reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
+
+[[exceptions]]
+pattern = "config.RuntimeMode.virtual-sh.enum-cue-missing-go"
 reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
 
 [[exceptions]]
@@ -4120,5 +4300,9 @@ pattern = "invowkfile.RuntimeMode.native.enum-cue-missing-go"
 reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
 
 [[exceptions]]
-pattern = "invowkfile.RuntimeMode.virtual.enum-cue-missing-go"
+pattern = "invowkfile.RuntimeMode.virtual-lua.enum-cue-missing-go"
+reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
+
+[[exceptions]]
+pattern = "invowkfile.RuntimeMode.virtual-sh.enum-cue-missing-go"
 reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
