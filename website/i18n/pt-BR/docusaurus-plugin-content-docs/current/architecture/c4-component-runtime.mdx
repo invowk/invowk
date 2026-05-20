@@ -73,7 +73,7 @@ O pacote runtime usa segregação de interface para permitir que chamadores depe
 - **CapturingRuntime** é uma interface standalone para captura de saída. Chamadores que precisam de saída capturada podem fazer type-assert para ela.
 - **InteractiveRuntime** embarca `Runtime` e adiciona suporte a PTY. A função helper `GetInteractiveRuntime()` combina type assertion com verificação de capacidade `SupportsInteractive()`.
 
-Native, Sh e Container implementam a interface interativa; Lua atualmente implementa execução e captura.
+Native, Sh, Lua e Container implementam a interface interativa.
 
 ### Despacho via Registry
 

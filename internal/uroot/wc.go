@@ -80,7 +80,7 @@ func (c *wcCommand) Run(ctx context.Context, args []string) error {
 		name   string
 	}
 
-	err := ProcessFilesOrStdin(files, hc.Stdin, hc.Dir, c.name,
+	err := ProcessFilesOrStdinWithContext(files, hc, c.name,
 		func(r io.Reader, filename string, _, _ int) error {
 			counts, countErr := c.count(r)
 			if countErr != nil {

@@ -49,7 +49,7 @@ Regression tests for this area must cover:
 | `pkg/invowkmod/` | Lock files, content hashes, vendoring, module operations |
 | `pkg/invowkfile/` | Script path resolution, validation, filesystem checks |
 | `internal/provision/` | Container provisioning, module copying, symlink handling |
-| `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Virtual host-binary policy and path harness |
+| `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`, `internal/runtime/lua_io.go` | Virtual host-binary policy, virtual-lua bridge semantics, and path harness |
 | `internal/app/deps/` | Command scope enforcement |
 | `internal/discovery/` | Global module trust, `IsGlobalModule` propagation |
 | `internal/audit/` | Audit scanner package (14 production files, ~1,893 lines) |
@@ -166,6 +166,7 @@ The Go scanner already handles all of these deterministically:
 | ScriptChecker | Path traversal, remote exec, obfuscation, file size | `checks_script.go` |
 | NetworkChecker | Reverse shells, DNS exfil, encoded URLs, network commands | `checks_network.go` |
 | EnvChecker | Sensitive vars, env_inherit_mode, token extraction | `checks_env.go` |
+| LuaChecker | virtual-lua disabled API references, bridge env reads, host-binary opt-outs, network-capable host binaries, broad allowed paths | `checks_lua.go` |
 | SymlinkChecker | Symlinks, boundary escapes, dangling, chains | `checks_symlink.go` |
 | ModuleMetadataChecker | Dep depth, typosquatting, global trust, version pinning | `checks_module.go` |
 | Correlator | Compound threat escalation (5 named rules + severity rules) | `correlator.go` |

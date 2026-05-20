@@ -22,6 +22,7 @@ import (
 const (
 	// EnvVarStateBinPath is set to the most recent host binary resolved by a virtual runtime.
 	EnvVarStateBinPath = "INVOWK_STATE_BIN_PATH"
+	goosWindows        = "windows"
 )
 
 var (
@@ -30,8 +31,14 @@ var (
 )
 
 type (
+	virtualPathResolver struct {
+		anchors      map[string]string
+		paths        map[string]string
+		allowedRoots []string
+	}
+
 	virtualPathValidator struct {
-		roots []string
+		resolver virtualPathResolver
 	}
 
 	virtualHostBinaryPolicy struct {
@@ -44,48 +51,133 @@ type (
 	}
 )
 
-func newVirtualPathValidator(ctx *ExecutionContext) virtualPathValidator {
-	roots := []string{ctx.EffectiveWorkDir(), string(ctx.Invowkfile.GetScriptBasePath()), os.TempDir()}
+func newVirtualPathValidator(ctx *ExecutionContext) (virtualPathValidator, error) {
+	resolver, err := newVirtualPathResolver(ctx)
+	if err != nil {
+		return virtualPathValidator{}, err
+	}
+	return virtualPathValidator{resolver: resolver}, nil
+}
+
+func newVirtualPathResolver(ctx *ExecutionContext) (virtualPathResolver, error) {
+	allowedPaths := invowkfile.AllowedPaths(nil)
+	if ctx != nil && ctx.SelectedImpl != nil {
+		allowedPaths = ctx.SelectedImpl.AllowedPaths
+	}
+	return newVirtualPathResolverForAllowedPaths(
+		ctx.EffectiveWorkDir(),
+		string(ctx.Invowkfile.GetScriptBasePath()),
+		allowedPaths,
+		invowkfile.CurrentPlatform(),
+	)
+}
+
+func newVirtualPathResolverForPaths(workDir, scriptBasePath string) virtualPathResolver {
+	resolver, err := newVirtualPathResolverForAllowedPaths(workDir, scriptBasePath, nil, "")
+	if err != nil {
+		return virtualPathResolver{}
+	}
+	return resolver
+}
+
+func newVirtualPathResolverForAllowedPaths(
+	workDir string,
+	scriptBasePath string,
+	allowedPaths invowkfile.AllowedPaths,
+	platform invowkfile.PlatformType,
+) (virtualPathResolver, error) {
+	anchors := standardVirtualAnchors(workDir)
+	paths, err := resolveAllowedPaths(allowedPaths, platform, scriptBasePath, anchors)
+	if err != nil {
+		return virtualPathResolver{}, err
+	}
+	roots := []string{workDir, scriptBasePath, anchors["@tmp"]}
+	for _, name := range []string{"@config", "@data", "@cache", "@state", "@work"} {
+		if path := anchors[name]; path != "" {
+			roots = append(roots, path)
+		}
+	}
+	for _, path := range paths {
+		roots = append(roots, path)
+	}
 	roots = append(roots, defaultTempRoots()...)
-	roots = append(roots, platformConfigDirs()...)
-	return virtualPathValidator{roots: normalizedRoots(roots)}
+	return virtualPathResolver{
+		anchors:      anchors,
+		paths:        paths,
+		allowedRoots: normalizedRoots(roots),
+	}, nil
+}
+
+func newVirtualPathResolverForEnv(workDir, scriptBasePath string, env map[string]string) virtualPathResolver {
+	resolver := newVirtualPathResolverForPaths(workDir, scriptBasePath)
+	if len(env) == 0 {
+		return resolver
+	}
+	resolver.paths = make(map[string]string)
+	for key, value := range env {
+		if !strings.HasPrefix(key, "INVOWK_PATH_") || strings.TrimSpace(value) == "" {
+			continue
+		}
+		name := strings.TrimPrefix(key, "INVOWK_PATH_")
+		resolver.paths[name] = value
+		resolver.allowedRoots = append(resolver.allowedRoots, normalizedRoots([]string{value})...)
+	}
+	return resolver
 }
 
 func defaultTempRoots() []string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		return nil
 	}
 	return []string{"/tmp"}
 }
 
-func platformConfigDirs() []string {
+func standardVirtualAnchors(workDir string) map[string]string {
 	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return nil
+	if err != nil {
+		home = ""
 	}
-	switch runtime.GOOS {
-	case "windows":
-		var roots []string
-		for _, env := range []string{"APPDATA", "LOCALAPPDATA"} {
-			if value := os.Getenv(env); value != "" {
-				roots = append(roots, value)
-			}
+	return standardVirtualAnchorsForOS(runtime.GOOS, workDir, home, os.TempDir(), os.Getenv)
+}
+
+func standardVirtualAnchorsForOS(
+	goos string,
+	workDir string,
+	home string,
+	tempDir string,
+	getenv func(string) string,
+) map[string]string {
+	get := func(name string) string {
+		if getenv == nil {
+			return ""
 		}
-		return roots
+		return getenv(name)
+	}
+	anchors := map[string]string{
+		"@home": home,
+		"@tmp":  tempDir,
+		"@work": workDir,
+	}
+	switch goos {
+	case goosWindows:
+		roaming := firstNonEmpty(get("APPDATA"), filepath.Join(home, "AppData", "Roaming"))
+		local := firstNonEmpty(get("LOCALAPPDATA"), filepath.Join(home, "AppData", "Local"))
+		anchors["@config"] = filepath.Join(roaming, "invowk", "config")
+		anchors["@data"] = filepath.Join(local, "invowk", "data")
+		anchors["@cache"] = filepath.Join(local, "invowk", "cache")
+		anchors["@state"] = filepath.Join(local, "invowk", "state")
 	case "darwin":
-		return []string{
-			filepath.Join(home, "Library", "Application Support"),
-			filepath.Join(home, "Library", "Caches"),
-		}
+		anchors["@config"] = filepath.Join(home, "Library", "Application Support", "invowk")
+		anchors["@data"] = filepath.Join(home, "Library", "Application Support", "invowk")
+		anchors["@cache"] = filepath.Join(home, "Library", "Caches", "invowk")
+		anchors["@state"] = filepath.Join(home, "Library", "Logs", "invowk")
 	default:
-		roots := []string{
-			firstNonEmpty(os.Getenv("XDG_CONFIG_HOME"), filepath.Join(home, ".config")),
-			firstNonEmpty(os.Getenv("XDG_CACHE_HOME"), filepath.Join(home, ".cache")),
-			firstNonEmpty(os.Getenv("XDG_DATA_HOME"), filepath.Join(home, ".local", "share")),
-			firstNonEmpty(os.Getenv("XDG_STATE_HOME"), filepath.Join(home, ".local", "state")),
-		}
-		return roots
+		anchors["@config"] = filepath.Join(firstNonEmpty(get("XDG_CONFIG_HOME"), filepath.Join(home, ".config")), "invowk")
+		anchors["@data"] = filepath.Join(firstNonEmpty(get("XDG_DATA_HOME"), filepath.Join(home, ".local", "share")), "invowk")
+		anchors["@cache"] = filepath.Join(firstNonEmpty(get("XDG_CACHE_HOME"), filepath.Join(home, ".cache")), "invowk")
+		anchors["@state"] = filepath.Join(firstNonEmpty(get("XDG_STATE_HOME"), filepath.Join(home, ".local", "state")), "invowk")
 	}
+	return anchors
 }
 
 func firstNonEmpty(first, second string) string {
@@ -107,17 +199,120 @@ func normalizedRoots(paths []string) []string {
 	return roots
 }
 
+func resolveAllowedPaths(
+	allowedPaths invowkfile.AllowedPaths,
+	platform invowkfile.PlatformType,
+	scriptBasePath string,
+	anchors map[string]string,
+) (map[string]string, error) {
+	if len(allowedPaths) == 0 {
+		return map[string]string{}, nil
+	}
+	paths := make(map[string]string, len(allowedPaths))
+	for name := range allowedPaths {
+		rawPath, ok, err := allowedPaths.PathForPlatform(name, platform)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("allowed_paths[%q] has no %q mapping", name, platform)
+		}
+		expanded, err := expandVirtualAnchorPath(rawPath, anchors)
+		if err != nil {
+			return nil, err
+		}
+		normalized, err := normalizeExistingOrParent(expanded, scriptBasePath)
+		if err != nil {
+			return nil, err
+		}
+		paths[name.String()] = normalized
+	}
+	return paths, nil
+}
+
 func (v virtualPathValidator) validate(cwd, path string) (string, error) {
-	normalized, err := normalizeExistingOrParent(path, cwd)
+	normalized, err := v.resolver.resolve(path, cwd)
 	if err != nil {
 		return "", err
 	}
-	for _, root := range v.roots {
+	for _, root := range v.resolver.allowedRoots {
 		if pathWithin(root, normalized) {
 			return normalized, nil
 		}
 	}
 	return "", fmt.Errorf("%w: %s", errVirtualPathDenied, normalized)
+}
+
+func (r virtualPathResolver) resolve(path, cwd string) (string, error) {
+	expanded, err := r.expand(path)
+	if err != nil {
+		return "", err
+	}
+	return normalizeExistingOrParent(expanded, cwd)
+}
+
+func (r virtualPathResolver) resolveBridgePath(path, cwd string) (string, error) {
+	if strings.HasPrefix(path, "@") {
+		return r.resolve(path, cwd)
+	}
+	name, suffix := splitVirtualAnchorPath(path)
+	root, ok := r.paths[name]
+	if !ok || root == "" {
+		return "", fmt.Errorf("unknown virtual path %q", name)
+	}
+	if suffix != "" {
+		root = filepath.Join(root, suffix)
+	}
+	return normalizeExistingOrParent(root, cwd)
+}
+
+func (r virtualPathResolver) expand(path string) (string, error) {
+	if strings.HasPrefix(path, "@") {
+		return expandVirtualAnchorPath(path, r.anchors)
+	}
+	name, suffix := splitVirtualAnchorPath(path)
+	root, ok := r.paths[name]
+	if !ok || root == "" {
+		return path, nil
+	}
+	if suffix == "" {
+		return root, nil
+	}
+	return filepath.Join(root, suffix), nil
+}
+
+func expandVirtualAnchorPath(path string, anchors map[string]string) (string, error) {
+	if !strings.HasPrefix(path, "@") {
+		return path, nil
+	}
+	name, suffix := splitVirtualAnchorPath(path)
+	root, ok := anchors[name]
+	if !ok || root == "" {
+		return "", fmt.Errorf("unknown virtual path anchor %q", name)
+	}
+	if suffix == "" {
+		return root, nil
+	}
+	return filepath.Join(root, suffix), nil
+}
+
+func addVirtualRuntimeEnv(env map[string]string, resolver virtualPathResolver) {
+	env[EnvVarStateBinPath] = ""
+	for name, path := range resolver.anchors {
+		key := "INVOWK_ANCHOR_" + strings.ToUpper(strings.TrimPrefix(name, "@"))
+		env[key] = path
+	}
+	for name, path := range resolver.paths {
+		env["INVOWK_PATH_"+name] = path
+	}
+}
+
+func splitVirtualAnchorPath(path string) (name, suffix string) {
+	index := strings.IndexAny(path, `/\`)
+	if index == -1 {
+		return path, ""
+	}
+	return path[:index], path[index+1:]
 }
 
 func normalizeExistingOrParent(path, cwd string) (string, error) {
@@ -264,7 +459,7 @@ func (p *virtualHostBinaryPolicy) lookup(name string) (string, error) {
 
 func (p *virtualHostBinaryPolicy) lookupDirs() []string {
 	if p.mode == invowkfile.BinaryLookupModeStrict {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == goosWindows {
 			return []string{`C:\Windows\System32`}
 		}
 		return []string{"/usr/local/bin", "/usr/bin", "/bin"}
@@ -282,7 +477,7 @@ func (p *virtualHostBinaryPolicy) lookupDirs() []string {
 }
 
 func candidateExecutablePaths(dir, name, pathext string) []string {
-	if runtime.GOOS != "windows" || filepath.Ext(name) != "" {
+	if runtime.GOOS != goosWindows || filepath.Ext(name) != "" {
 		return []string{filepath.Join(dir, name)}
 	}
 	exts := filepath.SplitList(pathext)
@@ -304,7 +499,7 @@ func candidateExecutablePaths(dir, name, pathext string) []string {
 }
 
 func isExecutable(info os.FileInfo) bool {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		return true
 	}
 	return info.Mode()&0o111 != 0

@@ -101,6 +101,177 @@ pattern = "ResolveDockerfilePath.*"
 reason = "exec boundary — params/return passed to filepath operations"
 
 # =============================================================================
+# Virtual Runtime Adapter Boundaries
+# =============================================================================
+# The embedded Lua and virtual path bridges intentionally sit at stringly typed
+# VM/OS/CLI boundaries: Lua global names, argv vectors, environment maps, and
+# filesystem paths are validated at the bridge before crossing into Go APIs.
+
+[[exceptions]]
+pattern = "runtime.LuaInteractiveCommandSpec.AllowedBinaries"
+reason = "subprocess adapter argv boundary; values are validated by LuaInteractiveCommandSpec.Validate"
+
+[[exceptions]]
+pattern = "runtime.LuaScriptOptions.*"
+reason = "subprocess adapter DTO carrying script text, argv, and env strings; validated by LuaScriptOptions.Validate"
+
+[[exceptions]]
+pattern = "runtime.ShInteractiveCommandSpec.AllowedBinaries"
+reason = "subprocess adapter argv boundary; values are validated by ShInteractiveCommandSpec.Validate"
+
+[[exceptions]]
+pattern = "runtime.lua*.*"
+reason = "Lua VM bridge boundary for global names, argv, env, and Lua values"
+
+[[exceptions]]
+pattern = "runtime.lua*.*.*"
+reason = "Lua VM bridge method boundary for global names, argv, env, and Lua values"
+
+[[exceptions]]
+pattern = "runtime.lua*.*.*.*"
+reason = "Lua VM bridge method return boundary for captured output and exit codes"
+
+[[exceptions]]
+pattern = "runtime.installLua*.*"
+reason = "Lua VM bridge installation boundary for runtime env and path metadata"
+
+[[exceptions]]
+pattern = "runtime.runVirtualUtility.*"
+reason = "u-root command bridge boundary using argv/env strings from Lua"
+
+[[exceptions]]
+pattern = "runtime.runVirtualUtility.*.*"
+reason = "u-root command bridge returns process exit status from command execution"
+
+[[exceptions]]
+pattern = "runtime.validateLuaRequireName.*"
+reason = "Lua require bridge validates raw module names from Lua"
+
+[[exceptions]]
+pattern = "runtime.virtualPathResolver.*"
+reason = "virtual path resolver stores normalized OS path strings and logical anchor names"
+
+[[exceptions]]
+pattern = "runtime.virtualPathResolver.*.*"
+reason = "virtual path resolver methods accept and return OS path strings after validation"
+
+[[exceptions]]
+pattern = "runtime.virtualPathResolver.*.*.*"
+reason = "virtual path resolver methods return normalized OS path strings"
+
+[[exceptions]]
+pattern = "runtime.newVirtualPathResolver*.*"
+reason = "virtual path resolver factory accepts OS path strings from execution context"
+
+[[exceptions]]
+pattern = "runtime.standardVirtualAnchors*.*"
+reason = "anchor metadata is OS environment/path text normalized by the resolver"
+
+[[exceptions]]
+pattern = "runtime.standardVirtualAnchors*.*.*"
+reason = "anchor metadata returns OS environment/path text maps normalized by the resolver"
+
+[[exceptions]]
+pattern = "runtime.resolveAllowedPaths.*"
+reason = "allowed path resolver maps schema strings into normalized OS path strings"
+
+[[exceptions]]
+pattern = "runtime.resolveAllowedPaths.*.*"
+reason = "allowed path resolver returns normalized OS path string maps"
+
+[[exceptions]]
+pattern = "runtime.expandVirtualAnchorPath.*"
+reason = "anchor expansion helper operates on logical path strings before validation"
+
+[[exceptions]]
+pattern = "runtime.expandVirtualAnchorPath.*.*"
+reason = "anchor expansion helper returns path strings validated by the caller"
+
+[[exceptions]]
+pattern = "runtime.addVirtualRuntimeEnv.*"
+reason = "environment injection helper writes OS env string maps"
+
+[[exceptions]]
+pattern = "runtime.splitVirtualAnchorPath.*"
+reason = "logical path parser splits user-facing virtual path strings"
+
+[[exceptions]]
+pattern = "runtime.splitVirtualAnchorPath.*.*"
+reason = "logical path parser returns string segments before resolver validation"
+
+[[exceptions]]
+pattern = "invowkfile.AllowedPaths.*.*.*"
+reason = "allowed_paths schema API exposes path strings selected by platform and validated by AllowedPaths.ValidateForPlatforms"
+
+[[exceptions]]
+pattern = "invowkfile.allowedPath*.*"
+reason = "allowed_paths parser normalizes CUE string/map values before validation"
+
+[[exceptions]]
+pattern = "invowkfile.allowedPath*.*.*"
+reason = "allowed_paths parser returns validated platform-to-path maps"
+
+[[exceptions]]
+pattern = "invowkfile.validateAllowedPathValue.*"
+reason = "allowed_paths value validator accepts raw schema path strings"
+
+[[exceptions]]
+pattern = "invowkfile.generateAllowedPathMap.*"
+reason = "CUE generator renders already-validated allowed_paths mappings"
+
+[[exceptions]]
+pattern = "invowkfile.generateAllowedPathMap.*.*"
+reason = "CUE generator renders already-validated allowed_paths mappings"
+
+[[exceptions]]
+pattern = "audit.*Lua*.*"
+reason = "Lua audit checker scans raw script text and environment names for deterministic findings"
+
+[[exceptions]]
+pattern = "audit.*Lua*.*.*"
+reason = "Lua audit checker returns raw script/environment names as deterministic finding inputs"
+
+[[exceptions]]
+pattern = "audit.lua*.*"
+reason = "Lua audit helper scans raw script/path strings for deterministic findings"
+
+[[exceptions]]
+pattern = "audit.allowedPathRawValues.*"
+reason = "Lua audit checker inspects raw allowed_paths values for broad mappings"
+
+[[exceptions]]
+pattern = "audit.allowedPathRawValues.*.*"
+reason = "Lua audit checker returns raw allowed_paths values for broad mapping checks"
+
+[[exceptions]]
+pattern = "audit.isSensitiveEnvName.*"
+reason = "Lua audit helper classifies raw environment variable names"
+
+[[exceptions]]
+pattern = "audit.lineOf.*"
+reason = "audit diagnostic helper maps raw script text to display line numbers"
+
+[[exceptions]]
+pattern = "audit.lineOf.*.*"
+reason = "audit diagnostic helper returns display line numbers"
+
+[[exceptions]]
+pattern = "audit.containsString.*"
+reason = "audit helper compares raw finding-code/name strings"
+
+[[exceptions]]
+pattern = "audit.moduleScriptPathSet.*.*"
+reason = "audit discovery tracks filesystem paths as string set keys while walking module trees"
+
+[[exceptions]]
+pattern = "invowk.dryRun*.*"
+reason = "CLI dry-run helpers render human-readable safety metadata"
+
+[[exceptions]]
+pattern = "invowk.dryRun*.*.*"
+reason = "CLI dry-run helpers render human-readable safety metadata"
+
+# =============================================================================
 # Display-Only Fields
 # =============================================================================
 # Fields whose values are only rendered for human consumption, with no

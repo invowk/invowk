@@ -237,12 +237,71 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 		fmt.Fprintf(sb, "\t\t\t\tworkdir: %q\n", impl.WorkDir)
 	}
 
+	// Implementation-level allowed_paths
+	generateAllowedPaths(sb, impl.AllowedPaths, "\t\t\t\t")
+
 	// Implementation-level timeout
 	if impl.Timeout != "" {
 		fmt.Fprintf(sb, "\t\t\t\ttimeout: %q\n", impl.Timeout)
 	}
 
 	sb.WriteString("\t\t\t},\n")
+}
+
+func generateAllowedPaths(sb *strings.Builder, paths AllowedPaths, indent string) {
+	if len(paths) == 0 {
+		return
+	}
+	sb.WriteString(indent + "allowed_paths: {\n")
+	names := make([]string, 0, len(paths))
+	for name := range paths {
+		names = append(names, name.String())
+	}
+	slices.Sort(names)
+	for _, rawName := range names {
+		name := AllowedPathName(rawName) //goplint:ignore -- rawName comes from an AllowedPaths key already validated before generation.
+		raw := paths[name]
+		switch value := raw.(type) {
+		case string:
+			fmt.Fprintf(sb, "%s\t%q: %q\n", indent, name, value)
+		case map[string]any:
+			generateAllowedPathMap(sb, name, value, indent)
+		case map[string]string:
+			converted := make(map[string]any, len(value))
+			for k, v := range value {
+				converted[k] = v
+			}
+			generateAllowedPathMap(sb, name, converted, indent)
+		case map[PlatformType]string:
+			converted := make(map[string]any, len(value))
+			for k, v := range value {
+				converted[k.String()] = v
+			}
+			generateAllowedPathMap(sb, name, converted, indent)
+		}
+	}
+	sb.WriteString(indent + "}\n")
+}
+
+func generateAllowedPathMap(sb *strings.Builder, name AllowedPathName, paths map[string]any, indent string) {
+	fmt.Fprintf(sb, "%s\t%q: {", indent, name)
+	first := true
+	for _, platform := range AllPlatformNames() {
+		value, ok := paths[platform.String()]
+		if !ok {
+			continue
+		}
+		path, ok := value.(string)
+		if !ok {
+			continue
+		}
+		if !first {
+			sb.WriteString(", ")
+		}
+		fmt.Fprintf(sb, "%s: %q", platform, path)
+		first = false
+	}
+	sb.WriteString("}\n")
 }
 
 // generateImplementationScript generates CUE for an explicit implementation script source.

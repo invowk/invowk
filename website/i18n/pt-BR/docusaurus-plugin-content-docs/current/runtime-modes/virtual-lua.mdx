@@ -1,0 +1,62 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Virtual-Lua
+
+O runtime **virtual-lua** executa comandos com o interpretador Lua embarcado do Invowk. Ele é útil para automações portáveis que querem tabelas, funções e módulos Lua sem exigir uma instalação de Lua no host.
+
+## Uso Básico
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
+## API Da Ponte
+
+Scripts Lua interagem com o Invowk por meio de uma tabela `invowk` somente leitura:
+
+| API | Finalidade |
+|-----|------------|
+| `invowk.path(nameOrAnchor)` | Resolver âncoras padrão como `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e nomes de `allowed_paths` da implementação |
+| `invowk.env.NAME` / `os.getenv("NAME")` | Ler o ambiente efetivo do comando |
+| `invowk.state.bin_path` | Inspecionar o último caminho de binário de host resolvido |
+| `invowk.cmd.<name>(...)` | Enviar um utilitário habilitado ou binário de host permitido para stdout/stderr do comando |
+| `invowk.capture.<name>(...)` | Retornar stdout, stderr e código de saída |
+
+<Snippet id="runtime-modes/virtual-lua-bridge" />
+
+## Caminhos E Arquivos
+
+A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e a raiz do script ou módulo.
+
+`@home` pode ser resolvida para metadados, mas não é uma raiz ampla permitida. Para disponibilizar um caminho do host às APIs de arquivo Lua, defina uma entrada `allowed_paths` na implementação. A chave vira `INVOWK_PATH_<KEY>` e pode ser resolvida com `invowk.path("<KEY>/file")`.
+
+<Snippet id="runtime-modes/virtual-lua-allowed-paths" />
+
+## Require Local Ao Módulo
+
+`require("helpers.format")` carrega arquivos-fonte Lua dentro da árvore do script ou módulo, como `helpers/format.lua` ou `helpers/format/init.lua`. Travessia de diretórios, caminhos absolutos e carregamento de bibliotecas nativas compartilhadas são bloqueados.
+
+## Binários Do Host E Utilitários
+
+Quando `virtual.utilities.enabled` é `true`, `invowk.cmd` e `invowk.capture` podem chamar os utilitários u-root embutidos do Invowk. Binários do host continuam negados por padrão e precisam ser listados em `allowed_binaries`.
+
+<Snippet id="runtime-modes/virtual-lua-host-binary" />
+
+:::caution Não É Sandbox
+O runtime virtual-lua **não é um sandbox de segurança**. Binários do host permitidos executam como processos nativos com acesso ao host. Para isolamento de execução, use o runtime **container**.
+:::
+
+## Limite Da Biblioteca Padrão Lua
+
+Virtual-lua intencionalmente não expõe APIs irrestritas voltadas ao host, como `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile` ou imports dinâmicos de `golib`. Use a ponte do Invowk, funções `io` validadas por caminho e `require` local ao módulo.
+
+## Argumentos E Modo Interativo
+
+Argumentos do comando ficam disponíveis tanto por varargs Lua quanto pela tabela `arg`. O modo interativo conecta stdin, stdout e stderr ao processo Lua; ele não inicia um REPL Lua.
+
+## Próximos Passos
+
+- [Runtime Virtual-Sh](./virtual) - Para scripts shell POSIX portáveis
+- [Runtime Container](./container) - Para execução isolada

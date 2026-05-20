@@ -84,7 +84,10 @@ func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc
 		cfg.Virtual.Utilities.Enabled,
 		runtime.WithInteractiveCommandFactory(shInteractiveCommand),
 	))
-	session.registry.Register(runtime.RuntimeTypeVirtualLua, runtime.NewLuaRuntime(cfg.Virtual.Utilities.Enabled))
+	session.registry.Register(runtime.RuntimeTypeVirtualLua, runtime.NewLuaRuntime(
+		cfg.Virtual.Utilities.Enabled,
+		runtime.WithLuaInteractiveCommandFactory(luaInteractiveCommand),
+	))
 
 	if !shouldInitializeContainerRuntime(selectedRuntime) {
 		return session

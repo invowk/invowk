@@ -5,6 +5,7 @@ package uroot
 import (
 	"context"
 	"io"
+	"path/filepath"
 
 	"mvdan.cc/sh/v3/interp"
 )
@@ -23,6 +24,8 @@ type (
 		Dir string
 		// LookupEnv retrieves environment variables.
 		LookupEnv func(string) (string, bool)
+		// ValidatePath resolves and validates a path before filesystem access.
+		ValidatePath func(cwd, path string) (string, error)
 	}
 
 	// handlerContextKey is the context key for storing HandlerContext.
@@ -47,6 +50,18 @@ func ExtractHandlerContext(ctx context.Context) *HandlerContext {
 	}
 }
 
+// ResolvePath resolves path relative to the handler workdir, using ValidatePath
+// when the embedding runtime provides a virtual filesystem policy.
+func (h *HandlerContext) ResolvePath(path string) (string, error) {
+	if h != nil && h.ValidatePath != nil {
+		return h.ValidatePath(h.Dir, path)
+	}
+	if !filepath.IsAbs(path) {
+		return filepath.Join(h.Dir, path), nil
+	}
+	return path, nil
+}
+
 // WithHandlerContext stores a HandlerContext in the context.
 // This is primarily used for testing where we need to inject a custom HandlerContext.
 func WithHandlerContext(ctx context.Context, hc *HandlerContext) context.Context {
@@ -61,4 +76,9 @@ func GetHandlerContext(ctx context.Context) *HandlerContext {
 		return hc
 	}
 	return ExtractHandlerContext(ctx)
+}
+
+func pathValidatingHandlerContext(ctx context.Context) (*HandlerContext, bool) {
+	hc, ok := ctx.Value(handlerContextKey{}).(*HandlerContext)
+	return hc, ok && hc != nil && hc.ValidatePath != nil
 }

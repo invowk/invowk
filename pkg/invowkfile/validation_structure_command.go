@@ -127,6 +127,15 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 	// Validate implementation-level env configuration
 	validationErrors = append(validationErrors, v.validateEnvConfig(ctx, impl.Env, path.Copy())...)
 
+	if err := impl.AllowedPaths.ValidateForPlatforms(impl.Platforms); err != nil {
+		validationErrors = append(validationErrors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("allowed_paths").String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		})
+	}
+
 	// [GO-ONLY] Positive duration semantics require time.ParseDuration; CUE only
 	// enforces the syntactic duration shape.
 	if err := impl.Timeout.Validate(); err != nil {

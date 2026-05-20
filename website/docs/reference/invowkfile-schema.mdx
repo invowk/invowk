@@ -228,6 +228,13 @@ Environment configuration for this implementation. Merged with command-level env
 
 Working directory for this implementation. Overrides both root-level and command-level workdir settings. Can be absolute or relative to the invowkfile location.
 
+### allowed_paths
+
+**Type:** map of uppercase logical names to a string path or platform-keyed paths
+**Required:** No
+
+Logical paths exposed to virtual runtimes. Keys must be safe environment suffixes such as `CACHE` or `DB_ROOT`; Invowk exposes each mapping as `INVOWK_PATH_<KEY>` and resolves it through `invowk.path("<KEY>/file")` in virtual-lua. Values can be a common string or a map with `linux`, `macos`, and `windows` entries for selected platforms.
+
 ### depends_on
 
 **Type:** `#DependsOn`
@@ -263,7 +270,7 @@ The runtime type.
 
 **Type:** `"none" | "allow" | "all"`  
 **Available for:** `native`, `virtual-sh`, `virtual-lua`, `container`  
-**Default:** `all` for native/virtual-sh, `none` for container
+**Default:** `all` for native/virtual-sh/virtual-lua, `none` for container
 
 Controls whether the host environment is inherited by the runtime.
 
@@ -282,6 +289,29 @@ Allowlist of host env vars. This field requires `env_inherit_mode: "allow"` in t
 Denylist of host env vars (applies to any mode).
 
 <Snippet id="reference/invowkfile/env-inherit-example" />
+
+### allowed_binaries
+
+**Type:** `[...string]`
+**Available for:** `virtual-sh`, `virtual-lua`
+**Default:** `[]`
+
+Host binaries that a virtual runtime may execute. The default is deny-all. Named entries are resolved with `binary_lookup_mode`; absolute entries must match the executable path. `["*"]` is an explicit opt-out that allows every host binary and should be avoided for shared modules.
+
+### binary_lookup_mode
+
+**Type:** `"host" | "strict"`
+**Available for:** `virtual-sh`, `virtual-lua`
+**Default:** `"host"`
+
+Controls how named `allowed_binaries` entries are resolved. `host` uses the effective `PATH`. `strict` uses platform system paths only.
+
+### cpu_limit / memory_limit
+
+**Type:** `uint` / byte-size string
+**Available for:** `virtual-lua`
+
+Optional golua execution limits. Omit or set `cpu_limit: 0` / empty `memory_limit` for no explicit quota.
 
 ### enable_host_ssh
 

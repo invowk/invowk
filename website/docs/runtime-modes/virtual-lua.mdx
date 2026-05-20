@@ -1,0 +1,62 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Virtual-Lua Runtime
+
+The **virtual-lua** runtime executes commands with Invowk's embedded Lua interpreter. It is useful for portable automation that wants Lua's tables, functions, and module style without requiring a host Lua installation.
+
+## Basic Usage
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
+## Bridge API
+
+Lua scripts interact with Invowk through a read-only `invowk` table:
+
+| API | Purpose |
+|-----|---------|
+| `invowk.path(nameOrAnchor)` | Resolve standard anchors such as `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and implementation `allowed_paths` names |
+| `invowk.env.NAME` / `os.getenv("NAME")` | Read the effective command environment |
+| `invowk.state.bin_path` | Inspect the last resolved host binary path |
+| `invowk.cmd.<name>(...)` | Stream an enabled utility or allowed host binary to the command's stdout/stderr |
+| `invowk.capture.<name>(...)` | Return stdout, stderr, and exit code |
+
+<Snippet id="runtime-modes/virtual-lua-bridge" />
+
+## Paths And Files
+
+Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and the script or module source root.
+
+`@home` can be resolved for metadata, but it is not a blanket allowed root. To make a host path available to Lua file APIs, define an implementation-level `allowed_paths` entry. The key becomes `INVOWK_PATH_<KEY>` and can be resolved with `invowk.path("<KEY>/file")`.
+
+<Snippet id="runtime-modes/virtual-lua-allowed-paths" />
+
+## Module-Local Require
+
+`require("helpers.format")` loads Lua source files from the script or module tree, such as `helpers/format.lua` or `helpers/format/init.lua`. Traversal, absolute paths, and native shared-library loading are blocked.
+
+## Host Binaries And Utilities
+
+When `virtual.utilities.enabled` is true, `invowk.cmd` and `invowk.capture` can call Invowk's built-in u-root utilities. Host binaries are still denied by default and must be listed in `allowed_binaries`.
+
+<Snippet id="runtime-modes/virtual-lua-host-binary" />
+
+:::caution Not a Sandbox
+The virtual-lua runtime is **not a security sandbox**. Allowed host binaries execute as native host processes with host access. For execution isolation, use the **container** runtime.
+:::
+
+## Lua Standard Library Boundary
+
+Virtual-lua intentionally does not expose unrestricted host-facing APIs such as `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile`, or dynamic `golib` imports. Use the Invowk bridge, path-validated `io` functions, and module-local `require` instead.
+
+## Arguments And Interactive Mode
+
+Command arguments are available through both Lua varargs and the `arg` table. Interactive mode attaches stdin, stdout, and stderr to the Lua process; it does not start a Lua REPL.
+
+## Next Steps
+
+- [Virtual-Sh Runtime](./virtual) - For portable POSIX shell scripts
+- [Container Runtime](./container) - For isolated execution

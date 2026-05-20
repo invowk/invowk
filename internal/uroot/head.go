@@ -47,7 +47,7 @@ func (c *headCommand) Run(ctx context.Context, args []string) error {
 	// Parse known flags, ignore errors for unsupported flags
 	_ = fs.Parse(args[1:]) //nolint:errcheck // Intentionally ignoring unsupported flags
 
-	return ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+	return ProcessFilesOrStdinWithContext(fs.Args(), hc, c.name,
 		func(r io.Reader, filename string, index, total int) error {
 			// Print header for multiple files
 			if total > 1 {

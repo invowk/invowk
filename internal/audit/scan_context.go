@@ -91,19 +91,20 @@ type (
 	// ScriptRef is a reference to a script within the scan context, annotated with
 	// the surface it belongs to. Used by content-analysis checkers.
 	ScriptRef struct {
-		SurfaceID   string
-		SurfaceKey  ScanSurfaceKey
-		SurfaceKind SurfaceKind
-		FilePath    types.FilesystemPath
-		ModulePath  types.FilesystemPath
-		CommandName invowkfile.CommandName
-		ImplIndex   int
-		Script      invowkfile.ImplementationScript
-		IsFile      bool
-		Runtimes    []invowkfile.RuntimeConfig
-		ScriptPath  types.FilesystemPath
-		FileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
-		FileStatErr error
+		SurfaceID    string
+		SurfaceKey   ScanSurfaceKey
+		SurfaceKind  SurfaceKind
+		FilePath     types.FilesystemPath
+		ModulePath   types.FilesystemPath
+		CommandName  invowkfile.CommandName
+		ImplIndex    int
+		Script       invowkfile.ImplementationScript
+		IsFile       bool
+		Runtimes     []invowkfile.RuntimeConfig
+		AllowedPaths invowkfile.AllowedPaths
+		ScriptPath   types.FilesystemPath
+		FileSize     int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
+		FileStatErr  error
 		// resolvedContent holds the actual script body for content analysis.
 		// For inline scripts this equals string(Script). For file-based scripts
 		// this holds the file contents (read during context building, capped at
@@ -761,6 +762,11 @@ func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modu
 				return nil, err
 			}
 		}
+		var err error
+		refs, err = appendLuaFilesFromModule(ctx, refs, sm)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return refs, nil
 }
@@ -778,16 +784,17 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 			impl := &cmd.Implementations[i]
 			isFile := impl.Script.IsFile()
 			ref := ScriptRef{
-				SurfaceID:   surfaceID,
-				SurfaceKey:  surfaceKey,
-				SurfaceKind: surfaceKind,
-				FilePath:    filePath,
-				ModulePath:  modulePath,
-				CommandName: cmd.Name,
-				ImplIndex:   i,
-				Script:      impl.Script,
-				IsFile:      isFile,
-				Runtimes:    impl.Runtimes,
+				SurfaceID:    surfaceID,
+				SurfaceKey:   surfaceKey,
+				SurfaceKind:  surfaceKind,
+				FilePath:     filePath,
+				ModulePath:   modulePath,
+				CommandName:  cmd.Name,
+				ImplIndex:    i,
+				Script:       impl.Script,
+				IsFile:       isFile,
+				Runtimes:     impl.Runtimes,
+				AllowedPaths: impl.AllowedPaths,
 			}
 
 			// Resolve actual script content for content-analysis checkers.
@@ -812,6 +819,78 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 		}
 	}
 	return refs, nil
+}
+
+func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *ScannedModule) ([]ScriptRef, error) {
+	if module == nil || module.Path == "" {
+		return refs, nil
+	}
+	seen := moduleScriptPathSet(refs, module.Path)
+	modulePath := string(module.Path)
+	if _, err := os.Stat(modulePath); err != nil {
+		return refs, nil //nolint:nilerr // synthetic test modules and partially loaded modules may not have a filesystem tree.
+	}
+	err := filepath.WalkDir(modulePath, func(path string, entry fs.DirEntry, err error) error {
+		if ctxErr := scanContextErr(ctx); ctxErr != nil {
+			return ctxErr
+		}
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() && entry.Name() == invowkmod.VendoredModulesDir {
+			return filepath.SkipDir
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
+			return nil
+		}
+		normalized := types.FilesystemPath(path) //goplint:ignore -- path comes from filesystem walk.
+		if seen[string(normalized)] {
+			return nil
+		}
+		facts, factsErr := readScriptFileFacts(ctx, path, modulePath)
+		if factsErr != nil {
+			return factsErr
+		}
+		rel, relErr := filepath.Rel(modulePath, path)
+		if relErr != nil {
+			rel = entry.Name()
+		}
+		scriptFile := invowkfile.FilesystemPath(rel)
+		refs = append(refs, ScriptRef{
+			SurfaceID:       module.SurfaceID,
+			SurfaceKey:      module.SurfaceKey,
+			SurfaceKind:     module.SurfaceKind,
+			FilePath:        facts.Path,
+			ModulePath:      module.Path,
+			CommandName:     invowkfile.CommandName("lua-file"),
+			ImplIndex:       -1,
+			Script:          invowkfile.ImplementationScript{File: &scriptFile},
+			IsFile:          true,
+			Runtimes:        []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualLua}},
+			ScriptPath:      facts.Path,
+			FileSize:        facts.Size,
+			FileStatErr:     facts.StatErr,
+			resolvedContent: facts.Content,
+		})
+		seen[string(normalized)] = true
+		return nil
+	})
+	if err != nil {
+		return refs, fmt.Errorf("walking module Lua files in %s: %w", module.Path, err)
+	}
+	return refs, nil
+}
+
+func moduleScriptPathSet(refs []ScriptRef, modulePath types.FilesystemPath) map[string]bool {
+	seen := make(map[string]bool)
+	for i := range refs {
+		ref := refs[i]
+		if ref.ModulePath != modulePath || ref.ScriptPath == "" {
+			continue
+		}
+		seen[string(ref.ScriptPath)] = true
+	}
+	return seen
 }
 
 func moduleSurfaceKind(isGlobal, isVendored bool) SurfaceKind {

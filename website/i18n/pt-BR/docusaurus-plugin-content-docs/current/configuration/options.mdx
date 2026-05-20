@@ -95,7 +95,7 @@ Habilita utilitários [u-root](https://github.com/u-root/u-root) no `virtual-sh`
 
 **Implementações customizadas (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
-Isso torna o `virtual-sh` autocontido para operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host.
+Isso torna o `virtual-sh` autocontido para operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host. No `virtual-lua`, a mesma opção controla se esses utilitários ficam disponíveis por `invowk.cmd` e `invowk.capture`; binários do host ainda exigem `allowed_binaries`.
 
 :::tip
 Os utilitários u-root são habilitados por padrão. Defina como `false` apenas se você quiser que scripts virtuais usem binários do host explicitamente permitidos ou reduzir o tamanho do binário.

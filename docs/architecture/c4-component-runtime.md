@@ -65,7 +65,7 @@ The runtime package uses interface segregation to let callers depend only on the
 - **CapturingRuntime** is a standalone interface for output capture. Callers that need captured output can type-assert to it.
 - **InteractiveRuntime** embeds `Runtime` and adds PTY support. The helper function `GetInteractiveRuntime()` combines type assertion with `SupportsInteractive()` capability check, returning nil if either fails.
 
-Native, Sh, and Container implement the interactive interface; Lua currently implements execution and capture. Interface satisfaction checks verify each runtime's declared capabilities at compile time.
+Native, Sh, Lua, and Container implement the interactive interface. Interface satisfaction checks verify each runtime's declared capabilities at compile time.
 
 ### Registry Dispatch
 

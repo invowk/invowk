@@ -6,9 +6,9 @@ import Snippet from '@site/src/components/Snippet';
 
 # Visão Geral dos Modos de Runtime
 
-O Invowk™ oferece três formas diferentes de executar comandos, cada uma com seus próprios pontos fortes. Escolha o runtime certo para seu caso de uso.
+O Invowk™ oferece quatro formas diferentes de executar comandos, cada uma com seus próprios pontos fortes. Escolha o runtime certo para seu caso de uso.
 
-## Os Três Runtimes
+## Os Quatro Runtimes
 
 | Runtime | Descrição | Melhor Para |
 |---------|-----------|-------------|
@@ -46,6 +46,20 @@ O runtime `virtual-sh` **não é um sandbox**. Binários do host são negados a 
 :::
 
 <Snippet id="runtime-modes/virtual-basic" />
+
+### Runtime Virtual-Lua
+
+Use **virtual-lua** quando você quiser:
+- Automação Lua portátil sem exigir um binário Lua no host
+- Scripts estruturados com tabelas, funções e `require` local ao módulo
+- E/S de arquivos validada por caminho pelo harness virtual do Invowk
+- Chamadas explícitas da ponte para utilitários e binários do host permitidos
+
+:::caution
+O runtime `virtual-lua` **não é um sandbox**. Binários do host permitidos ainda executam como processos nativos. Para isolamento de execução, use o runtime **container**.
+:::
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
 
 ### Runtime Container
 
@@ -133,4 +147,5 @@ Aprofunde-se em cada runtime:
 
 - [Runtime Native](./native) - Execução no shell do sistema
 - [Runtime Virtual-Sh](./virtual) - Runtime de shell POSIX integrado
+- [Runtime Virtual-Lua](./virtual-lua) - Runtime Lua integrado
 - [Runtime Container](./container) - Execução em Docker/Podman

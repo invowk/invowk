@@ -19,6 +19,15 @@ import "strings"
 // EnvInheritMode defines how environment variables are inherited
 #EnvInheritMode: "none" | "allow" | "all"
 
+// AllowedPathName defines a logical path name exposed as INVOWK_PATH_<NAME>.
+#AllowedPathName: string & =~"^[A-Z_][A-Z0-9_]*$" & strings.MaxRunes(256)
+
+#AllowedPathValue: (#NonWhitespaceString & strings.MaxRunes(4096)) | close({
+	linux?: #NonWhitespaceString & strings.MaxRunes(4096)
+	macos?: #NonWhitespaceString & strings.MaxRunes(4096)
+	windows?: #NonWhitespaceString & strings.MaxRunes(4096)
+})
+
 // FlagType defines the valid types for command flags
 #FlagType: "string" | "bool" | "int" | "float"
 
@@ -248,6 +257,11 @@ import "strings"
 	// from the invowkfile directory or module root; Go/runtime code owns final resolution
 	// and execution-time directory validation.
 	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)
+
+	// allowed_paths maps logical uppercase path names to common or platform-keyed
+	// paths exposed as INVOWK_PATH_<NAME> and allowed by virtual runtimes.
+	// [GO-ONLY] Platform mapping completeness and path normalization require Go.
+	allowed_paths?: [#AllowedPathName]: #AllowedPathValue
 
 	// depends_on specifies dependencies validated against the HOST system (optional).
 	// Regardless of the selected runtime, these are always checked on the host.

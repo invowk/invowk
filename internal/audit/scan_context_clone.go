@@ -50,6 +50,7 @@ func cloneScannedModule(module *ScannedModule) *ScannedModule {
 func cloneScriptRef(ref ScriptRef) ScriptRef {
 	cloned := ref
 	cloned.Runtimes = cloneRuntimeConfigs(ref.Runtimes)
+	cloned.AllowedPaths = maps.Clone(ref.AllowedPaths)
 	return cloned
 }
 

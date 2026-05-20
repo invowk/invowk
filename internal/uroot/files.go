@@ -5,7 +5,6 @@ package uroot
 import (
 	"io"
 	"os"
-	"path/filepath"
 )
 
 // FileProcessor processes a single reader with file context.
@@ -46,13 +45,24 @@ func ProcessFilesOrStdin(
 	cmdName string,
 	processor FileProcessor,
 ) (err error) {
+	return ProcessFilesOrStdinWithContext(args, &HandlerContext{Stdin: stdin, Dir: workDir}, cmdName, processor)
+}
+
+// ProcessFilesOrStdinWithContext processes files through the supplied handler
+// context so virtual runtimes can enforce path validation before host I/O.
+func ProcessFilesOrStdinWithContext(
+	args []string,
+	hc *HandlerContext,
+	cmdName string,
+	processor FileProcessor,
+) (err error) {
 	if len(args) == 0 {
-		return processor(stdin, "-", 0, 0)
+		return processor(hc.Stdin, "-", 0, 0)
 	}
 
 	total := len(args)
 	for i, file := range args {
-		if err := processFile(file, workDir, cmdName, func(f *os.File) error {
+		if err := processFileWithContext(file, hc, cmdName, func(f *os.File) error {
 			return processor(f, file, i, total)
 		}); err != nil {
 			return err
@@ -62,14 +72,11 @@ func ProcessFilesOrStdin(
 	return nil
 }
 
-// processFile opens a file and calls the processor, handling path resolution
-// and close error aggregation via named return.
-func processFile(file, workDir, cmdName string, processor func(f *os.File) error) (err error) {
-	path := file
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(workDir, path)
+func processFileWithContext(file string, hc *HandlerContext, cmdName string, processor func(f *os.File) error) (err error) {
+	path, err := hc.ResolvePath(file)
+	if err != nil {
+		return wrapError(cmdName, err)
 	}
-
 	f, err := os.Open(path)
 	if err != nil {
 		return wrapError(cmdName, err)

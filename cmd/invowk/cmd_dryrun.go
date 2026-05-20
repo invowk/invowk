@@ -50,6 +50,7 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("ContainerNameSource:"), plan.PersistentContainerNameSource)
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("CreateIfMissing:"), strconv.FormatBool(plan.PersistentContainerCreateIfMissing))
 	}
+	renderDryRunVirtualSafety(w, plan)
 
 	// Script content.
 	fmt.Fprintln(w)
@@ -92,6 +93,71 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, cmds, filepaths, capabilities, custom checks, env vars) is not performed in dry-run mode."))
 	}
 	fmt.Fprintln(w)
+}
+
+func renderDryRunVirtualSafety(w io.Writer, plan commandsvc.DryRunPlan) {
+	if plan.Runtime != invowkfile.RuntimeVirtualSh && plan.Runtime != invowkfile.RuntimeVirtualLua {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Virtual Safety:"))
+	fmt.Fprintf(w, "    HostBinaries: %s\n", dryRunAllowedBinaries(plan.AllowedBinaries))
+	mode := plan.BinaryLookupMode
+	if mode == "" {
+		mode = invowkfile.BinaryLookupModeHost
+	}
+	fmt.Fprintf(w, "    BinaryLookupMode: %s\n", mode)
+	if plan.Runtime == invowkfile.RuntimeVirtualLua {
+		if plan.LuaCPULimit != 0 {
+			fmt.Fprintf(w, "    LuaCPULimit: %d\n", plan.LuaCPULimit)
+		}
+		if plan.LuaMemoryLimit != "" {
+			fmt.Fprintf(w, "    LuaMemoryLimit: %s\n", plan.LuaMemoryLimit)
+		}
+	}
+	if len(plan.AllowedPaths) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "    AllowedPaths:")
+	for _, name := range slices.Sorted(maps.Keys(plan.AllowedPaths)) {
+		fmt.Fprintf(w, "      %s=%s\n", name, dryRunAllowedPathValue(plan.AllowedPaths[name]))
+	}
+}
+
+func dryRunAllowedBinaries(allowed []invowkfile.AllowedBinary) string {
+	if len(allowed) == 0 {
+		return "deny-all"
+	}
+	values := make([]string, 0, len(allowed))
+	for _, binary := range allowed {
+		values = append(values, binary.String())
+	}
+	return strings.Join(values, ", ")
+}
+
+func dryRunAllowedPathValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case map[string]string:
+		return dryRunStringMap(typed)
+	case map[invowkfile.PlatformType]string:
+		values := make(map[string]string, len(typed))
+		for platform, path := range typed {
+			values[platform.String()] = path
+		}
+		return dryRunStringMap(values)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+func dryRunStringMap(values map[string]string) string {
+	parts := make([]string, 0, len(values))
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		parts = append(parts, key+":"+values[key])
+	}
+	return strings.Join(parts, ",")
 }
 
 // isArgEnvVar checks if a key matches the ARG1, ARG2, ..., ARGC pattern

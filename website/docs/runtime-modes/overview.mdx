@@ -47,6 +47,20 @@ The virtual-sh runtime is **not a sandbox**. Host binaries are denied unless exp
 
 <Snippet id="runtime-modes/virtual-basic" />
 
+### Virtual-Lua Runtime
+
+Use **virtual-lua** when you want:
+- Portable Lua automation without requiring a host Lua binary
+- Structured scripts with tables, functions, and module-local `require`
+- Path-validated file I/O through Invowk's virtual safety harness
+- Explicit bridge calls for utilities and allowed host binaries
+
+:::caution
+The virtual-lua runtime is **not a sandbox**. Allowed host binaries still run as native host processes. For execution isolation, use the **container** runtime.
+:::
+
+<Snippet id="runtime-modes/virtual-lua-basic" />
+
 ### Container Runtime
 
 Use **container** when you want:
@@ -132,4 +146,5 @@ Dive deeper into each runtime:
 
 - [Native Runtime](./native) - System shell execution
 - [Virtual-Sh Runtime](./virtual) - Built-in POSIX shell runtime
+- [Virtual-Lua Runtime](./virtual-lua) - Embedded Lua runtime
 - [Container Runtime](./container) - Docker/Podman execution

@@ -9,6 +9,7 @@ import (
 	"os"
 
 	ivkruntime "github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -30,9 +31,12 @@ func newInternalExecShCommand() *cobra.Command {
 
 	cmd.Flags().String(flagScriptFile, "", "path to script file to execute")
 	cmd.Flags().String("workdir", "", "working directory for execution")
+	cmd.Flags().String("script-base-path", "", "script base path for virtual path policy")
 	cmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
 	cmd.Flags().StringArray("args", nil, "positional arguments for the script")
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
+	cmd.Flags().StringArray("allowed-binary", nil, "host binary allowed by the virtual runtime")
+	cmd.Flags().String("binary-lookup-mode", invowkfile.BinaryLookupModeHost.String(), "host binary lookup mode")
 	cmd.Flags().Bool("enable-uroot", false, "enable u-root utilities")
 
 	_ = cmd.MarkFlagRequired(flagScriptFile)
@@ -47,10 +51,20 @@ func newInternalExecShCommand() *cobra.Command {
 func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 	scriptFile, _ := cmd.Flags().GetString(flagScriptFile)
 	workdir, _ := cmd.Flags().GetString("workdir")
+	scriptBasePath, _ := cmd.Flags().GetString("script-base-path")
 	envVars, _ := cmd.Flags().GetStringArray("env")
 	posArgs, _ := cmd.Flags().GetStringArray("args")
 	envJSON, _ := cmd.Flags().GetString("env-json")
+	allowedBinaries, _ := cmd.Flags().GetStringArray("allowed-binary")
+	binaryLookupModeRaw, _ := cmd.Flags().GetString("binary-lookup-mode")
 	enableUroot, _ := cmd.Flags().GetBool("enable-uroot")
+	binaryLookupMode := invowkfile.BinaryLookupMode(binaryLookupModeRaw)
+	if err := binaryLookupMode.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing binary lookup mode: %v\n", err)
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: 1}
+	}
 
 	// Read script content from file
 	scriptContent, err := os.ReadFile(scriptFile)
@@ -72,15 +86,18 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 
 	// Execute the script
 	err = ivkruntime.RunShScript(cmd.Context(), ivkruntime.ShScriptOptions{
-		Script:      string(scriptContent),
-		ScriptName:  scriptFile,
-		WorkDir:     workdir,
-		Env:         env,
-		Args:        posArgs,
-		EnableUroot: enableUroot,
-		Stdin:       os.Stdin,
-		Stdout:      os.Stdout,
-		Stderr:      os.Stderr,
+		Script:           string(scriptContent),
+		ScriptName:       scriptFile,
+		WorkDir:          workdir,
+		ScriptBasePath:   scriptBasePath,
+		Env:              env,
+		Args:             posArgs,
+		AllowedBinaries:  allowedBinaries,
+		BinaryLookupMode: binaryLookupMode,
+		EnableUroot:      enableUroot,
+		Stdin:            os.Stdin,
+		Stdout:           os.Stdout,
+		Stderr:           os.Stderr,
 	})
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
@@ -97,11 +114,9 @@ func runInternalExecSh(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// buildShEnv builds the environment variable slice from flags and JSON.
-// It inherits the current process environment and overlays the provided values.
+// buildShEnv builds the script-visible environment variable slice from flags and JSON.
 func buildShEnv(envVars []string, envJSON string) ([]string, error) {
-	// Start with current environment
-	env := os.Environ()
+	env := make([]string, 0, len(envVars))
 
 	// Add env vars from --env flags
 	env = append(env, envVars...)

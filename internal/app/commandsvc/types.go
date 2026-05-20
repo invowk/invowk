@@ -152,6 +152,16 @@ type (
 		Script invowkfile.ImplementationScript
 		// ScriptInterpreter describes effective interpreter selection for the script.
 		ScriptInterpreter invowkfile.ScriptInterpreterAnalysis
+		// AllowedBinaries lists host binaries the selected virtual runtime may execute.
+		AllowedBinaries []invowkfile.AllowedBinary
+		// BinaryLookupMode controls allowed host binary resolution.
+		BinaryLookupMode invowkfile.BinaryLookupMode
+		// AllowedPaths lists logical path mappings exposed to virtual runtimes.
+		AllowedPaths invowkfile.AllowedPaths
+		// LuaCPULimit is the selected virtual-lua CPU quota, if any.
+		LuaCPULimit invowkfile.LuaCPULimit
+		// LuaMemoryLimit is the selected virtual-lua memory quota, if any.
+		LuaMemoryLimit invowkfile.MemoryLimit
 		// Env contains projected execution environment variables.
 		Env map[string]string //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
 		// DependencyValidationSkipped is true because dry-run mode does not

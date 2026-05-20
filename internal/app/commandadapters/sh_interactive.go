@@ -24,10 +24,15 @@ func shInteractiveCommand(ctx context.Context, spec runtime.ShInteractiveCommand
 		"internal", "exec-virtual-sh",
 		"--script-file", string(*spec.ScriptFile),
 		"--workdir", string(*spec.WorkDir),
+		"--script-base-path", string(*spec.ScriptBasePath),
 		"--env-json", string(spec.EnvJSON),
+		"--binary-lookup-mode", spec.BinaryLookupMode.String(),
 	}
 	if spec.EnableUroot {
 		args = append(args, "--enable-uroot")
+	}
+	for _, allowed := range spec.AllowedBinaries {
+		args = append(args, "--allowed-binary", allowed)
 	}
 	for _, arg := range spec.Args {
 		args = append(args, "--args", arg)

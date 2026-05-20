@@ -17,6 +17,7 @@ func newInternalCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(newInternalExecShCommand())
+	cmd.AddCommand(newInternalExecLuaCommand())
 	cmd.AddCommand(newInternalCheckCmdCommand())
 
 	return cmd

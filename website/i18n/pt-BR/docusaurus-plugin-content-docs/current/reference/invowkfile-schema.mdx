@@ -228,6 +228,13 @@ Configuração de environment para esta implementation. Mesclado com o env no n�
 
 Diretório de trabalho para esta implementation. Sobrescreve as configurações de workdir tanto do nível raiz quanto do nível de comando. Pode ser absoluto ou relativo à localização do invowkfile.
 
+### allowed_paths
+
+**Tipo:** mapa de nomes lógicos em maiúsculas para caminho string ou caminhos por plataforma
+**Obrigatório:** Não
+
+Caminhos lógicos expostos aos runtimes virtuais. As chaves devem ser sufixos de ambiente seguros, como `CACHE` ou `DB_ROOT`; o Invowk expõe cada mapeamento como `INVOWK_PATH_<KEY>` e o resolve por `invowk.path("<KEY>/file")` no virtual-lua. Os valores podem ser uma string comum ou um mapa com entradas `linux`, `macos` e `windows` para as plataformas selecionadas.
+
 ### depends_on
 
 **Tipo:** `#DependsOn`
@@ -263,7 +270,7 @@ O tipo de runtime.
 
 **Tipo:** `"none" | "allow" | "all"`  
 **Disponível para:** `native`, `virtual-sh`, `virtual-lua`, `container`  
-**Padrão:** `all` para native/virtual-sh, `none` para container
+**Padrão:** `all` para native/virtual-sh/virtual-lua, `none` para container
 
 Controla se o ambiente do host é herdado pelo runtime.
 
@@ -282,6 +289,29 @@ Lista de variáveis de ambiente permitidas. Este campo exige `env_inherit_mode: 
 Lista de variáveis de ambiente negadas (aplica-se a qualquer modo).
 
 <Snippet id="reference/invowkfile/env-inherit-example" />
+
+### allowed_binaries
+
+**Tipo:** `[...string]`
+**Disponível para:** `virtual-sh`, `virtual-lua`
+**Padrão:** `[]`
+
+Binários do host que um runtime virtual pode executar. O padrão é negar todos. Entradas nomeadas são resolvidas com `binary_lookup_mode`; entradas absolutas devem corresponder ao caminho do executável. `["*"]` é uma saída explícita que permite todos os binários do host e deve ser evitada em módulos compartilhados.
+
+### binary_lookup_mode
+
+**Tipo:** `"host" | "strict"`
+**Disponível para:** `virtual-sh`, `virtual-lua`
+**Padrão:** `"host"`
+
+Controla como entradas nomeadas em `allowed_binaries` são resolvidas. `host` usa o `PATH` efetivo. `strict` usa apenas caminhos de sistema da plataforma.
+
+### cpu_limit / memory_limit
+
+**Tipo:** `uint` / string de tamanho em bytes
+**Disponível para:** `virtual-lua`
+
+Limites opcionais de execução do golua. Omita ou defina `cpu_limit: 0` / `memory_limit` vazia para não aplicar quota explícita.
 
 ### enable_host_ssh
 

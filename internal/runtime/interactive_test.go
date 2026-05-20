@@ -44,6 +44,19 @@ func TestInteractiveRuntimeInterface(t *testing.T) {
 		}
 	})
 
+	t.Run("LuaRuntime implements InteractiveRuntime", func(t *testing.T) {
+		t.Parallel()
+
+		var rt Runtime = NewLuaRuntime(false)
+		ir, ok := rt.(InteractiveRuntime)
+		if !ok {
+			t.Error("LuaRuntime does not implement InteractiveRuntime")
+		}
+		if !ir.SupportsInteractive() {
+			t.Error("LuaRuntime.SupportsInteractive() returned false, expected true")
+		}
+	})
+
 	t.Run("ContainerRuntime implements InteractiveRuntime", func(t *testing.T) {
 		t.Parallel()
 
@@ -84,6 +97,16 @@ func TestGetInteractiveRuntime(t *testing.T) {
 		ir := GetInteractiveRuntime(rt)
 		if ir == nil {
 			t.Error("GetInteractiveRuntime returned nil for ShRuntime")
+		}
+	})
+
+	t.Run("returns InteractiveRuntime for LuaRuntime", func(t *testing.T) {
+		t.Parallel()
+
+		rt := NewLuaRuntime(false)
+		ir := GetInteractiveRuntime(rt)
+		if ir == nil {
+			t.Error("GetInteractiveRuntime returned nil for LuaRuntime")
 		}
 	})
 }
@@ -205,6 +228,12 @@ cmds: [{
 	if gotSpec.WorkDir == nil {
 		t.Fatal("launcher spec missing workdir")
 	}
+	if gotSpec.ScriptBasePath == nil {
+		t.Fatal("launcher spec missing script base path")
+	}
+	if string(*gotSpec.ScriptBasePath) != tmpDir {
+		t.Fatalf("launcher spec script base path = %q, want %q", *gotSpec.ScriptBasePath, tmpDir)
+	}
 	if gotSpec.EnvJSON == "" {
 		t.Fatal("launcher spec missing env JSON")
 	}
@@ -250,6 +279,133 @@ func TestShRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 
 	if !gotSpec.EnableUroot {
 		t.Fatal("launcher spec EnableUroot = false, want true")
+	}
+}
+
+func TestShRuntimePrepareInteractivePassesHostBinaryPolicy(t *testing.T) {
+	t.Parallel()
+
+	inv := &invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{{
+			Name: "run-host",
+			Implementations: []invowkfile.Implementation{{
+				Script: invowkfile.ImplementationScript{Content: "tool"},
+				Runtimes: []invowkfile.RuntimeConfig{{
+					Name:             invowkfile.RuntimeVirtualSh,
+					AllowedBinaries:  []invowkfile.AllowedBinary{"tool"},
+					BinaryLookupMode: invowkfile.BinaryLookupModeStrict,
+				}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			}},
+		}},
+	}
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+
+	var gotSpec ShInteractiveCommandSpec
+	factory := func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error) {
+		gotSpec = spec
+		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
+	}
+
+	rt := NewShRuntime(false, WithInteractiveCommandFactory(factory))
+	prepared, err := rt.PrepareInteractive(ctx)
+	if err != nil {
+		t.Fatalf("PrepareInteractive() error = %v", err)
+	}
+	t.Cleanup(prepared.Cleanup)
+
+	if gotSpec.BinaryLookupMode != invowkfile.BinaryLookupModeStrict {
+		t.Fatalf("launcher spec BinaryLookupMode = %q, want strict", gotSpec.BinaryLookupMode)
+	}
+	if len(gotSpec.AllowedBinaries) != 1 || gotSpec.AllowedBinaries[0] != "tool" {
+		t.Fatalf("launcher spec AllowedBinaries = %v, want [tool]", gotSpec.AllowedBinaries)
+	}
+}
+
+func TestLuaRuntimePrepareInteractive(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+
+	err := os.WriteFile(invowkfilePath, []byte(`
+cmds: [{
+	name: "hello-lua"
+	implementations: [{
+		script: {content: "print('hello')"}
+		runtimes: [{name: "virtual-lua", allowed_binaries: ["tool"], binary_lookup_mode: "strict", cpu_limit: 1000, memory_limit: "1M"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+`), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create test invowkfile: %v", err)
+	}
+
+	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(invowkfilePath))
+	if err != nil {
+		t.Fatalf("Failed to parse invowkfile: %v", err)
+	}
+
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualLua
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+	ctx.PositionalArgs = []string{"one"}
+
+	var gotSpec LuaInteractiveCommandSpec
+	factory := func(ctx context.Context, spec LuaInteractiveCommandSpec) (*exec.Cmd, error) {
+		gotSpec = spec
+		return exec.CommandContext(ctx, "test-invowk", "lua-launcher"), nil
+	}
+
+	rt := NewLuaRuntime(true, WithLuaInteractiveCommandFactory(factory))
+	prepared, err := rt.PrepareInteractive(ctx)
+	if err != nil {
+		t.Fatalf("PrepareInteractive() error = %v", err)
+	}
+	t.Cleanup(prepared.Cleanup)
+
+	if prepared.Cmd == nil {
+		t.Fatal("PrepareInteractive returned nil Cmd")
+	}
+	if prepared.Cmd.Args[0] != "test-invowk" || prepared.Cmd.Args[1] != "lua-launcher" {
+		t.Fatalf("prepared command args = %v, want injected launcher", prepared.Cmd.Args)
+	}
+	if gotSpec.ScriptFile == nil {
+		t.Fatal("launcher spec missing script file")
+	}
+	data, err := os.ReadFile(string(*gotSpec.ScriptFile))
+	if err != nil {
+		t.Fatalf("ReadFile(script file) error = %v", err)
+	}
+	if string(data) != "print('hello')" {
+		t.Fatalf("script file contents = %q, want Lua script", data)
+	}
+	if gotSpec.ScriptBasePath == nil || string(*gotSpec.ScriptBasePath) != tmpDir {
+		t.Fatalf("launcher spec script base path = %v, want %q", gotSpec.ScriptBasePath, tmpDir)
+	}
+	if gotSpec.EnvJSON == "" {
+		t.Fatal("launcher spec missing env JSON")
+	}
+	if !gotSpec.EnableUroot {
+		t.Fatal("launcher spec EnableUroot = false, want true")
+	}
+	if gotSpec.CPULimit != 1000 {
+		t.Fatalf("launcher spec CPULimit = %d, want 1000", gotSpec.CPULimit)
+	}
+	if gotSpec.MemoryLimit != "1M" {
+		t.Fatalf("launcher spec MemoryLimit = %q, want 1M", gotSpec.MemoryLimit)
+	}
+	if gotSpec.BinaryLookupMode != invowkfile.BinaryLookupModeStrict {
+		t.Fatalf("launcher spec BinaryLookupMode = %q, want strict", gotSpec.BinaryLookupMode)
+	}
+	if len(gotSpec.AllowedBinaries) != 1 || gotSpec.AllowedBinaries[0] != "tool" {
+		t.Fatalf("launcher spec AllowedBinaries = %v, want [tool]", gotSpec.AllowedBinaries)
+	}
+	if len(gotSpec.Args) != 1 || gotSpec.Args[0] != "one" {
+		t.Fatalf("launcher spec Args = %v, want [one]", gotSpec.Args)
 	}
 }
 

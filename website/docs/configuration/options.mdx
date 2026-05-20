@@ -95,7 +95,7 @@ Enables [u-root](https://github.com/u-root/u-root) utilities in `virtual-sh` and
 
 **Custom implementations (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
-This makes `virtual-sh` self-contained for common file, text, and utility operations without requiring external binaries on the host system.
+This makes `virtual-sh` self-contained for common file, text, and utility operations without requiring external binaries on the host system. In `virtual-lua`, the same setting controls whether those utilities are available through `invowk.cmd` and `invowk.capture`; host binaries still require `allowed_binaries`.
 
 :::tip
 u-root utilities are enabled by default. Set to `false` only if you want virtual scripts to use explicitly allowed host binaries or reduce binary size.

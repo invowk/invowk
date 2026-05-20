@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
@@ -91,8 +92,188 @@ func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 		preprocessed := unixflag.ArgsToGoArgs(args[1:])
 		args = append([]string{args[0]}, preprocessed...)
 	}
+	var validateErr error
+	args, validateErr = validateUrootCommandPathArgs(ctx, name, args)
+	if validateErr != nil {
+		return wrapError(name, validateErr)
+	}
 
 	return cmd.Run(ctx, args)
+}
+
+func validateUrootCommandPathArgs(ctx context.Context, name string, args []string) ([]string, error) {
+	hc, ok := pathValidatingHandlerContext(ctx)
+	if !ok {
+		return args, nil
+	}
+	switch name {
+	case "base64", "cat", "cp", "gzip", "ls", "mkdir", "mv", "rm", "shasum", "touch":
+		if name == "shasum" {
+			return validateShasumPathArgs(hc, args)
+		}
+		return validateNonOptionPathArgs(hc, args)
+	case "find":
+		return validateFindPathArgs(hc, args)
+	case "tar":
+		return validateTarPathArgs(hc, args)
+	default:
+		return args, nil
+	}
+}
+
+func validateNonOptionPathArgs(hc *HandlerContext, args []string) ([]string, error) {
+	validated := append([]string(nil), args...)
+	for i := 1; i < len(validated); i++ {
+		arg := validated[i]
+		switch {
+		case arg == "--":
+			for j := i + 1; j < len(validated); j++ {
+				if err := validatePathArg(hc, validated, j); err != nil {
+					return nil, err
+				}
+			}
+			return validated, nil
+		case arg == "-" || strings.HasPrefix(arg, "-"):
+			continue
+		default:
+			if err := validatePathArg(hc, validated, i); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return validated, nil
+}
+
+func validateFindPathArgs(hc *HandlerContext, args []string) ([]string, error) {
+	validated := append([]string(nil), args...)
+	for i := 1; i < len(validated); i++ {
+		arg := validated[i]
+		if arg == "--" {
+			continue
+		}
+		if strings.HasPrefix(arg, "-") || strings.ContainsAny(arg, `()!`) {
+			break
+		}
+		if err := validatePathArg(hc, validated, i); err != nil {
+			return nil, err
+		}
+	}
+	return validated, nil
+}
+
+func validateShasumPathArgs(hc *HandlerContext, args []string) ([]string, error) {
+	validated := append([]string(nil), args...)
+	for i := 1; i < len(validated); i++ {
+		arg := validated[i]
+		switch {
+		case arg == "--":
+			for j := i + 1; j < len(validated); j++ {
+				if err := validatePathArg(hc, validated, j); err != nil {
+					return nil, err
+				}
+			}
+			return validated, nil
+		case arg == "-a" || arg == "-algorithm" || arg == "--algorithm":
+			i++
+			continue
+		case strings.HasPrefix(arg, "-a="),
+			strings.HasPrefix(arg, "-algorithm="),
+			strings.HasPrefix(arg, "--algorithm="):
+			continue
+		case arg == "-" || strings.HasPrefix(arg, "-"):
+			continue
+		default:
+			if err := validatePathArg(hc, validated, i); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return validated, nil
+}
+
+func validateTarPathArgs(hc *HandlerContext, args []string) ([]string, error) {
+	validated := append([]string(nil), args...)
+	createMode := false
+	fileValueIndexes := make(map[int]struct{})
+	operandIndexes := make([]int, 0, len(validated))
+
+	for i := 1; i < len(validated); i++ {
+		arg := validated[i]
+		if arg == "--" {
+			for j := i + 1; j < len(validated); j++ {
+				operandIndexes = append(operandIndexes, j)
+			}
+			break
+		}
+		if arg == "--file" {
+			if i+1 < len(validated) {
+				i++
+				fileValueIndexes[i] = struct{}{}
+			}
+			continue
+		}
+		if value, ok := strings.CutPrefix(arg, "--file="); ok {
+			resolved, err := hc.ResolvePath(value)
+			if err != nil {
+				return nil, err
+			}
+			validated[i] = "--file=" + resolved
+			continue
+		}
+		if strings.HasPrefix(arg, "-") && arg != "-" {
+			flags := strings.TrimPrefix(arg, "-")
+			for flagIndex, flag := range flags {
+				if flag == 'c' {
+					createMode = true
+				}
+				if flag != 'f' {
+					continue
+				}
+				value := flags[flagIndex+1:]
+				if value == "" {
+					if i+1 < len(validated) {
+						i++
+						fileValueIndexes[i] = struct{}{}
+					}
+					break
+				}
+				resolved, err := hc.ResolvePath(value)
+				if err != nil {
+					return nil, err
+				}
+				validated[i] = "-" + flags[:flagIndex+1] + resolved
+				break
+			}
+			continue
+		}
+		operandIndexes = append(operandIndexes, i)
+	}
+
+	for index := range fileValueIndexes {
+		if err := validatePathArg(hc, validated, index); err != nil {
+			return nil, err
+		}
+	}
+	if createMode {
+		for _, index := range operandIndexes {
+			if err := validatePathArg(hc, validated, index); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return validated, nil
+}
+
+func validatePathArg(hc *HandlerContext, args []string, index int) error {
+	if args[index] == "-" {
+		return nil
+	}
+	path, err := hc.ResolvePath(args[index])
+	if err != nil {
+		return err
+	}
+	args[index] = path
+	return nil
 }
 
 // BuildDefaultRegistry creates a new Registry pre-populated with all 28

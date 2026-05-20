@@ -717,6 +717,11 @@ name: "deploy-prod"`,
     platforms:   [...#PlatformConfig] & [_, ...]  // Required - at least one platform
     env?:        #EnvConfig   // Optional
     workdir?:    string       // Optional
+    allowed_paths?: [string]: string | {
+        linux?: string
+        macos?: string
+        windows?: string
+    }
     depends_on?: #DependsOn   // Optional
     timeout?:    #DurationString  // Optional - max execution time
 }`,
@@ -789,10 +794,22 @@ platforms: [
     name: "native"
 })
 
-// Virtual runtime: no additional fields
-#RuntimeConfigVirtual: close({
+// Virtual-sh runtime
+#RuntimeConfigVirtualSh: close({
     #RuntimeConfigBase
     name: "virtual-sh"
+    allowed_binaries?: [...string]
+    binary_lookup_mode?: "host" | "strict"
+})
+
+// Virtual-lua runtime
+#RuntimeConfigVirtualLua: close({
+    #RuntimeConfigBase
+    name: "virtual-lua"
+    allowed_binaries?: [...string]
+    binary_lookup_mode?: "host" | "strict"
+    cpu_limit?: uint
+    memory_limit?: string
 })
 
 // Container runtime: exactly one source + extras
@@ -820,7 +837,7 @@ platforms: [
 #RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
 
 // Discriminated union of all runtime types
-#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer`,
+#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtualSh | #RuntimeConfigVirtualLua | #RuntimeConfigContainer`,
   },
 
   'reference/invowkfile/env-inherit-example': {

@@ -42,10 +42,9 @@ func (c *realpathCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	for _, p := range posArgs {
-		// Resolve relative paths using hc.Dir
-		path := p
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
+		path, err := hc.ResolvePath(p)
+		if err != nil {
+			return wrapError(c.name, err)
 		}
 
 		// Evaluate symlinks to resolve to the real path

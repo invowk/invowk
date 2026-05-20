@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -44,6 +45,68 @@ func TestShRuntime_InlineScript(t *testing.T) {
 	output := strings.TrimSpace(stdout.String())
 	if output != "Hello from virtual" {
 		t.Errorf("Execute() output = %q, want %q", output, "Hello from virtual")
+	}
+}
+
+func TestShRuntimeUrootBuiltinUsesPathValidator(t *testing.T) {
+	t.Parallel()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir() error = %v", err)
+	}
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	script := fmt.Sprintf("cat %q", filepath.Join(homeDir, ".invowk-denied-test"))
+	cmd := testCommandWithScript("cat-denied", script, invowkfile.RuntimeVirtualSh)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+
+	result := NewShRuntime(true).ExecuteCapture(ctx)
+	if result.Success() {
+		t.Fatalf("ExecuteCapture() result = %#v, want path validation failure", result)
+	}
+	if result.Error == nil || !strings.Contains(result.Error.Error(), "virtual path denied") {
+		t.Fatalf("ExecuteCapture() error = %v, want virtual path denied", result.Error)
+	}
+}
+
+func TestShVirtualRuntimeEnvOverridesUserInvowkState(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	script := `printf '%s\n' "$INVOWK_STATE_BIN_PATH" "$INVOWK_PATH_DB_ROOT" "$INVOWK_ANCHOR_WORK"`
+	cmd := testCommandWithScript("reserved-env", script, invowkfile.RuntimeVirtualSh)
+	cmd.Env = &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{
+		"INVOWK_STATE_BIN_PATH": "user-bin",
+		"INVOWK_PATH_DB_ROOT":   "user-path",
+		"INVOWK_ANCHOR_WORK":    "user-work",
+	}}
+	cmd.Implementations[0].AllowedPaths = invowkfile.AllowedPaths{"DB_ROOT": "./db"}
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+
+	result := NewShRuntime(false).ExecuteCapture(ctx)
+	if !result.Success() {
+		t.Fatalf("ExecuteCapture() result = %#v, want success", result)
+	}
+
+	lines := strings.Split(result.Output, "\n")
+	if len(lines) < 4 {
+		t.Fatalf("stdout lines = %q, want at least 3 values", result.Output)
+	}
+	if lines[0] != "" {
+		t.Fatalf("INVOWK_STATE_BIN_PATH = %q, want runtime-owned empty value", lines[0])
+	}
+	dbRoot := filepath.Join(string(inv.GetScriptBasePath()), "db")
+	if lines[1] != dbRoot {
+		t.Fatalf("INVOWK_PATH_DB_ROOT = %q, want %q", lines[1], dbRoot)
+	}
+	if lines[2] != ctx.EffectiveWorkDir() {
+		t.Fatalf("INVOWK_ANCHOR_WORK = %q, want %q", lines[2], ctx.EffectiveWorkDir())
 	}
 }
 

@@ -108,6 +108,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/schema-sync-check/`](.agents/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
 - [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
 - [`.agents/skills/shell/`](.agents/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
+- [`.agents/skills/virtual-lua/`](.agents/skills/virtual-lua/) - virtual-lua runtime, golua library loading, bridge API, path validation, and Lua tests.
 - [`.agents/skills/testing/`](.agents/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
 - [`.agents/skills/go-testing/`](.agents/skills/go-testing/) - Go 1.22+ test execution model, all flags, race detector, vet analyzers, context/parallelism decision frameworks, benchmark/fuzz APIs, coverage. Primary testing entry point referencing platform skills.
 - [`.agents/skills/windows-testing/`](.agents/skills/windows-testing/) - Windows OS primitives for testing: process lifecycle (TerminateProcess, no fork), file system (NTFS, MAX_PATH, sharing violations), timer resolution (15.6ms), race detector overhead.
@@ -150,7 +151,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/app/execute/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
 | `internal/container/` | testing, windows, licensing | go, container, go-hexagonal-ddd, linux-testing |
 | `internal/discovery/` | testing, licensing, package-design | go, discovery, go-hexagonal-ddd, d2-diagrams |
-| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual-sh runtime), go-hexagonal-ddd, d2-diagrams, go-testing |
+| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual-sh runtime), virtual-lua (for Lua runtime), go-hexagonal-ddd, d2-diagrams, go-testing |
 | `internal/config/` | testing, cue-patterns, licensing | go, cue |
 | `pkg/cueutil/` | testing, cue-patterns, licensing | go, cue |
 | `internal/sshserver/` | testing, licensing | go, server |

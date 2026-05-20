@@ -237,6 +237,13 @@ func newDryRunPlan(
 	if impl != nil {
 		plan.Timeout = impl.Timeout
 		plan.Script = impl.Script
+		plan.AllowedPaths = impl.AllowedPaths
+		if rtConfig := impl.GetRuntimeConfig(execCtx.SelectedRuntime); rtConfig != nil {
+			plan.AllowedBinaries = append([]invowkfile.AllowedBinary(nil), rtConfig.AllowedBinaries...)
+			plan.BinaryLookupMode = rtConfig.BinaryLookupMode
+			plan.LuaCPULimit = rtConfig.CPULimit
+			plan.LuaMemoryLimit = rtConfig.MemoryLimit
+		}
 	}
 	if hasScriptAnalysis {
 		plan.ScriptInterpreter = scriptAnalysis

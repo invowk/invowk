@@ -4,7 +4,8 @@ The deterministic audit scanner already checks obvious patterns. Your job is to 
 
 Invowk-specific context:
 - Invowk modules are supply-chain inputs and should be treated as less trusted than the root project using them.
-- virtual-sh is a portable shell interpreter, not a security sandbox. Host binaries are denied by default and run only when explicitly allowed with `allowed_binaries`; allowed host binaries still execute as native host processes.
+- virtual-sh is a portable shell interpreter, not a security sandbox. virtual-lua is an embedded Lua runtime, not a security sandbox. Host binaries are denied by default and run only when explicitly allowed with `allowed_binaries`; allowed host binaries still execute as native host processes.
+- virtual-lua exposes an Invowk bridge (`invowk.path`, `invowk.env`, `invowk.state`, `invowk.cmd`, `invowk.capture`) plus path-validated Lua file I/O and module-local `require`; unrestricted APIs such as `os.execute`, `io.popen`, `package.loadlib`, `debug`, `dofile`, `loadfile`, and dynamic `golib` import are intentionally unavailable.
 - The container runtime is the isolation boundary when execution isolation is needed.
 - Command scope enforcement is static validation for declared command dependencies. It does not intercept a script that dynamically invokes invowk or other host commands.
 

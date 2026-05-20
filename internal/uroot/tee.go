@@ -7,7 +7,6 @@ import (
 	"flag"
 	"io"
 	"os"
-	"path/filepath"
 )
 
 // teeCommand implements the tee utility.
@@ -61,9 +60,9 @@ func (c *teeCommand) Run(ctx context.Context, args []string) (err error) {
 	var files []*os.File
 
 	for _, name := range fileArgs {
-		path := name
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
+		path, resolveErr := hc.ResolvePath(name)
+		if resolveErr != nil {
+			return wrapError(c.name, resolveErr)
 		}
 
 		f, openErr := os.OpenFile(path, openFlags, 0o644)

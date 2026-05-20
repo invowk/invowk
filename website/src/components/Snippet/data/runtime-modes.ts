@@ -477,6 +477,73 @@ virtual: {
 }`,
   },
 
+  'runtime-modes/virtual-lua-basic': {
+    language: 'cue',
+    code: `{
+    name: "hello-lua"
+    implementations: [{
+        script: {content: """
+            print("Hello from virtual-lua")
+            print("workdir: " .. invowk.path("@work"))
+            """}
+        runtimes: [{name: "virtual-lua"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/virtual-lua-bridge': {
+    language: 'cue',
+    code: `script: {content: """
+    local out, err, code = invowk.capture.basename("src/main.go")
+    print("file: " .. string.gsub(out, "\\n", ""))
+
+    if code ~= 0 then
+        io.stderr:write(err)
+    end
+    """}`,
+  },
+
+  'runtime-modes/virtual-lua-allowed-paths': {
+    language: 'cue',
+    code: `{
+    name: "write-cache"
+    implementations: [{
+        script: {content: """
+            local cache = invowk.path("CACHE/report.txt")
+            local file = assert(io.open(cache, "w"))
+            file:write("ok")
+            file:close()
+            """}
+        allowed_paths: {
+            CACHE: "@cache/reports"
+        }
+        runtimes: [{name: "virtual-lua"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/virtual-lua-host-binary': {
+    language: 'cue',
+    code: `{
+    name: "go-version"
+    implementations: [{
+        script: {content: """
+            local out, err, code = invowk.capture.go("version")
+            if code ~= 0 then error(err) end
+            print(out)
+            """}
+        runtimes: [{
+            name: "virtual-lua"
+            allowed_binaries: ["go"]
+            binary_lookup_mode: "host"
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+
   'runtime-modes/container-basic': {
     language: 'cue',
     code: `{

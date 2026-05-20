@@ -50,11 +50,14 @@ type (
 	// ShInteractiveCommandSpec describes a prepared virtual interactive subprocess request.
 	//goplint:ignore -- subprocess adapter DTO carries CLI-boundary argv and serialized env.
 	ShInteractiveCommandSpec struct {
-		ScriptFile  *types.FilesystemPath
-		WorkDir     *types.FilesystemPath
-		EnvJSON     ShInteractiveEnvJSON
-		Args        ShInteractiveArgs
-		EnableUroot bool
+		ScriptFile       *types.FilesystemPath
+		WorkDir          *types.FilesystemPath
+		ScriptBasePath   *types.FilesystemPath
+		EnvJSON          ShInteractiveEnvJSON
+		Args             ShInteractiveArgs
+		AllowedBinaries  []string
+		BinaryLookupMode invowkfile.BinaryLookupMode
+		EnableUroot      bool
 	}
 
 	// ShInteractiveCommandFactory creates the subprocess command for virtual interactive execution.
@@ -72,15 +75,18 @@ type (
 	// internal interactive subprocess wrapper.
 	//goplint:ignore -- subprocess adapter DTO carries shell script text, argv, and env strings across the CLI boundary.
 	ShScriptOptions struct {
-		Script      string
-		ScriptName  string
-		WorkDir     string
-		Env         []string
-		Args        []string
-		EnableUroot bool
-		Stdin       *os.File
-		Stdout      *os.File
-		Stderr      *os.File
+		Script           string
+		ScriptName       string
+		WorkDir          string
+		ScriptBasePath   string
+		Env              []string
+		Args             []string
+		AllowedBinaries  []string
+		BinaryLookupMode invowkfile.BinaryLookupMode
+		EnableUroot      bool
+		Stdin            *os.File
+		Stdout           *os.File
+		Stderr           *os.File
 	}
 )
 
@@ -132,10 +138,18 @@ func (s ShInteractiveCommandSpec) Validate() error {
 	} else {
 		workDirErr = s.WorkDir.Validate()
 	}
+	var scriptBaseErr error
+	if s.ScriptBasePath == nil {
+		scriptBaseErr = errors.New("virtual interactive script base path is required")
+	} else {
+		scriptBaseErr = s.ScriptBasePath.Validate()
+	}
 	return errors.Join(
 		scriptFileErr,
 		workDirErr,
+		scriptBaseErr,
 		s.EnvJSON.Validate(),
+		s.BinaryLookupMode.Validate(),
 	)
 }
 
@@ -315,8 +329,14 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
-	env[EnvVarStateBinPath] = ""
+	pathResolver, err := newVirtualPathResolver(ctx)
+	if err != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, err
+	}
+	addVirtualRuntimeEnv(env, pathResolver)
 	ctx.AddTUIEnv(env)
+	runtimeCfg := selectedRuntimeConfig(ctx)
 
 	// Serialize environment to JSON for passing to subprocess
 	envJSON, err := json.Marshal(env)
@@ -335,13 +355,21 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf("invalid virtual interactive script file: %w", validateErr)
 	}
+	scriptBasePath := ctx.Invowkfile.GetScriptBasePath()
+	if validateErr := scriptBasePath.Validate(); validateErr != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, fmt.Errorf("invalid virtual interactive script base path: %w", validateErr)
+	}
 
 	spec := ShInteractiveCommandSpec{
-		ScriptFile:  &scriptFile,
-		WorkDir:     &workDirPath,
-		EnvJSON:     ShInteractiveEnvJSON(envJSON),
-		Args:        ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
-		EnableUroot: r.enableUrootUtils,
+		ScriptFile:       &scriptFile,
+		WorkDir:          &workDirPath,
+		ScriptBasePath:   &scriptBasePath,
+		EnvJSON:          ShInteractiveEnvJSON(envJSON),
+		Args:             ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
+		AllowedBinaries:  allowedBinaryStrings(runtimeCfg),
+		BinaryLookupMode: binaryLookupMode(runtimeCfg),
+		EnableUroot:      r.enableUrootUtils,
 	}
 	if validateErr := spec.Validate(); validateErr != nil {
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
@@ -377,20 +405,24 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 
 	rt := NewShRuntime(opts.EnableUroot)
 	env := SliceToEnv(opts.Env)
-	env[EnvVarStateBinPath] = ""
-	pathValidator := virtualPathValidator{roots: normalizedRoots(append([]string{opts.WorkDir, os.TempDir()}, defaultTempRoots()...))}
+	pathResolver := newVirtualPathResolverForEnv(opts.WorkDir, opts.ScriptBasePath, env)
+	addVirtualRuntimeEnv(env, pathResolver)
+	pathValidator := virtualPathValidator{resolver: pathResolver}
 	binaryPolicy := &virtualHostBinaryPolicy{
-		allowed:  nil,
-		mode:     invowkfile.BinaryLookupModeHost,
+		allowed:  append([]string(nil), opts.AllowedBinaries...),
+		mode:     opts.BinaryLookupMode,
 		workDir:  opts.WorkDir,
 		envPath:  env["PATH"],
 		pathext:  env["PATHEXT"],
 		stateEnv: env,
 	}
+	if binaryPolicy.mode == "" {
+		binaryPolicy.mode = invowkfile.BinaryLookupModeHost
+	}
 	runnerOpts := []interp.RunnerOption{
 		interp.StdIO(opts.Stdin, opts.Stdout, opts.Stderr),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
-		interp.ExecHandlers(rt.execHandler(binaryPolicy)),
+		interp.ExecHandlers(rt.execHandler(binaryPolicy, pathValidator)),
 		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
 		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
 		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
@@ -434,16 +466,19 @@ func (r *ShRuntime) prepareShExec(ctx *ExecutionContext, stdIO interp.RunnerOpti
 	if err != nil {
 		return nil, nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
-	env[EnvVarStateBinPath] = ""
+	pathValidator, err := newVirtualPathValidator(ctx)
+	if err != nil {
+		return nil, nil, NewErrorResult(1, err)
+	}
+	addVirtualRuntimeEnv(env, pathValidator.resolver)
 	ctx.AddTUIEnv(env)
-	pathValidator := newVirtualPathValidator(ctx)
 	binaryPolicy := hostBinaryPolicy(ctx, env)
 
 	opts := []interp.RunnerOption{
 		interp.Dir(ctx.EffectiveWorkDir()),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
 		stdIO,
-		interp.ExecHandlers(r.execHandler(binaryPolicy)),
+		interp.ExecHandlers(r.execHandler(binaryPolicy, pathValidator)),
 		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
 		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
 		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
@@ -480,11 +515,11 @@ func validateShInterpreter(script invowkfile.ImplementationScript, scriptContent
 }
 
 // execHandler handles external command execution
-func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy) func(interp.ExecHandlerFunc) interp.ExecHandlerFunc {
+func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy, pathValidator virtualPathValidator) func(interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 	return func(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 		return func(ctx context.Context, args []string) error {
 			if r.enableUrootUtils {
-				if handled, err := r.tryUrootBuiltin(ctx, args); handled {
+				if handled, err := r.tryUrootBuiltin(ctx, args, pathValidator); handled {
 					return err
 				}
 			}
@@ -516,7 +551,7 @@ func (r *ShRuntime) execHandler(policy *virtualHostBinaryPolicy) func(interp.Exe
 // 1. Registered commands that fail return errors - no silent host-binary policy retry that could
 //
 //	mask implementation bugs or create confusing behavior
-func (r *ShRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, error) {
+func (r *ShRuntime) tryUrootBuiltin(ctx context.Context, args []string, pathValidator virtualPathValidator) (bool, error) {
 	if len(args) == 0 {
 		return false, nil
 	}
@@ -535,6 +570,8 @@ func (r *ShRuntime) tryUrootBuiltin(ctx context.Context, args []string) (bool, e
 	// directly to the caller, and the host-binary policy is not consulted.
 	// Registry.Run splits combined short flags (e.g., "-sf" → "-s", "-f") for custom
 	// implementations before dispatching to cmd.Run().
-	err := r.urootRegistry.Run(ctx, cmdName, args)
+	handler := uroot.ExtractHandlerContext(ctx)
+	handler.ValidatePath = pathValidator.validate
+	err := r.urootRegistry.Run(uroot.WithHandlerContext(ctx, handler), cmdName, args)
 	return true, err
 }

@@ -114,6 +114,9 @@ type (
 		// Can be absolute or relative to the invowkfile location.
 		// Forward slashes should be used for cross-platform compatibility.
 		WorkDir WorkDir `json:"workdir,omitempty"`
+		// AllowedPaths maps logical path names to common or platform-specific paths
+		// that virtual runtimes may access and expose as INVOWK_PATH_* variables.
+		AllowedPaths AllowedPaths `json:"allowed_paths,omitempty"`
 		// DependsOn specifies dependencies validated against the HOST system.
 		// Regardless of the selected runtime, these are always checked on the host.
 		// To validate dependencies inside the runtime environment (e.g., inside a container),
@@ -259,6 +262,7 @@ func (s Implementation) Validate() error {
 	appendEachValidation(&errs, s.Platforms)
 	appendOptionalValidation(&errs, s.Env, s.Env != nil)
 	appendOptionalValidation(&errs, s.WorkDir, s.WorkDir != "")
+	appendFieldError(&errs, s.AllowedPaths.ValidateForPlatforms(s.Platforms))
 	appendOptionalValidation(&errs, s.DependsOn, s.DependsOn != nil)
 	appendFieldError(&errs, s.Timeout.Validate())
 	if len(errs) > 0 {

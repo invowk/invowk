@@ -53,6 +53,10 @@ var (
 	// interactive mode is requested without an injected subprocess launcher.
 	ErrShInteractiveLauncherNotConfigured = errors.New("virtual-sh interactive launcher not configured")
 
+	// ErrLuaInteractiveLauncherNotConfigured is returned when virtual-lua
+	// interactive mode is requested without an injected subprocess launcher.
+	ErrLuaInteractiveLauncherNotConfigured = errors.New("virtual-lua interactive launcher not configured")
+
 	// ErrInvalidRuntimeType is returned when a RuntimeType value is not one of the defined runtime types.
 	ErrInvalidRuntimeType = errors.New("invalid runtime type")
 
