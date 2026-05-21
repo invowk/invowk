@@ -67,20 +67,32 @@ func TestStandardVirtualAnchorsForOS(t *testing.T) {
 				return tt.env[key]
 			})
 
-			if anchors["@home"] != "/home/user" {
-				t.Fatalf("@home = %q, want /home/user", anchors["@home"])
-			}
-			if anchors["@tmp"] != "/tmp/invowk-test" {
-				t.Fatalf("@tmp = %q, want /tmp/invowk-test", anchors["@tmp"])
-			}
-			if anchors["@work"] != "/work" {
-				t.Fatalf("@work = %q, want /work", anchors["@work"])
-			}
-			for name, want := range tt.want {
-				if got := anchors[name]; got != want {
-					t.Fatalf("%s = %q, want %q", name, got, want)
-				}
-			}
+			assertStandardVirtualBaseAnchors(t, anchors)
+			assertExpectedVirtualAnchors(t, anchors, tt.want)
 		})
+	}
+}
+
+func assertStandardVirtualBaseAnchors(t *testing.T, anchors map[string]string) {
+	t.Helper()
+
+	if anchors[virtualAnchorHome] != "/home/user" {
+		t.Fatalf("%s = %q, want /home/user", virtualAnchorHome, anchors[virtualAnchorHome])
+	}
+	if anchors[virtualAnchorTmp] != "/tmp/invowk-test" {
+		t.Fatalf("%s = %q, want /tmp/invowk-test", virtualAnchorTmp, anchors[virtualAnchorTmp])
+	}
+	if anchors[virtualAnchorWork] != "/work" {
+		t.Fatalf("%s = %q, want /work", virtualAnchorWork, anchors[virtualAnchorWork])
+	}
+}
+
+func assertExpectedVirtualAnchors(t *testing.T, anchors, want map[string]string) {
+	t.Helper()
+
+	for name, expected := range want {
+		if got := anchors[name]; got != expected {
+			t.Fatalf("%s = %q, want %q", name, got, expected)
+		}
 	}
 }

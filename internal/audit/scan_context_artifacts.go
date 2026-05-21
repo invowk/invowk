@@ -19,7 +19,6 @@ import (
 type (
 	//goplint:ignore -- scanner state carries raw OS-native paths from filepath.WalkDir.
 	luaModuleFileAppender struct {
-		ctx        context.Context
 		module     *ScannedModule
 		modulePath string
 		refs       []ScriptRef
@@ -36,13 +35,14 @@ func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *Sca
 		return refs, nil //nolint:nilerr // synthetic test modules and partially loaded modules may not have a filesystem tree.
 	}
 	appender := luaModuleFileAppender{
-		ctx:        ctx,
 		module:     module,
 		modulePath: modulePath,
 		refs:       refs,
 		seen:       moduleScriptPathSet(refs, module.Path),
 	}
-	err := filepath.WalkDir(modulePath, appender.walk)
+	err := filepath.WalkDir(modulePath, func(path string, entry fs.DirEntry, walkErr error) error {
+		return appender.walk(ctx, path, entry, walkErr)
+	})
 	if err != nil {
 		return refs, fmt.Errorf("walking module Lua files in %s: %w", module.Path, err)
 	}
@@ -50,8 +50,8 @@ func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *Sca
 }
 
 //goplint:ignore -- filepath.WalkDir requires raw OS path callback parameters.
-func (a *luaModuleFileAppender) walk(path string, entry fs.DirEntry, walkErr error) error {
-	if err := scanWalkEntryErr(a.ctx, walkErr); err != nil {
+func (a *luaModuleFileAppender) walk(ctx context.Context, path string, entry fs.DirEntry, walkErr error) error {
+	if err := scanWalkEntryErr(ctx, walkErr); err != nil {
 		return err
 	}
 	if entry.IsDir() && entry.Name() == invowkmod.VendoredModulesDir {
@@ -60,16 +60,16 @@ func (a *luaModuleFileAppender) walk(path string, entry fs.DirEntry, walkErr err
 	if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
 		return nil
 	}
-	return a.append(path, entry.Name())
+	return a.append(ctx, path, entry.Name())
 }
 
 //goplint:ignore -- Lua module discovery consumes raw filesystem walk paths before storing typed facts.
-func (a *luaModuleFileAppender) append(path, fallbackName string) error {
+func (a *luaModuleFileAppender) append(ctx context.Context, path, fallbackName string) error {
 	normalized := filesystemPathFromWalk(path)
 	if a.seen[string(normalized)] {
 		return nil
 	}
-	facts, err := readScriptFileFacts(a.ctx, path, a.modulePath)
+	facts, err := readScriptFileFacts(ctx, path, a.modulePath)
 	if err != nil {
 		return err
 	}

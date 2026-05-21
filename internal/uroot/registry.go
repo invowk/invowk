@@ -13,6 +13,8 @@ import (
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
 
+const tarFileLongFlagPrefix = "--file="
+
 // ErrCommandNotFound indicates that a u-root command name is not registered.
 var ErrCommandNotFound = errors.New("command not found")
 
@@ -245,7 +247,7 @@ func (v *tarPathValidator) scanArg(hc *HandlerContext, index int) (next int, don
 		return index, true, nil
 	case arg == "--file":
 		return v.markNextFileValue(index), false, nil
-	case strings.HasPrefix(arg, "--file="):
+	case strings.HasPrefix(arg, tarFileLongFlagPrefix):
 		return index, false, v.resolveInlineLongFileFlag(hc, index)
 	case strings.HasPrefix(arg, "-") && arg != "-":
 		return v.scanShortFlags(hc, index)
@@ -270,12 +272,12 @@ func (v *tarPathValidator) markNextFileValue(index int) int {
 }
 
 func (v *tarPathValidator) resolveInlineLongFileFlag(hc *HandlerContext, index int) error {
-	value, _ := strings.CutPrefix(v.args[index], "--file=")
+	value, _ := strings.CutPrefix(v.args[index], tarFileLongFlagPrefix)
 	resolved, err := hc.ResolvePath(value)
 	if err != nil {
 		return err
 	}
-	v.args[index] = "--file=" + resolved
+	v.args[index] = tarFileLongFlagPrefix + resolved
 	return nil
 }
 
