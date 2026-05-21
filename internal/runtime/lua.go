@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
@@ -25,6 +26,8 @@ import (
 	"github.com/invowk/invowk/internal/uroot"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+var luaLibraryLoadMu sync.Mutex
 
 type (
 	// LuaRuntime executes commands using the embedded golua interpreter.
@@ -248,6 +251,10 @@ func compileLuaChunk(script string) (*luart.Closure, error) {
 }
 
 func loadSafeLuaLibs(r *luart.Runtime) func() {
+	// golua library loaders declare compliance on shared GoFunction instances,
+	// so VM bootstrap must be serialized under the race detector.
+	luaLibraryLoadMu.Lock()
+	defer luaLibraryLoadMu.Unlock()
 	cleanup := lib.LoadLibs(
 		r,
 		base.LibLoader,
@@ -259,7 +266,11 @@ func loadSafeLuaLibs(r *luart.Runtime) func() {
 		utf8lib.LibLoader,
 	)
 	removeUnsafeLuaGlobals(r)
-	return cleanup
+	return func() {
+		luaLibraryLoadMu.Lock()
+		defer luaLibraryLoadMu.Unlock()
+		cleanup()
+	}
 }
 
 func removeUnsafeLuaGlobals(r *luart.Runtime) {

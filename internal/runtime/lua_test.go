@@ -81,7 +81,7 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 		"",
 		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
 	)
-	dbRoot := filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db")
+	dbRoot := mustNormalizeVirtualTestPath(t, filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db"))
 	if err := os.MkdirAll(dbRoot, 0o755); err != nil {
 		t.Fatalf("MkdirAll(db root) error = %v", err)
 	}
@@ -124,7 +124,7 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 		"",
 		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
 	)
-	dbRoot := filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db")
+	dbRoot := mustNormalizeVirtualTestPath(t, filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db"))
 
 	result := NewLuaRuntime(false).Execute(ctx)
 	if !result.Success() {
@@ -407,7 +407,7 @@ io.stderr:write("err:" .. line)
 	if err != nil {
 		t.Fatalf("RunLuaScript() error = %v", err)
 	}
-	wantOut := filepath.Join(tmpDir, "file.txt") + "\nout:stdin-value:pos\n"
+	wantOut := mustNormalizeVirtualTestPath(t, filepath.Join(tmpDir, "file.txt")) + "\nout:stdin-value:pos\n"
 	if got := stdout.String(); got != wantOut {
 		t.Fatalf("stdout = %q, want %q", got, wantOut)
 	}

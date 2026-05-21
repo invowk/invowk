@@ -47,6 +47,16 @@ func testPlatformsWithVirtualFilesystem(
 	return platforms
 }
 
+func mustNormalizeVirtualTestPath(t testing.TB, path string) string {
+	t.Helper()
+
+	normalized, err := normalizeExistingOrParent(path, "")
+	if err != nil {
+		t.Fatalf("normalize virtual test path %q: %v", path, err)
+	}
+	return normalized
+}
+
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.
 // This helper is shared across test files in the runtime package.
 // Delegates to invowkfiletest.NewTestCommand for consistent test command construction.

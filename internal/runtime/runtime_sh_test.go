@@ -141,7 +141,7 @@ func TestShVirtualRuntimeEnvOverridesUserInvowkState(t *testing.T) {
 	if lines[0] != "" {
 		t.Fatalf("INVOWK_STATE_BIN_PATH = %q, want runtime-owned empty value", lines[0])
 	}
-	dbRoot := filepath.Join(string(inv.GetScriptBasePath()), "db")
+	dbRoot := mustNormalizeVirtualTestPath(t, filepath.Join(string(inv.GetScriptBasePath()), "db"))
 	if lines[1] != dbRoot {
 		t.Fatalf("INVOWK_PATH_DB_ROOT = %q, want %q", lines[1], dbRoot)
 	}
