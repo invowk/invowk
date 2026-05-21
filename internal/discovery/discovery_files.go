@@ -212,42 +212,48 @@ func (d *Discovery) loadProvisionedModulesWithDiagnostics(entries ProvisionedMod
 	var files []*DiscoveredFile
 	var diagnostics []Diagnostic
 	for _, entry := range entries {
-		if entry.Path == "" {
-			continue
-		}
-		if err := entry.Validate(); err != nil {
-			diagnostics = append(diagnostics, mustDiagnosticWithCause(
-				SeverityWarning,
-				CodeModuleScanPathInvalid,
-				fmt.Sprintf("invalid provisioned module entry %s: %v", entry.Path, err),
-				entry.Path,
-				err,
-			))
-			continue
-		}
-		if invowkmod.IsModule(entry.Path) {
-			moduleFile, moduleDiags := d.loadProvisionedModuleWithDiagnostics(entry, isGlobal)
-			if moduleFile != nil {
-				files = append(files, moduleFile)
-			}
-			diagnostics = append(diagnostics, moduleDiags...)
-			continue
-		}
-		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(entry.Path)
-		if isGlobal {
-			for i := range moduleFiles {
-				moduleFiles[i].IsGlobalModule = true
-			}
-		}
-		if entry.CommandNamespace != "" {
-			for i := range moduleFiles {
-				moduleFiles[i].CommandNamespace = entry.CommandNamespace
-			}
-		}
-		files = append(files, moduleFiles...)
-		diagnostics = append(diagnostics, moduleDiags...)
+		entryFiles, entryDiags := d.loadProvisionedModuleEntryWithDiagnostics(entry, isGlobal)
+		files = append(files, entryFiles...)
+		diagnostics = append(diagnostics, entryDiags...)
 	}
 	return files, diagnostics
+}
+
+func (d *Discovery) loadProvisionedModuleEntryWithDiagnostics(entry ProvisionedModuleEntry, isGlobal bool) ([]*DiscoveredFile, []Diagnostic) {
+	if entry.Path == "" {
+		return nil, nil
+	}
+	if err := entry.Validate(); err != nil {
+		return nil, []Diagnostic{mustDiagnosticWithCause(
+			SeverityWarning,
+			CodeModuleScanPathInvalid,
+			fmt.Sprintf("invalid provisioned module entry %s: %v", entry.Path, err),
+			entry.Path,
+			err,
+		)}
+	}
+	if invowkmod.IsModule(entry.Path) {
+		moduleFile, diagnostics := d.loadProvisionedModuleWithDiagnostics(entry, isGlobal)
+		if moduleFile == nil {
+			return nil, diagnostics
+		}
+		return []*DiscoveredFile{moduleFile}, diagnostics
+	}
+
+	moduleFiles, diagnostics := d.discoverModulesInDirWithDiagnostics(entry.Path)
+	applyProvisionedModuleAttributes(moduleFiles, isGlobal, entry.CommandNamespace)
+	return moduleFiles, diagnostics
+}
+
+func applyProvisionedModuleAttributes(moduleFiles []*DiscoveredFile, isGlobal bool, namespace invowkmod.ModuleNamespace) {
+	for i := range moduleFiles {
+		if isGlobal {
+			moduleFiles[i].IsGlobalModule = true
+		}
+		if namespace != "" {
+			moduleFiles[i].CommandNamespace = namespace
+		}
+	}
 }
 
 func (d *Discovery) loadProvisionedModuleWithDiagnostics(entry ProvisionedModuleEntry, isGlobal bool) (*DiscoveredFile, []Diagnostic) {

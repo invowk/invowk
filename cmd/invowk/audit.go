@@ -372,64 +372,91 @@ func renderAuditTextWithTriage(w io.Writer, report *audit.Report, triage audit.R
 		return
 	}
 
-	// Group findings by severity.
-	grouped := groupBySeverity(findings)
-	severityOrder := []audit.Severity{
-		audit.SeverityCritical, audit.SeverityHigh, audit.SeverityMedium,
-		audit.SeverityLow, audit.SeverityInfo,
-	}
+	renderConfirmedAuditFindings(w, findings)
+	renderCompoundAuditThreats(w, filteredCorrelated)
+	renderSuppressedAuditFindings(w, triage, minSev)
+	renderAuditTextSummary(w, findings, filteredCorrelated)
+}
 
-	for _, sev := range severityOrder {
+func renderConfirmedAuditFindings(w io.Writer, findings []audit.Finding) {
+	grouped := groupBySeverity(findings)
+
+	for _, sev := range auditSeverityDisplayOrder() {
 		group := grouped[sev]
 		if len(group) == 0 {
 			continue
 		}
+		renderAuditSeverityGroup(w, sev, group)
+	}
+}
 
-		icon := severityIcon(sev)
-		label := strings.ToUpper(sev.String())
-		fmt.Fprintf(w, "%s %s (%d)\n", icon, label, len(group))
+func renderAuditSeverityGroup(w io.Writer, severity audit.Severity, findings []audit.Finding) {
+	icon := severityIcon(severity)
+	label := strings.ToUpper(severity.String())
+	fmt.Fprintf(w, "%s %s (%d)\n", icon, label, len(findings))
 
-		for i := range group {
-			fmt.Fprintf(w, "  %s\n", group[i].Title)
-			if group[i].FilePath != "" {
-				pathStr := auditFindingPathStyle.Render(string(group[i].FilePath))
-				if group[i].Line > 0 {
-					pathStr = auditFindingPathStyle.Render(fmt.Sprintf("%s:%d", group[i].FilePath, group[i].Line))
-				}
-				fmt.Fprintln(w, auditFindingDetailStyle.Render("File: "+pathStr))
-			}
-			if group[i].Description != "" {
-				fmt.Fprintln(w, auditFindingDetailStyle.Render(group[i].Description))
-			}
-			if group[i].Recommendation != "" {
-				fmt.Fprintln(w, auditFindingDetailStyle.Render("Fix: "+group[i].Recommendation))
-			}
-			fmt.Fprintln(w)
-		}
+	for i := range findings {
+		renderAuditFinding(w, findings[i])
+	}
+}
+
+func renderAuditFinding(w io.Writer, finding audit.Finding) {
+	fmt.Fprintf(w, "  %s\n", finding.Title)
+	if finding.FilePath != "" {
+		renderAuditFindingFile(w, finding)
+	}
+	if finding.Description != "" {
+		fmt.Fprintln(w, auditFindingDetailStyle.Render(finding.Description))
+	}
+	if finding.Recommendation != "" {
+		fmt.Fprintln(w, auditFindingDetailStyle.Render("Fix: "+finding.Recommendation))
+	}
+	fmt.Fprintln(w)
+}
+
+func renderAuditFindingFile(w io.Writer, finding audit.Finding) {
+	pathStr := auditFindingPathStyle.Render(string(finding.FilePath))
+	if finding.Line > 0 {
+		pathStr = auditFindingPathStyle.Render(fmt.Sprintf("%s:%d", finding.FilePath, finding.Line))
+	}
+	fmt.Fprintln(w, auditFindingDetailStyle.Render("File: "+pathStr))
+}
+
+func renderCompoundAuditThreats(w io.Writer, threats []audit.Finding) {
+	if len(threats) == 0 {
+		return
 	}
 
-	if len(filteredCorrelated) > 0 {
-		fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Compound Threats ═══"))
-		for i := range filteredCorrelated {
-			icon := severityIcon(filteredCorrelated[i].Severity)
-			fmt.Fprintf(w, "  %s %s\n", icon, filteredCorrelated[i].Title)
-			if filteredCorrelated[i].Description != "" {
-				fmt.Fprintln(w, auditFindingDetailStyle.Render(filteredCorrelated[i].Description))
-			}
-			if len(filteredCorrelated[i].EscalatedFrom) > 0 {
-				fmt.Fprintln(w, auditFindingDetailStyle.Render("Escalated from: "+strings.Join(filteredCorrelated[i].EscalatedFrom, ", ")))
-			}
-			fmt.Fprintln(w)
+	fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Compound Threats ═══"))
+	for i := range threats {
+		icon := severityIcon(threats[i].Severity)
+		fmt.Fprintf(w, "  %s %s\n", icon, threats[i].Title)
+		if threats[i].Description != "" {
+			fmt.Fprintln(w, auditFindingDetailStyle.Render(threats[i].Description))
 		}
+		if len(threats[i].EscalatedFrom) > 0 {
+			fmt.Fprintln(w, auditFindingDetailStyle.Render("Escalated from: "+strings.Join(threats[i].EscalatedFrom, ", ")))
+		}
+		fmt.Fprintln(w)
 	}
-	renderSuppressedAuditFindings(w, triage, minSev)
+}
 
-	// Summary line.
-	counts := countFindingsBySeverity(findings, filteredCorrelated)
+func renderAuditTextSummary(w io.Writer, findings, compoundThreats []audit.Finding) {
+	counts := countFindingsBySeverity(findings, compoundThreats)
 	fmt.Fprintf(w, "Summary: %d critical, %d high, %d medium, %d low, %d info\n",
 		counts[audit.SeverityCritical], counts[audit.SeverityHigh],
 		counts[audit.SeverityMedium], counts[audit.SeverityLow],
 		counts[audit.SeverityInfo])
+}
+
+func auditSeverityDisplayOrder() []audit.Severity {
+	return []audit.Severity{
+		audit.SeverityCritical,
+		audit.SeverityHigh,
+		audit.SeverityMedium,
+		audit.SeverityLow,
+		audit.SeverityInfo,
+	}
 }
 
 func renderSuppressedAuditFindings(w io.Writer, triage audit.ReportTriage, minSev audit.Severity) {

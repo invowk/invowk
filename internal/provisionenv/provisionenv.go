@@ -24,6 +24,8 @@ const (
 	GlobalModulePathName Name = "INVOWK_GLOBAL_MODULE_PATH"
 	// GlobalModuleManifestName carries global module paths and namespaces.
 	GlobalModuleManifestName Name = "INVOWK_GLOBAL_MODULE_MANIFEST"
+
+	invalidManifestWrapFormat = "%w: %w"
 )
 
 var (
@@ -104,11 +106,11 @@ func (e Entries) Validate() error {
 // MarshalManifest serializes entries into the provisioned-module manifest JSON.
 func MarshalManifest(entries Entries) (Value, error) {
 	if err := entries.Validate(); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		return "", fmt.Errorf(invalidManifestWrapFormat, ErrInvalidManifest, err)
 	}
 	data, err := json.Marshal(entries)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		return "", fmt.Errorf(invalidManifestWrapFormat, ErrInvalidManifest, err)
 	}
 	value := Value(data)
 	if err := value.Validate(); err != nil {
@@ -125,10 +127,10 @@ func ParseManifest(value Value) (Entries, error) {
 	}
 	var entries Entries
 	if err := json.Unmarshal([]byte(rawValue), &entries); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		return nil, fmt.Errorf(invalidManifestWrapFormat, ErrInvalidManifest, err)
 	}
 	if err := entries.Validate(); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidManifest, err)
+		return nil, fmt.Errorf(invalidManifestWrapFormat, ErrInvalidManifest, err)
 	}
 	return entries, nil
 }

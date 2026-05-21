@@ -91,24 +91,30 @@ func TestArgument_Validate_DefaultValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.arg.Validate()
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("Argument.Validate() returned error: %v", err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatal("Argument.Validate() returned nil, want error")
-			}
-			var argErr *InvalidArgumentError
-			if !errors.As(err, &argErr) {
-				t.Fatalf("error should be *InvalidArgumentError, got %T", err)
-			}
-			if !fieldErrorsContain(argErr.FieldErrors, tt.wantErr) {
-				t.Fatalf("field errors %v do not contain %q", argErr.FieldErrors, tt.wantErr)
-			}
+			assertArgumentValidateDefaultValue(t, tt.arg, tt.wantErr)
 		})
+	}
+}
+
+func assertArgumentValidateDefaultValue(t *testing.T, arg Argument, wantErr string) {
+	t.Helper()
+
+	err := arg.Validate()
+	if wantErr == "" {
+		if err != nil {
+			t.Fatalf("Argument.Validate() returned error: %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("Argument.Validate() returned nil, want error")
+	}
+	var argErr *InvalidArgumentError
+	if !errors.As(err, &argErr) {
+		t.Fatalf("error should be *InvalidArgumentError, got %T", err)
+	}
+	if !fieldErrorsContain(argErr.FieldErrors, wantErr) {
+		t.Fatalf("field errors %v do not contain %q", argErr.FieldErrors, wantErr)
 	}
 }
 

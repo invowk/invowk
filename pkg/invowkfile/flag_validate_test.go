@@ -92,24 +92,30 @@ func TestFlag_Validate_DefaultValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.flag.Validate()
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("Flag.Validate() returned error: %v", err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatal("Flag.Validate() returned nil, want error")
-			}
-			var flagErr *InvalidFlagError
-			if !errors.As(err, &flagErr) {
-				t.Fatalf("error should be *InvalidFlagError, got %T", err)
-			}
-			if !fieldErrorsContain(flagErr.FieldErrors, tt.wantErr) {
-				t.Fatalf("field errors %v do not contain %q", flagErr.FieldErrors, tt.wantErr)
-			}
+			assertFlagValidateDefaultValue(t, tt.flag, tt.wantErr)
 		})
+	}
+}
+
+func assertFlagValidateDefaultValue(t *testing.T, flag Flag, wantErr string) {
+	t.Helper()
+
+	err := flag.Validate()
+	if wantErr == "" {
+		if err != nil {
+			t.Fatalf("Flag.Validate() returned error: %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("Flag.Validate() returned nil, want error")
+	}
+	var flagErr *InvalidFlagError
+	if !errors.As(err, &flagErr) {
+		t.Fatalf("error should be *InvalidFlagError, got %T", err)
+	}
+	if !fieldErrorsContain(flagErr.FieldErrors, wantErr) {
+		t.Fatalf("field errors %v do not contain %q", flagErr.FieldErrors, wantErr)
 	}
 }
 

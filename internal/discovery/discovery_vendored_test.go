@@ -399,23 +399,39 @@ requires: [
 		t.Fatalf("DiscoverModules() = %v", err)
 	}
 
-	for _, module := range result.Modules {
-		if module.Module != nil && module.Module.Metadata.Module == "io.example.shared" {
+	assertAmbiguousVendoredModuleSkipped(t, result)
+}
+
+func assertAmbiguousVendoredModuleSkipped(t *testing.T, result ModuleListResult) {
+	t.Helper()
+
+	assertModuleIDAbsent(t, result.Modules, "io.example.shared")
+	assertAmbiguousVendoredDiagnostic(t, result.Diagnostics)
+}
+
+func assertModuleIDAbsent(t *testing.T, modules []*DiscoveredFile, moduleID invowkmod.ModuleID) {
+	t.Helper()
+
+	for _, module := range modules {
+		if module.Module != nil && module.Module.Metadata.Module == moduleID {
 			t.Fatal("ambiguous vendored module was discovered")
 		}
 	}
-	var foundAmbiguousDiagnostic bool
-	for _, diag := range result.Diagnostics {
-		if diag.code == CodeVendoredAmbiguousLockSkipped {
-			foundAmbiguousDiagnostic = true
-			if !strings.Contains(diag.message, "shared-a.git") || !strings.Contains(diag.message, "shared-b.git") {
-				t.Fatalf("ambiguous diagnostic message = %q, want both lock keys", diag.message)
-			}
+}
+
+func assertAmbiguousVendoredDiagnostic(t *testing.T, diagnostics []Diagnostic) {
+	t.Helper()
+
+	for _, diag := range diagnostics {
+		if diag.code != CodeVendoredAmbiguousLockSkipped {
+			continue
 		}
+		if !strings.Contains(diag.message, "shared-a.git") || !strings.Contains(diag.message, "shared-b.git") {
+			t.Fatalf("ambiguous diagnostic message = %q, want both lock keys", diag.message)
+		}
+		return
 	}
-	if !foundAmbiguousDiagnostic {
-		t.Fatalf("diagnostics missing %s: %#v", CodeVendoredAmbiguousLockSkipped, result.Diagnostics)
-	}
+	t.Fatalf("diagnostics missing %s: %#v", CodeVendoredAmbiguousLockSkipped, diagnostics)
 }
 
 func TestDiscoverAll_FindsVendoredModulesInIncludes(t *testing.T) {

@@ -629,18 +629,18 @@ func TestLayerProvisioner_PrepareBuildContextPreservesModuleEntryNamespaces(t *t
 	if len(manifest) != 2 {
 		t.Fatalf("manifest entries = %d, want 2: %v", len(manifest), manifest)
 	}
+	assertProvisionedManifestNamespaces(t, buildCtx, manifest)
+}
+
+func assertProvisionedManifestNamespaces(t *testing.T, buildCtx string, manifest provisionenv.Entries) {
+	t.Helper()
+
 	byNamespace := make(map[string]string)
 	for _, entry := range manifest {
 		namespace := entry.CommandNamespace.String()
 		entryPath := string(entry.Path)
 		byNamespace[namespace] = entryPath
-		relativePath := strings.TrimPrefix(entryPath, "/invowk/modules/")
-		if relativePath == entryPath || relativePath == "" {
-			t.Fatalf("manifest path %q is not under /invowk/modules", entryPath)
-		}
-		if _, statErr := os.Stat(filepath.Join(buildCtx, "modules", filepath.FromSlash(relativePath))); statErr != nil {
-			t.Fatalf("manifest path %q was not copied into build context: %v", entryPath, statErr)
-		}
+		assertManifestPathCopiedToBuildContext(t, buildCtx, entryPath)
 	}
 	if byNamespace["shared"] == "" {
 		t.Fatalf("manifest did not preserve default shared namespace: %v", manifest)
@@ -650,6 +650,18 @@ func TestLayerProvisioner_PrepareBuildContextPreservesModuleEntryNamespaces(t *t
 	}
 	if byNamespace["shared"] == byNamespace["aliased"] {
 		t.Fatalf("shared and aliased modules copied to same path %q", byNamespace["shared"])
+	}
+}
+
+func assertManifestPathCopiedToBuildContext(t *testing.T, buildCtx, entryPath string) {
+	t.Helper()
+
+	relativePath := strings.TrimPrefix(entryPath, "/invowk/modules/")
+	if relativePath == entryPath || relativePath == "" {
+		t.Fatalf("manifest path %q is not under /invowk/modules", entryPath)
+	}
+	if _, statErr := os.Stat(filepath.Join(buildCtx, "modules", filepath.FromSlash(relativePath))); statErr != nil {
+		t.Fatalf("manifest path %q was not copied into build context: %v", entryPath, statErr)
 	}
 }
 
