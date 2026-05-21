@@ -88,6 +88,10 @@ Checklist:
   `filepath.Join`.
 - Convert Windows host paths to slash form before composing Docker/Podman volume
   mount strings.
+- For tests that exercise `os.UserHomeDir`, `config.CommandsDir`, or global
+  module discovery, use `internal/testutil.SetHomeDir(t, dir)`. Direct
+  `t.Setenv("HOME", dir)` is Unix-only and leaves Windows `USERPROFILE`
+  unchanged.
 - Account for NTFS case-insensitivity and 8.3 short-path aliases in string
   assertions. If only identity matters, compare `os.Stat` results with
   `os.SameFile`.
@@ -173,6 +177,7 @@ Implications:
 | `ERROR_SHARING_VIOLATION` | Defender scan or open handle | Close handles, retry, use `t.TempDir()` |
 | Regex line anchor fails | CRLF output | Use `\r?$` |
 | `/app` not detected as absolute | Windows host path semantics | Check Unix-style container paths before `filepath.IsAbs` |
+| Expected `~/.invowk/cmds` missing after setting `HOME` | Windows `os.UserHomeDir()` reads `USERPROFILE` | Use `testutil.SetHomeDir(t, dir)` and keep the test serial |
 | Fixture will not execute | Missing PATHEXT extension | Use `.bat`, `.cmd`, or `.exe` |
 | `time.Sleep(1ms)` flaky | 15.6ms timer granularity | Use events or wider tolerance |
 | TUI test hangs in CI | ConPTY blocks in headless runner | Skip PTY-dependent path on Windows |

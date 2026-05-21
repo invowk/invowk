@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -237,7 +238,7 @@ func TestBuildProvisionConfig_HostDefaultsOwnedByRuntimeAdapter(t *testing.T) {
 
 func TestBuildProvisionConfig_PreservesIncludeAliasesAsModuleEntries(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	t.Cleanup(testutil.SetHomeDir(t, tmpDir))
 
 	rootModule := filepath.Join(tmpDir, "root.invowkmod")
 	autoModule := filepath.Join(tmpDir, "auto.invowkmod")
@@ -275,7 +276,7 @@ func TestBuildProvisionConfig_PreservesIncludeAliasesAsModuleEntries(t *testing.
 
 func TestBuildProvisionConfig_KeepsGlobalCommandsWithProvisionedIncludes(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	t.Cleanup(testutil.SetHomeDir(t, tmpDir))
 
 	userCommandsDir := filepath.Join(tmpDir, ".invowk", "cmds")
 	if err := os.MkdirAll(userCommandsDir, 0o755); err != nil {

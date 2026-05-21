@@ -84,6 +84,13 @@ result.Bar() // safe — only reached if err == nil
 
 ---
 
+For Go tests that depend on the user home directory, use
+`internal/testutil.SetHomeDir(t, dir)` instead of `t.Setenv("HOME", dir)`.
+Windows `os.UserHomeDir()` reads `USERPROFILE`, so `HOME`-only fixtures pass on
+Unix and fail in Windows CI. These tests must stay serial because home/env
+fixtures are process-global; `goplint -check-test-home-env` enforces this
+pattern.
+
 For host-path validation tests that depend on `filepath.IsAbs`, treat absoluteness as OS-native:
 - Generate valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
 - Keep explicit negative cases for relative and dot-relative inputs.

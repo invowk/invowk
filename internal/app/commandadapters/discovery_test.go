@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/provisionenv"
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
@@ -26,7 +27,7 @@ func (l *staticDiscoveryConfigLoader) Load(context.Context, config.LoadOptions) 
 
 func TestDiscoveryServiceReadsProvisionedModuleManifestAtAdapterBoundary(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	t.Cleanup(testutil.SetHomeDir(t, tmpDir))
 
 	workDir := filepath.Join(tmpDir, "work")
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
@@ -71,7 +72,7 @@ func TestDiscoveryServiceReadsProvisionedModuleManifestAtAdapterBoundary(t *test
 
 func TestDiscoveryServiceDoesNotFallbackWhenProvisionedManifestIsInvalid(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	t.Cleanup(testutil.SetHomeDir(t, tmpDir))
 
 	workDir := filepath.Join(tmpDir, "work")
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
