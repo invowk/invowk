@@ -55,7 +55,7 @@ When the dashboard says `No thresholds found`, check the report JSON first. A su
 
 ```bash
 project=ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
-branch=pr-112
+branch=pr-<number>
 testbed=bencher-intel-v1-go-1-26
 api=https://api.bencher.dev/v0
 curl -fsS "$api/projects/$project/reports?branch=$branch&testbed=$testbed&sort=date_time&direction=desc&per_page=1" |
@@ -91,17 +91,21 @@ curl -fsS "$api/projects/$project/thresholds?branch=$branch&testbed=$testbed" |
 Inspect Actions logs for the actual `bencher run` request and report URL:
 
 ```bash
-gh run view <run-id> --repo invowk/invowk --log > /tmp/bencher.log
-rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHER_|--threshold|--start-point' /tmp/bencher.log
+log_file=$(mktemp)
+gh run view <run-id> --repo invowk/invowk --log > "$log_file"
+rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHER_|--threshold|--start-point' "$log_file"
 ```
 
 ## Known Pitfalls
 
-- `latency` versus `Latency` is not a threshold bug by itself. In PR 112, the slug `latency` correctly matched the displayed `Latency`; the warning came from missing `build-time`.
+- `latency` versus `Latency` is not a threshold bug by itself. A prior threshold incident had slug `latency` correctly matching displayed `Latency`; the warning came from missing `build-time`.
 - `boundary.baseline: null` usually means the threshold exists but Bencher does not yet have enough samples for that model. This is different from `threshold: null`.
 - A Bencher JWT or registry failure often looks like broken benchmark code. Check `BENCHER_API_TOKEN`, the registry login script, and direct API access before rewriting benchmark logic.
 - `benchmarks: accepted-regression` is not the only advisory-alert path. `scripts/bencher-threshold-args.sh` also drops `--error-on-alert` when the start-point branch has no latest benchmark result, because Bencher cannot compare against an absent baseline.
-- Context7 may resolve `Bencher` to unrelated benchmark projects. When that happens, use official Bencher docs plus direct API, CLI output, and report JSON as the source of truth.
+- Context7 may resolve `Bencher` to unrelated benchmark projects. When that happens, use official Bencher docs plus direct API, CLI output, and report JSON as the source of truth:
+  - `https://bencher.dev/docs/explanation/bencher-run/`
+  - `https://bencher.dev/docs/explanation/thresholds/`
+  - `https://bencher.dev/docs/api/projects/reports/`
 - Do not treat `SHORT_BENCH_REGEX` as internal cleanup. It controls what becomes long-lived public benchmark history.
 - After renaming a Go benchmark function, update both `TRACKED_GO_BENCHMARKS` and `benchmarkNameMap`. Keep the public benchmark slug stable when the workload is the same behavior under a renamed implementation, so Bencher history and thresholds continue across code renames.
 - Large feature branches can trigger broad, legitimate alerts across latency, memory, allocations, and `binary/bin-invowk` file size. First verify the BMF script still emits the intended tracked suite and every measure has thresholds. If the regression is an intentional tradeoff, use the explicit `benchmarks: accepted-regression` label instead of weakening thresholds or deleting `--error-on-alert` globally.
@@ -110,8 +114,10 @@ rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHE
 
 After Bencher infrastructure changes:
 
-- Run focused script checks such as `bash -n scripts/bencher-threshold-args.sh`.
-- If BMF output changed, run the Node tests or the BMF script tests in CI.
+- Recheck Bencher constants: `rg -n 'BENCHER_(PROJECT|SPEC|TESTBED)' .github/workflows/benchmarks.yml .github/workflows/benchmarks-upload.yml .github/workflows/release.yml`.
+- Run focused script checks: `bash -n scripts/bencher-threshold-args.sh`, `node scripts/test_bench_bmf.mjs`, and `bash scripts/test_bencher_registry_login.sh`.
+- Run `make test-scripts` for broad script coverage.
+- Run `make check-agent-docs` if `.agents/skills/bencher/SKILL.md` changed.
 - Push and watch the `Benchmarks / Track Benchmarks` check.
 - Verify the latest Bencher report has zero `threshold: null` measures if the task involved thresholds.
 - Check PR status with `gh pr view <number> --json mergeStateStatus,mergeable,statusCheckRollup`.

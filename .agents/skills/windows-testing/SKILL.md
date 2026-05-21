@@ -1,6 +1,6 @@
 ---
 name: windows-testing
-description: Windows testing guidance for Invowk Go code. Use for Windows process lifecycle, os/exec, NTFS/MAX_PATH/sharing issues, PATH/PATHEXT, timer resolution, race detector overhead, windows-latest CI, path normalization, and platform-split testscript coverage.
+description: Windows testing guidance for Invowk Go code. Use for Windows process lifecycle, os/exec, NTFS/MAX_PATH/sharing issues, PATH/PATHEXT, timer resolution, race detector overhead, windows-latest CI, proactive path-touching refactors (`filepath.IsAbs`, `filepath.FromSlash`, `filepath.Join`, `filepath.ToSlash`), CUE-fed path value types, volume mounts, and platform-split testscript coverage.
 ---
 
 # Windows Testing Skill
@@ -31,8 +31,24 @@ go test -run '<target>' ./...
 go test -race -short -run '<target>' ./...
 ```
 
+`make check-windows-build` is compile/vet coverage only. It does not prove
+Windows runtime path semantics; path regressions are covered by pathmatrix tests
+and goplint/baseline checks.
+
 For CLI/testscript changes, include a Windows-path pass locally where possible
 and preserve platform split coverage in `.txtar` fixtures.
+
+## Path-Touching Refactors
+
+When a change touches path parsing, validation, or volume-mount composition:
+
+1. Identify whether the path is a host path, virtual path, container path, or
+   CUE-fed value type (`FilesystemPath`, `WorkDir`, `SubdirectoryPath`,
+   `ScriptPath`, etc.).
+2. Use `internal/testutil/pathmatrix` for validators/resolvers where possible.
+3. Add or update the pathmatrix coverage guardrail when a new path-bearing type
+   participates in cross-platform semantics.
+4. Run focused tests, then `make check-baseline` for goplint path regressions.
 
 ## Process Lifecycle
 
@@ -115,8 +131,9 @@ Linux/macOS can instead block inside `ReadConsoleInput`.
 
 Checklist:
 
-- Skip Windows tests that call `RunInteractiveCmd()` or run a Bubble Tea
-  program against a ConPTY.
+- Skip Windows tests that call interactive adapter paths such as
+  `internal/app/commandadapters/interactive_session.go` `runInteractiveCmd`, or
+  run a Bubble Tea program against a ConPTY.
 - Model-level tests (`model.Update`, `model.View`) are safe.
 - `tea.WithContext(ctx)` is still correct production code, but it is not enough
   to make headless ConPTY tests reliable on Windows.
@@ -143,6 +160,8 @@ Implications:
 - `internal/container/` and `internal/containerplan/` - host/container path
   composition and Linux-only container policy.
 - `internal/app/deps/` - dependency path validation.
+- `internal/app/commandadapters/interactive_session.go`, `internal/tui/`, and
+  `internal/tuiserver/` - TUI/ConPTY-sensitive execution paths.
 - `pkg/invowkmod/` - module paths, archives, and lock-file fixtures.
 - `tests/cli/testdata/*.txtar` - platform-split CLI fixtures.
 

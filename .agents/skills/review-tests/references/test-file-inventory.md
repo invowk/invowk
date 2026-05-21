@@ -18,70 +18,78 @@ find cmd internal pkg tests tools -name '*_test.go' -exec wc -l {} +
 
 ## Go Test Files by Directory
 
-### `cmd/invowk/` (27 files)
+### `cmd/invowk/` (33 files)
 
 CLI adapter tests. Key files:
 
 | File | Lines | Focus |
 |---|---|---|
-| `cmd_coverage_test.go` | 425 | Built-in command txtar coverage guardrail |
-| `cmd_deps_filepath_test.go` | 801 | Filepath dependency validation |
 | `cmd_args_test.go` | 633 | CLI argument handling |
-| `cmd_deps_caps_env_test.go` | 561 | Capability and env dependency tests |
-| `cmd_validate_runtime_deps_test.go` | 559 | Runtime dependency validation |
-| `cmd_deps_test.go` | 555 | Dependency CLI handler tests |
+| `cmd_watch_test.go` | 526 | Watch-mode CLI behavior |
+| `cmd_context_test.go` | 524 | CLI context construction and config flow |
+| `cmd_coverage_test.go` | 424 | Built-in command txtar coverage guardrail |
+| `cmd_app_additional_test.go` | 404 | App wiring and command behavior |
+| `cmd_app_discovery_cache_test.go` | 367 | Discovery cache behavior |
+| `cmd_validate_test.go` | 337 | Validate command behavior |
+| `cmd_dryrun_test.go` | 327 | Dry-run rendering and execution guards |
 
-### `internal/` (174 files across 19 subdirectories)
+### `internal/` (216 files across 23 subdirectories)
 
 | Subdirectory | Files | Largest File (lines) | Focus |
 |---|---|---|---|
-| `audit/` | 15 | `llm_client_test.go` (717) | Module security audit and LLM review helpers |
-| `runtime/` | 27 | `runtime_virtual_test.go` (790) | All three runtimes (native, virtual, container) |
-| `tui/` | 26 | `tui_filter_test.go` (651) | Bubble Tea model state transitions |
-| `container/` | 19 | `engine_docker_mock_test.go` (807) | Docker/Podman engine mocks and types |
-| `discovery/` | 11 | `discovery_core_test.go` (812) | Module/command discovery |
-| `app/commandsvc/` | 7 | `dispatch_test.go` (349) | Command execution service |
-| `app/deps/` | 5 | `checks_test.go` (705) | Dependency validation |
-| `provision/` | 6 | `provisioner_test.go` (774) | Container provisioning |
-| `config/` | 5 | `config_test.go` (812) | Configuration management |
-| `watch/` | 4 | `watcher_test.go` (552) | File watching |
-| `tuiserver/` | 4 | `client_test.go` (481) | TUI server client/server |
-| `sshserver/` | 3 | `server_test.go` (554) | SSH server |
-| `uroot/` | 30 | `registry_test.go` (806) | u-root utility implementations |
-| `issue/` | 2 | `issue_test.go` (567) | Error handling and issue templates |
-| `benchmark/` | 3 | `benchmark_test.go` (694) | PGO profile benchmarks |
-| `app/execute/` | 2 | `orchestrator_test.go` (623) | Execution orchestration |
-| `core/serverbase/` | 1 | `base_test.go` (578) | Server state machine |
-| `testutil/` | 3 | `clock_test.go` (284) | Test utility helpers |
+| `audit/` | 16 | `scan_context_test.go` (680) | Module security audit scanning and LLM review helpers |
+| `runtime/` | 29 | `runtime_sh_test.go` (991) | Native, virtual-sh, virtual-lua, and container runtimes |
+| `tui/` | 25 | `tui_filter_test.go` (651) | Bubble Tea model state transitions |
+| `container/` | 22 | `engine_docker_mock_test.go` (803) | Docker/Podman engine mocks and types |
+| `discovery/` | 11 | `discovery_collisions_test.go` (971) | Module/command discovery and collision handling |
+| `app/commandsvc/` | 7 | `dispatch_test.go` (428) | Command execution service |
+| `app/deps/` | 10 | `checks_test.go` (960) | Dependency validation |
+| `provision/` | 7 | `provisioner_test.go` (763) | Container provisioning |
+| `config/` | 6 | `config_test.go` (962) | Configuration management |
+| `watch/` | 4 | `watcher_test.go` (671) | File watching |
+| `tuiserver/` | 4 | `server_test.go` (543) | TUI server client/server |
+| `sshserver/` | 3 | `server_test.go` (631) | SSH server |
+| `uroot/` | 30 | `registry_test.go` (916) | u-root utility implementations |
+| `issue/` | 2 | `issue_test.go` (470) | Error handling and issue templates |
+| `benchmark/` | 4 | `benchmark_test.go` (694) | PGO profile benchmarks |
+| `app/execute/` | 2 | `orchestrator_test.go` (678) | Execution orchestration |
+| `core/serverbase/` | 1 | `base_test.go` (701) | Server state machine |
+| `testutil/` | 4 | `clock_test.go` (284) | Test utility helpers |
 | `testutil/invowkfiletest/` | 1 | `command_test.go` (464) | Invowkfile test factory |
+| `agentcmd/` | 2 | `create_test.go` (302) | Agent command helpers |
+| `auditllm/` | 2 | `provider_test.go` (740) | Audit LLM provider plumbing |
+| `containerplan/` | 1 | `persistent_test.go` (166) | Persistent container planning |
+| `tuiwire/` | 1 | `tui_context_test.go` (100) | TUI context wiring |
 
-### `pkg/` (94 files across 6 subdirectories)
+### `pkg/` (100 files across 7 subdirectories)
 
 | Subdirectory | Files | Largest File (lines) | Focus |
 |---|---|---|---|
-| `invowkfile/` | 54 | `validation_test.go` (834) | Invowkfile parsing, validation, sync |
-| `invowkmod/` | 27 | `lockfile_test.go` (831) | Module metadata, operations, locking |
-| `types/` | 6 | — | DDD value type tests |
-| `cueutil/` | 3 | — | CUE utility tests |
-| `platform/` | 2 | — | Platform detection tests |
-| `fspath/` | 2 | — | Filesystem path tests |
+| `invowkfile/` | 62 | `validation_test.go` (873) | Invowkfile parsing, validation, sync |
+| `invowkmod/` | 22 | `lockfile_test.go` (910) | Module metadata, operations, locking |
+| `types/` | 8 | `listen_port_test.go` (90) | DDD value type tests |
+| `cueutil/` | 3 | `parse_test.go` (373) | CUE utility tests |
+| `platform/` | 2 | `sandbox_test.go` (223) | Platform detection tests |
+| `fspath/` | 2 | `fspath_test.go` (104) | Filesystem path tests |
+| `containerargs/` | 1 | `container_name_test.go` (67) | Container argument value types |
 
-### `tests/cli/` (5 test files plus support files)
+### `tests/cli/` (6 test files plus support files)
 
 | File | Focus |
 |---|---|
 | `cmd_test.go` | Main testscript runner, shared setup, and testscript conditions |
-| `cmd_container_test.go` | Container testscript runner with semaphore + cleanup |
+| `cmd_container_test.go` | Container testscript runner with suite lock + cleanup |
 | `container_harness.go` | Container engine selection, smoke probes, and cleanup helpers |
 | `container_harness_test.go` | Container harness decision and smoke-probe unit tests |
+| `testscript_env_test.go` | testscript environment setup and isolation helpers |
 | `tui_tmux_test.go` | tmux-based TUI e2e tests |
 | `runtime_mirror_test.go` | Virtual/native mirror coverage enforcement |
 
-### `tools/goplint/` (59 files)
+### `tools/goplint/` (60 files)
 
 | Subdirectory | Files | Largest File (lines) | Focus |
 |---|---|---|---|
-| `goplint/` | 56 | `baseline_test.go` (743) | Analyzer tests, CFA, baseline, integration |
+| `goplint/` | 57 | `integration_supplementary_test.go` (807) | Analyzer tests, CFA, baseline, integration |
 | Root | 3 | — | Entry point tests |
 
 ---

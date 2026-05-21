@@ -34,7 +34,7 @@ The review covers 11 surfaces. Each has a source of truth in the codebase.
 
 ### S1: README.md
 
-The README (~2870 lines) is the primary external-facing documentation. Key drift-prone
+The README (~3332 lines) is the primary external-facing documentation. Key drift-prone
 sections: Invowkfile Format, Dependencies, Command Flags/Arguments, Module Dependencies,
 Configuration, and TUI Components.
 
@@ -67,10 +67,12 @@ fields.
 pt-BR translations must mirror English docs in structure, `<Snippet>` IDs, and `<Diagram>` IDs.
 Prose is translated; code examples are shared via the `<Snippet>` component.
 
-Programmatic check: `cd website && npm run docs:parity`
+Programmatic check: `(cd website && npm run docs:parity)`
 
-Manual check: Use `git log --diff-filter=M -- website/docs/` to identify English pages modified
-recently, then compare with the corresponding pt-BR files for stale or contradictory prose.
+Manual check: Use the deterministic S4-C05 command in
+`references/verification-commands.md` to select the first three English pages
+for stale-prose review, then compare with the corresponding pt-BR files for
+factual drift.
 
 ### S5: Architecture Diagrams
 
@@ -182,7 +184,7 @@ export LC_ALL=C
 git rev-parse HEAD
 
 # Parallel group 1
-cd website && npm run docs:parity
+(cd website && npm run docs:parity)
 grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md website/docs/ website/src/components/Snippet/data/ website/i18n/pt-BR/docusaurus-plugin-content-docs/current/ docs/architecture/
 
 # Parallel group 2
@@ -194,8 +196,8 @@ done < <(LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -
 # Sequential
 make check-agent-docs
 node scripts/validate-version-assets.mjs
-cd website && npm run typecheck
-cd website && npm run build
+(cd website && npm run typecheck)
+(cd website && npm run build)
 ```
 
 Record results in the **Context Block** format:
@@ -305,7 +307,7 @@ The coordinator:
 Read these when working on the corresponding review surface:
 
 - **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items (117 total across 11 surfaces). This is the primary review driver.
+  enumerated verification items (119 total across 11 surfaces). This is the primary review driver.
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →

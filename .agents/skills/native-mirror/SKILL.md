@@ -1,18 +1,11 @@
 ---
 name: native-mirror
-description: Generate native_*.txtar mirror tests from virtual_*.txtar tests with platform-split CUE patterns and exemption rules. Use when creating or updating testscript CLI tests that need native runtime mirrors.
+description: Generate, update, or audit native_*.txtar mirror tests from virtual_*.txtar tests with platform-split CUE patterns and runtime mirror exemption rules. Use when creating or reviewing testscript CLI tests that need native runtime mirrors.
 ---
 
 # Native Mirror Generator
 
 Generate `native_*.txtar` test files that mirror existing `virtual_*.txtar` tests using native shell implementations with platform-split CUE.
-
-## When to Use
-
-Invoke this skill (`/native-mirror`) when:
-- A new `virtual_*.txtar` test has been created and needs a native mirror
-- An existing virtual test has been modified and its native mirror needs updating
-- You want to verify which virtual tests are missing native mirrors
 
 ## Workflow
 
@@ -21,20 +14,14 @@ Invoke this skill (`/native-mirror`) when:
 Before generating a mirror, verify the virtual test is NOT exempt:
 
 > **Source of truth**: The machine-enforced exemption list is in
-> `tests/cli/runtime_mirror_exemptions.json`. This SKILL.md list is a human
-> reference and must stay in sync. `TestShRuntimeMirrorCoverage` enforces the
-> JSON entries; `TestVirtualNativeCommandPathAlignment` enforces command-path
-> alignment except for justified `command_path_exempt` entries.
+> `tests/cli/runtime_mirror_exemptions.json`. Do not duplicate it in this skill.
+> `TestShRuntimeMirrorCoverage` enforces the JSON entries; `TestVirtualNativeCommandPathAlignment`
+> enforces command-path alignment except for justified `command_path_exempt` entries.
 
-**Exempt categories** (do NOT create native mirrors):
-- `virtual_uroot_*.txtar` — u-root commands are virtual shell built-ins
-- `virtual_shell.txtar` — Tests virtual-shell-specific features
-- `virtual_edge_cases.txtar` — CUE schema validation, not runtime behavior
-- `virtual_args_subcommand_conflict.txtar` — CUE schema validation
-- `virtual_diagnostics_footer.txtar` — Diagnostics footer output
-- `container_*.txtar` — Linux-only container runtime (outside `virtual_*` scope)
-- `dogfooding_invowkfile.txtar` — Already exercises native runtime (outside `virtual_*` scope)
-- `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` — Built-in CLI commands, outside `virtual_*` scope
+Only `virtual_*.txtar` files are in this skill's mirror scope. Files such as
+`container_*.txtar`, `config_*.txtar`, `module_*.txtar`, `completion.txtar`,
+`tui_format.txtar`, `tui_style.txtar`, and `init_*.txtar` are outside the mirror
+scanner rather than runtime-mirror exemptions.
 
 If the test is exempt, report it and stop.
 
@@ -170,13 +157,8 @@ cmds: [{
 To check for missing native mirrors, run:
 
 ```bash
-# List virtual tests
-ls tests/cli/testdata/virtual_*.txtar
-
-# List native tests
-ls tests/cli/testdata/native_*.txtar
-
-# Compare (accounting for exemptions)
+go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
 ```
 
-Report which virtual tests are missing their native mirrors, excluding exempt files.
+Use the test output plus `tests/cli/runtime_mirror_exemptions.json` to report missing
+mirrors, stale exemptions, or command-path divergences.

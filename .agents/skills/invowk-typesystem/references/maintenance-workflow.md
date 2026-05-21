@@ -5,7 +5,9 @@ Use this workflow whenever value types are added, removed, renamed, or semantica
 ## 1. Detect Current Value Types
 
 ```bash
-.agents/skills/invowk-typesystem/scripts/extract_value_types.sh > /tmp/type-catalog.md
+tmp_catalog=$(mktemp)
+.agents/skills/invowk-typesystem/scripts/extract_value_types.sh > "$tmp_catalog"
+diff -u .agents/skills/invowk-typesystem/references/type-catalog.md "$tmp_catalog"
 ```
 
 ## 2. Refresh the Skill Catalog
@@ -39,8 +41,11 @@ make check-agent-docs
 When type-system code changed:
 
 ```bash
+make check-types
 make check-baseline
 make test
+make lint
+make check-file-length
 ```
 
 ## 6. AGENTS Index Sync

@@ -52,7 +52,7 @@ Regression tests for this area must cover:
 | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`, `internal/runtime/lua_io.go` | Virtual host-binary policy, virtual-lua bridge semantics, and path harness |
 | `internal/app/deps/` | Command scope enforcement |
 | `internal/discovery/` | Global module trust, `IsGlobalModule` propagation |
-| `internal/audit/` | Audit scanner package (23 production Go files, ~5,499 lines as of 2026-05) |
+| `internal/audit/` | Audit scanner package; derive current file inventory with `find internal/audit -maxdepth 1 -type f -name '*.go' | sort` |
 | `cmd/invowk/audit.go` | Top-level CLI command, optional LLM audit flags, and diagnostic rendering |
 
 ---
@@ -97,7 +97,11 @@ If no built `invowk` binary is available in PATH, build it:
 
 ```bash
 go build -o /tmp/invowk-audit-bin .
+AUDIT_BIN=/tmp/invowk-audit-bin
 ```
+
+If a trusted repo-local binary already exists, set `AUDIT_BIN=./bin/invowk` or
+`AUDIT_BIN=$(command -v invowk)`. Use the same binary for all Phase 1 scans.
 
 ### Step 2: Run the scanner
 
@@ -105,14 +109,17 @@ Run the compiled scanner against the target path. Always use JSON format and
 `--severity info` to capture all findings (filtering happens in Phase 2):
 
 ```bash
-invowk audit --format json --severity info {scan_path} 2>/dev/null
+"$AUDIT_BIN" audit --format json --severity info {scan_path}
 ```
 
 For broader scans that include global modules:
 
 ```bash
-invowk audit --format json --severity info --include-global {scan_path} 2>/dev/null
+"$AUDIT_BIN" audit --format json --severity info --include-global {scan_path}
 ```
+
+Do not hide stderr on routine runs. If the command exits 2, stderr is evidence
+for a scan error and must be included in the report.
 
 **Exit codes:** 0 = no findings, 1 = findings detected, 2 = scan error.
 
@@ -128,6 +135,7 @@ The scanner produces structured JSON with this schema:
       "category": "integrity|path-traversal|exfiltration|execution|trust|obfuscation",
       "code": "stable machine-readable finding code",
       "surface_id": "file path or SC-ID",
+      "surface_kind": "root_invowkfile|local_module|vendored_module|global_module",
       "checker_name": "producing checker name",
       "file_path": "affected file",
       "line": 0,
@@ -148,6 +156,14 @@ The scanner produces structured JSON with this schema:
     }
   ],
   "suppressed_compound_threats": [...],
+  "diagnostics": [
+    {
+      "severity": "warning|error",
+      "code": "stable diagnostic code",
+      "message": "diagnostic text",
+      "path": "optional path"
+    }
+  ],
   "summary": {
     "total": 0, "suppressed": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0,
     "modules_scanned": 0, "invowkfiles_scanned": 0, "scripts_scanned": 0,
@@ -288,8 +304,8 @@ Scanned: {N} modules, {N} invowkfiles, {N} scripts
   forwarding in SSH/container commands is documented and intentional.
 
 ═══ Threat Model Status ═══
-  SC-01: CONFIRMED (Mitigated) — validateScriptPathContainment at line 446
-  SC-02: CONFIRMED (By-design) — interp.ExecHandlers(r.execHandler) at line 320
+  SC-01: CONFIRMED (Mitigated) — cite current function/symbol evidence
+  SC-02: CONFIRMED (By-design) — cite current function/symbol evidence
   ...
 
 ═══ Supply-Chain Review ═══ (if applicable)
@@ -329,31 +345,21 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:364-456` | Mitigated |
+| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, script path validation helpers | Mitigated |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
-| SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container_exec.go:118` | By-design |
-| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:443, runtime.go:573-575` | Partial |
-| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:131-170` | Mitigated |
+| SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container*.go` | By-design |
+| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go`, interactive adapters | Partial |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go`, scan context artifact copy paths | Mitigated |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
-| SC-07 | Custom-check `script.content` host shell execution | High | `internal/app/deps/checks.go:70-72` | Partial |
-| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:435-438` | Mitigated (allowlist in Validate) |
-| SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go:199-201` | By-design |
-| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial |
+| SC-07 | Custom-check `script.content` host shell execution | High | `internal/app/deps/checks.go` | Partial |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate) |
+| SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go` | By-design |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go`, command-scope lock checks | Partial |
 
 **Status legend:** Open (no mitigation), Partial (gaps remain), Mitigated (fixed, residual gap only), By-design (intentional, document only)
 
-**2026-04-02 audit notes:**
-- SC-01 upgraded to Mitigated: `validateScriptPathContainment()` now implemented in `implementation.go:446-456`, called from both `ResolveScriptWithModule` and `ResolveScriptWithFSAndModule`. Uses `filepath.Rel` + `strings.HasPrefix("..")`. Residual: root invowkfile scripts bypass containment when `modulePath == ""` (by design — user controls root invowkfile).
-- SC-05 upgraded to Mitigated: both `CopyDir` implementations (`resolver_cache.go:copyDir` and `provision/helpers.go:CopyDir`) now skip symlinks. Residual: `os.Stat` on the `src` dir argument itself follows symlinks.
-- SC-10 upgraded to Partial: `detectModuleShadowing()` warning added in `discovery_files.go` for local-vs-global collisions. No cryptographic integrity verification — shadowing detection is warning-level only.
-- SC-08 upgraded to Mitigated: `InterpreterSpec.Validate()` now enforces an allowlist of known safe interpreters and rejects shell metacharacters. Bare `env` requires full path (`/usr/bin/env` or `/bin/env`). Residual: absolute paths to allowlisted interpreters in attacker-controlled directories (e.g., `/tmp/python3`) pass the `filepath.Base` check, since only the base name is validated against the allowlist.
-
-**2026-04-03 audit notes:**
-- SC-06 edge case: `--ivk-env-var` can override security-relevant variables set by modules themselves (e.g., `INVOWK_SSH_ENABLED`), not only host credentials flowing into scripts. The env_builder docstring warns about host credentials but not about module-set variable overrides.
-- SC-08 edge case: The allowlist check uses `filepath.Base()` on the interpreter path, so `/tmp/python3` would pass validation if `python3` is in the allowlist. Only the base name is validated — directory components are not checked. Low residual risk since the attacker-placed binary must be named identically to an allowlisted interpreter.
-- SC-10 edge case: `detectModuleShadowing` only checks `IsGlobalModule` vs non-global. No detection of two global modules with the same ID (e.g., via different includes). The shadowing warning is diagnostic-only with no `--strict-module-trust` flag to promote it to a fatal error.
-- SC-10 improvement: `VerifyVendoredModuleHashes` is now wired into the discovery execution path via `appendModulesWithVendored`, providing automatic tamper detection before vendored modules are loaded. Hash mismatches abort discovery with a hard error.
-- Audit scanner improvement: `LockFileChecker` now detects vendored modules present without a lock file, even when `requires` is empty. Closes gap where manually placed `invowk_modules/` content bypassed integrity enforcement.
+Before citing status, re-run the Phase 3 grep prompts and current scanner tests.
+Do not preserve date-stamped status notes as evidence if the code has moved.
 
 ---
 
@@ -384,7 +390,7 @@ OpenAI-compatible API analysis (`--llm`).
 | `types.go` | `Category`, `Finding`, `Report` types, filtering, sorting, counting |
 | `errors.go` | Sentinels (`ErrScanContextBuild`, `ErrCheckerFailed`, `ErrNoScanTargets`), typed wrappers |
 | `checker.go` | `Checker` interface (`Name`, `Category`, `Check`) |
-| `scan_context.go` | `ScanContext`, `BuildScanContext`, `ScannedModule`, `ScriptRef`, discovery integration |
+| `scan_context.go`, `scan_context_artifacts.go`, `scan_context_clone.go`, `scan_files.go` | `ScanContext`, `BuildScanContext`, artifact/clone/file scanning helpers, `ScannedModule`, `ScriptRef`, discovery integration |
 | `scanner.go` | `Scanner` struct, `Scan()`, concurrent `runCheckers`, functional options |
 | `correlator.go` | `Correlator`, `CorrelationRule`, named rules + severity escalation |
 | `checks_lockfile.go` | Lock file integrity (hash, version, orphans, size guard) |
@@ -393,8 +399,9 @@ OpenAI-compatible API analysis (`--llm`).
 | `checks_env.go` | Env var risk, credential extraction, `env_inherit_mode` |
 | `checks_symlink.go` | Symlink detection, boundary checking, chain depth |
 | `checks_module.go` | Module metadata (deps, typosquatting, global trust, version pinning) |
-| `checks_llm.go`, `llm_analyzer.go`, `triage.go` | Optional semantic LLM-backed analysis and triage |
-| `diagnostic.go`, `warnings.go` | User-facing diagnostics and warnings |
+| `checks_llm.go`, `llm_prompt.go`, `llm_errors.go`, `triage.go` | Optional semantic LLM-backed analysis, prompt building, error handling, and deterministic triage |
+| `finding_codes.go` | Stable finding-code derivation/catalog |
+| `types.go` | `Finding`, `Report`, `Diagnostic`, `SurfaceKind`, and report filtering/sorting helpers |
 
 ### Core Types
 
@@ -418,7 +425,7 @@ const (
     CategoryObfuscation  Category = "obfuscation"
 )
 
-// Checker interface — all 6 checkers implement this
+// Checker interface — all built-in checkers from DefaultCheckers implement this
 type Checker interface {
     Name() string
     Category() Category
@@ -429,6 +436,7 @@ type Finding struct {
     Severity       Severity
     Category       Category
     SurfaceID      string          // SC-01..SC-10 (if applicable)
+    SurfaceKind    SurfaceKind     // root/local/vendored/global trust boundary
     CheckerName    string          // producing checker's Name()
     FilePath       types.FilesystemPath
     Line           int
@@ -436,6 +444,7 @@ type Finding struct {
     Description    string
     Recommendation string
     EscalatedFrom  []string        // compound findings only
+    EscalatedFromCodes []FindingCode
 }
 ```
 
@@ -445,7 +454,7 @@ type Finding struct {
 
 When reviewing module-related changes, adapt the workflow:
 
-1. **Phase 1** — Run `invowk audit --format json --severity info .`
+1. **Phase 1** — Run `"$AUDIT_BIN" audit --format json --severity info .`
 2. **Phase 2** — Classify findings; identify which are new vs pre-existing
    (compare against a baseline run or previous audit output if available)
 3. **Phase 3** — Threat Model Drift Checker (always) + Supply-Chain Reviewer
@@ -468,11 +477,11 @@ When reviewing module-related changes, adapt the workflow:
 
 | Pitfall | Fix |
 |---------|-----|
-| Regressing `CopyDir` symlink skipping | Both `CopyDir` impls now skip symlinks (SC-05 Mitigated); residual: `os.Stat` on `src` dir argument itself follows symlinks |
+| Regressing symlink skipping in module copy/provision paths | Keep copy helpers and scan-context artifact/clone paths from following symlinked module content outside trusted roots |
 | Script path accepts absolute paths in module context | `ScriptChecker` now detects this (SeverityHigh); `GetScriptFilePathWithModule` still allows it at parse time |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
 | `loadSingleModule` silently swallows invowkfile parse errors | Line 155: `if parseErr == nil` discards parse failures — intended (module without invowkfile) but consider logging |
-| `loadDirectoryTree` silently skips invalid modules | Line 219: `continue` on `loadSingleModule` error loses the error — add structured warning to report |
+| Scan context hides invalid modules/files | Preserve structured diagnostics in `Report.Diagnostics` and CLI JSON/text output |
 | `ScanContext` methods expose mutable slices | `Modules()` / `Invowkfiles()` return slice headers — callers can `append` and corrupt shared state (low risk since checkers are well-behaved, but violates immutability contract) |
 | Levenshtein runs O(n²) on module list | Acceptable for small module sets; for >100 modules consider short-circuiting or length pre-filter |
 
@@ -487,7 +496,7 @@ Read **[references/implementation-review.md](references/implementation-review.md
 - Performance considerations (regex compilation, Levenshtein, `ScanContext` building)
 - Scanner self-defense (crafted input, DoS protection, TOCTOU windows)
 - CLI rendering review (`cmd/invowk/audit.go` exit codes, JSON schema)
-- Test coverage gap analysis (10 test files, ~1,369 lines)
+- Test coverage gap analysis for the current `internal/audit/*_test.go` inventory
 
 This reference is only loaded when reviewing or modifying the audit Go code — the
 agent-orchestrated security audit workflow above does not need it.

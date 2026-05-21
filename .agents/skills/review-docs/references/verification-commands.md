@@ -19,7 +19,7 @@ Block.
 ## 1. Documentation Parity
 
 ```bash
-cd website && npm run docs:parity
+(cd website && npm run docs:parity)
 ```
 
 **What it checks**: File parity between `docs/` and `i18n/pt-BR/.../current/`, plus
@@ -34,7 +34,7 @@ Check `website/docs-parity-exceptions.json` for known exceptions. If the gap is 
 ## 2. Website Build
 
 ```bash
-cd website && npm run build
+(cd website && npm run build)
 ```
 
 **What it checks**: Full build of all locales. Catches broken links (`onBrokenLinks: 'throw'`),
@@ -49,7 +49,7 @@ added to `sidebars.ts`.
 ## 3. Website Typecheck
 
 ```bash
-cd website && npm run typecheck
+(cd website && npm run typecheck)
 ```
 
 **What it checks**: TypeScript correctness for Docusaurus config, snippet aggregation, custom

@@ -19,7 +19,7 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 
 ## §S1: README.md
 
-**File scope**: `README.md` (~2870 lines)
+**File scope**: `README.md` (~3332 lines)
 
 **Source of truth mapping**: See `readme-sync-map.md` for exact line numbers and source files.
 
@@ -345,7 +345,7 @@ with an implementation block but lack required fields.
 
 | Surface | Items |
 |---------|-------|
-| S1: README | 22 |
+| S1: README | 24 |
 | S2: Website Docs | 14 |
 | S3: Snippet Data & CUE Drift | 19 |
 | S4: i18n Parity | 6 |

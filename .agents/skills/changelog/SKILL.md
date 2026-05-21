@@ -1,24 +1,20 @@
 ---
 name: changelog
-description: Generate release notes from conventional commits since the last tag. Groups changes by type (feat, fix, refactor, etc.) and drafts markdown release notes.
+description: Draft commit-derived release notes from conventional commits since the latest semantic version tag. Use for pre-release summaries, reviewing changes since the last release, or preparing text to compare with GitHub-native GoReleaser notes.
 ---
 
 # Changelog Generator
 
-Generate release notes from conventional commit history between the last tag and HEAD.
+Generate commit-derived draft release notes from conventional commit history between the latest `v*` semver tag and HEAD.
 
-## When to Use
-
-Invoke this skill (`/changelog`) when:
-- Preparing a new release and need draft release notes
-- Reviewing what changed since the last release
+Invowk releases use GoReleaser with GitHub-native release notes (`.goreleaser.yaml` and `.github/release.yml`). Treat this skill's output as a draft/checklist, not the canonical generated GitHub release notes.
 
 ## Workflow
 
 ### Step 1: Identify the Version Range
 
 ```bash
-LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+LATEST_TAG=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
 
 if [ -z "$LATEST_TAG" ]; then
   RANGE="HEAD"
@@ -75,7 +71,15 @@ git diff --stat ${DIFF_RANGE} | tail -1
 
 # Contributors
 git log --format='%aN' ${RANGE} | sort -u
+
+# Compare URL
+origin_url=$(git remote get-url origin)
+repo_slug=$(printf '%s\n' "$origin_url" |
+  sed -E 's#^git@github.com:##; s#^https://github.com/##; s#\.git$##')
+compare_url="https://github.com/${repo_slug}/compare/${LATEST_TAG}...HEAD"
 ```
+
+Contributor names from git are not GitHub handles unless separately resolved through GitHub metadata.
 
 ### Step 6: Output Release Notes
 
@@ -103,14 +107,14 @@ Format as markdown:
 - ...
 
 ---
-**Full diff**: [`previous-tag...HEAD`](repo-url/compare/previous-tag...HEAD)
-**Contributors**: @name1, @name2
+**Full diff**: [`previous-tag...HEAD`](https://github.com/invowk/invowk/compare/previous-tag...HEAD)
+**Contributors**: Name 1, Name 2
 **Stats**: X files changed, Y insertions(+), Z deletions(-)
 ```
 
 ### Step 7: Offer Next Steps
 
 After generating the notes, suggest:
-1. Copy to clipboard for pasting into a GitHub Release
-2. Save to a `CHANGELOG.md` file (if one exists, prepend)
-3. Use with `make release VERSION=vX.Y.Z` to tag and release
+1. Compare against GitHub-native release notes produced by the release workflow
+2. Save to a `CHANGELOG.md` file only if the repo already maintains one
+3. Use with `make release VERSION=vX.Y.Z` when preparing the release tag

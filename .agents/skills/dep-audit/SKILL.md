@@ -1,18 +1,11 @@
 ---
 name: dep-audit
-description: Audit Go dependencies for vulnerabilities and available updates. Runs govulncheck and checks for stale modules.
+description: Audit Go dependencies for vulnerabilities, stale modules, deprecated/retracted modules, and available updates across the root module and nested Go modules. Use before releases, for periodic dependency health checks, or when evaluating dependency upgrades.
 ---
 
 # Dependency Audit
 
 Audit Go module dependencies for security vulnerabilities and available updates.
-
-## When to Use
-
-Invoke this skill (`/dep-audit`) when:
-- Preparing a release and want to verify dependency health
-- Periodically checking for known vulnerabilities
-- Evaluating whether dependencies need upgrading
 
 ## Workflow
 
@@ -33,7 +26,8 @@ If `govulncheck` is missing, report it and continue with update checks only.
 Build the module list once; Invowk includes the root module and the separate `tools/goplint` module:
 
 ```bash
-git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u
+mapfile -t go_modules < <(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u)
+printf '%s\n' "${go_modules[@]}"
 ```
 
 ### Step 2: Vulnerability Scan
@@ -41,7 +35,7 @@ git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u
 If `govulncheck` is available:
 
 ```bash
-for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
+for mod in "${go_modules[@]}"; do
   (cd "$mod" && govulncheck ./...)
 done
 ```
@@ -54,8 +48,8 @@ Report:
 
 ```bash
 # List all modules with available updates
-for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
-  (cd "$mod" && go list -m -u -retracted -json all 2>/dev/null) |
+for mod in "${go_modules[@]}"; do
+  (cd "$mod" && go list -m -u -retracted -json all) |
     jq -r 'select(.Update) | "\(.Path): \(.Version) → \(.Update.Version)"'
 done
 ```
@@ -63,8 +57,12 @@ done
 If `jq` is not available, fall back to:
 
 ```bash
-go list -m -u all 2>/dev/null | grep '\['
+for mod in "${go_modules[@]}"; do
+  (cd "$mod" && go list -m -u all)
+done | grep '\['
 ```
+
+If `go list` fails for any module, report that module as incomplete evidence instead of hiding the error.
 
 ### Step 4: Categorize Updates
 
@@ -81,8 +79,8 @@ Group available updates by impact:
 
 ```bash
 # Look for retracted or deprecated modules
-for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
-  (cd "$mod" && go list -m -u -retracted -json all 2>/dev/null) |
+for mod in "${go_modules[@]}"; do
+  (cd "$mod" && go list -m -u -retracted -json all) |
     jq -r 'select(.Deprecated or .Retracted) | "\(.Path): deprecated=\(.Deprecated // "-") retracted=\(.Retracted // [])"'
 done
 ```
@@ -91,7 +89,7 @@ done
 
 ```bash
 # Check if go.mod/go.sum are tidy
-for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
+for mod in "${go_modules[@]}"; do
   (cd "$mod" && go mod tidy -diff 2>&1)
 done
 ```
@@ -129,7 +127,7 @@ Output a summary table:
 For each recommended upgrade, provide the exact command:
 
 ```bash
-go get module@version
+(cd <module-dir> && go get module@version)
 ```
 
-And remind to run `make tidy` and `make test` after upgrading.
+Use `make tidy` for the root module and `(cd tools/goplint && go mod tidy)` for `tools/goplint`. Run `make test` after upgrading.

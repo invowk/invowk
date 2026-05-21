@@ -1,6 +1,6 @@
 ---
 name: schema-sync-check
-description: Validate CUE schema sync after editing schemas or Go structs with JSON tags. Runs targeted sync tests and reports mismatches.
+description: Validate CUE schema sync after editing schemas, Go structs with JSON tags, value-type Validate() methods, enum/disjunction constraints, config defaults, or schema-owned decode behavior. Runs targeted structural and behavioral sync tests and reports mismatches.
 ---
 
 # Schema Sync Check
@@ -14,6 +14,7 @@ Invoke this skill (`/schema-sync-check`) after:
 - Adding or modifying JSON tags on Go structs in `pkg/invowkfile/`, `pkg/invowkmod/`, or `internal/config/`
 - Renaming CUE fields or Go struct fields
 - Adding new CUE definitions with corresponding Go types
+- Changing validation/default behavior mirrored between CUE and Go, including `Validate()` methods, enum/disjunction values, runtime defaults, and config defaults
 
 ## What It Checks
 
@@ -21,7 +22,7 @@ Invoke this skill (`/schema-sync-check`) after:
 
 | Schema | Go Package | Sync Test |
 |--------|-----------|-----------|
-| `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/` | `pkg/invowkfile/sync_test.go`, `pkg/invowkfile/sync_runtime_test.go`, `pkg/invowkfile/sync_behavioral_test.go` |
+| `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/` | `pkg/invowkfile/sync_test.go`, `pkg/invowkfile/sync_runtime_test.go`, `pkg/invowkfile/sync_behavioral_test.go`, `pkg/invowkfile/sync_runtime_behavioral_test.go` |
 | `pkg/invowkmod/invowkmod_schema.cue` | `pkg/invowkmod/` | `pkg/invowkmod/sync_test.go` |
 | `internal/config/config_schema.cue` | `internal/config/types.go` | `internal/config/sync_test.go` |
 
@@ -42,6 +43,13 @@ not prove Go/CUE type compatibility by itself.
 
 ```bash
 go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
+```
+
+Then run the targeted packages to cover behavioral/default tests whose names do
+not include `Sync`:
+
+```bash
+go test -v ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 ```
 
 ### Step 2: Interpret Results
@@ -75,6 +83,7 @@ After fixes, run the sync tests again to confirm:
 
 ```bash
 go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
+go test -v ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 ```
 
 ### Step 5: Run Full Test Suite
@@ -122,6 +131,7 @@ make test
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | `omitempty` mismatch | CUE optional (`?`) vs Go `omitempty` | Ensure optional CUE fields use `omitempty` in Go |
+| Helper limitation | `schematest.ExtractGoJSONTags` is direct-field oriented and treats `omitempty` as optional; tags such as `omitzero` need review | Inspect the helper output and add explicit behavioral coverage when needed |
 | Nested struct sync | Inner struct not tested | Add separate sync test for nested type |
 | Mapstructure tag | Viper config fields need both tags | Add `mapstructure:"field_name"` alongside `json` |
 | Stale exclusions | Removed fields still in exclusion list | Clean up sync test exclusions after refactoring |

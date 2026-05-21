@@ -1,6 +1,11 @@
 ---
 name: discovery
-description: Module/command discovery, precedence order, collision detection, source tracking. Use when working on internal/discovery/ files or modifying how invowkfiles and modules are found and aggregated.
+description: >-
+  Module/command discovery, precedence order, collision detection, source
+  tracking, vendored module namespace policy, diagnostics, and command-scope
+  discovery inputs. Use when working on internal/discovery/, discovery adapters,
+  command dependency scope checks, or how invowkfiles/modules are found,
+  namespaced, locked, and aggregated.
 ---
 
 # Discovery Skill
@@ -9,6 +14,8 @@ This skill covers the discovery system in Invowk, which locates and aggregates c
 
 Use this skill when working on:
 - `internal/discovery/` - Discovery and aggregation logic
+- `internal/app/commandadapters/discovery.go` - production discovery adapter wiring
+- `internal/app/deps/` - command-scope checks that consume discovered command identities
 - Module resolution and dependency handling
 - Command collision detection and disambiguation
 - Source tracking and precedence
@@ -155,15 +162,17 @@ The `DiscoveredCommandSet` provides:
 
 ### Module Identity & Visibility
 
-```go
-type Module struct {
-    Path    string          // Filesystem location
-    Invowkmod *invowkmod.Invowkmod  // Parsed metadata from invowkmod.cue
-}
+Module metadata comes from `pkg/invowkmod.Module` and the parsed module's
+metadata. Do not copy a hand-written struct shape into docs or tests; read the
+current type before changing discovery code:
 
-// Module commands are automatically namespaced
-// Module "foo" → commands like "foo build", "foo deploy"
+```bash
+rg -n 'type .*Module|ModuleID|ModuleNamespace|CommandNamespace|SourceID' pkg/invowkmod internal/discovery
 ```
+
+Module commands are automatically namespaced by the effective command namespace:
+the module ID by default, an include alias when configured, or the locked
+vendored command source ID when a parent lock records one.
 
 ### Module Collision Detection
 
@@ -181,9 +190,14 @@ Commands can only call:
 
 1. Commands from the **same module**
 2. Commands from **globally installed user command modules** (`~/.invowk/cmds/`)
-3. Commands from **first-level requirements** (direct dependencies in `invowkmod.cue:requires`)
+3. Commands from **first-level requirements** (direct dependencies in `invowkmod.cue:requires`) that also match lock-file identity/source metadata
 
 **CRITICAL:** Transitive dependencies are **NOT accessible**. Commands cannot call dependencies of dependencies. This enforces explicit, auditable dependency chains.
+
+Scope enforcement is in `internal/app/deps/`. A direct dependency is authorized
+only when the declaration and `invowkmod.lock.cue` agree on both stable module
+identity and effective command source ID. This prevents alias collisions from
+accidentally granting command visibility.
 
 ---
 
@@ -213,13 +227,12 @@ The discovery system returns structured diagnostics alongside results rather tha
 
 ```go
 type Diagnostic struct {
-    Severity Severity  // "warning" or "error"
-    Code     string    // Machine-readable code (e.g., "module_load_skipped")
-    Message  string    // Human-readable description
-    Path     string    // Associated file path (optional)
-    Cause    error     // Underlying error (optional)
+    // Fields are unexported; use accessors.
 }
 ```
+
+Fields are immutable and unexported. Use `Severity()`, `Code()`, `Message()`,
+`Path()`, and `Cause()` accessors rather than field access in tests or renderers.
 
 ### Diagnostic-Returning APIs
 
@@ -258,6 +271,21 @@ Use `internal/discovery/diagnostic.go` as the source of truth for diagnostic cod
 ---
 
 ## Usage Patterns
+
+### Deterministic Tests
+
+Prefer injected directories over process-global `os.Chdir`:
+
+```go
+d := discovery.New(cfg,
+    discovery.WithBaseDir(types.FilesystemPath(workDir)),
+    discovery.WithCommandsDir(types.FilesystemPath(userCmdsDir)),
+)
+```
+
+Use `WithCommandsDir("")` when a test intentionally disables user command
+discovery. This sets the explicit "provided" flag and avoids falling back to the
+real `~/.invowk/cmds`.
 
 ### CLI Listing with Grouping
 
@@ -312,7 +340,7 @@ lookup, err := disc.GetCommand(ctx, "foo build")
 
 | File | Purpose |
 |------|---------|
-| `discovery.go` | Core API: LoadAll, LoadFirst, CheckModuleCollisions, GetEffectiveModuleID, loadAllWithDiagnostics |
+| `discovery.go` | Core API: LoadAll, LoadFirst, CheckModuleCollisions, GetEffectiveCommandNamespace, loadAllWithDiagnostics |
 | `discovery_files.go` | File/module discovery: DiscoverAll, discoverInDir, discoverModulesInDirWithDiagnostics, discoverVendoredModulesWithDiagnostics, appendModulesWithVendored, loadIncludesWithDiagnostics, Source enum, DiscoveredFile (with ParentModule) |
 | `discovery_vendored_test.go` | Vendored module discovery tests: parent tracking, ordering, nested blocking, all 3 source types, collision annotation, reserved module skip, scan failure diagnostics |
 | `discovery_commands.go` | Command aggregation: DiscoverCommandSet, DiscoverAndValidateCommandSet, GetCommand, DiscoveredCommandSet |

@@ -40,9 +40,9 @@ sites:
 | Role | Invowk examples | Responsibility |
 | --- | --- | --- |
 | Driving adapters | `cmd/invowk/`, TUI entrypoints, testscript fixtures | Parse input, select use case, render output, handle transport/UI details |
-| Application services | `internal/app/commandsvc/`, `internal/app/deps/`, `internal/app/execute/` | Coordinate use cases, enforce workflow order, return typed results/errors |
+| Application services | `internal/app/commandsvc/`, `internal/app/deps/`, `internal/app/execute/`, focused module operation packages | Coordinate use cases, enforce workflow order, return typed results/errors |
 | Domain model | `pkg/invowkfile/`, `pkg/invowkmod/`, `pkg/types/`, focused internal domain packages | Represent ubiquitous language, invariants, policies, value objects |
-| Driven adapters | container engines, filesystem/process/network/runtime integrations | Implement external-device conversations behind narrow contracts |
+| Driven adapters | `internal/app/commandadapters/`, container engines, filesystem/process/network/runtime integrations | Implement external-device conversations behind narrow contracts |
 | Foundation packages | `pkg/types/`, domain-agnostic helpers | Provide leaf value types or utilities without importing domains |
 
 Do not force every package into one role. If a package intentionally combines
@@ -119,6 +119,8 @@ implementation tasks.
 2. Capture a stable baseline: branch/HEAD, `git status --short`,
    `go list ./cmd/... ./internal/... ./pkg/...`, and
    `(cd tools/goplint && go list ./...)`.
+   Also capture a package inventory for drift checks:
+   `find cmd internal pkg tools/goplint -maxdepth 2 -type d | sort`.
 3. Create a task list and launch subagents for the review surfaces below. Use no
    more than six live subagents. If fewer slots are available, queue the
    remaining surfaces and launch them only as slots free up.
@@ -136,7 +138,7 @@ Use these deterministic surfaces unless the user narrows scope:
 
 | Surface | Primary paths | Focus |
 | --- | --- | --- |
-| SA-1 CLI and app services | `cmd/invowk/`, `internal/app/commandsvc/`, `internal/app/execute/`, `internal/app/deps/` | Driving adapter boundaries, use-case orchestration, domain policy placement |
+| SA-1 CLI and app services | `cmd/invowk/`, `internal/app/commandsvc/`, `internal/app/execute/`, `internal/app/deps/`, `internal/app/commandadapters/` | Driving adapter boundaries, use-case orchestration, app-service/adapters split, domain policy placement |
 | SA-2 Discovery and modules | `internal/discovery/`, `pkg/invowkmod/`, `samples/invowkmods/`, `tests/cli/testdata/*module*.txtar`, `*.invowkmod` and `invowk_modules/` fixtures | Dependency graph semantics, scope rules, module aggregate boundaries |
 | SA-3 Runtime and outside devices | `internal/runtime/`, `internal/container/`, `internal/containerplan/`, `internal/provision/`, `internal/watch/`, `internal/uroot/` | Ports/adapters, host process/container/filesystem boundaries, persistent/ephemeral container target policy, deterministic test seams |
 | SA-4 Schemas and value types | `pkg/invowkfile/`, `pkg/types/`, `internal/config/`, `pkg/cueutil/` | Invariants, value-object placement, schema/domain language drift |
@@ -148,8 +150,8 @@ Use these deterministic surfaces unless the user narrows scope:
 Give each subagent the same constraints plus its assigned surface:
 
 ```text
-Use $go-hexagonal-ddd in /var/home/danilo/Workspace/github/invowk/invowk for a
-read-only architecture review of <surface>. Read AGENTS.md, the relevant
+Use $go-hexagonal-ddd from the repository root for a read-only architecture
+review of <surface>. Read AGENTS.md, the relevant
 .agents/rules files, and .agents/skills/go-hexagonal-ddd/references/source-guide.md.
 Inspect current code, imports, call sites, and tests for this surface only.
 Return only high-confidence Hexagonal Architecture or DDD findings. For each

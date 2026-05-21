@@ -1,16 +1,17 @@
 ---
 name: linux-testing
 description: >-
-  Deep Linux-specific testing knowledge for Go. Covers process lifecycle
+  Invowk Linux and Ubuntu CI testing knowledge for Go. Covers process lifecycle
   (clone/fork+exec, process groups via setpgid, PDEATHSIG), full POSIX signal
   handling (SIGKILL/SIGTERM/SIGINT), exec.CommandContext signal delivery and
   cmd.Cancel customization, ext4/XFS case-sensitivity, inotify watch limits
   (ENOSPC/EMFILE/ENFILE), file descriptor limits, cgroups and namespace
   isolation for container tests, OOM killer risks with -race (10x memory),
-  and the full container test infrastructure (ContainerTestContext,
-  ContainerSemaphore, flock-based cross-binary serialization).
-  Use when debugging Linux-only failures, container test hangs, inotify errors,
-  or understanding the 5-layer container test timeout strategy.
+  and the full container test infrastructure (testscript deadlines,
+  ContainerTestContext, AcquireContainerSemaphore, flock-based cross-binary
+  serialization). Use when debugging Linux-only failures, exit code 137,
+  ping_group_range races, context deadline exceeded, `[!container-available]`,
+  container test hangs, inotify errors, or the container timeout strategy.
 ---
 
 # Linux Testing Skill
@@ -254,15 +255,16 @@ strategy to prevent indefinite hangs. Full deep dive in
 
 | Layer | Mechanism | Scope | Timeout |
 |-------|-----------|-------|---------|
-| 1 | `testutil.ContainerTestContext(t, timeout)` | Per-test | 5 min |
-| 2 | `env.Defer` cleanup | Per-testscript | — (cleanup) |
-| 3 | Go `-timeout` flag | Per-binary | 15 min |
-| 4 | `testutil.ContainerSemaphore()` | Per-process | parallel=2 |
-| 5 | GitHub `timeout-minutes` | Per-job | 30 min |
+| 1 | `testscript.Params.Deadline` | Per CLI txtar test | 3 min |
+| 2 | `env.Defer` cleanup | Per testscript | cleanup |
+| 3 | `testutil.ContainerTestContext(t, timeout)` | Per real-container Go test | 5 min |
+| 4 | Go `-timeout` flag | Per test binary | 10-15 min by target |
+| 5 | GitHub `timeout-minutes` | Per job | workflow-owned |
 
-**Critical rule**: EVERY container test calling `Execute()` or `ExecuteCapture()`
-MUST use `ContainerTestContext`, not bare `t.Context()`. Bare `t.Context()` has
-NO deadline — if the daemon hangs, the subprocess blocks indefinitely.
+**Critical rule**: EVERY Go container test calling real engine operations such
+as `Execute()` or `ExecuteCapture()` MUST use `ContainerTestContext`, not bare
+`t.Context()`. Bare `t.Context()` has NO deadline — if the daemon hangs, the
+subprocess blocks indefinitely.
 
 ```go
 ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
@@ -274,7 +276,7 @@ result, err := engine.Execute(ctx, cmd)
 - **Engine health probes**: `probeEngineHealthBeforeTest()` runs a 10s `<engine> version` check before each test. Fails fast instead of waiting for 3-min deadline.
 - **Image pre-pull**: CI pulls `debian:stable-slim` before tests — removes network dependency from test timing.
 - **Engine masking**: `sudo mv /usr/bin/docker /usr/bin/docker.disabled` ensures `AutoDetectEngine()` picks the right engine per CI matrix entry.
-- **Suite lock vs semaphore**: `AcquireContainerSuiteLock()` (flock, cross-binary) for `tests/cli`; `ContainerSemaphore()` (in-process channel, cap 2) for `internal/runtime`. Do NOT add suite locks to `internal/runtime` tests.
+- **Suite lock vs semaphore**: `AcquireContainerSuiteLock()` (flock, cross-binary) for `tests/cli` container txtar tests; `AcquireContainerSemaphore()` / `ContainerSemaphore()` (in-process channel, cap 2) for Go tests that perform real container operations in `internal/runtime`, `internal/provision`, or `internal/container`. Do NOT add suite locks to Go package tests.
 - **`cmd.WaitDelay = 10s`**: On container subprocesses (`engine_base.go`). Prevents indefinite hang when killed processes leave pipes open.
 
 Full deep dive with code examples: `references/container-testing-deep.md`.

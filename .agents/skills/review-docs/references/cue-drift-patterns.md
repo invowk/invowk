@@ -86,3 +86,4 @@ For each snippet data file (`website/src/components/Snippet/data/*.ts`):
 - `website/src/components/Snippet/data/environment.ts` — env config examples
 - `website/src/components/Snippet/data/tui.ts` — TUI component examples
 - `website/src/components/Snippet/data/cli.ts` — CLI usage examples
+- `website/src/components/Snippet/data/security.ts` — audit and security examples

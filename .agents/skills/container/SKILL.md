@@ -1,6 +1,12 @@
 ---
 name: container
-description: Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy
+description: >-
+  Container engine abstraction, Docker/Podman patterns, persistent container
+  lifecycle, provisioning, containerfile validation, path handling, transient
+  retry behavior, and Linux-only policy. Use when working on
+  internal/container/, internal/containerplan/, internal/provision/,
+  internal/runtime/container*.go, pkg/invowkfile container runtime fields, or
+  container-related tests/docs.
 ---
 
 # Container Engine Skill
@@ -10,8 +16,9 @@ This skill covers the container runtime implementation in Invowk, including the 
 Use this skill when working on:
 - `internal/container/` - Container engine abstraction
 - `internal/containerplan/` - Persistent container planning and deterministic target resolution
-- `internal/runtime/container.go` - Container runtime implementation
+- `internal/runtime/container*.go` - Container runtime implementation
 - `internal/provision/` - Container provisioning logic
+- `pkg/invowkfile/containerfile_path.go` and container runtime validation - schema-facing containerfile contracts
 - Container-related tests
 
 ---
@@ -175,7 +182,7 @@ visible to Invowk's non-interactive process execution. Ensure `podman` or
 
 2. **Rootless Compatibility**: Injects `--userns=keep-id` to preserve host UID/GID
    ```go
-   // Only transforms 'run' commands, inserted before image name
+   // Transforms 'run' and 'create' commands, inserted before image name
    func makeUsernsKeepIDAdder() RunArgsTransformer { ... }
    ```
 
@@ -187,6 +194,11 @@ visible to Invowk's non-interactive process execution. Ensure `podman` or
 `ResolvePersistentTarget` selects CLI, config, or derived names deterministically and applies `create_if_missing` policy before runtime execution mutates engine state.
 
 Keep planning rules in `internal/containerplan/`; keep engine lifecycle operations in `internal/container/`; keep orchestration and user-facing execution flow in `internal/runtime/`.
+
+Persistent container start/create/exec/remove paths must coordinate with
+engines through `container.LifecycleCoordinator` when the selected engine
+implements it. This keeps persistent-container lifecycle operations aligned with
+the same serialization rules used for transient runs.
 
 ---
 
@@ -217,17 +229,25 @@ When the sysctl override is not active, `BaseCLIEngine.Run()`, `SandboxAwareEngi
 
 ### SysctlOverrideChecker Interface
 
-The `SysctlOverrideChecker` interface (`engine_base.go`) lets the runtime layer query whether the temp file override is active:
+The `SysctlOverrideChecker` and `LifecycleCoordinator` interfaces (`engine.go`
+and `engine_base.go`) let runtime and persistent-container paths query whether
+the temp file override is active and coordinate lifecycle operations:
 
 ```go
 type SysctlOverrideChecker interface {
     SysctlOverrideActive() bool
 }
+
+type LifecycleCoordinator interface {
+    AcquireLifecycle(ctx context.Context, operation string) (func(), error)
+}
 ```
 
 **Implemented by:** `PodmanEngine`, `SandboxAwareEngine` (forwards to wrapped engine)
 
-**Used in:** Podman run preparation — when the checker returns false, run paths acquire flock (Linux) or mutex (non-Linux); when not implemented (Docker), serialization is skipped entirely
+**Used in:** Podman run preparation and persistent lifecycle paths — when the
+checker returns false, run/lifecycle paths acquire flock (Linux) or mutex
+(non-Linux); when not implemented (Docker), serialization is skipped entirely.
 
 ### CmdCustomizer Interface
 
@@ -282,7 +302,14 @@ containerPath := filepath.Join("/workspace", relPath)  // Broken on Windows!
 
 ### Path Security
 
-`ResolveDockerfilePath()` includes path traversal detection to prevent `../..` escapes.
+Containerfile validation is layered:
+
+- `pkg/invowkfile.ContainerfilePath.Validate()` and
+  `ValidateContainerfilePath()` enforce the user-facing relative path contract.
+- `pkg/invowkfile/sync_runtime_behavioral_test.go` keeps Go validation aligned
+  with the CUE runtime schema.
+- `internal/container.ResolveDockerfilePath()` protects engine build paths when
+  converting a context directory plus Dockerfile path into CLI arguments.
 
 See `.agents/rules/windows.md` for comprehensive path handling guidance.
 
@@ -317,7 +344,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 
 ```go
 // Tries preferred engine first, falls back to alternative
-engine, err := container.NewEngine(container.Podman)  // or container.Docker
+engine, err := container.NewEngine(container.EngineTypePodman)  // or EngineTypeDocker
 ```
 
 ### Auto-Detection
@@ -387,7 +414,9 @@ func TestDockerBuild_Integration(t *testing.T) {
     if testing.Short() {
         t.Skip("skipping integration test in short mode")
     }
-    // Test with real container engine — transient errors handled by runWithRetry()
+    testutil.AcquireContainerSemaphore(t)
+    ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+    // Test with real container engine using ctx — transient errors handled by runWithRetry()
 }
 ```
 
@@ -432,15 +461,15 @@ Container image builds (`engine.Build()`) are retried up to 3 times with exponen
 
 ### Run Retry in runWithRetry()
 
-Container runs (`engine.Run()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s) on transient errors. This is critical because `engine.Run()` absorbs `exec.ExitError` into `result.ExitCode` and always returns `(result, nil)` — so the retry logic must check **both** the error return AND `result.ExitCode` via `runtime.IsTransientExitCode()` (exit codes 125 and 126). Run retries are more aggressive than build retries (5 vs 3 attempts) because Podman `ping_group_range` races are more frequent under heavy parallelism and runs are fast.
+Container runs (`engine.Run()`) are retried up to 5 times with exponential backoff (1s, 2s, 4s, 8s) on transient errors. This is critical because `engine.Run()` absorbs `exec.ExitError` into `result.ExitCode` and always returns `(result, nil)` — so the retry logic must check **both** the error return AND `result.ExitCode` via `container.IsTransientEngineExitCode()` (exit codes 125 and 126). Run retries are more aggressive than build retries (5 vs 3 attempts) because Podman `ping_group_range` races are more frequent under heavy parallelism and runs are fast.
 
-**Container validation pattern:** All container validation functions in `cmd/invowk/cmd_validate_*.go` must guard against transient exit codes after `result.Error` check. Use the `checkTransientExitCode` helper from `cmd_validate_helpers.go`:
+**Container validation pattern:** Container dependency validation lives in `internal/app/commandadapters/dependency_runtime.go` and must guard against transient exit codes after `result.Error` handling. Use the local `checkTransientExitCode` helper:
 ```go
 if err := checkTransientExitCode(result, label); err != nil {
     return err
 }
 ```
-Without this guard, transient engine failures (125/126) after retry exhaustion get misreported as domain-specific errors ("not found", "not set", etc.). The helper centralizes the pattern — never inline `runtime.IsTransientExitCode` directly in validation functions.
+Without this guard, transient engine failures (125/126) after retry exhaustion get misreported as domain-specific errors ("not found", "not set", etc.). The helper centralizes the pattern through `runtime.IsTransientContainerEngineExitCode`.
 
 ---
 
@@ -448,7 +477,7 @@ Without this guard, transient engine failures (125/126) after retry exhaustion g
 
 | File | Purpose |
 |------|---------|
-| `engine.go` | Interface, factories, engine types |
+| `engine.go` | Engine interfaces, `LifecycleCoordinator`, options, factory helpers |
 | `engine_base.go` | Shared CLI implementation, `CmdCustomizer` interface |
 | `docker.go` | Docker concrete implementation |
 | `podman.go` | Podman + SELinux/rootless logic |
@@ -462,6 +491,7 @@ Without this guard, transient engine failures (125/126) after retry exhaustion g
 | `transient.go` | Shared transient error classifier |
 | `doc.go` | Package documentation |
 | `../containerplan/` | Pure persistent-container target planning (`ResolvePersistentTarget`) |
+| `../../pkg/invowkfile/containerfile_path.go` | User-facing containerfile path value object and validation |
 
 **Runtime files** (in `internal/runtime/`):
 
@@ -469,6 +499,7 @@ Without this guard, transient engine failures (125/126) after retry exhaustion g
 |------|---------|
 | `container_exec.go` | Container execution, `runWithRetry()`, `IsTransientExitCode()` (exported), `flushStderr()` |
 | `container_provision.go` | Image preparation and provisioning |
+| `container_persistent.go` | Persistent container create/start/exec/remove flow and lifecycle coordination |
 | `container_prepare.go` | `CommandPreparer` type assertion and prepared cleanup composition |
 | `container_exec_test.go` | Unit tests for `runWithRetry()`: stderr buffering, exit codes, context cancellation |
 | `container_test.go` | Unit tests for `isAlpineContainerImage()`, `isWindowsContainerImage()`, `ValidateSupportedRuntimeImage()` |

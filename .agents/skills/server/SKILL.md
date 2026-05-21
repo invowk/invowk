@@ -1,297 +1,139 @@
 ---
 name: server
-description: Server state machine pattern for sshserver/, tuiserver/, and core/serverbase/. Covers lifecycle states (Created→Starting→Running→Stopping→Stopped), atomic state reads, idempotent stop.
+description: Server state machine pattern for sshserver/, tuiserver/, core/serverbase/, and new long-running server components. Covers serverbase.Base lifecycle states (Created→Starting→Running→Stopping→Stopped/Failed), readiness, async errors, terminal states, idempotent stop, and race-safe shutdown.
 ---
 
 # Server Pattern
 
-This skill describes the standard pattern for implementing long-running server components in Invowk.
-
-Use this skill when working on:
-- `internal/sshserver/` - SSH server implementation
-- `internal/tuiserver/` - TUI server implementation
-- `internal/core/serverbase/` - Shared server base type
-- Adding new server components
-
----
+Use this skill when changing `internal/sshserver/`, `internal/tuiserver/`,
+`internal/core/serverbase/`, or adding a long-running server component.
 
 ## State Machine
 
-Servers use a formal state machine with the following states:
+Servers compose `internal/core/serverbase.Base` and use `serverbase.State`.
 
 ```
-         ┌─────────────────────────────────────────────────────┐
-         │                                                     │
-         ▼                                                     │
-    ┌─────────┐     ┌──────────┐     ┌─────────┐     ┌─────────┴─┐     ┌─────────┐
-    │ Created │────▶│ Starting │────▶│ Running │────▶│ Stopping  │────▶│ Stopped │
-    └─────────┘     └──────────┘     └─────────┘     └───────────┘     └─────────┘
-                          │
-                          │ (on error)
-                          ▼
-                     ┌────────┐
-                     │ Failed │
-                     └────────┘
+Created -> Starting -> Running -> Stopping -> Stopped
+              |              |
+              +-----------> Failed
 ```
 
-### State Definitions
+`Stopped` and `Failed` are terminal. A server instance is single-use: once it
+stops or fails, create a new instance.
 
-| State | Description |
-|-------|-------------|
-| `Created` | Server instance created but `Start()` not called |
-| `Starting` | `Start()` called; server is initializing |
-| `Running` | Server is accepting connections/requests |
-| `Stopping` | `Stop()` called; server is shutting down |
-| `Stopped` | Server has stopped (terminal state) |
-| `Failed` | Server failed to start or fatal error (terminal state) |
+| State | Meaning |
+|---|---|
+| `serverbase.StateCreated` | Constructed, not started |
+| `serverbase.StateStarting` | `Start(ctx)` is initializing |
+| `serverbase.StateRunning` | Ready and accepting work |
+| `serverbase.StateStopping` | Graceful shutdown in progress |
+| `serverbase.StateStopped` | Terminal clean stop |
+| `serverbase.StateFailed` | Terminal startup or serve failure |
 
----
+## Required Shape
 
-## Required API
-
-Every server must implement:
+Concrete servers keep the base private and expose only their API:
 
 ```go
-// ServerState type and constants
-type ServerState int32
-
-const (
-    StateCreated ServerState = iota
-    StateStarting
-    StateRunning
-    StateStopping
-    StateStopped
-    StateFailed
-)
-
-func (s ServerState) String() string { ... }
-
-// Server struct fields (minimum required)
 type Server struct {
-    base *serverbase.Base // Owns state, cancellation, async errors, and wait group
-    // ... server-specific fields
-}
-
-// Constructor - may return an error when validation, credentials, or listeners fail
-func New(cfg Config) (*Server, error)
-
-// Lifecycle methods
-func (s *Server) Start(ctx context.Context) error  // Blocks until ready or fails
-func (s *Server) Stop() error                      // Graceful shutdown
-func (s *Server) State() ServerState               // Current state (atomic read)
-func (s *Server) IsRunning() bool                  // Convenience: state == Running
-func (s *Server) Wait() error                      // Optional; SSH exposes this
-func (s *Server) Err() <-chan error                // Async error notifications
-```
-
----
-
-## Implementation Rules
-
-### 1. Atomic State Reads
-
-Use `internal/core/serverbase.Base` for state ownership. Concrete servers delegate
-state reads to the base, which uses atomic reads internally:
-
-```go
-func (s *Server) State() ServerState {
-    return ServerState(s.base.State())
-}
-
-func (s *Server) IsRunning() bool {
-    return s.base.IsRunning()
-}
-```
-
-### 2. Base-Owned State Transitions
-
-Concrete servers should use `serverbase.Base` transition helpers instead of
-hand-rolling locks. `Base` uses compare-and-swap for the key transitions and an
-idempotent stop loop:
-
-```go
-func (s *Server) Start(ctx context.Context) error {
-    if err := s.base.TransitionToStarting(ctx); err != nil {
-        return err
-    }
-    // ... initialization ...
-}
-```
-
-### 3. Blocking Start with Ready Signal
-
-`Start()` must block until the server is actually ready to serve:
-
-```go
-func (s *Server) Start(ctx context.Context) error {
-    // ... setup listener/server ...
-
-    // Signal ready when listener is accepting
-    s.wg.Add(1)
-    go func() {
-        defer s.wg.Done()
-        close(s.startedCh)  // Signal ready
-        // ... serve loop ...
-    }()
-
-    // Wait for ready or context cancellation
-    select {
-    case <-s.startedCh:
-        s.state.Store(int32(StateRunning))
-        return nil
-    case <-ctx.Done():
-        s.state.Store(int32(StateFailed))
-        return ctx.Err()
-    }
-}
-```
-
-### 4. Idempotent Stop
-
-`Stop()` must be safe to call multiple times and from any state:
-
-```go
-func (s *Server) Stop() error {
-    s.stateMu.Lock()
-    state := s.State()
-
-    // Already stopped or stopping - no-op
-    if state == StateStopped || state == StateStopping {
-        s.stateMu.Unlock()
-        return nil
-    }
-
-    // Never started - just mark as stopped
-    if state == StateCreated || state == StateFailed {
-        s.state.Store(int32(StateStopped))
-        s.stateMu.Unlock()
-        return nil
-    }
-
-    s.state.Store(int32(StateStopping))
-    s.stateMu.Unlock()
-
-    // Cancel context and wait for goroutines
-    s.cancel()
-    s.wg.Wait()
-
-    s.stateMu.Lock()
-    s.state.Store(int32(StateStopped))
-    s.stateMu.Unlock()
-    return nil
-}
-```
-
-### 5. Single-Use Servers
-
-Server instances are single-use. Once stopped or failed, create a new instance:
-
-```go
-// Document this in the type comment:
-// Server represents the XYZ server.
-// A Server instance is single-use: once stopped or failed, create a new instance.
-```
-
-### 6. WaitGroup for Goroutine Tracking
-
-All background goroutines must be tracked with a WaitGroup:
-
-```go
-s.wg.Add(1)
-go func() {
-    defer s.wg.Done()
-    // ... goroutine work ...
-}()
-```
-
-### 7. Context-Based Cancellation
-
-Pass context to `Start()` and derive internal context:
-
-```go
-func (s *Server) Start(ctx context.Context) error {
-    s.ctx, s.cancel = context.WithCancel(ctx)
-    // Use s.ctx for all internal operations
-}
-```
-
----
-
-## Testing Requirements
-
-Server tests must verify:
-
-1. **State transitions**: Created → Running → Stopped
-2. **Double Start**: Second `Start()` returns error
-3. **Double Stop**: Second `Stop()` is no-op (no error)
-4. **Stop without Start**: Safe, transitions to Stopped
-5. **Cancelled context**: `Start()` fails, transitions to Failed
-6. **Race conditions**: Run with `-race` flag
-
-Example test structure:
-
-```go
-func TestServerStartStop(t *testing.T) { ... }
-func TestServerDoubleStart(t *testing.T) { ... }
-func TestServerDoubleStop(t *testing.T) { ... }
-func TestServerStopWithoutStart(t *testing.T) { ... }
-func TestServerStartWithCancelledContext(t *testing.T) { ... }
-func TestServerStateString(t *testing.T) { ... }
-```
-
----
-
-## Reference Implementation
-
-The server state machine is extracted into a reusable package:
-
-- **Base type**: `internal/core/serverbase/` provides the `Base` struct that concrete servers compose
-- **SSH server**: `internal/sshserver/server.go` owns `base *serverbase.Base`
-- **TUI server**: `internal/tuiserver/server.go` owns `base *serverbase.Base`
-
-### Using serverbase.Base
-
-Concrete servers keep the base as a private field and expose only the lifecycle
-methods that are part of their public API:
-
-```go
-type MyServer struct {
     base *serverbase.Base
     // server-specific fields
 }
 
-func New() (*MyServer, error) {
-    return &MyServer{base: serverbase.NewBase()}, nil
-}
+func (s *Server) Start(ctx context.Context) error
+func (s *Server) Stop() error
+func (s *Server) State() serverbase.State { return s.base.State() }
+func (s *Server) IsRunning() bool { return s.base.IsRunning() }
+func (s *Server) Err() <-chan error { return s.base.Err() }
+```
 
-func (s *MyServer) Start(ctx context.Context) error {
+Use `LastError()` when callers need the recorded failure after the server reaches
+`Failed`.
+
+## Lifecycle Rules
+
+### Start
+
+1. Call `s.base.TransitionToStarting(ctx)` first.
+2. Initialize listeners/resources.
+3. Start background goroutines with `AddGoroutine()` and `defer DoneGoroutine()`.
+4. Call `TransitionToRunning()` only when the server is ready.
+5. Use `WaitForReady(ctx)` or `StartedChannel()` to block startup until ready or failed.
+6. On startup or serve errors, call `TransitionToFailed(err)` and return that error.
+
+```go
+func (s *Server) Start(ctx context.Context) error {
     if err := s.base.TransitionToStarting(ctx); err != nil {
         return err
     }
-    // ... server-specific initialization ...
-    s.base.TransitionToRunning()
-    return nil
-}
 
-func (s *MyServer) Stop() error {
-    if !s.base.TransitionToStopping() {
-        return nil // Already stopped
+    // Initialize listener/server resources here.
+
+    s.base.AddGoroutine()
+    go func() {
+        defer s.base.DoneGoroutine()
+        s.base.TransitionToRunning()
+        if err := s.serve(s.base.Context()); err != nil {
+            _ = s.base.TransitionToFailed(err)
+        }
+    }()
+
+    if err := s.base.WaitForReady(ctx); err != nil {
+        return s.base.TransitionToFailed(err)
     }
-    // ... server-specific cleanup ...
-    s.base.WaitForShutdown()
-    s.Base.TransitionToStopped()
     return nil
 }
 ```
 
-The serverbase package provides:
-- `TransitionToStarting(ctx)` - Checks context, transitions Created → Starting, derives lifecycle context from `ctx` (cancellation propagates from caller)
-- `TransitionToRunning()` - Marks server ready, closes startedCh
-- `TransitionToStopping()` - Cancels context, transitions to Stopping
-- `TransitionToStopped()` - Final transition to terminal state
-- `TransitionToFailed(err)` - Records error and transitions to Failed
-- `WaitForReady(ctx)` - Blocks until running or context cancelled
-- `WaitForShutdown()` - Waits for all goroutines to exit
-- `AddGoroutine()` / `DoneGoroutine()` - WaitGroup management
-- `Context()` - Returns server's internal context
-- `SendError(err)` - Non-blocking error channel send
+### Stop
+
+`Stop()` must be idempotent and safe from any state. Use the base transition
+loop instead of hand-rolled locks.
+
+```go
+func (s *Server) Stop() error {
+    if !s.base.TransitionToStopping() {
+        s.base.WaitForShutdown()
+        return nil
+    }
+
+    // Close listeners, request shutdown, and clean server-specific resources.
+    s.base.WaitForShutdown()
+    s.base.TransitionToStopped()
+    return nil
+}
+```
+
+For stop-before-start, `TransitionToStopping()` moves `Created -> Stopped`,
+closes the error channel, and returns false.
+
+## Goroutines And Errors
+
+- Call `AddGoroutine()` before starting each background goroutine.
+- `defer DoneGoroutine()` at the top of the goroutine.
+- Use `s.base.Context()` inside goroutines after `TransitionToStarting()`.
+- Send non-fatal async errors with `SendError(err)`; transition fatal serve
+  errors with `TransitionToFailed(err)`.
+- Ensure listeners unblock promptly on shutdown before waiting for goroutines.
+
+## Testing Requirements
+
+Server tests should cover:
+
+1. `Created -> Running -> Stopped`.
+2. Double `Start()` returns an invalid-state error.
+3. Double `Stop()` is a no-op.
+4. Stop before start transitions `Created -> Stopped`.
+5. Cancelled startup transitions to `Failed`.
+6. Runtime serve errors transition `Running -> Failed`, close `Err()`, and
+   populate `LastError()`.
+7. Terminal states are irreversible.
+
+Use focused commands first:
+
+```bash
+go test -race -count=1 ./internal/core/serverbase
+go test -race -count=1 ./internal/sshserver ./internal/tuiserver
+```
+
+Then follow `.agents/rules/checklist.md` for the final verification scope.

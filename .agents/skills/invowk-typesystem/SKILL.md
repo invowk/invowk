@@ -1,6 +1,6 @@
 ---
 name: invowk-typesystem
-description: Invowk type-system guidance for all value types across pkg/* and internal/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, and Invalid*Error wrappers. Use when adding, reviewing, refactoring, or documenting value types.
+description: Invowk type-system and goplint guidance for value types across cmd/*, internal/*, and pkg/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, Invalid*Error wrappers, check-types/check-types-all findings, DDD compliance, and baseline updates. Use when adding, reviewing, refactoring, or documenting value types.
 metadata:
   short-description: Canonical operating guide for Invowk's value-type architecture.
   ownership: "Repo-wide type-system conventions and catalogs"
@@ -20,6 +20,7 @@ metadata:
     - "goplint baseline type findings"
   scope:
     includes:
+      - cmd/**
       - pkg/**
       - internal/**
     excludes:
@@ -38,9 +39,9 @@ metadata:
 # Invowk Typesystem
 
 Use this skill when:
-- Creating or refactoring value types in `pkg/*` or `internal/*`
+- Creating or refactoring value types in `cmd/*`, `pkg/*`, or `internal/*`
 - Debugging `Validate()` behavior, sentinel error wrapping, or `Invalid*Error` shapes
-- Resolving goplint findings related to primitive wrappers and type safety
+- Resolving goplint findings related to primitive wrappers, DDD compliance, and type safety
 - Documenting type-system changes for agent guidance
 
 ---
@@ -78,7 +79,7 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
   - alias/re-export type mappings
 
 - `references/value-type-patterns.md`
-  Design patterns, naming/error conventions, and anti-patterns.
+  Design patterns, naming/error conventions, goplint directives, and anti-patterns.
 
 - `references/maintenance-workflow.md`
   Update protocol, verification commands, and drift-prevention checks.
@@ -88,7 +89,11 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 ## Required Checks After Typesystem Changes
 
 - `make check-baseline`
+- `make check-types` for targeted DDD checks when production type shapes changed
+- `make check-types-all` / `make check-types-all-json` for broad type-system sweeps
 - `make test`
+- `make lint`
+- `make check-file-length`
 - `make check-agent-docs` (if `AGENTS.md` or `.agents/skills/*` changed)
 
 For docs-only type-catalog refreshes, use at minimum:

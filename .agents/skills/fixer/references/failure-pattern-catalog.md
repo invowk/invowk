@@ -31,8 +31,11 @@ do not reintroduce it unless a fresh race report proves it fixes the current cod
 // Prefer targeted serialization or dependency injection based on the live race report.
 ```
 
-**Prevention**: Any package that uses lipgloss in parallel tests on Windows must
-have a `TestMain` with the pre-warm pattern.
+**Prevention**: Follow the current TUI testing guidance for deterministic
+rendering and parallelism. If lipgloss initialization is implicated, prove the
+race with `-race` and prefer package-local serialization or non-parallel tests
+around first render; add a `TestMain` warm-up only when the package already has
+a verified pattern for it.
 
 **Platform skill**: `windows-testing` SKILL.md (sync.Once race section),
 `go-testing` SKILL.md (Platform Skill Router table).

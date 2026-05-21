@@ -15,8 +15,8 @@ gh pr checks <pr-number>
 
 # JSON output filtered to failures only
 gh pr checks <pr-number> \
-  --json name,status,conclusion \
-  --jq '.[] | select(.conclusion == "FAILURE")'
+  --json name,bucket,state,workflow,link \
+  --jq '.[] | select(.bucket == "fail")'
 ```
 
 ### Find recent failed runs on a branch
@@ -46,10 +46,10 @@ Pipe to `head` to avoid flooding the terminal. CI logs can be thousands of lines
 
 ```bash
 # Download all test result artifacts to a local directory
-gh run download <run-id> -n 'test-results-*' -D /tmp/ci-artifacts/
+gh run download <run-id> --pattern 'test-results-*' -D /tmp/ci-artifacts/
 
 # Download a specific platform's results
-gh run download <run-id> -n 'test-results-ubuntu-latest-docker' -D /tmp/ci-artifacts/
+gh run download <run-id> --name 'test-results-ubuntu-latest-docker' -D /tmp/ci-artifacts/
 ```
 
 ### Get job details with platform info

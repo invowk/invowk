@@ -1,6 +1,11 @@
 ---
 name: cli
-description: CLI command structure, Cobra patterns, execution flow, hidden internal commands. Use when working on cmd/invowk/ files, adding CLI commands, or modifying Cobra command trees.
+description: >-
+  CLI command structure, Cobra patterns, execution flow, hidden internal
+  commands, command service adapters, and CLI-facing dependency/runtime
+  validation. Use when working on cmd/invowk/, internal/app/commandsvc/,
+  internal/app/deps/, internal/app/execute/, or internal/app/commandadapters/,
+  adding commands, modifying Cobra trees, or changing CLI error/output behavior.
 ---
 
 # CLI Architecture Skill
@@ -9,6 +14,10 @@ This skill covers the CLI implementation in Invowk, including Cobra command stru
 
 Use this skill when working on:
 - `cmd/invowk/` - CLI commands and structure
+- `internal/app/commandsvc/` - command execution service and CLI-facing service errors
+- `internal/app/commandadapters/` - runtime/dependency/discovery adapters used by CLI execution
+- `internal/app/deps/` - dependency validation that renders through CLI paths
+- `internal/app/execute/` - runtime selection and execution-context construction
 - Adding new CLI commands or subcommands
 - Modifying command output format
 - TUI component integration
@@ -27,12 +36,22 @@ Use this skill when working on:
 
 ## Command Hierarchy Structure
 
-The CLI is organized under `root.go` with these main command groups:
+The CLI is organized under `root.go`. Derive the current command tree before
+editing or documenting it:
+
+```bash
+go run . --help
+go run . module --help
+go run . tui --help
+rg -n 'func new.*Command|Use:|Hidden:' cmd/invowk
+```
+
+Current major groups are expected to include:
 
 | Command | Description |
 |---------|-------------|
 | `invowk cmd` | Dynamic command execution (discovered from invowkfiles/modules) |
-| `invowk module` | Module management (validate, create, alias, deps) |
+| `invowk module` | Module management; inspect `cmd/invowk/module*.go` for current subcommands |
 | `invowk validate` | Unified validation (workspace, invowkfile, or module) |
 | `invowk audit` | Module supply-chain/security audit |
 | `invowk agent` | Agent workflow helpers |
@@ -61,10 +80,16 @@ The CLI is organized under `root.go` with these main command groups:
 - Only mention in `.agents/` and `README.md`
 - Used by container runtime, SSH server, TUI server internals
 
-**Current internal commands:**
-- `invowk internal exec-virtual-sh` — Runs virtual-sh in subprocess context
-- `invowk internal exec-virtual-lua` — Runs virtual-lua in subprocess context
-- `invowk internal check-cmd <name>` — Returns exit 0 if command is discoverable, exit 1 otherwise. Used by runtime-level `cmds` dependency validation inside containers to verify auto-provisioning worked.
+**Current internal commands:** derive from `cmd/invowk/internal*.go` before
+making changes:
+
+```bash
+rg -n 'newInternal|Use:|Hidden: true' cmd/invowk/internal*.go
+```
+
+Expected categories include virtual runtime subprocess entrypoints and
+container/runtime dependency probes. Keep all of them under hidden
+`invowk internal` command paths.
 
 ---
 
@@ -129,6 +154,13 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 
 ### Available TUI Commands
 
+Rebuild this inventory from `cmd/invowk/tui*.go` when changing TUI command
+behavior:
+
+```bash
+rg -n 'func newTUI.*Command|Use:|Flags\\(\\)' cmd/invowk/tui*.go
+```
+
 | Command | Purpose |
 |---------|---------|
 | `tui input` | Single-line text input |
@@ -152,7 +184,19 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 
 ## Discovery → Runtime → Execution Flow
 
-The execution is decomposed into a pipeline of focused methods on `commandsvc.Service` (`internal/app/commandsvc/service.go`), with runtime selection and context construction delegated to `internal/app/execute/`:
+The execution path spans the Cobra adapter, command service, command adapters,
+and runtime packages. Re-read these files before editing flow-sensitive code:
+
+- `cmd/invowk/cmd*.go` for Cobra flag parsing, dynamic command registration,
+  disambiguation, watch mode, and service-error rendering.
+- `internal/app/commandsvc/service.go`, `dispatch.go`, `inputs.go`, `errors.go`,
+  and `watch.go` for service orchestration and error classification.
+- `internal/app/commandadapters/` for dependency probes, runtime registry
+  construction, discovery adapters, and interactive subprocess/session bridges.
+- `internal/app/execute/` for runtime selection and execution-context
+  construction.
+
+At a high level, execution still follows this shape:
 
 ```
 commandService.Execute(ctx, req)
@@ -174,7 +218,7 @@ commandService.Execute(ctx, req)
     │
     ├── [DRY-RUN SHORT-CIRCUIT] ← If req.DryRun: renderDryRun() and return (no execution)
     │
-    └── dispatchExecution()     ← Calls runtime.BuildRegistry(), then executes pipeline:
+    └── dispatchExecution()     ← Uses command adapters/runtime registry, then executes:
         ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
         ├── Timeout validation (parse-only, fail-fast on invalid strings)
         ├── Timeout wrapping (context.WithTimeout)

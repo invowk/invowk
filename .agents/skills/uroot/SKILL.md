@@ -1,6 +1,6 @@
 ---
 name: uroot
-description: u-root utility implementation patterns (streaming I/O, error format, symlinks). Use when working on internal/uroot/ files or implementing built-in utilities for virtual-sh or virtual-lua.
+description: u-root utility implementation patterns for internal/uroot/, virtual runtime built-in registry changes, virtual filesystem path policy, streaming I/O, error format, symlinks, and tests/cli/testdata/virtual_uroot*.txtar coverage. Use when implementing or reviewing built-in utilities for virtual-sh or virtual-lua.
 ---
 
 # u-root Utils Integration
@@ -26,8 +26,8 @@ Use this skill when working on:
 **Examples:**
 - Prose: "The u-root integration provides built-in utilities..."
 - Package: `internal/uroot/`
-- Type: `UrootCommand`, `UrootHandler`
-- Function: `tryUrootBuiltin()`
+- Types: `Command`, `HandlerContext`, `Registry`
+- Functions: `BuildDefaultRegistry()`, `tryUrootBuiltin()` for virtual-sh, `runVirtualUtility()` for virtual-lua
 - Config: `virtual.utilities.enabled: true`
 
 **Rationale:** Consistent terminology reduces confusion. The hyphenated form matches the upstream project name (`github.com/u-root/u-root`), while the unhyphenated form follows Go naming conventions (hyphens are not allowed in identifiers).
@@ -36,9 +36,10 @@ Use this skill when working on:
 
 ## Streaming I/O Requirement
 
-**CRITICAL: All u-root utility implementations MUST use streaming I/O for file operations.**
+**CRITICAL: New and changed u-root utility implementations should use streaming I/O for file operations and must not worsen unbounded heap growth.**
 
-Never buffer entire file contents into memory, regardless of file size. This rule ensures:
+Do not buffer entire file contents into memory unless the command's semantics
+require a full input set. This rule ensures:
 - Predictable memory usage independent of input size
 - No OOM conditions when processing large files
 - Consistent behavior across all file sizes
@@ -46,15 +47,24 @@ Never buffer entire file contents into memory, regardless of file size. This rul
 ### Required Pattern
 
 ```go
-// CORRECT: Streaming copy with proper close handling
-func copyFile(src, dst string) (err error) {
-    srcFile, err := os.Open(src)
+// CORRECT: Resolve virtual paths before opening and stream copy with close handling.
+func copyFile(hc *uroot.HandlerContext, src, dst string) (err error) {
+    srcPath, err := hc.ResolvePath(src)
+    if err != nil {
+        return err
+    }
+    dstPath, err := hc.ResolvePath(dst)
+    if err != nil {
+        return err
+    }
+
+    srcFile, err := os.Open(srcPath)
     if err != nil {
         return err
     }
     defer func() { _ = srcFile.Close() }() // Read-only source; close error non-critical
 
-    dstFile, err := os.Create(dst)
+    dstFile, err := os.Create(dstPath)
     if err != nil {
         return err
     }
@@ -131,7 +141,19 @@ fmt.Fprint(hc.Stdout, strings.Join(parts, sep))  // Doubles memory
 
 ### Exception: Sorting Large Files
 
-`sort` may need to use temporary files for inputs that exceed available memory. This is acceptable as it's the standard approach used by GNU sort (`-T` tempdir). The key constraint remains: never hold unbounded data in heap memory.
+`sort` currently collects lines in memory to implement sorting. Treat that as
+semantics/debt, not as a reusable implementation pattern. If changing `sort`,
+consider temp-file support for large inputs. The key constraint remains: do not
+add avoidable unbounded heap growth.
+
+## Path Policy
+
+- The runtime injects path validation for both virtual-sh and virtual-lua.
+- `Registry.Run()` pre-validates path arguments for upstream wrappers before dispatch.
+- Custom commands that touch the filesystem should resolve user paths with
+  `HandlerContext.ResolvePath` before `os.Open`, `os.Create`, `os.Link`, or similar calls.
+- The security boundary is normalized allowed-root validation, not symlink
+  following by itself.
 
 ---
 
@@ -139,7 +161,8 @@ fmt.Fprint(hc.Stdout, strings.Join(parts, sep))  // Doubles memory
 
 **Default behavior for `cp`: Follow symlinks (copy target content, not the link).**
 
-This matches standard POSIX `cp` behavior and prevents symlink-based path traversal attacks.
+This matches standard POSIX `cp` behavior. Path traversal prevention comes from
+normalizing and validating paths against allowed roots before filesystem access.
 
 - `cp source dest` where `source` is a symlink → copies the target file content
 - `cp -r dir/ dest/` where `dir/` contains symlinks → copies target contents, not links
@@ -156,10 +179,9 @@ Only resolve the **link name** to absolute (the OS needs the creation path). For
 
 ### Security Rationale
 
-Following symlinks by default (for `cp`) prevents:
-- Symlink attacks where a malicious link points outside the intended directory
-- Accidental exposure of sensitive files via symlink indirection
-- Unexpected behavior when copying between filesystems
+Symlink behavior must be combined with the virtual path policy above. Following
+symlinks can expose the target path; allowed-root validation decides whether that
+target may be accessed.
 
 ---
 
@@ -255,13 +277,16 @@ want := filepath.ToSlash(filepath.Join(tmpDir, "file.txt"))
 
 ## Unsupported Flag Handling
 
-When a u-root utility receives flags it doesn't support (e.g., GNU-specific extensions like `--color`):
+When a custom `flag.NewFlagSet` u-root utility receives flags it doesn't support
+(for example GNU-specific extensions like `--color`):
 
 - **Silently ignore** the unsupported flag
 - Execute the command with supported flags only
 - Do NOT emit warnings or errors for unknown flags
 
 This matches common cross-platform behavior where BSD utilities ignore GNU-specific flags.
+Upstream wrappers may delegate flag behavior to upstream u-root code. Add tests
+before claiming a uniform unsupported-flag guarantee across every utility.
 
 ---
 
@@ -322,3 +347,17 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 - **Naked defer Close()** - Never use `defer f.Close()`. For read-only files, use `defer func() { _ = f.Close() }()` with comment. For write operations, use named returns to capture close errors.
 - **Combined flags silent failure** - Go's `flag.NewFlagSet` does NOT support POSIX-style combined short flags (`-sf`). With `flag.ContinueOnError` + `io.Discard`, combined flags silently fail (both flags stay `false`). This is handled centrally by `Registry.Run()` — do NOT add `unixflag.ArgsToGoArgs()` calls to individual commands.
 - **Double-splitting upstream wrappers** - Never remove the `baseWrapper` embedding from upstream wrappers. It provides the `NativePreprocessor` marker that prevents `Registry.Run()` from double-splitting already-preprocessed args, which would corrupt long flags (`--recursive` → `-r -e -c -u ...`).
+
+## Verification Workflow
+
+1. Classify the change as a custom command or upstream wrapper.
+2. Register new commands in `BuildDefaultRegistry()` and update `internal/uroot/doc.go`.
+3. Add or update unit tests in `internal/uroot/`.
+4. Add or update `tests/cli/testdata/virtual_uroot*.txtar` when CLI-visible
+   behavior changes.
+5. Run focused gates:
+
+```bash
+go test -v ./internal/uroot ./internal/runtime
+go test -v -run Uroot ./tests/cli/...
+```

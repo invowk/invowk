@@ -53,6 +53,18 @@ When a test failure is platform-specific, consult the right platform skill:
 | flock contention in CI | `linux-testing` | Cross-binary test serialization |
 | ARM64 memory ordering differences | `macos-testing` | Apple Silicon relaxed ordering |
 
+## Failure Triage Workflow
+
+1. Capture the exact failing command, package, test name, platform, and whether
+   the result came from CI, local `make test`, or a focused `go test`.
+2. Reproduce narrowly with `go test -count=1 -run '<TestName>' ./path/...` before
+   widening the scope. Add `-race` when the failure involves concurrency or CI
+   race lanes.
+3. Classify the failure as Go/toolchain, testscript, container, TUI, or
+   platform-specific; then load the matching Invowk skill.
+4. After the fix, verify with the narrow reproduction and the repo target that
+   owns that surface.
+
 ## Go Test Execution Model
 
 ### Compilation and Caching
@@ -118,7 +130,8 @@ memory accesses at compile time and tracks happens-before relationships at runti
 - **Platform-specific behavior**: see `references/race-detector-guide.md`
 
 **When to use `-race`:**
-- Always in CI (every test run)
+- Functional CI test lanes use `-race`; benchmark, repeat, smoke, or deliberately
+  constrained lanes may omit it.
 - During local development when touching concurrent code
 - NOT in benchmarks (overhead distorts measurements)
 
@@ -299,9 +312,11 @@ includes transitively — if helper A calls helper B which calls `t.Fatal`, both
 need `t.Helper()`. Functions passed to `t.Run()` as subtests do NOT need `t.Helper()`.
 See `.agents/skills/review-tests/references/pattern-catalog.md` § "t.Helper() Semantics".
 
-**Critical**: `t.Fatal` / `t.FailNow` inside a goroutine will panic — they call
-`runtime.Goexit()` which only exits the current goroutine, not the test. Use
-`t.Error` + return in goroutines, or communicate failures via channels.
+**Critical**: `t.Fatal` / `t.FailNow` must run in the test goroutine. They call
+`runtime.Goexit()` for the current goroutine and do not stop sibling goroutines
+or reliably fail the intended test when called from worker goroutines. Use
+channels or error aggregation to report worker failures back to the test
+goroutine.
 
 ### Package-Level Functions
 
@@ -399,7 +414,9 @@ The project uses `gotestsum` for enhanced test output and flaky test detection.
 
 **Critical**: Without `-v`, gotestsum cannot reconcile parallel subtest statuses —
 it may report a parent test as FAIL even when all subtests pass. This is especially
-problematic on macOS CI runners. Always use `-v` with `--rerun-fails`.
+problematic on macOS CI runners. Always use `-v` with `--rerun-fails` in new or
+edited gotestsum invocations, and audit workflow changes with
+`rg -n 'gotestsum|--rerun-fails|-v' .github Makefile scripts`.
 
 ## Coverage Tooling
 

@@ -69,7 +69,7 @@ These principles ensure that running the review multiple times produces the same
 They apply to both the coordinator and all subagents.
 
 1. **Checklist-driven review** — Each subagent follows its surface's checklist from
-   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N-A).
+   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N/A).
    This is the primary review activity — open-ended exploration is secondary.
 
 2. **Pre-assigned severity** — Each checklist item has a severity level defined in
@@ -103,9 +103,9 @@ for full details and failure triage.
 make check-file-length
 make license-check
 grep -rn 'context\.Background()' --include='*_test.go' cmd/ internal/ pkg/
-grep -rn 'time\.Sleep' --include='*_test.go' cmd/ internal/ pkg/
-grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/
-grep -rn '"/usr/\|"/tmp/\|"/etc/\|"/home/\|"/bin/' --include='*_test.go' cmd/ internal/ pkg/
+grep -rn 'time\.Sleep' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/
+grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/
+grep -rn '"/usr/\|"/tmp/\|"/etc/\|"/home/\|"/bin/' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/
 
 # Parallel group 1b (txtar-specific)
 grep -B0 -A1 '! exec' tests/cli/testdata/*.txtar | grep -B1 '^--$' | grep '! exec'
@@ -113,13 +113,14 @@ for f in tests/cli/testdata/native_*.txtar; do if ! grep -q 'platforms:.*windows
 
 # Parallel group 2 (targeted test runs)
 make lint
-go test -v -run TestBuiltinCommandTxtarCoverage ./cmd/invowk/...
+go test -v -run 'TestBuiltinCommandTxtarCoverage|TestTUIExemptionTmuxCoverage' ./cmd/invowk/...
 go test -v -run TestShRuntimeMirrorCoverage ./tests/cli/...
 go test -v -run TestVirtualNativeCommandPathAlignment ./tests/cli/...
+go test -v -run TestIssueTemplates_NoStaleGuidance ./internal/issue/...
 
 # Sequential (comprehensive)
 make test-short
-find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$1 > 900 { print }'
+find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$2 != "total" && $1 > 900 { print }'
 ```
 
 Record results in the **Context Block** format:
@@ -137,8 +138,10 @@ txtar-error-assertion : PASS | FAIL (files: ...)
 native-platform-split : PASS | FAIL (files: ...)
 lint                  : PASS | FAIL (detail)
 txtar-coverage        : PASS | FAIL (detail)
+tui-tmux-coverage     : PASS | FAIL (detail)
 mirror-coverage       : PASS | FAIL (detail)
 mirror-alignment      : PASS | FAIL (detail)
+issue-template-guard  : PASS | FAIL (detail)
 test-short            : PASS | FAIL (detail)
 approaching-limit-files : PASS | FAIL (files: ...)
 ==========================

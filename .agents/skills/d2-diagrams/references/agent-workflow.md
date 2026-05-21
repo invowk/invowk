@@ -238,15 +238,14 @@ jobs:
             d2 --layout=tala --tala-seeds=100 "$file" "$output"
           done
 
-      - name: Commit rendered diagrams
-        if: github.event_name == 'push'
+      - name: Check rendered diagrams
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/diagrams/**/*.svg
-          git diff --staged --quiet || git commit -m "chore: render D2 diagrams"
-          git push
+          ./scripts/check-diagram-renders.sh
 ```
+
+For this repository, do not add CI auto-commit steps for rendered diagrams.
+Render locally with `make render-diagrams`, review source and SVG diffs together,
+and let CI validate that committed renders are current.
 
 ### Pre-commit Hook
 

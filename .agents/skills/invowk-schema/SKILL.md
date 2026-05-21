@@ -1,17 +1,9 @@
 ---
 name: invowk-schema
-description: Schema guidelines for invowkfile.cue and samples/invowkmods/*.invowkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
+description: Schema guidelines for invowkfile.cue, invowkmod.cue, pkg/invowkfile/invowkfile_schema.cue, pkg/invowkmod/invowkmod_schema.cue, root invowkfile.cue examples, samples/invowkmods/**/*.cue, command structures, script sources/interpreters, dependency declarations, cross-platform runtime examples, capability checks, and environment variables.
 ---
 
 # Invowk Schema Guidelines
-
-Use this skill when:
-- Editing the `invowkfile.cue` root example file
-- Working with sample modules in `samples/invowkmods/`
-- Adding or modifying command/implementation structures
-- Handling cross-platform runtime selection (native vs virtual-sh/virtual-lua runtimes on different platforms)
-
----
 
 ## Invowkfile Examples
 
@@ -50,6 +42,23 @@ depends_on: {
     tools: [{alternatives: ["docker"]}]
 }
 ```
+
+### Script Source And Interpreter Contract
+
+- Put `interpreter` on `script`, not on runtime config. The schema attaches it to
+  the shared script source contract.
+- Virtual-sh accepts shell-compatible interpreters only; non-shell interpreters
+  belong on native/container implementations or virtual-lua where appropriate.
+- Keep inline `script.content`, file-backed script sources, and interpreter
+  validation in sync across schema, root examples, docs, and txtar fixtures.
+
+### Command Dependency Scope
+
+`depends_on.cmds` supports bare local command refs and source-qualified refs such
+as `@source command`. Validation checks both discoverability and scope: module
+commands can reference the same module, globally installed modules, or direct
+dependencies whose identity/source agree with the lock data. It is a static
+declaration check, not a runtime subprocess interceptor.
 
 ### Command Structure Validation
 
@@ -193,9 +202,11 @@ The `samples/invowkmods/` directory contains sample modules that serve as refere
 
 ### Current Sample Modules
 
-- `io.invowk.sample.invowkmod` - Minimal cross-platform module with a simple greeting command.
-- `com.example.audit.deterministic.invowkmod` - Intentionally unsafe fixture covering deterministic audit checkers.
-- `com.example.audit.llm.subtle.invowkmod` - Semantic fixture for LLM-backed audit checks.
+Read `samples/invowkmods/README.md` and refresh the live inventory with:
+
+```bash
+find samples/invowkmods -maxdepth 1 -type d -name '*.invowkmod' | sort
+```
 
 ### Module Validation Checklist
 
@@ -207,6 +218,16 @@ When modifying module-related code, verify:
 5. Nested module detection works correctly.
 6. The `pkg/invowkmod/` tests pass: `go test -v ./pkg/invowkmod/...`.
 
+When modifying invowkfile schema or root examples, also run:
+
+```bash
+go run . validate ./invowkfile.cue
+go test -v ./pkg/invowkfile/...
+```
+
+When behavior changes reach CLI fixtures, run the relevant `tests/cli` txtar
+selection or `make test-cli`.
+
 ## Common Pitfalls
 
 | Pitfall | Symptom | Fix |
@@ -214,6 +235,5 @@ When modifying module-related code, verify:
 | Stale sample modules | Validation fails after schema changes | Update safe samples in `samples/invowkmods/` after module-related changes |
 | Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual-sh runtimes |
 | Args with subcommands | Discovery validation error | Commands with positional args cannot have subcommands |
-| Treating Unix `/...` paths as universally absolute in config tests | Windows short CI fails on include path validation | For `includes` fixtures, use `t.TempDir()` + `filepath.Join(...)` and keep relative negatives explicit |
 
 For path handling in implementations, see `.agents/rules/windows.md`.

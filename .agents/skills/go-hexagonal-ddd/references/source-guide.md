@@ -30,9 +30,11 @@ Apply this to Invowk:
 
 - `cmd/invowk/` is a driving adapter. It should parse Cobra flags, call
   application services, and render results.
-- `internal/app/*` packages are use-case coordinators. They may depend on small
-  driven ports for external devices, but they should not render terminal UI or
-  hide domain policies in transport code.
+- `internal/app/*` is not one uniform layer. Packages such as `commandsvc`,
+  `deps`, `execute`, `moduleops`, and `modulesync` usually coordinate use
+  cases or policies; `internal/app/commandadapters` is an adapter package that
+  wires discovery, dependency probes, runtime registries, and interactive
+  subprocess/session bridges to those application services.
 - Runtime/container/filesystem/process integrations are driven adapters when
   the inner application can be tested with a substitute.
 - Test harnesses are adapters too. A good architecture lets tests drive the same

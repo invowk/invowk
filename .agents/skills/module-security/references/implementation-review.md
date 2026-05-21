@@ -29,13 +29,20 @@ internal/audit/scanner.go      Scanner.Scan() orchestrator
     ┌────┴────┐
     │         │
     ▼         ▼
-scan_context  runCheckers ──→ 6 Checker goroutines (concurrent)
+scan_context  runCheckers ──→ DefaultCheckers() goroutines (concurrent)
     │                              │
     ▼                              ▼
 BuildScanContext          correlator.go ──→ compound findings
 (discovery + parse)                │
                                    ▼
                               Report assembly
+```
+
+Before using this guide, derive the current scanner inventory:
+
+```bash
+rg -n 'func DefaultCheckers|New.*Checker|type .*Checker' internal/audit
+find internal/audit -maxdepth 1 -type f -name '*.go' | sort
 ```
 
 **Key contracts:**
@@ -74,9 +81,9 @@ if one module's git URL is a substring of another's. Consider exact key matching
 | `checkObfuscation` | 5 regex patterns in table-driven loop. Deduplication: `pathTraversalPattern` check skips if already caught by `checkScriptPath` |
 | Path concatenation | `checkScriptFileSize` builds path with `/` separator — verify cross-platform correctness (should use `filepath.Join`) |
 
-**Attention point:** `checkScriptFileSize` uses string concatenation with `/` instead of `filepath.Join`
-on line 133. This is Linux-only in practice (module paths are Unix-style) but inconsistent with the
-rest of the codebase.
+**Attention point:** Recheck `checkScriptFileSize` path construction whenever
+script path validation changes. It should preserve cross-platform behavior and
+match the rest of the codebase's path helpers.
 
 ### NetworkChecker (`checks_network.go`, 158 lines)
 
@@ -186,8 +193,8 @@ wg.Wait()
 - **Correct:** Index-based assignment (`results[idx]`) is goroutine-safe (distinct indices)
 - **Correct:** Loop variables captured via function parameters, not closure
 - **Note:** Context cancellation check is only at goroutine start — a long-running checker
-  should periodically check `ctx.Done()` within its `Check()` method. All 6 checkers do
-  this in their iteration loops, which is correct.
+  should periodically check `ctx.Done()` within its `Check()` method. Verify this
+  for every checker returned by `DefaultCheckers()`.
 
 ### Correlator Thread Safety
 
@@ -240,8 +247,8 @@ scanner itself:
 |--------|-----------|-----------|
 | Giant lock file DoS | `checkSize` with 5 MiB guard before parse | `checks_lockfile.go:61-80` |
 | Giant script file DoS | `checkScriptFileSize` with 5 MiB guard | `checks_script.go:125-153` |
-| Directory traversal in scan path | `filepath.Abs` on scan path input | `scan_context.go:89` |
-| Symlink chain loop | `maxSymlinkChainDepth` = 10 limit | `checks_symlink.go:157` |
+| Directory traversal in scan path | `filepath.Abs` on scan path input | Recheck current `BuildScanContext` path normalization |
+| Symlink chain loop | `maxSymlinkChainDepth` limit | Recheck current symlink checker |
 | ReDoS via regex | All patterns use simple alternation/character classes, no nested quantifiers — safe |
 | Crafted module ID for Levenshtein | Module IDs are validated by CUE schema before reaching audit — bounded length |
 
@@ -326,11 +333,11 @@ uses `omitempty` — empty array omitted from JSON (not `null`). This is correct
 | Area | Gap | Priority |
 |------|-----|----------|
 | `BuildScanContext` | No unit tests for path routing (`.cue` vs `.invowkmod` vs directory) | High |
-| `loadDirectoryTree` | No test for extensionless `invowkfile` fallback (line 192-203) | Medium |
+| Scan-context file loading | No stale warnings should disappear silently; verify diagnostics cover invalid modules/files | Medium |
 | `mergeDiscoveryResults` | No test for deduplication logic | Medium |
 | `loadVendoredModules` | No test — relies on integration via `loadSingleModule` | Low |
 | Lock file `checkMissingEntries` | No test for the `strings.Contains` substring matching logic | Medium |
-| `checkScriptFileSize` | No test — relies on `checkScriptPath` tests. No test for the `/` path join on line 133 | Medium |
+| `checkScriptFileSize` | Verify size tests cover path construction and platform separators | Medium |
 | Error paths in `runAudit` | No CLI test for invalid `--severity` flag or scan error (exit 2) | Medium |
 | `--include-global` | No CLI test exercises this flag | Low |
 | Partial results path | `scanner_test.go` tests this, but no CLI test for "warning: some checkers failed" | Low |

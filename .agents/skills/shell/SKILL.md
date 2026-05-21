@@ -1,6 +1,6 @@
 ---
 name: shell
-description: Shell runtime rules for mvdan/sh virtual-sh runtime in internal/runtime/sh.go. Covers positional arguments gotcha (prepend "--"), bash strict mode (set -euo pipefail), arithmetic increment pitfalls.
+description: Shell runtime rules for mvdan/sh virtual-sh runtime, hidden exec-sh adapters, shared virtual-shell interactive plumbing, and repository bash scripts. Covers positional arguments gotcha (prepend "--"), bash strict mode, and arithmetic increment pitfalls.
 ---
 
 # Invowk Shell Runtime Rules
@@ -11,7 +11,8 @@ This skill covers how Invowk handles shell interpreters and script execution int
 Use this skill when working on:
 - `internal/runtime/sh.go` - virtual-sh runtime
 - `cmd/invowk/internal_exec_sh.go` - virtual-sh execution command
-- Shell script execution logic
+- `internal/app/commandadapters/sh_interactive.go` and shared virtual interactive helpers
+- Repository bash script execution logic
 
 ---
 
@@ -68,15 +69,20 @@ When working with mvdan/sh in this codebase, ensure `"--"` is prepended in:
 
 1. `internal/runtime/sh.go` - `prepareShExec()` for normal virtual-sh execution
 2. `internal/runtime/sh.go` - `RunShScript()` for the internal exec-sh path
-3. `internal/app/commandadapters/sh_interactive.go` - interactive argv transport
+
+`internal/app/commandadapters/sh_interactive.go` transports arguments through
+`--args`; verify that transport stays aligned with the runtime-side
+`interp.Params` delimiter, but do not copy the delimiter pattern there unless it
+is directly calling mvdan/sh.
 
 ### Testing
 
 This issue manifests on Windows CI because virtual-sh is the bash-compatible embedded shell option there. When adding new mvdan/sh integration points:
 
 1. Test with arguments starting with `-` (e.g., `-v`, `--flag=value`)
-2. Run `make test-cli` to verify flag handling works
-3. Ensure Windows CI passes
+2. Run `go test ./internal/runtime -run TestShRuntime_PositionalArgs_DashPrefix -count=1`
+3. Run relevant interactive adapter tests when `internal/app/commandadapters/*sh*` changes
+4. Run `make test-cli` when CLI behavior or txtar fixtures changed
 
 ---
 
@@ -95,10 +101,9 @@ section.
 set -euo pipefail
 ```
 
-This enables:
-- `-e` (errexit): Exit on any command failure
-- `-u` (nounset): Error on undefined variables
-- `-o pipefail`: Propagate errors through pipes
+This exits on command failures, undefined variables, and failed pipeline
+segments. Verify changed repo bash scripts with `bash -n <script>` and
+`make lint-scripts` when applicable.
 
 ### Arithmetic Increment Gotcha
 
@@ -124,12 +129,6 @@ COUNTER=0
 ```bash
 # CORRECT: Assignment always succeeds
 COUNTER=$((COUNTER + 1))
-
-# CORRECT: Alternative with let and || true guard
-let COUNTER++ || true
-
-# CORRECT: Using arithmetic expansion in assignment
-: $((COUNTER++))  # The : (colon) command always succeeds
 ```
 
 ### Anti-Patterns to Avoid
@@ -147,7 +146,8 @@ let COUNTER++ || true
 
 ### Real-World Example
 
-The VHS test scripts use counters for PASSED, FAILED, and SKIPPED tests:
+Shell validation scripts commonly use counters for PASSED, FAILED, and SKIPPED
+checks:
 
 ```bash
 # WRONG - Script exits on first skip when SKIPPED is 0:

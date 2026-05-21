@@ -18,7 +18,7 @@ to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
 ## Lock File Integrity
 
 **Scanner subagent:** Lock File Integrity Scanner
-**Key files:** `pkg/invowkmod/lockfile.go`, `content_hash.go`, `resolver_cache.go`
+**Key files:** `pkg/invowkmod/lockfile.go`, `content_hash.go`, vendoring/copy helpers in the current module operations packages
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
@@ -31,7 +31,7 @@ to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
 
 **Implementation notes:**
 - `parseLockFileCUE()` is a line-by-line parser (not full CUE evaluation) with brace-depth tracking
-- `computeModuleHash()` at line 91 in `content_hash.go` must skip symlinks during walk
+- `computeModuleHash()` / exported hash helpers must skip symlinks during walk
 - `fspath.AtomicWriteFile()` required for all lock file writes (crash safety)
 
 ---
@@ -139,10 +139,10 @@ python[23]?\s+-c\s+.*socket.*connect
 | Symlink chains | Symlinks pointing to other symlinks | Follow chain with depth limit (max 10) | Medium | "Symlink chain detected — may obscure final target" |
 
 **Implementation notes:**
-- Both module cache and provisioning copy paths skip symlinks:
-  - `pkg/invowkmod/resolver_cache.go:copyDir`
-  - `internal/provision/helpers.go:CopyDir`
-- Treat any future change that follows symlinks during module copy/provisioning as SC-05 drift.
+- Module copy, provisioning, and scan-context artifact/clone paths must avoid
+  following symlinked module content outside trusted roots.
+- Treat any future change that follows symlinks during module copy/provisioning
+  or scan artifact handling as SC-05 drift.
 
 ---
 

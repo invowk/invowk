@@ -21,9 +21,11 @@ check-baseline`, commit hooks, or review.
    discovery, runtime, and long-running operations.
 5. Use project value types and `Validate()` contracts for domain data. Consult
    `invowk-typesystem` when adding or changing value types.
-6. Before finishing, run the narrow relevant `go test` command, `make lint`,
-   and `make check-baseline` when value types, validators, or exported structs
-   changed.
+6. Before finishing, run the narrow relevant `go test` command, then follow
+   `.agents/rules/checklist.md` for completion gates. For Go edits that usually
+   includes `make tidy`, `make lint`, `make test`, `make check-baseline`, and
+   `make check-file-length` unless the user explicitly scoped the work to a
+   read-only review.
 
 ## File Shape
 
@@ -53,8 +55,9 @@ func unexported() {}
   should have only `package name`.
 - Import groups must be standard library, external modules, then
   `github.com/invowk/invowk/...`.
-- Split large files by moving declarations exactly once, deleting originals,
-  cleaning imports, then running `go build` or targeted tests immediately.
+- Split large files with this deterministic protocol: move declarations exactly
+  once, delete originals in the same patch, clean imports, run
+  `go build ./path/to/package/...`, then run targeted tests for that package.
 
 ## Errors
 
@@ -85,6 +88,8 @@ var ErrNotFound = errors.New(notFoundErrMsg)
   helpers.
 - Use `http.NewRequestWithContext`, `exec.CommandContext`, and
   context-aware engine/server calls.
+- For long-running subprocesses, set `cmd.WaitDelay` when cancellation or
+  pipe-draining can otherwise hang.
 - `context.Background()` is only for true roots, nil fallback documented on an
   options struct, bounded availability probes, `TestMain`, or independent
   shutdown after caller cancellation.
@@ -177,6 +182,6 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - After linter config changes, run `make lint` and the relevant hook/check
   (`make check-baseline` for goplint-sensitive changes).
 - For `tools/goplint` or goplint behavior changes, also read
-  `tools/goplint/AGENTS.md` and run `make check-semantic-spec`,
-  `make check-ifds-compat`, `make check-cfg-refinement`,
-  `make check-cfg-alias`, and `make check-baseline`.
+  `tools/goplint/AGENTS.md` and use its current gate list; do not rely on this
+  skill to enumerate every goplint semantic, IFDS, CFG, race, repeat, benchmark,
+  or baseline check.

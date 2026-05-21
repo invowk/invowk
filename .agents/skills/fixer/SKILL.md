@@ -75,11 +75,11 @@ of the diagnosis depends entirely on the quality of the evidence.
 |--------|--------------|----------------|
 | User-provided error output | Read from conversation | Error message, stack trace, test name |
 | CI run logs | `gh run view <id> --log-failed` | Failing tests, platform, exit codes |
-| CI JUnit artifacts | `gh run download <id> -n test-results-*` | Test names, durations, rerun status |
+| CI JUnit artifacts | `gh run download <id> --pattern 'test-results-*'` | Test names, durations, rerun status |
 | Local test output | `go test -v -run TestName ./pkg/...` | Full output with timing |
 | Race detector report | From CI or local `-race` run | Goroutine stacks, access locations |
 | Git blame | `git log --oneline -10 -- <file>` | Recent changes to failing code |
-| GitHub PR checks | `gh pr checks <pr-number>` | Which CI jobs failed |
+| GitHub PR checks | `gh pr checks <pr-number> --json name,bucket,state,workflow,link` | Which CI jobs failed |
 
 ### Platform Detection
 
@@ -114,14 +114,15 @@ When the input is a CI failure (PR checks, run URL, or "CI is failing"):
 
 ```bash
 # Get failing checks for a PR
-gh pr checks <pr-number> --json name,status,conclusion --jq '.[] | select(.conclusion == "FAILURE")'
+gh pr checks <pr-number> --json name,bucket,state,workflow,link \
+  --jq '.[] | select(.bucket == "fail")'
 
 # View failed run logs (most recent)
 gh run list --branch $(git branch --show-current) --status failure --limit 1 --json databaseId --jq '.[0].databaseId'
 gh run view <run-id> --log-failed 2>&1 | head -200
 
 # Download test artifacts
-gh run download <run-id> -n 'test-results-*' -D /tmp/ci-artifacts/
+gh run download <run-id> --pattern 'test-results-*' -D /tmp/ci-artifacts/
 ```
 
 Extract from the logs: test name, package, platform (from job name), error type
@@ -334,7 +335,8 @@ go test -v -race ./path/to/pkg1/... ./path/to/pkg2/...
 
 ### Full Verification (before commit)
 
-Follow `.agents/rules/checklist.md`:
+Read and follow `.agents/rules/checklist.md`; the exact gate set depends on the
+changed surface. For ordinary Go fixes, the usual minimum is:
 
 1. `make lint` — fix ALL issues
 2. `make test` — full test suite (NOT `-short`)
@@ -344,6 +346,7 @@ Follow `.agents/rules/checklist.md`:
 If the fix required new tests or modified test infrastructure, also run:
 - `make test-cli` (if CLI tests changed)
 - `make sonar-local` (if production code changed)
+- `make check-agent-docs` (if `.agents/` files changed)
 
 ### Cross-Platform Verification
 

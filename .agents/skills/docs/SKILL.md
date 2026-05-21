@@ -1,6 +1,6 @@
 ---
 name: docs
-description: Documentation editing workflow for website/ directory, Docusaurus, MDX snippets, i18n localization, and versioning. Use when editing docs/, creating pages, updating snippets, or running version-docs. For reviewing documentation accuracy, use /review-docs instead.
+description: Documentation editing workflow for website/, Docusaurus, MDX snippets, i18n localization, architecture/diagram docs that feed the site, and versioning. Use when creating pages, updating snippets/translations/assets, or running version-docs. For documentation accuracy audits, use /review-docs instead.
 ---
 
 # Docs and Website Editing
@@ -27,8 +27,9 @@ When code changes require documentation updates:
    superseded by new IDs can be removed — versioned docs use immutable snapshots.
 5. **Update i18n**: Mirror changes to `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
 6. **Update diagrams**: If architecture changed, use the Diagram Editing workflow below
-7. **Verify parity**: `cd website && npm run docs:parity`
-8. **Verify build**: `cd website && npm run build`
+7. **Verify parity**: `(cd website && npm run docs:parity)`
+8. **Verify versioned assets**: `(cd website && node ../scripts/validate-version-assets.mjs)`
+9. **Verify build**: `(cd website && npm run build)`
 
 ---
 
@@ -60,7 +61,7 @@ All code blocks use the `<Snippet>` component — never inline fenced code block
 1. Use `.mdx` extension (not `.md`) in `website/docs/` and translations
 2. Treat `website/docs/` as the upcoming version; only touch versioned docs for backport fixes
 3. Update English first, then mirror to `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
-4. When backporting, also update the corresponding versioned i18n path (e.g., `.../version-0.1.0/`)
+4. When backporting, also update the corresponding versioned pt-BR path (for example, `website/i18n/pt-BR/docusaurus-plugin-content-docs/version-0.1.0/`)
 5. Keep translations prose-only — reuse identical snippet IDs
 6. Regenerate translation JSON when UI strings change: `cd website && npx docusaurus write-translations --locale pt-BR`
 
@@ -81,6 +82,7 @@ All code blocks use the `<Snippet>` component — never inline fenced code block
 cd website && npm start                    # English dev server
 cd website && npm start -- --locale pt-BR  # pt-BR dev server
 cd website && npm run docs:parity          # Enforce EN ↔ pt-BR parity
+cd website && node ../scripts/validate-version-assets.mjs
 cd website && npm run build                # Full build (all locales, catches broken links)
 cd website && npm run serve                # Test language switcher
 ```
@@ -102,7 +104,8 @@ Updates to `Snippet/data/*.ts` or live SVGs never affect versioned docs.
 ### Backport Fixes
 
 1. Edit the versioned MDX to add the new reference
-2. Run `node scripts/snapshot-version-assets.mjs <version> --update`
+2. Edit the matching versioned pt-BR MDX path when the backport affects translated docs
+3. Run `node scripts/snapshot-version-assets.mjs <version> --update`
 
 ### Generated Files (do not edit manually)
 
@@ -117,8 +120,8 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 ## Versioning Pitfalls
 
 - **Chicken-and-egg**: `docusaurus.config.ts` `lastVersion` must reference a version already in
-  `versions.json`. Fix: temporarily use an existing version, run `version-docs.sh`, which restores
-  the correct `lastVersion` in step 5.
+  `versions.json`. Fix: temporarily use an existing version, run `version-docs.sh`, which validates
+  parity in step 5 and updates/restores `lastVersion` in step 6.
 - **Doc-then-version**: Fix docs in `website/docs/` BEFORE running `version-docs.sh` — the script
   snapshots current state into `versioned_docs/`.
 - **New diagrams break old validation**: Adding SVGs to `Diagram/index.tsx` triggers failures for
@@ -139,4 +142,4 @@ For D2 syntax, readability rules, and update triggers, use the `/d2-diagrams` sk
 ## Important Rules
 
 - All `invowk internal *` commands are hidden — do NOT document in website docs
-- All container examples must use `debian:stable-slim` (never Alpine, never Windows containers)
+- Container examples use `debian:stable-slim` by default. Language-specific slim images such as `python:3-slim` or `node:22-slim` are allowed only for language-specific runtime demonstrations. Never use Alpine or Windows container images.

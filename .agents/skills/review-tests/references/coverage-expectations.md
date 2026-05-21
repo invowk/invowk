@@ -28,6 +28,10 @@ From `sonar-project.properties`:
 | e5 | `go:S3776` | `**/*.go` | Cognitive complexity inherent to validation/TUI/container/resolution |
 | e6 | `go:S2612` | `**/*_test.go` | Test fixtures use broad temp-file permissions intentionally |
 | e7 | `go:S1313` | `**/*_test.go` | Test fixtures use RFC 1918 IPs without network connections |
+| e8 | `go:S107` | `cmd/invowk/tui_style.go` | TUI style command has many user-facing options by design |
+| e9 | `go:S107` | `internal/app/commandsvc/service.go` | Service constructor has explicit ports for dependency injection |
+| e10 | `go:S107` | `internal/app/deps/deps.go` | Dependency validator keeps explicit collaborators visible |
+| e11 | `go:S1313` | `internal/app/commandadapters/dependency_host.go` | Host capability probes use well-known private addresses for local checks |
 
 IDs must be gapless (`e1, e2, e3, ...`). Adding a new suppression requires using the next ID.
 
@@ -47,7 +51,7 @@ move the coverage gate. Tests under `tests/cli/` do NOT contribute to SonarCloud
 |---|---|---|---|---|
 | `ci.yml` main tests | `-coverprofile=coverage.out` | `-race` | `15m` (gotestsum) | `--rerun-fails --rerun-fails-max-failures 5` |
 | `ci.yml` CLI tests | — | `-race` | `10m` | No retry (deterministic) |
-| `make test` | Same as CI via gotestsum | `-race` | — | `--rerun-fails` if gotestsum available |
+| `make test` | Non-CLI packages via gotestsum/go test, then `make test-cli` | Non-CLI: no `-race`; CLI: `-race` | CLI `10m` | Non-CLI `--rerun-fails` if gotestsum available |
 | `make test-short` | — | — | — | — |
 | `make test-cli-cover` | `GOCOVERDIR=...` + `-cover` build | `-race` | `10m` | — |
 

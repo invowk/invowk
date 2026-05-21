@@ -187,11 +187,20 @@ func TestChooseModel_Navigation(t *testing.T) {
 
 ## Container Runtime Testing
 
-Container runtime code (Docker/Podman) should have both unit tests and integration tests:
+Container runtime code (Docker/Podman) has three distinct test shapes. Keep their
+coordination mechanisms separate:
 
-1. **Unit tests**: Use per-test `MockCommandRecorder` instances injected via `WithExecCommand()` — never use package-level global mutation
-2. **Integration tests**: Gate with `testing.Short()` and require actual container engine
-3. **All container tests run in parallel** with `t.Parallel()` — transient Podman errors are handled by production `runWithRetry()` retry logic
+1. **Unit tests**: Use per-test `MockCommandRecorder` instances injected via
+   `WithExecCommand()`; never share recorders across parallel subtests with `Reset()`.
+2. **Go integration tests** under `internal/runtime`, `internal/container`, and
+   `internal/provision`: gate with `testing.Short()`, call `t.Parallel()`, acquire
+   `testutil.AcquireContainerSemaphore(t)` after the short-mode skip, and use
+   `testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)` for
+   real container operations.
+3. **CLI testscript container tests** in `tests/cli/cmd_container_test.go`: use
+   `TestContainerCLI`, `containerSetup`, and `testutil.AcquireContainerSuiteLock(t)`.
+   The suite lock is for cross-process serialization of the txtar suite only; do
+   not add it to Go package tests.
 
 ```go
 // Unit test with per-test mock recorder (parallel-safe)
@@ -218,34 +227,17 @@ func TestDockerBuild_Integration(t *testing.T) {
     if testing.Short() {
         t.Skip("skipping integration test in short mode")
     }
-    // ... test with real Docker ...
+    testutil.AcquireContainerSemaphore(t)
+    ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+    // ... test with real Docker/Podman using ctx ...
 }
 ```
 
-**Important**: Never share a `MockCommandRecorder` across parallel subtests with `Reset()`. Each parallel subtest must create its own recorder and engine instance.
-
-### Container Runtime Test Conditions
-
-**Custom conditions** for container tests must verify actual functionality, not just CLI availability:
-
-```go
-containerAvailable = func() bool {
-    engine, err := container.AutoDetectEngine()
-    if err != nil || !engine.Available() {
-        return false
-    }
-    // CRITICAL: Run a smoke test to verify Linux containers work.
-    // This catches Windows Docker in Windows-container mode.
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-    result, err := engine.Run(ctx, container.RunOptions{
-        Image:   "debian:stable-slim",
-        Command: []string{"echo", "ok"},
-        Remove:  true,
-    })
-    return err == nil && result.ExitCode == 0
-}()
-```
+The CLI container harness probes both Docker and Podman through
+`tests/cli/container_harness.go`: it checks the engine binary, version, Linux
+container run support, and build support, then pins the selected engine through
+the test-scoped config written by `containerSetup`. Prefer extending that harness
+over adding ad hoc `container-available` checks in txtar setup.
 
 ### Shell Script Behavior in Containers
 
@@ -591,12 +583,14 @@ static table into skills or reviews:
 ```bash
 find tests/cli/testdata -maxdepth 1 -name '*.txtar' | sort
 go test -v -run TestBuiltinCommandTxtarCoverage ./cmd/invowk/...
-go test -v -run TestShRuntimeMirrorCoverage ./tests/cli/...
+go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
 ```
 
 `TestBuiltinCommandTxtarCoverage` ensures every non-hidden leaf built-in command
 has `.txtar` coverage or a documented exemption. `TestShRuntimeMirrorCoverage`
-ensures virtual/native mirror policy stays current.
+ensures virtual/native mirror policy stays current. Mirror exemptions live only in
+`tests/cli/runtime_mirror_exemptions.json`; do not duplicate the exemption list in
+skills or review reports.
 
 ### When to Add CLI Tests
 
@@ -611,15 +605,13 @@ Add CLI tests when:
 2. Create `native_<feature>.txtar` with native runtime (platform-split)
 3. Verify both files produce identical `stdout` assertions
 4. Ensure Windows PowerShell implementations use `$env:VAR` and `Write-Output`
-5. Run `make test-cli` to validate both virtual and native tests pass
+5. Run `go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...`
+6. Run `make test-cli` to validate both virtual and native tests pass
 
-**Exempt from native mirrors** (do NOT create `native_` versions for):
-- `virtual_uroot_*.txtar` — u-root commands are virtual shell built-ins
-- `virtual_shell.txtar` — tests virtual shell-specific behavior
-- `container_*.txtar` — Linux-only container runtime
-- `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` — CUE schema validation
-- `virtual_diagnostics_footer.txtar` — diagnostics footer output
-- `dogfooding_invowkfile.txtar` — already exercises native runtime
+**Exempt from native mirrors**: consult
+`tests/cli/runtime_mirror_exemptions.json`. Update that JSON whenever an exemption
+changes, and let `TestShRuntimeMirrorCoverage` enforce stale, missing, or
+superseded entries.
 
 ## VHS Demo Recordings
 

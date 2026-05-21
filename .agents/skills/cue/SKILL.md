@@ -1,15 +1,11 @@
 ---
 name: cue
-description: CUE schema patterns for *.cue files, 3-step parsing flow, validation matrix, error formatting. Use when editing invowkfile_schema.cue, invowkmod_schema.cue, config_schema.cue, or working with cueutil parsing.
+description: CUE schema patterns for *.cue files, schema sync and behavioral sync tests, Go struct JSON tag alignment, parser/decode helpers, and error formatting. Use when editing invowkfile_schema.cue, invowkmod_schema.cue, config_schema.cue, pkg/cueutil, CUE-backed Go types, or CUE parsing/validation behavior.
 ---
 
 # CUE Schema Patterns
 
-Use this skill when:
-- Working with CUE schema files (`*.cue`)
-- Modifying parse functions in `pkg/invowkfile/`, `pkg/invowkmod/`, or `internal/config/`
-- Adding new CUE definitions or corresponding Go struct fields
-- Debugging CUE validation errors
+Always read `.agents/rules/cue-patterns.md` first; repository rules override this skill.
 
 ---
 
@@ -19,9 +15,14 @@ Use this skill when:
 - `pkg/invowkmod/invowkmod_schema.cue` defines invowkmod structure.
 - `internal/config/config_schema.cue` defines config.
 
-## Schema Compilation Pattern (3-Step Flow)
+## Schema Compilation Pattern
 
-All CUE parsing in Invowk follows a consistent 3-step pattern:
+For new parsing paths, prefer `pkg/cueutil` helpers instead of reimplementing
+the CUE boilerplate. Use `cueutil.ParseAndDecode*`, `cueutil.WithFilename`, and
+`cueutil.FormatError` when they fit. Direct CUE parsing is reserved for cases
+that need custom lookup/merge behavior.
+
+The helper-backed flow is still conceptually:
 
 ```go
 // Step 1: Compile the schema (embedded via //go:embed)
@@ -59,12 +60,14 @@ if err := unified.Decode(&result); err != nil {
 
 **Reference Implementations**:
 - `pkg/invowkfile/parse.go:ParseBytes()` - Invowkfile parsing
-- `pkg/invowkmod/invowkmod.go:ParseInvowkmodBytes()` - Invowkmod parsing
+- `pkg/invowkmod/parse.go:ParseInvowkmodBytes()` - Invowkmod parsing
 - `internal/config/config.go:decodeCUEConfigSource()` - Config loading
 
 ## Validation Responsibility Matrix
 
-Validation is split between CUE and Go based on what each can handle:
+Validation is split between CUE and Go based on what each can handle. CUE is the
+schema source of truth, but Go may deliberately mirror constraints for direct
+construction, defense-in-depth, richer runtime checks, and drift-detection tests.
 
 ### CUE Handles (Declarative, Schema-Level)
 
@@ -155,7 +158,9 @@ type Config struct {
 }
 ```
 
-**Rule**: Every CUE field name MUST have a matching JSON tag in the corresponding Go struct.
+**Rule**: Every non-bottom CUE field name that decodes into Go must have a matching
+JSON tag in the corresponding Go struct. Bottom-field tombstones (`_|_`) are
+intentionally skipped by sync helpers.
 
 **Verification**: Schema sync tests (in `*_sync_test.go` files) catch mismatches at CI time.
 
@@ -183,13 +188,8 @@ Only import `cuelang.org/go/cue/errors` in low-level error-formatting utilities.
 
 ## CUE Library Version Pinning
 
-### Current Version
-
-CUE is pinned in `go.mod`:
-
-```
-cuelang.org/go v0.16.1
-```
+Read the current CUE version from `go.mod` or `go list -m cuelang.org/go`; do not
+hard-code the version in this skill.
 
 ### Upgrade Process
 
@@ -221,6 +221,7 @@ Sync tests verify Go struct JSON tags match CUE schema field names at CI time. T
 
 **Test Files**:
 - `pkg/invowkfile/sync_test.go` - Invowkfile, Command, Implementation, etc.
+- `pkg/invowkfile/sync_runtime_test.go` and `pkg/invowkfile/sync_runtime_behavioral_test.go` - runtime config shape and behavior
 - `pkg/invowkmod/sync_test.go` - Invowkmod, ModuleRequirement
 - `internal/config/sync_test.go` - Config, VirtualConfig, UIConfig, etc.
 
@@ -228,10 +229,10 @@ Sync tests verify Go struct JSON tags match CUE schema field names at CI time. T
 ```go
 func TestStructNameSchemaSync(t *testing.T) {
     schema, _ := getCUESchema(t)
-    cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#DefinitionName"))
-    goFields := extractGoJSONTags(t, reflect.TypeFor[GoStructType]())
+    cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#DefinitionName"))
+    goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[GoStructType]())
 
-    assertFieldsSync(t, "StructName", cueFields, goFields)
+    schematest.AssertFieldsSync(t, "StructName", cueFields, goFields)
 }
 ```
 

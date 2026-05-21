@@ -6,9 +6,9 @@ description: >-
   behavior (more aggressive event coalescing), timer coalescing (100ms sleep
   may take 200ms), file descriptor limits (soft 256 vs Linux 1024), flock
   inheritance across fork, code signing edge cases, and ARM64 memory ordering
-  on Apple Silicon. Use when debugging macOS-only test failures, virtual path
-  resolver assertion drift, watcher test flakiness, or understanding why timing
-  tests flake on macos-15 CI runners.
+  on Apple Silicon. Use when debugging macOS-only or Darwin-only test failures,
+  virtual path resolver assertion drift, watcher test flakiness, CLI testscript
+  `[darwin]` branches, or timing failures on macos-15 CI runners.
 ---
 
 # macOS Testing Skill
@@ -99,9 +99,11 @@ macOS runners. This means:
 - `t.TempDir()` returns the **resolved** path (under `/private/tmp/...`)
 - Hardcoded `/tmp/...` or `/var/...` paths will NOT match resolved output
 
-Any test that compares absolute paths will fail if one side resolves the
-symlink and the other does not. Always use `t.TempDir()` for test directories,
-and never hardcode `/tmp` or `/var` in test assertions.
+Any test that compares absolute paths can fail if one side resolves the symlink
+and the other does not. Use `t.TempDir()` for test-owned directories, build
+expected values from the actual temp root returned by the helper, and avoid
+hardcoded `/tmp` or `/var` in path assertions unless the test is explicitly
+covering symlink behavior.
 
 ```go
 // WRONG: path comparison may fail
@@ -387,7 +389,11 @@ on Apple Silicon.
 
 Use `-v` when debugging gotestsum rerun behavior for parallel subtests. Locally,
 `-v` is optional for ordinary `go test`; current CI workflow files are the
-source of truth for where verbose output is required.
+source of truth for where verbose output is required. Recheck with:
+
+```bash
+rg -n 'gotestsum|--format| -v ' .github/workflows scripts Makefile
+```
 
 ### No Container Engine
 
@@ -469,11 +475,14 @@ Note: the condition is `[darwin]` (Go's GOOS value), not `[macos]`.
 `sync.Mutex` for run serialization. This is correct behavior -- see the
 "flock Behavior" section above.
 
-### No `*_darwin_test.go` Files
+### Darwin-Specific Test Files
 
-The project currently has no `*_darwin_test.go` build-tagged test files.
-macOS-specific test behavior is handled through runtime `GOOS` checks and
-testscript `[darwin]` conditions rather than build tags.
+Before assuming macOS behavior lives only in runtime `GOOS` checks or
+testscript `[darwin]` conditions, verify the current inventory:
+
+```bash
+rg --files -g '*_darwin_test.go' -g '*darwin*.txtar' -g '*_test.go' tests internal pkg
+```
 
 ---
 
@@ -481,11 +490,11 @@ testscript `[darwin]` conditions rather than build tags.
 
 | Symptom | Probable Cause | Investigation | Fix |
 |---------|---------------|---------------|-----|
-| Path comparison fails in tests using `t.TempDir()` | `/tmp` -> `/private/tmp` symlink | Check if one side resolves symlinks | Use `t.TempDir()` consistently; never hardcode `/tmp` |
+| Path comparison fails in tests using `t.TempDir()` | `/tmp` -> `/private/tmp` symlink | Check if one side resolves symlinks | Build expected values from the actual temp root; avoid hardcoded `/tmp` |
 | Two files with case-variant names collide | APFS case-insensitive | Check APFS default config | Use distinct filenames; do not rely on case distinction |
 | Watcher test misses file events | kqueue event coalescing | Increase inter-write sleep | Add `time.Sleep` between writes; use generous safety timeouts |
 | `time.Sleep` takes longer than expected | Timer coalescing | Check actual vs expected sleep duration | Use 2-3x safety margin; prefer event-based sync |
-| gotestsum reports FAIL but all subtests pass | Missing `-v` flag | Check gotestsum invocation | Always use `-v` with gotestsum `--rerun-fails` |
+| gotestsum reports FAIL but all subtests pass | Missing verbose subtest output | Check gotestsum invocation and workflow source | Use `-v` where current CI rerun behavior requires it |
 | "too many open files" in watcher/parallel tests | Low fd soft limit | `ulimit -n` check | Close fds promptly; reduce parallel file operations |
 | Binary execution blocked by Gatekeeper | Missing code signature | Check xattr quarantine | `xattr -d com.apple.quarantine binary` or `codesign -s -` |
 | Unicode filename comparison fails | APFS NFD vs Go NFC strings | Compare byte representations | Normalize to same form before comparison; avoid non-ASCII in test filenames |

@@ -1,6 +1,10 @@
 ---
 name: d2-diagrams
-description: Agent-optimized D2 diagram generation with TALA layout. Use for C4 architecture, sequence, flowcharts, and any diagram requiring superior auto-layout. D2 is the DEFAULT choice for new diagrams. Triggers include "d2 diagram", "architecture diagram", "generate diagram", "visualize", "model", or any diagramming request. Optimized for validation, error recovery, and deterministic output.
+description: >-
+  Agent-optimized D2 diagram generation and maintenance for Invowk architecture
+  docs. Use for `.d2` files, C4 architecture diagrams, sequence diagrams,
+  flowcharts, diagram render validation, or user requests that explicitly ask
+  for a diagram. D2 is the default for new repo diagrams.
 ---
 
 # D2 Diagramming (Agent-Optimized)
@@ -175,14 +179,17 @@ In this repository, run `./scripts/check-diagram-readability.sh` after editing f
 The recommended validation pipeline for agents:
 
 ```bash
-# 1. Format (canonicalize for determinism)
+# 1. Format, or check formatting in CI-equivalent mode
 d2 fmt diagram.d2
+d2 fmt diagram.d2 --check
 
 # 2. Validate (fast, no rendering)
 d2 validate diagram.d2
 
-# 3. Render (only after validation passes)
-d2 --layout=tala diagram.d2 diagram.svg
+# 3. For repo diagrams, render through the repository script
+make render-diagrams
+make check-diagram-renders
+make check-diagram-readability
 ```
 
 **Error format (parseable):**
@@ -195,7 +202,7 @@ See [references/agent-workflow.md](references/agent-workflow.md) for the complet
 
 ## Determinism Configuration
 
-**Use `--tala-seeds` CLI flag for reproducible layouts:**
+**Use `--tala-seeds` CLI flag for reproducible layouts when supported:**
 
 ```bash
 # TALA seeds is a CLI flag, NOT a d2-config option
@@ -215,7 +222,10 @@ vars: {
 
 > **⚠️ Common Mistake:** Putting `tala-seeds` inside `d2-config` causes `"tala-seeds" is not a valid config` errors. The `--tala-seeds` flag is TALA-specific and must be passed via CLI, not in the D2 file.
 
-Without seeds, TALA may produce slightly different layouts on each render. For CI/CD and version control, deterministic output is essential. Pass seeds via the render script or Makefile.
+Without seeds, TALA may produce slightly different layouts on each render. For
+CI/CD and version control, deterministic output is essential. The repository
+render script probes `d2 layout tala` and passes `--tala-seeds=100` only when
+the installed D2 exposes that flag.
 
 ## Detailed References
 
@@ -350,17 +360,21 @@ developer: Developer {
 
 1. **Evaluate**: Review diagrams for affected components
 2. **Update source**: Edit `.d2` files in `docs/diagrams/`
-3. **Validate**: `d2 validate <file>.d2`
-4. **Render**: `make render-diagrams`
-5. **Commit**: Both `.d2` source and `.svg` rendered files
+3. **Format/check**: `d2 fmt <file>.d2` and `d2 fmt <file>.d2 --check`
+4. **Validate**: `d2 validate <file>.d2`
+5. **Render**: `make render-diagrams`
+6. **Verify manifests/readability**: `make check-diagram-renders` and `make check-diagram-readability`
+7. **Review diff**: Include both `.d2` source and `.svg` render changes when they changed.
 
 ### Verification Checklist
 
 Before marking work complete, verify:
 - [ ] All affected diagrams reviewed
 - [ ] `.d2` sources updated if needed
+- [ ] `d2 fmt <file>.d2 --check` and `d2 validate <file>.d2` pass for edited files
 - [ ] `make render-diagrams` run successfully
-- [ ] SVG files committed with sources
+- [ ] `make check-diagram-renders` and `make check-diagram-readability` pass
+- [ ] SVG files reviewed alongside sources when renders changed
 
 ## Common Pitfalls
 

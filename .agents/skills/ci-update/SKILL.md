@@ -1,20 +1,16 @@
 ---
 name: ci-update
-description: Audit and update CI workflow versions, tool installs, MCP servers, and pre-commit hooks. Checks latest versions, validates sync pair consistency, identifies breaking changes and optimization opportunities. Use whenever preparing a release, doing monthly CI maintenance, or investigating version-related CI failures.
+description: >-
+  Audit and update CI workflow versions, tool installs, MCP servers,
+  Dependabot-covered action pins, inline binary installs, pre-commit hooks,
+  Node.js LTS pins, and CI-created commit mechanisms. Use when preparing a
+  release, doing monthly CI maintenance, investigating version-related CI
+  failures, or reviewing workflow/tooling pin drift.
 ---
 
 # CI Update
 
 Audit and update all CI infrastructure versions: GitHub Actions, `go install` tools, MCP servers, inline binary installs, pre-commit hooks, and Node.js LTS status.
-
-## When to Use
-
-Invoke this skill (`/ci-update`) when:
-- Preparing a release and want to ensure CI is on latest stable tooling
-- Monthly maintenance to keep CI infrastructure current
-- After a tool announces a new major version or deprecation
-- Investigating CI failures that might be caused by stale tool versions
-- After merging a Dependabot PR (to catch cascading sync needs)
 
 ## Authoritative Rules
 
@@ -34,8 +30,7 @@ This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
 | `Node.js` | Every `node-version:` reference in `.github/workflows/*.yml` |
 | `cosign` | `sigstore/cosign-installer` action version + `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml` (installer v4+ required for cosign v3+) |
 | `UPX` | Inline `UPX_VERSION` installs in `.github/workflows/ci.yml` and `.github/workflows/release.yml` |
-| `actions/checkout` | Every workflow file that uses `actions/checkout` must use the same major version |
-| `actions/upload-artifact` | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/workflows/pgo-benchstat.yml` |
+| GitHub Actions | Every workflow `uses:` pin found by the inventory scan, including Dependabot-managed actions such as `actions/cache` and project-specific actions such as `bencherdev/bencher` |
 | Sonar suppressions | `sonar-project.properties`, `.sonarcloud.properties` (not version, but integrity) |
 
 ## Workflow
@@ -44,9 +39,14 @@ This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
 
 Scan all tracked files and extract every version pin into a structured table.
 
+Always derive the current workflow/action inventory before using the examples
+below. They are categories, not a hard-coded allowlist.
+
 **Workflow files** (scan for `uses:`, `go install`, `curl` installs, `version:` inputs):
 ```bash
 find .github/workflows -maxdepth 1 -type f -name '*.yml' -print | sort
+rg -n 'uses:|go install|node-version|UPX_VERSION|cosign-release|goreleaser-action|bencherdev/bencher' \
+  .github/workflows .pre-commit-config.yaml .mcp.json .agents/rules/version-pinning.md
 ```
 
 **Configuration files**:
@@ -74,7 +74,7 @@ Organize into this table structure:
 | Runtime | Node.js | N | all `node-version:` workflow references |
 | MCP | context7-mcp | X.Y.Z | .mcp.json |
 | MCP | server-github | YYYY.M.D | .mcp.json |
-| Action | (each `uses:`) | @vN | workflow files |
+| Action | (each distinct `uses:` target) | @pin | workflow files |
 
 ### Step 2: Check Sync Pair Consistency
 
@@ -85,10 +85,11 @@ Before checking for updates, verify existing versions are consistent across sync
 3. **GoReleaser version input**: Must match across every `goreleaser/goreleaser-action` step in `ci.yml` and `release.yml`.
 4. **Node.js**: Every `node-version` workflow reference must match.
 5. **actions/checkout**: Must be the same major version across every `uses: actions/checkout@` reference.
-6. **actions/upload-artifact**: Must match across `ci.yml`, `release.yml`, `pgo-benchstat.yml`.
-7. **cosign coupling**: `sigstore/cosign-installer` action version must be compatible with the `cosign-release` tool pin everywhere it is installed (installer `@v4+` is required for cosign v3+; installer `@v3` cannot install cosign v3+).
-8. **UPX**: Inline `UPX_VERSION` installs must match wherever release packaging or dry-run release checks install UPX.
-9. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
+6. **actions/upload-artifact**: Must match across every workflow that uploads artifacts.
+7. **actions/cache and other shared actions**: Check every repeated action discovered by the inventory scan; do not rely on the static examples in this skill.
+8. **cosign coupling**: `sigstore/cosign-installer` action version must be compatible with the `cosign-release` tool pin everywhere it is installed (installer `@v4+` is required for cosign v3+; installer `@v3` cannot install cosign v3+).
+9. **UPX**: Inline `UPX_VERSION` installs must match wherever release packaging or dry-run release checks install UPX.
+10. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
 
 Report all inconsistencies as **SYNC DRIFT** findings before proceeding.
 
@@ -138,6 +139,7 @@ gh api repos/actions/checkout/releases/latest --jq '.tag_name'
 gh api repos/actions/setup-go/releases/latest --jq '.tag_name'
 gh api repos/actions/setup-node/releases/latest --jq '.tag_name'
 gh api repos/actions/upload-artifact/releases/latest --jq '.tag_name'
+gh api repos/actions/cache/releases/latest --jq '.tag_name'
 gh api repos/actions/configure-pages/releases/latest --jq '.tag_name'
 gh api repos/actions/upload-pages-artifact/releases/latest --jq '.tag_name'
 gh api repos/actions/deploy-pages/releases/latest --jq '.tag_name'
@@ -150,6 +152,10 @@ gh api repos/anthropics/claude-code-action/releases/latest --jq '.tag_name'
 ```
 
 Only flag findings where the **major version** changed. Minor/patch within the same major are handled by Dependabot.
+
+For actions discovered by the inventory scan that are intentionally pinned to a
+branch (for example `bencherdev/bencher@main`), classify them separately as
+policy exceptions or drift risks; do not force them into the major-tag rule.
 
 **Note**: `golangci-lint-action`'s `version` input pins the **tool binary**, not the action itself. Check the tool version separately:
 
@@ -218,7 +224,7 @@ While reviewing workflow files, check for these optimization opportunities:
 6. **New action features**: Have `actions/setup-go`, `golangci-lint-action`, or `goreleaser-action` added useful new inputs since the current pin?
 7. **Runner images**: Are `ubuntu-latest`, `macos-15`, `windows-latest` still current recommended images?
 8. **Concurrency group naming consistency**: Are all groups following the same `<name>-${{ github.ref }}` pattern? Flag outliers (e.g., redundant `${{ github.workflow }}` segments).
-9. **Bot commit signing**: Are ALL workflow jobs that create commits using the GitHub GraphQL `createCommitOnBranch` API? Direct `git commit` + `git push` on CI runners produces **unsigned** commits that are blocked by the `required_signatures` ruleset. See the "Verified Bot Commits" section below for the required pattern.
+9. **Bot commit signing**: Are ALL workflow jobs that create commits using the GitHub GraphQL `createCommitOnBranch` API? Direct `git commit` + `git push` on CI runners produces **unsigned** commits that are blocked by the `required_signatures` ruleset. See the "Verified Bot Commits" section below for the required pattern, but verify the current inventory from workflow files instead of trusting the example table.
 
 ### Step 6: Generate Report
 
@@ -363,7 +369,13 @@ Use the GitHub GraphQL `createCommitOnBranch` mutation instead of direct git com
 - Use `GITHUB_TOKEN` (`${{ github.token }}`) when the commit should NOT trigger downstream workflows (anti-recursion). This is the default for auto-fix jobs like `pgo-sanity`.
 - Use a GitHub App token (`actions/create-github-app-token`) when the commit MUST trigger downstream workflows (e.g., `version-docs.yml` needs to trigger `deploy-website.yml`).
 
-**Current inventory of commit-creating jobs:**
+**Commit-creating job inventory:**
+
+Build this table from the current workflow files on every run:
+
+```bash
+rg -n 'createCommitOnBranch|git commit|git push|git tag|pgo-sanity|version-docs' .github/workflows
+```
 
 | Workflow | Job | Mechanism | Token | Verified? |
 |----------|-----|-----------|-------|-----------|
