@@ -16,64 +16,102 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+type (
+	//goplint:ignore -- scanner state carries raw OS-native paths from filepath.WalkDir.
+	luaModuleFileAppender struct {
+		ctx        context.Context
+		module     *ScannedModule
+		modulePath string
+		refs       []ScriptRef
+		seen       map[string]bool
+	}
+)
+
 func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *ScannedModule) ([]ScriptRef, error) {
 	if module == nil || module.Path == "" {
 		return refs, nil
 	}
-	seen := moduleScriptPathSet(refs, module.Path)
 	modulePath := string(module.Path)
 	if _, err := os.Stat(modulePath); err != nil {
 		return refs, nil //nolint:nilerr // synthetic test modules and partially loaded modules may not have a filesystem tree.
 	}
-	err := filepath.WalkDir(modulePath, func(path string, entry fs.DirEntry, err error) error {
-		if ctxErr := scanContextErr(ctx); ctxErr != nil {
-			return ctxErr
-		}
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() && entry.Name() == invowkmod.VendoredModulesDir {
-			return filepath.SkipDir
-		}
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
-			return nil
-		}
-		normalized := types.FilesystemPath(path) //goplint:ignore -- path comes from filesystem walk.
-		if seen[string(normalized)] {
-			return nil
-		}
-		facts, factsErr := readScriptFileFacts(ctx, path, modulePath)
-		if factsErr != nil {
-			return factsErr
-		}
-		rel, relErr := filepath.Rel(modulePath, path)
-		if relErr != nil {
-			rel = entry.Name()
-		}
-		scriptFile := invowkfile.FilesystemPath(rel)
-		refs = append(refs, ScriptRef{
-			SurfaceID:       module.SurfaceID,
-			SurfaceKey:      module.SurfaceKey,
-			SurfaceKind:     module.SurfaceKind,
-			FilePath:        facts.Path,
-			ModulePath:      module.Path,
-			CommandName:     invowkfile.CommandName("lua-file"),
-			ImplIndex:       -1,
-			Script:          invowkfile.ImplementationScript{File: &scriptFile},
-			IsFile:          true,
-			Runtimes:        []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualLua}},
-			ScriptPath:      facts.Path,
-			FileSize:        facts.Size,
-			FileStatErr:     facts.StatErr,
-			resolvedContent: facts.Content,
-		})
-		seen[string(normalized)] = true
-		return nil
-	})
+	appender := luaModuleFileAppender{
+		ctx:        ctx,
+		module:     module,
+		modulePath: modulePath,
+		refs:       refs,
+		seen:       moduleScriptPathSet(refs, module.Path),
+	}
+	err := filepath.WalkDir(modulePath, appender.walk)
 	if err != nil {
 		return refs, fmt.Errorf("walking module Lua files in %s: %w", module.Path, err)
 	}
-	return refs, nil
+	return appender.refs, nil
+}
+
+//goplint:ignore -- filepath.WalkDir requires raw OS path callback parameters.
+func (a *luaModuleFileAppender) walk(path string, entry fs.DirEntry, walkErr error) error {
+	if err := scanWalkEntryErr(a.ctx, walkErr); err != nil {
+		return err
+	}
+	if entry.IsDir() && entry.Name() == invowkmod.VendoredModulesDir {
+		return filepath.SkipDir
+	}
+	if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
+		return nil
+	}
+	return a.append(path, entry.Name())
+}
+
+//goplint:ignore -- Lua module discovery consumes raw filesystem walk paths before storing typed facts.
+func (a *luaModuleFileAppender) append(path, fallbackName string) error {
+	normalized := filesystemPathFromWalk(path)
+	if a.seen[string(normalized)] {
+		return nil
+	}
+	facts, err := readScriptFileFacts(a.ctx, path, a.modulePath)
+	if err != nil {
+		return err
+	}
+	scriptFile := invowkfilePathFromLuaModuleRelPath(a.relativePath(path, fallbackName))
+	a.refs = append(a.refs, a.scriptRef(facts, scriptFile))
+	a.seen[string(normalized)] = true
+	return nil
+}
+
+//goplint:ignore -- filepath.Rel operates on raw OS paths and returns display-only CUE file paths.
+func (a *luaModuleFileAppender) relativePath(path, fallbackName string) string {
+	rel, err := filepath.Rel(a.modulePath, path)
+	if err != nil {
+		return fallbackName
+	}
+	return rel
+}
+
+func (a *luaModuleFileAppender) scriptRef(facts scriptFileFacts, scriptFile invowkfile.FilesystemPath) ScriptRef {
+	return ScriptRef{
+		SurfaceID:       a.module.SurfaceID,
+		SurfaceKey:      a.module.SurfaceKey,
+		SurfaceKind:     a.module.SurfaceKind,
+		FilePath:        facts.Path,
+		ModulePath:      a.module.Path,
+		CommandName:     invowkfile.CommandName("lua-file"),
+		ImplIndex:       -1,
+		Script:          invowkfile.ImplementationScript{File: &scriptFile},
+		IsFile:          true,
+		Runtimes:        []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualLua}},
+		ScriptPath:      facts.Path,
+		FileSize:        facts.Size,
+		FileStatErr:     facts.StatErr,
+		resolvedContent: facts.Content,
+	}
+}
+
+func scanWalkEntryErr(ctx context.Context, err error) error {
+	if ctxErr := scanContextErr(ctx); ctxErr != nil {
+		return ctxErr
+	}
+	return err
 }
 
 func moduleScriptPathSet(refs []ScriptRef, modulePath types.FilesystemPath) map[string]bool {
@@ -180,43 +218,8 @@ func scanModuleSymlinks(ctx context.Context, modulePath types.FilesystemPath) ([
 	}
 	modPath := string(modulePath)
 	var refs []SymlinkRef
-	err := filepath.WalkDir(modPath, func(path string, d fs.DirEntry, err error) error {
-		if ctxErr := scanContextErr(ctx); ctxErr != nil {
-			return ctxErr
-		}
-		if err != nil {
-			return err
-		}
-		if d.Type()&os.ModeSymlink == 0 {
-			return nil
-		}
-
-		relPath, relErr := filepath.Rel(modPath, path)
-		if relErr != nil {
-			return fmt.Errorf("computing relative path for %s: %w", path, relErr)
-		}
-
-		ref := SymlinkRef{
-			Path:    types.FilesystemPath(path), //goplint:ignore -- path comes from filesystem walk.
-			RelPath: relPath,
-		}
-		target, readErr := os.Readlink(path)
-		if readErr != nil {
-			ref.ReadErr = readErr
-			refs = append(refs, ref)
-			return continueSymlinkWalk()
-		}
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(filepath.Dir(path), target)
-		}
-		ref.Target = filepath.Clean(target)
-		ref.EscapesRoot = !isWithinBoundary(modPath, ref.Target)
-		if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
-			ref.Dangling = true
-		}
-		ref.ChainTooDeep = symlinkChainTooDeep(path)
-		refs = append(refs, ref)
-		return nil
+	err := filepath.WalkDir(modPath, func(path string, entry fs.DirEntry, walkErr error) error {
+		return appendSymlinkRef(ctx, modPath, &refs, path, entry, walkErr)
 	})
 	if err != nil {
 		return refs, fmt.Errorf("walking module symlinks in %s: %w", modulePath, err)
@@ -224,8 +227,71 @@ func scanModuleSymlinks(ctx context.Context, modulePath types.FilesystemPath) ([
 	return refs, nil
 }
 
-func continueSymlinkWalk() error {
+//goplint:ignore -- filepath.WalkDir requires raw OS path callback parameters.
+func appendSymlinkRef(ctx context.Context, modulePath string, refs *[]SymlinkRef, path string, entry fs.DirEntry, walkErr error) error {
+	if err := scanWalkEntryErr(ctx, walkErr); err != nil {
+		return err
+	}
+	if entry.Type()&os.ModeSymlink == 0 {
+		return nil
+	}
+	ref, err := moduleSymlinkRef(modulePath, path)
+	if err != nil {
+		return err
+	}
+	*refs = append(*refs, ref)
 	return nil
+}
+
+//goplint:ignore -- symlink scanning operates on raw OS paths reported by filepath.WalkDir.
+func moduleSymlinkRef(modulePath, path string) (SymlinkRef, error) {
+	relPath, err := filepath.Rel(modulePath, path)
+	if err != nil {
+		return SymlinkRef{}, fmt.Errorf("computing relative path for %s: %w", path, err)
+	}
+	ref := SymlinkRef{
+		Path:    filesystemPathFromWalk(path),
+		RelPath: relPath,
+	}
+	target, ok := readSymlinkTarget(path, &ref)
+	if !ok {
+		return ref, nil
+	}
+	ref.Target = cleanSymlinkTarget(path, target)
+	ref.EscapesRoot = !isWithinBoundary(modulePath, ref.Target)
+	if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
+		ref.Dangling = true
+	}
+	ref.ChainTooDeep = symlinkChainTooDeep(path)
+	return ref, nil
+}
+
+//goplint:ignore -- filepath.WalkDir yields already-normalized OS-native paths for scan facts.
+func filesystemPathFromWalk(path string) types.FilesystemPath {
+	return types.FilesystemPath(path) //goplint:ignore -- path comes from filesystem walk.
+}
+
+//goplint:ignore -- filepath.Rel result is stored as an invowkfile script file reference.
+func invowkfilePathFromLuaModuleRelPath(path string) invowkfile.FilesystemPath {
+	return invowkfile.FilesystemPath(path) //goplint:ignore -- relative path comes from scanned module filesystem.
+}
+
+//goplint:ignore -- os.Readlink consumes and returns raw OS-native symlink target strings.
+func readSymlinkTarget(path string, ref *SymlinkRef) (string, bool) {
+	target, err := os.Readlink(path)
+	if err != nil {
+		ref.ReadErr = err
+		return "", false
+	}
+	return target, true
+}
+
+//goplint:ignore -- symlink normalization joins raw OS-native link and target paths.
+func cleanSymlinkTarget(path, target string) string {
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(path), target)
+	}
+	return filepath.Clean(target)
 }
 
 //goplint:ignore -- helper walks raw OS-native symlink paths captured from filepath.WalkDir.

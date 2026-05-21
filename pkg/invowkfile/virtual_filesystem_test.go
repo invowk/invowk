@@ -270,7 +270,7 @@ func TestGenerateCUEVirtualFilesystemRoundTrip(t *testing.T) {
 	if got := filesystem.EffectiveAccess(); got != VirtualFilesystemAccessFull {
 		t.Fatalf("parsed access = %q, want full", got)
 	}
-	if got := len(filesystem.Paths); got != 2 {
+	if len(filesystem.Paths) != 2 {
 		t.Fatalf("parsed paths = %v, want 2 entries", filesystem.Paths)
 	}
 }

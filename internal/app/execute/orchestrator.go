@@ -318,8 +318,12 @@ func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 }
 
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, selectedPlatform invowkfile.Platform) {
-	// Metadata env vars for script self-introspection.
-	// These allow scripts to know which command, runtime, source, and platform they run under.
+	projectCommandEnvVars(opts, execCtx, selectedPlatform)
+	projectArgEnvVars(opts, execCtx)
+	projectFlagEnvVars(opts, execCtx)
+}
+
+func projectCommandEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, selectedPlatform invowkfile.Platform) {
 	execCtx.Env.ExtraEnv[runtime.EnvVarCmdName] = string(opts.Command.Name)
 	execCtx.Env.ExtraEnv[runtime.EnvVarRuntime] = string(opts.Selection.Mode())
 	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
@@ -332,35 +336,46 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	if selectedPlatform != "" {
 		execCtx.Env.ExtraEnv[runtime.EnvVarPlatform] = string(selectedPlatform)
 	}
+}
 
+func projectArgEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	for i, arg := range opts.Args {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
 	execCtx.Env.ExtraEnv["ARGC"] = strconv.Itoa(len(opts.Args))
 
-	if len(opts.ArgDefs) > 0 {
-		for i, argDef := range opts.ArgDefs {
-			envName := invowkfile.ArgNameToEnvVar(argDef.Name)
-
-			switch {
-			case argDef.Variadic:
-				var variadicValues []string
-				if i < len(opts.Args) {
-					variadicValues = opts.Args[i:]
-				}
-				execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(variadicValues))
-				for j, val := range variadicValues {
-					execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
-				}
-				execCtx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
-			case i < len(opts.Args):
-				execCtx.Env.ExtraEnv[envName] = opts.Args[i]
-			case argDef.DefaultValue != "":
-				execCtx.Env.ExtraEnv[envName] = argDef.DefaultValue
-			}
-		}
+	for i, argDef := range opts.ArgDefs {
+		projectArgDefEnvVar(opts, execCtx, i, argDef)
 	}
+}
 
+//goplint:ignore -- argument index maps user argv positions into conventional ARG-style environment variables.
+func projectArgDefEnvVar(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, index int, argDef invowkfile.Argument) {
+	envName := invowkfile.ArgNameToEnvVar(argDef.Name)
+	switch {
+	case argDef.Variadic:
+		projectVariadicArgEnvVars(opts, execCtx, index, envName)
+	case index < len(opts.Args):
+		execCtx.Env.ExtraEnv[envName] = opts.Args[index]
+	case argDef.DefaultValue != "":
+		execCtx.Env.ExtraEnv[envName] = argDef.DefaultValue
+	}
+}
+
+//goplint:ignore -- argument index and envName are derived adapter values for exported process environment keys.
+func projectVariadicArgEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, index int, envName string) {
+	var values []string
+	if index < len(opts.Args) {
+		values = opts.Args[index:]
+	}
+	execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(values))
+	for i, value := range values {
+		execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, i+1)] = value
+	}
+	execCtx.Env.ExtraEnv[envName] = strings.Join(values, " ")
+}
+
+func projectFlagEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	for name, value := range opts.FlagValues {
 		execCtx.Env.ExtraEnv[invowkfile.FlagNameToEnvVar(name)] = value
 	}

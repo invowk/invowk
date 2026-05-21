@@ -27,6 +27,8 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+const luaBinaryRequiredMsg = "binary name is required"
+
 var luaLibraryLoadMu sync.Mutex
 
 type (
@@ -47,7 +49,6 @@ type (
 
 	//goplint:ignore -- internal Lua execution DTO carries already-resolved script/env/argv values through the VM bridge.
 	luaExecutionRequest struct {
-		ctx            context.Context
 		script         string
 		runtimeCfg     *invowkfile.RuntimeConfig
 		env            map[string]string
@@ -62,8 +63,23 @@ type (
 		stderr         io.Writer
 	}
 
-	luaCommandBridge struct {
-		ctx              context.Context
+	//goplint:ignore -- internal Lua bridge DTO groups VM dependencies to keep bridge setup readable.
+	luaBridgeInstallRequest struct {
+		policy           *virtualHostBinaryPolicy
+		registry         *uroot.Registry
+		pathResolver     virtualPathResolver
+		pathValidator    virtualPathValidator
+		env              map[string]string
+		workDir          string
+		scriptBasePath   string
+		stdin            io.Reader
+		stdout           io.Writer
+		stderr           io.Writer
+		utilitiesEnabled bool
+	}
+
+	//goplint:ignore -- internal Lua command bridge DTO groups execution dependencies for closures installed in golua tables.
+	luaCommandBridgeConfig struct {
 		policy           *virtualHostBinaryPolicy
 		registry         *uroot.Registry
 		pathValidator    virtualPathValidator
@@ -74,7 +90,25 @@ type (
 		stderr           io.Writer
 		state            *luart.Table
 		utilitiesEnabled bool
-		capture          bool
+	}
+
+	luaCommandBridge struct {
+		config  luaCommandBridgeConfig
+		capture bool
+	}
+
+	//goplint:ignore -- internal utility bridge DTO carries already-resolved execution adapters for u-root invocation.
+	virtualUtilityRunRequest struct {
+		//goplint:ignore -- u-root command invocation consumes raw argv strings at the runtime boundary.
+		args          []string
+		pathValidator virtualPathValidator
+		//goplint:ignore -- runtime environment map is the already-built process environment for the command.
+		env map[string]string
+		//goplint:ignore -- workDir is an OS-native execution directory supplied by the execution context.
+		workDir string
+		stdin   io.Reader
+		stdout  io.Writer
+		stderr  io.Writer
 	}
 )
 
@@ -162,8 +196,7 @@ func (r *LuaRuntime) execute(ctx *ExecutionContext, stdout, stderr io.Writer) *R
 	pathValidator := virtualPathValidator{resolver: pathResolver}
 	addVirtualRuntimeEnv(env, pathResolver)
 	ctx.AddTUIEnv(env)
-	return r.executeScript(luaExecutionRequest{
-		ctx:            ctx.Context,
+	return r.executeScript(ctx.Context, luaExecutionRequest{
 		script:         script,
 		runtimeCfg:     selectedRuntimeConfig(ctx),
 		env:            env,
@@ -179,7 +212,7 @@ func (r *LuaRuntime) execute(ctx *ExecutionContext, stdout, stderr io.Writer) *R
 	})
 }
 
-func (r *LuaRuntime) executeScript(req luaExecutionRequest) *Result {
+func (r *LuaRuntime) executeScript(ctx context.Context, req luaExecutionRequest) *Result {
 	luaCtx, err := luaContextDef(req.runtimeCfg)
 	if err != nil {
 		return NewErrorResult(1, err)
@@ -195,19 +228,21 @@ func (r *LuaRuntime) executeScript(req luaExecutionRequest) *Result {
 	cleanup := loadSafeLuaLibs(luaRT)
 	defer cleanup()
 	installInvowkLuaBridge(
-		req.ctx,
+		ctx,
 		luaRT,
-		req.policy,
-		r.urootRegistry,
-		req.pathResolver,
-		req.pathValidator,
-		req.env,
-		req.workDir,
-		req.scriptBasePath,
-		req.stdin,
-		req.stdout,
-		req.stderr,
-		r.utilitiesEnabled,
+		luaBridgeInstallRequest{
+			policy:           req.policy,
+			registry:         r.urootRegistry,
+			pathResolver:     req.pathResolver,
+			pathValidator:    req.pathValidator,
+			env:              req.env,
+			workDir:          req.workDir,
+			scriptBasePath:   req.scriptBasePath,
+			stdin:            req.stdin,
+			stdout:           req.stdout,
+			stderr:           req.stderr,
+			utilitiesEnabled: r.utilitiesEnabled,
+		},
 	)
 	luaRT.SetEnv(luaRT.GlobalEnv(), "arg", luaArgsTable(req.args))
 	argValues := luaArgValues(req.args)
@@ -216,7 +251,7 @@ func (r *LuaRuntime) executeScript(req luaExecutionRequest) *Result {
 		return NewErrorResult(1, fmt.Errorf("compile lua script: %w", err))
 	}
 
-	execCtx := req.ctx
+	execCtx := ctx
 	if execCtx == nil {
 		execCtx = context.Background()
 	}
@@ -347,32 +382,34 @@ func parseLuaMemoryLimit(raw string) (uint64, error) {
 func installInvowkLuaBridge(
 	ctx context.Context,
 	r *luart.Runtime,
-	policy *virtualHostBinaryPolicy,
-	registry *uroot.Registry,
-	pathResolver virtualPathResolver,
-	pathValidator virtualPathValidator,
-	env map[string]string,
-	workDir string,
-	scriptBasePath string,
-	stdin io.Reader,
-	stdout io.Writer,
-	stderr io.Writer,
-	utilitiesEnabled bool,
+	req luaBridgeInstallRequest,
 ) {
 	invowk := luart.NewTable()
 	state := luart.NewTable()
-	r.SetTable(state, luart.StringValue("bin_path"), luart.StringValue(env[EnvVarStateBinPath]))
+	r.SetTable(state, luart.StringValue("bin_path"), luart.StringValue(req.env[EnvVarStateBinPath]))
 	stateProxy, stateLockFunc := luaReadOnlyProxyTable(r, state, "invowk.state")
 	r.SetTable(invowk, luart.StringValue("state"), luart.TableValue(stateProxy))
-	r.SetTable(invowk, luart.StringValue("env"), luart.TableValue(luaReadOnlyEnvTable(r, env)))
-	pathFunc := r.SetEnvGoFunc(invowk, "path", luaPathFunc(pathResolver, workDir), 1, false)
-	cmdTable, cmdFuncs := luaCommandHelperTable(ctx, r, policy, registry, pathValidator, env, workDir, stdin, stdout, stderr, state, utilitiesEnabled, false)
-	captureTable, captureFuncs := luaCommandHelperTable(ctx, r, policy, registry, pathValidator, env, workDir, stdin, stdout, stderr, state, utilitiesEnabled, true)
+	r.SetTable(invowk, luart.StringValue("env"), luart.TableValue(luaReadOnlyEnvTable(r, req.env)))
+	pathFunc := r.SetEnvGoFunc(invowk, "path", luaPathFunc(req.pathResolver, req.workDir), 1, false)
+	commandConfig := luaCommandBridgeConfig{
+		policy:           req.policy,
+		registry:         req.registry,
+		pathValidator:    req.pathValidator,
+		env:              req.env,
+		workDir:          req.workDir,
+		stdin:            req.stdin,
+		stdout:           req.stdout,
+		stderr:           req.stderr,
+		state:            state,
+		utilitiesEnabled: req.utilitiesEnabled,
+	}
+	cmdTable, cmdFuncs := luaCommandHelperTable(ctx, r, commandConfig, false)
+	captureTable, captureFuncs := luaCommandHelperTable(ctx, r, commandConfig, true)
 	r.SetTable(invowk, luart.StringValue("cmd"), luart.TableValue(cmdTable))
 	r.SetTable(invowk, luart.StringValue("capture"), luart.TableValue(captureTable))
-	getenvFunc := installLuaOSBridge(r, env)
-	ioFuncs := installLuaIOBridge(r, pathValidator, workDir, stdin, stdout, stderr)
-	requireFunc := installLuaRequireBridge(r, scriptBasePath)
+	getenvFunc := installLuaOSBridge(r, req.env)
+	ioFuncs := installLuaIOBridge(r, req.pathValidator, req.workDir, req.stdin, req.stdout, req.stderr)
+	requireFunc := installLuaRequireBridge(r, req.scriptBasePath)
 	invowkProxy, invowkLockFunc := luaReadOnlyProxyTable(r, invowk, "invowk")
 	r.SetEnv(r.GlobalEnv(), "invowk", luart.TableValue(invowkProxy))
 
@@ -416,85 +453,66 @@ func installLuaOSBridge(r *luart.Runtime, env map[string]string) *luart.GoFuncti
 func luaCommandHelperTable(
 	ctx context.Context,
 	r *luart.Runtime,
-	policy *virtualHostBinaryPolicy,
-	registry *uroot.Registry,
-	pathValidator virtualPathValidator,
-	env map[string]string,
-	workDir string,
-	stdin io.Reader,
-	stdout io.Writer,
-	stderr io.Writer,
-	state *luart.Table,
-	utilitiesEnabled bool,
+	config luaCommandBridgeConfig,
 	capture bool,
 ) (*luart.Table, []*luart.GoFunction) {
 	table := luart.NewTable()
 	meta := luart.NewTable()
 	bridge := luaCommandBridge{
-		ctx:              ctx,
-		policy:           policy,
-		registry:         registry,
-		pathValidator:    pathValidator,
-		env:              env,
-		workDir:          workDir,
-		stdin:            stdin,
-		stdout:           stdout,
-		stderr:           stderr,
-		state:            state,
-		utilitiesEnabled: utilitiesEnabled,
-		capture:          capture,
+		config:  config,
+		capture: capture,
 	}
-	indexFunc := r.SetEnvGoFunc(meta, "__index", bridge.indexFunc(), 2, false)
-	callFunc := r.SetEnvGoFunc(meta, "__call", bridge.callFunc(), 1, true)
+	indexFunc := r.SetEnvGoFunc(meta, "__index", bridge.indexFunc(ctx), 2, false)
+	callFunc := r.SetEnvGoFunc(meta, "__call", bridge.callFunc(ctx), 1, true)
 	newIndexFunc := luaSetReadOnlyNewIndex(r, meta, "invowk command bridge")
 	table.SetMetatable(meta)
 	return table, []*luart.GoFunction{indexFunc, callFunc, newIndexFunc}
 }
 
-func (b luaCommandBridge) indexFunc() luart.GoFunctionFunc {
+func (b luaCommandBridge) indexFunc(ctx context.Context) luart.GoFunctionFunc {
 	return func(t *luart.Thread, c *luart.GoCont) (luart.Cont, error) {
 		name, err := c.StringArg(1)
 		if err != nil {
 			return nil, fmt.Errorf("read invowk command name: %w", err)
 		}
-		fn := luart.NewGoFunction(b.namedFunc(name), "invowk command "+name, 0, true)
+		fn := luart.NewGoFunction(b.namedFunc(ctx, name), "invowk command "+name, 0, true)
 		fn.SolemnlyDeclareCompliance(luart.ComplyCpuSafe | luart.ComplyMemSafe)
 		return c.PushingNext1(t.Runtime, luart.FunctionValue(fn)), nil
 	}
 }
 
-func (b luaCommandBridge) callFunc() luart.GoFunctionFunc {
+func (b luaCommandBridge) callFunc(ctx context.Context) luart.GoFunctionFunc {
 	return func(t *luart.Thread, c *luart.GoCont) (luart.Cont, error) {
 		args, err := luaCommandArgs(c.Etc())
 		if err != nil {
 			return nil, err
 		}
-		return b.run(t, c, args)
+		return b.run(ctx, t, c, args)
 	}
 }
 
-func (b luaCommandBridge) namedFunc(name string) luart.GoFunctionFunc {
+func (b luaCommandBridge) namedFunc(ctx context.Context, name string) luart.GoFunctionFunc {
 	return func(t *luart.Thread, c *luart.GoCont) (luart.Cont, error) {
 		args, err := luaCommandArgsWithName(name, c.Etc())
 		if err != nil {
 			return nil, err
 		}
-		return b.run(t, c, args)
+		return b.run(ctx, t, c, args)
 	}
 }
 
-func (b luaCommandBridge) run(t *luart.Thread, c *luart.GoCont, args []string) (luart.Cont, error) {
+func (b luaCommandBridge) run(ctx context.Context, t *luart.Thread, c *luart.GoCont, args []string) (luart.Cont, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	cmdStdout := b.stdout
-	cmdStderr := b.stderr
+	cmdStdout := b.config.stdout
+	cmdStderr := b.config.stderr
 	if b.capture {
 		cmdStdout = &stdout
 		cmdStderr = &stderr
 	}
-	exitCode, runErr := b.runCommand(args, cmdStdout, cmdStderr)
+	exitCode, runErr := b.runCommand(ctx, args, cmdStdout, cmdStderr)
 	runtime := t.Runtime
-	runtime.SetTable(b.state, luart.StringValue("bin_path"), luart.StringValue(b.env[EnvVarStateBinPath]))
+	runtime.SetTable(b.config.state, luart.StringValue("bin_path"), luart.StringValue(b.config.env[EnvVarStateBinPath]))
 	if b.capture {
 		return c.PushingNext(
 			runtime,
@@ -509,21 +527,29 @@ func (b luaCommandBridge) run(t *luart.Thread, c *luart.GoCont, args []string) (
 	return c.PushingNext1(runtime, luart.IntValue(int64(exitCode))), nil
 }
 
-func (b luaCommandBridge) runCommand(args []string, stdout, stderr io.Writer) (int, error) {
+func (b luaCommandBridge) runCommand(ctx context.Context, args []string, stdout, stderr io.Writer) (int, error) {
 	if len(args) == 0 {
-		return 1, errors.New("binary name is required")
+		return 1, errors.New(luaBinaryRequiredMsg)
 	}
-	if b.utilitiesEnabled && b.registry != nil {
-		if _, found := b.registry.Lookup(args[0]); found {
-			return runVirtualUtility(b.ctx, b.registry, args, b.pathValidator, b.env, b.workDir, b.stdin, stdout, stderr)
+	if b.config.utilitiesEnabled && b.config.registry != nil {
+		if _, found := b.config.registry.Lookup(args[0]); found {
+			return runVirtualUtility(ctx, b.config.registry, virtualUtilityRunRequest{
+				args:          args,
+				pathValidator: b.config.pathValidator,
+				env:           b.config.env,
+				workDir:       b.config.workDir,
+				stdin:         b.config.stdin,
+				stdout:        stdout,
+				stderr:        stderr,
+			})
 		}
 	}
-	return runAllowedHostBinary(b.ctx, b.policy, args, b.env, b.workDir, stdout, stderr)
+	return runAllowedHostBinary(ctx, b.config.policy, args, b.config.env, b.config.workDir, stdout, stderr)
 }
 
 func luaCommandArgs(values []luart.Value) ([]string, error) {
 	if len(values) == 0 {
-		return nil, errors.New("binary name is required")
+		return nil, errors.New(luaBinaryRequiredMsg)
 	}
 	name, ok := values[0].TryString()
 	if !ok {
@@ -601,7 +627,7 @@ func luaArgValues(args []string) []luart.Value {
 
 func runAllowedHostBinary(ctx context.Context, policy *virtualHostBinaryPolicy, args []string, env map[string]string, workDir string, stdout, stderr io.Writer) (int, error) {
 	if len(args) == 0 {
-		return 1, errors.New("binary name is required")
+		return 1, errors.New(luaBinaryRequiredMsg)
 	}
 	path, err := policy.resolve(args[0])
 	if err != nil {
@@ -625,31 +651,31 @@ func runAllowedHostBinary(ctx context.Context, policy *virtualHostBinaryPolicy, 
 	return 0, nil
 }
 
-func runVirtualUtility(ctx context.Context, registry *uroot.Registry, args []string, pathValidator virtualPathValidator, env map[string]string, workDir string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+func runVirtualUtility(ctx context.Context, registry *uroot.Registry, req virtualUtilityRunRequest) (int, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if stdin == nil {
-		stdin = bytes.NewReader(nil)
+	if req.stdin == nil {
+		req.stdin = bytes.NewReader(nil)
 	}
-	if stdout == nil {
-		stdout = io.Discard
+	if req.stdout == nil {
+		req.stdout = io.Discard
 	}
-	if stderr == nil {
-		stderr = io.Discard
+	if req.stderr == nil {
+		req.stderr = io.Discard
 	}
 	handler := &uroot.HandlerContext{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-		Dir:    workDir,
+		Stdin:  req.stdin,
+		Stdout: req.stdout,
+		Stderr: req.stderr,
+		Dir:    req.workDir,
 		LookupEnv: func(name string) (string, bool) {
-			value, ok := env[name]
+			value, ok := req.env[name]
 			return value, ok
 		},
-		ValidatePath: pathValidator.validate,
+		ValidatePath: req.pathValidator.validate,
 	}
-	err := registry.Run(uroot.WithHandlerContext(ctx, handler), args[0], args)
+	err := registry.Run(uroot.WithHandlerContext(ctx, handler), req.args[0], req.args)
 	if err != nil {
 		return 1, err
 	}

@@ -14,66 +14,72 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+type interactiveRuntimeCase struct {
+	name           string
+	runtime        func(t *testing.T) Runtime
+	requireSupport bool
+}
+
 // TestInteractiveRuntimeInterface verifies that all runtimes implement InteractiveRuntime.
 func TestInteractiveRuntimeInterface(t *testing.T) {
 	t.Parallel()
 
-	t.Run("NativeRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+	tests := []interactiveRuntimeCase{
+		{name: "NativeRuntime", runtime: newTestNativeRuntime, requireSupport: true},
+		{name: "ShRuntime", runtime: newTestShRuntime, requireSupport: true},
+		{name: "LuaRuntime", runtime: newTestLuaRuntime, requireSupport: true},
+		{name: "ContainerRuntime", runtime: newTestContainerRuntime},
+	}
 
-		var rt Runtime = NewNativeRuntime()
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("NativeRuntime does not implement InteractiveRuntime")
-		}
-		if !ir.SupportsInteractive() {
-			t.Error("NativeRuntime.SupportsInteractive() returned false, expected true")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name+" implements InteractiveRuntime", func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("ShRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+			assertInteractiveRuntime(t, tt)
+		})
+	}
+}
 
-		var rt Runtime = NewShRuntime(false)
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("ShRuntime does not implement InteractiveRuntime")
-		}
-		if !ir.SupportsInteractive() {
-			t.Error("ShRuntime.SupportsInteractive() returned false, expected true")
-		}
-	})
+func newTestNativeRuntime(t *testing.T) Runtime {
+	t.Helper()
 
-	t.Run("LuaRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+	return NewNativeRuntime()
+}
 
-		var rt Runtime = NewLuaRuntime(false)
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("LuaRuntime does not implement InteractiveRuntime")
-		}
-		if !ir.SupportsInteractive() {
-			t.Error("LuaRuntime.SupportsInteractive() returned false, expected true")
-		}
-	})
+func newTestShRuntime(t *testing.T) Runtime {
+	t.Helper()
 
-	t.Run("ContainerRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+	return NewShRuntime(false)
+}
 
-		cfg := &config.Config{ContainerEngine: "docker"}
-		crt, err := NewContainerRuntime(cfg)
-		if err != nil {
-			t.Skipf("Container runtime not available: %v", err)
-		}
+func newTestLuaRuntime(t *testing.T) Runtime {
+	t.Helper()
 
-		var rt Runtime = crt
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("ContainerRuntime does not implement InteractiveRuntime")
-		}
-		// SupportsInteractive depends on engine availability
-		_ = ir.SupportsInteractive()
-	})
+	return NewLuaRuntime(false)
+}
+
+func newTestContainerRuntime(t *testing.T) Runtime {
+	t.Helper()
+
+	cfg := &config.Config{ContainerEngine: "docker"}
+	crt, err := NewContainerRuntime(cfg)
+	if err != nil {
+		t.Skipf("Container runtime not available: %v", err)
+	}
+	return crt
+}
+
+func assertInteractiveRuntime(t *testing.T, tt interactiveRuntimeCase) {
+	t.Helper()
+
+	ir, ok := tt.runtime(t).(InteractiveRuntime)
+	if !ok {
+		t.Errorf("%s does not implement InteractiveRuntime", tt.name)
+		return
+	}
+	if tt.requireSupport && !ir.SupportsInteractive() {
+		t.Errorf("%s.SupportsInteractive() returned false, expected true", tt.name)
+	}
 }
 
 // TestGetInteractiveRuntime tests the helper function for getting InteractiveRuntime.
@@ -339,10 +345,7 @@ func TestShRuntimePrepareInteractivePassesHostBinaryPolicy(t *testing.T) {
 func TestLuaRuntimePrepareInteractive(t *testing.T) {
 	t.Parallel()
 
-	tmpDir := t.TempDir()
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-
-	err := os.WriteFile(invowkfilePath, []byte(`
+	inv, tmpDir := parseInteractiveTestInvowkfile(t, `
 cmds: [{
 	name: "hello-lua"
 	implementations: [{
@@ -351,15 +354,7 @@ cmds: [{
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]
-`), 0o644)
-	if err != nil {
-		t.Fatalf("Failed to create test invowkfile: %v", err)
-	}
-
-	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(invowkfilePath))
-	if err != nil {
-		t.Fatalf("Failed to parse invowkfile: %v", err)
-	}
+`)
 
 	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtualLua
@@ -379,12 +374,39 @@ cmds: [{
 	}
 	t.Cleanup(prepared.Cleanup)
 
-	if prepared.Cmd == nil {
+	assertPreparedLauncherCommand(t, prepared.Cmd, "lua-launcher")
+	assertLuaInteractiveCommandSpec(t, gotSpec, tmpDir)
+}
+
+func parseInteractiveTestInvowkfile(t *testing.T, content string) (inv *invowkfile.Invowkfile, tmpDir string) {
+	t.Helper()
+
+	tmpDir = t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to create test invowkfile: %v", err)
+	}
+	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(invowkfilePath))
+	if err != nil {
+		t.Fatalf("Failed to parse invowkfile: %v", err)
+	}
+	return inv, tmpDir
+}
+
+func assertPreparedLauncherCommand(t *testing.T, cmd *exec.Cmd, launcher string) {
+	t.Helper()
+
+	if cmd == nil {
 		t.Fatal("PrepareInteractive returned nil Cmd")
 	}
-	if prepared.Cmd.Args[0] != "test-invowk" || prepared.Cmd.Args[1] != "lua-launcher" {
-		t.Fatalf("prepared command args = %v, want injected launcher", prepared.Cmd.Args)
+	if cmd.Args[0] != "test-invowk" || cmd.Args[1] != launcher {
+		t.Fatalf("prepared command args = %v, want injected launcher", cmd.Args)
 	}
+}
+
+func assertLuaInteractiveCommandSpec(t *testing.T, gotSpec LuaInteractiveCommandSpec, tmpDir string) {
+	t.Helper()
+
 	if gotSpec.ScriptFile == nil {
 		t.Fatal("launcher spec missing script file")
 	}

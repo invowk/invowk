@@ -10,7 +10,10 @@ import (
 	"cuelang.org/go/cue/parser"
 )
 
-const runtimePreflightValidatorName ValidatorName = "runtime-preflight"
+const (
+	runtimePreflightValidatorName ValidatorName = "runtime-preflight"
+	luaRuntimeOnlyMsg             string        = " is only valid for virtual-lua runtime"
+)
 
 var (
 	nonContainerRuntimeFields = map[string]struct{}{
@@ -121,7 +124,7 @@ func validateVirtualRuntimePreflight(runtime *ast.StructLit, path string, mode R
 			if hasField(runtime, field) {
 				errs = append(errs, runtimePreflightError(
 					path+"."+field,
-					field+" is only valid for virtual-lua runtime",
+					field+luaRuntimeOnlyMsg,
 				))
 			}
 		}
@@ -144,7 +147,7 @@ func validateContainerRuntimePreflight(runtime *ast.StructLit, path string) Vali
 		if hasField(runtime, field) {
 			errs = append(errs, runtimePreflightError(
 				path+"."+field,
-				field+" is only valid for virtual-lua runtime",
+				field+luaRuntimeOnlyMsg,
 			))
 		}
 	}

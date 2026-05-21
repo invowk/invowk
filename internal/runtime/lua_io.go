@@ -15,6 +15,8 @@ import (
 	luart "github.com/arnodel/golua/runtime"
 )
 
+const luaFileClosedMsg = "file is closed"
+
 type (
 	luaIOBridge struct {
 		r             *luart.Runtime
@@ -460,7 +462,7 @@ func (f *luaFile) write(values []luart.Value) error {
 
 func (f *luaFile) flush() error {
 	if f.closed {
-		return errors.New("file is closed")
+		return errors.New(luaFileClosedMsg)
 	}
 	if f.file != nil {
 		if err := f.file.Sync(); err != nil {
@@ -488,7 +490,7 @@ func (f *luaFile) close() error {
 
 func (f *luaFile) ensureReadable() error {
 	if f.closed {
-		return errors.New("file is closed")
+		return errors.New(luaFileClosedMsg)
 	}
 	if f.reader == nil {
 		return errors.New("file is not open for reading")
@@ -498,7 +500,7 @@ func (f *luaFile) ensureReadable() error {
 
 func (f *luaFile) ensureWritable() error {
 	if f.closed {
-		return errors.New("file is closed")
+		return errors.New(luaFileClosedMsg)
 	}
 	if f.writer == nil {
 		return errors.New("file is not open for writing")

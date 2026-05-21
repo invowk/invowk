@@ -236,8 +236,7 @@ func RunLuaScript(ctx context.Context, opts LuaScriptOptions) error {
 		MemoryLimit: opts.MemoryLimit,
 	}
 	rt := NewLuaRuntime(opts.EnableUroot)
-	result := rt.executeScript(luaExecutionRequest{
-		ctx:            ctx,
+	result := rt.executeScript(ctx, luaExecutionRequest{
 		script:         opts.Script,
 		runtimeCfg:     runtimeCfg,
 		env:            env,

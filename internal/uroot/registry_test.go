@@ -298,7 +298,7 @@ func TestRegistry_Run_TarPathValidation(t *testing.T) {
 			r.Register(cmd)
 			ctx := WithHandlerContext(t.Context(), &HandlerContext{
 				Dir: "/work",
-				ValidatePath: func(_ string, path string) (string, error) {
+				ValidatePath: func(_, path string) (string, error) {
 					return "/checked/" + path, nil
 				},
 			})
@@ -306,7 +306,7 @@ func TestRegistry_Run_TarPathValidation(t *testing.T) {
 			if err := r.Run(ctx, "tar", tt.args); err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}
-			if got := strings.Join(cmd.args, "\x00"); got != strings.Join(tt.want, "\x00") {
+			if strings.Join(cmd.args, "\x00") != strings.Join(tt.want, "\x00") {
 				t.Fatalf("tar args = %v, want %v", cmd.args, tt.want)
 			}
 		})
@@ -321,7 +321,7 @@ func TestRegistry_Run_TarPathValidationRejectsArchive(t *testing.T) {
 	r.Register(cmd)
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Dir: "/work",
-		ValidatePath: func(_ string, path string) (string, error) {
+		ValidatePath: func(_, path string) (string, error) {
 			if path == "archive.tar" {
 				return "", errors.New("denied")
 			}
@@ -349,7 +349,7 @@ func TestRegistry_Run_ShasumSkipsAlgorithmFlagValues(t *testing.T) {
 	r.Register(cmd)
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Dir: "/work",
-		ValidatePath: func(_ string, path string) (string, error) {
+		ValidatePath: func(_, path string) (string, error) {
 			return "/checked/" + path, nil
 		},
 	})
@@ -359,7 +359,7 @@ func TestRegistry_Run_ShasumSkipsAlgorithmFlagValues(t *testing.T) {
 		t.Fatalf("Run() error = %v", err)
 	}
 	want := []string{"shasum", "-a", "256", "/checked/hello.txt"}
-	if got := strings.Join(cmd.args, "\x00"); got != strings.Join(want, "\x00") {
+	if strings.Join(cmd.args, "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("shasum args = %v, want %v", cmd.args, want)
 	}
 }

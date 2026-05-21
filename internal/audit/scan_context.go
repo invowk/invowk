@@ -736,6 +736,14 @@ func (sc *ScanContext) appendVendoredScannedModules(ctx context.Context, vendore
 // buildScriptRefs pre-computes all script references from invowkfiles and modules.
 func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) ([]ScriptRef, error) {
 	var refs []ScriptRef
+	refs, err := appendInvowkfileScriptRefs(ctx, refs, invowkfiles)
+	if err != nil {
+		return nil, err
+	}
+	return appendModuleScriptRefs(ctx, refs, modules)
+}
+
+func appendInvowkfileScriptRefs(ctx context.Context, refs []ScriptRef, invowkfiles []*ScannedInvowkfile) ([]ScriptRef, error) {
 	for _, sf := range invowkfiles {
 		if err := scanContextErr(ctx); err != nil {
 			return nil, err
@@ -749,6 +757,10 @@ func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modu
 			return nil, err
 		}
 	}
+	return refs, nil
+}
+
+func appendModuleScriptRefs(ctx context.Context, refs []ScriptRef, modules []*ScannedModule) ([]ScriptRef, error) {
 	for _, sm := range modules {
 		if err := scanContextErr(ctx); err != nil {
 			return nil, err

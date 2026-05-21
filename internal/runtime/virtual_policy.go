@@ -21,8 +21,15 @@ import (
 
 const (
 	// EnvVarStateBinPath is set to the most recent host binary resolved by a virtual runtime.
-	EnvVarStateBinPath = "INVOWK_STATE_BIN_PATH"
-	goosWindows        = "windows"
+	EnvVarStateBinPath  = "INVOWK_STATE_BIN_PATH"
+	goosWindows         = "windows"
+	virtualAnchorCache  = "@cache"
+	virtualAnchorConfig = "@config"
+	virtualAnchorData   = "@data"
+	virtualAnchorHome   = "@home"
+	virtualAnchorState  = "@state"
+	virtualAnchorTmp    = "@tmp"
+	virtualAnchorWork   = "@work"
 )
 
 var (
@@ -90,8 +97,8 @@ func newVirtualPathResolverForFilesystem(
 	if err != nil {
 		return virtualPathResolver{}, err
 	}
-	roots := []string{workDir, scriptBasePath, anchors["@tmp"]}
-	for _, name := range []string{"@config", "@data", "@cache", "@state", "@work"} {
+	roots := []string{workDir, scriptBasePath, anchors[virtualAnchorTmp]}
+	for _, name := range []string{virtualAnchorConfig, virtualAnchorData, virtualAnchorCache, virtualAnchorState, virtualAnchorWork} {
 		if path := anchors[name]; path != "" {
 			roots = append(roots, path)
 		}
@@ -149,28 +156,28 @@ func standardVirtualAnchorsForOS(
 		return getenv(name)
 	}
 	anchors := map[string]string{
-		"@home": home,
-		"@tmp":  tempDir,
-		"@work": workDir,
+		virtualAnchorHome: home,
+		virtualAnchorTmp:  tempDir,
+		virtualAnchorWork: workDir,
 	}
 	switch goos {
 	case goosWindows:
 		roaming := firstNonEmpty(get("APPDATA"), filepath.Join(home, "AppData", "Roaming"))
 		local := firstNonEmpty(get("LOCALAPPDATA"), filepath.Join(home, "AppData", "Local"))
-		anchors["@config"] = filepath.Join(roaming, "invowk", "config")
-		anchors["@data"] = filepath.Join(local, "invowk", "data")
-		anchors["@cache"] = filepath.Join(local, "invowk", "cache")
-		anchors["@state"] = filepath.Join(local, "invowk", "state")
+		anchors[virtualAnchorConfig] = filepath.Join(roaming, "invowk", "config")
+		anchors[virtualAnchorData] = filepath.Join(local, "invowk", "data")
+		anchors[virtualAnchorCache] = filepath.Join(local, "invowk", "cache")
+		anchors[virtualAnchorState] = filepath.Join(local, "invowk", "state")
 	case "darwin":
-		anchors["@config"] = filepath.Join(home, "Library", "Application Support", "invowk")
-		anchors["@data"] = filepath.Join(home, "Library", "Application Support", "invowk")
-		anchors["@cache"] = filepath.Join(home, "Library", "Caches", "invowk")
-		anchors["@state"] = filepath.Join(home, "Library", "Logs", "invowk")
+		anchors[virtualAnchorConfig] = filepath.Join(home, "Library", "Application Support", "invowk")
+		anchors[virtualAnchorData] = filepath.Join(home, "Library", "Application Support", "invowk")
+		anchors[virtualAnchorCache] = filepath.Join(home, "Library", "Caches", "invowk")
+		anchors[virtualAnchorState] = filepath.Join(home, "Library", "Logs", "invowk")
 	default:
-		anchors["@config"] = filepath.Join(firstNonEmpty(get("XDG_CONFIG_HOME"), filepath.Join(home, ".config")), "invowk")
-		anchors["@data"] = filepath.Join(firstNonEmpty(get("XDG_DATA_HOME"), filepath.Join(home, ".local", "share")), "invowk")
-		anchors["@cache"] = filepath.Join(firstNonEmpty(get("XDG_CACHE_HOME"), filepath.Join(home, ".cache")), "invowk")
-		anchors["@state"] = filepath.Join(firstNonEmpty(get("XDG_STATE_HOME"), filepath.Join(home, ".local", "state")), "invowk")
+		anchors[virtualAnchorConfig] = filepath.Join(firstNonEmpty(get("XDG_CONFIG_HOME"), filepath.Join(home, ".config")), "invowk")
+		anchors[virtualAnchorData] = filepath.Join(firstNonEmpty(get("XDG_DATA_HOME"), filepath.Join(home, ".local", "share")), "invowk")
+		anchors[virtualAnchorCache] = filepath.Join(firstNonEmpty(get("XDG_CACHE_HOME"), filepath.Join(home, ".cache")), "invowk")
+		anchors[virtualAnchorState] = filepath.Join(firstNonEmpty(get("XDG_STATE_HOME"), filepath.Join(home, ".local", "state")), "invowk")
 	}
 	return anchors
 }
@@ -230,7 +237,7 @@ func (v virtualPathValidator) validate(cwd, path string) (string, error) {
 			return normalized, nil
 		}
 	}
-	return "", fmt.Errorf("%w: %s", errVirtualPathDenied, normalized)
+	return "", virtualPolicyDenyError(errVirtualPathDenied, normalized)
 }
 
 func (r virtualPathResolver) resolve(path, cwd string) (string, error) {
@@ -410,7 +417,7 @@ func binaryLookupMode(cfg *invowkfile.RuntimeConfig) invowkfile.BinaryLookupMode
 
 func (p *virtualHostBinaryPolicy) resolve(name string) (string, error) {
 	if len(p.allowed) == 0 {
-		return "", fmt.Errorf("%w: %s", errVirtualHostBinaryDenied, name)
+		return "", virtualPolicyDenyError(errVirtualHostBinaryDenied, name)
 	}
 	path, err := p.lookup(name)
 	if err != nil {
@@ -422,7 +429,12 @@ func (p *virtualHostBinaryPolicy) resolve(name string) (string, error) {
 		}
 		return path, nil
 	}
-	return "", fmt.Errorf("%w: %s", errVirtualHostBinaryDenied, name)
+	return "", virtualPolicyDenyError(errVirtualHostBinaryDenied, name)
+}
+
+//goplint:ignore -- virtual policy diagnostics include raw denied path/binary text for actionable errors.
+func virtualPolicyDenyError(err error, value string) error {
+	return fmt.Errorf("%w: %s", err, value)
 }
 
 func (p *virtualHostBinaryPolicy) lookup(name string) (string, error) {
