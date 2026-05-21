@@ -2,7 +2,6 @@
 
 ## Purpose
 Define coherence requirements for CUE schemas, Go value validation, generated configuration, documentation, and tests across Invowk schema and validation contracts.
-
 ## Requirements
 ### Requirement: Module requirement version constraints are schema and Go coherent
 The `invowkmod` CUE schema SHALL accept the same declared version-constraint syntax that Go validation accepts and SHALL reject malformed strings without relying on prefix-only matching.
@@ -133,9 +132,9 @@ Invowk SHALL update tests and documentation for every schema or validation contr
 - **WHEN** `script.interpreter` is added to implementation scripts and custom-check scripts
 - **THEN** CUE schema sync and Go behavioral tests SHALL verify the field exists on both script structs with the same JSON spelling, validation length, and interpreter safety semantics
 
-#### Scenario: Runtime interpreter field is fully removed
-- **WHEN** `interpreter` moves from runtime configs to script objects
-- **THEN** CUE schema sync, Go compile-time structure, generation tests, parser rejection tests, docs checks, and fixture searches SHALL verify runtime configs no longer expose, accept, generate, or document an `interpreter` field
+#### Scenario: Virtual filesystem config is schema and Go coherent
+- **WHEN** virtual filesystem config moves to `platforms[].virtual.filesystem`
+- **THEN** CUE schema sync and Go behavioral tests SHALL verify platform config structs, JSON spelling, default access mode, access enum values, logical path name validation, path value validation, and generated CUE remain aligned
 
 #### Scenario: Clean-break changes do not leave tombstones
 - **WHEN** a field is removed as part of a clean-break schema change
@@ -150,10 +149,10 @@ The `internal/config/config_schema.cue` schema SHALL describe the complete effec
 
 #### Scenario: Top-level defaults are schema-visible
 - **WHEN** developers read `internal/config/config_schema.cue`
-- **THEN** defaults for `container_engine`, `includes`, `default_runtime`, `virtual_shell`, `ui`, `container`, and `llm` SHALL be represented in CUE rather than only in Go patch-merge code
+- **THEN** defaults for `container_engine`, `includes`, `default_runtime`, `virtual`, `ui`, `container`, and `llm` SHALL be represented in CUE rather than only in Go patch-merge code
 
 #### Scenario: Nested defaults are schema-visible
-- **WHEN** developers read nested config definitions such as `#VirtualShellConfig`, `#UIConfig`, and `#AutoProvisionConfig`
+- **WHEN** developers read nested config definitions such as `#VirtualConfig`, `#UIConfig`, and `#AutoProvisionConfig`
 - **THEN** their effective default values SHALL be represented in CUE with constraints on allowed overrides
 
 #### Scenario: User overrides remain accepted
@@ -203,7 +202,7 @@ Generated config output SHALL include every effective config field, including fi
 
 #### Scenario: Default generated config includes default-valued fields
 - **WHEN** Invowk generates the default config file
-- **THEN** the output SHALL include all top-level and nested effective config fields, including default-valued fields such as `container_engine`, `default_runtime`, `virtual_shell.enable_uroot_utils`, `ui.verbose`, and `container.auto_provision.inherit_includes`
+- **THEN** the output SHALL include all top-level and nested effective config fields, including default-valued fields such as `container_engine`, `default_runtime`, `virtual.utilities.enabled`, `ui.verbose`, and `container.auto_provision.inherit_includes`
 
 #### Scenario: Generated config round-trips
 - **WHEN** generated config output is parsed through the config CUE schema

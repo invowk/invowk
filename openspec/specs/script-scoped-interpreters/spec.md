@@ -2,7 +2,6 @@
 
 ## Purpose
 Define script-scoped interpreter configuration, resolution, runtime behavior, custom-check execution, and clean-break removal of runtime-level interpreter support.
-
 ## Requirements
 ### Requirement: Script objects own explicit interpreter selection
 Invowk SHALL expose explicit interpreter selection only as `script.interpreter` on implementation scripts and custom-check scripts.
@@ -85,28 +84,24 @@ Invowk SHALL resolve script content before resolving the interpreter and SHALL u
 - **WHEN** a module-contained script file has a recognized extension but no shebang and no `script.interpreter`
 - **THEN** Invowk SHALL NOT infer the interpreter from the file extension
 
-### Requirement: Virtual runtime only accepts shell-compatible script interpreters
-Invowk SHALL execute virtual runtime scripts with the embedded mvdan/sh shell and SHALL reject non-shell interpreter selections for virtual implementations.
+### Requirement: Virtual-sh runtime only accepts shell-compatible script interpreters
+Invowk SHALL execute `virtual-sh` runtime scripts with the embedded mvdan/sh shell and SHALL reject non-shell interpreter selections for `virtual-sh` implementations.
 
-#### Scenario: Virtual script without interpreter uses mvdan/sh
-- **WHEN** a virtual implementation script omits `interpreter` and has no shebang
+#### Scenario: Virtual-sh script without interpreter uses mvdan/sh
+- **WHEN** a `virtual-sh` implementation script omits `interpreter` and has no shebang
 - **THEN** Invowk SHALL execute it with the embedded mvdan/sh runtime
 
-#### Scenario: Virtual script with shell shebang uses mvdan/sh
-- **WHEN** a virtual implementation script starts with a shell-compatible shebang such as `#!/bin/sh`
+#### Scenario: Virtual-sh script with shell shebang uses mvdan/sh
+- **WHEN** a `virtual-sh` implementation script starts with a shell-compatible shebang such as `#!/bin/sh`
 - **THEN** Invowk SHALL execute it with the embedded mvdan/sh runtime and SHALL NOT require `/bin/sh` to exist on the host
 
-#### Scenario: Virtual script with explicit shell interpreter uses mvdan/sh
-- **WHEN** a virtual implementation script declares `script.interpreter: "sh"`
+#### Scenario: Virtual-sh script with explicit shell interpreter uses mvdan/sh
+- **WHEN** a `virtual-sh` implementation script declares `script.interpreter: "sh"`
 - **THEN** Invowk SHALL accept the script as shell-compatible and execute it with the embedded mvdan/sh runtime
 
-#### Scenario: Virtual script rejects non-shell interpreter
-- **WHEN** a virtual implementation script declares `script.interpreter: "python3"` or uses a Python shebang
+#### Scenario: Virtual-sh script rejects non-shell interpreter
+- **WHEN** a `virtual-sh` implementation script declares `script.interpreter: "python3"` or uses a Python shebang
 - **THEN** Invowk SHALL reject the implementation with `ErrInterpreterNotAllowed` or an equivalent validation error before execution
-
-#### Scenario: Virtual runtime does not preserve old runtime interpreter rejection path
-- **WHEN** a virtual runtime block declares `interpreter`
-- **THEN** CUE parsing SHALL reject the unknown runtime field before runtime validation is reached
 
 ### Requirement: Host custom checks default to portable virtual-shell execution
 Invowk SHALL run host custom checks with the embedded virtual shell when the check is shell-compatible, so custom checks do not depend on fixed host shell paths.
@@ -249,3 +244,44 @@ Invowk SHALL include automated tests that cover schema, Go model, runtime execut
 #### Scenario: Documentation checks cover stale runtime interpreter examples
 - **WHEN** documentation verification runs
 - **THEN** it SHALL fail if current docs, README, snippets, or generated references still contain valid-looking runtime-level interpreter examples
+
+### Requirement: Virtual-lua runtime only accepts Lua script interpreters
+Invowk SHALL execute `virtual-lua` runtime scripts with the embedded Lua VM and SHALL reject non-Lua interpreter selections for `virtual-lua` implementations.
+
+#### Scenario: Virtual-lua script without interpreter uses embedded Lua VM
+- **WHEN** a `virtual-lua` implementation script omits `interpreter` and has no shebang
+- **THEN** Invowk SHALL execute it with the embedded Lua VM
+
+#### Scenario: Virtual-lua script with Lua shebang uses embedded Lua VM
+- **WHEN** a `virtual-lua` implementation script starts with a Lua-compatible shebang
+- **THEN** Invowk SHALL execute it with the embedded Lua VM and SHALL NOT require a host Lua executable
+
+#### Scenario: Virtual-lua script with explicit Lua interpreter uses embedded Lua VM
+- **WHEN** a `virtual-lua` implementation script declares `script.interpreter: "lua"`
+- **THEN** Invowk SHALL accept the script as Lua-compatible and execute it with the embedded Lua VM
+
+#### Scenario: Virtual-lua script rejects non-Lua interpreter
+- **WHEN** a `virtual-lua` implementation script declares `script.interpreter: "python3"` or uses a Python shebang
+- **THEN** Invowk SHALL reject the implementation before execution
+
+### Requirement: Runtime selectors use explicit virtual-family names
+Invowk SHALL use `virtual-sh` and `virtual-lua` as user-authored runtime selectors. The family-level `virtual` config namespace SHALL NOT be a runtime selector.
+
+#### Scenario: Config virtual namespace is not a runtime selector
+- **WHEN** config declares `virtual.utilities.enabled`
+- **THEN** `virtual` SHALL be treated only as the virtual-family config namespace
+
+#### Scenario: Generated output uses explicit virtual-family names
+- **WHEN** Invowk generates CUE, dry-run output, list output, docs snippets, or example invowkfiles
+- **THEN** it SHALL use `virtual-sh` or `virtual-lua`
+
+### Requirement: Runtime lists remain the command shape
+Invowk SHALL keep the existing `runtimes` and `platforms` list model for implementations. This change SHALL NOT introduce singular `runtime` or `platform` fields.
+
+#### Scenario: Multiple virtual runtimes remain selectable
+- **WHEN** an implementation declares both `virtual-sh` and `virtual-lua` in its runtime list
+- **THEN** Invowk SHALL preserve existing runtime-selection semantics for list-ordered runtime configs
+
+#### Scenario: Singular runtime field is not introduced
+- **WHEN** a user declares `runtime: "virtual-lua"` instead of `runtimes`
+- **THEN** Invowk SHALL reject the unsupported field according to the current schema model

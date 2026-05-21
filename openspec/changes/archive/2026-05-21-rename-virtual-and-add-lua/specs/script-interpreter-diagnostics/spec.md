@@ -27,6 +27,21 @@ Invowk dry-run output SHALL disclose the source of the effective interpreter dec
 - **WHEN** `--ivk-dry-run` is used for a selected implementation whose explicit interpreter overrides a different shebang
 - **THEN** the dry-run output SHALL include the override diagnostic with the script source, explicit interpreter, and shebang interpreter
 
+### Requirement: Custom checks surface interpreter override diagnostics
+Invowk SHALL apply the same interpreter override diagnostics to custom-check scripts after custom-check script source resolution.
+
+#### Scenario: Host custom check warns for explicit override
+- **WHEN** a host custom check declares `script: {content: "#!/bin/sh\nprint('ok')", interpreter: "python3"}`
+- **THEN** Invowk SHALL emit an advisory diagnostic before running the check with the host `python3` interpreter
+
+#### Scenario: Container custom check warns for explicit override
+- **WHEN** a selected container runtime declares a custom check with `script: {content: "#!/bin/sh\nprint('ok')", interpreter: "python3"}`
+- **THEN** Invowk SHALL emit an advisory diagnostic before running the check with `python3` inside the container
+
+#### Scenario: Virtual-sh compatible host custom check does not require host shell
+- **WHEN** a host custom check declares a shell-compatible explicit interpreter or shell shebang
+- **THEN** Invowk SHALL continue to run the check through the embedded mvdan/sh shell and SHALL NOT require a host shell path for the diagnostic
+
 ## ADDED Requirements
 
 ### Requirement: Dry-run shows virtual safety settings
@@ -48,18 +63,3 @@ Invowk dry-run output SHALL summarize virtual runtime safety settings that affec
 - **WHEN** `--ivk-dry-run` is used for a virtual runtime with selected-platform `virtual.filesystem` settings
 - **THEN** the dry-run output SHALL show the virtual filesystem access mode
 - **THEN** the dry-run output SHALL list logical path names without leaking unrelated host filesystem details
-
-### Requirement: Custom checks surface interpreter override diagnostics
-Invowk SHALL apply the same interpreter override diagnostics to custom-check scripts after custom-check script source resolution.
-
-#### Scenario: Host custom check warns for explicit override
-- **WHEN** a host custom check declares `script: {content: "#!/bin/sh\nprint('ok')", interpreter: "python3"}`
-- **THEN** Invowk SHALL emit an advisory diagnostic before running the check with the host `python3` interpreter
-
-#### Scenario: Container custom check warns for explicit override
-- **WHEN** a selected container runtime declares a custom check with `script: {content: "#!/bin/sh\nprint('ok')", interpreter: "python3"}`
-- **THEN** Invowk SHALL emit an advisory diagnostic before running the check with `python3` inside the container
-
-#### Scenario: Virtual-sh compatible host custom check does not require host shell
-- **WHEN** a host custom check declares a shell-compatible explicit interpreter or shell shebang
-- **THEN** Invowk SHALL continue to run the check through the embedded mvdan/sh shell and SHALL NOT require a host shell path for the diagnostic
