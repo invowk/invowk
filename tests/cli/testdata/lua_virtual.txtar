@@ -99,12 +99,13 @@ cmds: [
 		name: "host-named"
 		implementations: [{
 			script: {content: """
-				local out, err, code = invowk.capture.tool("named")
+				local tool = os.getenv("INVOWK_PLATFORM") == "windows" and "tool.bat" or "tool"
+				local out, err, code = invowk.capture(tool, "named")
 				print(out .. ":code=" .. tostring(code))
 				"""}
 			runtimes: [{
 				name: "virtual-lua"
-				allowed_binaries: ["tool"]
+				allowed_binaries: ["tool", "tool.bat"]
 			}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
@@ -113,7 +114,8 @@ cmds: [
 		name: "host-wildcard"
 		implementations: [{
 			script: {content: """
-				local out, err, code = invowk.capture.tool("wild")
+				local tool = os.getenv("INVOWK_PLATFORM") == "windows" and "tool.bat" or "tool"
+				local out, err, code = invowk.capture(tool, "wild")
 				print(out .. ":code=" .. tostring(code))
 				"""}
 			runtimes: [{
@@ -127,12 +129,13 @@ cmds: [
 		name: "host-strict"
 		implementations: [{
 			script: {content: """
-				local out, err, code = invowk.capture.tool("strict")
+				local tool = os.getenv("INVOWK_PLATFORM") == "windows" and "tool.bat" or "tool"
+				local out, err, code = invowk.capture(tool, "strict")
 				print("code=" .. tostring(code))
 				"""}
 			runtimes: [{
 				name: "virtual-lua"
-				allowed_binaries: ["tool"]
+				allowed_binaries: ["tool", "tool.bat"]
 				binary_lookup_mode: "strict"
 			}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]

@@ -168,6 +168,11 @@ constructing paths.
 - Do not write `env PATH=$WORK:$PATH`; on Windows the literal colon can create a
   malformed PATH entry or duplicate environment key, causing `exec invowk ...`
   to fail with "executable file not found in %PATH%".
+- Do not create an extensionless Unix script and a `.bat`/`.cmd` fixture with
+  the same base name, then invoke the bare base name on Windows. The lookup can
+  hit the extensionless fixture before the batch file. Invoke the platform
+  executable explicitly (for example `tool.bat` on Windows) or split the test by
+  platform.
 - Keep `tests/cli.TestTestscriptPATHUsesPortableSeparator` in place so future
   txtar fixtures cannot reintroduce this failure mode silently.
 

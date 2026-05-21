@@ -56,6 +56,7 @@ Add focused Go tests before relying on CLI fixtures:
 - `invowk.cmd` streaming and `invowk.capture` stdout/stderr/code behavior.
 - Utility enabled/disabled behavior independent from host binary allowlisting.
 - Host binary deny-by-default, named allow, wildcard allow, absolute executable entries, strict lookup, host lookup, and `bin_path` metadata.
+- Cross-platform host-binary CLI fixtures must invoke the executable name that the host can actually run. In txtar tests, prefer `tool.bat`/`tool.cmd` on Windows and `tool` on Unix when both files are present; a bare `tool` can resolve to the extensionless Unix fixture on Windows and return exit code 1.
 - Stdlib restrictions, path-validated file I/O, module-local `require`, traversal denial, and resource-limit diagnostics.
 
 Useful targeted gates:
