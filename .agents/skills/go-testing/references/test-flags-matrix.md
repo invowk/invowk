@@ -17,7 +17,7 @@
 
 | Flag | Syntax | Default | Purpose |
 |------|--------|---------|---------|
-| `-count` | `-count N` | `1` | Run each test N times; 0 = use cache |
+| `-count` | `-count N` | `1` | Run each test N times; `-count=1` explicitly bypasses cache |
 | `-parallel` | `-parallel N` | `GOMAXPROCS` | Max concurrent `t.Parallel()` tests per package |
 | `-timeout` | `-timeout D` | `10m` | Kill test binary after duration (0 = no limit) |
 | `-short` | `-short` | `false` | Set `testing.Short()` to true |
@@ -79,7 +79,7 @@
 | `-race` + `-cover` | Forces `-covermode=atomic` | Cannot use `-covermode=set` with `-race` |
 | `-race` + `-parallel=1` | Serializes but still detects races | Useful for debugging; slower |
 | `-count=1` + cache | **Bypasses cache entirely** | Use to force re-execution |
-| `-count=0` | Uses cached results if available | Rarely used explicitly |
+| Default package-list run | Uses cached results when only cacheable flags are present | Use `-count=1` to force re-execution |
 | `-run` + `-skip` | `-run` selects, then `-skip` excludes | `-skip` applied after `-run` |
 | `-run` + subtests | Matches `/`-separated names | `-run TestFoo/case_one` |
 | `-v` + gotestsum | **Required** for `--rerun-fails` | Without `-v`, parallel subtests misreported |

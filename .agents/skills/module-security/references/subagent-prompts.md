@@ -177,7 +177,7 @@ For EACH drifted surface, check if these three files reference the old status:
 
 1. `.agents/agents/supply-chain-reviewer.md`
 2. `.agents/skills/module-security/SKILL.md` § "Known Attack Surfaces" table
-3. `.claude/CLAUDE.md` § "Virtual Runtime Security Model"
+3. `AGENTS.md` § "Virtual Runtime Security Model"
 
 For each file, grep for the SC-ID and check if the documented status matches
 what Subagent A found.

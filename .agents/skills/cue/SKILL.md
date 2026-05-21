@@ -1,7 +1,6 @@
 ---
 name: cue
 description: CUE schema patterns for *.cue files, 3-step parsing flow, validation matrix, error formatting. Use when editing invowkfile_schema.cue, invowkmod_schema.cue, config_schema.cue, or working with cueutil parsing.
-disable-model-invocation: false
 ---
 
 # CUE Schema Patterns
@@ -55,13 +54,13 @@ if err := unified.Decode(&result); err != nil {
 - Schema is embedded via `//go:embed` for single-binary distribution
 - Use `LookupPath()` to get the root definition (e.g., `#Invowkfile`, `#Config`)
 - Use `Validate(cue.Concrete(true))` to ensure all values are concrete
-- Use `cue.Concrete(false)` for config files where some fields may be optional
+- Config parsing also uses concrete validation; defaults and optional fields belong in the CUE schema/default layer before decode.
 - Always use `Decode()` for type-safe extraction (see Decode Usage Rules below)
 
 **Reference Implementations**:
 - `pkg/invowkfile/parse.go:ParseBytes()` - Invowkfile parsing
 - `pkg/invowkmod/invowkmod.go:ParseInvowkmodBytes()` - Invowkmod parsing
-- `internal/config/config.go:loadCUEIntoViper()` - Config loading
+- `internal/config/config.go:decodeCUEConfigSource()` - Config loading
 
 ## Validation Responsibility Matrix
 
@@ -178,42 +177,9 @@ config.cue: container.auto_provision.enabled: expected bool, got string
 
 ### Implementation Pattern
 
-Use the `formatCUEError()` helper (available in each package):
+Use `pkg/cueutil` for new parsing paths. Prefer `cueutil.ParseAndDecode*` helpers when they fit; use `cueutil.FormatError` for custom CUE flows that still need repo-standard file/path-prefixed errors.
 
-```go
-import "cuelang.org/go/cue/errors"
-
-func formatCUEError(err error, filePath string) error {
-    if err == nil {
-        return nil
-    }
-
-    cueErrors := errors.Errors(err)
-    if len(cueErrors) == 0 {
-        return fmt.Errorf("%s: %w", filePath, err)
-    }
-
-    var lines []string
-    for _, e := range cueErrors {
-        path := errors.Path(e)
-        pathStr := formatPath(path)  // Convert ["cmds", "0", "script"] to "cmds[0].script"
-        msg := e.Error()
-
-        if pathStr != "" {
-            lines = append(lines, fmt.Sprintf("%s: %s", pathStr, msg))
-        } else {
-            lines = append(lines, msg)
-        }
-    }
-
-    if len(lines) == 1 {
-        return fmt.Errorf("%s: %s", filePath, lines[0])
-    }
-    return fmt.Errorf("%s: validation failed:\n  %s", filePath, strings.Join(lines, "\n  "))
-}
-```
-
-**Important**: Import `cuelang.org/go/cue/errors`, NOT the standard library `errors`. Only CUE's error package provides `Errors()` and `Path()` functions.
+Only import `cuelang.org/go/cue/errors` in low-level error-formatting utilities. Most parser code should not reimplement CUE error walking.
 
 ## CUE Library Version Pinning
 
@@ -222,7 +188,7 @@ func formatCUEError(err error, filePath string) error {
 CUE is pinned in `go.mod`:
 
 ```
-cuelang.org/go v0.15.4
+cuelang.org/go v0.16.1
 ```
 
 ### Upgrade Process
@@ -256,7 +222,7 @@ Sync tests verify Go struct JSON tags match CUE schema field names at CI time. T
 **Test Files**:
 - `pkg/invowkfile/sync_test.go` - Invowkfile, Command, Implementation, etc.
 - `pkg/invowkmod/sync_test.go` - Invowkmod, ModuleRequirement
-- `internal/config/sync_test.go` - Config, VirtualShellConfig, UIConfig, etc.
+- `internal/config/sync_test.go` - Config, VirtualConfig, UIConfig, etc.
 
 **Pattern**:
 ```go

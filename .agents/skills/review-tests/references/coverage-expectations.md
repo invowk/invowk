@@ -71,12 +71,12 @@ when `GOCOVERDIR` is absent. This breaks `! stderr .` assertions in testscript. 
 
 ## Guardrail Test Inventory
 
-Five guardrail tests enforce coverage mandates programmatically. These are checked by
-subagent SA-7 (Coverage & Guardrails).
+Coverage guardrail tests enforce coverage mandates programmatically. These are
+checked by subagent SA-7 (Coverage & Guardrails).
 
 ### 1. TestBuiltinCommandTxtarCoverage
 
-**File**: `cmd/invowk/coverage_test.go`
+**File**: `cmd/invowk/cmd_coverage_test.go`
 
 Verifies every non-hidden, runnable, leaf built-in Cobra command has at least one
 `.txtar` test in `tests/cli/testdata/` with `exec invowk <command>`.
@@ -101,7 +101,7 @@ Verifies every non-hidden, runnable, leaf built-in Cobra command has at least on
 
 ### 2. TestTUIExemptionTmuxCoverage
 
-**File**: `cmd/invowk/coverage_test.go`
+**File**: `cmd/invowk/cmd_coverage_test.go`
 
 Verifies every TUI txtar exemption has a corresponding tmux e2e marker in
 `tests/cli/tui_tmux_test.go`. Prevents silent loss of e2e coverage when TUI commands
@@ -109,7 +109,7 @@ are exempt from txtar tests.
 
 **Marker format**: `" tui <command> "` must exist as a substring in `tui_tmux_test.go`.
 
-### 3. TestVirtualRuntimeMirrorCoverage
+### 3. TestShRuntimeMirrorCoverage
 
 **File**: `tests/cli/runtime_mirror_test.go`
 

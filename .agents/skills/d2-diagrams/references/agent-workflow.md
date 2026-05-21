@@ -215,13 +215,12 @@ jobs:
           curl -fsSL https://d2lang.com/install.sh | sh -s -- --dry-run
           curl -fsSL https://d2lang.com/install.sh | sh -s --
 
-      - name: Install TALA (optional, requires license)
-        if: ${{ secrets.TALA_LICENSE }}
+      - name: Configure TALA token (optional)
+        if: ${{ secrets.TSTRUCT_TOKEN }}
         env:
-          TALA_LICENSE: ${{ secrets.TALA_LICENSE }}
+          TSTRUCT_TOKEN: ${{ secrets.TSTRUCT_TOKEN }}
         run: |
-          # TALA installation steps
-          echo "TALA license configured"
+          echo "TALA token configured"
 
       - name: Validate diagrams
         run: |

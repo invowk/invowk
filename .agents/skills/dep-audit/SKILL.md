@@ -1,8 +1,6 @@
 ---
 name: dep-audit
 description: Audit Go dependencies for vulnerabilities and available updates. Runs govulncheck and checks for stale modules.
-user-invocable: true
-disable-model-invocation: true
 ---
 
 # Dependency Audit
@@ -27,17 +25,25 @@ Verify required tools are available:
 go version
 
 # Optional but recommended
-command -v govulncheck || echo "MISSING: Install with a pinned version, e.g. go install golang.org/x/vuln/cmd/govulncheck@vX.Y.Z"
+command -v govulncheck || echo "MISSING: Install govulncheck using the pin in .agents/rules/version-pinning.md"
 ```
 
 If `govulncheck` is missing, report it and continue with update checks only.
+
+Build the module list once; Invowk includes the root module and the separate `tools/goplint` module:
+
+```bash
+git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u
+```
 
 ### Step 2: Vulnerability Scan
 
 If `govulncheck` is available:
 
 ```bash
-govulncheck ./...
+for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
+  (cd "$mod" && govulncheck ./...)
+done
 ```
 
 Report:
@@ -48,7 +54,10 @@ Report:
 
 ```bash
 # List all modules with available updates
-go list -m -u -json all 2>/dev/null | jq -r 'select(.Update) | "\(.Path): \(.Version) → \(.Update.Version)"'
+for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
+  (cd "$mod" && go list -m -u -retracted -json all 2>/dev/null) |
+    jq -r 'select(.Update) | "\(.Path): \(.Version) → \(.Update.Version)"'
+done
 ```
 
 If `jq` is not available, fall back to:
@@ -72,17 +81,22 @@ Group available updates by impact:
 
 ```bash
 # Look for retracted or deprecated modules
-go list -m -json all 2>/dev/null | jq -r 'select(.Deprecated) | "\(.Path): \(.Deprecated)"'
+for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
+  (cd "$mod" && go list -m -u -retracted -json all 2>/dev/null) |
+    jq -r 'select(.Deprecated or .Retracted) | "\(.Path): deprecated=\(.Deprecated // "-") retracted=\(.Retracted // [])"'
+done
 ```
 
 ### Step 6: Verify Module Tidiness
 
 ```bash
 # Check if go.mod/go.sum are tidy
-go mod tidy -diff 2>&1
+for mod in $(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u); do
+  (cd "$mod" && go mod tidy -diff 2>&1)
+done
 ```
 
-If there are differences, report that `make tidy` is needed.
+If the root module differs, report that `make tidy` is needed. If `tools/goplint` differs, report the module-specific tidy command.
 
 ### Step 7: Generate Report
 

@@ -1,8 +1,6 @@
 ---
 name: schema-sync-check
 description: Validate CUE schema sync after editing schemas or Go structs with JSON tags. Runs targeted sync tests and reports mismatches.
-user-invocable: true
-disable-model-invocation: false
 ---
 
 # Schema Sync Check
@@ -23,16 +21,20 @@ Invoke this skill (`/schema-sync-check`) after:
 
 | Schema | Go Package | Sync Test |
 |--------|-----------|-----------|
-| `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/` | `pkg/invowkfile/sync_test.go` |
+| `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/` | `pkg/invowkfile/sync_test.go`, `pkg/invowkfile/sync_runtime_test.go`, `pkg/invowkfile/sync_behavioral_test.go` |
 | `pkg/invowkmod/invowkmod_schema.cue` | `pkg/invowkmod/` | `pkg/invowkmod/sync_test.go` |
 | `internal/config/config_schema.cue` | `internal/config/types.go` | `internal/config/sync_test.go` |
 
 ### Sync Test Pattern
 
-Each sync test verifies:
+The structural sync tests verify:
 1. Every CUE field name has a matching JSON tag in the Go struct
 2. Every Go struct JSON tag has a matching CUE field name
-3. Field types are compatible (string↔string, int↔int, etc.)
+3. CUE optional fields and Go `omitempty` tags are aligned, reported as warnings where the helper cannot prove intent
+
+Behavioral sync tests then cover parser/schema behavior such as runtime defaults,
+validation constraints, and config decode compatibility. The structural helper does
+not prove Go/CUE type compatibility by itself.
 
 ## Workflow
 
@@ -103,13 +105,15 @@ make test
 
 1. Define CUE definition: `#NewType: close({ ... })`
 2. Create Go struct with JSON tags
-3. Add sync test function:
+3. Add the type to the existing table-driven sync test when possible, or add a
+   targeted test function with the shared helper:
    ```go
    func TestNewTypeSchemaSync(t *testing.T) {
        schema, _ := getCUESchema(t)
-       cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#NewType"))
-       goFields := extractGoJSONTags(t, reflect.TypeFor[NewType]())
-       assertFieldsSync(t, "NewType", cueFields, goFields)
+       def := schematest.LookupDefinition(t, schema, "#NewType")
+       cueFields := schematest.ExtractCUEFields(t, def)
+       goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[NewType]())
+       schematest.AssertFieldsSync(t, "NewType", cueFields, goFields)
    }
    ```
 

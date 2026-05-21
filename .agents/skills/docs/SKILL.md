@@ -1,7 +1,6 @@
 ---
 name: docs
 description: Documentation editing workflow for website/ directory, Docusaurus, MDX snippets, i18n localization, and versioning. Use when editing docs/, creating pages, updating snippets, or running version-docs. For reviewing documentation accuracy, use /review-docs instead.
-disable-model-invocation: false
 ---
 
 # Docs and Website Editing

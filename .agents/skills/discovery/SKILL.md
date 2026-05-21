@@ -1,7 +1,6 @@
 ---
 name: discovery
 description: Module/command discovery, precedence order, collision detection, source tracking. Use when working on internal/discovery/ files or modifying how invowkfiles and modules are found and aggregated.
-disable-model-invocation: false
 ---
 
 # Discovery Skill
@@ -63,7 +62,7 @@ discoverModulesInDirWithDiagnostics(dir) → ([]*DiscoveredFile, []Diagnostic)
 
 ### Track C: Vendored Module Discovery
 
-After discovering each module (from any of the 3 module sources), the system scans its `invowk_modules/` directory for vendored dependencies:
+After discovering each module (from any module source), the system may scan its `invowk_modules/` directory for vendored dependencies:
 
 ```go
 // Flat, one-level scan of <parentModule.Path>/invowk_modules/
@@ -71,10 +70,12 @@ discoverVendoredModulesWithDiagnostics(parentModule) → ([]*DiscoveredFile, []D
 ```
 
 **Key behaviors:**
+- Loads the parent module lock file and includes vendored modules only when they are declared and locked by the parent dependency graph.
+- Verifies vendored module content hashes; hash mismatches are hard errors, not warnings.
+- Skips vendored modules with missing transitive dependencies from the parent graph.
 - Sets `ParentModule` on each vendored `DiscoveredFile` for ownership tracking
 - Vendored modules use `SourceModule` (no new Source enum value)
 - **No recursion**: Only immediate `invowk_modules/` children are scanned; nested vendored modules are NOT recursed into (emits `vendored_nested_ignored` diagnostic)
-- **Graceful degradation**: Invalid vendored modules emit `vendored_module_load_skipped` diagnostic and are skipped
 - Vendored modules are always ordered after their parent in the files slice
 
 **DRY helper** used at all 3 module scan sites (local, includes, user-dir):
@@ -101,34 +102,13 @@ const (
 
 Captures discovery metadata for each found file:
 
-```go
-type DiscoveredFile struct {
-    Path         string           // Absolute path
-    Source       Source           // Which source type
-    Invowkfile   *invowkfile.Invowkfile  // Parsed content (lazy-loaded)
-    Error        error            // Parse errors if applicable
-    Module       *invowkmod.Module  // Non-nil if from .invowkmod
-    ParentModule *invowkmod.Module  // Non-nil if vendored (tracks ownership)
-}
-```
+The current struct lives in `internal/discovery/discovery_files.go`. Fields agents commonly need are `Path`, `Source`, `Invowkfile`, `Error`, `Module`, `ParentModule`, `CommandNamespace`, and `IsGlobalModule`.
 
 ### CommandInfo
 
 Output of command aggregation:
 
-```go
-type CommandInfo struct {
-    Name        string  // Full name with prefix (e.g., "foo build")
-    SimpleName  string  // Unprefixed name (e.g., "build")
-    Source      Source
-    SourceID    string  // "invowkfile" or module short name
-    ModuleID    string  // Full module ID (e.g., "io.invowk.sample")
-    IsAmbiguous bool    // True if SimpleName conflicts across sources
-    FilePath    string  // Absolute path to invowkfile
-    Command     *invowkfile.Command
-    Invowkfile    *invowkfile.Invowkfile
-}
-```
+The current struct lives in `internal/discovery/discovery_commands.go`. It uses typed command names, filesystem paths, `SourceID`, optional `*invowkmod.ModuleID`, `Description`, ambiguity state, and `IsGlobalModule`.
 
 ---
 
@@ -189,16 +169,7 @@ type Module struct {
 
 When two modules have the same ID in different sources:
 
-```go
-type ModuleCollisionError struct {
-    ModuleID string
-    Sources  []string
-}
-
-// Validation (wired into LoadAll automatically)
-err := discovery.CheckModuleCollisions()
-// Returns actionable guidance: add alias in includes config
-```
+`ModuleCollisionError` is defined in `internal/discovery/discovery.go` and reports namespace, first source, second source, and whether the second source is local or vendored.
 
 **Vendored annotation:** When a collision involves a vendored module, the error message includes `"(vendored in <parent>)"` for clearer diagnostics.
 
@@ -282,20 +253,7 @@ type LookupResult struct {
 
 ### Diagnostic Codes
 
-| Code | Severity | Meaning |
-|------|----------|---------|
-| `module_scan_path_invalid` | warning | Failed to resolve module scan directory |
-| `module_scan_failed` | warning | Failed to list directory during module scan |
-| `reserved_module_name_skipped` | warning | Module uses reserved name `"invowkfile"` |
-| `module_load_skipped` | warning | Invalid module skipped during discovery |
-| `include_not_module` | warning | Config include path is not a valid module |
-| `include_reserved_module_skipped` | warning | Config include uses reserved module name |
-| `include_module_load_failed` | warning | Failed to load configured include module |
-| `vendored_scan_failed` | warning | Failed to read vendored modules directory |
-| `vendored_reserved_module_skipped` | warning | Vendored module uses reserved name `"invowkfile"` |
-| `vendored_module_load_skipped` | warning | Invalid vendored module skipped during discovery |
-| `vendored_nested_ignored` | warning | Vendored module has its own `invowk_modules/` (not recursed) |
-| `container_runtime_init_failed` | warning | Container engine unavailable during registry init |
+Use `internal/discovery/diagnostic.go` as the source of truth for diagnostic codes. Current families cover init/config/lookup failures, local/include/vendored module scan and load outcomes, vendored undeclared or transitive-dependency skips, container runtime initialization, shebang/interpreter overrides, local-over-global shadowing, and symlink skips.
 
 ---
 

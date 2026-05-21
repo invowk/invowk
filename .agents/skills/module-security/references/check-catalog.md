@@ -139,10 +139,10 @@ python[23]?\s+-c\s+.*socket.*connect
 | Symlink chains | Symlinks pointing to other symlinks | Follow chain with depth limit (max 10) | Medium | "Symlink chain detected — may obscure final target" |
 
 **Implementation notes:**
-- Two different `copyDir` implementations exist with different symlink handling:
-  - `pkg/invowkmod/resolver_cache.go:copyDir` — **skips symlinks** (safe)
-  - `internal/provision/helpers.go:CopyDir` — **follows symlinks** via `os.ReadDir` (unsafe, SC-05)
-- The symlink scanner should flag the `CopyDir` divergence if it detects symlinks in module trees
+- Both module cache and provisioning copy paths skip symlinks:
+  - `pkg/invowkmod/resolver_cache.go:copyDir`
+  - `internal/provision/helpers.go:CopyDir`
+- Treat any future change that follows symlinks during module copy/provisioning as SC-05 drift.
 
 ---
 

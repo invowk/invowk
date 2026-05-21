@@ -7,12 +7,11 @@ description: >-
   Also user-invocable as /fixer with an issue description, error output,
   PR number, or CI run URL. Spawns up to 3 parallel diagnostic subagents
   based on failure type: platform investigator (consults windows-testing,
-  macos-testing, linux-testing), code path tracer, and CI log analyzer.
+  macos-testing, linux-testing), code path tracer, and pattern matcher.
   Produces a structured diagnosis report with root cause, fix, and prevention.
   Use this skill whenever you encounter test failures, CI failures, runtime
   errors, race detector reports, or any situation that requires diagnosing
   and fixing a bug — even if the user doesn't explicitly say "fix" or "debug".
-disable-model-invocation: false
 ---
 
 # Fixer Skill
@@ -43,7 +42,7 @@ Arguments can be:
 - A description of the issue: `/fixer the watcher tests are flaking on macOS`
 - Error output pasted inline
 - A GitHub PR or run reference: `/fixer check CI failures on PR #42`
-- A test name: `/fixer TestContainerExec hangs on ubuntu-24.04/podman`
+- A test name: `/fixer TestContainerExec hangs on ubuntu-latest/podman`
 
 ## Workflow Overview
 
@@ -381,7 +380,7 @@ For rapid diagnosis, map the failure type to the right investigation path:
 | Container test hang | Check WaitDelay, ContainerTestContext | `linux-testing` |
 | All tests `(unknown)` | Binary killed — timeout or OOM | `go-testing` + `linux-testing` |
 | Lint failure | Read linter output, check `.golangci.toml` | `go` |
-| Baseline regression | Run `make check-types-json`, triage findings | CLAUDE.md § goplint |
+| Baseline regression | Run `make check-types-json`, triage findings | `tools/goplint/AGENTS.md` |
 
 ### Build Failures
 

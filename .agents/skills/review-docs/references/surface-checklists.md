@@ -26,29 +26,31 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
 | S1-C01 | Features list (L5) accurately describes current capabilities | `pkg/`, `internal/`, `cmd/` code | WARNING | source-drift |
-| S1-C02 | Installation section (L36) has correct URLs, platform table, Cosign verify command, and install paths | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yml` | ERROR | cli-contract-drift |
-| S1-C03 | Quick Start (L151) matches `invowk init` generated invowkfile content and CLI output format | `cmd/invowk/init.go`, run `invowk init --help` | ERROR | cli-contract-drift |
-| S1-C04 | Invowkfile Format (L199) field names, types, and constraints match schema | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C05 | Module Metadata (L369) field names and `requires` structure match schema | `pkg/invowkmod/invowkmod_schema.cue` | ERROR | schema-drift |
-| S1-C06 | Dependencies (L486) dependency types (`tools`, `filepaths`, `capabilities`, `custom`) and syntax match `#DependencyConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C07 | Command Flags (L722) flag types, syntax, and validation options match `#FlagConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C08 | Command Arguments (L986) argument types, positional syntax, and validation match `#ArgumentConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C09 | Platform Compatibility (L1362) uses "macos" (not "darwin"), struct format matches `#PlatformConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C10 | Script Sources (L1493) `script.content` / `script.file` syntax and path resolution match `#Implementation` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C11 | Interpreter Support (L1554) config format matches `#Interpreter` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C12 | Modules (L1711) module structure, RDNS naming, and file layout match conventions | `pkg/invowkmod/`, module directory conventions | WARNING | source-drift |
-| S1-C13 | Module Dependencies (L1977) `requires` syntax uses `git_url` (not `git`), lock file format correct, no `v` prefix in versions | `pkg/invowkmod/invowkmod_schema.cue` `#RequiredModule` | ERROR | schema-drift |
-| S1-C14 | Runtime Modes (L2157) runtime descriptions, capabilities, and selection logic match code | `internal/runtime/` | WARNING | source-drift |
-| S1-C15 | Configuration (L2301) config fields, default values, and file location match source of truth | `internal/config/config_schema.cue`, CUE-derived `DefaultConfig()` | ERROR | source-drift |
-| S1-C16 | Shell Completion (L2379) supported shells and generation commands match code | `cmd/invowk/completion.go` | WARNING | cli-contract-drift |
-| S1-C17 | Command Examples (L2416) are accurate and produce described output | Actual CLI behavior | WARNING | cli-contract-drift |
-| S1-C18 | Interactive TUI Components (L2502) component list, flags, and behavior descriptions match code | `cmd/invowk/tui_*.go` | WARNING | source-drift |
-| S1-C19 | Project Structure (L2739) directory descriptions match actual layout | Actual directory layout (`ls`) | WARNING | source-drift |
-| S1-C20 | Dependencies/Go (L2786) dependency list and versions match | `go.mod` | WARNING | source-drift |
-| S1-C21 | Performance and PGO (L2812) description accuracy | `Makefile`, `default.pgo`, `internal/benchmark/` | INFO | source-drift |
-| S1-C22 | Local SonarCloud (L2833) command accuracy | `scripts/sonar-local.sh` | INFO | cli-contract-drift |
+| S1-C02 | Installation section (L41) has correct URLs, platform table, Cosign verify command, and install paths | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yml` | ERROR | cli-contract-drift |
+| S1-C03 | Quick Start (L156) matches `invowk init` generated invowkfile content and CLI output format | `cmd/invowk/init.go`, run `invowk init --help` | ERROR | cli-contract-drift |
+| S1-C04 | Invowkfile Format (L237) field names, types, and constraints match schema | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C05 | Module Metadata (L410) field names and `requires` structure match schema | `pkg/invowkmod/invowkmod_schema.cue` | ERROR | schema-drift |
+| S1-C06 | Dependencies (L559) dependency fields (`tools`, `cmds`, `filepaths`, `env_vars`, `capabilities`, `custom_checks`) and syntax match `#DependsOn` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C07 | Command Flags (L796) flag types, syntax, and validation options match `#Flag` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C08 | Command Arguments (L1060) argument types, positional syntax, and validation match `#Argument` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C09 | Platform Compatibility (L1436) uses "macos" (not "darwin"), struct format matches `#PlatformConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C10 | Script Sources (L1567) `script.content` / `script.file` syntax and path resolution match `#Implementation` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C11 | Interpreter Support (L1631) config format matches `#InterpreterSpec` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C12 | Modules (L1798) module structure, RDNS naming, and file layout match conventions | `pkg/invowkmod/`, module directory conventions | WARNING | source-drift |
+| S1-C13 | Module Dependencies (L2064) `requires` syntax uses `git_url` (not `git`), lock file format correct, no `v` prefix in versions | `pkg/invowkmod/invowkmod_schema.cue` `#ModuleRequirement` | ERROR | schema-drift |
+| S1-C14 | Runtime Modes (L2261) runtime descriptions, capabilities, and selection logic match code | `internal/runtime/` | WARNING | source-drift |
+| S1-C15 | Configuration (L2464) config fields, default values, and file location match source of truth | `internal/config/config_schema.cue`, CUE-derived `DefaultConfig()` | ERROR | source-drift |
+| S1-C16 | Shell Completion (L2564) supported shells and generation commands match code | `cmd/invowk/completion.go` | WARNING | cli-contract-drift |
+| S1-C17 | Command Examples (L2601) are accurate and produce described output | Actual CLI behavior | WARNING | cli-contract-drift |
+| S1-C18 | Interactive TUI Components (L2706) component list, flags, and behavior descriptions match code | `cmd/invowk/tui_*.go` | WARNING | source-drift |
+| S1-C19 | Project Structure (L3164) directory descriptions match actual layout | Actual directory layout (`ls`) | WARNING | source-drift |
+| S1-C20 | Dependencies/Go (L3241) dependency list and versions match | `go.mod` | WARNING | source-drift |
+| S1-C21 | Performance and PGO (L3274) description accuracy | `Makefile`, `default.pgo`, `internal/benchmark/` | INFO | source-drift |
+| S1-C22 | Local SonarCloud (L3295) command accuracy | `scripts/sonar-local.sh` | INFO | cli-contract-drift |
+| S1-C23 | LLM-Assisted Command Authoring (L204) matches `cmd/invowk/agent.go`, `internal/agentcmd/`, and provider/config behavior | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | WARNING | source-drift |
+| S1-C24 | Security Auditing (L2952) matches audit CLI, scanners, report formats, and LLM opt-in behavior | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | WARNING | source-drift |
 
-**Total items**: 22
+**Total items**: 24
 
 ---
 
@@ -63,10 +65,10 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 |---|---|---|---|---|
 | S2-C01 | Invowkfile schema reference page matches current schema field names, types, and constraints | `pkg/invowkfile/invowkfile_schema.cue` → `website/docs/reference/invowkfile-schema.mdx` | ERROR | schema-drift |
 | S2-C02 | Invowkmod schema reference matches current module schema | `pkg/invowkmod/invowkmod_schema.cue` → `website/docs/modules/` pages | ERROR | schema-drift |
-| S2-C03 | Module operation pages (validation, create, packaging, vendoring) match Go implementation | `pkg/invowkmod/operations*.go` → `website/docs/modules/` pages | WARNING | source-drift |
+| S2-C03 | Module operation pages (validation, create, packaging, vendoring) match Go implementation | `internal/app/moduleops/`, `internal/app/modulesync/`, `pkg/invowkmod/` → `website/docs/modules/` pages | WARNING | source-drift |
 | S2-C04 | Config schema reference default values and field names match schema-derived defaults | `internal/config/config_schema.cue` → `website/docs/reference/config-schema.mdx` | ERROR | source-drift |
 | S2-C05 | Configuration options page default values match schema-derived defaults | `internal/config/config_schema.cue` → `website/docs/configuration/options.mdx` | ERROR | source-drift |
-| S2-C06 | Container runtime page matches current container implementation | `internal/runtime/container*.go` → `website/docs/runtime-modes/container.mdx` | WARNING | source-drift |
+| S2-C06 | Container runtime page matches current container implementation | `internal/runtime/container*.go`, `internal/container/`, `internal/containerplan/`, `internal/provision/` → `website/docs/runtime-modes/container.mdx` | WARNING | source-drift |
 | S2-C07 | Quickstart page matches `invowk init` output and getting-started snippets | `cmd/invowk/init.go` → `website/docs/getting-started/quickstart.mdx` | ERROR | cli-contract-drift |
 | S2-C08 | CLI reference page matches current command structure, flags, and subcommands | `cmd/invowk/*.go` → `website/docs/reference/cli.mdx` | ERROR | cli-contract-drift |
 | S2-C09 | Module CLI pages match module command implementation | `cmd/invowk/module*.go` → `website/docs/modules/` + `website/docs/reference/cli.mdx` | WARNING | cli-contract-drift |

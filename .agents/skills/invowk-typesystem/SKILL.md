@@ -1,7 +1,6 @@
 ---
 name: invowk-typesystem
 description: Invowk type-system guidance for all value types across pkg/* and internal/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, and Invalid*Error wrappers. Use when adding, reviewing, refactoring, or documenting value types.
-disable-model-invocation: false
 metadata:
   short-description: Canonical operating guide for Invowk's value-type architecture.
   ownership: "Repo-wide type-system conventions and catalogs"
@@ -21,23 +20,8 @@ metadata:
     - "goplint baseline type findings"
   scope:
     includes:
-      - pkg/types
-      - pkg/fspath
-      - pkg/cueutil
-      - pkg/invowkfile
-      - pkg/invowkmod
-      - pkg/platform
-      - internal/config
-      - internal/runtime
-      - internal/discovery
-      - internal/issue
-      - internal/container
-      - internal/tui
-      - internal/sshserver
-      - internal/tuiserver
-      - internal/core/serverbase
-      - internal/watch
-      - internal/app/execute
+      - pkg/**
+      - internal/**
     excludes:
       - generated files
       - non-Go docs unless explicitly requested
@@ -104,9 +88,8 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 ## Required Checks After Typesystem Changes
 
 - `make check-baseline`
-- `go test ./...`
+- `make test`
 - `make check-agent-docs` (if `AGENTS.md` or `.agents/skills/*` changed)
 
 For docs-only type-catalog refreshes, use at minimum:
 - `make check-agent-docs`
-

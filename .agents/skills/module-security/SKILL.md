@@ -52,8 +52,8 @@ Regression tests for this area must cover:
 | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`, `internal/runtime/lua_io.go` | Virtual host-binary policy, virtual-lua bridge semantics, and path harness |
 | `internal/app/deps/` | Command scope enforcement |
 | `internal/discovery/` | Global module trust, `IsGlobalModule` propagation |
-| `internal/audit/` | Audit scanner package (14 production files, ~1,893 lines) |
-| `cmd/invowk/audit.go` | Top-level CLI command (registered in `root.go`) |
+| `internal/audit/` | Audit scanner package (23 production Go files, ~5,499 lines as of 2026-05) |
+| `cmd/invowk/audit.go` | Top-level CLI command, optional LLM audit flags, and diagnostic rendering |
 
 ---
 
@@ -244,141 +244,16 @@ Areas the Go scanner cannot cover that need interpretive review:
 **Runs only for gaps identified in Phase 2.** Maximum 3 subagents, each doing
 work that genuinely requires reading comprehension and contextual judgment.
 
-### Subagent A: Threat Model Drift Checker (always runs, 1 agent)
+### Subagents
 
-Verifies the 10 attack surfaces (SC-01..SC-10) against current code. Unlike
-the old approach that asked an LLM to "assess status", this checker uses
-concrete verification steps.
+Use `references/subagent-prompts.md` for the full prompts. Keep this file to the
+dispatch rules so the grep patterns and prompt text have one source of truth.
 
-**Prompt template:**
-
-```
-You are verifying the module security threat model for invowk.
-Your job is to run CONCRETE CHECKS — not to assess or interpret.
-
-For each attack surface below, run the specific verification command
-and report ONLY what the command output shows.
-
-## Verification Steps (run each command, report output)
-
-SC-01 Script path traversal:
-  grep -n "validateScriptPathContainment" pkg/invowkfile/implementation.go
-  → If function exists: CONFIRMED (Mitigated)
-  → If not found: DRIFTED (mitigation may have been removed)
-
-SC-02 Virtual host-binary policy:
-  grep -n "virtualHostBinaryPolicy\|allowed_binaries\|allowsAllHostBinaries" internal/runtime/virtual_policy.go internal/runtime/sh.go internal/runtime/lua.go
-  → If present: CONFIRMED (host binaries are policy-gated)
-  → If not found: DRIFTED (host-binary policy may have been removed)
-
-SC-03 InvowkDir R/W volume mount:
-  grep -n "invowkDir" internal/runtime/container_exec.go
-  → If present: CONFIRMED (By-design)
-  → If not found: DRIFTED
-
-SC-04 SSH token in container env:
-  grep -n "SSH_AUTH_SOCK\|INVOWK_SSH" internal/runtime/container_exec.go
-  → Report count and line numbers. Status: Partial if found
-
-SC-05 Provision CopyDir symlink handling:
-  grep -n "os.ModeSymlink\|SkipSymlink\|symlink" internal/provision/helpers.go
-  → If skip logic exists: CONFIRMED (Mitigated)
-  → If follows symlinks: DRIFTED (regression)
-
-SC-06 --ivk-env-var priority override:
-  grep -n "ivk-env-var\|IvkEnvVar" internal/runtime/env_builder.go
-  → If present: CONFIRMED (By-design)
-
-SC-07 custom-check script.content host shell execution:
-  grep -n "exec.Command\|os/exec" internal/app/deps/checks.go
-  → If present: CONFIRMED (Partial — host exec still used)
-  → If removed: status changed
-
-SC-08 Arbitrary interpreter paths:
-  grep -n "allowedInterpreters\|Validate" pkg/invowkfile/interpreter_spec.go
-  → If allowlist exists: CONFIRMED (Mitigated)
-  → If no allowlist: DRIFTED (regression)
-
-SC-09 Root invowkfile scope bypass:
-  grep -n "CanCallTarget\|CommandScope" internal/app/deps/deps.go
-  → If scope check exists: CONFIRMED (By-design)
-
-SC-10 Global module trust:
-  grep -n "IsGlobalModule\|detectModuleShadowing\|VerifyVendoredModuleHashes" internal/discovery/discovery_files.go
-  → Report which functions exist. Status: Partial if shadowing detection present
-
-## Output Format (EXACTLY this format, one line per surface)
-
-SC-01: CONFIRMED (Mitigated) — validateScriptPathContainment at line 446
-SC-02: CONFIRMED (By-design) — interp.ExecHandlers(r.execHandler) at line 320
-...
-
-## Rules
-- Do NOT add subjective commentary or "new findings"
-- Do NOT assess code quality or suggest improvements
-- Report ONLY what the grep commands show
-- If a grep returns no results, report "NOT FOUND" — that IS the finding
-```
-
-### Subagent B: Supply-Chain Reviewer (only for code changes)
-
-**When:** Only when the audit is triggered by code changes (PRs, diffs) that
-touch module system files listed in the Scope table.
-
-Spawns the existing `supply-chain-reviewer` agent
-(`.agents/agents/supply-chain-reviewer.md`) with the diff and Phase 1 findings
-as context.
-
-**Prompt template:**
-
-```
-You are the supply-chain security reviewer for a code change touching
-the invowk module system.
-
-## Deterministic Scan Results (from `invowk audit`)
-{paste Phase 1 JSON summary — just summary + findings at medium+}
-
-## Diff to Review
-{paste git diff or list of changed files}
-
-## Your Task
-Focus ONLY on these questions:
-1. Does this diff regress any existing mitigation? (map to SC-01..SC-10)
-2. Does this diff introduce a new attack surface not covered by the scanner?
-3. Does this diff change trust boundaries (who can invoke what)?
-
-## Rules
-- Do NOT re-scan for patterns the Go scanner already checks
-  (regex patterns, env vars, network commands — those are in Phase 1)
-- Do NOT report findings already present in the Phase 1 output
-- ONLY report genuinely new risks that the compiled scanner cannot detect
-- If nothing new: report "No additional supply-chain risks beyond scanner findings"
-```
-
-### Subagent C: Documentation Drift Checker (only when drift detected)
-
-**When:** Only if Subagent A found any DRIFTED status.
-
-```
-You are checking for documentation drift in invowk's module security docs.
-
-## Drifted Surfaces (from Subagent A)
-{paste only the DRIFTED lines}
-
-## Your Task
-For each drifted surface, check if these documents reference the old status:
-1. `.agents/agents/supply-chain-reviewer.md`
-2. `.agents/skills/module-security/SKILL.md` § "Known Attack Surfaces"
-3. `CLAUDE.md` § "Virtual Runtime Security Model"
-
-## Output Format (one entry per stale reference)
-- **File**: {path}
-- **Line**: {number}
-- **Current text**: {what it says}
-- **Should be**: {what it should say based on Subagent A findings}
-
-If no documents reference stale status: "No documentation drift detected."
-```
+| Subagent | When | Purpose |
+|----------|------|---------|
+| Threat Model Drift Checker | Always in Phase 3 | Verify SC-01..SC-10 with concrete grep commands and report drift only. |
+| Supply-Chain Reviewer | Only for diffs touching module/security scope | Check whether the change regresses a mitigation, adds an uncovered attack surface, or changes trust boundaries. |
+| Documentation Drift Checker | Only when threat-model drift is reported | Find stale references in `AGENTS.md`, `.agents/agents/supply-chain-reviewer.md`, module-security docs, and related user docs. |
 
 ---
 
@@ -491,42 +366,14 @@ Implementation reference for the top-level audit command. Read
 
 ### CLI Layer: `cmd/invowk/audit.go`
 
-```go
-func newAuditCommand(app *App) *cobra.Command {
-    var (
-        format        string
-        minSeverity   string
-        includeGlobal bool
-    )
-    cmd := &cobra.Command{
-        Use:   "audit [path]",
-        Short: "Scan for security risks",
-        Long: `Analyze invowkfiles and modules for supply-chain vulnerabilities, script
-injection, path traversal, suspicious patterns, and lock file integrity issues.
-
-The audit scans standalone invowkfiles, local modules, vendored dependencies,
-and optionally global modules in ~/.invowk/cmds/.
-
-Exit codes:
-  0  No findings at or above the severity threshold
-  1  Findings detected
-  2  Scan error`,
-        Args: cobra.MaximumNArgs(1),
-        RunE: func(cmd *cobra.Command, args []string) error {
-            auditPath := "."
-            if len(args) > 0 { auditPath = args[0] }
-            return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal)
-        },
-    }
-    cmd.Flags().StringVar(&format, "format", "text", "output format: text, json")
-    cmd.Flags().StringVar(&minSeverity, "severity", "low", "minimum severity: info, low, medium, high, critical")
-    cmd.Flags().BoolVar(&includeGlobal, "include-global", false, "include ~/.invowk/cmds/ in scan")
-    return cmd
-}
-```
+`newAuditCommand(app *App, rootFlags *rootFlagValues)` owns the top-level
+`invowk audit [path]` command, text/JSON output selection, severity filtering,
+global-module inclusion, and optional LLM analysis flags. The command text
+documents both provider-based LLM analysis (`--llm-provider`) and configured or
+OpenAI-compatible API analysis (`--llm`).
 
 **Exit codes:** 0 = clean, 1 = findings, 2 = scan error (via `ExitError` with typed codes).
-**Registration:** `rootCmd.AddCommand(newAuditCommand(app))` in `root.go`.
+**Registration:** `rootCmd.AddCommand(newAuditCommand(app, flags))` in `root.go`.
 
 ### Domain Layer: `internal/audit/`
 
@@ -546,6 +393,8 @@ Exit codes:
 | `checks_env.go` | Env var risk, credential extraction, `env_inherit_mode` |
 | `checks_symlink.go` | Symlink detection, boundary checking, chain depth |
 | `checks_module.go` | Module metadata (deps, typosquatting, global trust, version pinning) |
+| `checks_llm.go`, `llm_analyzer.go`, `triage.go` | Optional semantic LLM-backed analysis and triage |
+| `diagnostic.go`, `warnings.go` | User-facing diagnostics and warnings |
 
 ### Core Types
 
@@ -619,7 +468,7 @@ When reviewing module-related changes, adapt the workflow:
 
 | Pitfall | Fix |
 |---------|-----|
-| `CopyDir` in `internal/provision/helpers.go` follows symlinks | Both `CopyDir` impls now skip symlinks (SC-05 Mitigated); residual: `os.Stat` on `src` dir argument itself follows symlinks |
+| Regressing `CopyDir` symlink skipping | Both `CopyDir` impls now skip symlinks (SC-05 Mitigated); residual: `os.Stat` on `src` dir argument itself follows symlinks |
 | Script path accepts absolute paths in module context | `ScriptChecker` now detects this (SeverityHigh); `GetScriptFilePathWithModule` still allows it at parse time |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
 | `loadSingleModule` silently swallows invowkfile parse errors | Line 155: `if parseErr == nil` discards parse failures — intended (module without invowkfile) but consider logging |

@@ -1,3 +1,4 @@
 interface:
   display_name: "Virtual Lua"
   short_description: "Work on Invowk virtual-lua and golua runtime behavior"
+  default_prompt: "Use $virtual-lua to work on Invowk virtual-lua runtime behavior."

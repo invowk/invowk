@@ -1,16 +1,16 @@
 ---
 name: uroot
-description: u-root utility implementation patterns (streaming I/O, error format, symlinks). Use when working on internal/uroot/ files or implementing built-in shell utilities.
-disable-model-invocation: false
+description: u-root utility implementation patterns (streaming I/O, error format, symlinks). Use when working on internal/uroot/ files or implementing built-in utilities for virtual-sh or virtual-lua.
 ---
 
 # u-root Utils Integration
 
-This skill covers implementing u-root utility commands in Invowk.
+This skill covers implementing shared u-root utility commands in Invowk's
+virtual runtime family.
 
 Use this skill when working on:
 - `internal/uroot/` - u-root utility implementations
-- Adding new built-in shell utilities
+- Adding new built-in utilities used by virtual-sh or virtual-lua
 - Modifying u-root command behavior
 
 ---
@@ -193,15 +193,18 @@ New upstream wrappers that embed `baseWrapper` automatically inherit `NativePrep
 - `internal/uroot/command.go` — `NativePreprocessor` marker interface
 - `internal/uroot/wrapper.go` — `baseWrapper.nativePreprocessor()` implementation
 - `internal/uroot/registry.go` — `Run()` preprocessing logic
-- `internal/runtime/sh.go` and `internal/runtime/virtual_policy.go` — virtual utility resolution routes through `Registry.Run()`
+- `internal/runtime/sh.go`, `internal/runtime/lua.go`, and `internal/runtime/virtual_policy.go` — virtual utility resolution routes through `Registry.Run()`
 
 ---
 
 ## Cross-Platform Path Handling
 
-**CRITICAL: Virtual shell utilities must produce POSIX-consistent output on all platforms.**
+**CRITICAL: Virtual runtime utilities must produce POSIX-consistent output on all platforms.**
 
-Since u-root utilities run inside the virtual shell (mvdan/sh), which presents a POSIX-like environment, users write POSIX shell scripts expecting forward-slash paths. Implementations must output forward slashes regardless of the host OS.
+Since u-root utilities are exposed through the virtual runtime family
+(`virtual-sh` and `virtual-lua`) as POSIX-like command utilities, users expect
+forward-slash paths. Implementations must output forward slashes regardless of
+the host OS.
 
 ### Text-Manipulation Utilities (dirname, basename)
 

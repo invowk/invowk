@@ -84,7 +84,9 @@ func TestMain(m *testing.M) {
 }
 ```
 
-This pattern lives in `internal/tui/testmain_windows_test.go`.
+This historical pattern no longer has a dedicated `testmain_windows_test.go`
+home. Before reintroducing package-wide prewarming, confirm the current race
+path and use the `windows-testing` skill for Windows-specific guidance.
 
 ## Common Race Patterns in Go Tests
 

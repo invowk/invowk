@@ -11,7 +11,6 @@ description: >-
   ContainerSemaphore, flock-based cross-binary serialization).
   Use when debugging Linux-only failures, container test hangs, inotify errors,
   or understanding the 5-layer container test timeout strategy.
-disable-model-invocation: false
 ---
 
 # Linux Testing Skill
@@ -161,10 +160,10 @@ do not prevent other processes from reading or writing; both sides must
 cooperate by acquiring the lock before accessing the shared resource.
 
 - **`flock`**: Advisory lock on an open file description (NOT file descriptor).
-  Per-open-file-description means that `flock` locks are NOT inherited across
-  `fork`/`clone` -- the child gets a new file description. This differs from
-  macOS where `flock` IS inherited across `fork`.
-- **`fcntl` locks (POSIX)**: Per-process, inherited across `fork`. More
+  Duplicate file descriptors from `fork`/`dup` refer to the same open file
+  description, so they refer to the same lock.
+- **`fcntl` locks (POSIX record locks)**: Per-process and not inherited by
+  `fork`. More
   granular (byte-range locks), but more complex semantics. Not used by this
   project.
 - **`O_EXCL` with `O_CREAT`**: Atomic file creation. The `open` call fails if
@@ -172,7 +171,7 @@ cooperate by acquiring the lock before accessing the shared resource.
 
 **Project usage of `flock`:**
 
-1. **`internal/runtime/run_lock_linux.go`**: Podman serialization lock on
+1. **`internal/container/run_lock_linux.go`**: Podman serialization lock on
    `$XDG_RUNTIME_DIR/invowk-podman.lock`. Prevents the rootless Podman
    `ping_group_range` race between concurrent invowk processes. Falls back to
    `os.TempDir()` when `XDG_RUNTIME_DIR` is unset.
@@ -379,16 +378,14 @@ which syscalls container processes can make.
 
 ### Runners and Matrix
 
-Linux CI runs on two runner variants with two container engines each:
+Linux CI runs the full test matrix on `ubuntu-latest` with Docker and Podman:
 
 | Runner | Engine | Mode | Purpose |
 |--------|--------|------|---------|
-| `ubuntu-24.04` | Docker | full | Stable baseline |
-| `ubuntu-24.04` | Podman | full | Rootless container testing |
 | `ubuntu-latest` | Docker | full | Rolling forward compatibility |
 | `ubuntu-latest` | Podman | full | Rolling + rootless |
 
-Total: 4 Linux CI jobs, each with `timeout-minutes: 30`.
+Total: 2 Linux CI jobs, each with `timeout-minutes: 30`.
 
 ### Three Test Steps
 
@@ -405,7 +402,7 @@ Full-mode Linux jobs split tests into three separate `gotestsum` invocations:
 
 ### Test Runner Configuration
 
-All steps use gotestsum with `--rerun-fails --rerun-fails-max-failures 5 -race -timeout 15m`. Rerun reports produce `::warning::` annotations; JUnit XML with `flaky_summary: true` enables PR flaky test summaries. See `go-testing` skill for full gotestsum flag reference.
+The non-CLI and runtime full-test steps use gotestsum with `--rerun-fails --rerun-fails-max-failures 5`, `-race`, and `-timeout 15m`. The full CLI step is deterministic testscript execution, does not use rerun-fails, and currently uses `-timeout 10m`. Rerun reports produce `::warning::` annotations when enabled; JUnit XML with `flaky_summary: true` enables PR flaky test summaries. See `go-testing` skill for full gotestsum flag reference.
 
 ---
 
@@ -425,8 +422,8 @@ All steps use gotestsum with `--rerun-fails --rerun-fails-max-failures 5 -race -
 
 | File | Purpose |
 |------|---------|
-| `internal/runtime/run_lock_linux.go` | flock on `$XDG_RUNTIME_DIR/invowk-podman.lock` |
-| `internal/runtime/run_lock_linux_test.go` | flock contention tests with `atomic.Bool` |
+| `internal/container/run_lock_linux.go` | flock on `$XDG_RUNTIME_DIR/invowk-podman.lock` |
+| `internal/container/run_lock_linux_test.go` | flock contention tests with `atomic.Bool` |
 | `internal/testutil/container_suite_lock_linux.go` | Cross-binary test serialization |
 | `internal/testutil/container_context.go` | `ContainerTestContext` with 5-min deadline |
 | `internal/testutil/container_semaphore.go` | `ContainerSemaphore` (buffered channel, cap 2) |

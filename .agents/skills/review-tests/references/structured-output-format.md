@@ -13,7 +13,7 @@ Reviewer: review-tests coordinator + 8 subagents
 Surfaces: SS1-SS8 (StructuralHygiene, ParallelismContext, TestPatterns,
           IntegrationGating, TxtarQuality, Mirrors, CoverageGuardrails,
           DomainTesting)
-Programmatic Checks: PC-01 through PC-10 (see verification-commands.md)
+Programmatic Checks: PC-01 through PC-14 (see verification-commands.md)
 ```
 
 ## Checklist Status (per-subagent output)

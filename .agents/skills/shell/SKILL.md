@@ -1,7 +1,6 @@
 ---
 name: shell
 description: Shell runtime rules for mvdan/sh virtual-sh runtime in internal/runtime/sh.go. Covers positional arguments gotcha (prepend "--"), bash strict mode (set -euo pipefail), arithmetic increment pitfalls.
-disable-model-invocation: false
 ---
 
 # Invowk Shell Runtime Rules
@@ -67,9 +66,9 @@ set -- -v --env=staging  # Sets $1="-v", $2="--env=staging"
 
 When working with mvdan/sh in this codebase, ensure `"--"` is prepended in:
 
-1. `internal/runtime/sh.go` - `Execute()` method
-2. `internal/runtime/sh.go` - `ExecuteCapture()` method
-3. `cmd/invowk/internal_exec_sh.go` - `runInternalExecSh()` function
+1. `internal/runtime/sh.go` - `prepareShExec()` for normal virtual-sh execution
+2. `internal/runtime/sh.go` - `RunShScript()` for the internal exec-sh path
+3. `internal/app/commandadapters/sh_interactive.go` - interactive argv transport
 
 ### Testing
 
@@ -85,7 +84,12 @@ This issue manifests on Windows CI because virtual-sh is the bash-compatible emb
 
 ### Strict Mode (`set -euo pipefail`)
 
-All bash scripts in this project's source tree (build scripts, CI scripts, test harnesses) use strict mode for safety. **Note:** This applies to project-level bash scripts, not to CUE command scripts executed via container runtimes (`/bin/sh -c`). For container script behavior, see the testing skill's "Shell Script Behavior in Containers" section.
+Project-level bash entrypoints should use strict mode for safety. Short sourced
+helpers that only emit shell fragments, such as Bencher helper scripts, may omit
+it deliberately. **Note:** This applies to repository bash scripts, not to CUE
+command scripts executed via container runtimes (`/bin/sh -c`). For container
+script behavior, see the testing skill's "Shell Script Behavior in Containers"
+section.
 
 ```bash
 set -euo pipefail

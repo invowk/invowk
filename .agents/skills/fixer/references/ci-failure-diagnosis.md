@@ -49,7 +49,7 @@ Pipe to `head` to avoid flooding the terminal. CI logs can be thousands of lines
 gh run download <run-id> -n 'test-results-*' -D /tmp/ci-artifacts/
 
 # Download a specific platform's results
-gh run download <run-id> -n 'test-results-ubuntu-24.04-docker' -D /tmp/ci-artifacts/
+gh run download <run-id> -n 'test-results-ubuntu-latest-docker' -D /tmp/ci-artifacts/
 ```
 
 ### Get job details with platform info
@@ -125,8 +125,6 @@ The CI workflow (`.github/workflows/ci.yml`) uploads artifacts with platform-spe
 
 | Artifact name pattern | Platform | Engine |
 |-----------------------|----------|--------|
-| `test-results-ubuntu-24.04-docker` | Linux | Docker |
-| `test-results-ubuntu-24.04-podman` | Linux | Podman |
 | `test-results-ubuntu-latest-docker` | Linux | Docker |
 | `test-results-ubuntu-latest-podman` | Linux | Podman |
 | `test-results-windows-unit` | Windows | none |
@@ -159,7 +157,7 @@ The CI workflow (`.github/workflows/ci.yml`) uploads artifacts with platform-spe
 |------|-------------|-------|
 | `rerun-report.txt` | Main test step | All packages except `tests/cli` and `internal/runtime` |
 | `runtime-rerun-report.txt` | Runtime test step | `internal/runtime` only |
-| `cli-rerun-report.txt` | CLI test step (short-mode only) | `tests/cli/...` |
+| `cli-rerun-report.txt` | Optional CLI rerun-enabled runs only | `tests/cli/...` |
 
 ### Format
 
@@ -200,8 +198,6 @@ The CI matrix in `.github/workflows/ci.yml` defines these test configurations:
 
 | Job name pattern | Runner | Platform | Engine | Test mode | Timeout flags |
 |------------------|--------|----------|--------|-----------|---------------|
-| `Test (ubuntu-24.04 / docker)` | `ubuntu-24.04` | Linux | Docker | full | `-race -timeout 15m` |
-| `Test (ubuntu-24.04 / podman)` | `ubuntu-24.04` | Linux | Podman | full | `-race -timeout 15m` |
 | `Test (ubuntu-latest / docker)` | `ubuntu-latest` | Linux | Docker | full | `-race -timeout 15m` |
 | `Test (ubuntu-latest / podman)` | `ubuntu-latest` | Linux | Podman | full | `-race -timeout 15m` |
 | `Test (windows)` | `windows-latest` | Windows | none | short | `-race -short -v` |

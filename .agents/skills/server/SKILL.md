@@ -1,7 +1,6 @@
 ---
 name: server
 description: Server state machine pattern for sshserver/, tuiserver/, and core/serverbase/. Covers lifecycle states (Created→Starting→Running→Stopping→Stopped), atomic state reads, idempotent stop.
-disable-model-invocation: false
 ---
 
 # Server Pattern
@@ -69,26 +68,19 @@ func (s ServerState) String() string { ... }
 
 // Server struct fields (minimum required)
 type Server struct {
-    state     atomic.Int32      // Lock-free state reads
-    stateMu   sync.Mutex        // Protects state transitions
-    ctx       context.Context   // Server context for cancellation
-    cancel    context.CancelFunc
-    wg        sync.WaitGroup    // Tracks background goroutines
-    startedCh chan struct{}     // Closed when server is ready
-    errCh     chan error        // Async error channel
-    lastErr   error             // Stores error for Failed state
+    base *serverbase.Base // Owns state, cancellation, async errors, and wait group
     // ... server-specific fields
 }
 
-// Constructor - returns single value, no error from New()
-func New(cfg Config) *Server
+// Constructor - may return an error when validation, credentials, or listeners fail
+func New(cfg Config) (*Server, error)
 
 // Lifecycle methods
 func (s *Server) Start(ctx context.Context) error  // Blocks until ready or fails
 func (s *Server) Stop() error                      // Graceful shutdown
 func (s *Server) State() ServerState               // Current state (atomic read)
 func (s *Server) IsRunning() bool                  // Convenience: state == Running
-func (s *Server) Wait() error                      // Block until stopped, return error
+func (s *Server) Wait() error                      // Optional; SSH exposes this
 func (s *Server) Err() <-chan error                // Async error notifications
 ```
 
@@ -98,31 +90,30 @@ func (s *Server) Err() <-chan error                // Async error notifications
 
 ### 1. Atomic State Reads
 
-Use `atomic.Int32` for the state field to allow lock-free reads:
+Use `internal/core/serverbase.Base` for state ownership. Concrete servers delegate
+state reads to the base, which uses atomic reads internally:
 
 ```go
 func (s *Server) State() ServerState {
-    return ServerState(s.state.Load())
+    return ServerState(s.base.State())
 }
 
 func (s *Server) IsRunning() bool {
-    return s.State() == StateRunning
+    return s.base.IsRunning()
 }
 ```
 
-### 2. Mutex-Protected State Transitions
+### 2. Base-Owned State Transitions
 
-All state transitions must be protected by a mutex to prevent concurrent transitions:
+Concrete servers should use `serverbase.Base` transition helpers instead of
+hand-rolling locks. `Base` uses compare-and-swap for the key transitions and an
+idempotent stop loop:
 
 ```go
 func (s *Server) Start(ctx context.Context) error {
-    s.stateMu.Lock()
-    defer s.stateMu.Unlock()
-
-    if s.State() != StateCreated {
-        return fmt.Errorf("server already started or stopped")
+    if err := s.base.TransitionToStarting(ctx); err != nil {
+        return err
     }
-    s.state.Store(int32(StateStarting))
     // ... initialization ...
 }
 ```
@@ -254,41 +245,40 @@ func TestServerStateString(t *testing.T) { ... }
 
 The server state machine is extracted into a reusable package:
 
-- **Base type**: `internal/core/serverbase/` provides the `Base` struct that concrete servers embed
-- **SSH server**: `internal/sshserver/server.go` embeds `serverbase.Base`
-- **TUI server**: `internal/tuiserver/server.go` embeds `serverbase.Base`
+- **Base type**: `internal/core/serverbase/` provides the `Base` struct that concrete servers compose
+- **SSH server**: `internal/sshserver/server.go` owns `base *serverbase.Base`
+- **TUI server**: `internal/tuiserver/server.go` owns `base *serverbase.Base`
 
 ### Using serverbase.Base
 
-Concrete servers embed the base type and use its lifecycle helpers:
+Concrete servers keep the base as a private field and expose only the lifecycle
+methods that are part of their public API:
 
 ```go
 type MyServer struct {
-    *serverbase.Base
+    base *serverbase.Base
     // server-specific fields
 }
 
-func New() *MyServer {
-    return &MyServer{
-        Base: serverbase.NewBase(),
-    }
+func New() (*MyServer, error) {
+    return &MyServer{base: serverbase.NewBase()}, nil
 }
 
 func (s *MyServer) Start(ctx context.Context) error {
-    if err := s.Base.TransitionToStarting(ctx); err != nil {
+    if err := s.base.TransitionToStarting(ctx); err != nil {
         return err
     }
     // ... server-specific initialization ...
-    s.Base.TransitionToRunning()
+    s.base.TransitionToRunning()
     return nil
 }
 
 func (s *MyServer) Stop() error {
-    if !s.Base.TransitionToStopping() {
+    if !s.base.TransitionToStopping() {
         return nil // Already stopped
     }
     // ... server-specific cleanup ...
-    s.Base.WaitForShutdown()
+    s.base.WaitForShutdown()
     s.Base.TransitionToStopped()
     return nil
 }

@@ -9,10 +9,10 @@ The `/docs` skill and `/review-docs` skill both reference this file.
 |---|---|
 | `pkg/invowkfile/invowkfile_schema.cue` | `website/docs/reference/invowkfile-schema.mdx` + affected docs/snippets |
 | `pkg/invowkmod/invowkmod_schema.cue` | `website/docs/modules/` pages, module reference docs |
-| `pkg/invowkmod/operations*.go` | `website/docs/modules/` pages (validation, create, packaging, vendoring) |
+| `internal/app/moduleops/`, `internal/app/modulesync/`, `pkg/invowkmod/` | `website/docs/modules/` pages (validation, create, packaging, vendoring, dependency sync/tidy) |
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
 | `internal/config/types.go` (`DefaultConfig()` derives schema defaults) | `website/docs/reference/config-schema.mdx` (default values), `website/docs/configuration/options.mdx` (default values), pt-BR mirrors |
-| `internal/runtime/container*.go` | `website/docs/runtime-modes/container.mdx` |
+| `internal/runtime/container*.go`, `internal/container/`, `internal/containerplan/`, `internal/provision/` | `website/docs/runtime-modes/container.mdx` |
 | `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, i18n mirror, `getting-started.ts` snippets, `index.tsx` terminal demo, `README.md` Quick Start |
 | `cmd/invowk/*.go` (general CLI) | `website/docs/reference/cli.mdx` + relevant feature docs |
 | `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |

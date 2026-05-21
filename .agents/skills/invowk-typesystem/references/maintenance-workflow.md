@@ -40,10 +40,9 @@ When type-system code changed:
 
 ```bash
 make check-baseline
-go test ./...
+make test
 ```
 
 ## 6. AGENTS Index Sync
 
 If the skill folder is renamed/added/removed, update `AGENTS.md` Skills Index in the same patch.
-

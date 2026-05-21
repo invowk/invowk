@@ -1,7 +1,6 @@
 ---
 name: review-tests
 description: Comprehensive test suite review and audit for invowk. Evaluates 102 checklist items across 8 surfaces — structural hygiene, parallelism/context, test patterns/assertions, integration gating, testscript quality, virtual/native mirrors, coverage guardrails, and TUI/domain-specific testing. Detects both coverage gaps (missing branches, error paths, untested exports) and low-value tests (circular assertions, excessive mocking, dead tests). Use this skill whenever reviewing test quality, checking test coverage, auditing the test suite, preparing for releases, or evaluating whether tests adequately cover recent code changes. Always use this skill for any test review task, even if the user doesn't explicitly say "review tests" — any mention of checking test quality, verifying test coverage, or ensuring tests are comprehensive should trigger this skill.
-disable-model-invocation: false
 ---
 
 # Test Suite Review and Audit
@@ -115,7 +114,7 @@ for f in tests/cli/testdata/native_*.txtar; do if ! grep -q 'platforms:.*windows
 # Parallel group 2 (targeted test runs)
 make lint
 go test -v -run TestBuiltinCommandTxtarCoverage ./cmd/invowk/...
-go test -v -run TestVirtualRuntimeMirrorCoverage ./tests/cli/...
+go test -v -run TestShRuntimeMirrorCoverage ./tests/cli/...
 go test -v -run TestVirtualNativeCommandPathAlignment ./tests/cli/...
 
 # Sequential (comprehensive)

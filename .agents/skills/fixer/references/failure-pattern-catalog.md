@@ -23,16 +23,12 @@ When multiple parallel tests render simultaneously, the detection races. The
 `sync.Once` protects the write, but the read path in some lipgloss versions
 accesses the result outside the `Once`.
 
-**Fix template**: Add a `TestMain` that pre-warms lipgloss before any tests run.
-See `internal/tui/testmain_windows_test.go` for the pattern:
+**Fix template**: First check `.agents/skills/windows-testing/SKILL.md` for the
+current TUI guidance. The older TestMain pre-warm pattern was a no-op in this repo;
+do not reintroduce it unless a fresh race report proves it fixes the current code.
 
 ```go
-func TestMain(m *testing.M) {
-    // Pre-warm lipgloss terminal detection to avoid sync.Once race
-    // in parallel tests.
-    _ = lipgloss.NewStyle().Render("warmup")
-    os.Exit(m.Run())
-}
+// Prefer targeted serialization or dependency injection based on the live race report.
 ```
 
 **Prevention**: Any package that uses lipgloss in parallel tests on Windows must
@@ -107,7 +103,7 @@ while another test reads it is a data race. This affects tests in `internal/tui/
 and `cmd/invowk/` that simulate piped input.
 
 **Fix template**: Do not call `t.Parallel()` on tests that replace `os.Stdin`.
-Use the `isStdinPiped()` and `readStdinAll()` helpers from `cmd/invowk/tui_stdin.go`
+Use the `isInputPiped()` and `readInputAll()` helpers from `cmd/invowk/tui_stdin.go`
 instead of direct `os.Stdin` manipulation where possible.
 
 **Prevention**: Tests that touch `os.Stdin` must omit `t.Parallel()`. Document the
@@ -317,15 +313,13 @@ but gets exit code 1 on Windows. The error message does not mention context canc
 exit code 1. This is indistinguishable from a normal failure. The `ctx.Err()` is
 silently dropped because the exit code looks like a valid non-context error.
 
-**Fix template**: Use `promoteContextError()` from `internal/runtime/native_helpers.go`
-to check for context errors after `extractExitCode`:
+**Fix template**: Call `promoteContextError()` from `internal/runtime/native_helpers.go`
+after `extractExitCode`:
 
 ```go
 // In native runtime execution path:
 result := extractExitCode(err)
-if result.Error == nil {
-    result = promoteContextError(ctx, result)
-}
+promoteContextError(ctx, result)
 ```
 
 **Prevention**: Always check `ctx.Err()` after process exit on Windows when the
@@ -518,7 +512,7 @@ can collide when multiple containers start simultaneously.
 
 ```go
 // Container tests use flock-based cross-binary serialization
-// See internal/runtime/run_lock_linux_test.go
+// See internal/container/run_lock_linux_test.go
 ```
 
 **Prevention**: The container test semaphore (`ContainerSemaphore`) and
@@ -528,8 +522,8 @@ serialization when multiple test binaries run simultaneously.
 **Platform skill**: `linux-testing` SKILL.md (Podman rootless section),
 `linux-testing/references/container-testing-deep.md`.
 
-**Codebase locations**: `internal/runtime/run_lock_linux_test.go`,
-`internal/runtime/container_exec_test.go`.
+**Codebase locations**: `internal/container/run_lock_linux_test.go`,
+`internal/container/container_exec_test.go`.
 
 ---
 
@@ -539,17 +533,17 @@ serialization when multiple test binaries run simultaneously.
 against Docker (or vice versa). The test may pass but produce incorrect coverage.
 
 **Root cause**: The CI workflow masks the non-tested engine by moving its binary
-(`sudo mv /usr/bin/docker /usr/bin/docker.disabled`). If this step fails silently
-(the `|| true` suffix), both engines remain available and `AutoDetectEngine()`
-picks Docker by default (higher priority).
+(`sudo mv /usr/bin/docker /usr/bin/docker.disabled`) and then verifies the masked
+engine is no longer on `PATH`. If runner image paths drift, the fail-loud check
+should stop the job before tests run with the wrong engine.
 
 **Fix template**: Verify the mask step output in CI logs. If the mask failed,
 check if the binary path has changed on the runner image. Update the mask command
 to match the actual binary location.
 
-**Prevention**: The mask steps use `|| true` intentionally (the binary may not
-exist on all runner images). However, the test should verify which engine is
-active before proceeding.
+**Prevention**: Keep masking fail-loud. The test should verify which engine is
+active before proceeding, and missing binaries should be handled explicitly in
+the masking step.
 
 **Platform skill**: `linux-testing` SKILL.md,
 `.github/workflows/ci.yml` (lines 112-117 for mask steps).

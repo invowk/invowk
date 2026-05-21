@@ -1,7 +1,6 @@
 ---
 name: cli
 description: CLI command structure, Cobra patterns, execution flow, hidden internal commands. Use when working on cmd/invowk/ files, adding CLI commands, or modifying Cobra command trees.
-disable-model-invocation: false
 ---
 
 # CLI Architecture Skill
@@ -35,6 +34,8 @@ The CLI is organized under `root.go` with these main command groups:
 | `invowk cmd` | Dynamic command execution (discovered from invowkfiles/modules) |
 | `invowk module` | Module management (validate, create, alias, deps) |
 | `invowk validate` | Unified validation (workspace, invowkfile, or module) |
+| `invowk audit` | Module supply-chain/security audit |
+| `invowk agent` | Agent workflow helpers |
 | `invowk config` | Configuration management |
 | `invowk init` | Initialize new invowkfiles |
 | `invowk tui` | Interactive terminal UI components (gum-like) |
@@ -62,6 +63,7 @@ The CLI is organized under `root.go` with these main command groups:
 
 **Current internal commands:**
 - `invowk internal exec-virtual-sh` — Runs virtual-sh in subprocess context
+- `invowk internal exec-virtual-lua` — Runs virtual-lua in subprocess context
 - `invowk internal check-cmd <name>` — Returns exit 0 if command is discoverable, exit 1 otherwise. Used by runtime-level `cmds` dependency validation inside containers to verify auto-provisioning worked.
 
 ---
@@ -138,6 +140,7 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 | `tui table` | Display/select from table |
 | `tui pager` | Scrollable content viewer |
 | `tui format` | Markdown/code/emoji formatting |
+| `tui style` | Apply terminal text styling |
 | `tui write` | Multi-line text editor |
 
 **Benefits:**
@@ -182,16 +185,11 @@ commandService.Execute(ctx, req)
 
 ### Error Classification Pipeline
 
-`classifyExecutionError()` (`internal/app/commandsvc/errors.go`) maps runtime errors to issue catalog IDs using type-safe `errors.Is()` chains:
+Execution error handling is two-stage: `classifyExecutionError()` (`internal/app/commandsvc/errors.go`) maps runtime errors to service-owned `ErrorKind` values, then the CLI layer maps those kinds to issue catalog IDs in `cmd/invowk/app.go`.
 
 ```go
-switch {
-case errors.Is(err, container.ErrNoEngineAvailable):  → ContainerEngineNotFoundId
-case errors.Is(err, runtime.ErrRuntimeNotAvailable):  → RuntimeNotAvailableId
-case errors.Is(err, os.ErrPermission):                → PermissionDeniedId
-default (ActionableError "find shell"):               → ShellNotFoundId
-fallback:                                             → ScriptExecutionFailedId
-}
+classifyExecutionError(err) → commandsvc.ErrorKind
+mapServiceErrorKindToIssueID(kind) → issue.ID
 ```
 
 ### ServiceError & renderServiceError()

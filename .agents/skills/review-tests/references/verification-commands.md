@@ -9,7 +9,8 @@ Run checks in this order (fastest first, parallelizable checks grouped):
 
 1. Parallel Group 1 (fast file-level): PC-01 + PC-02 + PC-03 + PC-04
 2. Parallel Group 2 (targeted test runs): PC-05 + PC-06 + PC-07 + PC-08
-3. Sequential: PC-09 (comprehensive), PC-10 (file scan)
+3. Sequential: PC-09 + PC-10
+4. Pattern scans: PC-11 + PC-12 + PC-13 + PC-14
 
 ## 1. File Length Check (PC-01)
 
@@ -55,7 +56,7 @@ Failure triage: Add a `.txtar` file in `tests/cli/testdata/` with `exec invowk <
 
 ## 7. Virtual/Native Mirror Coverage (PC-07)
 
-Command: `go test -v -run TestVirtualRuntimeMirrorCoverage ./tests/cli/...`
+Command: `go test -v -run TestShRuntimeMirrorCoverage ./tests/cli/...`
 What it checks: Every non-exempt `virtual_*.txtar` has a `native_*.txtar` mirror.
 Expected: PASS.
 Failure triage: Create the missing native mirror using the `/native-mirror` skill, or add an exemption to `runtime_mirror_exemptions.json` with justification.

@@ -249,12 +249,14 @@ func promoteContextError(ctx *ExecutionContext, result *Result) {
 - `internal/runtime/native.go:218` (Execute)
 - `internal/runtime/native.go:263` (ExecuteCapture)
 
-### Why only native runtime
+### Native-runtime scope
 
-The virtual-sh runtime (mvdan/sh) does not spawn OS processes, so
-`TerminateProcess` is not involved. The container runtime handles process
-lifecycle through the container engine, which has its own timeout/kill
-semantics.
+`promoteContextError` is specific to the native runtime execution path. The
+virtual runtime family has separate process semantics: built-in utilities run in
+process, while explicitly allowed host binaries in virtual-sh or virtual-lua can
+spawn native host processes through the virtual host-binary policy. The
+container runtime handles process lifecycle through the container engine, which
+has its own timeout/kill semantics.
 
 ## Process Environment
 

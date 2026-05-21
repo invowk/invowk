@@ -176,3 +176,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - Exclusions must explain why the policy exception is acceptable.
 - After linter config changes, run `make lint` and the relevant hook/check
   (`make check-baseline` for goplint-sensitive changes).
+- For `tools/goplint` or goplint behavior changes, also read
+  `tools/goplint/AGENTS.md` and run `make check-semantic-spec`,
+  `make check-ifds-compat`, `make check-cfg-refinement`,
+  `make check-cfg-alias`, and `make check-baseline`.

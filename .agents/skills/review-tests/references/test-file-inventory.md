@@ -1,11 +1,18 @@
 # Test File Inventory
 
-Deterministic enumeration of all test files in the repository. Subagents traverse exact listed
-files — no sampling. This file should be regenerated when test files are added or removed.
+Snapshot of the repository's test surface. Subagents should use the commands
+below to refresh counts before review; listed files are orientation aids, not a
+substitute for live enumeration.
 
-**Last generated**: 2026-04-27
+**Last refreshed**: 2026-05-21
 
-**Totals**: 359 `*_test.go` files, 121 `.txtar` files, 105,580 lines of test code.
+**Current snapshot**: 416 `*_test.go` files, 129 `.txtar` files, 120,876 lines of test code.
+
+```bash
+rg --files -g '*_test.go' cmd internal pkg tests tools
+rg --files tests/cli/testdata -g '*.txtar'
+find cmd internal pkg tests tools -name '*_test.go' -exec wc -l {} +
+```
 
 ---
 
@@ -17,7 +24,7 @@ CLI adapter tests. Key files:
 
 | File | Lines | Focus |
 |---|---|---|
-| `coverage_test.go` | 425 | Built-in command txtar coverage guardrail |
+| `cmd_coverage_test.go` | 425 | Built-in command txtar coverage guardrail |
 | `cmd_deps_filepath_test.go` | 801 | Filepath dependency validation |
 | `cmd_args_test.go` | 633 | CLI argument handling |
 | `cmd_deps_caps_env_test.go` | 561 | Capability and env dependency tests |
@@ -243,16 +250,13 @@ Machine-readable exemptions: `tests/cli/runtime_mirror_exemptions.json`
 
 ## Largest Test Files
 
-No live `*_test.go` file currently exceeds the 900-line soft monitor threshold.
-These are the largest live test files and should be monitored when adding new cases:
+Current `*_test.go` files over the 900-line soft monitor threshold:
 
 | File | Lines | Status |
 |---|---|---|
-| `tools/goplint/main_test.go` | 848 | Monitor |
-| `pkg/invowkfile/validation_test.go` | 834 | Monitor |
-| `pkg/invowkmod/lockfile_test.go` | 831 | Monitor |
-| `internal/discovery/discovery_core_test.go` | 812 | Monitor |
-| `internal/config/config_test.go` | 812 | Monitor |
-| `internal/container/engine_docker_mock_test.go` | 807 | Monitor |
-| `internal/uroot/registry_test.go` | 806 | Monitor |
-| `cmd/invowk/cmd_deps_filepath_test.go` | 801 | Monitor |
+| `internal/runtime/runtime_sh_test.go` | 991 | Split before adding more cases |
+| `internal/discovery/discovery_collisions_test.go` | 971 | Split before adding more cases |
+| `internal/config/config_test.go` | 962 | Split before adding more cases |
+| `internal/app/deps/checks_test.go` | 960 | Split before adding more cases |
+| `internal/uroot/registry_test.go` | 916 | Monitor |
+| `pkg/invowkmod/lockfile_test.go` | 910 | Monitor |

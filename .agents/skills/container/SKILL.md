@@ -1,7 +1,6 @@
 ---
 name: container
 description: Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy
-disable-model-invocation: false
 ---
 
 # Container Engine Skill
@@ -10,6 +9,7 @@ This skill covers the container runtime implementation in Invowk, including the 
 
 Use this skill when working on:
 - `internal/container/` - Container engine abstraction
+- `internal/containerplan/` - Persistent container planning and deterministic target resolution
 - `internal/runtime/container.go` - Container runtime implementation
 - `internal/provision/` - Container provisioning logic
 - Container-related tests
@@ -86,7 +86,7 @@ type CommandPreparer interface {
 }
 ```
 
-**Key Pattern:** The interface doesn't expose vendor-specific methods. Methods like `Exec()` and `InspectImage()` exist only on concrete types.
+**Key Pattern:** The interface exposes portable runtime operations only. Vendor-specific or helper-only methods such as image inspection internals stay on `BaseCLIEngine` or concrete types.
 
 ---
 
@@ -138,14 +138,15 @@ type DockerEngine struct {
     *BaseCLIEngine
 }
 
-func NewDockerEngine(opts ...Option) (*DockerEngine, error) {
-    path, err := exec.LookPath("docker")
-    if err != nil {
-        return nil, err
-    }
-    return &DockerEngine{BaseCLIEngine: newBase(path, opts...)}, nil
+func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
+    path, _ := exec.LookPath("docker")
+    allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker)), WithImageExistsSubCmd("inspect")}
+    allOpts = append(allOpts, opts...)
+    return &DockerEngine{BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...)}
 }
 ```
+
+Missing binaries are represented by an empty binary path and reported through `Available()`/factory selection, not by constructor errors.
 
 ### Podman (`podman.go`)
 
@@ -153,11 +154,7 @@ More complex due to Linux-specific features:
 
 **Binary Discovery:**
 ```go
-// Tries podman first, then podman-remote (for immutable distros like Silverblue)
-path, err := exec.LookPath("podman")
-if err != nil {
-    path, err = exec.LookPath("podman-remote")
-}
+path := findPodmanBinary() // tries podman, then podman-remote
 ```
 
 Important: discovery is based on executable lookup (`exec.LookPath`), not shell parsing.
@@ -181,6 +178,15 @@ visible to Invowk's non-interactive process execution. Ensure `podman` or
    // Only transforms 'run' commands, inserted before image name
    func makeUsernsKeepIDAdder() RunArgsTransformer { ... }
    ```
+
+---
+
+## Persistent Container Planning
+
+`internal/containerplan/` owns the pure planning step for persistent container targets:
+`ResolvePersistentTarget` selects CLI, config, or derived names deterministically and applies `create_if_missing` policy before runtime execution mutates engine state.
+
+Keep planning rules in `internal/containerplan/`; keep engine lifecycle operations in `internal/container/`; keep orchestration and user-facing execution flow in `internal/runtime/`.
 
 ---
 
@@ -385,15 +391,13 @@ func TestDockerBuild_Integration(t *testing.T) {
 }
 ```
 
-### testscript HOME Fix
+### testscript Container Setup
 
-Container tests using testscript need `HOME` set to a writable directory:
+Container tests using testscript use `containerSetup` in `tests/cli/cmd_container_test.go`. It layers common setup, creates a dedicated temporary `HOME`, writes the test-scoped container config, probes engine health, and registers orphaned-container cleanup with `env.Defer()`.
 
 ```go
 Setup: func(env *testscript.Env) error {
-    // Docker/Podman CLI requires valid HOME for config storage
-    env.Setenv("HOME", env.WorkDir)
-    return nil
+    return containerSetup(env)
 },
 ```
 
@@ -457,6 +461,7 @@ Without this guard, transient engine failures (125/126) after retry exhaustion g
 | `sandbox_engine.go` | Flatpak/Snap wrapper decorator |
 | `transient.go` | Shared transient error classifier |
 | `doc.go` | Package documentation |
+| `../containerplan/` | Pure persistent-container target planning (`ResolvePersistentTarget`) |
 
 **Runtime files** (in `internal/runtime/`):
 

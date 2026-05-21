@@ -1,8 +1,6 @@
 ---
 name: ci-update
 description: Audit and update CI workflow versions, tool installs, MCP servers, and pre-commit hooks. Checks latest versions, validates sync pair consistency, identifies breaking changes and optimization opportunities. Use whenever preparing a release, doing monthly CI maintenance, or investigating version-related CI failures.
-user-invocable: true
-disable-model-invocation: true
 ---
 
 # CI Update
@@ -32,10 +30,11 @@ This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
 |-----------|-------|
 | `golangci-lint` | `.github/workflows/lint.yml` (`version` input), `.pre-commit-config.yaml` (`rev`) |
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
-| `GoReleaser` | `.github/workflows/ci.yml` (`version` input), `.github/workflows/release.yml` (two `goreleaser-action` steps) |
-| `Node.js` | `.github/workflows/deploy-website.yml`, `.github/workflows/test-website.yml`, `.github/workflows/version-docs.yml` |
-| `cosign` | `sigstore/cosign-installer` action version + `cosign-release` input in `.github/workflows/release.yml` (installer v4+ required for cosign v3+) |
-| `actions/checkout` | ALL 11 workflow files must use the same major version |
+| `GoReleaser` | Every `goreleaser/goreleaser-action` `version:` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml` |
+| `Node.js` | Every `node-version:` reference in `.github/workflows/*.yml` |
+| `cosign` | `sigstore/cosign-installer` action version + `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml` (installer v4+ required for cosign v3+) |
+| `UPX` | Inline `UPX_VERSION` installs in `.github/workflows/ci.yml` and `.github/workflows/release.yml` |
+| `actions/checkout` | Every workflow file that uses `actions/checkout` must use the same major version |
 | `actions/upload-artifact` | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/workflows/pgo-benchstat.yml` |
 | Sonar suppressions | `sonar-project.properties`, `.sonarcloud.properties` (not version, but integrity) |
 
@@ -46,17 +45,9 @@ This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
 Scan all tracked files and extract every version pin into a structured table.
 
 **Workflow files** (scan for `uses:`, `go install`, `curl` installs, `version:` inputs):
-- `.github/workflows/ci.yml`
-- `.github/workflows/lint.yml`
-- `.github/workflows/release.yml`
-- `.github/workflows/pgo-benchstat.yml`
-- `.github/workflows/deploy-website.yml`
-- `.github/workflows/test-website.yml`
-- `.github/workflows/version-docs.yml`
-- `.github/workflows/validate-diagrams.yml`
-- `.github/workflows/release-benchmark-asset.yml`
-- `.github/workflows/claude.yml`
-- `.github/workflows/claude-code-review.yml`
+```bash
+find .github/workflows -maxdepth 1 -type f -name '*.yml' -print | sort
+```
 
 **Configuration files**:
 - `.pre-commit-config.yaml` (golangci-lint `rev`)
@@ -76,11 +67,11 @@ Organize into this table structure:
 | Go tool | govulncheck | vX.Y.Z | ci.yml |
 | Go tool | benchstat | v0.0.0-... | pgo-benchstat.yml |
 | Lint | golangci-lint | vX.Y.Z | lint.yml, .pre-commit-config.yaml |
-| Binary | UPX | X.Y.Z | release.yml |
+| Binary | UPX | X.Y.Z | ci.yml, release.yml |
 | Binary | D2 | vX.Y.Z | validate-diagrams.yml |
-| Binary | Cosign | vX.Y.Z | release.yml |
+| Binary | Cosign | vX.Y.Z | ci.yml, release.yml |
 | Range | GoReleaser | ~> vX.Y | ci.yml, release.yml |
-| Runtime | Node.js | N | deploy-website.yml, test-website.yml, version-docs.yml |
+| Runtime | Node.js | N | all `node-version:` workflow references |
 | MCP | context7-mcp | X.Y.Z | .mcp.json |
 | MCP | server-github | YYYY.M.D | .mcp.json |
 | Action | (each `uses:`) | @vN | workflow files |
@@ -91,12 +82,13 @@ Before checking for updates, verify existing versions are consistent across sync
 
 1. **golangci-lint**: Version in `lint.yml` `golangci-lint-action` `version` input must match `.pre-commit-config.yaml` `rev` field.
 2. **gotestsum**: Version in `ci.yml` must match `release.yml`.
-3. **GoReleaser version input**: Must match across `ci.yml` and `release.yml` (the latter has two goreleaser-action steps).
-4. **Node.js**: `node-version` must match across `deploy-website.yml`, `test-website.yml`, `version-docs.yml`.
-5. **actions/checkout**: Must be the same major version across ALL 11 workflow files. Check every `uses: actions/checkout@` reference.
+3. **GoReleaser version input**: Must match across every `goreleaser/goreleaser-action` step in `ci.yml` and `release.yml`.
+4. **Node.js**: Every `node-version` workflow reference must match.
+5. **actions/checkout**: Must be the same major version across every `uses: actions/checkout@` reference.
 6. **actions/upload-artifact**: Must match across `ci.yml`, `release.yml`, `pgo-benchstat.yml`.
-7. **cosign coupling**: `sigstore/cosign-installer` action version must be compatible with the `cosign-release` tool pin (installer `@v4+` is required for cosign v3+; installer `@v3` cannot install cosign v3+).
-8. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
+7. **cosign coupling**: `sigstore/cosign-installer` action version must be compatible with the `cosign-release` tool pin everywhere it is installed (installer `@v4+` is required for cosign v3+; installer `@v3` cannot install cosign v3+).
+8. **UPX**: Inline `UPX_VERSION` installs must match wherever release packaging or dry-run release checks install UPX.
+9. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
 
 Report all inconsistencies as **SYNC DRIFT** findings before proceeding.
 

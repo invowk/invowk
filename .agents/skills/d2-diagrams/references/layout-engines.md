@@ -222,10 +222,10 @@ d2 layout
 | Team | $10/mo/user | Team collaboration |
 | Enterprise | Custom | Volume licensing, support |
 
-For CI/CD, set the license via environment variable:
+For CI/CD, set the TALA API token via environment variable or a TStruct auth file:
 
 ```bash
-export TALA_LICENSE="your-license-key"
+export TSTRUCT_TOKEN="your-api-token"
 ```
 
 ## Engine Selection Guide
@@ -371,11 +371,11 @@ a -> b -> c
 
 ## CI/CD Considerations
 
-### With TALA License
+### With TALA Token
 
 ```yaml
 env:
-  TALA_LICENSE: ${{ secrets.TALA_LICENSE }}
+  TSTRUCT_TOKEN: ${{ secrets.TSTRUCT_TOKEN }}
 
 steps:
   - run: d2 --layout=tala diagram.d2 output.svg
@@ -394,7 +394,7 @@ steps:
 steps:
   - name: Render diagrams
     run: |
-      if [ -n "$TALA_LICENSE" ]; then
+      if [ -n "$TSTRUCT_TOKEN" ]; then
         LAYOUT="tala"
       else
         LAYOUT="elk"

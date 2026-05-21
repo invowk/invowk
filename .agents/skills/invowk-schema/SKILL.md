@@ -1,7 +1,6 @@
 ---
 name: invowk-schema
 description: Schema guidelines for invowkfile.cue and samples/invowkmods/*.invowkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
-disable-model-invocation: false
 ---
 
 # Invowk Schema Guidelines
@@ -185,7 +184,7 @@ implementations: [
 
 The `samples/invowkmods/` directory contains sample modules that serve as reference implementations, validation tests, and audit fixtures.
 
-- A module is a `.invowkmod` directory containing `invowkmod.cue` (metadata) and `invowkfile.cue` (commands).
+- A module is a `.invowkmod` directory containing required `invowkmod.cue` metadata. `invowkfile.cue` is optional for library-only modules and contains command definitions plus invowkfile-scoped root settings, but no module metadata.
 - The invowkmod schema lives in `pkg/invowkmod/invowkmod_schema.cue` and the invowkfile schema in `pkg/invowkfile/invowkfile_schema.cue`.
 - Always update sample modules when the invowkmod schema, validation rules, or module behavior changes.
 - Modules should demonstrate module-specific features (script file references, cross-platform paths, requirements).
@@ -203,7 +202,7 @@ The `samples/invowkmods/` directory contains sample modules that serve as refere
 When modifying module-related code, verify:
 1. Safe modules in `samples/invowkmods/` pass validation: `go run . validate samples/invowkmods/io.invowk.sample.invowkmod`.
 2. Module naming conventions and module ID matching are enforced.
-3. `invowkmod.cue` is required and parsed; `invowkfile.cue` contains only commands.
+3. `invowkmod.cue` is required and parsed; optional `invowkfile.cue` contains commands and invowkfile-scoped root settings, not module metadata.
 4. Script path resolution works correctly (forward slashes, relative paths).
 5. Nested module detection works correctly.
 6. The `pkg/invowkmod/` tests pass: `go test -v ./pkg/invowkmod/...`.

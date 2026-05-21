@@ -13,6 +13,7 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 
 - `.github/workflows/benchmarks.yml`: base-repo PR and `main` benchmark flow.
 - `.github/workflows/benchmarks-upload.yml`: trusted workflow for fork PR benchmark upload.
+- `.github/workflows/release.yml`: release-tag performance tracking against the previous tag.
 - `build/bencher/Dockerfile`: reproducible benchmark image, Go/Node versions, vendoring, warmup.
 - `scripts/bench-bmf.mjs`: emits BMF JSON and controls the public tracked suite through `TRACKED_GO_BENCHMARKS` and `SHORT_BENCH_REGEX`.
 - `scripts/bencher-threshold-args.sh`: defines every threshold model passed to `bencher run`.
@@ -22,10 +23,11 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 ## Runner Model
 
 - Preserve the dedicated Bencher runner design. GitHub Actions should package and push the benchmark image only; it must not measure benchmarks on GitHub-hosted runners.
-- Keep `BENCHER_SPEC` and `BENCHER_TESTBED` in sync across both benchmark workflows. Current values are `intel-v1` and `bencher-intel-v1-go-1-26`.
+- Keep `BENCHER_SPEC` and `BENCHER_TESTBED` in sync across both benchmark workflows and release performance tracking. Current values are `intel-v1` and `bencher-intel-v1-go-1-26`.
 - For base-repo PRs, use branch `pr-<number>`, hash the PR head SHA, and pass the base branch and base SHA as the start point.
 - For PR branches, keep `--start-point-clone-thresholds` and `--start-point-reset` so PR history is anchored to the base branch.
 - For fork PRs, use the trusted upload workflow: checkout trusted packaging separately from untrusted source, build the image with trusted workflow/scripts, then ask Bencher to run the source image.
+- For releases, benchmark the tag against the previous tag as the start point so release history is anchored to shipped versions rather than PR branches.
 - PR benchmark alerts fail by default through `--error-on-alert`. If a maintainer has deliberately accepted an expected feature cost, add the `benchmarks: accepted-regression` PR label; workflows set `BENCHER_ERROR_ON_ALERT=false` for that PR only, so alerts remain visible in Bencher while the check becomes advisory. Do not use this label for benchmark script bugs, missing thresholds, or unexplained regressions.
 
 ## Threshold Model
@@ -98,6 +100,7 @@ rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHE
 - `latency` versus `Latency` is not a threshold bug by itself. In PR 112, the slug `latency` correctly matched the displayed `Latency`; the warning came from missing `build-time`.
 - `boundary.baseline: null` usually means the threshold exists but Bencher does not yet have enough samples for that model. This is different from `threshold: null`.
 - A Bencher JWT or registry failure often looks like broken benchmark code. Check `BENCHER_API_TOKEN`, the registry login script, and direct API access before rewriting benchmark logic.
+- `benchmarks: accepted-regression` is not the only advisory-alert path. `scripts/bencher-threshold-args.sh` also drops `--error-on-alert` when the start-point branch has no latest benchmark result, because Bencher cannot compare against an absent baseline.
 - Context7 may resolve `Bencher` to unrelated benchmark projects. When that happens, use official Bencher docs plus direct API, CLI output, and report JSON as the source of truth.
 - Do not treat `SHORT_BENCH_REGEX` as internal cleanup. It controls what becomes long-lived public benchmark history.
 - After renaming a Go benchmark function, update both `TRACKED_GO_BENCHMARKS` and `benchmarkNameMap`. Keep the public benchmark slug stable when the workload is the same behavior under a renamed implementation, so Bencher history and thresholds continue across code renames.

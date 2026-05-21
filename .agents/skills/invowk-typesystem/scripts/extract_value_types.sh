@@ -57,10 +57,10 @@ awk '
     }
 
     if (inTypeBlock == 1) {
-      if (braceDepth == 0 && match(line, /^[[:space:]]*([A-Z][A-Za-z0-9_]*)[[:space:]]+(.+)$/, m)) {
+      if (braceDepth == 0 && match(line, /^[[:space:]]*([_A-Za-z][_A-Za-z0-9]*)[[:space:]]+(.+)$/, m)) {
         name=m[1]
         rhs=trim(m[2])
-        if (rhs ~ /^(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|bool|float32|float64|rune|byte|time\.Duration|types\.[A-Z][A-Za-z0-9_]*)$/) {
+        if (rhs ~ /^(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|bool|float32|float64|rune|byte|time\.Duration|types\.[_A-Za-z][_A-Za-z0-9]*)$/) {
           print name "|" rhs "|" FILENAME ":" FNR
         }
       }
@@ -72,10 +72,10 @@ awk '
       next
     }
 
-    if (match(line, /^type[[:space:]]+([A-Z][A-Za-z0-9_]*)[[:space:]]+(.+)$/, m)) {
+    if (match(line, /^type[[:space:]]+([_A-Za-z][_A-Za-z0-9]*)[[:space:]]+(.+)$/, m)) {
       name=m[1]
       rhs=trim(m[2])
-      if (rhs ~ /^(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|bool|float32|float64|rune|byte|time\.Duration|types\.[A-Z][A-Za-z0-9_]*)$/) {
+      if (rhs ~ /^(string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|bool|float32|float64|rune|byte|time\.Duration|types\.[_A-Za-z][_A-Za-z0-9]*)$/) {
         print name "|" rhs "|" FILENAME ":" FNR
       }
     }
@@ -109,7 +109,7 @@ awk '
     }
 
     if (inTypeBlock == 1) {
-      if (braceDepth == 0 && match(line, /^[[:space:]]*([A-Z][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*([^[:space:]].*)$/, m)) {
+      if (braceDepth == 0 && match(line, /^[[:space:]]*([_A-Za-z][_A-Za-z0-9]*)[[:space:]]*=[[:space:]]*([^[:space:]].*)$/, m)) {
         print m[1] "|" trim(m[2]) "|" FILENAME ":" FNR
       }
       braceDepth += opens(line)
@@ -120,7 +120,7 @@ awk '
       next
     }
 
-    if (match(line, /^type[[:space:]]+([A-Z][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*([^[:space:]].*)$/, m)) {
+    if (match(line, /^type[[:space:]]+([_A-Za-z][_A-Za-z0-9]*)[[:space:]]*=[[:space:]]*([^[:space:]].*)$/, m)) {
       print m[1] "|" trim(m[2]) "|" FILENAME ":" FNR
     }
   }

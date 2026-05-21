@@ -252,11 +252,11 @@ file watcher tests.
 **Practical impact for invowk's watcher tests:**
 
 ```go
-// In watcher_test.go, the 10ms sleep between writes ensures each write
+// In watcher_test.go, the inter-write sleep gives kqueue time to deliver events:
 // generates a separate fsnotify event:
 for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
     os.WriteFile(filepath.Join(dir, name), []byte("data"), 0o644)
-    time.Sleep(10 * time.Millisecond) // Allow kqueue to deliver event
+    time.Sleep(20 * time.Millisecond) // Allow kqueue to deliver event
 }
 ```
 

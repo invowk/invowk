@@ -1,8 +1,6 @@
 ---
 name: native-mirror
 description: Generate native_*.txtar mirror tests from virtual_*.txtar tests with platform-split CUE patterns and exemption rules. Use when creating or updating testscript CLI tests that need native runtime mirrors.
-user-invocable: true
-disable-model-invocation: false
 ---
 
 # Native Mirror Generator
@@ -24,8 +22,9 @@ Before generating a mirror, verify the virtual test is NOT exempt:
 
 > **Source of truth**: The machine-enforced exemption list is in
 > `tests/cli/runtime_mirror_exemptions.json`. This SKILL.md list is a human
-> reference and must stay in sync. `TestVirtualRuntimeMirrorCoverage` enforces
-> the JSON entries; stale entries cause test failures.
+> reference and must stay in sync. `TestShRuntimeMirrorCoverage` enforces the
+> JSON entries; `TestVirtualNativeCommandPathAlignment` enforces command-path
+> alignment except for justified `command_path_exempt` entries.
 
 **Exempt categories** (do NOT create native mirrors):
 - `virtual_uroot_*.txtar` — u-root commands are virtual shell built-ins
@@ -97,7 +96,10 @@ Apply these translations for the Windows (PowerShell) implementation:
 
 ### Step 5: Preserve Assertions
 
-The `stdout` and `stderr` assertions must be **identical** between virtual and native tests. Only the script syntax differs, not the output.
+The `stdout`/`stderr` assertions and `exec` command paths should match between
+virtual and native tests by default. Intentional output or command-path divergence
+must be recorded in `tests/cli/runtime_mirror_exemptions.json` with a justification,
+using `command_path_exempt` for command target differences.
 
 ### Step 6: Write the Mirror
 

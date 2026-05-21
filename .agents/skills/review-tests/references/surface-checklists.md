@@ -80,7 +80,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T3-C10 | Absolute path fixtures use `t.TempDir()` + `filepath.Join()`, not hardcoded `/foo/bar` | Tests using absolute paths as fixtures | WARNING |
 | T3-C11 | No circular/trivial tests (zero-value == zero, constant == literal without behavioral purpose) | All test files | WARNING |
 | T3-C12 | `t.TempDir()` preferred over `os.MkdirTemp` + manual cleanup | All test files | INFO |
-| T3-C13 | Tests that scan for prohibited patterns (guardrail tests) are documented with clear rationale | `cmd/invowk/coverage_test.go`, `internal/issue/issue_test.go` | INFO |
+| T3-C13 | Tests that scan for prohibited patterns (guardrail tests) are documented with clear rationale | `cmd/invowk/cmd_coverage_test.go`, `tests/coverage/`, `internal/issue/issue_test.go` | INFO |
 | T3-C14 | `t.Fatalf` used (not `t.Errorf`) when continuing after failure would cause nil pointer dereference | Tests with dependent assertions | INFO |
 
 **Total items**: 14
@@ -167,16 +167,16 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 
 ## §SS7: Coverage and Guardrails
 
-**File scope**: `cmd/invowk/coverage_test.go`, `tests/cli/runtime_mirror_test.go`, `internal/issue/issue_test.go`, `internal/testutil/`, `sonar-project.properties`, `.github/workflows/ci.yml`
+**File scope**: `cmd/invowk/cmd_coverage_test.go`, `tests/cli/runtime_mirror_test.go`, `tests/coverage/`, `internal/issue/issue_test.go`, `internal/testutil/`, `sonar-project.properties`, `.github/workflows/ci.yml`
 
 **References**: `coverage-expectations.md`.
 
 | ID | Check | File Scope | Severity |
 |---|---|---|---|
-| T7-C01 | `TestBuiltinCommandTxtarCoverage` passes: every non-hidden leaf command has txtar or documented exemption | `cmd/invowk/coverage_test.go` | ERROR |
-| T7-C02 | `TestTUIExemptionTmuxCoverage` passes: every TUI exemption has tmux e2e marker | `cmd/invowk/coverage_test.go` | ERROR |
-| T7-C03 | No stale entries in `builtinTxtarCoverageExemptions` (commands that no longer exist) | `cmd/invowk/coverage_test.go` | ERROR |
-| T7-C04 | No unnecessary entries in `builtinTxtarCoverageExemptions` (commands now covered by txtar) | `cmd/invowk/coverage_test.go` | WARNING |
+| T7-C01 | `TestBuiltinCommandTxtarCoverage` passes: every non-hidden leaf command has txtar or documented exemption | `cmd/invowk/cmd_coverage_test.go` | ERROR |
+| T7-C02 | `TestTUIExemptionTmuxCoverage` passes: every TUI exemption has tmux e2e marker | `cmd/invowk/cmd_coverage_test.go` | ERROR |
+| T7-C03 | No stale entries in `builtinTxtarCoverageExemptions` (commands that no longer exist) | `cmd/invowk/cmd_coverage_test.go` | ERROR |
+| T7-C04 | No unnecessary entries in `builtinTxtarCoverageExemptions` (commands now covered by txtar) | `cmd/invowk/cmd_coverage_test.go` | WARNING |
 | T7-C05 | `tests/cli/tui_tmux_test.go` covers all 9 TUI commands (input, choose, confirm, write, filter, file, table, spin, pager) | `tests/cli/tui_tmux_test.go` | ERROR |
 | T7-C06 | CI runs with `-coverprofile=coverage.out` and uploads as artifact. Note: SonarCloud uses automatic analysis (GitHub App) and cannot consume CI artifacts — this is intentional (see `known-exceptions.md` § SonarCloud Configuration Exceptions). | `.github/workflows/ci.yml` | WARNING |
 | T7-C07 | CI runs with `-race` flag on all platforms | `.github/workflows/ci.yml` | WARNING |

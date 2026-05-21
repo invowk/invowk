@@ -10,7 +10,6 @@ description: >-
   (windows-testing, macos-testing, linux-testing) for OS-level issues.
   Use this whenever working on test code, debugging test failures, or
   optimizing CI performance.
-disable-model-invocation: false
 ---
 
 # Go Testing Skill
@@ -38,7 +37,7 @@ When a test failure is platform-specific, consult the right platform skill:
 | `ERROR_SHARING_VIOLATION` on temp files | `windows-testing` | Antivirus scanning, mandatory file locking |
 | Timer-based test flakiness (Windows) | `windows-testing` | Default 15.6ms timer resolution |
 | Race detector timeout on large suites | `windows-testing` | Higher overhead; `-timeout 15m` pattern |
-| lipgloss `sync.Once` race on Windows | `windows-testing` | `TestMain` pre-warm pattern |
+| Windows TUI rendering/race symptoms | `windows-testing` | Current TUI race guidance and known obsolete pre-warm patterns |
 | APFS case-insensitive filename collision | `macos-testing` | Case-preserving but case-insensitive FS |
 | `/tmp` path comparison mismatch | `macos-testing` | `/tmp` → `/private/tmp` symlink |
 | `/var` vs `/private/var` path comparison mismatch | `macos-testing` | macOS runner symlink resolution |
@@ -77,9 +76,8 @@ Go's test parallelism operates at two levels:
 2. **Intra-package**: tests calling `t.Parallel()` run concurrently within the package,
    bounded by `-parallel` (defaults to `GOMAXPROCS`).
 
-The `-parallel` flag controls ONLY intra-package parallelism. There is no flag to
-control inter-package parallelism directly (`-p` controls build parallelism, not
-test execution).
+The `-parallel` flag controls only intra-package parallelism within a test binary.
+Use `-p` to bound concurrent package test binaries and build actions.
 
 ### Binary Mode vs List Mode
 
@@ -92,7 +90,7 @@ test execution).
 | Flag | Purpose | Key Interactions |
 |------|---------|-----------------|
 | `-race` | Enable race detector | 5-10x mem, 2-20x CPU; cached separately; see `references/race-detector-guide.md` |
-| `-count N` | Run each test N times | `-count=1` bypasses cache; `-count=0` means "use cache" |
+| `-count N` | Run each test N times | Default package-list runs may use cache; `-count=1` explicitly bypasses cache |
 | `-parallel N` | Max concurrent `t.Parallel()` tests | Defaults to `GOMAXPROCS`; only intra-package |
 | `-timeout D` | Kill test binary after duration | Default 10m; affects ALL packages in the run |
 | `-short` | Set `testing.Short()` to true | Convention: skip slow/integration tests |
@@ -272,7 +270,7 @@ Cross-ref: `.agents/skills/review-tests/references/known-exceptions.md` for legi
 | `t.Cleanup(f)` | Register cleanup (LIFO order) | Runs after test + subtests complete |
 | `t.TempDir()` | Auto-cleaned temp directory | Unique per call; cleaned after test |
 | `t.Setenv(k, v)` | Set env var, restore after test | **Panics** if called after `t.Parallel()` |
-| `t.Context()` | Context cancelled when test ends | Go 1.21+; default choice for test contexts |
+| `t.Context()` | Context cancelled when test ends | Go 1.24+; default choice for test contexts |
 | `t.Chdir(dir)` | Change working dir, restore after test | Go 1.24+; **panics** after `t.Parallel()` |
 
 ### Control Flow
@@ -299,7 +297,7 @@ Cross-ref: `.agents/skills/review-tests/references/known-exceptions.md` for legi
 accepts `*testing.T` and calls assertion methods (`t.Error`, `t.Fatal`, etc.). This
 includes transitively — if helper A calls helper B which calls `t.Fatal`, both A and B
 need `t.Helper()`. Functions passed to `t.Run()` as subtests do NOT need `t.Helper()`.
-See `review-tests/references/pattern-catalog.md` § "t.Helper() Semantics".
+See `.agents/skills/review-tests/references/pattern-catalog.md` § "t.Helper() Semantics".
 
 **Critical**: `t.Fatal` / `t.FailNow` inside a goroutine will panic — they call
 `runtime.Goexit()` which only exits the current goroutine, not the test. Use
@@ -336,7 +334,7 @@ creates new problem" pattern in this codebase.
 **Key rule**: When removing or moving code near a `//nolint:` directive, always run
 `make lint` afterward to verify the directive is still needed.
 
-See `review-tests/references/pattern-catalog.md` § "nolintlint Directive Lifecycle"
+See `.agents/skills/review-tests/references/pattern-catalog.md` § "nolintlint Directive Lifecycle"
 for the full lifecycle rules and common failure patterns.
 
 ## Build Tags for Tests
@@ -346,12 +344,11 @@ for the full lifecycle rules and common failure patterns.
 - **`//go:build <expr>`**: explicit build constraint (e.g., `//go:build !windows`).
 - **`-tags` flag**: `go test -tags=integration ./...` — enable custom build tags.
 
-Platform-specific test files in this project:
-- `internal/tui/testmain_windows_test.go` — `//go:build windows`
-- `internal/watch/watcher_fatal_unix_test.go` — `//go:build !windows`
-- `internal/watch/watcher_fatal_windows_test.go` — `//go:build windows`
-- `internal/container/podman_sysctl_linux_test.go` — `//go:build linux`
-- `internal/runtime/run_lock_linux_test.go` — `//go:build linux`
+Discover current platform-specific test files with:
+
+```bash
+rg --files -g '*_linux_test.go' -g '*_windows_test.go' -g '*_darwin_test.go'
+```
 
 ## Standard Library Test Helpers
 

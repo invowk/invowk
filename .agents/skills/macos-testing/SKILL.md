@@ -9,7 +9,6 @@ description: >-
   on Apple Silicon. Use when debugging macOS-only test failures, virtual path
   resolver assertion drift, watcher test flakiness, or understanding why timing
   tests flake on macos-15 CI runners.
-disable-model-invocation: false
 ---
 
 # macOS Testing Skill
@@ -176,10 +175,10 @@ to the same file may produce a single `NOTE_WRITE` event instead of one per
 write. This is by design for efficiency but means file watchers may miss
 intermediate states.
 
-**Impact on invowk**: The `time.Sleep` calls in `internal/watch/watcher_test.go`
-(8 occurrences) are necessary because kqueue may coalesce rapid writes into
-fewer events than expected. The sleep between writes ensures each write
-generates a separate fsnotify event rather than being batched by the OS.
+**Impact on invowk**: The few `time.Sleep` calls in `internal/watch/watcher_test.go`
+are intentional timing buffers for kqueue coalescing and debounce verification.
+Keep them evidence-based and avoid adding exact sleep-count claims to this skill;
+the test file is the source of truth for current durations.
 
 ### File Descriptor-Based Watches
 
@@ -208,14 +207,16 @@ Full comparison table and deep dive: `references/filesystem-kqueue.md`.
 
 On macOS, `flock` locks are inherited across `fork()`. Child processes created
 via `exec.Command` (which does fork+exec internally) briefly inherit the
-parent's flock during the fork-to-exec window. On Linux, flocks are
-per-open-file-description and are NOT inherited across fork.
+parent's flock during the fork-to-exec window. On Linux, flocks are also tied
+to open file descriptions; duplicate descriptors inherited across fork refer to
+the same lock.
 
-This difference is **academic for invowk** because `run_lock_other.go`
+This is **academic for invowk** because `internal/container/run_lock_other.go`
 (build tag `!linux`) returns `errFlockUnavailable` on macOS, falling back
-to `sync.Mutex`. On macOS/Windows, Podman runs inside a Linux VM
-(podman machine / WSL2), so a host-side flock cannot reach the VM's
-filesystem. The in-process mutex is the best available protection.
+to `sync.Mutex` for container engine run serialization. On macOS/Windows,
+Podman runs inside a Linux VM (podman machine / WSL2), so a host-side flock
+cannot reach the VM's filesystem. The in-process mutex is the best available
+protection.
 
 If future code adds macOS flock support, be aware:
 - Locks inherited during fork may cause unexpected serialization.
@@ -369,26 +370,10 @@ the build matrix, but tests run only on ARM64.
 
 ### Test Execution
 
-```bash
-# Short mode (unit + CLI tests, no container integration)
-gotestsum \
-  --format testdox \
-  --junitfile test-results.xml \
-  --rerun-fails \
-  --rerun-fails-max-failures 3 \
-  --rerun-fails-report rerun-report.txt \
-  --packages ./... \
-  -- -race -short -v -timeout 20m -coverprofile=coverage.out
-
-# CLI integration tests (separate step)
-gotestsum \
-  --format testdox \
-  --junitfile cli-test-results.xml \
-  --rerun-fails \
-  --rerun-fails-max-failures 3 \
-  --packages ./tests/cli/... \
-  -- -race -timeout 5m
-```
+Use `.github/workflows/ci.yml` and `.github/workflows/release.yml` as the source
+of truth for current gotestsum flags. Durable macOS invariants: tests run in
+short mode, no container engine is expected, and timer/coalescing-sensitive
+tests should avoid tight assumptions.
 
 ### The gotestsum `-v` Requirement
 
@@ -400,9 +385,9 @@ because it never saw individual completion messages. This issue is most
 frequently observed on macOS CI runners, likely due to scheduling differences
 on Apple Silicon.
 
-**The fix is always `-v`**: every gotestsum invocation in CI uses `-v` for
-this reason. Locally, `-v` is optional for `go test` but required for
-gotestsum `--rerun-fails`.
+Use `-v` when debugging gotestsum rerun behavior for parallel subtests. Locally,
+`-v` is optional for ordinary `go test`; current CI workflow files are the
+source of truth for where verbose output is required.
 
 ### No Container Engine
 
@@ -448,23 +433,20 @@ it tracks happens-before relationships, not hardware memory ordering.
 
 ### Watcher Test Timing
 
-`internal/watch/watcher_test.go` has 7 `time.Sleep` calls compensating for
-kqueue event coalescing and debounce verification:
+`internal/watch/watcher_test.go` uses targeted sleeps for kqueue event coalescing
+and debounce verification:
 
 | Sleep Duration | Purpose |
 |----------------|---------|
-| 10ms | Between rapid file writes to prevent kqueue batching |
-| 50ms | Short pause for event delivery before assertions |
-| 100ms | Wait for debounce timer to expire |
-| 200ms | Negative-condition check (verify no spurious callbacks) |
-| 300ms | Longer negative-condition window for complex test scenarios |
+| 20ms | Between rapid file writes to reduce kqueue batching |
+| 300ms | Callback/debounce observation window |
 
 These values are tuned to balance reliability (large enough to survive timer
 coalescing) against test speed (not wastefully long).
 
 ### TUI tmux Tests
 
-TUI tmux tests (`internal/tui/tui_tmux_test.go`) use `time.Sleep` between
+CLI integration tmux tests (`tests/cli/tui_tmux_test.go`) use timed waits between
 key-send and content-read operations. These are similarly affected by timer
 coalescing.
 
@@ -482,8 +464,8 @@ Note: the condition is `[darwin]` (Go's GOOS value), not `[macos]`.
 
 ### flock Fallback
 
-`internal/runtime/run_lock_other.go` (build tag `!linux`) returns
-`errFlockUnavailable`, causing the container runtime to fall back to
+`internal/container/run_lock_other.go` (build tag `!linux`) returns
+`errFlockUnavailable`, causing container engine run serialization to fall back to
 `sync.Mutex` for run serialization. This is correct behavior -- see the
 "flock Behavior" section above.
 
