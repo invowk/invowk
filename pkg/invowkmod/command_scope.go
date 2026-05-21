@@ -194,9 +194,10 @@ func (s *CommandScope) CanCallTarget(target CommandTarget) CommandScopeDecision 
 		return decision
 	}
 
-	// Check if target is from same module. Discovered targets must prove same-module
-	// identity via the stable module ID, not only via a command-source alias.
-	if target.ModuleID == s.ModuleID {
+	// Check if target is from the same module source. Discovered targets must prove
+	// same-module identity via both the stable module ID and command source when
+	// source identity is present.
+	if s.targetIsSameModule(target) {
 		decision.Allowed = true
 		return decision
 	}
@@ -249,6 +250,16 @@ func targetDecisionSource(target CommandTarget) ModuleSourceID {
 
 func (s *CommandScope) targetIsGlobal(target CommandTarget) bool {
 	return target.SourceID != "" && s.GlobalSources[target.SourceID]
+}
+
+func (s *CommandScope) targetIsSameModule(target CommandTarget) bool {
+	if target.ModuleID != s.ModuleID {
+		return false
+	}
+	if target.SourceID == "" || s.ModuleSourceID == "" {
+		return true
+	}
+	return target.SourceID == s.ModuleSourceID
 }
 
 func (s *CommandScope) targetIsDirectDependency(target CommandTarget) bool {

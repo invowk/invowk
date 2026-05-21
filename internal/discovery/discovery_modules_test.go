@@ -202,6 +202,74 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	}
 }
 
+func TestDiscoverAll_FindsModulesFromProvisionedModuleEntries(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+	moduleRoot := filepath.Join(tmpDir, "provisioned-modules")
+	createTestModule(t, filepath.Join(moduleRoot, "io.example.tooling.invowkmod"), "io.example.tooling", "run")
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir,
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithProvisionedModuleEntries(ProvisionedModuleEntries{{
+			Path: types.FilesystemPath(moduleRoot),
+		}}),
+	)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	for _, f := range files {
+		if f.Source == SourceModule && f.Module != nil && f.Module.Metadata.Module == "io.example.tooling" {
+			if f.IsGlobalModule {
+				t.Fatal("module from provisioned module entries should not be marked global")
+			}
+			return
+		}
+	}
+	t.Fatalf("DiscoverAll() did not find module from provisioned entries at %s", moduleRoot)
+}
+
+func TestDiscoverAll_FindsGlobalModulesFromProvisionedGlobalModuleEntries(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+	moduleRoot := filepath.Join(tmpDir, "provisioned-global-modules")
+	createTestModule(t, filepath.Join(moduleRoot, "io.example.global.invowkmod"), "io.example.global", "run")
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir,
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithProvisionedGlobalModuleEntries(ProvisionedModuleEntries{{
+			Path: types.FilesystemPath(moduleRoot),
+		}}),
+	)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	for _, f := range files {
+		if f.Source == SourceModule && f.Module != nil && f.Module.Metadata.Module == "io.example.global" {
+			if !f.IsGlobalModule {
+				t.Fatal("module from provisioned global module entries should be marked global")
+			}
+			return
+		}
+	}
+	t.Fatalf("DiscoverAll() did not find module from provisioned global entries at %s", moduleRoot)
+}
+
 func TestDiscoveredFile_ModuleField(t *testing.T) {
 	t.Parallel()
 

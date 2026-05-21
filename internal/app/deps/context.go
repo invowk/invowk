@@ -22,6 +22,10 @@ type (
 	// ScriptFileReader reads module-contained script files for dependency checks.
 	ScriptFileReader func(path string) ([]byte, error)
 
+	// ScriptInterpreterDiagnosticReporter receives advisory interpreter diagnostics
+	// emitted while dependency validators resolve custom-check scripts.
+	ScriptInterpreterDiagnosticReporter func(invowkfile.ScriptInterpreterDiagnostic)
+
 	// ExecutionContext carries dependency-validation state without importing a
 	// concrete runtime execution DTO.
 	//
@@ -34,6 +38,7 @@ type (
 		RuntimeDependsOn        *invowkfile.DependsOn //goplint:no-delegate -- dependency payload is validated before this adapter DTO is assembled.
 		SourceModulePath        *invowkfile.FilesystemPath
 		ReadScriptFile          ScriptFileReader
+		ReportScriptInterpreter ScriptInterpreterDiagnosticReporter
 		IO                      IOContext
 	}
 )

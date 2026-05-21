@@ -341,7 +341,7 @@ func setLLMProviderConfig(cfg *config.Config, value configValue) error {
 		return err
 	}
 	cfg.LLM.Provider = provider
-	cfg.LLM.API = config.LLMAPIConfig{}
+	cfg.LLM = cfg.LLM.WithoutAPIBackend()
 	return nil
 }
 
@@ -382,6 +382,7 @@ func setLLMAPIBaseURLConfig(cfg *config.Config, value configValue) error {
 		return err
 	}
 	cfg.LLM.Provider = ""
+	cfg.LLM = cfg.LLM.WithAPIBackendPresent()
 	cfg.LLM.API.BaseURL = baseURL
 	return nil
 }
@@ -392,6 +393,7 @@ func setLLMAPIModelConfig(cfg *config.Config, value configValue) error {
 		return err
 	}
 	cfg.LLM.Provider = ""
+	cfg.LLM = cfg.LLM.WithAPIBackendPresent()
 	cfg.LLM.API.Model = model
 	return nil
 }
@@ -402,6 +404,7 @@ func setLLMAPIKeyEnvConfig(cfg *config.Config, value configValue) error {
 		return err
 	}
 	cfg.LLM.Provider = ""
+	cfg.LLM = cfg.LLM.WithAPIBackendPresent()
 	cfg.LLM.API.CredentialEnv = keyEnv
 	return nil
 }

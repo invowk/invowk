@@ -43,7 +43,9 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	defer cancel()
 
 	// Dependency validation uses the runtime session to check runtime-aware dependencies.
-	if validateErr := s.validateDeps(cmdInfo, execCtx, session, req.UserEnv); validateErr != nil {
+	depDiags, validateErr := s.validateDeps(cmdInfo, execCtx, session, req.UserEnv)
+	diags = append(diags, depDiags...)
+	if validateErr != nil {
 		// Return the raw error (e.g., *DependencyError); the CLI adapter wraps it.
 		return Result{}, diags, validateErr
 	}

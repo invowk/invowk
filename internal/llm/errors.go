@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package audit
+package llm
 
 import (
 	"errors"
@@ -12,9 +12,6 @@ const (
 	llmMalformedResponseErrMsg       = "LLM returned malformed response"
 	llmEmptyResponseErrMsg           = "LLM returned empty response"
 	llmResponseContentFilteredErrMsg = "LLM response was filtered"
-
-	// DefaultLLMConcurrency limits parallel LLM requests.
-	DefaultLLMConcurrency = 2
 
 	maxErrorResponseLen = 200
 )
@@ -31,15 +28,15 @@ var (
 )
 
 type (
-	// LLMMalformedResponseError is returned when the LLM response cannot be parsed.
-	LLMMalformedResponseError struct {
+	// MalformedResponseError is returned when the LLM response cannot be parsed.
+	MalformedResponseError struct {
 		RawResponse string
 		Err         error
 	}
 )
 
 // Error implements the error interface.
-func (e *LLMMalformedResponseError) Error() string {
+func (e *MalformedResponseError) Error() string {
 	if e.Err == nil {
 		return llmMalformedResponseErrMsg
 	}
@@ -49,7 +46,7 @@ func (e *LLMMalformedResponseError) Error() string {
 // RawResponsePreview returns a bounded raw provider response for explicit debug use.
 //
 //goplint:ignore -- explicit debug API returns bounded provider text for callers to opt into.
-func (e *LLMMalformedResponseError) RawResponsePreview() string {
+func (e *MalformedResponseError) RawResponsePreview() string {
 	raw := e.RawResponse
 	if len(raw) > maxErrorResponseLen {
 		raw = raw[:maxErrorResponseLen] + "..."
@@ -58,4 +55,4 @@ func (e *LLMMalformedResponseError) RawResponsePreview() string {
 }
 
 // Unwrap returns the sentinel for errors.Is chains.
-func (e *LLMMalformedResponseError) Unwrap() error { return ErrLLMMalformedResponse }
+func (e *MalformedResponseError) Unwrap() error { return ErrLLMMalformedResponse }

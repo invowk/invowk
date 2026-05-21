@@ -116,9 +116,15 @@ func requestPlatform(req Request) invowkfile.Platform {
 // (e.g., *deps.DependencyError). The CLI adapter inspects the error type and
 // applies rendering. Discovery is routed through s.discovery so the per-request
 // cache avoids redundant filesystem scans.
-func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, session RuntimeSession, userEnv map[string]string) error {
+func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, session RuntimeSession, userEnv map[string]string) ([]Diagnostic, error) {
 	runtimeProbe := session.DependencyProbe(execCtx)
-	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, s.dependencyExecutionContext(execCtx), userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
+	var interpreterDiagnostics []invowkfile.ScriptInterpreterDiagnostic
+	depCtx := s.dependencyExecutionContext(execCtx)
+	depCtx.ReportScriptInterpreter = func(diag invowkfile.ScriptInterpreterDiagnostic) {
+		interpreterDiagnostics = append(interpreterDiagnostics, diag)
+	}
+	err := deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, depCtx, userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
+	return appendRawScriptInterpreterDiagnostics(nil, interpreterDiagnostics), err
 }
 
 func (s *Service) dependencyExecutionContext(execCtx *runtime.ExecutionContext) deps.ExecutionContext {

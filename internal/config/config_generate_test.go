@@ -268,6 +268,28 @@ func TestGenerateDisplayCUE_RedactsLLMCredentialEnv(t *testing.T) {
 	}
 }
 
+func TestGenerateDisplayCUE_PreservesAPIBackendWhenOnlyCredentialEnvConfigured(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.LLM = LLMConfig{
+		API: LLMAPIConfig{ //nolint:gosec // test uses an environment-variable name, not a credential value.
+			CredentialEnv: "CUSTOM_LLM_TOKEN_VAR",
+		},
+	}
+
+	cueContent := GenerateDisplayCUE(cfg)
+	if strings.Contains(cueContent, "CUSTOM_LLM_TOKEN_VAR") || strings.Contains(cueContent, "api_key_env") {
+		t.Fatalf("GenerateDisplayCUE() leaked API key env reference:\n%s", cueContent)
+	}
+	if !strings.Contains(cueContent, `api: {`) {
+		t.Fatalf("GenerateDisplayCUE() should preserve redacted API backend selection:\n%s", cueContent)
+	}
+	if !strings.Contains(GenerateCUE(cfg), `api: {`) {
+		t.Fatalf("GenerateCUE() should preserve persisted API backend when api_key_env is configured")
+	}
+}
+
 // TestNoGlobalConfigAccess guards against re-introduction of global config
 // accessors in production code paths. The config package has no global mutable
 // state; this test ensures the pattern is not reintroduced.

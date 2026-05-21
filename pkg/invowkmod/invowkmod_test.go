@@ -538,6 +538,41 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 		}
 	})
 
+	t.Run("allows same module only when source identity also matches", func(t *testing.T) {
+		t.Parallel()
+
+		aliasedScope := NewCommandScope("io.example.caller")
+		aliasedScope.ModuleSourceID = "alias-a"
+
+		decision := aliasedScope.CanCallTarget(CommandTarget{
+			Reference: "alias-a build",
+			SourceID:  "alias-a",
+			ModuleID:  "io.example.caller",
+		})
+		if !decision.Allowed {
+			t.Fatalf("CanCallTarget() denied same module/source pair: %+v", decision)
+		}
+	})
+
+	t.Run("denies same module id from different source identity", func(t *testing.T) {
+		t.Parallel()
+
+		aliasedScope := NewCommandScope("io.example.caller")
+		aliasedScope.ModuleSourceID = "alias-a"
+
+		decision := aliasedScope.CanCallTarget(CommandTarget{
+			Reference: "alias-b build",
+			SourceID:  "alias-b",
+			ModuleID:  "io.example.caller",
+		})
+		if decision.Allowed {
+			t.Fatalf("CanCallTarget() allowed same module id with different source: %+v", decision)
+		}
+		if decision.Reason != CommandScopeDenyInaccessible {
+			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+		}
+	})
+
 	t.Run("denies unrelated module whose source matches caller module id", func(t *testing.T) {
 		t.Parallel()
 

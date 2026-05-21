@@ -5,6 +5,7 @@ package commandsvc
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/deps"
@@ -184,7 +185,7 @@ func TestBuildExecContextAndValidateDeps(t *testing.T) {
 
 	registry := runtimepkg.NewRegistry()
 	registry.Register(runtimepkg.RuntimeTypeVirtualSh, &stubRuntime{name: "virtual-sh"})
-	if err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
+	if _, err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
 		t.Fatalf("validateDeps() = %v", err)
 	}
 }
@@ -214,11 +215,56 @@ func TestValidateDepsUsesInjectedHostProbe(t *testing.T) {
 
 	registry := runtimepkg.NewRegistry()
 	registry.Register(runtimepkg.RuntimeTypeVirtualSh, &stubRuntime{name: "virtual-sh"})
-	if err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
+	if _, err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
 		t.Fatalf("validateDeps() = %v", err)
 	}
 	if len(probe.tools) != 1 || probe.tools[0] != "tool-from-probe" {
 		t.Fatalf("probe.tools = %v, want [tool-from-probe]", probe.tools)
+	}
+}
+
+func TestValidateDepsReturnsCustomCheckInterpreterDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{
+		discovery: &stubCommandDiscovery{},
+		hostProbe: &recordingDependencyHostProbe{},
+	}
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
+	cmdInfo.Command.DependsOn = &invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Name: "python-check",
+			Script: invowkfile.CustomCheckScript{
+				Content:     "#!/bin/sh\nprint('ok')\n",
+				Interpreter: "python3",
+			},
+		}},
+	}
+	execCtx, err := service.buildExecContext(
+		t.Context(),
+		Request{Name: "build"},
+		cmdInfo,
+		resolvedDefinitions{},
+		mustResolveRuntime(t, cmdInfo.Command),
+	)
+	if err != nil {
+		t.Fatalf("buildExecContext() = %v", err)
+	}
+
+	registry := runtimepkg.NewRegistry()
+	registry.Register(runtimepkg.RuntimeTypeVirtualSh, &stubRuntime{name: "virtual-sh"})
+	diags, err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{})
+	if err != nil {
+		t.Fatalf("validateDeps() = %v", err)
+	}
+	if len(diags) != 1 {
+		t.Fatalf("len(diags) = %d, want 1", len(diags))
+	}
+	if diags[0].Code() != DiagnosticCodeScriptInterpreterShebangOverride {
+		t.Fatalf("diag code = %q, want %q", diags[0].Code(), DiagnosticCodeScriptInterpreterShebangOverride)
+	}
+	if !strings.Contains(diags[0].Message().String(), "script.interpreter takes precedence") {
+		t.Fatalf("diag message = %q, want precedence warning", diags[0].Message())
 	}
 }
 
@@ -247,7 +293,7 @@ func TestValidateDepsUsesInjectedCapabilityChecker(t *testing.T) {
 
 	registry := runtimepkg.NewRegistry()
 	registry.Register(runtimepkg.RuntimeTypeVirtualSh, &stubRuntime{name: "virtual-sh"})
-	if err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
+	if _, err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
 		t.Fatalf("validateDeps() = %v", err)
 	}
 	if len(checker.capabilities) != 1 || checker.capabilities[0] != invowkfile.CapabilityContainers {

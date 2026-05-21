@@ -16,7 +16,6 @@ import (
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/packages/param"
 
-	"github.com/invowk/invowk/internal/audit"
 	"github.com/invowk/invowk/internal/llm"
 )
 
@@ -31,8 +30,6 @@ const (
 	DefaultLLMModel = "qwen2.5-coder:7b"
 	// DefaultLLMTimeout is generous to accommodate slow inference on CPU.
 	DefaultLLMTimeout = 2 * time.Minute
-	// DefaultLLMConcurrency limits parallel LLM requests.
-	DefaultLLMConcurrency = audit.DefaultLLMConcurrency
 )
 
 var (
@@ -72,13 +69,11 @@ type (
 	// LLMClientConfig holds the configuration for creating an LLMClient.
 	// BaseURL and Model are required; APIKey is optional (empty means no auth,
 	// which is the common case for local servers like Ollama).
-	//nolint:recvcheck // Validate() uses pointer, withDefaults() uses value (copy semantics)
 	LLMClientConfig struct {
-		BaseURL     string
-		Model       string
-		APIKey      string
-		Timeout     time.Duration
-		Concurrency int
+		BaseURL string
+		Model   string
+		APIKey  string
+		Timeout time.Duration
 	}
 
 	// LLMClient sends chat completion requests to an OpenAI-compatible API.
@@ -126,11 +121,11 @@ func (e *LLMClientConfigInvalidError) Unwrap() error { return ErrLLMClientConfig
 
 // Error implements the error interface.
 func (e *LLMRequestError) Error() string {
-	return fmt.Sprintf("%s (status %d): %s", audit.ErrLLMRequestFailed, e.StatusCode, e.Body)
+	return fmt.Sprintf("%s (status %d): %s", llm.ErrLLMRequestFailed, e.StatusCode, e.Body)
 }
 
 // Unwrap returns the sentinel for errors.Is chains.
-func (e *LLMRequestError) Unwrap() error { return audit.ErrLLMRequestFailed }
+func (e *LLMRequestError) Unwrap() error { return llm.ErrLLMRequestFailed }
 
 // Error implements the error interface.
 func (e *LLMServerUnavailableError) Error() string {
@@ -163,7 +158,7 @@ func (e *LLMModelNotFoundError) Error() string {
 func (e *LLMModelNotFoundError) Unwrap() error { return ErrLLMModelNotFound }
 
 // Validate checks that all required fields are present and valid.
-func (c *LLMClientConfig) Validate() error {
+func (c LLMClientConfig) Validate() error {
 	if c.BaseURL == "" {
 		return &LLMClientConfigInvalidError{Reason: "base URL is required"}
 	}
@@ -172,9 +167,6 @@ func (c *LLMClientConfig) Validate() error {
 	}
 	if c.Timeout < 0 {
 		return &LLMClientConfigInvalidError{Reason: "timeout must be non-negative"}
-	}
-	if c.Concurrency < 0 {
-		return &LLMClientConfigInvalidError{Reason: "concurrency must be non-negative"}
 	}
 	return nil
 }
@@ -189,9 +181,6 @@ func (c LLMClientConfig) withDefaults() LLMClientConfig {
 	}
 	if c.Timeout == 0 {
 		c.Timeout = DefaultLLMTimeout
-	}
-	if c.Concurrency == 0 {
-		c.Concurrency = DefaultLLMConcurrency
 	}
 	return c
 }
@@ -284,19 +273,19 @@ func (c *LLMClient) CompleteJSONSchema(ctx context.Context, systemPrompt, userPr
 
 func completionContent(resp *openai.ChatCompletion) (string, error) {
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("%w: no choices in response", audit.ErrLLMEmptyResponse)
+		return "", fmt.Errorf("%w: no choices in response", llm.ErrLLMEmptyResponse)
 	}
 
 	choice := resp.Choices[0]
 
 	// Check for content filtering.
 	if choice.FinishReason == "content_filter" {
-		return "", fmt.Errorf("%w: model refused to analyze content", audit.ErrLLMResponseContentFiltered)
+		return "", fmt.Errorf("%w: model refused to analyze content", llm.ErrLLMResponseContentFiltered)
 	}
 
 	content := strings.TrimSpace(choice.Message.Content)
 	if content == "" {
-		return "", fmt.Errorf("%w: empty content in response", audit.ErrLLMEmptyResponse)
+		return "", fmt.Errorf("%w: empty content in response", llm.ErrLLMEmptyResponse)
 	}
 
 	return content, nil
@@ -389,5 +378,5 @@ func (c *LLMClient) classifyError(err error) error {
 		return err
 	}
 
-	return fmt.Errorf("%w: %w", audit.ErrLLMRequestFailed, err)
+	return fmt.Errorf("%w: %w", llm.ErrLLMRequestFailed, err)
 }

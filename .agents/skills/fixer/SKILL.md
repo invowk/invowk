@@ -104,6 +104,7 @@ Before spawning diagnostic agents, determine which platform(s) are affected:
 | gotestsum false-FAIL on parallel subtests | macOS | `macos-testing` |
 | `flock` contention | Linux | `linux-testing` |
 | CUE thread-safety race | Any (serial subtests) | `go-testing` |
+| `os.UserHomeDir` ignores `HOME`, or expected `~/.invowk/cmds` is missing on Windows | Windows | `windows-testing` |
 
 If the failure is platform-independent (logic bug, missing nil check, wrong
 algorithm), skip platform investigation entirely.

@@ -85,3 +85,55 @@ func TestCheckCommandDependenciesExistRejectsPresentationAliasWithUnmatchedDisco
 		t.Fatalf("ForbiddenCommands[0] = %q", depErr.ForbiddenCommands[0])
 	}
 }
+
+func TestCheckCommandDependenciesExistRejectsSameModuleIDWithDifferentSource(t *testing.T) {
+	t.Parallel()
+
+	moduleID := invowkmod.ModuleID("io.example.tools")
+	callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
+		Module:  moduleID,
+		Version: "1.0.0",
+	})
+	callerInfo := &discovery.CommandInfo{
+		Name:       invowkfile.CommandName("alias-a build"),
+		SimpleName: "build",
+		SourceID:   discovery.SourceID("alias-a"),
+		ModuleID:   &moduleID,
+		Command:    &invowkfile.Command{Name: "build"},
+		Invowkfile: &invowkfile.Invowkfile{Metadata: callerMeta},
+	}
+	commandSet := &discovery.DiscoveredCommandSet{
+		Commands: []*discovery.CommandInfo{
+			{
+				Name:       invowkfile.CommandName("alias-b helper"),
+				SimpleName: "helper",
+				SourceID:   discovery.SourceID("alias-b"),
+				ModuleID:   &moduleID,
+			},
+		},
+	}
+	disc := &stubCommandSetProvider{
+		result: discovery.CommandSetResult{Set: commandSet},
+	}
+	deps := &invowkfile.DependsOn{
+		Commands: []invowkfile.CommandDependency{
+			{Alternatives: []invowkfile.CommandDependencyRef{"@alias-b helper"}},
+		},
+	}
+	ctx := testDependencyExecutionContext(t, &invowkfile.Command{Name: "build"}, "")
+
+	err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx)
+	if err == nil {
+		t.Fatal("CheckCommandDependenciesExist() error = nil, want forbidden dependency")
+	}
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+	}
+	if len(depErr.ForbiddenCommands) != 1 {
+		t.Fatalf("len(depErr.ForbiddenCommands) = %d, want 1", len(depErr.ForbiddenCommands))
+	}
+	if !strings.Contains(depErr.ForbiddenCommands[0].String(), "module 'alias-b' is not accessible") {
+		t.Fatalf("ForbiddenCommands[0] = %q", depErr.ForbiddenCommands[0])
+	}
+}

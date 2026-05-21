@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
 
@@ -144,7 +143,7 @@ func evaluateCustomChecks(
 			if err != nil {
 				return err
 			}
-			emitCustomCheckInterpreterDiagnostics(ctx.IO.Stderr, diagnostics)
+			reportCustomCheckInterpreterDiagnostics(ctx, diagnostics)
 			result, err := runner(goCtx, resolvedCheck)
 			if err != nil {
 				return err
@@ -202,13 +201,12 @@ func customCheckAnalysisRuntime(script invowkfile.CustomCheckScript, scriptText 
 	return invowkfile.RuntimeVirtualSh
 }
 
-func emitCustomCheckInterpreterDiagnostics(stderr io.Writer, diagnostics []invowkfile.ScriptInterpreterDiagnostic) {
-	if stderr == nil {
+func reportCustomCheckInterpreterDiagnostics(ctx ExecutionContext, diagnostics []invowkfile.ScriptInterpreterDiagnostic) {
+	if ctx.ReportScriptInterpreter == nil {
 		return
 	}
 	for i := range diagnostics {
-		diagnostic := diagnostics[i]
-		_, _ = fmt.Fprintf(stderr, "warning: %s\n", diagnostic.Message())
+		ctx.ReportScriptInterpreter(diagnostics[i])
 	}
 }
 

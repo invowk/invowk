@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -66,9 +67,25 @@ type (
 		//plint:internal -- distinguishes "not set" from "explicitly set to empty"
 		commandsDirSet bool
 		//plint:internal -- errors from New() constructor surfaced as diagnostics
-		initDiagnostics         []Diagnostic
-		verifyVendoredIntegrity bool
+		initDiagnostics          []Diagnostic
+		verifyVendoredIntegrity  bool
+		provisionedModules       ProvisionedModuleEntries
+		provisionedGlobalModules ProvisionedModuleEntries
 	}
+
+	//goplint:validate-all
+	//
+	// ProvisionedModuleEntry identifies a module copied into a provisioned
+	// container layer and the command namespace it should publish.
+	ProvisionedModuleEntry struct {
+		// Path is the container filesystem path to a module or a directory containing modules.
+		Path types.FilesystemPath
+		// CommandNamespace preserves aliases/source IDs for copied module paths.
+		CommandNamespace invowkmod.ModuleNamespace
+	}
+
+	// ProvisionedModuleEntries is a validated list of provisioned module entries.
+	ProvisionedModuleEntries []ProvisionedModuleEntry
 
 	// Option configures a Discovery instance via the functional options pattern.
 	Option func(*Discovery)
@@ -139,6 +156,54 @@ func WithVendoredIntegrityVerification(enabled bool) Option {
 	return func(d *Discovery) {
 		d.verifyVendoredIntegrity = enabled
 	}
+}
+
+// WithInitialDiagnostics prepends adapter-supplied diagnostics to discovery results.
+func WithInitialDiagnostics(diagnostics []Diagnostic) Option {
+	return func(d *Discovery) {
+		d.initDiagnostics = append(d.initDiagnostics, slices.Clone(diagnostics)...)
+	}
+}
+
+// WithProvisionedModuleEntries configures non-global modules copied into a
+// provisioned container layer.
+func WithProvisionedModuleEntries(entries ProvisionedModuleEntries) Option {
+	return func(d *Discovery) {
+		d.provisionedModules = slices.Clone(entries)
+	}
+}
+
+// WithProvisionedGlobalModuleEntries configures globally trusted modules copied
+// into a provisioned container layer.
+func WithProvisionedGlobalModuleEntries(entries ProvisionedModuleEntries) Option {
+	return func(d *Discovery) {
+		d.provisionedGlobalModules = slices.Clone(entries)
+	}
+}
+
+// Validate returns nil when the provisioned module entry is valid.
+func (e ProvisionedModuleEntry) Validate() error {
+	var errs []error
+	if err := e.Path.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if e.CommandNamespace != "" {
+		if err := e.CommandNamespace.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// Validate returns nil when all provisioned module entries are valid.
+func (e ProvisionedModuleEntries) Validate() error {
+	var errs []error
+	for i, entry := range e {
+		if err := entry.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("[%d]: %w", i, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // New creates a new Discovery instance. Without options, baseDir defaults to

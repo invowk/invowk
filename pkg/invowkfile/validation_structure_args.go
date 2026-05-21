@@ -119,16 +119,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		})
 	}
 
-	// Validate that required arguments don't have default values
-	if arg.Required && arg.DefaultValue != "" {
-		errors = append(errors, ValidationError{
-			Validator: v.Name(),
-			Field:     path.String(),
-			Message:   "cannot be both required and have a default_value in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
-		})
-	}
-
 	// Rule: Required arguments must come before optional arguments
 	if arg.Required && foundOptional {
 		errors = append(errors, ValidationError{
@@ -149,18 +139,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		})
 	}
 
-	// Validate default_value is compatible with type
-	if arg.DefaultValue != "" {
-		if err := validateValueType(arg.DefaultValue, FlagType(arg.GetType())); err != nil {
-			errors = append(errors, ValidationError{
-				Validator: v.Name(),
-				Field:     path.String(),
-				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-				Severity:  SeverityError,
-			})
-		}
-	}
-
 	// Validate validation regex is valid and safe
 	if arg.Validation != "" {
 		if err := ValidateRegexPattern(string(arg.Validation)); err != nil {
@@ -171,17 +149,16 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 				Severity:  SeverityError,
 				Cause:     err,
 			})
-		} else if arg.DefaultValue != "" {
-			// Check if default_value matches validation regex
-			if !matchesValidation(arg.DefaultValue, string(arg.Validation)) {
-				errors = append(errors, ValidationError{
-					Validator: v.Name(),
-					Field:     path.String(),
-					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + quotedInvowkfileAtSuffix + string(ctx.FilePath),
-					Severity:  SeverityError,
-				})
-			}
 		}
+	}
+
+	for _, err := range arg.defaultValueValidationErrors() {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		})
 	}
 
 	return errors, isOptional, isVariadic

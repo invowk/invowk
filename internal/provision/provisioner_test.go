@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/provisionenv"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -581,6 +583,88 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 	}
 }
 
+func TestLayerProvisioner_PrepareBuildContextPreservesModuleEntryNamespaces(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	firstModule := createProvisioningModule(t, filepath.Join(tmpDir, "first"), "shared.invowkmod", "shared")
+	secondModule := createProvisioningModule(t, filepath.Join(tmpDir, "second"), "shared.invowkmod", "shared")
+
+	cfg := &Config{
+		Enabled: true,
+		ModuleEntries: ModuleEntries{
+			{Path: types.FilesystemPath(firstModule)},
+			{Path: types.FilesystemPath(secondModule), CommandNamespace: invowkmod.ModuleNamespace("aliased")},
+		},
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
+
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	if err != nil {
+		t.Fatalf("prepareBuildContext() error = %v", err)
+	}
+	defer cleanup()
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+
+	entries, readErr := os.ReadDir(filepath.Join(buildCtx, "modules"))
+	if readErr != nil {
+		t.Fatalf("read copied modules: %v", readErr)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("copied module entries = %d, want 2", len(entries))
+	}
+
+	manifest, err := provisionenv.ParseManifest(provisionenv.Value(provisioner.buildEnvVars()[provisionenv.ModuleManifestName.String()]))
+	if err != nil {
+		t.Fatalf("parse module manifest: %v", err)
+	}
+	if len(manifest) != 2 {
+		t.Fatalf("manifest entries = %d, want 2: %v", len(manifest), manifest)
+	}
+	assertProvisionedManifestNamespaces(t, buildCtx, manifest)
+}
+
+func assertProvisionedManifestNamespaces(t *testing.T, buildCtx string, manifest provisionenv.Entries) {
+	t.Helper()
+
+	byNamespace := make(map[string]string)
+	for _, entry := range manifest {
+		namespace := entry.CommandNamespace.String()
+		entryPath := string(entry.Path)
+		byNamespace[namespace] = entryPath
+		assertManifestPathCopiedToBuildContext(t, buildCtx, entryPath)
+	}
+	if byNamespace["shared"] == "" {
+		t.Fatalf("manifest did not preserve default shared namespace: %v", manifest)
+	}
+	if byNamespace["aliased"] == "" {
+		t.Fatalf("manifest did not preserve aliased namespace: %v", manifest)
+	}
+	if byNamespace["shared"] == byNamespace["aliased"] {
+		t.Fatalf("shared and aliased modules copied to same path %q", byNamespace["shared"])
+	}
+}
+
+func assertManifestPathCopiedToBuildContext(t *testing.T, buildCtx, entryPath string) {
+	t.Helper()
+
+	relativePath := strings.TrimPrefix(entryPath, "/invowk/modules/")
+	if relativePath == entryPath || relativePath == "" {
+		t.Fatalf("manifest path %q is not under /invowk/modules", entryPath)
+	}
+	if _, statErr := os.Stat(filepath.Join(buildCtx, "modules", filepath.FromSlash(relativePath))); statErr != nil {
+		t.Fatalf("manifest path %q was not copied into build context: %v", entryPath, statErr)
+	}
+}
+
 func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 	t.Parallel()
 
@@ -759,5 +843,21 @@ func TestConfigOptions_WithModulesPaths(t *testing.T) {
 
 	if cfg.ModulesPaths[0] != "/path/to/modules1" {
 		t.Errorf("expected first path '/path/to/modules1', got %q", cfg.ModulesPaths[0])
+	}
+}
+
+func TestConfigOptions_WithGlobalModulesPaths(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	paths := []types.FilesystemPath{types.FilesystemPath("/path/to/global1"), types.FilesystemPath("/path/to/global2")}
+	cfg.Apply(WithGlobalModulesPaths(paths))
+
+	if len(cfg.GlobalModulesPaths) != 2 {
+		t.Errorf("expected 2 global module paths, got %d", len(cfg.GlobalModulesPaths))
+	}
+
+	if cfg.GlobalModulesPaths[0] != "/path/to/global1" {
+		t.Errorf("expected first path '/path/to/global1', got %q", cfg.GlobalModulesPaths[0])
 	}
 }

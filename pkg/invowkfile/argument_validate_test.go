@@ -39,6 +39,85 @@ func TestArgument_Validate_ValidMinimal(t *testing.T) {
 	}
 }
 
+func TestArgument_Validate_DefaultValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		arg     Argument
+		wantErr string
+	}{
+		{
+			name: "valid default",
+			arg: Argument{
+				Name:         "count",
+				Description:  "Number of runs",
+				Type:         ArgumentTypeInt,
+				DefaultValue: "3",
+			},
+		},
+		{
+			name: "required default",
+			arg: Argument{
+				Name:         "file",
+				Description:  "Input file",
+				Required:     true,
+				DefaultValue: "input.txt",
+			},
+			wantErr: "cannot be both required and have a default_value",
+		},
+		{
+			name: "wrong type",
+			arg: Argument{
+				Name:         "count",
+				Description:  "Number of runs",
+				Type:         ArgumentTypeInt,
+				DefaultValue: "many",
+			},
+			wantErr: "is not compatible with type",
+		},
+		{
+			name: "validation mismatch",
+			arg: Argument{
+				Name:         "mode",
+				Description:  "Execution mode",
+				Validation:   "^release$",
+				DefaultValue: "debug",
+			},
+			wantErr: "does not match validation pattern",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assertArgumentValidateDefaultValue(t, tt.arg, tt.wantErr)
+		})
+	}
+}
+
+func assertArgumentValidateDefaultValue(t *testing.T, arg Argument, wantErr string) {
+	t.Helper()
+
+	err := arg.Validate()
+	if wantErr == "" {
+		if err != nil {
+			t.Fatalf("Argument.Validate() returned error: %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("Argument.Validate() returned nil, want error")
+	}
+	var argErr *InvalidArgumentError
+	if !errors.As(err, &argErr) {
+		t.Fatalf("error should be *InvalidArgumentError, got %T", err)
+	}
+	if !fieldErrorsContain(argErr.FieldErrors, wantErr) {
+		t.Fatalf("field errors %v do not contain %q", argErr.FieldErrors, wantErr)
+	}
+}
+
 func TestArgument_Validate_MissingDescription(t *testing.T) {
 	t.Parallel()
 	a := Argument{Name: "file"}

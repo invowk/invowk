@@ -6,12 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"sync"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/provisionenv"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -27,6 +29,10 @@ type (
 		config      config.Loader
 		baseDir     *types.FilesystemPath
 		commandsDir *types.FilesystemPath
+
+		provisionedModules       discovery.ProvisionedModuleEntries
+		provisionedGlobalModules discovery.ProvisionedModuleEntries
+		provisionedDiagnostics   []discovery.Diagnostic
 	}
 
 	// DiscoveryRequestScope attaches CLI discovery request state for command
@@ -61,7 +67,20 @@ type (
 
 // NewDiscoveryService creates a request-cached discovery adapter.
 func NewDiscoveryService(provider config.Loader) *DiscoveryService {
-	return &DiscoveryService{config: provider}
+	provisionedModules, moduleDiags := provisionedModuleEntriesFromEnvironment(
+		provisionenv.ModuleManifestName,
+		provisionenv.ModulePathName,
+	)
+	provisionedGlobalModules, globalDiags := provisionedModuleEntriesFromEnvironment(
+		provisionenv.GlobalModuleManifestName,
+		provisionenv.GlobalModulePathName,
+	)
+	return &DiscoveryService{
+		config:                   provider,
+		provisionedModules:       provisionedModules,
+		provisionedGlobalModules: provisionedGlobalModules,
+		provisionedDiagnostics:   append(moduleDiags, globalDiags...),
+	}
 }
 
 // NewDiscoveryServiceWithDirs creates a discovery adapter with explicit
@@ -92,6 +111,17 @@ func (s *DiscoveryService) Validate() error {
 	if s.commandsDir != nil && *s.commandsDir != "" {
 		if err := s.commandsDir.Validate(); err != nil {
 			errs = append(errs, fmt.Errorf("discovery commands dir: %w", err))
+		}
+	}
+	if err := s.provisionedModules.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("provisioned modules: %w", err))
+	}
+	if err := s.provisionedGlobalModules.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("provisioned global modules: %w", err))
+	}
+	for _, diag := range s.provisionedDiagnostics {
+		if err := diag.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("provisioned diagnostic: %w", err))
 		}
 	}
 	if len(errs) > 0 {
@@ -372,7 +402,57 @@ func (s *DiscoveryService) newDiscovery(cfg *config.Config) *discovery.Discovery
 	if s.commandsDir != nil {
 		opts = append(opts, discovery.WithCommandsDir(*s.commandsDir))
 	}
+	if len(s.provisionedModules) > 0 {
+		opts = append(opts, discovery.WithProvisionedModuleEntries(s.provisionedModules))
+	}
+	if len(s.provisionedGlobalModules) > 0 {
+		opts = append(opts, discovery.WithProvisionedGlobalModuleEntries(s.provisionedGlobalModules))
+	}
+	if len(s.provisionedDiagnostics) > 0 {
+		opts = append(opts, discovery.WithInitialDiagnostics(s.provisionedDiagnostics))
+	}
 	return discovery.New(cfg, opts...)
+}
+
+func provisionedModuleEntriesFromEnvironment(manifestEnv, pathEnv provisionenv.Name) (discovery.ProvisionedModuleEntries, []discovery.Diagnostic) {
+	entries, err := provisionenv.ParseEnvironment(readProvisionedEnv(manifestEnv), readProvisionedEnv(pathEnv))
+	if err != nil {
+		return nil, []discovery.Diagnostic{provisionedManifestDiagnostic(manifestEnv, err)}
+	}
+	return provisionedEntriesToDiscovery(entries), nil
+}
+
+func readProvisionedEnv(name provisionenv.Name) provisionenv.Value {
+	envValue := provisionenv.Value(os.Getenv(name.String()))
+	if err := envValue.Validate(); err != nil {
+		return ""
+	}
+	return envValue
+}
+
+func provisionedEntriesToDiscovery(entries provisionenv.Entries) discovery.ProvisionedModuleEntries {
+	result := make(discovery.ProvisionedModuleEntries, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, discovery.ProvisionedModuleEntry{
+			Path:             types.FilesystemPath(entry.Path.String()), //goplint:ignore -- validated provisioned container manifest path.
+			CommandNamespace: entry.CommandNamespace,
+		})
+	}
+	return result
+}
+
+func provisionedManifestDiagnostic(name provisionenv.Name, cause error) discovery.Diagnostic {
+	diag, err := discovery.NewDiagnosticWithCause(
+		discovery.SeverityWarning,
+		discovery.CodeProvisionedModuleManifestInvalid,
+		fmt.Sprintf("invalid provisioned module manifest in %s: %v", name, cause),
+		"",
+		cause,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return diag
 }
 
 func discoveryDiagnosticsFromCommand(diags []commandsvc.Diagnostic) []discovery.Diagnostic {

@@ -319,6 +319,8 @@ type (
 		Concurrency LLMConcurrency `json:"concurrency,omitempty" mapstructure:"concurrency"`
 		// API configures an OpenAI-compatible API instead of a provider harness.
 		API LLMAPIConfig `json:"api,omitzero" mapstructure:"api"`
+		// apiPresent records explicit llm.api source presence even when all nested fields are empty.
+		apiPresent bool
 	}
 
 	//goplint:validate-all
@@ -677,7 +679,25 @@ func (e *InvalidLLMAPIConfigError) Unwrap() error {
 
 // HasConfig reports whether any LLM default is configured.
 func (c LLMConfig) HasConfig() bool {
-	return c.Provider != "" || c.Model != "" || c.Timeout != "" || c.Concurrency != 0 || c.API.HasConfig()
+	return c.Provider != "" || c.Model != "" || c.Timeout != "" || c.Concurrency != 0 || c.HasAPIBackend()
+}
+
+// HasAPIBackend reports whether an API backend block was configured.
+func (c LLMConfig) HasAPIBackend() bool {
+	return c.apiPresent || c.API.HasConfig()
+}
+
+// WithAPIBackendPresent records that llm.api is the selected backend block.
+func (c LLMConfig) WithAPIBackendPresent() LLMConfig {
+	c.apiPresent = true
+	return c
+}
+
+// WithoutAPIBackend clears API backend fields and source-presence state.
+func (c LLMConfig) WithoutAPIBackend() LLMConfig {
+	c.API = LLMAPIConfig{}
+	c.apiPresent = false
+	return c
 }
 
 // Validate returns an error if the LLM config has invalid fields or contradictory modes.
@@ -698,7 +718,12 @@ func (c LLMConfig) Validate() error {
 	if err := c.API.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if c.Provider != "" && c.API.HasConfig() {
+	if c.HasAPIBackend() && !c.API.HasConfig() {
+		errs = append(errs, &InvalidLLMAPIConfigError{
+			FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
+		})
+	}
+	if c.Provider != "" && c.HasAPIBackend() {
 		// [GO-ONLY] provider/api exclusivity depends on whether the optional api
 		// block is semantically configured. CUE validates field shape only.
 		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))

@@ -202,15 +202,23 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage cont
 
 	// Include modules hash
 	h.Write([]byte("modules_mount:" + string(p.config.ModulesMountPath)))
-	modules := DiscoverModules(p.config.ModulesPaths)
-	for _, modulePath := range modules {
-		moduleHash, err := CalculateDirHash(modulePath)
+	modules := discoverProvisionedModuleCopies(p.config.ModulesPaths, p.config.ModuleEntries)
+	for _, module := range modules {
+		moduleHash, err := CalculateDirHash(string(module.SourcePath))
 		if err != nil {
 			// Skip modules that can't be hashed
 			continue
 		}
-		moduleName := filepath.Base(modulePath)
-		h.Write([]byte("module:" + moduleName + ":" + moduleHash))
+		h.Write([]byte("module:" + string(module.CommandNamespace) + ":" + string(module.DestinationPath) + ":" + moduleHash))
+	}
+	h.Write([]byte("global_modules_mount:" + string(p.globalModulesMountPath())))
+	globalModules := discoverProvisionedModuleCopies(p.config.GlobalModulesPaths, p.config.GlobalModuleEntries)
+	for _, module := range globalModules {
+		moduleHash, err := CalculateDirHash(string(module.SourcePath))
+		if err != nil {
+			continue
+		}
+		h.Write([]byte("global_module:" + string(module.CommandNamespace) + ":" + string(module.DestinationPath) + ":" + moduleHash))
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil
@@ -313,21 +321,16 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 		return "", nil, nil, fmt.Errorf("failed to create modules directory: %w", err)
 	}
 
-	copyDir := p.copyDir
-	if copyDir == nil {
-		copyDir = CopyDir
+	modules := discoverProvisionedModuleCopies(p.config.ModulesPaths, p.config.ModuleEntries)
+	warnings = append(warnings, p.copyProvisionedModules(modules, types.FilesystemPath(modulesDir))...) //goplint:ignore -- build context path is created above.
+
+	globalModulesDir := filepath.Join(tmpDir, "global_modules")
+	if err := os.MkdirAll(globalModulesDir, 0o755); err != nil {
+		cleanup()
+		return "", nil, nil, fmt.Errorf("failed to create global modules directory: %w", err)
 	}
-	modules := DiscoverModules(p.config.ModulesPaths)
-	for _, modulePath := range modules {
-		moduleName := filepath.Base(modulePath)
-		moduleDst := filepath.Join(modulesDir, moduleName)
-		if err := copyDir(modulePath, moduleDst); err != nil {
-			warnings = append(warnings, Warning{
-				Message: WarningMessage(fmt.Sprintf("failed to copy module %s: %v", moduleName, err)),
-			})
-			continue
-		}
-	}
+	globalModules := discoverProvisionedModuleCopies(p.config.GlobalModulesPaths, p.config.GlobalModuleEntries)
+	warnings = append(warnings, p.copyProvisionedModules(globalModules, types.FilesystemPath(globalModulesDir))...) //goplint:ignore -- build context path is created above.
 
 	// Generate Dockerfile
 	dockerfile := p.generateDockerfile(string(baseImage))
@@ -338,6 +341,25 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 	}
 
 	return tmpDir, warnings, cleanup, nil
+}
+
+func (p *LayerProvisioner) copyProvisionedModules(modules []provisionedModuleCopy, modulesDir types.FilesystemPath) []Warning {
+	copyDir := p.copyDir
+	if copyDir == nil {
+		copyDir = CopyDir
+	}
+
+	var warnings []Warning
+	for _, module := range modules {
+		moduleName := filepath.Base(string(module.SourcePath))
+		moduleDst := filepath.Join(string(modulesDir), filepath.FromSlash(string(module.DestinationPath)))
+		if err := copyDir(string(module.SourcePath), moduleDst); err != nil {
+			warnings = append(warnings, Warning{
+				Message: WarningMessage(fmt.Sprintf("failed to copy module %s: %v", moduleName, err)),
+			})
+		}
+	}
+	return warnings
 }
 
 func (p *LayerProvisioner) resolveBuildContextParent() (parent types.FilesystemPath, cleanup func(), err error) {

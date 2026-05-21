@@ -342,13 +342,17 @@ func findAccessibleCommand(available map[invowkfile.CommandName]*discovery.Comma
 }
 
 func commandScopeDecision(scope *invowkmod.CommandScope, cmd *discovery.CommandInfo) invowkmod.CommandScopeDecision {
-	if scope == nil || cmd.ModuleID == nil {
+	if scope == nil {
 		return invowkmod.CommandScopeDecision{Allowed: true, TargetCommand: invowkmod.CommandReference(cmd.Name)}
+	}
+	moduleID := invowkmod.ModuleID("")
+	if cmd.ModuleID != nil {
+		moduleID = *cmd.ModuleID
 	}
 	return scope.CanCallTarget(invowkmod.CommandTarget{
 		Reference: invowkmod.CommandReference(cmd.Name),
 		SourceID:  invowkmod.ModuleSourceID(cmd.SourceID), //goplint:ignore -- SourceID validated by discovery
-		ModuleID:  *cmd.ModuleID,
+		ModuleID:  moduleID,
 	})
 }
 

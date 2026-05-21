@@ -206,6 +206,11 @@ func ClassifyReportFindings(report *Report) ReportTriage {
 	return triage
 }
 
+// Triage applies the deterministic R1-R12 policy to this report.
+func (r *Report) Triage() ReportTriage {
+	return ClassifyReportFindings(r)
+}
+
 // HasConfirmedFindings returns true if any confirmed finding meets the severity threshold.
 func (t ReportTriage) HasConfirmedFindings(minSev Severity) bool {
 	for i := range t.confirmedFindings {

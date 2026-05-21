@@ -289,17 +289,11 @@ func decodeCUEConfigSource(source configCUESource) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiValue := parsed.Unified.LookupPath(cue.ParsePath("llm.api"))
-	if apiValue.Exists() && !parsed.Value.LLM.API.HasConfig() {
-		return nil, &InvalidLLMConfigError{
-			FieldErrors: []error{
-				&InvalidLLMAPIConfigError{
-					FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
-				},
-			},
-		}
+	cfg := parsed.Value
+	if apiValue := parsed.Unified.LookupPath(cue.ParsePath("llm.api")); apiValue.Exists() {
+		cfg.LLM = cfg.LLM.WithAPIBackendPresent()
 	}
-	return parsed.Value, nil
+	return cfg, nil
 }
 
 // validateIncludes checks include collection constraints:
@@ -475,6 +469,11 @@ func Save(cfg *Config, configDirPath types.FilesystemPath) error {
 //
 //plint:render
 func GenerateCUE(cfg *Config) string {
+	return generateCUE(cfg, false)
+}
+
+//goplint:ignore -- private renderer returns generated CUE text.
+func generateCUE(cfg *Config, forceLLMAPIBlock bool) string {
 	var sb strings.Builder
 
 	sb.WriteString("// Invowk Configuration File\n")
@@ -486,81 +485,96 @@ func GenerateCUE(cfg *Config) string {
 	// Default runtime
 	fmt.Fprintf(&sb, "default_runtime: %q\n", cfg.DefaultRuntime)
 
-	// Includes
+	writeConfigCUEIncludes(&sb, cfg.Includes)
+	writeConfigCUEVirtual(&sb, cfg.Virtual)
+	writeConfigCUEUI(&sb, cfg.UI)
+	writeConfigCUELLM(&sb, cfg.LLM, forceLLMAPIBlock)
+	writeConfigCUEContainer(&sb, cfg.Container)
+
+	return sb.String()
+}
+
+func writeConfigCUEIncludes(sb *strings.Builder, includes []IncludeEntry) {
 	sb.WriteString("\nincludes: [\n")
-	for _, entry := range cfg.Includes {
+	for _, entry := range includes {
 		if entry.Alias != "" {
-			fmt.Fprintf(&sb, "\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
+			fmt.Fprintf(sb, "\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
 		} else {
-			fmt.Fprintf(&sb, "\t{path: %q},\n", entry.Path)
+			fmt.Fprintf(sb, "\t{path: %q},\n", entry.Path)
 		}
 	}
 	sb.WriteString("]\n")
+}
 
-	// Virtual runtime family config
+func writeConfigCUEVirtual(sb *strings.Builder, virtual VirtualConfig) {
 	sb.WriteString("\nvirtual: {\n")
 	sb.WriteString("\tutilities: {\n")
-	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Virtual.Utilities.Enabled)
+	fmt.Fprintf(sb, "\t\tenabled: %v\n", virtual.Utilities.Enabled)
 	sb.WriteString("\t}\n")
 	sb.WriteString("}\n")
+}
 
-	// UI config
+func writeConfigCUEUI(sb *strings.Builder, ui UIConfig) {
 	sb.WriteString("\nui: {\n")
-	fmt.Fprintf(&sb, "\tcolor_scheme: %q\n", cfg.UI.ColorScheme)
-	fmt.Fprintf(&sb, "\tverbose: %v\n", cfg.UI.Verbose)
-	fmt.Fprintf(&sb, "\tinteractive: %v\n", cfg.UI.Interactive)
+	fmt.Fprintf(sb, "\tcolor_scheme: %q\n", ui.ColorScheme)
+	fmt.Fprintf(sb, "\tverbose: %v\n", ui.Verbose)
+	fmt.Fprintf(sb, "\tinteractive: %v\n", ui.Interactive)
 	sb.WriteString("}\n")
+}
 
-	// LLM config
+func writeConfigCUELLM(sb *strings.Builder, llm LLMConfig, forceAPIBlock bool) {
 	sb.WriteString("\nllm: {\n")
-	if cfg.LLM.Provider != "" {
-		fmt.Fprintf(&sb, "\tprovider: %q\n", cfg.LLM.Provider)
+	if llm.Provider != "" {
+		fmt.Fprintf(sb, "\tprovider: %q\n", llm.Provider)
 	}
-	if cfg.LLM.Model != "" {
-		fmt.Fprintf(&sb, "\tmodel: %q\n", cfg.LLM.Model)
+	if llm.Model != "" {
+		fmt.Fprintf(sb, "\tmodel: %q\n", llm.Model)
 	}
-	if cfg.LLM.Timeout != "" {
-		fmt.Fprintf(&sb, "\ttimeout: %q\n", cfg.LLM.Timeout)
+	if llm.Timeout != "" {
+		fmt.Fprintf(sb, "\ttimeout: %q\n", llm.Timeout)
 	}
-	if cfg.LLM.Concurrency != 0 {
-		fmt.Fprintf(&sb, "\tconcurrency: %d\n", cfg.LLM.Concurrency)
+	if llm.Concurrency != 0 {
+		fmt.Fprintf(sb, "\tconcurrency: %d\n", llm.Concurrency)
 	}
-	if cfg.LLM.API.HasConfig() {
+	if llm.API.HasConfig() || forceAPIBlock {
 		sb.WriteString("\tapi: {\n")
-		if cfg.LLM.API.BaseURL != "" {
-			fmt.Fprintf(&sb, "\t\tbase_url: %q\n", cfg.LLM.API.BaseURL)
-		}
-		if cfg.LLM.API.Model != "" {
-			fmt.Fprintf(&sb, "\t\tmodel: %q\n", cfg.LLM.API.Model)
-		}
-		if cfg.LLM.API.CredentialEnv != "" {
-			fmt.Fprintf(&sb, "\t\tapi_key_env: %q\n", cfg.LLM.API.CredentialEnv)
-		}
+		writeConfigCUELLMAPI(sb, llm.API)
 		sb.WriteString("\t}\n")
 	}
 	sb.WriteString("}\n")
+}
 
-	// Container config
+func writeConfigCUELLMAPI(sb *strings.Builder, api LLMAPIConfig) {
+	if api.BaseURL != "" {
+		fmt.Fprintf(sb, "\t\tbase_url: %q\n", api.BaseURL)
+	}
+	if api.Model != "" {
+		fmt.Fprintf(sb, "\t\tmodel: %q\n", api.Model)
+	}
+	if api.CredentialEnv != "" {
+		fmt.Fprintf(sb, "\t\tapi_key_env: %q\n", api.CredentialEnv)
+	}
+}
+
+func writeConfigCUEContainer(sb *strings.Builder, container ContainerConfig) {
 	sb.WriteString("\ncontainer: {\n")
 	sb.WriteString("\tauto_provision: {\n")
-	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled)
-	fmt.Fprintf(&sb, "\t\tstrict: %v\n", cfg.Container.AutoProvision.Strict)
-	fmt.Fprintf(&sb, "\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath)
+	fmt.Fprintf(sb, "\t\tenabled: %v\n", container.AutoProvision.Enabled)
+	fmt.Fprintf(sb, "\t\tstrict: %v\n", container.AutoProvision.Strict)
+	fmt.Fprintf(sb, "\t\tbinary_path: %q\n", container.AutoProvision.BinaryPath)
 	sb.WriteString("\t\tincludes: [\n")
-	for _, entry := range cfg.Container.AutoProvision.Includes {
+	for _, entry := range container.AutoProvision.Includes {
 		if entry.Alias != "" {
-			fmt.Fprintf(&sb, "\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
+			fmt.Fprintf(sb, "\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
 		} else {
-			fmt.Fprintf(&sb, "\t\t\t{path: %q},\n", entry.Path)
+			fmt.Fprintf(sb, "\t\t\t{path: %q},\n", entry.Path)
 		}
 	}
 	sb.WriteString("\t\t]\n")
-	fmt.Fprintf(&sb, "\t\tinherit_includes: %v\n", cfg.Container.AutoProvision.InheritIncludes)
-	fmt.Fprintf(&sb, "\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir)
+	fmt.Fprintf(sb, "\t\tinherit_includes: %v\n", container.AutoProvision.InheritIncludes)
+	fmt.Fprintf(sb, "\t\tcache_dir: %q\n", container.AutoProvision.CacheDir)
 	sb.WriteString("\t}\n")
 	sb.WriteString("}\n")
-
-	return sb.String()
 }
 
 // GenerateDisplayCUE generates configuration output for terminal display.
@@ -569,6 +583,7 @@ func GenerateCUE(cfg *Config) string {
 // config.cue but should not be echoed by diagnostic commands.
 func GenerateDisplayCUE(cfg *Config) string {
 	display := *cfg
+	forceAPIBlock := display.LLM.API.CredentialEnv != ""
 	display.LLM.API.CredentialEnv = ""
-	return GenerateCUE(&display)
+	return generateCUE(&display, forceAPIBlock)
 }

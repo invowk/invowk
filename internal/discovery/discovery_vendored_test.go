@@ -348,6 +348,92 @@ func TestDiscoverCommandSet_UsesVendoredAliasNamespaceFromLockFile(t *testing.T)
 	}
 }
 
+func TestDiscoverModules_SkipsVendoredModuleWithAmbiguousDeclaredLockEntries(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	parentDir := filepath.Join(tmpDir, "io.example.parent.invowkmod")
+	createTestModule(t, parentDir, "io.example.parent", "parent-cmd")
+	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
+	vendoredDir := filepath.Join(vendorDir, "io.example.shared.invowkmod")
+	createTestModule(t, vendoredDir, "io.example.shared", "run")
+
+	parentMod := `module: "io.example.parent"
+version: "1.0.0"
+requires: [
+	{git_url: "https://example.com/shared-a.git", version: "^1.0.0"},
+	{git_url: "https://example.com/shared-b.git", version: "^1.0.0"},
+]
+`
+	if err := os.WriteFile(filepath.Join(parentDir, "invowkmod.cue"), []byte(parentMod), 0o644); err != nil {
+		t.Fatalf("failed to write parent invowkmod.cue: %v", err)
+	}
+
+	hash, err := invowkmod.ComputeModuleHash(vendoredDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() = %v", err)
+	}
+	lock := invowkmod.NewLockFile()
+	for _, key := range []invowkmod.ModuleRefKey{
+		"https://example.com/shared-a.git",
+		"https://example.com/shared-b.git",
+	} {
+		lock.Modules[key] = invowkmod.LockedModule{
+			GitURL:          invowkmod.GitURL(key),
+			Version:         "^1.0.0",
+			ResolvedVersion: "1.0.0",
+			GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+			Namespace:       "io.example.shared",
+			CommandSourceID: "io.example.shared",
+			ModuleID:        "io.example.shared",
+			ContentHash:     hash,
+		}
+	}
+	if saveErr := lock.Save(filepath.Join(parentDir, invowkmod.LockFileName)); saveErr != nil {
+		t.Fatalf("lock.Save() = %v", saveErr)
+	}
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+	result, err := d.DiscoverModules()
+	if err != nil {
+		t.Fatalf("DiscoverModules() = %v", err)
+	}
+
+	assertAmbiguousVendoredModuleSkipped(t, result)
+}
+
+func assertAmbiguousVendoredModuleSkipped(t *testing.T, result ModuleListResult) {
+	t.Helper()
+
+	assertModuleIDAbsent(t, result.Modules, "io.example.shared")
+	assertAmbiguousVendoredDiagnostic(t, result.Diagnostics)
+}
+
+func assertModuleIDAbsent(t *testing.T, modules []*DiscoveredFile, moduleID invowkmod.ModuleID) {
+	t.Helper()
+
+	for _, module := range modules {
+		if module.Module != nil && module.Module.Metadata.Module == moduleID {
+			t.Fatal("ambiguous vendored module was discovered")
+		}
+	}
+}
+
+func assertAmbiguousVendoredDiagnostic(t *testing.T, diagnostics []Diagnostic) {
+	t.Helper()
+
+	for _, diag := range diagnostics {
+		if diag.code != CodeVendoredAmbiguousLockSkipped {
+			continue
+		}
+		if !strings.Contains(diag.message, "shared-a.git") || !strings.Contains(diag.message, "shared-b.git") {
+			t.Fatalf("ambiguous diagnostic message = %q, want both lock keys", diag.message)
+		}
+		return
+	}
+	t.Fatalf("diagnostics missing %s: %#v", CodeVendoredAmbiguousLockSkipped, diagnostics)
+}
+
 func TestDiscoverAll_FindsVendoredModulesInIncludes(t *testing.T) {
 	t.Parallel()
 
