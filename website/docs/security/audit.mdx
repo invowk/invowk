@@ -14,15 +14,16 @@ Invowk includes a built-in security scanner that analyzes invowkfiles, modules, 
 
 ## How It Works
 
-The `invowk audit` command builds an immutable snapshot of all discovered artifacts (invowkfiles, modules, scripts, lock files), then runs **6 built-in security checkers** concurrently. After all checkers complete, a **correlator** cross-references findings to detect compound threats.
+The `invowk audit` command builds an immutable snapshot of all discovered artifacts (invowkfiles, modules, scripts, lock files), then runs **7 built-in security checkers** concurrently. After all checkers complete, a **correlator** cross-references findings to detect compound threats.
 
 ```
 invowk audit [path]
   │
   ├── Discovery ──► Immutable ScanContext snapshot
   │
-  ├── Concurrent Checkers (6 built-in + optional LLM)
+  ├── Concurrent Checkers (7 built-in + optional LLM)
   │   ├── Script Checker ──► execution, path-traversal, obfuscation findings
+  │   ├── Lua Checker ──► virtual-lua execution, env, and path findings
   │   ├── Network Checker ──► exfiltration findings
   │   ├── Env Checker ──► exfiltration findings
   │   ├── Lock File Checker ──► integrity findings
@@ -59,12 +60,22 @@ Analyzes script content and paths for dangerous execution patterns.
 - Obfuscation: base64 encoding/decoding, `eval` with dynamic content, hex sequences
 - Unusually large script files (>5 MiB)
 
+### Lua Checker
+
+Analyzes virtual-lua scripts and runtime configuration for host access and bridge misuse.
+
+**Detects:**
+- Disabled Lua API references (`os.execute`, `io.popen`, `package.loadlib`, `debug`, and direct file-loading helpers)
+- Sensitive environment reads through `os.getenv()` or the Invowk Lua environment bridge
+- Wildcard or network-capable `allowed_binaries` entries that let Lua invoke broad host commands
+- Full virtual filesystem access or broad path mappings exposed to Lua file APIs
+
 ### Network Checker
 
 Scans scripts for network access patterns that may indicate data exfiltration.
 
 **Detects:**
-- Reverse shell patterns (bash, Python, Perl, netcat)
+- Reverse shell patterns (bash, Python, netcat)
 - DNS exfiltration (`dig`, `nslookup` with dynamic subdomains)
 - Encoded URLs (base64-encoded network targets)
 - Suspicious network commands in unexpected contexts

@@ -24,7 +24,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 |-----------|------------|----------------|
 | **NativeRuntime** | Go | Executes commands via the host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. Configurable shell override. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **ShRuntime** | Go/mvdan-sh | Embedded POSIX shell interpreter with optional u-root built-in utilities. No host shell dependency. Spawns a subprocess of itself for PTY-based interactive mode. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
-| **LuaRuntime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. Implements Runtime and CapturingRuntime. |
+| **LuaRuntime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Standard 10-level precedence implementation: host env (filtered) -> root/command/impl env files -> root/command/impl env vars -> ExtraEnv -> runtime env files -> runtime env vars. |
 | **MockEnvBuilder** | Go | Test helper that returns a fixed environment map. Enables testing runtimes in isolation without real file system access or env loading. |
@@ -65,7 +65,7 @@ The runtime package uses interface segregation to let callers depend only on the
 - **CapturingRuntime** is a standalone interface for output capture. Callers that need captured output can type-assert to it.
 - **InteractiveRuntime** embeds `Runtime` and adds PTY support. The helper function `GetInteractiveRuntime()` combines type assertion with `SupportsInteractive()` capability check, returning nil if either fails.
 
-Native, Sh, Lua, and Container implement the interactive interface. Interface satisfaction checks verify each runtime's declared capabilities at compile time.
+Native, Sh, Lua, and Container implement the interactive interface. The package uses ordinary Go interface assertions and runtime capability checks where call sites need specific optional capabilities.
 
 ### Registry Dispatch
 

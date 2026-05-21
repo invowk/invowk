@@ -135,14 +135,18 @@ NativeAvailable -> NativeRun: Yes
 NativeAvailable -> ErrNative: No
 
 # ------------------------------------------------------------------------------
-# Virtual path
+# Virtual paths
 # ------------------------------------------------------------------------------
 
 VirtualRun: Run with virtual-sh runtime (mvdan/sh) {
   style.fill: "#C8E6C9"
 }
+LuaRun: Run with virtual-lua runtime (golua) {
+  style.fill: "#C8E6C9"
+}
 
 Dispatch -> VirtualRun: virtual-sh
+Dispatch -> LuaRun: virtual-lua
 
 # ------------------------------------------------------------------------------
 # Container path
@@ -159,6 +163,28 @@ ErrContainer: Error: container runtime unavailable {
 PrepareContainer: Prepare container execution {
   style.fill: "#BBDEFB"
 }
+PersistentRequested: Persistent container requested? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+PersistentExists: Target exists? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+CreateIfMissing: create_if_missing? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+ErrPersistentMissing: Error: persistent target missing {
+  shape: oval
+  style.fill: "#FFCDD2"
+}
+CreatePersistent: Create/start persistent container {
+  style.fill: "#BBDEFB"
+}
+PersistentExec: Exec in persistent container {
+  style.fill: "#C8E6C9"
+}
 
 Dispatch -> ContainerAvailable: container
 ContainerAvailable -> PrepareContainer: Yes
@@ -173,7 +199,13 @@ ErrUnsupportedImage: Error: unsupported image\n(Alpine/Windows) {
   style.fill: "#FFCDD2"
 }
 
-PrepareContainer -> ValidateImage
+PrepareContainer -> PersistentRequested
+PersistentRequested -> PersistentExists: Yes
+PersistentRequested -> ValidateImage: No
+PersistentExists -> PersistentExec: Exists
+PersistentExists -> CreateIfMissing: Missing
+CreateIfMissing -> ErrPersistentMissing: No
+CreateIfMissing -> ValidateImage: Yes
 
 ValidateImage -> ErrUnsupportedImage: No
 
@@ -205,7 +237,9 @@ BuildImage -> UseImage
 PullImage -> UseImage
 UseImage -> AddLayer
 AddLayer -> InjectSSH
-InjectSSH -> ContainerRun
+InjectSSH -> CreatePersistent: persistent create_if_missing
+InjectSSH -> ContainerRun: ephemeral
+CreatePersistent -> PersistentExec
 
 # ------------------------------------------------------------------------------
 # Terminal success
@@ -218,4 +252,6 @@ Execute: Execute command {
 
 NativeRun -> Execute
 VirtualRun -> Execute
+LuaRun -> Execute
+PersistentExec -> Execute
 ContainerRun -> Execute

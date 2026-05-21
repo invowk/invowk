@@ -149,6 +149,19 @@ runtime_pkg: internal/runtime {
     |
   }
 
+  lua: LuaRuntime {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Struct**
+      Embedded Lua interpreter using golua.
+      Shares the virtual safety harness and u-root utilities.
+      Spawns subprocess for PTY-based interactive mode.
+    |
+  }
+
   container_rt: ContainerRuntime {
     style: {
       fill: "#85BBF0"
@@ -272,7 +285,7 @@ runtime_pkg: internal/runtime {
   # Implements relationships (dashed = interface implementation)
   # --------------------------------------------------------------------------
 
-  # All three runtimes implement Runtime
+  # All four runtimes implement Runtime
   native -> runtime_iface: implements {
     style: {
       stroke: "#707070"
@@ -285,6 +298,12 @@ runtime_pkg: internal/runtime {
       stroke-dash: 3
     }
   }
+  lua -> runtime_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
   container_rt -> runtime_iface: implements {
     style: {
       stroke: "#707070"
@@ -292,7 +311,7 @@ runtime_pkg: internal/runtime {
     }
   }
 
-  # All three runtimes implement CapturingRuntime
+  # All four runtimes implement CapturingRuntime
   native -> capturing_iface: implements {
     style: {
       stroke: "#707070"
@@ -305,6 +324,12 @@ runtime_pkg: internal/runtime {
       stroke-dash: 3
     }
   }
+  lua -> capturing_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
   container_rt -> capturing_iface: implements {
     style: {
       stroke: "#707070"
@@ -312,7 +337,7 @@ runtime_pkg: internal/runtime {
     }
   }
 
-  # All three runtimes implement InteractiveRuntime
+  # All four runtimes implement InteractiveRuntime
   native -> interactive_iface: implements {
     style: {
       stroke: "#707070"
@@ -320,6 +345,12 @@ runtime_pkg: internal/runtime {
     }
   }
   virtual -> interactive_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+  lua -> interactive_iface: implements {
     style: {
       stroke: "#707070"
       stroke-dash: 3
@@ -369,6 +400,9 @@ runtime_pkg: internal/runtime {
   virtual -> env_builder_iface: builds env {
     style.stroke: "#707070"
   }
+  lua -> env_builder_iface: builds env {
+    style.stroke: "#707070"
+  }
   container_rt -> env_builder_iface: builds env {
     style.stroke: "#707070"
   }
@@ -391,6 +425,13 @@ runtime_pkg: internal/runtime {
     style.stroke: "#707070"
   }
 
+  lua -> exec_ctx: reads {
+    style.stroke: "#707070"
+  }
+  lua -> result: produces {
+    style.stroke: "#707070"
+  }
+
   container_rt -> exec_ctx: reads {
     style.stroke: "#707070"
   }
@@ -403,6 +444,9 @@ runtime_pkg: internal/runtime {
     style.stroke: "#707070"
   }
   virtual -> prepared_cmd: returns {
+    style.stroke: "#707070"
+  }
+  lua -> prepared_cmd: returns {
     style.stroke: "#707070"
   }
   container_rt -> prepared_cmd: returns {
@@ -497,6 +541,18 @@ mvdan_sh: mvdan/sh {
   |
 }
 
+golua: golua {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **github.com/arnodel/golua**
+    Embedded Lua interpreter.
+    Powers LuaRuntime execution.
+  |
+}
+
 uroot_builtins: u-root Builtins {
   style: {
     fill: "#438DD5"
@@ -552,5 +608,14 @@ runtime_pkg.virtual -> uroot_builtins: "registers\nbuilt-in utils" {
   style.stroke: "#707070"
 }
 runtime_pkg.virtual -> host_exec: "runs allowed\nhost binaries" {
+  style.stroke: "#707070"
+}
+runtime_pkg.lua -> golua: "interprets\nLua scripts" {
+  style.stroke: "#707070"
+}
+runtime_pkg.lua -> uroot_builtins: "uses\nvirtual utilities" {
+  style.stroke: "#707070"
+}
+runtime_pkg.lua -> host_exec: "runs allowed\nhost binaries" {
   style.stroke: "#707070"
 }

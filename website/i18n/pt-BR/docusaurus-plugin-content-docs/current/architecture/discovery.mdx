@@ -52,9 +52,9 @@ Esta checagem de visibilidade se aplica a dependências declaradas em `depends_o
 
 | De | Pode Acessar | Não Pode Acessar |
 |----|--------------|------------------|
-| Módulo A | comandos de A, comandos de B | comandos de C (transitivo) |
-| Módulo B | comandos de B, comandos de C | - |
-| invowkfile Raiz | Próprios comandos, deps diretas | Deps transitivas |
+| Módulo A | comandos de A, módulos globais instalados, comandos de B | comandos de C (transitivo) |
+| Módulo B | comandos de B, módulos globais instalados, comandos de C | - |
+| invowkfile raiz | Comandos descobertos | Restrições de escopo não se aplicam; falhas são de descoberta ou resolução explícita de dependências |
 
 **Por que esta restrição?**
 - Previne acoplamento implícito a dependências transitivas

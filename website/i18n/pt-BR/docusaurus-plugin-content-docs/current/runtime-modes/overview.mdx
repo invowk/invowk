@@ -126,20 +126,14 @@ O runtime é resolvido usando um modelo de precedência de 3 níveis:
 
 ## Validação de Dependências
 
-Dependências são validadas de acordo com o runtime:
+Entradas `depends_on` no nível raiz, comando e implementação são sempre validadas contra o sistema host, independentemente do runtime selecionado. `depends_on` no nível de runtime só está disponível em configurações de runtime container, onde valida dependências dentro do ambiente do container.
 
-| Runtime | Dependências Validadas Contra |
-|---------|-------------------------------|
-| native | Shell e ferramentas do sistema host |
-| virtual-sh | Shell integrado com utilitários core |
-| virtual-lua | Lua integrado e helpers explicitamente permitidos |
-| container | Shell e ambiente do container |
+| Escopo | Dependências Validadas Contra |
+|--------|-------------------------------|
+| `depends_on` de raiz / comando / implementação | Sistema host |
+| `depends_on` do runtime container | Ambiente da imagem do container |
 
-Isso significa que uma dependência `tools` como `go` é verificada:
-- **native**: O `go` está no PATH do host?
-- **virtual-sh**: O `go` está disponível como utilitário integrado ou binário do host explicitamente permitido?
-- **virtual-lua**: O `go` está disponível por um helper explicitamente permitido da ponte Lua?
-- **container**: O `go` está instalado na imagem do container?
+Isso significa que uma dependência `tools` no nível do comando, como `go`, verifica se `go` está disponível no host. Para verificar se `go` está instalado dentro de uma imagem de container, coloque essa dependência dentro do bloco de runtime container.
 
 ## Próximos Passos
 

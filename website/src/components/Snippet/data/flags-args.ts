@@ -93,7 +93,7 @@ export const flagsArgsSnippets = {
   'flags-args/overview-flags-example': {
     language: 'cue',
     code: `flags: [
-    {name: "verbose", description: "Enable verbose output", type: "bool", short: "v"},
+    {name: "verbose", description: "Enable verbose output", type: "bool", short: "V"},
     {name: "output", description: "Output directory", type: "string", short: "o", default_value: "./dist"},
     {name: "count", description: "Number of iterations", type: "int", default_value: "1"},
 ]`,
@@ -293,9 +293,9 @@ invowk cmd request --timeout=60`,
   'flags-args/flags-short-aliases': {
     language: 'cue',
     code: `flags: [
-    {name: "verbose", description: "Verbose output", type: "bool", short: "v"},
+    {name: "verbose", description: "Verbose output", type: "bool", short: "V"},
     {name: "output", description: "Output file", short: "o"},
-    {name: "force", description: "Force overwrite", type: "bool", short: "f"},
+    {name: "force", description: "Force overwrite", type: "bool", short: "F"},
 ]`,
   },
 
@@ -305,10 +305,10 @@ invowk cmd request --timeout=60`,
 invowk cmd build --verbose --output=./dist --force
 
 # Short form
-invowk cmd build -v -o=./dist -f
+invowk cmd build -V -o=./dist -F
 
 # Mixed
-invowk cmd build -v --output=./dist -f`,
+invowk cmd build -V --output=./dist -F`,
   },
 
   'flags-args/flags-validation': {
@@ -321,7 +321,7 @@ invowk cmd build -v --output=./dist -f`,
         default_value: "dev"
     },
     {
-        name: "version"
+        name: "release-version"
         description: "Semantic version"
         validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
     }
@@ -331,7 +331,7 @@ invowk cmd build -v --output=./dist -f`,
   'flags-args/flags-validation-usage': {
     language: 'bash',
     code: `# Valid
-invowk cmd deploy --env=prod --version=1.2.3
+invowk cmd deploy --env=prod --release-version=1.2.3
 
 # Invalid - fails before execution
 invowk cmd deploy --env=production
@@ -373,7 +373,7 @@ invowk cmd deploy --env=production
     flags: [
         {name: "mode", description: "Build mode", validation: "^(debug|release)$", default_value: "debug"},
         {name: "output", description: "Output directory", short: "o", default_value: "./build"},
-        {name: "verbose", description: "Verbose output", type: "bool", short: "v"},
+        {name: "verbose", description: "Verbose output", type: "bool", short: "V"},
         {name: "parallel", description: "Parallel jobs", type: "int", short: "j", default_value: "4"},
     ]
     implementations: [{
@@ -402,14 +402,14 @@ invowk cmd deploy --env=production
         {
             name: "env"
             description: "Target environment"
-            short: "e"
+            short: "t"
             required: true
             validation: "^(dev|staging|prod)$"
         },
         {
-            name: "version"
+            name: "release-version"
             description: "Version to deploy"
-            short: "v"
+            short: "R"
             validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
         },
         {
@@ -428,7 +428,7 @@ invowk cmd deploy --env=production
     ]
     implementations: [{
         script: {content: """
-            echo "Deploying version \${INVOWK_FLAG_VERSION:-latest} to $INVOWK_FLAG_ENV"
+            echo "Deploying version \${INVOWK_FLAG_RELEASE_VERSION:-latest} to $INVOWK_FLAG_ENV"
             
             ARGS="--timeout=$INVOWK_FLAG_TIMEOUT"
             if [ "$INVOWK_FLAG_DRY_RUN" = "true" ]; then

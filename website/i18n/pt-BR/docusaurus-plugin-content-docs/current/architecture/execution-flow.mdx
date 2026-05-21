@@ -59,8 +59,9 @@ O runtime virtual-sh usa o interpretador mvdan/sh embutido:
 |-------|------------|------|
 | 11 | Command Service | Corresponder nome do comando aos comandos descobertos |
 | 12 | Command Service | Selecionar implementação específica da plataforma |
-| 13-14 | Registry | Obter instância apropriada do runtime |
-| 15-16 | Runtime | Validar contexto de execução |
+| 13 | Command Service | Resolver runtime usando override da CLI, default da configuração ou default do comando |
+| 14 | Command Service | Construir contexto de execução |
+| 15 | Command Service | Retornar plano dry-run quando `--ivk-dry-run` estiver ativo, antes da validação de dependências ou setup de host/runtime |
 
 **Correspondência de plataforma:**
 - Verificar `platforms: [{name: "linux"}]`, `[{name: "macos"}]`, `[{name: "windows"}]`
@@ -70,15 +71,18 @@ O runtime virtual-sh usa o interpretador mvdan/sh embutido:
 
 | Etapa | Componente | Ação |
 |-------|------------|------|
-| 17 | Runtime | Iniciar execução |
-| 18-19 | Runtime Selecionado | Executar o script/comando real |
+| 16 | Command Service | Iniciar acesso opcional ao host e criar sessão de runtime |
+| 17 | Command Service | Aplicar timeout e validar dependências |
+| 18 | Registry | Buscar runtime selecionado e validar disponibilidade |
+| 19 | Runtime Selecionado | Executar o script/comando real |
 | 20 | Runtime | Retornar resultado |
 | 21 | CLI | Saída para usuário |
 
 **Comportamento específico do runtime:**
 - **Native**: Spawns processo do shell do host
-- **Virtual**: Interpreta via mvdan/sh
-- **Container**: Provisiona imagem, executa container com tratamento de retry transitório
+- **Virtual-Sh**: Interpreta via mvdan/sh
+- **Virtual-Lua**: Interpreta via golua com o harness de segurança virtual compartilhado
+- **Container**: Provisiona uma imagem e executa um container efêmero com tratamento de retry transitório ou executa via `Exec` em um alvo persistente
 - **Ciclo de vida SSH/TUI**: Gerenciado pela orquestração de comandos (CommandService), não pela implementação de runtime em si
 
 ### 5. Interceptação Dry-Run

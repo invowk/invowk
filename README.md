@@ -174,7 +174,7 @@ Available Commands
   (* = default runtime)
 
 From invowkfile:
-  hello - Print a greeting [native*, virtual-sh, virtual-lua, container] (linux, macos, windows)
+  hello - Print a greeting [native*, virtual-sh, container] (linux, macos, windows)
 ```
 
 3. **Run a command**:
@@ -270,7 +270,10 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "go test ./..."}
-				runtimes: [{name: "native"}, {name: "virtual-sh"}]  // Can run in native or virtual-sh runtime
+				runtimes: [
+					{name: "native"},
+					{name: "virtual-sh", allowed_binaries: ["go"], binary_lookup_mode: "host"},
+				]  // Can run in native or virtual-sh runtime
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			}
 		]
@@ -896,7 +899,7 @@ Use regex patterns to validate flag values:
 ```cue
 flags: [
     {name: "env", description: "Environment", validation: "^(dev|staging|prod)$", default_value: "dev"},
-    {name: "version", description: "Version (semver)", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    {name: "release-version", description: "Version (semver)", validation: "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
 ]
 ```
 
@@ -2985,11 +2988,12 @@ invowk audit --severity high
 
 ### What Gets Scanned
 
-The audit scanner runs 6 built-in security checkers concurrently:
+The audit scanner runs 7 built-in security checkers concurrently:
 
 | Checker | Category | What It Detects |
 |---------|----------|-----------------|
 | **Script** | execution, path-traversal, obfuscation | Remote code execution (`curl \| bash`), path traversal (`../`), base64 obfuscation, eval patterns, hex sequences |
+| **Lua** | execution, exfiltration, path-traversal | Disabled virtual-lua API references, sensitive environment reads, wildcard or network-capable host binary allowances, broad virtual filesystem exposure |
 | **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
 | **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, unset native/virtual-sh `env_inherit_mode` defaults that inherit all host variables, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
 | **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
@@ -3195,9 +3199,10 @@ invowk/
 │   ├── benchmark/              # Benchmarks for PGO profile generation
 │   ├── config/                 # Configuration management with CUE schema
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
+│   ├── containerplan/           # Pure container execution policy and target planning
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── discovery/              # Invowkfile and module discovery
-│   ├── audit/                  # Security scanning (6 checkers + LLM + correlator)
+│   ├── audit/                  # Security scanning (7 checkers + LLM + correlator)
 │   ├── auditllm/               # LLM provider adapters for audit analysis
 │   ├── agentcmd/               # LLM-assisted custom-command authoring pipeline
 │   ├── llm/                    # Shared LLM completion interface and adapters

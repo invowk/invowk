@@ -99,7 +99,7 @@ includes: [
 // Default runtime for commands that don't specify one
 default_runtime: "native"
 
-// Virtual shell configuration
+// Virtual runtime family configuration
 virtual: {
     utilities: {
         enabled: true
@@ -137,10 +137,13 @@ container: {
 
   'config/schema': {
     language: 'cue',
-    code: `#ContainerEngineType: "podman" | "docker"
+    code: `import "strings"
+
+#ContainerEngineType: "podman" | "docker"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
+#LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
 #Config: close({
     container_engine: *"podman" | #ContainerEngineType
@@ -174,9 +177,9 @@ container: {
 #LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
-    model?: string
-    timeout?: string
-    concurrency?: int
+    model?: string & !="" & strings.MaxRunes(256)
+    timeout?: #LLMTimeoutDurationString
+    concurrency?: int & >=0
 }
 
 #LLMDefaultsConfig: close({
@@ -194,9 +197,9 @@ container: {
 })
 
 #LLMAPIConfig: close({
-    base_url?: string
-    model?: string
-    api_key_env?: string
+    base_url?: string & !="" & strings.MaxRunes(2048)
+    model?: string & !="" & strings.MaxRunes(256)
+    api_key_env?: string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)
 })
 
 #ContainerConfig: close({
@@ -502,7 +505,7 @@ includes: [
 // Default runtime for commands that don't specify one
 default_runtime: "native"
 
-// Virtual shell configuration
+// Virtual runtime family configuration
 virtual: {
     utilities: {
         enabled: true
@@ -558,10 +561,13 @@ invowk cmd build --ivk-runtime container`,
   'reference/config/schema-definition': {
     language: 'cue',
     code: `// Root configuration structure
+import "strings"
+
 #ContainerEngineType: "podman" | "docker"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
+#LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
 #Config: close({
     container_engine: *"podman" | #ContainerEngineType
@@ -579,7 +585,7 @@ invowk cmd build --ivk-runtime container`,
     alias?: string  // Optional, for collision disambiguation
 })
 
-// Virtual shell configuration
+// Virtual runtime family configuration
 #VirtualConfig: close({
     utilities: *#VirtualUtilitiesConfig | #VirtualUtilitiesConfig
 })
@@ -599,9 +605,9 @@ invowk cmd build --ivk-runtime container`,
 #LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
-    model?:       string
-    timeout?:     string
-    concurrency?: int
+    model?:       string & !="" & strings.MaxRunes(256)
+    timeout?:     #LLMTimeoutDurationString
+    concurrency?: int & >=0
 }
 
 #LLMDefaultsConfig: close({
@@ -620,9 +626,9 @@ invowk cmd build --ivk-runtime container`,
 
 // OpenAI-compatible API configuration
 #LLMAPIConfig: close({
-    base_url?:    string
-    model?:       string
-    api_key_env?: string
+    base_url?:    string & !="" & strings.MaxRunes(2048)
+    model?:       string & !="" & strings.MaxRunes(256)
+    api_key_env?: string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)
 })
 
 // Container configuration
@@ -643,10 +649,13 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/schema': {
     language: 'cue',
-    code: `#ContainerEngineType: "podman" | "docker"
+    code: `import "strings"
+
+#ContainerEngineType: "podman" | "docker"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
+#LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
 #Config: close({
     container_engine: *"podman" | #ContainerEngineType
@@ -680,9 +689,9 @@ invowk cmd build --ivk-runtime container`,
 #LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
-    model?: string
-    timeout?: string
-    concurrency?: int
+    model?: string & !="" & strings.MaxRunes(256)
+    timeout?: #LLMTimeoutDurationString
+    concurrency?: int & >=0
 }
 
 #LLMDefaultsConfig: close({
@@ -700,9 +709,9 @@ invowk cmd build --ivk-runtime container`,
 })
 
 #LLMAPIConfig: close({
-    base_url?: string
-    model?: string
-    api_key_env?: string
+    base_url?: string & !="" & strings.MaxRunes(2048)
+    model?: string & !="" & strings.MaxRunes(256)
+    api_key_env?: string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)
 })
 
 #ContainerConfig: close({
@@ -814,12 +823,16 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/llm-config-structure': {
     language: 'cue',
-    code: `#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
+    code: `import "strings"
+
+#LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
+
+#LLMConfig: #LLMDefaultsConfig | #LLMProviderConfig | #LLMAPIBackendConfig
 
 #LLMCommonConfig: {
-    model?:       string
-    timeout?:     string
-    concurrency?: int
+    model?:       string & !="" & strings.MaxRunes(256)
+    timeout?:     #LLMTimeoutDurationString
+    concurrency?: int & >=0
 }
 
 #LLMDefaultsConfig: close({
@@ -839,10 +852,12 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/llm-api-config-structure': {
     language: 'cue',
-    code: `#LLMAPIConfig: close({
-    base_url?:    string
-    model?:       string
-    api_key_env?: string
+    code: `import "strings"
+
+#LLMAPIConfig: close({
+    base_url?:    string & !="" & strings.MaxRunes(2048)
+    model?:       string & !="" & strings.MaxRunes(256)
+    api_key_env?: string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)
 })`,
   },
 

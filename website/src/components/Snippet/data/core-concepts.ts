@@ -372,7 +372,7 @@ platforms: [
     implementations: [
         // Linux implementation with platform-specific env
         {
-            script: {content: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            script: {content: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""}
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
             env: {
@@ -384,7 +384,7 @@ platforms: [
         },
         // macOS implementation with platform-specific env
         {
-            script: {content: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""
+            script: {content: "echo \\"Deploying to $PLATFORM with config at $CONFIG_PATH\\""}
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
             env: {
@@ -435,7 +435,10 @@ platforms: [
     implementations: [
         {
             script: {content: "make build"}
-            runtimes: [{name: "native"}, {name: "virtual-sh"}]
+            runtimes: [
+                {name: "native"},
+                {name: "virtual-sh", allowed_binaries: ["make"], binary_lookup_mode: "host"},
+            ]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         {
@@ -1071,7 +1074,7 @@ containerfile: "./docker/Dockerfile.build"`,
     },
     {
         name: "verbose"
-        short: "v"
+        short: "V"
         description: "Enable verbose output"
         type: "bool"
     },
@@ -1124,7 +1127,7 @@ cmds: [
         flags: [
             {
                 name: "release"
-                short: "r"
+                short: "R"
                 description: "Build for release"
                 type: "bool"
             },

@@ -14,11 +14,11 @@ type FeatureItem = {
 const FeatureList: FeatureItem[] = [
   {
     titleId: 'homepage.features.threeRuntimeModes.title',
-    titleDefault: 'Three Runtime Modes',
+    titleDefault: 'Four Runtime Modes',
     icon: '🚀',
     description: (
       <Translate id="homepage.features.threeRuntimeModes.description">
-        Run commands with native shell, the built-in virtual shell (cross-platform POSIX), or inside containers (Docker/Podman). Pick what works best for each command.
+        Run commands with native shell, the built-in virtual shell (cross-platform POSIX), embedded Lua, or inside containers (Docker/Podman). Pick what works best for each command.
       </Translate>
     ),
   },

@@ -46,7 +46,7 @@ function HomepageHeader() {
         </div>
         {/* Terminal demo: intentionally simplified from actual `invowk cmd` output.
             The real listing includes all runtimes and platforms per command (e.g.,
-            "[native*, virtual, container] (linux, macos, windows)"), which overflows
+            "[native*, virtual-sh, container] (linux, macos, windows)"), which overflows
             on mobile viewports. This truncated version fits ~38 chars max line width. */}
         <div className={styles.terminalDemo}>
           <pre className={styles.terminalCode}>
@@ -83,7 +83,7 @@ export default function Home(): ReactNode {
       })}
       description={translate({
         id: 'homepage.layout.description',
-        message: 'Invowk is a powerful, dynamically extensible command runner similar to just, written in Go. Define commands in CUE format and run them with native shell, virtual shell, or containers.',
+        message: 'Invowk is a powerful, dynamically extensible command runner similar to just, written in Go. Define commands in CUE format and run them with native shell, virtual shell, virtual Lua, or containers.',
       })}>
       <HomepageHeader />
       <main>

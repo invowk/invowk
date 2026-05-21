@@ -78,7 +78,7 @@ The [C4 model](https://c4model.com/) provides a hierarchical way to describe sof
 | C3 | Component | Internal modules within containers |
 | C4 | Code | Class/code-level details |
 
-For Invowk (a single CLI binary), C1 and C2 are most valuable. C3 (Component) diagrams are provided selectively for packages whose internal structure is genuinely complex — specifically `internal/runtime/` (interface segregation, registry pattern, 3 implementations) and `internal/container/` (composition via embedding, decorator pattern, functional options). Other packages have flat enough structure that code documentation suffices.
+For Invowk (a single CLI binary), C1 and C2 are most valuable. C3 (Component) diagrams are provided selectively for packages whose internal structure is genuinely complex — specifically `internal/runtime/` (interface segregation, registry pattern, 4 implementations) and `internal/container/` (composition via embedding, decorator pattern, functional options). Other packages have flat enough structure that code documentation suffices.
 
 ## Keeping Diagrams Updated
 

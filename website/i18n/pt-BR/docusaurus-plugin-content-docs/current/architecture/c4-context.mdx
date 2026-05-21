@@ -46,7 +46,7 @@ Este diagrama mostra o Invowk no nível mais alto - os limites do sistema, usuá
 
 ## Decisões de Design Visíveis Neste Nível
 
-1. **Suporte a Múltiplos Runtimes**: O Invowk não impõe um único ambiente de execução. Usuários escolhem shell nativo para velocidade, shell virtual para portabilidade, ou containers para isolamento.
+1. **Suporte a Múltiplos Runtimes**: O Invowk não impõe um único ambiente de execução. Usuários escolhem shell nativo para velocidade, virtual-sh para scripts shell portáteis, virtual-lua para scripts Lua embarcados, ou containers para isolamento.
 
 2. **Abstração de Engine de Container**: Tanto Docker quanto Podman são suportados com fallback automático, reduzindo vendor lock-in.
 

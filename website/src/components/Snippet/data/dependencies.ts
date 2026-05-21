@@ -220,7 +220,7 @@ cmds: [...]`,
             runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
             depends_on: {
-                // Validated INSIDE the container
+                // Implementation-level dependencies are validated on the host
                 tools: [{alternatives: ["sh"]}]
             }
         }
@@ -491,7 +491,7 @@ Install the missing tools and try again.`,
     }
     implementations: [{
         script: {content: "go build ./..."}
-        runtimes: [{name: "virtual-sh"}]
+        runtimes: [{name: "virtual-sh", allowed_binaries: ["go"], binary_lookup_mode: "host"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,

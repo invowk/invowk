@@ -74,7 +74,7 @@ The virtual-sh and virtual-lua runtimes are always available because they are em
 
 ## Container Provisioning Details
 
-When the container runtime is selected, Invowk creates an ephemeral image layer:
+For ephemeral container execution, Invowk prepares an image and creates an ephemeral image layer. Existing persistent container targets can skip image preparation and use `Exec` directly. Missing persistent targets fail before image preparation unless `create_if_missing` is enabled, in which case Invowk prepares the image, creates/starts the persistent container, then uses `Exec`:
 
 <Diagram id="architecture/runtime-provision" />
 
@@ -105,7 +105,7 @@ When `enable_host_ssh: true` is set, Invowk starts a temporary SSH server:
 | Cross-platform Lua commands | `virtual-lua` | Works everywhere |
 | CI/CD pipelines | `container` | Reproducible |
 | Commands needing specific tools | `container` | Isolated dependencies |
-| Interactive TUI | `native` or `virtual-sh` | Better terminal support |
+| Interactive TUI | `native`, `virtual-sh`, or `virtual-lua` | PTY-backed interactive support |
 
 ## Related Diagrams
 

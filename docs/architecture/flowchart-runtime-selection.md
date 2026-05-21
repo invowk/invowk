@@ -53,7 +53,7 @@ There is no implicit `native -> virtual` fallback when native is unavailable.
 ## Runtime Comparison
 
 | Aspect | Native | Virtual-Sh | Virtual-Lua | Container |
-|--------|--------|---------|-----------|
+|--------|--------|------------|-------------|-----------|
 | **Speed** | Fastest | Fast | Fast | Slower (overhead) |
 | **Isolation** | None | None (safety harness, not a sandbox) | None (safety harness, not a sandbox) | Full |
 | **Portability** | Platform-dependent | High | High | Highest |
@@ -79,7 +79,7 @@ The virtual-sh and virtual-lua runtimes are always available because they are em
 
 ## Container Provisioning Details
 
-When the container runtime is selected, Invowk creates an ephemeral image layer:
+For ephemeral container execution, Invowk prepares an image and creates an ephemeral image layer. Existing persistent container targets can skip image preparation and use `Exec` directly. Missing persistent targets fail before image preparation unless `create_if_missing` is enabled, in which case Invowk prepares the image, creates/starts the persistent container, then uses `Exec`:
 
 ![Ephemeral Layer Contents](../diagrams/rendered/flowcharts/runtime-provision.svg)
 
@@ -110,7 +110,7 @@ When `enable_host_ssh: true` is set, CommandService ensures a temporary SSH serv
 | Embedded Lua scripts | `virtual-lua` | Portable Lua execution with shared virtual safety harness |
 | CI/CD pipelines | `container` | Reproducible |
 | Commands needing specific tools | `container` | Isolated dependencies |
-| Interactive TUI | `native` or `virtual-sh` | Better terminal support |
+| Interactive TUI | `native`, `virtual-sh`, or `virtual-lua` | PTY-backed interactive support |
 
 ## Related Diagrams
 

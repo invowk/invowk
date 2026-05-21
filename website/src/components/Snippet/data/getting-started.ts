@@ -40,7 +40,10 @@ cmds: [                  // Required: list of commands
         implementations: [
             {
                 script: {content: "go test -v ./..."}
-                runtimes: [{name: "native"}, {name: "virtual-sh"}]
+                runtimes: [
+                    {name: "native"},
+                    {name: "virtual-sh", allowed_binaries: ["go"], binary_lookup_mode: "host"},
+                ]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
@@ -294,22 +297,22 @@ cmds: [
         description: "Print a greeting"
         implementations: [
             {
-                script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+                script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             },
             {
-                script: {content: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""
+                script: {content: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""}
                 runtimes: [{name: "native"}]
                 platforms: [{name: "windows"}]
             },
             {
-                script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+                script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""}
                 runtimes: [{name: "virtual-sh"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             },
             {
-                script: {content: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""
+                script: {content: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""}
                 runtimes: [{name: "container", image: "debian:stable-slim"}]
                 platforms: [{name: "linux"}]
             },
@@ -359,7 +362,7 @@ invowk cmd hello --ivk-runtime virtual-sh`,
     code: `// The virtual-sh runtime uses the built-in mvdan/sh interpreter
 // It works identically on Linux, macOS, and Windows
 {
-    script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
+    script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""}
     runtimes: [{name: "virtual-sh"}]
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,

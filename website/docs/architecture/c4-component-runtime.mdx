@@ -32,7 +32,7 @@ The runtime package (`internal/runtime/`) is responsible for executing user-defi
 |-----------|------------|----------------|
 | **NativeRuntime** | Go | Executes commands via the host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. Configurable shell override. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **ShRuntime** | Go/mvdan-sh | Embedded POSIX shell interpreter with optional u-root built-in utilities. No host shell dependency. Spawns a subprocess of itself for PTY-based interactive mode. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
-| **LuaRuntime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. Implements Runtime and CapturingRuntime. |
+| **LuaRuntime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Standard 10-level precedence implementation: host env (filtered) → root/command/impl env files → root/command/impl env vars → ExtraEnv → runtime env files → runtime env vars. |
 | **MockEnvBuilder** | Go | Test helper that returns a fixed environment map. Enables testing runtimes in isolation without real file system access or env loading. |

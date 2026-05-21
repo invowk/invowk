@@ -58,9 +58,9 @@ This visibility check applies to declared `depends_on.cmds` dependencies during 
 
 | From | Can Access | Cannot Access |
 |------|------------|---------------|
-| Module A | A's commands, B's commands | C's commands (transitive) |
-| Module B | B's commands, C's commands | - |
-| Root invowkfile | Own commands, direct deps | Transitive deps |
+| Module A | A's commands, globally installed modules, B's commands | C's commands (transitive) |
+| Module B | B's commands, globally installed modules, C's commands | - |
+| Root invowkfile | Discoverable commands | Scope restrictions are not applied; failures are discoverability or explicit dependency resolution issues |
 
 **Why this restriction?**
 - Prevents implicit coupling to transitive dependencies

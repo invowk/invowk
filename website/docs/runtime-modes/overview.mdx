@@ -125,20 +125,14 @@ The runtime is resolved using a 3-tier precedence model:
 
 ## Dependency Validation
 
-Dependencies are validated according to the runtime:
+Root, command, and implementation-level `depends_on` entries are always validated against the host system, regardless of the selected runtime. Runtime-level `depends_on` is only available in container runtime configs, where it validates dependencies inside the container environment.
 
-| Runtime | Dependencies Validated Against |
-|---------|-------------------------------|
-| native | Host system's shell and tools |
-| virtual-sh | Built-in shell with core utilities |
-| virtual-lua | Embedded Lua runtime and explicitly allowed helpers |
-| container | Container's shell and environment |
+| Scope | Dependencies Validated Against |
+|-------|-------------------------------|
+| Root / command / implementation `depends_on` | Host system |
+| Container runtime `depends_on` | Container image environment |
 
-This means a `tools` dependency like `go` is checked:
-- **native**: Is `go` in the host's PATH?
-- **virtual-sh**: Is `go` available as a built-in utility or explicitly allowed host binary?
-- **virtual-lua**: Is `go` available through an explicitly allowed host binary used by the Lua bridge?
-- **container**: Is `go` installed in the container image?
+This means a command-level `tools` dependency like `go` checks whether `go` is available on the host. To check whether `go` is installed inside a container image, put that dependency inside the container runtime block.
 
 ## Next Steps
 

@@ -19,7 +19,7 @@ Module dependencies are external modules that your module depends on. They are:
 - **Hosted in Git repositories** (GitHub, GitLab, Bitbucket, etc.)
 - **Versioned with semantic versioning** (tags like `v1.2.3` or `1.2.3`)
 - **Cached locally** for offline use and performance
-- **Published under a command source ID** derived from the module URL/path or alias to prevent collisions
+- **Published under a command source ID** derived from the dependency module ID or alias to prevent collisions
 
 ## Quick Start
 
@@ -43,7 +43,7 @@ Module dependencies are external modules that your module depends on. They are:
 
 ## Namespaces and Aliases
 
-When a dependency module is installed in a discovery path, its commands publish under a command source ID. The default source ID is derived from the module URL or path; `alias` overrides it. Run the simple command name when unique, or use `@<source>` / `--ivk-from <source>` to disambiguate:
+When a dependency module is installed in a discovery path, its commands publish under a command source ID. The default source ID is the dependency module ID; `alias` overrides it. Run the simple command name when unique, or use `@<source>` / `--ivk-from <source>` to disambiguate:
 
 <Snippet id="modules/dependencies/namespace-usage" />
 
@@ -63,10 +63,10 @@ Invowk uses an **explicit-only dependency model**, similar to Go modules: every 
 
 When declaring `depends_on.cmds`, commands in a module can only reference commands from:
 1. The same module
-2. Globally installed modules (your discovery paths)
+2. Globally installed user command modules under `~/.invowk/cmds/`
 3. Modules declared directly in that module's `requires` list
 
-This scope is enforced at validation time (during `invowk module sync` and before command execution). It does not intercept runtime subprocess calls within scripts.
+This scope is enforced by `depends_on.cmds` validation before command execution. It does not intercept runtime subprocess calls within scripts.
 :::
 
 ## Module Cache

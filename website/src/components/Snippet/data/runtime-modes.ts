@@ -364,6 +364,7 @@ virtual: {
             allowed_binaries: ["go", "git"]
             binary_lookup_mode: "host"
         }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
   },
@@ -450,7 +451,7 @@ script: {content: """
     name: "build"
     depends_on: {
         tools: [
-            // These will be checked in the virtual-sh environment
+            // Host dependencies are checked before virtual-sh runs.
             {alternatives: ["go"]},
             {alternatives: ["git"]}
         ]
@@ -626,7 +627,7 @@ implementations: [{
         name: "build virtual"
         implementations: [{
             script: {content: "go build ./..."}
-            runtimes: [{name: "virtual-sh"}]
+            runtimes: [{name: "virtual-sh", allowed_binaries: ["go"], binary_lookup_mode: "host"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
@@ -652,7 +653,7 @@ implementations: [{
             script: {content: "go build ./..."}
             runtimes: [
                 {name: "native"},  // Default
-                {name: "virtual-sh"}, // Alternative
+                {name: "virtual-sh", allowed_binaries: ["go"], binary_lookup_mode: "host"}, // Alternative
             ]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         },

@@ -97,12 +97,13 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 ## Design Rationale
 
-### Why Three Runtimes?
+### Why Four Runtimes?
 
 | Runtime | Use Case | Trade-off |
 |---------|----------|-----------|
 | Native | Speed, full shell features | Platform-dependent |
-| Virtual | Portability, no shell dependency | Limited shell features |
+| Virtual-Sh | Portable POSIX shell, no shell dependency | Limited shell features |
+| Virtual-Lua | Portable Lua automation, no Lua install dependency | Virtual harness only; not process isolation |
 | Container | Isolation, reproducibility | Overhead, Linux only |
 
 ### Why Separate Servers?

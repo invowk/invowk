@@ -81,7 +81,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 ### Fluxo de Execução de Comandos
 
-1. Usuário invoca `invowk cmd <nome>`
+1. Usuário invoca `invowk cmd <name>`
 2. **CLI Commands** recebe requisição, constrói uma requisição de serviço
 3. **Command Service** orquestra o pipeline de execução
 4. **Discovery Engine** encontra todos os comandos disponíveis
@@ -105,12 +105,13 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 ## Fundamentos de Design
 
-### Por Que Três Runtimes?
+### Por Que Quatro Runtimes?
 
 | Runtime | Caso de Uso | Trade-off |
 |---------|-------------|-----------|
 | Native | Velocidade, recursos completos do shell | Dependente de plataforma |
-| Virtual | Portabilidade, sem dependência de shell | Recursos de shell limitados |
+| Virtual-Sh | Shell POSIX portátil, sem dependência de shell | Recursos de shell limitados |
+| Virtual-Lua | Automação Lua portátil, sem dependência de instalação Lua | Apenas harness virtual; não é isolamento de processo |
 | Container | Isolamento, reprodutibilidade | Overhead, apenas Linux |
 
 ### Por Que Servidores Separados?

@@ -181,7 +181,7 @@ Mantenha construções POSIX-compatíveis para o runtime virtual-sh.
 
 ## Validação de Dependências
 
-Dependências são validadas contra as capacidades do shell virtual-sh:
+Dependências raiz, de comando e de implementação ainda são validadas no host antes do virtual-sh executar. Quando um comando virtual-sh lança ferramentas do host, liste essas ferramentas em `depends_on.tools` e em `allowed_binaries`:
 
 <Snippet id="runtime-modes/virtual-deps" />
 

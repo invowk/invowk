@@ -181,7 +181,7 @@ Stick to POSIX-compatible constructs for virtual-sh runtime.
 
 ## Dependency Validation
 
-Dependencies are validated against the virtual-sh shell's capabilities:
+Root, command, and implementation dependencies are still validated on the host before virtual-sh runs. When a virtual-sh command launches host tools, list those tools in both `depends_on.tools` and `allowed_binaries`:
 
 <Snippet id="runtime-modes/virtual-deps" />
 

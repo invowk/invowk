@@ -55,8 +55,9 @@ Vendored modules are scanned one level deep per discovered module. Nested vendor
 |------|-----------|--------|
 | 11 | Command Service | Match command name to discovered commands |
 | 12 | Command Service | Select platform-specific implementation |
-| 13-14 | Registry | Get appropriate runtime instance |
-| 15-16 | Runtime | Validate execution context |
+| 13 | Command Service | Resolve runtime using CLI override, config default, or command default |
+| 14 | Command Service | Build execution context |
+| 15 | Command Service | Return dry-run plan when `--ivk-dry-run` is set, before dependency validation or host/runtime setup |
 
 **Platform matching:**
 - Match implementations using declared platform objects (for example `platforms: [{name: "linux"}]`)
@@ -71,14 +72,17 @@ Vendored modules are scanned one level deep per discovered module. Nested vendor
 
 | Step | Component | Action |
 |------|-----------|--------|
-| 17 | Runtime | Begin execution |
-| 18-19 | Runtime | Run the actual script/command |
+| 16 | Command Service | Start optional host access and create runtime session |
+| 17 | Command Service | Apply timeout and validate dependencies |
+| 18 | Registry | Look up selected runtime and validate availability |
+| 19 | Runtime | Run the actual script/command |
 | 20 | Runtime | Return result |
 | 21 | CLI | Output to user |
 
 **Runtime-specific behavior:**
 - **Native**: Spawns host shell process
-- **Virtual**: Interprets via mvdan/sh
+- **Virtual-Sh**: Interprets via mvdan/sh
+- **Virtual-Lua**: Interprets via golua with the shared virtual safety harness
 - **Container**: Provisions an image and either runs an ephemeral container with transient retry handling or execs into a persistent target
 - **SSH/TUI lifecycle**: Managed by command orchestration (CommandService), not by the runtime implementation itself
 

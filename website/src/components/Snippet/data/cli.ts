@@ -234,7 +234,7 @@ invowk config set ui.color_scheme dark
 invowk config set ui.verbose true
 invowk config set ui.interactive false
 
-# Set virtual shell options
+# Set virtual runtime options
 invowk config set virtual.utilities.enabled true`,
   },
 

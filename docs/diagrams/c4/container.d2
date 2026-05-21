@@ -294,6 +294,18 @@ invowk_cli: Invowk CLI {
       |
     }
 
+    runtime_lua: Virtual-Lua Runtime {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go/golua**
+        Embedded Lua runtime with the shared virtual safety harness.
+        Not a sandbox: allowed host binaries run as native host processes.
+      |
+    }
+
     runtime_container: Container Runtime {
       style: {
         fill: "#438DD5"
@@ -577,6 +589,9 @@ invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_native: "Dispat
 invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_virtual: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_lua: "Dispatches\n[Runtime Registry]" {
+  style.stroke: "#707070"
+}
 invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_container: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
@@ -588,7 +603,13 @@ invowk_cli.runtimes.runtime_native -> host_shell: "Spawns\n[exec]" {
 invowk_cli.runtimes.runtime_virtual -> host_shell: "Runs allowed host binaries\n[native process]" {
   style.stroke: "#707070"
 }
+invowk_cli.runtimes.runtime_lua -> host_shell: "Runs allowed host binaries\n[native process]" {
+  style.stroke: "#707070"
+}
 invowk_cli.runtimes.runtime_virtual -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
+  style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_lua -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
   style.stroke: "#707070"
 }
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.container_engine: Runs {
@@ -630,6 +651,10 @@ invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.tui_server: 
   style.stroke: "#707070"
 }
 invowk_cli.runtimes.runtime_virtual -> invowk_cli.container_infra.tui_wire: "Uses INVOWK_TUI_* env" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.runtimes.runtime_lua -> invowk_cli.container_infra.tui_wire: "Uses INVOWK_TUI_* env" {
   style.stroke: "#707070"
   style.stroke-dash: 3
 }

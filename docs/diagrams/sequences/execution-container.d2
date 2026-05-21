@@ -53,11 +53,11 @@ ServerBase -> SSH: "Running / failed state"
 SSH -> HostAccess: Ready
 HostAccess -> SVC: Ready / no-op
 
-# 0b. Registry construction is a port. The adapter forwards the active SSH reference.
+# 0b. Registry construction is a port. The adapter forwards active host callbacks.
 SVC -> RegistryFactory: "Create(cfg, hostAccess)"
 RegistryFactory -> HostAccess: "SSHServer()\nif active"
-HostAccess -> RegistryFactory: SSH reference
-RegistryFactory -> ContainerRT: SetSSHServer(reference) {
+HostAccess -> RegistryFactory: host callbacks
+RegistryFactory -> ContainerRT: SetHostCallbacks(callbacks) {
   style.stroke-dash: 3
   style.font-color: "#666666"
 }
@@ -101,10 +101,22 @@ ContainerRT -> TUIWire: "Pass component env\ninto container" {
   style.font-color: "#666666"
 }
 
-# 1a. Image validation (rejects Alpine/Windows before any work)
+# 1a. Image validation (rejects Alpine/Windows before provisioning)
 ContainerRT -> ContainerRT: validateSupportedContainerImage()
 
-# 1b. Base image resolution (ContainerRT owns this, NOT Provisioner)
+# 1b. Persistent target selection can skip or block image preparation
+ContainerRT -> ContainerRT: "Resolve persistent target\nCLI > config name > derived invowk-*"
+ContainerRT -> Engine: "Inspect container\nif persistent requested" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+Engine -> Container: "docker/podman container inspect" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+ContainerRT -> ContainerRT: "Existing target: skip image prep\nmissing without create_if_missing: return error\nmissing with create_if_missing: continue"
+
+# 1c. Base image resolution for ephemeral or create_if_missing persistent paths
 ContainerRT -> Engine: Image exists? (or build from Containerfile)
 
 # Pull/build if missing (conditional)
@@ -112,7 +124,7 @@ Engine -> Container: Pull image / docker build (if needed)
 Container -> Engine: Image ready
 Engine -> ContainerRT: Base image tag
 
-# 1c. Ephemeral layer provisioning (adds invowk binary + modules)
+# 1d. Ephemeral layer provisioning (adds invowk binary + modules)
 ContainerRT -> Provision: Provision(baseImage)
 Provision -> Provision: Create ephemeral layer (Dockerfile)
 Provision -> Engine: Build provisioned image
@@ -123,16 +135,7 @@ Provision -> ContainerRT: Provisioned image tag
 # 2. Runtime setup
 ContainerRT -> ContainerRT: "Build env + INVOWK_SSH_*\nif host access reference is active"
 
-# 3. Persistent target selection (optional)
-ContainerRT -> ContainerRT: "Resolve persistent target\nCLI > config name > derived invowk-*"
-ContainerRT -> Engine: "Inspect container\nif persistent requested" {
-  style.stroke-dash: 3
-  style.font-color: "#666666"
-}
-Engine -> Container: "docker/podman container inspect" {
-  style.stroke-dash: 3
-  style.font-color: "#666666"
-}
+# 3. Persistent target creation (only for missing create_if_missing targets)
 ContainerRT -> Engine: "Create + start managed target\nif missing and create_if_missing" {
   style.stroke-dash: 3
   style.font-color: "#666666"

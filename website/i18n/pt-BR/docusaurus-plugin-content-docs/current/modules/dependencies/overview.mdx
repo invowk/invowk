@@ -19,7 +19,7 @@ Dependências de módulos são módulos externos dos quais seu módulo depende. 
 - **Hospedadas em repositórios Git** (GitHub, GitLab, Bitbucket, etc.)
 - **Versionadas com semver** (tags como `v1.2.3` ou `1.2.3`)
 - **Cacheadas localmente** para uso offline e performance
-- **Publicadas sob um ID de origem de comando** derivado da URL/caminho do módulo ou alias para evitar colisões
+- **Publicadas sob um ID de origem de comando** derivado do ID do módulo de dependência ou alias para evitar colisões
 
 ## Início Rápido
 
@@ -43,7 +43,7 @@ Dependências de módulos são módulos externos dos quais seu módulo depende. 
 
 ## Namespaces e Aliases
 
-Quando um módulo de dependência está instalado em um caminho de descoberta, seus comandos são publicados sob um ID de origem de comando. O ID padrão é derivado da URL ou caminho do módulo; `alias` o sobrescreve. Execute o nome simples quando ele for único, ou use `@<source>` / `--ivk-from <source>` para desambiguar:
+Quando um módulo de dependência está instalado em um caminho de descoberta, seus comandos são publicados sob um ID de origem de comando. O ID padrão é o ID do módulo de dependência; `alias` o sobrescreve. Execute o nome simples quando ele for único, ou use `@<source>` / `--ivk-from <source>` para desambiguar:
 
 <Snippet id="modules/dependencies/namespace-usage" />
 
@@ -63,10 +63,10 @@ O Invowk usa um **modelo de dependências explícitas**, similar ao Go modules: 
 
 Ao declarar `depends_on.cmds`, comandos em um módulo só podem referenciar comandos de:
 1. O mesmo módulo
-2. Módulos instalados globalmente (seus caminhos de descoberta)
+2. Módulos de comandos do usuário instalados globalmente em `~/.invowk/cmds/`
 3. Módulos declarados diretamente na lista `requires` desse módulo
 
-Este escopo é aplicado em tempo de validação (durante `invowk module sync` e antes da execução de comandos). Não intercepta chamadas de subprocesso em tempo de execução dentro de scripts.
+Este escopo é aplicado pela validação de `depends_on.cmds` antes da execução de comandos. Não intercepta chamadas de subprocesso em tempo de execução dentro de scripts.
 :::
 
 ## Cache de Módulos

@@ -189,7 +189,7 @@ cmds: [
         description: "A sample command"
         implementations: [
             {
-                script: {content: "echo \\"Hello from mytools!\\""
+                script: {content: "echo \\"Hello from mytools!\\""}
                 runtimes: [
                     {name: "native"},
                     {name: "virtual-sh"},

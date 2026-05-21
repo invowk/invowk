@@ -14,15 +14,16 @@ O Invowk inclui um scanner de segurança integrado que analisa invowkfiles, mód
 
 ## Como Funciona
 
-O comando `invowk audit` constrói um snapshot imutável de todos os artefatos descobertos (invowkfiles, módulos, scripts, lock files), e então executa **6 checkers de segurança integrados** concorrentemente. Após todos os checkers completarem, um **correlacionador** cruza os achados para detectar ameaças compostas.
+O comando `invowk audit` constrói um snapshot imutável de todos os artefatos descobertos (invowkfiles, módulos, scripts, lock files), e então executa **7 checkers de segurança integrados** concorrentemente. Após todos os checkers completarem, um **correlacionador** cruza os achados para detectar ameaças compostas.
 
 ```
 invowk audit [path]
   │
   ├── Descoberta ──► Snapshot imutável (ScanContext)
   │
-  ├── Checkers Concorrentes (6 integrados + LLM opcional)
+  ├── Checkers Concorrentes (7 integrados + LLM opcional)
   │   ├── Script Checker ──► achados de execução, travessia, ofuscação
+  │   ├── Lua Checker ──► achados de execução, env e caminhos em virtual-lua
   │   ├── Network Checker ──► achados de exfiltração
   │   ├── Env Checker ──► achados de exfiltração
   │   ├── Lock File Checker ──► achados de integridade
@@ -59,12 +60,22 @@ Analisa conteúdo e caminhos de scripts em busca de padrões de execução perig
 - Ofuscação: codificação/decodificação base64, `eval` com conteúdo dinâmico, sequências hexadecimais
 - Arquivos de script excepcionalmente grandes (>5 MiB)
 
+### Lua Checker
+
+Analisa scripts virtual-lua e configuração de runtime em busca de acesso ao host e uso indevido da ponte.
+
+**Detecta:**
+- Referências a APIs Lua desabilitadas (`os.execute`, `io.popen`, `package.loadlib`, `debug` e helpers de carregamento direto de arquivos)
+- Leituras de ambiente sensível via `os.getenv()` ou pela ponte de ambiente Lua do Invowk
+- Entradas wildcard ou capazes de rede em `allowed_binaries` que permitem ao Lua invocar comandos amplos do host
+- Acesso completo ao sistema de arquivos virtual ou mapeamentos de caminhos amplos expostos às APIs de arquivo Lua
+
 ### Network Checker
 
 Escaneia scripts em busca de padrões de acesso à rede que podem indicar exfiltração de dados.
 
 **Detecta:**
-- Padrões de reverse shell (bash, Python, Perl, netcat)
+- Padrões de reverse shell (bash, Python, netcat)
 - Exfiltração DNS (`dig`, `nslookup` com subdomínios dinâmicos)
 - URLs codificadas (alvos de rede codificados em base64)
 - Comandos de rede suspeitos em contextos inesperados
@@ -210,10 +221,10 @@ invowk audit --llm-provider codex
 invowk audit --llm-provider gemini
 
 # Override explícito de modelo para um provedor CLI
-invowk audit --llm-provider codex --llm-model NOME_DO_MODELO
+invowk audit --llm-provider codex --llm-model MODEL_NAME
 
 # APIs cloud via env var exigem modelo explícito
-OPENAI_API_KEY=sk-... invowk audit --llm-provider codex --llm-model NOME_DO_MODELO
+OPENAI_API_KEY=sk-... invowk audit --llm-provider codex --llm-model MODEL_NAME
 ```
 
 Quando `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` ou `GOOGLE_API_KEY` seleciona um provedor de API cloud, `--llm-model` é obrigatório. Provedores baseados em CLI delegam para os padrões do Claude Code, Codex CLI ou Gemini CLI, a menos que você passe `--llm-model`.
@@ -257,8 +268,8 @@ Quando `--llm` está habilitado, o invowk verifica se o modelo configurado está
 - Uma sugestão do melhor modelo focado em código (detectado dinamicamente por correspondência de padrões)
 
 ```
-$ invowk audit --llm --llm-model modelo-inexistente
-LLM model not found: "modelo-inexistente" is not available on the server; try: qwen2.5-coder:14b
+$ invowk audit --llm --llm-model nonexistent-model
+LLM model not found: "nonexistent-model" is not available on the server; try: qwen2.5-coder:14b
 available models: llama3:8b, qwen2.5-coder:14b, mistral:7b
 ```
 

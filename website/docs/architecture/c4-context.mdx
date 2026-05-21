@@ -46,7 +46,7 @@ This diagram shows Invowk from the highest level - the system boundaries, users,
 
 ## Design Decisions Visible at This Level
 
-1. **Multi-Runtime Support**: Invowk doesn't mandate a single execution environment. Users choose native shell for speed, virtual shell for portability, or containers for isolation.
+1. **Multi-Runtime Support**: Invowk doesn't mandate a single execution environment. Users choose native shell for speed, virtual-sh for portable shell scripts, virtual-lua for embedded Lua scripts, or containers for isolation.
 
 2. **Container Engine Abstraction**: Both Docker and Podman are supported with automatic fallback, reducing vendor lock-in.
 
