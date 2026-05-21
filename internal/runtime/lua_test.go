@@ -54,8 +54,10 @@ print(tostring(cmdWriteOK))
 	if len(lines) != 6 {
 		t.Fatalf("stdout lines = %q, want 6 lines", stdout.String())
 	}
-	if lines[0] != ctx.EffectiveWorkDir() {
-		t.Fatalf("invowk.path(@work) = %q, want %q", lines[0], ctx.EffectiveWorkDir())
+	resolver := mustVirtualTestResolver(t, ctx)
+	workDir := mustResolveVirtualBridgeTestPath(t, resolver, ctx.EffectiveWorkDir(), "@work")
+	if lines[0] != workDir {
+		t.Fatalf("invowk.path(@work) = %q, want %q", lines[0], workDir)
 	}
 	if lines[1] != "bar" || lines[2] != "bar" {
 		t.Fatalf("env bridge lines = %q, want bar/bar", lines[1:3])
@@ -81,7 +83,8 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 		"",
 		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
 	)
-	dbRoot := mustNormalizeVirtualTestPath(t, filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db"))
+	resolver := mustVirtualTestResolver(t, ctx)
+	dbRoot := resolver.paths["DB_ROOT"]
 	if err := os.MkdirAll(dbRoot, 0o755); err != nil {
 		t.Fatalf("MkdirAll(db root) error = %v", err)
 	}
@@ -95,14 +98,15 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 	if len(lines) != 3 {
 		t.Fatalf("stdout lines = %q, want 3 lines", stdout.String())
 	}
-	if want := filepath.Join(dbRoot, "file.txt"); lines[0] != want {
+	if want := mustResolveVirtualBridgeTestPath(t, resolver, ctx.EffectiveWorkDir(), "DB_ROOT/file.txt"); lines[0] != want {
 		t.Fatalf("invowk.path(DB_ROOT/file.txt) = %q, want %q", lines[0], want)
 	}
 	if lines[1] != dbRoot {
 		t.Fatalf("INVOWK_PATH_DB_ROOT = %q, want %q", lines[1], dbRoot)
 	}
-	if lines[2] != ctx.EffectiveWorkDir() {
-		t.Fatalf("INVOWK_ANCHOR_WORK = %q, want %q", lines[2], ctx.EffectiveWorkDir())
+	workDir := resolver.anchors["@work"]
+	if lines[2] != workDir {
+		t.Fatalf("INVOWK_ANCHOR_WORK = %q, want %q", lines[2], workDir)
 	}
 }
 
@@ -124,7 +128,8 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 		"",
 		invowkfile.VirtualFilesystemPaths{"DB_ROOT": "./db"},
 	)
-	dbRoot := mustNormalizeVirtualTestPath(t, filepath.Join(string(ctx.Invowkfile.GetScriptBasePath()), "db"))
+	resolver := mustVirtualTestResolver(t, ctx)
+	dbRoot := resolver.paths["DB_ROOT"]
 
 	result := NewLuaRuntime(false).Execute(ctx)
 	if !result.Success() {
@@ -141,8 +146,9 @@ print(os.getenv("INVOWK_ANCHOR_WORK"))
 	if lines[1] != dbRoot {
 		t.Fatalf("INVOWK_PATH_DB_ROOT = %q, want %q", lines[1], dbRoot)
 	}
-	if lines[2] != ctx.EffectiveWorkDir() {
-		t.Fatalf("INVOWK_ANCHOR_WORK = %q, want %q", lines[2], ctx.EffectiveWorkDir())
+	workDir := resolver.anchors["@work"]
+	if lines[2] != workDir {
+		t.Fatalf("INVOWK_ANCHOR_WORK = %q, want %q", lines[2], workDir)
 	}
 }
 
@@ -407,7 +413,14 @@ io.stderr:write("err:" .. line)
 	if err != nil {
 		t.Fatalf("RunLuaScript() error = %v", err)
 	}
-	wantOut := mustNormalizeVirtualTestPath(t, filepath.Join(tmpDir, "file.txt")) + "\nout:stdin-value:pos\n"
+	resolver := mustInteractiveVirtualTestResolver(
+		t,
+		tmpDir,
+		tmpDir,
+		invowkfile.VirtualFilesystemPaths{"DATA": invowkfile.VirtualFilesystemPath(tmpDir)},
+	)
+	resolvedFile := mustResolveVirtualBridgeTestPath(t, resolver, tmpDir, "DATA/file.txt")
+	wantOut := resolvedFile + "\nout:stdin-value:pos\n"
 	if got := stdout.String(); got != wantOut {
 		t.Fatalf("stdout = %q, want %q", got, wantOut)
 	}

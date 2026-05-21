@@ -47,14 +47,48 @@ func testPlatformsWithVirtualFilesystem(
 	return platforms
 }
 
-func mustNormalizeVirtualTestPath(t testing.TB, path string) string {
+func mustVirtualTestResolver(t testing.TB, ctx *ExecutionContext) virtualPathResolver {
 	t.Helper()
 
-	normalized, err := normalizeExistingOrParent(path, "")
+	resolver, err := newVirtualPathResolver(ctx)
 	if err != nil {
-		t.Fatalf("normalize virtual test path %q: %v", path, err)
+		t.Fatalf("new virtual path resolver: %v", err)
 	}
-	return normalized
+	return resolver
+}
+
+func mustResolveVirtualBridgeTestPath(
+	t testing.TB,
+	resolver virtualPathResolver,
+	cwd string,
+	path string,
+) string {
+	t.Helper()
+
+	resolved, err := resolver.resolveBridgePath(path, cwd)
+	if err != nil {
+		t.Fatalf("resolve virtual bridge test path %q: %v", path, err)
+	}
+	return resolved
+}
+
+func mustInteractiveVirtualTestResolver(
+	t testing.TB,
+	workDir string,
+	scriptBasePath string,
+	paths invowkfile.VirtualFilesystemPaths,
+) virtualPathResolver {
+	t.Helper()
+
+	resolver, err := newVirtualPathResolverForInteractiveConfig(
+		workDir,
+		scriptBasePath,
+		invowkfile.VirtualFilesystemConfig{Paths: paths},
+	)
+	if err != nil {
+		t.Fatalf("new interactive virtual path resolver: %v", err)
+	}
+	return resolver
 }
 
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.

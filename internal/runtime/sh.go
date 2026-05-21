@@ -5,7 +5,6 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -304,100 +303,47 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 		return nil, fmt.Errorf("script syntax error: %w", err)
 	}
 
-	// Create temp file for script
-	tmpFile, err := os.CreateTemp("", "invowk-virtual-*.sh")
+	prepared, err := prepareVirtualInteractiveSubprocess(
+		ctx,
+		script,
+		"invowk-virtual-*.sh",
+		"script",
+		"virtual interactive",
+		r.envBuilder,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp script file: %w", err)
-	}
-
-	if _, err = tmpFile.WriteString(script); err != nil {
-		_ = tmpFile.Close()           // Best-effort close on error path
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("failed to write temp script: %w", err)
-	}
-
-	if err = tmpFile.Close(); err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("failed to close temp script: %w", err)
-	}
-
-	// Determine working directory
-	workDir := ctx.EffectiveWorkDir()
-	workDirPath := types.FilesystemPath(workDir)
-	if validateErr := workDirPath.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("invalid virtual interactive workdir: %w", validateErr)
-	}
-
-	// Build environment
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
-	}
-	filesystem := selectedVirtualFilesystem(ctx)
-	pathResolver, err := newVirtualPathResolver(ctx)
-	if err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, err
-	}
-	addVirtualRuntimeEnv(env, pathResolver)
-	ctx.AddTUIEnv(env)
-	runtimeCfg := selectedRuntimeConfig(ctx)
-
-	// Serialize environment to JSON for passing to subprocess
-	envJSON, err := json.Marshal(env)
-	if err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("failed to serialize environment: %w", err)
 	}
 
 	if r.interactiveCommandFactory == nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		prepared.cleanup()
 		return nil, ErrShInteractiveLauncherNotConfigured
 	}
 
-	scriptFile := types.FilesystemPath(tmpFile.Name())
-	if validateErr := scriptFile.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("invalid virtual interactive script file: %w", validateErr)
-	}
-	scriptBasePath := ctx.Invowkfile.GetScriptBasePath()
-	if validateErr := scriptBasePath.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("invalid virtual interactive script base path: %w", validateErr)
-	}
-
 	spec := ShInteractiveCommandSpec{
-		ScriptFile:       &scriptFile,
-		WorkDir:          &workDirPath,
-		ScriptBasePath:   &scriptBasePath,
-		EnvJSON:          ShInteractiveEnvJSON(envJSON),
+		ScriptFile:       &prepared.scriptFile,
+		WorkDir:          &prepared.workDir,
+		ScriptBasePath:   &prepared.scriptBasePath,
+		EnvJSON:          ShInteractiveEnvJSON(prepared.envJSON),
 		Args:             ShInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
-		AllowedBinaries:  allowedBinaryStrings(runtimeCfg),
-		BinaryLookupMode: binaryLookupMode(runtimeCfg),
-		FilesystemAccess: pathResolver.access,
-		FilesystemPaths:  filesystem.Paths,
+		AllowedBinaries:  prepared.allowedBinaries,
+		BinaryLookupMode: prepared.binaryLookupMode,
+		FilesystemAccess: prepared.filesystemAccess,
+		FilesystemPaths:  prepared.filesystemPaths,
 		EnableUroot:      r.enableUrootUtils,
 	}
 	if validateErr := spec.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		prepared.cleanup()
 		return nil, fmt.Errorf("invalid virtual interactive command spec: %w", validateErr)
 	}
 
 	cmd, err := r.interactiveCommandFactory(ctx.Context, spec)
 	if err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		prepared.cleanup()
 		return nil, fmt.Errorf("create virtual interactive subprocess: %w", err)
 	}
 
-	// Track temp file for cleanup
-	tempFilePath := tmpFile.Name()
-	cleanup := func() {
-		_ = os.Remove(tempFilePath) // Cleanup temp file; error non-critical
-	}
-
-	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+	return &PreparedCommand{Cmd: cmd, Cleanup: prepared.cleanup}, nil
 }
 
 // RunShScript executes a virtual shell script with the same u-root command

@@ -4,11 +4,9 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -146,95 +144,51 @@ func (r *LuaRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, er
 		return nil, compileErr
 	}
 
-	tmpFile, err := os.CreateTemp("", "invowk-virtual-*.lua")
+	prepared, err := prepareVirtualInteractiveSubprocess(
+		ctx,
+		script,
+		"invowk-virtual-*.lua",
+		"Lua script",
+		"virtual-lua interactive",
+		r.envBuilder,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp Lua script file: %w", err)
-	}
-	if _, err = tmpFile.WriteString(script); err != nil {
-		_ = tmpFile.Close()
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf("failed to write temp Lua script: %w", err)
-	}
-	if err = tmpFile.Close(); err != nil {
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf("failed to close temp Lua script: %w", err)
-	}
-
-	workDir := ctx.EffectiveWorkDir()
-	workDirPath := types.FilesystemPath(workDir)
-	if validateErr := workDirPath.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf("invalid virtual-lua interactive workdir: %w", validateErr)
-	}
-
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
-	}
-	filesystem := selectedVirtualFilesystem(ctx)
-	pathResolver, err := newVirtualPathResolver(ctx)
-	if err != nil {
-		_ = os.Remove(tmpFile.Name())
 		return nil, err
-	}
-	addVirtualRuntimeEnv(env, pathResolver)
-	ctx.AddTUIEnv(env)
-	runtimeCfg := selectedRuntimeConfig(ctx)
-
-	envJSON, err := json.Marshal(env)
-	if err != nil {
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf("failed to serialize environment: %w", err)
 	}
 
 	if r.interactiveCommandFactory == nil {
-		_ = os.Remove(tmpFile.Name())
+		prepared.cleanup()
 		return nil, ErrLuaInteractiveLauncherNotConfigured
 	}
 
-	scriptFile := types.FilesystemPath(tmpFile.Name())
-	if validateErr := scriptFile.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf("invalid virtual-lua interactive script file: %w", validateErr)
-	}
-	scriptBasePath := ctx.Invowkfile.GetScriptBasePath()
-	if validateErr := scriptBasePath.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name())
-		return nil, fmt.Errorf("invalid virtual-lua interactive script base path: %w", validateErr)
-	}
 	spec := LuaInteractiveCommandSpec{
-		ScriptFile:       &scriptFile,
-		WorkDir:          &workDirPath,
-		ScriptBasePath:   &scriptBasePath,
-		EnvJSON:          LuaInteractiveEnvJSON(envJSON),
+		ScriptFile:       &prepared.scriptFile,
+		WorkDir:          &prepared.workDir,
+		ScriptBasePath:   &prepared.scriptBasePath,
+		EnvJSON:          LuaInteractiveEnvJSON(prepared.envJSON),
 		Args:             LuaInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
-		AllowedBinaries:  allowedBinaryStrings(runtimeCfg),
-		BinaryLookupMode: binaryLookupMode(runtimeCfg),
-		FilesystemAccess: pathResolver.access,
-		FilesystemPaths:  filesystem.Paths,
+		AllowedBinaries:  prepared.allowedBinaries,
+		BinaryLookupMode: prepared.binaryLookupMode,
+		FilesystemAccess: prepared.filesystemAccess,
+		FilesystemPaths:  prepared.filesystemPaths,
 		EnableUroot:      r.utilitiesEnabled,
 	}
-	if runtimeCfg != nil {
-		spec.CPULimit = runtimeCfg.CPULimit
-		spec.MemoryLimit = runtimeCfg.MemoryLimit
+	if prepared.runtimeCfg != nil {
+		spec.CPULimit = prepared.runtimeCfg.CPULimit
+		spec.MemoryLimit = prepared.runtimeCfg.MemoryLimit
 	}
 	if validateErr := spec.Validate(); validateErr != nil {
-		_ = os.Remove(tmpFile.Name())
+		prepared.cleanup()
 		return nil, fmt.Errorf("invalid virtual-lua interactive command spec: %w", validateErr)
 	}
 
 	cmd, err := r.interactiveCommandFactory(ctx.Context, spec)
 	if err != nil {
-		_ = os.Remove(tmpFile.Name())
+		prepared.cleanup()
 		return nil, fmt.Errorf("create virtual-lua interactive subprocess: %w", err)
 	}
 
-	tempFilePath := tmpFile.Name()
-	cleanup := func() {
-		_ = os.Remove(tempFilePath)
-	}
-	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+	return &PreparedCommand{Cmd: cmd, Cleanup: prepared.cleanup}, nil
 }
 
 // RunLuaScript executes a virtual-lua script with the same bridge and safety
