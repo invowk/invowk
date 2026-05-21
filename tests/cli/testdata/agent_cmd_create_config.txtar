@@ -5,7 +5,7 @@
 
 cd $WORK
 chmod 0755 claude
-env PATH=$WORK:$PATH
+env PATH=$WORK${:}$PATH
 env XDG_CONFIG_HOME=$WORK/config
 env ANTHROPIC_API_KEY=
 

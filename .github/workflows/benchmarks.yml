@@ -118,6 +118,7 @@ jobs:
           BENCHER_START_POINT: ${{ steps.meta.outputs.start-point }}
           BENCHER_START_POINT_HASH: ${{ steps.meta.outputs.start-point-hash }}
           BENCHER_IMAGE: ${{ steps.image.outputs.image }}
+          BENCHER_ERROR_ON_ALERT: "${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'benchmarks: accepted-regression') && 'false' || 'true' }}"
         run: |
           set -euo pipefail
           source scripts/bencher-threshold-args.sh

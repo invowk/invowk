@@ -6,7 +6,7 @@
 
 cd $WORK
 chmod 0755 claude
-env PATH=$WORK:$PATH
+env PATH=$WORK${:}$PATH
 
 ! exec invowk audit --llm-provider claude .
 stderr 'scan error: checker "llm" failed'

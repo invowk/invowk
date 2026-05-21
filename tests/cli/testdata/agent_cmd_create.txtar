@@ -6,7 +6,7 @@
 
 cd $WORK
 chmod 0755 claude
-env PATH=$WORK:$PATH
+env PATH=$WORK${:}$PATH
 env ANTHROPIC_API_KEY=
 
 exec invowk agent cmd create --llm-provider claude 'create a generated hello command'

@@ -158,6 +158,19 @@ When testing resolver-backed APIs in `internal/runtime`:
 This prevents failures where macOS/Linux pass but Windows CI reports a short
 path such as `RUNNER~1` on one side and a long user profile path on the other.
 
+### testscript PATH Updates
+
+testscript exposes `${:}` as `os.PathListSeparator` and `${/}` as the platform
+file separator. Cross-platform txtar tests must use those variables when
+constructing paths.
+
+- Use `env PATH=$WORK${:}$PATH` when prepending a directory to PATH.
+- Do not write `env PATH=$WORK:$PATH`; on Windows the literal colon can create a
+  malformed PATH entry or duplicate environment key, causing `exec invowk ...`
+  to fail with "executable file not found in %PATH%".
+- Keep `tests/cli.TestTestscriptPATHUsesPortableSeparator` in place so future
+  txtar fixtures cannot reintroduce this failure mode silently.
+
 ### Refactoring Path-Touching Code (Pre-Flight Checklist)
 
 Run this checklist any time a refactor or new feature touches code that

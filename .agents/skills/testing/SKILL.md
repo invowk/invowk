@@ -378,6 +378,8 @@ testscript runs tests in an isolated environment:
 - `HOME` is set to `/no-home` by default
 - `USER` and other env vars are not passed through
 - Use `env VAR=value` to explicitly set required variables
+- Use `${:}` for path-list separators when modifying `PATH`
+  (`env PATH=$WORK${:}$PATH`), not a literal `:`.
 
 **Windows config isolation:** On Windows, `config.ConfigDir()` uses `%APPDATA%` and `config.CommandsDir()` uses `%USERPROFILE%`. The `commonSetup()` function in `tests/cli/cmd_test.go` sets both to test-scoped paths (`APPDATA=$WORK/appdata`, `USERPROFILE=$WORK`) so each test gets its own config directory. Without this, all Windows tests share the real system config dir, causing cross-test contamination.
 

@@ -2,7 +2,7 @@
 
 cd $WORK
 [!windows] chmod 0755 tool
-env PATH=$WORK:$PATH
+env PATH=$WORK${:}$PATH
 
 # Test 1: basic execution and positional arguments
 exec invowk cmd lua-basic first second
