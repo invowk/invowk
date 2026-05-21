@@ -6,8 +6,9 @@ description: >-
   behavior (more aggressive event coalescing), timer coalescing (100ms sleep
   may take 200ms), file descriptor limits (soft 256 vs Linux 1024), flock
   inheritance across fork, code signing edge cases, and ARM64 memory ordering
-  on Apple Silicon. Use when debugging macOS-only test failures, watcher test
-  flakiness, or understanding why timing tests flake on macos-15 CI runners.
+  on Apple Silicon. Use when debugging macOS-only test failures, virtual path
+  resolver assertion drift, watcher test flakiness, or understanding why timing
+  tests flake on macos-15 CI runners.
 disable-model-invocation: false
 ---
 
@@ -90,16 +91,18 @@ os.WriteFile(dir+"/user_config.cue", data2, 0o644)
 ### The `/tmp` Symlink
 
 `os.TempDir()` returns `/tmp` on macOS, but `/tmp` is a symlink to
-`/private/tmp`. This means:
+`/private/tmp`. Similarly, `/var` is a symlink to `/private/var` on GitHub's
+macOS runners. This means:
 
 - `os.TempDir()` returns `/tmp`
 - `filepath.EvalSymlinks("/tmp")` returns `/private/tmp`
+- `filepath.EvalSymlinks("/var/...")` returns `/private/var/...`
 - `t.TempDir()` returns the **resolved** path (under `/private/tmp/...`)
-- Hardcoded `/tmp/...` paths will NOT match `t.TempDir()` output
+- Hardcoded `/tmp/...` or `/var/...` paths will NOT match resolved output
 
 Any test that compares absolute paths will fail if one side resolves the
 symlink and the other does not. Always use `t.TempDir()` for test directories,
-and never hardcode `/tmp` in test assertions.
+and never hardcode `/tmp` or `/var` in test assertions.
 
 ```go
 // WRONG: path comparison may fail
@@ -110,6 +113,29 @@ got := filepath.Join(t.TempDir(), "output.txt") // /private/tmp/...
 dir := t.TempDir()
 expected := filepath.Join(dir, "output.txt")
 ```
+
+### Virtual Resolver Path Assertions
+
+For virtual runtime tests, do not derive expected strings with ad hoc host path
+normalization when the code under test returns resolver-backed values. macOS can
+surface the same temp directory as `/var/folders/...` or `/private/var/folders/...`
+depending on which API produced the string. A host normalizer may be correct for
+filesystem identity and still be wrong for the API's string contract.
+
+When asserting `invowk.path(...)`, `INVOWK_ANCHOR_*`, or `INVOWK_PATH_*`:
+
+- Build expected values from the same virtual resolver path used by the runtime
+  (`newVirtualPathResolver`, `newVirtualPathResolverForInteractiveConfig`, and
+  `resolveBridgePath` in `internal/runtime` tests).
+- Use `resolver.anchors["@work"]` for anchor environment variables, not
+  `ctx.EffectiveWorkDir()` after separate normalization.
+- Use `resolver.paths["NAME"]` for named virtual filesystem env vars, not
+  `filepath.Join(scriptBasePath, ...)` after separate normalization.
+- If the test is about filesystem identity rather than a string contract, use
+  `os.Stat` plus `os.SameFile` instead of raw string equality.
+
+This prevents regressions where Linux passes but macOS CI fails only because one
+side resolved `/var` through `/private/var`.
 
 ### Unicode Normalization
 

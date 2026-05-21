@@ -18,6 +18,7 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
 ## Golua Library Loading
 
 - Load `packagelib.LibLoader` before any named golua library loader such as `coroutine`, `string`, `table`, `math`, or `utf8`. Named loaders save themselves in `package.loaded`; without the package registry, execution can panic once Lua code is exercised.
+- Serialize golua library bootstrap behind a package-level mutex if the setup path touches process-global golua state (for example package compliance declarations or library registries). Parallel `virtual-lua` tests with `-race` can otherwise expose data races that serial local runs miss.
 - After loading package support, remove or replace unrestricted globals that are not part of Invowk's bridge contract: `package`, `require`, `dofile`, `loadfile`, `rawset`, `debug`, `os.execute`, `io.popen`, `package.loadlib`, and dynamic `golib` import.
 - Do not load `debuglib`, `golib`, unrestricted `iolib`, or unrestricted `oslib` for `virtual-lua`. If file I/O or `require` is needed, implement narrow wrappers that call the shared virtual path resolver/validator first.
 - Run Lua tests with `t.Parallel()` where possible. Parallel runtime tests are good at exposing VM setup and library-loader assumptions that single serial tests can miss.
@@ -51,6 +52,7 @@ Add focused Go tests before relying on CLI fixtures:
 - Lua-compatible interpreter acceptance and non-Lua interpreter rejection.
 - Positional `arg` table behavior.
 - `invowk.path`, `invowk.env`, controlled `os.getenv`, and read-only bridge tables.
+- Resolver-backed path/env assertions must use the virtual resolver as the expected-value source (`resolver.anchors`, `resolver.paths`, and `resolveBridgePath`). Do not compare against separately normalized host paths; macOS can differ as `/var` vs `/private/var`, and Windows can differ as 8.3 short paths such as `RUNNER~1`.
 - `invowk.cmd` streaming and `invowk.capture` stdout/stderr/code behavior.
 - Utility enabled/disabled behavior independent from host binary allowlisting.
 - Host binary deny-by-default, named allow, wildcard allow, absolute executable entries, strict lookup, host lookup, and `bin_path` metadata.
@@ -59,6 +61,7 @@ Add focused Go tests before relying on CLI fixtures:
 Useful targeted gates:
 
 ```bash
+go test -race -count=1 ./internal/runtime
 go test ./internal/runtime ./cmd/invowk ./internal/app/commandadapters
 go test ./pkg/invowkfile -run 'RuntimeConfig|Implementation|SchemaSync|VirtualFilesystem'
 go test ./internal/audit ./tests/cli/...

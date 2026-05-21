@@ -1,6 +1,6 @@
 ---
 name: windows-testing
-description: Deep Windows testing guidance for Go code in Invowk. Use proactively when editing tests or code that touches Windows process lifecycle, os/exec, Job Objects, TerminateProcess, console interrupts, NTFS/MAX_PATH/sharing issues, timer resolution, race detector overhead, windows-latest CI, path normalization, volume-mount strings, DDD path value types, or path construction/validation in internal/runtime, internal/container, internal/app/deps, and pkg/invowkmod. Also use for Windows-only failures and platform-split testscript coverage.
+description: Deep Windows testing guidance for Go code in Invowk. Use proactively when editing tests or code that touches Windows process lifecycle, os/exec, Job Objects, TerminateProcess, console interrupts, NTFS/MAX_PATH/sharing issues, 8.3 short path aliases, timer resolution, race detector overhead, windows-latest CI, path normalization, volume-mount strings, DDD path value types, or path construction/validation in internal/runtime, internal/container, internal/app/deps, and pkg/invowkmod. Also use for Windows-only failures and platform-split testscript coverage.
 disable-model-invocation: false
 ---
 
@@ -132,6 +132,31 @@ Handling. Key points:
 - The `skipOnWindows` table-driven pattern handles Unix-only path test cases.
 
 Do not duplicate the path handling rules here. Consult `windows.md` directly.
+
+### Resolver Contracts And 8.3 Short Paths
+
+Windows can expose the same temp path through long names and 8.3 short-name
+aliases. On GitHub's `windows-latest` runners, a host canonicalizer may produce
+`C:\Users\RUNNER~1\...` while Go APIs and runtime bridge output use
+`C:\Users\runneradmin\...`. Both can identify the same directory, but string
+assertions will fail.
+
+When testing resolver-backed APIs in `internal/runtime`:
+
+- Do not compute expected values for `invowk.path(...)`, `INVOWK_ANCHOR_*`, or
+  `INVOWK_PATH_*` with `filepath.Join`, `filepath.EvalSymlinks`,
+  `normalizeExistingOrParent`, or raw `ctx.EffectiveWorkDir()`.
+- Build expected strings from the same resolver contract the runtime uses:
+  `newVirtualPathResolver`, `newVirtualPathResolverForInteractiveConfig`,
+  `resolver.anchors`, `resolver.paths`, and `resolver.resolveBridgePath`.
+- Use string equality only for the API contract you intend to guarantee. If the
+  test only needs to prove two paths identify the same file, compare `os.Stat`
+  results with `os.SameFile` instead.
+- Add or keep Windows CI coverage for bridge/env path assertions after touching
+  virtual filesystem code; Linux cannot reveal this class of mismatch.
+
+This prevents failures where macOS/Linux pass but Windows CI reports a short
+path such as `RUNNER~1` on one side and a long user profile path on the other.
 
 ### Refactoring Path-Touching Code (Pre-Flight Checklist)
 
