@@ -12,7 +12,7 @@ The pre-clean-break virtual filesystem draft put legacy `allowed_paths` at imple
 - In `"full"` mode, virtual file I/O may access the host filesystem through the virtual path validator; named `paths` remain bridge handles and do not define the full access boundary.
 - Keep virtual host binary policy in selected runtime config: `runtimes[].allowed_binaries` and `runtimes[].binary_lookup_mode` remain runtime-local, because they control virtual runtime host-binary execution rather than platform path mapping.
 - Keep `virtual` valid only as a namespace, never as a runtime selector.
-- Update dry-run output, audit findings, deterministic/LLM audit prompts, README, website current docs, Portuguese i18n current docs, snippets, samples, testscript fixtures, generated CUE, and OpenSpec artifacts so the legacy field appears only in explicit rejection/absence checks.
+- Update dry-run output, audit findings, deterministic/LLM audit prompts, README, website current docs, Portuguese i18n current docs, snippets, samples, testscript fixtures, generated CUE, and OpenSpec artifacts to use only the final virtual filesystem shape.
 - Add comprehensive schema, parser, generation, runtime, dry-run, audit, CLI, docs, and stale-reference tests for the final shape.
 - Do not add compatibility aliases, dual-read decoding, deprecation warnings, tombstone fields, migration shims, or ignored old fields.
 

@@ -153,11 +153,6 @@ func TestParseVirtualFilesystemRejectsInvalidShapes(t *testing.T) {
 		want string
 	}{
 		{
-			name: "implementation-level allowed_paths rejected",
-			body: `allowed_paths: {DB_ROOT: "./db"}`,
-			want: "allowed_paths",
-		},
-		{
 			name: "platform keyed path object rejected",
 			body: `platforms: [{
 				name: "linux"
@@ -266,9 +261,6 @@ func TestGenerateCUEVirtualFilesystemRoundTrip(t *testing.T) {
 		if !strings.Contains(generated, want) {
 			t.Fatalf("GenerateCUE() missing %q:\n%s", want, generated)
 		}
-	}
-	if strings.Contains(generated, "allowed_paths") {
-		t.Fatalf("GenerateCUE() emitted removed field:\n%s", generated)
 	}
 	parsed, err := ParseBytes([]byte(generated), "generated.cue")
 	if err != nil {

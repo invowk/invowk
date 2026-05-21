@@ -18,15 +18,10 @@ Invowk SHALL expose shared virtual-family configuration under `virtual`. The `vi
 #### Scenario: Family-level utility config defaults to enabled
 - **WHEN** generated config or effective config includes the virtual-family settings
 - **THEN** Invowk SHALL use `virtual.utilities.enabled: true` by default
-- **THEN** Invowk SHALL NOT emit the legacy `virtual_shell` config namespace
 
-#### Scenario: Legacy virtual shell config namespace is rejected
-- **WHEN** config declares `virtual_shell`
-- **THEN** config parsing or validation SHALL reject the field
-
-#### Scenario: Virtual config namespace does not revive the legacy runtime name
+#### Scenario: Virtual config namespace is distinct from runtime selection
 - **WHEN** config declares `virtual.utilities.enabled`
-- **THEN** `default_runtime: "virtual"` SHALL still be rejected as an invalid runtime selector
+- **THEN** runtime selection SHALL continue to use the explicit `virtual-sh` or `virtual-lua` runtime names
 
 #### Scenario: Disabling utilities affects both virtual interpreters
 - **WHEN** config sets `virtual.utilities.enabled: false`

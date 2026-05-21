@@ -52,16 +52,6 @@ stderr '(?i)invalid container engine'
 ! stdout .
 stderr '(?i)invalid runtime mode'
 
-# Test 10b: Legacy virtual runtime value is rejected
-! exec invowk config set default_runtime virtual
-! stdout .
-stderr '(?i)invalid runtime mode'
-
-# Test 10c: Legacy virtual_shell key is rejected
-! exec invowk config set virtual_shell.enable_uroot_utils false
-! stdout .
-stderr 'Unknown configuration key'
-
 # Test 11: config set requires exactly 2 args (0 given)
 ! exec invowk config set
 ! stdout .

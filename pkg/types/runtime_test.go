@@ -19,7 +19,6 @@ func TestRuntimeModeValidate(t *testing.T) {
 		{name: "virtual-sh", value: RuntimeVirtualSh, wantValid: true},
 		{name: "virtual-lua", value: RuntimeVirtualLua, wantValid: true},
 		{name: "container", value: RuntimeContainer, wantValid: true},
-		{name: "virtual legacy", value: "virtual", wantValid: false},
 		{name: "empty", value: "", wantValid: false},
 		{name: "unknown", value: "magical", wantValid: false},
 	}

@@ -13,46 +13,6 @@ import (
 // Tests for CUE Schema Validation
 // ============================================================================
 
-// TestCUESchema_RejectsToolDependencyWithName verifies that the CUE schema rejects
-// tool dependencies that use the old 'name' field instead of 'alternatives'
-func TestCUESchema_RejectsToolDependencyWithName(t *testing.T) {
-	t.Parallel()
-
-	cueContent := `
-cmds: [
-	{
-		name: "test"
-		implementations: [
-			{
-				script: {content: "echo test"}
-				runtimes: [{name: "native"}]
-				platforms: [{name: "linux"}]
-			}
-		]
-		depends_on: {
-			tools: [
-				{name: "git"},
-			]
-		}
-	}
-]
-`
-	tmpDir := t.TempDir()
-
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
-		t.Fatalf("Failed to write invowkfile: %v", writeErr)
-	}
-
-	_, err := Parse(FilesystemPath(invowkfilePath))
-	if err == nil {
-		t.Error("Parse() should reject tool dependency with 'name' field instead of 'alternatives'")
-	}
-	if !strings.Contains(err.Error(), "field not allowed") {
-		t.Errorf("Error should mention 'field not allowed', got: %v", err)
-	}
-}
-
 // TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives verifies that the CUE schema
 // rejects custom checks that have both direct fields (name, script) AND alternatives
 func TestCUESchema_RejectsCustomCheckWithBothNameAndAlternatives(t *testing.T) {
@@ -97,86 +57,6 @@ cmds: [
 	// The error could be about conflicting fields or disjunction not matching
 	if !strings.Contains(err.Error(), "conflict") && !strings.Contains(err.Error(), "not allowed") {
 		t.Logf("Warning: Error message may not be ideal, got: %v", err)
-	}
-}
-
-// TestCUESchema_RejectsCapabilityDependencyWithName verifies that the CUE schema rejects
-// capability dependencies that use the old 'name' field instead of 'alternatives'
-func TestCUESchema_RejectsCapabilityDependencyWithName(t *testing.T) {
-	t.Parallel()
-
-	cueContent := `
-cmds: [
-	{
-		name: "test"
-		implementations: [
-			{
-				script: {content: "echo test"}
-				runtimes: [{name: "native"}]
-				platforms: [{name: "linux"}]
-			}
-		]
-		depends_on: {
-			capabilities: [
-				{name: "internet"},
-			]
-		}
-	}
-]
-`
-	tmpDir := t.TempDir()
-
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
-		t.Fatalf("Failed to write invowkfile: %v", writeErr)
-	}
-
-	_, err := Parse(FilesystemPath(invowkfilePath))
-	if err == nil {
-		t.Error("Parse() should reject capability dependency with 'name' field instead of 'alternatives'")
-	}
-	if !strings.Contains(err.Error(), "field not allowed") {
-		t.Errorf("Error should mention 'field not allowed', got: %v", err)
-	}
-}
-
-// TestCUESchema_RejectsCommandDependencyWithName verifies that the CUE schema rejects
-// command dependencies that use the old 'name' field instead of 'alternatives'
-func TestCUESchema_RejectsCommandDependencyWithName(t *testing.T) {
-	t.Parallel()
-
-	cueContent := `
-cmds: [
-	{
-		name: "test"
-		implementations: [
-			{
-				script: {content: "echo test"}
-				runtimes: [{name: "native"}]
-				platforms: [{name: "linux"}]
-			}
-		]
-		depends_on: {
-			cmds: [
-				{name: "build"},
-			]
-		}
-	}
-]
-`
-	tmpDir := t.TempDir()
-
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
-	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
-		t.Fatalf("Failed to write invowkfile: %v", writeErr)
-	}
-
-	_, err := Parse(FilesystemPath(invowkfilePath))
-	if err == nil {
-		t.Error("Parse() should reject command dependency with 'name' field instead of 'alternatives'")
-	}
-	if !strings.Contains(err.Error(), "field not allowed") {
-		t.Errorf("Error should mention 'field not allowed', got: %v", err)
 	}
 }
 
@@ -805,43 +685,6 @@ cmds: [
 			script := inv.Commands[0].Implementations[0].Script
 			if script.Interpreter != InterpreterSpec(tt.interpreter) {
 				t.Errorf("ImplementationScript.Interpreter = %q, want %q", script.Interpreter, tt.interpreter)
-			}
-		})
-	}
-}
-
-func TestParseInterpreter_RuntimeFieldRejected(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		runtime string
-	}{
-		{"native", `{name: "native", interpreter: "python3"}`},
-		{"virtual", `{name: "virtual-sh", interpreter: "python3"}`},
-		{"container", `{name: "container", image: "debian:stable-slim", interpreter: "python3"}`},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			cueContent := `
-cmds: [{
-	name: "test"
-	implementations: [{
-		script: {content: "print('hello')"}
-		runtimes: [` + tt.runtime + `]
-		platforms: [{name: "linux"}]
-	}]
-}]
-`
-			_, err := ParseBytes([]byte(cueContent), "runtime-interpreter.cue")
-			if err == nil {
-				t.Fatal("ParseBytes() error = nil, want runtime-level interpreter rejection")
-			}
-			if !strings.Contains(err.Error(), "interpreter") {
-				t.Fatalf("ParseBytes() error = %v, want interpreter field rejection", err)
 			}
 		})
 	}

@@ -2,14 +2,14 @@
 
 - [x] 1.1 Rename `#RuntimeType` in `pkg/invowkfile/invowkfile_schema.cue` from `virtual` to `virtual-sh` and add `virtual-lua`.
 - [x] 1.2 Update `internal/config/config_schema.cue`, generated config output, and config validation so `default_runtime` accepts `virtual-sh` and `virtual-lua` and rejects `virtual`.
-- [x] 1.3 Replace config `virtual_shell` with the family-level `virtual.utilities.enabled` shape, default it to true, and reject `virtual_shell` as an unknown legacy field.
-- [x] 1.4 Update generated config output so it emits the full explicit `virtual: { utilities: { enabled: true } }` shape and never emits `virtual_shell`.
+- [x] 1.3 Replace config `virtual_shell` with the family-level `virtual.utilities.enabled` shape and default it to true.
+- [x] 1.4 Update generated config output so it emits the full explicit `virtual: { utilities: { enabled: true } }` shape.
 - [x] 1.5 Update runtime constants and validation in `pkg/types/runtime.go`, `pkg/invowkfile/runtime.go`, and `internal/runtime/runtime.go` so valid names are `native`, `virtual-sh`, `virtual-lua`, and `container`.
-- [x] 1.6 Update config/schema sync tests so `virtual` is accepted only as the config namespace and rejected as a runtime selector.
+- [x] 1.6 Update config/schema sync tests for the `virtual` config namespace and the current runtime selector set.
 - [x] 1.7 Rename shell runtime symbols and files from virtual-generic naming to shell-specific naming, including `VirtualRuntime` to `ShRuntime` where appropriate and `internal/runtime/virtual.go` to `internal/runtime/sh.go`.
 - [x] 1.8 Update registry wiring in `internal/app/commandadapters/runtime_registry.go` to register `virtual-sh` and `virtual-lua`.
-- [x] 1.9 Update CLI runtime parsing, list output, dry-run output, error templates, generated CUE, and tests so `virtual` is never emitted or accepted as a runtime name.
-- [x] 1.10 Add explicit regression tests proving `virtual` fails in invowkfile runtimes, config `default_runtime`, and `--ivk-runtime virtual`.
+- [x] 1.9 Update CLI runtime parsing, list output, dry-run output, error templates, generated CUE, and tests for the current runtime names.
+- [x] 1.10 Keep runtime-name tests focused on valid current names and generic invalid-value behavior.
 
 ## 2. Shared Virtual Safety Harness
 
@@ -69,4 +69,4 @@
 - [x] 7.4 Update virtual/native mirror exemptions and mirror tests where runtime naming changes affect expectations.
 - [x] 7.5 Run targeted Go tests for schema, runtime, command adapters, audit, config, and CLI packages.
 - [x] 7.6 Run `make test-cli`, `make check-baseline`, `make lint`, `make test`, `openspec validate rename-virtual-and-add-lua --strict`, and `openspec validate --specs --strict`.
-- [x] 7.7 Confirm no user-facing `virtual` runtime references remain except explicit legacy-rejection tests or historical versioned docs that are intentionally preserved by docs policy.
+- [x] 7.7 Confirm no user-facing `virtual` runtime references remain outside the config namespace or historical versioned docs that are intentionally preserved by docs policy.

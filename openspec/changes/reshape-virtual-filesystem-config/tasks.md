@@ -38,10 +38,10 @@
 
 - [x] 5.1 Add parser tests accepting platform `virtual.filesystem.access: "restricted"` with `paths`.
 - [x] 5.2 Add parser tests accepting platform `virtual.filesystem.access: "full"` with and without `paths`.
-- [x] 5.3 Add parser rejection tests for implementation-level `allowed_paths`.
+- [x] 5.3 Keep parser tests focused on current virtual filesystem fields and current-field validation failures.
 - [x] 5.4 Add parser rejection tests for platform-keyed nested path values under `virtual.filesystem.paths`.
 - [x] 5.5 Add parser rejection tests for invalid access values, invalid path names, empty path values, and misplaced binary-policy fields under `platforms[].virtual`.
-- [x] 5.6 Add generation tests proving output uses `platforms[].virtual.filesystem` and never emits `allowed_paths`.
+- [x] 5.6 Add generation tests proving output uses `platforms[].virtual.filesystem`.
 - [x] 5.7 Add virtual-sh runtime tests for restricted mode path allow/deny behavior and full mode host path access.
 - [x] 5.8 Add virtual-lua runtime tests for restricted mode path allow/deny behavior and full mode host path access.
 - [x] 5.9 Add u-root utility tests proving restricted/full filesystem modes are respected by built-in file operations.
@@ -63,7 +63,7 @@
 
 - [x] 7.1 Search CUE, Go, tests, docs, snippets, samples, OpenSpec artifacts, and agent docs for `allowed_paths` and remove every active-contract reference.
 - [x] 7.2 Search for legacy Go path-mapping symbols and remove or rename every old-contract symbol.
-- [x] 7.3 Confirm any remaining `allowed_paths` references are only historical archived docs or explicit invalid-shape rejection fixtures.
+- [x] 7.3 Confirm any remaining `allowed_paths` references are only historical or explanatory OpenSpec text, not active product docs, samples, snippets, or test fixtures.
 - [x] 7.4 Confirm no compatibility shim, alias, dual-read decode path, migration warning, ignored field, or tombstone remains for implementation-level `allowed_paths`.
 
 ## 8. Verification

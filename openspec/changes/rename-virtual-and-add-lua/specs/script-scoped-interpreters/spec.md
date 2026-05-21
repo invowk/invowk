@@ -25,10 +25,6 @@ Invowk SHALL execute `virtual-sh` runtime scripts with the embedded mvdan/sh she
 - **WHEN** a `virtual-sh` implementation script declares `script.interpreter: "python3"` or uses a Python shebang
 - **THEN** Invowk SHALL reject the implementation with `ErrInterpreterNotAllowed` or an equivalent validation error before execution
 
-#### Scenario: Virtual-sh runtime does not preserve old runtime interpreter rejection path
-- **WHEN** a `virtual-sh` runtime block declares `interpreter`
-- **THEN** CUE parsing SHALL reject the unknown runtime field before runtime validation is reached
-
 ## ADDED Requirements
 
 ### Requirement: Virtual-lua runtime only accepts Lua script interpreters
@@ -50,32 +46,16 @@ Invowk SHALL execute `virtual-lua` runtime scripts with the embedded Lua VM and 
 - **WHEN** a `virtual-lua` implementation script declares `script.interpreter: "python3"` or uses a Python shebang
 - **THEN** Invowk SHALL reject the implementation before execution
 
-### Requirement: Legacy virtual runtime name is rejected everywhere
-Invowk SHALL reject the legacy `virtual` runtime name in every user-authored runtime selector. Invowk SHALL NOT map `virtual` to `virtual-sh`.
-
-#### Scenario: Legacy invowkfile runtime name fails
-- **WHEN** an implementation declares `runtimes: [{name: "virtual"}]`
-- **THEN** CUE parsing or Go validation SHALL reject the runtime name as invalid
-- **THEN** Invowk SHALL NOT execute the command
-
-#### Scenario: Legacy config default runtime fails
-- **WHEN** config declares `default_runtime: "virtual"`
-- **THEN** config parsing or validation SHALL reject the runtime name as invalid
+### Requirement: Runtime selectors use explicit virtual-family names
+Invowk SHALL use `virtual-sh` and `virtual-lua` as user-authored runtime selectors. The family-level `virtual` config namespace SHALL NOT be a runtime selector.
 
 #### Scenario: Config virtual namespace is not a runtime selector
 - **WHEN** config declares `virtual.utilities.enabled`
 - **THEN** `virtual` SHALL be treated only as the virtual-family config namespace
-- **THEN** Invowk SHALL NOT accept `virtual` as a runtime name in that config file
 
-#### Scenario: Legacy CLI runtime override fails
-- **WHEN** a user runs a command with `--ivk-runtime virtual`
-- **THEN** Invowk SHALL reject the override as an invalid runtime
-- **THEN** Invowk SHALL NOT silently translate it to `virtual-sh`
-
-#### Scenario: Generated output never emits legacy name
+#### Scenario: Generated output uses explicit virtual-family names
 - **WHEN** Invowk generates CUE, dry-run output, list output, docs snippets, or example invowkfiles
 - **THEN** it SHALL use `virtual-sh` or `virtual-lua`
-- **THEN** it SHALL NOT emit `virtual` as a runtime name
 
 ### Requirement: Runtime lists remain the command shape
 Invowk SHALL keep the existing `runtimes` and `platforms` list model for implementations. This change SHALL NOT introduce singular `runtime` or `platform` fields.

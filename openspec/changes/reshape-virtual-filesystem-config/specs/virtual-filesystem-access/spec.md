@@ -63,26 +63,12 @@ Invowk SHALL expose `virtual.filesystem.paths` as a map of logical path names to
 - **THEN** the declared paths SHALL be exposed through `INVOWK_PATH_*` and `invowk.path`
 - **THEN** the declared paths SHALL NOT be treated as the complete filesystem permission boundary
 
-### Requirement: Legacy implementation allowed paths are removed
-Invowk SHALL remove implementation-level `allowed_paths` from the public invowkfile contract.
-
-#### Scenario: Implementation-level allowed paths are rejected
-- **WHEN** an implementation declares `allowed_paths` beside `script`, `runtimes`, or `platforms`
-- **THEN** CUE parsing SHALL reject `allowed_paths` as an unknown implementation field
-
-#### Scenario: Platform-keyed allowed path values are rejected
-- **WHEN** an implementation declares the old shape `allowed_paths: {DATA: {linux: "/var/lib/app"}}`
-- **THEN** CUE parsing SHALL reject the configuration because the old field no longer exists
+### Requirement: Generated CUE uses virtual filesystem paths
+Invowk SHALL generate virtual filesystem path handles under the selected platform's `virtual.filesystem.paths` block.
 
 #### Scenario: Generated CUE uses virtual filesystem paths
 - **WHEN** Invowk generates CUE for an implementation with virtual filesystem path handles
 - **THEN** generated CUE SHALL emit `platforms[].virtual.filesystem.paths`
-- **THEN** generated CUE SHALL NOT emit implementation-level `allowed_paths`
-
-#### Scenario: Old field has no compatibility path
-- **WHEN** users provide old implementation-level `allowed_paths`
-- **THEN** Invowk SHALL NOT silently migrate, alias, ignore, or warn-and-continue
-- **THEN** closed schema validation SHALL reject the old field
 
 ### Requirement: Host binary policy remains runtime scoped
 Invowk SHALL keep virtual host binary execution policy on selected virtual runtime configs through `runtimes[].allowed_binaries` and `runtimes[].binary_lookup_mode`.
