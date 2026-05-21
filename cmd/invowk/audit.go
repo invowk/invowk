@@ -299,7 +299,7 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		if completerErr != nil {
 			return completerErr
 		}
-		scannerOpts = append(scannerOpts, audit.WithChecker(audit.NewLLMChecker(result.completer, result.concurrency)))
+		scannerOpts = append(scannerOpts, audit.WithChecker(audit.NewLLMChecker(result.completer, int(opts.llm.Concurrency))))
 	}
 	scanner, err := audit.NewScanner(app.Config, scannerOpts...)
 	if err != nil {
@@ -323,34 +323,45 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: some checkers failed: %v\n", scanErr)
 	}
 
+	triage := report.Triage()
+
 	// Render output.
 	switch strings.ToLower(opts.format) {
 	case "json":
-		if err := renderAuditJSON(w, report, minSev); err != nil {
+		if err := renderAuditJSONWithTriage(w, report, triage, minSev); err != nil {
 			return &ExitError{Code: auditExitError, Err: err}
 		}
 	case "text":
-		renderAuditText(w, report, opts.path, minSev)
+		renderAuditTextWithTriage(
+			w,
+			report,
+			triage,
+			types.FilesystemPath(opts.path), //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext.
+			minSev,
+		)
 	default:
 		fmt.Fprintf(cmd.ErrOrStderr(), "Error: unknown output format %q (must be \"text\" or \"json\")\n", opts.format)
 		return &ExitError{Code: auditExitError}
 	}
 
 	// Determine exit code based on confirmed findings after deterministic triage.
-	if audit.ClassifyReportFindings(report).HasConfirmedFindings(minSev) {
+	if triage.HasConfirmedFindings(minSev) {
 		return &ExitError{Code: auditExitFindings}
 	}
 
 	return nil
 }
 
-func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev audit.Severity) {
-	fmt.Fprintln(w, auditTitleStyle.Render("Security Audit — "+scanPath))
+func renderAuditText(w io.Writer, report *audit.Report, scanPath types.FilesystemPath, minSev audit.Severity) {
+	renderAuditTextWithTriage(w, report, report.Triage(), scanPath, minSev)
+}
+
+func renderAuditTextWithTriage(w io.Writer, report *audit.Report, triage audit.ReportTriage, scanPath types.FilesystemPath, minSev audit.Severity) {
+	fmt.Fprintln(w, auditTitleStyle.Render("Security Audit — "+scanPath.String()))
 	fmt.Fprintf(w, "Scanned: %d module(s), %d invowkfile(s), %d script(s) (%s)\n\n",
 		report.ModuleCount, report.InvowkfileCount, report.ScriptCount,
 		formatDuration(report.ScanDuration))
 
-	triage := audit.ClassifyReportFindings(report)
 	findings := triage.ConfirmedFindingsBySeverity(minSev)
 	filteredCorrelated := triage.ConfirmedCompoundThreatsBySeverity(minSev)
 	renderAuditDiagnostics(w, report.Diagnostics)
@@ -457,7 +468,10 @@ func renderAuditDiagnostics(w io.Writer, diagnostics []audit.Diagnostic) {
 }
 
 func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) error {
-	triage := audit.ClassifyReportFindings(report)
+	return renderAuditJSONWithTriage(w, report, report.Triage(), minSev)
+}
+
+func renderAuditJSONWithTriage(w io.Writer, report *audit.Report, triage audit.ReportTriage, minSev audit.Severity) error {
 	filtered := triage.ConfirmedFindingsBySeverity(minSev)
 
 	// Apply the same severity filter to correlated findings so the JSON

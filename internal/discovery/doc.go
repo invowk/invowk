@@ -19,7 +19,9 @@
 //  1. Current directory invowkfile.cue (highest)
 //  2. Modules in current directory (*.invowkmod) and their vendored dependencies
 //  3. Configured includes (module paths from config) and their vendored dependencies
-//  4. User commands directory (~/.invowk/cmds — modules only, non-recursive) and their vendored dependencies
+//  4. Provisioned module entries supplied by the command adapter and their vendored dependencies
+//  5. Provisioned global module entries supplied by the command adapter and their vendored dependencies
+//  6. User commands directory (~/.invowk/cmds — modules only, non-recursive) and their vendored dependencies
 //
 // Vendored modules live in invowk_modules/ inside a parent module. Only one level
 // of vendoring is scanned (no recursive nesting). Vendored modules are tagged with

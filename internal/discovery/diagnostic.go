@@ -50,6 +50,9 @@ const (
 	// CodeVendoredUndeclaredSkipped indicates a vendored module is not declared
 	// and locked by the parent module dependency graph.
 	CodeVendoredUndeclaredSkipped DiagnosticCode = "vendored_undeclared_skipped"
+	// CodeVendoredAmbiguousLockSkipped indicates a vendored module matched
+	// multiple declared lock entries for the same stable module identity.
+	CodeVendoredAmbiguousLockSkipped DiagnosticCode = "vendored_ambiguous_lock_skipped"
 	// CodeVendoredTransitiveSkipped indicates a vendored module declares
 	// transitive requirements that are missing from the parent dependency graph.
 	CodeVendoredTransitiveSkipped DiagnosticCode = "vendored_transitive_skipped"
@@ -70,6 +73,9 @@ const (
 	// CodeVendoredSymlinkSkipped indicates a symlinked .invowkmod directory was
 	// skipped during vendored module discovery.
 	CodeVendoredSymlinkSkipped DiagnosticCode = "vendored_symlink_skipped"
+	// CodeProvisionedModuleManifestInvalid indicates a provisioned-module
+	// manifest env var was present but malformed.
+	CodeProvisionedModuleManifestInvalid DiagnosticCode = "provisioned_module_manifest_invalid"
 
 	// invalidDiagnosticPanicFmt is used for impossible invalid Diagnostic states.
 	invalidDiagnosticPanicFmt = "BUG: invalid diagnostic: %v"
@@ -228,7 +234,8 @@ func (dc DiagnosticCode) Validate() error {
 		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
 		CodeScriptInterpreterShebangOverride,
 		CodeModuleShadowsGlobal, CodeModuleSymlinkSkipped, CodeVendoredSymlinkSkipped,
-		CodeVendoredUndeclaredSkipped, CodeVendoredTransitiveSkipped:
+		CodeVendoredUndeclaredSkipped, CodeVendoredAmbiguousLockSkipped,
+		CodeVendoredTransitiveSkipped, CodeProvisionedModuleManifestInvalid:
 		return nil
 	default:
 		return &InvalidDiagnosticCodeError{Value: dc}

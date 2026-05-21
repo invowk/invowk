@@ -22,7 +22,10 @@ func analyzeSelectedImplementationScript(execCtx *runtime.ExecutionContext) (inv
 }
 
 func appendScriptInterpreterDiagnostics(diags []Diagnostic, analysis invowkfile.ScriptInterpreterAnalysis) []Diagnostic {
-	scriptDiagnostics := analysis.Diagnostics()
+	return appendRawScriptInterpreterDiagnostics(diags, analysis.Diagnostics())
+}
+
+func appendRawScriptInterpreterDiagnostics(diags []Diagnostic, scriptDiagnostics []invowkfile.ScriptInterpreterDiagnostic) []Diagnostic {
 	for i := range scriptDiagnostics {
 		scriptDiag := scriptDiagnostics[i]
 		diag, err := NewDiagnosticWithCause(

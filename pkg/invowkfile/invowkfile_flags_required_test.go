@@ -86,6 +86,41 @@ cmds: [
 	}
 }
 
+func TestParseFlagsValidation_EmptyDefaultValue(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: {content: "echo test"}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		flags: [
+			{name: "myflag", description: "Test flag", default_value: ""},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invowkfile: %v", writeErr)
+	}
+
+	_, err := Parse(FilesystemPath(invowkfilePath))
+	if err == nil {
+		t.Error("Parse() should reject empty flag default_value")
+	}
+	if err != nil && !strings.Contains(err.Error(), "default_value") {
+		t.Errorf("Error message should mention default_value, got: %v", err)
+	}
+}
+
 func TestParseFlags_ShortAlias(t *testing.T) {
 	t.Parallel()
 

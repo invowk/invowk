@@ -134,9 +134,11 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		Module:  "mod",
 		Version: "1.0.0",
 	})
+	modID := modMeta.Module()
 	modCmdInfo := &discovery.CommandInfo{
 		Name:       invowkfile.CommandName("build"),
 		SourceID:   discovery.SourceID("mod"),
+		ModuleID:   &modID,
 		Command:    &invowkfile.Command{Name: "build"},
 		Invowkfile: &invowkfile.Invowkfile{Metadata: modMeta},
 	}
@@ -147,7 +149,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{
 				{Name: invowkfile.CommandName("deploy")},
-				{Name: invowkfile.CommandName("mod build"), SimpleName: "build", SourceID: discovery.SourceID("mod")},
+				{Name: invowkfile.CommandName("mod build"), SimpleName: "build", SourceID: discovery.SourceID("mod"), ModuleID: &modID},
 			},
 		}
 		disc := &stubCommandSetProvider{
@@ -192,6 +194,40 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		if len(depErr.MissingCommands) != 1 {
 			t.Fatalf("MissingCommands = %v, want one inaccessible root command", depErr.MissingCommands)
+		}
+	})
+
+	t.Run("rejects module qualified access to root invowkfile command", func(t *testing.T) {
+		t.Parallel()
+
+		commandSet := &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{
+				{
+					Name:       invowkfile.CommandName("deploy"),
+					SimpleName: "deploy",
+					SourceID:   discovery.SourceIDInvowkfile,
+				},
+			},
+		}
+		disc := &stubCommandSetProvider{
+			result: discovery.CommandSetResult{Set: commandSet},
+		}
+		deps := &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []invowkfile.CommandDependencyRef{"@invowkfile deploy"}},
+			},
+		}
+
+		err := CheckCommandDependenciesExist(disc, deps, modCmdInfo, ctx)
+		if err == nil {
+			t.Fatal("CheckCommandDependenciesExist() error = nil, want root source to be inaccessible")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(err, *DependencyError) = false for %v", err)
+		}
+		if len(depErr.ForbiddenCommands) != 1 {
+			t.Fatalf("ForbiddenCommands = %v, want one forbidden root command", depErr.ForbiddenCommands)
 		}
 	})
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/llm"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -170,15 +171,15 @@ func TestParseFindings_Malformed(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for malformed response")
 	}
-	if !errors.Is(err, ErrLLMMalformedResponse) {
+	if !errors.Is(err, llm.ErrLLMMalformedResponse) {
 		t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
 	}
 	if strings.Contains(err.Error(), "SECRET_TOKEN") {
 		t.Fatalf("malformed response error leaked raw response: %v", err)
 	}
-	var malformed *LLMMalformedResponseError
+	var malformed *llm.MalformedResponseError
 	if !errors.As(err, &malformed) {
-		t.Fatalf("errors.As(*LLMMalformedResponseError) = false for %T", err)
+		t.Fatalf("errors.As(*MalformedResponseError) = false for %T", err)
 	}
 	if !strings.Contains(malformed.RawResponsePreview(), "SECRET_TOKEN") {
 		t.Fatalf("RawResponsePreview() did not retain bounded debug response")
@@ -236,7 +237,7 @@ func TestConvertBatchFindings_InvalidSeverity(t *testing.T) {
 	if len(findings) != 0 {
 		t.Errorf("expected 0 findings for invalid severity, got %d", len(findings))
 	}
-	if !errors.Is(err, ErrLLMMalformedResponse) {
+	if !errors.Is(err, llm.ErrLLMMalformedResponse) {
 		t.Fatalf("convertBatchFindings() error = %v, want ErrLLMMalformedResponse", err)
 	}
 }
@@ -253,7 +254,7 @@ func TestConvertBatchFindings_InvalidCategory(t *testing.T) {
 	if len(findings) != 0 {
 		t.Errorf("expected 0 findings for invalid category, got %d", len(findings))
 	}
-	if !errors.Is(err, ErrLLMMalformedResponse) {
+	if !errors.Is(err, llm.ErrLLMMalformedResponse) {
 		t.Fatalf("convertBatchFindings() error = %v, want ErrLLMMalformedResponse", err)
 	}
 }
@@ -350,7 +351,7 @@ func TestConvertBatchFindings_DropsUnknownMultiScriptAttribution(t *testing.T) {
 	if len(findings) != 0 {
 		t.Fatalf("expected 0 findings for unknown multi-script attribution, got %d", len(findings))
 	}
-	if !errors.Is(err, ErrLLMMalformedResponse) {
+	if !errors.Is(err, llm.ErrLLMMalformedResponse) {
 		t.Fatalf("convertBatchFindings() error = %v, want ErrLLMMalformedResponse", err)
 	}
 }

@@ -84,11 +84,13 @@ func (s Source) Validate() error {
 	}
 }
 
-// DiscoverAll finds all invowkfiles from all sources in 4-level precedence order:
+// DiscoverAll finds all invowkfiles from all sources in 6-level precedence order:
 //  1. Current directory (highest precedence — the local invowkfile.cue)
 //  2. Modules in the current directory (*.invowkmod directories)
 //  3. Configured includes from config (module paths)
-//  4. User commands directory (~/.invowk/cmds — modules only, non-recursive)
+//  4. Provisioned module entries supplied by the command adapter
+//  5. Provisioned global module entries supplied by the command adapter
+//  6. User commands directory (~/.invowk/cmds — modules only, non-recursive)
 //
 // Earlier sources take precedence for disambiguation when the same SimpleName
 // appears in multiple sources.
@@ -170,6 +172,19 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		return nil, diagnostics, verifyErr
 	}
 
+	// Provisioned container images pass module entries through the command
+	// adapter so copied modules keep their original command namespace metadata.
+	provisionedFiles, provisionedDiags := d.loadProvisionedModulesWithDiagnostics(d.provisionedModules, false)
+	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, provisionedFiles, provisionedDiags)
+	if verifyErr != nil {
+		return nil, diagnostics, verifyErr
+	}
+	provisionedGlobalFiles, provisionedGlobalDiags := d.loadProvisionedModulesWithDiagnostics(d.provisionedGlobalModules, true)
+	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, provisionedGlobalFiles, provisionedGlobalDiags)
+	if verifyErr != nil {
+		return nil, diagnostics, verifyErr
+	}
+
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
 	// Mark all user-dir modules as global — their commands are accessible by any module's CommandScope.
 	// Vendored children inherit IsGlobalModule inside appendModulesWithVendored.
@@ -191,6 +206,77 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics = append(diagnostics, d.detectModuleShadowing(files)...)
 
 	return files, diagnostics, nil
+}
+
+func (d *Discovery) loadProvisionedModulesWithDiagnostics(entries ProvisionedModuleEntries, isGlobal bool) ([]*DiscoveredFile, []Diagnostic) {
+	var files []*DiscoveredFile
+	var diagnostics []Diagnostic
+	for _, entry := range entries {
+		if entry.Path == "" {
+			continue
+		}
+		if err := entry.Validate(); err != nil {
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
+				SeverityWarning,
+				CodeModuleScanPathInvalid,
+				fmt.Sprintf("invalid provisioned module entry %s: %v", entry.Path, err),
+				entry.Path,
+				err,
+			))
+			continue
+		}
+		if invowkmod.IsModule(entry.Path) {
+			moduleFile, moduleDiags := d.loadProvisionedModuleWithDiagnostics(entry, isGlobal)
+			if moduleFile != nil {
+				files = append(files, moduleFile)
+			}
+			diagnostics = append(diagnostics, moduleDiags...)
+			continue
+		}
+		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(entry.Path)
+		if isGlobal {
+			for i := range moduleFiles {
+				moduleFiles[i].IsGlobalModule = true
+			}
+		}
+		if entry.CommandNamespace != "" {
+			for i := range moduleFiles {
+				moduleFiles[i].CommandNamespace = entry.CommandNamespace
+			}
+		}
+		files = append(files, moduleFiles...)
+		diagnostics = append(diagnostics, moduleDiags...)
+	}
+	return files, diagnostics
+}
+
+func (d *Discovery) loadProvisionedModuleWithDiagnostics(entry ProvisionedModuleEntry, isGlobal bool) (*DiscoveredFile, []Diagnostic) {
+	moduleName := strings.TrimSuffix(filepath.Base(string(entry.Path)), invowkmod.ModuleSuffix)
+	if SourceID(moduleName) == SourceIDInvowkfile {
+		return nil, []Diagnostic{mustDiagnosticWithPath(
+			SeverityWarning,
+			CodeReservedModuleNameSkipped,
+			fmt.Sprintf("skipping reserved module name '%s'", moduleName),
+			entry.Path,
+		)}
+	}
+	m, err := invowkmod.Load(entry.Path)
+	if err != nil {
+		return nil, []Diagnostic{mustDiagnosticWithCause(
+			SeverityWarning,
+			CodeModuleLoadSkipped,
+			fmt.Sprintf("skipping invalid provisioned module at %s: %v", entry.Path, err),
+			entry.Path,
+			err,
+		)}
+	}
+	return &DiscoveredFile{
+		Path:             m.InvowkfilePath(),
+		Source:           SourceModule,
+		Module:           m,
+		CommandNamespace: entry.CommandNamespace,
+		IsGlobalModule:   isGlobal,
+	}, nil
 }
 
 // discoverInDir looks for an invowkfile in a specific directory.
@@ -465,6 +551,18 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			))
 			continue
 		}
+		ambiguousKeys := invowkmod.AmbiguousDeclaredLockedModuleEntries(parentModule.Metadata.Requires, lock, m.Metadata.Module)
+		if len(ambiguousKeys) > 0 {
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
+				SeverityWarning,
+				CodeVendoredAmbiguousLockSkipped,
+				fmt.Sprintf("skipping vendored module %s in %s: ambiguous declared lock entries [%s] match module ID %s",
+					m.Name(), parentModule.Name(), joinModuleRefKeys(ambiguousKeys), m.Metadata.Module),
+				vendoredModPath,
+			))
+			continue
+		}
+
 		moduleKey, locked, ok := invowkmod.DeclaredLockedModuleEntry(parentModule.Metadata.Requires, lock, m.Metadata.Module)
 		if !ok {
 			diagnostics = append(diagnostics, mustDiagnosticWithPath(
@@ -539,6 +637,15 @@ func vendoredCommandNamespace(requirements []invowkmod.ModuleRequirement, lock *
 		return ""
 	}
 	return invowkmod.ModuleNamespace(locked.EffectiveCommandSourceID())
+}
+
+//goplint:ignore -- diagnostic display text assembled from validated module ref keys.
+func joinModuleRefKeys(keys []invowkmod.ModuleRefKey) string {
+	values := make([]string, 0, len(keys))
+	for _, key := range keys {
+		values = append(values, key.String())
+	}
+	return strings.Join(values, ", ")
 }
 
 // appendModulesWithVendored appends the module files and diagnostics, then for

@@ -292,6 +292,41 @@ cmds: [
 	}
 }
 
+func TestParseArgsValidation_EmptyDefaultValue(t *testing.T) {
+	t.Parallel()
+
+	cueContent := `
+cmds: [
+	{
+		name: "test"
+		implementations: [
+			{
+				script: {content: "echo test"}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}]
+			}
+		]
+		args: [
+			{name: "myarg", description: "Test arg", default_value: ""},
+		]
+	}
+]
+`
+	tmpDir := t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write invowkfile: %v", writeErr)
+	}
+
+	_, err := Parse(FilesystemPath(invowkfilePath))
+	if err == nil {
+		t.Error("Parse() should reject empty arg default_value")
+	}
+	if err != nil && !strings.Contains(err.Error(), "default_value") {
+		t.Errorf("Error should mention default_value, got: %v", err)
+	}
+}
+
 func TestParseArgsValidation_InvalidType(t *testing.T) {
 	t.Parallel()
 

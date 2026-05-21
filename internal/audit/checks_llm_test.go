@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/llm"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -142,7 +143,7 @@ func TestLLMChecker_Check_ServerError(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockCompleter{
-		err: fmt.Errorf("%w: connection refused", ErrLLMRequestFailed),
+		err: fmt.Errorf("%w: connection refused", llm.ErrLLMRequestFailed),
 	}
 	checker := NewLLMChecker(mock, 1)
 
@@ -193,7 +194,7 @@ func TestLLMChecker_Check_MalformedResponse(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for malformed response")
 	}
-	if !errors.Is(err, ErrLLMMalformedResponse) {
+	if !errors.Is(err, llm.ErrLLMMalformedResponse) {
 		t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
 	}
 }
@@ -214,7 +215,7 @@ func TestLLMChecker_Check_InvalidFindingIsMalformedResponse(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid LLM finding")
 	}
-	if !errors.Is(err, ErrLLMMalformedResponse) {
+	if !errors.Is(err, llm.ErrLLMMalformedResponse) {
 		t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
 	}
 }
@@ -227,7 +228,7 @@ func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 	alternating := &mockCompleterFunc{fn: func(_ context.Context, _, userPrompt string) (string, error) {
 		callCount++
 		if callCount%2 == 0 {
-			return "", fmt.Errorf("batch failed: %w", ErrLLMRequestFailed)
+			return "", fmt.Errorf("batch failed: %w", llm.ErrLLMRequestFailed)
 		}
 		scriptID := firstPromptScriptID(userPrompt)
 		return fmt.Sprintf(`{"findings": [{"script_id": %q, "severity": "low", "category": "trust", "title": "Issue", "description": "Desc", "recommendation": "Fix"}]}`, scriptID), nil
@@ -249,7 +250,7 @@ func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected partial batch failure error, got nil")
 	}
-	if !errors.Is(err, ErrLLMRequestFailed) {
+	if !errors.Is(err, llm.ErrLLMRequestFailed) {
 		t.Fatalf("Check() error = %v, want ErrLLMRequestFailed", err)
 	}
 	if len(findings) == 0 {
@@ -366,7 +367,7 @@ func TestNewLLMChecker_DefaultConcurrency(t *testing.T) {
 	t.Parallel()
 
 	checker := NewLLMChecker(&mockCompleter{}, 0)
-	if checker.concurrency != DefaultLLMConcurrency {
-		t.Errorf("concurrency = %d, want %d", checker.concurrency, DefaultLLMConcurrency)
+	if checker.concurrency != defaultLLMConcurrency {
+		t.Errorf("concurrency = %d, want %d", checker.concurrency, defaultLLMConcurrency)
 	}
 }

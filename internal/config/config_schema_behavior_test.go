@@ -125,20 +125,44 @@ func TestConfigSchemaRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestConfigSchemaPreservesLLMAPIBlockPresence(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := decodeCUEConfigSource(configCUESource{
+		data:     configCUEData(`llm: {api: {}}`),
+		filename: configCUEFilename("empty-api.cue"),
+	})
+	if err != nil {
+		t.Fatalf("decodeCUEConfigSource() error = %v, want nil", err)
+	}
+	if !cfg.LLM.HasAPIBackend() {
+		t.Fatal("LLM.HasAPIBackend() = false, want true for explicit llm.api block")
+	}
+	if cfg.LLM.API.HasConfig() {
+		t.Fatal("LLM.API.HasConfig() = true, want false for empty llm.api block")
+	}
+	if err := cfg.LLM.Validate(); !errors.Is(err, ErrInvalidLLMAPIConfig) {
+		t.Fatalf("LLM.Validate() error = %v, want ErrInvalidLLMAPIConfig", err)
+	}
+}
+
 func TestLoadRejectsEmptyLLMAPIConfig(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		cue  string
+		name    string
+		cue     string
+		wantErr error
 	}{
 		{
-			name: "empty api",
-			cue:  `llm: {api: {}}`,
+			name:    "empty api",
+			cue:     `llm: {api: {}}`,
+			wantErr: ErrInvalidLLMAPIConfig,
 		},
 		{
-			name: "provider plus empty api",
-			cue:  `llm: {provider: "codex", api: {}}`,
+			name:    "provider plus empty api",
+			cue:     `llm: {provider: "codex", api: {}}`,
+			wantErr: ErrConfigLoadFailed,
 		},
 	}
 
@@ -150,8 +174,8 @@ func TestLoadRejectsEmptyLLMAPIConfig(t *testing.T) {
 			if err == nil {
 				t.Fatal("loadWithOptions() succeeded, want config load error")
 			}
-			if !errors.Is(err, ErrConfigLoadFailed) {
-				t.Fatalf("loadWithOptions() error = %v, want ErrConfigLoadFailed", err)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("loadWithOptions() error = %v, want %v", err, tt.wantErr)
 			}
 		})
 	}

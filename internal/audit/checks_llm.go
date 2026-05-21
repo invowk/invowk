@@ -15,7 +15,8 @@ const (
 	// LLMCheckerName is the checker identifier used for LLM-powered analysis.
 	LLMCheckerName = "llm"
 
-	llmCheckerName = LLMCheckerName
+	llmCheckerName        = LLMCheckerName
+	defaultLLMConcurrency = 2
 
 	// maxBatchChars is the target character budget per batch, leaving room
 	// for the system prompt and response. Conservative at 6000 chars (~2000
@@ -49,7 +50,7 @@ type (
 // The concurrency parameter controls the maximum number of parallel LLM requests.
 func NewLLMChecker(completer llm.Completer, concurrency int) *LLMChecker {
 	if concurrency <= 0 {
-		concurrency = DefaultLLMConcurrency
+		concurrency = defaultLLMConcurrency
 	}
 	return &LLMChecker{
 		completer:   completer,

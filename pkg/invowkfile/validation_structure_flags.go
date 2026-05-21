@@ -201,16 +201,6 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		})
 	}
 
-	// Validate that required flags don't have default values
-	if flag.Required && flag.DefaultValue != "" {
-		errors = append(errors, ValidationError{
-			Validator: v.Name(),
-			Field:     path.String(),
-			Message:   "cannot be both required and have a default_value in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
-		})
-	}
-
 	// Validate short alias format (single letter a-z or A-Z)
 	if flag.Short != "" {
 		shortStr := string(flag.Short)
@@ -247,18 +237,6 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		seenShorts[shortStr] = true
 	}
 
-	// Validate default_value is compatible with type
-	if flag.DefaultValue != "" {
-		if err := validateValueType(flag.DefaultValue, flag.GetType()); err != nil {
-			errors = append(errors, ValidationError{
-				Validator: v.Name(),
-				Field:     path.String(),
-				Message:   "default_value '" + flag.DefaultValue + "' is not compatible with type '" + string(flag.GetType()) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-				Severity:  SeverityError,
-			})
-		}
-	}
-
 	// Validate validation regex is valid and safe
 	if flag.Validation != "" {
 		if err := ValidateRegexPattern(string(flag.Validation)); err != nil {
@@ -269,17 +247,16 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 				Severity:  SeverityError,
 				Cause:     err,
 			})
-		} else if flag.DefaultValue != "" {
-			// Check if default_value matches validation regex
-			if !matchesValidation(flag.DefaultValue, string(flag.Validation)) {
-				errors = append(errors, ValidationError{
-					Validator: v.Name(),
-					Field:     path.String(),
-					Message:   "default_value '" + flag.DefaultValue + "' does not match validation pattern '" + string(flag.Validation) + quotedInvowkfileAtSuffix + string(ctx.FilePath),
-					Severity:  SeverityError,
-				})
-			}
 		}
+	}
+
+	for _, err := range flag.defaultValueValidationErrors() {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Severity:  SeverityError,
+		})
 	}
 
 	return errors

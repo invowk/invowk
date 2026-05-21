@@ -6,13 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/invowk/invowk/internal/tui/component"
 )
 
 var (
 	// ErrInvalidTUIServerURL is the sentinel error wrapped by InvalidTUIServerURLError.
 	ErrInvalidTUIServerURL = errors.New("invalid TUI server URL")
 	// ErrUserCancelled is returned when a user cancels an interactive TUI operation.
-	ErrUserCancelled = errors.New("user cancelled")
+	ErrUserCancelled = component.ErrCancelled
 )
 
 type (

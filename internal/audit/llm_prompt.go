@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/invowk/invowk/internal/llm"
 )
 
 var (
@@ -99,7 +101,7 @@ func parseFindings(raw string) ([]llmFinding, error) {
 		}
 	}
 
-	return nil, &LLMMalformedResponseError{
+	return nil, &llm.MalformedResponseError{
 		RawResponse: raw,
 		Err:         errors.New("could not extract JSON findings from response"),
 	}
@@ -181,7 +183,7 @@ func scriptPromptID(ref *ScriptRef) string {
 
 //goplint:ignore -- LLM response conversion builds provider-facing diagnostics from JSON finding ordinal and reason.
 func malformedLLMFindingError(index int, reason string) error {
-	return &LLMMalformedResponseError{
+	return &llm.MalformedResponseError{
 		Err: fmt.Errorf("invalid LLM finding %d: %s", index, reason),
 	}
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
-	"github.com/invowk/invowk/internal/tuiwire"
+	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -174,7 +174,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 
 	notExistCfg, notExistDiags := commandsvc.LoadConfigWithFallback(
 		t.Context(),
-		&errorConfigProvider{err: tuiwire.ErrUserCancelled},
+		&errorConfigProvider{err: tui.ErrCancelled},
 		"",
 	)
 	if notExistCfg == nil {

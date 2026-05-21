@@ -7,8 +7,11 @@ import (
 	"fmt"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+const defaultGlobalModulesMountPath container.MountTargetPath = "/invowk/global-modules"
 
 // ErrInvalidProvisionConfig is the sentinel error wrapped by InvalidProvisionConfigError.
 var ErrInvalidProvisionConfig = errors.New("invalid provision config")
@@ -32,8 +35,20 @@ type (
 		InvowkBinaryPath types.FilesystemPath
 
 		// ModulesPaths are paths to module directories on the host.
-		// These are discovered from config search paths and user commands dir.
+		// These are discovered from config search paths.
 		ModulesPaths []types.FilesystemPath
+
+		// ModuleEntries are paths to provisioned modules with optional command
+		// namespace metadata. They preserve config include aliases when modules
+		// are copied into deterministic container paths.
+		ModuleEntries ModuleEntries
+
+		// GlobalModulesPaths are paths to globally trusted user command modules on the host.
+		GlobalModulesPaths []types.FilesystemPath
+
+		// GlobalModuleEntries are globally trusted user command modules with
+		// optional command namespace metadata.
+		GlobalModuleEntries ModuleEntries
 
 		// BinaryMountPath is where to place the binary in the container.
 		// Default: /invowk/bin
@@ -54,6 +69,19 @@ type (
 		// Can be set via INVOWK_PROVISION_TAG_SUFFIX environment variable.
 		TagSuffix string
 	}
+
+	//goplint:validate-all
+	//
+	// ModuleEntry identifies one host module path to provision into a container.
+	ModuleEntry struct {
+		// Path is a host module path or a directory containing modules.
+		Path types.FilesystemPath
+		// CommandNamespace preserves the command-publication namespace for copied modules.
+		CommandNamespace invowkmod.ModuleNamespace
+	}
+
+	// ModuleEntries is a validated collection of module provisioning entries.
+	ModuleEntries []ModuleEntry
 
 	// Option is a functional option for configuring a Config.
 	Option func(*Config)
@@ -99,10 +127,48 @@ func (c Config) Validate() error {
 			}
 		}
 	}
+	if err := c.ModuleEntries.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("ModuleEntries: %w", err))
+	}
+	for i, mp := range c.GlobalModulesPaths {
+		if mp != "" {
+			if err := mp.Validate(); err != nil {
+				errs = append(errs, fmt.Errorf("GlobalModulesPaths[%d]: %w", i, err))
+			}
+		}
+	}
+	if err := c.GlobalModuleEntries.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("GlobalModuleEntries: %w", err))
+	}
 	if len(errs) > 0 {
 		return &InvalidProvisionConfigError{FieldErrors: errs}
 	}
 	return nil
+}
+
+// Validate returns nil when the entry's path and optional namespace are valid.
+func (e ModuleEntry) Validate() error {
+	var errs []error
+	if err := e.Path.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if e.CommandNamespace != "" {
+		if err := e.CommandNamespace.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// Validate returns nil when all module provisioning entries are valid.
+func (e ModuleEntries) Validate() error {
+	var errs []error
+	for i, entry := range e {
+		if err := entry.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("[%d]: %w", i, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Error implements the error interface for InvalidProvisionConfigError.
@@ -150,6 +216,27 @@ func WithInvowkBinaryPath(path types.FilesystemPath) Option {
 func WithModulesPaths(paths []types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.ModulesPaths = paths
+	}
+}
+
+// WithModuleEntries returns an Option that sets ModuleEntries on the config.
+func WithModuleEntries(entries ModuleEntries) Option {
+	return func(c *Config) {
+		c.ModuleEntries = entries
+	}
+}
+
+// WithGlobalModulesPaths returns an Option that sets GlobalModulesPaths on the config.
+func WithGlobalModulesPaths(paths []types.FilesystemPath) Option {
+	return func(c *Config) {
+		c.GlobalModulesPaths = paths
+	}
+}
+
+// WithGlobalModuleEntries returns an Option that sets GlobalModuleEntries on the config.
+func WithGlobalModuleEntries(entries ModuleEntries) Option {
+	return func(c *Config) {
+		c.GlobalModuleEntries = entries
 	}
 }
 

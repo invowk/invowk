@@ -2443,7 +2443,7 @@ cmds: [
 					# - INVOWK_SSH_HOST: Host address (host.docker.internal or host.containers.internal)
 					# - INVOWK_SSH_PORT: SSH server port
 					# - INVOWK_SSH_USER: Username (invowk)
-					# - INVOWK_SSH_TOKEN: One-time authentication token
+					# - INVOWK_SSH_TOKEN: Execution-scoped authentication token
 					
 					# Example: Run a command on the host
 					sshpass -p $INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \

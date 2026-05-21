@@ -447,7 +447,7 @@ import "strings"
 	// default_value is the default value if the argument is not provided (optional)
 	// Cannot be specified together with required: true
 	// Must be compatible with the specified type (if type is specified)
-	default_value?: string & strings.MaxRunes(4096)
+	default_value?: string & !="" & strings.MaxRunes(4096)
 
 	// type specifies the data type of the argument (optional, defaults to "string")
 	// Supported types: "string", "int", "float"
@@ -483,7 +483,7 @@ import "strings"
 	// default_value is the default value for the flag (optional)
 	// If not specified, the flag has no default value
 	// Must be compatible with the specified type (if type is specified)
-	default_value?: string & strings.MaxRunes(4096)
+	default_value?: string & !="" & strings.MaxRunes(4096)
 
 	// type specifies the data type of the flag (optional, defaults to "string")
 	// Supported types: "string", "bool", "int", "float"

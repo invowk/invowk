@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -230,6 +232,75 @@ func TestBuildProvisionConfig_HostDefaultsOwnedByRuntimeAdapter(t *testing.T) {
 	}
 	if provCfg.TagSuffix != testSuffix {
 		t.Fatalf("buildProvisionConfig().TagSuffix = %q, want %q", provCfg.TagSuffix, testSuffix)
+	}
+}
+
+func TestBuildProvisionConfig_PreservesIncludeAliasesAsModuleEntries(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	rootModule := filepath.Join(tmpDir, "root.invowkmod")
+	autoModule := filepath.Join(tmpDir, "auto.invowkmod")
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{
+			Path:  config.ModuleIncludePath(rootModule),
+			Alias: invowkmod.ModuleAlias("rootalias"),
+		},
+	}
+	cfg.Container.AutoProvision.Includes = []config.IncludeEntry{
+		{
+			Path:  config.ModuleIncludePath(autoModule),
+			Alias: invowkmod.ModuleAlias("autoalias"),
+		},
+	}
+	cfg.Container.AutoProvision.InheritIncludes = true
+
+	provCfg := buildProvisionConfig(cfg)
+
+	want := []provision.ModuleEntry{
+		{
+			Path:             types.FilesystemPath(autoModule),
+			CommandNamespace: invowkmod.ModuleNamespace("autoalias"),
+		},
+		{
+			Path:             types.FilesystemPath(rootModule),
+			CommandNamespace: invowkmod.ModuleNamespace("rootalias"),
+		},
+	}
+	if !slices.Equal(provCfg.ModuleEntries, want) {
+		t.Fatalf("ModuleEntries = %#v, want %#v", provCfg.ModuleEntries, want)
+	}
+}
+
+func TestBuildProvisionConfig_KeepsGlobalCommandsWithProvisionedIncludes(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	userCommandsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	if err := os.MkdirAll(userCommandsDir, 0o755); err != nil {
+		t.Fatalf("create user commands dir: %v", err)
+	}
+
+	autoModule := filepath.Join(tmpDir, "auto.invowkmod")
+	cfg := config.DefaultConfig()
+	cfg.Container.AutoProvision.Includes = []config.IncludeEntry{
+		{
+			Path:  config.ModuleIncludePath(autoModule),
+			Alias: invowkmod.ModuleAlias("autoalias"),
+		},
+	}
+
+	provCfg := buildProvisionConfig(cfg)
+
+	if !slices.Contains(provCfg.GlobalModulesPaths, types.FilesystemPath(userCommandsDir)) {
+		t.Fatalf("GlobalModulesPaths = %#v, want user commands dir %q", provCfg.GlobalModulesPaths, userCommandsDir)
+	}
+	if len(provCfg.ModuleEntries) != 1 {
+		t.Fatalf("ModuleEntries = %#v, want one auto-provision include", provCfg.ModuleEntries)
+	}
+	if provCfg.ModuleEntries[0].CommandNamespace != "autoalias" {
+		t.Fatalf("ModuleEntries[0].CommandNamespace = %q, want autoalias", provCfg.ModuleEntries[0].CommandNamespace)
 	}
 }
 

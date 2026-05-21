@@ -155,8 +155,8 @@ func (a *Argument) GetType() ArgumentType {
 // Validate returns nil if the Argument has valid fields,
 // or an error collecting all field-level validation failures.
 // Delegates to Name.Validate() (nonzero), Description.Validate() (non-empty),
-// Type.Validate() (zero-valid), and Validation.Validate() (zero-valid).
-// DefaultValue is an untyped string — skipped.
+// Type.Validate() (zero-valid), Validation.Validate() (zero-valid), and
+// default-value compatibility.
 func (a Argument) Validate() error {
 	var errs []error
 	if err := a.Name.Validate(); err != nil {
@@ -171,6 +171,7 @@ func (a Argument) Validate() error {
 	if err := a.Validation.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	errs = append(errs, a.defaultValueValidationErrors()...)
 	if len(errs) > 0 {
 		return &InvalidArgumentError{FieldErrors: errs}
 	}
@@ -202,4 +203,22 @@ func (a *Argument) ValidateArgumentValue(value string) error {
 		return err
 	}
 	return nil
+}
+
+func (a Argument) defaultValueValidationErrors() []error {
+	if a.DefaultValue == "" {
+		return nil
+	}
+	var errs []error
+	if a.Required {
+		errs = append(errs, errors.New("cannot be both required and have a default_value"))
+	}
+	argType := a.GetType()
+	if err := validateValueType(a.DefaultValue, FlagType(argType)); err != nil {
+		errs = append(errs, fmt.Errorf("default_value %q is not compatible with type %q: %w", a.DefaultValue, argType, err))
+	}
+	if a.Validation != "" && a.Validation.Validate() == nil && !matchesValidation(a.DefaultValue, string(a.Validation)) {
+		errs = append(errs, fmt.Errorf("default_value %q does not match validation pattern %q", a.DefaultValue, a.Validation))
+	}
+	return errs
 }

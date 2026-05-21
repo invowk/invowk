@@ -16,6 +16,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -203,13 +204,13 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 
 	// Add modules from auto_provision includes (explicit provisioning paths).
 	for _, inc := range autoProv.Includes {
-		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, types.FilesystemPath(inc.Path))
+		provisionCfg.ModuleEntries = append(provisionCfg.ModuleEntries, provisionModuleEntryFromInclude(inc))
 	}
 
 	// Conditionally inherit root-level includes into provisioning.
 	if autoProv.InheritIncludes {
 		for _, inc := range cfg.Includes {
-			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, types.FilesystemPath(inc.Path))
+			provisionCfg.ModuleEntries = append(provisionCfg.ModuleEntries, provisionModuleEntryFromInclude(inc))
 		}
 	}
 
@@ -218,6 +219,14 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	}
 
 	return provisionCfg
+}
+
+func provisionModuleEntryFromInclude(inc config.IncludeEntry) provision.ModuleEntry {
+	entry := provision.ModuleEntry{Path: types.FilesystemPath(inc.Path)}
+	if inc.Alias != "" {
+		entry.CommandNamespace = invowkmod.ModuleNamespace(inc.Alias)
+	}
+	return entry
 }
 
 func applyHostProvisionDefaults(provisionCfg *provision.Config) {
@@ -230,11 +239,9 @@ func applyHostProvisionDefaults(provisionCfg *provision.Config) {
 			provisionCfg.InvowkBinaryPath = types.FilesystemPath(binaryPath) //goplint:ignore -- host path validated by provision.Config.Validate()
 		}
 	}
-	if len(provisionCfg.ModulesPaths) == 0 {
-		if userDir, err := config.CommandsDir(); err == nil {
-			if info, statErr := os.Stat(string(userDir)); statErr == nil && info.IsDir() {
-				provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, userDir)
-			}
+	if userDir, err := config.CommandsDir(); err == nil {
+		if info, statErr := os.Stat(string(userDir)); statErr == nil && info.IsDir() && !hasGlobalModulePath(provisionCfg, userDir) {
+			provisionCfg.GlobalModulesPaths = append(provisionCfg.GlobalModulesPaths, userDir)
 		}
 	}
 	if provisionCfg.CacheDir == "" {
@@ -245,6 +252,21 @@ func applyHostProvisionDefaults(provisionCfg *provision.Config) {
 	if provisionCfg.TagSuffix == "" {
 		provisionCfg.TagSuffix = os.Getenv("INVOWK_PROVISION_TAG_SUFFIX")
 	}
+}
+
+func hasGlobalModulePath(provisionCfg *provision.Config, userDir types.FilesystemPath) bool {
+	cleanUserDir := filepath.Clean(string(userDir))
+	for _, path := range provisionCfg.GlobalModulesPaths {
+		if filepath.Clean(string(path)) == cleanUserDir {
+			return true
+		}
+	}
+	for _, entry := range provisionCfg.GlobalModuleEntries {
+		if filepath.Clean(string(entry.Path)) == cleanUserDir {
+			return true
+		}
+	}
+	return false
 }
 
 // containerConfigFromRuntime extracts container config from RuntimeConfig

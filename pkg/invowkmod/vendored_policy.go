@@ -3,9 +3,19 @@
 package invowkmod
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 )
+
+type declaredLockedModuleEntry struct {
+	key    ModuleRefKey
+	locked LockedModule
+}
+
+func (e declaredLockedModuleEntry) Validate() error {
+	return errors.Join(e.key.Validate(), e.locked.Validate())
+}
 
 // IsDeclaredLockedVendoredModule reports whether childModule is an explicit,
 // locked dependency of parentModule.
@@ -38,11 +48,36 @@ func DeclaredLockedModule(requirements []ModuleRequirement, lock *LockFile, modu
 }
 
 // DeclaredLockedModuleEntry returns the requirement key and lock entry that
-// declares moduleID through the root requirements, if one exists.
+// declares moduleID through the root requirements, if exactly one exists.
 func DeclaredLockedModuleEntry(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID) (ModuleRefKey, LockedModule, bool) {
-	if lock == nil || moduleID == "" {
+	matches := declaredLockedModuleEntryMatches(requirements, lock, moduleID)
+	if len(matches) != 1 {
 		return "", LockedModule{}, false
 	}
+	return matches[0].key, matches[0].locked, true
+}
+
+// AmbiguousDeclaredLockedModuleEntries returns declared lock keys that resolve
+// to the same stable module identity. Such a module cannot be safely matched to
+// one trusted lock entry.
+func AmbiguousDeclaredLockedModuleEntries(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID) []ModuleRefKey {
+	matches := declaredLockedModuleEntryMatches(requirements, lock, moduleID)
+	if len(matches) < 2 {
+		return nil
+	}
+	keys := make([]ModuleRefKey, 0, len(matches))
+	for i := range matches {
+		keys = append(keys, matches[i].key)
+	}
+	return keys
+}
+
+func declaredLockedModuleEntryMatches(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID) []declaredLockedModuleEntry {
+	if lock == nil || moduleID == "" {
+		return nil
+	}
+
+	matchesByKey := make(map[ModuleRefKey]LockedModule)
 	for _, req := range requirements {
 		key := ModuleRef(req).Key()
 		locked, ok := lock.Modules[key]
@@ -50,10 +85,21 @@ func DeclaredLockedModuleEntry(requirements []ModuleRequirement, lock *LockFile,
 			continue
 		}
 		if locked.IdentityModuleID() == moduleID {
-			return key, locked, true
+			matchesByKey[key] = locked
 		}
 	}
-	return "", LockedModule{}, false
+
+	keys := make([]ModuleRefKey, 0, len(matchesByKey))
+	for key := range matchesByKey {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	matches := make([]declaredLockedModuleEntry, 0, len(keys))
+	for _, key := range keys {
+		matches = append(matches, declaredLockedModuleEntry{key: key, locked: matchesByKey[key]})
+	}
+	return matches
 }
 
 // OrphanedLockedModuleEntries returns lock entries that are not declared by the

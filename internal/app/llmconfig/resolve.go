@@ -23,6 +23,9 @@ const (
 	ModeProvider Mode = 1
 	// ModeAPI means an OpenAI-compatible API backend should be used directly.
 	ModeAPI Mode = 2
+
+	// DefaultConcurrency limits parallel LLM requests for LLM-aware use cases.
+	DefaultConcurrency config.LLMConcurrency = 2
 )
 
 // ErrMissingLLMConfig is returned when a use case requires an LLM but neither

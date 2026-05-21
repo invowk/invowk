@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/invowk/invowk/internal/app/llmconfig"
-	"github.com/invowk/invowk/internal/audit"
 	"github.com/invowk/invowk/internal/auditllm"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/llm"
@@ -37,8 +36,7 @@ type (
 	}
 
 	llmCompleterResult struct {
-		completer   llm.Completer
-		concurrency int
+		completer llm.Completer
 	}
 )
 
@@ -49,7 +47,7 @@ func bindLLMFlags(cmd *cobra.Command, flags *llmFlagValues) {
 	cmd.Flags().StringVar(&flags.model, llmFlagModel, auditllm.DefaultLLMModel, "LLM model name; required for cloud API providers and optional for CLI providers")
 	cmd.Flags().StringVar(&flags.apiKey, "llm-api-key", "", "API key (empty for local servers)")
 	cmd.Flags().DurationVar(&flags.timeout, "llm-timeout", auditllm.DefaultLLMTimeout, "per-request timeout")
-	cmd.Flags().IntVar(&flags.concurrency, "llm-concurrency", audit.DefaultLLMConcurrency, "max parallel LLM requests")
+	cmd.Flags().IntVar(&flags.concurrency, "llm-concurrency", int(llmconfig.DefaultConcurrency), "max parallel LLM requests")
 }
 
 func validateLLMFlagSelection(flags llmFlagValues) error {
@@ -87,7 +85,7 @@ func resolveLLMForCommand(
 			BaseURL:     auditllm.DefaultLLMBaseURL,
 			Model:       auditllm.DefaultLLMModel,
 			Timeout:     auditllm.DefaultLLMTimeout,
-			Concurrency: audit.DefaultLLMConcurrency,
+			Concurrency: llmconfig.DefaultConcurrency,
 		},
 	})
 	if err != nil {
@@ -184,10 +182,7 @@ func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider co
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Using LLM provider: %s (model: %s)\n", result.Name(), modelDisplay)
 
-	return &llmCompleterResult{
-		completer:   result.Completer(),
-		concurrency: llmOpts.Concurrency,
-	}, nil
+	return &llmCompleterResult{completer: result.Completer()}, nil
 }
 
 func buildManualCompleter(ctx context.Context, cmd *cobra.Command, llmOpts auditllm.LLMClientConfig) (*llmCompleterResult, *ExitError) {
@@ -202,18 +197,14 @@ func buildManualCompleter(ctx context.Context, cmd *cobra.Command, llmOpts audit
 		return nil, &ExitError{Code: auditExitError, Err: verifyErr}
 	}
 
-	return &llmCompleterResult{
-		completer:   llmClient,
-		concurrency: llmOpts.Concurrency,
-	}, nil
+	return &llmCompleterResult{completer: llmClient}, nil
 }
 
 func toLLMClientConfig(cfg llmconfig.APIConfig) auditllm.LLMClientConfig {
 	return auditllm.LLMClientConfig{
-		BaseURL:     cfg.BaseURL.String(),
-		Model:       cfg.Model.String(),
-		APIKey:      cfg.APIKey,
-		Timeout:     cfg.Timeout,
-		Concurrency: int(cfg.Concurrency),
+		BaseURL: cfg.BaseURL.String(),
+		Model:   cfg.Model.String(),
+		APIKey:  cfg.APIKey,
+		Timeout: cfg.Timeout,
 	}
 }

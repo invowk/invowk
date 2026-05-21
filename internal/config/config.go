@@ -289,17 +289,11 @@ func decodeCUEConfigSource(source configCUESource) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiValue := parsed.Unified.LookupPath(cue.ParsePath("llm.api"))
-	if apiValue.Exists() && !parsed.Value.LLM.API.HasConfig() {
-		return nil, &InvalidLLMConfigError{
-			FieldErrors: []error{
-				&InvalidLLMAPIConfigError{
-					FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
-				},
-			},
-		}
+	cfg := parsed.Value
+	if apiValue := parsed.Unified.LookupPath(cue.ParsePath("llm.api")); apiValue.Exists() {
+		cfg.LLM = cfg.LLM.WithAPIBackendPresent()
 	}
-	return parsed.Value, nil
+	return cfg, nil
 }
 
 // validateIncludes checks include collection constraints:
@@ -475,6 +469,11 @@ func Save(cfg *Config, configDirPath types.FilesystemPath) error {
 //
 //plint:render
 func GenerateCUE(cfg *Config) string {
+	return generateCUE(cfg, false)
+}
+
+//goplint:ignore -- private renderer returns generated CUE text.
+func generateCUE(cfg *Config, forceLLMAPIBlock bool) string {
 	var sb strings.Builder
 
 	sb.WriteString("// Invowk Configuration File\n")
@@ -525,7 +524,7 @@ func GenerateCUE(cfg *Config) string {
 	if cfg.LLM.Concurrency != 0 {
 		fmt.Fprintf(&sb, "\tconcurrency: %d\n", cfg.LLM.Concurrency)
 	}
-	if cfg.LLM.API.HasConfig() {
+	if cfg.LLM.API.HasConfig() || forceLLMAPIBlock {
 		sb.WriteString("\tapi: {\n")
 		if cfg.LLM.API.BaseURL != "" {
 			fmt.Fprintf(&sb, "\t\tbase_url: %q\n", cfg.LLM.API.BaseURL)
@@ -569,6 +568,7 @@ func GenerateCUE(cfg *Config) string {
 // config.cue but should not be echoed by diagnostic commands.
 func GenerateDisplayCUE(cfg *Config) string {
 	display := *cfg
+	forceAPIBlock := display.LLM.API.CredentialEnv != ""
 	display.LLM.API.CredentialEnv = ""
-	return GenerateCUE(&display)
+	return generateCUE(&display, forceAPIBlock)
 }

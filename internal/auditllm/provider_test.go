@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/invowk/invowk/internal/audit"
+	"github.com/invowk/invowk/internal/llm"
 )
 
 type providerTestCompleter struct {
@@ -625,16 +625,16 @@ func TestParseClaudeOutput(t *testing.T) {
 		t.Parallel()
 		raw := `{"type":"result","result":"","session_id":"abc-123"}`
 		_, err := parseClaudeOutput(raw)
-		if !errors.Is(err, audit.ErrLLMEmptyResponse) {
-			t.Errorf("expected audit.ErrLLMEmptyResponse, got %v", err)
+		if !errors.Is(err, llm.ErrLLMEmptyResponse) {
+			t.Errorf("expected llm.ErrLLMEmptyResponse, got %v", err)
 		}
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		t.Parallel()
 		_, err := parseClaudeOutput("not json")
-		if !errors.Is(err, audit.ErrLLMMalformedResponse) {
-			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
+		if !errors.Is(err, llm.ErrLLMMalformedResponse) {
+			t.Errorf("expected llm.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
 }
@@ -663,8 +663,8 @@ func TestParseCodexOutput(t *testing.T) {
 		raw := `{"type":"thread.started","thread_id":"abc"}
 {"type":"turn.completed"}`
 		_, err := parseCodexOutput(raw)
-		if !errors.Is(err, audit.ErrLLMMalformedResponse) {
-			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
+		if !errors.Is(err, llm.ErrLLMMalformedResponse) {
+			t.Errorf("expected llm.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
 }
@@ -688,16 +688,16 @@ func TestParseGeminiOutput(t *testing.T) {
 		t.Parallel()
 		raw := `{"response":"","stats":{}}`
 		_, err := parseGeminiOutput(raw)
-		if !errors.Is(err, audit.ErrLLMEmptyResponse) {
-			t.Errorf("expected audit.ErrLLMEmptyResponse, got %v", err)
+		if !errors.Is(err, llm.ErrLLMEmptyResponse) {
+			t.Errorf("expected llm.ErrLLMEmptyResponse, got %v", err)
 		}
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		t.Parallel()
 		_, err := parseGeminiOutput("garbage")
-		if !errors.Is(err, audit.ErrLLMMalformedResponse) {
-			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
+		if !errors.Is(err, llm.ErrLLMMalformedResponse) {
+			t.Errorf("expected llm.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
 }

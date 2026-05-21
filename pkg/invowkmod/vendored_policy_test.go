@@ -7,6 +7,37 @@ import (
 	"testing"
 )
 
+func TestDeclaredLockedModuleEntryRejectsAmbiguousModuleID(t *testing.T) {
+	t.Parallel()
+
+	requirements := []ModuleRequirement{
+		{GitURL: "https://example.com/dep-a.git", Version: "^1.0.0"},
+		{GitURL: "https://example.com/dep-b.git", Version: "^1.0.0"},
+	}
+	lock := NewLockFile()
+	lock.Modules["https://example.com/dep-a.git"] = LockedModule{
+		GitURL:   "https://example.com/dep-a.git",
+		ModuleID: "io.example.shared",
+	}
+	lock.Modules["https://example.com/dep-b.git"] = LockedModule{
+		GitURL:   "https://example.com/dep-b.git",
+		ModuleID: "io.example.shared",
+	}
+
+	if _, _, ok := DeclaredLockedModuleEntry(requirements, lock, "io.example.shared"); ok {
+		t.Fatal("DeclaredLockedModuleEntry() ok = true, want false for ambiguous module ID")
+	}
+
+	got := AmbiguousDeclaredLockedModuleEntries(requirements, lock, "io.example.shared")
+	want := []ModuleRefKey{
+		"https://example.com/dep-a.git",
+		"https://example.com/dep-b.git",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("AmbiguousDeclaredLockedModuleEntries() = %v, want %v", got, want)
+	}
+}
+
 func TestOrphanedLockedModuleEntries(t *testing.T) {
 	t.Parallel()
 

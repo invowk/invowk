@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/internal/tuiwire"
+	"github.com/invowk/invowk/internal/tui/component"
 )
 
 func TestComponentType_Validate(t *testing.T) {
@@ -60,13 +60,13 @@ func TestCreateEmbeddableComponentRejectsWireJSONOptions(t *testing.T) {
 func TestCreateEmbeddableComponent_SpinIsRenderOnly(t *testing.T) {
 	t.Parallel()
 
-	component, err := CreateEmbeddableComponent(ComponentTypeSpin, SpinCommandOptions{Title: "loading", Type: SpinnerDot}, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypeSpin, SpinCommandOptions{Title: "loading", Type: SpinnerDot}, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*spinModel)
+	model, ok := created.(*spinModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *spinModel", component)
+		t.Fatalf("component type = %T, want *spinModel", created)
 	}
 	if !model.done || model.run != nil {
 		t.Fatal("delegated spin component should be render-only and must not carry a command")
@@ -97,13 +97,13 @@ func TestCreateEmbeddableComponent_FileUsesLocalOptions(t *testing.T) {
 		Height:      7,
 	}
 
-	component, err := CreateEmbeddableComponent(ComponentTypeFile, options, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypeFile, options, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*fileModel)
+	model, ok := created.(*fileModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *fileModel", component)
+		t.Fatalf("component type = %T, want *fileModel", created)
 	}
 	if model.picker.CurrentDirectory != "/tmp" {
 		t.Fatalf("current directory = %q, want /tmp", model.picker.CurrentDirectory)
@@ -135,13 +135,13 @@ func TestCreateEmbeddableComponent_InputUsesLocalOptions(t *testing.T) {
 		Prompt:      "$ ",
 	}
 
-	component, err := CreateEmbeddableComponent(ComponentTypeInput, options, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypeInput, options, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*inputModel)
+	model, ok := created.(*inputModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *inputModel", component)
+		t.Fatalf("component type = %T, want *inputModel", created)
 	}
 	if model.input.CharLimit != 12 {
 		t.Fatalf("char limit = %d, want 12", model.input.CharLimit)
@@ -169,13 +169,13 @@ func TestCreateEmbeddableComponent_FilterUsesLocalOptions(t *testing.T) {
 		Height:      6,
 	}
 
-	component, err := CreateEmbeddableComponent(ComponentTypeFilter, options, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypeFilter, options, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*filterModel)
+	model, ok := created.(*filterModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *filterModel", component)
+		t.Fatalf("component type = %T, want *filterModel", created)
 	}
 	if !model.noLimit {
 		t.Fatal("no_limit should be preserved")
@@ -199,13 +199,13 @@ func TestCreateEmbeddableComponent_TextAreaUsesLocalOptions(t *testing.T) {
 		ShowLineNumbers: true,
 	}
 
-	component, err := CreateEmbeddableComponent(ComponentTypeTextArea, options, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypeTextArea, options, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*writeModel)
+	model, ok := created.(*writeModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *writeModel", component)
+		t.Fatalf("component type = %T, want *writeModel", created)
 	}
 	if model.textarea.CharLimit != 20 {
 		t.Fatalf("char limit = %d, want 20", model.textarea.CharLimit)
@@ -228,13 +228,13 @@ func TestCreateEmbeddableComponent_PagerUsesLocalOptions(t *testing.T) {
 		SoftWrap:        true,
 	}
 
-	component, err := CreateEmbeddableComponent(ComponentTypePager, options, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypePager, options, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*pagerModel)
+	model, ok := created.(*pagerModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *pagerModel", component)
+		t.Fatalf("component type = %T, want *pagerModel", created)
 	}
 	if model.title != "manual" {
 		t.Fatalf("title = %q, want manual", model.title)
@@ -260,13 +260,13 @@ func TestCreateEmbeddableComponent_TableUsesLocalOptions(t *testing.T) {
 		Selectable: false,
 	}
 
-	component, err := CreateEmbeddableComponent(ComponentTypeTable, options, 80, 24)
+	created, err := CreateEmbeddableComponent(ComponentTypeTable, options, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
-	model, ok := component.(*tableModel)
+	model, ok := created.(*tableModel)
 	if !ok {
-		t.Fatalf("component type = %T, want *tableModel", component)
+		t.Fatalf("component type = %T, want *tableModel", created)
 	}
 	if len(model.rows) != 1 || len(model.rows[0]) != 2 || model.rows[0][0] != "invowk" {
 		t.Fatalf("rows = %#v, want mapped wire rows", model.rows)
@@ -315,30 +315,30 @@ func TestComponentType_String_FmtStringer(t *testing.T) {
 	}
 }
 
-func TestComponentTypeMatchesServerProtocol(t *testing.T) {
+func TestComponentTypeMatchesCanonicalComponentVocabulary(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
 		client ComponentType
-		wire   tuiwire.Component
+		want   component.Type
 	}{
-		{"input", ComponentTypeInput, tuiwire.ComponentInput},
-		{"confirm", ComponentTypeConfirm, tuiwire.ComponentConfirm},
-		{"choose", ComponentTypeChoose, tuiwire.ComponentChoose},
-		{"filter", ComponentTypeFilter, tuiwire.ComponentFilter},
-		{"file", ComponentTypeFile, tuiwire.ComponentFile},
-		{"write", ComponentTypeWrite, tuiwire.ComponentWrite},
-		{"textarea", ComponentTypeTextArea, tuiwire.ComponentTextArea},
-		{"spin", ComponentTypeSpin, tuiwire.ComponentSpin},
-		{"pager", ComponentTypePager, tuiwire.ComponentPager},
-		{"table", ComponentTypeTable, tuiwire.ComponentTable},
+		{"input", ComponentTypeInput, component.TypeInput},
+		{"confirm", ComponentTypeConfirm, component.TypeConfirm},
+		{"choose", ComponentTypeChoose, component.TypeChoose},
+		{"filter", ComponentTypeFilter, component.TypeFilter},
+		{"file", ComponentTypeFile, component.TypeFile},
+		{"write", ComponentTypeWrite, component.TypeWrite},
+		{"textarea", ComponentTypeTextArea, component.TypeTextArea},
+		{"spin", ComponentTypeSpin, component.TypeSpin},
+		{"pager", ComponentTypePager, component.TypePager},
+		{"table", ComponentTypeTable, component.TypeTable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if string(tt.client) != string(tt.wire) {
-				t.Fatalf("client component = %q, wire component = %q", tt.client, tt.wire)
+			if string(tt.client) != string(tt.want) {
+				t.Fatalf("client component = %q, canonical component = %q", tt.client, tt.want)
 			}
 		})
 	}

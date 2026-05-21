@@ -33,8 +33,12 @@ func TestCustomCheckScriptFileInterpreterWarnings(t *testing.T) {
 		t.Parallel()
 
 		stderr := &strings.Builder{}
+		var diagnostics []invowkfile.ScriptInterpreterDiagnostic
 		ctx := customCheckFileContext(t, "#!/bin/sh\nprint('ok')\n")
 		ctx.IO.Stderr = stderr
+		ctx.ReportScriptInterpreter = func(diag invowkfile.ScriptInterpreterDiagnostic) {
+			diagnostics = append(diagnostics, diag)
+		}
 		probe := &recordingHostProbe{
 			checkResults: map[invowkfile.CheckName]CustomCheckResult{
 				"file-check": mustCustomCheckResult(t, "ok", 0),
@@ -44,15 +48,22 @@ func TestCustomCheckScriptFileInterpreterWarnings(t *testing.T) {
 		if err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe); err != nil {
 			t.Fatalf("CheckHostCustomCheckDependenciesWithProbe() = %v", err)
 		}
-		assertCustomCheckInterpreterWarning(t, stderr.String())
+		if stderr.String() != "" {
+			t.Fatalf("stderr = %q, want no direct dependency rendering", stderr.String())
+		}
+		assertCustomCheckInterpreterDiagnostic(t, diagnostics)
 	})
 
 	t.Run("container", func(t *testing.T) {
 		t.Parallel()
 
 		stderr := &strings.Builder{}
+		var diagnostics []invowkfile.ScriptInterpreterDiagnostic
 		ctx := customCheckFileContext(t, "#!/bin/sh\nprint('ok')\n")
 		ctx.IO.Stderr = stderr
+		ctx.ReportScriptInterpreter = func(diag invowkfile.ScriptInterpreterDiagnostic) {
+			diagnostics = append(diagnostics, diag)
+		}
 		stub := &filepathStubRuntime{
 			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 				_, _ = io.WriteString(ctx.IO.Stdout, "ok\n")
@@ -63,14 +74,20 @@ func TestCustomCheckScriptFileInterpreterWarnings(t *testing.T) {
 		if err := CheckCustomCheckDependenciesInContainer(deps, stub, ctx); err != nil {
 			t.Fatalf("CheckCustomCheckDependenciesInContainer() = %v", err)
 		}
-		assertCustomCheckInterpreterWarning(t, stderr.String())
+		if stderr.String() != "" {
+			t.Fatalf("stderr = %q, want no direct dependency rendering", stderr.String())
+		}
+		assertCustomCheckInterpreterDiagnostic(t, diagnostics)
 	})
 }
 
-func assertCustomCheckInterpreterWarning(t testing.TB, output string) {
+func assertCustomCheckInterpreterDiagnostic(t testing.TB, diagnostics []invowkfile.ScriptInterpreterDiagnostic) {
 	t.Helper()
+	if len(diagnostics) != 1 {
+		t.Fatalf("len(diagnostics) = %d, want 1", len(diagnostics))
+	}
+	output := diagnostics[0].Message().String()
 	for _, want := range []string{
-		"warning:",
 		"scripts/check.sh",
 		"python3",
 		"/bin/sh",

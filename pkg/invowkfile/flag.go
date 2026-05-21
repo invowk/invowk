@@ -189,8 +189,7 @@ func (s FlagShorthand) String() string { return string(s) }
 // or an error collecting all field-level validation failures.
 // Delegates to Name.Validate() (nonzero), Description.Validate() (non-empty),
 // Type.Validate() (zero-valid), Short.Validate() (zero-valid),
-// and Validation.Validate() (zero-valid).
-// DefaultValue is an untyped string — skipped.
+// Validation.Validate() (zero-valid), and default-value compatibility.
 func (f Flag) Validate() error {
 	var errs []error
 	if err := f.Name.Validate(); err != nil {
@@ -208,6 +207,7 @@ func (f Flag) Validate() error {
 	if err := f.Validation.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	errs = append(errs, f.defaultValueValidationErrors()...)
 	if len(errs) > 0 {
 		return &InvalidFlagError{FieldErrors: errs}
 	}
@@ -240,4 +240,22 @@ func (f *Flag) ValidateFlagValue(value string) error {
 		return err
 	}
 	return nil
+}
+
+func (f Flag) defaultValueValidationErrors() []error {
+	if f.DefaultValue == "" {
+		return nil
+	}
+	var errs []error
+	if f.Required {
+		errs = append(errs, errors.New("cannot be both required and have a default_value"))
+	}
+	flagType := f.GetType()
+	if err := validateValueType(f.DefaultValue, flagType); err != nil {
+		errs = append(errs, fmt.Errorf("default_value %q is not compatible with type %q: %w", f.DefaultValue, flagType, err))
+	}
+	if f.Validation != "" && f.Validation.Validate() == nil && !matchesValidation(f.DefaultValue, string(f.Validation)) {
+		errs = append(errs, fmt.Errorf("default_value %q does not match validation pattern %q", f.DefaultValue, f.Validation))
+	}
+	return errs
 }

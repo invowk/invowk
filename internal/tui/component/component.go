@@ -31,8 +31,12 @@ const (
 	TypeTable Type = "table"
 )
 
-// ErrInvalidType is returned when a Type value is not one of the defined values.
-var ErrInvalidType = errors.New("invalid component type")
+var (
+	// ErrInvalidType is returned when a Type value is not one of the defined values.
+	ErrInvalidType = errors.New("invalid component type")
+	// ErrCancelled is returned when a user cancels an interactive TUI component.
+	ErrCancelled = errors.New("user cancelled")
+)
 
 type (
 	// Type represents a delegated TUI component type.
