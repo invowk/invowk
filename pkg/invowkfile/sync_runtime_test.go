@@ -3,10 +3,11 @@
 package invowkfile
 
 import (
-	"maps"
 	"reflect"
 	"strings"
 	"testing"
+
+	"cuelang.org/go/cue"
 
 	"github.com/invowk/invowk/internal/testutil/schematest"
 )
@@ -25,58 +26,46 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	t.Parallel()
 
 	schema, _ := getCUESchema(t)
-
-	// Extract fields from each runtime type variant
-	nativeFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigNative"))
-	virtualShFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtualSh"))
-	virtualLuaFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtualLua"))
-	containerImageFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainerWithImage"))
-	containerfileFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainerWithContainerfile"))
-
-	// Merge all CUE fields (the Go struct has the union of all fields)
-	// We can't use maps.Copy because we need custom merge logic that OR's the optional flags
-	allCUEFields := make(map[string]bool)
-	maps.Copy(allCUEFields, nativeFields)
-	for field, optional := range virtualShFields {
-		// If already present from native, use the more lenient (optional = true) value
-		if existing, ok := allCUEFields[field]; ok {
-			allCUEFields[field] = existing || optional
-		} else {
-			allCUEFields[field] = optional
-		}
-	}
-	for field, optional := range virtualLuaFields {
-		// If already present from native, use the more lenient (optional = true) value
-		if existing, ok := allCUEFields[field]; ok {
-			allCUEFields[field] = existing || optional
-		} else {
-			allCUEFields[field] = optional
-		}
-	}
-	for field, optional := range containerImageFields {
-		if field == "image" || field == "containerfile" {
-			optional = true
-		}
-		if existing, ok := allCUEFields[field]; ok {
-			allCUEFields[field] = existing || optional
-		} else {
-			allCUEFields[field] = optional
-		}
-	}
-	for field, optional := range containerfileFields {
-		if field == "image" || field == "containerfile" {
-			optional = true
-		}
-		if existing, ok := allCUEFields[field]; ok {
-			allCUEFields[field] = existing || optional
-		} else {
-			allCUEFields[field] = optional
-		}
-	}
-
+	allCUEFields := runtimeConfigCUEFields(t, schema)
 	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[RuntimeConfig]())
 
 	schematest.AssertFieldsSync(t, "RuntimeConfig", allCUEFields, goFields)
+}
+
+func runtimeConfigCUEFields(t *testing.T, schema cue.Value) map[string]bool {
+	t.Helper()
+
+	allFields := extractRuntimeConfigFields(t, schema, "#RuntimeConfigNative")
+	for _, definition := range []string{"#RuntimeConfigVirtualSh", "#RuntimeConfigVirtualLua"} {
+		mergeRuntimeConfigFields(allFields, extractRuntimeConfigFields(t, schema, definition), false)
+	}
+	for _, definition := range []string{"#RuntimeConfigContainerWithImage", "#RuntimeConfigContainerWithContainerfile"} {
+		mergeRuntimeConfigFields(allFields, extractRuntimeConfigFields(t, schema, definition), true)
+	}
+	return allFields
+}
+
+func extractRuntimeConfigFields(t *testing.T, schema cue.Value, definition string) map[string]bool {
+	t.Helper()
+
+	return schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, definition))
+}
+
+func mergeRuntimeConfigFields(dst, src map[string]bool, forceContainerSourcesOptional bool) {
+	for field, optional := range src {
+		if forceContainerSourcesOptional && isContainerSourceField(field) {
+			optional = true
+		}
+		if existing, ok := dst[field]; ok {
+			dst[field] = existing || optional
+			continue
+		}
+		dst[field] = optional
+	}
+}
+
+func isContainerSourceField(field string) bool {
+	return field == "image" || field == "containerfile"
 }
 
 func TestRuntimeConfigContainerSourceVariants(t *testing.T) {

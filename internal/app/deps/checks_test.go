@@ -32,6 +32,11 @@ type (
 	recordingCapabilityChecker struct {
 		requests []recordedCapabilityRequest
 	}
+
+	customCheckScriptFileResolutionFixture struct {
+		deps *invowkfile.DependsOn
+		ctx  ExecutionContext
+	}
 )
 
 func (f fakeCapabilityChecker) Check(_ context.Context, _ IOContext, capability invowkfile.CapabilityName) error {
@@ -464,8 +469,36 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 	})
 }
 
-func TestCustomCheckScriptFileResolution(t *testing.T) {
+func TestCustomCheckScriptFileResolution_HostProbeReceivesResolvedContent(t *testing.T) {
 	t.Parallel()
+
+	fixture := newCustomCheckScriptFileResolutionFixture(t)
+	probe := &recordingHostProbe{
+		checkResults: map[invowkfile.CheckName]CustomCheckResult{
+			"file-check": mustCustomCheckResult(t, "ok", 0),
+		},
+	}
+	if err := CheckHostCustomCheckDependenciesWithProbe(fixture.deps, fixture.ctx, probe); err != nil {
+		t.Fatalf("CheckHostCustomCheckDependenciesWithProbe() = %v", err)
+	}
+	assertResolvedHostCheck(t, probe)
+}
+
+func TestCustomCheckScriptFileResolution_ContainerProbeReceivesResolvedContent(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCustomCheckScriptFileResolutionFixture(t)
+	seenScript, seenInterp := runContainerScriptFileResolution(t, fixture)
+	if seenScript != "echo from file" {
+		t.Fatalf("container script = %q, want resolved file content", seenScript)
+	}
+	if seenInterp != "bash" {
+		t.Fatalf("container interpreter = %q, want bash", seenInterp)
+	}
+}
+
+func newCustomCheckScriptFileResolutionFixture(t *testing.T) customCheckScriptFileResolutionFixture {
+	t.Helper()
 
 	expectedCode := types.ExitCode(0)
 	moduleDir := t.TempDir()
@@ -492,49 +525,37 @@ func TestCustomCheckScriptFileResolution(t *testing.T) {
 		SourceModulePath: customCheckModulePath(moduleDir),
 		ReadScriptFile:   os.ReadFile,
 	}
+	return customCheckScriptFileResolutionFixture{deps: deps, ctx: ctx}
+}
 
-	t.Run("host probe receives resolved content", func(t *testing.T) {
-		t.Parallel()
+func assertResolvedHostCheck(t *testing.T, probe *recordingHostProbe) {
+	t.Helper()
 
-		probe := &recordingHostProbe{
-			checkResults: map[invowkfile.CheckName]CustomCheckResult{
-				"file-check": mustCustomCheckResult(t, "ok", 0),
-			},
-		}
-		if err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe); err != nil {
-			t.Fatalf("CheckHostCustomCheckDependenciesWithProbe() = %v", err)
-		}
-		if len(probe.checkScripts) != 1 || probe.checkScripts[0] != "echo from file" {
-			t.Fatalf("probe.checkScripts = %v, want resolved file content", probe.checkScripts)
-		}
-		if len(probe.checkInterps) != 1 || probe.checkInterps[0] != "bash" {
-			t.Fatalf("probe.checkInterps = %v, want bash", probe.checkInterps)
-		}
-	})
+	if len(probe.checkScripts) != 1 || probe.checkScripts[0] != "echo from file" {
+		t.Fatalf("probe.checkScripts = %v, want resolved file content", probe.checkScripts)
+	}
+	if len(probe.checkInterps) != 1 || probe.checkInterps[0] != "bash" {
+		t.Fatalf("probe.checkInterps = %v, want bash", probe.checkInterps)
+	}
+}
 
-	t.Run("container probe receives resolved content", func(t *testing.T) {
-		t.Parallel()
+func runContainerScriptFileResolution(t *testing.T, fixture customCheckScriptFileResolutionFixture) (string, invowkfile.InterpreterSpec) {
+	t.Helper()
 
-		var seenScript string
-		var seenInterp invowkfile.InterpreterSpec
-		stub := &filepathStubRuntime{
-			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				seenScript = string(ctx.SelectedImpl.Script.Content)
-				seenInterp = ctx.SelectedImpl.Script.Interpreter
-				_, _ = io.WriteString(ctx.IO.Stdout, "ok\n")
-				return &runtimepkg.Result{ExitCode: 0}
-			},
-		}
-		if err := CheckCustomCheckDependenciesInContainer(deps, stub, ctx); err != nil {
-			t.Fatalf("CheckCustomCheckDependenciesInContainer() = %v", err)
-		}
-		if seenScript != "echo from file" {
-			t.Fatalf("container script = %q, want resolved file content", seenScript)
-		}
-		if seenInterp != "bash" {
-			t.Fatalf("container interpreter = %q, want bash", seenInterp)
-		}
-	})
+	var seenScript string
+	var seenInterp invowkfile.InterpreterSpec
+	stub := &filepathStubRuntime{
+		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+			seenScript = string(ctx.SelectedImpl.Script.Content)
+			seenInterp = ctx.SelectedImpl.Script.Interpreter
+			_, _ = io.WriteString(ctx.IO.Stdout, "ok\n")
+			return &runtimepkg.Result{ExitCode: 0}
+		},
+	}
+	if err := CheckCustomCheckDependenciesInContainer(fixture.deps, stub, fixture.ctx); err != nil {
+		t.Fatalf("CheckCustomCheckDependenciesInContainer() = %v", err)
+	}
+	return seenScript, seenInterp
 }
 
 func TestCustomCheckScriptFileResolutionFailures(t *testing.T) {

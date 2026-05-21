@@ -7,22 +7,24 @@ import (
 	"testing"
 )
 
+type scriptInterpreterDiagnosticCase struct {
+	name           string
+	source         ScriptInterpreterSource
+	interpreter    InterpreterSpec
+	script         ScriptContent
+	runtime        RuntimeMode
+	wantProvenance ScriptInterpreterProvenance
+	wantEffective  string
+	wantDiag       bool
+}
+
 func TestAnalyzeScriptInterpreterDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	fileSource := newFileScriptInterpreterSource("scripts/build", "")
 	inlineSource := newInlineScriptInterpreterSource("inline script")
 
-	tests := []struct {
-		name           string
-		source         ScriptInterpreterSource
-		interpreter    InterpreterSpec
-		script         ScriptContent
-		runtime        RuntimeMode
-		wantProvenance ScriptInterpreterProvenance
-		wantEffective  string
-		wantDiag       bool
-	}{
+	tests := []scriptInterpreterDiagnosticCase{
 		{
 			name:           "explicit interpreter overrides file shebang",
 			source:         fileSource,
@@ -91,25 +93,37 @@ func TestAnalyzeScriptInterpreterDiagnostics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := AnalyzeScriptInterpreter(tt.source, tt.interpreter, tt.script, tt.runtime)
-			if got.Provenance() != tt.wantProvenance {
-				t.Fatalf("Provenance() = %q, want %q", got.Provenance(), tt.wantProvenance)
-			}
-			if got.Effective().CommandString() != tt.wantEffective {
-				t.Fatalf("Effective() = %q, want %q", got.Effective().CommandString(), tt.wantEffective)
-			}
-			diagnostics := got.Diagnostics()
-			if (len(diagnostics) > 0) != tt.wantDiag {
-				t.Fatalf("Diagnostics() len = %d, want diagnostic=%v", len(diagnostics), tt.wantDiag)
-			}
-			if tt.wantDiag {
-				message := diagnostics[0].Message().String()
-				for _, token := range []string{"script.interpreter", "overrides shebang", "takes precedence"} {
-					if !strings.Contains(message, token) {
-						t.Fatalf("diagnostic message %q missing %q", message, token)
-					}
-				}
-			}
+			assertScriptInterpreterDiagnostic(t, tt)
 		})
+	}
+}
+
+func assertScriptInterpreterDiagnostic(t *testing.T, tt scriptInterpreterDiagnosticCase) {
+	t.Helper()
+
+	got := AnalyzeScriptInterpreter(tt.source, tt.interpreter, tt.script, tt.runtime)
+	if got.Provenance() != tt.wantProvenance {
+		t.Fatalf("Provenance() = %q, want %q", got.Provenance(), tt.wantProvenance)
+	}
+	if got.Effective().CommandString() != tt.wantEffective {
+		t.Fatalf("Effective() = %q, want %q", got.Effective().CommandString(), tt.wantEffective)
+	}
+	diagnostics := got.Diagnostics()
+	if (len(diagnostics) > 0) != tt.wantDiag {
+		t.Fatalf("Diagnostics() len = %d, want diagnostic=%v", len(diagnostics), tt.wantDiag)
+	}
+	if tt.wantDiag {
+		assertInterpreterDiagnosticMessage(t, diagnostics[0])
+	}
+}
+
+func assertInterpreterDiagnosticMessage(t *testing.T, diagnostic ScriptInterpreterDiagnostic) {
+	t.Helper()
+
+	message := diagnostic.Message().String()
+	for _, token := range []string{"script.interpreter", "overrides shebang", "takes precedence"} {
+		if !strings.Contains(message, token) {
+			t.Fatalf("diagnostic message %q missing %q", message, token)
+		}
 	}
 }

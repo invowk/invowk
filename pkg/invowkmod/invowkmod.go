@@ -424,51 +424,56 @@ func (p SubdirectoryPath) Validate() error {
 	}
 	s := string(p)
 	if len(s) > MaxPathLength {
-		return &InvalidSubdirectoryPathError{
-			Value:  p,
-			Reason: fmt.Sprintf("too long (%d chars, max %d)", len(s), MaxPathLength),
-		}
+		return subdirectoryPathTooLongError(p)
 	}
 	if strings.ContainsRune(s, '\x00') {
-		return &InvalidSubdirectoryPathError{
-			Value:  p,
-			Reason: "contains null byte",
-		}
+		return subdirectoryPathNullByteError(p)
 	}
 	// [GO-ONLY] Path traversal prevention and cross-platform separator/drive
 	// normalization require Go; CUE only applies portable string prefilters.
-	normalized := strings.ReplaceAll(s, "\\", "/")
+	return validateNormalizedSubdirectoryPath(p)
+}
+
+func validateNormalizedSubdirectoryPath(p SubdirectoryPath) error {
+	normalized := strings.ReplaceAll(string(p), "\\", "/")
 	for segment := range strings.SplitSeq(normalized, "/") {
 		if segment == ".." {
-			return &InvalidSubdirectoryPathError{
-				Value:  p,
-				Reason: "path traversal not allowed",
-			}
+			return subdirectoryPathTraversalError(p)
 		}
 	}
 	cleanPath := slashpath.Clean(normalized)
 	if strings.HasPrefix(cleanPath, "/") {
-		return &InvalidSubdirectoryPathError{
-			Value:  p,
-			Reason: "absolute paths not allowed",
-		}
+		return subdirectoryPathAbsoluteError(p)
 	}
 	if len(cleanPath) >= 2 && cleanPath[1] == ':' {
 		first := cleanPath[0]
 		if (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') {
-			return &InvalidSubdirectoryPathError{
-				Value:  p,
-				Reason: "absolute paths not allowed",
-			}
+			return subdirectoryPathAbsoluteError(p)
 		}
 	}
 	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-		return &InvalidSubdirectoryPathError{
-			Value:  p,
-			Reason: "path traversal not allowed",
-		}
+		return subdirectoryPathTraversalError(p)
 	}
 	return nil
+}
+
+func subdirectoryPathTooLongError(p SubdirectoryPath) *InvalidSubdirectoryPathError {
+	return &InvalidSubdirectoryPathError{
+		Value:  p,
+		Reason: fmt.Sprintf("too long (%d chars, max %d)", len(string(p)), MaxPathLength),
+	}
+}
+
+func subdirectoryPathNullByteError(p SubdirectoryPath) *InvalidSubdirectoryPathError {
+	return &InvalidSubdirectoryPathError{Value: p, Reason: "contains null byte"}
+}
+
+func subdirectoryPathTraversalError(p SubdirectoryPath) *InvalidSubdirectoryPathError {
+	return &InvalidSubdirectoryPathError{Value: p, Reason: "path traversal not allowed"}
+}
+
+func subdirectoryPathAbsoluteError(p SubdirectoryPath) *InvalidSubdirectoryPathError {
+	return &InvalidSubdirectoryPathError{Value: p, Reason: "absolute paths not allowed"}
 }
 
 // String returns the string representation of the SubdirectoryPath.
