@@ -81,7 +81,7 @@ func (c *cutCommand) Run(ctx context.Context, args []string) error {
 		return wrapError(c.name, err)
 	}
 
-	return ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+	return ProcessFilesOrStdinWithContext(fs.Args(), hc, c.name,
 		func(r io.Reader, _ string, _, _ int) error {
 			return c.processReader(hc.Stdout, r, ranges, *delimiter, *fields != "", *onlyDelimited)
 		})

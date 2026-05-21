@@ -25,7 +25,7 @@ cmds: [
 		description: "Command requiring internet connectivity"
 		implementations: [{
 			script: {content: "echo 'Internet connectivity confirmed!'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -42,7 +42,7 @@ cmds: [
 				echo "Network connectivity confirmed!"
 				echo "Either LAN or Internet is available."
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

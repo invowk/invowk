@@ -19,7 +19,7 @@ cmds: [{
     description: "A safe command"
     implementations: [{
         script: {content: "echo hello"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]

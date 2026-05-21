@@ -74,7 +74,7 @@ func TestAnalyzeScriptInterpreterDiagnostics(t *testing.T) {
 			source:         inlineSource,
 			interpreter:    "bash",
 			script:         "#!/bin/sh\necho ok",
-			runtime:        RuntimeVirtual,
+			runtime:        RuntimeVirtualSh,
 			wantProvenance: ScriptInterpreterProvenanceExplicit,
 			wantEffective:  "bash",
 		},

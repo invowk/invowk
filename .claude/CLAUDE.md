@@ -108,6 +108,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/schema-sync-check/`](.agents/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
 - [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
 - [`.agents/skills/shell/`](.agents/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
+- [`.agents/skills/virtual-lua/`](.agents/skills/virtual-lua/) - virtual-lua runtime, golua library loading, bridge API, path validation, and Lua tests.
 - [`.agents/skills/testing/`](.agents/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
 - [`.agents/skills/go-testing/`](.agents/skills/go-testing/) - Go 1.22+ test execution model, all flags, race detector, vet analyzers, context/parallelism decision frameworks, benchmark/fuzz APIs, coverage. Primary testing entry point referencing platform skills.
 - [`.agents/skills/windows-testing/`](.agents/skills/windows-testing/) - Windows OS primitives for testing: process lifecycle (TerminateProcess, no fork), file system (NTFS, MAX_PATH, sharing violations), timer resolution (15.6ms), race detector overhead.
@@ -150,7 +151,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/app/execute/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
 | `internal/container/` | testing, windows, licensing | go, container, go-hexagonal-ddd, linux-testing |
 | `internal/discovery/` | testing, licensing, package-design | go, discovery, go-hexagonal-ddd, d2-diagrams |
-| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual runtime), go-hexagonal-ddd, d2-diagrams, go-testing |
+| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual-sh runtime), virtual-lua (for Lua runtime), go-hexagonal-ddd, d2-diagrams, go-testing |
 | `internal/config/` | testing, cue-patterns, licensing | go, cue |
 | `pkg/cueutil/` | testing, cue-patterns, licensing | go, cue |
 | `internal/sshserver/` | testing, licensing | go, server |
@@ -233,16 +234,18 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 ## Virtual Runtime Security Model
 
-**The virtual shell runtime is NOT a security sandbox.** It is a portable shell interpreter (mvdan/sh) augmented with 28 u-root built-in utilities. This is a critical distinction:
+**The virtual runtime family is NOT a security sandbox.** `virtual-sh` is a portable shell interpreter (mvdan/sh) augmented with 28 u-root built-in utilities, and `virtual-lua` is an embedded Lua runtime with the same shared safety harness. This is a critical distinction:
 
-- **Commands not provided by built-ins are resolved from the host `PATH`** and executed as native processes with full host access via `interp.DefaultExecHandler`.
+- **Host binaries are denied by default** and must be explicitly listed with `allowed_binaries`; `allowed_binaries: ["*"]` is the explicit opt-out that allows all host binaries.
+- **Allowed host binaries execute as native host processes** with host access. The virtual harness gates resolution and path access; it is not a kernel jail.
 - **The host's environment variables are inherited by default** (`env_inherit_mode: "all"`), including `PATH`.
-- **mvdan/sh has no sandbox API** — the only restriction mechanism is the `ExecHandlers` middleware chain, which invowk uses additively (intercept known commands), not restrictively (block unknown commands).
-- **The "No Silent Fallback" guarantee** only applies to u-root built-in errors — if a command is NOT a built-in, it unconditionally falls through to host execution.
+- **mvdan/sh has no sandbox API** — Invowk enforces virtual-sh behavior through its shared virtual path validator, utility registry, and host-binary policy.
+- **The "No Silent Fallback" guarantee** applies to u-root built-in errors and host-binary policy denials: denied host binaries do not silently fall through to host execution.
 
 **When writing documentation, examples, or discussing runtimes:**
-- Never describe the virtual runtime as "sandboxed" or "isolated".
-- Clarify that "no shell dependency" means the interpreter is built-in, not that external commands are unavailable.
+- Never describe virtual-sh or virtual-lua as "sandboxed" or "isolated".
+- Clarify that "no shell dependency" means the interpreter is built in, not that arbitrary external commands are available.
+- Show `allowed_binaries` explicitly whenever a virtual-sh or virtual-lua example launches a host binary.
 - For execution isolation, always point users to the **container** runtime.
 - Command-scope visibility enforcement is a **static analysis gate** at `depends_on.cmds` declaration validation time via `CheckCommandDependenciesExist()` in the deps validation layer. It validates discovered inter-module command identities but does NOT intercept runtime subprocess calls. Commands from a module's `depends_on.cmds` can only reference the same module, global modules, or direct dependencies.
 

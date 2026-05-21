@@ -12,7 +12,7 @@ import (
 // =============================================================================
 
 // TestBehavioralSync_RuntimeMode verifies Go RuntimeMode.Validate() agrees with
-// CUE #RuntimeType disjunction ("native" | "virtual" | "container").
+// CUE #RuntimeType disjunction ("native" | "virtual-sh" | "virtual-lua" | "container").
 func TestBehavioralSync_RuntimeMode(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
@@ -21,7 +21,9 @@ func TestBehavioralSync_RuntimeMode(t *testing.T) {
 		func(s string) error { return RuntimeMode(s).Validate() },
 		[]behavioralSyncCase{
 			{"native", true, true, ""},
-			{"virtual", true, true, ""},
+			{"virtual-sh", true, true, ""},
+			{"virtual-lua", true, true, ""},
+			{"virtual", false, false, ""},
 			{"container", true, true, ""},
 			{"invalid", false, false, ""},
 			{"NATIVE", false, false, ""},

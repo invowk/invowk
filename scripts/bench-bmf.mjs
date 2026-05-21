@@ -27,8 +27,8 @@ export const TRACKED_GO_BENCHMARKS = [
   'BenchmarkDiscoveryModuleCollisionCheck',
   'BenchmarkDiscoveryWorkspaceLarge',
   'BenchmarkRuntimeNative',
-  'BenchmarkRuntimeVirtual',
-  'BenchmarkRuntimeVirtualComplex',
+  'BenchmarkRuntimeVirtualSh',
+  'BenchmarkRuntimeVirtualShComplex',
   'BenchmarkFullPipeline',
   'BenchmarkModuleValidation',
   'BenchmarkModuleSyncExplicitDeps',
@@ -50,8 +50,8 @@ const benchmarkNameMap = new Map([
   ['BenchmarkDiscoveryModuleCollisionCheck', 'discovery/detect-module-id-collision'],
   ['BenchmarkDiscoveryWorkspaceLarge', 'discovery/load-workspace-large'],
   ['BenchmarkRuntimeNative', 'runtime/native-execute-basic'],
-  ['BenchmarkRuntimeVirtual', 'runtime/virtual-execute-basic'],
-  ['BenchmarkRuntimeVirtualComplex', 'runtime/virtual-execute-script-complex'],
+  ['BenchmarkRuntimeVirtualSh', 'runtime/virtual-execute-basic'],
+  ['BenchmarkRuntimeVirtualShComplex', 'runtime/virtual-execute-script-complex'],
   ['BenchmarkRuntimeContainer', 'runtime/container-execute-basic'],
   ['BenchmarkFullPipeline', 'command/execute-virtual-end-to-end-basic'],
   ['BenchmarkCommandLookup', 'command/lookup-by-name'],
@@ -286,7 +286,7 @@ export function createCommandFixture() {
     description: "Virtual command benchmark"
     implementations: [{
       script: {content: "echo ok"}
-      runtimes: [{name: "virtual"}]
+      runtimes: [{name: "virtual-sh"}]
       platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
   },

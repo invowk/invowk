@@ -65,7 +65,7 @@ func (c *sortCommand) Run(ctx context.Context, args []string) error {
 	// Collect all lines from all files
 	var lines []string
 
-	err := ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+	err := ProcessFilesOrStdinWithContext(fs.Args(), hc, c.name,
 		func(r io.Reader, _ string, _, _ int) error {
 			fileLines, readErr := c.readLines(r)
 			if readErr != nil {

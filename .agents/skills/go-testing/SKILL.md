@@ -41,9 +41,12 @@ When a test failure is platform-specific, consult the right platform skill:
 | lipgloss `sync.Once` race on Windows | `windows-testing` | `TestMain` pre-warm pattern |
 | APFS case-insensitive filename collision | `macos-testing` | Case-preserving but case-insensitive FS |
 | `/tmp` path comparison mismatch | `macos-testing` | `/tmp` → `/private/tmp` symlink |
+| `/var` vs `/private/var` path comparison mismatch | `macos-testing` | macOS runner symlink resolution |
 | Watcher missing rapid file events | `macos-testing` | `kqueue` aggressive event coalescing |
 | Timer-based test flakiness (macOS) | `macos-testing` | Power-saving timer coalescing |
 | gotestsum false-FAIL on parallel subtests | `macos-testing` | Missing `-v` flag; macOS-specific gotestsum issue |
+| `RUNNER~1` vs long temp path mismatch | `windows-testing` | 8.3 short path aliases |
+| Virtual runtime env/path assertion mismatch | `macos-testing`, `windows-testing` | Assert against virtual resolver outputs |
 | Container test hangs indefinitely | `linux-testing` | Missing `WaitDelay`, unbounded context |
 | `inotify: too many watches` (ENOSPC) | `linux-testing` | Per-user inotify watch limits |
 | Container OOM with `-race` | `linux-testing` | 10x memory overhead + cgroup limits |
@@ -127,6 +130,25 @@ goroutine scheduling. This is by design — the race detector exposes latent rac
 
 See `references/race-detector-guide.md` for: ThreadSanitizer internals, platform-specific
 behavior (Windows sync primitives, lipgloss pre-warm pattern), common race patterns.
+
+## Cross-Platform Path Contract Tests
+
+When a test asserts the output of a resolver-backed API, expected values should
+come from that resolver rather than from separate host path normalization. This
+matters most for virtual runtime bridges and environment variables:
+`invowk.path(...)`, `INVOWK_ANCHOR_*`, and `INVOWK_PATH_*`.
+
+Use the same helper path as production code whenever possible. In
+`internal/runtime` tests, that usually means `newVirtualPathResolver`,
+`newVirtualPathResolverForInteractiveConfig`, `resolver.anchors`,
+`resolver.paths`, and `resolver.resolveBridgePath`.
+
+Avoid deriving these expected strings with `filepath.Join`,
+`normalizeExistingOrParent`, `filepath.EvalSymlinks`, or raw
+`ctx.EffectiveWorkDir()`. Those helpers can produce platform-specific aliases:
+`/var` vs `/private/var` on macOS and `RUNNER~1` vs a long user profile path on
+Windows. If the behavior under test is filesystem identity rather than API text,
+assert identity with `os.Stat` and `os.SameFile` instead of string equality.
 
 ## Context Patterns Decision Tree
 

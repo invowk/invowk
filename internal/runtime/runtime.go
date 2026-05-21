@@ -23,9 +23,10 @@ import (
 
 // Runtime type constants for different execution environments.
 const (
-	RuntimeTypeNative    RuntimeType = "native"
-	RuntimeTypeVirtual   RuntimeType = "virtual"
-	RuntimeTypeContainer RuntimeType = "container"
+	RuntimeTypeNative     RuntimeType = "native"
+	RuntimeTypeVirtualSh  RuntimeType = "virtual-sh"
+	RuntimeTypeVirtualLua RuntimeType = "virtual-lua"
+	RuntimeTypeContainer  RuntimeType = "container"
 
 	// EnvVarCmdName is injected with the command name being executed.
 	EnvVarCmdName = "INVOWK_CMD_NAME"
@@ -48,9 +49,13 @@ var (
 	// ErrShellNotFound is returned when the native runtime cannot find a host shell.
 	ErrShellNotFound = errors.New("shell not found")
 
-	// ErrVirtualInteractiveLauncherNotConfigured is returned when virtual
+	// ErrShInteractiveLauncherNotConfigured is returned when virtual-sh
 	// interactive mode is requested without an injected subprocess launcher.
-	ErrVirtualInteractiveLauncherNotConfigured = errors.New("virtual interactive launcher not configured")
+	ErrShInteractiveLauncherNotConfigured = errors.New("virtual-sh interactive launcher not configured")
+
+	// ErrLuaInteractiveLauncherNotConfigured is returned when virtual-lua
+	// interactive mode is requested without an injected subprocess launcher.
+	ErrLuaInteractiveLauncherNotConfigured = errors.New("virtual-lua interactive launcher not configured")
 
 	// ErrInvalidRuntimeType is returned when a RuntimeType value is not one of the defined runtime types.
 	ErrInvalidRuntimeType = errors.New("invalid runtime type")
@@ -145,10 +150,10 @@ type (
 	//
 	//goplint:mutable
 	//
-	// SelectedRuntime and SelectedImpl are resolved together: SelectedImpl is the
-	// implementation matching SelectedRuntime + current platform. Both are populated
-	// by NewExecutionContext using the command's defaults and can be overridden by
-	// CLI flag processing (e.g., --ivk-runtime flag).
+	// SelectedRuntime, SelectedPlatform, and SelectedImpl are resolved together:
+	// SelectedImpl is the implementation matching SelectedRuntime + platform. They
+	// are populated by NewExecutionContext using the command's defaults and can be
+	// overridden by CLI flag processing (e.g., --ivk-runtime flag).
 	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	ExecutionContext struct {
 		// Command is the command to execute
@@ -159,6 +164,8 @@ type (
 		Context context.Context
 		// SelectedRuntime is the runtime to use for execution (may differ from default)
 		SelectedRuntime invowkfile.RuntimeMode
+		// SelectedPlatform is the platform used to resolve the selected implementation.
+		SelectedPlatform invowkfile.Platform
 		// SelectedImpl is the implementation to execute (based on platform and runtime)
 		SelectedImpl *invowkfile.Implementation
 		// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
@@ -287,7 +294,7 @@ type (
 
 // Error implements the error interface for InvalidRuntimeTypeError.
 func (e *InvalidRuntimeTypeError) Error() string {
-	return fmt.Sprintf("invalid runtime type %q (valid: native, virtual, container)", e.Value)
+	return fmt.Sprintf("invalid runtime type %q (valid: native, virtual-sh, virtual-lua, container)", e.Value)
 }
 
 // Unwrap returns the sentinel error for errors.Is() compatibility.
@@ -302,7 +309,7 @@ func (rt RuntimeType) String() string { return string(rt) }
 // or a validation error if it is not.
 func (rt RuntimeType) Validate() error {
 	switch rt {
-	case RuntimeTypeNative, RuntimeTypeVirtual, RuntimeTypeContainer:
+	case RuntimeTypeNative, RuntimeTypeVirtualSh, RuntimeTypeVirtualLua, RuntimeTypeContainer:
 		return nil
 	default:
 		return &InvalidRuntimeTypeError{Value: rt}
@@ -458,13 +465,14 @@ func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invo
 	defaultImpl := cmd.GetImplForPlatformRuntime(currentPlatform, defaultRuntime)
 
 	return &ExecutionContext{
-		Command:         cmd,
-		Invowkfile:      inv,
-		Context:         ctx,
-		SelectedRuntime: defaultRuntime,
-		SelectedImpl:    defaultImpl,
-		IO:              DefaultIO(),
-		Env:             DefaultEnv(),
+		Command:          cmd,
+		Invowkfile:       inv,
+		Context:          ctx,
+		SelectedRuntime:  defaultRuntime,
+		SelectedPlatform: currentPlatform,
+		SelectedImpl:     defaultImpl,
+		IO:               DefaultIO(),
+		Env:              DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
 	}
 }
@@ -628,6 +636,19 @@ func EnvToSlice(env map[string]string) []string {
 		result = append(result, k+"="+v)
 	}
 	return result
+}
+
+// SliceToEnv converts KEY=VALUE entries into an environment map.
+func SliceToEnv(environ []string) map[string]string {
+	env := make(map[string]string, len(environ))
+	for _, entry := range environ {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		env[key] = value
+	}
+	return env
 }
 
 // FilterInvowkEnvVars filters out Invowk-specific environment variables from the given

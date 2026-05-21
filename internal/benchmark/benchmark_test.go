@@ -29,7 +29,7 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo building..."}
-				runtimes: [{name: "native"}, {name: "virtual"}]
+				runtimes: [{name: "native"}, {name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
@@ -47,7 +47,7 @@ cmds: [
 			implementations: [
 				{
 					script: {content: "echo testing..."}
-					runtimes: [{name: "native"}, {name: "virtual"}]
+					runtimes: [{name: "native"}, {name: "virtual-sh"}]
 					platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				},
 			]
@@ -94,7 +94,7 @@ cmds: [
 			implementations: [
 				{
 					script: {content: "echo cleaning..."}
-					runtimes: [{name: "native"}, {name: "virtual"}]
+					runtimes: [{name: "native"}, {name: "virtual-sh"}]
 					platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				},
 			]
@@ -315,9 +315,9 @@ func BenchmarkRuntimeNative(b *testing.B) {
 	}
 }
 
-// BenchmarkRuntimeVirtual benchmarks mvdan/sh virtual shell execution.
-// This exercises the hot path in internal/runtime/virtual.go.
-func BenchmarkRuntimeVirtual(b *testing.B) {
+// BenchmarkRuntimeVirtualSh benchmarks mvdan/sh virtual shell execution.
+// This exercises the hot path in internal/runtime/sh.go.
+func BenchmarkRuntimeVirtualSh(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping benchmark in short mode")
 	}
@@ -335,7 +335,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 					{
 						Script: invowkfile.ImplementationScript{Content: "echo hello"},
 						Runtimes: []invowkfile.RuntimeConfig{
-							{Name: invowkfile.RuntimeVirtual},
+							{Name: invowkfile.RuntimeVirtualSh},
 						},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},
@@ -347,14 +347,14 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	cmd := inv.GetCommand("test")
 	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtual)
+	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtualSh)
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
 		Stdin:  bytes.NewReader(nil),
 	}
 
-	rt := runtime.NewVirtualRuntime(true) // Enable u-root utilities
+	rt := runtime.NewShRuntime(true) // Enable u-root utilities
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -365,8 +365,8 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	}
 }
 
-// BenchmarkRuntimeVirtualComplex benchmarks virtual shell with more complex scripts.
-func BenchmarkRuntimeVirtualComplex(b *testing.B) {
+// BenchmarkRuntimeVirtualShComplex benchmarks virtual shell with more complex scripts.
+func BenchmarkRuntimeVirtualShComplex(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping benchmark in short mode")
 	}
@@ -397,7 +397,7 @@ fi
 					{
 						Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent(script)},
 						Runtimes: []invowkfile.RuntimeConfig{
-							{Name: invowkfile.RuntimeVirtual},
+							{Name: invowkfile.RuntimeVirtualSh},
 						},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					},
@@ -409,14 +409,14 @@ fi
 	cmd := inv.GetCommand("complex")
 	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtual)
+	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtualSh)
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
 		Stdin:  bytes.NewReader(nil),
 	}
 
-	rt := runtime.NewVirtualRuntime(true)
+	rt := runtime.NewShRuntime(true)
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -509,7 +509,7 @@ cmds: [
 		implementations: [
 			{
 				script: {content: "echo hello"}
-				runtimes: [{name: "virtual"}]
+				runtimes: [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
@@ -534,7 +534,7 @@ cmds: [
 	})
 
 	cfg := config.DefaultConfig()
-	rt := runtime.NewVirtualRuntime(true)
+	rt := runtime.NewShRuntime(true)
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -558,7 +558,7 @@ cmds: [
 		// Execution phase
 		ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-		setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtual)
+		setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtualSh)
 		ctx.IO = runtime.IOContext{
 			Stdout: io.Discard,
 			Stderr: io.Discard,

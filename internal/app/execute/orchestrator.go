@@ -23,8 +23,9 @@ type (
 	// RuntimeSelection is the resolved runtime mode + implementation pair.
 	// Fields are unexported for immutability; use Mode() and Impl() accessors.
 	RuntimeSelection struct {
-		mode invowkfile.RuntimeMode
-		impl *invowkfile.Implementation
+		mode     invowkfile.RuntimeMode
+		platform invowkfile.Platform
+		impl     *invowkfile.Implementation
 	}
 
 	// InvalidRuntimeSelectionError is returned when a RuntimeSelection has invalid fields.
@@ -81,15 +82,21 @@ type (
 )
 
 // NewRuntimeSelection creates a validated RuntimeSelection.
-// Mode must be a valid RuntimeMode and Impl must not be nil.
-func NewRuntimeSelection(mode invowkfile.RuntimeMode, impl *invowkfile.Implementation) (RuntimeSelection, error) {
+// Mode must be a valid RuntimeMode, platform must be a valid Platform when
+// provided, and Impl must not be nil.
+func NewRuntimeSelection(mode invowkfile.RuntimeMode, platform invowkfile.Platform, impl *invowkfile.Implementation) (RuntimeSelection, error) {
 	if impl == nil {
 		return RuntimeSelection{}, fmt.Errorf("implementation must not be nil for runtime mode %q", mode)
 	}
 	if err := mode.Validate(); err != nil {
 		return RuntimeSelection{}, err
 	}
-	return RuntimeSelection{mode: mode, impl: impl}, nil
+	if platform != "" {
+		if err := platform.Validate(); err != nil {
+			return RuntimeSelection{}, err
+		}
+	}
+	return RuntimeSelection{mode: mode, platform: platform, impl: impl}, nil
 }
 
 // RuntimeSelectionOf creates a RuntimeSelection without validation.
@@ -103,6 +110,9 @@ func RuntimeSelectionOf(mode invowkfile.RuntimeMode, impl *invowkfile.Implementa
 // Mode returns the resolved runtime mode.
 func (r RuntimeSelection) Mode() invowkfile.RuntimeMode { return r.mode }
 
+// Platform returns the platform used to select the implementation.
+func (r RuntimeSelection) Platform() invowkfile.Platform { return r.platform }
+
 // Impl returns the resolved implementation.
 func (r RuntimeSelection) Impl() *invowkfile.Implementation { return r.impl }
 
@@ -114,6 +124,11 @@ func (r RuntimeSelection) Validate() error {
 	var errs []error
 	if err := r.mode.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if r.platform != "" {
+		if err := r.platform.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if r.impl == nil {
 		errs = append(errs, errors.New("implementation must not be nil"))
@@ -182,7 +197,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 			)
 		}
 		// Mode is validated above; constructor re-validates (defense-in-depth).
-		return NewRuntimeSelection(runtimeOverride, impl)
+		return NewRuntimeSelection(runtimeOverride, platform, impl)
 	}
 
 	if cfg != nil && cfg.DefaultRuntime != "" {
@@ -196,7 +211,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 			impl := command.GetImplForPlatformRuntime(platform, configRuntime)
 			if impl != nil {
 				// Mode is validated above; constructor re-validates (defense-in-depth).
-				return NewRuntimeSelection(configRuntime, impl)
+				return NewRuntimeSelection(configRuntime, platform, impl)
 			}
 		}
 	}
@@ -212,7 +227,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 		)
 	}
 
-	return NewRuntimeSelection(defaultRuntime, defaultImpl)
+	return NewRuntimeSelection(defaultRuntime, platform, defaultImpl)
 }
 
 // BuildExecutionContext converts options into a runtime.ExecutionContext.
@@ -239,9 +254,16 @@ func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOption
 		ctx = context.Background()
 	}
 	execCtx := runtime.NewExecutionContext(ctx, opts.Command, opts.Invowkfile)
+	selectedPlatform := opts.Selection.Platform()
+	if opts.Platform != "" {
+		selectedPlatform = opts.Platform
+	}
 
 	execCtx.Verbose = opts.Verbose
 	execCtx.SelectedRuntime = opts.Selection.Mode()
+	if selectedPlatform != "" {
+		execCtx.SelectedPlatform = selectedPlatform
+	}
 	execCtx.SelectedImpl = opts.Selection.Impl()
 	execCtx.PositionalArgs = opts.Args
 	execCtx.WorkDir = opts.Workdir
@@ -255,7 +277,7 @@ func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOption
 		return nil, err
 	}
 
-	projectEnvVars(opts, execCtx)
+	projectEnvVars(opts, execCtx, selectedPlatform)
 	return execCtx, nil
 }
 
@@ -295,9 +317,13 @@ func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 	return nil
 }
 
-func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
-	// Metadata env vars for script self-introspection.
-	// These allow scripts to know which command, runtime, source, and platform they run under.
+func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, selectedPlatform invowkfile.Platform) {
+	projectCommandEnvVars(opts, execCtx, selectedPlatform)
+	projectArgEnvVars(opts, execCtx)
+	projectFlagEnvVars(opts, execCtx)
+}
+
+func projectCommandEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, selectedPlatform invowkfile.Platform) {
 	execCtx.Env.ExtraEnv[runtime.EnvVarCmdName] = string(opts.Command.Name)
 	execCtx.Env.ExtraEnv[runtime.EnvVarRuntime] = string(opts.Selection.Mode())
 	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
@@ -307,38 +333,49 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	if opts.SourceID != "" {
 		execCtx.Env.ExtraEnv[runtime.EnvVarSource] = string(opts.SourceID)
 	}
-	if opts.Platform != "" {
-		execCtx.Env.ExtraEnv[runtime.EnvVarPlatform] = string(opts.Platform)
+	if selectedPlatform != "" {
+		execCtx.Env.ExtraEnv[runtime.EnvVarPlatform] = string(selectedPlatform)
 	}
+}
 
+func projectArgEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	for i, arg := range opts.Args {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
 	execCtx.Env.ExtraEnv["ARGC"] = strconv.Itoa(len(opts.Args))
 
-	if len(opts.ArgDefs) > 0 {
-		for i, argDef := range opts.ArgDefs {
-			envName := invowkfile.ArgNameToEnvVar(argDef.Name)
-
-			switch {
-			case argDef.Variadic:
-				var variadicValues []string
-				if i < len(opts.Args) {
-					variadicValues = opts.Args[i:]
-				}
-				execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(variadicValues))
-				for j, val := range variadicValues {
-					execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
-				}
-				execCtx.Env.ExtraEnv[envName] = strings.Join(variadicValues, " ")
-			case i < len(opts.Args):
-				execCtx.Env.ExtraEnv[envName] = opts.Args[i]
-			case argDef.DefaultValue != "":
-				execCtx.Env.ExtraEnv[envName] = argDef.DefaultValue
-			}
-		}
+	for i, argDef := range opts.ArgDefs {
+		projectArgDefEnvVar(opts, execCtx, i, argDef)
 	}
+}
 
+//goplint:ignore -- argument index maps user argv positions into conventional ARG-style environment variables.
+func projectArgDefEnvVar(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, index int, argDef invowkfile.Argument) {
+	envName := invowkfile.ArgNameToEnvVar(argDef.Name)
+	switch {
+	case argDef.Variadic:
+		projectVariadicArgEnvVars(opts, execCtx, index, envName)
+	case index < len(opts.Args):
+		execCtx.Env.ExtraEnv[envName] = opts.Args[index]
+	case argDef.DefaultValue != "":
+		execCtx.Env.ExtraEnv[envName] = argDef.DefaultValue
+	}
+}
+
+//goplint:ignore -- argument index and envName are derived adapter values for exported process environment keys.
+func projectVariadicArgEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, index int, envName string) {
+	var values []string
+	if index < len(opts.Args) {
+		values = opts.Args[index:]
+	}
+	execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(values))
+	for i, value := range values {
+		execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, i+1)] = value
+	}
+	execCtx.Env.ExtraEnv[envName] = strings.Join(values, " ")
+}
+
+func projectFlagEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	for name, value := range opts.FlagValues {
 		execCtx.Env.ExtraEnv[invowkfile.FlagNameToEnvVar(name)] = value
 	}

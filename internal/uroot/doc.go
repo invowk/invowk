@@ -47,9 +47,9 @@
 //
 // The u-root utilities are enabled via the config option:
 //
-//	virtual_shell: { enable_uroot_utils: true }
+//	virtual: { utilities: { enabled: true } }
 //
-// When enabled, the VirtualRuntime's exec handler checks the Registry for each
+// When enabled, the ShRuntime's exec handler checks the Registry for each
 // command before falling back to system binaries.
 //
 // # Error Format

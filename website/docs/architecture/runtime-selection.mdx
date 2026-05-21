@@ -35,14 +35,14 @@ At least one platform must be specified per implementation. There is no "all pla
 
 ## Runtime Comparison
 
-| Aspect | Native | Virtual | Container |
-|--------|--------|---------|-----------|
-| **Speed** | Fastest | Fast | Slower (overhead) |
-| **Isolation** | None | None (not a sandbox) | Full |
-| **Portability** | Platform-dependent | High | Highest |
-| **Shell features** | Full host shell | POSIX subset | Full (in container) |
-| **Dependencies** | Host shell | None | Docker/Podman |
-| **Best for** | Simple scripts | Cross-platform | Complex environments |
+| Aspect | Native | Virtual-Sh | Virtual-Lua | Container |
+|--------|--------|------------|-------------|-----------|
+| **Speed** | Fastest | Fast | Fast | Slower (overhead) |
+| **Isolation** | None | None (not a sandbox) | None (not a sandbox) | Full |
+| **Portability** | Platform-dependent | High | High | Highest |
+| **Language** | Host shell | POSIX subset | Lua | Full (in container) |
+| **Dependencies** | Host shell | Built-ins or allowed binaries | Lua stdlib or allowed helpers | Docker/Podman |
+| **Best for** | Simple scripts | Cross-platform shell | Cross-platform Lua | Complex environments |
 
 ## Runtime Resolution Precedence
 
@@ -62,11 +62,11 @@ There is no implicit `native → virtual` fallback when native is unavailable. I
 
 <Diagram id="architecture/runtime-native-check" />
 
-### Virtual Runtime
+### Virtual-Sh And Virtual-Lua Runtimes
 
 <Diagram id="architecture/runtime-virtual-check" />
 
-The virtual runtime is always available because it's embedded in the Invowk binary.
+The virtual-sh and virtual-lua runtimes are always available because they are embedded in the Invowk binary.
 
 ### Container Runtime
 
@@ -101,10 +101,11 @@ When `enable_host_ssh: true` is set, Invowk starts a temporary SSH server:
 | Use Case | Recommended Runtime | Why |
 |----------|-------------------|-----|
 | Quick scripts | `native` | Fastest, no overhead |
-| Cross-platform commands | `virtual` | Works everywhere |
+| Cross-platform shell commands | `virtual-sh` | Works everywhere |
+| Cross-platform Lua commands | `virtual-lua` | Works everywhere |
 | CI/CD pipelines | `container` | Reproducible |
 | Commands needing specific tools | `container` | Isolated dependencies |
-| Interactive TUI | `native` or `virtual` | Better terminal support |
+| Interactive TUI | `native` or `virtual-sh` | Better terminal support |
 
 ## Related Diagrams
 

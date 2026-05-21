@@ -4,13 +4,13 @@ sidebar_position: 3
 
 import Snippet from '@site/src/components/Snippet';
 
-# Runtime Virtual
+# Runtime Virtual-Sh
 
-O runtime **virtual** usa o interpretador de shell POSIX-compatível integrado do Invowk™ (powered by [mvdan/sh](https://github.com/mvdan/sh)). Ele fornece comportamento de shell consistente em todas as plataformas sem exigir um shell externo.
+O runtime **virtual-sh** usa o interpretador de shell POSIX-compatível integrado do Invowk™ (powered by [mvdan/sh](https://github.com/mvdan/sh)). Ele fornece comportamento de shell consistente em todas as plataformas sem exigir um shell externo.
 
 ## Como Funciona
 
-Quando você executa um comando com o runtime virtual, o Invowk:
+Quando você executa um comando com o runtime virtual-sh, o Invowk:
 
 1. Faz o parse do script usando o parser de shell integrado
 2. Executa-o em um ambiente embarcado tipo POSIX
@@ -24,7 +24,7 @@ Quando você executa um comando com o runtime virtual, o Invowk:
 
 ## Consistência Multiplataforma
 
-O runtime virtual se comporta de forma idêntica no Linux, macOS e Windows:
+O runtime virtual-sh se comporta de forma idêntica no Linux, macOS e Windows:
 
 <Snippet id="runtime-modes/virtual-cross-platform" />
 
@@ -32,7 +32,7 @@ Chega de "funciona na minha máquina" para scripts shell!
 
 ## Utilitários Integrados
 
-O shell virtual inclui utilitários POSIX core:
+O shell virtual-sh inclui utilitários POSIX core:
 
 | Utilitário | Descrição |
 |------------|-----------|
@@ -113,7 +113,7 @@ Se um comando u-root falha, ele retorna um erro imediatamente. O sistema **não*
 
 ## Recursos do Shell POSIX
 
-O shell virtual suporta construções POSIX padrão:
+O shell virtual-sh suporta construções POSIX padrão:
 
 ### Variáveis
 
@@ -137,14 +137,14 @@ O shell virtual suporta construções POSIX padrão:
 
 ## Chamando Comandos Externos
 
-O shell virtual pode chamar comandos externos instalados no seu sistema:
+O runtime virtual-sh pode chamar comandos do host apenas quando uma implementação opta explicitamente com `allowed_binaries`:
 
 <Snippet id="runtime-modes/virtual-external-commands" />
 
-Comandos externos são encontrados usando o PATH do sistema.
+Por padrão, a execução de binários do host é negada. Entradas nomeadas como `go` e `git` são resolvidas de acordo com `binary_lookup_mode`; `allowed_binaries: ["*"]` é a opção explícita que permite todos os binários do host.
 
 :::caution Não é um Sandbox
-O runtime virtual **não é um sandbox de segurança**. Ele é um interpretador de shell portável com utilitários integrados. Qualquer comando não fornecido pelos built-ins (ex.: `git`, `curl`, `python`, `node`) é resolvido a partir do `PATH` do sistema host e executado como um processo nativo com acesso completo ao host. Por padrão, as variáveis de ambiente do host também são herdadas (`env_inherit_mode: "all"`).
+O runtime virtual-sh **não é um sandbox de segurança**. Ele é um interpretador de shell portável com utilitários integrados e controles para binários do host. Qualquer binário do host permitido (ex.: `git`, `curl`, `python`, `node`) ainda executa como um processo nativo com acesso ao host. Por padrão, as variáveis de ambiente do host também são herdadas (`env_inherit_mode: "all"`).
 
 Se você precisa de isolamento de execução, use o runtime **container**.
 :::
@@ -165,7 +165,7 @@ Acesse flags e argumentos da mesma forma:
 
 ### Sem Suporte a Interpretadores Não-Shell
 
-O runtime virtual **não pode** usar valores não-shell em `script.interpreter`:
+O runtime virtual-sh **não pode** usar valores não-shell em `script.interpreter`:
 
 <Snippet id="runtime-modes/virtual-no-interpreter" />
 
@@ -177,23 +177,23 @@ Alguns recursos específicos do bash não estão disponíveis:
 
 <Snippet id="runtime-modes/virtual-bash-limitations" />
 
-Mantenha construções POSIX-compatíveis para o runtime virtual.
+Mantenha construções POSIX-compatíveis para o runtime virtual-sh.
 
 ## Validação de Dependências
 
-Dependências são validadas contra as capacidades do shell virtual:
+Dependências são validadas contra as capacidades do shell virtual-sh:
 
 <Snippet id="runtime-modes/virtual-deps" />
 
 ## Vantagens
 
 - **Consistência**: Mesmo comportamento no Linux, macOS e Windows
-- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível (o interpretador é integrado, mas comandos externos ainda requerem binários do host)
+- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível (o interpretador é integrado, mas comandos externos ainda exigem permissão explícita para binários do host)
 - **Portabilidade**: Scripts funcionam em todas as plataformas
 - **Utilitários integrados**: Utilitários core sempre disponíveis
 - **Startup mais rápido**: Sem processo de shell para iniciar
 
-## Quando Usar Virtual
+## Quando Usar Virtual-Sh
 
 - **Scripts multiplataforma**: Quando o mesmo script deve funcionar em todos os lugares
 - **Pipelines CI/CD**: Comportamento consistente entre agentes de build
@@ -202,11 +202,12 @@ Dependências são validadas contra as capacidades do shell virtual:
 
 ## Configuração
 
-Configure o shell virtual no seu arquivo de configuração do Invowk:
+Configure os utilitários compartilhados dos runtimes virtuais no seu arquivo de configuração do Invowk:
 
 <Snippet id="runtime-modes/virtual-config" />
 
 ## Próximos Passos
 
 - [Runtime Native](./native) - Para acesso completo ao shell
+- [Runtime Virtual-Lua](./virtual-lua) - Para automação Lua portátil
 - [Runtime Container](./container) - Para execução isolada

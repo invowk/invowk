@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +100,7 @@ type (
 		Script      invowkfile.ImplementationScript
 		IsFile      bool
 		Runtimes    []invowkfile.RuntimeConfig
+		Platforms   []invowkfile.PlatformConfig
 		ScriptPath  types.FilesystemPath
 		FileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
 		FileStatErr error
@@ -736,6 +736,14 @@ func (sc *ScanContext) appendVendoredScannedModules(ctx context.Context, vendore
 // buildScriptRefs pre-computes all script references from invowkfiles and modules.
 func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) ([]ScriptRef, error) {
 	var refs []ScriptRef
+	refs, err := appendInvowkfileScriptRefs(ctx, refs, invowkfiles)
+	if err != nil {
+		return nil, err
+	}
+	return appendModuleScriptRefs(ctx, refs, modules)
+}
+
+func appendInvowkfileScriptRefs(ctx context.Context, refs []ScriptRef, invowkfiles []*ScannedInvowkfile) ([]ScriptRef, error) {
 	for _, sf := range invowkfiles {
 		if err := scanContextErr(ctx); err != nil {
 			return nil, err
@@ -749,6 +757,10 @@ func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modu
 			return nil, err
 		}
 	}
+	return refs, nil
+}
+
+func appendModuleScriptRefs(ctx context.Context, refs []ScriptRef, modules []*ScannedModule) ([]ScriptRef, error) {
 	for _, sm := range modules {
 		if err := scanContextErr(ctx); err != nil {
 			return nil, err
@@ -760,6 +772,11 @@ func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modu
 			if err != nil {
 				return nil, err
 			}
+		}
+		var err error
+		refs, err = appendLuaFilesFromModule(ctx, refs, sm)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return refs, nil
@@ -788,6 +805,7 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 				Script:      impl.Script,
 				IsFile:      isFile,
 				Runtimes:    impl.Runtimes,
+				Platforms:   impl.Platforms,
 			}
 
 			// Resolve actual script content for content-analysis checkers.
@@ -812,167 +830,4 @@ func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceI
 		}
 	}
 	return refs, nil
-}
-
-func moduleSurfaceKind(isGlobal, isVendored bool) SurfaceKind {
-	switch {
-	case isGlobal:
-		return SurfaceKindGlobalModule
-	case isVendored:
-		return SurfaceKindVendoredModule
-	default:
-		return SurfaceKindLocalModule
-	}
-}
-
-func (sc *ScanContext) enrichFindingSurfaceIdentity(findings []Finding) {
-	surfaces := sc.surfaceIdentities()
-	for i := range findings {
-		identity, ok := matchSurfaceIdentity(findings[i], surfaces)
-		if !ok {
-			continue
-		}
-		if findings[i].SurfaceKind == "" {
-			findings[i].SurfaceKind = identity.kind
-		}
-		if findings[i].SurfaceKey == "" {
-			findings[i].SurfaceKey = identity.key
-		}
-	}
-}
-
-func (sc *ScanContext) surfaceIdentities() []scanSurfaceIdentity {
-	surfaces := make([]scanSurfaceIdentity, 0, len(sc.invowkfiles)+len(sc.modules))
-	for _, sf := range sc.invowkfiles {
-		surfaces = append(surfaces, scanSurfaceIdentity{id: newScanSurfaceID(sf.SurfaceID), key: sf.SurfaceKey, kind: sf.SurfaceKind, path: &sf.Path})
-	}
-	for _, sm := range sc.modules {
-		surfaces = append(surfaces, scanSurfaceIdentity{id: newScanSurfaceID(sm.SurfaceID), key: sm.SurfaceKey, kind: sm.SurfaceKind, path: &sm.Path})
-	}
-	return surfaces
-}
-
-func matchSurfaceIdentity(finding Finding, surfaces []scanSurfaceIdentity) (scanSurfaceIdentity, bool) {
-	var candidates []scanSurfaceIdentity
-	for _, surface := range surfaces {
-		if finding.SurfaceID != "" && surface.id.String() != finding.SurfaceID {
-			continue
-		}
-		if finding.SurfaceKind != "" && surface.kind != finding.SurfaceKind {
-			continue
-		}
-		candidates = append(candidates, surface)
-	}
-	if len(candidates) == 0 {
-		return scanSurfaceIdentity{}, false
-	}
-	if len(candidates) == 1 || finding.FilePath == "" {
-		return candidates[0], true
-	}
-	for _, candidate := range candidates {
-		if candidate.path != nil && sameAuditSurfacePath(*candidate.path, finding.FilePath) {
-			return candidate, true
-		}
-	}
-	return candidates[0], true
-}
-
-func sameAuditSurfacePath(surfacePath, findingPath types.FilesystemPath) bool {
-	if surfacePath == "" || findingPath == "" {
-		return false
-	}
-	return string(surfacePath) == string(findingPath) || isWithinBoundary(string(surfacePath), string(findingPath))
-}
-
-func scanSurfaceKey(kind SurfaceKind, path types.FilesystemPath) ScanSurfaceKey {
-	if path == "" {
-		return ""
-	}
-	return newScanSurfaceKey(string(kind) + "\x00" + string(path))
-}
-
-//goplint:ignore -- constructor validates scanner-owned identity text before returning a typed value.
-func newScanSurfaceKey(raw string) ScanSurfaceKey {
-	key := ScanSurfaceKey(raw)
-	if err := key.Validate(); err != nil {
-		return ""
-	}
-	return key
-}
-
-func scanModuleSymlinks(ctx context.Context, modulePath types.FilesystemPath) ([]SymlinkRef, error) {
-	if err := scanContextErr(ctx); err != nil {
-		return nil, err
-	}
-	modPath := string(modulePath)
-	var refs []SymlinkRef
-	err := filepath.WalkDir(modPath, func(path string, d fs.DirEntry, err error) error {
-		if ctxErr := scanContextErr(ctx); ctxErr != nil {
-			return ctxErr
-		}
-		if err != nil {
-			return err
-		}
-		if d.Type()&os.ModeSymlink == 0 {
-			return nil
-		}
-
-		relPath, relErr := filepath.Rel(modPath, path)
-		if relErr != nil {
-			return fmt.Errorf("computing relative path for %s: %w", path, relErr)
-		}
-
-		ref := SymlinkRef{
-			Path:    types.FilesystemPath(path), //goplint:ignore -- path comes from filesystem walk.
-			RelPath: relPath,
-		}
-		target, readErr := os.Readlink(path)
-		if readErr != nil {
-			ref.ReadErr = readErr
-			refs = append(refs, ref)
-			return continueSymlinkWalk()
-		}
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(filepath.Dir(path), target)
-		}
-		ref.Target = filepath.Clean(target)
-		ref.EscapesRoot = !isWithinBoundary(modPath, ref.Target)
-		if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
-			ref.Dangling = true
-		}
-		ref.ChainTooDeep = symlinkChainTooDeep(path)
-		refs = append(refs, ref)
-		return nil
-	})
-	if err != nil {
-		return refs, fmt.Errorf("walking module symlinks in %s: %w", modulePath, err)
-	}
-	return refs, nil
-}
-
-func continueSymlinkWalk() error {
-	return nil
-}
-
-//goplint:ignore -- helper walks raw OS-native symlink paths captured from filepath.WalkDir.
-func symlinkChainTooDeep(path string) bool {
-	current := path
-	for range maxSymlinkChainDepth - 1 {
-		target, err := os.Readlink(current)
-		if err != nil {
-			return false
-		}
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(filepath.Dir(current), target)
-		}
-		info, lstatErr := os.Lstat(target)
-		if lstatErr != nil {
-			return false
-		}
-		if info.Mode()&os.ModeSymlink == 0 {
-			return false
-		}
-		current = target
-	}
-	return true
 }

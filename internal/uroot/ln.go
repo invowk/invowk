@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 )
 
 // lnCommand implements the ln utility.
@@ -57,17 +56,22 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 	target := posArgs[0]
 	linkName := posArgs[1]
 
-	// Resolve linkName so the OS knows where to create the link.
-	if !filepath.IsAbs(linkName) {
-		linkName = filepath.Join(hc.Dir, linkName)
+	resolvedLinkName, err := hc.ResolvePath(linkName)
+	if err != nil {
+		return wrapError(c.name, err)
 	}
+	linkName = resolvedLinkName
 
 	// For hard links, resolve the target to an absolute path. For symlinks,
 	// preserve the user-provided target as-is because os.Symlink stores the
 	// literal string — relative symlinks remain portable across directory
 	// relocations and container mount points.
-	if !*symbolic && !filepath.IsAbs(target) {
-		target = filepath.Join(hc.Dir, target)
+	if !*symbolic {
+		resolvedTarget, err := hc.ResolvePath(target)
+		if err != nil {
+			return wrapError(c.name, err)
+		}
+		target = resolvedTarget
 	}
 
 	// Remove existing link destination if -f is specified

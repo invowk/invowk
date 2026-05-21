@@ -1,5 +1,5 @@
 # Test: U-root sleep utility
-# Tests sleep command completes without error in virtual runtime
+# Tests sleep command completes without error in virtual-sh runtime
 
 cd $WORK
 
@@ -24,7 +24,7 @@ cmds: [
 
 				echo '=== uroot sleep test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

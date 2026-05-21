@@ -222,6 +222,26 @@ func (p DryRunPlan) Validate() error {
 	if err := p.ScriptInterpreter.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	for _, binary := range p.AllowedBinaries {
+		if err := binary.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := p.BinaryLookupMode.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.VirtualFilesystemAccess.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.VirtualFilesystemPaths.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.LuaCPULimit.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.LuaMemoryLimit.Validate(); err != nil {
+		errs = append(errs, err)
+	}
 	if len(errs) > 0 {
 		return &InvalidDryRunDataError{FieldErrors: errs}
 	}

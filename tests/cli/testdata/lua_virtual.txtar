@@ -1,0 +1,197 @@
+# Test: virtual-lua runtime execution and safety controls
+
+cd $WORK
+[!windows] chmod 0755 tool
+env PATH=$WORK${:}$PATH
+
+# Test 1: basic execution and positional arguments
+exec invowk cmd lua-basic first second
+stdout 'args=first:second'
+! stderr .
+
+# Test 2: built-in utility helpers are available by default
+exec invowk cmd lua-basename
+stdout 'name=build.go'
+! stderr .
+
+# Test 3: virtual.utilities.enabled disables built-in helper commands
+exec invowk cmd lua-basename --ivk-config no-utils.cue
+stdout 'code=126'
+
+# Test 4: host binaries are denied by default
+exec invowk cmd host-denied
+stdout 'code=126'
+
+# Test 5: named allowed host binary resolves through PATH in host lookup mode
+exec invowk cmd host-named
+stdout 'tool:named:code=0'
+! stderr .
+
+# Test 6: wildcard allowed host binary explicitly allows PATH tools
+exec invowk cmd host-wildcard
+stdout 'tool:wild:code=0'
+! stderr .
+
+# Test 7: strict lookup ignores project-local PATH tools
+exec invowk cmd host-strict
+stdout 'code=126'
+
+# Test 8: anchors and virtual filesystem paths are exposed to Lua
+mkdir data
+exec invowk cmd lua-paths
+stdout 'env=true'
+stdout 'data[\\/]out.txt'
+exists data/out.txt
+
+# Test 9: dry-run renders virtual-lua safety metadata
+exec invowk cmd lua-dry --ivk-dry-run
+stdout 'Runtime:.*virtual-lua'
+stdout 'HostBinaries: go'
+stdout 'BinaryLookupMode: strict'
+stdout 'LuaCPULimit: 100'
+stdout 'LuaMemoryLimit: 1M'
+stdout 'VirtualFilesystem:'
+stdout 'Access: full'
+stdout 'Paths:'
+stdout 'DATA=./data'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "lua-basic"
+		implementations: [{
+			script: {content: """
+				local first, second = ...
+				print("args=" .. first .. ":" .. second)
+				"""}
+			runtimes:  [{name: "virtual-lua"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "lua-basename"
+		implementations: [{
+			script: {content: """
+				local out, err, code = invowk.capture.basename("src/build.go")
+				out = string.gsub(out, "\\n", "")
+				if code == 0 then
+					print("name=" .. out)
+				else
+					print("code=" .. tostring(code))
+				end
+				"""}
+			runtimes:  [{name: "virtual-lua"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "host-denied"
+		implementations: [{
+			script: {content: """
+				local out, err, code = invowk.capture.tool("denied")
+				print("code=" .. tostring(code))
+				"""}
+			runtimes:  [{name: "virtual-lua"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "host-named"
+		implementations: [{
+			script: {content: """
+				local tool = os.getenv("INVOWK_PLATFORM") == "windows" and "tool.bat" or "tool"
+				local out, err, code = invowk.capture(tool, "named")
+				print(out .. ":code=" .. tostring(code))
+				"""}
+			runtimes: [{
+				name: "virtual-lua"
+				allowed_binaries: ["tool", "tool.bat"]
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "host-wildcard"
+		implementations: [{
+			script: {content: """
+				local tool = os.getenv("INVOWK_PLATFORM") == "windows" and "tool.bat" or "tool"
+				local out, err, code = invowk.capture(tool, "wild")
+				print(out .. ":code=" .. tostring(code))
+				"""}
+			runtimes: [{
+				name: "virtual-lua"
+				allowed_binaries: ["*"]
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "host-strict"
+		implementations: [{
+			script: {content: """
+				local tool = os.getenv("INVOWK_PLATFORM") == "windows" and "tool.bat" or "tool"
+				local out, err, code = invowk.capture(tool, "strict")
+				print("code=" .. tostring(code))
+				"""}
+			runtimes: [{
+				name: "virtual-lua"
+				allowed_binaries: ["tool", "tool.bat"]
+				binary_lookup_mode: "strict"
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "lua-paths"
+		implementations: [{
+			script: {content: """
+				local path = invowk.path("DATA/out.txt")
+				local file = assert(io.open(path, "w"))
+				assert(file:write("ok"))
+				assert(file:close())
+				print("env=" .. tostring(os.getenv("INVOWK_PATH_DATA") ~= nil))
+				print(path)
+				"""}
+			runtimes:  [{name: "virtual-lua"}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {paths: {DATA: "./data"}}}},
+				{name: "macos", virtual: {filesystem: {paths: {DATA: "./data"}}}},
+				{name: "windows", virtual: {filesystem: {paths: {DATA: "./data"}}}},
+			]
+		}]
+	},
+	{
+		name: "lua-dry"
+		implementations: [{
+			script: {content: "print('dry')"}
+			runtimes: [{
+				name: "virtual-lua"
+				allowed_binaries: ["go"]
+				binary_lookup_mode: "strict"
+				cpu_limit: 100
+				memory_limit: "1M"
+			}]
+			platforms: [
+				{name: "linux", virtual: {filesystem: {access: "full", paths: {DATA: "./data"}}}},
+				{name: "macos", virtual: {filesystem: {access: "full", paths: {DATA: "./data"}}}},
+				{name: "windows", virtual: {filesystem: {access: "full", paths: {DATA: "./data"}}}},
+			]
+		}]
+	},
+]
+
+-- no-utils.cue --
+virtual: {
+	utilities: {
+		enabled: false
+	}
+}
+
+-- tool --
+#!/bin/sh
+printf 'tool:%s' "$1"
+
+-- tool.bat --
+@echo off
+<nul set /p=tool:%1
+exit /b 0

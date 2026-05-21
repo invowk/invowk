@@ -208,7 +208,7 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 	cmd := &invowkfile.Command{
 		Name: "test",
 		Implementations: []invowkfile.Implementation{
-			{Script: invowkfile.ImplementationScript{Content: "echo"}, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeVirtual}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
+			{Script: invowkfile.ImplementationScript{Content: "echo"}, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}, {Name: invowkfile.RuntimeVirtualSh}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
 		},
 	}
 
@@ -217,7 +217,7 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 		expected bool
 	}{
 		{invowkfile.RuntimeNative, true},
-		{invowkfile.RuntimeVirtual, true},
+		{invowkfile.RuntimeVirtualSh, true},
 		{invowkfile.RuntimeContainer, false},
 	}
 
@@ -286,7 +286,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 func TestRenderRuntimeNotAllowedError(t *testing.T) {
 	t.Parallel()
 
-	output := RenderRuntimeNotAllowedError("build", "container", "native, virtual")
+	output := RenderRuntimeNotAllowedError("build", "container", "native, virtual-sh")
 
 	if !strings.Contains(output, "Runtime not allowed") {
 		t.Error("RenderRuntimeNotAllowedError should contain 'Runtime not allowed'")
@@ -300,7 +300,7 @@ func TestRenderRuntimeNotAllowedError(t *testing.T) {
 		t.Error("RenderRuntimeNotAllowedError should contain selected runtime")
 	}
 
-	if !strings.Contains(output, "native, virtual") {
+	if !strings.Contains(output, "native, virtual-sh") {
 		t.Error("RenderRuntimeNotAllowedError should contain allowed runtimes")
 	}
 }

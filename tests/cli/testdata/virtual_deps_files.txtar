@@ -41,7 +41,7 @@ cmds: [
 		description: "Command requiring a specific file to exist"
 		implementations: [{
 			script: {content: "echo 'README.md exists!'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -55,7 +55,7 @@ cmds: [
 		description: "Command requiring any README file"
 		implementations: [{
 			script: {content: "echo 'A README file exists (one of: README.md, README, readme.md)'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -73,7 +73,7 @@ cmds: [
 				echo "  - Current directory is writable"
 				echo "  - README.md is readable"
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -88,7 +88,7 @@ cmds: [
 		description: "Command requiring file with execute permission"
 		implementations: [{
 			script: {content: "echo 'Executable check passed!'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -102,7 +102,7 @@ cmds: [
 		description: "Command requiring executable that is not executable"
 		implementations: [{
 			script: {content: "echo 'Should not reach here'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

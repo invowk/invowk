@@ -321,7 +321,7 @@ func isConcreteInterpreter(interpreter InterpreterSpec) bool {
 }
 
 func interpreterSelectionsEquivalent(explicit, shebang ShebangInfo, runtime RuntimeMode) bool {
-	if runtime == RuntimeVirtual && IsShellInterpreter(explicit.Interpreter) && IsShellInterpreter(shebang.Interpreter) {
+	if runtime == RuntimeVirtualSh && IsShellInterpreter(explicit.Interpreter) && IsShellInterpreter(shebang.Interpreter) {
 		return true
 	}
 	return explicit.Interpreter == shebang.Interpreter && slices.Equal(explicit.Args, shebang.Args)

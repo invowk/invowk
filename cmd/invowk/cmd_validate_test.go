@@ -230,7 +230,7 @@ version: "1.0.0"
 	name: "hello"
 	implementations: [{
 		script: {file: "scripts/hello.sh"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]

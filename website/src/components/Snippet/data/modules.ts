@@ -24,7 +24,7 @@ export const modulesSnippets = {
         implementations: [
             {
                 script: {file: "./scripts/lint.sh"}
-                runtimes: [{name: "virtual"}]
+                runtimes: [{name: "virtual-sh"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
@@ -192,7 +192,7 @@ cmds: [
                 script: {content: "echo \\"Hello from mytools!\\""
                 runtimes: [
                     {name: "native"},
-                    {name: "virtual"},
+                    {name: "virtual-sh"},
                 ]
                 platforms: [
                     {name: "linux"},

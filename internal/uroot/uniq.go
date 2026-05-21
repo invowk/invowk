@@ -60,7 +60,7 @@ func (c *uniqCommand) Run(ctx context.Context, args []string) error {
 		files = files[:1]
 	}
 
-	return ProcessFilesOrStdin(files, hc.Stdin, hc.Dir, c.name,
+	return ProcessFilesOrStdinWithContext(files, hc, c.name,
 		func(r io.Reader, _ string, _, _ int) error {
 			return c.processInput(hc.Stdout, r, *showCount, *duplicatesOnly, *uniqueOnly, *ignoreCase)
 		})

@@ -24,7 +24,7 @@ func TestResolveRuntime(t *testing.T) {
 				{
 					Runtimes: []invowkfile.RuntimeConfig{
 						{Name: invowkfile.RuntimeNative},
-						{Name: invowkfile.RuntimeVirtual},
+						{Name: invowkfile.RuntimeVirtualSh},
 					},
 					Platforms: []invowkfile.PlatformConfig{
 						{Name: invowkfile.PlatformLinux},
@@ -44,7 +44,7 @@ func TestResolveRuntime(t *testing.T) {
 			Implementations: []invowkfile.Implementation{
 				{
 					Runtimes: []invowkfile.RuntimeConfig{
-						{Name: invowkfile.RuntimeVirtual},
+						{Name: invowkfile.RuntimeVirtualSh},
 					},
 					Platforms: invowkfile.AllPlatformConfigs(),
 				},
@@ -64,8 +64,8 @@ func TestResolveRuntime(t *testing.T) {
 		{
 			name:     "CLI override success",
 			cmd:      mkCmd(),
-			override: invowkfile.RuntimeVirtual,
-			wantMode: invowkfile.RuntimeVirtual,
+			override: invowkfile.RuntimeVirtualSh,
+			wantMode: invowkfile.RuntimeVirtualSh,
 		},
 		{
 			name:                  "CLI override not allowed",
@@ -77,14 +77,14 @@ func TestResolveRuntime(t *testing.T) {
 		{
 			name:     "Config default success",
 			cmd:      mkCmd(),
-			cfg:      &config.Config{DefaultRuntime: config.RuntimeVirtual},
-			wantMode: invowkfile.RuntimeVirtual,
+			cfg:      &config.Config{DefaultRuntime: config.RuntimeVirtualSh},
+			wantMode: invowkfile.RuntimeVirtualSh,
 		},
 		{
 			name:     "Config default ignored if not allowed",
 			cmd:      mkVirtualOnlyCmd(),
 			cfg:      &config.Config{DefaultRuntime: config.RuntimeNative},
-			wantMode: invowkfile.RuntimeVirtual, // Falls back to command default (virtual)
+			wantMode: invowkfile.RuntimeVirtualSh, // Falls back to command default (virtual)
 		},
 		{
 			name:     "CLI override invalid mode (defense-in-depth)",
@@ -128,6 +128,9 @@ func TestResolveRuntime(t *testing.T) {
 
 			if got.mode != tt.wantMode {
 				t.Errorf("got mode %q, want %q", got.mode, tt.wantMode)
+			}
+			if got.platform != invowkfile.PlatformLinux {
+				t.Errorf("got platform %q, want %q", got.platform, invowkfile.PlatformLinux)
 			}
 			if got.impl == nil {
 				t.Error("got nil implementation")
@@ -304,6 +307,55 @@ func TestBuildExecutionContext_ContextPropagation(t *testing.T) {
 	})
 }
 
+func TestBuildExecutionContext_SelectionPlatform(t *testing.T) {
+	t.Parallel()
+
+	cmd := &invowkfile.Command{Name: "test"}
+	inv := &invowkfile.Invowkfile{}
+	impl := &invowkfile.Implementation{}
+	sel := RuntimeSelection{
+		mode:     invowkfile.RuntimeVirtualSh,
+		platform: invowkfile.PlatformLinux,
+		impl:     impl,
+	}
+
+	t.Run("derives selected platform from runtime selection", func(t *testing.T) {
+		t.Parallel()
+
+		gotCtx, err := BuildExecutionContext(t.Context(), BuildExecutionContextOptions{
+			Command:    cmd,
+			Invowkfile: inv,
+			Selection:  sel,
+		})
+		if err != nil {
+			t.Fatalf("BuildExecutionContext() error = %v", err)
+		}
+		if gotCtx.SelectedPlatform != invowkfile.PlatformLinux {
+			t.Fatalf("SelectedPlatform = %q, want linux", gotCtx.SelectedPlatform)
+		}
+		if gotCtx.Env.ExtraEnv["INVOWK_PLATFORM"] != string(invowkfile.PlatformLinux) {
+			t.Fatalf("INVOWK_PLATFORM = %q, want linux", gotCtx.Env.ExtraEnv["INVOWK_PLATFORM"])
+		}
+	})
+
+	t.Run("rejects explicit platform mismatch", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := BuildExecutionContext(t.Context(), BuildExecutionContextOptions{
+			Command:    cmd,
+			Invowkfile: inv,
+			Selection:  sel,
+			Platform:   invowkfile.PlatformMac,
+		})
+		if err == nil {
+			t.Fatal("expected platform mismatch error")
+		}
+		if !errors.Is(err, ErrInvalidBuildExecutionContextOptions) {
+			t.Fatalf("error = %v, want ErrInvalidBuildExecutionContextOptions", err)
+		}
+	})
+}
+
 func TestBuildExecutionContext_MetadataOmittedWhenEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -445,7 +497,7 @@ func TestNewRuntimeSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := NewRuntimeSelection(tt.mode, tt.impl)
+			got, err := NewRuntimeSelection(tt.mode, invowkfile.PlatformLinux, tt.impl)
 			if tt.wantSentinel != nil {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -470,6 +522,9 @@ func TestNewRuntimeSelection(t *testing.T) {
 			if got.mode != tt.mode {
 				t.Errorf("got mode %q, want %q", got.mode, tt.mode)
 			}
+			if got.platform != invowkfile.PlatformLinux {
+				t.Errorf("got platform %q, want linux", got.platform)
+			}
 			if got.impl != tt.impl {
 				t.Error("got different impl pointer than expected")
 			}
@@ -493,7 +548,7 @@ func TestRuntimeSelection_Validate(t *testing.T) {
 		},
 		{
 			name:      "valid virtual",
-			sel:       RuntimeSelection{mode: invowkfile.RuntimeVirtual, impl: &invowkfile.Implementation{}},
+			sel:       RuntimeSelection{mode: invowkfile.RuntimeVirtualSh, impl: &invowkfile.Implementation{}},
 			wantValid: true,
 		},
 		{
@@ -564,7 +619,7 @@ func TestRuntimeSelection_Validate(t *testing.T) {
 func TestRuntimeSelection_ConstructorAlwaysPassesValidate(t *testing.T) {
 	t.Parallel()
 
-	sel, err := NewRuntimeSelection(invowkfile.RuntimeNative, &invowkfile.Implementation{})
+	sel, err := NewRuntimeSelection(invowkfile.RuntimeNative, invowkfile.PlatformLinux, &invowkfile.Implementation{})
 	if err != nil {
 		t.Fatalf("NewRuntimeSelection() unexpected error: %v", err)
 	}
@@ -602,7 +657,7 @@ func TestRuntimeNotAllowedError_Format(t *testing.T) {
 		CommandName: "deploy",
 		Runtime:     invowkfile.RuntimeContainer,
 		Platform:    invowkfile.PlatformLinux,
-		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtual},
+		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeNative, invowkfile.RuntimeVirtualSh},
 	}
 
 	msg := err.Error()

@@ -40,7 +40,7 @@ cmds: [
 				echo "The env_vars dependency validated that HOME exists in your"
 				echo "environment before the command started."
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -64,7 +64,7 @@ cmds: [
 				echo "Each entry in env_vars is validated independently."
 				echo "All entries must be satisfied for the command to run."
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

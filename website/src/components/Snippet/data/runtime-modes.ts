@@ -241,7 +241,7 @@ cmds: [
             go build -o bin/app ./...
             echo "Done!"
             """}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh", allowed_binaries: ["go"]}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -249,7 +249,7 @@ cmds: [
 
   'runtime-modes/virtual-run': {
     language: 'bash',
-    code: `invowk cmd build --ivk-runtime virtual`,
+    code: `invowk cmd build --ivk-runtime virtual-sh`,
   },
 
   'runtime-modes/virtual-cross-platform': {
@@ -266,7 +266,7 @@ cmds: [
                 npm install
             fi
             """}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh", allowed_binaries: ["npm"]}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -275,8 +275,10 @@ cmds: [
   'runtime-modes/virtual-uroot-config': {
     language: 'cue',
     code: `// In your config file
-virtual_shell: {
-    enable_uroot_utils: true
+virtual: {
+    utilities: {
+        enabled: true
+    }
 }`,
   },
 
@@ -337,9 +339,9 @@ virtual_shell: {
   'runtime-modes/virtual-subshells': {
     language: 'cue',
     code: `script: {content: """
-    # Command substitution
-    current_date=$(date +%Y-%m-%d)
-    echo "Today is $current_date"
+    # Command substitution with built-ins
+    here=$(pwd)
+    echo "Current directory is $here"
     
     # Subshell
     (cd /tmp && echo "In temp: $(pwd)")
@@ -349,13 +351,21 @@ virtual_shell: {
 
   'runtime-modes/virtual-external-commands': {
     language: 'cue',
-    code: `script: {content: """
-    # Calls the real 'go' binary
-    go version
-    
-    # Calls the real 'git' binary
-    git status
-    """}`,
+    code: `{
+    name: "status"
+    implementations: [{
+        script: {content: """
+            # Calls explicitly allowed host binaries
+            go version
+            git status
+            """}
+        runtimes: [{
+            name: "virtual-sh"
+            allowed_binaries: ["go", "git"]
+            binary_lookup_mode: "host"
+        }]
+    }]
+}`,
   },
 
   'runtime-modes/virtual-env-vars': {
@@ -372,7 +382,7 @@ virtual_shell: {
             echo "Building in $BUILD_MODE mode"
             go build -ldflags="-s -w" ./...
             """}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh", allowed_binaries: ["go"]}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -391,7 +401,7 @@ virtual_shell: {
             # Or positional parameter
             echo "Hello, $1!"
             """}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -399,9 +409,9 @@ virtual_shell: {
 
   'runtime-modes/virtual-no-interpreter': {
     language: 'cue',
-    code: `// This will NOT work with virtual runtime!
+    code: `// This will NOT work with virtual-sh runtime!
 // Runtime validation rejects non-shell script interpreters because
-// virtual runtime always uses the embedded mvdan/sh interpreter.
+// virtual-sh always uses the embedded mvdan/sh interpreter.
 {
     name: "bad-example"
     implementations: [{
@@ -412,7 +422,7 @@ virtual_shell: {
             """
             interpreter: "python3"
         }
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -420,7 +430,7 @@ virtual_shell: {
 
   'runtime-modes/virtual-bash-limitations': {
     language: 'cue',
-    code: `// These won't work in virtual runtime:
+    code: `// These won't work in virtual-sh runtime:
 script: {content: """
     # Bash arrays (use $@ instead)
     declare -a arr=(1 2 3)  # Not supported
@@ -440,14 +450,14 @@ script: {content: """
     name: "build"
     depends_on: {
         tools: [
-            // These will be checked in the virtual shell environment
+            // These will be checked in the virtual-sh environment
             {alternatives: ["go"]},
             {alternatives: ["git"]}
         ]
     }
     implementations: [{
         script: {content: "go build ./..."}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh", allowed_binaries: ["go", "git"]}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,
@@ -459,9 +469,85 @@ script: {content: """
 // ~/Library/Application Support/invowk/config.cue (macOS)
 // %APPDATA%\invowk\config.cue (Windows)
 
-virtual_shell: {
-    // Enable additional utilities from u-root
-    enable_uroot_utils: true
+virtual: {
+    utilities: {
+        // Enable additional utilities from u-root
+        enabled: true
+    }
+}`,
+  },
+
+  'runtime-modes/virtual-lua-basic': {
+    language: 'cue',
+    code: `{
+    name: "hello-lua"
+    implementations: [{
+        script: {content: """
+            print("Hello from virtual-lua")
+            print("workdir: " .. invowk.path("@work"))
+            """}
+        runtimes: [{name: "virtual-lua"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}`,
+  },
+
+  'runtime-modes/virtual-lua-bridge': {
+    language: 'cue',
+    code: `script: {content: """
+    local out, err, code = invowk.capture.basename("src/main.go")
+    print("file: " .. string.gsub(out, "\\n", ""))
+
+    if code ~= 0 then
+        io.stderr:write(err)
+    end
+    """}`,
+  },
+
+  'runtime-modes/virtual-lua-filesystem-paths': {
+    language: 'cue',
+    code: `{
+    name: "write-cache"
+    implementations: [{
+        script: {content: """
+            local cache = invowk.path("CACHE/report.txt")
+            local file = assert(io.open(cache, "w"))
+            file:write("ok")
+            file:close()
+            """}
+        runtimes: [{name: "virtual-lua"}]
+        platforms: [{
+            name: "linux"
+            virtual: {
+                filesystem: {
+                    access: "restricted"
+                    paths: {
+                        CACHE: "@cache/reports"
+                    }
+                }
+            }
+        }]
+    }]
+}`,
+  },
+
+  'runtime-modes/virtual-lua-host-binary': {
+    language: 'cue',
+    code: `{
+    name: "go-version"
+    implementations: [{
+        script: {content: """
+            local out, err, code = invowk.capture.go("version")
+            if code ~= 0 then error(err) end
+            print(out)
+            """}
+        runtimes: [{
+            name: "virtual-lua"
+            allowed_binaries: ["go"]
+            binary_lookup_mode: "host"
+        }]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
 }`,
   },
 
@@ -540,7 +626,7 @@ implementations: [{
         name: "build virtual"
         implementations: [{
             script: {content: "go build ./..."}
-            runtimes: [{name: "virtual"}]
+            runtimes: [{name: "virtual-sh"}]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         }]
     },
@@ -566,7 +652,7 @@ implementations: [{
             script: {content: "go build ./..."}
             runtimes: [
                 {name: "native"},  // Default
-                {name: "virtual"}, // Alternative
+                {name: "virtual-sh"}, // Alternative
             ]
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         },
@@ -586,8 +672,8 @@ implementations: [{
     code: `# Use default (native)
 invowk cmd build
 
-# Override to virtual
-invowk cmd build --ivk-runtime virtual
+# Override to virtual-sh
+invowk cmd build --ivk-runtime virtual-sh
 
 # Override to container
 invowk cmd build --ivk-runtime container`,
@@ -599,7 +685,7 @@ invowk cmd build --ivk-runtime container`,
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*, virtual, container] (linux, macos)`,
+  build - Build the project [native*, virtual-sh, container] (linux, macos)`,
   },
 
   'runtime-modes/container-containerfile': {

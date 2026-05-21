@@ -16,10 +16,22 @@ import (
 const (
 	// RuntimeNative executes commands using the system's default shell
 	RuntimeNative RuntimeMode = types.RuntimeNative
-	// RuntimeVirtual executes commands using mvdan/sh with u-root utilities
-	RuntimeVirtual RuntimeMode = types.RuntimeVirtual
+	// RuntimeVirtualSh executes commands using mvdan/sh with u-root utilities
+	RuntimeVirtualSh RuntimeMode = types.RuntimeVirtualSh
+	// RuntimeVirtualLua executes commands using an embedded Lua interpreter
+	RuntimeVirtualLua RuntimeMode = types.RuntimeVirtualLua
 	// RuntimeContainer executes commands inside a disposable container
 	RuntimeContainer RuntimeMode = types.RuntimeContainer
+
+	// BinaryLookupModeHost resolves allowed host binaries using the command environment PATH.
+	BinaryLookupModeHost BinaryLookupMode = "host"
+	// BinaryLookupModeStrict resolves allowed host binaries only from Invowk's fixed safe directories.
+	BinaryLookupModeStrict BinaryLookupMode = "strict"
+
+	// VirtualFilesystemAccessRestricted limits VM-managed filesystem operations to safe roots and named paths.
+	VirtualFilesystemAccessRestricted VirtualFilesystemAccess = "restricted"
+	// VirtualFilesystemAccessFull allows VM-managed filesystem operations to access normalized host paths.
+	VirtualFilesystemAccessFull VirtualFilesystemAccess = "full"
 
 	// EnvInheritNone disables host environment inheritance
 	EnvInheritNone EnvInheritMode = "none"
@@ -60,6 +72,16 @@ var (
 	ErrInvalidRuntimeConfig = errors.New("invalid runtime config")
 	// ErrInvalidRuntimePersistentConfig is the sentinel error wrapped by InvalidRuntimePersistentConfigError.
 	ErrInvalidRuntimePersistentConfig = errors.New("invalid runtime persistent config")
+	// ErrInvalidBinaryLookupMode is returned when BinaryLookupMode is not recognized.
+	ErrInvalidBinaryLookupMode = errors.New("invalid binary lookup mode")
+	// ErrInvalidVirtualFilesystemAccess is returned when virtual filesystem access is not recognized.
+	ErrInvalidVirtualFilesystemAccess = errors.New("invalid virtual filesystem access")
+	// ErrInvalidAllowedBinary is returned when an allowed binary entry is invalid.
+	ErrInvalidAllowedBinary = errors.New("invalid allowed binary")
+	// ErrInvalidLuaCPULimit is returned when a Lua CPU limit is invalid.
+	ErrInvalidLuaCPULimit = errors.New("invalid lua CPU limit")
+	// ErrInvalidMemoryLimit is returned when a Lua memory limit is invalid.
+	ErrInvalidMemoryLimit = errors.New("invalid memory limit")
 
 	// ErrInterpreterNotAllowed is returned when a script selects an interpreter
 	// that the chosen runtime cannot execute. Callers can use errors.Is to detect
@@ -75,6 +97,11 @@ var (
 	shellInterpreters = map[string]bool{
 		"sh": true, "bash": true, "zsh": true, "dash": true,
 		"ash": true, "ksh": true, "mksh": true,
+	}
+
+	// luaInterpreters maps Lua interpreter base names to true.
+	luaInterpreters = map[string]bool{
+		"lua": true, "lua5.4": true, "lua5.5": true, "luajit": true,
 	}
 
 	// interpreterExtensions maps interpreter base names to typical file extensions.
@@ -157,6 +184,50 @@ type (
 		FieldErrors []error
 	}
 
+	// BinaryLookupMode controls how allowed host binaries are resolved by virtual runtimes.
+	//
+	//goplint:enum-cue=#BinaryLookupMode
+	BinaryLookupMode string
+
+	// VirtualFilesystemAccess controls VM-managed filesystem access for virtual runtimes.
+	//
+	//goplint:enum-cue=#VirtualFilesystemAccess
+	VirtualFilesystemAccess string
+
+	// InvalidBinaryLookupModeError is returned when BinaryLookupMode is not recognized.
+	InvalidBinaryLookupModeError struct {
+		Value BinaryLookupMode
+	}
+
+	// InvalidVirtualFilesystemAccessError is returned when VirtualFilesystemAccess is not recognized.
+	InvalidVirtualFilesystemAccessError struct {
+		Value VirtualFilesystemAccess
+	}
+
+	// AllowedBinary identifies a host binary that a virtual runtime may execute.
+	AllowedBinary string
+
+	// InvalidAllowedBinaryError is returned when AllowedBinary is malformed.
+	InvalidAllowedBinaryError struct {
+		Value AllowedBinary
+	}
+
+	// LuaCPULimit is an optional golua CPU quota value. Zero means unlimited.
+	LuaCPULimit uint64
+
+	// InvalidLuaCPULimitError is returned when a LuaCPULimit is invalid.
+	InvalidLuaCPULimitError struct {
+		Value LuaCPULimit
+	}
+
+	// MemoryLimit is an optional byte-size string for Lua memory quotas.
+	MemoryLimit string
+
+	// InvalidMemoryLimitError is returned when MemoryLimit is malformed.
+	InvalidMemoryLimitError struct {
+		Value MemoryLimit
+	}
+
 	//goplint:validate-all
 	//
 	// RuntimePersistentConfig configures persistent container targeting for a container runtime.
@@ -181,6 +252,14 @@ type (
 		EnvInheritAllow []EnvVarName `json:"env_inherit_allow,omitempty"`
 		// EnvInheritDeny lists host env vars to block (applies to any mode)
 		EnvInheritDeny []EnvVarName `json:"env_inherit_deny,omitempty"`
+		// AllowedBinaries lists host binaries a virtual runtime may execute.
+		AllowedBinaries []AllowedBinary `json:"allowed_binaries,omitempty"`
+		// BinaryLookupMode controls how allowed host binaries are resolved.
+		BinaryLookupMode BinaryLookupMode `json:"binary_lookup_mode,omitempty"`
+		// CPULimit sets the optional virtual-lua CPU quota. Zero means unlimited.
+		CPULimit LuaCPULimit `json:"cpu_limit,omitempty"`
+		// MemoryLimit sets the optional virtual-lua memory quota.
+		MemoryLimit MemoryLimit `json:"memory_limit,omitempty"`
 		// DependsOn specifies dependencies validated inside the container environment.
 		// Only valid when Name is RuntimeContainer. For native/virtual runtimes, CUE schema
 		// rejects this field; Go structural validation provides defense-in-depth.
@@ -209,6 +288,8 @@ type (
 	PlatformConfig struct {
 		// Name specifies the platform type (required)
 		Name PlatformType `json:"name"`
+		// Virtual contains platform-specific settings for virtual runtimes.
+		Virtual *PlatformVirtualConfig `json:"virtual,omitempty"`
 	}
 
 	// ShebangInfo contains parsed shebang information from a script.
@@ -378,6 +459,119 @@ func (e *InvalidRuntimePersistentConfigError) Unwrap() error {
 	return errors.Join(ErrInvalidRuntimePersistentConfig, errors.Join(e.FieldErrors...))
 }
 
+// Error implements the error interface for InvalidBinaryLookupModeError.
+func (e *InvalidBinaryLookupModeError) Error() string {
+	return fmt.Sprintf("invalid binary_lookup_mode %q (valid: host, strict)", e.Value)
+}
+
+// Unwrap returns ErrInvalidBinaryLookupMode for errors.Is() compatibility.
+func (e *InvalidBinaryLookupModeError) Unwrap() error { return ErrInvalidBinaryLookupMode }
+
+// String returns the string representation of the BinaryLookupMode.
+func (m BinaryLookupMode) String() string { return string(m) }
+
+// Validate returns nil if the BinaryLookupMode is recognized. The zero value
+// is valid and means the runtime default, currently host.
+func (m BinaryLookupMode) Validate() error {
+	switch m {
+	case "", BinaryLookupModeHost, BinaryLookupModeStrict:
+		return nil
+	default:
+		return &InvalidBinaryLookupModeError{Value: m}
+	}
+}
+
+// Error implements the error interface for InvalidVirtualFilesystemAccessError.
+func (e *InvalidVirtualFilesystemAccessError) Error() string {
+	return fmt.Sprintf("invalid virtual.filesystem.access %q (valid: restricted, full)", e.Value)
+}
+
+// Unwrap returns ErrInvalidVirtualFilesystemAccess for errors.Is() compatibility.
+func (e *InvalidVirtualFilesystemAccessError) Unwrap() error {
+	return ErrInvalidVirtualFilesystemAccess
+}
+
+// String returns the string representation of the VirtualFilesystemAccess.
+func (a VirtualFilesystemAccess) String() string { return string(a.Effective()) }
+
+// Effective returns the configured access mode, defaulting the zero value to restricted.
+func (a VirtualFilesystemAccess) Effective() VirtualFilesystemAccess {
+	if a == "" {
+		return VirtualFilesystemAccessRestricted
+	}
+	return a
+}
+
+// Validate returns nil if the virtual filesystem access mode is recognized.
+// The zero value is valid and means restricted.
+func (a VirtualFilesystemAccess) Validate() error {
+	switch a {
+	case "", VirtualFilesystemAccessRestricted, VirtualFilesystemAccessFull:
+		return nil
+	default:
+		return &InvalidVirtualFilesystemAccessError{Value: a}
+	}
+}
+
+// Error implements the error interface for InvalidAllowedBinaryError.
+func (e *InvalidAllowedBinaryError) Error() string {
+	return fmt.Sprintf("invalid allowed binary %q: must not be empty or whitespace-only", e.Value)
+}
+
+// Unwrap returns ErrInvalidAllowedBinary for errors.Is() compatibility.
+func (e *InvalidAllowedBinaryError) Unwrap() error { return ErrInvalidAllowedBinary }
+
+// String returns the string representation of the AllowedBinary.
+func (b AllowedBinary) String() string { return string(b) }
+
+// Validate returns nil if the AllowedBinary entry is structurally valid.
+// Use "*" to allow any resolved host binary.
+//
+//goplint:nonzero
+func (b AllowedBinary) Validate() error {
+	if strings.TrimSpace(string(b)) == "" {
+		return &InvalidAllowedBinaryError{Value: b}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLuaCPULimitError.
+func (e *InvalidLuaCPULimitError) Error() string {
+	return fmt.Sprintf("invalid lua CPU limit %d", e.Value)
+}
+
+// Unwrap returns ErrInvalidLuaCPULimit for errors.Is() compatibility.
+func (e *InvalidLuaCPULimitError) Unwrap() error { return ErrInvalidLuaCPULimit }
+
+// String returns the string representation of the LuaCPULimit.
+func (l LuaCPULimit) String() string { return fmt.Sprintf("%d", l) }
+
+// Validate returns nil. LuaCPULimit is unsigned, so all decoded values are valid.
+func (l LuaCPULimit) Validate() error { return nil }
+
+// Error implements the error interface for InvalidMemoryLimitError.
+func (e *InvalidMemoryLimitError) Error() string {
+	return fmt.Sprintf("invalid memory limit %q: must be a byte count with optional K, M, or G suffix", e.Value)
+}
+
+// Unwrap returns ErrInvalidMemoryLimit for errors.Is() compatibility.
+func (e *InvalidMemoryLimitError) Unwrap() error { return ErrInvalidMemoryLimit }
+
+// String returns the string representation of the MemoryLimit.
+func (m MemoryLimit) String() string { return string(m) }
+
+// Validate returns nil if MemoryLimit is empty or a simple byte-size string.
+func (m MemoryLimit) Validate() error {
+	raw := strings.TrimSpace(string(m))
+	if raw == "" {
+		return nil
+	}
+	if !regexp.MustCompile(`^\d+([KkMmGg][Bb]?)?$`).MatchString(raw) {
+		return &InvalidMemoryLimitError{Value: m}
+	}
+	return nil
+}
+
 // Validate returns nil if the PlatformConfig has valid fields,
 // or an error collecting all field-level validation failures.
 // Delegates to Name.Validate() (nonzero).
@@ -386,10 +580,20 @@ func (p PlatformConfig) Validate() error {
 	if err := p.Name.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	appendOptionalValidation(&errs, p.Virtual, p.Virtual != nil)
 	if len(errs) > 0 {
 		return &InvalidPlatformConfigError{FieldErrors: errs}
 	}
 	return nil
+}
+
+// VirtualFilesystem returns this platform's virtual filesystem config.
+// Missing nested config means restricted access with no named paths.
+func (p PlatformConfig) VirtualFilesystem() VirtualFilesystemConfig {
+	if p.Virtual == nil || p.Virtual.Filesystem == nil {
+		return VirtualFilesystemConfig{}
+	}
+	return *p.Virtual.Filesystem
 }
 
 // Error implements the error interface for InvalidPlatformConfigError.
@@ -413,6 +617,10 @@ func (rc RuntimeConfig) Validate() error {
 	appendOptionalValidation(&errs, rc.EnvInheritMode, rc.EnvInheritMode != "")
 	appendEachValidation(&errs, rc.EnvInheritAllow)
 	appendEachValidation(&errs, rc.EnvInheritDeny)
+	appendEachValidation(&errs, rc.AllowedBinaries)
+	appendOptionalValidation(&errs, rc.BinaryLookupMode, rc.BinaryLookupMode != "")
+	appendOptionalValidation(&errs, rc.CPULimit, rc.CPULimit != 0)
+	appendOptionalValidation(&errs, rc.MemoryLimit, rc.MemoryLimit != "")
 	appendOptionalValidation(&errs, rc.DependsOn, rc.DependsOn != nil)
 	appendOptionalValidation(&errs, rc.Containerfile, rc.Containerfile != "")
 	appendOptionalValidation(&errs, rc.Image, rc.Image != "")
@@ -432,6 +640,7 @@ func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
 	}
 
 	if rc.Name != RuntimeContainer {
+		appendVirtualRuntimeFieldErrors(errs, rc)
 		appendNonContainerRuntimeFieldErrors(errs, rc)
 		return
 	}
@@ -444,6 +653,26 @@ func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
 	}
 	if rc.Containerfile == "" && rc.Image == "" {
 		*errs = append(*errs, errors.New("container runtime requires either containerfile or image"))
+	}
+}
+
+func appendVirtualRuntimeFieldErrors(errs *[]error, rc RuntimeConfig) {
+	isVirtual := rc.Name == RuntimeVirtualSh || rc.Name == RuntimeVirtualLua
+	if !isVirtual {
+		if len(rc.AllowedBinaries) > 0 {
+			*errs = append(*errs, errors.New("allowed_binaries is only valid for virtual runtimes"))
+		}
+		if rc.BinaryLookupMode != "" {
+			*errs = append(*errs, errors.New("binary_lookup_mode is only valid for virtual runtimes"))
+		}
+	}
+	if rc.Name != RuntimeVirtualLua {
+		if rc.CPULimit != 0 {
+			*errs = append(*errs, errors.New("cpu_limit is only valid for virtual-lua runtime"))
+		}
+		if rc.MemoryLimit != "" {
+			*errs = append(*errs, errors.New("memory_limit is only valid for virtual-lua runtime"))
+		}
 	}
 }
 
@@ -609,6 +838,13 @@ func IsShellInterpreter(interpreter string) bool {
 	// Handle Windows executable extensions
 	base = strings.TrimSuffix(base, ".exe")
 	return shellInterpreters[base]
+}
+
+// IsLuaInterpreter returns true if the interpreter is a Lua-compatible interpreter.
+func IsLuaInterpreter(interpreter string) bool {
+	base := filepath.Base(interpreter)
+	base = strings.TrimSuffix(base, ".exe")
+	return luaInterpreters[base]
 }
 
 // GetExtensionForInterpreter returns the typical file extension for an interpreter.

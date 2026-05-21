@@ -215,6 +215,7 @@ func DefaultCheckers() []Checker {
 	return []Checker{
 		NewLockFileChecker(WithHashEvaluator(vendoredHashEvaluatorFunc(invowkmod.EvaluateVendoredModuleHash))),
 		NewScriptChecker(),
+		NewLuaChecker(),
 		NewNetworkChecker(),
 		NewEnvChecker(),
 		NewSymlinkChecker(),

@@ -52,7 +52,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 	plan := commandsvc.DryRunPlan{
 		CommandName: "deploy",
 		SourceID:    "my-module.invowkmod",
-		Runtime:     invowkfile.RuntimeVirtual,
+		Runtime:     invowkfile.RuntimeVirtualSh,
 		Platform:    invowkfile.PlatformLinux,
 		WorkDir:     "/app",
 		Timeout:     "30s",
@@ -73,7 +73,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 		"Dry Run",
 		"Command:", "deploy",
 		"Source:", "my-module.invowkmod",
-		"Runtime:", "virtual",
+		"Runtime:", "virtual-sh",
 		"WorkDir:", "/app",
 		"Timeout:", "30s",
 		"Script:",
@@ -86,6 +86,71 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 		if !strings.Contains(out, token) {
 			t.Errorf("renderDryRun output missing %q:\n%s", token, out)
 		}
+	}
+}
+
+func TestRenderDryRun_VirtualFilesystemAndHostBinaryPolicy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		plan commandsvc.DryRunPlan
+		want []string
+	}{
+		{
+			name: "restricted defaults with denied host binaries",
+			plan: commandsvc.DryRunPlan{
+				CommandName: "safe",
+				SourceID:    "invowkfile",
+				Runtime:     invowkfile.RuntimeVirtualSh,
+				Platform:    invowkfile.PlatformLinux,
+				Script:      invowkfile.ImplementationScript{Content: "echo safe"},
+			},
+			want: []string{
+				"HostBinaries: deny-all",
+				"BinaryLookupMode: host",
+				"VirtualFilesystem:",
+				"Access: restricted",
+			},
+		},
+		{
+			name: "full access with named paths and explicit host binaries",
+			plan: commandsvc.DryRunPlan{
+				CommandName:                 "broad",
+				SourceID:                    "invowkfile",
+				Runtime:                     invowkfile.RuntimeVirtualLua,
+				Platform:                    invowkfile.PlatformLinux,
+				Script:                      invowkfile.ImplementationScript{Content: "print('broad')"},
+				AllowedBinaries:             []invowkfile.AllowedBinary{"go"},
+				BinaryLookupMode:            invowkfile.BinaryLookupModeStrict,
+				VirtualFilesystemAccess:     invowkfile.VirtualFilesystemAccessFull,
+				VirtualFilesystemPaths:      invowkfile.VirtualFilesystemPaths{"DATA": "./data"},
+				DependencyValidationSkipped: true,
+			},
+			want: []string{
+				"HostBinaries: go",
+				"BinaryLookupMode: strict",
+				"VirtualFilesystem:",
+				"Access: full",
+				"Paths:",
+				"DATA=./data",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+			renderDryRun(&buf, tt.plan)
+			out := buf.String()
+			for _, token := range tt.want {
+				if !strings.Contains(out, token) {
+					t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+				}
+			}
+		})
 	}
 }
 
@@ -155,7 +220,7 @@ func TestRenderDryRunInterpreterProvenance(t *testing.T) {
 		},
 		{
 			name:    "virtual shell",
-			runtime: invowkfile.RuntimeVirtual,
+			runtime: invowkfile.RuntimeVirtualSh,
 			script: invowkfile.ImplementationScript{
 				Content:     "echo ok",
 				Interpreter: "bash",

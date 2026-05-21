@@ -307,7 +307,7 @@ From tools.invowkmod:
     language: 'cue',
     code: `runtimes: [
     {name: "native"},      // System shell
-    {name: "virtual"},     // Built-in POSIX shell
+    {name: "virtual-sh"},     // Built-in POSIX shell
     {name: "container", image: "debian:stable-slim"}  // Container
 ]
 platforms: [{name: "linux"}, {name: "macos"}]`,
@@ -435,7 +435,7 @@ platforms: [
     implementations: [
         {
             script: {content: "make build"}
-            runtimes: [{name: "native"}, {name: "virtual"}]
+            runtimes: [{name: "native"}, {name: "virtual-sh"}]
             platforms: [{name: "linux"}, {name: "macos"}]
         },
         {
@@ -453,7 +453,7 @@ platforms: [
   (* = default runtime)
 
 From invowkfile:
-  build - Build the project [native*, virtual] (linux, macos)
+  build - Build the project [native*, virtual-sh] (linux, macos)
   clean - Clean artifacts [native*] (linux, macos, windows)
   docker-build - Container build [container*] (linux, macos, windows)`,
   },
@@ -751,7 +751,7 @@ platforms: [{name: "linux"}, {name: "macos"}]
 // Multiple runtimes
 runtimes: [
     {name: "native"},
-    {name: "virtual"},
+    {name: "virtual-sh"},
 ]
 platforms: [{name: "linux"}, {name: "macos"}]
 
@@ -789,10 +789,22 @@ platforms: [
     name: "native"
 })
 
-// Virtual runtime: no additional fields
-#RuntimeConfigVirtual: close({
+// Virtual-sh runtime
+#RuntimeConfigVirtualSh: close({
     #RuntimeConfigBase
-    name: "virtual"
+    name: "virtual-sh"
+    allowed_binaries?: [...string]
+    binary_lookup_mode?: "host" | "strict"
+})
+
+// Virtual-lua runtime
+#RuntimeConfigVirtualLua: close({
+    #RuntimeConfigBase
+    name: "virtual-lua"
+    allowed_binaries?: [...string]
+    binary_lookup_mode?: "host" | "strict"
+    cpu_limit?: uint
+    memory_limit?: string
 })
 
 // Container runtime: exactly one source + extras
@@ -820,7 +832,7 @@ platforms: [
 #RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
 
 // Discriminated union of all runtime types
-#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer`,
+#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtualSh | #RuntimeConfigVirtualLua | #RuntimeConfigContainer`,
   },
 
   'reference/invowkfile/env-inherit-example': {
@@ -902,6 +914,12 @@ containerfile: "./docker/Dockerfile.build"`,
     language: 'cue',
     code: `#PlatformConfig: {
     name: "linux" | "macos" | "windows"
+    virtual?: {
+        filesystem?: {
+            access?: "restricted" | "full"
+            paths?: [string]: string  // Uppercase logical names, e.g. CACHE
+        }
+    }
 }`,
   },
 

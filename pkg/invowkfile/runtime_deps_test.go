@@ -14,7 +14,7 @@ func TestFindRuntimeConfig(t *testing.T) {
 
 	runtimes := []RuntimeConfig{
 		{Name: RuntimeNative},
-		{Name: RuntimeVirtual},
+		{Name: RuntimeVirtualSh},
 		{Name: RuntimeContainer, Image: "debian:stable-slim"},
 	}
 
@@ -25,7 +25,7 @@ func TestFindRuntimeConfig(t *testing.T) {
 		wantName RuntimeMode
 	}{
 		{"find native", RuntimeNative, false, RuntimeNative},
-		{"find virtual", RuntimeVirtual, false, RuntimeVirtual},
+		{"find virtual", RuntimeVirtualSh, false, RuntimeVirtualSh},
 		{"find container", RuntimeContainer, false, RuntimeContainer},
 		{"not found", RuntimeMode("nonexistent"), true, ""},
 	}
@@ -196,7 +196,8 @@ func TestParseRuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 		name    string
 		runtime string
 	}{
-		{"virtual rejects depends_on", "virtual"},
+		{"virtual-sh rejects depends_on", "virtual-sh"},
+		{"virtual-lua rejects depends_on", "virtual-lua"},
 		{"native rejects depends_on", "native"},
 	}
 
@@ -405,7 +406,7 @@ func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 		runtime RuntimeMode
 	}{
 		{"native rejects depends_on", RuntimeNative},
-		{"virtual rejects depends_on", RuntimeVirtual},
+		{"virtual rejects depends_on", RuntimeVirtualSh},
 	}
 
 	for _, tt := range tests {

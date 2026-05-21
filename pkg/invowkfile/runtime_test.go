@@ -17,8 +17,10 @@ func TestRuntimeMode_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{RuntimeNative, true, false},
-		{RuntimeVirtual, true, false},
+		{RuntimeVirtualSh, true, false},
+		{RuntimeVirtualLua, true, false},
 		{RuntimeContainer, true, false},
+		{"virtual", false, true},
 		{"", false, true},
 		{"invalid", false, true},
 		{"NATIVE", false, true},
@@ -95,8 +97,10 @@ func TestParseRuntimeMode(t *testing.T) {
 	}{
 		{"", "", false},
 		{"native", RuntimeNative, false},
-		{"virtual", RuntimeVirtual, false},
+		{"virtual-sh", RuntimeVirtualSh, false},
+		{"virtual-lua", RuntimeVirtualLua, false},
 		{"container", RuntimeContainer, false},
+		{"virtual", "", true},
 		{"invalid", "", true},
 		{"NATIVE", "", true},
 		{"Native", "", true},

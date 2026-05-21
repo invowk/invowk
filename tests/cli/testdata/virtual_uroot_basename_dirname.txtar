@@ -1,5 +1,5 @@
 # Test: U-root basename and dirname utilities
-# Tests path manipulation with basename and dirname in virtual runtime
+# Tests path manipulation with basename and dirname in virtual-sh runtime
 
 cd $WORK
 
@@ -41,7 +41,7 @@ cmds: [
 
 				echo '=== uroot paths test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

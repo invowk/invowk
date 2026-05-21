@@ -20,7 +20,7 @@ cmds: [
 		description: "Command with custom check validating exit code"
 		implementations: [{
 			script: {content: "echo 'Custom exit code check passed!'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -38,7 +38,7 @@ cmds: [
 		description: "Command with custom check validating output pattern"
 		implementations: [{
 			script: {content: "echo 'Custom output check passed!'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

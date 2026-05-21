@@ -491,7 +491,7 @@ Install the missing tools and try again.`,
     }
     implementations: [{
         script: {content: "go build ./..."}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,

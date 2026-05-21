@@ -39,7 +39,8 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **Native Runtime** | Go | Executes commands via host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. |
-| **Virtual Runtime** | Go/mvdan-sh | Embedded POSIX shell interpreter. Includes u-root builtins for portability. No host shell dependency. |
+| **Virtual-Sh Runtime** | Go/mvdan-sh | Embedded POSIX shell interpreter. Includes u-root builtins for portability. No host shell dependency. |
+| **Virtual-Lua Runtime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. |
 | **Container Runtime** | Go | Executes commands inside Docker/Podman containers. Provides isolation and reproducibility. |
 
 ### Container Infrastructure

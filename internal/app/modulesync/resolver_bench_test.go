@@ -32,7 +32,7 @@ description: "Benchmark tools"
 	description: "Build"
 	implementations: [{
 		script: {content: "echo build"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]

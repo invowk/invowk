@@ -10,7 +10,7 @@ type RuntimeType string
 
 const (
 	RuntimeNative    RuntimeType = "native"
-	RuntimeVirtual   RuntimeType = "virtual"
+	RuntimeVirtualSh   RuntimeType = "virtual"
 	RuntimeContainer RuntimeType = "container"
 )
 
@@ -71,7 +71,7 @@ type TestImplementation struct {
 //	cmd := testutil.NewTestCommand("hello", testutil.WithScript("echo hello"))
 //	cmd := testutil.NewTestCommand("hello",
 //	    testutil.WithScript("echo $NAME"),
-//	    testutil.WithRuntime(testutil.RuntimeVirtual),
+//	    testutil.WithRuntime(testutil.RuntimeVirtualSh),
 //	    testutil.WithEnv("NAME", "world"),
 //	)
 func NewTestCommand(name string, opts ...CommandOption) *TestCommand {

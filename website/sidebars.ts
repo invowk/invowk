@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
         'runtime-modes/overview',
         'runtime-modes/native',
         'runtime-modes/virtual',
+        'runtime-modes/virtual-lua',
         'runtime-modes/container',
       ],
     },

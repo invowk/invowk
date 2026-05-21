@@ -1,5 +1,5 @@
 # Test: U-root text processing utilities (head, tail, wc, grep, sort, uniq)
-# Tests the built-in u-root text utilities in virtual runtime
+# Tests the built-in u-root text utilities in virtual-sh runtime
 
 cd $WORK
 
@@ -77,7 +77,7 @@ cmds: [
 
 				echo '=== uroot text ops test complete ==='
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

@@ -50,6 +50,7 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("ContainerNameSource:"), plan.PersistentContainerNameSource)
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("CreateIfMissing:"), strconv.FormatBool(plan.PersistentContainerCreateIfMissing))
 	}
+	renderDryRunVirtualSafety(w, plan)
 
 	// Script content.
 	fmt.Fprintln(w)
@@ -94,6 +95,48 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 	fmt.Fprintln(w)
 }
 
+func renderDryRunVirtualSafety(w io.Writer, plan commandsvc.DryRunPlan) {
+	if plan.Runtime != invowkfile.RuntimeVirtualSh && plan.Runtime != invowkfile.RuntimeVirtualLua {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Virtual Safety:"))
+	fmt.Fprintf(w, "    HostBinaries: %s\n", dryRunAllowedBinaries(plan.AllowedBinaries))
+	mode := plan.BinaryLookupMode
+	if mode == "" {
+		mode = invowkfile.BinaryLookupModeHost
+	}
+	fmt.Fprintf(w, "    BinaryLookupMode: %s\n", mode)
+	access := plan.VirtualFilesystemAccess.Effective()
+	fmt.Fprintln(w, "    VirtualFilesystem:")
+	fmt.Fprintf(w, "      Access: %s\n", access)
+	if len(plan.VirtualFilesystemPaths) > 0 {
+		fmt.Fprintln(w, "      Paths:")
+		for _, name := range slices.Sorted(maps.Keys(plan.VirtualFilesystemPaths)) {
+			fmt.Fprintf(w, "        %s=%s\n", name, plan.VirtualFilesystemPaths[name])
+		}
+	}
+	if plan.Runtime == invowkfile.RuntimeVirtualLua {
+		if plan.LuaCPULimit != 0 {
+			fmt.Fprintf(w, "    LuaCPULimit: %d\n", plan.LuaCPULimit)
+		}
+		if plan.LuaMemoryLimit != "" {
+			fmt.Fprintf(w, "    LuaMemoryLimit: %s\n", plan.LuaMemoryLimit)
+		}
+	}
+}
+
+func dryRunAllowedBinaries(allowed []invowkfile.AllowedBinary) string {
+	if len(allowed) == 0 {
+		return "deny-all"
+	}
+	values := make([]string, 0, len(allowed))
+	for _, binary := range allowed {
+		values = append(values, binary.String())
+	}
+	return strings.Join(values, ", ")
+}
+
 // isArgEnvVar checks if a key matches the ARG1, ARG2, ..., ARGC pattern
 // used by the positional argument projection system.
 func isArgEnvVar(k string) bool {
@@ -128,7 +171,7 @@ func renderDryRunInterpreter(w io.Writer, plan commandsvc.DryRunPlan) {
 //goplint:ignore -- CLI rendering helper returns human-readable display text.
 func dryRunInterpreterDescription(runtime invowkfile.RuntimeMode, analysis invowkfile.ScriptInterpreterAnalysis) string {
 	effective := analysis.Effective()
-	if runtime == invowkfile.RuntimeVirtual && (!effective.Found || invowkfile.IsShellInterpreter(effective.Interpreter)) {
+	if runtime == invowkfile.RuntimeVirtualSh && (!effective.Found || invowkfile.IsShellInterpreter(effective.Interpreter)) {
 		return dryRunVirtualInterpreterDescription(analysis)
 	}
 	switch analysis.Provenance() {

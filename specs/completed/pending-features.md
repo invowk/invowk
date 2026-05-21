@@ -37,7 +37,7 @@ The `--config` flag now fully propagates through the injected `ConfigProvider` i
 **Implementation**:
 - `internal/uroot/`: Complete implementations of `mv` and `cp` commands with full test coverage
 - `internal/uroot/mv.go`, `internal/uroot/cp.go`: Production implementations (no longer stubs)
-- Virtual shell registers u-root builtins when `enable_uroot_utils: true` in config
+- Virtual shell registers u-root builtins when `virtual.utilities.enabled: true` in config
 
 ---
 

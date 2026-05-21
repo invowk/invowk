@@ -12,9 +12,9 @@ When the container runtime is selected, additional steps occur. The default path
 
 ![Container Runtime Sequence](../diagrams/rendered/sequences/execution-container.svg)
 
-## Virtual Runtime Flow
+## Virtual-Sh Runtime Flow
 
-The virtual runtime uses the embedded mvdan/sh interpreter:
+The virtual-sh runtime uses the embedded mvdan/sh interpreter:
 
 ![Virtual Runtime Sequence](../diagrams/rendered/sequences/execution-virtual.svg)
 

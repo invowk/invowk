@@ -8,9 +8,9 @@ exec invowk cmd 'virtual hello'
 stdout 'Hello from the virtual shell!'
 ! stderr .
 
-# Test 2: multi runtime - command that can run in native or virtual
+# Test 2: multi runtime - command that can run in native or virtual-sh
 exec invowk cmd 'multi runtime'
-stdout 'This can run in native \(default\) or virtual runtime'
+stdout 'This can run in native \(default\) or virtual-sh runtime'
 ! stderr .
 
 -- invowkfile.cue --
@@ -20,16 +20,16 @@ cmds: [
 		description: "Print greeting using virtual shell interpreter"
 		implementations: [{
 			script: {content: "echo 'Hello from the virtual shell!'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
 	{
 		name:        "multi runtime"
-		description: "Command that can run in native or virtual runtime"
-		implementations: [{
-			script: {content: "echo 'This can run in native (default) or virtual runtime'"}
-			runtimes:  [{name: "virtual"}]
+	description: "Command that can run in native or virtual-sh runtime"
+	implementations: [{
+			script: {content: "echo 'This can run in native (default) or virtual-sh runtime'"}
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

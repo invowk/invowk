@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -70,9 +69,12 @@ func (c *mktempCommand) Run(ctx context.Context, args []string) error {
 		}
 	}
 
-	// Resolve relative parent dir against the working directory.
-	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(hc.Dir, dir)
+	dir, err := hc.ResolvePath(dir)
+	if err != nil {
+		if *quiet {
+			return nil
+		}
+		return wrapError(c.name, err)
 	}
 
 	// Extract prefix from template argument. Trailing X characters are stripped
@@ -88,7 +90,6 @@ func (c *mktempCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	var path string
-	var err error
 	if *isDir {
 		path, err = os.MkdirTemp(dir, prefix)
 	} else {

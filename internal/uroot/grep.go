@@ -97,7 +97,7 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 
 	matchFound := false
 
-	err = ProcessFilesOrStdin(files, hc.Stdin, hc.Dir, c.name,
+	err = ProcessFilesOrStdinWithContext(files, hc, c.name,
 		func(r io.Reader, filename string, _, _ int) error {
 			// For stdin, use empty string for filename display
 			displayName := filename

@@ -99,7 +99,7 @@ func writeRuntimeTestInvowkfile(t testing.TB, dir string) {
 	description: "Build command"
 	implementations: [{
 		script: {content: "echo build"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]
@@ -122,7 +122,7 @@ func buildDualRuntimeCommand() *discovery.CommandInfo {
 					Platforms: invowkfile.AllPlatformConfigs(),
 					Runtimes: []invowkfile.RuntimeConfig{
 						{Name: invowkfile.RuntimeNative},
-						{Name: invowkfile.RuntimeVirtual},
+						{Name: invowkfile.RuntimeVirtualSh},
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func TestResolveRuntime(t *testing.T) {
 		t.Parallel()
 
 		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtual}
+		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtualSh}
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
@@ -185,7 +185,7 @@ func TestResolveRuntime(t *testing.T) {
 		t.Parallel()
 
 		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtual}
+		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtualSh}
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
@@ -210,7 +210,7 @@ func TestResolveRuntime(t *testing.T) {
 		t.Parallel()
 
 		cmdInfo := buildNativeOnlyCommand()
-		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtual}
+		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtualSh}
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},

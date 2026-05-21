@@ -11,7 +11,7 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
 | SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:363-451` | Mitigated |
-| SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:345` | By-design (documented) |
+| SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial (scoped lifetime + FilterInvowkEnvVars) |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
@@ -91,19 +91,20 @@ Review checklist:
 - [ ] `EnvInheritNone` is the default for container runtime (confirmed)
 - [ ] Interpreter temp files written to `invowkDir` are cleaned up after execution
 
-### 5. Virtual Shell Host Fallback
+### 5. Virtual Host-Binary Policy
 
-**Files:** `internal/runtime/virtual.go` (lines 345–357)
+**Files:** `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`
 
-The `execHandler` checks the u-root registry first. If a command is not registered, it falls through to `next(ctx, args)` — mvdan/sh's default handler, which performs a host PATH lookup and executes the real binary. This is intentional ("gradual adoption" design) but means the virtual runtime is NOT a sandbox.
+The shared virtual host-binary policy denies host binaries by default. A virtual implementation must set `allowed_binaries` to named binaries, absolute executable paths, or `["*"]` to allow all host binaries. Allowed host binaries still execute as native host processes; virtual runtimes are safety harnesses, not kernel sandboxes.
 
 Review checklist:
-- [ ] Host fallback behavior documented in user-facing docs and module author guidelines
-- [ ] No claim of "sandboxing" or "isolation" for the virtual runtime anywhere in docs
-- [ ] `ExecHandlers` chain is additive (intercept known commands), not restrictive
-- [ ] u-root builtins operate on the real host filesystem (no chroot/namespace isolation)
-- [ ] Interactive virtual execution (`invowk internal exec-virtual`) inherits `FilterInvowkEnvVars(os.Environ())`
-- [ ] Module authors warned that virtual runtime scripts can execute arbitrary host binaries
+- [ ] `allowed_binaries` defaults to deny-all for virtual-sh and virtual-lua
+- [ ] `allowed_binaries: ["*"]` is treated as an explicit broad host execution opt-out and surfaced in audit/docs
+- [ ] Named and absolute allowed binaries resolve through the configured `binary_lookup_mode`
+- [ ] Denied host binaries fail closed without falling through to mvdan/sh default host execution
+- [ ] u-root builtins operate through the virtual path validator (no chroot/namespace isolation)
+- [ ] Interactive virtual-sh execution (`invowk internal exec-virtual-sh`) inherits `FilterInvowkEnvVars(os.Environ())`
+- [ ] Module authors warned that allowed host binaries still run as native host processes
 
 ### 6. Command Scope and Trust
 

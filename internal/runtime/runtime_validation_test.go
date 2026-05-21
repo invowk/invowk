@@ -81,7 +81,7 @@ func TestRuntimeType_Validate(t *testing.T) {
 		wantErr     bool
 	}{
 		{RuntimeTypeNative, true, false},
-		{RuntimeTypeVirtual, true, false},
+		{RuntimeTypeVirtualSh, true, false},
 		{RuntimeTypeContainer, true, false},
 		{"", false, true},
 		{"invalid", false, true},

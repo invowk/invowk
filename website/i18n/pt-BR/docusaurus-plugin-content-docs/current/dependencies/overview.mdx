@@ -98,7 +98,7 @@ Para validar dependências **dentro do ambiente do container**, use `depends_on`
 
 ### Dependências do Runtime Container
 
-O bloco `depends_on` dentro da configuração de um runtime **container** valida contra o ambiente do container. Isso está disponível apenas para o runtime container — os runtimes native e virtual não suportam `depends_on` no nível de runtime.
+O bloco `depends_on` dentro da configuração de um runtime **container** valida contra o ambiente do container. Isso está disponível apenas para o runtime container — os runtimes native, virtual-sh e virtual-lua não suportam `depends_on` no nível de runtime.
 
 | Escopo | Validado Contra |
 |--------|-----------------|

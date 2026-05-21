@@ -10,7 +10,7 @@ Use this skill when:
 - Editing the `invowkfile.cue` root example file
 - Working with sample modules in `samples/invowkmods/`
 - Adding or modifying command/implementation structures
-- Handling cross-platform runtime selection (native vs virtual runtimes on different platforms)
+- Handling cross-platform runtime selection (native vs virtual-sh/virtual-lua runtimes on different platforms)
 
 ---
 
@@ -35,7 +35,7 @@ Use this skill when:
 
 ### Runtime-Level `depends_on` Pattern (Container Only)
 
-`depends_on` can be placed inside a **container** runtime block to validate against the **container's own environment** (not the host). This is distinct from root/command/implementation-level `depends_on`, which always validates against the **host system**. Runtime-level `depends_on` is only available for the container runtime — native and virtual runtimes do not support it (CUE schema rejects it at parse time).
+`depends_on` can be placed inside a **container** runtime block to validate against the **container's own environment** (not the host). This is distinct from root/command/implementation-level `depends_on`, which always validates against the **host system**. Runtime-level `depends_on` is only available for the container runtime — native, virtual-sh, and virtual-lua runtimes do not support it (CUE schema rejects it at parse time).
 
 ```cue
 runtimes: [{
@@ -90,13 +90,13 @@ This validation runs:
 
 ### Cross-Platform Runtime Selection
 
-**Bash scripts with native+virtual runtimes must use platform-specific implementations.**
+**Bash scripts with native+virtual-sh runtimes must use platform-specific implementations.**
 
-**The problem:** The native runtime on Windows uses PowerShell (or `cmd`), which cannot parse bash syntax. When a command declares `runtimes: [{name: "native"}, {name: "virtual"}]`, the first runtime (native) becomes the default. This causes bash scripts to fail on Windows with PowerShell parser errors.
+**The problem:** The native runtime on Windows uses PowerShell (or `cmd`), which cannot parse bash syntax. When a command declares `runtimes: [{name: "native"}, {name: "virtual-sh"}]`, the first runtime (native) becomes the default. This causes bash scripts to fail on Windows with PowerShell parser errors.
 
 **The solution:** Split implementations by platform:
-- **Linux/macOS**: Use `runtimes: [{name: "native"}, {name: "virtual"}]` with `platforms: [{name: "linux"}, {name: "macos"}]`
-- **Windows**: Use `runtimes: [{name: "virtual"}]` with `platforms: [{name: "windows"}]` (virtual runtime uses `mvdan/sh`, a cross-platform POSIX shell)
+- **Linux/macOS**: Use `runtimes: [{name: "native"}, {name: "virtual-sh"}]` with `platforms: [{name: "linux"}, {name: "macos"}]`
+- **Windows**: Use `runtimes: [{name: "virtual-sh"}]` with `platforms: [{name: "windows"}]` (virtual-sh uses `mvdan/sh`, a cross-platform POSIX shell)
 
 **Valid (platform-specific implementations):**
 ```cue
@@ -108,7 +108,7 @@ implementations: [
                 cat /etc/os-release
             fi
             """}
-        runtimes:  [{name: "native"}, {name: "virtual"}]
+        runtimes:  [{name: "native"}, {name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}]
     },
     {
@@ -118,7 +118,7 @@ implementations: [
                 cat /etc/os-release
             fi
             """}
-        runtimes:  [{name: "virtual"}]
+        runtimes:  [{name: "virtual-sh"}]
         platforms: [{name: "windows"}]
     },
 ]
@@ -134,7 +134,7 @@ implementations: [
                 cat /etc/os-release
             fi
             """}
-        runtimes: [{name: "native"}, {name: "virtual"}]
+        runtimes: [{name: "native"}, {name: "virtual-sh"}]
         // Missing platforms restriction - will fail on Windows!
     },
 ]
@@ -142,11 +142,11 @@ implementations: [
 
 **When to apply this pattern:**
 - Any command with bash/POSIX shell scripts
-- That declares both native and virtual runtimes
+- That declares both native and virtual-sh runtimes
 - And should work on Windows
 
 **Exceptions (no split needed):**
-- Commands with `runtimes: [{name: "virtual"}]` only (already cross-platform)
+- Commands with `runtimes: [{name: "virtual-sh"}]` only (already cross-platform)
 - Commands with `runtimes: [{name: "native"}]` only and `platforms: [{name: "linux"}, {name: "macos"}]` (Linux/macOS only)
 - Commands with PowerShell scripts intended for Windows
 
@@ -175,9 +175,9 @@ implementations: [
 ]
 ```
 
-**When to use native-only vs native+virtual:**
+**When to use native-only vs native+virtual-sh:**
 - **Native-only** (`runtimes: [{name: "native"}]`): For test files that specifically validate native shell behavior on each platform. Used in `native_*.txtar` mirror tests.
-- **Native+virtual** (`runtimes: [{name: "native"}, {name: "virtual"}]`): For production commands that prefer native shell but fall back to virtual shell. Requires the standard platform-split pattern (see above) to avoid PowerShell parsing bash syntax on Windows.
+- **Native+virtual-sh** (`runtimes: [{name: "native"}, {name: "virtual-sh"}]`): For production commands that prefer native shell but also allow the embedded shell. Requires the standard platform-split pattern (see above) to avoid PowerShell parsing bash syntax on Windows.
 
 ## Invowkmod Modules
 
@@ -213,7 +213,7 @@ When modifying module-related code, verify:
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
 | Stale sample modules | Validation fails after schema changes | Update safe samples in `samples/invowkmods/` after module-related changes |
-| Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual runtimes |
+| Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual-sh runtimes |
 | Args with subcommands | Discovery validation error | Commands with positional args cannot have subcommands |
 | Treating Unix `/...` paths as universally absolute in config tests | Windows short CI fails on include path validation | For `includes` fixtures, use `t.TempDir()` + `filepath.Join(...)` and keep relative negatives explicit |
 

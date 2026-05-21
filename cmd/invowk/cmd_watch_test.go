@@ -219,7 +219,7 @@ func TestRunWatchMode_InvalidDebounce(t *testing.T) {
 					},
 					Implementations: []invowkfile.Implementation{{
 						Script:    invowkfile.ImplementationScript{Content: "echo hello"},
-						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 						Platforms: invowkfile.AllPlatformConfigs(),
 					}},
 				},

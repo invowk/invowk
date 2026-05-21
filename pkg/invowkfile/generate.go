@@ -222,7 +222,7 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	// Platforms (mandatory)
 	sb.WriteString("\t\t\t\tplatforms: [\n")
 	for _, p := range impl.Platforms {
-		fmt.Fprintf(sb, "\t\t\t\t\t{name: %q},\n", p.Name)
+		generatePlatformConfig(sb, p, "\t\t\t\t\t")
 	}
 	sb.WriteString("\t\t\t\t]\n")
 
@@ -243,6 +243,55 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	}
 
 	sb.WriteString("\t\t\t},\n")
+}
+
+func generatePlatformConfig(sb *strings.Builder, platform PlatformConfig, indent string) {
+	if platform.Virtual == nil || !platform.Virtual.HasConfig() {
+		fmt.Fprintf(sb, "%s{name: %q},\n", indent, platform.Name)
+		return
+	}
+	sb.WriteString(indent + "{\n")
+	fmt.Fprintf(sb, "%s\tname: %q\n", indent, platform.Name)
+	generatePlatformVirtualConfig(sb, platform.Virtual, indent+"\t")
+	sb.WriteString(indent + "},\n")
+}
+
+func generatePlatformVirtualConfig(sb *strings.Builder, cfg *PlatformVirtualConfig, indent string) {
+	if cfg == nil || !cfg.HasConfig() {
+		return
+	}
+	sb.WriteString(indent + "virtual: {\n")
+	generateVirtualFilesystemConfig(sb, cfg.Filesystem, indent+"\t")
+	sb.WriteString(indent + "}\n")
+}
+
+func generateVirtualFilesystemConfig(sb *strings.Builder, cfg *VirtualFilesystemConfig, indent string) {
+	if cfg == nil || !cfg.HasFilesystemConfig() {
+		return
+	}
+	sb.WriteString(indent + "filesystem: {\n")
+	if cfg.Access != "" {
+		fmt.Fprintf(sb, "%s\taccess: %q\n", indent, cfg.Access)
+	}
+	generateVirtualFilesystemPaths(sb, cfg.Paths, indent+"\t")
+	sb.WriteString(indent + "}\n")
+}
+
+func generateVirtualFilesystemPaths(sb *strings.Builder, paths VirtualFilesystemPaths, indent string) {
+	if len(paths) == 0 {
+		return
+	}
+	sb.WriteString(indent + "paths: {\n")
+	names := make([]string, 0, len(paths))
+	for name := range paths {
+		names = append(names, name.String())
+	}
+	slices.Sort(names)
+	for _, rawName := range names {
+		name := VirtualFilesystemPathName(rawName) //goplint:ignore -- rawName comes from validated VirtualFilesystemPaths keys.
+		fmt.Fprintf(sb, "%s\t%q: %q\n", indent, name, paths[name])
+	}
+	sb.WriteString(indent + "}\n")
 }
 
 // generateImplementationScript generates CUE for an explicit implementation script source.
@@ -341,6 +390,26 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 			items[i] = string(envName)
 		}
 		writeList("env_inherit_deny", items)
+	}
+	if r.Name == RuntimeVirtualSh || r.Name == RuntimeVirtualLua {
+		if len(r.AllowedBinaries) > 0 {
+			items := make([]string, len(r.AllowedBinaries))
+			for i, binary := range r.AllowedBinaries {
+				items[i] = string(binary)
+			}
+			writeList("allowed_binaries", items)
+		}
+		if r.BinaryLookupMode != "" {
+			writeField("binary_lookup_mode", fmt.Sprintf("%q", r.BinaryLookupMode))
+		}
+	}
+	if r.Name == RuntimeVirtualLua {
+		if r.CPULimit != 0 {
+			writeField("cpu_limit", r.CPULimit.String())
+		}
+		if r.MemoryLimit != "" {
+			writeField("memory_limit", fmt.Sprintf("%q", r.MemoryLimit))
+		}
 	}
 	if r.Name != RuntimeContainer {
 		return

@@ -56,8 +56,8 @@ container: {
 	if cfg.DefaultRuntime != RuntimeNative {
 		t.Errorf("DefaultRuntime = %s, want %s", cfg.DefaultRuntime, RuntimeNative)
 	}
-	if !cfg.VirtualShell.EnableUrootUtils {
-		t.Error("VirtualShell.EnableUrootUtils = false, want schema default true")
+	if !cfg.Virtual.Utilities.Enabled {
+		t.Error("Virtual.Utilities.Enabled = false, want schema default true")
 	}
 	if cfg.UI.ColorScheme != ColorSchemeDark || !cfg.UI.Verbose || cfg.UI.Interactive {
 		t.Errorf("UI = %+v, want dark verbose=true interactive=false", cfg.UI)

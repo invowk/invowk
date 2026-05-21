@@ -63,14 +63,14 @@ func TestNewTestCommand_WithDescription(t *testing.T) {
 func TestNewTestCommand_WithRuntime(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewTestCommand("test", WithRuntime(invowkfile.RuntimeVirtual))
+	cmd := NewTestCommand("test", WithRuntime(invowkfile.RuntimeVirtualSh))
 
 	if len(cmd.Implementations[0].Runtimes) != 1 {
 		t.Fatalf("len(Runtimes) = %d, want 1", len(cmd.Implementations[0].Runtimes))
 	}
 
-	if cmd.Implementations[0].Runtimes[0].Name != invowkfile.RuntimeVirtual {
-		t.Errorf("Runtime = %v, want %v", cmd.Implementations[0].Runtimes[0].Name, invowkfile.RuntimeVirtual)
+	if cmd.Implementations[0].Runtimes[0].Name != invowkfile.RuntimeVirtualSh {
+		t.Errorf("Runtime = %v, want %v", cmd.Implementations[0].Runtimes[0].Name, invowkfile.RuntimeVirtualSh)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestNewTestCommand_WithRuntimes(t *testing.T) {
 	t.Parallel()
 
 	cmd := NewTestCommand("test",
-		WithRuntimes(invowkfile.RuntimeNative, invowkfile.RuntimeVirtual))
+		WithRuntimes(invowkfile.RuntimeNative, invowkfile.RuntimeVirtualSh))
 
 	if len(cmd.Implementations[0].Runtimes) != 2 {
 		t.Fatalf("len(Runtimes) = %d, want 2", len(cmd.Implementations[0].Runtimes))
@@ -88,8 +88,8 @@ func TestNewTestCommand_WithRuntimes(t *testing.T) {
 		t.Errorf("Runtimes[0] = %v, want %v", cmd.Implementations[0].Runtimes[0].Name, invowkfile.RuntimeNative)
 	}
 
-	if cmd.Implementations[0].Runtimes[1].Name != invowkfile.RuntimeVirtual {
-		t.Errorf("Runtimes[1] = %v, want %v", cmd.Implementations[0].Runtimes[1].Name, invowkfile.RuntimeVirtual)
+	if cmd.Implementations[0].Runtimes[1].Name != invowkfile.RuntimeVirtualSh {
+		t.Errorf("Runtimes[1] = %v, want %v", cmd.Implementations[0].Runtimes[1].Name, invowkfile.RuntimeVirtualSh)
 	}
 }
 

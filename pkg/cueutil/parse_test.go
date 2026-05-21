@@ -209,7 +209,7 @@ func TestParseConfigType(t *testing.T) {
 #Config: {
 	container_engine?: "docker" | "podman"
 	includes?: [...string]
-	default_runtime?: "native" | "virtual" | "container"
+	default_runtime?: "native" | "virtual-sh" | "virtual-lua" | "container"
 }
 `
 
@@ -225,7 +225,7 @@ func TestParseConfigType(t *testing.T) {
 		data := []byte(`
 container_engine: "podman"
 includes: ["./", "~/.config/invowk"]
-default_runtime: "virtual"
+default_runtime: "virtual-sh"
 `)
 		result, err := ParseAndDecode[Config]([]byte(configSchema), data, "#Config")
 		if err != nil {

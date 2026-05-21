@@ -1,4 +1,4 @@
-# Test: --ivk-verbose flag on virtual runtime
+# Test: --ivk-verbose flag on virtual-sh runtime
 # Verifies that -v / --ivk-verbose enables additional diagnostic output.
 # Uses a broken sibling module to produce discovery diagnostics that are
 # only shown in verbose mode.
@@ -30,7 +30,7 @@ cmds: [
 		description: "A test command"
 		implementations: [{
 			script: {content: "echo hello"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

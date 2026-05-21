@@ -86,7 +86,7 @@ cmds: [
 				script: {content: "echo \"Hello from %s!\""}
 				runtimes: [
 					{name: "native"},
-					{name: "virtual"},
+					{name: "virtual-sh"},
 				]
 				platforms: [
 					{name: "linux"},

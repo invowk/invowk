@@ -30,7 +30,7 @@ cmds: [
 		description: "Command requiring a single tool (sh)"
 		implementations: [{
 			script: {content: "echo 'sh is available!'"}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -47,7 +47,7 @@ cmds: [
 				echo "Container runtime check passed!"
 				echo "At least one of podman/docker/nerdctl is available."
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -65,7 +65,7 @@ cmds: [
 				echo "  - sh is available"
 				echo "  - Either cat or type is available"
 				"""}
-			runtimes: [{name: "virtual"}]
+			runtimes: [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

@@ -42,6 +42,20 @@ bencher_error_on_alert_args() {
 	local -n args_ref="$1"
 	args_ref=(--error-on-alert)
 
+	local error_on_alert="${BENCHER_ERROR_ON_ALERT:-true}"
+	case "${error_on_alert,,}" in
+	true | 1 | yes)
+		;;
+	false | 0 | no)
+		echo "::notice::Bencher alerts are advisory for this run because BENCHER_ERROR_ON_ALERT=$error_on_alert." >&2
+		args_ref=()
+		return 0
+		;;
+	*)
+		echo "::warning::Invalid BENCHER_ERROR_ON_ALERT=$error_on_alert; keeping --error-on-alert." >&2
+		;;
+	esac
+
 	if [[ -z "${BENCHER_START_POINT:-}" ]]; then
 		return 0
 	fi

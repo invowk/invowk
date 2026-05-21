@@ -17,7 +17,7 @@ import (
 
 // TestRuntimeConfigSchemaSync verifies RuntimeConfig Go struct matches CUE runtime definitions.
 //
-// Note: The CUE schema uses a union type (#RuntimeConfig = #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer)
+// Note: The CUE schema uses a union type (#RuntimeConfig = #RuntimeConfigNative | #RuntimeConfigVirtualSh | #RuntimeConfigVirtualLua | #RuntimeConfigContainer)
 // while Go uses a single RuntimeConfig struct with all fields. We need to extract the union of all fields
 // from the runtime variants, including the container source variants. This requires custom merge logic, so it
 // remains a separate test.
@@ -28,7 +28,8 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 
 	// Extract fields from each runtime type variant
 	nativeFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigNative"))
-	virtualFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtual"))
+	virtualShFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtualSh"))
+	virtualLuaFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtualLua"))
 	containerImageFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainerWithImage"))
 	containerfileFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainerWithContainerfile"))
 
@@ -36,7 +37,15 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	// We can't use maps.Copy because we need custom merge logic that OR's the optional flags
 	allCUEFields := make(map[string]bool)
 	maps.Copy(allCUEFields, nativeFields)
-	for field, optional := range virtualFields {
+	for field, optional := range virtualShFields {
+		// If already present from native, use the more lenient (optional = true) value
+		if existing, ok := allCUEFields[field]; ok {
+			allCUEFields[field] = existing || optional
+		} else {
+			allCUEFields[field] = optional
+		}
+	}
+	for field, optional := range virtualLuaFields {
 		// If already present from native, use the more lenient (optional = true) value
 		if existing, ok := allCUEFields[field]; ok {
 			allCUEFields[field] = existing || optional

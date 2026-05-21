@@ -5,7 +5,7 @@
 
 cd $WORK
 chmod 0755 claude
-env PATH=$WORK:$PATH
+env PATH=$WORK${:}$PATH
 env XDG_CONFIG_HOME=$WORK/config
 env ANTHROPIC_API_KEY=
 
@@ -22,5 +22,5 @@ stdout 'generated'
 #!/bin/sh
 cat >/dev/null
 cat <<'JSON'
-{"type":"result","result":"{\"command_cue\":\"{name:\\\"agenthello\\\",description:\\\"Print a generated greeting\\\",implementations:[{script:{content:\\\"echo generated\\\"},runtimes:[{name:\\\"virtual\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}\",\"summary\":\"generated command added\"}"}
+{"type":"result","result":"{\"command_cue\":\"{name:\\\"agenthello\\\",description:\\\"Print a generated greeting\\\",implementations:[{script:{content:\\\"echo generated\\\"},runtimes:[{name:\\\"virtual-sh\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}\",\"summary\":\"generated command added\"}"}
 JSON

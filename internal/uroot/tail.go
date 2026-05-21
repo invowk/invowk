@@ -51,7 +51,7 @@ func (c *tailCommand) Run(ctx context.Context, args []string) error {
 	// Parse numLines - handle +N syntax
 	numLines, fromStart := parseLineSpec(*numLinesStr)
 
-	return ProcessFilesOrStdin(fs.Args(), hc.Stdin, hc.Dir, c.name,
+	return ProcessFilesOrStdinWithContext(fs.Args(), hc, c.name,
 		func(r io.Reader, filename string, index, total int) error {
 			// Print header for multiple files
 			if total > 1 {

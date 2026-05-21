@@ -153,7 +153,7 @@ func TestCreateRuntimeSessionWithDiagnostics(t *testing.T) {
 		t.Fatalf("native Execute() result = %#v, want success", nativeResult)
 	}
 
-	virtualResult := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeVirtual))
+	virtualResult := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeVirtualSh))
 	if !virtualResult.Success() {
 		t.Fatalf("virtual Execute() result = %#v, want success", virtualResult)
 	}

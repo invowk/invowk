@@ -287,6 +287,26 @@ func (s *Implementation) MatchesPlatform(platform Platform) bool {
 	return false
 }
 
+// GetPlatformConfig returns the PlatformConfig for the given platform, or nil if not found.
+func (s *Implementation) GetPlatformConfig(platform Platform) *PlatformConfig {
+	for i := range s.Platforms {
+		if s.Platforms[i].Name == platform {
+			return &s.Platforms[i]
+		}
+	}
+	return nil
+}
+
+// VirtualFilesystemForPlatform returns the effective virtual filesystem config
+// for the given platform. Missing config means restricted access with no named paths.
+func (s *Implementation) VirtualFilesystemForPlatform(platform Platform) VirtualFilesystemConfig {
+	platformCfg := s.GetPlatformConfig(platform)
+	if platformCfg == nil {
+		return VirtualFilesystemConfig{}
+	}
+	return platformCfg.VirtualFilesystem()
+}
+
 // HasRuntime returns true if the implementation supports the given runtime.
 func (s *Implementation) HasRuntime(runtime RuntimeMode) bool {
 	for i := range s.Runtimes {

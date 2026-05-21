@@ -67,23 +67,6 @@ func TestSyncHelpersSmoke(t *testing.T) {
 	schematest.AssertFieldsSync(t, "Invowkfile-smoke", cueFields, goFields)
 }
 
-func TestInvowkfileSchemaOmitsLegacyFieldDeclarations(t *testing.T) {
-	t.Parallel()
-
-	schema, _ := getCUESchema(t)
-	invowkfileFields := extractDeclaredCUEFields(t, schema, "#Invowkfile")
-	for _, legacyField := range []string{"commands", "module", "version", "description", "requires"} {
-		if invowkfileFields[legacyField] {
-			t.Errorf("#Invowkfile still declares legacy field %q", legacyField)
-		}
-	}
-
-	dependsOnFields := extractDeclaredCUEFields(t, schema, "#DependsOn")
-	if dependsOnFields["commands"] {
-		t.Error("#DependsOn still declares legacy field \"commands\"")
-	}
-}
-
 // =============================================================================
 // Schema Sync Tests - Phase 3 (T007-T012)
 // =============================================================================
@@ -109,6 +92,8 @@ func TestSchemaSync(t *testing.T) {
 		{"#Argument", reflect.TypeFor[Argument]()},
 		{"#EnvConfig", reflect.TypeFor[EnvConfig]()},
 		{"#PlatformConfig", reflect.TypeFor[PlatformConfig]()},
+		{"#PlatformVirtualConfig", reflect.TypeFor[PlatformVirtualConfig]()},
+		{"#VirtualFilesystemConfig", reflect.TypeFor[VirtualFilesystemConfig]()},
 		{"#ToolDependency", reflect.TypeFor[ToolDependency]()},
 		{"#FilepathDependency", reflect.TypeFor[FilepathDependency]()},
 		{"#CapabilityDependency", reflect.TypeFor[CapabilityDependency]()},
@@ -167,26 +152,6 @@ func validateCUE(t *testing.T, cueData string) error {
 	return nil
 }
 
-func extractDeclaredCUEFields(t *testing.T, schema cue.Value, defPath string) map[string]bool {
-	t.Helper()
-
-	def := schematest.LookupDefinition(t, schema, defPath)
-	iter, err := def.Fields(cue.Definitions(false), cue.Optional(true))
-	if err != nil {
-		t.Fatalf("failed to iterate fields of %s: %v", defPath, err)
-	}
-
-	fields := make(map[string]bool)
-	for iter.Next() {
-		sel := iter.Selector()
-		if sel.LabelType().IsHidden() || sel.IsDefinition() {
-			continue
-		}
-		fields[strings.TrimSuffix(sel.String(), "?")] = true
-	}
-	return fields
-}
-
 func TestInvowkfileSchemaRejectsUnknownFieldsByClosure(t *testing.T) {
 	t.Parallel()
 
@@ -194,35 +159,6 @@ func TestInvowkfileSchemaRejectsUnknownFieldsByClosure(t *testing.T) {
 		name string
 		cue  string
 	}{
-		{
-			name: "root legacy module field",
-			cue: `
-module: "io.example.legacy"
-cmds: [{
-	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
-}]`,
-		},
-		{
-			name: "root legacy commands field",
-			cue: `
-commands: []
-cmds: [{
-	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
-}]`,
-		},
-		{
-			name: "depends_on legacy commands field",
-			cue: `
-depends_on: {
-	commands: [{alternatives: ["build"]}]
-}
-cmds: [{
-	name: "test"
-	implementations: [{script: {content: "echo test"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}]}]
-}]`,
-		},
 		{
 			name: "nested command unknown field",
 			cue: `

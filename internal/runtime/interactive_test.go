@@ -14,53 +14,72 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+type interactiveRuntimeCase struct {
+	name           string
+	runtime        func(t *testing.T) Runtime
+	requireSupport bool
+}
+
 // TestInteractiveRuntimeInterface verifies that all runtimes implement InteractiveRuntime.
 func TestInteractiveRuntimeInterface(t *testing.T) {
 	t.Parallel()
 
-	t.Run("NativeRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+	tests := []interactiveRuntimeCase{
+		{name: "NativeRuntime", runtime: newTestNativeRuntime, requireSupport: true},
+		{name: "ShRuntime", runtime: newTestShRuntime, requireSupport: true},
+		{name: "LuaRuntime", runtime: newTestLuaRuntime, requireSupport: true},
+		{name: "ContainerRuntime", runtime: newTestContainerRuntime},
+	}
 
-		var rt Runtime = NewNativeRuntime()
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("NativeRuntime does not implement InteractiveRuntime")
-		}
-		if !ir.SupportsInteractive() {
-			t.Error("NativeRuntime.SupportsInteractive() returned false, expected true")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name+" implements InteractiveRuntime", func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("VirtualRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+			assertInteractiveRuntime(t, tt)
+		})
+	}
+}
 
-		var rt Runtime = NewVirtualRuntime(false)
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("VirtualRuntime does not implement InteractiveRuntime")
-		}
-		if !ir.SupportsInteractive() {
-			t.Error("VirtualRuntime.SupportsInteractive() returned false, expected true")
-		}
-	})
+func newTestNativeRuntime(t *testing.T) Runtime {
+	t.Helper()
 
-	t.Run("ContainerRuntime implements InteractiveRuntime", func(t *testing.T) {
-		t.Parallel()
+	return NewNativeRuntime()
+}
 
-		cfg := &config.Config{ContainerEngine: "docker"}
-		crt, err := NewContainerRuntime(cfg)
-		if err != nil {
-			t.Skipf("Container runtime not available: %v", err)
-		}
+func newTestShRuntime(t *testing.T) Runtime {
+	t.Helper()
 
-		var rt Runtime = crt
-		ir, ok := rt.(InteractiveRuntime)
-		if !ok {
-			t.Error("ContainerRuntime does not implement InteractiveRuntime")
-		}
-		// SupportsInteractive depends on engine availability
-		_ = ir.SupportsInteractive()
-	})
+	return NewShRuntime(false)
+}
+
+func newTestLuaRuntime(t *testing.T) Runtime {
+	t.Helper()
+
+	return NewLuaRuntime(false)
+}
+
+func newTestContainerRuntime(t *testing.T) Runtime {
+	t.Helper()
+
+	cfg := &config.Config{ContainerEngine: "docker"}
+	crt, err := NewContainerRuntime(cfg)
+	if err != nil {
+		t.Skipf("Container runtime not available: %v", err)
+	}
+	return crt
+}
+
+func assertInteractiveRuntime(t *testing.T, tt interactiveRuntimeCase) {
+	t.Helper()
+
+	ir, ok := tt.runtime(t).(InteractiveRuntime)
+	if !ok {
+		t.Errorf("%s does not implement InteractiveRuntime", tt.name)
+		return
+	}
+	if tt.requireSupport && !ir.SupportsInteractive() {
+		t.Errorf("%s.SupportsInteractive() returned false, expected true", tt.name)
+	}
 }
 
 // TestGetInteractiveRuntime tests the helper function for getting InteractiveRuntime.
@@ -77,13 +96,23 @@ func TestGetInteractiveRuntime(t *testing.T) {
 		}
 	})
 
-	t.Run("returns InteractiveRuntime for VirtualRuntime", func(t *testing.T) {
+	t.Run("returns InteractiveRuntime for ShRuntime", func(t *testing.T) {
 		t.Parallel()
 
-		rt := NewVirtualRuntime(false)
+		rt := NewShRuntime(false)
 		ir := GetInteractiveRuntime(rt)
 		if ir == nil {
-			t.Error("GetInteractiveRuntime returned nil for VirtualRuntime")
+			t.Error("GetInteractiveRuntime returned nil for ShRuntime")
+		}
+	})
+
+	t.Run("returns InteractiveRuntime for LuaRuntime", func(t *testing.T) {
+		t.Parallel()
+
+		rt := NewLuaRuntime(false)
+		ir := GetInteractiveRuntime(rt)
+		if ir == nil {
+			t.Error("GetInteractiveRuntime returned nil for LuaRuntime")
 		}
 	})
 }
@@ -137,8 +166,8 @@ cmds: [{
 	}
 }
 
-// TestVirtualRuntimePrepareInteractive tests the VirtualRuntime.PrepareInteractive method.
-func TestVirtualRuntimePrepareInteractive(t *testing.T) {
+// TestShRuntimePrepareInteractive tests the ShRuntime.PrepareInteractive method.
+func TestShRuntimePrepareInteractive(t *testing.T) {
 	t.Parallel()
 
 	// Create a temporary invowkfile (module metadata now in invowkmod.cue, not invowkfile.cue)
@@ -150,7 +179,7 @@ cmds: [{
 	name: "hello"
 	implementations: [{
 		script: {content: "echo hello"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]
@@ -168,17 +197,17 @@ cmds: [{
 	// Create execution context
 	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
 
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	var gotSpec VirtualInteractiveCommandSpec
-	factory := func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+	var gotSpec ShInteractiveCommandSpec
+	factory := func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error) {
 		gotSpec = spec
 		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
 	}
 
 	// Create virtual runtime and prepare for interactive execution
-	rt := NewVirtualRuntime(false, WithInteractiveCommandFactory(factory))
+	rt := NewShRuntime(false, WithInteractiveCommandFactory(factory))
 	prepared, err := rt.PrepareInteractive(ctx)
 	if err != nil {
 		t.Fatalf("PrepareInteractive failed: %v", err)
@@ -205,6 +234,12 @@ cmds: [{
 	if gotSpec.WorkDir == nil {
 		t.Fatal("launcher spec missing workdir")
 	}
+	if gotSpec.ScriptBasePath == nil {
+		t.Fatal("launcher spec missing script base path")
+	}
+	if string(*gotSpec.ScriptBasePath) != tmpDir {
+		t.Fatalf("launcher spec script base path = %q, want %q", *gotSpec.ScriptBasePath, tmpDir)
+	}
 	if gotSpec.EnvJSON == "" {
 		t.Fatal("launcher spec missing env JSON")
 	}
@@ -218,30 +253,33 @@ cmds: [{
 	}
 }
 
-func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
+func TestShRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 	t.Parallel()
 
 	inv := &invowkfile.Invowkfile{
 		Commands: []invowkfile.Command{{
 			Name: "list",
 			Implementations: []invowkfile.Implementation{{
-				Script:    invowkfile.ImplementationScript{Content: "ls"},
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-				Platforms: invowkfile.AllPlatformConfigs(),
+				Script:   invowkfile.ImplementationScript{Content: "ls"},
+				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
+				Platforms: testPlatformsWithVirtualFilesystem(
+					invowkfile.VirtualFilesystemAccessFull,
+					invowkfile.VirtualFilesystemPaths{"CACHE": "@cache/reports"},
+				),
 			}},
 		}},
 	}
 	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	var gotSpec VirtualInteractiveCommandSpec
-	factory := func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+	var gotSpec ShInteractiveCommandSpec
+	factory := func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error) {
 		gotSpec = spec
 		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
 	}
 
-	rt := NewVirtualRuntime(true, WithInteractiveCommandFactory(factory))
+	rt := NewShRuntime(true, WithInteractiveCommandFactory(factory))
 	prepared, err := rt.PrepareInteractive(ctx)
 	if err != nil {
 		t.Fatalf("PrepareInteractive() error = %v", err)
@@ -250,6 +288,161 @@ func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 
 	if !gotSpec.EnableUroot {
 		t.Fatal("launcher spec EnableUroot = false, want true")
+	}
+}
+
+func TestShRuntimePrepareInteractivePassesHostBinaryPolicy(t *testing.T) {
+	t.Parallel()
+
+	inv := &invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{{
+			Name: "run-host",
+			Implementations: []invowkfile.Implementation{{
+				Script: invowkfile.ImplementationScript{Content: "tool"},
+				Runtimes: []invowkfile.RuntimeConfig{{
+					Name:             invowkfile.RuntimeVirtualSh,
+					AllowedBinaries:  []invowkfile.AllowedBinary{"tool"},
+					BinaryLookupMode: invowkfile.BinaryLookupModeStrict,
+				}},
+				Platforms: testPlatformsWithVirtualFilesystem(
+					invowkfile.VirtualFilesystemAccessFull,
+					invowkfile.VirtualFilesystemPaths{"CACHE": "@cache/reports"},
+				),
+			}},
+		}},
+	}
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+
+	var gotSpec ShInteractiveCommandSpec
+	factory := func(ctx context.Context, spec ShInteractiveCommandSpec) (*exec.Cmd, error) {
+		gotSpec = spec
+		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
+	}
+
+	rt := NewShRuntime(false, WithInteractiveCommandFactory(factory))
+	prepared, err := rt.PrepareInteractive(ctx)
+	if err != nil {
+		t.Fatalf("PrepareInteractive() error = %v", err)
+	}
+	t.Cleanup(prepared.Cleanup)
+
+	if gotSpec.BinaryLookupMode != invowkfile.BinaryLookupModeStrict {
+		t.Fatalf("launcher spec BinaryLookupMode = %q, want strict", gotSpec.BinaryLookupMode)
+	}
+	if len(gotSpec.AllowedBinaries) != 1 || gotSpec.AllowedBinaries[0] != "tool" {
+		t.Fatalf("launcher spec AllowedBinaries = %v, want [tool]", gotSpec.AllowedBinaries)
+	}
+	if gotSpec.FilesystemAccess != invowkfile.VirtualFilesystemAccessFull {
+		t.Fatalf("launcher spec FilesystemAccess = %q, want full", gotSpec.FilesystemAccess)
+	}
+	if got := gotSpec.FilesystemPaths["CACHE"]; got != "@cache/reports" {
+		t.Fatalf("launcher spec FilesystemPaths[CACHE] = %q, want @cache/reports", got)
+	}
+}
+
+func TestLuaRuntimePrepareInteractive(t *testing.T) {
+	t.Parallel()
+
+	inv, tmpDir := parseInteractiveTestInvowkfile(t, `
+cmds: [{
+	name: "hello-lua"
+	implementations: [{
+		script: {content: "print('hello')"}
+		runtimes: [{name: "virtual-lua", allowed_binaries: ["tool"], binary_lookup_mode: "strict", cpu_limit: 1000, memory_limit: "1M"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+`)
+
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualLua
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+	ctx.PositionalArgs = []string{"one"}
+
+	var gotSpec LuaInteractiveCommandSpec
+	factory := func(ctx context.Context, spec LuaInteractiveCommandSpec) (*exec.Cmd, error) {
+		gotSpec = spec
+		return exec.CommandContext(ctx, "test-invowk", "lua-launcher"), nil
+	}
+
+	rt := NewLuaRuntime(true, WithLuaInteractiveCommandFactory(factory))
+	prepared, err := rt.PrepareInteractive(ctx)
+	if err != nil {
+		t.Fatalf("PrepareInteractive() error = %v", err)
+	}
+	t.Cleanup(prepared.Cleanup)
+
+	assertPreparedLauncherCommand(t, prepared.Cmd, "lua-launcher")
+	assertLuaInteractiveCommandSpec(t, gotSpec, tmpDir)
+}
+
+func parseInteractiveTestInvowkfile(t *testing.T, content string) (inv *invowkfile.Invowkfile, tmpDir string) {
+	t.Helper()
+
+	tmpDir = t.TempDir()
+	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to create test invowkfile: %v", err)
+	}
+	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(invowkfilePath))
+	if err != nil {
+		t.Fatalf("Failed to parse invowkfile: %v", err)
+	}
+	return inv, tmpDir
+}
+
+func assertPreparedLauncherCommand(t *testing.T, cmd *exec.Cmd, launcher string) {
+	t.Helper()
+
+	if cmd == nil {
+		t.Fatal("PrepareInteractive returned nil Cmd")
+	}
+	if cmd.Args[0] != "test-invowk" || cmd.Args[1] != launcher {
+		t.Fatalf("prepared command args = %v, want injected launcher", cmd.Args)
+	}
+}
+
+func assertLuaInteractiveCommandSpec(t *testing.T, gotSpec LuaInteractiveCommandSpec, tmpDir string) {
+	t.Helper()
+
+	if gotSpec.ScriptFile == nil {
+		t.Fatal("launcher spec missing script file")
+	}
+	data, err := os.ReadFile(string(*gotSpec.ScriptFile))
+	if err != nil {
+		t.Fatalf("ReadFile(script file) error = %v", err)
+	}
+	if string(data) != "print('hello')" {
+		t.Fatalf("script file contents = %q, want Lua script", data)
+	}
+	if gotSpec.ScriptBasePath == nil || string(*gotSpec.ScriptBasePath) != tmpDir {
+		t.Fatalf("launcher spec script base path = %v, want %q", gotSpec.ScriptBasePath, tmpDir)
+	}
+	if gotSpec.EnvJSON == "" {
+		t.Fatal("launcher spec missing env JSON")
+	}
+	if !gotSpec.EnableUroot {
+		t.Fatal("launcher spec EnableUroot = false, want true")
+	}
+	if gotSpec.CPULimit != 1000 {
+		t.Fatalf("launcher spec CPULimit = %d, want 1000", gotSpec.CPULimit)
+	}
+	if gotSpec.MemoryLimit != "1M" {
+		t.Fatalf("launcher spec MemoryLimit = %q, want 1M", gotSpec.MemoryLimit)
+	}
+	if gotSpec.BinaryLookupMode != invowkfile.BinaryLookupModeStrict {
+		t.Fatalf("launcher spec BinaryLookupMode = %q, want strict", gotSpec.BinaryLookupMode)
+	}
+	if gotSpec.FilesystemAccess != invowkfile.VirtualFilesystemAccessRestricted {
+		t.Fatalf("launcher spec FilesystemAccess = %q, want restricted", gotSpec.FilesystemAccess)
+	}
+	if len(gotSpec.AllowedBinaries) != 1 || gotSpec.AllowedBinaries[0] != "tool" {
+		t.Fatalf("launcher spec AllowedBinaries = %v, want [tool]", gotSpec.AllowedBinaries)
+	}
+	if len(gotSpec.Args) != 1 || gotSpec.Args[0] != "one" {
+		t.Fatalf("launcher spec Args = %v, want [one]", gotSpec.Args)
 	}
 }
 

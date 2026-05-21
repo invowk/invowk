@@ -16,7 +16,8 @@ func TestRuntimeModeValidate(t *testing.T) {
 		wantValid bool
 	}{
 		{name: "native", value: RuntimeNative, wantValid: true},
-		{name: "virtual", value: RuntimeVirtual, wantValid: true},
+		{name: "virtual-sh", value: RuntimeVirtualSh, wantValid: true},
+		{name: "virtual-lua", value: RuntimeVirtualLua, wantValid: true},
 		{name: "container", value: RuntimeContainer, wantValid: true},
 		{name: "empty", value: "", wantValid: false},
 		{name: "unknown", value: "magical", wantValid: false},
@@ -43,7 +44,10 @@ func TestRuntimeModeValidate(t *testing.T) {
 func TestRuntimeModeString(t *testing.T) {
 	t.Parallel()
 
-	if got := RuntimeVirtual.String(); got != "virtual" {
-		t.Errorf("RuntimeVirtual.String() = %q, want virtual", got)
+	if got := RuntimeVirtualSh.String(); got != "virtual-sh" {
+		t.Errorf("RuntimeVirtualSh.String() = %q, want virtual-sh", got)
+	}
+	if got := RuntimeVirtualLua.String(); got != "virtual-lua" {
+		t.Errorf("RuntimeVirtualLua.String() = %q, want virtual-lua", got)
 	}
 }

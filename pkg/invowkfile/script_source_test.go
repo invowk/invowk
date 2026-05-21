@@ -20,18 +20,6 @@ func TestParseBytesRejectsScriptSourceMistakes(t *testing.T) {
 		want string
 	}{
 		{
-			name: "old implementation script string",
-			cue:  validCommandCUE(`script: "echo old"`),
-			want: "script",
-		},
-		{
-			name: "old custom check_script field",
-			cue: validInvowkfileWithDependsOnCUE(`
-	custom_checks: [{name: "legacy", check_script: "echo old"}]
-`),
-			want: "check_script",
-		},
-		{
 			name: "empty implementation script object",
 			cue:  validCommandCUE(`script: {}`),
 			want: "script",
@@ -84,7 +72,7 @@ func TestParseLoadedModuleInvowkfileAcceptsModuleScriptFiles(t *testing.T) {
 	name: "build"
 	implementations: [{
 		script: {file: "scripts/build"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}]
 	}]
 }]
@@ -123,7 +111,7 @@ func TestParseLoadedModuleInvowkfileRejectsOutsideModuleScriptFiles(t *testing.T
 	name: "build"
 	implementations: [{
 		script: {file: "../outside.sh"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}]
 	}]
 }]
@@ -162,7 +150,7 @@ func validCommandCUE(scriptLine string) string {
 	name: "test"
 	implementations: [{
 		` + scriptLine + `
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}]
 	}]
 }]

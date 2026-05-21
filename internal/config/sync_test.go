@@ -59,15 +59,26 @@ func TestConfigSchemaSync(t *testing.T) {
 	schematest.AssertFieldsSync(t, "Config", cueFields, goFields)
 }
 
-// TestVirtualShellConfigSchemaSync verifies VirtualShellConfig Go struct matches #VirtualShellConfig CUE definition.
-func TestVirtualShellConfigSchemaSync(t *testing.T) {
+// TestVirtualConfigSchemaSync verifies VirtualConfig Go struct matches #VirtualConfig CUE definition.
+func TestVirtualConfigSchemaSync(t *testing.T) {
 	t.Parallel()
 
 	schema, _ := getCUESchema(t)
-	cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#VirtualShellConfig"))
-	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[VirtualShellConfig]())
+	cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#VirtualConfig"))
+	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[VirtualConfig]())
 
-	schematest.AssertFieldsSync(t, "VirtualShellConfig", cueFields, goFields)
+	schematest.AssertFieldsSync(t, "VirtualConfig", cueFields, goFields)
+}
+
+// TestVirtualUtilitiesConfigSchemaSync verifies VirtualUtilitiesConfig Go struct matches #VirtualUtilitiesConfig CUE definition.
+func TestVirtualUtilitiesConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
+	schema, _ := getCUESchema(t)
+	cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#VirtualUtilitiesConfig"))
+	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[VirtualUtilitiesConfig]())
+
+	schematest.AssertFieldsSync(t, "VirtualUtilitiesConfig", cueFields, goFields)
 }
 
 // TestUIConfigSchemaSync verifies UIConfig Go struct matches #UIConfig CUE definition.
@@ -813,7 +824,9 @@ func TestBehavioralSync_ConfigRuntimeMode(t *testing.T) {
 		func(s string) error { return RuntimeMode(s).Validate() },
 		[]behavioralSyncCase{
 			{"native", true, true, ""},
-			{"virtual", true, true, ""},
+			{"virtual-sh", true, true, ""},
+			{"virtual-lua", true, true, ""},
+			{"virtual", false, false, ""},
 			{"container", true, true, ""},
 			{"invalid", false, false, ""},
 			{"NATIVE", false, false, ""},

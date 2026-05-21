@@ -18,7 +18,7 @@ You tried to use the 'container' runtime but no container engine is available.
 
 - Switch to a different runtime:
 ~~~cue
-default_runtime: "native"  // or "virtual"
+default_runtime: "native"  // or "virtual-sh", "virtual-lua"
 ~~~
 
 - Configure your preferred engine in ~/.config/invowk/config.cue:

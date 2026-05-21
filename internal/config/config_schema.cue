@@ -9,7 +9,7 @@ import "strings"
 #ContainerEngineType: "podman" | "docker"
 
 // ConfigRuntimeType defines valid default runtime types
-#ConfigRuntimeType: "native" | "virtual" | "container"
+#ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 
 // ColorSchemeType defines valid color scheme types
 #ColorSchemeType: "auto" | "dark" | "light"
@@ -35,11 +35,11 @@ import "strings"
 	includes: *([]) | [...#IncludeEntry]
 
 	// default_runtime sets the global default runtime mode
-	// Valid values: "native", "virtual", "container"
+	// Valid values: "native", "virtual-sh", "virtual-lua", "container"
 	default_runtime: *"native" | #ConfigRuntimeType
 
-	// virtual_shell configures the virtual shell behavior
-	virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
+	// virtual configures the virtual runtime family.
+	virtual: *#VirtualConfig | #VirtualConfig
 
 	// ui configures the user interface
 	ui: *#UIConfig | #UIConfig
@@ -98,10 +98,16 @@ import "strings"
 	cache_dir: *"" | (string & !="" & strings.MaxRunes(4096))
 })
 
-// VirtualShellConfig configures the virtual shell runtime
-#VirtualShellConfig: close({
-	// enable_uroot_utils enables u-root utilities in virtual shell
-	enable_uroot_utils: *true | bool
+// VirtualConfig configures the virtual runtime family.
+#VirtualConfig: close({
+	// utilities configures virtual runtime utility helpers.
+	utilities: *#VirtualUtilitiesConfig | #VirtualUtilitiesConfig
+})
+
+// VirtualUtilitiesConfig configures virtual runtime utility helpers.
+#VirtualUtilitiesConfig: close({
+	// enabled enables built-in utilities for virtual runtimes.
+	enabled: *true | bool
 })
 
 // UIConfig configures the user interface

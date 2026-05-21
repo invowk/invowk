@@ -225,14 +225,14 @@ script: {content: "...", interpreter: "node --max-old-space-size=4096"}`,
 
   'advanced/interpreter-virtual-error': {
     language: 'cue',
-    code: `// This will NOT work with the virtual runtime.
-// Runtime validation error: virtual runtime uses mvdan/sh and
+    code: `// This will NOT work with the virtual-sh runtime.
+// Runtime validation error: virtual-sh uses mvdan/sh and
 // cannot execute non-shell script interpreters.
 {
     name: "bad"
     implementations: [{
         script: {content: "print('hello')", interpreter: "python3"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }`,

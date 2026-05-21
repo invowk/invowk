@@ -22,7 +22,7 @@ cmds: [
     implementations: [
       {
         script: {content: "echo 'hello'"}
-          runtimes: [{name: "virtual"}]
+          runtimes: [{name: "virtual-sh"}]
       }
     ]
   }

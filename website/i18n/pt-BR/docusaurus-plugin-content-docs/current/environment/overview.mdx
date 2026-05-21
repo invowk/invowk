@@ -81,7 +81,7 @@ Sobrescreva em tempo de execução:
 
 ## Herança do Ambiente do Host
 
-Por padrão, os runtimes native e virtual herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução.
+Por padrão, os runtimes native, virtual-sh e virtual-lua herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução.
 
 <Snippet id="reference/invowkfile/env-inherit-example" />
 
@@ -99,7 +99,7 @@ Além disso, o invowk injeta variáveis de metadados durante a execução de com
 | Variável | Descrição | Sempre Definida |
 |----------|-----------|-----------------|
 | `INVOWK_CMD_NAME` | Nome do comando atual | Sim |
-| `INVOWK_RUNTIME` | Nome do runtime resolvido (`native`, `virtual`, `container`) | Sim |
+| `INVOWK_RUNTIME` | Nome do runtime resolvido (`native`, `virtual-sh`, `virtual-lua`, `container`) | Sim |
 | `INVOWK_SOURCE` | Origem (`invowkfile` para comandos raiz, nome do módulo para comandos de módulo) | Sim |
 | `INVOWK_PLATFORM` | Plataforma resolvida (`linux`, `macos`, `windows`) | Sim |
 

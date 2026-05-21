@@ -73,7 +73,7 @@ Validation is split between CUE and Go based on what each can handle:
 |-----------------|---------------|---------|
 | Type checking | Native | `name: string` |
 | Field format (regex) | `=~` | `name: =~"^[a-zA-Z][a-zA-Z0-9_-]*$"` |
-| Enum values | Disjunction | `"native" \| "virtual" \| "container"` |
+| Enum values | Disjunction | `"native" \| "virtual-sh" \| "virtual-lua" \| "container"` |
 | Length limits | `strings.MaxRunes()` | `& strings.MaxRunes(256)` |
 | Range constraints | Expressions | `>=0 & <=65535` |
 | Required fields | No `?` suffix | `name: string` (required) |

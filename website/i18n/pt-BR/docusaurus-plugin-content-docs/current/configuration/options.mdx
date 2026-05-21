@@ -58,7 +58,7 @@ Quando múltiplos includes definem comandos com o mesmo nome, eles se tornam amb
 
 ### default_runtime
 
-**Tipo:** `"native" | "virtual" | "container"`
+**Tipo:** `"native" | "virtual-sh" | "virtual-lua" | "container"`
 **Padrão:** `"native"`
 
 Define o modo de runtime padrão global para comandos que não especificam um runtime.
@@ -67,37 +67,38 @@ Define o modo de runtime padrão global para comandos que não especificam um ru
 
 **Opções de Runtime:**
 - `"native"` - Executar usando o shell nativo do sistema (bash, zsh, PowerShell, etc.)
-- `"virtual"` - Executar usando o interpretador de shell embutido do Invowk (mvdan/sh)
+- `"virtual-sh"` - Executar usando o interpretador de shell embutido do Invowk (mvdan/sh)
+- `"virtual-lua"` - Executar usando o interpretador Lua embutido do Invowk
 - `"container"` - Executar dentro de um container (requer Docker ou Podman)
 
 :::note
 Comandos podem sobrescrever este padrão especificando seu próprio runtime no campo `implementations`.
 :::
 
-### virtual_shell
+### virtual
 
-**Tipo:** `#VirtualShellConfig`
-**Padrão:** `{enable_uroot_utils: true}`
+**Tipo:** `#VirtualConfig`
+**Padrão:** `{utilities: {enabled: true}}`
 
-Configura o comportamento do virtual shell runtime.
+Configura o comportamento da família de runtimes virtuais.
 
 <Snippet id="config/virtual-shell" />
 
-#### virtual_shell.enable_uroot_utils
+#### virtual.utilities.enabled
 
 **Tipo:** `bool`
 **Padrão:** `true`
 
-Habilita utilitários [u-root](https://github.com/u-root/u-root) no virtual shell. Quando habilitado, 28 comandos adicionais compatíveis com POSIX ficam disponíveis:
+Habilita utilitários [u-root](https://github.com/u-root/u-root) no `virtual-sh` e helpers de comando no `virtual-lua`. Quando habilitado, 28 comandos adicionais compatíveis com POSIX ficam disponíveis para o `virtual-sh`:
 
 **Wrappers upstream (12):** `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
 
 **Implementações customizadas (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
-Isso torna o virtual shell autocontido, permitindo que scripts executem operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host.
+Isso torna o `virtual-sh` autocontido para operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host. No `virtual-lua`, a mesma opção controla se esses utilitários ficam disponíveis por `invowk.cmd` e `invowk.capture`; binários do host ainda exigem `allowed_binaries`.
 
 :::tip
-Os utilitários u-root são habilitados por padrão. Defina como `false` apenas se você precisar forçar scripts a usar binários do sistema ou reduzir o tamanho do binário.
+Os utilitários u-root são habilitados por padrão. Defina como `false` apenas se você quiser que scripts virtuais usem binários do host explicitamente permitidos ou reduzir o tamanho do binário.
 :::
 
 ### ui

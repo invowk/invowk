@@ -32,7 +32,7 @@ cmds: [
 		description: "Command from main invowkfile"
 		implementations: [{
 			script: {content: "echo 'from invowkfile'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -55,7 +55,7 @@ cmds: [
 		description: "Command from local module"
 		implementations: [{
 			script: {content: "echo 'from local module'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -74,7 +74,7 @@ modules: {
 		namespace:        "dep@1.0.0"
 		command_source_id: "dep"
 		module_id:        "dep"
-		content_hash:     "sha256:1d89b3aec5600e02a521ea9c9d1857d64b3a357c22d56ca8b51439abdfe46d9c"
+		content_hash:     "sha256:26b8d4a69b584ffc941b688f4bc7cb41bf7f4d8b37009c904145fa1c85212f99"
 	}
 }
 
@@ -89,7 +89,7 @@ cmds: [
 		description: "Command from vendored module"
 		implementations: [{
 			script: {content: "echo 'from vendored module'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

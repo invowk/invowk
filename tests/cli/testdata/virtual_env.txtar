@@ -61,7 +61,7 @@ cmds: [
 				echo "invowkfile location."
 				echo "=========================================="
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -93,7 +93,7 @@ cmds: [
 				echo "Inline vars always take priority over files."
 				echo "=========================================="
 				"""}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

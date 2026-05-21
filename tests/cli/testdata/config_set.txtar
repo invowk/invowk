@@ -17,9 +17,9 @@ stdout 'Set container_engine = docker'
 exec invowk config show
 stdout 'docker'
 
-# Test 4: Set default_runtime to virtual
-exec invowk config set default_runtime virtual
-stdout 'Set default_runtime = virtual'
+# Test 4: Set default_runtime to virtual-sh
+exec invowk config set default_runtime virtual-sh
+stdout 'Set default_runtime = virtual-sh'
 ! stderr .
 
 # Test 5: Set ui.verbose to true
@@ -32,9 +32,9 @@ exec invowk config set ui.color_scheme dark
 stdout 'Set ui.color_scheme = dark'
 ! stderr .
 
-# Test 7: Set virtual_shell.enable_uroot_utils to false
-exec invowk config set virtual_shell.enable_uroot_utils false
-stdout 'Set virtual_shell.enable_uroot_utils = false'
+# Test 7: Set virtual.utilities.enabled to false
+exec invowk config set virtual.utilities.enabled false
+stdout 'Set virtual.utilities.enabled = false'
 ! stderr .
 
 # Test 8: Invalid key returns error
@@ -65,7 +65,7 @@ stderr 'Accepts 2 arg'
 # Test 13: Verify all persisted values via config dump
 exec invowk config dump
 stdout 'container_engine: "docker"'
-stdout 'default_runtime: "virtual"'
+stdout 'default_runtime: "virtual-sh"'
 stdout 'verbose: true'
 stdout 'color_scheme: "dark"'
-stdout 'enable_uroot_utils: false'
+stdout 'enabled: false'

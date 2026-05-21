@@ -24,7 +24,7 @@ cmds: [
 		description: "Command requiring a nonexistent tool"
 		implementations: [{
 			script: {content: "echo 'should not run'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -38,7 +38,7 @@ cmds: [
 		description: "Command with mix of existing and missing tool deps"
 		implementations: [{
 			script: {content: "echo 'should not run'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

@@ -367,7 +367,7 @@ func commandsvcTestCommandInfo(t testing.TB, name string) *discovery.CommandInfo
 	t.Helper()
 	cmd := invowkfiletest.NewTestCommand(name,
 		invowkfiletest.WithScript("echo hello"),
-		invowkfiletest.WithRuntime(invowkfile.RuntimeVirtual),
+		invowkfiletest.WithRuntime(invowkfile.RuntimeVirtualSh),
 		invowkfiletest.WithAllPlatforms(),
 	)
 	inv := &invowkfile.Invowkfile{FilePath: types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))}

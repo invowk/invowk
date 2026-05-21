@@ -32,14 +32,14 @@ func (e *recordingInteractiveExecutor) Execute(execCtx *runtime.ExecutionContext
 	return &runtime.Result{ExitCode: 0}
 }
 
-func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
+func TestRuntimeRegistryFactoryInjectsShInteractiveLauncher(t *testing.T) {
 	t.Parallel()
 
 	factory, err := NewRuntimeRegistryFactory()
 	if err != nil {
 		t.Fatalf("NewRuntimeRegistryFactory() error = %v", err)
 	}
-	session := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeVirtual)
+	session := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeVirtualSh)
 	t.Cleanup(session.Close)
 
 	inv := &invowkfile.Invowkfile{
@@ -47,13 +47,13 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 			Name: "hello",
 			Implementations: []invowkfile.Implementation{{
 				Script:    invowkfile.ImplementationScript{Content: "echo hello"},
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				Platforms: invowkfile.AllPlatformConfigs(),
 			}},
 		}},
 	}
 	ctx := runtime.NewExecutionContext(t.Context(), &inv.Commands[0], inv)
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtualSh
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
 	rt, err := session.RuntimeForContext(ctx)
@@ -71,8 +71,8 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 		t.Fatalf("interactive Execute() result = %#v, want success", result)
 	}
 
-	if !slices.Contains(executor.args, "internal") || !slices.Contains(executor.args, "exec-virtual") {
-		t.Fatalf("prepared args = %v, want hidden virtual exec command", executor.args)
+	if !slices.Contains(executor.args, "internal") || !slices.Contains(executor.args, "exec-virtual-sh") {
+		t.Fatalf("prepared args = %v, want hidden virtual-sh exec command", executor.args)
 	}
 }
 
@@ -104,7 +104,7 @@ func TestRuntimeRegistryFactorySkipsContainerRuntimeForNonContainerExecution(t *
 		t.Fatalf("native Execute() result = %#v, want success", nativeResult)
 	}
 
-	virtualResult := session.Execute(runtimeContext(t, invowkfile.RuntimeVirtual))
+	virtualResult := session.Execute(runtimeContext(t, invowkfile.RuntimeVirtualSh))
 	if !virtualResult.Success() {
 		t.Fatalf("virtual Execute() result = %#v, want success", virtualResult)
 	}

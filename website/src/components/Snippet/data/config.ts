@@ -65,7 +65,7 @@ invowk -c /path/to/config.cue cmd build`,
 invowk config set container_engine podman
 
 # Set the default runtime
-invowk config set default_runtime virtual
+invowk config set default_runtime virtual-sh
 
 # Set the color scheme
 invowk config set ui.color_scheme dark`,
@@ -100,8 +100,10 @@ includes: [
 default_runtime: "native"
 
 // Virtual shell configuration
-virtual_shell: {
-    enable_uroot_utils: true
+virtual: {
+    utilities: {
+        enabled: true
+    }
 }
 
 // UI preferences
@@ -136,7 +138,7 @@ container: {
   'config/schema': {
     language: 'cue',
     code: `#ContainerEngineType: "podman" | "docker"
-#ConfigRuntimeType: "native" | "virtual" | "container"
+#ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
@@ -144,7 +146,7 @@ container: {
     container_engine: *"podman" | #ContainerEngineType
     includes: *([]) | [...#IncludeEntry]
     default_runtime: *"native" | #ConfigRuntimeType
-    virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
+    virtual: *#VirtualConfig | #VirtualConfig
     ui: *#UIConfig | #UIConfig
     container: *#ContainerConfig | #ContainerConfig
     llm: *#LLMDefaultsConfig | #LLMConfig
@@ -155,8 +157,12 @@ container: {
     alias?: string  // Optional, for collision disambiguation
 })
 
-#VirtualShellConfig: close({
-    enable_uroot_utils: *true | bool
+#VirtualConfig: close({
+    utilities: *#VirtualUtilitiesConfig | #VirtualUtilitiesConfig
+})
+
+#VirtualUtilitiesConfig: close({
+    enabled: *true | bool
 })
 
 #UIConfig: close({
@@ -214,8 +220,10 @@ container: {
 
   'config/virtual-shell': {
     language: 'cue',
-    code: `virtual_shell: {
-    enable_uroot_utils: true
+    code: `virtual: {
+    utilities: {
+        enabled: true
+    }
 }`,
   },
 
@@ -337,16 +345,18 @@ includes: [
 // Default Runtime
 // ---------------
 // The runtime to use when a command doesn't specify one
-// Options: "native", "virtual", "container"
+// Options: "native", "virtual-sh", "virtual-lua", "container"
 default_runtime: "native"
 
-// Virtual Shell Configuration
+// Virtual Runtime Configuration
 // ---------------------------
-// Settings for the virtual shell runtime (mvdan/sh)
-virtual_shell: {
-    // Enable u-root utilities for more shell commands
-    // Provides ls, cat, grep, etc. in the virtual environment
-    enable_uroot_utils: true
+// Settings for the virtual runtime family
+virtual: {
+    utilities: {
+        // Enable built-in utilities for virtual runtimes
+        // Provides ls, cat, grep, etc. in virtual-sh and command helpers in virtual-lua
+        enabled: true
+    }
 }
 
 // UI Configuration
@@ -458,7 +468,7 @@ invowk -c /path/to/config.cue cmd build`,
 invowk config set container_engine podman
 
 # Set the default runtime
-invowk config set default_runtime virtual
+invowk config set default_runtime virtual-sh
 
 # Set the color scheme
 invowk config set ui.color_scheme dark`,
@@ -493,8 +503,10 @@ includes: [
 default_runtime: "native"
 
 // Virtual shell configuration
-virtual_shell: {
-    enable_uroot_utils: true
+virtual: {
+    utilities: {
+        enabled: true
+    }
 }
 
 // UI preferences
@@ -547,7 +559,7 @@ invowk cmd build --ivk-runtime container`,
     language: 'cue',
     code: `// Root configuration structure
 #ContainerEngineType: "podman" | "docker"
-#ConfigRuntimeType: "native" | "virtual" | "container"
+#ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
@@ -555,7 +567,7 @@ invowk cmd build --ivk-runtime container`,
     container_engine: *"podman" | #ContainerEngineType
     includes:         *([]) | [...#IncludeEntry]
     default_runtime:  *"native" | #ConfigRuntimeType
-    virtual_shell:    *#VirtualShellConfig | #VirtualShellConfig
+    virtual: *#VirtualConfig | #VirtualConfig
     ui:               *#UIConfig | #UIConfig
     container:        *#ContainerConfig | #ContainerConfig
     llm:              *#LLMDefaultsConfig | #LLMConfig
@@ -568,8 +580,12 @@ invowk cmd build --ivk-runtime container`,
 })
 
 // Virtual shell configuration
-#VirtualShellConfig: close({
-    enable_uroot_utils: *true | bool
+#VirtualConfig: close({
+    utilities: *#VirtualUtilitiesConfig | #VirtualUtilitiesConfig
+})
+
+#VirtualUtilitiesConfig: close({
+    enabled: *true | bool
 })
 
 // UI configuration
@@ -628,7 +644,7 @@ invowk cmd build --ivk-runtime container`,
   'reference/config/schema': {
     language: 'cue',
     code: `#ContainerEngineType: "podman" | "docker"
-#ConfigRuntimeType: "native" | "virtual" | "container"
+#ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
@@ -636,7 +652,7 @@ invowk cmd build --ivk-runtime container`,
     container_engine: *"podman" | #ContainerEngineType
     includes: *([]) | [...#IncludeEntry]
     default_runtime: *"native" | #ConfigRuntimeType
-    virtual_shell: *#VirtualShellConfig | #VirtualShellConfig
+    virtual: *#VirtualConfig | #VirtualConfig
     ui: *#UIConfig | #UIConfig
     container: *#ContainerConfig | #ContainerConfig
     llm: *#LLMDefaultsConfig | #LLMConfig
@@ -647,8 +663,12 @@ invowk cmd build --ivk-runtime container`,
     alias?: string  // Optional, for collision disambiguation
 })
 
-#VirtualShellConfig: close({
-    enable_uroot_utils: *true | bool
+#VirtualConfig: close({
+    utilities: *#VirtualUtilitiesConfig | #VirtualUtilitiesConfig
+})
+
+#VirtualUtilitiesConfig: close({
+    enabled: *true | bool
 })
 
 #UIConfig: close({
@@ -705,7 +725,7 @@ invowk cmd build --ivk-runtime container`,
     container_engine: *"podman" | #ContainerEngineType
     includes:         *([]) | [...#IncludeEntry]
     default_runtime:  *"native" | #ConfigRuntimeType
-    virtual_shell:    *#VirtualShellConfig | #VirtualShellConfig
+    virtual: *#VirtualConfig | #VirtualConfig
     ui:               *#UIConfig | #UIConfig
     container:        *#ContainerConfig | #ContainerConfig
     llm:              *#LLMDefaultsConfig | #LLMConfig
@@ -733,8 +753,10 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/virtual-shell': {
     language: 'cue',
-    code: `virtual_shell: {
-    enable_uroot_utils: true
+    code: `virtual: {
+    utilities: {
+        enabled: true
+    }
 }`,
   },
 
@@ -763,15 +785,21 @@ invowk cmd build --ivk-runtime container`,
 
   'reference/config/virtual-shell-config-structure': {
     language: 'cue',
-    code: `#VirtualShellConfig: close({
-    enable_uroot_utils: *true | bool
+    code: `#VirtualConfig: close({
+    utilities: *#VirtualUtilitiesConfig | #VirtualUtilitiesConfig
+})
+
+#VirtualUtilitiesConfig: close({
+    enabled: *true | bool
 })`,
   },
 
   'reference/config/enable-uroot-utils': {
     language: 'cue',
-    code: `virtual_shell: {
-    enable_uroot_utils: true
+    code: `virtual: {
+    utilities: {
+        enabled: true
+    }
 }`,
   },
 
@@ -925,16 +953,18 @@ includes: [
 // Default Runtime
 // ---------------
 // The runtime to use when a command doesn't specify one
-// Options: "native", "virtual", "container"
+// Options: "native", "virtual-sh", "virtual-lua", "container"
 default_runtime: "native"
 
-// Virtual Shell Configuration
+// Virtual Runtime Configuration
 // ---------------------------
-// Settings for the virtual shell runtime (mvdan/sh)
-virtual_shell: {
-    // Enable u-root utilities for more shell commands
-    // Provides ls, cat, grep, etc. in the virtual environment
-    enable_uroot_utils: true
+// Settings for the virtual runtime family
+virtual: {
+    utilities: {
+        // Enable built-in utilities for virtual runtimes
+        // Provides ls, cat, grep, etc. in virtual-sh and command helpers in virtual-lua
+        enabled: true
+    }
 }
 
 // UI Configuration

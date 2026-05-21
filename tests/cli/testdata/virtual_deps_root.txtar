@@ -26,7 +26,7 @@ cmds: [
 		name: "hello"
 		implementations: [{
 			script: {content: "echo 'hello from root deps test'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -42,7 +42,7 @@ cmds: [
 		name: "hello"
 		implementations: [{
 			script: {content: "echo 'should not run'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

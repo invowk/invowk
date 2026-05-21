@@ -24,7 +24,9 @@ func TestGenerateCUE_DefaultConfig(t *testing.T) {
 		"container_engine:",
 		"default_runtime:",
 		"includes:",
-		"virtual_shell:",
+		"virtual:",
+		"utilities:",
+		"enabled: true",
 		"ui:",
 		"llm:",
 		"container:",
@@ -96,8 +98,8 @@ func TestGenerateCUE_Roundtrip(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
 		ContainerEngine: ContainerEngineDocker,
-		DefaultRuntime:  "virtual",
-		VirtualShell:    VirtualShellConfig{EnableUrootUtils: false},
+		DefaultRuntime:  RuntimeVirtualSh,
+		Virtual:         VirtualConfig{Utilities: VirtualUtilitiesConfig{Enabled: false}},
 		UI:              UIConfig{ColorScheme: "dark", Verbose: true, Interactive: true},
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
@@ -137,8 +139,8 @@ func TestGenerateCUE_Roundtrip(t *testing.T) {
 	if loaded.UI.Verbose != cfg.UI.Verbose {
 		t.Errorf("roundtrip UI.Verbose = %v, want %v", loaded.UI.Verbose, cfg.UI.Verbose)
 	}
-	if loaded.VirtualShell.EnableUrootUtils != cfg.VirtualShell.EnableUrootUtils {
-		t.Errorf("roundtrip EnableUrootUtils = %v, want %v", loaded.VirtualShell.EnableUrootUtils, cfg.VirtualShell.EnableUrootUtils)
+	if loaded.Virtual.Utilities.Enabled != cfg.Virtual.Utilities.Enabled {
+		t.Errorf("roundtrip Virtual.Utilities.Enabled = %v, want %v", loaded.Virtual.Utilities.Enabled, cfg.Virtual.Utilities.Enabled)
 	}
 	if loaded.UI.Interactive != cfg.UI.Interactive {
 		t.Errorf("roundtrip UI.Interactive = %v, want %v", loaded.UI.Interactive, cfg.UI.Interactive)

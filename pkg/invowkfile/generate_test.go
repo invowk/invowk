@@ -18,7 +18,7 @@ func TestGenerateCUE_Category(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script:    ImplementationScript{Content: "echo building"},
-						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
 						Platforms: AllPlatformConfigs(),
 					},
 				},
@@ -43,7 +43,7 @@ func TestGenerateCUE_WatchConfig(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script:    ImplementationScript{Content: "echo running"},
-						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
 						Platforms: AllPlatformConfigs(),
 					},
 				},
@@ -84,7 +84,7 @@ func TestGenerateCUE_Timeout(t *testing.T) {
 					{
 						Script:    ImplementationScript{Content: "sleep 10"},
 						Timeout:   "30s",
-						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
 						Platforms: AllPlatformConfigs(),
 					},
 				},
@@ -109,7 +109,7 @@ func TestGenerateCUE_WatchConfigMinimal(t *testing.T) {
 				Implementations: []Implementation{
 					{
 						Script:    ImplementationScript{Content: "echo running"},
-						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+						Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
 						Platforms: AllPlatformConfigs(),
 					},
 				},
@@ -142,7 +142,7 @@ func TestGenerateCUE_FlagEnhancedFieldsRoundTrip(t *testing.T) {
 			Name: "deploy",
 			Implementations: []Implementation{{
 				Script:    ImplementationScript{Content: "echo deploy"},
-				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
 				Platforms: AllPlatformConfigs(),
 			}},
 			Flags: []Flag{{
@@ -207,7 +207,7 @@ func TestGenerateCUE_RuntimeBaseFieldsRoundTrip(t *testing.T) {
 					EnvInheritAllow: []EnvVarName{"PATH", "TERM"},
 					EnvInheritDeny:  []EnvVarName{"SECRET_TOKEN"},
 				}, {
-					Name: RuntimeVirtual,
+					Name: RuntimeVirtualSh,
 				}},
 				Platforms: AllPlatformConfigs(),
 			}},

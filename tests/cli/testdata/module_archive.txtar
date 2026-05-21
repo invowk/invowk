@@ -32,7 +32,7 @@ cmds: [
 		description: "A no-op command"
 		implementations: [{
 			script: {content: "echo noop"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},

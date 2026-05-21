@@ -19,7 +19,7 @@ const testCommandObject = `{
 	description: "Print a generated greeting"
 	implementations: [{
 		script: {content: "echo generated"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }`
@@ -114,7 +114,7 @@ cmds: [{
 	description: "Existing command"
 	implementations: [{
 		script: {content: "echo existing"}
-		runtimes: [{name: "virtual"}]
+		runtimes: [{name: "virtual-sh"}]
 		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 	}]
 }]

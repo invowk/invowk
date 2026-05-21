@@ -10,17 +10,32 @@ import (
 	"cuelang.org/go/cue/parser"
 )
 
-const runtimePreflightValidatorName ValidatorName = "runtime-preflight"
+const (
+	runtimePreflightValidatorName ValidatorName = "runtime-preflight"
+	luaRuntimeOnlyMsg             string        = " is only valid for virtual-lua runtime"
+)
 
-var nonContainerRuntimeFields = map[string]struct{}{
-	"containerfile":   {},
-	"depends_on":      {},
-	"enable_host_ssh": {},
-	"image":           {},
-	"persistent":      {},
-	"ports":           {},
-	"volumes":         {},
-}
+var (
+	nonContainerRuntimeFields = map[string]struct{}{
+		"containerfile":   {},
+		"depends_on":      {},
+		"enable_host_ssh": {},
+		"image":           {},
+		"persistent":      {},
+		"ports":           {},
+		"volumes":         {},
+	}
+
+	nonVirtualRuntimeFields = map[string]struct{}{
+		"allowed_binaries":   {},
+		"binary_lookup_mode": {},
+	}
+
+	nonLuaRuntimeFields = map[string]struct{}{
+		"cpu_limit":    {},
+		"memory_limit": {},
+	}
+)
 
 //goplint:ignore -- CUE parser boundary consumes raw bytes and filename display text.
 func runtimeSchemaPreflightValidationErrors(data []byte, path string) ValidationErrors {
@@ -53,9 +68,11 @@ func validateRuntimePreflight(runtime *ast.StructLit, path string) ValidationErr
 	}
 	switch name {
 	case string(RuntimeNative):
-		return validateNonContainerRuntimePreflight(runtime, path, RuntimeNative)
-	case string(RuntimeVirtual):
-		return validateNonContainerRuntimePreflight(runtime, path, RuntimeVirtual)
+		return validateNativeRuntimePreflight(runtime, path)
+	case string(RuntimeVirtualSh):
+		return validateVirtualRuntimePreflight(runtime, path, RuntimeVirtualSh)
+	case string(RuntimeVirtualLua):
+		return validateVirtualRuntimePreflight(runtime, path, RuntimeVirtualLua)
 	case string(RuntimeContainer):
 		return validateContainerRuntimePreflight(runtime, path)
 	default:
@@ -78,22 +95,77 @@ func validateNonContainerRuntimePreflight(runtime *ast.StructLit, path string, _
 }
 
 //goplint:ignore -- AST preflight helper builds display-only validation paths from parsed CUE syntax.
+func validateNativeRuntimePreflight(runtime *ast.StructLit, path string) ValidationErrors {
+	errs := validateNonContainerRuntimePreflight(runtime, path, RuntimeNative)
+	for field := range nonVirtualRuntimeFields {
+		if hasField(runtime, field) {
+			errs = append(errs, runtimePreflightError(
+				path+"."+field,
+				field+" is only valid for virtual runtimes",
+			))
+		}
+	}
+	for field := range nonLuaRuntimeFields {
+		if hasField(runtime, field) {
+			errs = append(errs, runtimePreflightError(
+				path+"."+field,
+				field+" is only valid for virtual-lua runtime",
+			))
+		}
+	}
+	return errs
+}
+
+//goplint:ignore -- AST preflight helper builds display-only validation paths from parsed CUE syntax.
+func validateVirtualRuntimePreflight(runtime *ast.StructLit, path string, mode RuntimeMode) ValidationErrors {
+	errs := validateNonContainerRuntimePreflight(runtime, path, mode)
+	if mode != RuntimeVirtualLua {
+		for field := range nonLuaRuntimeFields {
+			if hasField(runtime, field) {
+				errs = append(errs, runtimePreflightError(
+					path+"."+field,
+					field+luaRuntimeOnlyMsg,
+				))
+			}
+		}
+	}
+	return errs
+}
+
+//goplint:ignore -- AST preflight helper builds display-only validation paths from parsed CUE syntax.
 func validateContainerRuntimePreflight(runtime *ast.StructLit, path string) ValidationErrors {
+	var errs ValidationErrors
+	for field := range nonVirtualRuntimeFields {
+		if hasField(runtime, field) {
+			errs = append(errs, runtimePreflightError(
+				path+"."+field,
+				field+" is only valid for virtual runtimes",
+			))
+		}
+	}
+	for field := range nonLuaRuntimeFields {
+		if hasField(runtime, field) {
+			errs = append(errs, runtimePreflightError(
+				path+"."+field,
+				field+luaRuntimeOnlyMsg,
+			))
+		}
+	}
 	hasImage := hasField(runtime, "image")
 	hasContainerfile := hasField(runtime, "containerfile")
 	switch {
 	case hasImage && hasContainerfile:
-		return ValidationErrors{runtimePreflightError(
+		return append(errs, runtimePreflightError(
 			path+".image",
 			"image and containerfile are mutually exclusive; choose exactly one container source",
-		)}
+		))
 	case !hasImage && !hasContainerfile:
-		return ValidationErrors{runtimePreflightError(
+		return append(errs, runtimePreflightError(
 			path,
 			"container runtime requires either image or containerfile",
-		)}
+		))
 	default:
-		return nil
+		return errs
 	}
 }
 

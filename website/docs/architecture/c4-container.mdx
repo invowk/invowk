@@ -47,7 +47,8 @@ In C4 terminology, "container" refers to a separately runnable/deployable unit (
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **Native Runtime** | Go | Executes commands via host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. |
-| **Virtual Runtime** | Go/mvdan-sh | Embedded POSIX shell interpreter. Includes u-root builtins for portability. No host shell dependency. |
+| **Virtual-Sh Runtime** | Go/mvdan-sh | Embedded POSIX shell interpreter. Includes u-root builtins for portability. No host shell dependency. |
+| **Virtual-Lua Runtime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. |
 | **Container Runtime** | Go | Executes commands inside Docker/Podman containers. Provides isolation and reproducibility. |
 
 ### Container Infrastructure
@@ -115,7 +116,7 @@ In C4 terminology, "container" refers to a separately runnable/deployable unit (
 ### Why Separate Servers?
 
 - **SSH Server**: Enables commands inside containers to call back to the host (e.g., for secrets management)
-- **TUI Server**: Allows any subprocess (native, virtual, container) to request interactive UI components
+- **TUI Server**: Allows any subprocess (native, virtual-sh, virtual-lua, container) to request interactive UI components
 - **Server Lifecycle Base**: Keeps SSH and TUI server start/stop/failure transitions consistent
 - **TUI Wire Protocol**: Keeps delegated TUI requests and responses stable across runtimes
 

@@ -26,6 +26,7 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 - For base-repo PRs, use branch `pr-<number>`, hash the PR head SHA, and pass the base branch and base SHA as the start point.
 - For PR branches, keep `--start-point-clone-thresholds` and `--start-point-reset` so PR history is anchored to the base branch.
 - For fork PRs, use the trusted upload workflow: checkout trusted packaging separately from untrusted source, build the image with trusted workflow/scripts, then ask Bencher to run the source image.
+- PR benchmark alerts fail by default through `--error-on-alert`. If a maintainer has deliberately accepted an expected feature cost, add the `benchmarks: accepted-regression` PR label; workflows set `BENCHER_ERROR_ON_ALERT=false` for that PR only, so alerts remain visible in Bencher while the check becomes advisory. Do not use this label for benchmark script bugs, missing thresholds, or unexplained regressions.
 
 ## Threshold Model
 
@@ -99,6 +100,8 @@ rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHE
 - A Bencher JWT or registry failure often looks like broken benchmark code. Check `BENCHER_API_TOKEN`, the registry login script, and direct API access before rewriting benchmark logic.
 - Context7 may resolve `Bencher` to unrelated benchmark projects. When that happens, use official Bencher docs plus direct API, CLI output, and report JSON as the source of truth.
 - Do not treat `SHORT_BENCH_REGEX` as internal cleanup. It controls what becomes long-lived public benchmark history.
+- After renaming a Go benchmark function, update both `TRACKED_GO_BENCHMARKS` and `benchmarkNameMap`. Keep the public benchmark slug stable when the workload is the same behavior under a renamed implementation, so Bencher history and thresholds continue across code renames.
+- Large feature branches can trigger broad, legitimate alerts across latency, memory, allocations, and `binary/bin-invowk` file size. First verify the BMF script still emits the intended tracked suite and every measure has thresholds. If the regression is an intentional tradeoff, use the explicit `benchmarks: accepted-regression` label instead of weakening thresholds or deleting `--error-on-alert` globally.
 
 ## Verification
 

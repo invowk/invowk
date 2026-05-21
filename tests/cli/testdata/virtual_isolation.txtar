@@ -3,7 +3,7 @@
 
 cd $WORK
 
-# Test 1: isolation virtual - demonstrates env var isolation in virtual runtime
+# Test 1: isolation virtual - demonstrates env var isolation in virtual-sh runtime
 exec invowk cmd 'isolation demo'
 stdout '=== Runtime Isolation Demo ==='
 stdout 'Parent values:'
@@ -30,10 +30,10 @@ cmds: [
 				echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 				echo "inherited environment before each command execution."
 				echo ""
-				echo "This ensures consistent behavior across native, virtual, and"
+				echo "This ensures consistent behavior across native, virtual-sh, and"
 				echo "container runtimes."
 				"""#}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		args: [

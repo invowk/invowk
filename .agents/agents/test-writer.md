@@ -11,7 +11,7 @@ You are a testscript test generator for the Invowk project. Your role is to crea
 
 ## Testscript Test Generation
 
-### Virtual Runtime Tests (`virtual_*.txtar`)
+### Virtual-Sh Runtime Tests (`virtual_*.txtar`)
 
 Every virtual test must follow this structure:
 
@@ -31,7 +31,7 @@ cmds: [{
     description: "[Description]"
     implementations: [{
         script: {content: "[shell script]"}
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]
@@ -40,7 +40,7 @@ cmds: [{
 Key rules:
 - Always use `cd $WORK` (not `cd $PROJECT_ROOT`) for tests with embedded files
 - Always declare all three platforms: `linux`, `macos`, `windows`
-- Use the `virtual` runtime for cross-platform portability
+- Use the `virtual-sh` runtime for cross-platform shell portability
 - Include `! stderr .` to verify no error output (unless testing error cases)
 
 ### Native Runtime Mirrors (`native_*.txtar`)
@@ -117,7 +117,7 @@ import "github.com/invowk/invowk/internal/testutil/invowkfiletest"
 
 cmd := invowkfiletest.NewTestCommand("hello",
     invowkfiletest.WithScript("echo hello"),
-    invowkfiletest.WithRuntime("virtual"),
+    invowkfiletest.WithRuntime("virtual-sh"),
     invowkfiletest.WithFlag("verbose", invowkfiletest.FlagDefault("false")),
     invowkfiletest.WithArg("name", invowkfiletest.ArgRequired()),
 )

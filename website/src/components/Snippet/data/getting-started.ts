@@ -40,7 +40,7 @@ cmds: [                  // Required: list of commands
         implementations: [
             {
                 script: {content: "go test -v ./..."}
-                runtimes: [{name: "native"}, {name: "virtual"}]
+                runtimes: [{name: "native"}, {name: "virtual-sh"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             }
         ]
@@ -80,7 +80,7 @@ cmds: [                  // Required: list of commands
 
   'getting-started/runtimes-multiple': {
     language: 'cue',
-    code: `runtimes: [{name: "native"}, {name: "virtual"}]`,
+    code: `runtimes: [{name: "native"}, {name: "virtual-sh"}]`,
   },
 
   'getting-started/platforms-linux-macos': {
@@ -305,7 +305,7 @@ cmds: [
             },
             {
                 script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
-                runtimes: [{name: "virtual"}]
+                runtimes: [{name: "virtual-sh"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             },
             {
@@ -327,7 +327,7 @@ cmds: [
   (* = default runtime)
 
 From invowkfile:
-  hello - Print a greeting [native*, virtual, container] (linux, macos, windows)`,
+  hello - Print a greeting [native*, virtual-sh, container] (linux, macos, windows)`,
   },
 
   'quickstart/run-hello': {
@@ -346,7 +346,7 @@ From invowkfile:
 invowk cmd hello Alice
 
 # Use a different runtime
-invowk cmd hello --ivk-runtime virtual`,
+invowk cmd hello --ivk-runtime virtual-sh`,
   },
 
   'quickstart/run-info': {
@@ -356,11 +356,11 @@ invowk cmd hello --ivk-runtime virtual`,
 
   'quickstart/virtual-runtime': {
     language: 'cue',
-    code: `// The virtual runtime uses the built-in mvdan/sh interpreter
+    code: `// The virtual-sh runtime uses the built-in mvdan/sh interpreter
 // It works identically on Linux, macOS, and Windows
 {
     script: {content: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
-    runtimes: [{name: "virtual"}]
+    runtimes: [{name: "virtual-sh"}]
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,
   },

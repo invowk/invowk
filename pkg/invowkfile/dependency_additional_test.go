@@ -293,7 +293,6 @@ func TestCommandDependencyRef_Parse(t *testing.T) {
 		{name: "missing command", ref: "@tools", wantErr: true},
 		{name: "invalid source", ref: "@9tools lint", wantErr: true},
 		{name: "invalid command", ref: "@tools 9lint", wantErr: true},
-		{name: "old dotted prefix syntax", ref: "com.company.tools lint", wantErr: true},
 	}
 
 	for _, tt := range tests {

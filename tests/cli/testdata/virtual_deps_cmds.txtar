@@ -19,7 +19,7 @@ cmds: [
 		name: "build"
 		implementations: [{
 			script: {content: "echo 'build done'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -27,7 +27,7 @@ cmds: [
 		name: "test"
 		implementations: [{
 			script: {content: "echo 'test done'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -36,7 +36,7 @@ cmds: [
 		description: "Command that depends on 'build' existing"
 		implementations: [{
 			script: {content: "echo 'deploy successful'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -50,7 +50,7 @@ cmds: [
 		description: "Command that depends on any of 'ci' or 'test'"
 		implementations: [{
 			script: {content: "echo 'release successful'"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {

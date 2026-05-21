@@ -497,9 +497,11 @@ func GenerateCUE(cfg *Config) string {
 	}
 	sb.WriteString("]\n")
 
-	// Virtual shell config
-	sb.WriteString("\nvirtual_shell: {\n")
-	fmt.Fprintf(&sb, "\tenable_uroot_utils: %v\n", cfg.VirtualShell.EnableUrootUtils)
+	// Virtual runtime family config
+	sb.WriteString("\nvirtual: {\n")
+	sb.WriteString("\tutilities: {\n")
+	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Virtual.Utilities.Enabled)
+	sb.WriteString("\t}\n")
 	sb.WriteString("}\n")
 
 	// UI config

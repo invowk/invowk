@@ -8,13 +8,24 @@
 import "strings"
 
 // RuntimeType defines the available execution runtime types
-#RuntimeType: "native" | "virtual" | "container"
+#RuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
+
+// BinaryLookupMode defines how virtual runtimes resolve allowed host binaries.
+#BinaryLookupMode: "host" | "strict"
 
 // PlatformType defines the supported operating system types
 #PlatformType: "linux" | "macos" | "windows"
 
 // EnvInheritMode defines how environment variables are inherited
 #EnvInheritMode: "none" | "allow" | "all"
+
+// VirtualFilesystemAccess controls VM-managed filesystem access for virtual runtimes.
+#VirtualFilesystemAccess: *"restricted" | "full"
+
+// VirtualFilesystemPathName defines a logical path name exposed as INVOWK_PATH_<NAME>.
+#VirtualFilesystemPathName: string & =~"^[A-Z_][A-Z0-9_]*$" & strings.MaxRunes(256)
+
+#VirtualFilesystemPath: #NonWhitespaceString & strings.MaxRunes(4096)
 
 // FlagType defines the valid types for command flags
 #FlagType: "string" | "bool" | "int" | "float"
@@ -48,7 +59,7 @@ import "strings"
 })
 
 // RuntimeConfig represents a runtime configuration with type-specific options
-#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer
+#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtualSh | #RuntimeConfigVirtualLua | #RuntimeConfigContainer
 
 #RuntimeConfigBase: {
 	// name specifies the runtime type (required)
@@ -71,9 +82,32 @@ import "strings"
 	name: "native"
 })
 
-#RuntimeConfigVirtual: close({
+#RuntimeConfigVirtualBase: {
 	#RuntimeConfigBase
-	name: "virtual"
+
+	// allowed_binaries lists host binaries this virtual runtime may execute.
+	// "*" allows any resolved host binary.
+	allowed_binaries?: [...#NonWhitespaceString & strings.MaxRunes(4096)]
+
+	// binary_lookup_mode controls how allowed host binaries are resolved.
+	// "host" uses the command environment PATH; "strict" uses Invowk's fixed safe directories.
+	binary_lookup_mode?: #BinaryLookupMode
+}
+
+#RuntimeConfigVirtualSh: close({
+	#RuntimeConfigVirtualBase
+	name: "virtual-sh"
+})
+
+#RuntimeConfigVirtualLua: close({
+	#RuntimeConfigVirtualBase
+	name: "virtual-lua"
+
+	// cpu_limit sets an optional golua CPU quota. Zero or omission means unlimited.
+	cpu_limit?: int & >=0
+
+	// memory_limit sets an optional golua memory quota.
+	memory_limit?: string & =~"^[0-9]+([KkMmGg][Bb]?)?$" & strings.MaxRunes(32)
 })
 
 #RuntimeConfigContainer: #RuntimeConfigContainerWithImage | #RuntimeConfigContainerWithContainerfile
@@ -140,10 +174,28 @@ import "strings"
 	image?: _|_
 })
 
-// PlatformConfig represents a platform configuration
+// VirtualFilesystemConfig configures virtual-runtime filesystem access for a platform.
+#VirtualFilesystemConfig: close({
+	// access controls whether VM-managed filesystem operations are limited to
+	// implicit safe roots plus named paths, or may access the full host filesystem.
+	access?: #VirtualFilesystemAccess
+
+	// paths maps logical uppercase path names to platform-local path handles.
+	paths?: [#VirtualFilesystemPathName]: #VirtualFilesystemPath
+})
+
+// PlatformVirtualConfig holds platform-specific settings for the virtual runtime family.
+#PlatformVirtualConfig: close({
+	filesystem?: #VirtualFilesystemConfig
+})
+
+// PlatformConfig represents a platform configuration.
 #PlatformConfig: close({
 	// name specifies the platform type (required)
 	name: #PlatformType
+
+	// virtual contains platform-specific settings for virtual-* runtimes.
+	virtual?: #PlatformVirtualConfig
 })
 
 // InterpreterSpec specifies how to execute a script source (optional).
@@ -218,7 +270,7 @@ import "strings"
 
 	// workdir specifies this implementation's working directory (optional).
 	// Effective precedence is CLI override > implementation > command > root > default.
-	// Applies across native, virtual, and container execution. Relative paths resolve
+	// Applies across native, virtual-sh, and container execution. Relative paths resolve
 	// from the invowkfile directory or module root; Go/runtime code owns final resolution
 	// and execution-time directory validation.
 	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)

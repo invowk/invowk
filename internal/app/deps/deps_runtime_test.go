@@ -22,7 +22,7 @@ func TestValidateRuntimeDependenciesNonContainerNoop(t *testing.T) {
 		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
 		runtimeDependencyCommandInfo(cmd),
 		nil,
-		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual),
+		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh),
 		nil,
 	)
 	if err != nil {

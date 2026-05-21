@@ -251,7 +251,7 @@ func promoteContextError(ctx *ExecutionContext, result *Result) {
 
 ### Why only native runtime
 
-The virtual runtime (mvdan/sh) does not spawn OS processes, so
+The virtual-sh runtime (mvdan/sh) does not spawn OS processes, so
 `TerminateProcess` is not involved. The container runtime handles process
 lifecycle through the container engine, which has its own timeout/kill
 semantics.

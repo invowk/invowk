@@ -105,25 +105,7 @@ stderr 'CUE schema validation failed'
 stdout 'Invowkfile Validation'
 stderr 'CUE schema validation failed'
 
-# Test 15: Runtime-level interpreter fields are invalid for native runtime
-! exec invowk validate ./runtime_interpreter_native/invowkfile.cue
-stdout 'Invowkfile Validation'
-stderr 'CUE schema validation failed'
-stderr 'interpreter'
-
-# Test 16: Runtime-level interpreter fields are invalid for virtual runtime
-! exec invowk validate ./runtime_interpreter_virtual/invowkfile.cue
-stdout 'Invowkfile Validation'
-stderr 'CUE schema validation failed'
-stderr 'interpreter'
-
-# Test 17: Runtime-level interpreter fields are invalid for container runtime
-! exec invowk validate ./runtime_interpreter_container/invowkfile.cue
-stdout 'Invowkfile Validation'
-stderr 'CUE schema validation failed'
-stderr 'interpreter'
-
-# Test 18: Interpreter/shebang mismatch is advisory and keeps validation successful
+# Test 15: Interpreter/shebang mismatch is advisory and keeps validation successful
 exec invowk validate ./interpreterwarning.invowkmod
 stdout 'Module Validation'
 stdout 'Module is valid'
@@ -139,7 +121,7 @@ cmds: [
 		description: "A simple command"
 		implementations: [{
 			script: {content: "echo hello"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -155,7 +137,7 @@ cmds: [
 		description: "Build the project"
 		implementations: [{
 			script: {content: "echo building"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -183,7 +165,7 @@ cmds: [
 		}]
 		implementations: [{
 			script: {content: "echo deploying"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -192,7 +174,7 @@ cmds: [
 		description: "Deploy to staging"
 		implementations: [{
 			script: {content: "echo deploying to staging"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -205,7 +187,7 @@ cmds: [
 		description: "Say hello"
 		implementations: [{
 			script: {content: "echo hi"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -218,7 +200,7 @@ cmds: [
 		description: "Run tests"
 		implementations: [{
 			script: {content: "echo testing"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -238,7 +220,7 @@ cmds: [
 		description: "A simple command"
 		implementations: [{
 			script: {content: "echo hello"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 	},
@@ -255,7 +237,7 @@ cmds: [
 		name: "broken-deps"
 		implementations: [{
 			script: {content: "echo test"}
-			runtimes:  [{name: "virtual"}]
+			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		depends_on: {
@@ -310,54 +292,8 @@ cmds: [
 		implementations: [{
 			script: {content: "echo persistent"}
 			runtimes: [{
-				name: "virtual"
+				name: "virtual-sh"
 				persistent: {create_if_missing: true}
-			}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-		}]
-	},
-]
-
--- runtime_interpreter_native/invowkfile.cue --
-cmds: [
-	{
-		name: "runtime interpreter native"
-		implementations: [{
-			script: {content: "print('hello')"}
-			runtimes: [{
-				name:        "native"
-				interpreter: "python3"
-			}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-		}]
-	},
-]
-
--- runtime_interpreter_virtual/invowkfile.cue --
-cmds: [
-	{
-		name: "runtime interpreter virtual"
-		implementations: [{
-			script: {content: "print('hello')"}
-			runtimes: [{
-				name:        "virtual"
-				interpreter: "python3"
-			}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-		}]
-	},
-]
-
--- runtime_interpreter_container/invowkfile.cue --
-cmds: [
-	{
-		name: "runtime interpreter container"
-		implementations: [{
-			script: {content: "print('hello')"}
-			runtimes: [{
-				name:        "container"
-				image:       "python:3-slim"
-				interpreter: "python3"
 			}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

@@ -113,7 +113,7 @@ name: string & =~"^[a-zA-Z][a-zA-Z0-9_-]*$" & strings.MaxRunes(256)
 
 ### Enum with Default
 ```cue
-runtime_type: *"virtual" | "native" | "container"
+runtime_type: *"virtual-sh" | "native" | "container"
 ```
 
 ### Non-Empty List

@@ -1,6 +1,6 @@
-# Virtual Runtime Execution Sequence Diagram
+# Virtual-Sh Runtime Execution Sequence Diagram
 #
-# Shows the execution flow for the virtual (mvdan/sh) runtime:
+# Shows the execution flow for the virtual-sh (mvdan/sh) runtime:
 # - Script parsing to AST
 # - Interpretation with builtin handling
 # - TUI requests via nested invowk commands
@@ -18,18 +18,18 @@ vars: {
 }
 
 title: |md
-  ## Virtual Runtime Execution Sequence
+  ## Virtual-Sh Runtime Execution Sequence
 |
 
 shape: sequence_diagram
 
 # Participants
 CLI
-VirtualRT: Virtual Runtime
+VirtualRT: Virtual-Sh Runtime
 Parser: mvdan/sh Parser
 Interp: mvdan/sh Interpreter
 Builtins: u-root Builtins
-HostExec: Host PATH / Native Process
+HostExec: Allowed Host Binary / Native Process
 TUI: TUI Server
 
 # Entry

@@ -42,7 +42,7 @@ type (
 		Name string
 		// Args are positional arguments to pass to the command script ($1, $2, etc.).
 		Args []string
-		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtual).
+		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtualSh).
 		// Zero value ("") means no override.
 		Runtime invowkfile.RuntimeMode
 		// Platform is the resolved execution platform. Zero value means use the
@@ -152,6 +152,18 @@ type (
 		Script invowkfile.ImplementationScript
 		// ScriptInterpreter describes effective interpreter selection for the script.
 		ScriptInterpreter invowkfile.ScriptInterpreterAnalysis
+		// AllowedBinaries lists host binaries the selected virtual runtime may execute.
+		AllowedBinaries []invowkfile.AllowedBinary
+		// BinaryLookupMode controls allowed host binary resolution.
+		BinaryLookupMode invowkfile.BinaryLookupMode
+		// VirtualFilesystemAccess is the selected platform's virtual filesystem mode.
+		VirtualFilesystemAccess invowkfile.VirtualFilesystemAccess
+		// VirtualFilesystemPaths lists logical path handles exposed to virtual runtimes.
+		VirtualFilesystemPaths invowkfile.VirtualFilesystemPaths
+		// LuaCPULimit is the selected virtual-lua CPU quota, if any.
+		LuaCPULimit invowkfile.LuaCPULimit
+		// LuaMemoryLimit is the selected virtual-lua memory quota, if any.
+		LuaMemoryLimit invowkfile.MemoryLimit
 		// Env contains projected execution environment variables.
 		Env map[string]string //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
 		// DependencyValidationSkipped is true because dry-run mode does not

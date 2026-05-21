@@ -32,6 +32,65 @@ func testCommandWithScriptFile(name, path string, rt invowkfile.RuntimeMode) *in
 	)
 }
 
+func testPlatformsWithVirtualFilesystem(
+	access invowkfile.VirtualFilesystemAccess,
+	paths invowkfile.VirtualFilesystemPaths,
+) []invowkfile.PlatformConfig {
+	platforms := invowkfile.AllPlatformConfigs()
+	for i := range platforms {
+		filesystem := &invowkfile.VirtualFilesystemConfig{
+			Access: access,
+			Paths:  paths,
+		}
+		platforms[i].Virtual = &invowkfile.PlatformVirtualConfig{Filesystem: filesystem}
+	}
+	return platforms
+}
+
+func mustVirtualTestResolver(t testing.TB, ctx *ExecutionContext) virtualPathResolver {
+	t.Helper()
+
+	resolver, err := newVirtualPathResolver(ctx)
+	if err != nil {
+		t.Fatalf("new virtual path resolver: %v", err)
+	}
+	return resolver
+}
+
+func mustResolveVirtualBridgeTestPath(
+	t testing.TB,
+	resolver virtualPathResolver,
+	cwd string,
+	path string,
+) string {
+	t.Helper()
+
+	resolved, err := resolver.resolveBridgePath(path, cwd)
+	if err != nil {
+		t.Fatalf("resolve virtual bridge test path %q: %v", path, err)
+	}
+	return resolved
+}
+
+func mustInteractiveVirtualTestResolver(
+	t testing.TB,
+	workDir string,
+	scriptBasePath string,
+	paths invowkfile.VirtualFilesystemPaths,
+) virtualPathResolver {
+	t.Helper()
+
+	resolver, err := newVirtualPathResolverForInteractiveConfig(
+		workDir,
+		scriptBasePath,
+		invowkfile.VirtualFilesystemConfig{Paths: paths},
+	)
+	if err != nil {
+		t.Fatalf("new interactive virtual path resolver: %v", err)
+	}
+	return resolver
+}
+
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.
 // This helper is shared across test files in the runtime package.
 // Delegates to invowkfiletest.NewTestCommand for consistent test command construction.
@@ -74,8 +133,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	t.Run("virtual runtime", func(t *testing.T) {
 		t.Parallel()
 
-		cmdVirtual := testCommandWithScriptFile("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
-		rt := NewVirtualRuntime(false)
+		cmdVirtual := testCommandWithScriptFile("missing", "./nonexistent.sh", invowkfile.RuntimeVirtualSh)
+		rt := NewShRuntime(false)
 		ctx := NewExecutionContext(t.Context(), cmdVirtual, inv)
 
 		ctx.IO.Stdout = &bytes.Buffer{}
@@ -105,7 +164,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 			{
 				Script: invowkfile.ImplementationScript{Content: `echo "Impl: $IMPL_VAR, Command: $CMD_VAR"`},
 
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"IMPL_VAR": "impl_value"}},
 			},
@@ -117,7 +176,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 		},
 	}
 
-	rt := NewVirtualRuntime(false)
+	rt := NewShRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer

@@ -1,6 +1,6 @@
 ---
 name: shell
-description: Shell runtime rules for mvdan/sh virtual shell in internal/runtime/virtual.go. Covers positional arguments gotcha (prepend "--"), bash strict mode (set -euo pipefail), arithmetic increment pitfalls.
+description: Shell runtime rules for mvdan/sh virtual-sh runtime in internal/runtime/sh.go. Covers positional arguments gotcha (prepend "--"), bash strict mode (set -euo pipefail), arithmetic increment pitfalls.
 disable-model-invocation: false
 ---
 
@@ -10,15 +10,15 @@ This skill covers how Invowk handles shell interpreters and script execution int
 **NOT general bash scripting guidance.**
 
 Use this skill when working on:
-- `internal/runtime/virtual.go` - Virtual shell runtime
-- `cmd/invowk/internal_exec_virtual.go` - Virtual execution command
+- `internal/runtime/sh.go` - virtual-sh runtime
+- `cmd/invowk/internal_exec_sh.go` - virtual-sh execution command
 - Shell script execution logic
 
 ---
 
 ## Virtual Shell (mvdan/sh)
 
-The virtual runtime uses [mvdan/sh](https://github.com/mvdan/sh), a pure Go POSIX shell interpreter. This provides cross-platform bash-like script execution without requiring an external shell binary.
+The virtual-sh runtime uses [mvdan/sh](https://github.com/mvdan/sh), a pure Go POSIX shell interpreter. This provides cross-platform bash-like script execution without requiring an external shell binary.
 
 ### Positional Arguments Gotcha
 
@@ -67,13 +67,13 @@ set -- -v --env=staging  # Sets $1="-v", $2="--env=staging"
 
 When working with mvdan/sh in this codebase, ensure `"--"` is prepended in:
 
-1. `internal/runtime/virtual.go` - `Execute()` method
-2. `internal/runtime/virtual.go` - `ExecuteCapture()` method
-3. `cmd/invowk/internal_exec_virtual.go` - `runInternalExecVirtual()` function
+1. `internal/runtime/sh.go` - `Execute()` method
+2. `internal/runtime/sh.go` - `ExecuteCapture()` method
+3. `cmd/invowk/internal_exec_sh.go` - `runInternalExecSh()` function
 
 ### Testing
 
-This issue manifests on Windows CI because the virtual runtime is the only bash-compatible option there. When adding new mvdan/sh integration points:
+This issue manifests on Windows CI because virtual-sh is the bash-compatible embedded shell option there. When adding new mvdan/sh integration points:
 
 1. Test with arguments starting with `-` (e.g., `-v`, `--flag=value`)
 2. Run `make test-cli` to verify flag handling works
