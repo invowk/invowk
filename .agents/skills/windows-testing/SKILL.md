@@ -173,6 +173,9 @@ constructing paths.
   hit the extensionless fixture before the batch file. Invoke the platform
   executable explicitly (for example `tool.bat` on Windows) or split the test by
   platform.
+- If a batch fixture uses `<nul set /p=...` to print without a trailing newline,
+  add `exit /b 0`; `set /p` can leave `%ERRORLEVEL%` nonzero even when the
+  output is correct.
 - Keep `tests/cli.TestTestscriptPATHUsesPortableSeparator` in place so future
   txtar fixtures cannot reintroduce this failure mode silently.
 
