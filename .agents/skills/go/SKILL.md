@@ -90,6 +90,9 @@ var ErrNotFound = errors.New(notFoundErrMsg)
   context-aware engine/server calls.
 - For long-running subprocesses, set `cmd.WaitDelay` when cancellation or
   pipe-draining can otherwise hang.
+- When capturing subprocess stdout/stderr that may be inspected before
+  `Run`/`Wait` has completed, do not expose a raw `bytes.Buffer`; use a
+  synchronized writer/snapshot type or wait for the process first.
 - `context.Background()` is only for true roots, nil fallback documented on an
   options struct, bounded availability probes, `TestMain`, or independent
   shutdown after caller cancellation.

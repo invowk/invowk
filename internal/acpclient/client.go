@@ -33,6 +33,11 @@ type (
 		wait            <-chan error
 		shutdownTimeout time.Duration
 	}
+
+	stderrCapture struct {
+		mu     sync.Mutex
+		buffer bytes.Buffer
+	}
 )
 
 // RunPrompt launches the configured ACP process, drives one bounded prompt turn,
@@ -118,12 +123,12 @@ func (n clientName) String() string { return string(n) }
 
 func (v clientVersion) String() string { return string(v) }
 
-func startAgent(ctx context.Context, opts Options) (*agentProcess, io.Reader, *bytes.Buffer, error) {
+func startAgent(ctx context.Context, opts Options) (*agentProcess, io.Reader, *stderrCapture, error) {
 	processCtx, cancelProcess := context.WithCancel(context.WithoutCancel(ctx))
 	cmd := exec.CommandContext(processCtx, opts.Command.Name.String(), opts.Command.ArgsAsStrings()...)
 	cmd.Dir = opts.WorkDir.String()
 	cmd.WaitDelay = opts.ShutdownDuration()
-	stderr := &bytes.Buffer{}
+	stderr := &stderrCapture{}
 	if opts.Stderr != nil {
 		cmd.Stderr = io.MultiWriter(stderr, opts.Stderr)
 	} else {
@@ -156,6 +161,20 @@ func startAgent(ctx context.Context, opts Options) (*agentProcess, io.Reader, *b
 		wait:            wait,
 		shutdownTimeout: opts.ShutdownDuration(),
 	}, stdout, stderr, nil
+}
+
+func (s *stderrCapture) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.buffer.Write(p)
+}
+
+func (s *stderrCapture) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.buffer.String()
 }
 
 func sendCancel(conn *acp.ClientSideConnection, sessionID acp.SessionId) error {
