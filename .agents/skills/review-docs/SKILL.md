@@ -227,7 +227,7 @@ Spawn one subagent per surface. Each subagent receives:
 2. Its assigned surface checklist section from `references/surface-checklists.md`
 3. The structured output format from `references/structured-output-format.md`
 
-**Codex CLI only**: Codex CLI currently supports at most 6 live subagents. When running
+**Codex CLI only**: Codex CLI currently supports at most 24 live subagents. When running
 under Codex CLI, spawn subagents in deterministic order (SA-1, SA-2, ...) up to the
 available live-subagent limit, then keep the remaining assigned surfaces pending. As each
 subagent completes and a slot becomes available, launch the next pending surface with the

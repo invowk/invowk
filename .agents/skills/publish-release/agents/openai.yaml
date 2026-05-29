@@ -1,0 +1,4 @@
+interface:
+  display_name: "Publish Release"
+  short_description: "Ship Invowk releases across channels"
+  default_prompt: "Use $publish-release to prepare and publish the next Invowk release."
