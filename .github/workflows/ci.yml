@@ -231,6 +231,11 @@ jobs:
         shell: bash
         run: sh scripts/test_install.sh
 
+      - name: Run release helper script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: bash scripts/test_release.sh
+
       - name: Setup Node.js
         if: startsWith(matrix.runner, 'ubuntu')
         uses: actions/setup-node@v6

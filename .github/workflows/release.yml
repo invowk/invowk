@@ -15,6 +15,10 @@ on:
         required: false
         type: boolean
         default: false
+      release_notes:
+        description: 'Release notes markdown for manual dispatch'
+        required: true
+        type: string
 
 concurrency:
   group: release-${{ github.ref_name || github.event.inputs.version }}
@@ -45,6 +49,16 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Validated version: $VERSION"
+
+      - name: Validate release notes input
+        env:
+          RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
+        run: |
+          if [[ -z "${RELEASE_NOTES//[[:space:]]/}" ]]; then
+            echo "::error::Release notes markdown is required for manual release dispatch"
+            exit 1
+          fi
+          echo "Release notes input provided"
 
       - name: Validate branch
         env:
@@ -240,6 +254,11 @@ jobs:
         shell: bash
         run: sh scripts/test_install.sh
 
+      - name: Run release helper script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: bash scripts/test_release.sh
+
       - name: Run Bencher BMF script tests
         if: startsWith(matrix.runner, 'ubuntu')
         shell: bash
@@ -338,15 +357,35 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Write manual release notes
+        id: manual-release-notes
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          notes_file="$RUNNER_TEMP/manual-release-notes.md"
+          printf '%s\n' "$RELEASE_NOTES" > "$notes_file"
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+
       # Create and push tag for workflow_dispatch
       - name: Create tag
         if: github.event_name == 'workflow_dispatch'
         env:
           VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_NOTES_FILE: ${{ steps.manual-release-notes.outputs.path }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          git tag "$VERSION"
-          git push origin "$VERSION"
-          echo "Created and pushed tag: $VERSION"
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a --cleanup=verbatim "$VERSION" -F "$RELEASE_NOTES_FILE"
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Created local dry-run tag with release notes: $VERSION"
+          else
+            git push origin "$VERSION"
+            echo "Created and pushed tag with release notes: $VERSION"
+          fi
 
       # Determine the effective tag for GoReleaser
       - name: Determine tag
@@ -361,6 +400,18 @@ jobs:
           else
             echo "name=$TAG_REF" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Extract release notes
+        id: release-notes
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          source scripts/release-notes.sh
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          extract_release_notes_from_tag "$TAG_NAME" "$notes_file"
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+          echo "Extracted release notes from tag: $TAG_NAME"
 
       - name: Determine release benchmark metadata
         id: bench-meta
@@ -532,7 +583,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2.15"
-          args: release --clean
+          args: release --clean --release-notes=${{ steps.release-notes.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
@@ -561,7 +612,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2.15"
-          args: release --clean --snapshot
+          args: release --clean --snapshot --release-notes=${{ steps.release-notes.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}

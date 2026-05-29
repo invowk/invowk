@@ -4,8 +4,8 @@
 # Release helper script for invowk.
 #
 # Usage:
-#   ./scripts/release.sh tag <version> [yes] [dry_run]
-#   ./scripts/release.sh bump <type> [prerelease] [promote] [yes] [dry_run]
+#   ./scripts/release.sh tag <version> <release_notes_file> [yes] [dry_run]
+#   ./scripts/release.sh bump <type> <release_notes_file> [prerelease] [promote] [yes] [dry_run]
 #
 # Modes:
 #   tag   - Create and push a signed tag for the given version.
@@ -14,6 +14,7 @@
 # Parameters:
 #   version    - Semver version string (e.g., v1.0.0, v0.1.0-alpha.1)
 #   type       - Bump type: major, minor, or patch
+#   release_notes_file - Markdown file used as the GitHub Release body
 #   prerelease - Pre-release label: alpha, beta, or rc (optional)
 #   promote    - Set to "1" to allow promoting a prerelease stream to stable
 #   yes        - Set to "1" to skip confirmation prompt
@@ -25,6 +26,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
+
+# shellcheck source=release-notes.sh
+source "$SCRIPT_DIR/release-notes.sh"
 
 # ---------------------------------------------------------------------------
 # Color output (only when stdout is a terminal)
@@ -193,6 +197,16 @@ compute_next_version() {
 # ---------------------------------------------------------------------------
 check_prerequisites() {
     local version="$1"
+    local dry_run="${2:-}"
+
+    # Dry runs must validate release inputs and version math without requiring
+    # a clean main-branch checkout or remote connectivity.
+    if [ "$dry_run" = "1" ]; then
+        if git rev-parse "refs/tags/${version}" >/dev/null 2>&1; then
+            die "Tag '${version}' already exists."
+        fi
+        return 0
+    fi
 
     # Must be on main branch
     local current_branch
@@ -222,8 +236,9 @@ check_prerequisites() {
 # ---------------------------------------------------------------------------
 create_and_push_tag() {
     local version="$1"
-    local skip_confirm="${2:-}"
-    local dry_run="${3:-}"
+    local release_notes_file="$2"
+    local skip_confirm="${3:-}"
+    local dry_run="${4:-}"
 
     local head_sha
     head_sha="$(git rev-parse --short HEAD)"
@@ -234,10 +249,11 @@ create_and_push_tag() {
     echo -e "  Commit:  ${head_sha} ($(git log -1 --format='%s' HEAD))"
     echo -e "  Branch:  main"
     echo -e "  Remote:  origin"
+    echo -e "  Notes:   ${release_notes_file}"
     echo ""
 
     if [ "$dry_run" = "1" ]; then
-        ok "[DRY RUN] Would create signed tag '${version}' and push to origin."
+        ok "[DRY RUN] Would create signed tag '${version}' with release notes from '${release_notes_file}' and push to origin."
         return 0
     fi
 
@@ -253,7 +269,7 @@ create_and_push_tag() {
 
     # Create signed tag
     info "Creating signed tag ${version}..."
-    git tag -s "$version" -m "Release ${version}"
+    git tag -s --cleanup=verbatim "$version" -F "$release_notes_file"
 
     # Push tag to origin
     info "Pushing tag to origin..."
@@ -275,23 +291,26 @@ main() {
     case "$mode" in
         tag)
             local version="${2:-}"
-            local yes="${3:-}"
-            local dry_run="${4:-}"
+            local release_notes_file="${3:-}"
+            local yes="${4:-}"
+            local dry_run="${5:-}"
 
-            [ -z "$version" ] && die "VERSION is required. Usage: ./scripts/release.sh tag <version>"
+            [ -z "$version" ] && die "VERSION is required. Usage: ./scripts/release.sh tag <version> <release_notes_file>"
             validate_semver "$version"
-            check_prerequisites "$version"
-            create_and_push_tag "$version" "$yes" "$dry_run"
+            validate_release_notes_file "$release_notes_file"
+            check_prerequisites "$version" "$dry_run"
+            create_and_push_tag "$version" "$release_notes_file" "$yes" "$dry_run"
             ;;
 
         bump)
             local bump_type="${2:-}"
-            local prerelease="${3:-}"
-            local promote="${4:-}"
-            local yes="${5:-}"
-            local dry_run="${6:-}"
+            local release_notes_file="${3:-}"
+            local prerelease="${4:-}"
+            local promote="${5:-}"
+            local yes="${6:-}"
+            local dry_run="${7:-}"
 
-            [ -z "$bump_type" ] && die "TYPE is required. Usage: ./scripts/release.sh bump <type> [prerelease]"
+            [ -z "$bump_type" ] && die "TYPE is required. Usage: ./scripts/release.sh bump <type> <release_notes_file> [prerelease]"
 
             # Validate bump type
             case "$bump_type" in
@@ -307,14 +326,16 @@ main() {
                 esac
             fi
 
+            validate_release_notes_file "$release_notes_file"
+
             # Compute next version
             compute_next_version "$bump_type" "$prerelease" "$promote"
 
             # Check prerequisites with computed version
-            check_prerequisites "$NEXT_VERSION"
+            check_prerequisites "$NEXT_VERSION" "$dry_run"
 
             # Create and push
-            create_and_push_tag "$NEXT_VERSION" "$yes" "$dry_run"
+            create_and_push_tag "$NEXT_VERSION" "$release_notes_file" "$yes" "$dry_run"
             ;;
 
         *)

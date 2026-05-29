@@ -377,7 +377,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -403,6 +403,9 @@ check-agent-docs:
 test-scripts:
 	@echo "Running shell script tests..."
 	sh scripts/test_install.sh
+	@echo ""
+	@echo "Running release helper script tests..."
+	bash scripts/test_release.sh
 	@echo ""
 	@echo "Running Bencher BMF script tests..."
 	node scripts/test_bench_bmf.mjs
@@ -505,22 +508,28 @@ endif
 	@./scripts/version-docs.sh "$(VERSION)"
 
 # Release: create and push a signed version tag
-# Usage: make release VERSION=v0.1.0-alpha.1 [YES=1] [DRY_RUN=1]
+# Usage: make release VERSION=v0.1.0-alpha.1 RELEASE_NOTES_FILE=release-notes.md [YES=1] [DRY_RUN=1]
 .PHONY: release
 release:
 ifeq ($(filter command line,$(origin VERSION)),)
-	$(error VERSION is required. Usage: make release VERSION=v0.1.0-alpha.1)
+	$(error VERSION is required. Usage: make release VERSION=v0.1.0-alpha.1 RELEASE_NOTES_FILE=release-notes.md)
 endif
-	@./scripts/release.sh tag "$(VERSION)" "$(YES)" "$(DRY_RUN)"
+ifndef RELEASE_NOTES_FILE
+	$(error RELEASE_NOTES_FILE is required. Usage: make release VERSION=v0.1.0-alpha.1 RELEASE_NOTES_FILE=release-notes.md)
+endif
+	@./scripts/release.sh tag "$(VERSION)" "$(RELEASE_NOTES_FILE)" "$(YES)" "$(DRY_RUN)"
 
 # Release bump: compute next version and create signed tag
-# Usage: make release-bump TYPE=minor [PRERELEASE=alpha] [PROMOTE=1] [YES=1] [DRY_RUN=1]
+# Usage: make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md [PRERELEASE=alpha] [PROMOTE=1] [YES=1] [DRY_RUN=1]
 .PHONY: release-bump
 release-bump:
 ifndef TYPE
-	$(error TYPE is required (major, minor, or patch). Usage: make release-bump TYPE=minor)
+	$(error TYPE is required (major, minor, or patch). Usage: make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md)
 endif
-	@./scripts/release.sh bump "$(TYPE)" "$(PRERELEASE)" "$(PROMOTE)" "$(YES)" "$(DRY_RUN)"
+ifndef RELEASE_NOTES_FILE
+	$(error RELEASE_NOTES_FILE is required. Usage: make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md)
+endif
+	@./scripts/release.sh bump "$(TYPE)" "$(RELEASE_NOTES_FILE)" "$(PRERELEASE)" "$(PROMOTE)" "$(YES)" "$(DRY_RUN)"
 
 # Help
 .PHONY: help
@@ -581,6 +590,7 @@ help:
 	@echo "                 v3 = Haswell+ (2013+): AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT, MOVBE"
 	@echo "                 v4 = Skylake-X+ (2017+): AVX512F, AVX512BW, AVX512CD, AVX512DQ, AVX512VL"
 	@echo "  TYPE           Bump type for release-bump: major, minor, or patch"
+	@echo "  RELEASE_NOTES_FILE  Required markdown file for release/release-bump"
 	@echo "  PRERELEASE     Pre-release label: alpha, beta, or rc (optional)"
 	@echo "  PROMOTE        Set to 1 to allow promoting a prerelease stream to stable"
 	@echo "  STARTUP_SAMPLES Number of startup samples for bench-bmf targets (default: 40)"
@@ -599,8 +609,8 @@ help:
 	@echo "  make build                                  # Build for x86-64-v3 (default)"
 	@echo "  make build GOAMD64=v1                       # Build for baseline x86-64 (max compat)"
 	@echo "  make build-cross GOAMD64=v2                 # Cross-compile with x86-64-v2"
-	@echo "  make release VERSION=v1.0.0                 # Tag and push v1.0.0"
-	@echo "  make release-bump TYPE=minor                # Bump minor version (e.g., v1.0.0 -> v1.1.0)"
-	@echo "  make release-bump TYPE=minor PRERELEASE=alpha  # Start/continue alpha stream"
-	@echo "  make release-bump TYPE=minor PROMOTE=1      # Promote prerelease to stable"
-	@echo "  make release-bump TYPE=patch DRY_RUN=1      # Preview next patch version"
+	@echo "  make release VERSION=v1.0.0 RELEASE_NOTES_FILE=release-notes.md  # Tag and push v1.0.0"
+	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md  # Bump minor version"
+	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PRERELEASE=alpha  # Start/continue alpha stream"
+	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PROMOTE=1  # Promote prerelease to stable"
+	@echo "  make release-bump TYPE=patch RELEASE_NOTES_FILE=release-notes.md DRY_RUN=1  # Preview next patch version"
