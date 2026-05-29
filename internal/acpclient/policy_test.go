@@ -11,12 +11,12 @@ import (
 )
 
 var (
-	_ PermissionPolicy = (*recordingPermissionPolicy)(nil)
-	_ FilesystemPolicy = (*recordingFilesystemPolicy)(nil)
+	_ PermissionRequester = (*recordingPermissionRequester)(nil)
+	_ FilesystemPolicy    = (*recordingFilesystemPolicy)(nil)
 )
 
 type (
-	recordingPermissionPolicy struct {
+	recordingPermissionRequester struct {
 		request PermissionRequest
 	}
 
@@ -26,8 +26,8 @@ type (
 	}
 )
 
-func TestCallbackClientDelegatesPermissionPolicy(t *testing.T) {
-	policy := &recordingPermissionPolicy{}
+func TestCallbackClientDelegatesPermissionRequester(t *testing.T) {
+	policy := &recordingPermissionRequester{}
 	client := &callbackClient{policies: Policies{Permission: policy}.Normalize()}
 	title := "Edit config"
 	kind := acp.ToolKindEdit
@@ -144,7 +144,7 @@ func TestRestrictivePolicyDeniesByDefault(t *testing.T) {
 	}
 }
 
-func (p *recordingPermissionPolicy) RequestPermission(
+func (p *recordingPermissionRequester) RequestPermission(
 	_ context.Context,
 	request PermissionRequest,
 ) (PermissionResponse, error) {

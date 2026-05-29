@@ -9,8 +9,8 @@ import (
 
 //goplint:ignore -- ACP callback policies are adapter ports; zero-value policy grouping is valid.
 type (
-	// PermissionPolicy mediates ACP permission prompts.
-	PermissionPolicy interface {
+	// PermissionRequester mediates ACP permission prompts.
+	PermissionRequester interface {
 		RequestPermission(context.Context, PermissionRequest) (PermissionResponse, error)
 	}
 
@@ -31,7 +31,7 @@ type (
 
 	// Policies groups the ACP callback policies used by one prompt run.
 	Policies struct {
-		Permission PermissionPolicy
+		Permission PermissionRequester
 		Filesystem FilesystemPolicy
 		Terminal   TerminalPolicy
 	}
