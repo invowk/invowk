@@ -1,0 +1,40 @@
+---
+sidebar_position: 1
+---
+
+# Histórico de Benchmarks
+
+O Invowk acompanha a performance de releases no [Bencher](https://bencher.dev/perf/invowk). O histórico público é indexado pela tag de release, então usuários podem comparar versões publicadas como `v0.12.0` e `v0.13.0` diretamente.
+
+Execuções de benchmark em pull requests são guardrails para mantenedores. Elas podem falhar uma mudança quando o Bencher detecta regressão, mas não são o histórico de performance voltado a usuários. Pull requests usam a mesma Spec bare-metal do Bencher que as execuções de release.
+
+## Fluxo de Release
+
+O workflow de release envia JSON no Bencher Metric Format antes de publicar o release no GitHub:
+
+- `--branch` é a tag de release, por exemplo `v0.13.0`.
+- `--hash` é o SHA do commit do release.
+- `--start-point` é a tag do release anterior quando ela existe.
+- `--start-point-clone-thresholds` e `--start-point-reset` mantêm thresholds e histórico alinhados de versão para versão.
+- `--image` e `--spec` fazem o Bencher executar o comando de benchmark em runners bare-metal, não no runner do GitHub Actions que empacotou a imagem.
+
+## Métricas Acompanhadas
+
+O payload BMF inclui as mesmas dimensões de performance antes exibidas nos assets locais de release:
+
+- Latência de inicialização da CLI para versão, ajuda, ajuda de comando e listagem de comandos.
+- Latência de benchmarks de parser, discovery, validação de módulos e pipeline completo.
+- Uso de memória e contagem de alocações dos benchmarks Go.
+- Tempo de build de release e tamanho do binário stripped.
+
+## Comandos de Mantenedor
+
+Gere dados BMF locais com:
+
+```bash
+make bench-bmf
+```
+
+A saída é escrita em `artifacts/benchmarks/invowk.bmf.json` e pode ser enviada com o adapter `json` do Bencher.
+
+O CI empacota o código dos benchmarks em uma imagem OCI com `build/bencher/Dockerfile`, faz login no registry do Bencher com `BENCHER_API_TOKEN`, envia a imagem e então chama `bencher run --image ... --spec ...`. Runners bare-metal compartilhados do Bencher não têm acesso à rede durante a execução dos benchmarks, então a imagem inclui dependências Go vendorizadas e instala dependências de runtime durante o build da imagem.

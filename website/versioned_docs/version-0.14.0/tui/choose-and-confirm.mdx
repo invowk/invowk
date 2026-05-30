@@ -1,0 +1,102 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Choose and Confirm
+
+Selection and confirmation components for user decisions.
+
+## Choose
+
+Select one or more options from a list.
+
+### Basic Usage
+
+<Snippet id="tui/choose-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Selection prompt |
+| `--limit` | Max selections (default: 1) |
+| `--no-limit` | Unlimited selections |
+| `--height` | List height |
+
+### Single Selection
+
+<Snippet id="tui/choose-single" />
+
+### Multiple Selection
+
+<Snippet id="tui/choose-multiple" />
+
+Multiple selections are returned as newline-separated values:
+
+<Snippet id="tui/choose-multi-process" />
+
+### Real-World Examples
+
+#### Environment Selection
+
+<Snippet id="tui/choose-env-selection" />
+
+#### Service Selection
+
+<Snippet id="tui/choose-service-selection" />
+
+---
+
+## Confirm
+
+Yes/no confirmation prompt.
+
+### Basic Usage
+
+<Snippet id="tui/confirm-basic" />
+
+Returns:
+- Exit code 0 if user confirms (yes)
+- Exit code 1 if user declines (no)
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Title displayed above the prompt |
+| `--affirmative` | Custom "yes" label |
+| `--negative` | Custom "no" label |
+| `--default` | Default to yes |
+
+### Examples
+
+<Snippet id="tui/confirm-examples" />
+
+### Conditional Execution
+
+<Snippet id="tui/confirm-conditional" />
+
+### Dangerous Operations
+
+<Snippet id="tui/confirm-dangerous" />
+
+### In Scripts
+
+<Snippet id="tui/confirm-script" />
+
+## Combined Patterns
+
+### Selection with Confirmation
+
+<Snippet id="tui/choose-confirm-combined" />
+
+### Multi-Step Wizard
+
+<Snippet id="tui/multistep-wizard" />
+
+## Next Steps
+
+- [Filter and File](./filter-and-file) - Search and file picking
+- [Overview](./overview) - All TUI components
