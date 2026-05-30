@@ -27,7 +27,8 @@ const (
 	// DefaultLLMBaseURL is the default Ollama OpenAI-compatible endpoint.
 	DefaultLLMBaseURL = "http://localhost:11434/v1"
 	// DefaultLLMModel is a good balance of quality and resource usage.
-	DefaultLLMModel = "qwen2.5-coder:7b"
+	DefaultLLMModel               = "qwen2.5-coder:7b"
+	ollamaQwenCoderPullSuggestion = "ollama pull " + DefaultLLMModel
 	// DefaultLLMTimeout is generous to accommodate slow inference on CPU.
 	DefaultLLMTimeout = 2 * time.Minute
 )
@@ -354,7 +355,7 @@ func suggestCodeModel(available []string) string {
 		}
 	}
 
-	return "ollama pull qwen2.5-coder:7b"
+	return ollamaQwenCoderPullSuggestion
 }
 
 // classifyError maps SDK and network errors to typed audit errors.

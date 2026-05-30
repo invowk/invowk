@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	envCheckerName = "env"
+	envCheckerName             = "env"
+	scriptSensitiveEnvVarTitle = "Script accesses sensitive environment variable"
 )
 
 // Patterns for sensitive environment variable detection.
@@ -130,7 +131,7 @@ func (c *EnvChecker) checkSensitiveVars(ref ScriptRef, content string) []Finding
 			SurfaceID:      ref.SurfaceID,
 			CheckerName:    envCheckerName,
 			FilePath:       ref.FilePath,
-			Title:          "Script accesses sensitive environment variable",
+			Title:          scriptSensitiveEnvVarTitle,
 			Description:    fmt.Sprintf("Command %q references known credential environment variables (AWS, GitHub, SSH, database)", ref.CommandName),
 			Recommendation: "Ensure credential access is intentional; prefer scoped tokens over broad credential variables",
 		})

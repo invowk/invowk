@@ -18,7 +18,17 @@ import (
 )
 
 const (
-	commandFailedFmt = "command %s %v failed: %w"
+	commandFailedFmt    = "command %s %v failed: %w"
+	containerArgAddHost = "--add-host"
+	containerArgLabel   = "--label"
+	containerArgName    = "--name"
+	containerArgFormat  = "--format"
+
+	containerCommandCreate  = "create"
+	containerCommandRun     = "run"
+	containerCommandVersion = "version"
+	flatpakSpawnCommand     = "flatpak-spawn"
+	sandboxHostFlag         = "--host"
 
 	// cmdWaitDelay bounds how long cmd.Run waits for I/O pipes to close after
 	// context cancellation kills the container engine process. Without this,
@@ -266,14 +276,14 @@ func (e *BaseCLIEngine) BuildArgs(opts BuildOptions) []string {
 //
 // Generated command: <binary> run [options] <image> [command...]
 func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
-	args := []string{"run"}
+	args := []string{containerCommandRun}
 
 	if opts.Remove {
 		args = append(args, "--rm")
 	}
 
 	if opts.Name != "" {
-		args = append(args, "--name", string(opts.Name))
+		args = append(args, containerArgName, string(opts.Name))
 	}
 
 	if opts.WorkDir != "" {
@@ -301,7 +311,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	}
 
 	for _, h := range opts.ExtraHosts {
-		args = append(args, "--add-host", string(h))
+		args = append(args, containerArgAddHost, string(h))
 	}
 
 	args = append(args, string(opts.Image))
@@ -350,10 +360,10 @@ func (e *BaseCLIEngine) InspectContainerArgs(name ContainerName) []string {
 //
 //goplint:ignore -- raw argv builder for Docker/Podman CLI boundary.
 func (e *BaseCLIEngine) CreateArgs(opts CreateOptions) []string {
-	args := []string{"create"}
+	args := []string{containerCommandCreate}
 
 	if opts.Name != "" {
-		args = append(args, "--name", string(opts.Name))
+		args = append(args, containerArgName, string(opts.Name))
 	}
 	if opts.WorkDir != "" {
 		args = append(args, "-w", string(opts.WorkDir))
@@ -362,7 +372,7 @@ func (e *BaseCLIEngine) CreateArgs(opts CreateOptions) []string {
 		args = append(args, "-e", fmt.Sprintf("%s=%s", key, value))
 	}
 	for key, value := range opts.Labels {
-		args = append(args, "--label", fmt.Sprintf("%s=%s", key, value))
+		args = append(args, containerArgLabel, fmt.Sprintf("%s=%s", key, value))
 	}
 	for _, v := range opts.Volumes {
 		args = append(args, "-v", e.volumeFormatter(v))
@@ -371,7 +381,7 @@ func (e *BaseCLIEngine) CreateArgs(opts CreateOptions) []string {
 		args = append(args, "-p", string(p))
 	}
 	for _, h := range opts.ExtraHosts {
-		args = append(args, "--add-host", string(h))
+		args = append(args, containerArgAddHost, string(h))
 	}
 
 	args = append(args, string(opts.Image))

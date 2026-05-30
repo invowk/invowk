@@ -15,7 +15,8 @@ const (
 
 	// shellMetachars are characters that must not appear in interpreter specs.
 	// Their presence indicates injection attempts or misconfigured values.
-	shellMetachars = ";|&`$(){}><\n"
+	shellMetachars     = ";|&`$(){}><\n"
+	interpreterPython3 = "python3"
 )
 
 var (
@@ -32,7 +33,7 @@ var (
 		// POSIX shells
 		"sh": true, "bash": true, "zsh": true, "fish": true, "dash": true, "ksh": true, "mksh": true,
 		// Python
-		"python": true, "python3": true, "python2": true,
+		"python": true, interpreterPython3: true, "python2": true,
 		// JavaScript runtimes
 		"node": true, "deno": true, "bun": true,
 		// Other scripting languages

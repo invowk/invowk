@@ -20,7 +20,7 @@ type basenameCommand struct {
 // newBasenameCommand creates a new basename command.
 func newBasenameCommand() *basenameCommand {
 	return &basenameCommand{
-		name:  "basename",
+		name:  urootCommandBasename,
 		flags: nil, // No flags, only positional args
 	}
 }

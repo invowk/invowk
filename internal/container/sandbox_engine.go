@@ -446,11 +446,11 @@ func (e *SandboxAwareEngine) runHostSpawn(ctx context.Context, args ...string) (
 func (e *SandboxAwareEngine) versionArgs() []string {
 	switch e.wrapped.Name() {
 	case string(EngineTypeDocker):
-		return []string{"version", "--format", "{{.Server.Version}}"}
+		return []string{containerCommandVersion, containerArgFormat, "{{.Server.Version}}"}
 	case string(EngineTypePodman):
-		return []string{"version", "--format", "{{.Version}}"}
+		return []string{containerCommandVersion, containerArgFormat, "{{.Version}}"}
 	default:
-		return []string{"version"}
+		return []string{containerCommandVersion}
 	}
 }
 
@@ -478,7 +478,7 @@ func (e *SandboxAwareEngine) getSpawnInfo() (cmd string, args []string) {
 	case platform.SandboxNone:
 		return "", nil
 	case platform.SandboxFlatpak:
-		return "flatpak-spawn", []string{"--host"}
+		return flatpakSpawnCommand, []string{sandboxHostFlag}
 	case platform.SandboxSnap:
 		return "snap", []string{"run", "--shell"}
 	}
@@ -504,7 +504,7 @@ func (e *SandboxAwareEngine) wrappedRunArgs(opts RunOptions) []string {
 	if baseEngine, ok := e.getBaseCLIEngine(); ok {
 		return baseEngine.RunArgs(opts)
 	}
-	return []string{"run", string(opts.Image)}
+	return []string{containerCommandRun, string(opts.Image)}
 }
 
 func (e *SandboxAwareEngine) withRunSerialization(fn func() (*RunResult, error)) (*RunResult, error) {

@@ -14,7 +14,7 @@ import (
 // podmanBinaryNames lists Podman binary names to try in order of preference.
 // "podman" is preferred; "podman-remote" is the fallback for immutable distros
 // like Fedora Silverblue/Kinoite.
-var podmanBinaryNames = []string{"podman", "podman-remote"}
+var podmanBinaryNames = []string{string(EngineTypePodman), "podman-remote"}
 
 // PodmanEngine implements the Engine interface using Podman CLI.
 // It embeds BaseCLIEngine for common CLI operations.
@@ -94,7 +94,7 @@ func (e *PodmanEngine) Available() bool {
 		return false
 	}
 	return probeEngineAvailability(func(ctx context.Context) error {
-		cmd := e.CreateCommand(ctx, "version", "--format", "{{.Version}}")
+		cmd := e.CreateCommand(ctx, containerCommandVersion, containerArgFormat, "{{.Version}}")
 		return cmd.Run()
 	})
 }
@@ -103,7 +103,7 @@ func (e *PodmanEngine) Available() bool {
 //
 //plint:render
 func (e *PodmanEngine) Version(ctx context.Context) (string, error) {
-	out, err := e.RunCommandWithOutput(ctx, "version", "--format", "{{.Version}}")
+	out, err := e.RunCommandWithOutput(ctx, containerCommandVersion, containerArgFormat, "{{.Version}}")
 	if err != nil {
 		return "", fmt.Errorf("failed to get podman version: %w", err)
 	}
@@ -196,11 +196,11 @@ func addSELinuxLabelWithCheck(volume VolumeMountSpec, selinuxCheck SELinuxCheckF
 // issues with volume mounts. The flag is harmless in rootful mode.
 func makeUsernsKeepIDAdder() RunArgsTransformer {
 	return func(args []string) []string {
-		if len(args) == 0 || args[0] != "run" && args[0] != "create" {
+		if len(args) == 0 || args[0] != containerCommandRun && args[0] != containerCommandCreate {
 			return args // Only transform run/create commands
 		}
 
-		// Find image position (first non-flag argument after "run")
+		// Find image position (first non-flag argument after run/create)
 		// We need to insert --userns=keep-id before the image name.
 		imagePos := -1
 		skipNext := false
@@ -212,7 +212,7 @@ func makeUsernsKeepIDAdder() RunArgsTransformer {
 			arg := args[i]
 			// Flags that take a separate argument value
 			if arg == "-w" || arg == "-e" || arg == "-v" || arg == "-p" ||
-				arg == "--name" || arg == "--add-host" || arg == "--label" {
+				arg == containerArgName || arg == containerArgAddHost || arg == containerArgLabel {
 				skipNext = true
 				continue
 			}

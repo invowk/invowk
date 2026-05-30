@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const moduleCommandName = "module"
+
 var (
 	// Style definitions for module validation output
 	moduleSuccessIcon = SuccessStyle.Render("✓")
@@ -41,7 +43,7 @@ var (
 // Subcommands that need config access capture the App via closure.
 func newModuleCommand(app *App) *cobra.Command {
 	modCmd := &cobra.Command{
-		Use:     "module",
+		Use:     moduleCommandName,
 		Aliases: []string{"mod"},
 		Short:   "Manage invowk modules",
 		Long: `Manage invowk modules - self-contained folders containing invowkfiles and scripts.

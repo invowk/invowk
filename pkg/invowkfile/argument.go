@@ -18,6 +18,8 @@ const (
 	ArgumentTypeInt ArgumentType = "int"
 	// ArgumentTypeFloat is for floating-point arguments
 	ArgumentTypeFloat ArgumentType = "float"
+
+	invalidReasonMustNotBeEmpty = "must not be empty"
 )
 
 var (
@@ -130,7 +132,7 @@ func (e *InvalidArgumentNameError) Unwrap() error { return ErrInvalidArgumentNam
 func (n ArgumentName) Validate() error {
 	s := string(n)
 	if s == "" {
-		return &InvalidArgumentNameError{Value: n, Reason: "must not be empty"}
+		return &InvalidArgumentNameError{Value: n, Reason: invalidReasonMustNotBeEmpty}
 	}
 	if utf8.RuneCountInString(s) > MaxNameLength {
 		return &InvalidArgumentNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}

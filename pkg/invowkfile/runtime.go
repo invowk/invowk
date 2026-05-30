@@ -108,7 +108,7 @@ var (
 	// Used when creating temporary script files to ensure proper syntax highlighting
 	// and interpreter behavior.
 	interpreterExtensions = map[string]string{
-		"python": ".py", "python3": ".py", "python2": ".py",
+		"python": ".py", interpreterPython3: ".py", "python2": ".py",
 		"ruby": ".rb", "perl": ".pl", "node": ".js",
 		"bash": ".sh", "sh": ".sh", "zsh": ".zsh",
 		"fish": ".fish", "pwsh": ".ps1", "powershell": ".ps1",

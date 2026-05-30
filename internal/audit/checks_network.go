@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	networkCheckerName = "network"
+	networkCheckerName       = "network"
+	reverseShellFindingTitle = "Reverse shell pattern detected"
 )
 
 // Regex patterns for network access and exfiltration detection.
@@ -102,7 +103,7 @@ func (c *NetworkChecker) checkReverseShell(ref ScriptRef, content string) []Find
 				SurfaceID:      ref.SurfaceID,
 				CheckerName:    networkCheckerName,
 				FilePath:       ref.FilePath,
-				Title:          "Reverse shell pattern detected",
+				Title:          reverseShellFindingTitle,
 				Description:    fmt.Sprintf("Command %q contains a %s pattern", ref.CommandName, p.desc),
 				Recommendation: "Remove the reverse shell command immediately; this is a strong indicator of compromise",
 			})

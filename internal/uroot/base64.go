@@ -17,7 +17,7 @@ type base64Command struct {
 func newBase64Command() *base64Command {
 	return &base64Command{
 		baseWrapper: baseWrapper{
-			name: "base64",
+			name: urootCommandBase64,
 			flags: []FlagInfo{
 				{Name: "d", Description: "decode data"},
 			},

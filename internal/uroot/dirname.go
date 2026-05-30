@@ -19,7 +19,7 @@ type dirnameCommand struct {
 // newDirnameCommand creates a new dirname command.
 func newDirnameCommand() *dirnameCommand {
 	return &dirnameCommand{
-		name:  "dirname",
+		name:  urootCommandDirname,
 		flags: nil, // No flags, only positional args
 	}
 }

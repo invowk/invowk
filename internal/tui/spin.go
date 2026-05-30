@@ -155,29 +155,29 @@ func (t SpinnerType) String() string {
 // Returns an error if the string does not match any known spinner type name.
 func ParseSpinnerType(s string) (SpinnerType, error) {
 	switch s {
-	case "line":
+	case spinnerLineName:
 		return SpinnerLine, nil
-	case "dot":
+	case spinnerDotName:
 		return SpinnerDot, nil
-	case "minidot":
+	case spinnerMiniDotName:
 		return SpinnerMiniDot, nil
-	case "jump":
+	case spinnerJumpName:
 		return SpinnerJump, nil
-	case "pulse":
+	case spinnerPulseName:
 		return SpinnerPulse, nil
-	case "points":
+	case spinnerPointsName:
 		return SpinnerPoints, nil
-	case "globe":
+	case spinnerGlobeName:
 		return SpinnerGlobe, nil
-	case "moon":
+	case spinnerMoonName:
 		return SpinnerMoon, nil
-	case "monkey":
+	case spinnerMonkeyName:
 		return SpinnerMonkey, nil
-	case "meter":
+	case spinnerMeterName:
 		return SpinnerMeter, nil
-	case "hamburger":
+	case spinnerHamburgerName:
 		return SpinnerHamburger, nil
-	case "ellipsis":
+	case spinnerEllipsisName:
 		return SpinnerEllipsis, nil
 	default:
 		return 0, fmt.Errorf("unknown spinner type %q (valid: %s)", s, strings.Join(SpinnerTypeNames(), ", "))
@@ -187,8 +187,8 @@ func ParseSpinnerType(s string) (SpinnerType, error) {
 // SpinnerTypeNames returns the list of available spinner type names.
 func SpinnerTypeNames() []string {
 	return []string{
-		"line", "dot", "minidot", "jump", "pulse", "points",
-		"globe", "moon", "monkey", "meter", "hamburger", "ellipsis",
+		spinnerLineName, spinnerDotName, spinnerMiniDotName, spinnerJumpName, spinnerPulseName, spinnerPointsName,
+		spinnerGlobeName, spinnerMoonName, spinnerMonkeyName, spinnerMeterName, spinnerHamburgerName, spinnerEllipsisName,
 	}
 }
 

@@ -147,7 +147,7 @@ func (e *InvalidFlagNameError) Unwrap() error { return ErrInvalidFlagName }
 func (n FlagName) Validate() error {
 	s := string(n)
 	if s == "" {
-		return &InvalidFlagNameError{Value: n, Reason: "must not be empty"}
+		return &InvalidFlagNameError{Value: n, Reason: invalidReasonMustNotBeEmpty}
 	}
 	if utf8.RuneCountInString(s) > MaxNameLength {
 		return &InvalidFlagNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}

@@ -23,7 +23,7 @@ type mktempCommand struct {
 // newMktempCommand creates a new mktemp command.
 func newMktempCommand() *mktempCommand {
 	return &mktempCommand{
-		name: "mktemp",
+		name: urootCommandMktemp,
 		flags: []FlagInfo{
 			{Name: "d", Description: "create a directory, not a file"},
 			{Name: "p", Description: "use DIR as a prefix", TakesValue: true},
@@ -51,7 +51,7 @@ func (c *mktempCommand) SupportedFlags() []FlagInfo {
 func (c *mktempCommand) Run(ctx context.Context, args []string) error {
 	hc := GetHandlerContext(ctx)
 
-	fs := flag.NewFlagSet("mktemp", flag.ContinueOnError)
+	fs := flag.NewFlagSet(urootCommandMktemp, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	isDir := fs.Bool("d", false, "create directory")
 	parentDir := fs.String("p", "", "parent directory")

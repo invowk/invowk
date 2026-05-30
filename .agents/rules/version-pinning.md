@@ -18,9 +18,9 @@ build configuration.
 - When upgrading, update the version in ALL workflow files that reference it.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
-  - `golangci-lint`: `v2.11.4` (via golangci-lint-action `version` input)
+  - `golangci-lint`: `v2.12.2` (via golangci-lint-action `version` input)
   - `govulncheck`: `v1.3.0`
-  - `cosign`: `v3.0.6` (via `cosign-release` input in `.github/workflows/release.yml`)
+  - `cosign`: `v3.0.6` (via `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml`)
   - UPX: `5.1.1`
   - D2: `v0.7.1`
 

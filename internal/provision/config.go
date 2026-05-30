@@ -11,7 +11,10 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-const defaultGlobalModulesMountPath container.MountTargetPath = "/invowk/global-modules"
+const (
+	defaultGlobalModulesMountPath container.MountTargetPath = "/invowk/global-modules"
+	defaultModulesMountPath       container.MountTargetPath = "/invowk/modules"
+)
 
 // ErrInvalidProvisionConfig is the sentinel error wrapped by InvalidProvisionConfigError.
 var ErrInvalidProvisionConfig = errors.New("invalid provision config")
@@ -187,7 +190,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Enabled:          true,
 		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		ModulesMountPath: defaultModulesMountPath,
 	}
 }
 

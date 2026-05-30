@@ -21,15 +21,18 @@ import (
 
 const (
 	// EnvVarStateBinPath is set to the most recent host binary resolved by a virtual runtime.
-	EnvVarStateBinPath  = "INVOWK_STATE_BIN_PATH"
-	goosWindows         = "windows"
-	virtualAnchorCache  = "@cache"
-	virtualAnchorConfig = "@config"
-	virtualAnchorData   = "@data"
-	virtualAnchorHome   = "@home"
-	virtualAnchorState  = "@state"
-	virtualAnchorTmp    = "@tmp"
-	virtualAnchorWork   = "@work"
+	EnvVarStateBinPath    = "INVOWK_STATE_BIN_PATH"
+	goosWindows           = "windows"
+	virtualAnchorCache    = "@cache"
+	virtualAnchorConfig   = "@config"
+	virtualAnchorData     = "@data"
+	virtualAnchorHome     = "@home"
+	virtualAnchorState    = "@state"
+	virtualAnchorTmp      = "@tmp"
+	virtualAnchorWork     = "@work"
+	virtualStrictBin      = "/bin"
+	virtualStrictLocalBin = "/usr/local/bin"
+	virtualStrictUsrBin   = "/usr/bin"
 )
 
 var (
@@ -464,7 +467,7 @@ func (p *virtualHostBinaryPolicy) lookupDirs() []string {
 		if runtime.GOOS == goosWindows {
 			return []string{`C:\Windows\System32`}
 		}
-		return []string{"/usr/local/bin", "/usr/bin", "/bin"}
+		return []string{virtualStrictLocalBin, virtualStrictUsrBin, virtualStrictBin}
 	}
 	if p.envPath == "" {
 		return nil

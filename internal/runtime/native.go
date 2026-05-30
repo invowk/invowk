@@ -22,6 +22,8 @@ import (
 const (
 	failedBuildEnvironmentFmt = "failed to build environment: %w"
 	cmdWaitDelay              = 10 * time.Second
+	powerShellNoProfileArg    = "-NoProfile"
+	powerShellCommandArg      = "-Command"
 )
 
 type (
@@ -94,7 +96,7 @@ func (r *NativeRuntime) ShellArgs() []string { return r.shellArgs }
 
 // Name returns the runtime name
 func (r *NativeRuntime) Name() string {
-	return "native"
+	return string(RuntimeTypeNative)
 }
 
 // Available returns whether this runtime is available
@@ -383,7 +385,7 @@ func (r *NativeRuntime) getShellArgs(shell string) []string {
 	case "cmd":
 		return []string{"/C"}
 	case "powershell", "pwsh":
-		return []string{"-NoProfile", "-Command"}
+		return []string{powerShellNoProfileArg, powerShellCommandArg}
 	default:
 		return []string{"-c"}
 	}

@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	configFieldFmt  = "%s: %s\n"
-	configFileLabel = "Config file"
-	validConfigKeys = "container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual.utilities.enabled, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env"
+	configCommandName = "config"
+	configFieldFmt    = "%s: %s\n"
+	configFileLabel   = "Config file"
+	validConfigKeys   = "container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual.utilities.enabled, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env"
 )
 
 var configSetters = map[string]configSetter{
@@ -48,7 +49,7 @@ type (
 // Subcommands that read configuration use the App's config.Provider.
 func newConfigCommand(app *App) *cobra.Command {
 	cfgCmd := &cobra.Command{
-		Use:   "config",
+		Use:   configCommandName,
 		Short: "Manage invowk configuration",
 		Long: `Manage invowk configuration.
 

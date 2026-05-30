@@ -13,7 +13,15 @@ import (
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
 
-const tarFileLongFlagPrefix = "--file="
+const (
+	tarFileLongFlagPrefix = "--file="
+	urootCommandBase64    = "base64"
+	urootCommandBasename  = "basename"
+	urootCommandDirname   = "dirname"
+	urootCommandMktemp    = "mktemp"
+	urootCommandRealpath  = "realpath"
+	urootCommandShasum    = "shasum"
+)
 
 // ErrCommandNotFound indicates that a u-root command name is not registered.
 var ErrCommandNotFound = errors.New("command not found")
@@ -118,8 +126,8 @@ func validateUrootCommandPathArgs(ctx context.Context, name string, args []strin
 		return args, nil
 	}
 	switch name {
-	case "base64", "cat", "cp", "gzip", "ls", "mkdir", "mv", "rm", "shasum", "touch":
-		if name == "shasum" {
+	case urootCommandBase64, "cat", "cp", "gzip", "ls", "mkdir", "mv", "rm", urootCommandShasum, "touch":
+		if name == urootCommandShasum {
 			return validateShasumPathArgs(hc, args)
 		}
 		return validateNonOptionPathArgs(hc, args)

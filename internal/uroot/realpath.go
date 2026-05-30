@@ -19,7 +19,7 @@ type realpathCommand struct {
 // newRealpathCommand creates a new realpath command.
 func newRealpathCommand() *realpathCommand {
 	return &realpathCommand{
-		name:  "realpath",
+		name:  urootCommandRealpath,
 		flags: nil, // No flags, only positional args
 	}
 }

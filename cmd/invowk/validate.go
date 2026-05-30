@@ -21,11 +21,12 @@ const (
 	pathTypeInvowkfile pathType = 1 // invowkfile.cue or directory containing one
 	pathTypeModule     pathType = 2 // *.invowkmod directory or invowkmod.cue file
 
-	invowkfileCueFileName = "invowkfile.cue"
-	failedResolvePathFmt  = "failed to resolve path: %w"
-	validateIssueLineFmt  = "%s %s %s\n"
-	validateIssuePathFmt  = "%s %s %s %s\n"
-	validatePathLineFmt   = "%s Path: %s\n"
+	invowkfileCueFileName  = "invowkfile.cue"
+	invowkfilePathTypeName = "invowkfile"
+	failedResolvePathFmt   = "failed to resolve path: %w"
+	validateIssueLineFmt   = "%s %s %s\n"
+	validateIssuePathFmt   = "%s %s %s %s\n"
+	validatePathLineFmt    = "%s Path: %s\n"
 )
 
 // errInvalidPathType is returned when a pathType value is not one of the defined types.
@@ -58,9 +59,9 @@ func (p pathType) String() string {
 	case pathTypeUnknown:
 		return "unknown"
 	case pathTypeInvowkfile:
-		return "invowkfile"
+		return invowkfilePathTypeName
 	case pathTypeModule:
-		return "module"
+		return moduleCommandName
 	default:
 		return fmt.Sprintf("unknown(%d)", int(p))
 	}

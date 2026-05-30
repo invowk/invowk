@@ -74,7 +74,7 @@ func (e *InvalidGlobPatternError) Unwrap() error { return ErrInvalidGlobPattern 
 //goplint:nonzero
 func (g GlobPattern) Validate() error {
 	if g == "" {
-		return &InvalidGlobPatternError{Value: g, Reason: "must not be empty"}
+		return &InvalidGlobPatternError{Value: g, Reason: invalidReasonMustNotBeEmpty}
 	}
 	if _, err := doublestar.Match(string(g), ""); err != nil {
 		return &InvalidGlobPatternError{Value: g, Reason: fmt.Sprintf("invalid syntax: %v", err)}

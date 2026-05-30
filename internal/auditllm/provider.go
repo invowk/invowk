@@ -38,6 +38,13 @@ const (
 	geminiBaseURL    = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 	cliCommandWaitDelay = 10 * time.Second
+
+	anthropicAPIKeyEnv = "ANTHROPIC_API_KEY" // #nosec G101 -- environment variable name, not a credential value.
+	openAIAPIKeyEnv    = "OPENAI_API_KEY"    // #nosec G101 -- environment variable name, not a credential value.
+	geminiAPIKeyEnv    = "GEMINI_API_KEY"    // #nosec G101 -- environment variable name, not a credential value.
+	googleAPIKeyEnv    = "GOOGLE_API_KEY"    // #nosec G101 -- environment variable name, not a credential value.
+
+	cliArgOutputFormat = "--output-format"
 )
 
 var (
@@ -51,9 +58,9 @@ var (
 
 	// cloudProviders defines the cloud provider configurations in detection order.
 	cloudProviders = map[string]cloudProvider{
-		ProviderClaude: {envVars: []string{"ANTHROPIC_API_KEY"}, baseURL: anthropicBaseURL, name: ProviderClaude, cliTool: "claude"},
-		ProviderCodex:  {envVars: []string{"OPENAI_API_KEY"}, baseURL: openaiBaseURL, name: ProviderCodex, cliTool: "codex"},
-		ProviderGemini: {envVars: []string{"GEMINI_API_KEY", "GOOGLE_API_KEY"}, baseURL: geminiBaseURL, name: ProviderGemini, cliTool: "gemini"},
+		ProviderClaude: {envVars: []string{anthropicAPIKeyEnv}, baseURL: anthropicBaseURL, name: ProviderClaude, cliTool: ProviderClaude},
+		ProviderCodex:  {envVars: []string{openAIAPIKeyEnv}, baseURL: openaiBaseURL, name: ProviderCodex, cliTool: ProviderCodex},
+		ProviderGemini: {envVars: []string{geminiAPIKeyEnv, googleAPIKeyEnv}, baseURL: geminiBaseURL, name: ProviderGemini, cliTool: ProviderGemini},
 	}
 )
 
@@ -367,9 +374,9 @@ func defaultRunCmd(ctx context.Context, name string, args []string, input string
 // buildArgs constructs the command-line arguments for the tool.
 func (c *CLICompleter) buildArgs() ([]string, error) {
 	switch c.tool {
-	case "claude", "gemini":
+	case ProviderClaude, ProviderGemini:
 		return c.promptFlagArgs(), nil
-	case "codex":
+	case ProviderCodex:
 		args := []string{"exec", "--json"}
 		if c.model != "" {
 			args = append(args, "-m", c.model)
@@ -381,7 +388,7 @@ func (c *CLICompleter) buildArgs() ([]string, error) {
 }
 
 func (c *CLICompleter) promptFlagArgs() []string {
-	args := []string{"-p", "-", "--output-format", "json"}
+	args := []string{"-p", "-", cliArgOutputFormat, "json"}
 	if c.model != "" {
 		args = append(args, "--model", c.model)
 	}
@@ -391,11 +398,11 @@ func (c *CLICompleter) promptFlagArgs() []string {
 // parseOutput extracts the response text from tool-specific JSON output.
 func (c *CLICompleter) parseOutput(raw string) (string, error) {
 	switch c.tool {
-	case "claude":
+	case ProviderClaude:
 		return parseClaudeOutput(raw)
-	case "codex":
+	case ProviderCodex:
 		return parseCodexOutput(raw)
-	case "gemini":
+	case ProviderGemini:
 		return parseGeminiOutput(raw)
 	default:
 		return "", fmt.Errorf("unsupported CLI tool: %s", c.tool)

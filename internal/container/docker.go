@@ -33,7 +33,7 @@ func (e *DockerEngine) Available() bool {
 		return false
 	}
 	return probeEngineAvailability(func(ctx context.Context) error {
-		cmd := e.CreateCommand(ctx, "version", "--format", "{{.Server.Version}}")
+		cmd := e.CreateCommand(ctx, containerCommandVersion, containerArgFormat, "{{.Server.Version}}")
 		return cmd.Run()
 	})
 }
@@ -42,7 +42,7 @@ func (e *DockerEngine) Available() bool {
 //
 //plint:render
 func (e *DockerEngine) Version(ctx context.Context) (string, error) {
-	out, err := e.RunCommandWithOutput(ctx, "version", "--format", "{{.Server.Version}}")
+	out, err := e.RunCommandWithOutput(ctx, containerCommandVersion, containerArgFormat, "{{.Server.Version}}")
 	if err != nil {
 		return "", fmt.Errorf("failed to get docker version: %w", err)
 	}

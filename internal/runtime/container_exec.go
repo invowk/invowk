@@ -170,7 +170,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		// Use default shell execution
 		// We wrap the script in a shell to handle multi-line scripts
 		// For POSIX shells: /bin/sh -c 'script' invowk arg1 arg2 ... (args become $1, $2, etc.)
-		shellCmd = []string{"/bin/sh", "-c", script}
+		shellCmd = []string{defaultContainerShellPath, "-c", script}
 		if len(ctx.PositionalArgs) > 0 {
 			shellCmd = append(shellCmd, "invowk") // $0 placeholder
 			shellCmd = append(shellCmd, ctx.PositionalArgs...)
@@ -276,7 +276,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 				return nil, err
 			}
 			slog.Debug("transient container error, retrying",
-				"attempt", attempt+1, "maxRetries", maxRunRetries, "error", err)
+				"attempt", attempt+1, "max_retries", maxRunRetries, "error", err)
 			lastErr = err
 			lastStderrBuf = &stderrBuf
 			continue
@@ -291,7 +291,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		}
 
 		slog.Debug("transient container exit code, retrying",
-			"attempt", attempt+1, "maxRetries", maxRunRetries, "exitCode", result.ExitCode)
+			"attempt", attempt+1, "max_retries", maxRunRetries, "exit_code", result.ExitCode)
 		lastResult = result
 		lastStderrBuf = &stderrBuf
 	}

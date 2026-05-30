@@ -2,6 +2,8 @@
 
 package invowkfile
 
+const structureValidatorName = "structure"
+
 // StructureValidator validates the structural correctness of an invowkfile.
 // It checks command structure, implementations, runtimes, flags, args, and dependencies.
 // This validator wraps all the existing validation logic and collects ALL errors.
@@ -21,7 +23,7 @@ func NewStructureValidator() *StructureValidator {
 
 // Name returns the validator name.
 func (v *StructureValidator) Name() ValidatorName {
-	return "structure"
+	return structureValidatorName
 }
 
 // Validate checks the invowkfile structure and collects all validation errors.

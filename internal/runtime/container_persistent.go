@@ -24,10 +24,11 @@ const (
 	persistentContainerLabelSource      = "dev.invowk.command.source"
 	persistentContainerLabelSpecHash    = "dev.invowk.container.spec"
 	persistentContainerManagedLabelTrue = "true"
+	defaultContainerShellPath           = "/bin/sh"
 )
 
 var persistentContainerIdleCommand = []string{
-	"/bin/sh",
+	defaultContainerShellPath,
 	"-c",
 	"trap 'exit 0' TERM INT; while true; do sleep 3600; done",
 }

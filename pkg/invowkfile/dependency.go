@@ -523,7 +523,7 @@ func (r CommandDependencyRef) Parse() (CommandDependencyRefParts, error) {
 	if strings.TrimSpace(raw) == "" {
 		return CommandDependencyRefParts{}, &InvalidCommandDependencyRefError{
 			Value:  r,
-			Reason: "must not be empty",
+			Reason: invalidReasonMustNotBeEmpty,
 		}
 	}
 	if strings.HasPrefix(raw, "@") {
@@ -594,7 +594,7 @@ func (p CommandDependencyRefParts) validationRef() CommandDependencyRef {
 func (s CommandDependencySourceID) Validate() error {
 	value := string(s)
 	if strings.TrimSpace(value) == "" {
-		return &InvalidCommandDependencySourceIDError{Value: s, Reason: "must not be empty"}
+		return &InvalidCommandDependencySourceIDError{Value: s, Reason: invalidReasonMustNotBeEmpty}
 	}
 	if len(value) > MaxNameLength {
 		return &InvalidCommandDependencySourceIDError{Value: s, Reason: fmt.Sprintf("exceeds maximum length of %d chars", MaxNameLength)}
