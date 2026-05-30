@@ -135,6 +135,17 @@ homebrew_casks:
     license: MPL-2.0
     binaries:
       - invowk
+    generate_completions_from_executable:
+      executable: "bin/invowk"
+      args:
+        - completion
+      base_name: invowk
+      shell_parameter_format: cobra
+      shells:
+        - bash
+        - zsh
+        - fish
+        - pwsh
     # Remove macOS quarantine attribute — invowk binaries are not signed/notarized.
     # xattr -dr is idempotent (exits 0 when attribute absent).
     hooks:

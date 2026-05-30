@@ -582,7 +582,7 @@ jobs:
         if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
         uses: goreleaser/goreleaser-action@v7
         with:
-          version: "~> v2.15"
+          version: "~> v2.16"
           args: release --clean --release-notes=${{ steps.release-notes.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -611,7 +611,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
         uses: goreleaser/goreleaser-action@v7
         with:
-          version: "~> v2.15"
+          version: "~> v2.16"
           args: release --clean --snapshot --release-notes=${{ steps.release-notes.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

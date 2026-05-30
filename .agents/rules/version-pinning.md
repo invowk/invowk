@@ -47,7 +47,7 @@ build configuration.
 - NEVER use Alpine or Windows container images (see `AGENTS.md` "Container Runtime Limitations").
 
 ### GoReleaser
-- Pin via semver range in the goreleaser-action `version` input (current track: `~> v2.15`).
+- Pin via semver range in the goreleaser-action `version` input (current track: `~> v2.16`).
 
 ### npm Dependencies (website)
 - Pinned via `package-lock.json`. Core Docusaurus packages use exact versions;
