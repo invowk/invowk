@@ -1,0 +1,9 @@
+# import path|rationale
+github.com/invowk/invowk/internal/benchmark|benchmark and PGO support package; exercised by benchmark gates rather than package-level mutation runs
+github.com/invowk/invowk/internal/testutil|test helper package, not production behavior
+github.com/invowk/invowk/internal/testutil/invowkfiletest|test helper package, not production behavior
+github.com/invowk/invowk/internal/testutil/pathmatrix|test helper package, not production behavior
+github.com/invowk/invowk/internal/testutil/schematest|test helper package, not production behavior
+github.com/invowk/invowk/internal/app/modulecache|production package without local Go test ownership yet; keep visible as an explicit exclusion until ownership exists
+github.com/invowk/invowk/internal/llm|production package without local Go test ownership yet; keep visible as an explicit exclusion until ownership exists
+github.com/invowk/invowk/internal/tui/component|helper-only TUI surface without local Go test ownership yet

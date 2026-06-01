@@ -12,6 +12,14 @@ build configuration.
 - Pinned automatically via `go.mod` + `go.sum` (exact versions enforced by Go toolchain).
 - CUE library has a documented 6-step upgrade process (see `.agents/skills/cue/SKILL.md`).
 
+### Go Tool Dependencies
+- Pinned through `go.mod` `tool` directives plus exact `require` versions.
+- Add or upgrade tools with `go get -tool <module>/cmd/<tool>@vX.Y.Z` from the root module.
+- Remove tools with `go get -tool <module>/cmd/<tool>@none`.
+- Verify tools with `go version -m "$(go tool -n <tool>)"` when the tool does not provide a reliable `--version` flag.
+- **Current pinned versions:**
+  - `go-mutesting`: `v2.7.0` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`)
+
 ### CI Tool Installs (`go install`, `curl | sh`, etc.)
 - MUST pin to an exact version: `go install tool@vX.Y.Z` (never `@latest`).
 - MUST verify after install: `tool --version` or equivalent.

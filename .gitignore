@@ -45,6 +45,9 @@ Thumbs.db
 # Generated benchmark output
 artifacts/benchmarks/
 
+# Generated mutation-testing output
+artifacts/mutation/
+
 # Release staging
 release-assets/
 

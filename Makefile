@@ -67,6 +67,13 @@ BENCH_TIME ?= 1s
 BENCH_BMF_OUT ?= artifacts/benchmarks/invowk.bmf.json
 BENCH_GO_RAW_OUT ?= artifacts/benchmarks/go-bench.txt
 
+# Mutation testing defaults
+MUTATION_MODULE ?= all
+MUTATION_BASE_REF ?= origin/main
+MUTATION_MODE ?= advisory
+MUTATION_MUTANT_ID ?=
+MUTATION_REPORT_DIR ?= artifacts/mutation
+
 # Default target
 .DEFAULT_GOAL := build
 
@@ -190,6 +197,28 @@ test-cli-cover:
 	fi; \
 	rm -rf "$$COVDIR"; \
 	exit $$TEST_EXIT
+
+# Mutation testing profiles. These use package-level Go tests with -short by
+# default and keep CLI testscript/container/race coverage in the regular gates.
+.PHONY: mutation-dry-run mutation-pr mutation-full mutation-baseline-update mutation-rerun
+mutation-dry-run:
+	@./scripts/mutation.sh dry-run --module "$(MUTATION_MODULE)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-pr:
+	@./scripts/mutation.sh pr --module "$(MUTATION_MODULE)" --base "$(MUTATION_BASE_REF)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-full:
+	@./scripts/mutation.sh full --module "$(MUTATION_MODULE)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-baseline-update:
+	@./scripts/mutation.sh baseline-update --module "$(MUTATION_MODULE)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-rerun:
+	@if [ -z "$(MUTATION_MUTANT_ID)" ]; then \
+		echo "MUTATION_MUTANT_ID is required. Usage: make mutation-rerun MUTATION_MODULE=root MUTATION_MUTANT_ID=<id>"; \
+		exit 1; \
+	fi
+	@./scripts/mutation.sh rerun --module "$(MUTATION_MODULE)" --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
 
 # Generate PGO profile from benchmarks (includes container tests).
 # The benchmark run forces -pgo=off so training data is not biased by an
@@ -377,7 +406,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -412,6 +441,9 @@ test-scripts:
 	@echo ""
 	@echo "Running Bencher registry login script tests..."
 	bash scripts/test_bencher_registry_login.sh
+	@echo ""
+	@echo "Running mutation wrapper script tests..."
+	bash scripts/test_mutation.sh
 	@echo ""
 	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
@@ -549,6 +581,11 @@ help:
 	@echo "  test-short       Run tests in short mode (skip integration)"
 	@echo "  test-integration Run integration tests only"
 	@echo "  test-cli         Run CLI integration tests (testscript)"
+	@echo "  mutation-dry-run Count mutation candidates without executing mutants"
+	@echo "  mutation-pr      Run changed-line PR mutation profile"
+	@echo "  mutation-full    Run curated full mutation profile"
+	@echo "  mutation-baseline-update Update accepted-survivor mutation baselines"
+	@echo "  mutation-rerun   Rerun a single escaped mutant by stable ID"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
 	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"
@@ -598,6 +635,11 @@ help:
 	@echo "  BENCH_TIME      Go benchmark benchtime for bench-bmf targets (default: 1s)"
 	@echo "  BENCH_BMF_OUT   Output path for BMF JSON (default: artifacts/benchmarks/invowk.bmf.json)"
 	@echo "  BENCH_GO_RAW_OUT Output path for raw go benchmark output (default: artifacts/benchmarks/go-bench.txt)"
+	@echo "  MUTATION_MODULE  Mutation module: root, goplint, or all (default: all)"
+	@echo "  MUTATION_BASE_REF Diff base for mutation-pr (default: origin/main)"
+	@echo "  MUTATION_MODE    Mutation gate mode: advisory or blocking (default: advisory)"
+	@echo "  MUTATION_MUTANT_ID Stable mutant ID for mutation-rerun"
+	@echo "  MUTATION_REPORT_DIR Mutation report root (default: artifacts/mutation)"
 	@echo "  SONAR_TOKEN      SonarCloud token for sonar-local (optional, for private projects)"
 	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
 	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk_invowk)"
@@ -614,3 +656,5 @@ help:
 	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PRERELEASE=alpha  # Start/continue alpha stream"
 	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PROMOTE=1  # Promote prerelease to stable"
 	@echo "  make release-bump TYPE=patch RELEASE_NOTES_FILE=release-notes.md DRY_RUN=1  # Preview next patch version"
+	@echo "  make mutation-pr MUTATION_MODULE=root MUTATION_BASE_REF=origin/main  # PR mutation scan"
+	@echo "  make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>  # Focus one survivor"

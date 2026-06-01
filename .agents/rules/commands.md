@@ -22,6 +22,11 @@
 | Phase D alias check | `make check-cfg-alias` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
+| Mutation dry-run | `make mutation-dry-run` |
+| Mutation PR scan | `make mutation-pr` |
+| Mutation full scan | `make mutation-full` |
+| Mutation baseline update | `make mutation-baseline-update` |
+| Mutation rerun | `make mutation-rerun MUTATION_MUTANT_ID=<id>` |
 | File length check | `make check-file-length` |
 | Agent docs check | `make check-agent-docs` |
 | License check | `make license-check` |
@@ -48,6 +53,7 @@
 - **Docker or Podman** - For container runtime tests (optional).
 - **UPX** - For compressed builds (optional).
 - **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.
+- **go-mutesting** - Mutation testing tool pinned through the root `go.mod` tool directive. Do not install it manually with `@latest`; use the Make targets or `go tool go-mutesting` from the repository root.
 
 ## Internal Commands (Hidden)
 
@@ -177,6 +183,53 @@ go test -v -cover ./...
 go test -v ./internal/runtime/...
 go test -v ./pkg/invowkfile/...
 ```
+
+## Mutation Testing
+
+Mutation testing is a separate quality signal and does not run as part of `make test` or the regular CI test matrix. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`.
+
+```bash
+# Count candidate mutants without executing mutated tests
+make mutation-dry-run MUTATION_MODULE=root
+
+# Changed-line pull request profile; advisory by default
+make mutation-pr MUTATION_BASE_REF=origin/main MUTATION_MODE=advisory
+
+# Curated broad scan for scheduled/manual use
+make mutation-full MUTATION_MODULE=all MUTATION_MODE=advisory
+
+# Intentionally regenerate accepted-survivor baselines
+make mutation-baseline-update MUTATION_MODULE=root
+
+# Rerun one escaped mutant by stable id from go-mutesting-agentic.json
+make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>
+```
+
+Profiles:
+- `dry-run` counts candidates and does not mutate source files.
+- `pr` mutates changed eligible Go lines relative to `MUTATION_BASE_REF`, emits GitHub annotations in CI, and exits successfully when no eligible mutations exist.
+- `full` runs the curated root-module and/or `tools/goplint` package manifests.
+- `baseline-update` rewrites `tools/mutation/baselines/<module>-baseline.json` intentionally.
+- `rerun` executes only one stable escaped-mutant ID.
+
+Defaults:
+- `MUTATION_MODULE=all` (`root`, `goplint`, or `all`).
+- `MUTATION_MODE=advisory`; use `blocking` only after the baseline and runtime signal are stable.
+- `MUTATION_REPORT_DIR=artifacts/mutation`.
+- `MUTATION_WORKERS=0` locally unless overridden; CI currently sets a bounded worker count.
+
+Default mutation profiles use package-level Go tests with `-short`. They do not pass `-race`, do not run CLI `testscript` suites, and do not run container-engine profiles unless a future opt-in profile documents those costs. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources after the tool exits.
+
+Baselines:
+- Root module baseline: `tools/mutation/baselines/root-baseline.json`.
+- `tools/goplint` baseline: `tools/mutation/baselines/goplint-baseline.json`.
+- Initial CI behavior is advisory. Blocking mode fails only on new escaped mutants outside the selected baseline.
+
+Reports:
+- `go-mutesting.log`: full wrapper/tool output.
+- `go-mutesting-summary.json`: compact machine-readable metrics when emitted by the tool.
+- `go-mutesting-agentic.json`: escaped-mutant details with stable IDs and context when emitted by the tool.
+- `resolved-targets.txt`, `excluded-packages.txt`, and `not-covered-packages.txt`: target-selection evidence.
 
 ### gotestsum (CI-Level Retry and Reporting)
 
