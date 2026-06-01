@@ -448,6 +448,7 @@ remove_stale_tool_reports() {
 	local report
 
 	for report in \
+		report.json \
 		go-mutesting-summary.json \
 		go-mutesting-agentic.json \
 		go-mutesting-gitlab.json \
@@ -462,6 +463,7 @@ collect_tool_reports() {
 	local report
 
 	for report in \
+		report.json \
 		go-mutesting-summary.json \
 		go-mutesting-agentic.json \
 		go-mutesting-gitlab.json \

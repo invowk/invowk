@@ -74,6 +74,28 @@ assert_file_contains() {
 	fi
 }
 
+assert_file_exists() {
+	local desc="$1"
+	local file="$2"
+
+	if [[ -f "$file" ]]; then
+		record_pass
+	else
+		record_fail "$desc" "missing file: $file"
+	fi
+}
+
+assert_file_missing() {
+	local desc="$1"
+	local file="$2"
+
+	if [[ -e "$file" ]]; then
+		record_fail "$desc" "unexpected file: $file"
+	else
+		record_pass
+	fi
+}
+
 assert_path_allowed() {
 	local desc="$1"
 	local path="$2"
@@ -180,6 +202,40 @@ test_untracked_cleanup_preserves_existing_files() {
 	fi
 }
 
+test_tool_report_collection() {
+	local tmp
+	local workdir
+	local report_dir
+	local report
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	workdir="$tmp/work"
+	report_dir="$tmp/reports"
+	mkdir -p "$workdir" "$report_dir"
+
+	for report in \
+		report.json \
+		go-mutesting-summary.json \
+		go-mutesting-agentic.json \
+		go-mutesting-gitlab.json \
+		go-mutesting-report.html; do
+		printf '%s\n' "$report" >"$workdir/$report"
+	done
+
+	collect_tool_reports "$workdir" "$report_dir"
+
+	for report in \
+		report.json \
+		go-mutesting-summary.json \
+		go-mutesting-agentic.json \
+		go-mutesting-gitlab.json \
+		go-mutesting-report.html; do
+		assert_file_exists "collects $report" "$report_dir/$report"
+		assert_file_missing "moves $report out of workdir" "$workdir/$report"
+	done
+}
+
 test_dirty_path_policy() {
 	assert_path_allowed "allows root mutation baseline" "tools/mutation/baselines/root-baseline.json"
 	assert_path_allowed "allows goplint mutation baseline" "tools/mutation/baselines/goplint-baseline.json"
@@ -219,6 +275,7 @@ test_paths
 test_command_construction
 test_interrupt_status_detection
 test_untracked_cleanup_preserves_existing_files
+test_tool_report_collection
 test_dirty_path_policy
 test_root_target_resolution
 test_goplint_target_resolution
