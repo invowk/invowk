@@ -186,7 +186,7 @@ go test -v ./pkg/invowkfile/...
 
 ## Mutation Testing
 
-Mutation testing is a separate quality signal and does not run as part of `make test` or the regular CI test matrix. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`.
+Mutation testing is a separate quality signal and does not run as part of `make test` or the regular CI test matrix. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; broaden it only after advisory timing and survivor data are stable.
 
 ```bash
 # Count candidate mutants without executing mutated tests

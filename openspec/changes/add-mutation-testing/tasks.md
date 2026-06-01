@@ -7,7 +7,7 @@
 
 ## 2. Mutation Configuration and Target Manifests
 
-- [x] 2.1 Create root-module mutation configuration for eligible `cmd/`, `internal/`, and `pkg/` production Go packages.
+- [x] 2.1 Create root-module mutation configuration for a curated high-signal seed of eligible `internal/` and `pkg/` production Go packages.
 - [x] 2.2 Create `tools/goplint` mutation configuration that runs from the nested module root and writes separate reports.
 - [x] 2.3 Add target manifest logic that excludes tests, testdata, docs, website, samples, OpenSpec files, generated artifacts, and unsupported helper-only surfaces.
 - [x] 2.4 Make packages without local Go test ownership explicit through exclusion rationale or not-covered reporting.
@@ -40,7 +40,7 @@
 ## 6. Baseline and Report Artifacts
 
 - [x] 6.1 Run mutation dry-runs for root-module and `tools/goplint` profiles and tune exclusions, worker counts, and timeouts.
-- [x] 6.2 Generate initial accepted-survivor baselines for the selected profiles.
+- [x] 6.2 Add initial empty baseline scaffolds and keep accepted-survivor generation advisory until timing data is stable.
 - [x] 6.3 Verify summary JSON and escaped-mutant reports are produced with distinguishable profile names.
 - [x] 6.4 Confirm baseline updates remove killed historical survivors when tests improve.
 

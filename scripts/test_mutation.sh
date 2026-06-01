@@ -139,6 +139,47 @@ test_command_construction() {
 	assert_contains "rerun prints escaped status" "--output-statuses=e" "$args"
 }
 
+test_interrupt_status_detection() {
+	if interrupted_status 143; then
+		record_pass
+	else
+		record_fail "signal exit status is interrupted" "expected status 143 to be treated as interrupted"
+	fi
+
+	if interrupted_status 4; then
+		record_fail "quality gate exit status is not interrupted" "status 4 should allow remaining modules to run"
+	else
+		record_pass
+	fi
+}
+
+test_untracked_cleanup_preserves_existing_files() {
+	local existing_path
+	local new_path
+
+	existing_path="internal/agentcmd/.mutation-existing-$$"
+	new_path="internal/agentcmd/.mutation-generated-$$"
+	rm -f -- "$REPO_ROOT/$existing_path" "$REPO_ROOT/$new_path"
+	trap 'rm -f -- "$REPO_ROOT/$existing_path" "$REPO_ROOT/$new_path"; [[ -n "${MUTATION_CLEANUP_DIR:-}" ]] && rm -rf "$MUTATION_CLEANUP_DIR"' RETURN
+
+	printf 'existing\n' >"$REPO_ROOT/$existing_path"
+	snapshot_untracked_paths root
+	printf 'generated\n' >"$REPO_ROOT/$new_path"
+	remove_new_untracked_paths root
+
+	if [[ -f "$REPO_ROOT/$existing_path" ]]; then
+		record_pass
+	else
+		record_fail "untracked cleanup preserves pre-existing files" "$existing_path was removed"
+	fi
+
+	if [[ -e "$REPO_ROOT/$new_path" ]]; then
+		record_fail "untracked cleanup removes generated files" "$new_path was left behind"
+	else
+		record_pass
+	fi
+}
+
 test_dirty_path_policy() {
 	assert_path_allowed "allows root mutation baseline" "tools/mutation/baselines/root-baseline.json"
 	assert_path_allowed "allows goplint mutation baseline" "tools/mutation/baselines/goplint-baseline.json"
@@ -155,11 +196,11 @@ test_root_target_resolution() {
 	trap 'rm -rf "$tmp"' RETURN
 	targets="$(resolve_targets root "$tmp/root")"
 
-	assert_contains "root targets include CLI package" "github.com/invowk/invowk/cmd/invowk" "$targets"
-	assert_contains "root targets include runtime package" "github.com/invowk/invowk/internal/runtime" "$targets"
+	assert_contains "root targets include dependency package" "github.com/invowk/invowk/internal/app/deps" "$targets"
+	assert_contains "root targets include config package" "github.com/invowk/invowk/internal/config" "$targets"
 	assert_contains "root targets include public schema package" "github.com/invowk/invowk/pkg/invowkfile" "$targets"
-	assert_file_contains "root exclusions explain test helpers" "github.com/invowk/invowk/internal/testutil" "$tmp/root/excluded-packages.txt"
-	assert_file_contains "root exclusions expose no-local-test package" "github.com/invowk/invowk/internal/llm" "$tmp/root/excluded-packages.txt"
+	assert_not_contains "root curated seed omits CLI adapter package" "github.com/invowk/invowk/cmd/invowk" "$targets"
+	assert_not_contains "root curated seed omits virtual runtime package" "github.com/invowk/invowk/internal/runtime" "$targets"
 }
 
 test_goplint_target_resolution() {
@@ -176,6 +217,8 @@ test_goplint_target_resolution() {
 
 test_paths
 test_command_construction
+test_interrupt_status_detection
+test_untracked_cleanup_preserves_existing_files
 test_dirty_path_policy
 test_root_target_resolution
 test_goplint_target_resolution

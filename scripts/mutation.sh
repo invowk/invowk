@@ -15,6 +15,7 @@ QUALITY_GATE_EXIT_CODE=4
 
 GO_MUTESTING_BIN=""
 MUTATION_RESTORE_MODULES=()
+MUTATION_CLEANUP_DIR=""
 
 usage() {
 	cat <<'EOF'
@@ -277,7 +278,58 @@ register_restore_module() {
 	for existing in "${MUTATION_RESTORE_MODULES[@]}"; do
 		[[ "$existing" == "$module" ]] && return 0
 	done
+	snapshot_untracked_paths "$module"
 	MUTATION_RESTORE_MODULES+=("$module")
+}
+
+ensure_cleanup_dir() {
+	if [[ -z "$MUTATION_CLEANUP_DIR" ]]; then
+		MUTATION_CLEANUP_DIR="$(mktemp -d)"
+	fi
+}
+
+mutation_source_paths() {
+	local module="$1"
+
+	case "$module" in
+		root)
+			printf '%s\n' cmd internal pkg
+			;;
+		goplint)
+			printf '%s\n' tools/goplint
+			;;
+	esac
+}
+
+snapshot_untracked_paths() {
+	local module="$1"
+	local snapshot
+	local -a source_paths=()
+
+	ensure_cleanup_dir
+	snapshot="$MUTATION_CLEANUP_DIR/$module.untracked.before"
+	mapfile -t source_paths < <(mutation_source_paths "$module")
+	git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "${source_paths[@]}" | sort >"$snapshot"
+}
+
+remove_new_untracked_paths() {
+	local module="$1"
+	local snapshot
+	local current
+	local path
+	local -a source_paths=()
+
+	[[ -n "$MUTATION_CLEANUP_DIR" ]] || return 0
+	snapshot="$MUTATION_CLEANUP_DIR/$module.untracked.before"
+	[[ -f "$snapshot" ]] || return 0
+	current="$MUTATION_CLEANUP_DIR/$module.untracked.after"
+	mapfile -t source_paths < <(mutation_source_paths "$module")
+	git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "${source_paths[@]}" | sort >"$current"
+
+	while IFS= read -r path; do
+		[[ -n "$path" ]] || continue
+		rm -f -- "$REPO_ROOT/$path"
+	done < <(comm -13 "$snapshot" "$current")
 }
 
 restore_mutation_paths() {
@@ -291,6 +343,7 @@ restore_mutation_paths() {
 			git -C "$REPO_ROOT" restore --worktree -- tools/goplint >/dev/null 2>&1 || true
 			;;
 	esac
+	remove_new_untracked_paths "$module"
 }
 
 cleanup_mutation_paths() {
@@ -299,6 +352,15 @@ cleanup_mutation_paths() {
 	for module in "${MUTATION_RESTORE_MODULES[@]}"; do
 		restore_mutation_paths "$module"
 	done
+	if [[ -n "$MUTATION_CLEANUP_DIR" ]]; then
+		rm -rf "$MUTATION_CLEANUP_DIR"
+	fi
+}
+
+interrupted_status() {
+	local status="$1"
+
+	[[ "$status" =~ ^[0-9]+$ ]] && ((status >= 128))
 }
 
 go_mutesting_binary() {
@@ -623,6 +685,9 @@ main() {
 		else
 			module_status=$?
 			status="$module_status"
+			if interrupted_status "$module_status"; then
+				return "$status"
+			fi
 		fi
 	done < <(modules_to_run "$module")
 

@@ -1,4 +1,21 @@
-# Root-module production package patterns for mutation testing.
-./cmd/...
-./internal/...
-./pkg/...
+# Curated high-signal root-module package seed for baselineable mutation scans.
+# Changed-line PR runs still mutate eligible changed Go lines in the broader
+# workflow trigger set. Large adapter/runtime/TUI/audit surfaces stay out of
+# the initial full profile until advisory timing data supports expanding it.
+./internal/app/deps
+./internal/app/execute
+./internal/app/llmconfig
+./internal/config
+./internal/core/serverbase
+./internal/discovery
+./internal/issue
+./internal/provisionenv
+./internal/tuiwire
+./internal/watch
+./pkg/containerargs
+./pkg/cueutil
+./pkg/fspath
+./pkg/invowkfile
+./pkg/invowkmod
+./pkg/platform
+./pkg/types

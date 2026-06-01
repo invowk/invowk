@@ -1,4 +1,9 @@
 # import path|rationale
+# The root full profile starts from an explicit high-signal package seed instead
+# of ./cmd/... ./internal/... ./pkg/... because the first real run showed that a
+# blanket package-level scan is too slow and too noisy for initial adoption.
+# Reintroduce large adapter/runtime/TUI/audit surfaces only after advisory
+# timing and survivor data show that they are baselineable.
 github.com/invowk/invowk/internal/benchmark|benchmark and PGO support package; exercised by benchmark gates rather than package-level mutation runs
 github.com/invowk/invowk/internal/testutil|test helper package, not production behavior
 github.com/invowk/invowk/internal/testutil/invowkfiletest|test helper package, not production behavior

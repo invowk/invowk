@@ -50,6 +50,7 @@ Invowk SHALL protect developer worktrees from accidental source mutation during 
 #### Scenario: Clean local run restores sources
 - **WHEN** a local mutation run completes, fails, or is interrupted after mutating source files
 - **THEN** Invowk SHALL restore mutated source files to their pre-run contents or run the mutation tool in an isolated temporary worktree
+- **THEN** Invowk SHALL remove untracked files created during the mutation run while preserving untracked files that existed before the run
 
 #### Scenario: Dry-run does not mutate sources
 - **WHEN** maintainers run the mutation dry-run profile
@@ -57,12 +58,13 @@ Invowk SHALL protect developer worktrees from accidental source mutation during 
 - **THEN** the command SHALL NOT leave source changes in the worktree
 
 ### Requirement: Target selection and exclusions
-Invowk SHALL select mutation targets deliberately so mutation testing measures production Go behavior rather than generated files, fixtures, docs, website assets, or test-only support code.
+Invowk SHALL select mutation targets deliberately so mutation testing measures production Go behavior rather than generated files, fixtures, docs, website assets, test-only support code, or surfaces that require a separate high-assurance oracle.
 
 #### Scenario: Root module target manifest excludes non-production surfaces
 - **WHEN** the root module mutation profile resolves its targets
-- **THEN** it SHALL include eligible production packages under `cmd/`, `internal/`, and `pkg/`
+- **THEN** it SHALL use a curated set of eligible production packages under `internal/` and `pkg/` for the initial full profile
 - **THEN** it SHALL exclude `tests/`, `website/`, `docs/`, `samples/`, `specs/`, `openspec/`, generated artifacts, testdata fixtures, and Go test files
+- **THEN** large adapter, runtime, TUI, audit, or container surfaces SHALL remain opt-in until advisory timing and survivor data justify adding them to a baselineable full profile
 
 #### Scenario: Goplint target manifest runs from nested module
 - **WHEN** the `tools/goplint` mutation profile runs
