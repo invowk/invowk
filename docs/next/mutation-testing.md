@@ -14,7 +14,7 @@ make mutation-baseline-update MUTATION_MODULE=root
 make mutation-rerun MUTATION_MODULE=root MUTATION_MUTANT_ID=<id>
 ```
 
-The root module scans curated production packages under `cmd/`, `internal/`, and `pkg/`. The `tools/goplint` module runs from its own module root with separate reports and baselines.
+The root module scans curated production packages under `cmd/`, `internal/`, and `pkg/`. The `tools/goplint` profile runs from its own module root with separate reports and baselines, and its initial full manifest selects explicit analyzer source files instead of the whole analyzer support package.
 
 ## Reports and Baselines
 
@@ -33,6 +33,6 @@ Committed baselines live under `tools/mutation/baselines/`. The rollout baseline
 
 The wrapper verifies the pinned `go-mutesting` version before running. The current tool version is `github.com/jonbaldie/go-mutesting/v2` `v2.7.0`, pinned in the root `go.mod` tool directive. Upgrade it only through the version-pinning workflow.
 
-Default mutation profiles run package-level Go tests with `-short`. They do not run `-race`, container-engine tests, or CLI `testscript` suites. Add focused opt-in profiles separately if a survivor needs those heavier oracles.
+Default mutation profiles run package-level Go tests with `-short`, even when the target manifest names explicit source files. They do not run `-race`, container-engine tests, or CLI `testscript` suites. Add focused opt-in profiles separately if a survivor needs those heavier oracles.
 
 Mutating local profiles reject tracked dirty work outside mutation baselines/reports and restore package source directories after the tool exits. `dry-run` does not mutate source files.

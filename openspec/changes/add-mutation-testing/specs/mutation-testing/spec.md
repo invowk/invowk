@@ -70,9 +70,10 @@ Invowk SHALL select mutation targets deliberately so mutation testing measures p
 - **WHEN** the `tools/goplint` mutation profile runs
 - **THEN** Invowk SHALL execute it from the `tools/goplint` module root with that module's dependency graph
 - **THEN** its reports and baseline SHALL be kept separate from the root-module mutation reports and baseline
+- **THEN** its initial full target manifest SHALL be allowed to select explicit analyzer `.go` source files instead of the whole nested module package
 
 #### Scenario: Packages without local test ownership are visible
-- **WHEN** a target manifest includes production packages that have no local Go tests
+- **WHEN** a target manifest includes production packages or file targets whose owning package has no local Go tests
 - **THEN** the mutation workflow SHALL either exclude them with an explicit rationale or report them as not covered rather than hiding them silently
 
 ### Requirement: Baseline and gate behavior

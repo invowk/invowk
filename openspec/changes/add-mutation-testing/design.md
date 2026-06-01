@@ -60,7 +60,7 @@ Alternatives considered:
 
 ### Decision: Split root-module and goplint mutation profiles
 
-Root-module mutation runs should start with a curated, high-signal production package seed from `internal/` and `pkg/`, excluding test-only, generated, fixture, docs, website, samples, OpenSpec, and cross-module helper surfaces unless explicitly selected. Large CLI adapter, runtime, TUI, audit, and container surfaces should be added after advisory timing data shows they are baselineable, or covered through changed-line PR and focused high-assurance profiles. `tools/goplint` should run from its own module root with its own config and reports.
+Root-module mutation runs should start with a curated, high-signal production package seed from `internal/` and `pkg/`, excluding test-only, generated, fixture, docs, website, samples, OpenSpec, and cross-module helper surfaces unless explicitly selected. Large CLI adapter, runtime, TUI, audit, and container surfaces should be added after advisory timing data shows they are baselineable, or covered through changed-line PR and focused high-assurance profiles. `tools/goplint` should run from its own module root with its own config and reports, and its initial broad profile should target explicit analyzer source files rather than the whole nested package.
 
 Alternatives considered:
 
@@ -121,6 +121,7 @@ Rollback is straightforward: disable the mutation workflow or make it advisory w
 - Selected `github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting` `v2.7.0` on 2026-06-01 after verifying the current upstream release state and available module versions.
 - The tool does not expose a `--version` flag, so repository automation verifies the embedded module version with `go version -m "$(go tool -n go-mutesting)"`.
 - Initial committed baselines start empty; rollout CI remains advisory while scheduled and pull-request reports establish timing and survivor data. The first real blocking all-module run on 2026-06-01 confirmed that a blanket empty-baseline full scan is too broad for initial adoption, so the root full manifest now starts from a smaller baselineable seed.
+- A later real `tools/goplint` advisory full run on 2026-06-01 confirmed that package-wide mutation of `tools/goplint/goplint` keeps running into support files after the analyzer source files complete. The goplint full manifest now uses explicit analyzer file targets, which keeps the profile extensive over analyzer behavior while avoiding baseline/cache/CFA support files until timing data justifies broadening.
 
 ## Open Questions
 

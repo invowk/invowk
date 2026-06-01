@@ -186,7 +186,7 @@ go test -v ./pkg/invowkfile/...
 
 ## Mutation Testing
 
-Mutation testing is a separate quality signal and does not run as part of `make test` or the regular CI test matrix. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; broaden it only after advisory timing and survivor data are stable.
+Mutation testing is a separate quality signal and does not run as part of `make test` or the regular CI test matrix. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; the initial `tools/goplint` full profile mutates explicit analyzer source files from the nested module root rather than every support file. Broaden either profile only after advisory timing and survivor data are stable.
 
 ```bash
 # Count candidate mutants without executing mutated tests
@@ -208,7 +208,7 @@ make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>
 Profiles:
 - `dry-run` counts candidates and does not mutate source files.
 - `pr` mutates changed eligible Go lines relative to `MUTATION_BASE_REF`, emits GitHub annotations in CI, and exits successfully when no eligible mutations exist.
-- `full` runs the curated root-module and/or `tools/goplint` package manifests.
+- `full` runs the curated root-module and/or `tools/goplint` target manifests.
 - `baseline-update` rewrites `tools/mutation/baselines/<module>-baseline.json` intentionally.
 - `rerun` executes only one stable escaped-mutant ID.
 
@@ -218,7 +218,7 @@ Defaults:
 - `MUTATION_REPORT_DIR=artifacts/mutation`.
 - `MUTATION_WORKERS=0` locally unless overridden; CI currently sets a bounded worker count.
 
-Default mutation profiles use package-level Go tests with `-short`. They do not pass `-race`, do not run CLI `testscript` suites, and do not run container-engine profiles unless a future opt-in profile documents those costs. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources after the tool exits.
+Default mutation profiles use package-level Go tests with `-short`, even when a manifest selects explicit source files. They do not pass `-race`, do not run CLI `testscript` suites, and do not run container-engine profiles unless a future opt-in profile documents those costs. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources after the tool exits.
 
 Baselines:
 - Root module baseline: `tools/mutation/baselines/root-baseline.json`.

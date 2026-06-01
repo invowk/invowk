@@ -87,6 +87,12 @@ read_manifest_entries() {
 	done <"$manifest"
 }
 
+is_go_file_target() {
+	local target="$1"
+
+	[[ "$target" == *.go ]]
+}
+
 module_workdir() {
 	local module="$1"
 
@@ -188,6 +194,13 @@ resolve_targets() {
 	local resolved_file
 	local excluded_file
 	local not_covered_file
+	local pattern
+	local file_target
+	local normalized_file
+	local package_dir
+	local package_pattern
+	local package_info
+	local file_import_path
 	local import_path
 	local go_files
 	local test_files
@@ -195,6 +208,8 @@ resolve_targets() {
 	local test_count
 	local reason
 	local -a patterns=()
+	local -a package_patterns=()
+	local -a file_targets=()
 
 	workdir="$(module_workdir "$module")"
 	manifest="$(target_manifest_path "$module")"
@@ -204,15 +219,27 @@ resolve_targets() {
 	mapfile -t patterns < <(read_manifest_entries "$manifest")
 	((${#patterns[@]} > 0)) || die "no target patterns found in $manifest"
 
+	for pattern in "${patterns[@]}"; do
+		if is_go_file_target "$pattern"; then
+			file_targets+=("$pattern")
+		else
+			package_patterns+=("$pattern")
+		fi
+	done
+
 	candidates_file="$report_dir/package-candidates.txt"
 	resolved_file="$report_dir/resolved-targets.txt"
 	excluded_file="$report_dir/excluded-packages.txt"
 	not_covered_file="$report_dir/not-covered-packages.txt"
 
-	(cd "$workdir" && "$GO_CMD" list -f '{{.ImportPath}}	{{len .GoFiles}}	{{len .TestGoFiles}}	{{len .XTestGoFiles}}' "${patterns[@]}") >"$candidates_file"
+	: >"$candidates_file"
 	: >"$resolved_file"
 	: >"$excluded_file"
 	: >"$not_covered_file"
+
+	if ((${#package_patterns[@]} > 0)); then
+		(cd "$workdir" && "$GO_CMD" list -f '{{.ImportPath}}	{{len .GoFiles}}	{{len .TestGoFiles}}	{{len .XTestGoFiles}}' "${package_patterns[@]}") >"$candidates_file"
+	fi
 
 	while IFS=$'\t' read -r import_path go_files test_files xtest_files; do
 		[[ -z "$import_path" ]] && continue
@@ -231,6 +258,33 @@ resolve_targets() {
 		fi
 		printf '%s\n' "$import_path" >>"$resolved_file"
 	done <"$candidates_file"
+
+	for file_target in "${file_targets[@]}"; do
+		normalized_file="${file_target#./}"
+		if is_absolute_path "$normalized_file"; then
+			die "file mutation target must be relative to module workdir: $file_target"
+		fi
+		if [[ "$normalized_file" == *_test.go ]]; then
+			printf '%s\t%s\n' "$file_target" "test file target is excluded" >>"$excluded_file"
+			continue
+		fi
+		[[ -f "$workdir/$normalized_file" ]] || die "file mutation target not found: $file_target"
+
+		package_dir="$(dirname "$normalized_file")"
+		if [[ "$package_dir" == "." ]]; then
+			package_pattern="."
+		else
+			package_pattern="./$package_dir"
+		fi
+		package_info="$(cd "$workdir" && "$GO_CMD" list -f '{{.ImportPath}}	{{len .TestGoFiles}}	{{len .XTestGoFiles}}' "$package_pattern")"
+		IFS=$'\t' read -r file_import_path test_files xtest_files <<<"$package_info"
+		test_count=$((test_files + xtest_files))
+		printf '%s\t%s\t%s\t%s\n' "$file_target" "file target in $file_import_path" 1 "$test_count" >>"$candidates_file"
+		if ((test_count == 0)); then
+			printf '%s\t%s\n' "$file_target" "included but no local Go tests were discovered" >>"$not_covered_file"
+		fi
+		printf '%s\n' "$file_target" >>"$resolved_file"
+	done
 
 	[[ -s "$resolved_file" ]] || die "no mutation targets resolved for module $module"
 	cat "$resolved_file"
