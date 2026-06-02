@@ -48,7 +48,7 @@ func TestRuntimeBoundaryCommandStringAndPlatformLists(t *testing.T) {
 	}
 }
 
-func TestRuntimeBoundaryValidationErrorPayloads(t *testing.T) {
+func TestRuntimeBoundaryEnvInheritModeErrorPayload(t *testing.T) {
 	t.Parallel()
 
 	envErr := EnvInheritMode("bogus").Validate()
@@ -62,6 +62,10 @@ func TestRuntimeBoundaryValidationErrorPayloads(t *testing.T) {
 	if got := invalidEnv.Error(); got != `invalid env_inherit_mode "bogus" (valid: none, allow, all)` {
 		t.Fatalf("InvalidEnvInheritModeError.Error() = %q", got)
 	}
+}
+
+func TestRuntimeBoundaryPlatformTypeErrorPayload(t *testing.T) {
+	t.Parallel()
 
 	platformErr := PlatformType("darwin").Validate()
 	var invalidPlatform *InvalidPlatformError
@@ -74,6 +78,10 @@ func TestRuntimeBoundaryValidationErrorPayloads(t *testing.T) {
 	if got := invalidPlatform.Error(); got != `invalid platform type "darwin" (valid: linux, macos, windows)` {
 		t.Fatalf("InvalidPlatformError.Error() = %q", got)
 	}
+}
+
+func TestRuntimeBoundaryBinaryLookupModeErrorPayload(t *testing.T) {
+	t.Parallel()
 
 	lookupErr := BinaryLookupMode("path").Validate()
 	var invalidLookup *InvalidBinaryLookupModeError
@@ -86,6 +94,10 @@ func TestRuntimeBoundaryValidationErrorPayloads(t *testing.T) {
 	if got := invalidLookup.Error(); got != `invalid binary_lookup_mode "path" (valid: host, strict)` {
 		t.Fatalf("InvalidBinaryLookupModeError.Error() = %q", got)
 	}
+}
+
+func TestRuntimeBoundaryVirtualFilesystemAccessErrorPayload(t *testing.T) {
+	t.Parallel()
 
 	accessErr := VirtualFilesystemAccess("wide").Validate()
 	var invalidAccess *InvalidVirtualFilesystemAccessError
@@ -98,6 +110,10 @@ func TestRuntimeBoundaryValidationErrorPayloads(t *testing.T) {
 	if got := invalidAccess.Error(); got != `invalid virtual.filesystem.access "wide" (valid: restricted, full)` {
 		t.Fatalf("InvalidVirtualFilesystemAccessError.Error() = %q", got)
 	}
+}
+
+func TestRuntimeBoundaryMemoryLimitErrorPayload(t *testing.T) {
+	t.Parallel()
 
 	memoryErr := MemoryLimit("64TB").Validate()
 	var invalidMemory *InvalidMemoryLimitError
@@ -110,6 +126,10 @@ func TestRuntimeBoundaryValidationErrorPayloads(t *testing.T) {
 	if got := invalidMemory.Error(); got != `invalid memory limit "64TB": must be a byte count with optional K, M, or G suffix` {
 		t.Fatalf("InvalidMemoryLimitError.Error() = %q", got)
 	}
+}
+
+func TestRuntimeBoundaryPersistentConfigErrorPayload(t *testing.T) {
+	t.Parallel()
 
 	persistentErr := RuntimePersistentConfig{Name: "Uppercase"}.Validate()
 	var invalidPersistent *InvalidRuntimePersistentConfigError
