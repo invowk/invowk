@@ -282,133 +282,149 @@ func TestValidateRuntimeDependenciesMutationBoundaries(t *testing.T) {
 	cmd := runtimeDependencyCommand(invowkfile.CommandDependencyRef(depsMutationCommand))
 	cmdInfo := runtimeDependencyCommandInfo(cmd)
 
-	t.Run("container nil and empty runtime deps do not require a probe", func(t *testing.T) {
-		t.Parallel()
+	t.Run("container nil and empty runtime deps do not require a probe",
+		func(t *testing.T) { testRuntimeDependencyEmptyProbeMutation(t, cmd, cmdInfo) })
+	t.Run("runtime env failure stops before later runtime probes",
+		func(t *testing.T) { testRuntimeDependencyEnvShortCircuitMutation(t, cmd, cmdInfo) })
+	t.Run("runtime dependency failures preserve failure kinds", testRuntimeDependencyFailureKindsMutation)
+}
 
-		ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
-		ctx.RuntimeDependsOn = nil
-		if err := ValidateRuntimeDependencies(panicCommandSetProvider{t: t}, cmdInfo, nil, ctx, nil); err != nil {
-			t.Fatalf("nil RuntimeDependsOn error = %v, want nil", err)
-		}
+func testRuntimeDependencyEmptyProbeMutation(
+	t *testing.T,
+	cmd *invowkfile.Command,
+	cmdInfo *discovery.CommandInfo,
+) {
+	t.Helper()
+	t.Parallel()
 
-		ctx.RuntimeDependsOn = &invowkfile.DependsOn{}
-		if err := ValidateRuntimeDependencies(panicCommandSetProvider{t: t}, cmdInfo, nil, ctx, nil); err != nil {
-			t.Fatalf("empty RuntimeDependsOn error = %v, want nil", err)
-		}
-	})
+	ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
+	ctx.RuntimeDependsOn = nil
+	if err := ValidateRuntimeDependencies(panicCommandSetProvider{t: t}, cmdInfo, nil, ctx, nil); err != nil {
+		t.Fatalf("nil RuntimeDependsOn error = %v, want nil", err)
+	}
 
-	t.Run("runtime env failure stops before later runtime probes", func(t *testing.T) {
-		t.Parallel()
+	ctx.RuntimeDependsOn = &invowkfile.DependsOn{}
+	if err := ValidateRuntimeDependencies(panicCommandSetProvider{t: t}, cmdInfo, nil, ctx, nil); err != nil {
+		t.Fatalf("empty RuntimeDependsOn error = %v, want nil", err)
+	}
+}
 
-		envErr := errors.New("env unavailable")
-		probe := &recordingRuntimeProbe{envErr: envErr}
-		ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
-		ctx.RuntimeDependsOn = &invowkfile.DependsOn{
-			EnvVars: []invowkfile.EnvVarDependency{{
-				Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_ENV"}},
-			}},
-			Tools: []invowkfile.ToolDependency{{
-				Alternatives: []invowkfile.BinaryName{"tool-after-env"},
-			}},
-		}
+func testRuntimeDependencyEnvShortCircuitMutation(
+	t *testing.T,
+	cmd *invowkfile.Command,
+	cmdInfo *discovery.CommandInfo,
+) {
+	t.Helper()
+	t.Parallel()
 
-		err := ValidateRuntimeDependencies(
-			&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
-			cmdInfo,
-			probe,
-			ctx,
-			nil,
-		)
-		depErr := requireDependencyError(t, err)
-		if len(depErr.MissingEnvVars) != 1 {
-			t.Fatalf("MissingEnvVars = %v, want one runtime env failure", depErr.MissingEnvVars)
-		}
-		if len(probe.tools) != 0 || len(probe.filepaths) != 0 || len(probe.commands) != 0 {
-			t.Fatalf("runtime probe continued after env failure: %+v", probe)
-		}
-	})
+	envErr := errors.New("env unavailable")
+	probe := &recordingRuntimeProbe{envErr: envErr}
+	ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
+	ctx.RuntimeDependsOn = &invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{{
+			Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_ENV"}},
+		}},
+		Tools: []invowkfile.ToolDependency{{
+			Alternatives: []invowkfile.BinaryName{"tool-after-env"},
+		}},
+	}
 
-	t.Run("runtime dependency failures preserve failure kinds", func(t *testing.T) {
-		t.Parallel()
+	err := ValidateRuntimeDependencies(
+		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
+		cmdInfo,
+		probe,
+		ctx,
+		nil,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.MissingEnvVars) != 1 {
+		t.Fatalf("MissingEnvVars = %v, want one runtime env failure", depErr.MissingEnvVars)
+	}
+	if len(probe.tools) != 0 || len(probe.filepaths) != 0 || len(probe.commands) != 0 {
+		t.Fatalf("runtime probe continued after env failure: %+v", probe)
+	}
+}
 
-		tests := []struct {
-			name         string
-			dependsOn    *invowkfile.DependsOn
-			probe        *recordingRuntimeProbe
-			wantKind     DependencyFailureKind
-			wantCommands int
-			wantTools    int
-			wantFiles    int
-			wantCaps     int
-			wantChecks   int
-		}{
-			{
-				name: "tool",
-				dependsOn: &invowkfile.DependsOn{
-					Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"missing-tool"}}},
-				},
-				probe:     &recordingRuntimeProbe{toolErr: errors.New("missing tool")},
-				wantKind:  DependencyFailureTool,
-				wantTools: 1,
+func testRuntimeDependencyFailureKindsMutation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		dependsOn    *invowkfile.DependsOn
+		probe        *recordingRuntimeProbe
+		wantKind     DependencyFailureKind
+		wantCommands int
+		wantTools    int
+		wantFiles    int
+		wantCaps     int
+		wantChecks   int
+	}{
+		{
+			name: "tool",
+			dependsOn: &invowkfile.DependsOn{
+				Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"missing-tool"}}},
 			},
-			{
-				name: "filepath",
-				dependsOn: &invowkfile.DependsOn{
-					Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/missing"}}},
-				},
-				probe:     &recordingRuntimeProbe{filepathErr: errors.New("missing filepath")},
-				wantKind:  DependencyFailureFilepath,
-				wantFiles: 1,
+			probe:     &recordingRuntimeProbe{toolErr: errors.New("missing tool")},
+			wantKind:  DependencyFailureTool,
+			wantTools: 1,
+		},
+		{
+			name: "filepath",
+			dependsOn: &invowkfile.DependsOn{
+				Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/missing"}}},
 			},
-			{
-				name: "capability",
-				dependsOn: &invowkfile.DependsOn{
-					Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}},
-				},
-				probe:    &recordingRuntimeProbe{capabilityErr: errors.New("missing tty")},
-				wantKind: DependencyFailureCapability,
-				wantCaps: 1,
+			probe:     &recordingRuntimeProbe{filepathErr: errors.New("missing filepath")},
+			wantKind:  DependencyFailureFilepath,
+			wantFiles: 1,
+		},
+		{
+			name: "capability",
+			dependsOn: &invowkfile.DependsOn{
+				Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}},
 			},
-			{
-				name: "custom check",
-				dependsOn: &invowkfile.DependsOn{
-					CustomChecks: []invowkfile.CustomCheckDependency{{
-						Name:   "runtime-check",
-						Script: invowkfile.CustomCheckScript{Content: "exit 1"},
-					}},
-				},
-				probe:      &recordingRuntimeProbe{checkErr: errors.New("runtime check failed")},
-				wantKind:   DependencyFailureCustomCheck,
-				wantChecks: 1,
+			probe:    &recordingRuntimeProbe{capabilityErr: errors.New("missing tty")},
+			wantKind: DependencyFailureCapability,
+			wantCaps: 1,
+		},
+		{
+			name: "custom check",
+			dependsOn: &invowkfile.DependsOn{
+				CustomChecks: []invowkfile.CustomCheckDependency{{
+					Name:   "runtime-check",
+					Script: invowkfile.CustomCheckScript{Content: "exit 1"},
+				}},
 			},
-		}
+			probe:      &recordingRuntimeProbe{checkErr: errors.New("runtime check failed")},
+			wantKind:   DependencyFailureCustomCheck,
+			wantChecks: 1,
+		},
+	}
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-				cmd := depsMutationRuntimeCommand(tt.dependsOn)
-				ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
-				err := ValidateRuntimeDependencies(
-					panicCommandSetProvider{t: t},
-					depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
-					tt.probe,
-					ctx,
-					nil,
-				)
-				depErr := requireDependencyError(t, err)
-				requireDependencyFailureKinds(t, depErr.Failures(), tt.wantKind)
-				if len(tt.probe.commands) != tt.wantCommands ||
-					len(tt.probe.tools) != tt.wantTools ||
-					len(tt.probe.filepaths) != tt.wantFiles ||
-					len(tt.probe.capabilities) != tt.wantCaps ||
-					len(tt.probe.checks) != tt.wantChecks {
-					t.Fatalf("runtime probe calls = %+v, want commands=%d tools=%d files=%d caps=%d checks=%d",
-						tt.probe, tt.wantCommands, tt.wantTools, tt.wantFiles, tt.wantCaps, tt.wantChecks)
-				}
-			})
-		}
-	})
+			cmd := depsMutationRuntimeCommand(tt.dependsOn)
+			ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
+			err := ValidateRuntimeDependencies(
+				panicCommandSetProvider{t: t},
+				depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
+				tt.probe,
+				ctx,
+				nil,
+			)
+			depErr := requireDependencyError(t, err)
+			requireDependencyFailureKinds(t, depErr.Failures(), tt.wantKind)
+			if len(tt.probe.commands) != tt.wantCommands ||
+				len(tt.probe.tools) != tt.wantTools ||
+				len(tt.probe.filepaths) != tt.wantFiles ||
+				len(tt.probe.capabilities) != tt.wantCaps ||
+				len(tt.probe.checks) != tt.wantChecks {
+				t.Fatalf("runtime probe calls = %+v, want commands=%d tools=%d files=%d caps=%d checks=%d",
+					tt.probe, tt.wantCommands, tt.wantTools, tt.wantFiles, tt.wantCaps, tt.wantChecks)
+			}
+		})
+	}
 }
 
 func TestCommandResolutionMutationContracts(t *testing.T) {
