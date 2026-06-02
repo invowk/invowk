@@ -9,7 +9,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
-- `tools/mutation/baselines/root-baseline.json`: 1,567 accepted escaped mutants.
+- `tools/mutation/baselines/root-baseline.json`: 1,517 accepted escaped mutants.
 - `tools/mutation/baselines/goplint-baseline.json`: 810 accepted escaped mutants.
 
 ## Root Profile
@@ -19,14 +19,13 @@ Summary from `artifacts/mutation/full/root/go-mutesting-summary.json`:
 - Total: 9,389
 - Killed: 5,224
 - Escaped in source report: 1,636
-- Accepted baseline after remediation: 1,567
+- Accepted baseline after remediation: 1,517
 - Not covered: 2,529
 - MSI: 55.64%
 - Covered-code MSI: 76.15%
 
 Top accepted clusters after the current remediation batches:
 
-- `pkg/invowkfile/validation_primitives.go`: 83 accepted
 - `pkg/invowkmod/invowkmod.go`: 80 accepted
 - `internal/app/llmconfig/resolve.go`: 68 accepted
 - `internal/app/deps/deps.go`: 64 accepted
@@ -36,6 +35,7 @@ Top accepted clusters after the current remediation batches:
 - `internal/discovery/discovery_files.go`: 53 accepted
 - `pkg/invowkfile/validation_structure_flags.go`: 52 accepted
 - `pkg/invowkfile/runtime.go`: 51 accepted
+- `pkg/invowkmod/invowkmod_edit.go`: 51 accepted
 
 Top not-covered clusters:
 
@@ -144,6 +144,14 @@ Sixth remediation batch:
 - Focused rerun: `artifacts/mutation/focused/root-invowkfile-generate/`, generated `2026-06-02T14:31:17Z`, with 491 total mutants, 398 killed, 32 not covered, 61 escaped, MSI 81.06%, and covered-code MSI 86.71%.
 - The focused rerun proved 64 accepted `pkg/invowkfile/generate.go` survivors killed and removed from the root baseline, dropping that file from 125 to 61 accepted mutants.
 - The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `pkg/invowkfile/generate.go`.
+
+Seventh remediation batch:
+
+- Add helper-level coverage for `pkg/invowkfile/validation_primitives.go` regex validation boundaries, invalid-regex cause wrapping, required-description delegation, overlapping alternation edge cases, escaped nesting depth, character-class quantifier handling, and brace quantifier counting.
+- Commit the primitive-helper coverage before running the focused mutation pass to avoid source-restore clobbering of uncommitted tests.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-validation-primitives/`, generated `2026-06-02T14:37:31Z`, with 205 total mutants, 142 killed, 27 not covered, 36 escaped, MSI 69.27%, and covered-code MSI 79.78%.
+- The focused rerun proved 50 accepted `pkg/invowkfile/validation_primitives.go` survivors killed and removed from the root baseline, dropping that file from 83 to 33 accepted mutants.
+- The focused rerun also surfaced 3 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
 
 ## Policy
 
