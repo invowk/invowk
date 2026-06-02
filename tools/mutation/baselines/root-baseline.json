@@ -1136,48 +1136,6 @@
       "line": 241
     },
     {
-      "id": "f4281438388b3f2b9bb5a80c7069a160",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "composite/field-clear",
-      "line": 331
-    },
-    {
-      "id": "71b5e87471f5be86464a6a68948fb858",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "composite/field-clear",
-      "line": 331
-    },
-    {
-      "id": "3b455b2f5008eebc61e01dd6bd47ffef",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "composite/field-clear",
-      "line": 215
-    },
-    {
-      "id": "3e9fdd6853667fe385c7a08326c933e3",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "composite/field-clear",
-      "line": 353
-    },
-    {
-      "id": "a359876f5ccd847e137c25c990111406",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "composite/field-clear",
-      "line": 350
-    },
-    {
-      "id": "f29778a86f45a7bc7067eb184e9b7315",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "composite/field-clear",
-      "line": 398
-    },
-    {
-      "id": "5849fde1987c778f97bb11d4fbf59ca0",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/error-guard",
-      "line": 297
-    },
-    {
       "id": "40b768df087ab427fa7b0d974cc28213",
       "file": "internal/discovery/discovery.go",
       "mutator": "expression/error-guard",
@@ -1190,18 +1148,6 @@
       "line": 221
     },
     {
-      "id": "21049f9b5d847117953930a5e5dd682e",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/error-guard",
-      "line": 327
-    },
-    {
-      "id": "75ac83d8db3c32a67d3abdb47cf225ae",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/error-guard",
-      "line": 346
-    },
-    {
       "id": "0a7edec1ac46a0236c811e987ed3ba48",
       "file": "internal/discovery/discovery.go",
       "mutator": "expression/error-guard",
@@ -1212,24 +1158,6 @@
       "file": "internal/discovery/discovery.go",
       "mutator": "expression/logical",
       "line": 287
-    },
-    {
-      "id": "eff82f373a0d3abdebd25e683f5a8e72",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/logical",
-      "line": 418
-    },
-    {
-      "id": "5c9c4107733d05f5322931e92d66b7dd",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/logical",
-      "line": 319
-    },
-    {
-      "id": "e6c57abb996c872ef97f20dd99771daa",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/logical",
-      "line": 219
     },
     {
       "id": "6e096a861724dddc754851e36ea4e4a0",
@@ -1250,76 +1178,16 @@
       "line": 287
     },
     {
-      "id": "31764c307cf08ffe7b4e01672e3bffdf",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 219
-    },
-    {
-      "id": "dfee9d3177c991e7672d65cc2aa26f62",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 235
-    },
-    {
-      "id": "2b7496a09ad4134755517c14853d68d8",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 319
-    },
-    {
-      "id": "3727548e17880af71a186aad08163c1d",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 319
-    },
-    {
-      "id": "06f5503ca8f3b9613d265caba7359ce0",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 219
-    },
-    {
-      "id": "606cddfa6407061db5bd2c6620425b0b",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 387
-    },
-    {
       "id": "ac8bdade87211c1b4da278d981c5093b",
       "file": "internal/discovery/discovery.go",
       "mutator": "expression/remove",
       "line": 463
     },
     {
-      "id": "cd52cafe924aa5d6bd3818d1ea79373e",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 418
-    },
-    {
-      "id": "f7ce536c4c0ccf3b4935b311641994f5",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "expression/remove",
-      "line": 439
-    },
-    {
       "id": "cc7616bf46bc58f39879fbd4c73bd3ea",
       "file": "internal/discovery/discovery.go",
       "mutator": "expression/remove",
       "line": 463
-    },
-    {
-      "id": "1eb30f8b1f34cb986263f0f5cc5618b9",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "statement/remove",
-      "line": 382
-    },
-    {
-      "id": "5bc340d14c03a105d340634ef2f3c411",
-      "file": "internal/discovery/discovery.go",
-      "mutator": "statement/remove",
-      "line": 410
     },
     {
       "id": "876a8ddaf93d1dcea701c7b22bac1375",
@@ -2978,190 +2846,10 @@
       "line": 168
     },
     {
-      "id": "1d1ec42cb9b8010921fddbe5a6bb887d",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "branch/if",
-      "line": 104
-    },
-    {
-      "id": "3df2bc14e8978b9bc6fc17a099b3705a",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "branch/if",
-      "line": 181
-    },
-    {
-      "id": "ba2a8e327ad9481141b5eab9aad93b4b",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "branch/if",
-      "line": 178
-    },
-    {
-      "id": "a96d96959daed9ea72e6e42b6a86ec2e",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 83
-    },
-    {
-      "id": "2491c0f3e74112fd9551ac4772b0e29b",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 83
-    },
-    {
-      "id": "3657df37de8bf4530b628c913ec2bc91",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 88
-    },
-    {
-      "id": "21471a26fede81f87ad5fde24094a6c0",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 88
-    },
-    {
-      "id": "1200b03843593a7e9669a2c2b746b439",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 88
-    },
-    {
-      "id": "f5611f878a05ce2a9e390024d27e8dab",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 98
-    },
-    {
-      "id": "9a9a5ab57e3f7100be35bcdd2152053c",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 98
-    },
-    {
-      "id": "ab91838c0f13d49855b2f243e46fdbc6",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 113
-    },
-    {
-      "id": "e3dae3891f8d0dc452625ab66f661ee7",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 110
-    },
-    {
-      "id": "0a4b4ef26cfb227f7796047a69b12540",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 110
-    },
-    {
-      "id": "4cd668a26a44310b89797bcdacae0a49",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "composite/field-clear",
-      "line": 110
-    },
-    {
-      "id": "5a20a8c23eb8a3123510ba6e1a063e8c",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "conditional/negated",
-      "line": 177
-    },
-    {
-      "id": "51c259a7cfef7f9dc35d1d9adacf6570",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "conditional/negated",
-      "line": 180
-    },
-    {
-      "id": "24d82b166b9abc7dd95d8984240fc82a",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/logical",
-      "line": 103
-    },
-    {
-      "id": "75ac73ae3876ab19c894116daa5156b6",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/logical",
-      "line": 103
-    },
-    {
-      "id": "196e4c0ec4558673d379815e9cba7df4",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 103
-    },
-    {
       "id": "f335fd4a9372bd4205bf984e59d484d8",
       "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
       "mutator": "expression/remove",
       "line": 103
-    },
-    {
-      "id": "a33887c3752e1a6c08286051400047f7",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 103
-    },
-    {
-      "id": "cc516a52ae85f354969743f0d5796a07",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 103
-    },
-    {
-      "id": "ebff94905a1fa1625023c0e60f318a7b",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 177
-    },
-    {
-      "id": "66f38af4aea3a51fa8432060babf86a3",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/logical",
-      "line": 324
-    },
-    {
-      "id": "350f5105dbdf8093ee8347ba64a4f2cd",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 324
-    },
-    {
-      "id": "ebc84013b2f22ec732a069278317f8c7",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 324
-    },
-    {
-      "id": "f8e5022c2f2817634dc50e875b0fc32c",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "expression/remove",
-      "line": 324
-    },
-    {
-      "id": "089b3ad6028f6063adbf55ecc10ef70b",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "statement/return",
-      "line": 83
-    },
-    {
-      "id": "154e7001a3d7da7f491cca39d9ea2499",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "statement/return",
-      "line": 88
-    },
-    {
-      "id": "1cb832553f8cc88baadaf6fb05492c81",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "statement/return",
-      "line": 178
-    },
-    {
-      "id": "5e63cadc150ddb06f559dee11992a424",
-      "file": "pkg/invowkfile/script_interpreter_diagnostics.go",
-      "mutator": "statement/return",
-      "line": 181
     },
     {
       "id": "849c6c535d979b84649cbf7f01f43628",
