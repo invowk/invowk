@@ -9,7 +9,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
-- `tools/mutation/baselines/root-baseline.json`: 1,469 accepted escaped mutants.
+- `tools/mutation/baselines/root-baseline.json`: 1,422 accepted escaped mutants.
 - `tools/mutation/baselines/goplint-baseline.json`: 810 accepted escaped mutants.
 
 ## Root Profile
@@ -19,14 +19,13 @@ Summary from `artifacts/mutation/full/root/go-mutesting-summary.json`:
 - Total: 9,389
 - Killed: 5,224
 - Escaped in source report: 1,636
-- Accepted baseline after remediation: 1,469
+- Accepted baseline after remediation: 1,422
 - Not covered: 2,529
 - MSI: 55.64%
 - Covered-code MSI: 76.15%
 
 Top accepted clusters after the current remediation batches:
 
-- `internal/app/llmconfig/resolve.go`: 68 accepted
 - `internal/app/deps/deps.go`: 64 accepted
 - `pkg/invowkfile/generate.go`: 61 accepted
 - `internal/app/deps/checks.go`: 58 accepted
@@ -36,6 +35,7 @@ Top accepted clusters after the current remediation batches:
 - `pkg/invowkfile/runtime.go`: 51 accepted
 - `pkg/invowkmod/invowkmod_edit.go`: 51 accepted
 - `pkg/invowkfile/validation_structure_command.go`: 45 accepted
+- `internal/config/types.go`: 41 accepted
 
 Top not-covered clusters:
 
@@ -160,6 +160,14 @@ Eighth remediation batch:
 - Focused rerun: `artifacts/mutation/focused/root-invowkmod/`, generated `2026-06-02T14:48:48Z`, with 288 total mutants, 220 killed, 23 not covered, 45 escaped, MSI 76.39%, and covered-code MSI 83.02%.
 - The focused rerun proved 48 accepted `pkg/invowkmod/invowkmod.go` survivors killed and removed from the root baseline, dropping that file from 80 to 32 accepted mutants.
 - The focused rerun also surfaced 13 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Ninth remediation batch:
+
+- Add resolver contract coverage for `internal/app/llmconfig/resolve.go`, including provider/load validation ordering, mode labels, validation joins, configured API/provider precedence, environment overrides, flag overrides, concurrency normalization, and option accessors.
+- Commit the `llmconfig` coverage before running the focused mutation pass to avoid source-restore clobbering of uncommitted tests.
+- Focused rerun: `artifacts/mutation/focused/root-llmconfig-resolve/`, generated `2026-06-02T15:00:31Z`, with 206 total mutants, 170 killed, 14 not covered, 22 escaped, MSI 82.52%, and covered-code MSI 88.54%.
+- The focused rerun proved 47 accepted `internal/app/llmconfig/resolve.go` survivors killed and removed from the root baseline, dropping that file from 68 to 21 accepted mutants.
+- The focused rerun also surfaced 1 escaped ID that was not in the accepted baseline for this file. It was not added during this shrink-only pass; reconcile it with the next full root mutation profile before any broader baseline refresh.
 
 ## Policy
 
