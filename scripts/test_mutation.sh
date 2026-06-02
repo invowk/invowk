@@ -291,9 +291,10 @@ test_goplint_target_resolution() {
 	trap 'rm -rf "$tmp"' RETURN
 	targets="$(resolve_targets goplint "$tmp/goplint")"
 
-	assert_contains "goplint targets include analyzer entrypoint" "./goplint/analyzer.go" "$targets"
-	assert_contains "goplint targets include constructor validation analyzer" "./goplint/analyzer_constructor_validates.go" "$targets"
-	assert_contains "goplint targets include Windows pitfalls analyzer" "./goplint/analyzer_windows_pitfalls.go" "$targets"
+	assert_contains "goplint targets include analyzer entrypoint" "goplint/analyzer.go" "$targets"
+	assert_contains "goplint targets include constructor validation analyzer" "goplint/analyzer_constructor_validates.go" "$targets"
+	assert_contains "goplint targets include Windows pitfalls analyzer" "goplint/analyzer_windows_pitfalls.go" "$targets"
+	assert_not_contains "goplint targets avoid leading dot-slash ids" "./goplint/analyzer.go" "$targets"
 	assert_not_contains "goplint curated profile omits command package" "github.com/invowk/invowk/tools/goplint" "$targets"
 	assert_not_contains "goplint curated profile omits full analyzer package" "github.com/invowk/invowk/tools/goplint/goplint" "$targets"
 	assert_file_contains "goplint file target metadata records owning package" \
