@@ -323,10 +323,9 @@ func TestValidateCustomCheckOutput(t *testing.T) {
 			wantErr: "returned exit code",
 		},
 		{
-			name:    "expected non-zero exit code matches",
-			check:   invowkfile.CustomCheck{Name: "demo", ExpectedCode: &expectedTwo},
-			result:  mustCustomCheckResult(t, "", 1), // exit code 1 != expected 2
-			wantErr: "returned exit code",
+			name:   "expected non-zero exit code matches",
+			check:  invowkfile.CustomCheck{Name: "demo", ExpectedCode: &expectedTwo},
+			result: mustCustomCheckResult(t, "", 2),
 		},
 		{
 			name:   "output matches regex pattern",
@@ -466,6 +465,96 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 		if len(depErr.FailedCustomChecks) != 1 {
 			t.Fatalf("FailedCustomChecks = %d, want 1", len(depErr.FailedCustomChecks))
 		}
+		if got := depErr.FailedCustomChecks[0].String(); !strings.Contains(got, "invalid custom check dependency") || !strings.Contains(got, "custom check script must set content or file") {
+			t.Fatalf("FailedCustomChecks[0] = %q, want validation detail", got)
+		}
+	})
+}
+
+func TestCustomCheckInterpreterTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		target customCheckInterpreterTarget
+		text   string
+		valid  bool
+	}{
+		{name: "host", target: customCheckInterpreterTargetHost, text: "host", valid: true},
+		{name: "runtime", target: customCheckInterpreterTargetRuntime, text: "runtime", valid: true},
+		{name: "unknown", target: customCheckInterpreterTarget(99), text: "unknown(99)", valid: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.target.String(); got != tt.text {
+				t.Fatalf("String() = %q, want %q", got, tt.text)
+			}
+			err := tt.target.Validate()
+			if tt.valid && err != nil {
+				t.Fatalf("Validate() = %v, want nil", err)
+			}
+			if !tt.valid && err == nil {
+				t.Fatal("Validate() = nil, want error")
+			}
+		})
+	}
+}
+
+func TestCustomCheckAnalysisRuntime(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		target customCheckInterpreterTarget
+		script invowkfile.ScriptContent
+		want   invowkfile.RuntimeMode
+	}{
+		{
+			name:   "runtime checks analyze as container",
+			target: customCheckInterpreterTargetRuntime,
+			script: "#!/bin/sh\necho ok\n",
+			want:   invowkfile.RuntimeContainer,
+		},
+		{
+			name:   "host non-shell shebang analyzes as native",
+			target: customCheckInterpreterTargetHost,
+			script: "#!/usr/bin/env python3\nprint('ok')\n",
+			want:   invowkfile.RuntimeNative,
+		},
+		{
+			name:   "host shell shebang analyzes as virtual shell",
+			target: customCheckInterpreterTargetHost,
+			script: "#!/bin/sh\necho ok\n",
+			want:   invowkfile.RuntimeVirtualSh,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := customCheckAnalysisRuntime(invowkfile.CustomCheckScript{}, tt.script, tt.target)
+			if got != tt.want {
+				t.Fatalf("customCheckAnalysisRuntime() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReportCustomCheckInterpreterDiagnosticsNilReporter(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("reportCustomCheckInterpreterDiagnostics panicked with nil reporter: %v", recovered)
+		}
+	}()
+
+	reportCustomCheckInterpreterDiagnostics(ExecutionContext{}, []invowkfile.ScriptInterpreterDiagnostic{
+		{},
 	})
 }
 

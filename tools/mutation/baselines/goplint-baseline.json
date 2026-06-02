@@ -1,4 +1,5681 @@
 {
   "version": 1,
-  "mutants": []
+  "mutants": [
+    {
+      "id": "b72470adb3515faeb9e33dd9c974f16c",
+      "file": "./goplint/analyzer.go",
+      "mutator": "branch/if",
+      "line": 183
+    },
+    {
+      "id": "b9fd49a434fc48e3e43a57cb97f797e4",
+      "file": "./goplint/analyzer.go",
+      "mutator": "branch/if",
+      "line": 477
+    },
+    {
+      "id": "402d74e719dc572f53e5fd23f5265d5f",
+      "file": "./goplint/analyzer.go",
+      "mutator": "branch/if",
+      "line": 484
+    },
+    {
+      "id": "ed5ff1051ffbadb662b15fa6ea71536c",
+      "file": "./goplint/analyzer.go",
+      "mutator": "branch/if",
+      "line": 291
+    },
+    {
+      "id": "0f2f6ff92f1ae08dd05d18bb133745a1",
+      "file": "./goplint/analyzer.go",
+      "mutator": "composite/field-clear",
+      "line": 218
+    },
+    {
+      "id": "1ad8892cd6aaa96d6a9e4eb3f5d67a85",
+      "file": "./goplint/analyzer.go",
+      "mutator": "composite/field-clear",
+      "line": 533
+    },
+    {
+      "id": "c895a0f022b796b24207d18c75e277a9",
+      "file": "./goplint/analyzer.go",
+      "mutator": "conditional/negated",
+      "line": 487
+    },
+    {
+      "id": "651f180967ed00d7892b240ce7f980db",
+      "file": "./goplint/analyzer.go",
+      "mutator": "conditional/negated",
+      "line": 475
+    },
+    {
+      "id": "10635344d2389b7f96067c847296b5c0",
+      "file": "./goplint/analyzer.go",
+      "mutator": "conditional/negated",
+      "line": 476
+    },
+    {
+      "id": "2d168423d082c1cb1694f88585871992",
+      "file": "./goplint/analyzer.go",
+      "mutator": "conditional/negated",
+      "line": 476
+    },
+    {
+      "id": "49dff8b6e081e9d954d60ac31ad9aed8",
+      "file": "./goplint/analyzer.go",
+      "mutator": "conditional/negated",
+      "line": 483
+    },
+    {
+      "id": "90d83e280944aca21ea3774b29a2d9d8",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/comparison",
+      "line": 487
+    },
+    {
+      "id": "480bfe099422f5ba5787db0c81ba87d1",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/comparison",
+      "line": 505
+    },
+    {
+      "id": "8cd92822cc7a2d224917c371ff56ab3e",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/comparison",
+      "line": 509
+    },
+    {
+      "id": "c86603e9875ad9690142ac06c7653a15",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/logical",
+      "line": 290
+    },
+    {
+      "id": "b92f57a5bbab66890ef412241fb8de01",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/logical",
+      "line": 384
+    },
+    {
+      "id": "98959619386ea74be8148710af59a5f8",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/logical",
+      "line": 338
+    },
+    {
+      "id": "73602361811ab21a89e261cc6eb7887c",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/logical",
+      "line": 476
+    },
+    {
+      "id": "4b27666ccaf5c9c2573146acc7702deb",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/logical",
+      "line": 498
+    },
+    {
+      "id": "65e563058a74e762d41a2524ad7e1a6c",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 290
+    },
+    {
+      "id": "62e4f4c150eff1f08af3f54fa94ec57e",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 263
+    },
+    {
+      "id": "1eb9728ef55b5640d37281d6665865e7",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 290
+    },
+    {
+      "id": "05d8f2f02af085f99ccaf9d1f1f2d8a9",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 338
+    },
+    {
+      "id": "0ef165f6463e16d224f5f5cdd1f9ba61",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 338
+    },
+    {
+      "id": "e39769538b75c78c3fdeef191c87d7f9",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 384
+    },
+    {
+      "id": "edd01d83412c03e0e02f18fe09dff617",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 384
+    },
+    {
+      "id": "1feaa7c2ff61f3687b2e94f61b51e5f5",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 476
+    },
+    {
+      "id": "7198db0047a1080d8dd8d2464743dbcf",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 476
+    },
+    {
+      "id": "16db4546202f413c2ce879f047a57bbd",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 498
+    },
+    {
+      "id": "668a4a4cdf116c3179a829f0a5c1e074",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 512
+    },
+    {
+      "id": "b70737eba7061b13558eb4374d9deaa9",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 498
+    },
+    {
+      "id": "1d0c6c8a1769d1c21330bad9093547cd",
+      "file": "./goplint/analyzer.go",
+      "mutator": "expression/remove",
+      "line": 521
+    },
+    {
+      "id": "3183eabaf2be81e7db17fba00c1f604b",
+      "file": "./goplint/analyzer.go",
+      "mutator": "branch/if",
+      "line": 248
+    },
+    {
+      "id": "d96de2ecdf37c9fcb65b68beea3739f9",
+      "file": "./goplint/analyzer.go",
+      "mutator": "numbers/decrementer",
+      "line": 290
+    },
+    {
+      "id": "be751c412b9c3f5a9b23d4969862ad69",
+      "file": "./goplint/analyzer.go",
+      "mutator": "numbers/decrementer",
+      "line": 543
+    },
+    {
+      "id": "78f75583b0681cd7680ab1068a3c36ba",
+      "file": "./goplint/analyzer.go",
+      "mutator": "numbers/decrementer",
+      "line": 521
+    },
+    {
+      "id": "370c252d10a1cdf7b317ab2734ba14e0",
+      "file": "./goplint/analyzer.go",
+      "mutator": "numbers/incrementer",
+      "line": 505
+    },
+    {
+      "id": "f0febadd9905f2be246a458e5d889d52",
+      "file": "./goplint/analyzer.go",
+      "mutator": "numbers/incrementer",
+      "line": 509
+    },
+    {
+      "id": "1e284c42b44805c57c2182ab118495fc",
+      "file": "./goplint/analyzer.go",
+      "mutator": "numbers/decrementer",
+      "line": 263
+    },
+    {
+      "id": "1b5fd66761f86227cfe1321e5559e23e",
+      "file": "./goplint/analyzer.go",
+      "mutator": "conditional/negated",
+      "line": 247
+    },
+    {
+      "id": "e24bf4303684265b6d6fb6d66897cecb",
+      "file": "./goplint/analyzer.go",
+      "mutator": "statement/defer-remove",
+      "line": 114
+    },
+    {
+      "id": "228be476157ecd779b3a764da12a847f",
+      "file": "./goplint/analyzer.go",
+      "mutator": "statement/remove",
+      "line": 488
+    },
+    {
+      "id": "63e0d0e3d804ff2a4c4c62d4e599c699",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "branch/if",
+      "line": 82
+    },
+    {
+      "id": "03c849bd751ac6d0658d6cbeb4780e6a",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/bool-literal",
+      "line": 296
+    },
+    {
+      "id": "b6f0069b3817883c03f810c5bd6901ee",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 222
+    },
+    {
+      "id": "1d4761af4cc6147a341511acbe7564b4",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 222
+    },
+    {
+      "id": "e359ddd9877fe9af7f0046aa8e446e17",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 222
+    },
+    {
+      "id": "684af5991f9019e3e2fbaec34081764c",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 233
+    },
+    {
+      "id": "7304bf0041539446e2fb50bc6df1f976",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 339
+    },
+    {
+      "id": "50d1c38dd8510d48fd0ba532305b377d",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 293
+    },
+    {
+      "id": "cdfbbd884845dd707508efd86bd7e91c",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 339
+    },
+    {
+      "id": "a39617a0d7e501d5ad765c0c21863740",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 411
+    },
+    {
+      "id": "2b13f700de5662ce9b8b2b343e311a38",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/negated",
+      "line": 429
+    },
+    {
+      "id": "8ec32fc9cf5b7c52d071d7977f163a82",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/not",
+      "line": 233
+    },
+    {
+      "id": "31ab6719e2f5bc8b936e15af8e4aae47",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "conditional/not",
+      "line": 311
+    },
+    {
+      "id": "3df6f9f6f9349cc31ec05e8faf25016d",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 28
+    },
+    {
+      "id": "03fd268cdd17d0991015efc00e6ac827",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 28
+    },
+    {
+      "id": "4f5912b693882ba9c16da954e32675c4",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 28
+    },
+    {
+      "id": "f00ead1e7df032b1b6ee25bb30ec7920",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 28
+    },
+    {
+      "id": "88fb6812079a0ff59417380e87e03d17",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 44
+    },
+    {
+      "id": "cd2ac6b9bba39214c5520a433e8f8172",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 44
+    },
+    {
+      "id": "6628719cf97214fb8e1e9e478b173b4f",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 61
+    },
+    {
+      "id": "1488d90f63d820015ee9b6f43efd1004",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 44
+    },
+    {
+      "id": "71f5d884a46647e69cd7cd78c4d05cdd",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 44
+    },
+    {
+      "id": "a2e3c1558d2c21c766e2c9641d2c24a5",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 160
+    },
+    {
+      "id": "712eb0abea5b994947f04417077ca388",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 181
+    },
+    {
+      "id": "f735eaf1524a77783d8b2003bab9cb45",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 168
+    },
+    {
+      "id": "13c45c2777345aff77f4f81832f93f82",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 177
+    },
+    {
+      "id": "4386e9c8d328330ca86fe0d15932bb91",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 122
+    },
+    {
+      "id": "4e5f7cb9c5b7cf3249ccec7a8d2470ed",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 191
+    },
+    {
+      "id": "f6c7fcf2028e00454b02166aa26d825a",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 200
+    },
+    {
+      "id": "601cc4fdc89d472dbf883d8d30193d7d",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 195
+    },
+    {
+      "id": "0cbece512b99c6c0be4e86af68579591",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 194
+    },
+    {
+      "id": "3661b4a82be8908de80ac925cbaa16c9",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 205
+    },
+    {
+      "id": "d7c36c5b15ba1af330b1c07f7446fcde",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 209
+    },
+    {
+      "id": "216bb51d276765b1d62136ce9a02153a",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 233
+    },
+    {
+      "id": "6efd9deb636be3e45c3f3dd9a1d8b757",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 269
+    },
+    {
+      "id": "efb2716a2a07031596a460ca59749a2c",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 374
+    },
+    {
+      "id": "8699ca4d383ffa5fd21e1567cb5f14d4",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 374
+    },
+    {
+      "id": "8a8e23120fa6a4ef3d93e569894e4954",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 378
+    },
+    {
+      "id": "afbcff95191ff79583a88913ca720429",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 401
+    },
+    {
+      "id": "2d09fbadb7bb27bf6dcc8cff3e0ebadd",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 401
+    },
+    {
+      "id": "53111ee077f92c122db387ff1e87bea7",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 339
+    },
+    {
+      "id": "1a86706c37b4aeece2725ed79cd13dbe",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/logical",
+      "line": 429
+    },
+    {
+      "id": "e75fd4b65eac3b08fa06557500a45686",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "ba9400a636addb839312d5a47ed41259",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "2ba2b901784dd2a21f34fd399881b700",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "00e75cb3cd3775d50cb4c6fc457cf35a",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "ed6b9868a74586ef053dfc37707a4a8c",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "316299d6b31dd0c12936ca01d0aa7209",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "ddcee2eab2911f6664e02430f2c5c34f",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "aa8940b833b0c8896b76b3eb1d747a41",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "bb93e4d7b15cfcbca733922e6c4f1697",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "a53a63d8be294dce92c4cbf51a74856f",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "4f471521792ce03f0ce30395685311fb",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "b34b7e6a5bfa59c9c361ad5960aab764",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 31
+    },
+    {
+      "id": "9e77d7b2678c5c3872ef2ead6201870a",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 61
+    },
+    {
+      "id": "05ae9072056b50c31ce73f1cf6e27a89",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 61
+    },
+    {
+      "id": "e8d491195eacd2ef756bcdad60d8128a",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "a17d4a1449d8eae3c619a8d131e4cb3b",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 107
+    },
+    {
+      "id": "d5b1942ab5047096b37966afbece104e",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "97ed12b3385286a6232c3f41a1b6349e",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "77ed67b785dd3b8d8ee82bb84fea0735",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "ecd2d6802987d06424465b8f8ac75ce2",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 106
+    },
+    {
+      "id": "cbb9233de440baaad3e70b293227f235",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 44
+    },
+    {
+      "id": "5098224ee5ea9785fc0e85c9a292bc4d",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "4a83cf2a911d51d504c63f478e2dbab9",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 146
+    },
+    {
+      "id": "f3a077b6c383375f5c1de8204410ebd0",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 160
+    },
+    {
+      "id": "33811e027e777cb8d8de906b5eff49a2",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "541ce1c4a48dfd388119c1eb75946690",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "b2c8e59f07fe164d693614167d8f6acb",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 177
+    },
+    {
+      "id": "dc6add0998d26837fab7cd76cb8285f2",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 181
+    },
+    {
+      "id": "3b812afa372b3dc6060f331952d9ef34",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 168
+    },
+    {
+      "id": "80ff50425d9dd4de51edf0e29af2cd42",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 181
+    },
+    {
+      "id": "22d12b620f0b0789f297ae3fd0570f48",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "f2e6281c3fdd0f168b2ed729a819dc58",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 191
+    },
+    {
+      "id": "be760f84c5eaaab8ba38d01ca84b5eeb",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "189690e2029b896cba7ea0eb450aaab8",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "a6f44ad024f4bc8ef0ba4705cfb9352f",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 195
+    },
+    {
+      "id": "ac1863f1582b267f66e4e3bacfed0968",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "0c7553d2c78c268a35836bd2c8593c99",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 222
+    },
+    {
+      "id": "24fe267f58d55a080b75c6aadcdf2d7c",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 209
+    },
+    {
+      "id": "33b8b84ba0967e043c630335182054d7",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 209
+    },
+    {
+      "id": "b8e3f6c763fe9edfa79410cc0d498e07",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 222
+    },
+    {
+      "id": "70a19469ee3a71a5e4d376620bc18331",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 222
+    },
+    {
+      "id": "069ae34acb9972f8d3a347acf22c69a2",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 233
+    },
+    {
+      "id": "794ad30ecc0b8fa2d7d12f43c4c11e36",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 339
+    },
+    {
+      "id": "66b2d100c1a2e7fa84f11f70bd42a8fc",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 266
+    },
+    {
+      "id": "4a87631b221f7af9817492129b074661",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 311
+    },
+    {
+      "id": "e76b970a752cff26e79f2fb676f78c58",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 269
+    },
+    {
+      "id": "6cf81227b6c4718a1336c60da00925f8",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 269
+    },
+    {
+      "id": "7850c18d3ade8db319d23fa1f35ecc81",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 339
+    },
+    {
+      "id": "088d5903af5796ff8a8afca90862c15c",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "6dc66ed27e9255028585d953123a7ca8",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "5e79e152bc56b3a9343860bc31b5c4b8",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "55e3b49e88817d90eede87dfd143c2df",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 378
+    },
+    {
+      "id": "b89e2a63ca71b949fcec4878bb6eabc9",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "3bf0ce03c6f9a809c0cdc36cb8aed90d",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 401
+    },
+    {
+      "id": "41aab0d1c1bb7ce19c910e1da34862a1",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 401
+    },
+    {
+      "id": "f62f63fdb888c59f71d4dafb99ef3153",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 411
+    },
+    {
+      "id": "c6e134e0e4870dfbe70be8a287d9c899",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/remove",
+      "line": 429
+    },
+    {
+      "id": "ad8b27e95c173a2aced3dcc6a522ac0e",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/string-literal",
+      "line": 61
+    },
+    {
+      "id": "feacaa627b5fb56c9c685037af270512",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/string-literal",
+      "line": 181
+    },
+    {
+      "id": "ba55cfe6f80a1c764e7b0111a69768e0",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "expression/string-literal",
+      "line": 411
+    },
+    {
+      "id": "918241c76621f329f632c37ddb13ffe9",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "loop/range_break",
+      "line": 298
+    },
+    {
+      "id": "918241c76621f329f632c37ddb13ffe9",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "loop/range_break",
+      "line": 356
+    },
+    {
+      "id": "1c280a176c0b0616c9f30ea573d824fb",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "numbers/decrementer",
+      "line": 209
+    },
+    {
+      "id": "918241c76621f329f632c37ddb13ffe9",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "loop/range_break",
+      "line": 373
+    },
+    {
+      "id": "ca2f140d72ba894f5747fef17e1bb4c0",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "numbers/decrementer",
+      "line": 293
+    },
+    {
+      "id": "cdba1feaef90e48635d1e3241d0c6d74",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "numbers/incrementer",
+      "line": 293
+    },
+    {
+      "id": "e46050a812bfaa07d2897a28c6858db7",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "statement/remove",
+      "line": 80
+    },
+    {
+      "id": "546f1363c4e0641ffd172675f5033d69",
+      "file": "./goplint/analyzer_boundary_request_validation.go",
+      "mutator": "statement/return",
+      "line": 284
+    },
+    {
+      "id": "16bcee9e0aff07cf5f078a3f05d3f027",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "branch/if",
+      "line": 414
+    },
+    {
+      "id": "b0333f1934fc68bfb1aba674bfeab5e9",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "conditional/negated",
+      "line": 111
+    },
+    {
+      "id": "dda916f42a47d11db75d31db26c0557d",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "conditional/negated",
+      "line": 69
+    },
+    {
+      "id": "8e993e594bc777c12e18e87f1036ebfa",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/comparison",
+      "line": 413
+    },
+    {
+      "id": "8b83b314fc553e6d27aa8fd8f28cc3c1",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/logical",
+      "line": 104
+    },
+    {
+      "id": "36522ed56a4c7d2573663e8a6b5a87ac",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/logical",
+      "line": 81
+    },
+    {
+      "id": "8d36b3027368aa216e9399ae735853af",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/logical",
+      "line": 132
+    },
+    {
+      "id": "379cdcbb16abce1f31e6f5962059cfb4",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 104
+    },
+    {
+      "id": "0eb1833ba8c0489bbe79cb0bce8ef120",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 104
+    },
+    {
+      "id": "ee86723b73ccdd8e0b0f904aa7fb536d",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 111
+    },
+    {
+      "id": "5f988e639333e2d4ff489d4ac915a358",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/logical",
+      "line": 198
+    },
+    {
+      "id": "9940b0736538911f2d993c45b3ab4a5a",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/logical",
+      "line": 198
+    },
+    {
+      "id": "daba6d11b483c6b4363d1c0a55863c89",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/logical",
+      "line": 357
+    },
+    {
+      "id": "096ec89be9a678965f04dde7277ed3f1",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "conditional/negated",
+      "line": 390
+    },
+    {
+      "id": "1731f1ada854465a9451fb0b3a1edbc9",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "conditional/negated",
+      "line": 390
+    },
+    {
+      "id": "febd06ed3fdb3d56d53846a6d874bbeb",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 69
+    },
+    {
+      "id": "2822cb0d54b41c19951fe51a1da693f6",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 63
+    },
+    {
+      "id": "da89123ffb140545f24432ae43e5652c",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 81
+    },
+    {
+      "id": "ecb101b0b4d37a4bcf3f3c6651ccbb52",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 132
+    },
+    {
+      "id": "5824153ad54ff88ce389b4582a6e9a30",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 219
+    },
+    {
+      "id": "7104584992aa1999c782ac3d05cb142f",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "5b35d0499a37f184aa47d1c140622e6b",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 198
+    },
+    {
+      "id": "5913f46819d272fcbe516e1556528a39",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 198
+    },
+    {
+      "id": "eeb258ecfd2c2304774a255e6546d3e6",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "70c86990517b951c81f9da484f4fd7e3",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 198
+    },
+    {
+      "id": "08eefbe8391ff5df62abaa2d658d32e7",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 198
+    },
+    {
+      "id": "4979911b3d1bb8c5a34da2ec6262150f",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "numbers/incrementer",
+      "line": 413
+    },
+    {
+      "id": "9e5780349011e63b85fccba832c2587d",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 357
+    },
+    {
+      "id": "a550ffdf976cea9b4c3d7b13c556c046",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 357
+    },
+    {
+      "id": "78aceac5b644bbee74b30ca47e920c8e",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/string-literal",
+      "line": 69
+    },
+    {
+      "id": "1ae6ecd8820c99df4acb033d58d7a053",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "numbers/decrementer",
+      "line": 127
+    },
+    {
+      "id": "75f92b855926042bf4c7263c03d939e8",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 390
+    },
+    {
+      "id": "9241b9a5af0892f4a2b0f7fefa275db8",
+      "file": "./goplint/analyzer_cast_validation.go",
+      "mutator": "expression/remove",
+      "line": 390
+    },
+    {
+      "id": "5610348a8353c5a4ec2794d7623abd47",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "branch/if",
+      "line": 52
+    },
+    {
+      "id": "da33a29fa9416b79ac1b00e71da155a9",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/comparison",
+      "line": 132
+    },
+    {
+      "id": "30df2225af4e822f8dfe0decdcf2fd41",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/logical",
+      "line": 122
+    },
+    {
+      "id": "e37d027c87804834e86630113f0fe1f7",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/logical",
+      "line": 122
+    },
+    {
+      "id": "1bd46a127c9e5d7fde425933a93459c6",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "029385fa268ae81500594f4ca71c2789",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 132
+    },
+    {
+      "id": "97d68ee47133e3548782025fc6c38597",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/comparison",
+      "line": 144
+    },
+    {
+      "id": "6ab3c9259f1df5d10c323a334938d5d5",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/comparison",
+      "line": 148
+    },
+    {
+      "id": "396fdfa6f089f4600c3a9b641a607cc1",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "ba1179febdd620fdf417224c5f603205",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "9147c22207bda4923c809fcb2c91dc59",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 122
+    },
+    {
+      "id": "42b775a52c1a3d59cd8efaecc2b653ea",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/logical",
+      "line": 217
+    },
+    {
+      "id": "d4a25c4c9fbd17d277fca3c4641eeca7",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/logical",
+      "line": 217
+    },
+    {
+      "id": "827d1e1a48f04c07a4f116aedd3af2f1",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 148
+    },
+    {
+      "id": "960ea5438650395918c8fba3165d3e3b",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 122
+    },
+    {
+      "id": "0d22da82ea0bbb2c692df9a3612f1b18",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 217
+    },
+    {
+      "id": "b59ca3b112d8010925597e597b31e3c2",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 217
+    },
+    {
+      "id": "e9cdea20a2f232d744b85c3d9e6ef850",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 217
+    },
+    {
+      "id": "fb00547561e1648381e814575787e11d",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "expression/remove",
+      "line": 217
+    },
+    {
+      "id": "c9a3695b69a929dc33e6477c5eb77a8f",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 144
+    },
+    {
+      "id": "8c8d82e1e09df8559647cc67dcb3d0bd",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 148
+    },
+    {
+      "id": "1f5721411ba2d6ed6a70dfc638f45575",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 203
+    },
+    {
+      "id": "506c0af7eea76f0d7ab5d89af4019286",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 217
+    },
+    {
+      "id": "c94f88ec8a193b3538c06211a31190d7",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/incrementer",
+      "line": 148
+    },
+    {
+      "id": "2524ce5572066b9c59dea55c915f463b",
+      "file": "./goplint/analyzer_constructor_usage.go",
+      "mutator": "numbers/incrementer",
+      "line": 144
+    },
+    {
+      "id": "789d7dce0eb163741d984fe1eb6cbc39",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/else",
+      "line": 87
+    },
+    {
+      "id": "9fa1bbc4f214361c5e9f5225dd39b60c",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 76
+    },
+    {
+      "id": "fb9f75f96018f602119ecc19ec11c3ff",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "arithmetic/base",
+      "line": 80
+    },
+    {
+      "id": "710af1fed331fabc088725f1f2cd4cdd",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "arithmetic/base",
+      "line": 548
+    },
+    {
+      "id": "08692f6b58862f0e1df7f2867274a918",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 490
+    },
+    {
+      "id": "55de18347d4d5dab41951574f187062e",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 284
+    },
+    {
+      "id": "4996a0f5b42355fd4c4554c06a402330",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 228
+    },
+    {
+      "id": "7b4854ae6713409d32b500dde4aee63a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 265
+    },
+    {
+      "id": "6e6bba3635cf9f358d50a2109c30883c",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 224
+    },
+    {
+      "id": "55cadb270ed5f65793d27bddabad99d0",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 585
+    },
+    {
+      "id": "4f1655a153c29cce93ec1cbde29e8e40",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "branch/if",
+      "line": 580
+    },
+    {
+      "id": "69b6a952d4dacabbee9186020a43db66",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 262
+    },
+    {
+      "id": "0e46490edfb9b241e867ee6c551eee9a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 499
+    },
+    {
+      "id": "8573fca5e3d455aaafbccf1465da6d26",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 499
+    },
+    {
+      "id": "23a748069b49ce3a7108141591c434af",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 499
+    },
+    {
+      "id": "9ce60464713281419abba4f2b02c841e",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 274
+    },
+    {
+      "id": "9ec54bd75a090ce70b4e5a03f6b4dcc0",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/bool-literal",
+      "line": 284
+    },
+    {
+      "id": "f41327f3f43d93f62661bab0d35fb26a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 294
+    },
+    {
+      "id": "a868475bb04db6b14ffcbbf70b17e81f",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 277
+    },
+    {
+      "id": "28455b203d0a834d8b845d263ffe3364",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 294
+    },
+    {
+      "id": "96f579775be18499755188361c43f85a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 278
+    },
+    {
+      "id": "e461d8211ad4f99f949b783cf0c4a383",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 294
+    },
+    {
+      "id": "989023da99cec9cc0dfffbd9d1a7ef89",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 300
+    },
+    {
+      "id": "bbfe26c635239c886991693ef67e116e",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 294
+    },
+    {
+      "id": "b01caa34aac08fc694781c59ff9b4716",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "composite/field-clear",
+      "line": 294
+    },
+    {
+      "id": "02be79a9c5af806cbf139809e71d29a0",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 306
+    },
+    {
+      "id": "c3a128374d34bbbe4baff1f6b7fd48da",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 315
+    },
+    {
+      "id": "f919f0068b4048cd69916ec917fd4faf",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/bool-literal",
+      "line": 539
+    },
+    {
+      "id": "08a22b253007a14be3ed92051173595c",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 316
+    },
+    {
+      "id": "8874266126c28f092d42ea361b31db77",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/bool-literal",
+      "line": 518
+    },
+    {
+      "id": "51fdd009e6ffcc17eeeb0efe9b3ad01a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 485
+    },
+    {
+      "id": "770d098c704bb03575981829d7f6a407",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 497
+    },
+    {
+      "id": "127a8e78cbb1065a2c96710ca483aebb",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 497
+    },
+    {
+      "id": "b7006a550f9b5a0e0e8010f02f069bad",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 542
+    },
+    {
+      "id": "a92bc66c02f58a6085ecab28f2cda342",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 238
+    },
+    {
+      "id": "9f56eaef7a5d0051707be6985c94079f",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 283
+    },
+    {
+      "id": "8c9a9c385e788418f32fe57e6d6eac05",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 264
+    },
+    {
+      "id": "fe5f4bc9196476fe91e369add73fd508",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 216
+    },
+    {
+      "id": "be99f74be478dec7c8e5ad533b7e19ad",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/comparison",
+      "line": 80
+    },
+    {
+      "id": "0246e7558937356b72a8969843848a1b",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/comparison",
+      "line": 80
+    },
+    {
+      "id": "74dc50afd021c34e3995e88bad61f7df",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 102
+    },
+    {
+      "id": "fe739a8d370cb65317f3b503e6e2c9a5",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/comparison",
+      "line": 303
+    },
+    {
+      "id": "42c0ecfe5423de638f667f162a42ba2b",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/comparison",
+      "line": 306
+    },
+    {
+      "id": "dc95309f0be49710e3c5118badbde810",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 128
+    },
+    {
+      "id": "1f31502088c19313000f423b1f0c1409",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 314
+    },
+    {
+      "id": "356eb8a6556b3c6e0a1bd98205f42424",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 315
+    },
+    {
+      "id": "eafac6c68eb2e0c90af2bf9c3c48a84a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 80
+    },
+    {
+      "id": "07775d27ccda94f629e89ad4c8f24f3f",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 95
+    },
+    {
+      "id": "cd7f13ff4122b675c6ca5b42ec16ad27",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 95
+    },
+    {
+      "id": "737ff63032059c2311ec64da0a26d606",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "2bb258bfae5984ad8d009531d1a2d512",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "31e3a0a54d6d2edc22385ab7964bf17e",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "fe4faa8ed014653a81490c54775aeec0",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 128
+    },
+    {
+      "id": "9bbd344d28babaeaf005ace6dfa76cbd",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 128
+    },
+    {
+      "id": "f52b32f307d694636d255af0f998ceed",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 138
+    },
+    {
+      "id": "cbc7158e7d1f49681dc16ca6b608f1f8",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 473
+    },
+    {
+      "id": "213480ecbe93b3811ce581e5129b45b1",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 138
+    },
+    {
+      "id": "0e733055c832dcff0940e3cd1f1a18aa",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 497
+    },
+    {
+      "id": "44d3778756328d1d23a6fdac10babdae",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "conditional/negated",
+      "line": 584
+    },
+    {
+      "id": "aa4d96c1dfa8587cec03f6d9bf0f95c7",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 314
+    },
+    {
+      "id": "80316a6b6f1578a053c80ad5a399c968",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 315
+    },
+    {
+      "id": "7dd537dc300eb1f75db67029ccb251ff",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/comparison",
+      "line": 199
+    },
+    {
+      "id": "ff536addeee5a5fa22cd53be4dc1be3d",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 314
+    },
+    {
+      "id": "b2707dcdf76f68eee5682c6816f108ed",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 314
+    },
+    {
+      "id": "07133fab212aaa9bc46062c48387ea8d",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 199
+    },
+    {
+      "id": "6240256b9f5e95f78874b3fb8b4f192e",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/logical",
+      "line": 572
+    },
+    {
+      "id": "57b94a4552fd3545185e795cfeb2fc48",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 80
+    },
+    {
+      "id": "a856977d82719dbc4b6899c2d7e7924d",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 303
+    },
+    {
+      "id": "65404a63a3f35fc54a45fddf6c130da7",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 80
+    },
+    {
+      "id": "71c96a758683454a80d87e3eb64c475b",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 306
+    },
+    {
+      "id": "b2990009bd43b86b03017ed4b7b95b85",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 473
+    },
+    {
+      "id": "3e6d50701d0caaec2c1715ad248f58f2",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 497
+    },
+    {
+      "id": "81db04ad6769e9928ea683dd0209d09a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 497
+    },
+    {
+      "id": "fed827a4629372fb2f74890db0270c94",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "f8639690c865d28da6e68e5c5c5ae001",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/string-literal",
+      "line": 459
+    },
+    {
+      "id": "c1a0d584df3313d4394bafd2256b956e",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/incrementer",
+      "line": 80
+    },
+    {
+      "id": "5bbd0c152cc65fb0b381d53491c9a40b",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "loop/range_break",
+      "line": 535
+    },
+    {
+      "id": "43777b26f230159bd9ce51862d59b585",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 199
+    },
+    {
+      "id": "2a700fb2d5bdd3397607247b2c8b83ee",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "9ffa53cae459f07c8713db42f704c19b",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 199
+    },
+    {
+      "id": "2ebb27362e443db767a06b8cc60a4788",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/incrementer",
+      "line": 80
+    },
+    {
+      "id": "1ad271608f5b55def05e66c259be72a1",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 238
+    },
+    {
+      "id": "9651424de1b36f53ab1d7bb62c8a4472",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 87
+    },
+    {
+      "id": "b00c633f2eb963b5458f8cd281e5cbd6",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/incrementer",
+      "line": 306
+    },
+    {
+      "id": "603ff6fc7b441b05423d5b71cf990f6d",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/incrementer",
+      "line": 303
+    },
+    {
+      "id": "123d4cf91f636b73a1aaccb6fab2e49c",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 136
+    },
+    {
+      "id": "e6ce28cd4656a0cddcb08cb612a1bf4a",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "expression/remove",
+      "line": 572
+    },
+    {
+      "id": "0649e0f31a1de8271bdbc4c6f259dab8",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 548
+    },
+    {
+      "id": "cddb2ac7385cbb612292b864bf9bca59",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "loop/range_break",
+      "line": 578
+    },
+    {
+      "id": "70ab5687705792c705e68a8b7ad73ed8",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 363
+    },
+    {
+      "id": "34e02c0252d7df8e769cb7c6d1917877",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 364
+    },
+    {
+      "id": "3852c3965c9d0ad9c72cda46923df0b9",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/incrementer",
+      "line": 548
+    },
+    {
+      "id": "faf7d219d3bf729c5b8c4969c8298166",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 199
+    },
+    {
+      "id": "e651426e03f71b314d6aa264f04a4495",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/decrementer",
+      "line": 572
+    },
+    {
+      "id": "393ee4d14afb41d1e6e68c85e7eb3756",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 342
+    },
+    {
+      "id": "34e02c0252d7df8e769cb7c6d1917877",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 341
+    },
+    {
+      "id": "4f8d350559f7375947478f186cfad8f4",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 492
+    },
+    {
+      "id": "fb8be9bdc1619f1bac63a0fa6327c3a1",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "numbers/incrementer",
+      "line": 199
+    },
+    {
+      "id": "d0bbb699c6743d6387a52e73a40e2d81",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 539
+    },
+    {
+      "id": "a1b413e14354a34e1ff419542f59f2ac",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 286
+    },
+    {
+      "id": "dbfb0a87d1c31c41321ad87e39d2f8e5",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 518
+    },
+    {
+      "id": "eb2f5592868940a9e68ebf3c4eed56c5",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "branch/if",
+      "line": 150
+    },
+    {
+      "id": "d1b9f8d8404c4922de4dde49fe57c228",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "branch/if",
+      "line": 124
+    },
+    {
+      "id": "6fa2d65a3d3bebe495d6559a8b3c03d7",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/return",
+      "line": 479
+    },
+    {
+      "id": "d13c509f25be709af4617373fb3030d8",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 590
+    },
+    {
+      "id": "52435ec4851944587201683cc6f9799f",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 597
+    },
+    {
+      "id": "3b857ee517501656be0650efe0422550",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/remove",
+      "line": 580
+    },
+    {
+      "id": "477d19d6ac2709b7e9197d0f02c57dd9",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "branch/if",
+      "line": 296
+    },
+    {
+      "id": "6fc5aabbbdc5675084a2b5b31265db50",
+      "file": "./goplint/analyzer_constructor_validates.go",
+      "mutator": "statement/return",
+      "line": 370
+    },
+    {
+      "id": "a81f5cab8c65383df5671b4fc66b0a92",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/bool-literal",
+      "line": 296
+    },
+    {
+      "id": "34446f0f92c0efe755de6996c9d422d4",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/bool-literal",
+      "line": 314
+    },
+    {
+      "id": "5b51f4fc5ccde14a0a10224248b2ff2c",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/bool-literal",
+      "line": 313
+    },
+    {
+      "id": "e410c83287509fad5d73adbc135ce746",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "composite/field-clear",
+      "line": 60
+    },
+    {
+      "id": "0a191bbae06ae04c239153a700e72cf5",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/bool-literal",
+      "line": 246
+    },
+    {
+      "id": "32b18bbe5be115419147104ffb6247c4",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 123
+    },
+    {
+      "id": "e1f8921c1f54c210f93e9c8ba54aa6c1",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 149
+    },
+    {
+      "id": "5173916899694479af80ab44ea475a79",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 251
+    },
+    {
+      "id": "fa8f58869078ae4c2b1fa212cfc4cdb3",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 290
+    },
+    {
+      "id": "895b73316123b835909769be53f6aa53",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 292
+    },
+    {
+      "id": "1e0de646f073325df8735481bbcf6565",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 295
+    },
+    {
+      "id": "80eb664f78291f0d1c810f31050158bd",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 416
+    },
+    {
+      "id": "18b186bbbb75422b48224d475ca0f5e7",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 304
+    },
+    {
+      "id": "423d0ec14162c28a0c64ed51214aeb2d",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 330
+    },
+    {
+      "id": "6b9009619924fead09524a9dc2c94573",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/negated",
+      "line": 353
+    },
+    {
+      "id": "72ad0c9083a1d1f4e0454e5fd93dfce2",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/not",
+      "line": 184
+    },
+    {
+      "id": "8407a1be418556940c7c36f1eaf09da2",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "conditional/not",
+      "line": 304
+    },
+    {
+      "id": "59773c6e6cf7016977b56e416b68fc27",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/comparison",
+      "line": 330
+    },
+    {
+      "id": "c88cf869a83629b375dc5f63855e28ac",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 28
+    },
+    {
+      "id": "0c832eb05aabc09eb0ff9287566bbfc7",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 188
+    },
+    {
+      "id": "8d727eb1506c0e7b20276c95b35b6a8d",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 162
+    },
+    {
+      "id": "819dd66d17308102bc5104a946722203",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 162
+    },
+    {
+      "id": "64d4027d670cf3fd736cbc7a11b0ed1f",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 260
+    },
+    {
+      "id": "db8621fd30ed54b07d69dd403094fedf",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 260
+    },
+    {
+      "id": "dfb95af5f8164dc7b60f2727373820ea",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 242
+    },
+    {
+      "id": "a9ef8c53d1a8bf9c526ff3650b3f1fed",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 251
+    },
+    {
+      "id": "b64094c52618eefd678fa722580b26ac",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 242
+    },
+    {
+      "id": "1170e5a3c7ae3355b6ff5f623c40b538",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 290
+    },
+    {
+      "id": "115959a27ad1d6c0c0e42e0811ca6901",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 281
+    },
+    {
+      "id": "f09448ddcb21868570a2f0b7f93e54b2",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 281
+    },
+    {
+      "id": "de6905b7fcccda4a8aaf61ca576f0f2d",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 376
+    },
+    {
+      "id": "d53103e584200ee70ac7d63cab75d9b4",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/logical",
+      "line": 281
+    },
+    {
+      "id": "1109524d63e8217edf720bac291bb904",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "39adee0ed1f8e1b67c71f5f609c903b9",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 28
+    },
+    {
+      "id": "b5b46336f0c0e8146e64d9103f706aa7",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 149
+    },
+    {
+      "id": "a534191240d0b60cddf518e70437ad84",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 162
+    },
+    {
+      "id": "6306b859c58ce0f2f74c7764036d2e0f",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 162
+    },
+    {
+      "id": "40e0e5105b4c92b0498f4fde59dadf10",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 184
+    },
+    {
+      "id": "e9f91d023af462f4b8f338de9df2826a",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 184
+    },
+    {
+      "id": "f4d227631dd463ebc26d203edb0e0765",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 162
+    },
+    {
+      "id": "842f48c4fb53f07fcb03eb8cc6d4caf8",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 162
+    },
+    {
+      "id": "1564fc9836b3a4ae72678a9388e53cca",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 188
+    },
+    {
+      "id": "48b2caad94281b507a20301ccec5c00c",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 188
+    },
+    {
+      "id": "96b3345e66eb770c5e4bdb6ef47465d4",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 188
+    },
+    {
+      "id": "c22dc1bce4b3fe92d1e9332bd59a3665",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 191
+    },
+    {
+      "id": "e8d5d4753c9910404f23eea2105c1caf",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 191
+    },
+    {
+      "id": "01fcdf18b468a9904898dafc860e4bc4",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 192
+    },
+    {
+      "id": "34f091019c1d8b0f3dde3d360c74fc80",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 260
+    },
+    {
+      "id": "dde226ea6bf068df630657ee98b844ad",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 260
+    },
+    {
+      "id": "de4649f95fd822691cf27d29f3f1b23a",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 260
+    },
+    {
+      "id": "027ff4776e2e967b3b6e08ebc74a5f32",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 260
+    },
+    {
+      "id": "39156211e115bbd8dd50a296d12fd7e3",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 271
+    },
+    {
+      "id": "3684c4c33a16f81e0033597736f489d5",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 264
+    },
+    {
+      "id": "2306bd33f92aeb85c6b8691eaa6193c6",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 242
+    },
+    {
+      "id": "a8d72e2e966d8b1532b7b3f490465374",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 251
+    },
+    {
+      "id": "6fccff44c6f6e769e3b95d829010c8d0",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 242
+    },
+    {
+      "id": "8beaa12f546b2e978a3b437a1ea367a4",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 290
+    },
+    {
+      "id": "ccda83b06be6b09c13e92f13be1cce57",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "38541bec231e7cecdabf2f2629efb835",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "8eac9be02e1da7814a7eab78c3fe088c",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "1159cf01d27248664e4f28e63e0a150f",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "f83366b9b1eb1130cb61fbe9a3502914",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "f901547b45c7fd6420a3c6698a3e3475",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "c06b4783bd8cb33eb3ae9bd39696f84d",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 376
+    },
+    {
+      "id": "f1d09392bb0aa39626601cf72445ebc8",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 376
+    },
+    {
+      "id": "55c13fb0d3c6e6620caddf5d3bcfdc33",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 304
+    },
+    {
+      "id": "05cd94daa094607d967c9769c55266c0",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 304
+    },
+    {
+      "id": "0cfb259a5bb37dd26a122b3999e25290",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "loop/range_break",
+      "line": 292
+    },
+    {
+      "id": "5cd6c16586b23be56f08efd3ca33b344",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 242
+    },
+    {
+      "id": "cb49a59b516567e9b39d9d1ef8311521",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "expression/remove",
+      "line": 368
+    },
+    {
+      "id": "ce227f000e63c003367290b2c0623ed5",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "loop/condition",
+      "line": 353
+    },
+    {
+      "id": "73980302061adab9f5ed60b15fbe5cc0",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 376
+    },
+    {
+      "id": "6cfe1b391c974fe12733c1150bb4cc39",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "loop/range_break",
+      "line": 330
+    },
+    {
+      "id": "7ba2b1e76c03806986e67675712676e3",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "loop/range_break",
+      "line": 351
+    },
+    {
+      "id": "96e15967793909f6dd628cf68d575190",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 28
+    },
+    {
+      "id": "2cbeb948f15c93bdc54a30fd15e09a78",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 57
+    },
+    {
+      "id": "c47054f74d39bdb7ca1427fc01f8c3d9",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 267
+    },
+    {
+      "id": "0a009b00adc9880cbeedc454ea1cb589",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 78
+    },
+    {
+      "id": "ed998cf853ab9b45b0412ad1badc026f",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/decrementer",
+      "line": 346
+    },
+    {
+      "id": "7609265052743a090183d3a98ec69e5a",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/incrementer",
+      "line": 28
+    },
+    {
+      "id": "e1ef8cb5893cb00dc2f2e889376581da",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/incrementer",
+      "line": 78
+    },
+    {
+      "id": "a017bea99c3e5acc9c7d6acbaa44da63",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/return",
+      "line": 150
+    },
+    {
+      "id": "ba0fb80597c5344f2e6686102066a2f0",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/return",
+      "line": 150
+    },
+    {
+      "id": "5eb167888a564998b37cae1de9990e10",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/return",
+      "line": 150
+    },
+    {
+      "id": "bccdfb16a6e9aadc3a6b9525416e4858",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/incrementer",
+      "line": 242
+    },
+    {
+      "id": "861bfe7a71772a32f6cd4f3510024f4b",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/incrementer",
+      "line": 376
+    },
+    {
+      "id": "ed98a7d3f9b813b7c64ad4de0eab4329",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/remove",
+      "line": 314
+    },
+    {
+      "id": "0fecf4aed30b032ffab4981fdec06fa2",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/remove",
+      "line": 313
+    },
+    {
+      "id": "9f79598fca07f18234727020e425f83e",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "branch/case",
+      "line": 324
+    },
+    {
+      "id": "25339fb5fe05464ae2e9b64d678ce77a",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "numbers/incrementer",
+      "line": 353
+    },
+    {
+      "id": "623538b4b469671596fe0222495994d8",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "branch/if",
+      "line": 297
+    },
+    {
+      "id": "0ebdf480c187788d9b5a8726c22919e8",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/remove",
+      "line": 42
+    },
+    {
+      "id": "21b00ce26aad5c630a95d730833268a0",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "conditional/negated",
+      "line": 61
+    },
+    {
+      "id": "a9dbf3b9f01db8c1b0aa734bcd725096",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/remove",
+      "line": 351
+    },
+    {
+      "id": "acb528f6c1232ca697cda84708e69b8c",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/remove",
+      "line": 413
+    },
+    {
+      "id": "6e95b0676417084763d47ef18595248c",
+      "file": "./goplint/analyzer_constructor_validates_cfa.go",
+      "mutator": "statement/return",
+      "line": 152
+    },
+    {
+      "id": "81f2de343d6b5393cd0242ee100f5769",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "conditional/negated",
+      "line": 441
+    },
+    {
+      "id": "bd9922181b0290c84ab8748d19f63de3",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 124
+    },
+    {
+      "id": "dfcebf2fda4e7b55b8de80e0c9fb7c1d",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 124
+    },
+    {
+      "id": "aae89da528a969ae50938d78d82117ea",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 264
+    },
+    {
+      "id": "52867b1611ff1d3e931bc27158da49f9",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 306
+    },
+    {
+      "id": "e7be7bc115a0b2e1d65f2250a5c376cd",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 306
+    },
+    {
+      "id": "664a318571225c7c7ee04ff17698070b",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 306
+    },
+    {
+      "id": "807251c9fd87f9855b06303c1e5f7dec",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 314
+    },
+    {
+      "id": "fdf8ddce64c6188d2a8cd513b375d8db",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 366
+    },
+    {
+      "id": "e713b7d9594107e0e820fe6e5154a82b",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 374
+    },
+    {
+      "id": "cbdc249885982674120604a7691b1007",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 366
+    },
+    {
+      "id": "0a05ff977ce58e5ec1f6d168a907e06b",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 366
+    },
+    {
+      "id": "3a498d2e07424ed923fd2d692cbd6240",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 340
+    },
+    {
+      "id": "cf2ea4da26b029af69697c209e3ec3b2",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 374
+    },
+    {
+      "id": "762a1e2349529e68316c81c6b3ad5758",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 399
+    },
+    {
+      "id": "6c2b3081a4f310fe60ee50858b0f185b",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/logical",
+      "line": 408
+    },
+    {
+      "id": "755dbfec603a655c1352207b6a574462",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 109
+    },
+    {
+      "id": "d48c7ec18c2ba8e78a4118054306f23c",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 61
+    },
+    {
+      "id": "9f83fabf550b75ae74933c8ad699460e",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 124
+    },
+    {
+      "id": "9d64d137cdc7c5f7e66f2cd119b102f8",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 49
+    },
+    {
+      "id": "aea8545bf714bb330405b9d9c8b745b4",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 96
+    },
+    {
+      "id": "f19e8c90fbb2d6387f76fd3155ff59d0",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 124
+    },
+    {
+      "id": "4e8c45a9a0b4e5b4d0adc6952e91d116",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 124
+    },
+    {
+      "id": "2a302c4132f8532bbac214971471e124",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 124
+    },
+    {
+      "id": "38c93b762b9f47504552211a8dd90423",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 264
+    },
+    {
+      "id": "949d71f4f3ac519e91cc7748e236b150",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 189
+    },
+    {
+      "id": "c978f5e5d4fb4bc520699dcdbfed285e",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 260
+    },
+    {
+      "id": "b89f63498a0f63b4345b255f6fc5ea8f",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 306
+    },
+    {
+      "id": "a440405f11d41855459c7cb52b295f68",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 306
+    },
+    {
+      "id": "4bf371f99f762b57ac67a22e01a45a57",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 306
+    },
+    {
+      "id": "72ce8c8f0a76274c63017bfa4a47b009",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 306
+    },
+    {
+      "id": "519614d9fbf6781639b510328fe21d7a",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 306
+    },
+    {
+      "id": "4a8ac65f045591e7218c8e456451c369",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 306
+    },
+    {
+      "id": "bed7fcfda2d08f48b45538d2ded888c8",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 310
+    },
+    {
+      "id": "4763aa8ccea07142dbd76ad414740fba",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 314
+    },
+    {
+      "id": "73d632d8d6d3457bf22de1e401b58335",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 314
+    },
+    {
+      "id": "58c9fd04e351155bdf8f804b6237f233",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "3e9bcfb9ca2bba00d852e02e8df5eaf1",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 340
+    },
+    {
+      "id": "bfe2fc3dc12a7070005f718ed299e963",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "35098047380c4b288afdba81dabb8fc6",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "92a7acfa3cd0f1edc012bd0e1b91c5c2",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "28d47d575c121dd695bb1c2fc51ed54e",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 340
+    },
+    {
+      "id": "a3adcf97146bbb9732c6f50074f56b7a",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "e6add40a41916b8a37515fd0be2ddf97",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 366
+    },
+    {
+      "id": "b4b746f5855792b91f39c08c175f1008",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 370
+    },
+    {
+      "id": "b3a2f1c5247b1bf3b0ee33f1fdaa7f86",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "c8ea42168499924af624497fe3950d62",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 370
+    },
+    {
+      "id": "c32353c7d58cdd4f4dfc8df2dbc7ac21",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "56caca9580d5c90221eb43d2234318b0",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "644beb8e69336b61892ce6ba3c11a2d8",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 374
+    },
+    {
+      "id": "289923f070a8d1a57a693e14ce6f3d28",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 389
+    },
+    {
+      "id": "1961cab866e477bce7922bd6b2a683dd",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 399
+    },
+    {
+      "id": "0682c09d7edc4d7e9b72f0dc9e71ed5e",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 399
+    },
+    {
+      "id": "46389b1e76cd7977a02f1040eaddfaeb",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 408
+    },
+    {
+      "id": "40795501c9e7960602ff5981e3d082fe",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 408
+    },
+    {
+      "id": "d1cd7fbe5931c88bc154ca8bc2fbfc63",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 441
+    },
+    {
+      "id": "7d9a076b15c7810aa01c95b3d81322c9",
+      "file": "./goplint/analyzer_cross_platform_path.go",
+      "mutator": "expression/remove",
+      "line": 483
+    },
+    {
+      "id": "7eebbbcaa4056adc94449fd8f83427fe",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "conditional/bool-literal",
+      "line": 213
+    },
+    {
+      "id": "10147616dd9e4e0d6b6aa9cb96fb2ec1",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 379
+    },
+    {
+      "id": "84d28723d61d1848cda6276127be264d",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/error-guard",
+      "line": 348
+    },
+    {
+      "id": "1d68c21f468d9d9ed87eb515c49baf56",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/error-guard",
+      "line": 370
+    },
+    {
+      "id": "5ee0d430ca6bda2e99895f5d14acbec0",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/error-guard",
+      "line": 325
+    },
+    {
+      "id": "40ca6c230adb1517024a3098c9be0f63",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 236
+    },
+    {
+      "id": "eb687b37230fa8e2677a449d5f2e0775",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 231
+    },
+    {
+      "id": "ea9ef7348d3dbfabd8906fe2bfc5c4dc",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 202
+    },
+    {
+      "id": "f28a4b848b9277dee81e3d1afeae22a3",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 212
+    },
+    {
+      "id": "41b5ec6670710f6e4f0533cdba372d9a",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 224
+    },
+    {
+      "id": "50c4b42f3b9968a77a8def38d9dea33c",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 167
+    },
+    {
+      "id": "bf2e897a2d1a870f5ac60e4c53305c97",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/logical",
+      "line": 431
+    },
+    {
+      "id": "c1c3d5787903b4e9a0c03fbbd78f4329",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 231
+    },
+    {
+      "id": "f3ed943fd2c8f8a2d61eb11ddae17487",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 197
+    },
+    {
+      "id": "dcec60aec6d44060bf5bd4ffe75e1708",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 212
+    },
+    {
+      "id": "4df6a8067ce7e6d2114da2d5187e4be0",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 202
+    },
+    {
+      "id": "7a8775f935b359c118c65232443d4a1e",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 224
+    },
+    {
+      "id": "9ef8f3e3c085369ad3fa278f82526066",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 157
+    },
+    {
+      "id": "e96539b2327f4ee4a29d7f4453535266",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 212
+    },
+    {
+      "id": "5eeaeec11934f78508c86faa2ed1ab01",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 224
+    },
+    {
+      "id": "12cb372ff7d3cc774dd2e4c7f0517de2",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 231
+    },
+    {
+      "id": "61158fdbf07bcb1343cea69603107fcc",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 167
+    },
+    {
+      "id": "bbd5f94752b7c6eb9bd5da02988053f6",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "loop/break",
+      "line": 417
+    },
+    {
+      "id": "1b43bcdc936c130e8bd39a67d4796154",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 236
+    },
+    {
+      "id": "e2a1c44424877d2be82111418b4a31e3",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 431
+    },
+    {
+      "id": "3afc0de2e56680427af54a5d941d45e8",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "expression/remove",
+      "line": 331
+    },
+    {
+      "id": "4256b7df28ca42bd50b056dd1c69aa61",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "numbers/decrementer",
+      "line": 451
+    },
+    {
+      "id": "53d07d16e063d2a5109c954849fb08ec",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "numbers/decrementer",
+      "line": 431
+    },
+    {
+      "id": "6dc9658b647481f4a1982afff6863292",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "numbers/incrementer",
+      "line": 451
+    },
+    {
+      "id": "a96dafac2e0fa9e9c574a8658e6d1e97",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/remove",
+      "line": 415
+    },
+    {
+      "id": "4778ad29606fbfb23b159dbb16f33074",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "numbers/decrementer",
+      "line": 43
+    },
+    {
+      "id": "cda8af8f6e18da44eb4019eb232bae1a",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/remove",
+      "line": 213
+    },
+    {
+      "id": "d379ec53c7550ddfde434b850fdeba35",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/remove",
+      "line": 338
+    },
+    {
+      "id": "a4b8b6c112a3c55d81fc2d5a8b643f01",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/remove",
+      "line": 353
+    },
+    {
+      "id": "e9d84c8d566976f39fb4d95657d04554",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/remove",
+      "line": 351
+    },
+    {
+      "id": "d96f96b98b8c2b0d4c0a43b6013d56ca",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/remove",
+      "line": 463
+    },
+    {
+      "id": "3792dc70c00b0bf70405049a48110de7",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/return",
+      "line": 355
+    },
+    {
+      "id": "f3afd66ee50ea7026f9f323581ae7bd3",
+      "file": "./goplint/analyzer_enum_sync.go",
+      "mutator": "statement/return",
+      "line": 470
+    },
+    {
+      "id": "3acf0b0f82d958a383692e34593cda85",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/logical",
+      "line": 200
+    },
+    {
+      "id": "bce08764ca89b230aadfd97ded346957",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/logical",
+      "line": 200
+    },
+    {
+      "id": "4760b97fa496676430504828e754f475",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/remove",
+      "line": 200
+    },
+    {
+      "id": "a91c3290cd80670c1a3390034203114f",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/remove",
+      "line": 200
+    },
+    {
+      "id": "370e993dc6f90dd28eef7d31f40fb1a2",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/remove",
+      "line": 196
+    },
+    {
+      "id": "c3a8244b9470bb7351aad8067a7739f6",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/remove",
+      "line": 200
+    },
+    {
+      "id": "cb29a09458da7dd2cea4453dea728311",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/remove",
+      "line": 200
+    },
+    {
+      "id": "a97299994d32b786b51c73f7cc4d55e3",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "expression/remove",
+      "line": 200
+    },
+    {
+      "id": "582e9caa3e7620e048c718577cde11b0",
+      "file": "./goplint/analyzer_nonzero.go",
+      "mutator": "numbers/decrementer",
+      "line": 203
+    },
+    {
+      "id": "3640de755c4c194a3bd41fe146b037ca",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/comparison",
+      "line": 180
+    },
+    {
+      "id": "0480644451531a15066eee8e5767888c",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/logical",
+      "line": 32
+    },
+    {
+      "id": "0aa3e613b8b4300cb389811a556f63e2",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/logical",
+      "line": 85
+    },
+    {
+      "id": "373bc4dc882d5c4ee856d3c7ee830bac",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/logical",
+      "line": 180
+    },
+    {
+      "id": "4d0dd42c9bd4d6b288b4e1d08fca985d",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/logical",
+      "line": 97
+    },
+    {
+      "id": "5fb882c0b0c0f6ed5bc18c15d978f354",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 32
+    },
+    {
+      "id": "5646c9acb203d682a6606de395a3e7f5",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/logical",
+      "line": 97
+    },
+    {
+      "id": "1abd35da8b10935ec44baf96e7fe5465",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 32
+    },
+    {
+      "id": "990f0299fa8c832ad8580b781a8bb070",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 65
+    },
+    {
+      "id": "e65dccf67b95e48730569d3d91db8d48",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 65
+    },
+    {
+      "id": "a69897b512d90a5b7fd2c3b103c80c8d",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 85
+    },
+    {
+      "id": "837429f19e2e444fc02dec3493e127fd",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 85
+    },
+    {
+      "id": "f41ef0d9f5633e4161fdd60f64c817f0",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 97
+    },
+    {
+      "id": "b87b07f68daa5664085d39ec06718ec6",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 97
+    },
+    {
+      "id": "e8f3ec6308c6a49e9a6513f109285482",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 97
+    },
+    {
+      "id": "ed43af367ef7ecae49bd7ebe2913fc8f",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 97
+    },
+    {
+      "id": "754b122f1b6a46ebae0cd4d5e9874bad",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 97
+    },
+    {
+      "id": "61d91173585fe9cfed9e4cabe37f1cab",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 180
+    },
+    {
+      "id": "961a0234a44c7bd5818655971f3ed9ca",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "expression/remove",
+      "line": 180
+    },
+    {
+      "id": "9bced216eeba7618d11fa32c4bf87429",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "loop/range_break",
+      "line": 180
+    },
+    {
+      "id": "85c341c3b12894043502bc3d3513cb9e",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "statement/remove",
+      "line": 110
+    },
+    {
+      "id": "ec66a4f5822a1d2f0b03f4bf46f4ef6a",
+      "file": "./goplint/analyzer_path_domain.go",
+      "mutator": "statement/remove",
+      "line": 166
+    },
+    {
+      "id": "c733a3e8faaf8b69b54d667204540d63",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "conditional/negated",
+      "line": 56
+    },
+    {
+      "id": "cb1eade646a2a59741c0bb971e47de42",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "conditional/negated",
+      "line": 264
+    },
+    {
+      "id": "94f762bad9932bb0b1484c8221b949e4",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/logical",
+      "line": 196
+    },
+    {
+      "id": "d220891c680b86c65c10ff7825908145",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/logical",
+      "line": 102
+    },
+    {
+      "id": "04460246325b7f659a74c2acb324dd37",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/logical",
+      "line": 102
+    },
+    {
+      "id": "3c6c88f60b86cb04648675ddf0b8f929",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/logical",
+      "line": 114
+    },
+    {
+      "id": "2037912c003fee6e3f74b0d2d0b7e9fd",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/logical",
+      "line": 102
+    },
+    {
+      "id": "db7365f9a8614cb8de7c478428647d1f",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 56
+    },
+    {
+      "id": "a07bb07c1d822b502c01c8ce11cf22e9",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "1132c86d3bc4caeec97879c5c7032427",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "2835ba0a5ccb519a13aa8add91dc4996",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "fca0f376cae24a4feb239368ca845dd4",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "10b79b9074dca084bde1ddbf91683bd4",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "898d69d85966c760764a23f01baf334d",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 114
+    },
+    {
+      "id": "ccf3c81e97e691aa96bc577a35eacd77",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 102
+    },
+    {
+      "id": "d1695e1cabfcc68f62580ca5fadfebee",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 196
+    },
+    {
+      "id": "0f653bf7e037528134280f8be0b96b6a",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 196
+    },
+    {
+      "id": "19d9ff8bd28863f3ec7c11f9e6b40d62",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 196
+    },
+    {
+      "id": "21d1fc73b301ad9f628c5504af4d2a33",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 264
+    },
+    {
+      "id": "da8f21642e898fca2624f05f8ca2c900",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "expression/remove",
+      "line": 114
+    },
+    {
+      "id": "57a21a0710eb29076575810400a9d144",
+      "file": "./goplint/analyzer_pathmatrix_divergent.go",
+      "mutator": "statement/return",
+      "line": 230
+    },
+    {
+      "id": "c60160d4a87a44181a5db0961bb27dbf",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/logical",
+      "line": 51
+    },
+    {
+      "id": "3dd06eeb1b5fe77aa1615d26482352bc",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/remove",
+      "line": 45
+    },
+    {
+      "id": "b7b0dc88745eb9ee3e8409e325a3fdb9",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/logical",
+      "line": 62
+    },
+    {
+      "id": "b2ce06fa64459e6fe2812140a2d4508d",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/remove",
+      "line": 51
+    },
+    {
+      "id": "0345a440c7164db9bf37f72274b0cb0b",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/remove",
+      "line": 57
+    },
+    {
+      "id": "0b6d23263dbe678070384bdace5cc385",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/remove",
+      "line": 51
+    },
+    {
+      "id": "e09276017d451fc98b52a85305bcb118",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/remove",
+      "line": 62
+    },
+    {
+      "id": "559322235d3c19f4b2276dc04d4ed0e2",
+      "file": "./goplint/analyzer_redundant_conversion.go",
+      "mutator": "expression/remove",
+      "line": 62
+    },
+    {
+      "id": "fcd2be7b7093df7f1986646fd1fa36ec",
+      "file": "./goplint/analyzer_run.go",
+      "mutator": "branch/case",
+      "line": 355
+    },
+    {
+      "id": "d5f96225f16379e81a30c876544e364c",
+      "file": "./goplint/analyzer_run.go",
+      "mutator": "expression/error-guard",
+      "line": 602
+    },
+    {
+      "id": "460e4bfcccb915eb6ef283a01530efe4",
+      "file": "./goplint/analyzer_run.go",
+      "mutator": "statement/remove",
+      "line": 357
+    },
+    {
+      "id": "fb637fcc42fde7fc9916f35285342b89",
+      "file": "./goplint/analyzer_run.go",
+      "mutator": "statement/remove",
+      "line": 355
+    },
+    {
+      "id": "366325ec85cad0a6b2c486929e649c85",
+      "file": "./goplint/analyzer_run.go",
+      "mutator": "statement/remove",
+      "line": 359
+    },
+    {
+      "id": "84498abee877d4900391ee6ee420cfae",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "arithmetic/assign_invert",
+      "line": 123
+    },
+    {
+      "id": "1874b8c8d447dec7dc3d638ab64b0307",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "arithmetic/assignment",
+      "line": 123
+    },
+    {
+      "id": "b6b5bc91f5ae1ea4bbe7251bd1e11b34",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "branch/if",
+      "line": 211
+    },
+    {
+      "id": "f579d3b42c1da121db39fec78d5cbc58",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "branch/if",
+      "line": 277
+    },
+    {
+      "id": "39d912e46133496d5b60f6dbdbf1d453",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 120
+    },
+    {
+      "id": "e6200a3244f20c5ecf5348b99d02ed77",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 408
+    },
+    {
+      "id": "275ec7ec05f5e0f68265a05c182d133b",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 409
+    },
+    {
+      "id": "23473d09fd1762f41ec10ef185b190b9",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 409
+    },
+    {
+      "id": "9076267e6c737266c270895ee2c42c99",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 513
+    },
+    {
+      "id": "8cd9e50139f0961ed892701297a59d3b",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "branch/if",
+      "line": 69
+    },
+    {
+      "id": "a7a0f3d7cc1d6b12728b8cd93a9f59e6",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/not",
+      "line": 409
+    },
+    {
+      "id": "424d10dbb1d4629f1c59b1a764441231",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/not",
+      "line": 409
+    },
+    {
+      "id": "7401569600af8ca5ff289cf6f9a2e960",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/comparison",
+      "line": 281
+    },
+    {
+      "id": "867e4e7ce7cee4ba0d482305a1f3dbdd",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/comparison",
+      "line": 559
+    },
+    {
+      "id": "77283de2a6fd6d17297f2bd5403a8544",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/logical",
+      "line": 281
+    },
+    {
+      "id": "cc4e126f2c97ebb81f9bc8398100aad6",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/logical",
+      "line": 286
+    },
+    {
+      "id": "da9fe600e8f5e576d7f38fb42041dab6",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/logical",
+      "line": 409
+    },
+    {
+      "id": "9208e18d5e6b6f9f79e8c24769ce05fb",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/logical",
+      "line": 559
+    },
+    {
+      "id": "64f3c455aab8d790535bb0d740fba516",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "780d1cee3a3d938e4ae4a04399ea7b20",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 84
+    },
+    {
+      "id": "4df577046a5747a7d4c39465937fd919",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 281
+    },
+    {
+      "id": "b6a61d51929f3b618de27225e9ef09f7",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 286
+    },
+    {
+      "id": "eedb4d0d388d92a4f6d9830001b7a9bc",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "conditional/negated",
+      "line": 85
+    },
+    {
+      "id": "d38dc13a6074670486e127068529bce2",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 286
+    },
+    {
+      "id": "a9f60dfd8924aa593d1205871e380024",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 317
+    },
+    {
+      "id": "fe85fa5e893f817e6a02709f698264ef",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 409
+    },
+    {
+      "id": "361bb144559a700c52323e1279f5728c",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 409
+    },
+    {
+      "id": "df35a5ebd031294837efd7c2a8436698",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 409
+    },
+    {
+      "id": "7669e2f1c0f91435700ffc2b0f5866b0",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 559
+    },
+    {
+      "id": "5080899c3e0fa3e1aeae02cc728beca5",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 481
+    },
+    {
+      "id": "502d3a7593a0c5432e9124fa56e1e8eb",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 497
+    },
+    {
+      "id": "3dba23241c324a169d5b345c70677381",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 512
+    },
+    {
+      "id": "7c3586130174c358f396de534488e2a4",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 511
+    },
+    {
+      "id": "12f4272d03a9d5a5bec8ef224642fd5d",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 559
+    },
+    {
+      "id": "4b66e904ffd2a88cfef2fa9c0d3e3cae",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 561
+    },
+    {
+      "id": "65ea2acdc9ea3542696f5dc8170076df",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "loop/break",
+      "line": 534
+    },
+    {
+      "id": "1d37f299cffcd6d1f35de1365eea3542",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/decrementer",
+      "line": 559
+    },
+    {
+      "id": "13fd4700ff69e102cdb6937631114f3d",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/decrementer",
+      "line": 120
+    },
+    {
+      "id": "4748f4f27ac95740de6d6faba32627f9",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/decrementer",
+      "line": 281
+    },
+    {
+      "id": "6cea4d1706898aa956a8527cdef748b6",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/incrementer",
+      "line": 120
+    },
+    {
+      "id": "454277654d1d6685e216cde26c1007e2",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/incrementer",
+      "line": 281
+    },
+    {
+      "id": "d24642269fa1d891a8f94e10a32ef3ec",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/comparison",
+      "line": 72
+    },
+    {
+      "id": "9c53e2775fbfe179d49dcbd14700d2f2",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/logical",
+      "line": 72
+    },
+    {
+      "id": "d1dbe487e236ddcc5b1cfb010ccc815b",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/logical",
+      "line": 85
+    },
+    {
+      "id": "42b715f657bc48b0b9bc7abf29fc9f4b",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 72
+    },
+    {
+      "id": "8bb2a03de4661d8b5b968692a2257770",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 72
+    },
+    {
+      "id": "152fe579b45471883200ba3b68cb2476",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 137
+    },
+    {
+      "id": "8258c29643df1118d507f606bfcd091b",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "expression/remove",
+      "line": 85
+    },
+    {
+      "id": "bbf2287bad50fe58985a191beaa730f3",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "statement/remove",
+      "line": 123
+    },
+    {
+      "id": "68b7bf6154a519e24ffac416d75adfd7",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "loop/range_break",
+      "line": 87
+    },
+    {
+      "id": "8159e3b2487a6369db18d20de67d5cbc",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/decrementer",
+      "line": 72
+    },
+    {
+      "id": "36fbeb158c4c73404403cab2061601a0",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/decrementer",
+      "line": 137
+    },
+    {
+      "id": "9820be6fcb292461b16205d32bce946a",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/incrementer",
+      "line": 72
+    },
+    {
+      "id": "e757c91727d8260c1e1688c0b56117db",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "statement/return",
+      "line": 710
+    },
+    {
+      "id": "020048001c43e86db143c8ac24705860",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "numbers/incrementer",
+      "line": 137
+    },
+    {
+      "id": "de7a63651f5d5f40451be7e709b09da7",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "conditional/not",
+      "line": 57
+    },
+    {
+      "id": "5625dbd26c4ebb2be232377ad8bbb80f",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/logical",
+      "line": 70
+    },
+    {
+      "id": "d8aee7df5c8676c3538458badfba9c0f",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/logical",
+      "line": 70
+    },
+    {
+      "id": "fe721fe5db87cc54ab8f0438ae8dabff",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/logical",
+      "line": 90
+    },
+    {
+      "id": "ecf711cd596b9019434aa515d708f36c",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/logical",
+      "line": 90
+    },
+    {
+      "id": "8d5b08054dd79b8aa030df87429adf78",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/remove",
+      "line": 90
+    },
+    {
+      "id": "908121f2a338fc0a3e03cb7b0ed030c7",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/remove",
+      "line": 70
+    },
+    {
+      "id": "f214cc8b927ab555bacda01228ff12fd",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/remove",
+      "line": 70
+    },
+    {
+      "id": "54ada64af338033e7b32c292828929ff",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/remove",
+      "line": 90
+    },
+    {
+      "id": "c73020ca295b988d1346805427f60a17",
+      "file": "./goplint/analyzer_structural.go",
+      "mutator": "statement/remove",
+      "line": 90
+    },
+    {
+      "id": "6f12666029da33a15ea29abc00ee82c1",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/remove",
+      "line": 90
+    },
+    {
+      "id": "9495e9d56d3af847a190588b3047cada",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "expression/remove",
+      "line": 90
+    },
+    {
+      "id": "df0e60307949124191e57124feb2c310",
+      "file": "./goplint/analyzer_test_home_env.go",
+      "mutator": "numbers/decrementer",
+      "line": 48
+    },
+    {
+      "id": "00333847a61c368e094c2eb96057cce1",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 192
+    },
+    {
+      "id": "e1f2f5ca1c1250573721a4e385ac3e4c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 219
+    },
+    {
+      "id": "e90cf262cafd64eb1dcb9bfe324b8efa",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 275
+    },
+    {
+      "id": "a1fa0f53cc49fe910cff3525135df4bf",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 504
+    },
+    {
+      "id": "569b272383f177d68db0bd67a3f518a2",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 750
+    },
+    {
+      "id": "7f85afda8ee75ef66cbb3e3ea8d0d33b",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 770
+    },
+    {
+      "id": "c2e808db866900646d874dabe8d3e9ee",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "branch/if",
+      "line": 791
+    },
+    {
+      "id": "114958738567015af2c0d6095c0d87ba",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "composite/field-clear",
+      "line": 371
+    },
+    {
+      "id": "13571b584d66d759c062e1570fef3753",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "composite/field-clear",
+      "line": 289
+    },
+    {
+      "id": "e0d77f9f3d68183e21266db1e6268f32",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "composite/field-clear",
+      "line": 371
+    },
+    {
+      "id": "c45cd7fab8d7ee48e22704ea523494ae",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/bool-literal",
+      "line": 567
+    },
+    {
+      "id": "cf7c87bd10721c6ffc49aa707c2820af",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/bool-literal",
+      "line": 791
+    },
+    {
+      "id": "9111b1c51b1fda0add8ab45c83ac68ba",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 190
+    },
+    {
+      "id": "9103c1eef466e9331a7373471374e17f",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 217
+    },
+    {
+      "id": "d9a5ba59a19bc83a3a2f930efa0905c1",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 218
+    },
+    {
+      "id": "6887b585bbed383d31c22168ddad6ed2",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 352
+    },
+    {
+      "id": "2dd986cbb01e326d8f77299acac293c4",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 367
+    },
+    {
+      "id": "7390d981482dc76339ecb978615f0a84",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 356
+    },
+    {
+      "id": "cb543fd61d346ff9f9db37224ff4f34d",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 434
+    },
+    {
+      "id": "8c99c5d44a1279157bae0da3fa8b88ab",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 471
+    },
+    {
+      "id": "924d6d31765ebddea6972db83937b0d3",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 494
+    },
+    {
+      "id": "cedb71896527d402c9f3274b3efbe7d6",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 485
+    },
+    {
+      "id": "26424cedb4e263a9dd385259eb72b38a",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 494
+    },
+    {
+      "id": "1be0e4881d2a17c3d065c9de46e40505",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 503
+    },
+    {
+      "id": "7ba0b40f84df9e4a571176c7a683cac9",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 782
+    },
+    {
+      "id": "b5f8d64e7e29f7052a1c9ee5a2fa3c11",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 789
+    },
+    {
+      "id": "bfdb1746c4366b7a68ef634814ac061a",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 787
+    },
+    {
+      "id": "d542f417b6f5cb829d662bc6e4848b70",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/negated",
+      "line": 790
+    },
+    {
+      "id": "7a60479f3ae3bb3b0fc36075b55ad6bc",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 108
+    },
+    {
+      "id": "6a9023b18d6bd0538f5c1611fa953f64",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 140
+    },
+    {
+      "id": "ffe65b739aae481c8452c66cdf40ae98",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 141
+    },
+    {
+      "id": "d875a45ff20db9ff1a01e04217b767ab",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 352
+    },
+    {
+      "id": "c55cab0187642889a97723bdb6085986",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 363
+    },
+    {
+      "id": "7ca45eb9d7c339c7c7e48b4f93273c64",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 638
+    },
+    {
+      "id": "056ebc486e88ed90b6c7fb575ece790c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 637
+    },
+    {
+      "id": "bb62b434ab0e614b14c74ba5e76ae684",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/comparison",
+      "line": 696
+    },
+    {
+      "id": "92a66976b502ed71c491f07bffc9292d",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/comparison",
+      "line": 383
+    },
+    {
+      "id": "501a9406c5fe29e800d998c88ea95239",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "conditional/not",
+      "line": 680
+    },
+    {
+      "id": "7039b533e79697e00cff5c44b7cf9459",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/comparison",
+      "line": 54
+    },
+    {
+      "id": "0f6051161b8db1e5f4e2e195b5f9847c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/comparison",
+      "line": 96
+    },
+    {
+      "id": "10a5444835f4eb283c81d7745bff1f14",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 121
+    },
+    {
+      "id": "a13725a29b5906811a3c66827023790c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 183
+    },
+    {
+      "id": "b334ca9d1adc3bde8ebcaa14bada6403",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 212
+    },
+    {
+      "id": "2154a7295af4ae2b6d025e5ee2be1675",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 218
+    },
+    {
+      "id": "246651018afdc90a5d6a1a58038407e1",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 228
+    },
+    {
+      "id": "a90e549e0558104c3441efe784bf58a3",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 229
+    },
+    {
+      "id": "a7d3974093378b917e37b72840d643d0",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 231
+    },
+    {
+      "id": "8012811fd3c4c4a135729800e63bdfe7",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 352
+    },
+    {
+      "id": "97c80b5eb580c327b804eed05f8fd8d4",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 399
+    },
+    {
+      "id": "04d5bd0e9cfa0359e12727f17f3978f9",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 291
+    },
+    {
+      "id": "edc7c0832320b2ebb82ad21ab55e2523",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 420
+    },
+    {
+      "id": "f502881b3768db541b7b85314401afb2",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 274
+    },
+    {
+      "id": "e8621e14af77c5531b1f5cce70bdc832",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 399
+    },
+    {
+      "id": "5aeb606ce5704c4df17b4df1777e5f2b",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 434
+    },
+    {
+      "id": "5a37e4901d93bfd703c5f2408547263f",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 267
+    },
+    {
+      "id": "13d989301dae9f7df93a4beac7940997",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 267
+    },
+    {
+      "id": "45ff8aaf18e12a6d526b0747bf3d02a8",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 267
+    },
+    {
+      "id": "ab5d036f0e4a20d9ec1d5f386286d514",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 480
+    },
+    {
+      "id": "9c46fb525fd02f5444044c76cbe5455c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 480
+    },
+    {
+      "id": "aa4fb50e355aaa76061d7cb618f3dd30",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 494
+    },
+    {
+      "id": "1a4b38335197ccbfa10c6c5dfd966449",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 642
+    },
+    {
+      "id": "0a719d73caeb39cd84a305526f51bcce",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 650
+    },
+    {
+      "id": "4ada5dfafd16691a897818f98a6f6db8",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 725
+    },
+    {
+      "id": "04ef796442dabca5a4c9cb6283ee864a",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 789
+    },
+    {
+      "id": "3910ce70da0691399cb5c0acdb7bd5cd",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 790
+    },
+    {
+      "id": "fa9dd051c0d048c57d5d45a77ce7f3d8",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/logical",
+      "line": 823
+    },
+    {
+      "id": "0af7db14cd17ba62a83d4af412949db6",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 86
+    },
+    {
+      "id": "634252b5aac45d80cd9c2b75cf499152",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 107
+    },
+    {
+      "id": "51523e0623f5aa5cf64014213f6915f8",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 113
+    },
+    {
+      "id": "13c6030e686b38a00d956d93c9139e56",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 140
+    },
+    {
+      "id": "b59909b2ff2316091f3a3abb5b1255fd",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 212
+    },
+    {
+      "id": "2c76cce9b2ce25c9314fd04c0aa00e24",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 183
+    },
+    {
+      "id": "b971212116195d4327cc24f74ffc282f",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 212
+    },
+    {
+      "id": "fac2d53e99e3e4651d7344b555e95f82",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 229
+    },
+    {
+      "id": "a75dc97c2b9d781fd1eadc8218cd39ed",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 139
+    },
+    {
+      "id": "bdaf56d6828a1eb280c83b71288e6832",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 145
+    },
+    {
+      "id": "a99c7148cb63824b4e3bc1c5c8564d5f",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 352
+    },
+    {
+      "id": "900aad79999ddc5094da1629a8ba332c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 356
+    },
+    {
+      "id": "b591b2f0f66ab589e6e2fa282146856e",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 274
+    },
+    {
+      "id": "b5a8c6231c4de8775af81a9556a9efbc",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 399
+    },
+    {
+      "id": "19d5d240df6cb554501fd1132e14367b",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 399
+    },
+    {
+      "id": "4f88823d69b374217d268d86e81f7932",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 267
+    },
+    {
+      "id": "9497abaa6dac0fe9c092afde50a32328",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 267
+    },
+    {
+      "id": "9c0099bef9f3cec23592ba4763b6516c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 267
+    },
+    {
+      "id": "3923f3b42ca0dedaf615632b1dba9808",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 267
+    },
+    {
+      "id": "27f47f9610e6e9158d2ac89a99cb25f6",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 267
+    },
+    {
+      "id": "1f52a713f41c9393d2ebeaf0bb86a3e7",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 267
+    },
+    {
+      "id": "5d23243035179df306765c70cbca8ba5",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 399
+    },
+    {
+      "id": "e54caa1e5e648abf7c1df3d99eefb4f7",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 420
+    },
+    {
+      "id": "3ab59c414f1c195a1b5793f19d9bef0e",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 399
+    },
+    {
+      "id": "64b3f43f68a5bf94ccebaad4f9db9680",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 403
+    },
+    {
+      "id": "3dbf1f15084748a398c511e0cfd1d116",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 434
+    },
+    {
+      "id": "abe98a0bf1406e84aad38d259e80e28e",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 434
+    },
+    {
+      "id": "390a60c217ee1226e72450610632d3fb",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 434
+    },
+    {
+      "id": "39bd56af44e94a88e95de362313e119c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 480
+    },
+    {
+      "id": "17d512af47bb0775f2c638a4ba443578",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 480
+    },
+    {
+      "id": "8399b1d7e517462578f070b47d6a8573",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 480
+    },
+    {
+      "id": "ff47649e9bda0d044f0a8871d91c145e",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 480
+    },
+    {
+      "id": "13f9d1c01255a9fa73c952fa487606fa",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 494
+    },
+    {
+      "id": "0d435c23e704ed0cd97115d1535a56c0",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 494
+    },
+    {
+      "id": "5954ddec7dc3da03c59478edce71dfbc",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 503
+    },
+    {
+      "id": "59467b52a5411280b189a08e11dd79a3",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 637
+    },
+    {
+      "id": "6aedf3d81811a0eea10c18238e8953c5",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 636
+    },
+    {
+      "id": "5b03d2c85aacfbeea86495956735e16e",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 642
+    },
+    {
+      "id": "4e0aca1d910541fdd8d254c2f61095cf",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 642
+    },
+    {
+      "id": "61c127ce0a5a7620f6578f3c0420a42d",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 725
+    },
+    {
+      "id": "b9f90c64ea923972d60079de4070df85",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 725
+    },
+    {
+      "id": "f33746b08aee0f0b2d9d7369b91b5c23",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 680
+    },
+    {
+      "id": "48dfb2cba2b6b741ff68b1d466eac44a",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 862
+    },
+    {
+      "id": "aa0057d81c76c8e349fb0285f6a2cdb2",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/remove",
+      "line": 862
+    },
+    {
+      "id": "83bee5a49c480fada96b6dd02389eb11",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/string-literal",
+      "line": 356
+    },
+    {
+      "id": "b652409b8374974398dcbf50efe3ddaa",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/string-literal",
+      "line": 471
+    },
+    {
+      "id": "09f885bef3234a619854e833d9c3c820",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/string-literal",
+      "line": 556
+    },
+    {
+      "id": "2f8641a23393e1f2a0c2e3d3168e2b16",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "expression/string-literal",
+      "line": 274
+    },
+    {
+      "id": "2a4e4f4cca7a8e476c93b56909315cba",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "numbers/decrementer",
+      "line": 54
+    },
+    {
+      "id": "4f80a9124cb39482d280f94fa59006cc",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "numbers/decrementer",
+      "line": 96
+    },
+    {
+      "id": "319b2ce28bea646a7171461812a4c41c",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "numbers/decrementer",
+      "line": 725
+    },
+    {
+      "id": "e5df45fa8b7053a9fc52d504d044ac96",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "numbers/decrementer",
+      "line": 65
+    },
+    {
+      "id": "7ca331227b9ede94e792e4d1096d7489",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "numbers/incrementer",
+      "line": 725
+    },
+    {
+      "id": "547602d9c4057720d893675a58b0d611",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "numbers/incrementer",
+      "line": 248
+    },
+    {
+      "id": "3c5571b387eeaf6e5d7290a3427cb0fd",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "statement/remove",
+      "line": 219
+    },
+    {
+      "id": "9683f7496b455b2c3034bb50371481dd",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "statement/remove",
+      "line": 456
+    },
+    {
+      "id": "18b1d3bceced6607af4b50d5724fcdb8",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "statement/remove",
+      "line": 567
+    },
+    {
+      "id": "d4c379af8e84a9f21a3bdd7dcdf27906",
+      "file": "./goplint/analyzer_validate_delegation.go",
+      "mutator": "statement/return",
+      "line": 220
+    },
+    {
+      "id": "a78dc13241cf18383d02824b5b607b39",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "conditional/negated",
+      "line": 85
+    },
+    {
+      "id": "e87e9612ea6664379cbf5b9e93848e98",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "branch/if",
+      "line": 293
+    },
+    {
+      "id": "9fd0cb7b8cb6fbb38ed8f8bccafbc3e6",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "conditional/negated",
+      "line": 292
+    },
+    {
+      "id": "2f8fbe9d896faf048af614b5dfc70e44",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/comparison",
+      "line": 85
+    },
+    {
+      "id": "5ca077c4628b710f27c386321c7dbef2",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "conditional/negated",
+      "line": 292
+    },
+    {
+      "id": "a19c713b1f4bb3b8ff2d4d96dbc4680b",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/remove",
+      "line": 62
+    },
+    {
+      "id": "108e209ce0c48528378a1ca7de78d5b5",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "conditional/not",
+      "line": 289
+    },
+    {
+      "id": "a1ff9646709bab5fd71f74172b7a8f3f",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/remove",
+      "line": 84
+    },
+    {
+      "id": "af35e22c52cda1020b8f2ad17b6df2f0",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/logical",
+      "line": 292
+    },
+    {
+      "id": "3ae513bb7225a58c5cfedcdb6a1f0f9c",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/remove",
+      "line": 18
+    },
+    {
+      "id": "0f8cb724c12f2a66918651fc36dff3a6",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "numbers/decrementer",
+      "line": 85
+    },
+    {
+      "id": "71edb6fcfb7fcd008176febe19dc4016",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/remove",
+      "line": 292
+    },
+    {
+      "id": "2aa34c7a0b7ca26d0bdd9b979b1410e2",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/remove",
+      "line": 292
+    },
+    {
+      "id": "38ffd9ccd2cae853b8db354d8210ea27",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "expression/string-literal",
+      "line": 285
+    },
+    {
+      "id": "1d202ab46b9ffab9167f8711ef3a4143",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "numbers/incrementer",
+      "line": 85
+    },
+    {
+      "id": "b59b0e870a0231705bcc54b7228bb118",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "loop/range_break",
+      "line": 285
+    },
+    {
+      "id": "e36dff444802dcfa5e1a1489722ad83d",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "numbers/decrementer",
+      "line": 292
+    },
+    {
+      "id": "9fed3c3931871fcf4c494d26d4106fa9",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "numbers/decrementer",
+      "line": 292
+    },
+    {
+      "id": "de9faab59548d0390b4d4f8bec2f22fc",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "arithmetic/negate",
+      "line": 134
+    },
+    {
+      "id": "f7f28424a14b5330fe696cf70d9eec16",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "arithmetic/negate",
+      "line": 111
+    },
+    {
+      "id": "7967949d391466c49910dcf8c19aba17",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "numbers/incrementer",
+      "line": 292
+    },
+    {
+      "id": "95ca2f19f0c71085117b73bdd4cc88fe",
+      "file": "./goplint/analyzer_validate_delegation_modes.go",
+      "mutator": "numbers/incrementer",
+      "line": 292
+    },
+    {
+      "id": "0419b646f2dad2d96364d54740f3843d",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/comparison",
+      "line": 141
+    },
+    {
+      "id": "036f3fb5634386d71b55af0a8f1d4e85",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/logical",
+      "line": 141
+    },
+    {
+      "id": "4d20c6055b9d4713d3d7064a74fecbf3",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/remove",
+      "line": 141
+    },
+    {
+      "id": "785b8c443a24f3bad39df9682b43e23a",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/comparison",
+      "line": 123
+    },
+    {
+      "id": "2c590810fbf66b7f1f7877ea4a63bdd3",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/remove",
+      "line": 141
+    },
+    {
+      "id": "f531aea2b48d4821277fd81b2e8e9754",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/remove",
+      "line": 69
+    },
+    {
+      "id": "8ba982e6a123b1ef9e6910405f2a4c1e",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "expression/remove",
+      "line": 63
+    },
+    {
+      "id": "f51f351675914e0520f07c65ec6f2082",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 134
+    },
+    {
+      "id": "09622875893634b4f1fad56fdb051fbc",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 141
+    },
+    {
+      "id": "daf842e0572589449f529adeec3ad8c2",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "numbers/incrementer",
+      "line": 134
+    },
+    {
+      "id": "7ca5bc5d7c11bcacd6c161ba77d3ee40",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 118
+    },
+    {
+      "id": "f439bb8c2dc3df564ca5850df1426a65",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "numbers/decrementer",
+      "line": 111
+    },
+    {
+      "id": "cbf7fbbf38b73999d58458b97fd76bf8",
+      "file": "./goplint/analyzer_validate_usage.go",
+      "mutator": "numbers/incrementer",
+      "line": 111
+    },
+    {
+      "id": "b31fef3747a6ddd71bfeba6f316e7faa",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "branch/case",
+      "line": 185
+    },
+    {
+      "id": "56f0949dcc6cd8377b0e30e91b1e9999",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "branch/if",
+      "line": 245
+    },
+    {
+      "id": "6e8cf8ca4337ccb5035df7084043a6cd",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "branch/if",
+      "line": 488
+    },
+    {
+      "id": "5e62463000ade59484757f9d1945d531",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "branch/if",
+      "line": 440
+    },
+    {
+      "id": "2270ca41ca803dc2649451a2168155c4",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "branch/if",
+      "line": 731
+    },
+    {
+      "id": "2270ca41ca803dc2649451a2168155c4",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "branch/if",
+      "line": 728
+    },
+    {
+      "id": "2c0ffac304f5af32ea671072af187b74",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/bool-literal",
+      "line": 76
+    },
+    {
+      "id": "28d16cd22d17986e81fa156551b27dcd",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/bool-literal",
+      "line": 90
+    },
+    {
+      "id": "3bc9b22c890938441803171d6e04facb",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/bool-literal",
+      "line": 83
+    },
+    {
+      "id": "f24f97b21bd5b0aa496b48e302880bc6",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/bool-literal",
+      "line": 488
+    },
+    {
+      "id": "89591d6db1ecb28bb10f8619a59c92c1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 243
+    },
+    {
+      "id": "4c308c0f672e06b760b1e5fb115cd1b4",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 250
+    },
+    {
+      "id": "7581c1ae1b682fdc430bfe6e704d45ed",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 340
+    },
+    {
+      "id": "9218823bc56128ac1411ef0a6ce2bad8",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 396
+    },
+    {
+      "id": "f132a0bfb0345b89536ede2ec3bb5cdd",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 476
+    },
+    {
+      "id": "b052b99413315379ea2f50c280139a5f",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 476
+    },
+    {
+      "id": "2a86c39cd010bf0d7e677da86c0dad21",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 660
+    },
+    {
+      "id": "90c3b5651918bf853c87d0297cc968ac",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 641
+    },
+    {
+      "id": "84616bb6f1a532e3220564b244a39cfc",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 648
+    },
+    {
+      "id": "7955e379421d61c11234ec3a829095b8",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 671
+    },
+    {
+      "id": "7490273fd07642302aded50384c8ef19",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 663
+    },
+    {
+      "id": "2fbae93e1fdab65ffd41f72b1f99dec4",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 671
+    },
+    {
+      "id": "ce689f1252af100c39c5048c8f9dc740",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 663
+    },
+    {
+      "id": "dae8d9e42b54b626ba422ec188e5108a",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 671
+    },
+    {
+      "id": "62bf6f801651ae8215ac853849522fb6",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "conditional/negated",
+      "line": 663
+    },
+    {
+      "id": "0042c675ec61a276737046275a0e78af",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 72
+    },
+    {
+      "id": "b7cbce633ec81d00720b41517931f3ad",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/comparison",
+      "line": 427
+    },
+    {
+      "id": "5e13403d7c9e9d850879405e62850ca3",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 206
+    },
+    {
+      "id": "b8236922e415c394851f8ae2a358d446",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 194
+    },
+    {
+      "id": "2d4ac2411cc5743d626796bca786d1e1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 250
+    },
+    {
+      "id": "69c6168556b985ed3c154038305a1db1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 243
+    },
+    {
+      "id": "41e9850517d0dd54e2a55acc2564333d",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 365
+    },
+    {
+      "id": "cd070b453cb615d6554a869c8a2b42ef",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 406
+    },
+    {
+      "id": "43c95decdc3d94b507c2b2529a96441c",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 476
+    },
+    {
+      "id": "1b2cd7ff08222b234f7b745a31bc3f5e",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 427
+    },
+    {
+      "id": "d80c2e9f2852fd6134bfceda14ef55c5",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 487
+    },
+    {
+      "id": "a2060c44ed3b8266efc07abe6052ca14",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 421
+    },
+    {
+      "id": "15dceee121bf4f5a878700e8e2a27cbe",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 487
+    },
+    {
+      "id": "5a71a1bce8182654c4f7786b7e0b4f6f",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 451
+    },
+    {
+      "id": "1e52885ef938b1fb811fb6e536e3ca1a",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 518
+    },
+    {
+      "id": "2646657196a045353e6d63ebc66342fd",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 517
+    },
+    {
+      "id": "9a7bae70ef66a06148ebb1b5bce697b8",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 471
+    },
+    {
+      "id": "ac1d3b6d81670abb9aff517bc19d5804",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 496
+    },
+    {
+      "id": "1b809f3f16a55b6ec590dde2c383bf46",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 594
+    },
+    {
+      "id": "93e1472cb7350f661bdcdebc59453585",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 644
+    },
+    {
+      "id": "8bacdffc4618437c549dfe259bd09a71",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 663
+    },
+    {
+      "id": "c4d60ffb36e6b7af49e2c4eef4b859ab",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 74
+    },
+    {
+      "id": "266c5f8da23944aec0810e5fca927a57",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 711
+    },
+    {
+      "id": "67e7705b8f35bc0f8e9acbe88a5cc1b0",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/logical",
+      "line": 696
+    },
+    {
+      "id": "5319cae17fb3768217e330fbc34e9b20",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 72
+    },
+    {
+      "id": "fdbe96468123b500b06fd43580030655",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 81
+    },
+    {
+      "id": "046b51e2ea0fd4d08ad210f393a1f3bb",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 88
+    },
+    {
+      "id": "fd09768025c2a826775831e9be119235",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 182
+    },
+    {
+      "id": "68b0ff784e49d229c56ba8459d7cb15f",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 182
+    },
+    {
+      "id": "956742877ce803839381951699bebdc4",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 206
+    },
+    {
+      "id": "23a1ef6ecbb32cd735d9612a47db61e7",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "184610f788b205e844106f509f3f5b87",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 201
+    },
+    {
+      "id": "eadd195b7ab68fb13f676addd8ab9d11",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "21df6228f1ef96c976737ab0fb90a888",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 206
+    },
+    {
+      "id": "225b4b45de14ff2dd208014768805b97",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 250
+    },
+    {
+      "id": "06bf4b2034139fe6e0c8adf242151386",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 243
+    },
+    {
+      "id": "b6e797579f36f287ca67fb6964bbaf81",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 243
+    },
+    {
+      "id": "8e75b96e291f79d11150ae38830c2f6b",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 250
+    },
+    {
+      "id": "5664efe68fd8288229e28b139a8158b0",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 250
+    },
+    {
+      "id": "9d490efd5f7ca4152d6e7c52b384f161",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 300
+    },
+    {
+      "id": "9f9ba1b90778250b39a04f71d6efd967",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 350
+    },
+    {
+      "id": "595a10a735087d38e651cc2dc037b6e1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 340
+    },
+    {
+      "id": "b4a1e337dba984f759823d7e21afef3d",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 380
+    },
+    {
+      "id": "299389df06a969afca8b3f2472529a17",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 350
+    },
+    {
+      "id": "9660efe807c3d54806c9a4bdd765cb2e",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 406
+    },
+    {
+      "id": "f667a2402d1e225da427e455f2d470c4",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 380
+    },
+    {
+      "id": "dc3c7e5276759b2855336005f0c5d447",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 388
+    },
+    {
+      "id": "b403dec4942bfecbc86096e9a2bfdc5f",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 396
+    },
+    {
+      "id": "6dd8906a5287786ae960a29411a6d6bb",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 427
+    },
+    {
+      "id": "a3cc0773ac7877ee7553e70877951403",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 421
+    },
+    {
+      "id": "e087ba368a04967c5e91f9928afb085d",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 427
+    },
+    {
+      "id": "260e2b2aea23402b550a32a192ab818c",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 421
+    },
+    {
+      "id": "c5fffdd3ea625e66c4cee57a654d2fc1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 451
+    },
+    {
+      "id": "44b6a977e25f8a05fbb64ba254e018c9",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 451
+    },
+    {
+      "id": "4c9af9a12dfd0baad0832dfb23bf8b6c",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 468
+    },
+    {
+      "id": "135c302213b0820191aa123d98f0629b",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 476
+    },
+    {
+      "id": "65c1f23c4ad7a4cf1a105f08265b72aa",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 468
+    },
+    {
+      "id": "b6c6b0ee85add1638152ab656b66b099",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 471
+    },
+    {
+      "id": "861cdcdc41f4a09172b8139f1446b978",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 471
+    },
+    {
+      "id": "09554d9c9822130529524b91f9126cb5",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 487
+    },
+    {
+      "id": "9b1303999c08821ddea0f84c2a342afa",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 476
+    },
+    {
+      "id": "d612829d6a4f1b5cc808a1662a95ea33",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 487
+    },
+    {
+      "id": "060769ce8d1ff35e52039856a67320fd",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 496
+    },
+    {
+      "id": "c1267deb8c9e2883e2e334e69375d523",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 496
+    },
+    {
+      "id": "239d7393c4138048f9095161cd381752",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 517
+    },
+    {
+      "id": "837743390dab81ccf1433b925e396f5b",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 570
+    },
+    {
+      "id": "4600aa2d118367c4cb9a553faa690e43",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 569
+    },
+    {
+      "id": "abd67faefa6d70588941bb4be84a178d",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 571
+    },
+    {
+      "id": "1a33665b0b928bceddc2742c61eb9339",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 594
+    },
+    {
+      "id": "aceb12d641098a0da20e57ee6b039664",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 594
+    },
+    {
+      "id": "91f10bd123071f58caa4da56ed7b6566",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 633
+    },
+    {
+      "id": "7012788ee4c433bf50e8ea580500eeed",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 620
+    },
+    {
+      "id": "c91d958cf6cbb685b23fb0f29b3e9222",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 644
+    },
+    {
+      "id": "15bf5cc30785eba766c35145ff6210be",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 644
+    },
+    {
+      "id": "290ee301c1413537155c07e23b8f64ca",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 648
+    },
+    {
+      "id": "3a12f9ac778156714386bfc9d23a2493",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 663
+    },
+    {
+      "id": "77e136d90da8dc37ade013084a0ceac0",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 671
+    },
+    {
+      "id": "a0459b39b34ec9a516d4e30f8ea0a303",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 663
+    },
+    {
+      "id": "2a166121b2089fbe12c0df612e0f0756",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 663
+    },
+    {
+      "id": "254ceda4bd3702a3087f385aaaba62b3",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 671
+    },
+    {
+      "id": "9e3dae395894ffcd356609bcf04fcbc6",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 671
+    },
+    {
+      "id": "b8e743f4f999d96e86081c15749b813f",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 696
+    },
+    {
+      "id": "e6145e7726161e887e8e0176afe27971",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 696
+    },
+    {
+      "id": "d9dc79177067471bfcb6ee8708ba50e8",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 711
+    },
+    {
+      "id": "8aea9d16301b8b188e8f89d901fe2444",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/remove",
+      "line": 711
+    },
+    {
+      "id": "6da09fc8d2625f9d285e5987de16bfb9",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/string-literal",
+      "line": 396
+    },
+    {
+      "id": "c5fc4f02dad35a334e7dc523c89a6b20",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/string-literal",
+      "line": 671
+    },
+    {
+      "id": "0ba89b07d43db510d3463a1a6e68faf9",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/string-literal",
+      "line": 660
+    },
+    {
+      "id": "6df799402118ad16bcf165ba9dcd9cd1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "expression/string-literal",
+      "line": 663
+    },
+    {
+      "id": "dfb02d894010b2f30076b5e0e3f81bbc",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "loop/range_break",
+      "line": 481
+    },
+    {
+      "id": "0496e6454228363e4f8a234760f331cb",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "loop/range_break",
+      "line": 482
+    },
+    {
+      "id": "304ccff2e1955dae5ee646818f85f9a2",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/decrementer",
+      "line": 243
+    },
+    {
+      "id": "726146308c36e14f30d415ca73bf1463",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/decrementer",
+      "line": 283
+    },
+    {
+      "id": "bde3a0b64fcfe16476b5d0ed2df40b99",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/decrementer",
+      "line": 250
+    },
+    {
+      "id": "6b090ad4049c7e9e4f1239d6ba563af7",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/decrementer",
+      "line": 609
+    },
+    {
+      "id": "089792e6b2fa52e2a7449068b98acd42",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/decrementer",
+      "line": 671
+    },
+    {
+      "id": "06a252a9cdc9d77f3cd8a408f012b749",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/decrementer",
+      "line": 663
+    },
+    {
+      "id": "43abd60e810d3301a262a1c03863b12e",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/incrementer",
+      "line": 243
+    },
+    {
+      "id": "eb76d7fc3537de5141ae221056051279",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/incrementer",
+      "line": 250
+    },
+    {
+      "id": "eca7d83d7baffe36741fceb4be084a5a",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/incrementer",
+      "line": 671
+    },
+    {
+      "id": "18c31ead3fc90fe97faed5dab3ba4856",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "numbers/incrementer",
+      "line": 663
+    },
+    {
+      "id": "cbdad8d01d11e5ef38e6863ec573e499",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 63
+    },
+    {
+      "id": "bca3278735dedfa2ff65a17909088603",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 58
+    },
+    {
+      "id": "6a7516b6812e9a26303b009679ee7aec",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 59
+    },
+    {
+      "id": "34323fbe190d656b6555490cdce59cea",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 64
+    },
+    {
+      "id": "d6f72efd6473891fbf7a2f2d4a7754bb",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 76
+    },
+    {
+      "id": "3bde4c2816be231825ca30dc28de9a6e",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 62
+    },
+    {
+      "id": "c88d79424f0823ff783ca0e0ed2b30cc",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 83
+    },
+    {
+      "id": "c68446e8fb96ed2d9b9fec45de2ca17e",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 90
+    },
+    {
+      "id": "d88b188516ebc758266e5c7cb1781ea3",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 190
+    },
+    {
+      "id": "8317b53459cba7d2207a3d03b532050c",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 186
+    },
+    {
+      "id": "17e063e9d1431d82321720984788542d",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 191
+    },
+    {
+      "id": "6d8820e97ee1b9075f364642013b10d1",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 185
+    },
+    {
+      "id": "da4205fcd0abf3f2f69d9785743329bc",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/remove",
+      "line": 508
+    },
+    {
+      "id": "3658487739812f5fb68b898f5c62a4cc",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/return",
+      "line": 340
+    },
+    {
+      "id": "eceadf07373e11799f363e3c45ac5e74",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/return",
+      "line": 594
+    },
+    {
+      "id": "8efc5b0489a2a663f720ef0d277ed741",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/return",
+      "line": 666
+    },
+    {
+      "id": "b130ef45d6d00261e229f839f5b32a9b",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/return",
+      "line": 758
+    },
+    {
+      "id": "441e743b54aba38556f304878012cd98",
+      "file": "./goplint/analyzer_windows_pitfalls.go",
+      "mutator": "statement/return",
+      "line": 767
+    }
+  ]
 }

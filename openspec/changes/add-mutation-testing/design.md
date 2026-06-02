@@ -120,7 +120,7 @@ Rollback is straightforward: disable the mutation workflow or make it advisory w
 
 - Selected `github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting` `v2.7.0` on 2026-06-01 after verifying the current upstream release state and available module versions.
 - The tool does not expose a `--version` flag, so repository automation verifies the embedded module version with `go version -m "$(go tool -n go-mutesting)"`.
-- Initial committed baselines start empty; rollout CI remains advisory while scheduled and pull-request reports establish timing and survivor data. The first real blocking all-module run on 2026-06-01 confirmed that a blanket empty-baseline full scan is too broad for initial adoption, so the root full manifest now starts from a smaller baselineable seed.
+- Initial committed baselines were later populated from reviewed advisory full-scan reports: 1,636 root-module survivors and 946 `tools/goplint` survivors. Rollout CI remains advisory while maintainers reduce the baseline through focused tests and decide when blocking mode is stable enough. The first real blocking all-module run on 2026-06-01 confirmed that a blanket empty-baseline full scan is too broad for initial adoption, so the root full manifest now starts from a smaller baselineable seed.
 - A later real `tools/goplint` advisory full run on 2026-06-01 confirmed that package-wide mutation of `tools/goplint/goplint` keeps running into support files after the analyzer source files complete. The goplint full manifest now uses explicit analyzer file targets, which keeps the profile extensive over analyzer behavior while avoiding baseline/cache/CFA support files until timing data justifies broadening.
 
 ## Open Questions

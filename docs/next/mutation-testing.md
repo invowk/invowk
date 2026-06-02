@@ -14,7 +14,7 @@ make mutation-baseline-update MUTATION_MODULE=root
 make mutation-rerun MUTATION_MODULE=root MUTATION_MUTANT_ID=<id>
 ```
 
-The root module scans curated production packages under `cmd/`, `internal/`, and `pkg/`. The `tools/goplint` profile runs from its own module root with separate reports and baselines, and its initial full manifest selects explicit analyzer source files instead of the whole analyzer support package.
+The root module scans a curated seed of production packages under `internal/` and `pkg/`. The `tools/goplint` profile runs from its own module root with separate reports and baselines, and its initial full manifest selects explicit analyzer source files instead of the whole analyzer support package.
 
 ## Reports and Baselines
 
@@ -27,7 +27,7 @@ Reports are generated under `artifacts/mutation/<profile>/<module>/` and are ign
 - `go-mutesting-summary.json`, when emitted
 - `go-mutesting-agentic.json`, when escaped mutants are emitted
 
-Committed baselines live under `tools/mutation/baselines/`. The rollout baselines intentionally start empty, so the first scheduled and pull-request runs collect advisory data before maintainers decide whether blocking mode is stable enough.
+Committed baselines live under `tools/mutation/baselines/`. The initial accepted-survivor baselines were generated from the first completed advisory full scans: 1,636 root-module survivors and 946 `tools/goplint` survivors. Treat baseline updates as explicit review events: kill high-value survivors with focused tests first, then run `make mutation-baseline-update MUTATION_MODULE=<module>` or regenerate from a reviewed full report to remove killed historical survivors and accept the remaining current set.
 
 ## Operating Model
 

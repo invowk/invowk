@@ -223,6 +223,7 @@ Default mutation profiles use package-level Go tests with `-short`, even when a 
 Baselines:
 - Root module baseline: `tools/mutation/baselines/root-baseline.json`.
 - `tools/goplint` baseline: `tools/mutation/baselines/goplint-baseline.json`.
+- Baselines contain accepted survivors from reviewed full-scan reports. Update them only as an intentional review step after killing worthwhile survivors.
 - Initial CI behavior is advisory. Blocking mode fails only on new escaped mutants outside the selected baseline.
 
 Reports:
