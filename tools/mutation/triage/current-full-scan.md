@@ -10,7 +10,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
 - `tools/mutation/baselines/root-baseline.json`: 1,631 accepted escaped mutants.
-- `tools/mutation/baselines/goplint-baseline.json`: 891 accepted escaped mutants.
+- `tools/mutation/baselines/goplint-baseline.json`: 872 accepted escaped mutants.
 
 ## Root Profile
 
@@ -64,16 +64,16 @@ Summary from `artifacts/mutation/full/goplint/go-mutesting-summary.json`:
 - Total: 3,978
 - Killed: 2,693
 - Escaped in corrected source report: 928
-- Accepted baseline after remediation: 891
+- Accepted baseline after remediation: 872
 - Not covered: 357
 - MSI: 67.70%
 - Covered-code MSI: 74.37%
 
 Top accepted clusters after the current remediation batches:
 
-- `goplint/analyzer_validate_delegation.go`: 124 accepted
 - `goplint/analyzer_windows_pitfalls.go`: 110 accepted
 - `goplint/analyzer_boundary_request_validation.go`: 110 accepted
+- `goplint/analyzer_validate_delegation.go`: 105 accepted
 - `goplint/analyzer_constructor_validates.go`: 104 accepted
 - `goplint/analyzer_constructor_validates_cfa.go`: 93 accepted
 - `goplint/analyzer_cross_platform_path.go`: 60 accepted
@@ -111,6 +111,15 @@ Second remediation batch:
 - Focused rerun: `artifacts/mutation/focused/goplint-windows-pitfalls/`, generated `2026-06-02T13:31:53Z`, with 625 total mutants, 409 killed, 56 not covered, 160 escaped, MSI 65.44%, and covered-code MSI 71.88%.
 - The focused rerun proved 34 accepted `goplint/analyzer_windows_pitfalls.go` survivors killed and removed from the goplint baseline, dropping that file from 144 to 110 accepted mutants.
 - The focused rerun also surfaced 50 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
+
+Third remediation batch:
+
+- Add helper-level coverage for `goplint/analyzer_validate_delegation.go` alias-binding guard inputs, alias clearing after non-field rebinding, `var` value-spec alias chaining, and range-value alias tracking.
+- Add helper-level coverage for delegated helper-function arguments, including direct receiver-field arguments, alias arguments, manually constructed values, and empty receiver names.
+- Add helper-level coverage for delegated helper parameter discovery across direct `Validate()` calls, indexed parameters, range value variables, and range index variables.
+- Focused rerun: `artifacts/mutation/focused/goplint-validate-delegation/`, generated `2026-06-02T13:47:32Z`, with 561 total mutants, 365 killed, 83 not covered, 113 escaped, MSI 65.06%, and covered-code MSI 76.36%.
+- The focused rerun proved 19 accepted `goplint/analyzer_validate_delegation.go` survivors killed and removed from the goplint baseline, dropping that file from 124 to 105 accepted mutants.
+- The focused rerun also surfaced 8 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
 
 ## Policy
 

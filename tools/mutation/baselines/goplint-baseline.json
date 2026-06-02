@@ -3830,12 +3830,6 @@
       "line": 504
     },
     {
-      "id": "f4340851ea48040184d0e4d723c48db7",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "branch/if",
-      "line": 750
-    },
-    {
       "id": "2db9247f3894c1d42e7487199e14d5b9",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "branch/if",
@@ -3852,12 +3846,6 @@
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "composite/field-clear",
       "line": 289
-    },
-    {
-      "id": "47447dd49cd303f92b5e60bc7cd2a1e4",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "composite/field-clear",
-      "line": 371
     },
     {
       "id": "4162148c469ce30262a7b8d5e134807b",
@@ -3896,24 +3884,6 @@
       "line": 218
     },
     {
-      "id": "d847d6024953335175d4e9c7b185ba6d",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "conditional/negated",
-      "line": 356
-    },
-    {
-      "id": "46f54286bbc629da2ae8262c3bc7ba24",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "conditional/negated",
-      "line": 352
-    },
-    {
-      "id": "0bac52cf63cfb0744ad8e85e2098a5f3",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "conditional/negated",
-      "line": 367
-    },
-    {
       "id": "8ea8d2864617cdfaf9ee2367dbb3b8de",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "conditional/negated",
@@ -3950,12 +3920,6 @@
       "line": 485
     },
     {
-      "id": "665ada4c001fb9c7d81f9360cc436429",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "conditional/negated",
-      "line": 782
-    },
-    {
       "id": "d1df8fc97ca17ba168c462fbc27e8783",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "conditional/negated",
@@ -3990,18 +3954,6 @@
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "conditional/not",
       "line": 141
-    },
-    {
-      "id": "4aebaf92bc9bf64029948626c1273ce9",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "conditional/not",
-      "line": 363
-    },
-    {
-      "id": "facb73e19a2a06f104f5eb1e2f6476e7",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "conditional/not",
-      "line": 352
     },
     {
       "id": "046cb0b8355930486ed718af4451aa86",
@@ -4118,34 +4070,16 @@
       "line": 420
     },
     {
-      "id": "b7db546dc466f3cbd0b17606a973a8c6",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/logical",
-      "line": 267
-    },
-    {
       "id": "99c87012323f62b47a3cd979192867a0",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "expression/logical",
       "line": 274
     },
     {
-      "id": "5848045b6e40a0e7fd594b46bf4d47b0",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/logical",
-      "line": 267
-    },
-    {
       "id": "3f3fd210074949fab77037ad46439770",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "expression/logical",
       "line": 434
-    },
-    {
-      "id": "61cda1948367e2ba37a77f3889850889",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/logical",
-      "line": 267
     },
     {
       "id": "e8b86067a7909388366211498b88542d",
@@ -4170,12 +4104,6 @@
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "expression/logical",
       "line": 650
-    },
-    {
-      "id": "d7a18325ae12e8e4b42f4be7abf00e2f",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/logical",
-      "line": 725
     },
     {
       "id": "fe2d824c1a4dbbe5d89518be397f94a8",
@@ -4280,52 +4208,16 @@
       "line": 274
     },
     {
-      "id": "434309da3528fef1012f5ca743c61805",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 267
-    },
-    {
       "id": "063f5d7dc5fa8b18f4977a471abb8e9a",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "expression/remove",
       "line": 399
     },
     {
-      "id": "27f27fb57e6e890bebebea0ee0da1a17",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 267
-    },
-    {
       "id": "cd87a0f6db2670c7fb88f8dc49bfec5f",
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "expression/remove",
       "line": 399
-    },
-    {
-      "id": "c29d063ca64ea1a47ae19be8a918e6c2",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 267
-    },
-    {
-      "id": "b7057ad115ec86ae8199290d9d16176a",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 267
-    },
-    {
-      "id": "fe8b718e9f42ab3859f37936e5c13d9f",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 267
-    },
-    {
-      "id": "e4daa4b4f1f121f809154d5b26f1ec4c",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 267
     },
     {
       "id": "2010532409a09ab70dc5ece10643dee8",
@@ -4434,12 +4326,6 @@
       "file": "goplint/analyzer_validate_delegation.go",
       "mutator": "expression/remove",
       "line": 642
-    },
-    {
-      "id": "a1562a138656ae9293ba1ec675217efa",
-      "file": "goplint/analyzer_validate_delegation.go",
-      "mutator": "expression/remove",
-      "line": 725
     },
     {
       "id": "c052651ab9441ec9b3aa980a2998705f",
