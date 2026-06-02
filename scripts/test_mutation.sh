@@ -236,6 +236,30 @@ test_tool_report_collection() {
 	done
 }
 
+test_tool_report_collection_before_untracked_cleanup() {
+	local tmp
+	local workdir
+	local report_dir
+	local report
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"; rm -f -- "$REPO_ROOT/tools/goplint/go-mutesting-summary.json"; [[ -n "${MUTATION_CLEANUP_DIR:-}" ]] && rm -rf "$MUTATION_CLEANUP_DIR"' RETURN
+	workdir="$REPO_ROOT/tools/goplint"
+	report_dir="$tmp/reports"
+	report="$workdir/go-mutesting-summary.json"
+	mkdir -p "$report_dir"
+
+	snapshot_untracked_paths goplint
+	printf '{"totalMutantsCount":1}\n' >"$report"
+	restore_tracked_mutation_paths goplint
+	collect_tool_reports "$workdir" "$report_dir"
+	remove_new_untracked_paths goplint
+
+	assert_file_exists "collects nested-module report before cleanup" "$report_dir/go-mutesting-summary.json"
+	assert_file_missing "removes nested-module workdir report after collection" "$report"
+	assert_file_contains "preserves nested-module report content" '"totalMutantsCount":1' "$report_dir/go-mutesting-summary.json"
+}
+
 test_dirty_path_policy() {
 	assert_path_allowed "allows root mutation baseline" "tools/mutation/baselines/root-baseline.json"
 	assert_path_allowed "allows goplint mutation baseline" "tools/mutation/baselines/goplint-baseline.json"
@@ -282,6 +306,7 @@ test_command_construction
 test_interrupt_status_detection
 test_untracked_cleanup_preserves_existing_files
 test_tool_report_collection
+test_tool_report_collection_before_untracked_cleanup
 test_dirty_path_policy
 test_root_target_resolution
 test_goplint_target_resolution

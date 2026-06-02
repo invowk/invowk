@@ -337,7 +337,7 @@ register_restore_module() {
 }
 
 ensure_cleanup_dir() {
-	if [[ -z "$MUTATION_CLEANUP_DIR" ]]; then
+	if [[ -z "$MUTATION_CLEANUP_DIR" || ! -d "$MUTATION_CLEANUP_DIR" ]]; then
 		MUTATION_CLEANUP_DIR="$(mktemp -d)"
 	fi
 }
@@ -386,7 +386,7 @@ remove_new_untracked_paths() {
 	done < <(comm -13 "$snapshot" "$current")
 }
 
-restore_mutation_paths() {
+restore_tracked_mutation_paths() {
 	local module="$1"
 
 	case "$module" in
@@ -397,6 +397,12 @@ restore_mutation_paths() {
 			git -C "$REPO_ROOT" restore --worktree -- tools/goplint >/dev/null 2>&1 || true
 			;;
 	esac
+}
+
+restore_mutation_paths() {
+	local module="$1"
+
+	restore_tracked_mutation_paths "$module"
 	remove_new_untracked_paths "$module"
 }
 
@@ -611,9 +617,12 @@ run_module_profile() {
 	set -e
 
 	if [[ "$profile" != "dry-run" ]]; then
-		restore_mutation_paths "$module"
+		restore_tracked_mutation_paths "$module"
 	fi
 	collect_tool_reports "$workdir" "$report_dir"
+	if [[ "$profile" != "dry-run" ]]; then
+		remove_new_untracked_paths "$module"
+	fi
 	append_step_summary "$profile" "$module" "$report_dir"
 
 	if [[ "$status" -eq "$QUALITY_GATE_EXIT_CODE" && "$mode" == "advisory" ]]; then
