@@ -1820,106 +1820,16 @@
       "line": 266
     },
     {
-      "id": "518b9283f22607a50768dfec397cc9f1",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "branch/if",
-      "line": 113
-    },
-    {
-      "id": "c048012cf843d1cb7ec1ebf161a8ba72",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "branch/if",
-      "line": 331
-    },
-    {
-      "id": "aaf75ee0fc7ac520143321694e42642d",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "branch/if",
-      "line": 378
-    },
-    {
-      "id": "8553aeb96bef68810b31365b09826a0b",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "branch/if",
-      "line": 478
-    },
-    {
       "id": "225f4af43f273c61652e50547edc450e",
       "file": "internal/discovery/discovery_files.go",
       "mutator": "branch/if",
       "line": 583
     },
     {
-      "id": "3937c39228ee29aff4537ddf794bef52",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "branch/if",
-      "line": 706
-    },
-    {
-      "id": "e6aeeb5005f5a10d6633ddd6a1d48089",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "composite/field-clear",
-      "line": 117
-    },
-    {
-      "id": "5a7cc673cc84cc2ac1891b0bc7aef751",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "composite/field-clear",
-      "line": 83
-    },
-    {
       "id": "d633761529b8976952077d11b2f521f5",
       "file": "internal/discovery/discovery_files.go",
       "mutator": "composite/field-clear",
       "line": 299
-    },
-    {
-      "id": "10658e90f0f5305e022b2804d60fa957",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "conditional/negated",
-      "line": 112
-    },
-    {
-      "id": "6bdc07a7b2082bce686f9686e9a00177",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "conditional/negated",
-      "line": 253
-    },
-    {
-      "id": "4dd82c8de6ff3ac829c527761c5517b4",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "conditional/negated",
-      "line": 705
-    },
-    {
-      "id": "fbbd658f705dc02f2130411c329f8df8",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "conditional/negated",
-      "line": 716
-    },
-    {
-      "id": "0831c6dfc95d98804551e3a48fa0575c",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "conditional/negated",
-      "line": 710
-    },
-    {
-      "id": "d3df44f5238c4d34b0e7bb15021decaf",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "conditional/not",
-      "line": 478
-    },
-    {
-      "id": "636596785a0d95d69bdb6ea4d95dcc6c",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/error-guard",
-      "line": 226
-    },
-    {
-      "id": "1fffb7728dd2dd3d7ea7b25c88fac780",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/error-guard",
-      "line": 477
     },
     {
       "id": "de46f23769203a8d2ce00c06e31c8c85",
@@ -1940,64 +1850,16 @@
       "line": 583
     },
     {
-      "id": "d92fa75f941adb2dd2bb5a85ebc3287d",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/logical",
-      "line": 471
-    },
-    {
-      "id": "f3abd9e283fe001aeef90f96b57c3eae",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/logical",
-      "line": 616
-    },
-    {
-      "id": "63dcb1574dfbe9f7e4f2dab66bd0c3d0",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/logical",
-      "line": 638
-    },
-    {
       "id": "eb5a0f4d7e42c6bfc75c83bc2ae3f1bd",
       "file": "internal/discovery/discovery_files.go",
       "mutator": "expression/logical",
       "line": 642
     },
     {
-      "id": "56ac671145e6492000d33a9aaab499ea",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/logical",
-      "line": 616
-    },
-    {
       "id": "19bf741aaf7958f13b28bdcea3c03fdb",
       "file": "internal/discovery/discovery_files.go",
       "mutator": "expression/remove",
       "line": 471
-    },
-    {
-      "id": "d7b36fc001222957bfe9f0db5dc0482e",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 471
-    },
-    {
-      "id": "13938c72801594387a0f947e31c69303",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/logical",
-      "line": 716
-    },
-    {
-      "id": "823be2e20e7980f9be101a1bef3d0981",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/logical",
-      "line": 705
-    },
-    {
-      "id": "5f7b32df8a9c694f19e7b5a0ce89c0ea",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 616
     },
     {
       "id": "c948a9644826d365610499bc3031a733",
@@ -2012,48 +1874,6 @@
       "line": 642
     },
     {
-      "id": "7c6a58d94860ed07d1a6166b80f2e06f",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 616
-    },
-    {
-      "id": "00ad5fba5763c13348345a5df7d4dbcb",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 616
-    },
-    {
-      "id": "35371c570218cb1d2110ea95d6514d45",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 638
-    },
-    {
-      "id": "c09cdcc4176164b8ea6fe6203aacace4",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 638
-    },
-    {
-      "id": "3a8bc41afc81a74ee0762baf9ce77cee",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 716
-    },
-    {
-      "id": "e5b9e449bee63e1d3bcde6f3a93355f6",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "loop/range_break",
-      "line": 112
-    },
-    {
-      "id": "b865b855bce42e94ac03370ac02a33ce",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 716
-    },
-    {
       "id": "a886c1e02b1a115b6e0b4d051a093fe5",
       "file": "internal/discovery/discovery_files.go",
       "mutator": "expression/remove",
@@ -2066,28 +1886,10 @@
       "line": 440
     },
     {
-      "id": "b6d10cd9e2df698b6b1d52f9a4ec2038",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "expression/remove",
-      "line": 705
-    },
-    {
       "id": "ff0c5bacf461a8732149d4e71b42c2dc",
       "file": "internal/discovery/discovery_files.go",
       "mutator": "loop/break",
       "line": 451
-    },
-    {
-      "id": "e5b9e449bee63e1d3bcde6f3a93355f6",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "loop/range_break",
-      "line": 716
-    },
-    {
-      "id": "e5b9e449bee63e1d3bcde6f3a93355f6",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "loop/range_break",
-      "line": 705
     },
     {
       "id": "0adc23b771d073888d94a545eb1388c5",
@@ -2100,42 +1902,6 @@
       "file": "internal/discovery/discovery_files.go",
       "mutator": "numbers/incrementer",
       "line": 561
-    },
-    {
-      "id": "9ccb440ef0ff9a1292acf79f2d2b26de",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "statement/remove",
-      "line": 217
-    },
-    {
-      "id": "18141aaf5bee12f0a1d9c06260b58e5a",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "numbers/incrementer",
-      "line": 710
-    },
-    {
-      "id": "0ec3f60042225a8b612c2ea4ce3096d2",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "statement/remove",
-      "line": 390
-    },
-    {
-      "id": "e2ddce54a78a48ee9fbee45f50788912",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "statement/remove",
-      "line": 378
-    },
-    {
-      "id": "e0cfc27974b7b5cdcabc9843a6fb562d",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "statement/return",
-      "line": 219
-    },
-    {
-      "id": "18f67be83c1ba2bca3b27fd5231d7589",
-      "file": "internal/discovery/discovery_files.go",
-      "mutator": "statement/return",
-      "line": 732
     },
     {
       "id": "b69c6540e8e46a586564a9c7091fcd53",
