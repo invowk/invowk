@@ -7328,18 +7328,6 @@
       "line": 63
     },
     {
-      "id": "b7c83b367dee4569dde46a4cf9553670",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "branch/if",
-      "line": 498
-    },
-    {
-      "id": "b7c83b367dee4569dde46a4cf9553670",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "branch/if",
-      "line": 501
-    },
-    {
       "id": "959df52a4e8be3e79ab45612304d5d04",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "branch/if",
@@ -7364,130 +7352,10 @@
       "line": 323
     },
     {
-      "id": "09742b298d3ce9ae04bdb77a946712f0",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 476
-    },
-    {
-      "id": "3b2f97a8dc706a7fc73780bf620da429",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 462
-    },
-    {
-      "id": "fdfed62e72a7fdf7dbb39fd4923769cf",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 472
-    },
-    {
-      "id": "15013a9b6a406a20f87df83b28e60d60",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 462
-    },
-    {
-      "id": "a5b2897e2e27dcdfb0e7957b879deb06",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 468
-    },
-    {
-      "id": "c0df8e6aa283be1de594d2cfe88c7052",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 468
-    },
-    {
-      "id": "a285ad450a968658e9f652a47c27fa95",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 476
-    },
-    {
-      "id": "33578e70210653d31b5ec77f5bfdaf5f",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 472
-    },
-    {
-      "id": "f1d07de2393bb93c66d18698ee79fb97",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 555
-    },
-    {
       "id": "7876e68affad32ee6f53e6fca554b7e3",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "composite/field-clear",
       "line": 533
-    },
-    {
-      "id": "f9739865767eb65f0189fce9679ba3db",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "composite/field-clear",
-      "line": 553
-    },
-    {
-      "id": "c38d45555e4044e26c20f59753a8bd01",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 492
-    },
-    {
-      "id": "2d20e7c33f757a673d9b23de33b046de",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 450
-    },
-    {
-      "id": "2f854bbf8916465cdf84e62663f37180",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 450
-    },
-    {
-      "id": "3979816546697ef795bed99787eb1479",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 497
-    },
-    {
-      "id": "70f5e2bba497685c6fbafbc129573e13",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 494
-    },
-    {
-      "id": "11bec4a2be1fd2f5d8440251d01b17df",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 500
-    },
-    {
-      "id": "3b8a545d35974ea190dcad18a6f3beb0",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 648
-    },
-    {
-      "id": "ab374d24fd71ba2b938b5ef9fa6b840c",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 742
-    },
-    {
-      "id": "60f423509654c619849ecc5ee7b65903",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "conditional/negated",
-      "line": 742
-    },
-    {
-      "id": "fd9cd87c9f70b09304e618ed2037f9e1",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/comparison",
-      "line": 426
     },
     {
       "id": "7283908b95828aff71610bdc148c559f",
@@ -7520,19 +7388,7 @@
       "line": 450
     },
     {
-      "id": "96d5f8a74a5b821f21c732f18dfd4be8",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/comparison",
-      "line": 738
-    },
-    {
       "id": "ba3a62a184b76d36a27272f29cb44893",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/comparison",
-      "line": 742
-    },
-    {
-      "id": "e72b26982cd886fd30a858c667d94372",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "expression/comparison",
       "line": 742
@@ -7550,12 +7406,6 @@
       "line": 742
     },
     {
-      "id": "494a2d0059e5c15e56ccd8de9c868fb2",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/error-guard",
-      "line": 348
-    },
-    {
       "id": "3769fd5c1400c9e5c715ddca3c25fff7",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "expression/error-guard",
@@ -7566,48 +7416,6 @@
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "expression/error-guard",
       "line": 346
-    },
-    {
-      "id": "426d483fb8b5d87f262cf6845c010ca4",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/error-guard",
-      "line": 497
-    },
-    {
-      "id": "cc5e11280fe45ff1fad2ab39588c0613",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/error-guard",
-      "line": 500
-    },
-    {
-      "id": "798964b0114d9c7035c9dde99387d542",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/error-guard",
-      "line": 648
-    },
-    {
-      "id": "527c15f11f513139cf46dd6a9fd8cc90",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/error-guard",
-      "line": 494
-    },
-    {
-      "id": "0c2a79074d37d93ece350ad63ce2ce12",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/error-guard",
-      "line": 549
-    },
-    {
-      "id": "7e35e65e60485985705318b43d9988c9",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/logical",
-      "line": 450
-    },
-    {
-      "id": "ba5cf68826a14bf698e0d531b57661f9",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/logical",
-      "line": 450
     },
     {
       "id": "352669e8366e477b7be0a75547fb396f",
@@ -7628,40 +7436,10 @@
       "line": 322
     },
     {
-      "id": "0a67d9cf1b7b336eb5d31788166dac7f",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/logical",
-      "line": 742
-    },
-    {
-      "id": "5e1d3350e5dc052f689cd19f21cd56fd",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/logical",
-      "line": 742
-    },
-    {
       "id": "09a59379ac00d4a2a81a9f4f871d8bb1",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "expression/remove",
       "line": 448
-    },
-    {
-      "id": "54b56abc9950f38bf0eebe4f06b88ba0",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 450
-    },
-    {
-      "id": "a08adcc93b38510645e70b02d810cd03",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 450
-    },
-    {
-      "id": "ae45aa4760b9d15100ffe67093cc8f17",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 450
     },
     {
       "id": "bddbbf4155f9abbc7504df71edbb80bd",
@@ -7700,25 +7478,7 @@
       "line": 626
     },
     {
-      "id": "f46359f60d593372cbbe0a67d7078307",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 738
-    },
-    {
-      "id": "d16dfcfe90309b7218f340c8fa3996b9",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 742
-    },
-    {
       "id": "244ee33432678573f8f16c7e333615f6",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 742
-    },
-    {
-      "id": "be3b43b961c74e00b552f185160116e1",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "expression/remove",
       "line": 742
@@ -7742,28 +7502,10 @@
       "line": 454
     },
     {
-      "id": "8188deec6cc7d89b0fb9b40017c94294",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "expression/remove",
-      "line": 742
-    },
-    {
       "id": "c5b80fb99d32b7e06b1e5edd21aac618",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "numbers/decrementer",
       "line": 448
-    },
-    {
-      "id": "467b2643c3289725bce439be483768e8",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "numbers/incrementer",
-      "line": 738
-    },
-    {
-      "id": "e04cbc01c7db515ef0d9182601d93944",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "numbers/decrementer",
-      "line": 738
     },
     {
       "id": "11f241e660db7f7e01901655bb2f0234",
@@ -7772,40 +7514,10 @@
       "line": 448
     },
     {
-      "id": "e8d276d350b945a96e6f29213b03afaa",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "statement/return",
-      "line": 374
-    },
-    {
       "id": "72106f34cff463e3fcf59b4898738f2e",
       "file": "pkg/invowkmod/invowkmod.go",
       "mutator": "statement/return",
       "line": 409
-    },
-    {
-      "id": "b92508f8c2ecabb45cf58b98bb5908b0",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "statement/return",
-      "line": 461
-    },
-    {
-      "id": "3d3fdca4cafda1d58f4c510d26678bdf",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "statement/return",
-      "line": 468
-    },
-    {
-      "id": "4240989aa82d5bdc2764401c479a74fe",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "statement/return",
-      "line": 472
-    },
-    {
-      "id": "f0b20532dc7cc8dbf5fef34f324e6ce6",
-      "file": "pkg/invowkmod/invowkmod.go",
-      "mutator": "statement/return",
-      "line": 476
     },
     {
       "id": "5f7f9850bd9193f960d30fa15dbf6dea",
