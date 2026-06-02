@@ -9,7 +9,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
-- `tools/mutation/baselines/root-baseline.json`: 1,631 accepted escaped mutants.
+- `tools/mutation/baselines/root-baseline.json`: 1,567 accepted escaped mutants.
 - `tools/mutation/baselines/goplint-baseline.json`: 810 accepted escaped mutants.
 
 ## Root Profile
@@ -19,18 +19,18 @@ Summary from `artifacts/mutation/full/root/go-mutesting-summary.json`:
 - Total: 9,389
 - Killed: 5,224
 - Escaped in source report: 1,636
-- Accepted baseline after remediation: 1,631
+- Accepted baseline after remediation: 1,567
 - Not covered: 2,529
 - MSI: 55.64%
 - Covered-code MSI: 76.15%
 
-Top accepted clusters after the first remediation batch:
+Top accepted clusters after the current remediation batches:
 
-- `pkg/invowkfile/generate.go`: 125 accepted
 - `pkg/invowkfile/validation_primitives.go`: 83 accepted
 - `pkg/invowkmod/invowkmod.go`: 80 accepted
 - `internal/app/llmconfig/resolve.go`: 68 accepted
 - `internal/app/deps/deps.go`: 64 accepted
+- `pkg/invowkfile/generate.go`: 61 accepted
 - `internal/app/deps/checks.go`: 58 accepted
 - `pkg/invowkfile/dependency.go`: 57 accepted
 - `internal/discovery/discovery_files.go`: 53 accepted
@@ -136,6 +136,14 @@ Fifth remediation batch:
 - Focused rerun: `artifacts/mutation/focused/goplint-constructor-validates/`, generated `2026-06-02T14:15:54Z`, with 309 total mutants, 198 killed, 20 not covered, 91 escaped, MSI 64.08%, and covered-code MSI 68.51%.
 - The focused rerun proved 18 accepted `goplint/analyzer_constructor_validates.go` survivors killed and removed from the goplint baseline, dropping that file from 104 to 86 accepted mutants.
 - The focused rerun also surfaced 5 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
+
+Sixth remediation batch:
+
+- Add generator contract coverage for `pkg/invowkfile/generate.go`, including root/command/implementation round trips, omission of empty optional blocks, runtime field variants, runtime-level dependency variants, and virtual filesystem access without named paths.
+- Commit the generator coverage before running the focused mutation pass to avoid source-restore clobbering of uncommitted tests.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-generate/`, generated `2026-06-02T14:31:17Z`, with 491 total mutants, 398 killed, 32 not covered, 61 escaped, MSI 81.06%, and covered-code MSI 86.71%.
+- The focused rerun proved 64 accepted `pkg/invowkfile/generate.go` survivors killed and removed from the root baseline, dropping that file from 125 to 61 accepted mutants.
+- The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `pkg/invowkfile/generate.go`.
 
 ## Policy
 
