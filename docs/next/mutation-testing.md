@@ -27,7 +27,7 @@ Reports are generated under `artifacts/mutation/<profile>/<module>/` and are ign
 - `go-mutesting-summary.json`, when emitted
 - `go-mutesting-agentic.json`, when escaped mutants are emitted
 
-Committed baselines live under `tools/mutation/baselines/`. The initial accepted-survivor baselines were generated from the first completed advisory full scans: 1,636 root-module survivors and 946 `tools/goplint` survivors. Treat baseline updates as explicit review events: kill high-value survivors with focused tests first, then run `make mutation-baseline-update MUTATION_MODULE=<module>` or regenerate from a reviewed full report to remove killed historical survivors and accept the remaining current set.
+Committed baselines live under `tools/mutation/baselines/`. The first accepted-survivor pass was generated from completed advisory full scans, then immediately tightened with focused tests for high-value survivors. The current committed baselines accept 1,631 root-module survivors and 925 `tools/goplint` survivors. Treat baseline updates as explicit review events: kill high-value survivors with focused tests first, then run `make mutation-baseline-update MUTATION_MODULE=<module>` or regenerate from a reviewed full report to remove killed historical survivors and accept the remaining current set.
 
 ## Operating Model
 

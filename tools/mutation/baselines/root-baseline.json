@@ -2,36 +2,6 @@
   "version": 1,
   "mutants": [
     {
-      "id": "d1e0c62621ee382f2c63abf340d5ab5c",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "branch/if",
-      "line": 137
-    },
-    {
-      "id": "3516b642d6028196cfe6a996ee67c7c4",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "branch/if",
-      "line": 55
-    },
-    {
-      "id": "303b1ee2dffb0848c8c6a731f895c8ca",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "branch/if",
-      "line": 199
-    },
-    {
-      "id": "ad103cd5f1e62744d9da82901aeb861a",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "branch/if",
-      "line": 195
-    },
-    {
-      "id": "c473885f743fc4bfb583bc34c7ebdf1a",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "branch/if",
-      "line": 206
-    },
-    {
       "id": "6f9976e3a8f4b7876baaf9aaccb42c78",
       "file": "internal/app/deps/checks.go",
       "mutator": "composite/field-clear",
