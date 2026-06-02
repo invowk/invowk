@@ -4724,24 +4724,6 @@
       "line": 731
     },
     {
-      "id": "4ffca341125e86ea3dae0fad9d26e38e",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/bool-literal",
-      "line": 83
-    },
-    {
-      "id": "0ec3b6f8eeb8defe1a194fcb114ea851",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/bool-literal",
-      "line": 76
-    },
-    {
-      "id": "eb943cdb8eb60761e36d2ba069afc876",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/bool-literal",
-      "line": 90
-    },
-    {
       "id": "d7b450ac5edf3daa475f54bceb001f82",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "conditional/bool-literal",
@@ -4752,12 +4734,6 @@
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "conditional/negated",
       "line": 243
-    },
-    {
-      "id": "06db67c0139f6d094410a52bd334a82a",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 250
     },
     {
       "id": "2c8ca6baa784e150b781c2826ba45ac3",
@@ -4784,70 +4760,16 @@
       "line": 476
     },
     {
-      "id": "7d42d08ab3564c78022d0d9e7384b968",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 641
-    },
-    {
-      "id": "e4f9db61cea69db2eed19f5edc0ddee7",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 660
-    },
-    {
       "id": "ed30c55abb033bea8f27c3018e6dd079",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "conditional/negated",
       "line": 648
     },
     {
-      "id": "193a78110c39432f559edf25fcc11c15",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 671
-    },
-    {
-      "id": "2d75247d0dab5d48ce0ed0062c97eab8",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 663
-    },
-    {
-      "id": "fc70f4cb11b5c6f6703f8d1a753c2386",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 671
-    },
-    {
-      "id": "86f39c0cfec8e03419f286f3b26a34dd",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 663
-    },
-    {
-      "id": "3229d48ad29030d982ceb0c437bd0e91",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 671
-    },
-    {
-      "id": "fe1ce36cc679d2db0340efa05244e7d8",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "conditional/negated",
-      "line": 663
-    },
-    {
       "id": "f9bd6d001a970f5ea8a328e5552e794c",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/comparison",
       "line": 427
-    },
-    {
-      "id": "01ca1f0bb1080f4357326f59f2e2f91b",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/logical",
-      "line": 72
     },
     {
       "id": "9b4e28fe418038fc600e79572665cd96",
@@ -4860,18 +4782,6 @@
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/logical",
       "line": 194
-    },
-    {
-      "id": "115c624771811cf4bab92bbdeef489cb",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/logical",
-      "line": 250
-    },
-    {
-      "id": "df8ff8574974156571c9730c34f44c46",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/logical",
-      "line": 243
     },
     {
       "id": "ecb4a3a305f68597bf6bd14ccdeb93ef",
@@ -4976,34 +4886,16 @@
       "line": 711
     },
     {
-      "id": "fc7d4645c4e145ef8df3421bb164979c",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 74
-    },
-    {
       "id": "5e48201c7ec7374cfe131494dda8086a",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/remove",
       "line": 72
     },
     {
-      "id": "a64cf18c91ca774c53cdb1c159b9b670",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 81
-    },
-    {
       "id": "176fda666654d1a12aab5025bd710051",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/remove",
       "line": 182
-    },
-    {
-      "id": "bce16df759f69c9646489f0ebb909704",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 88
     },
     {
       "id": "dc7b4e74d4ba7cdc9495dbd8174190ee",
@@ -5042,12 +4934,6 @@
       "line": 194
     },
     {
-      "id": "67ba9902ed0ecb0a8fce64ad5f85ae34",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 243
-    },
-    {
       "id": "81ef95fdd59095d3acde5887452806f6",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/remove",
@@ -5055,18 +4941,6 @@
     },
     {
       "id": "3eff74c7daa623abb409889184bc0627",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 250
-    },
-    {
-      "id": "f0f1016164da44176160ad982e0336e3",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 250
-    },
-    {
-      "id": "7ba0e0a6140d58ab5ac24a63384808cb",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/remove",
       "line": 250
@@ -5300,12 +5174,6 @@
       "line": 663
     },
     {
-      "id": "d058112367692d6faccc3b9ce77317d4",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/remove",
-      "line": 671
-    },
-    {
       "id": "3d691c0d6f8732f8beff3bc26936b135",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/remove",
@@ -5348,12 +5216,6 @@
       "line": 711
     },
     {
-      "id": "450133bce7e2321fe78a57ef2ca48ebc",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/string-literal",
-      "line": 671
-    },
-    {
       "id": "36026898745db093406c525676f332d3",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/string-literal",
@@ -5364,12 +5226,6 @@
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "expression/string-literal",
       "line": 660
-    },
-    {
-      "id": "fd08f0d2dfbc8d09fa8a40da7ffd14b9",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "expression/string-literal",
-      "line": 663
     },
     {
       "id": "8950741abf4b9a3bd9fc45782dad4d27",
@@ -5396,52 +5252,16 @@
       "line": 283
     },
     {
-      "id": "f81fbe5c4f8cace001490efa4e5166ba",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "numbers/decrementer",
-      "line": 671
-    },
-    {
-      "id": "0128a2d4fe4000b2a13cbd326b8b876c",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "numbers/decrementer",
-      "line": 250
-    },
-    {
       "id": "c949eb9b28d69eed6451e1537cdd1234",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "numbers/decrementer",
       "line": 609
     },
     {
-      "id": "cd1a8f0e389e36e7c9a5c0b5f27ab279",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "numbers/decrementer",
-      "line": 663
-    },
-    {
-      "id": "6770f157c8068fe68520ef5350bec535",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "numbers/incrementer",
-      "line": 250
-    },
-    {
       "id": "c0f7cc8214c040e6483f920796845119",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "numbers/incrementer",
       "line": 243
-    },
-    {
-      "id": "8892177904496c694742825ca024ee35",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "numbers/incrementer",
-      "line": 671
-    },
-    {
-      "id": "d200e80e64d8c0748caad1848c97f3bb",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "numbers/incrementer",
-      "line": 663
     },
     {
       "id": "3996801959b8f76b5e5bf397fd49ddc6",
@@ -5462,12 +5282,6 @@
       "line": 58
     },
     {
-      "id": "c9a56a7da2b8da00c7fd0aa384082113",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "statement/remove",
-      "line": 76
-    },
-    {
       "id": "e4c8c73ec32d1431fe8f845219105776",
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "statement/remove",
@@ -5478,18 +5292,6 @@
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "statement/remove",
       "line": 62
-    },
-    {
-      "id": "e0d04cce6bc087aa28929ca656292f96",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "statement/remove",
-      "line": 83
-    },
-    {
-      "id": "2fe0870b4708b8e3d06af47841c0f477",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "statement/remove",
-      "line": 90
     },
     {
       "id": "eab951d1bd65b3c7e0ef3b2bd6563453",
@@ -5532,12 +5334,6 @@
       "file": "goplint/analyzer_windows_pitfalls.go",
       "mutator": "statement/return",
       "line": 594
-    },
-    {
-      "id": "baa44473edcf27722c1621e9d8deca76",
-      "file": "goplint/analyzer_windows_pitfalls.go",
-      "mutator": "statement/return",
-      "line": 666
     },
     {
       "id": "b9a545c8efc7a843e7d4196eb2caad2a",

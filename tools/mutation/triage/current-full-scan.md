@@ -1,6 +1,6 @@
 # Mutation Full-Scan Triage
 
-This note records the first accepted-survivor baseline pass after the real advisory full scans and the first focused survivor-remediation batch.
+This note records the first accepted-survivor baseline pass after the real advisory full scans and focused survivor-remediation batches.
 
 ## Source Reports
 
@@ -10,7 +10,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
 - `tools/mutation/baselines/root-baseline.json`: 1,631 accepted escaped mutants.
-- `tools/mutation/baselines/goplint-baseline.json`: 925 accepted escaped mutants.
+- `tools/mutation/baselines/goplint-baseline.json`: 891 accepted escaped mutants.
 
 ## Root Profile
 
@@ -64,15 +64,15 @@ Summary from `artifacts/mutation/full/goplint/go-mutesting-summary.json`:
 - Total: 3,978
 - Killed: 2,693
 - Escaped in corrected source report: 928
-- Accepted baseline after remediation: 925
+- Accepted baseline after remediation: 891
 - Not covered: 357
 - MSI: 67.70%
 - Covered-code MSI: 74.37%
 
-Top accepted clusters after the first remediation batch:
+Top accepted clusters after the current remediation batches:
 
-- `goplint/analyzer_windows_pitfalls.go`: 144 accepted
 - `goplint/analyzer_validate_delegation.go`: 124 accepted
+- `goplint/analyzer_windows_pitfalls.go`: 110 accepted
 - `goplint/analyzer_boundary_request_validation.go`: 110 accepted
 - `goplint/analyzer_constructor_validates.go`: 104 accepted
 - `goplint/analyzer_constructor_validates_cfa.go`: 93 accepted
@@ -102,6 +102,15 @@ First remediation batch:
 - Add validate-usage analyzer fixture coverage proving non-`Validate` selectors on validatable types are ignored.
 - Targeted reruns proved three corrected goplint survivors killed and removed from the goplint baseline: `1929608a0a10ab5a308df2fd9da9aac2`, `6ba6215e0ffe9d11859f6e4afe35b732`, and `f80395f432f965d70a921170d34bff76`.
 - The `35c34fb880bcea25305f58ababa44806` untyped-receiver guard mutant still escaped after a focused rerun and remains accepted; it is equivalent with the current helper because `hasValidateMethod(nil)` returns false.
+
+Second remediation batch:
+
+- Add fixture coverage for `goplint/analyzer_windows_pitfalls.go` command-wait-delay duplicate suppression, including duplicate direct `exec.CommandContext(...).Run()`, repeated runner calls, and repeated prepared-command values.
+- Add fixture coverage proving non-execution `*exec.Cmd` method calls are ignored.
+- Add fixture coverage for volume-mount `String()`/`WriteString()` path exposure positives and nearby negative controls for unrelated mount types, custom writer methods, and non-standard `WriteString` signatures.
+- Focused rerun: `artifacts/mutation/focused/goplint-windows-pitfalls/`, generated `2026-06-02T13:31:53Z`, with 625 total mutants, 409 killed, 56 not covered, 160 escaped, MSI 65.44%, and covered-code MSI 71.88%.
+- The focused rerun proved 34 accepted `goplint/analyzer_windows_pitfalls.go` survivors killed and removed from the goplint baseline, dropping that file from 144 to 110 accepted mutants.
+- The focused rerun also surfaced 50 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
 
 ## Policy
 
