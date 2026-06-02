@@ -10,7 +10,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
 - `tools/mutation/baselines/root-baseline.json`: 1,631 accepted escaped mutants.
-- `tools/mutation/baselines/goplint-baseline.json`: 828 accepted escaped mutants.
+- `tools/mutation/baselines/goplint-baseline.json`: 810 accepted escaped mutants.
 
 ## Root Profile
 
@@ -64,7 +64,7 @@ Summary from `artifacts/mutation/full/goplint/go-mutesting-summary.json`:
 - Total: 3,978
 - Killed: 2,693
 - Escaped in corrected source report: 928
-- Accepted baseline after remediation: 828
+- Accepted baseline after remediation: 810
 - Not covered: 357
 - MSI: 67.70%
 - Covered-code MSI: 74.37%
@@ -73,8 +73,8 @@ Top accepted clusters after the current remediation batches:
 
 - `goplint/analyzer_windows_pitfalls.go`: 110 accepted
 - `goplint/analyzer_validate_delegation.go`: 105 accepted
-- `goplint/analyzer_constructor_validates.go`: 104 accepted
 - `goplint/analyzer_constructor_validates_cfa.go`: 93 accepted
+- `goplint/analyzer_constructor_validates.go`: 86 accepted
 - `goplint/analyzer_boundary_request_validation.go`: 66 accepted
 - `goplint/analyzer_cross_platform_path.go`: 60 accepted
 - `goplint/analyzer_structural.go`: 56 accepted
@@ -128,6 +128,14 @@ Fourth remediation batch:
 - Focused rerun: `artifacts/mutation/focused/goplint-boundary-request/`, generated `2026-06-02T13:59:29Z`, with 335 total mutants, 243 killed, 23 not covered, 69 escaped, MSI 72.54%, and covered-code MSI 77.88%.
 - The focused rerun proved 44 accepted `goplint/analyzer_boundary_request_validation.go` survivors killed and removed from the goplint baseline, dropping that file from 110 to 66 accepted mutants.
 - The focused rerun also surfaced 3 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
+
+Fifth remediation batch:
+
+- Add helper-level coverage for `goplint/analyzer_constructor_validates.go` directive alias disambiguation when multiple packages expose same-named types, pointer/named return-type resolution, and transitive validation through bare helper chains and same-type method helpers.
+- Commit the helper coverage before running the focused mutation pass to avoid source-restore clobbering of uncommitted tests.
+- Focused rerun: `artifacts/mutation/focused/goplint-constructor-validates/`, generated `2026-06-02T14:15:54Z`, with 309 total mutants, 198 killed, 20 not covered, 91 escaped, MSI 64.08%, and covered-code MSI 68.51%.
+- The focused rerun proved 18 accepted `goplint/analyzer_constructor_validates.go` survivors killed and removed from the goplint baseline, dropping that file from 104 to 86 accepted mutants.
+- The focused rerun also surfaced 5 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
 
 ## Policy
 
