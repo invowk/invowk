@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	mutationModuleID         ModuleID         = "io.example.tools"
-	mutationSemVer           SemVer           = "1.0.0"
-	mutationSemVerConstraint SemVerConstraint = "^1.2.3"
-	mutationGitURL           GitURL           = "https://github.com/example/tools.git"
-	mutationRelativeScript                    = "scripts/build.sh"
+	mutationModuleID           ModuleID         = "io.example.tools"
+	mutationSemVer             SemVer           = "1.0.0"
+	mutationSemVerConstraint   SemVerConstraint = "^1.2.3"
+	mutationGitURL             GitURL           = "https://github.com/example/tools.git"
+	mutationRelativeScript                      = "scripts/build.sh"
+	mutationAbsolutePathReason                  = "absolute paths not allowed"
 )
 
 func TestInvowkmodValidateMutationContracts(t *testing.T) {
@@ -143,6 +144,10 @@ func TestSubdirectoryPathValidateMutationEdges(t *testing.T) {
 			path: SubdirectoryPath(strings.Repeat("a", MaxPathLength)),
 		},
 		{
+			name: "single letter relative path is valid",
+			path: "a",
+		},
+		{
 			name:       "over max length rejected before normalization",
 			path:       SubdirectoryPath(strings.Repeat("a", MaxPathLength+1)),
 			wantReason: tooLongReason,
@@ -165,21 +170,43 @@ func TestSubdirectoryPathValidateMutationEdges(t *testing.T) {
 		{
 			name:       "unix absolute path rejected",
 			path:       "/modules/tools",
-			wantReason: "absolute paths not allowed",
+			wantReason: mutationAbsolutePathReason,
 		},
 		{
 			name:       "uppercase windows drive rejected",
 			path:       "C:/modules/tools",
-			wantReason: "absolute paths not allowed",
+			wantReason: mutationAbsolutePathReason,
 		},
 		{
 			name:       "lowercase windows drive rejected",
 			path:       "c:/modules/tools",
-			wantReason: "absolute paths not allowed",
+			wantReason: mutationAbsolutePathReason,
+		},
+		{
+			name:       "bare uppercase windows drive rejected",
+			path:       "Z:",
+			wantReason: mutationAbsolutePathReason,
+		},
+		{
+			name:       "bare lowercase windows drive rejected",
+			path:       "a:",
+			wantReason: mutationAbsolutePathReason,
 		},
 		{
 			name: "colon after non-letter is relative",
 			path: "1:/modules/tools",
+		},
+		{
+			name: "colon after character before uppercase letter is relative",
+			path: "@:/modules/tools",
+		},
+		{
+			name: "colon after character after uppercase letter is relative",
+			path: "[:/modules/tools",
+		},
+		{
+			name: "colon after character after lowercase letter is relative",
+			path: "{:/modules/tools",
 		},
 		{
 			name: "embedded dot runes are not traversal",
@@ -217,6 +244,7 @@ func TestValidationIssueMutationContracts(t *testing.T) {
 	t.Run("error formatting includes path only when present", testValidationIssueErrorFormatting)
 	t.Run("add issue appends exact fields and marks invalid", testValidationResultAddIssue)
 	t.Run("add issue panics for invalid issue type", testValidationResultAddIssueInvalidType)
+	t.Run("invalid issue type error includes value", testInvalidValidationIssueTypeErrorIncludesValue)
 }
 
 func TestModuleMutationContracts(t *testing.T) {
@@ -225,7 +253,27 @@ func TestModuleMutationContracts(t *testing.T) {
 	t.Run("path helpers expose metadata and library-only state", testModulePathHelpers)
 	t.Run("resolve script path preserves absolute unix input and joins relative input", testModuleResolveScriptPath)
 	t.Run("validate script path rejects symlink escapes", testModuleValidateScriptPathSymlinkEscape)
+	t.Run("validate script path rejects direct traversal", testModuleValidateScriptPathTraversal)
 	t.Run("validate collects invalid metadata and path", testModuleValidateInvalidMetadataAndPath)
+}
+
+func TestModuleValueErrorMutationFormatting(t *testing.T) {
+	t.Parallel()
+
+	moduleIDErr := requireModuleIDError(t, ModuleID("1bad").Validate())
+	if got, want := moduleIDErr.Error(), "invalid module ID \"1bad\": must match format 'segment.segment...' where each segment starts with a letter followed by alphanumeric characters, max 256 characters"; got != want {
+		t.Fatalf("InvalidModuleIDError.Error() = %q, want %q", got, want)
+	}
+
+	aliasErr := requireModuleAliasError(t, ModuleAlias("1bad").Validate())
+	if got, want := aliasErr.Error(), "invalid module alias \"1bad\" (must start with a letter and contain only letters, digits, dots, underscores, or hyphens)"; got != want {
+		t.Fatalf("InvalidModuleAliasError.Error() = %q, want %q", got, want)
+	}
+
+	pathErr := requireSubdirectoryPathError(t, SubdirectoryPath("../escape").Validate())
+	if got, want := pathErr.Error(), "invalid subdirectory path \"../escape\": path traversal not allowed"; got != want {
+		t.Fatalf("InvalidSubdirectoryPathError.Error() = %q, want %q", got, want)
+	}
 }
 
 func testValidationIssueTypeContracts(t *testing.T) {
@@ -300,6 +348,16 @@ func testValidationResultAddIssueInvalidType(t *testing.T) {
 	}()
 	result := &ValidationResult{Valid: true}
 	result.AddIssue("unknown", "bad issue type", mutationRelativeScript)
+}
+
+func testInvalidValidationIssueTypeErrorIncludesValue(t *testing.T) {
+	t.Parallel()
+
+	err := ValidationIssueType("unknown").Validate()
+	issueErr := requireValidationIssueTypeError(t, err)
+	if got, want := issueErr.Error(), "invalid validation issue type \"unknown\" (valid: structure, naming, invowkmod, security, compatibility, invowkfile, command_tree)"; got != want {
+		t.Fatalf("InvalidValidationIssueTypeError.Error() = %q, want %q", got, want)
+	}
 }
 
 func testModulePathHelpers(t *testing.T) {
@@ -377,6 +435,22 @@ func testModuleValidateScriptPathSymlinkEscape(t *testing.T) {
 	}
 }
 
+func testModuleValidateScriptPathTraversal(t *testing.T) {
+	t.Parallel()
+
+	module := &Module{Path: types.FilesystemPath(t.TempDir())}
+
+	for _, scriptPath := range []types.FilesystemPath{"..", "../escape.sh"} {
+		err := module.ValidateScriptPath(scriptPath)
+		if err == nil {
+			t.Fatalf("Module.ValidateScriptPath(%q) error = nil, want traversal error", scriptPath)
+		}
+		if !strings.Contains(err.Error(), "escapes the module directory") {
+			t.Fatalf("Module.ValidateScriptPath(%q) error = %v, want traversal error", scriptPath, err)
+		}
+	}
+}
+
 func testModuleValidateInvalidMetadataAndPath(t *testing.T) {
 	t.Parallel()
 
@@ -409,9 +483,14 @@ func TestIsWindowsDrivePathMutationEdges(t *testing.T) {
 		want bool
 	}{
 		{path: "C:/module", want: true},
+		{path: "A:", want: true},
+		{path: "a:", want: true},
 		{path: "c:/module", want: true},
 		{path: "Z:", want: true},
 		{path: "1:/module", want: false},
+		{path: "@:/module", want: false},
+		{path: "[:/module", want: false},
+		{path: "{:/module", want: false},
 		{path: ":/module", want: false},
 		{path: "C", want: false},
 		{path: "/C:/module", want: false},
@@ -465,6 +544,45 @@ func requireSubdirectoryPathError(t *testing.T, err error) *InvalidSubdirectoryP
 		t.Fatalf("error type = %T, want *InvalidSubdirectoryPathError", err)
 	}
 	return pathErr
+}
+
+func requireModuleIDError(t *testing.T, err error) *InvalidModuleIDError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidModuleID) {
+		t.Fatalf("error = %v, want ErrInvalidModuleID", err)
+	}
+	var moduleIDErr *InvalidModuleIDError
+	if !errors.As(err, &moduleIDErr) {
+		t.Fatalf("error type = %T, want *InvalidModuleIDError", err)
+	}
+	return moduleIDErr
+}
+
+func requireModuleAliasError(t *testing.T, err error) *InvalidModuleAliasError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidModuleAlias) {
+		t.Fatalf("error = %v, want ErrInvalidModuleAlias", err)
+	}
+	var aliasErr *InvalidModuleAliasError
+	if !errors.As(err, &aliasErr) {
+		t.Fatalf("error type = %T, want *InvalidModuleAliasError", err)
+	}
+	return aliasErr
+}
+
+func requireValidationIssueTypeError(t *testing.T, err error) *InvalidValidationIssueTypeError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidValidationIssueType) {
+		t.Fatalf("error = %v, want ErrInvalidValidationIssueType", err)
+	}
+	var issueTypeErr *InvalidValidationIssueTypeError
+	if !errors.As(err, &issueTypeErr) {
+		t.Fatalf("error type = %T, want *InvalidValidationIssueTypeError", err)
+	}
+	return issueTypeErr
 }
 
 func fieldErrorsContain(fieldErrors []error, target error) bool {

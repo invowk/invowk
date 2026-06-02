@@ -71,6 +71,11 @@ func TestHasOverlappingAlternationEdgeCases(t *testing.T) {
 		{name: "empty alternative ignored", pattern: "(a|)+", want: false},
 		{name: "regex token prefix overlaps", pattern: `(\\d|\\d+)+`, want: true},
 		{name: "same literal start overlaps", pattern: "(ab|ac)+", want: true},
+		{name: "left prefix overlaps", pattern: "(ab|a)+", want: true},
+		{name: "empty left alternative ignored", pattern: "(|a)+", want: false},
+		{name: "empty middle alternative does not stop later overlap", pattern: "(a||aa)+", want: true},
+		{name: "same literal start before metacharacter overlaps", pattern: "(a.|ab)+", want: true},
+		{name: "same metacharacter start is not literal overlap", pattern: "(.*|.+)+", want: false},
 		{name: "different literal starts do not overlap", pattern: "(a|b)+", want: false},
 	}
 
@@ -107,8 +112,27 @@ func TestCheckNestingDepthEscapesAndBoundaries(t *testing.T) {
 			pattern: strings.Repeat(`\(`, MaxNestedGroups+1),
 		},
 		{
+			name:    "escaped paren resets before later nesting",
+			pattern: `\(` + strings.Repeat("(", MaxNestedGroups+1) + "x" + strings.Repeat(")", MaxNestedGroups+1),
+			wantErr: true,
+		},
+		{
 			name:    "unmatched closing parens do not go negative",
 			pattern: strings.Repeat(")", MaxNestedGroups+1) + strings.Repeat("(", MaxNestedGroups) + "x",
+		},
+		{
+			name:    "unmatched close before over max nesting",
+			pattern: ")" + strings.Repeat("(", MaxNestedGroups+1) + "x" + strings.Repeat(")", MaxNestedGroups+1),
+			wantErr: true,
+		},
+		{
+			name:    "sequential shallow groups stay shallow",
+			pattern: strings.Repeat("()", MaxNestedGroups+1),
+		},
+		{
+			name: "sequential exact max groups reset depth",
+			pattern: strings.Repeat("(", MaxNestedGroups) + "x" + strings.Repeat(")", MaxNestedGroups) +
+				strings.Repeat("(", MaxNestedGroups) + "y" + strings.Repeat(")", MaxNestedGroups),
 		},
 	}
 
@@ -137,11 +161,19 @@ func TestCheckQuantifierCountEscapesClassesAndBraces(t *testing.T) {
 	}{
 		{name: "exact max simple quantifiers", pattern: strings.Repeat("a+", MaxQuantifierRepeats)},
 		{name: "over max simple quantifiers", pattern: strings.Repeat("a+", MaxQuantifierRepeats+1), wantErr: true},
+		{name: "over max star quantifiers", pattern: strings.Repeat("a*", MaxQuantifierRepeats+1), wantErr: true},
+		{name: "over max question quantifiers", pattern: strings.Repeat("a?", MaxQuantifierRepeats+1), wantErr: true},
 		{name: "escaped pluses ignored", pattern: strings.Repeat(`\+`, MaxQuantifierRepeats+1)},
+		{name: "escaped plus resets before later quantifiers", pattern: `\+` + strings.Repeat("+", MaxQuantifierRepeats+1), wantErr: true},
 		{name: "character class quantifiers ignored", pattern: strings.Repeat("[+*?{}]", MaxQuantifierRepeats+1)},
+		{name: "character class closes before later quantifiers", pattern: strings.Repeat("[a]+", MaxQuantifierRepeats+1), wantErr: true},
 		{name: "brace quantifiers counted", pattern: strings.Repeat("a{1}", MaxQuantifierRepeats+1), wantErr: true},
 		{name: "brace ranges counted", pattern: strings.Repeat("a{1,2}", MaxQuantifierRepeats+1), wantErr: true},
+		{name: "brace zero quantifiers counted", pattern: strings.Repeat("a{0}", MaxQuantifierRepeats+1), wantErr: true},
+		{name: "brace nine quantifiers counted", pattern: strings.Repeat("a{9}", MaxQuantifierRepeats+1), wantErr: true},
+		{name: "extra closing brace after quantifier ignored", pattern: strings.Repeat("a{1}}", MaxQuantifierRepeats)},
 		{name: "literal invalid braces ignored", pattern: strings.Repeat("a{b}", MaxQuantifierRepeats+1)},
+		{name: "low non-digit invalid braces ignored", pattern: strings.Repeat("a{/}", MaxQuantifierRepeats+1)},
 		{name: "unterminated braces ignored", pattern: strings.Repeat("a{12", MaxQuantifierRepeats+1)},
 	}
 
