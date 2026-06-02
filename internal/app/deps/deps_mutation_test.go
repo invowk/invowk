@@ -270,260 +270,265 @@ func TestValidateRuntimeDependenciesMutationBoundaries(t *testing.T) {
 func TestCommandResolutionMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil and empty command deps do not discover", func(t *testing.T) {
-		t.Parallel()
-
-		resolved, err := resolveCommandDependenciesWithLockProvider(panicCommandSetProvider{t: t}, nil, nil, ExecutionContext{}, nil)
-		if err != nil {
-			t.Fatalf("nil deps error = %v, want nil", err)
-		}
-		if resolved != nil {
-			t.Fatalf("nil deps resolved = %v, want nil", resolved)
-		}
-
-		resolved, err = resolveCommandDependenciesWithLockProvider(
-			panicCommandSetProvider{t: t},
-			&invowkfile.DependsOn{},
-			nil,
-			ExecutionContext{},
-			nil,
-		)
-		if err != nil {
-			t.Fatalf("empty deps error = %v, want nil", err)
-		}
-		if resolved != nil {
-			t.Fatalf("empty deps resolved = %v, want nil", resolved)
-		}
-	})
-
-	t.Run("resolved command records matched discovery name and original alternatives", func(t *testing.T) {
-		t.Parallel()
-
-		available := &discovery.DiscoveredCommandSet{
-			Commands: []*discovery.CommandInfo{{Name: depsMutationCommand}},
-		}
-		resolved, err := resolveCommandDependenciesWithLockProvider(
-			&stubCommandSetProvider{result: discovery.CommandSetResult{Set: available}},
-			&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{
-				Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
-			}}},
-			&discovery.CommandInfo{Invowkfile: &invowkfile.Invowkfile{}},
-			ExecutionContext{CommandName: depsMutationCommand},
-			nil,
-		)
-		if err != nil {
-			t.Fatalf("resolveCommandDependenciesWithLockProvider() error = %v", err)
-		}
-		if len(resolved) != 1 {
-			t.Fatalf("resolved length = %d, want 1", len(resolved))
-		}
-		if resolved[0].Command == nil || *resolved[0].Command != depsMutationCommand {
-			t.Fatalf("resolved command = %v, want %q", resolved[0].Command, depsMutationCommand)
-		}
-		if len(resolved[0].Alternatives) != 1 || resolved[0].Alternatives[0] != invowkfile.CommandDependencyRef(depsMutationCommand) {
-			t.Fatalf("resolved alternatives = %v, want original ref", resolved[0].Alternatives)
-		}
-	})
-
-	t.Run("discover uses execution context value", func(t *testing.T) {
-		t.Parallel()
-
-		wantCtx := context.WithValue(t.Context(), depsMutationContextKey{}, "sentinel")
-		provider := &contextRecordingCommandSetProvider{want: wantCtx}
-		available, err := discoverAvailableCommands(provider, ExecutionContext{Context: wantCtx})
-		if err != nil {
-			t.Fatalf("discoverAvailableCommands() error = %v", err)
-		}
-		if !provider.called {
-			t.Fatal("provider was not called")
-		}
-		if available[depsMutationCommand] == nil {
-			t.Fatalf("available commands = %v, want %q", available, depsMutationCommand)
-		}
-	})
+	t.Run("nil and empty command deps do not discover", testCommandResolutionEmptyDeps)
+	t.Run("resolved command records matched discovery name and original alternatives", testCommandResolutionMatchedCommand)
+	t.Run("discover uses execution context value", testDiscoverAvailableCommandsUsesContext)
 }
 
 func TestCommandScopeMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("lock provider fallback only loads for module paths", func(t *testing.T) {
-		t.Parallel()
-
-		providerErr := &CommandScopeLockError{Path: "invowkmod.lock.cue", Err: errors.New("corrupt")}
-		provider := staticCommandScopeLockProvider{err: providerErr}
-
-		lock, err := commandScopeLock(provider, nil)
-		if err != nil {
-			t.Fatalf("nil inv lock error = %v, want nil", err)
-		}
-		if lock == nil {
-			t.Fatal("nil inv lock = nil, want empty lock")
-		}
-
-		lock, err = commandScopeLock(provider, &invowkfile.Invowkfile{})
-		if err != nil {
-			t.Fatalf("empty module path lock error = %v, want nil", err)
-		}
-		if lock == nil {
-			t.Fatal("empty module path lock = nil, want empty lock")
-		}
-
-		_, err = commandScopeLock(provider, &invowkfile.Invowkfile{ModulePath: "module.invowkmod"})
-		if !errors.Is(err, ErrCommandScopeLockLoadFailed) {
-			t.Fatalf("module path lock error = %v, want ErrCommandScopeLockLoadFailed", err)
-		}
-	})
-
-	t.Run("direct requirement matching requires command identity source and lock", func(t *testing.T) {
-		t.Parallel()
-
-		req, lock := depsMutationRequirementAndLock()
-		matchingID := depsMutationModuleID
-		matching := &discovery.CommandInfo{
-			SourceID: depsMutationSource,
-			ModuleID: &matchingID,
-		}
-		if !commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, matching) {
-			t.Fatal("commandMatchesDirectRequirement() = false, want true for matching lock identity")
-		}
-		if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, nil, matching) {
-			t.Fatal("commandMatchesDirectRequirement() = true with nil lock")
-		}
-		if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, nil) {
-			t.Fatal("commandMatchesDirectRequirement() = true with nil command")
-		}
-		if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource}) {
-			t.Fatal("commandMatchesDirectRequirement() = true with nil module ID")
-		}
-		otherID := invowkmod.ModuleID("io.example.other")
-		if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource, ModuleID: &otherID}) {
-			t.Fatal("commandMatchesDirectRequirement() = true for mismatched module ID")
-		}
-	})
-
-	t.Run("accessible command reports allowed forbidden and root decisions", func(t *testing.T) {
-		t.Parallel()
-
-		allowedID := depsMutationModuleID
-		allowed := &discovery.CommandInfo{
-			Name:       "tools lint",
-			SimpleName: depsMutationSimple,
-			SourceID:   depsMutationSource,
-			ModuleID:   &allowedID,
-		}
-		blockedID := invowkmod.ModuleID("io.example.blocked")
-		blocked := &discovery.CommandInfo{
-			Name:       "blocked lint",
-			SimpleName: depsMutationSimple,
-			SourceID:   "blocked",
-			ModuleID:   &blockedID,
-		}
-		available := map[invowkfile.CommandName]*discovery.CommandInfo{
-			allowed.Name: allowed,
-			blocked.Name: blocked,
-		}
-		scope := invowkmod.NewCommandScope(depsMutationCallerID)
-		scope.AddDirectDependency(depsMutationModuleID, invowkmod.ModuleSourceID(depsMutationSource))
-
-		matched, forbidden, found := findAccessibleCommand(
-			available,
-			"",
-			commandDependencyAlternativesForTest(t, "@tools lint"),
-			scope,
-		)
-		if !found || matched != allowed || len(forbidden) != 0 {
-			t.Fatalf("allowed lookup matched=%v forbidden=%v found=%v, want allowed command", matched, forbidden, found)
-		}
-
-		matched, forbidden, found = findAccessibleCommand(
-			available,
-			"",
-			commandDependencyAlternativesForTest(t, "@blocked lint"),
-			scope,
-		)
-		if !found || matched != nil || len(forbidden) != 1 {
-			t.Fatalf("blocked lookup matched=%v forbidden=%v found=%v, want one forbidden", matched, forbidden, found)
-		}
-		if !strings.Contains(forbidden[0].String(), "module 'blocked' is not accessible") {
-			t.Fatalf("forbidden detail = %q, want inaccessible blocked module", forbidden[0])
-		}
-
-		decision := commandScopeDecision(nil, &discovery.CommandInfo{Name: depsMutationCommand})
-		if !decision.Allowed || decision.TargetCommand != invowkmod.CommandReference(depsMutationCommand) {
-			t.Fatalf("root decision = %+v, want allowed target command", decision)
-		}
-	})
+	t.Run("lock provider fallback only loads for module paths", testCommandScopeLockFallback)
+	t.Run("direct requirement matching requires command identity source and lock", testCommandScopeDirectRequirementMatching)
+	t.Run("accessible command reports allowed forbidden and root decisions", testCommandScopeAccessibleCommandDecisions)
 }
 
 func TestCommandCandidateMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("source candidates de-duplicate prioritized lookups and fallback scan", func(t *testing.T) {
-		t.Parallel()
+	t.Run("source candidates de-duplicate prioritized lookups and fallback scan", testSourceCommandCandidates)
+	t.Run("source and simple-name helpers classify command identity", testCommandInfoIdentityHelpers)
+	t.Run("current command source falls back from source id to metadata", testCurrentCommandSourceIDFallback)
+}
 
-		shared := &discovery.CommandInfo{
-			Name:       "tools lint",
-			SimpleName: depsMutationSimple,
-			SourceID:   depsMutationSource,
-		}
-		fallback := &discovery.CommandInfo{
-			Name:       "not-indexed",
-			SimpleName: depsMutationSimple,
-			SourceID:   depsMutationSource,
-		}
-		available := map[invowkfile.CommandName]*discovery.CommandInfo{
-			"tools lint": shared,
-			"lint":       shared,
-			"fallback":   fallback,
-		}
+func testCommandResolutionEmptyDeps(t *testing.T) {
+	t.Parallel()
 
-		got := sourceCommandCandidates(available, invowkmod.ModuleSourceID(depsMutationSource), depsMutationSimple)
-		if len(got) != 2 || got[0] != shared || got[1] != fallback {
-			t.Fatalf("sourceCommandCandidates() = %v, want shared then fallback", got)
-		}
-	})
+	resolved, err := resolveCommandDependenciesWithLockProvider(panicCommandSetProvider{t: t}, nil, nil, ExecutionContext{}, nil)
+	if err != nil {
+		t.Fatalf("nil deps error = %v, want nil", err)
+	}
+	if resolved != nil {
+		t.Fatalf("nil deps resolved = %v, want nil", resolved)
+	}
 
-	t.Run("source and simple-name helpers classify command identity", func(t *testing.T) {
-		t.Parallel()
+	resolved, err = resolveCommandDependenciesWithLockProvider(
+		panicCommandSetProvider{t: t},
+		&invowkfile.DependsOn{},
+		nil,
+		ExecutionContext{},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("empty deps error = %v, want nil", err)
+	}
+	if resolved != nil {
+		t.Fatalf("empty deps resolved = %v, want nil", resolved)
+	}
+}
 
-		if commandInfoSourceID(nil) != "" {
-			t.Fatal("commandInfoSourceID(nil) should be empty")
-		}
-		if commandInfoSourceID(&discovery.CommandInfo{}) != "" {
-			t.Fatal("commandInfoSourceID(empty) should be empty")
-		}
-		cmd := &discovery.CommandInfo{Name: "tools lint", SourceID: depsMutationSource}
-		if commandInfoSourceID(cmd) != invowkmod.ModuleSourceID(depsMutationSource) {
-			t.Fatalf("commandInfoSourceID() = %q, want %q", commandInfoSourceID(cmd), depsMutationSource)
-		}
-		if commandInfoSimpleName(nil, invowkmod.ModuleSourceID(depsMutationSource)) != "" {
-			t.Fatal("commandInfoSimpleName(nil) should be empty")
-		}
-		if got := commandInfoSimpleName(&discovery.CommandInfo{Name: "tools lint", SimpleName: "fmt"}, invowkmod.ModuleSourceID(depsMutationSource)); got != "fmt" {
-			t.Fatalf("explicit SimpleName = %q, want fmt", got)
-		}
-		if got := commandInfoSimpleName(cmd, invowkmod.ModuleSourceID(depsMutationSource)); got != depsMutationSimple {
-			t.Fatalf("derived SimpleName = %q, want %q", got, depsMutationSimple)
-		}
-		if got := commandInfoSimpleName(cmd, "other"); got != cmd.Name {
-			t.Fatalf("nonmatching prefix SimpleName = %q, want full command name", got)
-		}
-	})
+func testCommandResolutionMatchedCommand(t *testing.T) {
+	t.Parallel()
 
-	t.Run("current command source falls back from source id to metadata", func(t *testing.T) {
-		t.Parallel()
+	available := &discovery.DiscoveredCommandSet{
+		Commands: []*discovery.CommandInfo{{Name: depsMutationCommand}},
+	}
+	resolved, err := resolveCommandDependenciesWithLockProvider(
+		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: available}},
+		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{
+			Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
+		}}},
+		&discovery.CommandInfo{Invowkfile: &invowkfile.Invowkfile{}},
+		ExecutionContext{CommandName: depsMutationCommand},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("resolveCommandDependenciesWithLockProvider() error = %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("resolved length = %d, want 1", len(resolved))
+	}
+	if resolved[0].Command == nil || *resolved[0].Command != depsMutationCommand {
+		t.Fatalf("resolved command = %v, want %q", resolved[0].Command, depsMutationCommand)
+	}
+	if len(resolved[0].Alternatives) != 1 || resolved[0].Alternatives[0] != invowkfile.CommandDependencyRef(depsMutationCommand) {
+		t.Fatalf("resolved alternatives = %v, want original ref", resolved[0].Alternatives)
+	}
+}
 
-		if currentCommandSourceID(nil) != "" {
-			t.Fatal("currentCommandSourceID(nil) should be empty")
-		}
-		if got := currentCommandSourceID(&discovery.CommandInfo{SourceID: depsMutationSource}); got != invowkmod.ModuleSourceID(depsMutationSource) {
-			t.Fatalf("current explicit source = %q, want %q", got, depsMutationSource)
-		}
-		meta := mustModuleMetadata(t, &invowkfile.Invowkmod{Module: depsMutationModuleID, Version: "1.0.0"})
-		if got := currentCommandSourceID(&discovery.CommandInfo{Invowkfile: &invowkfile.Invowkfile{Metadata: meta}}); got != invowkmod.ModuleSourceID(depsMutationModuleID) {
-			t.Fatalf("current metadata source = %q, want %q", got, depsMutationModuleID)
-		}
-	})
+func testDiscoverAvailableCommandsUsesContext(t *testing.T) {
+	t.Parallel()
+
+	wantCtx := context.WithValue(t.Context(), depsMutationContextKey{}, "sentinel")
+	provider := &contextRecordingCommandSetProvider{want: wantCtx}
+	available, err := discoverAvailableCommands(provider, ExecutionContext{Context: wantCtx})
+	if err != nil {
+		t.Fatalf("discoverAvailableCommands() error = %v", err)
+	}
+	if !provider.called {
+		t.Fatal("provider was not called")
+	}
+	if available[depsMutationCommand] == nil {
+		t.Fatalf("available commands = %v, want %q", available, depsMutationCommand)
+	}
+}
+
+func testCommandScopeLockFallback(t *testing.T) {
+	t.Parallel()
+
+	providerErr := &CommandScopeLockError{Path: "invowkmod.lock.cue", Err: errors.New("corrupt")}
+	provider := staticCommandScopeLockProvider{err: providerErr}
+
+	lock, err := commandScopeLock(provider, nil)
+	if err != nil {
+		t.Fatalf("nil inv lock error = %v, want nil", err)
+	}
+	if lock == nil {
+		t.Fatal("nil inv lock = nil, want empty lock")
+	}
+
+	lock, err = commandScopeLock(provider, &invowkfile.Invowkfile{})
+	if err != nil {
+		t.Fatalf("empty module path lock error = %v, want nil", err)
+	}
+	if lock == nil {
+		t.Fatal("empty module path lock = nil, want empty lock")
+	}
+
+	_, err = commandScopeLock(provider, &invowkfile.Invowkfile{ModulePath: "module.invowkmod"})
+	if !errors.Is(err, ErrCommandScopeLockLoadFailed) {
+		t.Fatalf("module path lock error = %v, want ErrCommandScopeLockLoadFailed", err)
+	}
+}
+
+func testCommandScopeDirectRequirementMatching(t *testing.T) {
+	t.Parallel()
+
+	req, lock := depsMutationRequirementAndLock()
+	matchingID := depsMutationModuleID
+	matching := &discovery.CommandInfo{
+		SourceID: depsMutationSource,
+		ModuleID: &matchingID,
+	}
+	if !commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, matching) {
+		t.Fatal("commandMatchesDirectRequirement() = false, want true for matching lock identity")
+	}
+	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, nil, matching) {
+		t.Fatal("commandMatchesDirectRequirement() = true with nil lock")
+	}
+	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, nil) {
+		t.Fatal("commandMatchesDirectRequirement() = true with nil command")
+	}
+	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource}) {
+		t.Fatal("commandMatchesDirectRequirement() = true with nil module ID")
+	}
+	otherID := invowkmod.ModuleID("io.example.other")
+	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource, ModuleID: &otherID}) {
+		t.Fatal("commandMatchesDirectRequirement() = true for mismatched module ID")
+	}
+}
+
+func testCommandScopeAccessibleCommandDecisions(t *testing.T) {
+	t.Parallel()
+
+	allowedID := depsMutationModuleID
+	blockedID := invowkmod.ModuleID("io.example.blocked")
+	allowed := scopedCommandInfo("tools lint", depsMutationSource, &allowedID)
+	blocked := scopedCommandInfo("blocked lint", "blocked", &blockedID)
+	available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		allowed.Name: allowed,
+		blocked.Name: blocked,
+	}
+	scope := invowkmod.NewCommandScope(depsMutationCallerID)
+	scope.AddDirectDependency(depsMutationModuleID, invowkmod.ModuleSourceID(depsMutationSource))
+
+	requireAccessibleCommandDecision(t, available, scope, "@tools lint", allowed, 0)
+	matched, forbidden, found := findAccessibleCommand(available, "", commandDependencyAlternativesForTest(t, "@blocked lint"), scope)
+	if !found || matched != nil || len(forbidden) != 1 {
+		t.Fatalf("blocked lookup matched=%v forbidden=%v found=%v, want one forbidden", matched, forbidden, found)
+	}
+	if !strings.Contains(forbidden[0].String(), "module 'blocked' is not accessible") {
+		t.Fatalf("forbidden detail = %q, want inaccessible blocked module", forbidden[0])
+	}
+
+	decision := commandScopeDecision(nil, &discovery.CommandInfo{Name: depsMutationCommand})
+	if !decision.Allowed || decision.TargetCommand != invowkmod.CommandReference(depsMutationCommand) {
+		t.Fatalf("root decision = %+v, want allowed target command", decision)
+	}
+}
+
+func testSourceCommandCandidates(t *testing.T) {
+	t.Parallel()
+
+	shared := &discovery.CommandInfo{Name: "tools lint", SimpleName: depsMutationSimple, SourceID: depsMutationSource}
+	fallback := &discovery.CommandInfo{Name: "not-indexed", SimpleName: depsMutationSimple, SourceID: depsMutationSource}
+	available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		"tools lint": shared,
+		"lint":       shared,
+		"fallback":   fallback,
+	}
+
+	got := sourceCommandCandidates(available, invowkmod.ModuleSourceID(depsMutationSource), depsMutationSimple)
+	if len(got) != 2 || got[0] != shared || got[1] != fallback {
+		t.Fatalf("sourceCommandCandidates() = %v, want shared then fallback", got)
+	}
+}
+
+func testCommandInfoIdentityHelpers(t *testing.T) {
+	t.Parallel()
+
+	if commandInfoSourceID(nil) != "" {
+		t.Fatal("commandInfoSourceID(nil) should be empty")
+	}
+	if commandInfoSourceID(&discovery.CommandInfo{}) != "" {
+		t.Fatal("commandInfoSourceID(empty) should be empty")
+	}
+	cmd := &discovery.CommandInfo{Name: "tools lint", SourceID: depsMutationSource}
+	if commandInfoSourceID(cmd) != invowkmod.ModuleSourceID(depsMutationSource) {
+		t.Fatalf("commandInfoSourceID() = %q, want %q", commandInfoSourceID(cmd), depsMutationSource)
+	}
+	if commandInfoSimpleName(nil, invowkmod.ModuleSourceID(depsMutationSource)) != "" {
+		t.Fatal("commandInfoSimpleName(nil) should be empty")
+	}
+	if got := commandInfoSimpleName(&discovery.CommandInfo{Name: "tools lint", SimpleName: "fmt"}, invowkmod.ModuleSourceID(depsMutationSource)); got != "fmt" {
+		t.Fatalf("explicit SimpleName = %q, want fmt", got)
+	}
+	if got := commandInfoSimpleName(cmd, invowkmod.ModuleSourceID(depsMutationSource)); got != depsMutationSimple {
+		t.Fatalf("derived SimpleName = %q, want %q", got, depsMutationSimple)
+	}
+	if got := commandInfoSimpleName(cmd, "other"); got != cmd.Name {
+		t.Fatalf("nonmatching prefix SimpleName = %q, want full command name", got)
+	}
+}
+
+func testCurrentCommandSourceIDFallback(t *testing.T) {
+	t.Parallel()
+
+	if currentCommandSourceID(nil) != "" {
+		t.Fatal("currentCommandSourceID(nil) should be empty")
+	}
+	if got := currentCommandSourceID(&discovery.CommandInfo{SourceID: depsMutationSource}); got != invowkmod.ModuleSourceID(depsMutationSource) {
+		t.Fatalf("current explicit source = %q, want %q", got, depsMutationSource)
+	}
+	meta := mustModuleMetadata(t, &invowkfile.Invowkmod{Module: depsMutationModuleID, Version: "1.0.0"})
+	if got := currentCommandSourceID(&discovery.CommandInfo{Invowkfile: &invowkfile.Invowkfile{Metadata: meta}}); got != invowkmod.ModuleSourceID(depsMutationModuleID) {
+		t.Fatalf("current metadata source = %q, want %q", got, depsMutationModuleID)
+	}
+}
+
+func scopedCommandInfo(name invowkfile.CommandName, source discovery.SourceID, moduleID *invowkmod.ModuleID) *discovery.CommandInfo {
+	return &discovery.CommandInfo{
+		Name:       name,
+		SimpleName: depsMutationSimple,
+		SourceID:   source,
+		ModuleID:   moduleID,
+	}
+}
+
+func requireAccessibleCommandDecision(
+	t *testing.T,
+	available map[invowkfile.CommandName]*discovery.CommandInfo,
+	scope *invowkmod.CommandScope,
+	ref invowkfile.CommandDependencyRef,
+	want *discovery.CommandInfo,
+	wantForbidden int,
+) {
+	t.Helper()
+
+	matched, forbidden, found := findAccessibleCommand(available, "", commandDependencyAlternativesForTest(t, ref), scope)
+	if !found || matched != want || len(forbidden) != wantForbidden {
+		t.Fatalf("lookup %q matched=%v forbidden=%v found=%v, want matched=%v forbidden=%d", ref, matched, forbidden, found, want, wantForbidden)
+	}
 }
 
 func TestMissingCommandMessageMutationContracts(t *testing.T) {

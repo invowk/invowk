@@ -112,6 +112,12 @@ func TestGenerateCUE_RootCommandAndImplementationRoundTrip(t *testing.T) {
 	parsed, generated := parseGeneratedCUEMutationFixture(t, inv)
 	requireGeneratedContains(t, generated, "// Invowkfile - Command definitions for invowk")
 	requireGeneratedContains(t, generated, "// See https://github.com/invowk/invowk for documentation")
+	requireGeneratedRootRoundTrip(t, parsed)
+	requireGeneratedDeployRoundTrip(t, parsed.Commands[1])
+}
+
+func requireGeneratedRootRoundTrip(t *testing.T, parsed *Invowkfile) {
+	t.Helper()
 
 	if parsed.DefaultShell != "/bin/bash" {
 		t.Fatalf("DefaultShell = %q, want /bin/bash", parsed.DefaultShell)
@@ -126,11 +132,14 @@ func TestGenerateCUE_RootCommandAndImplementationRoundTrip(t *testing.T) {
 		len(parsed.DependsOn.Tools[0].Alternatives) != 2 || parsed.DependsOn.Tools[0].Alternatives[1] != "hub" {
 		t.Fatalf("root DependsOn = %+v, want git/hub tool alternatives", parsed.DependsOn)
 	}
-
 	if len(parsed.Commands) != 2 {
 		t.Fatalf("Commands length = %d, want 2", len(parsed.Commands))
 	}
-	deploy := parsed.Commands[1]
+}
+
+func requireGeneratedDeployRoundTrip(t *testing.T, deploy Command) {
+	t.Helper()
+
 	if deploy.Name != "deploy" || deploy.Description != "Deploy app" || deploy.Category != "Release" {
 		t.Fatalf("deploy command fields = %+v", deploy)
 	}
@@ -143,33 +152,52 @@ func TestGenerateCUE_RootCommandAndImplementationRoundTrip(t *testing.T) {
 	if deploy.DependsOn == nil || deploy.DependsOn.Commands[0].Alternatives[0] != "build" {
 		t.Fatalf("deploy DependsOn = %+v, want build command dependency", deploy.DependsOn)
 	}
+	requireGeneratedDeployFlags(t, deploy.Flags)
+	requireGeneratedDeployArgs(t, deploy.Args)
+	requireGeneratedDeployWatch(t, deploy.Watch)
+	requireGeneratedDeployImplementation(t, deploy.Implementations[0])
+}
 
-	if len(deploy.Flags) != 2 {
-		t.Fatalf("deploy Flags length = %d, want 2", len(deploy.Flags))
-	}
-	if !deploy.Flags[0].Required || deploy.Flags[0].Short != "t" || deploy.Flags[0].Validation != "^(dev|prod)$" {
-		t.Fatalf("target flag = %+v, want required short validation preserved", deploy.Flags[0])
-	}
-	if deploy.Flags[1].DefaultValue != "false" || deploy.Flags[1].GetType() != FlagTypeBool {
-		t.Fatalf("dry-run flag = %+v, want false bool default", deploy.Flags[1])
-	}
+func requireGeneratedDeployFlags(t *testing.T, flags []Flag) {
+	t.Helper()
 
-	if len(deploy.Args) != 2 {
-		t.Fatalf("deploy Args length = %d, want 2", len(deploy.Args))
+	if len(flags) != 2 {
+		t.Fatalf("deploy Flags length = %d, want 2", len(flags))
 	}
-	if !deploy.Args[0].Required || deploy.Args[0].GetType() != ArgumentTypeInt || deploy.Args[0].Validation != "^[0-9]+$" {
-		t.Fatalf("count arg = %+v, want required int validation preserved", deploy.Args[0])
+	if !flags[0].Required || flags[0].Short != "t" || flags[0].Validation != "^(dev|prod)$" {
+		t.Fatalf("target flag = %+v, want required short validation preserved", flags[0])
 	}
-	if deploy.Args[1].DefaultValue != "all" || !deploy.Args[1].Variadic {
-		t.Fatalf("files arg = %+v, want default variadic preserved", deploy.Args[1])
+	if flags[1].DefaultValue != "false" || flags[1].GetType() != FlagTypeBool {
+		t.Fatalf("dry-run flag = %+v, want false bool default", flags[1])
 	}
+}
 
-	if deploy.Watch == nil || len(deploy.Watch.Patterns) != 2 || deploy.Watch.Debounce != "250ms" ||
-		!deploy.Watch.ClearScreen || len(deploy.Watch.Ignore) != 2 {
-		t.Fatalf("Watch = %+v, want full watch config preserved", deploy.Watch)
-	}
+func requireGeneratedDeployArgs(t *testing.T, args []Argument) {
+	t.Helper()
 
-	impl := deploy.Implementations[0]
+	if len(args) != 2 {
+		t.Fatalf("deploy Args length = %d, want 2", len(args))
+	}
+	if !args[0].Required || args[0].GetType() != ArgumentTypeInt || args[0].Validation != "^[0-9]+$" {
+		t.Fatalf("count arg = %+v, want required int validation preserved", args[0])
+	}
+	if args[1].DefaultValue != "all" || !args[1].Variadic {
+		t.Fatalf("files arg = %+v, want default variadic preserved", args[1])
+	}
+}
+
+func requireGeneratedDeployWatch(t *testing.T, watch *WatchConfig) {
+	t.Helper()
+
+	if watch == nil || len(watch.Patterns) != 2 || watch.Debounce != "250ms" ||
+		!watch.ClearScreen || len(watch.Ignore) != 2 {
+		t.Fatalf("Watch = %+v, want full watch config preserved", watch)
+	}
+}
+
+func requireGeneratedDeployImplementation(t *testing.T, impl Implementation) {
+	t.Helper()
+
 	if impl.Env == nil || len(impl.Env.Files) != 1 || impl.Env.Vars["IMPL_ENV"] != "1" {
 		t.Fatalf("implementation Env = %+v, want env preserved", impl.Env)
 	}
@@ -326,24 +354,14 @@ func TestGenerateCUE_RuntimeDependsOnEachTypeRoundTrip(t *testing.T) {
 		assert func(*testing.T, *DependsOn)
 	}{
 		{
-			name: "tools",
-			deps: DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"python3", "pypy"}}}},
-			assert: func(t *testing.T, deps *DependsOn) {
-				t.Helper()
-				if len(deps.Tools) != 1 || len(deps.Tools[0].Alternatives) != 2 || deps.Tools[0].Alternatives[1] != "pypy" {
-					t.Fatalf("Tools = %+v, want python3/pypy alternatives", deps.Tools)
-				}
-			},
+			name:   "tools",
+			deps:   DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"python3", "pypy"}}}},
+			assert: assertRuntimeToolsDeps,
 		},
 		{
-			name: "cmds",
-			deps: DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"prepare", "compile"}}}},
-			assert: func(t *testing.T, deps *DependsOn) {
-				t.Helper()
-				if len(deps.Commands) != 1 || len(deps.Commands[0].Alternatives) != 2 || deps.Commands[0].Alternatives[0] != "prepare" {
-					t.Fatalf("Commands = %+v, want command alternatives", deps.Commands)
-				}
-			},
+			name:   "cmds",
+			deps:   DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"prepare", "compile"}}}},
+			assert: assertRuntimeCommandDeps,
 		},
 		{
 			name: "filepaths",
@@ -353,24 +371,12 @@ func TestGenerateCUE_RuntimeDependsOnEachTypeRoundTrip(t *testing.T) {
 				Writable:     true,
 				Executable:   true,
 			}}},
-			assert: func(t *testing.T, deps *DependsOn) {
-				t.Helper()
-				if len(deps.Filepaths) != 1 || len(deps.Filepaths[0].Alternatives) != 2 ||
-					!deps.Filepaths[0].Readable || !deps.Filepaths[0].Writable || !deps.Filepaths[0].Executable {
-					t.Fatalf("Filepaths = %+v, want alternatives and permission flags", deps.Filepaths)
-				}
-			},
+			assert: assertRuntimeFilepathDeps,
 		},
 		{
-			name: "capabilities",
-			deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityTTY, CapabilityInternet}}}},
-			assert: func(t *testing.T, deps *DependsOn) {
-				t.Helper()
-				if len(deps.Capabilities) != 1 || deps.Capabilities[0].Alternatives[0] != CapabilityTTY ||
-					deps.Capabilities[0].Alternatives[1] != CapabilityInternet {
-					t.Fatalf("Capabilities = %+v, want tty/internet alternatives", deps.Capabilities)
-				}
-			},
+			name:   "capabilities",
+			deps:   DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityTTY, CapabilityInternet}}}},
+			assert: assertRuntimeCapabilityDeps,
 		},
 		{
 			name: "custom checks",
@@ -393,23 +399,7 @@ func TestGenerateCUE_RuntimeDependsOnEachTypeRoundTrip(t *testing.T) {
 					},
 				},
 			}},
-			assert: func(t *testing.T, deps *DependsOn) {
-				t.Helper()
-				if len(deps.CustomChecks) != 2 {
-					t.Fatalf("CustomChecks length = %d, want 2", len(deps.CustomChecks))
-				}
-				if deps.CustomChecks[0].Name != "direct" || deps.CustomChecks[0].Script.Interpreter != "sh" ||
-					deps.CustomChecks[0].ExpectedCode == nil || *deps.CustomChecks[0].ExpectedCode != exitZero ||
-					deps.CustomChecks[0].ExpectedOutput != "^ok$" {
-					t.Fatalf("direct CustomCheck = %+v, want script, code, output preserved", deps.CustomChecks[0])
-				}
-				alternatives := deps.CustomChecks[1].Alternatives
-				if len(alternatives) != 2 || alternatives[0].Name != "alt-one" ||
-					alternatives[0].ExpectedCode == nil || *alternatives[0].ExpectedCode != exitOne ||
-					alternatives[0].ExpectedOutput != "^one$" || alternatives[1].Name != "alt-two" {
-					t.Fatalf("alternative CustomChecks = %+v, want both alternatives preserved", alternatives)
-				}
-			},
+			assert: assertRuntimeCustomCheckDeps,
 		},
 		{
 			name: "env vars",
@@ -417,14 +407,7 @@ func TestGenerateCUE_RuntimeDependsOnEachTypeRoundTrip(t *testing.T) {
 				{Name: "API_KEY"},
 				{Name: "TOKEN", Validation: "^[A-Z0-9]+$"},
 			}}}},
-			assert: func(t *testing.T, deps *DependsOn) {
-				t.Helper()
-				if len(deps.EnvVars) != 1 || len(deps.EnvVars[0].Alternatives) != 2 ||
-					deps.EnvVars[0].Alternatives[1].Name != "TOKEN" ||
-					deps.EnvVars[0].Alternatives[1].Validation != "^[A-Z0-9]+$" {
-					t.Fatalf("EnvVars = %+v, want validated TOKEN alternative", deps.EnvVars)
-				}
-			},
+			assert: assertRuntimeEnvVarDeps,
 		},
 	}
 
@@ -759,6 +742,80 @@ func TestGenerateDependsOnContentOmitsInactiveSections(t *testing.T) {
 	generateDependsOnContent(&empty, &DependsOn{}, "\t")
 	if got := empty.String(); got != "" {
 		t.Fatalf("empty depends_on content = %q, want empty", got)
+	}
+}
+
+func assertRuntimeToolsDeps(t *testing.T, deps *DependsOn) {
+	t.Helper()
+
+	if len(deps.Tools) != 1 || len(deps.Tools[0].Alternatives) != 2 || deps.Tools[0].Alternatives[1] != "pypy" {
+		t.Fatalf("Tools = %+v, want python3/pypy alternatives", deps.Tools)
+	}
+}
+
+func assertRuntimeCommandDeps(t *testing.T, deps *DependsOn) {
+	t.Helper()
+
+	if len(deps.Commands) != 1 || len(deps.Commands[0].Alternatives) != 2 || deps.Commands[0].Alternatives[0] != "prepare" {
+		t.Fatalf("Commands = %+v, want command alternatives", deps.Commands)
+	}
+}
+
+func assertRuntimeFilepathDeps(t *testing.T, deps *DependsOn) {
+	t.Helper()
+
+	if len(deps.Filepaths) != 1 || len(deps.Filepaths[0].Alternatives) != 2 ||
+		!deps.Filepaths[0].Readable || !deps.Filepaths[0].Writable || !deps.Filepaths[0].Executable {
+		t.Fatalf("Filepaths = %+v, want alternatives and permission flags", deps.Filepaths)
+	}
+}
+
+func assertRuntimeCapabilityDeps(t *testing.T, deps *DependsOn) {
+	t.Helper()
+
+	if len(deps.Capabilities) != 1 || deps.Capabilities[0].Alternatives[0] != CapabilityTTY ||
+		deps.Capabilities[0].Alternatives[1] != CapabilityInternet {
+		t.Fatalf("Capabilities = %+v, want tty/internet alternatives", deps.Capabilities)
+	}
+}
+
+func assertRuntimeCustomCheckDeps(t *testing.T, deps *DependsOn) {
+	t.Helper()
+
+	if len(deps.CustomChecks) != 2 {
+		t.Fatalf("CustomChecks length = %d, want 2", len(deps.CustomChecks))
+	}
+	assertRuntimeDirectCustomCheck(t, deps.CustomChecks[0])
+	assertRuntimeAlternativeCustomChecks(t, deps.CustomChecks[1].Alternatives)
+}
+
+func assertRuntimeDirectCustomCheck(t *testing.T, check CustomCheckDependency) {
+	t.Helper()
+
+	if check.Name != "direct" || check.Script.Interpreter != "sh" ||
+		check.ExpectedCode == nil || *check.ExpectedCode != types.ExitCode(0) ||
+		check.ExpectedOutput != "^ok$" {
+		t.Fatalf("direct CustomCheck = %+v, want script, code, output preserved", check)
+	}
+}
+
+func assertRuntimeAlternativeCustomChecks(t *testing.T, alternatives []CustomCheck) {
+	t.Helper()
+
+	if len(alternatives) != 2 || alternatives[0].Name != "alt-one" ||
+		alternatives[0].ExpectedCode == nil || *alternatives[0].ExpectedCode != types.ExitCode(1) ||
+		alternatives[0].ExpectedOutput != "^one$" || alternatives[1].Name != "alt-two" {
+		t.Fatalf("alternative CustomChecks = %+v, want both alternatives preserved", alternatives)
+	}
+}
+
+func assertRuntimeEnvVarDeps(t *testing.T, deps *DependsOn) {
+	t.Helper()
+
+	if len(deps.EnvVars) != 1 || len(deps.EnvVars[0].Alternatives) != 2 ||
+		deps.EnvVars[0].Alternatives[1].Name != "TOKEN" ||
+		deps.EnvVars[0].Alternatives[1].Validation != "^[A-Z0-9]+$" {
+		t.Fatalf("EnvVars = %+v, want validated TOKEN alternative", deps.EnvVars)
 	}
 }
 

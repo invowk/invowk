@@ -24,81 +24,11 @@ const (
 func TestResolveMutationMainContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("provider is required before option validation", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := Resolve(t.Context(), nil, ResolveOptions{})
-		if err == nil || !strings.Contains(err.Error(), "config provider is required") {
-			t.Fatalf("Resolve() error = %v, want config provider requirement", err)
-		}
-	})
-
-	t.Run("invalid options are rejected before loading config", func(t *testing.T) {
-		t.Parallel()
-
-		loader := &testLoader{cfg: config.DefaultConfig()}
-		invalidPath := types.FilesystemPath(" \t ")
-		_, err := Resolve(t.Context(), loader, ResolveOptions{
-			ConfigFilePath: &invalidPath,
-			Defaults:       testDefaults(),
-		})
-		if !errors.Is(err, types.ErrInvalidFilesystemPath) {
-			t.Fatalf("Resolve() error = %v, want ErrInvalidFilesystemPath", err)
-		}
-		if loader.lastOpts.ConfigFilePath != "" {
-			t.Fatalf("loader should not run for invalid options, got opts %+v", loader.lastOpts)
-		}
-	})
-
-	t.Run("load errors are wrapped with LLM configuration context", func(t *testing.T) {
-		t.Parallel()
-
-		loadErr := errors.New("boom")
-		_, err := Resolve(t.Context(), &testLoader{loadErr: loadErr}, ResolveOptions{
-			Defaults: testDefaults(),
-		})
-		if !errors.Is(err, loadErr) || !strings.Contains(err.Error(), "load LLM configuration") {
-			t.Fatalf("Resolve() error = %v, want wrapped load error", err)
-		}
-	})
-
-	t.Run("enable flag promotes defaults to API mode", func(t *testing.T) {
-		t.Parallel()
-
-		got, err := Resolve(t.Context(), &testLoader{cfg: config.DefaultConfig()}, ResolveOptions{
-			Defaults: testDefaults(),
-			Flags: FlagValues{
-				Enable: true,
-			},
-		})
-		if err != nil {
-			t.Fatalf("Resolve() error = %v, want nil", err)
-		}
-		assertResolvedAPIConfig(t, got, testDefaults())
-	})
-
-	t.Run("provider flag wins over configured API backend", func(t *testing.T) {
-		t.Parallel()
-
-		cfg := config.DefaultConfig()
-		cfg.LLM.API = config.LLMAPIConfig{
-			BaseURL: mutationBaseURL,
-			Model:   mutationModel,
-		}
-		got, err := Resolve(t.Context(), &testLoader{cfg: cfg}, ResolveOptions{
-			UseConfiguredDefault: true,
-			Defaults:             testDefaults(),
-			Flags: FlagValues{
-				Provider: config.LLMProviderGemini,
-			},
-		})
-		if err != nil {
-			t.Fatalf("Resolve() error = %v, want nil", err)
-		}
-		if got.Mode != ModeProvider || got.Provider != config.LLMProviderGemini {
-			t.Fatalf("Resolve() = %+v, want gemini provider mode", got)
-		}
-	})
+	t.Run("provider is required before option validation", testResolveRequiresProvider)
+	t.Run("invalid options are rejected before loading config", testResolveRejectsOptionsBeforeLoad)
+	t.Run("load errors are wrapped with LLM configuration context", testResolveWrapsLoadErrors)
+	t.Run("enable flag promotes defaults to API mode", testResolveEnableFlagPromotesDefaults)
+	t.Run("provider flag wins over configured API backend", testResolveProviderFlagWins)
 }
 
 func TestModeMutationContracts(t *testing.T) {
@@ -134,145 +64,13 @@ func TestModeMutationContracts(t *testing.T) {
 func TestValidateMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("defaults join every invalid typed field", func(t *testing.T) {
-		t.Parallel()
-
-		err := Defaults{
-			BaseURL:     "ftp://example.invalid",
-			Model:       " \t ",
-			Timeout:     -time.Second,
-			Concurrency: -1,
-		}.Validate()
-		if got, want := joinedErrorLen(t, err), 4; got != want {
-			t.Fatalf("Defaults.Validate() joined error count = %d, want %d", got, want)
-		}
-		assertErrorWraps(t, err,
-			config.ErrInvalidLLMBaseURL,
-			config.ErrInvalidLLMModelName,
-			config.ErrInvalidLLMConcurrency,
-		)
-		if !strings.Contains(err.Error(), "default LLM timeout must be non-negative") {
-			t.Fatalf("Defaults.Validate() error = %v, want timeout message", err)
-		}
-	})
-
-	t.Run("flags join every invalid typed field", func(t *testing.T) {
-		t.Parallel()
-
-		err := FlagValues{
-			Provider:    "bogus",
-			BaseURL:     "file:///tmp/llm.sock",
-			Model:       "\n",
-			Timeout:     -time.Millisecond,
-			Concurrency: -2,
-		}.Validate()
-		if got, want := joinedErrorLen(t, err), 5; got != want {
-			t.Fatalf("FlagValues.Validate() joined error count = %d, want %d", got, want)
-		}
-		assertErrorWraps(t, err,
-			config.ErrInvalidLLMProvider,
-			config.ErrInvalidLLMBaseURL,
-			config.ErrInvalidLLMModelName,
-			config.ErrInvalidLLMConcurrency,
-		)
-		if !strings.Contains(err.Error(), "LLM flag timeout must be non-negative") {
-			t.Fatalf("FlagValues.Validate() error = %v, want timeout message", err)
-		}
-	})
-
-	t.Run("resolve options join path flags and defaults", func(t *testing.T) {
-		t.Parallel()
-
-		invalidPath := types.FilesystemPath(" \t ")
-		err := ResolveOptions{
-			ConfigFilePath: &invalidPath,
-			Flags: FlagValues{
-				BaseURL: "notaurl",
-			},
-			Defaults: Defaults{
-				Model: " ",
-			},
-		}.Validate()
-		if got, want := joinedErrorLen(t, err), 3; got != want {
-			t.Fatalf("ResolveOptions.Validate() joined error count = %d, want %d", got, want)
-		}
-		assertErrorWraps(t, err,
-			types.ErrInvalidFilesystemPath,
-			config.ErrInvalidLLMBaseURL,
-			config.ErrInvalidLLMModelName,
-		)
-	})
-
-	t.Run("api config reports missing required API fields", func(t *testing.T) {
-		t.Parallel()
-
-		err := APIConfig{}.Validate()
-		if got, want := joinedErrorLen(t, err), 2; got != want {
-			t.Fatalf("APIConfig.Validate() joined error count = %d, want %d", got, want)
-		}
-		if !strings.Contains(err.Error(), "LLM API base URL is required") ||
-			!strings.Contains(err.Error(), "LLM API model is required") {
-			t.Fatalf("APIConfig.Validate() error = %v, want missing URL and model", err)
-		}
-	})
-
-	t.Run("api config joins invalid typed fields", func(t *testing.T) {
-		t.Parallel()
-
-		err := APIConfig{
-			BaseURL:     "ftp://example.invalid",
-			Model:       " ",
-			Timeout:     -time.Second,
-			Concurrency: -1,
-		}.Validate()
-		if got, want := joinedErrorLen(t, err), 4; got != want {
-			t.Fatalf("APIConfig.Validate() joined error count = %d, want %d", got, want)
-		}
-		assertErrorWraps(t, err,
-			config.ErrInvalidLLMBaseURL,
-			config.ErrInvalidLLMModelName,
-			config.ErrInvalidLLMConcurrency,
-		)
-		if !strings.Contains(err.Error(), "LLM API timeout must be non-negative") {
-			t.Fatalf("APIConfig.Validate() error = %v, want timeout message", err)
-		}
-	})
-
-	t.Run("resolved validates mode provider model api and concurrency contracts", func(t *testing.T) {
-		t.Parallel()
-
-		err := Resolved{
-			Mode:        ModeAPI,
-			Provider:    "bogus",
-			Model:       " ",
-			Concurrency: -1,
-		}.Validate()
-		if got, want := joinedErrorLen(t, err), 4; got != want {
-			t.Fatalf("Resolved.Validate() joined error count = %d, want %d", got, want)
-		}
-		assertErrorWraps(t, err,
-			config.ErrInvalidLLMProvider,
-			config.ErrInvalidLLMModelName,
-			config.ErrInvalidLLMConcurrency,
-		)
-		if !strings.Contains(err.Error(), "LLM API base URL is required") ||
-			!strings.Contains(err.Error(), "LLM API model is required") {
-			t.Fatalf("Resolved.Validate() error = %v, want API requirements", err)
-		}
-	})
-
-	t.Run("resolved provider mode ignores incomplete API config", func(t *testing.T) {
-		t.Parallel()
-
-		err := Resolved{
-			Mode:        ModeProvider,
-			Provider:    config.LLMProviderCodex,
-			Concurrency: DefaultConcurrency,
-		}.Validate()
-		if err != nil {
-			t.Fatalf("Resolved.Validate() error = %v, want nil", err)
-		}
-	})
+	t.Run("defaults join every invalid typed field", testDefaultsValidationJoinsInvalidFields)
+	t.Run("flags join every invalid typed field", testFlagValidationJoinsInvalidFields)
+	t.Run("resolve options join path flags and defaults", testResolveOptionsValidationJoinsInvalidFields)
+	t.Run("api config reports missing required API fields", testAPIConfigValidationRequiredFields)
+	t.Run("api config joins invalid typed fields", testAPIConfigValidationJoinsInvalidFields)
+	t.Run("resolved validates mode provider model api and concurrency contracts", testResolvedValidationContracts)
+	t.Run("resolved provider mode ignores incomplete API config", testResolvedProviderModeIgnoresAPIConfig)
 }
 
 func TestApplyConfigDefaultsMutationContracts(t *testing.T) {
@@ -327,101 +125,10 @@ func TestApplyConfigDefaultsMutationContracts(t *testing.T) {
 func TestApplyEnvOverridesMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("environment fills unchanged API fields", func(t *testing.T) {
-		t.Parallel()
-
-		result := resolvedWithDefaults()
-		err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(map[string]string{
-			"INVOWK_LLM_URL":         string(mutationBaseURL),
-			"INVOWK_LLM_MODEL":       string(mutationModel),
-			"INVOWK_LLM_API_KEY":     mutationAPIKey,
-			"INVOWK_LLM_TIMEOUT":     mutationTimeout.String(),
-			"INVOWK_LLM_CONCURRENCY": mutationConcurrency.String(),
-		}))
-		if err != nil {
-			t.Fatalf("applyEnvOverrides() error = %v, want nil", err)
-		}
-		if result.Model != mutationModel ||
-			result.APIConfig.BaseURL != mutationBaseURL ||
-			result.APIConfig.Model != mutationModel ||
-			result.APIConfig.APIKey != mutationAPIKey ||
-			result.APIConfig.Timeout != mutationTimeout ||
-			result.APIConfig.Concurrency != mutationConcurrency {
-			t.Fatalf("resolved env overrides = %+v, want all env values", result)
-		}
-	})
-
-	t.Run("changed flags and configured API key block environment overrides", func(t *testing.T) {
-		t.Parallel()
-
-		result := resolvedWithDefaults()
-		result.APIConfig.APIKey = "configured-key"
-		err := applyEnvOverrides(&result, ChangedFlags{
-			BaseURL:     true,
-			Model:       true,
-			APIKey:      true,
-			Timeout:     true,
-			Concurrency: true,
-		}, mutationGetenv(map[string]string{
-			"INVOWK_LLM_URL":         string(mutationBaseURL),
-			"INVOWK_LLM_MODEL":       string(mutationModel),
-			"INVOWK_LLM_API_KEY":     mutationAPIKey,
-			"INVOWK_LLM_TIMEOUT":     mutationTimeout.String(),
-			"INVOWK_LLM_CONCURRENCY": mutationConcurrency.String(),
-		}))
-		if err != nil {
-			t.Fatalf("applyEnvOverrides() error = %v, want nil", err)
-		}
-		if result.APIConfig.BaseURL != testDefaults().BaseURL ||
-			result.Model != "" ||
-			result.APIConfig.Model != testDefaults().Model ||
-			result.APIConfig.APIKey != "configured-key" ||
-			result.APIConfig.Timeout != testDefaults().Timeout ||
-			result.APIConfig.Concurrency != testDefaults().Concurrency {
-			t.Fatalf("resolved env-blocked values = %+v, want defaults/configured key", result)
-		}
-	})
-
-	t.Run("invalid environment values return only validating errors", func(t *testing.T) {
-		t.Parallel()
-
-		result := resolvedWithDefaults()
-		err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(map[string]string{
-			"INVOWK_LLM_URL": "notaurl",
-		}))
-		if !errors.Is(err, config.ErrInvalidLLMBaseURL) {
-			t.Fatalf("applyEnvOverrides() error = %v, want ErrInvalidLLMBaseURL", err)
-		}
-
-		err = applyEnvConcurrency(&result, ChangedFlags{}, mutationGetenv(map[string]string{
-			"INVOWK_LLM_CONCURRENCY": "-1",
-		}))
-		if !errors.Is(err, config.ErrInvalidLLMConcurrency) {
-			t.Fatalf("applyEnvConcurrency() error = %v, want ErrInvalidLLMConcurrency", err)
-		}
-	})
-
-	t.Run("invalid timeout and nonnumeric concurrency are ignored", func(t *testing.T) {
-		t.Parallel()
-
-		result := resolvedWithDefaults()
-		applyEnvTimeout(&result, ChangedFlags{}, mutationGetenv(map[string]string{
-			"INVOWK_LLM_TIMEOUT": "not-a-duration",
-		}))
-		if result.APIConfig.Timeout != testDefaults().Timeout {
-			t.Fatalf("APIConfig.Timeout = %v, want unchanged default", result.APIConfig.Timeout)
-		}
-
-		err := applyEnvConcurrency(&result, ChangedFlags{}, mutationGetenv(map[string]string{
-			"INVOWK_LLM_CONCURRENCY": "abc",
-		}))
-		if err != nil {
-			t.Fatalf("applyEnvConcurrency() error = %v, want nil for nonnumeric env", err)
-		}
-		if result.APIConfig.Concurrency != testDefaults().Concurrency {
-			t.Fatalf("APIConfig.Concurrency = %d, want unchanged default", result.APIConfig.Concurrency)
-		}
-	})
+	t.Run("environment fills unchanged API fields", testEnvOverridesFillUnchangedAPIFields)
+	t.Run("changed flags and configured API key block environment overrides", testEnvOverridesRespectChangedFlags)
+	t.Run("invalid environment values return only validating errors", testEnvOverridesInvalidValues)
+	t.Run("invalid timeout and nonnumeric concurrency are ignored", testEnvOverridesIgnoreParseFailures)
 }
 
 func TestApplyFlagsAndNormalizationMutationContracts(t *testing.T) {
@@ -483,6 +190,297 @@ func TestResolveOptionsAccessorsMutationContracts(t *testing.T) {
 	}
 	if empty.getenv() == nil {
 		t.Fatal("default getenv() returned nil")
+	}
+}
+
+func testResolveRequiresProvider(t *testing.T) {
+	t.Parallel()
+
+	_, err := Resolve(t.Context(), nil, ResolveOptions{})
+	if err == nil || !strings.Contains(err.Error(), "config provider is required") {
+		t.Fatalf("Resolve() error = %v, want config provider requirement", err)
+	}
+}
+
+func testResolveRejectsOptionsBeforeLoad(t *testing.T) {
+	t.Parallel()
+
+	loader := &testLoader{cfg: config.DefaultConfig()}
+	invalidPath := types.FilesystemPath(" \t ")
+	_, err := Resolve(t.Context(), loader, ResolveOptions{
+		ConfigFilePath: &invalidPath,
+		Defaults:       testDefaults(),
+	})
+	if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+		t.Fatalf("Resolve() error = %v, want ErrInvalidFilesystemPath", err)
+	}
+	if loader.lastOpts.ConfigFilePath != "" {
+		t.Fatalf("loader should not run for invalid options, got opts %+v", loader.lastOpts)
+	}
+}
+
+func testResolveWrapsLoadErrors(t *testing.T) {
+	t.Parallel()
+
+	loadErr := errors.New("boom")
+	_, err := Resolve(t.Context(), &testLoader{loadErr: loadErr}, ResolveOptions{
+		Defaults: testDefaults(),
+	})
+	if !errors.Is(err, loadErr) || !strings.Contains(err.Error(), "load LLM configuration") {
+		t.Fatalf("Resolve() error = %v, want wrapped load error", err)
+	}
+}
+
+func testResolveEnableFlagPromotesDefaults(t *testing.T) {
+	t.Parallel()
+
+	got, err := Resolve(t.Context(), &testLoader{cfg: config.DefaultConfig()}, ResolveOptions{
+		Defaults: testDefaults(),
+		Flags: FlagValues{
+			Enable: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v, want nil", err)
+	}
+	assertResolvedAPIConfig(t, got, testDefaults())
+}
+
+func testResolveProviderFlagWins(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	cfg.LLM.API = config.LLMAPIConfig{BaseURL: mutationBaseURL, Model: mutationModel}
+	got, err := Resolve(t.Context(), &testLoader{cfg: cfg}, ResolveOptions{
+		UseConfiguredDefault: true,
+		Defaults:             testDefaults(),
+		Flags: FlagValues{
+			Provider: config.LLMProviderGemini,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v, want nil", err)
+	}
+	if got.Mode != ModeProvider || got.Provider != config.LLMProviderGemini {
+		t.Fatalf("Resolve() = %+v, want gemini provider mode", got)
+	}
+}
+
+func testDefaultsValidationJoinsInvalidFields(t *testing.T) {
+	t.Parallel()
+
+	err := Defaults{
+		BaseURL:     "ftp://example.invalid",
+		Model:       " \t ",
+		Timeout:     -time.Second,
+		Concurrency: -1,
+	}.Validate()
+	requireJoinedError(t, err, 4, "default LLM timeout must be non-negative",
+		config.ErrInvalidLLMBaseURL,
+		config.ErrInvalidLLMModelName,
+		config.ErrInvalidLLMConcurrency,
+	)
+}
+
+func testFlagValidationJoinsInvalidFields(t *testing.T) {
+	t.Parallel()
+
+	err := FlagValues{
+		Provider:    "bogus",
+		BaseURL:     "file:///tmp/llm.sock",
+		Model:       "\n",
+		Timeout:     -time.Millisecond,
+		Concurrency: -2,
+	}.Validate()
+	requireJoinedError(t, err, 5, "LLM flag timeout must be non-negative",
+		config.ErrInvalidLLMProvider,
+		config.ErrInvalidLLMBaseURL,
+		config.ErrInvalidLLMModelName,
+		config.ErrInvalidLLMConcurrency,
+	)
+}
+
+func testResolveOptionsValidationJoinsInvalidFields(t *testing.T) {
+	t.Parallel()
+
+	invalidPath := types.FilesystemPath(" \t ")
+	err := ResolveOptions{
+		ConfigFilePath: &invalidPath,
+		Flags:          FlagValues{BaseURL: "notaurl"},
+		Defaults:       Defaults{Model: " "},
+	}.Validate()
+	requireJoinedError(t, err, 3, "",
+		types.ErrInvalidFilesystemPath,
+		config.ErrInvalidLLMBaseURL,
+		config.ErrInvalidLLMModelName,
+	)
+}
+
+func testAPIConfigValidationRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	err := APIConfig{}.Validate()
+	requireJoinedError(t, err, 2, "LLM API base URL is required")
+	if !strings.Contains(err.Error(), "LLM API model is required") {
+		t.Fatalf("APIConfig.Validate() error = %v, want missing model", err)
+	}
+}
+
+func testAPIConfigValidationJoinsInvalidFields(t *testing.T) {
+	t.Parallel()
+
+	err := APIConfig{
+		BaseURL:     "ftp://example.invalid",
+		Model:       " ",
+		Timeout:     -time.Second,
+		Concurrency: -1,
+	}.Validate()
+	requireJoinedError(t, err, 4, "LLM API timeout must be non-negative",
+		config.ErrInvalidLLMBaseURL,
+		config.ErrInvalidLLMModelName,
+		config.ErrInvalidLLMConcurrency,
+	)
+}
+
+func testResolvedValidationContracts(t *testing.T) {
+	t.Parallel()
+
+	err := Resolved{
+		Mode:        ModeAPI,
+		Provider:    "bogus",
+		Model:       " ",
+		Concurrency: -1,
+	}.Validate()
+	requireJoinedError(t, err, 4, "LLM API base URL is required",
+		config.ErrInvalidLLMProvider,
+		config.ErrInvalidLLMModelName,
+		config.ErrInvalidLLMConcurrency,
+	)
+	if !strings.Contains(err.Error(), "LLM API model is required") {
+		t.Fatalf("Resolved.Validate() error = %v, want API model requirement", err)
+	}
+}
+
+func testResolvedProviderModeIgnoresAPIConfig(t *testing.T) {
+	t.Parallel()
+
+	err := Resolved{
+		Mode:        ModeProvider,
+		Provider:    config.LLMProviderCodex,
+		Concurrency: DefaultConcurrency,
+	}.Validate()
+	if err != nil {
+		t.Fatalf("Resolved.Validate() error = %v, want nil", err)
+	}
+}
+
+func testEnvOverridesFillUnchangedAPIFields(t *testing.T) {
+	t.Parallel()
+
+	result := resolvedWithDefaults()
+	err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(apiEnvValues()))
+	if err != nil {
+		t.Fatalf("applyEnvOverrides() error = %v, want nil", err)
+	}
+	requireResolvedEnvValues(t, result)
+}
+
+func testEnvOverridesRespectChangedFlags(t *testing.T) {
+	t.Parallel()
+
+	result := resolvedWithDefaults()
+	result.APIConfig.APIKey = "configured-key"
+	err := applyEnvOverrides(&result, ChangedFlags{
+		BaseURL:     true,
+		Model:       true,
+		APIKey:      true,
+		Timeout:     true,
+		Concurrency: true,
+	}, mutationGetenv(apiEnvValues()))
+	if err != nil {
+		t.Fatalf("applyEnvOverrides() error = %v, want nil", err)
+	}
+	defaults := testDefaults()
+	if result.APIConfig.BaseURL != defaults.BaseURL || result.Model != "" || result.APIConfig.Model != defaults.Model ||
+		result.APIConfig.APIKey != "configured-key" || result.APIConfig.Timeout != defaults.Timeout ||
+		result.APIConfig.Concurrency != defaults.Concurrency {
+		t.Fatalf("resolved env-blocked values = %+v, want defaults/configured key", result)
+	}
+}
+
+func testEnvOverridesInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	result := resolvedWithDefaults()
+	err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(map[string]string{
+		"INVOWK_LLM_URL": "notaurl",
+	}))
+	if !errors.Is(err, config.ErrInvalidLLMBaseURL) {
+		t.Fatalf("applyEnvOverrides() error = %v, want ErrInvalidLLMBaseURL", err)
+	}
+
+	err = applyEnvConcurrency(&result, ChangedFlags{}, mutationGetenv(map[string]string{
+		"INVOWK_LLM_CONCURRENCY": "-1",
+	}))
+	if !errors.Is(err, config.ErrInvalidLLMConcurrency) {
+		t.Fatalf("applyEnvConcurrency() error = %v, want ErrInvalidLLMConcurrency", err)
+	}
+}
+
+func testEnvOverridesIgnoreParseFailures(t *testing.T) {
+	t.Parallel()
+
+	result := resolvedWithDefaults()
+	applyEnvTimeout(&result, ChangedFlags{}, mutationGetenv(map[string]string{
+		"INVOWK_LLM_TIMEOUT": "not-a-duration",
+	}))
+	if result.APIConfig.Timeout != testDefaults().Timeout {
+		t.Fatalf("APIConfig.Timeout = %v, want unchanged default", result.APIConfig.Timeout)
+	}
+
+	err := applyEnvConcurrency(&result, ChangedFlags{}, mutationGetenv(map[string]string{
+		"INVOWK_LLM_CONCURRENCY": "abc",
+	}))
+	if err != nil {
+		t.Fatalf("applyEnvConcurrency() error = %v, want nil for nonnumeric env", err)
+	}
+	if result.APIConfig.Concurrency != testDefaults().Concurrency {
+		t.Fatalf("APIConfig.Concurrency = %d, want unchanged default", result.APIConfig.Concurrency)
+	}
+}
+
+func apiEnvValues() map[string]string {
+	return map[string]string{
+		"INVOWK_LLM_URL":         string(mutationBaseURL),
+		"INVOWK_LLM_MODEL":       string(mutationModel),
+		"INVOWK_LLM_API_KEY":     mutationAPIKey,
+		"INVOWK_LLM_TIMEOUT":     mutationTimeout.String(),
+		"INVOWK_LLM_CONCURRENCY": mutationConcurrency.String(),
+	}
+}
+
+func requireJoinedError(t *testing.T, err error, wantLen int, wantMessage string, targets ...error) {
+	t.Helper()
+
+	if got := joinedErrorLen(t, err); got != wantLen {
+		t.Fatalf("joined error count = %d, want %d", got, wantLen)
+	}
+	assertErrorWraps(t, err, targets...)
+	if wantMessage != "" && !strings.Contains(err.Error(), wantMessage) {
+		t.Fatalf("error = %v, want message %q", err, wantMessage)
+	}
+}
+
+func requireResolvedEnvValues(t *testing.T, result Resolved) {
+	t.Helper()
+
+	if result.Model != mutationModel ||
+		result.APIConfig.BaseURL != mutationBaseURL ||
+		result.APIConfig.Model != mutationModel ||
+		result.APIConfig.APIKey != mutationAPIKey ||
+		result.APIConfig.Timeout != mutationTimeout ||
+		result.APIConfig.Concurrency != mutationConcurrency {
+		t.Fatalf("resolved env overrides = %+v, want all env values", result)
 	}
 }
 

@@ -213,182 +213,192 @@ func TestSubdirectoryPathValidateMutationEdges(t *testing.T) {
 func TestValidationIssueMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("type validation covers every public issue type", func(t *testing.T) {
-		t.Parallel()
-
-		for _, issueType := range []ValidationIssueType{
-			IssueTypeStructure,
-			IssueTypeNaming,
-			IssueTypeInvowkmod,
-			IssueTypeSecurity,
-			IssueTypeCompatibility,
-			IssueTypeInvowkfile,
-			IssueTypeCommandTree,
-		} {
-			if err := issueType.Validate(); err != nil {
-				t.Fatalf("ValidationIssueType(%q).Validate() error = %v, want nil", issueType, err)
-			}
-		}
-
-		err := ValidationIssueType("unknown").Validate()
-		if !errors.Is(err, ErrInvalidValidationIssueType) {
-			t.Fatalf("ValidationIssueType(\"unknown\").Validate() error = %v, want ErrInvalidValidationIssueType", err)
-		}
-	})
-
-	t.Run("error formatting includes path only when present", func(t *testing.T) {
-		t.Parallel()
-
-		withPath := ValidationIssue{
-			Type:    IssueTypeSecurity,
-			Message: "symlink escape",
-			Path:    mutationRelativeScript,
-		}
-		if got, want := withPath.Error(), "[security] scripts/build.sh: symlink escape"; got != want {
-			t.Fatalf("ValidationIssue.Error() = %q, want %q", got, want)
-		}
-
-		withoutPath := ValidationIssue{
-			Type:    IssueTypeStructure,
-			Message: "missing invowkmod.cue",
-		}
-		if got, want := withoutPath.Error(), "[structure] missing invowkmod.cue"; got != want {
-			t.Fatalf("ValidationIssue.Error() = %q, want %q", got, want)
-		}
-	})
-
-	t.Run("add issue appends exact fields and marks invalid", func(t *testing.T) {
-		t.Parallel()
-
-		result := &ValidationResult{Valid: true}
-		result.AddIssue(IssueTypeCompatibility, "uses host-specific path", mutationRelativeScript)
-
-		if result.Valid {
-			t.Fatal("ValidationResult.Valid = true, want false")
-		}
-		if got, want := len(result.Issues), 1; got != want {
-			t.Fatalf("Issues length = %d, want %d", got, want)
-		}
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeCompatibility || issue.Message != "uses host-specific path" || issue.Path != mutationRelativeScript {
-			t.Fatalf("ValidationResult.AddIssue() issue = %#v, want exact fields", issue)
-		}
-	})
-
-	t.Run("add issue panics for invalid issue type", func(t *testing.T) {
-		t.Parallel()
-
-		defer func() {
-			if recover() == nil {
-				t.Fatal("ValidationResult.AddIssue() did not panic for invalid issue type")
-			}
-		}()
-		result := &ValidationResult{Valid: true}
-		result.AddIssue("unknown", "bad issue type", mutationRelativeScript)
-	})
+	t.Run("type validation covers every public issue type", testValidationIssueTypeContracts)
+	t.Run("error formatting includes path only when present", testValidationIssueErrorFormatting)
+	t.Run("add issue appends exact fields and marks invalid", testValidationResultAddIssue)
+	t.Run("add issue panics for invalid issue type", testValidationResultAddIssueInvalidType)
 }
 
 func TestModuleMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("path helpers expose metadata and library-only state", func(t *testing.T) {
-		t.Parallel()
+	t.Run("path helpers expose metadata and library-only state", testModulePathHelpers)
+	t.Run("resolve script path preserves absolute unix input and joins relative input", testModuleResolveScriptPath)
+	t.Run("validate script path rejects symlink escapes", testModuleValidateScriptPathSymlinkEscape)
+	t.Run("validate collects invalid metadata and path", testModuleValidateInvalidMetadataAndPath)
+}
 
-		moduleRoot := filepath.Join(t.TempDir(), "io.example.tools.invowkmod")
-		module := &Module{
-			Metadata: &Invowkmod{
-				Module:  mutationModuleID,
-				Version: mutationSemVer,
-			},
-			Path: types.FilesystemPath(moduleRoot),
-		}
+func testValidationIssueTypeContracts(t *testing.T) {
+	t.Parallel()
 
-		if got := (&Module{}).Name(); got != "" {
-			t.Fatalf("Module.Name() without metadata = %q, want empty", got)
+	for _, issueType := range []ValidationIssueType{
+		IssueTypeStructure,
+		IssueTypeNaming,
+		IssueTypeInvowkmod,
+		IssueTypeSecurity,
+		IssueTypeCompatibility,
+		IssueTypeInvowkfile,
+		IssueTypeCommandTree,
+	} {
+		if err := issueType.Validate(); err != nil {
+			t.Fatalf("ValidationIssueType(%q).Validate() error = %v, want nil", issueType, err)
 		}
-		if got := module.Name(); got != mutationModuleID {
-			t.Fatalf("Module.Name() = %q, want %q", got, mutationModuleID)
-		}
-		if got, want := module.InvowkmodPath(), types.FilesystemPath(filepath.Join(moduleRoot, "invowkmod.cue")); got != want {
-			t.Fatalf("Module.InvowkmodPath() = %q, want %q", got, want)
-		}
-		if got, want := module.InvowkfilePath(), types.FilesystemPath(filepath.Join(moduleRoot, "invowkfile.cue")); got != want {
-			t.Fatalf("Module.InvowkfilePath() = %q, want %q", got, want)
-		}
+	}
 
-		module.IsLibraryOnly = true
-		if got := module.InvowkfilePath(); got != "" {
-			t.Fatalf("library-only Module.InvowkfilePath() = %q, want empty", got)
-		}
-	})
+	err := ValidationIssueType("unknown").Validate()
+	if !errors.Is(err, ErrInvalidValidationIssueType) {
+		t.Fatalf("ValidationIssueType(\"unknown\").Validate() error = %v, want ErrInvalidValidationIssueType", err)
+	}
+}
 
-	t.Run("resolve script path preserves absolute unix input and joins relative input", func(t *testing.T) {
-		t.Parallel()
+func testValidationIssueErrorFormatting(t *testing.T) {
+	t.Parallel()
 
-		moduleRoot := filepath.Join(t.TempDir(), "io.example.tools.invowkmod")
-		module := &Module{Path: types.FilesystemPath(moduleRoot)}
-		absolute := types.FilesystemPath("/tmp/script.sh")
-		if got := module.ResolveScriptPath(absolute); got != absolute {
-			t.Fatalf("Module.ResolveScriptPath(%q) = %q, want unchanged", absolute, got)
-		}
+	withPath := ValidationIssue{
+		Type:    IssueTypeSecurity,
+		Message: "symlink escape",
+		Path:    mutationRelativeScript,
+	}
+	if got, want := withPath.Error(), "[security] scripts/build.sh: symlink escape"; got != want {
+		t.Fatalf("ValidationIssue.Error() = %q, want %q", got, want)
+	}
 
-		relative := types.FilesystemPath(mutationRelativeScript)
-		want := types.FilesystemPath(filepath.Join(moduleRoot, filepath.FromSlash(mutationRelativeScript)))
-		if got := module.ResolveScriptPath(relative); got != want {
-			t.Fatalf("Module.ResolveScriptPath(%q) = %q, want %q", relative, got, want)
-		}
-	})
+	withoutPath := ValidationIssue{
+		Type:    IssueTypeStructure,
+		Message: "missing invowkmod.cue",
+	}
+	if got, want := withoutPath.Error(), "[structure] missing invowkmod.cue"; got != want {
+		t.Fatalf("ValidationIssue.Error() = %q, want %q", got, want)
+	}
+}
 
-	t.Run("validate script path rejects symlink escapes", func(t *testing.T) {
-		t.Parallel()
+func testValidationResultAddIssue(t *testing.T) {
+	t.Parallel()
 
-		tempDir := t.TempDir()
-		moduleRoot := filepath.Join(tempDir, "io.example.tools.invowkmod")
-		if err := os.Mkdir(moduleRoot, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		outsidePath := filepath.Join(tempDir, "outside.sh")
-		if err := os.WriteFile(outsidePath, []byte("#!/bin/sh\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		linkPath := filepath.Join(moduleRoot, "escape.sh")
-		if err := os.Symlink(outsidePath, linkPath); err != nil {
-			t.Skipf("symlink test skipped: %v", err)
-		}
+	result := &ValidationResult{Valid: true}
+	result.AddIssue(IssueTypeCompatibility, "uses host-specific path", mutationRelativeScript)
 
-		module := &Module{Path: types.FilesystemPath(moduleRoot)}
-		err := module.ValidateScriptPath("escape.sh")
-		if err == nil {
-			t.Fatal("Module.ValidateScriptPath() returned nil, want symlink escape error")
-		}
-		if !strings.Contains(err.Error(), "symlink escape") {
-			t.Fatalf("Module.ValidateScriptPath() error = %v, want symlink escape", err)
-		}
-	})
+	if result.Valid {
+		t.Fatal("ValidationResult.Valid = true, want false")
+	}
+	if got, want := len(result.Issues), 1; got != want {
+		t.Fatalf("Issues length = %d, want %d", got, want)
+	}
+	issue := result.Issues[0]
+	if issue.Type != IssueTypeCompatibility || issue.Message != "uses host-specific path" || issue.Path != mutationRelativeScript {
+		t.Fatalf("ValidationResult.AddIssue() issue = %#v, want exact fields", issue)
+	}
+}
 
-	t.Run("validate collects invalid metadata and path", func(t *testing.T) {
-		t.Parallel()
+func testValidationResultAddIssueInvalidType(t *testing.T) {
+	t.Parallel()
 
-		module := Module{
-			Metadata: &Invowkmod{
-				Module:  "bad-module",
-				Version: "v1.0.0",
-			},
-			Path: " \t ",
+	defer func() {
+		if recover() == nil {
+			t.Fatal("ValidationResult.AddIssue() did not panic for invalid issue type")
 		}
+	}()
+	result := &ValidationResult{Valid: true}
+	result.AddIssue("unknown", "bad issue type", mutationRelativeScript)
+}
 
-		err := module.Validate()
-		moduleErr := requireModuleError(t, err)
-		if got, want := moduleErr.Error(), "invalid module: 2 field error(s)"; got != want {
-			t.Fatalf("InvalidModuleError.Error() = %q, want %q", got, want)
-		}
-		if !fieldErrorsContain(moduleErr.FieldErrors, ErrInvalidInvowkmod) {
-			t.Fatalf("Module field errors should contain ErrInvalidInvowkmod, got %#v", moduleErr.FieldErrors)
-		}
-		if !fieldErrorsContain(moduleErr.FieldErrors, types.ErrInvalidFilesystemPath) {
-			t.Fatalf("Module field errors should contain ErrInvalidFilesystemPath, got %#v", moduleErr.FieldErrors)
-		}
-	})
+func testModulePathHelpers(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot := filepath.Join(t.TempDir(), "io.example.tools.invowkmod")
+	module := &Module{
+		Metadata: &Invowkmod{
+			Module:  mutationModuleID,
+			Version: mutationSemVer,
+		},
+		Path: types.FilesystemPath(moduleRoot),
+	}
+
+	if got := (&Module{}).Name(); got != "" {
+		t.Fatalf("Module.Name() without metadata = %q, want empty", got)
+	}
+	if got := module.Name(); got != mutationModuleID {
+		t.Fatalf("Module.Name() = %q, want %q", got, mutationModuleID)
+	}
+	if got, want := module.InvowkmodPath(), types.FilesystemPath(filepath.Join(moduleRoot, "invowkmod.cue")); got != want {
+		t.Fatalf("Module.InvowkmodPath() = %q, want %q", got, want)
+	}
+	if got, want := module.InvowkfilePath(), types.FilesystemPath(filepath.Join(moduleRoot, "invowkfile.cue")); got != want {
+		t.Fatalf("Module.InvowkfilePath() = %q, want %q", got, want)
+	}
+
+	module.IsLibraryOnly = true
+	if got := module.InvowkfilePath(); got != "" {
+		t.Fatalf("library-only Module.InvowkfilePath() = %q, want empty", got)
+	}
+}
+
+func testModuleResolveScriptPath(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot := filepath.Join(t.TempDir(), "io.example.tools.invowkmod")
+	module := &Module{Path: types.FilesystemPath(moduleRoot)}
+	absolute := types.FilesystemPath("/tmp/script.sh")
+	if got := module.ResolveScriptPath(absolute); got != absolute {
+		t.Fatalf("Module.ResolveScriptPath(%q) = %q, want unchanged", absolute, got)
+	}
+
+	relative := types.FilesystemPath(mutationRelativeScript)
+	want := types.FilesystemPath(filepath.Join(moduleRoot, filepath.FromSlash(mutationRelativeScript)))
+	if got := module.ResolveScriptPath(relative); got != want {
+		t.Fatalf("Module.ResolveScriptPath(%q) = %q, want %q", relative, got, want)
+	}
+}
+
+func testModuleValidateScriptPathSymlinkEscape(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	moduleRoot := filepath.Join(tempDir, "io.example.tools.invowkmod")
+	if err := os.Mkdir(moduleRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outsidePath := filepath.Join(tempDir, "outside.sh")
+	if err := os.WriteFile(outsidePath, []byte("#!/bin/sh\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(moduleRoot, "escape.sh")
+	if err := os.Symlink(outsidePath, linkPath); err != nil {
+		t.Skipf("symlink test skipped: %v", err)
+	}
+
+	module := &Module{Path: types.FilesystemPath(moduleRoot)}
+	err := module.ValidateScriptPath("escape.sh")
+	if err == nil {
+		t.Fatal("Module.ValidateScriptPath() returned nil, want symlink escape error")
+	}
+	if !strings.Contains(err.Error(), "symlink escape") {
+		t.Fatalf("Module.ValidateScriptPath() error = %v, want symlink escape", err)
+	}
+}
+
+func testModuleValidateInvalidMetadataAndPath(t *testing.T) {
+	t.Parallel()
+
+	module := Module{
+		Metadata: &Invowkmod{
+			Module:  "bad-module",
+			Version: "v1.0.0",
+		},
+		Path: " \t ",
+	}
+
+	err := module.Validate()
+	moduleErr := requireModuleError(t, err)
+	if got, want := moduleErr.Error(), "invalid module: 2 field error(s)"; got != want {
+		t.Fatalf("InvalidModuleError.Error() = %q, want %q", got, want)
+	}
+	if !fieldErrorsContain(moduleErr.FieldErrors, ErrInvalidInvowkmod) {
+		t.Fatalf("Module field errors should contain ErrInvalidInvowkmod, got %#v", moduleErr.FieldErrors)
+	}
+	if !fieldErrorsContain(moduleErr.FieldErrors, types.ErrInvalidFilesystemPath) {
+		t.Fatalf("Module field errors should contain ErrInvalidFilesystemPath, got %#v", moduleErr.FieldErrors)
+	}
 }
 
 func TestIsWindowsDrivePathMutationEdges(t *testing.T) {

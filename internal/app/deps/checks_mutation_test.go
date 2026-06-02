@@ -61,77 +61,10 @@ func (p *checksMutationRuntimeProbe) RunCustomCheck(invowkfile.CustomCheck) (Cus
 func TestContainerDependencyWrapperMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext(t)
-	commandName := invowkfile.CommandName("build")
-
-	t.Run("env var wrappers skip empty deps and require probe for non-empty deps", func(t *testing.T) {
-		t.Parallel()
-
-		if err := CheckEnvVarDependenciesInContainer(nil, nil, ctx); err != nil {
-			t.Fatalf("nil env deps error = %v, want nil", err)
-		}
-		if err := CheckEnvVarDependenciesInContainer(&invowkfile.DependsOn{}, nil, ctx); err != nil {
-			t.Fatalf("empty env deps error = %v, want nil", err)
-		}
-		err := CheckEnvVarDependenciesInContainer(
-			&invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "TOKEN"}}}}},
-			nil,
-			ctx,
-		)
-		if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
-			t.Fatalf("non-empty env deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
-		}
-	})
-
-	t.Run("capability wrappers skip empty deps and require probe for non-empty deps", func(t *testing.T) {
-		t.Parallel()
-
-		if err := CheckCapabilityDependenciesInContainer(nil, nil, ctx); err != nil {
-			t.Fatalf("nil capability deps error = %v, want nil", err)
-		}
-		if err := CheckCapabilityDependenciesInContainer(&invowkfile.DependsOn{}, nil, ctx); err != nil {
-			t.Fatalf("empty capability deps error = %v, want nil", err)
-		}
-		err := CheckCapabilityDependenciesInContainer(
-			&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}}},
-			nil,
-			ctx,
-		)
-		if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
-			t.Fatalf("non-empty capability deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
-		}
-	})
-
-	t.Run("command wrappers skip empty deps and require probe for non-empty deps", func(t *testing.T) {
-		t.Parallel()
-
-		if err := CheckCommandDependenciesInContainer(nil, nil, ctx); err != nil {
-			t.Fatalf("nil command deps error = %v, want nil", err)
-		}
-		if err := CheckCommandDependenciesInContainer(&invowkfile.DependsOn{}, nil, ctx); err != nil {
-			t.Fatalf("empty command deps error = %v, want nil", err)
-		}
-		err := CheckCommandDependenciesInContainer(
-			&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"build"}}}},
-			nil,
-			ctx,
-		)
-		if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
-			t.Fatalf("non-empty command deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
-		}
-	})
-
-	t.Run("resolved command wrapper skips empty deps and requires probe for resolved deps", func(t *testing.T) {
-		t.Parallel()
-
-		if err := checkResolvedCommandDependenciesInContainer(nil, nil, ctx); err != nil {
-			t.Fatalf("nil resolved command deps error = %v, want nil", err)
-		}
-		err := checkResolvedCommandDependenciesInContainer([]resolvedCommandDependency{{Command: &commandName}}, nil, ctx)
-		if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
-			t.Fatalf("non-empty resolved command deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
-		}
-	})
+	t.Run("env var wrappers skip empty deps and require probe for non-empty deps", testContainerEnvVarWrapperMutationContracts)
+	t.Run("capability wrappers skip empty deps and require probe for non-empty deps", testContainerCapabilityWrapperMutationContracts)
+	t.Run("command wrappers skip empty deps and require probe for non-empty deps", testContainerCommandWrapperMutationContracts)
+	t.Run("resolved command wrapper skips empty deps and requires probe for resolved deps", testContainerResolvedCommandWrapperMutationContracts)
 }
 
 func TestValidateCustomCheckOutputMutationContracts(t *testing.T) {
@@ -224,164 +157,248 @@ func TestEvaluateCustomChecksMutationContracts(t *testing.T) {
 func TestContainerCollectorsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext(t)
-
-	t.Run("env alternatives stop after first successful probe", func(t *testing.T) {
-		t.Parallel()
-
-		probe := &checksMutationRuntimeProbe{
-			envErrors: map[invowkfile.EnvVarName]error{
-				"MISSING": errors.New("should not be called"),
-			},
-		}
-		errs := collectContainerEnvVarErrors(
-			[]invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "PRESENT"}, {Name: "MISSING"}}}},
-			probe,
-			ctx,
-		)
-		if len(errs) != 0 {
-			t.Fatalf("container env errors = %v, want none", errs)
-		}
-		if len(probe.envVars) != 1 || probe.envVars[0] != "PRESENT" {
-			t.Fatalf("checked env vars = %v, want only PRESENT", probe.envVars)
-		}
-	})
-
-	t.Run("qualified command dependencies use source-qualified probe names", func(t *testing.T) {
-		t.Parallel()
-
-		probe := &checksMutationRuntimeProbe{
-			commandErrors: map[invowkfile.CommandName]error{
-				"tools lint": errors.New("missing command"),
-			},
-		}
-		errs := collectContainerCommandErrors(
-			[]invowkfile.CommandDependency{
-				{},
-				{Alternatives: []invowkfile.CommandDependencyRef{"@tools lint"}},
-			},
-			probe,
-			ctx,
-		)
-		if len(probe.commands) != 1 || probe.commands[0] != "tools lint" {
-			t.Fatalf("checked commands = %v, want tools lint", probe.commands)
-		}
-		want := "@tools lint - command not found in container"
-		if len(errs) != 1 || errs[0].String() != want {
-			t.Fatalf("container command errors = %v, want %q", errs, want)
-		}
-	})
-
-	t.Run("resolved command dependencies skip nil commands and format fallback alternatives", func(t *testing.T) {
-		t.Parallel()
-
-		build := invowkfile.CommandName("build")
-		deploy := invowkfile.CommandName("deploy")
-		probe := &checksMutationRuntimeProbe{
-			commandErrors: map[invowkfile.CommandName]error{
-				build:  errors.New("missing build"),
-				deploy: errors.New("missing deploy"),
-			},
-		}
-		errs := collectResolvedContainerCommandErrors(
-			[]resolvedCommandDependency{
-				{},
-				{Command: &build},
-				{Command: &deploy, Alternatives: []invowkfile.CommandDependencyRef{"custom-deploy"}},
-			},
-			probe,
-		)
-		if len(probe.commands) != 2 || probe.commands[0] != build || probe.commands[1] != deploy {
-			t.Fatalf("checked resolved commands = %v, want build and deploy", probe.commands)
-		}
-		wants := []string{
-			"build - command not found in container",
-			"custom-deploy - command not found in container",
-		}
-		if len(errs) != len(wants) {
-			t.Fatalf("resolved command errors = %v, want %d errors", errs, len(wants))
-		}
-		for i := range wants {
-			if errs[i].String() != wants[i] {
-				t.Fatalf("resolved command error %d = %q, want %q", i, errs[i], wants[i])
-			}
-		}
-	})
+	t.Run("env alternatives stop after first successful probe", testContainerCollectorEnvAlternatives)
+	t.Run("qualified command dependencies use source-qualified probe names", testContainerCollectorQualifiedCommands)
+	t.Run("resolved command dependencies skip nil commands and format fallback alternatives", testContainerCollectorResolvedCommands)
 }
 
 func TestHostEnvCapabilityMutationContracts(t *testing.T) {
 	t.Parallel()
 
+	t.Run("capability wrapper requires checker for non-empty deps", testHostCapabilityRequiresChecker)
+	t.Run("duplicate capability dependencies are checked once", testHostCapabilityDedupe)
+	t.Run("host multi-capability failure records host-specific message and structured kind", testHostMultiCapabilityFailure)
+	t.Run("host env formatting trims alternatives and invalid regex remains wrapped", testHostEnvFormattingAndRegex)
+}
+
+func testContainerEnvVarWrapperMutationContracts(t *testing.T) {
+	t.Parallel()
+
 	ctx := newDependencyExecutionContext(t)
+	if err := CheckEnvVarDependenciesInContainer(nil, nil, ctx); err != nil {
+		t.Fatalf("nil env deps error = %v, want nil", err)
+	}
+	if err := CheckEnvVarDependenciesInContainer(&invowkfile.DependsOn{}, nil, ctx); err != nil {
+		t.Fatalf("empty env deps error = %v, want nil", err)
+	}
+	err := CheckEnvVarDependenciesInContainer(
+		&invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "TOKEN"}}}}},
+		nil,
+		ctx,
+	)
+	if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+		t.Fatalf("non-empty env deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
+	}
+}
 
-	t.Run("capability wrapper requires checker for non-empty deps", func(t *testing.T) {
-		t.Parallel()
+func testContainerCapabilityWrapperMutationContracts(t *testing.T) {
+	t.Parallel()
 
-		err := CheckCapabilityDependencies(&invowkfile.DependsOn{
-			Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}},
-		}, ctx)
-		if !errors.Is(err, ErrCapabilityCheckerRequired) {
-			t.Fatalf("CheckCapabilityDependencies() = %v, want ErrCapabilityCheckerRequired", err)
-		}
+	ctx := newDependencyExecutionContext(t)
+	if err := CheckCapabilityDependenciesInContainer(nil, nil, ctx); err != nil {
+		t.Fatalf("nil capability deps error = %v, want nil", err)
+	}
+	if err := CheckCapabilityDependenciesInContainer(&invowkfile.DependsOn{}, nil, ctx); err != nil {
+		t.Fatalf("empty capability deps error = %v, want nil", err)
+	}
+	err := CheckCapabilityDependenciesInContainer(
+		&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}}},
+		nil,
+		ctx,
+	)
+	if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+		t.Fatalf("non-empty capability deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
+	}
+}
+
+func testContainerCommandWrapperMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+	if err := CheckCommandDependenciesInContainer(nil, nil, ctx); err != nil {
+		t.Fatalf("nil command deps error = %v, want nil", err)
+	}
+	if err := CheckCommandDependenciesInContainer(&invowkfile.DependsOn{}, nil, ctx); err != nil {
+		t.Fatalf("empty command deps error = %v, want nil", err)
+	}
+	err := CheckCommandDependenciesInContainer(
+		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"build"}}}},
+		nil,
+		ctx,
+	)
+	if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+		t.Fatalf("non-empty command deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
+	}
+}
+
+func testContainerResolvedCommandWrapperMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+	commandName := invowkfile.CommandName("build")
+	if err := checkResolvedCommandDependenciesInContainer(nil, nil, ctx); err != nil {
+		t.Fatalf("nil resolved command deps error = %v, want nil", err)
+	}
+	err := checkResolvedCommandDependenciesInContainer([]resolvedCommandDependency{{Command: &commandName}}, nil, ctx)
+	if !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+		t.Fatalf("non-empty resolved command deps error = %v, want ErrRuntimeDependencyProbeRequired", err)
+	}
+}
+
+func testContainerCollectorEnvAlternatives(t *testing.T) {
+	t.Parallel()
+
+	probe := &checksMutationRuntimeProbe{
+		envErrors: map[invowkfile.EnvVarName]error{
+			"MISSING": errors.New("should not be called"),
+		},
+	}
+	errs := collectContainerEnvVarErrors(
+		[]invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "PRESENT"}, {Name: "MISSING"}}}},
+		probe,
+		newDependencyExecutionContext(t),
+	)
+	if len(errs) != 0 {
+		t.Fatalf("container env errors = %v, want none", errs)
+	}
+	if len(probe.envVars) != 1 || probe.envVars[0] != "PRESENT" {
+		t.Fatalf("checked env vars = %v, want only PRESENT", probe.envVars)
+	}
+}
+
+func testContainerCollectorQualifiedCommands(t *testing.T) {
+	t.Parallel()
+
+	probe := &checksMutationRuntimeProbe{
+		commandErrors: map[invowkfile.CommandName]error{
+			"tools lint": errors.New("missing command"),
+		},
+	}
+	errs := collectContainerCommandErrors(
+		[]invowkfile.CommandDependency{
+			{},
+			{Alternatives: []invowkfile.CommandDependencyRef{"@tools lint"}},
+		},
+		probe,
+		newDependencyExecutionContext(t),
+	)
+	if len(probe.commands) != 1 || probe.commands[0] != "tools lint" {
+		t.Fatalf("checked commands = %v, want tools lint", probe.commands)
+	}
+	want := "@tools lint - command not found in container"
+	if len(errs) != 1 || errs[0].String() != want {
+		t.Fatalf("container command errors = %v, want %q", errs, want)
+	}
+}
+
+func testContainerCollectorResolvedCommands(t *testing.T) {
+	t.Parallel()
+
+	build := invowkfile.CommandName("build")
+	deploy := invowkfile.CommandName("deploy")
+	probe := &checksMutationRuntimeProbe{
+		commandErrors: map[invowkfile.CommandName]error{
+			build:  errors.New("missing build"),
+			deploy: errors.New("missing deploy"),
+		},
+	}
+	errs := collectResolvedContainerCommandErrors(
+		[]resolvedCommandDependency{
+			{},
+			{Command: &build},
+			{Command: &deploy, Alternatives: []invowkfile.CommandDependencyRef{"custom-deploy"}},
+		},
+		probe,
+	)
+	if len(probe.commands) != 2 || probe.commands[0] != build || probe.commands[1] != deploy {
+		t.Fatalf("checked resolved commands = %v, want build and deploy", probe.commands)
+	}
+	requireDependencyFailureStrings(t, errs, []string{
+		"build - command not found in container",
+		"custom-deploy - command not found in container",
 	})
+}
 
-	t.Run("duplicate capability dependencies are checked once", func(t *testing.T) {
-		t.Parallel()
+func testHostCapabilityRequiresChecker(t *testing.T) {
+	t.Parallel()
 
-		checker := &recordingCapabilityChecker{}
-		deps := &invowkfile.DependsOn{
-			Capabilities: []invowkfile.CapabilityDependency{
-				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}},
-				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}},
-			},
-		}
-		if err := CheckCapabilityDependenciesWithChecker(deps, ctx, checker); err != nil {
-			t.Fatalf("CheckCapabilityDependenciesWithChecker() = %v, want nil", err)
-		}
-		if len(checker.requests) != 1 {
-			t.Fatalf("capability requests = %d, want one de-duplicated request", len(checker.requests))
-		}
-	})
+	err := CheckCapabilityDependencies(&invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}},
+	}, newDependencyExecutionContext(t))
+	if !errors.Is(err, ErrCapabilityCheckerRequired) {
+		t.Fatalf("CheckCapabilityDependencies() = %v, want ErrCapabilityCheckerRequired", err)
+	}
+}
 
-	t.Run("host multi-capability failure records host-specific message and structured kind", func(t *testing.T) {
-		t.Parallel()
+func testHostCapabilityDedupe(t *testing.T) {
+	t.Parallel()
 
-		err := CheckCapabilityDependenciesWithChecker(
-			&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{
-				Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY, invowkfile.CapabilityInternet},
-			}}},
-			ctx,
-			fakeCapabilityChecker{
-				invowkfile.CapabilityTTY:      errors.New("tty unavailable"),
-				invowkfile.CapabilityInternet: errors.New("internet unavailable"),
-			},
-		)
-		depErr := requireDependencyError(t, err)
-		want := "none of capabilities [tty, internet] satisfied"
-		if len(depErr.MissingCapabilities) != 1 || depErr.MissingCapabilities[0].String() != want {
-			t.Fatalf("MissingCapabilities = %v, want %q", depErr.MissingCapabilities, want)
-		}
-		if len(depErr.StructuredFailures) != 1 || depErr.StructuredFailures[0].Kind() != DependencyFailureCapability {
-			t.Fatalf("StructuredFailures = %v, want one capability failure", depErr.StructuredFailures)
-		}
-	})
+	checker := &recordingCapabilityChecker{}
+	deps := &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}},
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}},
+		},
+	}
+	if err := CheckCapabilityDependenciesWithChecker(deps, newDependencyExecutionContext(t), checker); err != nil {
+		t.Fatalf("CheckCapabilityDependenciesWithChecker() = %v, want nil", err)
+	}
+	if len(checker.requests) != 1 {
+		t.Fatalf("capability requests = %d, want one de-duplicated request", len(checker.requests))
+	}
+}
 
-	t.Run("host env formatting trims alternatives and invalid regex remains wrapped", func(t *testing.T) {
-		t.Parallel()
+func testHostMultiCapabilityFailure(t *testing.T) {
+	t.Parallel()
 
-		errs := collectHostEnvVarErrors(
-			[]invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: " FIRST "}, {Name: "SECOND"}}}},
-			map[string]string{},
-		)
-		want := "none of [FIRST, SECOND] found or passed validation"
-		if len(errs) != 1 || errs[0].String() != want {
-			t.Fatalf("host env errors = %v, want %q", errs, want)
-		}
+	err := CheckCapabilityDependenciesWithChecker(
+		&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{
+			Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY, invowkfile.CapabilityInternet},
+		}}},
+		newDependencyExecutionContext(t),
+		fakeCapabilityChecker{
+			invowkfile.CapabilityTTY:      errors.New("tty unavailable"),
+			invowkfile.CapabilityInternet: errors.New("internet unavailable"),
+		},
+	)
+	depErr := requireDependencyError(t, err)
+	want := "none of capabilities [tty, internet] satisfied"
+	if len(depErr.MissingCapabilities) != 1 || depErr.MissingCapabilities[0].String() != want {
+		t.Fatalf("MissingCapabilities = %v, want %q", depErr.MissingCapabilities, want)
+	}
+	if len(depErr.StructuredFailures) != 1 || depErr.StructuredFailures[0].Kind() != DependencyFailureCapability {
+		t.Fatalf("StructuredFailures = %v, want one capability failure", depErr.StructuredFailures)
+	}
+}
 
-		err := validateHostEnvVar(invowkfile.EnvVarCheck{Name: "PORT", Validation: "["}, map[string]string{"PORT": "8080"})
-		var syntaxErr *syntax.Error
-		if !errors.As(err, &syntaxErr) {
-			t.Fatalf("invalid host env regex error = %v, want *syntax.Error", err)
+func testHostEnvFormattingAndRegex(t *testing.T) {
+	t.Parallel()
+
+	errs := collectHostEnvVarErrors(
+		[]invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: " FIRST "}, {Name: "SECOND"}}}},
+		map[string]string{},
+	)
+	want := "none of [FIRST, SECOND] found or passed validation"
+	if len(errs) != 1 || errs[0].String() != want {
+		t.Fatalf("host env errors = %v, want %q", errs, want)
+	}
+
+	err := validateHostEnvVar(invowkfile.EnvVarCheck{Name: "PORT", Validation: "["}, map[string]string{"PORT": "8080"})
+	var syntaxErr *syntax.Error
+	if !errors.As(err, &syntaxErr) {
+		t.Fatalf("invalid host env regex error = %v, want *syntax.Error", err)
+	}
+}
+
+func requireDependencyFailureStrings(t *testing.T, got []DependencyMessage, want []string) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("dependency messages = %v, want %d messages", got, len(want))
+	}
+	for i := range want {
+		if got[i].String() != want[i] {
+			t.Fatalf("dependency message %d = %q, want %q", i, got[i], want[i])
 		}
-	})
+	}
 }
