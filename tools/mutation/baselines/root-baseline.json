@@ -152,118 +152,16 @@
       "line": 69
     },
     {
-      "id": "5ad8904f237640107d04651639620943",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "branch/if",
-      "line": 264
-    },
-    {
       "id": "9cd961ddec23a699b5278fa5ec83ee2e",
       "file": "internal/app/deps/deps.go",
       "mutator": "branch/if",
       "line": 423
     },
     {
-      "id": "95b733a3e314c9b0e3ba526113c6578f",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "branch/if",
-      "line": 443
-    },
-    {
-      "id": "9cd961ddec23a699b5278fa5ec83ee2e",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "branch/if",
-      "line": 439
-    },
-    {
-      "id": "a7ef54ba06d66df0ffdf71744b141059",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "branch/if",
-      "line": 536
-    },
-    {
       "id": "b8cf70437c3402a4aa2b5e2641537214",
       "file": "internal/app/deps/deps.go",
       "mutator": "composite/field-clear",
       "line": 245
-    },
-    {
-      "id": "e3dfe514456af7df9d59ec826e55f7ce",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "conditional/bool-literal",
-      "line": 236
-    },
-    {
-      "id": "d051daa3c82ec60652818a245758c89d",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "conditional/negated",
-      "line": 107
-    },
-    {
-      "id": "413e67a085308da89b6e3a7751cf21f6",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "conditional/negated",
-      "line": 436
-    },
-    {
-      "id": "31e657eba9271e41f6e7930c5ad1d335",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "conditional/not",
-      "line": 422
-    },
-    {
-      "id": "becd4e264b4d0c039a25b1e85b0d77a5",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/error-guard",
-      "line": 149
-    },
-    {
-      "id": "091e1823b0dfdf9a36799d82e5b920c6",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/error-guard",
-      "line": 107
-    },
-    {
-      "id": "b3b16490f2f821cfa48db71d29041a6a",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/error-guard",
-      "line": 154
-    },
-    {
-      "id": "6511270edb2c6394b718657619b10154",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/error-guard",
-      "line": 159
-    },
-    {
-      "id": "cc43c988b7607fbb1b062e2b12e8013f",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/error-guard",
-      "line": 164
-    },
-    {
-      "id": "a7d560fd823cf99fcdf39a9b99455329",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/errorf-wrap",
-      "line": 362
-    },
-    {
-      "id": "23047fa4579ba291a198fb0401414c7c",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/logical",
-      "line": 477
-    },
-    {
-      "id": "370bd05b78dad691ad1e517396d29e94",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/logical",
-      "line": 522
-    },
-    {
-      "id": "376d92e811485b604157f3da4bbd070c",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/remove",
-      "line": 295
     },
     {
       "id": "6c020c99b351e658be18df8789790f56",
@@ -278,58 +176,16 @@
       "line": 463
     },
     {
-      "id": "c932be00d904beaeff78324c35eb3d36",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/remove",
-      "line": 477
-    },
-    {
       "id": "54e39bc0a9529881e6b9d6cdbfc93496",
       "file": "internal/app/deps/deps.go",
       "mutator": "expression/remove",
       "line": 477
     },
     {
-      "id": "bf7ac6e88874c7a9d33760ac35311393",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/remove",
-      "line": 499
-    },
-    {
       "id": "f829dceacfd1b13292ce458f88287c3c",
       "file": "internal/app/deps/deps.go",
       "mutator": "expression/remove",
       "line": 522
-    },
-    {
-      "id": "08ed8b0aaf29a1b89735b9fad59ec1fa",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/remove",
-      "line": 522
-    },
-    {
-      "id": "da38c2885194fbd0b23c4fb00c9123fe",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "loop/range_break",
-      "line": 274
-    },
-    {
-      "id": "22477b9a325f63123bca44f933085976",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "expression/remove",
-      "line": 511
-    },
-    {
-      "id": "203fefc5f5393528fa745b08b4af60cb",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "statement/remove",
-      "line": 243
-    },
-    {
-      "id": "ab6637acb5e1296cc4c9c0f0a879c46f",
-      "file": "internal/app/deps/deps.go",
-      "mutator": "statement/return",
-      "line": 113
     },
     {
       "id": "6b2285144ac55c868471f2375fcaac07",

@@ -41,14 +41,17 @@ type (
 	}
 
 	recordingRuntimeProbe struct {
-		tools        []invowkfile.BinaryName
-		filepaths    []invowkfile.FilepathDependency
-		envVars      []invowkfile.EnvVarCheck
-		capabilities []invowkfile.CapabilityName
-		commands     []invowkfile.CommandName
-		checks       []invowkfile.CustomCheck
-		envErr       error
-		toolErr      error
+		tools         []invowkfile.BinaryName
+		filepaths     []invowkfile.FilepathDependency
+		envVars       []invowkfile.EnvVarCheck
+		capabilities  []invowkfile.CapabilityName
+		commands      []invowkfile.CommandName
+		checks        []invowkfile.CustomCheck
+		envErr        error
+		toolErr       error
+		filepathErr   error
+		capabilityErr error
+		checkErr      error
 	}
 )
 
@@ -77,7 +80,7 @@ func (p *recordingRuntimeProbe) CheckTool(tool invowkfile.BinaryName) error {
 
 func (p *recordingRuntimeProbe) CheckFilepath(fp invowkfile.FilepathDependency) error {
 	p.filepaths = append(p.filepaths, fp)
-	return nil
+	return p.filepathErr
 }
 
 func (p *recordingRuntimeProbe) CheckEnvVar(envVar invowkfile.EnvVarCheck) error {
@@ -87,7 +90,7 @@ func (p *recordingRuntimeProbe) CheckEnvVar(envVar invowkfile.EnvVarCheck) error
 
 func (p *recordingRuntimeProbe) CheckCapability(capability invowkfile.CapabilityName) error {
 	p.capabilities = append(p.capabilities, capability)
-	return nil
+	return p.capabilityErr
 }
 
 func (p *recordingRuntimeProbe) CheckCommand(command invowkfile.CommandName) error {
@@ -97,7 +100,7 @@ func (p *recordingRuntimeProbe) CheckCommand(command invowkfile.CommandName) err
 
 func (p *recordingRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) (CustomCheckResult, error) {
 	p.checks = append(p.checks, check)
-	return CustomCheckResult{}, nil
+	return CustomCheckResult{}, p.checkErr
 }
 
 func TestValidateDependenciesMutationWrappers(t *testing.T) {
@@ -212,6 +215,65 @@ func TestValidateHostDependenciesMutationShortCircuit(t *testing.T) {
 			t.Fatalf("custom checks ran after filepath failure: %v", probe.checks)
 		}
 	})
+
+	t.Run("custom check failure stops before command discovery", func(t *testing.T) {
+		t.Parallel()
+
+		checkErr := errors.New("host check failed")
+		cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{{
+				Name:   "host-check",
+				Script: invowkfile.CustomCheckScript{Content: "exit 1"},
+			}},
+			Commands: []invowkfile.CommandDependency{{
+				Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
+			}},
+		})
+		probe := &recordingHostProbe{
+			checkErrors: map[invowkfile.CheckName]error{
+				"host-check": checkErr,
+			},
+		}
+		err := ValidateHostDependenciesWithHostProbe(
+			panicCommandSetProvider{t: t},
+			depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
+			testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+			map[string]string{},
+			nil,
+			probe,
+		)
+		depErr := requireDependencyError(t, err)
+		if len(depErr.FailedCustomChecks) != 1 {
+			t.Fatalf("FailedCustomChecks = %v, want one custom check failure", depErr.FailedCustomChecks)
+		}
+		requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCustomCheck)
+	})
+
+	t.Run("host command failure is not reported as a container failure", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{{
+				Alternatives: []invowkfile.CommandDependencyRef{"lint"},
+			}},
+		})
+		err := ValidateHostDependenciesWithHostProbe(
+			&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
+			depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
+			testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+			map[string]string{},
+			nil,
+			nil,
+		)
+		depErr := requireDependencyError(t, err)
+		if len(depErr.MissingCommands) != 1 {
+			t.Fatalf("MissingCommands = %v, want one missing command", depErr.MissingCommands)
+		}
+		if strings.Contains(depErr.MissingCommands[0].String(), "container") {
+			t.Fatalf("MissingCommands[0] = %q, should be host-scoped", depErr.MissingCommands[0])
+		}
+		requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCommand)
+	})
 }
 
 func TestValidateRuntimeDependenciesMutationBoundaries(t *testing.T) {
@@ -265,6 +327,88 @@ func TestValidateRuntimeDependenciesMutationBoundaries(t *testing.T) {
 			t.Fatalf("runtime probe continued after env failure: %+v", probe)
 		}
 	})
+
+	t.Run("runtime dependency failures preserve failure kinds", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name         string
+			dependsOn    *invowkfile.DependsOn
+			probe        *recordingRuntimeProbe
+			wantKind     DependencyFailureKind
+			wantCommands int
+			wantTools    int
+			wantFiles    int
+			wantCaps     int
+			wantChecks   int
+		}{
+			{
+				name: "tool",
+				dependsOn: &invowkfile.DependsOn{
+					Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"missing-tool"}}},
+				},
+				probe:     &recordingRuntimeProbe{toolErr: errors.New("missing tool")},
+				wantKind:  DependencyFailureTool,
+				wantTools: 1,
+			},
+			{
+				name: "filepath",
+				dependsOn: &invowkfile.DependsOn{
+					Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/missing"}}},
+				},
+				probe:     &recordingRuntimeProbe{filepathErr: errors.New("missing filepath")},
+				wantKind:  DependencyFailureFilepath,
+				wantFiles: 1,
+			},
+			{
+				name: "capability",
+				dependsOn: &invowkfile.DependsOn{
+					Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}},
+				},
+				probe:    &recordingRuntimeProbe{capabilityErr: errors.New("missing tty")},
+				wantKind: DependencyFailureCapability,
+				wantCaps: 1,
+			},
+			{
+				name: "custom check",
+				dependsOn: &invowkfile.DependsOn{
+					CustomChecks: []invowkfile.CustomCheckDependency{{
+						Name:   "runtime-check",
+						Script: invowkfile.CustomCheckScript{Content: "exit 1"},
+					}},
+				},
+				probe:      &recordingRuntimeProbe{checkErr: errors.New("runtime check failed")},
+				wantKind:   DependencyFailureCustomCheck,
+				wantChecks: 1,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				cmd := depsMutationRuntimeCommand(tt.dependsOn)
+				ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
+				err := ValidateRuntimeDependencies(
+					panicCommandSetProvider{t: t},
+					depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
+					tt.probe,
+					ctx,
+					nil,
+				)
+				depErr := requireDependencyError(t, err)
+				requireDependencyFailureKinds(t, depErr.Failures(), tt.wantKind)
+				if len(tt.probe.commands) != tt.wantCommands ||
+					len(tt.probe.tools) != tt.wantTools ||
+					len(tt.probe.filepaths) != tt.wantFiles ||
+					len(tt.probe.capabilities) != tt.wantCaps ||
+					len(tt.probe.checks) != tt.wantChecks {
+					t.Fatalf("runtime probe calls = %+v, want commands=%d tools=%d files=%d caps=%d checks=%d",
+						tt.probe, tt.wantCommands, tt.wantTools, tt.wantFiles, tt.wantCaps, tt.wantChecks)
+				}
+			})
+		}
+	})
 }
 
 func TestCommandResolutionMutationContracts(t *testing.T) {
@@ -272,7 +416,9 @@ func TestCommandResolutionMutationContracts(t *testing.T) {
 
 	t.Run("nil and empty command deps do not discover", testCommandResolutionEmptyDeps)
 	t.Run("resolved command records matched discovery name and original alternatives", testCommandResolutionMatchedCommand)
+	t.Run("missing and forbidden commands both report structured failures", testCommandResolutionStructuredFailures)
 	t.Run("discover uses execution context value", testDiscoverAvailableCommandsUsesContext)
+	t.Run("discovery failure preserves sentinel and cause", testDiscoverAvailableCommandsErrorWrap)
 }
 
 func TestCommandScopeMutationContracts(t *testing.T) {
@@ -280,6 +426,7 @@ func TestCommandScopeMutationContracts(t *testing.T) {
 
 	t.Run("lock provider fallback only loads for module paths", testCommandScopeLockFallback)
 	t.Run("direct requirement matching requires command identity source and lock", testCommandScopeDirectRequirementMatching)
+	t.Run("scope uses command info module override and every global source", testCommandScopeBuildsCompleteIdentity)
 	t.Run("accessible command reports allowed forbidden and root decisions", testCommandScopeAccessibleCommandDecisions)
 }
 
@@ -287,6 +434,7 @@ func TestCommandCandidateMutationContracts(t *testing.T) {
 	t.Parallel()
 
 	t.Run("source candidates de-duplicate prioritized lookups and fallback scan", testSourceCommandCandidates)
+	t.Run("prioritized lookups respect qualified and bare lookup order", testPrioritizedCommandLookups)
 	t.Run("source and simple-name helpers classify command identity", testCommandInfoIdentityHelpers)
 	t.Run("current command source falls back from source id to metadata", testCurrentCommandSourceIDFallback)
 }
@@ -346,6 +494,45 @@ func testCommandResolutionMatchedCommand(t *testing.T) {
 	}
 }
 
+func testCommandResolutionStructuredFailures(t *testing.T) {
+	t.Parallel()
+
+	blockedID := invowkmod.ModuleID("io.example.blocked")
+	cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+		Commands: []invowkfile.CommandDependency{
+			{Alternatives: []invowkfile.CommandDependencyRef{"missing"}},
+			{Alternatives: []invowkfile.CommandDependencyRef{"@blocked lint"}},
+		},
+	})
+	callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
+		Module:  depsMutationCallerID,
+		Version: "1.0.0",
+	})
+	callerInfo := depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{Metadata: callerMeta})
+	callerInfo.SourceID = "caller"
+	available := &discovery.DiscoveredCommandSet{
+		Commands: []*discovery.CommandInfo{{
+			Name:       "blocked lint",
+			SimpleName: depsMutationSimple,
+			SourceID:   "blocked",
+			ModuleID:   &blockedID,
+		}},
+	}
+
+	err := CheckCommandDependenciesExistWithLockProvider(
+		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: available}},
+		cmd.DependsOn,
+		callerInfo,
+		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+		nil,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.MissingCommands) != 1 || len(depErr.ForbiddenCommands) != 1 {
+		t.Fatalf("missing=%v forbidden=%v, want one of each", depErr.MissingCommands, depErr.ForbiddenCommands)
+	}
+	requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCommand, DependencyFailureForbiddenCommand)
+}
+
 func testDiscoverAvailableCommandsUsesContext(t *testing.T) {
 	t.Parallel()
 
@@ -360,6 +547,19 @@ func testDiscoverAvailableCommandsUsesContext(t *testing.T) {
 	}
 	if available[depsMutationCommand] == nil {
 		t.Fatalf("available commands = %v, want %q", available, depsMutationCommand)
+	}
+}
+
+func testDiscoverAvailableCommandsErrorWrap(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("discovery failed")
+	_, err := discoverAvailableCommands(&stubCommandSetProvider{err: cause}, ExecutionContext{Context: t.Context()})
+	if !errors.Is(err, ErrDependencyDiscoveryFailed) {
+		t.Fatalf("discoverAvailableCommands() error = %v, want ErrDependencyDiscoveryFailed", err)
+	}
+	if !errors.Is(err, cause) {
+		t.Fatalf("discoverAvailableCommands() error = %v, want cause %v", err, cause)
 	}
 }
 
@@ -383,6 +583,14 @@ func testCommandScopeLockFallback(t *testing.T) {
 	}
 	if lock == nil {
 		t.Fatal("empty module path lock = nil, want empty lock")
+	}
+
+	lock, err = commandScopeLock(nil, &invowkfile.Invowkfile{ModulePath: "module.invowkmod"})
+	if err != nil {
+		t.Fatalf("nil provider with module path error = %v, want nil", err)
+	}
+	if lock == nil {
+		t.Fatal("nil provider with module path lock = nil, want empty lock")
 	}
 
 	_, err = commandScopeLock(provider, &invowkfile.Invowkfile{ModulePath: "module.invowkmod"})
@@ -416,6 +624,38 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource, ModuleID: &otherID}) {
 		t.Fatal("commandMatchesDirectRequirement() = true for mismatched module ID")
 	}
+}
+
+func testCommandScopeBuildsCompleteIdentity(t *testing.T) {
+	t.Parallel()
+
+	metadataID := invowkmod.ModuleID("io.example.metadata")
+	overrideID := invowkmod.ModuleID("io.example.override")
+	globalOneID := invowkmod.ModuleID("io.example.globalone")
+	globalTwoID := invowkmod.ModuleID("io.example.globaltwo")
+	meta := mustModuleMetadata(t, &invowkfile.Invowkmod{Module: metadataID, Version: "1.0.0"})
+	cmdInfo := &discovery.CommandInfo{
+		SourceID:   "caller",
+		ModuleID:   &overrideID,
+		Invowkfile: &invowkfile.Invowkfile{Metadata: meta},
+	}
+	globalOne := scopedCommandInfo("global-one lint", "global-one", &globalOneID)
+	globalOne.IsGlobalModule = true
+	globalTwo := scopedCommandInfo("global-two lint", "global-two", &globalTwoID)
+	globalTwo.IsGlobalModule = true
+	available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		globalOne.Name: globalOne,
+		globalTwo.Name: globalTwo,
+	}
+
+	scope := buildCommandScope(cmdInfo, available, &invowkmod.LockFile{})
+	if scope == nil {
+		t.Fatal("buildCommandScope() = nil, want module scope")
+	}
+	if scope.ModuleID != overrideID {
+		t.Fatalf("scope.ModuleID = %q, want command info override %q", scope.ModuleID, overrideID)
+	}
+	requireAccessibleCommandDecision(t, available, scope, "@global-two lint", globalTwo, 0)
 }
 
 func testCommandScopeAccessibleCommandDecisions(t *testing.T) {
@@ -464,6 +704,27 @@ func testSourceCommandCandidates(t *testing.T) {
 	}
 }
 
+func testPrioritizedCommandLookups(t *testing.T) {
+	t.Parallel()
+
+	qualified := &discovery.CommandInfo{Name: "tools lint", SimpleName: depsMutationSimple, SourceID: depsMutationSource}
+	bare := &discovery.CommandInfo{Name: depsMutationSimple}
+	available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		"tools lint":       qualified,
+		depsMutationSimple: bare,
+	}
+
+	got := prioritizedCommandLookups(available, invowkmod.ModuleSourceID(depsMutationSource), depsMutationSimple)
+	if len(got) != 2 || got[0] != qualified || got[1] != bare {
+		t.Fatalf("prioritizedCommandLookups() = %v, want qualified then bare", got)
+	}
+
+	got = prioritizedCommandLookups(available, "", depsMutationSimple)
+	if len(got) != 1 || got[0] != bare {
+		t.Fatalf("prioritizedCommandLookups() without source = %v, want bare only", got)
+	}
+}
+
 func testCommandInfoIdentityHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -489,6 +750,15 @@ func testCommandInfoIdentityHelpers(t *testing.T) {
 	if got := commandInfoSimpleName(cmd, "other"); got != cmd.Name {
 		t.Fatalf("nonmatching prefix SimpleName = %q, want full command name", got)
 	}
+	if got := commandInfoSimpleName(&discovery.CommandInfo{Name: " lint"}, ""); got != " lint" {
+		t.Fatalf("empty source SimpleName = %q, want leading-space command name", got)
+	}
+	if commandMatchesSourceAndName(cmd, "other", depsMutationSimple) {
+		t.Fatal("commandMatchesSourceAndName() = true for mismatched explicit source")
+	}
+	if commandMatchesSourceAndName(cmd, "", depsMutationSimple) {
+		t.Fatal("commandMatchesSourceAndName() = true for sourced command with empty source")
+	}
 }
 
 func testCurrentCommandSourceIDFallback(t *testing.T) {
@@ -499,6 +769,9 @@ func testCurrentCommandSourceIDFallback(t *testing.T) {
 	}
 	if got := currentCommandSourceID(&discovery.CommandInfo{SourceID: depsMutationSource}); got != invowkmod.ModuleSourceID(depsMutationSource) {
 		t.Fatalf("current explicit source = %q, want %q", got, depsMutationSource)
+	}
+	if currentCommandSourceID(&discovery.CommandInfo{}) != "" {
+		t.Fatal("currentCommandSourceID(empty command info) should be empty")
 	}
 	meta := mustModuleMetadata(t, &invowkfile.Invowkmod{Module: depsMutationModuleID, Version: "1.0.0"})
 	if got := currentCommandSourceID(&discovery.CommandInfo{Invowkfile: &invowkfile.Invowkfile{Metadata: meta}}); got != invowkmod.ModuleSourceID(depsMutationModuleID) {
@@ -572,6 +845,17 @@ func TestMissingCommandMessageMutationContracts(t *testing.T) {
 			inContainer: true,
 			want:        "none of [lint, @tools fmt] found in container",
 		},
+		{
+			name: "multiple alternatives are not rendered as a qualified single miss",
+			alts: commandDependencyAlternativesForTest(t, "@missing lint", "build"),
+			want: "none of [@missing lint, build] found",
+		},
+		{
+			name:    "multiple alternatives are not rendered as a current source single miss",
+			alts:    commandDependencyAlternativesForTest(t, "lint", "build"),
+			current: invowkmod.ModuleSourceID(depsMutationSource),
+			want:    "none of [lint, build] found",
+		},
 	}
 
 	for _, tt := range tests {
@@ -593,6 +877,19 @@ func depsMutationHostCommand(dependsOn *invowkfile.DependsOn) *invowkfile.Comman
 		Implementations: []invowkfile.Implementation{{
 			Script:   invowkfile.ImplementationScript{Content: "echo ok"},
 			Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+		}},
+	}
+}
+
+func depsMutationRuntimeCommand(dependsOn *invowkfile.DependsOn) *invowkfile.Command {
+	return &invowkfile.Command{
+		Name: depsMutationCommand,
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{Content: "echo ok"},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:      invowkfile.RuntimeContainer,
+				DependsOn: dependsOn,
+			}},
 		}},
 	}
 }
@@ -637,4 +934,17 @@ func requireDependencyError(t *testing.T, err error) *DependencyError {
 		t.Fatalf("error = %v, want *DependencyError", err)
 	}
 	return depErr
+}
+
+func requireDependencyFailureKinds(t *testing.T, failures []DependencyFailure, want ...DependencyFailureKind) {
+	t.Helper()
+
+	if len(failures) != len(want) {
+		t.Fatalf("failure count = %d (%v), want %d (%v)", len(failures), failures, len(want), want)
+	}
+	for i := range want {
+		if failures[i].Kind() != want[i] {
+			t.Fatalf("failure[%d].Kind() = %q, want %q; failures=%v", i, failures[i].Kind(), want[i], failures)
+		}
+	}
 }

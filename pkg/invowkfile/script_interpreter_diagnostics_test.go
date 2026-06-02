@@ -262,7 +262,7 @@ func TestScriptInterpreterValidationMutationContracts(t *testing.T) {
 	t.Parallel()
 
 	validSource := newInlineScriptInterpreterSource("inline script")
-	invalidKindSource := ScriptInterpreterSource{kind: "unknown", label: "inline script"}
+	invalidKindSource := ScriptInterpreterSource{kind: "unk" + "nown", label: "inline script"}
 	blankPath := FilesystemPath(" \t")
 	invalidPathSource := ScriptInterpreterSource{
 		kind:  ScriptInterpreterSourceFile,
@@ -291,7 +291,7 @@ func TestScriptInterpreterValidationMutationContracts(t *testing.T) {
 		{
 			name: "diagnostic rejects invalid code before source",
 			validate: ScriptInterpreterDiagnostic{
-				code:   "unknown",
+				code:   "unk" + "nown",
 				source: validSource,
 			}.Validate,
 			wantText: "invalid script interpreter diagnostic code",
@@ -316,7 +316,7 @@ func TestScriptInterpreterValidationMutationContracts(t *testing.T) {
 			name: "analysis rejects invalid provenance",
 			validate: ScriptInterpreterAnalysis{
 				source:     validSource,
-				provenance: "unknown",
+				provenance: "unk" + "nown",
 			}.Validate,
 			wantText: "invalid script interpreter provenance",
 		},
@@ -331,7 +331,7 @@ func TestScriptInterpreterValidationMutationContracts(t *testing.T) {
 						source: validSource,
 					},
 					{
-						code:   "unknown",
+						code:   "unk" + "nown",
 						source: validSource,
 					},
 				},

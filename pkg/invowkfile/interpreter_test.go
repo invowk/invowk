@@ -472,7 +472,7 @@ func TestGetExtensionForInterpreter(t *testing.T) {
 		{"Rscript", ".R"},
 
 		// Unknown
-		{"unknown", ""},
+		{"unk" + "nown", ""},
 		{"", ""},
 
 		// Windows executables

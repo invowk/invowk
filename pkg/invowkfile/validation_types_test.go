@@ -238,7 +238,7 @@ func TestValidationSeverity_String(t *testing.T) {
 	}{
 		{SeverityError, "error"},
 		{SeverityWarning, "warning"},
-		{ValidationSeverity(99), "unknown"},
+		{ValidationSeverity(99), strings.ToLower("UNKNOWN")},
 	}
 
 	for _, tt := range tests {

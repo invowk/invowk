@@ -66,171 +66,153 @@ func TestNewMutationContracts(t *testing.T) {
 func TestCheckModuleCollisionsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	d := New(config.DefaultConfig(), WithBaseDir(""), WithCommandsDir(""))
+	t.Run("skips nil and errored files before later collision", testCheckModuleCollisionsSkipsErroredFiles)
+	t.Run("module collision reports module paths and local source kind", testCheckModuleCollisionsReportsModulePaths)
+	t.Run("command source collision reports namespace and second source", testCheckModuleCollisionsReportsCommandSource)
+	t.Run("vendored collision annotates parent module", testCheckModuleCollisionsReportsVendoredParent)
+	t.Run("module metadata wins over invowkfile fallback metadata", testCheckModuleCollisionsUsesModuleMetadata)
+	t.Run("invalid duplicate module namespace reports validation error", testCheckModuleCollisionsInvalidModuleNamespace)
+	t.Run("invalid duplicate command namespace reports validation error", testCheckModuleCollisionsInvalidCommandNamespace)
+}
 
-	t.Run("skips nil and errored files before later collision", func(t *testing.T) {
-		t.Parallel()
+func testCheckModuleCollisionsSkipsErroredFiles(t *testing.T) {
+	t.Parallel()
 
-		files := []*DiscoveredFile{
-			nil,
-			{
-				Path:       "/bad/error.invowkmod/invowkfile.cue",
-				Error:      os.ErrInvalid,
-				Invowkfile: discoveryMutationInvowkfile(t, discoveryMutationSameModule),
+	files := []*DiscoveredFile{
+		nil,
+		{
+			Path:       "/bad/error.invowkmod/invowkfile.cue",
+			Error:      os.ErrInvalid,
+			Invowkfile: discoveryMutationInvowkfile(t, discoveryMutationSameModule),
+		},
+		discoveryMutationModuleFile(t, "/first/one.invowkmod", "/first/one.invowkmod/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
+		discoveryMutationModuleFile(t, "/second/two.invowkmod", "/second/two.invowkmod/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
+	}
+
+	collision := requireDiscoveryMutationCollision(t, discoveryMutationDiscovery().CheckModuleCollisions(files))
+	if collision.FirstSource != "/first/one.invowkmod" {
+		t.Fatalf("FirstSource = %q, want first valid module path", collision.FirstSource)
+	}
+	if collision.SecondSource != "/second/two.invowkmod" {
+		t.Fatalf("SecondSource = %q, want second valid module path", collision.SecondSource)
+	}
+}
+
+func testCheckModuleCollisionsReportsModulePaths(t *testing.T) {
+	t.Parallel()
+
+	files := []*DiscoveredFile{
+		discoveryMutationModuleFile(t, "/first/one.invowkmod", "/ignored/first/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
+		discoveryMutationModuleFile(t, "/second/two.invowkmod", "/ignored/second/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
+	}
+
+	collision := requireDiscoveryMutationCollision(t, discoveryMutationDiscovery().CheckModuleCollisions(files))
+	if collision.Namespace != SourceID(discoveryMutationSameModule) {
+		t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationSameModule)
+	}
+	if collision.FirstSource != "/first/one.invowkmod" {
+		t.Fatalf("FirstSource = %q, want module path", collision.FirstSource)
+	}
+	if collision.SecondSource != "/second/two.invowkmod" {
+		t.Fatalf("SecondSource = %q, want module path", collision.SecondSource)
+	}
+	if collision.SecondKind != ModuleCollisionSourceLocal {
+		t.Fatalf("SecondKind = %q, want %q", collision.SecondKind, ModuleCollisionSourceLocal)
+	}
+}
+
+func testCheckModuleCollisionsReportsCommandSource(t *testing.T) {
+	t.Parallel()
+
+	files := []*DiscoveredFile{
+		discoveryMutationModuleFile(t, "/first/tools.invowkmod", "/first/tools.invowkmod/invowkfile.cue", "io.example.first", "io.example.first"),
+		discoveryMutationModuleFile(t, "/second/tools.invowkmod", "/second/tools.invowkmod/invowkfile.cue", "io.example.second", "io.example.second"),
+	}
+
+	collision := requireDiscoveryMutationCollision(t, discoveryMutationDiscovery().CheckModuleCollisions(files))
+	if collision.Namespace != discoveryMutationToolsNamespace {
+		t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationToolsNamespace)
+	}
+	if collision.FirstSource != "/first/tools.invowkmod" {
+		t.Fatalf("FirstSource = %q, want first command source", collision.FirstSource)
+	}
+	if collision.SecondSource != "/second/tools.invowkmod" {
+		t.Fatalf("SecondSource = %q, want second command source", collision.SecondSource)
+	}
+}
+
+func testCheckModuleCollisionsReportsVendoredParent(t *testing.T) {
+	t.Parallel()
+
+	files := []*DiscoveredFile{
+		discoveryMutationVendoredModuleFile(
+			t,
+			"/parent1.invowkmod/invowk_modules/tools.invowkmod",
+			"io.example.child1",
+			"io.example.parent1",
+			discoveryMutationToolsNamespace,
+		),
+		discoveryMutationVendoredModuleFile(
+			t,
+			"/parent2.invowkmod/invowk_modules/tools.invowkmod",
+			"io.example.child2",
+			"io.example.parent2",
+			discoveryMutationToolsNamespace,
+		),
+	}
+
+	collision := requireDiscoveryMutationCollision(t, discoveryMutationDiscovery().CheckModuleCollisions(files))
+	if collision.SecondSource != "/parent2.invowkmod/invowk_modules/tools.invowkmod (vendored in io.example.parent2)" {
+		t.Fatalf("SecondSource = %q, want vendored parent annotation", collision.SecondSource)
+	}
+	if collision.SecondKind != ModuleCollisionSourceVendored {
+		t.Fatalf("SecondKind = %q, want %q", collision.SecondKind, ModuleCollisionSourceVendored)
+	}
+}
+
+func testCheckModuleCollisionsUsesModuleMetadata(t *testing.T) {
+	t.Parallel()
+
+	files := []*DiscoveredFile{
+		discoveryMutationModuleFile(t, "/first/one.invowkmod", "/first/one.invowkmod/invowkfile.cue", "io.example.module", "io.example.other"),
+		discoveryMutationModuleFile(t, "/second/two.invowkmod", "/second/two.invowkmod/invowkfile.cue", "io.example.other", "io.example.module"),
+	}
+
+	if err := discoveryMutationDiscovery().CheckModuleCollisions(files); err != nil {
+		t.Fatalf("CheckModuleCollisions() error = %v, want nil", err)
+	}
+}
+
+func testCheckModuleCollisionsInvalidModuleNamespace(t *testing.T) {
+	t.Parallel()
+
+	files := []*DiscoveredFile{
+		{
+			Module: &invowkmod.Module{
+				Path:     "/first/invalid.invowkmod",
+				Metadata: &invowkmod.Invowkmod{Module: "1bad"},
 			},
-			discoveryMutationModuleFile(t, "/first/one.invowkmod", "/first/one.invowkmod/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
-			discoveryMutationModuleFile(t, "/second/two.invowkmod", "/second/two.invowkmod/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
-		}
-
-		collision := requireDiscoveryMutationCollision(t, d.CheckModuleCollisions(files))
-		if collision.FirstSource != "/first/one.invowkmod" {
-			t.Fatalf("FirstSource = %q, want first valid module path", collision.FirstSource)
-		}
-		if collision.SecondSource != "/second/two.invowkmod" {
-			t.Fatalf("SecondSource = %q, want second valid module path", collision.SecondSource)
-		}
-	})
-
-	t.Run("module collision reports module paths and local source kind", func(t *testing.T) {
-		t.Parallel()
-
-		files := []*DiscoveredFile{
-			discoveryMutationModuleFile(t, "/first/one.invowkmod", "/ignored/first/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
-			discoveryMutationModuleFile(t, "/second/two.invowkmod", "/ignored/second/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
-		}
-
-		collision := requireDiscoveryMutationCollision(t, d.CheckModuleCollisions(files))
-		if collision.Namespace != SourceID(discoveryMutationSameModule) {
-			t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationSameModule)
-		}
-		if collision.FirstSource != "/first/one.invowkmod" {
-			t.Fatalf("FirstSource = %q, want module path", collision.FirstSource)
-		}
-		if collision.SecondSource != "/second/two.invowkmod" {
-			t.Fatalf("SecondSource = %q, want module path", collision.SecondSource)
-		}
-		if collision.SecondKind != ModuleCollisionSourceLocal {
-			t.Fatalf("SecondKind = %q, want %q", collision.SecondKind, ModuleCollisionSourceLocal)
-		}
-	})
-
-	t.Run("command source collision reports namespace and second source", func(t *testing.T) {
-		t.Parallel()
-
-		files := []*DiscoveredFile{
-			discoveryMutationModuleFile(t, "/first/tools.invowkmod", "/first/tools.invowkmod/invowkfile.cue", "io.example.first", "io.example.first"),
-			discoveryMutationModuleFile(t, "/second/tools.invowkmod", "/second/tools.invowkmod/invowkfile.cue", "io.example.second", "io.example.second"),
-		}
-
-		collision := requireDiscoveryMutationCollision(t, d.CheckModuleCollisions(files))
-		if collision.Namespace != discoveryMutationToolsNamespace {
-			t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationToolsNamespace)
-		}
-		if collision.FirstSource != "/first/tools.invowkmod" {
-			t.Fatalf("FirstSource = %q, want first command source", collision.FirstSource)
-		}
-		if collision.SecondSource != "/second/tools.invowkmod" {
-			t.Fatalf("SecondSource = %q, want second command source", collision.SecondSource)
-		}
-	})
-
-	t.Run("vendored collision annotates parent module", func(t *testing.T) {
-		t.Parallel()
-
-		files := []*DiscoveredFile{
-			discoveryMutationVendoredModuleFile(
-				t,
-				"/parent1.invowkmod/invowk_modules/tools.invowkmod",
-				"io.example.child1",
-				"io.example.parent1",
-				discoveryMutationToolsNamespace,
-			),
-			discoveryMutationVendoredModuleFile(
-				t,
-				"/parent2.invowkmod/invowk_modules/tools.invowkmod",
-				"io.example.child2",
-				"io.example.parent2",
-				discoveryMutationToolsNamespace,
-			),
-		}
-
-		collision := requireDiscoveryMutationCollision(t, d.CheckModuleCollisions(files))
-		if collision.SecondSource != "/parent2.invowkmod/invowk_modules/tools.invowkmod (vendored in io.example.parent2)" {
-			t.Fatalf("SecondSource = %q, want vendored parent annotation", collision.SecondSource)
-		}
-		if collision.SecondKind != ModuleCollisionSourceVendored {
-			t.Fatalf("SecondKind = %q, want %q", collision.SecondKind, ModuleCollisionSourceVendored)
-		}
-	})
-
-	t.Run("module metadata wins over invowkfile fallback metadata", func(t *testing.T) {
-		t.Parallel()
-
-		files := []*DiscoveredFile{
-			discoveryMutationModuleFile(t, "/first/one.invowkmod", "/first/one.invowkmod/invowkfile.cue", "io.example.module", "io.example.other"),
-			discoveryMutationModuleFile(t, "/second/two.invowkmod", "/second/two.invowkmod/invowkfile.cue", "io.example.other", "io.example.module"),
-		}
-
-		if err := d.CheckModuleCollisions(files); err != nil {
-			t.Fatalf("CheckModuleCollisions() error = %v, want nil", err)
-		}
-	})
-
-	t.Run("invalid duplicate module namespace reports validation error", func(t *testing.T) {
-		t.Parallel()
-
-		files := []*DiscoveredFile{
-			{
-				Module: &invowkmod.Module{
-					Path:     "/first/invalid.invowkmod",
-					Metadata: &invowkmod.Invowkmod{Module: "1bad"},
-				},
+		},
+		{
+			Module: &invowkmod.Module{
+				Path:     "/second/invalid.invowkmod",
+				Metadata: &invowkmod.Invowkmod{Module: "1bad"},
 			},
-			{
-				Module: &invowkmod.Module{
-					Path:     "/second/invalid.invowkmod",
-					Metadata: &invowkmod.Invowkmod{Module: "1bad"},
-				},
-			},
-		}
+		},
+	}
 
-		err := d.CheckModuleCollisions(files)
-		if err == nil {
-			t.Fatal("CheckModuleCollisions() error = nil, want namespace validation error")
-		}
-		if errors.Is(err, ErrModuleCollision) {
-			t.Fatalf("CheckModuleCollisions() error = %v, want validation error before collision", err)
-		}
-		if !errors.Is(err, ErrInvalidSourceID) {
-			t.Fatalf("CheckModuleCollisions() error = %v, want ErrInvalidSourceID", err)
-		}
-		if !strings.Contains(err.Error(), "invalid module namespace") {
-			t.Fatalf("CheckModuleCollisions() error = %v, want invalid module namespace", err)
-		}
-	})
+	requireInvalidDiscoveryMutationNamespace(t, discoveryMutationDiscovery().CheckModuleCollisions(files), "invalid module namespace")
+}
 
-	t.Run("invalid duplicate command namespace reports validation error", func(t *testing.T) {
-		t.Parallel()
+func testCheckModuleCollisionsInvalidCommandNamespace(t *testing.T) {
+	t.Parallel()
 
-		files := []*DiscoveredFile{
-			discoveryMutationModuleFile(t, "/first/1bad.invowkmod", "/first/1bad.invowkmod/invowkfile.cue", "io.example.first", "io.example.first"),
-			discoveryMutationModuleFile(t, "/second/1bad.invowkmod", "/second/1bad.invowkmod/invowkfile.cue", "io.example.second", "io.example.second"),
-		}
+	files := []*DiscoveredFile{
+		discoveryMutationModuleFile(t, "/first/1bad.invowkmod", "/first/1bad.invowkmod/invowkfile.cue", "io.example.first", "io.example.first"),
+		discoveryMutationModuleFile(t, "/second/1bad.invowkmod", "/second/1bad.invowkmod/invowkfile.cue", "io.example.second", "io.example.second"),
+	}
 
-		err := d.CheckModuleCollisions(files)
-		if err == nil {
-			t.Fatal("CheckModuleCollisions() error = nil, want command namespace validation error")
-		}
-		if errors.Is(err, ErrModuleCollision) {
-			t.Fatalf("CheckModuleCollisions() error = %v, want validation error before collision", err)
-		}
-		if !errors.Is(err, ErrInvalidSourceID) {
-			t.Fatalf("CheckModuleCollisions() error = %v, want ErrInvalidSourceID", err)
-		}
-		if !strings.Contains(err.Error(), "invalid command namespace") {
-			t.Fatalf("CheckModuleCollisions() error = %v, want invalid command namespace", err)
-		}
-	})
+	requireInvalidDiscoveryMutationNamespace(t, discoveryMutationDiscovery().CheckModuleCollisions(files), "invalid command namespace")
 }
 
 func TestModuleIdentityMutationContracts(t *testing.T) {
@@ -349,6 +331,27 @@ func TestLoadAllMutationContracts(t *testing.T) {
 			t.Fatalf("LoadAll() Invowkfile = %#v, want nil after parse error", files[0].Invowkfile)
 		}
 	})
+}
+
+func discoveryMutationDiscovery() *Discovery {
+	return New(config.DefaultConfig(), WithBaseDir(""), WithCommandsDir(""))
+}
+
+func requireInvalidDiscoveryMutationNamespace(t *testing.T, err error, wantMessage string) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("CheckModuleCollisions() error = nil, want namespace validation error")
+	}
+	if errors.Is(err, ErrModuleCollision) {
+		t.Fatalf("CheckModuleCollisions() error = %v, want validation error before collision", err)
+	}
+	if !errors.Is(err, ErrInvalidSourceID) {
+		t.Fatalf("CheckModuleCollisions() error = %v, want ErrInvalidSourceID", err)
+	}
+	if !strings.Contains(err.Error(), wantMessage) {
+		t.Fatalf("CheckModuleCollisions() error = %v, want %s", err, wantMessage)
+	}
 }
 
 func requireDiscoveryMutationCollision(t *testing.T, err error) *ModuleCollisionError {

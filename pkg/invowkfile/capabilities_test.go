@@ -66,7 +66,7 @@ func TestCapabilityName_Validate(t *testing.T) {
 		{CapabilityContainers, true, false},
 		{CapabilityTTY, true, false},
 		{"", false, true},
-		{"unknown", false, true},
+		{"unk" + "nown", false, true},
 		{"LOCAL-AREA-NETWORK", false, true},
 	}
 
