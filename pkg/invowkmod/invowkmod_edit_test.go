@@ -477,3 +477,319 @@ requires: [
 		}
 	})
 }
+
+func TestAddRequirementMutationBoundaries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("path duplicate matches last field and reports qualified identifier", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path:    "packages/tools"
+	},
+]
+`)
+
+		req := ModuleRef{
+			GitURL:  "https://github.com/user/monorepo.git",
+			Version: "^2.0.0",
+			Path:    "packages/tools",
+		}
+
+		err := AddRequirement(types.FilesystemPath(path), req)
+		if err == nil {
+			t.Fatal("AddRequirement() = nil, want duplicate error")
+		}
+		if !errors.Is(err, ErrModuleAlreadyExists) {
+			t.Fatalf("AddRequirement() error = %v, want ErrModuleAlreadyExists", err)
+		}
+		if !strings.Contains(err.Error(), "https://github.com/user/monorepo.git#packages/tools") {
+			t.Fatalf("AddRequirement() error = %q, want path-qualified identifier", err)
+		}
+	})
+
+	t.Run("insert preserves closing bracket and trailing content exactly", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/existing.git"
+		version: "^1.0.0"
+	},
+]
+
+description: "after requires"
+`)
+
+		req := ModuleRef{
+			GitURL:  "https://github.com/user/new.git",
+			Version: "^2.0.0",
+		}
+
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
+			t.Fatalf("AddRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/existing.git"
+		version: "^1.0.0"
+	},
+	{
+		git_url: "https://github.com/user/new.git"
+		version: "^2.0.0"
+	},
+]
+
+description: "after requires"
+`)
+	})
+
+	t.Run("append trims trailing blank lines and writes one complete block", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, "module: \"mymodule\"\nversion: \"1.0.0\"\n\n\n")
+
+		req := ModuleRef{
+			GitURL:  "https://github.com/user/tools.git",
+			Version: "^1.0.0",
+		}
+
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
+			t.Fatalf("AddRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/tools.git"
+		version: "^1.0.0"
+	},
+]
+`)
+	})
+
+	t.Run("commented requires does not hide later real block", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+version: "1.0.0"
+// requires: [
+
+requires: [
+	{
+		git_url: "https://github.com/user/existing.git"
+		version: "^1.0.0"
+	},
+]
+`)
+
+		req := ModuleRef{
+			GitURL:  "https://github.com/user/new.git",
+			Version: "^2.0.0",
+		}
+
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
+			t.Fatalf("AddRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+version: "1.0.0"
+// requires: [
+
+requires: [
+	{
+		git_url: "https://github.com/user/existing.git"
+		version: "^1.0.0"
+	},
+	{
+		git_url: "https://github.com/user/new.git"
+		version: "^2.0.0"
+	},
+]
+`)
+	})
+}
+
+func TestRemoveRequirementMutationBoundaries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("missing block is exact no-op", func(t *testing.T) {
+		t.Parallel()
+
+		content := `module: "mymodule"
+version: "1.0.0"
+description: "no deps"
+`
+		path := writeInvowkmodEditFixture(t, content)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v, want nil", err)
+		}
+
+		assertInvowkmodEditFile(t, path, content)
+	})
+
+	t.Run("single entry removes surrounding blank lines exactly", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/tools.git"
+		version: "^1.0.0"
+	},
+]
+
+description: "after requires"
+`)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+version: "1.0.0"
+description: "after requires"
+`)
+	})
+
+	t.Run("single entry at top keeps following content", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `requires: [
+	{
+		git_url: "https://github.com/user/tools.git"
+		version: "^1.0.0"
+	},
+]
+module: "mymodule"
+`)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+`)
+	})
+
+	t.Run("multi entry removal deletes whole selected entry only", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/tools.git"
+		version: "^1.0.0"
+	},
+	{
+		git_url: "https://github.com/user/utils.git"
+		version: "^2.0.0"
+	},
+	{
+		git_url: "https://github.com/user/extra.git"
+		version: "^3.0.0"
+	},
+]
+`)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/utils.git", ""); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+version: "1.0.0"
+
+requires: [
+	{
+		git_url: "https://github.com/user/tools.git"
+		version: "^1.0.0"
+	},
+	{
+		git_url: "https://github.com/user/extra.git"
+		version: "^3.0.0"
+	},
+]
+`)
+	})
+}
+
+func TestInvowkmodEditHelperMutationBoundaries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("find requires block skips comments and reports malformed block as absent", func(t *testing.T) {
+		t.Parallel()
+
+		lines := strings.Split(`// requires: [
+module: "mymodule"
+requires: [
+`, "\n")
+
+		startLine, endLine, found := findRequiresBlock(lines)
+		if found {
+			t.Fatalf("findRequiresBlock() found block at (%d, %d), want absent", startLine, endLine)
+		}
+		if startLine != 0 || endLine != 0 {
+			t.Fatalf("findRequiresBlock() = (%d, %d, false), want (0, 0, false)", startLine, endLine)
+		}
+	})
+
+	t.Run("find entry bounds includes entry ending at block end", func(t *testing.T) {
+		t.Parallel()
+
+		lines := []string{
+			"{",
+			`	git_url: "https://github.com/user/tools.git"`,
+			"}",
+		}
+
+		entries := findEntryBounds(lines, 0, 2)
+		if len(entries) != 1 {
+			t.Fatalf("findEntryBounds() returned %d entries, want 1", len(entries))
+		}
+		if entries[0] != (entryBounds{start: 0, end: 2}) {
+			t.Fatalf("findEntryBounds()[0] = %+v, want start=0 end=2", entries[0])
+		}
+	})
+}
+
+func writeInvowkmodEditFixture(t *testing.T, content string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "invowkmod.cue")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	return path
+}
+
+func assertInvowkmodEditFile(t *testing.T, path, want string) {
+	t.Helper()
+
+	result, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("file content mismatch\ngot:\n%s\nwant:\n%s", result, want)
+	}
+}
