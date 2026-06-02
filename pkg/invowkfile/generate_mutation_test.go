@@ -477,6 +477,291 @@ func TestGenerateCUE_VirtualFilesystemAccessWithoutPathsRoundTrip(t *testing.T) 
 	}
 }
 
+func TestGenerateCUE_EnvBlockOmitsEmptySubsections(t *testing.T) {
+	t.Parallel()
+
+	var varsOnly strings.Builder
+	generateEnvBlock(&varsOnly, &EnvConfig{
+		Vars: map[EnvVarName]string{"ONLY_VAR": "1"},
+	}, "")
+	varsOnlyCUE := varsOnly.String()
+	requireGeneratedContains(t, varsOnlyCUE, "env: {")
+	requireGeneratedContains(t, varsOnlyCUE, "vars: {")
+	requireGeneratedContains(t, varsOnlyCUE, `ONLY_VAR: "1"`)
+	requireGeneratedNotContains(t, varsOnlyCUE, "files: [")
+
+	var filesOnly strings.Builder
+	generateEnvBlock(&filesOnly, &EnvConfig{
+		Files: []DotenvFilePath{".env"},
+	}, "")
+	filesOnlyCUE := filesOnly.String()
+	requireGeneratedContains(t, filesOnlyCUE, "env: {")
+	requireGeneratedContains(t, filesOnlyCUE, `files: [".env"]`)
+	requireGeneratedNotContains(t, filesOnlyCUE, "vars: {")
+
+	var empty strings.Builder
+	generateEnvBlock(&empty, &EnvConfig{}, "")
+	if got := empty.String(); got != "" {
+		t.Fatalf("empty env block output = %q, want empty", got)
+	}
+}
+
+func TestGenerateCUE_CommandOmitsEmptyCollectionsAndDefaultTypes(t *testing.T) {
+	t.Parallel()
+
+	inv := &Invowkfile{
+		Commands: []Command{{
+			Name: "shape",
+			Implementations: []Implementation{{
+				Script:    ImplementationScript{Content: "echo shape"},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
+			}},
+			Flags: []Flag{{
+				Name:        "target",
+				Description: "Target",
+				Type:        FlagTypeString,
+			}},
+			Watch: &WatchConfig{Patterns: []GlobPattern{"src/**"}},
+		}},
+	}
+
+	_, generated := parseGeneratedCUEMutationFixture(t, inv)
+	requireGeneratedContains(t, generated, "flags: [")
+	requireGeneratedContains(t, generated, `name: "target"`)
+	requireGeneratedContains(t, generated, "watch: {")
+	requireGeneratedNotContains(t, generated, `type: "string"`)
+	requireGeneratedNotContains(t, generated, "args: [")
+	requireGeneratedNotContains(t, generated, "ignore: [")
+}
+
+func TestGeneratePlatformAndVirtualHelpersOmitEmptyConfig(t *testing.T) {
+	t.Parallel()
+
+	var plainPlatform strings.Builder
+	generatePlatformConfig(&plainPlatform, PlatformConfig{Name: PlatformLinux}, "\t")
+	if got, want := plainPlatform.String(), "\t{name: \"linux\"},\n"; got != want {
+		t.Fatalf("plain platform output = %q, want %q", got, want)
+	}
+
+	var emptyVirtualPlatform strings.Builder
+	generatePlatformConfig(&emptyVirtualPlatform, PlatformConfig{
+		Name:    PlatformLinux,
+		Virtual: &PlatformVirtualConfig{Filesystem: &VirtualFilesystemConfig{}},
+	}, "\t")
+	if got, want := emptyVirtualPlatform.String(), "\t{name: \"linux\"},\n"; got != want {
+		t.Fatalf("empty virtual platform output = %q, want %q", got, want)
+	}
+
+	for _, tt := range []struct {
+		name string
+		run  func(*strings.Builder)
+	}{
+		{
+			name: "nil platform virtual",
+			run: func(sb *strings.Builder) {
+				generatePlatformVirtualConfig(sb, nil, "\t")
+			},
+		},
+		{
+			name: "empty platform virtual",
+			run: func(sb *strings.Builder) {
+				generatePlatformVirtualConfig(sb, &PlatformVirtualConfig{}, "\t")
+			},
+		},
+		{
+			name: "nil virtual filesystem",
+			run: func(sb *strings.Builder) {
+				generateVirtualFilesystemConfig(sb, nil, "\t")
+			},
+		},
+		{
+			name: "empty virtual filesystem",
+			run: func(sb *strings.Builder) {
+				generateVirtualFilesystemConfig(sb, &VirtualFilesystemConfig{}, "\t")
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var sb strings.Builder
+			tt.run(&sb)
+			if got := sb.String(); got != "" {
+				t.Fatalf("%s output = %q, want empty", tt.name, got)
+			}
+		})
+	}
+}
+
+func TestGenerateRuntimeConfigShapeForEmptyAndSingleItemFields(t *testing.T) {
+	t.Parallel()
+
+	exitZero := types.ExitCode(0)
+	customCheck := CustomCheckDependency{
+		Name:         "direct",
+		Script:       CustomCheckScript{Content: "echo ok"},
+		ExpectedCode: &exitZero,
+	}
+
+	tests := []struct {
+		name      string
+		runtime   RuntimeConfig
+		want      []string
+		forbidden []string
+	}{
+		{
+			name: "native ignores runtime depends_on",
+			runtime: RuntimeConfig{
+				Name:      RuntimeNative,
+				DependsOn: &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"git"}}}},
+			},
+			want:      []string{`{name: "native"},`},
+			forbidden: []string{"depends_on:"},
+		},
+		{
+			name: "container empty depends_on stays compact",
+			runtime: RuntimeConfig{
+				Name:      RuntimeContainer,
+				Image:     "debian:stable-slim",
+				DependsOn: &DependsOn{},
+			},
+			want:      []string{`{name: "container", image: "debian:stable-slim"},`},
+			forbidden: []string{"depends_on:", "tools: [", "cmds: [", "filepaths: [", "capabilities: [", "custom_checks: [", "env_vars: ["},
+		},
+		{
+			name: "container single custom check uses multiline depends_on",
+			runtime: RuntimeConfig{
+				Name:      RuntimeContainer,
+				Image:     "debian:stable-slim",
+				DependsOn: &DependsOn{CustomChecks: []CustomCheckDependency{customCheck}},
+			},
+			want: []string{`name: "container"`, "depends_on:", "custom_checks:", `name: "direct"`},
+		},
+		{
+			name: "virtual sh single allow omits empty lists",
+			runtime: RuntimeConfig{
+				Name:             RuntimeVirtualSh,
+				EnvInheritMode:   EnvInheritAllow,
+				EnvInheritAllow:  []EnvVarName{"PATH"},
+				BinaryLookupMode: BinaryLookupModeStrict,
+			},
+			want:      []string{`env_inherit_mode: "allow"`, `env_inherit_allow: ["PATH"]`, `binary_lookup_mode: "strict"`},
+			forbidden: []string{"env_inherit_deny: []", "allowed_binaries: []"},
+		},
+		{
+			name: "virtual lua cpu limit one is emitted",
+			runtime: RuntimeConfig{
+				Name:     RuntimeVirtualLua,
+				CPULimit: 1,
+			},
+			want:      []string{"cpu_limit: 1"},
+			forbidden: []string{"allowed_binaries: []"},
+		},
+		{
+			name: "container single volume and port are emitted",
+			runtime: RuntimeConfig{
+				Name:    RuntimeContainer,
+				Image:   "debian:stable-slim",
+				Volumes: []VolumeMountSpec{"./data:/data"},
+				Ports:   []PortMappingSpec{"8080:80"},
+			},
+			want: []string{`volumes: ["./data:/data"]`, `ports: ["8080:80"]`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var sb strings.Builder
+			generateRuntimeConfig(&sb, &tt.runtime)
+			generated := sb.String()
+			for _, want := range tt.want {
+				requireGeneratedContains(t, generated, want)
+			}
+			for _, forbidden := range tt.forbidden {
+				requireGeneratedNotContains(t, generated, forbidden)
+			}
+		})
+	}
+}
+
+func TestGenerateDependsOnContentOmitsInactiveSections(t *testing.T) {
+	t.Parallel()
+
+	exitZero := types.ExitCode(0)
+	tests := []struct {
+		name  string
+		deps  DependsOn
+		label string
+	}{
+		{
+			name:  "tools",
+			deps:  DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"git"}}}},
+			label: "tools: [",
+		},
+		{
+			name:  "cmds",
+			deps:  DependsOn{Commands: []CommandDependency{{Alternatives: []CommandDependencyRef{"build"}}}},
+			label: "cmds: [",
+		},
+		{
+			name: "filepaths",
+			deps: DependsOn{Filepaths: []FilepathDependency{{
+				Alternatives: []FilesystemPath{"./config.yaml"},
+				Readable:     true,
+			}}},
+			label: "filepaths: [",
+		},
+		{
+			name:  "capabilities",
+			deps:  DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}},
+			label: "capabilities: [",
+		},
+		{
+			name: "custom checks",
+			deps: DependsOn{CustomChecks: []CustomCheckDependency{{
+				Name:         "check",
+				Script:       CustomCheckScript{Content: "echo check"},
+				ExpectedCode: &exitZero,
+			}}},
+			label: "custom_checks: [",
+		},
+		{
+			name: "env vars",
+			deps: DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{
+				Name:       "TOKEN",
+				Validation: "^[A-Z]+$",
+			}}}}},
+			label: "env_vars: [",
+		},
+	}
+	labels := []string{"tools: [", "cmds: [", "filepaths: [", "capabilities: [", "custom_checks: [", "env_vars: ["}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var sb strings.Builder
+			generateDependsOnContent(&sb, &tt.deps, "\t")
+			generated := sb.String()
+			requireGeneratedContains(t, generated, tt.label)
+			for _, label := range labels {
+				if label != tt.label {
+					requireGeneratedNotContains(t, generated, label)
+				}
+			}
+		})
+	}
+
+	var empty strings.Builder
+	generateDependsOnContent(&empty, &DependsOn{}, "\t")
+	if got := empty.String(); got != "" {
+		t.Fatalf("empty depends_on content = %q, want empty", got)
+	}
+}
+
 func runtimeDependsOnMutationFixture(deps *DependsOn) *Invowkfile {
 	return &Invowkfile{
 		Commands: []Command{{
