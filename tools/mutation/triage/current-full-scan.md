@@ -227,6 +227,13 @@ Seventeenth remediation batch:
 - The focused rerun proved 9 accepted `internal/app/llmconfig/resolve.go` survivor records killed and removed from the root baseline, dropping that file from 21 to 12 accepted mutants.
 - The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `internal/app/llmconfig/resolve.go`.
 
+Eighteenth remediation batch:
+
+- Add implementation contract coverage for `pkg/invowkfile/implementation.go`, including optional field validation on otherwise-valid implementations, script source/file/interpreter validation, script read-error payloads and wrapping, non-container host-SSH behavior, empty dependency checks, exact parent traversal rejection, and inline script path lookup.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-implementation/`, generated `2026-06-03T00:19:04Z`, with 181 total mutants, 139 killed, 40 not covered, 2 escaped, MSI 76.80%, and covered-code MSI 98.58%.
+- The focused rerun proved 19 accepted `pkg/invowkfile/implementation.go` survivor records killed and removed from the root baseline, dropping that file from 20 to 1 accepted mutant.
+- The focused rerun also surfaced 1 escaped ID that was not in the accepted baseline for this file. It was not added during this shrink-only pass; reconcile it with the next full root mutation profile before any broader baseline refresh.
+
 ## Policy
 
 The committed baseline accepts the current escaped set so blocking mode can distinguish new escapes from known historical survivors. Future survivor reduction should follow this loop:
