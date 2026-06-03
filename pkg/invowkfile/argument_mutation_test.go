@@ -63,17 +63,7 @@ func TestArgumentNameValidateReportsValueAndReason(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.value.Validate()
-			if err == nil {
-				t.Fatal("ArgumentName.Validate() returned nil, want invalid name error")
-			}
-			if !errors.Is(err, ErrInvalidArgumentName) {
-				t.Fatalf("error should wrap ErrInvalidArgumentName, got %v", err)
-			}
-			var invalid *InvalidArgumentNameError
-			if !errors.As(err, &invalid) {
-				t.Fatalf("error should be *InvalidArgumentNameError, got %T", err)
-			}
+			invalid := requireInvalidArgumentNameError(t, tt.value.Validate())
 			if invalid.Value != tt.value {
 				t.Fatalf("InvalidArgumentNameError.Value = %q, want %q", invalid.Value, tt.value)
 			}
@@ -82,6 +72,22 @@ func TestArgumentNameValidateReportsValueAndReason(t *testing.T) {
 			}
 		})
 	}
+}
+
+func requireInvalidArgumentNameError(t *testing.T, err error) *InvalidArgumentNameError {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("ArgumentName.Validate() returned nil, want invalid name error")
+	}
+	if !errors.Is(err, ErrInvalidArgumentName) {
+		t.Fatalf("error should wrap ErrInvalidArgumentName, got %v", err)
+	}
+	var invalid *InvalidArgumentNameError
+	if !errors.As(err, &invalid) {
+		t.Fatalf("error should be *InvalidArgumentNameError, got %T", err)
+	}
+	return invalid
 }
 
 func TestArgumentValidateIncludesInvalidNameFieldError(t *testing.T) {

@@ -215,45 +215,41 @@ func TestDiscoverCommandSetMutationParseErrorsBecomeDiagnostics(t *testing.T) {
 	requireDiscoveryMutationDiagnostic(t, result.Diagnostics, CodeInvowkfileParseSkipped, "skipping invowkfile")
 }
 
-func TestGetCommandMutationValidationAndDiagnostics(t *testing.T) {
+func TestGetCommandMutationRejectsInvalidCommandName(t *testing.T) {
 	t.Parallel()
 
-	t.Run("invalid command name is rejected", func(t *testing.T) {
-		t.Parallel()
+	lookup, err := newTestDiscovery(t, config.DefaultConfig(), t.TempDir()).GetCommand(t.Context(), "")
+	if err == nil {
+		t.Fatal("GetCommand() error = nil, want invalid command name")
+	}
+	if !strings.Contains(err.Error(), "invalid command name") {
+		t.Fatalf("GetCommand() error = %q, want invalid command name detail", err)
+	}
+	if !errors.Is(err, invowkfile.ErrInvalidCommandName) {
+		t.Fatalf("GetCommand() error = %v, want ErrInvalidCommandName", err)
+	}
+	if lookup.Command != nil || len(lookup.Diagnostics) != 0 {
+		t.Fatalf("GetCommand() lookup = %+v, want empty result on invalid name", lookup)
+	}
+}
 
-		lookup, err := newTestDiscovery(t, config.DefaultConfig(), t.TempDir()).GetCommand(t.Context(), "")
-		if err == nil {
-			t.Fatal("GetCommand() error = nil, want invalid command name")
-		}
-		if !strings.Contains(err.Error(), "invalid command name") {
-			t.Fatalf("GetCommand() error = %q, want invalid command name detail", err)
-		}
-		if !errors.Is(err, invowkfile.ErrInvalidCommandName) {
-			t.Fatalf("GetCommand() error = %v, want ErrInvalidCommandName", err)
-		}
-		if lookup.Command != nil || len(lookup.Diagnostics) != 0 {
-			t.Fatalf("GetCommand() lookup = %+v, want empty result on invalid name", lookup)
-		}
-	})
+func TestGetCommandMutationPreservesDiscoveryDiagnostics(t *testing.T) {
+	t.Parallel()
 
-	t.Run("successful lookup preserves discovery diagnostics", func(t *testing.T) {
-		t.Parallel()
+	tmpDir := t.TempDir()
+	writeDiscoveryMutationInvowkfile(t, filepath.Join(tmpDir, "invowkfile.cue"), "build", "Build")
+	if err := os.Mkdir(filepath.Join(tmpDir, "broken.invowkmod"), 0o755); err != nil {
+		t.Fatalf("create invalid module dir: %v", err)
+	}
 
-		tmpDir := t.TempDir()
-		writeDiscoveryMutationInvowkfile(t, filepath.Join(tmpDir, "invowkfile.cue"), "build", "Build")
-		if err := os.Mkdir(filepath.Join(tmpDir, "broken.invowkmod"), 0o755); err != nil {
-			t.Fatalf("create invalid module dir: %v", err)
-		}
-
-		lookup, err := newTestDiscovery(t, config.DefaultConfig(), tmpDir).GetCommand(t.Context(), "build")
-		if err != nil {
-			t.Fatalf("GetCommand() error = %v", err)
-		}
-		if lookup.Command == nil || lookup.Command.Name != "build" {
-			t.Fatalf("GetCommand() command = %+v, want build", lookup.Command)
-		}
-		requireDiscoveryMutationDiagnostic(t, lookup.Diagnostics, CodeModuleLoadSkipped, "broken.invowkmod")
-	})
+	lookup, err := newTestDiscovery(t, config.DefaultConfig(), tmpDir).GetCommand(t.Context(), "build")
+	if err != nil {
+		t.Fatalf("GetCommand() error = %v", err)
+	}
+	if lookup.Command == nil || lookup.Command.Name != "build" {
+		t.Fatalf("GetCommand() command = %+v, want build", lookup.Command)
+	}
+	requireDiscoveryMutationDiagnostic(t, lookup.Diagnostics, CodeModuleLoadSkipped, "broken.invowkmod")
 }
 
 func writeDiscoveryMutationInvowkfile(t *testing.T, path, name, description string) {

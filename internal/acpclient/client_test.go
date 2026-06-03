@@ -28,6 +28,7 @@ var _ acp.Agent = (*fakeAgent)(nil)
 
 type fakeAgent struct {
 	conn         *acp.AgentSideConnection
+	ready        chan struct{}
 	scenario     string
 	startMarker  types.FilesystemPath
 	cancelMarker types.FilesystemPath
@@ -111,12 +112,14 @@ func fakeOptions(t *testing.T) Options {
 
 func runFakeAgentProcess() int {
 	agent := &fakeAgent{
+		ready:        make(chan struct{}),
 		scenario:     os.Getenv(fakeAgentScenarioEnv),
 		startMarker:  types.FilesystemPath(os.Getenv(fakeAgentStartFileEnv)),
 		cancelMarker: types.FilesystemPath(os.Getenv(fakeAgentCancelFileEnv)),
 	}
 	conn := acp.NewAgentSideConnection(agent, os.Stdout, os.Stdin)
 	agent.conn = conn
+	close(agent.ready)
 	<-conn.Done()
 	return 0
 }
@@ -170,7 +173,11 @@ func (a *fakeAgent) Prompt(ctx context.Context, params acp.PromptRequest) (acp.P
 		<-ctx.Done()
 		return acp.PromptResponse{StopReason: acp.StopReasonCancelled}, fmt.Errorf("fake prompt canceled: %w", ctx.Err())
 	default:
-		if err := a.conn.SessionUpdate(ctx, acp.SessionNotification{
+		conn, err := a.connection(ctx)
+		if err != nil {
+			return acp.PromptResponse{}, err
+		}
+		if err := conn.SessionUpdate(ctx, acp.SessionNotification{
 			SessionId: params.SessionId,
 			Update:    acp.UpdateAgentMessageText("hello from fake agent"),
 		}); err != nil {
@@ -193,6 +200,15 @@ func (a *fakeAgent) SetSessionConfigOption(
 
 func (a *fakeAgent) SetSessionMode(context.Context, acp.SetSessionModeRequest) (acp.SetSessionModeResponse, error) {
 	return acp.SetSessionModeResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetMode)
+}
+
+func (a *fakeAgent) connection(ctx context.Context) (*acp.AgentSideConnection, error) {
+	select {
+	case <-a.ready:
+		return a.conn, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("wait for fake agent connection: %w", ctx.Err())
+	}
 }
 
 func waitForFile(t *testing.T, path types.FilesystemPath) {
