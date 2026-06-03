@@ -3758,70 +3758,10 @@
       "line": 65
     },
     {
-      "id": "12cf1b6f160142b3d82584fdff396539",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "composite/field-clear",
-      "line": 278
-    },
-    {
-      "id": "e2426520e18ea1187ff53d61c7be961b",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "composite/field-clear",
-      "line": 297
-    },
-    {
-      "id": "ad2bfcc772745a648375c6390954d23b",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "composite/field-clear",
-      "line": 300
-    },
-    {
-      "id": "80b4f8f2f21e4af52f9a505bc346ed45",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "composite/field-clear",
-      "line": 297
-    },
-    {
-      "id": "984e14ee95af7eff2f43609a909023d4",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "conditional/negated",
-      "line": 71
-    },
-    {
-      "id": "236ac33c38cd963e5f96b3afdcccb982",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "composite/field-clear",
-      "line": 297
-    },
-    {
-      "id": "a056a861b726487efabdae116574dd56",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "composite/field-clear",
-      "line": 333
-    },
-    {
-      "id": "e82de481d37821870e4d332b95d03ad4",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "expression/error-guard",
-      "line": 71
-    },
-    {
       "id": "73722f5b0a9acc58b30909ceb5f09869",
       "file": "pkg/invowkmod/verify.go",
       "mutator": "expression/remove",
       "line": 177
-    },
-    {
-      "id": "3dd41b19e3cb1de8570fcd887f5db313",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "expression/logical",
-      "line": 272
-    },
-    {
-      "id": "2c748822f44b918126466313c5ea48ea",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "expression/remove",
-      "line": 272
     },
     {
       "id": "f19f89fbf474913128ceb118b2983463",
@@ -3834,42 +3774,6 @@
       "file": "pkg/invowkmod/verify.go",
       "mutator": "expression/remove",
       "line": 177
-    },
-    {
-      "id": "f7d1cee78b98cef5fea83c713bf501af",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "expression/remove",
-      "line": 272
-    },
-    {
-      "id": "7db03756b565a5fffb0711e48f302965",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "loop/range_break",
-      "line": 78
-    },
-    {
-      "id": "bcc7bb6f1b7792dd42f7333e8e5b2910",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "numbers/decrementer",
-      "line": 166
-    },
-    {
-      "id": "7db03756b565a5fffb0711e48f302965",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "loop/range_break",
-      "line": 350
-    },
-    {
-      "id": "f19460a6b9c1a9ead1c1529ef36d0864",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "numbers/decrementer",
-      "line": 74
-    },
-    {
-      "id": "7fbceac5c826fcdf94455cf39f03947a",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "statement/remove",
-      "line": 350
     },
     {
       "id": "a5708f3a74bbd6df2e3de4383146d2fa",
@@ -3900,12 +3804,6 @@
       "file": "pkg/platform/sandbox.go",
       "mutator": "statement/return",
       "line": 165
-    },
-    {
-      "id": "e7ebaeaacafd987c49a1015faa686b30",
-      "file": "pkg/invowkmod/verify.go",
-      "mutator": "statement/return",
-      "line": 352
     },
     {
       "id": "28445609c065271299dda394aa304cc8",

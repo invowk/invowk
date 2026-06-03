@@ -241,6 +241,13 @@ Nineteenth remediation batch:
 - The focused rerun proved 14 accepted `pkg/invowkmod/invowkmod_edit.go` survivor records killed and removed from the root baseline, dropping that file from 20 to 6 accepted mutants.
 - The focused rerun also surfaced 2 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
 
+Twentieth remediation batch:
+
+- Add invowkmod verify contract coverage for `pkg/invowkmod/verify.go`, including ambiguity validation aggregation, vendored hash evaluation payload preservation, empty-hash lock skipping, malformed-lock error wrapping, ignored vendor entry traversal, ambiguous-key error text, and mismatch error fields.
+- Focused rerun: `artifacts/mutation/focused/root-invowkmod-verify/`, generated `2026-06-03T00:36:19Z`, with 168 total mutants, 102 killed, 62 not covered, 4 escaped, MSI 60.71%, and covered-code MSI 96.23%.
+- The focused rerun proved 17 accepted `pkg/invowkmod/verify.go` survivor records killed and removed from the root baseline, dropping that file from 20 to 3 accepted mutants.
+- The focused rerun also surfaced 1 escaped ID that was not in the accepted baseline for this file. It was not added during this shrink-only pass; reconcile it with the next full root mutation profile before any broader baseline refresh.
+
 ## Policy
 
 The committed baseline accepts the current escaped set so blocking mode can distinguish new escapes from known historical survivors. Future survivor reduction should follow this loop:
