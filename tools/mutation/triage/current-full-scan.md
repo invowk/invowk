@@ -213,6 +213,13 @@ Fifteenth remediation batch:
 - The focused rerun proved 16 accepted `pkg/cueutil/error.go` survivor records killed and removed from the root baseline, dropping that file from 22 to 6 accepted mutants.
 - The focused rerun also surfaced 3 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
 
+Sixteenth remediation batch:
+
+- Add semver resolver coverage for `pkg/invowkmod/semver.go`, including non-nil resolver construction, parsed constraint field preservation, integer-overflow parse errors, no-valid-version vs no-match resolve errors, and exact sorted/filtered version outputs.
+- Focused rerun: `artifacts/mutation/focused/root-invowkmod-semver/`, generated `2026-06-03T00:05:35Z`, with 232 total mutants, 201 killed, 11 not covered, 20 escaped, MSI 86.64%, and covered-code MSI 90.95%.
+- The focused rerun proved 5 accepted `pkg/invowkmod/semver.go` survivor records killed and removed from the root baseline, dropping that file from 21 to 16 accepted mutants.
+- The focused rerun also surfaced 4 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
 ## Policy
 
 The committed baseline accepts the current escaped set so blocking mode can distinguish new escapes from known historical survivors. Future survivor reduction should follow this loop:

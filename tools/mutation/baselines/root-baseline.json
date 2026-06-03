@@ -3836,18 +3836,6 @@
       "line": 54
     },
     {
-      "id": "31db28a6ffd823dd80b6e6c16b042f0b",
-      "file": "pkg/invowkmod/semver.go",
-      "mutator": "branch/if",
-      "line": 234
-    },
-    {
-      "id": "c21ea60a6b760e086b1a927c971cba0a",
-      "file": "pkg/invowkmod/semver.go",
-      "mutator": "composite/field-clear",
-      "line": 163
-    },
-    {
       "id": "f65fd5a40d510a9162961a3a9c3e9fff",
       "file": "pkg/invowkmod/semver.go",
       "mutator": "expression/comparison",
@@ -3938,28 +3926,10 @@
       "line": 251
     },
     {
-      "id": "026e1c5de14b5a790f692e73c3b4f6e1",
-      "file": "pkg/invowkmod/semver.go",
-      "mutator": "numbers/decrementer",
-      "line": 233
-    },
-    {
       "id": "340e2f9fcd00b7ca48031536caf342d9",
       "file": "pkg/invowkmod/semver.go",
       "mutator": "numbers/decrementer",
       "line": 289
-    },
-    {
-      "id": "f6d8f54ef1ded3fcafef284d46cbdb8e",
-      "file": "pkg/invowkmod/semver.go",
-      "mutator": "numbers/incrementer",
-      "line": 233
-    },
-    {
-      "id": "8e5ec5a1301dd227240768a131b95675",
-      "file": "pkg/invowkmod/semver.go",
-      "mutator": "statement/return",
-      "line": 48
     },
     {
       "id": "c73560d7d3807df9feb09cf7d9a8882b",
