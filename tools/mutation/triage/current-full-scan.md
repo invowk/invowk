@@ -9,7 +9,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
-- `tools/mutation/baselines/root-baseline.json`: 632 accepted escaped mutants.
+- `tools/mutation/baselines/root-baseline.json`: 619 accepted escaped mutants.
 - `tools/mutation/baselines/goplint-baseline.json`: 810 accepted escaped mutants.
 
 ## Root Profile
@@ -19,14 +19,13 @@ Summary from `artifacts/mutation/full/root/go-mutesting-summary.json`:
 - Total: 9,389
 - Killed: 5,224
 - Escaped in source report: 1,636
-- Accepted baseline after remediation: 632
+- Accepted baseline after remediation: 619
 - Not covered: 2,529
 - MSI: 55.64%
 - Covered-code MSI: 76.15%
 
 Top accepted clusters after the current remediation batches:
 
-- `pkg/invowkfile/validation_structure_args.go`: 19 accepted
 - `pkg/invowkmod/command_scope.go`: 19 accepted
 - `internal/discovery/discovery_commands.go`: 18 accepted
 - `internal/watch/watcher.go`: 18 accepted
@@ -38,6 +37,7 @@ Top accepted clusters after the current remediation batches:
 - `pkg/invowkmod/semver.go`: 16 accepted
 - `internal/app/deps/types.go`: 15 accepted
 - `pkg/containerargs/container_name.go`: 15 accepted
+- `pkg/invowkmod/operations_validate.go`: 15 accepted
 
 Top not-covered clusters:
 
@@ -257,6 +257,13 @@ Twenty-first remediation batch:
 - Focused rerun: `artifacts/mutation/focused/root-invowkfile-argument/`, generated `2026-06-03T00:51:04Z`, with 84 total mutants, 81 killed, 1 not covered, 2 escaped, MSI 96.43%, and covered-code MSI 97.59%.
 - The focused rerun proved 17 accepted `pkg/invowkfile/argument.go` survivor records killed and removed from the root baseline, dropping that file from 19 to 2 accepted mutants.
 - The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `pkg/invowkfile/argument.go`.
+
+Twenty-second remediation batch:
+
+- Add argument structure-validator coverage for `pkg/invowkfile/validation_structure_args.go`, including nil no-args output, argument name and description length diagnostics, unsafe-regex cause preservation, default-value compatibility diagnostics, duplicate argument names, required-after-optional ordering, and variadic-not-last state tracking.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-validation-structure-args/`, generated `2026-06-03T01:01:02Z`, with 120 total mutants, 79 killed, 32 not covered, 9 escaped, MSI 65.83%, and covered-code MSI 89.77%.
+- The focused rerun proved 13 accepted `pkg/invowkfile/validation_structure_args.go` survivor records killed and removed from the root baseline, dropping that file from 19 to 6 accepted mutants.
+- The focused rerun also surfaced 3 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
 
 ## Policy
 

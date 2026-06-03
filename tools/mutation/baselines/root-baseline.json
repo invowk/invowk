@@ -2336,28 +2336,10 @@
       "line": 21
     },
     {
-      "id": "6d03175e2f99da558d1570bc1662253e",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 105
-    },
-    {
       "id": "ac9829e1d8ddaef9293d8ba8a7fd2e2f",
       "file": "pkg/invowkfile/validation_structure_args.go",
       "mutator": "composite/field-clear",
       "line": 107
-    },
-    {
-      "id": "4ff2ca7ea470372363b16f0e0c6f7a0c",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 104
-    },
-    {
-      "id": "973a9c51a96f129682a9a78d3663a610",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 127
     },
     {
       "id": "ac9829e1d8ddaef9293d8ba8a7fd2e2f",
@@ -2366,46 +2348,10 @@
       "line": 128
     },
     {
-      "id": "a8c26fe3c2f7731a3546a29a8d9ca9a3",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 146
-    },
-    {
-      "id": "60ba204134cc35db20c527a17bbea375",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 126
-    },
-    {
-      "id": "1b96b8f6e28a5863b5b5b3c0b9269e24",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 148
-    },
-    {
-      "id": "dfcc5c132d5703a41011ec80c50592e0",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 150
-    },
-    {
       "id": "ac9829e1d8ddaef9293d8ba8a7fd2e2f",
       "file": "pkg/invowkfile/validation_structure_args.go",
       "mutator": "composite/field-clear",
       "line": 138
-    },
-    {
-      "id": "9450bcc74383520e36c93a154108a9d2",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 136
-    },
-    {
-      "id": "e4f747bdbf029a51652eb26add42a11f",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 125
     },
     {
       "id": "7a653c1029a70424052d2ca863cae892",
@@ -2418,30 +2364,6 @@
       "file": "pkg/invowkfile/validation_structure_args.go",
       "mutator": "composite/field-clear",
       "line": 160
-    },
-    {
-      "id": "3b7962ba63e0ba2d600409231142e026",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 135
-    },
-    {
-      "id": "5a0b3c55aaab7326d4578a3f12bb3868",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "composite/field-clear",
-      "line": 147
-    },
-    {
-      "id": "0c037cf0de6f0c1b67aab7e09aa01b06",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "expression/error-guard",
-      "line": 92
-    },
-    {
-      "id": "9d1fbc676b391ec295a0853be4a11ad7",
-      "file": "pkg/invowkfile/validation_structure_args.go",
-      "mutator": "expression/error-guard",
-      "line": 62
     },
     {
       "id": "cc083158405e530d703e30784dd54a89",
