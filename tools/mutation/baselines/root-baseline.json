@@ -746,58 +746,10 @@
       "line": 463
     },
     {
-      "id": "876a8ddaf93d1dcea701c7b22bac1375",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "branch/case",
-      "line": 246
-    },
-    {
       "id": "86531b3722115bda9a11982aaf61ef4f",
       "file": "internal/discovery/discovery_commands.go",
       "mutator": "branch/if",
       "line": 263
-    },
-    {
-      "id": "b024ad4002460e6f7ce810c0d835c912",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 111
-    },
-    {
-      "id": "cdc7a48a99efeb9f1593b49320b3525e",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 270
-    },
-    {
-      "id": "7fa537a466723426e77b604042a4d96c",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 270
-    },
-    {
-      "id": "ee11a9038a58c6e09581b33b2f587819",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 270
-    },
-    {
-      "id": "08022d119fe3c059b932bdd1468e9efa",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 270
-    },
-    {
-      "id": "29224bb5dc570ab7195a61f1a4b2f04f",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 270
-    },
-    {
-      "id": "9b74a12aaa5560ff0f5fc576a15d9f8e",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "composite/field-clear",
-      "line": 322
     },
     {
       "id": "950358334c48d0851aee9b4dbccabbbf",
@@ -816,18 +768,6 @@
       "file": "internal/discovery/discovery_commands.go",
       "mutator": "expression/comparison",
       "line": 155
-    },
-    {
-      "id": "3aa1de18f1f54bc62932a653a780e122",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "expression/error-guard",
-      "line": 214
-    },
-    {
-      "id": "16acd48c9e2f2cc22d980202207e7508",
-      "file": "internal/discovery/discovery_commands.go",
-      "mutator": "expression/error-guard",
-      "line": 318
     },
     {
       "id": "388b7b083ee2916fc2b502d5e3be24d1",
