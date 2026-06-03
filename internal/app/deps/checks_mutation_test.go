@@ -65,6 +65,8 @@ func TestContainerDependencyWrapperMutationContracts(t *testing.T) {
 	t.Run("capability wrappers skip empty deps and require probe for non-empty deps", testContainerCapabilityWrapperMutationContracts)
 	t.Run("command wrappers skip empty deps and require probe for non-empty deps", testContainerCommandWrapperMutationContracts)
 	t.Run("resolved command wrapper skips empty deps and requires probe for resolved deps", testContainerResolvedCommandWrapperMutationContracts)
+	t.Run("runtime wrappers return nil when all alternatives pass", testContainerWrapperSuccessMutationContracts)
+	t.Run("runtime wrappers preserve dependency error payloads", testContainerWrapperFailurePayloadMutationContracts)
 }
 
 func TestValidateCustomCheckOutputMutationContracts(t *testing.T) {
@@ -154,11 +156,20 @@ func TestEvaluateCustomChecksMutationContracts(t *testing.T) {
 	}
 }
 
+func TestCustomCheckResolutionMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	t.Run("script resolution preserves wrapped read errors", testCustomCheckResolutionWrapsReadErrors)
+	t.Run("analysis runtime distinguishes missing interpreter from native interpreter", testCustomCheckAnalysisRuntimeBoundaries)
+	t.Run("validation messages preserve nested separators", testCustomCheckValidationMessageSeparators)
+}
+
 func TestContainerCollectorsMutationContracts(t *testing.T) {
 	t.Parallel()
 
 	t.Run("env alternatives stop after first successful probe", testContainerCollectorEnvAlternatives)
 	t.Run("qualified command dependencies use source-qualified probe names", testContainerCollectorQualifiedCommands)
+	t.Run("bare command dependencies use unqualified probe names", testContainerCollectorBareCommands)
 	t.Run("resolved command dependencies skip nil commands and format fallback alternatives", testContainerCollectorResolvedCommands)
 }
 
@@ -167,7 +178,9 @@ func TestHostEnvCapabilityMutationContracts(t *testing.T) {
 
 	t.Run("capability wrapper requires checker for non-empty deps", testHostCapabilityRequiresChecker)
 	t.Run("duplicate capability dependencies are checked once", testHostCapabilityDedupe)
+	t.Run("distinct capability alternative sets are not deduped", testHostCapabilityDistinctAlternativeSets)
 	t.Run("host multi-capability failure records host-specific message and structured kind", testHostMultiCapabilityFailure)
+	t.Run("host env wrapper records command and structured payload", testHostEnvWrapperPayload)
 	t.Run("host env formatting trims alternatives and invalid regex remains wrapped", testHostEnvFormattingAndRegex)
 }
 
@@ -245,6 +258,122 @@ func testContainerResolvedCommandWrapperMutationContracts(t *testing.T) {
 	}
 }
 
+func testContainerWrapperSuccessMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+	probe := &checksMutationRuntimeProbe{}
+	if err := CheckEnvVarDependenciesInContainer(
+		&invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "TOKEN"}}}}},
+		probe,
+		ctx,
+	); err != nil {
+		t.Fatalf("passing env deps error = %v, want nil", err)
+	}
+	if err := CheckCapabilityDependenciesInContainer(
+		&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}}},
+		probe,
+		ctx,
+	); err != nil {
+		t.Fatalf("passing capability deps error = %v, want nil", err)
+	}
+	if err := CheckCommandDependenciesInContainer(
+		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"build"}}}},
+		probe,
+		ctx,
+	); err != nil {
+		t.Fatalf("passing command deps error = %v, want nil", err)
+	}
+}
+
+func testContainerWrapperFailurePayloadMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+	probe := &checksMutationRuntimeProbe{
+		envErrors: map[invowkfile.EnvVarName]error{
+			"TOKEN": errors.New("TOKEN missing in runtime"),
+		},
+		capabilityErrors: map[invowkfile.CapabilityName]error{
+			invowkfile.CapabilityTTY: errors.New("tty missing in runtime"),
+		},
+		commandErrors: map[invowkfile.CommandName]error{
+			"build": errors.New("build missing in runtime"),
+		},
+	}
+
+	envErr := requireDependencyError(t, CheckEnvVarDependenciesInContainer(
+		&invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "TOKEN"}}}}},
+		probe,
+		ctx,
+	))
+	requireChecksMutationDependencyPayload(t, envErr, ctx.CommandName, DependencyFailureEnvVar, []string{"TOKEN missing in runtime"})
+
+	capErr := requireDependencyError(t, CheckCapabilityDependenciesInContainer(
+		&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}}},
+		probe,
+		ctx,
+	))
+	requireChecksMutationDependencyPayload(t, capErr, ctx.CommandName, DependencyFailureCapability, []string{"tty missing in runtime"})
+
+	cmdErr := requireDependencyError(t, CheckCommandDependenciesInContainer(
+		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"build"}}}},
+		probe,
+		ctx,
+	))
+	requireChecksMutationDependencyPayload(t, cmdErr, ctx.CommandName, DependencyFailureCommand, []string{"build - command not found in container"})
+}
+
+func testCustomCheckResolutionWrapsReadErrors(t *testing.T) {
+	t.Parallel()
+
+	modulePath := invowkfile.FilesystemPath(t.TempDir())
+	scriptFile := invowkfile.FilesystemPath("checks/ready.sh")
+	readErr := errors.New("read failed")
+	_, _, err := resolveCustomCheckScript(
+		invowkfile.CustomCheck{
+			Name:   "ready",
+			Script: invowkfile.CustomCheckScript{File: &scriptFile},
+		},
+		ExecutionContext{
+			Context:          t.Context(),
+			CommandName:      "build",
+			SourceModulePath: &modulePath,
+			ReadScriptFile: func(string) ([]byte, error) {
+				return nil, readErr
+			},
+		},
+		customCheckInterpreterTargetHost,
+	)
+	if !errors.Is(err, readErr) {
+		t.Fatalf("resolveCustomCheckScript() error = %v, want wrapping read error", err)
+	}
+}
+
+func testCustomCheckAnalysisRuntimeBoundaries(t *testing.T) {
+	t.Parallel()
+
+	if got := customCheckAnalysisRuntime(invowkfile.CustomCheckScript{}, "echo ok", customCheckInterpreterTargetHost); got != invowkfile.RuntimeVirtualSh {
+		t.Fatalf("host custom check without interpreter runtime = %q, want virtual-sh", got)
+	}
+	if got := customCheckAnalysisRuntime(invowkfile.CustomCheckScript{}, "#!/usr/bin/python3\nprint('ok')", customCheckInterpreterTargetHost); got != invowkfile.RuntimeNative {
+		t.Fatalf("host custom check with non-shell shebang runtime = %q, want native", got)
+	}
+	if got := customCheckAnalysisRuntime(invowkfile.CustomCheckScript{}, "echo ok", customCheckInterpreterTargetRuntime); got != invowkfile.RuntimeContainer {
+		t.Fatalf("runtime custom check analysis runtime = %q, want container", got)
+	}
+}
+
+func testCustomCheckValidationMessageSeparators(t *testing.T) {
+	t.Parallel()
+
+	err := invowkfile.CustomCheckDependency{Name: "invalid-direct"}.Validate()
+	message := customCheckDependencyValidationMessage(err)
+	if !strings.Contains(message, ": invalid custom check script") {
+		t.Fatalf("custom check validation message = %q, want nested separator before field error", message)
+	}
+}
+
 func testContainerCollectorEnvAlternatives(t *testing.T) {
 	t.Parallel()
 
@@ -289,6 +418,25 @@ func testContainerCollectorQualifiedCommands(t *testing.T) {
 	if len(errs) != 1 || errs[0].String() != want {
 		t.Fatalf("container command errors = %v, want %q", errs, want)
 	}
+}
+
+func testContainerCollectorBareCommands(t *testing.T) {
+	t.Parallel()
+
+	probe := &checksMutationRuntimeProbe{
+		commandErrors: map[invowkfile.CommandName]error{
+			"build": errors.New("missing command"),
+		},
+	}
+	errs := collectContainerCommandErrors(
+		[]invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"build"}}},
+		probe,
+		newDependencyExecutionContext(t),
+	)
+	if len(probe.commands) != 1 || probe.commands[0] != "build" {
+		t.Fatalf("checked commands = %v, want build", probe.commands)
+	}
+	requireDependencyFailureStrings(t, errs, []string{"build - command not found in container"})
 }
 
 func testContainerCollectorResolvedCommands(t *testing.T) {
@@ -348,6 +496,24 @@ func testHostCapabilityDedupe(t *testing.T) {
 	}
 }
 
+func testHostCapabilityDistinctAlternativeSets(t *testing.T) {
+	t.Parallel()
+
+	checker := &recordingCapabilityChecker{}
+	deps := &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY, invowkfile.CapabilityInternet}},
+			{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY, invowkfile.CapabilityLocalAreaNetwork}},
+		},
+	}
+	if err := CheckCapabilityDependenciesWithChecker(deps, newDependencyExecutionContext(t), checker); err != nil {
+		t.Fatalf("CheckCapabilityDependenciesWithChecker() = %v, want nil", err)
+	}
+	if len(checker.requests) != 2 {
+		t.Fatalf("capability requests = %d, want two distinct alternative sets", len(checker.requests))
+	}
+}
+
 func testHostMultiCapabilityFailure(t *testing.T) {
 	t.Parallel()
 
@@ -371,6 +537,19 @@ func testHostMultiCapabilityFailure(t *testing.T) {
 	}
 }
 
+func testHostEnvWrapperPayload(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+	err := CheckEnvVarDependencies(
+		&invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "TOKEN"}}}}},
+		map[string]string{},
+		ctx,
+	)
+	depErr := requireDependencyError(t, err)
+	requireChecksMutationDependencyPayload(t, depErr, ctx.CommandName, DependencyFailureEnvVar, []string{"TOKEN - not set in environment"})
+}
+
 func testHostEnvFormattingAndRegex(t *testing.T) {
 	t.Parallel()
 
@@ -387,6 +566,54 @@ func testHostEnvFormattingAndRegex(t *testing.T) {
 	var syntaxErr *syntax.Error
 	if !errors.As(err, &syntaxErr) {
 		t.Fatalf("invalid host env regex error = %v, want *syntax.Error", err)
+	}
+}
+
+func requireChecksMutationDependencyPayload(
+	t *testing.T,
+	depErr *DependencyError,
+	wantCommand invowkfile.CommandName,
+	wantKind DependencyFailureKind,
+	wantDetails []string,
+) {
+	t.Helper()
+
+	if depErr.CommandName != wantCommand {
+		t.Fatalf("CommandName = %q, want %q", depErr.CommandName, wantCommand)
+	}
+	legacyMessages := checksMutationLegacyMessages(depErr, wantKind)
+	requireDependencyFailureStrings(t, legacyMessages, wantDetails)
+	if len(depErr.StructuredFailures) != len(wantDetails) {
+		t.Fatalf("StructuredFailures = %v, want %d entries", depErr.StructuredFailures, len(wantDetails))
+	}
+	for i := range wantDetails {
+		if depErr.StructuredFailures[i].Kind() != wantKind {
+			t.Fatalf("StructuredFailures[%d].Kind() = %q, want %q", i, depErr.StructuredFailures[i].Kind(), wantKind)
+		}
+		if depErr.StructuredFailures[i].Detail().String() != wantDetails[i] {
+			t.Fatalf("StructuredFailures[%d].Detail() = %q, want %q", i, depErr.StructuredFailures[i].Detail(), wantDetails[i])
+		}
+	}
+}
+
+func checksMutationLegacyMessages(depErr *DependencyError, kind DependencyFailureKind) []DependencyMessage {
+	switch kind {
+	case DependencyFailureTool:
+		return depErr.MissingTools
+	case DependencyFailureCommand:
+		return depErr.MissingCommands
+	case DependencyFailureFilepath:
+		return depErr.MissingFilepaths
+	case DependencyFailureCapability:
+		return depErr.MissingCapabilities
+	case DependencyFailureCustomCheck:
+		return depErr.FailedCustomChecks
+	case DependencyFailureEnvVar:
+		return depErr.MissingEnvVars
+	case DependencyFailureForbiddenCommand:
+		return depErr.ForbiddenCommands
+	default:
+		return nil
 	}
 }
 

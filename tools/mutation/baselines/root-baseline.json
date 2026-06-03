@@ -2,82 +2,10 @@
   "version": 1,
   "mutants": [
     {
-      "id": "fc39ce9752e70bab7131b6b48d33a7b8",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 258
-    },
-    {
-      "id": "1abb4e20ecb5e5dc382c7f6949a57bf4",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 280
-    },
-    {
-      "id": "92764174aaa0d45ddb14cf00ccba8f6c",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 282
-    },
-    {
-      "id": "30ebb98245fe9d251b721696d390bdf4",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 303
-    },
-    {
-      "id": "bf9faf091cc659c4cbb9f45f8c53d57d",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 303
-    },
-    {
-      "id": "b0bdce97a28f44cf0af2c86c522f1219",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 280
-    },
-    {
-      "id": "fc39ce9752e70bab7131b6b48d33a7b8",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "composite/field-clear",
-      "line": 386
-    },
-    {
-      "id": "b8c84ca85536da9f9795892619e858d2",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "expression/comparison",
-      "line": 256
-    },
-    {
-      "id": "f22bc24dce6cb401c2faec83726e61f3",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "expression/comparison",
-      "line": 278
-    },
-    {
-      "id": "24404171bfdf03e582db25c175fd16b5",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "expression/comparison",
-      "line": 301
-    },
-    {
-      "id": "e7d41d3f72c714fa1a6cf8bc28d66e4f",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "expression/errorf-wrap",
-      "line": 181
-    },
-    {
       "id": "463c0d925bf80dbf2f3ae517ef855aa9",
       "file": "internal/app/deps/checks.go",
       "mutator": "expression/logical",
       "line": 154
-    },
-    {
-      "id": "5b7a91cf9681a9482ca38d2f5a1b8f66",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "expression/remove",
-      "line": 198
     },
     {
       "id": "1d7bf9e85b2c162331259b10e745ea57",
@@ -86,58 +14,10 @@
       "line": 154
     },
     {
-      "id": "6a26441f814dc369d954ad02da0f557a",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "loop/range_break",
-      "line": 482
-    },
-    {
-      "id": "05ed023912009893a134682c1130b7a2",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "numbers/decrementer",
-      "line": 256
-    },
-    {
-      "id": "2ad4b30fe3d1f00b3ea45800eb81ee6e",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "numbers/decrementer",
-      "line": 278
-    },
-    {
-      "id": "03c331fe4ebbfc22ae4fd37ebb4b16da",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "numbers/decrementer",
-      "line": 301
-    },
-    {
       "id": "a79e46c84aae45e47d2f866ba2caebfc",
       "file": "internal/app/deps/checks.go",
       "mutator": "numbers/decrementer",
       "line": 425
-    },
-    {
-      "id": "b0cf914bfe81dfdb3cc4e69453377252",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "statement/remove",
-      "line": 219
-    },
-    {
-      "id": "e69326d072f4403a8650478918f41b0f",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "statement/remove",
-      "line": 482
-    },
-    {
-      "id": "7aed7df79d36d782c02467212eaeeff5",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "statement/return",
-      "line": 484
-    },
-    {
-      "id": "1d8ad4129e6ca6c7630683d99880cfea",
-      "file": "internal/app/deps/checks.go",
-      "mutator": "statement/return",
-      "line": 461
     },
     {
       "id": "27637618c504eba5d173c30198336842",
@@ -1430,76 +1310,16 @@
       "line": 79
     },
     {
-      "id": "0c9d162eac7ee91e241184da6d78509e",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "branch/if",
-      "line": 78
-    },
-    {
-      "id": "e65252c079b8f7496f1b86062442de92",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "conditional/negated",
-      "line": 63
-    },
-    {
-      "id": "6b4bc30de8eeab47dc1a44fceee92ec3",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "conditional/negated",
-      "line": 83
-    },
-    {
-      "id": "142dc0d5f073b7fb922f29a696ca7c85",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "branch/if",
-      "line": 84
-    },
-    {
-      "id": "d4ac859ccd1ae36205b99c2ac4249b4f",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "conditional/negated",
-      "line": 90
-    },
-    {
-      "id": "7022836b586c2933491beaafb9505f46",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "conditional/negated",
-      "line": 77
-    },
-    {
       "id": "fb53db15a616f139cd298b51da88c3b4",
       "file": "pkg/cueutil/cuepath.go",
       "mutator": "composite/field-clear",
       "line": 36
     },
     {
-      "id": "758fac4e0ee5af230fd6c7a164d50aa0",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "branch/if",
-      "line": 91
-    },
-    {
-      "id": "27dd02684724005b1e7fc8153e30a05b",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "expression/remove",
-      "line": 119
-    },
-    {
-      "id": "a4a6b09a4816befe93cb42f21619570d",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "expression/comparison",
-      "line": 119
-    },
-    {
       "id": "0770024e240efd1b9173e2344365e36f",
       "file": "pkg/cueutil/error.go",
       "mutator": "loop/break",
       "line": 115
-    },
-    {
-      "id": "4472b41788b7e0f5e1e274a088d6cd05",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "numbers/decrementer",
-      "line": 90
     },
     {
       "id": "07857aea65fb3174d7b0acd67b4b8c97",
@@ -1520,52 +1340,16 @@
       "line": 77
     },
     {
-      "id": "613ba64688f2295c4173e2b138c52a10",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "numbers/decrementer",
-      "line": 119
-    },
-    {
-      "id": "d7ad86d624243fdfcd0ba4ec9e383d8c",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "numbers/decrementer",
-      "line": 101
-    },
-    {
       "id": "52d35a5e0e316d431cceda65f46a6d22",
       "file": "pkg/cueutil/error.go",
       "mutator": "expression/remove",
       "line": 77
     },
     {
-      "id": "d9e51117a558471b7f40d2b4aaa55dcd",
+      "id": "d7ad86d624243fdfcd0ba4ec9e383d8c",
       "file": "pkg/cueutil/error.go",
-      "mutator": "numbers/incrementer",
-      "line": 63
-    },
-    {
-      "id": "ef75a88634d8aa6568f0313a77ba321c",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "numbers/incrementer",
-      "line": 90
-    },
-    {
-      "id": "7e7946455fc5ae4cf6c6d20498e5dfaa",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "statement/remove",
-      "line": 80
-    },
-    {
-      "id": "f8326110d22cb2fdf256ddd2a2326aae",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "statement/remove",
-      "line": 78
-    },
-    {
-      "id": "890a96ad16e1c3f69e069e141356bc3d",
-      "file": "pkg/cueutil/error.go",
-      "mutator": "statement/remove",
-      "line": 79
+      "mutator": "numbers/decrementer",
+      "line": 101
     },
     {
       "id": "cc4c69cc826f3cb2acdb7694885a409a",
@@ -2582,160 +2366,10 @@
       "line": 103
     },
     {
-      "id": "849c6c535d979b84649cbf7f01f43628",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "arithmetic/base",
-      "line": 156
-    },
-    {
-      "id": "75fba08d3db235bb0b98ef939cf49939",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "arithmetic/base",
-      "line": 161
-    },
-    {
-      "id": "81a4f80195956864daedd26c4aabeab0",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "arithmetic/base",
-      "line": 152
-    },
-    {
-      "id": "f123d658c364563b44ca3f71e0ee340a",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/comparison",
-      "line": 21
-    },
-    {
-      "id": "2bad472f7cf0a4efed487c49e056a65c",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/comparison",
-      "line": 180
-    },
-    {
-      "id": "3b1ed0d0d7638528ce20b34d96a925fd",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/comparison",
-      "line": 69
-    },
-    {
-      "id": "39c4ad29d38382939b01ed5346039597",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/comparison",
-      "line": 120
-    },
-    {
-      "id": "6cf2a7c80dfa459f116a596e53b2eb7d",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/comparison",
-      "line": 155
-    },
-    {
-      "id": "893002253533ab319a61283ffc1bc3ec",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/comparison",
-      "line": 219
-    },
-    {
-      "id": "c7836f6187834ef8363e353392704c51",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/remove",
-      "line": 137
-    },
-    {
       "id": "009e94e222c7e9a514493a0a4e159e7e",
       "file": "pkg/invowkfile/validation_filesystem.go",
       "mutator": "expression/remove",
       "line": 137
-    },
-    {
-      "id": "2725a1f1c16118d1b277e5b5c0b2344f",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/remove",
-      "line": 219
-    },
-    {
-      "id": "76cde39cff26d118ac475a9f27a4decb",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/remove",
-      "line": 219
-    },
-    {
-      "id": "e713f03230e4e8bfa83b6ccf1dd4ede0",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "expression/string-literal",
-      "line": 137
-    },
-    {
-      "id": "4aa2fe8afb6529c03b96c06924db6eb0",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "loop/range_break",
-      "line": 35
-    },
-    {
-      "id": "3316639bcffd822be78089446defe57e",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/decrementer",
-      "line": 152
-    },
-    {
-      "id": "848c51a32a68fd845a7256d6597b43cf",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/decrementer",
-      "line": 21
-    },
-    {
-      "id": "e23c99975cc761000cbd574ce5234d10",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/decrementer",
-      "line": 161
-    },
-    {
-      "id": "0fe65c1cfe78fdb9c8dc563897e1c575",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/decrementer",
-      "line": 219
-    },
-    {
-      "id": "70c5cf1212fa57192ac4db07c598ec5d",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/decrementer",
-      "line": 156
-    },
-    {
-      "id": "60a53d382a1999bf3f63f6f741b9da56",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/decrementer",
-      "line": 35
-    },
-    {
-      "id": "7724084a20c737443a0c9ced4d310000",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/incrementer",
-      "line": 21
-    },
-    {
-      "id": "c26bd9dd80f0f36edb64d295a57a5990",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/incrementer",
-      "line": 152
-    },
-    {
-      "id": "f054e850fa1c9f4e471bb99d9166338f",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/incrementer",
-      "line": 161
-    },
-    {
-      "id": "6107a8129ed1127f1f610a317b6de411",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/incrementer",
-      "line": 219
-    },
-    {
-      "id": "4badcfd78907c311555cd8f23c6b538c",
-      "file": "pkg/invowkfile/validation_filesystem.go",
-      "mutator": "numbers/incrementer",
-      "line": 156
     },
     {
       "id": "9752bad5704d1fd810b2dfc6f00cc597",
