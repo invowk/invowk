@@ -15,10 +15,12 @@ import (
 type testLoader struct {
 	cfg      *config.Config
 	loadErr  error
+	lastCtx  context.Context
 	lastOpts config.LoadOptions
 }
 
-func (l *testLoader) Load(_ context.Context, opts config.LoadOptions) (*config.Config, error) {
+func (l *testLoader) Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error) {
+	l.lastCtx = ctx
 	l.lastOpts = opts
 	if l.loadErr != nil {
 		return nil, l.loadErr

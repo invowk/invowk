@@ -446,28 +446,10 @@
       "line": 135
     },
     {
-      "id": "03537340620f00b0cdb76b7baf1082a2",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "conditional/negated",
-      "line": 220
-    },
-    {
       "id": "55d716f9324f301a4484b1da83759ed3",
       "file": "internal/app/llmconfig/resolve.go",
       "mutator": "expression/error-guard",
       "line": 144
-    },
-    {
-      "id": "39ba86264d6c54cb212f8ae68c5f248c",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "expression/context-nil",
-      "line": 105
-    },
-    {
-      "id": "a91b41ffc7e26dcd8a8a131dc4331edb",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "expression/comparison",
-      "line": 162
     },
     {
       "id": "d452012c23abd03c6f7662cfc67d7c0b",
@@ -476,22 +458,10 @@
       "line": 148
     },
     {
-      "id": "36c1fc2575711d362708a5f144b8e13f",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "expression/error-guard",
-      "line": 220
-    },
-    {
       "id": "e418ce02c23974c1d1787ce933e0df1f",
       "file": "internal/app/llmconfig/resolve.go",
       "mutator": "expression/error-guard",
       "line": 138
-    },
-    {
-      "id": "e45e84c6e1d2fddb4bc2b16cae001b24",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "expression/error-guard",
-      "line": 314
     },
     {
       "id": "c4e520cf84a937e13e3989f5c696a342",
@@ -506,28 +476,10 @@
       "line": 130
     },
     {
-      "id": "f428265899b0aaedca915401c3f18c21",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "numbers/incrementer",
-      "line": 162
-    },
-    {
-      "id": "5dcd1c41aee0168491bdd6b9ea05a694",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "expression/remove",
-      "line": 356
-    },
-    {
       "id": "8221d1873bb65a4e28f6a1b8cc5dccbc",
       "file": "internal/app/llmconfig/resolve.go",
       "mutator": "expression/remove",
       "line": 130
-    },
-    {
-      "id": "357cf485ff03198417ae5e423c43ea58",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "expression/logical",
-      "line": 356
     },
     {
       "id": "155e30bfc41c006c45ff5d7acefd80db",
@@ -552,12 +504,6 @@
       "file": "internal/app/llmconfig/resolve.go",
       "mutator": "numbers/decrementer",
       "line": 177
-    },
-    {
-      "id": "45a2ca8fd2dc9d08861ae02fc4398c24",
-      "file": "internal/app/llmconfig/resolve.go",
-      "mutator": "statement/remove",
-      "line": 285
     },
     {
       "id": "0a8d25141599bfd91e5878c6bd8c683f",

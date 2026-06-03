@@ -220,6 +220,13 @@ Sixteenth remediation batch:
 - The focused rerun proved 5 accepted `pkg/invowkmod/semver.go` survivor records killed and removed from the root baseline, dropping that file from 21 to 16 accepted mutants.
 - The focused rerun also surfaced 4 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
 
+Seventeenth remediation batch:
+
+- Extend LLM resolution coverage for `internal/app/llmconfig/resolve.go`, including loader context/path propagation, configured provider/API model preservation, zero-timeout validation boundaries, unknown-mode validation, configured API-key env precedence, and invalid env-model errors.
+- Focused rerun: `artifacts/mutation/focused/root-llmconfig-resolve/`, generated `2026-06-03T00:10:34Z`, with 206 total mutants, 183 killed, 11 not covered, 12 escaped, MSI 88.83%, and covered-code MSI 93.85%.
+- The focused rerun proved 9 accepted `internal/app/llmconfig/resolve.go` survivor records killed and removed from the root baseline, dropping that file from 21 to 12 accepted mutants.
+- The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `internal/app/llmconfig/resolve.go`.
+
 ## Policy
 
 The committed baseline accepts the current escaped set so blocking mode can distinguish new escapes from known historical survivors. Future survivor reduction should follow this loop:
