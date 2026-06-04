@@ -143,7 +143,7 @@ func TestAppDiscoveryService_UsesInjectedBaseDir(t *testing.T) {
 }
 
 // Not parallel: os.Chdir is process-wide.
-func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T) {
+func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
@@ -178,7 +178,7 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 // result with nil error (even when tree validation failed). This ensures the
 // listing path (DiscoverCommandSet) doesn't see tree validation errors as
 // discovery failures.
-func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *testing.T) {
+func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
@@ -211,7 +211,7 @@ func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *te
 }
 
 // Not parallel: os.Chdir is process-wide.
-func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing.T) {
+func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
@@ -242,7 +242,7 @@ func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing
 }
 
 // Not parallel: os.Chdir is process-wide.
-func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testing.T) {
+func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	cfgProvider := &countingConfigProvider{cfg: config.DefaultConfig()}
@@ -265,7 +265,7 @@ func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testin
 }
 
 // Not parallel: os.Chdir is process-wide.
-func TestListCommands_ReusesDiscoveryConfigForUIFlags(t *testing.T) {
+func TestListCommands_ReusesDiscoveryConfigForUIFlags(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	cfg := config.DefaultConfig()
@@ -300,7 +300,7 @@ func TestListCommands_ReusesDiscoveryConfigForUIFlags(t *testing.T) {
 }
 
 // Not parallel: os.Chdir is process-wide.
-func TestResolveUIFlagsDoesNotConsumeDiscoveryConfigDiagnostics(t *testing.T) {
+func TestResolveUIFlagsDoesNotConsumeDiscoveryConfigDiagnostics(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	cfgProvider := &countingConfigProvider{err: errors.New("config boom")}
@@ -339,7 +339,7 @@ func TestResolveUIFlagsDoesNotConsumeDiscoveryConfigDiagnostics(t *testing.T) {
 }
 
 // Not parallel: os.Chdir is process-wide.
-func TestAppDiscoveryService_GetCommand_UsesCachedCommandSetLookup(t *testing.T) {
+func TestAppDiscoveryService_GetCommand_UsesCachedCommandSetLookup(t *testing.T) { //nolint:paralleltest // setupDiscoveryCacheTestDir mutates process cwd with os.Chdir.
 	setupDiscoveryCacheTestDir(t)
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})

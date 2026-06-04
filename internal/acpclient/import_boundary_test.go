@@ -24,6 +24,8 @@ type listedPackage struct {
 }
 
 func TestACPSDKImportsStayInsideFoundation(t *testing.T) {
+	t.Parallel()
+
 	root := repoRoot(t)
 	cmd := exec.CommandContext(
 		t.Context(),
@@ -37,8 +39,7 @@ func TestACPSDKImportsStayInsideFoundation(t *testing.T) {
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			t.Fatalf("go list failed: %v\n%s", err, exitErr.Stderr)
 		}
 		t.Fatalf("go list failed: %v", err)

@@ -91,7 +91,8 @@ func createScaffoldModuleForPackaging(t *testing.T, tmpDir string, opts invowkmo
 	return string(modulePath)
 }
 
-func TestArchive(t *testing.T) {
+func TestArchive(t *testing.T) { //nolint:paralleltest // default-output subtest mutates process cwd.
+	//nolint:paralleltest // Archive subtests run serially because one sibling mutates process cwd.
 	t.Run("archive valid module", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
@@ -129,6 +130,7 @@ func TestArchive(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // This subtest mutates process cwd to verify default output behavior.
 	t.Run("archive with default output path", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
@@ -154,6 +156,7 @@ func TestArchive(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // Archive subtests run serially because one sibling mutates process cwd.
 	t.Run("archive invalid module fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
 

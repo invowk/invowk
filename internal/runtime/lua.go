@@ -251,7 +251,7 @@ func (r *LuaRuntime) executeScript(ctx context.Context, req luaExecutionRequest)
 		return NewErrorResult(1, fmt.Errorf("compile lua script: %w", err))
 	}
 
-	execCtx := ctx
+	execCtx := ctx //nolint:contextcheck // nil context falls back below for legacy runtime callers.
 	if execCtx == nil {
 		execCtx = context.Background()
 	}
@@ -625,6 +625,7 @@ func luaArgValues(args []string) []luart.Value {
 	return values
 }
 
+//nolint:contextcheck // nil context is accepted for virtual runtime helper compatibility.
 func runAllowedHostBinary(ctx context.Context, policy *virtualHostBinaryPolicy, args []string, env map[string]string, workDir string, stdout, stderr io.Writer) (int, error) {
 	if len(args) == 0 {
 		return 1, errors.New(luaBinaryRequiredMsg)
@@ -651,6 +652,7 @@ func runAllowedHostBinary(ctx context.Context, policy *virtualHostBinaryPolicy, 
 	return 0, nil
 }
 
+//nolint:contextcheck // nil context is accepted for virtual utility helper compatibility.
 func runVirtualUtility(ctx context.Context, registry *uroot.Registry, req virtualUtilityRunRequest) (int, error) {
 	if ctx == nil {
 		ctx = context.Background()

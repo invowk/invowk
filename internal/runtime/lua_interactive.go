@@ -194,6 +194,8 @@ func (r *LuaRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, er
 // RunLuaScript executes a virtual-lua script with the same bridge and safety
 // semantics used by LuaRuntime. It is used by the internal CLI subprocess
 // wrapper for interactive PTY execution.
+//
+//nolint:contextcheck // nil context is accepted for internal subprocess compatibility.
 func RunLuaScript(ctx context.Context, opts LuaScriptOptions) error {
 	if ctx == nil {
 		ctx = context.Background()

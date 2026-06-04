@@ -111,7 +111,12 @@ func (s *Server) Start(ctx context.Context) error {
 		return s.base.TransitionToFailed(startErr)
 	}
 	s.listener = listener
-	tcpAddr := listener.Addr().(*net.TCPAddr)
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = listener.Close()
+		startErr := fmt.Errorf("listener address has unexpected type %T", listener.Addr())
+		return s.base.TransitionToFailed(startErr)
+	}
 	s.port = types.ListenPort(tcpAddr.Port)
 
 	// Start serving in background

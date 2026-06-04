@@ -3,7 +3,10 @@
 # golangci-lint configuration for Invowk
 #
 # This configuration uses golangci-lint v2 format.
-# Run: golangci-lint run ./...
+# Run: ./scripts/golangci-lint.sh root-run
+# Differences from tools/goplint are intentional: the root module carries app,
+# CLI, runtime, and integration-test policy, while the nested analyzer module
+# enables tool-specific checks such as wrapcheck/staticcheck/depguard/perfsprint.
 
 version = "2"
 
@@ -21,13 +24,16 @@ go = ""                             # Use Go version from go.mod
 # =============================================================================
 
 [linters]
-default = "standard"  # Start with golangci-lint's standard linter set
+default = "none"  # Keep the blocking linter set explicit and deterministic
 
 # Enabled linters with descriptions
 enable = [
     # modernize: A suite of analyzers that suggest simplifications to Go code,
     # using modern language and library features.
     "modernize",
+
+    # intrange: Finds loops that can use Go 1.22 integer range syntax.
+    "intrange",
 
     # goconst: Finds repeated strings that could be replaced by a constant.
     "goconst",
@@ -90,6 +96,9 @@ enable = [
     # noctx: Detects function and method with missing usage of context.Context.
     "noctx",
 
+    # contextcheck: Detects calls that drop an inherited context.
+    "contextcheck",
+
     # predeclared: Find code that shadows one of Go's predeclared identifiers.
     # [fast]
     "predeclared",
@@ -109,8 +118,11 @@ enable = [
     "thelper",
 
     # tparallel: Tparallel detects inappropriate usage of t.Parallel() method in
-    # your Go test codes.
+    # your Go test code.
     "tparallel",
+
+    # paralleltest: Detects tests and subtests missing t.Parallel().
+    "paralleltest",
 
     # usetesting: Reports uses of functions with replacement inside the testing
     # package. [auto-fix]
@@ -151,6 +163,10 @@ enable = [
     # forbidigo: Forbids identifiers.
     "forbidigo",
 
+    # forcetypeassert: Requires type assertions to check the ok result in
+    # production code.
+    "forcetypeassert",
+
     # exhaustive: Check exhaustiveness of enum switch statements.
     "exhaustive",
 
@@ -172,6 +188,9 @@ enable = [
     # revive: Fast, configurable, extensible, flexible, and beautiful linter for
     # Go. Drop-in replacement of golint. [auto-fix]
     "revive",
+
+    # godoclint: Checks Go documentation comments for exported API clarity.
+    "godoclint",
 
     # staticcheck: It's the set of rules from staticcheck. [auto-fix]
     "staticcheck",
@@ -264,9 +283,7 @@ disabled-checks = [
 # errcheck: Unchecked error detection
 # -----------------------------------------------------------------------------
 [linters.settings.errcheck]
-# Report `a := b.(MyStruct)` when `a, ok := ...` should be.
-# Disabled: Many type assertions are in bubbletea TUI code where types are
-# guaranteed by the framework
+# Type assertions are enforced by forcetypeassert for production code.
 check-type-assertions = false
 
 # Report skipped checks: `num, _ := strconv.Atoi(numStr)`.
@@ -317,23 +334,10 @@ exclude-functions = [
     "os.Remove",
     "os.RemoveAll",
 
-    # Test utilities - errors in test setup are caught by test failures
-    "os.Chdir",
-    "os.Setenv",
-    "os.Unsetenv",
-    "os.Getwd",
-    "os.UserHomeDir",
-    "io.Copy(os.Stdout)",
-
     # Path operations - errors are handled by subsequent operations that use the
     # path
     "path/filepath.Rel",
     "path/filepath.Abs",
-
-    # Archive operations in tests - setup errors are caught by test failures
-    "(*archive/zip.Writer).Create",
-    "(*archive/zip.Writer).Close",
-    "(io.Writer).Write",
 
     # HTTP/network close - best-effort cleanup
     "(*net/http.Response).Body.Close",
@@ -624,7 +628,9 @@ args-on-sep-lines = false  # Don't require args on separate lines
 # nolintlint: Validate //nolint directives
 # -----------------------------------------------------------------------------
 [linters.settings.nolintlint]
-require-specific = true  # Require naming the suppressed linter (no blanket //nolint)
+allow-unused = false       # Stale //nolint directives fail the gate
+require-explanation = true # Suppressions need a human-readable rationale
+require-specific = true    # Require naming the suppressed linter (no blanket //nolint)
 
 # -----------------------------------------------------------------------------
 # depguard: Import deny-list enforcement
@@ -672,6 +678,11 @@ paths = [
 # test failures
 [[linters.exclusions.rules]]
 linters = ["errcheck"]
+path = "_test\\.go$"
+
+# Enforce checked type assertions and context propagation in production code.
+[[linters.exclusions.rules]]
+linters = ["forcetypeassert", "contextcheck"]
 path = "_test\\.go$"
 
 # Don't enforce goconst in test files - test data strings are intentionally inline

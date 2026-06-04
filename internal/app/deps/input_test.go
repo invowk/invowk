@@ -4,6 +4,7 @@ package deps
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -61,12 +62,32 @@ func TestValidateFlagValues(t *testing.T) {
 		}
 	})
 
+	t.Run("required flag with value passes", func(t *testing.T) {
+		t.Parallel()
+		defs := []invowkfile.Flag{
+			{Name: "count", Required: true, Type: invowkfile.FlagTypeInt},
+		}
+		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"count": "42"}, defs); err != nil {
+			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
+		}
+	})
+
 	t.Run("optional flag empty", func(t *testing.T) {
 		t.Parallel()
 		defs := []invowkfile.Flag{
 			{Name: "name", Required: false, Type: invowkfile.FlagTypeString},
 		}
 		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"name": ""}, defs); err != nil {
+			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
+		}
+	})
+
+	t.Run("optional typed flag empty skips value validation", func(t *testing.T) {
+		t.Parallel()
+		defs := []invowkfile.Flag{
+			{Name: "count", Type: invowkfile.FlagTypeInt},
+		}
+		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"count": ""}, defs); err != nil {
 			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
 		}
 	})
@@ -449,6 +470,69 @@ func TestValidateVariadicArgumentValues(t *testing.T) {
 	})
 }
 
+func TestArgumentValidationErrorConstructorsPreservePayloads(t *testing.T) {
+	t.Parallel()
+
+	t.Run("count error", func(t *testing.T) {
+		t.Parallel()
+		defs := []invowkfile.Argument{
+			{Name: "src", Required: true},
+			{Name: "dst", Required: true},
+			{Name: "mode"},
+		}
+		provided := []string{"src.txt"}
+		err := newArgumentCountError(ArgErrMissingRequired, "copy", provided, defs, 2, 3)
+		argErr := requireArgumentValidationError(t, err)
+
+		if argErr.Type != ArgErrMissingRequired {
+			t.Fatalf("Type = %v, want %v", argErr.Type, ArgErrMissingRequired)
+		}
+		if argErr.CommandName != "copy" {
+			t.Fatalf("CommandName = %q, want copy", argErr.CommandName)
+		}
+		if !slices.Equal(argErr.ArgDefs, defs) {
+			t.Fatalf("ArgDefs = %+v, want %+v", argErr.ArgDefs, defs)
+		}
+		if !slices.Equal(argErr.ProvidedArgs, provided) {
+			t.Fatalf("ProvidedArgs = %v, want %v", argErr.ProvidedArgs, provided)
+		}
+		if argErr.MinArgs != 2 || argErr.MaxArgs != 3 {
+			t.Fatalf("argument bounds = %d/%d, want 2/3", argErr.MinArgs, argErr.MaxArgs)
+		}
+	})
+
+	t.Run("value error", func(t *testing.T) {
+		t.Parallel()
+		defs := []invowkfile.Argument{
+			{Name: "host"},
+			{Name: "port", Type: invowkfile.ArgumentTypeInt},
+		}
+		provided := []string{"localhost", "bad"}
+		valueErr := errors.New("port must be numeric")
+		err := newArgumentValueError("serve", provided, defs, "port", "bad", valueErr)
+		argErr := requireArgumentValidationError(t, err)
+
+		if argErr.Type != ArgErrInvalidValue {
+			t.Fatalf("Type = %v, want %v", argErr.Type, ArgErrInvalidValue)
+		}
+		if argErr.CommandName != "serve" {
+			t.Fatalf("CommandName = %q, want serve", argErr.CommandName)
+		}
+		if !slices.Equal(argErr.ArgDefs, defs) {
+			t.Fatalf("ArgDefs = %+v, want %+v", argErr.ArgDefs, defs)
+		}
+		if !slices.Equal(argErr.ProvidedArgs, provided) {
+			t.Fatalf("ProvidedArgs = %v, want %v", argErr.ProvidedArgs, provided)
+		}
+		if argErr.InvalidArg != "port" || argErr.InvalidValue != "bad" {
+			t.Fatalf("invalid argument payload = %q/%q, want port/bad", argErr.InvalidArg, argErr.InvalidValue)
+		}
+		if !errors.Is(argErr.ValueError, valueErr) {
+			t.Fatalf("ValueError = %v, want %v", argErr.ValueError, valueErr)
+		}
+	})
+}
+
 func TestArgumentValidationErrorMessages(t *testing.T) {
 	t.Parallel()
 
@@ -500,4 +584,14 @@ func TestArgumentValidationErrorMessages(t *testing.T) {
 			t.Errorf("error message = %q, want value error text", msg)
 		}
 	})
+}
+
+func requireArgumentValidationError(t *testing.T, err error) *ArgumentValidationError {
+	t.Helper()
+
+	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	if !ok {
+		t.Fatalf("error type = %T, want *ArgumentValidationError", err)
+	}
+	return argErr
 }

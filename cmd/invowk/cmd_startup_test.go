@@ -103,7 +103,7 @@ func TestShouldRegisterDiscoveredCommands(t *testing.T) {
 	}
 }
 
-func TestExplicitConfigPathRegistersDynamicCommandsBeforeCobraParse(t *testing.T) {
+func TestExplicitConfigPathRegistersDynamicCommandsBeforeCobraParse(t *testing.T) { //nolint:paralleltest // test mutates process-wide os.Args for Cobra parsing.
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "custom-config.cue")
 	commandSet := dynamicConfigCommandSet(t, tmpDir)

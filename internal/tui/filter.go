@@ -209,7 +209,10 @@ func Filter(opts FilterOptions) ([]string, error) {
 		return nil, err
 	}
 
-	m := finalModel.(*filterModel)
+	m, err := expectModel[*filterModel](finalModel, ComponentTypeFilter)
+	if err != nil {
+		return nil, err
+	}
 	if m.cancelled {
 		return nil, nil
 	}

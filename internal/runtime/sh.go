@@ -349,6 +349,8 @@ func (r *ShRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, err
 // RunShScript executes a virtual shell script with the same u-root command
 // handling semantics used by ShRuntime. It is used by the internal CLI
 // subprocess wrapper for interactive PTY execution.
+//
+//nolint:contextcheck // nil context is accepted for internal subprocess compatibility.
 func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 	if ctx == nil {
 		ctx = context.Background()

@@ -236,7 +236,7 @@ func TestBuildProvisionConfig_HostDefaultsOwnedByRuntimeAdapter(t *testing.T) {
 	}
 }
 
-func TestBuildProvisionConfig_PreservesIncludeAliasesAsModuleEntries(t *testing.T) {
+func TestBuildProvisionConfig_PreservesIncludeAliasesAsModuleEntries(t *testing.T) { //nolint:paralleltest // testutil.SetHomeDir mutates process home env.
 	tmpDir := t.TempDir()
 	t.Cleanup(testutil.SetHomeDir(t, tmpDir))
 
@@ -274,7 +274,7 @@ func TestBuildProvisionConfig_PreservesIncludeAliasesAsModuleEntries(t *testing.
 	}
 }
 
-func TestBuildProvisionConfig_KeepsGlobalCommandsWithProvisionedIncludes(t *testing.T) {
+func TestBuildProvisionConfig_KeepsGlobalCommandsWithProvisionedIncludes(t *testing.T) { //nolint:paralleltest // testutil.SetHomeDir mutates process home env.
 	tmpDir := t.TempDir()
 	t.Cleanup(testutil.SetHomeDir(t, tmpDir))
 

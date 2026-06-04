@@ -13,7 +13,7 @@ const (
 	// EnvTUIToken is the environment variable containing the authentication token.
 	EnvTUIToken = tuiwire.EnvTUIToken
 
-	// TUI component type constants for the protocol.
+	// ComponentInput is the TUI component type constant for input prompts.
 	ComponentInput    Component = tuiwire.ComponentInput
 	ComponentConfirm  Component = tuiwire.ComponentConfirm
 	ComponentChoose   Component = tuiwire.ComponentChoose

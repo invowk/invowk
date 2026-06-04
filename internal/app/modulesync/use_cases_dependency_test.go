@@ -37,7 +37,7 @@ func TestNewResolverForInvowkmodPathUsesMetadataDirectory(t *testing.T) {
 	}
 }
 
-func TestListModuleDependenciesUsesInvowkmodPathDirectory(t *testing.T) {
+func TestListModuleDependenciesUsesInvowkmodPathDirectory(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
 	moduleDir := t.TempDir()
 	otherDir := t.TempDir()
 	t.Chdir(otherDir)

@@ -145,12 +145,18 @@ func File(opts FileOptions) (string, error) {
 		return "", err
 	}
 
-	m := finalModel.(*fileModel)
+	m, err := expectModel[*fileModel](finalModel, ComponentTypeFile)
+	if err != nil {
+		return "", err
+	}
 	if m.cancelled {
 		return "", ErrCancelled
 	}
-	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
-	return result.(string), nil
+	result, err := m.Result()
+	if err != nil {
+		return "", err
+	}
+	return expectResult[string](result, ComponentTypeFile)
 }
 
 // NewFile creates a new FileBuilder with default options.

@@ -98,7 +98,7 @@ func RunPrompt(ctx context.Context, opts Options, prompt Prompt) (result Result,
 	})
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			cancelErr := sendCancel(conn, session.SessionId)
+			cancelErr := sendCancel(ctx, conn, session.SessionId)
 			return Result{}, newOperationError(operationCancel, ErrACPProtocol, errors.Join(ctxErr, cancelErr), stderr.String())
 		}
 		return Result{}, newOperationError(operationPrompt, ErrACPProtocol, err, stderr.String())
@@ -177,8 +177,12 @@ func (s *stderrCapture) String() string {
 	return s.buffer.String()
 }
 
-func sendCancel(conn *acp.ClientSideConnection, sessionID acp.SessionId) error {
-	cancelCtx, cancel := context.WithTimeout(context.Background(), cancelNotifyTimeout)
+//nolint:contextcheck // Cancel notification must outlive caller cancellation while preserving context values.
+func sendCancel(ctx context.Context, conn *acp.ClientSideConnection, sessionID acp.SessionId) error {
+	if ctx == nil {
+		ctx = context.Background() //nolint:contextcheck // nil context is a boundary fallback for legacy callers.
+	}
+	cancelCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cancelNotifyTimeout)
 	defer cancel()
 	err := conn.Cancel(cancelCtx, acp.CancelNotification{SessionId: sessionID})
 	timer := time.NewTimer(cancelDrainTimeout)

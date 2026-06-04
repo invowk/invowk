@@ -138,6 +138,7 @@ func TestContainerCLI(t *testing.T) { //nolint:tparallel // subtests are intenti
 
 	// Run each container test serially within the suite. This avoids testscript-
 	// level build/run contention while the rest of the repo can stay parallel.
+	//nolint:paralleltest // testscript cases share one suite-scoped container engine and lock.
 	for _, testFile := range containerTests {
 		testName := strings.TrimSuffix(filepath.Base(testFile), ".txtar")
 		t.Run(testName, func(t *testing.T) {

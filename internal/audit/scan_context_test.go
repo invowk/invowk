@@ -263,7 +263,7 @@ func TestReadScriptFileFactsAllowsResolvedModuleBoundary(t *testing.T) {
 	}
 }
 
-func TestBuildScanContextStandaloneFileScriptRejected(t *testing.T) {
+func TestBuildScanContextStandaloneFileScriptRejected(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
 	root := t.TempDir()
 	otherDir := t.TempDir()
 	t.Chdir(otherDir)

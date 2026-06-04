@@ -15,7 +15,7 @@ const (
 	prepareCommandReleaseTimeout  = time.Second
 )
 
-func TestBaseCLIEngine_RunSerializationDecision(t *testing.T) {
+func TestBaseCLIEngine_RunSerializationDecision(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock.
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
 	acquireContainerLock = func() (*runLock, error) {
@@ -50,6 +50,7 @@ func TestBaseCLIEngine_RunSerializationDecision(t *testing.T) {
 		},
 	}
 
+	//nolint:paralleltest // subtests share the package-global acquireContainerLock override.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lockAttempts.Store(0)
@@ -78,7 +79,7 @@ func TestBaseCLIEngine_RunSerializationDecision(t *testing.T) {
 	}
 }
 
-func TestBaseCLIEngine_FallbackSerializerSharedAcrossEngines(t *testing.T) {
+func TestBaseCLIEngine_FallbackSerializerSharedAcrossEngines(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock and asserts serialization timing.
 	originalAcquire := acquireContainerLock
 	acquireContainerLock = func() (*runLock, error) {
 		return nil, errFlockUnavailable
@@ -126,7 +127,7 @@ func TestBaseCLIEngine_FallbackSerializerSharedAcrossEngines(t *testing.T) {
 	}
 }
 
-func TestBaseCLIEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testing.T) {
+func TestBaseCLIEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock and asserts serialization timing.
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
 	acquireContainerLock = func() (*runLock, error) {
@@ -187,7 +188,7 @@ func TestBaseCLIEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testin
 	}
 }
 
-func TestBaseCLIEngine_PrepareRunCommandSkipsSerializationForDocker(t *testing.T) {
+func TestBaseCLIEngine_PrepareRunCommandSkipsSerializationForDocker(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock.
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
 	acquireContainerLock = func() (*runLock, error) {
@@ -211,7 +212,7 @@ func TestBaseCLIEngine_PrepareRunCommandSkipsSerializationForDocker(t *testing.T
 	}
 }
 
-func TestBaseCLIEngine_CoordinateLifecycleSerializationDecision(t *testing.T) {
+func TestBaseCLIEngine_CoordinateLifecycleSerializationDecision(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock.
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
 	acquireContainerLock = func() (*runLock, error) {
@@ -246,6 +247,7 @@ func TestBaseCLIEngine_CoordinateLifecycleSerializationDecision(t *testing.T) {
 		},
 	}
 
+	//nolint:paralleltest // subtests share the package-global acquireContainerLock override.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lockAttempts.Store(0)

@@ -51,6 +51,8 @@ func testRuntimeRegistryFactory(t testing.TB) commandsvc.RuntimeRegistryCreator 
 }
 
 func TestResolveCommandLoadsConfigOnceAndReportsOneDiagnostic(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "missing-config.cue")
 	writeRuntimeTestInvowkfile(t, tmpDir)

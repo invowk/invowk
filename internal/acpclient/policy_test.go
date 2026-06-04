@@ -27,6 +27,8 @@ type (
 )
 
 func TestCallbackClientDelegatesPermissionRequester(t *testing.T) {
+	t.Parallel()
+
 	policy := &recordingPermissionRequester{}
 	client := &callbackClient{policies: Policies{Permission: policy}.Normalize()}
 	title := "Edit config"
@@ -68,6 +70,8 @@ func TestCallbackClientDelegatesPermissionRequester(t *testing.T) {
 }
 
 func TestCallbackClientDelegatesFilesystemPolicy(t *testing.T) {
+	t.Parallel()
+
 	policy := &recordingFilesystemPolicy{}
 	client := &callbackClient{policies: Policies{Filesystem: policy}.Normalize()}
 	line := 2
@@ -112,6 +116,8 @@ func TestCallbackClientDelegatesFilesystemPolicy(t *testing.T) {
 }
 
 func TestCallbackClientReportsUnsupportedTerminalWithoutPolicy(t *testing.T) {
+	t.Parallel()
+
 	client := &callbackClient{policies: Policies{}.Normalize()}
 
 	_, err := client.CreateTerminal(t.Context(), acp.CreateTerminalRequest{
@@ -125,6 +131,8 @@ func TestCallbackClientReportsUnsupportedTerminalWithoutPolicy(t *testing.T) {
 }
 
 func TestRestrictivePolicyDeniesByDefault(t *testing.T) {
+	t.Parallel()
+
 	policy := RestrictivePolicy{}
 
 	permissionResp, err := policy.RequestPermission(t.Context(), PermissionRequest{})

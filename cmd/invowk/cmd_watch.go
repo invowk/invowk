@@ -114,7 +114,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		if buildErr != nil {
 			return commandsvc.WatchExecutionOutcome{Err: buildErr}
 		}
-		result, execErr := executeWatchRequest(cmd, app, req)
+		result, execErr := executeWatchRequest(execCtx, cmd, app, req)
 		if execErr != nil {
 			return commandsvc.WatchExecutionOutcome{Err: execErr}
 		}
@@ -173,8 +173,8 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	return w.Run(ctx)
 }
 
-func executeWatchRequest(cmd *cobra.Command, app *App, req ExecuteRequest) (ExecuteResult, error) {
-	reqCtx := contextWithConfigPath(cmd.Context(), string(req.ConfigPath))
+func executeWatchRequest(ctx context.Context, cmd *cobra.Command, app *App, req ExecuteRequest) (ExecuteResult, error) {
+	reqCtx := contextWithConfigPath(ctx, string(req.ConfigPath))
 	cmd.SetContext(reqCtx)
 
 	result, diags, err := app.Commands.Execute(reqCtx, req)

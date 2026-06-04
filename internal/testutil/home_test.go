@@ -10,7 +10,7 @@ import (
 	"github.com/invowk/invowk/pkg/platform"
 )
 
-func TestSetHomeDir_Linux(t *testing.T) {
+func TestSetHomeDir_Linux(t *testing.T) { //nolint:paralleltest // SetHomeDir mutates process home env.
 	if runtime.GOOS == platform.Windows {
 		t.Skip("skipping Linux-specific test on Windows")
 	}
@@ -33,7 +33,7 @@ func TestSetHomeDir_Linux(t *testing.T) {
 	}
 }
 
-func TestSetHomeDir_Windows(t *testing.T) {
+func TestSetHomeDir_Windows(t *testing.T) { //nolint:paralleltest // SetHomeDir mutates process home env.
 	if runtime.GOOS != platform.Windows {
 		t.Skip("skipping Windows-specific test on non-Windows")
 	}
@@ -56,7 +56,7 @@ func TestSetHomeDir_Windows(t *testing.T) {
 	}
 }
 
-func TestSetHomeDir_WithTCleanup(t *testing.T) {
+func TestSetHomeDir_WithTCleanup(t *testing.T) { //nolint:paralleltest // SetHomeDir mutates process home env across a subtest.
 	tmpDir := t.TempDir()
 	var envVar string
 	if runtime.GOOS == platform.Windows {
@@ -82,7 +82,7 @@ func TestSetHomeDir_WithTCleanup(t *testing.T) {
 	}
 }
 
-func TestSetHomeDir_EmptyDir(t *testing.T) {
+func TestSetHomeDir_EmptyDir(t *testing.T) { //nolint:paralleltest // SetHomeDir mutates process home env.
 	// Setting to empty string should work (though unusual)
 	var envVar string
 	if runtime.GOOS == platform.Windows {

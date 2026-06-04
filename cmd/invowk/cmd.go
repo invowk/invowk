@@ -259,7 +259,7 @@ func shouldRegisterDiscoveredCommands(args []string) bool {
 //
 //goplint:ignore -- parses raw process argv tokens at CLI startup boundary.
 func explicitConfigPathFromArgs(args []string) string {
-	for i := range len(args) {
+	for i := range args {
 		arg := args[i]
 		if arg == "--" {
 			return ""

@@ -236,6 +236,8 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 // It validates env inheritance overrides (mode, allow, deny) and returns an error
 // for invalid values. Flags and arguments are projected into INVOWK_FLAG_*,
 // INVOWK_ARG_*, ARGn, and ARGC environment variables.
+//
+//nolint:contextcheck // nil context is an explicit boundary fallback documented above.
 func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOptions) (*runtime.ExecutionContext, error) {
 	if opts.Command == nil {
 		return nil, errors.New("BuildExecutionContext: Command must not be nil")

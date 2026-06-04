@@ -12,7 +12,7 @@ import (
 // idempotency, stop, restart, concurrency, and cancelled context.
 // Subtests are sequential because the wish SSH library writes host keys to .ssh/
 // in the working directory; parallel tests collide on the same key file.
-func TestHostAccess(t *testing.T) {
+func TestHostAccess(t *testing.T) { //nolint:paralleltest // subtests use t.Chdir and shared SSH host-key files.
 	t.Run("ensure starts server", func(t *testing.T) {
 		host := newTestHostAccess(t)
 		t.Cleanup(host.Stop)
@@ -30,6 +30,7 @@ func TestHostAccess(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // subtest uses t.Chdir and shared SSH host-key files.
 	t.Run("ensure is idempotent", func(t *testing.T) {
 		host := newTestHostAccess(t)
 		t.Cleanup(host.Stop)
@@ -49,6 +50,7 @@ func TestHostAccess(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // subtest uses t.Chdir and shared SSH host-key files.
 	t.Run("stop shuts down server", func(t *testing.T) {
 		host := newTestHostAccess(t)
 
@@ -63,6 +65,7 @@ func TestHostAccess(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // subtest uses t.Chdir and shared SSH host-key files.
 	t.Run("stop without start is safe", func(t *testing.T) {
 		host := newTestHostAccess(t)
 		host.Stop()
@@ -72,6 +75,7 @@ func TestHostAccess(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // subtest uses t.Chdir and shared SSH host-key files.
 	t.Run("ensure after stop creates fresh server", func(t *testing.T) {
 		host := newTestHostAccess(t)
 		t.Cleanup(host.Stop)
@@ -96,6 +100,7 @@ func TestHostAccess(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // subtest uses t.Chdir and shared SSH host-key files.
 	t.Run("concurrent ensure starts exactly one server", func(t *testing.T) {
 		host := newTestHostAccess(t)
 		t.Cleanup(host.Stop)
@@ -128,6 +133,7 @@ func TestHostAccess(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // subtest uses t.Chdir and shared SSH host-key files.
 	t.Run("ensure with cancelled context returns error", func(t *testing.T) {
 		host := newTestHostAccess(t)
 		t.Cleanup(host.Stop)

@@ -155,7 +155,7 @@ func hasOverlappingAlternation(pattern string) bool {
 		}
 
 		// Check if any two parts have the same starting character or one is prefix of another
-		for i := range len(parts) {
+		for i := range parts {
 			for j := i + 1; j < len(parts); j++ {
 				p1 := strings.TrimSpace(parts[i])
 				p2 := strings.TrimSpace(parts[j])
@@ -193,7 +193,7 @@ func checkNestingDepth(pattern string) error {
 	currentDepth := 0
 	escaped := false
 
-	for i := 0; i < len(pattern); i++ {
+	for i := range len(pattern) {
 		c := pattern[i]
 		if escaped {
 			escaped = false
@@ -228,7 +228,7 @@ func checkQuantifierCount(pattern string) error {
 	escaped := false
 	inCharClass := false
 
-	for i := 0; i < len(pattern); i++ {
+	for i := range len(pattern) {
 		c := pattern[i]
 		if escaped {
 			escaped = false

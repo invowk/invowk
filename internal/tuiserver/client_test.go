@@ -94,7 +94,7 @@ func assertCancelled(t *testing.T, server *Server, callClient func() error) {
 	assertNoAsyncError(t, errCh)
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_Input(t *testing.T) {
 	t.Parallel()
 
@@ -123,7 +123,7 @@ func TestClient_Input(t *testing.T) {
 	})
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_Confirm(t *testing.T) {
 	t.Parallel()
 
@@ -167,7 +167,7 @@ func TestClient_Confirm(t *testing.T) {
 	})
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_Choose(t *testing.T) {
 	t.Parallel()
 
@@ -196,7 +196,7 @@ func TestClient_Choose(t *testing.T) {
 	})
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_ChooseSingle(t *testing.T) {
 	t.Parallel()
 
@@ -241,7 +241,7 @@ func TestClient_ChooseSingle(t *testing.T) {
 	})
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_ChooseMultiple(t *testing.T) {
 	t.Parallel()
 
@@ -285,7 +285,7 @@ func TestClient_ChooseMultiple(t *testing.T) {
 	})
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_Filter(t *testing.T) {
 	t.Parallel()
 
@@ -314,7 +314,7 @@ func TestClient_Filter(t *testing.T) {
 	})
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_File(t *testing.T) {
 	t.Parallel()
 
@@ -360,7 +360,7 @@ func TestClient_Write(t *testing.T) {
 	assertNoAsyncError(t, errCh)
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_TextArea(t *testing.T) {
 	t.Parallel()
 
@@ -420,7 +420,7 @@ func TestClient_Pager(t *testing.T) {
 	assertNoAsyncError(t, errCh)
 }
 
-//nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
+//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_Table(t *testing.T) {
 	t.Parallel()
 

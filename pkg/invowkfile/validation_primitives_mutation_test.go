@@ -70,6 +70,7 @@ func TestHasOverlappingAlternationEdgeCases(t *testing.T) {
 		{name: "second group overlaps", pattern: "(cat|dog)+(ab|ac)+", want: true},
 		{name: "empty alternative ignored", pattern: "(a|)+", want: false},
 		{name: "regex token prefix overlaps", pattern: `(\\d|\\d+)+`, want: true},
+		{name: "regex token left prefix overlaps", pattern: `(\\d+|\\d)+`, want: true},
 		{name: "same literal start overlaps", pattern: "(ab|ac)+", want: true},
 		{name: "left prefix overlaps", pattern: "(ab|a)+", want: true},
 		{name: "empty left alternative ignored", pattern: "(|a)+", want: false},

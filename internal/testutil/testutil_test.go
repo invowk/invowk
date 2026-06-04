@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestContainerSafeTempDirFallsBackWhenDefaultBaseIsFile(t *testing.T) {
+func TestContainerSafeTempDirFallsBackWhenDefaultBaseIsFile(t *testing.T) { //nolint:paralleltest // SetHomeDir mutates process home env.
 	homeDir := t.TempDir()
 	defer SetHomeDir(t, homeDir)()
 

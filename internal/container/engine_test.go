@@ -377,7 +377,7 @@ func TestSELinuxLabel_String(t *testing.T) {
 // Integration tests - only run if container engine is available
 // Not parallel: subtests share engine instance and context; cannot isolate per-subtest
 // without creating separate engine connections.
-func TestDockerEngine_Integration(t *testing.T) {
+func TestDockerEngine_Integration(t *testing.T) { //nolint:paralleltest // integration subtests share one external Docker engine.
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -391,6 +391,7 @@ func TestDockerEngine_Integration(t *testing.T) {
 
 	ctx := t.Context()
 
+	//nolint:paralleltest // integration subtests share one external Docker engine.
 	t.Run("Version", func(t *testing.T) {
 		version, err := engine.Version(ctx)
 		if err != nil {
@@ -402,6 +403,7 @@ func TestDockerEngine_Integration(t *testing.T) {
 		t.Logf("Docker version: %s", version)
 	})
 
+	//nolint:paralleltest // integration subtests share one external Docker engine.
 	t.Run("ImageExists_NonExistent", func(t *testing.T) {
 		exists, err := engine.ImageExists(ctx, "invowk-test-nonexistent-image:latest")
 		if err != nil {
@@ -426,7 +428,7 @@ func TestEngineType_String(t *testing.T) {
 
 // Not parallel: subtests share engine instance and context; cannot isolate per-subtest
 // without creating separate engine connections.
-func TestPodmanEngine_Integration(t *testing.T) {
+func TestPodmanEngine_Integration(t *testing.T) { //nolint:paralleltest // integration subtests share one external Podman engine.
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -440,6 +442,7 @@ func TestPodmanEngine_Integration(t *testing.T) {
 
 	ctx := t.Context()
 
+	//nolint:paralleltest // integration subtests share one external Podman engine.
 	t.Run("Version", func(t *testing.T) {
 		version, err := engine.Version(ctx)
 		if err != nil {
@@ -451,6 +454,7 @@ func TestPodmanEngine_Integration(t *testing.T) {
 		t.Logf("Podman version: %s", version)
 	})
 
+	//nolint:paralleltest // integration subtests share one external Podman engine.
 	t.Run("ImageExists_NonExistent", func(t *testing.T) {
 		exists, err := engine.ImageExists(ctx, "invowk-test-nonexistent-image:latest")
 		if err != nil {

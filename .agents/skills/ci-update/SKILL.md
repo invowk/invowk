@@ -24,7 +24,7 @@ This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
 
 | Component | Files |
 |-----------|-------|
-| `golangci-lint` | `.github/workflows/lint.yml` (`version` input), `.pre-commit-config.yaml` (`rev`) |
+| `golangci-lint` | `go.mod` tool directive/require, `scripts/golangci-lint.sh` expected version, `.github/workflows/lint.yml`, `.pre-commit-config.yaml`, `.agents/rules/version-pinning.md` |
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
 | `GoReleaser` | Every `goreleaser/goreleaser-action` `version:` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml` |
 | `Node.js` | Every `node-version:` reference in `.github/workflows/*.yml` |
@@ -50,7 +50,9 @@ rg -n 'uses:|go install|node-version|UPX_VERSION|cosign-release|goreleaser-actio
 ```
 
 **Configuration files**:
-- `.pre-commit-config.yaml` (golangci-lint `rev`)
+- `go.mod` (Go tool dependency pins, including golangci-lint)
+- `scripts/golangci-lint.sh` (normalized golangci-lint expected version)
+- `.pre-commit-config.yaml` (local hook entries that invoke normalized Make targets)
 - `.mcp.json` (MCP server versions)
 - `.github/dependabot.yml` (verify coverage)
 - `.goreleaser.yaml` (GoReleaser schema version)
@@ -66,7 +68,7 @@ Organize into this table structure:
 | Go tool | gotestsum | vX.Y.Z | ci.yml, release.yml |
 | Go tool | govulncheck | vX.Y.Z | ci.yml |
 | Go tool | benchstat | v0.0.0-... | pgo-benchstat.yml |
-| Lint | golangci-lint | vX.Y.Z | lint.yml, .pre-commit-config.yaml |
+| Go tool | golangci-lint | vX.Y.Z | go.mod, scripts/golangci-lint.sh, lint.yml, .pre-commit-config.yaml |
 | Binary | UPX | X.Y.Z | ci.yml, release.yml |
 | Binary | D2 | vX.Y.Z | validate-diagrams.yml |
 | Binary | Cosign | vX.Y.Z | ci.yml, release.yml |
@@ -80,7 +82,7 @@ Organize into this table structure:
 
 Before checking for updates, verify existing versions are consistent across sync pairs:
 
-1. **golangci-lint**: Version in `lint.yml` `golangci-lint-action` `version` input must match `.pre-commit-config.yaml` `rev` field.
+1. **golangci-lint**: Root `go.mod` tool version must match `scripts/golangci-lint.sh`'s expected version, and `lint.yml` plus `.pre-commit-config.yaml` must route through the normalized wrapper/Make targets instead of separate action or hook pins.
 2. **gotestsum**: Version in `ci.yml` must match `release.yml`.
 3. **GoReleaser version input**: Must match across every `goreleaser/goreleaser-action` step in `ci.yml` and `release.yml`.
 4. **Node.js**: Every `node-version` workflow reference must match.
@@ -144,7 +146,6 @@ gh api repos/actions/configure-pages/releases/latest --jq '.tag_name'
 gh api repos/actions/upload-pages-artifact/releases/latest --jq '.tag_name'
 gh api repos/actions/deploy-pages/releases/latest --jq '.tag_name'
 gh api repos/actions/create-github-app-token/releases/latest --jq '.tag_name'
-gh api repos/golangci/golangci-lint-action/releases/latest --jq '.tag_name'
 gh api repos/goreleaser/goreleaser-action/releases/latest --jq '.tag_name'
 gh api repos/sigstore/cosign-installer/releases/latest --jq '.tag_name'
 gh api repos/mikepenz/action-junit-report/releases/latest --jq '.tag_name'
@@ -157,13 +158,13 @@ For actions discovered by the inventory scan that are intentionally pinned to a
 branch (for example `bencherdev/bencher@main`), classify them separately as
 policy exceptions or drift risks; do not force them into the major-tag rule.
 
-**Note**: `golangci-lint-action`'s `version` input pins the **tool binary**, not the action itself. Check the tool version separately:
+**Note**: golangci-lint is normalized as a root Go tool dependency, not as a separate action/pre-commit binary pin. Check the tool version separately:
 
 ```bash
 gh api repos/golangci/golangci-lint/releases/latest --jq '.tag_name'
 ```
 
-Compare against the `version:` input in `lint.yml` and the `rev:` in `.pre-commit-config.yaml`.
+Compare against the root `go.mod` tool dependency and `scripts/golangci-lint.sh`. Then verify `lint.yml` and `.pre-commit-config.yaml` still invoke `make lint` or wrapper-backed targets.
 
 #### 3d: MCP Servers (npm packages)
 
@@ -221,7 +222,7 @@ While reviewing workflow files, check for these optimization opportunities:
 3. **Timeout guards**: Do ALL jobs in ALL workflows have explicit `timeout-minutes`? Without it, hung jobs burn up to GitHub's 6-hour default. Reference values: test: 30, build: 10, lint: 5-15, release: 30, benchmarks: 45, claude: 60, website: 5-15.
 4. **Permissions**: Are ALL permissions at **job-level**, not workflow-level? (SonarCloud S8233 requires least-privilege at job scope.) Check every workflow for top-level `permissions:` blocks and flag them for migration to individual jobs.
 5. **Matrix deduplication**: Any redundant matrix entries?
-6. **New action features**: Have `actions/setup-go`, `golangci-lint-action`, or `goreleaser-action` added useful new inputs since the current pin?
+6. **New action features**: Have `actions/setup-go` or `goreleaser-action` added useful new inputs since the current pin?
 7. **Runner images**: Are `ubuntu-latest`, `macos-15`, `windows-latest` still current recommended images?
 8. **Concurrency group naming consistency**: Are all groups following the same `<name>-${{ github.ref }}` pattern? Flag outliers (e.g., redundant `${{ github.workflow }}` segments).
 9. **Bot commit signing**: Are ALL workflow jobs that create commits using the GitHub GraphQL `createCommitOnBranch` API? Direct `git commit` + `git push` on CI runners produces **unsigned** commits that are blocked by the `required_signatures` ruleset. See the "Verified Bot Commits" section below for the required pattern, but verify the current inventory from workflow files instead of trusting the example table.
@@ -301,7 +302,7 @@ Present the report and **STOP**. Ask the user which updates to apply:
 For each approved update, modify files **simultaneously** across all sync pairs:
 
 1. **Workflow files**: Update version strings in all affected `.github/workflows/*.yml` files.
-2. **Pre-commit config**: Update `.pre-commit-config.yaml` if golangci-lint changed.
+2. **Go tool wrappers/hooks**: If golangci-lint changed, update the root `go.mod` tool dependency, `scripts/golangci-lint.sh`, `.pre-commit-config.yaml`, and `lint.yml` together.
 3. **MCP config**: Update `.mcp.json` if MCP server versions changed.
 4. **Documentation**:
    - Update `.agents/rules/version-pinning.md` "Current pinned versions" with new versions.
@@ -446,7 +447,7 @@ This skill complements Dependabot, which handles:
 This skill fills the gaps Dependabot does NOT cover:
 - `go install` tool versions in workflow `run:` blocks
 - Inline `curl`-installed binaries (UPX, D2)
-- Action `version:` input pins (Cosign via `cosign-release`, golangci-lint, GoReleaser)
+- Action `version:` input pins (Cosign via `cosign-release`, GoReleaser)
 - MCP server versions in `.mcp.json`
 - GoReleaser semver range track
 - Node.js LTS lifecycle tracking

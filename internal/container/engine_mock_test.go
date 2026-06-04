@@ -180,7 +180,7 @@ func (m *MockCommandRecorder) HasArg(arg string) bool {
 // HasArgPair checks if the last invocation contains a flag-value pair (e.g., "-t", "myimage").
 func (m *MockCommandRecorder) HasArgPair(flag, value string) bool {
 	args := m.LastArgs()
-	for i := 0; i < len(args)-1; i++ {
+	for i := range len(args) - 1 {
 		if args[i] == flag && args[i+1] == value {
 			return true
 		}
@@ -196,7 +196,7 @@ func (m *MockCommandRecorder) Reset() {
 // TestHelperProcess is used by the mock to simulate command execution.
 // It reads configuration from environment variables and outputs accordingly.
 // This function should not be called directly - it is invoked by the mock.
-func TestHelperProcess(_ *testing.T) {
+func TestHelperProcess(_ *testing.T) { //nolint:paralleltest // helper process entrypoint exits the subprocess.
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
@@ -260,7 +260,7 @@ func withMockExecCommandOutput(t *testing.T, stdout, stderr string, exitCode int
 }
 
 // TestMockCommandRecorder_Basic verifies the mock recorder works correctly.
-func TestMockCommandRecorder_Basic(t *testing.T) {
+func TestMockCommandRecorder_Basic(t *testing.T) { //nolint:paralleltest // self-test swaps package-global execCommand.
 	recorder, cleanup := withMockExecCommand(t)
 	defer cleanup()
 
@@ -284,7 +284,7 @@ func TestMockCommandRecorder_Basic(t *testing.T) {
 }
 
 // TestMockCommandRecorder_Output verifies the mock can produce output.
-func TestMockCommandRecorder_Output(t *testing.T) {
+func TestMockCommandRecorder_Output(t *testing.T) { //nolint:paralleltest // self-test swaps package-global execCommand.
 	recorder, cleanup := withMockExecCommandOutput(t, "version 1.0.0", "", 0)
 	defer cleanup()
 
@@ -305,7 +305,7 @@ func TestMockCommandRecorder_Output(t *testing.T) {
 }
 
 // TestMockCommandRecorder_ExitCode verifies the mock can return exit codes.
-func TestMockCommandRecorder_ExitCode(t *testing.T) {
+func TestMockCommandRecorder_ExitCode(t *testing.T) { //nolint:paralleltest // self-test swaps package-global execCommand.
 	_, cleanup := withMockExecCommandOutput(t, "", "build failed", 1)
 	defer cleanup()
 

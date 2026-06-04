@@ -64,7 +64,7 @@ func (s *Server) Start(ctx context.Context) error {
 		wish.WithPasswordAuth(s.passwordHandler),
 		wish.WithMiddleware(
 			activeterm.Middleware(),
-			s.commandMiddleware(),
+			s.commandMiddleware(), //nolint:contextcheck // Wish injects request context into sessions handled by middleware.
 		),
 	)
 	if err != nil {

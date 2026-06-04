@@ -138,7 +138,7 @@ func runHostCustomCheckNative(ctx context.Context, script invowkfile.CustomCheck
 
 func runHostCustomCheckVirtual(ctx context.Context, script invowkfile.CustomCheckScript) *invowkruntime.Result {
 	rt := invowkruntime.NewShRuntime(false, invowkruntime.WithShEnvBuilder(hostCustomCheckEnvBuilder()))
-	return rt.ExecuteCapture(hostCustomCheckExecutionContext(ctx, script, invowkfile.RuntimeVirtualSh))
+	return rt.ExecuteCapture(hostCustomCheckExecutionContext(ctx, script, invowkfile.RuntimeVirtualSh)) //nolint:contextcheck // ExecutionContext is the runtime port's context carrier.
 }
 
 func hostCustomCheckExecutionContext(ctx context.Context, script invowkfile.CustomCheckScript, mode invowkfile.RuntimeMode) *invowkruntime.ExecutionContext {
@@ -202,6 +202,8 @@ func (dependencyLockProvider) LoadCommandScopeLock(inv *invowkfile.Invowkfile) (
 }
 
 // Check validates that a system capability is available.
+//
+//nolint:contextcheck // nil context is accepted for dependency-checker compatibility.
 func (dependencyCapabilityChecker) Check(ctx context.Context, ioCtx deps.IOContext, capability invowkfile.CapabilityName) error {
 	if ctx == nil {
 		ctx = context.Background()

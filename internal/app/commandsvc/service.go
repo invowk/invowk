@@ -214,7 +214,7 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnosti
 		defer s.hostAccess.Stop()
 	}
 
-	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
+	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags) //nolint:contextcheck // execCtx carries ctx through the runtime/dependency pipeline.
 }
 
 func newDryRunPlan(

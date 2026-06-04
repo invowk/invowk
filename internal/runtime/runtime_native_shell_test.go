@@ -49,11 +49,12 @@ func TestNativeRuntime_getShell(t *testing.T) {
 // TestNativeRuntime_getShell_ShellEnvFallback verifies that on non-Windows systems,
 // getShell() picks up the $SHELL environment variable as first preference, falling back
 // to bash and then sh if $SHELL is unset.
-func TestNativeRuntime_getShell_ShellEnvFallback(t *testing.T) {
+func TestNativeRuntime_getShell_ShellEnvFallback(t *testing.T) { //nolint:paralleltest // subtests mutate process-wide SHELL.
 	if goruntime.GOOS == "windows" {
 		t.Skip("skipping: $SHELL fallback chain only applies to non-Windows")
 	}
 
+	//nolint:paralleltest // mutates process-wide SHELL.
 	t.Run("prefers SHELL env var when set", func(t *testing.T) {
 		restore := testutil.MustSetenv(t, "SHELL", "/usr/bin/zsh")
 		defer restore()
@@ -68,6 +69,7 @@ func TestNativeRuntime_getShell_ShellEnvFallback(t *testing.T) {
 		}
 	})
 
+	//nolint:paralleltest // mutates process-wide SHELL.
 	t.Run("falls back to bash when SHELL is unset", func(t *testing.T) {
 		restore := testutil.MustSetenv(t, "SHELL", "")
 		defer restore()

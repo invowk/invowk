@@ -23,6 +23,7 @@ GOCMD ?= go
 GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
 GOMOD := $(GOCMD) mod
+GOLANGCI_LINT := GO_CMD="$(GOCMD)" ./scripts/golangci-lint.sh
 
 # Version info (can be overridden)
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -317,17 +318,39 @@ license-check:
 		echo "All Go files have proper SPDX license headers."; \
 	fi
 
-# Run golangci-lint in all Go modules
-.PHONY: lint lint-root lint-tools-goplint
-lint: lint-root lint-tools-goplint
+# Run golangci-lint and formatter checks in all Go modules.
+.PHONY: lint lint-root lint-tools-goplint lint-fmt lint-fmt-root lint-fmt-tools-goplint lint-config-verify lint-config-verify-root lint-config-verify-tools-goplint lint-linters lint-linters-root lint-linters-tools-goplint
+lint: lint-config-verify lint-fmt lint-root lint-tools-goplint
 
 lint-root:
-	@echo "Running golangci-lint (root module)..."
-	golangci-lint run ./...
+	$(GOLANGCI_LINT) root-run
 
 lint-tools-goplint:
-	@echo "Running golangci-lint (tools/goplint module)..."
-	cd tools/goplint && golangci-lint run ./...
+	$(GOLANGCI_LINT) tools-run
+
+lint-fmt: lint-fmt-root lint-fmt-tools-goplint
+
+lint-fmt-root:
+	$(GOLANGCI_LINT) root-fmt
+
+lint-fmt-tools-goplint:
+	$(GOLANGCI_LINT) tools-fmt
+
+lint-config-verify: lint-config-verify-root lint-config-verify-tools-goplint
+
+lint-config-verify-root:
+	$(GOLANGCI_LINT) root-config-verify
+
+lint-config-verify-tools-goplint:
+	$(GOLANGCI_LINT) tools-config-verify
+
+lint-linters: lint-linters-root lint-linters-tools-goplint
+
+lint-linters-root:
+	$(GOLANGCI_LINT) root-linters
+
+lint-linters-tools-goplint:
+	$(GOLANGCI_LINT) tools-linters
 
 # Build the goplint analyzer (DDD Value Type enforcement)
 .PHONY: build-goplint
@@ -384,6 +407,14 @@ check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
 	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -cfg-interproc-engine=legacy -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
+# Audit goplint exception governance.
+.PHONY: check-goplint-exceptions
+check-goplint-exceptions: build-goplint
+	@echo "Auditing goplint stale exceptions..."
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -audit-exceptions -global -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	@echo "Auditing goplint exception review dates..."
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -audit-review-dates -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
@@ -406,7 +437,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -441,6 +472,9 @@ test-scripts:
 	@echo ""
 	@echo "Running Bencher registry login script tests..."
 	bash scripts/test_bencher_registry_login.sh
+	@echo ""
+	@echo "Running golangci-lint wrapper script tests..."
+	bash scripts/test_golangci_lint.sh
 	@echo ""
 	@echo "Running mutation wrapper script tests..."
 	bash scripts/test_mutation.sh
@@ -605,12 +639,17 @@ help:
 	@echo "  install          Install to GOPATH/bin"
 	@echo "  tidy             Tidy go.mod dependencies"
 	@echo "  license-check    Verify SPDX headers in all Go files"
-	@echo "  lint             Run golangci-lint on root and tools/goplint modules"
-	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
+	@echo "  lint             Run normalized lint, config, and formatter gates for root and tools/goplint"
+	@echo "  lint-root        Run normalized golangci-lint for the root module"
+	@echo "  lint-tools-goplint  Run normalized golangci-lint for tools/goplint"
+	@echo "  lint-fmt         Check golangci-lint formatters for root and tools/goplint"
+	@echo "  lint-config-verify Verify golangci-lint configs for root and tools/goplint"
+	@echo "  lint-linters     Print effective golangci-lint linter JSON for both modules"
 	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
 	@echo "  check-ifds-compat Run IFDS compare-mode no-silent-downgrade gate"
 	@echo "  check-cfg-refinement Run Phase C refinement gate for tools/goplint"
 	@echo "  check-cfg-alias  Run Phase D alias gate for opt-in SSA alias verification"
+	@echo "  check-goplint-exceptions Audit stale/overdue goplint exceptions"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Fail on SonarCloud quality gate or unresolved issues (API-only)"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"

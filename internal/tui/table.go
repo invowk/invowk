@@ -160,7 +160,10 @@ func Table(opts TableOptions) (selectedIdx int, row []string, err error) {
 		return -1, nil, err
 	}
 
-	m := finalModel.(*tableModel)
+	m, err := expectModel[*tableModel](finalModel, ComponentTypeTable)
+	if err != nil {
+		return -1, nil, err
+	}
 	if m.cancelled {
 		return -1, nil, nil
 	}

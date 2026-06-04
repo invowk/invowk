@@ -361,7 +361,7 @@ func TestShRuntime_PositionalArgs_Empty(t *testing.T) {
 	}
 }
 
-func TestShRuntime_EnvIsolation(t *testing.T) {
+func TestShRuntime_EnvIsolation(t *testing.T) { //nolint:paralleltest // test mutates process environment for runtime inheritance checks.
 	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")

@@ -14,7 +14,7 @@ import (
 // User environment capture tests
 // ---------------------------------------------------------------------------
 
-func TestCaptureUserEnv(t *testing.T) {
+func TestCaptureUserEnv(t *testing.T) { //nolint:paralleltest // testutil.MustSetenv mutates process environment.
 	// Set a test environment variable
 	testKey := "INVOWK_TEST_CAPTURE_ENV_VAR"
 	testValue := "test_value_12345"

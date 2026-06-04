@@ -19,6 +19,7 @@ build configuration.
 - Verify tools with `go version -m "$(go tool -n <tool>)"` when the tool does not provide a reliable `--version` flag.
 - **Current pinned versions:**
   - `go-mutesting`: `v2.7.0` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`)
+  - `golangci-lint`: `v2.12.2` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
 
 ### CI Tool Installs (`go install`, `curl | sh`, etc.)
 - MUST pin to an exact version: `go install tool@vX.Y.Z` (never `@latest`).
@@ -26,7 +27,6 @@ build configuration.
 - When upgrading, update the version in ALL workflow files that reference it.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
-  - `golangci-lint`: `v2.12.2` (via golangci-lint-action `version` input)
   - `govulncheck`: `v1.3.0`
   - `cosign`: `v3.0.6` (via `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml`)
   - UPX: `5.1.1`
@@ -62,8 +62,8 @@ build configuration.
   others may use caret/tilde ranges (lockfile provides determinism).
 
 ## When Upgrading Tool Versions
-1. Search all workflow files for the tool name to find every reference.
-2. Update the version in all locations simultaneously.
+1. Search all workflow files, wrapper scripts, `go.mod`, `.pre-commit-config.yaml`, and agent rules for the tool name to find every reference.
+2. Update the version source and every enforcing wrapper/check simultaneously.
 3. Update the "Current pinned versions" list in this rule.
 4. Update `.agents/rules/commands.md` if the tool appears in Prerequisites or examples.
 5. Run affected CI workflows to verify.

@@ -353,7 +353,7 @@ func (m *chooseModel) syncSelections() {
 		return
 	}
 	results := make([]string, 0, len(m.selected))
-	for i := 0; i < len(m.options); i++ {
+	for i := range m.options {
 		if m.selected[i] {
 			results = append(results, m.options[i])
 		}
@@ -372,7 +372,7 @@ func (m *chooseModel) selectedIndices() []SelectionIndex {
 	}
 
 	indices := make([]SelectionIndex, 0, len(m.selected))
-	for i := 0; i < len(m.options); i++ {
+	for i := range m.options {
 		if m.selected[i] {
 			indices = append(indices, SelectionIndex(i)) //goplint:ignore -- bounded loop index over known-length slice
 		}
@@ -389,7 +389,10 @@ func chooseIndicesWithModel(opts ChooseStringOptions) ([]SelectionIndex, error) 
 		return nil, err
 	}
 
-	m := finalModel.(*chooseModel)
+	m, err := expectModel[*chooseModel](finalModel, ComponentTypeChoose)
+	if err != nil {
+		return nil, err
+	}
 	if m.cancelled {
 		return nil, ErrCancelled
 	}
@@ -481,12 +484,18 @@ func ChooseStringsWithModel(opts ChooseStringOptions) ([]string, error) {
 		return nil, err
 	}
 
-	m := finalModel.(*chooseModel)
+	m, err := expectModel[*chooseModel](finalModel, ComponentTypeChoose)
+	if err != nil {
+		return nil, err
+	}
 	if m.cancelled {
 		return nil, ErrCancelled
 	}
-	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
-	return result.([]string), nil
+	result, err := m.Result()
+	if err != nil {
+		return nil, err
+	}
+	return expectResult[[]string](result, ComponentTypeChoose)
 }
 
 // MultiChoose prompts the user to select multiple options from a list.

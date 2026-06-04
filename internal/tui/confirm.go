@@ -193,12 +193,18 @@ func Confirm(opts ConfirmOptions) (bool, error) {
 		return false, err
 	}
 
-	m := finalModel.(*confirmModel)
+	m, err := expectModel[*confirmModel](finalModel, ComponentTypeConfirm)
+	if err != nil {
+		return false, err
+	}
 	if m.cancelled {
 		return false, ErrCancelled
 	}
-	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
-	return result.(bool), nil
+	result, err := m.Result()
+	if err != nil {
+		return false, err
+	}
+	return expectResult[bool](result, ComponentTypeConfirm)
 }
 
 // NewConfirm creates a new ConfirmBuilder with default options.

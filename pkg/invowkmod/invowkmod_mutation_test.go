@@ -178,8 +178,18 @@ func TestSubdirectoryPathValidateMutationEdges(t *testing.T) {
 			wantReason: mutationAbsolutePathReason,
 		},
 		{
+			name:       "uppercase boundary windows drive rejected",
+			path:       "A:/modules/tools",
+			wantReason: mutationAbsolutePathReason,
+		},
+		{
 			name:       "lowercase windows drive rejected",
 			path:       "c:/modules/tools",
+			wantReason: mutationAbsolutePathReason,
+		},
+		{
+			name:       "lowercase boundary windows drive rejected",
+			path:       "z:/modules/tools",
 			wantReason: mutationAbsolutePathReason,
 		},
 		{
@@ -486,6 +496,7 @@ func TestIsWindowsDrivePathMutationEdges(t *testing.T) {
 		{path: "A:", want: true},
 		{path: "a:", want: true},
 		{path: "c:/module", want: true},
+		{path: "z:/module", want: true},
 		{path: "Z:", want: true},
 		{path: "1:/module", want: false},
 		{path: "@:/module", want: false},

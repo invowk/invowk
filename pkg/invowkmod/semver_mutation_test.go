@@ -3,6 +3,8 @@
 package invowkmod
 
 import (
+	"errors"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -31,6 +33,18 @@ func TestSemverMutationResolverContracts(t *testing.T) {
 	}
 	if constraint.Original != "^v1.2.3-alpha" {
 		t.Fatalf("Constraint.Original = %q, want trimmed original", constraint.Original)
+	}
+}
+
+func TestSemverMutationParsePrereleaseWithoutPatch(t *testing.T) {
+	t.Parallel()
+
+	version, err := ParseVersion("1.2-alpha")
+	if err != nil {
+		t.Fatalf("ParseVersion() error = %v, want nil", err)
+	}
+	if version.Major != 1 || version.Minor != 2 || version.Patch != 0 || version.Prerelease != "alpha" {
+		t.Fatalf("ParseVersion() = %+v, want 1.2.0-alpha", version)
 	}
 }
 
@@ -69,6 +83,59 @@ func TestSemverMutationParseOverflowErrors(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("ParseVersion(%q) error = %q, want %q", tt.in, err.Error(), tt.want)
+			}
+			if _, ok := errors.AsType[*strconv.NumError](err); !ok {
+				t.Fatalf("ParseVersion(%q) error = %v, want wrapped strconv.NumError", tt.in, err)
+			}
+		})
+	}
+}
+
+func TestSemverMutationConstraintBoundaryContracts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		constraint string
+		version    string
+	}{
+		{
+			name:       "caret zero major rejects matching minor on nonzero major",
+			constraint: "^0.2.3",
+			version:    "1.2.3",
+		},
+		{
+			name:       "caret zero zero rejects matching patch on nonzero major",
+			constraint: "^0.0.3",
+			version:    "1.0.3",
+		},
+		{
+			name:       "caret zero zero rejects matching patch on nonzero minor",
+			constraint: "^0.0.3",
+			version:    "0.1.3",
+		},
+		{
+			name:       "tilde rejects matching minor on different major",
+			constraint: "~1.2.3",
+			version:    "2.2.4",
+		},
+	}
+
+	resolver := NewSemverResolver()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			constraint, err := resolver.ParseConstraint(tt.constraint)
+			if err != nil {
+				t.Fatalf("ParseConstraint(%q) error = %v", tt.constraint, err)
+			}
+			version, err := ParseVersion(tt.version)
+			if err != nil {
+				t.Fatalf("ParseVersion(%q) error = %v", tt.version, err)
+			}
+			if constraint.Matches(version) {
+				t.Fatalf("Constraint(%q).Matches(%q) = true, want false", tt.constraint, tt.version)
 			}
 		})
 	}

@@ -18,6 +18,8 @@ import (
 )
 
 func TestContainerRuntimeExecuteCreatesManagedPersistentContainerWhenMissing(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt := newPersistentTestRuntime(t, engine)
 	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true})
@@ -62,6 +64,8 @@ func TestContainerRuntimeExecuteCreatesManagedPersistentContainerWhenMissing(t *
 }
 
 func TestContainerRuntimeExecuteUsesCLIContainerNameAsExistingTarget(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "external-container",
 		Name:        "existing-dev",
@@ -89,6 +93,8 @@ func TestContainerRuntimeExecuteUsesCLIContainerNameAsExistingTarget(t *testing.
 }
 
 func TestContainerRuntimeExecuteSkipsForceRebuildForExistingPersistentTarget(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "external-container",
 		Name:        "existing-dev",
@@ -133,6 +139,8 @@ func TestContainerRuntimeExecuteSkipsForceRebuildForExistingPersistentTarget(t *
 }
 
 func TestContainerRuntimeExecuteDoesNotCreateMissingCLIContainerByDefault(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt := newPersistentTestRuntime(t, engine)
 	ctx := newPersistentExecutionContext(t, nil)
@@ -250,6 +258,8 @@ func TestContainerRuntimeExecuteLabelsFallbackImageForManagedPersistentContainer
 }
 
 func TestContainerRuntimeExecuteRejectsUnmanagedConfigTarget(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "external-container",
 		Name:        "managed-dev",
@@ -273,6 +283,8 @@ func TestContainerRuntimeExecuteRejectsUnmanagedConfigTarget(t *testing.T) {
 }
 
 func TestContainerRuntimeExecuteRestartsStoppedManagedPersistentContainer(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt := newPersistentTestRuntime(t, engine)
 	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "managed-dev"})
@@ -306,6 +318,8 @@ func TestContainerRuntimeExecuteRestartsStoppedManagedPersistentContainer(t *tes
 }
 
 func TestContainerRuntimeExecuteKeepsDynamicStateOnPersistentExec(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt := newPersistentTestRuntime(t, engine)
 	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "managed-dev"})
@@ -340,6 +354,8 @@ func TestContainerRuntimeExecuteKeepsDynamicStateOnPersistentExec(t *testing.T) 
 }
 
 func TestContainerRuntimeExecuteRejectsManagedPersistentDrift(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "managed-container",
 		Name:        "managed-dev",
@@ -367,6 +383,8 @@ func TestContainerRuntimeExecuteRejectsManagedPersistentDrift(t *testing.T) {
 }
 
 func TestContainerRuntimeExecuteReinspectsAfterNameConflict(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt := newPersistentTestRuntime(t, engine)
 	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "race-dev"})
@@ -412,6 +430,8 @@ func TestContainerRuntimeExecuteReinspectsAfterNameConflict(t *testing.T) {
 }
 
 func TestContainerRuntimeExecuteConcurrentMissingPersistentContainerCreatesOnce(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt := newPersistentTestRuntime(t, engine)
 	ctxs := []*ExecutionContext{
@@ -454,6 +474,8 @@ func TestContainerRuntimeExecuteConcurrentMissingPersistentContainerCreatesOnce(
 }
 
 func TestContainerRuntimeExecuteRejectsStoppedExternalCLIContainer(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "external-container",
 		Name:        "existing-dev",
@@ -481,6 +503,8 @@ func TestContainerRuntimeExecuteRejectsStoppedExternalCLIContainer(t *testing.T)
 }
 
 func TestContainerRuntimeExecuteCaptureUsesPersistentExecPath(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "external-container",
 		Name:        "existing-dev",

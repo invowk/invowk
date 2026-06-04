@@ -283,9 +283,15 @@ func TestValidateRuntimeDependenciesMutationBoundaries(t *testing.T) {
 	cmdInfo := runtimeDependencyCommandInfo(cmd)
 
 	t.Run("container nil and empty runtime deps do not require a probe",
-		func(t *testing.T) { testRuntimeDependencyEmptyProbeMutation(t, cmd, cmdInfo) })
+		func(t *testing.T) {
+			t.Parallel()
+			testRuntimeDependencyEmptyProbeMutation(t, cmd, cmdInfo)
+		})
 	t.Run("runtime env failure stops before later runtime probes",
-		func(t *testing.T) { testRuntimeDependencyEnvShortCircuitMutation(t, cmd, cmdInfo) })
+		func(t *testing.T) {
+			t.Parallel()
+			testRuntimeDependencyEnvShortCircuitMutation(t, cmd, cmdInfo)
+		})
 	t.Run("runtime dependency failures preserve failure kinds", testRuntimeDependencyFailureKindsMutation)
 }
 
@@ -295,7 +301,6 @@ func testRuntimeDependencyEmptyProbeMutation(
 	cmdInfo *discovery.CommandInfo,
 ) {
 	t.Helper()
-	t.Parallel()
 
 	ctx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
 	ctx.RuntimeDependsOn = nil
@@ -315,7 +320,6 @@ func testRuntimeDependencyEnvShortCircuitMutation(
 	cmdInfo *discovery.CommandInfo,
 ) {
 	t.Helper()
-	t.Parallel()
 
 	envErr := errors.New("env unavailable")
 	probe := &recordingRuntimeProbe{envErr: envErr}

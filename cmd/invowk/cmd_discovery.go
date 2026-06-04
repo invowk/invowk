@@ -31,6 +31,8 @@ type commandGroup struct {
 // in multiple sources — are intentionally excluded from transparent registration. This
 // ensures ambiguous commands fail with a helpful disambiguation message rather than
 // silently picking one source. Ambiguous commands must be executed via @source or --ivk-from.
+//
+//nolint:contextcheck // Cobra child commands carry cancellation through cmd.Context() at execution time.
 func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
 	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)

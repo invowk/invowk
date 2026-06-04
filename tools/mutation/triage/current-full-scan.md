@@ -9,7 +9,7 @@ This note records the first accepted-survivor baseline pass after the real advis
 
 The source reports are ignored artifacts; the accepted survivor state is committed in:
 
-- `tools/mutation/baselines/root-baseline.json`: 590 accepted escaped mutants.
+- `tools/mutation/baselines/root-baseline.json`: 372 accepted escaped mutants.
 - `tools/mutation/baselines/goplint-baseline.json`: 810 accepted escaped mutants.
 
 ## Root Profile
@@ -19,25 +19,28 @@ Summary from `artifacts/mutation/full/root/go-mutesting-summary.json`:
 - Total: 9,389
 - Killed: 5,224
 - Escaped in source report: 1,636
-- Accepted baseline after remediation: 590
+- Accepted baseline after remediation: 372
 - Not covered: 2,529
 - MSI: 55.64%
 - Covered-code MSI: 76.15%
 
 Top accepted clusters after the current remediation batches:
 
-- `internal/watch/watcher.go`: 18 accepted
-- `internal/app/deps/input.go`: 17 accepted
-- `pkg/invowkfile/flag.go`: 17 accepted
-- `pkg/invowkfile/runtime_preflight.go`: 17 accepted
-- `pkg/invowkfile/validation_options.go`: 17 accepted
-- `pkg/invowkmod/semver.go`: 16 accepted
-- `pkg/invowkmod/invowkmod.go`: 16 accepted
-- `pkg/invowkmod/operations_validate.go`: 15 accepted
-- `pkg/containerargs/container_name.go`: 15 accepted
-- `internal/app/deps/types.go`: 15 accepted
-- `internal/discovery/discovery_files.go`: 14 accepted
-- `pkg/invowkmod/lockfile_parser.go`: 13 accepted
+- `pkg/invowkmod/invowkmod.go`: 13 accepted
+- `internal/core/serverbase/base.go`: 10 accepted
+- `internal/discovery/discovery_validate.go`: 10 accepted
+- `internal/app/execute/orchestrator_validate.go`: 9 accepted
+- `internal/discovery/discovery.go`: 9 accepted
+- `pkg/invowkfile/dependency.go`: 9 accepted
+- `pkg/invowkfile/validation_structure_command.go`: 9 accepted
+- `pkg/invowkfile/virtual_filesystem.go`: 9 accepted
+- `pkg/invowkmod/content_hash.go`: 9 accepted
+- `pkg/invowkmod/resolver_validate.go`: 9 accepted
+- `pkg/invowkmod/semver.go`: 9 accepted
+- `internal/app/deps/filepaths.go`: 8 accepted
+- `internal/discovery/discovery_commands.go`: 8 accepted
+- `pkg/invowkfile/containerfile_path.go`: 8 accepted
+- `pkg/invowkmod/operations_validate.go`: 8 accepted
 
 Top not-covered clusters:
 
@@ -278,6 +281,151 @@ Twenty-fourth remediation batch:
 - Focused rerun: `artifacts/mutation/focused/root-discovery-commands/`, generated `2026-06-03T01:19:48Z`, with 124 total mutants, 86 killed, 27 not covered, 11 escaped, MSI 69.35%, and covered-code MSI 88.66%.
 - The focused rerun proved 10 accepted `internal/discovery/discovery_commands.go` survivor records killed and removed from the root baseline, dropping that file from 18 to 8 accepted mutants.
 - The focused rerun also surfaced 3 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Twenty-fifth remediation batch:
+
+- Add argument-input coverage for `internal/app/deps/input.go`, including required flags with valid values, empty optional typed flags, and exact `ArgumentValidationError` payload preservation for count and value failures.
+- Focused rerun: `artifacts/mutation/focused/root-deps-input-current/`, generated `2026-06-04T09:48:00Z`, with 94 total mutants, 90 killed, 0 not covered, 4 escaped, MSI 95.74%, and covered-code MSI 95.74%.
+- The focused rerun proved 14 accepted `internal/app/deps/input.go` survivor records killed and removed from the root baseline, dropping that file from 17 to 3 accepted mutants.
+- The focused rerun also surfaced 1 escaped ID that was not in the accepted baseline for this file. It was not added during this shrink-only pass; reconcile it with the next full root mutation profile before any broader baseline refresh.
+
+Twenty-sixth remediation batch:
+
+- Add dependency type coverage for `internal/app/deps/types.go`, including command-dependency alternative validation ordering, dependency-message whitespace rejection, `DependencyFailure` payload and invalid-field handling, legacy failure aggregation, structured-failure cloning, and dependency-message normalization.
+- Focused rerun: `artifacts/mutation/focused/root-deps-types-current/`, generated `2026-06-04T09:49:20Z`, with 108 total mutants, 61 killed, 47 not covered, 0 escaped, MSI 56.48%, and covered-code MSI 100.00%.
+- The focused rerun proved all 15 accepted `internal/app/deps/types.go` survivor records killed and removed from the root baseline, dropping that file from 15 to 0 accepted mutants.
+- The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `internal/app/deps/types.go`.
+
+Twenty-seventh remediation batch:
+
+- Add validation-option coverage for `pkg/invowkfile/validation_options.go`, including nil and empty-filepath defaults, file-derived workdir and default filesystem roots, custom filesystem preservation, and complete validation-context projection for workdir, platform, strict mode, filepath, and filesystem.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-validation-options-current/`, generated `2026-06-04T09:54:00Z`, with 40 total mutants, 39 killed, 1 not covered, 0 escaped, MSI 97.50%, and covered-code MSI 100.00%.
+- The focused rerun proved all 17 accepted `pkg/invowkfile/validation_options.go` survivor records killed and removed from the root baseline, dropping that file from 17 to 0 accepted mutants.
+- The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `pkg/invowkfile/validation_options.go`.
+
+Twenty-eighth remediation batch:
+
+- Add flag value-type coverage for `pkg/invowkfile/flag.go`, including invalid type/name/shorthand payloads, invalid-flag field-error sentinels, formatted flag-name errors, valid default-value no-op behavior, wrapped default type errors, invalid-regex default handling, and regex mismatch defaults.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-flag-current/`, generated `2026-06-04T10:03:07Z`, with 89 total mutants, 85 killed, 2 not covered, 2 escaped, MSI 95.51%, and covered-code MSI 97.70%.
+- The focused rerun proved 15 accepted `pkg/invowkfile/flag.go` survivor records killed and removed from the root baseline, dropping that file from 17 to 2 accepted mutants.
+- The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `pkg/invowkfile/flag.go`.
+
+Twenty-ninth remediation batch:
+
+- Add runtime-preflight coverage for `pkg/invowkfile/runtime_preflight.go`, including parser fallback behavior, missing and unknown runtime names, native/virtual/container field splits, image-only versus containerfile-only container sources, nested runtime index paths, AST list filtering, and exact `runtimePreflightError` metadata.
+- Focused rerun: `artifacts/mutation/focused/root-invowkfile-runtime-preflight-current/`, generated `2026-06-04T10:17:31Z`, with 97 total mutants, 80 killed, 13 not covered, 4 escaped, MSI 82.47%, and covered-code MSI 95.24%.
+- The focused rerun proved 16 accepted `pkg/invowkfile/runtime_preflight.go` survivor records killed and removed from the root baseline, dropping that file from 17 to 1 accepted mutant.
+- The focused rerun surfaced 3 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirtieth remediation batch:
+
+- Add watcher contract coverage for `internal/watch/watcher.go`, including watch config field-error wrapping and labels, constructor debounce/default ignore behavior, backend add-error wrapping, helper pattern diagnostics, trailing-slash directory ignores, and `maybeAddDir` file/dir/ignored/missing-path behavior.
+- Focused rerun: `artifacts/mutation/focused/root-watch-watcher-current/`, generated `2026-06-04T10:20:11Z`, with 265 total mutants, 143 killed, 75 not covered, 47 escaped, MSI 53.96%, and covered-code MSI 75.26%.
+- The focused rerun proved 7 accepted `internal/watch/watcher.go` survivor records killed and removed from the root baseline, dropping that file from 18 to 11 accepted mutants.
+- The focused rerun also surfaced 36 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-first remediation batch:
+
+- Strengthen fake-backend watcher coverage with custom ignore capacity stress, plain-directory and trailing-slash directory ignore checks, and a deterministic manual debounce scheduler for skip-if-busy retry behavior.
+- Focused rerun: `artifacts/mutation/focused/root-watch-watcher-current/`, generated `2026-06-04T10:27:53Z`, with 265 total mutants, 176 killed, 73 not covered, 16 escaped, MSI 66.42%, and covered-code MSI 91.67%.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-watch-watcher-current/single-reruns.tsv` proved 7 additional accepted `internal/watch/watcher.go` survivor records killed and removed from the root baseline, dropping that file from 11 to 4 accepted mutants.
+- The focused rerun surfaced escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-second remediation batch:
+
+- Add semver parser and constraint-boundary coverage for `pkg/invowkmod/semver.go`, including prerelease parsing without a patch segment, wrapped numeric overflow causes, and zero-major caret plus tilde cross-boundary exclusions.
+- Focused rerun: `artifacts/mutation/focused/root-invowkmod-semver-current/`, generated `2026-06-04T10:29:21Z`, with 232 total mutants, 211 killed, 11 not covered, 10 escaped, MSI 90.95%, and covered-code MSI 95.48%.
+- The focused rerun proved 7 accepted `pkg/invowkmod/semver.go` survivor records killed and removed from the root baseline, dropping that file from 16 to 9 accepted mutants.
+- The focused rerun surfaced 1 escaped ID that was not in the accepted baseline for this file. It was not added during this shrink-only pass; reconcile it with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-third remediation batch:
+
+- Add invowkmod value and path boundary coverage for `pkg/invowkmod/invowkmod.go`, including `A:` and `z:` drive-letter rejection through `SubdirectoryPath` and `isWindowsDrivePath`.
+- Focused rerun: `artifacts/mutation/focused/root-invowkmod-invowkmod-current/`, generated `2026-06-04T10:36:03Z`, with 288 total mutants, 243 killed, 20 not covered, 25 escaped, MSI 84.38%, and covered-code MSI 90.67%.
+- The focused rerun proved 3 accepted `pkg/invowkmod/invowkmod.go` survivor records killed and removed from the root baseline, dropping that file from 16 to 13 accepted mutants.
+- The focused rerun surfaced 12 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-fourth remediation batch:
+
+- Add operations validation coverage for `pkg/invowkmod/operations_validate.go`, including initialized validation result issue slices, exact `invowkmod.cue` path recording, symlink handling for entries named `invowk_modules`, file-not-directory `.invowkmod` suffix handling, and `Load` issue-message aggregation.
+- Focused rerun: `artifacts/mutation/focused/root-invowkmod-operations-validate-current/`, generated `2026-06-04T10:41:46Z`, with 137 total mutants, 81 killed, 41 not covered, 15 escaped, MSI 59.12%, and covered-code MSI 84.38%.
+- The focused rerun proved 7 accepted `pkg/invowkmod/operations_validate.go` survivor records killed and removed from the root baseline, dropping that file from 15 to 8 accepted mutants.
+- The focused rerun surfaced 7 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-fifth remediation batch:
+
+- Add portable container-name grammar coverage for `pkg/containerargs/container_name.go`, including max-length boundaries, exact invalid error payloads, ASCII start/body boundary bytes, `String()`, and invalid-name error formatting.
+- Focused rerun: `artifacts/mutation/focused/root-containerargs-container-name-current/`, generated `2026-06-04T10:45:27Z`, with 60 total mutants, 59 killed, 0 not covered, 1 escaped, MSI 98.33%, and covered-code MSI 0.00% as emitted by the focused file run.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-containerargs-container-name-current/single-reruns.tsv` proved all 15 accepted `pkg/containerargs/container_name.go` survivor records killed and removed from the root baseline, dropping that file from 15 to 0 accepted mutants.
+- The focused rerun surfaced 1 escaped branch-case artifact that was not in the accepted baseline for this file. It was not added during this shrink-only pass; reconcile it with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-sixth remediation batch:
+
+- Add optional positive duration coverage for `pkg/types/duration.go`, including the one-nanosecond positive boundary, zero returned duration on errors, concrete invalid-duration values/reasons, `String()`, and invalid-duration error formatting.
+- Focused rerun: `artifacts/mutation/focused/root-types-duration-current/`, generated `2026-06-04T10:50:46Z`, with 27 total mutants, 27 killed, 0 not covered, 0 escaped, MSI 100.00%, and covered-code MSI 0.00% as emitted by the focused file run.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-types-duration-current/single-reruns.tsv` proved all 9 accepted `pkg/types/duration.go` survivor records killed and removed from the root baseline, dropping that file from 9 to 0 accepted mutants.
+- The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `pkg/types/duration.go`.
+
+Thirty-seventh remediation batch:
+
+- Add CUE parser error-boundary coverage for `pkg/cueutil/parse.go`, including default filename use for early size errors, schema compile failures, user compile failures, missing schema definitions, concrete and non-concrete validation formatting, and decode error formatting.
+- Focused rerun: `artifacts/mutation/focused/root-cueutil-parse-current/`, generated `2026-06-04T10:54:56Z`, with 39 total mutants, 27 killed, 0 not covered, 12 escaped, MSI 69.23%, and covered-code MSI 0.00% as emitted by the focused file run.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-cueutil-parse-current/single-reruns.tsv` proved 4 accepted `pkg/cueutil/parse.go` survivor records killed and removed from the root baseline, dropping that file from 9 to 5 accepted mutants.
+- Five validation/fallthrough guard survivors remained accepted because the mutated path still reaches equivalent formatted CUE/decode errors under the current public API. The focused rerun also surfaced escaped IDs that were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-eighth remediation batch:
+
+- Add discovery-file coverage for `internal/discovery/discovery_files.go`, including skipped include entries continuing to later valid includes, vendored integrity errors propagating from local and configured include sources, `invowkfile.cue` discovery preserving non-zero source values, nil-metadata vendored parent short-circuiting, and global-marked discovered files without modules being ignored safely.
+- Focused rerun: `artifacts/mutation/focused/root-discovery-files-current/`, generated `2026-06-04T11:03:41Z`, with 276 total mutants, 226 killed, 31 not covered, 19 escaped, MSI 81.88%, and covered-code MSI 92.24%.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-discovery-files-current/single-reruns.tsv` proved 9 accepted `internal/discovery/discovery_files.go` survivor records killed and removed from the root baseline, dropping that file from 14 to 5 accepted mutants.
+- Five remaining accepted survivors are equivalent or equivalent-like under the current helper contracts: ambiguity keys are never length one, nil-child transitive diagnostics still fall through to no diagnostic, empty effective command namespaces return empty either way, and an empty global-ID map produces no diagnostics whether or not the early return runs. The focused rerun surfaced escaped IDs that were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Thirty-ninth remediation batch:
+
+- Add lock-file parser error-contract coverage for `pkg/invowkmod/lockfile_parser.go`, including unknown-version payload fields, wrapped generated timestamp parse errors, wrapped CUE parse/validation/decode errors, non-concrete validation before decode, and v2 split-metadata `InvalidLockedModuleError` module-key preservation.
+- Focused rerun: `artifacts/mutation/focused/root-invowkmod-lockfile-parser-current/`, generated `2026-06-04T11:10:40Z`, with 168 total mutants, 74 killed, 92 not covered, 2 escaped, MSI 44.05%, and covered-code MSI 97.37%.
+- The focused rerun proved all 13 accepted `pkg/invowkmod/lockfile_parser.go` survivor records killed and removed from the root baseline, dropping that file from 13 to 0 accepted mutants.
+- The focused rerun surfaced 2 escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Fortieth remediation batch:
+
+- Extend LLM resolver mutation coverage for `internal/app/llmconfig/resolve.go`, including all known-mode validation, exact negative-timeout boundaries, changed API-key env precedence, invalid environment URL propagation through `Resolve`, invalid configured-provider validation, and duplicate-free configured API concurrency errors.
+- Focused rerun: `artifacts/mutation/focused/root-llmconfig-resolve-current/`, generated `2026-06-04T11:19:56Z`, with 206 total mutants, 196 killed, 8 not covered, 2 escaped, MSI 95.15%, and covered-code MSI 98.99%.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-llmconfig-resolve-current/single-reruns.tsv` proved 10 accepted `internal/app/llmconfig/resolve.go` survivor records killed and removed from the root baseline, dropping that file from 12 to 2 accepted mutants.
+- Two remaining accepted survivors are equivalent under the current public contract: clearing `Mode: ModeNone` from a returned `Resolved` literal preserves the zero-value result, and the branch-case artifact has no source line while all known mode labels and validations are covered. The focused rerun surfaced 0 escaped IDs that were not in the accepted baseline for this file, so the shrink-only pass did not need to defer any focused-only survivor reconciliation for `internal/app/llmconfig/resolve.go`.
+
+Forty-first remediation batch:
+
+- Reconcile the refreshed watcher focused report against the accepted baseline after the deterministic scheduler coverage landed.
+- Focused rerun: `artifacts/mutation/focused/root-watch-watcher-current/`, generated `2026-06-04T10:27:53Z`, with 265 total mutants, 176 killed, 73 not covered, 16 escaped, MSI 66.42%, and covered-code MSI 91.67%.
+- The focused rerun proved 2 additional accepted `internal/watch/watcher.go` survivor records killed and removed from the root baseline, dropping that file from 4 to 2 accepted mutants.
+- The focused rerun still surfaced escaped IDs that were not in the accepted baseline for this file. Those were not added during this shrink-only pass; reconcile them with the next full root mutation profile before any broader baseline refresh.
+
+Forty-second remediation batch:
+
+- Reconcile `pkg/invowkfile/validation_primitives.go` against the current regex-safety boundary coverage.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-invowkfile-validation-primitives-current/single-reruns.tsv` proved all 12 accepted `pkg/invowkfile/validation_primitives.go` survivor records killed and removed from the root baseline, dropping that file to 0 accepted mutants.
+
+Forty-third remediation batch:
+
+- Reconcile `pkg/invowkfile/validation_structure_deps.go` against the current dependency-diagnostic coverage.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-invowkfile-validation-structure-deps-current/single-reruns.tsv` proved 8 unique stable IDs covering all 11 accepted `pkg/invowkfile/validation_structure_deps.go` survivor records killed and removed from the root baseline, dropping that file to 0 accepted mutants.
+
+Forty-fourth remediation batch:
+
+- Reconcile `pkg/invowkfile/validation_structure_flags.go` against the current flag-diagnostic severity coverage.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-invowkfile-validation-structure-flags-current/single-reruns.tsv` proved 2 unique stable IDs covering all 10 accepted `pkg/invowkfile/validation_structure_flags.go` survivor records killed and removed from the root baseline, dropping that file to 0 accepted mutants.
+
+Forty-fifth remediation batch:
+
+- Reconcile `pkg/invowkfile/runtime.go` against the current runtime, shebang, interpreter, and runtime-config boundary coverage.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-invowkfile-runtime-current/single-reruns.tsv` proved all 10 accepted `pkg/invowkfile/runtime.go` survivor records killed and removed from the root baseline, dropping that file to 0 accepted mutants.
+
+Forty-sixth remediation batch:
+
+- Reconcile `pkg/invowkfile/command.go` against the current command validation and implementation-selection coverage.
+- Single-mutant reruns recorded in `artifacts/mutation/focused/root-invowkfile-command-current/single-reruns.tsv` proved 4 unique stable IDs covering 5 accepted `pkg/invowkfile/command.go` survivor records killed and removed from the root baseline, dropping that file from 10 to 5 accepted mutants.
+- Five `pkg/invowkfile/command.go` survivor IDs still escaped targeted reruns and remain accepted in the baseline.
 
 ## Policy
 

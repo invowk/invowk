@@ -63,6 +63,8 @@ func (c *Client) IsAvailable() bool {
 }
 
 // IsAvailableContext checks if the TUI server is available with caller cancellation.
+//
+//nolint:contextcheck // nil context is accepted for availability-probe compatibility.
 func (c *Client) IsAvailableContext(ctx context.Context) bool {
 	if c == nil {
 		return false
@@ -359,6 +361,8 @@ func (c *Client) TableContext(ctx context.Context, opts TableRequest) (*TableRes
 }
 
 // sendRequestContext sends a TUI request to the server and returns the response.
+//
+//nolint:contextcheck // nil context is accepted for request helper compatibility.
 func (c *Client) sendRequestContext(ctx context.Context, component Component, options any) (result *Response, err error) {
 	if ctx == nil {
 		ctx = context.Background()

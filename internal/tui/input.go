@@ -140,12 +140,18 @@ func Input(opts InputOptions) (string, error) {
 		return "", err
 	}
 
-	m := finalModel.(*inputModel)
+	m, err := expectModel[*inputModel](finalModel, ComponentTypeInput)
+	if err != nil {
+		return "", err
+	}
 	if m.cancelled {
 		return "", ErrCancelled
 	}
-	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
-	return result.(string), nil
+	result, err := m.Result()
+	if err != nil {
+		return "", err
+	}
+	return expectResult[string](result, ComponentTypeInput)
 }
 
 // NewInput creates a new InputBuilder with default options.

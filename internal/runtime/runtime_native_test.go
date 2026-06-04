@@ -369,7 +369,7 @@ func TestNativeRuntime_appendPositionalArgs(t *testing.T) {
 	}
 }
 
-func TestNativeRuntime_EnvIsolation(t *testing.T) {
+func TestNativeRuntime_EnvIsolation(t *testing.T) { //nolint:paralleltest // test mutates process environment for runtime inheritance checks.
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

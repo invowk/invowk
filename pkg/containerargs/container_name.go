@@ -10,6 +10,9 @@ import (
 const (
 	// MaxContainerNameLength is the maximum portable container name length Invowk accepts.
 	MaxContainerNameLength = 128
+
+	containerNameStartReason      = "must start with a lowercase ASCII letter or digit"
+	containerNameCharactersReason = "must contain only lowercase ASCII letters, digits, '.', '_', or '-'"
 )
 
 // ErrInvalidContainerName is the sentinel error wrapped by InvalidContainerNameError.
@@ -48,7 +51,7 @@ func (n ContainerName) Validate() error {
 	if !isLowerASCIILetterOrDigit(name[0]) {
 		return &InvalidContainerNameError{
 			Value:  n,
-			Reason: "must start with a lowercase ASCII letter or digit",
+			Reason: containerNameStartReason,
 		}
 	}
 	for _, c := range name {
@@ -59,7 +62,7 @@ func (n ContainerName) Validate() error {
 		default:
 			return &InvalidContainerNameError{
 				Value:  n,
-				Reason: "must contain only lowercase ASCII letters, digits, '.', '_', or '-'",
+				Reason: containerNameCharactersReason,
 			}
 		}
 	}

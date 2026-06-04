@@ -428,7 +428,7 @@ func TestServerInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestClientFromEnv(t *testing.T) {
+func TestClientFromEnv(t *testing.T) { //nolint:paralleltest // test mutates TUI client environment variables.
 	// Save and unset env vars for clean test state
 	restoreAddr := testutil.MustUnsetenv(t, EnvTUIAddr)
 	restoreToken := testutil.MustUnsetenv(t, EnvTUIToken)

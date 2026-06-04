@@ -144,12 +144,18 @@ func Write(opts WriteOptions) (string, error) {
 		return "", err
 	}
 
-	m := finalModel.(*writeModel)
+	m, err := expectModel[*writeModel](finalModel, ComponentTypeWrite)
+	if err != nil {
+		return "", err
+	}
 	if m.cancelled {
 		return "", ErrCancelled
 	}
-	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
-	return result.(string), nil
+	result, err := m.Result()
+	if err != nil {
+		return "", err
+	}
+	return expectResult[string](result, ComponentTypeWrite)
 }
 
 // NewWrite creates a new WriteBuilder with default options.

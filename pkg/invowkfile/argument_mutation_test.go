@@ -20,8 +20,8 @@ func TestArgumentTypeValidateReportsInvalidValue(t *testing.T) {
 	if !errors.Is(err, ErrInvalidArgumentType) {
 		t.Fatalf("error should wrap ErrInvalidArgumentType, got %v", err)
 	}
-	var invalid *InvalidArgumentTypeError
-	if !errors.As(err, &invalid) {
+	invalid, ok := errors.AsType[*InvalidArgumentTypeError](err)
+	if !ok {
 		t.Fatalf("error should be *InvalidArgumentTypeError, got %T", err)
 	}
 	if invalid.Value != value {
@@ -83,8 +83,8 @@ func requireInvalidArgumentNameError(t *testing.T, err error) *InvalidArgumentNa
 	if !errors.Is(err, ErrInvalidArgumentName) {
 		t.Fatalf("error should wrap ErrInvalidArgumentName, got %v", err)
 	}
-	var invalid *InvalidArgumentNameError
-	if !errors.As(err, &invalid) {
+	invalid, ok := errors.AsType[*InvalidArgumentNameError](err)
+	if !ok {
 		t.Fatalf("error should be *InvalidArgumentNameError, got %T", err)
 	}
 	return invalid
@@ -207,8 +207,8 @@ func TestArgumentValidateArgumentValueRejectsInvalidArgumentType(t *testing.T) {
 	if !errors.Is(err, ErrInvalidArgumentType) {
 		t.Fatalf("error should wrap ErrInvalidArgumentType, got %v", err)
 	}
-	var invalid *InvalidArgumentTypeError
-	if !errors.As(err, &invalid) {
+	invalid, ok := errors.AsType[*InvalidArgumentTypeError](err)
+	if !ok {
 		t.Fatalf("error should contain *InvalidArgumentTypeError, got %T", err)
 	}
 	if invalid.Value != arg.Type {
@@ -225,8 +225,8 @@ func requireInvalidArgumentError(t *testing.T, err error) *InvalidArgumentError 
 	if !errors.Is(err, ErrInvalidArgument) {
 		t.Fatalf("error should wrap ErrInvalidArgument, got %v", err)
 	}
-	var invalid *InvalidArgumentError
-	if !errors.As(err, &invalid) {
+	invalid, ok := errors.AsType[*InvalidArgumentError](err)
+	if !ok {
 		t.Fatalf("error should be *InvalidArgumentError, got %T", err)
 	}
 	return invalid
@@ -236,8 +236,7 @@ func requireArgumentNameFieldError(t *testing.T, errs []error) *InvalidArgumentN
 	t.Helper()
 
 	for _, err := range errs {
-		var invalid *InvalidArgumentNameError
-		if errors.As(err, &invalid) {
+		if invalid, ok := errors.AsType[*InvalidArgumentNameError](err); ok {
 			return invalid
 		}
 	}
@@ -249,8 +248,7 @@ func requireRegexPatternFieldError(t *testing.T, errs []error) *InvalidRegexPatt
 	t.Helper()
 
 	for _, err := range errs {
-		var invalid *InvalidRegexPatternError
-		if errors.As(err, &invalid) {
+		if invalid, ok := errors.AsType[*InvalidRegexPatternError](err); ok {
 			return invalid
 		}
 	}

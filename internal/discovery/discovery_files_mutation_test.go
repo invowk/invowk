@@ -112,6 +112,14 @@ func TestDiscoverInDir_PrefersCueThenFallsBackToExtensionless(t *testing.T) {
 		t.Fatalf("discoverInDir() source = %v, want SourceCurrentDir", cueFile.Source)
 	}
 
+	moduleCueFile := d.discoverInDir(types.FilesystemPath(withBoth), SourceModule)
+	if moduleCueFile == nil {
+		t.Fatal("discoverInDir() returned nil for module directory with invowkfile.cue")
+	}
+	if moduleCueFile.Source != SourceModule {
+		t.Fatalf("discoverInDir() module cue source = %v, want SourceModule", moduleCueFile.Source)
+	}
+
 	extensionlessOnly := t.TempDir()
 	writeTestFile(t, filepath.Join(extensionlessOnly, invowkfile.InvowkfileName), "legacy\n")
 	legacyFile := d.discoverInDir(types.FilesystemPath(extensionlessOnly), SourceModule)
@@ -283,13 +291,112 @@ func TestLoadIncludesWithDiagnostics_NilConfigAndReservedInclude(t *testing.T) {
 	assertDiagnosticCodePresent(t, diagnostics, CodeIncludeReservedSkipped)
 }
 
+func TestLoadIncludesWithDiagnostics_SkippedIncludesDoNotStopLaterValidIncludes(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	nonModulePath := filepath.Join(tmpDir, "plain")
+	mkdirTest(t, nonModulePath)
+
+	reservedModulePath := filepath.Join(tmpDir, "invowkfile.invowkmod")
+	createTestModule(t, reservedModulePath, "invowkfile", "reserved")
+
+	brokenModulePath := filepath.Join(tmpDir, "broken.invowkmod")
+	mkdirTest(t, brokenModulePath)
+	writeTestFile(t, filepath.Join(brokenModulePath, "invowkmod.cue"), "module: [")
+	writeTestFile(t, filepath.Join(brokenModulePath, "invowkfile.cue"), "cmds: []\n")
+
+	validModulePath := filepath.Join(tmpDir, "valid.invowkmod")
+	createTestModule(t, validModulePath, "valid", "run")
+
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{Path: config.ModuleIncludePath(nonModulePath)},
+		{Path: config.ModuleIncludePath(reservedModulePath)},
+		{Path: config.ModuleIncludePath(brokenModulePath)},
+		{Path: config.ModuleIncludePath(validModulePath)},
+	}
+	d := New(cfg, WithBaseDir(""), WithCommandsDir(""))
+
+	files, diagnostics := d.loadIncludesWithDiagnostics()
+	if len(files) != 1 {
+		t.Fatalf("loadIncludesWithDiagnostics() files = %d, want 1 after skipped includes", len(files))
+	}
+	if files[0].Module == nil || files[0].Module.Metadata.Module != "valid" {
+		t.Fatalf("loadIncludesWithDiagnostics() file = %#v, want valid module", files[0])
+	}
+	assertDiagnosticCodePresent(t, diagnostics, CodeIncludeNotModule)
+	assertDiagnosticCodePresent(t, diagnostics, CodeIncludeReservedSkipped)
+	assertDiagnosticCodePresent(t, diagnostics, CodeIncludeModuleLoadFailed)
+}
+
+func TestDiscoverAllWithDiagnostics_PropagatesVendoredIntegrityErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("local module", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		parentDir := filepath.Join(tmpDir, "parent.invowkmod")
+		createTestModule(t, parentDir, "parent", "run")
+		childDir := createVendoredModule(t, parentDir, "child.invowkmod", "child", "run")
+		corruptVendoredModuleHash(t, childDir)
+
+		d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+		files, diagnostics, err := d.discoverAllWithDiagnostics()
+		if !errors.Is(err, invowkmod.ErrContentHashMismatch) {
+			t.Fatalf("discoverAllWithDiagnostics() error = %v, want ErrContentHashMismatch", err)
+		}
+		if files != nil {
+			t.Fatalf("discoverAllWithDiagnostics() files = %#v, want nil after hard integrity error", files)
+		}
+		if len(diagnostics) != 0 {
+			t.Fatalf("discoverAllWithDiagnostics() diagnostics = %#v, want none before integrity error", diagnostics)
+		}
+	})
+
+	t.Run("configured include", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		parentDir := filepath.Join(tmpDir, "included.invowkmod")
+		createTestModule(t, parentDir, "included", "run")
+		childDir := createVendoredModule(t, parentDir, "child.invowkmod", "child", "run")
+		corruptVendoredModuleHash(t, childDir)
+
+		cfg := config.DefaultConfig()
+		cfg.Includes = []config.IncludeEntry{{Path: config.ModuleIncludePath(parentDir)}}
+		d := New(cfg, WithBaseDir(""), WithCommandsDir(""))
+
+		files, diagnostics, err := d.discoverAllWithDiagnostics()
+		if !errors.Is(err, invowkmod.ErrContentHashMismatch) {
+			t.Fatalf("discoverAllWithDiagnostics() error = %v, want ErrContentHashMismatch", err)
+		}
+		if files != nil {
+			t.Fatalf("discoverAllWithDiagnostics() files = %#v, want nil after hard integrity error", files)
+		}
+		if len(diagnostics) != 0 {
+			t.Fatalf("discoverAllWithDiagnostics() diagnostics = %#v, want none before integrity error", diagnostics)
+		}
+	})
+}
+
 func TestDiscoverVendoredModulesWithDiagnostics_NilAndMissingInputsAreQuiet(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	parentDir := filepath.Join(tmpDir, "parent.invowkmod")
-	createTestModule(t, parentDir, "parent", "run")
-	parent := loadTestModule(t, parentDir)
+	nilMetadataParentDir := filepath.Join(tmpDir, "nilmetadataparent.invowkmod")
+	createTestModule(t, nilMetadataParentDir, "nilmetadataparent", "run")
+	createTestModule(
+		t,
+		filepath.Join(nilMetadataParentDir, invowkmod.VendoredModulesDir, "child.invowkmod"),
+		"child",
+		"run",
+	)
+
+	missingVendorParentDir := filepath.Join(tmpDir, "missingvendorparent.invowkmod")
+	createTestModule(t, missingVendorParentDir, "missingvendorparent", "run")
+	parent := loadTestModule(t, missingVendorParentDir)
 	d := New(config.DefaultConfig(), WithBaseDir(""), WithCommandsDir(""))
 
 	for _, tt := range []struct {
@@ -297,7 +404,7 @@ func TestDiscoverVendoredModulesWithDiagnostics_NilAndMissingInputsAreQuiet(t *t
 		parent *invowkmod.Module
 	}{
 		{"nil parent", nil},
-		{"nil metadata", &invowkmod.Module{Path: types.FilesystemPath(parentDir)}},
+		{"nil metadata", &invowkmod.Module{Path: types.FilesystemPath(nilMetadataParentDir)}},
 		{"missing vendor directory", parent},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -430,6 +537,7 @@ func TestDetectModuleShadowing_ReportsOnlyLocalModulesThatMatchGlobalIDs(t *test
 	if diagnostics := d.detectModuleShadowing([]*DiscoveredFile{
 		{Path: local.InvowkfilePath(), Source: SourceModule, Module: local},
 		{Path: other.InvowkfilePath(), Source: SourceModule, Module: other},
+		{Path: types.FilesystemPath(filepath.Join(tmpDir, "global-without-module")), Source: SourceModule, IsGlobalModule: true},
 	}); diagnostics != nil {
 		t.Fatalf("detectModuleShadowing() without globals = %#v, want nil", diagnostics)
 	}
@@ -479,6 +587,12 @@ func loadTestModule(t *testing.T, moduleDir string) *invowkmod.Module {
 		t.Fatalf("failed to load module %s: %v", moduleDir, err)
 	}
 	return module
+}
+
+func corruptVendoredModuleHash(t *testing.T, moduleDir string) {
+	t.Helper()
+
+	writeTestFile(t, filepath.Join(moduleDir, "hash-drift.txt"), "changed after lock\n")
 }
 
 func assertDiagnosticCodePresent(t *testing.T, diagnostics []Diagnostic, code DiagnosticCode) {

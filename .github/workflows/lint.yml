@@ -21,6 +21,8 @@ on:
       - '.agents/**'
       - 'scripts/check-agent-docs.sh'
       - 'scripts/check-file-length.sh'
+      - 'scripts/golangci-lint.sh'
+      - 'scripts/test_golangci_lint.sh'
       - '.github/workflows/lint.yml'
       - 'tools/goplint/**'
   pull_request:
@@ -43,6 +45,8 @@ on:
       - '.agents/**'
       - 'scripts/check-agent-docs.sh'
       - 'scripts/check-file-length.sh'
+      - 'scripts/golangci-lint.sh'
+      - 'scripts/test_golangci_lint.sh'
       - '.github/workflows/lint.yml'
       - 'tools/goplint/**'
   # Release validation must always run in full, regardless of changed paths.
@@ -70,7 +74,7 @@ jobs:
         run: make check-agent-docs
 
   golangci-lint:
-    name: golangci-lint
+    name: normalized golangci-lint gates
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -86,12 +90,14 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.12.2
-          # Run full-codebase lint (not just new issues) so CI matches local `make lint`
-          only-new-issues: false
+      - name: Verify normalized golangci-lint version
+        run: ./scripts/golangci-lint.sh version
+
+      - name: Test normalized golangci-lint wrapper
+        run: bash scripts/test_golangci_lint.sh
+
+      - name: Run full lint gate
+        run: make lint
 
   goplint:
     name: goplint (advisory full scan)
@@ -192,14 +198,12 @@ jobs:
         run: |
           ./tools/goplint/scripts/check-cfg-bench-thresholds.sh
 
-  goplint-review-dates:
-    name: goplint (overdue reviews)
+  goplint-exceptions:
+    name: goplint (exception governance)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
-    # Advisory only - surfaces overdue exception review dates
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -213,14 +217,8 @@ jobs:
       - name: Build goplint
         run: cd tools/goplint && go build -o ../../bin/goplint .
 
-      - name: Audit overdue review dates
-        run: |
-          set +e
-          ./bin/goplint -audit-review-dates -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
-          status=$?
-          if [ "$status" -ne 0 ]; then
-            echo "::warning::goplint found exceptions with overdue review_after dates; check tools/goplint/exceptions.toml."
-          fi
+      - name: Audit stale and overdue exceptions
+        run: make check-goplint-exceptions
 
   file-length:
     name: file length gate (1000 lines)

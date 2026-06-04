@@ -75,7 +75,7 @@ for _, tt := range tests {
 
 ### Default Rule
 
-All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `tparallel` linter enforces this positioning.
+All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `paralleltest` linter enforces missing `t.Parallel()` calls; the `tparallel` linter enforces placement and parent/subtest consistency.
 
 `tools/goplint` no longer relies on shared process-wide analyzer flag state; its tests use per-test analyzer instances and may run in parallel. Keep bounded concurrency controls where needed (for example, a semaphore around heavy `analysistest` runs) to avoid process exhaustion on constrained runners.
 
@@ -83,7 +83,7 @@ When a helper acquires a test semaphore, release that token in the same helper c
 
 ### Table-Driven Subtests
 
-When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.
+When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too or add a local `//nolint:paralleltest // ...` rationale to the intentionally serial parent.
 
 Modernize compatibility notes:
 - Do not add `tt := tt` / `tc := tc` loop-variable rebinding before `t.Run(...)`. In Go 1.22+ range variables are per-iteration, and redundant rebinding is flagged by `modernize` (`forvar`).

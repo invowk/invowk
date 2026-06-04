@@ -144,7 +144,7 @@ func TestSandboxAwareEngine_Flatpak(t *testing.T) {
 	}
 }
 
-func TestSandboxAwareEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testing.T) {
+func TestSandboxAwareEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock and asserts serialization timing.
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
 	acquireContainerLock = func() (*runLock, error) {
@@ -211,7 +211,7 @@ func TestSandboxAwareEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *t
 	}
 }
 
-func TestSandboxAwareEngine_CoordinateLifecycleSerializationDecision(t *testing.T) {
+func TestSandboxAwareEngine_CoordinateLifecycleSerializationDecision(t *testing.T) { //nolint:paralleltest // mutates package-global acquireContainerLock.
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
 	acquireContainerLock = func() (*runLock, error) {
@@ -248,6 +248,7 @@ func TestSandboxAwareEngine_CoordinateLifecycleSerializationDecision(t *testing.
 		},
 	}
 
+	//nolint:paralleltest // subtests share the package-global acquireContainerLock override.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lockAttempts.Store(0)
@@ -271,6 +272,8 @@ func TestSandboxAwareEngine_CoordinateLifecycleSerializationDecision(t *testing.
 }
 
 func TestSandboxAwareEngine_AvailableUsesHostSpawn(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockEngine{
 		name:       "podman",
 		available:  false,
