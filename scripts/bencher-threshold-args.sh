@@ -73,3 +73,30 @@ bencher_error_on_alert_args() {
 		args_ref=()
 	fi
 }
+
+bencher_github_actions_args() {
+	local -n args_ref="$1"
+	local ci_id="${2:-}"
+	local ci_number="${3:-}"
+	args_ref=(--github-actions "$GITHUB_TOKEN")
+
+	if [[ -n "$ci_id" ]]; then
+		args_ref+=(--ci-id "$ci_id")
+	fi
+	if [[ -n "$ci_number" ]]; then
+		args_ref+=(--ci-number "$ci_number")
+	fi
+
+	local error_on_alert="${BENCHER_ERROR_ON_ALERT:-true}"
+	case "${error_on_alert,,}" in
+	true | 1 | yes)
+		;;
+	false | 0 | no)
+		echo "::notice::Skipping Bencher GitHub check because BENCHER_ERROR_ON_ALERT=$error_on_alert makes this run advisory; benchmark data will still upload to Bencher." >&2
+		args_ref=()
+		;;
+	*)
+		echo "::warning::Invalid BENCHER_ERROR_ON_ALERT=$error_on_alert; keeping Bencher GitHub check." >&2
+		;;
+	esac
+}

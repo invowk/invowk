@@ -144,6 +144,8 @@ jobs:
           bencher_threshold_args threshold_args
           alert_args=()
           bencher_error_on_alert_args alert_args
+          github_actions_args=()
+          bencher_github_actions_args github_actions_args bmf "$PR_NUMBER"
 
           bencher run \
             --project "$BENCHER_PROJECT" \
@@ -160,9 +162,7 @@ jobs:
             --job-poll-interval 5 \
             --adapter json \
             --file "$BENCH_BMF_OUT" \
-            --github-actions "$GITHUB_TOKEN" \
-            --ci-id bmf \
-            --ci-number "$PR_NUMBER" \
+            "${github_actions_args[@]}" \
             "${threshold_args[@]}" \
             "${alert_args[@]}" \
             "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"

@@ -137,6 +137,8 @@ jobs:
           bencher_threshold_args threshold_args
           alert_args=()
           bencher_error_on_alert_args alert_args
+          github_actions_args=()
+          bencher_github_actions_args github_actions_args bmf
 
           bencher run \
             --project "$BENCHER_PROJECT" \
@@ -149,8 +151,7 @@ jobs:
             --job-poll-interval 5 \
             --adapter json \
             --file "$BENCH_BMF_OUT" \
-            --github-actions "$GITHUB_TOKEN" \
-            --ci-id bmf \
+            "${github_actions_args[@]}" \
             "${threshold_args[@]}" \
             "${alert_args[@]}" \
             "${start_point_args[@]}" \
