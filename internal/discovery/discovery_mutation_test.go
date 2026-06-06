@@ -63,31 +63,15 @@ func TestNewMutationContracts(t *testing.T) {
 	})
 }
 
-//nolint:paralleltest // changes the process working directory and restores it in cleanup.
 func TestNewMutationReportsUnavailableWorkingDirectory(t *testing.T) {
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd() before test = %v", err)
-	}
-	t.Cleanup(func() {
-		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
-			t.Errorf("restore working directory: %v", chdirErr)
+	t.Parallel()
+
+	errWorkingDirectoryUnavailable := errors.New("working directory unavailable")
+	d := New(config.DefaultConfig(), WithCommandsDir(""), func(d *Discovery) {
+		d.workingDirectory = func() (types.FilesystemPath, error) {
+			return "", errWorkingDirectoryUnavailable
 		}
 	})
-
-	parent := t.TempDir()
-	deletedDir := filepath.Join(parent, "deleted")
-	if err := os.Mkdir(deletedDir, 0o755); err != nil {
-		t.Fatalf("mkdir deleted cwd: %v", err)
-	}
-	if err := os.Chdir(deletedDir); err != nil {
-		t.Fatalf("chdir deleted cwd: %v", err)
-	}
-	if err := os.Remove(deletedDir); err != nil {
-		t.Fatalf("remove cwd: %v", err)
-	}
-
-	d := New(config.DefaultConfig(), WithCommandsDir(""))
 	if d.baseDir != "" {
 		t.Fatalf("baseDir = %q, want empty when cwd is unavailable", d.baseDir)
 	}

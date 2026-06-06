@@ -71,6 +71,7 @@ type (
 		verifyVendoredIntegrity  bool
 		provisionedModules       ProvisionedModuleEntries
 		provisionedGlobalModules ProvisionedModuleEntries
+		workingDirectory         workingDirectoryFunc
 	}
 
 	//goplint:validate-all
@@ -89,6 +90,8 @@ type (
 
 	// Option configures a Discovery instance via the functional options pattern.
 	Option func(*Discovery)
+
+	workingDirectoryFunc func() (types.FilesystemPath, error)
 
 	//goplint:ignore -- private collision-check DTO assembled from already parsed module metadata.
 	commandSourceIdentity struct {
@@ -212,14 +215,18 @@ func (e ProvisionedModuleEntries) Validate() error {
 // (e.g., deleted working directory), baseDir is empty and current-dir
 // discovery is effectively skipped.
 func New(cfg *config.Config, opts ...Option) *Discovery {
-	d := &Discovery{cfg: cfg, verifyVendoredIntegrity: true}
+	d := &Discovery{
+		cfg:                     cfg,
+		verifyVendoredIntegrity: true,
+		workingDirectory:        defaultWorkingDirectory,
+	}
 	for _, opt := range opts {
 		opt(d)
 	}
 	if !d.baseDirSet && d.baseDir == "" {
-		cwd, err := os.Getwd()
+		cwd, err := d.workingDirectory()
 		if err == nil {
-			d.baseDir = types.FilesystemPath(cwd) //goplint:ignore -- os.Getwd returns valid path or error
+			d.baseDir = cwd
 		} else {
 			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
@@ -248,6 +255,14 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		}
 	}
 	return d
+}
+
+func defaultWorkingDirectory() (types.FilesystemPath, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get working directory: %w", err)
+	}
+	return types.FilesystemPath(cwd), nil //goplint:ignore -- os.Getwd returns valid path or error
 }
 
 // LoadAll parses all discovered files into Invowkfile structs. Library-only modules
