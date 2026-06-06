@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -152,7 +153,7 @@ func (e *InvalidModuleNamespaceError) Unwrap() error {
 // it is always a computed value.
 func (n ModuleNamespace) Validate() error {
 	if n == "" {
-		return &InvalidModuleNamespaceError{Value: n}
+		return &InvalidModuleNamespaceError{}
 	}
 	return nil
 }
@@ -167,9 +168,6 @@ func (v LockFileVersion) String() string { return string(v) }
 // or an error if it is empty or unrecognized. The known versions allowlist
 // is maintained in lockfile_parser.go alongside the parser registry.
 func (v LockFileVersion) Validate() error {
-	if v == "" {
-		return &InvalidLockFileVersionError{Value: v}
-	}
 	if !IsKnownLockFileVersion(v) {
 		return &InvalidLockFileVersionError{Value: v}
 	}
@@ -313,7 +311,7 @@ func InspectLockFile(path types.FilesystemPath) LockFileSnapshot {
 	info, err := os.Stat(string(path))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return snapshot
+			return LockFileSnapshot{}
 		}
 		snapshot.StatErr = fmt.Errorf("failed to stat lock file: %w", err)
 		return snapshot
@@ -478,11 +476,14 @@ func (l *LockFile) toCUE() string {
 
 // parseStringValue extracts a quoted string value from a CUE line.
 func parseStringValue(line string) string {
-	_, value, found := strings.Cut(line, ":")
-	if !found {
-		return ""
-	}
+	_, value, _ := strings.Cut(line, ":")
 	value = strings.TrimSpace(value)
+	if quoted, err := strconv.QuotedPrefix(value); err == nil {
+		unquoted, err := strconv.Unquote(quoted)
+		if err == nil {
+			return unquoted
+		}
+	}
 	value = strings.Trim(value, "\"")
 	return value
 }

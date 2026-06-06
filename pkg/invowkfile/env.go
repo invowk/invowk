@@ -69,8 +69,7 @@ func (e *InvalidEnvVarNameError) Unwrap() error { return ErrInvalidEnvVarName }
 //
 //goplint:nonzero
 func (n EnvVarName) Validate() error {
-	s := string(n)
-	if strings.TrimSpace(s) == "" || !envVarNameRegex.MatchString(s) {
+	if !envVarNameRegex.MatchString(string(n)) {
 		return &InvalidEnvVarNameError{Value: n}
 	}
 	return nil

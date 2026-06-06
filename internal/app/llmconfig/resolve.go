@@ -127,12 +127,12 @@ func Resolve(ctx context.Context, provider config.Loader, opts ResolveOptions) (
 		if resolved.Mode == ModeNone {
 			resolved.Mode = ModeAPI
 		}
-	case opts.UseConfiguredDefault && resolved.Mode != ModeNone:
-		// Use configured default mode as-is.
 	case opts.UseConfiguredDefault:
-		return nil, ErrMissingLLMConfig
+		if resolved.Mode == ModeNone {
+			return nil, ErrMissingLLMConfig
+		}
 	default:
-		return &Resolved{Mode: ModeNone}, nil
+		return &Resolved{}, nil
 	}
 
 	if err := applyEnvOverrides(&resolved, opts.Flags.Changed, opts.getenv()); err != nil {

@@ -59,6 +59,22 @@ func TestCommandScope_Validate(t *testing.T) {
 			false, true, 1,
 		},
 		{
+			"invalid module ID with explicit source ID",
+			CommandScope{
+				ModuleID:       "1invalid",
+				ModuleSourceID: "tools",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid explicit source ID",
+			CommandScope{
+				ModuleID:       "io.invowk.sample",
+				ModuleSourceID: "1invalid",
+			},
+			false, true, 1,
+		},
+		{
 			"zero value (empty module ID)",
 			CommandScope{},
 			false, true, 1,

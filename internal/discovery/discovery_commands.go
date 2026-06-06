@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -152,35 +151,40 @@ func (s *DiscoveredCommandSet) Add(cmd *CommandInfo) {
 func (s *DiscoveredCommandSet) Analyze() {
 	// Detect ambiguous names (commands with same SimpleName from different sources)
 	for simpleName, cmds := range s.BySimpleName {
-		if len(cmds) <= 1 {
+		if !commandsSpanMultipleSources(cmds) {
 			continue
 		}
 
-		// Check if commands come from different sources
-		sources := make(map[SourceID]bool)
+		// Ambiguous: same name, different sources
+		s.AmbiguousNames[simpleName] = true
 		for _, cmd := range cmds {
-			sources[cmd.SourceID] = true
-		}
-
-		if len(sources) > 1 {
-			// Ambiguous: same name, different sources
-			s.AmbiguousNames[simpleName] = true
-			for _, cmd := range cmds {
-				cmd.IsAmbiguous = true
-			}
+			cmd.IsAmbiguous = true
 		}
 	}
 
 	// Sort SourceOrder: "invowkfile" first, then modules alphabetically
-	slices.SortFunc(s.SourceOrder, func(a, b SourceID) int {
-		if a == SourceIDInvowkfile {
-			return -1
-		}
-		if b == SourceIDInvowkfile {
-			return 1
-		}
-		return strings.Compare(string(a), string(b))
-	})
+	slices.SortFunc(s.SourceOrder, compareSourceIDs)
+}
+
+func commandsSpanMultipleSources(cmds []*CommandInfo) bool {
+	sources := make(map[SourceID]struct{}, len(cmds))
+	for _, cmd := range cmds {
+		sources[cmd.SourceID] = struct{}{}
+	}
+	return len(sources) > 1
+}
+
+//goplint:ignore -- slices.SortFunc comparator must return int by standard-library contract.
+func compareSourceIDs(a, b SourceID) int {
+	return cmp.Compare(sourceIDSortKey(a), sourceIDSortKey(b))
+}
+
+//goplint:ignore -- private sort key uses an empty string sentinel for invowkfile-first ordering.
+func sourceIDSortKey(sourceID SourceID) string {
+	if sourceID == SourceIDInvowkfile {
+		return ""
+	}
+	return string(sourceID)
 }
 
 // DiscoverCommandSet finds all available commands and returns them as a
@@ -201,8 +205,6 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 	commandSet := NewDiscoveredCommandSet()
 	diagnostics := make([]Diagnostic, 0, len(discoveryDiags))
 	diagnostics = append(diagnostics, discoveryDiags...)
-	// Track seen commands for precedence within non-module sources
-	seenNonModule := make(map[invowkfile.CommandName]bool)
 
 	for _, file := range files {
 		select {
@@ -256,14 +258,6 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			fullName := simpleName
 			if isModule {
 				fullName = invowkfile.CommandName(string(sourceID) + " " + string(simpleName)) //goplint:ignore -- source ID and simple name were validated by discovery/schema
-			}
-
-			// For non-module sources, maintain precedence (skip if already seen)
-			if !isModule {
-				if seenNonModule[simpleName] {
-					continue
-				}
-				seenNonModule[simpleName] = true
 			}
 
 			commandSet.Add(&CommandInfo{

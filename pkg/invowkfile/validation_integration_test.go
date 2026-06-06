@@ -324,6 +324,12 @@ func TestInvowkfile_Validate_NoCommands(t *testing.T) {
 	if len(errs) == 0 {
 		t.Error("expected error for invowkfile with no commands")
 	}
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly one no-commands error, got %d: %v", len(errs), errs)
+	}
+	if errs[0].Validator != structureValidatorName {
+		t.Fatalf("Validator = %q, want %q", errs[0].Validator, structureValidatorName)
+	}
 	if !strings.Contains(errs.Error(), "no commands") {
 		t.Errorf("expected 'no commands' error, got: %v", errs)
 	}

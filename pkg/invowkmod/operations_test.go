@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -183,6 +184,7 @@ func TestParseModuleName(t *testing.T) {
 		folderName  string
 		expectedOK  bool
 		expectedVal string
+		expectedErr string
 	}{
 		{
 			name:        "simple name",
@@ -219,9 +221,10 @@ func TestParseModuleName(t *testing.T) {
 			expectedOK: false,
 		},
 		{
-			name:       "empty prefix",
-			folderName: ".invowkmod",
-			expectedOK: false,
+			name:        "empty prefix",
+			folderName:  ".invowkmod",
+			expectedOK:  false,
+			expectedErr: "module name cannot be empty (folder name cannot be just '.invowkmod')",
 		},
 		{
 			name:       "starts with number",
@@ -244,9 +247,10 @@ func TestParseModuleName(t *testing.T) {
 			expectedOK: false,
 		},
 		{
-			name:       "starts with dot (hidden)",
-			folderName: ".hidden.invowkmod",
-			expectedOK: false,
+			name:        "starts with dot (hidden)",
+			folderName:  ".hidden.invowkmod",
+			expectedOK:  false,
+			expectedErr: "module name cannot start with a dot (hidden folders not allowed)",
 		},
 		{
 			name:       "double dots",
@@ -277,8 +281,12 @@ func TestParseModuleName(t *testing.T) {
 				if string(result) != tt.expectedVal {
 					t.Errorf("ParseModuleName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
 				}
-			} else if err == nil {
-				t.Errorf("ParseModuleName(%q) = %q, expected error", tt.folderName, result)
+			} else {
+				if err == nil {
+					t.Errorf("ParseModuleName(%q) = %q, expected error", tt.folderName, result)
+				} else if tt.expectedErr != "" && err.Error() != tt.expectedErr {
+					t.Errorf("ParseModuleName(%q) error = %q, want %q", tt.folderName, err, tt.expectedErr)
+				}
 			}
 		})
 	}
@@ -288,10 +296,11 @@ func TestCanonicalModuleDirectoryName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		moduleID ModuleID
-		want     string
-		wantErr  bool
+		name             string
+		moduleID         ModuleID
+		want             string
+		wantErr          bool
+		wantInvalidValue ModuleID
 	}{
 		{
 			name:     "simple module ID",
@@ -304,9 +313,10 @@ func TestCanonicalModuleDirectoryName(t *testing.T) {
 			want:     "com.example.tools.invowkmod",
 		},
 		{
-			name:     "module ID must not include suffix",
-			moduleID: "tools.invowkmod",
-			wantErr:  true,
+			name:             "module ID must not include suffix",
+			moduleID:         "tools.invowkmod",
+			wantErr:          true,
+			wantInvalidValue: "tools.invowkmod",
 		},
 		{
 			name:     "invalid module ID",
@@ -327,6 +337,15 @@ func TestCanonicalModuleDirectoryName(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("CanonicalModuleDirectoryName(%q) error = nil, want error", tt.moduleID)
+				}
+				if tt.wantInvalidValue != "" {
+					var invalidErr *InvalidModuleIDError
+					if !errors.As(err, &invalidErr) {
+						t.Fatalf("CanonicalModuleDirectoryName(%q) error = %T, want *InvalidModuleIDError", tt.moduleID, err)
+					}
+					if invalidErr.Value != tt.wantInvalidValue {
+						t.Fatalf("InvalidModuleIDError.Value = %q, want %q", invalidErr.Value, tt.wantInvalidValue)
+					}
 				}
 				return
 			}

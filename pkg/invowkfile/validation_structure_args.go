@@ -12,10 +12,6 @@ var argNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 // validateArgs validates all args for a command and collects all errors.
 func (v *StructureValidator) validateArgs(ctx *ValidationContext, cmd *Command) []ValidationError {
-	if len(cmd.Args) == 0 {
-		return nil
-	}
-
 	var errors []ValidationError
 	seenNames := make(map[string]bool)
 	foundOptional := false
@@ -51,7 +47,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "must have a name in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 		return errors, isOptional, isVariadic
 	}
@@ -64,7 +59,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -74,7 +68,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -84,7 +77,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "must have a non-empty description in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -94,7 +86,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -104,7 +95,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     NewFieldPath().Command(cmd.Name).String(),
 			Message:   "has duplicate argument name '" + arg.Name.String() + quotedInvowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 	seenNames[string(arg.Name)] = true
@@ -115,7 +105,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "has invalid type '" + string(arg.Type) + "' (must be 'string', 'int', or 'float') in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -125,7 +114,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "required arguments must come before optional arguments in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -135,7 +123,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "only the last argument can be variadic (found after variadic argument) in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -146,7 +133,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 				Validator: v.Name(),
 				Field:     path.String(),
 				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-				Severity:  SeverityError,
 				Cause:     err,
 			})
 		}
@@ -157,7 +143,6 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 

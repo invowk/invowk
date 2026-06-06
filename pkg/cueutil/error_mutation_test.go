@@ -8,7 +8,13 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/token"
 )
+
+type syntheticCUEError struct {
+	path []string
+	msg  string
+}
 
 func TestFormatErrorMutationContracts(t *testing.T) {
 	t.Parallel()
@@ -45,6 +51,29 @@ count: int & "bad"`), "invowkfile.cue")
 			t.Fatalf("FormatError() = %q, want %q", got, want)
 		}
 	})
+
+	t.Run("pathful CUE error keeps non-prefixed leading colon message", func(t *testing.T) {
+		t.Parallel()
+
+		err := FormatError(syntheticCUEError{
+			path: []string{"cmds", "0", "name"},
+			msg:  ": upstream error already omitted path",
+		}, "invowkfile.cue")
+		want := `invowkfile.cue: cmds[0].name: : upstream error already omitted path`
+		if got := err.Error(); got != want {
+			t.Fatalf("FormatError() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("pathless CUE error keeps leading colon message", func(t *testing.T) {
+		t.Parallel()
+
+		err := FormatError(syntheticCUEError{msg: ": root expression failed"}, "expr.cue")
+		want := `expr.cue: : root expression failed`
+		if got := err.Error(); got != want {
+			t.Fatalf("FormatError() = %q, want %q", got, want)
+		}
+	})
 }
 
 func TestFormatPathMutationContracts(t *testing.T) {
@@ -64,6 +93,16 @@ func TestFormatPathMutationContracts(t *testing.T) {
 			name: "numeric segment after field is an index",
 			path: []string{"cmds", "10", "name"},
 			want: "cmds[10].name",
+		},
+		{
+			name: "nine remains a valid index digit",
+			path: []string{"cmds", "9", "name"},
+			want: "cmds[9].name",
+		},
+		{
+			name: "punctuation below zero is a field segment",
+			path: []string{"cmds", "/", "name"},
+			want: "cmds./.name",
 		},
 	}
 
@@ -91,4 +130,24 @@ func cueValidationError(t *testing.T, source string) error {
 		t.Fatalf("CUE source %q produced nil error", source)
 	}
 	return fmt.Errorf("build CUE validation error: %w", err)
+}
+
+func (e syntheticCUEError) Position() token.Pos {
+	return token.NoPos
+}
+
+func (e syntheticCUEError) InputPositions() []token.Pos {
+	return nil
+}
+
+func (e syntheticCUEError) Error() string {
+	return e.msg
+}
+
+func (e syntheticCUEError) Path() []string {
+	return e.path
+}
+
+func (e syntheticCUEError) Msg() (format string, args []any) {
+	return e.msg, nil
 }

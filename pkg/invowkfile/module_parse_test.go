@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,9 @@ version: "1.0.0"
 	}
 	if !strings.Contains(err.Error(), "invalid module") {
 		t.Fatalf("ParseModule() error = %v, want invowkmod.Load validation error", err)
+	}
+	if errors.Unwrap(err) == nil {
+		t.Fatalf("ParseModule() error = %v, want wrapped module load error", err)
 	}
 }
 
@@ -108,6 +112,43 @@ version: "1.0.0"
 	}
 	if inv.ModulePath != FilesystemPath(moduleDir) {
 		t.Fatalf("Invowkfile.ModulePath = %q, want %q", inv.ModulePath, moduleDir)
+	}
+}
+
+func TestParseBytesRejectsInvalidModulePath(t *testing.T) {
+	t.Parallel()
+
+	data := []byte(GenerateCUE(&Invowkfile{
+		Commands: []Command{{
+			Name: "build",
+			Implementations: []Implementation{{
+				Script:    ImplementationScript{Content: "echo build"},
+				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtualSh}},
+				Platforms: AllPlatformConfigs(),
+			}},
+		}},
+	}))
+
+	_, err := parseBytes(data, "invowkfile.cue", FilesystemPath(" \t "), nil)
+	if !errors.Is(err, ErrInvalidFilesystemPath) {
+		t.Fatalf("parseBytes() error = %v, want ErrInvalidFilesystemPath", err)
+	}
+	if !strings.Contains(err.Error(), "module path:") {
+		t.Fatalf("parseBytes() error = %q, want module path prefix", err)
+	}
+}
+
+func TestParseLoadedModuleInvowkfileRejectsLibraryOnlyBeforeRead(t *testing.T) {
+	t.Parallel()
+
+	module := &Module{
+		Path:          FilesystemPath(filepath.Join(t.TempDir(), "io.example.library.invowkmod")),
+		IsLibraryOnly: true,
+	}
+
+	_, err := ParseLoadedModuleInvowkfile(module)
+	if !errors.Is(err, ErrModuleInvowkfileUnavailable) {
+		t.Fatalf("ParseLoadedModuleInvowkfile() error = %v, want ErrModuleInvowkfileUnavailable", err)
 	}
 }
 

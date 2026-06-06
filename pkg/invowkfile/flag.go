@@ -147,7 +147,7 @@ func (e *InvalidFlagNameError) Unwrap() error { return ErrInvalidFlagName }
 func (n FlagName) Validate() error {
 	s := string(n)
 	if s == "" {
-		return &InvalidFlagNameError{Value: n, Reason: invalidReasonMustNotBeEmpty}
+		return &InvalidFlagNameError{Reason: invalidReasonMustNotBeEmpty}
 	}
 	if utf8.RuneCountInString(s) > MaxNameLength {
 		return &InvalidFlagNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}
@@ -254,7 +254,7 @@ func (f Flag) defaultValueValidationErrors() []error {
 	if err := validateValueType(f.DefaultValue, flagType); err != nil {
 		errs = append(errs, fmt.Errorf("default_value %q is not compatible with type %q: %w", f.DefaultValue, flagType, err))
 	}
-	if f.Validation != "" && f.Validation.Validate() == nil && !matchesValidation(f.DefaultValue, string(f.Validation)) {
+	if f.Validation.Validate() == nil && !matchesValidation(f.DefaultValue, string(f.Validation)) {
 		errs = append(errs, fmt.Errorf("default_value %q does not match validation pattern %q", f.DefaultValue, f.Validation))
 	}
 	return errs

@@ -65,6 +65,21 @@ func testConfigMutationLoadErrorSourcePath(t *testing.T) {
 	}
 }
 
+func TestConfigMutationDecodeRequiresConcreteConfig(t *testing.T) {
+	t.Parallel()
+
+	_, err := decodeCUEConfigSource(configCUESource{
+		data:     configCUEData(`includes: [{path: _}]`),
+		filename: configCUEFilename("incomplete-config.cue"),
+	})
+	if err == nil {
+		t.Fatal("decodeCUEConfigSource() error = nil, want incomplete value error")
+	}
+	if !strings.Contains(err.Error(), "incomplete-config.cue") || !strings.Contains(err.Error(), "incomplete value") {
+		t.Fatalf("decodeCUEConfigSource() error = %q, want incomplete value diagnostic with filename", err.Error())
+	}
+}
+
 func testConfigMutationDecodeErrorFileName(t *testing.T) {
 	t.Parallel()
 
@@ -164,6 +179,86 @@ includes: [
 	}
 	if len(configErr.FieldErrors) != 1 {
 		t.Fatalf("InvalidConfigError.FieldErrors length = %d, want 1", len(configErr.FieldErrors))
+	}
+}
+
+func TestConfigMutationLoadFlattensNestedIncludeValidation(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	includePath := filepath.Join(tmpDir, "nested.invowkmod")
+	cfgPath := writeConfigMutationFile(t, tmpDir, ConfigFileName+"."+ConfigFileExt, fmt.Sprintf(`
+container: {
+	auto_provision: {
+		includes: [
+			{path: %q},
+			{path: %q},
+		]
+	}
+}
+`, includePath, includePath))
+
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
+	if err == nil {
+		t.Fatal("loadWithOptions() error = nil, want duplicate auto-provision include error")
+	}
+	var configErr *InvalidConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("loadWithOptions() error type = %T, want *InvalidConfigError", err)
+	}
+	if len(configErr.FieldErrors) != 1 {
+		t.Fatalf("InvalidConfigError.FieldErrors length = %d, want 1", len(configErr.FieldErrors))
+	}
+	var includeErr *InvalidIncludeCollectionError
+	if !errors.As(configErr.FieldErrors[0], &includeErr) {
+		t.Fatalf("InvalidConfigError.FieldErrors[0] type = %T, want *InvalidIncludeCollectionError", configErr.FieldErrors[0])
+	}
+	if includeErr.Field != IncludeCollectionAutoProvision {
+		t.Fatalf("InvalidIncludeCollectionError.Field = %q, want %q", includeErr.Field, IncludeCollectionAutoProvision)
+	}
+}
+
+func TestConfigMutationLoadKeepsFirstIncludeValidationWhenMultipleCollectionsFail(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	rootInclude := filepath.Join(tmpDir, "root.invowkmod")
+	autoProvisionInclude := filepath.Join(tmpDir, "auto.invowkmod")
+	cfgPath := writeConfigMutationFile(t, tmpDir, ConfigFileName+"."+ConfigFileExt, fmt.Sprintf(`
+includes: [
+	{path: %q},
+	{path: %q},
+]
+container: {
+	auto_provision: {
+		includes: [
+			{path: %q},
+			{path: %q},
+		]
+	}
+}
+`, rootInclude, rootInclude, autoProvisionInclude, autoProvisionInclude))
+
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
+	if err == nil {
+		t.Fatal("loadWithOptions() error = nil, want first duplicate include error")
+	}
+	var configErr *InvalidConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("loadWithOptions() error type = %T, want *InvalidConfigError", err)
+	}
+	if len(configErr.FieldErrors) != 1 {
+		t.Fatalf("InvalidConfigError.FieldErrors length = %d, want only first include error: %v", len(configErr.FieldErrors), configErr.FieldErrors)
+	}
+	var includeErr *InvalidIncludeCollectionError
+	if !errors.As(configErr.FieldErrors[0], &includeErr) {
+		t.Fatalf("InvalidConfigError.FieldErrors[0] type = %T, want *InvalidIncludeCollectionError", configErr.FieldErrors[0])
+	}
+	if includeErr.Field != IncludeCollectionRoot {
+		t.Fatalf("InvalidIncludeCollectionError.Field = %q, want %q", includeErr.Field, IncludeCollectionRoot)
+	}
+	if strings.Contains(err.Error(), IncludeCollectionAutoProvision.String()) {
+		t.Fatalf("loadWithOptions() error = %q, want first include collection only", err)
 	}
 }
 

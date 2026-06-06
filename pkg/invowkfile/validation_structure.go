@@ -35,7 +35,6 @@ func (v *StructureValidator) Validate(ctx *ValidationContext, inv *Invowkfile) [
 			Validator: v.Name(),
 			Field:     "",
 			Message:   "invowkfile at " + string(ctx.FilePath) + " has no commands defined (missing required 'cmds' list)",
-			Severity:  SeverityError,
 		})
 		return errors // No point validating further if there are no commands
 	}

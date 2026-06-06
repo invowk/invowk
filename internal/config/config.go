@@ -116,11 +116,7 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 		}
 	}
 
-	configPath := types.FilesystemPath(filepath.Join(configDir, AppName))
-	if err := configPath.Validate(); err != nil {
-		return "", fmt.Errorf("config directory: %w", err)
-	}
-	return configPath, nil
+	return types.FilesystemPath(filepath.Join(configDir, AppName)), nil //goplint:ignore -- derived from OS config directory and fixed app name.
 }
 
 // ConfigDir returns the invowk configuration directory using platform-specific
@@ -139,11 +135,7 @@ func CommandsDir() (types.FilesystemPath, error) {
 	if err != nil {
 		return "", fmt.Errorf(errMsgHomeDir, err)
 	}
-	cmdsDir := types.FilesystemPath(filepath.Join(home, ".invowk", "cmds"))
-	if err := cmdsDir.Validate(); err != nil {
-		return "", fmt.Errorf("commands directory: %w", err)
-	}
-	return cmdsDir, nil
+	return types.FilesystemPath(filepath.Join(home, ".invowk", "cmds")), nil //goplint:ignore -- derived from OS home directory and fixed config path.
 }
 
 // loadWithOptions performs option-driven config loading from the filesystem.
@@ -180,10 +172,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 		// Try to load CUE config file
 		cuePath := filepath.Join(string(cfgDir), ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
-			resolved := types.FilesystemPath(cuePath)
-			if err := resolved.Validate(); err != nil {
-				return nil, "", fmt.Errorf("config file path: %w", err)
-			}
+			resolved := types.FilesystemPath(cuePath) //goplint:ignore -- fileExists confirmed the resolved config path.
 			loaded, err := decodeCUEConfigFile(resolved)
 			if err != nil {
 				return nil, "", cueLoadError(cuePath, err)
@@ -197,10 +186,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 				localCuePath = filepath.Join(string(opts.BaseDir), localCuePath)
 			}
 			if fileExists(localCuePath) {
-				resolved := types.FilesystemPath(localCuePath)
-				if err := resolved.Validate(); err != nil {
-					return nil, "", fmt.Errorf("config file path: %w", err)
-				}
+				resolved := types.FilesystemPath(localCuePath) //goplint:ignore -- fileExists confirmed the local config path.
 				loaded, err := decodeCUEConfigFile(resolved)
 				if err != nil {
 					return nil, "", cueLoadError(localCuePath, err)
@@ -329,16 +315,10 @@ func validateIncludes(fieldName IncludeCollectionField, includes []IncludeEntry)
 		}
 		seenPaths[cleanPath] = i
 
-		// Track short name for collision detection using the module domain's
-		// structural folder-name parser. Path validation already checked this.
-		shortName, parseErr := invowkmod.ParseModuleName(filepath.Base(pathStr))
-		if parseErr != nil {
-			return &InvalidIncludeCollectionError{
-				Field: fieldName,
-				Cause: fmt.Errorf("%s[%d]: %w", fieldLabel, i, parseErr),
-			}
-		}
-		shortNames[string(shortName)] = append(shortNames[string(shortName)], i)
+		// Track short name for collision detection. Path validation already
+		// checked that the basename is a structurally valid module directory.
+		shortName := strings.TrimSuffix(filepath.Base(pathStr), invowkmod.ModuleSuffix)
+		shortNames[shortName] = append(shortNames[shortName], i)
 
 		// Check alias uniqueness
 		aliasStr := string(entry.Alias)

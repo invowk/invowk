@@ -33,6 +33,17 @@ func TestVirtualFilesystemPathNameValidate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidVirtualFilesystemPathName) {
 					t.Fatalf("Validate() error = %v, want ErrInvalidVirtualFilesystemPathName", err)
 				}
+				var invalidErr *InvalidVirtualFilesystemPathNameError
+				if !errors.As(err, &invalidErr) {
+					t.Fatalf("Validate() error type = %T, want *InvalidVirtualFilesystemPathNameError", err)
+				}
+				if invalidErr.Value != tt.value {
+					t.Fatalf("InvalidVirtualFilesystemPathNameError.Value = %q, want %q", invalidErr.Value, tt.value)
+				}
+				wantMessage := `invalid virtual.filesystem.paths key "` + string(tt.value) + `" (must match [A-Z_][A-Z0-9_]*)`
+				if err.Error() != wantMessage {
+					t.Fatalf("Validate() error = %q, want %q", err.Error(), wantMessage)
+				}
 				return
 			}
 			if err != nil {
@@ -73,6 +84,74 @@ func TestVirtualFilesystemAccessValidateAndDefault(t *testing.T) {
 			}
 			if got := tt.value.Effective(); got != tt.effective {
 				t.Fatalf("Effective() = %q, want %q", got, tt.effective)
+			}
+		})
+	}
+}
+
+func TestVirtualFilesystemConfigHasConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		config         VirtualFilesystemConfig
+		platformConfig PlatformVirtualConfig
+		wantFilesystem bool
+		wantPlatform   bool
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name:           "access only",
+			config:         VirtualFilesystemConfig{Access: VirtualFilesystemAccessFull},
+			platformConfig: PlatformVirtualConfig{Filesystem: &VirtualFilesystemConfig{Access: VirtualFilesystemAccessFull}},
+			wantFilesystem: true,
+			wantPlatform:   true,
+		},
+		{
+			name: "path only",
+			config: VirtualFilesystemConfig{
+				Paths: VirtualFilesystemPaths{"CACHE": "/tmp/cache"},
+			},
+			platformConfig: PlatformVirtualConfig{Filesystem: &VirtualFilesystemConfig{
+				Paths: VirtualFilesystemPaths{"CACHE": "/tmp/cache"},
+			}},
+			wantFilesystem: true,
+			wantPlatform:   true,
+		},
+		{
+			name: "access and path",
+			config: VirtualFilesystemConfig{
+				Access: VirtualFilesystemAccessRestricted,
+				Paths:  VirtualFilesystemPaths{"CACHE": "/tmp/cache"},
+			},
+			platformConfig: PlatformVirtualConfig{Filesystem: &VirtualFilesystemConfig{
+				Access: VirtualFilesystemAccessRestricted,
+				Paths:  VirtualFilesystemPaths{"CACHE": "/tmp/cache"},
+			}},
+			wantFilesystem: true,
+			wantPlatform:   true,
+		},
+		{
+			name:           "nil platform filesystem",
+			platformConfig: PlatformVirtualConfig{},
+		},
+		{
+			name:           "empty platform filesystem",
+			platformConfig: PlatformVirtualConfig{Filesystem: &VirtualFilesystemConfig{}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.config.HasFilesystemConfig(); got != tt.wantFilesystem {
+				t.Fatalf("HasFilesystemConfig() = %v, want %v", got, tt.wantFilesystem)
+			}
+			if got := tt.platformConfig.HasConfig(); got != tt.wantPlatform {
+				t.Fatalf("HasConfig() = %v, want %v", got, tt.wantPlatform)
 			}
 		})
 	}

@@ -38,6 +38,7 @@ func testBinaryNameValidationPayloads(t *testing.T) {
 		wantReason string
 	}{
 		{name: "empty", value: "", wantReason: "must not be empty or whitespace-only"},
+		{name: "whitespace", value: " \t", wantReason: "must not be empty or whitespace-only"},
 		{name: "too long", value: BinaryName(strings.Repeat("a", MaxNameLength+1)), wantReason: "exceeds maximum length of 256 runes"},
 		{name: "path separator", value: "bin/tool", wantReason: "must not contain path separators"},
 		{name: "invalid start", value: "-tool", wantReason: "must start with an alphanumeric character and contain only alphanumeric characters, '.', '_', '+', or '-'"},
@@ -76,11 +77,13 @@ func testSourceIDValidationPayloads(t *testing.T) {
 	t.Parallel()
 
 	tooLong := CommandDependencySourceID(strings.Repeat("a", MaxNameLength+1))
+	exactMax := CommandDependencySourceID("a" + strings.Repeat("b", MaxNameLength-1))
 	tests := []struct {
 		name       string
 		value      CommandDependencySourceID
 		wantReason string
 	}{
+		{name: "exact max", value: exactMax},
 		{name: "empty", value: "", wantReason: invalidReasonMustNotBeEmpty},
 		{name: "too long", value: tooLong, wantReason: "exceeds maximum length of 256 chars"},
 		{name: "invalid start", value: "9tools", wantReason: "must start with a letter and contain only letters, digits, dots, underscores, or hyphens"},
@@ -90,7 +93,17 @@ func testSourceIDValidationPayloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			typed := requireDependencyMutationAs[*InvalidCommandDependencySourceIDError](t, tt.value.Validate())
+			err := tt.value.Validate()
+			if tt.wantReason == "" {
+				if err != nil {
+					t.Fatalf("Validate() error = %v, want nil for exact maximum length", err)
+				}
+				return
+			}
+			typed := requireDependencyMutationAs[*InvalidCommandDependencySourceIDError](t, err)
+			if !errors.Is(err, ErrInvalidCommandDependencySourceID) {
+				t.Fatalf("Validate() error = %v, want ErrInvalidCommandDependencySourceID", err)
+			}
 			if typed.Value != tt.value {
 				t.Fatalf("Value = %q, want %q", typed.Value, tt.value)
 			}
@@ -130,6 +143,7 @@ func testInvalidCommandDependencyRefs(t *testing.T) {
 		wantReason string
 	}{
 		{name: "empty", ref: "", wantReason: invalidReasonMustNotBeEmpty},
+		{name: "whitespace", ref: " \t", wantReason: invalidReasonMustNotBeEmpty},
 		{name: "invalid bare command", ref: "9build", wantReason: "expected bare command name or @source command reference"},
 		{name: "qualified without separator", ref: "@tools", wantReason: "qualified references must use @source command"},
 		{name: "qualified without command", ref: "@tools ", wantReason: "qualified references must include a command name after the source"},
@@ -256,6 +270,11 @@ func TestDependencyFieldErrorPayloads(t *testing.T) {
 			ErrInvalidRegexPattern,
 		)
 
+		missingScriptDepErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+			Name: "missing-script",
+		}.Validate())
+		requireDependencyMutationFieldErrors(t, missingScriptDepErr.FieldErrors, 1, ErrInvalidCustomCheckScript)
+
 		altErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
 			Name: "direct",
 			Alternatives: []CustomCheck{{
@@ -264,6 +283,24 @@ func TestDependencyFieldErrorPayloads(t *testing.T) {
 			}},
 		}.Validate())
 		requireDependencyMutationFieldErrors(t, altErr.FieldErrors, 2, ErrMixedCustomCheckDependency, ErrInvalidCustomCheck)
+
+		scriptOnlyAltErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+			Script: CustomCheckScript{Content: "echo direct"},
+			Alternatives: []CustomCheck{{
+				Name:   "alt",
+				Script: CustomCheckScript{Content: "echo alt"},
+			}},
+		}.Validate())
+		requireDependencyMutationFieldErrors(t, scriptOnlyAltErr.FieldErrors, 1, ErrMixedCustomCheckDependency)
+
+		outputOnlyAltErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+			ExpectedOutput: "^direct$",
+			Alternatives: []CustomCheck{{
+				Name:   "alt",
+				Script: CustomCheckScript{Content: "echo alt"},
+			}},
+		}.Validate())
+		requireDependencyMutationFieldErrors(t, outputOnlyAltErr.FieldErrors, 1, ErrMixedCustomCheckDependency)
 	})
 
 	t.Run("depends_on preserves category errors in declaration order", func(t *testing.T) {
@@ -299,6 +336,8 @@ func TestCustomCheckScriptMutationContracts(t *testing.T) {
 	t.Run("script file paths resolve relative and absolute forms", testCustomCheckScriptFilePaths)
 	t.Run("script validation preserves source and optional field failures", testCustomCheckScriptValidationFailures)
 	t.Run("resolve validates source shape before file IO", testCustomCheckScriptResolveValidatesSource)
+	t.Run("resolve propagates containment and read failures", testCustomCheckScriptResolveFailureContracts)
+	t.Run("interpreter resolution delegates to explicit specs and shebangs", testCustomCheckScriptInterpreterResolution)
 }
 
 func testCustomCheckScriptSourceHelpers(t *testing.T) {
@@ -390,6 +429,54 @@ func testCustomCheckScriptResolveValidatesSource(t *testing.T) {
 	_, err = CustomCheckScript{File: &file}.ResolveWithFSAndModule("module.invowkmod", nil)
 	if !errors.Is(err, ErrScriptReaderRequired) {
 		t.Fatalf("file script without reader error = %v, want ErrScriptReaderRequired", err)
+	}
+}
+
+func testCustomCheckScriptResolveFailureContracts(t *testing.T) {
+	t.Parallel()
+
+	modulePath := FilesystemPath(t.TempDir())
+	outside := FilesystemPath("../outside.sh")
+	readCalled := false
+	_, err := CustomCheckScript{File: &outside}.ResolveWithFSAndModule(modulePath, func(string) ([]byte, error) {
+		readCalled = true
+		return []byte("echo outside"), nil
+	})
+	if !errors.Is(err, ErrScriptPathTraversal) {
+		t.Fatalf("ResolveWithFSAndModule() traversal error = %v, want ErrScriptPathTraversal", err)
+	}
+	if readCalled {
+		t.Fatal("ResolveWithFSAndModule read file after containment validation failed")
+	}
+
+	inside := FilesystemPath("scripts/check.sh")
+	readErr := errors.New("disk read failed")
+	_, err = CustomCheckScript{File: &inside}.ResolveWithFSAndModule(modulePath, func(path string) ([]byte, error) {
+		wantSuffix := filepath.Join("scripts", "check.sh")
+		if !strings.HasSuffix(path, wantSuffix) {
+			t.Fatalf("read path = %q, want suffix %q", path, wantSuffix)
+		}
+		return []byte("echo leaked"), readErr
+	})
+	if !errors.Is(err, readErr) {
+		t.Fatalf("ResolveWithFSAndModule() read error = %v, want wrapped read error", err)
+	}
+	if !strings.Contains(err.Error(), "failed to read script file") || !strings.Contains(err.Error(), "scripts/check.sh") {
+		t.Fatalf("ResolveWithFSAndModule() read error = %q, want selected and resolved path diagnostic", err)
+	}
+}
+
+func testCustomCheckScriptInterpreterResolution(t *testing.T) {
+	t.Parallel()
+
+	fromShebang := CustomCheckScript{}.ResolveInterpreterFromScript("#!/usr/bin/env python3 -u\nprint('ok')\n")
+	if !fromShebang.Found || fromShebang.Interpreter != "python3" || len(fromShebang.Args) != 1 || fromShebang.Args[0] != "-u" {
+		t.Fatalf("ResolveInterpreterFromScript(shebang) = %+v, want python3 -u", fromShebang)
+	}
+
+	explicit := CustomCheckScript{Interpreter: "node --test"}.ResolveInterpreterFromScript("#!/bin/sh\necho ignored\n")
+	if !explicit.Found || explicit.Interpreter != "node" || len(explicit.Args) != 1 || explicit.Args[0] != "--test" {
+		t.Fatalf("ResolveInterpreterFromScript(explicit) = %+v, want node --test", explicit)
 	}
 }
 

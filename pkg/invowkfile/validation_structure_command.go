@@ -17,7 +17,6 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 			Validator: v.Name(),
 			Field:     "",
 			Message:   "command must have a name in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 		return validationErrors // Can't validate further without a name
 	}
@@ -28,7 +27,6 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -38,7 +36,6 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -61,7 +58,6 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "must have at least one implementation in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	} else {
 		// Validate each implementation
@@ -76,7 +72,6 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   err.Error(),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -102,7 +97,6 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "must have at least one runtime in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	} else {
 		// Validate each runtime config
@@ -117,7 +111,6 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 			Validator: v.Name(),
 			Field:     path.String(),
 			Message:   "must have at least one platform in invowkfile at " + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -134,7 +127,6 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 			Validator: v.Name(),
 			Field:     path.Copy().Field("timeout").String(),
 			Message:   err.Error(),
-			Severity:  SeverityError,
 		})
 	}
 
@@ -147,7 +139,6 @@ func (v *StructureValidator) validateImplementationScript(ctx *ValidationContext
 			Validator: v.Name(),
 			Field:     path.Copy().Field("script").String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		}}
 	}
 
@@ -167,7 +158,6 @@ func (v *StructureValidator) validateImplementationScriptContent(ctx *Validation
 			Validator: v.Name(),
 			Field:     path.Copy().Field("script").Field("content").String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		}}
 	}
 	return nil
@@ -185,7 +175,6 @@ func (v *StructureValidator) validateImplementationScriptFile(ctx *ValidationCon
 			Validator: v.Name(),
 			Field:     path.Copy().Field("script").Field("file").String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 		})
 	}
 	if err := validateModuleScriptFileSelection(impl.GetScriptFilePathWithModule(ctx.FilePath, inv.ModulePath), inv.ModulePath); err != nil {
@@ -193,7 +182,6 @@ func (v *StructureValidator) validateImplementationScriptFile(ctx *ValidationCon
 			Validator: v.Name(),
 			Field:     path.Copy().Field("script").Field("file").String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-			Severity:  SeverityError,
 			Cause:     err,
 		})
 	}
@@ -218,7 +206,6 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Validator: v.Name(),
 					Field:     path.String(),
 					Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
-					Severity:  SeverityError,
 				})
 			}
 		}
@@ -246,7 +233,6 @@ func runtimeConfigValidationError(validatorName ValidatorName, field string, err
 		Validator: validatorName,
 		Field:     field,
 		Message:   err.Error(),
-		Severity:  SeverityError,
 	}
 }
 
@@ -259,7 +245,6 @@ func watchConfigValidationErrors(validatorName ValidatorName, field string, err 
 				Validator: validatorName,
 				Field:     field,
 				Message:   fieldErr.Error(),
-				Severity:  SeverityError,
 			})
 		}
 		return result
@@ -268,6 +253,5 @@ func watchConfigValidationErrors(validatorName ValidatorName, field string, err 
 		Validator: validatorName,
 		Field:     field,
 		Message:   err.Error(),
-		Severity:  SeverityError,
 	}}
 }

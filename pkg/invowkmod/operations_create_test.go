@@ -30,6 +30,9 @@ func TestNewModuleScaffold(t *testing.T) {
 				if !strings.Contains(scaffold.InvowkmodContent().String(), `module: "mycommands"`) {
 					t.Fatalf("InvowkmodContent missing default module ID: %s", scaffold.InvowkmodContent())
 				}
+				if !strings.Contains(scaffold.InvowkmodContent().String(), `description: "Commands from mycommands module"`) {
+					t.Fatalf("InvowkmodContent missing default description: %s", scaffold.InvowkmodContent())
+				}
 				if !strings.Contains(scaffold.InvowkfileContent().String(), "Hello from mycommands!") {
 					t.Fatalf("InvowkfileContent missing sample command: %s", scaffold.InvowkfileContent())
 				}
@@ -108,5 +111,65 @@ func TestNewModuleScaffoldRejectsInvalidOptionsBeforeScaffoldWork(t *testing.T) 
 	}
 	if !errors.Is(err, ErrInvalidCreateOptions) {
 		t.Fatalf("NewModuleScaffold() error = %v, want ErrInvalidCreateOptions", err)
+	}
+}
+
+func TestNewModuleScaffoldRejectsEmptyNameWithSpecificError(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewModuleScaffold(CreateOptions{Name: ""})
+	if err == nil {
+		t.Fatal("NewModuleScaffold() error = nil, want empty name error")
+	}
+	if got, want := err.Error(), "module name cannot be empty"; got != want {
+		t.Fatalf("NewModuleScaffold() error = %q, want %q", got, want)
+	}
+}
+
+func TestModuleScaffoldValidateReportsEachGeneratedField(t *testing.T) {
+	t.Parallel()
+
+	valid := ModuleScaffold{
+		directoryName:     "tools.invowkmod",
+		invowkmodContent:  `module: "tools"`,
+		invowkfileContent: `cmds: []`,
+	}
+
+	tests := []struct {
+		name     string
+		scaffold ModuleScaffold
+	}{
+		{
+			name: "directory name",
+			scaffold: ModuleScaffold{
+				invowkmodContent:  valid.invowkmodContent,
+				invowkfileContent: valid.invowkfileContent,
+			},
+		},
+		{
+			name: "invowkmod content",
+			scaffold: ModuleScaffold{
+				directoryName:     valid.directoryName,
+				invowkfileContent: valid.invowkfileContent,
+			},
+		},
+		{
+			name: "invowkfile content",
+			scaffold: ModuleScaffold{
+				directoryName:    valid.directoryName,
+				invowkmodContent: valid.invowkmodContent,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.scaffold.Validate()
+			if err == nil {
+				t.Fatal("ModuleScaffold.Validate() error = nil, want field error")
+			}
+		})
 	}
 }

@@ -417,18 +417,8 @@ func matchingCommandCandidates(available map[invowkfile.CommandName]*discovery.C
 }
 
 func sourceCommandCandidates(available map[invowkfile.CommandName]*discovery.CommandInfo, source invowkmod.ModuleSourceID, command invowkfile.CommandName) []*discovery.CommandInfo {
-	var candidates []*discovery.CommandInfo
-	for _, cmd := range prioritizedCommandLookups(available, source, command) {
-		if commandMatchesSourceAndName(cmd, source, command) && !slices.Contains(candidates, cmd) {
-			candidates = append(candidates, cmd)
-		}
-	}
-	for _, cmd := range available {
-		if commandMatchesSourceAndName(cmd, source, command) && !slices.Contains(candidates, cmd) {
-			candidates = append(candidates, cmd)
-		}
-	}
-	return candidates
+	ordered := append(prioritizedCommandLookups(available, source, command), commandMapValues(available)...)
+	return uniqueMatchingCommandCandidates(ordered, source, command)
 }
 
 func prioritizedCommandLookups(available map[invowkfile.CommandName]*discovery.CommandInfo, source invowkmod.ModuleSourceID, command invowkfile.CommandName) []*discovery.CommandInfo {
@@ -450,17 +440,14 @@ func commandMatchesSourceAndName(cmd *discovery.CommandInfo, source invowkmod.Mo
 		return false
 	}
 	cmdSource := commandInfoSourceID(cmd)
-	if source != "" && cmdSource != source {
-		return false
-	}
-	if source == "" && cmdSource != "" {
+	if cmdSource != source {
 		return false
 	}
 	return commandInfoSimpleName(cmd, cmdSource) == command
 }
 
 func commandInfoSourceID(cmd *discovery.CommandInfo) invowkmod.ModuleSourceID {
-	if cmd == nil || cmd.SourceID == "" {
+	if cmd == nil {
 		return ""
 	}
 	return invowkmod.ModuleSourceID(cmd.SourceID) //goplint:ignore -- SourceID validated by discovery
@@ -473,11 +460,30 @@ func commandInfoSimpleName(cmd *discovery.CommandInfo, source invowkmod.ModuleSo
 	if cmd.SimpleName != "" {
 		return cmd.SimpleName
 	}
-	prefix := string(source) + " "
-	if source != "" && strings.HasPrefix(string(cmd.Name), prefix) {
+	if source != "" {
+		prefix := string(source) + " "
 		return invowkfile.CommandName(strings.TrimPrefix(string(cmd.Name), prefix)) //goplint:ignore -- derived from discovered command name
 	}
 	return cmd.Name
+}
+
+func commandMapValues(available map[invowkfile.CommandName]*discovery.CommandInfo) []*discovery.CommandInfo {
+	commands := make([]*discovery.CommandInfo, 0, len(available))
+	for _, cmd := range available {
+		commands = append(commands, cmd)
+	}
+	return commands
+}
+
+func uniqueMatchingCommandCandidates(commands []*discovery.CommandInfo, source invowkmod.ModuleSourceID, command invowkfile.CommandName) []*discovery.CommandInfo {
+	var candidates []*discovery.CommandInfo
+	for _, cmd := range commands {
+		if !commandMatchesSourceAndName(cmd, source, command) || slices.Contains(candidates, cmd) {
+			continue
+		}
+		candidates = append(candidates, cmd)
+	}
+	return candidates
 }
 
 func commandSourceExists(available map[invowkfile.CommandName]*discovery.CommandInfo, source invowkmod.ModuleSourceID) bool {

@@ -33,6 +33,23 @@ func TestGetEffectiveWorkDir_DefaultToInvowkfileDir(t *testing.T) {
 	}
 }
 
+func TestGetScriptBasePath_ModulePathOverridesInvowkfileDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	invowkfileDir := filepath.Join(tmpDir, "workspace")
+	moduleDir := filepath.Join(tmpDir, "modules", "io.example.tools.invowkmod")
+
+	inv := &Invowkfile{
+		FilePath:   FilesystemPath(filepath.Join(invowkfileDir, "invowkfile.cue")),
+		ModulePath: FilesystemPath(moduleDir),
+	}
+
+	if got := inv.GetScriptBasePath(); got != FilesystemPath(moduleDir) {
+		t.Fatalf("GetScriptBasePath() = %q, want module path %q", got, moduleDir)
+	}
+}
+
 func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
 	t.Parallel()
 

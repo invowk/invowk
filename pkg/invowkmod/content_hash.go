@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -49,6 +51,17 @@ type (
 		ModuleKey ModuleRefKey
 		Expected  ContentHash
 		Actual    ContentHash
+	}
+
+	hashContentFile interface {
+		io.Reader
+		Close() error
+		Stat() (fs.FileInfo, error)
+	}
+
+	hashFileOps struct {
+		lstat func(string) (fs.FileInfo, error)
+		open  func(string) (hashContentFile, error)
 	}
 )
 
@@ -134,7 +147,7 @@ func computeModuleHash(dir string) (ContentHash, error) {
 		fmt.Fprintf(hasher, "%d:%s\n", len(rel), rel)
 
 		absPath := filepath.Join(dir, filepath.FromSlash(rel))
-		if err := hashFileContent(hasher, absPath); err != nil {
+		if err := hashFileContent(hasher, types.FilesystemPath(absPath)); err != nil { //goplint:ignore -- derived from validated module dir plus WalkDir-relative file path.
 			return "", fmt.Errorf("hashing file %s: %w", rel, err)
 		}
 	}
@@ -149,9 +162,15 @@ func computeModuleHash(dir string) (ContentHash, error) {
 // between the WalkDir entry check and the actual file read (L-01). This
 // prevents a symlink race where a regular file is swapped for a symlink
 // after the walk reports it as regular but before the Open call resolves it.
-func hashFileContent(hasher io.Writer, path string) (err error) {
+func hashFileContent(hasher io.Writer, path types.FilesystemPath) (err error) {
+	return hashFileContentWithOps(hasher, path, defaultHashFileOps())
+}
+
+func hashFileContentWithOps(hasher io.Writer, path types.FilesystemPath, ops hashFileOps) (err error) {
+	rawPath := string(path)
+
 	// Defense-in-depth: Lstat confirms the path is still a regular file.
-	info, lstatErr := os.Lstat(path)
+	info, lstatErr := ops.lstat(rawPath)
 	if lstatErr != nil {
 		return fmt.Errorf("lstat %s: %w", path, lstatErr)
 	}
@@ -159,14 +178,12 @@ func hashFileContent(hasher io.Writer, path string) (err error) {
 		return nil
 	}
 
-	f, err := os.Open(path)
+	f, err := ops.open(rawPath)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = closeErr
-		}
+		err = errors.Join(err, f.Close())
 	}()
 
 	// Final check: verify the opened fd is still a regular file (closes
@@ -181,4 +198,13 @@ func hashFileContent(hasher io.Writer, path string) (err error) {
 
 	_, err = io.Copy(hasher, f)
 	return err
+}
+
+func defaultHashFileOps() hashFileOps {
+	return hashFileOps{
+		lstat: os.Lstat,
+		open: func(path string) (hashContentFile, error) {
+			return os.Open(path)
+		},
+	}
 }

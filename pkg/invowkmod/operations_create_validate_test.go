@@ -76,6 +76,14 @@ func TestCreateOptions_Validate(t *testing.T) {
 			false, true, 1,
 		},
 		{
+			"invalid parent directory",
+			CreateOptions{
+				Name:      ModuleDirectoryName("mymodule"),
+				ParentDir: types.FilesystemPath("   "),
+			},
+			false, true, 1,
+		},
+		{
 			"multiple invalid fields",
 			CreateOptions{
 				Name:        ModuleDirectoryName("1invalid"),

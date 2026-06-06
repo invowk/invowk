@@ -38,6 +38,54 @@ func TestDeclaredLockedModuleEntryRejectsAmbiguousModuleID(t *testing.T) {
 	}
 }
 
+func TestDeclaredLockedModuleEntryMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	requirements := []ModuleRequirement{
+		{GitURL: "https://example.com/dep.git", Version: "^1.0.0"},
+		{GitURL: "https://example.com/mono.git", Version: "^2.0.0", Path: "tools"},
+		{GitURL: "https://example.com/empty.git", Version: "^3.0.0"},
+	}
+	lock := NewLockFile()
+	lock.Modules["https://example.com/dep.git"] = LockedModule{
+		GitURL:          "https://example.com/dep.git",
+		ResolvedVersion: "1.2.3",
+		Namespace:       "io.example.dep@1.2.3",
+		ModuleID:        "io.example.dep",
+	}
+	lock.Modules["https://example.com/mono.git#tools"] = LockedModule{
+		GitURL:          "https://example.com/mono.git",
+		ResolvedVersion: "2.0.1",
+		Path:            "tools",
+		Namespace:       "io.example.tools@2.0.1",
+		ModuleID:        "io.example.tools",
+	}
+	lock.Modules["https://example.com/empty.git"] = LockedModule{
+		GitURL: "https://example.com/empty.git",
+	}
+
+	key, locked, ok := DeclaredLockedModuleEntry(requirements, lock, "io.example.tools")
+	if !ok {
+		t.Fatal("DeclaredLockedModuleEntry() ok = false, want true for exactly one declared locked module")
+	}
+	if key != "https://example.com/mono.git#tools" {
+		t.Fatalf("DeclaredLockedModuleEntry() key = %q, want monorepo key", key)
+	}
+	if locked.ModuleID != "io.example.tools" || locked.Path != "tools" || locked.ResolvedVersion != "2.0.1" {
+		t.Fatalf("DeclaredLockedModuleEntry() locked = %+v, want tools module payload preserved", locked)
+	}
+
+	if ambiguous := AmbiguousDeclaredLockedModuleEntries(requirements, lock, "io.example.tools"); ambiguous != nil {
+		t.Fatalf("AmbiguousDeclaredLockedModuleEntries() = %v, want nil for a single match", ambiguous)
+	}
+	if _, _, ok := DeclaredLockedModuleEntry(requirements, nil, "io.example.tools"); ok {
+		t.Fatal("DeclaredLockedModuleEntry(nil lock) ok = true, want false")
+	}
+	if _, _, ok := DeclaredLockedModuleEntry(requirements, lock, ""); ok {
+		t.Fatal("DeclaredLockedModuleEntry(empty module ID) ok = true, want false")
+	}
+}
+
 func TestOrphanedLockedModuleEntries(t *testing.T) {
 	t.Parallel()
 

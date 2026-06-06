@@ -3,6 +3,7 @@
 package fspath
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,21 @@ import (
 // Standard user-readable/writable file with group/other read access.
 const DefaultFilePerm os.FileMode = 0o644
 
+type (
+	atomicTempFile interface {
+		Name() string
+		Write([]byte) (int, error)
+		Close() error
+	}
+
+	atomicWriteOps struct {
+		createTemp func(string, string) (atomicTempFile, error)
+		chmod      func(string, os.FileMode) error
+		rename     func(string, string) error
+		remove     func(string) error
+	}
+)
+
 // AtomicWriteFile writes data to a file atomically using a temporary file and
 // rename. The temp file is created in the same directory as the target using
 // os.CreateTemp with an unpredictable name suffix, preventing symlink-race
@@ -20,10 +36,15 @@ const DefaultFilePerm os.FileMode = 0o644
 //
 // The rename operation is atomic on POSIX systems, ensuring readers see either
 // the old content or the new content, never a partial write.
-func AtomicWriteFile(path string, data []byte, perm os.FileMode) (err error) {
+func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	return atomicWriteFile(path, data, perm, defaultAtomicWriteOps())
+}
+
+//goplint:ignore -- private helper mirrors os.WriteFile-style primitives for injectable filesystem ops.
+func atomicWriteFile(path string, data []byte, perm os.FileMode, ops atomicWriteOps) (err error) {
 	dir := filepath.Dir(path)
 
-	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".*.tmp")
+	tmp, err := ops.createTemp(dir, filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("creating temporary file: %w", err)
 	}
@@ -32,27 +53,36 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode) (err error) {
 	// Clean up the temp file on any error path.
 	defer func() {
 		if err != nil {
-			_ = os.Remove(tmpPath) // Best-effort cleanup
+			err = errors.Join(err, ops.remove(tmpPath))
 		}
 	}()
 
-	if err = os.Chmod(tmpPath, perm); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("setting temporary file permissions: %w", err)
+	if err = ops.chmod(tmpPath, perm); err != nil {
+		return errors.Join(fmt.Errorf("setting temporary file permissions: %w", err), tmp.Close())
 	}
 
 	if _, err = tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing temporary file: %w", err)
+		return errors.Join(fmt.Errorf("writing temporary file: %w", err), tmp.Close())
 	}
 
 	if err = tmp.Close(); err != nil {
 		return fmt.Errorf("closing temporary file: %w", err)
 	}
 
-	if err = os.Rename(tmpPath, path); err != nil {
+	if err = ops.rename(tmpPath, path); err != nil {
 		return fmt.Errorf("renaming temporary file: %w", err)
 	}
 
 	return nil
+}
+
+func defaultAtomicWriteOps() atomicWriteOps {
+	return atomicWriteOps{
+		createTemp: func(dir, pattern string) (atomicTempFile, error) {
+			return os.CreateTemp(dir, pattern)
+		},
+		chmod:  os.Chmod,
+		rename: os.Rename,
+		remove: os.Remove,
+	}
 }

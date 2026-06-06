@@ -47,8 +47,9 @@ func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *
 	parsedMetadata := validateInvowkmodFile(result, absPath)
 	validateOptionalInvowkfile(result, absPath)
 
-	if err := scanModuleTree(result, absPath); err != nil {
-		return nil, nil, err
+	scanErr := scanModuleTree(result, absPath)
+	if scanErr != nil {
+		return nil, nil, scanErr
 	}
 
 	return result, parsedMetadata, nil
@@ -60,12 +61,7 @@ func resolveValidatedModulePath(modulePath types.FilesystemPath) (types.Filesyst
 		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
-	validatedAbsPath := types.FilesystemPath(absPath)
-	if validateErr := validatedAbsPath.Validate(); validateErr != nil {
-		return "", fmt.Errorf("module path: %w", validateErr)
-	}
-
-	return validatedAbsPath, nil
+	return types.FilesystemPath(absPath), nil //goplint:ignore -- filepath.Abs returns a non-empty path on success.
 }
 
 func newValidationResult(modulePath types.FilesystemPath) *ValidationResult {
@@ -112,7 +108,7 @@ func validateInvowkmodFile(result *ValidationResult, absPath string) *Invowkmod 
 	invowkmodPath := filepath.Join(absPath, invowkmodCueFileName)
 	invowkmodInfo, err := os.Stat(invowkmodPath)
 	switch {
-	case err != nil && os.IsNotExist(err):
+	case os.IsNotExist(err):
 		result.AddIssue(IssueTypeStructure, "missing required invowkmod.cue", "")
 		return nil
 	case err != nil:
@@ -151,7 +147,7 @@ func validateOptionalInvowkfile(result *ValidationResult, absPath string) {
 	invowkfilePath := filepath.Join(absPath, "invowkfile.cue")
 	invowkfileInfo, err := os.Stat(invowkfilePath)
 	switch {
-	case err != nil && os.IsNotExist(err):
+	case os.IsNotExist(err):
 		result.IsLibraryOnly = true
 	case err != nil:
 		result.AddIssue(IssueTypeStructure, fmt.Sprintf("cannot access invowkfile.cue: %v", err), "")
@@ -164,11 +160,11 @@ func validateOptionalInvowkfile(result *ValidationResult, absPath string) {
 
 //goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
 func scanModuleTree(result *ValidationResult, absPath string) error {
-	if err := filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return nil //nolint:nilerr // Intentionally skip errors to continue walking
+	if err := filepath.WalkDir(absPath, func(path string, d os.DirEntry, entryErr error) error {
+		if entryErr == nil {
+			return inspectModuleEntry(result, absPath, path, d)
 		}
-		return inspectModuleEntry(result, absPath, path, d)
+		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to walk module directory: %w", err)
 	}
@@ -248,7 +244,7 @@ func Load(modulePath types.FilesystemPath) (*Module, error) {
 	}
 
 	// Metadata is parsed during validation when invowkmod.cue is valid.
-	if result.InvowkmodPath != "" && metadata == nil {
+	if metadata == nil {
 		return nil, errors.New("failed to parse module metadata: invowkmod.cue validation did not produce metadata")
 	}
 

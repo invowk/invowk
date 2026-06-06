@@ -96,6 +96,42 @@ func TestCommandInfo_Validate_ErrorTypes(t *testing.T) {
 	}
 }
 
+func TestCommandInfoValidateMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	moduleID := invowkmod.ModuleID("1bad")
+	cmd := CommandInfo{
+		Name:        "1bad",
+		Description: " \t ",
+		Source:      Source(99),
+		FilePath:    " \t ",
+		SimpleName:  "1bad",
+		SourceID:    "1bad",
+		ModuleID:    &moduleID,
+	}
+
+	err := cmd.Validate()
+	invalidErr := requireInvalidCommandInfoError(t, err)
+	if got, want := invalidErr.Error(), "invalid command info: 7 field error(s)"; got != want {
+		t.Fatalf("InvalidCommandInfoError.Error() = %q, want %q", got, want)
+	}
+	if got, want := len(invalidErr.FieldErrors), 7; got != want {
+		t.Fatalf("FieldErrors length = %d, want %d", got, want)
+	}
+	for _, want := range []error{
+		invowkfile.ErrInvalidCommandName,
+		invowkfile.ErrInvalidDescriptionText,
+		ErrInvalidSource,
+		types.ErrInvalidFilesystemPath,
+		ErrInvalidSourceID,
+		invowkmod.ErrInvalidModuleID,
+	} {
+		if !discoveryFieldErrorsContain(invalidErr.FieldErrors, want) {
+			t.Fatalf("FieldErrors should contain %v, got %#v", want, invalidErr.FieldErrors)
+		}
+	}
+}
+
 func TestDiscoveredFile_Validate(t *testing.T) {
 	t.Parallel()
 
@@ -166,6 +202,32 @@ func TestDiscoveredFile_Validate_ErrorTypes(t *testing.T) {
 	}
 }
 
+func TestDiscoveredFileValidateMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	file := DiscoveredFile{
+		Path:   " \t ",
+		Source: Source(42),
+	}
+
+	err := file.Validate()
+	invalidErr := requireInvalidDiscoveredFileError(t, err)
+	if got, want := invalidErr.Error(), "invalid discovered file: 2 field error(s)"; got != want {
+		t.Fatalf("InvalidDiscoveredFileError.Error() = %q, want %q", got, want)
+	}
+	if got, want := len(invalidErr.FieldErrors), 2; got != want {
+		t.Fatalf("FieldErrors length = %d, want %d", got, want)
+	}
+	for _, want := range []error{
+		types.ErrInvalidFilesystemPath,
+		ErrInvalidSource,
+	} {
+		if !discoveryFieldErrorsContain(invalidErr.FieldErrors, want) {
+			t.Fatalf("FieldErrors should contain %v, got %#v", want, invalidErr.FieldErrors)
+		}
+	}
+}
+
 func TestLookupResult_Validate(t *testing.T) {
 	t.Parallel()
 
@@ -231,7 +293,77 @@ func TestLookupResult_Validate_ErrorTypes(t *testing.T) {
 	}
 }
 
+func TestLookupResultValidateMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	result := LookupResult{
+		Command: &CommandInfo{
+			Source: Source(99),
+		},
+	}
+
+	err := result.Validate()
+	invalidErr := requireInvalidLookupResultError(t, err)
+	if got, want := invalidErr.Error(), "invalid lookup result: 1 field error(s)"; got != want {
+		t.Fatalf("InvalidLookupResultError.Error() = %q, want %q", got, want)
+	}
+	if got, want := len(invalidErr.FieldErrors), 1; got != want {
+		t.Fatalf("FieldErrors length = %d, want %d", got, want)
+	}
+	if !errors.Is(invalidErr.FieldErrors[0], ErrInvalidCommandInfo) {
+		t.Fatalf("FieldErrors[0] = %v, want ErrInvalidCommandInfo", invalidErr.FieldErrors[0])
+	}
+}
+
 func validModuleIDPtr() *invowkmod.ModuleID {
 	id := invowkmod.ModuleID("io.invowk.sample")
 	return &id
+}
+
+func requireInvalidCommandInfoError(t *testing.T, err error) *InvalidCommandInfoError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidCommandInfo) {
+		t.Fatalf("error = %v, want ErrInvalidCommandInfo", err)
+	}
+	var invalidErr *InvalidCommandInfoError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("error type = %T, want *InvalidCommandInfoError", err)
+	}
+	return invalidErr
+}
+
+func requireInvalidDiscoveredFileError(t *testing.T, err error) *InvalidDiscoveredFileError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidDiscoveredFile) {
+		t.Fatalf("error = %v, want ErrInvalidDiscoveredFile", err)
+	}
+	var invalidErr *InvalidDiscoveredFileError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("error type = %T, want *InvalidDiscoveredFileError", err)
+	}
+	return invalidErr
+}
+
+func requireInvalidLookupResultError(t *testing.T, err error) *InvalidLookupResultError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidLookupResult) {
+		t.Fatalf("error = %v, want ErrInvalidLookupResult", err)
+	}
+	var invalidErr *InvalidLookupResultError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("error type = %T, want *InvalidLookupResultError", err)
+	}
+	return invalidErr
+}
+
+func discoveryFieldErrorsContain(fieldErrors []error, target error) bool {
+	for _, err := range fieldErrors {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
 }

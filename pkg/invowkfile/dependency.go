@@ -323,11 +323,9 @@ func (s CustomCheckScript) GetScriptFilePathWithModule(modulePath FilesystemPath
 	}
 
 	script := strings.TrimSpace(string(*s.File))
-	if strings.HasPrefix(script, "/") {
-		return FilesystemPath(script) //goplint:ignore -- containment is validated before reads.
-	}
-	if filepath.IsAbs(script) {
-		return FilesystemPath(script) //goplint:ignore -- containment is validated before reads.
+	scriptPath := FilesystemPath(script) //goplint:ignore -- CustomCheckScript validation accepted this script file path.
+	if fspath.IsAbs(scriptPath) {
+		return scriptPath
 	}
 	nativePath := filepath.FromSlash(script)
 	return fspath.JoinStr(modulePath, nativePath)
@@ -385,10 +383,6 @@ func (c *CustomCheckDependency) GetChecks() []CustomCheck {
 // Dependencies are combined in order: root -> command -> implementation.
 // Returns a new DependsOn struct with combined dependencies.
 func MergeDependsOnAll(rootDeps, cmdDeps, implDeps *DependsOn) *DependsOn {
-	if rootDeps == nil && cmdDeps == nil && implDeps == nil {
-		return nil
-	}
-
 	merged := &DependsOn{}
 
 	// Append in declaration order: root → command → implementation.
@@ -536,11 +530,7 @@ func (r CommandDependencyRef) Parse() (CommandDependencyRefParts, error) {
 			Reason: "expected bare command name or @source command reference",
 		}
 	}
-	parts := CommandDependencyRefParts{Command: command}
-	if err := parts.Validate(); err != nil {
-		return CommandDependencyRefParts{}, err
-	}
-	return parts, nil
+	return CommandDependencyRefParts{Command: command}, nil
 }
 
 // Validate returns nil if the command dependency reference is valid.
@@ -594,7 +584,7 @@ func (p CommandDependencyRefParts) validationRef() CommandDependencyRef {
 func (s CommandDependencySourceID) Validate() error {
 	value := string(s)
 	if strings.TrimSpace(value) == "" {
-		return &InvalidCommandDependencySourceIDError{Value: s, Reason: invalidReasonMustNotBeEmpty}
+		return &InvalidCommandDependencySourceIDError{Reason: invalidReasonMustNotBeEmpty}
 	}
 	if len(value) > MaxNameLength {
 		return &InvalidCommandDependencySourceIDError{Value: s, Reason: fmt.Sprintf("exceeds maximum length of %d chars", MaxNameLength)}
@@ -670,9 +660,6 @@ func parseQualifiedCommandDependencyRef(ref CommandDependencyRef) (CommandDepend
 		SourceID:  sourceID,
 		Command:   command,
 		Qualified: true,
-	}
-	if err := parts.Validate(); err != nil {
-		return CommandDependencyRefParts{}, err
 	}
 	return parts, nil
 }

@@ -113,7 +113,7 @@ func (e *InvalidResolvedModuleError) Unwrap() error { return ErrInvalidResolvedM
 // Validate returns nil if the ResolvedModule has valid fields, or an error
 // collecting all field-level validation failures.
 // ModuleRef is a composite — always validated via delegation.
-// Other fields are validated only when non-empty (zero values are valid).
+// Other rejectable fields are validated only when non-empty (zero values are valid).
 func (r ResolvedModule) Validate() error {
 	var errs []error
 	if err := r.ModuleRef.Validate(); err != nil {
@@ -175,8 +175,8 @@ func (e *InvalidAmbiguousMatchError) Unwrap() error { return ErrInvalidAmbiguous
 
 // Validate returns nil if the AmbiguousMatch has valid fields, or an error
 // collecting all field-level validation failures.
-// LockKey is validated when non-empty. Namespace and GitURL are validated
-// when non-empty (zero values are valid for optional contexts).
+// LockKey and GitURL are validated when non-empty (zero values are valid for
+// optional contexts).
 func (m AmbiguousMatch) Validate() error {
 	var errs []error
 	if m.LockKey != "" {

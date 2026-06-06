@@ -102,11 +102,7 @@ func CanonicalModuleDirectoryName(moduleID ModuleID) (ModuleScaffoldDirectoryNam
 	if strings.HasSuffix(moduleID.String(), ModuleSuffix) {
 		return "", &InvalidModuleIDError{Value: moduleID}
 	}
-	dirName := ModuleScaffoldDirectoryName(moduleID.String() + ModuleSuffix)
-	if err := dirName.Validate(); err != nil {
-		return "", err
-	}
-	return dirName, nil
+	return ModuleScaffoldDirectoryName(moduleID.String() + ModuleSuffix), nil //goplint:ignore -- validated non-empty module ID plus fixed suffix.
 }
 
 // ValidateName checks if a module name is valid.

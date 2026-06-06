@@ -18,7 +18,7 @@ type ArgsSubcommandConflictError = invowkfile.ArgsSubcommandConflictError
 func ValidateCommandTree(commands []*CommandInfo) error {
 	entries := make([]invowkfile.CommandTreeEntry, 0, len(commands))
 	for _, cmdInfo := range commands {
-		if cmdInfo == nil || cmdInfo.Command == nil {
+		if cmdInfo == nil {
 			continue
 		}
 		entries = append(entries, invowkfile.CommandTreeEntry{

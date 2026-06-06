@@ -60,7 +60,7 @@ func (e *InvalidGitURLError) Unwrap() error { return ErrInvalidGitURL }
 // or an error describing the validation failure.
 func (u GitURL) Validate() error {
 	s := string(u)
-	if s == "" || (!strings.HasPrefix(s, "https://") && !strings.HasPrefix(s, "git@") && !strings.HasPrefix(s, "ssh://")) {
+	if !strings.HasPrefix(s, "https://") && !strings.HasPrefix(s, "git@") && !strings.HasPrefix(s, "ssh://") {
 		return &InvalidGitURLError{Value: u}
 	}
 	return nil

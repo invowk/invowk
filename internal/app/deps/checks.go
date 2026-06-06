@@ -151,7 +151,7 @@ func evaluateCustomChecks(
 			return ValidateCustomCheckOutput(resolvedCheck, result)
 		})
 
-		if !found && lastErr != nil {
+		if !found {
 			if len(checks) == 1 {
 				checkErrors = append(checkErrors, dependencyMessageFromDetail(lastErr.Error()))
 			} else {
@@ -351,10 +351,14 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx Exec
 	var capabilityErrors []DependencyMessage
 
 	for _, capDep := range uniqueCapabilityDependencies(deps.Capabilities) {
+		if err := capDep.Validate(); err != nil {
+			capabilityErrors = append(capabilityErrors, dependencyMessageFromDetail(err.Error()))
+			continue
+		}
 		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(capability invowkfile.CapabilityName) error {
 			return checker.Check(ctx.GoContext(), ctx.IO, capability)
 		})
-		if !found && lastErr != nil {
+		if !found {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, false, lastErr))
 		}
 	}
@@ -395,10 +399,14 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, probe RuntimeDependencyProbe, _ ExecutionContext) []DependencyMessage {
 	var envVarErrors []DependencyMessage
 	for _, envVar := range envVars {
+		if err := envVar.Validate(); err != nil {
+			envVarErrors = append(envVarErrors, dependencyMessageFromDetail(err.Error()))
+			continue
+		}
 		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
 			return probe.CheckEnvVar(alt)
 		})
-		if !found && lastErr != nil {
+		if !found {
 			envVarErrors = append(envVarErrors, formatEnvVarAlternatives(envVar.Alternatives, true, lastErr))
 		}
 	}
@@ -408,10 +416,14 @@ func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, probe R
 func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, probe RuntimeDependencyProbe, _ ExecutionContext) []DependencyMessage {
 	var capabilityErrors []DependencyMessage
 	for _, capDep := range capabilities {
+		if err := capDep.Validate(); err != nil {
+			capabilityErrors = append(capabilityErrors, dependencyMessageFromDetail(err.Error()))
+			continue
+		}
 		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(alt invowkfile.CapabilityName) error {
 			return probe.CheckCapability(alt)
 		})
-		if !found && lastErr != nil {
+		if !found {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, true, lastErr))
 		}
 	}
@@ -421,15 +433,16 @@ func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDepend
 func collectContainerCommandErrors(commands []invowkfile.CommandDependency, probe RuntimeDependencyProbe, _ ExecutionContext) []DependencyMessage {
 	var commandErrors []DependencyMessage
 	for _, dep := range commands {
-		alternatives := normalizedCommandAlternatives(dep)
-		if len(alternatives) == 0 {
+		if err := dep.Validate(); err != nil {
+			commandErrors = append(commandErrors, dependencyMessageFromDetail(err.Error()))
 			continue
 		}
 
-		found, lastErr := EvaluateAlternatives(alternatives, func(alt commandDependencyAlternative) error {
+		alternatives := normalizedCommandAlternatives(dep)
+		found, evalErr := EvaluateAlternatives(alternatives, func(alt commandDependencyAlternative) error {
 			return probe.CheckCommand(probeCommandName(alt))
 		})
-		if !found && lastErr != nil {
+		if !found && (evalErr != nil || len(alternatives) == 0) {
 			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
 		}
 	}
@@ -503,10 +516,10 @@ func formatCapabilityAlternatives(alternatives []invowkfile.CapabilityName, inCo
 func collectHostEnvVarErrors(envVars []invowkfile.EnvVarDependency, userEnv map[string]string) []DependencyMessage {
 	var envVarErrors []DependencyMessage
 	for _, envVar := range envVars {
-		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
+		_, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
 			return validateHostEnvVar(alt, userEnv)
 		})
-		if !found && lastErr != nil {
+		if lastErr != nil {
 			envVarErrors = append(envVarErrors, formatEnvVarAlternatives(envVar.Alternatives, false, lastErr))
 		}
 	}

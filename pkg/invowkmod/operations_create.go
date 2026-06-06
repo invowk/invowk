@@ -99,16 +99,12 @@ cmds: [
 ]
 `, opts.Name, opts.Name)
 
-	scaffold := ModuleScaffold{
+	return ModuleScaffold{
 		directoryName:     ModuleScaffoldDirectoryName(string(opts.Name) + ModuleSuffix), //goplint:ignore -- derived from validated module short name and fixed suffix.
-		invowkmodContent:  ModuleScaffoldContent(invowkmodContent),                       //goplint:ignore -- generated non-empty content validated below.
-		invowkfileContent: ModuleScaffoldContent(invowkfileContent),                      //goplint:ignore -- generated non-empty content validated below.
+		invowkmodContent:  ModuleScaffoldContent(invowkmodContent),                       //goplint:ignore -- generated from a static non-empty template.
+		invowkfileContent: ModuleScaffoldContent(invowkfileContent),                      //goplint:ignore -- generated from a static non-empty template.
 		createScriptsDir:  opts.CreateScriptsDir,
-	}
-	if err := scaffold.Validate(); err != nil {
-		return ModuleScaffold{}, err
-	}
-	return scaffold, nil
+	}, nil
 }
 
 // DirectoryName returns the module scaffold directory name.

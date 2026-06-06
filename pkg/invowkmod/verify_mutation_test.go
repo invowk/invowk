@@ -138,6 +138,15 @@ func TestVerifyMutationEvaluationMatchedContentHashPayload(t *testing.T) {
 	}
 }
 
+func TestVerifyMutationLockedModuleIdentityFallsBackToNamespace(t *testing.T) {
+	t.Parallel()
+
+	locked := LockedModule{Namespace: "io.example.dep"}
+	if got := locked.IdentityModuleID(); got != "io.example.dep" {
+		t.Fatalf("IdentityModuleID() = %q, want namespace fallback", got)
+	}
+}
+
 func TestVerifyMutationVendoredHashVerificationSkipsEmptyContentHashLock(t *testing.T) {
 	t.Parallel()
 
@@ -190,6 +199,69 @@ func TestVerifyMutationVendoredHashVerificationIgnoresSuffixlessDirectory(t *tes
 
 	if err := VerifyVendoredModuleHashes(types.FilesystemPath(root)); err != nil {
 		t.Fatalf("VerifyVendoredModuleHashes() error = %v, want suffixless directory ignored", err)
+	}
+}
+
+func TestVerifyMutationVendoredModuleDirFilterRequiresDirectoryAndSuffix(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cases := map[string]bool{
+		"io.example.dep" + ModuleSuffix: true,
+		"io.example.dep":                false,
+		"readme" + ModuleSuffix:         false,
+	}
+	for name := range cases {
+		path := filepath.Join(root, name)
+		if strings.HasPrefix(name, "readme") {
+			if err := os.WriteFile(path, []byte("not a module directory"), 0o644); err != nil {
+				t.Fatalf("write test entry: %v", err)
+			}
+			continue
+		}
+		if err := os.Mkdir(path, 0o755); err != nil {
+			t.Fatalf("mkdir test entry: %v", err)
+		}
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("ReadDir() error = %v", err)
+	}
+	got := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		got[entry.Name()] = isVendoredModuleDir(entry)
+	}
+	for name, want := range cases {
+		if got[name] != want {
+			t.Fatalf("isVendoredModuleDir(%q) = %t, want %t", name, got[name], want)
+		}
+	}
+}
+
+func TestVerifyMutationVendoredHashVerificationIgnoresSymlinkedModuleEntry(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	vendorDir := filepath.Join(root, VendoredModulesDir)
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+		t.Fatalf("mkdir vendor dir: %v", err)
+	}
+	targetDir := filepath.Join(root, "target-module")
+	writeHashTestModule(t, targetDir, "aa.example.dep")
+	linkPath := filepath.Join(vendorDir, "aa.example.dep"+ModuleSuffix)
+	if err := os.Symlink(targetDir, linkPath); err != nil {
+		t.Skipf("skipping symlinked module entry check: %v", err)
+	}
+
+	lock := NewLockFile()
+	lock.Modules["https://github.com/example/other.git"] = lockedHashTestModule("io.example.other", verifyMutationOtherHash)
+	if err := lock.Save(filepath.Join(root, LockFileName)); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	if err := VerifyVendoredModuleHashes(types.FilesystemPath(root)); err != nil {
+		t.Fatalf("VerifyVendoredModuleHashes() error = %v, want symlinked module entry ignored", err)
 	}
 }
 

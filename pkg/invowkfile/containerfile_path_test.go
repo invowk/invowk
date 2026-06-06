@@ -4,6 +4,8 @@ package invowkfile_test
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil/pathmatrix"
@@ -56,6 +58,76 @@ func TestContainerfilePath_Validate(t *testing.T) {
 			t.Errorf("error should be *InvalidContainerfilePathError, got: %T", err)
 		}
 	})
+}
+
+func TestContainerfilePathValidationErrorPayloads(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		path       invowkfile.ContainerfilePath
+		wantReason string
+	}{
+		{
+			name:       "whitespace",
+			path:       " \t ",
+			wantReason: "non-empty value must not be whitespace-only",
+		},
+		{
+			name:       "too long",
+			path:       invowkfile.ContainerfilePath(strings.Repeat("a", invowkfile.MaxPathLength+1)),
+			wantReason: fmt.Sprintf("path too long (%d chars, max %d)", invowkfile.MaxPathLength+1, invowkfile.MaxPathLength),
+		},
+		{
+			name:       "absolute",
+			path:       "/absolute",
+			wantReason: "path must be relative, not absolute",
+		},
+		{
+			name:       "null byte",
+			path:       "Container\x00file",
+			wantReason: "path contains null byte",
+		},
+		{
+			name:       "parent segment",
+			path:       `docker\..\Containerfile`,
+			wantReason: "path contains parent-directory segment '..'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.path.Validate()
+			if !errors.Is(err, invowkfile.ErrInvalidContainerfilePath) {
+				t.Fatalf("ContainerfilePath(%q).Validate() error = %v, want ErrInvalidContainerfilePath", tt.path, err)
+			}
+			var pathErr *invowkfile.InvalidContainerfilePathError
+			if !errors.As(err, &pathErr) {
+				t.Fatalf("ContainerfilePath(%q).Validate() error type = %T, want *InvalidContainerfilePathError", tt.path, err)
+			}
+			if pathErr.Value != tt.path {
+				t.Fatalf("InvalidContainerfilePathError.Value = %q, want %q", pathErr.Value, tt.path)
+			}
+			if pathErr.Reason != tt.wantReason {
+				t.Fatalf("InvalidContainerfilePathError.Reason = %q, want %q", pathErr.Reason, tt.wantReason)
+			}
+			wantError := fmt.Sprintf("invalid containerfile path %q: %s", tt.path, tt.wantReason)
+			if err.Error() != wantError {
+				t.Fatalf("InvalidContainerfilePathError.Error() = %q, want %q", err.Error(), wantError)
+			}
+		})
+	}
+}
+
+func TestContainerfilePathLengthBoundary(t *testing.T) {
+	t.Parallel()
+
+	path := invowkfile.ContainerfilePath(strings.Repeat("a", invowkfile.MaxPathLength))
+	if err := path.Validate(); err != nil {
+		t.Fatalf("ContainerfilePath(max length).Validate() = %v, want nil", err)
+	}
 }
 
 // TestContainerfilePath_String confirms String() returns the underlying

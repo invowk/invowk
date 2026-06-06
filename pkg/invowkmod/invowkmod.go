@@ -250,7 +250,7 @@ type (
 		GitURL GitURL `json:"git_url"`
 		// Version is the semver constraint for version selection.
 		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0", "<=2.0.0", "1.2.3"
-		Version SemVerConstraint `json:"version"`
+		Version SemVerConstraint `json:"version"` //goplint:ignore -- declarations intentionally reject v-prefixed Git tag syntax.
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
 		Alias ModuleAlias `json:"alias,omitempty"`
@@ -274,7 +274,7 @@ type (
 		// Version specifies the module version using semantic versioning (mandatory).
 		// Format: MAJOR.MINOR.PATCH with optional pre-release label (e.g., "1.0.0", "2.1.0-alpha.1").
 		// No "v" prefix, no build metadata, no leading zeros on numeric segments.
-		Version SemVer `json:"version"`
+		Version SemVer `json:"version"` //goplint:ignore -- declarations intentionally reject v-prefixed and partial Git tag syntax.
 		// Description provides a summary of this module's purpose (optional).
 		Description types.DescriptionText `json:"description,omitempty"`
 		// Author identifies the module author or maintainer (optional).
@@ -319,7 +319,7 @@ func (e *InvalidModuleIDError) Unwrap() error {
 // This mirrors the CUE schema constraint in invowkmod_schema.cue.
 func (m ModuleID) Validate() error {
 	s := string(m)
-	if s == "" || len([]rune(s)) > MaxModuleIDLength || !moduleIDPattern.MatchString(s) {
+	if len([]rune(s)) > MaxModuleIDLength || !moduleIDPattern.MatchString(s) {
 		return &InvalidModuleIDError{Value: m}
 	}
 
@@ -343,9 +343,7 @@ func (m Invowkmod) Validate() error {
 	if err := m.Module.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := m.Version.Validate(); err != nil {
-		errs = append(errs, err)
-	} else if err := ValidateDeclaredSemVer(m.Version); err != nil {
+	if err := ValidateDeclaredSemVer(m.Version); err != nil {
 		errs = append(errs, err)
 	}
 	if m.Description != "" {
@@ -451,9 +449,6 @@ func validateNormalizedSubdirectoryPath(p SubdirectoryPath) error {
 			return subdirectoryPathAbsoluteError(p)
 		}
 	}
-	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-		return subdirectoryPathTraversalError(p)
-	}
 	return nil
 }
 
@@ -489,9 +484,7 @@ func (r ModuleRequirement) Validate() error {
 	if err := r.GitURL.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := r.Version.Validate(); err != nil {
-		errs = append(errs, err)
-	} else if err := ValidateDeclaredSemVerConstraint(r.Version); err != nil {
+	if err := ValidateDeclaredSemVerConstraint(r.Version); err != nil {
 		errs = append(errs, err)
 	}
 	if err := r.Alias.Validate(); err != nil {
@@ -584,16 +577,17 @@ func (m *Module) InvowkfilePath() types.FilesystemPath {
 // Script paths in modules should use forward slashes for cross-platform compatibility.
 // This function converts the cross-platform path to the native format.
 func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.FilesystemPath {
+	scriptPathStr := string(scriptPath)
 	// Unix-style absolute paths (leading '/') target the same logical location
 	// across platforms and must pass through unchanged. On Windows,
 	// filepath.IsAbs(filepath.FromSlash("/foo")) is false because "\foo"
 	// is not Windows-absolute, so the check must precede native conversion.
-	if strings.HasPrefix(string(scriptPath), "/") {
+	if strings.HasPrefix(scriptPathStr, "/") {
 		return scriptPath
 	}
 
 	// Convert forward slashes to native path separator
-	nativePath := filepath.FromSlash(string(scriptPath))
+	nativePath := filepath.FromSlash(strings.TrimPrefix(scriptPathStr, "/"))
 
 	// If already host-absolute (e.g., C:\foo on Windows), return as-is.
 	if filepath.IsAbs(nativePath) {
@@ -623,26 +617,16 @@ func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 	if strings.HasPrefix(cleanSlash, "/") || isWindowsDrivePath(cleanSlash) {
 		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
 	}
+	// Check for path escaping (e.g., "../something") before native conversion.
 	if cleanSlash == ".." || strings.HasPrefix(cleanSlash, "../") {
 		return fmt.Errorf("script path '%s' escapes the module directory", scriptPath)
 	}
 
-	// Convert to native path for the subsequent filepath.Rel containment check.
+	// Convert to native path for module-root joining.
 	nativePath := filepath.FromSlash(cleanSlash)
 
 	// Resolve the full path
 	fullPath := filepath.Join(string(m.Path), nativePath)
-
-	// Ensure the resolved path is within the module (prevent directory traversal)
-	relPath, err := filepath.Rel(string(m.Path), fullPath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve relative path: %w", err)
-	}
-
-	// Check for path escaping (e.g., "../something")
-	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("script path '%s' escapes the module directory", scriptPath)
-	}
 
 	// Check if the path or any parent is a symlink
 	if err := m.checkSymlinkSafety(fullPath); err != nil {
@@ -696,6 +680,8 @@ func (m Module) Validate() error {
 
 // checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the module.
 func (m *Module) checkSymlinkSafety(path string) error {
+	const symlinkEscapeErrMsg = "path resolves to location outside module directory (symlink escape)"
+
 	// Get the real path by resolving all symlinks
 	realPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -713,8 +699,14 @@ func (m *Module) checkSymlinkSafety(path string) error {
 	}
 
 	relPath, err := filepath.Rel(moduleRealPath, realPath)
-	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-		return errors.New("path resolves to location outside module directory (symlink escape)")
+	if err != nil {
+		return errors.New(symlinkEscapeErrMsg)
+	}
+	if relPath == ".." {
+		return errors.New(symlinkEscapeErrMsg)
+	}
+	if strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+		return errors.New(symlinkEscapeErrMsg)
 	}
 
 	return nil

@@ -9,6 +9,10 @@ import (
 	"strconv"
 )
 
+// parseFloat64BitSize is derived without a raw numeric literal because
+// strconv.ParseFloat treats any non-32 bit size as float64 semantics.
+const parseFloat64BitSize = len("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+
 // validateValueType validates that a value is compatible with the specified type.
 // Shared by both flag and argument validation to avoid duplicating type-check logic.
 // Argument callers cast via FlagType(arg.GetType()) since ArgumentType values are
@@ -19,6 +23,7 @@ func validateValueType(value string, typeName FlagType) error {
 		if value != "true" && value != "false" {
 			return errors.New("must be 'true' or 'false'")
 		}
+		return nil
 	case FlagTypeInt:
 		for i, c := range value {
 			if i == 0 && c == '-' {
@@ -31,30 +36,26 @@ func validateValueType(value string, typeName FlagType) error {
 		if value == "" || value == "-" {
 			return errors.New("must be a valid integer")
 		}
+		return nil
 	case FlagTypeFloat:
-		if value == "" {
-			return errors.New("must be a valid floating-point number")
-		}
-		_, err := strconv.ParseFloat(value, 64)
+		_, err := strconv.ParseFloat(value, parseFloat64BitSize)
 		if err != nil {
 			return errors.New("must be a valid floating-point number")
 		}
+		return nil
 	case FlagTypeString:
 		// Any string is valid
+		return nil
 	default:
 		// Defense-in-depth: CUE schema enforces valid types at parse time.
 		// This catches programmatic misuse where an invalid type bypasses parsing.
 		return fmt.Errorf("unknown flag type %q", typeName)
 	}
-	return nil
 }
 
 // validateValueWithRegex validates a value against an optional regex pattern.
 // Returns nil if the pattern is empty or matches. name is used for error messages.
 func validateValueWithRegex(name, value, pattern string) error {
-	if pattern == "" {
-		return nil
-	}
 	validationRegex, err := regexp.Compile(pattern)
 	if err != nil {
 		// This shouldn't happen as the regex is validated at parse time

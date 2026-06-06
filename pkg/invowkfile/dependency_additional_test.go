@@ -492,6 +492,12 @@ func TestDependencyErrorStringsAndUnwrap(t *testing.T) {
 			wantError: "invalid custom check: 1 field error(s)",
 		},
 		{
+			name:      "invalid custom check script",
+			err:       &InvalidCustomCheckScriptError{FieldErrors: []error{errors.New("one")}},
+			sentinel:  ErrInvalidCustomCheckScript,
+			wantError: "invalid custom check script: 1 field error(s)",
+		},
+		{
 			name:      "invalid custom check dependency",
 			err:       &InvalidCustomCheckDependencyError{FieldErrors: []error{errors.New("one")}},
 			sentinel:  ErrInvalidCustomCheckDependency,

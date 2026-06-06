@@ -75,6 +75,12 @@ func testFilesystemMutationEnvFilePathBoundaries(t *testing.T) {
 		ValidateEnvFilePath("../.env"),
 		"env file path cannot contain '..': ../.env",
 	)
+	requireFilesystemMutationError(
+		t,
+		"middle parent segment",
+		ValidateEnvFilePath("config/../.env"),
+		"env file path cannot contain '..': config/../.env",
+	)
 }
 
 func testFilesystemMutationFilepathDependencyIndexes(t *testing.T) {

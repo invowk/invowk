@@ -284,7 +284,7 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	if file.Module != nil {
 		// Library-only modules can be discovered first; they are valid, but have
 		// no command-bearing invowkfile to load.
-		if file.Module.IsLibraryOnly || file.Path == "" {
+		if file.Path == "" {
 			file.Invowkfile = nil
 			return file, nil
 		}
@@ -460,7 +460,7 @@ func (d *Discovery) loadAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, e
 			// Library-only modules provide scripts and files for other modules to
 			// reference via `requires`, but don't contribute their own command
 			// definitions to the CLI command tree.
-			if file.Module.IsLibraryOnly || file.Path == "" {
+			if file.Path == "" {
 				continue
 			}
 

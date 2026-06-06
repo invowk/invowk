@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -58,6 +59,9 @@ func TestModuleShortName_Validate(t *testing.T) {
 				if !errors.As(err, &snErr) {
 					t.Errorf("error should be *InvalidModuleShortNameError, got: %T", err)
 				}
+				if snErr.Value != tt.shortName {
+					t.Errorf("InvalidModuleShortNameError.Value = %q, want %q", snErr.Value, tt.shortName)
+				}
 			} else if err != nil {
 				t.Errorf("ModuleShortName(%q).Validate() returned unexpected error: %v", tt.shortName, err)
 			}
@@ -71,6 +75,18 @@ func TestModuleShortName_String(t *testing.T) {
 	n := ModuleShortName("io.invowk.sample")
 	if n.String() != "io.invowk.sample" {
 		t.Errorf("ModuleShortName.String() = %q, want %q", n.String(), "io.invowk.sample")
+	}
+}
+
+func TestModuleShortName_InvalidErrorString(t *testing.T) {
+	t.Parallel()
+
+	err := (&InvalidModuleShortNameError{Value: "1bad"}).Error()
+	if !strings.Contains(err, "invalid module short name") {
+		t.Fatalf("InvalidModuleShortNameError.Error() = %q, want type context", err)
+	}
+	if !strings.Contains(err, "1bad") {
+		t.Fatalf("InvalidModuleShortNameError.Error() = %q, want invalid value", err)
 	}
 }
 
@@ -107,7 +123,26 @@ func TestModuleDirectoryName_Validate(t *testing.T) {
 				if !errors.Is(err, tt.sentinel) {
 					t.Fatalf("ModuleDirectoryName(%q).Validate() error = %v, want %v", tt.value, err, tt.sentinel)
 				}
+				var nameErr *InvalidModuleDirectoryNameError
+				if !errors.As(err, &nameErr) {
+					t.Fatalf("errors.As(%T) = false for %v", nameErr, err)
+				}
+				if nameErr.Value != tt.value {
+					t.Fatalf("InvalidModuleDirectoryNameError.Value = %q, want %q", nameErr.Value, tt.value)
+				}
 			}
 		})
+	}
+}
+
+func TestModuleDirectoryName_InvalidErrorString(t *testing.T) {
+	t.Parallel()
+
+	err := (&InvalidModuleDirectoryNameError{Value: "bad-name"}).Error()
+	if !strings.Contains(err, "invalid module directory name") {
+		t.Fatalf("InvalidModuleDirectoryNameError.Error() = %q, want type context", err)
+	}
+	if !strings.Contains(err, "bad-name") {
+		t.Fatalf("InvalidModuleDirectoryNameError.Error() = %q, want invalid value", err)
 	}
 }

@@ -35,6 +35,9 @@ func TestFormatError(t *testing.T) {
 		if !strings.Contains(err.Error(), "some error") {
 			t.Errorf("error should contain original message, got: %v", err)
 		}
+		if !errors.Is(err, originalErr) {
+			t.Errorf("error should wrap original error, got: %v", err)
+		}
 	})
 }
 

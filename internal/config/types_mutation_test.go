@@ -193,6 +193,85 @@ func TestColorSchemeMutationErrorPayload(t *testing.T) {
 	}
 }
 
+func TestIncludeEntryMutationModuleDetection(t *testing.T) {
+	t.Parallel()
+
+	validModule := IncludeEntry{Path: ModuleIncludePath(filepath.Join(t.TempDir(), "tools.invowkmod"))}
+	if !validModule.IsModule() {
+		t.Fatalf("IncludeEntry{%q}.IsModule() = false, want true", validModule.Path)
+	}
+
+	plainDir := IncludeEntry{Path: ModuleIncludePath(filepath.Join(t.TempDir(), "tools"))}
+	if plainDir.IsModule() {
+		t.Fatalf("IncludeEntry{%q}.IsModule() = true, want false", plainDir.Path)
+	}
+}
+
+func TestIncludeCollectionMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	if err := IncludeCollectionField("container.includes").Validate(); !errors.Is(err, ErrInvalidIncludeCollectionField) {
+		t.Fatalf("IncludeCollectionField.Validate() error = %v, want ErrInvalidIncludeCollectionField", err)
+	}
+
+	var nilCollectionErr *InvalidIncludeCollectionError
+	if got, want := nilCollectionErr.Error(), ErrInvalidIncludeCollection.Error(); got != want {
+		t.Fatalf("nil InvalidIncludeCollectionError.Error() = %q, want %q", got, want)
+	}
+
+	emptyCauseErr := &InvalidIncludeCollectionError{Field: IncludeCollectionRoot}
+	if got, want := emptyCauseErr.Error(), ErrInvalidIncludeCollection.Error(); got != want {
+		t.Fatalf("InvalidIncludeCollectionError without cause Error() = %q, want %q", got, want)
+	}
+}
+
+func TestLLMValueMutationPayloads(t *testing.T) {
+	t.Parallel()
+
+	provider := LLMProvider("mistral")
+	providerErr := provider.Validate()
+	var invalidProvider *InvalidLLMProviderError
+	if !errors.As(providerErr, &invalidProvider) || invalidProvider.Value != provider {
+		t.Fatalf("LLMProvider.Validate() error = %#v, want value %q", providerErr, provider)
+	}
+	if got, want := providerErr.Error(), `invalid LLM provider "mistral" (valid: auto, claude, codex, gemini, ollama)`; got != want {
+		t.Fatalf("InvalidLLMProviderError.Error() = %q, want %q", got, want)
+	}
+
+	model := LLMModelName(" \t ")
+	modelErr := model.Validate()
+	var invalidModel *InvalidLLMModelNameError
+	if !errors.As(modelErr, &invalidModel) || invalidModel.Value != model {
+		t.Fatalf("LLMModelName.Validate() error = %#v, want value %q", modelErr, model)
+	}
+	if got, want := modelErr.Error(), "invalid LLM model name \" \\t \": non-empty value must not be whitespace-only"; got != want {
+		t.Fatalf("InvalidLLMModelNameError.Error() = %q, want %q", got, want)
+	}
+
+	credential := LLMCredentialEnvVar("1BAD")
+	credentialErr := credential.Validate()
+	var invalidCredential *InvalidLLMCredentialEnvVarError
+	if !errors.As(credentialErr, &invalidCredential) || invalidCredential.Value != credential {
+		t.Fatalf("LLMCredentialEnvVar.Validate() error = %#v, want value %q", credentialErr, credential)
+	}
+	if got, want := credentialErr.Error(), `invalid LLM API key environment variable "1BAD"`; got != want {
+		t.Fatalf("InvalidLLMCredentialEnvVarError.Error() = %q, want %q", got, want)
+	}
+}
+
+func TestLLMStringAndDefaultErrorMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	if got, want := LLMConcurrency(7).String(), "7"; got != want {
+		t.Fatalf("LLMConcurrency(7).String() = %q, want %q", got, want)
+	}
+
+	timeoutErr := &InvalidLLMTimeoutError{Value: "later"}
+	if got, want := timeoutErr.Error(), `invalid LLM timeout "later": must be a positive Go duration`; got != want {
+		t.Fatalf("InvalidLLMTimeoutError default Error() = %q, want %q", got, want)
+	}
+}
+
 func TestLLMConcurrencyMutationErrorPayload(t *testing.T) {
 	t.Parallel()
 
@@ -265,6 +344,28 @@ func TestLLMAPIConfigMutationValidationErrors(t *testing.T) {
 func TestLLMConfigMutationBackendPresence(t *testing.T) {
 	t.Parallel()
 
+	tests := []struct {
+		name string
+		cfg  LLMConfig
+		want bool
+	}{
+		{name: "empty", cfg: LLMConfig{}, want: false},
+		{name: "provider only", cfg: LLMConfig{Provider: LLMProviderCodex}, want: true},
+		{name: "model only", cfg: LLMConfig{Model: "gpt-5"}, want: true},
+		{name: "timeout only", cfg: LLMConfig{Timeout: "1s"}, want: true},
+		{name: "concurrency only", cfg: LLMConfig{Concurrency: 1}, want: true},
+		{name: "API only", cfg: LLMConfig{API: LLMAPIConfig{Model: "llama3.2"}}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.cfg.HasConfig(); got != tt.want {
+				t.Fatalf("LLMConfig.HasConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
 	apiOnly := LLMConfig{API: LLMAPIConfig{Model: "llama3.2"}}
 	if !apiOnly.HasAPIBackend() {
 		t.Fatal("LLMConfig.HasAPIBackend() = false, want true for API model")
@@ -288,6 +389,24 @@ func TestLLMConfigMutationBackendPresence(t *testing.T) {
 	if cleared.HasConfig() {
 		t.Fatal("WithoutAPIBackend().HasConfig() = true, want false")
 	}
+
+	withProvider := LLMConfig{
+		Provider:    LLMProviderCodex,
+		Model:       "gpt-5",
+		Timeout:     "2s",
+		Concurrency: 2,
+		API:         LLMAPIConfig{Model: "llama3.2"},
+	}.WithAPIBackendPresent()
+	clearedWithProvider := withProvider.WithoutAPIBackend()
+	if clearedWithProvider.Provider != withProvider.Provider ||
+		clearedWithProvider.Model != withProvider.Model ||
+		clearedWithProvider.Timeout != withProvider.Timeout ||
+		clearedWithProvider.Concurrency != withProvider.Concurrency {
+		t.Fatalf("WithoutAPIBackend() = %#v, want non-API fields preserved from %#v", clearedWithProvider, withProvider)
+	}
+	if clearedWithProvider.HasAPIBackend() || clearedWithProvider.API.HasConfig() {
+		t.Fatalf("WithoutAPIBackend() retained API backend state: %#v", clearedWithProvider)
+	}
 }
 
 func TestLLMConfigMutationDirectFieldFailures(t *testing.T) {
@@ -295,6 +414,7 @@ func TestLLMConfigMutationDirectFieldFailures(t *testing.T) {
 
 	cfg := LLMConfig{
 		Provider:    "bad-provider",
+		Model:       " \t ",
 		Timeout:     "soon",
 		Concurrency: -1,
 	}
@@ -304,6 +424,9 @@ func TestLLMConfigMutationDirectFieldFailures(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidLLMProvider) {
 		t.Fatalf("LLMConfig.Validate() error = %v, want ErrInvalidLLMProvider", err)
+	}
+	if !errors.Is(err, ErrInvalidLLMModelName) {
+		t.Fatalf("LLMConfig.Validate() error = %v, want ErrInvalidLLMModelName", err)
 	}
 	if !errors.Is(err, ErrInvalidLLMTimeout) {
 		t.Fatalf("LLMConfig.Validate() error = %v, want ErrInvalidLLMTimeout", err)
@@ -315,10 +438,10 @@ func TestLLMConfigMutationDirectFieldFailures(t *testing.T) {
 	if !errors.As(err, &llmErr) {
 		t.Fatalf("LLMConfig.Validate() error type = %T, want *InvalidLLMConfigError", err)
 	}
-	if len(llmErr.FieldErrors) != 3 {
-		t.Fatalf("InvalidLLMConfigError.FieldErrors length = %d, want 3", len(llmErr.FieldErrors))
+	if len(llmErr.FieldErrors) != 4 {
+		t.Fatalf("InvalidLLMConfigError.FieldErrors length = %d, want 4", len(llmErr.FieldErrors))
 	}
-	if got, want := err.Error(), "invalid LLM config: 3 field error(s)"; got != want {
+	if got, want := err.Error(), "invalid LLM config: 4 field error(s)"; got != want {
 		t.Fatalf("InvalidLLMConfigError.Error() = %q, want %q", got, want)
 	}
 }
@@ -415,8 +538,43 @@ func TestIncludeMutationAggregateErrorContracts(t *testing.T) {
 	}
 }
 
+func TestAggregateErrorMutationNilUnwraps(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		got      error
+		sentinel error
+	}{
+		{name: "LLM API config", got: (*InvalidLLMAPIConfigError)(nil).Unwrap(), sentinel: ErrInvalidLLMAPIConfig},
+		{name: "LLM config", got: (*InvalidLLMConfigError)(nil).Unwrap(), sentinel: ErrInvalidLLMConfig},
+		{name: "auto provision config", got: (*InvalidAutoProvisionConfigError)(nil).Unwrap(), sentinel: ErrInvalidAutoProvisionConfig},
+		{name: "container config", got: (*InvalidContainerConfigError)(nil).Unwrap(), sentinel: ErrInvalidContainerConfig},
+		{name: "root config", got: (*InvalidConfigError)(nil).Unwrap(), sentinel: ErrInvalidConfig},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if !errors.Is(tt.got, tt.sentinel) {
+				t.Fatalf("nil %s Unwrap() = %v, want %v", tt.name, tt.got, tt.sentinel)
+			}
+		})
+	}
+}
+
 func TestContainerConfigMutationAggregateErrorContracts(t *testing.T) {
 	t.Parallel()
+
+	uiErr := &InvalidUIConfigError{FieldErrors: []error{ErrInvalidColorScheme}}
+	if got, want := uiErr.Error(), "invalid UI config: 1 field error(s)"; got != want {
+		t.Fatalf("InvalidUIConfigError.Error() = %q, want %q", got, want)
+	}
+
+	autoProvisionErr := &InvalidAutoProvisionConfigError{FieldErrors: []error{ErrInvalidBinaryFilePath}}
+	if got, want := autoProvisionErr.Error(), "invalid auto-provision config: 1 field error(s)"; got != want {
+		t.Fatalf("InvalidAutoProvisionConfigError.Error() = %q, want %q", got, want)
+	}
 
 	containerErr := ContainerConfig{
 		AutoProvision: AutoProvisionConfig{BinaryPath: "   "},

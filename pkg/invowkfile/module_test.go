@@ -243,6 +243,19 @@ func TestModuleMetadata_Requires_DefensiveCopy(t *testing.T) {
 	}
 }
 
+func TestModuleMetadata_Requires_AbsentStaysNil(t *testing.T) {
+	t.Parallel()
+
+	meta, err := NewModuleMetadata("io.invowk.none", "1.0.0", "", nil)
+	if err != nil {
+		t.Fatalf("NewModuleMetadata() unexpected error: %v", err)
+	}
+
+	if got := meta.Requires(); got != nil {
+		t.Fatalf("Requires() = %#v, want nil for absent requirements", got)
+	}
+}
+
 func TestNewModuleMetadataFromInvowkmod(t *testing.T) {
 	t.Parallel()
 
@@ -254,6 +267,13 @@ func TestNewModuleMetadataFromInvowkmod(t *testing.T) {
 		}
 		if !errors.Is(err, ErrInvalidModuleMetadata) {
 			t.Fatalf("error should wrap ErrInvalidModuleMetadata, got: %v", err)
+		}
+		metaErr, ok := errors.AsType[*InvalidModuleMetadataError](err)
+		if !ok {
+			t.Fatalf("error type = %T, want *InvalidModuleMetadataError", err)
+		}
+		if len(metaErr.FieldErrors) != 1 || metaErr.FieldErrors[0].Error() != "module metadata is required" {
+			t.Fatalf("FieldErrors = %v, want module metadata required detail", metaErr.FieldErrors)
 		}
 		if got != nil {
 			t.Errorf("NewModuleMetadataFromInvowkmod(nil) metadata = %v, want nil", got)

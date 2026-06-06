@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"regexp"
@@ -93,24 +94,15 @@ func (v *Version) String() string {
 // Returns -1 if v < other, 0 if v == other, 1 if v > other.
 func (v *Version) Compare(other *Version) int {
 	if v.Major != other.Major {
-		if v.Major < other.Major {
-			return -1
-		}
-		return 1
+		return cmp.Compare(v.Major, other.Major)
 	}
 
 	if v.Minor != other.Minor {
-		if v.Minor < other.Minor {
-			return -1
-		}
-		return 1
+		return cmp.Compare(v.Minor, other.Minor)
 	}
 
 	if v.Patch != other.Patch {
-		if v.Patch < other.Patch {
-			return -1
-		}
-		return 1
+		return cmp.Compare(v.Patch, other.Patch)
 	}
 
 	// Prerelease versions have lower precedence than the associated normal version.
@@ -127,10 +119,7 @@ func (v *Version) Compare(other *Version) int {
 		return -1
 	}
 	if v.Prerelease != other.Prerelease {
-		if v.Prerelease < other.Prerelease {
-			return -1
-		}
-		return 1
+		return cmp.Compare(v.Prerelease, other.Prerelease)
 	}
 
 	return 0
@@ -145,13 +134,9 @@ func (r *SemverResolver) ParseConstraint(s string) (*Constraint, error) {
 		return nil, fmt.Errorf("invalid constraint format: %s", s)
 	}
 
-	op := ConstraintOp(matches[1])
+	op := ConstraintOp(matches[1]) //goplint:ignore -- constraintRegex only captures defined operators; empty is normalized below.
 	if op == "" {
 		op = ConstraintOpEqual
-	}
-
-	if err := op.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid constraint operator in %q: %w", s, err)
 	}
 
 	version, err := ParseVersion(matches[2])

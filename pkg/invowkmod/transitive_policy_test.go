@@ -47,6 +47,12 @@ func TestCheckMissingTransitiveDeps_DeduplicatesMissingRefs(t *testing.T) {
 	if diags[0].MissingRef.GitURL != missing.GitURL {
 		t.Errorf("diagnostic missing URL = %q, want %q", diags[0].MissingRef.GitURL, missing.GitURL)
 	}
+	if diags[0].RequiringModule != "io.org.A" {
+		t.Errorf("diagnostic requiring module = %q, want io.org.A", diags[0].RequiringModule)
+	}
+	if diags[0].RequiringURL != requirements[0].GitURL {
+		t.Errorf("diagnostic requiring URL = %q, want %q", diags[0].RequiringURL, requirements[0].GitURL)
+	}
 }
 
 func TestCheckMissingVendoredTransitiveDeps_UsesModuleRefKeys(t *testing.T) {
@@ -68,6 +74,36 @@ func TestCheckMissingVendoredTransitiveDeps_UsesModuleRefKeys(t *testing.T) {
 
 	if diags := CheckMissingVendoredTransitiveDeps(requirements, vendored); len(diags) != 0 {
 		t.Errorf("CheckMissingVendoredTransitiveDeps() returned %d diagnostics, want 0", len(diags))
+	}
+}
+
+func TestCheckMissingVendoredTransitiveDeps_SkipsIncompleteModules(t *testing.T) {
+	t.Parallel()
+
+	requirements := []ModuleRequirement{
+		{GitURL: "https://example.com/root.git", Version: "^1.0.0"},
+	}
+	missing := ModuleRequirement{GitURL: "https://example.com/transitive.git", Version: "^2.0.0"}
+	vendored := []*Module{
+		nil,
+		{},
+		{
+			Metadata: &Invowkmod{
+				Module:   "io.example.dep",
+				Requires: []ModuleRequirement{missing},
+			},
+		},
+	}
+
+	diags := CheckMissingVendoredTransitiveDeps(requirements, vendored)
+	if len(diags) != 1 {
+		t.Fatalf("CheckMissingVendoredTransitiveDeps() returned %d diagnostics, want 1", len(diags))
+	}
+	if diags[0].RequiringModule != "io.example.dep" {
+		t.Errorf("requiring module = %q, want io.example.dep", diags[0].RequiringModule)
+	}
+	if diags[0].MissingRef.GitURL != missing.GitURL {
+		t.Errorf("missing URL = %q, want %q", diags[0].MissingRef.GitURL, missing.GitURL)
 	}
 }
 

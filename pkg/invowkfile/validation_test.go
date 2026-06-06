@@ -16,6 +16,18 @@ import (
 // (which expects an error-shaped function).
 var errIsAbsolutePathFalse = errors.New("isAbsolutePath returned false")
 
+func TestNewStructureValidatorReturnsConcreteValidator(t *testing.T) {
+	t.Parallel()
+
+	validator := NewStructureValidator()
+	if validator == nil {
+		t.Fatal("NewStructureValidator() = nil, want concrete validator")
+	}
+	if got := validator.Name(); got != structureValidatorName {
+		t.Fatalf("Name() = %q, want %q", got, structureValidatorName)
+	}
+}
+
 func TestValidateRegexPattern(t *testing.T) {
 	t.Parallel()
 
@@ -647,6 +659,7 @@ func TestValidateEnvFilePath(t *testing.T) {
 
 		// Invalid - path traversal
 		{name: "simple traversal", path: "../.env", shouldError: true, errorMsg: "cannot contain '..'"},
+		{name: "middle traversal", path: "config/../.env", shouldError: true, errorMsg: "cannot contain '..'"},
 		{name: "nested traversal", path: "config/../../.env", shouldError: true, errorMsg: "cannot contain '..'"},
 
 		// Invalid - absolute path

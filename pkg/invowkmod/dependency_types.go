@@ -61,7 +61,7 @@ type (
 
 		// Namespace is the computed display namespace.
 		// Format: "<module>@<version>" or alias if specified.
-		Namespace ModuleNamespace
+		Namespace ModuleNamespace //goplint:ignore -- derived display namespace is optional; command source identity validates independently.
 
 		// CommandSourceID is the command-publishing namespace used by discovery.
 		CommandSourceID ModuleSourceID
@@ -97,7 +97,7 @@ type (
 		// LockKey is the lock file key.
 		LockKey ModuleRefKey
 		// Namespace is the computed namespace.
-		Namespace ModuleNamespace
+		Namespace ModuleNamespace //goplint:ignore -- derived display namespace is optional in ambiguous match diagnostics.
 		// GitURL is the Git repository URL.
 		GitURL GitURL
 	}

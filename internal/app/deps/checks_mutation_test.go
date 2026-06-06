@@ -168,7 +168,9 @@ func TestContainerCollectorsMutationContracts(t *testing.T) {
 	t.Parallel()
 
 	t.Run("env alternatives stop after first successful probe", testContainerCollectorEnvAlternatives)
+	t.Run("invalid env and capability dependencies are reported without probing", testContainerCollectorInvalidEnvCapability)
 	t.Run("qualified command dependencies use source-qualified probe names", testContainerCollectorQualifiedCommands)
+	t.Run("invalid command dependencies are reported without probing", testContainerCollectorInvalidCommands)
 	t.Run("bare command dependencies use unqualified probe names", testContainerCollectorBareCommands)
 	t.Run("resolved command dependencies skip nil commands and format fallback alternatives", testContainerCollectorResolvedCommands)
 }
@@ -395,6 +397,27 @@ func testContainerCollectorEnvAlternatives(t *testing.T) {
 	}
 }
 
+func testContainerCollectorInvalidEnvCapability(t *testing.T) {
+	t.Parallel()
+
+	probe := &checksMutationRuntimeProbe{}
+	envErrs := collectContainerEnvVarErrors(
+		[]invowkfile.EnvVarDependency{{}},
+		probe,
+		newDependencyExecutionContext(t),
+	)
+	capErrs := collectContainerCapabilityErrors(
+		[]invowkfile.CapabilityDependency{{}},
+		probe,
+		newDependencyExecutionContext(t),
+	)
+	if len(probe.envVars) != 0 || len(probe.capabilities) != 0 {
+		t.Fatalf("probed env vars=%v capabilities=%v, want none", probe.envVars, probe.capabilities)
+	}
+	requireDependencyFailureStrings(t, envErrs, []string{"invalid env var dependency: 1 field error(s)"})
+	requireDependencyFailureStrings(t, capErrs, []string{"invalid capability dependency: 1 field error(s)"})
+}
+
 func testContainerCollectorQualifiedCommands(t *testing.T) {
 	t.Parallel()
 
@@ -405,7 +428,6 @@ func testContainerCollectorQualifiedCommands(t *testing.T) {
 	}
 	errs := collectContainerCommandErrors(
 		[]invowkfile.CommandDependency{
-			{},
 			{Alternatives: []invowkfile.CommandDependencyRef{"@tools lint"}},
 		},
 		probe,
@@ -418,6 +440,21 @@ func testContainerCollectorQualifiedCommands(t *testing.T) {
 	if len(errs) != 1 || errs[0].String() != want {
 		t.Fatalf("container command errors = %v, want %q", errs, want)
 	}
+}
+
+func testContainerCollectorInvalidCommands(t *testing.T) {
+	t.Parallel()
+
+	probe := &checksMutationRuntimeProbe{}
+	errs := collectContainerCommandErrors(
+		[]invowkfile.CommandDependency{{}},
+		probe,
+		newDependencyExecutionContext(t),
+	)
+	if len(probe.commands) != 0 {
+		t.Fatalf("checked commands = %v, want none", probe.commands)
+	}
+	requireDependencyFailureStrings(t, errs, []string{"invalid command dependency: 1 field error(s)"})
 }
 
 func testContainerCollectorBareCommands(t *testing.T) {

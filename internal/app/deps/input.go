@@ -16,18 +16,18 @@ func ValidateFlagValues(cmdName string, flagValues map[invowkfile.FlagName]strin
 	var validationErrs []DependencyMessage
 
 	for _, flag := range flagDefs {
-		value, hasValue := flagValues[flag.Name]
+		value := flagValues[flag.Name]
 
 		// Check required flags
 		// Note: Cobra handles required flag checking via MarkFlagRequired,
 		// but we double-check here for runtime validation (defense-in-depth for direct service calls)
-		if flag.Required && (!hasValue || value == "") {
+		if flag.Required && value == "" {
 			validationErrs = append(validationErrs, dependencyMessageFromDetail("required flag '--"+string(flag.Name)+"' was not provided"))
 			continue
 		}
 
 		// Validate the value if provided (skip empty values for non-required flags)
-		if hasValue && value != "" {
+		if value != "" {
 			if err := flag.ValidateFlagValue(value); err != nil {
 				validationErrs = append(validationErrs, dependencyMessageFromDetail(err.Error()))
 			}
@@ -85,11 +85,7 @@ func validateArgumentCount(cmdName string, providedArgs []string, argDefs []invo
 
 //goplint:ignore -- argument-validation helpers intentionally operate on raw argv slices.
 func validateArgumentValues(cmdName string, providedArgs []string, argDefs []invowkfile.Argument) error {
-	for i, argValue := range providedArgs {
-		if i >= len(argDefs) {
-			break
-		}
-
+	for i, argValue := range providedArgs[:min(len(providedArgs), len(argDefs))] {
 		argDef := argDefs[i]
 		if argDef.Variadic {
 			return validateVariadicArgumentValues(cmdName, providedArgs, argDefs, i, argDef)

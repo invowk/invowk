@@ -339,6 +339,7 @@ func TestValidateName(t *testing.T) {
 		name       string
 		moduleName string
 		expectErr  bool
+		wantErr    string
 	}{
 		{
 			name:       "valid simple name",
@@ -369,11 +370,13 @@ func TestValidateName(t *testing.T) {
 			name:       "empty name",
 			moduleName: "",
 			expectErr:  true,
+			wantErr:    "module name cannot be empty",
 		},
 		{
 			name:       "starts with dot",
 			moduleName: ".hidden",
 			expectErr:  true,
+			wantErr:    "module name cannot start with a dot",
 		},
 		{
 			name:       "starts with number",
@@ -409,6 +412,9 @@ func TestValidateName(t *testing.T) {
 			err := ValidateName(ModuleDirectoryName(tt.moduleName))
 			if tt.expectErr && err == nil {
 				t.Errorf("ValidateName(%q) expected error, got nil", tt.moduleName)
+			}
+			if tt.wantErr != "" && err != nil && err.Error() != tt.wantErr {
+				t.Errorf("ValidateName(%q) error = %q, want %q", tt.moduleName, err, tt.wantErr)
 			}
 			if !tt.expectErr && err != nil {
 				t.Errorf("ValidateName(%q) unexpected error: %v", tt.moduleName, err)

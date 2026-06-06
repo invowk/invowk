@@ -566,6 +566,7 @@ func TestParseStringValue(t *testing.T) {
 		{"extra_spaces", `  key:   "value"  `, "value"},
 		{"empty_value", `key: ""`, ""},
 		{"unquoted_value", "key: bare", "bare"},
+		{"unterminated_quote", `key: "bare`, "bare"},
 	}
 
 	for _, tt := range tests {

@@ -129,6 +129,33 @@ func TestIssue_ExtLinks(t *testing.T) {
 	}
 }
 
+func TestIssueLinkAccessorsReturnNonEmptyClones(t *testing.T) {
+	t.Parallel()
+
+	issue := &Issue{
+		docLinks: []HttpLink{"https://docs.invowk.test/errors"},
+		extLinks: []HttpLink{"https://example.com/help"},
+	}
+
+	docLinks := issue.DocLinks()
+	if len(docLinks) != 1 || docLinks[0] != "https://docs.invowk.test/errors" {
+		t.Fatalf("DocLinks() = %#v, want configured doc link", docLinks)
+	}
+	docLinks[0] = "https://modified.example.com"
+	if got := issue.DocLinks()[0]; got != "https://docs.invowk.test/errors" {
+		t.Fatalf("DocLinks() returned shared backing slice, stored value = %q", got)
+	}
+
+	extLinks := issue.ExtLinks()
+	if len(extLinks) != 1 || extLinks[0] != "https://example.com/help" {
+		t.Fatalf("ExtLinks() = %#v, want configured external link", extLinks)
+	}
+	extLinks[0] = "https://modified.example.com"
+	if got := issue.ExtLinks()[0]; got != "https://example.com/help" {
+		t.Fatalf("ExtLinks() returned shared backing slice, stored value = %q", got)
+	}
+}
+
 func TestGet(t *testing.T) {
 	t.Parallel()
 
@@ -176,6 +203,48 @@ func TestGet(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValueValidationErrorsPreserveInvalidPayloads(t *testing.T) {
+	t.Parallel()
+
+	invalidID := Id(9999)
+	idErr := requireValidationError[*InvalidIdError](t, invalidID.Validate(), ErrInvalidId)
+	if idErr.Value != invalidID {
+		t.Fatalf("InvalidIdError.Value = %d, want %d", idErr.Value, invalidID)
+	}
+
+	invalidMarkdown := MarkdownMsg("\n\t\n")
+	markdownErr := requireValidationError[*InvalidMarkdownMsgError](
+		t,
+		invalidMarkdown.Validate(),
+		ErrInvalidMarkdownMsg,
+	)
+	if markdownErr.Value != invalidMarkdown {
+		t.Fatalf("InvalidMarkdownMsgError.Value = %q, want %q", markdownErr.Value, invalidMarkdown)
+	}
+
+	invalidLink := HttpLink("ftp://bad.example.com")
+	linkErr := requireValidationError[*InvalidHttpLinkError](t, invalidLink.Validate(), ErrInvalidHttpLink)
+	if linkErr.Value != invalidLink {
+		t.Fatalf("InvalidHttpLinkError.Value = %q, want %q", linkErr.Value, invalidLink)
+	}
+}
+
+func requireValidationError[T error](t *testing.T, err, sentinel error) T {
+	t.Helper()
+
+	if err == nil {
+		t.Fatalf("Validate() error = nil, want %v", sentinel)
+	}
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("errors.Is(%v, %v) = false", err, sentinel)
+	}
+	var target T
+	if !errors.As(err, &target) {
+		t.Fatalf("errors.As(%T) = false for %v", target, err)
+	}
+	return target
 }
 
 func TestValues(t *testing.T) {

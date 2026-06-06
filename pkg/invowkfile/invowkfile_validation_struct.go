@@ -12,7 +12,7 @@ import (
 // This function focuses on Go-only validations: cross-field logic, filesystem access, and security checks.
 func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) error {
 	if err := rt.Validate(); err != nil {
-		if invalid, ok := errors.AsType[*InvalidRuntimeConfigError](err); ok && len(invalid.FieldErrors) > 0 {
+		if invalid, ok := errors.AsType[*InvalidRuntimeConfigError](err); ok {
 			return fmt.Errorf("command '%s' implementation #%d: %w", cmdName, implIndex, invalid.FieldErrors[0])
 		}
 		return fmt.Errorf("command '%s' implementation #%d: %w", cmdName, implIndex, err)

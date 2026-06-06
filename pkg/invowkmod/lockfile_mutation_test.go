@@ -182,6 +182,10 @@ func TestLockFileMutationSaveAndValidationBoundaries(t *testing.T) {
 		if !strings.Contains(err.Error(), "failed to create directory") {
 			t.Fatalf("Save() error = %v, want mkdir wrapper", err)
 		}
+		var pathErr *os.PathError
+		if !errors.As(err, &pathErr) {
+			t.Fatalf("Save() error = %v, want wrapped path error", err)
+		}
 	})
 
 	t.Run("invalid version fails before module validation", func(t *testing.T) {

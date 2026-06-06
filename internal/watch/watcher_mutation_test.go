@@ -292,6 +292,123 @@ func TestWatcherSkipIfBusyMutationContracts(t *testing.T) {
 	}
 }
 
+func TestWatcherManualFireAfterCancelSkipsCallback(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	backend := newFakeWatcherBackend()
+	callbacks := make(chan []string, 1)
+	w, err := newWithBackend(Config{
+		BaseDir:  types.FilesystemPath(dir),
+		Debounce: time.Hour,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+		OnChange: func(_ context.Context, changed []string) error {
+			callbacks <- slices.Clone(changed)
+			return nil
+		},
+	}, backend, types.FilesystemPath(dir))
+	if err != nil {
+		t.Fatalf("newWithBackend() error = %v", err)
+	}
+
+	scheduler := newManualDebounceScheduler()
+	w.schedule = scheduler.Schedule
+
+	ctx, cancel := context.WithCancel(t.Context())
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
+
+	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "cancel.go"), Op: fsnotify.Write}
+	timer := scheduler.requireTimer(t)
+	cancel()
+	waitForManualFire(t, timer.fireAsync())
+
+	select {
+	case changed := <-callbacks:
+		t.Fatalf("OnChange() after cancellation = %v, want no callback", changed)
+	default:
+	}
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !backend.closed {
+		t.Fatal("backend was not closed")
+	}
+}
+
+func TestWatcherStaleManualFireSkipsEmptyPending(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	backend := newFakeWatcherBackend()
+	callbacks := make(chan []string, 2)
+	w, err := newWithBackend(Config{
+		BaseDir:  types.FilesystemPath(dir),
+		Debounce: time.Hour,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+		OnChange: func(_ context.Context, changed []string) error {
+			callbacks <- slices.Clone(changed)
+			return nil
+		},
+	}, backend, types.FilesystemPath(dir))
+	if err != nil {
+		t.Fatalf("newWithBackend() error = %v", err)
+	}
+
+	scheduler := newManualDebounceScheduler()
+	w.schedule = scheduler.Schedule
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
+
+	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "first.go"), Op: fsnotify.Write}
+	timer := scheduler.requireTimer(t)
+	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "second.go"), Op: fsnotify.Write}
+	timer.waitForResetCount(t, 1)
+
+	waitForManualFire(t, timer.fireAsync())
+	select {
+	case changed := <-callbacks:
+		if len(changed) != 2 {
+			t.Fatalf("OnChange() changed = %v, want two drained paths", changed)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for drained pending callback")
+	}
+
+	waitForManualFire(t, timer.fireAsync())
+	select {
+	case changed := <-callbacks:
+		t.Fatalf("stale manual fire OnChange() = %v, want no empty callback", changed)
+	default:
+	}
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !backend.closed {
+		t.Fatal("backend was not closed")
+	}
+}
+
 func TestMaybeAddDirMutationContracts(t *testing.T) {
 	t.Parallel()
 

@@ -59,7 +59,7 @@ func (n ModuleDirectoryName) String() string { return string(n) }
 // starts with a letter, contains only letters, digits, dots, underscores, or hyphens),
 // or an error describing the validation failure.
 func (n ModuleShortName) Validate() error {
-	if n == "" || !moduleShortNamePattern.MatchString(string(n)) {
+	if !moduleShortNamePattern.MatchString(string(n)) {
 		return &InvalidModuleShortNameError{Value: n}
 	}
 	return nil
@@ -69,7 +69,7 @@ func (n ModuleShortName) Validate() error {
 
 // Validate returns nil if the ModuleDirectoryName matches the .invowkmod folder prefix format.
 func (n ModuleDirectoryName) Validate() error {
-	if n == "" || !moduleDirectoryNamePattern.MatchString(string(n)) {
+	if !moduleDirectoryNamePattern.MatchString(string(n)) {
 		return &InvalidModuleDirectoryNameError{Value: n}
 	}
 	return nil

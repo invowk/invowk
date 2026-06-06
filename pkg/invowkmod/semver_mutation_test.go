@@ -178,6 +178,34 @@ func TestSemverMutationCollectionContracts(t *testing.T) {
 	requireSemverMutationSlice(t, filtered, []SemVer{"0.0.3"})
 }
 
+func TestSemverMutationEqualPrecedencePreservesInputOrder(t *testing.T) {
+	t.Parallel()
+
+	sorted := SortVersions([]SemVer{
+		"1.0.0+build.1",
+		"1.0.1",
+		"1.0.0+build.2",
+		"1.0.0+build.3",
+	})
+	requireSemverMutationSlice(t, sorted, []SemVer{
+		"1.0.1",
+		"1.0.0+build.1",
+		"1.0.0+build.2",
+		"1.0.0+build.3",
+	})
+
+	resolved, err := NewSemverResolver().Resolve("=1.0.0", []SemVer{
+		"1.0.0+build.1",
+		"1.0.0+build.2",
+	})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v, want nil", err)
+	}
+	if resolved != "1.0.0+build.1" {
+		t.Fatalf("Resolve() = %q, want first equal-precedence input", resolved)
+	}
+}
+
 func requireSemverMutationSlice(t *testing.T, got, want []SemVer) {
 	t.Helper()
 

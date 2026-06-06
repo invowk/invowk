@@ -70,6 +70,9 @@ func TestArgumentNameValidateReportsValueAndReason(t *testing.T) {
 			if invalid.Reason != tt.wantReason {
 				t.Fatalf("InvalidArgumentNameError.Reason = %q, want %q", invalid.Reason, tt.wantReason)
 			}
+			if got := invalid.Error(); got == "" || !strings.Contains(got, "invalid argument name") || !strings.Contains(got, tt.wantReason) {
+				t.Fatalf("InvalidArgumentNameError.Error() = %q, want formatted diagnostic with reason %q", got, tt.wantReason)
+			}
 		})
 	}
 }

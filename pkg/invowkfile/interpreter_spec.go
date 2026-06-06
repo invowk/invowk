@@ -15,8 +15,11 @@ const (
 
 	// shellMetachars are characters that must not appear in interpreter specs.
 	// Their presence indicates injection attempts or misconfigured values.
-	shellMetachars     = ";|&`$(){}><\n"
-	interpreterPython3 = "python3"
+	shellMetachars       = ";|&`$(){}><\n"
+	interpreterBinEnv    = "/bin/env"
+	interpreterEnv       = "env"
+	interpreterPython3   = "python3"
+	interpreterUsrBinEnv = "/usr/bin/env"
 )
 
 var (
@@ -106,8 +109,8 @@ func (s InterpreterSpec) Validate() error {
 
 	// Bare "env" without a full path enables PATH hijacking — require
 	// /usr/bin/env or /bin/env instead.
-	if baseName == "env" {
-		if interpreter != "/usr/bin/env" && interpreter != "/bin/env" {
+	if baseName == interpreterEnv {
+		if interpreter != interpreterUsrBinEnv && interpreter != interpreterBinEnv {
 			return &UnsafeInterpreterSpecError{
 				Value:  s,
 				Reason: "bare 'env' requires full path (/usr/bin/env or /bin/env)",

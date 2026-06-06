@@ -55,6 +55,19 @@ type (
 	}
 )
 
+func TestExecutionContextGoContextMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	if got := (ExecutionContext{}).GoContext(); got == nil {
+		t.Fatal("ExecutionContext{}.GoContext() = nil, want fallback context")
+	}
+
+	want := context.WithValue(t.Context(), depsMutationContextKey{}, "marker")
+	if got := (ExecutionContext{Context: want}).GoContext(); got != want {
+		t.Fatalf("GoContext() = %p, want explicit context %p", got, want)
+	}
+}
+
 func (p panicCommandSetProvider) DiscoverCommandSet(context.Context) (discovery.CommandSetResult, error) {
 	p.t.Helper()
 	p.t.Fatal("DiscoverCommandSet should not be called")

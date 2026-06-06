@@ -58,12 +58,14 @@ func FormatError(err error, filePath string) error {
 		return nil
 	}
 
-	// Extract all CUE errors
-	cueErrors := errors.Errors(err)
-	if len(cueErrors) == 0 {
-		// Fallback: not a CUE error, return as-is
+	var cueErr errors.Error
+	if !goerrors.As(err, &cueErr) {
+		// Fallback: not a CUE error, return as-is.
 		return fmt.Errorf("%s: %w", filePath, err)
 	}
+
+	// Extract all CUE errors.
+	cueErrors := errors.Errors(err)
 
 	var lines []string
 	for _, e := range cueErrors {
@@ -98,10 +100,6 @@ func FormatError(err error, filePath string) error {
 // numeric elements represent array indices. This function converts to JSON-path notation
 // (e.g., "cmds[0].script") which is more familiar to users.
 func formatPath(path []string) string {
-	if len(path) == 0 {
-		return ""
-	}
-
 	// Join with dots but handle array indices specially
 	// The path from CUE is already in a good format like ["cmds", "0", "script"]
 	// We want to produce "cmds[0].script"
@@ -112,7 +110,6 @@ func formatPath(path []string) string {
 		for _, c := range part {
 			if c < '0' || c > '9' {
 				isIndex = false
-				break
 			}
 		}
 

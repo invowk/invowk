@@ -179,7 +179,6 @@ func runtimePreflightError(field, message string) ValidationError {
 		Validator: runtimePreflightValidatorName,
 		Field:     field,
 		Message:   message,
-		Severity:  SeverityError,
 	}
 }
 

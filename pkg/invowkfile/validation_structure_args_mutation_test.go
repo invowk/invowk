@@ -31,6 +31,17 @@ func TestStructureValidatorValidateArgDiagnosticsContract(t *testing.T) {
 		wantCause   bool
 	}{
 		{
+			name: "empty name reports indexed field",
+			arg: Argument{
+				Description: "Missing name",
+			},
+			wantField: "command 'deploy' argument #1",
+			wantMessage: []string{
+				"must have a name",
+				"args.cue",
+			},
+		},
+		{
 			name: "overlong name reports length error",
 			arg: Argument{
 				Name:        ArgumentName(strings.Repeat("a", MaxNameLength+1)),
@@ -53,6 +64,35 @@ func TestStructureValidatorValidateArgDiagnosticsContract(t *testing.T) {
 			wantMessage: []string{
 				"argument description",
 				"too long",
+				"args.cue",
+			},
+		},
+		{
+			name: "invalid name reports POSIX error",
+			arg: Argument{
+				Name:        "9target",
+				Description: "Bad name",
+			},
+			wantField: "command 'deploy' argument '9target'",
+			wantMessage: []string{
+				"has invalid name",
+				"must start with a letter",
+				"args.cue",
+			},
+		},
+		{
+			name: "invalid type reports allowed types",
+			arg: Argument{
+				Name:        "target",
+				Description: "Deploy target",
+				Type:        "bool",
+			},
+			wantField: "command 'deploy' argument 'target'",
+			wantMessage: []string{
+				"has invalid type 'bool'",
+				"string",
+				"int",
+				"float",
 				"args.cue",
 			},
 		},

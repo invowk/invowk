@@ -18,6 +18,9 @@ func TestFlagValueTypeMutationContracts(t *testing.T) {
 	if !errors.Is(typeErr, ErrInvalidFlagType) {
 		t.Fatalf("InvalidFlagTypeError does not wrap ErrInvalidFlagType: %v", typeErr)
 	}
+	if got := typeErr.Error(); got != `invalid flag type "bogus" (valid: string, bool, int, float)` {
+		t.Fatalf("InvalidFlagTypeError.Error() = %q, want invalid type diagnostic", got)
+	}
 
 	emptyName := requireFlagMutationErrorAs[*InvalidFlagNameError](t, FlagName("").Validate())
 	if emptyName.Value != "" || emptyName.Reason != invalidReasonMustNotBeEmpty {
@@ -44,6 +47,9 @@ func TestFlagValueTypeMutationContracts(t *testing.T) {
 	shortErr := requireFlagMutationErrorAs[*InvalidFlagShorthandError](t, FlagShorthand("12").Validate())
 	if shortErr.Value != "12" {
 		t.Fatalf("InvalidFlagShorthandError.Value = %q, want 12", shortErr.Value)
+	}
+	if got := shortErr.Error(); got != `invalid flag shorthand "12" (must be a single ASCII letter)` {
+		t.Fatalf("InvalidFlagShorthandError.Error() = %q, want shorthand diagnostic", got)
 	}
 }
 

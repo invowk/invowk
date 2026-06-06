@@ -76,14 +76,12 @@ func ParseAndDecode[T any](schema, data []byte, schemaPath string, opts ...Optio
 	unified := schemaRoot.Unify(userValue)
 
 	// Step 3: Validate
+	var validateOptions []cue.Option
 	if options.concrete {
-		if err := unified.Validate(cue.Concrete(true)); err != nil {
-			return nil, FormatError(err, filename)
-		}
-	} else {
-		if err := unified.Validate(); err != nil {
-			return nil, FormatError(err, filename)
-		}
+		validateOptions = append(validateOptions, cue.Concrete(true))
+	}
+	if err := unified.Validate(validateOptions...); err != nil {
+		return nil, FormatError(err, filename)
 	}
 
 	// Decode into struct

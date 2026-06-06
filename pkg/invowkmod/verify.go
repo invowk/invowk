@@ -174,7 +174,7 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), ModuleSuffix) {
+		if !isVendoredModuleDir(entry) {
 			continue
 		}
 
@@ -194,6 +194,10 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 	}
 
 	return nil
+}
+
+func isVendoredModuleDir(entry os.DirEntry) bool {
+	return entry.IsDir() && strings.HasSuffix(entry.Name(), ModuleSuffix)
 }
 
 func verifyVendoredModuleHashEvaluation(moduleID ModuleID, evaluation VendoredHashEvaluation) error {

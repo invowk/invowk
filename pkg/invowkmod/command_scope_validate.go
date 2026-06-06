@@ -41,10 +41,6 @@ func (s CommandScope) Validate() error {
 		if err := s.ModuleSourceID.Validate(); err != nil {
 			errs = append(errs, err)
 		}
-	} else if len(errs) == 0 {
-		if err := ModuleSourceID(s.ModuleID).Validate(); err != nil {
-			errs = append(errs, err)
-		}
 	}
 	if len(errs) > 0 {
 		return &InvalidCommandScopeError{FieldErrors: errs}

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"path/filepath"
 	goruntime "runtime"
-	"strings"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -178,18 +177,16 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 		if workdir == "" {
 			return ""
 		}
-		// Unix-style absolute paths (leading '/') target the container filesystem
-		// and must pass through unchanged on every platform. On Windows,
-		// filepath.IsAbs("/app") returns false, so the check must precede native
-		// conversion to avoid joining the container path with the invowkfile dir.
-		if strings.HasPrefix(workdir, "/") {
-			return FilesystemPath(workdir) //goplint:ignore -- container-absolute path preserved across platforms
+		workdirPath := FilesystemPath(workdir) //goplint:ignore -- workdir is a selected non-empty WorkDir value; validators reject whitespace-only values before execution.
+
+		// fspath.IsAbs preserves Unix-style absolute workdirs on every platform
+		// while still accepting host-native absolute forms.
+		if fspath.IsAbs(workdirPath) {
+			return workdirPath
 		}
-		// Convert forward slashes to native path separator
+
+		// Convert forward slashes to native path separator.
 		nativePath := filepath.FromSlash(workdir)
-		if filepath.IsAbs(nativePath) {
-			return FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.IsAbs guard
-		}
 		return fspath.JoinStr(invowkfileDir, nativePath)
 	}
 

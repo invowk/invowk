@@ -63,6 +63,50 @@ func TestNewMutationContracts(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // changes the process working directory and restores it in cleanup.
+func TestNewMutationReportsUnavailableWorkingDirectory(t *testing.T) {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd() before test = %v", err)
+	}
+	t.Cleanup(func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Errorf("restore working directory: %v", chdirErr)
+		}
+	})
+
+	parent := t.TempDir()
+	deletedDir := filepath.Join(parent, "deleted")
+	if err := os.Mkdir(deletedDir, 0o755); err != nil {
+		t.Fatalf("mkdir deleted cwd: %v", err)
+	}
+	if err := os.Chdir(deletedDir); err != nil {
+		t.Fatalf("chdir deleted cwd: %v", err)
+	}
+	if err := os.Remove(deletedDir); err != nil {
+		t.Fatalf("remove cwd: %v", err)
+	}
+
+	d := New(config.DefaultConfig(), WithCommandsDir(""))
+	if d.baseDir != "" {
+		t.Fatalf("baseDir = %q, want empty when cwd is unavailable", d.baseDir)
+	}
+	requireDiscoveryMutationDiagnostic(t, d.initDiagnostics, CodeWorkingDirUnavailable, "current directory unavailable")
+}
+
+//nolint:paralleltest // uses t.Setenv for process-wide home variables.
+func TestNewMutationReportsUnavailableCommandsDirectory(t *testing.T) {
+	for _, key := range []string{"HOME", "home", "USERPROFILE", "HOMEDRIVE", "HOMEPATH"} {
+		t.Setenv(key, "")
+	}
+
+	d := New(config.DefaultConfig(), WithBaseDir(types.FilesystemPath(t.TempDir())))
+	if d.commandsDir != "" {
+		t.Fatalf("commandsDir = %q, want empty when user home is unavailable", d.commandsDir)
+	}
+	requireDiscoveryMutationDiagnostic(t, d.initDiagnostics, CodeCommandsDirUnavailable, "user commands directory unavailable")
+}
+
 func TestCheckModuleCollisionsMutationContracts(t *testing.T) {
 	t.Parallel()
 
@@ -329,6 +373,35 @@ func TestLoadAllMutationContracts(t *testing.T) {
 		}
 		if files[0].Invowkfile != nil {
 			t.Fatalf("LoadAll() Invowkfile = %#v, want nil after parse error", files[0].Invowkfile)
+		}
+	})
+
+	t.Run("module collisions return load error", func(t *testing.T) {
+		t.Parallel()
+
+		firstRoot := t.TempDir()
+		secondRoot := t.TempDir()
+		firstModuleDir := filepath.Join(firstRoot, string(discoveryMutationSameModule)+invowkmod.ModuleSuffix)
+		secondModuleDir := filepath.Join(secondRoot, string(discoveryMutationSameModule)+invowkmod.ModuleSuffix)
+		createTestModule(t, firstModuleDir, string(discoveryMutationSameModule), "first")
+		createTestModule(t, secondModuleDir, string(discoveryMutationSameModule), "second")
+		cfg := config.DefaultConfig()
+		cfg.Includes = []config.IncludeEntry{
+			{Path: config.ModuleIncludePath(firstModuleDir)},
+			{Path: config.ModuleIncludePath(secondModuleDir)},
+		}
+		d := New(cfg, WithBaseDir(""), WithCommandsDir(""))
+
+		files, err := d.LoadAll()
+		if err == nil {
+			t.Fatal("LoadAll() error = nil, want module collision error")
+		}
+		if files != nil {
+			t.Fatalf("LoadAll() files = %#v, want nil after module collision", files)
+		}
+		collision := requireDiscoveryMutationCollision(t, err)
+		if collision.Namespace != SourceID(discoveryMutationSameModule) {
+			t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationSameModule)
 		}
 	})
 }

@@ -443,6 +443,18 @@ func testModuleValidateScriptPathSymlinkEscape(t *testing.T) {
 	if !strings.Contains(err.Error(), "symlink escape") {
 		t.Fatalf("Module.ValidateScriptPath() error = %v, want symlink escape", err)
 	}
+
+	parentLinkPath := filepath.Join(moduleRoot, "parent")
+	if symlinkErr := os.Symlink(tempDir, parentLinkPath); symlinkErr != nil {
+		t.Skipf("parent symlink test skipped: %v", symlinkErr)
+	}
+	err = module.ValidateScriptPath("parent")
+	if err == nil {
+		t.Fatal("Module.ValidateScriptPath() returned nil for parent symlink, want symlink escape error")
+	}
+	if !strings.Contains(err.Error(), "symlink escape") {
+		t.Fatalf("Module.ValidateScriptPath() parent symlink error = %v, want symlink escape", err)
+	}
 }
 
 func testModuleValidateScriptPathTraversal(t *testing.T) {
@@ -458,6 +470,23 @@ func testModuleValidateScriptPathTraversal(t *testing.T) {
 		if !strings.Contains(err.Error(), "escapes the module directory") {
 			t.Fatalf("Module.ValidateScriptPath(%q) error = %v, want traversal error", scriptPath, err)
 		}
+	}
+}
+
+func TestModuleContainsPathReturnsFalseWhenAbsFails(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
+	tempDir := t.TempDir()
+	deletedDir := filepath.Join(tempDir, "deleted-cwd")
+	if err := os.Mkdir(deletedDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(deletedDir)
+	if err := os.Remove(deletedDir); err != nil {
+		t.Skipf("removing current directory is unsupported on this platform: %v", err)
+	}
+
+	module := &Module{Path: types.FilesystemPath(".")}
+	if module.ContainsPath("script.sh") {
+		t.Fatal("Module.ContainsPath() = true, want false when filepath.Abs fails")
 	}
 }
 

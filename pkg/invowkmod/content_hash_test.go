@@ -3,14 +3,29 @@
 package invowkmod
 
 import (
+	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/pkg/types"
+)
+
+type (
+	contentHashFakeFile struct {
+		*bytes.Reader
+		statErr error
+	}
+
+	contentHashFakeFileInfo struct {
+		mode fs.FileMode
+	}
 )
 
 func TestContentHashValidate(t *testing.T) {
@@ -79,6 +94,27 @@ func TestContentHashValidate(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestContentHashValidatePreservesInvalidValue(t *testing.T) {
+	t.Parallel()
+
+	const invalidHash ContentHash = "sha256:g3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+	err := invalidHash.Validate()
+	if err == nil {
+		t.Fatal("Validate() error = nil, want invalid content hash error")
+	}
+	invalidErr, ok := errors.AsType[*InvalidContentHashError](err)
+	if !ok {
+		t.Fatalf("Validate() error type = %T, want *InvalidContentHashError", err)
+	}
+	if invalidErr.Value != invalidHash {
+		t.Fatalf("InvalidContentHashError.Value = %q, want %q", invalidErr.Value, invalidHash)
+	}
+	if !strings.Contains(err.Error(), string(invalidHash)) {
+		t.Fatalf("Validate() error = %q, want original invalid value", err.Error())
 	}
 }
 
@@ -235,6 +271,92 @@ func TestComputeModuleHash_ContentChanges(t *testing.T) {
 
 	if hash1 == hash2 {
 		t.Error("hashes should differ after content change")
+	}
+}
+
+func TestComputeModuleHashReportsUnreadableFile(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based unreadable-file checks are Unix-specific")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root can read files regardless of permission bits")
+	}
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "secret.txt")
+	if err := os.WriteFile(file, []byte("do not hash"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.Chmod(file, 0); err != nil {
+		t.Fatalf("Chmod() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(file, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("restore file permissions: %v", err)
+		}
+	})
+
+	_, err := computeModuleHash(dir)
+	if err == nil {
+		t.Fatal("computeModuleHash() error = nil, want unreadable file error")
+	}
+	if !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("computeModuleHash() error = %v, want permission error", err)
+	}
+	if !strings.Contains(err.Error(), "hashing file secret.txt") {
+		t.Fatalf("computeModuleHash() error = %q, want relative file context", err.Error())
+	}
+}
+
+func TestHashFileContentReportsLstatFailure(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	missingPath := filepath.Join(t.TempDir(), "missing.txt")
+
+	err := hashFileContent(&buf, types.FilesystemPath(missingPath))
+	if err == nil {
+		t.Fatal("hashFileContent() error = nil, want lstat failure")
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("hashFileContent() error = %v, want not-exist error", err)
+	}
+	if !strings.Contains(err.Error(), "lstat ") {
+		t.Fatalf("hashFileContent() error = %q, want lstat context", err.Error())
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("hashFileContent() wrote %d bytes, want none", buf.Len())
+	}
+}
+
+func TestHashFileContentReportsFstatFailure(t *testing.T) {
+	t.Parallel()
+
+	statErr := errors.New("fstat denied")
+	ops := hashFileOps{
+		lstat: func(string) (fs.FileInfo, error) {
+			return contentHashFakeFileInfo{mode: 0o644}, nil
+		},
+		open: func(string) (hashContentFile, error) {
+			return &contentHashFakeFile{
+				Reader:  bytes.NewReader([]byte("secret")),
+				statErr: statErr,
+			}, nil
+		},
+	}
+	var buf bytes.Buffer
+
+	err := hashFileContentWithOps(&buf, types.FilesystemPath("module/file.txt"), ops)
+	if !errors.Is(err, statErr) {
+		t.Fatalf("hashFileContentWithOps() error = %v, want fstat error", err)
+	}
+	if !strings.Contains(err.Error(), "fstat module/file.txt") {
+		t.Fatalf("hashFileContentWithOps() error = %q, want fstat context", err.Error())
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("hashFileContentWithOps() wrote %d bytes, want none", buf.Len())
 	}
 }
 
@@ -442,3 +564,24 @@ func lockedHashTestModule(moduleID string, hash ContentHash) LockedModule {
 		ContentHash:     hash,
 	}
 }
+
+func (f *contentHashFakeFile) Close() error { return nil }
+
+func (f *contentHashFakeFile) Stat() (fs.FileInfo, error) {
+	if f.statErr != nil {
+		return nil, f.statErr
+	}
+	return contentHashFakeFileInfo{mode: 0o644}, nil
+}
+
+func (i contentHashFakeFileInfo) IsDir() bool { return i.mode.IsDir() }
+
+func (i contentHashFakeFileInfo) ModTime() time.Time { return time.Time{} }
+
+func (i contentHashFakeFileInfo) Mode() fs.FileMode { return i.mode }
+
+func (i contentHashFakeFileInfo) Name() string { return "file" }
+
+func (i contentHashFakeFileInfo) Size() int64 { return 0 }
+
+func (i contentHashFakeFileInfo) Sys() any { return nil }

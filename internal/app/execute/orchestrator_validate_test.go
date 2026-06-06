@@ -87,3 +87,80 @@ func TestBuildExecutionContextOptions_Validate_ErrorTypes(t *testing.T) {
 		t.Error("expected non-empty FieldErrors")
 	}
 }
+
+func TestBuildExecutionContextOptionsValidateMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	opts := BuildExecutionContextOptions{
+		Selection:       RuntimeSelection{mode: invowkfile.RuntimeNative, platform: invowkfile.PlatformLinux, impl: &invowkfile.Implementation{}},
+		Workdir:         " \t ",
+		ContainerName:   "Bad",
+		EnvFiles:        []invowkfile.DotenvFilePath{" \t "},
+		EnvInheritMode:  "bogus",
+		EnvInheritAllow: []invowkfile.EnvVarName{"1BAD"},
+		EnvInheritDeny:  []invowkfile.EnvVarName{"-NOPE"},
+		CommandFullName: "1bad",
+		SourceID:        "1bad",
+		Platform:        "plan9",
+	}
+
+	err := opts.Validate()
+	invalidErr := requireInvalidBuildExecutionContextOptionsError(t, err)
+	if got, want := invalidErr.Error(), "invalid build execution context options: 10 field error(s)"; got != want {
+		t.Fatalf("InvalidBuildExecutionContextOptionsError.Error() = %q, want %q", got, want)
+	}
+	if got, want := len(invalidErr.FieldErrors), 10; got != want {
+		t.Fatalf("FieldErrors length = %d, want %d", got, want)
+	}
+	for _, want := range []error{
+		invowkfile.ErrInvalidWorkDir,
+		invowkfile.ErrInvalidContainerName,
+		invowkfile.ErrInvalidDotenvFilePath,
+		invowkfile.ErrInvalidEnvInheritMode,
+		invowkfile.ErrInvalidEnvVarName,
+		invowkfile.ErrInvalidCommandName,
+		discovery.ErrInvalidSourceID,
+		invowkfile.ErrInvalidPlatform,
+	} {
+		if !executeFieldErrorsContain(invalidErr.FieldErrors, want) {
+			t.Fatalf("FieldErrors should contain %v, got %#v", want, invalidErr.FieldErrors)
+		}
+	}
+	if !executeFieldErrorsContainString(invalidErr.FieldErrors, "platform must match runtime selection platform") {
+		t.Fatalf("FieldErrors should contain platform mismatch error, got %#v", invalidErr.FieldErrors)
+	}
+}
+
+func requireInvalidBuildExecutionContextOptionsError(
+	t *testing.T,
+	err error,
+) *InvalidBuildExecutionContextOptionsError {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidBuildExecutionContextOptions) {
+		t.Fatalf("error = %v, want ErrInvalidBuildExecutionContextOptions", err)
+	}
+	var invalidErr *InvalidBuildExecutionContextOptionsError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("error type = %T, want *InvalidBuildExecutionContextOptionsError", err)
+	}
+	return invalidErr
+}
+
+func executeFieldErrorsContain(fieldErrors []error, target error) bool {
+	for _, err := range fieldErrors {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func executeFieldErrorsContainString(fieldErrors []error, target string) bool {
+	for _, err := range fieldErrors {
+		if err.Error() == target {
+			return true
+		}
+	}
+	return false
+}

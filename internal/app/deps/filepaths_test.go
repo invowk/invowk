@@ -214,6 +214,17 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 
 	execCtx := newDependencyExecutionContext(t)
 
+	t.Run("nil and empty dependencies skip probe", func(t *testing.T) {
+		t.Parallel()
+
+		if err := CheckFilepathDependenciesInContainer(nil, nil, execCtx); err != nil {
+			t.Fatalf("nil deps error = %v, want nil", err)
+		}
+		if err := CheckFilepathDependenciesInContainer(&invowkfile.DependsOn{}, nil, execCtx); err != nil {
+			t.Fatalf("empty filepath deps error = %v, want nil", err)
+		}
+	})
+
 	t.Run("missing container runtime", func(t *testing.T) {
 		t.Parallel()
 
@@ -253,6 +264,13 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 		if len(depErr.MissingFilepaths) != 1 {
 			t.Fatalf("len(depErr.MissingFilepaths) = %d, want 1", len(depErr.MissingFilepaths))
 		}
+		if depErr.CommandName != execCtx.CommandName {
+			t.Fatalf("DependencyError.CommandName = %q, want %q", depErr.CommandName, execCtx.CommandName)
+		}
+		requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
+		if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, "permission denied") {
+			t.Fatalf("StructuredFailures[0].Detail() = %q, want containing permission denied", got)
+		}
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -268,6 +286,70 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 			t.Fatalf("CheckFilepathDependenciesInContainer() = %v", err)
 		}
 	})
+}
+
+func TestCheckHostFilepathDependenciesRequiresProbe(t *testing.T) {
+	t.Parallel()
+
+	deps := &invowkfile.DependsOn{
+		Filepaths: []invowkfile.FilepathDependency{{
+			Alternatives: []invowkfile.FilesystemPath{"missing.txt"},
+		}},
+	}
+
+	err := CheckHostFilepathDependencies(
+		deps,
+		types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue")),
+		newDependencyExecutionContext(t),
+	)
+	depErr := requireDependencyError(t, err)
+	if depErr.CommandName != "build" {
+		t.Fatalf("DependencyError.CommandName = %q, want build", depErr.CommandName)
+	}
+	if len(depErr.MissingFilepaths) != 1 {
+		t.Fatalf("MissingFilepaths = %v, want one missing filepath", depErr.MissingFilepaths)
+	}
+	if got := depErr.MissingFilepaths[0].String(); !strings.Contains(got, ErrHostProbeRequired.Error()) {
+		t.Fatalf("MissingFilepaths[0] = %q, want ErrHostProbeRequired detail", got)
+	}
+}
+
+func TestCheckHostFilepathDependenciesWithProbeReportsValidationFailure(t *testing.T) {
+	t.Parallel()
+
+	invowkDir := t.TempDir()
+	invowkfilePath := types.FilesystemPath(filepath.Join(invowkDir, "invowkfile.cue"))
+	relativePath := invowkfile.FilesystemPath("missing.txt")
+	resolvedPath := types.FilesystemPath(filepath.Join(invowkDir, string(relativePath)))
+	probe := &recordingHostProbe{
+		filepathErrors: map[types.FilesystemPath]error{
+			resolvedPath: errors.New("missing file"),
+		},
+	}
+	deps := &invowkfile.DependsOn{
+		Filepaths: []invowkfile.FilepathDependency{{
+			Alternatives: []invowkfile.FilesystemPath{relativePath},
+			Readable:     true,
+		}},
+	}
+
+	err := CheckHostFilepathDependenciesWithProbe(
+		deps,
+		invowkfilePath,
+		ExecutionContext{CommandName: "build"},
+		probe,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.MissingFilepaths) != 1 {
+		t.Fatalf("MissingFilepaths = %v, want one missing filepath", depErr.MissingFilepaths)
+	}
+	requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
+	if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, "missing file") {
+		t.Fatalf("StructuredFailures[0].Detail() = %q, want containing missing file", got)
+	}
+	if len(probe.filepaths) != 1 || probe.filepaths[0] != resolvedPath {
+		t.Fatalf("probe filepaths = %v, want [%s]", probe.filepaths, resolvedPath)
+	}
 }
 
 func TestValidateFilepathInContainer(t *testing.T) {
@@ -425,6 +507,41 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 		err := ValidateFilepathAlternatives(fp, invowkDir)
 		if !errors.Is(err, ErrNoPathAlternatives) {
 			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
+		}
+	})
+
+	t.Run("non-empty alternatives require host probe", func(t *testing.T) {
+		t.Parallel()
+		fp := invowkfile.FilepathDependency{
+			Alternatives: []invowkfile.FilesystemPath{"missing.txt"},
+		}
+		err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, nil)
+		if !errors.Is(err, ErrHostProbeRequired) {
+			t.Fatalf("err = %v, want wrapping ErrHostProbeRequired", err)
+		}
+	})
+}
+
+func TestHostFilepathMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	t.Run("absolute slash path is not joined to invowkfile directory", func(t *testing.T) {
+		t.Parallel()
+
+		if got := resolveHostFilepathAlternative(types.FilesystemPath(t.TempDir()), "/must/stay/absolute"); got != "/must/stay/absolute" {
+			t.Fatalf("resolveHostFilepathAlternative() = %q, want slash absolute path unchanged", got)
+		}
+	})
+
+	t.Run("single alternative keeps raw probe error", func(t *testing.T) {
+		t.Parallel()
+
+		err := formatHostFilepathError(
+			[]invowkfile.FilesystemPath{"missing.txt"},
+			[]string{"missing.txt: not found"},
+		)
+		if got := err.Error(); got != "missing.txt: not found" {
+			t.Fatalf("single alternative error = %q, want raw probe error", got)
 		}
 	})
 }

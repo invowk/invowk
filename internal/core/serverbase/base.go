@@ -48,7 +48,6 @@ func NewBase(opts ...Option) *Base {
 		startedCh: make(chan struct{}),
 		errCh:     make(chan error, 1),
 	}
-	b.state.Store(int32(StateCreated))
 
 	for _, opt := range opts {
 		opt(b)
@@ -75,8 +74,9 @@ func (b *Base) Err() <-chan error {
 // LastError returns the error that caused the Failed state, or nil.
 func (b *Base) LastError() error {
 	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
-	return b.lastErr
+	err := b.lastErr
+	b.stateMu.Unlock()
+	return err
 }
 
 // --- Lifecycle helpers for concrete implementations ---
@@ -190,14 +190,15 @@ func (b *Base) TransitionToStopping() bool {
 // Must be called after all goroutines have exited.
 func (b *Base) TransitionToStopped() bool {
 	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
 
 	currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
 	if currentState.IsTerminal() {
+		b.stateMu.Unlock()
 		return false
 	}
 	b.state.Store(int32(StateStopped))
 	b.closeErrChannelLocked()
+	b.stateMu.Unlock()
 	return true
 }
 
@@ -221,8 +222,9 @@ func (b *Base) WaitForShutdown() {
 // Returns nil if the server hasn't started.
 func (b *Base) Context() context.Context {
 	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
-	return b.ctx
+	ctx := b.ctx
+	b.stateMu.Unlock()
+	return ctx
 }
 
 // AddGoroutine increments the WaitGroup counter.
@@ -241,16 +243,16 @@ func (b *Base) DoneGoroutine() {
 // If the channel is full, the error is dropped.
 func (b *Base) SendError(err error) {
 	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
 	b.sendErrorLocked(err)
+	b.stateMu.Unlock()
 }
 
 // CloseErrChannel closes the error channel to signal consumers.
 // Should be called when the server is fully stopped.
 func (b *Base) CloseErrChannel() {
 	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
 	b.closeErrChannelLocked()
+	b.stateMu.Unlock()
 }
 
 // StartedChannel returns the started channel for custom waiting logic.

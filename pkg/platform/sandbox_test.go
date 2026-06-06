@@ -4,6 +4,8 @@ package platform
 
 import (
 	"errors"
+	"os"
+	"os/exec"
 	"slices"
 	"testing"
 )
@@ -78,6 +80,31 @@ func TestIsInSandbox(t *testing.T) {
 	inSandbox := IsInSandbox()
 	if inSandbox != (DetectSandbox() != SandboxNone) {
 		t.Error("IsInSandbox inconsistent with DetectSandbox")
+	}
+}
+
+func TestDetectSandboxHonorsProcessEnvironment(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("INVOWK_SANDBOX_HELPER") == "1" {
+		want := SandboxSnap
+		if _, err := os.Stat("/.flatpak-info"); err == nil {
+			want = SandboxFlatpak
+		}
+		if got := DetectSandbox(); got != want {
+			t.Fatalf("DetectSandbox() = %q, want %q", got, want)
+		}
+		if !IsInSandbox() {
+			t.Fatal("IsInSandbox() = false, want true")
+		}
+		return
+	}
+
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestDetectSandboxHonorsProcessEnvironment$")
+	cmd.Env = append(os.Environ(), "INVOWK_SANDBOX_HELPER=1", "SNAP_NAME=invowk-test-snap")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("sandbox helper failed: %v\n%s", err, output)
 	}
 }
 
@@ -214,6 +241,13 @@ func TestSandboxType_Validate(t *testing.T) {
 				}
 				if !errors.Is(err, ErrInvalidSandboxType) {
 					t.Errorf("error should wrap ErrInvalidSandboxType, got: %v", err)
+				}
+				var invalid *InvalidSandboxTypeError
+				if !errors.As(err, &invalid) {
+					t.Fatalf("errors.As(%T) = false for %v", invalid, err)
+				}
+				if invalid.Value != tt.sandbox {
+					t.Fatalf("InvalidSandboxTypeError.Value = %q, want %q", invalid.Value, tt.sandbox)
 				}
 			} else if err != nil {
 				t.Errorf("SandboxType(%q).Validate() returned unexpected error: %v", tt.sandbox, err)

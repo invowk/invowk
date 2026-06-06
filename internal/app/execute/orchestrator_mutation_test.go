@@ -3,6 +3,7 @@
 package execute
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -133,6 +134,9 @@ func TestBuildExecutionContextMutationProjectsExecutionOptions(t *testing.T) {
 		ContainerName:   "dev-container",
 		EnvFiles:        []invowkfile.DotenvFilePath{"service.env"},
 		EnvVars:         envVars,
+		EnvInheritMode:  invowkfile.EnvInheritAllow,
+		EnvInheritAllow: []invowkfile.EnvVarName{"HOME"},
+		EnvInheritDeny:  []invowkfile.EnvVarName{"SECRET"},
 		ArgDefs: []invowkfile.Argument{
 			{Name: "first"},
 			{Name: "second", DefaultValue: "fallback"},
@@ -177,6 +181,15 @@ func TestBuildExecutionContextMutationProjectsExecutionOptions(t *testing.T) {
 	if got.Env.RuntimeEnvVars["TOKEN"] != "secret" {
 		t.Fatalf("RuntimeEnvVars[TOKEN] = %q, want secret", got.Env.RuntimeEnvVars["TOKEN"])
 	}
+	if got.Env.InheritModeOverride != invowkfile.EnvInheritAllow {
+		t.Fatalf("InheritModeOverride = %q, want allow", got.Env.InheritModeOverride)
+	}
+	if !slices.Equal(got.Env.InheritAllowOverride, []invowkfile.EnvVarName{"HOME"}) {
+		t.Fatalf("InheritAllowOverride = %v, want [HOME]", got.Env.InheritAllowOverride)
+	}
+	if !slices.Equal(got.Env.InheritDenyOverride, []invowkfile.EnvVarName{"SECRET"}) {
+		t.Fatalf("InheritDenyOverride = %v, want [SECRET]", got.Env.InheritDenyOverride)
+	}
 	if got.Env.ExtraEnv["INVOWK_ARG_FIRST"] != "one" {
 		t.Fatalf("INVOWK_ARG_FIRST = %q, want one", got.Env.ExtraEnv["INVOWK_ARG_FIRST"])
 	}
@@ -185,6 +198,9 @@ func TestBuildExecutionContextMutationProjectsExecutionOptions(t *testing.T) {
 	}
 	if got.Env.ExtraEnv["INVOWK_ARG_REST_COUNT"] != "0" {
 		t.Fatalf("INVOWK_ARG_REST_COUNT = %q, want 0", got.Env.ExtraEnv["INVOWK_ARG_REST_COUNT"])
+	}
+	if _, ok := got.Env.ExtraEnv["INVOWK_ARG_REST_1"]; ok {
+		t.Fatalf("INVOWK_ARG_REST_1 = %q, want absent", got.Env.ExtraEnv["INVOWK_ARG_REST_1"])
 	}
 }
 
@@ -231,14 +247,11 @@ func TestApplyEnvInheritOverridesMutationContracts(t *testing.T) {
 	t.Parallel()
 
 	execCtx := newExecuteMutationExecutionContext(t)
-	err := applyEnvInheritOverrides(BuildExecutionContextOptions{
+	applyEnvInheritOverrides(BuildExecutionContextOptions{
 		EnvInheritMode:  invowkfile.EnvInheritAllow,
 		EnvInheritAllow: []invowkfile.EnvVarName{"HOME"},
 		EnvInheritDeny:  []invowkfile.EnvVarName{"SECRET"},
 	}, execCtx)
-	if err != nil {
-		t.Fatalf("applyEnvInheritOverrides(valid) error = %v", err)
-	}
 	if execCtx.Env.InheritModeOverride != invowkfile.EnvInheritAllow {
 		t.Fatalf("InheritModeOverride = %q, want allow", execCtx.Env.InheritModeOverride)
 	}
@@ -250,22 +263,22 @@ func TestApplyEnvInheritOverridesMutationContracts(t *testing.T) {
 	}
 }
 
-func TestApplyEnvInheritOverridesMutationRejectsInvalidMode(t *testing.T) {
+func TestBuildExecutionContextMutationRejectsInvalidEnvInheritMode(t *testing.T) {
 	t.Parallel()
 
-	execCtx := newExecuteMutationExecutionContext(t)
-	err := applyEnvInheritOverrides(BuildExecutionContextOptions{
+	err := buildExecuteMutationContextError(BuildExecutionContextOptions{
 		EnvInheritMode: invowkfile.EnvInheritMode("bogus"),
-	}, execCtx)
+	})
 	if err == nil {
-		t.Fatal("applyEnvInheritOverrides(invalid mode) error = nil")
+		t.Fatal("BuildExecutionContext(invalid mode) error = nil")
 	}
-	if !errors.Is(err, invowkfile.ErrInvalidEnvInheritMode) {
-		t.Fatalf("applyEnvInheritOverrides(invalid mode) error = %v, want ErrInvalidEnvInheritMode", err)
+	invalidErr := requireInvalidBuildExecutionContextOptionsError(t, err)
+	if !executeFieldErrorsContain(invalidErr.FieldErrors, invowkfile.ErrInvalidEnvInheritMode) {
+		t.Fatalf("BuildExecutionContext(invalid mode) field errors = %v, want ErrInvalidEnvInheritMode", invalidErr.FieldErrors)
 	}
 }
 
-func TestApplyEnvInheritOverridesMutationRejectsInvalidNames(t *testing.T) {
+func TestBuildExecutionContextMutationRejectsInvalidEnvInheritNames(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -289,16 +302,34 @@ func TestApplyEnvInheritOverridesMutationRejectsInvalidNames(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			execCtx := newExecuteMutationExecutionContext(t)
-			err := applyEnvInheritOverrides(tt.opts, execCtx)
+			err := buildExecuteMutationContextError(tt.opts)
 			if err == nil {
-				t.Fatalf("applyEnvInheritOverrides(invalid %s) error = nil", tt.name)
+				t.Fatalf("BuildExecutionContext(invalid %s) error = nil", tt.name)
 			}
-			if !errors.Is(err, invowkfile.ErrInvalidEnvVarName) {
-				t.Fatalf("applyEnvInheritOverrides(invalid %s) error = %v, want ErrInvalidEnvVarName", tt.name, err)
+			invalidErr := requireInvalidBuildExecutionContextOptionsError(t, err)
+			if !executeFieldErrorsContain(invalidErr.FieldErrors, invowkfile.ErrInvalidEnvVarName) {
+				t.Fatalf(
+					"BuildExecutionContext(invalid %s) field errors = %v, want ErrInvalidEnvVarName",
+					tt.name,
+					invalidErr.FieldErrors,
+				)
 			}
 		})
 	}
+}
+
+func buildExecuteMutationContextError(opts BuildExecutionContextOptions) error {
+	cmd := &invowkfile.Command{Name: "deploy"}
+	inv := &invowkfile.Invowkfile{}
+	impl := &invowkfile.Implementation{}
+	opts.Command = cmd
+	opts.Invowkfile = inv
+	opts.Selection = RuntimeSelection{
+		mode: invowkfile.RuntimeNative,
+		impl: impl,
+	}
+	_, err := BuildExecutionContext(context.Background(), opts)
+	return err
 }
 
 func newExecuteMutationExecutionContext(t *testing.T) *runtimepkg.ExecutionContext {

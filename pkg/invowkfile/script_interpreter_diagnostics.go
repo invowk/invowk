@@ -100,7 +100,7 @@ func AnalyzeScriptInterpreter(source ScriptInterpreterSource, interpreter Interp
 		shebang:    shebang,
 		provenance: provenance,
 	}
-	if !isConcreteInterpreter(interpreter) || !shebang.Found || !effective.Found {
+	if !shebang.Found || !effective.Found {
 		return analysis
 	}
 	if interpreterSelectionsEquivalent(effective, shebang, runtime) {

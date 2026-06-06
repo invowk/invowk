@@ -749,7 +749,7 @@ func ParseShebang(content string) ShebangInfo {
 	args := parts[1:]
 
 	// Handle /usr/bin/env specially (finds interpreter in PATH)
-	if interpreter == "/usr/bin/env" || interpreter == "/bin/env" {
+	if interpreter == interpreterUsrBinEnv || interpreter == interpreterBinEnv {
 		return parseEnvShebang(args)
 	}
 
@@ -818,7 +818,7 @@ func ParseInterpreterString(spec InterpreterSpec) ShebangInfo {
 	}
 
 	// Handle env-based specifications (e.g., "/usr/bin/env python3")
-	if parts[0] == "/usr/bin/env" || parts[0] == "/bin/env" || parts[0] == "env" {
+	if parts[0] == interpreterUsrBinEnv || parts[0] == interpreterBinEnv || parts[0] == interpreterEnv {
 		return parseEnvShebang(parts[1:])
 	}
 

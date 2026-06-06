@@ -46,7 +46,7 @@ type (
 
 	// CustomCheckResult is the process result data needed by dependency policy.
 	CustomCheckResult struct {
-		output   CustomCheckOutput
+		output   CustomCheckOutput //goplint:ignore -- free-form process text has no invalid payload.
 		exitCode types.ExitCode
 	}
 

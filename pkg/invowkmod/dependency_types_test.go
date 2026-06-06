@@ -32,6 +32,24 @@ func TestModuleRef_MatchesSourceID(t *testing.T) {
 			want:     true,
 		},
 		{
+			name:     "scp-style git URL without owner path matches",
+			ref:      ModuleRef{GitURL: "git@github.com:tools.git"},
+			sourceID: "tools",
+			want:     true,
+		},
+		{
+			name:     "scheme URL without slash path matches",
+			ref:      ModuleRef{GitURL: "https://tools.git"},
+			sourceID: "tools",
+			want:     true,
+		},
+		{
+			name:     "ssh scheme with scp-like repository suffix matches",
+			ref:      ModuleRef{GitURL: "ssh://git@github.com:tools.git"},
+			sourceID: "tools",
+			want:     true,
+		},
+		{
 			name:     "module suffix stripped from git repository basename",
 			ref:      ModuleRef{GitURL: "https://github.com/example/io.example.tools.invowkmod.git"},
 			sourceID: "io.example.tools",
@@ -100,6 +118,14 @@ func TestLockedModuleEffectiveCommandSourceIDPrefersCanonicalMetadata(t *testing
 			name: "legacy fallback uses source basename",
 			mod: LockedModule{
 				GitURL: "https://github.com/example/tools.git",
+			},
+			want: "tools",
+		},
+		{
+			name: "legacy fallback preserves monorepo path basename",
+			mod: LockedModule{
+				GitURL: "https://github.com/example/mono.git",
+				Path:   "modules/tools",
 			},
 			want: "tools",
 		},

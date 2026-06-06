@@ -100,6 +100,21 @@ module: "mymodule"
 	})
 }
 
+func TestRemoveRequirementMutationMissingBlockNoopWithEntryLikeComment(t *testing.T) {
+	t.Parallel()
+
+	content := `git_url: "https://github.com/user/tools.git" // {}
+module: "mymodule"
+`
+	path := writeInvowkmodEditFixture(t, content)
+
+	if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
+		t.Fatalf("RemoveRequirement() error = %v", err)
+	}
+
+	assertInvowkmodEditFile(t, path, content)
+}
+
 func TestRemoveRequirementMutationRemovesFirstDuplicateMatch(t *testing.T) {
 	t.Parallel()
 
@@ -131,6 +146,188 @@ requires: [
 	},
 ]
 `)
+}
+
+func TestInvowkmodEditMutationCompactPathFieldMatching(t *testing.T) {
+	t.Parallel()
+
+	t.Run("add detects duplicate when path shares closing brace line", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path: "packages/tools" },
+]
+`)
+
+		err := AddRequirement(types.FilesystemPath(path), ModuleRef{
+			GitURL:  "https://github.com/user/monorepo.git",
+			Version: "^2.0.0",
+			Path:    "packages/tools",
+		})
+		if err == nil {
+			t.Fatal("AddRequirement() error = nil, want duplicate requirement")
+		}
+		if !errors.Is(err, ErrModuleAlreadyExists) {
+			t.Fatalf("AddRequirement() error = %v, want ErrModuleAlreadyExists", err)
+		}
+	})
+
+	t.Run("add detects duplicate before compact adjacent entry", func(t *testing.T) {
+		t.Parallel()
+
+		content := `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/first.git"
+		version: "^1.0.0"
+	}, {
+		git_url: "https://github.com/user/second.git"
+		version: "^1.0.0"
+	},
+]
+`
+		path := writeInvowkmodEditFixture(t, content)
+
+		err := AddRequirement(types.FilesystemPath(path), ModuleRef{
+			GitURL:  "https://github.com/user/first.git",
+			Version: "^2.0.0",
+		})
+		if err == nil {
+			t.Fatal("AddRequirement() error = nil, want duplicate requirement")
+		}
+		if !errors.Is(err, ErrModuleAlreadyExists) {
+			t.Fatalf("AddRequirement() error = %v, want ErrModuleAlreadyExists", err)
+		}
+		assertInvowkmodEditFile(t, path, content)
+	})
+
+	t.Run("remove matches path when path shares closing brace line", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/monorepo.git"
+		version: "^1.0.0"
+		path: "packages/tools" },
+	{
+		git_url: "https://github.com/user/other.git"
+		version: "^1.0.0"
+	},
+]
+`)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/monorepo.git", "packages/tools"); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/other.git"
+		version: "^1.0.0"
+	},
+]
+`)
+	})
+
+	t.Run("remove skips previous compact adjacent entry", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/first.git"
+		version: "^1.0.0"
+	}, {
+		git_url: "https://github.com/user/second.git"
+		version: "^1.0.0"
+	},
+]
+`)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/second.git", ""); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/first.git"
+		version: "^1.0.0"
+	},
+]
+`)
+	})
+
+	t.Run("remove preserves next compact adjacent entry indentation", func(t *testing.T) {
+		t.Parallel()
+
+		path := writeInvowkmodEditFixture(t, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/first.git"
+		version: "^1.0.0"
+	}, {
+		git_url: "https://github.com/user/second.git"
+		version: "^1.0.0"
+	},
+]
+`)
+
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/first.git", ""); err != nil {
+			t.Fatalf("RemoveRequirement() error = %v", err)
+		}
+
+		assertInvowkmodEditFile(t, path, `module: "mymodule"
+requires: [
+	{
+		git_url: "https://github.com/user/second.git"
+		version: "^1.0.0"
+	},
+]
+`)
+	})
+}
+
+func TestInvowkmodEditMutationLeadingWhitespace(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		line string
+		want string
+	}{
+		{
+			name: "mixed leading whitespace",
+			line: "\t  {",
+			want: "\t  ",
+		},
+		{
+			name: "all whitespace",
+			line: "\t ",
+			want: "\t ",
+		},
+		{
+			name: "no leading whitespace",
+			line: "field",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := leadingWhitespace(tt.line); got != tt.want {
+				t.Fatalf("leadingWhitespace(%q) = %q, want %q", tt.line, got, tt.want)
+			}
+		})
+	}
 }
 
 func testEditModuleRef() ModuleRef {

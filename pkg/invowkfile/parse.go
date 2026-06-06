@@ -140,7 +140,7 @@ func ParseLoadedModuleInvowkfile(module *Module) (*Invowkfile, error) {
 	if module == nil {
 		return nil, errors.New("module is nil")
 	}
-	if module.IsLibraryOnly || module.InvowkfilePath() == "" {
+	if module.InvowkfilePath() == "" {
 		return nil, ErrModuleInvowkfileUnavailable
 	}
 

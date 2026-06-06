@@ -133,8 +133,8 @@ func ValidateEnvFilePath(filePath string) error {
 
 	// Check for path traversal sequences using slash semantics so backslash
 	// traversal is rejected identically on every host OS.
-	normalized := slashpath.Clean(strings.ReplaceAll(cleanPath, "\\", "/"))
-	if normalized == ".." || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "/../") {
+	normalizedPath := strings.ReplaceAll(cleanPath, "\\", "/")
+	if containsParentPathSegment(normalizedPath) {
 		return fmt.Errorf("env file path cannot contain '..': %s", filePath)
 	}
 

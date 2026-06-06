@@ -54,7 +54,7 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 
 	if hasBlock {
 		// Insert new entry before the closing "]"
-		newLines := make([]string, 0, len(lines)+len(entryLines))
+		var newLines []string
 		newLines = append(newLines, lines[:endLine]...)
 		newLines = append(newLines, entryLines...)
 		newLines = append(newLines, lines[endLine:]...)
@@ -98,16 +98,16 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 	entries := findEntryBounds(lines, startLine, endLine)
 
 	// Find the matching entry
-	removeIdx := -1
+	var matchedEntry *entryBounds
 	for i, entry := range entries {
 		entryGitURL, entryPath := parseRequiresEntryFields(lines[entry.start : entry.end+1])
 		if entryGitURL == string(gitURL) && entryPath == string(subPath) {
-			removeIdx = i
+			matchedEntry = &entries[i]
 			break
 		}
 	}
 
-	if removeIdx < 0 {
+	if matchedEntry == nil {
 		return nil // No match found, idempotent
 	}
 
@@ -131,11 +131,7 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 		lines = newLines
 	} else {
 		// Remove just the matching entry
-		entry := entries[removeIdx]
-		newLines := make([]string, 0, len(lines))
-		newLines = append(newLines, lines[:entry.start]...)
-		newLines = append(newLines, lines[entry.end+1:]...)
-		lines = newLines
+		lines = removeRequiresEntryLines(lines, *matchedEntry)
 	}
 
 	return fspath.AtomicWriteFile(pathStr, []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm)
@@ -147,11 +143,6 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 func findRequiresBlock(lines []string) (startLine, endLine int, found bool) {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-
-		// Skip comments
-		if strings.HasPrefix(trimmed, "//") {
-			continue
-		}
 
 		if strings.HasPrefix(trimmed, "requires:") {
 			startLine = i
@@ -215,6 +206,43 @@ func parseRequiresEntryFields(entryLines []string) (gitURL, path string) {
 		}
 	}
 	return
+}
+
+//goplint:ignore -- private source-text rewrite helper operates on raw CUE lines.
+func removeRequiresEntryLines(lines []string, entry entryBounds) []string {
+	replacement := compactEntrySharedLineReplacement(lines, entry)
+	var newLines []string
+	newLines = append(newLines, lines[:entry.start]...)
+	newLines = append(newLines, replacement...)
+	newLines = append(newLines, lines[entry.end+1:]...)
+	return newLines
+}
+
+//goplint:ignore -- private source-text rewrite helper operates on raw CUE lines.
+func compactEntrySharedLineReplacement(lines []string, entry entryBounds) []string {
+	var replacement []string
+
+	startLine := lines[entry.start]
+	if prefix, _, hasOpenBrace := strings.Cut(startLine, "{"); hasOpenBrace {
+		prefix = strings.TrimRight(prefix, " \t")
+		if strings.TrimSpace(prefix) != "" {
+			replacement = append(replacement, prefix)
+		}
+	}
+
+	endLine := lines[entry.end]
+	if _, suffix, hasCloseBrace := strings.Cut(endLine, "}"); hasCloseBrace {
+		if _, nextEntry, hasNextEntry := strings.Cut(suffix, "{"); hasNextEntry {
+			replacement = append(replacement, leadingWhitespace(endLine)+"{"+nextEntry)
+		}
+	}
+
+	return replacement
+}
+
+//goplint:ignore -- private lexical helper returns raw indentation text.
+func leadingWhitespace(line string) string {
+	return strings.TrimSuffix(line, strings.TrimLeft(line, " \t"))
 }
 
 // formatRequiresEntry formats a ModuleRef as CUE lines for insertion into a requires block.

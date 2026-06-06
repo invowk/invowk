@@ -132,7 +132,7 @@ func (e *InvalidArgumentNameError) Unwrap() error { return ErrInvalidArgumentNam
 func (n ArgumentName) Validate() error {
 	s := string(n)
 	if s == "" {
-		return &InvalidArgumentNameError{Value: n, Reason: invalidReasonMustNotBeEmpty}
+		return &InvalidArgumentNameError{Reason: invalidReasonMustNotBeEmpty}
 	}
 	if utf8.RuneCountInString(s) > MaxNameLength {
 		return &InvalidArgumentNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}
@@ -219,7 +219,7 @@ func (a Argument) defaultValueValidationErrors() []error {
 	if err := validateValueType(a.DefaultValue, FlagType(argType)); err != nil {
 		errs = append(errs, fmt.Errorf("default_value %q is not compatible with type %q: %w", a.DefaultValue, argType, err))
 	}
-	if a.Validation != "" && a.Validation.Validate() == nil && !matchesValidation(a.DefaultValue, string(a.Validation)) {
+	if a.Validation.Validate() == nil && !matchesValidation(a.DefaultValue, string(a.Validation)) {
 		errs = append(errs, fmt.Errorf("default_value %q does not match validation pattern %q", a.DefaultValue, a.Validation))
 	}
 	return errs

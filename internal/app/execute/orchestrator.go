@@ -275,48 +275,24 @@ func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOption
 	execCtx.Env.RuntimeEnvFiles = opts.EnvFiles
 	execCtx.Env.RuntimeEnvVars = opts.EnvVars
 
-	if err := applyEnvInheritOverrides(opts, execCtx); err != nil {
-		return nil, err
-	}
+	applyEnvInheritOverrides(opts, execCtx)
 
 	projectEnvVars(opts, execCtx, selectedPlatform)
 	return execCtx, nil
 }
 
-func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) error {
+func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	if opts.EnvInheritMode != "" {
-		// Defense-in-depth: the CLI boundary should have already validated the mode
-		// via ParseEnvInheritMode, but verify here to catch programmatic misuse.
-		if err := opts.EnvInheritMode.Validate(); err != nil {
-			return err
-		}
 		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
 
-	if err := validateEnvVarNames(opts.EnvInheritAllow, "env-inherit-allow"); err != nil {
-		return err
-	}
 	if opts.EnvInheritAllow != nil {
 		execCtx.Env.InheritAllowOverride = opts.EnvInheritAllow
 	}
 
-	if err := validateEnvVarNames(opts.EnvInheritDeny, "env-inherit-deny"); err != nil {
-		return err
-	}
 	if opts.EnvInheritDeny != nil {
 		execCtx.Env.InheritDenyOverride = opts.EnvInheritDeny
 	}
-
-	return nil
-}
-
-func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
-	for _, name := range names {
-		if err := name.Validate(); err != nil {
-			return fmt.Errorf("%s: %w", label, err)
-		}
-	}
-	return nil
 }
 
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, selectedPlatform invowkfile.Platform) {
@@ -366,10 +342,7 @@ func projectArgDefEnvVar(opts BuildExecutionContextOptions, execCtx *runtime.Exe
 
 //goplint:ignore -- argument index and envName are derived adapter values for exported process environment keys.
 func projectVariadicArgEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext, index int, envName string) {
-	var values []string
-	if index < len(opts.Args) {
-		values = opts.Args[index:]
-	}
+	values := opts.Args[min(index, len(opts.Args)):]
 	execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(values))
 	for i, value := range values {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, i+1)] = value

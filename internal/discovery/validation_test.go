@@ -120,6 +120,9 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 	if len(conflictErr.Subcommands) != 1 || conflictErr.Subcommands[0] != invowkfile.CommandName("deploy staging") {
 		t.Errorf("Expected Subcommands to contain 'deploy staging', got %v", conflictErr.Subcommands)
 	}
+	if conflictErr.FilePath != "/test/invowkfile.cue" {
+		t.Errorf("Expected FilePath %q, got %q", "/test/invowkfile.cue", conflictErr.FilePath)
+	}
 }
 
 func TestValidateCommandTree_Conflict_MultipleChildren(t *testing.T) {
@@ -244,6 +247,30 @@ func TestValidateCommandTree_NilCommands(t *testing.T) {
 	err := ValidateCommandTree(commands)
 	if err != nil {
 		t.Errorf("ValidateCommandTree() should handle nil entries gracefully, got %v", err)
+	}
+}
+
+func TestValidateCommandTree_NilEntriesDoNotStopValidation(t *testing.T) {
+	t.Parallel()
+
+	commands := []*CommandInfo{
+		nil,
+		{
+			Name: "deploy",
+			Command: &invowkfile.Command{
+				Args: []invowkfile.Argument{{Name: "env", Description: "Environment"}},
+			},
+			FilePath: "/test/invowkfile.cue",
+		},
+		{
+			Name:     "deploy staging",
+			Command:  &invowkfile.Command{},
+			FilePath: "/test/invowkfile.cue",
+		},
+	}
+
+	if err := ValidateCommandTree(commands); err == nil {
+		t.Fatal("ValidateCommandTree() should continue after nil entries and report later conflicts")
 	}
 }
 

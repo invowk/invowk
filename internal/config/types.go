@@ -296,7 +296,7 @@ type (
 		// DefaultRuntime sets the global default runtime mode
 		DefaultRuntime RuntimeMode `json:"default_runtime" mapstructure:"default_runtime"`
 		// Virtual configures the virtual runtime family.
-		Virtual VirtualConfig `json:"virtual" mapstructure:"virtual"`
+		Virtual VirtualConfig `json:"virtual" mapstructure:"virtual"` //goplint:ignore -- bool-only virtual utilities cannot fail root validation today.
 		// UI configures the user interface
 		UI UIConfig `json:"ui" mapstructure:"ui"`
 		// LLM configures default LLM-backed agent/audit behavior.
@@ -398,11 +398,7 @@ type (
 
 // Validate returns an error if the virtual runtime family config has invalid fields.
 func (c VirtualConfig) Validate() error {
-	var errs []error
-	if err := c.Utilities.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	return errors.Join(errs...)
+	return c.Utilities.Validate()
 }
 
 // Validate returns nil. VirtualUtilitiesConfig currently has only bool fields,
@@ -528,7 +524,7 @@ func (u LLMBaseURL) Validate() error {
 		return nil
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+	if err != nil || parsed.Host == "" {
 		return &InvalidLLMBaseURLError{Value: u}
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
@@ -808,8 +804,7 @@ func (e *InvalidContainerConfigError) Unwrap() error {
 
 // Validate returns an error if the Config has invalid fields.
 // It delegates to ContainerEngine.Validate(), DefaultRuntime.Validate(),
-// Includes collection validation, Virtual.Validate(), UI.Validate(), and
-// Container.Validate().
+// Includes collection validation, UI.Validate(), and Container.Validate().
 func (c Config) Validate() error {
 	var errs []error
 	if err := c.ContainerEngine.Validate(); err != nil {
@@ -975,10 +970,11 @@ func (cs ColorScheme) Validate() error {
 
 // DefaultConfig returns the default configuration derived from the embedded CUE schema.
 func DefaultConfig() *Config {
-	cfg, err := decodeCUEConfigSource(configCUESource{
-		data:     configCUEData("{}"),
-		filename: configCUEFilename("<defaults>"),
-	})
+	source := configCUESource{}
+	source.data = configCUEData("{}")
+	source.filename = configCUEFilename("<defaults>")
+
+	cfg, err := decodeCUEConfigSource(source)
 	if err != nil {
 		panic(fmt.Sprintf("invalid embedded default config schema: %v", err))
 	}

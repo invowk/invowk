@@ -90,6 +90,15 @@ func TestStateTransitions(t *testing.T) {
 		default:
 			t.Error("expected error in channel")
 		}
+
+		select {
+		case err, ok := <-b.Err():
+			if ok {
+				t.Fatalf("expected error channel closed after failure, got %v", err)
+			}
+		default:
+			t.Fatal("expected error channel closed after failure")
+		}
 	})
 }
 
@@ -313,6 +322,15 @@ func TestIdempotency(t *testing.T) {
 		if b.State() != StateStopped {
 			t.Errorf("expected StateStopped, got %s", b.State())
 		}
+
+		select {
+		case _, ok := <-b.Err():
+			if ok {
+				t.Fatal("Err channel still open after stopping a never-started server")
+			}
+		default:
+			t.Fatal("Err channel should be closed after stopping a never-started server")
+		}
 	})
 
 	t.Run("Stop on Failed is safe", func(t *testing.T) {
@@ -376,14 +394,15 @@ func TestCancelledContext(t *testing.T) {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
 
-		// Create a context that will be cancelled
-		waitCtx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
-		defer cancel()
+		waitCtx, cancel := context.WithCancel(t.Context())
+		cancel()
 
-		// Don't transition to Running, so WaitForReady should timeout
 		err := b.WaitForReady(waitCtx)
 		if err == nil {
-			t.Error("expected timeout error")
+			t.Fatal("expected cancellation error")
+		}
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("WaitForReady() error = %v, want context.Canceled", err)
 		}
 	})
 
@@ -410,6 +429,34 @@ func TestCancelledContext(t *testing.T) {
 			t.Errorf("WaitForReady failed: %v", err)
 		}
 	})
+}
+
+func TestTransitionToFailedCancelsLifecycleContext(t *testing.T) {
+	t.Parallel()
+
+	b := NewBase()
+	if err := b.TransitionToStarting(t.Context()); err != nil {
+		t.Fatalf("TransitionToStarting() error = %v", err)
+	}
+
+	serverCtx := b.Context()
+	if serverCtx == nil {
+		t.Fatal("Context() = nil after TransitionToStarting()")
+	}
+
+	cause := context.DeadlineExceeded
+	if err := b.TransitionToFailed(cause); !errors.Is(err, cause) {
+		t.Fatalf("TransitionToFailed() = %v, want %v", err, cause)
+	}
+
+	select {
+	case <-serverCtx.Done():
+	default:
+		t.Fatal("server context should be cancelled after TransitionToFailed()")
+	}
+	if !errors.Is(serverCtx.Err(), context.Canceled) {
+		t.Fatalf("server context error = %v, want context.Canceled", serverCtx.Err())
+	}
 }
 
 func TestTransitionToStarting_LifecycleContextInheritsCallerContext(t *testing.T) {
@@ -517,6 +564,47 @@ func TestWithErrorChannel(t *testing.T) {
 	}
 }
 
+func TestDefaultErrorChannelDropsAdditionalErrors(t *testing.T) {
+	t.Parallel()
+
+	b := NewBase()
+
+	b.SendError(context.Canceled)
+	b.SendError(context.DeadlineExceeded)
+
+	select {
+	case err := <-b.Err():
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("first error = %v, want context.Canceled", err)
+		}
+	default:
+		t.Fatal("expected first error in channel")
+	}
+
+	select {
+	case err := <-b.Err():
+		t.Fatalf("unexpected second buffered error: %v", err)
+	default:
+	}
+}
+
+func TestSendErrorAfterCloseIsIgnored(t *testing.T) {
+	t.Parallel()
+
+	b := NewBase()
+	b.CloseErrChannel()
+	b.SendError(context.Canceled)
+
+	select {
+	case _, ok := <-b.Err():
+		if ok {
+			t.Fatal("Err channel still open after CloseErrChannel()")
+		}
+	default:
+		t.Fatal("Err channel should be closed after CloseErrChannel()")
+	}
+}
+
 func TestTransitionToStoppedClosesErrChannel(t *testing.T) {
 	t.Parallel()
 
@@ -591,6 +679,34 @@ func TestTerminalTransitionsAreIrreversible(t *testing.T) {
 			t.Fatalf("LastError() = %v, want nil", b.LastError())
 		}
 	})
+}
+
+func TestLastErrorReleasesStateLock(t *testing.T) {
+	t.Parallel()
+
+	b := NewBase()
+	if err := b.TransitionToStarting(t.Context()); err != nil {
+		t.Fatalf("TransitionToStarting() error = %v", err)
+	}
+	cause := context.Canceled
+	if err := b.TransitionToFailed(cause); !errors.Is(err, cause) {
+		t.Fatalf("TransitionToFailed() = %v, want %v", err, cause)
+	}
+	if !errors.Is(b.LastError(), cause) {
+		t.Fatalf("LastError() = %v, want %v", b.LastError(), cause)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		_ = b.TransitionToStopped()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("TransitionToStopped() blocked after LastError()")
+	}
 }
 
 // Test goroutine tracking
@@ -692,6 +808,13 @@ func TestState_Validate(t *testing.T) {
 				}
 				if !errors.Is(err, ErrInvalidState) {
 					t.Errorf("error should wrap ErrInvalidState, got: %v", err)
+				}
+				stateErr, ok := errors.AsType[*InvalidStateError](err)
+				if !ok {
+					t.Fatalf("State(%d).Validate() error type = %T, want *InvalidStateError", tt.state, err)
+				}
+				if stateErr.Value != tt.state {
+					t.Fatalf("InvalidStateError.Value = %d, want %d", stateErr.Value, tt.state)
 				}
 			} else if err != nil {
 				t.Errorf("State(%d).Validate() returned unexpected error: %v", tt.state, err)

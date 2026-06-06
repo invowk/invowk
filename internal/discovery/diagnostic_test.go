@@ -81,6 +81,36 @@ func TestDiagnosticCode_Validate(t *testing.T) {
 	}
 }
 
+func TestDiagnosticValueErrorsPreserveInput(t *testing.T) {
+	t.Parallel()
+
+	severity := Severity("critical")
+	severityErr := severity.Validate()
+	if !errors.Is(severityErr, ErrInvalidSeverity) {
+		t.Fatalf("Severity(%q).Validate() error = %v, want ErrInvalidSeverity", severity, severityErr)
+	}
+	var invalidSeverity *InvalidSeverityError
+	if !errors.As(severityErr, &invalidSeverity) {
+		t.Fatalf("Severity(%q).Validate() error type = %T, want *InvalidSeverityError", severity, severityErr)
+	}
+	if invalidSeverity.Value != severity {
+		t.Fatalf("InvalidSeverityError.Value = %q, want %q", invalidSeverity.Value, severity)
+	}
+
+	code := DiagnosticCode("bad_code")
+	codeErr := code.Validate()
+	if !errors.Is(codeErr, ErrInvalidDiagnosticCode) {
+		t.Fatalf("DiagnosticCode(%q).Validate() error = %v, want ErrInvalidDiagnosticCode", code, codeErr)
+	}
+	var invalidCode *InvalidDiagnosticCodeError
+	if !errors.As(codeErr, &invalidCode) {
+		t.Fatalf("DiagnosticCode(%q).Validate() error type = %T, want *InvalidDiagnosticCodeError", code, codeErr)
+	}
+	if invalidCode.Value != code {
+		t.Fatalf("InvalidDiagnosticCodeError.Value = %q, want %q", invalidCode.Value, code)
+	}
+}
+
 func TestNewDiagnostic(t *testing.T) {
 	t.Parallel()
 

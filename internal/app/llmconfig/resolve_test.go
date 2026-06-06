@@ -64,6 +64,9 @@ func TestResolveSkipsConfiguredDefaultWhenNotRequested(t *testing.T) {
 	if got.Mode != ModeNone {
 		t.Fatalf("Mode = %v, want none", got.Mode)
 	}
+	if got.Provider != "" || got.Model != "" || got.Concurrency != 0 || got.APIConfig != (APIConfig{}) {
+		t.Fatalf("Resolve() no-LLM result = %+v, want minimal zero selection", got)
+	}
 }
 
 func TestResolveFlagUsesConfiguredProvider(t *testing.T) {

@@ -558,7 +558,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			continue
 		}
 		ambiguousKeys := invowkmod.AmbiguousDeclaredLockedModuleEntries(parentModule.Metadata.Requires, lock, m.Metadata.Module)
-		if len(ambiguousKeys) > 0 {
+		if ambiguousKeys != nil {
 			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeVendoredAmbiguousLockSkipped,
@@ -613,7 +613,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 }
 
 func vendoredTransitiveDiagnostic(parentModule, childModule *invowkmod.Module, childPath types.FilesystemPath) (Diagnostic, bool) {
-	if parentModule == nil || parentModule.Metadata == nil || childModule == nil {
+	if parentModule == nil || parentModule.Metadata == nil {
 		return Diagnostic{}, false
 	}
 	diags := invowkmod.CheckMissingVendoredTransitiveDeps(parentModule.Metadata.Requires, []*invowkmod.Module{childModule})
@@ -639,7 +639,7 @@ func vendoredCommandNamespace(requirements []invowkmod.ModuleRequirement, lock *
 		return ""
 	}
 	locked, ok := invowkmod.DeclaredLockedModule(requirements, lock, childModule.Metadata.Module)
-	if !ok || locked.EffectiveCommandSourceID() == "" {
+	if !ok {
 		return ""
 	}
 	return invowkmod.ModuleNamespace(locked.EffectiveCommandSourceID())
@@ -705,10 +705,6 @@ func (d *Discovery) detectModuleShadowing(files []*DiscoveredFile) []Diagnostic 
 		if f.IsGlobalModule && f.Module != nil {
 			globalIDs[f.Module.Metadata.Module] = f.Path
 		}
-	}
-
-	if len(globalIDs) == 0 {
-		return nil
 	}
 
 	var diagnostics []Diagnostic

@@ -49,7 +49,7 @@ type (
 		// Path is the module path inside the container.
 		Path container.MountTargetPath `json:"path"`
 		// CommandNamespace is the command source namespace for the copied module.
-		CommandNamespace invowkmod.ModuleNamespace `json:"command_namespace"`
+		CommandNamespace invowkmod.ModuleNamespace `json:"command_namespace"` //goplint:ignore -- optional namespace has no non-empty invalid state.
 	}
 
 	// Entries is a validated provisioned-module manifest entry list.
@@ -112,11 +112,7 @@ func MarshalManifest(entries Entries) (Value, error) {
 	if err != nil {
 		return "", fmt.Errorf(invalidManifestWrapFormat, ErrInvalidManifest, err)
 	}
-	value := Value(data)
-	if err := value.Validate(); err != nil {
-		return "", err
-	}
-	return value, nil
+	return Value(data), nil
 }
 
 // ParseManifest parses a non-empty provisioned-module manifest.
@@ -149,15 +145,9 @@ func ParseEnvironment(manifestValue, pathListValue Value) (Entries, error) {
 // without explicit command namespaces.
 func EntriesFromPathList(value Value) Entries {
 	rawValue := strings.TrimSpace(value.String())
-	if rawValue == "" {
-		return nil
-	}
 	var entries Entries
 	for _, rawPath := range filepath.SplitList(rawValue) {
 		path := strings.TrimSpace(rawPath)
-		if path == "" {
-			continue
-		}
 		entryPath := container.MountTargetPath(path)
 		if err := entryPath.Validate(); err != nil {
 			continue

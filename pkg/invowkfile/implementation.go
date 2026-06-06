@@ -410,19 +410,12 @@ func (s *Implementation) GetScriptFilePathWithModule(_, modulePath FilesystemPat
 	}
 
 	script := strings.TrimSpace(string(*s.Script.File))
+	scriptPath := FilesystemPath(script) //goplint:ignore -- path resolution accepts the raw script.file value; validation rejects invalid file paths before file I/O.
 
-	// Unix-style absolute paths (leading '/') are container-absolute and must
-	// pass through unchanged on every platform. On Windows, filepath.IsAbs("/foo")
-	// returns false because Windows absolute paths require a drive letter or UNC
-	// prefix, so this guard must precede IsAbs to avoid silently joining the
-	// container path with the module root.
-	if strings.HasPrefix(script, "/") {
-		return FilesystemPath(script) //goplint:ignore -- container-absolute path identified by leading slash guard
-	}
-
-	// If absolute path, return as-is
-	if filepath.IsAbs(script) {
-		return FilesystemPath(script) //goplint:ignore -- OS-absolute path from filepath.IsAbs guard
+	// fspath.IsAbs preserves Unix-style absolute script paths on every platform
+	// while still accepting host-native absolute forms.
+	if fspath.IsAbs(scriptPath) {
+		return scriptPath
 	}
 
 	// Convert forward slashes to native path separator for cross-platform compatibility.

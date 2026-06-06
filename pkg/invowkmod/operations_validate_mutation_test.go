@@ -5,6 +5,7 @@ package invowkmod
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -41,6 +42,32 @@ func TestOperationsValidateMutationRecordsInvowkmodPath(t *testing.T) {
 	want := types.FilesystemPath(filepath.Join(modulePath, invowkmodCueFileName))
 	if result.InvowkmodPath != want {
 		t.Fatalf("Validate().InvowkmodPath = %q, want %q", result.InvowkmodPath, want)
+	}
+}
+
+func TestOperationsValidateMutationReportsInaccessibleInvowkmodCue(t *testing.T) {
+	t.Parallel()
+	skipUnixPermissionMutationTest(t)
+
+	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
+	if err := os.Chmod(modulePath, 0); err != nil {
+		t.Fatalf("chmod module dir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(modulePath, 0o755); err != nil && !os.IsNotExist(err) {
+			t.Errorf("restore module dir permissions: %v", err)
+		}
+	})
+
+	result, err := Validate(types.FilesystemPath(modulePath))
+	if err != nil {
+		t.Fatalf("Validate() error = %v, want nil", err)
+	}
+	if !validationResultContainsIssue(result, IssueTypeStructure, "", "cannot access invowkmod.cue") {
+		t.Fatalf("Validate() issues = %#v, want inaccessible invowkmod.cue issue", result.Issues)
+	}
+	if validationResultContainsIssue(result, IssueTypeStructure, "", "missing required invowkmod.cue") {
+		t.Fatalf("Validate() issues = %#v, want permission error instead of missing-file error", result.Issues)
 	}
 }
 
@@ -85,6 +112,33 @@ func TestOperationsValidateMutationTreeEntryContracts(t *testing.T) {
 			t.Fatalf("Validate().Valid = false, want true; issues = %#v", result.Issues)
 		}
 	})
+
+	t.Run("unreadable nested directory is skipped", func(t *testing.T) {
+		t.Parallel()
+		skipUnixPermissionMutationTest(t)
+
+		modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
+		unreadablePath := filepath.Join(modulePath, "private")
+		if err := os.Mkdir(unreadablePath, 0o755); err != nil {
+			t.Fatalf("mkdir unreadable dir: %v", err)
+		}
+		if err := os.Chmod(unreadablePath, 0); err != nil {
+			t.Fatalf("chmod unreadable dir: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := os.Chmod(unreadablePath, 0o755); err != nil && !os.IsNotExist(err) {
+				t.Errorf("restore unreadable dir permissions: %v", err)
+			}
+		})
+
+		result, err := Validate(types.FilesystemPath(modulePath))
+		if err != nil {
+			t.Fatalf("Validate() error = %v, want nil", err)
+		}
+		if !result.Valid {
+			t.Fatalf("Validate().Valid = false, want true; issues = %#v", result.Issues)
+		}
+	})
 }
 
 func TestOperationsLoadMutationAggregatesIssueMessages(t *testing.T) {
@@ -120,4 +174,15 @@ func validationResultContainsIssue(result *ValidationResult, issueType Validatio
 		}
 	}
 	return false
+}
+
+func skipUnixPermissionMutationTest(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission checks are Unix-specific")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root can traverse directories regardless of permission bits")
+	}
 }
