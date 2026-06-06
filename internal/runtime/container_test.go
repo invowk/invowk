@@ -21,7 +21,8 @@ type (
 	// MockEngine implements container.Engine for testing.
 	// It records calls and returns configured results without requiring Docker/Podman.
 	MockEngine struct {
-		mu sync.Mutex
+		mu          sync.Mutex
+		lifecycleMu sync.Mutex
 
 		// Configuration
 		name        string
@@ -236,6 +237,12 @@ func (m *MockEngine) ImageExists(_ context.Context, _ container.ImageTag) (bool,
 
 func (m *MockEngine) RemoveImage(_ context.Context, _ container.ImageTag, _ bool) error {
 	return nil
+}
+
+func (m *MockEngine) CoordinateLifecycle(fn func() error) error {
+	m.lifecycleMu.Lock()
+	defer m.lifecycleMu.Unlock()
+	return fn()
 }
 
 func (m *MockEngine) BinaryPath() string {
