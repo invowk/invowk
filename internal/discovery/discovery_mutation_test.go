@@ -336,58 +336,64 @@ func TestLoadFirstMutationContracts(t *testing.T) {
 func TestLoadAllMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("parse errors stay attached to discovered files", func(t *testing.T) {
-		t.Parallel()
+	t.Run("parse errors stay attached to discovered files", testLoadAllMutationParseErrorsStayAttached)
+	t.Run("module collisions return load error", testLoadAllMutationModuleCollisionsReturnError)
+}
 
-		tmpDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte("cmds: ["), 0o644); err != nil {
-			t.Fatalf("write invalid invowkfile: %v", err)
-		}
-		d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+func testLoadAllMutationParseErrorsStayAttached(t *testing.T) {
+	t.Parallel()
 
-		files, err := d.LoadAll()
-		if err != nil {
-			t.Fatalf("LoadAll() error = %v, want nil with file-level parse error", err)
-		}
-		if len(files) != 1 {
-			t.Fatalf("LoadAll() files length = %d, want 1", len(files))
-		}
-		if files[0].Error == nil {
-			t.Fatal("LoadAll() file.Error = nil, want parse error")
-		}
-		if files[0].Invowkfile != nil {
-			t.Fatalf("LoadAll() Invowkfile = %#v, want nil after parse error", files[0].Invowkfile)
-		}
-	})
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte("cmds: ["), 0o644); err != nil {
+		t.Fatalf("write invalid invowkfile: %v", err)
+	}
 
-	t.Run("module collisions return load error", func(t *testing.T) {
-		t.Parallel()
+	files, err := newTestDiscovery(t, config.DefaultConfig(), tmpDir).LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll() error = %v, want nil with file-level parse error", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("LoadAll() files length = %d, want 1", len(files))
+	}
+	if files[0].Error == nil {
+		t.Fatal("LoadAll() file.Error = nil, want parse error")
+	}
+	if files[0].Invowkfile != nil {
+		t.Fatalf("LoadAll() Invowkfile = %#v, want nil after parse error", files[0].Invowkfile)
+	}
+}
 
-		firstRoot := t.TempDir()
-		secondRoot := t.TempDir()
-		firstModuleDir := filepath.Join(firstRoot, string(discoveryMutationSameModule)+invowkmod.ModuleSuffix)
-		secondModuleDir := filepath.Join(secondRoot, string(discoveryMutationSameModule)+invowkmod.ModuleSuffix)
-		createTestModule(t, firstModuleDir, string(discoveryMutationSameModule), "first")
-		createTestModule(t, secondModuleDir, string(discoveryMutationSameModule), "second")
-		cfg := config.DefaultConfig()
-		cfg.Includes = []config.IncludeEntry{
-			{Path: config.ModuleIncludePath(firstModuleDir)},
-			{Path: config.ModuleIncludePath(secondModuleDir)},
-		}
-		d := New(cfg, WithBaseDir(""), WithCommandsDir(""))
+func testLoadAllMutationModuleCollisionsReturnError(t *testing.T) {
+	t.Parallel()
 
-		files, err := d.LoadAll()
-		if err == nil {
-			t.Fatal("LoadAll() error = nil, want module collision error")
-		}
-		if files != nil {
-			t.Fatalf("LoadAll() files = %#v, want nil after module collision", files)
-		}
-		collision := requireDiscoveryMutationCollision(t, err)
-		if collision.Namespace != SourceID(discoveryMutationSameModule) {
-			t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationSameModule)
-		}
-	})
+	firstModuleDir, secondModuleDir := createDiscoveryMutationCollisionModules(t)
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{Path: config.ModuleIncludePath(firstModuleDir)},
+		{Path: config.ModuleIncludePath(secondModuleDir)},
+	}
+
+	files, err := New(cfg, WithBaseDir(""), WithCommandsDir("")).LoadAll()
+	if err == nil {
+		t.Fatal("LoadAll() error = nil, want module collision error")
+	}
+	if files != nil {
+		t.Fatalf("LoadAll() files = %#v, want nil after module collision", files)
+	}
+	collision := requireDiscoveryMutationCollision(t, err)
+	if collision.Namespace != SourceID(discoveryMutationSameModule) {
+		t.Fatalf("Namespace = %q, want %q", collision.Namespace, discoveryMutationSameModule)
+	}
+}
+
+func createDiscoveryMutationCollisionModules(t *testing.T) (firstModuleDir, secondModuleDir string) {
+	t.Helper()
+
+	firstModuleDir = filepath.Join(t.TempDir(), string(discoveryMutationSameModule)+invowkmod.ModuleSuffix)
+	secondModuleDir = filepath.Join(t.TempDir(), string(discoveryMutationSameModule)+invowkmod.ModuleSuffix)
+	createTestModule(t, firstModuleDir, string(discoveryMutationSameModule), "first")
+	createTestModule(t, secondModuleDir, string(discoveryMutationSameModule), "second")
+	return firstModuleDir, secondModuleDir
 }
 
 func discoveryMutationDiscovery() *Discovery {

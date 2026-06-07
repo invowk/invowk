@@ -74,71 +74,77 @@ func TestOperationsValidateMutationReportsInaccessibleInvowkmodCue(t *testing.T)
 func TestOperationsValidateMutationTreeEntryContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("symlink named vendored directory is still reported", func(t *testing.T) {
-		t.Parallel()
+	t.Run("symlink named vendored directory is still reported", testOperationsValidateMutationVendoredSymlinkReported)
+	t.Run("file ending in module suffix is not a nested module", testOperationsValidateMutationSuffixFileIsNotNestedModule)
+	t.Run("unreadable nested directory is skipped", testOperationsValidateMutationUnreadableNestedDirSkipped)
+}
 
-		modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
-		target := filepath.Join(modulePath, "target")
-		if err := os.WriteFile(target, []byte("target\n"), 0o644); err != nil {
-			t.Fatalf("write target: %v", err)
-		}
-		linkPath := filepath.Join(modulePath, VendoredModulesDir)
-		if err := os.Symlink(target, linkPath); err != nil {
-			t.Skipf("symlink test skipped: %v", err)
-		}
+func testOperationsValidateMutationVendoredSymlinkReported(t *testing.T) {
+	t.Parallel()
 
-		result, err := Validate(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("Validate() error = %v, want nil", err)
-		}
-		if !validationResultContainsIssue(result, IssueTypeSecurity, VendoredModulesDir, "symlinks are not allowed") {
-			t.Fatalf("Validate() issues = %#v, want vendored-name symlink security issue", result.Issues)
+	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
+	target := filepath.Join(modulePath, "target")
+	if err := os.WriteFile(target, []byte("target\n"), 0o644); err != nil {
+		t.Fatalf("write target: %v", err)
+	}
+	linkPath := filepath.Join(modulePath, VendoredModulesDir)
+	if err := os.Symlink(target, linkPath); err != nil {
+		t.Skipf("symlink test skipped: %v", err)
+	}
+
+	result := requireValidateModuleSuccess(t, modulePath)
+	if !validationResultContainsIssue(result, IssueTypeSecurity, VendoredModulesDir, "symlinks are not allowed") {
+		t.Fatalf("Validate() issues = %#v, want vendored-name symlink security issue", result.Issues)
+	}
+}
+
+func testOperationsValidateMutationSuffixFileIsNotNestedModule(t *testing.T) {
+	t.Parallel()
+
+	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
+	if err := os.WriteFile(filepath.Join(modulePath, "notes.invowkmod"), []byte("not a directory\n"), 0o644); err != nil {
+		t.Fatalf("write suffix file: %v", err)
+	}
+	requireValidModuleValidationResult(t, requireValidateModuleSuccess(t, modulePath))
+}
+
+func testOperationsValidateMutationUnreadableNestedDirSkipped(t *testing.T) {
+	t.Parallel()
+	skipUnixPermissionMutationTest(t)
+
+	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
+	unreadablePath := filepath.Join(modulePath, "private")
+	if err := os.Mkdir(unreadablePath, 0o755); err != nil {
+		t.Fatalf("mkdir unreadable dir: %v", err)
+	}
+	if err := os.Chmod(unreadablePath, 0); err != nil {
+		t.Fatalf("chmod unreadable dir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(unreadablePath, 0o755); err != nil && !os.IsNotExist(err) {
+			t.Errorf("restore unreadable dir permissions: %v", err)
 		}
 	})
 
-	t.Run("file ending in module suffix is not a nested module", func(t *testing.T) {
-		t.Parallel()
+	requireValidModuleValidationResult(t, requireValidateModuleSuccess(t, modulePath))
+}
 
-		modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
-		if err := os.WriteFile(filepath.Join(modulePath, "notes.invowkmod"), []byte("not a directory\n"), 0o644); err != nil {
-			t.Fatalf("write suffix file: %v", err)
-		}
+func requireValidateModuleSuccess(t *testing.T, modulePath string) *ValidationResult {
+	t.Helper()
 
-		result, err := Validate(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("Validate() error = %v, want nil", err)
-		}
-		if !result.Valid {
-			t.Fatalf("Validate().Valid = false, want true; issues = %#v", result.Issues)
-		}
-	})
+	result, err := Validate(types.FilesystemPath(modulePath))
+	if err != nil {
+		t.Fatalf("Validate() error = %v, want nil", err)
+	}
+	return result
+}
 
-	t.Run("unreadable nested directory is skipped", func(t *testing.T) {
-		t.Parallel()
-		skipUnixPermissionMutationTest(t)
+func requireValidModuleValidationResult(t *testing.T, result *ValidationResult) {
+	t.Helper()
 
-		modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
-		unreadablePath := filepath.Join(modulePath, "private")
-		if err := os.Mkdir(unreadablePath, 0o755); err != nil {
-			t.Fatalf("mkdir unreadable dir: %v", err)
-		}
-		if err := os.Chmod(unreadablePath, 0); err != nil {
-			t.Fatalf("chmod unreadable dir: %v", err)
-		}
-		t.Cleanup(func() {
-			if err := os.Chmod(unreadablePath, 0o755); err != nil && !os.IsNotExist(err) {
-				t.Errorf("restore unreadable dir permissions: %v", err)
-			}
-		})
-
-		result, err := Validate(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("Validate() error = %v, want nil", err)
-		}
-		if !result.Valid {
-			t.Fatalf("Validate().Valid = false, want true; issues = %#v", result.Issues)
-		}
-	})
+	if !result.Valid {
+		t.Fatalf("Validate().Valid = false, want true; issues = %#v", result.Issues)
+	}
 }
 
 func TestOperationsLoadMutationAggregatesIssueMessages(t *testing.T) {

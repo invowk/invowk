@@ -216,76 +216,93 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 
 	t.Run("nil and empty dependencies skip probe", func(t *testing.T) {
 		t.Parallel()
-
-		if err := CheckFilepathDependenciesInContainer(nil, nil, execCtx); err != nil {
-			t.Fatalf("nil deps error = %v, want nil", err)
-		}
-		if err := CheckFilepathDependenciesInContainer(&invowkfile.DependsOn{}, nil, execCtx); err != nil {
-			t.Fatalf("empty filepath deps error = %v, want nil", err)
-		}
+		testCheckFilepathDependenciesInContainerSkipsEmpty(t, execCtx)
 	})
-
 	t.Run("missing container runtime", func(t *testing.T) {
 		t.Parallel()
-
-		deps := &invowkfile.DependsOn{
-			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
-		}
-		err := CheckFilepathDependenciesInContainer(deps, nil, execCtx)
-		if err == nil || !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
-			t.Fatalf("err = %v, want wrapping ErrRuntimeDependencyProbeRequired", err)
-		}
+		testCheckFilepathDependenciesInContainerMissingRuntime(t, execCtx)
 	})
-
 	t.Run("dependency error aggregates failing paths", func(t *testing.T) {
 		t.Parallel()
-
-		probe := &filepathStubRuntime{
-			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				if _, err := io.WriteString(ctx.IO.Stderr, "permission denied"); err != nil {
-					t.Fatalf("WriteString(): %v", err)
-				}
-				return &runtimepkg.Result{ExitCode: 1}
-			},
-		}
-
-		deps := &invowkfile.DependsOn{
-			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
-		}
-
-		err := CheckFilepathDependenciesInContainer(deps, probe, execCtx)
-		if err == nil {
-			t.Fatal("expected error")
-		}
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
-		}
-		if len(depErr.MissingFilepaths) != 1 {
-			t.Fatalf("len(depErr.MissingFilepaths) = %d, want 1", len(depErr.MissingFilepaths))
-		}
-		if depErr.CommandName != execCtx.CommandName {
-			t.Fatalf("DependencyError.CommandName = %q, want %q", depErr.CommandName, execCtx.CommandName)
-		}
-		requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
-		if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, "permission denied") {
-			t.Fatalf("StructuredFailures[0].Detail() = %q, want containing permission denied", got)
-		}
+		testCheckFilepathDependenciesInContainerAggregatesFailures(t, execCtx)
 	})
-
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-
-		probe := &filepathStubRuntime{}
-
-		deps := &invowkfile.DependsOn{
-			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
-		}
-
-		if err := CheckFilepathDependenciesInContainer(deps, probe, execCtx); err != nil {
-			t.Fatalf("CheckFilepathDependenciesInContainer() = %v", err)
-		}
+		testCheckFilepathDependenciesInContainerSuccess(t, execCtx)
 	})
+}
+
+func testCheckFilepathDependenciesInContainerSkipsEmpty(t *testing.T, execCtx ExecutionContext) {
+	t.Helper()
+
+	if err := CheckFilepathDependenciesInContainer(nil, nil, execCtx); err != nil {
+		t.Fatalf("nil deps error = %v, want nil", err)
+	}
+	if err := CheckFilepathDependenciesInContainer(&invowkfile.DependsOn{}, nil, execCtx); err != nil {
+		t.Fatalf("empty filepath deps error = %v, want nil", err)
+	}
+}
+
+func testCheckFilepathDependenciesInContainerMissingRuntime(t *testing.T, execCtx ExecutionContext) {
+	t.Helper()
+
+	err := CheckFilepathDependenciesInContainer(testContainerFilepathDeps(), nil, execCtx)
+	if err == nil || !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+		t.Fatalf("err = %v, want wrapping ErrRuntimeDependencyProbeRequired", err)
+	}
+}
+
+func testCheckFilepathDependenciesInContainerAggregatesFailures(t *testing.T, execCtx ExecutionContext) {
+	t.Helper()
+
+	probe := &filepathStubRuntime{
+		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+			if _, err := io.WriteString(ctx.IO.Stderr, "permission denied"); err != nil {
+				t.Fatalf("WriteString(): %v", err)
+			}
+			return &runtimepkg.Result{ExitCode: 1}
+		},
+	}
+
+	err := CheckFilepathDependenciesInContainer(testContainerFilepathDeps(), probe, execCtx)
+	depErr := requireFilepathContainerDependencyError(t, err, execCtx)
+	requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
+	if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, "permission denied") {
+		t.Fatalf("StructuredFailures[0].Detail() = %q, want containing permission denied", got)
+	}
+}
+
+func testCheckFilepathDependenciesInContainerSuccess(t *testing.T, execCtx ExecutionContext) {
+	t.Helper()
+
+	if err := CheckFilepathDependenciesInContainer(testContainerFilepathDeps(), &filepathStubRuntime{}, execCtx); err != nil {
+		t.Fatalf("CheckFilepathDependenciesInContainer() = %v", err)
+	}
+}
+
+func testContainerFilepathDeps() *invowkfile.DependsOn {
+	return &invowkfile.DependsOn{
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
+	}
+}
+
+func requireFilepathContainerDependencyError(t *testing.T, err error, execCtx ExecutionContext) *DependencyError {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+	}
+	if len(depErr.MissingFilepaths) != 1 {
+		t.Fatalf("len(depErr.MissingFilepaths) = %d, want 1", len(depErr.MissingFilepaths))
+	}
+	if depErr.CommandName != execCtx.CommandName {
+		t.Fatalf("DependencyError.CommandName = %q, want %q", depErr.CommandName, execCtx.CommandName)
+	}
+	return depErr
 }
 
 func TestCheckHostFilepathDependenciesRequiresProbe(t *testing.T) {

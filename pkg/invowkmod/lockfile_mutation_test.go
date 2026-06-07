@@ -283,95 +283,80 @@ func TestLockFileMutationParseModuleKeyBoundaries(t *testing.T) {
 func TestLockFileMutationParserErrorContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("unknown version preserves payload", func(t *testing.T) {
-		t.Parallel()
+	t.Run("unknown version preserves payload", testLockFileMutationUnknownVersionPayload)
+	t.Run("generated timestamp wraps parse error", testLockFileMutationGeneratedTimestampParseError)
+	t.Run("cue syntax errors wrap cue error", testLockFileMutationCUESyntaxError)
+	t.Run("non-concrete values fail validation before decode", testLockFileMutationNonConcreteValidation)
+	t.Run("decode errors are returned", testLockFileMutationDecodeErrors)
+	t.Run("v2 missing content hash preserves module key", testLockFileMutationMissingContentHashModuleKey)
+	t.Run("v2 split metadata errors preserve module key", testLockFileMutationSplitMetadataModuleKey)
+}
 
-		_, err := parseLockFile(`version: "99.0"
+func testLockFileMutationUnknownVersionPayload(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseLockFile(`version: "99.0"
 generated: "2025-01-15T10:30:00Z"
 modules: {}`)
-		if !errors.Is(err, ErrUnknownLockFileVersion) {
-			t.Fatalf("parseLockFile() error = %v, want ErrUnknownLockFileVersion", err)
-		}
-		var versionErr *UnknownLockFileVersionError
-		if !errors.As(err, &versionErr) {
-			t.Fatalf("parseLockFile() error type = %T, want *UnknownLockFileVersionError", err)
-		}
-		if versionErr.Version != "99.0" {
-			t.Fatalf("UnknownLockFileVersionError.Version = %q, want 99.0", versionErr.Version)
-		}
-		if len(versionErr.Known) != 2 ||
-			versionErr.Known[0] != LockFileVersionV1 ||
-			versionErr.Known[1] != LockFileVersionV2 {
-			t.Fatalf("UnknownLockFileVersionError.Known = %#v, want v1 and v2", versionErr.Known)
-		}
-	})
+	if !errors.Is(err, ErrUnknownLockFileVersion) {
+		t.Fatalf("parseLockFile() error = %v, want ErrUnknownLockFileVersion", err)
+	}
+	var versionErr *UnknownLockFileVersionError
+	if !errors.As(err, &versionErr) {
+		t.Fatalf("parseLockFile() error type = %T, want *UnknownLockFileVersionError", err)
+	}
+	if versionErr.Version != "99.0" {
+		t.Fatalf("UnknownLockFileVersionError.Version = %q, want 99.0", versionErr.Version)
+	}
+	if len(versionErr.Known) != 2 ||
+		versionErr.Known[0] != LockFileVersionV1 ||
+		versionErr.Known[1] != LockFileVersionV2 {
+		t.Fatalf("UnknownLockFileVersionError.Known = %#v, want v1 and v2", versionErr.Known)
+	}
+}
 
-	t.Run("generated timestamp wraps parse error", func(t *testing.T) {
-		t.Parallel()
+func testLockFileMutationGeneratedTimestampParseError(t *testing.T) {
+	t.Parallel()
 
-		_, err := parseLockFile(`version: "2.0"
+	_, err := parseLockFile(`version: "2.0"
 generated: "not-rfc3339"
 modules: {}`)
-		var parseErr *time.ParseError
-		if !errors.As(err, &parseErr) {
-			t.Fatalf("parseLockFile() error = %v, want wrapped *time.ParseError", err)
-		}
-	})
+	var parseErr *time.ParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("parseLockFile() error = %v, want wrapped *time.ParseError", err)
+	}
+}
 
-	t.Run("cue syntax errors wrap cue error", func(t *testing.T) {
-		t.Parallel()
+func testLockFileMutationCUESyntaxError(t *testing.T) {
+	t.Parallel()
 
-		_, err := decodeLockFileCUE(`version: "2.0"
+	_, err := decodeLockFileCUE(`version: "2.0"
 modules: {`)
-		var cueErr cueerrors.Error
-		if !errors.As(err, &cueErr) {
-			t.Fatalf("decodeLockFileCUE() error = %v, want wrapped CUE error", err)
-		}
-		if !strings.Contains(err.Error(), "parse lock file CUE") {
-			t.Fatalf("decodeLockFileCUE() error = %v, want parse wrapper", err)
-		}
-	})
+	requireLockFileMutationCUEError(t, err, "parse lock file CUE")
+}
 
-	t.Run("non-concrete values fail validation before decode", func(t *testing.T) {
-		t.Parallel()
+func testLockFileMutationNonConcreteValidation(t *testing.T) {
+	t.Parallel()
 
-		_, err := decodeLockFileCUE(`version: "2.0"
+	_, err := decodeLockFileCUE(`version: "2.0"
 generated: string
 modules: {}`)
-		if err == nil {
-			t.Fatal("decodeLockFileCUE() error = nil, want non-concrete validation error")
-		}
-		if !strings.Contains(err.Error(), "validate lock file CUE") {
-			t.Fatalf("decodeLockFileCUE() error = %v, want validation wrapper", err)
-		}
-		var cueErr cueerrors.Error
-		if !errors.As(err, &cueErr) {
-			t.Fatalf("decodeLockFileCUE() error = %v, want wrapped CUE validation error", err)
-		}
-	})
+	requireLockFileMutationCUEError(t, err, "validate lock file CUE")
+}
 
-	t.Run("decode errors are returned", func(t *testing.T) {
-		t.Parallel()
+func testLockFileMutationDecodeErrors(t *testing.T) {
+	t.Parallel()
 
-		_, err := decodeLockFileCUE(`version: 2.0
+	_, err := decodeLockFileCUE(`version: 2.0
 generated: "2025-01-15T10:30:00Z"
 modules: {}`)
-		if err == nil {
-			t.Fatal("decodeLockFileCUE() error = nil, want decode error")
-		}
-		if !strings.Contains(err.Error(), "decode lock file CUE") {
-			t.Fatalf("decodeLockFileCUE() error = %v, want decode wrapper", err)
-		}
-		var cueErr cueerrors.Error
-		if !errors.As(err, &cueErr) {
-			t.Fatalf("decodeLockFileCUE() error = %v, want wrapped CUE decode error", err)
-		}
-	})
+	requireLockFileMutationCUEError(t, err, "decode lock file CUE")
+}
 
-	t.Run("v2 missing content hash preserves module key", func(t *testing.T) {
-		t.Parallel()
+func testLockFileMutationMissingContentHashModuleKey(t *testing.T) {
+	t.Parallel()
 
-		_, err := parseLockFile(`version: "2.0"
+	_, err := parseLockFile(`version: "2.0"
 generated: "2025-01-15T10:30:00Z"
 modules: {
 	"https://github.com/example/tools.git": {
@@ -384,44 +369,45 @@ modules: {
 		module_id:        "io.example.tools"
 	}
 }`)
-		if !errors.Is(err, ErrInvalidLockedModule) {
-			t.Fatalf("parseLockFile() error = %v, want ErrInvalidLockedModule", err)
-		}
-		var lockedErr *InvalidLockedModuleError
-		if !errors.As(err, &lockedErr) {
-			t.Fatalf("parseLockFile() error type = %T, want *InvalidLockedModuleError", err)
-		}
-		if lockedErr.ModuleKey != ModuleRefKey(lockMutationGitURL) {
-			t.Fatalf("InvalidLockedModuleError.ModuleKey = %q, want %q", lockedErr.ModuleKey, lockMutationGitURL)
-		}
-		if len(lockedErr.FieldErrors) != 1 || !errors.Is(lockedErr.FieldErrors[0], ErrInvalidContentHash) {
-			t.Fatalf("InvalidLockedModuleError.FieldErrors = %#v, want missing content hash only", lockedErr.FieldErrors)
-		}
-	})
+	lockedErr := requireInvalidLockedModuleError(t, err)
+	if lockedErr.ModuleKey != ModuleRefKey(lockMutationGitURL) {
+		t.Fatalf("InvalidLockedModuleError.ModuleKey = %q, want %q", lockedErr.ModuleKey, lockMutationGitURL)
+	}
+	if len(lockedErr.FieldErrors) != 1 || !errors.Is(lockedErr.FieldErrors[0], ErrInvalidContentHash) {
+		t.Fatalf("InvalidLockedModuleError.FieldErrors = %#v, want missing content hash only", lockedErr.FieldErrors)
+	}
+}
 
-	t.Run("v2 split metadata errors preserve module key", func(t *testing.T) {
-		t.Parallel()
+func testLockFileMutationSplitMetadataModuleKey(t *testing.T) {
+	t.Parallel()
 
-		key := ModuleRefKey(lockMutationGitURL)
-		mod := validLockMutationLockedModule()
-		mod.CommandSourceID = ""
+	key := ModuleRefKey(lockMutationGitURL)
+	mod := validLockMutationLockedModule()
+	mod.CommandSourceID = ""
 
-		err := validateLockedModuleForVersion(key, mod, true)
-		if !errors.Is(err, ErrInvalidLockedModule) {
-			t.Fatalf("validateLockedModuleForVersion() error = %v, want ErrInvalidLockedModule", err)
-		}
-		var lockedErr *InvalidLockedModuleError
-		if !errors.As(err, &lockedErr) {
-			t.Fatalf("validateLockedModuleForVersion() error type = %T, want *InvalidLockedModuleError", err)
-		}
-		if lockedErr.ModuleKey != key {
-			t.Fatalf("InvalidLockedModuleError.ModuleKey = %q, want %q", lockedErr.ModuleKey, key)
-		}
-		if len(lockedErr.FieldErrors) != 1 ||
-			!strings.Contains(lockedErr.FieldErrors[0].Error(), "command_source_id is required") {
-			t.Fatalf("InvalidLockedModuleError.FieldErrors = %#v, want command_source_id requirement", lockedErr.FieldErrors)
-		}
-	})
+	lockedErr := requireInvalidLockedModuleError(t, validateLockedModuleForVersion(key, mod, true))
+	if lockedErr.ModuleKey != key {
+		t.Fatalf("InvalidLockedModuleError.ModuleKey = %q, want %q", lockedErr.ModuleKey, key)
+	}
+	if len(lockedErr.FieldErrors) != 1 ||
+		!strings.Contains(lockedErr.FieldErrors[0].Error(), "command_source_id is required") {
+		t.Fatalf("InvalidLockedModuleError.FieldErrors = %#v, want command_source_id requirement", lockedErr.FieldErrors)
+	}
+}
+
+func requireLockFileMutationCUEError(t *testing.T, err error, wantWrapper string) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatalf("decodeLockFileCUE() error = nil, want %s error", wantWrapper)
+	}
+	if !strings.Contains(err.Error(), wantWrapper) {
+		t.Fatalf("decodeLockFileCUE() error = %v, want wrapper %q", err, wantWrapper)
+	}
+	var cueErr cueerrors.Error
+	if !errors.As(err, &cueErr) {
+		t.Fatalf("decodeLockFileCUE() error = %v, want wrapped CUE error", err)
+	}
 }
 
 func validLockMutationLockedModule() LockedModule {

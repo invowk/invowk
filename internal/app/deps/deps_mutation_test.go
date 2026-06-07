@@ -58,7 +58,7 @@ type (
 func TestExecutionContextGoContextMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	if got := (ExecutionContext{}).GoContext(); got == nil {
+	if (ExecutionContext{}).GoContext() == nil {
 		t.Fatal("ExecutionContext{}.GoContext() = nil, want fallback context")
 	}
 

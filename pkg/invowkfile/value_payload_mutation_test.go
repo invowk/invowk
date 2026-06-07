@@ -10,71 +10,82 @@ import (
 func TestValueErrorPayloadMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("dotenv file path preserves invalid value", func(t *testing.T) {
-		t.Parallel()
-		value := DotenvFilePath(" \t ")
-		valueErr := requireValuePayloadMutationAs[*InvalidDotenvFilePathError](t, value.Validate())
-		if !errors.Is(valueErr, ErrInvalidDotenvFilePath) {
-			t.Fatalf("Validate() error = %v, want ErrInvalidDotenvFilePath", valueErr)
-		}
-		if valueErr.Value != value {
-			t.Fatalf("InvalidDotenvFilePathError.Value = %q, want %q", valueErr.Value, value)
-		}
-	})
+	t.Run("dotenv file path preserves invalid value", testDotenvFilePathValuePayloadMutation)
+	t.Run("env config preserves field errors", testEnvConfigValuePayloadMutation)
+	t.Run("port mapping preserves invalid value and reason", testPortMappingValuePayloadMutation)
+	t.Run("volume mount preserves invalid value and reason", testVolumeMountValuePayloadMutation)
+	t.Run("workdir preserves invalid value", testWorkDirValuePayloadMutation)
+}
 
-	t.Run("env config preserves field errors", func(t *testing.T) {
-		t.Parallel()
-		valueErr := requireValuePayloadMutationAs[*InvalidEnvConfigError](t, EnvConfig{
-			Files: []DotenvFilePath{" \t "},
-			Vars:  map[EnvVarName]string{"1BAD": "x"},
-		}.Validate())
-		if !errors.Is(valueErr, ErrInvalidEnvConfig) {
-			t.Fatalf("Validate() error = %v, want ErrInvalidEnvConfig", valueErr)
-		}
-		requireValuePayloadFieldErrors(t, valueErr.FieldErrors, ErrInvalidDotenvFilePath, ErrInvalidEnvVarName)
-	})
+func testDotenvFilePathValuePayloadMutation(t *testing.T) {
+	t.Parallel()
 
-	t.Run("port mapping preserves invalid value and reason", func(t *testing.T) {
-		t.Parallel()
-		value := PortMappingSpec("0:80")
-		valueErr := requireValuePayloadMutationAs[*InvalidPortMappingSpecError](t, value.Validate())
-		if !errors.Is(valueErr, ErrInvalidPortMappingSpec) {
-			t.Fatalf("Validate() error = %v, want ErrInvalidPortMappingSpec", valueErr)
-		}
-		if valueErr.Value != value {
-			t.Fatalf("InvalidPortMappingSpecError.Value = %q, want %q", valueErr.Value, value)
-		}
-		if valueErr.Reason == "" {
-			t.Fatal("InvalidPortMappingSpecError.Reason is empty, want validation detail")
-		}
-	})
+	value := DotenvFilePath(" \t ")
+	valueErr := requireValuePayloadMutationAs[*InvalidDotenvFilePathError](t, value.Validate())
+	if !errors.Is(valueErr, ErrInvalidDotenvFilePath) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidDotenvFilePath", valueErr)
+	}
+	if valueErr.Value != value {
+		t.Fatalf("InvalidDotenvFilePathError.Value = %q, want %q", valueErr.Value, value)
+	}
+}
 
-	t.Run("volume mount preserves invalid value and reason", func(t *testing.T) {
-		t.Parallel()
-		value := VolumeMountSpec("/just-a-path")
-		valueErr := requireValuePayloadMutationAs[*InvalidVolumeMountSpecError](t, value.Validate())
-		if !errors.Is(valueErr, ErrInvalidVolumeMountSpec) {
-			t.Fatalf("Validate() error = %v, want ErrInvalidVolumeMountSpec", valueErr)
-		}
-		if valueErr.Value != value {
-			t.Fatalf("InvalidVolumeMountSpecError.Value = %q, want %q", valueErr.Value, value)
-		}
-		if valueErr.Reason == "" {
-			t.Fatal("InvalidVolumeMountSpecError.Reason is empty, want validation detail")
-		}
-	})
+func testEnvConfigValuePayloadMutation(t *testing.T) {
+	t.Parallel()
 
-	t.Run("workdir preserves invalid value", func(t *testing.T) {
-		t.Parallel()
-		value := WorkDir(" \t ")
-		valueErr := requireValuePayloadMutationAs[*InvalidWorkDirError](t, value.Validate())
-		if !errors.Is(valueErr, ErrInvalidWorkDir) {
-			t.Fatalf("Validate() error = %v, want ErrInvalidWorkDir", valueErr)
-		}
-		if valueErr.Value != value {
-			t.Fatalf("InvalidWorkDirError.Value = %q, want %q", valueErr.Value, value)
-		}
-	})
+	valueErr := requireValuePayloadMutationAs[*InvalidEnvConfigError](t, EnvConfig{
+		Files: []DotenvFilePath{" \t "},
+		Vars:  map[EnvVarName]string{"1BAD": "x"},
+	}.Validate())
+	if !errors.Is(valueErr, ErrInvalidEnvConfig) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidEnvConfig", valueErr)
+	}
+	requireValuePayloadFieldErrors(t, valueErr.FieldErrors, ErrInvalidDotenvFilePath, ErrInvalidEnvVarName)
+}
+
+func testPortMappingValuePayloadMutation(t *testing.T) {
+	t.Parallel()
+
+	value := PortMappingSpec("0:80")
+	valueErr := requireValuePayloadMutationAs[*InvalidPortMappingSpecError](t, value.Validate())
+	if !errors.Is(valueErr, ErrInvalidPortMappingSpec) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidPortMappingSpec", valueErr)
+	}
+	if valueErr.Value != value {
+		t.Fatalf("InvalidPortMappingSpecError.Value = %q, want %q", valueErr.Value, value)
+	}
+	if valueErr.Reason == "" {
+		t.Fatal("InvalidPortMappingSpecError.Reason is empty, want validation detail")
+	}
+}
+
+func testVolumeMountValuePayloadMutation(t *testing.T) {
+	t.Parallel()
+
+	value := VolumeMountSpec("/just-a-path")
+	valueErr := requireValuePayloadMutationAs[*InvalidVolumeMountSpecError](t, value.Validate())
+	if !errors.Is(valueErr, ErrInvalidVolumeMountSpec) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidVolumeMountSpec", valueErr)
+	}
+	if valueErr.Value != value {
+		t.Fatalf("InvalidVolumeMountSpecError.Value = %q, want %q", valueErr.Value, value)
+	}
+	if valueErr.Reason == "" {
+		t.Fatal("InvalidVolumeMountSpecError.Reason is empty, want validation detail")
+	}
+}
+
+func testWorkDirValuePayloadMutation(t *testing.T) {
+	t.Parallel()
+
+	value := WorkDir(" \t ")
+	valueErr := requireValuePayloadMutationAs[*InvalidWorkDirError](t, value.Validate())
+	if !errors.Is(valueErr, ErrInvalidWorkDir) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidWorkDir", valueErr)
+	}
+	if valueErr.Value != value {
+		t.Fatalf("InvalidWorkDirError.Value = %q, want %q", valueErr.Value, value)
+	}
 }
 
 func requireValuePayloadMutationAs[T error](t *testing.T, err error) T {

@@ -473,64 +473,67 @@ func TestValidateVariadicArgumentValues(t *testing.T) {
 func TestArgumentValidationErrorConstructorsPreservePayloads(t *testing.T) {
 	t.Parallel()
 
-	t.Run("count error", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "src", Required: true},
-			{Name: "dst", Required: true},
-			{Name: "mode"},
-		}
-		provided := []string{"src.txt"}
-		err := newArgumentCountError(ArgErrMissingRequired, "copy", provided, defs, 2, 3)
-		argErr := requireArgumentValidationError(t, err)
+	t.Run("count error", testArgumentValidationCountErrorPreservesPayload)
+	t.Run("value error", testArgumentValidationValueErrorPreservesPayload)
+}
 
-		if argErr.Type != ArgErrMissingRequired {
-			t.Fatalf("Type = %v, want %v", argErr.Type, ArgErrMissingRequired)
-		}
-		if argErr.CommandName != "copy" {
-			t.Fatalf("CommandName = %q, want copy", argErr.CommandName)
-		}
-		if !slices.Equal(argErr.ArgDefs, defs) {
-			t.Fatalf("ArgDefs = %+v, want %+v", argErr.ArgDefs, defs)
-		}
-		if !slices.Equal(argErr.ProvidedArgs, provided) {
-			t.Fatalf("ProvidedArgs = %v, want %v", argErr.ProvidedArgs, provided)
-		}
-		if argErr.MinArgs != 2 || argErr.MaxArgs != 3 {
-			t.Fatalf("argument bounds = %d/%d, want 2/3", argErr.MinArgs, argErr.MaxArgs)
-		}
-	})
+func testArgumentValidationCountErrorPreservesPayload(t *testing.T) {
+	t.Parallel()
 
-	t.Run("value error", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "host"},
-			{Name: "port", Type: invowkfile.ArgumentTypeInt},
-		}
-		provided := []string{"localhost", "bad"}
-		valueErr := errors.New("port must be numeric")
-		err := newArgumentValueError("serve", provided, defs, "port", "bad", valueErr)
-		argErr := requireArgumentValidationError(t, err)
+	defs := []invowkfile.Argument{
+		{Name: "src", Required: true},
+		{Name: "dst", Required: true},
+		{Name: "mode"},
+	}
+	provided := []string{"src.txt"}
+	argErr := requireArgumentValidationError(t, newArgumentCountError(ArgErrMissingRequired, "copy", provided, defs, 2, 3))
 
-		if argErr.Type != ArgErrInvalidValue {
-			t.Fatalf("Type = %v, want %v", argErr.Type, ArgErrInvalidValue)
-		}
-		if argErr.CommandName != "serve" {
-			t.Fatalf("CommandName = %q, want serve", argErr.CommandName)
-		}
-		if !slices.Equal(argErr.ArgDefs, defs) {
-			t.Fatalf("ArgDefs = %+v, want %+v", argErr.ArgDefs, defs)
-		}
-		if !slices.Equal(argErr.ProvidedArgs, provided) {
-			t.Fatalf("ProvidedArgs = %v, want %v", argErr.ProvidedArgs, provided)
-		}
-		if argErr.InvalidArg != "port" || argErr.InvalidValue != "bad" {
-			t.Fatalf("invalid argument payload = %q/%q, want port/bad", argErr.InvalidArg, argErr.InvalidValue)
-		}
-		if !errors.Is(argErr.ValueError, valueErr) {
-			t.Fatalf("ValueError = %v, want %v", argErr.ValueError, valueErr)
-		}
-	})
+	if argErr.Type != ArgErrMissingRequired {
+		t.Fatalf("Type = %v, want %v", argErr.Type, ArgErrMissingRequired)
+	}
+	if argErr.CommandName != "copy" {
+		t.Fatalf("CommandName = %q, want copy", argErr.CommandName)
+	}
+	if !slices.Equal(argErr.ArgDefs, defs) {
+		t.Fatalf("ArgDefs = %+v, want %+v", argErr.ArgDefs, defs)
+	}
+	if !slices.Equal(argErr.ProvidedArgs, provided) {
+		t.Fatalf("ProvidedArgs = %v, want %v", argErr.ProvidedArgs, provided)
+	}
+	if argErr.MinArgs != 2 || argErr.MaxArgs != 3 {
+		t.Fatalf("argument bounds = %d/%d, want 2/3", argErr.MinArgs, argErr.MaxArgs)
+	}
+}
+
+func testArgumentValidationValueErrorPreservesPayload(t *testing.T) {
+	t.Parallel()
+
+	defs := []invowkfile.Argument{
+		{Name: "host"},
+		{Name: "port", Type: invowkfile.ArgumentTypeInt},
+	}
+	provided := []string{"localhost", "bad"}
+	valueErr := errors.New("port must be numeric")
+	argErr := requireArgumentValidationError(t, newArgumentValueError("serve", provided, defs, "port", "bad", valueErr))
+
+	if argErr.Type != ArgErrInvalidValue {
+		t.Fatalf("Type = %v, want %v", argErr.Type, ArgErrInvalidValue)
+	}
+	if argErr.CommandName != "serve" {
+		t.Fatalf("CommandName = %q, want serve", argErr.CommandName)
+	}
+	if !slices.Equal(argErr.ArgDefs, defs) {
+		t.Fatalf("ArgDefs = %+v, want %+v", argErr.ArgDefs, defs)
+	}
+	if !slices.Equal(argErr.ProvidedArgs, provided) {
+		t.Fatalf("ProvidedArgs = %v, want %v", argErr.ProvidedArgs, provided)
+	}
+	if argErr.InvalidArg != "port" || argErr.InvalidValue != "bad" {
+		t.Fatalf("invalid argument payload = %q/%q, want port/bad", argErr.InvalidArg, argErr.InvalidValue)
+	}
+	if !errors.Is(argErr.ValueError, valueErr) {
+		t.Fatalf("ValueError = %v, want %v", argErr.ValueError, valueErr)
+	}
 }
 
 func TestArgumentValidationErrorMessages(t *testing.T) {

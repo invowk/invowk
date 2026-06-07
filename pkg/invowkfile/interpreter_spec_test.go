@@ -62,74 +62,84 @@ func TestInterpreterSpec_String(t *testing.T) {
 func TestInterpreterSpecMutationValidationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("invalid whitespace preserves value", func(t *testing.T) {
-		t.Parallel()
+	t.Run("invalid whitespace preserves value", testInterpreterSpecInvalidWhitespacePreservesValue)
+	t.Run("env path forms", testInterpreterSpecEnvPathForms)
+	t.Run("unsafe env diagnostics", testInterpreterSpecUnsafeEnvDiagnostics)
+}
 
-		spec := InterpreterSpec(" \t ")
-		err := spec.Validate()
-		if !errors.Is(err, ErrInvalidInterpreterSpec) {
-			t.Fatalf("InterpreterSpec.Validate() error = %v, want ErrInvalidInterpreterSpec", err)
-		}
-		var invalidErr *InvalidInterpreterSpecError
-		if !errors.As(err, &invalidErr) {
-			t.Fatalf("InterpreterSpec.Validate() error type = %T, want *InvalidInterpreterSpecError", err)
-		}
-		if invalidErr.Value != spec {
-			t.Fatalf("InvalidInterpreterSpecError.Value = %q, want %q", invalidErr.Value, spec)
-		}
-		if got, want := err.Error(), `invalid interpreter spec " \t ": non-empty value must not be whitespace-only`; got != want {
-			t.Fatalf("InvalidInterpreterSpecError.Error() = %q, want %q", got, want)
-		}
-	})
+func testInterpreterSpecInvalidWhitespacePreservesValue(t *testing.T) {
+	t.Parallel()
 
-	t.Run("env path forms", func(t *testing.T) {
-		t.Parallel()
+	spec := InterpreterSpec(" \t ")
+	err := spec.Validate()
+	if !errors.Is(err, ErrInvalidInterpreterSpec) {
+		t.Fatalf("InterpreterSpec.Validate() error = %v, want ErrInvalidInterpreterSpec", err)
+	}
+	var invalidErr *InvalidInterpreterSpecError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("InterpreterSpec.Validate() error type = %T, want *InvalidInterpreterSpecError", err)
+	}
+	if invalidErr.Value != spec {
+		t.Fatalf("InvalidInterpreterSpecError.Value = %q, want %q", invalidErr.Value, spec)
+	}
+	if got, want := err.Error(), `invalid interpreter spec " \t ": non-empty value must not be whitespace-only`; got != want {
+		t.Fatalf("InvalidInterpreterSpecError.Error() = %q, want %q", got, want)
+	}
+}
 
-		validSpecs := []InterpreterSpec{
-			"python3.exe",
-			"/usr/bin/env python3",
-			"/bin/env python3",
-			"/usr/bin/env python3.exe",
-		}
-		for _, spec := range validSpecs {
-			if err := spec.Validate(); err != nil {
-				t.Fatalf("InterpreterSpec(%q).Validate() error = %v, want nil", spec, err)
-			}
-		}
-	})
+func testInterpreterSpecEnvPathForms(t *testing.T) {
+	t.Parallel()
 
-	t.Run("unsafe env diagnostics", func(t *testing.T) {
-		t.Parallel()
-
-		tests := []struct {
-			spec       InterpreterSpec
-			wantReason string
-		}{
-			{
-				spec:       "env python3",
-				wantReason: "bare 'env' requires full path (/usr/bin/env or /bin/env)",
-			},
-			{
-				spec:       "/usr/bin/env",
-				wantReason: "env requires an interpreter argument",
-			},
+	validSpecs := []InterpreterSpec{
+		"python3.exe",
+		"/usr/bin/env python3",
+		"/bin/env python3",
+		"/usr/bin/env python3.exe",
+	}
+	for _, spec := range validSpecs {
+		if err := spec.Validate(); err != nil {
+			t.Fatalf("InterpreterSpec(%q).Validate() error = %v, want nil", spec, err)
 		}
+	}
+}
 
-		for _, tt := range tests {
-			err := tt.spec.Validate()
-			if !errors.Is(err, ErrUnsafeInterpreterSpec) {
-				t.Fatalf("InterpreterSpec(%q).Validate() error = %v, want ErrUnsafeInterpreterSpec", tt.spec, err)
-			}
-			var unsafeErr *UnsafeInterpreterSpecError
-			if !errors.As(err, &unsafeErr) {
-				t.Fatalf("InterpreterSpec(%q).Validate() error type = %T, want *UnsafeInterpreterSpecError", tt.spec, err)
-			}
-			if unsafeErr.Value != tt.spec {
-				t.Fatalf("UnsafeInterpreterSpecError.Value = %q, want %q", unsafeErr.Value, tt.spec)
-			}
-			if unsafeErr.Reason != tt.wantReason {
-				t.Fatalf("UnsafeInterpreterSpecError.Reason = %q, want %q", unsafeErr.Reason, tt.wantReason)
-			}
-		}
-	})
+func testInterpreterSpecUnsafeEnvDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		spec       InterpreterSpec
+		wantReason string
+	}{
+		{
+			spec:       "env python3",
+			wantReason: "bare 'env' requires full path (/usr/bin/env or /bin/env)",
+		},
+		{
+			spec:       "/usr/bin/env",
+			wantReason: "env requires an interpreter argument",
+		},
+	}
+
+	for _, tt := range tests {
+		requireUnsafeInterpreterSpecError(t, tt.spec, tt.wantReason)
+	}
+}
+
+func requireUnsafeInterpreterSpecError(t *testing.T, spec InterpreterSpec, wantReason string) {
+	t.Helper()
+
+	err := spec.Validate()
+	if !errors.Is(err, ErrUnsafeInterpreterSpec) {
+		t.Fatalf("InterpreterSpec(%q).Validate() error = %v, want ErrUnsafeInterpreterSpec", spec, err)
+	}
+	var unsafeErr *UnsafeInterpreterSpecError
+	if !errors.As(err, &unsafeErr) {
+		t.Fatalf("InterpreterSpec(%q).Validate() error type = %T, want *UnsafeInterpreterSpecError", spec, err)
+	}
+	if unsafeErr.Value != spec {
+		t.Fatalf("UnsafeInterpreterSpecError.Value = %q, want %q", unsafeErr.Value, spec)
+	}
+	if unsafeErr.Reason != wantReason {
+		t.Fatalf("UnsafeInterpreterSpecError.Reason = %q, want %q", unsafeErr.Reason, wantReason)
+	}
 }

@@ -93,24 +93,34 @@ func testSourceIDValidationPayloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.value.Validate()
-			if tt.wantReason == "" {
-				if err != nil {
-					t.Fatalf("Validate() error = %v, want nil for exact maximum length", err)
-				}
-				return
-			}
-			typed := requireDependencyMutationAs[*InvalidCommandDependencySourceIDError](t, err)
-			if !errors.Is(err, ErrInvalidCommandDependencySourceID) {
-				t.Fatalf("Validate() error = %v, want ErrInvalidCommandDependencySourceID", err)
-			}
-			if typed.Value != tt.value {
-				t.Fatalf("Value = %q, want %q", typed.Value, tt.value)
-			}
-			if typed.Reason != tt.wantReason {
-				t.Fatalf("Reason = %q, want %q", typed.Reason, tt.wantReason)
-			}
+			requireCommandDependencySourceIDValidation(t, tt.value, tt.wantReason)
 		})
+	}
+}
+
+func requireCommandDependencySourceIDValidation(
+	t *testing.T,
+	value CommandDependencySourceID,
+	wantReason string,
+) {
+	t.Helper()
+
+	err := value.Validate()
+	if wantReason == "" {
+		if err != nil {
+			t.Fatalf("Validate() error = %v, want nil for exact maximum length", err)
+		}
+		return
+	}
+	typed := requireDependencyMutationAs[*InvalidCommandDependencySourceIDError](t, err)
+	if !errors.Is(err, ErrInvalidCommandDependencySourceID) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidCommandDependencySourceID", err)
+	}
+	if typed.Value != value {
+		t.Fatalf("Value = %q, want %q", typed.Value, value)
+	}
+	if typed.Reason != wantReason {
+		t.Fatalf("Reason = %q, want %q", typed.Reason, wantReason)
 	}
 }
 

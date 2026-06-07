@@ -273,22 +273,36 @@ func TestParseModuleName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result, err := ParseModuleName(tt.folderName)
-			if tt.expectedOK {
-				if err != nil {
-					t.Errorf("ParseModuleName(%q) returned error: %v, expected %q", tt.folderName, err, tt.expectedVal)
-				}
-				if string(result) != tt.expectedVal {
-					t.Errorf("ParseModuleName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
-				}
-			} else {
-				if err == nil {
-					t.Errorf("ParseModuleName(%q) = %q, expected error", tt.folderName, result)
-				} else if tt.expectedErr != "" && err.Error() != tt.expectedErr {
-					t.Errorf("ParseModuleName(%q) error = %q, want %q", tt.folderName, err, tt.expectedErr)
-				}
-			}
+			requireParseModuleNameResult(t, tt.folderName, tt.expectedOK, tt.expectedVal, tt.expectedErr)
 		})
+	}
+}
+
+func requireParseModuleNameResult(
+	t *testing.T,
+	folderName string,
+	expectedOK bool,
+	expectedVal string,
+	expectedErr string,
+) {
+	t.Helper()
+
+	result, err := ParseModuleName(folderName)
+	if expectedOK {
+		if err != nil {
+			t.Errorf("ParseModuleName(%q) returned error: %v, expected %q", folderName, err, expectedVal)
+		}
+		if string(result) != expectedVal {
+			t.Errorf("ParseModuleName(%q) = %q, want %q", folderName, result, expectedVal)
+		}
+		return
+	}
+	if err == nil {
+		t.Errorf("ParseModuleName(%q) = %q, expected error", folderName, result)
+		return
+	}
+	if expectedErr != "" && err.Error() != expectedErr {
+		t.Errorf("ParseModuleName(%q) error = %q, want %q", folderName, err, expectedErr)
 	}
 }
 
@@ -333,29 +347,53 @@ func TestCanonicalModuleDirectoryName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := CanonicalModuleDirectoryName(tt.moduleID)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("CanonicalModuleDirectoryName(%q) error = nil, want error", tt.moduleID)
-				}
-				if tt.wantInvalidValue != "" {
-					var invalidErr *InvalidModuleIDError
-					if !errors.As(err, &invalidErr) {
-						t.Fatalf("CanonicalModuleDirectoryName(%q) error = %T, want *InvalidModuleIDError", tt.moduleID, err)
-					}
-					if invalidErr.Value != tt.wantInvalidValue {
-						t.Fatalf("InvalidModuleIDError.Value = %q, want %q", invalidErr.Value, tt.wantInvalidValue)
-					}
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("CanonicalModuleDirectoryName(%q) error = %v", tt.moduleID, err)
-			}
-			if got.String() != tt.want {
-				t.Fatalf("CanonicalModuleDirectoryName(%q) = %q, want %q", tt.moduleID, got, tt.want)
-			}
+			requireCanonicalModuleDirectoryName(t, tt.moduleID, tt.want, tt.wantErr, tt.wantInvalidValue)
 		})
+	}
+}
+
+func requireCanonicalModuleDirectoryName(
+	t *testing.T,
+	moduleID ModuleID,
+	want string,
+	wantErr bool,
+	wantInvalidValue ModuleID,
+) {
+	t.Helper()
+
+	got, err := CanonicalModuleDirectoryName(moduleID)
+	if wantErr {
+		requireCanonicalModuleDirectoryNameError(t, moduleID, err, wantInvalidValue)
+		return
+	}
+	if err != nil {
+		t.Fatalf("CanonicalModuleDirectoryName(%q) error = %v", moduleID, err)
+	}
+	if got.String() != want {
+		t.Fatalf("CanonicalModuleDirectoryName(%q) = %q, want %q", moduleID, got, want)
+	}
+}
+
+func requireCanonicalModuleDirectoryNameError(
+	t *testing.T,
+	moduleID ModuleID,
+	err error,
+	wantInvalidValue ModuleID,
+) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatalf("CanonicalModuleDirectoryName(%q) error = nil, want error", moduleID)
+	}
+	if wantInvalidValue == "" {
+		return
+	}
+	var invalidErr *InvalidModuleIDError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("CanonicalModuleDirectoryName(%q) error = %T, want *InvalidModuleIDError", moduleID, err)
+	}
+	if invalidErr.Value != wantInvalidValue {
+		t.Fatalf("InvalidModuleIDError.Value = %q, want %q", invalidErr.Value, wantInvalidValue)
 	}
 }
 

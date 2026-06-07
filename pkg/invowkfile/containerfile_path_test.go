@@ -99,25 +99,35 @@ func TestContainerfilePathValidationErrorPayloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.path.Validate()
-			if !errors.Is(err, invowkfile.ErrInvalidContainerfilePath) {
-				t.Fatalf("ContainerfilePath(%q).Validate() error = %v, want ErrInvalidContainerfilePath", tt.path, err)
-			}
-			var pathErr *invowkfile.InvalidContainerfilePathError
-			if !errors.As(err, &pathErr) {
-				t.Fatalf("ContainerfilePath(%q).Validate() error type = %T, want *InvalidContainerfilePathError", tt.path, err)
-			}
-			if pathErr.Value != tt.path {
-				t.Fatalf("InvalidContainerfilePathError.Value = %q, want %q", pathErr.Value, tt.path)
-			}
-			if pathErr.Reason != tt.wantReason {
-				t.Fatalf("InvalidContainerfilePathError.Reason = %q, want %q", pathErr.Reason, tt.wantReason)
-			}
-			wantError := fmt.Sprintf("invalid containerfile path %q: %s", tt.path, tt.wantReason)
-			if err.Error() != wantError {
-				t.Fatalf("InvalidContainerfilePathError.Error() = %q, want %q", err.Error(), wantError)
-			}
+			requireContainerfilePathValidationErrorPayload(t, tt.path, tt.wantReason)
 		})
+	}
+}
+
+func requireContainerfilePathValidationErrorPayload(
+	t *testing.T,
+	path invowkfile.ContainerfilePath,
+	wantReason string,
+) {
+	t.Helper()
+
+	err := path.Validate()
+	if !errors.Is(err, invowkfile.ErrInvalidContainerfilePath) {
+		t.Fatalf("ContainerfilePath(%q).Validate() error = %v, want ErrInvalidContainerfilePath", path, err)
+	}
+	var pathErr *invowkfile.InvalidContainerfilePathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("ContainerfilePath(%q).Validate() error type = %T, want *InvalidContainerfilePathError", path, err)
+	}
+	if pathErr.Value != path {
+		t.Fatalf("InvalidContainerfilePathError.Value = %q, want %q", pathErr.Value, path)
+	}
+	if pathErr.Reason != wantReason {
+		t.Fatalf("InvalidContainerfilePathError.Reason = %q, want %q", pathErr.Reason, wantReason)
+	}
+	wantError := fmt.Sprintf("invalid containerfile path %q: %s", path, wantReason)
+	if err.Error() != wantError {
+		t.Fatalf("InvalidContainerfilePathError.Error() = %q, want %q", err.Error(), wantError)
 	}
 }
 

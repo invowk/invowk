@@ -28,28 +28,48 @@ func TestVirtualFilesystemPathNameValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.value.Validate()
-			if tt.wantErr {
-				if !errors.Is(err, ErrInvalidVirtualFilesystemPathName) {
-					t.Fatalf("Validate() error = %v, want ErrInvalidVirtualFilesystemPathName", err)
-				}
-				var invalidErr *InvalidVirtualFilesystemPathNameError
-				if !errors.As(err, &invalidErr) {
-					t.Fatalf("Validate() error type = %T, want *InvalidVirtualFilesystemPathNameError", err)
-				}
-				if invalidErr.Value != tt.value {
-					t.Fatalf("InvalidVirtualFilesystemPathNameError.Value = %q, want %q", invalidErr.Value, tt.value)
-				}
-				wantMessage := `invalid virtual.filesystem.paths key "` + string(tt.value) + `" (must match [A-Z_][A-Z0-9_]*)`
-				if err.Error() != wantMessage {
-					t.Fatalf("Validate() error = %q, want %q", err.Error(), wantMessage)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Validate() error = %v, want nil", err)
-			}
+			requireVirtualFilesystemPathNameValidation(t, tt.value, tt.wantErr)
 		})
+	}
+}
+
+func requireVirtualFilesystemPathNameValidation(
+	t *testing.T,
+	value VirtualFilesystemPathName,
+	wantErr bool,
+) {
+	t.Helper()
+
+	err := value.Validate()
+	if wantErr {
+		requireInvalidVirtualFilesystemPathNameError(t, err, value)
+		return
+	}
+	if err != nil {
+		t.Fatalf("Validate() error = %v, want nil", err)
+	}
+}
+
+func requireInvalidVirtualFilesystemPathNameError(
+	t *testing.T,
+	err error,
+	value VirtualFilesystemPathName,
+) {
+	t.Helper()
+
+	if !errors.Is(err, ErrInvalidVirtualFilesystemPathName) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidVirtualFilesystemPathName", err)
+	}
+	var invalidErr *InvalidVirtualFilesystemPathNameError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("Validate() error type = %T, want *InvalidVirtualFilesystemPathNameError", err)
+	}
+	if invalidErr.Value != value {
+		t.Fatalf("InvalidVirtualFilesystemPathNameError.Value = %q, want %q", invalidErr.Value, value)
+	}
+	wantMessage := `invalid virtual.filesystem.paths key "` + string(value) + `" (must match [A-Z_][A-Z0-9_]*)`
+	if err.Error() != wantMessage {
+		t.Fatalf("Validate() error = %q, want %q", err.Error(), wantMessage)
 	}
 }
 

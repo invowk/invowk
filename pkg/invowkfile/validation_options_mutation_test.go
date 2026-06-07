@@ -13,89 +13,95 @@ import (
 func TestValidationOptionsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil invowkfile uses empty path defaults", func(t *testing.T) {
-		t.Parallel()
-		opts := defaultValidateOptions(nil)
-		if opts.workDir != "" {
-			t.Fatalf("default workDir = %q, want empty", opts.workDir)
-		}
+	t.Run("nil invowkfile uses empty path defaults", testValidationOptionsNilInvowkfileDefaults)
+	t.Run("empty invowkfile path does not derive workdir", testValidationOptionsEmptyInvowkfilePath)
+	t.Run("file path derives workdir and default filesystem root", testValidationOptionsFilePathDerivesWorkdir)
+	t.Run("explicit options project into context", testValidationOptionsExplicitOptionsProject)
+}
 
-		ctx := opts.buildValidationContext(nil)
-		if ctx.WorkDir != "" || ctx.FilePath != "" {
-			t.Fatalf("context path defaults = %q/%q, want empty/empty", ctx.WorkDir, ctx.FilePath)
-		}
-		if ctx.FS == nil {
-			t.Fatal("context FS = nil, want default filesystem")
-		}
-	})
+func testValidationOptionsNilInvowkfileDefaults(t *testing.T) {
+	t.Parallel()
 
-	t.Run("empty invowkfile path does not derive workdir", func(t *testing.T) {
-		t.Parallel()
-		inv := &Invowkfile{}
-		opts := defaultValidateOptions(inv)
-		if opts.workDir != "" {
-			t.Fatalf("default workDir = %q, want empty", opts.workDir)
-		}
+	opts := defaultValidateOptions(nil)
+	if opts.workDir != "" {
+		t.Fatalf("default workDir = %q, want empty", opts.workDir)
+	}
+	requireValidationContextEmptyPaths(t, opts.buildValidationContext(nil))
+}
 
-		ctx := opts.buildValidationContext(inv)
-		if ctx.WorkDir != "" || ctx.FilePath != "" {
-			t.Fatalf("context path defaults = %q/%q, want empty/empty", ctx.WorkDir, ctx.FilePath)
-		}
-	})
+func testValidationOptionsEmptyInvowkfilePath(t *testing.T) {
+	t.Parallel()
 
-	t.Run("file path derives workdir and default filesystem root", func(t *testing.T) {
-		t.Parallel()
-		workDir := filepath.Join(t.TempDir(), "nested")
-		if err := os.MkdirAll(workDir, 0o700); err != nil {
-			t.Fatalf("MkdirAll() = %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(workDir, "marker.txt"), []byte("ok"), 0o600); err != nil {
-			t.Fatalf("WriteFile() = %v", err)
-		}
+	inv := &Invowkfile{}
+	opts := defaultValidateOptions(inv)
+	if opts.workDir != "" {
+		t.Fatalf("default workDir = %q, want empty", opts.workDir)
+	}
+	requireValidationContextEmptyPaths(t, opts.buildValidationContext(inv))
+}
 
-		inv := &Invowkfile{FilePath: FilesystemPath(filepath.Join(workDir, "invowkfile.cue"))}
-		opts := defaultValidateOptions(inv)
-		if opts.workDir != FilesystemPath(workDir) {
-			t.Fatalf("default workDir = %q, want %q", opts.workDir, workDir)
-		}
+func testValidationOptionsFilePathDerivesWorkdir(t *testing.T) {
+	t.Parallel()
 
-		ctx := opts.buildValidationContext(inv)
-		if ctx.WorkDir != WorkDir(workDir) {
-			t.Fatalf("context WorkDir = %q, want %q", ctx.WorkDir, workDir)
-		}
-		if ctx.FilePath != inv.FilePath {
-			t.Fatalf("context FilePath = %q, want %q", ctx.FilePath, inv.FilePath)
-		}
-		requireValidationContextFile(t, ctx, "marker.txt")
-	})
+	workDir := filepath.Join(t.TempDir(), "nested")
+	if err := os.MkdirAll(workDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "marker.txt"), []byte("ok"), 0o600); err != nil {
+		t.Fatalf("WriteFile() = %v", err)
+	}
 
-	t.Run("explicit options project into context", func(t *testing.T) {
-		t.Parallel()
-		testFS := fstest.MapFS{
-			"marker.txt": &fstest.MapFile{Data: []byte("ok")},
-		}
-		inv := &Invowkfile{FilePath: "invowkfile.cue"}
-		opts := defaultValidateOptions(inv)
-		WithFS(testFS)(&opts)
-		WithPlatform(PlatformLinux)(&opts)
-		WithStrictMode(true)(&opts)
-		WithWorkDir("workspace")(&opts)
+	inv := &Invowkfile{FilePath: FilesystemPath(filepath.Join(workDir, "invowkfile.cue"))}
+	opts := defaultValidateOptions(inv)
+	if opts.workDir != FilesystemPath(workDir) {
+		t.Fatalf("default workDir = %q, want %q", opts.workDir, workDir)
+	}
 
-		ctx := opts.buildValidationContext(inv)
-		if ctx.WorkDir != "workspace" {
-			t.Fatalf("context WorkDir = %q, want workspace", ctx.WorkDir)
-		}
-		if ctx.Platform != PlatformLinux {
-			t.Fatalf("context Platform = %q, want linux", ctx.Platform)
-		}
-		if !ctx.StrictMode {
-			t.Fatal("context StrictMode = false, want true")
-		}
-		if ctx.FilePath != inv.FilePath {
-			t.Fatalf("context FilePath = %q, want %q", ctx.FilePath, inv.FilePath)
-		}
-		requireValidationContextFile(t, ctx, "marker.txt")
-	})
+	ctx := opts.buildValidationContext(inv)
+	if ctx.WorkDir != WorkDir(workDir) {
+		t.Fatalf("context WorkDir = %q, want %q", ctx.WorkDir, workDir)
+	}
+	if ctx.FilePath != inv.FilePath {
+		t.Fatalf("context FilePath = %q, want %q", ctx.FilePath, inv.FilePath)
+	}
+	requireValidationContextFile(t, ctx, "marker.txt")
+}
+
+func testValidationOptionsExplicitOptionsProject(t *testing.T) {
+	t.Parallel()
+
+	inv := &Invowkfile{FilePath: "invowkfile.cue"}
+	opts := defaultValidateOptions(inv)
+	WithFS(fstest.MapFS{"marker.txt": &fstest.MapFile{Data: []byte("ok")}})(&opts)
+	WithPlatform(PlatformLinux)(&opts)
+	WithStrictMode(true)(&opts)
+	WithWorkDir("workspace")(&opts)
+
+	ctx := opts.buildValidationContext(inv)
+	if ctx.WorkDir != "workspace" {
+		t.Fatalf("context WorkDir = %q, want workspace", ctx.WorkDir)
+	}
+	if ctx.Platform != PlatformLinux {
+		t.Fatalf("context Platform = %q, want linux", ctx.Platform)
+	}
+	if !ctx.StrictMode {
+		t.Fatal("context StrictMode = false, want true")
+	}
+	if ctx.FilePath != inv.FilePath {
+		t.Fatalf("context FilePath = %q, want %q", ctx.FilePath, inv.FilePath)
+	}
+	requireValidationContextFile(t, ctx, "marker.txt")
+}
+
+func requireValidationContextEmptyPaths(t *testing.T, ctx *ValidationContext) {
+	t.Helper()
+
+	if ctx.WorkDir != "" || ctx.FilePath != "" {
+		t.Fatalf("context path defaults = %q/%q, want empty/empty", ctx.WorkDir, ctx.FilePath)
+	}
+	if ctx.FS == nil {
+		t.Fatal("context FS = nil, want default filesystem")
+	}
 }
 
 func requireValidationContextFile(t *testing.T, ctx *ValidationContext, name string) {

@@ -148,6 +148,28 @@ func TestBuildExecutionContextMutationProjectsExecutionOptions(t *testing.T) {
 		t.Fatalf("BuildExecutionContext() error = %v", err)
 	}
 
+	requireBuildExecutionContextProjectedOptions(t, got, impl)
+}
+
+func requireBuildExecutionContextProjectedOptions(
+	t *testing.T,
+	got *runtimepkg.ExecutionContext,
+	impl *invowkfile.Implementation,
+) {
+	t.Helper()
+
+	requireExecutionContextSelectionOptions(t, got, impl)
+	requireExecutionContextEnvOptions(t, got)
+	requireExecutionContextArgEnv(t, got)
+}
+
+func requireExecutionContextSelectionOptions(
+	t *testing.T,
+	got *runtimepkg.ExecutionContext,
+	impl *invowkfile.Implementation,
+) {
+	t.Helper()
+
 	if !got.Verbose {
 		t.Fatal("Verbose = false, want true")
 	}
@@ -175,6 +197,11 @@ func TestBuildExecutionContextMutationProjectsExecutionOptions(t *testing.T) {
 	if got.CommandFullName != "module deploy" {
 		t.Fatalf("CommandFullName = %q, want module deploy", got.CommandFullName)
 	}
+}
+
+func requireExecutionContextEnvOptions(t *testing.T, got *runtimepkg.ExecutionContext) {
+	t.Helper()
+
 	if !slices.Equal(got.Env.RuntimeEnvFiles, []invowkfile.DotenvFilePath{"service.env"}) {
 		t.Fatalf("RuntimeEnvFiles = %v, want [service.env]", got.Env.RuntimeEnvFiles)
 	}
@@ -190,6 +217,11 @@ func TestBuildExecutionContextMutationProjectsExecutionOptions(t *testing.T) {
 	if !slices.Equal(got.Env.InheritDenyOverride, []invowkfile.EnvVarName{"SECRET"}) {
 		t.Fatalf("InheritDenyOverride = %v, want [SECRET]", got.Env.InheritDenyOverride)
 	}
+}
+
+func requireExecutionContextArgEnv(t *testing.T, got *runtimepkg.ExecutionContext) {
+	t.Helper()
+
 	if got.Env.ExtraEnv["INVOWK_ARG_FIRST"] != "one" {
 		t.Fatalf("INVOWK_ARG_FIRST = %q, want one", got.Env.ExtraEnv["INVOWK_ARG_FIRST"])
 	}

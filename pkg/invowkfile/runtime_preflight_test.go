@@ -72,189 +72,13 @@ func invowkfileWithRuntime(runtime string) string {
 func TestRuntimePreflightMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("invalid cue falls back without preflight diagnostics", func(t *testing.T) {
-		t.Parallel()
-
-		errs := runtimeSchemaPreflightValidationErrors([]byte("cmds: ["), "bad.cue")
-		if len(errs) != 0 {
-			t.Fatalf("runtimeSchemaPreflightValidationErrors() = %v, want no fallback diagnostics", errs)
-		}
-	})
-
-	t.Run("missing or unknown runtime name is ignored", func(t *testing.T) {
-		t.Parallel()
-
-		for _, runtime := range []*ast.StructLit{
-			nil,
-			parseRuntimePreflightStruct(t, `{image: "debian:stable-slim"}`),
-			parseRuntimePreflightStruct(t, `{name: localRuntime, image: "debian:stable-slim"}`),
-			parseRuntimePreflightStruct(t, `{name: 42, image: "debian:stable-slim"}`),
-			parseRuntimePreflightStruct(t, `{name: "custom", image: "debian:stable-slim"}`),
-		} {
-			errs := validateRuntimePreflight(runtime, "cmds[0].implementations[0].runtimes[0]")
-			if len(errs) != 0 {
-				t.Fatalf("validateRuntimePreflight(%#v) = %v, want no diagnostics", runtime, errs)
-			}
-		}
-	})
-
-	t.Run("native rejects every non native field", func(t *testing.T) {
-		t.Parallel()
-
-		errs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "native"
-			allowed_binaries: ["git"]
-			binary_lookup_mode: "host"
-			cpu_limit: 1
-			memory_limit: "1M"
-			depends_on: {binaries: ["git"]}
-			enable_host_ssh: true
-			containerfile: "Containerfile"
-			image: "debian:stable-slim"
-			persistent: {create_if_missing: true}
-			ports: ["8080:80"]
-			volumes: ["./data:/data"]
-		}`), "runtime")
-
-		requireRuntimePreflightErrorCount(t, errs, 11)
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.allowed_binaries", "allowed_binaries is only valid for virtual runtimes")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.binary_lookup_mode", "binary_lookup_mode is only valid for virtual runtimes")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.cpu_limit", "cpu_limit is only valid for virtual-lua runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.memory_limit", "memory_limit is only valid for virtual-lua runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.depends_on", "depends_on is only valid for container runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.enable_host_ssh", "enable_host_ssh is only valid for container runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.containerfile", "containerfile is only valid for container runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.image", "image is only valid for container runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.persistent", "persistent is only valid for container runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.ports", "ports is only valid for container runtime")
-		requireRuntimePreflightDiagnostic(t, errs, "runtime.volumes", "volumes is only valid for container runtime")
-	})
-
-	t.Run("virtual runtime applies lua field split", func(t *testing.T) {
-		t.Parallel()
-
-		virtualShErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "virtual-sh"
-			cpu_limit: 1
-			memory_limit: "1M"
-		}`), "runtime")
-		requireRuntimePreflightErrorCount(t, virtualShErrs, 2)
-		requireRuntimePreflightDiagnostic(t, virtualShErrs, "runtime.cpu_limit", "cpu_limit is only valid for virtual-lua runtime")
-		requireRuntimePreflightDiagnostic(t, virtualShErrs, "runtime.memory_limit", "memory_limit is only valid for virtual-lua runtime")
-
-		virtualLuaErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "virtual-lua"
-			allowed_binaries: ["lua"]
-			binary_lookup_mode: "strict"
-			cpu_limit: 1
-			memory_limit: "1M"
-		}`), "runtime")
-		if len(virtualLuaErrs) != 0 {
-			t.Fatalf("validateRuntimePreflight(virtual-lua) = %v, want no diagnostics", virtualLuaErrs)
-		}
-
-		virtualLuaContainerErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "virtual-lua"
-			image: "debian:stable-slim"
-		}`), "runtime")
-		requireRuntimePreflightErrorCount(t, virtualLuaContainerErrs, 1)
-		requireRuntimePreflightDiagnostic(t, virtualLuaContainerErrs, "runtime.image", "image is only valid for container runtime")
-	})
-
-	t.Run("container rejects virtual fields and enforces source selection", func(t *testing.T) {
-		t.Parallel()
-
-		imageOnlyErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "container"
-			image: "debian:stable-slim"
-		}`), "runtime")
-		if len(imageOnlyErrs) != 0 {
-			t.Fatalf("validateRuntimePreflight(container image-only) = %v, want no diagnostics", imageOnlyErrs)
-		}
-
-		containerfileOnlyErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "container"
-			containerfile: "Containerfile"
-		}`), "runtime")
-		if len(containerfileOnlyErrs) != 0 {
-			t.Fatalf("validateRuntimePreflight(containerfile-only) = %v, want no diagnostics", containerfileOnlyErrs)
-		}
-
-		fieldErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "container"
-			image: "debian:stable-slim"
-			allowed_binaries: ["git"]
-			binary_lookup_mode: "host"
-			cpu_limit: 1
-			memory_limit: "1M"
-		}`), "runtime")
-		requireRuntimePreflightErrorCount(t, fieldErrs, 4)
-		requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.allowed_binaries", "allowed_binaries is only valid for virtual runtimes")
-		requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.binary_lookup_mode", "binary_lookup_mode is only valid for virtual runtimes")
-		requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.cpu_limit", "cpu_limit is only valid for virtual-lua runtime")
-		requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.memory_limit", "memory_limit is only valid for virtual-lua runtime")
-
-		duplicateSourceErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "container"
-			image: "debian:stable-slim"
-			containerfile: "Containerfile"
-		}`), "runtime")
-		requireRuntimePreflightErrorCount(t, duplicateSourceErrs, 1)
-		requireRuntimePreflightDiagnostic(
-			t,
-			duplicateSourceErrs,
-			"runtime.image",
-			"image and containerfile are mutually exclusive; choose exactly one container source",
-		)
-
-		missingSourceErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
-			name: "container"
-		}`), "runtime")
-		requireRuntimePreflightErrorCount(t, missingSourceErrs, 1)
-		requireRuntimePreflightDiagnostic(
-			t,
-			missingSourceErrs,
-			"runtime",
-			"container runtime requires either image or containerfile",
-		)
-	})
-
-	t.Run("schema preflight traverses nested runtime indexes", func(t *testing.T) {
-		t.Parallel()
-
-		errs := runtimeSchemaPreflightValidationErrors([]byte(`cmds: [
-			{implementations: [{runtimes: [{name: "native"}]}]},
-			{implementations: [
-				{runtimes: [{name: "virtual-sh"}]},
-				{runtimes: [{name: "virtual-lua"}, {name: "container"}]},
-			]},
-		]`), "nested.cue")
-		requireRuntimePreflightErrorCount(t, errs, 1)
-		requireRuntimePreflightDiagnostic(
-			t,
-			errs,
-			"cmds[1].implementations[1].runtimes[1]",
-			"container runtime requires either image or containerfile",
-		)
-	})
-
-	t.Run("ast helpers ignore missing and non list fields", func(t *testing.T) {
-		t.Parallel()
-
-		if got := fieldList(nil, "cmds"); len(got) != 0 {
-			t.Fatalf("fieldList(nil) length = %d, want 0", len(got))
-		}
-		if got := fieldList(parseRuntimePreflightStruct(t, `{cmds: "not-list"}`), "cmds"); len(got) != 0 {
-			t.Fatalf("fieldList(non-list) length = %d, want 0", len(got))
-		}
-		got := fieldList(parseRuntimePreflightStruct(t, `{cmds: [{name: "native"}, "skip", 42]}`), "cmds")
-		if len(got) != 1 || !hasField(got[0], "name") {
-			t.Fatalf("fieldList(mixed list) = %#v, want only struct item", got)
-		}
-		if hasField(nil, "name") {
-			t.Fatal("hasField(nil) = true, want false")
-		}
-	})
+	t.Run("invalid cue falls back without preflight diagnostics", testRuntimePreflightInvalidCueFallsBack)
+	t.Run("missing or unknown runtime name is ignored", testRuntimePreflightIgnoresMissingUnknownName)
+	t.Run("native rejects every non native field", testRuntimePreflightNativeRejectsFields)
+	t.Run("virtual runtime applies lua field split", testRuntimePreflightVirtualRuntimeFieldSplit)
+	t.Run("container rejects virtual fields and enforces source selection", testRuntimePreflightContainerContracts)
+	t.Run("schema preflight traverses nested runtime indexes", testRuntimePreflightTraversesNestedIndexes)
+	t.Run("ast helpers ignore missing and non list fields", testRuntimePreflightASTHelpersIgnoreInvalidFields)
 }
 
 func TestRuntimePreflightErrorFields(t *testing.T) {
@@ -277,6 +101,209 @@ func TestRuntimePreflightErrorFields(t *testing.T) {
 	if got := runtimeFieldPath(3, 4, 5); got != "cmds[3].implementations[4].runtimes[5]" {
 		t.Fatalf("runtimeFieldPath() = %q, want indexed runtime path", got)
 	}
+}
+
+func testRuntimePreflightInvalidCueFallsBack(t *testing.T) {
+	t.Parallel()
+
+	errs := runtimeSchemaPreflightValidationErrors([]byte("cmds: ["), "bad.cue")
+	if len(errs) != 0 {
+		t.Fatalf("runtimeSchemaPreflightValidationErrors() = %v, want no fallback diagnostics", errs)
+	}
+}
+
+func testRuntimePreflightIgnoresMissingUnknownName(t *testing.T) {
+	t.Parallel()
+
+	for _, runtime := range []*ast.StructLit{
+		nil,
+		parseRuntimePreflightStruct(t, `{image: "debian:stable-slim"}`),
+		parseRuntimePreflightStruct(t, `{name: localRuntime, image: "debian:stable-slim"}`),
+		parseRuntimePreflightStruct(t, `{name: 42, image: "debian:stable-slim"}`),
+		parseRuntimePreflightStruct(t, `{name: "custom", image: "debian:stable-slim"}`),
+	} {
+		errs := validateRuntimePreflight(runtime, "cmds[0].implementations[0].runtimes[0]")
+		if len(errs) != 0 {
+			t.Fatalf("validateRuntimePreflight(%#v) = %v, want no diagnostics", runtime, errs)
+		}
+	}
+}
+
+func testRuntimePreflightNativeRejectsFields(t *testing.T) {
+	t.Parallel()
+
+	errs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "native"
+		allowed_binaries: ["git"]
+		binary_lookup_mode: "host"
+		cpu_limit: 1
+		memory_limit: "1M"
+		depends_on: {binaries: ["git"]}
+		enable_host_ssh: true
+		containerfile: "Containerfile"
+		image: "debian:stable-slim"
+		persistent: {create_if_missing: true}
+		ports: ["8080:80"]
+		volumes: ["./data:/data"]
+	}`), "runtime")
+
+	requireRuntimePreflightErrorCount(t, errs, 11)
+	for _, want := range []struct {
+		field   string
+		message string
+	}{
+		{"runtime.allowed_binaries", "allowed_binaries is only valid for virtual runtimes"},
+		{"runtime.binary_lookup_mode", "binary_lookup_mode is only valid for virtual runtimes"},
+		{"runtime.cpu_limit", "cpu_limit is only valid for virtual-lua runtime"},
+		{"runtime.memory_limit", "memory_limit is only valid for virtual-lua runtime"},
+		{"runtime.depends_on", "depends_on is only valid for container runtime"},
+		{"runtime.enable_host_ssh", "enable_host_ssh is only valid for container runtime"},
+		{"runtime.containerfile", "containerfile is only valid for container runtime"},
+		{"runtime.image", "image is only valid for container runtime"},
+		{"runtime.persistent", "persistent is only valid for container runtime"},
+		{"runtime.ports", "ports is only valid for container runtime"},
+		{"runtime.volumes", "volumes is only valid for container runtime"},
+	} {
+		requireRuntimePreflightDiagnostic(t, errs, want.field, want.message)
+	}
+}
+
+func testRuntimePreflightVirtualRuntimeFieldSplit(t *testing.T) {
+	t.Parallel()
+
+	virtualShErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "virtual-sh"
+		cpu_limit: 1
+		memory_limit: "1M"
+	}`), "runtime")
+	requireRuntimePreflightErrorCount(t, virtualShErrs, 2)
+	requireRuntimePreflightDiagnostic(t, virtualShErrs, "runtime.cpu_limit", "cpu_limit is only valid for virtual-lua runtime")
+	requireRuntimePreflightDiagnostic(t, virtualShErrs, "runtime.memory_limit", "memory_limit is only valid for virtual-lua runtime")
+
+	virtualLuaErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "virtual-lua"
+		allowed_binaries: ["lua"]
+		binary_lookup_mode: "strict"
+		cpu_limit: 1
+		memory_limit: "1M"
+	}`), "runtime")
+	if len(virtualLuaErrs) != 0 {
+		t.Fatalf("validateRuntimePreflight(virtual-lua) = %v, want no diagnostics", virtualLuaErrs)
+	}
+
+	virtualLuaContainerErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "virtual-lua"
+		image: "debian:stable-slim"
+	}`), "runtime")
+	requireRuntimePreflightErrorCount(t, virtualLuaContainerErrs, 1)
+	requireRuntimePreflightDiagnostic(t, virtualLuaContainerErrs, "runtime.image", "image is only valid for container runtime")
+}
+
+func testRuntimePreflightContainerContracts(t *testing.T) {
+	t.Parallel()
+
+	requireRuntimePreflightNoDiagnostics(t, `{
+		name: "container"
+		image: "debian:stable-slim"
+	}`, "container image-only")
+	requireRuntimePreflightNoDiagnostics(t, `{
+		name: "container"
+		containerfile: "Containerfile"
+	}`, "containerfile-only")
+	requireRuntimePreflightContainerFieldDiagnostics(t)
+	requireRuntimePreflightContainerSourceDiagnostics(t)
+}
+
+func testRuntimePreflightTraversesNestedIndexes(t *testing.T) {
+	t.Parallel()
+
+	errs := runtimeSchemaPreflightValidationErrors([]byte(`cmds: [
+		{implementations: [{runtimes: [{name: "native"}]}]},
+		{implementations: [
+			{runtimes: [{name: "virtual-sh"}]},
+			{runtimes: [{name: "virtual-lua"}, {name: "container"}]},
+		]},
+	]`), "nested.cue")
+	requireRuntimePreflightErrorCount(t, errs, 1)
+	requireRuntimePreflightDiagnostic(
+		t,
+		errs,
+		"cmds[1].implementations[1].runtimes[1]",
+		"container runtime requires either image or containerfile",
+	)
+}
+
+func testRuntimePreflightASTHelpersIgnoreInvalidFields(t *testing.T) {
+	t.Parallel()
+
+	if got := fieldList(nil, "cmds"); len(got) != 0 {
+		t.Fatalf("fieldList(nil) length = %d, want 0", len(got))
+	}
+	if got := fieldList(parseRuntimePreflightStruct(t, `{cmds: "not-list"}`), "cmds"); len(got) != 0 {
+		t.Fatalf("fieldList(non-list) length = %d, want 0", len(got))
+	}
+	got := fieldList(parseRuntimePreflightStruct(t, `{cmds: [{name: "native"}, "skip", 42]}`), "cmds")
+	if len(got) != 1 || !hasField(got[0], "name") {
+		t.Fatalf("fieldList(mixed list) = %#v, want only struct item", got)
+	}
+	if hasField(nil, "name") {
+		t.Fatal("hasField(nil) = true, want false")
+	}
+}
+
+func requireRuntimePreflightNoDiagnostics(t *testing.T, cue, label string) {
+	t.Helper()
+
+	errs := validateRuntimePreflight(parseRuntimePreflightStruct(t, cue), "runtime")
+	if len(errs) != 0 {
+		t.Fatalf("validateRuntimePreflight(%s) = %v, want no diagnostics", label, errs)
+	}
+}
+
+func requireRuntimePreflightContainerFieldDiagnostics(t *testing.T) {
+	t.Helper()
+
+	fieldErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "container"
+		image: "debian:stable-slim"
+		allowed_binaries: ["git"]
+		binary_lookup_mode: "host"
+		cpu_limit: 1
+		memory_limit: "1M"
+	}`), "runtime")
+	requireRuntimePreflightErrorCount(t, fieldErrs, 4)
+	requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.allowed_binaries", "allowed_binaries is only valid for virtual runtimes")
+	requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.binary_lookup_mode", "binary_lookup_mode is only valid for virtual runtimes")
+	requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.cpu_limit", "cpu_limit is only valid for virtual-lua runtime")
+	requireRuntimePreflightDiagnostic(t, fieldErrs, "runtime.memory_limit", "memory_limit is only valid for virtual-lua runtime")
+}
+
+func requireRuntimePreflightContainerSourceDiagnostics(t *testing.T) {
+	t.Helper()
+
+	duplicateSourceErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "container"
+		image: "debian:stable-slim"
+		containerfile: "Containerfile"
+	}`), "runtime")
+	requireRuntimePreflightErrorCount(t, duplicateSourceErrs, 1)
+	requireRuntimePreflightDiagnostic(
+		t,
+		duplicateSourceErrs,
+		"runtime.image",
+		"image and containerfile are mutually exclusive; choose exactly one container source",
+	)
+
+	missingSourceErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
+		name: "container"
+	}`), "runtime")
+	requireRuntimePreflightErrorCount(t, missingSourceErrs, 1)
+	requireRuntimePreflightDiagnostic(
+		t,
+		missingSourceErrs,
+		"runtime",
+		"container runtime requires either image or containerfile",
+	)
 }
 
 func parseRuntimePreflightStruct(t *testing.T, src string) *ast.StructLit {
