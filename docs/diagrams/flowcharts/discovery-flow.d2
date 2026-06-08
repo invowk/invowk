@@ -2,7 +2,8 @@
 #
 # Shows how Invowk discovers commands from multiple sources
 # with priority ordering: current directory > local modules >
-# configured includes > user directory.
+# configured includes > provisioned modules > provisioned global modules >
+# user directory.
 #
 # Source: docs/architecture/flowchart-discovery.md
 
@@ -129,10 +130,84 @@ priority2.VendoredLocal -> priority3.SearchPaths
 priority2.Skip2 -> priority3.SearchPaths
 
 # ==============================================================================
-# Priority 4: User Directory
+# Priority 4: Provisioned Module Entries
 # ==============================================================================
 
-priority4: Priority 4: User Directory {
+priority4: Priority 4: Provisioned Module Entries {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  Provisioned: Check command-adapter\nprovisioned modules
+
+  HasProvisioned: Found? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParseProvisioned: Load + parse\nprovisioned modules {
+    style.fill: "#FFE4B5"
+  }
+
+  VendoredProvisioned: Scan vendored modules\nfor provisioned modules {
+    style.fill: "#FFE4B5"
+  }
+
+  Skip4: Continue
+
+  Provisioned -> HasProvisioned
+  HasProvisioned -> ParseProvisioned: Yes
+  HasProvisioned -> Skip4: No
+  ParseProvisioned -> VendoredProvisioned
+}
+
+priority3.VendoredIncludes -> priority4.Provisioned
+priority3.Skip3 -> priority4.Provisioned
+
+# ==============================================================================
+# Priority 5: Provisioned Global Module Entries
+# ==============================================================================
+
+priority5: Priority 5: Provisioned Global Module Entries {
+  style: {
+    stroke: "#1168BD"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  GlobalProvisioned: Check command-adapter\nprovisioned global modules
+
+  HasGlobal: Found? {
+    shape: diamond
+    style.fill: "#FFF3E0"
+  }
+
+  ParseGlobal: Load + parse\nprovisioned global modules {
+    style.fill: "#FFE4B5"
+  }
+
+  VendoredGlobal: Scan vendored modules\nfor provisioned global modules {
+    style.fill: "#FFE4B5"
+  }
+
+  Skip5: Continue
+
+  GlobalProvisioned -> HasGlobal
+  HasGlobal -> ParseGlobal: Yes
+  HasGlobal -> Skip5: No
+  ParseGlobal -> VendoredGlobal
+}
+
+priority4.VendoredProvisioned -> priority5.GlobalProvisioned
+priority4.Skip4 -> priority5.GlobalProvisioned
+
+# ==============================================================================
+# Priority 6: User Directory
+# ==============================================================================
+
+priority6: Priority 6: User Directory {
   style: {
     stroke: "#1168BD"
     stroke-dash: 3
@@ -159,8 +234,8 @@ priority4: Priority 4: User Directory {
   ParseUser -> VendoredUser
 }
 
-priority3.VendoredIncludes -> priority4.UserDir
-priority3.Skip3 -> priority4.UserDir
+priority5.VendoredGlobal -> priority6.UserDir
+priority5.Skip5 -> priority6.UserDir
 
 # ==============================================================================
 # End Point
@@ -177,6 +252,6 @@ Done: Build unified\ncommand tree {
   style.fill: "#E8F5E9"
 }
 
-priority4.VendoredUser -> VendoredRule
+priority6.VendoredUser -> VendoredRule
 VendoredRule -> Done
-priority4.HasUser -> Done: No
+priority6.HasUser -> Done: No

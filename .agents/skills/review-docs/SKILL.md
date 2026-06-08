@@ -307,7 +307,7 @@ The coordinator:
 Read these when working on the corresponding review surface:
 
 - **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items (119 total across 11 surfaces). This is the primary review driver.
+  enumerated verification items (120 total across 11 surfaces). This is the primary review driver.
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →

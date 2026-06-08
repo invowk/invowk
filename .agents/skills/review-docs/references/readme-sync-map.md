@@ -6,7 +6,7 @@ During review, read the source of truth first, then compare with the README sect
 | README Section | Line | Source of Truth | Review Focus |
 |---|---|---|---|
 | Features | L5 | Code capabilities across `pkg/`, `internal/`, `cmd/` | Feature list completeness and accuracy |
-| Installation | L41 | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yml` | URLs, platform table, Cosign verify command, install paths |
+| Installation | L41 | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` | URLs, platform table, Cosign verify command, install paths |
 | Quick Start | L156 | `cmd/invowk/init.go`, actual `invowk init` output | Generated invowkfile content, CLI output format, flag names |
 | LLM-Assisted Command Authoring | L204 | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | Provider behavior, generated command validation, examples |
 | Invowkfile Format | L237 | `pkg/invowkfile/invowkfile_schema.cue` | CUE field names, types, constraints, required fields |

@@ -180,7 +180,7 @@ INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk
   'installation/powershell-script-custom': {
     language: 'powershell',
     code: `# Install to a custom directory
-$env:INSTALL_DIR='C:	ools\invowk'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
+$env:INSTALL_DIR='C:\\tools\\invowk'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
 
 # Install a specific version
 $env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex

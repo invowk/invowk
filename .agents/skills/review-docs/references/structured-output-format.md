@@ -144,7 +144,7 @@ End the report with aggregate counts:
 | Surface | Total Items | PASS | FAIL | N/A |
 |---|---|---|---|---|
 | S1: README | 24 | ... | ... | ... |
-| S2: Website | 14 | ... | ... | ... |
+| S2: Website | 15 | ... | ... | ... |
 | S3: Snippet | 19 | ... | ... | ... |
 | S4: i18n | 6 | ... | ... | ... |
 | S5: Diagram | 11 | ... | ... | ... |

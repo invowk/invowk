@@ -26,7 +26,7 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
 | S1-C01 | Features list (L5) accurately describes current capabilities | `pkg/`, `internal/`, `cmd/` code | WARNING | source-drift |
-| S1-C02 | Installation section (L41) has correct URLs, platform table, Cosign verify command, and install paths | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yml` | ERROR | cli-contract-drift |
+| S1-C02 | Installation section (L41) has correct URLs, platform table, Cosign verify command, and install paths | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` | ERROR | cli-contract-drift |
 | S1-C03 | Quick Start (L156) matches `invowk init` generated invowkfile content and CLI output format | `cmd/invowk/init.go`, run `invowk init --help` | ERROR | cli-contract-drift |
 | S1-C04 | Invowkfile Format (L237) field names, types, and constraints match schema | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
 | S1-C05 | Module Metadata (L410) field names and `requires` structure match schema | `pkg/invowkmod/invowkmod_schema.cue` | ERROR | schema-drift |
@@ -77,8 +77,9 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | S2-C12 | TUI pages match TUI command implementation and flags | `cmd/invowk/tui_*.go` → `website/docs/tui/` pages | WARNING | cli-contract-drift |
 | S2-C13 | No broken internal links (verified by `npm run build` in Step 1) | Build output | ERROR | navigation-drift |
 | S2-C14 | `website/sidebars.ts` includes every intentional current doc page in a deterministic category | `website/docs/`, `website/sidebars.ts` | ERROR | navigation-drift |
+| S2-C15 | Installation page and snippets match install scripts, release asset naming, platform support, and custom path examples | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` → `website/docs/getting-started/installation.mdx`, `website/src/components/Snippet/data/getting-started.ts` | ERROR | snippet-drift |
 
-**Total items**: 14
+**Total items**: 15
 
 ---
 
@@ -288,7 +289,7 @@ with an implementation block but lack required fields.
 
 **File scope**:
 - `website/docs/advanced/llm-assisted-authoring.mdx`
-- `website/src/components/Snippet/data/advanced.ts`
+- `website/src/components/Snippet/data/cli.ts`
 - `website/docs/reference/cli.mdx` agent command entries
 - `README.md` LLM-Assisted Command Authoring section
 
@@ -306,7 +307,7 @@ with an implementation block but lack required fields.
 | S10-C03 | Shared LLM flags and defaults match `bindLLMFlags` and resolver defaults | `cmd/invowk/llm_flags.go`, `internal/app/llmconfig/`, `internal/auditllm/` | ERROR | cli-contract-drift |
 | S10-C04 | Docs correctly distinguish configured-default behavior for `agent cmd create` from audit opt-in behavior | `cmd/invowk/agent.go`, `cmd/invowk/audit.go`, `internal/app/llmconfig/` | ERROR | source-drift |
 | S10-C05 | Validation behavior for generated commands matches `internal/agentcmd` implementation | `internal/agentcmd/create.go`, `internal/agentcmd/patch.go` | WARNING | source-drift |
-| S10-C06 | Snippets referenced by LLM authoring docs exist and match current CLI behavior | `website/src/components/Snippet/data/advanced.ts`, `cmd/invowk/agent.go` | ERROR | snippet-drift |
+| S10-C06 | Snippets referenced by LLM authoring docs exist and match current CLI behavior | `website/src/components/Snippet/data/cli.ts`, `cmd/invowk/agent.go` | ERROR | snippet-drift |
 | S10-C07 | README LLM authoring section matches website docs and source of truth | `README.md`, `website/docs/advanced/llm-assisted-authoring.mdx`, agent code | WARNING | source-drift |
 | S10-C08 | Privacy/caution wording accurately states what content is sent to the configured provider | `internal/agentcmd/create.go`, `cmd/invowk/agent.go` | WARNING | source-drift |
 
@@ -346,7 +347,7 @@ with an implementation block but lack required fields.
 | Surface | Items |
 |---------|-------|
 | S1: README | 24 |
-| S2: Website Docs | 14 |
+| S2: Website Docs | 15 |
 | S3: Snippet Data & CUE Drift | 19 |
 | S4: i18n Parity | 6 |
 | S5: Architecture Diagrams | 11 |
@@ -356,4 +357,4 @@ with an implementation block but lack required fields.
 | S9: Security Audit Docs | 10 |
 | S10: LLM-Assisted Command Authoring Docs | 8 |
 | S11: Agent Workflow Docs | 9 |
-| **Grand total** | **117** |
+| **Grand total** | **120** |

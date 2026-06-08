@@ -1626,7 +1626,7 @@ cmds: [
 ]
 ```
 
-Recognized script extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+`script.file` accepts any non-empty module-contained path within schema length limits. Invowk does not select behavior from the file extension; interpreter selection is handled separately through shebang detection or an explicit interpreter.
 
 ## Interpreter Support
 
@@ -3270,6 +3270,9 @@ Invowk requires Go 1.26+. Exact direct and transitive dependency versions are pi
 
 **Virtual Shell:**
 - [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (28 utilities: cat, cp, ls, grep, sort, tar, seq, etc.)
+
+**Virtual Lua:**
+- [golua](https://github.com/arnodel/golua) - Embedded Lua runtime for `virtual-lua`
 
 ## Performance and PGO
 

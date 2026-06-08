@@ -1,7 +1,8 @@
 # Native Runtime Availability Check Flowchart
 #
 # Shows how Invowk determines if the native runtime is available
-# by checking for bash/sh on Unix or PowerShell on Windows.
+# by using a configured shell override, then Unix SHELL env/bash/sh
+# or Windows pwsh/powershell/cmd.
 #
 # Source: docs/architecture/flowchart-runtime-selection.md
 
@@ -17,21 +18,29 @@ Start: Check Native {
   shape: oval
   style.fill: "#E8F5E9"
 }
+
+Configured: Configured shell? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+UseConfigured: Use configured shell
+
 Unix: Unix-like OS? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
 
-FindShell: Find bash or sh
+FindShell: Check SHELL env,\nthen bash,\nthen sh
 
-FindPS: Find PowerShell
+FindWinShell: Check pwsh,\nthen powershell,\nthen cmd
 
 HasShell: Found? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
 
-HasPS: Found? {
+HasWinShell: Found? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
@@ -46,12 +55,15 @@ Unavailable: Unavailable {
   style.fill: "#FFCDD2"
 }
 
-Start -> Unix
+Start -> Configured
+Configured -> UseConfigured: Yes
+Configured -> Unix: No
+UseConfigured -> Available
 Unix -> FindShell: Yes
-Unix -> FindPS: No
+Unix -> FindWinShell: No
 FindShell -> HasShell
-FindPS -> HasPS
+FindWinShell -> HasWinShell
 HasShell -> Available: Yes
 HasShell -> Unavailable: No
-HasPS -> Available: Yes
-HasPS -> Unavailable: No
+HasWinShell -> Available: Yes
+HasWinShell -> Unavailable: No
