@@ -35,7 +35,17 @@ printf '%s\n' "${go_modules[@]}"
 If `govulncheck` is available:
 
 ```bash
+make vulncheck
+```
+
+The `make vulncheck` target uses `scripts/govulncheck-all.sh`, discovers tracked
+Go modules, logs each module before scanning it, and runs `govulncheck ./...`
+from that module root. If the Make target is unavailable in an older checkout,
+fall back to the manual module loop below.
+
+```bash
 for mod in "${go_modules[@]}"; do
+  echo "==> govulncheck: $mod"
   (cd "$mod" && govulncheck ./...)
 done
 ```

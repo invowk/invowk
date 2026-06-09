@@ -564,15 +564,19 @@ jobs:
       - name: Download Go modules
         shell: bash
         run: |
-          for attempt in 1 2 3; do
-            if go mod download; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              exit 1
-            fi
-            sleep "$((attempt * 20))"
-          done
+          while IFS= read -r mod_file; do
+            mod_dir="$(dirname "$mod_file")"
+            echo "Downloading Go modules: $mod_dir"
+            for attempt in 1 2 3; do
+              if (cd "$mod_dir" && go mod download); then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              sleep "$((attempt * 20))"
+            done
+          done < <(git ls-files 'go.mod' '*/go.mod')
 
       - name: Install govulncheck
         run: |
@@ -580,7 +584,7 @@ jobs:
           govulncheck -version
 
       - name: Run govulncheck
-        run: govulncheck ./...
+        run: make vulncheck
 
   # GoReleaser dry-run (validates configuration)
   goreleaser-check:

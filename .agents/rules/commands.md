@@ -11,6 +11,7 @@
 | Single test | `go test -v -run TestName ./path/...` |
 | Test CLI with coverage | `make test-cli-cover` |
 | Lint | `make lint` |
+| Vulnerability scan | `make vulncheck` |
 | Local Sonar issues | `make sonar-local` |
 | Type check (DDD) | `make check-types` |
 | Type check (JSON) | `make check-types-json` |
@@ -53,6 +54,7 @@
 - **Docker or Podman** - For container runtime tests (optional).
 - **UPX** - For compressed builds (optional).
 - **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.
+- **govulncheck** - Go vulnerability scanner used by `make vulncheck` and CI. Install the pinned version from `.agents/rules/version-pinning.md`.
 - **go-mutesting** - Mutation testing tool pinned through the root `go.mod` tool directive. Do not install it manually with `@latest`; use the Make targets or `go tool go-mutesting` from the repository root.
 
 ## Internal Commands (Hidden)
@@ -90,6 +92,9 @@ make clean
 
 # Tidy dependencies
 make tidy
+
+# Scan every tracked Go module with govulncheck
+make vulncheck
 ```
 
 Defaults to `GOAMD64=v3` (Haswell+ CPUs, 2013+). Override with `make build GOAMD64=v1` for maximum compatibility.
@@ -352,7 +357,7 @@ goreleaser release --snapshot --clean
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, govulncheck |
+| `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, all-module govulncheck |
 | `lint.yml` | Push/PR to main (Go code/lint config changes) | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, goplint baseline gate, goplint exception governance, and goplint behavior gates + advisory goplint full scan |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |

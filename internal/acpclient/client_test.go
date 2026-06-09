@@ -143,6 +143,10 @@ func (a *fakeAgent) Initialize(context.Context, acp.InitializeRequest) (acp.Init
 	}, nil
 }
 
+func (a *fakeAgent) Logout(context.Context, acp.LogoutRequest) (acp.LogoutResponse, error) {
+	return acp.LogoutResponse{}, acp.NewMethodNotFound(acp.AgentMethodLogout)
+}
+
 func (a *fakeAgent) Cancel(context.Context, acp.CancelNotification) error {
 	if a.cancelMarker != "" {
 		return os.WriteFile(a.cancelMarker.String(), []byte("cancelled"), 0o600)

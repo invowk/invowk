@@ -298,6 +298,11 @@ tidy:
 	@echo "Tidying dependencies..."
 	$(GOMOD) tidy
 
+# Run govulncheck in all tracked Go modules.
+.PHONY: vulncheck
+vulncheck:
+	@GOVULNCHECK_CMD="$${GOVULNCHECK_CMD:-govulncheck}" ./scripts/govulncheck-all.sh
+
 # Check SPDX license headers in all Go files
 .PHONY: license-check
 license-check:
@@ -437,7 +442,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -475,6 +480,9 @@ test-scripts:
 	@echo ""
 	@echo "Running golangci-lint wrapper script tests..."
 	bash scripts/test_golangci_lint.sh
+	@echo ""
+	@echo "Running govulncheck wrapper script tests..."
+	bash scripts/test_govulncheck_all.sh
 	@echo ""
 	@echo "Running mutation wrapper script tests..."
 	bash scripts/test_mutation.sh
@@ -638,6 +646,7 @@ help:
 	@echo "  clean            Remove build artifacts"
 	@echo "  install          Install to GOPATH/bin"
 	@echo "  tidy             Tidy go.mod dependencies"
+	@echo "  vulncheck        Run govulncheck in all tracked Go modules"
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run normalized lint, config, and formatter gates for root and tools/goplint"
 	@echo "  lint-root        Run normalized golangci-lint for the root module"
