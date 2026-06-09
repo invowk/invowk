@@ -21,7 +21,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/muesli/reflow v0.3.0
-	github.com/openai/openai-go v1.12.0
+	github.com/openai/openai-go/v3 v3.39.0
 	github.com/rogpeppe/go-internal v1.15.0
 	github.com/sahilm/fuzzy v0.1.2
 	github.com/spf13/cobra v1.10.2
