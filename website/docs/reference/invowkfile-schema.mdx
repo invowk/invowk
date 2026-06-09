@@ -301,7 +301,7 @@ Controls how named `allowed_binaries` entries are resolved. `host` uses the effe
 
 ### cpu_limit / memory_limit
 
-**Type:** `uint` / byte-size string
+**Type:** non-negative integer (`int & >=0`) / byte-size string
 **Available for:** `virtual-lua`
 
 Optional golua execution limits. Omit or set `cpu_limit: 0` / empty `memory_limit` for no explicit quota.

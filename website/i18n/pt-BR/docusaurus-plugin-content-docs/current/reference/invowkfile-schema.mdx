@@ -301,7 +301,7 @@ Controla como entradas nomeadas em `allowed_binaries` são resolvidas. `host` us
 
 ### cpu_limit / memory_limit
 
-**Tipo:** `uint` / string de tamanho em bytes
+**Tipo:** inteiro não negativo (`int & >=0`) / string de tamanho em bytes
 **Disponível para:** `virtual-lua`
 
 Limites opcionais de execução do golua. Omita ou defina `cpu_limit: 0` / `memory_limit` vazia para não aplicar quota explícita.

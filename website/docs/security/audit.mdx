@@ -292,7 +292,7 @@ The LLM checker:
 
 When LLM analysis is explicitly requested, LLM checker failures are fatal scan errors. For example, malformed LLM finding fields such as unknown severity or category values cause the audit to fail with exit code 2 instead of falling back to partial deterministic results.
 
-LLM findings participate in compound threat detection — if the LLM flags an exfiltration pattern and a built-in checker flags sensitive variable access in the same module, the correlator escalates to **Critical**.
+LLM findings participate in compound threat detection through the same correlator pipeline as built-in findings. They can contribute to **Critical** results when a named rule also matches (for example, sensitive environment-variable access plus network access) or when generic escalation conditions are met, such as a high-severity finding plus any other finding or three distinct categories on the same surface.
 
 :::caution Script content is sent to the configured server
 When `--llm` is enabled, script content from your invowkfiles and modules is sent to the configured API endpoint. For local servers (Ollama, LM Studio), data stays on your machine. For cloud APIs, review your provider's data handling policies.

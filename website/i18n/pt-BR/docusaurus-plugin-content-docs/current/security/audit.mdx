@@ -292,7 +292,7 @@ O checker LLM:
 
 Quando a análise LLM é solicitada explicitamente, falhas do checker LLM são erros fatais de varredura. Por exemplo, campos de achado LLM malformados, como valores desconhecidos de severidade ou categoria, fazem a auditoria falhar com código de saída 2 em vez de cair para resultados determinísticos parciais.
 
-Achados do LLM participam da detecção de ameaças compostas — se o LLM identifica um padrão de exfiltração e um checker integrado identifica acesso a variáveis sensíveis no mesmo módulo, o correlacionador escala para **Crítica**.
+Achados do LLM participam da detecção de ameaças compostas pelo mesmo pipeline de correlação dos achados integrados. Eles podem contribuir para resultados **Críticos** quando uma regra nomeada também corresponde (por exemplo, acesso a variáveis de ambiente sensíveis junto com acesso de rede) ou quando condições genéricas de escalonamento são atendidas, como um achado de alta severidade junto com qualquer outro achado ou três categorias distintas na mesma superfície.
 
 :::caution O conteúdo dos scripts é enviado ao servidor configurado
 Quando `--llm` está habilitado, o conteúdo dos scripts dos seus invowkfiles e módulos é enviado ao endpoint de API configurado. Para servidores locais (Ollama, LM Studio), os dados permanecem na sua máquina. Para APIs em nuvem, revise as políticas de tratamento de dados do seu provedor.

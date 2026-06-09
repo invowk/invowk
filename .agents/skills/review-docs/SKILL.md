@@ -239,7 +239,7 @@ checklist review work assigned to any pending subagent.
 
 | Subagent | Surface | References to Read | Focus |
 |----------|---------|-------------------|-------|
-| **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk 22-section sync map, verify each section against its source of truth |
+| **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk the README sync map, verify each section against its source of truth |
 | **SA-2: Website Docs** | S2 | `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify MDX pages against Go code and CUE schemas using the code→docs map |
 | **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to the live snippet inventory systematically |
 | **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via the deterministic S4-C05 command |
@@ -313,7 +313,7 @@ Read these when working on the corresponding review surface:
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →
-  source-of-truth mapping (~22 sections)
+  source-of-truth mapping
 - **[references/cue-drift-patterns.md](references/cue-drift-patterns.md)** — 6 CUE snippet
   drift patterns with detection and correction guidance
 - **[references/intentional-simplifications.md](references/intentional-simplifications.md)** —

@@ -806,7 +806,7 @@ platforms: [
     name: "virtual-lua"
     allowed_binaries?: [...string]
     binary_lookup_mode?: "host" | "strict"
-    cpu_limit?: uint
+    cpu_limit?: int & >=0
     memory_limit?: string
 })
 
