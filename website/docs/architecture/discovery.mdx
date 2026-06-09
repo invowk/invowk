@@ -30,7 +30,9 @@ When names collide, Invowk handles two different cases:
 1. Current directory invowkfile (`./invowkfile.cue`)
 2. Local modules (`./*.invowkmod`)
 3. Configured includes (module paths from `config.Includes`)
-4. User commands directory (`~/.invowk/cmds/*.invowkmod`, modules only, non-recursive)
+4. Provisioned module entries supplied by the command adapter
+5. Provisioned global module entries supplied by the command adapter
+6. User commands directory (`~/.invowk/cmds/*.invowkmod`, modules only, non-recursive)
 
 Vendored modules (`invowk_modules/`) are scanned one level deep for each discovered module source.
 

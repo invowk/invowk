@@ -20,7 +20,7 @@ The `/docs` skill and `/review-docs` skill both reference this file.
 | `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
 | `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
 | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | `website/docs/security/audit.mdx`, `website/src/components/Snippet/data/security.ts`, `website/docs/reference/cli.mdx`, `README.md` Security Auditing |
-| `cmd/invowk/agent.go`, `internal/agentcmd/`, shared LLM flags/config | `website/docs/advanced/llm-assisted-authoring.mdx`, `website/src/components/Snippet/data/advanced.ts`, `website/docs/reference/cli.mdx`, `README.md` LLM-Assisted Command Authoring |
+| `cmd/invowk/agent.go`, `internal/agentcmd/`, shared LLM flags/config | `website/docs/advanced/llm-assisted-authoring.mdx`, `website/src/components/Snippet/data/cli.ts`, `website/docs/reference/cli.mdx`, `README.md` LLM-Assisted Command Authoring |
 | `.agents/skills/review-docs/`, `.agents/commands/review-docs.md` | `.agents/skills/docs/SKILL.md`, `AGENTS.md`, review-docs workflow references |
 | New features | Add/update docs under `website/docs/` and snippets as needed |
 

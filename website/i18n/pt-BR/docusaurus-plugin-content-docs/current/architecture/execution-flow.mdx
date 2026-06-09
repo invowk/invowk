@@ -44,14 +44,16 @@ O runtime virtual-sh usa o interpretador mvdan/sh embutido:
 |-------|------------|------|
 | 5 | Discovery | Iniciar descoberta de comandos |
 | 6-7 | CUE Parser | Fazer parsing de todos os arquivos `invowkfile.cue` |
-| 8-9 | Discovery | Escanear diretórios `*.invowkmod` e `invowk_modules/` vendorizados |
+| 8-9 | Discovery | Escanear fontes configuradas, provisionadas, de usuário e módulos vendorizados de um nível |
 | 10 | Discovery | Construir árvore unificada de comandos |
 
 **Ordem de precedência (maior para menor):**
 1. `invowkfile.cue` do diretório atual
 2. `*.invowkmod` do diretório atual
 3. Includes configurados
-4. Diretório de comandos do usuário `~/.invowk/cmds/` (apenas módulos, não recursivo)
+4. Entradas de módulos provisionadas pelo adaptador de comando
+5. Entradas de módulos globais provisionadas pelo adaptador de comando
+6. Diretório de comandos do usuário `~/.invowk/cmds/` (apenas módulos, não recursivo)
 
 ### 3. Fase de Resolução
 

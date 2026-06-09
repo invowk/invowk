@@ -90,7 +90,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 ### Module Resolution
 
-1. **Discovery Engine** reads local, sibling, configured, and vendored module paths only
+1. **Discovery Engine** reads current directory invowkfiles, local modules, configured includes, provisioned module entries, provisioned global entries, user command modules, and one-level vendored modules
 2. **Module Resolver** is used by module commands such as `invowk module sync` to check cache, fetch from Git when needed, and update the lock file
 3. Dependencies use the explicit-only model (every transitive dep must be declared in root `invowkmod.cue`)
 4. Commands from synchronized and discoverable modules become available

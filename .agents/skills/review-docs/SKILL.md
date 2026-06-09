@@ -192,6 +192,7 @@ grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md website/docs/ website/s
 while IFS= read -r f; do
   d2 validate "$f" 2>&1
 done < <(LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | LC_ALL=C sort)
+make check-diagram-renders
 
 # Sequential
 make check-agent-docs
@@ -211,6 +212,7 @@ docs:parity        : PASS | FAIL (detail)
 container-grep     : PASS | FAIL (files: ...)
 diagram-readability: PASS | FAIL (detail)
 d2-validate        : PASS | FAIL (files: ...)
+diagram-renders    : PASS | FAIL (detail)
 check-agent-docs   : PASS | FAIL (detail)
 version-assets     : PASS | FAIL (detail)
 website-typecheck  : PASS | FAIL (detail)

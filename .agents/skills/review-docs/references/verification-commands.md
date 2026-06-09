@@ -116,9 +116,9 @@ candidate observations, not findings.
 ./scripts/check-diagram-readability.sh
 ```
 
-**What it checks**: Four guardrails on all flowcharts in `docs/diagrams/flowcharts/`:
-explicit `direction:` setting, `Start:` node exists, `Start` has `shape: oval`, and
-at least one `Start -> ...` edge.
+**What it checks**: Five guardrails on all flowcharts in `docs/diagrams/flowcharts/`:
+explicit `direction:` setting, `Start:` node exists, `Start` has `shape: oval`,
+at least one `Start -> ...` edge, and explicit labels on every edge leaving a decision diamond.
 
 **Expected**: Exit 0, all flowcharts pass.
 
@@ -140,6 +140,19 @@ done < <(LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -
 
 **Failure triage**: Fix D2 syntax errors. Common issues: unquoted labels with special characters,
 missing closing braces, invalid `vars` blocks.
+
+## 7a. Rendered Diagram Manifest Validation
+
+```bash
+make check-diagram-renders
+```
+
+**What it checks**: Committed rendered SVG manifests and source hashes are current, without
+rerendering diagrams.
+
+**Expected**: Exit 0, no stale, missing, or orphaned rendered diagrams.
+
+**Failure triage**: Run `make render-diagrams`, review the D2/SVG changes, then rerun this check.
 
 ## 8. Agent Docs Integrity
 
@@ -221,7 +234,7 @@ Run checks in this order (fastest first, dependency-free checks in parallel):
 
 0. Deterministic run setup
 1. `npm run docs:parity` + container image policy grep + live inventory capture (parallel)
-2. `check-diagram-readability.sh` + D2 validation loop (parallel)
+2. `check-diagram-readability.sh` + D2 validation loop + `make check-diagram-renders` (parallel)
 3. `make check-agent-docs`
 4. `node scripts/validate-version-assets.mjs`
 5. `npm run typecheck`

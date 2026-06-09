@@ -38,14 +38,16 @@ The virtual-sh runtime uses the embedded mvdan/sh interpreter:
 |------|-----------|--------|
 | 5 | Discovery | Start command discovery |
 | 6-7 | CUE Parser | Parse discovered root/module `invowkfile.cue` files |
-| 8-9 | Discovery | Scan one-level vendored modules (`invowk_modules/`) |
+| 8-9 | Discovery | Scan configured, provisioned, user, and one-level vendored module sources |
 | 10 | Discovery | Build unified command tree |
 
 **Precedence order (highest to lowest):**
 1. Current directory `invowkfile.cue`
 2. Current directory `*.invowkmod`
 3. Configured includes (module paths from `config.Includes`)
-4. User directory `~/.invowk/cmds/` (modules only, non-recursive)
+4. Provisioned module entries supplied by the command adapter
+5. Provisioned global module entries supplied by the command adapter
+6. User directory `~/.invowk/cmds/` (modules only, non-recursive)
 
 Vendored modules are scanned one level deep per discovered module. Nested vendored modules are ignored with diagnostics.
 

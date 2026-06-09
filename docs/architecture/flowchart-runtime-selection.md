@@ -110,7 +110,7 @@ When `enable_host_ssh: true` is set, CommandService ensures a temporary SSH serv
 | Embedded Lua scripts | `virtual-lua` | Portable Lua execution with shared virtual safety harness |
 | CI/CD pipelines | `container` | Reproducible |
 | Commands needing specific tools | `container` | Isolated dependencies |
-| Interactive TUI | `native`, `virtual-sh`, or `virtual-lua` | PTY-backed interactive support |
+| Interactive TUI | `native`, `virtual-sh`, `virtual-lua`, or `container` | PTY-backed interactive support when runtime prerequisites are available |
 
 ## Related Diagrams
 

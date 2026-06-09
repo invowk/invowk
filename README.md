@@ -837,10 +837,10 @@ cmds: [
 | `default_value` | No | Default value if flag is not provided (cannot be used with `required`) |
 | `type` | No | Data type: `string` (default), `bool`, `int`, or `float` |
 | `required` | No | If `true`, the flag must be provided (cannot have `default_value`) |
-| `short` | No | Single-letter alias (e.g., `v` for `-v` shorthand) |
+| `short` | No | Single-letter alias (e.g., `q` for `-q` shorthand) |
 | `validation` | No | Regex pattern to validate flag values |
 
-> **Reserved prefixes:** The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Additionally, `help` and `version` are reserved built-in flag names.
+> **Reserved prefixes and aliases:** The `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Additionally, `help` and `version` are reserved built-in flag names, and `e`, `E`, `w`, `h`, `r`, `v`, `i`, `c`, and `f` are reserved short aliases for Invowk system flags.
 
 ### Typed Flags
 
@@ -879,17 +879,17 @@ Add single-letter shortcuts for frequently used flags:
 
 ```cue
 flags: [
-    {name: "verbose", description: "Enable verbose output", type: "bool", short: "v"},
+    {name: "quiet", description: "Reduce output", type: "bool", short: "q"},
     {name: "output", description: "Output file path", short: "o"},
-    {name: "force", description: "Force overwrite", type: "bool", short: "f"},
+    {name: "dry-run", description: "Preview changes", type: "bool", short: "d"},
 ]
 ```
 
 Usage:
 ```bash
-invowk cmd build -v -o=./dist/output.txt -f
+invowk cmd build -q -o=./dist/output.txt -d
 # Equivalent to:
-invowk cmd build --verbose --output=./dist/output.txt --force
+invowk cmd build --quiet --output=./dist/output.txt --dry-run
 ```
 
 ### Validation Patterns
@@ -920,11 +920,11 @@ cmds: [
         implementations: [...]
         flags: [
             {
-                name:        "env"
+                name:        "target"
                 description: "Target environment"
                 type:        "string"
                 required:    true
-                short:       "e"
+                short:       "t"
                 validation:  "^(dev|staging|prod)$"
             },
             {
@@ -948,7 +948,7 @@ cmds: [
 
 Usage:
 ```bash
-invowk cmd deploy -e=prod -n=3 -d
+invowk cmd deploy -t=prod -n=3 -d
 ```
 
 ### Using Flags
@@ -2982,8 +2982,8 @@ invowk audit --severity high
 
 | Code | Meaning |
 |------|---------|
-| `0` | No findings at or above the severity threshold |
-| `1` | Findings detected |
+| `0` | No confirmed findings at or above the severity threshold, including reports with only suppressed findings |
+| `1` | Confirmed findings detected at or above the severity threshold |
 | `2` | Scan error (e.g., path not found, parse failure) |
 
 ### What Gets Scanned
