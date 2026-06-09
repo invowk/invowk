@@ -251,7 +251,7 @@ The provisioned image is cached as `invowk-provisioned:<hash>`, so subsequent ru
 docker --version  # or: podman --version
 
 # Check if image exists
-docker images | grep golang
+docker image inspect debian:stable-slim
 ```
 
 ### Slow First Run

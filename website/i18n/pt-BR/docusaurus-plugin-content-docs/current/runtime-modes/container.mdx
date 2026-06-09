@@ -252,7 +252,7 @@ A imagem provisionada é cacheada como `invowk-provisioned:<hash>`, então execu
 docker --version  # ou: podman --version
 
 # Verificar se imagem existe
-docker images | grep golang
+docker image inspect debian:stable-slim
 ```
 
 ### Primeira Execução Lenta
