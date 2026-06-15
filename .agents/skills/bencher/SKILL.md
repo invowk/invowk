@@ -1,6 +1,6 @@
 ---
 name: bencher
-description: Maintain and troubleshoot Invowk's Bencher benchmark infrastructure. Use when working on Bencher, BMF benchmark output, benchmark GitHub Actions, dedicated/bare-metal runner handoff, benchmark image packaging, Bencher thresholds, "No thresholds found" dashboard warnings, benchmark alerts, or files such as `.github/workflows/benchmarks*.yml`, `scripts/bench-bmf.mjs`, `scripts/bencher-threshold-args.sh`, `scripts/bencher-registry-login.sh`, and `build/bencher/Dockerfile`.
+description: Maintain and troubleshoot Invowk's Bencher benchmark infrastructure. Use when working on Bencher, BMF benchmark output, benchmark GitHub Actions, PGO benchstat comparisons, dedicated/bare-metal runner handoff, benchmark image packaging, Bencher thresholds, "No thresholds found" dashboard warnings, benchmark alerts, or files such as `.github/workflows/benchmarks*.yml`, `.github/workflows/pgo-benchstat.yml`, `scripts/bench-bmf.mjs`, `scripts/bencher-threshold-args.sh`, `scripts/bencher-registry-login.sh`, and `build/bencher/Dockerfile`.
 ---
 
 # Bencher
@@ -13,6 +13,7 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 
 - `.github/workflows/benchmarks.yml`: base-repo PR and `main` benchmark flow.
 - `.github/workflows/benchmarks-upload.yml`: trusted workflow for fork PR benchmark upload.
+- `.github/workflows/pgo-benchstat.yml`: scheduled/manual GitHub-hosted comparison of `-pgo=off` versus default PGO using `benchstat`; this is not a Bencher upload path, but shares benchmark workflow hygiene.
 - `.github/workflows/release.yml`: release-tag performance tracking against the previous tag.
 - `build/bencher/Dockerfile`: reproducible benchmark image, Go/Node versions, vendoring, warmup.
 - `scripts/bench-bmf.mjs`: emits BMF JSON and controls the public tracked suite through `TRACKED_GO_BENCHMARKS` and `SHORT_BENCH_REGEX`.
@@ -107,6 +108,7 @@ rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHE
   - `https://bencher.dev/docs/explanation/thresholds/`
   - `https://bencher.dev/docs/api/projects/reports/`
 - Do not treat `SHORT_BENCH_REGEX` as internal cleanup. It controls what becomes long-lived public benchmark history.
+- In `pgo-benchstat.yml`, keep `BENCH_*` settings available to every step that references them. Step-level `env:` values do not carry into the later report step; promote shared benchmark variables to job-level `env:` or duplicate them on each step that uses them.
 - After renaming a Go benchmark function, update both `TRACKED_GO_BENCHMARKS` and `benchmarkNameMap`. Keep the public benchmark slug stable when the workload is the same behavior under a renamed implementation, so Bencher history and thresholds continue across code renames.
 - Large feature branches can trigger broad, legitimate alerts across latency, memory, allocations, and `binary/bin-invowk` file size. First verify the BMF script still emits the intended tracked suite and every measure has thresholds. If the regression is an intentional tradeoff, use the explicit `benchmarks: accepted-regression` label instead of weakening thresholds or deleting `--error-on-alert` globally.
 

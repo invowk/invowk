@@ -1,6 +1,6 @@
 # Mutation Testing
 
-Invowk mutation testing is an advisory quality gate at rollout. It measures whether package-level Go tests can detect source-level changes in production packages without adding mutation work to the regular test matrix.
+Invowk mutation testing is a manual advisory quality signal. It measures whether package-level Go tests can detect source-level changes in production packages without adding mutation work to the regular test matrix or PR status checks.
 
 ## Profiles
 
@@ -34,5 +34,10 @@ Committed baselines live under `tools/mutation/baselines/`. The first accepted-s
 The wrapper verifies the pinned `go-mutesting` version before running. The current tool version is `github.com/jonbaldie/go-mutesting/v2` `v2.7.0`, pinned in the root `go.mod` tool directive. Upgrade it only through the version-pinning workflow.
 
 Default mutation profiles run package-level Go tests with `-short`, even when the target manifest names explicit source files. They do not run `-race`, container-engine tests, or CLI `testscript` suites. Add focused opt-in profiles separately if a survivor needs those heavier oracles.
+
+The GitHub Actions workflow is manual-only through `workflow_dispatch`. It no
+longer runs changed-line mutation automatically on pull requests and no longer
+runs the curated full profile on a schedule. Use the Make targets locally, or
+dispatch the workflow manually when a mutation report is worth producing.
 
 Mutating local profiles reject tracked dirty work outside mutation baselines/reports and restore package source directories after the tool exits. `dry-run` does not mutate source files.

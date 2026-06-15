@@ -191,7 +191,7 @@ go test -v ./pkg/invowkfile/...
 
 ## Mutation Testing
 
-Mutation testing is a separate quality signal and does not run as part of `make test` or the regular CI test matrix. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; the initial `tools/goplint` full profile mutates explicit analyzer source files from the nested module root rather than every support file. Broaden either profile only after advisory timing and survivor data are stable.
+Mutation testing is a separate manual quality signal and does not run as part of `make test`, the regular CI test matrix, or PR status checks. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; the initial `tools/goplint` full profile mutates explicit analyzer source files from the nested module root rather than every support file. Broaden either profile only after local/manual advisory timing and survivor data are stable.
 
 ```bash
 # Count candidate mutants without executing mutated tests
@@ -200,7 +200,7 @@ make mutation-dry-run MUTATION_MODULE=root
 # Changed-line pull request profile; advisory by default
 make mutation-pr MUTATION_BASE_REF=origin/main MUTATION_MODE=advisory
 
-# Curated broad scan for scheduled/manual use
+# Curated broad scan for local/manual use
 make mutation-full MUTATION_MODULE=all MUTATION_MODE=advisory
 
 # Intentionally regenerate accepted-survivor baselines
@@ -212,7 +212,7 @@ make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>
 
 Profiles:
 - `dry-run` counts candidates and does not mutate source files.
-- `pr` mutates changed eligible Go lines relative to `MUTATION_BASE_REF`, emits GitHub annotations in CI, and exits successfully when no eligible mutations exist.
+- `pr` mutates changed eligible Go lines relative to `MUTATION_BASE_REF` and exits successfully when no eligible mutations exist. It is available as a local/manual command, not an automatic PR gate.
 - `full` runs the curated root-module and/or `tools/goplint` target manifests.
 - `baseline-update` rewrites `tools/mutation/baselines/<module>-baseline.json` intentionally.
 - `rerun` executes only one stable escaped-mutant ID.
@@ -221,7 +221,7 @@ Defaults:
 - `MUTATION_MODULE=all` (`root`, `goplint`, or `all`).
 - `MUTATION_MODE=advisory`; use `blocking` only after the baseline and runtime signal are stable.
 - `MUTATION_REPORT_DIR=artifacts/mutation`.
-- `MUTATION_WORKERS=0` locally unless overridden; CI currently sets a bounded worker count.
+- `MUTATION_WORKERS=0` locally unless overridden; the manual GitHub Actions workflow sets a bounded worker count.
 
 Default mutation profiles use package-level Go tests with `-short`, even when a manifest selects explicit source files. They do not pass `-race`, do not run CLI `testscript` suites, and do not run container-engine profiles unless a future opt-in profile documents those costs. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources after the tool exits.
 
@@ -229,7 +229,7 @@ Baselines:
 - Root module baseline: `tools/mutation/baselines/root-baseline.json`.
 - `tools/goplint` baseline: `tools/mutation/baselines/goplint-baseline.json`.
 - Baselines contain accepted survivors from reviewed full-scan reports. Update them only as an intentional review step after killing worthwhile survivors.
-- Initial CI behavior is advisory. Blocking mode fails only on new escaped mutants outside the selected baseline.
+- Manual workflow behavior is advisory. Blocking mode fails only on new escaped mutants outside the selected baseline and should be used only for explicit experiments.
 
 Reports:
 - `go-mutesting.log`: full wrapper/tool output.
@@ -361,10 +361,16 @@ goreleaser release --snapshot --clean
 | `lint.yml` | Push/PR to main (Go code/lint config changes) | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, goplint baseline gate, goplint exception governance, and goplint behavior gates + advisory goplint full scan |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
+| `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |
 | `pgo-benchstat.yml` | Weekly schedule + manual dispatch | Compare `pgo=off` vs `pgo=on` with `benchstat` and upload raw/report artifacts |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 
 Other workflows: `version-docs.yml` (doc versioning on release), `validate-diagrams.yml` (D2 syntax checks), `deploy-website.yml` (GitHub Pages deployment).
+
+### CI Workflow Hygiene
+
+- GitHub Actions step-level `env:` values are scoped only to that step. If a shell variable is used by multiple steps, define it at job-level `env:` or repeat it on every step that references it. This matters especially for `set -u` scripts, where a report-only step can fail after the real build/test command already succeeded.
+- Generated reports must be written under ignored artifact directories unless they are intentional release/docs assets. Before committing workflow or tool changes that move reports, run `git ls-files` for the report filenames and make sure root-level tool outputs such as `report.json`, `go-mutesting-summary.json`, `go-mutesting-agentic.json`, `go-mutesting-gitlab.json`, and `go-mutesting-report.html` are not tracked accidentally.
 
 ### Versioning
 

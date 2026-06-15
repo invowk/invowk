@@ -10,6 +10,80 @@ rather than investigating from scratch.
 
 ---
 
+## CI Workflow / Scheduled Quality Gates
+
+### CI-1: Step-scoped GitHub Actions env reused in a later step
+
+**Symptom**: A GitHub Actions shell step fails under `set -u` with an error such
+as `BENCH_REGEX: unbound variable`, often after the preceding build, test, or
+benchmark command succeeded.
+
+**Root cause**: The variable is defined in a previous step's `env:` block.
+GitHub Actions step-level environment values are not shared with later steps, so
+report-generation or summary steps cannot read them unless they define the same
+variable again or the job defines it at job-level `env:`.
+
+**Fix template**: Promote shared variables to the job `env:` block, or duplicate
+the `env:` block on every step that references the variable. For generated report
+text, prefer reusing the same variable instead of hardcoding a drift-prone command.
+
+```yaml
+jobs:
+  compare:
+    env:
+      BENCH_REGEX: "^Benchmark(Foo|Bar)$"
+    steps:
+      - run: go test -bench="$BENCH_REGEX"
+      - run: echo "$BENCH_REGEX" >> "$GITHUB_STEP_SUMMARY"
+```
+
+**Prevention**: When editing workflow shell with `set -u`, search the whole
+workflow for every `$VARIABLE` reference and verify each variable is defined in
+that same step, job-level `env:`, workflow-level `env:`, or GitHub's built-in
+environment. For benchmark workflows, check the `bencher` skill before changing
+shared benchmark variables.
+
+**Skill cross-reference**: `bencher` SKILL.md, `.agents/rules/commands.md` (CI
+Workflow Hygiene).
+
+---
+
+### CI-2: Tracked mutation report trips the mutation dirty-worktree guard
+
+**Symptom**: A manual Mutation Testing workflow or local mutation run fails
+before running mutants with:
+
+```text
+Mutation testing rewrites package sources while it runs.
+Commit, stash, or move these tracked changes before mutating:
+  report.json
+```
+
+**Root cause**: Root-level mutation tool report files such as `report.json` are
+generated artifacts. The wrapper removes stale tool reports before checking the
+tracked worktree; if one of those files is tracked, removal creates a tracked
+deletion and the guard correctly aborts to avoid mutating a dirty checkout.
+
+**Fix template**: Remove generated mutation reports from Git tracking and keep
+reports under `artifacts/mutation/<profile>/<module>/`, which is ignored. If a
+tool starts writing a new root-level report name, add collection/cleanup coverage
+and ignore/tracking checks in the same patch.
+
+```bash
+git ls-files report.json go-mutesting-summary.json go-mutesting-agentic.json \
+  go-mutesting-gitlab.json go-mutesting-report.html
+```
+
+**Prevention**: Before changing mutation tooling, run the tracking check above
+and `make test-scripts` or the focused mutation script tests. Do not commit
+root-level go-mutesting output unless it is deliberately converted into a docs or
+release artifact with an explicit path and owner.
+
+**Skill cross-reference**: `.agents/rules/commands.md` (Mutation Testing and CI
+Workflow Hygiene), `testing` SKILL.md for script-test updates.
+
+---
+
 ## Race Conditions
 
 ### RC-1: lipgloss sync.Once terminal detection on Windows
