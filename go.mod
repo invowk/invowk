@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.7
-	charm.land/lipgloss/v2 v2.0.3
+	charm.land/lipgloss/v2 v2.0.4
 	cuelang.org/go v0.16.1
 	github.com/arnodel/golua v0.2.0
 	github.com/bmatcuk/doublestar/v4 v4.10.0
@@ -23,7 +23,7 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/openai/openai-go/v3 v3.39.0
 	github.com/rogpeppe/go-internal v1.15.0
-	github.com/sahilm/fuzzy v0.1.2
+	github.com/sahilm/fuzzy v0.1.3
 	github.com/spf13/cobra v1.10.2
 	github.com/u-root/u-root v0.16.0
 	golang.org/x/sys v0.46.0
