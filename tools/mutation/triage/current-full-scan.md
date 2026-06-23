@@ -2,6 +2,16 @@
 
 This note records the first accepted-survivor baseline pass after the real advisory full scans and focused survivor-remediation batches.
 
+## Terminal Label Versioning
+
+Current `go-mutesting v2.7.1` terminal output uses `KILLED` for mutants caught by
+tests and `ESCAPED` for mutants that survived. This triage note also preserves
+historical evidence from `go-mutesting v2.7.0`, where terminal `PASS` meant a
+killed mutant and terminal `FAIL` meant an escaped mutant. Treat every
+`PASS`/`FAIL` interpretation in this file as historical v2.7.0 evidence, and
+use machine-readable report fields or stable mutant IDs as the durable source of
+truth for current automation.
+
 ## Source Reports
 
 - Root: `artifacts/mutation/full/root/go-mutesting-agentic.json`, generated `2026-06-01T22:37:38Z`.
@@ -32,7 +42,7 @@ Top accepted clusters after the current remediation batches:
 Root exact-rerun status correction:
 
 - The later root exact-rerun pruning notes that concluded the root baseline was empty are superseded by the corrected audit below. They interpreted `go-mutesting v2.7.0` terminal statuses backward: `PASS` means the mutant was killed, while `FAIL` means the mutant escaped.
-- Corrected exact reruns use `--run-mutant-id`, `--output-statuses=e`, and `--test-flags='-short -count=1'`; the emitted `FAIL` rows are the current escaped survivors.
+- Historical v2.7.0 corrected exact reruns used `--run-mutant-id`, `--output-statuses=e`, and `--test-flags='-short -count=1'`; the emitted `FAIL` rows in those historical logs were escaped survivors. Current v2.7.1 runs emit `ESCAPED` for that status.
 - Exact-reran the prior committed root baseline from `HEAD` in six isolated root-module mirrors: 372 committed rows covering 362 stable mutant IDs.
 - The corrected proof emitted 186 current escaped rows covering 165 stable mutant IDs, then resolver-validation, semver, content-hash, operations-validation, discovery-collision, dependency-contract, and filepath-dependency remediation batches reduced the committed baseline to 159 rows covering 138 stable mutant IDs. The corrected proof proved 210 prior committed rows and 197 prior committed IDs killed or obsolete under corrected semantics.
 - The proof also emitted 24 current same-ID escaped rows that were not exact file/line/mutator matches for the prior committed rows. Because `go-mutesting` suppresses by stable mutant ID, the repaired baseline stores current escaped row metadata for the remaining still-escaping accepted IDs.
@@ -131,7 +141,7 @@ Fifth remediation batch:
 Goplint exact-rerun status correction:
 
 - The goplint exact-rerun pruning notes from the analyzer batch through the windows-pitfalls batch are superseded by the corrected audit below, including same-ID non-baseline site notes and line-shifted killed-site notes in those batches. They interpreted `go-mutesting v2.7.0` terminal statuses backward: `PASS` means the mutant was killed, while `FAIL` means the mutant escaped.
-- Corrected exact reruns use `--run-mutant-id`, `--output-statuses=e`, and `--test-flags='-short -count=1'`; the emitted `FAIL` rows are the current escaped survivors.
+- Historical v2.7.0 corrected exact reruns used `--run-mutant-id`, `--output-statuses=e`, and `--test-flags='-short -count=1'`; the emitted `FAIL` rows in those historical logs were escaped survivors. Current v2.7.1 runs emit `ESCAPED` for that status.
 
 Goplint analyzer exact-rerun batch:
 
@@ -182,13 +192,13 @@ Goplint remaining-small-clusters exact-rerun batch:
 - Fresh exact reruns proved all 8 accepted `goplint/analyzer_redundant_conversion.go` survivor records killed and removed from the goplint baseline.
 - Fresh exact reruns proved all 5 accepted `goplint/analyzer_run.go` survivor records killed and removed from the goplint baseline.
 - Fresh exact reruns proved all 3 accepted `goplint/analyzer_validate_usage.go` survivor records killed and removed from the goplint baseline.
-- The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root. The `goplint/analyzer_run.go` reruns reported line-shifted killed sites after local source changes, but each removed accepted ID had a current exact-rerun `FAIL`.
+- The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root. The `goplint/analyzer_run.go` reruns reported line-shifted killed sites after local source changes, but each removed accepted ID had a historical v2.7.0 exact-rerun `FAIL`.
 - After this batch, the goplint baseline accepted 647 survivor records; only the nine larger goplint clusters remained accepted.
 
 Goplint cast-validation exact-rerun batch:
 
 - Fresh exact reruns proved all 33 accepted `goplint/analyzer_cast_validation.go` survivor records killed and removed from the goplint baseline.
-- The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root. Several reruns reported line-shifted killed sites after local source changes, but each removed accepted ID had a current exact-rerun `FAIL`.
+- The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root. Several reruns reported line-shifted killed sites after local source changes, but each removed accepted ID had a historical v2.7.0 exact-rerun `FAIL`.
 - After this batch, the goplint baseline accepted 614 survivor records; eight larger goplint clusters remained accepted.
 
 Goplint enum-sync exact-rerun batch:
@@ -200,7 +210,7 @@ Goplint enum-sync exact-rerun batch:
 Goplint structural exact-rerun batch:
 
 - Fresh exact reruns proved all 56 accepted `goplint/analyzer_structural.go` survivor records killed and removed from the goplint baseline.
-- The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root. Several reruns reported line-shifted killed sites after local source changes, but each removed accepted ID had a current exact-rerun `FAIL`.
+- The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root. Several reruns reported line-shifted killed sites after local source changes, but each removed accepted ID had a historical v2.7.0 exact-rerun `FAIL`.
 - After this batch, the goplint baseline accepted 520 survivor records; six larger goplint clusters remained accepted.
 
 Goplint cross-platform-path exact-rerun batch:
@@ -835,7 +845,7 @@ Ninety-fifth remediation batch:
 
 - Add a `pkg/invowkmod` module-ref source ID assertion for `ssh://` URLs with scp-like repository suffixes, proving scheme stripping is observable before the fallback colon split.
 - Fresh explicit single-mutant reruns proved the duplicated `pkg/invowkmod/dependency_types.go` survivor record killed at both matching sites: `89169834da15df59b308f1322a3efa7b`.
-- A full terse exact-ID sweep over the current root baseline found no other PASS-only survivor IDs; mixed duplicate-site records such as `9cd961ddec23a699b5278fa5ec83ee2e` remain accepted because at least one matching site still escaped. The root baseline now accepts 94 survivor records.
+- A full terse exact-ID sweep over the current root baseline found no other historical v2.7.0 PASS-only survivor IDs; mixed duplicate-site records such as `9cd961ddec23a699b5278fa5ec83ee2e` remain accepted because at least one matching site still escaped. The root baseline now accepts 94 survivor records.
 
 Ninety-sixth remediation batch:
 

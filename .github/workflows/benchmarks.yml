@@ -42,13 +42,15 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Install Bencher CLI
-        uses: bencherdev/bencher@main
+        uses: bencherdev/bencher@v0.6.8
+        with:
+          version: 0.6.8
 
       - name: Determine Bencher branch
         id: meta

@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GO_CMD="${GO_CMD:-go}"
 GO_MUTESTING_TOOL="go-mutesting"
 GO_MUTESTING_MODULE="github.com/jonbaldie/go-mutesting/v2"
-GO_MUTESTING_VERSION="v2.7.0"
+GO_MUTESTING_VERSION="v2.7.5"
 DEFAULT_REPORT_DIR="artifacts/mutation"
 QUALITY_GATE_EXIT_CODE=4
 

@@ -193,6 +193,12 @@ go test -v ./pkg/invowkfile/...
 
 Mutation testing is a separate manual quality signal and does not run as part of `make test`, the regular CI test matrix, or PR status checks. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; the initial `tools/goplint` full profile mutates explicit analyzer source files from the nested module root rather than every support file. Broaden either profile only after local/manual advisory timing and survivor data are stable.
 
+Current `go-mutesting` terminal labels are explicit: `KILLED` means tests caught
+the mutant, and `ESCAPED` means the mutant survived. Automation should continue
+to use summary/agentic JSON fields or stable mutant IDs instead of scraping
+human terminal labels. Historical notes from `go-mutesting v2.7.0` may mention
+the older inverted `PASS`/`FAIL` labels; keep those examples version-scoped.
+
 ```bash
 # Count candidate mutants without executing mutated tests
 make mutation-dry-run MUTATION_MODULE=root

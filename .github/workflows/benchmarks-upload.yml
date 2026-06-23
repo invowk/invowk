@@ -74,13 +74,13 @@ jobs:
 
       - name: Checkout trusted benchmark packaging
         if: steps.pr.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: trusted
 
       - name: Checkout pull request head
         if: steps.pr.outputs.skip != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ steps.pr.outputs.head-repo }}
           ref: ${{ steps.pr.outputs.head-sha }}
@@ -121,7 +121,9 @@ jobs:
 
       - name: Install Bencher CLI
         if: steps.pr.outputs.skip != 'true' && steps.image.outputs['run-bencher'] == 'true'
-        uses: bencherdev/bencher@main
+        uses: bencherdev/bencher@v0.6.8
+        with:
+          version: 0.6.8
 
       - name: Upload benchmark data to Bencher
         if: steps.pr.outputs.skip != 'true' && steps.image.outputs['run-bencher'] == 'true'

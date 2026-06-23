@@ -31,7 +31,14 @@ Committed baselines live under `tools/mutation/baselines/`. The first accepted-s
 
 ## Operating Model
 
-The wrapper verifies the pinned `go-mutesting` version before running. The current tool version is `github.com/jonbaldie/go-mutesting/v2` `v2.7.0`, pinned in the root `go.mod` tool directive. Upgrade it only through the version-pinning workflow.
+The wrapper verifies the pinned `go-mutesting` version before running. The current tool version is `github.com/jonbaldie/go-mutesting/v2` `v2.7.5`, pinned in the root `go.mod` tool directive. Upgrade it only through the version-pinning workflow.
+
+Current terminal labels are `KILLED` for mutants caught by tests and `ESCAPED`
+for mutants that survived. Use `go-mutesting-summary.json`,
+`go-mutesting-agentic.json`, and stable mutant IDs as the source of truth for
+automation. Historical triage notes produced with `go-mutesting v2.7.0` may
+refer to the older inverted `PASS`/`FAIL` terminal labels; keep those
+interpretations scoped to that historical tool version.
 
 Default mutation profiles run package-level Go tests with `-short`, even when the target manifest names explicit source files. They do not run `-race`, container-engine tests, or CLI `testscript` suites. Add focused opt-in profiles separately if a survivor needs those heavier oracles.
 

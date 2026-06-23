@@ -135,6 +135,10 @@ test_paths() {
 		"$(profile_report_dir pr root "$tmp/reports")"
 }
 
+test_tool_version_pin() {
+	assert_eq "go-mutesting version pin" "v2.7.5" "$GO_MUTESTING_VERSION"
+}
+
 test_command_construction() {
 	local args
 
@@ -158,7 +162,7 @@ test_command_construction() {
 
 	args="$(build_go_mutesting_args rerun goplint advisory origin/main escaped-123)"
 	assert_contains "rerun targets stable mutant id" "--run-mutant-id=escaped-123" "$args"
-	assert_contains "rerun prints escaped status" "--output-statuses=e" "$args"
+	assert_contains "rerun selects escaped status code" "--output-statuses=e" "$args"
 }
 
 test_interrupt_status_detection() {
@@ -303,6 +307,7 @@ test_goplint_target_resolution() {
 }
 
 test_paths
+test_tool_version_pin
 test_command_construction
 test_interrupt_status_detection
 test_untracked_cleanup_preserves_existing_files
