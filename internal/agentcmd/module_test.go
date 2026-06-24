@@ -28,7 +28,7 @@ func TestCreateModuleDryRunDoesNotWrite(t *testing.T) { //nolint:paralleltest //
 	if result.ModuleID != "io.example.tools" {
 		t.Fatalf("ModuleID = %q", result.ModuleID)
 	}
-	if !strings.Contains(result.Diff, "io.example.tools.invowkmod/invowkmod.cue") {
+	if !strings.Contains(result.Diff, filepath.Join("io.example.tools.invowkmod", "invowkmod.cue")) {
 		t.Fatalf("dry-run diff missing module path:\n%s", result.Diff)
 	}
 	if _, err := os.Stat("io.example.tools.invowkmod"); !os.IsNotExist(err) {

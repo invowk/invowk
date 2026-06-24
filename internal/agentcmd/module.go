@@ -24,6 +24,8 @@ import (
 const (
 	defaultInvowkfileContent = "cmds: []\n"
 	generatedModuleName      = "generated-module"
+	invowkfileFileName       = "invowkfile.cue"
+	invowkmodFileName        = "invowkmod.cue"
 )
 
 type (
@@ -280,8 +282,8 @@ func (result ModuleResult) PrintJSON() (string, error) {
 	}{
 		ModuleID: result.ModuleID.String(),
 		Files: map[string]string{
-			"invowkmod.cue":  result.InvowkmodCUE,
-			"invowkfile.cue": result.InvowkfileCUE,
+			invowkmodFileName:  result.InvowkmodCUE,
+			invowkfileFileName: result.InvowkfileCUE,
 		},
 		Summary: result.Summary,
 	}
@@ -405,23 +407,23 @@ func ParseModuleGenerationResponse(raw string) (moduleGenerationResponse, error)
 
 // ValidateModuleBundle validates and formats a generated module two-file bundle.
 func ValidateModuleBundle(moduleID invowkmod.ModuleID, modulePath, invowkmodCUE, invowkfileCUE string) (formattedMod, formattedFile string, err error) {
-	formattedMod, err = formatCUEFile(invowkmodCUE, "invowkmod.cue")
+	formattedMod, err = formatCUEFile(invowkmodCUE, invowkmodFileName)
 	if err != nil {
 		return "", "", err
 	}
-	formattedFile, err = formatCUEFile(invowkfileCUE, "invowkfile.cue")
+	formattedFile, err = formatCUEFile(invowkfileCUE, invowkfileFileName)
 	if err != nil {
 		return "", "", err
 	}
 
-	meta, err := invowkmod.ParseInvowkmodBytes([]byte(formattedMod), types.FilesystemPath(filepath.Join(modulePath, "invowkmod.cue")))
+	meta, err := invowkmod.ParseInvowkmodBytes([]byte(formattedMod), types.FilesystemPath(filepath.Join(modulePath, invowkmodFileName)))
 	if err != nil {
 		return "", "", fmt.Errorf("validate generated invowkmod.cue: %w", err)
 	}
 	if meta.Module != moduleID {
 		return "", "", fmt.Errorf("generated module ID %q does not match requested module ID %q", meta.Module, moduleID)
 	}
-	if _, err := invowkfile.ParseBytes([]byte(formattedFile), filepath.Join(modulePath, "invowkfile.cue")); err != nil {
+	if _, err := invowkfile.ParseBytes([]byte(formattedFile), filepath.Join(modulePath, invowkfileFileName)); err != nil {
 		return "", "", fmt.Errorf("validate generated invowkfile.cue: %w", err)
 	}
 	if err := validateModuleBundleInTemp(moduleID, formattedMod, formattedFile); err != nil {
@@ -512,7 +514,7 @@ func loadExistingModule(target string) (loadedModule, error) {
 		return loadedModule{}, verifyErr
 	}
 
-	invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
+	invowkmodPath := filepath.Join(modulePath, invowkmodFileName)
 	invowkmodData, err := os.ReadFile(invowkmodPath)
 	if err != nil {
 		return loadedModule{}, fmt.Errorf("read %s: %w", invowkmodPath, err)
@@ -522,7 +524,7 @@ func loadExistingModule(target string) (loadedModule, error) {
 		return loadedModule{}, fmt.Errorf("parse %s: %w", invowkmodPath, err)
 	}
 
-	invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
+	invowkfilePath := filepath.Join(modulePath, invowkfileFileName)
 	invowkfileData, err := os.ReadFile(invowkfilePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -595,10 +597,10 @@ func writeModuleBundle(modulePath, invowkmodCUE, invowkfileCUE string, createScr
 }
 
 func writeModuleFiles(modulePath, invowkmodCUE, invowkfileCUE string) error {
-	if err := os.WriteFile(filepath.Join(modulePath, "invowkmod.cue"), []byte(invowkmodCUE), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(modulePath, invowkmodFileName), []byte(invowkmodCUE), 0o644); err != nil {
 		return fmt.Errorf("write invowkmod.cue: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(modulePath, "invowkfile.cue"), []byte(invowkfileCUE), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(modulePath, invowkfileFileName), []byte(invowkfileCUE), 0o644); err != nil {
 		return fmt.Errorf("write invowkfile.cue: %w", err)
 	}
 	return nil
@@ -621,8 +623,8 @@ func verifyModule(modulePath string) error {
 
 func buildModuleDiff(modulePath, oldMod, newMod, oldFile, newFile string, existed bool) string {
 	var b strings.Builder
-	b.WriteString(BuildUnifiedDiff(filepath.Join(modulePath, "invowkmod.cue"), oldMod, newMod, existed))
-	b.WriteString(BuildUnifiedDiff(filepath.Join(modulePath, "invowkfile.cue"), oldFile, newFile, existed))
+	b.WriteString(BuildUnifiedDiff(filepath.Join(modulePath, invowkmodFileName), oldMod, newMod, existed))
+	b.WriteString(BuildUnifiedDiff(filepath.Join(modulePath, invowkfileFileName), oldFile, newFile, existed))
 	return b.String()
 }
 
@@ -650,8 +652,7 @@ func decodeStrictJSON(raw string, target any) error {
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("decode JSON response: %w", err)
 	}
-	var trailing struct{}
-	if err := decoder.Decode(&trailing); err != io.EOF {
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return errors.New("unexpected trailing JSON tokens")
 	}
 	return nil

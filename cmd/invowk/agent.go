@@ -18,6 +18,14 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const (
+	agentInvowkfileName      = "invowkfile.cue"
+	agentInvowkfileFlagUsage = "invowkfile to update"
+	agentFromFileFlagName    = "from-file"
+	agentDryRunFlagName      = "dry-run"
+	agentCmdDryRunFlagUsage  = "print the patch without writing the invowkfile"
+)
+
 // newAgentCommand creates the `invowk agent` command group.
 func newAgentCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmd := &cobra.Command{
@@ -103,9 +111,9 @@ command object.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&targetPath, "file", "invowkfile.cue", "invowkfile to update")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "read the command description from a file")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the patch without writing the invowkfile")
+	cmd.Flags().StringVar(&targetPath, "file", agentInvowkfileName, agentInvowkfileFlagUsage)
+	cmd.Flags().StringVar(&fromFile, agentFromFileFlagName, "", "read the command description from a file")
+	cmd.Flags().BoolVar(&dryRun, agentDryRunFlagName, false, agentCmdDryRunFlagUsage)
 	cmd.Flags().BoolVar(&printOnly, "print", false, "print the generated command CUE without writing the invowkfile")
 	cmd.Flags().BoolVar(&verify, "verify", false, "after writing, resolve the generated command with a dry-run execution plan")
 	bindLLMFlags(cmd, &llmFlags)
@@ -144,9 +152,9 @@ command object.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&targetPath, "file", "invowkfile.cue", "invowkfile to update")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "read the command change description from a file")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the patch without writing the invowkfile")
+	cmd.Flags().StringVar(&targetPath, "file", agentInvowkfileName, agentInvowkfileFlagUsage)
+	cmd.Flags().StringVar(&fromFile, agentFromFileFlagName, "", "read the command change description from a file")
+	cmd.Flags().BoolVar(&dryRun, agentDryRunFlagName, false, agentCmdDryRunFlagUsage)
 	cmd.Flags().BoolVar(&printOnly, "print", false, "print the generated command CUE without writing the invowkfile")
 	cmd.Flags().BoolVar(&verify, "verify", false, "after writing, resolve the changed command with a dry-run execution plan")
 	bindLLMFlags(cmd, &llmFlags)
@@ -178,8 +186,8 @@ func newAgentCmdRemoveCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&targetPath, "file", "invowkfile.cue", "invowkfile to update")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the patch without writing the invowkfile")
+	cmd.Flags().StringVar(&targetPath, "file", agentInvowkfileName, agentInvowkfileFlagUsage)
+	cmd.Flags().BoolVar(&dryRun, agentDryRunFlagName, false, agentCmdDryRunFlagUsage)
 	return cmd
 }
 
@@ -253,8 +261,8 @@ generated module file bundle.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "read the module description from a file")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the patch without writing the module")
+	cmd.Flags().StringVar(&fromFile, agentFromFileFlagName, "", "read the module description from a file")
+	cmd.Flags().BoolVar(&dryRun, agentDryRunFlagName, false, "print the patch without writing the module")
 	cmd.Flags().BoolVar(&printOnly, "print", false, "print the generated module file bundle without writing")
 	cmd.Flags().BoolVar(&verify, "verify", false, "after writing, validate the generated module")
 	cmd.Flags().BoolVar(&scripts, "scripts", false, "create an empty scripts/ directory with .gitkeep")
@@ -293,8 +301,8 @@ generated module file bundle.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "read the module change description from a file")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the patch without writing the module")
+	cmd.Flags().StringVar(&fromFile, agentFromFileFlagName, "", "read the module change description from a file")
+	cmd.Flags().BoolVar(&dryRun, agentDryRunFlagName, false, "print the patch without writing the module")
 	cmd.Flags().BoolVar(&printOnly, "print", false, "print the generated module file bundle without writing")
 	cmd.Flags().BoolVar(&verify, "verify", false, "after writing, validate the changed module")
 	bindLLMFlags(cmd, &llmFlags)
@@ -326,7 +334,7 @@ func newAgentModRemoveCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the deletion plan without removing the module")
+	cmd.Flags().BoolVar(&dryRun, agentDryRunFlagName, false, "print the deletion plan without removing the module")
 	cmd.Flags().BoolVar(&force, "force", false, "delete the validated module directory")
 	return cmd
 }
@@ -690,7 +698,7 @@ func ensureCurrentInvowkfileTarget(targetPath string) error {
 	if err != nil {
 		return fmt.Errorf("resolve current directory: %w", err)
 	}
-	expected := filepath.Join(cwd, "invowkfile.cue")
+	expected := filepath.Join(cwd, agentInvowkfileName)
 	if filepath.Clean(targetAbs) != filepath.Clean(expected) {
 		return fmt.Errorf("--verify supports only the current directory invowkfile.cue target; got %s", targetPath)
 	}

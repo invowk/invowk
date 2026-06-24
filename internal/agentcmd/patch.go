@@ -171,36 +171,46 @@ func RemoveCommandFromInvowkfile(existing string, name invowkfile.CommandName, t
 		return "", "", fmt.Errorf("command %q does not exist in %s", name, targetPath)
 	}
 
-	var removed string
 	for i := range list.Elts {
 		existingName, ok := commandNameFromExpr(list.Elts[i])
 		if !ok || existingName != name {
 			continue
 		}
-		data, formatErr := format.Node(list.Elts[i])
-		if formatErr != nil {
-			return "", "", fmt.Errorf("format command %q: %w", name, formatErr)
-		}
-		removed = strings.TrimSpace(string(data))
-		list.Elts = append(list.Elts[:i], list.Elts[i+1:]...)
-		if len(list.Elts) == 0 {
-			if hasNonCommandFields(file) {
-				return "", "", fmt.Errorf("cannot remove command %q because %s would have no commands but still contains other settings", name, targetPath)
-			}
-			return removed, "", nil
-		}
-		formatted, formatErr := format.Node(file)
-		if formatErr != nil {
-			return "", "", fmt.Errorf("format patched invowkfile: %w", formatErr)
-		}
-		content := string(formatted)
-		if validateErr := validatePatchedContent(content, targetPath); validateErr != nil {
-			return "", "", validateErr
-		}
-		return removed, content, nil
+		return removeCommandAt(file, list, i, name, targetPath)
 	}
 
 	return "", "", fmt.Errorf("command %q does not exist in %s", name, targetPath)
+}
+
+func removeCommandAt(
+	file *ast.File,
+	list *ast.ListLit,
+	index int,
+	name invowkfile.CommandName,
+	targetPath string,
+) (removedCommand, content string, err error) {
+	data, formatErr := format.Node(list.Elts[index])
+	if formatErr != nil {
+		return "", "", fmt.Errorf("format command %q: %w", name, formatErr)
+	}
+	removed := strings.TrimSpace(string(data))
+	list.Elts = append(list.Elts[:index], list.Elts[index+1:]...)
+	if len(list.Elts) == 0 {
+		if hasNonCommandFields(file) {
+			return "", "", fmt.Errorf("cannot remove command %q because %s would have no commands but still contains other settings", name, targetPath)
+		}
+		return removed, "", nil
+	}
+
+	formatted, formatErr := format.Node(file)
+	if formatErr != nil {
+		return "", "", fmt.Errorf("format patched invowkfile: %w", formatErr)
+	}
+	content = string(formatted)
+	if validateErr := validatePatchedContent(content, targetPath); validateErr != nil {
+		return "", "", validateErr
+	}
+	return removed, content, nil
 }
 
 func hasNonCommandFields(file *ast.File) bool {
