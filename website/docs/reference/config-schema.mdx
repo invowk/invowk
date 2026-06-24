@@ -117,7 +117,7 @@ User interface configuration.
 **Required:** No
 **Default:** `{}`
 
-Default LLM backend configuration for LLM-aware commands. `invowk agent cmd create` uses this config when no LLM flags are passed. `invowk audit` still requires explicit opt-in with `--llm` or `--llm-provider` before it sends script content to an LLM.
+Default LLM backend configuration for LLM-aware commands. `invowk agent cmd create|change` and `invowk agent mod create|change` use this config when no LLM flags are passed. `invowk audit` still requires explicit opt-in with `--llm` or `--llm-provider` before it sends script content to an LLM.
 
 <Snippet id="reference/config/llm-provider" />
 

@@ -1,0 +1,41 @@
+# Test: invowk agent mod prompt
+# Verifies module prompt output includes all operations, schemas, and JSON metadata.
+
+cd $WORK
+
+exec invowk agent mod prompt
+stdout '# mod create'
+stdout '# mod change'
+stdout '# mod remove'
+stdout 'local Invowk module'
+stdout '#Invowkfile'
+stdout '#Invowkmod'
+
+exec invowk agent mod prompt create
+stdout 'helping a user create'
+stdout 'invowkmod_cue'
+
+exec invowk agent mod prompt change
+stdout 'helping a user change'
+stdout 'update only those two files'
+
+exec invowk agent mod prompt remove
+stdout 'module removal is deterministic'
+! stdout 'response_schema'
+
+exec invowk agent mod prompt --format json
+stdout '"target": "mod"'
+stdout '"operation": "create"'
+stdout '"operation": "change"'
+stdout '"operation": "remove"'
+
+exec invowk agent mod prompt create --format json
+stdout '"target": "mod"'
+stdout '"operation": "create"'
+stdout '"response_schema"'
+
+! exec invowk agent mod prompt --format yaml
+stderr 'Unknown prompt format'
+
+! exec invowk agent mod prompt update
+stderr 'Unknown prompt operation'

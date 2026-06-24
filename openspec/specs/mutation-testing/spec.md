@@ -2,9 +2,7 @@
 
 ## Purpose
 Define Invowk's mutation-testing contract so mutation runs stay reproducible, baseline-aware, safe for local worktrees, and separate from the regular test matrix while providing useful test-quality signal for root-module and `tools/goplint` Go code.
-
 ## Requirements
-
 ### Requirement: Pinned mutation-testing toolchain
 Invowk SHALL use an exact pinned Go mutation-testing tool version for local and CI mutation runs, and SHALL NOT install or invoke an unversioned or `latest` mutation-testing tool in repository automation.
 
@@ -170,3 +168,46 @@ Invowk SHALL document mutation-testing usage and validate the wrapper logic with
 #### Scenario: OpenSpec and agent docs remain synchronized
 - **WHEN** implementation changes `AGENTS.md`, `.agents/rules/`, or `.agents/skills/` for mutation-testing guidance
 - **THEN** `make check-agent-docs` SHALL pass before the change is complete
+
+### Requirement: Mutation tool upgrades preserve PR targeting semantics
+Invowk SHALL keep changed-line mutation testing aligned with pull request review semantics when the pinned mutation tool gains improved diff-base behavior.
+
+#### Scenario: Changed-line mutation uses the intended base
+- **WHEN** maintainers update the pinned mutation-testing tool to a version that changes changed-line diff handling
+- **THEN** the pull request mutation profile MUST continue mutating eligible production Go lines relative to the intended PR base
+- **THEN** wrapper tests or focused dry-run evidence MUST prove the selected base-ref behavior is still correct
+
+#### Scenario: Baselines are not recomputed by tool refresh
+- **WHEN** maintainers update the pinned mutation-testing tool as part of dependency maintenance
+- **THEN** accepted-survivor baselines MUST NOT be regenerated unless the change explicitly enters the baseline update profile
+- **THEN** any baseline change in the same implementation MUST be justified as intentional survivor triage rather than routine tool refresh
+
+### Requirement: Mutation tool upgrades preserve report contracts
+Invowk SHALL preserve machine-readable mutation reports and stable mutant identifiers across routine mutation-testing tool upgrades.
+
+#### Scenario: Report files remain available
+- **WHEN** mutation wrapper tests run after a mutation tool upgrade
+- **THEN** expected summary, agentic, GitLab, HTML, log, target-resolution, excluded-package, and not-covered-package report paths MUST remain stable unless the design documents a migration
+
+#### Scenario: Automation avoids terminal-label scraping
+- **WHEN** mutation terminal labels change across tool versions
+- **THEN** automation MUST continue using machine-readable report fields or stable mutant IDs instead of parsing human terminal labels
+- **THEN** human-facing documentation MUST identify the current terminal labels and preserve historical label notes as version-scoped evidence
+
+### Requirement: Mutation terminal labels are current and unambiguous
+Invowk SHALL document and interpret mutation-testing terminal output labels according to the pinned mutation-testing tool version.
+
+#### Scenario: Current tool output uses explicit labels
+- **WHEN** Invowk uses a mutation-testing tool version whose terminal output labels killed mutants as `KILLED` and surviving mutants as `ESCAPED`
+- **THEN** current documentation and agent guidance MUST use `KILLED` for killed mutants
+- **AND** current documentation and agent guidance MUST use `ESCAPED` for surviving mutants
+
+#### Scenario: Historical output labels are version-scoped
+- **WHEN** historical triage notes refer to older mutation-testing output where `PASS` meant killed and `FAIL` meant escaped
+- **THEN** those notes MUST clearly identify that the label interpretation applies to the older tool version that produced the evidence
+- **AND** those notes MUST NOT present `PASS` and `FAIL` as the current mutation-testing terminal labels
+
+#### Scenario: Automation relies on machine-readable reports
+- **WHEN** mutation-testing gates decide whether a run passes or fails
+- **THEN** they MUST use machine-readable report fields or stable mutant IDs when available
+- **AND** they MUST NOT introduce new parsing of human terminal status labels unless no machine-readable alternative exists

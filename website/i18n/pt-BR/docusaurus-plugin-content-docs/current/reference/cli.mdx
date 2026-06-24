@@ -560,6 +560,7 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
+| `--llm-concurrency` | `4` | Máximo de requisições LLM paralelas |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
 `--llm` e `--llm-provider` são mutuamente exclusivos. Use `--llm` para o backend configurado/API e `--llm-provider` para forçar a detecção de provedor.
@@ -574,7 +575,7 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 
 ### invowk agent cmd prompt
 
-Imprimir o system prompt que agentes LLM devem usar ao criar um comando personalizado do Invowk.
+Imprimir system prompts por operação que agentes LLM devem usar ao criar comandos personalizados do Invowk.
 
 <Snippet id="reference/cli/agent-prompt-syntax" />
 
@@ -586,7 +587,7 @@ Imprimir o system prompt que agentes LLM devem usar ao criar um comando personal
 
 ### invowk agent cmd create
 
-Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `invowkfile.cue`. Veja [Autoria de Comandos com LLM](../advanced/llm-assisted-authoring) para o fluxo completo.
+Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `invowkfile.cue`. O `name` gerado deve corresponder a `<name>`. Veja [Autoria de Agente com LLM](../advanced/llm-assisted-authoring) para o fluxo completo.
 
 <Snippet id="reference/cli/agent-create-syntax" />
 
@@ -598,7 +599,6 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--from-file` | | Ler a solicitação do comando a partir de um arquivo |
 | `--dry-run` | `false` | Imprimir o patch sem escrever |
 | `--print` | `false` | Imprimir apenas o CUE do comando gerado |
-| `--replace` | `false` | Substituir um comando existente com o mesmo nome |
 | `--verify` | `false` | Depois de escrever, resolver o comando gerado com um plano de execução dry-run |
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Habilitar LLM usando configuração ou API |
@@ -606,6 +606,83 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
+| `--llm-concurrency` | `4` | Máximo de requisições LLM paralelas |
+
+### invowk agent cmd change
+
+Gerar uma substituição para um comando personalizado existente com uma LLM. O `name` gerado deve continuar correspondendo a `<name>`, e apenas esse comando é substituído.
+
+<Snippet id="reference/cli/agent-change-syntax" />
+
+**Flags:** iguais a `agent cmd create`.
+
+### invowk agent cmd remove
+
+Remover um comando personalizado de um invowkfile sem resolver um provedor LLM.
+
+<Snippet id="reference/cli/agent-remove-syntax" />
+
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--file` | `invowkfile.cue` | Invowkfile a atualizar |
+| `--dry-run` | `false` | Imprimir o patch sem escrever |
+
+### invowk agent mod prompt
+
+Imprimir system prompts por operação que agentes LLM devem usar ao criar módulos locais do Invowk.
+
+<Snippet id="reference/cli/agent-mod-prompt-syntax" />
+
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--format` | `text` | Formato de saída: `text`, `json` |
+
+### invowk agent mod create
+
+Gerar `invowkmod.cue` e `invowkfile.cue` para `<module-id>.invowkmod` com uma LLM. O ID de módulo gerado deve corresponder a `<module-id>`.
+
+<Snippet id="reference/cli/agent-mod-create-syntax" />
+
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--from-file` | | Ler a solicitação do módulo a partir de um arquivo |
+| `--dry-run` | `false` | Imprimir os patches sem escrever |
+| `--print` | `false` | Imprimir o pacote de arquivos gerado sem escrever |
+| `--verify` | `false` | Depois de escrever, validar o módulo gerado |
+| `--scripts` | `false` | Criar um diretório `scripts/` vazio com `.gitkeep` |
+| `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Habilitar LLM usando configuração ou API |
+| `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
+| `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
+| `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
+| `--llm-timeout` | `2m` | Timeout por requisição |
+
+### invowk agent mod change
+
+Gerar substituições para `invowkmod.cue` e `invowkfile.cue` em um módulo local existente. Nenhum outro arquivo do módulo é gerado ou editado.
+
+<Snippet id="reference/cli/agent-mod-change-syntax" />
+
+**Flags:** iguais a `agent mod create`, exceto que `--scripts` não é suportado.
+
+### invowk agent mod remove
+
+Remover um diretório de módulo local validado sem editar dependências ou lock files. A exclusão exige `--force`; use `--dry-run` para visualizar o plano.
+
+<Snippet id="reference/cli/agent-mod-remove-syntax" />
+
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--dry-run` | `false` | Imprimir o plano de exclusão sem remover o módulo |
+| `--force` | `false` | Excluir o diretório de módulo validado |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
 Forneça argumentos de descrição ou `--from-file`; eles são mutuamente exclusivos. `--llm` e `--llm-provider` são mutuamente exclusivos. `--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`. A verificação atualmente só aceita o alvo do diretório atual (`./invowkfile.cue`); combinar `--verify` com `--file` para outro caminho falha antes de resolver o plano de execução dry-run.

@@ -4,15 +4,40 @@
 cd $WORK
 
 exec invowk agent cmd prompt
+stdout '# cmd create'
+stdout '# cmd change'
+stdout '# cmd remove'
 stdout 'Return only JSON'
 stdout '#Invowkfile'
 stdout '#Invowkmod'
 stdout 'not a security sandbox'
 
+exec invowk agent cmd prompt create
+stdout 'helping a user create'
+! stdout '# cmd change'
+
+exec invowk agent cmd prompt change
+stdout 'helping a user change'
+
+exec invowk agent cmd prompt remove
+stdout 'command removal is deterministic'
+! stdout 'response_schema'
+
 exec invowk agent cmd prompt --format json
-stdout '"system_prompt"'
+stdout '"operations"'
+stdout '"operation": "create"'
+stdout '"operation": "change"'
+stdout '"operation": "remove"'
 stdout '"invowkfile.cue"'
 stdout '"invowkmod.cue"'
 
+exec invowk agent cmd prompt create --format json
+stdout '"target": "cmd"'
+stdout '"operation": "create"'
+stdout '"response_schema"'
+
 ! exec invowk agent cmd prompt --format yaml
 stderr 'Unknown prompt format'
+
+! exec invowk agent cmd prompt update
+stderr 'Unknown prompt operation'

@@ -380,7 +380,7 @@ ui: {
 
 // Example LLM backend override
 // ----------------------------
-// Used by invowk agent cmd create and by invowk audit --llm.
+// Used by invowk agent cmd/mod create|change and by invowk audit --llm.
 // Default config uses llm: {} until a provider or API is configured.
 // Bare invowk audit remains deterministic and does not call LLMs.
 llm: {
@@ -1000,7 +1000,7 @@ ui: {
 
 // Example LLM backend override
 // ----------------------------
-// Used by invowk agent cmd create and by invowk audit --llm.
+// Used by invowk agent cmd/mod create|change and by invowk audit --llm.
 // Default config uses llm: {} until a provider or API is configured.
 // Bare invowk audit remains deterministic and does not call LLMs.
 llm: {

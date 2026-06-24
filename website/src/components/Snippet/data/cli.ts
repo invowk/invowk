@@ -394,43 +394,81 @@ invowk validate ./my-project/`,
 
   'agent/authoring-prompt': {
     language: 'bash',
-    code: `# Print the system prompt for an external agent
+    code: `# Print operation-aware command prompts for an external agent
 invowk agent cmd prompt
+invowk agent cmd prompt change --format json
 
-# Machine-readable prompt and schemas
-invowk agent cmd prompt --format json`,
+# Print operation-aware module prompts
+invowk agent mod prompt
+invowk agent mod prompt create --format json`,
   },
 
   'agent/create-command': {
     language: 'bash',
     code: `# Configure once, then generate without per-run LLM flags
 invowk config set llm.provider codex
-invowk agent cmd create 'add a lint command that runs golangci-lint'
+invowk agent cmd create lint 'add a lint command that runs golangci-lint'
 
 # Generate and patch invowkfile.cue using the best available provider
-invowk agent cmd create --llm-provider auto 'add a lint command that runs golangci-lint'
+invowk agent cmd create test --llm-provider auto 'add a test command'
+
+# Change or remove an existing command
+invowk agent cmd change lint --llm-provider claude 'run golangci-lint with --fix support'
+invowk agent cmd remove lint --dry-run
 
 # Preview the patch without writing
-invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
+invowk agent cmd create release --llm-provider codex --dry-run 'add a release command'
 
 # Print only the generated command object
-invowk agent cmd create --llm-provider claude --print 'add a release checklist command'
+invowk agent cmd create checklist --llm-provider claude --print 'add a release checklist command'
 
-# Write and verify with a dry-run execution plan
-invowk agent cmd create --llm-provider codex --verify 'add a release command'
+# Create, change, or remove a local module
+invowk agent mod create io.example.tools --llm-provider codex 'create portable project tools'
+invowk agent mod change io.example.tools --llm-provider codex 'add a formatting command'
+invowk agent mod remove io.example.tools --dry-run
 
 # Use an OpenAI-compatible local server
-invowk agent cmd create --llm --llm-url http://localhost:1234/v1 'add a docs build command'`,
+invowk agent cmd create docs --llm --llm-url http://localhost:1234/v1 'add a docs build command'`,
   },
 
   'reference/cli/agent-prompt-syntax': {
     language: 'bash',
-    code: `invowk agent cmd prompt [flags]`,
+    code: `invowk agent cmd prompt [operation] [flags]`,
   },
 
   'reference/cli/agent-create-syntax': {
     language: 'bash',
-    code: `invowk agent cmd create [description...] [flags]`,
+    code: `invowk agent cmd create <name> [description...] [flags]`,
+  },
+
+  'reference/cli/agent-change-syntax': {
+    language: 'bash',
+    code: `invowk agent cmd change <name> [description...] [flags]`,
+  },
+
+  'reference/cli/agent-remove-syntax': {
+    language: 'bash',
+    code: `invowk agent cmd remove <name> [flags]`,
+  },
+
+  'reference/cli/agent-mod-prompt-syntax': {
+    language: 'bash',
+    code: `invowk agent mod prompt [operation] [flags]`,
+  },
+
+  'reference/cli/agent-mod-create-syntax': {
+    language: 'bash',
+    code: `invowk agent mod create <module-id> [description...] [flags]`,
+  },
+
+  'reference/cli/agent-mod-change-syntax': {
+    language: 'bash',
+    code: `invowk agent mod change <module-id-or-path> [description...] [flags]`,
+  },
+
+  'reference/cli/agent-mod-remove-syntax': {
+    language: 'bash',
+    code: `invowk agent mod remove <module-id-or-path> [flags]`,
   },
 
   'reference/cli/agent-examples': {
@@ -439,19 +477,24 @@ invowk agent cmd create --llm --llm-url http://localhost:1234/v1 'add a docs bui
 invowk agent cmd prompt
 
 # Generate and add a command with provider auto-detection
-invowk agent cmd create --llm-provider auto 'add a format command'
+invowk agent cmd create format --llm-provider auto 'add a format command'
 
 # Preview instead of writing
-invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
+invowk agent cmd create test --llm-provider codex --dry-run 'add a test command'
 
-# Replace an existing command with the same name
-invowk agent cmd create --llm-provider claude --replace 'improve the lint command'
+# Change an existing command
+invowk agent cmd change lint --llm-provider claude 'improve the lint command'
 
 # Verify the written command can resolve to an execution plan
-invowk agent cmd create --llm-provider codex --verify 'add a release command'
+invowk agent cmd create release --llm-provider codex --verify 'add a release command'
 
 # Read the request from a file
-invowk agent cmd create --llm-provider gemini --from-file command-request.md`,
+invowk agent cmd create docs --llm-provider gemini --from-file command-request.md
+
+# Author a local module
+invowk agent mod create io.example.tools --llm-provider codex 'create project tools'
+invowk agent mod change io.example.tools --llm-provider codex 'add formatter'
+invowk agent mod remove io.example.tools --dry-run`,
   },
 
   'reference/cli/completion-syntax': {

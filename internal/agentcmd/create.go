@@ -27,20 +27,42 @@ var jsonFencePattern = regexp.MustCompile("(?s)```(?:json)?\\s*\\n(.+?)\\n\\s*``
 type (
 	// CreateOptions configures LLM-assisted command creation.
 	CreateOptions struct {
+		Name        invowkfile.CommandName
 		Description string
 		TargetPath  string
 		FromFile    string
 		DryRun      bool
 		PrintOnly   bool
-		Replace     bool
 		Completer   llm.Completer
 		// RepairAttempts is the number of validation-feedback retries after the
 		// initial generation attempt. Zero uses the default bounded retry count.
 		RepairAttempts int
 	}
 
-	// CreateResult contains the validated generated command and resulting file content.
-	CreateResult struct {
+	// ChangeOptions configures LLM-assisted command changes.
+	ChangeOptions struct {
+		Name        invowkfile.CommandName
+		Description string
+		TargetPath  string
+		FromFile    string
+		DryRun      bool
+		PrintOnly   bool
+		Completer   llm.Completer
+		// RepairAttempts is the number of validation-feedback retries after the
+		// initial generation attempt. Zero uses the default bounded retry count.
+		RepairAttempts int
+	}
+
+	// RemoveOptions configures deterministic command removal.
+	RemoveOptions struct {
+		Name       invowkfile.CommandName
+		TargetPath string
+		DryRun     bool
+	}
+
+	// CommandResult contains the validated command and resulting file content.
+	CommandResult struct {
+		Operation   AuthoringOperation
 		CommandName invowkfile.CommandName
 		CommandCUE  string
 		TargetPath  string
@@ -48,6 +70,28 @@ type (
 		Content     string
 		Diff        string
 		Changed     bool
+	}
+
+	// CreateResult contains the validated generated command and resulting file content.
+	CreateResult = CommandResult
+
+	// ChangeResult contains the validated changed command and resulting file content.
+	ChangeResult = CommandResult
+
+	// RemoveResult contains the deterministic removal result and resulting file content.
+	RemoveResult = CommandResult
+
+	commandGenerationOptions struct {
+		Operation       AuthoringOperation
+		Name            invowkfile.CommandName
+		Description     string
+		TargetPath      string
+		Existing        string
+		ExistingCommand string
+		TargetExists    bool
+		PrintOnly       bool
+		Completer       llm.Completer
+		RepairAttempts  int
 	}
 
 	generationResponse struct {
@@ -62,7 +106,7 @@ func CreateCommand(ctx context.Context, opts CreateOptions) (*CreateResult, erro
 		return nil, err
 	}
 
-	description, err := opts.LoadDescription()
+	description, err := loadDescription(opts.Description, opts.FromFile)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +121,23 @@ func CreateCommand(ctx context.Context, opts CreateOptions) (*CreateResult, erro
 		return nil, err
 	}
 
-	result, err := opts.generateValidCommand(ctx, description, targetPath, existing, exists)
+	if _, found, findErr := FindCommandCUE(existing, targetPath, opts.Name); findErr != nil {
+		return nil, findErr
+	} else if found {
+		return nil, fmt.Errorf("command %q already exists; use `invowk agent cmd change %s` to modify it", opts.Name, opts.Name)
+	}
+
+	result, err := commandGenerationOptions{
+		Operation:      OperationCreate,
+		Name:           opts.Name,
+		Description:    description,
+		TargetPath:     targetPath,
+		Existing:       existing,
+		TargetExists:   exists,
+		PrintOnly:      opts.PrintOnly,
+		Completer:      opts.Completer,
+		RepairAttempts: opts.RepairAttempts,
+	}.generateValidCommand(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -101,49 +161,203 @@ func CreateCommand(ctx context.Context, opts CreateOptions) (*CreateResult, erro
 	return result, nil
 }
 
+// ChangeCommand asks an LLM to update one existing command and optionally patches the target file.
+func ChangeCommand(ctx context.Context, opts ChangeOptions) (*ChangeResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	description, err := loadDescription(opts.Description, opts.FromFile)
+	if err != nil {
+		return nil, err
+	}
+
+	targetPath := opts.TargetPath
+	if targetPath == "" {
+		targetPath = defaultInvowkfileName
+	}
+
+	existing, exists, err := readTarget(targetPath)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("command %q does not exist in %s; use `invowk agent cmd create %s` to add it", opts.Name, targetPath, opts.Name)
+	}
+
+	existingCommand, found, err := FindCommandCUE(existing, targetPath, opts.Name)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("command %q does not exist in %s; use `invowk agent cmd create %s` to add it", opts.Name, targetPath, opts.Name)
+	}
+
+	result, err := commandGenerationOptions{
+		Operation:       OperationChange,
+		Name:            opts.Name,
+		Description:     description,
+		TargetPath:      targetPath,
+		Existing:        existing,
+		ExistingCommand: existingCommand,
+		TargetExists:    exists,
+		PrintOnly:       opts.PrintOnly,
+		Completer:       opts.Completer,
+		RepairAttempts:  opts.RepairAttempts,
+	}.generateValidCommand(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.PrintOnly {
+		return result, nil
+	}
+	if opts.DryRun {
+		result.Diff = BuildUnifiedDiff(targetPath, existing, result.Content, exists)
+		return result, nil
+	}
+	if err := os.WriteFile(targetPath, []byte(result.Content), 0o644); err != nil {
+		return nil, fmt.Errorf("write %s: %w", targetPath, err)
+	}
+
+	return result, nil
+}
+
+// RemoveCommand removes one command from the target invowkfile without invoking an LLM.
+func RemoveCommand(ctx context.Context, opts RemoveOptions) (*RemoveResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("remove command: %w", err)
+	}
+
+	targetPath := opts.TargetPath
+	if targetPath == "" {
+		targetPath = defaultInvowkfileName
+	}
+
+	existing, exists, err := readTarget(targetPath)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("command %q does not exist in %s", opts.Name, targetPath)
+	}
+
+	removedCommand, content, err := RemoveCommandFromInvowkfile(existing, opts.Name, targetPath)
+	if err != nil {
+		return nil, err
+	}
+	result := &CommandResult{
+		Operation:   OperationRemove,
+		CommandName: opts.Name,
+		CommandCUE:  removedCommand,
+		TargetPath:  targetPath,
+		Summary:     fmt.Sprintf("Removed command %q.", opts.Name),
+		Content:     content,
+		Changed:     content != existing,
+	}
+	if opts.DryRun {
+		result.Diff = BuildUnifiedDiff(targetPath, existing, content, exists)
+		return result, nil
+	}
+	if content == "" {
+		if err := os.Remove(targetPath); err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("remove empty %s: %w", targetPath, err)
+		}
+	} else if err := os.WriteFile(targetPath, []byte(content), 0o644); err != nil {
+		return nil, fmt.Errorf("write %s: %w", targetPath, err)
+	}
+	return result, nil
+}
+
 // Validate verifies option invariants that cannot be represented by Cobra alone.
 func (opts CreateOptions) Validate() error {
+	if err := opts.Name.Validate(); err != nil {
+		return err
+	}
 	if opts.Completer == nil {
 		return errors.New("LLM completer is required")
 	}
-	if strings.TrimSpace(opts.Description) == "" && opts.FromFile == "" {
+	return validateDescriptionInput(opts.Description, opts.FromFile)
+}
+
+// Validate verifies option invariants that cannot be represented by Cobra alone.
+func (opts ChangeOptions) Validate() error {
+	if err := opts.Name.Validate(); err != nil {
+		return err
+	}
+	if opts.Completer == nil {
+		return errors.New("LLM completer is required")
+	}
+	return validateDescriptionInput(opts.Description, opts.FromFile)
+}
+
+// Validate verifies option invariants that cannot be represented by Cobra alone.
+func (opts RemoveOptions) Validate() error {
+	return opts.Name.Validate()
+}
+
+func validateDescriptionInput(description, fromFile string) error {
+	if strings.TrimSpace(description) == "" && fromFile == "" {
 		return errors.New("command description is required")
 	}
-	if strings.TrimSpace(opts.Description) != "" && opts.FromFile != "" {
+	if strings.TrimSpace(description) != "" && fromFile != "" {
 		return errors.New("description arguments and --from-file are mutually exclusive")
-	}
-	if opts.DryRun && opts.PrintOnly {
-		return errors.New("--dry-run and --print are mutually exclusive")
 	}
 	return nil
 }
 
 // LoadDescription returns the inline or file-backed command description.
 func (opts CreateOptions) LoadDescription() (string, error) {
-	if opts.FromFile == "" {
-		return strings.TrimSpace(opts.Description), nil
+	return loadDescription(opts.Description, opts.FromFile)
+}
+
+// LoadDescription returns the inline or file-backed command description.
+func (opts ChangeOptions) LoadDescription() (string, error) {
+	return loadDescription(opts.Description, opts.FromFile)
+}
+
+func loadDescription(description, fromFile string) (string, error) {
+	if fromFile == "" {
+		return strings.TrimSpace(description), nil
 	}
-	data, err := os.ReadFile(opts.FromFile)
+	data, err := os.ReadFile(fromFile)
 	if err != nil {
 		return "", fmt.Errorf("read description file: %w", err)
 	}
-	description := strings.TrimSpace(string(data))
-	if description == "" {
+	loaded := strings.TrimSpace(string(data))
+	if loaded == "" {
 		return "", errors.New("description file is empty")
 	}
-	return description, nil
+	return loaded, nil
 }
 
-func (opts CreateOptions) generateValidCommand(ctx context.Context, description, targetPath, existing string, exists bool) (*CreateResult, error) {
-	systemPrompt := BuildSystemPrompt()
-	userPrompt := BuildUserPrompt(description, targetPath, existing)
+func (opts commandGenerationOptions) generateValidCommand(ctx context.Context) (*CommandResult, error) {
+	systemPrompt := BuildCommandSystemPrompt(opts.Operation)
+	userPrompt := BuildCommandUserPrompt(CommandUserPromptOptions{
+		Operation:       opts.Operation,
+		Name:            opts.Name,
+		Description:     opts.Description,
+		TargetPath:      opts.TargetPath,
+		Existing:        opts.Existing,
+		ExistingCommand: opts.ExistingCommand,
+	})
 	attempts := opts.maxGenerationAttempts()
 	var previousResponse string
 	var lastErr error
 
 	for attempt := 1; attempt <= attempts; attempt++ {
 		if attempt > 1 {
-			userPrompt = BuildRepairPrompt(description, targetPath, existing, previousResponse, lastErr)
+			userPrompt = BuildCommandRepairPrompt(CommandUserPromptOptions{
+				Operation:       opts.Operation,
+				Name:            opts.Name,
+				Description:     opts.Description,
+				TargetPath:      opts.TargetPath,
+				Existing:        opts.Existing,
+				ExistingCommand: opts.ExistingCommand,
+			}, previousResponse, lastErr)
 		}
 
 		raw, err := opts.complete(ctx, systemPrompt, userPrompt)
@@ -152,7 +366,7 @@ func (opts CreateOptions) generateValidCommand(ctx context.Context, description,
 		}
 		previousResponse = raw
 
-		result, err := opts.resultFromResponse(raw, targetPath, existing, exists)
+		result, err := opts.resultFromResponse(raw)
 		if err == nil {
 			return result, nil
 		}
@@ -162,7 +376,7 @@ func (opts CreateOptions) generateValidCommand(ctx context.Context, description,
 	return nil, fmt.Errorf("generated command invalid after %d attempt(s): %w", attempts, lastErr)
 }
 
-func (opts CreateOptions) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+func (opts commandGenerationOptions) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	if structured, ok := opts.Completer.(llm.StructuredCompleter); ok {
 		raw, err := structured.CompleteJSONSchema(ctx, systemPrompt, userPrompt, llm.JSONSchemaFormat{
 			Name:        "invowk_command_generation",
@@ -180,7 +394,7 @@ func (opts CreateOptions) complete(ctx context.Context, systemPrompt, userPrompt
 	return opts.Completer.Complete(ctx, systemPrompt, userPrompt)
 }
 
-func (opts CreateOptions) resultFromResponse(raw, targetPath, existing string, exists bool) (*CreateResult, error) {
+func (opts commandGenerationOptions) resultFromResponse(raw string) (*CommandResult, error) {
 	resp, err := ParseGenerationResponse(raw)
 	if err != nil {
 		return nil, err
@@ -190,27 +404,32 @@ func (opts CreateOptions) resultFromResponse(raw, targetPath, existing string, e
 	if err != nil {
 		return nil, err
 	}
+	if command.Name != opts.Name {
+		return nil, fmt.Errorf("generated command name %q does not match requested name %q", command.Name, opts.Name)
+	}
 
-	result := &CreateResult{
+	result := &CommandResult{
+		Operation:   opts.Operation,
 		CommandName: command.Name,
 		CommandCUE:  commandCUE,
-		TargetPath:  targetPath,
+		TargetPath:  opts.TargetPath,
 		Summary:     resp.Summary,
 	}
 	if opts.PrintOnly {
 		return result, nil
 	}
 
-	content, err := PatchInvowkfile(existing, exists, commandCUE, command.Name, opts.Replace, targetPath)
+	replace := opts.Operation == OperationChange
+	content, err := PatchInvowkfile(opts.Existing, opts.TargetExists, commandCUE, command.Name, replace, opts.TargetPath)
 	if err != nil {
 		return nil, err
 	}
 	result.Content = content
-	result.Changed = content != existing
+	result.Changed = content != opts.Existing
 	return result, nil
 }
 
-func (opts CreateOptions) maxGenerationAttempts() int {
+func (opts commandGenerationOptions) maxGenerationAttempts() int {
 	repairAttempts := opts.RepairAttempts
 	if repairAttempts == 0 {
 		repairAttempts = defaultRepairAttempts

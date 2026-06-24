@@ -113,7 +113,7 @@ func insertIntoCommandList(list *ast.ListLit, command ast.Expr, name invowkfile.
 			continue
 		}
 		if !replace {
-			return fmt.Errorf("command %q already exists; use --replace to overwrite it", name)
+			return fmt.Errorf("command %q already exists; use `invowk agent cmd change %s` to modify it", name, name)
 		}
 		list.Elts[i] = command
 		return nil
@@ -121,6 +121,120 @@ func insertIntoCommandList(list *ast.ListLit, command ast.Expr, name invowkfile.
 
 	list.Elts = append(list.Elts, command)
 	return nil
+}
+
+// FindCommandCUE returns the formatted command object for name when it exists.
+func FindCommandCUE(existing, targetPath string, name invowkfile.CommandName) (commandCUE string, found bool, err error) {
+	if strings.TrimSpace(existing) == "" {
+		return "", false, nil
+	}
+
+	file, err := parser.ParseFile(targetPath, existing, parser.ParseComments)
+	if err != nil {
+		return "", false, fmt.Errorf("parse %s: %w", targetPath, err)
+	}
+
+	list, found, err := commandList(file)
+	if err != nil || !found {
+		return "", false, err
+	}
+	for i := range list.Elts {
+		existingName, ok := commandNameFromExpr(list.Elts[i])
+		if !ok || existingName != name {
+			continue
+		}
+		data, formatErr := format.Node(list.Elts[i])
+		if formatErr != nil {
+			return "", false, fmt.Errorf("format command %q: %w", name, formatErr)
+		}
+		return strings.TrimSpace(string(data)), true, nil
+	}
+	return "", false, nil
+}
+
+// RemoveCommandFromInvowkfile removes name from existing invowkfile content.
+func RemoveCommandFromInvowkfile(existing string, name invowkfile.CommandName, targetPath string) (removedCommand, content string, err error) {
+	if strings.TrimSpace(existing) == "" {
+		return "", "", fmt.Errorf("command %q does not exist in %s", name, targetPath)
+	}
+
+	file, err := parser.ParseFile(targetPath, existing, parser.ParseComments)
+	if err != nil {
+		return "", "", fmt.Errorf("parse %s: %w", targetPath, err)
+	}
+
+	list, found, err := commandList(file)
+	if err != nil {
+		return "", "", err
+	}
+	if !found {
+		return "", "", fmt.Errorf("command %q does not exist in %s", name, targetPath)
+	}
+
+	var removed string
+	for i := range list.Elts {
+		existingName, ok := commandNameFromExpr(list.Elts[i])
+		if !ok || existingName != name {
+			continue
+		}
+		data, formatErr := format.Node(list.Elts[i])
+		if formatErr != nil {
+			return "", "", fmt.Errorf("format command %q: %w", name, formatErr)
+		}
+		removed = strings.TrimSpace(string(data))
+		list.Elts = append(list.Elts[:i], list.Elts[i+1:]...)
+		if len(list.Elts) == 0 {
+			if hasNonCommandFields(file) {
+				return "", "", fmt.Errorf("cannot remove command %q because %s would have no commands but still contains other settings", name, targetPath)
+			}
+			return removed, "", nil
+		}
+		formatted, formatErr := format.Node(file)
+		if formatErr != nil {
+			return "", "", fmt.Errorf("format patched invowkfile: %w", formatErr)
+		}
+		content := string(formatted)
+		if validateErr := validatePatchedContent(content, targetPath); validateErr != nil {
+			return "", "", validateErr
+		}
+		return removed, content, nil
+	}
+
+	return "", "", fmt.Errorf("command %q does not exist in %s", name, targetPath)
+}
+
+func hasNonCommandFields(file *ast.File) bool {
+	for i := range file.Decls {
+		field, ok := file.Decls[i].(*ast.Field)
+		if !ok {
+			continue
+		}
+		label, _, err := ast.LabelName(field.Label)
+		if err != nil || label == cmdsFieldName {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func commandList(file *ast.File) (*ast.ListLit, bool, error) {
+	for i := range file.Decls {
+		field, ok := file.Decls[i].(*ast.Field)
+		if !ok {
+			continue
+		}
+		label, _, err := ast.LabelName(field.Label)
+		if err != nil || label != cmdsFieldName {
+			continue
+		}
+		list, ok := field.Value.(*ast.ListLit)
+		if !ok {
+			return nil, true, fmt.Errorf("%s must be a list", cmdsFieldName)
+		}
+		return list, true, nil
+	}
+	return nil, false, nil
 }
 
 func commandNameFromExpr(expr ast.Expr) (invowkfile.CommandName, bool) {

@@ -1,0 +1,72 @@
+# Test: invowk agent mod create/change/remove
+# Verifies LLM-assisted module authoring, preview modes, validation, and guarded removal.
+
+[windows] skip 'fake CLI provider uses a POSIX shell script'
+
+cd $WORK
+chmod 0755 claude
+env PATH=$WORK${:}$PATH
+env ANTHROPIC_API_KEY=
+
+exec invowk agent mod create io.example.tools --llm-provider claude --dry-run 'create a module'
+stderr 'Using LLM provider: claude'
+stdout '--- /dev/null'
+stdout '\+\+\+ io.example.tools.invowkmod/invowkmod.cue'
+stdout '\+\+\+ io.example.tools.invowkmod/invowkfile.cue'
+! exists io.example.tools.invowkmod
+
+exec invowk agent mod create io.example.tools --llm-provider claude --print 'print module'
+stdout '"module_id": "io.example.tools"'
+stdout '"invowkmod.cue"'
+stdout '"invowkfile.cue"'
+! exists io.example.tools.invowkmod
+
+exec invowk agent mod create io.example.tools --llm-provider claude --verify --scripts 'create a module'
+stdout 'Created module "io.example.tools" at io.example.tools.invowkmod'
+stdout 'Verified module "io.example.tools"'
+exists io.example.tools.invowkmod/invowkmod.cue
+exists io.example.tools.invowkmod/invowkfile.cue
+exists io.example.tools.invowkmod/scripts/.gitkeep
+
+! exec invowk agent mod create io.example.tools --llm-provider claude 'duplicate module'
+stderr 'already exists'
+stderr 'agent mod change'
+
+exec invowk agent mod change io.example.tools --llm-provider claude --dry-run 'change module'
+stdout '--- io.example.tools.invowkmod/invowkmod.cue'
+stdout '\+\+\+ io.example.tools.invowkmod/invowkfile.cue'
+
+exec invowk agent mod change io.example.tools --llm-provider claude --print 'print changed module'
+stdout '"module_id": "io.example.tools"'
+
+exec invowk agent mod change io.example.tools --llm-provider claude --verify 'change module'
+stdout 'Updated module "io.example.tools" at io.example.tools.invowkmod'
+stdout 'Verified module "io.example.tools"'
+
+! exec invowk agent mod change io.example.missing --llm-provider claude 'change missing module'
+stderr 'does not exist'
+stderr 'agent mod create'
+
+! exec invowk agent mod remove io.example.tools
+stderr 'requires --force'
+
+exec invowk agent mod remove io.example.tools --dry-run
+stdout 'delete io.example.tools.invowkmod'
+exists io.example.tools.invowkmod/invowkmod.cue
+
+exec invowk agent mod remove io.example.tools --force
+stdout 'Removed module "io.example.tools" at io.example.tools.invowkmod'
+! exists io.example.tools.invowkmod
+
+! exec invowk agent mod remove io.example.tools --dry-run
+stderr 'does not exist'
+
+! exec invowk agent mod create io.example.tools
+stderr 'Module description is required'
+
+-- claude --
+#!/bin/sh
+cat >/dev/null
+cat <<'JSON'
+{"type":"result","result":"{\"invowkmod_cue\":\"module:\\\"io.example.tools\\\"\\nversion:\\\"1.0.0\\\"\\ndescription:\\\"Generated tools\\\"\",\"invowkfile_cue\":\"cmds:[{name:\\\"modhello\\\",description:\\\"Print module greeting\\\",implementations:[{script:{content:\\\"echo module\\\"},runtimes:[{name:\\\"virtual-sh\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}]\",\"summary\":\"module generated\"}"}
+JSON

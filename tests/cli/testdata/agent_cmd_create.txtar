@@ -1,6 +1,6 @@
 # Test: invowk agent cmd create
-# Verifies LLM-assisted command creation, preview modes, duplicate handling,
-# replacement, and --from-file.
+# Verifies LLM-assisted command creation, change, deterministic removal,
+# preview modes, clean-break legacy failures, and --from-file.
 
 [windows] skip 'fake CLI provider uses a POSIX shell script'
 
@@ -9,35 +9,53 @@ chmod 0755 claude
 env PATH=$WORK${:}$PATH
 env ANTHROPIC_API_KEY=
 
-exec invowk agent cmd create --llm-provider claude 'create a generated hello command'
+exec invowk agent cmd create agenthello --llm-provider claude 'create a generated hello command'
 stderr 'Using LLM provider: claude'
 stdout 'Added command "agenthello" to invowkfile.cue'
 exists invowkfile.cue
 exec invowk cmd agenthello
 stdout 'generated'
 
-! exec invowk agent cmd create --llm-provider claude 'create a duplicate command'
-stderr 'command "agenthello" already exists'
+! exec invowk agent cmd create agenthello --llm-provider claude 'create a duplicate command'
+stderr 'Command "agenthello" already exists'
+stderr 'agent cmd change'
 
-exec invowk agent cmd create --llm-provider claude --replace 'replace generated command'
-stdout 'Added command "agenthello" to invowkfile.cue'
+exec invowk agent cmd change agenthello --llm-provider claude 'replace generated command'
+stdout 'Updated command "agenthello" in invowkfile.cue'
 exec invowk cmd agenthello
 stdout 'generated'
 
-exec invowk agent cmd create --llm-provider claude --replace --verify 'verify generated command'
+exec invowk agent cmd change agenthello --llm-provider claude --verify 'verify generated command'
 stdout 'Dry Run'
 stdout 'agenthello'
 stdout 'Verified command "agenthello" with a dry-run execution plan'
 
-exec invowk agent cmd create --llm-provider claude --print --file print.cue 'print only'
+exec invowk agent cmd create agenthello --llm-provider claude --print --file print.cue 'print only'
 stdout 'name: "agenthello"'
 ! exists print.cue
 
-exec invowk agent cmd create --llm-provider claude --dry-run --file dry.cue --from-file request.md
+exec invowk agent cmd create agenthello --llm-provider claude --dry-run --file dry.cue --from-file request.md
 stdout '--- /dev/null'
 stdout '\+\+\+ dry.cue'
 stdout 'agenthello'
 ! exists dry.cue
+
+exec invowk agent cmd remove agenthello --dry-run
+stdout '--- invowkfile.cue'
+stdout '-.*agenthello'
+exec invowk agent cmd remove agenthello
+stdout 'Removed command "agenthello" from invowkfile.cue'
+! exec invowk cmd agenthello
+
+! exec invowk agent cmd create 'legacy description only'
+stderr 'Command description is required'
+
+! exec invowk agent cmd create agenthello --replace 'old replace flag'
+stderr 'Unknown flag: --replace'
+
+! exec invowk agent cmd change missing --llm-provider claude 'change missing command'
+stderr 'does not exist'
+stderr 'agent cmd create'
 
 -- request.md --
 Create a generated command from a file.

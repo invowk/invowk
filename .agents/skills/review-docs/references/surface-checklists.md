@@ -47,7 +47,7 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | S1-C20 | Dependencies/Go (L3241) dependency list and versions match | `go.mod` | WARNING | source-drift |
 | S1-C21 | Performance and PGO (L3274) description accuracy | `Makefile`, `default.pgo`, `internal/benchmark/` | INFO | source-drift |
 | S1-C22 | Local SonarCloud (L3295) command accuracy | `scripts/sonar-local.sh` | INFO | cli-contract-drift |
-| S1-C23 | LLM-Assisted Command Authoring (L204) matches `cmd/invowk/agent.go`, `internal/agentcmd/`, and provider/config behavior | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | WARNING | source-drift |
+| S1-C23 | LLM-Assisted Agent Authoring (L204) matches `cmd/invowk/agent.go`, `internal/agentcmd/`, and provider/config behavior for command and module create/change/remove/prompt | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | WARNING | source-drift |
 | S1-C24 | Security Auditing (L2952) matches audit CLI, scanners, report formats, and LLM opt-in behavior | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | WARNING | source-drift |
 
 **Total items**: 24
@@ -285,13 +285,13 @@ with an implementation block but lack required fields.
 
 ---
 
-## §S10: LLM-Assisted Command Authoring Docs
+## §S10: LLM-Assisted Agent Authoring Docs
 
 **File scope**:
 - `website/docs/advanced/llm-assisted-authoring.mdx`
 - `website/src/components/Snippet/data/cli.ts`
 - `website/docs/reference/cli.mdx` agent command entries
-- `README.md` LLM-Assisted Command Authoring section
+- `README.md` LLM-Assisted Agent Authoring section
 
 **Source of truth**:
 - `cmd/invowk/agent.go`
@@ -302,11 +302,11 @@ with an implementation block but lack required fields.
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
-| S10-C01 | `invowk agent cmd prompt` syntax, flags, and output-format values match implementation | `cmd/invowk/agent.go`, `internal/agentcmd/prompt.go` | ERROR | cli-contract-drift |
-| S10-C02 | `invowk agent cmd create` syntax, flags, and mutually exclusive mode rules match implementation | `cmd/invowk/agent.go` | ERROR | cli-contract-drift |
+| S10-C01 | `invowk agent cmd prompt` and `invowk agent mod prompt` syntax, operation arguments, flags, and output-format values match implementation | `cmd/invowk/agent.go`, `internal/agentcmd/prompt.go` | ERROR | cli-contract-drift |
+| S10-C02 | `invowk agent cmd create/change/remove` and `invowk agent mod create/change/remove` syntax, flags, force gates, and mutually exclusive mode rules match implementation | `cmd/invowk/agent.go` | ERROR | cli-contract-drift |
 | S10-C03 | Shared LLM flags and defaults match `bindLLMFlags` and resolver defaults | `cmd/invowk/llm_flags.go`, `internal/app/llmconfig/`, `internal/auditllm/` | ERROR | cli-contract-drift |
-| S10-C04 | Docs correctly distinguish configured-default behavior for `agent cmd create` from audit opt-in behavior | `cmd/invowk/agent.go`, `cmd/invowk/audit.go`, `internal/app/llmconfig/` | ERROR | source-drift |
-| S10-C05 | Validation behavior for generated commands matches `internal/agentcmd` implementation | `internal/agentcmd/create.go`, `internal/agentcmd/patch.go` | WARNING | source-drift |
+| S10-C04 | Docs correctly distinguish configured-default behavior for LLM-backed `agent cmd`/`agent mod` create/change from audit opt-in behavior | `cmd/invowk/agent.go`, `cmd/invowk/audit.go`, `internal/app/llmconfig/` | ERROR | source-drift |
+| S10-C05 | Validation behavior for generated commands and module file bundles matches `internal/agentcmd` implementation | `internal/agentcmd/create.go`, `internal/agentcmd/module.go`, `internal/agentcmd/patch.go` | WARNING | source-drift |
 | S10-C06 | Snippets referenced by LLM authoring docs exist and match current CLI behavior | `website/src/components/Snippet/data/cli.ts`, `cmd/invowk/agent.go` | ERROR | snippet-drift |
 | S10-C07 | README LLM authoring section matches website docs and source of truth | `README.md`, `website/docs/advanced/llm-assisted-authoring.mdx`, agent code | WARNING | source-drift |
 | S10-C08 | Privacy/caution wording accurately states what content is sent to the configured provider | `internal/agentcmd/create.go`, `cmd/invowk/agent.go` | WARNING | source-drift |
@@ -355,6 +355,6 @@ with an implementation block but lack required fields.
 | S7: Config Defaults vs Docs | 7 |
 | S8: Homepage & Terminal Demo | 5 |
 | S9: Security Audit Docs | 10 |
-| S10: LLM-Assisted Command Authoring Docs | 8 |
+| S10: LLM-Assisted Agent Authoring Docs | 8 |
 | S11: Agent Workflow Docs | 9 |
 | **Grand total** | **120** |

@@ -560,6 +560,7 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 | `--llm-model` | API/Ollama fallback: `qwen2.5-coder:7b`; CLI provider tool default when omitted | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
+| `--llm-concurrency` | `4` | Max parallel LLM requests |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
 
 `--llm` and `--llm-provider` are mutually exclusive. Use `--llm` for the configured/API backend and `--llm-provider` to force provider detection.
@@ -574,7 +575,7 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 
 ### invowk agent cmd prompt
 
-Print the system prompt that LLM agents should use when authoring a custom Invowk command.
+Print operation-aware system prompts that LLM agents should use when authoring custom Invowk commands.
 
 <Snippet id="reference/cli/agent-prompt-syntax" />
 
@@ -586,7 +587,7 @@ Print the system prompt that LLM agents should use when authoring a custom Invow
 
 ### invowk agent cmd create
 
-Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`. See [LLM-Assisted Command Authoring](../advanced/llm-assisted-authoring) for the full workflow.
+Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`. The generated command `name` must match `<name>`. See [LLM-Assisted Agent Authoring](../advanced/llm-assisted-authoring) for the full workflow.
 
 <Snippet id="reference/cli/agent-create-syntax" />
 
@@ -598,7 +599,6 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--from-file` | | Read the command request from a file |
 | `--dry-run` | `false` | Print the patch without writing |
 | `--print` | `false` | Print only the generated command CUE |
-| `--replace` | `false` | Replace an existing command with the same name |
 | `--verify` | `false` | After writing, resolve the generated command with a dry-run execution plan |
 | `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Enable LLM using configured or API settings |
@@ -606,6 +606,83 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--llm-model` | API/Ollama fallback: `qwen2.5-coder:7b`; CLI provider tool default when omitted | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
+| `--llm-concurrency` | `4` | Max parallel LLM requests |
+
+### invowk agent cmd change
+
+Generate a replacement for one existing custom command with an LLM. The generated command `name` must still match `<name>`, and only that command is replaced.
+
+<Snippet id="reference/cli/agent-change-syntax" />
+
+**Flags:** same as `agent cmd create`.
+
+### invowk agent cmd remove
+
+Remove one custom command from an invowkfile without resolving an LLM provider.
+
+<Snippet id="reference/cli/agent-remove-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--file` | `invowkfile.cue` | Invowkfile to update |
+| `--dry-run` | `false` | Print the patch without writing |
+
+### invowk agent mod prompt
+
+Print operation-aware system prompts that LLM agents should use when authoring local Invowk modules.
+
+<Snippet id="reference/cli/agent-mod-prompt-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `text` | Output format: `text`, `json` |
+
+### invowk agent mod create
+
+Generate `invowkmod.cue` and `invowkfile.cue` for `<module-id>.invowkmod` with an LLM. The generated module ID must match `<module-id>`.
+
+<Snippet id="reference/cli/agent-mod-create-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--from-file` | | Read the module request from a file |
+| `--dry-run` | `false` | Print the file patches without writing |
+| `--print` | `false` | Print the generated module file bundle without writing |
+| `--verify` | `false` | After writing, validate the generated module |
+| `--scripts` | `false` | Create an empty `scripts/` directory with `.gitkeep` |
+| `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Enable LLM using configured or API settings |
+| `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
+| `--llm-model` | API/Ollama fallback: `qwen2.5-coder:7b`; CLI provider tool default when omitted | Model name; required for cloud API providers and optional for CLI providers |
+| `--llm-api-key` | *(empty)* | API key (empty for local servers) |
+| `--llm-timeout` | `2m` | Per-request timeout |
+
+### invowk agent mod change
+
+Generate replacements for `invowkmod.cue` and `invowkfile.cue` in an existing local module. No other module files are generated or edited.
+
+<Snippet id="reference/cli/agent-mod-change-syntax" />
+
+**Flags:** same as `agent mod create`, except `--scripts` is not supported.
+
+### invowk agent mod remove
+
+Remove one validated local module directory without editing dependencies or lock files. Deletion requires `--force`; use `--dry-run` to preview the deletion plan.
+
+<Snippet id="reference/cli/agent-mod-remove-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dry-run` | `false` | Print the deletion plan without removing the module |
+| `--force` | `false` | Delete the validated module directory |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
 
 Provide either description arguments or `--from-file`; they are mutually exclusive. `--llm` and `--llm-provider` are mutually exclusive. `--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`. Verification currently supports only the current directory target (`./invowkfile.cue`); combining `--verify` with `--file` for another path fails before the dry-run execution plan is resolved.

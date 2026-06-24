@@ -36,7 +36,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Security Auditing**: Inspect modules and lock files with `invowk audit`, including optional LLM-assisted analysis
 
-- **LLM-Assisted Command Authoring**: Use `invowk agent cmd prompt` and `invowk agent cmd create` to give agents the current schemas or generate validated custom commands with the same LLM providers as `invowk audit`
+- **LLM-Assisted Agent Authoring**: Use `invowk agent cmd` and `invowk agent mod` to give agents current schemas or create/change/remove validated commands and local modules with the same LLM providers as `invowk audit`
 
 ## Installation
 
@@ -201,38 +201,45 @@ invowk cmd hello --ivk-runtime virtual-sh
 invowk cmd hello --ivk-runtime container
 ```
 
-## LLM-Assisted Command Authoring
+## LLM-Assisted Agent Authoring
 
-Invowk can provide an agent-ready system prompt for custom command authoring:
+Invowk can provide agent-ready system prompts for command and local-module authoring:
 
 ```bash
 invowk agent cmd prompt
-invowk agent cmd prompt --format json
+invowk agent cmd prompt change --format json
+invowk agent mod prompt
 ```
 
-It can also ask a configured LLM provider to generate one command, validate the CUE, and patch `invowkfile.cue`:
+It can also ask a configured LLM provider to generate one command or one local module, validate the CUE, and patch only the bounded target files:
 
 ```bash
 # Configure once, then omit LLM flags on create
 invowk config set llm.provider codex
-invowk agent cmd create 'add a lint command that runs golangci-lint'
+invowk agent cmd create lint 'add a lint command that runs golangci-lint'
 
 # Auto-detect Ollama, cloud credentials, or Claude/Codex/Gemini CLIs
-invowk agent cmd create --llm-provider auto 'add a lint command that runs golangci-lint'
+invowk agent cmd create test --llm-provider auto 'add a test command'
+
+# Change or remove an existing command
+invowk agent cmd change lint --llm-provider claude 'run golangci-lint with --fix support'
+invowk agent cmd remove lint --dry-run
 
 # Preview without writing
-invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
+invowk agent cmd create release --llm-provider codex --dry-run 'add a release command'
 
 # Print only the generated command object
-invowk agent cmd create --llm-provider claude --print 'add a docs build command'
+invowk agent cmd create docs --llm-provider claude --print 'add a docs build command'
 
-# Write, then verify the generated command with a dry-run execution plan
-invowk agent cmd create --llm-provider codex --verify 'add a release command'
+# Create, change, or remove a local module
+invowk agent mod create io.example.tools --llm-provider codex 'create portable project tools'
+invowk agent mod change io.example.tools --llm-provider codex 'add a formatting command'
+invowk agent mod remove io.example.tools --dry-run
 ```
 
-`agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command retries once with validation feedback when a model returns invalid output, uses structured JSON output with compatible OpenAI API backends, and rejects malformed JSON, invalid CUE, and full `cmds` arrays. When writing to `invowkfile.cue`, duplicate command names are rejected unless `--replace` is set.
+`agent cmd create|change` and `agent mod create|change` use the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. Create requires the caller-owned command name or module ID. Duplicate command names and existing module directories are rejected; use `change` to update existing targets. `remove` operations are deterministic and do not call an LLM.
 
-When `agent cmd create` uses an LLM provider, it sends the command-authoring system prompt and schemas, your request, the target path, the current target invowkfile content or missing/empty state, and repair feedback if validation retries. For cloud providers, review your provider's data handling policies before sending private scripts or workspace details.
+When an LLM-backed authoring command runs, Invowk sends the operation-specific system prompt and schemas, your request, the target path, current target content when changing, and repair feedback if validation retries. Command authoring accepts one command object whose `name` must match the requested name. Module authoring accepts only `invowkmod.cue` and `invowkfile.cue` content whose module ID must match the requested ID; it does not allow arbitrary generated script files. For cloud providers, review your provider's data handling policies before sending private scripts or workspace details.
 
 ## Invowkfile Format
 
@@ -2541,8 +2548,9 @@ ui: {
 }
 
 // LLM provider defaults for LLM-aware commands (optional)
-// Default config uses llm: {}. `invowk agent cmd create`
-// uses configured LLM settings automatically; `invowk audit` still
+// Default config uses llm: {}. `invowk agent cmd create|change`
+// and `invowk agent mod create|change` use configured LLM settings automatically;
+// `invowk audit` still
 // requires explicit opt-in with --llm or --llm-provider.
 llm: {
   provider: "codex"        // "auto", "claude", "codex", "gemini", or "ollama"
@@ -3180,7 +3188,7 @@ invowk/
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── validate.go             # validate command
-│   ├── agent.go                # LLM-assisted command authoring helpers
+│   ├── agent.go                # LLM-assisted command/module authoring helpers
 │   ├── audit.go                # audit command (security scanning + LLM analysis)
 │   ├── completion.go           # Shell completion generation
 │   ├── tui.go                  # tui parent command
@@ -3204,7 +3212,7 @@ invowk/
 │   ├── discovery/              # Invowkfile and module discovery
 │   ├── audit/                  # Security scanning (7 checkers + LLM + correlator)
 │   ├── auditllm/               # LLM provider adapters for audit analysis
-│   ├── agentcmd/               # LLM-assisted custom-command authoring pipeline
+│   ├── agentcmd/               # LLM-assisted command and local-module authoring pipeline
 │   ├── llm/                    # Shared LLM completion interface and adapters
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)

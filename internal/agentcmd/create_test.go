@@ -157,6 +157,7 @@ func TestCreateCommandDryRunDoesNotWrite(t *testing.T) {
 	response := `{"command_cue":` + quoteForJSON(testCommandObject) + `,"summary":"added"}`
 
 	result, err := CreateCommand(t.Context(), CreateOptions{
+		Name:        "hello generated",
 		Description: "make a hello command",
 		TargetPath:  target,
 		DryRun:      true,
@@ -187,6 +188,7 @@ func TestCreateCommandRepairsInvalidModelResponse(t *testing.T) {
 	}
 
 	result, err := CreateCommand(t.Context(), CreateOptions{
+		Name:        "hello generated",
 		Description: "make a hello command",
 		TargetPath:  target,
 		DryRun:      true,
@@ -215,6 +217,7 @@ func TestCreateCommandUsesStructuredCompletionWhenAvailable(t *testing.T) {
 	completer := &structuredCompleter{response: response}
 
 	result, err := CreateCommand(t.Context(), CreateOptions{
+		Name:        "hello generated",
 		Description: "make a hello command",
 		DryRun:      true,
 		Completer:   completer,
@@ -246,6 +249,7 @@ func TestCreateCommandFallsBackWhenStructuredCompletionUnsupported(t *testing.T)
 	}
 
 	result, err := CreateCommand(t.Context(), CreateOptions{
+		Name:        "hello generated",
 		Description: "make a hello command",
 		DryRun:      true,
 		Completer:   completer,
@@ -261,7 +265,7 @@ func TestCreateCommandFallsBackWhenStructuredCompletionUnsupported(t *testing.T)
 	}
 }
 
-func TestCreateCommandPrintOnlyDoesNotPatchDuplicateTarget(t *testing.T) {
+func TestCreateCommandPrintOnlyRejectsDuplicateTarget(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -272,17 +276,15 @@ func TestCreateCommandPrintOnlyDoesNotPatchDuplicateTarget(t *testing.T) {
 	}
 	response := `{"command_cue":` + quoteForJSON(testCommandObject) + `,"summary":"print only"}`
 
-	result, err := CreateCommand(t.Context(), CreateOptions{
+	_, err := CreateCommand(t.Context(), CreateOptions{
+		Name:        "hello generated",
 		Description: "print a generated command",
 		TargetPath:  target,
 		PrintOnly:   true,
 		Completer:   fakeCompleter{response: response},
 	})
-	if err != nil {
-		t.Fatalf("CreateCommand() print-only error = %v", err)
-	}
-	if result.CommandName != "hello generated" || !strings.Contains(result.CommandCUE, "hello generated") {
-		t.Fatalf("unexpected print-only result: %#v", result)
+	if err == nil || !strings.Contains(err.Error(), "agent cmd change") {
+		t.Fatalf("CreateCommand() print-only error = %v, want duplicate guidance", err)
 	}
 	data, err := os.ReadFile(target)
 	if err != nil {

@@ -12,7 +12,7 @@ env ANTHROPIC_API_KEY=
 exec invowk config set llm.provider claude
 stdout 'Set llm.provider = claude'
 
-exec invowk agent cmd create 'create a generated hello command'
+exec invowk agent cmd create agenthello 'create a generated hello command'
 stderr 'Using LLM provider: claude'
 stdout 'Added command "agenthello" to invowkfile.cue'
 exec invowk cmd agenthello

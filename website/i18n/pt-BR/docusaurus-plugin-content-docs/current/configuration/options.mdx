@@ -151,7 +151,7 @@ Isso é equivalente a sempre passar `--ivk-interactive` na linha de comando.
 **Tipo:** `#LLMConfig`
 **Padrão:** `{}`
 
-Configura um backend LLM padrão para comandos que usam LLM. `invowk agent cmd create` usa essa configuração automaticamente quando nenhuma flag LLM é passada. `invowk audit` ainda exige opt-in explícito com `--llm` ou `--llm-provider` antes de enviar qualquer conteúdo de script para um LLM.
+Configura um backend LLM padrão para comandos que usam LLM. `invowk agent cmd create|change` e `invowk agent mod create|change` usam essa configuração automaticamente quando nenhuma flag LLM é passada. `invowk audit` ainda exige opt-in explícito com `--llm` ou `--llm-provider` antes de enviar qualquer conteúdo de script para um LLM.
 
 Use um provedor/harness suportado:
 

@@ -4,41 +4,43 @@ sidebar_position: 5
 
 import Snippet from '@site/src/components/Snippet';
 
-# LLM-Assisted Command Authoring
+# LLM-Assisted Agent Authoring
 
-`invowk agent cmd` helps LLM agents create valid custom commands without guessing the current CUE contract.
+`invowk agent cmd` and `invowk agent mod` help LLM agents create and change valid custom commands and local modules without guessing the current CUE contract.
 
 ## Prompt for External Agents
 
-Use `prompt` when another agent or tool will do the editing. The output is a system prompt with the full current `invowkfile.cue` and `invowkmod.cue` schemas, plus Invowk-specific guidance about runtimes, dependencies, command visibility, and safe defaults.
+Use `prompt` when another agent or tool will do the editing. The output is an operation-aware system prompt with the full current `invowkfile.cue` and `invowkmod.cue` schemas, plus Invowk-specific guidance about runtimes, dependencies, command visibility, module boundaries, and safe defaults.
 
 <Snippet id="agent/authoring-prompt" />
 
-## Generate a Command
+## Generate or Change
 
-Use `create` when Invowk should call the configured LLM provider, validate the generated command, and patch `invowkfile.cue`.
+Use `create` and `change` when Invowk should call the configured LLM provider, validate the generated CUE, and patch the bounded target files. Command authoring updates `invowkfile.cue`; module authoring updates only `invowkmod.cue` and `invowkfile.cue` inside the target module.
 
 <Snippet id="agent/create-command" />
 
-The create command uses the same LLM provider flags as `invowk audit`: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`.
+LLM-backed authoring commands use the same LLM provider flags as `invowk audit`: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`.
 
-Configure `llm.provider` or `llm.api` once in `config.cue` to omit LLM flags on future create runs:
+Configure `llm.provider` or `llm.api` once in `config.cue` to omit LLM flags on future create/change runs:
 
 ```bash
 invowk config set llm.provider codex
-invowk agent cmd create 'add a lint command that runs golangci-lint'
+invowk agent cmd create lint 'add a lint command that runs golangci-lint'
 ```
 
 See [Configuration Options](../configuration/options#llm) for provider and API examples. Raw API keys should stay in environment variables, referenced with `llm.api.api_key_env`.
 
 ## Write Behavior
 
-By default, `create` updates `invowkfile.cue`. Use `--dry-run` to preview the patch, `--print` to print only the generated command object, `--verify` to resolve the written command with a dry-run execution plan, and `--replace` when you intentionally want to overwrite an existing command with the same name.
+Command `create` requires `<name>` and fails if that command already exists; use `agent cmd change <name>` to update an existing command. Module `create` requires `<module-id>` and fails if `<module-id>.invowkmod` already exists; use `agent mod change <module-id-or-path>` to update an existing local module. Use `--dry-run` to preview patches and `--print` to print generated output without writing. `--verify` validates the written module or resolves a written command with a dry-run execution plan.
 
 :::caution Prompt content is sent to the configured provider
-`create` sends the generated authoring system prompt and schemas, plus a user prompt containing your request, the target invowkfile path, and either the current target invowkfile content or its missing/empty-file state. If the model returns invalid output, the repair retry also sends the validation error and the previous model response. Use a local provider when your command definitions contain private project details.
+LLM-backed create/change operations send the generated authoring system prompt and schemas, plus a user prompt containing your request, the target path, and current target content when changing. If the model returns invalid output, the repair retry also sends the validation error and the previous model response. Use a local provider when your command definitions or module files contain private project details.
 :::
 
 ## Validation
 
-Invowk accepts only one generated command object. It uses structured JSON output with compatible OpenAI API backends, retries once with validation feedback when a model returns invalid output, and rejects full `cmds` arrays, malformed JSON, and invalid CUE with unknown runtime/platform fields. When writing to `invowkfile.cue`, duplicate command names are rejected unless `--replace` is set; `--print` validates and prints the generated command object without checking the target file for duplicates.
+Invowk accepts only one generated command object for command authoring, and the generated `name` must match the requested `<name>`. Module authoring accepts only generated `invowkmod.cue` and `invowkfile.cue` content, and `invowkmod.cue` must keep the requested module ID. Invowk uses structured JSON output with compatible OpenAI API backends, retries once with validation feedback when a model returns invalid output, and rejects malformed JSON, invalid CUE, full command `cmds` arrays in `command_cue`, and arbitrary extra generated module files.
+
+Remove operations are deterministic: `agent cmd remove <name>` edits the target invowkfile without resolving an LLM provider, and `agent mod remove <module-id-or-path>` validates the exact local module and requires `--force` unless you pass `--dry-run`.

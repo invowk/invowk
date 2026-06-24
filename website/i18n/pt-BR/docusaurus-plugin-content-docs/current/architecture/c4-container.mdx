@@ -38,7 +38,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **Module Resolver** | Go | Usado por comandos de módulo como `invowk module sync` para resolver dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
 | **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |
 | **Audit Scanner** | Go | Varredura de segurança do sistema de módulos (`internal/audit/`). Detecta riscos de supply-chain, travessia de caminho, abuso de symlink e injeção de variáveis de ambiente. Suporta flag `--llm` para análise com LLM. |
-| **Agent Command Authoring** | Go | Autoria de comandos assistida por LLM (`internal/agentcmd/`, `internal/llm/`). Renderiza prompts de agente, resolve backends LLM configurados, valida CUE gerado e aplica patches em `invowkfile.cue`. |
+| **Agent Authoring** | Go | Autoria de comandos e módulos locais assistida por LLM (`internal/agentcmd/`, `internal/llm/`). Renderiza prompts por operação, resolve backends LLM configurados, valida CUE gerado, aplica patches em `invowkfile.cue` e grava bundles limitados a `invowkmod.cue`/`invowkfile.cue`. |
 | **LLM Config Resolver** | Go | Resolvedor compartilhado (`internal/app/llmconfig/`) para defaults configurados, seleção explícita de provider, ajustes de API, requisitos de modelo e credenciais via ambiente. |
 | **LLM Provider Layer** | Go | Adaptadores de provider (`internal/auditllm/`, `internal/llm/`) usados por auditoria e autoria de comandos para chamar providers CLI ou APIs compatíveis com OpenAI. |
 

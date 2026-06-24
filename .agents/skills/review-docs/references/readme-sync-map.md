@@ -8,7 +8,7 @@ During review, read the source of truth first, then compare with the README sect
 | Features | L5 | Code capabilities across `pkg/`, `internal/`, `cmd/` | Feature list completeness and accuracy |
 | Installation | L41 | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` | URLs, platform table, Cosign verify command, install paths |
 | Quick Start | L156 | `cmd/invowk/init.go`, actual `invowk init` output | Generated invowkfile content, CLI output format, flag names |
-| LLM-Assisted Command Authoring | L204 | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | Provider behavior, generated command validation, examples |
+| LLM-Assisted Agent Authoring | L204 | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | Provider behavior, command/module generated CUE validation, create/change/remove examples |
 | Invowkfile Format | L237 | `pkg/invowkfile/invowkfile_schema.cue` | CUE field names, types, constraints, required fields |
 | Module Metadata | L410 | `pkg/invowkmod/invowkmod_schema.cue` | CUE field names, `requires` structure, module ID format |
 | Dependencies | L559 | `pkg/invowkfile/invowkfile_schema.cue` `#DependsOn` | Dependency fields (`tools`, `cmds`, `filepaths`, `env_vars`, `capabilities`, `custom_checks`), syntax |
@@ -33,7 +33,7 @@ During review, read the source of truth first, then compare with the README sect
 
 ## README-Specific Review Notes
 
-- The README is ~3330 lines. Focus review time on the most drift-prone sections: Invowkfile Format, Dependencies, Command Flags/Arguments, Module Dependencies, Configuration, LLM-Assisted Command Authoring, and Security Auditing.
+- The README is ~3330 lines. Focus review time on the most drift-prone sections: Invowkfile Format, Dependencies, Command Flags/Arguments, Module Dependencies, Configuration, LLM-Assisted Agent Authoring, and Security Auditing.
 - README examples are intentionally self-contained and may not show every optional field. This is progressive disclosure, not an error.
 - The Quick Start section should match `invowk init` output exactly — run `invowk init --help` and compare.
 - Platform names in README must use "macos" (not "darwin") in CUE examples, matching the schema.

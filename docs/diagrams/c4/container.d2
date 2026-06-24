@@ -223,15 +223,16 @@ invowk_cli: Invowk CLI {
       |
     }
 
-    agent_authoring: Agent Command Authoring {
+    agent_authoring: Agent Authoring {
       style: {
         fill: "#438DD5"
         font-color: "#ffffff"
       }
       tooltip: |md
         **Go**
-        LLM-assisted custom-command authoring. Renders agent prompts,
-        resolves LLM config, validates generated CUE, and patches invowkfile.cue.
+        LLM-assisted command and local-module authoring. Renders operation-aware prompts,
+        resolves LLM config, validates generated CUE, patches invowkfile.cue,
+        and writes bounded invowkmod.cue/invowkfile.cue module bundles.
       |
     }
 
@@ -254,8 +255,8 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go**
-        internal/auditllm and internal/llm adapt audit analysis and agent command
-        authoring to CLI providers and OpenAI-compatible APIs.
+        internal/auditllm and internal/llm adapt audit analysis and agent authoring
+        to CLI providers and OpenAI-compatible APIs.
       |
     }
   }
@@ -511,6 +512,9 @@ invowk_cli.entry_core.audit_scanner -> invowkfiles: Scans {
 invowk_cli.entry_core.agent_authoring -> invowkfiles: "Reads/Patches\n[invowkfile.cue]" {
   style.stroke: "#707070"
 }
+invowk_cli.entry_core.agent_authoring -> modules: "Creates/Changes\n[local *.invowkmod]" {
+  style.stroke: "#707070"
+}
 invowk_cli.entry_core.agent_authoring -> config_file: "Reads LLM config" {
   style.stroke: "#707070"
 }
@@ -549,14 +553,14 @@ invowk_cli.entry_core.cmd -> invowk_cli.entry_core.watch_engine: "Delegates watc
 invowk_cli.entry_core.cmd -> invowk_cli.entry_core.audit_scanner: "Scans modules\n[invowk audit]" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.cmd -> invowk_cli.entry_core.agent_authoring: "Generates commands\n[invowk agent]" {
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.agent_authoring: "Authors commands/modules\n[invowk agent]" {
   style.stroke: "#707070"
 }
 invowk_cli.entry_core.llm_bridge -> llm_providers: "Optional analysis\n[--llm]" {
   style.stroke: "#707070"
   style.stroke-dash: 3
 }
-invowk_cli.entry_core.llm_bridge -> llm_providers: "Generates command CUE\n[LLM provider]" {
+invowk_cli.entry_core.llm_bridge -> llm_providers: "Generates bounded CUE\n[LLM provider]" {
   style.stroke: "#707070"
   style.stroke-dash: 3
 }
