@@ -652,7 +652,7 @@ func decodeStrictJSON(raw string, target any) error {
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("decode JSON response: %w", err)
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+	if decoder.Decode(&struct{}{}) != io.EOF {
 		return errors.New("unexpected trailing JSON tokens")
 	}
 	return nil
