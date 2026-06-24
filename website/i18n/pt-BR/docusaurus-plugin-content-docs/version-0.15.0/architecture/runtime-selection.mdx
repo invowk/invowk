@@ -1,0 +1,114 @@
+---
+sidebar_position: 7
+---
+
+import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
+
+# Fluxograma de Seleção de Runtime
+
+Este diagrama documenta a árvore de decisão para selecionar qual runtime executa um comando. Entender isso ajuda usuários a escolher o runtime certo para seu caso de uso.
+
+## Fluxograma de Decisão
+
+<Diagram id="architecture/runtime-decision" />
+
+## Detalhes da Seleção de Plataforma
+
+<Diagram id="architecture/runtime-platform" />
+
+### Valores de Plataforma
+
+| Valor da Plataforma | Corresponde Em |
+|---------------------|----------------|
+| `"linux"` | Sistemas Linux |
+| `"macos"` | Sistemas macOS |
+| `"windows"` | Sistemas Windows |
+
+:::note
+Pelo menos uma plataforma deve ser especificada por implementação. Não há atalho para "todas as plataformas" — liste cada plataforma alvo explicitamente.
+:::
+
+### Exemplo de Definição de Comando
+
+<Snippet id="architecture/runtime-selection-cross-platform" />
+
+## Comparação de Runtimes
+
+| Aspecto | Native | Virtual-Sh | Virtual-Lua | Container |
+|---------|--------|------------|-------------|-----------|
+| **Velocidade** | Mais rápido | Rápido | Rápido | Mais lento (overhead) |
+| **Isolamento** | Nenhum | Nenhum (não é sandbox) | Nenhum (não é sandbox) | Completo |
+| **Portabilidade** | Dependente de plataforma | Alta | Alta | Mais alta |
+| **Linguagem** | Shell do host | Subconjunto POSIX | Lua | Completo (no container) |
+| **Dependências** | Shell do host | Built-ins ou binários permitidos | Stdlib Lua ou helpers permitidos | Docker/Podman |
+| **Melhor para** | Scripts simples | Shell multiplataforma | Lua multiplataforma | Ambientes complexos |
+
+## Precedência de Resolução de Runtime
+
+O modo de runtime é resolvido nesta ordem:
+
+1. **Override `--ivk-runtime` do CLI** — falha direta se incompatível com a implementação selecionada
+2. **`default_runtime` da configuração** — usado apenas quando compatível com a implementação
+3. **Runtime padrão do comando** — o runtime especificado na implementação da plataforma selecionada
+
+:::warning
+Não há fallback implícito de `native → virtual` quando o native não está disponível. Se o runtime native é solicitado mas não pode executar (ex.: nenhum shell encontrado), o comando falha em vez de trocar silenciosamente para virtual.
+:::
+
+## Verificações de Disponibilidade de Runtime
+
+### Runtime Native
+
+<Diagram id="architecture/runtime-native-check" />
+
+### Runtimes Virtual-Sh e Virtual-Lua
+
+<Diagram id="architecture/runtime-virtual-check" />
+
+Os runtimes virtual-sh e virtual-lua estão sempre disponíveis porque estão embutidos no binário do Invowk.
+
+### Runtime Container
+
+<Diagram id="architecture/runtime-container-check" />
+
+## Detalhes do Provisionamento de Container
+
+Para execução efêmera em container, o Invowk prepara uma imagem e cria uma camada efêmera de imagem. Alvos de container persistente existentes podem pular a preparação da imagem e usar `Exec` diretamente. Alvos persistentes ausentes falham antes da preparação da imagem, exceto quando `create_if_missing` está habilitado; nesse caso, o Invowk prepara a imagem, cria/inicia o container persistente e então usa `Exec`:
+
+<Diagram id="architecture/runtime-provision" />
+
+### Por Que Camadas Efêmeras?
+
+1. **Sem poluição de imagem**: Imagens base ficam limpas
+2. **Iteração rápida**: Não precisa rebuild completo
+3. **Portável**: Comandos funcionam com qualquer imagem base compatível
+4. **Seguro**: Binário do Invowk é injetado, não instalado na imagem
+
+## Servidor SSH para Callbacks
+
+Quando `enable_host_ssh: true` é definido, o Invowk inicia um servidor SSH temporário:
+
+<Diagram id="architecture/runtime-ssh" />
+
+**Casos de uso:**
+- Acessar secrets do host
+- Executar comandos apenas do host
+- Sincronização de arquivos
+
+## Diretrizes de Decisão
+
+| Caso de Uso | Runtime Recomendado | Por Quê |
+|-------------|---------------------|---------|
+| Scripts rápidos | `native` | Mais rápido, sem overhead |
+| Comandos shell multiplataforma | `virtual-sh` | Funciona em todos os lugares |
+| Comandos Lua multiplataforma | `virtual-lua` | Funciona em todos os lugares |
+| Pipelines CI/CD | `container` | Reproduzível |
+| Comandos que precisam de ferramentas específicas | `container` | Dependências isoladas |
+| TUI interativo | `native`, `virtual-sh`, `virtual-lua` ou `container` | Suporte interativo com PTY quando os pré-requisitos do runtime estão disponíveis |
+
+## Diagramas Relacionados
+
+- [Sequência de Execução de Comando](./execution-flow) - Fluxo completo de execução
+- [Diagrama C4 de Container](./c4-container) - Relacionamentos entre componentes de runtime
+- [Fluxograma de Precedência de Descoberta](./discovery) - Como comandos são encontrados

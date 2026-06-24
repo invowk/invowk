@@ -1,0 +1,279 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Opções de Configuração
+
+Esta página documenta todas as opções de configuração disponíveis para o Invowk™.
+
+## Schema de Configuração
+
+O arquivo de configuração usa o formato CUE e segue o schema da configuração efetiva completa. Você pode omitir campos com padrão no seu `config.cue`; o CUE materializa esses padrões antes da validação em Go.
+
+<Snippet id="config/schema" />
+
+Campos desconhecidos são rejeitados, então mantenha o arquivo de configuração limitado às opções do schema.
+
+## Referência de Opções
+
+### container_engine
+
+**Tipo:** `"podman" | "docker"`
+**Padrão:** `"podman"`
+
+Especifica qual container runtime usar para execução de comandos baseada em container.
+
+<Snippet id="config/container-engine" />
+
+Se a engine preferida não estiver disponível, o Invowk faz fallback para a outra quando o runtime container é necessário.
+
+### includes
+
+**Tipo:** `[...#IncludeEntry]`
+**Padrão:** `[]`
+
+Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `#IncludeEntry` com `path` obrigatório (deve terminar com `.invowkmod`) e `alias` opcional.
+
+<Snippet id="config/includes" />
+
+**Requisitos de caminho:**
+- Deve ser absoluto (ex: `/home/user/modules/tools.invowkmod`)
+- No Windows, use um caminho absoluto Windows (ex: `C:\Users\alice\modules\tools.invowkmod` ou um caminho UNC)
+- Deve terminar com `.invowkmod`
+- Caminhos duplicados são rejeitados
+
+**Regras de alias:**
+- Opcional, para desambiguação de colisões
+- Deve ser único entre todas as entradas includes
+
+**Ordem de Descoberta:**
+1. invowkfile do diretório atual (sempre buscado primeiro, maior prioridade)
+2. Módulos locais (`*.invowkmod` no diretório atual)
+3. Cada entrada em `includes` em ordem
+4. `~/.invowk/cmds/` (apenas módulos, não recursivo)
+
+Quando múltiplos includes definem comandos com o mesmo nome, eles se tornam ambíguos. Use o prefixo `@source` ou a flag `--ivk-from` para desambiguar.
+
+### default_runtime
+
+**Tipo:** `"native" | "virtual-sh" | "virtual-lua" | "container"`
+**Padrão:** `"native"`
+
+Define o modo de runtime padrão global para comandos que não especificam um runtime.
+
+<Snippet id="config/default-runtime" />
+
+**Opções de Runtime:**
+- `"native"` - Executar usando o shell nativo do sistema (bash, zsh, PowerShell, etc.)
+- `"virtual-sh"` - Executar usando o interpretador de shell embutido do Invowk (mvdan/sh)
+- `"virtual-lua"` - Executar usando o interpretador Lua embutido do Invowk
+- `"container"` - Executar dentro de um container (requer Docker ou Podman)
+
+:::note
+Comandos podem sobrescrever este padrão especificando seu próprio runtime no campo `implementations`.
+:::
+
+### virtual
+
+**Tipo:** `#VirtualConfig`
+**Padrão:** `{utilities: {enabled: true}}`
+
+Configura o comportamento da família de runtimes virtuais.
+
+<Snippet id="config/virtual-shell" />
+
+#### virtual.utilities.enabled
+
+**Tipo:** `bool`
+**Padrão:** `true`
+
+Habilita utilitários [u-root](https://github.com/u-root/u-root) no `virtual-sh` e helpers de comando no `virtual-lua`. Quando habilitado, 28 comandos adicionais compatíveis com POSIX ficam disponíveis para o `virtual-sh`:
+
+**Wrappers upstream (12):** `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
+
+**Implementações customizadas (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
+
+Isso torna o `virtual-sh` autocontido para operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host. No `virtual-lua`, a mesma opção controla se esses utilitários ficam disponíveis por `invowk.cmd` e `invowk.capture`; binários do host ainda exigem `allowed_binaries`.
+
+:::tip
+Os utilitários u-root são habilitados por padrão. Defina como `false` apenas se você quiser que scripts virtuais usem binários do host explicitamente permitidos ou reduzir o tamanho do binário.
+:::
+
+### ui
+
+**Tipo:** `#UIConfig`
+**Padrão:** `{color_scheme: "auto", verbose: false, interactive: false}`
+
+Configura as preferências de interface do usuário.
+
+<Snippet id="config/ui" />
+
+#### ui.color_scheme
+
+**Tipo:** `"auto" | "dark" | "light"`
+**Padrão:** `"auto"`
+
+Define o esquema de cores para a saída do Invowk.
+
+<Snippet id="config/ui-color-scheme" />
+
+**Opções:**
+- `"auto"` - Detectar das configurações do terminal (respeita `COLORTERM`, `TERM`, etc.)
+- `"dark"` - Usar cores otimizadas para terminais escuros
+- `"light"` - Usar cores otimizadas para terminais claros
+
+#### ui.verbose
+
+**Tipo:** `bool`
+**Padrão:** `false`
+
+Habilita saída verbose por padrão. Quando habilitado, Invowk imprime informações adicionais sobre descoberta de comandos, validação de dependências e execução.
+
+<Snippet id="config/ui-verbose" />
+
+Isso é equivalente a sempre passar `--ivk-verbose` na linha de comando.
+
+#### ui.interactive
+
+**Tipo:** `bool`
+**Padrão:** `false`
+
+Habilita o modo interativo por padrão. Quando habilitado, os comandos são executados em um buffer de tela alternativo com suporte completo a PTY, permitindo que programas interativos como prompts de senha, confirmações e outras interações baseadas em stdin funcionem corretamente.
+
+<Snippet id="config/ui-interactive" />
+
+Isso é equivalente a sempre passar `--ivk-interactive` na linha de comando.
+
+### llm
+
+**Tipo:** `#LLMConfig`
+**Padrão:** `{}`
+
+Configura um backend LLM padrão para comandos que usam LLM. `invowk agent cmd create` usa essa configuração automaticamente quando nenhuma flag LLM é passada. `invowk audit` ainda exige opt-in explícito com `--llm` ou `--llm-provider` antes de enviar qualquer conteúdo de script para um LLM.
+
+Use um provedor/harness suportado:
+
+<Snippet id="config/llm-provider" />
+
+Ou use um endpoint de API compatível com OpenAI:
+
+<Snippet id="config/llm-api" />
+
+`llm.provider` e `llm.api` são mutuamente exclusivos. Não armazene chaves de API brutas em `config.cue`; use `llm.api.api_key_env` para nomear uma variável de ambiente.
+
+#### llm.provider
+
+**Tipo:** `"auto" | "claude" | "codex" | "gemini" | "ollama"`
+**Padrão:** *(não definido)*
+
+Seleciona um provedor/harness suportado. `auto` procura Ollama local, credenciais cloud e ferramentas CLI na ordem de provedores.
+
+#### llm.model
+
+**Tipo:** `string`
+**Padrão:** *(não definido)*
+
+Define o modelo padrão comum para o backend configurado. Harnesses CLI usam seu próprio padrão atual quando omitido, e fluxos de API/Ollama usam o fallback do resolvedor `qwen2.5-coder:7b` quando nenhum modelo é configurado ou passado por flag. Quando `llm.api.model` também está definido, o modelo específico da API substitui este valor.
+
+#### llm.timeout
+
+**Tipo:** string de duração Go (`#LLMTimeoutDurationString`, máximo de 64 runes)
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `2m`)*
+
+Define o timeout por requisição usado por comandos com LLM.
+
+#### llm.concurrency
+
+**Tipo:** `int`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `2`)*
+
+Limita requisições LLM concorrentes. Defina `0` ou omita o campo para usar o padrão integrado.
+
+#### llm.api
+
+**Tipo:** `#LLMAPIConfig`
+**Padrão:** *(não definido)*
+
+Configura um endpoint de API compatível com OpenAI usando `base_url`, `model` e `api_key_env`.
+Se `api` estiver presente, defina pelo menos um desses campos.
+
+##### llm.api.base_url
+
+**Tipo:** `string`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `http://localhost:11434/v1`)*
+
+URL base da API compatível com OpenAI.
+
+##### llm.api.model
+
+**Tipo:** `string`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `qwen2.5-coder:7b`)*
+
+Nome do modelo enviado ao endpoint de API. Quando definido, substitui o padrão comum `llm.model` para execução via API.
+
+##### llm.api.api_key_env
+
+**Tipo:** `string`
+**Padrão:** *(não definido)*
+
+Nome da variável de ambiente que contém a chave de API.
+
+### container
+
+**Tipo:** `#ContainerConfig`
+**Padrão:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}}`
+
+Configura o comportamento do runtime container.
+
+<Snippet id="config/container-auto-provision" />
+
+#### container.auto_provision.enabled
+
+**Tipo:** `bool`
+**Padrão:** `true`
+
+Habilita o provisionamento automático do binário do invowk e módulos dentro dos containers.
+Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execução de container, anexando uma pequena camada de provisionamento sobre a imagem base. Se o provisionamento falhar, o Invowk avisa e usa a imagem base.
+
+#### container.auto_provision.binary_path
+
+**Tipo:** `string`
+**Padrão:** *(vazio; usa o binário do invowk em execução)*
+
+Sobrescreve o caminho do binário do invowk para provisionar.
+
+#### container.auto_provision.includes
+
+**Tipo:** `[...#IncludeEntry]`
+**Padrão:** `[]`
+
+Módulos adicionais para provisionar dentro dos containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invowkmod` e um `alias` opcional).
+
+#### container.auto_provision.inherit_includes
+
+**Tipo:** `bool`
+**Padrão:** `true`
+
+Quando `true`, as entradas de `includes` do nível raiz são automaticamente herdadas pelo auto-provisionamento. Defina como `false` para provisionar apenas os módulos listados explicitamente em `container.auto_provision.includes`.
+
+#### container.auto_provision.strict
+
+**Tipo:** `bool`
+**Padrão:** `false`
+
+Quando `true`, falhas de auto-provisionamento são tratadas como erros fatais ao invés de avisos. Por padrão, se o provisionamento falhar, o Invowk exibe um aviso e executa a imagem base. Com `strict: true`, o comando falha imediatamente em caso de falha de provisionamento.
+
+#### container.auto_provision.cache_dir
+
+**Tipo:** `string`
+**Padrão:** *(vazio — usa o padrão específico da plataforma, tipicamente `~/.cache/invowk/provision`)*
+
+Sobrescreve o diretório pai usado para contextos de build de provisionamento e metadados de imagens em cache.
+
+## Exemplo Completo
+
+Aqui está um arquivo de configuração completo com todas as opções:
+
+<Snippet id="config/complete-example" />

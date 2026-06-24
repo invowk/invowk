@@ -1,0 +1,134 @@
+---
+sidebar_position: 6
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Environment Variable Dependencies
+
+Environment variable dependencies verify that required environment variables exist before your command runs. They're checked **first**, before any other dependencies, against the user's actual environment.
+
+## Basic Usage
+
+<Snippet id="dependencies/env-vars-basic" />
+
+If the variable isn't set:
+
+```
+✗ Dependencies not satisfied
+
+Command 'deploy' has unmet dependencies:
+
+Missing Environment Variables:
+  • AWS_ACCESS_KEY_ID - not set in environment
+
+Set the required environment variables and try again.
+```
+
+## Alternatives (OR Semantics)
+
+Require one of multiple variables:
+
+<Snippet id="dependencies/env-vars-alternatives" />
+
+The dependency is satisfied if **any** alternative exists.
+
+## Regex Validation
+
+Validate the variable's value matches a pattern:
+
+<Snippet id="dependencies/env-vars-regex" />
+
+If the value doesn't match:
+
+```
+✗ Dependencies not satisfied
+
+Command 'release' has unmet dependencies:
+
+Invalid Environment Variables:
+  • VERSION - value "invalid" does not match pattern "^[0-9]+\.[0-9]+\.[0-9]+$"
+```
+
+## Validation Order
+
+Environment variables are checked **first**, before all other dependencies:
+
+1. **env_vars** ← Checked first!
+2. tools
+3. filepaths
+4. capabilities
+5. custom_checks
+6. cmds
+
+This ensures you're validating against the user's actual environment, not variables set by Invowk™'s `env` construct.
+
+## Real-World Examples
+
+### AWS Credentials
+
+<Snippet id="dependencies/env-vars-aws" />
+
+### Database Connection
+
+<Snippet id="dependencies/env-vars-database" />
+
+### API Keys
+
+<Snippet id="dependencies/env-vars-api-keys" />
+
+### Environment-Specific Config
+
+<Snippet id="dependencies/env-vars-env-config" />
+
+### Version Validation
+
+<Snippet id="dependencies/env-vars-version" />
+
+## Common Validation Patterns
+
+### Semantic Version
+
+<Snippet id="dependencies/env-vars-pattern-semver" />
+
+### URL
+
+<Snippet id="dependencies/env-vars-pattern-url" />
+
+### Email-like
+
+<Snippet id="dependencies/env-vars-pattern-email" />
+
+### Alphanumeric ID
+
+<Snippet id="dependencies/env-vars-pattern-alphanum" />
+
+### AWS Region
+
+<Snippet id="dependencies/env-vars-pattern-aws-region" />
+
+## Multiple Requirements
+
+Combine multiple env var checks (AND logic):
+
+<Snippet id="dependencies/env-vars-multiple" />
+
+## Important: User Environment Only
+
+Environment variable dependencies check the **user's environment**, not variables set by Invowk:
+
+<Snippet id="dependencies/env-vars-user-env" />
+
+This is intentional - you're validating what the user has configured, not what your command will set.
+
+## Best Practices
+
+1. **Use alternatives for auth methods**: `{alternatives: [{name: "TOKEN"}, {name: "API_KEY"}]}`
+2. **Add validation when format matters**: Especially for URLs, versions, and IDs
+3. **Document required vars**: Users need to know what to set
+4. **Consider secrets management**: Don't log sensitive values
+
+## Next Steps
+
+- [Custom Checks](./custom-checks) - Write custom validation scripts
+- [Overview](./overview) - Return to dependencies overview

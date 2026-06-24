@@ -1,0 +1,44 @@
+---
+sidebar_position: 5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# LLM-Assisted Command Authoring
+
+`invowk agent cmd` helps LLM agents create valid custom commands without guessing the current CUE contract.
+
+## Prompt for External Agents
+
+Use `prompt` when another agent or tool will do the editing. The output is a system prompt with the full current `invowkfile.cue` and `invowkmod.cue` schemas, plus Invowk-specific guidance about runtimes, dependencies, command visibility, and safe defaults.
+
+<Snippet id="agent/authoring-prompt" />
+
+## Generate a Command
+
+Use `create` when Invowk should call the configured LLM provider, validate the generated command, and patch `invowkfile.cue`.
+
+<Snippet id="agent/create-command" />
+
+The create command uses the same LLM provider flags as `invowk audit`: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`.
+
+Configure `llm.provider` or `llm.api` once in `config.cue` to omit LLM flags on future create runs:
+
+```bash
+invowk config set llm.provider codex
+invowk agent cmd create 'add a lint command that runs golangci-lint'
+```
+
+See [Configuration Options](../configuration/options#llm) for provider and API examples. Raw API keys should stay in environment variables, referenced with `llm.api.api_key_env`.
+
+## Write Behavior
+
+By default, `create` updates `invowkfile.cue`. Use `--dry-run` to preview the patch, `--print` to print only the generated command object, `--verify` to resolve the written command with a dry-run execution plan, and `--replace` when you intentionally want to overwrite an existing command with the same name.
+
+:::caution Prompt content is sent to the configured provider
+`create` sends the generated authoring system prompt and schemas, plus a user prompt containing your request, the target invowkfile path, and either the current target invowkfile content or its missing/empty-file state. If the model returns invalid output, the repair retry also sends the validation error and the previous model response. Use a local provider when your command definitions contain private project details.
+:::
+
+## Validation
+
+Invowk accepts only one generated command object. It uses structured JSON output with compatible OpenAI API backends, retries once with validation feedback when a model returns invalid output, and rejects full `cmds` arrays, malformed JSON, and invalid CUE with unknown runtime/platform fields. When writing to `invowkfile.cue`, duplicate command names are rejected unless `--replace` is set; `--print` validates and prints the generated command object without checking the target file for duplicates.
