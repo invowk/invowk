@@ -169,25 +169,26 @@ func TestImplementationMutationScriptReadErrorContract(t *testing.T) {
 		}
 	})
 
-	t.Run("absolute selected path reports only selected path and wraps read error", func(t *testing.T) {
+	t.Run("absolute selected path is rejected before file IO", func(t *testing.T) {
 		t.Parallel()
 
 		moduleDir := t.TempDir()
 		absolutePath := filepath.Join(moduleDir, "missing.sh")
+		readCalled := false
 		impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(absolutePath)}}
 		_, err := impl.ResolveScriptWithFSAndModule(
 			FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
 			FilesystemPath(moduleDir),
-			func(path string) ([]byte, error) {
-				if path != absolutePath {
-					t.Fatalf("read path = %q, want %q", path, absolutePath)
-				}
+			func(string) ([]byte, error) {
+				readCalled = true
 				return nil, os.ErrNotExist
 			},
 		)
-		requireScriptReadError(t, err, os.ErrNotExist, absolutePath)
-		if strings.Contains(err.Error(), "resolved to") {
-			t.Fatalf("read error = %q, want no resolved path detail", err.Error())
+		if !errors.Is(err, ErrInvalidScriptFilePath) {
+			t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrInvalidScriptFilePath", err)
+		}
+		if readCalled {
+			t.Fatal("ResolveScriptWithFSAndModule read an absolute script file")
 		}
 	})
 
@@ -255,8 +256,8 @@ func TestImplementationMutationDependenciesAndContainment(t *testing.T) {
 				return nil, nil
 			},
 		)
-		if !errors.Is(err, ErrScriptPathTraversal) {
-			t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrScriptPathTraversal", err)
+		if !errors.Is(err, ErrInvalidScriptFilePath) {
+			t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrInvalidScriptFilePath", err)
 		}
 	})
 

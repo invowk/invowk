@@ -84,8 +84,9 @@ func newInlineScriptInterpreterSource(label ScriptInterpreterSourceLabel) Script
 }
 
 // newFileScriptInterpreterSource creates source metadata for script.file.
-func newFileScriptInterpreterSource(path FilesystemPath, label ScriptInterpreterSourceLabel) ScriptInterpreterSource {
-	return ScriptInterpreterSource{kind: ScriptInterpreterSourceFile, path: &path, label: label}
+func newFileScriptInterpreterSource(path ScriptFilePath, label ScriptInterpreterSourceLabel) ScriptInterpreterSource {
+	filePath := FilesystemPath(path.String()) //goplint:ignore -- diagnostic source preserves validated script file reference text.
+	return ScriptInterpreterSource{kind: ScriptInterpreterSourceFile, path: &filePath, label: label}
 }
 
 // AnalyzeScriptInterpreter returns interpreter provenance and advisory diagnostics.

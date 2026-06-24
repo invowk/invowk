@@ -7,5 +7,6 @@ package invowkfile
 func DefaultValidators() []Validator {
 	return []Validator{
 		NewStructureValidator(),
+		NewFieldValidator(),
 	}
 }

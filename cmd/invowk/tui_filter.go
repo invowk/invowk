@@ -9,7 +9,8 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 
 	"github.com/spf13/cobra"
 )
@@ -95,8 +96,8 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 	var err error
 
 	// Check if we should delegate to parent TUI server
-	if client := tuiserver.NewClientFromEnv(); client != nil {
-		results, err = client.FilterContext(cmd.Context(), tuiserver.FilterRequest{
+	if client := tuiclient.NewClientFromEnv(); client != nil {
+		results, err = client.FilterContext(cmd.Context(), tuiwire.FilterRequest{
 			Title:       filterTitle,
 			Placeholder: filterPlaceholder,
 			Options:     options,

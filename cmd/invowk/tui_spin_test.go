@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -105,8 +104,8 @@ func TestRunTUISpinDelegatesPresentationAndRunsCommandLocally(t *testing.T) {
 		})
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv(tuiserver.EnvTUIAddr, server.URL)
-	t.Setenv(tuiserver.EnvTUIToken, "secret-token")
+	t.Setenv(tuiwire.EnvTUIAddr, server.URL)
+	t.Setenv(tuiwire.EnvTUIToken, "secret-token")
 
 	cmd := newTUISpinCommand()
 	runner := &fakeTUISpinRunner{result: tuiSpinRunResult{Output: []byte("done\n")}}

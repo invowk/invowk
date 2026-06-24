@@ -608,7 +608,7 @@ func formatScriptContentFields(content ScriptContent, interpreter InterpreterSpe
 }
 
 //goplint:ignore -- CUE generation helpers return serialized source snippets.
-func formatScriptFileFields(file FilesystemPath, interpreter InterpreterSpec) string {
+func formatScriptFileFields(file fmt.Stringer, interpreter InterpreterSpec) string {
 	fields := fmt.Sprintf("file: %q", file)
 	if interpreter != "" {
 		fields += fmt.Sprintf(", interpreter: %q", interpreter)

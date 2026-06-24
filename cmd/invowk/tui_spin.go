@@ -12,7 +12,8 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -88,8 +89,8 @@ func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunne
 	cmdArgs := args[1:]
 
 	// Check if we should delegate to parent TUI server
-	if client := tuiserver.NewClientFromEnv(); client != nil {
-		if clientErr := client.SpinContext(cmd.Context(), tuiserver.SpinRequest{
+	if client := tuiclient.NewClientFromEnv(); client != nil {
+		if clientErr := client.SpinContext(cmd.Context(), tuiwire.SpinRequest{
 			Title:   spinTitle,
 			Spinner: spinType,
 		}); clientErr != nil {

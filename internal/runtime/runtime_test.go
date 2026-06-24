@@ -686,7 +686,7 @@ func TestExecutionContextResolveSelectedScriptHonorsModuleBoundary(t *testing.T)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	_, err := ctx.ResolveSelectedScript()
-	if !errors.Is(err, invowkfile.ErrScriptPathTraversal) {
-		t.Fatalf("ResolveSelectedScript() error = %v, want ErrScriptPathTraversal", err)
+	if !errors.Is(err, invowkfile.ErrInvalidScriptFilePath) {
+		t.Fatalf("ResolveSelectedScript() error = %v, want ErrInvalidScriptFilePath", err)
 	}
 }

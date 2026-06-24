@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 
 	"github.com/spf13/cobra"
 )
@@ -66,8 +67,8 @@ func runTuiInput(cmd *cobra.Command, _ []string) error {
 	var err error
 
 	// Check if we should delegate to parent TUI server
-	if client := tuiserver.NewClientFromEnv(); client != nil {
-		result, err = client.InputContext(cmd.Context(), tuiserver.InputRequest{
+	if client := tuiclient.NewClientFromEnv(); client != nil {
+		result, err = client.InputContext(cmd.Context(), tuiwire.InputRequest{
 			Title:       inputTitle,
 			Description: inputDescription,
 			Placeholder: inputPlaceholder,

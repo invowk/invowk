@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/tuiclient"
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiwire"
 )
 
 func TestReadTableConfig(t *testing.T) {
@@ -135,12 +137,12 @@ func TestRenderTUITableDirectWithNoRows(t *testing.T) {
 func TestRenderTUITableWithClient(t *testing.T) {
 	t.Parallel()
 
-	server, requests, asyncErrs := startTableTestServer(t, tuiserver.TableResult{
+	server, requests, asyncErrs := startTableTestServer(t, tuiwire.TableResult{
 		SelectedIndex: 1,
 		SelectedRow:   []string{"Bob", "25"},
 	})
 
-	client := tuiserver.NewClient(server.URL(), server.Token())
+	client := tuiclient.NewClient(server.URL(), server.Token())
 	idx, row, err := renderTUITableWithClient(
 		t.Context(),
 		tableConfig{
@@ -186,12 +188,12 @@ func TestRunTuiTableSelectablePrintsSelectedRow(t *testing.T) {
 		t.Fatalf("WriteFile(): %v", err)
 	}
 
-	server, requests, asyncErrs := startTableTestServer(t, tuiserver.TableResult{
+	server, requests, asyncErrs := startTableTestServer(t, tuiwire.TableResult{
 		SelectedIndex: 1,
 		SelectedRow:   []string{"Bob", "25"},
 	})
-	t.Setenv(tuiserver.EnvTUIAddr, string(server.URL()))
-	t.Setenv(tuiserver.EnvTUIToken, server.Token().String())
+	t.Setenv(tuiwire.EnvTUIAddr, string(server.URL()))
+	t.Setenv(tuiwire.EnvTUIToken, server.Token().String())
 
 	cmd := newTUITableCommand()
 	if err := cmd.Flags().Set("file", csvPath); err != nil {
@@ -232,7 +234,7 @@ func TestRunTuiTableNoData(t *testing.T) {
 	}
 }
 
-func startTableTestServer(t *testing.T, result tuiserver.TableResult) (server *tuiserver.Server, requests <-chan tuiserver.TableRequest, asyncErrs <-chan error) {
+func startTableTestServer(t *testing.T, result tuiwire.TableResult) (server *tuiserver.Server, requests <-chan tuiwire.TableRequest, asyncErrs <-chan error) {
 	t.Helper()
 
 	server, err := tuiserver.New()
@@ -248,11 +250,11 @@ func startTableTestServer(t *testing.T, result tuiserver.TableResult) (server *t
 		}
 	})
 
-	requestCh := make(chan tuiserver.TableRequest, 1)
+	requestCh := make(chan tuiwire.TableRequest, 1)
 	errCh := make(chan error, 1)
 	go func() {
 		req := <-server.RequestChannel()
-		var tableReq tuiserver.TableRequest
+		var tableReq tuiwire.TableRequest
 		if err := json.Unmarshal(req.Options, &tableReq); err != nil {
 			errCh <- err
 			return
@@ -264,7 +266,7 @@ func startTableTestServer(t *testing.T, result tuiserver.TableResult) (server *t
 			errCh <- err
 			return
 		}
-		req.ResponseCh <- tuiserver.Response{Result: payload}
+		req.ResponseCh <- tuiwire.Response{Result: payload}
 	}()
 
 	return server, requestCh, errCh

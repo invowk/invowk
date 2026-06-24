@@ -67,7 +67,7 @@ func WithScript(script string) CommandOption {
 func WithScriptFile(path string) CommandOption {
 	return func(c *invowkfile.Command) {
 		if len(c.Implementations) > 0 {
-			file := invowkfile.FilesystemPath(path)
+			file := invowkfile.ScriptFilePath(path)
 			c.Implementations[0].Script = invowkfile.ImplementationScript{File: &file}
 		}
 	}

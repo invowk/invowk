@@ -4,14 +4,15 @@ package invowkfile_test
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-func filesystemPathPtr(path string) *invowkfile.FilesystemPath {
-	file := invowkfile.FilesystemPath(path)
+func filesystemPathPtr(path string) *invowkfile.ScriptFilePath {
+	file := invowkfile.ScriptFilePath(path)
 	return &file
 }
 
@@ -28,10 +29,9 @@ func filesystemPathPtr(path string) *invowkfile.FilesystemPath {
 //   - modulePath != "" (module context, the scenario A.2 fixed)
 //   - modulePath == "" (non-module context, where script.file is disallowed)
 //
-// Both branches are exercised below. Platform-divergent vectors use
-// PassHostNativeAbs so the matrix delegates the pass-through-vs-join
-// decision to filepath.IsAbs at test runtime, matching the resolver's
-// actual contract on every platform.
+// Both branches are exercised below. Cross-platform absolute-like vectors are
+// preserved raw so downstream containment gates fail closed if validation was
+// bypassed.
 func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 	t.Parallel()
 
@@ -47,13 +47,26 @@ func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 			return string(impl.GetScriptFilePathWithModule(invowkfilePath, invowkfile.FilesystemPath(moduleDir))), nil
 		}
 
+		backslashTraversal := pathmatrix.Custom(func(t testing.TB, got string, gotErr error) {
+			t.Helper()
+			if gotErr != nil {
+				t.Fatalf("unexpected error: %v", gotErr)
+			}
+			want := filepath.Join(
+				moduleDir,
+				filepath.FromSlash(strings.ReplaceAll(pathmatrix.InputBackslashTraversal+".sh", "\\", "/")),
+			)
+			if got != want {
+				t.Fatalf("got %q, want %q", got, want)
+			}
+		})
 		expect := pathmatrix.Expectations{
 			UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute + ".sh"),
-			WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs + ".sh"),
-			WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted + ".sh"),
-			UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC + ".sh"),
+			WindowsDriveAbs:    pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs + ".sh"),
+			WindowsRooted:      pathmatrix.Pass(pathmatrix.InputWindowsRooted + ".sh"),
+			UNC:                pathmatrix.Pass(pathmatrix.InputUNC + ".sh"),
 			SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal + ".sh"),
-			BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal + ".sh"),
+			BackslashTraversal: backslashTraversal,
 			ValidRelative:      pathmatrix.PassAny(nil),
 		}
 		pathmatrix.Resolver(t, moduleDir, resolveFor, expect)

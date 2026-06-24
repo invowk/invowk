@@ -16,7 +16,7 @@ func TestCustomCheckScriptFileInterpreterWarnings(t *testing.T) {
 	t.Parallel()
 
 	expectedCode := types.ExitCode(0)
-	scriptFile := invowkfile.FilesystemPath("scripts/check.sh")
+	scriptFile := invowkfile.ScriptFilePath("scripts/check.sh")
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Name: "file-check",

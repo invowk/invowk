@@ -61,6 +61,97 @@ func TestInvowkfile_ValidateFields_InvalidDefaultShell(t *testing.T) {
 	}
 }
 
+func TestInvowkfile_Validate_IncludesFieldValidation(t *testing.T) {
+	t.Parallel()
+
+	validCommand := func() Command {
+		return Command{
+			Name: "build",
+			Implementations: []Implementation{
+				{
+					Script:    ImplementationScript{Content: "go build ./..."},
+					Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+					Platforms: []PlatformConfig{{Name: PlatformLinux}},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name string
+		inv  Invowkfile
+		want error
+	}{
+		{
+			name: "default shell",
+			inv:  Invowkfile{DefaultShell: "   ", Commands: []Command{validCommand()}},
+			want: ErrInvalidShellPath,
+		},
+		{
+			name: "root workdir",
+			inv:  Invowkfile{WorkDir: "   ", Commands: []Command{validCommand()}},
+			want: ErrInvalidWorkDir,
+		},
+		{
+			name: "metadata",
+			inv: Invowkfile{
+				Commands: []Command{validCommand()},
+				Metadata: &ModuleMetadata{
+					module:  invowkmod.ModuleID(""),
+					version: invowkmod.SemVer("1.0.0"),
+				},
+			},
+			want: ErrInvalidModuleMetadata,
+		},
+		{
+			name: "file path",
+			inv:  Invowkfile{FilePath: "   ", Commands: []Command{validCommand()}},
+			want: ErrInvalidFilesystemPath,
+		},
+		{
+			name: "module path",
+			inv:  Invowkfile{ModulePath: "   ", Commands: []Command{validCommand()}},
+			want: ErrInvalidFilesystemPath,
+		},
+		{
+			name: "command workdir",
+			inv: Invowkfile{Commands: []Command{
+				func() Command {
+					cmd := validCommand()
+					cmd.WorkDir = "   "
+					return cmd
+				}(),
+			}},
+			want: ErrInvalidWorkDir,
+		},
+		{
+			name: "implementation workdir",
+			inv: Invowkfile{Commands: []Command{
+				func() Command {
+					cmd := validCommand()
+					cmd.Implementations[0].WorkDir = "   "
+					return cmd
+				}(),
+			}},
+			want: ErrInvalidWorkDir,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			errs := (&tt.inv).Validate()
+			if !errors.Is(errs, tt.want) {
+				t.Fatalf("Validate() errors = %v, want errors.Is(..., %v)", errs, tt.want)
+			}
+			if !validationErrorsIncludeValidator(errs, fieldValidatorName) {
+				t.Fatalf("Validate() errors = %v, want fields validator error", errs)
+			}
+		})
+	}
+}
+
 func TestInvowkfile_ValidateFields_InvalidWorkDir(t *testing.T) {
 	t.Parallel()
 	inv := Invowkfile{
@@ -219,4 +310,13 @@ func TestInvalidInvowkfileError_Unwrap(t *testing.T) {
 	if !errors.Is(e, ErrInvalidInvowkfile) {
 		t.Error("Unwrap() should return ErrInvalidInvowkfile")
 	}
+}
+
+func validationErrorsIncludeValidator(errs ValidationErrors, validator ValidatorName) bool {
+	for _, err := range errs {
+		if err.Validator == validator {
+			return true
+		}
+	}
+	return false
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func filesystemPathPtr(path string) *invowkfile.FilesystemPath {
-	file := invowkfile.FilesystemPath(path)
+func filesystemPathPtr(path string) *invowkfile.ScriptFilePath {
+	file := invowkfile.ScriptFilePath(path)
 	return &file
 }
 

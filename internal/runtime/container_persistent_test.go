@@ -92,6 +92,47 @@ func TestContainerRuntimeExecuteUsesCLIContainerNameAsExistingTarget(t *testing.
 	}
 }
 
+func TestContainerRuntimeExecuteSkipsProvisionedImageIdentityForExistingExternalCLIContainer(t *testing.T) {
+	t.Parallel()
+
+	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
+		ContainerID: "external-container",
+		Name:        "existing-dev",
+		Running:     true,
+		Labels:      map[string]string{},
+	})
+	tagCalls := 0
+	rt, err := NewContainerRuntimeWithEngine(
+		engine,
+		WithContainerProvisioner(
+			fakeProvisioner{tagCalls: &tagCalls},
+			&provision.Config{Enabled: true},
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+	ctx := newPersistentExecutionContext(t, nil)
+	ctx.ContainerNameOverride = "existing-dev"
+	ctx.SelectedImpl.Runtimes[0].Image = ""
+	ctx.SelectedImpl.Runtimes[0].Containerfile = "Containerfile"
+
+	result := rt.Execute(ctx)
+
+	if result.Error != nil {
+		t.Fatalf("Execute() error = %v", result.Error)
+	}
+	if tagCalls != 0 {
+		t.Fatalf("GetProvisionedImageTag calls = %d, want 0 for existing external CLI target", tagCalls)
+	}
+	if len(engine.BuildCalls) != 0 {
+		t.Fatalf("BuildCalls = %d, want 0 for existing external CLI target", len(engine.BuildCalls))
+	}
+	if len(engine.ExecCalls) != 1 {
+		t.Fatalf("ExecCalls = %d, want 1", len(engine.ExecCalls))
+	}
+}
+
 func TestContainerRuntimeExecuteSkipsForceRebuildForExistingPersistentTarget(t *testing.T) {
 	t.Parallel()
 
@@ -279,6 +320,33 @@ func TestContainerRuntimeExecuteRejectsUnmanagedConfigTarget(t *testing.T) {
 	}
 	if len(engine.ExecCalls) != 0 {
 		t.Fatalf("ExecCalls = %d, want 0", len(engine.ExecCalls))
+	}
+}
+
+func TestContainerRuntimeExecuteRejectsInvalidPersistentPlan(t *testing.T) {
+	t.Parallel()
+
+	engine := NewMockEngine()
+	rt := newPersistentTestRuntime(t, engine)
+	ctx := newPersistentExecutionContext(t, nil)
+	ctx.ContainerNameOverride = "Invalid_Name"
+
+	result := rt.Execute(ctx)
+
+	if result.Error == nil {
+		t.Fatal("Execute() error = nil, want invalid persistent plan error")
+	}
+	if !errors.Is(result.Error, invowkfile.ErrInvalidContainerName) {
+		t.Fatalf("Execute() error = %v, want ErrInvalidContainerName", result.Error)
+	}
+	if len(engine.RunCalls) != 0 {
+		t.Fatalf("RunCalls = %d, want 0", len(engine.RunCalls))
+	}
+	if len(engine.ExecCalls) != 0 {
+		t.Fatalf("ExecCalls = %d, want 0", len(engine.ExecCalls))
+	}
+	if len(engine.CreateCalls) != 0 {
+		t.Fatalf("CreateCalls = %d, want 0", len(engine.CreateCalls))
 	}
 }
 

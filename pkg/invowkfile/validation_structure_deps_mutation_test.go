@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -12,6 +13,8 @@ const validationStructureDepsMutationFile = "/workspace/invowkfile.cue"
 
 func TestStructureDependsOnMutationDiagnostics(t *testing.T) {
 	t.Parallel()
+
+	longScriptFile := strings.Repeat("f", MaxPathLength+1)
 
 	tests := []struct {
 		name        string
@@ -173,7 +176,7 @@ func TestStructureDependsOnMutationDiagnostics(t *testing.T) {
 				t.Helper()
 
 				inv.ModulePath = FilesystemPath(t.TempDir())
-				file := FilesystemPath(strings.Repeat("f", MaxPathLength+1))
+				file := ScriptFilePath(longScriptFile)
 				inv.DependsOn = &DependsOn{
 					CustomChecks: []CustomCheckDependency{{
 						Name:   "long-file",
@@ -181,13 +184,20 @@ func TestStructureDependsOnMutationDiagnostics(t *testing.T) {
 					}},
 				}
 			},
-			wantField:   "root custom_check #1 alternative #1",
-			wantMessage: "script.file too long (4097 chars, max 4096) in invowkfile at /workspace/invowkfile.cue",
+			wantField: "root custom_check #1 alternative #1",
+			wantMessage: fmt.Sprintf(
+				"invalid custom check dependency: 1 field error(s): invalid custom check script: 1 field error(s): "+
+					"invalid script file path %q: path too long (%d chars, max %d) in invowkfile at /workspace/invowkfile.cue",
+				longScriptFile,
+				len(longScriptFile),
+				MaxPathLength,
+			),
+			wantCause: ErrInvalidScriptFilePath,
 		},
 		{
 			name: "custom check script file requires module",
 			mutate: func(_ *testing.T, inv *Invowkfile) {
-				file := FilesystemPath("scripts/check.sh")
+				file := ScriptFilePath("scripts/check.sh")
 				inv.DependsOn = &DependsOn{
 					CustomChecks: []CustomCheckDependency{{
 						Name:   "module-check",

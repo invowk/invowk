@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-func filesystemPathPtr(path string) *FilesystemPath {
-	file := FilesystemPath(path)
+func filesystemPathPtr(path string) *ScriptFilePath {
+	file := ScriptFilePath(path)
 	return &file
 }
 
@@ -221,8 +221,8 @@ func TestResolveScriptWithModule_PathTraversal(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected ErrScriptPathTraversal, got nil")
 				}
-				if !errors.Is(err, ErrScriptPathTraversal) {
-					t.Errorf("expected error wrapping ErrScriptPathTraversal, got: %v", err)
+				if !errors.Is(err, ErrInvalidScriptFilePath) {
+					t.Errorf("expected error wrapping ErrInvalidScriptFilePath, got: %v", err)
 				}
 			} else if err != nil && errors.Is(err, ErrScriptPathTraversal) {
 				t.Errorf("unexpected ErrScriptPathTraversal for valid path: %v", err)
@@ -231,10 +231,8 @@ func TestResolveScriptWithModule_PathTraversal(t *testing.T) {
 	}
 }
 
-// TestResolveScriptWithFSAndModule_PathTraversal verifies that
-// ResolveScriptWithFSAndModule returns ErrScriptPathTraversal for traversal
-// scripts in module context (SC-01). Uses a virtual filesystem to avoid
-// needing real files for the traversal cases.
+// TestResolveScriptWithFSAndModule_PathTraversal verifies that traversal
+// scripts fail during script file value validation before file I/O.
 func TestResolveScriptWithFSAndModule_PathTraversal(t *testing.T) {
 	t.Parallel()
 
@@ -307,8 +305,8 @@ func TestResolveScriptWithFSAndModule_PathTraversal(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected ErrScriptPathTraversal, got nil")
 				}
-				if !errors.Is(err, ErrScriptPathTraversal) {
-					t.Errorf("expected error wrapping ErrScriptPathTraversal, got: %v", err)
+				if !errors.Is(err, ErrInvalidScriptFilePath) {
+					t.Errorf("expected error wrapping ErrInvalidScriptFilePath, got: %v", err)
 				}
 				return
 			}
@@ -370,7 +368,7 @@ func TestResolveScriptWithFSAndModule_NoModulePathRejectsFile(t *testing.T) {
 	invowkfilePath := FilesystemPath(filepath.Join(subDir, "invowkfile.cue"))
 
 	impl := &Implementation{
-		Script:   ImplementationScript{File: filesystemPathPtr("../outside.sh")},
+		Script:   ImplementationScript{File: filesystemPathPtr("outside.sh")},
 		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
 	}
 

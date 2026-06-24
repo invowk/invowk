@@ -4,7 +4,8 @@ package cmd
 
 import (
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 
 	"github.com/spf13/cobra"
 )
@@ -62,8 +63,8 @@ func runTuiConfirm(cmd *cobra.Command, args []string) error {
 	var err error
 
 	// Check if we should delegate to parent TUI server
-	if client := tuiserver.NewClientFromEnv(); client != nil {
-		confirmed, err = client.ConfirmContext(cmd.Context(), tuiserver.ConfirmRequest{
+	if client := tuiclient.NewClientFromEnv(); client != nil {
+		confirmed, err = client.ConfirmContext(cmd.Context(), tuiwire.ConfirmRequest{
 			Title:       title,
 			Affirmative: confirmAffirmative,
 			Negative:    confirmNegative,

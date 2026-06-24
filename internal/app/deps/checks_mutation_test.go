@@ -330,7 +330,7 @@ func testCustomCheckResolutionWrapsReadErrors(t *testing.T) {
 	t.Parallel()
 
 	modulePath := invowkfile.FilesystemPath(t.TempDir())
-	scriptFile := invowkfile.FilesystemPath("checks/ready.sh")
+	scriptFile := invowkfile.ScriptFilePath("checks/ready.sh")
 	readErr := errors.New("read failed")
 	_, _, err := resolveCustomCheckScript(
 		invowkfile.CustomCheck{

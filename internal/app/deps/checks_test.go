@@ -599,7 +599,7 @@ func newCustomCheckScriptFileResolutionFixture(t *testing.T) customCheckScriptFi
 	if err := os.WriteFile(scriptPath, []byte("echo from file"), 0o644); err != nil {
 		t.Fatalf("failed to write script file: %v", err)
 	}
-	scriptFile := invowkfile.FilesystemPath("scripts/check")
+	scriptFile := invowkfile.ScriptFilePath("scripts/check")
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Name:           "file-check",
@@ -722,7 +722,7 @@ func newDependencyExecutionContext(t *testing.T) ExecutionContext {
 }
 
 func customCheckFileScript(path string) invowkfile.CustomCheckScript {
-	scriptFile := invowkfile.FilesystemPath(path)
+	scriptFile := invowkfile.ScriptFilePath(path)
 	return invowkfile.CustomCheckScript{File: &scriptFile}
 }
 

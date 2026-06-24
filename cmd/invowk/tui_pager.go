@@ -7,7 +7,8 @@ import (
 	"os"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 
 	"github.com/spf13/cobra"
 )
@@ -72,8 +73,8 @@ func runTuiPager(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if we should delegate to parent TUI server
-	if client := tuiserver.NewClientFromEnv(); client != nil {
-		return client.PagerContext(cmd.Context(), tuiserver.PagerRequest{
+	if client := tuiclient.NewClientFromEnv(); client != nil {
+		return client.PagerContext(cmd.Context(), tuiwire.PagerRequest{
 			Title:       pagerTitle,
 			Content:     content,
 			ShowLineNum: pagerLineNum,

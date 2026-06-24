@@ -422,14 +422,20 @@ func TestDefaultValidators(t *testing.T) {
 	}
 
 	// Check that StructureValidator is included
-	found := false
+	foundStructure := false
+	foundFields := false
 	for _, v := range validators {
 		if v.Name() == "structure" {
-			found = true
-			break
+			foundStructure = true
+		}
+		if v.Name() == "fields" {
+			foundFields = true
 		}
 	}
-	if !found {
+	if !foundFields {
+		t.Error("DefaultValidators() should include FieldValidator")
+	}
+	if !foundStructure {
 		t.Error("DefaultValidators() should include StructureValidator")
 	}
 }

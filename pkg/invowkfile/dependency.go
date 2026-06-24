@@ -5,11 +5,9 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
-	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -142,7 +140,7 @@ type (
 		// Content contains inline custom-check script text.
 		Content ScriptContent `json:"content,omitempty"`
 		// File references a custom-check script file resolved from the source module.
-		File *FilesystemPath `json:"file,omitempty"`
+		File *ScriptFilePath `json:"file,omitempty"`
 		// Interpreter specifies how to execute the resolved custom-check script content.
 		Interpreter InterpreterSpec `json:"interpreter,omitempty"`
 	}
@@ -322,13 +320,7 @@ func (s CustomCheckScript) GetScriptFilePathWithModule(modulePath FilesystemPath
 		return ""
 	}
 
-	script := strings.TrimSpace(string(*s.File))
-	scriptPath := FilesystemPath(script) //goplint:ignore -- CustomCheckScript validation accepted this script file path.
-	if fspath.IsAbs(scriptPath) {
-		return scriptPath
-	}
-	nativePath := filepath.FromSlash(script)
-	return fspath.JoinStr(modulePath, nativePath)
+	return s.File.ResolveFromModule(modulePath)
 }
 
 // ResolveWithFSAndModule resolves custom-check script content using the source module boundary.

@@ -7,7 +7,8 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 
 	"github.com/spf13/cobra"
 )
@@ -62,10 +63,10 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if we should delegate to parent TUI server
-	if client := tuiserver.NewClientFromEnv(); client != nil {
+	if client := tuiclient.NewClientFromEnv(); client != nil {
 		if limit == 1 && !chooseNoLimit {
 			// Single selection mode
-			result, err := client.ChooseSingleContext(cmd.Context(), tuiserver.ChooseRequest{
+			result, err := client.ChooseSingleContext(cmd.Context(), tuiwire.ChooseRequest{
 				Title:   chooseTitle,
 				Options: args,
 				Height:  chooseHeight,
@@ -76,7 +77,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), result)
 		} else {
 			// Multi-selection mode
-			results, err := client.ChooseMultipleContext(cmd.Context(), tuiserver.ChooseRequest{
+			results, err := client.ChooseMultipleContext(cmd.Context(), tuiwire.ChooseRequest{
 				Title:   chooseTitle,
 				Options: args,
 				Limit:   limit,

@@ -353,7 +353,7 @@ func TestCustomCheckScriptMutationContracts(t *testing.T) {
 func testCustomCheckScriptSourceHelpers(t *testing.T) {
 	t.Parallel()
 
-	file := FilesystemPath("scripts/check.sh")
+	file := ScriptFilePath("scripts/check.sh")
 	contentScript := CustomCheckScript{Content: "echo ok"}
 	fileScript := CustomCheckScript{File: &file}
 
@@ -372,7 +372,7 @@ func testCustomCheckScriptFilePaths(t *testing.T) {
 	t.Parallel()
 
 	modulePath := FilesystemPath(filepath.Join(t.TempDir(), "module.invowkmod"))
-	relative := FilesystemPath("scripts/check.sh")
+	relative := ScriptFilePath("scripts/check.sh")
 	relativeScript := CustomCheckScript{File: &relative}
 	wantRelative := fspath.JoinStr(modulePath, filepath.FromSlash("scripts/check.sh"))
 	if got := relativeScript.GetScriptFilePathWithModule(modulePath); got != wantRelative {
@@ -382,9 +382,9 @@ func testCustomCheckScriptFilePaths(t *testing.T) {
 		t.Fatalf("relative script with empty module = %q, want empty", got)
 	}
 
-	absolute := FilesystemPath(filepath.Join(t.TempDir(), "check.sh"))
+	absolute := ScriptFilePath(filepath.Join(t.TempDir(), "check.sh"))
 	absoluteScript := CustomCheckScript{File: &absolute}
-	if got := absoluteScript.GetScriptFilePathWithModule(modulePath); got != absolute {
+	if got := absoluteScript.GetScriptFilePathWithModule(modulePath); got != FilesystemPath(absolute.String()) {
 		t.Fatalf("absolute script path = %q, want %q", got, absolute)
 	}
 	if got := (CustomCheckScript{Content: "echo ok"}).GetScriptFilePathWithModule(modulePath); got != "" {
@@ -395,7 +395,7 @@ func testCustomCheckScriptFilePaths(t *testing.T) {
 func testCustomCheckScriptValidationFailures(t *testing.T) {
 	t.Parallel()
 
-	file := FilesystemPath("")
+	file := ScriptFilePath("")
 	err := CustomCheckScript{
 		Content:     " \t",
 		File:        &file,
@@ -431,7 +431,7 @@ func testCustomCheckScriptResolveValidatesSource(t *testing.T) {
 		t.Fatal("ResolveWithFSAndModule read file before validating script source")
 	}
 
-	file := FilesystemPath("scripts/check.sh")
+	file := ScriptFilePath("scripts/check.sh")
 	_, err = CustomCheckScript{File: &file}.ResolveWithFSAndModule("", nil)
 	if !errors.Is(err, ErrScriptFileRequiresModule) {
 		t.Fatalf("file script without module error = %v, want ErrScriptFileRequiresModule", err)
@@ -446,20 +446,20 @@ func testCustomCheckScriptResolveFailureContracts(t *testing.T) {
 	t.Parallel()
 
 	modulePath := FilesystemPath(t.TempDir())
-	outside := FilesystemPath("../outside.sh")
+	outside := ScriptFilePath("../outside.sh")
 	readCalled := false
 	_, err := CustomCheckScript{File: &outside}.ResolveWithFSAndModule(modulePath, func(string) ([]byte, error) {
 		readCalled = true
 		return []byte("echo outside"), nil
 	})
-	if !errors.Is(err, ErrScriptPathTraversal) {
-		t.Fatalf("ResolveWithFSAndModule() traversal error = %v, want ErrScriptPathTraversal", err)
+	if !errors.Is(err, ErrInvalidScriptFilePath) {
+		t.Fatalf("ResolveWithFSAndModule() traversal error = %v, want ErrInvalidScriptFilePath", err)
 	}
 	if readCalled {
 		t.Fatal("ResolveWithFSAndModule read file after containment validation failed")
 	}
 
-	inside := FilesystemPath("scripts/check.sh")
+	inside := ScriptFilePath("scripts/check.sh")
 	readErr := errors.New("disk read failed")
 	_, err = CustomCheckScript{File: &inside}.ResolveWithFSAndModule(modulePath, func(path string) ([]byte, error) {
 		wantSuffix := filepath.Join("scripts", "check.sh")

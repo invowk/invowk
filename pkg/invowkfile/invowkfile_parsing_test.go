@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -147,13 +148,9 @@ func TestResolveScript_FromFile(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(scriptPath)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
-		if err != nil {
-			t.Errorf("ResolveScriptWithFS() error = %v", err)
-			return
-		}
-		if result != scriptContent {
-			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, scriptContent)
+		_, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
+		if !errors.Is(err, ErrInvalidScriptFilePath) {
+			t.Errorf("ResolveScriptWithFS() error = %v, want ErrInvalidScriptFilePath", err)
 		}
 	})
 

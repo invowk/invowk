@@ -496,7 +496,7 @@ func (ctx *ExecutionContext) PersistentContainerRequest(cfg *invowkfile.RuntimeP
 		commandName := containerplan.CommandNamespace(ctx.Command.Name)
 		opts = append(opts, containerplan.WithCommandName(&commandName))
 	}
-	if ctx.Invowkfile != nil {
+	if ctx.Invowkfile != nil && ctx.Invowkfile.FilePath != "" {
 		opts = append(opts, containerplan.WithInvowkfilePath(&ctx.Invowkfile.FilePath))
 	}
 	return containerplan.NewPersistentRequest(opts...)

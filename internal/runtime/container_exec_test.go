@@ -136,7 +136,7 @@ func TestContainerRuntimeExecuteCaptureUsesFileScriptInterpreter(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(scriptDir, "check.py"), []byte("print('ok')"), 0o644); err != nil {
 		t.Fatalf("WriteFile() = %v", err)
 	}
-	scriptPath := invowkfile.FilesystemPath("scripts/check.py")
+	scriptPath := invowkfile.ScriptFilePath("scripts/check.py")
 	inv := &invowkfile.Invowkfile{
 		FilePath:   invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 		ModulePath: invowkfile.FilesystemPath(tmpDir),

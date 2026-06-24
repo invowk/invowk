@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package tuiserver
+package tuiclient
 
 import (
 	"bytes"
@@ -12,18 +12,105 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/invowk/invowk/internal/tuiwire"
 )
 
-// ErrTUIServerResponse is returned when the TUI server responds with an error message.
-var ErrTUIServerResponse = errors.New("TUI server error")
+// Environment variable names for TUI server communication.
+const (
+	// EnvTUIAddr is the environment variable containing the TUI server address.
+	EnvTUIAddr = tuiwire.EnvTUIAddr
+	// EnvTUIToken is the environment variable containing the authentication token.
+	EnvTUIToken = tuiwire.EnvTUIToken
+	// ComponentInput is the TUI component type constant for input prompts.
+	ComponentInput Component = tuiwire.ComponentInput
+	// ComponentConfirm is the TUI component type constant for confirm prompts.
+	ComponentConfirm Component = tuiwire.ComponentConfirm
+	// ComponentChoose is the TUI component type constant for choose prompts.
+	ComponentChoose Component = tuiwire.ComponentChoose
+	// ComponentFilter is the TUI component type constant for filter prompts.
+	ComponentFilter Component = tuiwire.ComponentFilter
+	// ComponentFile is the TUI component type constant for file pickers.
+	ComponentFile Component = tuiwire.ComponentFile
+	// ComponentWrite is the TUI component type constant for styled text output.
+	ComponentWrite Component = tuiwire.ComponentWrite
+	// ComponentTextArea is the TUI component type constant for text areas.
+	ComponentTextArea = tuiwire.ComponentTextArea
+	// ComponentSpin is the TUI component type constant for spinners.
+	ComponentSpin Component = tuiwire.ComponentSpin
+	// ComponentPager is the TUI component type constant for pagers.
+	ComponentPager Component = tuiwire.ComponentPager
+	// ComponentTable is the TUI component type constant for tables.
+	ComponentTable Component = tuiwire.ComponentTable
+)
 
-// Client provides methods to communicate with the TUI server.
-// It is used by child processes to delegate TUI rendering to the parent.
-type Client struct {
-	addr   URL
-	token  AuthToken
-	client *http.Client
-}
+var (
+	// ErrTUIServerResponse is returned when the TUI server responds with an error message.
+	ErrTUIServerResponse = errors.New("TUI server error")
+	// ErrUserCancelled is returned when a delegated TUI component is cancelled.
+	ErrUserCancelled = tuiwire.ErrUserCancelled
+)
+
+type (
+	// URL represents the URL of a TUI server for interactive mode.
+	URL = tuiwire.TUIServerURL
+	// AuthToken authenticates delegated child requests to the parent TUI server.
+	AuthToken = tuiwire.AuthToken
+	// Component represents a TUI component type.
+	Component = tuiwire.Component
+	// Request is the common wrapper for all TUI requests.
+	Request = tuiwire.Request
+	// Response is the common wrapper for all TUI responses.
+	Response = tuiwire.Response
+	// InputRequest contains options for the input component.
+	InputRequest = tuiwire.InputRequest
+	// InputResult contains the result of an input prompt.
+	InputResult = tuiwire.InputResult
+	// ConfirmRequest contains options for the confirm component.
+	ConfirmRequest = tuiwire.ConfirmRequest
+	// ConfirmResult contains the result of a confirm prompt.
+	ConfirmResult = tuiwire.ConfirmResult
+	// ChooseRequest contains options for the choose component.
+	ChooseRequest = tuiwire.ChooseRequest
+	// ChooseResult contains the result of a choose prompt.
+	ChooseResult = tuiwire.ChooseResult
+	// FilterRequest contains options for the filter component.
+	FilterRequest = tuiwire.FilterRequest
+	// FilterResult contains the result of a filter prompt.
+	FilterResult = tuiwire.FilterResult
+	// FileRequest contains options for the file picker component.
+	FileRequest = tuiwire.FileRequest
+	// FileResult contains the result of a file picker.
+	FileResult = tuiwire.FileResult
+	// WriteRequest contains options for the write component.
+	WriteRequest = tuiwire.WriteRequest
+	// WriteResult is empty because write does not return a value.
+	WriteResult = tuiwire.WriteResult
+	// TextAreaRequest contains options for the textarea component.
+	TextAreaRequest = tuiwire.TextAreaRequest
+	// TextAreaResult contains the result of a textarea prompt.
+	TextAreaResult = tuiwire.TextAreaResult
+	// SpinRequest contains options for the spin component.
+	SpinRequest = tuiwire.SpinRequest
+	// SpinResult contains the result of a spin operation.
+	SpinResult = tuiwire.SpinResult
+	// PagerRequest contains options for the pager component.
+	PagerRequest = tuiwire.PagerRequest
+	// PagerResult is empty because pager does not return a value.
+	PagerResult = tuiwire.PagerResult
+	// TableRequest contains options for the table component.
+	TableRequest = tuiwire.TableRequest
+	// TableResult contains the result of a table selection.
+	TableResult = tuiwire.TableResult
+
+	// Client provides methods to communicate with the TUI server.
+	// It is used by child processes to delegate TUI rendering to the parent.
+	Client struct {
+		addr   URL
+		token  AuthToken
+		client *http.Client
+	}
+)
 
 // NewClientFromEnv creates a new Client from environment variables.
 // Returns nil if the environment variables are not set.
@@ -88,11 +175,15 @@ func (c *Client) IsAvailableContext(ctx context.Context) bool {
 
 // Input sends an input prompt request to the TUI server.
 // Returns the entered text or an error.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) Input(opts InputRequest) (string, error) {
 	return c.InputContext(context.Background(), opts)
 }
 
 // InputContext sends an input prompt request with caller cancellation.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) InputContext(ctx context.Context, opts InputRequest) (string, error) {
 	resp, err := c.sendRequestContext(ctx, ComponentInput, opts)
 	if err != nil {
@@ -164,11 +255,15 @@ func (c *Client) ChooseContext(ctx context.Context, opts ChooseRequest) (any, er
 
 // ChooseSingle is a convenience method for single-select choose.
 // Returns the selected option as a string.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) ChooseSingle(opts ChooseRequest) (string, error) {
 	return c.ChooseSingleContext(context.Background(), opts)
 }
 
 // ChooseSingleContext is a convenience method for single-select choose with caller cancellation.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) ChooseSingleContext(ctx context.Context, opts ChooseRequest) (string, error) {
 	opts.Limit = 1
 	opts.NoLimit = false
@@ -196,11 +291,15 @@ func (c *Client) ChooseSingleContext(ctx context.Context, opts ChooseRequest) (s
 
 // ChooseMultiple is a convenience method for multi-select choose.
 // Returns the selected options as a slice of strings.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) ChooseMultiple(opts ChooseRequest) ([]string, error) {
 	return c.ChooseMultipleContext(context.Background(), opts)
 }
 
 // ChooseMultipleContext is a convenience method for multi-select choose with caller cancellation.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) ChooseMultipleContext(ctx context.Context, opts ChooseRequest) ([]string, error) {
 	result, err := c.ChooseContext(ctx, opts)
 	if err != nil {
@@ -226,11 +325,15 @@ func (c *Client) ChooseMultipleContext(ctx context.Context, opts ChooseRequest) 
 
 // Filter sends a filter prompt request to the TUI server.
 // Returns the selected options.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) Filter(opts FilterRequest) ([]string, error) {
 	return c.FilterContext(context.Background(), opts)
 }
 
 // FilterContext sends a filter prompt request with caller cancellation.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) FilterContext(ctx context.Context, opts FilterRequest) ([]string, error) {
 	resp, err := c.sendRequestContext(ctx, ComponentFilter, opts)
 	if err != nil {
@@ -251,11 +354,15 @@ func (c *Client) FilterContext(ctx context.Context, opts FilterRequest) ([]strin
 
 // File sends a file picker request to the TUI server.
 // Returns the selected file path.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) File(opts FileRequest) (string, error) {
 	return c.FileContext(context.Background(), opts)
 }
 
 // FileContext sends a file picker request with caller cancellation.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) FileContext(ctx context.Context, opts FileRequest) (string, error) {
 	resp, err := c.sendRequestContext(ctx, ComponentFile, opts)
 	if err != nil {
@@ -287,11 +394,15 @@ func (c *Client) WriteContext(ctx context.Context, opts WriteRequest) error {
 
 // TextArea sends a multi-line text input request to the TUI server.
 // Returns the entered text or an error.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) TextArea(opts TextAreaRequest) (string, error) {
 	return c.TextAreaContext(context.Background(), opts)
 }
 
 // TextAreaContext sends a multi-line text input request with caller cancellation.
+//
+//goplint:ignore -- TUI client exposes widget protocol result primitives to CLI adapters.
 func (c *Client) TextAreaContext(ctx context.Context, opts TextAreaRequest) (string, error) {
 	resp, err := c.sendRequestContext(ctx, ComponentTextArea, opts)
 	if err != nil {

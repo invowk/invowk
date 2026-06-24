@@ -92,13 +92,16 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		}
 	}
 
-	skipImagePrep, err := r.shouldSkipPersistentImagePreparation(ctx, containerCfg)
+	skipImagePrep, existingExternalCLI, err := r.shouldSkipPersistentImagePreparation(ctx, containerCfg)
 	if err != nil {
 		return nil, NewErrorResult(1, err)
 	}
-	specImage, err := r.persistentSpecImage(ctx, containerCfg)
-	if err != nil {
-		return nil, NewErrorResult(1, err)
+	var specImage container.ImageTag
+	if !existingExternalCLI {
+		specImage, err = r.persistentSpecImage(ctx, containerCfg)
+		if err != nil {
+			return nil, NewErrorResult(1, err)
+		}
 	}
 
 	// Resolve the script content (from file or inline)
@@ -357,15 +360,19 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 	defer prep.cleanup()
 
-	if persistentContainerRequested(ctx, prep.containerCfg) {
-		containerID, err := r.ensurePersistentContainer(ctx, prep)
-		if err != nil {
-			return resultWithDiagnostics(NewErrorResult(1, err), prep.diagnostics)
+	persistentRequested, err := persistentContainerRequested(ctx, prep.containerCfg)
+	if err != nil {
+		return resultWithDiagnostics(NewErrorResult(1, err), prep.diagnostics)
+	}
+	if persistentRequested {
+		containerID, ensureErr := r.ensurePersistentContainer(ctx, prep)
+		if ensureErr != nil {
+			return resultWithDiagnostics(NewErrorResult(1, ensureErr), prep.diagnostics)
 		}
 		runOpts := execOptionsForPersistent(ctx, prep, ctx.IO.Stdout, ctx.IO.Stderr)
-		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
-		if err != nil {
-			return resultWithDiagnostics(NewErrorResult(1, fmt.Errorf("failed to exec persistent container: %w", err)), prep.diagnostics)
+		result, execErr := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
+		if execErr != nil {
+			return resultWithDiagnostics(NewErrorResult(1, fmt.Errorf("failed to exec persistent container: %w", execErr)), prep.diagnostics)
 		}
 		return resultWithDiagnostics(NewErrorResult(result.ExitCode, result.Error), prep.diagnostics)
 	}
@@ -407,17 +414,21 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Capture stdout and stderr into buffers
 	var stdout, stderr bytes.Buffer
 
-	if persistentContainerRequested(ctx, prep.containerCfg) {
-		containerID, err := r.ensurePersistentContainer(ctx, prep)
-		if err != nil {
-			return resultWithDiagnostics(&Result{ExitCode: 1, Error: err}, prep.diagnostics)
+	persistentRequested, err := persistentContainerRequested(ctx, prep.containerCfg)
+	if err != nil {
+		return resultWithDiagnostics(NewErrorResult(1, err), prep.diagnostics)
+	}
+	if persistentRequested {
+		containerID, ensureErr := r.ensurePersistentContainer(ctx, prep)
+		if ensureErr != nil {
+			return resultWithDiagnostics(&Result{ExitCode: 1, Error: ensureErr}, prep.diagnostics)
 		}
 		runOpts := captureExecOptionsForPersistent(prep, &stdout, &stderr)
-		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
-		if err != nil {
+		result, execErr := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
+		if execErr != nil {
 			return resultWithDiagnostics(&Result{
 				ExitCode:  1,
-				Error:     fmt.Errorf("failed to exec persistent container: %w", err),
+				Error:     fmt.Errorf("failed to exec persistent container: %w", execErr),
 				Output:    stdout.String(),
 				ErrOutput: stderr.String(),
 			}, prep.diagnostics)

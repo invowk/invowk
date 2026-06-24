@@ -108,3 +108,54 @@ func TestOrphanedLockedModuleEntries(t *testing.T) {
 		t.Fatalf("OrphanedLockedModuleEntries() = %v, want %v", got, want)
 	}
 }
+
+func TestMissingLockedModuleRequirementKeys(t *testing.T) {
+	t.Parallel()
+
+	requirements := []ModuleRequirement{
+		{GitURL: "https://example.com/dep.git", Version: "^1.0.0"},
+		{GitURL: "https://example.com/missing.git", Version: "^1.0.0"},
+		{GitURL: "https://example.com/mono.git", Version: "^1.0.0", Path: `modules\tools`},
+	}
+	lock := NewLockFile()
+	lock.Modules["https://example.com/dep.git"] = LockedModule{GitURL: "https://example.com/dep.git"}
+	lock.Modules["https://example.com/mono.git#modules/tools"] = LockedModule{GitURL: "https://example.com/mono.git", Path: "modules/tools"}
+
+	got := MissingLockedModuleRequirementKeys(requirements, lock)
+	want := []ModuleRefKey{"https://example.com/missing.git"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("MissingLockedModuleRequirementKeys() = %v, want %v", got, want)
+	}
+}
+
+func TestIsDeclaredLockedCommandSource(t *testing.T) {
+	t.Parallel()
+
+	req := ModuleRequirement{
+		GitURL:  "https://example.com/tools.git",
+		Version: "^1.0.0",
+		Alias:   "tools",
+	}
+	lock := NewLockFile()
+	lock.Modules[ModuleRef(req).Key()] = LockedModule{
+		GitURL:          req.GitURL,
+		Version:         req.Version,
+		ResolvedVersion: "1.2.3",
+		Namespace:       "tools",
+		ModuleID:        "io.example.tools",
+		CommandSourceID: "tools",
+	}
+
+	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "tools") {
+		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching identity and source")
+	}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, nil, "io.example.tools", "tools") {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with nil lock")
+	}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.other", "tools") {
+		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched module ID")
+	}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "other") {
+		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched source")
+	}
+}

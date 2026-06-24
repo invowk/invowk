@@ -10,6 +10,7 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
+	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -346,6 +347,42 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 	}
 	if hostAccess.running {
 		t.Fatal("HostAccess left running after dry-run")
+	}
+}
+
+func TestNewDryRunPlanRejectsInvalidPersistentPlan(t *testing.T) {
+	t.Parallel()
+
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue")),
+	}
+	cmd := &invowkfile.Command{
+		Name: "build",
+		Implementations: []invowkfile.Implementation{{
+			Script: invowkfile.ImplementationScript{Content: "echo build"},
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:       invowkfile.RuntimeContainer,
+				Image:      "debian:stable-slim",
+				Persistent: &invowkfile.RuntimePersistentConfig{Name: "Invalid_Name"},
+			}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+	execCtx := runtimepkg.NewExecutionContext(t.Context(), cmd, inv)
+	execCtx.SelectedRuntime = invowkfile.RuntimeContainer
+	execCtx.SelectedImpl = &cmd.Implementations[0]
+
+	_, err := newDryRunPlan(
+		Request{Name: "build"},
+		&discovery.CommandInfo{},
+		execCtx,
+		&cmd.Implementations[0],
+		invowkfile.ScriptInterpreterAnalysis{},
+		false,
+	)
+
+	if !errors.Is(err, invowkfile.ErrInvalidContainerName) {
+		t.Fatalf("newDryRunPlan() error = %v, want ErrInvalidContainerName", err)
 	}
 }
 

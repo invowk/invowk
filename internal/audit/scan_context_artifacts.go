@@ -89,6 +89,7 @@ func (a *luaModuleFileAppender) relativePath(path, fallbackName string) string {
 }
 
 func (a *luaModuleFileAppender) scriptRef(facts scriptFileFacts, scriptFile invowkfile.FilesystemPath) ScriptRef {
+	file := invowkfile.ScriptFilePath(scriptFile)
 	return ScriptRef{
 		SurfaceID:       a.module.SurfaceID,
 		SurfaceKey:      a.module.SurfaceKey,
@@ -97,7 +98,7 @@ func (a *luaModuleFileAppender) scriptRef(facts scriptFileFacts, scriptFile invo
 		ModulePath:      a.module.Path,
 		CommandName:     invowkfile.CommandName("lua-file"),
 		ImplIndex:       -1,
-		Script:          invowkfile.ImplementationScript{File: &scriptFile},
+		Script:          invowkfile.ImplementationScript{File: &file},
 		IsFile:          true,
 		Runtimes:        []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualLua}},
 		ScriptPath:      facts.Path,

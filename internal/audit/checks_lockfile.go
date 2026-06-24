@@ -394,29 +394,19 @@ func (c *LockFileChecker) checkMissingEntries(mod *ScannedModule) []Finding {
 		return nil
 	}
 
-	// Build an index of lock file keys for O(1) lookup.
-	lockKeys := make(map[string]bool, len(mod.LockFile.Modules))
-	for key := range mod.LockFile.Modules {
-		lockKeys[string(key)] = true
-	}
-
 	// Check that each required module has an exact lock file entry.
-	for _, req := range mod.Module.Metadata.Requires {
-		reqKey := string(invowkmod.ModuleRef(req).Key())
-
-		if !lockKeys[reqKey] {
-			findings = append(findings, Finding{
-				Code:           codeLockfileRequiredMissingEntry,
-				Severity:       SeverityMedium,
-				Category:       CategoryIntegrity,
-				SurfaceID:      mod.SurfaceID,
-				CheckerName:    lockFileCheckerName,
-				FilePath:       fspath.JoinStr(mod.Path, "invowkmod.cue"),
-				Title:          "Required module has no lock file entry",
-				Description:    fmt.Sprintf("Required dependency %q has no corresponding entry in the lock file", reqKey),
-				Recommendation: "Run 'invowk module sync' to resolve and lock all dependencies",
-			})
-		}
+	for _, reqKey := range invowkmod.MissingLockedModuleRequirementKeys(mod.Module.Metadata.Requires, mod.LockFile) {
+		findings = append(findings, Finding{
+			Code:           codeLockfileRequiredMissingEntry,
+			Severity:       SeverityMedium,
+			Category:       CategoryIntegrity,
+			SurfaceID:      mod.SurfaceID,
+			CheckerName:    lockFileCheckerName,
+			FilePath:       fspath.JoinStr(mod.Path, "invowkmod.cue"),
+			Title:          "Required module has no lock file entry",
+			Description:    fmt.Sprintf("Required dependency %q has no corresponding entry in the lock file", reqKey),
+			Recommendation: "Run 'invowk module sync' to resolve and lock all dependencies",
+		})
 	}
 
 	return findings

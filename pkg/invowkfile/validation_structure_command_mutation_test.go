@@ -14,6 +14,7 @@ func TestStructureCommandMutationDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	longCommandName := CommandName("a" + strings.Repeat("b", MaxNameLength))
+	longScriptFile := strings.Repeat("f", MaxPathLength+1)
 
 	tests := []struct {
 		name        string
@@ -117,7 +118,7 @@ func TestStructureCommandMutationDiagnostics(t *testing.T) {
 		{
 			name: "non-module script file",
 			mutate: func(_ *testing.T, inv *Invowkfile) {
-				file := FilesystemPath("scripts/deploy.sh")
+				file := ScriptFilePath("scripts/deploy.sh")
 				inv.Commands[0].Implementations[0].Script = ImplementationScript{File: &file}
 			},
 			wantField:   "command 'deploy' implementation #1 script file",
@@ -130,11 +131,12 @@ func TestStructureCommandMutationDiagnostics(t *testing.T) {
 				t.Helper()
 
 				inv.ModulePath = FilesystemPath(t.TempDir())
-				file := FilesystemPath(strings.Repeat("f", MaxPathLength+1))
+				file := ScriptFilePath(longScriptFile)
 				inv.Commands[0].Implementations[0].Script = ImplementationScript{File: &file}
 			},
-			wantField:   "command 'deploy' implementation #1 script file",
-			wantMessage: "script.file too long (4097 chars, max 4096) in invowkfile at /workspace/invowkfile.cue",
+			wantField:   "command 'deploy' implementation #1 script",
+			wantMessage: "invalid implementation script: 1 field error(s) in invowkfile at /workspace/invowkfile.cue",
+			wantCause:   ErrInvalidScriptFilePath,
 		},
 		{
 			name: "runtime config",

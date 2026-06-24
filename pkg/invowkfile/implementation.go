@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -79,7 +78,7 @@ type (
 		// Content contains inline script text.
 		Content ScriptContent `json:"content,omitempty"`
 		// File references a script file resolved at execution time.
-		File *FilesystemPath `json:"file,omitempty"`
+		File *ScriptFilePath `json:"file,omitempty"`
 		// Interpreter specifies how to execute the resolved script content.
 		Interpreter InterpreterSpec `json:"interpreter,omitempty"`
 	}
@@ -409,18 +408,7 @@ func (s *Implementation) GetScriptFilePathWithModule(_, modulePath FilesystemPat
 		return ""
 	}
 
-	script := strings.TrimSpace(string(*s.Script.File))
-	scriptPath := FilesystemPath(script) //goplint:ignore -- path resolution accepts the raw script.file value; validation rejects invalid file paths before file I/O.
-
-	// fspath.IsAbs preserves Unix-style absolute script paths on every platform
-	// while still accepting host-native absolute forms.
-	if fspath.IsAbs(scriptPath) {
-		return scriptPath
-	}
-
-	// Convert forward slashes to native path separator for cross-platform compatibility.
-	nativePath := filepath.FromSlash(script)
-	return fspath.JoinStr(modulePath, nativePath)
+	return s.Script.File.ResolveFromModule(modulePath)
 }
 
 // ResolveScript returns inline script content.
@@ -498,7 +486,7 @@ func scriptReaderRequired(string) ([]byte, error) {
 	return nil, ErrScriptReaderRequired
 }
 
-func scriptFileReadError(selectedPath, scriptPath FilesystemPath, err error) error {
+func scriptFileReadError(selectedPath ScriptFilePath, scriptPath FilesystemPath, err error) error {
 	selected := strings.TrimSpace(selectedPath.String())
 	if selected == "" || selected == scriptPath.String() {
 		return fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)

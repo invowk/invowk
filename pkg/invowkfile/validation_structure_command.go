@@ -139,6 +139,7 @@ func (v *StructureValidator) validateImplementationScript(ctx *ValidationContext
 			Validator: v.Name(),
 			Field:     path.Copy().Field("script").String(),
 			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+			Cause:     err,
 		}}
 	}
 

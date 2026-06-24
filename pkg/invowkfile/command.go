@@ -182,8 +182,10 @@ func (e *InvalidCommandError) Error() string {
 	return types.FormatFieldErrors("command", e.FieldErrors)
 }
 
-// Unwrap returns ErrInvalidCommand for errors.Is() compatibility.
-func (e *InvalidCommandError) Unwrap() error { return ErrInvalidCommand }
+// Unwrap returns ErrInvalidCommand and field errors for errors.Is() compatibility.
+func (e *InvalidCommandError) Unwrap() error {
+	return errors.Join(ErrInvalidCommand, errors.Join(e.FieldErrors...))
+}
 
 // GetImplForPlatformRuntime finds the implementation that matches the given platform and runtime.
 func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMode) *Implementation {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package tuiserver
+package tuiclient
 
 import (
 	"encoding/json"
@@ -11,14 +11,15 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/internal/tuiserver"
 )
 
 // startTestServer creates a running TUI server and client for testing.
 // The server is stopped via t.Cleanup.
-func startTestServer(t *testing.T) (*Server, *Client) {
+func startTestServer(t *testing.T) (*tuiserver.Server, *Client) {
 	t.Helper()
 
-	server, err := New()
+	server, err := tuiserver.New()
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -34,7 +35,7 @@ func startTestServer(t *testing.T) (*Server, *Client) {
 // respondWith spawns a goroutine that reads one TUIRequest from the server's
 // request channel and sends the given response. It always signals completion
 // on the returned channel: nil on success, non-nil if the channel closed.
-func respondWith(t *testing.T, server *Server, resp Response) <-chan error {
+func respondWith(t *testing.T, server *tuiserver.Server, resp Response) <-chan error {
 	t.Helper()
 
 	errCh := make(chan error, 1)
@@ -82,7 +83,7 @@ func assertNoAsyncError(t *testing.T, errCh <-chan error) {
 // assertCancelled verifies that a client method returns ErrUserCancelled when
 // the server responds with Cancelled: true. This is the shared cancellation
 // contract test — all interactive TUI components must respect this contract.
-func assertCancelled(t *testing.T, server *Server, callClient func() error) {
+func assertCancelled(t *testing.T, server *tuiserver.Server, callClient func() error) {
 	t.Helper()
 
 	errCh := respondWith(t, server, Response{Cancelled: true})
@@ -456,6 +457,78 @@ func TestClient_Table(t *testing.T) {
 			return err
 		})
 	})
+}
+
+func TestClientFromEnv(t *testing.T) { //nolint:paralleltest // test mutates TUI client environment variables.
+	restoreAddr := testutil.MustUnsetenv(t, EnvTUIAddr)
+	restoreToken := testutil.MustUnsetenv(t, EnvTUIToken)
+	defer restoreAddr()
+	defer restoreToken()
+
+	client := NewClientFromEnv()
+	if client != nil {
+		t.Error("Expected nil client when env vars are not set")
+	}
+
+	cleanupAddr := testutil.MustSetenv(t, EnvTUIAddr, "http://127.0.0.1:12345")
+
+	client = NewClientFromEnv()
+	if client != nil {
+		t.Error("Expected nil client when token is not set")
+	}
+
+	cleanupToken := testutil.MustSetenv(t, EnvTUIToken, "test-token")
+
+	client = NewClientFromEnv()
+	if client == nil {
+		t.Error("Expected client when both env vars are set")
+	}
+
+	cleanupAddr()
+	cleanupAddr = testutil.MustSetenv(t, EnvTUIAddr, "localhost:12345")
+	client = NewClientFromEnv()
+	if client != nil {
+		t.Error("Expected nil client when TUI addr has no HTTP scheme")
+	}
+
+	cleanupAddr()
+	cleanupAddr = testutil.MustSetenv(t, EnvTUIAddr, "ftp://127.0.0.1:12345")
+	client = NewClientFromEnv()
+	if client != nil {
+		t.Error("Expected nil client when TUI addr has unsupported scheme")
+	}
+
+	cleanupToken()
+	cleanupAddr()
+}
+
+func TestClientIsAvailable(t *testing.T) {
+	t.Parallel()
+
+	var nilClient *Client
+	if nilClient.IsAvailable() {
+		t.Error("Nil client should not be available")
+	}
+
+	client := NewClient("http://127.0.0.1:59999", "token")
+	if client.IsAvailable() {
+		t.Error("Client to non-existent server should not be available")
+	}
+
+	server, err := tuiserver.New()
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	if err := server.Start(t.Context()); err != nil {
+		t.Fatalf("Failed to start server: %v", err)
+	}
+	defer testutil.MustStop(t, server)
+
+	client = NewClient(server.URL(), server.Token())
+	if !client.IsAvailable() {
+		t.Error("Client to running server should be available")
+	}
 }
 
 func TestClient_ServerError(t *testing.T) {

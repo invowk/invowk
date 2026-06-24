@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,10 +137,10 @@ func TestParseLoadedModuleInvowkfileRejectsOutsideModuleScriptFiles(t *testing.T
 			}
 			_, err = ParseLoadedModuleInvowkfile(loaded)
 			if err == nil {
-				t.Fatal("ParseLoadedModuleInvowkfile() error = nil, want traversal error")
+				t.Fatal("ParseLoadedModuleInvowkfile() error = nil, want invalid script file path")
 			}
-			if !strings.Contains(err.Error(), "script path escapes module boundary") {
-				t.Fatalf("ParseLoadedModuleInvowkfile() error = %v, want traversal error", err)
+			if !errors.Is(err, ErrInvalidScriptFilePath) {
+				t.Fatalf("ParseLoadedModuleInvowkfile() error = %v, want ErrInvalidScriptFilePath", err)
 			}
 		})
 	}

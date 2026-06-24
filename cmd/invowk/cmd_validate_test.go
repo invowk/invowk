@@ -310,7 +310,7 @@ func TestCollectInvowkfileInterpreterDiagnosticsReportsAuthoredPath(t *testing.T
 }
 
 func testInterpreterDiagnosticInvowkfile() *invowkfile.Invowkfile {
-	scriptFile := invowkfile.FilesystemPath("scripts/demo")
+	scriptFile := invowkfile.ScriptFilePath("scripts/demo")
 	return &invowkfile.Invowkfile{
 		ModulePath: "/tmp/com.example.tools.invowkmod",
 		Commands: []invowkfile.Command{{

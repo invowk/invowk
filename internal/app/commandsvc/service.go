@@ -192,10 +192,14 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnosti
 	// It is intentionally before dependency validation and host/runtime setup
 	// so planning a command does not start infrastructure or touch containers.
 	if req.DryRun {
+		plan, planErr := newDryRunPlan(req, cmdInfo, execCtx, resolved.Impl(), scriptAnalysis, hasScriptAnalysis)
+		if planErr != nil {
+			return Result{}, diags, planErr
+		}
 		return Result{
 			ExitCode: 0,
 			DryRunData: &DryRunData{
-				Plan: newDryRunPlan(req, cmdInfo, execCtx, resolved.Impl(), scriptAnalysis, hasScriptAnalysis),
+				Plan: plan,
 			},
 		}, diags, nil
 	}
@@ -224,7 +228,7 @@ func newDryRunPlan(
 	impl *invowkfile.Implementation,
 	scriptAnalysis invowkfile.ScriptInterpreterAnalysis,
 	hasScriptAnalysis bool,
-) DryRunPlan {
+) (DryRunPlan, error) {
 	plan := DryRunPlan{
 		CommandName:                 invowkfile.CommandName(req.Name), //goplint:ignore -- request name was resolved through discovery
 		SourceID:                    cmdInfo.SourceID,
@@ -250,26 +254,35 @@ func newDryRunPlan(
 	if hasScriptAnalysis {
 		plan.ScriptInterpreter = scriptAnalysis
 	}
-	persistentPlan := newPersistentContainerPlan(execCtx, impl)
+	persistentPlan, err := newPersistentContainerPlan(execCtx, impl)
+	if err != nil {
+		return DryRunPlan{}, err
+	}
 	plan.PersistentContainerMode = persistentPlan.Mode().String()
 	plan.PersistentContainerName = persistentPlan.Name()
 	plan.PersistentContainerNameSource = persistentPlan.NameSource().String()
 	plan.PersistentContainerCreateIfMissing = persistentPlan.CreateIfMissing()
-	return plan
+	return plan, nil
 }
 
-func newPersistentContainerPlan(execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) containerplan.PersistentPlan {
+func newPersistentContainerPlan(execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) (containerplan.PersistentPlan, error) {
+	if execCtx == nil {
+		return containerplan.EphemeralPlan(), nil
+	}
 	var persistentConfig *invowkfile.RuntimePersistentConfig
-	if impl != nil && execCtx != nil {
+	if impl != nil {
 		if rtConfig := impl.GetRuntimeConfig(execCtx.SelectedRuntime); rtConfig != nil {
 			persistentConfig = rtConfig.Persistent
 		}
 	}
+	if persistentConfig == nil && execCtx.ContainerNameOverride == "" {
+		return containerplan.EphemeralPlan(), nil
+	}
 	req, err := execCtx.PersistentContainerRequest(persistentConfig)
 	if err != nil {
-		return containerplan.EphemeralPlan()
+		return containerplan.PersistentPlan{}, err
 	}
-	return containerplan.ResolvePersistentTarget(req)
+	return containerplan.ResolvePersistentTarget(req), nil
 }
 
 func dryRunEnv(execCtx *runtime.ExecutionContext) map[string]string {

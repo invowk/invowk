@@ -283,7 +283,8 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		if cmd.ModuleID == nil {
 			continue
 		}
-		if commandMatchesDirectRequirement(requirements, lock, cmd) {
+		sourceID := invowkmod.ModuleSourceID(cmd.SourceID) //goplint:ignore -- SourceID validated by discovery
+		if invowkmod.IsDeclaredLockedCommandSource(requirements, lock, *cmd.ModuleID, sourceID) {
 			scope.AddDirectDependency(*cmd.ModuleID, invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 		}
 	}
@@ -304,27 +305,6 @@ func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.
 			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires and resolved in invowkmod.lock.cue. "+
 			"Declare the dependency module in invowkmod.cue:requires if it is missing, then run 'invowk module sync' to refresh lock metadata",
 		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID))
-}
-
-func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, cmd *discovery.CommandInfo) bool {
-	if cmd == nil || cmd.ModuleID == nil {
-		return false
-	}
-	if lock == nil {
-		return false
-	}
-	sourceID := invowkmod.ModuleSourceID(cmd.SourceID) //goplint:ignore -- SourceID validated by discovery
-	for _, req := range requirements {
-		ref := invowkmod.ModuleRef(req)
-		locked, ok := lock.Modules[ref.Key()]
-		if !ok {
-			continue
-		}
-		if locked.IdentityModuleID() == *cmd.ModuleID && locked.EffectiveCommandSourceID() == sourceID {
-			return true
-		}
-	}
-	return false
 }
 
 func findAccessibleCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentSource invowkmod.ModuleSourceID, alternatives []commandDependencyAlternative, scope *invowkmod.CommandScope) (*discovery.CommandInfo, []DependencyMessage, bool) {

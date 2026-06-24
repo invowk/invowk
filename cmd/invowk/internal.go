@@ -9,7 +9,7 @@ import (
 // newInternalCommand creates the `invowk internal` command tree.
 // These are hidden commands used for inter-process communication
 // and subprocess execution patterns.
-func newInternalCommand() *cobra.Command {
+func newInternalCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "internal",
 		Short:  "Internal commands (not for direct use)",
@@ -18,7 +18,7 @@ func newInternalCommand() *cobra.Command {
 
 	cmd.AddCommand(newInternalExecShCommand())
 	cmd.AddCommand(newInternalExecLuaCommand())
-	cmd.AddCommand(newInternalCheckCmdCommand())
+	cmd.AddCommand(newInternalCheckCmdCommand(app, rootFlags))
 
 	return cmd
 }

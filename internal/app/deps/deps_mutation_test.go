@@ -636,26 +636,46 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 	t.Parallel()
 
 	req, lock := depsMutationRequirementAndLock()
-	matchingID := depsMutationModuleID
-	matching := &discovery.CommandInfo{
-		SourceID: depsMutationSource,
-		ModuleID: &matchingID,
+	if !invowkmod.IsDeclaredLockedCommandSource(
+		[]invowkmod.ModuleRequirement{req},
+		lock,
+		depsMutationModuleID,
+		invowkmod.ModuleSourceID(depsMutationSource),
+	) {
+		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching lock identity")
 	}
-	if !commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, matching) {
-		t.Fatal("commandMatchesDirectRequirement() = false, want true for matching lock identity")
+	if invowkmod.IsDeclaredLockedCommandSource(
+		[]invowkmod.ModuleRequirement{req},
+		nil,
+		depsMutationModuleID,
+		invowkmod.ModuleSourceID(depsMutationSource),
+	) {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with nil lock")
 	}
-	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, nil, matching) {
-		t.Fatal("commandMatchesDirectRequirement() = true with nil lock")
+	if invowkmod.IsDeclaredLockedCommandSource(
+		[]invowkmod.ModuleRequirement{req},
+		lock,
+		"",
+		invowkmod.ModuleSourceID(depsMutationSource),
+	) {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with empty module ID")
 	}
-	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, nil) {
-		t.Fatal("commandMatchesDirectRequirement() = true with nil command")
-	}
-	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource}) {
-		t.Fatal("commandMatchesDirectRequirement() = true with nil module ID")
+	if invowkmod.IsDeclaredLockedCommandSource(
+		[]invowkmod.ModuleRequirement{req},
+		lock,
+		depsMutationModuleID,
+		"",
+	) {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with empty source ID")
 	}
 	otherID := invowkmod.ModuleID("io.example.other")
-	if commandMatchesDirectRequirement([]invowkmod.ModuleRequirement{req}, lock, &discovery.CommandInfo{SourceID: depsMutationSource, ModuleID: &otherID}) {
-		t.Fatal("commandMatchesDirectRequirement() = true for mismatched module ID")
+	if invowkmod.IsDeclaredLockedCommandSource(
+		[]invowkmod.ModuleRequirement{req},
+		lock,
+		otherID,
+		invowkmod.ModuleSourceID(depsMutationSource),
+	) {
+		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched module ID")
 	}
 }
 

@@ -39,18 +39,23 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, errResult.Error
 	}
 
-	if persistentContainerRequested(ctx, prep.containerCfg) {
-		containerID, err := r.ensurePersistentContainer(ctx, prep)
-		if err != nil {
+	persistentRequested, err := persistentContainerRequested(ctx, prep.containerCfg)
+	if err != nil {
+		prep.cleanup()
+		return nil, err
+	}
+	if persistentRequested {
+		containerID, ensureErr := r.ensurePersistentContainer(ctx, prep)
+		if ensureErr != nil {
 			prep.cleanup()
-			return nil, err
+			return nil, ensureErr
 		}
 		runOpts := execOptionsForPersistent(ctx, prep, nil, nil)
 		runOpts.Interactive = true
 		runOpts.TTY = true
-		if err := validatePersistentExecOptions(runOpts); err != nil {
+		if validateErr := validatePersistentExecOptions(runOpts); validateErr != nil {
 			prep.cleanup()
-			return nil, err
+			return nil, validateErr
 		}
 		preparer, ok := r.engine.(containerExecCommandPreparer)
 		if !ok {
@@ -73,8 +78,8 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		TTY:         true, // Enable -t for PTY
 		ExtraHosts:  prep.extraHosts,
 	}
-	if err := runOpts.Validate(); err != nil {
-		return nil, fmt.Errorf("container run options: %w", err)
+	if validateErr := runOpts.Validate(); validateErr != nil {
+		return nil, fmt.Errorf("container run options: %w", validateErr)
 	}
 
 	preparer, ok := r.engine.(container.CommandPreparer)

@@ -13,7 +13,8 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiclient"
+	"github.com/invowk/invowk/internal/tuiwire"
 
 	"github.com/spf13/cobra"
 )
@@ -216,19 +217,19 @@ func splitHeadersAndData(rows [][]string, override tableColumns) (headers []stri
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
 func renderTableSelection(ctx context.Context, cfg tableConfig, headers []string, rows [][]string) (selectedIdx int, selectedRow []string, err error) {
-	if client := tuiserver.NewClientFromEnv(); client != nil {
+	if client := tuiclient.NewClientFromEnv(); client != nil {
 		return renderTUITableWithClient(ctx, cfg, headers, rows, client)
 	}
 	return renderTUITableDirect(cfg, headers, rows)
 }
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
-func renderTUITableWithClient(ctx context.Context, cfg tableConfig, headers []string, rows [][]string, client *tuiserver.Client) (selectedIdx int, selectedRow []string, err error) {
+func renderTUITableWithClient(ctx context.Context, cfg tableConfig, headers []string, rows [][]string, client *tuiclient.Client) (selectedIdx int, selectedRow []string, err error) {
 	border := "normal"
 	if !cfg.selectable {
 		border = "none"
 	}
-	result, err := client.TableContext(ctx, tuiserver.TableRequest{
+	result, err := client.TableContext(ctx, tuiwire.TableRequest{
 		Columns:   headers,
 		Rows:      rows,
 		Widths:    []int(cfg.widths),

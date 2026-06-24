@@ -49,33 +49,46 @@ func (t persistentContainerTarget) Validate() error {
 	return errors.Join(t.name.Validate(), t.nameSource.Validate())
 }
 
-func persistentContainerRequested(ctx *ExecutionContext, cfg invowkfileContainerConfig) bool {
-	return persistentContainerPlan(ctx, cfg).Requested()
+func persistentContainerRequested(ctx *ExecutionContext, cfg invowkfileContainerConfig) (bool, error) {
+	plan, err := persistentContainerPlan(ctx, cfg)
+	if err != nil {
+		return false, err
+	}
+	return plan.Requested(), nil
 }
 
-func resolvePersistentContainerTarget(ctx *ExecutionContext, cfg invowkfileContainerConfig) (persistentContainerTarget, bool) {
-	plan := persistentContainerPlan(ctx, cfg)
+func resolvePersistentContainerTarget(ctx *ExecutionContext, cfg invowkfileContainerConfig) (persistentContainerTarget, bool, error) {
+	plan, err := persistentContainerPlan(ctx, cfg)
+	if err != nil {
+		return persistentContainerTarget{}, false, err
+	}
 	if !plan.Requested() {
-		return persistentContainerTarget{}, false
+		return persistentContainerTarget{}, false, nil
 	}
 	target := persistentContainerTarget{
 		name:            plan.Name(),
 		nameSource:      plan.NameSource(),
 		createIfMissing: plan.CreateIfMissing(),
 	}
-	return target, true
+	return target, true, nil
 }
 
-func persistentContainerPlan(ctx *ExecutionContext, cfg invowkfileContainerConfig) containerplan.PersistentPlan {
+func persistentContainerPlan(ctx *ExecutionContext, cfg invowkfileContainerConfig) (containerplan.PersistentPlan, error) {
+	if cfg.Persistent == nil && (ctx == nil || ctx.ContainerNameOverride == "") {
+		return containerplan.EphemeralPlan(), nil
+	}
 	req, err := ctx.PersistentContainerRequest(cfg.Persistent)
 	if err != nil {
-		return containerplan.EphemeralPlan()
+		return containerplan.PersistentPlan{}, err
 	}
-	return containerplan.ResolvePersistentTarget(req)
+	return containerplan.ResolvePersistentTarget(req), nil
 }
 
 func (r *ContainerRuntime) ensurePersistentContainer(ctx *ExecutionContext, prep *containerExecPrep) (container.ContainerID, error) {
-	target, ok := resolvePersistentContainerTarget(ctx, prep.containerCfg)
+	target, ok, err := resolvePersistentContainerTarget(ctx, prep.containerCfg)
+	if err != nil {
+		return "", err
+	}
 	if !ok {
 		return "", errors.New("persistent container target was not requested")
 	}
@@ -201,25 +214,32 @@ func persistentContainerSpecHash(prep *containerExecPrep) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (r *ContainerRuntime) shouldSkipPersistentImagePreparation(ctx *ExecutionContext, cfg invowkfileContainerConfig) (bool, error) {
-	target, ok := resolvePersistentContainerTarget(ctx, cfg)
-	if !ok {
-		return false, nil
+func (r *ContainerRuntime) shouldSkipPersistentImagePreparation(
+	ctx *ExecutionContext,
+	cfg invowkfileContainerConfig,
+) (skipImagePrep, existingExternalCLI bool, err error) {
+	target, ok, err := resolvePersistentContainerTarget(ctx, cfg)
+	if err != nil {
+		return false, false, err
 	}
-	_, err := r.engine.InspectContainer(ctx.Context, target.name)
+	if !ok {
+		return false, false, nil
+	}
+	info, err := r.engine.InspectContainer(ctx.Context, target.name)
 	switch {
 	case err == nil:
-		return true, nil
+		externalCLI := target.nameSource == containerplan.PersistentNameSourceCLI && !isManagedPersistentContainer(info)
+		return true, externalCLI, nil
 	case errors.Is(err, container.ErrContainerNotFound):
 		if !target.createIfMissing {
 			// Report the missing target before image preparation so a typoed
 			// persistent name cannot build, provision, or otherwise mutate the
 			// engine image cache for a command that must fail.
-			return false, missingPersistentContainerError(target.name)
+			return false, false, missingPersistentContainerError(target.name)
 		}
-		return false, nil
+		return false, false, nil
 	default:
-		return false, fmt.Errorf("inspect persistent container %q: %w", target.name, err)
+		return false, false, fmt.Errorf("inspect persistent container %q: %w", target.name, err)
 	}
 }
 

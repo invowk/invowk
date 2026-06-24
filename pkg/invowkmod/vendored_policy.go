@@ -102,6 +102,39 @@ func declaredLockedModuleEntryMatches(requirements []ModuleRequirement, lock *Lo
 	return matches
 }
 
+// IsDeclaredLockedCommandSource reports whether the discovered command source
+// is a direct requirement whose lock entry resolves to the same module identity
+// and command namespace.
+func IsDeclaredLockedCommandSource(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID, sourceID ModuleSourceID) bool {
+	if lock == nil || moduleID == "" || sourceID == "" {
+		return false
+	}
+	for _, req := range requirements {
+		locked, ok := lock.Modules[ModuleRef(req).Key()]
+		if !ok {
+			continue
+		}
+		if locked.IdentityModuleID() == moduleID && locked.EffectiveCommandSourceID() == sourceID {
+			return true
+		}
+	}
+	return false
+}
+
+// MissingLockedModuleRequirementKeys returns requirement keys without exact
+// lock-file entries. It uses ModuleRef.Key() so subdirectory requirements match
+// the same normalized key policy used by module sync and lock parsing.
+func MissingLockedModuleRequirementKeys(requirements []ModuleRequirement, lock *LockFile) []ModuleRefKey {
+	missing := make([]ModuleRefKey, 0)
+	for _, req := range requirements {
+		key := ModuleRef(req).Key()
+		if lock == nil || !lock.HasModule(key) {
+			missing = append(missing, key)
+		}
+	}
+	return missing
+}
+
 // OrphanedLockedModuleEntries returns lock entries that are not declared by the
 // current root requirements. The lock file may contain stale entries after
 // requirements are removed; vendored module presence is intentionally not part
