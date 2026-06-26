@@ -55,11 +55,7 @@ func (n ContainerName) Validate() error {
 		}
 	}
 	for _, c := range name {
-		switch {
-		case c >= 'a' && c <= 'z':
-		case c >= '0' && c <= '9':
-		case c == '.', c == '_', c == '-':
-		default:
+		if !isContainerNameCharacter(c) {
 			return &InvalidContainerNameError{
 				Value:  n,
 				Reason: containerNameCharactersReason,
@@ -76,6 +72,20 @@ func (e *InvalidContainerNameError) Error() string {
 
 // Unwrap returns ErrInvalidContainerName for errors.Is compatibility.
 func (e *InvalidContainerNameError) Unwrap() error { return ErrInvalidContainerName }
+
+//goplint:ignore -- rune parser helper for ASCII container-name grammar.
+func isContainerNameCharacter(c rune) bool {
+	switch {
+	case c >= 'a' && c <= 'z':
+		return true
+	case c >= '0' && c <= '9':
+		return true
+	case c == '.', c == '_', c == '-':
+		return true
+	default:
+		return false
+	}
+}
 
 //goplint:ignore -- byte parser helper for ASCII container-name grammar.
 func isLowerASCIILetterOrDigit(c byte) bool {

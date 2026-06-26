@@ -312,6 +312,55 @@ func TestInvalidInvowkfileError_Unwrap(t *testing.T) {
 	}
 }
 
+func TestFieldValidatorMutationContracts(t *testing.T) {
+	t.Parallel()
+
+	validator := NewFieldValidator()
+	if validator == nil {
+		t.Fatal("NewFieldValidator() = nil, want validator")
+	}
+	if got := validator.Name(); got != fieldValidatorName {
+		t.Fatalf("FieldValidator.Name() = %q, want %q", got, fieldValidatorName)
+	}
+	if errs := validator.Validate(nil, nil); errs != nil {
+		t.Fatalf("FieldValidator.Validate(nil, nil) = %v, want nil", errs)
+	}
+
+	plainCause := errors.New("plain field error")
+	fieldErrs := invowkfileFieldValidationErrors(fieldValidatorName, plainCause)
+	if len(fieldErrs) != 1 {
+		t.Fatalf("invowkfileFieldValidationErrors() returned %d errors, want 1", len(fieldErrs))
+	}
+	if fieldErrs[0].Validator != fieldValidatorName {
+		t.Fatalf("field error Validator = %q, want %q", fieldErrs[0].Validator, fieldValidatorName)
+	}
+	if fieldErrs[0].Message != plainCause.Error() {
+		t.Fatalf("field error Message = %q, want %q", fieldErrs[0].Message, plainCause.Error())
+	}
+	if !errors.Is(fieldErrs[0], plainCause) {
+		t.Fatalf("field error cause = %v, want %v", fieldErrs[0].Cause, plainCause)
+	}
+
+	cause := errors.New("field exploded")
+	invalidName := ValidatorName(" \t")
+	err := newFieldValidationError(invalidName, cause)
+	if err.Validator != invalidName {
+		t.Fatalf("fallback Validator = %q, want invalid name preserved", err.Validator)
+	}
+	if err.Field != "invowkfile" {
+		t.Fatalf("fallback Field = %q, want invowkfile", err.Field)
+	}
+	if err.Message != cause.Error() {
+		t.Fatalf("fallback Message = %q, want %q", err.Message, cause.Error())
+	}
+	if err.Severity != SeverityError {
+		t.Fatalf("fallback Severity = %v, want %v", err.Severity, SeverityError)
+	}
+	if !errors.Is(err, cause) {
+		t.Fatalf("fallback cause = %v, want %v", err.Cause, cause)
+	}
+}
+
 func validationErrorsIncludeValidator(errs ValidationErrors, validator ValidatorName) bool {
 	for _, err := range errs {
 		if err.Validator == validator {

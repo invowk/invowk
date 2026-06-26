@@ -50,7 +50,6 @@ func newFieldValidationError(name ValidatorName, err error) ValidationError {
 			Validator: name,
 			Field:     "invowkfile",
 			Message:   err.Error(),
-			Severity:  SeverityError,
 			Cause:     err,
 		}
 	}

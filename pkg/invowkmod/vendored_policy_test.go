@@ -126,6 +126,16 @@ func TestMissingLockedModuleRequirementKeys(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("MissingLockedModuleRequirementKeys() = %v, want %v", got, want)
 	}
+
+	got = MissingLockedModuleRequirementKeys(requirements, nil)
+	want = []ModuleRefKey{
+		"https://example.com/dep.git",
+		"https://example.com/missing.git",
+		"https://example.com/mono.git#modules/tools",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("MissingLockedModuleRequirementKeys(nil lock) = %v, want %v", got, want)
+	}
 }
 
 func TestIsDeclaredLockedCommandSource(t *testing.T) {
@@ -157,5 +167,20 @@ func TestIsDeclaredLockedCommandSource(t *testing.T) {
 	}
 	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "other") {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched source")
+	}
+
+	emptyIDLock := NewLockFile()
+	emptyIDLock.Modules[ModuleRef(req).Key()] = LockedModule{CommandSourceID: "tools"}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, emptyIDLock, "", "tools") {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with empty module ID")
+	}
+
+	emptySourceReq := ModuleRequirement{}
+	emptySourceLock := NewLockFile()
+	emptySourceLock.Modules[ModuleRef(emptySourceReq).Key()] = LockedModule{
+		Namespace: "io.example.tools@1.2.3",
+	}
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{emptySourceReq}, emptySourceLock, "io.example.tools", "") {
+		t.Fatal("IsDeclaredLockedCommandSource() = true with empty source ID")
 	}
 }

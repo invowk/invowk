@@ -146,6 +146,38 @@ func TestIsLowerASCIILetterOrDigitMutationBoundaries(t *testing.T) {
 	}
 }
 
+func TestIsContainerNameCharacterMutationBoundaries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		char rune
+		want bool
+	}{
+		{name: "lowercase lower boundary", char: 'a', want: true},
+		{name: "lowercase upper boundary", char: 'z', want: true},
+		{name: "digit lower boundary", char: '0', want: true},
+		{name: "digit upper boundary", char: '9', want: true},
+		{name: "dot allowed", char: '.', want: true},
+		{name: "underscore allowed", char: '_', want: true},
+		{name: "hyphen allowed", char: '-', want: true},
+		{name: "uppercase rejected", char: 'A'},
+		{name: "slash rejected", char: '/'},
+		{name: "colon rejected", char: ':'},
+		{name: "non ASCII rejected", char: 'é'},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := isContainerNameCharacter(tt.char); got != tt.want {
+				t.Fatalf("isContainerNameCharacter(%q) = %v, want %v", tt.char, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestContainerNameValueFormattingMutationContracts(t *testing.T) {
 	t.Parallel()
 
