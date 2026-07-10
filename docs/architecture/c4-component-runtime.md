@@ -25,7 +25,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **NativeRuntime** | Go | Executes commands via the host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. Configurable shell override. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **ShRuntime** | Go/mvdan-sh | Embedded POSIX shell interpreter with optional u-root built-in utilities. No host shell dependency. Spawns a subprocess of itself for PTY-based interactive mode. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **LuaRuntime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
-| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
+| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on the private `containerEngine` port, the `provision.Provisioner` port, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Runtime constructors supply a `container.Engine` implementation and construct `provision.LayerProvisioner` as the production provisioner. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Standard 10-level precedence implementation: host env (filtered) -> root/command/impl env files -> root/command/impl env vars -> ExtraEnv -> runtime env files -> runtime env vars. |
 | **MockEnvBuilder** | Go | Test helper that returns a fixed environment map. Enables testing runtimes in isolation without real file system access or env loading. |
 
@@ -39,15 +39,15 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **IOContext** | Groups I/O streams: `Stdout` (`io.Writer`), `Stderr` (`io.Writer`), `Stdin` (`io.Reader`). Factory functions `DefaultIO()` and `CaptureIO()` provide common configurations. |
 | **EnvContext** | Groups environment configuration: `ExtraEnv` (INVOWK_FLAG_*, INVOWK_ARG_*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file), and inheritance overrides (mode, allow, deny). |
 | **TUIContext** | Groups TUI server connection details: `ServerURL` and `ServerToken`. Used to pass `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` into command environments. |
-| **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr). `Success()` returns true when both exit code is 0 and error is nil. |
+| **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr), and `Diagnostics []InitDiagnostic` for non-fatal runtime initialization/provisioning notices. The command service bridges those diagnostics into its execution result for rendering. `Success()` returns true when both exit code is 0 and error is nil. |
 | **PreparedCommand** | Returned by `PrepareInteractive()`: contains an `exec.Cmd` ready for PTY attachment and an optional `Cleanup` function. |
 
 ## External Dependencies
 
 | Dependency | Used By | Purpose |
 |------------|---------|---------|
-| `container.Engine` | ContainerRuntime | Unified Docker/Podman container engine abstraction |
-| `provision.LayerProvisioner` | ContainerRuntime | Creates ephemeral image layers with invowk binary and modules |
+| `container.Engine` implementations | ContainerRuntime's private `containerEngine` port | Docker/Podman engine adapters satisfy the narrowed operations needed by the runtime |
+| `provision.Provisioner` | ContainerRuntime | Image-provisioning port; runtime constructors use `provision.LayerProvisioner` as the production implementation |
 | `runtime.HostCallbackServer` | ContainerRuntime | Port that supplies token-based host callback credentials to container executions; `internal/app/commandadapters` adapts the concrete `sshserver.Server` to this port |
 | `config.Config` | ContainerRuntime | Application configuration (container engine preference, etc.) |
 | `mvdan.cc/sh/v3` | ShRuntime | Embedded POSIX shell interpreter (syntax, interp, expand) |
@@ -123,7 +123,7 @@ Environment building involves file system access (loading dotenv files), host en
 
 ### Why a Registry?
 
-Direct construction of runtimes would couple the CLI layer to each concrete type's constructor and dependencies (e.g., ContainerRuntime needs `config.Config`, `container.Engine`, `provision.LayerProvisioner`). The Registry pattern keeps those constructors behind the command adapter. A populated registry and runtime session are created for each command execution, so container initialization and cleanup remain execution-scoped while the pipeline simply asks for a runtime by type. Adding a new runtime means registering it -- no changes to the execution pipeline.
+Direct construction of runtimes would couple the CLI layer to each concrete type's constructor and dependencies (e.g., ContainerRuntime needs `config.Config`, a container engine satisfying its private port, and a `provision.Provisioner`). The Registry pattern keeps those constructors behind the command adapter. A populated registry and runtime session are created for each command execution, so container initialization and cleanup remain execution-scoped while the pipeline simply asks for a runtime by type. Adding a new runtime means registering it -- no changes to the execution pipeline.
 
 ## Related Diagrams
 

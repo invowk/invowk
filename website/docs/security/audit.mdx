@@ -24,7 +24,7 @@ invowk audit [path]
   ├── Concurrent Checkers (7 built-in + optional LLM)
   │   ├── Script Checker ──► execution, path-traversal, obfuscation findings
   │   ├── Lua Checker ──► virtual-lua execution, env, and path findings
-  │   ├── Network Checker ──► exfiltration findings
+  │   ├── Network Checker ──► execution and exfiltration findings
   │   ├── Env Checker ──► exfiltration findings
   │   ├── Lock File Checker ──► integrity findings
   │   ├── Symlink Checker ──► path-traversal findings
@@ -181,8 +181,8 @@ invowk audit --severity info
 | Code | Meaning |
 |------|---------|
 | `0` | No confirmed findings at or above the severity threshold; suppressed-only reports exit successfully |
-| `1` | Confirmed findings detected |
-| `2` | Scan, configuration, or usage error |
+| `1` | Confirmed findings detected; generic CLI argument-validation errors also use Cobra's standard status 1 |
+| `2` | Audit scan or configuration error |
 
 ## LLM-Powered Analysis
 

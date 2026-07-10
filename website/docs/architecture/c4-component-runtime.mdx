@@ -33,7 +33,7 @@ The runtime package (`internal/runtime/`) is responsible for executing user-defi
 | **NativeRuntime** | Go | Executes commands via the host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. Configurable shell override. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **ShRuntime** | Go/mvdan-sh | Embedded POSIX shell interpreter with optional u-root built-in utilities. No host shell dependency. Spawns a subprocess of itself for PTY-based interactive mode. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **LuaRuntime** | Go/golua | Embedded Lua runtime with the shared virtual safety harness. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
-| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
+| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on the private `containerEngine` port, the `provision.Provisioner` port, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Runtime constructors supply a `container.Engine` implementation and construct `provision.LayerProvisioner` as the production provisioner. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Standard 10-level precedence implementation: host env (filtered) → root/command/impl env files → root/command/impl env vars → ExtraEnv → runtime env files → runtime env vars. |
 | **MockEnvBuilder** | Go | Test helper that returns a fixed environment map. Enables testing runtimes in isolation without real file system access or env loading. |
 
@@ -47,15 +47,15 @@ The runtime package (`internal/runtime/`) is responsible for executing user-defi
 | **IOContext** | Groups I/O streams: `Stdout`, `Stderr`, `Stdin`. Factory functions `DefaultIO()` and `CaptureIO()` provide common configurations. |
 | **EnvContext** | Groups environment configuration: `ExtraEnv` (INVOWK_FLAG_\*, INVOWK_ARG_\*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file), and inheritance overrides. |
 | **TUIContext** | Groups TUI server connection details: `ServerURL` and `ServerToken`. |
-| **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr). |
+| **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr), and `Diagnostics []InitDiagnostic` for non-fatal runtime initialization/provisioning notices. The command service bridges those diagnostics into its execution result for rendering. |
 | **PreparedCommand** | Returned by `PrepareInteractive()`: contains an `exec.Cmd` ready for PTY attachment and an optional `Cleanup` function. |
 
 ## External Dependencies
 
 | Dependency | Used By | Purpose |
 |------------|---------|---------|
-| `container.Engine` | ContainerRuntime | Unified Docker/Podman container engine abstraction |
-| `provision.LayerProvisioner` | ContainerRuntime | Creates ephemeral image layers with invowk binary and modules |
+| `container.Engine` implementations | ContainerRuntime's private `containerEngine` port | Docker/Podman engine adapters satisfy the narrowed operations needed by the runtime |
+| `provision.Provisioner` | ContainerRuntime | Image-provisioning port; runtime constructors use `provision.LayerProvisioner` as the production implementation |
 | `runtime.HostCallbackServer` | ContainerRuntime | Port that supplies token-based host callback credentials to container executions; `internal/app/commandadapters` adapts the concrete `sshserver.Server` to this port |
 | `config.Config` | ContainerRuntime | Application configuration (container engine preference, etc.) |
 | `mvdan.cc/sh/v3` | ShRuntime | Embedded POSIX shell interpreter |

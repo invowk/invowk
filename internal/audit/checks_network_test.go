@@ -31,8 +31,14 @@ func TestNetworkChecker_ReverseShell(t *testing.T) {
 
 			hasCritical := false
 			for _, f := range findings {
-				if f.Severity == SeverityCritical && f.Title == "Reverse shell pattern detected" {
+				if f.Severity == SeverityCritical && f.Title == reverseShellFindingTitle {
 					hasCritical = true
+					if f.Code != codeNetworkReverseShell {
+						t.Errorf("reverse shell finding code = %q, want %q", f.Code, codeNetworkReverseShell)
+					}
+					if f.Category != CategoryExecution {
+						t.Errorf("reverse shell category = %q, want %q", f.Category, CategoryExecution)
+					}
 				}
 			}
 			if !hasCritical {

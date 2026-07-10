@@ -61,7 +61,7 @@ SC-06 --ivk-env-var priority override:
   → No output: report "NOT FOUND"
 
 SC-07 custom-check script.content host shell execution:
-  Run: grep -n "exec\.Command\|os/exec" internal/app/deps/checks.go
+  Run: grep -n "RunCustomCheck\|runHostCustomCheck\|NewNativeRuntime\|NewShRuntime" internal/app/deps/checks.go internal/app/commandadapters/dependency_host.go
   → Lines found: report line numbers
   → No output: report "NOT FOUND"
 

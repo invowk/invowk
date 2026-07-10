@@ -73,6 +73,129 @@ podman_cli: Podman CLI {
 }
 
 # ==============================================================================
+# Adjacent Runtime, Planning, and Provisioning Boundaries
+# ==============================================================================
+
+runtime_consumers: "internal/runtime" {
+  style: {
+    stroke: "#438DD5"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  container_runtime: ContainerRuntime {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **ContainerRuntime struct**
+      Consumes narrowed engine and provisioning ports,
+      then performs ephemeral or persistent execution.
+    |
+  }
+
+  engine_port: "<<interface>>\ncontainerEngine" {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Private runtime port**
+      Narrow engine contract used by ContainerRuntime
+      for build, run, inspect, create, start, and exec.
+    |
+  }
+
+  persistent_planner: persistentContainerPlan {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Runtime adapter function**
+      Builds the request facts and delegates the pure
+      target decision to internal/containerplan.
+    |
+  }
+}
+
+container_policy: "internal/containerplan" {
+  style: {
+    stroke: "#438DD5"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  resolve_target: ResolvePersistentTarget {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Pure policy function**
+      Resolves ephemeral versus persistent execution,
+      target name source, and create-if-missing behavior.
+    |
+  }
+
+  persistent_plan: PersistentPlan {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Policy result**
+      Describes the resolved container execution target.
+    |
+  }
+}
+
+provision_pkg: "internal/provision" {
+  style: {
+    stroke: "#438DD5"
+    stroke-dash: 3
+    fill: transparent
+  }
+
+  provisioner_port: "<<interface>>\nProvisioner" {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Image-provisioning port**
+      Stored by ContainerRuntime and invoked before
+      container execution.
+    |
+  }
+
+  layer_provisioner: LayerProvisioner {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Production Provisioner implementation**
+      Creates cached image layers containing the
+      invowk binary and modules.
+    |
+  }
+
+  image_builder_port: "<<interface>>\nimageBuilder" {
+    style: {
+      fill: "#438DD5"
+      font-color: "#ffffff"
+    }
+    tooltip: |md
+      **Private provisioning port**
+      Narrow Build and ImageExists contract satisfied
+      by the container engine implementation.
+    |
+  }
+}
+
+# ==============================================================================
 # System Boundary: internal/container
 # ==============================================================================
 
@@ -585,4 +708,47 @@ container_pkg.podman_engine -> podman_cli: "invokes\npodman binary" {
   style: {
     stroke: "#707070"
   }
+}
+
+# ==============================================================================
+# Relationships: Adjacent Execution Boundary
+# ==============================================================================
+
+runtime_consumers.container_runtime -> runtime_consumers.engine_port: stores {
+  style.stroke: "#707070"
+}
+
+runtime_consumers.engine_port -> container_pkg.engine_iface: "fulfilled by\nengine implementations" {
+  style.stroke: "#707070"
+}
+
+runtime_consumers.container_runtime -> provision_pkg.provisioner_port: stores {
+  style.stroke: "#707070"
+}
+
+provision_pkg.layer_provisioner -> provision_pkg.provisioner_port: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+provision_pkg.layer_provisioner -> provision_pkg.image_builder_port: builds through {
+  style.stroke: "#707070"
+}
+
+provision_pkg.image_builder_port -> container_pkg.engine_iface: "fulfilled by\nBuild + ImageExists" {
+  style.stroke: "#707070"
+}
+
+runtime_consumers.container_runtime -> runtime_consumers.persistent_planner: "resolves execution\ntarget through" {
+  style.stroke: "#707070"
+}
+
+runtime_consumers.persistent_planner -> container_policy.resolve_target: delegates {
+  style.stroke: "#707070"
+}
+
+container_policy.resolve_target -> container_policy.persistent_plan: returns {
+  style.stroke: "#707070"
 }

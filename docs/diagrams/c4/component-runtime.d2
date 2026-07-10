@@ -170,7 +170,8 @@ runtime_pkg: internal/runtime {
     tooltip: |md
       **Struct**
       Executes inside Docker/Podman containers.
-      Uses container engine, provisioner, optional SSH server reference,
+      Uses private container-engine and provisioning ports,
+      an optional host-callback port,
       config, and env builder.
     |
   }
@@ -265,7 +266,9 @@ runtime_pkg: internal/runtime {
     tooltip: |md
       **Struct**
       Execution result: ExitCode, Error,
-      captured Output and ErrOutput.
+      captured Output and ErrOutput, plus Diagnostics
+      for non-fatal initialization/provisioning notices
+      bridged to the command service for rendering.
     |
   }
 
@@ -493,27 +496,40 @@ invowkfile_inv: invowkfile.Invowkfile {
   |
 }
 
-container_engine: container.Engine {
+container_engine_port: "<<interface>>\ncontainerEngine" {
   style: {
     fill: "#438DD5"
     font-color: "#ffffff"
   }
   tooltip: |md
-    **internal/container**
-    Unified Docker/Podman interface.
-    Used by ContainerRuntime for container operations.
+    **private internal/runtime port**
+    Narrow container operations contract stored by
+    ContainerRuntime.
   |
 }
 
-provisioner: provision.LayerProvisioner {
+container_engine_impl: container.Engine implementations {
+  style: {
+    fill: "#438DD5"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **internal/container adapters**
+    Docker, Podman, and sandbox-aware implementations
+    satisfy the runtime's private containerEngine port.
+  |
+}
+
+provisioner: provision.Provisioner {
   style: {
     fill: "#438DD5"
     font-color: "#ffffff"
   }
   tooltip: |md
     **internal/provision**
-    Creates ephemeral image layers containing
-    the invowk binary and modules.
+    Image-provisioning port stored by ContainerRuntime.
+    Runtime constructors create LayerProvisioner as
+    the production implementation.
   |
 }
 
@@ -590,10 +606,16 @@ runtime_pkg.exec_ctx -> invowkfile_inv: "references\nInvowkfile" {
 }
 
 # ContainerRuntime external dependencies
-runtime_pkg.container_rt -> container_engine: "runs containers\nvia Engine" {
+runtime_pkg.container_rt -> container_engine_port: "runs containers\nvia port" {
   style.stroke: "#707070"
 }
-runtime_pkg.container_rt -> provisioner: "provisions\nephemeral layers" {
+container_engine_impl -> container_engine_port: "satisfies\nprivate port" {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+runtime_pkg.container_rt -> provisioner: "provisions images\nvia port" {
   style.stroke: "#707070"
 }
 runtime_pkg.container_rt -> config_pkg: reads config {

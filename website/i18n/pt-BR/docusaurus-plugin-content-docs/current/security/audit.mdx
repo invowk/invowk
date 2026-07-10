@@ -24,7 +24,7 @@ invowk audit [path]
   ├── Checkers Concorrentes (7 integrados + LLM opcional)
   │   ├── Script Checker ──► achados de execução, travessia, ofuscação
   │   ├── Lua Checker ──► achados de execução, env e caminhos em virtual-lua
-  │   ├── Network Checker ──► achados de exfiltração
+  │   ├── Network Checker ──► achados de execução e exfiltração
   │   ├── Env Checker ──► achados de exfiltração
   │   ├── Lock File Checker ──► achados de integridade
   │   ├── Symlink Checker ──► achados de travessia de caminhos
@@ -181,8 +181,8 @@ invowk audit --severity info
 | Código | Significado |
 |--------|-------------|
 | `0` | Nenhum achado confirmado no ou acima do limiar de severidade; relatórios apenas com achados suprimidos saem com sucesso |
-| `1` | Achados confirmados detectados |
-| `2` | Erro de scan, configuração ou uso |
+| `1` | Achados confirmados detectados; erros genéricos de validação de argumentos da CLI também usam o status 1 padrão do Cobra |
+| `2` | Erro de scan de auditoria ou configuração |
 
 ## Análise com LLM
 

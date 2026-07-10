@@ -6,7 +6,7 @@ import Diagram from '@site/src/components/Diagram';
 
 # C4 Component: Container (C3)
 
-This diagram zooms into the **Container Engine Abstraction** container from the [C2 Container Diagram](./c4-container) to show the internal components of the `internal/container` package. It reveals how Invowk provides a unified interface over Docker and Podman CLIs, handles Podman-specific concerns (SELinux, rootless), and transparently adapts to sandboxed environments (Flatpak, Snap).
+This diagram zooms into the **Container Engine Abstraction** container from the [C2 Container Diagram](./c4-container) to show the internal components of the `internal/container` package and the adjacent runtime, planning, and provisioning ports that consume them. It reveals how Invowk provides a unified interface over Docker and Podman CLIs, handles Podman-specific concerns (SELinux, rootless), and transparently adapts to sandboxed environments (Flatpak, Snap).
 
 ## Diagram
 
@@ -65,6 +65,15 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 |------------|---------|-------|
 | **platform.DetectSandbox()** | `pkg/platform` | Returns sandbox type (None, Flatpak, Snap) used by `SandboxAwareEngine`. |
 | **os/exec** | stdlib | Underlying CLI execution. `exec.LookPath` finds engine binaries; `exec.CommandContext` runs them. |
+
+## Execution Boundary
+
+| Consumer or Policy | Contract | Relationship |
+|--------------------|----------|--------------|
+| **runtime.ContainerRuntime** | Private `runtime.containerEngine` port | Stores the narrowed engine contract needed for image build, one-shot runs, and persistent inspect/create/start/exec operations. The Docker, Podman, and sandbox-aware engine implementations satisfy this port. |
+| **provision.Provisioner** | Image-provisioning port stored by `ContainerRuntime` | `LayerProvisioner` is the production implementation created by the runtime constructors. |
+| **provision.LayerProvisioner** | Private `provision.imageBuilder` port | Uses the engine's `Build` and `ImageExists` operations without depending on the full `container.Engine` contract. |
+| **runtime.persistentContainerPlan** | `containerplan.ResolvePersistentTarget` | Delegates the ephemeral-versus-persistent target decision to `internal/containerplan`; `ContainerRuntime` then applies the returned `PersistentPlan` through engine lifecycle operations. |
 
 ## Key Patterns
 

@@ -351,7 +351,7 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go`, interactive adapters | Partial |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go`, scan context artifact copy paths | Mitigated |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
-| SC-07 | Custom-check `script.content` host shell execution | High | `internal/app/deps/checks.go` | Partial |
+| SC-07 | Custom-check `script.content` host execution | High | `internal/app/deps/checks.go`, `internal/app/commandadapters/dependency_host.go` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate) |
 | SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go` | By-design |
 | SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go`, command-scope lock checks | Partial |

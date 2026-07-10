@@ -6,7 +6,7 @@ import Diagram from '@site/src/components/Diagram';
 
 # C4 Componente: Container (C3)
 
-Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama de Container C2](./c4-container) para mostrar os componentes internos do pacote `internal/container`. Ele revela como o Invowk fornece uma interface unificada sobre os CLIs do Docker e Podman, lida com preocupações específicas do Podman (SELinux, rootless) e se adapta de forma transparente a ambientes sandboxed (Flatpak, Snap).
+Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama de Container C2](./c4-container) para mostrar os componentes internos do pacote `internal/container` e as portas adjacentes de runtime, planejamento e provisionamento que os consomem. Ele revela como o Invowk fornece uma interface unificada sobre os CLIs do Docker e Podman, lida com preocupações específicas do Podman (SELinux, rootless) e se adapta de forma transparente a ambientes sandboxed (Flatpak, Snap).
 
 ## Diagrama
 
@@ -65,6 +65,15 @@ Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama d
 |-------------|--------|-----|
 | **platform.DetectSandbox()** | `pkg/platform` | Retorna tipo de sandbox (None, Flatpak, Snap) usado pelo `SandboxAwareEngine`. |
 | **os/exec** | stdlib | Execução CLI subjacente. `exec.LookPath` encontra binários dos engines; `exec.CommandContext` os executa. |
+
+## Fronteira de Execução
+
+| Consumidor ou Política | Contrato | Relacionamento |
+|------------------------|----------|----------------|
+| **runtime.ContainerRuntime** | Porta privada `runtime.containerEngine` | Armazena o contrato restrito de engine necessário para build de imagem, runs avulsos e operações persistentes de inspect/create/start/exec. As implementações de engine Docker, Podman e com reconhecimento de sandbox satisfazem essa porta. |
+| **provision.Provisioner** | Porta de provisionamento de imagem armazenada pelo `ContainerRuntime` | `LayerProvisioner` é a implementação de produção criada pelos construtores de runtime. |
+| **provision.LayerProvisioner** | Porta privada `provision.imageBuilder` | Usa as operações `Build` e `ImageExists` do engine sem depender do contrato completo de `container.Engine`. |
+| **runtime.persistentContainerPlan** | `containerplan.ResolvePersistentTarget` | Delega a decisão entre alvo efêmero e persistente para `internal/containerplan`; depois, `ContainerRuntime` aplica o `PersistentPlan` retornado por meio das operações de ciclo de vida do engine. |
 
 ## Padrões Principais
 

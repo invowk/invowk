@@ -3035,9 +3035,9 @@ The audit scanner runs 7 built-in security checkers concurrently:
 |---------|----------|-----------------|
 | **Script** | execution, path-traversal, obfuscation | Remote code execution (`curl \| bash`), path traversal (`../`), base64 obfuscation, eval patterns, hex sequences |
 | **Lua** | execution, exfiltration, path-traversal | Disabled virtual-lua API references, sensitive environment reads, wildcard or network-capable host binary allowances, broad virtual filesystem exposure |
-| **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
+| **Network** | execution, exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
 | **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, unset native/virtual-sh `env_inherit_mode` defaults that inherit all host variables, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
-| **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
+| **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous entries, lock-file version format issues, tamper detection |
 | **Symlink** | path-traversal | Any symlink in a module directory, symlinks pointing outside module boundaries, symlink chains, dangling or unreadable symlinks, incomplete directory walks |
 | **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, vendored modules missing from `requires`, module invowkfile parse failures, global module trust |
 

@@ -99,7 +99,7 @@ func (c *NetworkChecker) checkReverseShell(ref ScriptRef, content string) []Find
 			findings = append(findings, Finding{
 				Code:           codeNetworkReverseShell,
 				Severity:       SeverityCritical,
-				Category:       CategoryExfiltration,
+				Category:       CategoryExecution,
 				SurfaceID:      ref.SurfaceID,
 				CheckerName:    networkCheckerName,
 				FilePath:       ref.FilePath,
