@@ -166,10 +166,10 @@ cmds: [
   'installation/shell-script-custom': {
     language: 'bash',
     code: `# Install to a custom directory
-INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | INSTALL_DIR=/usr/local/bin sh
 
 # Install a specific version
-INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh`,
+curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | INVOWK_VERSION=v1.0.0 sh`,
   },
 
   'installation/powershell-script': {

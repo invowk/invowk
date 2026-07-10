@@ -36,7 +36,7 @@ See [Configuration Options](../configuration/options#llm) for provider and API e
 Command `create` requires `<name>` and fails if that command already exists; use `agent cmd change <name>` to update an existing command. Module `create` requires `<module-id>` and fails if `<module-id>.invowkmod` already exists; use `agent mod change <module-id-or-path>` to update an existing local module. Use `--dry-run` to preview patches and `--print` to print generated output without writing. `--verify` validates the written module or resolves a written command with a dry-run execution plan.
 
 :::caution Prompt content is sent to the configured provider
-LLM-backed create/change operations send the generated authoring system prompt and schemas, plus a user prompt containing your request, the target path, and current target content when changing. If the model returns invalid output, the repair retry also sends the validation error and the previous model response. Use a local provider when your command definitions or module files contain private project details.
+LLM-backed create/change operations send the generated authoring system prompt and schemas, plus a user prompt containing your request and target path. Creating or changing a command in an existing invowkfile also sends that file's current content; changing a module sends its current module files. If the model returns invalid output, the repair retry also sends the validation error and the previous model response. Use a local provider when your command definitions or module files contain private project details.
 :::
 
 ## Validation

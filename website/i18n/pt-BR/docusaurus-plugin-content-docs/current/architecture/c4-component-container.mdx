@@ -64,7 +64,6 @@ Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama d
 | Dependência | Pacote | Uso |
 |-------------|--------|-----|
 | **platform.DetectSandbox()** | `pkg/platform` | Retorna tipo de sandbox (None, Flatpak, Snap) usado pelo `SandboxAwareEngine`. |
-| **issue.NewErrorContext()** | `internal/issue` | Cria erros acionáveis com contexto de operação e sugestões para o usuário. |
 | **os/exec** | stdlib | Execução CLI subjacente. `exec.LookPath` encontra binários dos engines; `exec.CommandContext` os executa. |
 
 ## Padrões Principais

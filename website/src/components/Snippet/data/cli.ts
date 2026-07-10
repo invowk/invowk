@@ -405,7 +405,10 @@ invowk agent mod prompt create --format json`,
 
   'agent/create-command': {
     language: 'bash',
-    code: `# Configure once, then generate without per-run LLM flags
+    code: `# With no configured provider, use an OpenAI-compatible local server
+invowk agent cmd create docs --llm --llm-url http://localhost:1234/v1 'add a docs build command'
+
+# Configure once, then generate without per-run LLM flags
 invowk config set llm.provider codex
 invowk agent cmd create lint 'add a lint command that runs golangci-lint'
 
@@ -425,10 +428,7 @@ invowk agent cmd create checklist --llm-provider claude --print 'add a release c
 # Create, change, or remove a local module
 invowk agent mod create io.example.tools --llm-provider codex 'create portable project tools'
 invowk agent mod change io.example.tools --llm-provider codex 'add a formatting command'
-invowk agent mod remove io.example.tools --dry-run
-
-# Use an OpenAI-compatible local server
-invowk agent cmd create docs --llm --llm-url http://localhost:1234/v1 'add a docs build command'`,
+invowk agent mod remove io.example.tools --dry-run`,
   },
 
   'reference/cli/agent-prompt-syntax': {

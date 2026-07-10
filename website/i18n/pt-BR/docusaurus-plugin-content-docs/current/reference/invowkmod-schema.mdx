@@ -108,3 +108,20 @@ Sobrescreve o ID de origem de comando padrão para esta dependência. Aliases us
 **Obrigatório:** Não
 
 Subdiretório dentro do repositório que contém o módulo. Deve ser relativo e apontar diretamente para um diretório cujo basename termina em `.invowkmod`. O prefixo do basename deve corresponder ao valor `module` do módulo selecionado. Nomes comuns de segmento com pontos consecutivos são permitidos, mas segmentos de diretório pai como `..`, caminhos absolutos, caminhos com drive e caminhos UNC/enraizados são rejeitados depois que o Invowk normaliza os separadores.
+
+## Limites de Comprimento de Strings
+
+Os limites de strings são medidos em pontos de código Unicode (runes):
+
+| Campo | Máximo de runes |
+|---|---:|
+| `module` | 256 |
+| `version` raiz | 64 |
+| `description` | 10.240 |
+| `author` | 256 |
+| `license` | 128 |
+| `repository` | 2.048 |
+| `git_url` da dependência | 2.048 |
+| `version` da dependência | 64 |
+| `alias` da dependência | 256 |
+| `path` da dependência | 4.096 |

@@ -34,35 +34,27 @@ errors: Error Categories {
     fill: transparent
   }
 
-  E1: Config Parse Error {
+  E1: Execution Timed Out\nor Cancelled {
     style.fill: "#FFCDD2"
   }
 
-  E2: Discovery Error {
+  E2: Container Engine\nUnavailable {
     style.fill: "#FFCDD2"
   }
 
-  E3: Command Not Found {
+  E3: Runtime Unavailable {
     style.fill: "#FFCDD2"
   }
 
-  E4: Runtime Unavailable {
+  E4: Shell Not Found {
     style.fill: "#FFCDD2"
   }
 
-  E5: Validation Error {
+  E5: Permission Denied {
     style.fill: "#FFCDD2"
   }
 
-  E6: Execution Error {
-    style.fill: "#FFCDD2"
-  }
-
-  E7: Permission Denied {
-    style.fill: "#FFCDD2"
-  }
-
-  E8: Shell Not Found {
+  E6: Script Execution Failed {
     style.fill: "#FFCDD2"
   }
 }
@@ -71,35 +63,27 @@ errors: Error Categories {
 # Fixes
 # ==============================================================================
 
-Fix1: Check config.cue syntax {
+Fix1: Check timeout, cancellation,\nand script duration {
   style.fill: "#C8E6C9"
 }
 
-Fix2: Check invowkfile.cue syntax {
+Fix2: Start Docker or Podman {
   style.fill: "#C8E6C9"
 }
 
-Fix3: Verify command name, check discovery {
+Fix3: Select an available runtime {
   style.fill: "#C8E6C9"
 }
 
-Fix4: Start container engine {
+Fix4: Install the required shell {
   style.fill: "#C8E6C9"
 }
 
-Fix5: Check command implementation {
+Fix5: Check file and directory permissions {
   style.fill: "#C8E6C9"
 }
 
 Fix6: Check script content {
-  style.fill: "#C8E6C9"
-}
-
-Fix7: Check file/directory permissions {
-  style.fill: "#C8E6C9"
-}
-
-Fix8: Install required shell (bash/sh/pwsh) {
   style.fill: "#C8E6C9"
 }
 
@@ -108,20 +92,16 @@ Fix8: Install required shell (bash/sh/pwsh) {
 # ==============================================================================
 
 Start -> Classify
-Classify -> errors.E1: Config parse
-Classify -> errors.E2: Discovery
-Classify -> errors.E3: Command not found
-Classify -> errors.E4: Runtime unavailable
-Classify -> errors.E5: Validation
-Classify -> errors.E6: Execution
-Classify -> errors.E7: Permission denied
-Classify -> errors.E8: Shell not found
+Classify -> errors.E1: deadline or cancellation
+Classify -> errors.E2: container engine unavailable
+Classify -> errors.E3: runtime unavailable
+Classify -> errors.E4: shell not found
+Classify -> errors.E5: os.ErrPermission
+Classify -> errors.E6: other execution error
 
-errors.E1 -> Fix1: Invalid CUE syntax
-errors.E2 -> Fix2: Module parse failure
-errors.E3 -> Fix3: No matching command
-errors.E4 -> Fix4: e.g., Docker not running
-errors.E5 -> Fix5: Missing required fields
-errors.E6 -> Fix6: Script error
-errors.E7 -> Fix7: os.ErrPermission
-errors.E8 -> Fix8: Shell binary not found
+errors.E1 -> Fix1: timed out or cancelled
+errors.E2 -> Fix2: engine not running
+errors.E3 -> Fix3: runtime cannot execute
+errors.E4 -> Fix4: shell binary missing
+errors.E5 -> Fix5: access denied
+errors.E6 -> Fix6: script failure

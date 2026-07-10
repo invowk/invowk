@@ -304,7 +304,7 @@ Controls how named `allowed_binaries` entries are resolved. `host` uses the effe
 **Type:** non-negative integer (`int & >=0`) / byte-size string
 **Available for:** `virtual-lua`
 
-Optional golua execution limits. Omit or set `cpu_limit: 0` / empty `memory_limit` for no explicit quota.
+Optional golua execution limits. Omit either field for no explicit quota; `cpu_limit: 0` is also unlimited. An explicit empty `memory_limit` is invalid.
 
 ### enable_host_ssh
 
@@ -542,6 +542,28 @@ Additional glob patterns for files/directories to exclude from watching. These a
 <Snippet id="reference/invowkfile/duration-string-type" />
 
 Shared type used by [`#Implementation.timeout`](#timeout) and [`#WatchConfig.debounce`](#debounce). Valid examples: `"500ms"`, `"30s"`, `"5m"`, `"1h30m"`, `"2.5s"`.
+
+---
+
+## String Length Limits
+
+String limits are measured in Unicode code points (runes), not bytes. The
+schema enforces these maxima in addition to the patterns and rules described
+above:
+
+| Maximum runes | Fields |
+|---:|---|
+| 32 | `runtime.memory_limit`, `implementation.timeout`, `watch.debounce` |
+| 128 | `runtime.persistent.name` |
+| 256 | command `name` and `category`; flag/argument `name`; tool alternatives; bare command dependency references; custom-check `name`; environment inherit allow/deny entries; container port entries; virtual filesystem logical names |
+| 512 | container `image` |
+| 514 | source-qualified command dependency references |
+| 1,000 | flag/argument/environment validation patterns; custom-check `expected_output` |
+| 1,024 | root `default_shell`; script `interpreter` |
+| 4,096 | root/command/implementation `workdir`; environment file entries; virtual `allowed_binaries`; container `containerfile` and volume entries; script `file`; filepath dependency alternatives; flag/argument defaults; watch patterns/ignores; virtual filesystem path values |
+| 10,240 | command, flag, and argument descriptions |
+| 32,768 | environment variable values |
+| 10,485,760 | inline script `content` |
 
 ---
 

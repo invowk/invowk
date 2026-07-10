@@ -108,3 +108,20 @@ Overrides the default command source ID for this dependency. Aliases use command
 **Required:** No
 
 Subdirectory within the repository that contains the module. Must be relative and must point directly to a directory whose basename ends in `.invowkmod`. The basename prefix must match the selected module's `module` value. Ordinary segment names containing consecutive dots are allowed, but parent-directory segments such as `..`, absolute paths, drive-qualified paths, and UNC/rooted paths are rejected after Invowk normalizes path separators.
+
+## String Length Limits
+
+String limits are measured in Unicode code points (runes):
+
+| Field | Maximum runes |
+|---|---:|
+| `module` | 256 |
+| root `version` | 64 |
+| `description` | 10,240 |
+| `author` | 256 |
+| `license` | 128 |
+| `repository` | 2,048 |
+| requirement `git_url` | 2,048 |
+| requirement `version` | 64 |
+| requirement `alias` | 256 |
+| requirement `path` | 4,096 |

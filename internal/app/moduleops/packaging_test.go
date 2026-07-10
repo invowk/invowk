@@ -4,11 +4,14 @@ package moduleops
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
@@ -16,11 +19,21 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-type fakeArchiveSourceFetcher struct {
-	path      types.FilesystemPath
-	called    bool
-	cleanedUp bool
-}
+const restoredScriptContent = "#!/bin/sh\necho restored\n"
+
+type (
+	fakeArchiveSourceFetcher struct {
+		path      types.FilesystemPath
+		called    bool
+		cleanedUp bool
+	}
+
+	zipTestEntry struct {
+		name    string
+		content string
+		mode    os.FileMode
+	}
+)
 
 func (f *fakeArchiveSourceFetcher) FetchArchiveSource(context.Context, string) (path types.FilesystemPath, cleanup func(), err error) {
 	f.called = true
@@ -79,6 +92,92 @@ func createZipForUnpackTest(t *testing.T, zipPath string, entries map[string]str
 	if closeErr := zipFile.Close(); closeErr != nil {
 		t.Fatalf("failed to close ZIP file: %v", closeErr)
 	}
+}
+
+func createOrderedZipForUnpackTest(t *testing.T, zipPath string, entries []zipTestEntry) {
+	t.Helper()
+
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatalf("failed to create ZIP file: %v", err)
+	}
+	zipWriter := zip.NewWriter(zipFile)
+	for _, entry := range entries {
+		var writer io.Writer
+		var createErr error
+		if entry.mode != 0 {
+			header := &zip.FileHeader{Name: entry.name}
+			header.SetMode(entry.mode)
+			writer, createErr = zipWriter.CreateHeader(header)
+		} else {
+			writer, createErr = zipWriter.Create(entry.name)
+		}
+		if createErr != nil {
+			t.Fatalf("failed to create ZIP entry %q: %v", entry.name, createErr)
+		}
+		if _, writeErr := writer.Write([]byte(entry.content)); writeErr != nil {
+			t.Fatalf("failed to write ZIP entry %q: %v", entry.name, writeErr)
+		}
+	}
+	if closeErr := zipWriter.Close(); closeErr != nil {
+		t.Fatalf("failed to close ZIP writer: %v", closeErr)
+	}
+	if closeErr := zipFile.Close(); closeErr != nil {
+		t.Fatalf("failed to close ZIP file: %v", closeErr)
+	}
+}
+
+func createLegacyDirectoryZipForUnpackTest(t *testing.T, zipPath string) {
+	t.Helper()
+
+	createOrderedZipForUnpackTest(t, zipPath, []zipTestEntry{
+		{name: "mytools.invowkmod/invowkmod.cue", content: "module: \"mytools\"\nversion: \"1.0.0\"\n"},
+		{name: "mytools.invowkmod/invowkfile.cue", content: "cmds: []\n"},
+		{name: "mytools.invowkmod/scripts/"},
+		{name: "mytools.invowkmod/scripts/restore.sh", content: restoredScriptContent},
+	})
+}
+
+func createOutOfOrderDirectoryZipForUnpackTest(t *testing.T, zipPath string) {
+	t.Helper()
+
+	createOrderedZipForUnpackTest(t, zipPath, []zipTestEntry{
+		{name: "mytools.invowkmod/invowkmod.cue", content: "module: \"mytools\"\nversion: \"1.0.0\"\n"},
+		{name: "mytools.invowkmod/invowkfile.cue", content: "cmds: []\n"},
+		{name: "mytools.invowkmod/scripts/restore.sh", content: restoredScriptContent},
+		{name: "mytools.invowkmod/scripts/", mode: os.ModeDir | 0o555},
+	})
+}
+
+func createExplicitUnixDirectoryModeZipForUnpackTest(t *testing.T, zipPath string) {
+	t.Helper()
+
+	createOrderedZipForUnpackTest(t, zipPath, []zipTestEntry{
+		{name: "mytools.invowkmod/invowkmod.cue", content: "module: \"mytools\"\nversion: \"1.0.0\"\n"},
+		{name: "mytools.invowkmod/invowkfile.cue", content: "cmds: []\n"},
+		{name: "mytools.invowkmod/locked/", mode: os.ModeDir | 0o666},
+	})
+}
+
+func createDeepDirectoryFirstZipForUnpackTest(t *testing.T, zipPath string) {
+	t.Helper()
+
+	createOrderedZipForUnpackTest(t, zipPath, []zipTestEntry{
+		{name: "mytools.invowkmod/implicit/locked/", mode: os.ModeDir | 0o700},
+		{name: "mytools.invowkmod/invowkmod.cue", content: "module: \"mytools\"\nversion: \"1.0.0\"\n"},
+		{name: "mytools.invowkmod/invowkfile.cue", content: "cmds: []\n"},
+	})
+}
+
+func createRejectedReadOnlyDirectoryZipForUnpackTest(t *testing.T, zipPath string) {
+	t.Helper()
+
+	createOrderedZipForUnpackTest(t, zipPath, []zipTestEntry{
+		{name: "mytools.invowkmod/invowkmod.cue", content: "module: [invalid"},
+		{name: "mytools.invowkmod/invowkfile.cue", content: "cmds: []\n"},
+		{name: "mytools.invowkmod/locked/", mode: os.ModeDir | 0o555},
+		{name: "mytools.invowkmod/locked/file.txt", content: "must be cleaned up\n"},
+	})
 }
 
 func createScaffoldModuleForPackaging(t *testing.T, tmpDir string, opts invowkmod.CreateOptions) string {
@@ -183,8 +282,14 @@ func TestUnpack(t *testing.T) {
 
 		// Create and archive a module
 		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
-			Name: "mytools",
+			Name:             "mytools",
+			CreateScriptsDir: true,
 		})
+		scriptContent := []byte(restoredScriptContent)
+		scriptPath := filepath.Join(modulePath, "scripts", "restore.sh")
+		if writeErr := os.WriteFile(scriptPath, scriptContent, 0o755); writeErr != nil {
+			t.Fatalf("failed to write nested script: %v", writeErr)
+		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
 		_, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
@@ -220,6 +325,216 @@ func TestUnpack(t *testing.T) {
 		}
 		if result.ModuleName() != "mytools" {
 			t.Errorf("result.ModuleName() = %q, expected %q", result.ModuleName(), "mytools")
+		}
+
+		restoredScript, readErr := os.ReadFile(filepath.Join(string(result.ModulePath()), "scripts", "restore.sh"))
+		if readErr != nil {
+			t.Fatalf("failed to read restored nested script: %v", readErr)
+		}
+		if !bytes.Equal(restoredScript, scriptContent) {
+			t.Errorf("restored script = %q, expected %q", restoredScript, scriptContent)
+		}
+	})
+
+	t.Run("unpack restores legacy directory entries", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "legacy-directory.zip")
+		createLegacyDirectoryZipForUnpackTest(t, zipPath)
+
+		result, err := Unpack(t.Context(), UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(filepath.Join(tmpDir, "unpacked")),
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+		restoredScript, readErr := os.ReadFile(filepath.Join(string(result.ModulePath()), "scripts", "restore.sh"))
+		if readErr != nil {
+			t.Fatalf("failed to read restored nested script: %v", readErr)
+		}
+		if string(restoredScript) != restoredScriptContent {
+			t.Errorf("restored script = %q, expected legacy archive content", restoredScript)
+		}
+	})
+
+	t.Run("unpack restores read-only directory mode", func(t *testing.T) {
+		t.Parallel()
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits are not portable to Windows")
+		}
+
+		tmpDir := t.TempDir()
+		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+			Name:             "mytools",
+			CreateScriptsDir: true,
+		})
+		scriptsDir := filepath.Join(modulePath, "scripts")
+		if writeErr := os.WriteFile(filepath.Join(scriptsDir, "restore.sh"), []byte(restoredScriptContent), 0o755); writeErr != nil {
+			t.Fatalf("failed to write nested script: %v", writeErr)
+		}
+		if chmodErr := os.Chmod(scriptsDir, 0o555); chmodErr != nil {
+			t.Fatalf("failed to make source directory read-only: %v", chmodErr)
+		}
+
+		zipPath := filepath.Join(tmpDir, "read-only-directory.zip")
+		if _, archiveErr := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath)); archiveErr != nil {
+			t.Fatalf("Archive() failed: %v", archiveErr)
+		}
+		if chmodErr := os.Chmod(scriptsDir, 0o755); chmodErr != nil {
+			t.Fatalf("failed to restore source directory permissions for cleanup: %v", chmodErr)
+		}
+		testutil.MustRemoveAll(t, modulePath)
+
+		result, err := Unpack(t.Context(), UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(filepath.Join(tmpDir, "unpacked")),
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+		restoredDir := filepath.Join(string(result.ModulePath()), "scripts")
+		t.Cleanup(func() {
+			_ = os.Chmod(restoredDir, 0o755)
+		})
+		dirInfo, statErr := os.Stat(restoredDir)
+		if statErr != nil {
+			t.Fatalf("failed to inspect restored directory: %v", statErr)
+		}
+		if got := dirInfo.Mode().Perm(); got != 0o555 {
+			t.Errorf("restored directory mode = %o, expected %o", got, os.FileMode(0o555))
+		}
+	})
+
+	t.Run("unpack restores out-of-order directory mode", func(t *testing.T) {
+		t.Parallel()
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits are not portable to Windows")
+		}
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "out-of-order-directory.zip")
+		createOutOfOrderDirectoryZipForUnpackTest(t, zipPath)
+
+		result, err := Unpack(t.Context(), UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(filepath.Join(tmpDir, "unpacked")),
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+		restoredDir := filepath.Join(string(result.ModulePath()), "scripts")
+		t.Cleanup(func() {
+			_ = os.Chmod(restoredDir, 0o755)
+		})
+		dirInfo, statErr := os.Stat(restoredDir)
+		if statErr != nil {
+			t.Fatalf("failed to inspect restored directory: %v", statErr)
+		}
+		if got := dirInfo.Mode().Perm(); got != 0o555 {
+			t.Errorf("restored directory mode = %o, expected %o", got, os.FileMode(0o555))
+		}
+		restoredScript, readErr := os.ReadFile(filepath.Join(restoredDir, "restore.sh"))
+		if readErr != nil {
+			t.Fatalf("failed to read restored nested script: %v", readErr)
+		}
+		if string(restoredScript) != restoredScriptContent {
+			t.Errorf("restored script = %q, expected out-of-order archive content", restoredScript)
+		}
+	})
+
+	t.Run("unpack preserves explicit Unix directory mode", func(t *testing.T) {
+		t.Parallel()
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits are not portable to Windows")
+		}
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "explicit-unix-directory-mode.zip")
+		createExplicitUnixDirectoryModeZipForUnpackTest(t, zipPath)
+
+		result, err := Unpack(t.Context(), UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(filepath.Join(tmpDir, "unpacked")),
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+		restoredDir := filepath.Join(string(result.ModulePath()), "locked")
+		t.Cleanup(func() {
+			_ = os.Chmod(restoredDir, 0o755)
+		})
+		dirInfo, statErr := os.Stat(restoredDir)
+		if statErr != nil {
+			t.Fatalf("failed to inspect restored directory: %v", statErr)
+		}
+		if got := dirInfo.Mode().Perm(); got != 0o666 {
+			t.Errorf("restored directory mode = %o, expected %o", got, os.FileMode(0o666))
+		}
+	})
+
+	t.Run("unpack keeps implicit parent modes stable", func(t *testing.T) {
+		t.Parallel()
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits are not portable to Windows")
+		}
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "deep-directory-first.zip")
+		createDeepDirectoryFirstZipForUnpackTest(t, zipPath)
+
+		result, err := Unpack(t.Context(), UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(filepath.Join(tmpDir, "unpacked")),
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+		modeCases := []struct {
+			path string
+			want os.FileMode
+		}{
+			{path: string(result.ModulePath()), want: 0o755},
+			{path: filepath.Join(string(result.ModulePath()), "implicit"), want: 0o755},
+			{path: filepath.Join(string(result.ModulePath()), "implicit", "locked"), want: 0o700},
+		}
+		for _, modeCase := range modeCases {
+			dirInfo, statErr := os.Stat(modeCase.path)
+			if statErr != nil {
+				t.Fatalf("failed to inspect restored directory %s: %v", modeCase.path, statErr)
+			}
+			if got := dirInfo.Mode().Perm(); got != modeCase.want {
+				t.Errorf("restored directory %s mode = %o, expected %o", modeCase.path, got, modeCase.want)
+			}
+		}
+	})
+
+	t.Run("unpack cleans rejected restrictive directory archive", func(t *testing.T) {
+		t.Parallel()
+		if runtime.GOOS == "windows" {
+			t.Skip("directory permission bits are not portable to Windows")
+		}
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "rejected-read-only-directory.zip")
+		createRejectedReadOnlyDirectoryZipForUnpackTest(t, zipPath)
+		unpackDir := filepath.Join(tmpDir, "unpacked")
+		modulePath := filepath.Join(unpackDir, "mytools.invowkmod")
+		t.Cleanup(func() {
+			_ = os.Chmod(filepath.Join(modulePath, "locked"), 0o755)
+			_ = os.RemoveAll(modulePath)
+		})
+
+		_, err := Unpack(t.Context(), UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(unpackDir),
+		})
+		if err == nil {
+			t.Fatal("Unpack() expected validation error, got nil")
+		}
+		if _, statErr := os.Stat(modulePath); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("rejected module path still exists: %v", statErr)
 		}
 	})
 

@@ -893,7 +893,7 @@ modules: {
         module_id:        "io.example.common"
         namespace:        "common"
         command_source_id: "common"
-        content_hash:     "sha256:a1b2c3d4e5f6..."
+        content_hash:     "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }
 }`,
   },

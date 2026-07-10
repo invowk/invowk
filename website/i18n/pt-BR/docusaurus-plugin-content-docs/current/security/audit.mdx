@@ -115,7 +115,7 @@ Percorre diretórios de módulos verificando ataques de escape via symlinks.
 Analisa cadeias de dependências e metadados de módulos em busca de riscos na cadeia de suprimentos.
 
 **Detecta:**
-- **Typosquatting**: Nomes de módulos similares a módulos populares (distância de Levenshtein)
+- **Typosquatting**: IDs de módulos similares a outro ID de módulo no scan atual (distância de Levenshtein)
 - **Fan-out**: Módulos com quantidade excessiva de dependências
 - **Versões não fixadas**: Dependências sem versões fixadas
 - **Deps transitivas não declaradas**: Dependências requeridas por sub-dependências mas não declaradas no `invowkmod.cue` raiz
@@ -125,15 +125,23 @@ Analisa cadeias de dependências e metadados de módulos em busca de riscos na c
 
 ## Detecção de Ameaças Compostas
 
-O correlacionador identifica quando achados de diferentes checkers aparecem na mesma superfície de ataque, indicando ameaças coordenadas:
+O correlacionador identifica combinações específicas na mesma superfície de
+ataque. Quatro regras combinam checkers diferentes; a travessia de interpretador
+combina duas categorias do próprio checker de Script:
 
-| Ameaça Composta | Checkers Envolvidos | Severidade |
-|-----------------|---------------------|------------|
-| **Exfiltração de credenciais** | Env + Network | Crítica |
-| **Escape path + symlink** | Script + Symlink | Crítica |
-| **Exfiltração ofuscada** | Script + Network | Crítica |
-| **Fraqueza na cadeia de confiança** | Module Metadata + Lock File | Alta |
-| **Travessia de interpretador** | Execução de script + path traversal | Crítica |
+| Ameaça Composta | Achados Obrigatórios | Severidade |
+|-----------------|----------------------|------------|
+| **Exfiltração de credenciais** | Checker de Env + checker de Network | Crítica |
+| **Escape path + symlink** | Checker de Script + checker de Symlink | Crítica |
+| **Exfiltração ofuscada** | Script/`obfuscation` + Network/`exfiltration` | Crítica |
+| **Fraqueza na cadeia de confiança** | Um código de confiança do grafo de dependências de Module Metadata + um código de integridade ausente, obsoleto ou divergente de Lock File | Alta |
+| **Travessia de interpretador** | Script/`execution` + Script/`path-traversal` | Crítica |
+
+A regra de cadeia de confiança aceita apenas os códigos de metadados para fan-out
+amplo, dependências transitivas não declaradas ou módulos vendorizados ausentes de
+`requires`. No lado do lock file, aceita os códigos definidos para lock ausente,
+v1 legado, entrada ausente, módulo vendorizado não verificável ou divergência de
+content hash; achados não relacionados desses checkers não ativam a regra.
 
 **Escalação automática de severidade:**
 - 3+ categorias distintas na mesma superfície &rarr; **Crítica**
@@ -186,7 +194,13 @@ Os checkers integrados usam padrões regex — são rápidos e determinísticos 
 
 ### Configuração
 
-O checker LLM funciona com servidores compatíveis com OpenAI que oferecem chat completions e listagem de modelos, porque o invowk verifica o modelo configurado antes de escanear. A configuração padrão usa o [Ollama](https://ollama.com), o servidor LLM local mais popular:
+O checker LLM com backend de API funciona com servidores compatíveis com OpenAI
+que oferecem chat completions e listagem de modelos. O Invowk sempre verifica o
+modelo configurado de um backend HTTP/API pelo endpoint `/models` antes de
+escanear; uma falha de listagem ou verificação encerra a auditoria com status 2.
+Provedores CLI de Claude, Codex e Gemini delegam o tratamento do modelo à
+ferramenta CLI. A configuração de API padrão usa o [Ollama](https://ollama.com),
+o servidor LLM local mais popular:
 
 ```bash
 # 1. Instalar Ollama com seu gerenciador de pacotes ou por https://ollama.com
@@ -262,7 +276,9 @@ Quando `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` ou `GOOGLE_API_KE
 
 ### Auto-Detecção de Modelo
 
-Quando `--llm` está habilitado, o invowk verifica se o modelo configurado está disponível no servidor antes de escanear. Se o modelo não for encontrado, ele mostra:
+Para todo backend HTTP/API selecionado, o Invowk lista os modelos e verifica o
+modelo configurado antes de escanear. Se o endpoint falhar, a auditoria termina
+com status 2. Se o modelo não for encontrado, o Invowk mostra:
 
 - A lista de modelos disponíveis no servidor
 - Uma sugestão do melhor modelo focado em código (detectado dinamicamente por correspondência de padrões)
@@ -282,7 +298,7 @@ A detecção reconhece famílias de modelos focados em código (`qwen2.5-coder`,
 ### Como Funciona
 
 O checker LLM:
-1. **Verifica** se o modelo configurado existe no servidor (com sugestões se não)
+1. **Verifica** pelo endpoint obrigatório de listagem se um backend HTTP/API possui o modelo configurado (com sugestões se não); provedores CLI delegam o tratamento do modelo à sua ferramenta
 2. **Resolve** conteúdo de scripts inline e baseados em arquivo, depois filtra scripts vazios
 3. **Agrupa** scripts por contagem de caracteres (~6000 chars) e quantidade (máx 5 por lote)
 4. **Envia** cada lote ao LLM com um prompt de sistema de analista de segurança
@@ -294,8 +310,8 @@ Quando a análise LLM é solicitada explicitamente, falhas do checker LLM são e
 
 Achados do LLM participam da detecção de ameaças compostas pelo mesmo pipeline de correlação dos achados integrados. Eles podem contribuir para resultados **Críticos** quando uma regra nomeada também corresponde (por exemplo, acesso a variáveis de ambiente sensíveis junto com acesso de rede) ou quando condições genéricas de escalonamento são atendidas, como um achado de alta severidade junto com qualquer outro achado ou três categorias distintas na mesma superfície.
 
-:::caution O conteúdo dos scripts é enviado ao servidor configurado
-Quando `--llm` está habilitado, o conteúdo dos scripts dos seus invowkfiles e módulos é enviado ao endpoint de API configurado. Para servidores locais (Ollama, LM Studio), os dados permanecem na sua máquina. Para APIs em nuvem, revise as políticas de tratamento de dados do seu provedor.
+:::caution O conteúdo dos scripts é enviado ao backend LLM selecionado
+Tanto `--llm` quanto `--llm-provider` habilitam a análise do conteúdo dos scripts dos seus invowkfiles e módulos. Backends de API o recebem por HTTP; provedores CLI de Claude, Codex e Gemini o recebem pelo subprocesso da ferramenta selecionada e podem encaminhá-lo conforme o comportamento dessa ferramenta. Servidores de API locais mantêm o payload HTTP na sua máquina. Para APIs em nuvem e provedores CLI, revise as políticas de tratamento de dados do provedor e da ferramenta.
 :::
 
 ## Integração com CI

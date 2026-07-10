@@ -304,7 +304,7 @@ Controla como entradas nomeadas em `allowed_binaries` são resolvidas. `host` us
 **Tipo:** inteiro não negativo (`int & >=0`) / string de tamanho em bytes
 **Disponível para:** `virtual-lua`
 
-Limites opcionais de execução do golua. Omita ou defina `cpu_limit: 0` / `memory_limit` vazia para não aplicar quota explícita.
+Limites opcionais de execução do golua. Omita qualquer um dos campos para não aplicar quota explícita; `cpu_limit: 0` também significa ilimitado. Uma `memory_limit` explicitamente vazia é inválida.
 
 ### enable_host_ssh
 
@@ -542,6 +542,27 @@ Padrões glob adicionais para arquivos/diretórios a excluir do monitoramento. M
 <Snippet id="reference/invowkfile/duration-string-type" />
 
 Tipo compartilhado usado por [`#Implementation.timeout`](#timeout) e [`#WatchConfig.debounce`](#debounce). Exemplos válidos: `"500ms"`, `"30s"`, `"5m"`, `"1h30m"`, `"2.5s"`.
+
+---
+
+## Limites de Comprimento de Strings
+
+Os limites de strings são medidos em pontos de código Unicode (runes), não em
+bytes. O schema aplica estes máximos além dos padrões e regras descritos acima:
+
+| Máximo de runes | Campos |
+|---:|---|
+| 32 | `runtime.memory_limit`, `implementation.timeout`, `watch.debounce` |
+| 128 | `runtime.persistent.name` |
+| 256 | `name` e `category` de comando; `name` de flag/argumento; alternativas de ferramenta; referências simples de dependência de comando; `name` de verificação customizada; entradas allow/deny de herança de ambiente; entradas de porta do container; nomes lógicos do filesystem virtual |
+| 512 | `image` do container |
+| 514 | referências de dependência de comando qualificadas por origem |
+| 1.000 | padrões de validação de flag/argumento/ambiente; `expected_output` de verificação customizada |
+| 1.024 | `default_shell` raiz; `interpreter` de script |
+| 4.096 | `workdir` raiz/comando/implementação; entradas de arquivo de ambiente; `allowed_binaries` virtual; `containerfile` e entradas de volume; `file` de script; alternativas de dependência de filepath; valores padrão de flag/argumento; padrões de watch/ignore; valores de caminho do filesystem virtual |
+| 10.240 | descrições de comando, flag e argumento |
+| 32.768 | valores de variáveis de ambiente |
+| 10.485.760 | `content` de script inline |
 
 ---
 

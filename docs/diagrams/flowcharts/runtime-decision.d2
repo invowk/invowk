@@ -187,7 +187,7 @@ PersistentExec: Exec in persistent container {
 }
 
 Dispatch -> ContainerAvailable: container
-ContainerAvailable -> PrepareContainer: Yes
+ContainerAvailable -> ValidateImage: Yes
 ContainerAvailable -> ErrContainer: No
 
 ValidateImage: Supported image? {
@@ -199,17 +199,22 @@ ErrUnsupportedImage: Error: unsupported image\n(Alpine/Windows) {
   style.fill: "#FFCDD2"
 }
 
+ValidateImage -> PrepareContainer: Yes
 PrepareContainer -> PersistentRequested
 PersistentRequested -> PersistentExists: Yes
-PersistentRequested -> ValidateImage: No
-PersistentExists -> PersistentExec: Exists
+PersistentRequested -> ImageSource: No
+PersistentExists -> InjectSSH: Exists
 PersistentExists -> CreateIfMissing: Missing
 CreateIfMissing -> ErrPersistentMissing: No
-CreateIfMissing -> ValidateImage: Yes
+CreateIfMissing -> ImageSource: Yes
 
 ValidateImage -> ErrUnsupportedImage: No
 
 ImageSource: Image source? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+ForceRebuild: Force rebuild? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
@@ -218,25 +223,25 @@ ImageExists: Image exists locally? {
   style.fill: "#FFF3E0"
 }
 BuildImage: Build from Containerfile
-PullImage: Pull image from registry
 UseImage: Use selected image
 AddLayer: Add ephemeral invowk layer
-InjectSSH: Inject SSH tokens + env vars\n(if SSH server active) {
+InjectSSH: Build common env + inject SSH tokens\n(if SSH server active) {
   style.fill: "#BBDEFB"
 }
 ContainerRun: Run in container {
   style.fill: "#C8E6C9"
 }
 
-ValidateImage -> ImageSource: Yes
-ImageSource -> ImageExists: image
-ImageSource -> BuildImage: containerfile
+ImageSource -> UseImage: image
+ImageSource -> ForceRebuild: containerfile
+ForceRebuild -> BuildImage: Yes
+ForceRebuild -> ImageExists: No
 ImageExists -> UseImage: Yes
-ImageExists -> PullImage: No
+ImageExists -> BuildImage: No
 BuildImage -> UseImage
-PullImage -> UseImage
 UseImage -> AddLayer
 AddLayer -> InjectSSH
+InjectSSH -> PersistentExec: existing persistent target
 InjectSSH -> CreatePersistent: persistent create_if_missing
 InjectSSH -> ContainerRun: ephemeral
 CreatePersistent -> PersistentExec

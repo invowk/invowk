@@ -12,10 +12,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
+)
+
+const (
+	defaultExtractedDirectoryMode os.FileMode = 0o755
+	legacyExtractedDirectoryMode  os.FileMode = 0o666
+	zipCreatorPlatformShift                   = 8
 )
 
 var (
@@ -148,9 +155,20 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 		zipPath = filepath.ToSlash(zipPath)
 
 		if d.IsDir() {
-			// Add directory entry
 			if relPath != "." {
-				_, createErr := zipWriter.Create(zipPath + "/")
+				dirInfo, infoErr := d.Info()
+				if infoErr != nil {
+					return fmt.Errorf("failed to get directory info: %w", infoErr)
+				}
+
+				header, headerErr := zip.FileInfoHeader(dirInfo)
+				if headerErr != nil {
+					return fmt.Errorf("failed to create directory header: %w", headerErr)
+				}
+				header.Name = zipPath + "/"
+				header.Method = zip.Store
+
+				_, createErr := zipWriter.CreateHeader(header)
 				if createErr != nil {
 					return fmt.Errorf("failed to create directory entry: %w", createErr)
 				}
@@ -249,19 +267,30 @@ func Unpack(ctx context.Context, opts UnpackOptions) (result UnpackResult, err e
 	if err != nil {
 		return UnpackResult{}, err
 	}
-
-	if extractErr := extractModuleFiles(zipReader.File, moduleRoot, absDestDir); extractErr != nil {
-		return UnpackResult{}, extractErr
+	modulePathValue := types.FilesystemPath(modulePath)
+	if pathErr := modulePathValue.Validate(); pathErr != nil {
+		return UnpackResult{}, fmt.Errorf("module destination path: %w", pathErr)
 	}
 
-	mod, err := validateExtractedModule(modulePath)
+	directories, extractErr := extractModuleFiles(zipReader.File, moduleRoot, absDestDir)
+	if extractErr != nil {
+		return UnpackResult{}, cleanupUnpackFailure(modulePathValue, directories, extractErr)
+	}
+
+	mod, err := validateExtractedModule(modulePathValue)
 	if err != nil {
-		_ = os.RemoveAll(modulePath)
-		return UnpackResult{}, fmt.Errorf("extracted module is invalid: %w", err)
+		validationErr := fmt.Errorf("extracted module is invalid: %w", err)
+		return UnpackResult{}, cleanupUnpackFailure(modulePathValue, directories, validationErr)
+	}
+	if restoreErr := restoreExtractedDirectoryModes(directories); restoreErr != nil {
+		return UnpackResult{}, cleanupUnpackFailure(modulePathValue, directories, restoreErr)
 	}
 
-	modulePathValue := types.FilesystemPath(modulePath) //goplint:ignore -- validated by validateExtractedModule.
-	return NewUnpackResult(modulePathValue, mod.Name())
+	result, resultErr := NewUnpackResult(modulePathValue, mod.Name())
+	if resultErr != nil {
+		return UnpackResult{}, cleanupUnpackFailure(modulePathValue, directories, resultErr)
+	}
+	return result, nil
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
@@ -360,20 +389,116 @@ func prepareModuleDestination(absDestDir, moduleRoot string, overwrite bool) (st
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
-func extractModuleFiles(files []*zip.File, moduleRoot, absDestDir string) error {
+func extractModuleFiles(files []*zip.File, moduleRoot, absDestDir string) (map[types.FilesystemPath]os.FileMode, error) {
+	directories := make(map[types.FilesystemPath]os.FileMode)
 	for _, file := range files {
 		cleanPath, err := normalizeZIPPath(file.Name)
 		if err != nil {
-			return err
+			return directories, err
 		}
 		if cleanPath != moduleRoot && !strings.HasPrefix(cleanPath, moduleRoot+"/") {
 			continue
 		}
+		if file.FileInfo().IsDir() {
+			destPath, directoryMode, prepareErr := prepareExtractedDirectory(file, cleanPath, absDestDir)
+			if prepareErr != nil {
+				return directories, prepareErr
+			}
+			directories[destPath] = directoryMode
+			continue
+		}
 		if err := extractSingleEntry(file, cleanPath, absDestDir); err != nil {
-			return err
+			return directories, err
+		}
+	}
+	return directories, nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func prepareExtractedDirectory(file *zip.File, cleanPath, absDestDir string) (types.FilesystemPath, os.FileMode, error) {
+	destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
+	if err := validateDestinationPath(absDestDir, destPath, file.Name); err != nil {
+		return "", 0, err
+	}
+
+	directoryMode := file.Mode().Perm()
+	// Older Invowk archives used zip.Writer.Create for directories, leaving the
+	// creator platform and external attributes unset. Distinguish that legacy
+	// signature from an explicitly authored Unix directory with mode 0666.
+	if directoryMode == legacyExtractedDirectoryMode &&
+		file.CreatorVersion>>zipCreatorPlatformShift == 0 &&
+		file.ExternalAttrs == 0 {
+		directoryMode = defaultExtractedDirectoryMode
+	}
+	temporaryMode := directoryMode | 0o700
+	if err := os.MkdirAll(filepath.Dir(destPath), defaultExtractedDirectoryMode); err != nil {
+		return "", 0, fmt.Errorf("failed to create parent directory: %w", err)
+	}
+	if err := os.Mkdir(destPath, temporaryMode); err != nil && !errors.Is(err, os.ErrExist) {
+		return "", 0, fmt.Errorf("failed to create directory: %w", err)
+	}
+	dirInfo, statErr := os.Stat(destPath)
+	if statErr != nil {
+		return "", 0, fmt.Errorf("failed to inspect directory: %w", statErr)
+	}
+	if !dirInfo.IsDir() {
+		return "", 0, fmt.Errorf("failed to create directory: path is not a directory: %s", destPath)
+	}
+	// MkdirAll does not update a directory created implicitly by an earlier file entry.
+	if err := os.Chmod(destPath, temporaryMode); err != nil {
+		return "", 0, fmt.Errorf("failed to prepare directory permissions: %w", err)
+	}
+	directoryPath := types.FilesystemPath(destPath)
+	if err := directoryPath.Validate(); err != nil {
+		return "", 0, fmt.Errorf("failed to validate extracted directory path: %w", err)
+	}
+	return directoryPath, directoryMode, nil
+}
+
+func restoreExtractedDirectoryModes(directories map[types.FilesystemPath]os.FileMode) error {
+	paths := make([]types.FilesystemPath, 0, len(directories))
+	for directoryPath := range directories {
+		paths = append(paths, directoryPath)
+	}
+	// Restore children before parents so restrictive parent modes cannot block traversal.
+	sort.Slice(paths, func(i, j int) bool {
+		return strings.Count(string(paths[i]), string(filepath.Separator)) > strings.Count(string(paths[j]), string(filepath.Separator))
+	})
+	for _, directoryPath := range paths {
+		if err := os.Chmod(string(directoryPath), directories[directoryPath]); err != nil {
+			return fmt.Errorf("failed to restore directory permissions: %w", err)
 		}
 	}
 	return nil
+}
+
+func cleanupExtractedModule(modulePath types.FilesystemPath, directories map[types.FilesystemPath]os.FileMode) error {
+	paths := make([]types.FilesystemPath, 0, len(directories))
+	for directoryPath := range directories {
+		paths = append(paths, directoryPath)
+	}
+	// Regrant parent access before children so cleanup can traverse restrictive trees.
+	sort.Slice(paths, func(i, j int) bool {
+		return strings.Count(string(paths[i]), string(filepath.Separator)) < strings.Count(string(paths[j]), string(filepath.Separator))
+	})
+	var cleanupErrs []error
+	for _, directoryPath := range paths {
+		if err := os.Chmod(string(directoryPath), directories[directoryPath]|0o700); err != nil && !errors.Is(err, os.ErrNotExist) {
+			cleanupErrs = append(cleanupErrs, fmt.Errorf("failed to restore cleanup access for %s: %w", directoryPath, err))
+		}
+	}
+	if err := os.RemoveAll(string(modulePath)); err != nil {
+		cleanupErrs = append(cleanupErrs, fmt.Errorf("failed to remove partial module: %w", err))
+	}
+	return errors.Join(cleanupErrs...)
+}
+
+func cleanupUnpackFailure(modulePath types.FilesystemPath, directories map[types.FilesystemPath]os.FileMode, cause error) error {
+	cleanupErr := cleanupExtractedModule(modulePath, directories)
+	if cleanupErr == nil {
+		return cause
+	}
+	return errors.Join(cause, fmt.Errorf("failed to clean up rejected module: %w", cleanupErr))
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
@@ -381,13 +506,6 @@ func extractSingleEntry(file *zip.File, cleanPath, absDestDir string) error {
 	destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
 	if err := validateDestinationPath(absDestDir, destPath, file.Name); err != nil {
 		return err
-	}
-
-	if file.FileInfo().IsDir() {
-		if err := os.MkdirAll(destPath, file.Mode()); err != nil {
-			return fmt.Errorf("failed to create directory: %w", err)
-		}
-		return nil
 	}
 
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
@@ -412,12 +530,11 @@ func validateDestinationPath(root, candidate, value string) error {
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native module paths.
-func validateExtractedModule(modulePath string) (*invowkmod.Module, error) {
-	modLoadPath := types.FilesystemPath(modulePath)
-	if err := modLoadPath.Validate(); err != nil {
+func validateExtractedModule(modulePath types.FilesystemPath) (*invowkmod.Module, error) {
+	if err := modulePath.Validate(); err != nil {
 		return nil, fmt.Errorf("extracted module path: %w", err)
 	}
-	mod, err := invowkmod.Load(modLoadPath)
+	mod, err := invowkmod.Load(modulePath)
 	if err != nil {
 		return nil, err
 	}

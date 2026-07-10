@@ -115,7 +115,7 @@ Walks module directories checking for symlink-based escape attacks.
 Analyzes module dependency chains and metadata for supply-chain risks.
 
 **Detects:**
-- **Typosquatting**: Module names similar to popular modules (Levenshtein distance)
+- **Typosquatting**: Module IDs similar to another module ID in the current scan (Levenshtein distance)
 - **Fan-out**: Modules with excessive dependency counts
 - **Missing version pins**: Dependencies without pinned versions
 - **Undeclared transitive deps**: Dependencies required by sub-dependencies but not declared in root `invowkmod.cue`
@@ -125,15 +125,23 @@ Analyzes module dependency chains and metadata for supply-chain risks.
 
 ## Compound Threat Detection
 
-The correlator identifies when findings from different checkers appear in the same attack surface, indicating coordinated threats:
+The correlator identifies specific combinations in the same attack surface. Four
+rules combine different checkers; interpreter traversal combines two categories
+from the Script checker itself:
 
-| Compound Threat | Checkers Involved | Severity |
+| Compound Threat | Required Findings | Severity |
 |----------------|-------------------|----------|
-| **Credential exfiltration** | Env + Network | Critical |
-| **Path + symlink escape** | Script + Symlink | Critical |
-| **Obfuscated exfiltration** | Script + Network | Critical |
-| **Trust chain weakness** | Module Metadata + Lock File | High |
-| **Interpreter traversal** | Script execution + path traversal | Critical |
+| **Credential exfiltration** | Env checker + Network checker | Critical |
+| **Path + symlink escape** | Script checker + Symlink checker | Critical |
+| **Obfuscated exfiltration** | Script/`obfuscation` + Network/`exfiltration` | Critical |
+| **Trust chain weakness** | One dependency-graph trust code from Module Metadata + one missing, stale, or mismatched integrity code from Lock File | High |
+| **Interpreter traversal** | Script/`execution` + Script/`path-traversal` | Critical |
+
+The trust-chain rule accepts only the module-metadata codes for wide dependency
+fan-out, undeclared transitive dependencies, or vendored modules missing from
+`requires`. Its lock-file side accepts the defined missing-lock, legacy-v1,
+missing-entry, unverifiable-vendored, or content-hash-mismatch integrity codes;
+unrelated findings from those checkers do not trigger the rule.
 
 **Automatic severity escalation:**
 - 3+ distinct security categories in the same surface &rarr; **Critical**
@@ -186,7 +194,13 @@ Built-in checkers use regex patterns — they are fast and deterministic but can
 
 ### Setup
 
-The LLM checker works with OpenAI-compatible servers that provide chat completions and model listing, because invowk verifies the configured model before scanning. The default configuration targets [Ollama](https://ollama.com), the most popular local LLM server:
+The API-backed LLM checker works with OpenAI-compatible servers that provide
+both chat completions and model listing. Invowk always verifies an HTTP/API
+backend's configured model through its `/models` endpoint before scanning; a
+listing or verification failure aborts the audit with exit status 2. CLI-backed
+Claude, Codex, and Gemini providers delegate model handling to their CLI. The
+default API configuration targets [Ollama](https://ollama.com), the most popular
+local LLM server:
 
 ```bash
 # 1. Install Ollama from your package manager or https://ollama.com
@@ -262,7 +276,9 @@ When `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY
 
 ### Model Auto-Detection
 
-When `--llm` is enabled, invowk verifies the configured model is available on the server before scanning. If the model is not found, it shows:
+For every selected HTTP/API backend, Invowk lists models and verifies the
+configured model before scanning. If the endpoint fails, the audit stops with
+exit status 2. If the model is not found, Invowk shows:
 
 - The list of available models on the server
 - A suggestion for the best code-focused alternative (detected dynamically by pattern matching)
@@ -282,7 +298,7 @@ The detection recognizes code-focused model families (`qwen2.5-coder`, `deepseek
 ### How It Works
 
 The LLM checker:
-1. **Verifies** the configured model exists on the server (with suggestions if not)
+1. **Verifies** through the required model-list endpoint that an HTTP/API backend has the configured model (with suggestions if not); CLI providers delegate model handling to their CLI
 2. **Resolves** inline and file-based script content, then filters out empty scripts
 3. **Batches** scripts by character count (~6000 chars) and count (max 5 per batch)
 4. **Sends** each batch to the LLM with a security analyst system prompt
@@ -294,8 +310,8 @@ When LLM analysis is explicitly requested, LLM checker failures are fatal scan e
 
 LLM findings participate in compound threat detection through the same correlator pipeline as built-in findings. They can contribute to **Critical** results when a named rule also matches (for example, sensitive environment-variable access plus network access) or when generic escalation conditions are met, such as a high-severity finding plus any other finding or three distinct categories on the same surface.
 
-:::caution Script content is sent to the configured server
-When `--llm` is enabled, script content from your invowkfiles and modules is sent to the configured API endpoint. For local servers (Ollama, LM Studio), data stays on your machine. For cloud APIs, review your provider's data handling policies.
+:::caution Script content is sent to the selected LLM backend
+Both `--llm` and `--llm-provider` enable analysis of script content from your invowkfiles and modules. API backends receive it over HTTP; CLI-backed Claude, Codex, and Gemini providers receive it through the selected CLI subprocess and may forward it according to that tool's behavior. Local API servers keep the HTTP payload on your machine. For cloud APIs and CLI providers, review the provider and tool data-handling policies.
 :::
 
 ## CI Integration

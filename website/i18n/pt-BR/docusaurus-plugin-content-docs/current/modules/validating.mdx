@@ -33,7 +33,7 @@ Saída para um módulo válido com um invowkfile:
 
 ### Checagens de Compatibilidade
 
-- **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` geram um aviso de compatibilidade. Esses nomes são reservados no Windows e podem causar problemas ao extrair módulos em sistemas Windows.
+- **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` criam um problema de validação de compatibilidade. O módulo é inválido e `invowk validate` termina com status 1 porque esses nomes não podem ser extraídos de modo confiável no Windows.
 
 ### Checagens de Nomenclatura
 

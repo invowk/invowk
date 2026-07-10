@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Environment Variable Dependencies
 
-Environment variable dependencies verify that required environment variables exist before your command runs. They're checked **first**, before any other dependencies, against the user's actual environment.
+Environment variable dependencies verify that required environment variables exist before your command runs. Root-, command-, and implementation-level checks run against the user's captured host environment. Checks declared inside the selected container runtime configuration run inside the container.
 
 ## Basic Usage
 
@@ -52,7 +52,7 @@ Invalid Environment Variables:
 
 ## Validation Order
 
-Environment variables are checked **first**, before all other dependencies:
+Within each dependency-validation phase, environment variables are checked **first**:
 
 1. **env_vars** ← Checked first!
 2. tools
@@ -61,7 +61,7 @@ Environment variables are checked **first**, before all other dependencies:
 5. custom_checks
 6. cmds
 
-This ensures you're validating against the user's actual environment, not variables set by Invowk™'s `env` construct.
+For host-level dependencies, this validates the user's actual environment before variables from Invowk™'s `env` construct are applied. The container-runtime phase uses the selected container's environment instead.
 
 ## Real-World Examples
 
@@ -113,13 +113,13 @@ Combine multiple env var checks (AND logic):
 
 <Snippet id="dependencies/env-vars-multiple" />
 
-## Important: User Environment Only
+## Check Context
 
-Environment variable dependencies check the **user's environment**, not variables set by Invowk:
+Root-, command-, and implementation-level environment dependencies check the **user's host environment**, not variables set by Invowk:
 
 <Snippet id="dependencies/env-vars-user-env" />
 
-This is intentional - you're validating what the user has configured, not what your command will set.
+This is intentional: those checks validate what the user configured, not what the command will set. An `env_vars` dependency inside the selected container runtime configuration is different—it is checked inside the container against the runtime environment.
 
 ## Best Practices
 

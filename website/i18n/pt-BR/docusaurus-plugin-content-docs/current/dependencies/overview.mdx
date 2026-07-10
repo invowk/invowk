@@ -49,7 +49,8 @@ Se **qualquer** alternativa for encontrada, a dependência é satisfeita. O Invo
 
 ## Ordem de Validação
 
-Dependências são validadas nesta ordem:
+As dependências de host dos escopos raiz, comando e implementação são mescladas
+e validadas nesta ordem:
 
 1. **env_vars** - Variáveis de ambiente (verificadas primeiro!)
 2. **tools** - Binários no PATH
@@ -58,11 +59,20 @@ Dependências são validadas nesta ordem:
 5. **custom_checks** - Scripts de validação personalizados
 6. **cmds** - Outros comandos Invowk
 
-Variáveis de ambiente são validadas primeiro, antes do Invowk definir qualquer ambiente no nível do comando. Isso garante que você está verificando o ambiente real do usuário.
+Nesta fase de host, as variáveis de ambiente são verificadas contra o ambiente do
+usuário capturado no início da execução, antes de o Invowk aplicar valores de
+ambiente no nível do comando.
+
+Se o runtime selecionado for container e declarar `depends_on`, o Invowk executa
+uma segunda fase dentro do container na mesma ordem: variáveis de ambiente,
+ferramentas, filepaths, capacidades, verificações customizadas e comandos. A
+primeira verificação que falhar encerra sua fase.
 
 ## Níveis de Escopo
 
-Dependências podem ser declaradas em três níveis:
+As dependências de host podem ser declaradas em três níveis. Um quarto escopo,
+separado, está disponível no runtime container e é descrito em
+[Dependências do Runtime Container](#dependências-do-runtime-container).
 
 ### Nível Raiz (Global)
 

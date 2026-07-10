@@ -12,7 +12,7 @@ Capability dependencies verify that required system capabilities are available b
 
 | Capability | Description |
 |------------|-------------|
-| `local-area-network` | Checks for LAN connectivity |
+| `local-area-network` | Detects an active non-loopback interface with a routable IP address |
 | `internet` | Checks for internet connectivity |
 | `containers` | Checks that Docker or Podman is installed and responding |
 | `tty` | Checks that Invowk is running in an interactive TTY |
@@ -51,14 +51,15 @@ This checks:
 
 ## Local Area Network
 
-Check for LAN connectivity:
+Check for LAN availability:
 
 <Snippet id="dependencies/capabilities-lan" />
 
 This checks:
-- Network interface is up
-- Can communicate on local network
-- Useful for on-premise services
+- An active, non-loopback network interface exists
+- The interface has a routable IP address
+
+It does not send traffic or prove that a particular LAN service is reachable.
 
 ### Use Cases
 

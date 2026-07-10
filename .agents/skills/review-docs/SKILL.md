@@ -114,10 +114,10 @@ Quick Start, or getting-started sections.
 `invowk audit` command. Source of truth is `cmd/invowk/audit.go`, `cmd/invowk/llm_flags.go`,
 `internal/audit/`, `internal/auditllm/`, and `internal/app/llmconfig/`.
 
-### S10: LLM-Assisted Command Authoring Docs
+### S10: LLM-Assisted Agent Authoring Docs
 
 `website/docs/advanced/llm-assisted-authoring.mdx`, README LLM authoring sections, and related
-snippets document `invowk agent cmd`. Source of truth is `cmd/invowk/agent.go`,
+snippets document `invowk agent cmd` and `invowk agent mod`. Source of truth is `cmd/invowk/agent.go`,
 `internal/agentcmd/`, shared LLM flags, and the LLM config resolver.
 
 ### S11: Agent Workflow Docs
@@ -248,7 +248,7 @@ checklist review work assigned to any pending subagent.
 | **SA-7: Config Defaults vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of CUE-derived defaults vs 4 doc pages + snippets |
 | **SA-8: Homepage & Terminal Demo** | S8 | `intentional-simplifications.md`, `surface-checklists.md` §S8 | Verify simplifications are valid and syntax is not actively misleading |
 | **SA-9: Security Audit Docs** | S9 | `surface-checklists.md` §S9, `consolidated-sync-map.md` | Verify audit command flags, JSON shape, checker categories, correlator rules, LLM opt-in behavior, and snippets |
-| **SA-10: LLM-Assisted Command Authoring** | S10 | `surface-checklists.md` §S10, `consolidated-sync-map.md` | Verify `invowk agent cmd` docs, shared LLM flags/config, write modes, validation behavior, and snippets |
+| **SA-10: LLM-Assisted Agent Authoring** | S10 | `surface-checklists.md` §S10, `consolidated-sync-map.md` | Verify `invowk agent cmd` and `invowk agent mod` docs, shared LLM flags/config, write modes, validation behavior, and snippets |
 | **SA-11: Agent Workflow Docs** | S11 | `surface-checklists.md` §S11, `verification-commands.md` | Verify this workflow's command wrapper, docs skill references, AGENTS index text, and stale surface counts |
 
 #### Subagent Prompt Template

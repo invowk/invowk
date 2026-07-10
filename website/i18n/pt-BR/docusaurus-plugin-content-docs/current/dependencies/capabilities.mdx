@@ -12,7 +12,7 @@ Dependências de capacidades verificam se capacidades de sistema necessárias es
 
 | Capacidade | Descrição |
 |------------|-----------|
-| `local-area-network` | Verifica conectividade de rede local (LAN) |
+| `local-area-network` | Detecta uma interface ativa que não seja loopback e tenha um endereço IP roteável |
 | `internet` | Verifica conectividade com a internet |
 | `containers` | Verifica se Docker ou Podman está instalado e respondendo |
 | `tty` | Verifica se o Invowk está rodando em um TTY interativo |
@@ -51,14 +51,15 @@ Isso verifica:
 
 ## Rede Local (LAN)
 
-Verifique conectividade de rede local:
+Verifique a disponibilidade de rede local:
 
 <Snippet id="dependencies/capabilities-lan" />
 
 Isso verifica:
-- Interface de rede está ativa
-- Pode comunicar na rede local
-- Útil para serviços on-premise
+- Existe uma interface de rede ativa que não seja loopback
+- A interface possui um endereço IP roteável
+
+Essa verificação não envia tráfego nem prova que um serviço específico da LAN esteja acessível.
 
 ### Casos de Uso
 

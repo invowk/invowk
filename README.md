@@ -20,9 +20,13 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Multiple Command Sources**: Discover commands from:
   1. Current directory `invowkfile.cue` (highest priority)
-  2. Sibling `*.invowkmod` modules in current directory
+  2. Sibling `*.invowkmod` modules in the current directory
   3. Configured includes (module paths from config)
-  4. `~/.invowk/cmds/` (modules only, non-recursive)
+  4. Provisioned module entries supplied by the command adapter
+  5. Provisioned global-module entries supplied by the command adapter
+  6. `~/.invowk/cmds/` (modules only, non-recursive)
+
+  Module sources also expose their declared, locked first-level dependencies from `invowk_modules/`. Nested vendored dependencies are not traversed.
 
 - **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--ivk-from` flag to disambiguate
 
@@ -239,7 +243,7 @@ invowk agent mod remove io.example.tools --dry-run
 
 `agent cmd create|change` and `agent mod create|change` use the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. Create requires the caller-owned command name or module ID. Duplicate command names and existing module directories are rejected; use `change` to update existing targets. `remove` operations are deterministic and do not call an LLM.
 
-When an LLM-backed authoring command runs, Invowk sends the operation-specific system prompt and schemas, your request, the target path, current target content when changing, and repair feedback if validation retries. Command authoring accepts one command object whose `name` must match the requested name. Module authoring accepts only `invowkmod.cue` and `invowkfile.cue` content whose module ID must match the requested ID; it does not allow arbitrary generated script files. For cloud providers, review your provider's data handling policies before sending private scripts or workspace details.
+When an LLM-backed authoring command runs, Invowk sends the operation-specific system prompt and schemas, your request, the target path, the current invowkfile content when creating or changing a command in an existing file, current module content when changing a module, and repair feedback if validation retries. Command authoring accepts one command object whose `name` must match the requested name. Module authoring accepts only `invowkmod.cue` and `invowkfile.cue` content whose module ID must match the requested ID; it does not allow arbitrary generated script files. For cloud providers, review your provider's data handling policies before sending private scripts or workspace details.
 
 ## Invowkfile Format
 
@@ -258,7 +262,8 @@ cmds: [
 					echo "Building ${PROJECT_NAME}..."
 					echo "Build complete"
 					"""}
-				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
+				// Allowed runtimes. Selection uses the CLI override, a compatible configured
+				// default, then the first listed runtime as the command fallback.
 				runtimes: [
 					{name: "native"},
 					{name: "container", image: "debian:stable-slim"},
@@ -475,12 +480,17 @@ repository: "https://github.com/acme/mymodule.invowkmod"
 
 ### How Multi-Source Discovery Works
 
-When you run `invowk cmd` in a directory, invowk discovers commands from **4 sources** in priority order:
+When you run `invowk cmd` in a directory, invowk discovers commands from **6 sources** in priority order:
 
 1. **Root invowkfile**: `invowkfile.cue` in the current directory (highest priority)
-2. **Sibling modules**: All `*.invowkmod` directories at the same level (not their dependencies)
+2. **Sibling modules**: All `*.invowkmod` directories at the same level
 3. **Configured includes**: Module paths listed in `includes` in your config file
-4. **User directory**: `~/.invowk/cmds/` (modules only, non-recursive)
+4. **Provisioned modules**: Module entries supplied by the command adapter
+5. **Provisioned global modules**: Global module entries supplied by the command adapter
+6. **User directory**: `~/.invowk/cmds/` (modules only, non-recursive)
+
+For module sources, declared and locked first-level dependencies in `invowk_modules/`
+are also discovered. Vendored dependencies are not scanned recursively.
 
 Commands from all sources are aggregated and displayed with their **simple names**. The transparent namespace system means you don't need module prefixes unless there's a naming conflict.
 
@@ -2058,7 +2068,12 @@ Modules are automatically discovered and loaded from all configured sources:
 1. Current directory `invowkfile.cue` (highest priority)
 2. Sibling `*.invowkmod` modules in current directory
 3. Configured includes (module paths from config)
-4. `~/.invowk/cmds/` (modules only, non-recursive)
+4. Provisioned modules supplied by the command adapter
+5. Provisioned global modules supplied by the command adapter
+6. `~/.invowk/cmds/` (modules only, non-recursive)
+
+Each module source also exposes its declared and locked first-level vendored
+dependencies. Nested vendored dependencies are not discovered.
 
 When invowk discovers a module, it:
 - Validates the module structure and naming
@@ -2174,7 +2189,7 @@ modules: {
 		module_id:        "com.example.commontools"
 		namespace:        "com.example.commontools@1.2.3"
 		command_source_id: "com.example.commontools"
-		content_hash:     "sha256:a1b2c3d4e5f6..."
+		content_hash:     "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	}
 }
 ```
@@ -2308,6 +2323,24 @@ cmds: [
 		]
 	},
 ]
+```
+
+### Virtual-Lua Runtime
+
+Uses Invowk's embedded Lua interpreter for portable automation without requiring a host Lua installation. Virtual-lua shares the virtual runtime's path-validation, utility, and host-binary policies: host binaries are denied by default and must be named in `allowed_binaries`. It is not a process sandbox; use the container runtime when you need execution isolation.
+
+```cue
+cmds: [{
+	name: "build-report"
+	implementations: [{
+		script: {content: """
+			local total = 6 * 7
+			print("build result: " .. total)
+			"""}
+		runtimes: [{name: "virtual-lua"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
 ```
 
 ### Virtual Runtime Filesystem Access
@@ -3014,11 +3047,11 @@ After individual checkers run, the **correlator** cross-references findings from
 
 | Compound Threat | Trigger | Escalated Severity |
 |----------------|---------|-------------------|
-| Credential exfiltration | env access + network access | Critical |
-| Path + symlink escape | path traversal + external symlink | Critical |
-| Obfuscated exfiltration | obfuscation + network access | Critical |
-| Trust chain weakness | metadata issues + lock file issues | High |
-| Interpreter traversal | unusual interpreter + path traversal | Critical |
+| Credential exfiltration | Environment Checker finding + Network Checker finding | Critical |
+| Path + symlink escape | Script Checker finding + Symlink Checker finding | Critical |
+| Obfuscated exfiltration | Script `obfuscation` finding + network `exfiltration` finding | Critical |
+| Trust chain weakness | Wide/transitive/vendored-declaration metadata finding + missing, legacy, or mismatched lock-integrity finding | High |
+| Interpreter traversal | Script `execution` finding + script `path-traversal` finding | Critical |
 
 Additional automatic escalation rules:
 - 3+ distinct security categories in the same surface &rarr; **Critical**
@@ -3112,7 +3145,7 @@ llm: {
 | `qwen2.5-coder:32b` | 24 GB | Best (GPT-4o level for code) |
 | `deepseek-coder:33b` | 24 GB | Excellent for chain-of-thought reasoning |
 
-**Model auto-detection:** When `--llm` is enabled, invowk verifies the configured model is available on the server before scanning. If the model is not found, it shows the available models and suggests the best code-focused alternative (detected by pattern matching — `qwen2.5-coder`, `deepseek-coder`, `codellama`, etc.).
+**Model auto-detection:** For HTTP/API backends that support model listing, Invowk verifies the configured model before scanning. If the model is unavailable, it shows the available models and suggests the best code-focused alternative (detected by pattern matching — `qwen2.5-coder`, `deepseek-coder`, `codellama`, etc.). CLI-backed Claude, Codex, and Gemini providers delegate model selection to their CLI and do not perform this check.
 
 LLM findings flow through the same pipeline as built-in checker findings: they are filtered by `--severity`, rendered in text/JSON format, and cross-referenced by the correlator for compound threat detection.
 
@@ -3211,15 +3244,17 @@ invowk/
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── discovery/              # Invowkfile and module discovery
 │   ├── audit/                  # Security scanning (7 checkers + LLM + correlator)
-│   ├── auditllm/               # LLM provider adapters for audit analysis
+│   ├── auditllm/               # Shared LLM provider/API adapters for audit and agent authoring
 │   ├── agentcmd/               # LLM-assisted command and local-module authoring pipeline
-│   ├── llm/                    # Shared LLM completion interface and adapters
+│   ├── llm/                    # Neutral shared LLM completion contracts
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
+│   ├── provisionenv/           # Provisioning/discovery environment contract
 │   ├── runtime/                # Runtime implementations (native, virtual-sh, virtual-lua, container)
 │   ├── sshserver/              # SSH server for host access from containers
 │   ├── testutil/               # Test utilities
 │   ├── tui/                    # TUI component library and interactive execution
+│   ├── tuiclient/              # Child-process client for the TUI server
 │   ├── tuiwire/                # Shared TUI wire protocol types
 │   ├── tuiserver/              # TUI server for interactive sessions
 │   ├── uroot/                  # u-root utilities for virtual shell built-ins
@@ -3325,8 +3360,9 @@ The command writes reports to `.sonar/reports/` (quality-gate.json, issues.json)
 and fails if the Sonar quality gate is red for the analyzed branch or if
 SonarCloud reports unresolved issues.
 
-When pre-commit hooks are installed, the `sonar-local` hook runs on changes to
-Sonar configuration files and blocks the commit on quality gate failures.
+When pre-commit hooks are installed, the `sonar-local` hook runs on every
+pre-commit stage. It blocks the commit when the quality gate is red or SonarCloud
+reports unresolved issues.
 
 ## Contributing
 

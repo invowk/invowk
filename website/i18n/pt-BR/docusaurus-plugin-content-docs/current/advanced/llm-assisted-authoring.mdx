@@ -36,7 +36,7 @@ Veja [Opções de Configuração](../configuration/options#llm) para exemplos de
 `agent cmd create` exige `<name>` e falha se esse comando já existe; use `agent cmd change <name>` para atualizar um comando existente. `agent mod create` exige `<module-id>` e falha se `<module-id>.invowkmod` já existe; use `agent mod change <module-id-or-path>` para atualizar um módulo local existente. Use `--dry-run` para visualizar patches e `--print` para imprimir a saída gerada sem escrever. `--verify` valida o módulo escrito ou resolve o comando escrito com um plano de execução dry-run.
 
 :::caution O conteúdo do prompt é enviado ao provedor configurado
-Operações create/change com LLM enviam o system prompt e schemas de autoria gerados, além de um prompt de usuário contendo sua solicitação, o caminho de destino e o conteúdo atual do alvo ao alterar. Se o modelo retorna saída inválida, a tentativa de reparo também envia o erro de validação e a resposta anterior do modelo. Use um provedor local quando definições de comandos ou arquivos de módulo tiverem detalhes privados do projeto.
+Operações create/change com LLM enviam o system prompt e schemas de autoria gerados, além de um prompt de usuário contendo sua solicitação e o caminho de destino. Criar ou alterar um comando em um invowkfile existente também envia o conteúdo atual desse arquivo; alterar um módulo envia seus arquivos de módulo atuais. Se o modelo retorna saída inválida, a tentativa de reparo também envia o erro de validação e a resposta anterior do modelo. Use um provedor local quando definições de comandos ou arquivos de módulo tiverem detalhes privados do projeto.
 :::
 
 ## Validação

@@ -63,7 +63,6 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 | Dependency | Package | Usage |
 |------------|---------|-------|
 | **platform.DetectSandbox()** | `pkg/platform` | Returns `SandboxType` (None, Flatpak, Snap) used by `SandboxAwareEngine` to decide whether to prefix commands with host spawn. |
-| **issue.NewErrorContext()** | `internal/issue` | Creates actionable error contexts with operation name, resource, and user-facing suggestions for build/run failures. |
 | **os/exec** | stdlib | Underlying CLI execution. `exec.LookPath` finds engine binaries; `exec.CommandContext` runs them. Injected via `ExecCommandFunc` for testing. |
 
 ## Key Patterns

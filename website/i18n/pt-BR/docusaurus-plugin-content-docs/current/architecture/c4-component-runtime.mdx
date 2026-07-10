@@ -56,7 +56,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 |-------------|-----------|-----------|
 | `container.Engine` | ContainerRuntime | Abstração unificada de engine de container Docker/Podman |
 | `provision.LayerProvisioner` | ContainerRuntime | Cria camadas de imagem efêmeras com binário invowk e módulos |
-| `runtime.HostCallbackServer` | ContainerRuntime | Porta que fornece credenciais de callback do host baseadas em token para execuções em container; `internal/sshserver` adapta o servidor SSH concreto para essa porta |
+| `runtime.HostCallbackServer` | ContainerRuntime | Porta que fornece credenciais de callback do host baseadas em token para execuções em container; `internal/app/commandadapters` adapta o `sshserver.Server` concreto para essa porta |
 | `config.Config` | ContainerRuntime | Configuração da aplicação (preferência de engine de container, etc.) |
 | `mvdan.cc/sh/v3` | ShRuntime | Interpretador de shell POSIX embarcado |
 | `github.com/arnodel/golua` | LuaRuntime | Interpretador Lua embarcado |
@@ -119,7 +119,7 @@ Uma struct plana com mais de 15 campos seria mais difícil de testar e mais dif�
 
 ### Por que um Registry?
 
-O padrão Registry permite que a aplicação configure todos os runtimes uma vez na inicialização, e o pipeline de execução simplesmente pede um runtime por tipo. Adicionar um novo runtime significa registrá-lo -- sem mudanças no pipeline de execução.
+O padrão Registry mantém os construtores de runtime atrás do adapter de comando. Um registry preenchido e uma sessão de runtime são criados para cada execução de comando, então a inicialização e a limpeza de containers continuam limitadas à execução enquanto o pipeline simplesmente pede um runtime por tipo. Adicionar um novo runtime significa registrá-lo -- sem mudanças no pipeline de execução.
 
 ## Diagramas Relacionados
 

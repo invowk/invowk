@@ -6,7 +6,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Dependências de Variáveis de Ambiente
 
-Dependências de variáveis de ambiente verificam se variáveis de ambiente requeridas existem antes que seu comando seja executado. Elas são verificadas **primeiro**, antes de quaisquer outras dependências, contra o ambiente real do usuário.
+Dependências de variáveis de ambiente verificam se variáveis requeridas existem antes que seu comando seja executado. Verificações nos níveis raiz, comando e implementação usam o ambiente do host capturado do usuário. Verificações declaradas dentro da configuração do runtime container selecionado rodam dentro do container.
 
 ## Uso Básico
 
@@ -52,7 +52,7 @@ Invalid Environment Variables:
 
 ## Ordem de Validação
 
-Variáveis de ambiente são verificadas **primeiro**, antes de todas as outras dependências:
+Dentro de cada fase de validação de dependências, variáveis de ambiente são verificadas **primeiro**:
 
 1. **env_vars** ← Verificado primeiro!
 2. tools
@@ -61,7 +61,7 @@ Variáveis de ambiente são verificadas **primeiro**, antes de todas as outras d
 5. custom_checks
 6. cmds
 
-Isso garante que você está validando contra o ambiente real do usuário, não variáveis definidas pela construção `env` do Invowk™.
+Para dependências no host, isso valida o ambiente real do usuário antes de aplicar variáveis da construção `env` do Invowk™. A fase do runtime container usa o ambiente do container selecionado.
 
 ## Exemplos do Mundo Real
 
@@ -113,13 +113,13 @@ Combine múltiplas verificações de variáveis de ambiente (lógica E):
 
 <Snippet id="dependencies/env-vars-multiple" />
 
-## Importante: Apenas Ambiente do Usuário
+## Contexto da Verificação
 
-Dependências de variáveis de ambiente verificam o **ambiente do usuário**, não variáveis definidas pelo Invowk:
+Dependências de ambiente nos níveis raiz, comando e implementação verificam o **ambiente do host do usuário**, não variáveis definidas pelo Invowk:
 
 <Snippet id="dependencies/env-vars-user-env" />
 
-Isso é intencional - você está validando o que o usuário configurou, não o que seu comando vai definir.
+Isso é intencional: essas verificações validam o que o usuário configurou, não o que o comando vai definir. Uma dependência `env_vars` dentro da configuração do runtime container selecionado é diferente—ela é verificada dentro do container contra o ambiente de runtime.
 
 ## Melhores Práticas
 

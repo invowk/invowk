@@ -49,7 +49,8 @@ If **any** alternative is found, the dependency is satisfied. Invowk uses early 
 
 ## Validation Order
 
-Dependencies are validated in this order:
+Host dependencies from the root, command, and implementation scopes are merged
+and validated in this order:
 
 1. **env_vars** - Environment variables (checked first!)
 2. **tools** - Binaries in PATH
@@ -58,11 +59,19 @@ Dependencies are validated in this order:
 5. **custom_checks** - Custom validation scripts
 6. **cmds** - Other Invowk commands
 
-Environment variables are validated first, before Invowk sets any command-level environment. This ensures you're checking the user's actual environment.
+In this host phase, environment variables are checked against the user environment
+captured when execution starts, before Invowk applies command-level environment values.
+
+If the selected runtime is a container and it declares `depends_on`, Invowk then
+runs a second phase inside the container in the same order: environment variables,
+tools, filepaths, capabilities, custom checks, and commands. The first failed check
+stops its phase.
 
 ## Scope Levels
 
-Dependencies can be declared at three levels:
+Host dependencies can be declared at three levels. A fourth, separate scope is
+available on the container runtime and is described under
+[Container Runtime Dependencies](#container-runtime-dependencies).
 
 ### Root Level (Global)
 

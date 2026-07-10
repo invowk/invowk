@@ -120,7 +120,7 @@ Optionally pass a custom filename to write.
 
 - `default` - A `hello` command demonstrating the platform-split pattern across the built-in runtime options
 - `minimal` - Bare minimum invowkfile structure
-- `full` - Comprehensive template showing all features
+- `full` - Template demonstrating subcommands, flags, environment configuration, and command dependencies
 
 **Examples:**
 
@@ -525,14 +525,15 @@ With a path argument, auto-detects the target type:
 
 | Path | Validation |
 |------|-----------|
-| `*.invowkmod` directory | Module validation (structure + invowkfile parsing + command tree) |
+| `*.invowkmod` directory | Module validation (structure, plus invowkfile parsing and command tree when `invowkfile.cue` is present) |
 | `invowkfile.cue` file | Invowkfile validation (CUE schema + structural + command tree) |
 | Directory with `invowkfile.cue` | Invowkfile validation |
 | `invowkmod.cue` file | Module validation (parent directory) |
 
 :::tip
-`invowk validate` always performs deep validation on modules, including invowkfile parsing
-and command tree checks.
+`invowk validate` performs deep validation on module structure and metadata. When the
+module contains `invowkfile.cue`, it also parses that file and validates its command tree;
+library-only modules do not run those file-specific checks.
 :::
 
 **Examples:**
@@ -560,7 +561,6 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 | `--llm-model` | API/Ollama fallback: `qwen2.5-coder:7b`; CLI provider tool default when omitted | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
-| `--llm-concurrency` | `4` | Max parallel LLM requests |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
 
 `--llm` and `--llm-provider` are mutually exclusive. Use `--llm` for the configured/API backend and `--llm-provider` to force provider detection.
@@ -578,6 +578,8 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 Print operation-aware system prompts that LLM agents should use when authoring custom Invowk commands.
 
 <Snippet id="reference/cli/agent-prompt-syntax" />
+
+The optional `operation` is `create`, `change`, or `remove`. Omit it to print all three operation prompts.
 
 **Flags:**
 
@@ -606,7 +608,7 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--llm-model` | API/Ollama fallback: `qwen2.5-coder:7b`; CLI provider tool default when omitted | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
-| `--llm-concurrency` | `4` | Max parallel LLM requests |
+| `--llm-concurrency` | `2` | Max parallel LLM requests |
 
 ### invowk agent cmd change
 
@@ -635,6 +637,8 @@ Print operation-aware system prompts that LLM agents should use when authoring l
 
 <Snippet id="reference/cli/agent-mod-prompt-syntax" />
 
+The optional `operation` is `create`, `change`, or `remove`. Omit it to print all three operation prompts.
+
 **Flags:**
 
 | Flag | Default | Description |
@@ -662,6 +666,7 @@ Generate `invowkmod.cue` and `invowkfile.cue` for `<module-id>.invowkmod` with a
 | `--llm-model` | API/Ollama fallback: `qwen2.5-coder:7b`; CLI provider tool default when omitted | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
+| `--llm-concurrency` | `2` | Max parallel LLM requests |
 
 ### invowk agent mod change
 
@@ -683,7 +688,6 @@ Remove one validated local module directory without editing dependencies or lock
 |------|---------|-------------|
 | `--dry-run` | `false` | Print the deletion plan without removing the module |
 | `--force` | `false` | Delete the validated module directory |
-| `--llm-concurrency` | `2` | Max parallel LLM requests |
 
 Provide either description arguments or `--from-file`; they are mutually exclusive. `--llm` and `--llm-provider` are mutually exclusive. `--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`. Verification currently supports only the current directory target (`./invowkfile.cue`); combining `--verify` with `--file` for another path fails before the dry-run execution plan is resolved.
 

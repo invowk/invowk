@@ -33,7 +33,7 @@ Output for a valid module with an invowkfile:
 
 ### Compatibility Checks
 
-- **Windows reserved filenames**: Files named `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, or `LPT1`-`LPT9` will trigger a compatibility warning. These names are reserved on Windows and could cause issues when extracting modules on Windows systems.
+- **Windows reserved filenames**: Files named `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, or `LPT1`-`LPT9` create a compatibility validation issue. The module is invalid and `invowk validate` exits with status 1 because these names cannot be extracted reliably on Windows.
 
 ### Naming Checks
 

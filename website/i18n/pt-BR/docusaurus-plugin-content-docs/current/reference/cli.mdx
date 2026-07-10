@@ -120,7 +120,7 @@ Opcionalmente, passe um nome de arquivo customizado para gravar.
 
 - `default` - Um comando `hello` demonstrando o padrão de divisão por plataforma nas opções de runtime integradas
 - `minimal` - Estrutura mínima de invowkfile
-- `full` - Template abrangente mostrando todas as funcionalidades
+- `full` - Template que demonstra subcomandos, flags, configuração de ambiente e dependências de comandos
 
 **Exemplos:**
 
@@ -525,14 +525,15 @@ Com um argumento de caminho, detecta automaticamente o tipo do alvo:
 
 | Caminho | Validação |
 |---------|-----------|
-| Diretório `*.invowkmod` | Validação de módulo (estrutura + parsing de invowkfile + árvore de comandos) |
+| Diretório `*.invowkmod` | Validação de módulo (estrutura, mais parsing de invowkfile e árvore de comandos quando `invowkfile.cue` está presente) |
 | Arquivo `invowkfile.cue` | Validação de invowkfile (schema CUE + estrutural + árvore de comandos) |
 | Diretório com `invowkfile.cue` | Validação de invowkfile |
 | Arquivo `invowkmod.cue` | Validação de módulo (diretório pai) |
 
 :::tip
-`invowk validate` sempre executa validação profunda em módulos, incluindo parsing de invowkfile
-e verificações da árvore de comandos.
+`invowk validate` sempre executa validação profunda da estrutura e dos metadados do módulo.
+Quando o módulo contém `invowkfile.cue`, também faz o parsing do arquivo e valida sua árvore
+de comandos; módulos apenas de biblioteca não executam essas verificações específicas.
 :::
 
 **Exemplos:**
@@ -560,7 +561,6 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
-| `--llm-concurrency` | `4` | Máximo de requisições LLM paralelas |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
 `--llm` e `--llm-provider` são mutuamente exclusivos. Use `--llm` para o backend configurado/API e `--llm-provider` para forçar a detecção de provedor.
@@ -578,6 +578,8 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 Imprimir system prompts por operação que agentes LLM devem usar ao criar comandos personalizados do Invowk.
 
 <Snippet id="reference/cli/agent-prompt-syntax" />
+
+O argumento opcional `operation` aceita `create`, `change` ou `remove`. Omita-o para imprimir os prompts das três operações.
 
 **Flags:**
 
@@ -606,7 +608,7 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
-| `--llm-concurrency` | `4` | Máximo de requisições LLM paralelas |
+| `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
 ### invowk agent cmd change
 
@@ -635,6 +637,8 @@ Imprimir system prompts por operação que agentes LLM devem usar ao criar módu
 
 <Snippet id="reference/cli/agent-mod-prompt-syntax" />
 
+O argumento opcional `operation` aceita `create`, `change` ou `remove`. Omita-o para imprimir os prompts das três operações.
+
 **Flags:**
 
 | Flag | Padrão | Descrição |
@@ -662,6 +666,7 @@ Gerar `invowkmod.cue` e `invowkfile.cue` para `<module-id>.invowkmod` com uma LL
 | `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
+| `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
 ### invowk agent mod change
 
@@ -683,7 +688,6 @@ Remover um diretório de módulo local validado sem editar dependências ou lock
 |------|--------|-----------|
 | `--dry-run` | `false` | Imprimir o plano de exclusão sem remover o módulo |
 | `--force` | `false` | Excluir o diretório de módulo validado |
-| `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
 Forneça argumentos de descrição ou `--from-file`; eles são mutuamente exclusivos. `--llm` e `--llm-provider` são mutuamente exclusivos. `--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`. A verificação atualmente só aceita o alvo do diretório atual (`./invowkfile.cue`); combinar `--verify` com `--file` para outro caminho falha antes de resolver o plano de execução dry-run.
 

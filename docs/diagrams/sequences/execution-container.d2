@@ -117,11 +117,11 @@ Engine -> Container: "docker/podman container inspect" {
 ContainerRT -> ContainerRT: "Existing target: skip image prep\nmissing without create_if_missing: return error\nmissing with create_if_missing: continue"
 
 # 1c. Base image resolution for ephemeral or create_if_missing persistent paths
-ContainerRT -> Engine: Image exists? (or build from Containerfile)
-
-# Pull/build if missing (conditional)
-Engine -> Container: Pull image / docker build (if needed)
-Container -> Engine: Image ready
+ContainerRT -> ContainerRT: "Declared image: use directly\nContainerfile: derive image tag"
+ContainerRT -> Engine: "Containerfile only: inspect derived tag"
+Engine -> Container: "docker/podman image inspect"
+ContainerRT -> Engine: "Containerfile only: build if absent\nor --ivk-force-rebuild"
+Engine -> Container: "docker/podman build"
 Engine -> ContainerRT: Base image tag
 
 # 1d. Ephemeral layer provisioning (adds invowk binary + modules)

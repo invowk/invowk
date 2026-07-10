@@ -36,18 +36,6 @@ platform_detect: "platform.DetectSandbox()" {
   |
 }
 
-issue_context: "issue.ErrorContext" {
-  style: {
-    fill: "#438DD5"
-    font-color: "#ffffff"
-  }
-  tooltip: |md
-    **internal/issue**
-    Creates actionable errors with
-    operation context and suggestions
-  |
-}
-
 os_exec: "os/exec" {
   style: {
     fill: "#999999"
@@ -582,12 +570,6 @@ container_pkg.sandbox_engine -> platform_detect: "detects sandbox\nenvironment" 
 }
 
 container_pkg.base_cli -> os_exec: "executes CLI\ncommands" {
-  style: {
-    stroke: "#707070"
-  }
-}
-
-container_pkg.base_cli -> issue_context: "creates actionable\nerrors" {
   style: {
     stroke: "#707070"
   }

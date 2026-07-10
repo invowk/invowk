@@ -48,7 +48,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 |------------|---------|---------|
 | `container.Engine` | ContainerRuntime | Unified Docker/Podman container engine abstraction |
 | `provision.LayerProvisioner` | ContainerRuntime | Creates ephemeral image layers with invowk binary and modules |
-| `runtime.HostCallbackServer` | ContainerRuntime | Port that supplies token-based host callback credentials to container executions; `internal/sshserver` adapts the concrete SSH server to this port |
+| `runtime.HostCallbackServer` | ContainerRuntime | Port that supplies token-based host callback credentials to container executions; `internal/app/commandadapters` adapts the concrete `sshserver.Server` to this port |
 | `config.Config` | ContainerRuntime | Application configuration (container engine preference, etc.) |
 | `mvdan.cc/sh/v3` | ShRuntime | Embedded POSIX shell interpreter (syntax, interp, expand) |
 | `github.com/arnodel/golua` | LuaRuntime | Embedded Lua interpreter |
@@ -123,7 +123,7 @@ Environment building involves file system access (loading dotenv files), host en
 
 ### Why a Registry?
 
-Direct construction of runtimes would couple the CLI layer to each concrete type's constructor and dependencies (e.g., ContainerRuntime needs `config.Config`, `container.Engine`, `provision.LayerProvisioner`). The Registry pattern lets the application bootstrap wire all runtimes once at startup, and the execution pipeline simply asks for a runtime by type. Adding a new runtime means registering it -- no changes to the execution pipeline.
+Direct construction of runtimes would couple the CLI layer to each concrete type's constructor and dependencies (e.g., ContainerRuntime needs `config.Config`, `container.Engine`, `provision.LayerProvisioner`). The Registry pattern keeps those constructors behind the command adapter. A populated registry and runtime session are created for each command execution, so container initialization and cleanup remain execution-scoped while the pipeline simply asks for a runtime by type. Adding a new runtime means registering it -- no changes to the execution pipeline.
 
 ## Related Diagrams
 
