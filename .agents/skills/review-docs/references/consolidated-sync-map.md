@@ -1,18 +1,33 @@
 # Consolidated Documentation Sync Map
 
-This is the canonical sync map for all documentation work (review and editing).
+This is the canonical change-oriented sync map for documentation work (review and editing).
 The `/docs` skill and `/review-docs` skill both reference this file.
+
+For audit coverage, `doc-ownership.json` is authoritative because it assigns every current MDX
+page one exact semantic owner. This change-oriented map identifies the documentation surfaces to
+reevaluate after code changes.
 
 ## Code → Website Docs Map
 
 | Code Change | Website Docs to Update |
 |---|---|
 | `pkg/invowkfile/invowkfile_schema.cue` | `website/docs/reference/invowkfile-schema.mdx` + affected docs/snippets |
+| `pkg/invowkfile/command.go`, `internal/discovery/` | `website/docs/core-concepts/` |
+| `pkg/invowkfile/flag.go`, `pkg/invowkfile/argument.go`, CLI input binding | `website/docs/flags-and-arguments/` |
+| `pkg/invowkfile/env.go`, `internal/runtime/env*.go`, `internal/runtime/dotenv.go` | `website/docs/environment/` |
+| `pkg/invowkfile/interpreter_spec.go`, runtime interpreter resolution | `website/docs/advanced/interpreters.mdx` |
+| `pkg/invowkfile/workdir.go`, runtime workdir resolution | `website/docs/advanced/workdir.mdx` |
+| `pkg/invowkfile/runtime.go`, `pkg/platform/`, runtime selection | `website/docs/advanced/platform-specific.mdx` |
+| Interactive runtime/adapters/TUI session changes | `website/docs/advanced/interactive-mode.mdx` |
 | `pkg/invowkmod/invowkmod_schema.cue` | `website/docs/modules/` pages, module reference docs |
 | `internal/app/moduleops/`, `internal/app/modulesync/`, `pkg/invowkmod/` | `website/docs/modules/` pages (validation, create, packaging, vendoring, dependency sync/tidy) |
 | `internal/config/config_schema.cue` | `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx` |
 | `internal/config/types.go` (`DefaultConfig()` derives schema defaults) | `website/docs/reference/config-schema.mdx` (default values), `website/docs/configuration/options.mdx` (default values), pt-BR mirrors |
 | `internal/runtime/container*.go`, `internal/container/`, `internal/containerplan/`, `internal/provision/` | `website/docs/runtime-modes/container.mdx` |
+| `internal/runtime/native*.go`, `internal/runtime/script_resolver.go` | `website/docs/runtime-modes/native.mdx` |
+| `internal/runtime/sh.go`, `internal/runtime/virtual_*.go`, `internal/uroot/` | `website/docs/runtime-modes/virtual.mdx` |
+| `internal/runtime/lua*.go`, `internal/runtime/virtual_policy.go` | `website/docs/runtime-modes/virtual-lua.mdx` |
+| Runtime registry or execution orchestration | `website/docs/runtime-modes/overview.mdx` |
 | `cmd/invowk/init.go` | `website/docs/getting-started/quickstart.mdx`, i18n mirror, `getting-started.ts` snippets, `index.tsx` terminal demo, `README.md` Quick Start |
 | `cmd/invowk/*.go` (general CLI) | `website/docs/reference/cli.mdx` + relevant feature docs |
 | `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |
@@ -22,6 +37,7 @@ The `/docs` skill and `/review-docs` skill both reference this file.
 | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | `website/docs/security/audit.mdx`, `website/src/components/Snippet/data/security.ts`, `website/docs/reference/cli.mdx`, `README.md` Security Auditing |
 | `cmd/invowk/agent.go`, `internal/agentcmd/`, shared LLM flags/config | `website/docs/advanced/llm-assisted-authoring.mdx`, `website/src/components/Snippet/data/cli.ts`, `website/docs/reference/cli.mdx`, `README.md` LLM-Assisted Agent Authoring |
 | `.agents/skills/review-docs/`, `.agents/commands/review-docs.md` | `.agents/skills/docs/SKILL.md`, `AGENTS.md`, review-docs workflow references |
+| Benchmark workflows, BMF tooling, Bencher image, or benchmark package | `website/docs/performance/benchmark-history.mdx` |
 | New features | Add/update docs under `website/docs/` and snippets as needed |
 
 ## Code → Diagram Map
@@ -37,6 +53,8 @@ When code changes affect architectural behavior, evaluate and update these diagr
 | New package or component | `c4-container.md` |
 | External integration changes | `c4-context.md` |
 | Server (SSH/TUI) changes | `sequence-execution.md` (container/virtual variants) |
+| `internal/container/` component boundary changes | `c4-component-container.md`, `c4/component-container.d2` |
+| `internal/runtime/` component boundary changes | `c4-component-runtime.md`, `c4/component-runtime.d2` |
 
 Diagram sources live in the `docs/diagrams/` live inventory (`*.d2`, excluding experiments).
 Rendered SVGs live in `docs/diagrams/rendered/`.

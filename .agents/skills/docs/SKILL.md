@@ -12,7 +12,10 @@ For reviewing documentation accuracy against the codebase, use the `/review-docs
 
 - Read `website/WEBSITE_DOCS.md` before any website edits.
 - Check `.agents/skills/review-docs/references/consolidated-sync-map.md` for code → docs mappings
-  (the canonical sync map covering both website docs and diagrams).
+  (the canonical change-oriented map covering both website docs and diagrams).
+- For documentation audit ownership, use
+  `.agents/skills/review-docs/references/doc-ownership.json`; every current MDX page must retain
+  exactly one semantic checklist owner with resolvable sources of truth.
 
 ---
 

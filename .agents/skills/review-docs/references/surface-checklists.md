@@ -1,7 +1,22 @@
 # Surface Verification Checklists
 
-Each surface has a numbered checklist of verification items. Subagents report PASS, FAIL, or N/A
-for every item — no item may be skipped. Findings are generated from FAIL items only.
+## Contents
+
+- [S1: README](#s1-readmemd)
+- [S2: Website Docs](#s2-website-docs-next-version-only)
+- [S3: Snippet Data and CUE Schema Drift](#s3-snippet-data-and-cue-schema-drift)
+- [S4: i18n Parity](#s4-i18n-parity)
+- [S5: Architecture Diagrams](#s5-architecture-diagrams)
+- [S6: Container Image Policy](#s6-container-image-policy)
+- [S7: Config Defaults vs Docs](#s7-config-defaults-vs-docs)
+- [S8: Homepage and Terminal Demo](#s8-homepage-and-terminal-demo)
+- [S9: Security Audit Docs](#s9-security-audit-docs)
+- [S10: LLM-Assisted Agent Authoring Docs](#s10-llm-assisted-agent-authoring-docs)
+- [S11: Agent Workflow Docs](#s11-agent-workflow-docs)
+
+Each surface has a numbered checklist of verification items. Subagents report PASS, FAIL, SKIP,
+or BLOCKED for every item. Findings are generated from FAIL items only; SKIP requires a registered
+intentional simplification, and any BLOCKED item makes the audit incomplete.
 
 Severity is pre-assigned per item to eliminate subjective classification. The severity levels
 (ERROR, WARNING, INFO) follow the definitions in `structured-output-format.md`.
@@ -19,47 +34,46 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 
 ## §S1: README.md
 
-**File scope**: `README.md` (~3332 lines)
+**File scope**: `README.md`, using stable heading locators from `readme-sync-map.md`
 
 **Source of truth mapping**: See `readme-sync-map.md` for exact line numbers and source files.
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
-| S1-C01 | Features list (L5) accurately describes current capabilities | `pkg/`, `internal/`, `cmd/` code | WARNING | source-drift |
-| S1-C02 | Installation section (L41) has correct URLs, platform table, Cosign verify command, and install paths | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` | ERROR | cli-contract-drift |
-| S1-C03 | Quick Start (L156) matches `invowk init` generated invowkfile content and CLI output format | `cmd/invowk/init.go`, run `invowk init --help` | ERROR | cli-contract-drift |
-| S1-C04 | Invowkfile Format (L237) field names, types, and constraints match schema | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C05 | Module Metadata (L410) field names and `requires` structure match schema | `pkg/invowkmod/invowkmod_schema.cue` | ERROR | schema-drift |
-| S1-C06 | Dependencies (L559) dependency fields (`tools`, `cmds`, `filepaths`, `env_vars`, `capabilities`, `custom_checks`) and syntax match `#DependsOn` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C07 | Command Flags (L796) flag types, syntax, and validation options match `#Flag` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C08 | Command Arguments (L1060) argument types, positional syntax, and validation match `#Argument` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C09 | Platform Compatibility (L1436) uses "macos" (not "darwin"), struct format matches `#PlatformConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C10 | Script Sources (L1567) `script.content` / `script.file` syntax and path resolution match `#Implementation` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C11 | Interpreter Support (L1631) config format matches `#InterpreterSpec` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
-| S1-C12 | Modules (L1798) module structure, RDNS naming, and file layout match conventions | `pkg/invowkmod/`, module directory conventions | WARNING | source-drift |
-| S1-C13 | Module Dependencies (L2064) `requires` syntax uses `git_url` (not `git`), lock file format correct, no `v` prefix in versions | `pkg/invowkmod/invowkmod_schema.cue` `#ModuleRequirement` | ERROR | schema-drift |
-| S1-C14 | Runtime Modes (L2261) runtime descriptions, capabilities, and selection logic match code | `internal/runtime/` | WARNING | source-drift |
-| S1-C15 | Configuration (L2464) config fields, default values, and file location match source of truth | `internal/config/config_schema.cue`, CUE-derived `DefaultConfig()` | ERROR | source-drift |
-| S1-C16 | Shell Completion (L2564) supported shells and generation commands match code | `cmd/invowk/completion.go` | WARNING | cli-contract-drift |
-| S1-C17 | Command Examples (L2601) are accurate and produce described output | Actual CLI behavior | WARNING | cli-contract-drift |
-| S1-C18 | Interactive TUI Components (L2706) component list, flags, and behavior descriptions match code | `cmd/invowk/tui_*.go` | WARNING | source-drift |
-| S1-C19 | Project Structure (L3164) directory descriptions match actual layout | Actual directory layout (`ls`) | WARNING | source-drift |
-| S1-C20 | Dependencies/Go (L3241) dependency list and versions match | `go.mod` | WARNING | source-drift |
-| S1-C21 | Performance and PGO (L3274) description accuracy | `Makefile`, `default.pgo`, `internal/benchmark/` | INFO | source-drift |
-| S1-C22 | Local SonarCloud (L3295) command accuracy | `scripts/sonar-local.sh` | INFO | cli-contract-drift |
-| S1-C23 | LLM-Assisted Agent Authoring (L204) matches `cmd/invowk/agent.go`, `internal/agentcmd/`, and provider/config behavior for command and module create/change/remove/prompt | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | WARNING | source-drift |
-| S1-C24 | Security Auditing (L2952) matches audit CLI, scanners, report formats, and LLM opt-in behavior | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | WARNING | source-drift |
-
-**Total items**: 24
+| S1-C01 | Features list accurately describes current capabilities | `pkg/`, `internal/`, `cmd/` code | WARNING | source-drift |
+| S1-C02 | Installation section has correct URLs, platform table, Cosign verify command, and install paths | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` | ERROR | cli-contract-drift |
+| S1-C03 | Quick Start matches `invowk init` generated invowkfile content and CLI output format | `cmd/invowk/init.go`, run `invowk init --help` | ERROR | cli-contract-drift |
+| S1-C04 | Invowkfile Format field names, types, and constraints match schema | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C05 | Module Metadata field names and `requires` structure match schema | `pkg/invowkmod/invowkmod_schema.cue` | ERROR | schema-drift |
+| S1-C06 | Dependencies dependency fields (`tools`, `cmds`, `filepaths`, `env_vars`, `capabilities`, `custom_checks`) and syntax match `#DependsOn` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C07 | Command Flags flag types, syntax, and validation options match `#Flag` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C08 | Command Arguments argument types, positional syntax, and validation match `#Argument` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C09 | Platform Compatibility uses "macos" (not "darwin"), struct format matches `#PlatformConfig` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C10 | Script Sources `script.content` / `script.file` syntax and path resolution match `#Implementation` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C11 | Interpreter Support config format matches `#InterpreterSpec` | `pkg/invowkfile/invowkfile_schema.cue` | ERROR | schema-drift |
+| S1-C12 | Modules module structure, RDNS naming, and file layout match conventions | `pkg/invowkmod/`, module directory conventions | WARNING | source-drift |
+| S1-C13 | Module Dependencies `requires` syntax uses `git_url` (not `git`), lock file format correct, no `v` prefix in versions | `pkg/invowkmod/invowkmod_schema.cue` `#ModuleRequirement` | ERROR | schema-drift |
+| S1-C14 | Runtime Modes runtime descriptions, capabilities, and selection logic match code | `internal/runtime/` | WARNING | source-drift |
+| S1-C15 | Configuration config fields, default values, and file location match source of truth | `internal/config/config_schema.cue`, CUE-derived `DefaultConfig()` | ERROR | source-drift |
+| S1-C16 | Shell Completion supported shells and generation commands match code | `cmd/invowk/completion.go` | WARNING | cli-contract-drift |
+| S1-C17 | Command Examples are accurate and produce described output | Actual CLI behavior | WARNING | cli-contract-drift |
+| S1-C18 | Interactive TUI Components component list, flags, and behavior descriptions match code | `cmd/invowk/tui_*.go` | WARNING | source-drift |
+| S1-C19 | Project Structure directory descriptions match actual layout | Actual directory layout (`ls`) | WARNING | source-drift |
+| S1-C20 | Dependencies/Go dependency list and versions match | `go.mod` | WARNING | source-drift |
+| S1-C21 | Performance and PGO description accuracy | `Makefile`, `default.pgo`, `internal/benchmark/` | INFO | source-drift |
+| S1-C22 | Local SonarCloud command accuracy | `scripts/sonar-local.sh` | INFO | cli-contract-drift |
+| S1-C23 | LLM-Assisted Agent Authoring matches `cmd/invowk/agent.go`, `internal/agentcmd/`, and provider/config behavior for command and module create/change/remove/prompt | `cmd/invowk/agent.go`, `internal/agentcmd/`, LLM flags/config | WARNING | source-drift |
+| S1-C24 | Security Auditing matches audit CLI, scanners, report formats, and LLM opt-in behavior | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | WARNING | source-drift |
 
 ---
 
 ## §S2: Website Docs (next version only)
 
-**File scope**: live inventory from `website/docs/` (`*.mdx`). Never review
-`website/versioned_docs/`.
+**File scope**: exact S2-owned paths in `doc-ownership.json`. Never infer semantic coverage from
+the broad `website/docs/` directory and never review `website/versioned_docs/`.
 
-**Source of truth mapping**: See `consolidated-sync-map.md` for the full code→docs map.
+**Source of truth mapping**: Use each ownership entry's resolvable sources. Use
+`consolidated-sync-map.md` as change-oriented supplemental guidance.
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
@@ -78,8 +92,20 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 | S2-C13 | No broken internal links (verified by `npm run build` in Step 1) | Build output | ERROR | navigation-drift |
 | S2-C14 | `website/sidebars.ts` includes every intentional current doc page in a deterministic category | `website/docs/`, `website/sidebars.ts` | ERROR | navigation-drift |
 | S2-C15 | Installation page and snippets match install scripts, release asset naming, platform support, and custom path examples | `scripts/install.sh`, `scripts/install.ps1`, `.goreleaser.yaml` → `website/docs/getting-started/installation.mdx`, `website/src/components/Snippet/data/getting-started.ts` | ERROR | snippet-drift |
-
-**Total items**: 15
+| S2-C16 | Core-concepts pages accurately describe command structure, namespaces, implementations, and invowkfile structure | `pkg/invowkfile/`, `internal/discovery/` → `website/docs/core-concepts/` | ERROR | source-drift |
+| S2-C17 | Environment pages accurately describe env files, variables, inheritance, and precedence | `pkg/invowkfile/invowkfile_schema.cue`, `pkg/invowkfile/env.go`, `internal/runtime/env*.go`, `internal/runtime/dotenv.go` → `website/docs/environment/` | ERROR | source-drift |
+| S2-C18 | Flags and positional-argument pages match schema types, validation, naming, and CLI binding behavior | `pkg/invowkfile/invowkfile_schema.cue`, `pkg/invowkfile/flag.go`, `pkg/invowkfile/argument.go`, `cmd/invowk/cmd*.go` → `website/docs/flags-and-arguments/` | ERROR | schema-drift |
+| S2-C19 | Your First Invowkfile teaches a valid file whose commands, runtimes, platforms, and dependencies match current contracts | `pkg/invowkfile/`, `cmd/invowk/init.go` → `website/docs/getting-started/your-first-invowkfile.mdx` | ERROR | source-drift |
+| S2-C20 | Configuration overview matches config discovery, file locations, precedence, and schema behavior | `cmd/invowk/config.go`, `internal/config/` → `website/docs/configuration/overview.mdx` | WARNING | source-drift |
+| S2-C21 | Runtime overview and selection behavior match runtime registration and execution orchestration | `internal/runtime/runtime.go`, `internal/runtime/registry_factory.go`, `internal/app/execute/`, `pkg/invowkfile/runtime.go` → `website/docs/runtime-modes/overview.mdx` | ERROR | source-drift |
+| S2-C22 | Native runtime page matches host-shell, interpreter, workdir, environment, and platform behavior | `internal/runtime/native*.go`, `internal/runtime/script_resolver.go`, `pkg/invowkfile/invowkfile_schema.cue` → `website/docs/runtime-modes/native.mdx` | ERROR | source-drift |
+| S2-C23 | Virtual-sh page matches embedded-shell, host-binary policy, utilities, interactivity, and non-sandbox security contract | `internal/runtime/sh.go`, `internal/runtime/virtual_*.go`, `internal/uroot/`, `pkg/invowkfile/runtime.go` → `website/docs/runtime-modes/virtual.mdx` | ERROR | source-drift |
+| S2-C24 | Virtual-lua page matches golua execution, shared virtual policy, libraries, I/O, interactivity, and non-sandbox security contract | `internal/runtime/lua*.go`, `internal/runtime/virtual_policy.go`, `pkg/invowkfile/runtime.go` → `website/docs/runtime-modes/virtual-lua.mdx` | ERROR | source-drift |
+| S2-C25 | Interpreter page matches interpreter schema, detection, arguments, dependency checks, and runtime-specific behavior | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/dependency.go`, `internal/runtime/script_resolver.go`, runtime implementations → `website/docs/advanced/interpreters.mdx` | ERROR | source-drift |
+| S2-C26 | Interactive-mode page matches runtime capability checks, adapters, TUI session behavior, and CLI flags | `internal/runtime/runtime.go`, `internal/app/commandadapters/interactive*.go`, `internal/tui/`, `cmd/invowk/cmd*.go` → `website/docs/advanced/interactive-mode.mdx` | WARNING | source-drift |
+| S2-C27 | Platform-specific page matches platform schema names, selection behavior, and supported OS handling | `pkg/invowkfile/invowkfile_schema.cue`, `pkg/invowkfile/runtime.go`, `pkg/platform/`, runtime selection → `website/docs/advanced/platform-specific.mdx` | ERROR | schema-drift |
+| S2-C28 | Working-directory page matches schema fields and native, virtual, and container resolution behavior | `pkg/invowkfile/workdir.go`, `internal/runtime/runtime.go`, runtime implementations → `website/docs/advanced/workdir.mdx` | ERROR | source-drift |
+| S2-C29 | Benchmark history accurately describes benchmark sources, workflows, comparison data, and publication pipeline | `internal/benchmark/`, `.github/workflows/benchmarks*.yml`, `.github/workflows/pgo-benchstat.yml`, `scripts/bench-bmf.mjs`, `build/bencher/` → `website/docs/performance/benchmark-history.mdx` | WARNING | source-drift |
 
 ---
 
@@ -140,8 +166,6 @@ with an implementation block but lack required fields.
 | S3-C18 | CUE field names in snippets match current schema field names (cross-reference against `.cue` files) | ERROR | schema-drift |
 | S3-C19 | Snippet IDs referenced in MDX pages exist in the corresponding data file | ERROR | snippet-drift |
 
-**Total items**: 19
-
 ---
 
 ## §S4: i18n Parity
@@ -154,10 +178,8 @@ with an implementation block but lack required fields.
 | S4-C02 | All `<Snippet id="...">` references in pt-BR MDX files match English counterparts | English `website/docs/` files | ERROR | i18n-structural-drift |
 | S4-C03 | All `<Diagram id="...">` references in pt-BR MDX files match English counterparts | English `website/docs/` files | ERROR | i18n-structural-drift |
 | S4-C04 | No missing pt-BR mirrors for English pages added in the last 30 days | `git log --since="30 days ago" --diff-filter=A -- website/docs/` | WARNING | i18n-structural-drift |
-| S4-C05 | pt-BR pages modified more than 60 days after their English counterpart have stale-prose risk — spot-check the first 3 paths from the deterministic stale-prose command in `verification-commands.md` | `git log --diff-filter=M -- website/docs/` vs `git log -- website/i18n/pt-BR/` | WARNING | i18n-prose-staleness |
+| S4-C05 | English pages whose latest commit is strictly more than 60 days newer than the pt-BR mirror have stale-prose risk — inspect the first 3 deterministic lag candidates | `review_docs.py i18n-candidates` using per-file English and pt-BR `git log --follow` epochs | WARNING | i18n-prose-staleness |
 | S4-C06 | Exceptions in `website/docs-parity-exceptions.json` have valid justifications and refer to existing files | Exception file contents | INFO | i18n-structural-drift |
-
-**Total items**: 6
 
 ---
 
@@ -183,8 +205,8 @@ with an implementation block but lack required fields.
 | S5-C09 | Server diagrams match current SSH/TUI server implementations | `internal/sshserver/`, `internal/tuiserver/` | WARNING | diagram-drift |
 | S5-C10 | Architecture prose docs in `docs/architecture/` reference correct package names and component relationships | Actual package structure | INFO | source-drift |
 | S5-C11 | Website architecture pages in `website/docs/architecture/` are consistent with `docs/architecture/` prose | `docs/architecture/` source files | INFO | source-drift |
-
-**Total items**: 11
+| S5-C12 | Container component architecture page matches container engine, planning, provisioning, and runtime package relationships | `internal/container/`, `internal/containerplan/`, `internal/provision/`, `internal/runtime/container*.go`, `docs/architecture/c4-component-container.md` | WARNING | diagram-drift |
+| S5-C13 | Runtime component architecture page matches runtime interfaces, implementations, adapters, and execution orchestration | `internal/runtime/`, `internal/app/commandadapters/`, `internal/app/execute/`, `docs/architecture/c4-component-runtime.md` | WARNING | diagram-drift |
 
 ---
 
@@ -205,8 +227,6 @@ with an implementation block but lack required fields.
 | S6-C04 | All generic container examples use `debian:stable-slim` | Manual scan of CUE snippets with container runtime | ERROR | policy-violation |
 | S6-C05 | Language-specific images (e.g., `golang:1.26`, `python:3-slim`, `node:22-slim`) appear only in language-specific runtime demos, not in general container examples | Manual scan | WARNING | policy-violation |
 | S6-C06 | CUE snippets with `container` runtime have `image:` field referencing `debian:stable-slim` (unless language-specific demo) | Snippet data files with container runtime config | ERROR | policy-violation |
-
-**Total items**: 6
 
 ---
 
@@ -231,8 +251,6 @@ with an implementation block but lack required fields.
 | S7-C06 | Dual-prefix config snippets in `config.ts`: every `config/X` snippet has a corresponding `reference/config/X` with equivalent content | `website/src/components/Snippet/data/config.ts` | WARNING | snippet-drift |
 | S7-C07 | Config snippet content matches current CUE-derived default values | `internal/config/config_schema.cue` | ERROR | snippet-drift |
 
-**Total items**: 7
-
 ---
 
 ## §S8: Homepage and Terminal Demo
@@ -248,8 +266,6 @@ with an implementation block but lack required fields.
 | S8-C03 | Terminal demo does not show features that have been removed or significantly changed | Current codebase behavior | WARNING | source-drift |
 | S8-C04 | Homepage feature claims match current capabilities (no removed features, no future features) | `pkg/`, `internal/`, `cmd/` code | WARNING | source-drift |
 | S8-C05 | Intentional simplifications match registry entries in `intentional-simplifications.md` (no new unregistered simplifications) | `intentional-simplifications.md` | INFO | source-drift |
-
-**Total items**: 5
 
 ---
 
@@ -281,8 +297,6 @@ with an implementation block but lack required fields.
 | S9-C09 | README security audit section matches website audit docs and source of truth | `README.md`, `website/docs/security/audit.mdx`, audit code | WARNING | source-drift |
 | S9-C10 | Audit CI examples avoid unsafe shell patterns and accurately handle exit code 1 findings | `cmd/invowk/audit.go`, documented CI snippets | WARNING | security-contract-drift |
 
-**Total items**: 10
-
 ---
 
 ## §S10: LLM-Assisted Agent Authoring Docs
@@ -311,8 +325,6 @@ with an implementation block but lack required fields.
 | S10-C07 | README LLM authoring section matches website docs and source of truth | `README.md`, `website/docs/advanced/llm-assisted-authoring.mdx`, agent code | WARNING | source-drift |
 | S10-C08 | Privacy/caution wording accurately states what content is sent to the configured provider | `internal/agentcmd/create.go`, `cmd/invowk/agent.go` | WARNING | source-drift |
 
-**Total items**: 8
-
 ---
 
 ## §S11: Agent Workflow Docs
@@ -328,33 +340,18 @@ with an implementation block but lack required fields.
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
-| S11-C01 | Live website docs inventory is fully assigned to checklist surfaces | `website/docs/`, `surface-checklists.md`, `SKILL.md` | ERROR | coverage-gap |
+| S11-C01 | Ownership validator proves every live website page has exactly one non-mechanical semantic owner with resolvable sources of truth | `website/docs/`, `doc-ownership.json`, `scripts/review_docs.py` | ERROR | coverage-gap |
 | S11-C02 | Live snippet data inventory is fully assigned to checklist surfaces | `website/src/components/Snippet/data/`, `surface-checklists.md` | ERROR | coverage-gap |
 | S11-C03 | Slash-command wrapper references the current number of surfaces and subagents | `.agents/commands/review-docs.md`, `SKILL.md` | ERROR | agent-docs-drift |
 | S11-C04 | Related docs skill references current snippet file count and sync-map guidance | `.agents/skills/docs/SKILL.md`, live snippet data files | WARNING | agent-docs-drift |
 | S11-C05 | Structured output format lists every active surface and required finding fields | `structured-output-format.md`, `surface-checklists.md` | ERROR | agent-docs-drift |
 | S11-C06 | Verification command reference includes all current mechanical gates | `verification-commands.md`, `website/package.json`, `scripts/` | WARNING | agent-docs-drift |
 | S11-C07 | `AGENTS.md` indexes still match `.agents/skills/`, `.agents/commands/`, and `.agents/rules/` | `make check-agent-docs` | ERROR | agent-docs-drift |
-| S11-C08 | Review-docs skill body and reference totals match checklist totals | `SKILL.md`, `surface-checklists.md` | ERROR | agent-docs-drift |
+| S11-C08 | Review-docs skill body, ownership contract, and generated totals agree with the checklist inventory | `SKILL.md`, `doc-ownership.json`, `surface-checklists.md`, `scripts/review_docs.py` | ERROR | agent-docs-drift |
 | S11-C09 | Generated-version asset checks are represented in the workflow without reviewing frozen versioned docs manually | `scripts/validate-version-assets.mjs`, `verification-commands.md`, `SKILL.md` | INFO | generated-asset-drift |
 
-**Total items**: 9
+Derive current per-surface and grand totals with:
 
----
-
-## Totals
-
-| Surface | Items |
-|---------|-------|
-| S1: README | 24 |
-| S2: Website Docs | 15 |
-| S3: Snippet Data & CUE Drift | 19 |
-| S4: i18n Parity | 6 |
-| S5: Architecture Diagrams | 11 |
-| S6: Container Image Policy | 6 |
-| S7: Config Defaults vs Docs | 7 |
-| S8: Homepage & Terminal Demo | 5 |
-| S9: Security Audit Docs | 10 |
-| S10: LLM-Assisted Agent Authoring Docs | 8 |
-| S11: Agent Workflow Docs | 9 |
-| **Grand total** | **120** |
+```bash
+.agents/skills/review-docs/scripts/review_docs.py validate
+```

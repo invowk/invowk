@@ -1,7 +1,24 @@
 # Verification Commands Reference
 
 Run these automated checks BEFORE manual review to catch mechanical issues.
-Any failure should be investigated and recorded as a finding before proceeding.
+Record every result as PASS, FAIL, or BLOCKED. A missing command or unavailable environment is
+BLOCKED, not a passing review. Any BLOCKED result makes the final audit INCOMPLETE.
+
+## Contents
+
+- [Deterministic Run Setup](#0-deterministic-run-setup)
+- [Documentation Parity](#1-documentation-parity)
+- [Website Build](#2-website-build)
+- [Website Typecheck](#3-website-typecheck)
+- [Version Asset Validation](#4-version-asset-validation)
+- [Live Documentation Ownership](#5-live-documentation-ownership)
+- [i18n Stale-Prose Candidates](#5a-deterministic-i18n-stale-prose-candidates)
+- [Diagram Checks](#6-diagram-readability)
+- [Agent Docs Integrity](#8-agent-docs-integrity)
+- [Container Image Policy](#9-container-image-policy-check)
+- [CUE and Config Snippets](#10-cue-snippet-schema-spot-check)
+- [Context Artifact](#12-programmatic-results-and-context-artifact)
+- [Execution Order](#execution-order)
 
 ## 0. Deterministic Run Setup
 
@@ -12,9 +29,8 @@ git rev-parse HEAD
 git status --short
 ```
 
-Record the date and commit SHA in the Context Block. If `git status --short` changes after
-Step 1, rerun the programmatic checks and restart any affected subagents with the new Context
-Block.
+HEAD and porcelain status are diagnostic only. `review_docs.py prepare` records a content hash of
+all tracked and untracked repository files; `snapshot-verify` is the authoritative stability gate.
 
 ## 1. Documentation Parity
 
@@ -74,41 +90,43 @@ consistent without manually reviewing frozen versioned docs.
 **Failure triage**: Regenerate or repair version asset snapshots with the repository's version
 asset scripts. Do not hand-edit frozen versioned docs unless explicitly backporting.
 
-## 5. Live Documentation Inventory
+## 5. Live Documentation Ownership
 
-Record the live inventory before spawning subagents:
+Validate exact page ownership, checklist IDs, source paths/globs, counts, and inventories before
+spawning subagents:
 
 ```bash
-LC_ALL=C find website/docs -type f -name '*.mdx' | LC_ALL=C sort
-LC_ALL=C find website/src/components/Snippet/data -maxdepth 1 -type f -name '*.ts' | LC_ALL=C sort
-LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | LC_ALL=C sort
-LC_ALL=C find docs/architecture -maxdepth 1 -type f -name '*.md' | LC_ALL=C sort
-printf '%s\n' website/sidebars.ts AGENTS.md .agents/commands/review-docs.md .agents/skills/docs/SKILL.md .agents/skills/review-docs/SKILL.md
-LC_ALL=C find .agents/skills/review-docs/references -maxdepth 1 -type f -name '*.md' | LC_ALL=C sort
+.agents/skills/review-docs/scripts/review_docs.py validate
 ```
 
-**What it checks**: The coordinator compares this list against `surface-checklists.md` file
-scopes and the subagent table. Any unassigned docs page, snippet file, diagram source, or
-agent workflow doc is a coverage-gap finding.
+**What it checks**: Every live website page has exactly one literal ownership entry, one
+non-mechanical semantic check, and at least one resolvable source of truth. It rejects missing or
+stale pages, duplicate or case-colliding paths, unknown/cross-surface checks, policy-only owners,
+excluded versioned docs, empty source lists, and source globs that match nothing. It also validates
+contiguous checklist IDs and registered simplification IDs.
 
-**Expected**: Every live file is owned by at least one checklist surface.
+**Expected**: JSON summary with current derived counts and exit 0.
 
-**Failure triage**: Add or update a checklist item/surface before running the review.
+**Failure triage**: Add a semantic checklist check or repair
+`references/doc-ownership.json`. Never satisfy coverage with a broad directory claim or a
+mechanical navigation/policy check.
 
 ## 5a. Deterministic i18n Stale-Prose Candidate Set
 
-Use this exact command for S4-C05. It makes the "spot-check 3 pages" rule stable across agents:
+Use this command for S4-C05:
 
 ```bash
-git log --format=%cs --name-only --diff-filter=M -- website/docs/ \
-  | awk 'NF && $0 !~ /^[0-9]{4}-/ {print}' \
-  | LC_ALL=C sort -u \
-  | head -3
+.agents/skills/review-docs/scripts/review_docs.py i18n-candidates --days 60 --limit 3
 ```
 
-Only produce a finding when one of those three pages has an exact factual mismatch against the
-English source and satisfies the Finding Admission Gate. General translation quality concerns are
-candidate observations, not findings.
+The tool reads the latest commit epoch for each exact English/pt-BR pair with `git log --follow`.
+It selects a page only when the English page is strictly more than 60 days newer than its locale
+mirror, sorts by descending lag then path, and takes three. Missing mirrors remain structural
+parity failures. Missing history, shallow-history gaps, or uncommitted locale-pair changes are
+BLOCKED; the tool never substitutes file mtimes or today's date.
+
+Only produce a finding when a selected page has an exact factual mismatch and satisfies the
+Finding Admission Gate. General translation quality concerns remain uncounted candidates.
 
 ## 6. Diagram Readability
 
@@ -228,15 +246,48 @@ grep -n "'reference/config/" website/src/components/Snippet/data/config.ts
 exists with equivalent content (adapted for its page context). Common drift: one prefix
 gets updated after a config change but the other is forgotten.
 
+## 12. Programmatic Results and Context Artifact
+
+Write the nine gate results to an external JSON file. Use `FAIL` when the command ran and found a
+problem; use `BLOCKED` when the command or required environment was unavailable.
+
+```json
+{
+  "docs-parity": {"status": "PASS", "detail": "All checks passed", "exit_code": 0},
+  "container-policy": {"status": "PASS", "detail": "No prohibited images", "exit_code": 0},
+  "diagram-readability": {"status": "PASS", "detail": "All checks passed", "exit_code": 0},
+  "d2-validate": {"status": "PASS", "detail": "All sources valid", "exit_code": 0},
+  "diagram-renders": {"status": "PASS", "detail": "Manifest current", "exit_code": 0},
+  "check-agent-docs": {"status": "PASS", "detail": "Indexes current", "exit_code": 0},
+  "version-assets": {"status": "PASS", "detail": "Snapshots valid", "exit_code": 0},
+  "website-typecheck": {"status": "PASS", "detail": "Typecheck passed", "exit_code": 0},
+  "website-build": {"status": "PASS", "detail": "Build passed", "exit_code": 0}
+}
+```
+
+Generate canonical context outside the repository:
+
+```bash
+mkdir -p /tmp/review-docs/results
+.agents/skills/review-docs/scripts/review_docs.py prepare \
+  --checks /tmp/review-docs/checks.json \
+  --output /tmp/review-docs/context.json
+```
+
+The command revalidates ownership, embeds sorted live inventories, computes the i18n candidate
+set, records HEAD, and hashes tracked plus untracked repository content. Audit outputs inside the
+repository are rejected so the tool cannot invalidate its own snapshot.
+
 ## Execution Order
 
 Run checks in this order (fastest first, dependency-free checks in parallel):
 
-0. Deterministic run setup
-1. `npm run docs:parity` + container image policy grep + live inventory capture (parallel)
+0. Deterministic run setup + `review_docs.py validate`
+1. `npm run docs:parity` + container image policy grep (parallel)
 2. `check-diagram-readability.sh` + D2 validation loop + `make check-diagram-renders` (parallel)
 3. `make check-agent-docs`
 4. `node scripts/validate-version-assets.mjs`
 5. `npm run typecheck`
 6. `npm run build` (slower, run last — also catches issues from earlier steps)
 7. CUE snippet spot-check + dual-prefix check (manual, during build)
+8. Record checks JSON and run `review_docs.py prepare`

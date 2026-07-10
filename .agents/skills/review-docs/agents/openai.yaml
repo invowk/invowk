@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Docs"
+  short_description: "Audit Invowk docs against implementation"
+  default_prompt: "Use $review-docs to audit all current Invowk documentation against the implementation."

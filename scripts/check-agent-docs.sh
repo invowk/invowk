@@ -137,6 +137,14 @@ do
 	fi
 done
 
+echo
+echo "Validating review-docs deterministic contract..."
+python3 .agents/skills/review-docs/scripts/review_docs.py validate
+
+echo
+echo "Running review-docs tooling tests..."
+python3 .agents/skills/review-docs/scripts/test_review_docs.py
+
 if [[ "$errors" -ne 0 ]]; then
 	echo
 	echo "Agent docs integrity check failed."

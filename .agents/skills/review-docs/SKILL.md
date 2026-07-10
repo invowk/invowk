@@ -34,7 +34,7 @@ The review covers 11 surfaces. Each has a source of truth in the codebase.
 
 ### S1: README.md
 
-The README (~3332 lines) is the primary external-facing documentation. Key drift-prone
+The live `README.md` is the primary external-facing documentation. Key drift-prone
 sections: Invowkfile Format, Dependencies, Command Flags/Arguments, Module Dependencies,
 Configuration, and TUI Components.
 
@@ -46,7 +46,8 @@ MDX pages discovered by the live inventory in `website/docs/` across the current
 `architecture/`. Source of truth is the Go code and CUE schemas. Only review `website/docs/`
 (the "Next" unreleased version at `/docs/next/`), never `website/versioned_docs/`.
 
-Read `references/consolidated-sync-map.md` for the full code → docs mapping.
+Use `references/doc-ownership.json` as the exact page → semantic check → source-of-truth
+contract. Read `references/consolidated-sync-map.md` for change-oriented code → docs guidance.
 
 ### S3: Snippet Data and CUE Schema Drift
 
@@ -134,7 +135,8 @@ These principles ensure that running the review multiple times produces the same
 They apply to both the coordinator and all subagents.
 
 1. **Checklist-driven review** — Each subagent follows its surface's checklist from
-   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N/A).
+   `references/surface-checklists.md`. Every checklist item gets a status
+   (PASS/FAIL/SKIP/BLOCKED).
    This is the review activity. Open-ended exploration may only produce uncounted candidate
    observations for the coordinator, not findings.
 
@@ -143,32 +145,32 @@ They apply to both the coordinator and all subagents.
    subjective severity classification is the second-largest source of run-to-run variance
    (after scope sampling). Fixing severity at definition time eliminates this.
 
-3. **Deterministic file traversal** — Each checklist enumerates the exact files to review.
-   Subagents check all listed files, not a sample. Live inventories are sorted with
-   `LC_ALL=C sort` and passed to every subagent in the Context Block. Subagents do not
-   recalculate or reinterpret inventory membership.
+3. **Deterministic file traversal** — `references/doc-ownership.json` gives every live website
+   page exactly one non-mechanical semantic owner and resolvable sources of truth. The tooling
+   rejects missing, stale, duplicate, case-colliding, or policy-only ownership. Subagents use the
+   sorted inventories from `context.json`; they do not recalculate membership.
 
-4. **Structured context passing** — The coordinator passes programmatic check results to
-   subagents using the Context Block format defined below, not free-form prose. This ensures
-   every subagent receives identical context in an identical format.
+4. **Structured context passing** — Generate canonical `context.json` with
+   `scripts/review_docs.py prepare`. Pass its path and context ID to every subagent; do not
+   reconstruct context in prose.
 
-5. **Complete reporting** — Every checklist item must appear in the subagent's output. Items
-   that pass are reported as PASS with brief evidence. Items that cannot be checked are N/A
-   with an explanation. The coordinator verifies completeness during merge.
+5. **Complete reporting** — Every checklist item must appear in canonical result JSON. Use PASS
+   with evidence, FAIL with admitted findings, SKIP only with an explicit whole-check exemption,
+   or BLOCKED with a reason. Any BLOCKED status makes the audit INCOMPLETE.
 
 6. **Finding admission gate** — A FAIL may become a finding only when it has all fields required
    by `references/structured-output-format.md`: check ID, exact doc path and line/snippet ID,
    exact source-of-truth file and symbol/command/schema section, current content, expected
-   content, and one-sentence rationale. If any field is missing, report N/A or an uncounted
-   candidate observation instead of a finding.
+   content, and one-sentence rationale. If required evidence cannot be gathered, report BLOCKED;
+   never silently downgrade an incomplete finding.
 
-7. **Inventory-first coverage** — Before spawning subagents, the coordinator records a live
-   inventory of docs, snippet data files, sidebars, diagram sources, and agent workflow docs.
-   Any file or section not assigned to a checklist is itself a finding.
+7. **Inventory-first coverage** — Run `scripts/review_docs.py validate` before spawning
+   subagents. Any live page without one semantic owner, any stale ownership entry, or any source
+   glob that resolves to nothing is a contract failure and blocks the review.
 
-8. **Stable audit snapshot** — Record the audit date and `git rev-parse HEAD` once in Step 1.
-   All subagents use that snapshot. If the working tree changes during the review, rerun Step 1
-   and restart the affected subagents with the new Context Block.
+8. **Stable audit snapshot** — Use the content hash in `context.json`, which includes tracked and
+   untracked repository files, not HEAD alone. Validate it before accepting results and again
+   before merge. If it changes, regenerate context and restart affected subagents.
 
 ---
 
@@ -177,11 +179,14 @@ They apply to both the coordinator and all subagents.
 ### Step 1: Run Programmatic Checks
 
 Run automated checks first to catch mechanical issues. See `references/verification-commands.md`
-for full details and failure triage.
+for exact commands, the required checks JSON shape, and failure triage. Keep audit artifacts
+outside the repository so they do not change the workspace snapshot.
 
 ```bash
 export LC_ALL=C
 git rev-parse HEAD
+
+.agents/skills/review-docs/scripts/review_docs.py validate
 
 # Parallel group 1
 (cd website && npm run docs:parity)
@@ -201,48 +206,34 @@ node scripts/validate-version-assets.mjs
 (cd website && npm run build)
 ```
 
-Record results in the **Context Block** format:
+Record the nine programmatic results in `/tmp/review-docs/checks.json`, then generate canonical
+context and the content snapshot:
 
-```
-PROGRAMMATIC CHECK RESULTS
-==========================
-audit-date         : YYYY-MM-DD
-git-head           : <commit sha>
-docs:parity        : PASS | FAIL (detail)
-container-grep     : PASS | FAIL (files: ...)
-diagram-readability: PASS | FAIL (detail)
-d2-validate        : PASS | FAIL (files: ...)
-diagram-renders    : PASS | FAIL (detail)
-check-agent-docs   : PASS | FAIL (detail)
-version-assets     : PASS | FAIL (detail)
-website-typecheck  : PASS | FAIL (detail)
-website-build      : PASS | FAIL (detail)
-doc-inventory      : PASS | FAIL (unassigned files/surfaces: ...)
-inventory-counts   : website-docs=N, snippets=N, d2=N, architecture=N, agent-docs=N
-==========================
+```bash
+mkdir -p /tmp/review-docs/results
+.agents/skills/review-docs/scripts/review_docs.py prepare \
+  --checks /tmp/review-docs/checks.json \
+  --output /tmp/review-docs/context.json
 ```
 
-### Step 2: Spawn 11 Parallel Subagents
+### Step 2: Run 11 Surface Subagents
 
-Spawn one subagent per surface. Each subagent receives:
-1. The Context Block from Step 1
+Assign one subagent per surface. Use all available concurrency slots, queue remaining surfaces in
+numeric order, and start the next pending surface whenever a slot opens. This rule is runtime
+neutral; never assume a fixed agent limit.
+
+Each subagent receives:
+
+1. `/tmp/review-docs/context.json` and its `context_id`
 2. Its assigned surface checklist section from `references/surface-checklists.md`
 3. The structured output format from `references/structured-output-format.md`
-
-**Codex CLI only**: Codex CLI currently supports at most 24 live subagents. When running
-under Codex CLI, spawn subagents in deterministic order (SA-1, SA-2, ...) up to the
-available live-subagent limit, then keep the remaining assigned surfaces pending. As each
-subagent completes and a slot becomes available, launch the next pending surface with the
-same prompt template and references below. The coordinator may run programmatic checks,
-manage the pending queue, verify completeness, and merge reports; it must not perform
-checklist review work assigned to any pending subagent.
 
 | Subagent | Surface | References to Read | Focus |
 |----------|---------|-------------------|-------|
 | **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk the README sync map, verify each section against its source of truth |
-| **SA-2: Website Docs** | S2 | `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify MDX pages against Go code and CUE schemas using the code→docs map |
+| **SA-2: Website Docs** | S2 | `doc-ownership.json`, `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify every assigned MDX page against its exact semantic sources |
 | **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to the live snippet inventory systematically |
-| **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via the deterministic S4-C05 command |
+| **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity`; stale prose from computed English-vs-pt-BR commit lag |
 | **SA-5: Architecture Diagrams** | S5 | `consolidated-sync-map.md` (diagram section), `surface-checklists.md` §S5 | D2 node/label accuracy vs current package names and code structure |
 | **SA-6: Container Image Policy** | S6 | `surface-checklists.md` §S6 | Deep scan beyond Step 1 grep — CUE runtime fields, Dockerfiles in examples |
 | **SA-7: Config Defaults vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of CUE-derived defaults vs 4 doc pages + snippets |
@@ -260,16 +251,15 @@ variation in how the task is described to subagents is a source of run-to-run in
 You are reviewing documentation surface S{N}: {Surface Name} for the invowk project.
 
 ## Your Task
-Follow the checklist in `references/surface-checklists.md` §S{N} item by item. For each
-checklist item, report PASS, FAIL, or N/A with evidence. Then generate findings for
-all FAIL items that satisfy the Finding Admission Gate in
-`references/structured-output-format.md`.
+Follow the checklist in `references/surface-checklists.md` §S{N} item by item. Return canonical
+JSON conforming to `references/structured-output-format.md`, with exactly one item per check.
 
 ## Reference Files to Read
 {list of reference files from the table above}
 
-## Programmatic Check Results (from coordinator)
-{paste the Context Block here}
+## Audit Context
+Read `/tmp/review-docs/context.json`. Use context ID `{context_id}` and list every reviewed
+repository path in the item's `targets` array.
 
 ## Per-Item Procedure
 For each checklist item:
@@ -277,30 +267,30 @@ For each checklist item:
 2. Read the documentation target file
 3. Compare — does the doc accurately reflect the source of truth?
 4. Check `references/intentional-simplifications.md` — is a mismatch deliberate?
-5. Apply the Finding Admission Gate. If the mismatch is stylistic, subjective, speculative, or
-   missing exact evidence, do not generate a finding.
-6. Record status: PASS (with evidence), FAIL (generate finding), or N/A (with reason)
+5. Apply the Finding Admission Gate. Do not generate findings for style or speculation.
+6. Record PASS, FAIL, SKIP, or BLOCKED according to the strict status contract.
 
 ## Output
-1. Checklist Status table (every item, no omissions)
-2. Findings list (one entry per FAIL item, using the checklist's pre-assigned severity)
-3. Candidate observations (optional, uncounted; coordinator does not include these in RD-* IDs
-   unless they are converted into a checklist-backed coverage-gap finding)
+Return only the canonical JSON object. The coordinator saves it as
+`/tmp/review-docs/results/S{N}.json` and validates it with `scripts/review_docs.py validate-result`.
 ```
 
 ### Step 3: Merge and Report
 
-The coordinator:
-1. **Verifies completeness** — Each subagent reported on all checklist items for its surface
-2. **Rejects incomplete findings** — Findings that fail the admission gate are returned to the
-   subagent as N/A/candidate observations, not merged
-3. **Collects** findings from SA-1 through SA-11
-4. **Deduplicates** by (file, line/snippet ID) — keep higher severity on conflicts
-5. **Cross-checks** against `references/intentional-simplifications.md`
-6. **Sorts** by severity (ERROR first), then surface ID, check ID, file path, and line/snippet ID
-7. **Assigns** sequential IDs (RD-001, RD-002, ...) to the merged list
-8. **Merges** checklist tables into a unified Checklist Completion summary
-9. **Produces** the final report (see `references/structured-output-format.md`)
+Validate the snapshot and all 11 results, then merge deterministically:
+
+```bash
+.agents/skills/review-docs/scripts/review_docs.py snapshot-verify \
+  --context /tmp/review-docs/context.json
+.agents/skills/review-docs/scripts/review_docs.py merge \
+  --context /tmp/review-docs/context.json \
+  --results /tmp/review-docs/results \
+  --output /tmp/review-docs/report.md \
+  --output-json /tmp/review-docs/report.json
+```
+
+Do not hand-edit merged output. Exit 3 means the report exists but the audit is INCOMPLETE due to
+BLOCKED work; resolve the blocker and rerun the affected surfaces before reporting completion.
 
 ---
 
@@ -309,7 +299,9 @@ The coordinator:
 Read these when working on the corresponding review surface:
 
 - **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items (120 total across 11 surfaces). This is the primary review driver.
+  enumerated verification items. Derive totals with `scripts/review_docs.py validate`.
+- **[references/doc-ownership.json](references/doc-ownership.json)** — Exact semantic owner and
+  resolvable source-of-truth contract for every current website page.
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →
@@ -322,6 +314,8 @@ Read these when working on the corresponding review surface:
   Finding report template, checklist status format, severity definitions, merge procedure
 - **[references/verification-commands.md](references/verification-commands.md)** — Full
   command reference with expected output and failure triage
+- **[scripts/review_docs.py](scripts/review_docs.py)** — Contract validation, context/snapshot
+  preparation, i18n lag selection, strict result validation, and deterministic report merging
 
 ---
 

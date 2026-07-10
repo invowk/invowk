@@ -1,20 +1,21 @@
 # Intentional Simplifications Registry
 
 Items listed here are DELIBERATELY simplified or incomplete in documentation.
-Do NOT flag these as errors during review. Mark findings against these as severity **SKIP**.
+Do not emit findings for the registered omission itself. Continue reviewing the rest of the
+check; mark the whole item SKIP only when its check ID is explicitly listed in the final column.
 
 ## Registry
 
-| Location | What Is Simplified | Rationale |
-|---|---|---|
-| `website/src/pages/index.tsx` terminal demo | Simplified CLI output, minimal invowkfile | Mobile-friendly marketing page; full accuracy would clutter the hero section |
-| `README.md` Quick Start (L151) | Minimal invowkfile without optional fields | First-time user experience; progressive disclosure |
-| `website/docs/getting-started/quickstart.mdx` | Omits advanced features (modules, containers, deps) | First-time user onboarding; complexity introduced in later sections |
-| `website/src/components/Snippet/data/getting-started.ts` | Minimal CUE examples | Matches quickstart progressive disclosure |
-| `website/docs/core-concepts/*.mdx` | One feature per example | Clarity over completeness; each page focuses on one concept |
-| `docs/architecture/*.md` | May lag behind minor internal refactors | Architecture docs cover major patterns and relationships, not every internal change |
-| `website/docs/architecture/*.mdx` | Website architecture pages may summarize | Readable overview; D2 diagrams carry the detail |
-| `README.md` Invowkfile Format section | Omits `category` command field | Progressive disclosure; optional cosmetic field documented in website schema reference |
+| ID | Location | What Is Simplified | Rationale | Whole-Check SKIP IDs |
+|---|---|---|---|---|
+| IS-001 | `website/src/pages/index.tsx` terminal demo | Simplified CLI output, minimal invowkfile | Mobile-friendly marketing page; full accuracy would clutter the hero section | — |
+| IS-002 | `README.md` Quick Start heading | Minimal invowkfile without optional fields | First-time user experience; progressive disclosure | — |
+| IS-003 | `website/docs/getting-started/quickstart.mdx` | Omits advanced features (modules, containers, deps) | First-time user onboarding; complexity introduced in later sections | — |
+| IS-004 | `website/src/components/Snippet/data/getting-started.ts` | Minimal CUE examples | Matches quickstart progressive disclosure | — |
+| IS-005 | `website/docs/core-concepts/*.mdx` | One feature per example | Clarity over completeness; each page focuses on one concept | — |
+| IS-006 | `docs/architecture/*.md` | May lag behind minor internal refactors | Architecture docs cover major patterns and relationships, not every internal change | — |
+| IS-007 | `website/docs/architecture/*.mdx` | Website architecture pages may summarize | Readable overview; D2 diagrams carry the detail | — |
+| IS-008 | `README.md` Invowkfile Format heading | Omits `category` command field | Progressive disclosure; optional cosmetic field documented in website schema reference | — |
 
 ## Progressive Disclosure Rule
 
@@ -41,7 +42,9 @@ An omission becomes a real finding when:
 
 When a review finding is determined to be intentional:
 
-1. Add a row to the Registry table above with the exact file path.
-2. Describe what is simplified (be specific).
-3. Explain why it is intentional (the pedagogical or UX reason).
-4. Mark the original finding as severity **SKIP** with a reference to this entry.
+1. Allocate the next stable `IS-NNN` ID; never reuse retired IDs.
+2. Add a row to the Registry table above with the exact file path or narrow glob.
+3. Describe what is simplified and why it is intentional.
+4. Leave Whole-Check SKIP IDs empty unless the simplification exempts the entire check across all
+   targets. Narrow omissions remain annotations while the check resolves PASS, FAIL, or BLOCKED.
+5. Only when a whole-check ID is explicitly listed may the result mark that check SKIP.
