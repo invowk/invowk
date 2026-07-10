@@ -580,7 +580,7 @@ jobs:
 
       - name: Install govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.4.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           govulncheck -version
 
       - name: Run govulncheck

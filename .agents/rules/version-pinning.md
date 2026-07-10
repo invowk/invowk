@@ -27,7 +27,7 @@ build configuration.
 - When upgrading, update the version in ALL workflow files that reference it.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
-  - `govulncheck`: `v1.4.0`
+  - `govulncheck`: `v1.6.0`
   - `cosign`: `v3.1.1` (via `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml`)
   - UPX: `5.2.0`
   - D2: `v0.7.1`
