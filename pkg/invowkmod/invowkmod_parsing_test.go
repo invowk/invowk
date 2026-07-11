@@ -109,54 +109,8 @@ version: "1.0.0"
 func TestParseModuleMetadataOnly(t *testing.T) {
 	t.Parallel()
 
-	t.Run("existing invowkmod.cue", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		moduleDir := filepath.Join(tmpDir, "mymodule.invowkmod")
-		if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-			t.Fatalf("failed to create module dir: %v", err)
-		}
-
-		// Create invowkmod.cue
-		invowkmodContent := `module: "mymodule"
-version: "1.0.0"
-`
-		if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		meta, err := ParseModuleMetadataOnly(types.FilesystemPath(moduleDir))
-		if err != nil {
-			t.Fatalf("ParseModuleMetadataOnly() returned error: %v", err)
-		}
-
-		if meta == nil {
-			t.Fatal("ParseModuleMetadataOnly() should not return nil")
-		}
-		if meta.Module != "mymodule" {
-			t.Errorf("Module = %q, want %q", meta.Module, "mymodule")
-		}
-	})
-
-	t.Run("missing invowkmod.cue", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		moduleDir := filepath.Join(tmpDir, "mymodule.invowkmod")
-		if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-			t.Fatalf("failed to create module dir: %v", err)
-		}
-
-		meta, err := ParseModuleMetadataOnly(types.FilesystemPath(moduleDir))
-		if !errors.Is(err, ErrInvowkmodNotFound) {
-			t.Errorf("ParseModuleMetadataOnly() should return ErrInvowkmodNotFound, got: %v", err)
-		}
-
-		if meta != nil {
-			t.Error("ParseModuleMetadataOnly() should return nil for missing invowkmod.cue")
-		}
-	})
+	t.Run("existing invowkmod.cue", testParseModuleMetadataOnlyExisting)
+	t.Run("missing invowkmod.cue", testParseModuleMetadataOnlyMissing)
 }
 
 // ============================================
@@ -166,309 +120,208 @@ version: "1.0.0"
 func TestParseInvowkmod(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid invowkmod with all fields", func(t *testing.T) {
-		t.Parallel()
+	t.Run("valid invowkmod with all fields", testParseInvowkmodAllFields)
+	t.Run("minimal invowkmod (required fields only)", testParseInvowkmodMinimal)
+	t.Run("invalid invowkmod - missing version", rejectInvowkmod(`module: "mymodule"
+`, "missing version field"))
+	t.Run("invalid invowkmod - missing module", rejectInvowkmod(`version: "1.0.0"
+description: "Missing module field"
+`, "missing module field"))
+	t.Run("invalid metadata version - v prefix", rejectInvowkmod(`module: "mymodule"
+version: "v1.0.0"
+`, "v-prefixed metadata version"))
+	t.Run("invalid metadata version - partial", rejectInvowkmod(`module: "mymodule"
+version: "1.0"
+`, "partial metadata version"))
+	t.Run("invalid requirement version - v prefix", rejectInvowkmod(`module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "v1.0.0"},
+]
+`, "v-prefixed requirement version"))
+	t.Run("valid requirement versions with comparison operators", testParseInvowkmodComparisonOperators)
+	t.Run("invalid requirement version - trailing junk", rejectInvowkmod(`module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "1.0.0junk"},
+]
+`, "trailing junk in requirement version"))
+	t.Run("invalid requirement alias", rejectInvowkmod(`module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", alias: "1tools"},
+]
+`, "invalid requirement alias"))
+	t.Run("invalid requirement path", rejectInvowkmod(`module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", path: "../tools.invowkmod"},
+]
+`, "invalid requirement path"))
+	t.Run("unsupported requirement URL scheme", rejectInvowkmod(`module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "http://github.com/example/tools.git", version: "^1.0.0"},
+]
+`, "unsupported URL scheme"))
+	t.Run("full metadata validation rejects invalid load path", testParseInvowkmodInvalidLoadPath)
+	t.Run("invalid module name format", rejectInvowkmod(`module: "123invalid"
+`, "invalid module name"))
+}
 
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "io.example.mymodule"
+func testParseModuleMetadataOnlyExisting(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := filepath.Join(t.TempDir(), "mymodule.invowkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
+	}
+
+	invowkmodContent := `module: "mymodule"
+version: "1.0.0"
+`
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
+		t.Fatalf("failed to write invowkmod.cue: %v", err)
+	}
+
+	meta, err := ParseModuleMetadataOnly(types.FilesystemPath(moduleDir))
+	if err != nil {
+		t.Fatalf("ParseModuleMetadataOnly() returned error: %v", err)
+	}
+	if meta == nil {
+		t.Fatal("ParseModuleMetadataOnly() should not return nil")
+	}
+	if meta.Module != "mymodule" {
+		t.Errorf("Module = %q, want %q", meta.Module, "mymodule")
+	}
+}
+
+func testParseModuleMetadataOnlyMissing(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := filepath.Join(t.TempDir(), "mymodule.invowkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
+	}
+
+	meta, err := ParseModuleMetadataOnly(types.FilesystemPath(moduleDir))
+	if !errors.Is(err, ErrInvowkmodNotFound) {
+		t.Errorf("ParseModuleMetadataOnly() should return ErrInvowkmodNotFound, got: %v", err)
+	}
+	if meta != nil {
+		t.Error("ParseModuleMetadataOnly() should return nil for missing invowkmod.cue")
+	}
+}
+
+func testParseInvowkmodAllFields(t *testing.T) {
+	t.Parallel()
+
+	content := `module: "io.example.mymodule"
 version: "1.0.0"
 description: "A test module"
 requires: [
 	{git_url: "https://github.com/example/utils.git", version: "^1.0.0"},
 ]
 `
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
+	invowkmodPath := writeInvowkmodFixture(t, content)
+	meta, err := ParseInvowkmod(invowkmodPath)
+	if err != nil {
+		t.Fatalf("ParseInvowkmod() returned error: %v", err)
+	}
 
-		meta, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err != nil {
-			t.Fatalf("ParseInvowkmod() returned error: %v", err)
-		}
+	if meta.Module != "io.example.mymodule" {
+		t.Errorf("Module = %q, want %q", meta.Module, "io.example.mymodule")
+	}
+	if meta.Version != "1.0.0" {
+		t.Errorf("Version = %q, want %q", meta.Version, "1.0.0")
+	}
+	if meta.Description != "A test module" {
+		t.Errorf("Description = %q, want %q", meta.Description, "A test module")
+	}
+	if len(meta.Requires) != 1 {
+		t.Errorf("Requires length = %d, want 1", len(meta.Requires))
+	}
+	if meta.FilePath != invowkmodPath {
+		t.Errorf("FilePath = %q, want %q", meta.FilePath, invowkmodPath)
+	}
+}
 
-		if meta.Module != "io.example.mymodule" {
-			t.Errorf("Module = %q, want %q", meta.Module, "io.example.mymodule")
-		}
-		if meta.Version != "1.0.0" {
-			t.Errorf("Version = %q, want %q", meta.Version, "1.0.0")
-		}
-		if meta.Description != "A test module" {
-			t.Errorf("Description = %q, want %q", meta.Description, "A test module")
-		}
-		if len(meta.Requires) != 1 {
-			t.Errorf("Requires length = %d, want 1", len(meta.Requires))
-		}
-		if string(meta.FilePath) != invowkmodPath {
-			t.Errorf("FilePath = %q, want %q", meta.FilePath, invowkmodPath)
-		}
-	})
+func testParseInvowkmodMinimal(t *testing.T) {
+	t.Parallel()
 
-	t.Run("minimal invowkmod (required fields only)", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
+	content := `module: "mymodule"
 version: "1.0.0"
 `
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
+	meta, err := ParseInvowkmod(writeInvowkmodFixture(t, content))
+	if err != nil {
+		t.Fatalf("ParseInvowkmod() returned error: %v", err)
+	}
+	if meta.Module != "mymodule" {
+		t.Errorf("Module = %q, want %q", meta.Module, "mymodule")
+	}
+}
 
-		meta, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err != nil {
-			t.Fatalf("ParseInvowkmod() returned error: %v", err)
-		}
+func testParseInvowkmodComparisonOperators(t *testing.T) {
+	t.Parallel()
 
-		if meta.Module != "mymodule" {
-			t.Errorf("Module = %q, want %q", meta.Module, "mymodule")
-		}
-	})
-
-	t.Run("invalid invowkmod - missing version", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for missing version field")
-		}
-	})
-
-	t.Run("invalid invowkmod - missing module", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `version: "1.0.0"
-description: "Missing module field"
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for missing module field")
-		}
-	})
-
-	t.Run("invalid metadata version - v prefix", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "v1.0.0"
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for v-prefixed metadata version")
-		}
-	})
-
-	t.Run("invalid metadata version - partial", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "1.0"
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for partial metadata version")
-		}
-	})
-
-	t.Run("invalid requirement version - v prefix", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "1.0.0"
-requires: [
-	{git_url: "https://github.com/example/tools.git", version: "v1.0.0"},
-]
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for v-prefixed requirement version")
-		}
-	})
-
-	t.Run("valid requirement versions with comparison operators", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
+	content := `module: "mymodule"
 version: "1.0.0"
 requires: [
 	{git_url: "https://github.com/example/tools.git", version: ">=1.0.0"},
 	{git_url: "ssh://git@example.com/utils.git", version: "<=2.0.0"},
 ]
 `
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
+	meta, err := ParseInvowkmod(writeInvowkmodFixture(t, content))
+	if err != nil {
+		t.Fatalf("ParseInvowkmod() returned error: %v", err)
+	}
+	if len(meta.Requires) != 2 {
+		t.Fatalf("Requires length = %d, want 2", len(meta.Requires))
+	}
+}
 
-		meta, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err != nil {
-			t.Fatalf("ParseInvowkmod() returned error: %v", err)
-		}
-		if len(meta.Requires) != 2 {
-			t.Fatalf("Requires length = %d, want 2", len(meta.Requires))
-		}
-	})
+func testParseInvowkmodInvalidLoadPath(t *testing.T) {
+	t.Parallel()
 
-	t.Run("invalid requirement version - trailing junk", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "1.0.0"
-requires: [
-	{git_url: "https://github.com/example/tools.git", version: "1.0.0junk"},
-]
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for trailing junk in requirement version")
-		}
-	})
-
-	t.Run("invalid requirement alias", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "1.0.0"
-requires: [
-	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", alias: "1tools"},
-]
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for invalid requirement alias")
-		}
-	})
-
-	t.Run("invalid requirement path", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "1.0.0"
-requires: [
-	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", path: "../tools.invowkmod"},
-]
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for invalid requirement path")
-		}
-	})
-
-	t.Run("unsupported requirement URL scheme", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "mymodule"
-version: "1.0.0"
-requires: [
-	{git_url: "http://github.com/example/tools.git", version: "^1.0.0"},
-]
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
-		if err == nil {
-			t.Error("ParseInvowkmod() should return error for unsupported URL scheme")
-		}
-	})
-
-	t.Run("full metadata validation rejects invalid load path", func(t *testing.T) {
-		t.Parallel()
-
-		content := []byte(`module: "mymodule"
+	content := []byte(`module: "mymodule"
 version: "1.0.0"
 `)
-		_, err := ParseInvowkmodBytes(content, " \t ")
-		if err == nil {
-			t.Error("ParseInvowkmodBytes() should return error for invalid metadata FilePath")
+	_, err := ParseInvowkmodBytes(content, " \t ")
+	if err == nil {
+		t.Error("ParseInvowkmodBytes() should return error for invalid metadata FilePath")
+	}
+	if !errors.Is(err, ErrInvalidInvowkmod) {
+		t.Fatalf("ParseInvowkmodBytes() error = %v, want ErrInvalidInvowkmod", err)
+	}
+	var invErr *InvalidInvowkmodError
+	if !errors.As(err, &invErr) {
+		t.Fatalf("ParseInvowkmodBytes() error = %T, want InvalidInvowkmodError", err)
+	}
+	for _, fieldErr := range invErr.FieldErrors {
+		if errors.Is(fieldErr, types.ErrInvalidFilesystemPath) {
+			return
 		}
-		if !errors.Is(err, ErrInvalidInvowkmod) {
-			t.Fatalf("ParseInvowkmodBytes() error = %v, want ErrInvalidInvowkmod", err)
-		}
-		var invErr *InvalidInvowkmodError
-		if !errors.As(err, &invErr) {
-			t.Fatalf("ParseInvowkmodBytes() error = %T, want InvalidInvowkmodError", err)
-		}
-		hasPathErr := false
-		for _, fieldErr := range invErr.FieldErrors {
-			if errors.Is(fieldErr, types.ErrInvalidFilesystemPath) {
-				hasPathErr = true
-			}
-		}
-		if !hasPathErr {
-			t.Fatalf("InvalidInvowkmodError.FieldErrors = %v, want ErrInvalidFilesystemPath", invErr.FieldErrors)
-		}
-	})
+	}
+	t.Fatalf("InvalidInvowkmodError.FieldErrors = %v, want ErrInvalidFilesystemPath", invErr.FieldErrors)
+}
 
-	t.Run("invalid module name format", func(t *testing.T) {
+func rejectInvowkmod(content, failure string) func(*testing.T) {
+	return func(t *testing.T) {
 		t.Parallel()
 
-		tmpDir := t.TempDir()
-		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
-		content := `module: "123invalid"
-`
-		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write invowkmod.cue: %v", err)
-		}
-
-		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		_, err := ParseInvowkmod(writeInvowkmodFixture(t, content))
 		if err == nil {
-			t.Error("ParseInvowkmod() should return error for invalid module name")
+			t.Errorf("ParseInvowkmod() should return error for %s", failure)
 		}
-	})
+	}
+}
+
+func writeInvowkmodFixture(t *testing.T, content string) types.FilesystemPath {
+	t.Helper()
+
+	invowkmodPath := filepath.Join(t.TempDir(), "invowkmod.cue")
+	if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write invowkmod.cue: %v", err)
+	}
+	return types.FilesystemPath(invowkmodPath)
 }

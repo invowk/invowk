@@ -12,125 +12,70 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+type configDirTestCase struct {
+	name           string
+	goos           string
+	getenv         func(string) string
+	homeDir        func() (string, error)
+	want           types.FilesystemPath
+	wantErrorParts []string
+}
+
 func TestConfigDir(t *testing.T) {
 	t.Parallel()
 
 	fakeHomeDir := filepath.Join("fake", "home")
 	fakeHome := func() (string, error) { return fakeHomeDir, nil }
 	failHome := func() (string, error) { return "", errors.New("no home") }
+	xdgPath := filepath.Join("custom", "xdg")
+	appDataPath := filepath.Join("C", "Users", "test", "AppData", "Roaming")
+	userProfile := filepath.Join("C", "Users", "test")
+	tests := []configDirTestCase{
+		{
+			name: "linux with XDG_CONFIG_HOME set", goos: "linux",
+			getenv: environmentLookup(map[string]string{"XDG_CONFIG_HOME": xdgPath}), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(xdgPath, AppName)),
+		},
+		{
+			name: "linux without XDG_CONFIG_HOME", goos: "linux",
+			getenv: environmentLookup(nil), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName)),
+		},
+		{
+			name: "linux home dir error", goos: "linux",
+			getenv: environmentLookup(nil), homeDir: failHome, wantErrorParts: []string{"no home"},
+		},
+		{
+			name: "darwin", goos: "darwin",
+			getenv: environmentLookup(nil), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(fakeHomeDir, "Library", "Application Support", AppName)),
+		},
+		{
+			name: "darwin home dir error", goos: "darwin",
+			getenv: environmentLookup(nil), homeDir: failHome, wantErrorParts: []string{"no home"},
+		},
+		{
+			name: "windows with APPDATA", goos: "windows",
+			getenv: environmentLookup(map[string]string{"APPDATA": appDataPath}), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(appDataPath, AppName)),
+		},
+		{
+			name: "windows without APPDATA", goos: "windows",
+			getenv: environmentLookup(map[string]string{"USERPROFILE": userProfile}), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(userProfile, "AppData", "Roaming", AppName)),
+		},
+		{
+			name: "windows without APPDATA or USERPROFILE", goos: "windows",
+			getenv: environmentLookup(nil), homeDir: fakeHome, wantErrorParts: []string{"APPDATA", "USERPROFILE"},
+		},
+	}
 
-	t.Run("linux with XDG_CONFIG_HOME set", func(t *testing.T) {
-		t.Parallel()
-		xdgPath := filepath.Join("custom", "xdg")
-		getenv := func(key string) string {
-			if key == "XDG_CONFIG_HOME" {
-				return xdgPath
-			}
-			return ""
-		}
-		dir, err := configDirFrom("linux", getenv, fakeHome)
-		if err != nil {
-			t.Fatalf("configDirFrom() error: %v", err)
-		}
-		expected := types.FilesystemPath(filepath.Join(xdgPath, AppName))
-		if dir != expected {
-			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
-		}
-	})
-
-	t.Run("linux without XDG_CONFIG_HOME", func(t *testing.T) {
-		t.Parallel()
-		noEnv := func(string) string { return "" }
-		dir, err := configDirFrom("linux", noEnv, fakeHome)
-		if err != nil {
-			t.Fatalf("configDirFrom() error: %v", err)
-		}
-		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName))
-		if dir != expected {
-			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
-		}
-	})
-
-	t.Run("linux home dir error", func(t *testing.T) {
-		t.Parallel()
-		noEnv := func(string) string { return "" }
-		_, err := configDirFrom("linux", noEnv, failHome)
-		if err == nil {
-			t.Fatal("expected error when home dir fails")
-		}
-	})
-
-	t.Run("darwin", func(t *testing.T) {
-		t.Parallel()
-		noEnv := func(string) string { return "" }
-		dir, err := configDirFrom("darwin", noEnv, fakeHome)
-		if err != nil {
-			t.Fatalf("configDirFrom() error: %v", err)
-		}
-		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, "Library", "Application Support", AppName))
-		if dir != expected {
-			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
-		}
-	})
-
-	t.Run("darwin home dir error", func(t *testing.T) {
-		t.Parallel()
-		noEnv := func(string) string { return "" }
-		_, err := configDirFrom("darwin", noEnv, failHome)
-		if err == nil {
-			t.Fatal("expected error when home dir fails")
-		}
-	})
-
-	t.Run("windows with APPDATA", func(t *testing.T) {
-		t.Parallel()
-		appDataPath := filepath.Join("C", "Users", "test", "AppData", "Roaming")
-		getenv := func(key string) string {
-			if key == "APPDATA" {
-				return appDataPath
-			}
-			return ""
-		}
-		dir, err := configDirFrom("windows", getenv, fakeHome)
-		if err != nil {
-			t.Fatalf("configDirFrom() error: %v", err)
-		}
-		expected := types.FilesystemPath(filepath.Join(appDataPath, AppName))
-		if dir != expected {
-			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
-		}
-	})
-
-	t.Run("windows without APPDATA", func(t *testing.T) {
-		t.Parallel()
-		userProfile := filepath.Join("C", "Users", "test")
-		getenv := func(key string) string {
-			if key == "USERPROFILE" {
-				return userProfile
-			}
-			return ""
-		}
-		dir, err := configDirFrom("windows", getenv, fakeHome)
-		if err != nil {
-			t.Fatalf("configDirFrom() error: %v", err)
-		}
-		expected := types.FilesystemPath(filepath.Join(userProfile, "AppData", "Roaming", AppName))
-		if dir != expected {
-			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
-		}
-	})
-
-	t.Run("windows without APPDATA or USERPROFILE", func(t *testing.T) {
-		t.Parallel()
-		noEnv := func(string) string { return "" }
-		_, err := configDirFrom("windows", noEnv, fakeHome)
-		if err == nil {
-			t.Fatal("configDirFrom() should return error when both APPDATA and USERPROFILE are empty")
-		}
-		if !strings.Contains(err.Error(), "APPDATA") || !strings.Contains(err.Error(), "USERPROFILE") {
-			t.Errorf("error should mention both env vars, got: %v", err)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			runConfigDirTestCase(t, tt)
+		})
+	}
 }
 
 func TestCommandsDir(t *testing.T) {
@@ -295,5 +240,34 @@ func TestEnsureCommandsDir(t *testing.T) {
 
 	if _, err := os.Stat(cmdsDir); os.IsNotExist(err) {
 		t.Errorf("EnsureCommandsDir() did not create directory %s", cmdsDir)
+	}
+}
+
+func environmentLookup(values map[string]string) func(string) string {
+	return func(key string) string {
+		return values[key]
+	}
+}
+
+func runConfigDirTestCase(t *testing.T, tt configDirTestCase) {
+	t.Helper()
+
+	dir, err := configDirFrom(tt.goos, tt.getenv, tt.homeDir)
+	if len(tt.wantErrorParts) > 0 {
+		if err == nil {
+			t.Fatalf("configDirFrom() error = nil, want error containing %v", tt.wantErrorParts)
+		}
+		for _, part := range tt.wantErrorParts {
+			if !strings.Contains(err.Error(), part) {
+				t.Errorf("configDirFrom() error = %v, want substring %q", err, part)
+			}
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("configDirFrom() error: %v", err)
+	}
+	if dir != tt.want {
+		t.Errorf("configDirFrom() = %s, want %s", dir, tt.want)
 	}
 }

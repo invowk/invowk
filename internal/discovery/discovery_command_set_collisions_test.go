@@ -3,7 +3,10 @@
 package discovery
 
 import (
+	"slices"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // moduleIDPtr is a test helper that creates a *invowkmod.ModuleID from a string.
@@ -160,104 +163,39 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 
 	// Test T011: Multi-source aggregation for User Story 1
 	// Simulates commands from invowkfile + two modules
-
 	set := NewDiscoveredCommandSet()
-
-	// Commands from invowkfile
-	set.Add(&CommandInfo{
-		Name:       "hello",
-		SimpleName: "hello",
-		SourceID:   "invowkfile",
-		Source:     SourceCurrentDir,
-	})
-	set.Add(&CommandInfo{
-		Name:       "deploy",
-		SimpleName: "deploy",
-		SourceID:   "invowkfile",
-		Source:     SourceCurrentDir,
-	})
-
-	// Commands from foo module
-	set.Add(&CommandInfo{
-		Name:       "foo build",
-		SimpleName: "build",
-		SourceID:   "foo",
-		ModuleID:   moduleIDPtr("io.invowk.foo"),
-		Source:     SourceModule,
-	})
-	set.Add(&CommandInfo{
-		Name:       "foo deploy",
-		SimpleName: "deploy",
-		SourceID:   "foo",
-		ModuleID:   moduleIDPtr("io.invowk.foo"),
-		Source:     SourceModule,
-	})
-
-	// Commands from bar module
-	set.Add(&CommandInfo{
-		Name:       "bar test",
-		SimpleName: "test",
-		SourceID:   "bar",
-		ModuleID:   moduleIDPtr("io.invowk.bar"),
-		Source:     SourceModule,
+	addCommandInfos(set, []*CommandInfo{
+		{Name: "hello", SimpleName: "hello", SourceID: "invowkfile", Source: SourceCurrentDir},
+		{Name: "deploy", SimpleName: "deploy", SourceID: "invowkfile", Source: SourceCurrentDir},
+		{
+			Name: "foo build", SimpleName: "build", SourceID: "foo",
+			ModuleID: moduleIDPtr("io.invowk.foo"), Source: SourceModule,
+		},
+		{
+			Name: "foo deploy", SimpleName: "deploy", SourceID: "foo",
+			ModuleID: moduleIDPtr("io.invowk.foo"), Source: SourceModule,
+		},
+		{
+			Name: "bar test", SimpleName: "test", SourceID: "bar",
+			ModuleID: moduleIDPtr("io.invowk.bar"), Source: SourceModule,
+		},
 	})
 
 	set.Analyze()
 
-	// Test aggregation counts
-	if len(set.Commands) != 5 {
-		t.Errorf("len(Commands) = %d, want 5", len(set.Commands))
-	}
-
-	// Test source grouping
-	if len(set.BySource["invowkfile"]) != 2 {
-		t.Errorf("len(BySource[invowkfile]) = %d, want 2", len(set.BySource["invowkfile"]))
-	}
-	if len(set.BySource["foo"]) != 2 {
-		t.Errorf("len(BySource[foo]) = %d, want 2", len(set.BySource["foo"]))
-	}
-	if len(set.BySource["bar"]) != 1 {
-		t.Errorf("len(BySource[bar]) = %d, want 1", len(set.BySource["bar"]))
-	}
-
-	// Test source order (invowkfile first, then alphabetically)
-	if set.SourceOrder[0] != "invowkfile" {
-		t.Errorf("SourceOrder[0] = %s, want invowkfile", set.SourceOrder[0])
-	}
-	if set.SourceOrder[1] != "bar" {
-		t.Errorf("SourceOrder[1] = %s, want bar", set.SourceOrder[1])
-	}
-	if set.SourceOrder[2] != "foo" {
-		t.Errorf("SourceOrder[2] = %s, want foo", set.SourceOrder[2])
-	}
-
-	// Test ambiguity detection - "deploy" is in both invowkfile and foo
-	if !set.AmbiguousNames["deploy"] {
-		t.Error("'deploy' should be marked as ambiguous")
-	}
-	// "hello", "build", "test" are unique
-	if set.AmbiguousNames["hello"] {
-		t.Error("'hello' should not be marked as ambiguous")
-	}
-	if set.AmbiguousNames["build"] {
-		t.Error("'build' should not be marked as ambiguous")
-	}
-	if set.AmbiguousNames["test"] {
-		t.Error("'test' should not be marked as ambiguous")
-	}
-
-	// Test IsAmbiguous flag on individual commands
-	for _, cmd := range set.Commands {
-		if cmd.SimpleName == "deploy" {
-			if !cmd.IsAmbiguous {
-				t.Errorf("Command 'deploy' from %s should be marked as ambiguous", cmd.SourceID)
-			}
-		} else {
-			if cmd.IsAmbiguous {
-				t.Errorf("Command '%s' from %s should not be marked as ambiguous", cmd.SimpleName, cmd.SourceID)
-			}
-		}
-	}
+	requireCommandCount(t, set, 5)
+	requireIndexedCommandCounts(t, "BySource", set.BySource, map[SourceID]int{
+		"invowkfile": 2,
+		"foo":        2,
+		"bar":        1,
+	})
+	requireSourceOrder(t, set, []SourceID{"invowkfile", "bar", "foo"})
+	requireAmbiguityState(t, set, map[invowkfile.CommandName]bool{
+		"deploy": true,
+		"hello":  false,
+		"build":  false,
+		"test":   false,
+	})
 }
 
 func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
@@ -266,105 +204,97 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 	// Test T035: Hierarchical command ambiguity detection (User Story 4)
 	// Tests that subcommands like "deploy staging" are tracked separately from "deploy"
 	// and ambiguity is detected at the correct hierarchical level
-
 	set := NewDiscoveredCommandSet()
-
-	// Commands from invowkfile - parent "deploy" and subcommand "deploy staging"
-	set.Add(&CommandInfo{
-		Name:       "deploy",
-		SimpleName: "deploy",
-		SourceID:   "invowkfile",
-		Source:     SourceCurrentDir,
-	})
-	set.Add(&CommandInfo{
-		Name:       "deploy staging",
-		SimpleName: "deploy staging",
-		SourceID:   "invowkfile",
-		Source:     SourceCurrentDir,
-	})
-	set.Add(&CommandInfo{
-		Name:       "deploy local",
-		SimpleName: "deploy local",
-		SourceID:   "invowkfile",
-		Source:     SourceCurrentDir,
-	})
-
-	// Commands from foo module - conflicting parent "deploy"
-	set.Add(&CommandInfo{
-		Name:       "foo deploy",
-		SimpleName: "deploy",
-		SourceID:   "foo",
-		ModuleID:   moduleIDPtr("io.invowk.foo"),
-		Source:     SourceModule,
-	})
-
-	// Commands from bar module - conflicting "deploy staging" but unique "deploy production"
-	set.Add(&CommandInfo{
-		Name:       "bar deploy staging",
-		SimpleName: "deploy staging",
-		SourceID:   "bar",
-		ModuleID:   moduleIDPtr("io.invowk.bar"),
-		Source:     SourceModule,
-	})
-	set.Add(&CommandInfo{
-		Name:       "bar deploy production",
-		SimpleName: "deploy production",
-		SourceID:   "bar",
-		ModuleID:   moduleIDPtr("io.invowk.bar"),
-		Source:     SourceModule,
+	addCommandInfos(set, []*CommandInfo{
+		{Name: "deploy", SimpleName: "deploy", SourceID: "invowkfile", Source: SourceCurrentDir},
+		{Name: "deploy staging", SimpleName: "deploy staging", SourceID: "invowkfile", Source: SourceCurrentDir},
+		{Name: "deploy local", SimpleName: "deploy local", SourceID: "invowkfile", Source: SourceCurrentDir},
+		{
+			Name: "foo deploy", SimpleName: "deploy", SourceID: "foo",
+			ModuleID: moduleIDPtr("io.invowk.foo"), Source: SourceModule,
+		},
+		{
+			Name: "bar deploy staging", SimpleName: "deploy staging", SourceID: "bar",
+			ModuleID: moduleIDPtr("io.invowk.bar"), Source: SourceModule,
+		},
+		{
+			Name: "bar deploy production", SimpleName: "deploy production", SourceID: "bar",
+			ModuleID: moduleIDPtr("io.invowk.bar"), Source: SourceModule,
+		},
 	})
 
 	set.Analyze()
 
-	// Test that "deploy" is ambiguous (invowkfile vs foo)
-	if !set.AmbiguousNames["deploy"] {
-		t.Error("'deploy' should be marked as ambiguous (exists in invowkfile and foo)")
-	}
+	requireAmbiguityState(t, set, map[invowkfile.CommandName]bool{
+		"deploy":            true,
+		"deploy staging":    true,
+		"deploy local":      false,
+		"deploy production": false,
+	})
+	requireIndexedCommandCounts(t, "BySimpleName", set.BySimpleName, map[invowkfile.CommandName]int{
+		"deploy":            2,
+		"deploy staging":    2,
+		"deploy local":      1,
+		"deploy production": 1,
+	})
+}
 
-	// Test that "deploy staging" is ambiguous (invowkfile vs bar)
-	if !set.AmbiguousNames["deploy staging"] {
-		t.Error("'deploy staging' should be marked as ambiguous (exists in invowkfile and bar)")
+func addCommandInfos(set *DiscoveredCommandSet, commands []*CommandInfo) {
+	for _, command := range commands {
+		set.Add(command)
 	}
+}
 
-	// Test that "deploy local" is NOT ambiguous (only in invowkfile)
-	if set.AmbiguousNames["deploy local"] {
-		t.Error("'deploy local' should NOT be marked as ambiguous (only in invowkfile)")
+func requireCommandCount(t *testing.T, set *DiscoveredCommandSet, want int) {
+	t.Helper()
+
+	if len(set.Commands) != want {
+		t.Errorf("len(Commands) = %d, want %d", len(set.Commands), want)
 	}
+}
 
-	// Test that "deploy production" is NOT ambiguous (only in bar)
-	if set.AmbiguousNames["deploy production"] {
-		t.Error("'deploy production' should NOT be marked as ambiguous (only in bar)")
-	}
+func requireIndexedCommandCounts[K comparable](
+	t *testing.T,
+	indexName string,
+	index map[K][]*CommandInfo,
+	want map[K]int,
+) {
+	t.Helper()
 
-	// Verify IsAmbiguous flag on individual commands
-	for _, cmd := range set.Commands {
-		switch cmd.SimpleName {
-		case "deploy":
-			if !cmd.IsAmbiguous {
-				t.Errorf("Command 'deploy' from %s should be marked as ambiguous", cmd.SourceID)
-			}
-		case "deploy staging":
-			if !cmd.IsAmbiguous {
-				t.Errorf("Command 'deploy staging' from %s should be marked as ambiguous", cmd.SourceID)
-			}
-		case "deploy local", "deploy production":
-			if cmd.IsAmbiguous {
-				t.Errorf("Command '%s' from %s should NOT be marked as ambiguous", cmd.SimpleName, cmd.SourceID)
-			}
+	for key, wantCount := range want {
+		if got := len(index[key]); got != wantCount {
+			t.Errorf("len(%s[%v]) = %d, want %d", indexName, key, got, wantCount)
 		}
 	}
+}
 
-	// Verify correct command counts per SimpleName
-	if len(set.BySimpleName["deploy"]) != 2 {
-		t.Errorf("Expected 2 commands with SimpleName 'deploy', got %d", len(set.BySimpleName["deploy"]))
+func requireSourceOrder(t *testing.T, set *DiscoveredCommandSet, want []SourceID) {
+	t.Helper()
+
+	if !slices.Equal(set.SourceOrder, want) {
+		t.Errorf("SourceOrder = %v, want %v", set.SourceOrder, want)
 	}
-	if len(set.BySimpleName["deploy staging"]) != 2 {
-		t.Errorf("Expected 2 commands with SimpleName 'deploy staging', got %d", len(set.BySimpleName["deploy staging"]))
+}
+
+func requireAmbiguityState(
+	t *testing.T,
+	set *DiscoveredCommandSet,
+	want map[invowkfile.CommandName]bool,
+) {
+	t.Helper()
+
+	for name, wantAmbiguous := range want {
+		if got := set.AmbiguousNames[name]; got != wantAmbiguous {
+			t.Errorf("AmbiguousNames[%q] = %t, want %t", name, got, wantAmbiguous)
+		}
 	}
-	if len(set.BySimpleName["deploy local"]) != 1 {
-		t.Errorf("Expected 1 command with SimpleName 'deploy local', got %d", len(set.BySimpleName["deploy local"]))
-	}
-	if len(set.BySimpleName["deploy production"]) != 1 {
-		t.Errorf("Expected 1 command with SimpleName 'deploy production', got %d", len(set.BySimpleName["deploy production"]))
+	for _, command := range set.Commands {
+		wantAmbiguous, ok := want[command.SimpleName]
+		if !ok {
+			t.Fatalf("missing ambiguity expectation for command %q", command.SimpleName)
+		}
+		if command.IsAmbiguous != wantAmbiguous {
+			t.Errorf("Command %q from %s IsAmbiguous = %t, want %t", command.SimpleName, command.SourceID, command.IsAmbiguous, wantAmbiguous)
+		}
 	}
 }

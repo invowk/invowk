@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -22,6 +23,8 @@ var (
 	errArtifactReaderFailure = errors.New("artifact reader failure")
 	errArtifactCloseFailure  = errors.New("artifact close failure")
 	errArtifactInfoMissing   = errors.New("artifact entry info unavailable")
+	errArtifactOpenFailure   = errors.New("artifact open failure")
+	errArtifactVisitFailure  = errors.New("artifact visit failure")
 )
 
 type (
@@ -37,6 +40,8 @@ type (
 		readErr      error
 		closeErr     error
 		cancelOnRead context.CancelFunc
+		emptyBatch   bool
+		closed       bool
 	}
 )
 
@@ -106,10 +111,15 @@ func TestArtifactWalkerFailsClosedOnReadAndCloseErrors(t *testing.T) {
 	tests := []struct {
 		name   string
 		reader *recordingArtifactDirectory
-		want   error
+		wants  []error
 	}{
-		{name: "read", reader: &recordingArtifactDirectory{readErr: errArtifactReaderFailure}, want: errArtifactReaderFailure},
-		{name: "close", reader: &recordingArtifactDirectory{closeErr: errArtifactCloseFailure}, want: errArtifactCloseFailure},
+		{name: "read", reader: &recordingArtifactDirectory{readErr: errArtifactReaderFailure}, wants: []error{errArtifactReaderFailure}},
+		{name: "close", reader: &recordingArtifactDirectory{closeErr: errArtifactCloseFailure}, wants: []error{errArtifactCloseFailure}},
+		{
+			name:   "read and close",
+			reader: &recordingArtifactDirectory{readErr: errArtifactReaderFailure, closeErr: errArtifactCloseFailure},
+			wants:  []error{errArtifactReaderFailure, errArtifactCloseFailure},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -123,8 +133,141 @@ func TestArtifactWalkerFailsClosedOnReadAndCloseErrors(t *testing.T) {
 				},
 				func(types.FilesystemPath) (artifactDirectoryReader, error) { return tt.reader, nil },
 			)
-			if !errors.Is(err, tt.want) {
+			for _, want := range tt.wants {
+				if !errors.Is(err, want) {
+					t.Fatalf("walkArtifactTreeWithOpener() error = %v, want %v", err, want)
+				}
+			}
+			if !tt.reader.closed {
+				t.Fatal("walkArtifactTreeWithOpener() did not close the directory reader")
+			}
+		})
+	}
+}
+
+func TestArtifactWalkerClosesReaderReturnedWithOpenerError(t *testing.T) {
+	t.Parallel()
+
+	root := types.FilesystemPath(t.TempDir())
+	reader := &recordingArtifactDirectory{closeErr: errArtifactCloseFailure}
+	budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, root)
+	err := walkArtifactTreeWithOpener(
+		t.Context(), root, ArtifactKindSymlink, &budget, continueArtifactWalk,
+		func(types.FilesystemPath) (artifactDirectoryReader, error) {
+			return reader, errArtifactOpenFailure
+		},
+	)
+	for _, want := range []error{errArtifactOpenFailure, errArtifactCloseFailure} {
+		if !errors.Is(err, want) {
+			t.Fatalf("walkArtifactTreeWithOpener() error = %v, want %v", err, want)
+		}
+	}
+	if !reader.closed {
+		t.Fatal("walkArtifactTreeWithOpener() did not close the reader returned with an opener error")
+	}
+}
+
+func TestArtifactWalkerCancellationAfterOpenClosesReaderAndTakesPrecedence(t *testing.T) {
+	t.Parallel()
+
+	root := types.FilesystemPath(t.TempDir())
+	ctx, cancel := context.WithCancel(t.Context())
+	reader := &recordingArtifactDirectory{closeErr: errArtifactCloseFailure}
+	budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, root)
+	err := walkArtifactTreeWithOpener(
+		ctx, root, ArtifactKindSymlink, &budget, continueArtifactWalk,
+		func(types.FilesystemPath) (artifactDirectoryReader, error) {
+			cancel()
+			return reader, errArtifactOpenFailure
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("walkArtifactTreeWithOpener() error = %v, want context.Canceled", err)
+	}
+	if errors.Is(err, errArtifactOpenFailure) || errors.Is(err, errArtifactCloseFailure) {
+		t.Fatalf("walkArtifactTreeWithOpener() error = %v, cancellation must take precedence", err)
+	}
+	if !reader.closed {
+		t.Fatal("walkArtifactTreeWithOpener() did not close the reader after cancellation")
+	}
+}
+
+func TestArtifactWalkerRejectsInvalidDirectoryReaderResults(t *testing.T) {
+	t.Parallel()
+
+	root := types.FilesystemPath(t.TempDir())
+	tests := []struct {
+		name     string
+		opener   artifactDirectoryOpener
+		wantText string
+	}{
+		{
+			name: "nil reader",
+			opener: func(types.FilesystemPath) (artifactDirectoryReader, error) {
+				var openErr error
+				return nil, openErr
+			},
+			wantText: "nil reader",
+		},
+		{
+			name: "empty batch without EOF",
+			opener: func(types.FilesystemPath) (artifactDirectoryReader, error) {
+				return &recordingArtifactDirectory{emptyBatch: true}, nil
+			},
+			wantText: "empty batch without EOF",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, root)
+			err := walkArtifactTreeWithOpener(t.Context(), root, ArtifactKindLuaFile, &budget, continueArtifactWalk, tt.opener)
+			if err == nil || !strings.Contains(err.Error(), tt.wantText) {
+				t.Fatalf("walkArtifactTreeWithOpener() error = %v, want text %q", err, tt.wantText)
+			}
+		})
+	}
+}
+
+func TestArtifactWalkerClosesReaderOnVisitorFailure(t *testing.T) {
+	t.Parallel()
+
+	root := types.FilesystemPath(t.TempDir())
+	tests := []struct {
+		name     string
+		action   artifactWalkAction
+		err      error
+		want     error
+		wantText string
+	}{
+		{name: "visitor error", action: artifactWalkContinue, err: errArtifactVisitFailure, want: errArtifactVisitFailure},
+		{name: "invalid action", action: artifactWalkAction(99), wantText: "invalid artifact walk action"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			reader := &recordingArtifactDirectory{entries: []fs.DirEntry{fakeArtifactDirEntry{name: "child"}}}
+			budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, root)
+			err := walkArtifactTreeWithOpener(
+				t.Context(), root, ArtifactKindLuaFile, &budget,
+				func(_ context.Context, path types.FilesystemPath, _ fs.DirEntry) (artifactWalkAction, error) {
+					if path == root {
+						return artifactWalkContinue, nil
+					}
+					return tt.action, tt.err
+				},
+				func(types.FilesystemPath) (artifactDirectoryReader, error) { return reader, nil },
+			)
+			if tt.want != nil && !errors.Is(err, tt.want) {
 				t.Fatalf("walkArtifactTreeWithOpener() error = %v, want %v", err, tt.want)
+			}
+			if tt.wantText != "" && (err == nil || !strings.Contains(err.Error(), tt.wantText)) {
+				t.Fatalf("walkArtifactTreeWithOpener() error = %v, want text %q", err, tt.wantText)
+			}
+			if !reader.closed {
+				t.Fatal("walkArtifactTreeWithOpener() did not close the reader after visitor failure")
 			}
 		})
 	}
@@ -225,6 +368,9 @@ func (r *recordingArtifactDirectory) ReadDir(count artifactReadBatchCount) ([]fs
 		r.cancelOnRead()
 		r.cancelOnRead = nil
 	}
+	if r.emptyBatch {
+		return nil, nil
+	}
 	if r.offset >= len(r.entries) {
 		if r.readErr != nil {
 			return nil, r.readErr
@@ -243,4 +389,11 @@ func (r *recordingArtifactDirectory) ReadDir(count artifactReadBatchCount) ([]fs
 	return batch, nil
 }
 
-func (r *recordingArtifactDirectory) Close() error { return r.closeErr }
+func (r *recordingArtifactDirectory) Close() error {
+	r.closed = true
+	return r.closeErr
+}
+
+func continueArtifactWalk(context.Context, types.FilesystemPath, fs.DirEntry) (artifactWalkAction, error) {
+	return artifactWalkContinue, nil
+}

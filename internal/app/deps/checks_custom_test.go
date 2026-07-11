@@ -192,85 +192,115 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 	t.Parallel()
 
 	ctx := newDependencyExecutionContext(t)
+	successCases := []struct {
+		name       string
+		deps       *invowkfile.DependsOn
+		probe      HostProbe
+		useDefault bool
+	}{
+		{name: "nil deps returns nil", useDefault: true},
+		{name: "empty custom checks returns nil", deps: &invowkfile.DependsOn{}, useDefault: true},
+		{
+			name: "passing check succeeds",
+			deps: &invowkfile.DependsOn{
+				CustomChecks: []invowkfile.CustomCheckDependency{{
+					Alternatives: []invowkfile.CustomCheck{
+						{Name: "echo", Script: invowkfile.CustomCheckScript{Content: "echo ok"}},
+					},
+				}},
+			},
+			probe: &recordingHostProbe{},
+		},
+	}
 
-	t.Run("nil deps returns nil", func(t *testing.T) {
-		t.Parallel()
-		if err := CheckHostCustomCheckDependencies(nil, ctx); err != nil {
-			t.Fatalf("err = %v", err)
-		}
-	})
-
-	t.Run("empty custom checks returns nil", func(t *testing.T) {
-		t.Parallel()
-		if err := CheckHostCustomCheckDependencies(&invowkfile.DependsOn{}, ctx); err != nil {
-			t.Fatalf("err = %v", err)
-		}
-	})
-
-	t.Run("passing check succeeds", func(t *testing.T) {
-		t.Parallel()
-		deps := &invowkfile.DependsOn{
-			CustomChecks: []invowkfile.CustomCheckDependency{{
-				Alternatives: []invowkfile.CustomCheck{
-					{Name: "echo", Script: invowkfile.CustomCheckScript{Content: "echo ok"}},
-				},
-			}},
-		}
-		if err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, &recordingHostProbe{}); err != nil {
-			t.Fatalf("err = %v", err)
-		}
-	})
+	for _, tt := range successCases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			requireNoCustomCheckDependencyError(t, tt.deps, ctx, tt.probe, tt.useDefault)
+		})
+	}
 
 	t.Run("failing check returns dependency error", func(t *testing.T) {
 		t.Parallel()
-		deps := &invowkfile.DependsOn{
-			CustomChecks: []invowkfile.CustomCheckDependency{{
-				Alternatives: []invowkfile.CustomCheck{
-					{Name: "fail", Script: invowkfile.CustomCheckScript{Content: "exit 1"}},
-				},
-			}},
-		}
-		err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, &recordingHostProbe{
-			checkErrors: map[invowkfile.CheckName]error{
-				"fail": errors.New("check failed"),
-			},
-		})
-		if err == nil {
-			t.Fatal("expected error")
-		}
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
-		}
+		requireCustomCheckDependencyError(t, ctx)
 	})
 
 	t.Run("invalid check does not execute probe", func(t *testing.T) {
 		t.Parallel()
-
-		probe := &recordingHostProbe{}
-		deps := &invowkfile.DependsOn{
-			CustomChecks: []invowkfile.CustomCheckDependency{{
-				Name: "empty-script",
-			}},
-		}
-		err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe)
-		if err == nil {
-			t.Fatal("expected dependency error")
-		}
-		if len(probe.checks) != 0 {
-			t.Fatalf("probe executed %d checks, want 0", len(probe.checks))
-		}
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
-		}
-		if len(depErr.FailedCustomChecks) != 1 {
-			t.Fatalf("FailedCustomChecks = %d, want 1", len(depErr.FailedCustomChecks))
-		}
-		if got := depErr.FailedCustomChecks[0].String(); !strings.Contains(got, "invalid custom check dependency") || !strings.Contains(got, "custom check script must set content or file") {
-			t.Fatalf("FailedCustomChecks[0] = %q, want validation detail", got)
-		}
+		requireInvalidCustomCheckRejectedWithoutProbe(t, ctx)
 	})
+}
+
+func requireNoCustomCheckDependencyError(
+	t *testing.T,
+	deps *invowkfile.DependsOn,
+	ctx ExecutionContext,
+	probe HostProbe,
+	useDefault bool,
+) {
+	t.Helper()
+
+	var err error
+	if useDefault {
+		err = CheckHostCustomCheckDependencies(deps, ctx)
+	} else {
+		err = CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe)
+	}
+	if err != nil {
+		t.Fatalf("custom check dependency validation error = %v, want nil", err)
+	}
+}
+
+func requireCustomCheckDependencyError(t *testing.T, ctx ExecutionContext) {
+	t.Helper()
+
+	deps := &invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Alternatives: []invowkfile.CustomCheck{
+				{Name: "fail", Script: invowkfile.CustomCheckScript{Content: "exit 1"}},
+			},
+		}},
+	}
+	err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, &recordingHostProbe{
+		checkErrors: map[invowkfile.CheckName]error{
+			"fail": errors.New("check failed"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+	}
+}
+
+func requireInvalidCustomCheckRejectedWithoutProbe(t *testing.T, ctx ExecutionContext) {
+	t.Helper()
+
+	probe := &recordingHostProbe{}
+	deps := &invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Name: "empty-script",
+		}},
+	}
+	err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe)
+	if err == nil {
+		t.Fatal("expected dependency error")
+	}
+	if len(probe.checks) != 0 {
+		t.Fatalf("probe executed %d checks, want 0", len(probe.checks))
+	}
+	var depErr *DependencyError
+	if !errors.As(err, &depErr) {
+		t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+	}
+	if len(depErr.FailedCustomChecks) != 1 {
+		t.Fatalf("FailedCustomChecks = %d, want 1", len(depErr.FailedCustomChecks))
+	}
+	if got := depErr.FailedCustomChecks[0].String(); !strings.Contains(got, "invalid custom check dependency") || !strings.Contains(got, "custom check script must set content or file") {
+		t.Fatalf("FailedCustomChecks[0] = %q, want validation detail", got)
+	}
 }
 
 func TestCustomCheckInterpreterTarget(t *testing.T) {

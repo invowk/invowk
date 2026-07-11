@@ -77,6 +77,24 @@ func walkArtifactTreeWithOpener(
 	visitor artifactWalkVisitor,
 	opener artifactDirectoryOpener,
 ) error {
+	if err := validateArtifactWalk(ctx, root, kind, budget, visitor, opener); err != nil {
+		return err
+	}
+	descend, err := visitArtifactRoot(ctx, root, kind, budget, visitor)
+	if err != nil || !descend {
+		return err
+	}
+	return walkArtifactDirectories(ctx, root, kind, budget, visitor, opener)
+}
+
+func validateArtifactWalk(
+	ctx context.Context,
+	root types.FilesystemPath,
+	kind ArtifactKind,
+	budget *artifactEntryBudget,
+	visitor artifactWalkVisitor,
+	opener artifactDirectoryOpener,
+) error {
 	if err := scanContextErr(ctx); err != nil {
 		return err
 	}
@@ -92,32 +110,48 @@ func walkArtifactTreeWithOpener(
 	if opener == nil {
 		return fmt.Errorf("walking %s artifacts: nil directory opener", kind)
 	}
+	return nil
+}
 
+func visitArtifactRoot(
+	ctx context.Context,
+	root types.FilesystemPath,
+	kind ArtifactKind,
+	budget *artifactEntryBudget,
+	visitor artifactWalkVisitor,
+) (bool, error) {
 	rootInfo, err := os.Lstat(root.String())
 	if ctxErr := scanContextErr(ctx); ctxErr != nil {
-		return ctxErr
+		return false, ctxErr
 	}
 	if err != nil {
-		return fmt.Errorf("inspecting artifact root %s: %w", root, err)
+		return false, fmt.Errorf("inspecting artifact root %s: %w", root, err)
 	}
 	rootEntry := fs.FileInfoToDirEntry(rootInfo)
 	if consumeErr := budget.consume(kind, root); consumeErr != nil {
-		return consumeErr
+		return false, consumeErr
 	}
 	action, err := visitor(ctx, root, rootEntry)
 	if ctxErr := scanContextErr(ctx); ctxErr != nil {
-		return ctxErr
+		return false, ctxErr
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	if err := action.Validate(); err != nil {
-		return err
+		return false, err
 	}
-	if !rootEntry.IsDir() || action == artifactWalkSkipSubtree {
-		return nil
-	}
+	return rootEntry.IsDir() && action != artifactWalkSkipSubtree, nil
+}
 
+func walkArtifactDirectories(
+	ctx context.Context,
+	root types.FilesystemPath,
+	kind ArtifactKind,
+	budget *artifactEntryBudget,
+	visitor artifactWalkVisitor,
+	opener artifactDirectoryOpener,
+) error {
 	pending := []types.FilesystemPath{root}
 	for len(pending) > 0 {
 		if err := scanContextErr(ctx); err != nil {
@@ -144,11 +178,23 @@ func readArtifactDirectory(
 	visitor artifactWalkVisitor,
 	opener artifactDirectoryOpener,
 ) ([]types.FilesystemPath, error) {
+	reader, err := openArtifactDirectoryForWalk(ctx, directory, opener)
+	if err != nil {
+		return nil, err
+	}
+	children, walkErr := readArtifactDirectoryEntries(ctx, directory, kind, budget, visitor, reader)
+	return finishArtifactDirectory(ctx, directory, reader, children, walkErr)
+}
+
+func openArtifactDirectoryForWalk(
+	ctx context.Context,
+	directory types.FilesystemPath,
+	opener artifactDirectoryOpener,
+) (artifactDirectoryReader, error) {
 	reader, err := opener(directory)
 	if ctxErr := scanContextErr(ctx); ctxErr != nil {
 		if reader != nil {
-			closeErr := reader.Close()
-			if closeErr != nil {
+			if closeErr := reader.Close(); closeErr != nil {
 				return nil, ctxErr
 			}
 		}
@@ -163,61 +209,83 @@ func readArtifactDirectory(
 	if reader == nil {
 		return nil, fmt.Errorf("opening artifact directory %s: nil reader", directory)
 	}
+	return reader, nil
+}
 
+func readArtifactDirectoryEntries(
+	ctx context.Context,
+	directory types.FilesystemPath,
+	kind ArtifactKind,
+	budget *artifactEntryBudget,
+	visitor artifactWalkVisitor,
+	reader artifactDirectoryReader,
+) ([]types.FilesystemPath, error) {
 	var children []types.FilesystemPath
-	var walkErr error
-	for walkErr == nil {
+	for {
 		if ctxErr := scanContextErr(ctx); ctxErr != nil {
-			walkErr = ctxErr
-			break
+			return nil, ctxErr
 		}
 		entries, readErr := reader.ReadDir(budget.nextReadSize())
 		if ctxErr := scanContextErr(ctx); ctxErr != nil {
-			walkErr = ctxErr
-			break
+			return nil, ctxErr
 		}
-		for _, entry := range entries {
-			entryPath := filesystemPathFromWalk(filepath.Join(directory.String(), entry.Name()))
-			if ctxErr := scanContextErr(ctx); ctxErr != nil {
-				walkErr = ctxErr
-				break
-			}
-			if consumeErr := budget.consume(kind, entryPath); consumeErr != nil {
-				walkErr = consumeErr
-				break
-			}
-			action, visitErr := visitor(ctx, entryPath, entry)
-			if ctxErr := scanContextErr(ctx); ctxErr != nil {
-				walkErr = ctxErr
-				break
-			}
-			if visitErr != nil {
-				walkErr = visitErr
-				break
-			}
-			if actionErr := action.Validate(); actionErr != nil {
-				walkErr = actionErr
-				break
-			}
-			if entry.IsDir() && action != artifactWalkSkipSubtree {
-				children = append(children, entryPath)
-			}
-		}
-		if walkErr != nil {
-			break
+		var visitErr error
+		children, visitErr = visitArtifactDirectoryEntries(ctx, directory, kind, budget, visitor, children, entries)
+		if visitErr != nil {
+			return nil, visitErr
 		}
 		switch {
 		case errors.Is(readErr, io.EOF):
-			walkErr = nil
-			goto closeDirectory
+			return children, nil
 		case readErr != nil:
-			walkErr = fmt.Errorf("reading artifact directory %s: %w", directory, readErr)
+			return nil, fmt.Errorf("reading artifact directory %s: %w", directory, readErr)
 		case len(entries) == 0:
-			walkErr = fmt.Errorf("reading artifact directory %s: empty batch without EOF", directory)
+			return nil, fmt.Errorf("reading artifact directory %s: empty batch without EOF", directory)
 		}
 	}
+}
 
-closeDirectory:
+func visitArtifactDirectoryEntries(
+	ctx context.Context,
+	directory types.FilesystemPath,
+	kind ArtifactKind,
+	budget *artifactEntryBudget,
+	visitor artifactWalkVisitor,
+	children []types.FilesystemPath,
+	entries []fs.DirEntry,
+) ([]types.FilesystemPath, error) {
+	for _, entry := range entries {
+		entryPath := filesystemPathFromWalk(filepath.Join(directory.String(), entry.Name()))
+		if ctxErr := scanContextErr(ctx); ctxErr != nil {
+			return nil, ctxErr
+		}
+		if consumeErr := budget.consume(kind, entryPath); consumeErr != nil {
+			return nil, consumeErr
+		}
+		action, visitErr := visitor(ctx, entryPath, entry)
+		if ctxErr := scanContextErr(ctx); ctxErr != nil {
+			return nil, ctxErr
+		}
+		if visitErr != nil {
+			return nil, visitErr
+		}
+		if actionErr := action.Validate(); actionErr != nil {
+			return nil, actionErr
+		}
+		if entry.IsDir() && action != artifactWalkSkipSubtree {
+			children = append(children, entryPath)
+		}
+	}
+	return children, nil
+}
+
+func finishArtifactDirectory(
+	ctx context.Context,
+	directory types.FilesystemPath,
+	reader artifactDirectoryReader,
+	children []types.FilesystemPath,
+	walkErr error,
+) ([]types.FilesystemPath, error) {
 	closeErr := reader.Close()
 	if ctxErr := scanContextErr(ctx); ctxErr != nil {
 		return nil, ctxErr
