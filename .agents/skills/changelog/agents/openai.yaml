@@ -1,0 +1,4 @@
+interface:
+  display_name: "Changelog"
+  short_description: "Draft conventional-commit release summaries"
+  default_prompt: "Use $changelog to draft release notes from commits since the latest semantic version tag."

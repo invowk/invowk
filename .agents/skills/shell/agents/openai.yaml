@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shell"
+  short_description: "Work on Invowk shell runtime behavior"
+  default_prompt: "Use $shell to change Invowk virtual-shell execution or repository Bash scripts safely."

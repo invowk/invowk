@@ -29,20 +29,12 @@ func TestNetworkChecker_ReverseShell(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			hasCritical := false
-			for _, f := range findings {
-				if f.Severity == SeverityCritical && f.Title == reverseShellFindingTitle {
-					hasCritical = true
-					if f.Code != codeNetworkReverseShell {
-						t.Errorf("reverse shell finding code = %q, want %q", f.Code, codeNetworkReverseShell)
-					}
-					if f.Category != CategoryExecution {
-						t.Errorf("reverse shell category = %q, want %q", f.Category, CategoryExecution)
-					}
-				}
+			finding := requireNetworkFinding(t, findings, SeverityCritical, reverseShellFindingTitle)
+			if finding.Code != codeNetworkReverseShell {
+				t.Errorf("reverse shell finding code = %q, want %q", finding.Code, codeNetworkReverseShell)
 			}
-			if !hasCritical {
-				t.Errorf("expected Critical reverse shell finding for %q", tt.name)
+			if finding.Category != CategoryExecution {
+				t.Errorf("reverse shell category = %q, want %q", finding.Category, CategoryExecution)
 			}
 		})
 	}
@@ -232,4 +224,17 @@ func TestNetworkChecker_Clean(t *testing.T) {
 	if len(findings) != 0 {
 		t.Errorf("clean script produced %d findings, want 0", len(findings))
 	}
+}
+
+func requireNetworkFinding(t *testing.T, findings []Finding, severity Severity, title string) Finding {
+	t.Helper()
+
+	for i := range findings {
+		if findings[i].Severity == severity && findings[i].Title == title {
+			return findings[i]
+		}
+	}
+
+	t.Fatalf("finding with severity %q and title %q not found", severity, title)
+	return Finding{}
 }

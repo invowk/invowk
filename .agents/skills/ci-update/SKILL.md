@@ -10,455 +10,174 @@ description: >-
 
 # CI Update
 
-Audit and update all CI infrastructure versions: GitHub Actions, `go install` tools, MCP servers, inline binary installs, pre-commit hooks, and Node.js LTS status.
+Audit CI versions and workflow hygiene from the current checkout. Treat
+`.agents/rules/version-pinning.md` as authoritative: pin every external
+dependency, let Dependabot manage covered updates, and update manual pins and
+all synchronized references together.
 
-## Authoritative Rules
+## Documentation and Version Sources
 
-This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
-- All external dependencies MUST use pinned versions (never `@latest`)
-- GitHub Actions pin to major version tags; Dependabot handles minor/patch
-- `go install` tools, MCP servers, and inline binaries require **manual** updates
-- When upgrading, update ALL references simultaneously (see Sync Pairs below)
+Before interpreting current CLI, action, API, or tool behavior, use Context7:
 
-## Sync Pairs (must be updated together)
+1. Resolve the exact library/tool ID with the full maintenance question.
+2. Query the selected ID for the relevant current syntax, compatibility, or
+   migration behavior.
+3. Use official release APIs, package registries, and local module metadata for
+   latest-version facts. If Context7 has no suitable source, use the tool's
+   official documentation or release notes and state the fallback.
 
-| Component | Files |
-|-----------|-------|
-| `golangci-lint` | `go.mod` tool directive/require, `scripts/golangci-lint.sh` expected version, `.github/workflows/lint.yml`, `.pre-commit-config.yaml`, `.agents/rules/version-pinning.md` |
+Do not use remembered syntax or secondary posts as evidence. Load
+[`references/version-discovery.md`](references/version-discovery.md) when
+checking latest versions or breaking changes.
+
+## Required Sync Pairs
+
+Derive the live inventory first; this table identifies known coupling, not a
+closed allowlist.
+
+| Component | Files or constraints |
+|-----------|----------------------|
+| `golangci-lint` | Root `go.mod`, `scripts/golangci-lint.sh`, normalized workflow/hook targets, `.agents/rules/version-pinning.md` |
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
-| `GoReleaser` | Every `goreleaser/goreleaser-action` `version:` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml` |
-| `Node.js` | Every `node-version:` reference in `.github/workflows/*.yml` |
-| `cosign` | `sigstore/cosign-installer` action version + `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml` (installer v4+ required for cosign v3+) |
-| `UPX` | Inline `UPX_VERSION` installs in `.github/workflows/ci.yml` and `.github/workflows/release.yml` |
-| GitHub Actions | Every workflow `uses:` pin found by the inventory scan, including Dependabot-managed actions such as `actions/cache` and project-specific actions such as `bencherdev/bencher` |
-| Sonar suppressions | `sonar-project.properties`, `.sonarcloud.properties` (not version, but integrity) |
+| GoReleaser | Every `goreleaser-action` `version:` input in CI and release workflows |
+| Node.js | Every workflow `node-version:` reference |
+| Cosign | Installer action major and `cosign-release` input compatibility in CI and release workflows |
+| UPX | Every inline `UPX_VERSION` installation |
+| GitHub Actions | Every repeated `uses:` target found by inventory |
+| Documented pins | `.agents/rules/version-pinning.md` and prerequisites in `.agents/rules/commands.md` |
+| Sonar suppressions | `sonar-project.properties` and `.sonarcloud.properties` must remain synchronized |
 
 ## Workflow
 
-### Step 1: Build Complete Version Inventory
+### 1. Build the Live Inventory
 
-Scan all tracked files and extract every version pin into a structured table.
-
-Always derive the current workflow/action inventory before using the examples
-below. They are categories, not a hard-coded allowlist.
-
-**Workflow files** (scan for `uses:`, `go install`, `curl` installs, `version:` inputs):
 ```bash
 find .github/workflows -maxdepth 1 -type f -name '*.yml' -print | sort
-rg -n 'uses:|go install|node-version|UPX_VERSION|cosign-release|goreleaser-action|bencherdev/bencher' \
-  .github/workflows .pre-commit-config.yaml .mcp.json .agents/rules/version-pinning.md
+rg -n 'uses:|go install|node-version|UPX_VERSION|cosign-release|version:' \
+  .github/workflows .pre-commit-config.yaml .mcp.json \
+  .agents/rules/version-pinning.md .agents/rules/commands.md
 ```
 
-**Configuration files**:
-- `go.mod` (Go tool dependency pins, including golangci-lint)
-- `scripts/golangci-lint.sh` (normalized golangci-lint expected version)
-- `.pre-commit-config.yaml` (local hook entries that invoke normalized Make targets)
-- `.mcp.json` (MCP server versions)
-- `.github/dependabot.yml` (verify coverage)
-- `.goreleaser.yaml` (GoReleaser schema version)
+Also inspect `go.mod`, `scripts/golangci-lint.sh`, `.github/dependabot.yml`,
+`.goreleaser.yaml`, and every install script discovered by the scan. Record the
+category, tool, current version, and every location. Do not silently omit a pin
+because it is absent from an example in this skill.
 
-**Documentation** (source of truth for documented versions):
-- `.agents/rules/version-pinning.md` ("Current pinned versions")
-- `.agents/rules/commands.md` (Prerequisites)
+### 2. Detect Sync Drift Before Updates
 
-Organize into this table structure:
+Compare every repeated pin and coupling constraint. At minimum verify:
 
-| Category | Tool | Current Version | Location(s) |
-|----------|------|-----------------|-------------|
-| Go tool | gotestsum | vX.Y.Z | ci.yml, release.yml |
-| Go tool | govulncheck | vX.Y.Z | ci.yml |
-| Go tool | benchstat | v0.0.0-... | pgo-benchstat.yml |
-| Go tool | golangci-lint | vX.Y.Z | go.mod, scripts/golangci-lint.sh, lint.yml, .pre-commit-config.yaml |
-| Binary | UPX | X.Y.Z | ci.yml, release.yml |
-| Binary | D2 | vX.Y.Z | validate-diagrams.yml |
-| Binary | Cosign | vX.Y.Z | ci.yml, release.yml |
-| Range | GoReleaser | ~> vX.Y | ci.yml, release.yml |
-| Runtime | Node.js | N | all `node-version:` workflow references |
-| MCP | context7-mcp | X.Y.Z | .mcp.json |
-| MCP | server-github | YYYY.M.D | .mcp.json |
-| Action | (each distinct `uses:` target) | @pin | workflow files |
+- Root `golangci-lint` tool version equals the wrapper expectation; workflows
+  and pre-commit route through normalized Make/wrapper targets.
+- `gotestsum`, GoReleaser, Node.js, Cosign, and UPX agree everywhere.
+- Every repeated action uses the repository-approved major consistently.
+- Cosign installer and binary majors are compatible.
+- Documented current pins match executable configuration.
 
-### Step 2: Check Sync Pair Consistency
+Report inconsistencies as `SYNC DRIFT` before discussing available upgrades.
 
-Before checking for updates, verify existing versions are consistent across sync pairs:
+### 3. Discover Current Versions
 
-1. **golangci-lint**: Root `go.mod` tool version must match `scripts/golangci-lint.sh`'s expected version, and `lint.yml` plus `.pre-commit-config.yaml` must route through the normalized wrapper/Make targets instead of separate action or hook pins.
-2. **gotestsum**: Version in `ci.yml` must match `release.yml`.
-3. **GoReleaser version input**: Must match across every `goreleaser/goreleaser-action` step in `ci.yml` and `release.yml`.
-4. **Node.js**: Every `node-version` workflow reference must match.
-5. **actions/checkout**: Must be the same major version across every `uses: actions/checkout@` reference.
-6. **actions/upload-artifact**: Must match across every workflow that uploads artifacts.
-7. **actions/cache and other shared actions**: Check every repeated action discovered by the inventory scan; do not rely on the static examples in this skill.
-8. **cosign coupling**: `sigstore/cosign-installer` action version must be compatible with the `cosign-release` tool pin everywhere it is installed (installer `@v4+` is required for cosign v3+; installer `@v3` cannot install cosign v3+).
-9. **UPX**: Inline `UPX_VERSION` installs must match wherever release packaging or dry-run release checks install UPX.
-10. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
+Follow [`references/version-discovery.md`](references/version-discovery.md).
+Query each item found in Step 1, not a static action list. Separate:
 
-Report all inconsistencies as **SYNC DRIFT** findings before proceeding.
+- official latest-version facts,
+- Dependabot-covered minor/patch drift,
+- manual-update gaps,
+- intentional branch or pseudo-version exceptions.
 
-### Step 3: Check Latest Versions
+If a query fails, report incomplete evidence for that item. Do not present a
+cached or remembered version as current.
 
-For each item in the inventory, check the latest available version. Process by category:
+### 4. Analyze Compatibility
 
-#### 3a: Go Tools (`go install` packages)
+Classify each available update:
+
+| Risk | Meaning |
+|------|---------|
+| Safe | Patch or documented compatible maintenance update |
+| Low | Backward-compatible minor update with relevant new behavior |
+| Medium | Major update with a documented migration path |
+| High | Major update with removed behavior or material workflow changes |
+
+Use current primary documentation for Medium/High findings. Relate migrations
+to Invowk's actual inputs and workflow usage rather than reproducing a generic
+changelog.
+
+### 5. Audit Workflow Hygiene
+
+Check every workflow for:
+
+- caching on setup steps where it is safe and useful,
+- concurrency groups and the correct cancellation policy,
+- explicit job timeouts,
+- least-privilege job-level permissions,
+- redundant matrices,
+- current runner-image support,
+- consistent concurrency group naming,
+- every commit-producing job's signing mechanism.
+
+For commit-producing jobs, derive the inventory each run:
 
 ```bash
-# gotestsum — check latest tag
-go list -m -versions gotest.tools/gotestsum 2>/dev/null | tr ' ' '\n' | grep '^v' | tail -1
-
-# govulncheck — check latest tag (module is golang.org/x/vuln)
-go list -m -versions golang.org/x/vuln 2>/dev/null | tr ' ' '\n' | grep '^v' | tail -1
-
-# benchstat — check if a proper tagged release exists (module is golang.org/x/perf)
-go list -m -versions golang.org/x/perf 2>/dev/null | tr ' ' '\n' | grep '^v' | tail -1
+rg -n 'createCommitOnBranch|git commit|git push|git tag' .github/workflows
 ```
 
-If `go list -m` does not return results (tool not in go.mod), use WebFetch as fallback:
-- `https://pkg.go.dev/gotest.tools/gotestsum?tab=versions`
-- `https://pkg.go.dev/golang.org/x/vuln?tab=versions`
-- `https://pkg.go.dev/golang.org/x/perf?tab=versions`
+Load [`references/verified-bot-commits.md`](references/verified-bot-commits.md)
+when a workflow creates or changes commits. Do not classify tag creation as a
+commit-signing failure.
 
-**benchstat special case**: If still on a pseudo-version, check whether `golang.org/x/perf` has a tagged release. If yes, flag as upgrade opportunity. If no, note pseudo-version is expected.
+### 6. Report and Stop for Approval
 
-#### 3b: Binary Tools (curl-installed)
+Report:
+
+1. Scan scope and evidence gaps.
+2. Sync drift requiring immediate repair.
+3. Safe updates.
+4. Updates requiring review, with relevant compatibility impact.
+5. Pseudo-version and Node.js LTS status.
+6. Workflow-hygiene findings.
+7. Commit-signing inventory.
+8. Exact files each update would modify.
+
+Stop after the report. Do not modify files until the user explicitly approves
+which updates to apply.
+
+### 7. Apply Approved Updates Atomically
+
+Update every location in each approved sync pair in the same change. Re-read
+modified files and rerun the live inventory to prove no old pin remains. Update
+the documented pin tables and prerequisites whenever they name the changed
+version.
+
+### 8. Verify
+
+Validate modified YAML and JSON with a real parser. Do not treat grep presence
+as syntax validation.
 
 ```bash
-# UPX
-gh api repos/upx/upx/releases/latest --jq '.tag_name'
-
-# D2
-gh api repos/terrastruct/d2/releases/latest --jq '.tag_name'
-
-# Cosign
-gh api repos/sigstore/cosign/releases/latest --jq '.tag_name'
-```
-
-#### 3c: GitHub Actions
-
-Check whether any action has a newer **major** version (minor/patch are Dependabot's job):
-
-```bash
-gh api repos/actions/checkout/releases/latest --jq '.tag_name'
-gh api repos/actions/setup-go/releases/latest --jq '.tag_name'
-gh api repos/actions/setup-node/releases/latest --jq '.tag_name'
-gh api repos/actions/upload-artifact/releases/latest --jq '.tag_name'
-gh api repos/actions/cache/releases/latest --jq '.tag_name'
-gh api repos/actions/configure-pages/releases/latest --jq '.tag_name'
-gh api repos/actions/upload-pages-artifact/releases/latest --jq '.tag_name'
-gh api repos/actions/deploy-pages/releases/latest --jq '.tag_name'
-gh api repos/actions/create-github-app-token/releases/latest --jq '.tag_name'
-gh api repos/goreleaser/goreleaser-action/releases/latest --jq '.tag_name'
-gh api repos/sigstore/cosign-installer/releases/latest --jq '.tag_name'
-gh api repos/mikepenz/action-junit-report/releases/latest --jq '.tag_name'
-gh api repos/anthropics/claude-code-action/releases/latest --jq '.tag_name'
-```
-
-Only flag findings where the **major version** changed. Minor/patch within the same major are handled by Dependabot.
-
-For actions discovered by the inventory scan that are intentionally pinned to a
-branch (for example `bencherdev/bencher@main`), classify them separately as
-policy exceptions or drift risks; do not force them into the major-tag rule.
-
-**Note**: golangci-lint is normalized as a root Go tool dependency, not as a separate action/pre-commit binary pin. Check the tool version separately:
-
-```bash
-gh api repos/golangci/golangci-lint/releases/latest --jq '.tag_name'
-```
-
-Compare against the root `go.mod` tool dependency and `scripts/golangci-lint.sh`. Then verify `lint.yml` and `.pre-commit-config.yaml` still invoke `make lint` or wrapper-backed targets.
-
-#### 3d: MCP Servers (npm packages)
-
-```bash
-npm view @upstash/context7-mcp version 2>/dev/null
-npm view @modelcontextprotocol/server-github version 2>/dev/null
-```
-
-If `npm` is not available, use WebFetch against the npm registry:
-- `https://registry.npmjs.org/@upstash/context7-mcp/latest`
-- `https://registry.npmjs.org/@modelcontextprotocol/server-github/latest`
-
-#### 3e: GoReleaser Version Track
-
-Check the latest GoReleaser v2 release:
-
-```bash
-gh api repos/goreleaser/goreleaser/releases/latest --jq '.tag_name'
-```
-
-If the latest is newer than the current range floor (e.g., `v2.18` vs `~> v2.14`), check the changelog for v2.x breaking changes and recommend whether to widen the range.
-
-#### 3f: Node.js LTS Status
-
-Verify the pinned Node.js major version is still in Active LTS. Use WebFetch:
-
-```
-https://endoflife.date/api/nodejs.json
-```
-
-If the current pin is approaching End of Life, flag the next LTS version as upgrade target.
-
-### Step 4: Breaking Change Analysis
-
-For each item where the latest version differs from the current, classify the risk:
-
-| Risk | Criteria |
-|------|----------|
-| **Safe** | Patch bump, or minor bump with no noted breaking changes |
-| **Low** | Minor bump with new features but backward-compatible |
-| **Medium** | New major version with documented migration path |
-| **High** | New major version with significant API changes or removed features |
-
-For Medium/High risk items, use WebFetch to read the release notes or CHANGELOG from the project's GitHub repository. Summarize breaking changes relevant to our usage.
-
-### Step 5: CI Optimization Scan
-
-While reviewing workflow files, check for these optimization opportunities:
-
-1. **Caching**: Are all `setup-go` steps using `cache: true`? npm caching configured?
-2. **Concurrency groups**: Are ALL PR-triggered and push-triggered workflows using `concurrency` to cancel stale runs? The established policy is:
-   - `cancel-in-progress: true` for test/validation/lint workflows (safe to cancel stale runs)
-   - `cancel-in-progress: false` for release, deploy, and versioning workflows (must complete)
-   - Group key pattern: `<workflow-name>-${{ github.ref }}` — this ensures PR runs (`refs/pull/N/merge`), push-to-main runs (`refs/heads/main`), and release runs (`refs/tags/v*`) are isolated and cannot cancel each other
-3. **Timeout guards**: Do ALL jobs in ALL workflows have explicit `timeout-minutes`? Without it, hung jobs burn up to GitHub's 6-hour default. Reference values: test: 30, build: 10, lint: 5-15, release: 30, benchmarks: 45, claude: 60, website: 5-15.
-4. **Permissions**: Are ALL permissions at **job-level**, not workflow-level? (SonarCloud S8233 requires least-privilege at job scope.) Check every workflow for top-level `permissions:` blocks and flag them for migration to individual jobs.
-5. **Matrix deduplication**: Any redundant matrix entries?
-6. **New action features**: Have `actions/setup-go` or `goreleaser-action` added useful new inputs since the current pin?
-7. **Runner images**: Are `ubuntu-latest`, `macos-15`, `windows-latest` still current recommended images?
-8. **Concurrency group naming consistency**: Are all groups following the same `<name>-${{ github.ref }}` pattern? Flag outliers (e.g., redundant `${{ github.workflow }}` segments).
-9. **Bot commit signing**: Are ALL workflow jobs that create commits using the GitHub GraphQL `createCommitOnBranch` API? Direct `git commit` + `git push` on CI runners produces **unsigned** commits that are blocked by the `required_signatures` ruleset. See the "Verified Bot Commits" section below for the required pattern, but verify the current inventory from workflow files instead of trusting the example table.
-
-### Step 6: Generate Report
-
-Present findings as a structured report:
-
-```markdown
-## CI Update Report
-
-**Generated**: YYYY-MM-DD
-**Scanned**: N workflow files, N config files
-
-### Sync Drift (fix immediately)
-| Component | Expected | Actual (file) | Action |
-|-----------|----------|---------------|--------|
-| ... | ... | ... | ... |
-
-(or "No sync drift detected.")
-
-### Available Updates
-
-#### Safe Updates (recommend applying)
-| Tool | Current | Latest | Risk | Files to Update |
-|------|---------|--------|------|-----------------|
-| ... | ... | ... | Safe | ... |
-
-#### Updates Requiring Review
-| Tool | Current | Latest | Risk | Breaking Changes | Files to Update |
-|------|---------|--------|------|------------------|-----------------|
-| ... | ... | ... | Medium | ... | ... |
-
-#### No Update Available
-| Tool | Current | Notes |
-|------|---------|-------|
-| ... | ... | Up to date |
-
-### Pseudo-Version Audit
-| Tool | Current Pseudo-Version | Tagged Release Available? | Recommendation |
-|------|------------------------|---------------------------|----------------|
-| benchstat | v0.0.0-... | Yes/No | ... |
-
-### Node.js LTS Status
-- Current pin: `N`
-- LTS status: Active LTS until YYYY-MM-DD / Maintenance / EOL
-- Recommendation: ...
-
-### CI Optimizations
-- (bulleted list of findings, or "No optimizations identified.")
-
-### Bot Commit Signing
-| Workflow | Job | Mechanism | Verified? | Issue |
-|----------|-----|-----------|-----------|-------|
-| ... | ... | ... | ... | ... |
-
-(or "All bot commits use GraphQL API — no unsigned commits.")
-
-### Documentation Updates Required
-After applying updates, these files need version bumps:
-- `.agents/rules/version-pinning.md` — "Current pinned versions" section
-- `.agents/rules/commands.md` — Prerequisites section (if tool versions changed)
-```
-
-### Step 7: Get User Approval
-
-Present the report and **STOP**. Ask the user which updates to apply:
-
-- "Apply all safe updates"
-- "Apply specific updates" (let user pick)
-- "Skip for now" (report only)
-
-**Do NOT modify any files until the user explicitly approves.**
-
-### Step 8: Apply Approved Updates
-
-For each approved update, modify files **simultaneously** across all sync pairs:
-
-1. **Workflow files**: Update version strings in all affected `.github/workflows/*.yml` files.
-2. **Go tool wrappers/hooks**: If golangci-lint changed, update the root `go.mod` tool dependency, `scripts/golangci-lint.sh`, `.pre-commit-config.yaml`, and `lint.yml` together.
-3. **MCP config**: Update `.mcp.json` if MCP server versions changed.
-4. **Documentation**:
-   - Update `.agents/rules/version-pinning.md` "Current pinned versions" with new versions.
-   - Update `.agents/rules/commands.md` Prerequisites if tool versions appear there.
-
-After all edits, re-read all modified files to verify sync pair consistency.
-
-### Step 9: Verify Updates
-
-```bash
-# Validate YAML syntax of modified workflows (try python3 yaml, fall back to yq or grep-based verification)
-if python3 -c "import yaml" 2>/dev/null; then
-  for f in .github/workflows/*.yml; do
-    python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>&1 || echo "INVALID: $f"
+if python3 -c 'import yaml' 2>/dev/null; then
+  for file in .github/workflows/*.yml; do
+    python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' "$file"
   done
 elif command -v yq >/dev/null 2>&1; then
-  for f in .github/workflows/*.yml; do
-    yq '.' "$f" >/dev/null 2>&1 || echo "INVALID: $f"
-  done
+  for file in .github/workflows/*.yml; do yq '.' "$file" >/dev/null; done
 else
-  echo "No YAML validator available; verify edits via grep-based spot checks instead"
-  # Verify key version pins are present in modified files
-  grep -rn 'actions/checkout@' .github/workflows/ | sort
-  grep -rn 'upload-artifact@' .github/workflows/ | sort
+  echo 'error: install PyYAML or yq to validate workflow syntax' >&2
+  exit 1
 fi
-
-# Validate JSON syntax of .mcp.json (if modified)
-python3 -c "import json; json.load(open('.mcp.json'))" 2>&1 || echo "INVALID: .mcp.json"
-
-# Verify agent docs integrity
+python3 -c "import json; json.load(open('.mcp.json'))"
 make check-agent-docs
 ```
 
-If any validation fails, fix the issue before proceeding.
+Run the behavior gate appropriate to each update: `make lint` for
+golangci-lint, `make test` for test tooling, and the website build for Node.js
+changes. Report CI workflows that still require a pushed-branch or manual
+dispatch check.
 
-**Website build verification**: If Node.js version changed, also run `cd website && npm run build` to verify Docusaurus compatibility with the new Node.js version.
+## Dependabot Boundary
 
-### Step 10: Summary and Next Steps
-
-Output a summary of changes:
-
-```markdown
-## Changes Applied
-
-| Tool | Old Version | New Version | Files Modified |
-|------|-------------|-------------|----------------|
-| ... | ... | ... | ... |
-
-## Manual Follow-Up Required
-- [ ] Run affected CI workflows to verify (push to a branch or use workflow_dispatch)
-- [ ] If golangci-lint was updated: run `make lint` locally to verify no new findings
-- [ ] If gotestsum was updated: run `make test` locally to verify compatibility
-- [ ] If Node.js version changed: run `cd website && npm run build` to verify
-```
-
-## Verified Bot Commits
-
-**CRITICAL: All CI-created commits MUST be signed.** The `required_signatures` ruleset on `main` blocks PRs containing unsigned commits. Direct `git commit` + `git push` on CI runners produces unsigned commits because runners have no GPG/SSH signing key.
-
-### Required Pattern: GraphQL `createCommitOnBranch`
-
-Use the GitHub GraphQL `createCommitOnBranch` mutation instead of direct git commands. API-created commits are automatically signed by GitHub.
-
-**Token choice:**
-- Use `GITHUB_TOKEN` (`${{ github.token }}`) when the commit should NOT trigger downstream workflows (anti-recursion). This is the default for auto-fix jobs like `pgo-sanity`.
-- Use a GitHub App token (`actions/create-github-app-token`) when the commit MUST trigger downstream workflows (e.g., `version-docs.yml` needs to trigger `deploy-website.yml`).
-
-**Commit-creating job inventory:**
-
-Build this table from the current workflow files on every run:
-
-```bash
-rg -n 'createCommitOnBranch|git commit|git push|git tag|pgo-sanity|version-docs' .github/workflows
-```
-
-| Workflow | Job | Mechanism | Token | Verified? |
-|----------|-----|-----------|-------|-----------|
-| `ci.yml` | `pgo-sanity` | GraphQL `createCommitOnBranch` | `GITHUB_TOKEN` | Yes |
-| `version-docs.yml` | `version-docs` | GraphQL `createCommitOnBranch` | GitHub App token | Yes |
-| `release.yml` | `release` | `git tag` + `git push` (lightweight tag, not a commit) | `GITHUB_TOKEN` | N/A |
-
-**When adding a new workflow that creates commits**, always use the GraphQL pattern. The `pgo-sanity` job in `ci.yml` is the simplest reference for single-file commits; `version-docs.yml` shows the multi-file pattern with `ARG_MAX` protection.
-
-### Quick Reference: Single-File Verified Commit
-
-```yaml
-- name: Commit file (verified)
-  env:
-    GH_TOKEN: ${{ github.token }}
-    HEAD_BRANCH: ${{ github.head_ref }}  # PR head branch name
-  run: |
-    set -euo pipefail
-    HEAD_SHA=$(git rev-parse HEAD)
-    B64_FILE=$(mktemp)
-    base64 -w 0 < path/to/file > "$B64_FILE"
-    QUERY='
-      mutation ($input: CreateCommitOnBranchInput!) {
-        createCommitOnBranch(input: $input) {
-          commit { oid url }
-        }
-      }'
-    RESULT=$(jq -n \
-      --arg query "$QUERY" \
-      --arg repo "$GITHUB_REPOSITORY" \
-      --arg branch "$HEAD_BRANCH" \
-      --arg headline "chore: commit message" \
-      --arg oid "$HEAD_SHA" \
-      --rawfile contents "$B64_FILE" \
-      '{
-        query: $query,
-        variables: {
-          input: {
-            branch: {
-              repositoryNameWithOwner: $repo,
-              branchName: $branch
-            },
-            message: { headline: $headline },
-            fileChanges: {
-              additions: [{path: "path/to/file", contents: $contents}]
-            },
-            expectedHeadOid: $oid
-          }
-        }
-      }' | gh api graphql --input -)
-    rm -f "$B64_FILE"
-    echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created verified commit \(.oid)\n\(.url)"'
-```
-
-**Key details:**
-- `expectedHeadOid` provides optimistic concurrency (replaces `git pull --rebase`)
-- `--rawfile` avoids `ARG_MAX` / `MAX_ARG_STRLEN` limits for large files
-- `base64 -w 0` produces single-line output (required by the API)
-- For multi-file commits, see `version-docs.yml` which iterates staged files into `additions`/`deletions` arrays
-
-## Dependabot Overlap
-
-This skill complements Dependabot, which handles:
-- GitHub Actions major version bumps (weekly Monday PRs, grouped)
-- Go module dependency updates (`go.mod`)
-- npm dependency updates for the website (`package-lock.json`)
-
-This skill fills the gaps Dependabot does NOT cover:
-- `go install` tool versions in workflow `run:` blocks
-- Inline `curl`-installed binaries (UPX, D2)
-- Action `version:` input pins (Cosign via `cosign-release`, GoReleaser)
-- MCP server versions in `.mcp.json`
-- GoReleaser semver range track
-- Node.js LTS lifecycle tracking
-- Cross-file sync pair consistency
-- Documentation accuracy in `version-pinning.md` and `commands.md`
-- CI optimization opportunities
-
-## Frequency Recommendation
-
-Run `/ci-update` at least:
-- Monthly for routine maintenance
-- Before each release
-- After merging Dependabot PRs (to catch cascading sync needs)
-- When a CI failure suggests a version incompatibility
+Dependabot normally covers GitHub Actions, Go modules, and website npm
+dependencies. This skill owns uncovered inline installs, action input versions,
+MCP versions, runtime lifecycle, cross-file consistency, and CI optimization.
+Verify `.github/dependabot.yml` before relying on that division.

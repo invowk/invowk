@@ -1,0 +1,4 @@
+interface:
+  display_name: "Macos Testing"
+  short_description: "Diagnose macOS-specific Invowk tests"
+  default_prompt: "Use $macos-testing to diagnose macOS-only Invowk test, filesystem, process, or timing failures."

@@ -4,11 +4,11 @@ D2 supports multiple layout engines, each with different strengths. Choosing the
 
 ## Engine Comparison
 
-| Engine | Cost | Quality | Speed | Best For |
-|--------|------|---------|-------|----------|
-| **dagre** | Free | Good | Fast | Simple diagrams, quick drafts |
-| **ELK** | Free | Better | Medium | Complex graphs, orthogonal routing |
-| **TALA** | $5-20/mo | Best | Medium | Production, precise layouts |
+| Engine | Availability | Routing | Speed | Best For |
+|--------|--------------|---------|-------|----------|
+| **dagre** | Bundled | Basic | Fast | Simple diagrams, quick drafts |
+| **ELK** | Bundled | Orthogonal | Medium | Complex graphs and dense relationships |
+| **TALA** | License-dependent | Constraint-aware | Medium | Layouts needing grids or relative positioning |
 
 ## Configuration
 
@@ -110,20 +110,20 @@ vars: {
 
 ## TALA (Terrastruct Auto Layout Algorithm)
 
-**TALA** is Terrastruct's proprietary layout engine, offering the highest quality layouts with unique features.
+**TALA** is a proprietary layout engine with constraint-oriented features that
+are not available in every installation.
 
 ### Strengths
 
-- Superior auto-layout quality
 - Grid layouts
 - `near` keyword for relative positioning
 - Container-aware algorithms
 - Deterministic with seeds
-- Best for production diagrams
+- Useful when the diagram needs explicit relative-layout constraints
 
 ### Weaknesses
 
-- Requires paid license ($5-20/month)
+- Requires separate installation and may require a commercial license
 - Slightly slower than dagre
 - Requires additional installation
 
@@ -214,13 +214,11 @@ d2 layout
 # Follow instructions at https://terrastruct.com/tala
 ```
 
-### License Types
+### License and Availability
 
-| Plan | Price | Features |
-|------|-------|----------|
-| Individual | $5/mo | Personal use |
-| Team | $10/mo/user | Team collaboration |
-| Enterprise | Custom | Volume licensing, support |
+Do not encode prices or plan names in this skill because they are external and
+volatile. Before introducing a new TALA dependency, verify current installation,
+license, authentication, and CI terms in the official D2/TALA documentation.
 
 For CI/CD, set the TALA API token via environment variable or a TStruct auth file:
 

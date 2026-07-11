@@ -93,7 +93,9 @@ make check-agent-docs
 For an actual release, also verify:
 
 - `gh run list --workflow Release --limit 5` and `gh run view <run-id> --log`.
-- `gh release view <tag> --json tagName,isPrerelease,isLatest,assets,body`.
+- `gh release view <tag> --json tagName,isPrerelease,assets,body` and compare
+  its tag with `gh release view --json tagName --jq .tagName` when latest-release
+  status matters. `isLatest` is not a supported `gh release view` JSON field.
 - `cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' --certificate-oidc-issuer='https://token.actions.githubusercontent.com' checksums.txt`.
 - Stable releases update or create the Homebrew cask and WinGet PR; prereleases intentionally skip those uploads.
 - `version-docs.yml` runs after GitHub Release publication and commits docs with the GitHub App token.

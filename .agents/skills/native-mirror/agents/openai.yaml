@@ -1,0 +1,4 @@
+interface:
+  display_name: "Native Mirror"
+  short_description: "Maintain native testscript mirror coverage"
+  default_prompt: "Use $native-mirror to generate, update, or audit native mirrors for virtual runtime testscript cases."

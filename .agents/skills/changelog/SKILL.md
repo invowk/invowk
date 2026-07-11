@@ -13,27 +13,24 @@ Invowk releases use GoReleaser with GitHub-native release notes (`.goreleaser.ya
 
 ### Step 1: Identify the Version Range
 
-```bash
-LATEST_TAG=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+Collect the range and raw evidence with the bundled helper:
 
-if [ -z "$LATEST_TAG" ]; then
-  RANGE="HEAD"
-  DIFF_RANGE="$(git hash-object -t tree /dev/null)..HEAD"
-else
-  RANGE="${LATEST_TAG}..HEAD"
-  DIFF_RANGE="$RANGE"
-fi
+```bash
+python3 .agents/skills/changelog/scripts/collect-changelog.py > /tmp/changelog-input.json
+jq '{latest_tag, log_range, diff_range, compare_url, shortstat}' /tmp/changelog-input.json
 ```
+
+The helper deliberately uses the empty Git tree for a first release. In that
+case `latest_tag` and `compare_url` are `null`, `log_range` is `HEAD`, and
+`diff_range` covers the entire initial history. Do not fabricate a GitHub
+compare URL with an empty previous tag.
 
 Report the range being analyzed (e.g., "Changes since v0.1.0-alpha.3").
 
 ### Step 2: Collect Commits
 
-```bash
-git log --no-merges --format='%H%x09%s%x09%b%x1e' ${RANGE}
-```
-
-Use the full subject/body output so body-only `BREAKING CHANGE:` trailers are not missed.
+Read the helper's `commits` array. It retains each full hash, subject, body,
+and author, so body-only `BREAKING CHANGE:` trailers are not missed.
 
 ### Step 3: Group by Conventional Commit Type
 
@@ -65,21 +62,10 @@ List these separately under a **Breaking Changes** section at the top.
 
 ### Step 5: Generate Stats
 
-```bash
-# Files changed
-git diff --stat ${DIFF_RANGE} | tail -1
-
-# Contributors
-git log --format='%aN' ${RANGE} | sort -u
-
-# Compare URL
-origin_url=$(git remote get-url origin)
-repo_slug=$(printf '%s\n' "$origin_url" |
-  sed -E 's#^git@github.com:##; s#^https://github.com/##; s#\.git$##')
-compare_url="https://github.com/${repo_slug}/compare/${LATEST_TAG}...HEAD"
-```
-
-Contributor names from git are not GitHub handles unless separately resolved through GitHub metadata.
+Use `shortstat`, `contributors`, and `compare_url` from the helper output.
+Contributor names from git are not GitHub handles unless separately resolved
+through GitHub metadata. For a first release, label the link as unavailable
+instead of emitting a broken comparison.
 
 ### Step 6: Output Release Notes
 
@@ -107,7 +93,7 @@ Format as markdown:
 - ...
 
 ---
-**Full diff**: [`previous-tag...HEAD`](https://github.com/invowk/invowk/compare/previous-tag...HEAD)
+**Full diff**: [`previous-tag...HEAD`](compare_url) <!-- omit for a first release -->
 **Contributors**: Name 1, Name 2
 **Stats**: X files changed, Y insertions(+), Z deletions(-)
 ```

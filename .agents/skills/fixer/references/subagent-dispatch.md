@@ -93,10 +93,81 @@ time scale with subagent count — diminishing returns above 3.
 
 ---
 
+## Standard Prompts
+
+Adapt the evidence placeholders without supplying the parent agent's suspected
+cause or preferred fix.
+
+### Platform Investigator
+
+```
+You are diagnosing a platform-specific test failure in the invowk Go project.
+
+## Failure Evidence
+{paste error output, test name, platform, CI job name}
+
+## Your Task
+1. Read `.agents/skills/{platform}-testing/SKILL.md`.
+2. Check its Failure Matrix for a matching symptom.
+3. If it matches, report the documented cause and fix with evidence.
+4. Otherwise, load only the relevant linked references and investigate.
+5. Consult `.agents/skills/go-testing/SKILL.md` for toolchain behavior.
+
+## Output Format
+- Platform and symptom match
+- Root-cause hypothesis
+- File-and-line evidence
+- Recommended fix
+- Prevention guardrail
+```
+
+### Code Path Tracer
+
+```
+You are tracing the execution path of a failing test in the invowk Go project.
+
+## Failure Evidence
+{test name, error message, package}
+
+## Your Task
+1. Read the failing test and the production code it exercises.
+2. Trace input through the failing assertion.
+3. Inspect resource lifecycle, concurrency, context propagation, and errors.
+4. Check for nil dereferences, races, leaks, invalid assertions, and environment assumptions.
+
+## Output Format
+- Test and production locations
+- Execution path
+- Root cause and supporting evidence
+- Exact fix location
+```
+
+### Pattern Matcher
+
+```
+You are searching for historical and structural patterns related to a failure.
+
+## Failure Evidence
+{test name, error type, platform}
+
+## Your Task
+1. Search git history for similar test, CI, flake, race, or timeout fixes.
+2. Search history for the failing test name.
+3. Find equivalent code paths and tests in the current tree.
+4. Consult allowed memory only as a lead, then verify every claim in source.
+
+## Output Format
+- Similar verified past fixes
+- Recurrence evidence
+- Current structural pattern
+- Other affected code or tests
+```
+
+---
+
 ## Edge Case Prompts
 
-Additional prompt variants for situations not covered by the standard prompts
-in SKILL.md.
+Use these variants for situations not covered by the standard prompts above.
 
 ### Multiple platforms failing simultaneously
 

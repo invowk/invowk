@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tui Testing"
+  short_description: "Debug Invowk TUI behavior visually"
+  default_prompt: "Use $tui-testing to create VHS-based visual diagnostics, screenshots, or demos for Invowk TUI behavior."

@@ -14,8 +14,14 @@ import unicodedata
 from pathlib import Path
 
 
-SECTION_RE = re.compile(r"^##\s+Poetic Opening\s*$", re.IGNORECASE | re.MULTILINE)
-NEXT_SECTION_RE = re.compile(r"^##\s+", re.MULTILINE)
+REQUIRED_SECTIONS = (
+    "Poetic Opening",
+    "What's Changed",
+    "Manual Actions Needed",
+    "Warnings and Deprecations",
+    "Bug Fixes",
+)
+HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 SIGNATURE_RE = re.compile(r"^-----BEGIN (?:PGP|SSH) SIGNATURE-----$", re.MULTILINE)
 
 
@@ -23,14 +29,45 @@ def run(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, check=False, text=True, capture_output=True)
 
 
+def required_sections(markdown: str) -> dict[str, str]:
+    headings = list(HEADING_RE.finditer(markdown))
+    required_lookup = {name.casefold(): name for name in REQUIRED_SECTIONS}
+    found: dict[str, list[tuple[int, str]]] = {name: [] for name in REQUIRED_SECTIONS}
+    for index, heading in enumerate(headings):
+        canonical = required_lookup.get(heading.group(1).strip().casefold())
+        if not canonical:
+            continue
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(markdown)
+        found[canonical].append((heading.start(), markdown[heading.end() : end].strip()))
+
+    errors = []
+    for name in REQUIRED_SECTIONS:
+        entries = found[name]
+        if not entries:
+            errors.append(f"missing required section: ## {name}")
+        elif len(entries) > 1:
+            errors.append(f"duplicate required section: ## {name}")
+        elif not entries[0][1]:
+            errors.append(f"empty required section: ## {name}")
+    positions = [found[name][0][0] for name in REQUIRED_SECTIONS if len(found[name]) == 1]
+    if len(positions) == len(REQUIRED_SECTIONS) and positions != sorted(positions):
+        errors.append("required sections are out of order")
+    if errors:
+        raise ValueError("; ".join(errors))
+    return {name: found[name][0][1] for name in REQUIRED_SECTIONS}
+
+
 def extract_poetic_opening(markdown: str) -> str:
-    match = SECTION_RE.search(markdown)
-    if not match:
-        return markdown
-    start = match.end()
-    next_match = NEXT_SECTION_RE.search(markdown, start)
-    end = next_match.start() if next_match else len(markdown)
-    section = markdown[start:end].strip()
+    headings = list(HEADING_RE.finditer(markdown))
+    section = ""
+    for index, heading in enumerate(headings):
+        if heading.group(1).strip().casefold() != "poetic opening":
+            continue
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(markdown)
+        section = markdown[heading.end() : end].strip()
+        break
+    if not section:
+        return ""
     quoted_lines = []
     for line in section.splitlines():
         stripped = line.strip()
@@ -79,7 +116,9 @@ def github_release_openings(repo: str, limit: int) -> list[tuple[str, str]]:
     if not shutil.which("gh"):
         print("warning: gh not found; skipped GitHub Release body check", file=sys.stderr)
         return []
-    result = run(["gh", "release", "list", "--repo", repo, "--limit", str(limit), "--json", "tagName"])
+    result = run(
+        ["gh", "release", "list", "--repo", repo, "--limit", str(limit), "--json", "tagName"]
+    )
     if result.returncode != 0:
         print("warning: gh release list failed; skipped GitHub Release body check", file=sys.stderr)
         return []
@@ -121,7 +160,9 @@ def is_duplicate(candidate: str, previous: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("release_notes", type=Path, help="Markdown release notes file to check")
-    parser.add_argument("--repo", default="invowk/invowk", help="GitHub repo for release body checks")
+    parser.add_argument(
+        "--repo", default="invowk/invowk", help="GitHub repo for release body checks"
+    )
     parser.add_argument("--limit", type=int, default=200, help="GitHub releases to inspect")
     parser.add_argument("--skip-gh", action="store_true", help="Skip GitHub Release body checks")
     args = parser.parse_args()
@@ -132,11 +173,16 @@ def main() -> int:
         print(f"error: read release notes: {exc}", file=sys.stderr)
         return 2
 
+    try:
+        required_sections(candidate_body)
+    except ValueError as exc:
+        print(f"error: invalid release-note structure: {exc}", file=sys.stderr)
+        return 2
+
     candidate = extract_poetic_opening(candidate_body)
     if not candidate:
         print("error: no Poetic Opening content found", file=sys.stderr)
         return 2
-
     openings = local_tag_openings()
     if not args.skip_gh:
         openings.extend(github_release_openings(args.repo, args.limit))

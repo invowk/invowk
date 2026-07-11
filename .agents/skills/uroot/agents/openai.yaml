@@ -1,0 +1,4 @@
+interface:
+  display_name: "Uroot"
+  short_description: "Implement Invowk virtual utilities"
+  default_prompt: "Use $uroot to implement or review u-root-backed utilities in Invowk virtual runtimes."

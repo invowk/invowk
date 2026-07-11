@@ -1,0 +1,4 @@
+interface:
+  display_name: "Container"
+  short_description: "Work on Invowk container runtime behavior"
+  default_prompt: "Use $container to change or diagnose Invowk container runtime behavior."

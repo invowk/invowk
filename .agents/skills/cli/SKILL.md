@@ -281,7 +281,7 @@ invowk cmd --ivk-from foo deploy
 
 ```go
 type ExitError struct {
-    Code int
+    Code types.ExitCode
     Err  error
 }
 ```
@@ -354,6 +354,7 @@ Unified color palette (`styles.go`):
 --ivk-runtime, -r     // Override runtime (must be allowed)
 --ivk-from            // Specify source for disambiguation
 --ivk-force-rebuild   // Force container image rebuild
+--ivk-container-name  // Override the persistent container target name
 --ivk-dry-run         // Print resolved execution context without executing
 --ivk-watch, -W       // Watch files for changes and re-execute
 ```
@@ -362,20 +363,19 @@ Unified color palette (`styles.go`):
 
 ## Configuration Loading
 
-Flow from `root.go`:
+Configuration is request-scoped rather than initialized into global accessors:
 
-```go
-Execute()
-    ↓
-cobra.OnInitialize(initRootConfig)
-    ├── Apply --ivk-config flag override
-    ├── Load config via config.Load()
-    ├── Surface errors as warnings (non-fatal)
-    ├── Apply verbose/interactive from config if not set via flags
-    └── Store in GetVerbose(), GetInteractive() accessors
-```
+1. `--ivk-config` is stored in `rootFlagValues` and attached to the command
+   context by `contextWithConfigPath()`.
+2. Discovery and command execution load through the injected config provider;
+   the request context also owns the per-request discovery/config cache.
+3. `buildCommandExecuteRequest()` carries the explicit config path and whether
+   UI flags were explicitly set into the service request.
+4. `resolveUIFlags()` applies `ui.verbose` and `ui.interactive` only when the
+   corresponding persistent CLI flag was not explicitly set. Config-load
+   failures are rendered as warnings and leave the CLI values in place.
 
-**Priority:** CLI flags > config file > defaults
+**Priority:** explicitly set CLI flags > config values > defaults.
 
 ---
 
@@ -397,6 +397,7 @@ Module management (`module.go`):
 module add <git-url> <version>  # Add dependency
 module remove <identifier>       # Remove dependency
 module sync                      # Sync dependencies from invowkmod.cue (accepts 0 args)
+module tidy                      # Add missing transitive requirements to invowkmod.cue
 module update [identifier]       # Update all deps or one matching dependency
 module deps                      # List dependencies from lock file (accepts 0 args)
 ```
@@ -474,6 +475,6 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | Missing TUI server check | TUI components fail in nested context | Use dual-layer pattern |
 | Not using styled output | Inconsistent CLI appearance | Use styles from `styles.go` |
 | Wrong flag priority | Config overrides CLI flag | Check precedence logic |
-| New flag missing from one ExecuteRequest site | Flag silently ignored for some paths | Wire in ALL 3 sites: `runCommand`, `buildLeafCommand`, `runDisambiguatedCommand` |
+| New execution flag omitted from request mapping | Flag silently ignored in some paths | Add it to `cmdFlagValues`, Cobra registration, and centralized `buildCommandExecuteRequest()` mapping; verify dynamic leaves, disambiguation, dry-run, and watch child requests |
 | `context.Background()` in Cobra RunE handler | Ctrl+C / timeout not propagated | Extract `cmd.Context()` at closure boundary, pass as `ctx context.Context` first param to handler function |
 | Unconditional discovered-command registration in root init | `invowk --version` / `--help` startup regresses toward discovery cost | Gate registration by argv so only `cmd` (and its completion paths) trigger registration |

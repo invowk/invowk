@@ -1,0 +1,4 @@
+interface:
+  display_name: "Invowk Type System"
+  short_description: "Maintain Invowk value-type contracts"
+  default_prompt: "Use $invowk-typesystem to review and update Invowk value types and their validation contracts."

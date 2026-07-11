@@ -1,0 +1,4 @@
+interface:
+  display_name: "Linux Testing"
+  short_description: "Diagnose Linux-specific Invowk tests"
+  default_prompt: "Use $linux-testing to diagnose Linux-only Invowk test, process, filesystem, or container failures."

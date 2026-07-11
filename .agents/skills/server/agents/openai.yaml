@@ -1,0 +1,4 @@
+interface:
+  display_name: "Server"
+  short_description: "Implement Invowk server lifecycle behavior"
+  default_prompt: "Use $server to implement or review race-safe Invowk server lifecycle behavior."

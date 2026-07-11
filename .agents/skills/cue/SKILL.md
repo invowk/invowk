@@ -204,9 +204,14 @@ When upgrading the CUE library version:
 
 ### Known CUE Limitations
 
-- **No Encode API**: CUE can decode Go structs but has no production-ready encoder
+- **Encode is value conversion, not source generation**: `cue.Context.Encode`
+  converts a Go value into a `cue.Value` for validation, unification, and other
+  CUE operations. Do not describe it as a CUE source-code generator.
 - **No Code Generation**: `gengotypes` is experimental; we use sync tests instead
-- **Context is Stateful**: Create a new `cuecontext.New()` for each parse operation
+- **Context ownership matters**: Values combined through CUE operations must
+  come from the same context. Create one context for a cohesive parse/build/
+  unify/decode operation; do not impose a new-context-per-parse rule without a
+  concrete isolation requirement.
 
 ## Rules
 
@@ -261,9 +266,14 @@ func TestStructNameSchemaSync(t *testing.T) {
 
 ### Redundant Validation
 
-**Problem**: Same validation in both CUE and Go creates maintenance burden.
+**Problem**: Accidental duplication of schema validation in Go creates
+maintenance burden and drift.
 
-**Rule**: Validation lives in ONE place. CUE handles format/type validation. Go handles security/filesystem/cross-field logic.
+**Rule**: CUE remains the schema source of truth for parsed data. Mirror a CUE
+constraint in Go only when direct programmatic construction, defense-in-depth,
+or a richer runtime contract requires it; document the reason and keep a
+behavioral sync test. Go also owns filesystem, security, and runtime-dependent
+validation that CUE cannot perform.
 
 **Anti-Pattern**:
 ```go

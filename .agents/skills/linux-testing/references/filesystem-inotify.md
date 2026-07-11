@@ -185,11 +185,11 @@ directory tree recursively:
 5. Watch for `IN_DELETE_SELF` and `IN_MOVE_SELF` to handle directory removal
    and rename.
 
-**Go's `fsnotify` library** handles all of this internally. The invowk
-`internal/watch/` package uses `fsnotify` and does not interact with inotify
-directly. However, understanding the recursive-watch implementation is
-important for diagnosing watch limit exhaustion (each subdirectory consumes
-one watch).
+`fsnotify` does not implement this recursive walk. The caller must add every
+directory and handle newly created subdirectories. Invowk's watcher behavior
+must therefore be verified from `internal/watch/`; do not assume that adding a
+top-level path covers descendants. Each explicitly added subdirectory consumes
+one watch.
 
 ---
 
@@ -249,9 +249,8 @@ watching in Go. On Linux, it uses inotify internally.
 | `IN_MOVED_TO` | `fsnotify.Create` (in target directory) |
 | `IN_ATTRIB` | `fsnotify.Chmod` |
 
-**Recursive watching:** fsnotify handles directory walking and new-directory
-detection internally. The caller adds a top-level path and receives events
-for all descendants.
+**Recursive watching:** fsnotify watches only paths explicitly added by the
+caller. Directory walking and new-directory detection belong to the caller.
 
 **Error handling:** fsnotify wraps inotify errors into its own error types.
 `ENOSPC` becomes a watcher-level error that closes the watcher. The invowk

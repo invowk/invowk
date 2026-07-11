@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tmux Testing"
+  short_description: "Build durable tmux TUI coverage"
+  default_prompt: "Use $tmux-testing to add durable tmux-based coverage for interactive Invowk TUI commands."

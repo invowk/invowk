@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cue"
+  short_description: "Maintain Invowk CUE schemas and decoding"
+  default_prompt: "Use $cue to update Invowk CUE schemas, parsing, validation, or schema synchronization."

@@ -4,16 +4,34 @@ This catalog is generated from repository source and documents current type-syst
 
 ## Coverage Summary
 
-- `Validate()` value types: 349
-- Primitive-wrapper + `Validate()` types: 173
-- Composite validator + `Validate()` types: 176
-- Primitive-wrapper declarations (all): 205
-- Alias/re-export type declarations: 110
+- `Validate()` value types: 367
+- Primitive-wrapper + `Validate()` types: 181
+- Composite validator + `Validate()` types: 186
+- Primitive-wrapper declarations (all): 214
+- Alias/re-export type declarations: 112
 
 ## All Types With `Validate() error`
 
 | Type | Kind | Source |
 | --- | --- | --- |
+| `ExecuteResult` | `composite-validator` | `cmd/invowk/app_validate.go:65` |
+| `SourceFilter` | `composite-validator` | `cmd/invowk/app_validate.go:75` |
+| `auditCheckerName` | `primitive-wrapper` | `cmd/invowk/audit.go:125` |
+| `auditJSONDiagnostic` | `composite-validator` | `cmd/invowk/audit.go:178` |
+| `auditJSONFinding` | `composite-validator` | `cmd/invowk/audit.go:156` |
+| `auditJSONOutput` | `composite-validator` | `cmd/invowk/audit.go:127` |
+| `auditJSONSuppressed` | `composite-validator` | `cmd/invowk/audit.go:169` |
+| `auditRunOptions` | `composite-validator` | `cmd/invowk/audit.go:191` |
+| `executeRequestOptions` | `composite-validator` | `cmd/invowk/cmd_execute_helpers.go:30` |
+| `configValue` | `primitive-wrapper` | `cmd/invowk/config.go:295` |
+| `formattedDisplayError` | `primitive-wrapper` | `cmd/invowk/issue_render.go:32` |
+| `issueMarkdown` | `primitive-wrapper` | `cmd/invowk/issue_render.go:28` |
+| `tuiSpinRunResult` | `composite-validator` | `cmd/invowk/tui_spin.go:134` |
+| `tableConfig` | `composite-validator` | `cmd/invowk/tui_table.go:147` |
+| `tableFile` | `primitive-wrapper` | `cmd/invowk/tui_table.go:42` |
+| `tableHeight` | `primitive-wrapper` | `cmd/invowk/tui_table.go:46` |
+| `tableSeparator` | `primitive-wrapper` | `cmd/invowk/tui_table.go:44` |
+| `customCheckInterpreterTarget` | `primitive-wrapper` | `cmd/invowk/validate_interpreter_diagnostics.go:37` |
 | `Command` | `composite-validator` | `internal/acpclient/types.go:446` |
 | `CommandName` | `primitive-wrapper` | `internal/acpclient/types.go:322` |
 | `LineLimit` | `primitive-wrapper` | `internal/acpclient/types.go:411` |
@@ -76,7 +94,7 @@ This catalog is generated from repository source and documents current type-syst
 | `Mode` | `primitive-wrapper` | `internal/app/llmconfig/resolve.go:208` |
 | `ResolveOptions` | `composite-validator` | `internal/app/llmconfig/resolve.go:184` |
 | `Resolved` | `composite-validator` | `internal/app/llmconfig/resolve.go:218` |
-| `UnpackResult` | `composite-validator` | `internal/app/moduleops/packaging.go:80` |
+| `UnpackResult` | `composite-validator` | `internal/app/moduleops/packaging.go:87` |
 | `VendorResolutionStrategy` | `primitive-wrapper` | `internal/app/moduleops/vendor_dependencies.go:40` |
 | `VendorResult` | `composite-validator` | `internal/app/moduleops/vendor_validate.go:83` |
 | `VendoredEntry` | `composite-validator` | `internal/app/moduleops/vendor_validate.go:48` |
@@ -557,20 +575,29 @@ This catalog is generated from repository source and documents current type-syst
 | `WarningMessage` | `string` | `internal/provision/provisioner.go:15` |
 | `WatchInfraErrorLimit` | `int` | `internal/app/commandsvc/watch.go:28` |
 | `WorkDir` | `string` | `pkg/invowkfile/workdir.go:20` |
+| `auditCheckerName` | `string` | `cmd/invowk/audit.go:64` |
 | `clientName` | `string` | `internal/acpclient/types.go:72` |
 | `clientVersion` | `string` | `internal/acpclient/types.go:73` |
 | `configCUEFilename` | `string` | `internal/config/config.go:62` |
+| `configValue` | `string` | `cmd/invowk/config.go:45` |
 | `containerValidationScript` | `string` | `internal/app/commandadapters/dependency_runtime.go:20` |
 | `correlationRuleSide` | `int` | `internal/audit/correlator.go:55` |
+| `customCheckInterpreterTarget` | `int` | `cmd/invowk/validate_interpreter_diagnostics.go:23` |
 | `customCheckInterpreterTarget` | `int` | `internal/app/deps/checks.go:24` |
 | `executionState` | `int` | `internal/tui/interactive.go:52` |
+| `formattedDisplayError` | `string` | `cmd/invowk/issue_render.go:23` |
+| `issueMarkdown` | `string` | `cmd/invowk/issue_render.go:18` |
 | `lockFileCUEContent` | `string` | `pkg/invowkmod/lockfile_parser.go:73` |
 | `lockFileGeneratedAt` | `string` | `pkg/invowkmod/lockfile_parser.go:72` |
 | `matrixMode` | `uint8` | `internal/testutil/pathmatrix/pathmatrix.go:89` |
 | `outcomeKind` | `uint8` | `internal/testutil/pathmatrix/pathmatrix.go:84` |
+| `pathType` | `int` | `cmd/invowk/validate.go:37` |
 | `pretendOS` | `string` | `internal/testutil/pathmatrix/pathmatrix_test.go:36` |
 | `provisionedModuleDestinationPath` | `string` | `internal/provision/module_entries.go:22` |
 | `scanSurfaceID` | `string` | `internal/audit/scan_context.go:149` |
+| `tableFile` | `string` | `cmd/invowk/tui_table.go:35` |
+| `tableHeight` | `int` | `cmd/invowk/tui_table.go:39` |
+| `tableSeparator` | `string` | `cmd/invowk/tui_table.go:36` |
 | `virtualFilesystemPathsJSON` | `string` | `internal/app/commandadapters/sh_interactive.go:16` |
 | `watchInfraErrorCount` | `int` | `internal/app/commandsvc/watch.go:24` |
 
@@ -597,11 +624,12 @@ This catalog is generated from repository source and documents current type-syst
 | `ConfirmRequest` | `tuiwire.ConfirmRequest` | `internal/tuiserver/protocol.go:56` |
 | `ConfirmResult` | `tuiwire.ConfirmResult` | `internal/tuiclient/client.go:72` |
 | `ConfirmResult` | `tuiwire.ConfirmResult` | `internal/tuiserver/protocol.go:58` |
-| `ContainerName` | `containerargs.ContainerName //nolint:revive // DDD value type keeps the domain noun explicit across package boundaries.` | `internal/container/engine.go:87` |
+| `ContainerName` | `containerargs.ContainerName` | `internal/container/engine.go:87` |
 | `ContainerName` | `containerargs.ContainerName` | `pkg/invowkfile/runtime.go:157` |
 | `ContentHash` | `invowkmod.ContentHash` | `internal/app/modulesync/types.go:68` |
 | `CreateResult` | `CommandResult` | `internal/agentcmd/create.go:76` |
 | `DescriptionText` | `types.DescriptionText` | `pkg/invowkfile/description.go:16` |
+| `ExecuteRequest` | `commandsvc.Request` | `cmd/invowk/app.go:59` |
 | `ExitCode` | `types.ExitCode` | `internal/runtime/result.go:14` |
 | `FileRequest` | `tuiwire.FileRequest` | `internal/tuiclient/client.go:82` |
 | `FileRequest` | `tuiwire.FileRequest` | `internal/tuiserver/protocol.go:68` |
@@ -627,6 +655,7 @@ This catalog is generated from repository source and documents current type-syst
 | `InvalidContainerNameError` | `containerargs.InvalidContainerNameError` | `internal/container/engine.go:111` |
 | `InvalidContainerNameError` | `containerargs.InvalidContainerNameError` | `pkg/invowkfile/runtime.go:165` |
 | `InvalidDescriptionTextError` | `types.InvalidDescriptionTextError` | `pkg/invowkfile/description.go:19` |
+| `InvalidExecuteRequestError` | `commandsvc.InvalidRequestError` | `cmd/invowk/app_validate.go:28` |
 | `InvalidExitCodeError` | `types.InvalidExitCodeError` | `internal/runtime/result.go:17` |
 | `InvalidFilesystemPathError` | `types.InvalidFilesystemPathError` | `pkg/invowkfile/filesystem_path.go:19` |
 | `InvalidListenPortError` | `types.InvalidListenPortError` | `internal/sshserver/types.go:66` |

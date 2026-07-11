@@ -1,0 +1,4 @@
+interface:
+  display_name: "Testing"
+  short_description: "Apply Invowk-specific testing patterns"
+  default_prompt: "Use $testing to write Invowk tests, testscript cases, or component-specific test infrastructure."

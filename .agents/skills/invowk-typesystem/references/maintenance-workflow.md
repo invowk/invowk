@@ -4,11 +4,19 @@ Use this workflow whenever value types are added, removed, renamed, or semantica
 
 ## 1. Detect Current Value Types
 
+The extractor must inventory all Go source under `cmd/`, `internal/`, and
+`pkg/` for each of its three sections: `Validate() error` methods,
+primitive-wrapper declarations, and alias/re-export declarations. Do not add a
+new production root to only one extraction pass.
+
 ```bash
 tmp_catalog=$(mktemp)
 .agents/skills/invowk-typesystem/scripts/extract_value_types.sh > "$tmp_catalog"
 diff -u .agents/skills/invowk-typesystem/references/type-catalog.md "$tmp_catalog"
 ```
+
+The diff must be empty before completion. If it is not, inspect the changes and
+refresh the tracked catalog intentionally.
 
 ## 2. Refresh the Skill Catalog
 

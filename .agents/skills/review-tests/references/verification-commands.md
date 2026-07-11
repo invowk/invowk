@@ -28,14 +28,14 @@ Failure triage: Add `// SPDX-License-Identifier: MPL-2.0` as the first line foll
 
 ## 3. Stale context.Background() (PC-03)
 
-Command: `grep -rn 'context\.Background()' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/`
+Command: `rg -n 'context\.Background\(\)' cmd internal pkg tests tools -g '*_test.go'`
 What it checks: Usage of context.Background() in test files. Should use t.Context() (Go 1.24+).
 Expected: Only matches in TestMain, env.Defer callbacks, or package-level init (with comments explaining why).
 Failure triage: Check each match. If it's inside a Test* function, it should use t.Context(). Consult `known-exceptions.md` for legitimate uses.
 
 ## 4. Flakiness-Prone time.Sleep (PC-04)
 
-Command: `grep -rn 'time\.Sleep' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/`
+Command: `rg -n 'time\.Sleep' cmd internal pkg tests tools -g '*_test.go'`
 What it checks: Usage of time.Sleep in test files.
 Expected: Only matches classified as KEEP per `pattern-catalog.md` § "time.Sleep Classification" (event separation, latency simulation, poll-helper testing). See `known-exceptions.md` § "time.Sleep Exceptions" for the current registry.
 Failure triage: Classify each match. Sleeps in assertion logic (waiting for a condition) are ERROR — replace with channels/polling. Sleeps for event separation (fsnotify coalescing), latency simulation (debounce/serialization testing), or poll-helper self-tests are legitimate and should be added to `known-exceptions.md` if not already listed.
@@ -77,35 +77,44 @@ Failure triage: Fix failing tests. Common issues: missing imports after refactor
 
 ## 10. Approaching 1000-Line Limit (PC-10)
 
-Command: `find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$2 != "total" && $1 > 900 { print }'`
+Command: `rg --files cmd internal pkg tests tools -g '*_test.go' | sort | xargs -r wc -l | awk '$2 != "total" && $1 > 900 { print }'`
 What it checks: Test files approaching the 1000-line hard limit (900+ lines signals need to plan a split).
 Expected: No matches (or only files recently split that are in progress).
 Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow File Splitting Protocol: create new, delete from source, clean imports, `go build` before `make test`.
 
 ## 11. Error String Matching (PC-11)
 
-Command: `grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/`
+Command: `rg -n 'strings\.Contains\([^\n]*\.Error\(\)' cmd internal pkg tests tools -g '*_test.go'`
 What it checks: Usage of `strings.Contains(err.Error(), ...)` for error assertions. Should use `errors.Is` / `errors.As` for sentinel errors or typed error assertions.
 Expected: Most matches will be KEEP (not findings). Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification". Only report CONVERTIBLE cases where a sentinel error exists in the error chain via `%w` wrapping. Consult `known-exceptions.md` § "Error String Matching Exceptions" for the full registry of legitimate patterns.
 Failure triage: For CONVERTIBLE cases, replace with `errors.Is(err, ErrFoo)` or `errors.As(err, &target)`. For KEEP cases (ValidationErrors flattening, Error() format tests, CUE library errors, supplementary checks alongside errors.Is, external/OS errors), leave as-is — string matching is correct. The key decision rule: trace the error to its production source. If `fmt.Errorf("...: %w", sentinel)` wraps a sentinel, it's CONVERTIBLE. Everything else is KEEP.
 
 ## 12. Missing Error-Path txtar Assertion (PC-12)
 
-Command: `grep -B0 -A1 '! exec' tests/cli/testdata/*.txtar | grep -B1 '^--$' | grep '! exec'`
-What it checks: Error-path txtar tests (`! exec ...`) that lack any stdout/stderr assertion on the next line. Error tests should assert BOTH output channels.
-Expected: Zero matches. Every `! exec` should be followed by `stdout`, `stderr`, `! stdout .`, or `! stderr .`.
-Failure triage: Add `! stdout .` and/or `stderr 'expected text'` after `! exec` lines. See `pattern-catalog.md` § 4 for the dual-channel error assertion pattern.
+Command: `rg -n '! exec' tests/cli/testdata -g '*.txtar'`
+What it checks: Produces the complete live set of error-path commands for semantic
+inspection. Review the following assertion block for both stdout and stderr;
+single-line grep adjacency is not sufficient because comments and conditions may
+legitimately intervene.
+Expected: Every match has meaningful output-channel assertions, subject to the
+documented container incidental-stderr exception.
+Failure triage: Add `! stdout .` and/or a specific `stderr` assertion. See
+`pattern-catalog.md` section 4.
 
 ## 13. Non-Platform-Split Native CUE (PC-13)
 
-Command: `for f in tests/cli/testdata/native_*.txtar; do if ! grep -q 'platforms:.*windows' "$f" 2>/dev/null; then echo "$f: missing Windows platform block"; fi; done`
-What it checks: Native txtar implementations must use platform-split CUE with separate Linux/macOS and Windows implementation blocks.
-Expected: Zero output. Every `native_*.txtar` must have at least one `platforms: [{name: "windows"}]` block.
-Failure triage: Split the single implementation into two: `[{name: "linux"}, {name: "macos"}]` with bash script, and `[{name: "windows"}]` with PowerShell script. Use `Write-Output` and `$env:VAR` in the Windows block.
+Command: `go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...`
+What it checks: The repository parser and exemption registry enforce mirror
+coverage and command-path alignment. During manual review, also inspect each
+native implementation for a Unix/Windows platform split; do not infer valid CUE
+structure from a one-line grep.
+Expected: PASS, with no stale or missing exemptions.
+Failure triage: Use `native-mirror` to repair the pair or update the exemption
+JSON only when divergence is intentional and justified.
 
 ## 14. Hardcoded Unix Absolute Paths in Test Assertions (PC-14)
 
-Command: `grep -rn '"/usr/\|"/tmp/\|"/etc/\|"/home/\|"/bin/' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/`
+Command: `rg -n '"/(usr|tmp|etc|home|bin)/' cmd internal pkg tests tools -g '*_test.go'`
 What it checks: Hardcoded Unix absolute paths in test assertions and fixtures. These are cross-platform blind spots.
 Expected: Only matches listed in `known-exceptions.md` Hardcoded Path Exceptions (container-internal paths in `filepaths_test.go`, POSIX-only `dirname_test.go`).
 Failure triage: Replace with `filepath.Join(t.TempDir(), ...)` for fixture paths, or add `skipOnWindows` with documented reason.
@@ -119,7 +128,8 @@ Failure triage: Update the issue template text or the stale-token list if the gu
 
 ## Context Block Format
 
-Record all results in this format and pass verbatim to all 8 subagents:
+Record all results in this format and pass verbatim to each surface subagent,
+including agents dispatched in later capacity-aware waves:
 
 ```
 PROGRAMMATIC CHECK RESULTS

@@ -9,6 +9,14 @@ Generate `native_*.txtar` test files that mirror existing `virtual_*.txtar` test
 
 ## Workflow
 
+Choose the mode before acting:
+
+- **Generate or update**: write the requested `native_*.txtar` mirror, then
+  verify it.
+- **Audit or review**: remain read-only and report missing pairs, stale
+  exemptions, or divergence. Do not create mirrors unless the user also asks
+  for implementation.
+
 ### Step 1: Check Exemptions
 
 Before generating a mirror, verify the virtual test is NOT exempt:
@@ -99,8 +107,13 @@ Create `native_<feature>.txtar` with:
 ### Step 7: Verify
 
 ```bash
+go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
 make test-cli
 ```
+
+Run the focused guardrails first so a pairing or command-path failure is clear
+before the full CLI suite. Then run the repository completion gates required by
+`.agents/rules/checklist.md` when files changed.
 
 ## Example
 

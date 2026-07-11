@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Tests"
+  short_description: "Audit Invowk test suite quality"
+  default_prompt: "Use $review-tests to run a comprehensive evidence-backed audit of the Invowk test suite."

@@ -48,7 +48,7 @@ When a test failure is platform-specific, consult the right platform skill:
 | Virtual runtime env/path assertion mismatch | `macos-testing`, `windows-testing` | Assert against virtual resolver outputs |
 | Container test hangs indefinitely | `linux-testing` | Missing `WaitDelay`, unbounded context |
 | `inotify: too many watches` (ENOSPC) | `linux-testing` | Per-user inotify watch limits |
-| Container OOM with `-race` | `linux-testing` | 10x memory overhead + cgroup limits |
+| Container OOM with `-race` | `linux-testing` | Workload-dependent instrumentation overhead + cgroup limits |
 | Podman rootless permission errors | `linux-testing` | User namespace mapping, cgroup v2 |
 | flock contention in CI | `linux-testing` | Cross-binary test serialization |
 | ARM64 memory ordering differences | `macos-testing` | Apple Silicon relaxed ordering |
@@ -65,82 +65,26 @@ When a test failure is platform-specific, consult the right platform skill:
 4. After the fix, verify with the narrow reproduction and the repo target that
    owns that surface.
 
-## Go Test Execution Model
+## Toolchain Reference Router
 
-### Compilation and Caching
+Use the smallest reference that owns the question:
 
-`go test` compiles each package into a separate test binary. Results are cached in
-`$GOCACHE` based on: package source, test source, build flags, environment variables
-read by tests, and files read via `os.Open` (heuristic).
+- Read [references/test-flags-matrix.md](references/test-flags-matrix.md) for
+  execution, caching, flag interactions, package-binary timeouts, and current CI
+  combinations. `-timeout` applies independently to each package's test binary;
+  it is not one shared deadline for every package selected by `go test`.
+- Read [references/race-detector-guide.md](references/race-detector-guide.md)
+  for race report interpretation and common race patterns. Treat a report as
+  strong evidence and inspect both access stacks; do not promise an absolute
+  zero-false-positive guarantee around `unsafe`, cgo, or instrumentation edges.
+- Read [references/go-vet-analyzers.md](references/go-vet-analyzers.md) for test-
+  relevant vet analyzers.
+- Read [references/benchmark-fuzzing-guide.md](references/benchmark-fuzzing-guide.md)
+  for benchmark and fuzz workflows.
 
-Cache invalidation:
-- `-count=1` — forces re-execution (bypasses cache entirely)
-- `-race` — different build; cached separately from non-race builds
-- Any flag change — `-short`, `-v`, `-timeout`, etc. create distinct cache entries
-- File changes — any `.go` file in the package or its dependencies
-
-### Parallel Scheduling
-
-Go's test parallelism operates at two levels:
-
-1. **Inter-package**: packages are compiled and tested in parallel (bounded by `GOMAXPROCS`).
-   Each package's tests run in their own process.
-2. **Intra-package**: tests calling `t.Parallel()` run concurrently within the package,
-   bounded by `-parallel` (defaults to `GOMAXPROCS`).
-
-The `-parallel` flag controls only intra-package parallelism within a test binary.
-Use `-p` to bound concurrent package test binaries and build actions.
-
-### Binary Mode vs List Mode
-
-- **List mode** (default): `go test ./...` — compiles and runs tests per package.
-- **Binary mode**: `go test -c -o test.exe && ./test.exe` — compile once, run the
-  binary directly. Useful for profiling, debugging, and custom test execution.
-
-## Test Flags Quick Reference
-
-| Flag | Purpose | Key Interactions |
-|------|---------|-----------------|
-| `-race` | Enable race detector | 5-10x mem, 2-20x CPU; cached separately; see `references/race-detector-guide.md` |
-| `-count N` | Run each test N times | Default package-list runs may use cache; `-count=1` explicitly bypasses cache |
-| `-parallel N` | Max concurrent `t.Parallel()` tests | Defaults to `GOMAXPROCS`; only intra-package |
-| `-timeout D` | Kill test binary after duration | Default 10m; affects ALL packages in the run |
-| `-short` | Set `testing.Short()` to true | Convention: skip slow/integration tests |
-| `-v` | Verbose output | **Required** for gotestsum `--rerun-fails` with parallel subtests |
-| `-run R` | Run only tests matching regex | Applied per-subtest: `-run TestFoo/case_one` |
-| `-skip R` | Skip tests matching regex (Go 1.22+) | Applied after `-run`; does NOT affect benchmarks |
-| `-failfast` | Stop on first failure | Useful for quick CI feedback; does NOT stop other packages |
-| `-shuffle on\|off\|N` | Randomize test execution order | Detects order-dependent tests; N is seed |
-| `-cover` | Enable coverage | `-coverprofile=c.out` for file output; `-covermode=atomic` with `-race` |
-| `-json` | JSON output | Machine-readable; used by gotestsum |
-| `-list R` | List tests matching regex | No execution; useful for discovery |
-
-Full flag matrix with all interactions: see `references/test-flags-matrix.md`.
-
-## Race Detector
-
-The Go race detector is built on Google's ThreadSanitizer (TSan). It instruments
-memory accesses at compile time and tracks happens-before relationships at runtime.
-
-**Key characteristics:**
-- **Memory overhead**: 5-10x — each 8-byte memory access gets a shadow word
-- **CPU overhead**: 2-20x — instrumentation on every read/write
-- **Coverage**: only detects races on *executed* code paths (not static analysis)
-- **No false positives**: if it reports a race, it is a real race (barring `unsafe.Pointer` tricks)
-- **Platform-specific behavior**: see `references/race-detector-guide.md`
-
-**When to use `-race`:**
-- Functional CI test lanes use `-race`; benchmark, repeat, smoke, or deliberately
-  constrained lanes may omit it.
-- During local development when touching concurrent code
-- NOT in benchmarks (overhead distorts measurements)
-
-**Interaction with `-parallel`:** The race detector adds synchronization overhead that
-changes timing. A test that passes without `-race` may fail with it due to different
-goroutine scheduling. This is by design — the race detector exposes latent races.
-
-See `references/race-detector-guide.md` for: ThreadSanitizer internals, platform-specific
-behavior (Windows sync primitives, lipgloss pre-warm pattern), common race patterns.
+Use `-count=1` to bypass successful test caching during reproduction. Use
+`-race` for executed concurrent paths, not benchmarks, and remember that its
+overhead can expose latent scheduling assumptions.
 
 ## Cross-Platform Path Contract Tests
 
@@ -274,70 +218,15 @@ For maps in parallel subtests, use `maps.Copy` to avoid concurrent map read/writ
 Cross-ref: `.agents/rules/testing.md` § "Test Parallelism" for canonical parallel patterns.
 Cross-ref: `.agents/skills/review-tests/references/known-exceptions.md` for legitimate exceptions.
 
-## `testing` Package API Summary
+## Test API Guardrails
 
-### Lifecycle
-
-| Method | Purpose | Notes |
-|--------|---------|-------|
-| `t.Cleanup(f)` | Register cleanup (LIFO order) | Runs after test + subtests complete |
-| `t.TempDir()` | Auto-cleaned temp directory | Unique per call; cleaned after test |
-| `t.Setenv(k, v)` | Set env var, restore after test | **Panics** if called after `t.Parallel()` |
-| `t.Context()` | Context cancelled when test ends | Go 1.24+; default choice for test contexts |
-| `t.Chdir(dir)` | Change working dir, restore after test | Go 1.24+; **panics** after `t.Parallel()` |
-
-### Control Flow
-
-| Method | Purpose | Notes |
-|--------|---------|-------|
-| `t.Run(name, f)` | Create subtest | Subtests inherit parent's timeout |
-| `t.Parallel()` | Mark test for parallel execution | Must be first call in subtest body |
-| `t.Skip(args...)` / `t.Skipf(fmt, ...)` | Skip test | Use for platform/env guards |
-| `t.SkipNow()` | Skip immediately | Calls `runtime.Goexit()` |
-| `t.Deadline()` | Returns test timeout deadline | `(time.Time, bool)` — false if no `-timeout` |
-
-### Assertions
-
-| Method | Behavior |
-|--------|----------|
-| `t.Error(args...)` / `t.Errorf(fmt, ...)` | Record failure; continue |
-| `t.Fatal(args...)` / `t.Fatalf(fmt, ...)` | Record failure; stop test |
-| `t.FailNow()` | Fail immediately (calls `runtime.Goexit()`) |
-| `t.Log(args...)` / `t.Logf(fmt, ...)` | Log (shown only on failure or with `-v`) |
-| `t.Helper()` | Mark as helper (skip in failure stack trace) |
-
-**`t.Helper()` rule**: Call `t.Helper()` as the first statement in any function that
-accepts `*testing.T` and calls assertion methods (`t.Error`, `t.Fatal`, etc.). This
-includes transitively — if helper A calls helper B which calls `t.Fatal`, both A and B
-need `t.Helper()`. Functions passed to `t.Run()` as subtests do NOT need `t.Helper()`.
-See `.agents/skills/review-tests/references/pattern-catalog.md` § "t.Helper() Semantics".
-
-**Critical**: `t.Fatal` / `t.FailNow` must run in the test goroutine. They call
-`runtime.Goexit()` for the current goroutine and do not stop sibling goroutines
-or reliably fail the intended test when called from worker goroutines. Use
-channels or error aggregation to report worker failures back to the test
-goroutine.
-
-### Package-Level Functions
-
-| Function | Purpose |
-|----------|---------|
-| `testing.Short()` | True if `-short` flag set |
-| `testing.Verbose()` | True if `-v` flag set |
-| `testing.Testing()` | True if running under `go test` (Go 1.21+) |
-
-## `go vet` Analyzers
-
-Key analyzers affecting test code (full catalog: `references/go-vet-analyzers.md`):
-
-| Analyzer | What It Catches | Test Relevance |
-|----------|----------------|----------------|
-| `testinggoroutine` | `t.Fatal`/`t.FailNow` called from non-test goroutine | **Critical** — common bug in concurrent tests |
-| `copylocks` | Copying a value containing a `sync.Mutex` | Catches lock copy in test helpers |
-| `lostcancel` | `context.WithCancel` without calling cancel | Goroutine leak in tests |
-| `loopclosure` | Closure captures loop variable | Mitigated in Go 1.22+; still relevant for `go` statements |
-| `waitgroup` | `sync.WaitGroup.Add` called inside goroutine | Common test synchronization bug |
-| `printf` | Format string mismatches | Catches `t.Errorf`/`t.Fatalf` format bugs |
+Follow `.agents/rules/testing.md` for `t.Parallel()` placement and exceptions.
+That placement is an Invowk lint/policy contract, not a standard-library API
+requirement. Keep `t.Setenv`, `t.Chdir`, and other process-global mutations out
+of parallel tests. Call `t.Helper()` first in assertion helpers (but not in a
+`t.Run` body), and report worker goroutine failures back to the test goroutine
+instead of calling `t.Fatal` or `t.FailNow` there. Read
+`references/go-vet-analyzers.md` for the analyzers that enforce these patterns.
 
 ## nolintlint Directive Lifecycle
 
@@ -365,39 +254,11 @@ Discover current platform-specific test files with:
 rg --files -g '*_linux_test.go' -g '*_windows_test.go' -g '*_darwin_test.go'
 ```
 
-## Standard Library Test Helpers
+## Benchmarks and Fuzzing
 
-- **`testing/fstest`**: `MapFS` — in-memory filesystem for testing `fs.FS` implementations.
-- **`testing/iotest`**: `ErrReader`, `HalfReader`, `DataErrReader`, `OneByteReader`, `TimeoutReader` — simulate I/O edge cases.
-- **`testing/slogtest`**: `TestHandler` — verify `slog.Handler` implementations (Go 1.22+).
-
-## Benchmark API
-
-| Method | Purpose | Notes |
-|--------|---------|-------|
-| `b.Loop()` | Preferred iteration (Go 1.24+) | Compiler cannot optimize away; replaces `b.N` loop |
-| `b.N` | Legacy iteration count | `for i := 0; i < b.N; i++ { ... }` |
-| `b.ReportAllocs()` | Include alloc stats | Call once before loop |
-| `b.ResetTimer()` | Reset after expensive setup | |
-| `b.StopTimer()` / `b.StartTimer()` | Pause timing | |
-| `b.RunParallel(body)` | Parallel benchmark | `body` receives `*testing.PB` with `pb.Next()` loop |
-| `b.ReportMetric(n, unit)` | Custom metrics | e.g., `b.ReportMetric(float64(size), "bytes/op")` |
-| `b.Context()` | Benchmark context | Cancelled when benchmark ends |
-
-Full guide: `references/benchmark-fuzzing-guide.md`.
-
-## Fuzzing API
-
-| Method | Purpose |
-|--------|---------|
-| `f.Fuzz(func(t *testing.T, args...))` | Define fuzz target |
-| `f.Add(args...)` | Add seed corpus entry |
-| `f.Skip(args...)` | Skip (in fuzz function) |
-
-Run with `go test -fuzz=FuzzName -fuzztime=30s`.
-
-Corpus stored in `testdata/fuzz/FuzzName/`. Committed corpus entries run as
-regular tests (regression testing). Full guide: `references/benchmark-fuzzing-guide.md`.
+Read `references/benchmark-fuzzing-guide.md`. Prefer `b.Loop()` on the pinned
+Go toolchain, use `b.Context()`, keep race instrumentation out of performance
+measurements, and commit useful fuzz seeds as regression inputs.
 
 ## gotestsum Integration
 
@@ -418,17 +279,11 @@ problematic on macOS CI runners. Always use `-v` with `--rerun-fails` in new or
 edited gotestsum invocations, and audit workflow changes with
 `rg -n 'gotestsum|--rerun-fails|-v' .github Makefile scripts`.
 
-## Coverage Tooling
+## Coverage
 
-| Flag | Purpose | Notes |
-|------|---------|-------|
-| `-cover` | Enable coverage | Shows per-package % |
-| `-coverprofile=c.out` | Write coverage data | Use `go tool cover -html=c.out` to view |
-| `-coverpkg=pkg1,pkg2` | Measure coverage of non-test packages | Cross-package coverage |
-| `-covermode=set\|count\|atomic` | Coverage mode | `atomic` required with `-race` |
-
-CLI test coverage uses a special flow: build binary with `-cover`, set `GOCOVERDIR`,
-merge per-test data with `go tool covdata textfmt`. See `make test-cli-cover`.
+Use `references/test-flags-matrix.md` for coverage flag interactions. CLI test
+coverage builds an instrumented binary, sets `GOCOVERDIR`, and merges data with
+`go tool covdata`; use `make test-cli-cover` rather than reconstructing it.
 
 ---
 

@@ -100,7 +100,13 @@ This validation runs:
 
 **Bash scripts with native+virtual-sh runtimes must use platform-specific implementations.**
 
-**The problem:** The native runtime on Windows uses PowerShell (or `cmd`), which cannot parse bash syntax. When a command declares `runtimes: [{name: "native"}, {name: "virtual-sh"}]`, the first runtime (native) becomes the default. This causes bash scripts to fail on Windows with PowerShell parser errors.
+**The problem:** The native runtime on Windows uses PowerShell (or `cmd`), which
+cannot parse bash syntax. Runtime selection uses this precedence: an explicit
+CLI override, then a compatible configured `default_runtime`, then the command
+default (the first runtime in the first implementation matching the selected
+platform). Therefore, a Windows-matching implementation that lists `native`
+before `virtual-sh` can select native by default and feed Bash syntax to
+PowerShell.
 
 **The solution:** Split implementations by platform:
 - **Linux/macOS**: Use `runtimes: [{name: "native"}, {name: "virtual-sh"}]` with `platforms: [{name: "linux"}, {name: "macos"}]`

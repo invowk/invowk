@@ -29,8 +29,8 @@ all `.txtar` files in `tests/cli/testdata/`; CI workflows; SonarCloud configurat
 The review covers 8 surfaces. Each maps to a distinct testing dimension.
 
 ### SS1: Structural Hygiene
-File size limits, SPDX license headers, naming conventions, import ordering, test helper
-documentation. Read `references/test-file-inventory.md` for the complete file enumeration.
+File size limits, SPDX license headers, naming conventions, import ordering, and test helper
+documentation. Generate the complete sorted scope with `references/test-file-inventory.md`.
 
 ### SS2: Parallelism and Context
 `t.Parallel()` rules, `t.Context()` usage, unsafe patterns (global state mutation),
@@ -51,7 +51,8 @@ dual-channel error checks, line endings. Read `references/pattern-catalog.md` §
 
 ### SS6: Virtual/Native Mirrors and Platform
 Mirror completeness, exemption freshness, platform-split CUE, command-path alignment,
-`skipOnWindows` legitimacy. Read `references/test-file-inventory.md` pairing table.
+and `skipOnWindows` legitimacy. Generate mirror pairs live with
+`references/test-file-inventory.md` and validate them with the guardrail tests.
 
 ### SS7: Coverage and Guardrails
 Guardrail test health (5 tests), stale/unnecessary exemptions, test helper consolidation,
@@ -77,9 +78,9 @@ They apply to both the coordinator and all subagents.
    subjective severity classification is the second-largest source of run-to-run variance
    (after scope sampling). Fixing severity at definition time eliminates this.
 
-3. **Deterministic file traversal** — Each checklist enumerates the exact files to review.
-   Subagents check all listed files, not a sample. For surfaces with many files (SS1-SS3),
-   the checklist specifies the file scope; `test-file-inventory.md` has the full enumeration.
+3. **Deterministic file traversal** — Generate a sorted live inventory at the start of
+   every review. Each checklist defines the scope; subagents check every current file in
+   that scope rather than a stale snapshot or sample.
 
 4. **Structured context passing** — The coordinator passes programmatic check results to
    subagents using the Context Block format defined below, not free-form prose. This ensures
@@ -102,14 +103,14 @@ for full details and failure triage.
 # Parallel group 1 (fast file-level)
 make check-file-length
 make license-check
-grep -rn 'context\.Background()' --include='*_test.go' cmd/ internal/ pkg/
-grep -rn 'time\.Sleep' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/
-grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/
-grep -rn '"/usr/\|"/tmp/\|"/etc/\|"/home/\|"/bin/' --include='*_test.go' cmd/ internal/ pkg/ tests/ tools/
+rg -n 'context\.Background\(\)' cmd internal pkg tests tools -g '*_test.go'
+rg -n 'time\.Sleep' cmd internal pkg tests tools -g '*_test.go'
+rg -n 'strings\.Contains\([^\n]*\.Error\(\)' cmd internal pkg tests tools -g '*_test.go'
+rg -n '"/(usr|tmp|etc|home|bin)/' cmd internal pkg tests tools -g '*_test.go'
 
 # Parallel group 1b (txtar-specific)
-grep -B0 -A1 '! exec' tests/cli/testdata/*.txtar | grep -B1 '^--$' | grep '! exec'
-for f in tests/cli/testdata/native_*.txtar; do if ! grep -q 'platforms:.*windows' "$f" 2>/dev/null; then echo "$f: missing Windows platform block"; fi; done
+rg -n '! exec' tests/cli/testdata -g '*.txtar'
+go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
 
 # Parallel group 2 (targeted test runs)
 make lint
@@ -120,7 +121,7 @@ go test -v -run TestIssueTemplates_NoStaleGuidance ./internal/issue/...
 
 # Sequential (comprehensive)
 make test-short
-find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$2 != "total" && $1 > 900 { print }'
+rg --files cmd internal pkg tests tools -g '*_test.go' | sort | xargs -r wc -l | awk '$2 != "total" && $1 > 900 { print }'
 ```
 
 Record results in the **Context Block** format:
@@ -147,21 +148,23 @@ approaching-limit-files : PASS | FAIL (files: ...)
 ==========================
 ```
 
-### Step 2: Spawn 8 Parallel Subagents
+### Step 2: Dispatch One Independent Subagent per Surface
 
-Spawn one subagent per surface. Each subagent receives:
+Assign one subagent per surface. Run them in capacity-aware waves when fewer
+than eight subagent slots are available; never collapse multiple surfaces into
+one reviewer merely to finish in one wave. Each subagent receives:
 1. The Context Block from Step 1
 2. Its assigned surface checklist section from `references/surface-checklists.md`
 3. The structured output format from `references/structured-output-format.md`
 
 | Subagent | Surface | References to Read | Focus |
 |----------|---------|-------------------|-------|
-| **SA-1: Structural Hygiene** | SS1 | `test-file-inventory.md`, `surface-checklists.md` §SS1 | File size, headers, naming, imports, helpers |
+| **SA-1: Structural Hygiene** | SS1 | live inventory output, `surface-checklists.md` §SS1 | File size, headers, naming, imports, helpers |
 | **SA-2: Parallelism & Context** | SS2 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS2 | t.Parallel() rules, t.Context(), unsafe patterns |
 | **SA-3: Test Patterns** | SS3 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS3 | Table-driven tests, assertions, behavioral contracts |
 | **SA-4: Integration Gating** | SS4 | `pattern-catalog.md`, `surface-checklists.md` §SS4 | testing.Short(), container timeouts, CI config |
-| **SA-5: Testscript Quality** | SS5 | `test-file-inventory.md`, `pattern-catalog.md`, `surface-checklists.md` §SS5 | CUE correctness, skip guards, workspace isolation |
-| **SA-6: Mirrors & Platform** | SS6 | `test-file-inventory.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS6 | Mirror completeness, platform-split CUE, alignment |
+| **SA-5: Testscript Quality** | SS5 | live inventory output, `pattern-catalog.md`, `surface-checklists.md` §SS5 | CUE correctness, skip guards, workspace isolation |
+| **SA-6: Mirrors & Platform** | SS6 | live mirror inventory, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS6 | Mirror completeness, platform-split CUE, alignment |
 | **SA-7: Coverage & Guardrails** | SS7 | `coverage-expectations.md`, `surface-checklists.md` §SS7 | Guardrail tests, exemptions, SonarCloud, helpers |
 | **SA-8: TUI & Domain** | SS8 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS8 | TUI models, container mocks, goplint, servers |
 
@@ -278,7 +281,7 @@ Read these when working on the corresponding review surface:
 - **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
   enumerated verification items (102 total across 8 surfaces). This is the primary review driver.
 - **[references/test-file-inventory.md](references/test-file-inventory.md)** — Deterministic
-  enumeration of all test files with line counts, categories, and pairing tables.
+  commands for generating current test files, line counts, categories, and mirror pairs.
 - **[references/pattern-catalog.md](references/pattern-catalog.md)** — Required patterns,
   anti-patterns, container patterns, testscript patterns, and flakiness signatures.
 - **[references/coverage-expectations.md](references/coverage-expectations.md)** — SonarCloud

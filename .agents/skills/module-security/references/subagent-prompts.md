@@ -1,200 +1,117 @@
 # Subagent Prompt Templates
 
-Prompt templates for the Phase 3 interpretive subagents. Phase 1 (deterministic
-scan) uses `invowk audit --format json` directly — no subagent needed.
+Use these prompts only for Phase 3 interpretation. Phase 1 uses the compiled
+scanner. Symbol searches locate code; they do not prove a mitigation works.
 
-## Table of Contents
+## Threat Model Drift Checker
 
-- [Subagent A: Threat Model Drift Checker](#subagent-a-threat-model-drift-checker)
-- [Subagent B: Supply-Chain Reviewer](#subagent-b-supply-chain-reviewer)
-- [Subagent C: Documentation Drift Checker](#subagent-c-documentation-drift-checker)
-
----
-
-## Subagent A: Threat Model Drift Checker
-
-**When:** Always runs (every audit invocation).
-**Purpose:** Verify that the 10 attack surfaces (SC-01..SC-10) are still accurate
-by running concrete grep commands — not by reading code and making judgment calls.
+**When:** Every full module-security audit.
 
 ```
-You are verifying the module security threat model for the invowk project.
+You are verifying Invowk's SC-01..SC-10 module-security threat model.
+Work read-only. A function name or grep match is discovery evidence, never
+sufficient proof of behavior.
 
-## Your Task
+For each surface:
 
-Run EACH grep command below and report EXACTLY what the output shows.
-Do NOT interpret code, assess quality, or suggest improvements.
+1. Locate the current implementation and all call sites with `rg`.
+2. Trace the relevant input from its trust boundary to the enforcement or
+   explicitly documented by-design behavior.
+3. Locate focused tests. Read the assertions and identify the positive case,
+   denied/negative case, and boundary case. For path/symlink controls, require
+   both a blocked escape and a legitimate symlinked-root case where applicable.
+4. Run the smallest focused Go tests that exercise those assertions. Record the
+   exact command and result. If no focused test exists, do not mark a mitigation
+   CONFIRMED merely because code is present.
+5. Compare the resulting behavior with the status in the current Known Attack
+   Surfaces table.
 
-## Verification Commands
+Surface routing:
 
-For each SC-ID, run the grep command and report the result using the
-exact output format specified.
+- SC-01: script path containment in `pkg/invowkfile` and audit script checks.
+- SC-02: virtual host-binary allowlist/wildcard policy across virtual-sh and
+  virtual-lua execution paths.
+- SC-03: Invowk directory container mount mode and documented host-write reach.
+- SC-04: SSH/TUI credential propagation into container/virtual environments.
+- SC-05: symlink handling in provision/copy and audit scan-context artifact paths.
+- SC-06: `--ivk-env-var` precedence in runtime environment construction.
+- SC-07: custom-check script content reaching native host execution.
+- SC-08: interpreter validation and the execution call path that consumes it.
+- SC-09: root invowkfile command-scope behavior in dependency validation.
+- SC-10: global-module trust and vendored hash verification boundaries.
 
-SC-01 Script path traversal:
-  Run: grep -n "validateScriptPathContainment" pkg/invowkfile/implementation.go
-  → Lines found: report line numbers
-  → No output: report "NOT FOUND"
+Run package tests selected from the located assertions, for example:
+`go test ./pkg/invowkfile -run TestName` or
+`go test ./internal/audit -run TestName`. Do not invent a test name; derive it
+from source.
 
-SC-02 Virtual host-binary policy:
-  Run: grep -n "virtualHostBinaryPolicy\|allowed_binaries\|allowsAllHostBinaries" internal/runtime/virtual_policy.go internal/runtime/sh.go internal/runtime/lua.go
-  → Lines found: report line numbers (host-binary execution is policy-gated)
-  → No output: report "NOT FOUND"
+Output one record per surface:
 
-SC-03 InvowkDir R/W volume mount:
-  Run: grep -n "invowkDir" internal/runtime/container_exec.go
-  → Lines found: report first match line number
-  → No output: report "NOT FOUND"
+SC-NN: CONFIRMED|DRIFTED|INCOMPLETE (status)
+Implementation: file:symbol and call-path summary
+Behavior proof: focused test name and assertion summary
+Command: exact test command and PASS|FAIL
+Reason: one sentence
 
-SC-04 SSH token in container env:
-  Run: grep -n "SSH_AUTH_SOCK\|INVOWK_SSH" internal/runtime/container_exec.go
-  → Lines found: report count and line numbers
-  → No output: report "NOT FOUND"
+Definitions:
+- CONFIRMED: implementation, call path, and focused behavior proof agree.
+- DRIFTED: current behavior contradicts the documented surface/status.
+- INCOMPLETE: implementation may exist, but behavior proof or call-path
+  evidence is missing or failed.
 
-SC-05 Provision CopyDir symlink handling:
-  Run: grep -n "ModeSymlink\|skipSymlinks\|symlink" internal/provision/helpers.go
-  → Lines found: report line numbers where skip logic appears
-  → No output: report "NOT FOUND — symlink skip may have been removed"
-
-SC-06 --ivk-env-var priority override:
-  Run: grep -n "ivk-env-var\|IvkEnvVar" internal/runtime/env_builder.go
-  → Lines found: report line numbers
-  → No output: report "NOT FOUND"
-
-SC-07 custom-check script.content host shell execution:
-  Run: grep -n "RunCustomCheck\|runHostCustomCheck\|NewNativeRuntime\|NewShRuntime" internal/app/deps/checks.go internal/app/commandadapters/dependency_host.go
-  → Lines found: report line numbers
-  → No output: report "NOT FOUND"
-
-SC-08 Arbitrary interpreter paths:
-  Run: grep -n "allowedInterpreters\|Validate" pkg/invowkfile/interpreter_spec.go
-  → Lines found: report line numbers
-  → No output: report "NOT FOUND — allowlist may have been removed"
-
-SC-09 Root invowkfile scope bypass:
-  Run: grep -n "CanCallTarget\|CommandScope" internal/app/deps/deps.go
-  → Lines found: report line numbers
-  → No output: report "NOT FOUND"
-
-SC-10 Global module trust:
-  Run: grep -rn "IsGlobalModule\|detectModuleShadowing\|VerifyVendoredModuleHashes" internal/discovery/
-  → Lines found: report which functions exist and where
-  → No output: report "NOT FOUND"
-
-## Output Format
-
-Report EXACTLY in this format, one line per surface:
-
-SC-01: {CONFIRMED|DRIFTED} ({status}) — {function_name} at line {N}
-SC-02: {CONFIRMED|DRIFTED} ({status}) — {function_name} at line {N}
-...
-
-Where:
-- CONFIRMED = grep found the expected function/pattern
-- DRIFTED = grep found nothing, or the pattern has moved significantly
-- {status} = Mitigated|Partial|By-design|Open (from the threat model table)
-
-## Rules (CRITICAL for determinism)
-- Do NOT add subjective commentary
-- Do NOT report "new findings" or "observations"
-- Do NOT assess code quality
-- Do NOT suggest improvements
-- Report ONLY what the grep commands show
-- If a grep returns no results, that IS the finding — report it as DRIFTED
-- If a grep returns results, report the line numbers — that IS the confirmation
+Report only threat-model accuracy. Do not re-report scanner findings or general
+code-quality observations.
 ```
 
----
+## Supply-Chain Reviewer
 
-## Subagent B: Supply-Chain Reviewer
-
-**When:** Only when reviewing code changes (PRs, diffs) that touch module system files.
-**Agent file:** `.agents/agents/supply-chain-reviewer.md`
+**When:** A diff touches module/security scope.
 
 ```
-You are the supply-chain security reviewer for a code change touching
-the invowk module system.
+You are reviewing a module-system diff for supply-chain risk. Work read-only.
 
-## Deterministic Scanner Results
-The following findings were produced by `invowk audit --format json`.
-These are ALREADY KNOWN — do NOT re-report them.
+Inputs:
+- Phase 1 JSON findings: {paste summary and medium+ findings}
+- Diff or changed files: {paste raw diff or exact range}
 
-{paste Phase 1 JSON summary and findings at medium+}
+Do not re-report Phase 1 findings. Answer only:
 
-## Diff to Review
-{paste git diff or list of changed files}
+1. Does the diff weaken an SC-01..SC-10 mitigation? Trace the changed call path
+   and run existing focused tests. For path boundaries, verify evaluated paths
+   are compared with evaluated roots and tests cover both blocked escape and
+   legitimate symlinked-root behavior.
+2. Does the diff add a new route from untrusted module content to host
+   execution, file writes, secrets, or network access outside the current
+   default checkers? Derive the checker list from `DefaultCheckers()`; do not use
+   a remembered count.
+3. Does the diff change command visibility, global-module trust, dependency
+   declarations, or vendored hash enforcement?
 
-## Your Task
-
-Answer ONLY these three questions:
-
-1. **Mitigation regression?** Does this diff remove or weaken any existing
-   mitigation for SC-01..SC-10? Check if functions like
-   `validateScriptPathContainment`, `VerifyVendoredModuleHashes`,
-   `InterpreterSpec.Validate()` are modified in ways that reduce protection.
-   For scanner path-boundary changes, verify that evaluated script paths are
-   compared against evaluated module/root paths, and that tests cover both a
-   symlink escape and a legitimate symlinked module/root.
-
-2. **New attack surface?** Does this diff introduce a new way for
-   untrusted module content to reach host execution, file writes, or
-   network access that is NOT already covered by the 6 Go checkers
-   (LockFile, Script, Network, Env, Symlink, ModuleMetadata)?
-
-3. **Trust boundary change?** Does this diff change who can invoke what?
-   Look for changes to `CanCallTarget()`, `CommandScope`, `IsGlobalModule`,
-   or the `requires` resolution logic.
-
-## Output Format
-
-For each question, answer with one of:
-- "No issues found" — if the diff does not affect this area
-- A structured finding with: Title, Affected SC-ID, File:Line, Description
-
-## Rules (CRITICAL for determinism)
-- Do NOT re-report findings from the scanner output above
-- Do NOT scan for regex patterns (the Go scanner already does that)
-- Do NOT report general code quality issues
-- ONLY report genuinely new risks that the compiled scanner cannot detect
-- If the diff is clean on all three questions: report
-  "No additional supply-chain risks beyond scanner findings"
+For each issue, report Title, SC-ID or NEW-SURFACE, File:Line, call path,
+behavioral evidence, and test result. If all three are clean, report:
+`No additional supply-chain risks beyond scanner findings`.
 ```
 
----
+## Documentation Drift Checker
 
-## Subagent C: Documentation Drift Checker
-
-**When:** Only if Subagent A found any DRIFTED status.
+**When:** The threat-model checker reports DRIFTED or INCOMPLETE.
 
 ```
-You are checking for documentation drift in invowk's module security docs.
+You are checking documentation affected by verified module-security drift.
+Work read-only.
 
-## Drifted Surfaces
-{paste only the DRIFTED lines from Subagent A output}
+Inputs:
+- DRIFTED/INCOMPLETE records with implementation and test evidence
 
-## Your Task
-
-For EACH drifted surface, check if these three files reference the old status:
-
+Check current references in:
 1. `.agents/agents/supply-chain-reviewer.md`
-2. `.agents/skills/module-security/SKILL.md` § "Known Attack Surfaces" table
-3. `AGENTS.md` § "Virtual Runtime Security Model"
+2. `.agents/skills/module-security/SKILL.md`
+3. `AGENTS.md` security-model sections
+4. User documentation named by the code-to-doc sync map for the changed surface
 
-For each file, grep for the SC-ID and check if the documented status matches
-what Subagent A found.
+Use search only to locate claims. Compare each claim with the supplied
+behavioral evidence. Report File:Line, current claim, evidence-backed correction,
+and owning source of truth. Do not infer a new status from symbol presence.
 
-## Output Format
-
-For each stale reference found:
-- **File**: {path}
-- **Line**: {number}
-- **Current text**: {what it says now}
-- **Should be**: {what it should say based on Subagent A findings}
-
-If no documents reference stale status: "No documentation drift detected."
-
-## Rules
-- Check ONLY the three files listed above
-- Report ONLY status mismatches, not formatting or style issues
-- If you cannot find an SC-ID reference in a file, skip it (not all files
-  reference all surfaces)
+If no claim is stale, report `No documentation drift detected`.
 ```

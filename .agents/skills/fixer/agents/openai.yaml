@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fixer"
+  short_description: "Diagnose and fix Invowk failures safely"
+  default_prompt: "Use $fixer to diagnose an Invowk bug or failing test and apply a fix only when authorized."

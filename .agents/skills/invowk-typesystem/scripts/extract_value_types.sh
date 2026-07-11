@@ -5,6 +5,11 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../../../.." && pwd)"
 cd "${repo_root}"
 
+source_files=()
+while IFS= read -r source_file; do
+  source_files+=("${source_file}")
+done < <(rg --files cmd internal pkg -g '*.go' | sort)
+
 isvalid_file="$(mktemp)"
 prim_file="$(mktemp)"
 alias_file="$(mktemp)"
@@ -15,7 +20,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-rg -n "func \([^)]+\) Validate\(\) error" pkg internal -g '*.go' |
+rg -n "func \([^)]+\) Validate\(\) error" "${source_files[@]}" |
   awk -F: '
     {
       file=$1
@@ -80,7 +85,7 @@ awk '
       }
     }
   }
-' $(rg --files pkg internal -g '*.go' | sort) |
+' "${source_files[@]}" |
   sort -u > "${prim_file}"
 
 awk '
@@ -110,7 +115,9 @@ awk '
 
     if (inTypeBlock == 1) {
       if (braceDepth == 0 && match(line, /^[[:space:]]*([_A-Za-z][_A-Za-z0-9]*)[[:space:]]*=[[:space:]]*([^[:space:]].*)$/, m)) {
-        print m[1] "|" trim(m[2]) "|" FILENAME ":" FNR
+        rhs=trim(m[2])
+        sub(/[[:space:]]+\/\/.*$/, "", rhs)
+        print m[1] "|" rhs "|" FILENAME ":" FNR
       }
       braceDepth += opens(line)
       braceDepth -= closes(line)
@@ -121,10 +128,12 @@ awk '
     }
 
     if (match(line, /^type[[:space:]]+([_A-Za-z][_A-Za-z0-9]*)[[:space:]]*=[[:space:]]*([^[:space:]].*)$/, m)) {
-      print m[1] "|" trim(m[2]) "|" FILENAME ":" FNR
+      rhs=trim(m[2])
+      sub(/[[:space:]]+\/\/.*$/, "", rhs)
+      print m[1] "|" rhs "|" FILENAME ":" FNR
     }
   }
-' $(rg --files pkg internal -g '*.go' | sort) |
+' "${source_files[@]}" |
   sort -u > "${alias_file}"
 
 awk -F'|' '

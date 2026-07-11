@@ -61,26 +61,31 @@ os.WriteFile(filepath.Join(dir, "invowkfile.cue"), fileData, 0o644)
 
 ### Unicode Normalization (NFD vs NFC)
 
-APFS stores filenames in **NFD (Normalization Form Decomposed)**. This means
-accented characters are stored as base character + combining mark:
+APFS preserves the normalization form supplied when a filename is created; it
+does not rewrite every name to NFD. Current macOS APFS volumes are normally
+normalization-insensitive, so canonically equivalent spellings resolve to the
+same directory entry even though directory enumeration preserves the spelling
+stored on disk. HFS+ is the filesystem that stores a normalized form.
 
 | Form | Representation | Bytes |
 |------|---------------|-------|
 | NFC (composed) | `caf\u00e9` | `63 61 66 c3 a9` |
 | NFD (decomposed) | `cafe\u0301` | `63 61 66 65 cc 81` |
 
-Go string literals use NFC by default. When a Go program creates a file with
-an accented name, APFS may store it in NFD. Subsequent `os.ReadDir()` returns
-the NFD form, which will not match the original NFC Go string.
+Go does not normalize string literals; their bytes are the UTF-8 spelling in
+the source. If a fixture is created with an NFD spelling, `os.ReadDir()` may
+return that preserved spelling even when a lookup using the NFC equivalent
+succeeds. Avoid assuming that successful filesystem lookup implies byte-equal
+enumerated names.
 
 ```go
 // Potential pitfall with non-ASCII filenames
-name := "caf\u00e9.txt"  // NFC
+name := "cafe\u0301.txt" // NFD spelling supplied by the test
 os.WriteFile(filepath.Join(dir, name), data, 0o644)
 
 entries, _ := os.ReadDir(dir)
-// entries[0].Name() may return "cafe\u0301.txt" (NFD) on macOS
-// Direct string comparison with "caf\u00e9.txt" fails
+// entries[0].Name() preserves the NFD spelling. It is not byte-equal to
+// the canonically equivalent NFC string "caf\u00e9.txt".
 ```
 
 **Mitigation:** Use `golang.org/x/text/unicode/norm` to normalize both
@@ -200,6 +205,9 @@ but test code that directly lists directories should be aware.
 kqueue is the BSD (and macOS) kernel event notification mechanism. Go's
 `fsnotify` library uses kqueue on macOS to implement cross-platform file
 watching.
+
+`fsnotify` does not make kqueue recursive. Callers must add each directory they
+intend to watch and add newly created subdirectories themselves.
 
 ### Architecture
 

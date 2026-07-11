@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs"
+  short_description: "Edit Invowk website and documentation"
+  default_prompt: "Use $docs to edit Invowk website pages, snippets, translations, or versioned documentation."

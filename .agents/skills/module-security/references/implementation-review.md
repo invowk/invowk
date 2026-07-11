@@ -57,7 +57,7 @@ find internal/audit -maxdepth 1 -type f -name '*.go' | sort
 
 For each checker, verify these properties:
 
-### LockFileChecker (`checks_lockfile.go`, 234 lines)
+### LockFileChecker (`checks_lockfile.go`)
 
 | Check | What to Verify |
 |-------|---------------|
@@ -71,7 +71,7 @@ For each checker, verify these properties:
 **Attention point:** `checkMissingEntries` uses `strings.Contains` for matching — could false-positive
 if one module's git URL is a substring of another's. Consider exact key matching.
 
-### ScriptChecker (`checks_script.go`, 221 lines)
+### ScriptChecker (`checks_script.go`)
 
 | Check | What to Verify |
 |-------|---------------|
@@ -85,7 +85,7 @@ if one module's git URL is a substring of another's. Consider exact key matching
 script path validation changes. It should preserve cross-platform behavior and
 match the rest of the codebase's path helpers.
 
-### NetworkChecker (`checks_network.go`, 158 lines)
+### NetworkChecker (`checks_network.go`)
 
 | Check | What to Verify |
 |-------|---------------|
@@ -94,7 +94,7 @@ match the rest of the codebase's path helpers.
 | `dnsExfilPattern` | Requires variable interpolation (`$[{(]?[A-Z_]`). Pure DNS lookups without vars won't trigger — correct |
 | Empty content | Early `continue` when `content == ""` — correct |
 
-### EnvChecker (`checks_env.go`, 138 lines)
+### EnvChecker (`checks_env.go`)
 
 | Check | What to Verify |
 |-------|---------------|
@@ -104,7 +104,7 @@ match the rest of the codebase's path helpers.
 | `tokenExtractionPattern` | Detects `$TOKEN[^|>]*[|>]` — piped or redirected. The `[^|>]*` gap allows whitespace/flags between var and pipe |
 | Double finding | Same script could match both `sensitiveVarPattern` and `genericSecretPattern` — intentional (different severity rationale) |
 
-### SymlinkChecker (`checks_symlink.go`, 188 lines)
+### SymlinkChecker (`checks_symlink.go`)
 
 | Check | What to Verify |
 |-------|---------------|
@@ -115,7 +115,17 @@ match the rest of the codebase's path helpers.
 | Walk error handling | Line 103-106: `_ = err` discards non-cancel walk errors silently. Consider structured warning |
 | Windows | Skipped in tests via `runtime.GOOS` guard. Symlinks on Windows behave differently |
 
-### ModuleMetadataChecker (`checks_module.go`, 228 lines)
+### LuaChecker (`checks_lua.go`)
+
+| Check | What to Verify |
+|-------|----------------|
+| Runtime selection | Only virtual-lua implementations are inspected |
+| Disabled APIs | Findings match APIs actually disabled or replaced by the Lua bridge |
+| Sensitive env reads | Both `os.getenv` and `invowk.env` forms are covered without treating ordinary variables as secrets |
+| Host binaries | Wildcard and network-capable explicit allowlists preserve the documented native-host-execution warning |
+| Filesystem reach | Full access and broad path mappings match current virtual filesystem semantics |
+
+### ModuleMetadataChecker (`checks_module.go`)
 
 | Check | What to Verify |
 |-------|---------------|
@@ -177,7 +187,7 @@ package-level `var` declarations, never compile inside `Check()`.
 
 ### Goroutine Fan-Out in `runCheckers`
 
-`scanner.go:117-158` — pattern review:
+Inspect the current `runCheckers` implementation for this pattern:
 
 ```go
 results := make([]result, len(s.checkers))  // pre-allocated, index-safe
@@ -221,8 +231,10 @@ collected findings slice — no concurrent access. Safe by design.
 
 ### Levenshtein Algorithm
 
-`checks_module.go:195-228` — two-row dynamic programming, O(n×m) time, O(m) space.
-Correct for small inputs (module ID strings are typically <100 chars). The quadratic
+The Levenshtein helper uses two-row dynamic programming, O(n×m) time and O(m)
+space. Inspect the current implementation rather than relying on historical
+line numbers. It is correct for small inputs (module ID strings are typically
+<100 chars). The quadratic
 outer loop over all module pairs is the actual concern — O(k^2) where k = number of modules.
 For typical invowk projects (<20 modules), this is negligible.
 
@@ -245,8 +257,8 @@ scanner itself:
 
 | Attack | Protection | File:Line |
 |--------|-----------|-----------|
-| Giant lock file DoS | `checkSize` with 5 MiB guard before parse | `checks_lockfile.go:61-80` |
-| Giant script file DoS | `checkScriptFileSize` with 5 MiB guard | `checks_script.go:125-153` |
+| Giant lock file DoS | `checkSize` with 5 MiB guard before parse | `checks_lockfile.go` |
+| Giant script file DoS | `checkScriptFileSize` with 5 MiB guard | `checks_script.go` |
 | Directory traversal in scan path | `filepath.Abs` on scan path input | Recheck current `BuildScanContext` path normalization |
 | Symlink chain loop | `maxSymlinkChainDepth` limit | Recheck current symlink checker |
 | ReDoS via regex | All patterns use simple alternation/character classes, no nested quantifiers — safe |
@@ -265,7 +277,7 @@ scanner itself:
 
 ## CLI Layer Review
 
-`cmd/invowk/audit.go` — 316 lines of rendering and CLI adapter code.
+Inspect the current `cmd/invowk/audit.go` rendering and CLI adapter code.
 
 ### Exit Code Contract
 
@@ -305,43 +317,33 @@ uses `omitempty` — empty array omitted from JSON (not `null`). This is correct
 
 ## Test Coverage Analysis
 
-### Unit Tests (10 files, ~1,369 lines)
+### Live Test Inventory
 
-| File | Lines | What's Covered |
-|------|-------|---------------|
-| `scanner_test.go` | 120 | `runCheckers` findings collection, partial results, cancellation |
-| `correlator_test.go` | 189 | All 4 named rules, 3 escalation rules, edge cases |
-| `types_test.go` | 278 | Severity, Category, Report methods (AllFindings, Filter, Count, Max, Has) |
-| `checks_script_test.go` | 154 | Remote exec, path traversal, absolute path, obfuscation (5 cases) |
-| `checks_network_test.go` | 121 | Reverse shell (3 variants), DNS exfil, encoded URL, generic network |
-| `checks_env_test.go` | 110 | Sensitive vars (5 cases), token extraction, env_inherit_mode |
-| `checks_symlink_test.go` | 185 | No modules, symlink detect, boundary escape, dangling, Windows skip |
-| `checks_module_test.go` | 171 | Global trust, version pinning, typosquatting, Levenshtein |
-| `scan_context_test_helper_test.go` | 41 | Test factories: `newTestScanContext`, `newSingleScriptContext` |
+Derive test inventory and coverage from the checkout:
 
-### CLI Tests (4 txtar files, ~88 lines)
+```bash
+find internal/audit -maxdepth 1 -type f -name '*_test.go' -print | sort
+find tests/cli/testdata -maxdepth 1 -type f -name '*audit*.txtar' -print | sort
+rg -n '^func Test' internal/audit tests/cli
+go test ./internal/audit
+```
 
-| File | What's Covered |
-|------|---------------|
-| `audit_clean.txtar` | Exit 0 + "No findings" for safe script |
-| `audit_findings.txtar` | Exit 1 + CRITICAL heading for `curl\|bash` |
-| `audit_json.txtar` | `--format json` produces expected keys |
-| `audit_severity.txtar` | `--severity critical` filters Medium → exit 0 |
+Confirm every checker returned by `DefaultCheckers()` has positive, negative,
+cancellation where applicable, and boundary/false-positive coverage. Inspect
+CLI tests for clean output, findings, JSON schema, severity filtering,
+diagnostics, and error exit behavior. Never preserve counts from an earlier
+checkout as evidence.
 
-### Coverage Gaps to Watch
+### Coverage Questions
 
-| Area | Gap | Priority |
-|------|-----|----------|
-| `BuildScanContext` | No unit tests for path routing (`.cue` vs `.invowkmod` vs directory) | High |
-| Scan-context file loading | No stale warnings should disappear silently; verify diagnostics cover invalid modules/files | Medium |
-| `mergeDiscoveryResults` | No test for deduplication logic | Medium |
-| `loadVendoredModules` | No test — relies on integration via `loadSingleModule` | Low |
-| Lock file `checkMissingEntries` | No test for the `strings.Contains` substring matching logic | Medium |
-| `checkScriptFileSize` | Verify size tests cover path construction and platform separators | Medium |
-| Error paths in `runAudit` | No CLI test for invalid `--severity` flag or scan error (exit 2) | Medium |
-| `--include-global` | No CLI test exercises this flag | Low |
-| Partial results path | `scanner_test.go` tests this, but no CLI test for "warning: some checkers failed" | Low |
-| JSON `compound_threats` | No CLI test verifies compound threats appear in JSON output | Medium |
+Re-evaluate these from the live tests rather than treating them as known gaps:
+
+- Scan-path routing across CUE files, module directories, and directory trees.
+- Structured diagnostics for invalid or partially readable scan inputs.
+- Discovery-result deduplication and vendored-module loading.
+- Exact lock-entry matching and script-size/path boundary behavior.
+- CLI exit 2 paths, `--include-global`, partial checker failures, and compound
+  threats in JSON.
 
 ### Test Pattern Notes
 
@@ -354,29 +356,18 @@ uses `omitempty` — empty array omitted from JSON (not `null`). This is correct
 
 ---
 
-## Known Issues and Opportunities
+## Review Opportunities
 
-### Correctness Issues
-
-1. **`checkMissingEntries` substring matching** — `strings.Contains(string(key), string(req.GitURL))`
-   could false-positive when one git URL is a prefix of another. Should use exact key comparison
-   or structured matching.
-
-2. **`checkScriptFileSize` path concatenation** — Line 133 uses `/` string concatenation instead
-   of `filepath.Join`. Works on Linux/macOS but technically incorrect cross-platform.
-
-3. **`ScanContext` slice exposure** — Accessor methods return raw slice headers. If a checker
-   accidentally appends to a returned slice, it corrupts shared state. Low risk currently
-   but violates the documented immutability contract.
-
-4. **Levenshtein byte vs rune** — `checks_module.go:195` operates on bytes, not runes. For
-   non-ASCII module IDs (RDNS with unicode), edit distances could be incorrect.
+Re-derive opportunities from source on each review. Pay particular attention to
+exact structured lock-entry matching, platform-aware script paths, defensive
+copies from `ScanContext`, and rune-safe edit distance if module IDs can contain
+non-ASCII text. Do not carry a resolved issue forward because an older version
+of this guide named it.
 
 ### Performance Opportunities
 
-1. **Combined regex patterns** — Checkers with multiple patterns (ScriptChecker has 7,
-   NetworkChecker has 6) could combine into single alternation regexps with named capture
-   groups to reduce the number of regex passes over each script.
+1. **Combined regex patterns** — Checkers with multiple patterns could combine
+   related passes when profiling shows regex traversal is material.
 
 2. **Early termination** — When `--severity critical` is used, checkers could skip checks
    that can only produce findings below Critical. Currently all checks run regardless.

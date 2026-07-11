@@ -5,16 +5,8 @@ description: Validate CUE schema sync after editing schemas, Go structs with JSO
 
 # Schema Sync Check
 
-Validate that CUE schema definitions and Go struct JSON tags are in sync.
-
-## When to Use
-
-Invoke this skill (`/schema-sync-check`) after:
-- Editing any CUE schema file (`*_schema.cue`)
-- Adding or modifying JSON tags on Go structs in `pkg/invowkfile/`, `pkg/invowkmod/`, or `internal/config/`
-- Renaming CUE fields or Go struct fields
-- Adding new CUE definitions with corresponding Go types
-- Changing validation/default behavior mirrored between CUE and Go, including `Validate()` methods, enum/disjunction values, runtime defaults, and config defaults
+Validate structural CUE/Go field alignment and the behavioral contracts that
+must agree across schemas, Go validation, defaults, and decoding.
 
 ## What It Checks
 
@@ -39,7 +31,14 @@ not prove Go/CUE type compatibility by itself.
 
 ## Workflow
 
-### Step 1: Run Sync Tests
+### Step 1: Select the Affected Owner
+
+Map each changed schema, Go type, `Validate()` contract, or default to
+`pkg/invowkfile`, `pkg/invowkmod`, or `internal/config`. Run the affected
+package first; run all three when a shared helper or cross-schema behavior
+changed.
+
+### Step 2: Run Structural and Behavioral Tests
 
 ```bash
 go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
@@ -52,9 +51,11 @@ not include `Sync`:
 go test -v ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 ```
 
-### Step 2: Interpret Results
+### Step 3: Interpret Results
 
-**All tests pass**: Schema and Go structs are in sync. No action needed.
+**All tests pass**: Report which packages and structural/behavioral surfaces
+were exercised. Do not claim type-level semantic equivalence from structural
+JSON-tag tests alone.
 
 **Test failures**: The output will show which fields are mismatched:
 
@@ -64,7 +65,7 @@ go test -v ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
     sync_test.go:148: Go JSON tag "old_field" has no matching CUE field
 ```
 
-### Step 3: Fix Mismatches
+### Step 4: Fix Mismatches
 
 For each mismatch, determine the correct action:
 
@@ -77,7 +78,7 @@ For each mismatch, determine the correct action:
 | Field removed from CUE | Remove Go struct field (or add exclusion if field is Go-only) |
 | Field removed from Go | Remove CUE field (or verify it's intentionally CUE-only) |
 
-### Step 4: Re-verify
+### Step 5: Re-verify
 
 After fixes, run the sync tests again to confirm:
 
@@ -86,13 +87,16 @@ go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 go test -v ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/
 ```
 
-### Step 5: Run Full Test Suite
+### Step 6: Run Full Test Suite
 
 Sync changes may affect parsing behavior:
 
 ```bash
 make test
 ```
+
+If the task is an audit or diagnosis rather than an authorized fix, stop after
+reporting mismatches and the owning files.
 
 ## Quick Reference
 

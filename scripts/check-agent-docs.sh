@@ -138,6 +138,14 @@ do
 done
 
 echo
+echo "Validating skill package contracts..."
+python3 scripts/check-skill-packages.py
+
+echo
+echo "Running skill package validator tests..."
+python3 scripts/test_check_skill_packages.py
+
+echo
 echo "Validating review-docs deterministic contract..."
 python3 .agents/skills/review-docs/scripts/review_docs.py validate
 

@@ -208,7 +208,10 @@ New upstream wrappers that embed `baseWrapper` automatically inherit `NativePrep
 ### Edge Cases
 
 - **Value-taking flags in combined groups**: `ArgsToGoArgs` has no flag-value awareness. `-df:` splits to `-d -f -:`. Users must write `-d : -f` for value flags. This matches upstream behavior.
-- **`--` end-of-flags**: `ArgsToGoArgs` converts `--` to `-`. Since custom implementations use `ContinueOnError` and silently ignore unknown flags, this is benign.
+- **`--` end-of-flags is not preserved**: `ArgsToGoArgs` converts `--` to `-`.
+  That is not a valid POSIX end-of-options delimiter and must not be described
+  as benign. If a custom command needs operands beginning with `-`, preserve
+  and handle `--` before calling `ArgsToGoArgs`, and add an end-to-end test.
 
 ### Key Files
 
@@ -277,16 +280,22 @@ want := filepath.ToSlash(filepath.Join(tmpDir, "file.txt"))
 
 ## Unsupported Flag Handling
 
-When a custom `flag.NewFlagSet` u-root utility receives flags it doesn't support
-(for example GNU-specific extensions like `--color`):
+Do not ignore the error returned by `FlagSet.Parse` and then continue as if only
+the unknown flag had been skipped. Go's `flag` parser stops at the first unknown
+flag, so later supported options and operands may remain unparsed or disappear
+from the command's expected positional layout.
 
-- **Silently ignore** the unsupported flag
-- Execute the command with supported flags only
-- Do NOT emit warnings or errors for unknown flags
+Choose and test one explicit contract per custom command:
 
-This matches common cross-platform behavior where BSD utilities ignore GNU-specific flags.
-Upstream wrappers may delegate flag behavior to upstream u-root code. Add tests
-before claiming a uniform unsupported-flag guarantee across every utility.
+- Return a prefixed usage/unsupported-flag error immediately (the default and
+  safest behavior).
+- Pre-filter a documented compatibility flag before `FlagSet.Parse`, preserving
+  all following arguments exactly, when compatibility requires accepting it.
+- Use a command-specific parser when POSIX `--`, interspersed options, or
+  value-taking combined flags are required.
+
+Upstream wrappers keep their upstream flag behavior. Do not claim a uniform
+silent-ignore guarantee across the registry.
 
 ---
 
@@ -346,6 +355,12 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 - **Missing error prefix** - All u-root errors must include the `[uroot]` prefix for source identification.
 - **Naked defer Close()** - Never use `defer f.Close()`. For read-only files, use `defer func() { _ = f.Close() }()` with comment. For write operations, use named returns to capture close errors.
 - **Combined flags silent failure** - Go's `flag.NewFlagSet` does NOT support POSIX-style combined short flags (`-sf`). With `flag.ContinueOnError` + `io.Discard`, combined flags silently fail (both flags stay `false`). This is handled centrally by `Registry.Run()` — do NOT add `unixflag.ArgsToGoArgs()` calls to individual commands.
+- **Discarded parse error** - Ignoring `FlagSet.Parse` errors does not skip just
+  the unsupported flag; parsing stops. Fail fast or explicitly pre-filter the
+  compatibility flag while preserving later operands.
+- **Lost `--` delimiter** - `unixflag.ArgsToGoArgs()` rewrites `--` to `-`.
+  Commands that promise POSIX end-of-options semantics must handle the delimiter
+  before central preprocessing and test dash-prefixed operands.
 - **Double-splitting upstream wrappers** - Never remove the `baseWrapper` embedding from upstream wrappers. It provides the `NativePreprocessor` marker that prevents `Registry.Run()` from double-splitting already-preprocessed args, which would corrupt long flags (`--recursive` → `-r -e -c -u ...`).
 
 ## Verification Workflow

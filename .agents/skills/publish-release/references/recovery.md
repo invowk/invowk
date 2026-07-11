@@ -12,7 +12,8 @@ git fetch --tags origin
 git rev-parse "$tag" || true
 gh run list --workflow Release --limit 10
 gh run watch <run-id>
-gh release view "$tag" --json tagName,isDraft,isPrerelease,isLatest,url,assets,body || true
+gh release view "$tag" --json tagName,isDraft,isPrerelease,url,assets,body || true
+gh release view --json tagName --jq '.tagName' || true
 gh run view <run-id> --log > /tmp/release.log
 rg -n "::error|ERROR|failed|GoReleaser|Bencher|WinGet|Homebrew|Cosign|release-notes|tag" /tmp/release.log
 ```

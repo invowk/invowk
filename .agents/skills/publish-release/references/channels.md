@@ -57,7 +57,9 @@ GitHub Release settings:
 
 ```bash
 tag=v1.2.3
-gh release view "$tag" --json tagName,isPrerelease,isLatest,assets,body
+gh release view "$tag" --json tagName,isPrerelease,assets,body
+latest_tag=$(gh release view --json tagName --jq '.tagName')
+test "$tag" = "$latest_tag" && echo latest || echo not-latest
 gh run list --workflow Release --limit 5
 gh run watch <run-id>
 gh run list --workflow "Version Docs" --limit 5

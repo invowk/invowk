@@ -1,0 +1,4 @@
+interface:
+  display_name: "Schema Sync Check"
+  short_description: "Verify CUE and Go schema synchronization"
+  default_prompt: "Use $schema-sync-check to validate structural and behavioral synchronization between CUE schemas and Go types."

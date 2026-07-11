@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discovery"
+  short_description: "Work on module and command discovery"
+  default_prompt: "Use $discovery to change or analyze Invowk module and command discovery behavior."

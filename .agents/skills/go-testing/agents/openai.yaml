@@ -1,0 +1,4 @@
+interface:
+  display_name: "Go Testing"
+  short_description: "Design and diagnose Invowk Go tests"
+  default_prompt: "Use $go-testing to write, diagnose, or optimize Invowk Go tests and test execution."

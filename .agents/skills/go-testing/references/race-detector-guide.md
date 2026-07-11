@@ -1,5 +1,10 @@
 # Race Detector Deep Dive
 
+Treat a race report as strong evidence of unsynchronized executed accesses and
+inspect both stacks. Avoid absolute "no false positives" claims: `unsafe`, cgo,
+runtime instrumentation, and stale external-library assumptions can require
+additional confirmation even though ordinary Go reports are highly reliable.
+
 ## How It Works
 
 The Go race detector is built on ThreadSanitizer v2 (TSan), originally developed at
@@ -13,7 +18,9 @@ Every 8-byte aligned memory word gets a "shadow word" that tracks:
 - Whether the access was a read or write
 - A logical clock value (vector clock component)
 
-This is why memory overhead is 5-10x — every application word needs shadow state.
+Shadow memory and per-goroutine history can make memory overhead substantial;
+the multiplier is workload- and platform-dependent, so measure the failing job
+rather than relying on one fixed ratio.
 
 ### Happens-Before Tracking
 
@@ -54,39 +61,13 @@ Overhead is typically higher than Linux/macOS for two reasons:
 1. Windows API calls have higher baseline cost than Linux syscalls
 2. `TerminateProcess` semantics interact poorly with TSan shutdown
 
-#### The lipgloss Terminal Detection Race
+#### Windows TUI Reports
 
-The `lipgloss` library (used by the TUI) performs terminal capability detection
-using `sync.Once`. On Windows, multiple tests initializing lipgloss concurrently
-can trigger a race on the terminal state cache because the underlying Windows
-console API calls (`GetConsoleMode`) are not atomic with respect to the `sync.Once`
-initialization pattern across packages.
-
-**Fix**: Pre-warm lipgloss in `TestMain` before any parallel tests run:
-
-```go
-//go:build windows
-
-package tui
-
-import (
-    "os"
-    "testing"
-
-    "github.com/charmbracelet/lipgloss"
-)
-
-func TestMain(m *testing.M) {
-    // Pre-initialize lipgloss to avoid race condition on Windows
-    // where concurrent tests trigger parallel terminal detection.
-    lipgloss.NewStyle()
-    os.Exit(m.Run())
-}
-```
-
-This historical pattern no longer has a dedicated `testmain_windows_test.go`
-home. Before reintroducing package-wide prewarming, confirm the current race
-path and use the `windows-testing` skill for Windows-specific guidance.
+Do not assume a Windows TUI race comes from lipgloss terminal detection and do
+not add package-wide `TestMain` pre-warming as a generic fix. That historical
+workaround was a no-op for the later failure mode. Reproduce the current report,
+inspect both access stacks, and use `windows-testing` to distinguish a real
+race from timeout or memory pressure under `-race`.
 
 ## Common Race Patterns in Go Tests
 

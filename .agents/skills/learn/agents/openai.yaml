@@ -1,0 +1,4 @@
+interface:
+  display_name: "Learn"
+  short_description: "Capture durable Invowk repository lessons"
+  default_prompt: "Use $learn to capture durable guidance after substantive Invowk repository work."

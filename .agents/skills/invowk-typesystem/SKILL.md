@@ -1,39 +1,6 @@
 ---
 name: invowk-typesystem
 description: Invowk type-system and goplint guidance for value types across cmd/*, internal/*, and pkg/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, Invalid*Error wrappers, check-types/check-types-all findings, DDD compliance, and baseline updates. Use when adding, reviewing, refactoring, or documenting value types.
-metadata:
-  short-description: Canonical operating guide for Invowk's value-type architecture.
-  ownership: "Repo-wide type-system conventions and catalogs"
-  audience:
-    - "Agents implementing new domain/value types"
-    - "Agents reviewing Validate()/error-shape consistency"
-    - "Agents documenting type-system changes"
-  trigger-patterns:
-    - "value type"
-    - "Validate"
-    - "ErrInvalid"
-    - "Invalid*Error"
-    - "primitive wrapper"
-    - "typesystem"
-    - "DDD type"
-    - "type safety"
-    - "goplint baseline type findings"
-  scope:
-    includes:
-      - cmd/**
-      - pkg/**
-      - internal/**
-    excludes:
-      - generated files
-      - non-Go docs unless explicitly requested
-  outputs:
-    - "Type-system impact analysis"
-    - "Updated value-type catalogs"
-    - "Validation and guardrail checklist"
-  maintenance:
-    source-of-truth: references/type-catalog.md
-    refresh-script: scripts/extract_value_types.sh
-    refresh-trigger: "Any addition/removal/rename/semantic change of a value type"
 ---
 
 # Invowk Typesystem
@@ -53,6 +20,9 @@ Use this skill when:
 3. If a new type is still needed, follow the creation checklist in `references/maintenance-workflow.md`.
 4. Refresh the catalog with `scripts/extract_value_types.sh` and reconcile the docs.
 5. Run the required checks listed below.
+
+The extractor's repository-wide Go surface is `cmd/`, `internal/`, and `pkg/`.
+Keep all three roots aligned whenever its detection logic changes.
 
 ---
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows Testing"
+  short_description: "Diagnose Windows-specific Invowk tests"
+  default_prompt: "Use $windows-testing to diagnose Windows-only Invowk test, path, process, or filesystem failures."

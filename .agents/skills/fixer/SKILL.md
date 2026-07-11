@@ -1,23 +1,24 @@
 ---
 name: fixer
 description: >-
-  Platform-aware bug diagnosis and fix workflow with parallel subagents.
-  Auto-triggers when the user mentions fixing bugs, test failures, CI failures,
-  flaky tests, error messages, race conditions, or debugging any issue.
+  Platform-aware bug diagnosis and authorized fix workflow with parallel
+  subagents for complex failures. Use when investigating or fixing test
+  failures, CI failures, flaky tests, runtime errors, race conditions, or
+  platform-specific bugs. Diagnosis-only requests remain read-only; apply a
+  fix only when the user asks for implementation or fixing.
   Also user-invocable as /fixer with an issue description, error output,
   PR number, or CI run URL. Spawns up to 3 parallel diagnostic subagents
   based on failure type: platform investigator (consults windows-testing,
   macos-testing, linux-testing), code path tracer, and pattern matcher.
-  Produces a structured diagnosis report with root cause, fix, and prevention.
-  Use this skill whenever you encounter test failures, CI failures, runtime
-  errors, race detector reports, or any situation that requires diagnosing
-  and fixing a bug — even if the user doesn't explicitly say "fix" or "debug".
+  Produces a structured diagnosis report with root cause, recommended fix, and
+  prevention, and verifies changes when implementation is authorized.
 ---
 
 # Fixer Skill
 
-Platform-aware bug diagnosis and fix workflow. Produces structured root cause
-analysis, applies fixes, and prevents recurrence through tests and guards.
+Platform-aware bug diagnosis and fix workflow. Produce structured root cause
+analysis first, then apply and verify changes only when the request authorizes
+implementation.
 
 ## Normative Precedence
 
@@ -26,17 +27,21 @@ analysis, applies fixes, and prevents recurrence through tests and guards.
 3. `.agents/skills/go/SKILL.md` — code quality for production fixes.
 4. This skill — diagnosis workflow, subagent orchestration, platform routing.
 
-## When This Skill Activates
+## Authorization Boundary
 
-**Auto-trigger contexts** (the skill should activate without explicit invocation):
-- User pastes error output or stack traces
-- User mentions CI failures, test failures, or flaky tests
-- User says "fix", "debug", "broken", "failing", "investigate"
-- User provides a GitHub Actions run URL or PR with failing checks
-- Race detector output is shown or mentioned
-- User asks "why is this test failing" or "what's wrong with..."
+Classify the request before gathering evidence:
 
-**User-invocable**: `/fixer <description>` or `/fixer` (then provide context).
+- **Diagnose, investigate, explain, review, or report**: remain read-only. Trace
+  the root cause and recommend a fix, but do not edit files or mutate external
+  state.
+- **Fix, implement, repair, or make the checks pass**: diagnose first, then
+  apply the smallest authorized fix and verify it.
+- **Ambiguous request**: gather read-only evidence and report the diagnosis.
+  Ask before editing only when the requested outcome cannot reasonably
+  establish mutation authority.
+
+Explicit `/fixer` invocation selects this workflow; it does not by itself
+broaden the user's requested scope or authorize unrelated changes.
 
 Arguments can be:
 - A description of the issue: `/fixer the watcher tests are flaking on macOS`
@@ -56,10 +61,10 @@ Phase 1: Evidence Gathering ──── up to 2 parallel subagents
 Phase 2: Diagnosis ──────────── up to 3 parallel subagents
     │                            (platform investigator, code tracer, pattern matcher)
     ▼
-Phase 3: Fix Design ─────────── propose fix + prevention
+Phase 3: Fix Design ─────────── recommend fix + prevention
     │
     ▼
-Phase 4: Apply & Verify ─────── apply fix, run tests, checklist
+Phase 4: Apply & Verify ─────── only when implementation is authorized
 ```
 
 ---
@@ -146,89 +151,10 @@ agents — spawn only what's relevant.
 
 ### Subagent Prompts
 
-Use these prompt templates for consistent subagent behavior. Adapt the details
-to the specific failure.
-
-#### Platform Investigator Prompt
-
-```
-You are diagnosing a platform-specific test failure in the invowk Go project.
-
-## Failure Evidence
-{paste error output, test name, platform, CI job name}
-
-## Your Task
-1. Read the platform skill at `.agents/skills/{platform}-testing/SKILL.md`
-2. Check the Failure Matrix section — does this symptom match a known pattern?
-3. If yes: report the known cause and documented fix
-4. If no: read the relevant reference files for deeper investigation
-5. Check `.agents/skills/go-testing/SKILL.md` for test toolchain issues
-
-## For race detector reports
-Read `.agents/skills/go-testing/references/race-detector-guide.md` for
-how to interpret the output and common race patterns.
-
-## Output Format
-- **Platform**: {windows|macos|linux}
-- **Symptom match**: {yes/no — cite the Failure Matrix entry if yes}
-- **Root cause hypothesis**: {one sentence}
-- **Evidence**: {file:line references supporting the hypothesis}
-- **Recommended fix**: {specific code change or configuration}
-- **Prevention**: {test guard, CI config, or code pattern to prevent recurrence}
-```
-
-#### Code Path Tracer Prompt
-
-```
-You are tracing the execution path of a failing test in the invowk Go project.
-
-## Failure Evidence
-{test name, error message, package}
-
-## Your Task
-1. Read the failing test file. Understand what it asserts.
-2. Read the production code it exercises. Trace the path from test input to
-   the failing assertion.
-3. Identify: resource lifecycle (open/close/cleanup), concurrency
-   (goroutines, channels, mutexes), context propagation, and error handling.
-4. Check for: nil dereferences, race conditions, resource leaks, incorrect
-   assertions, environment assumptions.
-
-## Consult these skills as needed
-- `.agents/rules/testing.md` for test policy
-- `.agents/skills/go-testing/SKILL.md` for parallelism/context patterns
-- `.agents/skills/go/SKILL.md` for code quality patterns
-
-## Output Format
-- **Test**: {file:line}
-- **Production code under test**: {file:line, function name}
-- **Execution path**: {step-by-step trace}
-- **Root cause**: {what's wrong and why}
-- **Fix location**: {which file(s) and function(s) to change}
-```
-
-#### Pattern Matcher Prompt
-
-```
-You are searching for patterns related to a test failure in the invowk Go project.
-
-## Failure Evidence
-{test name, error type, platform}
-
-## Your Task
-1. Search git log for similar fixes:
-   git log --oneline -30 --grep="fix(test)\|fix(ci)\|flaky\|race\|timeout"
-2. Search for the test name in git log to see if it failed before:
-   git log --oneline -10 --grep="{test_name}"
-3. Search the codebase for similar patterns to the failing code
-4. Check the MEMORY.md and memory files for known pitfalls
-
-## Output Format
-- **Similar past fixes**: {commit hashes and summaries}
-- **Recurrence**: {has this test failed before? when?}
-- **Pattern**: {is this a known pattern type? which?}
-- **Cross-reference**: {other tests or code with the same vulnerability}
-```
+Read [references/subagent-dispatch.md](references/subagent-dispatch.md) and use
+the standard prompt for the selected role. Pass only the failure evidence and
+task-local context needed for an independent diagnosis; do not leak the parent
+agent's suspected cause or preferred fix.
 
 ### When NOT to Use Subagents
 
@@ -244,7 +170,8 @@ when:
 
 ## Phase 3: Fix Design
 
-After diagnosis, design the fix with three components:
+After diagnosis, design the fix with three components. For diagnosis-only
+requests, stop after reporting these components.
 
 ### 1. Root Cause Report
 
@@ -316,8 +243,8 @@ before committing. The most common "fix creates new problem" patterns are:
 
 ## Phase 4: Apply & Verify
 
-After applying the fix, run verification. This is non-negotiable — a fix that
-introduces new failures is worse than the original bug.
+Enter this phase only when the user authorized implementation. After applying
+the fix, run verification. A diagnosis-only request ends after Phase 3.
 
 ### Targeted Verification
 

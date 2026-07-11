@@ -1,0 +1,4 @@
+interface:
+  display_name: "CI Update"
+  short_description: "Audit and update Invowk CI tooling pins"
+  default_prompt: "Use $ci-update to audit current CI tool and workflow versions, then propose synchronized updates."

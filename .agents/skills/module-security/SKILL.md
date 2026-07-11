@@ -64,7 +64,7 @@ Input (audit request, code review, security scan)
     │
     ▼
 Phase 1: Deterministic Scan ────── run `invowk audit --format json`
-    │   (compiled Go scanner, ~40ms, structured JSON output)
+    │   (compiled Go scanner, structured JSON output)
     │
     ▼
 Phase 2: Classify & Triage ────── main agent, no subagents
@@ -185,7 +185,7 @@ The Go scanner already handles all of these deterministically:
 | LuaChecker | virtual-lua disabled API references, bridge env reads, host-binary opt-outs, network-capable host binaries, and full virtual filesystem access | `checks_lua.go` |
 | SymlinkChecker | Symlinks, boundary escapes, dangling, chains | `checks_symlink.go` |
 | ModuleMetadataChecker | Dep depth, typosquatting, global trust, version pinning | `checks_module.go` |
-| Correlator | Compound threat escalation (5 named rules + severity rules) | `correlator.go` |
+| Correlator | Compound threat escalation from the current rule set | `correlator.go` |
 
 ---
 
@@ -267,7 +267,7 @@ dispatch rules so the grep patterns and prompt text have one source of truth.
 
 | Subagent | When | Purpose |
 |----------|------|---------|
-| Threat Model Drift Checker | Always in Phase 3 | Verify SC-01..SC-10 with concrete grep commands and report drift only. |
+| Threat Model Drift Checker | Always in Phase 3 | Verify SC-01..SC-10 through current call paths and focused behavior tests; report drift or incomplete proof. |
 | Supply-Chain Reviewer | Only for diffs touching module/security scope | Check whether the change regresses a mitigation, adds an uncovered attack surface, or changes trust boundaries. |
 | Documentation Drift Checker | Only when threat-model drift is reported | Find stale references in `AGENTS.md`, `.agents/agents/supply-chain-reviewer.md`, module-security docs, and related user docs. |
 
@@ -333,8 +333,8 @@ Running this workflow twice on the same codebase at the same commit MUST produce
   verification uses grep commands with concrete expected output)
 
 If a run produces different findings from a previous run on the same commit,
-the problem is in Phase 3 subagent analysis. The fix is to make the subagent
-prompt more concrete (add specific grep patterns), not to add more subagents.
+inspect Phase 3 evidence. Tighten call-path requirements and focused behavior
+tests rather than adding more subagents or treating symbol presence as proof.
 
 ---
 
@@ -358,95 +358,24 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 
 **Status legend:** Open (no mitigation), Partial (gaps remain), Mitigated (fixed, residual gap only), By-design (intentional, document only)
 
-Before citing status, re-run the Phase 3 grep prompts and current scanner tests.
+Before citing status, run the behavior-backed Phase 3 prompts and current
+scanner tests.
 Do not preserve date-stamped status notes as evidence if the code has moved.
 
 ---
 
-## `invowk audit` Subcommand Architecture
+## Implementation Changes
 
-Implementation reference for the top-level audit command. Read
-`references/check-catalog.md` for check specifications that map to
-`internal/audit/checks_*.go`. For code quality review guidance, load
-`references/implementation-review.md`.
+When reviewing or modifying `internal/audit/` or `cmd/invowk/audit.go`, load:
 
-### CLI Layer: `cmd/invowk/audit.go`
+- [`references/check-catalog.md`](references/check-catalog.md) for checker
+  behavior and finding categories.
+- [`references/implementation-review.md`](references/implementation-review.md)
+  for architecture, concurrency, correctness, self-defense, and live test
+  inventory commands.
 
-`newAuditCommand(app *App, rootFlags *rootFlagValues)` owns the top-level
-`invowk audit [path]` command, text/JSON output selection, severity filtering,
-global-module inclusion, and optional LLM analysis flags. The command text
-documents both provider-based LLM analysis (`--llm-provider`) and configured or
-OpenAI-compatible API analysis (`--llm`).
-
-**Exit codes:** 0 = clean, 1 = findings, 2 = scan error (via `ExitError` with typed codes).
-**Registration:** `rootCmd.AddCommand(newAuditCommand(app, flags))` in `root.go`.
-
-### Domain Layer: `internal/audit/`
-
-| File | Purpose |
-|------|---------|
-| `doc.go` | Package comment + SPDX header |
-| `severity.go` | `Severity` iota enum, `ParseSeverity()`, JSON marshaling, `InvalidSeverityError` |
-| `types.go` | `Category`, `Finding`, `Report` types, filtering, sorting, counting |
-| `errors.go` | Sentinels (`ErrScanContextBuild`, `ErrCheckerFailed`, `ErrNoScanTargets`), typed wrappers |
-| `checker.go` | `Checker` interface (`Name`, `Category`, `Check`) |
-| `scan_context.go`, `scan_context_artifacts.go`, `scan_context_clone.go`, `scan_files.go` | `ScanContext`, `BuildScanContext`, artifact/clone/file scanning helpers, `ScannedModule`, `ScriptRef`, discovery integration |
-| `scanner.go` | `Scanner` struct, `Scan()`, concurrent `runCheckers`, functional options |
-| `correlator.go` | `Correlator`, `CorrelationRule`, named rules + severity escalation |
-| `checks_lockfile.go` | Lock file integrity (hash, version, orphans, size guard) |
-| `checks_script.go` | Script path traversal + content analysis (remote exec, obfuscation) |
-| `checks_network.go` | Network access, reverse shells, DNS exfiltration, encoded URLs |
-| `checks_env.go` | Env var risk, credential extraction, `env_inherit_mode` |
-| `checks_symlink.go` | Symlink detection, boundary checking, chain depth |
-| `checks_module.go` | Module metadata (deps, typosquatting, global trust, version pinning) |
-| `checks_llm.go`, `llm_prompt.go`, `llm_errors.go`, `triage.go` | Optional semantic LLM-backed analysis, prompt building, error handling, and deterministic triage |
-| `finding_codes.go` | Stable finding-code derivation/catalog |
-| `types.go` | `Finding`, `Report`, `Diagnostic`, `SurfaceKind`, and report filtering/sorting helpers |
-
-### Core Types
-
-```go
-type Severity int  // severity.go — ordered for < / > comparison
-const (
-    SeverityInfo Severity = iota
-    SeverityLow
-    SeverityMedium
-    SeverityHigh
-    SeverityCritical
-)
-
-type Category string  // types.go
-const (
-    CategoryIntegrity    Category = "integrity"
-    CategoryPathTraversal Category = "path-traversal"
-    CategoryExfiltration Category = "exfiltration"
-    CategoryExecution    Category = "execution"
-    CategoryTrust        Category = "trust"
-    CategoryObfuscation  Category = "obfuscation"
-)
-
-// Checker interface — all built-in checkers from DefaultCheckers implement this
-type Checker interface {
-    Name() string
-    Category() Category
-    Check(ctx context.Context, sc *ScanContext) ([]Finding, error)
-}
-
-type Finding struct {
-    Severity       Severity
-    Category       Category
-    SurfaceID      string          // SC-01..SC-10 (if applicable)
-    SurfaceKind    SurfaceKind     // root/local/vendored/global trust boundary
-    CheckerName    string          // producing checker's Name()
-    FilePath       types.FilesystemPath
-    Line           int
-    Title          string
-    Description    string
-    Recommendation string
-    EscalatedFrom  []string        // compound findings only
-    EscalatedFromCodes []FindingCode
-}
-```
+Derive the current implementation inventory from source. Do not copy file
+counts, line counts, or checker lists into a report without regenerating them.
 
 ---
 
@@ -480,7 +409,7 @@ When reviewing module-related changes, adapt the workflow:
 | Regressing symlink skipping in module copy/provision paths | Keep copy helpers and scan-context artifact/clone paths from following symlinked module content outside trusted roots |
 | Script path accepts absolute paths in module context | `ScriptChecker` now detects this (SeverityHigh); `GetScriptFilePathWithModule` still allows it at parse time |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
-| `loadSingleModule` silently swallows invowkfile parse errors | Line 155: `if parseErr == nil` discards parse failures — intended (module without invowkfile) but consider logging |
+| `loadSingleModule` silently swallows invowkfile parse errors | Inspect the current parse-error branch; modules without invowkfiles are valid, but corrupt-file diagnostics must remain visible |
 | Scan context hides invalid modules/files | Preserve structured diagnostics in `Report.Diagnostics` and CLI JSON/text output |
 | `ScanContext` methods expose mutable slices | `Modules()` / `Invowkfiles()` return slice headers — callers can `append` and corrupt shared state (low risk since checkers are well-behaved, but violates immutability contract) |
 | Levenshtein runs O(n²) on module list | Acceptable for small module sets; for >100 modules consider short-circuiting or length pre-filter |
@@ -504,12 +433,12 @@ agent-orchestrated security audit workflow above does not need it.
 ## Reference Files
 
 - **[references/check-catalog.md](references/check-catalog.md)** —
-  Full check specifications for each scanner subagent. Includes regex patterns,
+  Full check specifications for each compiled checker. Includes regex patterns,
   severity classifications, and implementation notes. Reference for understanding
   what the Go scanner checks and how to extend it.
 - **[references/subagent-prompts.md](references/subagent-prompts.md)** —
-  Prompt templates for Phase 3 interpretive subagents. These are concrete,
-  grep-based verification prompts — not open-ended assessment requests.
+  Prompt templates for Phase 3 interpretive subagents. These require call-path
+  inspection and focused behavior tests rather than grep-presence assertions.
 - **[references/implementation-review.md](references/implementation-review.md)** —
   Correctness, performance, and security review checklist for the compiled
   `internal/audit/` Go scanner and `cmd/invowk/audit.go` CLI layer. Load when
@@ -525,3 +454,12 @@ agent-orchestrated security audit workflow above does not need it.
 | `dep-audit` | Go dependency auditing (complementary — handles `go.mod`) |
 | `testing` | Test patterns, testscript CLI tests, txtar structure |
 | `go-testing` | Go test execution model, race detector, coverage |
+
+## Skill Integrity Check
+
+After changing this skill or the audit checker inventory, run:
+
+```bash
+python3 .agents/skills/module-security/scripts/validate-references.py
+make check-agent-docs
+```

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Invowk Schema"
+  short_description: "Author valid Invowk CUE configurations"
+  default_prompt: "Use $invowk-schema to create or update Invowkfile and Invowkmod CUE structures."

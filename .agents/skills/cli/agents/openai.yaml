@@ -1,0 +1,4 @@
+interface:
+  display_name: "CLI"
+  short_description: "Work on Invowk CLI commands and adapters"
+  default_prompt: "Use $cli to change Invowk CLI commands, execution adapters, or CLI-facing error behavior."

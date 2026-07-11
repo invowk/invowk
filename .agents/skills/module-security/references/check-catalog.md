@@ -1,7 +1,9 @@
 # Security Check Catalog
 
-Detailed check specifications for each scanner subagent. Each section corresponds
-to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
+Detailed check specifications for each compiled scanner checker. Derive the
+current default list from `DefaultCheckers()` in `internal/audit/scanner.go`;
+this catalog explains behavior and must not be used as a substitute for the
+source inventory.
 
 ## Table of Contents
 
@@ -9,6 +11,7 @@ to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
 - [Script Path & Content](#script-path--content) — `checks_script.go`
 - [Network Access Detection](#network-access-detection) — `checks_network.go`
 - [Environment Variable Risks](#environment-variable-risks) — `checks_env.go`
+- [Virtual Lua Risks](#virtual-lua-risks) — `checks_lua.go`
 - [Symlink Detection](#symlink-detection) — `checks_symlink.go`
 - [Module Metadata Analysis](#module-metadata-analysis) — `checks_module.go`
 - [Finding Correlation Rules](#finding-correlation-rules) — Phase 3 cross-checks
@@ -17,7 +20,8 @@ to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
 
 ## Lock File Integrity
 
-**Scanner subagent:** Lock File Integrity Scanner
+**Checker:** `LockFileChecker`
+
 **Key files:** `pkg/invowkmod/lockfile.go`, `content_hash.go`, vendoring/copy helpers in the current module operations packages
 
 | Check | What | How | Severity | Finding |
@@ -38,8 +42,9 @@ to one `checks_*.go` file in `internal/audit/` and one subagent in Phase 2.
 
 ## Script Path & Content
 
-**Scanner subagent:** Script Path & Content Analyzer
-**Key files:** `pkg/invowkfile/implementation.go` (lines 266–329)
+**Checker:** `ScriptChecker`
+
+**Key files:** `pkg/invowkfile/implementation.go` and the current script-path helpers
 
 ### Path Checks
 
@@ -79,8 +84,7 @@ echo\s+[A-Za-z0-9+/=]{20,}\s*\|\s*base64
 
 ## Network Access Detection
 
-**Scanner subagent:** Network/Env Exfiltration Scanner (shared with env checks)
-**Scanned as part of the combined exfiltration subagent.**
+**Checker:** `NetworkChecker`
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
@@ -104,7 +108,7 @@ python[23]?\s+-c\s+.*socket.*connect
 
 ## Environment Variable Risks
 
-**Scanner subagent:** Network/Env Exfiltration Scanner (shared with network checks)
+**Checker:** `EnvChecker`
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
@@ -127,9 +131,32 @@ python[23]?\s+-c\s+.*socket.*connect
 
 ---
 
+## Virtual Lua Risks
+
+**Checker:** `LuaChecker`
+
+`LuaChecker` examines only commands with a `virtual-lua` runtime. Confirm the
+current patterns and finding codes in `internal/audit/checks_lua.go` and
+`internal/audit/finding_codes.go` before changing this catalog.
+
+| Check | What | Severity |
+|-------|------|----------|
+| Disabled API reference | Lua content names APIs that the embedded runtime disables or replaces | Low |
+| Sensitive env read | `os.getenv` or `invowk.env` reads a credential-like name | Medium |
+| Host-binary wildcard | `allowed_binaries: ["*"]` permits arbitrary native host execution | High |
+| Network-capable host binary | Explicit allowlist includes tools such as `curl`, `ssh`, or `rsync` | Medium |
+| Full filesystem access | Virtual filesystem policy grants broad host filesystem reach | High |
+| Broad path mapping | Restricted mode maps a root, home, empty, or traversal-capable path | Medium |
+
+These findings describe host reach from virtual-lua; they do not imply that the
+virtual runtime is a security sandbox. Recommend the container runtime when
+execution isolation is required.
+
+---
+
 ## Symlink Detection
 
-**Scanner subagent:** Symlink Detector
+**Checker:** `SymlinkChecker`
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
@@ -148,7 +175,7 @@ python[23]?\s+-c\s+.*socket.*connect
 
 ## Module Metadata Analysis
 
-**Scanner subagent:** Module Metadata Analyzer
+**Checker:** `ModuleMetadataChecker`
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
@@ -162,8 +189,7 @@ python[23]?\s+-c\s+.*socket.*connect
 
 ## Finding Correlation Rules
 
-Phase 3 cross-checks combine findings from Phase 2 scanners to detect compound threats.
-The Finding Correlator subagent reads all Phase 2 outputs and applies these rules.
+The compiled correlator combines checker findings to detect compound threats.
 
 | Correlation | Input Findings | Output | Severity |
 |-------------|---------------|--------|----------|
