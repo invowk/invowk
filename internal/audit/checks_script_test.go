@@ -34,7 +34,7 @@ func TestScriptChecker_RemoteExecution(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewScriptChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -70,7 +70,7 @@ func TestScriptChecker_PathTraversal(t *testing.T) {
 			}},
 		},
 	}
-	sc := newModuleOnlyContext(mod)
+	sc := newModuleOnlyContext(t, mod)
 
 	checker := NewScriptChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -105,7 +105,7 @@ func TestScriptChecker_AbsolutePathInModule(t *testing.T) {
 			}},
 		},
 	}
-	sc := newModuleOnlyContext(mod)
+	sc := newModuleOnlyContext(t, mod)
 
 	checker := NewScriptChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -144,7 +144,7 @@ func TestScriptChecker_Obfuscation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewScriptChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -167,7 +167,7 @@ func TestScriptChecker_Obfuscation(t *testing.T) {
 func TestScriptChecker_CleanScript(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("echo building && go build ./...")
+	sc := newSingleScriptContext(t, "echo building && go build ./...")
 	checker := NewScriptChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {

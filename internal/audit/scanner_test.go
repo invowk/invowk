@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -170,6 +171,50 @@ func TestScanner_DirectCueTargetSkipsConfigLoad(t *testing.T) {
 	}
 	if report.InvowkfileCount != 1 {
 		t.Fatalf("InvowkfileCount = %d, want 1", report.InvowkfileCount)
+	}
+}
+
+func TestNewScannerRejectsInvalidDefaultCorrelationRules(t *testing.T) {
+	t.Parallel()
+
+	rules := []CorrelationRule{{
+		Name:             "invalid-self-correlation",
+		RequiredCheckers: [2]string{scriptCheckerName, scriptCheckerName},
+	}}
+
+	scanner, err := newScanner(nil, rules)
+	if err == nil {
+		t.Fatal("newScanner() error = nil, want invalid default correlator error")
+	}
+	if scanner != nil {
+		t.Fatalf("newScanner() scanner = %#v, want nil", scanner)
+	}
+	if !strings.Contains(err.Error(), "creating default correlator") || !strings.Contains(err.Error(), "invalid-self-correlation") {
+		t.Fatalf("newScanner() error = %q, want contextual rule identity", err)
+	}
+}
+
+func TestNewScannerAllowsExplicitlyDisabledCorrelation(t *testing.T) {
+	t.Parallel()
+
+	scanner, err := NewScanner(nil, WithCorrelator(nil))
+	if err != nil {
+		t.Fatalf("NewScanner() error = %v", err)
+	}
+	if scanner.correlator != nil {
+		t.Fatalf("NewScanner() correlator = %#v, want nil", scanner.correlator)
+	}
+}
+
+func TestNewScannerRejectsInvalidArtifactEntryLimit(t *testing.T) {
+	t.Parallel()
+
+	scanner, err := NewScanner(nil, WithArtifactEntryLimit(0))
+	if !errors.Is(err, ErrInvalidArtifactEntryLimit) {
+		t.Fatalf("NewScanner() error = %v, want ErrInvalidArtifactEntryLimit", err)
+	}
+	if scanner != nil {
+		t.Fatalf("NewScanner() scanner = %#v, want nil", scanner)
 	}
 }
 

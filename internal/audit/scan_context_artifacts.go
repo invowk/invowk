@@ -3,12 +3,14 @@
 package audit
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -17,16 +19,17 @@ import (
 )
 
 type (
-	//goplint:ignore -- scanner state carries raw OS-native paths from filepath.WalkDir.
+	//goplint:ignore -- scanner state carries raw OS-native filesystem paths.
 	luaModuleFileAppender struct {
-		module     *ScannedModule
-		modulePath string
-		refs       []ScriptRef
-		seen       map[string]bool
+		module      *ScannedModule
+		modulePath  string
+		refs        []ScriptRef
+		seen        map[string]bool
+		firstLuaRef int
 	}
 )
 
-func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *ScannedModule) ([]ScriptRef, error) {
+func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *ScannedModule, budget *artifactEntryBudget) ([]ScriptRef, error) {
 	if module == nil || module.Path == "" {
 		return refs, nil
 	}
@@ -35,32 +38,37 @@ func appendLuaFilesFromModule(ctx context.Context, refs []ScriptRef, module *Sca
 		return refs, nil //nolint:nilerr // synthetic test modules and partially loaded modules may not have a filesystem tree.
 	}
 	appender := luaModuleFileAppender{
-		module:     module,
-		modulePath: modulePath,
-		refs:       refs,
-		seen:       moduleScriptPathSet(refs, module.Path),
+		module:      module,
+		modulePath:  modulePath,
+		refs:        refs,
+		seen:        moduleScriptPathSet(refs, module.Path),
+		firstLuaRef: len(refs),
 	}
-	err := filepath.WalkDir(modulePath, func(path string, entry fs.DirEntry, walkErr error) error {
-		return appender.walk(ctx, path, entry, walkErr)
-	})
+	err := walkArtifactTree(ctx, module.Path, ArtifactKindLuaFile, budget, appender.visit)
 	if err != nil {
 		return refs, fmt.Errorf("walking module Lua files in %s: %w", module.Path, err)
 	}
+	appender.sortLuaRefs()
 	return appender.refs, nil
 }
 
-//goplint:ignore -- filepath.WalkDir requires raw OS path callback parameters.
-func (a *luaModuleFileAppender) walk(ctx context.Context, path string, entry fs.DirEntry, walkErr error) error {
-	if err := scanWalkEntryErr(ctx, walkErr); err != nil {
-		return err
-	}
+func (a *luaModuleFileAppender) visit(ctx context.Context, path types.FilesystemPath, entry fs.DirEntry) (artifactWalkAction, error) {
 	if entry.IsDir() && entry.Name() == invowkmod.VendoredModulesDir {
-		return filepath.SkipDir
+		return artifactWalkSkipSubtree, nil
 	}
 	if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
-		return nil
+		return artifactWalkContinue, nil
 	}
-	return a.append(ctx, path, entry.Name())
+	return artifactWalkContinue, a.append(ctx, path.String(), entry.Name())
+}
+
+func (a *luaModuleFileAppender) sortLuaRefs() {
+	slices.SortFunc(a.refs[a.firstLuaRef:], func(left, right ScriptRef) int {
+		if order := cmp.Compare(left.ScriptPath.String(), right.ScriptPath.String()); order != 0 {
+			return order
+		}
+		return cmp.Compare(left.FilePath.String(), right.FilePath.String())
+	})
 }
 
 //goplint:ignore -- Lua module discovery consumes raw filesystem walk paths before storing typed facts.
@@ -106,13 +114,6 @@ func (a *luaModuleFileAppender) scriptRef(facts scriptFileFacts, scriptFile invo
 		FileStatErr:     facts.StatErr,
 		resolvedContent: facts.Content,
 	}
-}
-
-func scanWalkEntryErr(ctx context.Context, err error) error {
-	if ctxErr := scanContextErr(ctx); ctxErr != nil {
-		return ctxErr
-	}
-	return err
 }
 
 func moduleScriptPathSet(refs []ScriptRef, modulePath types.FilesystemPath) map[string]bool {
@@ -214,23 +215,31 @@ func newScanSurfaceKey(raw string) ScanSurfaceKey {
 }
 
 func scanModuleSymlinks(ctx context.Context, modulePath types.FilesystemPath) ([]SymlinkRef, error) {
+	budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, modulePath)
+	return scanModuleSymlinksWithBudget(ctx, modulePath, &budget)
+}
+
+func scanModuleSymlinksWithBudget(ctx context.Context, modulePath types.FilesystemPath, budget *artifactEntryBudget) ([]SymlinkRef, error) {
 	if err := scanContextErr(ctx); err != nil {
 		return nil, err
 	}
 	modPath := string(modulePath)
 	var refs []SymlinkRef
-	err := filepath.WalkDir(modPath, func(path string, entry fs.DirEntry, walkErr error) error {
-		return appendSymlinkRef(ctx, modPath, &refs, path, entry, walkErr)
+	err := walkArtifactTree(ctx, modulePath, ArtifactKindSymlink, budget, func(ctx context.Context, path types.FilesystemPath, entry fs.DirEntry) (artifactWalkAction, error) {
+		return artifactWalkContinue, appendSymlinkRef(ctx, modPath, &refs, path.String(), entry)
 	})
 	if err != nil {
 		return refs, fmt.Errorf("walking module symlinks in %s: %w", modulePath, err)
 	}
+	slices.SortFunc(refs, func(left, right SymlinkRef) int {
+		return cmp.Compare(left.RelPath, right.RelPath)
+	})
 	return refs, nil
 }
 
-//goplint:ignore -- filepath.WalkDir requires raw OS path callback parameters.
-func appendSymlinkRef(ctx context.Context, modulePath string, refs *[]SymlinkRef, path string, entry fs.DirEntry, walkErr error) error {
-	if err := scanWalkEntryErr(ctx, walkErr); err != nil {
+//goplint:ignore -- symlink scanning consumes raw OS-native paths from the bounded walker.
+func appendSymlinkRef(ctx context.Context, modulePath string, refs *[]SymlinkRef, path string, entry fs.DirEntry) error {
+	if err := scanContextErr(ctx); err != nil {
 		return err
 	}
 	if entry.Type()&os.ModeSymlink == 0 {
@@ -244,7 +253,7 @@ func appendSymlinkRef(ctx context.Context, modulePath string, refs *[]SymlinkRef
 	return nil
 }
 
-//goplint:ignore -- symlink scanning operates on raw OS paths reported by filepath.WalkDir.
+//goplint:ignore -- symlink scanning operates on raw OS-native paths reported by the bounded walker.
 func moduleSymlinkRef(modulePath, path string) (SymlinkRef, error) {
 	relPath, err := filepath.Rel(modulePath, path)
 	if err != nil {
@@ -267,7 +276,7 @@ func moduleSymlinkRef(modulePath, path string) (SymlinkRef, error) {
 	return ref, nil
 }
 
-//goplint:ignore -- filepath.WalkDir yields already-normalized OS-native paths for scan facts.
+//goplint:ignore -- the bounded walker yields normalized OS-native paths for scan facts.
 func filesystemPathFromWalk(path string) types.FilesystemPath {
 	return types.FilesystemPath(path) //goplint:ignore -- path comes from filesystem walk.
 }
@@ -295,7 +304,7 @@ func cleanSymlinkTarget(path, target string) string {
 	return filepath.Clean(target)
 }
 
-//goplint:ignore -- helper walks raw OS-native symlink paths captured from filepath.WalkDir.
+//goplint:ignore -- helper walks raw OS-native symlink paths captured by the bounded walker.
 func symlinkChainTooDeep(path string) bool {
 	current := path
 	for range maxSymlinkChainDepth - 1 {

@@ -24,34 +24,25 @@ type (
 	// target path, running all registered Checkers concurrently, and applying the
 	// Correlator for compound threat detection.
 	Scanner struct {
-		checkers   []Checker
-		correlator *Correlator
-		config     config.Provider
-		configOpts config.LoadOptions //goplint:ignore -- validated by config provider before scan context construction.
+		checkers           []Checker
+		correlator         *Correlator
+		config             config.Provider
+		configOpts         config.LoadOptions //goplint:ignore -- validated by config provider before scan context construction.
+		artifactEntryLimit ArtifactEntryLimit
 	}
 )
 
 // NewScanner creates a Scanner with default checkers and correlator.
 // Use options to customize which checkers run or to inject a custom correlator.
-// DefaultRules() are validated at compile-test time, so the error is not
-// expected at runtime; a nil correlator disables compound threat detection.
 func NewScanner(cfg config.Provider, opts ...ScannerOption) (*Scanner, error) {
-	cor, err := NewCorrelator(DefaultRules())
+	scanner, err := newScanner(cfg, DefaultRules(), opts...)
 	if err != nil {
-		cor = nil
-	}
-	s := &Scanner{
-		checkers:   DefaultCheckers(),
-		correlator: cor,
-		config:     cfg,
-	}
-	for _, opt := range opts {
-		opt(s)
-	}
-	if err := s.Validate(); err != nil {
 		return nil, err
 	}
-	return s, nil
+	if err := scanner.Validate(); err != nil {
+		return nil, err
+	}
+	return scanner, nil
 }
 
 // WithConfigLoadOptions sets explicit config loading options used while building
@@ -62,9 +53,18 @@ func WithConfigLoadOptions(opts config.LoadOptions) ScannerOption {
 	}
 }
 
+// WithArtifactEntryLimit sets the scan-wide entry budget independently applied
+// to Lua-file discovery and symlink inventory traversal. Exceeding either budget
+// fails context construction rather than returning an incomplete security scan.
+func WithArtifactEntryLimit(limit ArtifactEntryLimit) ScannerOption {
+	return func(s *Scanner) {
+		s.artifactEntryLimit = limit
+	}
+}
+
 // Validate returns an error when the scanner's typed configuration inputs are invalid.
 func (s *Scanner) Validate() error {
-	return s.configOpts.Validate()
+	return errors.Join(s.configOpts.Validate(), s.artifactEntryLimit.Validate())
 }
 
 // WithChecker appends a checker to the scanner's default set.
@@ -82,11 +82,29 @@ func WithCheckers(checkers []Checker) ScannerOption {
 	}
 }
 
-// WithCorrelator replaces the default correlator.
+// WithCorrelator replaces the default correlator. Passing nil explicitly
+// disables compound threat detection.
 func WithCorrelator(c *Correlator) ScannerOption {
 	return func(s *Scanner) {
 		s.correlator = c
 	}
+}
+
+func newScanner(cfg config.Provider, rules []CorrelationRule, opts ...ScannerOption) (*Scanner, error) {
+	cor, err := NewCorrelator(rules)
+	if err != nil {
+		return nil, fmt.Errorf("creating default correlator: %w", err)
+	}
+	s := &Scanner{
+		checkers:           DefaultCheckers(),
+		correlator:         cor,
+		config:             cfg,
+		artifactEntryLimit: DefaultArtifactEntryLimit,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s, nil
 }
 
 // Scan performs a full security analysis of the target path.
@@ -113,7 +131,7 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 	}
 
 	// Build immutable scan context.
-	sc, err := BuildScanContext(ctx, path, cfg, includeGlobal)
+	sc, err := buildScanContext(ctx, path, cfg, includeGlobal, s.artifactEntryLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +141,7 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 	sc.enrichFindingSurfaceIdentity(findings)
 	ensureFindingCodes(findings)
 
-	// Apply correlation (nil correlator means DefaultRules() failed; skip).
+	// Apply correlation unless the caller explicitly disabled it.
 	var correlated []Finding
 	if s.correlator != nil {
 		correlated = s.correlator.Correlate(findings)

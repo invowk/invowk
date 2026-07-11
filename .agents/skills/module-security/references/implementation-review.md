@@ -108,11 +108,11 @@ match the rest of the codebase's path helpers.
 
 | Check | What to Verify |
 |-------|---------------|
-| `WalkDir` callback | Uses `d.Type()&os.ModeSymlink` — correct lstat-based check (WalkDir does NOT follow symlinks) |
+| Bounded artifact walker | Uses batched `ReadDir(n)` and `DirEntry.Type()&os.ModeSymlink`; symlinked directories are reported but never followed |
 | Boundary check | `filepath.Rel` + `strings.HasPrefix(rel, "..")` — verify this handles `..` at various positions |
 | Chain detection | Iterates up to `maxSymlinkChainDepth` (10) with `os.Readlink` + `os.Lstat`. Correct chain-following |
 | Dangling check | Uses `os.Stat(path)` — follows symlinks, so `os.IsNotExist` means target doesn't exist. Correct |
-| Walk error handling | Line 103-106: `_ = err` discards non-cancel walk errors silently. Consider structured warning |
+| Walk error handling | Open, read, close, visitor, cancellation, and artifact-budget errors fail scan-context construction rather than yielding partial clean results |
 | Windows | Skipped in tests via `runtime.GOOS` guard. Symlinks on Windows behave differently |
 
 ### LuaChecker (`checks_lua.go`)
@@ -261,6 +261,7 @@ scanner itself:
 | Giant script file DoS | `checkScriptFileSize` with 5 MiB guard | `checks_script.go` |
 | Directory traversal in scan path | `filepath.Abs` on scan path input | Recheck current `BuildScanContext` path normalization |
 | Symlink chain loop | `maxSymlinkChainDepth` limit | Recheck current symlink checker |
+| Huge artifact tree | Scan-wide Lua and symlink budgets plus bounded `ReadDir(n)` batches; exhaustion fails closed | `artifact_walker.go`, `artifact_limits.go` |
 | ReDoS via regex | All patterns use simple alternation/character classes, no nested quantifiers — safe |
 | Crafted module ID for Levenshtein | Module IDs are validated by CUE schema before reaching audit — bounded length |
 
@@ -268,7 +269,6 @@ scanner itself:
 
 | Gap | Risk | Mitigation |
 |-----|------|-----------|
-| No file count limit | A crafted directory with millions of tiny files could exhaust memory during `WalkDir` | Low: `os.ReadDir` in `loadDirectoryTree` only scans one level; `SymlinkChecker.WalkDir` is the risk |
 | No total script content memory limit | Many large (but under 5 MiB each) scripts could accumulate | Low: script content is stored in `invowkfile.ScriptContent` from parse, already in memory |
 | `os.Stat` TOCTOU in lock file checker | File could change between `Stat` (size check) and `LoadLockFile` (parse) | Very low: lock files are rarely modified during scan |
 | Error swallowing in `loadSingleModule` | Parse errors for invowkfile and lock file are silently ignored | By design (modules without these files are valid), but errors from corrupt files are lost |
@@ -377,8 +377,10 @@ of this guide named it.
 
 ### Security Opportunities
 
-1. **File count limit** — Add a configurable maximum number of files to scan to prevent
-   resource exhaustion on crafted directory structures.
+1. **Broader discovery budgets** — The scan-wide, batched Lua-file and symlink
+   budgets cover recursive artifact walks, not every discovery or parsing
+   operation. If profiling exposes another unbounded surface, extend resource
+   accounting without weakening the existing typed, fail-closed behavior.
 
 2. **Structured warnings** — Replace silent `continue` on parse errors with structured
    warnings in the Report (new field: `Warnings []string`), so users know when scan

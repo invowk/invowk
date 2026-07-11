@@ -170,7 +170,7 @@ func TestLockFileChecker_SingleFindingCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newModuleOnlyContext(tt.module)
+			sc := newModuleOnlyContext(t, tt.module)
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
 				t.Fatal(err)
@@ -202,7 +202,7 @@ func TestLockFileChecker_MissingEntrySubpath(t *testing.T) {
 	// require an exact key match ("url#subpath"), not a substring match.
 	gitURL := invowkmod.GitURL("https://example.com/monorepo.git")
 
-	sc := newModuleOnlyContext(&ScannedModule{
+	sc := newModuleOnlyContext(t, &ScannedModule{
 		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
 		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
 		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
@@ -237,7 +237,7 @@ func TestLockFileChecker_MissingEntryUsesModuleRefKeyNormalization(t *testing.T)
 		Version: "^1.0.0",
 		Path:    `modules\tools`,
 	}
-	sc := newModuleOnlyContext(&ScannedModule{
+	sc := newModuleOnlyContext(t, &ScannedModule{
 		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
 		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
 		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
@@ -268,7 +268,7 @@ func TestLockFileChecker_DeclaredLockEntryWithoutVendoredModuleIsNotOrphaned(t *
 		GitURL:  "https://example.com/dep.git",
 		Version: "^1.0.0",
 	}
-	sc := newModuleOnlyContext(&ScannedModule{
+	sc := newModuleOnlyContext(t, &ScannedModule{
 		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
 		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
 		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
@@ -298,7 +298,7 @@ func TestLockFileChecker_HashCancellationIsReturned(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	sc := newModuleOnlyContext(&ScannedModule{
+	sc := newModuleOnlyContext(t, &ScannedModule{
 		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
 		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
 		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
@@ -341,7 +341,7 @@ func TestLockFileChecker_Clean(t *testing.T) {
 
 	lockKey := invowkmod.ModuleRefKey("https://example.com/dep.git")
 
-	sc := newModuleOnlyContext(&ScannedModule{
+	sc := newModuleOnlyContext(t, &ScannedModule{
 		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
 		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
 		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{

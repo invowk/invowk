@@ -64,12 +64,11 @@ func TestCustomCheckScriptFileInterpreterWarnings(t *testing.T) {
 		ctx.ReportScriptInterpreter = func(diag invowkfile.ScriptInterpreterDiagnostic) {
 			diagnostics = append(diagnostics, diag)
 		}
-		stub := &filepathStubRuntime{
-			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+		stub := newFilepathStubRuntime(t,
+			func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 				_, _ = io.WriteString(ctx.IO.Stdout, "ok\n")
 				return &runtimepkg.Result{ExitCode: 0}
-			},
-		}
+			})
 
 		if err := CheckCustomCheckDependenciesInContainer(deps, stub, ctx); err != nil {
 			t.Fatalf("CheckCustomCheckDependenciesInContainer() = %v", err)

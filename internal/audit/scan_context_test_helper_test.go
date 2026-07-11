@@ -3,17 +3,19 @@
 package audit
 
 import (
-	"context"
+	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // newTestScanContext creates a ScanContext for testing with scripts pre-computed.
 // This mirrors BuildScanContext's post-construction step.
-func newTestScanContext(invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) *ScanContext {
-	scripts, err := buildScriptRefs(context.Background(), invowkfiles, modules)
+func newTestScanContext(t *testing.T, invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) *ScanContext {
+	t.Helper()
+
+	scripts, err := buildScriptRefs(t.Context(), invowkfiles, modules)
 	if err != nil {
-		panic(err)
+		t.Fatalf("buildScriptRefs() error = %v", err)
 	}
 	return &ScanContext{
 		invowkfiles: invowkfiles,
@@ -23,7 +25,9 @@ func newTestScanContext(invowkfiles []*ScannedInvowkfile, modules []*ScannedModu
 }
 
 // newSingleScriptContext creates a ScanContext with one inline script for content analysis tests.
-func newSingleScriptContext(script string) *ScanContext {
+func newSingleScriptContext(t *testing.T, script string) *ScanContext {
+	t.Helper()
+
 	inv := &invowkfile.Invowkfile{
 		Commands: []invowkfile.Command{{
 			Name: "cmd",
@@ -38,10 +42,12 @@ func newSingleScriptContext(script string) *ScanContext {
 		SurfaceID:  "test",
 		Invowkfile: inv,
 	}}
-	return newTestScanContext(files, nil)
+	return newTestScanContext(t, files, nil)
 }
 
 // newModuleOnlyContext creates a ScanContext with only modules (no standalone invowkfiles).
-func newModuleOnlyContext(modules ...*ScannedModule) *ScanContext {
-	return newTestScanContext(nil, modules)
+func newModuleOnlyContext(t *testing.T, modules ...*ScannedModule) *ScanContext {
+	t.Helper()
+
+	return newTestScanContext(t, nil, modules)
 }

@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	scanContextBuildErrMsg = "failed to build scan context"
-	checkerFailedErrMsg    = "checker failed"
-	noScanTargetsErrMsg    = "no invowkfiles or modules found"
+	scanContextBuildErrMsg       = "failed to build scan context"
+	checkerFailedErrMsg          = "checker failed"
+	noScanTargetsErrMsg          = "no invowkfiles or modules found"
+	artifactEntryLimitErrMsg     = "artifact entry limit exceeded"
+	invalidArtifactEntryLimitMsg = "invalid artifact entry limit"
 )
 
 var (
@@ -23,6 +25,11 @@ var (
 	ErrCheckerFailed = errors.New(checkerFailedErrMsg)
 	// ErrNoScanTargets is returned when no invowkfiles or modules are found at the scan path.
 	ErrNoScanTargets = errors.New(noScanTargetsErrMsg)
+	// ErrArtifactEntryLimitExceeded is returned when filesystem artifact traversal
+	// exceeds its configured scan-wide entry budget.
+	ErrArtifactEntryLimitExceeded = errors.New(artifactEntryLimitErrMsg)
+	// ErrInvalidArtifactEntryLimit is returned when an artifact entry limit is not positive.
+	ErrInvalidArtifactEntryLimit = errors.New(invalidArtifactEntryLimitMsg)
 )
 
 type (
@@ -38,6 +45,14 @@ type (
 	CheckerFailedError struct {
 		CheckerName string
 		Err         error
+	}
+
+	// ArtifactEntryLimitError reports a fail-closed filesystem traversal that
+	// exceeded the configured scan-wide budget for one artifact class.
+	ArtifactEntryLimitError struct {
+		Kind  ArtifactKind
+		Path  *types.FilesystemPath
+		Limit ArtifactEntryLimit
 	}
 )
 
@@ -66,6 +81,18 @@ func (e *CheckerFailedError) Unwrap() error { return e.Err }
 func (e *CheckerFailedError) Is(target error) bool {
 	return target == ErrCheckerFailed
 }
+
+// Error implements the error interface.
+func (e *ArtifactEntryLimitError) Error() string {
+	path := types.FilesystemPath("")
+	if e.Path != nil {
+		path = *e.Path
+	}
+	return fmt.Sprintf("%s for %s at %q: limit %s", artifactEntryLimitErrMsg, e.Kind, path, e.Limit)
+}
+
+// Unwrap exposes ErrArtifactEntryLimitExceeded for errors.Is checks.
+func (e *ArtifactEntryLimitError) Unwrap() error { return ErrArtifactEntryLimitExceeded }
 
 // ScanFailureIsFatal reports whether a scanner error should suppress partial
 // results. Cancellation is fatal because the scan did not complete by caller

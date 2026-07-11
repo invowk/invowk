@@ -14,6 +14,8 @@
 // and operates on an immutable [ScanContext] snapshot of all discovered
 // artifacts. Checkers run concurrently; their findings are then passed through
 // a [Correlator] that detects compound threats spanning multiple categories.
+// Filesystem artifact traversal is bounded by [DefaultArtifactEntryLimit] per
+// artifact class and fails closed when the configured budget is exhausted.
 //
 // # File Organization
 //

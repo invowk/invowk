@@ -3,7 +3,6 @@
 package execute
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -298,7 +297,7 @@ func TestApplyEnvInheritOverridesMutationContracts(t *testing.T) {
 func TestBuildExecutionContextMutationRejectsInvalidEnvInheritMode(t *testing.T) {
 	t.Parallel()
 
-	err := buildExecuteMutationContextError(BuildExecutionContextOptions{
+	err := buildExecuteMutationContextError(t, BuildExecutionContextOptions{
 		EnvInheritMode: invowkfile.EnvInheritMode("bogus"),
 	})
 	if err == nil {
@@ -334,7 +333,7 @@ func TestBuildExecutionContextMutationRejectsInvalidEnvInheritNames(t *testing.T
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := buildExecuteMutationContextError(tt.opts)
+			err := buildExecuteMutationContextError(t, tt.opts)
 			if err == nil {
 				t.Fatalf("BuildExecutionContext(invalid %s) error = nil", tt.name)
 			}
@@ -350,7 +349,9 @@ func TestBuildExecutionContextMutationRejectsInvalidEnvInheritNames(t *testing.T
 	}
 }
 
-func buildExecuteMutationContextError(opts BuildExecutionContextOptions) error {
+func buildExecuteMutationContextError(t *testing.T, opts BuildExecutionContextOptions) error {
+	t.Helper()
+
 	cmd := &invowkfile.Command{Name: "deploy"}
 	inv := &invowkfile.Invowkfile{}
 	impl := &invowkfile.Implementation{}
@@ -360,7 +361,7 @@ func buildExecuteMutationContextError(opts BuildExecutionContextOptions) error {
 		mode: invowkfile.RuntimeNative,
 		impl: impl,
 	}
-	_, err := BuildExecutionContext(context.Background(), opts)
+	_, err := BuildExecutionContext(t.Context(), opts)
 	return err
 }
 

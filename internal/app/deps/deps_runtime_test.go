@@ -34,7 +34,7 @@ func TestValidateRuntimeDependenciesContainerDelegatesToProbe(t *testing.T) {
 	t.Parallel()
 
 	cmd := runtimeDependencyCommand("build")
-	probe := runtimeDependencyProbe("check-cmd 'build'")
+	probe := runtimeDependencyProbe(t, "check-cmd 'build'")
 
 	err := ValidateRuntimeDependencies(
 		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{Commands: []*discovery.CommandInfo{{Name: "build"}}}}},
@@ -73,15 +73,14 @@ func TestValidateRuntimeDependenciesContainerUsesModuleCommandName(t *testing.T)
 		}},
 	}}}
 	var scripts []string
-	probe := &filepathStubRuntime{
-		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+	probe := newFilepathStubRuntime(t,
+		func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			scripts = append(scripts, string(ctx.SelectedImpl.Script.Content))
 			if strings.Contains(string(ctx.SelectedImpl.Script.Content), "check-cmd 'mod build'") {
 				return &runtimepkg.Result{ExitCode: 0}
 			}
 			return &runtimepkg.Result{ExitCode: 1}
-		},
-	}
+		})
 
 	err := ValidateRuntimeDependencies(
 		disc,
@@ -137,12 +136,11 @@ func TestValidateRuntimeDependenciesChecksScopeBeforeProbe(t *testing.T) {
 			ModuleID:   &depID,
 		}},
 	}}}
-	probe := &filepathStubRuntime{
-		execFn: func(*runtimepkg.ExecutionContext) *runtimepkg.Result {
+	probe := newFilepathStubRuntime(t,
+		func(*runtimepkg.ExecutionContext) *runtimepkg.Result {
 			t.Fatal("container probe should not run after command scope denial")
 			return &runtimepkg.Result{ExitCode: 0}
-		},
-	}
+		})
 
 	err := ValidateRuntimeDependencies(
 		disc,
@@ -183,13 +181,14 @@ func runtimeDependencyCommandInfo(cmd *invowkfile.Command) *discovery.CommandInf
 	}
 }
 
-func runtimeDependencyProbe(scriptFragment string) *filepathStubRuntime {
-	return &filepathStubRuntime{
-		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+func runtimeDependencyProbe(t *testing.T, scriptFragment string) *filepathStubRuntime {
+	t.Helper()
+
+	return newFilepathStubRuntime(t,
+		func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			if strings.Contains(string(ctx.SelectedImpl.Script.Content), scriptFragment) {
 				return &runtimepkg.Result{ExitCode: 0}
 			}
 			return &runtimepkg.Result{ExitCode: 1}
-		},
-	}
+		})
 }

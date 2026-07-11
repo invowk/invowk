@@ -239,3 +239,55 @@ func TestCorrelator_CriticalNotEscalated(t *testing.T) {
 		}
 	}
 }
+
+func TestCorrelatorNamedRuleDeduplicatesEscalationInputs(t *testing.T) {
+	t.Parallel()
+
+	c := mustNewCorrelator(t, DefaultRules())
+	findings := []Finding{
+		{Code: codeEnvSensitiveVar, Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: envCheckerName, Title: "sensitive environment"},
+		{Code: codeEnvSensitiveVar, Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: envCheckerName, Title: "sensitive environment"},
+		{Code: codeNetworkAccessCommand, Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: networkCheckerName, Title: "network access"},
+		{Code: codeNetworkAccessCommand, Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: networkCheckerName, Title: "network access"},
+	}
+
+	result := c.Correlate(findings)
+	for i := range result {
+		if result[i].Code != codeCorrelatorCredentialExfiltration {
+			continue
+		}
+		wantTitles := []string{"sensitive environment", "network access"}
+		wantCodes := []FindingCode{codeEnvSensitiveVar, codeNetworkAccessCommand}
+		if !slices.Equal(result[i].EscalatedFrom, wantTitles) {
+			t.Fatalf("EscalatedFrom = %v, want %v", result[i].EscalatedFrom, wantTitles)
+		}
+		if !slices.Equal(result[i].EscalatedFromCodes, wantCodes) {
+			t.Fatalf("EscalatedFromCodes = %v, want %v", result[i].EscalatedFromCodes, wantCodes)
+		}
+		return
+	}
+	t.Fatal("credential-exfiltration correlation not found")
+}
+
+func TestCorrelatorGenericEscalationDeduplicatesProvenanceIndependently(t *testing.T) {
+	t.Parallel()
+
+	c := mustNewCorrelator(t, nil)
+	findings := []Finding{
+		{Code: "shared-code", Severity: SeverityHigh, Category: CategoryExecution, SurfaceID: "mod1", Title: "first title"},
+		{Code: "shared-code", Severity: SeverityLow, Category: CategoryExecution, SurfaceID: "mod1", Title: "first title"},
+		{Code: "other-code", Severity: SeverityLow, Category: CategoryExecution, SurfaceID: "mod1", Title: "first title"},
+	}
+
+	result := c.Correlate(findings)
+	if len(result) != 1 {
+		t.Fatalf("Correlate() len = %d, want 1", len(result))
+	}
+	if !slices.Equal(result[0].EscalatedFrom, []string{"first title"}) {
+		t.Fatalf("EscalatedFrom = %v, want one unique title", result[0].EscalatedFrom)
+	}
+	wantCodes := []FindingCode{"shared-code", "other-code"}
+	if !slices.Equal(result[0].EscalatedFromCodes, wantCodes) {
+		t.Fatalf("EscalatedFromCodes = %v, want %v", result[0].EscalatedFromCodes, wantCodes)
+	}
+}

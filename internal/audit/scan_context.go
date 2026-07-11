@@ -37,10 +37,12 @@ type (
 	// shared concurrently across all checkers. Derived views (scripts) are
 	// pre-computed at build time to avoid redundant allocations across checkers.
 	ScanContext struct {
-		rootPath    types.FilesystemPath
-		invowkfiles []*ScannedInvowkfile
-		modules     []*ScannedModule
-		scripts     []ScriptRef
+		rootPath      types.FilesystemPath
+		invowkfiles   []*ScannedInvowkfile
+		modules       []*ScannedModule
+		scripts       []ScriptRef
+		luaFileBudget artifactEntryBudget
+		symlinkBudget artifactEntryBudget
 		// diagnostics collects non-fatal warnings from loading (e.g., modules
 		// that failed to load, discovery errors). Surfaced in the audit report
 		// so incomplete scans are visible to operators.
@@ -280,7 +282,14 @@ func (sc *ScanContext) addDiagnostic(code DiagnosticCode, message string, path t
 //   - If path ends with ".invowkmod": single module
 //   - Otherwise: directory tree scan using discovery
 func BuildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) (*ScanContext, error) {
+	return buildScanContext(ctx, scanPath, cfg, includeGlobal, DefaultArtifactEntryLimit)
+}
+
+func buildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *config.Config, includeGlobal bool, limit ArtifactEntryLimit) (*ScanContext, error) {
 	if err := scanContextErr(ctx); err != nil {
+		return nil, &ScanContextBuildError{Path: scanPath, Err: err}
+	}
+	if err := limit.Validate(); err != nil {
 		return nil, &ScanContextBuildError{Path: scanPath, Err: err}
 	}
 
@@ -289,9 +298,7 @@ func BuildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *c
 		return nil, &ScanContextBuildError{Path: scanPath, Err: fmt.Errorf("resolving path: %w", err)}
 	}
 
-	sc := &ScanContext{
-		rootPath: absPath,
-	}
+	sc := newScanContext(absPath, limit)
 
 	if loadErr := sc.loadScanTarget(ctx, absPath, cfg, includeGlobal); loadErr != nil {
 		return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
@@ -302,7 +309,7 @@ func BuildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *c
 	}
 
 	// Pre-compute derived views so checkers share a single allocation.
-	scripts, err := buildScriptRefs(ctx, sc.invowkfiles, sc.modules)
+	scripts, err := sc.buildScriptRefs(ctx)
 	if err != nil {
 		return nil, &ScanContextBuildError{Path: scanPath, Err: err}
 	}
@@ -352,8 +359,9 @@ func scanContextErr(ctx context.Context) error {
 	}
 }
 
-func isScanContextCancellation(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+func isFatalScanContextBuildError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, ErrArtifactEntryLimitExceeded)
 }
 
 func (sc *ScanContext) loadStandaloneInvowkfile(ctx context.Context, absPath types.FilesystemPath) error {
@@ -453,8 +461,9 @@ func (sc *ScanContext) loadScannedModule(
 		return nil, nil, err
 	}
 	sm.VendoredModules = vendored.moduleList()
-	sm.Symlinks, sm.SymlinkScanErr = scanModuleSymlinks(ctx, absPath)
-	if errors.Is(sm.SymlinkScanErr, context.Canceled) || errors.Is(sm.SymlinkScanErr, context.DeadlineExceeded) {
+	sm.Symlinks, sm.SymlinkScanErr = scanModuleSymlinksWithBudget(ctx, absPath, &sc.symlinkBudget)
+	if errors.Is(sm.SymlinkScanErr, context.Canceled) || errors.Is(sm.SymlinkScanErr, context.DeadlineExceeded) ||
+		errors.Is(sm.SymlinkScanErr, ErrArtifactEntryLimitExceeded) {
 		return nil, nil, sm.SymlinkScanErr
 	}
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
@@ -545,7 +554,7 @@ func (sc *ScanContext) loadDirectoryModules(ctx context.Context, absPath types.F
 		}
 		modPath := fspath.JoinStr(absPath, entry.Name())
 		if loadErr := sc.loadSingleModule(ctx, modPath); loadErr != nil {
-			if isScanContextCancellation(loadErr) {
+			if isFatalScanContextBuildError(loadErr) {
 				return loadErr
 			}
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", entry.Name(), loadErr), modPath)
@@ -617,7 +626,7 @@ func (sc *ScanContext) mergeDiscoveryResults(ctx context.Context, files []*disco
 
 			sm, vendored, err := sc.loadScannedModule(ctx, f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule, f.ParentModule != nil)
 			if err != nil {
-				if isScanContextCancellation(err) {
+				if isFatalScanContextBuildError(err) {
 					return err
 				}
 				sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", f.Module.Name(), err), f.Module.Path)
@@ -713,7 +722,7 @@ func (sc *ScanContext) appendVendoredScannedModules(ctx context.Context, vendore
 		}
 		sm, nested, err := sc.loadScannedModule(ctx, artifact.Path, artifact.Module, nil, isGlobal, true)
 		if err != nil {
-			if isScanContextCancellation(err) {
+			if isFatalScanContextBuildError(err) {
 				return err
 			}
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid vendored module %s: %v", artifact.Path, err), artifact.Path)
@@ -734,13 +743,20 @@ func (sc *ScanContext) appendVendoredScannedModules(ctx context.Context, vendore
 }
 
 // buildScriptRefs pre-computes all script references from invowkfiles and modules.
-func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) ([]ScriptRef, error) {
+func (sc *ScanContext) buildScriptRefs(ctx context.Context) ([]ScriptRef, error) {
 	var refs []ScriptRef
-	refs, err := appendInvowkfileScriptRefs(ctx, refs, invowkfiles)
+	refs, err := appendInvowkfileScriptRefs(ctx, refs, sc.invowkfiles)
 	if err != nil {
 		return nil, err
 	}
-	return appendModuleScriptRefs(ctx, refs, modules)
+	return appendModuleScriptRefs(ctx, refs, sc.modules, &sc.luaFileBudget)
+}
+
+func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) ([]ScriptRef, error) {
+	sc := newScanContext("", DefaultArtifactEntryLimit)
+	sc.invowkfiles = invowkfiles
+	sc.modules = modules
+	return sc.buildScriptRefs(ctx)
 }
 
 func appendInvowkfileScriptRefs(ctx context.Context, refs []ScriptRef, invowkfiles []*ScannedInvowkfile) ([]ScriptRef, error) {
@@ -760,7 +776,7 @@ func appendInvowkfileScriptRefs(ctx context.Context, refs []ScriptRef, invowkfil
 	return refs, nil
 }
 
-func appendModuleScriptRefs(ctx context.Context, refs []ScriptRef, modules []*ScannedModule) ([]ScriptRef, error) {
+func appendModuleScriptRefs(ctx context.Context, refs []ScriptRef, modules []*ScannedModule, budget *artifactEntryBudget) ([]ScriptRef, error) {
 	for _, sm := range modules {
 		if err := scanContextErr(ctx); err != nil {
 			return nil, err
@@ -774,7 +790,7 @@ func appendModuleScriptRefs(ctx context.Context, refs []ScriptRef, modules []*Sc
 			}
 		}
 		var err error
-		refs, err = appendLuaFilesFromModule(ctx, refs, sm)
+		refs, err = appendLuaFilesFromModule(ctx, refs, sm, budget)
 		if err != nil {
 			return nil, err
 		}

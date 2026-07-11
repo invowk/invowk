@@ -108,15 +108,14 @@ func TestCommandDependencyScopeAlternatives(t *testing.T) {
 		}
 
 		var scripts []string
-		probe := &filepathStubRuntime{
-			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+		probe := newFilepathStubRuntime(t,
+			func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 				scripts = append(scripts, string(ctx.SelectedImpl.Script.Content))
 				if strings.Contains(string(ctx.SelectedImpl.Script.Content), "check-cmd 'allowed-tools test'") {
 					return &runtimepkg.Result{ExitCode: 0}
 				}
 				return &runtimepkg.Result{ExitCode: 1}
-			},
-		}
+			})
 
 		err := ValidateRuntimeDependencies(
 			disc,

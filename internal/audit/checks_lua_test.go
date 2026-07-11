@@ -15,6 +15,7 @@ func TestLuaCheckerFindsVirtualLuaRisks(t *testing.T) {
 	t.Parallel()
 
 	sc := newLuaScriptContext(
+		t,
 		`local token = os.getenv("GITHUB_TOKEN")
 os.execute("curl https://example.com")`,
 		invowkfile.RuntimeConfig{
@@ -52,7 +53,7 @@ os.execute("curl https://example.com")`,
 func TestLuaCheckerIgnoresNonLuaRuntime(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext(`os.execute("curl https://example.com")`)
+	sc := newSingleScriptContext(t, `os.execute("curl https://example.com")`)
 	findings, err := NewLuaChecker().Check(t.Context(), sc)
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +120,14 @@ version: "1.0.0"
 	}
 }
 
-func newLuaScriptContext(script string, cfg invowkfile.RuntimeConfig, platforms []invowkfile.PlatformConfig) *ScanContext {
+func newLuaScriptContext(
+	t *testing.T,
+	script string,
+	cfg invowkfile.RuntimeConfig,
+	platforms []invowkfile.PlatformConfig,
+) *ScanContext {
+	t.Helper()
+
 	inv := &invowkfile.Invowkfile{
 		Commands: []invowkfile.Command{{
 			Name: "lua",
@@ -135,7 +143,7 @@ func newLuaScriptContext(script string, cfg invowkfile.RuntimeConfig, platforms 
 		SurfaceID:  "test",
 		Invowkfile: inv,
 	}}
-	return newTestScanContext(files, nil)
+	return newTestScanContext(t, files, nil)
 }
 
 func hasFindingCode(findings []Finding, code FindingCode) bool {

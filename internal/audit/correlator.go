@@ -135,30 +135,27 @@ func (c *Correlator) applyRules(surfaceID scanSurfaceID, surfaceKey ScanSurfaceK
 			continue
 		}
 
-		// Collect the titles of findings from the two required checkers.
-		var escalatedFrom []string
-		var escalatedFromCodes []FindingCode
+		// Collect unique provenance from the two required checker sides.
+		var matchingFindings []Finding
 		for i := range findings {
 			if findingMatchesRuleSide(findings[i], rule, correlationRuleSideLeft) ||
 				findingMatchesRuleSide(findings[i], rule, correlationRuleSideRight) {
-				escalatedFrom = append(escalatedFrom, findings[i].Title)
-				escalatedFromCodes = append(escalatedFromCodes, findings[i].CodeOrDefault())
+				matchingFindings = append(matchingFindings, findings[i])
 			}
 		}
-
-		result = append(result, Finding{
-			Code:               ruleFindingCode(rule),
-			Severity:           rule.ResultSeverity,
-			Category:           rule.ResultCategory,
-			SurfaceID:          surfaceID.String(),
-			SurfaceKey:         surfaceKey,
-			CheckerName:        correlatorCheckerName,
-			Title:              rule.ResultTitle,
-			Description:        rule.Description,
-			Recommendation:     rule.ResultRecommendation,
-			EscalatedFrom:      escalatedFrom,
-			EscalatedFromCodes: escalatedFromCodes,
-		})
+		finding := Finding{
+			Code:           ruleFindingCode(rule),
+			Severity:       rule.ResultSeverity,
+			Category:       rule.ResultCategory,
+			SurfaceID:      surfaceID.String(),
+			SurfaceKey:     surfaceKey,
+			CheckerName:    correlatorCheckerName,
+			Title:          rule.ResultTitle,
+			Description:    rule.Description,
+			Recommendation: rule.ResultRecommendation,
+		}
+		attachEscalationInputs(&finding, matchingFindings)
+		result = append(result, finding)
 	}
 
 	return result
@@ -185,7 +182,7 @@ func (s correlationRuleSide) String() string {
 	case correlationRuleSideRight:
 		return "right"
 	default:
-		return "unknown"
+		return artifactUnknownValue
 	}
 }
 
@@ -323,12 +320,18 @@ func attachEscalationInputs(target *Finding, findings []Finding) {
 	}
 	target.EscalatedFrom = make([]string, 0, len(findings))
 	target.EscalatedFromCodes = make([]FindingCode, 0, len(findings))
+	seenTitles := make(map[string]bool, len(findings))
+	seenCodes := make(map[FindingCode]bool, len(findings))
 	for i := range findings {
-		if findings[i].Title != "" {
-			target.EscalatedFrom = append(target.EscalatedFrom, findings[i].Title)
+		title := findings[i].Title
+		if title != "" && !seenTitles[title] {
+			target.EscalatedFrom = append(target.EscalatedFrom, title)
+			seenTitles[title] = true
 		}
-		if code := findings[i].CodeOrDefault(); code != "" {
+		code := findings[i].CodeOrDefault()
+		if code != "" && !seenCodes[code] {
 			target.EscalatedFromCodes = append(target.EscalatedFromCodes, code)
+			seenCodes[code] = true
 		}
 	}
 }

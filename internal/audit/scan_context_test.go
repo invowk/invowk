@@ -620,7 +620,7 @@ func TestBuildScanContextWarnsAndIgnoresNestedVendoredModules(t *testing.T) {
 func TestScanContextModulesReturnsCheckerOwnedSnapshots(t *testing.T) {
 	t.Parallel()
 
-	sc := newModuleOnlyContext(&ScannedModule{
+	sc := newModuleOnlyContext(t, &ScannedModule{
 		SurfaceID: "root",
 		Module: &invowkmod.Module{
 			Metadata: &invowkmod.Invowkmod{

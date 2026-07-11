@@ -51,8 +51,8 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T2-C06 | `context.Background()` only used in `TestMain`, package-level init, or `env.Defer()` callbacks — with comment explaining why | All test files | WARNING |
 | T2-C07 | `b.Context()` used in benchmarks (not `t.Context()` or `context.Background()`) | All benchmark files | WARNING |
 | T2-C08 | Tests using `os.MkdirTemp` + `defer os.RemoveAll` do not have `t.Parallel()` subtests (use `t.TempDir()` instead) | Tests with temp dirs + parallel subtests | ERROR |
-| T2-C09 | Container integration tests use `testutil.ContainerTestContext()` not bare `t.Context()` | `internal/runtime/container*_test.go` | ERROR |
-| T2-C10 | Container integration tests acquire `testutil.ContainerSemaphore()` after `t.Parallel()` and `testing.Short()` skip | `internal/runtime/container*_test.go`, `internal/container/*_test.go` | ERROR |
+| T2-C09 | Container integration tests that call real-engine `Execute()`, `ExecuteCapture()`, or equivalent subprocess operations use `testutil.ContainerTestContext()` instead of bare `t.Context()`. Exclude `Validate()`-only, type-assertion, mocked-engine, and pre-engine error-path tests. | `internal/runtime/container*_test.go` | ERROR |
+| T2-C10 | Container integration tests that perform real engine operations acquire `testutil.ContainerSemaphore()` after `t.Parallel()` and the `testing.Short()` skip. Exclude `Validate()`-only, type-assertion, mocked-engine, and pre-engine error-path tests. | `internal/runtime/container*_test.go`, `internal/container/*_test.go` | ERROR |
 | T2-C11 | No shared `MockCommandRecorder` across parallel subtests (each needs own instance) | `internal/container/*mock*_test.go` | ERROR |
 | T2-C12 | No `maps.Copy` needed where `for k, v := range` loop clones full map (modernize linter) | All test files | INFO |
 
@@ -96,7 +96,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | ID | Check | File Scope | Severity |
 |---|---|---|---|
 | T4-C01 | All tests requiring external resources (container engine, network) check `testing.Short()` | Integration test files | ERROR |
-| T4-C02 | Container tests use all 5 timeout layers (per-test deadline, cleanup, CI timeout, semaphore, bounded context) | `tests/cli/cmd_container_test.go`, `tests/cli/container_harness.go`, `internal/runtime/container*_test.go` | WARNING |
+| T4-C02 | Container tests that perform real engine operations use every timeout/cleanup layer applicable to their shape: testscript deadline and cleanup for CLI tests, CI timeout, semaphore, and bounded operation context. Do not require engine-operation layers for `Validate()`-only, type-assertion, mocked-engine, or pre-engine error-path tests. | `tests/cli/cmd_container_test.go`, `tests/cli/container_harness.go`, `internal/runtime/container*_test.go` | WARNING |
 | T4-C03 | Container test `Setup` sets `HOME` to `env.WorkDir` (not `/no-home`) | `tests/cli/cmd_test.go`, `tests/cli/cmd_container_test.go` | ERROR |
 | T4-C04 | Container availability check runs actual smoke test (`debian:stable-slim` pull + `echo ok`), not just CLI version probe | `tests/cli/container_harness.go` | WARNING |
 | T4-C05 | Container cleanup uses `env.Defer()` (not `t.Cleanup()` in testscript context) | `tests/cli/cmd_container_test.go` | WARNING |

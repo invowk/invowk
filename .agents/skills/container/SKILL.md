@@ -127,7 +127,7 @@ Containerfile validation is layered:
 | Checking only `err` after `Engine.Run` | Also inspect `RunResult.Error` and `RunResult.ExitCode` |
 | Persistent lifecycle bypasses coordination | Acquire through `LifecycleCoordinator` and release on every exit path |
 | Shared mutable mock recorder in parallel tests | Create a recorder and engine per test/subtest |
-| Container test without bounded context/cleanup | Use the container semaphore, `ContainerTestContext`, and deferred cleanup |
+| Real-engine container operation without bounded context/cleanup | Use the container semaphore, `ContainerTestContext`, and deferred cleanup; do not add them to `Validate()`-only, type-assertion, mocked-engine, or pre-engine error-path tests |
 | Podman prepared-command lease released before `Wait` | Compose cleanup with the command lifecycle and release after process exit |
 
 ## Focused Verification
