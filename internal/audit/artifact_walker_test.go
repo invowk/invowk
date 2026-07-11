@@ -247,29 +247,41 @@ func TestArtifactWalkerClosesReaderOnVisitorFailure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			reader := &recordingArtifactDirectory{entries: []fs.DirEntry{fakeArtifactDirEntry{name: "child"}}}
-			budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, root)
-			err := walkArtifactTreeWithOpener(
-				t.Context(), root, ArtifactKindLuaFile, &budget,
-				func(_ context.Context, path types.FilesystemPath, _ fs.DirEntry) (artifactWalkAction, error) {
-					if path == root {
-						return artifactWalkContinue, nil
-					}
-					return tt.action, tt.err
-				},
-				func(types.FilesystemPath) (artifactDirectoryReader, error) { return reader, nil },
-			)
-			if tt.want != nil && !errors.Is(err, tt.want) {
-				t.Fatalf("walkArtifactTreeWithOpener() error = %v, want %v", err, tt.want)
-			}
-			if tt.wantText != "" && (err == nil || !strings.Contains(err.Error(), tt.wantText)) {
-				t.Fatalf("walkArtifactTreeWithOpener() error = %v, want text %q", err, tt.wantText)
-			}
-			if !reader.closed {
-				t.Fatal("walkArtifactTreeWithOpener() did not close the reader after visitor failure")
-			}
+			assertArtifactWalkerVisitorFailure(t, root, tt.action, tt.err, tt.want, tt.wantText)
 		})
+	}
+}
+
+func assertArtifactWalkerVisitorFailure(
+	t *testing.T,
+	root types.FilesystemPath,
+	action artifactWalkAction,
+	visitorErr error,
+	want error,
+	wantText string,
+) {
+	t.Helper()
+
+	reader := &recordingArtifactDirectory{entries: []fs.DirEntry{fakeArtifactDirEntry{name: "child"}}}
+	budget := newScopedArtifactEntryBudget(DefaultArtifactEntryLimit, root)
+	err := walkArtifactTreeWithOpener(
+		t.Context(), root, ArtifactKindLuaFile, &budget,
+		func(_ context.Context, path types.FilesystemPath, _ fs.DirEntry) (artifactWalkAction, error) {
+			if path == root {
+				return artifactWalkContinue, nil
+			}
+			return action, visitorErr
+		},
+		func(types.FilesystemPath) (artifactDirectoryReader, error) { return reader, nil },
+	)
+	if want != nil && !errors.Is(err, want) {
+		t.Fatalf("walkArtifactTreeWithOpener() error = %v, want %v", err, want)
+	}
+	if wantText != "" && (err == nil || !strings.Contains(err.Error(), wantText)) {
+		t.Fatalf("walkArtifactTreeWithOpener() error = %v, want text %q", err, wantText)
+	}
+	if !reader.closed {
+		t.Fatal("walkArtifactTreeWithOpener() did not close the reader after visitor failure")
 	}
 }
 

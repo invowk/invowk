@@ -194,7 +194,7 @@ func openArtifactDirectoryForWalk(
 	reader, err := opener(directory)
 	if ctxErr := scanContextErr(ctx); ctxErr != nil {
 		if reader != nil {
-			if closeErr := reader.Close(); closeErr != nil {
+			if reader.Close() != nil {
 				return nil, ctxErr
 			}
 		}
