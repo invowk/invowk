@@ -157,61 +157,92 @@ func extractTmuxTUICommands(filename string, source []byte) (map[string]bool, er
 		if !ok || fn.Body == nil {
 			continue
 		}
-		commandVariables := make(map[string]string)
-		ast.Inspect(fn.Body, func(node ast.Node) bool {
-			if assignment, ok := node.(*ast.AssignStmt); ok && len(assignment.Lhs) == len(assignment.Rhs) {
-				for i, lhs := range assignment.Lhs {
-					name, ok := lhs.(*ast.Ident)
-					if !ok {
-						continue
-					}
-					if command, ok := tmuxCommandLiteral(assignment.Rhs[i]); ok {
-						commandVariables[name.Name] = command
-					}
-				}
-			}
-
-			call, ok := node.(*ast.CallExpr)
-			if !ok || len(call.Args) == 0 {
-				return true
-			}
-			selector, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || selector.Sel.Name != "sendKeys" {
-				return true
-			}
-
-			command, ok := tmuxCommandLiteral(call.Args[0])
-			if !ok {
-				if variable, variableOK := call.Args[0].(*ast.Ident); variableOK {
-					command, ok = commandVariables[variable.Name]
-				}
-			}
-			if !ok {
-				return true
-			}
-			fields := strings.Fields(command)
-			if len(fields) >= 2 && fields[0] == "tui" {
-				covered[strings.Join(fields[:2], " ")] = true
-			}
-			return true
-		})
+		collectTmuxTUICommands(fn.Body, covered)
 	}
 	return covered, nil
 }
 
-func tmuxCommandLiteral(expr ast.Expr) (string, bool) {
-	concat, ok := expr.(*ast.BinaryExpr)
-	if ok && concat.Op == token.ADD {
-		binaryPath, binaryOK := concat.X.(*ast.Ident)
-		literal, literalOK := concat.Y.(*ast.BasicLit)
-		if binaryOK && binaryPath.Name == "binaryPath" && literalOK && literal.Kind == token.STRING {
-			command, err := strconv.Unquote(literal.Value)
-			if err == nil {
-				return strings.TrimSpace(command), true
-			}
+func collectTmuxTUICommands(body *ast.BlockStmt, covered map[string]bool) {
+	commandVariables := make(map[string]string)
+	ast.Inspect(body, func(node ast.Node) bool {
+		recordTmuxCommandVariables(node, commandVariables)
+		command, ok := tmuxSendKeysCommand(node, commandVariables)
+		if !ok {
+			return true
+		}
+		if commandPath, ok := tuiCommandPath(command); ok {
+			covered[commandPath] = true
+		}
+		return true
+	})
+}
+
+func recordTmuxCommandVariables(node ast.Node, commandVariables map[string]string) {
+	assignment, ok := node.(*ast.AssignStmt)
+	if !ok || len(assignment.Lhs) != len(assignment.Rhs) {
+		return
+	}
+	for i, lhs := range assignment.Lhs {
+		name, ok := lhs.(*ast.Ident)
+		if !ok {
+			continue
+		}
+		if command, ok := tmuxCommandLiteral(assignment.Rhs[i]); ok {
+			commandVariables[name.Name] = command
 		}
 	}
+}
 
+func tmuxSendKeysCommand(node ast.Node, commandVariables map[string]string) (string, bool) {
+	call, ok := node.(*ast.CallExpr)
+	if !ok || len(call.Args) == 0 {
+		return "", false
+	}
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || selector.Sel.Name != "sendKeys" {
+		return "", false
+	}
+	if command, literalOK := tmuxCommandLiteral(call.Args[0]); literalOK {
+		return command, true
+	}
+	variable, ok := call.Args[0].(*ast.Ident)
+	if !ok {
+		return "", false
+	}
+	command, ok := commandVariables[variable.Name]
+	return command, ok
+}
+
+func tuiCommandPath(command string) (string, bool) {
+	fields := strings.Fields(command)
+	if len(fields) < 2 || fields[0] != "tui" {
+		return "", false
+	}
+	return strings.Join(fields[:2], " "), true
+}
+
+func tmuxCommandLiteral(expr ast.Expr) (string, bool) {
+	if command, ok := tmuxBinaryCommandLiteral(expr); ok {
+		return command, true
+	}
+	return tmuxSprintfCommandLiteral(expr)
+}
+
+func tmuxBinaryCommandLiteral(expr ast.Expr) (string, bool) {
+	concat, ok := expr.(*ast.BinaryExpr)
+	if !ok || concat.Op != token.ADD {
+		return "", false
+	}
+	binaryPath, binaryOK := concat.X.(*ast.Ident)
+	literal, literalOK := concat.Y.(*ast.BasicLit)
+	if !binaryOK || binaryPath.Name != "binaryPath" || !literalOK {
+		return "", false
+	}
+	value, ok := stringLiteralValue(literal)
+	return strings.TrimSpace(value), ok
+}
+
+func tmuxSprintfCommandLiteral(expr ast.Expr) (string, bool) {
 	call, ok := expr.(*ast.CallExpr)
 	if !ok || len(call.Args) < 2 {
 		return "", false
@@ -232,11 +263,22 @@ func tmuxCommandLiteral(expr ast.Expr) (string, bool) {
 	if !ok || binaryPath.Name != "binaryPath" {
 		return "", false
 	}
-	format, err := strconv.Unquote(formatLiteral.Value)
-	if err != nil || !strings.HasPrefix(format, "%s ") {
+	format, ok := stringLiteralValue(formatLiteral)
+	if !ok || !strings.HasPrefix(format, "%s ") {
 		return "", false
 	}
 	return strings.TrimSpace(strings.TrimPrefix(format, "%s")), true
+}
+
+func stringLiteralValue(literal *ast.BasicLit) (string, bool) {
+	if literal.Kind != token.STRING {
+		return "", false
+	}
+	value, err := strconv.Unquote(literal.Value)
+	if err != nil {
+		return "", false
+	}
+	return value, true
 }
 
 func tuiTmuxCoverageIssues(exemptions map[string]string, covered map[string]bool) []string {

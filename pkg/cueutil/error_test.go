@@ -110,23 +110,27 @@ func TestCheckFileSize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			err := CheckFileSize(tt.data, 100, "test.cue")
-			if !tt.wantErr {
-				if err != nil {
-					t.Errorf("expected nil, got %v", err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			for _, part := range []string{"test.cue", "101", "100"} {
-				if !strings.Contains(err.Error(), part) {
-					t.Errorf("error should contain %q, got: %v", part, err)
-				}
-			}
+			requireFileSizeCheck(t, CheckFileSize(tt.data, 100, "test.cue"), tt.wantErr)
 		})
+	}
+}
+
+func requireFileSizeCheck(t *testing.T, err error, wantErr bool) {
+	t.Helper()
+
+	if !wantErr {
+		if err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	for _, part := range []string{"test.cue", "101", "100"} {
+		if !strings.Contains(err.Error(), part) {
+			t.Errorf("error should contain %q, got: %v", part, err)
+		}
 	}
 }
 

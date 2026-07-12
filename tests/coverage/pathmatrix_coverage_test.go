@@ -228,6 +228,14 @@ type (
 		pkgPath string
 		file    *ast.File
 	}
+
+	pathContractEvidenceVisitor struct {
+		member            string
+		receiver          string
+		matrixCall        bool
+		memberReference   bool
+		receiverReference bool
+	}
 )
 
 // TestPathMatrixSurfaces_AreCovered verifies every discovered production path
@@ -387,63 +395,109 @@ func TestBound(t *T) {
 // and resolution methods on string-backed path value types, plus path-named
 // validation and resolution functions with compatible signatures.
 func discoverPathContractSymbols(repoRoot string) (map[string]string, error) {
+	files, err := loadProductionGoFiles(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	pathTypes := discoverStringBackedPathTypes(files)
+	return discoverEligiblePathFunctions(files, pathTypes), nil
+}
+
+func loadProductionGoFiles(repoRoot string) ([]productionGoFile, error) {
 	var files []productionGoFile
 	for _, top := range []string{"cmd", "internal", "pkg"} {
 		root := filepath.Join(repoRoot, top)
 		if _, err := os.Stat(root); os.IsNotExist(err) {
 			continue
 		}
-		err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if entry.IsDir() {
-				if entry.Name() == "testdata" || entry.Name() == "pathmatrix" {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
-				return nil
-			}
-
-			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.SkipObjectResolution|parser.ParseComments)
-			if err != nil {
-				return fmt.Errorf("parse %s: %w", path, err)
-			}
-			rel, err := filepath.Rel(repoRoot, path)
-			if err != nil {
-				return fmt.Errorf("relative path for %s: %w", path, err)
-			}
-			pkgPath := filepath.ToSlash(filepath.Dir(rel))
-			files = append(files, productionGoFile{relPath: filepath.ToSlash(rel), pkgPath: pkgPath, file: file})
-			return nil
-		})
+		discovered, err := loadProductionGoRoot(repoRoot, root)
 		if err != nil {
 			return nil, fmt.Errorf("walk production tree %s: %w", root, err)
 		}
+		files = append(files, discovered...)
 	}
+	return files, nil
+}
 
+func loadProductionGoRoot(repoRoot, root string) ([]productionGoFile, error) {
+	var files []productionGoFile
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return productionDirectoryAction(entry.Name())
+		}
+		if !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			return nil
+		}
+		parsed, err := parseProductionGoFile(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, parsed)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk files under %s: %w", root, err)
+	}
+	return files, nil
+}
+
+func productionDirectoryAction(name string) error {
+	if name == "testdata" || name == "pathmatrix" {
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+func parseProductionGoFile(repoRoot, path string) (productionGoFile, error) {
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.SkipObjectResolution|parser.ParseComments)
+	if err != nil {
+		return productionGoFile{}, fmt.Errorf("parse %s: %w", path, err)
+	}
+	rel, err := filepath.Rel(repoRoot, path)
+	if err != nil {
+		return productionGoFile{}, fmt.Errorf("relative path for %s: %w", path, err)
+	}
+	return productionGoFile{
+		relPath: filepath.ToSlash(rel),
+		pkgPath: filepath.ToSlash(filepath.Dir(rel)),
+		file:    file,
+	}, nil
+}
+
+func discoverStringBackedPathTypes(files []productionGoFile) map[string]map[string]bool {
 	pathTypes := make(map[string]map[string]bool)
 	for _, parsed := range files {
-		for _, decl := range parsed.file.Decls {
-			gen, ok := decl.(*ast.GenDecl)
-			if !ok || gen.Tok != token.TYPE {
-				continue
+		for _, name := range stringBackedPathTypeNames(parsed.file) {
+			if pathTypes[parsed.pkgPath] == nil {
+				pathTypes[parsed.pkgPath] = make(map[string]bool)
 			}
-			for _, spec := range gen.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || !isStringBackedPathType(typeSpec) {
-					continue
-				}
-				if pathTypes[parsed.pkgPath] == nil {
-					pathTypes[parsed.pkgPath] = make(map[string]bool)
-				}
-				pathTypes[parsed.pkgPath][typeSpec.Name.Name] = true
+			pathTypes[parsed.pkgPath][name] = true
+		}
+	}
+	return pathTypes
+}
+
+func stringBackedPathTypeNames(file *ast.File) []string {
+	var names []string
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.TYPE {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if ok && isStringBackedPathType(typeSpec) {
+				names = append(names, typeSpec.Name.Name)
 			}
 		}
 	}
+	return names
+}
 
+func discoverEligiblePathFunctions(files []productionGoFile, pathTypes map[string]map[string]bool) map[string]string {
 	discovered := make(map[string]string)
 	for _, parsed := range files {
 		for _, decl := range parsed.file.Decls {
@@ -463,7 +517,7 @@ func discoverPathContractSymbols(repoRoot string) (map[string]string, error) {
 			discovered[symbol] = parsed.relPath
 		}
 	}
-	return discovered, nil
+	return discovered
 }
 
 func isStringBackedPathType(spec *ast.TypeSpec) bool {
@@ -576,56 +630,76 @@ func testFunctionContractEvidence(t *testing.T, path, testFunc, symbol string) (
 	if err != nil {
 		t.Fatalf("parse %s: %v", path, err)
 	}
-	var testDecl *ast.FuncDecl
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Recv == nil && fn.Name.Name == testFunc {
-			testDecl = fn
-			break
-		}
-	}
+	testDecl := findTestFunction(f, testFunc)
 	if testDecl == nil {
 		t.Fatalf("test function %s not found in %s", testFunc, path)
 	}
 
+	member, receiver := splitPathContractSymbol(symbol)
+	visitor := &pathContractEvidenceVisitor{
+		member:            member,
+		receiver:          receiver,
+		receiverReference: receiver == "",
+	}
+	ast.Walk(visitor, testDecl)
+	return visitor.matrixCall, visitor.memberReference && visitor.receiverReference
+}
+
+func findTestFunction(file *ast.File, name string) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Recv == nil && fn.Name.Name == name {
+			return fn
+		}
+	}
+	return nil
+}
+
+func splitPathContractSymbol(symbol string) (member, receiver string) {
 	parts := strings.Split(symbol, ".")
-	member := parts[len(parts)-1]
-	receiver := ""
+	member = parts[len(parts)-1]
 	if len(parts) >= 3 {
 		receiver = parts[len(parts)-2]
 	}
-	matrixCall := false
-	memberReference := false
-	receiverReference := receiver == ""
-	ast.Inspect(testDecl, func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.CallExpr:
-			sel, ok := node.Fun.(*ast.SelectorExpr)
-			if !ok {
-				return true
-			}
-			pkg, ok := sel.X.(*ast.Ident)
-			if ok && pkg.Name == "pathmatrix" {
-				switch sel.Sel.Name {
-				case "Validator", "Resolver", "VolumeMount":
-					matrixCall = true
-				}
-			}
-		case *ast.Ident:
-			if node.Name == member {
-				memberReference = true
-			}
-			if node.Name == receiver {
-				receiverReference = true
-			}
-		case *ast.SelectorExpr:
-			if node.Sel.Name == member {
-				memberReference = true
-			}
+	return member, receiver
+}
+
+func (v *pathContractEvidenceVisitor) Visit(node ast.Node) ast.Visitor {
+	switch current := node.(type) {
+	case *ast.CallExpr:
+		v.recordPathmatrixCall(current)
+	case *ast.Ident:
+		v.recordIdentifier(current)
+	case *ast.SelectorExpr:
+		if current.Sel.Name == v.member {
+			v.memberReference = true
 		}
-		return true
-	})
-	return matrixCall, memberReference && receiverReference
+	}
+	return v
+}
+
+func (v *pathContractEvidenceVisitor) recordPathmatrixCall(call *ast.CallExpr) {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return
+	}
+	pkg, ok := selector.X.(*ast.Ident)
+	if !ok || pkg.Name != "pathmatrix" {
+		return
+	}
+	switch selector.Sel.Name {
+	case "Validator", "Resolver", "VolumeMount":
+		v.matrixCall = true
+	}
+}
+
+func (v *pathContractEvidenceVisitor) recordIdentifier(identifier *ast.Ident) {
+	if identifier.Name == v.member {
+		v.memberReference = true
+	}
+	if identifier.Name == v.receiver {
+		v.receiverReference = true
+	}
 }
 
 // mustRepoRoot walks parents from this file until it finds go.mod, then

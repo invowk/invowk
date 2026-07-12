@@ -13,13 +13,23 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-type testEmbeddableComponent struct {
-	done      bool
-	cancelled bool
-	result    any
-	err       error
-	view      string
-}
+type (
+	testEmbeddableComponent struct {
+		done      bool
+		cancelled bool
+		result    any
+		err       error
+		view      string
+	}
+
+	styledTextRequestCase struct {
+		name      string
+		options   any
+		wantErr   bool
+		wantText  string
+		wantWidth int
+	}
+)
 
 func (c *testEmbeddableComponent) Init() tea.Cmd { return nil }
 
@@ -215,13 +225,7 @@ func TestInteractiveModel_HandleTUIComponentRequest_ValidDispatch(t *testing.T) 
 func TestInteractiveModel_HandleStyledTextRequest(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name      string
-		options   any
-		wantErr   bool
-		wantText  string
-		wantWidth int
-	}{
+	tests := []styledTextRequestCase{
 		{name: "appends newline", options: StyledTextOptions{Text: types.DescriptionText("status")}, wantText: "status"},
 		{name: "preserves newline", options: StyledTextOptions{Text: types.DescriptionText("status\n")}, wantText: "status"},
 		{name: "option width fills empty style width", options: StyledTextOptions{Text: types.DescriptionText("x"), Width: 10}, wantText: "x", wantWidth: 10},
@@ -244,30 +248,36 @@ func TestInteractiveModel_HandleStyledTextRequest(t *testing.T) {
 				t.Fatal("styled text command != nil, want synchronous model update")
 			}
 			response := <-responseCh
-			if (response.Err != nil) != tt.wantErr {
-				t.Fatalf("response error = %v, wantErr %t", response.Err, tt.wantErr)
-			}
 			got := updated.(*interactiveModel)
-			if got.state != stateExecuting || got.activeComponent != nil {
-				t.Fatalf("styled text state = %v with component %T, want executing without component", got.state, got.activeComponent)
-			}
-			content := got.content.String()
-			if tt.wantText != "" && (!strings.Contains(content, tt.wantText) || !strings.HasSuffix(content, "\n")) {
-				t.Errorf("content = %q, want text %q ending in newline", content, tt.wantText)
-			}
-			if tt.wantErr && content != "" {
-				t.Errorf("content = %q after rejected options, want empty", content)
-			}
-			if tt.wantWidth > 0 {
-				line := strings.TrimSuffix(content, "\n")
-				if width := lipgloss.Width(line); width != tt.wantWidth {
-					t.Errorf("styled text width = %d, want %d; content %q", width, tt.wantWidth, content)
-				}
-			}
-			if !tt.wantErr && !strings.Contains(got.viewport.View(), tt.wantText) {
-				t.Errorf("viewport = %q, want styled text", got.viewport.View())
-			}
+			assertStyledTextRequest(t, tt, response, got)
 		})
+	}
+}
+
+func assertStyledTextRequest(t *testing.T, tt styledTextRequestCase, response ComponentResponse, got *interactiveModel) {
+	t.Helper()
+
+	if (response.Err != nil) != tt.wantErr {
+		t.Fatalf("response error = %v, wantErr %t", response.Err, tt.wantErr)
+	}
+	if got.state != stateExecuting || got.activeComponent != nil {
+		t.Fatalf("styled text state = %v with component %T, want executing without component", got.state, got.activeComponent)
+	}
+	content := got.content.String()
+	if tt.wantText != "" && (!strings.Contains(content, tt.wantText) || !strings.HasSuffix(content, "\n")) {
+		t.Errorf("content = %q, want text %q ending in newline", content, tt.wantText)
+	}
+	if tt.wantErr && content != "" {
+		t.Errorf("content = %q after rejected options, want empty", content)
+	}
+	if tt.wantWidth > 0 {
+		line := strings.TrimSuffix(content, "\n")
+		if width := lipgloss.Width(line); width != tt.wantWidth {
+			t.Errorf("styled text width = %d, want %d; content %q", width, tt.wantWidth, content)
+		}
+	}
+	if !tt.wantErr && !strings.Contains(got.viewport.View(), tt.wantText) {
+		t.Errorf("viewport = %q, want styled text", got.viewport.View())
 	}
 }
 

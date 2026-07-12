@@ -47,25 +47,30 @@ func TestExecutionState_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			err := tt.state.validate()
-			if !tt.wantErr {
-				if err != nil {
-					t.Errorf("validate() error = %v", err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatal("validate() error = nil, want invalid state error")
-			}
-			var stateErr *invalidExecutionStateError
-			if !errors.As(err, &stateErr) {
-				t.Fatalf("error type = %T, want *invalidExecutionStateError", err)
-			}
-			if stateErr.value != tt.state {
-				t.Errorf("error value = %d, want %d", stateErr.value, tt.state)
-			}
+			assertExecutionStateValidation(t, tt.state, tt.wantErr)
 		})
+	}
+}
+
+func assertExecutionStateValidation(t *testing.T, state executionState, wantErr bool) {
+	t.Helper()
+
+	err := state.validate()
+	if !wantErr {
+		if err != nil {
+			t.Errorf("validate() error = %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("validate() error = nil, want invalid state error")
+	}
+	var stateErr *invalidExecutionStateError
+	if !errors.As(err, &stateErr) {
+		t.Fatalf("error type = %T, want *invalidExecutionStateError", err)
+	}
+	if stateErr.value != state {
+		t.Errorf("error value = %d, want %d", stateErr.value, state)
 	}
 }
 

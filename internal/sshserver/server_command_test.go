@@ -48,6 +48,22 @@ type (
 		width  int
 		height int
 	}
+
+	interactiveShellCase struct {
+		name     string
+		exitCode string
+		wantExit int
+	}
+
+	interactiveShellFixture struct {
+		t           *testing.T
+		srv         *Server
+		ptyFile     *os.File
+		startCalls  chan interactiveStartCall
+		copyCalls   chan interactiveCopyCall
+		resizeCalls chan interactiveResizeCall
+		commandName string
+	}
 )
 
 func newTestSSHSession(t *testing.T, command, environ []string, stdin string) *testSSHSession {
@@ -175,90 +191,138 @@ func TestRunCommandLaunchFailure(t *testing.T) {
 func TestRunInteractiveShell(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
-		exitCode string
-		wantExit int
-	}{
+	tests := []interactiveShellCase{
 		{name: "successful shell", exitCode: "0", wantExit: 0},
 		{name: "nonzero shell exit", exitCode: "7", wantExit: 7},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
-			var commandName string
-			srv := newCommandTestServer(t, func(name string, args []string) {
-				commandName = name
-				if len(args) != 0 {
-					t.Errorf("interactive shell args = %q, want none", args)
-				}
-			})
-
-			ptyFile, err := os.CreateTemp(t.TempDir(), "interactive-pty-*")
-			if err != nil {
-				t.Fatalf("CreateTemp() error = %v", err)
-			}
-			startCalls := make(chan interactiveStartCall, 1)
-			srv.startPTY = func(cmd *exec.Cmd) (*os.File, error) {
-				startCalls <- interactiveStartCall{env: slices.Clone(cmd.Env), waitDelay: cmd.WaitDelay}
-				if startErr := cmd.Start(); startErr != nil {
-					return nil, startErr
-				}
-				return ptyFile, nil
-			}
-
-			copyCalls := make(chan interactiveCopyCall, 2)
-			srv.copyBuffer = func(dst io.Writer, src io.Reader) (int64, error) {
-				copyCalls <- interactiveCopyCall{dst: dst, src: src}
-				return 0, nil
-			}
-			resizeCalls := make(chan interactiveResizeCall, 1)
-			srv.setWinsize = func(_ *os.File, width, height int) {
-				resizeCalls <- interactiveResizeCall{width: width, height: height}
-			}
-
-			windows := make(chan ssh.Window, 1)
-			windows <- ssh.Window{Width: 132, Height: 43}
-			close(windows)
-			session := newTestSSHSession(t, nil, commandHelperEnv("", "", tt.exitCode), "input")
-			session.environ = append(session.environ, "SESSION_VALUE=present")
-			session.pty = ssh.Pty{Term: "xterm-256color"}
-			session.windows = windows
-			session.hasPTY = true
-
-			srv.runInteractiveShell(session)
-
-			if commandName != string(DefaultConfig().DefaultShell) {
-				t.Errorf("interactive shell command = %q, want %q", commandName, DefaultConfig().DefaultShell)
-			}
-			if session.exitCode != tt.wantExit {
-				t.Errorf("interactive shell exit = %d, want %d", session.exitCode, tt.wantExit)
-			}
-			start := receiveInteractiveCall(t, startCalls, "PTY start")
-			if start.waitDelay != cmdWaitDelay {
-				t.Errorf("WaitDelay = %v, want %v", start.waitDelay, cmdWaitDelay)
-			}
-			for _, env := range []string{"SESSION_VALUE=present", "TERM=xterm-256color"} {
-				if !slices.Contains(start.env, env) {
-					t.Errorf("command env missing %q: %v", env, start.env)
-				}
-			}
-
-			resize := receiveInteractiveCall(t, resizeCalls, "window resize")
-			if resize.width != 132 || resize.height != 43 {
-				t.Errorf("resize = %dx%d, want 132x43", resize.width, resize.height)
-			}
-			firstCopy := receiveInteractiveCall(t, copyCalls, "first stream copy")
-			secondCopy := receiveInteractiveCall(t, copyCalls, "second stream copy")
-			copies := []interactiveCopyCall{firstCopy, secondCopy}
-			if !hasInteractiveCopy(copies, ptyFile, session) || !hasInteractiveCopy(copies, session, ptyFile) {
-				t.Errorf("copy calls = %#v, want session->PTY and PTY->session", copies)
-			}
-			if _, writeErr := ptyFile.WriteString("closed"); !errors.Is(writeErr, os.ErrClosed) {
-				t.Errorf("PTY write after run error = %v, want os.ErrClosed", writeErr)
-			}
+			runInteractiveShellCase(t, tt)
 		})
+	}
+}
+
+func runInteractiveShellCase(t *testing.T, tt interactiveShellCase) {
+	t.Helper()
+
+	fixture := newInteractiveShellFixture(t)
+	session := newInteractiveShellSession(t, tt.exitCode)
+	fixture.srv.runInteractiveShell(session)
+
+	assertInteractiveShellCommand(t, fixture.commandName, session.exitCode, tt.wantExit)
+	assertInteractiveShellStart(t, receiveInteractiveCall(t, fixture.startCalls, "PTY start"))
+	assertInteractiveShellResize(t, receiveInteractiveCall(t, fixture.resizeCalls, "window resize"))
+	assertInteractiveShellCopies(t, fixture, session)
+	assertPTYClosed(t, fixture.ptyFile)
+}
+
+func newInteractiveShellFixture(t *testing.T) *interactiveShellFixture {
+	t.Helper()
+
+	fixture := &interactiveShellFixture{
+		t:           t,
+		startCalls:  make(chan interactiveStartCall, 1),
+		copyCalls:   make(chan interactiveCopyCall, 2),
+		resizeCalls: make(chan interactiveResizeCall, 1),
+	}
+	fixture.srv = newCommandTestServer(t, fixture.recordCommand)
+	ptyFile, err := os.CreateTemp(t.TempDir(), "interactive-pty-*")
+	if err != nil {
+		t.Fatalf("CreateTemp() error = %v", err)
+	}
+	fixture.ptyFile = ptyFile
+	fixture.srv.startPTY = fixture.startPTY
+	fixture.srv.copyBuffer = fixture.copyBuffer
+	fixture.srv.setWinsize = fixture.setWinsize
+	return fixture
+}
+
+func (f *interactiveShellFixture) recordCommand(name string, args []string) {
+	f.commandName = name
+	if len(args) != 0 {
+		f.t.Errorf("interactive shell args = %q, want none", args)
+	}
+}
+
+func (f *interactiveShellFixture) startPTY(cmd *exec.Cmd) (*os.File, error) {
+	f.startCalls <- interactiveStartCall{env: slices.Clone(cmd.Env), waitDelay: cmd.WaitDelay}
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return f.ptyFile, nil
+}
+
+func (f *interactiveShellFixture) copyBuffer(dst io.Writer, src io.Reader) (int64, error) {
+	f.copyCalls <- interactiveCopyCall{dst: dst, src: src}
+	return 0, nil
+}
+
+func (f *interactiveShellFixture) setWinsize(_ *os.File, width, height int) {
+	f.resizeCalls <- interactiveResizeCall{width: width, height: height}
+}
+
+func newInteractiveShellSession(t *testing.T, exitCode string) *testSSHSession {
+	t.Helper()
+
+	windows := make(chan ssh.Window, 1)
+	windows <- ssh.Window{Width: 132, Height: 43}
+	close(windows)
+	session := newTestSSHSession(t, nil, commandHelperEnv("", "", exitCode), "input")
+	session.environ = append(session.environ, "SESSION_VALUE=present")
+	session.pty = ssh.Pty{Term: "xterm-256color"}
+	session.windows = windows
+	session.hasPTY = true
+	return session
+}
+
+func assertInteractiveShellCommand(t *testing.T, commandName string, gotExit, wantExit int) {
+	t.Helper()
+
+	if commandName != string(DefaultConfig().DefaultShell) {
+		t.Errorf("interactive shell command = %q, want %q", commandName, DefaultConfig().DefaultShell)
+	}
+	if gotExit != wantExit {
+		t.Errorf("interactive shell exit = %d, want %d", gotExit, wantExit)
+	}
+}
+
+func assertInteractiveShellStart(t *testing.T, start interactiveStartCall) {
+	t.Helper()
+
+	if start.waitDelay != cmdWaitDelay {
+		t.Errorf("WaitDelay = %v, want %v", start.waitDelay, cmdWaitDelay)
+	}
+	for _, env := range []string{"SESSION_VALUE=present", "TERM=xterm-256color"} {
+		if !slices.Contains(start.env, env) {
+			t.Errorf("command env missing %q: %v", env, start.env)
+		}
+	}
+}
+
+func assertInteractiveShellResize(t *testing.T, resize interactiveResizeCall) {
+	t.Helper()
+	if resize.width != 132 || resize.height != 43 {
+		t.Errorf("resize = %dx%d, want 132x43", resize.width, resize.height)
+	}
+}
+
+func assertInteractiveShellCopies(t *testing.T, fixture *interactiveShellFixture, session *testSSHSession) {
+	t.Helper()
+
+	copies := []interactiveCopyCall{
+		receiveInteractiveCall(t, fixture.copyCalls, "first stream copy"),
+		receiveInteractiveCall(t, fixture.copyCalls, "second stream copy"),
+	}
+	if !hasInteractiveCopy(copies, fixture.ptyFile, session) || !hasInteractiveCopy(copies, session, fixture.ptyFile) {
+		t.Errorf("copy calls = %#v, want session->PTY and PTY->session", copies)
+	}
+}
+
+func assertPTYClosed(t *testing.T, ptyFile *os.File) {
+	t.Helper()
+	if _, err := ptyFile.WriteString("closed"); !errors.Is(err, os.ErrClosed) {
+		t.Errorf("PTY write after run error = %v, want os.ErrClosed", err)
 	}
 }
 

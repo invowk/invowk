@@ -99,7 +99,7 @@ func TestGetInteractiveRuntime(t *testing.T) {
 		t.Run("returns InteractiveRuntime for "+tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if ir := GetInteractiveRuntime(tt.runtime()); ir == nil {
+			if GetInteractiveRuntime(tt.runtime()) == nil {
 				t.Errorf("GetInteractiveRuntime returned nil for %s", tt.name)
 			}
 		})

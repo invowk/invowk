@@ -256,31 +256,57 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 			t.Parallel()
 			var runtime RuntimeDependencyProbe
 			if tt.hasRuntime {
-				runtime = newFilepathStubRuntime(t, func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-					if tt.stderr != "" {
-						if _, err := io.WriteString(ctx.IO.Stderr, tt.stderr); err != nil {
-							t.Errorf("WriteString(): %v", err)
-						}
-					}
-					return &runtimepkg.Result{ExitCode: tt.exitCode}
-				})
+				runtime = newFilepathResultRuntime(t, tt.stderr, tt.exitCode, nil)
 			}
 			err := CheckFilepathDependenciesInContainer(tt.deps, runtime, execCtx)
-			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
-				t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
-			}
-			if tt.wantDependencyErr {
-				depErr := requireFilepathContainerDependencyError(t, err, execCtx)
-				requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
-				if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, tt.wantDetail) {
-					t.Fatalf("StructuredFailures[0].Detail() = %q, want containing %q", got, tt.wantDetail)
-				}
-				return
-			}
-			if tt.wantIs == nil && err != nil {
-				t.Fatalf("CheckFilepathDependenciesInContainer() = %v, want nil", err)
-			}
+			requireContainerFilepathDependencyResult(
+				t, err, execCtx, tt.wantIs, tt.wantDependencyErr, tt.wantDetail,
+			)
 		})
+	}
+}
+
+func newFilepathResultRuntime(
+	t *testing.T,
+	stderr string,
+	exitCode types.ExitCode,
+	runtimeErr error,
+) *filepathStubRuntime {
+	t.Helper()
+
+	return newFilepathStubRuntime(t, func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+		if stderr != "" {
+			if _, err := io.WriteString(ctx.IO.Stderr, stderr); err != nil {
+				t.Errorf("WriteString(): %v", err)
+			}
+		}
+		return &runtimepkg.Result{ExitCode: exitCode, Error: runtimeErr}
+	})
+}
+
+func requireContainerFilepathDependencyResult(
+	t *testing.T,
+	err error,
+	execCtx ExecutionContext,
+	wantIs error,
+	wantDependencyErr bool,
+	wantDetail string,
+) {
+	t.Helper()
+
+	if wantIs != nil && !errors.Is(err, wantIs) {
+		t.Fatalf("error = %v, want wrapping %v", err, wantIs)
+	}
+	if wantDependencyErr {
+		depErr := requireFilepathContainerDependencyError(t, err, execCtx)
+		requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
+		if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, wantDetail) {
+			t.Fatalf("StructuredFailures[0].Detail() = %q, want containing %q", got, wantDetail)
+		}
+		return
+	}
+	if wantIs == nil && err != nil {
+		t.Fatalf("CheckFilepathDependenciesInContainer() = %v, want nil", err)
 	}
 }
 
@@ -394,25 +420,24 @@ func TestValidateFilepathInContainer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			runtime := newFilepathStubRuntime(t, func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				if tt.stderr != "" {
-					if _, err := io.WriteString(ctx.IO.Stderr, tt.stderr); err != nil {
-						t.Errorf("WriteString(): %v", err)
-					}
-				}
-				return &runtimepkg.Result{ExitCode: tt.exitCode, Error: tt.runtimeErr}
-			})
+			runtime := newFilepathResultRuntime(t, tt.stderr, tt.exitCode, tt.runtimeErr)
 			err := runtime.CheckFilepath(invowkfile.FilepathDependency{Alternatives: tt.alternatives})
-			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
-				t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
-			}
-			if tt.wantContains != "" && (err == nil || !strings.Contains(err.Error(), tt.wantContains)) {
-				t.Fatalf("error = %v, want containing %q", err, tt.wantContains)
-			}
-			if tt.wantIs == nil && tt.wantContains == "" && err != nil {
-				t.Fatalf("CheckFilepath() = %v, want nil", err)
-			}
+			requireFilepathValidationError(t, err, tt.wantIs, tt.wantContains)
 		})
+	}
+}
+
+func requireFilepathValidationError(t *testing.T, err, wantIs error, wantContains string) {
+	t.Helper()
+
+	if wantIs != nil && !errors.Is(err, wantIs) {
+		t.Fatalf("error = %v, want wrapping %v", err, wantIs)
+	}
+	if wantContains != "" && (err == nil || !strings.Contains(err.Error(), wantContains)) {
+		t.Fatalf("error = %v, want containing %q", err, wantContains)
+	}
+	if wantIs == nil && wantContains == "" && err != nil {
+		t.Fatalf("CheckFilepath() = %v, want nil", err)
 	}
 }
 
@@ -469,23 +494,37 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			fp := invowkfile.FilepathDependency{Alternatives: tt.alternatives}
-			var err error
-			if tt.useWrapper {
-				err = ValidateFilepathAlternatives(fp, invowkDir)
-			} else {
-				var probe HostProbe
-				if !tt.nilProbe {
-					probe = &recordingHostProbe{filepathErrors: tt.probeErrors}
-				}
-				err = ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe)
-			}
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("validation error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
-				t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
-			}
+			err := runFilepathAlternativeValidation(fp, invowkDir, tt.probeErrors, tt.useWrapper, tt.nilProbe)
+			requireFilepathAlternativeResult(t, err, tt.wantErr, tt.wantIs)
 		})
+	}
+}
+
+func runFilepathAlternativeValidation(
+	fp invowkfile.FilepathDependency,
+	invowkDir types.FilesystemPath,
+	probeErrors map[types.FilesystemPath]error,
+	useWrapper bool,
+	nilProbe bool,
+) error {
+	if useWrapper {
+		return ValidateFilepathAlternatives(fp, invowkDir)
+	}
+	var probe HostProbe
+	if !nilProbe {
+		probe = &recordingHostProbe{filepathErrors: probeErrors}
+	}
+	return ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe)
+}
+
+func requireFilepathAlternativeResult(t *testing.T, err error, wantErr bool, wantIs error) {
+	t.Helper()
+
+	if (err != nil) != wantErr {
+		t.Fatalf("validation error = %v, wantErr %v", err, wantErr)
+	}
+	if wantIs != nil && !errors.Is(err, wantIs) {
+		t.Fatalf("error = %v, want wrapping %v", err, wantIs)
 	}
 }
 

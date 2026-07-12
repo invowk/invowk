@@ -200,22 +200,27 @@ func TestModuleEntryValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.entry.Validate()
-			if len(tt.wantSentinels) == 0 {
-				if err != nil {
-					t.Errorf("Validate() error = %v", err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatal("Validate() error = nil, want validation error")
-			}
-			for _, sentinel := range tt.wantSentinels {
-				if !errors.Is(err, sentinel) {
-					t.Errorf("Validate() error = %v, want sentinel %v", err, sentinel)
-				}
-			}
+			requireModuleEntryValidation(t, tt.entry.Validate(), tt.wantSentinels)
 		})
+	}
+}
+
+func requireModuleEntryValidation(t *testing.T, err error, wantSentinels []error) {
+	t.Helper()
+
+	if len(wantSentinels) == 0 {
+		if err != nil {
+			t.Errorf("Validate() error = %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("Validate() error = nil, want validation error")
+	}
+	for _, sentinel := range wantSentinels {
+		if !errors.Is(err, sentinel) {
+			t.Errorf("Validate() error = %v, want sentinel %v", err, sentinel)
+		}
 	}
 }
 

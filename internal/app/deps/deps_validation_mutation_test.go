@@ -76,132 +76,10 @@ func TestValidateHostDependenciesMutationShortCircuit(t *testing.T) {
 		name string
 		run  func(*testing.T)
 	}{
-		{name: "missing env vars stop before host probes", run: func(t *testing.T) {
-			t.Helper()
-
-			cmd := depsMutationHostCommand(&invowkfile.DependsOn{
-				EnvVars: []invowkfile.EnvVarDependency{{
-					Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_ENV"}},
-				}},
-				Tools: []invowkfile.ToolDependency{{
-					Alternatives: []invowkfile.BinaryName{"tool-after-env"},
-				}},
-			})
-			probe := &recordingHostProbe{}
-			err := ValidateHostDependenciesWithHostProbe(
-				&stubCommandSetProvider{},
-				depsMutationCommandInfo(cmd, nil),
-				testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
-				map[string]string{},
-				nil,
-				probe,
-			)
-			depErr := requireDependencyError(t, err)
-			if len(depErr.MissingEnvVars) != 1 {
-				t.Fatalf("MissingEnvVars = %v, want one missing env var", depErr.MissingEnvVars)
-			}
-			if len(probe.tools) != 0 || len(probe.filepaths) != 0 || len(probe.checks) != 0 {
-				t.Fatalf("host probe was called after env failure: %+v", probe)
-			}
-		}},
-
-		{name: "filepath failure stops before custom checks and command discovery", run: func(t *testing.T) {
-			t.Helper()
-
-			invowkfilePath := types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))
-			resolvedPath := types.FilesystemPath(filepath.Join(filepath.Dir(string(invowkfilePath)), "missing.txt"))
-			cmd := depsMutationHostCommand(&invowkfile.DependsOn{
-				Filepaths: []invowkfile.FilepathDependency{{
-					Alternatives: []invowkfile.FilesystemPath{"missing.txt"},
-				}},
-				CustomChecks: []invowkfile.CustomCheckDependency{{
-					Name:   "after-filepath",
-					Script: invowkfile.CustomCheckScript{Content: "exit 0"},
-				}},
-				Commands: []invowkfile.CommandDependency{{
-					Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
-				}},
-			})
-			probe := &recordingHostProbe{
-				filepathErrors: map[types.FilesystemPath]error{
-					resolvedPath: errors.New("missing file"),
-				},
-			}
-			err := ValidateHostDependenciesWithHostProbe(
-				panicCommandSetProvider{t: t},
-				depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{FilePath: invowkfilePath}),
-				testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
-				map[string]string{},
-				nil,
-				probe,
-			)
-			depErr := requireDependencyError(t, err)
-			if len(depErr.MissingFilepaths) != 1 {
-				t.Fatalf("MissingFilepaths = %v, want one missing filepath", depErr.MissingFilepaths)
-			}
-			if len(probe.checks) != 0 {
-				t.Fatalf("custom checks ran after filepath failure: %v", probe.checks)
-			}
-		}},
-
-		{name: "custom check failure stops before command discovery", run: func(t *testing.T) {
-			t.Helper()
-
-			checkErr := errors.New("host check failed")
-			cmd := depsMutationHostCommand(&invowkfile.DependsOn{
-				CustomChecks: []invowkfile.CustomCheckDependency{{
-					Name:   "host-check",
-					Script: invowkfile.CustomCheckScript{Content: "exit 1"},
-				}},
-				Commands: []invowkfile.CommandDependency{{
-					Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
-				}},
-			})
-			probe := &recordingHostProbe{
-				checkErrors: map[invowkfile.CheckName]error{
-					"host-check": checkErr,
-				},
-			}
-			err := ValidateHostDependenciesWithHostProbe(
-				panicCommandSetProvider{t: t},
-				depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
-				testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
-				map[string]string{},
-				nil,
-				probe,
-			)
-			depErr := requireDependencyError(t, err)
-			if len(depErr.FailedCustomChecks) != 1 {
-				t.Fatalf("FailedCustomChecks = %v, want one custom check failure", depErr.FailedCustomChecks)
-			}
-			requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCustomCheck)
-		}},
-
-		{name: "host command failure is not reported as a container failure", run: func(t *testing.T) {
-			t.Helper()
-
-			cmd := depsMutationHostCommand(&invowkfile.DependsOn{
-				Commands: []invowkfile.CommandDependency{{
-					Alternatives: []invowkfile.CommandDependencyRef{"lint"},
-				}},
-			})
-			err := ValidateHostDependenciesWithHostProbe(
-				&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
-				depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
-				testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
-				map[string]string{},
-				nil,
-				nil,
-			)
-			depErr := requireDependencyError(t, err)
-			if len(depErr.MissingCommands) != 1 {
-				t.Fatalf("MissingCommands = %v, want one missing command", depErr.MissingCommands)
-			}
-			if strings.Contains(depErr.MissingCommands[0].String(), "container") {
-				t.Fatalf("MissingCommands[0] = %q, should be host-scoped", depErr.MissingCommands[0])
-			}
-			requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCommand)
-		}},
+		{name: "missing env vars stop before host probes", run: testMissingEnvStopsHostProbes},
+		{name: "filepath failure stops before custom checks and command discovery", run: testFilepathFailureStopsLaterHostChecks},
+		{name: "custom check failure stops before command discovery", run: testCustomCheckFailureStopsCommandDiscovery},
+		{name: "host command failure is not reported as a container failure", run: testHostCommandFailureRemainsHostScoped},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -209,6 +87,117 @@ func TestValidateHostDependenciesMutationShortCircuit(t *testing.T) {
 			tt.run(t)
 		})
 	}
+}
+
+func testMissingEnvStopsHostProbes(t *testing.T) {
+	t.Helper()
+
+	cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+		EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_ENV"}}}},
+		Tools:   []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"tool-after-env"}}},
+	})
+	probe := &recordingHostProbe{}
+	err := ValidateHostDependenciesWithHostProbe(
+		&stubCommandSetProvider{},
+		depsMutationCommandInfo(cmd, nil),
+		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+		map[string]string{},
+		nil,
+		probe,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.MissingEnvVars) != 1 {
+		t.Fatalf("MissingEnvVars = %v, want one missing env var", depErr.MissingEnvVars)
+	}
+	if len(probe.tools) != 0 || len(probe.filepaths) != 0 || len(probe.checks) != 0 {
+		t.Fatalf("host probe was called after env failure: %+v", probe)
+	}
+}
+
+func testFilepathFailureStopsLaterHostChecks(t *testing.T) {
+	t.Helper()
+
+	invowkfilePath := types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))
+	resolvedPath := types.FilesystemPath(filepath.Join(filepath.Dir(string(invowkfilePath)), "missing.txt"))
+	cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"missing.txt"}}},
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Name: "after-filepath", Script: invowkfile.CustomCheckScript{Content: "exit 0"},
+		}},
+		Commands: []invowkfile.CommandDependency{{
+			Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
+		}},
+	})
+	probe := &recordingHostProbe{filepathErrors: map[types.FilesystemPath]error{
+		resolvedPath: errors.New("missing file"),
+	}}
+	err := ValidateHostDependenciesWithHostProbe(
+		panicCommandSetProvider{t: t},
+		depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{FilePath: invowkfilePath}),
+		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+		map[string]string{},
+		nil,
+		probe,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.MissingFilepaths) != 1 {
+		t.Fatalf("MissingFilepaths = %v, want one missing filepath", depErr.MissingFilepaths)
+	}
+	if len(probe.checks) != 0 {
+		t.Fatalf("custom checks ran after filepath failure: %v", probe.checks)
+	}
+}
+
+func testCustomCheckFailureStopsCommandDiscovery(t *testing.T) {
+	t.Helper()
+
+	checkErr := errors.New("host check failed")
+	cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Name: "host-check", Script: invowkfile.CustomCheckScript{Content: "exit 1"},
+		}},
+		Commands: []invowkfile.CommandDependency{{
+			Alternatives: []invowkfile.CommandDependencyRef{invowkfile.CommandDependencyRef(depsMutationCommand)},
+		}},
+	})
+	probe := &recordingHostProbe{checkErrors: map[invowkfile.CheckName]error{"host-check": checkErr}}
+	err := ValidateHostDependenciesWithHostProbe(
+		panicCommandSetProvider{t: t},
+		depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
+		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+		map[string]string{},
+		nil,
+		probe,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.FailedCustomChecks) != 1 {
+		t.Fatalf("FailedCustomChecks = %v, want one custom check failure", depErr.FailedCustomChecks)
+	}
+	requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCustomCheck)
+}
+
+func testHostCommandFailureRemainsHostScoped(t *testing.T) {
+	t.Helper()
+
+	cmd := depsMutationHostCommand(&invowkfile.DependsOn{
+		Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandDependencyRef{"lint"}}},
+	})
+	err := ValidateHostDependenciesWithHostProbe(
+		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
+		depsMutationCommandInfo(cmd, &invowkfile.Invowkfile{}),
+		testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative),
+		map[string]string{},
+		nil,
+		nil,
+	)
+	depErr := requireDependencyError(t, err)
+	if len(depErr.MissingCommands) != 1 {
+		t.Fatalf("MissingCommands = %v, want one missing command", depErr.MissingCommands)
+	}
+	if strings.Contains(depErr.MissingCommands[0].String(), "container") {
+		t.Fatalf("MissingCommands[0] = %q, should be host-scoped", depErr.MissingCommands[0])
+	}
+	requireDependencyFailureKinds(t, depErr.Failures(), DependencyFailureCommand)
 }
 
 func TestValidateRuntimeDependenciesMutationBoundaries(t *testing.T) {

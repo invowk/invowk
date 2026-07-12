@@ -147,22 +147,28 @@ func TestResolveScript_FromFile(t *testing.T) {
 
 			s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(tt.file)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("ResolveScriptWithFS() error = nil, want error")
-				}
-				if tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel) {
-					t.Errorf("ResolveScriptWithFS() error = %v, want %v", err, tt.wantSentinel)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("ResolveScriptWithFS() error = %v", err)
-			}
-			if result != tt.want {
-				t.Errorf("ResolveScriptWithFS() = %q, want %q", result, tt.want)
-			}
+			requireResolvedScriptFromFile(t, result, err, tt.want, tt.wantErr, tt.wantSentinel)
 		})
+	}
+}
+
+func requireResolvedScriptFromFile(t *testing.T, result string, err error, want string, wantErr bool, wantSentinel error) {
+	t.Helper()
+
+	if wantErr {
+		if err == nil {
+			t.Fatal("ResolveScriptWithFS() error = nil, want error")
+		}
+		if wantSentinel != nil && !errors.Is(err, wantSentinel) {
+			t.Errorf("ResolveScriptWithFS() error = %v, want %v", err, wantSentinel)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("ResolveScriptWithFS() error = %v", err)
+	}
+	if result != want {
+		t.Errorf("ResolveScriptWithFS() = %q, want %q", result, want)
 	}
 }
 

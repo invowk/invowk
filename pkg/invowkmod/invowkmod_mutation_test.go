@@ -73,71 +73,62 @@ func TestModuleRequirementValidateMutationContracts(t *testing.T) {
 		name string
 		run  func(*testing.T)
 	}{
-		{name: "joins every invalid optional and required field", run: func(t *testing.T) {
-			t.Helper()
-
-			req := ModuleRequirement{
-				GitURL:  "",
-				Version: "^v1.2.3",
-				Alias:   "1bad",
-				Path:    "nested/../escape",
-			}
-
-			err := req.Validate()
-			if err == nil {
-				t.Fatal("ModuleRequirement.Validate() returned nil, want error")
-			}
-			if got, want := joinedErrorLen(t, err), 4; got != want {
-				t.Fatalf("joined error count = %d, want %d", got, want)
-			}
-			for _, want := range []error{
-				ErrInvalidGitURL,
-				ErrInvalidSemVerConstraint,
-				ErrInvalidModuleAlias,
-				ErrInvalidSubdirectoryPath,
-			} {
-				if !errors.Is(err, want) {
-					t.Fatalf("ModuleRequirement.Validate() error should wrap %v, got %v", want, err)
-				}
-			}
-		}},
-
-		{name: "keeps primary constraint parse failures observable", run: func(t *testing.T) {
-			t.Helper()
-
-			req := ModuleRequirement{
-				GitURL:  mutationGitURL,
-				Version: ">>1.2.3",
-			}
-
-			err := req.Validate()
-			if !errors.Is(err, ErrInvalidSemVerConstraint) {
-				t.Fatalf("ModuleRequirement.Validate() error = %v, want ErrInvalidSemVerConstraint", err)
-			}
-			if got, want := joinedErrorLen(t, err), 1; got != want {
-				t.Fatalf("joined error count = %d, want %d", got, want)
-			}
-		}},
-
-		{name: "accepts fully valid requirement", run: func(t *testing.T) {
-			t.Helper()
-
-			req := ModuleRequirement{
-				GitURL:  mutationGitURL,
-				Version: mutationSemVerConstraint,
-				Alias:   "tools",
-				Path:    "modules/tools",
-			}
-			if err := req.Validate(); err != nil {
-				t.Fatalf("ModuleRequirement.Validate() error = %v, want nil", err)
-			}
-		}},
+		{name: "joins every invalid optional and required field", run: testModuleRequirementAllInvalidFields},
+		{name: "keeps primary constraint parse failures observable", run: testModuleRequirementConstraintParseFailure},
+		{name: "accepts fully valid requirement", run: testModuleRequirementValid},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			tt.run(t)
 		})
+	}
+}
+
+func testModuleRequirementAllInvalidFields(t *testing.T) {
+	t.Helper()
+
+	req := ModuleRequirement{GitURL: "", Version: "^v1.2.3", Alias: "1bad", Path: "nested/../escape"}
+	err := req.Validate()
+	if err == nil {
+		t.Fatal("ModuleRequirement.Validate() returned nil, want error")
+	}
+	if got, want := joinedErrorLen(t, err), 4; got != want {
+		t.Fatalf("joined error count = %d, want %d", got, want)
+	}
+	for _, want := range []error{
+		ErrInvalidGitURL,
+		ErrInvalidSemVerConstraint,
+		ErrInvalidModuleAlias,
+		ErrInvalidSubdirectoryPath,
+	} {
+		if !errors.Is(err, want) {
+			t.Fatalf("ModuleRequirement.Validate() error should wrap %v, got %v", want, err)
+		}
+	}
+}
+
+func testModuleRequirementConstraintParseFailure(t *testing.T) {
+	t.Helper()
+
+	req := ModuleRequirement{GitURL: mutationGitURL, Version: ">>1.2.3"}
+	err := req.Validate()
+	if !errors.Is(err, ErrInvalidSemVerConstraint) {
+		t.Fatalf("ModuleRequirement.Validate() error = %v, want ErrInvalidSemVerConstraint", err)
+	}
+	if got, want := joinedErrorLen(t, err), 1; got != want {
+		t.Fatalf("joined error count = %d, want %d", got, want)
+	}
+}
+
+func testModuleRequirementValid(t *testing.T) {
+	t.Helper()
+
+	req := ModuleRequirement{
+		GitURL: mutationGitURL, Version: mutationSemVerConstraint, Alias: "tools", Path: "modules/tools",
+	}
+	if err := req.Validate(); err != nil {
+		t.Fatalf("ModuleRequirement.Validate() error = %v, want nil", err)
 	}
 }
 

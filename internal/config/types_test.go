@@ -223,7 +223,13 @@ func TestModuleIncludePath_Validate_Matrix(t *testing.T) {
 	}
 	rejectRelative := pathmatrix.RejectIs(ErrInvalidModuleIncludePath)
 	pathmatrix.Validator(t, func(input string) error {
-		return ModuleIncludePath(input + ".invowkmod").Validate()
+		modulePath := input + ".invowkmod"
+		if input == pathmatrix.InputUNC {
+			// A UNC share is a volume root on Windows, so appending the
+			// extension would rename the share rather than add a module path.
+			modulePath = filepath.Join(input, "module.invowkmod")
+		}
+		return ModuleIncludePath(modulePath).Validate()
 	}, pathmatrix.Expectations{
 		UnixAbsolute:       hostAbsolute(pathmatrix.InputUnixAbsolute),
 		WindowsDriveAbs:    hostAbsolute(pathmatrix.InputWindowsDriveAbs),
