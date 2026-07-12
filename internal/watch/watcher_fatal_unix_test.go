@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestIsFatalFsnotifyError(t *testing.T) {
+func TestIsFatalFsnotifyError_Unix(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

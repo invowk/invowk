@@ -58,7 +58,7 @@ func (s *Server) Start(ctx context.Context) error {
 	s.srvMu.Unlock()
 
 	// Create SSH server
-	srv, err := wish.NewServer(
+	wishOptions := []ssh.Option{
 		wish.WithAddress(addr),
 		wish.WithPublicKeyAuth(s.publicKeyHandler),
 		wish.WithPasswordAuth(s.passwordHandler),
@@ -66,7 +66,9 @@ func (s *Server) Start(ctx context.Context) error {
 			activeterm.Middleware(),
 			s.commandMiddleware(), //nolint:contextcheck // Wish injects request context into sessions handled by middleware.
 		),
-	)
+	}
+	wishOptions = append(wishOptions, s.wishOptions...)
+	srv, err := wish.NewServer(wishOptions...)
 	if err != nil {
 		_ = listener.Close() // Best-effort cleanup on error
 		return s.base.TransitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))

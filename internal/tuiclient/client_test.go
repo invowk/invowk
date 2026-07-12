@@ -124,48 +124,57 @@ func TestClient_Input(t *testing.T) {
 	})
 }
 
-//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
+//nolint:paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_Confirm(t *testing.T) {
 	t.Parallel()
 
 	server, client := startTestServer(t)
 
-	t.Run("confirmed", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, ConfirmResult{Confirmed: true}),
-		})
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "confirmed", run: func(t *testing.T) {
+			t.Helper()
+			errCh := respondWith(t, server, Response{
+				Result: mustMarshalResult(t, ConfirmResult{Confirmed: true}),
+			})
 
-		confirmed, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
-		if err != nil {
-			t.Fatalf("Confirm() error = %v", err)
-		}
-		if !confirmed {
-			t.Fatal("Confirm() = false, want true")
-		}
-		assertNoAsyncError(t, errCh)
-	})
+			confirmed, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
+			if err != nil {
+				t.Fatalf("Confirm() error = %v", err)
+			}
+			if !confirmed {
+				t.Fatal("Confirm() = false, want true")
+			}
+			assertNoAsyncError(t, errCh)
+		}},
+		{name: "denied", run: func(t *testing.T) {
+			t.Helper()
+			errCh := respondWith(t, server, Response{
+				Result: mustMarshalResult(t, ConfirmResult{Confirmed: false}),
+			})
 
-	t.Run("denied", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, ConfirmResult{Confirmed: false}),
-		})
-
-		confirmed, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
-		if err != nil {
-			t.Fatalf("Confirm() error = %v", err)
-		}
-		if confirmed {
-			t.Fatal("Confirm() = true, want false")
-		}
-		assertNoAsyncError(t, errCh)
-	})
-
-	t.Run("cancelled", func(t *testing.T) {
-		assertCancelled(t, server, func() error {
-			_, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
-			return err
-		})
-	})
+			confirmed, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
+			if err != nil {
+				t.Fatalf("Confirm() error = %v", err)
+			}
+			if confirmed {
+				t.Fatal("Confirm() = true, want false")
+			}
+			assertNoAsyncError(t, errCh)
+		}},
+		{name: "cancelled", run: func(t *testing.T) {
+			t.Helper()
+			assertCancelled(t, server, func() error {
+				_, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
+				return err
+			})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 //nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
@@ -197,93 +206,111 @@ func TestClient_Choose(t *testing.T) {
 	})
 }
 
-//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
+//nolint:paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_ChooseSingle(t *testing.T) {
 	t.Parallel()
 
 	server, client := startTestServer(t)
 
-	t.Run("string result", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, ChooseResult{Selected: "pick"}),
-		})
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "string result", run: func(t *testing.T) {
+			t.Helper()
+			errCh := respondWith(t, server, Response{
+				Result: mustMarshalResult(t, ChooseResult{Selected: "pick"}),
+			})
 
-		val, err := client.ChooseSingle(ChooseRequest{Options: []string{"pick", "other"}})
-		if err != nil {
-			t.Fatalf("ChooseSingle() error = %v", err)
-		}
-		if val != "pick" {
-			t.Fatalf("ChooseSingle() = %q, want %q", val, "pick")
-		}
-		assertNoAsyncError(t, errCh)
-	})
+			val, err := client.ChooseSingle(ChooseRequest{Options: []string{"pick", "other"}})
+			if err != nil {
+				t.Fatalf("ChooseSingle() error = %v", err)
+			}
+			if val != "pick" {
+				t.Fatalf("ChooseSingle() = %q, want %q", val, "pick")
+			}
+			assertNoAsyncError(t, errCh)
+		}},
+		{name: "array result", run: func(t *testing.T) {
+			t.Helper()
+			// JSON unmarshals a single-element array as []any, which ChooseSingle coerces.
+			errCh := respondWith(t, server, Response{
+				Result: mustMarshalResult(t, ChooseResult{Selected: []string{"pick"}}),
+			})
 
-	t.Run("array result", func(t *testing.T) {
-		// JSON unmarshals a single-element array as []any, which ChooseSingle coerces.
-		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, ChooseResult{Selected: []string{"pick"}}),
-		})
-
-		val, err := client.ChooseSingle(ChooseRequest{Options: []string{"pick", "other"}})
-		if err != nil {
-			t.Fatalf("ChooseSingle() error = %v", err)
-		}
-		if val != "pick" {
-			t.Fatalf("ChooseSingle() = %q, want %q", val, "pick")
-		}
-		assertNoAsyncError(t, errCh)
-	})
-
-	t.Run("cancelled", func(t *testing.T) {
-		assertCancelled(t, server, func() error {
-			_, err := client.ChooseSingle(ChooseRequest{Options: []string{"a"}})
-			return err
-		})
-	})
+			val, err := client.ChooseSingle(ChooseRequest{Options: []string{"pick", "other"}})
+			if err != nil {
+				t.Fatalf("ChooseSingle() error = %v", err)
+			}
+			if val != "pick" {
+				t.Fatalf("ChooseSingle() = %q, want %q", val, "pick")
+			}
+			assertNoAsyncError(t, errCh)
+		}},
+		{name: "cancelled", run: func(t *testing.T) {
+			t.Helper()
+			assertCancelled(t, server, func() error {
+				_, err := client.ChooseSingle(ChooseRequest{Options: []string{"a"}})
+				return err
+			})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
-//nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.
+//nolint:paralleltest // Subtests share server's RequestChannel and must run sequentially.
 func TestClient_ChooseMultiple(t *testing.T) {
 	t.Parallel()
 
 	server, client := startTestServer(t)
 
-	t.Run("array result", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, ChooseResult{Selected: []string{"a", "b"}}),
-		})
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "array result", run: func(t *testing.T) {
+			t.Helper()
+			errCh := respondWith(t, server, Response{
+				Result: mustMarshalResult(t, ChooseResult{Selected: []string{"a", "b"}}),
+			})
 
-		vals, err := client.ChooseMultiple(ChooseRequest{Options: []string{"a", "b", "c"}, NoLimit: true})
-		if err != nil {
-			t.Fatalf("ChooseMultiple() error = %v", err)
-		}
-		if !slices.Equal(vals, []string{"a", "b"}) {
-			t.Fatalf("ChooseMultiple() = %v, want [a b]", vals)
-		}
-		assertNoAsyncError(t, errCh)
-	})
+			vals, err := client.ChooseMultiple(ChooseRequest{Options: []string{"a", "b", "c"}, NoLimit: true})
+			if err != nil {
+				t.Fatalf("ChooseMultiple() error = %v", err)
+			}
+			if !slices.Equal(vals, []string{"a", "b"}) {
+				t.Fatalf("ChooseMultiple() = %v, want [a b]", vals)
+			}
+			assertNoAsyncError(t, errCh)
+		}},
+		{name: "string fallback", run: func(t *testing.T) {
+			t.Helper()
+			errCh := respondWith(t, server, Response{
+				Result: mustMarshalResult(t, ChooseResult{Selected: "solo"}),
+			})
 
-	t.Run("string fallback", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, ChooseResult{Selected: "solo"}),
-		})
-
-		vals, err := client.ChooseMultiple(ChooseRequest{Options: []string{"solo"}})
-		if err != nil {
-			t.Fatalf("ChooseMultiple() error = %v", err)
-		}
-		if !slices.Equal(vals, []string{"solo"}) {
-			t.Fatalf("ChooseMultiple() = %v, want [solo]", vals)
-		}
-		assertNoAsyncError(t, errCh)
-	})
-
-	t.Run("cancelled", func(t *testing.T) {
-		assertCancelled(t, server, func() error {
-			_, err := client.ChooseMultiple(ChooseRequest{Options: []string{"a"}})
-			return err
-		})
-	})
+			vals, err := client.ChooseMultiple(ChooseRequest{Options: []string{"solo"}})
+			if err != nil {
+				t.Fatalf("ChooseMultiple() error = %v", err)
+			}
+			if !slices.Equal(vals, []string{"solo"}) {
+				t.Fatalf("ChooseMultiple() = %v, want [solo]", vals)
+			}
+			assertNoAsyncError(t, errCh)
+		}},
+		{name: "cancelled", run: func(t *testing.T) {
+			t.Helper()
+			assertCancelled(t, server, func() error {
+				_, err := client.ChooseMultiple(ChooseRequest{Options: []string{"a"}})
+				return err
+			})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 //nolint:tparallel,paralleltest // Subtests share server's RequestChannel and must run sequentially.

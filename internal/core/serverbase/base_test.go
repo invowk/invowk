@@ -106,329 +106,333 @@ func TestStateTransitions(t *testing.T) {
 func TestRaceConditions(t *testing.T) {
 	t.Parallel()
 
-	t.Run("concurrent state reads during transitions", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "concurrent state reads during transitions", run: func(t *testing.T) {
+			t.Helper()
 
-		b := NewBase()
-
-		var wg sync.WaitGroup
-
-		// Start multiple readers
-		for range 10 {
-			wg.Go(func() {
-				for range 100 {
-					_ = b.State()
-					_ = b.IsRunning()
-				}
-			})
-		}
-
-		// Perform transitions
-		ctx := t.Context()
-		_ = b.TransitionToStarting(ctx)
-		b.TransitionToRunning()
-		b.TransitionToStopping()
-		b.TransitionToStopped()
-
-		wg.Wait()
-	})
-
-	t.Run("concurrent Stop calls", func(t *testing.T) {
-		t.Parallel()
-
-		b := NewBase()
-
-		ctx := t.Context()
-		if err := b.TransitionToStarting(ctx); err != nil {
-			t.Fatalf("TransitionToStarting failed: %v", err)
-		}
-		b.TransitionToRunning()
-
-		var wg sync.WaitGroup
-		for range 10 {
-			wg.Go(func() {
-				b.TransitionToStopping()
-			})
-		}
-		wg.Wait()
-
-		// Should end up in Stopping state
-		state := b.State()
-		if state != StateStopping && state != StateStopped {
-			t.Errorf("expected StateStopping or StateStopped, got %s", state)
-		}
-	})
-
-	t.Run("competing Start and Stop transitions", func(t *testing.T) {
-		t.Parallel()
-
-		// Launch N goroutines that race to Start vs Stop the server.
-		// The state machine must always reach a valid terminal state
-		// without panics, deadlocks, or invalid intermediate states.
-		for range 50 {
 			b := NewBase()
 
 			var wg sync.WaitGroup
 
-			// Goroutine 1: tries to Start then transition to Running
-			wg.Go(func() {
-				ctx := t.Context()
-				if err := b.TransitionToStarting(ctx); err == nil {
-					b.TransitionToRunning()
-				}
-			})
-
-			// Goroutine 2: tries to Stop
-			wg.Go(func() {
-				b.TransitionToStopping()
-			})
-
-			// Goroutine 3: concurrent state readers
-			wg.Go(func() {
-				for range 20 {
-					state := b.State()
-					// Every observed state must be valid
-					if err := state.Validate(); err != nil {
-						t.Errorf("observed invalid state during competing transitions: %s", state)
-					}
-				}
-			})
-
-			wg.Wait()
-
-			// After all goroutines finish, the server must be in a valid state.
-			// Acceptable terminal/near-terminal states: Stopped, Failed, Running,
-			// Stopping (if Stop won the race but TransitionToStopped wasn't called).
-			finalState := b.State()
-			switch finalState {
-			case StateCreated:
-				// Created is acceptable only if Stop raced before Start
-				// and TransitionToStopping moved it directly to Stopped,
-				// but the goroutine reading state saw Created first.
-				// Re-check: after wg.Wait() the state must be stable.
-				// Created means Stop called on Created → Stopped, but
-				// CAS(Created→Stopped) leaves it Stopped not Created.
-				// So Created here means Start hasn't run yet — possible
-				// if goroutine 1 hasn't been scheduled.
-			case StateRunning, StateStopping, StateStopped, StateFailed:
-				// All valid outcomes of the Start/Stop race
-			case StateStarting:
-				// Acceptable: Start won but TransitionToRunning hasn't
-				// executed yet (goroutine scheduling)
-			default:
-				t.Errorf("unexpected final state after competing transitions: %s", finalState)
-			}
-		}
-	})
-
-	t.Run("concurrent lifecycle context reads during transitions", func(t *testing.T) {
-		t.Parallel()
-
-		for range 50 {
-			b := NewBase()
-
-			var wg sync.WaitGroup
-			for range 8 {
+			// Start multiple readers
+			for range 10 {
 				wg.Go(func() {
 					for range 100 {
-						ctx := b.Context()
-						if ctx != nil {
-							select {
-							case <-ctx.Done():
-							default:
-							}
-						}
+						_ = b.State()
+						_ = b.IsRunning()
 					}
 				})
 			}
-			wg.Go(func() {
-				if err := b.TransitionToStarting(t.Context()); err == nil {
-					b.TransitionToRunning()
-				}
-			})
-			wg.Go(func() {
-				b.TransitionToFailed(context.Canceled)
-			})
-			wg.Go(func() {
-				b.TransitionToStopping()
-			})
+
+			// Perform transitions
+			ctx := t.Context()
+			_ = b.TransitionToStarting(ctx)
+			b.TransitionToRunning()
+			b.TransitionToStopping()
+			b.TransitionToStopped()
+
+			wg.Wait()
+		}},
+		{name: "concurrent Stop calls", run: func(t *testing.T) {
+			t.Helper()
+
+			b := NewBase()
+
+			ctx := t.Context()
+			if err := b.TransitionToStarting(ctx); err != nil {
+				t.Fatalf("TransitionToStarting failed: %v", err)
+			}
+			b.TransitionToRunning()
+
+			var wg sync.WaitGroup
+			for range 10 {
+				wg.Go(func() {
+					b.TransitionToStopping()
+				})
+			}
 			wg.Wait()
 
-			if err := b.State().Validate(); err != nil {
-				t.Fatalf("final state is invalid: %v", err)
+			// Should end up in Stopping state
+			state := b.State()
+			if state != StateStopping && state != StateStopped {
+				t.Errorf("expected StateStopping or StateStopped, got %s", state)
 			}
-		}
-	})
+		}},
+		{name: "competing Start and Stop transitions", run: func(t *testing.T) {
+			t.Helper()
+
+			// Launch N goroutines that race to Start vs Stop the server.
+			// The state machine must always reach a valid terminal state
+			// without panics, deadlocks, or invalid intermediate states.
+			for range 50 {
+				b := NewBase()
+
+				var wg sync.WaitGroup
+
+				// Goroutine 1: tries to Start then transition to Running
+				wg.Go(func() {
+					ctx := t.Context()
+					if err := b.TransitionToStarting(ctx); err == nil {
+						b.TransitionToRunning()
+					}
+				})
+
+				// Goroutine 2: tries to Stop
+				wg.Go(func() {
+					b.TransitionToStopping()
+				})
+
+				// Goroutine 3: concurrent state readers
+				wg.Go(func() {
+					for range 20 {
+						state := b.State()
+						// Every observed state must be valid
+						if err := state.Validate(); err != nil {
+							t.Errorf("observed invalid state during competing transitions: %s", state)
+						}
+					}
+				})
+
+				wg.Wait()
+
+				// After all goroutines finish, the server must be in a valid state.
+				// Acceptable terminal/near-terminal states: Stopped, Failed, Running,
+				// Stopping (if Stop won the race but TransitionToStopped wasn't called).
+				finalState := b.State()
+				switch finalState {
+				case StateCreated:
+					// Created is acceptable only if Stop raced before Start
+					// and TransitionToStopping moved it directly to Stopped,
+					// but the goroutine reading state saw Created first.
+					// Re-check: after wg.Wait() the state must be stable.
+					// Created means Stop called on Created → Stopped, but
+					// CAS(Created→Stopped) leaves it Stopped not Created.
+					// So Created here means Start hasn't run yet — possible
+					// if goroutine 1 hasn't been scheduled.
+				case StateRunning, StateStopping, StateStopped, StateFailed:
+					// All valid outcomes of the Start/Stop race
+				case StateStarting:
+					// Acceptable: Start won but TransitionToRunning hasn't
+					// executed yet (goroutine scheduling)
+				default:
+					t.Errorf("unexpected final state after competing transitions: %s", finalState)
+				}
+			}
+		}},
+		{name: "concurrent lifecycle context reads during transitions", run: func(t *testing.T) {
+			t.Helper()
+
+			for range 50 {
+				b := NewBase()
+
+				var wg sync.WaitGroup
+				for range 8 {
+					wg.Go(func() {
+						for range 100 {
+							ctx := b.Context()
+							if ctx != nil {
+								select {
+								case <-ctx.Done():
+								default:
+								}
+							}
+						}
+					})
+				}
+				wg.Go(func() {
+					if err := b.TransitionToStarting(t.Context()); err == nil {
+						b.TransitionToRunning()
+					}
+				})
+				wg.Go(func() {
+					b.TransitionToFailed(context.Canceled)
+				})
+				wg.Go(func() {
+					b.TransitionToStopping()
+				})
+				wg.Wait()
+
+				if err := b.State().Validate(); err != nil {
+					t.Fatalf("final state is invalid: %v", err)
+				}
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 // T011: Double Start/Stop idempotency tests
 func TestIdempotency(t *testing.T) {
 	t.Parallel()
 
-	t.Run("double Start returns error", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "double Start returns error", run: func(t *testing.T) {
+			t.Helper()
 
-		b := NewBase()
+			b := NewBase()
 
-		ctx := t.Context()
-		if err := b.TransitionToStarting(ctx); err != nil {
-			t.Fatalf("first TransitionToStarting failed: %v", err)
-		}
-
-		// Second Start should fail
-		err := b.TransitionToStarting(ctx)
-		if err == nil {
-			t.Error("expected error on second TransitionToStarting")
-		}
-	})
-
-	t.Run("double Stop is safe", func(t *testing.T) {
-		t.Parallel()
-
-		b := NewBase()
-
-		ctx := t.Context()
-		if err := b.TransitionToStarting(ctx); err != nil {
-			t.Fatalf("TransitionToStarting failed: %v", err)
-		}
-		b.TransitionToRunning()
-
-		// First Stop
-		if !b.TransitionToStopping() {
-			t.Error("first TransitionToStopping should return true")
-		}
-		b.TransitionToStopped()
-
-		// Second Stop should be no-op (return false, no panic)
-		if b.TransitionToStopping() {
-			t.Error("second TransitionToStopping should return false")
-		}
-
-		if b.State() != StateStopped {
-			t.Errorf("expected StateStopped, got %s", b.State())
-		}
-	})
-
-	t.Run("Stop without Start is safe", func(t *testing.T) {
-		t.Parallel()
-
-		b := NewBase()
-
-		// Stop on Created server should transition to Stopped
-		if b.TransitionToStopping() {
-			t.Error("TransitionToStopping from Created should return false")
-		}
-
-		if b.State() != StateStopped {
-			t.Errorf("expected StateStopped, got %s", b.State())
-		}
-
-		select {
-		case _, ok := <-b.Err():
-			if ok {
-				t.Fatal("Err channel still open after stopping a never-started server")
+			ctx := t.Context()
+			if err := b.TransitionToStarting(ctx); err != nil {
+				t.Fatalf("first TransitionToStarting failed: %v", err)
 			}
-		default:
-			t.Fatal("Err channel should be closed after stopping a never-started server")
-		}
-	})
 
-	t.Run("Stop on Failed is safe", func(t *testing.T) {
-		t.Parallel()
+			// Second Start should fail
+			err := b.TransitionToStarting(ctx)
+			if err == nil {
+				t.Error("expected error on second TransitionToStarting")
+			}
+		}},
+		{name: "double Stop is safe", run: func(t *testing.T) {
+			t.Helper()
 
-		b := NewBase()
+			b := NewBase()
 
-		ctx := t.Context()
-		if err := b.TransitionToStarting(ctx); err != nil {
-			t.Fatalf("TransitionToStarting failed: %v", err)
-		}
+			ctx := t.Context()
+			if err := b.TransitionToStarting(ctx); err != nil {
+				t.Fatalf("TransitionToStarting failed: %v", err)
+			}
+			b.TransitionToRunning()
 
-		b.TransitionToFailed(context.DeadlineExceeded)
+			// First Stop
+			if !b.TransitionToStopping() {
+				t.Error("first TransitionToStopping should return true")
+			}
+			b.TransitionToStopped()
 
-		// Stop on Failed should be no-op
-		if b.TransitionToStopping() {
-			t.Error("TransitionToStopping from Failed should return false")
-		}
+			// Second Stop should be no-op (return false, no panic)
+			if b.TransitionToStopping() {
+				t.Error("second TransitionToStopping should return false")
+			}
 
-		if b.State() != StateFailed {
-			t.Errorf("expected StateFailed, got %s", b.State())
-		}
-	})
+			if b.State() != StateStopped {
+				t.Errorf("expected StateStopped, got %s", b.State())
+			}
+		}},
+		{name: "Stop without Start is safe", run: func(t *testing.T) {
+			t.Helper()
+
+			b := NewBase()
+
+			// Stop on Created server should transition to Stopped
+			if b.TransitionToStopping() {
+				t.Error("TransitionToStopping from Created should return false")
+			}
+
+			if b.State() != StateStopped {
+				t.Errorf("expected StateStopped, got %s", b.State())
+			}
+
+			select {
+			case _, ok := <-b.Err():
+				if ok {
+					t.Fatal("Err channel still open after stopping a never-started server")
+				}
+			default:
+				t.Fatal("Err channel should be closed after stopping a never-started server")
+			}
+		}},
+		{name: "Stop on Failed is safe", run: func(t *testing.T) {
+			t.Helper()
+
+			b := NewBase()
+
+			ctx := t.Context()
+			if err := b.TransitionToStarting(ctx); err != nil {
+				t.Fatalf("TransitionToStarting failed: %v", err)
+			}
+
+			b.TransitionToFailed(context.DeadlineExceeded)
+
+			// Stop on Failed should be no-op
+			if b.TransitionToStopping() {
+				t.Error("TransitionToStopping from Failed should return false")
+			}
+
+			if b.State() != StateFailed {
+				t.Errorf("expected StateFailed, got %s", b.State())
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 // T012: Cancelled context tests
 func TestCancelledContext(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Start with already cancelled context fails immediately", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name        string
+		operation   string
+		cancel      bool
+		becomeReady bool
+		wantErr     error
+		wantState   State
+		wantLastErr error
+	}{
+		{name: "Start with already cancelled context fails immediately", operation: "start", cancel: true, wantErr: context.Canceled, wantState: StateFailed, wantLastErr: context.Canceled},
+		{name: "WaitForReady respects context cancellation", operation: "wait", cancel: true, wantErr: context.Canceled, wantState: StateStarting},
+		{name: "WaitForReady succeeds when server becomes ready", operation: "wait", becomeReady: true, wantState: StateRunning},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		b := NewBase()
+			b := NewBase()
+			var err error
+			switch tt.operation {
+			case "start":
+				ctx, cancel := context.WithCancel(t.Context())
+				if tt.cancel {
+					cancel()
+				} else {
+					defer cancel()
+				}
+				err = b.TransitionToStarting(ctx)
+			case "wait":
+				if startErr := b.TransitionToStarting(t.Context()); startErr != nil {
+					t.Fatalf("TransitionToStarting() error = %v", startErr)
+				}
+				waitCtx, cancel := context.WithTimeout(t.Context(), time.Second)
+				if tt.cancel {
+					cancel()
+				} else {
+					defer cancel()
+				}
+				if tt.becomeReady {
+					go b.TransitionToRunning()
+				}
+				err = b.WaitForReady(waitCtx)
+			default:
+				t.Fatalf("unknown operation %q", tt.operation)
+			}
 
-		ctx, cancel := context.WithCancel(t.Context())
-		cancel() // Cancel immediately
-
-		err := b.TransitionToStarting(ctx)
-		if err == nil {
-			t.Error("expected error with cancelled context")
-		}
-		if !errors.Is(err, context.Canceled) {
-			t.Errorf("TransitionToStarting() error = %v, want context.Canceled", err)
-		}
-		if !errors.Is(b.LastError(), context.Canceled) {
-			t.Errorf("LastError() = %v, want context.Canceled", b.LastError())
-		}
-
-		if b.State() != StateFailed {
-			t.Errorf("expected StateFailed, got %s", b.State())
-		}
-	})
-
-	t.Run("WaitForReady respects context cancellation", func(t *testing.T) {
-		t.Parallel()
-
-		b := NewBase()
-
-		ctx := t.Context()
-		if err := b.TransitionToStarting(ctx); err != nil {
-			t.Fatalf("TransitionToStarting failed: %v", err)
-		}
-
-		waitCtx, cancel := context.WithCancel(t.Context())
-		cancel()
-
-		err := b.WaitForReady(waitCtx)
-		if err == nil {
-			t.Fatal("expected cancellation error")
-		}
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("WaitForReady() error = %v, want context.Canceled", err)
-		}
-	})
-
-	t.Run("WaitForReady succeeds when server becomes ready", func(t *testing.T) {
-		t.Parallel()
-
-		b := NewBase()
-
-		ctx := t.Context()
-		if err := b.TransitionToStarting(ctx); err != nil {
-			t.Fatalf("TransitionToStarting failed: %v", err)
-		}
-
-		// Transition to Running in a goroutine
-		go func() {
-			b.TransitionToRunning()
-		}()
-
-		waitCtx, cancel := context.WithTimeout(t.Context(), time.Second)
-		defer cancel()
-
-		err := b.WaitForReady(waitCtx)
-		if err != nil {
-			t.Errorf("WaitForReady failed: %v", err)
-		}
-	})
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("operation error = %v, want %v", err, tt.wantErr)
+			}
+			if got := b.State(); got != tt.wantState {
+				t.Errorf("State() = %s, want %s", got, tt.wantState)
+			}
+			if !errors.Is(b.LastError(), tt.wantLastErr) {
+				t.Errorf("LastError() = %v, want %v", b.LastError(), tt.wantLastErr)
+			}
+		})
+	}
 }
 
 func TestTransitionToFailedCancelsLifecycleContext(t *testing.T) {

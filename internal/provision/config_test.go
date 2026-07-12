@@ -5,9 +5,11 @@ package provision
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -178,5 +180,92 @@ func TestInvalidProvisionConfigError_Unwrap(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidProvisionConfig) {
 		t.Error("Unwrap() should return ErrInvalidProvisionConfig")
+	}
+}
+
+func TestModuleEntryValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		entry         ModuleEntry
+		wantSentinels []error
+	}{
+		{name: "path only", entry: ModuleEntry{Path: types.FilesystemPath("module.invowkmod")}},
+		{name: "path and namespace", entry: ModuleEntry{Path: types.FilesystemPath("module.invowkmod"), CommandNamespace: invowkmod.ModuleNamespace("com.example.module")}},
+		{name: "invalid path", entry: ModuleEntry{Path: "   "}, wantSentinels: []error{types.ErrInvalidFilesystemPath}},
+		{name: "empty optional namespace", entry: ModuleEntry{Path: types.FilesystemPath("module.invowkmod")}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.entry.Validate()
+			if len(tt.wantSentinels) == 0 {
+				if err != nil {
+					t.Errorf("Validate() error = %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("Validate() error = nil, want validation error")
+			}
+			for _, sentinel := range tt.wantSentinels {
+				if !errors.Is(err, sentinel) {
+					t.Errorf("Validate() error = %v, want sentinel %v", err, sentinel)
+				}
+			}
+		})
+	}
+}
+
+func TestModuleEntriesValidate(t *testing.T) {
+	t.Parallel()
+
+	entries := ModuleEntries{
+		{Path: types.FilesystemPath("valid.invowkmod"), CommandNamespace: invowkmod.ModuleNamespace("com.example.valid")},
+		{Path: "   "},
+		{Path: "\t"},
+	}
+	err := entries.Validate()
+	if err == nil {
+		t.Fatal("Validate() error = nil, want indexed entry errors")
+	}
+	for _, want := range []string{"[1]:", "[2]:"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("Validate() error = %q, want context %q", err, want)
+		}
+	}
+	if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+		t.Errorf("Validate() error = %v, want filesystem path sentinel", err)
+	}
+}
+
+func TestConfigValidateModuleEntryCollections(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		cfg        Config
+		wantPrefix string
+	}{
+		{name: "module entries", cfg: Config{ModuleEntries: ModuleEntries{{Path: "   "}}}, wantPrefix: "ModuleEntries: [0]:"},
+		{name: "global module entries", cfg: Config{GlobalModuleEntries: ModuleEntries{{Path: "\t"}}}, wantPrefix: "GlobalModuleEntries: [0]:"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.cfg.Validate()
+			if err == nil {
+				t.Fatal("Config.Validate() error = nil, want validation error")
+			}
+			if !errors.Is(err, ErrInvalidProvisionConfig) {
+				t.Errorf("Config.Validate() error = %v, want ErrInvalidProvisionConfig", err)
+			}
+			if !strings.Contains(err.Error(), tt.wantPrefix) {
+				t.Errorf("Config.Validate() error = %q, want context %q", err, tt.wantPrefix)
+			}
+		})
 	}
 }

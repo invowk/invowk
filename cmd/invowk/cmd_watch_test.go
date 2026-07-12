@@ -520,6 +520,9 @@ func TestRunWatchMode_AbortsAfterConsecutiveInfrastructureFailures(t *testing.T)
 		&cmdFlagValues{},
 		[]string{"build"},
 	)
+	if !errors.Is(err, infraErr) {
+		t.Fatalf("runWatchMode() error = %v, want wrapped infrastructure error %v", err, infraErr)
+	}
 	if err == nil || !strings.Contains(err.Error(), "aborting watch: 3 consecutive infrastructure failures") {
 		t.Fatalf("runWatchMode() error = %v, want consecutive infrastructure failure", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestIsFatalFsnotifyError(t *testing.T) {
+func TestIsFatalFsnotifyError_Windows(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

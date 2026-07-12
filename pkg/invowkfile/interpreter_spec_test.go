@@ -62,13 +62,24 @@ func TestInterpreterSpec_String(t *testing.T) {
 func TestInterpreterSpecMutationValidationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("invalid whitespace preserves value", testInterpreterSpecInvalidWhitespacePreservesValue)
-	t.Run("env path forms", testInterpreterSpecEnvPathForms)
-	t.Run("unsafe env diagnostics", testInterpreterSpecUnsafeEnvDiagnostics)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "invalid whitespace preserves value", run: testInterpreterSpecInvalidWhitespacePreservesValue},
+		{name: "env path forms", run: testInterpreterSpecEnvPathForms},
+		{name: "unsafe env diagnostics", run: testInterpreterSpecUnsafeEnvDiagnostics},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testInterpreterSpecInvalidWhitespacePreservesValue(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	spec := InterpreterSpec(" \t ")
 	err := spec.Validate()
@@ -88,7 +99,7 @@ func testInterpreterSpecInvalidWhitespacePreservesValue(t *testing.T) {
 }
 
 func testInterpreterSpecEnvPathForms(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	validSpecs := []InterpreterSpec{
 		"python3.exe",
@@ -104,7 +115,7 @@ func testInterpreterSpecEnvPathForms(t *testing.T) {
 }
 
 func testInterpreterSpecUnsafeEnvDiagnostics(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tests := []struct {
 		spec       InterpreterSpec

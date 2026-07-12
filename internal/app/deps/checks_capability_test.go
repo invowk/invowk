@@ -13,15 +13,26 @@ import (
 func TestCheckCapabilityDependencies(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil deps", testCheckCapabilityDependenciesNilDeps)
-	t.Run("empty capabilities", testCheckCapabilityDependenciesEmptyCapabilities)
-	t.Run("injected checker accepts alternative", testCheckCapabilityDependenciesInjectedCheckerAcceptsAlternative)
-	t.Run("injected checker reports missing alternative", testCheckCapabilityDependenciesInjectedCheckerReportsMissingAlternative)
-	t.Run("injected checker receives request scoped context and io", testCheckCapabilityDependenciesInjectedCheckerReceivesContextAndIO)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "nil deps", run: testCheckCapabilityDependenciesNilDeps},
+		{name: "empty capabilities", run: testCheckCapabilityDependenciesEmptyCapabilities},
+		{name: "injected checker accepts alternative", run: testCheckCapabilityDependenciesInjectedCheckerAcceptsAlternative},
+		{name: "injected checker reports missing alternative", run: testCheckCapabilityDependenciesInjectedCheckerReportsMissingAlternative},
+		{name: "injected checker receives request scoped context and io", run: testCheckCapabilityDependenciesInjectedCheckerReceivesContextAndIO},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testCheckCapabilityDependenciesNilDeps(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	if err := CheckCapabilityDependencies(nil, ctx); err != nil {
@@ -30,7 +41,7 @@ func testCheckCapabilityDependenciesNilDeps(t *testing.T) {
 }
 
 func testCheckCapabilityDependenciesEmptyCapabilities(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	deps := &invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{}}
@@ -40,7 +51,7 @@ func testCheckCapabilityDependenciesEmptyCapabilities(t *testing.T) {
 }
 
 func testCheckCapabilityDependenciesInjectedCheckerAcceptsAlternative(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	deps := dependsOnCapability(invowkfile.CapabilityInternet)
@@ -50,7 +61,7 @@ func testCheckCapabilityDependenciesInjectedCheckerAcceptsAlternative(t *testing
 }
 
 func testCheckCapabilityDependenciesInjectedCheckerReportsMissingAlternative(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	deps := dependsOnCapability(invowkfile.CapabilityInternet)
@@ -72,7 +83,7 @@ func testCheckCapabilityDependenciesInjectedCheckerReportsMissingAlternative(t *
 }
 
 func testCheckCapabilityDependenciesInjectedCheckerReceivesContextAndIO(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	stdout := &strings.Builder{}
 	stderr := &strings.Builder{}

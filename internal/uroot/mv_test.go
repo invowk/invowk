@@ -281,7 +281,7 @@ func TestMvCommand_Run_SourceNotFound(t *testing.T) {
 	cmd := newMvCommand()
 	err := cmd.Run(ctx, []string{"mv", "/nonexistent/source.txt", "dest.txt"})
 	if err == nil {
-		t.Error("mv with nonexistent source should error")
+		t.Fatal("mv with nonexistent source should error")
 	}
 
 	// Error should have [uroot] prefix

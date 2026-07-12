@@ -61,12 +61,23 @@ func (p *checksMutationRuntimeProbe) RunCustomCheck(invowkfile.CustomCheck) (Cus
 func TestContainerDependencyWrapperMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("env var wrappers skip empty deps and require probe for non-empty deps", testContainerEnvVarWrapperMutationContracts)
-	t.Run("capability wrappers skip empty deps and require probe for non-empty deps", testContainerCapabilityWrapperMutationContracts)
-	t.Run("command wrappers skip empty deps and require probe for non-empty deps", testContainerCommandWrapperMutationContracts)
-	t.Run("resolved command wrapper skips empty deps and requires probe for resolved deps", testContainerResolvedCommandWrapperMutationContracts)
-	t.Run("runtime wrappers return nil when all alternatives pass", testContainerWrapperSuccessMutationContracts)
-	t.Run("runtime wrappers preserve dependency error payloads", testContainerWrapperFailurePayloadMutationContracts)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "env var wrappers skip empty deps and require probe for non-empty deps", run: testContainerEnvVarWrapperMutationContracts},
+		{name: "capability wrappers skip empty deps and require probe for non-empty deps", run: testContainerCapabilityWrapperMutationContracts},
+		{name: "command wrappers skip empty deps and require probe for non-empty deps", run: testContainerCommandWrapperMutationContracts},
+		{name: "resolved command wrapper skips empty deps and requires probe for resolved deps", run: testContainerResolvedCommandWrapperMutationContracts},
+		{name: "runtime wrappers return nil when all alternatives pass", run: testContainerWrapperSuccessMutationContracts},
+		{name: "runtime wrappers preserve dependency error payloads", run: testContainerWrapperFailurePayloadMutationContracts},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestValidateCustomCheckOutputMutationContracts(t *testing.T) {
@@ -159,35 +170,68 @@ func TestEvaluateCustomChecksMutationContracts(t *testing.T) {
 func TestCustomCheckResolutionMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("script resolution preserves wrapped read errors", testCustomCheckResolutionWrapsReadErrors)
-	t.Run("analysis runtime distinguishes missing interpreter from native interpreter", testCustomCheckAnalysisRuntimeBoundaries)
-	t.Run("validation messages preserve nested separators", testCustomCheckValidationMessageSeparators)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "script resolution preserves wrapped read errors", run: testCustomCheckResolutionWrapsReadErrors},
+		{name: "analysis runtime distinguishes missing interpreter from native interpreter", run: testCustomCheckAnalysisRuntimeBoundaries},
+		{name: "validation messages preserve nested separators", run: testCustomCheckValidationMessageSeparators},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestContainerCollectorsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("env alternatives stop after first successful probe", testContainerCollectorEnvAlternatives)
-	t.Run("invalid env and capability dependencies are reported without probing", testContainerCollectorInvalidEnvCapability)
-	t.Run("qualified command dependencies use source-qualified probe names", testContainerCollectorQualifiedCommands)
-	t.Run("invalid command dependencies are reported without probing", testContainerCollectorInvalidCommands)
-	t.Run("bare command dependencies use unqualified probe names", testContainerCollectorBareCommands)
-	t.Run("resolved command dependencies skip nil commands and format fallback alternatives", testContainerCollectorResolvedCommands)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "env alternatives stop after first successful probe", run: testContainerCollectorEnvAlternatives},
+		{name: "invalid env and capability dependencies are reported without probing", run: testContainerCollectorInvalidEnvCapability},
+		{name: "qualified command dependencies use source-qualified probe names", run: testContainerCollectorQualifiedCommands},
+		{name: "invalid command dependencies are reported without probing", run: testContainerCollectorInvalidCommands},
+		{name: "bare command dependencies use unqualified probe names", run: testContainerCollectorBareCommands},
+		{name: "resolved command dependencies skip nil commands and format fallback alternatives", run: testContainerCollectorResolvedCommands},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestHostEnvCapabilityMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("capability wrapper requires checker for non-empty deps", testHostCapabilityRequiresChecker)
-	t.Run("duplicate capability dependencies are checked once", testHostCapabilityDedupe)
-	t.Run("distinct capability alternative sets are not deduped", testHostCapabilityDistinctAlternativeSets)
-	t.Run("host multi-capability failure records host-specific message and structured kind", testHostMultiCapabilityFailure)
-	t.Run("host env wrapper records command and structured payload", testHostEnvWrapperPayload)
-	t.Run("host env formatting trims alternatives and invalid regex remains wrapped", testHostEnvFormattingAndRegex)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "capability wrapper requires checker for non-empty deps", run: testHostCapabilityRequiresChecker},
+		{name: "duplicate capability dependencies are checked once", run: testHostCapabilityDedupe},
+		{name: "distinct capability alternative sets are not deduped", run: testHostCapabilityDistinctAlternativeSets},
+		{name: "host multi-capability failure records host-specific message and structured kind", run: testHostMultiCapabilityFailure},
+		{name: "host env wrapper records command and structured payload", run: testHostEnvWrapperPayload},
+		{name: "host env formatting trims alternatives and invalid regex remains wrapped", run: testHostEnvFormattingAndRegex},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testContainerEnvVarWrapperMutationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	if err := CheckEnvVarDependenciesInContainer(nil, nil, ctx); err != nil {
@@ -207,7 +251,7 @@ func testContainerEnvVarWrapperMutationContracts(t *testing.T) {
 }
 
 func testContainerCapabilityWrapperMutationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	if err := CheckCapabilityDependenciesInContainer(nil, nil, ctx); err != nil {
@@ -227,7 +271,7 @@ func testContainerCapabilityWrapperMutationContracts(t *testing.T) {
 }
 
 func testContainerCommandWrapperMutationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	if err := CheckCommandDependenciesInContainer(nil, nil, ctx); err != nil {
@@ -247,7 +291,7 @@ func testContainerCommandWrapperMutationContracts(t *testing.T) {
 }
 
 func testContainerResolvedCommandWrapperMutationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	commandName := invowkfile.CommandName("build")
@@ -261,7 +305,7 @@ func testContainerResolvedCommandWrapperMutationContracts(t *testing.T) {
 }
 
 func testContainerWrapperSuccessMutationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	probe := &checksMutationRuntimeProbe{}
@@ -289,7 +333,7 @@ func testContainerWrapperSuccessMutationContracts(t *testing.T) {
 }
 
 func testContainerWrapperFailurePayloadMutationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	probe := &checksMutationRuntimeProbe{
@@ -327,7 +371,7 @@ func testContainerWrapperFailurePayloadMutationContracts(t *testing.T) {
 }
 
 func testCustomCheckResolutionWrapsReadErrors(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	modulePath := invowkfile.FilesystemPath(t.TempDir())
 	scriptFile := invowkfile.ScriptFilePath("checks/ready.sh")
@@ -353,7 +397,7 @@ func testCustomCheckResolutionWrapsReadErrors(t *testing.T) {
 }
 
 func testCustomCheckAnalysisRuntimeBoundaries(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	if got := customCheckAnalysisRuntime(invowkfile.CustomCheckScript{}, "echo ok", customCheckInterpreterTargetHost); got != invowkfile.RuntimeVirtualSh {
 		t.Fatalf("host custom check without interpreter runtime = %q, want virtual-sh", got)
@@ -367,7 +411,7 @@ func testCustomCheckAnalysisRuntimeBoundaries(t *testing.T) {
 }
 
 func testCustomCheckValidationMessageSeparators(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := invowkfile.CustomCheckDependency{Name: "invalid-direct"}.Validate()
 	message := customCheckDependencyValidationMessage(err)
@@ -377,7 +421,7 @@ func testCustomCheckValidationMessageSeparators(t *testing.T) {
 }
 
 func testContainerCollectorEnvAlternatives(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	probe := &checksMutationRuntimeProbe{
 		envErrors: map[invowkfile.EnvVarName]error{
@@ -398,7 +442,7 @@ func testContainerCollectorEnvAlternatives(t *testing.T) {
 }
 
 func testContainerCollectorInvalidEnvCapability(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	probe := &checksMutationRuntimeProbe{}
 	envErrs := collectContainerEnvVarErrors(
@@ -419,7 +463,7 @@ func testContainerCollectorInvalidEnvCapability(t *testing.T) {
 }
 
 func testContainerCollectorQualifiedCommands(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	probe := &checksMutationRuntimeProbe{
 		commandErrors: map[invowkfile.CommandName]error{
@@ -443,7 +487,7 @@ func testContainerCollectorQualifiedCommands(t *testing.T) {
 }
 
 func testContainerCollectorInvalidCommands(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	probe := &checksMutationRuntimeProbe{}
 	errs := collectContainerCommandErrors(
@@ -458,7 +502,7 @@ func testContainerCollectorInvalidCommands(t *testing.T) {
 }
 
 func testContainerCollectorBareCommands(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	probe := &checksMutationRuntimeProbe{
 		commandErrors: map[invowkfile.CommandName]error{
@@ -477,7 +521,7 @@ func testContainerCollectorBareCommands(t *testing.T) {
 }
 
 func testContainerCollectorResolvedCommands(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	build := invowkfile.CommandName("build")
 	deploy := invowkfile.CommandName("deploy")
@@ -505,7 +549,7 @@ func testContainerCollectorResolvedCommands(t *testing.T) {
 }
 
 func testHostCapabilityRequiresChecker(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := CheckCapabilityDependencies(&invowkfile.DependsOn{
 		Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}},
@@ -516,7 +560,7 @@ func testHostCapabilityRequiresChecker(t *testing.T) {
 }
 
 func testHostCapabilityDedupe(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	checker := &recordingCapabilityChecker{}
 	deps := &invowkfile.DependsOn{
@@ -534,7 +578,7 @@ func testHostCapabilityDedupe(t *testing.T) {
 }
 
 func testHostCapabilityDistinctAlternativeSets(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	checker := &recordingCapabilityChecker{}
 	deps := &invowkfile.DependsOn{
@@ -552,7 +596,7 @@ func testHostCapabilityDistinctAlternativeSets(t *testing.T) {
 }
 
 func testHostMultiCapabilityFailure(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := CheckCapabilityDependenciesWithChecker(
 		&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{
@@ -575,7 +619,7 @@ func testHostMultiCapabilityFailure(t *testing.T) {
 }
 
 func testHostEnvWrapperPayload(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := newDependencyExecutionContext(t)
 	err := CheckEnvVarDependencies(
@@ -588,7 +632,7 @@ func testHostEnvWrapperPayload(t *testing.T) {
 }
 
 func testHostEnvFormattingAndRegex(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	errs := collectHostEnvVarErrors(
 		[]invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: " FIRST "}, {Name: "SECOND"}}}},

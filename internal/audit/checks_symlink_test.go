@@ -28,10 +28,11 @@ func TestSymlinkChecker_NoModules(t *testing.T) {
 }
 
 func TestSymlinkChecker_DetectsSymlink(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink tests require Unix")
 	}
-	t.Parallel()
 
 	// Create a module directory with a symlink.
 	modDir := t.TempDir()
@@ -65,10 +66,11 @@ func TestSymlinkChecker_DetectsSymlink(t *testing.T) {
 }
 
 func TestSymlinkChecker_DetectsExternalTarget(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink tests require Unix")
 	}
-	t.Parallel()
 
 	// Create a module directory with a symlink pointing outside.
 	modDir := t.TempDir()
@@ -103,10 +105,11 @@ func TestSymlinkChecker_DetectsExternalTarget(t *testing.T) {
 }
 
 func TestSymlinkChecker_DanglingSymlink(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink tests require Unix")
 	}
-	t.Parallel()
 
 	modDir := t.TempDir()
 	link := filepath.Join(modDir, "dangling.txt")

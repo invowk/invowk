@@ -291,18 +291,6 @@ func TestCustom_ReceivesGotAndErr(t *testing.T) {
 	pathmatrix.Resolver(t, "" /* unused */, resolve, allSeven(pathmatrix.Custom(check)))
 }
 
-// TestMissingBaseVector_FailsAtSetup documents the Validator/Resolver
-// Fatalf contract via a no-op subtest. Direct verification would require
-// running a child subtest and asserting it failed, which adds complexity
-// for marginal value — the contract is documented in the godoc.
-func TestMissingBaseVector_FailsAtSetup(t *testing.T) {
-	t.Parallel()
-	t.Run("omit_unc", func(sub *testing.T) {
-		sub.Parallel()
-		sub.Skip("documenting Fatalf contract — see Validator/Resolver godoc")
-	})
-}
-
 // TestPassHostNativeAbs_FollowsFilepathIsAbs verifies the new outcome
 // produces the right expectation on the running platform: pass-through
 // when filepath.IsAbs(input) is true; joined when false. The fixture

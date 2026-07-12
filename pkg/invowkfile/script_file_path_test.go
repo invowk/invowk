@@ -4,9 +4,57 @@ package invowkfile
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 )
+
+func TestScriptFilePath_Validate_Matrix(t *testing.T) {
+	t.Parallel()
+
+	rejectInvalid := pathmatrix.RejectIs(ErrInvalidScriptFilePath)
+	pathmatrix.Validator(t, func(value string) error {
+		return ScriptFilePath(value).Validate()
+	}, pathmatrix.Expectations{
+		UnixAbsolute:       rejectInvalid,
+		WindowsDriveAbs:    rejectInvalid,
+		WindowsRooted:      rejectInvalid,
+		UNC:                rejectInvalid,
+		SlashTraversal:     rejectInvalid,
+		BackslashTraversal: rejectInvalid,
+		ValidRelative:      pathmatrix.PassAny(nil),
+	})
+}
+
+func TestScriptFilePath_ResolveFromModule_Matrix(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := t.TempDir()
+	resolve := func(value string) (string, error) {
+		return string(ScriptFilePath(value).ResolveFromModule(FilesystemPath(moduleDir))), nil
+	}
+	backslashTraversal := pathmatrix.Custom(func(t testing.TB, got string, gotErr error) {
+		t.Helper()
+		if gotErr != nil {
+			t.Fatalf("unexpected error: %v", gotErr)
+		}
+		want := filepath.Join(moduleDir, filepath.FromSlash(strings.ReplaceAll(pathmatrix.InputBackslashTraversal, "\\", "/")))
+		if got != want {
+			t.Fatalf("resolved path = %q, want %q", got, want)
+		}
+	})
+	pathmatrix.Resolver(t, moduleDir, resolve, pathmatrix.Expectations{
+		UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs:    pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      pathmatrix.Pass(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.Pass(pathmatrix.InputUNC),
+		SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal),
+		BackslashTraversal: backslashTraversal,
+		ValidRelative:      pathmatrix.PassAny(nil),
+	})
+}
 
 func TestScriptFilePathValidateRejectsNullByte(t *testing.T) {
 	t.Parallel()

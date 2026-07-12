@@ -33,46 +33,40 @@ func TestExecutionState_String(t *testing.T) {
 func TestExecutionState_Validate(t *testing.T) {
 	t.Parallel()
 
-	t.Run("stateExecuting is valid", func(t *testing.T) {
-		t.Parallel()
-		err := stateExecuting.validate()
-		if err != nil {
-			t.Errorf("stateExecuting should be valid, got error: %v", err)
-		}
-	})
+	tests := []struct {
+		name    string
+		state   executionState
+		wantErr bool
+	}{
+		{name: "executing", state: stateExecuting},
+		{name: "completed", state: stateCompleted},
+		{name: "tui", state: stateTUI},
+		{name: "invalid", state: executionState(99), wantErr: true},
+	}
 
-	t.Run("stateCompleted is valid", func(t *testing.T) {
-		t.Parallel()
-		err := stateCompleted.validate()
-		if err != nil {
-			t.Errorf("stateCompleted should be valid, got error: %v", err)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("stateTUI is valid", func(t *testing.T) {
-		t.Parallel()
-		err := stateTUI.validate()
-		if err != nil {
-			t.Errorf("stateTUI should be valid, got error: %v", err)
-		}
-	})
-
-	t.Run("invalid state", func(t *testing.T) {
-		t.Parallel()
-		invalid := executionState(99)
-		err := invalid.validate()
-		if err == nil {
-			t.Fatal("executionState(99) should be invalid")
-		}
-
-		var stateErr *invalidExecutionStateError
-		if !errors.As(err, &stateErr) {
-			t.Fatalf("error should be *invalidExecutionStateError, got: %T", err)
-		}
-		if stateErr.value != 99 {
-			t.Errorf("error value = %d, want 99", stateErr.value)
-		}
-	})
+			err := tt.state.validate()
+			if !tt.wantErr {
+				if err != nil {
+					t.Errorf("validate() error = %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("validate() error = nil, want invalid state error")
+			}
+			var stateErr *invalidExecutionStateError
+			if !errors.As(err, &stateErr) {
+				t.Fatalf("error type = %T, want *invalidExecutionStateError", err)
+			}
+			if stateErr.value != tt.state {
+				t.Errorf("error value = %d, want %d", stateErr.value, tt.state)
+			}
+		})
+	}
 }
 
 func TestInvalidExecutionStateError_Error(t *testing.T) {

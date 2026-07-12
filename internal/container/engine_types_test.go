@@ -5,6 +5,8 @@ package container
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 )
 
 func TestContainerID_Validate(t *testing.T) {
@@ -389,6 +391,24 @@ func TestVolumeMountSpec_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVolumeMountSpec_Validate_Matrix(t *testing.T) {
+	t.Parallel()
+
+	reject := pathmatrix.RejectIs(ErrInvalidVolumeMount)
+	pathmatrix.VolumeMount(t, func(spec string) error {
+		return VolumeMountSpec(spec).Validate()
+	}, pathmatrix.VolumeMountVectors{
+		UnixHostUnixContainer:       pathmatrix.PassAny(nil),
+		WindowsBackslashHostUnix:    reject,
+		WindowsForwardSlashHostUnix: pathmatrix.PassAny(nil),
+		NamedVolumeUnix:             pathmatrix.PassAny(nil),
+		RelativeHostUnix:            pathmatrix.PassAny(nil),
+		HostWithColonInPath:         reject,
+		EmptyHost:                   reject,
+		EmptyContainer:              reject,
+	})
 }
 
 func TestPortMappingSpec_Validate(t *testing.T) {

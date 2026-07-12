@@ -83,16 +83,27 @@ func TestLockFile_toCUE(t *testing.T) {
 func TestParseLockFileCUE(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid_single_module", testParseLockFileCUEValidSingleModule)
-	t.Run("with_optional_fields", testParseLockFileCUEWithOptionalFields)
-	t.Run("empty_modules", testParseLockFileCUEEmptyModules)
-	t.Run("comments_ignored", testParseLockFileCUECommentsIgnored)
-	t.Run("version_field_collision_guard", testParseLockFileCUEVersionFieldCollision)
-	t.Run("invalid_version_empty", testParseLockFileCUEInvalidVersionEmpty)
-	t.Run("unknown_version_rejected", testParseLockFileCUEUnknownVersion)
-	t.Run("malformed_cue_rejected", testParseLockFileCUEMalformed)
-	t.Run("invalid_generated_timestamp_rejected", testParseLockFileCUEInvalidTimestamp)
-	t.Run("v1_lock_file_accepted", testParseLockFileCUEV1Accepted)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "valid_single_module", run: testParseLockFileCUEValidSingleModule},
+		{name: "with_optional_fields", run: testParseLockFileCUEWithOptionalFields},
+		{name: "empty_modules", run: testParseLockFileCUEEmptyModules},
+		{name: "comments_ignored", run: testParseLockFileCUECommentsIgnored},
+		{name: "version_field_collision_guard", run: testParseLockFileCUEVersionFieldCollision},
+		{name: "invalid_version_empty", run: testParseLockFileCUEInvalidVersionEmpty},
+		{name: "unknown_version_rejected", run: testParseLockFileCUEUnknownVersion},
+		{name: "malformed_cue_rejected", run: testParseLockFileCUEMalformed},
+		{name: "invalid_generated_timestamp_rejected", run: testParseLockFileCUEInvalidTimestamp},
+		{name: "v1_lock_file_accepted", run: testParseLockFileCUEV1Accepted},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestParseStringValue(t *testing.T) {
@@ -214,7 +225,7 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 }
 
 func testParseLockFileCUEValidSingleModule(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `// invowkmod.lock.cue
 // DO NOT EDIT MANUALLY
@@ -256,7 +267,7 @@ modules: {
 }
 
 func testParseLockFileCUEWithOptionalFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: "2.0"
 generated: "2025-01-15T10:30:00Z"
@@ -293,7 +304,7 @@ modules: {
 }
 
 func testParseLockFileCUEEmptyModules(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: "2.0"
 generated: "2025-01-15T10:30:00Z"
@@ -306,7 +317,7 @@ modules: {}`
 }
 
 func testParseLockFileCUECommentsIgnored(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `// This is a comment
 version: "2.0"
@@ -321,7 +332,7 @@ modules: {}`
 }
 
 func testParseLockFileCUEVersionFieldCollision(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	// The module-level "version:" field must NOT overwrite the top-level "version:".
 	content := `version: "2.0"
@@ -350,7 +361,7 @@ modules: {
 }
 
 func testParseLockFileCUEInvalidVersionEmpty(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: ""
 generated: "2025-01-15T10:30:00Z"
@@ -362,7 +373,7 @@ modules: {}`
 }
 
 func testParseLockFileCUEUnknownVersion(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: "99.0"
 generated: "2025-01-15T10:30:00Z"
@@ -377,7 +388,7 @@ modules: {}`
 }
 
 func testParseLockFileCUEMalformed(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: "2.0"
 generated: "2025-01-15T10:30:00Z"
@@ -395,7 +406,7 @@ modules: {
 }
 
 func testParseLockFileCUEInvalidTimestamp(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: "2.0"
 generated: "not-rfc3339"
@@ -410,7 +421,7 @@ modules: {}`
 }
 
 func testParseLockFileCUEV1Accepted(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	content := `version: "1.0"
 generated: "2025-01-15T10:30:00Z"

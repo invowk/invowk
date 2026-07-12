@@ -15,22 +15,44 @@ import (
 func TestDependencyValueErrorPayloads(t *testing.T) {
 	t.Parallel()
 
-	t.Run("binary name validation preserves value and reason", testBinaryNameValidationPayloads)
-	t.Run("check name and script content validation preserve values", testCheckNameAndScriptContentPayloads)
-	t.Run("source id validation preserves value and branch-specific reason", testSourceIDValidationPayloads)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "binary name validation preserves value and reason", run: testBinaryNameValidationPayloads},
+		{name: "check name and script content validation preserve values", run: testCheckNameAndScriptContentPayloads},
+		{name: "source id validation preserves value and branch-specific reason", run: testSourceIDValidationPayloads},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestCommandDependencyRefMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid refs preserve parsed fields and rendering", testValidCommandDependencyRefs)
-	t.Run("invalid refs preserve original ref and reason", testInvalidCommandDependencyRefs)
-	t.Run("parts validation rejects inconsistent structured refs", testCommandDependencyRefParts)
-	t.Run("default error reasons are user-facing", testCommandDependencyDefaultErrorReasons)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "valid refs preserve parsed fields and rendering", run: testValidCommandDependencyRefs},
+		{name: "invalid refs preserve original ref and reason", run: testInvalidCommandDependencyRefs},
+		{name: "parts validation rejects inconsistent structured refs", run: testCommandDependencyRefParts},
+		{name: "default error reasons are user-facing", run: testCommandDependencyDefaultErrorReasons},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testBinaryNameValidationPayloads(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tests := []struct {
 		name       string
@@ -60,7 +82,7 @@ func testBinaryNameValidationPayloads(t *testing.T) {
 }
 
 func testCheckNameAndScriptContentPayloads(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	checkErr := requireDependencyMutationAs[*InvalidCheckNameError](t, CheckName(" \t").Validate())
 	if checkErr.Value != " \t" {
@@ -74,7 +96,7 @@ func testCheckNameAndScriptContentPayloads(t *testing.T) {
 }
 
 func testSourceIDValidationPayloads(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tooLong := CommandDependencySourceID(strings.Repeat("a", MaxNameLength+1))
 	exactMax := CommandDependencySourceID("a" + strings.Repeat("b", MaxNameLength-1))
@@ -125,7 +147,7 @@ func requireCommandDependencySourceIDValidation(
 }
 
 func testValidCommandDependencyRefs(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	bare, err := CommandDependencyRef("build test").Parse()
 	if err != nil {
@@ -145,7 +167,7 @@ func testValidCommandDependencyRefs(t *testing.T) {
 }
 
 func testInvalidCommandDependencyRefs(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tests := []struct {
 		name       string
@@ -178,7 +200,7 @@ func testInvalidCommandDependencyRefs(t *testing.T) {
 }
 
 func testCommandDependencyRefParts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tests := []struct {
 		name       string
@@ -207,7 +229,7 @@ func testCommandDependencyRefParts(t *testing.T) {
 }
 
 func testCommandDependencyDefaultErrorReasons(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	refErr := &InvalidCommandDependencyRefError{Value: "bad"}
 	if !strings.Contains(refErr.Error(), "expected bare command name or @source command reference") {
@@ -222,136 +244,158 @@ func testCommandDependencyDefaultErrorReasons(t *testing.T) {
 func TestDependencyFieldErrorPayloads(t *testing.T) {
 	t.Parallel()
 
-	t.Run("simple dependency validators preserve nested field errors", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "simple dependency validators preserve nested field errors", run: func(t *testing.T) {
+			t.Helper()
 
-		toolErr := requireDependencyMutationAs[*InvalidToolDependencyError](t, ToolDependency{Alternatives: []BinaryName{""}}.Validate())
-		requireDependencyMutationFieldErrors(t, toolErr.FieldErrors, 1, ErrInvalidBinaryName)
+			toolErr := requireDependencyMutationAs[*InvalidToolDependencyError](t, ToolDependency{Alternatives: []BinaryName{""}}.Validate())
+			requireDependencyMutationFieldErrors(t, toolErr.FieldErrors, 1, ErrInvalidBinaryName)
 
-		commandErr := requireDependencyMutationAs[*InvalidCommandDependencyError](t, CommandDependency{Alternatives: []CommandDependencyRef{""}}.Validate())
-		requireDependencyMutationFieldErrors(t, commandErr.FieldErrors, 1, ErrInvalidCommandDependencyRef)
+			commandErr := requireDependencyMutationAs[*InvalidCommandDependencyError](t, CommandDependency{Alternatives: []CommandDependencyRef{""}}.Validate())
+			requireDependencyMutationFieldErrors(t, commandErr.FieldErrors, 1, ErrInvalidCommandDependencyRef)
 
-		capabilityErr := requireDependencyMutationAs[*InvalidCapabilityDependencyError](t, CapabilityDependency{Alternatives: []CapabilityName{"bogus"}}.Validate())
-		requireDependencyMutationFieldErrors(t, capabilityErr.FieldErrors, 1, ErrInvalidCapabilityName)
+			capabilityErr := requireDependencyMutationAs[*InvalidCapabilityDependencyError](t, CapabilityDependency{Alternatives: []CapabilityName{"bogus"}}.Validate())
+			requireDependencyMutationFieldErrors(t, capabilityErr.FieldErrors, 1, ErrInvalidCapabilityName)
 
-		envCheckErr := requireDependencyMutationAs[*InvalidEnvVarCheckError](t, EnvVarCheck{Name: "", Validation: "["}.Validate())
-		requireDependencyMutationFieldErrors(t, envCheckErr.FieldErrors, 2, ErrInvalidEnvVarName, ErrInvalidRegexPattern)
+			envCheckErr := requireDependencyMutationAs[*InvalidEnvVarCheckError](t, EnvVarCheck{Name: "", Validation: "["}.Validate())
+			requireDependencyMutationFieldErrors(t, envCheckErr.FieldErrors, 2, ErrInvalidEnvVarName, ErrInvalidRegexPattern)
 
-		envDepErr := requireDependencyMutationAs[*InvalidEnvVarDependencyError](t, EnvVarDependency{Alternatives: []EnvVarCheck{{Name: ""}}}.Validate())
-		requireDependencyMutationFieldErrors(t, envDepErr.FieldErrors, 1, ErrInvalidEnvVarCheck)
+			envDepErr := requireDependencyMutationAs[*InvalidEnvVarDependencyError](t, EnvVarDependency{Alternatives: []EnvVarCheck{{Name: ""}}}.Validate())
+			requireDependencyMutationFieldErrors(t, envDepErr.FieldErrors, 1, ErrInvalidEnvVarCheck)
 
-		pathErr := requireDependencyMutationAs[*InvalidFilepathDependencyError](t, FilepathDependency{Alternatives: []FilesystemPath{""}}.Validate())
-		requireDependencyMutationFieldErrors(t, pathErr.FieldErrors, 1, ErrInvalidFilesystemPath)
-	})
+			pathErr := requireDependencyMutationAs[*InvalidFilepathDependencyError](t, FilepathDependency{Alternatives: []FilesystemPath{""}}.Validate())
+			requireDependencyMutationFieldErrors(t, pathErr.FieldErrors, 1, ErrInvalidFilesystemPath)
+		}},
 
-	t.Run("custom check validators preserve every nested invalid field", func(t *testing.T) {
-		t.Parallel()
+		{name: "custom check validators preserve every nested invalid field", run: func(t *testing.T) {
+			t.Helper()
 
-		invalidCode := types.ExitCode(-1)
-		checkErr := requireDependencyMutationAs[*InvalidCustomCheckError](t, CustomCheck{
-			Name:           "",
-			Script:         CustomCheckScript{Content: " \t"},
-			ExpectedCode:   &invalidCode,
-			ExpectedOutput: "[",
-		}.Validate())
-		requireDependencyMutationFieldErrors(
-			t,
-			checkErr.FieldErrors,
-			4,
-			ErrInvalidCheckName,
-			ErrInvalidCustomCheckScript,
-			types.ErrInvalidExitCode,
-			ErrInvalidRegexPattern,
-		)
+			invalidCode := types.ExitCode(-1)
+			checkErr := requireDependencyMutationAs[*InvalidCustomCheckError](t, CustomCheck{
+				Name:           "",
+				Script:         CustomCheckScript{Content: " \t"},
+				ExpectedCode:   &invalidCode,
+				ExpectedOutput: "[",
+			}.Validate())
+			requireDependencyMutationFieldErrors(
+				t,
+				checkErr.FieldErrors,
+				4,
+				ErrInvalidCheckName,
+				ErrInvalidCustomCheckScript,
+				types.ErrInvalidExitCode,
+				ErrInvalidRegexPattern,
+			)
 
-		depErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
-			Name:           "",
-			Script:         CustomCheckScript{Content: " \t"},
-			ExpectedCode:   &invalidCode,
-			ExpectedOutput: "[",
-		}.Validate())
-		requireDependencyMutationFieldErrors(
-			t,
-			depErr.FieldErrors,
-			4,
-			ErrInvalidCheckName,
-			ErrInvalidCustomCheckScript,
-			types.ErrInvalidExitCode,
-			ErrInvalidRegexPattern,
-		)
+			depErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+				Name:           "",
+				Script:         CustomCheckScript{Content: " \t"},
+				ExpectedCode:   &invalidCode,
+				ExpectedOutput: "[",
+			}.Validate())
+			requireDependencyMutationFieldErrors(
+				t,
+				depErr.FieldErrors,
+				4,
+				ErrInvalidCheckName,
+				ErrInvalidCustomCheckScript,
+				types.ErrInvalidExitCode,
+				ErrInvalidRegexPattern,
+			)
 
-		missingScriptDepErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
-			Name: "missing-script",
-		}.Validate())
-		requireDependencyMutationFieldErrors(t, missingScriptDepErr.FieldErrors, 1, ErrInvalidCustomCheckScript)
+			missingScriptDepErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+				Name: "missing-script",
+			}.Validate())
+			requireDependencyMutationFieldErrors(t, missingScriptDepErr.FieldErrors, 1, ErrInvalidCustomCheckScript)
 
-		altErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
-			Name: "direct",
-			Alternatives: []CustomCheck{{
-				Name:   "",
-				Script: CustomCheckScript{Content: " \t"},
-			}},
-		}.Validate())
-		requireDependencyMutationFieldErrors(t, altErr.FieldErrors, 2, ErrMixedCustomCheckDependency, ErrInvalidCustomCheck)
+			altErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+				Name: "direct",
+				Alternatives: []CustomCheck{{
+					Name:   "",
+					Script: CustomCheckScript{Content: " \t"},
+				}},
+			}.Validate())
+			requireDependencyMutationFieldErrors(t, altErr.FieldErrors, 2, ErrMixedCustomCheckDependency, ErrInvalidCustomCheck)
 
-		scriptOnlyAltErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
-			Script: CustomCheckScript{Content: "echo direct"},
-			Alternatives: []CustomCheck{{
-				Name:   "alt",
-				Script: CustomCheckScript{Content: "echo alt"},
-			}},
-		}.Validate())
-		requireDependencyMutationFieldErrors(t, scriptOnlyAltErr.FieldErrors, 1, ErrMixedCustomCheckDependency)
+			scriptOnlyAltErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+				Script: CustomCheckScript{Content: "echo direct"},
+				Alternatives: []CustomCheck{{
+					Name:   "alt",
+					Script: CustomCheckScript{Content: "echo alt"},
+				}},
+			}.Validate())
+			requireDependencyMutationFieldErrors(t, scriptOnlyAltErr.FieldErrors, 1, ErrMixedCustomCheckDependency)
 
-		outputOnlyAltErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
-			ExpectedOutput: "^direct$",
-			Alternatives: []CustomCheck{{
-				Name:   "alt",
-				Script: CustomCheckScript{Content: "echo alt"},
-			}},
-		}.Validate())
-		requireDependencyMutationFieldErrors(t, outputOnlyAltErr.FieldErrors, 1, ErrMixedCustomCheckDependency)
-	})
+			outputOnlyAltErr := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, CustomCheckDependency{
+				ExpectedOutput: "^direct$",
+				Alternatives: []CustomCheck{{
+					Name:   "alt",
+					Script: CustomCheckScript{Content: "echo alt"},
+				}},
+			}.Validate())
+			requireDependencyMutationFieldErrors(t, outputOnlyAltErr.FieldErrors, 1, ErrMixedCustomCheckDependency)
+		}},
 
-	t.Run("depends_on preserves category errors in declaration order", func(t *testing.T) {
-		t.Parallel()
+		{name: "depends_on preserves category errors in declaration order", run: func(t *testing.T) {
+			t.Helper()
 
-		err := DependsOn{
-			Tools:        []ToolDependency{{Alternatives: []BinaryName{""}}},
-			Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{""}}},
-			Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{""}}},
-			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{"bogus"}}},
-			CustomChecks: []CustomCheckDependency{{Name: "", Script: CustomCheckScript{Content: " \t"}}},
-			EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: ""}}}},
-		}.Validate()
-		typed := requireDependencyMutationAs[*InvalidDependsOnError](t, err)
-		requireDependencyMutationFieldErrors(
-			t,
-			typed.FieldErrors,
-			6,
-			ErrInvalidToolDependency,
-			ErrInvalidCommandDependency,
-			ErrInvalidFilepathDependency,
-			ErrInvalidCapabilityDependency,
-			ErrInvalidCustomCheckDependency,
-			ErrInvalidEnvVarDependency,
-		)
-	})
+			err := DependsOn{
+				Tools:        []ToolDependency{{Alternatives: []BinaryName{""}}},
+				Commands:     []CommandDependency{{Alternatives: []CommandDependencyRef{""}}},
+				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{""}}},
+				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{"bogus"}}},
+				CustomChecks: []CustomCheckDependency{{Name: "", Script: CustomCheckScript{Content: " \t"}}},
+				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: ""}}}},
+			}.Validate()
+			typed := requireDependencyMutationAs[*InvalidDependsOnError](t, err)
+			requireDependencyMutationFieldErrors(
+				t,
+				typed.FieldErrors,
+				6,
+				ErrInvalidToolDependency,
+				ErrInvalidCommandDependency,
+				ErrInvalidFilepathDependency,
+				ErrInvalidCapabilityDependency,
+				ErrInvalidCustomCheckDependency,
+				ErrInvalidEnvVarDependency,
+			)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestCustomCheckScriptMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("script source helpers distinguish content and file", testCustomCheckScriptSourceHelpers)
-	t.Run("script file paths resolve relative and absolute forms", testCustomCheckScriptFilePaths)
-	t.Run("script validation preserves source and optional field failures", testCustomCheckScriptValidationFailures)
-	t.Run("resolve validates source shape before file IO", testCustomCheckScriptResolveValidatesSource)
-	t.Run("resolve propagates containment and read failures", testCustomCheckScriptResolveFailureContracts)
-	t.Run("interpreter resolution delegates to explicit specs and shebangs", testCustomCheckScriptInterpreterResolution)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "script source helpers distinguish content and file", run: testCustomCheckScriptSourceHelpers},
+		{name: "script file paths resolve relative and absolute forms", run: testCustomCheckScriptFilePaths},
+		{name: "script validation preserves source and optional field failures", run: testCustomCheckScriptValidationFailures},
+		{name: "resolve validates source shape before file IO", run: testCustomCheckScriptResolveValidatesSource},
+		{name: "resolve propagates containment and read failures", run: testCustomCheckScriptResolveFailureContracts},
+		{name: "interpreter resolution delegates to explicit specs and shebangs", run: testCustomCheckScriptInterpreterResolution},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testCustomCheckScriptSourceHelpers(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	file := ScriptFilePath("scripts/check.sh")
 	contentScript := CustomCheckScript{Content: "echo ok"}
@@ -369,7 +413,7 @@ func testCustomCheckScriptSourceHelpers(t *testing.T) {
 }
 
 func testCustomCheckScriptFilePaths(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	modulePath := FilesystemPath(filepath.Join(t.TempDir(), "module.invowkmod"))
 	relative := ScriptFilePath("scripts/check.sh")
@@ -393,7 +437,7 @@ func testCustomCheckScriptFilePaths(t *testing.T) {
 }
 
 func testCustomCheckScriptValidationFailures(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	file := ScriptFilePath("")
 	err := CustomCheckScript{
@@ -417,7 +461,7 @@ func testCustomCheckScriptValidationFailures(t *testing.T) {
 }
 
 func testCustomCheckScriptResolveValidatesSource(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	readCalled := false
 	_, err := CustomCheckScript{}.ResolveWithFSAndModule("module.invowkmod", func(string) ([]byte, error) {
@@ -443,7 +487,7 @@ func testCustomCheckScriptResolveValidatesSource(t *testing.T) {
 }
 
 func testCustomCheckScriptResolveFailureContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	modulePath := FilesystemPath(t.TempDir())
 	outside := ScriptFilePath("../outside.sh")
@@ -477,7 +521,7 @@ func testCustomCheckScriptResolveFailureContracts(t *testing.T) {
 }
 
 func testCustomCheckScriptInterpreterResolution(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	fromShebang := CustomCheckScript{}.ResolveInterpreterFromScript("#!/usr/bin/env python3 -u\nprint('ok')\n")
 	if !fromShebang.Found || fromShebang.Interpreter != "python3" || len(fromShebang.Args) != 1 || fromShebang.Args[0] != "-u" {
@@ -493,59 +537,70 @@ func testCustomCheckScriptInterpreterResolution(t *testing.T) {
 func TestCustomCheckDependencyMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("direct get checks preserves every field", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "direct get checks preserves every field", run: func(t *testing.T) {
+			t.Helper()
 
-		expectedCode := types.ExitCode(7)
-		dep := CustomCheckDependency{
-			Name:           "direct",
-			Script:         CustomCheckScript{Content: "echo direct", Interpreter: "sh"},
-			ExpectedCode:   &expectedCode,
-			ExpectedOutput: "^direct$",
-		}
-		checks := dep.GetChecks()
-		if len(checks) != 1 {
-			t.Fatalf("GetChecks() returned %d checks, want 1", len(checks))
-		}
-		got := checks[0]
-		if got.Name != dep.Name || got.Script != dep.Script || got.ExpectedCode != dep.ExpectedCode || got.ExpectedOutput != dep.ExpectedOutput {
-			t.Fatalf("GetChecks()[0] = %+v, want direct fields from %+v", got, dep)
-		}
-	})
+			expectedCode := types.ExitCode(7)
+			dep := CustomCheckDependency{
+				Name:           "direct",
+				Script:         CustomCheckScript{Content: "echo direct", Interpreter: "sh"},
+				ExpectedCode:   &expectedCode,
+				ExpectedOutput: "^direct$",
+			}
+			checks := dep.GetChecks()
+			if len(checks) != 1 {
+				t.Fatalf("GetChecks() returned %d checks, want 1", len(checks))
+			}
+			got := checks[0]
+			if got.Name != dep.Name || got.Script != dep.Script || got.ExpectedCode != dep.ExpectedCode || got.ExpectedOutput != dep.ExpectedOutput {
+				t.Fatalf("GetChecks()[0] = %+v, want direct fields from %+v", got, dep)
+			}
+		}},
 
-	t.Run("alternatives get checks returns original alternatives", func(t *testing.T) {
-		t.Parallel()
+		{name: "alternatives get checks returns original alternatives", run: func(t *testing.T) {
+			t.Helper()
 
-		dep := CustomCheckDependency{
-			Alternatives: []CustomCheck{
-				{Name: "one", Script: CustomCheckScript{Content: "echo one"}},
-				{Name: "two", Script: CustomCheckScript{Content: "echo two"}},
-			},
-		}
-		checks := dep.GetChecks()
-		if len(checks) != len(dep.Alternatives) || checks[0].Name != "one" || checks[1].Name != "two" {
-			t.Fatalf("GetChecks() = %+v, want original alternatives", checks)
-		}
-	})
+			dep := CustomCheckDependency{
+				Alternatives: []CustomCheck{
+					{Name: "one", Script: CustomCheckScript{Content: "echo one"}},
+					{Name: "two", Script: CustomCheckScript{Content: "echo two"}},
+				},
+			}
+			checks := dep.GetChecks()
+			if len(checks) != len(dep.Alternatives) || checks[0].Name != "one" || checks[1].Name != "two" {
+				t.Fatalf("GetChecks() = %+v, want original alternatives", checks)
+			}
+		}},
 
-	t.Run("direct dependency validates optional expected output only when set", func(t *testing.T) {
-		t.Parallel()
+		{name: "direct dependency validates optional expected output only when set", run: func(t *testing.T) {
+			t.Helper()
 
-		err := CustomCheckDependency{
-			Name:           "regex",
-			Script:         CustomCheckScript{Content: "echo ok"},
-			ExpectedOutput: "[",
-		}.Validate()
-		typed := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, err)
-		requireDependencyMutationFieldErrors(t, typed.FieldErrors, 1, ErrInvalidRegexPattern)
+			err := CustomCheckDependency{
+				Name:           "regex",
+				Script:         CustomCheckScript{Content: "echo ok"},
+				ExpectedOutput: "[",
+			}.Validate()
+			typed := requireDependencyMutationAs[*InvalidCustomCheckDependencyError](t, err)
+			requireDependencyMutationFieldErrors(t, typed.FieldErrors, 1, ErrInvalidRegexPattern)
 
-		if err := (CustomCheckDependency{
-			Name:   "empty-regex",
-			Script: CustomCheckScript{Content: "echo ok"},
-		}).Validate(); err != nil {
-			t.Fatalf("empty ExpectedOutput Validate() error = %v, want nil", err)
-		}
-	})
+			if err := (CustomCheckDependency{
+				Name:   "empty-regex",
+				Script: CustomCheckScript{Content: "echo ok"},
+			}).Validate(); err != nil {
+				t.Fatalf("empty ExpectedOutput Validate() error = %v, want nil", err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func requireDependencyMutationAs[T any](t *testing.T, err error) T {

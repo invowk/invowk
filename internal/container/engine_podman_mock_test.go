@@ -169,139 +169,75 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 
 	ctx := t.Context()
 
-	t.Run("build failure", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name               string
+		operation          string
+		stderr             string
+		exitCode           int
+		wantOperationError bool
+		wantExitError      bool
+		checkExists        bool
+		wantExists         bool
+		checkResultExit    bool
+		wantResultExit     int
+	}{
+		{name: "build failure", operation: "build", stderr: "Error: build failed", exitCode: 1, wantOperationError: true},
+		{name: "image not found", operation: "imageExists", stderr: "Error: No such image", exitCode: 1, checkExists: true},
+		{name: "run with exit code", operation: "run", stderr: "command failed", exitCode: 42, checkResultExit: true, wantResultExit: 42},
+		{name: "remove failure", operation: "remove", stderr: "Error: No such container", exitCode: 1, wantExitError: true},
+		{name: "remove image failure", operation: "removeImage", stderr: "Error: image is being used", exitCode: 1, wantExitError: true},
+		{name: "version failure", operation: "version", stderr: "Cannot connect to Podman socket", exitCode: 1, wantExitError: true},
+		{name: "exec failure", operation: "exec", stderr: "Error: container is not running", exitCode: 1, checkResultExit: true, wantResultExit: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Error: build failed"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		opts := BuildOptions{
-			ContextDir: "/tmp/build",
-			Tag:        "test:v1",
-		}
-
-		err := engine.Build(ctx, opts)
-		if err == nil {
-			t.Fatal("expected error for failed build")
-		}
-		if _, ok := errors.AsType[*OperationError](err); !ok {
-			t.Errorf("expected *OperationError, got %T: %v", err, err)
-		}
-	})
-
-	t.Run("image not found", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Error: No such image"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		exists, err := engine.ImageExists(ctx, "nonexistent:latest")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if exists {
-			t.Error("expected image to not exist")
-		}
-	})
-
-	t.Run("run with exit code", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "command failed"
-		recorder.ExitCode = 42
-		engine := newTestPodmanEngine(t, recorder)
-
-		opts := RunOptions{
-			Image:   "debian:stable-slim",
-			Command: []string{"false"},
-		}
-
-		result, err := engine.Run(ctx, opts)
-		// Run returns nil error but captures exit code in result
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode != 42 {
-			t.Errorf("expected exit code 42, got %d", result.ExitCode)
-		}
-	})
-
-	t.Run("remove failure", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Error: No such container"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		err := engine.Remove(ctx, "nonexistent-container", false)
-		if err == nil {
-			t.Fatal("expected error for failed remove")
-		}
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
-			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
-		}
-	})
-
-	t.Run("remove image failure", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Error: image is being used"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		err := engine.RemoveImage(ctx, "image-in-use:latest", false)
-		if err == nil {
-			t.Fatal("expected error for failed image removal")
-		}
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
-			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
-		}
-	})
-
-	t.Run("version failure", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Cannot connect to Podman socket"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		_, err := engine.Version(ctx)
-		if err == nil {
-			t.Fatal("expected error when Podman not available")
-		}
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
-			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
-		}
-	})
-
-	t.Run("exec failure", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Error: container is not running"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		result, err := engine.Exec(ctx, "stopped-container", []string{"ls"}, RunOptions{})
-		// Exec returns nil error but captures exit code
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode == 0 {
-			t.Error("expected non-zero exit code for stopped container")
-		}
-	})
+			recorder := NewMockCommandRecorder()
+			recorder.Stderr, recorder.ExitCode = tt.stderr, tt.exitCode
+			engine := newTestPodmanEngine(t, recorder)
+			var err error
+			var exists bool
+			var result *RunResult
+			switch tt.operation {
+			case "build":
+				err = engine.Build(ctx, BuildOptions{ContextDir: "/tmp/build", Tag: "test:v1"})
+			case "imageExists":
+				exists, err = engine.ImageExists(ctx, "nonexistent:latest")
+			case "run":
+				result, err = engine.Run(ctx, RunOptions{Image: "debian:stable-slim", Command: []string{"false"}})
+			case "remove":
+				err = engine.Remove(ctx, "nonexistent-container", false)
+			case "removeImage":
+				err = engine.RemoveImage(ctx, "image-in-use:latest", false)
+			case "version":
+				_, err = engine.Version(ctx)
+			case "exec":
+				result, err = engine.Exec(ctx, "stopped-container", []string{"ls"}, RunOptions{})
+			default:
+				t.Fatalf("unknown operation %q", tt.operation)
+			}
+			switch {
+			case tt.wantOperationError:
+				if _, ok := errors.AsType[*OperationError](err); !ok {
+					t.Fatalf("error = %T %v, want *OperationError", err, err)
+				}
+			case tt.wantExitError:
+				var exitErr *exec.ExitError
+				if !errors.As(err, &exitErr) {
+					t.Fatalf("error = %T %v, want wrapped *exec.ExitError", err, err)
+				}
+			case err != nil:
+				t.Fatalf("operation error = %v", err)
+			}
+			if tt.checkExists && exists != tt.wantExists {
+				t.Errorf("ImageExists() = %t, want %t", exists, tt.wantExists)
+			}
+			if tt.checkResultExit && int(result.ExitCode) != tt.wantResultExit {
+				t.Errorf("result.ExitCode = %d, want %d", result.ExitCode, tt.wantResultExit)
+			}
+		})
+	}
 }
 
 // TestPodmanEngine_Version_Arguments verifies Podman Version() uses different format.
@@ -408,100 +344,45 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("basic exec", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name            string
+		container       ContainerID
+		command         []string
+		opts            RunOptions
+		stderr          string
+		exitCode        int
+		wantArgs        []string
+		wantContainerID ContainerID
+		wantExitCode    int
+	}{
+		{name: "basic exec", container: "container123", command: []string{"ls", "-la"}, wantArgs: []string{"container123", "ls", "-la"}, wantContainerID: "container123"},
+		{name: "with interactive and tty", container: "container456", command: []string{"bash"}, opts: RunOptions{Interactive: true, TTY: true}, wantArgs: []string{"-i", "-t", "container456", "bash"}},
+		{name: "with workdir and env", container: "container789", command: []string{"./build.sh"}, opts: RunOptions{WorkDir: "/app", Env: map[string]string{"BUILD_MODE": "release", "DEBUG": "false"}}, wantArgs: []string{"-w", "/app", "-e", "BUILD_MODE=release", "DEBUG=false"}},
+		{name: "exit code capture", container: "failing-container", command: []string{"false"}, stderr: "command failed", exitCode: 42, wantExitCode: 42},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		recorder := NewMockCommandRecorder()
-		engine := newTestPodmanEngine(t, recorder)
-		ctx := t.Context()
-
-		result, err := engine.Exec(ctx, "container123", []string{"ls", "-la"}, RunOptions{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		recorder.AssertInvocationCount(t, 1)
-		recorder.AssertCommandName(t, "/usr/bin/podman")
-		recorder.AssertFirstArg(t, "exec")
-		recorder.AssertArgsContain(t, "container123")
-		recorder.AssertArgsContain(t, "ls")
-		recorder.AssertArgsContain(t, "-la")
-
-		if result.ContainerID != "container123" {
-			t.Errorf("expected ContainerID %q, got %q", "container123", result.ContainerID)
-		}
-	})
-
-	t.Run("with interactive and tty", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		engine := newTestPodmanEngine(t, recorder)
-		ctx := t.Context()
-
-		_, err := engine.Exec(ctx, "container456", []string{"bash"}, RunOptions{
-			Interactive: true,
-			TTY:         true,
+			recorder := NewMockCommandRecorder()
+			recorder.Stderr, recorder.ExitCode = tt.stderr, tt.exitCode
+			engine := newTestPodmanEngine(t, recorder)
+			result, err := engine.Exec(t.Context(), tt.container, tt.command, tt.opts)
+			if err != nil {
+				t.Fatalf("Exec() error = %v", err)
+			}
+			recorder.AssertInvocationCount(t, 1)
+			recorder.AssertCommandName(t, "/usr/bin/podman")
+			recorder.AssertFirstArg(t, "exec")
+			recorder.AssertArgsContainAll(t, tt.wantArgs)
+			if tt.wantContainerID != "" && result.ContainerID != tt.wantContainerID {
+				t.Errorf("ContainerID = %q, want %q", result.ContainerID, tt.wantContainerID)
+			}
+			if int(result.ExitCode) != tt.wantExitCode {
+				t.Errorf("ExitCode = %d, want %d", result.ExitCode, tt.wantExitCode)
+			}
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		recorder.AssertArgsContain(t, "-i")
-		recorder.AssertArgsContain(t, "-t")
-		recorder.AssertArgsContain(t, "container456")
-		recorder.AssertArgsContain(t, "bash")
-	})
-
-	t.Run("with workdir and env", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		engine := newTestPodmanEngine(t, recorder)
-		ctx := t.Context()
-
-		_, err := engine.Exec(ctx, "container789", []string{"./build.sh"}, RunOptions{
-			WorkDir: "/app",
-			Env: map[string]string{
-				"BUILD_MODE": "release",
-				"DEBUG":      "false",
-			},
-		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		recorder.AssertArgsContain(t, "-w")
-		recorder.AssertArgsContain(t, "/app")
-		recorder.AssertArgsContain(t, "-e")
-
-		args := strings.Join(recorder.LastArgs(), " ")
-		if !strings.Contains(args, "BUILD_MODE=release") {
-			t.Errorf("expected BUILD_MODE env var, got: %v", recorder.LastArgs())
-		}
-		if !strings.Contains(args, "DEBUG=false") {
-			t.Errorf("expected DEBUG env var, got: %v", recorder.LastArgs())
-		}
-	})
-
-	t.Run("exit code capture", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "command failed"
-		recorder.ExitCode = 42
-		engine := newTestPodmanEngine(t, recorder)
-		ctx := t.Context()
-
-		// Exec() returns nil error for non-zero exit codes; exit code is in result.ExitCode.
-		result, err := engine.Exec(ctx, "failing-container", []string{"false"}, RunOptions{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode != 42 {
-			t.Errorf("expected exit code 42, got %d", result.ExitCode)
-		}
-	})
+	}
 }
 
 // TestPodmanEngine_InspectImage_Arguments verifies InspectImage() constructs correct arguments.
@@ -510,55 +391,39 @@ func TestPodmanEngine_InspectImage_Arguments(t *testing.T) {
 
 	ctx := t.Context()
 
-	t.Run("basic inspect", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name       string
+		image      ImageTag
+		stdout     string
+		stderr     string
+		exitCode   int
+		wantArgs   []string
+		wantOutput string
+		wantErr    bool
+	}{
+		{name: "basic inspect", image: "debian:stable-slim", stdout: `{"Id": "sha256:abc123"}`, wantArgs: []string{"inspect", "debian:stable-slim"}, wantOutput: "sha256:abc123"},
+		{name: "with registry", image: "ghcr.io/invowk/invowk:v1.0.0", wantArgs: []string{"ghcr.io/invowk/invowk:v1.0.0"}},
+		{name: "image not found error", image: "nonexistent:latest", stderr: "Error: No such image", exitCode: 1, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		recorder := NewMockCommandRecorder()
-		recorder.Stdout = `{"Id": "sha256:abc123"}`
-		engine := newTestPodmanEngine(t, recorder)
-
-		output, err := engine.InspectImage(ctx, "debian:stable-slim")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		recorder.AssertInvocationCount(t, 1)
-		recorder.AssertFirstArg(t, "image")
-		recorder.AssertArgsContain(t, "inspect")
-		recorder.AssertArgsContain(t, "debian:stable-slim")
-
-		if !strings.Contains(output, "sha256:abc123") {
-			t.Errorf("expected output to contain image ID, got %q", output)
-		}
-	})
-
-	t.Run("with registry", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		engine := newTestPodmanEngine(t, recorder)
-
-		_, err := engine.InspectImage(ctx, "ghcr.io/invowk/invowk:v1.0.0")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		recorder.AssertArgsContain(t, "ghcr.io/invowk/invowk:v1.0.0")
-	})
-
-	t.Run("image not found error", func(t *testing.T) {
-		t.Parallel()
-
-		recorder := NewMockCommandRecorder()
-		recorder.Stderr = "Error: No such image"
-		recorder.ExitCode = 1
-		engine := newTestPodmanEngine(t, recorder)
-
-		_, err := engine.InspectImage(ctx, "nonexistent:latest")
-		if err == nil {
-			t.Fatal("expected error for nonexistent image")
-		}
-	})
+			recorder := NewMockCommandRecorder()
+			recorder.Stdout, recorder.Stderr, recorder.ExitCode = tt.stdout, tt.stderr, tt.exitCode
+			engine := newTestPodmanEngine(t, recorder)
+			output, err := engine.InspectImage(ctx, tt.image)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("InspectImage() error = %v, wantErr %t", err, tt.wantErr)
+			}
+			recorder.AssertInvocationCount(t, 1)
+			recorder.AssertFirstArg(t, "image")
+			recorder.AssertArgsContainAll(t, tt.wantArgs)
+			if tt.wantOutput != "" && !strings.Contains(output, tt.wantOutput) {
+				t.Errorf("InspectImage() output = %q, want text %q", output, tt.wantOutput)
+			}
+		})
+	}
 }
 
 // =============================================================================

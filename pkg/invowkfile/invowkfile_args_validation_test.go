@@ -178,7 +178,7 @@ cmds: [
 
 	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
-		t.Error("Parse() should reject duplicate arg names")
+		t.Fatal("Parse() should reject duplicate arg names")
 	}
 	if !strings.Contains(err.Error(), "duplicate") {
 		t.Errorf("Error should mention 'duplicate', got: %v", err)
@@ -214,7 +214,7 @@ cmds: [
 
 	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
-		t.Error("Parse() should reject required arg after optional arg")
+		t.Fatal("Parse() should reject required arg after optional arg")
 	}
 	if !strings.Contains(err.Error(), "required") && !strings.Contains(err.Error(), "optional") {
 		t.Errorf("Error should mention required/optional ordering, got: %v", err)
@@ -250,7 +250,7 @@ cmds: [
 
 	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
-		t.Error("Parse() should reject variadic arg that is not last")
+		t.Fatal("Parse() should reject variadic arg that is not last")
 	}
 	if !strings.Contains(err.Error(), "variadic") {
 		t.Errorf("Error should mention variadic constraint, got: %v", err)
@@ -285,7 +285,7 @@ cmds: [
 
 	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
-		t.Error("Parse() should reject arg that is both required and has default_value")
+		t.Fatal("Parse() should reject arg that is both required and has default_value")
 	}
 	if !strings.Contains(err.Error(), "required") && !strings.Contains(err.Error(), "default_value") {
 		t.Errorf("Error should mention required/default_value conflict, got: %v", err)

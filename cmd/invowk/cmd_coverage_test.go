@@ -4,12 +4,18 @@ package cmd
 
 import (
 	"bufio"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	goruntime "runtime"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,6 +23,8 @@ import (
 )
 
 var (
+	txtarArchiveHeaderRE = regexp.MustCompile(`^-- .+ --$`)
+
 	// builtinTxtarCoverageExemptions lists leaf built-in commands that are
 	// intentionally exempt from txtar coverage checks.
 	builtinTxtarCoverageExemptions = map[string]string{
@@ -29,20 +37,6 @@ var (
 		"tui table":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
 		"tui spin":    "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
 		"tui pager":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
-	}
-
-	// tuiTmuxCoverageMarkers maps TUI command paths to the marker strings that
-	// must exist in tests/cli/tui_tmux_test.go.
-	tuiTmuxCoverageMarkers = map[string]string{
-		"tui input":   " tui input ",
-		"tui choose":  " tui choose ",
-		"tui confirm": " tui confirm ",
-		"tui write":   " tui write ",
-		"tui filter":  " tui filter ",
-		"tui file":    " tui file ",
-		"tui table":   " tui table ",
-		"tui spin":    " tui spin ",
-		"tui pager":   " tui pager ",
 	}
 )
 
@@ -138,22 +132,133 @@ func TestTUIExemptionTmuxCoverage(t *testing.T) {
 		t.Fatalf("failed to read %s: %v", tmuxTestPath, err)
 	}
 
-	tmuxTests := string(content)
-	for cmdPath, marker := range tuiTmuxCoverageMarkers {
-		reason, ok := builtinTxtarCoverageExemptions[cmdPath]
-		if !ok {
-			t.Errorf("tmux marker listed for %q, but command is not in builtin txtar exemptions", cmdPath)
+	covered, err := extractTmuxTUICommands(tmuxTestPath, content)
+	if err != nil {
+		t.Fatalf("extract tmux TUI commands: %v", err)
+	}
+	for _, issue := range tuiTmuxCoverageIssues(builtinTxtarCoverageExemptions, covered) {
+		t.Error(issue)
+	}
+}
+
+// extractTmuxTUICommands returns TUI command paths invoked by executable
+// tmux sendKeys calls. AST inspection prevents comments and unrelated string
+// literals from satisfying the coverage contract.
+func extractTmuxTUICommands(filename string, source []byte) (map[string]bool, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, filename, source, parser.SkipObjectResolution)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", filename, err)
+	}
+
+	covered := make(map[string]bool)
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
 			continue
 		}
+		commandVariables := make(map[string]string)
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			if assignment, ok := node.(*ast.AssignStmt); ok && len(assignment.Lhs) == len(assignment.Rhs) {
+				for i, lhs := range assignment.Lhs {
+					name, ok := lhs.(*ast.Ident)
+					if !ok {
+						continue
+					}
+					if command, ok := tmuxCommandLiteral(assignment.Rhs[i]); ok {
+						commandVariables[name.Name] = command
+					}
+				}
+			}
 
-		if !strings.Contains(reason, "E2E via tmux") {
-			t.Errorf("exemption reason for %q must mention tmux e2e coverage, got: %q", cmdPath, reason)
-		}
+			call, ok := node.(*ast.CallExpr)
+			if !ok || len(call.Args) == 0 {
+				return true
+			}
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || selector.Sel.Name != "sendKeys" {
+				return true
+			}
 
-		if !strings.Contains(tmuxTests, marker) {
-			t.Errorf("missing tmux e2e marker for %q in %s", cmdPath, tmuxTestPath)
+			command, ok := tmuxCommandLiteral(call.Args[0])
+			if !ok {
+				if variable, variableOK := call.Args[0].(*ast.Ident); variableOK {
+					command, ok = commandVariables[variable.Name]
+				}
+			}
+			if !ok {
+				return true
+			}
+			fields := strings.Fields(command)
+			if len(fields) >= 2 && fields[0] == "tui" {
+				covered[strings.Join(fields[:2], " ")] = true
+			}
+			return true
+		})
+	}
+	return covered, nil
+}
+
+func tmuxCommandLiteral(expr ast.Expr) (string, bool) {
+	concat, ok := expr.(*ast.BinaryExpr)
+	if ok && concat.Op == token.ADD {
+		binaryPath, binaryOK := concat.X.(*ast.Ident)
+		literal, literalOK := concat.Y.(*ast.BasicLit)
+		if binaryOK && binaryPath.Name == "binaryPath" && literalOK && literal.Kind == token.STRING {
+			command, err := strconv.Unquote(literal.Value)
+			if err == nil {
+				return strings.TrimSpace(command), true
+			}
 		}
 	}
+
+	call, ok := expr.(*ast.CallExpr)
+	if !ok || len(call.Args) < 2 {
+		return "", false
+	}
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || selector.Sel.Name != "Sprintf" {
+		return "", false
+	}
+	pkg, ok := selector.X.(*ast.Ident)
+	if !ok || pkg.Name != "fmt" {
+		return "", false
+	}
+	formatLiteral, ok := call.Args[0].(*ast.BasicLit)
+	if !ok || formatLiteral.Kind != token.STRING {
+		return "", false
+	}
+	binaryPath, ok := call.Args[1].(*ast.Ident)
+	if !ok || binaryPath.Name != "binaryPath" {
+		return "", false
+	}
+	format, err := strconv.Unquote(formatLiteral.Value)
+	if err != nil || !strings.HasPrefix(format, "%s ") {
+		return "", false
+	}
+	return strings.TrimSpace(strings.TrimPrefix(format, "%s")), true
+}
+
+func tuiTmuxCoverageIssues(exemptions map[string]string, covered map[string]bool) []string {
+	var issues []string
+	for cmdPath, reason := range exemptions {
+		if !strings.HasPrefix(cmdPath, "tui ") {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(reason), "e2e via tmux") {
+			issues = append(issues, fmt.Sprintf("exemption reason for %q must mention tmux e2e coverage, got: %q", cmdPath, reason))
+		}
+		if !covered[cmdPath] {
+			issues = append(issues, fmt.Sprintf("missing executable tmux e2e coverage for %q", cmdPath))
+		}
+	}
+	for cmdPath := range covered {
+		if _, ok := exemptions[cmdPath]; !ok {
+			issues = append(issues, fmt.Sprintf("tmux e2e covers %q, but the command is not in builtin txtar exemptions", cmdPath))
+		}
+	}
+	sort.Strings(issues)
+	return issues
 }
 
 // collectLeafCommands walks the Cobra tree and returns:
@@ -252,7 +357,11 @@ func scanTxtarFile(t *testing.T, filePath, name string, execRe *regexp.Regexp, k
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+		rawLine := scanner.Text()
+		if txtarArchiveHeaderRE.MatchString(rawLine) {
+			break
+		}
+		line := strings.TrimSpace(rawLine)
 		m := execRe.FindStringSubmatch(line)
 		if m == nil {
 			continue
@@ -266,6 +375,102 @@ func scanTxtarFile(t *testing.T, filePath, name string, execRe *regexp.Regexp, k
 	}
 	if err := scanner.Err(); err != nil {
 		t.Errorf("error scanning %s: %v", name, err)
+	}
+}
+
+func TestScanTxtarFile_ScriptSectionOnly(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		content    string
+		wantConfig bool
+		wantAudit  bool
+	}{
+		{
+			name:       "script execution counts",
+			content:    "exec invowk config show\n",
+			wantConfig: true,
+		},
+		{
+			name:      "archive payload execution does not count",
+			content:   "exec invowk audit\n-- helper.sh --\nexec invowk config show\n",
+			wantAudit: true,
+		},
+		{
+			name:       "indented archive-like prose is not a header",
+			content:    "  -- helper.sh --\nexec invowk config show\n",
+			wantConfig: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := filepath.Join(t.TempDir(), "coverage.txtar")
+			if err := os.WriteFile(path, []byte(tt.content), 0o600); err != nil {
+				t.Fatalf("write fixture: %v", err)
+			}
+			known := map[string]bool{"config show": true, "audit": true}
+			covered := make(map[string]bool)
+			execRE := regexp.MustCompile(`^!?\s*exec\s+invowk\s+(.+)`)
+			scanTxtarFile(t, path, filepath.Base(path), execRE, known, nil, covered)
+
+			if covered["config show"] != tt.wantConfig {
+				t.Errorf("config coverage = %t, want %t", covered["config show"], tt.wantConfig)
+			}
+			if covered["audit"] != tt.wantAudit {
+				t.Errorf("audit coverage = %t, want %t", covered["audit"], tt.wantAudit)
+			}
+		})
+	}
+}
+
+func TestExtractTmuxTUICommands_ExecutableCallsOnly(t *testing.T) {
+	t.Parallel()
+
+	source := []byte(`package cli
+func test(s *tmuxSession) {
+	// binaryPath + " tui pager ignored-comment"
+	_ = " tui table ignored-string "
+	s.sendKeys(binaryPath + " tui input --header 'Name'", "Enter")
+	s.sendKeys(binaryPath + " tui choose one two", "Enter")
+	command := fmt.Sprintf("%s tui pager README.md", binaryPath)
+	s.sendKeys(command, "Enter")
+	s.sendKeys("invowk tui filter alpha beta", "Enter")
+}
+`)
+	got, err := extractTmuxTUICommands("synthetic.go", source)
+	if err != nil {
+		t.Fatalf("extract commands: %v", err)
+	}
+	want := map[string]bool{"tui input": true, "tui choose": true, "tui pager": true}
+	if !maps.Equal(got, want) {
+		t.Errorf("covered commands = %v, want %v", got, want)
+	}
+}
+
+func TestTUITmuxCoverageIssues_Bidirectional(t *testing.T) {
+	t.Parallel()
+
+	exemptions := map[string]string{
+		"tui input":   "interactive; E2E via tmux",
+		"tui choose":  "interactive without a structured test",
+		"config show": "covered elsewhere",
+	}
+	covered := map[string]bool{
+		"tui input": true,
+		"tui file":  true,
+	}
+	got := tuiTmuxCoverageIssues(exemptions, covered)
+	want := []string{
+		`exemption reason for "tui choose" must mention tmux e2e coverage, got: "interactive without a structured test"`,
+		`missing executable tmux e2e coverage for "tui choose"`,
+		`tmux e2e covers "tui file", but the command is not in builtin txtar exemptions`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("issues = %v, want %v", got, want)
 	}
 }
 

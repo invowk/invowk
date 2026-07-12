@@ -76,59 +76,53 @@ func TestFlagValidateMutationContracts(t *testing.T) {
 func TestFlagDefaultValueMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid default has no errors", func(t *testing.T) {
-		t.Parallel()
-		errs := Flag{
+	tests := []struct {
+		name             string
+		flag             Flag
+		wantCount        int
+		wantWrappedCause bool
+		wantText         string
+	}{
+		{name: "valid default has no errors", flag: Flag{
 			Name:         "mode",
 			Description:  "Execution mode",
 			DefaultValue: "debug",
-		}.defaultValueValidationErrors()
-		if len(errs) != 0 {
-			t.Fatalf("defaultValueValidationErrors() = %v, want no errors", errs)
-		}
-	})
-
-	t.Run("invalid type default keeps wrapped cause", func(t *testing.T) {
-		t.Parallel()
-		errs := Flag{
+		}},
+		{name: "invalid type default keeps wrapped cause", flag: Flag{
 			Name:         "count",
 			Description:  "Number of runs",
 			Type:         FlagTypeInt,
 			DefaultValue: "many",
-		}.defaultValueValidationErrors()
-		if len(errs) != 1 {
-			t.Fatalf("defaultValueValidationErrors() count = %d, want 1: %v", len(errs), errs)
-		}
-		if errors.Unwrap(errs[0]) == nil {
-			t.Fatalf("default type error = %v, want wrapped cause", errs[0])
-		}
-	})
-
-	t.Run("invalid regex does not add default mismatch", func(t *testing.T) {
-		t.Parallel()
-		errs := Flag{
+		}, wantCount: 1, wantWrappedCause: true},
+		{name: "invalid regex does not add default mismatch", flag: Flag{
 			Name:         "mode",
 			Description:  "Execution mode",
 			DefaultValue: "debug",
 			Validation:   "[",
-		}.defaultValueValidationErrors()
-		if len(errs) != 0 {
-			t.Fatalf("defaultValueValidationErrors() = %v, want invalid regex to skip default mismatch", errs)
-		}
-	})
-
-	t.Run("valid regex adds mismatch", func(t *testing.T) {
-		t.Parallel()
-		errs := Flag{
+		}},
+		{name: "valid regex adds mismatch", flag: Flag{
 			Name:         "mode",
 			Description:  "Execution mode",
 			DefaultValue: "debug",
 			Validation:   "^release$",
-		}.defaultValueValidationErrors()
-		if len(errs) != 1 || !strings.Contains(errs[0].Error(), "does not match validation pattern") {
-			t.Fatalf("defaultValueValidationErrors() = %v, want regex mismatch", errs)
-		}
-	})
+		}, wantCount: 1, wantText: "does not match validation pattern"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			errs := tt.flag.defaultValueValidationErrors()
+			if len(errs) != tt.wantCount {
+				t.Fatalf("defaultValueValidationErrors() count = %d, want %d: %v", len(errs), tt.wantCount, errs)
+			}
+			if tt.wantWrappedCause && errors.Unwrap(errs[0]) == nil {
+				t.Fatalf("default type error = %v, want wrapped cause", errs[0])
+			}
+			if tt.wantText != "" && !strings.Contains(errs[0].Error(), tt.wantText) {
+				t.Fatalf("defaultValueValidationErrors() = %v, want text %q", errs, tt.wantText)
+			}
+		})
+	}
 }
 
 func requireFlagMutationErrorAs[T error](t *testing.T, err error) T {

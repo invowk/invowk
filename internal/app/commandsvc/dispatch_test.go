@@ -19,6 +19,7 @@ import (
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -277,113 +278,68 @@ func TestApplyExecutionTimeout(t *testing.T) {
 func TestExecuteWithRequestedMode(t *testing.T) {
 	t.Parallel()
 
-	t.Run("non-interactive uses registry execute", func(t *testing.T) {
-		t.Parallel()
-
-		registry := runtimepkg.NewRegistry()
-		rt := &stubRuntime{name: "stub", executeResult: &runtimepkg.Result{ExitCode: 7}}
-		registry.Register(runtimepkg.RuntimeTypeVirtualSh, rt)
-
-		svc := &Service{}
-		result, _, err := svc.executeWithRequestedMode(
-			Request{Interactive: false},
-			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtualSh},
-			&testRuntimeSession{registry: registry},
-		)
-		if err != nil {
-			t.Fatalf("executeWithRequestedMode() error = %v", err)
-		}
-		if result.ExitCode != 7 || rt.executeCalled != 1 {
-			t.Fatalf("result=%v executeCalled=%d", result, rt.executeCalled)
-		}
-	})
-
-	t.Run("interactive fallback logs and executes normally", func(t *testing.T) {
-		t.Parallel()
-
-		registry := runtimepkg.NewRegistry()
-		rt := &stubRuntime{name: "stub", executeResult: &runtimepkg.Result{ExitCode: 3}}
-		registry.Register(runtimepkg.RuntimeTypeVirtualSh, rt)
-
-		svc := &Service{}
-		result, interactiveFallback, err := svc.executeWithRequestedMode(
-			Request{Interactive: true, Verbose: true},
-			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtualSh},
-			&testRuntimeSession{registry: registry},
-		)
-		if err != nil {
-			t.Fatalf("executeWithRequestedMode() error = %v", err)
-		}
-		if result.ExitCode != 3 || rt.executeCalled != 1 {
-			t.Fatalf("result=%v executeCalled=%d", result, rt.executeCalled)
-		}
-		if interactiveFallback != "stub" {
-			t.Fatalf("interactive fallback runtime = %q, want %q", interactiveFallback, "stub")
-		}
-	})
-
-	t.Run("interactive runtime validation error surfaces in result", func(t *testing.T) {
-		t.Parallel()
-
-		wantErr := errors.New("invalid interactive context")
-		registry := runtimepkg.NewRegistry()
-		rt := &stubInteractiveRuntime{
-			stubRuntime: stubRuntime{name: "interactive", validateErr: wantErr},
-			supports:    true,
-		}
-		registry.Register(runtimepkg.RuntimeTypeVirtualSh, rt)
-
-		executor := &stubInteractiveExecutor{}
-		svc := &Service{interactive: executor}
-		result, _, err := svc.executeWithRequestedMode(
-			Request{Interactive: true},
-			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtualSh, Context: t.Context()},
-			&testRuntimeSession{registry: registry},
-		)
-		if err != nil {
-			t.Fatalf("executeWithRequestedMode() error = %v", err)
-		}
-		if !errors.Is(result.Error, wantErr) {
-			t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantErr)
-		}
-		if executor.called != 1 {
-			t.Fatalf("interactive executor called %d times, want 1", executor.called)
-		}
-	})
-
-	t.Run("interactive runtime prepare error surfaces in result", func(t *testing.T) {
-		t.Parallel()
-
-		wantErr := errors.New("prepare failed")
-		registry := runtimepkg.NewRegistry()
-		rt := &stubInteractiveRuntime{
-			stubRuntime: stubRuntime{name: "interactive"},
-			supports:    true,
-			prepareErr:  wantErr,
-		}
-		registry.Register(runtimepkg.RuntimeTypeVirtualSh, rt)
-
-		executor := &stubInteractiveExecutor{}
-		svc := &Service{interactive: executor}
-		result, _, err := svc.executeWithRequestedMode(
-			Request{Interactive: true},
-			&runtimepkg.ExecutionContext{
-				SelectedRuntime: invowkfile.RuntimeVirtualSh,
-				Context:         t.Context(),
-				TUI:             runtimepkg.TUIContext{},
-			},
-			&testRuntimeSession{registry: registry},
-		)
-		if err != nil {
-			t.Fatalf("executeWithRequestedMode() error = %v", err)
-		}
-		if !errors.Is(result.Error, wantErr) {
-			t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantErr)
-		}
-		if executor.called != 1 {
-			t.Fatalf("interactive executor called %d times, want 1", executor.called)
-		}
-	})
+	tests := []struct {
+		name          string
+		interactive   bool
+		verbose       bool
+		interactiveRT bool
+		exitCode      types.ExitCode
+		validateErr   error
+		prepareErr    error
+		wantFallback  string
+		wantExecCalls int
+		wantTUICalls  int
+	}{
+		{name: "non-interactive uses registry execute", exitCode: 7, wantExecCalls: 1},
+		{name: "interactive fallback logs and executes normally", interactive: true, verbose: true, exitCode: 3, wantFallback: "stub", wantExecCalls: 1},
+		{name: "interactive runtime validation error surfaces in result", interactive: true, interactiveRT: true, validateErr: errors.New("invalid interactive context"), wantTUICalls: 1},
+		{name: "interactive runtime prepare error surfaces in result", interactive: true, interactiveRT: true, prepareErr: errors.New("prepare failed"), wantTUICalls: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			registry := runtimepkg.NewRegistry()
+			base := &stubRuntime{name: "stub", executeResult: &runtimepkg.Result{ExitCode: tt.exitCode}}
+			var runtime runtimepkg.Runtime = base
+			if tt.interactiveRT {
+				runtime = &stubInteractiveRuntime{
+					stubRuntime: stubRuntime{name: "interactive", validateErr: tt.validateErr},
+					supports:    true,
+					prepareErr:  tt.prepareErr,
+				}
+			}
+			registry.Register(runtimepkg.RuntimeTypeVirtualSh, runtime)
+			executor := &stubInteractiveExecutor{}
+			svc := &Service{interactive: executor}
+			result, fallback, err := svc.executeWithRequestedMode(
+				Request{Interactive: tt.interactive, Verbose: tt.verbose},
+				&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtualSh, Context: t.Context()},
+				&testRuntimeSession{registry: registry},
+			)
+			if err != nil {
+				t.Fatalf("executeWithRequestedMode() error = %v", err)
+			}
+			wantResultErr := tt.validateErr
+			if wantResultErr == nil {
+				wantResultErr = tt.prepareErr
+			}
+			if wantResultErr != nil && !errors.Is(result.Error, wantResultErr) {
+				t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantResultErr)
+			}
+			if wantResultErr == nil && result.ExitCode != tt.exitCode {
+				t.Fatalf("ExitCode = %v, want %v", result.ExitCode, tt.exitCode)
+			}
+			if string(fallback) != tt.wantFallback {
+				t.Fatalf("interactive fallback runtime = %q, want %q", fallback, tt.wantFallback)
+			}
+			if base.executeCalled != tt.wantExecCalls {
+				t.Fatalf("execute called %d times, want %d", base.executeCalled, tt.wantExecCalls)
+			}
+			if executor.called != tt.wantTUICalls {
+				t.Fatalf("interactive executor called %d times, want %d", executor.called, tt.wantTUICalls)
+			}
+		})
+	}
 }
 
 func TestNewClassifiedExecutionError(t *testing.T) {

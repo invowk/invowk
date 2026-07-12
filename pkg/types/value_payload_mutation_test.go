@@ -10,16 +10,28 @@ import (
 func TestInvalidValueErrorsPreserveInput(t *testing.T) {
 	t.Parallel()
 
-	t.Run("description text", testInvalidDescriptionTextPreservesInput)
-	t.Run("exit code", testInvalidExitCodePreservesInput)
-	t.Run("filesystem path", testInvalidFilesystemPathPreservesInput)
-	t.Run("listen port", testInvalidListenPortPreservesInput)
-	t.Run("runtime mode", testInvalidRuntimeModePreservesInput)
-	t.Run("shell path", testInvalidShellPathPreservesInput)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "description text", run: testInvalidDescriptionTextPreservesInput},
+		{name: "exit code", run: testInvalidExitCodePreservesInput},
+		{name: "filesystem path", run: testInvalidFilesystemPathPreservesInput},
+		{name: "listen port", run: testInvalidListenPortPreservesInput},
+		{name: "runtime mode", run: testInvalidRuntimeModePreservesInput},
+		{name: "shell path", run: testInvalidShellPathPreservesInput},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testInvalidDescriptionTextPreservesInput(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := DescriptionText(" \t ")
 	err := value.Validate()
@@ -36,7 +48,7 @@ func testInvalidDescriptionTextPreservesInput(t *testing.T) {
 }
 
 func testInvalidExitCodePreservesInput(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := ExitCode(-1)
 	err := value.Validate()
@@ -53,7 +65,7 @@ func testInvalidExitCodePreservesInput(t *testing.T) {
 }
 
 func testInvalidFilesystemPathPreservesInput(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := FilesystemPath(" \t ")
 	err := value.Validate()
@@ -70,7 +82,7 @@ func testInvalidFilesystemPathPreservesInput(t *testing.T) {
 }
 
 func testInvalidListenPortPreservesInput(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := ListenPort(-1)
 	err := value.Validate()
@@ -87,7 +99,7 @@ func testInvalidListenPortPreservesInput(t *testing.T) {
 }
 
 func testInvalidRuntimeModePreservesInput(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := RuntimeMode("bogus")
 	err := value.Validate()
@@ -104,7 +116,7 @@ func testInvalidRuntimeModePreservesInput(t *testing.T) {
 }
 
 func testInvalidShellPathPreservesInput(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := ShellPath(" \t ")
 	err := value.Validate()

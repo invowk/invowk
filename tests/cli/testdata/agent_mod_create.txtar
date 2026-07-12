@@ -29,6 +29,7 @@ exists io.example.tools.invowkmod/invowkfile.cue
 exists io.example.tools.invowkmod/scripts/.gitkeep
 
 ! exec invowk agent mod create io.example.tools --llm-provider claude 'duplicate module'
+! stdout .
 stderr 'already exists'
 stderr 'agent mod change'
 
@@ -44,10 +45,12 @@ stdout 'Updated module "io.example.tools" at io.example.tools.invowkmod'
 stdout 'Verified module "io.example.tools"'
 
 ! exec invowk agent mod change io.example.missing --llm-provider claude 'change missing module'
+! stdout .
 stderr 'does not exist'
 stderr 'agent mod create'
 
 ! exec invowk agent mod remove io.example.tools
+! stdout .
 stderr 'requires --force'
 
 exec invowk agent mod remove io.example.tools --dry-run
@@ -59,9 +62,11 @@ stdout 'Removed module "io.example.tools" at io.example.tools.invowkmod'
 ! exists io.example.tools.invowkmod
 
 ! exec invowk agent mod remove io.example.tools --dry-run
+! stdout .
 stderr 'does not exist'
 
 ! exec invowk agent mod create io.example.tools
+! stdout .
 stderr 'Module description is required'
 
 -- claude --

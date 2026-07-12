@@ -29,6 +29,7 @@ stdout 'CreateIfMissing:.*true'
 
 # Test 5: Invalid explicit names fail before execution.
 ! exec invowk cmd mark --ivk-container-name Invalid/Name
+! stdout .
 stderr 'Invalid request'
 
 # Test 6: A pre-existing running external target can be selected by CLI override.

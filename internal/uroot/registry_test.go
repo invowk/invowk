@@ -223,7 +223,7 @@ func TestRegistry_Run_NotFound(t *testing.T) {
 	err := r.Run(ctx, "nonexistent", []string{"nonexistent"})
 
 	if err == nil {
-		t.Error("Run should return error for unregistered command")
+		t.Fatal("Run should return error for unregistered command")
 	}
 	if !errors.Is(err, ErrCommandNotFound) {
 		t.Errorf("error should wrap ErrCommandNotFound, got: %v", err)
@@ -319,11 +319,12 @@ func TestRegistry_Run_TarPathValidationRejectsArchive(t *testing.T) {
 	r := NewRegistry()
 	cmd := &nativePreprocessorMock{baseWrapper: baseWrapper{name: "tar"}}
 	r.Register(cmd)
+	deniedErr := errors.New("denied")
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Dir: "/work",
 		ValidatePath: func(_, path string) (string, error) {
 			if path == "archive.tar" {
-				return "", errors.New("denied")
+				return "", deniedErr
 			}
 			return path, nil
 		},
@@ -335,6 +336,9 @@ func TestRegistry_Run_TarPathValidationRejectsArchive(t *testing.T) {
 	}
 	if cmd.called {
 		t.Fatal("tar command was called after validation failure")
+	}
+	if !errors.Is(err, deniedErr) {
+		t.Fatalf("Run() error = %v, want wrapped %v", err, deniedErr)
 	}
 	if !strings.Contains(err.Error(), "[uroot] tar: denied") {
 		t.Fatalf("Run() error = %v, want wrapped tar validation error", err)

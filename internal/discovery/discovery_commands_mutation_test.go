@@ -51,57 +51,68 @@ func TestSourceIDValidateReportsInvalidValue(t *testing.T) {
 func TestDiscoveredCommandSetMutationAnalyzeEdges(t *testing.T) {
 	t.Parallel()
 
-	t.Run("single command does not become ambiguous", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "single command does not become ambiguous", run: func(t *testing.T) {
+			t.Helper()
 
-		cmd := &CommandInfo{SimpleName: "build", SourceID: SourceIDInvowkfile}
-		set := NewDiscoveredCommandSet()
-		set.Add(cmd)
+			cmd := &CommandInfo{SimpleName: "build", SourceID: SourceIDInvowkfile}
+			set := NewDiscoveredCommandSet()
+			set.Add(cmd)
 
-		set.Analyze()
+			set.Analyze()
 
-		if set.AmbiguousNames["build"] {
-			t.Fatal("single command marked ambiguous")
-		}
-		if cmd.IsAmbiguous {
-			t.Fatal("single command IsAmbiguous = true, want false")
-		}
-	})
+			if set.AmbiguousNames["build"] {
+				t.Fatal("single command marked ambiguous")
+			}
+			if cmd.IsAmbiguous {
+				t.Fatal("single command IsAmbiguous = true, want false")
+			}
+		}},
 
-	t.Run("same simple name from different sources is ambiguous", func(t *testing.T) {
-		t.Parallel()
+		{name: "same simple name from different sources is ambiguous", run: func(t *testing.T) {
+			t.Helper()
 
-		root := &CommandInfo{SimpleName: "deploy", SourceID: SourceIDInvowkfile}
-		module := &CommandInfo{SimpleName: "deploy", SourceID: "tools"}
-		set := NewDiscoveredCommandSet()
-		set.Add(root)
-		set.Add(module)
+			root := &CommandInfo{SimpleName: "deploy", SourceID: SourceIDInvowkfile}
+			module := &CommandInfo{SimpleName: "deploy", SourceID: "tools"}
+			set := NewDiscoveredCommandSet()
+			set.Add(root)
+			set.Add(module)
 
-		set.Analyze()
+			set.Analyze()
 
-		if !set.AmbiguousNames["deploy"] {
-			t.Fatal("deploy not marked ambiguous")
-		}
-		if !root.IsAmbiguous || !module.IsAmbiguous {
-			t.Fatalf("ambiguous flags root=%v module=%v, want both true", root.IsAmbiguous, module.IsAmbiguous)
-		}
-	})
+			if !set.AmbiguousNames["deploy"] {
+				t.Fatal("deploy not marked ambiguous")
+			}
+			if !root.IsAmbiguous || !module.IsAmbiguous {
+				t.Fatalf("ambiguous flags root=%v module=%v, want both true", root.IsAmbiguous, module.IsAmbiguous)
+			}
+		}},
 
-	t.Run("source order keeps invowkfile first", func(t *testing.T) {
-		t.Parallel()
+		{name: "source order keeps invowkfile first", run: func(t *testing.T) {
+			t.Helper()
 
-		set := NewDiscoveredCommandSet()
-		set.Add(&CommandInfo{SimpleName: "mod", SourceID: "aaa"})
-		set.Add(&CommandInfo{SimpleName: "root", SourceID: SourceIDInvowkfile})
-		set.Add(&CommandInfo{SimpleName: "other", SourceID: "bbb"})
+			set := NewDiscoveredCommandSet()
+			set.Add(&CommandInfo{SimpleName: "mod", SourceID: "aaa"})
+			set.Add(&CommandInfo{SimpleName: "root", SourceID: SourceIDInvowkfile})
+			set.Add(&CommandInfo{SimpleName: "other", SourceID: "bbb"})
 
-		set.Analyze()
+			set.Analyze()
 
-		want := []SourceID{SourceIDInvowkfile, "aaa", "bbb"}
-		if !slices.Equal(set.SourceOrder, want) {
-			t.Fatalf("SourceOrder = %v, want %v", set.SourceOrder, want)
-		}
-	})
+			want := []SourceID{SourceIDInvowkfile, "aaa", "bbb"}
+			if !slices.Equal(set.SourceOrder, want) {
+				t.Fatalf("SourceOrder = %v, want %v", set.SourceOrder, want)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestDiscoverCommandSetMutationCommandPayloads(t *testing.T) {

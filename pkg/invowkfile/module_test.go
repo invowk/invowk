@@ -259,69 +259,83 @@ func TestModuleMetadata_Requires_AbsentStaysNil(t *testing.T) {
 func TestNewModuleMetadataFromInvowkmod(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil returns invalid metadata error", func(t *testing.T) {
-		t.Parallel()
-		got, err := NewModuleMetadataFromInvowkmod(nil)
-		if err == nil {
-			t.Fatal("expected error for nil metadata")
-		}
-		if !errors.Is(err, ErrInvalidModuleMetadata) {
-			t.Fatalf("error should wrap ErrInvalidModuleMetadata, got: %v", err)
-		}
-		metaErr, ok := errors.AsType[*InvalidModuleMetadataError](err)
-		if !ok {
-			t.Fatalf("error type = %T, want *InvalidModuleMetadataError", err)
-		}
-		if len(metaErr.FieldErrors) != 1 || metaErr.FieldErrors[0].Error() != "module metadata is required" {
-			t.Fatalf("FieldErrors = %v, want module metadata required detail", metaErr.FieldErrors)
-		}
-		if got != nil {
-			t.Errorf("NewModuleMetadataFromInvowkmod(nil) metadata = %v, want nil", got)
-		}
-	})
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "nil returns invalid metadata error", run: func(t *testing.T) {
+			t.Helper()
 
-	t.Run("converts fields correctly", func(t *testing.T) {
-		t.Parallel()
-		mod := &Invowkmod{
-			Module:      "io.invowk.test",
-			Version:     "1.2.3",
-			Description: "Test module",
-			Requires: []ModuleRequirement{
-				{GitURL: invowkmod.GitURL("https://github.com/example/dep.git"), Version: invowkmod.SemVerConstraint("^1.0.0")},
-			},
-		}
-		meta, err := NewModuleMetadataFromInvowkmod(mod)
-		if err != nil {
-			t.Fatalf("NewModuleMetadataFromInvowkmod() error = %v", err)
-		}
-		if meta == nil {
-			t.Fatal("expected non-nil metadata")
-		}
-		if meta.Module() != "io.invowk.test" {
-			t.Errorf("Module() = %q, want %q", meta.Module(), "io.invowk.test")
-		}
-		if meta.Version() != "1.2.3" {
-			t.Errorf("Version() = %q, want %q", meta.Version(), "1.2.3")
-		}
-		if meta.Description() != "Test module" {
-			t.Errorf("Description() = %q, want %q", meta.Description(), "Test module")
-		}
-		if len(meta.Requires()) != 1 {
-			t.Errorf("Requires() length = %d, want 1", len(meta.Requires()))
-		}
-	})
+			got, err := NewModuleMetadataFromInvowkmod(nil)
+			if err == nil {
+				t.Fatal("expected error for nil metadata")
+			}
+			if !errors.Is(err, ErrInvalidModuleMetadata) {
+				t.Fatalf("error should wrap ErrInvalidModuleMetadata, got: %v", err)
+			}
+			metaErr, ok := errors.AsType[*InvalidModuleMetadataError](err)
+			if !ok {
+				t.Fatalf("error type = %T, want *InvalidModuleMetadataError", err)
+			}
+			if len(metaErr.FieldErrors) != 1 || metaErr.FieldErrors[0].Error() != "module metadata is required" {
+				t.Fatalf("FieldErrors = %v, want module metadata required detail", metaErr.FieldErrors)
+			}
+			if got != nil {
+				t.Errorf("NewModuleMetadataFromInvowkmod(nil) metadata = %v, want nil", got)
+			}
+		}},
 
-	t.Run("rejects invalid metadata", func(t *testing.T) {
-		t.Parallel()
-		meta, err := NewModuleMetadataFromInvowkmod(&Invowkmod{
-			Module:  "",
-			Version: "1.2.3",
+		{name: "converts fields correctly", run: func(t *testing.T) {
+			t.Helper()
+
+			mod := &Invowkmod{
+				Module:      "io.invowk.test",
+				Version:     "1.2.3",
+				Description: "Test module",
+				Requires: []ModuleRequirement{
+					{GitURL: invowkmod.GitURL("https://github.com/example/dep.git"), Version: invowkmod.SemVerConstraint("^1.0.0")},
+				},
+			}
+			meta, err := NewModuleMetadataFromInvowkmod(mod)
+			if err != nil {
+				t.Fatalf("NewModuleMetadataFromInvowkmod() error = %v", err)
+			}
+			if meta == nil {
+				t.Fatal("expected non-nil metadata")
+			}
+			if meta.Module() != "io.invowk.test" {
+				t.Errorf("Module() = %q, want %q", meta.Module(), "io.invowk.test")
+			}
+			if meta.Version() != "1.2.3" {
+				t.Errorf("Version() = %q, want %q", meta.Version(), "1.2.3")
+			}
+			if meta.Description() != "Test module" {
+				t.Errorf("Description() = %q, want %q", meta.Description(), "Test module")
+			}
+			if len(meta.Requires()) != 1 {
+				t.Errorf("Requires() length = %d, want 1", len(meta.Requires()))
+			}
+		}},
+
+		{name: "rejects invalid metadata", run: func(t *testing.T) {
+			t.Helper()
+
+			meta, err := NewModuleMetadataFromInvowkmod(&Invowkmod{
+				Module:  "",
+				Version: "1.2.3",
+			})
+			if err == nil {
+				t.Fatal("expected validation error, got nil")
+			}
+			if meta != nil {
+				t.Errorf("metadata = %v, want nil on error", meta)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
 		})
-		if err == nil {
-			t.Fatal("expected validation error, got nil")
-		}
-		if meta != nil {
-			t.Errorf("metadata = %v, want nil on error", meta)
-		}
-	})
+	}
 }

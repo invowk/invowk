@@ -28,26 +28,22 @@ func TestContainerRuntime_ExecuteCapture(t *testing.T) {
 		t.Skip("skipping container integration tests: container engine not available")
 	}
 
-	t.Run("BasicCapture", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerExecuteCaptureBasic(t)
-	})
-	t.Run("CaptureWithExitCode", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerExecuteCaptureExitCode(t)
-	})
-	t.Run("CaptureStderr", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerExecuteCaptureStderr(t)
-	})
-	t.Run("CaptureWithEnvVars", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerExecuteCaptureEnvVars(t)
-	})
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "BasicCapture", run: testContainerExecuteCaptureBasic},
+		{name: "CaptureWithExitCode", run: testContainerExecuteCaptureExitCode},
+		{name: "CaptureStderr", run: testContainerExecuteCaptureStderr},
+		{name: "CaptureWithEnvVars", run: testContainerExecuteCaptureEnvVars},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			testutil.AcquireContainerSemaphore(t)
+			tt.run(t)
+		})
+	}
 }
 
 // testContainerExecuteCaptureBasic tests basic output capture

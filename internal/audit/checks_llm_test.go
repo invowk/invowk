@@ -38,7 +38,7 @@ func (m *mockCompleterFunc) Complete(ctx context.Context, systemPrompt, userProm
 }
 
 // buildTestScanContext creates a minimal ScanContext for testing.
-func buildTestScanContext(_ *testing.T, scripts []ScriptRef) *ScanContext {
+func buildTestScanContext(scripts []ScriptRef) *ScanContext {
 	return &ScanContext{
 		rootPath: types.FilesystemPath("/test"),
 		scripts:  scripts,
@@ -71,7 +71,7 @@ func TestLLMChecker_Check_FindsIssues(t *testing.T) {
 	}
 	checker := NewLLMChecker(mock, 1)
 
-	sc := buildTestScanContext(t, []ScriptRef{
+	sc := buildTestScanContext([]ScriptRef{
 		{
 			CommandName: "deploy",
 			FilePath:    types.FilesystemPath("/test/invowkfile.cue"),
@@ -103,7 +103,7 @@ func TestLLMChecker_Check_NoFindings(t *testing.T) {
 	}
 	checker := NewLLMChecker(mock, 1)
 
-	sc := buildTestScanContext(t, []ScriptRef{
+	sc := buildTestScanContext([]ScriptRef{
 		{
 			CommandName: "build",
 			Script:      invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make build")},
@@ -125,7 +125,7 @@ func TestLLMChecker_Check_NoScripts(t *testing.T) {
 	mock := &mockCompleter{response: `{"findings": []}`}
 	checker := NewLLMChecker(mock, 1)
 
-	sc := buildTestScanContext(t, nil)
+	sc := buildTestScanContext(nil)
 
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestLLMChecker_Check_ServerError(t *testing.T) {
 	}
 	checker := NewLLMChecker(mock, 1)
 
-	sc := buildTestScanContext(t, []ScriptRef{
+	sc := buildTestScanContext([]ScriptRef{
 		{CommandName: "build", Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make build")}},
 	})
 
@@ -168,7 +168,7 @@ func TestLLMChecker_Check_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	sc := buildTestScanContext(t, []ScriptRef{
+	sc := buildTestScanContext([]ScriptRef{
 		{CommandName: "build", Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make build")}},
 	})
 
@@ -186,7 +186,7 @@ func TestLLMChecker_Check_MalformedResponse(t *testing.T) {
 	}
 	checker := NewLLMChecker(mock, 1)
 
-	sc := buildTestScanContext(t, []ScriptRef{
+	sc := buildTestScanContext([]ScriptRef{
 		{CommandName: "build", Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make build")}},
 	})
 
@@ -207,7 +207,7 @@ func TestLLMChecker_Check_InvalidFindingIsMalformedResponse(t *testing.T) {
 	}
 	checker := NewLLMChecker(mock, 1)
 
-	sc := buildTestScanContext(t, []ScriptRef{
+	sc := buildTestScanContext([]ScriptRef{
 		{CommandName: "build", Script: invowkfile.ImplementationScript{Content: invowkfile.ScriptContent("make build")}},
 	})
 
@@ -244,7 +244,7 @@ func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 			SurfaceID:   fmt.Sprintf("surface-%d", i),
 		}
 	}
-	sc := buildTestScanContext(t, scripts)
+	sc := buildTestScanContext(scripts)
 
 	findings, err := checker.Check(t.Context(), sc)
 	if err == nil {

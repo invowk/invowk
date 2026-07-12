@@ -607,38 +607,41 @@ func TestSandboxAwareEngine_CustomizeCmd_Propagates(t *testing.T) {
 func TestSandboxAwareEngine_SysctlOverrideActive_Forwards(t *testing.T) {
 	t.Parallel()
 
-	t.Run("podman with active override", func(t *testing.T) {
-		t.Parallel()
-		podman := &PodmanEngine{
-			BaseCLIEngine: NewBaseCLIEngine("/usr/bin/podman",
-				WithSysctlOverrideActive(true),
-			),
-		}
-		wrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)
-		if !wrapper.SysctlOverrideActive() {
-			t.Error("SandboxAwareEngine should forward SysctlOverrideActive=true from PodmanEngine")
-		}
-	})
+	tests := []struct {
+		name           string
+		engineKind     string
+		binaryPath     string
+		overrideActive bool
+		want           bool
+	}{
+		{name: "podman with active override", engineKind: "podman", binaryPath: "/usr/bin/podman", overrideActive: true, want: true},
+		{name: "podman without override", engineKind: "podman", binaryPath: "/usr/bin/podman-remote"},
+		{name: "mock engine without checker", engineKind: "mock"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("podman without override", func(t *testing.T) {
-		t.Parallel()
-		podman := &PodmanEngine{
-			BaseCLIEngine: NewBaseCLIEngine("/usr/bin/podman-remote"),
-		}
-		wrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)
-		if wrapper.SysctlOverrideActive() {
-			t.Error("SandboxAwareEngine should forward SysctlOverrideActive=false from PodmanEngine")
-		}
-	})
+			var engine Engine
+			switch tt.engineKind {
+			case "podman":
+				options := []BaseCLIEngineOption{}
+				if tt.overrideActive {
+					options = append(options, WithSysctlOverrideActive(true))
+				}
+				engine = &PodmanEngine{BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(tt.binaryPath), options...)}
+			case "mock":
+				engine = &mockEngine{}
+			default:
+				t.Fatalf("unknown engine kind %q", tt.engineKind)
+			}
 
-	t.Run("mock engine without checker", func(t *testing.T) {
-		t.Parallel()
-		mock := &mockEngine{}
-		wrapper := newSandboxAwareEngineForTesting(mock, platform.SandboxFlatpak)
-		if wrapper.SysctlOverrideActive() {
-			t.Error("SandboxAwareEngine should return false for engines without SysctlOverrideChecker")
-		}
-	})
+			wrapper := newSandboxAwareEngineForTesting(engine, platform.SandboxFlatpak)
+			if got := wrapper.SysctlOverrideActive(); got != tt.want {
+				t.Errorf("SysctlOverrideActive() = %t, want %t", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestSandboxAwareEngine_GetBaseCLIEngine(t *testing.T) {

@@ -10,15 +10,26 @@ import (
 func TestValueErrorPayloadMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("dotenv file path preserves invalid value", testDotenvFilePathValuePayloadMutation)
-	t.Run("env config preserves field errors", testEnvConfigValuePayloadMutation)
-	t.Run("port mapping preserves invalid value and reason", testPortMappingValuePayloadMutation)
-	t.Run("volume mount preserves invalid value and reason", testVolumeMountValuePayloadMutation)
-	t.Run("workdir preserves invalid value", testWorkDirValuePayloadMutation)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "dotenv file path preserves invalid value", run: testDotenvFilePathValuePayloadMutation},
+		{name: "env config preserves field errors", run: testEnvConfigValuePayloadMutation},
+		{name: "port mapping preserves invalid value and reason", run: testPortMappingValuePayloadMutation},
+		{name: "volume mount preserves invalid value and reason", run: testVolumeMountValuePayloadMutation},
+		{name: "workdir preserves invalid value", run: testWorkDirValuePayloadMutation},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testDotenvFilePathValuePayloadMutation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := DotenvFilePath(" \t ")
 	valueErr := requireValuePayloadMutationAs[*InvalidDotenvFilePathError](t, value.Validate())
@@ -31,7 +42,7 @@ func testDotenvFilePathValuePayloadMutation(t *testing.T) {
 }
 
 func testEnvConfigValuePayloadMutation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	valueErr := requireValuePayloadMutationAs[*InvalidEnvConfigError](t, EnvConfig{
 		Files: []DotenvFilePath{" \t "},
@@ -44,7 +55,7 @@ func testEnvConfigValuePayloadMutation(t *testing.T) {
 }
 
 func testPortMappingValuePayloadMutation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := PortMappingSpec("0:80")
 	valueErr := requireValuePayloadMutationAs[*InvalidPortMappingSpecError](t, value.Validate())
@@ -60,7 +71,7 @@ func testPortMappingValuePayloadMutation(t *testing.T) {
 }
 
 func testVolumeMountValuePayloadMutation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := VolumeMountSpec("/just-a-path")
 	valueErr := requireValuePayloadMutationAs[*InvalidVolumeMountSpecError](t, value.Validate())
@@ -76,7 +87,7 @@ func testVolumeMountValuePayloadMutation(t *testing.T) {
 }
 
 func testWorkDirValuePayloadMutation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	value := WorkDir(" \t ")
 	valueErr := requireValuePayloadMutationAs[*InvalidWorkDirError](t, value.Validate())

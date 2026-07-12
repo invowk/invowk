@@ -423,83 +423,93 @@ version: "1.0.0"
 func TestLoad(t *testing.T) {
 	t.Parallel()
 
-	t.Run("loads valid module", func(t *testing.T) {
-		t.Parallel()
+	//nolint:thelper // Case runners are passed directly to t.Run and begin with t.Parallel.
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "loads valid module", run: func(t *testing.T) {
+			t.Parallel()
 
-		dir := t.TempDir()
-		modulePath := createValidModule(t, dir, "com.example.test.invowkmod", "com.example.test")
+			dir := t.TempDir()
+			modulePath := createValidModule(t, dir, "com.example.test.invowkmod", "com.example.test")
 
-		module, err := Load(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("Load() returned error: %v", err)
-		}
+			module, err := Load(types.FilesystemPath(modulePath))
+			if err != nil {
+				t.Fatalf("Load() returned error: %v", err)
+			}
 
-		if module.Name() != "com.example.test" {
-			t.Errorf("module.Name() = %q, want %q", module.Name(), "com.example.test")
-		}
+			if module.Name() != "com.example.test" {
+				t.Errorf("module.Name() = %q, want %q", module.Name(), "com.example.test")
+			}
 
-		// Verify invowkmod.cue path is set
-		expectedInvowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
-		if string(module.InvowkmodPath()) != expectedInvowkmodPath {
-			t.Errorf("module.InvowkmodPath() = %q, want %q", module.InvowkmodPath(), expectedInvowkmodPath)
-		}
+			// Verify invowkmod.cue path is set
+			expectedInvowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
+			if string(module.InvowkmodPath()) != expectedInvowkmodPath {
+				t.Errorf("module.InvowkmodPath() = %q, want %q", module.InvowkmodPath(), expectedInvowkmodPath)
+			}
 
-		// Verify invowkfile.cue path is set
-		expectedInvowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
-		if string(module.InvowkfilePath()) != expectedInvowkfilePath {
-			t.Errorf("module.InvowkfilePath() = %q, want %q", module.InvowkfilePath(), expectedInvowkfilePath)
-		}
-	})
+			// Verify invowkfile.cue path is set
+			expectedInvowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
+			if string(module.InvowkfilePath()) != expectedInvowkfilePath {
+				t.Errorf("module.InvowkfilePath() = %q, want %q", module.InvowkfilePath(), expectedInvowkfilePath)
+			}
+		}},
 
-	t.Run("loads library-only module", func(t *testing.T) {
-		t.Parallel()
+		{name: "loads library-only module", run: func(t *testing.T) {
+			t.Parallel()
 
-		dir := t.TempDir()
-		modulePath := filepath.Join(dir, "mylib.invowkmod")
-		if err := os.Mkdir(modulePath, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		// Only create invowkmod.cue (no invowkfile.cue)
-		invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
-		if err := os.WriteFile(invowkmodPath, []byte(`module: "mylib"
+			dir := t.TempDir()
+			modulePath := filepath.Join(dir, "mylib.invowkmod")
+			if err := os.Mkdir(modulePath, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			// Only create invowkmod.cue (no invowkfile.cue)
+			invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
+			if err := os.WriteFile(invowkmodPath, []byte(`module: "mylib"
 version: "1.0.0"
 `), 0o644); err != nil {
-			t.Fatal(err)
-		}
+				t.Fatal(err)
+			}
 
-		module, err := Load(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("Load() returned error: %v", err)
-		}
+			module, err := Load(types.FilesystemPath(modulePath))
+			if err != nil {
+				t.Fatalf("Load() returned error: %v", err)
+			}
 
-		if module.Name() != "mylib" {
-			t.Errorf("module.Name() = %q, want %q", module.Name(), "mylib")
-		}
+			if module.Name() != "mylib" {
+				t.Errorf("module.Name() = %q, want %q", module.Name(), "mylib")
+			}
 
-		if !module.IsLibraryOnly {
-			t.Error("module.IsLibraryOnly should be true for library-only module")
-		}
-	})
+			if !module.IsLibraryOnly {
+				t.Error("module.IsLibraryOnly should be true for library-only module")
+			}
+		}},
 
-	t.Run("fails for module missing invowkmod.cue", func(t *testing.T) {
-		t.Parallel()
+		{name: "fails for module missing invowkmod.cue", run: func(t *testing.T) {
+			t.Parallel()
 
-		dir := t.TempDir()
-		modulePath := filepath.Join(dir, "mycommands.invowkmod")
-		if err := os.Mkdir(modulePath, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		// Only create invowkfile.cue (missing invowkmod.cue)
-		invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
-		if err := os.WriteFile(invowkfilePath, []byte("cmds: []"), 0o644); err != nil {
-			t.Fatal(err)
-		}
+			dir := t.TempDir()
+			modulePath := filepath.Join(dir, "mycommands.invowkmod")
+			if err := os.Mkdir(modulePath, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			// Only create invowkfile.cue (missing invowkmod.cue)
+			invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
+			if err := os.WriteFile(invowkfilePath, []byte("cmds: []"), 0o644); err != nil {
+				t.Fatal(err)
+			}
 
-		_, err := Load(types.FilesystemPath(modulePath))
-		if err == nil {
-			t.Error("Load() expected error for module missing invowkmod.cue, got nil")
-		}
-	})
+			_, err := Load(types.FilesystemPath(modulePath))
+			if err == nil {
+				t.Error("Load() expected error for module missing invowkmod.cue, got nil")
+			}
+		}},
+	}
+	//nolint:paralleltest // Each table case runner begins with t.Parallel.
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 // TestModule_ResolveScriptPath runs the canonical seven-vector matrix

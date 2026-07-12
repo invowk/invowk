@@ -72,13 +72,24 @@ func invowkfileWithRuntime(runtime string) string {
 func TestRuntimePreflightMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("invalid cue falls back without preflight diagnostics", testRuntimePreflightInvalidCueFallsBack)
-	t.Run("missing or unknown runtime name is ignored", testRuntimePreflightIgnoresMissingUnknownName)
-	t.Run("native rejects every non native field", testRuntimePreflightNativeRejectsFields)
-	t.Run("virtual runtime applies lua field split", testRuntimePreflightVirtualRuntimeFieldSplit)
-	t.Run("container rejects virtual fields and enforces source selection", testRuntimePreflightContainerContracts)
-	t.Run("schema preflight traverses nested runtime indexes", testRuntimePreflightTraversesNestedIndexes)
-	t.Run("ast helpers ignore missing and non list fields", testRuntimePreflightASTHelpersIgnoreInvalidFields)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "invalid cue falls back without preflight diagnostics", run: testRuntimePreflightInvalidCueFallsBack},
+		{name: "missing or unknown runtime name is ignored", run: testRuntimePreflightIgnoresMissingUnknownName},
+		{name: "native rejects every non native field", run: testRuntimePreflightNativeRejectsFields},
+		{name: "virtual runtime applies lua field split", run: testRuntimePreflightVirtualRuntimeFieldSplit},
+		{name: "container rejects virtual fields and enforces source selection", run: testRuntimePreflightContainerContracts},
+		{name: "schema preflight traverses nested runtime indexes", run: testRuntimePreflightTraversesNestedIndexes},
+		{name: "ast helpers ignore missing and non list fields", run: testRuntimePreflightASTHelpersIgnoreInvalidFields},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestRuntimePreflightErrorFields(t *testing.T) {
@@ -104,7 +115,7 @@ func TestRuntimePreflightErrorFields(t *testing.T) {
 }
 
 func testRuntimePreflightInvalidCueFallsBack(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	errs := runtimeSchemaPreflightValidationErrors([]byte("cmds: ["), "bad.cue")
 	if len(errs) != 0 {
@@ -113,7 +124,7 @@ func testRuntimePreflightInvalidCueFallsBack(t *testing.T) {
 }
 
 func testRuntimePreflightIgnoresMissingUnknownName(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	for _, runtime := range []*ast.StructLit{
 		nil,
@@ -130,7 +141,7 @@ func testRuntimePreflightIgnoresMissingUnknownName(t *testing.T) {
 }
 
 func testRuntimePreflightNativeRejectsFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	errs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
 		name: "native"
@@ -169,7 +180,7 @@ func testRuntimePreflightNativeRejectsFields(t *testing.T) {
 }
 
 func testRuntimePreflightVirtualRuntimeFieldSplit(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	virtualShErrs := validateRuntimePreflight(parseRuntimePreflightStruct(t, `{
 		name: "virtual-sh"
@@ -200,7 +211,7 @@ func testRuntimePreflightVirtualRuntimeFieldSplit(t *testing.T) {
 }
 
 func testRuntimePreflightContainerContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	requireRuntimePreflightNoDiagnostics(t, `{
 		name: "container"
@@ -215,7 +226,7 @@ func testRuntimePreflightContainerContracts(t *testing.T) {
 }
 
 func testRuntimePreflightTraversesNestedIndexes(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	errs := runtimeSchemaPreflightValidationErrors([]byte(`cmds: [
 		{implementations: [{runtimes: [{name: "native"}]}]},
@@ -234,7 +245,7 @@ func testRuntimePreflightTraversesNestedIndexes(t *testing.T) {
 }
 
 func testRuntimePreflightASTHelpersIgnoreInvalidFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	if got := fieldList(nil, "cmds"); len(got) != 0 {
 		t.Fatalf("fieldList(nil) length = %d, want 0", len(got))

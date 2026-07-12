@@ -69,65 +69,76 @@ func TestInvowkmodValidateMutationContracts(t *testing.T) {
 func TestModuleRequirementValidateMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("joins every invalid optional and required field", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "joins every invalid optional and required field", run: func(t *testing.T) {
+			t.Helper()
 
-		req := ModuleRequirement{
-			GitURL:  "",
-			Version: "^v1.2.3",
-			Alias:   "1bad",
-			Path:    "nested/../escape",
-		}
-
-		err := req.Validate()
-		if err == nil {
-			t.Fatal("ModuleRequirement.Validate() returned nil, want error")
-		}
-		if got, want := joinedErrorLen(t, err), 4; got != want {
-			t.Fatalf("joined error count = %d, want %d", got, want)
-		}
-		for _, want := range []error{
-			ErrInvalidGitURL,
-			ErrInvalidSemVerConstraint,
-			ErrInvalidModuleAlias,
-			ErrInvalidSubdirectoryPath,
-		} {
-			if !errors.Is(err, want) {
-				t.Fatalf("ModuleRequirement.Validate() error should wrap %v, got %v", want, err)
+			req := ModuleRequirement{
+				GitURL:  "",
+				Version: "^v1.2.3",
+				Alias:   "1bad",
+				Path:    "nested/../escape",
 			}
-		}
-	})
 
-	t.Run("keeps primary constraint parse failures observable", func(t *testing.T) {
-		t.Parallel()
+			err := req.Validate()
+			if err == nil {
+				t.Fatal("ModuleRequirement.Validate() returned nil, want error")
+			}
+			if got, want := joinedErrorLen(t, err), 4; got != want {
+				t.Fatalf("joined error count = %d, want %d", got, want)
+			}
+			for _, want := range []error{
+				ErrInvalidGitURL,
+				ErrInvalidSemVerConstraint,
+				ErrInvalidModuleAlias,
+				ErrInvalidSubdirectoryPath,
+			} {
+				if !errors.Is(err, want) {
+					t.Fatalf("ModuleRequirement.Validate() error should wrap %v, got %v", want, err)
+				}
+			}
+		}},
 
-		req := ModuleRequirement{
-			GitURL:  mutationGitURL,
-			Version: ">>1.2.3",
-		}
+		{name: "keeps primary constraint parse failures observable", run: func(t *testing.T) {
+			t.Helper()
 
-		err := req.Validate()
-		if !errors.Is(err, ErrInvalidSemVerConstraint) {
-			t.Fatalf("ModuleRequirement.Validate() error = %v, want ErrInvalidSemVerConstraint", err)
-		}
-		if got, want := joinedErrorLen(t, err), 1; got != want {
-			t.Fatalf("joined error count = %d, want %d", got, want)
-		}
-	})
+			req := ModuleRequirement{
+				GitURL:  mutationGitURL,
+				Version: ">>1.2.3",
+			}
 
-	t.Run("accepts fully valid requirement", func(t *testing.T) {
-		t.Parallel()
+			err := req.Validate()
+			if !errors.Is(err, ErrInvalidSemVerConstraint) {
+				t.Fatalf("ModuleRequirement.Validate() error = %v, want ErrInvalidSemVerConstraint", err)
+			}
+			if got, want := joinedErrorLen(t, err), 1; got != want {
+				t.Fatalf("joined error count = %d, want %d", got, want)
+			}
+		}},
 
-		req := ModuleRequirement{
-			GitURL:  mutationGitURL,
-			Version: mutationSemVerConstraint,
-			Alias:   "tools",
-			Path:    "modules/tools",
-		}
-		if err := req.Validate(); err != nil {
-			t.Fatalf("ModuleRequirement.Validate() error = %v, want nil", err)
-		}
-	})
+		{name: "accepts fully valid requirement", run: func(t *testing.T) {
+			t.Helper()
+
+			req := ModuleRequirement{
+				GitURL:  mutationGitURL,
+				Version: mutationSemVerConstraint,
+				Alias:   "tools",
+				Path:    "modules/tools",
+			}
+			if err := req.Validate(); err != nil {
+				t.Fatalf("ModuleRequirement.Validate() error = %v, want nil", err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestSubdirectoryPathValidateMutationEdges(t *testing.T) {
@@ -250,21 +261,43 @@ func TestSubdirectoryPathValidateMutationEdges(t *testing.T) {
 func TestValidationIssueMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("type validation covers every public issue type", testValidationIssueTypeContracts)
-	t.Run("error formatting includes path only when present", testValidationIssueErrorFormatting)
-	t.Run("add issue appends exact fields and marks invalid", testValidationResultAddIssue)
-	t.Run("add issue panics for invalid issue type", testValidationResultAddIssueInvalidType)
-	t.Run("invalid issue type error includes value", testInvalidValidationIssueTypeErrorIncludesValue)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "type validation covers every public issue type", run: testValidationIssueTypeContracts},
+		{name: "error formatting includes path only when present", run: testValidationIssueErrorFormatting},
+		{name: "add issue appends exact fields and marks invalid", run: testValidationResultAddIssue},
+		{name: "add issue panics for invalid issue type", run: testValidationResultAddIssueInvalidType},
+		{name: "invalid issue type error includes value", run: testInvalidValidationIssueTypeErrorIncludesValue},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestModuleMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("path helpers expose metadata and library-only state", testModulePathHelpers)
-	t.Run("resolve script path preserves absolute unix input and joins relative input", testModuleResolveScriptPath)
-	t.Run("validate script path rejects symlink escapes", testModuleValidateScriptPathSymlinkEscape)
-	t.Run("validate script path rejects direct traversal", testModuleValidateScriptPathTraversal)
-	t.Run("validate collects invalid metadata and path", testModuleValidateInvalidMetadataAndPath)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "path helpers expose metadata and library-only state", run: testModulePathHelpers},
+		{name: "resolve script path preserves absolute unix input and joins relative input", run: testModuleResolveScriptPath},
+		{name: "validate script path rejects symlink escapes", run: testModuleValidateScriptPathSymlinkEscape},
+		{name: "validate script path rejects direct traversal", run: testModuleValidateScriptPathTraversal},
+		{name: "validate collects invalid metadata and path", run: testModuleValidateInvalidMetadataAndPath},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestModuleValueErrorMutationFormatting(t *testing.T) {
@@ -287,7 +320,7 @@ func TestModuleValueErrorMutationFormatting(t *testing.T) {
 }
 
 func testValidationIssueTypeContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	for _, issueType := range []ValidationIssueType{
 		IssueTypeStructure,
@@ -310,7 +343,7 @@ func testValidationIssueTypeContracts(t *testing.T) {
 }
 
 func testValidationIssueErrorFormatting(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	withPath := ValidationIssue{
 		Type:    IssueTypeSecurity,
@@ -331,7 +364,7 @@ func testValidationIssueErrorFormatting(t *testing.T) {
 }
 
 func testValidationResultAddIssue(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := &ValidationResult{Valid: true}
 	result.AddIssue(IssueTypeCompatibility, "uses host-specific path", mutationRelativeScript)
@@ -349,7 +382,7 @@ func testValidationResultAddIssue(t *testing.T) {
 }
 
 func testValidationResultAddIssueInvalidType(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	defer func() {
 		if recover() == nil {
@@ -361,7 +394,7 @@ func testValidationResultAddIssueInvalidType(t *testing.T) {
 }
 
 func testInvalidValidationIssueTypeErrorIncludesValue(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := ValidationIssueType("unknown").Validate()
 	issueErr := requireValidationIssueTypeError(t, err)
@@ -371,7 +404,7 @@ func testInvalidValidationIssueTypeErrorIncludesValue(t *testing.T) {
 }
 
 func testModulePathHelpers(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	moduleRoot := filepath.Join(t.TempDir(), "io.example.tools.invowkmod")
 	module := &Module{
@@ -402,7 +435,7 @@ func testModulePathHelpers(t *testing.T) {
 }
 
 func testModuleResolveScriptPath(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	moduleRoot := filepath.Join(t.TempDir(), "io.example.tools.invowkmod")
 	module := &Module{Path: types.FilesystemPath(moduleRoot)}
@@ -419,7 +452,7 @@ func testModuleResolveScriptPath(t *testing.T) {
 }
 
 func testModuleValidateScriptPathSymlinkEscape(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tempDir := t.TempDir()
 	moduleRoot := filepath.Join(tempDir, "io.example.tools.invowkmod")
@@ -458,7 +491,7 @@ func testModuleValidateScriptPathSymlinkEscape(t *testing.T) {
 }
 
 func testModuleValidateScriptPathTraversal(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	module := &Module{Path: types.FilesystemPath(t.TempDir())}
 
@@ -491,7 +524,7 @@ func TestModuleContainsPathReturnsFalseWhenAbsFails(t *testing.T) { //nolint:par
 }
 
 func testModuleValidateInvalidMetadataAndPath(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	module := Module{
 		Metadata: &Invowkmod{

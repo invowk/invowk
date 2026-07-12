@@ -10,32 +10,24 @@ import (
 func TestFormatFieldErrors(t *testing.T) {
 	t.Parallel()
 
-	t.Run("zero errors", func(t *testing.T) {
-		t.Parallel()
-		got := FormatFieldErrors("request", nil)
-		want := "invalid request: 0 field error(s)"
-		if got != want {
-			t.Errorf("FormatFieldErrors() = %q, want %q", got, want)
-		}
-	})
+	tests := []struct {
+		name    string
+		subject string
+		errs    []error
+		want    string
+	}{
+		{name: "zero errors", subject: "request", want: "invalid request: 0 field error(s)"},
+		{name: "single error", subject: "result", errs: []error{errors.New("bad field")}, want: "invalid result: 1 field error(s)"},
+		{name: "multiple errors", subject: "execution context", errs: []error{errors.New("a"), errors.New("b"), errors.New("c")}, want: "invalid execution context: 3 field error(s)"},
+	}
 
-	t.Run("single error", func(t *testing.T) {
-		t.Parallel()
-		errs := []error{errors.New("bad field")}
-		got := FormatFieldErrors("result", errs)
-		want := "invalid result: 1 field error(s)"
-		if got != want {
-			t.Errorf("FormatFieldErrors() = %q, want %q", got, want)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("multiple errors", func(t *testing.T) {
-		t.Parallel()
-		errs := []error{errors.New("a"), errors.New("b"), errors.New("c")}
-		got := FormatFieldErrors("execution context", errs)
-		want := "invalid execution context: 3 field error(s)"
-		if got != want {
-			t.Errorf("FormatFieldErrors() = %q, want %q", got, want)
-		}
-	})
+			if got := FormatFieldErrors(tt.subject, tt.errs); got != tt.want {
+				t.Errorf("FormatFieldErrors() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }

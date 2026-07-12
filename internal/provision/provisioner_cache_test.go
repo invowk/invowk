@@ -11,6 +11,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const testProvisionBaseImage container.ImageTag = "debian:stable-slim"
+
 func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 	t.Parallel()
 
@@ -33,12 +35,12 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
+	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
+	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,160 +69,77 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 		t.Fatalf("failed to create binary2: %v", err)
 	}
 
-	engine := newMockEngine()
-
-	t.Run("different base image", func(t *testing.T) {
-		t.Parallel()
-
-		cfg := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary1),
+	baseConfig := func(binaryPath string) *Config {
+		return &Config{
+			Enabled: true, InvowkBinaryPath: types.FilesystemPath(binaryPath),
 			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 		}
-		provisioner, provErr := NewLayerProvisioner(engine, cfg)
-		if provErr != nil {
-			t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
-		}
+	}
+	tests := []struct {
+		name  string
+		setup func(*testing.T) (*Config, container.ImageTag, *Config, container.ImageTag)
+	}{
+		{
+			name: "different base image",
+			setup: func(*testing.T) (*Config, container.ImageTag, *Config, container.ImageTag) {
+				return baseConfig(binary1), testProvisionBaseImage, baseConfig(binary1), "registry.example.com/base/app:22.04"
+			},
+		},
+		{
+			name: "different binary",
+			setup: func(*testing.T) (*Config, container.ImageTag, *Config, container.ImageTag) {
+				return baseConfig(binary1), testProvisionBaseImage, baseConfig(binary2), testProvisionBaseImage
+			},
+		},
+		{
+			name: "with modules",
+			setup: func(t *testing.T) (*Config, container.ImageTag, *Config, container.ImageTag) {
+				t.Helper()
 
-		key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+				modulesDir := filepath.Join(t.TempDir(), "modules")
+				createProvisioningModule(t, modulesDir, "test.invowkmod", "test")
+				withModules := baseConfig(binary1)
+				withModules.ModulesPaths = []types.FilesystemPath{types.FilesystemPath(modulesDir)}
+				return withModules, testProvisionBaseImage, baseConfig(binary1), testProvisionBaseImage
+			},
+		},
+		{
+			name: "different mount paths",
+			setup: func(*testing.T) (*Config, container.ImageTag, *Config, container.ImageTag) {
+				alternate := baseConfig(binary1)
+				alternate.BinaryMountPath = container.MountTargetPath("/opt/invowk")
+				alternate.ModulesMountPath = container.MountTargetPath("/opt/modules")
+				return baseConfig(binary1), testProvisionBaseImage, alternate, testProvisionBaseImage
+			},
+		},
+	}
 
-		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("registry.example.com/base/app:22.04"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if key1 == key2 {
-			t.Error("expected different keys for different base images")
-		}
-	})
-
-	t.Run("different binary", func(t *testing.T) {
-		t.Parallel()
-
-		cfg1 := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary1),
-			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		}
-		cfg2 := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary2),
-			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		}
-
-		p1, p1Err := NewLayerProvisioner(engine, cfg1)
-		if p1Err != nil {
-			t.Fatalf("NewLayerProvisioner(cfg1) unexpected error: %v", p1Err)
-		}
-		p2, p2Err := NewLayerProvisioner(engine, cfg2)
-		if p2Err != nil {
-			t.Fatalf("NewLayerProvisioner(cfg2) unexpected error: %v", p2Err)
-		}
-
-		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if key1 == key2 {
-			t.Error("expected different keys for different binaries")
-		}
-	})
-
-	t.Run("with modules", func(t *testing.T) {
-		t.Parallel()
-
-		modulesDir := filepath.Join(tmpDir, "modules")
-		createProvisioningModule(t, modulesDir, "test.invowkmod", "test")
-
-		cfgWithMods := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary1),
-			ModulesPaths:     []types.FilesystemPath{types.FilesystemPath(modulesDir)},
-			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		}
-		cfgWithoutMods := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary1),
-			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		}
-
-		p1, p1Err := NewLayerProvisioner(engine, cfgWithMods)
-		if p1Err != nil {
-			t.Fatalf("NewLayerProvisioner(cfgWithMods) unexpected error: %v", p1Err)
-		}
-		p2, p2Err := NewLayerProvisioner(engine, cfgWithoutMods)
-		if p2Err != nil {
-			t.Fatalf("NewLayerProvisioner(cfgWithoutMods) unexpected error: %v", p2Err)
-		}
-
-		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if key1 == key2 {
-			t.Error("expected different keys with and without modules")
-		}
-	})
-
-	t.Run("different mount paths", func(t *testing.T) {
-		t.Parallel()
-
-		cfg1 := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary1),
-			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		}
-		cfg2 := &Config{
-			Enabled:          true,
-			InvowkBinaryPath: types.FilesystemPath(binary1),
-			BinaryMountPath:  container.MountTargetPath("/opt/invowk"),
-			ModulesMountPath: container.MountTargetPath("/opt/modules"),
-		}
-
-		p1, p1Err := NewLayerProvisioner(engine, cfg1)
-		if p1Err != nil {
-			t.Fatalf("NewLayerProvisioner(cfg1) unexpected error: %v", p1Err)
-		}
-		p2, p2Err := NewLayerProvisioner(engine, cfg2)
-		if p2Err != nil {
-			t.Fatalf("NewLayerProvisioner(cfg2) unexpected error: %v", p2Err)
-		}
-
-		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if key1 == key2 {
-			t.Error("expected different keys for different mount paths")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg1, image1, cfg2, image2 := tt.setup(t)
+			p1, err := NewLayerProvisioner(newMockEngine(), cfg1)
+			if err != nil {
+				t.Fatalf("NewLayerProvisioner(first) error = %v", err)
+			}
+			p2, err := NewLayerProvisioner(newMockEngine(), cfg2)
+			if err != nil {
+				t.Fatalf("NewLayerProvisioner(second) error = %v", err)
+			}
+			key1, err := p1.calculateCacheKey(t.Context(), image1)
+			if err != nil {
+				t.Fatalf("calculateCacheKey(first) error = %v", err)
+			}
+			key2, err := p2.calculateCacheKey(t.Context(), image2)
+			if err != nil {
+				t.Fatalf("calculateCacheKey(second) error = %v", err)
+			}
+			if key1 == key2 {
+				t.Error("calculateCacheKey() values are equal, want input-sensitive keys")
+			}
+		})
+	}
 }
 
 func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T) {
@@ -251,14 +170,14 @@ func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
+	key1, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if writeErr := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("changed workspace content"), 0o644); writeErr != nil {
 		t.Fatalf("failed to write workspace file: %v", writeErr)
 	}
-	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
+	key2, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -284,7 +203,7 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
+	key, err := provisioner.calculateCacheKey(t.Context(), testProvisionBaseImage)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

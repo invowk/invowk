@@ -3,8 +3,10 @@
 package sshserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -27,6 +29,11 @@ type (
 	Clock interface {
 		Now() time.Time
 	}
+
+	commandContextFunc func(context.Context, string, ...string) *exec.Cmd
+	startPTYFunc       func(*exec.Cmd) (*os.File, error)
+	setWinsizeFunc     func(*os.File, int, int)
+	copyBufferFunc     func(io.Writer, io.Reader) (int64, error)
 
 	// realClock implements Clock using actual system time.
 	realClock struct{}
@@ -55,6 +62,13 @@ type (
 
 		// Clock for time operations (enables deterministic testing)
 		clock Clock
+
+		// Process, PTY, stream, and Wish dependencies are injected privately for deterministic tests.
+		newCommand  commandContextFunc
+		startPTY    startPTYFunc
+		setWinsize  setWinsizeFunc
+		copyBuffer  copyBufferFunc
+		wishOptions []ssh.Option
 
 		// Initialized during Start() - protected by srvMu for writes
 		srvMu    sync.Mutex
@@ -149,6 +163,15 @@ func New(cfg Config) (*Server, error) {
 // The server is not started; call Start() to begin accepting connections.
 // Returns error if the Config has invalid typed fields.
 func NewWithClock(cfg Config, clock Clock) (*Server, error) {
+	return newWithDependencies(cfg, clock, exec.CommandContext)
+}
+
+func newWithDependencies(
+	cfg Config,
+	clock Clock,
+	newCommand commandContextFunc,
+	wishOptions ...ssh.Option,
+) (*Server, error) {
 	// Apply defaults
 	if cfg.Host == "" {
 		cfg.Host = HostAddress("127.0.0.1")
@@ -176,11 +199,16 @@ func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 	})
 
 	s := &Server{
-		base:   serverbase.NewBase(),
-		cfg:    cfg,
-		clock:  clock,
-		tokens: make(map[TokenValue]*Token),
-		logger: logger,
+		base:        serverbase.NewBase(),
+		cfg:         cfg,
+		clock:       clock,
+		newCommand:  newCommand,
+		startPTY:    startPty,
+		setWinsize:  setWinsize,
+		copyBuffer:  copyBuffer,
+		wishOptions: wishOptions,
+		tokens:      make(map[TokenValue]*Token),
+		logger:      logger,
 	}
 
 	return s, nil
@@ -207,7 +235,7 @@ func (s *Server) commandMiddleware() wish.Middleware {
 func (s *Server) runInteractiveShell(sess ssh.Session) {
 	shell := string(s.cfg.DefaultShell)
 
-	cmd := exec.CommandContext(sess.Context(), shell)
+	cmd := s.newCommand(sess.Context(), shell)
 	cmd.WaitDelay = cmdWaitDelay
 	cmd.Env = append(os.Environ(), sess.Environ()...)
 
@@ -217,7 +245,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	}
 
 	// Start the command with a pseudo-terminal
-	f, err := startPty(cmd)
+	f, err := s.startPTY(cmd)
 	if err != nil {
 		_, _ = fmt.Fprintf(sess.Stderr(), "Error starting shell: %v\n", err)
 		_ = sess.Exit(1) //nolint:errcheck // Terminal operation; error non-critical
@@ -228,15 +256,15 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	// Handle window size changes
 	go func() {
 		for win := range winCh {
-			setWinsize(f, win.Width, win.Height)
+			s.setWinsize(f, win.Width, win.Height)
 		}
 	}()
 
 	// Copy I/O
 	go func() {
-		_, _ = copyBuffer(f, sess) //nolint:errcheck // I/O copy; errors are non-recoverable
+		_, _ = s.copyBuffer(f, sess) //nolint:errcheck // I/O copy; errors are non-recoverable
 	}()
-	_, _ = copyBuffer(sess, f) //nolint:errcheck // I/O copy; errors are non-recoverable
+	_, _ = s.copyBuffer(sess, f) //nolint:errcheck // I/O copy; errors are non-recoverable
 
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
@@ -252,9 +280,9 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 func (s *Server) runCommand(sess ssh.Session, args []string) {
 	var cmd *exec.Cmd
 	if len(args) == 1 {
-		cmd = exec.CommandContext(sess.Context(), string(s.cfg.DefaultShell), "-c", args[0])
+		cmd = s.newCommand(sess.Context(), string(s.cfg.DefaultShell), "-c", args[0])
 	} else {
-		cmd = exec.CommandContext(sess.Context(), args[0], args[1:]...)
+		cmd = s.newCommand(sess.Context(), args[0], args[1:]...)
 	}
 	cmd.WaitDelay = cmdWaitDelay
 

@@ -10,8 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/spf13/cobra"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestDetectPathType(t *testing.T) {

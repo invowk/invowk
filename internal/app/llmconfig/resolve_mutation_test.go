@@ -27,17 +27,28 @@ type mutationContextKey struct{}
 func TestResolveMutationMainContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("provider is required before option validation", testResolveRequiresProvider)
-	t.Run("invalid options are rejected before loading config", testResolveRejectsOptionsBeforeLoad)
-	t.Run("load errors are wrapped with LLM configuration context", testResolveWrapsLoadErrors)
-	t.Run("load receives caller context and config file path", testResolvePassesContextAndPath)
-	t.Run("enable flag promotes defaults to API mode", testResolveEnableFlagPromotesDefaults)
-	t.Run("provider flag wins over configured API backend", testResolveProviderFlagWins)
-	t.Run("configured default API preserves model and normalized concurrency", testResolveConfiguredAPIDefaultContracts)
-	t.Run("configured default provider preserves common model", testResolveConfiguredProviderModel)
-	t.Run("invalid environment URL is rejected through resolve", testResolveRejectsInvalidEnvURL)
-	t.Run("invalid configured provider is rejected after load", testResolveRejectsInvalidConfiguredProvider)
-	t.Run("invalid configured API concurrency is reported once", testResolveRejectsInvalidConfiguredAPIConcurrencyOnce)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "provider is required before option validation", run: testResolveRequiresProvider},
+		{name: "invalid options are rejected before loading config", run: testResolveRejectsOptionsBeforeLoad},
+		{name: "load errors are wrapped with LLM configuration context", run: testResolveWrapsLoadErrors},
+		{name: "load receives caller context and config file path", run: testResolvePassesContextAndPath},
+		{name: "enable flag promotes defaults to API mode", run: testResolveEnableFlagPromotesDefaults},
+		{name: "provider flag wins over configured API backend", run: testResolveProviderFlagWins},
+		{name: "configured default API preserves model and normalized concurrency", run: testResolveConfiguredAPIDefaultContracts},
+		{name: "configured default provider preserves common model", run: testResolveConfiguredProviderModel},
+		{name: "invalid environment URL is rejected through resolve", run: testResolveRejectsInvalidEnvURL},
+		{name: "invalid configured provider is rejected after load", run: testResolveRejectsInvalidConfiguredProvider},
+		{name: "invalid configured API concurrency is reported once", run: testResolveRejectsInvalidConfiguredAPIConcurrencyOnce},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestModeMutationContracts(t *testing.T) {
@@ -79,88 +90,121 @@ func TestModeMutationContracts(t *testing.T) {
 func TestValidateMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("defaults accepts zero timeout and valid typed fields", testDefaultsValidationAcceptsZeroTimeout)
-	t.Run("defaults join every invalid typed field", testDefaultsValidationJoinsInvalidFields)
-	t.Run("flags accepts zero timeout and valid typed fields", testFlagValidationAcceptsZeroTimeout)
-	t.Run("flags join every invalid typed field", testFlagValidationJoinsInvalidFields)
-	t.Run("resolve options join path flags and defaults", testResolveOptionsValidationJoinsInvalidFields)
-	t.Run("api config reports missing required API fields", testAPIConfigValidationRequiredFields)
-	t.Run("api config accepts zero timeout with required API fields", testAPIConfigValidationAcceptsZeroTimeout)
-	t.Run("api config joins invalid typed fields", testAPIConfigValidationJoinsInvalidFields)
-	t.Run("resolved validates mode provider model api and concurrency contracts", testResolvedValidationContracts)
-	t.Run("resolved rejects unknown mode without API validation", testResolvedValidationRejectsUnknownMode)
-	t.Run("resolved provider mode ignores incomplete API config", testResolvedProviderModeIgnoresAPIConfig)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "defaults accepts zero timeout and valid typed fields", run: testDefaultsValidationAcceptsZeroTimeout},
+		{name: "defaults join every invalid typed field", run: testDefaultsValidationJoinsInvalidFields},
+		{name: "flags accepts zero timeout and valid typed fields", run: testFlagValidationAcceptsZeroTimeout},
+		{name: "flags join every invalid typed field", run: testFlagValidationJoinsInvalidFields},
+		{name: "resolve options join path flags and defaults", run: testResolveOptionsValidationJoinsInvalidFields},
+		{name: "api config reports missing required API fields", run: testAPIConfigValidationRequiredFields},
+		{name: "api config accepts zero timeout with required API fields", run: testAPIConfigValidationAcceptsZeroTimeout},
+		{name: "api config joins invalid typed fields", run: testAPIConfigValidationJoinsInvalidFields},
+		{name: "resolved validates mode provider model api and concurrency contracts", run: testResolvedValidationContracts},
+		{name: "resolved rejects unknown mode without API validation", run: testResolvedValidationRejectsUnknownMode},
+		{name: "resolved provider mode ignores incomplete API config", run: testResolvedProviderModeIgnoresAPIConfig},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestApplyConfigDefaultsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("api backend overrides provider defaults and credential env", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "api backend overrides provider defaults and credential env", run: func(t *testing.T) {
+			t.Helper()
 
-		result := resolvedWithDefaults()
-		llm := config.LLMConfig{
-			Provider:    config.LLMProviderClaude,
-			Model:       mutationProviderModel,
-			Timeout:     "5s",
-			Concurrency: mutationConcurrency,
-			API: config.LLMAPIConfig{ //nolint:gosec // test uses an environment-variable name, not a credential value.
-				BaseURL:       mutationBaseURL,
-				Model:         mutationModel,
-				CredentialEnv: "MUTATION_LLM_ENV",
-			},
-		}
+			result := resolvedWithDefaults()
+			llm := config.LLMConfig{
+				Provider:    config.LLMProviderClaude,
+				Model:       mutationProviderModel,
+				Timeout:     "5s",
+				Concurrency: mutationConcurrency,
+				API: config.LLMAPIConfig{ //nolint:gosec // test uses an environment-variable name, not a credential value.
+					BaseURL:       mutationBaseURL,
+					Model:         mutationModel,
+					CredentialEnv: "MUTATION_LLM_ENV",
+				},
+			}
 
-		applyConfigDefaults(&result, llm, mutationGetenv(map[string]string{
-			"MUTATION_LLM_ENV": mutationAPIKey,
-		}))
+			applyConfigDefaults(&result, llm, mutationGetenv(map[string]string{
+				"MUTATION_LLM_ENV": mutationAPIKey,
+			}))
 
-		if result.Mode != ModeAPI || result.Provider != "" {
-			t.Fatalf("resolved mode/provider = %v/%q, want API mode with no provider", result.Mode, result.Provider)
-		}
-		if result.Model != mutationProviderModel {
-			t.Fatalf("resolved model = %q, want common provider model", result.Model)
-		}
-		if result.APIConfig.BaseURL != mutationBaseURL ||
-			result.APIConfig.Model != mutationModel ||
-			result.APIConfig.APIKey != mutationAPIKey ||
-			result.APIConfig.Timeout != 5*time.Second ||
-			result.APIConfig.Concurrency != mutationConcurrency {
-			t.Fatalf("APIConfig = %+v, want configured API defaults", result.APIConfig)
-		}
-	})
+			if result.Mode != ModeAPI || result.Provider != "" {
+				t.Fatalf("resolved mode/provider = %v/%q, want API mode with no provider", result.Mode, result.Provider)
+			}
+			if result.Model != mutationProviderModel {
+				t.Fatalf("resolved model = %q, want common provider model", result.Model)
+			}
+			if result.APIConfig.BaseURL != mutationBaseURL ||
+				result.APIConfig.Model != mutationModel ||
+				result.APIConfig.APIKey != mutationAPIKey ||
+				result.APIConfig.Timeout != 5*time.Second ||
+				result.APIConfig.Concurrency != mutationConcurrency {
+				t.Fatalf("APIConfig = %+v, want configured API defaults", result.APIConfig)
+			}
+		}},
 
-	t.Run("invalid configured timeout is ignored", func(t *testing.T) {
-		t.Parallel()
+		{name: "invalid configured timeout is ignored", run: func(t *testing.T) {
+			t.Helper()
 
-		result := resolvedWithDefaults()
-		applyConfigDefaults(&result, config.LLMConfig{Timeout: "not-a-duration"}, mutationGetenv(nil))
-		if result.APIConfig.Timeout != testDefaults().Timeout {
-			t.Fatalf("APIConfig.Timeout = %v, want unchanged default %v", result.APIConfig.Timeout, testDefaults().Timeout)
-		}
-	})
+			result := resolvedWithDefaults()
+			applyConfigDefaults(&result, config.LLMConfig{Timeout: "not-a-duration"}, mutationGetenv(nil))
+			if result.APIConfig.Timeout != testDefaults().Timeout {
+				t.Fatalf("APIConfig.Timeout = %v, want unchanged default %v", result.APIConfig.Timeout, testDefaults().Timeout)
+			}
+		}},
 
-	t.Run("common model applies to result and API config before API override", func(t *testing.T) {
-		t.Parallel()
+		{name: "common model applies to result and API config before API override", run: func(t *testing.T) {
+			t.Helper()
 
-		result := resolvedWithDefaults()
-		applyConfigDefaults(&result, config.LLMConfig{Model: mutationModel}, mutationGetenv(nil))
-		if result.Model != mutationModel || result.APIConfig.Model != mutationModel {
-			t.Fatalf("configured common model result = %+v, want both model fields", result)
-		}
-	})
+			result := resolvedWithDefaults()
+			applyConfigDefaults(&result, config.LLMConfig{Model: mutationModel}, mutationGetenv(nil))
+			if result.Model != mutationModel || result.APIConfig.Model != mutationModel {
+				t.Fatalf("configured common model result = %+v, want both model fields", result)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestApplyEnvOverridesMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("environment fills unchanged API fields", testEnvOverridesFillUnchangedAPIFields)
-	t.Run("changed flags and configured API key block environment overrides", testEnvOverridesRespectChangedFlags)
-	t.Run("changed API key flag blocks environment key when empty", testEnvOverridesChangedAPIKeyBlocksEnvWhenEmpty)
-	t.Run("configured API key still allows other environment overrides", testEnvOverridesConfiguredAPIKeyAllowsOtherFields)
-	t.Run("invalid environment values return only validating errors", testEnvOverridesInvalidValues)
-	t.Run("invalid environment model returns model validation error", testEnvOverridesInvalidModel)
-	t.Run("invalid timeout and nonnumeric concurrency are ignored", testEnvOverridesIgnoreParseFailures)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "environment fills unchanged API fields", run: testEnvOverridesFillUnchangedAPIFields},
+		{name: "changed flags and configured API key block environment overrides", run: testEnvOverridesRespectChangedFlags},
+		{name: "changed API key flag blocks environment key when empty", run: testEnvOverridesChangedAPIKeyBlocksEnvWhenEmpty},
+		{name: "configured API key still allows other environment overrides", run: testEnvOverridesConfiguredAPIKeyAllowsOtherFields},
+		{name: "invalid environment values return only validating errors", run: testEnvOverridesInvalidValues},
+		{name: "invalid environment model returns model validation error", run: testEnvOverridesInvalidModel},
+		{name: "invalid timeout and nonnumeric concurrency are ignored", run: testEnvOverridesIgnoreParseFailures},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestApplyFlagsAndNormalizationMutationContracts(t *testing.T) {
@@ -226,7 +270,7 @@ func TestResolveOptionsAccessorsMutationContracts(t *testing.T) {
 }
 
 func testResolveRequiresProvider(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := Resolve(t.Context(), nil, ResolveOptions{})
 	if err == nil || !strings.Contains(err.Error(), "config provider is required") {
@@ -235,7 +279,7 @@ func testResolveRequiresProvider(t *testing.T) {
 }
 
 func testResolveRejectsOptionsBeforeLoad(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	loader := &testLoader{cfg: config.DefaultConfig()}
 	invalidPath := types.FilesystemPath(" \t ")
@@ -252,7 +296,7 @@ func testResolveRejectsOptionsBeforeLoad(t *testing.T) {
 }
 
 func testResolveWrapsLoadErrors(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	loadErr := errors.New("boom")
 	_, err := Resolve(t.Context(), &testLoader{loadErr: loadErr}, ResolveOptions{
@@ -264,7 +308,7 @@ func testResolveWrapsLoadErrors(t *testing.T) {
 }
 
 func testResolvePassesContextAndPath(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	ctx := context.WithValue(t.Context(), mutationContextKey{}, "marker")
 	configPath := configPathFixture()
@@ -288,7 +332,7 @@ func testResolvePassesContextAndPath(t *testing.T) {
 }
 
 func testResolveEnableFlagPromotesDefaults(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	got, err := Resolve(t.Context(), &testLoader{cfg: config.DefaultConfig()}, ResolveOptions{
 		Defaults: testDefaults(),
@@ -303,7 +347,7 @@ func testResolveEnableFlagPromotesDefaults(t *testing.T) {
 }
 
 func testResolveConfiguredAPIDefaultContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfg := config.DefaultConfig()
 	cfg.LLM.Model = mutationProviderModel
@@ -329,7 +373,7 @@ func testResolveConfiguredAPIDefaultContracts(t *testing.T) {
 }
 
 func testResolveConfiguredProviderModel(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfg := config.DefaultConfig()
 	cfg.LLM.Provider = config.LLMProviderClaude
@@ -347,7 +391,7 @@ func testResolveConfiguredProviderModel(t *testing.T) {
 }
 
 func testResolveProviderFlagWins(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfg := config.DefaultConfig()
 	cfg.LLM.API = config.LLMAPIConfig{BaseURL: mutationBaseURL, Model: mutationModel}
@@ -367,7 +411,7 @@ func testResolveProviderFlagWins(t *testing.T) {
 }
 
 func testResolveRejectsInvalidConfiguredProvider(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfg := config.DefaultConfig()
 	cfg.LLM.Provider = "bogus"
@@ -381,7 +425,7 @@ func testResolveRejectsInvalidConfiguredProvider(t *testing.T) {
 }
 
 func testResolveRejectsInvalidEnvURL(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := Resolve(t.Context(), &testLoader{cfg: config.DefaultConfig()}, ResolveOptions{
 		Defaults: testDefaults(),
@@ -398,7 +442,7 @@ func testResolveRejectsInvalidEnvURL(t *testing.T) {
 }
 
 func testResolveRejectsInvalidConfiguredAPIConcurrencyOnce(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfg := config.DefaultConfig()
 	cfg.LLM.API = config.LLMAPIConfig{
@@ -419,7 +463,7 @@ func testResolveRejectsInvalidConfiguredAPIConcurrencyOnce(t *testing.T) {
 }
 
 func testDefaultsValidationAcceptsZeroTimeout(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := Defaults{
 		BaseURL:     mutationBaseURL,
@@ -433,7 +477,7 @@ func testDefaultsValidationAcceptsZeroTimeout(t *testing.T) {
 }
 
 func testDefaultsValidationJoinsInvalidFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := Defaults{
 		BaseURL:     "ftp://example.invalid",
@@ -449,7 +493,7 @@ func testDefaultsValidationJoinsInvalidFields(t *testing.T) {
 }
 
 func testFlagValidationAcceptsZeroTimeout(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := FlagValues{
 		Provider:    config.LLMProviderCodex,
@@ -464,7 +508,7 @@ func testFlagValidationAcceptsZeroTimeout(t *testing.T) {
 }
 
 func testFlagValidationJoinsInvalidFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := FlagValues{
 		Provider:    "bogus",
@@ -482,7 +526,7 @@ func testFlagValidationJoinsInvalidFields(t *testing.T) {
 }
 
 func testResolveOptionsValidationJoinsInvalidFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	invalidPath := types.FilesystemPath(" \t ")
 	err := ResolveOptions{
@@ -498,7 +542,7 @@ func testResolveOptionsValidationJoinsInvalidFields(t *testing.T) {
 }
 
 func testAPIConfigValidationRequiredFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := APIConfig{}.Validate()
 	requireJoinedError(t, err, 2, "LLM API base URL is required")
@@ -508,7 +552,7 @@ func testAPIConfigValidationRequiredFields(t *testing.T) {
 }
 
 func testAPIConfigValidationAcceptsZeroTimeout(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := APIConfig{
 		BaseURL:     mutationBaseURL,
@@ -522,7 +566,7 @@ func testAPIConfigValidationAcceptsZeroTimeout(t *testing.T) {
 }
 
 func testAPIConfigValidationJoinsInvalidFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := APIConfig{
 		BaseURL:     "ftp://example.invalid",
@@ -538,7 +582,7 @@ func testAPIConfigValidationJoinsInvalidFields(t *testing.T) {
 }
 
 func testResolvedValidationContracts(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := Resolved{
 		Mode:        ModeAPI,
@@ -557,7 +601,7 @@ func testResolvedValidationContracts(t *testing.T) {
 }
 
 func testResolvedValidationRejectsUnknownMode(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := Resolved{
 		Mode:        Mode(99),
@@ -568,7 +612,7 @@ func testResolvedValidationRejectsUnknownMode(t *testing.T) {
 }
 
 func testResolvedProviderModeIgnoresAPIConfig(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := Resolved{
 		Mode:        ModeProvider,
@@ -581,7 +625,7 @@ func testResolvedProviderModeIgnoresAPIConfig(t *testing.T) {
 }
 
 func testEnvOverridesFillUnchangedAPIFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(apiEnvValues()))
@@ -592,7 +636,7 @@ func testEnvOverridesFillUnchangedAPIFields(t *testing.T) {
 }
 
 func testEnvOverridesRespectChangedFlags(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	result.APIConfig.APIKey = "configured-key"
@@ -615,7 +659,7 @@ func testEnvOverridesRespectChangedFlags(t *testing.T) {
 }
 
 func testEnvOverridesChangedAPIKeyBlocksEnvWhenEmpty(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	err := applyEnvOverrides(&result, ChangedFlags{APIKey: true}, mutationGetenv(map[string]string{
@@ -630,7 +674,7 @@ func testEnvOverridesChangedAPIKeyBlocksEnvWhenEmpty(t *testing.T) {
 }
 
 func testEnvOverridesConfiguredAPIKeyAllowsOtherFields(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	result.APIConfig.APIKey = "configured-key"
@@ -651,7 +695,7 @@ func testEnvOverridesConfiguredAPIKeyAllowsOtherFields(t *testing.T) {
 }
 
 func testEnvOverridesInvalidValues(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(map[string]string{
@@ -670,7 +714,7 @@ func testEnvOverridesInvalidValues(t *testing.T) {
 }
 
 func testEnvOverridesInvalidModel(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	err := applyEnvOverrides(&result, ChangedFlags{}, mutationGetenv(map[string]string{
@@ -685,7 +729,7 @@ func testEnvOverridesInvalidModel(t *testing.T) {
 }
 
 func testEnvOverridesIgnoreParseFailures(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	result := resolvedWithDefaults()
 	applyEnvTimeout(&result, ChangedFlags{}, mutationGetenv(map[string]string{

@@ -382,7 +382,7 @@ func TestValidateEnableHostSSH_InvalidForNonContainer(t *testing.T) {
 
 	err := validateRuntimeConfig(rt, "test-cmd", 1)
 	if err == nil {
-		t.Error("Expected error for enable_host_ssh on native runtime, got nil")
+		t.Fatal("Expected error for enable_host_ssh on native runtime, got nil")
 	}
 
 	if !strings.Contains(err.Error(), "enable_host_ssh") {

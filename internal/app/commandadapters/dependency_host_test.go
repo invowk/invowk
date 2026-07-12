@@ -22,51 +22,38 @@ func TestDependencyCapabilityCheckerCheck(t *testing.T) {
 	t.Parallel()
 
 	checker := NewDependencyCapabilityChecker()
-
-	t.Run("local area network", func(t *testing.T) {
-		t.Parallel()
-		if testing.Short() {
-			t.Skip("skipping integration test in short mode")
-		}
-		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityLocalAreaNetwork))
-	})
-
-	t.Run("internet", func(t *testing.T) {
-		t.Parallel()
-		if testing.Short() {
-			t.Skip("skipping integration test in short mode")
-		}
-		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityInternet))
-	})
-
-	t.Run("containers", func(t *testing.T) {
-		t.Parallel()
-		if testing.Short() {
-			t.Skip("skipping integration test in short mode")
-		}
-		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityContainers))
-	})
-
-	t.Run("tty", func(t *testing.T) {
-		t.Parallel()
-		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityTTY))
-	})
-
-	t.Run("unknown", func(t *testing.T) {
-		t.Parallel()
-
-		err := checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityName("unknown-capability"))
-		var capErr *invowkfile.CapabilityError
-		if !errors.As(err, &capErr) {
-			t.Fatalf("errors.As(*CapabilityError) = false for %T", err)
-		}
-		if capErr.Capability != "unknown-capability" {
-			t.Errorf("CapabilityError.Capability = %q, want %q", capErr.Capability, "unknown-capability")
-		}
-		if capErr.Message != "unknown capability" {
-			t.Errorf("CapabilityError.Message = %q, want %q", capErr.Message, "unknown capability")
-		}
-	})
+	tests := []struct {
+		name       string
+		capability invowkfile.CapabilityName
+		skipShort  bool
+		unknown    bool
+	}{
+		{name: "local area network", capability: invowkfile.CapabilityLocalAreaNetwork, skipShort: true},
+		{name: "internet", capability: invowkfile.CapabilityInternet, skipShort: true},
+		{name: "containers", capability: invowkfile.CapabilityContainers, skipShort: true},
+		{name: "tty", capability: invowkfile.CapabilityTTY},
+		{name: "unknown", capability: invowkfile.CapabilityName("unknown-capability"), unknown: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if tt.skipShort && testing.Short() {
+				t.Skip("skipping integration test in short mode")
+			}
+			err := checker.Check(t.Context(), deps.IOContext{}, tt.capability)
+			if !tt.unknown {
+				assertCapabilityErrorType(t, err)
+				return
+			}
+			var capErr *invowkfile.CapabilityError
+			if !errors.As(err, &capErr) {
+				t.Fatalf("errors.As(*CapabilityError) = false for %T", err)
+			}
+			if capErr.Capability != tt.capability || capErr.Message != "unknown capability" {
+				t.Errorf("CapabilityError = %#v, want capability %q and unknown message", capErr, tt.capability)
+			}
+		})
+	}
 }
 
 func TestCheckLocalAreaNetworkReturnsCapabilityError(t *testing.T) {
@@ -117,50 +104,42 @@ func TestDependencyHostProbeCheckFilepath(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	t.Run("existing file with no requirements succeeds", func(t *testing.T) {
-		t.Parallel()
-		err := probe.CheckFilepath(types.FilesystemPath(readableFile), types.FilesystemPath(readableFile), invowkfile.FilepathDependency{})
-		if err != nil {
-			t.Fatalf("CheckFilepath() = %v", err)
-		}
-	})
-
-	t.Run("nonexistent file returns error", func(t *testing.T) {
-		t.Parallel()
-		missing := filepath.Join(tmpDir, "missing.txt")
-		err := probe.CheckFilepath(types.FilesystemPath(missing), types.FilesystemPath(missing), invowkfile.FilepathDependency{})
-		if err == nil {
-			t.Fatal("CheckFilepath() = nil, want error")
-		}
-		if !errors.Is(err, deps.ErrPathNotExists) {
-			t.Fatalf("errors.Is(err, ErrPathNotExists) = false for %v", err)
-		}
-	})
-
-	t.Run("readable check passes for readable file", func(t *testing.T) {
-		t.Parallel()
-		err := probe.CheckFilepath(
-			types.FilesystemPath(readableFile),
-			types.FilesystemPath(readableFile),
-			invowkfile.FilepathDependency{Readable: true},
-		)
-		if err != nil {
-			t.Fatalf("CheckFilepath() = %v", err)
-		}
-	})
-
-	t.Run("writable check passes for writable dir", func(t *testing.T) {
-		t.Parallel()
-		writableDir := t.TempDir()
-		err := probe.CheckFilepath(
-			types.FilesystemPath(writableDir),
-			types.FilesystemPath(writableDir),
-			invowkfile.FilepathDependency{Writable: true},
-		)
-		if err != nil {
-			t.Fatalf("CheckFilepath() = %v", err)
-		}
-	})
+	tests := []struct {
+		name       string
+		pathKind   string
+		dependency invowkfile.FilepathDependency
+		wantIs     error
+	}{
+		{name: "existing file with no requirements succeeds", pathKind: "readable"},
+		{name: "nonexistent file returns error", pathKind: "missing", wantIs: deps.ErrPathNotExists},
+		{name: "readable check passes for readable file", pathKind: "readable", dependency: invowkfile.FilepathDependency{Readable: true}},
+		{name: "writable check passes for writable dir", pathKind: "writable-dir", dependency: invowkfile.FilepathDependency{Writable: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			path := readableFile
+			switch tt.pathKind {
+			case "readable":
+			case "missing":
+				path = filepath.Join(tmpDir, "missing.txt")
+			case "writable-dir":
+				path = t.TempDir()
+			default:
+				t.Fatalf("unknown path kind %q", tt.pathKind)
+			}
+			err := probe.CheckFilepath(types.FilesystemPath(path), types.FilesystemPath(path), tt.dependency)
+			if tt.wantIs != nil {
+				if !errors.Is(err, tt.wantIs) {
+					t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("CheckFilepath() = %v", err)
+			}
+		})
+	}
 }
 
 func TestDependencyHostProbeRunCustomCheckContextCancellation(t *testing.T) {
@@ -318,66 +297,61 @@ func TestHostPathAccessHelpers(t *testing.T) {
 		t.Fatalf("Stat dir: %v", err)
 	}
 
-	t.Run("readable file", func(t *testing.T) {
-		t.Parallel()
-		if !isReadable(testFile, fileInfo) {
-			t.Fatal("isReadable() = false, want true")
-		}
-	})
-
-	t.Run("readable dir", func(t *testing.T) {
-		t.Parallel()
-		if !isReadable(tmpDir, dirInfo) {
-			t.Fatal("isReadable(dir) = false, want true")
-		}
-	})
-
-	t.Run("writable dir", func(t *testing.T) {
-		t.Parallel()
-		if !isWritable(tmpDir, dirInfo) {
-			t.Fatal("isWritable(dir) = false, want true")
-		}
-	})
-
-	t.Run("writable file", func(t *testing.T) {
-		t.Parallel()
-		if !isWritable(testFile, fileInfo) {
-			t.Fatal("isWritable(file) = false, want true")
-		}
-	})
-
-	t.Run("executable on non-executable file", func(t *testing.T) {
-		t.Parallel()
-		if isExecutable(testFile, fileInfo) {
-			t.Fatal("isExecutable() = true for non-executable file, want false")
-		}
-	})
-
-	t.Run("executable on executable file", func(t *testing.T) {
-		t.Parallel()
-		execName := "exec.sh"
-		if goruntime.GOOS == platform.Windows {
-			execName = "exec.bat"
-		}
-		execFile := filepath.Join(t.TempDir(), execName)
-		if writeErr := os.WriteFile(execFile, []byte("#!/bin/sh"), 0o755); writeErr != nil {
-			t.Fatalf("WriteFile: %v", writeErr)
-		}
-		execInfo, statErr := os.Stat(execFile)
-		if statErr != nil {
-			t.Fatalf("Stat: %v", statErr)
-		}
-		if !isExecutable(execFile, execInfo) {
-			t.Fatal("isExecutable() = false for executable file, want true")
-		}
-	})
-
-	t.Run("executable on dir", func(t *testing.T) {
-		t.Parallel()
-		if !isExecutable(tmpDir, dirInfo) {
-			t.Fatal("isExecutable(dir) = false, want true")
-		}
-	})
+	tests := []struct {
+		name       string
+		access     string
+		targetKind string
+		want       bool
+	}{
+		{name: "readable file", access: "readable", targetKind: "file", want: true},
+		{name: "readable dir", access: "readable", targetKind: "dir", want: true},
+		{name: "writable dir", access: "writable", targetKind: "dir", want: true},
+		{name: "writable file", access: "writable", targetKind: "file", want: true},
+		{name: "executable on non-executable file", access: "executable", targetKind: "file"},
+		{name: "executable on executable file", access: "executable", targetKind: "exec", want: true},
+		{name: "executable on dir", access: "executable", targetKind: "dir", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			path, info := testFile, fileInfo
+			switch tt.targetKind {
+			case "file":
+			case "dir":
+				path, info = tmpDir, dirInfo
+			case "exec":
+				execName := "exec.sh"
+				if goruntime.GOOS == platform.Windows {
+					execName = "exec.bat"
+				}
+				path = filepath.Join(t.TempDir(), execName)
+				if err := os.WriteFile(path, []byte("#!/bin/sh"), 0o755); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+				var err error
+				info, err = os.Stat(path)
+				if err != nil {
+					t.Fatalf("Stat: %v", err)
+				}
+			default:
+				t.Fatalf("unknown target kind %q", tt.targetKind)
+			}
+			var got bool
+			switch tt.access {
+			case "readable":
+				got = isReadable(path, info)
+			case "writable":
+				got = isWritable(path, info)
+			case "executable":
+				got = isExecutable(path, info)
+			default:
+				t.Fatalf("unknown access %q", tt.access)
+			}
+			if got != tt.want {
+				t.Fatalf("%s(%q) = %v, want %v", tt.access, path, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestIsExecutablePATHEXTFallback(t *testing.T) {

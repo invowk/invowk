@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/charmbracelet/ssh"
+	"github.com/charmbracelet/wish"
 )
 
 type failingServerListener struct {
@@ -24,7 +27,12 @@ type failingServerListener struct {
 // mustNew is a test helper that creates a Server and fails the test on error.
 func mustNew(t *testing.T, cfg Config) *Server {
 	t.Helper()
-	srv, err := New(cfg)
+	srv, err := newWithDependencies(
+		cfg,
+		realClock{},
+		exec.CommandContext,
+		wish.WithHostKeyPath(filepath.Join(t.TempDir(), "id_ed25519")),
+	)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

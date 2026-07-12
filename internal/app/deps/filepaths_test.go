@@ -235,68 +235,52 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 
 	execCtx := newDependencyExecutionContext(t)
 
-	t.Run("nil and empty dependencies skip probe", func(t *testing.T) {
-		t.Parallel()
-		testCheckFilepathDependenciesInContainerSkipsEmpty(t, execCtx)
-	})
-	t.Run("missing container runtime", func(t *testing.T) {
-		t.Parallel()
-		testCheckFilepathDependenciesInContainerMissingRuntime(t, execCtx)
-	})
-	t.Run("dependency error aggregates failing paths", func(t *testing.T) {
-		t.Parallel()
-		testCheckFilepathDependenciesInContainerAggregatesFailures(t, execCtx)
-	})
-	t.Run("success", func(t *testing.T) {
-		t.Parallel()
-		testCheckFilepathDependenciesInContainerSuccess(t, execCtx)
-	})
-}
-
-func testCheckFilepathDependenciesInContainerSkipsEmpty(t *testing.T, execCtx ExecutionContext) {
-	t.Helper()
-
-	if err := CheckFilepathDependenciesInContainer(nil, nil, execCtx); err != nil {
-		t.Fatalf("nil deps error = %v, want nil", err)
+	tests := []struct {
+		name              string
+		deps              *invowkfile.DependsOn
+		hasRuntime        bool
+		stderr            string
+		exitCode          types.ExitCode
+		wantIs            error
+		wantDependencyErr bool
+		wantDetail        string
+	}{
+		{name: "nil dependencies skip probe"},
+		{name: "empty dependencies skip probe", deps: &invowkfile.DependsOn{}},
+		{name: "missing container runtime", deps: testContainerFilepathDeps(), wantIs: ErrRuntimeDependencyProbeRequired},
+		{name: "dependency error aggregates failing paths", deps: testContainerFilepathDeps(), hasRuntime: true, stderr: "permission denied", exitCode: 1, wantDependencyErr: true, wantDetail: "permission denied"},
+		{name: "success", deps: testContainerFilepathDeps(), hasRuntime: true},
 	}
-	if err := CheckFilepathDependenciesInContainer(&invowkfile.DependsOn{}, nil, execCtx); err != nil {
-		t.Fatalf("empty filepath deps error = %v, want nil", err)
-	}
-}
-
-func testCheckFilepathDependenciesInContainerMissingRuntime(t *testing.T, execCtx ExecutionContext) {
-	t.Helper()
-
-	err := CheckFilepathDependenciesInContainer(testContainerFilepathDeps(), nil, execCtx)
-	if err == nil || !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
-		t.Fatalf("err = %v, want wrapping ErrRuntimeDependencyProbeRequired", err)
-	}
-}
-
-func testCheckFilepathDependenciesInContainerAggregatesFailures(t *testing.T, execCtx ExecutionContext) {
-	t.Helper()
-
-	probe := newFilepathStubRuntime(t,
-		func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-			if _, err := io.WriteString(ctx.IO.Stderr, "permission denied"); err != nil {
-				t.Fatalf("WriteString(): %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var runtime RuntimeDependencyProbe
+			if tt.hasRuntime {
+				runtime = newFilepathStubRuntime(t, func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+					if tt.stderr != "" {
+						if _, err := io.WriteString(ctx.IO.Stderr, tt.stderr); err != nil {
+							t.Errorf("WriteString(): %v", err)
+						}
+					}
+					return &runtimepkg.Result{ExitCode: tt.exitCode}
+				})
 			}
-			return &runtimepkg.Result{ExitCode: 1}
+			err := CheckFilepathDependenciesInContainer(tt.deps, runtime, execCtx)
+			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
+				t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
+			}
+			if tt.wantDependencyErr {
+				depErr := requireFilepathContainerDependencyError(t, err, execCtx)
+				requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
+				if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, tt.wantDetail) {
+					t.Fatalf("StructuredFailures[0].Detail() = %q, want containing %q", got, tt.wantDetail)
+				}
+				return
+			}
+			if tt.wantIs == nil && err != nil {
+				t.Fatalf("CheckFilepathDependenciesInContainer() = %v, want nil", err)
+			}
 		})
-
-	err := CheckFilepathDependenciesInContainer(testContainerFilepathDeps(), probe, execCtx)
-	depErr := requireFilepathContainerDependencyError(t, err, execCtx)
-	requireDependencyFailureKinds(t, depErr.StructuredFailures, DependencyFailureFilepath)
-	if got := depErr.StructuredFailures[0].Detail().String(); !strings.Contains(got, "permission denied") {
-		t.Fatalf("StructuredFailures[0].Detail() = %q, want containing permission denied", got)
-	}
-}
-
-func testCheckFilepathDependenciesInContainerSuccess(t *testing.T, execCtx ExecutionContext) {
-	t.Helper()
-
-	if err := CheckFilepathDependenciesInContainer(testContainerFilepathDeps(), newFilepathStubRuntime(t), execCtx); err != nil {
-		t.Fatalf("CheckFilepathDependenciesInContainer() = %v", err)
 	}
 }
 
@@ -392,70 +376,44 @@ func TestCheckHostFilepathDependenciesWithProbeReportsValidationFailure(t *testi
 func TestValidateFilepathInContainer(t *testing.T) {
 	t.Parallel()
 
-	t.Run("requires at least one alternative", func(t *testing.T) {
-		t.Parallel()
-
-		err := (newFilepathStubRuntime(t)).CheckFilepath(invowkfile.FilepathDependency{})
-		if !errors.Is(err, ErrNoPathAlternatives) {
-			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
-		}
-	})
-
-	t.Run("succeeds on first passing alternative", func(t *testing.T) {
-		t.Parallel()
-
-		err := (newFilepathStubRuntime(t)).CheckFilepath(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
-		)
-		if err != nil {
-			t.Fatalf("ValidateFilepathInContainer() = %v", err)
-		}
-	})
-
-	t.Run("reports aggregated detail from stderr", func(t *testing.T) {
-		t.Parallel()
-
-		err := (newFilepathStubRuntime(t,
-			func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				if _, writeErr := io.WriteString(ctx.IO.Stderr, "permission denied"); writeErr != nil {
-					t.Fatalf("WriteString(): %v", writeErr)
+	tests := []struct {
+		name         string
+		alternatives []invowkfile.FilesystemPath
+		stderr       string
+		exitCode     types.ExitCode
+		runtimeErr   error
+		wantIs       error
+		wantContains string
+	}{
+		{name: "requires at least one alternative", wantIs: ErrNoPathAlternatives},
+		{name: "succeeds on first passing alternative", alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
+		{name: "reports aggregated detail from stderr", alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}, stderr: "permission denied", exitCode: 1, wantContains: "permission denied"},
+		{name: "transient exit code is surfaced", alternatives: []invowkfile.FilesystemPath{"/tmp"}, exitCode: 125, wantIs: ErrContainerEngineFailure},
+		{name: "runtime error is propagated", alternatives: []invowkfile.FilesystemPath{"/tmp"}, exitCode: 1, runtimeErr: errors.New("engine down"), wantIs: ErrContainerValidationFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			runtime := newFilepathStubRuntime(t, func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+				if tt.stderr != "" {
+					if _, err := io.WriteString(ctx.IO.Stderr, tt.stderr); err != nil {
+						t.Errorf("WriteString(): %v", err)
+					}
 				}
-				return &runtimepkg.Result{ExitCode: 1}
-			})).CheckFilepath(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
-		)
-		if err == nil || !strings.Contains(err.Error(), "permission denied") {
-			t.Fatalf("err = %v", err)
-		}
-	})
-
-	t.Run("transient exit code is surfaced", func(t *testing.T) {
-		t.Parallel()
-
-		err := (newFilepathStubRuntime(t,
-			func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				return &runtimepkg.Result{ExitCode: 125}
-			})).CheckFilepath(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}},
-		)
-		if !errors.Is(err, ErrContainerEngineFailure) {
-			t.Fatalf("err = %v, want wrapping ErrContainerEngineFailure", err)
-		}
-	})
-
-	t.Run("runtime error is propagated", func(t *testing.T) {
-		t.Parallel()
-
-		err := (newFilepathStubRuntime(t,
-			func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
-				return &runtimepkg.Result{ExitCode: 1, Error: errors.New("engine down")}
-			})).CheckFilepath(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}},
-		)
-		if !errors.Is(err, ErrContainerValidationFailed) {
-			t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
-		}
-	})
+				return &runtimepkg.Result{ExitCode: tt.exitCode, Error: tt.runtimeErr}
+			})
+			err := runtime.CheckFilepath(invowkfile.FilepathDependency{Alternatives: tt.alternatives})
+			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
+				t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
+			}
+			if tt.wantContains != "" && (err == nil || !strings.Contains(err.Error(), tt.wantContains)) {
+				t.Fatalf("error = %v, want containing %q", err, tt.wantContains)
+			}
+			if tt.wantIs == nil && tt.wantContains == "" && err != nil {
+				t.Fatalf("CheckFilepath() = %v, want nil", err)
+			}
+		})
+	}
 }
 
 func TestContainerFilepathHelpers(t *testing.T) {
@@ -492,91 +450,73 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 	}
 	invowkDir := types.FilesystemPath(tmpDir)
 
-	t.Run("existing path succeeds", func(t *testing.T) {
-		t.Parallel()
-		fp := invowkfile.FilepathDependency{
-			Alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(existingFile)},
-		}
-		probe := &recordingHostProbe{}
-		if err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe); err != nil {
-			t.Fatalf("ValidateFilepathAlternativesWithProbe() = %v", err)
-		}
-	})
-
-	t.Run("missing path returns error", func(t *testing.T) {
-		t.Parallel()
-		missingPath := types.FilesystemPath("/nonexistent/path")
-		fp := invowkfile.FilepathDependency{
-			Alternatives: []invowkfile.FilesystemPath{missingPath},
-		}
-		err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, &recordingHostProbe{
-			filepathErrors: map[types.FilesystemPath]error{
-				missingPath: fmt.Errorf("%s: %w", missingPath, ErrPathNotExists),
-			},
+	tests := []struct {
+		name         string
+		alternatives []invowkfile.FilesystemPath
+		probeErrors  map[types.FilesystemPath]error
+		useWrapper   bool
+		nilProbe     bool
+		wantErr      bool
+		wantIs       error
+	}{
+		{name: "existing path succeeds", alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(existingFile)}},
+		{name: "missing path returns error", alternatives: []invowkfile.FilesystemPath{"/nonexistent/path"}, probeErrors: map[types.FilesystemPath]error{"/nonexistent/path": fmt.Errorf("/nonexistent/path: %w", ErrPathNotExists)}, wantErr: true},
+		{name: "first missing second exists succeeds", alternatives: []invowkfile.FilesystemPath{"/nonexistent", invowkfile.FilesystemPath(existingFile)}, probeErrors: map[types.FilesystemPath]error{"/nonexistent": fmt.Errorf("/nonexistent: %w", ErrPathNotExists)}},
+		{name: "empty alternatives returns error", useWrapper: true, wantErr: true, wantIs: ErrNoPathAlternatives},
+		{name: "non-empty alternatives require host probe", alternatives: []invowkfile.FilesystemPath{"missing.txt"}, nilProbe: true, wantErr: true, wantIs: ErrHostProbeRequired},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fp := invowkfile.FilepathDependency{Alternatives: tt.alternatives}
+			var err error
+			if tt.useWrapper {
+				err = ValidateFilepathAlternatives(fp, invowkDir)
+			} else {
+				var probe HostProbe
+				if !tt.nilProbe {
+					probe = &recordingHostProbe{filepathErrors: tt.probeErrors}
+				}
+				err = ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validation error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
+				t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
+			}
 		})
-		if err == nil {
-			t.Fatal("expected error for missing path")
-		}
-	})
-
-	t.Run("first missing second exists succeeds", func(t *testing.T) {
-		t.Parallel()
-		fp := invowkfile.FilepathDependency{
-			Alternatives: []invowkfile.FilesystemPath{"/nonexistent", invowkfile.FilesystemPath(existingFile)},
-		}
-		probe := &recordingHostProbe{
-			filepathErrors: map[types.FilesystemPath]error{
-				"/nonexistent": fmt.Errorf("/nonexistent: %w", ErrPathNotExists),
-			},
-		}
-		if err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe); err != nil {
-			t.Fatalf("ValidateFilepathAlternativesWithProbe() = %v", err)
-		}
-	})
-
-	t.Run("empty alternatives returns error", func(t *testing.T) {
-		t.Parallel()
-		fp := invowkfile.FilepathDependency{}
-		err := ValidateFilepathAlternatives(fp, invowkDir)
-		if !errors.Is(err, ErrNoPathAlternatives) {
-			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
-		}
-	})
-
-	t.Run("non-empty alternatives require host probe", func(t *testing.T) {
-		t.Parallel()
-		fp := invowkfile.FilepathDependency{
-			Alternatives: []invowkfile.FilesystemPath{"missing.txt"},
-		}
-		err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, nil)
-		if !errors.Is(err, ErrHostProbeRequired) {
-			t.Fatalf("err = %v, want wrapping ErrHostProbeRequired", err)
-		}
-	})
+	}
 }
 
 func TestHostFilepathMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("absolute slash path is not joined to invowkfile directory", func(t *testing.T) {
-		t.Parallel()
-
-		if got := resolveHostFilepathAlternative(types.FilesystemPath(t.TempDir()), "/must/stay/absolute"); got != "/must/stay/absolute" {
-			t.Fatalf("resolveHostFilepathAlternative() = %q, want slash absolute path unchanged", got)
-		}
-	})
-
-	t.Run("single alternative keeps raw probe error", func(t *testing.T) {
-		t.Parallel()
-
-		err := formatHostFilepathError(
-			[]invowkfile.FilesystemPath{"missing.txt"},
-			[]string{"missing.txt: not found"},
-		)
-		if got := err.Error(); got != "missing.txt: not found" {
-			t.Fatalf("single alternative error = %q, want raw probe error", got)
-		}
-	})
+	tests := []struct {
+		name      string
+		operation string
+		want      string
+	}{
+		{name: "absolute slash path is not joined to invowkfile directory", operation: "resolve", want: "/must/stay/absolute"},
+		{name: "single alternative keeps raw probe error", operation: "format", want: "missing.txt: not found"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var got string
+			switch tt.operation {
+			case "resolve":
+				got = resolveHostFilepathAlternative(types.FilesystemPath(t.TempDir()), tt.want)
+			case "format":
+				got = formatHostFilepathError([]invowkfile.FilesystemPath{"missing.txt"}, []string{tt.want}).Error()
+			default:
+				t.Fatalf("unknown operation %q", tt.operation)
+			}
+			if got != tt.want {
+				t.Fatalf("result = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestEvaluateAlternatives(t *testing.T) {
@@ -584,54 +524,49 @@ func TestEvaluateAlternatives(t *testing.T) {
 
 	errFail := errors.New("failed")
 
-	t.Run("empty alternatives", func(t *testing.T) {
-		t.Parallel()
-		found, lastErr := EvaluateAlternatives([]string{}, func(_ string) error { return nil })
-		if found || lastErr != nil {
-			t.Fatalf("got (%v, %v), want (false, nil)", found, lastErr)
-		}
-	})
-
-	t.Run("single passing alternative", func(t *testing.T) {
-		t.Parallel()
-		found, lastErr := EvaluateAlternatives([]string{"a"}, func(_ string) error { return nil })
-		if !found || lastErr != nil {
-			t.Fatalf("got (%v, %v), want (true, nil)", found, lastErr)
-		}
-	})
-
-	t.Run("single failing alternative", func(t *testing.T) {
-		t.Parallel()
-		found, lastErr := EvaluateAlternatives([]string{"a"}, func(_ string) error { return errFail })
-		if found || lastErr == nil {
-			t.Fatalf("got (%v, %v), want (false, error)", found, lastErr)
-		}
-	})
-
-	t.Run("first passes short circuits", func(t *testing.T) {
-		t.Parallel()
-		callCount := 0
-		found, _ := EvaluateAlternatives([]string{"a", "b"}, func(_ string) error {
-			callCount++
-			return nil
+	tests := []struct {
+		name          string
+		alternatives  []string
+		checkMode     string
+		wantFound     bool
+		wantErr       bool
+		wantErrDetail string
+		wantCalls     int
+	}{
+		{name: "empty alternatives", checkMode: "pass"},
+		{name: "single passing alternative", alternatives: []string{"a"}, checkMode: "pass", wantFound: true, wantCalls: 1},
+		{name: "single failing alternative", alternatives: []string{"a"}, checkMode: "fixed-fail", wantErr: true, wantCalls: 1},
+		{name: "first passes short circuits", alternatives: []string{"a", "b"}, checkMode: "pass", wantFound: true, wantCalls: 1},
+		{name: "all fail returns last error", alternatives: []string{"a", "b"}, checkMode: "named-fail", wantErr: true, wantErrDetail: "failed: b", wantCalls: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			callCount := 0
+			found, lastErr := EvaluateAlternatives(tt.alternatives, func(value string) error {
+				callCount++
+				switch tt.checkMode {
+				case "pass":
+					return nil
+				case "fixed-fail":
+					return errFail
+				case "named-fail":
+					return fmt.Errorf("failed: %s", value)
+				default:
+					return fmt.Errorf("unknown check mode %q", tt.checkMode)
+				}
+			})
+			if found != tt.wantFound || (lastErr != nil) != tt.wantErr {
+				t.Fatalf("got (%v, %v), want found=%v wantErr=%v", found, lastErr, tt.wantFound, tt.wantErr)
+			}
+			if tt.wantErrDetail != "" && !strings.Contains(lastErr.Error(), tt.wantErrDetail) {
+				t.Fatalf("lastErr = %v, want containing %q", lastErr, tt.wantErrDetail)
+			}
+			if callCount != tt.wantCalls {
+				t.Fatalf("check calls = %d, want %d", callCount, tt.wantCalls)
+			}
 		})
-		if !found || callCount != 1 {
-			t.Fatalf("got found=%v, callCount=%d, want found=true, callCount=1", found, callCount)
-		}
-	})
-
-	t.Run("all fail returns last error", func(t *testing.T) {
-		t.Parallel()
-		found, lastErr := EvaluateAlternatives([]string{"a", "b"}, func(s string) error {
-			return fmt.Errorf("failed: %s", s)
-		})
-		if found {
-			t.Fatal("got found=true, want false")
-		}
-		if lastErr == nil || !strings.Contains(lastErr.Error(), "failed: b") {
-			t.Fatalf("lastErr = %v, want error containing 'failed: b'", lastErr)
-		}
-	})
+	}
 }
 
 // TestValidateFilepathAlternatives_Matrix exercises the canonical

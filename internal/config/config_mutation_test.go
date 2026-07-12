@@ -17,13 +17,24 @@ import (
 func TestConfigMutationLoadErrorContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("missing explicit path preserves requested path", testConfigMutationMissingExplicitPath)
-	t.Run("cue load error preserves source path and cause", testConfigMutationLoadErrorSourcePath)
-	t.Run("decode errors include file name", testConfigMutationDecodeErrorFileName)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "missing explicit path preserves requested path", run: testConfigMutationMissingExplicitPath},
+		{name: "cue load error preserves source path and cause", run: testConfigMutationLoadErrorSourcePath},
+		{name: "decode errors include file name", run: testConfigMutationDecodeErrorFileName},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testConfigMutationMissingExplicitPath(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	missingPath := types.FilesystemPath(filepath.Join(t.TempDir(), "missing-config.cue"))
 	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: missingPath})
@@ -43,7 +54,7 @@ func testConfigMutationMissingExplicitPath(t *testing.T) {
 }
 
 func testConfigMutationLoadErrorSourcePath(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfgPath := writeConfigMutationFile(t, t.TempDir(), "invalid.cue", `this is not valid CUE syntax {{{`)
 	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
@@ -81,7 +92,7 @@ func TestConfigMutationDecodeRequiresConcreteConfig(t *testing.T) {
 }
 
 func testConfigMutationDecodeErrorFileName(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfgPath := writeConfigMutationFile(t, t.TempDir(), "named-invalid.cue", `this is not valid CUE syntax {{{`)
 	_, err := decodeCUEConfigFile(types.FilesystemPath(cfgPath))
@@ -144,14 +155,25 @@ default_runtime: "virtual-sh"
 func TestConfigMutationIncludeValidationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("load wraps include validation in root config error", testConfigMutationLoadWrapsIncludeValidation)
-	t.Run("invalid entry reports field index and wraps entry cause", testConfigMutationInvalidIncludeEntryIndex)
-	t.Run("duplicate path is rejected before alias-disambiguated short-name collision", testConfigMutationDuplicateIncludePathPrecedence)
-	t.Run("short-name collision reports exact other-entry count", testConfigMutationShortNameCollisionCount)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "load wraps include validation in root config error", run: testConfigMutationLoadWrapsIncludeValidation},
+		{name: "invalid entry reports field index and wraps entry cause", run: testConfigMutationInvalidIncludeEntryIndex},
+		{name: "duplicate path is rejected before alias-disambiguated short-name collision", run: testConfigMutationDuplicateIncludePathPrecedence},
+		{name: "short-name collision reports exact other-entry count", run: testConfigMutationShortNameCollisionCount},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testConfigMutationLoadWrapsIncludeValidation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tmpDir := t.TempDir()
 	firstPath := filepath.Join(tmpDir, "first.invowkmod")
@@ -263,7 +285,7 @@ container: {
 }
 
 func testConfigMutationInvalidIncludeEntryIndex(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	err := validateIncludes(IncludeCollectionRoot, []IncludeEntry{{Path: ""}})
 	if err == nil {
@@ -288,7 +310,7 @@ func testConfigMutationInvalidIncludeEntryIndex(t *testing.T) {
 }
 
 func testConfigMutationDuplicateIncludePathPrecedence(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	duplicatePath := filepath.Join(t.TempDir(), "shared.invowkmod")
 	err := validateIncludes(IncludeCollectionRoot, []IncludeEntry{
@@ -304,7 +326,7 @@ func testConfigMutationDuplicateIncludePathPrecedence(t *testing.T) {
 }
 
 func testConfigMutationShortNameCollisionCount(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tmpDir := t.TempDir()
 	err := validateIncludes(IncludeCollectionRoot, []IncludeEntry{
@@ -323,15 +345,26 @@ func testConfigMutationShortNameCollisionCount(t *testing.T) {
 func TestConfigMutationFileAndCreateContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("fileExists distinguishes missing files directories and regular files", testConfigMutationFileExistsKinds)
-	t.Run("fileExists treats stat errors as absent files", testConfigMutationFileExistsStatErrors)
-	t.Run("create default config preserves existing file", testConfigMutationCreateDefaultPreservesExisting)
-	t.Run("create default config reports directory creation failure", testConfigMutationCreateDefaultDirectoryFailure)
-	t.Run("create default config reports write failure", testConfigMutationCreateDefaultWriteFailure)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "fileExists distinguishes missing files directories and regular files", run: testConfigMutationFileExistsKinds},
+		{name: "fileExists treats stat errors as absent files", run: testConfigMutationFileExistsStatErrors},
+		{name: "create default config preserves existing file", run: testConfigMutationCreateDefaultPreservesExisting},
+		{name: "create default config reports directory creation failure", run: testConfigMutationCreateDefaultDirectoryFailure},
+		{name: "create default config reports write failure", run: testConfigMutationCreateDefaultWriteFailure},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testConfigMutationFileExistsKinds(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tmpDir := t.TempDir()
 	missingPath := filepath.Join(tmpDir, "missing.cue")
@@ -349,7 +382,7 @@ func testConfigMutationFileExistsKinds(t *testing.T) {
 }
 
 func testConfigMutationFileExistsStatErrors(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod-based stat denial is Unix-specific")
 	}
@@ -374,7 +407,7 @@ func testConfigMutationFileExistsStatErrors(t *testing.T) {
 }
 
 func testConfigMutationCreateDefaultPreservesExisting(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cfgDir := t.TempDir()
 	cfgPath := writeConfigMutationFile(t, cfgDir, ConfigFileName+"."+ConfigFileExt, `container_engine: "docker"`)
@@ -391,7 +424,7 @@ func testConfigMutationCreateDefaultPreservesExisting(t *testing.T) {
 }
 
 func testConfigMutationCreateDefaultDirectoryFailure(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	blocker := writeConfigMutationFile(t, t.TempDir(), "not-a-directory", "blocker")
 	err := CreateDefaultConfig(types.FilesystemPath(filepath.Join(blocker, "child")))
@@ -408,7 +441,7 @@ func testConfigMutationCreateDefaultDirectoryFailure(t *testing.T) {
 }
 
 func testConfigMutationCreateDefaultWriteFailure(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinked write-failure fixture is Unix-specific")
 	}

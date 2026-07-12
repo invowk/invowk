@@ -167,47 +167,58 @@ func TestLockFileMutationInspectSizeBoundary(t *testing.T) {
 func TestLockFileMutationSaveAndValidationBoundaries(t *testing.T) {
 	t.Parallel()
 
-	t.Run("mkdir failure is wrapped before atomic write", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "mkdir failure is wrapped before atomic write", run: func(t *testing.T) {
+			t.Helper()
 
-		blocker := filepath.Join(t.TempDir(), "not-a-directory")
-		if err := os.WriteFile(blocker, []byte("file"), 0o644); err != nil {
-			t.Fatalf("WriteFile() error = %v", err)
-		}
+			blocker := filepath.Join(t.TempDir(), "not-a-directory")
+			if err := os.WriteFile(blocker, []byte("file"), 0o644); err != nil {
+				t.Fatalf("WriteFile() error = %v", err)
+			}
 
-		err := NewLockFile().Save(filepath.Join(blocker, "child", LockFileName))
-		if err == nil {
-			t.Fatal("Save() error = nil, want parent directory failure")
-		}
-		if !strings.Contains(err.Error(), "failed to create directory") {
-			t.Fatalf("Save() error = %v, want mkdir wrapper", err)
-		}
-		var pathErr *os.PathError
-		if !errors.As(err, &pathErr) {
-			t.Fatalf("Save() error = %v, want wrapped path error", err)
-		}
-	})
+			err := NewLockFile().Save(filepath.Join(blocker, "child", LockFileName))
+			if err == nil {
+				t.Fatal("Save() error = nil, want parent directory failure")
+			}
+			if !strings.Contains(err.Error(), "failed to create directory") {
+				t.Fatalf("Save() error = %v, want mkdir wrapper", err)
+			}
+			var pathErr *os.PathError
+			if !errors.As(err, &pathErr) {
+				t.Fatalf("Save() error = %v, want wrapped path error", err)
+			}
+		}},
 
-	t.Run("invalid version fails before module validation", func(t *testing.T) {
-		t.Parallel()
+		{name: "invalid version fails before module validation", run: func(t *testing.T) {
+			t.Helper()
 
-		lock := NewLockFile()
-		lock.Version = "9.9"
-		lock.Modules[ModuleRefKey(lockMutationGitURL)] = validLockMutationLockedModule()
-		if err := lock.validateForSave(); !errors.Is(err, ErrInvalidLockFileVersion) {
-			t.Fatalf("validateForSave() error = %v, want ErrInvalidLockFileVersion", err)
-		}
-	})
+			lock := NewLockFile()
+			lock.Version = "9.9"
+			lock.Modules[ModuleRefKey(lockMutationGitURL)] = validLockMutationLockedModule()
+			if err := lock.validateForSave(); !errors.Is(err, ErrInvalidLockFileVersion) {
+				t.Fatalf("validateForSave() error = %v, want ErrInvalidLockFileVersion", err)
+			}
+		}},
 
-	t.Run("invalid module key fails before module field validation", func(t *testing.T) {
-		t.Parallel()
+		{name: "invalid module key fails before module field validation", run: func(t *testing.T) {
+			t.Helper()
 
-		lock := NewLockFile()
-		lock.Modules[ModuleRefKey(" \t")] = validLockMutationLockedModule()
-		if err := lock.validateForSave(); !errors.Is(err, ErrInvalidModuleRefKey) {
-			t.Fatalf("validateForSave() error = %v, want ErrInvalidModuleRefKey", err)
-		}
-	})
+			lock := NewLockFile()
+			lock.Modules[ModuleRefKey(" \t")] = validLockMutationLockedModule()
+			if err := lock.validateForSave(); !errors.Is(err, ErrInvalidModuleRefKey) {
+				t.Fatalf("validateForSave() error = %v, want ErrInvalidModuleRefKey", err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestLockFileMutationAddModuleCopiesIdentityFields(t *testing.T) {
@@ -283,17 +294,28 @@ func TestLockFileMutationParseModuleKeyBoundaries(t *testing.T) {
 func TestLockFileMutationParserErrorContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("unknown version preserves payload", testLockFileMutationUnknownVersionPayload)
-	t.Run("generated timestamp wraps parse error", testLockFileMutationGeneratedTimestampParseError)
-	t.Run("cue syntax errors wrap cue error", testLockFileMutationCUESyntaxError)
-	t.Run("non-concrete values fail validation before decode", testLockFileMutationNonConcreteValidation)
-	t.Run("decode errors are returned", testLockFileMutationDecodeErrors)
-	t.Run("v2 missing content hash preserves module key", testLockFileMutationMissingContentHashModuleKey)
-	t.Run("v2 split metadata errors preserve module key", testLockFileMutationSplitMetadataModuleKey)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "unknown version preserves payload", run: testLockFileMutationUnknownVersionPayload},
+		{name: "generated timestamp wraps parse error", run: testLockFileMutationGeneratedTimestampParseError},
+		{name: "cue syntax errors wrap cue error", run: testLockFileMutationCUESyntaxError},
+		{name: "non-concrete values fail validation before decode", run: testLockFileMutationNonConcreteValidation},
+		{name: "decode errors are returned", run: testLockFileMutationDecodeErrors},
+		{name: "v2 missing content hash preserves module key", run: testLockFileMutationMissingContentHashModuleKey},
+		{name: "v2 split metadata errors preserve module key", run: testLockFileMutationSplitMetadataModuleKey},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testLockFileMutationUnknownVersionPayload(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := parseLockFile(`version: "99.0"
 generated: "2025-01-15T10:30:00Z"
@@ -316,7 +338,7 @@ modules: {}`)
 }
 
 func testLockFileMutationGeneratedTimestampParseError(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := parseLockFile(`version: "2.0"
 generated: "not-rfc3339"
@@ -328,7 +350,7 @@ modules: {}`)
 }
 
 func testLockFileMutationCUESyntaxError(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := decodeLockFileCUE(`version: "2.0"
 modules: {`)
@@ -336,7 +358,7 @@ modules: {`)
 }
 
 func testLockFileMutationNonConcreteValidation(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := decodeLockFileCUE(`version: "2.0"
 generated: string
@@ -345,7 +367,7 @@ modules: {}`)
 }
 
 func testLockFileMutationDecodeErrors(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := decodeLockFileCUE(`version: 2.0
 generated: "2025-01-15T10:30:00Z"
@@ -354,7 +376,7 @@ modules: {}`)
 }
 
 func testLockFileMutationMissingContentHashModuleKey(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	_, err := parseLockFile(`version: "2.0"
 generated: "2025-01-15T10:30:00Z"
@@ -379,7 +401,7 @@ modules: {
 }
 
 func testLockFileMutationSplitMetadataModuleKey(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	key := ModuleRefKey(lockMutationGitURL)
 	mod := validLockMutationLockedModule()

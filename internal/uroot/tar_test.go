@@ -194,42 +194,6 @@ func TestTarCommand_Run_NonexistentArchive(t *testing.T) {
 	}
 }
 
-func TestTarCommand_Run_CreateMode_KnownBug(t *testing.T) {
-	t.Parallel()
-	// Upstream bug: https://github.com/u-root/u-root/issues/3072
-	// u-root's tar create mode uses filepath.Rel incorrectly, producing
-	// malformed archive entries. Revisit when the upstream fix is released.
-	t.Skip("upstream u-root tar has filepath.Rel bug in create mode — revisit when fixed")
-
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "testfile.txt")
-	archivePath := filepath.Join(tmpDir, "output.tar")
-
-	if err := os.WriteFile(testFile, []byte("test content"), 0o644); err != nil {
-		t.Fatalf("failed to create test file: %v", err)
-	}
-
-	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(t.Context(), &HandlerContext{
-		Stdin:     strings.NewReader(""),
-		Stdout:    &stdout,
-		Stderr:    &stderr,
-		Dir:       tmpDir,
-		LookupEnv: os.LookupEnv,
-	})
-
-	cmd := newTarCommand()
-	err := cmd.Run(ctx, []string{"tar", "-c", "-f", archivePath, testFile})
-	if err != nil {
-		t.Fatalf("tar create returned error: %v", err)
-	}
-
-	// If this test runs (skip removed), verify the archive was created
-	if _, err := os.Stat(archivePath); err != nil {
-		t.Fatalf("archive was not created: %v", err)
-	}
-}
-
 func TestTarCommand_Run_NoFlags(t *testing.T) {
 	t.Parallel()
 

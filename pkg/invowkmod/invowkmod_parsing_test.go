@@ -120,53 +120,62 @@ func TestParseModuleMetadataOnly(t *testing.T) {
 func TestParseInvowkmod(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid invowkmod with all fields", testParseInvowkmodAllFields)
-	t.Run("minimal invowkmod (required fields only)", testParseInvowkmodMinimal)
-	t.Run("invalid invowkmod - missing version", rejectInvowkmod(`module: "mymodule"
-`, "missing version field"))
-	t.Run("invalid invowkmod - missing module", rejectInvowkmod(`version: "1.0.0"
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "valid invowkmod with all fields", run: testParseInvowkmodAllFields},
+		{name: "minimal invowkmod (required fields only)", run: testParseInvowkmodMinimal},
+		{name: "invalid invowkmod - missing version", run: rejectInvowkmod(`module: "mymodule"
+`, "missing version field")},
+		{name: "invalid invowkmod - missing module", run: rejectInvowkmod(`version: "1.0.0"
 description: "Missing module field"
-`, "missing module field"))
-	t.Run("invalid metadata version - v prefix", rejectInvowkmod(`module: "mymodule"
+`, "missing module field")},
+		{name: "invalid metadata version - v prefix", run: rejectInvowkmod(`module: "mymodule"
 version: "v1.0.0"
-`, "v-prefixed metadata version"))
-	t.Run("invalid metadata version - partial", rejectInvowkmod(`module: "mymodule"
+`, "v-prefixed metadata version")},
+		{name: "invalid metadata version - partial", run: rejectInvowkmod(`module: "mymodule"
 version: "1.0"
-`, "partial metadata version"))
-	t.Run("invalid requirement version - v prefix", rejectInvowkmod(`module: "mymodule"
+`, "partial metadata version")},
+		{name: "invalid requirement version - v prefix", run: rejectInvowkmod(`module: "mymodule"
 version: "1.0.0"
 requires: [
 	{git_url: "https://github.com/example/tools.git", version: "v1.0.0"},
 ]
-`, "v-prefixed requirement version"))
-	t.Run("valid requirement versions with comparison operators", testParseInvowkmodComparisonOperators)
-	t.Run("invalid requirement version - trailing junk", rejectInvowkmod(`module: "mymodule"
+`, "v-prefixed requirement version")},
+		{name: "valid requirement versions with comparison operators", run: testParseInvowkmodComparisonOperators},
+		{name: "invalid requirement version - trailing junk", run: rejectInvowkmod(`module: "mymodule"
 version: "1.0.0"
 requires: [
 	{git_url: "https://github.com/example/tools.git", version: "1.0.0junk"},
 ]
-`, "trailing junk in requirement version"))
-	t.Run("invalid requirement alias", rejectInvowkmod(`module: "mymodule"
+`, "trailing junk in requirement version")},
+		{name: "invalid requirement alias", run: rejectInvowkmod(`module: "mymodule"
 version: "1.0.0"
 requires: [
 	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", alias: "1tools"},
 ]
-`, "invalid requirement alias"))
-	t.Run("invalid requirement path", rejectInvowkmod(`module: "mymodule"
+`, "invalid requirement alias")},
+		{name: "invalid requirement path", run: rejectInvowkmod(`module: "mymodule"
 version: "1.0.0"
 requires: [
 	{git_url: "https://github.com/example/tools.git", version: "^1.0.0", path: "../tools.invowkmod"},
 ]
-`, "invalid requirement path"))
-	t.Run("unsupported requirement URL scheme", rejectInvowkmod(`module: "mymodule"
+`, "invalid requirement path")},
+		{name: "unsupported requirement URL scheme", run: rejectInvowkmod(`module: "mymodule"
 version: "1.0.0"
 requires: [
 	{git_url: "http://github.com/example/tools.git", version: "^1.0.0"},
 ]
-`, "unsupported URL scheme"))
-	t.Run("full metadata validation rejects invalid load path", testParseInvowkmodInvalidLoadPath)
-	t.Run("invalid module name format", rejectInvowkmod(`module: "123invalid"
-`, "invalid module name"))
+`, "unsupported URL scheme")},
+		{name: "full metadata validation rejects invalid load path", run: testParseInvowkmodInvalidLoadPath},
+		{name: "invalid module name format", run: rejectInvowkmod(`module: "123invalid"
+`, "invalid module name")},
+	}
+	//nolint:paralleltest // Each table case runner begins with t.Parallel.
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 func testParseModuleMetadataOnlyExisting(t *testing.T) {
@@ -213,7 +222,7 @@ func testParseModuleMetadataOnlyMissing(t *testing.T) {
 	}
 }
 
-func testParseInvowkmodAllFields(t *testing.T) {
+func testParseInvowkmodAllFields(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	content := `module: "io.example.mymodule"
@@ -246,7 +255,7 @@ requires: [
 	}
 }
 
-func testParseInvowkmodMinimal(t *testing.T) {
+func testParseInvowkmodMinimal(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	content := `module: "mymodule"
@@ -261,7 +270,7 @@ version: "1.0.0"
 	}
 }
 
-func testParseInvowkmodComparisonOperators(t *testing.T) {
+func testParseInvowkmodComparisonOperators(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	content := `module: "mymodule"
@@ -280,7 +289,7 @@ requires: [
 	}
 }
 
-func testParseInvowkmodInvalidLoadPath(t *testing.T) {
+func testParseInvowkmodInvalidLoadPath(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	content := []byte(`module: "mymodule"
@@ -306,6 +315,7 @@ version: "1.0.0"
 }
 
 func rejectInvowkmod(content, failure string) func(*testing.T) {
+	//nolint:thelper // Returned function is a direct t.Run case body and calls t.Parallel first.
 	return func(t *testing.T) {
 		t.Parallel()
 

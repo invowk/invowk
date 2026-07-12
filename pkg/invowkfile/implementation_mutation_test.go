@@ -81,127 +81,149 @@ func TestImplementationMutationOptionalValidation(t *testing.T) {
 func TestImplementationMutationScriptValidationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("script validates interpreter when present", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "script validates interpreter when present", run: func(t *testing.T) {
+			t.Helper()
 
-		err := ImplementationScript{
-			Content:     "echo hello",
-			Interpreter: "not a valid interpreter",
-		}.Validate()
-		if !errors.Is(err, ErrUnsafeInterpreterSpec) {
-			t.Fatalf("ImplementationScript.Validate() error = %v, want ErrUnsafeInterpreterSpec", err)
-		}
-	})
+			err := ImplementationScript{
+				Content:     "echo hello",
+				Interpreter: "not a valid interpreter",
+			}.Validate()
+			if !errors.Is(err, ErrUnsafeInterpreterSpec) {
+				t.Fatalf("ImplementationScript.Validate() error = %v, want ErrUnsafeInterpreterSpec", err)
+			}
+		}},
 
-	t.Run("script validates file path when selected", func(t *testing.T) {
-		t.Parallel()
+		{name: "script validates file path when selected", run: func(t *testing.T) {
+			t.Helper()
 
-		err := ImplementationScript{File: filesystemPathPtr("   ")}.Validate()
-		if !errors.Is(err, ErrInvalidFilesystemPath) {
-			t.Fatalf("ImplementationScript.Validate() error = %v, want ErrInvalidFilesystemPath", err)
-		}
-	})
+			err := ImplementationScript{File: filesystemPathPtr("   ")}.Validate()
+			if !errors.Is(err, ErrInvalidFilesystemPath) {
+				t.Fatalf("ImplementationScript.Validate() error = %v, want ErrInvalidFilesystemPath", err)
+			}
+		}},
 
-	t.Run("resolver validates script source before resolving", func(t *testing.T) {
-		t.Parallel()
+		{name: "resolver validates script source before resolving", run: func(t *testing.T) {
+			t.Helper()
 
-		readCalled := false
-		impl := &Implementation{Script: ImplementationScript{}}
-		_, err := impl.ResolveScriptWithFSAndModule("invowkfile.cue", "module.invowkmod", func(string) ([]byte, error) {
-			readCalled = true
-			return []byte("echo should not read"), nil
+			readCalled := false
+			impl := &Implementation{Script: ImplementationScript{}}
+			_, err := impl.ResolveScriptWithFSAndModule("invowkfile.cue", "module.invowkmod", func(string) ([]byte, error) {
+				readCalled = true
+				return []byte("echo should not read"), nil
+			})
+			if !errors.Is(err, ErrMissingImplementationScriptSource) {
+				t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrMissingImplementationScriptSource", err)
+			}
+			if readCalled {
+				t.Fatal("ResolveScriptWithFSAndModule read a file before validating script source")
+			}
+		}},
+
+		{name: "inline script content is validated during resolve", run: func(t *testing.T) {
+			t.Helper()
+
+			impl := &Implementation{Script: ImplementationScript{Content: "   \n\t"}}
+			_, err := impl.ResolveScript("invowkfile.cue")
+			if !errors.Is(err, ErrInvalidScriptContent) {
+				t.Fatalf("ResolveScript() error = %v, want ErrInvalidScriptContent", err)
+			}
+		}},
+
+		{name: "file script without reader returns reader sentinel", run: func(t *testing.T) {
+			t.Helper()
+
+			moduleDir := t.TempDir()
+			impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("scripts/build.sh")}}
+			_, err := impl.ResolveScriptWithModule(
+				FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
+				FilesystemPath(moduleDir),
+			)
+			if !errors.Is(err, ErrScriptReaderRequired) {
+				t.Fatalf("ResolveScriptWithModule() error = %v, want ErrScriptReaderRequired", err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
 		})
-		if !errors.Is(err, ErrMissingImplementationScriptSource) {
-			t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrMissingImplementationScriptSource", err)
-		}
-		if readCalled {
-			t.Fatal("ResolveScriptWithFSAndModule read a file before validating script source")
-		}
-	})
-
-	t.Run("inline script content is validated during resolve", func(t *testing.T) {
-		t.Parallel()
-
-		impl := &Implementation{Script: ImplementationScript{Content: "   \n\t"}}
-		_, err := impl.ResolveScript("invowkfile.cue")
-		if !errors.Is(err, ErrInvalidScriptContent) {
-			t.Fatalf("ResolveScript() error = %v, want ErrInvalidScriptContent", err)
-		}
-	})
-
-	t.Run("file script without reader returns reader sentinel", func(t *testing.T) {
-		t.Parallel()
-
-		moduleDir := t.TempDir()
-		impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("scripts/build.sh")}}
-		_, err := impl.ResolveScriptWithModule(
-			FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
-			FilesystemPath(moduleDir),
-		)
-		if !errors.Is(err, ErrScriptReaderRequired) {
-			t.Fatalf("ResolveScriptWithModule() error = %v, want ErrScriptReaderRequired", err)
-		}
-	})
+	}
 }
 
 func TestImplementationMutationScriptReadErrorContract(t *testing.T) {
 	t.Parallel()
 
-	t.Run("relative selected path reports resolved path and wraps read error", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "relative selected path reports resolved path and wraps read error", run: func(t *testing.T) {
+			t.Helper()
 
-		moduleDir := t.TempDir()
-		resolvedPath := filepath.Join(moduleDir, "scripts", "missing.sh")
-		impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("scripts/missing.sh")}}
-		_, err := impl.ResolveScriptWithFSAndModule(
-			FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
-			FilesystemPath(moduleDir),
-			func(path string) ([]byte, error) {
-				if path != resolvedPath {
-					t.Fatalf("read path = %q, want %q", path, resolvedPath)
-				}
-				return nil, os.ErrNotExist
-			},
-		)
-		requireScriptReadError(t, err, os.ErrNotExist, "scripts/missing.sh", resolvedPath)
-		if !strings.Contains(err.Error(), "resolved to") {
-			t.Fatalf("read error = %q, want resolved path detail", err.Error())
-		}
-	})
+			moduleDir := t.TempDir()
+			resolvedPath := filepath.Join(moduleDir, "scripts", "missing.sh")
+			impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("scripts/missing.sh")}}
+			_, err := impl.ResolveScriptWithFSAndModule(
+				FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
+				FilesystemPath(moduleDir),
+				func(path string) ([]byte, error) {
+					if path != resolvedPath {
+						t.Fatalf("read path = %q, want %q", path, resolvedPath)
+					}
+					return nil, os.ErrNotExist
+				},
+			)
+			requireScriptReadError(t, err, os.ErrNotExist, "scripts/missing.sh", resolvedPath)
+			if !strings.Contains(err.Error(), "resolved to") {
+				t.Fatalf("read error = %q, want resolved path detail", err.Error())
+			}
+		}},
 
-	t.Run("absolute selected path is rejected before file IO", func(t *testing.T) {
-		t.Parallel()
+		{name: "absolute selected path is rejected before file IO", run: func(t *testing.T) {
+			t.Helper()
 
-		moduleDir := t.TempDir()
-		absolutePath := filepath.Join(moduleDir, "missing.sh")
-		readCalled := false
-		impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(absolutePath)}}
-		_, err := impl.ResolveScriptWithFSAndModule(
-			FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
-			FilesystemPath(moduleDir),
-			func(string) ([]byte, error) {
-				readCalled = true
-				return nil, os.ErrNotExist
-			},
-		)
-		if !errors.Is(err, ErrInvalidScriptFilePath) {
-			t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrInvalidScriptFilePath", err)
-		}
-		if readCalled {
-			t.Fatal("ResolveScriptWithFSAndModule read an absolute script file")
-		}
-	})
+			moduleDir := t.TempDir()
+			absolutePath := filepath.Join(moduleDir, "missing.sh")
+			readCalled := false
+			impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(absolutePath)}}
+			_, err := impl.ResolveScriptWithFSAndModule(
+				FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
+				FilesystemPath(moduleDir),
+				func(string) ([]byte, error) {
+					readCalled = true
+					return nil, os.ErrNotExist
+				},
+			)
+			if !errors.Is(err, ErrInvalidScriptFilePath) {
+				t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrInvalidScriptFilePath", err)
+			}
+			if readCalled {
+				t.Fatal("ResolveScriptWithFSAndModule read an absolute script file")
+			}
+		}},
 
-	t.Run("empty selected path reports resolved path and wraps read error", func(t *testing.T) {
-		t.Parallel()
+		{name: "empty selected path reports resolved path and wraps read error", run: func(t *testing.T) {
+			t.Helper()
 
-		resolvedPath := FilesystemPath(filepath.Join(t.TempDir(), "missing.sh"))
-		err := scriptFileReadError("", resolvedPath, os.ErrNotExist)
-		requireScriptReadError(t, err, os.ErrNotExist, resolvedPath.String())
-		if strings.Contains(err.Error(), "resolved to") {
-			t.Fatalf("read error = %q, want no resolved path detail", err.Error())
-		}
-	})
+			resolvedPath := FilesystemPath(filepath.Join(t.TempDir(), "missing.sh"))
+			err := scriptFileReadError("", resolvedPath, os.ErrNotExist)
+			requireScriptReadError(t, err, os.ErrNotExist, resolvedPath.String())
+			if strings.Contains(err.Error(), "resolved to") {
+				t.Fatalf("read error = %q, want no resolved path detail", err.Error())
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestImplementationMutationHostSSHContracts(t *testing.T) {
@@ -229,47 +251,58 @@ func TestImplementationMutationHostSSHContracts(t *testing.T) {
 func TestImplementationMutationDependenciesAndContainment(t *testing.T) {
 	t.Parallel()
 
-	t.Run("non-nil empty dependencies are empty", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "non-nil empty dependencies are empty", run: func(t *testing.T) {
+			t.Helper()
 
-		impl := testValidImplementation()
-		impl.DependsOn = &DependsOn{}
-		if impl.HasDependencies() {
-			t.Fatal("HasDependencies() = true for empty depends_on, want false")
-		}
-	})
+			impl := testValidImplementation()
+			impl.DependsOn = &DependsOn{}
+			if impl.HasDependencies() {
+				t.Fatal("HasDependencies() = true for empty depends_on, want false")
+			}
+		}},
 
-	t.Run("exact parent path escapes module", func(t *testing.T) {
-		t.Parallel()
+		{name: "exact parent path escapes module", run: func(t *testing.T) {
+			t.Helper()
 
-		parentDir := t.TempDir()
-		moduleDir := filepath.Join(parentDir, "module.invowkmod")
-		if err := os.Mkdir(moduleDir, 0o755); err != nil {
-			t.Fatalf("failed to create module dir: %v", err)
-		}
-		impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("..")}}
-		_, err := impl.ResolveScriptWithFSAndModule(
-			FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
-			FilesystemPath(moduleDir),
-			func(string) ([]byte, error) {
-				t.Fatal("readFile called for path outside module")
-				return nil, nil
-			},
-		)
-		if !errors.Is(err, ErrInvalidScriptFilePath) {
-			t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrInvalidScriptFilePath", err)
-		}
-	})
+			parentDir := t.TempDir()
+			moduleDir := filepath.Join(parentDir, "module.invowkmod")
+			if err := os.Mkdir(moduleDir, 0o755); err != nil {
+				t.Fatalf("failed to create module dir: %v", err)
+			}
+			impl := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("..")}}
+			_, err := impl.ResolveScriptWithFSAndModule(
+				FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
+				FilesystemPath(moduleDir),
+				func(string) ([]byte, error) {
+					t.Fatal("readFile called for path outside module")
+					return nil, nil
+				},
+			)
+			if !errors.Is(err, ErrInvalidScriptFilePath) {
+				t.Fatalf("ResolveScriptWithFSAndModule() error = %v, want ErrInvalidScriptFilePath", err)
+			}
+		}},
 
-	t.Run("inline script path lookup returns empty in module context", func(t *testing.T) {
-		t.Parallel()
+		{name: "inline script path lookup returns empty in module context", run: func(t *testing.T) {
+			t.Helper()
 
-		impl := &Implementation{Script: ImplementationScript{Content: "echo inline"}}
-		got := impl.GetScriptFilePathWithModule("invowkfile.cue", FilesystemPath(t.TempDir()))
-		if got != "" {
-			t.Fatalf("GetScriptFilePathWithModule() = %q for inline script, want empty", got)
-		}
-	})
+			impl := &Implementation{Script: ImplementationScript{Content: "echo inline"}}
+			got := impl.GetScriptFilePathWithModule("invowkfile.cue", FilesystemPath(t.TempDir()))
+			if got != "" {
+				t.Fatalf("GetScriptFilePathWithModule() = %q for inline script, want empty", got)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testValidImplementation() Implementation {

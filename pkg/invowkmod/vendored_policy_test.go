@@ -3,7 +3,7 @@
 package invowkmod
 
 import (
-	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -33,7 +33,7 @@ func TestDeclaredLockedModuleEntryRejectsAmbiguousModuleID(t *testing.T) {
 		"https://example.com/dep-a.git",
 		"https://example.com/dep-b.git",
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !slices.Equal(got, want) {
 		t.Fatalf("AmbiguousDeclaredLockedModuleEntries() = %v, want %v", got, want)
 	}
 }
@@ -104,7 +104,7 @@ func TestOrphanedLockedModuleEntries(t *testing.T) {
 		"https://example.com/stale-a.git",
 		"https://example.com/stale-b.git",
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !slices.Equal(got, want) {
 		t.Fatalf("OrphanedLockedModuleEntries() = %v, want %v", got, want)
 	}
 }
@@ -123,7 +123,7 @@ func TestMissingLockedModuleRequirementKeys(t *testing.T) {
 
 	got := MissingLockedModuleRequirementKeys(requirements, lock)
 	want := []ModuleRefKey{"https://example.com/missing.git"}
-	if !reflect.DeepEqual(got, want) {
+	if !slices.Equal(got, want) {
 		t.Fatalf("MissingLockedModuleRequirementKeys() = %v, want %v", got, want)
 	}
 
@@ -133,7 +133,7 @@ func TestMissingLockedModuleRequirementKeys(t *testing.T) {
 		"https://example.com/missing.git",
 		"https://example.com/mono.git#modules/tools",
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !slices.Equal(got, want) {
 		t.Fatalf("MissingLockedModuleRequirementKeys(nil lock) = %v, want %v", got, want)
 	}
 }

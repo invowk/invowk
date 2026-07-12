@@ -10,6 +10,14 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+const (
+	executeGuardRuntimeNative executeGuardRuntimeKind = iota
+	executeGuardRuntimeVirtual
+	executeGuardRuntimeContainer
+)
+
+type executeGuardRuntimeKind uint8
+
 func TestValidateExecutionContextForRun(t *testing.T) {
 	t.Parallel()
 
@@ -88,47 +96,44 @@ func TestValidateExecutionContextForRun(t *testing.T) {
 func TestRuntimeExecuteGuards_NoPanics(t *testing.T) {
 	t.Parallel()
 
-	t.Run("native execute nil context", func(t *testing.T) {
-		t.Parallel()
-		rt := NewNativeRuntime()
-		result := rt.Execute(nil)
-		if result.Error == nil || !errors.Is(result.Error, errNilExecutionContext) {
-			t.Fatalf("Execute(nil) error = %v, want %v", result.Error, errNilExecutionContext)
-		}
-	})
+	tests := []struct {
+		name        string
+		runtimeMode invowkfile.RuntimeMode
+		runtimeKind executeGuardRuntimeKind
+		nilContext  bool
+		wantErr     error
+	}{
+		{name: "native execute nil context", runtimeKind: executeGuardRuntimeNative, nilContext: true, wantErr: errNilExecutionContext},
+		{name: "native execute nil implementation", runtimeMode: invowkfile.RuntimeNative, runtimeKind: executeGuardRuntimeNative, wantErr: errNativeNoImpl},
+		{name: "virtual execute nil implementation", runtimeMode: invowkfile.RuntimeVirtualSh, runtimeKind: executeGuardRuntimeVirtual, wantErr: errVirtualNoImpl},
+		{name: "container execute nil implementation", runtimeMode: invowkfile.RuntimeContainer, runtimeKind: executeGuardRuntimeContainer, wantErr: errContainerNoImpl},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("native execute nil implementation", func(t *testing.T) {
-		t.Parallel()
-		ctx := testExecutionContextForGuard(t, invowkfile.RuntimeNative)
-		ctx.SelectedImpl = nil
-		rt := NewNativeRuntime()
-		result := rt.Execute(ctx)
-		if result.Error == nil || !errors.Is(result.Error, errNativeNoImpl) {
-			t.Fatalf("Execute() error = %v, want %v", result.Error, errNativeNoImpl)
-		}
-	})
+			var ctx *ExecutionContext
+			if !tt.nilContext {
+				ctx = testExecutionContextForGuard(t, tt.runtimeMode)
+				ctx.SelectedImpl = nil
+			}
 
-	t.Run("virtual execute nil implementation", func(t *testing.T) {
-		t.Parallel()
-		ctx := testExecutionContextForGuard(t, invowkfile.RuntimeVirtualSh)
-		ctx.SelectedImpl = nil
-		rt := NewShRuntime(true)
-		result := rt.Execute(ctx)
-		if result.Error == nil || !errors.Is(result.Error, errVirtualNoImpl) {
-			t.Fatalf("Execute() error = %v, want %v", result.Error, errVirtualNoImpl)
-		}
-	})
-
-	t.Run("container execute nil implementation", func(t *testing.T) {
-		t.Parallel()
-		ctx := testExecutionContextForGuard(t, invowkfile.RuntimeContainer)
-		ctx.SelectedImpl = nil
-		rt := &ContainerRuntime{}
-		result := rt.Execute(ctx)
-		if result.Error == nil || !errors.Is(result.Error, errContainerNoImpl) {
-			t.Fatalf("Execute() error = %v, want %v", result.Error, errContainerNoImpl)
-		}
-	})
+			var result *Result
+			switch tt.runtimeKind {
+			case executeGuardRuntimeNative:
+				result = NewNativeRuntime().Execute(ctx)
+			case executeGuardRuntimeVirtual:
+				result = NewShRuntime(true).Execute(ctx)
+			case executeGuardRuntimeContainer:
+				result = (&ContainerRuntime{}).Execute(ctx)
+			default:
+				t.Fatalf("unknown runtime kind %q", tt.runtimeKind)
+			}
+			if result.Error == nil || !errors.Is(result.Error, tt.wantErr) {
+				t.Fatalf("Execute() error = %v, want %v", result.Error, tt.wantErr)
+			}
+		})
+	}
 }
 
 func testExecutionContextForGuard(t *testing.T, runtimeMode invowkfile.RuntimeMode) *ExecutionContext {

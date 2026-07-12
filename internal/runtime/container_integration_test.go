@@ -34,46 +34,26 @@ func TestContainerRuntime_Integration(t *testing.T) {
 		t.Skip("skipping container integration tests: container engine not available")
 	}
 
-	t.Run("BasicExecution", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerBasicExecution(t)
-	})
-	t.Run("EnvironmentVariables", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerEnvironmentVariables(t)
-	})
-	t.Run("MultiLineScript", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerMultiLineScript(t)
-	})
-	t.Run("WorkingDirectory", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerWorkingDirectory(t)
-	})
-	t.Run("VolumeMounts", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerVolumeMounts(t)
-	})
-	t.Run("ExitCode", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerExitCode(t)
-	})
-	t.Run("PositionalArgs", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerPositionalArgs(t)
-	})
-	t.Run("EnableHostSSH_EnvVarsProvided", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testContainerEnableHostSSHEnvVars(t)
-	})
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "BasicExecution", run: testContainerBasicExecution},
+		{name: "EnvironmentVariables", run: testContainerEnvironmentVariables},
+		{name: "MultiLineScript", run: testContainerMultiLineScript},
+		{name: "WorkingDirectory", run: testContainerWorkingDirectory},
+		{name: "VolumeMounts", run: testContainerVolumeMounts},
+		{name: "ExitCode", run: testContainerExitCode},
+		{name: "PositionalArgs", run: testContainerPositionalArgs},
+		{name: "EnableHostSSH_EnvVarsProvided", run: testContainerEnableHostSSHEnvVars},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			testutil.AcquireContainerSemaphore(t)
+			tt.run(t)
+		})
+	}
 }
 
 // testContainerBasicExecution tests basic command execution in a container

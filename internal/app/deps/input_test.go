@@ -14,265 +14,100 @@ import (
 func TestValidateFlagValues(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil defs returns nil", func(t *testing.T) {
-		t.Parallel()
-		if err := ValidateFlagValues("build", nil, nil); err != nil {
-			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
-		}
-	})
-
-	t.Run("required flag missing", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "name", Required: true},
-		}
-		err := ValidateFlagValues("build", map[invowkfile.FlagName]string{}, defs)
-		if err == nil {
-			t.Fatal("ValidateFlagValues() = nil, want error")
-		}
-		if !errors.Is(err, ErrFlagValidationFailed) {
-			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
-		}
-		var flagErr *FlagValidationError
-		if !errors.As(err, &flagErr) {
-			t.Fatalf("errors.As(err, *FlagValidationError) = false for %v", err)
-		}
-		if flagErr.CommandName != "build" {
-			t.Fatalf("CommandName = %q, want build", flagErr.CommandName)
-		}
-		if !strings.Contains(err.Error(), "required flag '--name'") {
-			t.Fatalf("error = %v, want error containing %q", err, "required flag '--name'")
-		}
-	})
-
-	t.Run("required flag empty", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "name", Required: true},
-		}
-		err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"name": ""}, defs)
-		if err == nil {
-			t.Fatal("ValidateFlagValues() = nil, want error")
-		}
-		if !errors.Is(err, ErrFlagValidationFailed) {
-			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
-		}
-		if !strings.Contains(err.Error(), "required flag") {
-			t.Fatalf("error = %v, want error containing %q", err, "required flag")
-		}
-	})
-
-	t.Run("required flag with value passes", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "count", Required: true, Type: invowkfile.FlagTypeInt},
-		}
-		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"count": "42"}, defs); err != nil {
-			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
-		}
-	})
-
-	t.Run("optional flag empty", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "name", Required: false, Type: invowkfile.FlagTypeString},
-		}
-		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"name": ""}, defs); err != nil {
-			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
-		}
-	})
-
-	t.Run("optional typed flag empty skips value validation", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "count", Type: invowkfile.FlagTypeInt},
-		}
-		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"count": ""}, defs); err != nil {
-			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
-		}
-	})
-
-	t.Run("valid value passes", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "count", Type: invowkfile.FlagTypeInt},
-		}
-		if err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"count": "42"}, defs); err != nil {
-			t.Fatalf("ValidateFlagValues() = %v, want nil", err)
-		}
-	})
-
-	t.Run("invalid value fails regex", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "port", Type: invowkfile.FlagTypeString, Validation: "^[0-9]+$"},
-		}
-		err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"port": "bad"}, defs)
-		if err == nil {
-			t.Fatal("ValidateFlagValues() = nil, want error")
-		}
-		if !errors.Is(err, ErrFlagValidationFailed) {
-			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
-		}
-		if !strings.Contains(err.Error(), "port") {
-			t.Fatalf("error = %v, want error mentioning flag name", err)
-		}
-	})
-
-	t.Run("multiple errors aggregated", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Flag{
-			{Name: "first", Required: true},
-			{Name: "second", Required: true},
-		}
-		err := ValidateFlagValues("build", map[invowkfile.FlagName]string{}, defs)
-		if err == nil {
-			t.Fatal("ValidateFlagValues() = nil, want error")
-		}
-		if !errors.Is(err, ErrFlagValidationFailed) {
-			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
-		}
-		if !strings.Contains(err.Error(), "--first") || !strings.Contains(err.Error(), "--second") {
-			t.Fatalf("error = %v, want error containing both flag names", err)
-		}
-	})
+	tests := []struct {
+		name           string
+		values         map[invowkfile.FlagName]string
+		defs           []invowkfile.Flag
+		wantSubstrings []string
+		wantTypedError bool
+	}{
+		{name: "nil defs returns nil"},
+		{name: "required flag missing", values: map[invowkfile.FlagName]string{}, defs: []invowkfile.Flag{{Name: "name", Required: true}}, wantSubstrings: []string{"required flag '--name'"}, wantTypedError: true},
+		{name: "required flag empty", values: map[invowkfile.FlagName]string{"name": ""}, defs: []invowkfile.Flag{{Name: "name", Required: true}}, wantSubstrings: []string{"required flag"}},
+		{name: "required flag with value passes", values: map[invowkfile.FlagName]string{"count": "42"}, defs: []invowkfile.Flag{{Name: "count", Required: true, Type: invowkfile.FlagTypeInt}}},
+		{name: "optional flag empty", values: map[invowkfile.FlagName]string{"name": ""}, defs: []invowkfile.Flag{{Name: "name", Type: invowkfile.FlagTypeString}}},
+		{name: "optional typed flag empty skips value validation", values: map[invowkfile.FlagName]string{"count": ""}, defs: []invowkfile.Flag{{Name: "count", Type: invowkfile.FlagTypeInt}}},
+		{name: "valid value passes", values: map[invowkfile.FlagName]string{"count": "42"}, defs: []invowkfile.Flag{{Name: "count", Type: invowkfile.FlagTypeInt}}},
+		{name: "invalid value fails regex", values: map[invowkfile.FlagName]string{"port": "bad"}, defs: []invowkfile.Flag{{Name: "port", Type: invowkfile.FlagTypeString, Validation: "^[0-9]+$"}}, wantSubstrings: []string{"port"}},
+		{name: "multiple errors aggregated", values: map[invowkfile.FlagName]string{}, defs: []invowkfile.Flag{{Name: "first", Required: true}, {Name: "second", Required: true}}, wantSubstrings: []string{"--first", "--second"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateFlagValues("build", tt.values, tt.defs)
+			wantErr := len(tt.wantSubstrings) > 0
+			if (err != nil) != wantErr {
+				t.Fatalf("ValidateFlagValues() error = %v, wantErr %v", err, wantErr)
+			}
+			if !wantErr {
+				return
+			}
+			if !errors.Is(err, ErrFlagValidationFailed) {
+				t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
+			}
+			for _, want := range tt.wantSubstrings {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error = %v, want containing %q", err, want)
+				}
+			}
+			if tt.wantTypedError {
+				var flagErr *FlagValidationError
+				if !errors.As(err, &flagErr) {
+					t.Fatalf("errors.As(err, *FlagValidationError) = false for %v", err)
+				}
+				if flagErr.CommandName != "build" {
+					t.Fatalf("CommandName = %q, want build", flagErr.CommandName)
+				}
+			}
+		})
+	}
 }
 
 func TestValidateArguments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("empty defs allows any args", func(t *testing.T) {
-		t.Parallel()
-		if err := ValidateArguments("build", []string{"a", "b"}, nil); err != nil {
-			t.Fatalf("ValidateArguments() = %v, want nil", err)
-		}
-	})
-
-	t.Run("empty defs slice allows any args", func(t *testing.T) {
-		t.Parallel()
-		if err := ValidateArguments("build", []string{"a"}, []invowkfile.Argument{}); err != nil {
-			t.Fatalf("ValidateArguments() = %v, want nil", err)
-		}
-	})
-
-	t.Run("no args with no required defs", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "target", Required: false},
-		}
-		if err := ValidateArguments("build", nil, defs); err != nil {
-			t.Fatalf("ValidateArguments() = %v, want nil", err)
-		}
-	})
-
-	t.Run("missing required arg", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "target", Required: true},
-			{Name: "extra", Required: false},
-		}
-		err := ValidateArguments("build", nil, defs)
-		if err == nil {
-			t.Fatal("ValidateArguments() = nil, want error")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.Type != ArgErrMissingRequired {
-			t.Errorf("Type = %v, want ArgErrMissingRequired", argErr.Type)
-		}
-	})
-
-	t.Run("too many args non-variadic", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "target", Required: true},
-		}
-		err := ValidateArguments("build", []string{"a", "b", "c"}, defs)
-		if err == nil {
-			t.Fatal("ValidateArguments() = nil, want error")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.Type != ArgErrTooMany {
-			t.Errorf("Type = %v, want ArgErrTooMany", argErr.Type)
-		}
-	})
-
-	t.Run("variadic allows overflow", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "target", Required: true},
-			{Name: "extras", Variadic: true},
-		}
-		if err := ValidateArguments("build", []string{"a", "b", "c", "d"}, defs); err != nil {
-			t.Fatalf("ValidateArguments() = %v, want nil", err)
-		}
-	})
-
-	t.Run("exact count matches", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "src", Required: true},
-			{Name: "dst", Required: true},
-		}
-		if err := ValidateArguments("copy", []string{"a", "b"}, defs); err != nil {
-			t.Fatalf("ValidateArguments() = %v, want nil", err)
-		}
-	})
-
-	t.Run("invalid value fails regex", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "port", Required: true, Validation: "^[0-9]+$"},
-		}
-		err := ValidateArguments("serve", []string{"abc"}, defs)
-		if err == nil {
-			t.Fatal("ValidateArguments() = nil, want error")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.Type != ArgErrInvalidValue {
-			t.Errorf("Type = %v, want ArgErrInvalidValue", argErr.Type)
-		}
-		if argErr.InvalidArg != "port" {
-			t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, "port")
-		}
-	})
-
-	t.Run("variadic value fails regex", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "files", Required: true, Variadic: true, Validation: `^[a-z]+\.txt$`},
-		}
-		err := ValidateArguments("cat", []string{"good.txt", "BAD.txt"}, defs)
-		if err == nil {
-			t.Fatal("ValidateArguments() = nil, want error")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.Type != ArgErrInvalidValue {
-			t.Errorf("Type = %v, want ArgErrInvalidValue", argErr.Type)
-		}
-	})
-
-	t.Run("all valid args pass", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
-			{Name: "host", Required: true, Validation: `^[a-z]+$`},
-			{Name: "port", Required: true, Validation: `^[0-9]+$`},
-		}
-		if err := ValidateArguments("connect", []string{"localhost", "8080"}, defs); err != nil {
-			t.Fatalf("ValidateArguments() = %v, want nil", err)
-		}
-	})
+	tests := []struct {
+		name           string
+		command        string
+		provided       []string
+		defs           []invowkfile.Argument
+		wantErr        bool
+		wantType       ArgErrType
+		wantInvalidArg invowkfile.ArgumentName
+	}{
+		{name: "empty defs allows any args", command: "build", provided: []string{"a", "b"}},
+		{name: "empty defs slice allows any args", command: "build", provided: []string{"a"}, defs: []invowkfile.Argument{}},
+		{name: "no args with no required defs", command: "build", defs: []invowkfile.Argument{{Name: "target"}}},
+		{name: "missing required arg", command: "build", defs: []invowkfile.Argument{{Name: "target", Required: true}, {Name: "extra"}}, wantErr: true, wantType: ArgErrMissingRequired},
+		{name: "too many args non-variadic", command: "build", provided: []string{"a", "b", "c"}, defs: []invowkfile.Argument{{Name: "target", Required: true}}, wantErr: true, wantType: ArgErrTooMany},
+		{name: "variadic allows overflow", command: "build", provided: []string{"a", "b", "c", "d"}, defs: []invowkfile.Argument{{Name: "target", Required: true}, {Name: "extras", Variadic: true}}},
+		{name: "exact count matches", command: "copy", provided: []string{"a", "b"}, defs: []invowkfile.Argument{{Name: "src", Required: true}, {Name: "dst", Required: true}}},
+		{name: "invalid value fails regex", command: "serve", provided: []string{"abc"}, defs: []invowkfile.Argument{{Name: "port", Required: true, Validation: "^[0-9]+$"}}, wantErr: true, wantType: ArgErrInvalidValue, wantInvalidArg: "port"},
+		{name: "variadic value fails regex", command: "cat", provided: []string{"good.txt", "BAD.txt"}, defs: []invowkfile.Argument{{Name: "files", Required: true, Variadic: true, Validation: `^[a-z]+\.txt$`}}, wantErr: true, wantType: ArgErrInvalidValue},
+		{name: "all valid args pass", command: "connect", provided: []string{"localhost", "8080"}, defs: []invowkfile.Argument{{Name: "host", Required: true, Validation: `^[a-z]+$`}, {Name: "port", Required: true, Validation: `^[0-9]+$`}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateArguments(tt.command, tt.provided, tt.defs)
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("ValidateArguments() = %v, want nil", err)
+				}
+				return
+			}
+			var argErr *ArgumentValidationError
+			if !errors.As(err, &argErr) {
+				t.Fatalf("error type = %T, want *ArgumentValidationError", err)
+			}
+			if argErr.Type != tt.wantType {
+				t.Errorf("Type = %v, want %v", argErr.Type, tt.wantType)
+			}
+			if tt.wantInvalidArg != "" && argErr.InvalidArg != tt.wantInvalidArg {
+				t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, tt.wantInvalidArg)
+			}
+		})
+	}
 }
 
 func TestSummarizeArgDefs(t *testing.T) {
@@ -324,111 +159,84 @@ func TestValidateArgumentCount(t *testing.T) {
 		{Name: "dst"},
 	}
 
-	t.Run("below min", func(t *testing.T) {
-		t.Parallel()
-		err := validateArgumentCount("copy", nil, defs, 1, 2, false)
-		if err == nil {
-			t.Fatal("expected error for below min")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.Type != ArgErrMissingRequired {
-			t.Errorf("Type = %v, want ArgErrMissingRequired", argErr.Type)
-		}
-	})
-
-	t.Run("at min", func(t *testing.T) {
-		t.Parallel()
-		if err := validateArgumentCount("copy", []string{"a"}, defs, 1, 2, false); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("at max", func(t *testing.T) {
-		t.Parallel()
-		if err := validateArgumentCount("copy", []string{"a", "b"}, defs, 1, 2, false); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("above max non-variadic", func(t *testing.T) {
-		t.Parallel()
-		err := validateArgumentCount("copy", []string{"a", "b", "c"}, defs, 1, 2, false)
-		if err == nil {
-			t.Fatal("expected error for above max")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.Type != ArgErrTooMany {
-			t.Errorf("Type = %v, want ArgErrTooMany", argErr.Type)
-		}
-	})
-
-	t.Run("above max variadic", func(t *testing.T) {
-		t.Parallel()
-		if err := validateArgumentCount("copy", []string{"a", "b", "c"}, defs, 1, 2, true); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
+	tests := []struct {
+		name     string
+		provided []string
+		variadic bool
+		wantErr  bool
+		wantType ArgErrType
+	}{
+		{name: "below min", wantErr: true, wantType: ArgErrMissingRequired},
+		{name: "at min", provided: []string{"a"}},
+		{name: "at max", provided: []string{"a", "b"}},
+		{name: "above max non-variadic", provided: []string{"a", "b", "c"}, wantErr: true, wantType: ArgErrTooMany},
+		{name: "above max variadic", provided: []string{"a", "b", "c"}, variadic: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateArgumentCount("copy", tt.provided, defs, 1, 2, tt.variadic)
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("validateArgumentCount() = %v, want nil", err)
+				}
+				return
+			}
+			var argErr *ArgumentValidationError
+			if !errors.As(err, &argErr) {
+				t.Fatalf("error type = %T, want *ArgumentValidationError", err)
+			}
+			if argErr.Type != tt.wantType {
+				t.Errorf("Type = %v, want %v", argErr.Type, tt.wantType)
+			}
+		})
+	}
 }
 
 func TestValidateArgumentValues(t *testing.T) {
 	t.Parallel()
 
-	t.Run("all valid", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
+	tests := []struct {
+		name           string
+		command        string
+		provided       []string
+		defs           []invowkfile.Argument
+		wantInvalidArg invowkfile.ArgumentName
+		wantErr        bool
+	}{
+		{name: "all valid", command: "serve", provided: []string{"localhost", "8080"}, defs: []invowkfile.Argument{
 			{Name: "host"},
 			{Name: "port", Validation: `^[0-9]+$`},
-		}
-		if err := validateArgumentValues("serve", []string{"localhost", "8080"}, defs); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("invalid second arg", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
+		}},
+		{name: "invalid second arg", command: "serve", provided: []string{"localhost", "bad"}, wantErr: true, wantInvalidArg: "port", defs: []invowkfile.Argument{
 			{Name: "host"},
 			{Name: "port", Validation: `^[0-9]+$`},
-		}
-		err := validateArgumentValues("serve", []string{"localhost", "bad"}, defs)
-		if err == nil {
-			t.Fatal("expected error for invalid arg value")
-		}
-		var argErr *ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("error type = %T, want *ArgumentValidationError", err)
-		}
-		if argErr.InvalidArg != "port" {
-			t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, "port")
-		}
-	})
-
-	t.Run("extra args beyond defs ignored", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
+		}},
+		{name: "extra args beyond defs ignored", command: "serve", provided: []string{"localhost", "extra1", "extra2"}, defs: []invowkfile.Argument{
 			{Name: "host"},
-		}
-		if err := validateArgumentValues("serve", []string{"localhost", "extra1", "extra2"}, defs); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("variadic delegates to variadic validator", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{
+		}},
+		{name: "variadic delegates to variadic validator", command: "cat", provided: []string{"good", "UPPER"}, wantErr: true, defs: []invowkfile.Argument{
 			{Name: "files", Variadic: true, Validation: `^[a-z]+$`},
-		}
-		err := validateArgumentValues("cat", []string{"good", "UPPER"}, defs)
-		if err == nil {
-			t.Fatal("expected error for invalid variadic arg value")
-		}
-	})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateArgumentValues(tt.command, tt.provided, tt.defs)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateArgumentValues() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantInvalidArg != "" {
+				var argErr *ArgumentValidationError
+				if !errors.As(err, &argErr) {
+					t.Fatalf("error type = %T, want *ArgumentValidationError", err)
+				}
+				if argErr.InvalidArg != tt.wantInvalidArg {
+					t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, tt.wantInvalidArg)
+				}
+			}
+		})
+	}
 }
 
 func TestValidateVariadicArgumentValues(t *testing.T) {
@@ -436,38 +244,34 @@ func TestValidateVariadicArgumentValues(t *testing.T) {
 
 	argDef := invowkfile.Argument{Name: "files", Variadic: true, Validation: `^[a-z]+$`}
 
-	t.Run("all valid", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{argDef}
-		if err := validateVariadicArgumentValues("cat", []string{"abc", "def"}, defs, 0, argDef); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("first value invalid", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{argDef}
-		err := validateVariadicArgumentValues("cat", []string{"BAD", "good"}, defs, 0, argDef)
-		if err == nil {
-			t.Fatal("expected error for invalid variadic value")
-		}
-		argErr, ok := errors.AsType[*ArgumentValidationError](err)
-		if !ok {
-			t.Fatalf("expected *ArgumentValidationError, got %T: %v", err, err)
-		}
-		if argErr.InvalidArg != "files" {
-			t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, "files")
-		}
-	})
-
-	t.Run("last value invalid", func(t *testing.T) {
-		t.Parallel()
-		defs := []invowkfile.Argument{argDef}
-		err := validateVariadicArgumentValues("cat", []string{"good", "BAD"}, defs, 0, argDef)
-		if err == nil {
-			t.Fatal("expected error for invalid variadic value")
-		}
-	})
+	tests := []struct {
+		name           string
+		provided       []string
+		wantErr        bool
+		wantInvalidArg invowkfile.ArgumentName
+	}{
+		{name: "all valid", provided: []string{"abc", "def"}},
+		{name: "first value invalid", provided: []string{"BAD", "good"}, wantErr: true, wantInvalidArg: "files"},
+		{name: "last value invalid", provided: []string{"good", "BAD"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateVariadicArgumentValues("cat", tt.provided, []invowkfile.Argument{argDef}, 0, argDef)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateVariadicArgumentValues() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantInvalidArg != "" {
+				argErr, ok := errors.AsType[*ArgumentValidationError](err)
+				if !ok {
+					t.Fatalf("expected *ArgumentValidationError, got %T: %v", err, err)
+				}
+				if argErr.InvalidArg != tt.wantInvalidArg {
+					t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, tt.wantInvalidArg)
+				}
+			}
+		})
+	}
 }
 
 func TestArgumentValidationErrorConstructorsPreservePayloads(t *testing.T) {
@@ -539,54 +343,42 @@ func testArgumentValidationValueErrorPreservesPayload(t *testing.T) {
 func TestArgumentValidationErrorMessages(t *testing.T) {
 	t.Parallel()
 
-	t.Run("missing required error message", func(t *testing.T) {
-		t.Parallel()
-		err := &ArgumentValidationError{
+	tests := []struct {
+		name string
+		err  *ArgumentValidationError
+		want []string
+	}{
+		{name: "missing required error message", err: &ArgumentValidationError{
 			Type:         ArgErrMissingRequired,
 			CommandName:  "deploy",
 			ProvidedArgs: []string{"a"},
 			MinArgs:      3,
-		}
-		msg := err.Error()
-		if !strings.Contains(msg, "missing required") {
-			t.Errorf("error message = %q, want 'missing required'", msg)
-		}
-		if !strings.Contains(msg, "'deploy'") {
-			t.Errorf("error message = %q, want command name 'deploy'", msg)
-		}
-	})
-
-	t.Run("too many error message", func(t *testing.T) {
-		t.Parallel()
-		err := &ArgumentValidationError{
+		}, want: []string{"missing required", "'deploy'"}},
+		{name: "too many error message", err: &ArgumentValidationError{
 			Type:         ArgErrTooMany,
 			CommandName:  "build",
 			ProvidedArgs: []string{"a", "b", "c"},
 			MaxArgs:      1,
-		}
-		msg := err.Error()
-		if !strings.Contains(msg, "too many") {
-			t.Errorf("error message = %q, want 'too many'", msg)
-		}
-	})
-
-	t.Run("invalid value error message", func(t *testing.T) {
-		t.Parallel()
-		err := &ArgumentValidationError{
+		}, want: []string{"too many"}},
+		{name: "invalid value error message", err: &ArgumentValidationError{
 			Type:         ArgErrInvalidValue,
 			CommandName:  "serve",
 			InvalidArg:   "port",
 			InvalidValue: "abc",
 			ValueError:   errors.New("must be numeric"),
-		}
-		msg := err.Error()
-		if !strings.Contains(msg, "'port'") {
-			t.Errorf("error message = %q, want arg name 'port'", msg)
-		}
-		if !strings.Contains(msg, "must be numeric") {
-			t.Errorf("error message = %q, want value error text", msg)
-		}
-	})
+		}, want: []string{"'port'", "must be numeric"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			msg := tt.err.Error()
+			for _, want := range tt.want {
+				if !strings.Contains(msg, want) {
+					t.Errorf("error message = %q, want containing %q", msg, want)
+				}
+			}
+		})
+	}
 }
 
 func requireArgumentValidationError(t *testing.T, err error) *ArgumentValidationError {

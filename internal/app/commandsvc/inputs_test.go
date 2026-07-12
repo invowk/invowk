@@ -32,73 +32,81 @@ func TestValidateInputs(t *testing.T) {
 	service := &Service{}
 	cmdInfo := commandsvcTestCommandInfo(t, "build")
 
-	t.Run("invalid flag value", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "invalid flag value", run: func(t *testing.T) {
+			t.Helper()
 
-		err := service.validateInputs(
-			Request{Name: "build"},
-			cmdInfo,
-			resolvedDefinitions{
-				flagDefs: []invowkfile.Flag{{Name: "count", Type: invowkfile.FlagTypeInt}},
-				flagValues: map[invowkfile.FlagName]string{
-					"count": "oops",
+			err := service.validateInputs(
+				Request{Name: "build"},
+				cmdInfo,
+				resolvedDefinitions{
+					flagDefs: []invowkfile.Flag{{Name: "count", Type: invowkfile.FlagTypeInt}},
+					flagValues: map[invowkfile.FlagName]string{
+						"count": "oops",
+					},
 				},
-			},
-		)
-		if err == nil {
-			t.Fatal("expected flag validation error")
-		}
-	})
+			)
+			if err == nil {
+				t.Fatal("expected flag validation error")
+			}
+		}},
+		{name: "invalid arguments", run: func(t *testing.T) {
+			t.Helper()
 
-	t.Run("invalid arguments", func(t *testing.T) {
-		t.Parallel()
+			err := service.validateInputs(
+				Request{Name: "build"},
+				cmdInfo,
+				resolvedDefinitions{
+					argDefs: []invowkfile.Argument{{Name: "target", Required: true}},
+				},
+			)
+			var argErr *deps.ArgumentValidationError
+			if !errors.As(err, &argErr) {
+				t.Fatalf("errors.As(*ArgumentValidationError) = false for %T", err)
+			}
+		}},
+		{name: "unsupported platform", run: func(t *testing.T) {
+			t.Helper()
 
-		err := service.validateInputs(
-			Request{Name: "build"},
-			cmdInfo,
-			resolvedDefinitions{
-				argDefs: []invowkfile.Argument{{Name: "target", Required: true}},
-			},
-		)
-		var argErr *deps.ArgumentValidationError
-		if !errors.As(err, &argErr) {
-			t.Fatalf("errors.As(*ArgumentValidationError) = false for %T", err)
-		}
-	})
+			cmdInfo := commandsvcTestCommandInfo(t, "build")
+			cmdInfo.Command.Implementations[0].Platforms = []invowkfile.PlatformConfig{{Name: unsupportedPlatform()}}
+			err := service.validateInputs(Request{Name: "build"}, cmdInfo, resolvedDefinitions{})
+			if !errors.Is(err, ErrUnsupportedPlatform) {
+				t.Fatalf("errors.Is(ErrUnsupportedPlatform) = false for %v", err)
+			}
+			var platformErr *UnsupportedPlatformError
+			if !errors.As(err, &platformErr) {
+				t.Fatalf("errors.As(*UnsupportedPlatformError) = false for %v", err)
+			}
+			if platformErr.CommandName != "build" {
+				t.Fatalf("CommandName = %q, want build", platformErr.CommandName)
+			}
+		}},
+		{name: "uses request platform instead of host platform", run: func(t *testing.T) {
+			t.Helper()
 
-	t.Run("unsupported platform", func(t *testing.T) {
-		t.Parallel()
-
-		cmdInfo := commandsvcTestCommandInfo(t, "build")
-		cmdInfo.Command.Implementations[0].Platforms = []invowkfile.PlatformConfig{{Name: unsupportedPlatform()}}
-		err := service.validateInputs(Request{Name: "build"}, cmdInfo, resolvedDefinitions{})
-		if !errors.Is(err, ErrUnsupportedPlatform) {
-			t.Fatalf("errors.Is(ErrUnsupportedPlatform) = false for %v", err)
-		}
-		var platformErr *UnsupportedPlatformError
-		if !errors.As(err, &platformErr) {
-			t.Fatalf("errors.As(*UnsupportedPlatformError) = false for %v", err)
-		}
-		if platformErr.CommandName != "build" {
-			t.Fatalf("CommandName = %q, want build", platformErr.CommandName)
-		}
-	})
-
-	t.Run("uses request platform instead of host platform", func(t *testing.T) {
-		t.Parallel()
-
-		targetPlatform := unsupportedPlatform()
-		cmdInfo := commandsvcTestCommandInfo(t, "build")
-		cmdInfo.Command.Implementations[0].Platforms = []invowkfile.PlatformConfig{{Name: targetPlatform}}
-		err := service.validateInputs(
-			Request{Name: "build", Platform: targetPlatform},
-			cmdInfo,
-			resolvedDefinitions{},
-		)
-		if err != nil {
-			t.Fatalf("validateInputs() error = %v, want nil", err)
-		}
-	})
+			targetPlatform := unsupportedPlatform()
+			cmdInfo := commandsvcTestCommandInfo(t, "build")
+			cmdInfo.Command.Implementations[0].Platforms = []invowkfile.PlatformConfig{{Name: targetPlatform}}
+			err := service.validateInputs(
+				Request{Name: "build", Platform: targetPlatform},
+				cmdInfo,
+				resolvedDefinitions{},
+			)
+			if err != nil {
+				t.Fatalf("validateInputs() error = %v, want nil", err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestResolveRuntime(t *testing.T) {

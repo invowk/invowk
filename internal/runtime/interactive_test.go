@@ -86,35 +86,24 @@ func assertInteractiveRuntime(t *testing.T, tt interactiveRuntimeCase) {
 func TestGetInteractiveRuntime(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns InteractiveRuntime for NativeRuntime", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name    string
+		runtime func() Runtime
+	}{
+		{name: "NativeRuntime", runtime: func() Runtime { return NewNativeRuntime() }},
+		{name: "ShRuntime", runtime: func() Runtime { return NewShRuntime(false) }},
+		{name: "LuaRuntime", runtime: func() Runtime { return NewLuaRuntime(false) }},
+	}
 
-		rt := NewNativeRuntime()
-		ir := GetInteractiveRuntime(rt)
-		if ir == nil {
-			t.Error("GetInteractiveRuntime returned nil for NativeRuntime")
-		}
-	})
+	for _, tt := range tests {
+		t.Run("returns InteractiveRuntime for "+tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("returns InteractiveRuntime for ShRuntime", func(t *testing.T) {
-		t.Parallel()
-
-		rt := NewShRuntime(false)
-		ir := GetInteractiveRuntime(rt)
-		if ir == nil {
-			t.Error("GetInteractiveRuntime returned nil for ShRuntime")
-		}
-	})
-
-	t.Run("returns InteractiveRuntime for LuaRuntime", func(t *testing.T) {
-		t.Parallel()
-
-		rt := NewLuaRuntime(false)
-		ir := GetInteractiveRuntime(rt)
-		if ir == nil {
-			t.Error("GetInteractiveRuntime returned nil for LuaRuntime")
-		}
-	})
+			if ir := GetInteractiveRuntime(tt.runtime()); ir == nil {
+				t.Errorf("GetInteractiveRuntime returned nil for %s", tt.name)
+			}
+		})
+	}
 }
 
 // TestNativeRuntimePrepareInteractive tests the NativeRuntime.PrepareInteractive method.

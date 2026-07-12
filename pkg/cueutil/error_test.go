@@ -96,110 +96,100 @@ func TestFormatPath(t *testing.T) {
 func TestCheckFileSize(t *testing.T) {
 	t.Parallel()
 
-	t.Run("data within limit returns nil", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name    string
+		data    []byte
+		wantErr bool
+	}{
+		{name: "data within limit returns nil", data: []byte("hello world")},
+		{name: "data at exact limit returns nil", data: make([]byte, 100)},
+		{name: "data exceeding limit returns error", data: make([]byte, 101), wantErr: true},
+		{name: "empty data returns nil", data: []byte{}},
+	}
 
-		data := []byte("hello world")
-		err := CheckFileSize(data, 100, "test.cue")
-		if err != nil {
-			t.Errorf("expected nil, got %v", err)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("data at exact limit returns nil", func(t *testing.T) {
-		t.Parallel()
-
-		data := make([]byte, 100)
-		err := CheckFileSize(data, 100, "test.cue")
-		if err != nil {
-			t.Errorf("expected nil, got %v", err)
-		}
-	})
-
-	t.Run("data exceeding limit returns error", func(t *testing.T) {
-		t.Parallel()
-
-		data := make([]byte, 101)
-		err := CheckFileSize(data, 100, "test.cue")
-		if err == nil {
-			t.Error("expected error")
-		}
-		if !strings.Contains(err.Error(), "test.cue") {
-			t.Errorf("error should contain filename, got: %v", err)
-		}
-		if !strings.Contains(err.Error(), "101") {
-			t.Errorf("error should contain actual size, got: %v", err)
-		}
-		if !strings.Contains(err.Error(), "100") {
-			t.Errorf("error should contain max size, got: %v", err)
-		}
-	})
-
-	t.Run("empty data returns nil", func(t *testing.T) {
-		t.Parallel()
-
-		err := CheckFileSize([]byte{}, 100, "test.cue")
-		if err != nil {
-			t.Errorf("expected nil for empty data, got %v", err)
-		}
-	})
+			err := CheckFileSize(tt.data, 100, "test.cue")
+			if !tt.wantErr {
+				if err != nil {
+					t.Errorf("expected nil, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			for _, part := range []string{"test.cue", "101", "100"} {
+				if !strings.Contains(err.Error(), part) {
+					t.Errorf("error should contain %q, got: %v", part, err)
+				}
+			}
+		})
+	}
 }
 
 func TestValidationError(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Error with path", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name           string
+		err            ValidationError
+		wantText       string
+		wantSuggestion bool
+	}{
+		{
+			name: "Error with path",
+			err: ValidationError{
+				FilePath: "config.cue",
+				CUEPath:  "cmds[0].name",
+				Message:  "expected string, got int",
+			},
+			wantText: "config.cue: cmds[0].name: expected string, got int",
+		},
+		{
+			name: "Error without path",
+			err: ValidationError{
+				FilePath: "config.cue",
+				Message:  "syntax error",
+			},
+			wantText: "config.cue: syntax error",
+		},
+		{
+			name: "Unwrap returns nil",
+			err: ValidationError{
+				FilePath: "config.cue",
+				Message:  "some error",
+			},
+			wantText: "config.cue: some error",
+		},
+		{
+			name: "Suggestion field",
+			err: ValidationError{
+				FilePath:   "invowkfile.cue",
+				CUEPath:    "cmds[0].runtime",
+				Message:    "invalid runtime mode",
+				Suggestion: "use 'native', 'virtual-sh', 'virtual-lua', or 'container'",
+			},
+			wantText:       "invowkfile.cue: cmds[0].runtime: invalid runtime mode",
+			wantSuggestion: true,
+		},
+	}
 
-		err := &ValidationError{
-			FilePath: "config.cue",
-			CUEPath:  "cmds[0].name",
-			Message:  "expected string, got int",
-		}
-		expected := "config.cue: cmds[0].name: expected string, got int"
-		if err.Error() != expected {
-			t.Errorf("got %q, want %q", err.Error(), expected)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("Error without path", func(t *testing.T) {
-		t.Parallel()
-
-		err := &ValidationError{
-			FilePath: "config.cue",
-			CUEPath:  "",
-			Message:  "syntax error",
-		}
-		expected := "config.cue: syntax error"
-		if err.Error() != expected {
-			t.Errorf("got %q, want %q", err.Error(), expected)
-		}
-	})
-
-	t.Run("Unwrap returns nil", func(t *testing.T) {
-		t.Parallel()
-
-		err := &ValidationError{
-			FilePath: "config.cue",
-			Message:  "some error",
-		}
-		if err.Unwrap() != nil {
-			t.Error("Unwrap should return nil")
-		}
-	})
-
-	t.Run("Suggestion field", func(t *testing.T) {
-		t.Parallel()
-
-		err := &ValidationError{
-			FilePath:   "invowkfile.cue",
-			CUEPath:    "cmds[0].runtime",
-			Message:    "invalid runtime mode",
-			Suggestion: "use 'native', 'virtual-sh', 'virtual-lua', or 'container'",
-		}
-		// Suggestion is stored but not included in Error() output
-		if err.Suggestion == "" {
-			t.Error("Suggestion should not be empty")
-		}
-	})
+			if got := tt.err.Error(); got != tt.wantText {
+				t.Errorf("Error() = %q, want %q", got, tt.wantText)
+			}
+			if got := tt.err.Unwrap(); got != nil {
+				t.Errorf("Unwrap() = %v, want nil", got)
+			}
+			if tt.wantSuggestion && tt.err.Suggestion == "" {
+				t.Error("Suggestion should not be empty")
+			}
+		})
+	}
 }

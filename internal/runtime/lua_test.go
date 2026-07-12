@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -310,7 +310,7 @@ print("cap=" .. out .. ":" .. err .. ":" .. tostring(captureCode))
 func TestLuaBridgeUtilitiesDisabledStillAllowsExplicitHostBinary(t *testing.T) {
 	t.Parallel()
 
-	if runtime.GOOS == "windows" {
+	if goruntime.GOOS == "windows" {
 		t.Skip("shell-script executable fixture is POSIX-specific")
 	}
 

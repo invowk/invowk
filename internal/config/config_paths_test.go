@@ -111,79 +111,109 @@ func TestEnsureConfigDir(t *testing.T) {
 func TestConfigDirWithOverride(t *testing.T) {
 	t.Parallel()
 
-	t.Run("explicit path returned as-is", func(t *testing.T) {
-		t.Parallel()
-		want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-config"))
-		dir, err := configDirWithOverride(want)
-		if err != nil {
-			t.Fatalf("configDirWithOverride() error: %v", err)
-		}
-		if dir != want {
-			t.Errorf("configDirWithOverride() = %q, want %q", dir, want)
-		}
-	})
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "explicit path returned as-is", run: func(t *testing.T) {
+			t.Helper()
 
-	t.Run("invalid explicit path rejected", func(t *testing.T) {
-		t.Parallel()
-		_, err := configDirWithOverride("   ")
-		if !errors.Is(err, types.ErrInvalidFilesystemPath) {
-			t.Fatalf("configDirWithOverride() error = %v, want %v", err, types.ErrInvalidFilesystemPath)
-		}
-	})
+			want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-config"))
+			dir, err := configDirWithOverride(want)
+			if err != nil {
+				t.Fatalf("configDirWithOverride() error: %v", err)
+			}
+			if dir != want {
+				t.Errorf("configDirWithOverride() = %q, want %q", dir, want)
+			}
+		}},
 
-	t.Run("empty falls through to ConfigDir", func(t *testing.T) {
-		t.Parallel()
-		dir, err := configDirWithOverride("")
-		if err != nil {
-			t.Fatalf("configDirWithOverride() error: %v", err)
-		}
-		expected, err := ConfigDir()
-		if err != nil {
-			t.Fatalf("ConfigDir() error: %v", err)
-		}
-		if dir != expected {
-			t.Errorf("configDirWithOverride(\"\") = %q, want ConfigDir() = %q", dir, expected)
-		}
-	})
+		{name: "invalid explicit path rejected", run: func(t *testing.T) {
+			t.Helper()
+
+			_, err := configDirWithOverride("   ")
+			if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+				t.Fatalf("configDirWithOverride() error = %v, want %v", err, types.ErrInvalidFilesystemPath)
+			}
+		}},
+
+		{name: "empty falls through to ConfigDir", run: func(t *testing.T) {
+			t.Helper()
+
+			dir, err := configDirWithOverride("")
+			if err != nil {
+				t.Fatalf("configDirWithOverride() error: %v", err)
+			}
+			expected, err := ConfigDir()
+			if err != nil {
+				t.Fatalf("ConfigDir() error: %v", err)
+			}
+			if dir != expected {
+				t.Errorf("configDirWithOverride(\"\") = %q, want ConfigDir() = %q", dir, expected)
+			}
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestCommandsDirWithOverride(t *testing.T) {
 	t.Parallel()
 
-	t.Run("explicit path returned as-is", func(t *testing.T) {
-		t.Parallel()
-		want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-cmds"))
-		dir, err := commandsDirWithOverride(want)
-		if err != nil {
-			t.Fatalf("commandsDirWithOverride() error: %v", err)
-		}
-		if dir != want {
-			t.Errorf("commandsDirWithOverride() = %q, want %q", dir, want)
-		}
-	})
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "explicit path returned as-is", run: func(t *testing.T) {
+			t.Helper()
 
-	t.Run("invalid explicit path rejected", func(t *testing.T) {
-		t.Parallel()
-		_, err := commandsDirWithOverride("   ")
-		if !errors.Is(err, types.ErrInvalidFilesystemPath) {
-			t.Fatalf("commandsDirWithOverride() error = %v, want %v", err, types.ErrInvalidFilesystemPath)
-		}
-	})
+			want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-cmds"))
+			dir, err := commandsDirWithOverride(want)
+			if err != nil {
+				t.Fatalf("commandsDirWithOverride() error: %v", err)
+			}
+			if dir != want {
+				t.Errorf("commandsDirWithOverride() = %q, want %q", dir, want)
+			}
+		}},
 
-	t.Run("empty falls through to CommandsDir", func(t *testing.T) {
-		t.Parallel()
-		dir, err := commandsDirWithOverride("")
-		if err != nil {
-			t.Fatalf("commandsDirWithOverride() error: %v", err)
-		}
-		expected, err := CommandsDir()
-		if err != nil {
-			t.Fatalf("CommandsDir() error: %v", err)
-		}
-		if dir != expected {
-			t.Errorf("commandsDirWithOverride(\"\") = %q, want CommandsDir() = %q", dir, expected)
-		}
-	})
+		{name: "invalid explicit path rejected", run: func(t *testing.T) {
+			t.Helper()
+
+			_, err := commandsDirWithOverride("   ")
+			if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+				t.Fatalf("commandsDirWithOverride() error = %v, want %v", err, types.ErrInvalidFilesystemPath)
+			}
+		}},
+
+		{name: "empty falls through to CommandsDir", run: func(t *testing.T) {
+			t.Helper()
+
+			dir, err := commandsDirWithOverride("")
+			if err != nil {
+				t.Fatalf("commandsDirWithOverride() error: %v", err)
+			}
+			expected, err := CommandsDir()
+			if err != nil {
+				t.Fatalf("CommandsDir() error: %v", err)
+			}
+			if dir != expected {
+				t.Errorf("commandsDirWithOverride(\"\") = %q, want CommandsDir() = %q", dir, expected)
+			}
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 // TestConfigDirFrom_UnknownGOOS verifies that an unrecognized GOOS value

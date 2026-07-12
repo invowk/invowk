@@ -23,152 +23,162 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 	scope.AddDirectDependency("io.example.tools", "allowed-tools")
 	scope.AddGlobalSource("global-tools")
 
-	t.Run("allows resolved direct dependency source pair", func(t *testing.T) {
-		t.Parallel()
+	//nolint:thelper // Case runners are passed directly to t.Run and begin with t.Parallel.
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "allows resolved direct dependency source pair", run: func(t *testing.T) {
+			t.Parallel()
 
-		decision := scope.CanCallTarget(CommandTarget{
-			Reference: "allowed-tools test",
-			SourceID:  "allowed-tools",
-			ModuleID:  "io.example.tools",
-		})
-		if !decision.Allowed {
-			t.Fatalf("CanCallTarget() denied resolved source pair: %+v", decision)
-		}
-	})
+			decision := scope.CanCallTarget(CommandTarget{
+				Reference: "allowed-tools test",
+				SourceID:  "allowed-tools",
+				ModuleID:  "io.example.tools",
+			})
+			if !decision.Allowed {
+				t.Fatalf("CanCallTarget() denied resolved source pair: %+v", decision)
+			}
+		}},
 
-	t.Run("denies presentation alias with unrelated discovery source", func(t *testing.T) {
-		t.Parallel()
+		{name: "denies presentation alias with unrelated discovery source", run: func(t *testing.T) {
+			t.Parallel()
 
-		decision := scope.CanCallTarget(CommandTarget{
-			Reference: "allowed-tools test",
-			SourceID:  "other-tools",
-			ModuleID:  "io.example.tools",
-		})
-		if decision.Allowed {
-			t.Fatalf("CanCallTarget() allowed mismatched source pair: %+v", decision)
-		}
-		if decision.TargetSource != "other-tools" {
-			t.Fatalf("TargetSource = %q, want discovery source", decision.TargetSource)
-		}
-		if decision.Reason != CommandScopeDenyInaccessible {
-			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
-		}
-	})
+			decision := scope.CanCallTarget(CommandTarget{
+				Reference: "allowed-tools test",
+				SourceID:  "other-tools",
+				ModuleID:  "io.example.tools",
+			})
+			if decision.Allowed {
+				t.Fatalf("CanCallTarget() allowed mismatched source pair: %+v", decision)
+			}
+			if decision.TargetSource != "other-tools" {
+				t.Fatalf("TargetSource = %q, want discovery source", decision.TargetSource)
+			}
+			if decision.Reason != CommandScopeDenyInaccessible {
+				t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+			}
+		}},
 
-	t.Run("denies discovered target without split identity pair", func(t *testing.T) {
-		t.Parallel()
+		{name: "denies discovered target without split identity pair", run: func(t *testing.T) {
+			t.Parallel()
 
-		decision := scope.CanCallTarget(CommandTarget{
-			Reference: "allowed-tools test",
-			SourceID:  "allowed-tools",
-		})
-		if decision.Allowed {
-			t.Fatalf("CanCallTarget() allowed source-only direct dependency: %+v", decision)
-		}
-	})
+			decision := scope.CanCallTarget(CommandTarget{
+				Reference: "allowed-tools test",
+				SourceID:  "allowed-tools",
+			})
+			if decision.Allowed {
+				t.Fatalf("CanCallTarget() allowed source-only direct dependency: %+v", decision)
+			}
+		}},
 
-	t.Run("allows discovered global command source", func(t *testing.T) {
-		t.Parallel()
+		{name: "allows discovered global command source", run: func(t *testing.T) {
+			t.Parallel()
 
-		decision := scope.CanCallTarget(CommandTarget{
-			Reference: "global-tools lint",
-			SourceID:  "global-tools",
-			ModuleID:  "io.example.global",
-		})
-		if !decision.Allowed {
-			t.Fatalf("CanCallTarget() denied global source: %+v", decision)
-		}
-	})
+			decision := scope.CanCallTarget(CommandTarget{
+				Reference: "global-tools lint",
+				SourceID:  "global-tools",
+				ModuleID:  "io.example.global",
+			})
+			if !decision.Allowed {
+				t.Fatalf("CanCallTarget() denied global source: %+v", decision)
+			}
+		}},
 
-	t.Run("allows same module only when source identity also matches", func(t *testing.T) {
-		t.Parallel()
+		{name: "allows same module only when source identity also matches", run: func(t *testing.T) {
+			t.Parallel()
 
-		aliasedScope := NewCommandScope("io.example.caller")
-		aliasedScope.ModuleSourceID = "alias-a"
+			aliasedScope := NewCommandScope("io.example.caller")
+			aliasedScope.ModuleSourceID = "alias-a"
 
-		decision := aliasedScope.CanCallTarget(CommandTarget{
-			Reference: "alias-a build",
-			SourceID:  "alias-a",
-			ModuleID:  "io.example.caller",
-		})
-		if !decision.Allowed {
-			t.Fatalf("CanCallTarget() denied same module/source pair: %+v", decision)
-		}
-	})
+			decision := aliasedScope.CanCallTarget(CommandTarget{
+				Reference: "alias-a build",
+				SourceID:  "alias-a",
+				ModuleID:  "io.example.caller",
+			})
+			if !decision.Allowed {
+				t.Fatalf("CanCallTarget() denied same module/source pair: %+v", decision)
+			}
+		}},
 
-	t.Run("denies same module id from different source identity", func(t *testing.T) {
-		t.Parallel()
+		{name: "denies same module id from different source identity", run: func(t *testing.T) {
+			t.Parallel()
 
-		aliasedScope := NewCommandScope("io.example.caller")
-		aliasedScope.ModuleSourceID = "alias-a"
+			aliasedScope := NewCommandScope("io.example.caller")
+			aliasedScope.ModuleSourceID = "alias-a"
 
-		decision := aliasedScope.CanCallTarget(CommandTarget{
-			Reference: "alias-b build",
-			SourceID:  "alias-b",
-			ModuleID:  "io.example.caller",
-		})
-		if decision.Allowed {
-			t.Fatalf("CanCallTarget() allowed same module id with different source: %+v", decision)
-		}
-		if decision.Reason != CommandScopeDenyInaccessible {
-			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
-		}
-	})
+			decision := aliasedScope.CanCallTarget(CommandTarget{
+				Reference: "alias-b build",
+				SourceID:  "alias-b",
+				ModuleID:  "io.example.caller",
+			})
+			if decision.Allowed {
+				t.Fatalf("CanCallTarget() allowed same module id with different source: %+v", decision)
+			}
+			if decision.Reason != CommandScopeDenyInaccessible {
+				t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+			}
+		}},
 
-	t.Run("denies unrelated module whose source matches caller module id", func(t *testing.T) {
-		t.Parallel()
+		{name: "denies unrelated module whose source matches caller module id", run: func(t *testing.T) {
+			t.Parallel()
 
-		aliasedScope := NewCommandScope("io.example.caller")
-		aliasedScope.ModuleSourceID = "caller-alias"
+			aliasedScope := NewCommandScope("io.example.caller")
+			aliasedScope.ModuleSourceID = "caller-alias"
 
-		decision := aliasedScope.CanCallTarget(CommandTarget{
-			Reference: "io.example.caller test",
-			SourceID:  "io.example.caller",
-			ModuleID:  "io.example.other",
-		})
-		if decision.Allowed {
-			t.Fatalf("CanCallTarget() allowed source-only same-module fallback: %+v", decision)
-		}
-		if decision.Reason != CommandScopeDenyInaccessible {
-			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
-		}
-	})
+			decision := aliasedScope.CanCallTarget(CommandTarget{
+				Reference: "io.example.caller test",
+				SourceID:  "io.example.caller",
+				ModuleID:  "io.example.other",
+			})
+			if decision.Allowed {
+				t.Fatalf("CanCallTarget() allowed source-only same-module fallback: %+v", decision)
+			}
+			if decision.Reason != CommandScopeDenyInaccessible {
+				t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+			}
+		}},
 
-	t.Run("denies non-global source sharing a global module id", func(t *testing.T) {
-		t.Parallel()
+		{name: "denies non-global source sharing a global module id", run: func(t *testing.T) {
+			t.Parallel()
 
-		globalScope := NewCommandScope("io.example.caller")
+			globalScope := NewCommandScope("io.example.caller")
 
-		decision := globalScope.CanCallTarget(CommandTarget{
-			Reference: "local-global lint",
-			SourceID:  "local-global",
-			ModuleID:  "io.example.global",
-		})
-		if decision.Allowed {
-			t.Fatalf("CanCallTarget() allowed module-id-only global fallback: %+v", decision)
-		}
-		if decision.Reason != CommandScopeDenyInaccessible {
-			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
-		}
-	})
+			decision := globalScope.CanCallTarget(CommandTarget{
+				Reference: "local-global lint",
+				SourceID:  "local-global",
+				ModuleID:  "io.example.global",
+			})
+			if decision.Allowed {
+				t.Fatalf("CanCallTarget() allowed module-id-only global fallback: %+v", decision)
+			}
+			if decision.Reason != CommandScopeDenyInaccessible {
+				t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+			}
+		}},
 
-	t.Run("denies source matching global module id without discovered global source", func(t *testing.T) {
-		t.Parallel()
+		{name: "denies source matching global module id without discovered global source", run: func(t *testing.T) {
+			t.Parallel()
 
-		globalScope := NewCommandScope("io.example.caller")
+			globalScope := NewCommandScope("io.example.caller")
 
-		decision := globalScope.CanCallTarget(CommandTarget{
-			Reference: "io.example.global lint",
-			SourceID:  "io.example.global",
-			ModuleID:  "io.example.other",
-		})
-		if decision.Allowed {
-			t.Fatalf("CanCallTarget() allowed global module id as source fallback: %+v", decision)
-		}
-		if decision.Reason != CommandScopeDenyInaccessible {
-			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
-		}
-	})
+			decision := globalScope.CanCallTarget(CommandTarget{
+				Reference: "io.example.global lint",
+				SourceID:  "io.example.global",
+				ModuleID:  "io.example.other",
+			})
+			if decision.Allowed {
+				t.Fatalf("CanCallTarget() allowed global module id as source fallback: %+v", decision)
+			}
+			if decision.Reason != CommandScopeDenyInaccessible {
+				t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+			}
+		}},
+	}
+	//nolint:paralleltest // Each table case runner begins with t.Parallel.
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 func TestNewCommandScope(t *testing.T) {

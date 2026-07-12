@@ -130,39 +130,40 @@ func TestResolveScript_FromFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	modulePath := FilesystemPath(tmpDir)
 
-	t.Run("resolve script from file", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name         string
+		file         string
+		want         string
+		wantErr      bool
+		wantSentinel error
+	}{
+		{name: "resolve script from file", file: "./test.sh", want: scriptContent},
+		{name: "resolve script with absolute path", file: scriptPath, wantErr: true, wantSentinel: ErrInvalidScriptFilePath},
+		{name: "error on missing script file", file: "./nonexistent.sh", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./test.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
-		if err != nil {
-			t.Errorf("ResolveScriptWithFS() error = %v", err)
-			return
-		}
-		if result != scriptContent {
-			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, scriptContent)
-		}
-	})
-
-	t.Run("resolve script with absolute path", func(t *testing.T) {
-		t.Parallel()
-
-		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(scriptPath)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
-		if !errors.Is(err, ErrInvalidScriptFilePath) {
-			t.Errorf("ResolveScriptWithFS() error = %v, want ErrInvalidScriptFilePath", err)
-		}
-	})
-
-	t.Run("error on missing script file", func(t *testing.T) {
-		t.Parallel()
-
-		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./nonexistent.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
-		if err == nil {
-			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
-		}
-	})
+			s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr(tt.file)}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, os.ReadFile)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("ResolveScriptWithFS() error = nil, want error")
+				}
+				if tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel) {
+					t.Errorf("ResolveScriptWithFS() error = %v, want %v", err, tt.wantSentinel)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ResolveScriptWithFS() error = %v", err)
+			}
+			if result != tt.want {
+				t.Errorf("ResolveScriptWithFS() = %q, want %q", result, tt.want)
+			}
+		})
+	}
 }
 
 func TestResolveScriptWithFS(t *testing.T) {
@@ -191,44 +192,36 @@ func TestResolveScriptWithFS(t *testing.T) {
 	invowkfilePath := filepath.Join(projectDir, "invowkfile.cue")
 	modulePath := FilesystemPath(projectDir)
 
-	t.Run("resolve script from virtual fs", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name           string
+		implementation Implementation
+		withModule     bool
+		want           string
+		wantErr        bool
+	}{
+		{name: "resolve script from virtual fs", implementation: Implementation{Script: ImplementationScript{File: filesystemPathPtr("./scripts/build.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}, withModule: true, want: "#!/bin/bash\ngo build ./..."},
+		{name: "inline script bypasses fs", implementation: Implementation{Script: ImplementationScript{Content: "echo hello world"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}, want: "echo hello world"},
+		{name: "error on missing file in virtual fs", implementation: Implementation{Script: ImplementationScript{File: filesystemPathPtr("./scripts/nonexistent.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}, withModule: true, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./scripts/build.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, readFile)
-		if err != nil {
-			t.Errorf("ResolveScriptWithFS() error = %v", err)
-			return
-		}
-		expected := "#!/bin/bash\ngo build ./..."
-		if result != expected {
-			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, expected)
-		}
-	})
-
-	t.Run("inline script bypasses fs", func(t *testing.T) {
-		t.Parallel()
-
-		s := &Implementation{Script: ImplementationScript{Content: "echo hello world"}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
-		if err != nil {
-			t.Errorf("ResolveScriptWithFS() error = %v", err)
-			return
-		}
-		if result != "echo hello world" {
-			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, "echo hello world")
-		}
-	})
-
-	t.Run("error on missing file in virtual fs", func(t *testing.T) {
-		t.Parallel()
-
-		s := &Implementation{Script: ImplementationScript{File: filesystemPathPtr("./scripts/nonexistent.sh")}, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, readFile)
-		if err == nil {
-			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
-		}
-	})
+			var result string
+			var err error
+			if tt.withModule {
+				result, err = tt.implementation.ResolveScriptWithFSAndModule(FilesystemPath(invowkfilePath), modulePath, readFile)
+			} else {
+				result, err = tt.implementation.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ResolveScriptWithFS() error = %v, wantErr %t", err, tt.wantErr)
+			}
+			if result != tt.want {
+				t.Errorf("ResolveScriptWithFS() = %q, want %q", result, tt.want)
+			}
+		})
+	}
 }
 
 func TestMultiLineScriptParsing(t *testing.T) {

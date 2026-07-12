@@ -270,7 +270,7 @@ func TestCpCommand_Run_SourceNotFound(t *testing.T) {
 	cmd := newCpCommand()
 	err := cmd.Run(ctx, []string{"cp", "/nonexistent/source.txt", "dest.txt"})
 	if err == nil {
-		t.Error("cp with nonexistent source should error")
+		t.Fatal("cp with nonexistent source should error")
 	}
 
 	// Error should have [uroot] prefix

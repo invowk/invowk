@@ -21,16 +21,25 @@ func TestShRuntime_Integration(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	t.Run("CommandSubstitution", testVirtualCommandSubstitution)
-	t.Run("Pipelines", testVirtualPipelines)
-	t.Run("HeredocInput", testVirtualHeredocInput)
-	t.Run("EnvironmentExpansion", testVirtualEnvironmentExpansion)
-	t.Run("ArithmeticExpansion", testVirtualArithmeticExpansion)
-	t.Run("ConditionalExecution", testVirtualConditionalExecution)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "CommandSubstitution", run: testVirtualCommandSubstitution},
+		{name: "Pipelines", run: testVirtualPipelines},
+		{name: "HeredocInput", run: testVirtualHeredocInput},
+		{name: "EnvironmentExpansion", run: testVirtualEnvironmentExpansion},
+		{name: "ArithmeticExpansion", run: testVirtualArithmeticExpansion},
+		{name: "ConditionalExecution", run: testVirtualConditionalExecution},
+	}
+	//nolint:paralleltest // Each table case runner begins with t.Parallel.
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 // testVirtualCommandSubstitution tests that command substitution works correctly.
-func testVirtualCommandSubstitution(t *testing.T) {
+func testVirtualCommandSubstitution(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -59,7 +68,7 @@ func testVirtualCommandSubstitution(t *testing.T) {
 }
 
 // testVirtualPipelines tests that shell pipelines work correctly.
-func testVirtualPipelines(t *testing.T) {
+func testVirtualPipelines(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -88,7 +97,7 @@ func testVirtualPipelines(t *testing.T) {
 }
 
 // testVirtualHeredocInput tests heredoc syntax works correctly.
-func testVirtualHeredocInput(t *testing.T) {
+func testVirtualHeredocInput(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -125,7 +134,7 @@ EOF`
 }
 
 // testVirtualEnvironmentExpansion tests various environment variable expansion forms.
-func testVirtualEnvironmentExpansion(t *testing.T) {
+func testVirtualEnvironmentExpansion(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -169,7 +178,7 @@ echo "Length: ${#MYVAR}"`
 }
 
 // testVirtualArithmeticExpansion tests arithmetic expansion in shell scripts.
-func testVirtualArithmeticExpansion(t *testing.T) {
+func testVirtualArithmeticExpansion(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -204,7 +213,7 @@ echo "Product: $((4 * 5))"`
 }
 
 // testVirtualConditionalExecution tests conditional operators (&&, ||).
-func testVirtualConditionalExecution(t *testing.T) {
+func testVirtualConditionalExecution(t *testing.T) { //nolint:thelper // Direct t.Run case body calls t.Parallel first.
 	t.Parallel()
 
 	tmpDir := t.TempDir()

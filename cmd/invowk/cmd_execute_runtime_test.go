@@ -160,116 +160,35 @@ func buildNativeOnlyCommand() *discovery.CommandInfo {
 func TestResolveRuntime(t *testing.T) {
 	t.Parallel()
 
-	t.Run("config default runtime applied when command supports it", func(t *testing.T) {
-		t.Parallel()
-
-		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtualSh}
-		svc := commandsvc.New(
-			&fixedConfigProvider{cfg: cfg},
-			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			func() map[string]string { return nil },
-			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
-		)
-
-		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		// Verify successful execution (exit code 0 indicates runtime resolved correctly).
-		if result.ExitCode != 0 {
-			t.Errorf("expected exit code 0, got %d", result.ExitCode)
-		}
-	})
-
-	t.Run("CLI flag overrides config default", func(t *testing.T) {
-		t.Parallel()
-
-		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtualSh}
-		svc := commandsvc.New(
-			&fixedConfigProvider{cfg: cfg},
-			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			func() map[string]string { return nil },
-			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
-		)
-
-		result, _, err := svc.Execute(t.Context(), commandsvc.Request{
-			Name:    "test-cmd",
-			Runtime: invowkfile.RuntimeNative,
+	tests := []struct {
+		name    string
+		command func() *discovery.CommandInfo
+		config  *config.Config
+		request commandsvc.Request
+	}{
+		{name: "config default runtime applied when command supports it", command: buildDualRuntimeCommand, config: &config.Config{DefaultRuntime: config.RuntimeVirtualSh}, request: commandsvc.Request{Name: "test-cmd"}},
+		{name: "CLI flag overrides config default", command: buildDualRuntimeCommand, config: &config.Config{DefaultRuntime: config.RuntimeVirtualSh}, request: commandsvc.Request{Name: "test-cmd", Runtime: invowkfile.RuntimeNative}},
+		{name: "config default silently ignored when command does not support it", command: buildNativeOnlyCommand, config: &config.Config{DefaultRuntime: config.RuntimeVirtualSh}, request: commandsvc.Request{Name: "native-only"}},
+		{name: "empty config default uses per-command default", command: buildDualRuntimeCommand, config: &config.Config{}, request: commandsvc.Request{Name: "test-cmd"}},
+		{name: "nil config uses per-command default", command: buildDualRuntimeCommand, request: commandsvc.Request{Name: "test-cmd"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc := commandsvc.New(
+				&fixedConfigProvider{cfg: tt.config},
+				&lookupDiscoveryService{lookup: discovery.LookupResult{Command: tt.command()}},
+				func() map[string]string { return nil },
+				testConfigFallback,
+				commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
+			)
+			result, _, err := svc.Execute(t.Context(), tt.request)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.ExitCode != 0 {
+				t.Errorf("expected exit code 0, got %d", result.ExitCode)
+			}
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode != 0 {
-			t.Errorf("expected exit code 0, got %d", result.ExitCode)
-		}
-	})
-
-	t.Run("config default silently ignored when command does not support it", func(t *testing.T) {
-		t.Parallel()
-
-		cmdInfo := buildNativeOnlyCommand()
-		cfg := &config.Config{DefaultRuntime: config.RuntimeVirtualSh}
-		svc := commandsvc.New(
-			&fixedConfigProvider{cfg: cfg},
-			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			func() map[string]string { return nil },
-			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
-		)
-
-		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "native-only"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode != 0 {
-			t.Errorf("expected exit code 0, got %d", result.ExitCode)
-		}
-	})
-
-	t.Run("empty config default uses per-command default", func(t *testing.T) {
-		t.Parallel()
-
-		cmdInfo := buildDualRuntimeCommand()
-		cfg := &config.Config{DefaultRuntime: ""}
-		svc := commandsvc.New(
-			&fixedConfigProvider{cfg: cfg},
-			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			func() map[string]string { return nil },
-			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
-		)
-
-		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode != 0 {
-			t.Errorf("expected exit code 0, got %d", result.ExitCode)
-		}
-	})
-
-	t.Run("nil config uses per-command default", func(t *testing.T) {
-		t.Parallel()
-
-		cmdInfo := buildDualRuntimeCommand()
-		svc := commandsvc.New(
-			&fixedConfigProvider{},
-			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			func() map[string]string { return nil },
-			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
-		)
-
-		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result.ExitCode != 0 {
-			t.Errorf("expected exit code 0, got %d", result.ExitCode)
-		}
-	})
+	}
 }

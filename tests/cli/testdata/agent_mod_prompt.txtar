@@ -35,7 +35,9 @@ stdout '"operation": "create"'
 stdout '"response_schema"'
 
 ! exec invowk agent mod prompt --format yaml
+! stdout .
 stderr 'Unknown prompt format'
 
 ! exec invowk agent mod prompt update
+! stdout .
 stderr 'Unknown prompt operation'

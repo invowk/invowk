@@ -150,6 +150,9 @@ func TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache(t *testi
 	if err == nil {
 		t.Fatal("AddModuleDependency() error = nil, want invalid declaration version error")
 	}
+	if !errors.Is(err, invowkmod.ErrInvalidModuleRef) {
+		t.Fatalf("AddModuleDependency() error = %v, want wrapped ErrInvalidModuleRef", err)
+	}
 	if !strings.Contains(err.Error(), "invalid requirement declaration") {
 		t.Fatalf("AddModuleDependency() error = %v, want invalid requirement declaration", err)
 	}

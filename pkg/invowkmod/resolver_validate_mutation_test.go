@@ -91,34 +91,46 @@ func TestResolvedModuleValidateMutationRetainsCommandSourceIDError(t *testing.T)
 func TestResolverValidateMutationFormatsCompositeErrors(t *testing.T) {
 	t.Parallel()
 
-	t.Run("resolved module", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "resolved module", run: func(t *testing.T) {
+			t.Helper()
 
-		err := ResolvedModule{CommandSourceID: "1bad"}.Validate()
-		resolvedErr := requireResolvedModuleMutationError(t, err, 1)
-		requireMutationErrorString(t, resolvedErr.Error(), "resolved module")
-	})
+			err := ResolvedModule{CommandSourceID: "1bad"}.Validate()
+			resolvedErr := requireResolvedModuleMutationError(t, err, 1)
+			requireMutationErrorString(t, resolvedErr.Error(), "resolved module")
+		}},
 
-	t.Run("ambiguous match", func(t *testing.T) {
-		t.Parallel()
+		{name: "ambiguous match", run: func(t *testing.T) {
+			t.Helper()
 
-		err := AmbiguousMatch{GitURL: "not-a-url"}.Validate()
-		matchErr := requireAmbiguousMatchMutationError(t, err, 1)
-		requireMutationErrorString(t, matchErr.Error(), "ambiguous match")
-	})
+			err := AmbiguousMatch{GitURL: "not-a-url"}.Validate()
+			matchErr := requireAmbiguousMatchMutationError(t, err, 1)
+			requireMutationErrorString(t, matchErr.Error(), "ambiguous match")
+		}},
 
-	t.Run("remove result", func(t *testing.T) {
-		t.Parallel()
+		{name: "remove result", run: func(t *testing.T) {
+			t.Helper()
 
-		err := RemoveResult{
-			LockKey: ModuleRefKey(""),
-			RemovedEntry: LockedModule{
-				GitURL: "not-a-url",
-			},
-		}.Validate()
-		removeErr := requireRemoveResultMutationError(t, err, 2)
-		requireMutationErrorString(t, removeErr.Error(), "remove result")
-	})
+			err := RemoveResult{
+				LockKey: ModuleRefKey(""),
+				RemovedEntry: LockedModule{
+					GitURL: "not-a-url",
+				},
+			}.Validate()
+			removeErr := requireRemoveResultMutationError(t, err, 2)
+			requireMutationErrorString(t, removeErr.Error(), "remove result")
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestAmbiguousMatchValidateMutationRetainsLockKeyError(t *testing.T) {

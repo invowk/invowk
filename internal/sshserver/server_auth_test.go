@@ -5,6 +5,7 @@ package sshserver
 import (
 	"context"
 	"net"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -56,116 +57,66 @@ func (s *stubSSHContext) SetValue(key, value any) {
 func TestPasswordHandler(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid token returns true", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name        string
+		commandID   CommandID
+		rawTokens   []string
+		useCount    int
+		revokeAfter int
+		expire      bool
+		want        []bool
+	}{
+		{name: "valid token returns true", commandID: "cmd-123", useCount: 1, want: []bool{true}},
+		{name: "valid token can be reused until revoked", commandID: "cmd-reuse", useCount: 3, revokeAfter: 2, want: []bool{true, true, false}},
+		{name: "invalid token format returns false", rawTokens: []string{"", "   "}, want: []bool{false, false}},
+		{name: "unknown token returns false", rawTokens: []string{"abcdef1234567890abcdef1234567890"}, want: []bool{false}},
+		{name: "expired token returns false", commandID: "cmd-456", useCount: 1, expire: true, want: []bool{false}},
+		{name: "revoked token returns false", commandID: "cmd-789", useCount: 1, revokeAfter: -1, want: []bool{false}},
+	}
 
-		srv := mustNew(t, DefaultConfig())
-		token, err := srv.GenerateToken(CommandID("cmd-123"))
-		if err != nil {
-			t.Fatalf("GenerateToken() error = %v", err)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		ctx := newStubSSHContext(t.Context())
-		result := srv.passwordHandler(ctx, string(token.Value))
+			cfg := DefaultConfig()
+			cfg.TokenTTL = time.Hour
+			clock := testutil.NewFakeClock(time.Now())
+			srv, err := NewWithClock(cfg, clock)
+			if err != nil {
+				t.Fatalf("NewWithClock() error = %v", err)
+			}
 
-		if !result {
-			t.Error("passwordHandler() = false, want true for valid token")
-		}
-	})
+			tokens := append([]string(nil), tt.rawTokens...)
+			var generated TokenValue
+			if tt.commandID != "" {
+				token, generateErr := srv.GenerateToken(tt.commandID)
+				if generateErr != nil {
+					t.Fatalf("GenerateToken() error = %v", generateErr)
+				}
+				generated = token.Value
+				if tt.revokeAfter < 0 {
+					srv.RevokeToken(generated)
+				}
+				if tt.expire {
+					clock.Advance(cfg.TokenTTL + time.Second)
+				}
+				for range tt.useCount {
+					tokens = append(tokens, string(generated))
+				}
+			}
 
-	t.Run("valid token can be reused until revoked", func(t *testing.T) {
-		t.Parallel()
-
-		srv := mustNew(t, DefaultConfig())
-		token, err := srv.GenerateToken(CommandID("cmd-reuse"))
-		if err != nil {
-			t.Fatalf("GenerateToken() error = %v", err)
-		}
-
-		if !srv.passwordHandler(newStubSSHContext(t.Context()), string(token.Value)) {
-			t.Fatal("passwordHandler() first use = false, want true")
-		}
-		if !srv.passwordHandler(newStubSSHContext(t.Context()), string(token.Value)) {
-			t.Fatal("passwordHandler() second use = false, want reusable token before revocation")
-		}
-
-		srv.RevokeToken(token.Value)
-		if srv.passwordHandler(newStubSSHContext(t.Context()), string(token.Value)) {
-			t.Fatal("passwordHandler() after revocation = true, want false")
-		}
-	})
-
-	t.Run("invalid token format returns false", func(t *testing.T) {
-		t.Parallel()
-
-		srv := mustNew(t, DefaultConfig())
-		ctx := newStubSSHContext(t.Context())
-
-		// Empty string fails TokenValue.Validate()
-		if srv.passwordHandler(ctx, "") {
-			t.Error("passwordHandler() = true, want false for empty token")
-		}
-
-		// Whitespace-only fails TokenValue.Validate()
-		if srv.passwordHandler(ctx, "   ") {
-			t.Error("passwordHandler() = true, want false for whitespace token")
-		}
-	})
-
-	t.Run("unknown token returns false", func(t *testing.T) {
-		t.Parallel()
-
-		srv := mustNew(t, DefaultConfig())
-		ctx := newStubSSHContext(t.Context())
-
-		// Valid format but not registered
-		if srv.passwordHandler(ctx, "abcdef1234567890abcdef1234567890") {
-			t.Error("passwordHandler() = true, want false for unknown token")
-		}
-	})
-
-	t.Run("expired token returns false", func(t *testing.T) {
-		t.Parallel()
-
-		cfg := DefaultConfig()
-		cfg.TokenTTL = 1 * time.Hour
-
-		clock := testutil.NewFakeClock(time.Now())
-		srv, err := NewWithClock(cfg, clock)
-		if err != nil {
-			t.Fatalf("NewWithClock() error = %v", err)
-		}
-
-		token, err := srv.GenerateToken(CommandID("cmd-456"))
-		if err != nil {
-			t.Fatalf("GenerateToken() error = %v", err)
-		}
-
-		// Advance past TTL
-		clock.Advance(cfg.TokenTTL + time.Second)
-
-		ctx := newStubSSHContext(t.Context())
-		if srv.passwordHandler(ctx, string(token.Value)) {
-			t.Error("passwordHandler() = true, want false for expired token")
-		}
-	})
-
-	t.Run("revoked token returns false", func(t *testing.T) {
-		t.Parallel()
-
-		srv := mustNew(t, DefaultConfig())
-		token, err := srv.GenerateToken(CommandID("cmd-789"))
-		if err != nil {
-			t.Fatalf("GenerateToken() error = %v", err)
-		}
-
-		srv.RevokeToken(token.Value)
-
-		ctx := newStubSSHContext(t.Context())
-		if srv.passwordHandler(ctx, string(token.Value)) {
-			t.Error("passwordHandler() = true, want false for revoked token")
-		}
-	})
+			got := make([]bool, 0, len(tokens))
+			for i, token := range tokens {
+				if tt.revokeAfter > 0 && i == tt.revokeAfter {
+					srv.RevokeToken(generated)
+				}
+				got = append(got, srv.passwordHandler(newStubSSHContext(t.Context()), token))
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("passwordHandler() results = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestPublicKeyHandler(t *testing.T) {

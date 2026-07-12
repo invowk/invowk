@@ -17,6 +17,11 @@ details and its parallelism safety matrix.
    values, shared channels/paths, and unsafe mocks. Follow the repository's
    parent/subtest placement policy.
 5. Use `t.Fatalf` when continuing would dereference an invalid or nil result.
+6. For three or more homogeneous cases, use concrete input/expected fields and
+   one shared subtest body. Reserve `run func(*testing.T)` cases for genuinely
+   heterogeneous scenarios, and keep `t.Run` visible in the owning test;
+   package-level runner helpers hide callback semantics from `thelper` and
+   `paralleltest`.
 
 ## Deterministic Tests
 

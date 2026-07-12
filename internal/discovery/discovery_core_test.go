@@ -479,7 +479,7 @@ cmds: [{name: "test", implementations: [{script: {content: "echo test"}, runtime
 	}
 
 	if file.Invowkfile == nil {
-		t.Error("LoadFirst() did not parse the invowkfile")
+		t.Fatal("LoadFirst() did not parse the invowkfile")
 	}
 
 	if len(file.Invowkfile.Commands) != 1 {
@@ -648,32 +648,25 @@ cmds: [
 		return matching
 	}
 
-	t.Run("EmptyPrefix", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name   string
+		prefix string
+		want   int
+	}{
+		{name: "EmptyPrefix", want: 3},
+		{name: "BuildPrefix", prefix: "build", want: 2},
+		{name: "NoMatch", prefix: "xyz", want: 0},
+	}
 
-		commands := filterPrefix("")
-		if len(commands) != 3 {
-			t.Errorf("prefix filter returned %d commands, want 3", len(commands))
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("BuildPrefix", func(t *testing.T) {
-		t.Parallel()
-
-		commands := filterPrefix("build")
-		if len(commands) != 2 {
-			t.Errorf("prefix filter returned %d commands, want 2", len(commands))
-		}
-	})
-
-	t.Run("NoMatch", func(t *testing.T) {
-		t.Parallel()
-
-		commands := filterPrefix("xyz")
-		if len(commands) != 0 {
-			t.Errorf("prefix filter returned %d commands, want 0", len(commands))
-		}
-	})
+			if commands := filterPrefix(tt.prefix); len(commands) != tt.want {
+				t.Errorf("prefix filter returned %d commands, want %d", len(commands), tt.want)
+			}
+		})
+	}
 }
 
 func TestDiscoverCommands_Precedence(t *testing.T) {

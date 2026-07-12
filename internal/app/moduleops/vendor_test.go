@@ -58,139 +58,88 @@ func TestGetVendoredModulesDir(t *testing.T) {
 func TestHasVendoredModules(t *testing.T) {
 	t.Parallel()
 
-	t.Run("no vendored modules directory", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invowkmod", "mymodule")
-
-		if HasVendoredModules(types.FilesystemPath(modulePath)) {
-			t.Error("HasVendoredModules() should return false when invowk_modules/ doesn't exist")
-		}
-	})
-
-	t.Run("empty vendored modules directory", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invowkmod", "mymodule")
-		vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
-		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		if HasVendoredModules(types.FilesystemPath(modulePath)) {
-			t.Error("HasVendoredModules() should return false when invowk_modules/ is empty")
-		}
-	})
-
-	t.Run("with vendored modules", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invowkmod", "mymodule")
-		vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
-		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		// Create a vendored module using new format
-		createValidModuleForPackaging(t, vendoredDir, "vendor.invowkmod", "vendor")
-
-		if !HasVendoredModules(types.FilesystemPath(modulePath)) {
-			t.Error("HasVendoredModules() should return true when invowk_modules/ has modules")
-		}
-	})
+	tests := []struct {
+		name         string
+		createDir    bool
+		moduleNames  []string
+		wantVendored bool
+	}{
+		{name: "no vendored modules directory"},
+		{name: "empty vendored modules directory", createDir: true},
+		{name: "with vendored modules", createDir: true, moduleNames: []string{"vendor"}, wantVendored: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			modulePath := createValidModuleForPackaging(t, t.TempDir(), "mymodule.invowkmod", "mymodule")
+			if tt.createDir {
+				vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
+				if err := os.Mkdir(vendoredDir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				for _, name := range tt.moduleNames {
+					createValidModuleForPackaging(t, vendoredDir, name+".invowkmod", name)
+				}
+			}
+			if got := HasVendoredModules(types.FilesystemPath(modulePath)); got != tt.wantVendored {
+				t.Errorf("HasVendoredModules() = %v, want %v", got, tt.wantVendored)
+			}
+		})
+	}
 }
 
 func TestListVendoredModules(t *testing.T) {
 	t.Parallel()
 
-	t.Run("no vendored modules", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		modulePath := filepath.Join(tmpDir, "mymodule.invowkmod")
-		if err := os.Mkdir(modulePath, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("ListVendoredModules() error: %v", err)
-		}
-		if len(modules) != 0 {
-			t.Errorf("ListVendoredModules() returned %d modules, want 0", len(modules))
-		}
-	})
-
-	t.Run("with vendored modules", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		modulePath := filepath.Join(tmpDir, "mymodule.invowkmod")
-		if err := os.Mkdir(modulePath, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
-		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create two vendored modules using new format
-		createValidModuleForPackaging(t, vendoredDir, "vendor1.invowkmod", "vendor1")
-		createValidModuleForPackaging(t, vendoredDir, "vendor2.invowkmod", "vendor2")
-
-		modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("ListVendoredModules() error: %v", err)
-		}
-		if len(modules) != 2 {
-			t.Errorf("ListVendoredModules() returned %d modules, want 2", len(modules))
-		}
-
-		// Check module names
-		names := make(map[invowkmod.ModuleID]bool)
-		for _, p := range modules {
-			names[p.Name()] = true
-		}
-		if !names[invowkmod.ModuleID("vendor1")] || !names[invowkmod.ModuleID("vendor2")] {
-			t.Errorf("ListVendoredModules() missing expected modules, got: %v", names)
-		}
-	})
-
-	t.Run("skips invalid modules", func(t *testing.T) {
-		t.Parallel()
-
-		tmpDir := t.TempDir()
-		modulePath := filepath.Join(tmpDir, "mymodule.invowkmod")
-		if err := os.Mkdir(modulePath, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
-		if err := os.Mkdir(vendoredDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create a valid module using new format
-		createValidModuleForPackaging(t, vendoredDir, "valid.invowkmod", "valid")
-
-		// Create an invalid module (no invowkmod.cue)
-		invalidModule := filepath.Join(vendoredDir, "invalid.invowkmod")
-		if err := os.Mkdir(invalidModule, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
-		if err != nil {
-			t.Fatalf("ListVendoredModules() error: %v", err)
-		}
-		if len(modules) != 1 {
-			t.Errorf("ListVendoredModules() returned %d modules, want 1 (should skip invalid)", len(modules))
-		}
-		if len(modules) > 0 && modules[0].Name() != "valid" {
-			t.Errorf("ListVendoredModules() returned wrong module: %s", modules[0].Name())
-		}
-	})
+	tests := []struct {
+		name         string
+		moduleNames  []string
+		invalidNames []string
+		wantNames    []invowkmod.ModuleID
+	}{
+		{name: "no vendored modules"},
+		{name: "with vendored modules", moduleNames: []string{"vendor1", "vendor2"}, wantNames: []invowkmod.ModuleID{"vendor1", "vendor2"}},
+		{name: "skips invalid modules", moduleNames: []string{"valid"}, invalidNames: []string{"invalid"}, wantNames: []invowkmod.ModuleID{"valid"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			modulePath := filepath.Join(t.TempDir(), "mymodule.invowkmod")
+			if err := os.Mkdir(modulePath, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if len(tt.moduleNames) > 0 || len(tt.invalidNames) > 0 {
+				vendoredDir := filepath.Join(modulePath, VendoredModulesDir)
+				if err := os.Mkdir(vendoredDir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				for _, name := range tt.moduleNames {
+					createValidModuleForPackaging(t, vendoredDir, name+".invowkmod", name)
+				}
+				for _, name := range tt.invalidNames {
+					if err := os.Mkdir(filepath.Join(vendoredDir, name+".invowkmod"), 0o755); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
+			if err != nil {
+				t.Fatalf("ListVendoredModules() error: %v", err)
+			}
+			if len(modules) != len(tt.wantNames) {
+				t.Fatalf("ListVendoredModules() returned %d modules, want %d", len(modules), len(tt.wantNames))
+			}
+			names := make(map[invowkmod.ModuleID]bool, len(modules))
+			for _, module := range modules {
+				names[module.Name()] = true
+			}
+			for _, want := range tt.wantNames {
+				if !names[want] {
+					t.Errorf("ListVendoredModules() missing %q, got %v", want, names)
+				}
+			}
+		})
+	}
 }
 
 // ============================================================================

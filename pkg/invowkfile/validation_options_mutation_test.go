@@ -13,14 +13,25 @@ import (
 func TestValidationOptionsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil invowkfile uses empty path defaults", testValidationOptionsNilInvowkfileDefaults)
-	t.Run("empty invowkfile path does not derive workdir", testValidationOptionsEmptyInvowkfilePath)
-	t.Run("file path derives workdir and default filesystem root", testValidationOptionsFilePathDerivesWorkdir)
-	t.Run("explicit options project into context", testValidationOptionsExplicitOptionsProject)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "nil invowkfile uses empty path defaults", run: testValidationOptionsNilInvowkfileDefaults},
+		{name: "empty invowkfile path does not derive workdir", run: testValidationOptionsEmptyInvowkfilePath},
+		{name: "file path derives workdir and default filesystem root", run: testValidationOptionsFilePathDerivesWorkdir},
+		{name: "explicit options project into context", run: testValidationOptionsExplicitOptionsProject},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testValidationOptionsNilInvowkfileDefaults(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	opts := defaultValidateOptions(nil)
 	if opts.workDir != "" {
@@ -30,7 +41,7 @@ func testValidationOptionsNilInvowkfileDefaults(t *testing.T) {
 }
 
 func testValidationOptionsEmptyInvowkfilePath(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	inv := &Invowkfile{}
 	opts := defaultValidateOptions(inv)
@@ -41,7 +52,7 @@ func testValidationOptionsEmptyInvowkfilePath(t *testing.T) {
 }
 
 func testValidationOptionsFilePathDerivesWorkdir(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	workDir := filepath.Join(t.TempDir(), "nested")
 	if err := os.MkdirAll(workDir, 0o700); err != nil {
@@ -68,7 +79,7 @@ func testValidationOptionsFilePathDerivesWorkdir(t *testing.T) {
 }
 
 func testValidationOptionsExplicitOptionsProject(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	inv := &Invowkfile{FilePath: "invowkfile.cue"}
 	opts := defaultValidateOptions(inv)

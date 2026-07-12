@@ -89,67 +89,77 @@ func TestMissingTransitiveDepDiagnostic_CUESnippet(t *testing.T) {
 func TestMissingTransitiveDepError_Error(t *testing.T) {
 	t.Parallel()
 
-	t.Run("single missing dep", func(t *testing.T) {
-		t.Parallel()
+	//nolint:thelper // Case runners are passed directly to t.Run and begin with t.Parallel.
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "single missing dep", run: func(t *testing.T) {
+			t.Parallel()
 
-		err := &MissingTransitiveDepError{
-			Diagnostics: []MissingTransitiveDepDiagnostic{
-				{
-					RequiringModule: "io.example.B",
-					RequiringURL:    "https://github.com/org/B.invowkmod",
-					MissingRef: ModuleRef{
-						GitURL:  "https://github.com/org/C.invowkmod",
-						Version: "^1.0.0",
+			err := &MissingTransitiveDepError{
+				Diagnostics: []MissingTransitiveDepDiagnostic{
+					{
+						RequiringModule: "io.example.B",
+						RequiringURL:    "https://github.com/org/B.invowkmod",
+						MissingRef: ModuleRef{
+							GitURL:  "https://github.com/org/C.invowkmod",
+							Version: "^1.0.0",
+						},
 					},
 				},
-			},
-		}
+			}
 
-		msg := err.Error()
-		if !strings.Contains(msg, "1 missing transitive dependency(ies)") {
-			t.Errorf("expected count in message, got:\n%s", msg)
-		}
-		if strings.Contains(msg, "invowk module tidy") || strings.Contains(msg, "requires\n") {
-			t.Errorf("domain error should not render CLI remediation, got:\n%s", msg)
-		}
-	})
+			msg := err.Error()
+			if !strings.Contains(msg, "1 missing transitive dependency(ies)") {
+				t.Errorf("expected count in message, got:\n%s", msg)
+			}
+			if strings.Contains(msg, "invowk module tidy") || strings.Contains(msg, "requires\n") {
+				t.Errorf("domain error should not render CLI remediation, got:\n%s", msg)
+			}
+		}},
 
-	t.Run("multiple missing deps", func(t *testing.T) {
-		t.Parallel()
+		{name: "multiple missing deps", run: func(t *testing.T) {
+			t.Parallel()
 
-		err := &MissingTransitiveDepError{
-			Diagnostics: []MissingTransitiveDepDiagnostic{
-				{
-					RequiringModule: "io.example.B",
-					RequiringURL:    "https://github.com/org/B.git",
-					MissingRef: ModuleRef{
-						GitURL:  "https://github.com/org/C.git",
-						Version: "^1.0.0",
+			err := &MissingTransitiveDepError{
+				Diagnostics: []MissingTransitiveDepDiagnostic{
+					{
+						RequiringModule: "io.example.B",
+						RequiringURL:    "https://github.com/org/B.git",
+						MissingRef: ModuleRef{
+							GitURL:  "https://github.com/org/C.git",
+							Version: "^1.0.0",
+						},
+					},
+					{
+						RequiringModule: "io.example.B",
+						RequiringURL:    "https://github.com/org/B.git",
+						MissingRef: ModuleRef{
+							GitURL:  "https://github.com/org/D.git",
+							Version: "^2.0.0",
+						},
 					},
 				},
-				{
-					RequiringModule: "io.example.B",
-					RequiringURL:    "https://github.com/org/B.git",
-					MissingRef: ModuleRef{
-						GitURL:  "https://github.com/org/D.git",
-						Version: "^2.0.0",
-					},
-				},
-			},
-		}
+			}
 
-		msg := err.Error()
-		if !strings.Contains(msg, "2 missing transitive dependency(ies)") {
-			t.Errorf("expected count=2 in message, got:\n%s", msg)
-		}
-	})
+			msg := err.Error()
+			if !strings.Contains(msg, "2 missing transitive dependency(ies)") {
+				t.Errorf("expected count=2 in message, got:\n%s", msg)
+			}
+		}},
 
-	t.Run("unwrap returns sentinel", func(t *testing.T) {
-		t.Parallel()
+		{name: "unwrap returns sentinel", run: func(t *testing.T) {
+			t.Parallel()
 
-		err := &MissingTransitiveDepError{}
-		if !errors.Is(err, ErrMissingTransitiveDeps) {
-			t.Error("expected errors.Is to match ErrMissingTransitiveDeps")
-		}
-	})
+			err := &MissingTransitiveDepError{}
+			if !errors.Is(err, ErrMissingTransitiveDeps) {
+				t.Error("expected errors.Is to match ErrMissingTransitiveDeps")
+			}
+		}},
+	}
+	//nolint:paralleltest // Each table case runner begins with t.Parallel.
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }

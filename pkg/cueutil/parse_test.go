@@ -3,7 +3,9 @@
 package cueutil
 
 import (
+	"bytes"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -30,104 +32,57 @@ type TestConfig struct {
 func TestParseAndDecode(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid config parses successfully", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+	tests := []struct {
+		name        string
+		data        string
+		options     []Option
+		want        TestConfig
+		wantErr     bool
+		wantErrText string
+	}{
+		{name: "valid config parses successfully", data: `
 name: "test"
 count: 42
 enabled: true
 description: "A test config"
-`)
-		result, err := ParseAndDecode[TestConfig]([]byte(testSchema), data, "#TestConfig")
-		if err != nil {
-			t.Fatalf("ParseAndDecode failed: %v", err)
-		}
-
-		if result.Value.Name != "test" {
-			t.Errorf("expected name='test', got %q", result.Value.Name)
-		}
-		if result.Value.Count != 42 {
-			t.Errorf("expected count=42, got %d", result.Value.Count)
-		}
-		if !result.Value.Enabled {
-			t.Error("expected enabled=true")
-		}
-		if result.Value.Description != "A test config" {
-			t.Errorf("expected description='A test config', got %q", result.Value.Description)
-		}
-	})
-
-	t.Run("optional field can be omitted", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+`, want: TestConfig{Name: "test", Count: 42, Enabled: true, Description: "A test config"}},
+		{name: "optional field can be omitted", data: `
 name: "minimal"
 count: 1
 enabled: false
-`)
-		result, err := ParseAndDecode[TestConfig]([]byte(testSchema), data, "#TestConfig")
-		if err != nil {
-			t.Fatalf("ParseAndDecode failed: %v", err)
-		}
-
-		if result.Value.Name != "minimal" {
-			t.Errorf("expected name='minimal', got %q", result.Value.Name)
-		}
-		if result.Value.Description != "" {
-			t.Errorf("expected empty description, got %q", result.Value.Description)
-		}
-	})
-
-	t.Run("invalid type returns error", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+`, want: TestConfig{Name: "minimal", Count: 1}},
+		{name: "invalid type returns error", data: `
 name: "test"
 count: "not a number"  // Should be int
 enabled: true
-`)
-		_, err := ParseAndDecode[TestConfig]([]byte(testSchema), data, "#TestConfig")
-		if err == nil {
-			t.Error("expected error for invalid type")
-		}
-	})
-
-	t.Run("missing required field returns error", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+`, wantErr: true},
+		{name: "missing required field returns error", data: `
 name: "test"
 // count is missing
 enabled: true
-`)
-		_, err := ParseAndDecode[TestConfig]([]byte(testSchema), data, "#TestConfig")
-		if err == nil {
-			t.Error("expected error for missing required field")
-		}
-	})
-
-	t.Run("WithFilename sets filename in errors", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+`, wantErr: true},
+		{name: "WithFilename sets filename in errors", data: `
 name: "test"
 count: "invalid"
 enabled: true
-`)
-		_, err := ParseAndDecode[TestConfig](
-			[]byte(testSchema),
-			data,
-			"#TestConfig",
-			WithFilename("my-config.cue"),
-		)
-		if err == nil {
-			t.Fatal("expected error")
-		}
-		if !strings.Contains(err.Error(), "my-config.cue") {
-			t.Errorf("error should contain filename, got: %v", err)
-		}
-	})
+`, options: []Option{WithFilename("my-config.cue")}, wantErr: true, wantErrText: "my-config.cue"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := ParseAndDecode[TestConfig]([]byte(testSchema), []byte(tt.data), "#TestConfig", tt.options...)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseAndDecode() error = %v, wantErr %t", err, tt.wantErr)
+			}
+			if tt.wantErrText != "" && !strings.Contains(err.Error(), tt.wantErrText) {
+				t.Errorf("error = %v, want text %q", err, tt.wantErrText)
+			}
+			if !tt.wantErr && *result.Value != tt.want {
+				t.Errorf("ParseAndDecode() value = %#v, want %#v", *result.Value, tt.want)
+			}
+		})
+	}
 }
 
 // T017: Tests for Invowkmod type parsing (simulated)
@@ -219,118 +174,80 @@ func TestParseConfigType(t *testing.T) {
 		DefaultRuntime  string   `json:"default_runtime,omitempty"`
 	}
 
-	t.Run("full config parses successfully", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+	tests := []struct {
+		name    string
+		data    string
+		options []Option
+		want    Config
+		wantErr bool
+	}{
+		{name: "full config parses successfully", data: `
 container_engine: "podman"
 includes: ["./", "~/.config/invowk"]
 default_runtime: "virtual-sh"
-`)
-		result, err := ParseAndDecode[Config]([]byte(configSchema), data, "#Config")
-		if err != nil {
-			t.Fatalf("ParseAndDecode failed: %v", err)
-		}
-
-		if result.Value.ContainerEngine != "podman" {
-			t.Errorf("expected container_engine='podman', got %q", result.Value.ContainerEngine)
-		}
-		if len(result.Value.Includes) != 2 {
-			t.Errorf("expected 2 includes, got %d", len(result.Value.Includes))
-		}
-	})
-
-	t.Run("empty config parses with WithConcrete(false)", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`{}`)
-		result, err := ParseAndDecode[Config](
-			[]byte(configSchema),
-			data,
-			"#Config",
-			WithConcrete(false),
-		)
-		if err != nil {
-			t.Fatalf("ParseAndDecode failed: %v", err)
-		}
-
-		if result.Value.ContainerEngine != "" {
-			t.Errorf("expected empty container_engine, got %q", result.Value.ContainerEngine)
-		}
-	})
-
-	t.Run("invalid enum value returns error", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+`, want: Config{ContainerEngine: "podman", Includes: []string{"./", "~/.config/invowk"}, DefaultRuntime: "virtual-sh"}},
+		{name: "empty config parses with WithConcrete(false)", data: `{}`, options: []Option{WithConcrete(false)}},
+		{name: "invalid enum value returns error", data: `
 container_engine: "kubernetes"  // Invalid: not docker or podman
-`)
-		_, err := ParseAndDecode[Config]([]byte(configSchema), data, "#Config")
-		if err == nil {
-			t.Error("expected error for invalid enum value")
-		}
-	})
+`, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := ParseAndDecode[Config]([]byte(configSchema), []byte(tt.data), "#Config", tt.options...)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseAndDecode() error = %v, wantErr %t", err, tt.wantErr)
+			}
+			if !tt.wantErr && (result.Value.ContainerEngine != tt.want.ContainerEngine ||
+				!slices.Equal(result.Value.Includes, tt.want.Includes) ||
+				result.Value.DefaultRuntime != tt.want.DefaultRuntime) {
+				t.Errorf("ParseAndDecode() value = %#v, want %#v", result.Value, tt.want)
+			}
+		})
+	}
 }
 
 // T019: File size limit enforcement tests
 func TestFileSizeLimit(t *testing.T) {
 	t.Parallel()
 
-	t.Run("file within limit parses successfully", func(t *testing.T) {
-		t.Parallel()
-
-		data := []byte(`
+	tests := []struct {
+		name         string
+		data         []byte
+		maxFileSize  int64
+		useDefault   bool
+		wantErr      bool
+		wantSentinel error
+	}{
+		{name: "file within limit parses successfully", data: []byte(`
 name: "test"
 count: 1
 enabled: true
-`)
-		_, err := ParseAndDecode[TestConfig](
-			[]byte(testSchema),
-			data,
-			"#TestConfig",
-			WithMaxFileSize(1024), // 1KB limit
-		)
-		if err != nil {
-			t.Errorf("expected success, got error: %v", err)
-		}
-	})
-
-	t.Run("file exceeding limit returns error", func(t *testing.T) {
-		t.Parallel()
-
-		// Create data larger than the limit
-		data := make([]byte, 200)
-		for i := range data {
-			data[i] = 'a'
-		}
-
-		_, err := ParseAndDecode[TestConfig](
-			[]byte(testSchema),
-			data,
-			"#TestConfig",
-			WithMaxFileSize(100), // 100 byte limit
-		)
-		if err == nil {
-			t.Error("expected error for oversized file")
-		}
-		if !errors.Is(err, ErrFileSizeExceeded) {
-			t.Errorf("error should wrap ErrFileSizeExceeded, got: %v", err)
-		}
-	})
-
-	t.Run("default limit is applied", func(t *testing.T) {
-		t.Parallel()
-
-		// Create data well under default limit
-		data := []byte(`name: "test"
+`), maxFileSize: 1024},
+		{name: "file exceeding limit returns error", data: bytes.Repeat([]byte{'a'}, 200), maxFileSize: 100, wantErr: true, wantSentinel: ErrFileSizeExceeded},
+		{name: "default limit is applied", data: []byte(`name: "test"
 count: 1
 enabled: true
-`)
-		_, err := ParseAndDecode[TestConfig]([]byte(testSchema), data, "#TestConfig")
-		if err != nil {
-			t.Errorf("expected success with default limit, got error: %v", err)
-		}
-	})
+`), useDefault: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			options := []Option{}
+			if !tt.useDefault {
+				options = append(options, WithMaxFileSize(tt.maxFileSize))
+			}
+			_, err := ParseAndDecode[TestConfig]([]byte(testSchema), tt.data, "#TestConfig", options...)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseAndDecode() error = %v, wantErr %t", err, tt.wantErr)
+			}
+			if tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel) {
+				t.Errorf("ParseAndDecode() error = %v, want %v", err, tt.wantSentinel)
+			}
+		})
+	}
 }
 
 // Test ParseAndDecodeString convenience function

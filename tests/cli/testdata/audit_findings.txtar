@@ -9,6 +9,7 @@ stdout 'Security Audit'
 stdout 'CRITICAL'
 stdout 'downloads and executes remote code'
 stdout 'Summary:'
+stderr 'Exit status 1'
 
 -- invowkfile.cue --
 cmds: [{

@@ -191,85 +191,92 @@ func createScaffoldModuleForPackaging(t *testing.T, tmpDir string, opts invowkmo
 }
 
 func TestArchive(t *testing.T) { //nolint:paralleltest // default-output subtest mutates process cwd.
-	//nolint:paralleltest // Archive subtests run serially because one sibling mutates process cwd.
-	t.Run("archive valid module", func(t *testing.T) {
-		tmpDir := t.TempDir()
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{name: "archive valid module", run: func(t *testing.T) {
+			t.Helper()
+			tmpDir := t.TempDir()
 
-		// Create a module first
-		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
-			Name:             "mytools",
-			CreateScriptsDir: true,
-		})
+			// Create a module first
+			modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+				Name:             "mytools",
+				CreateScriptsDir: true,
+			})
 
-		// Add a script file
-		scriptPath := filepath.Join(modulePath, "scripts", "test.sh")
-		if writeErr := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0o755); writeErr != nil {
-			t.Fatalf("failed to write script: %v", writeErr)
-		}
+			// Add a script file
+			scriptPath := filepath.Join(modulePath, "scripts", "test.sh")
+			if writeErr := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho hello"), 0o755); writeErr != nil {
+				t.Fatalf("failed to write script: %v", writeErr)
+			}
 
-		// Archive the module
-		outputPath := filepath.Join(tmpDir, "output.zip")
-		zipPath, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(outputPath))
-		if err != nil {
-			t.Fatalf("Archive() failed: %v", err)
-		}
+			// Archive the module
+			outputPath := filepath.Join(tmpDir, "output.zip")
+			zipPath, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(outputPath))
+			if err != nil {
+				t.Fatalf("Archive() failed: %v", err)
+			}
 
-		// Verify ZIP was created
-		info, err := os.Stat(string(zipPath))
-		if err != nil {
-			t.Fatalf("ZIP file not created: %v", err)
-		}
-		if info.Size() == 0 {
-			t.Error("ZIP file is empty")
-		}
+			// Verify ZIP was created
+			info, err := os.Stat(string(zipPath))
+			if err != nil {
+				t.Fatalf("ZIP file not created: %v", err)
+			}
+			if info.Size() == 0 {
+				t.Error("ZIP file is empty")
+			}
 
-		// Verify ZIP path matches expected
-		if string(zipPath) != outputPath {
-			t.Errorf("Archive() returned %q, expected %q", zipPath, outputPath)
-		}
-	})
+			// Verify ZIP path matches expected
+			if string(zipPath) != outputPath {
+				t.Errorf("Archive() returned %q, expected %q", zipPath, outputPath)
+			}
+		}},
+		{name: "archive with default output path", run: func(t *testing.T) {
+			t.Helper()
+			tmpDir := t.TempDir()
 
-	//nolint:paralleltest // This subtest mutates process cwd to verify default output behavior.
-	t.Run("archive with default output path", func(t *testing.T) {
-		tmpDir := t.TempDir()
+			// Create a module
+			modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+				Name: "com.example.tools",
+			})
 
-		// Create a module
-		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
-			Name: "com.example.tools",
-		})
+			// Change to temp dir to test default output
+			restoreWd := testutil.MustChdir(t, tmpDir)
+			defer restoreWd()
 
-		// Change to temp dir to test default output
-		restoreWd := testutil.MustChdir(t, tmpDir)
-		defer restoreWd()
+			// Archive with empty output path
+			zipPath, err := Archive(types.FilesystemPath(modulePath), "")
+			if err != nil {
+				t.Fatalf("Archive() failed: %v", err)
+			}
 
-		// Archive with empty output path
-		zipPath, err := Archive(types.FilesystemPath(modulePath), "")
-		if err != nil {
-			t.Fatalf("Archive() failed: %v", err)
-		}
+			// Verify default name
+			expectedName := "com.example.tools.invowkmod.zip"
+			if filepath.Base(string(zipPath)) != expectedName {
+				t.Errorf("default ZIP name = %q, expected %q", filepath.Base(string(zipPath)), expectedName)
+			}
+		}},
+		{name: "archive invalid module fails", run: func(t *testing.T) {
+			t.Helper()
+			tmpDir := t.TempDir()
 
-		// Verify default name
-		expectedName := "com.example.tools.invowkmod.zip"
-		if filepath.Base(string(zipPath)) != expectedName {
-			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(string(zipPath)), expectedName)
-		}
-	})
+			// Create an invalid module (no invowkfile)
+			modulePath := filepath.Join(tmpDir, "invalid.invowkmod")
+			if err := os.Mkdir(modulePath, 0o755); err != nil {
+				t.Fatalf("failed to create directory: %v", err)
+			}
 
-	//nolint:paralleltest // Archive subtests run serially because one sibling mutates process cwd.
-	t.Run("archive invalid module fails", func(t *testing.T) {
-		tmpDir := t.TempDir()
-
-		// Create an invalid module (no invowkfile)
-		modulePath := filepath.Join(tmpDir, "invalid.invowkmod")
-		if err := os.Mkdir(modulePath, 0o755); err != nil {
-			t.Fatalf("failed to create directory: %v", err)
-		}
-
-		_, err := Archive(types.FilesystemPath(modulePath), "")
-		if err == nil {
-			t.Error("Archive() expected error for invalid module, got nil")
-		}
-	})
+			_, err := Archive(types.FilesystemPath(modulePath), "")
+			if err == nil {
+				t.Error("Archive() expected error for invalid module, got nil")
+			}
+		}},
+	}
+	//nolint:paralleltest // The default-output case mutates process cwd.
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
 }
 
 func TestUnpack(t *testing.T) {

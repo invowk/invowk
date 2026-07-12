@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
@@ -204,6 +205,34 @@ func TestModuleIncludePath_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModuleIncludePath_Validate_Matrix(t *testing.T) {
+	t.Parallel()
+
+	hostAbsolute := func(input string) pathmatrix.Outcome {
+		return pathmatrix.Custom(func(t testing.TB, _ string, gotErr error) {
+			t.Helper()
+			if filepath.IsAbs(input) && gotErr != nil {
+				t.Fatalf("host-absolute path %q rejected: %v", input, gotErr)
+			}
+			if !filepath.IsAbs(input) && !errors.Is(gotErr, ErrInvalidModuleIncludePath) {
+				t.Fatalf("host-relative path %q error = %v, want ErrInvalidModuleIncludePath", input, gotErr)
+			}
+		})
+	}
+	rejectRelative := pathmatrix.RejectIs(ErrInvalidModuleIncludePath)
+	pathmatrix.Validator(t, func(input string) error {
+		return ModuleIncludePath(input + ".invowkmod").Validate()
+	}, pathmatrix.Expectations{
+		UnixAbsolute:       hostAbsolute(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs:    hostAbsolute(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      hostAbsolute(pathmatrix.InputWindowsRooted),
+		UNC:                hostAbsolute(pathmatrix.InputUNC),
+		SlashTraversal:     rejectRelative,
+		BackslashTraversal: rejectRelative,
+		ValidRelative:      rejectRelative,
+	})
 }
 
 func TestModuleIncludePath_String(t *testing.T) {

@@ -3,6 +3,7 @@
 package commandadapters
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -36,59 +37,36 @@ func TestComponentResponseToProtocolStatus(t *testing.T) {
 func TestComponentResponseToProtocolResults(t *testing.T) {
 	t.Parallel()
 
-	t.Run("input result", func(t *testing.T) {
-		t.Parallel()
-
-		got := componentResponseToProtocol(tui.ComponentTypeInput, tui.ComponentResponse{Result: "hello"})
-		result := decodeComponentResult[tuiwire.InputResult](t, got)
-		if result.Value != "hello" {
-			t.Fatalf("Value = %q, want hello", result.Value)
-		}
-	})
-
-	t.Run("textarea result", func(t *testing.T) {
-		t.Parallel()
-
-		got := componentResponseToProtocol(tui.ComponentTypeTextArea, tui.ComponentResponse{Result: "hello\nthere"})
-		result := decodeComponentResult[tuiwire.TextAreaResult](t, got)
-		if result.Value != "hello\nthere" {
-			t.Fatalf("Value = %q, want textarea text", result.Value)
-		}
-	})
-
-	t.Run("write result", func(t *testing.T) {
-		t.Parallel()
-
-		got := componentResponseToProtocol(tui.ComponentTypeWrite, tui.ComponentResponse{Result: "ignored"})
-		_ = decodeComponentResult[tuiwire.WriteResult](t, got)
-	})
-
-	t.Run("table result", func(t *testing.T) {
-		t.Parallel()
-
-		got := componentResponseToProtocol(tui.ComponentTypeTable, tui.ComponentResponse{
+	tests := []struct {
+		name      string
+		component tui.ComponentType
+		response  tui.ComponentResponse
+		want      any
+	}{
+		{name: "input result", component: tui.ComponentTypeInput, response: tui.ComponentResponse{Result: "hello"}, want: tuiwire.InputResult{Value: "hello"}},
+		{name: "textarea result", component: tui.ComponentTypeTextArea, response: tui.ComponentResponse{Result: "hello\nthere"}, want: tuiwire.TextAreaResult{Value: "hello\nthere"}},
+		{name: "write result", component: tui.ComponentTypeWrite, response: tui.ComponentResponse{Result: "ignored"}, want: tuiwire.WriteResult{}},
+		{name: "table result", component: tui.ComponentTypeTable, response: tui.ComponentResponse{
 			Result: tui.TableSelectionResult{
 				SelectedRow:   []string{"a", "b"},
 				SelectedIndex: 1,
 			},
+		}, want: tuiwire.TableResult{SelectedRow: []string{"a", "b"}, SelectedIndex: 1}},
+		{name: "spin result", component: tui.ComponentTypeSpin, response: tui.ComponentResponse{Result: tuiwire.SpinResult{}}, want: tuiwire.SpinResult{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := componentResponseToProtocol(tt.component, tt.response)
+			wantJSON, err := json.Marshal(tt.want)
+			if err != nil {
+				t.Fatalf("json.Marshal(want) = %v", err)
+			}
+			if !bytes.Equal(got.Result, wantJSON) {
+				t.Fatalf("Result = %s, want %s", got.Result, wantJSON)
+			}
 		})
-		result := decodeComponentResult[tuiwire.TableResult](t, got)
-		if result.SelectedIndex != 1 {
-			t.Fatalf("SelectedIndex = %d, want 1", result.SelectedIndex)
-		}
-		if len(result.SelectedRow) != 2 || result.SelectedRow[0] != "a" {
-			t.Fatalf("SelectedRow = %v, want [a b]", result.SelectedRow)
-		}
-	})
-
-	t.Run("spin result", func(t *testing.T) {
-		t.Parallel()
-
-		got := componentResponseToProtocol(tui.ComponentTypeSpin, tui.ComponentResponse{
-			Result: tuiwire.SpinResult{},
-		})
-		_ = decodeComponentResult[tuiwire.SpinResult](t, got)
-	})
+	}
 }
 
 func TestComponentRequestFromProtocolChoose(t *testing.T) {
@@ -184,14 +162,4 @@ func TestComponentRequestFromProtocolWriteMapsStyle(t *testing.T) {
 	if len(opts.Style.Margin) != 4 || opts.Style.Margin[1] != 3 {
 		t.Fatalf("Margin = %v", opts.Style.Margin)
 	}
-}
-
-func decodeComponentResult[T any](t testing.TB, got tuiwire.Response) T {
-	t.Helper()
-
-	var result T
-	if err := json.Unmarshal(got.Result, &result); err != nil {
-		t.Fatalf("json.Unmarshal() = %v", err)
-	}
-	return result
 }

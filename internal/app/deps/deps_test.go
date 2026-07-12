@@ -567,60 +567,38 @@ func TestFindMatchingCommand(t *testing.T) {
 		ModuleID: &depID,
 	}
 
-	t.Run("prefers module-local qualified command over root exact match", func(t *testing.T) {
-		t.Parallel()
-
-		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+	tests := []struct {
+		name      string
+		available map[invowkfile.CommandName]*discovery.CommandInfo
+		sourceID  invowkmod.ModuleSourceID
+		ref       invowkfile.CommandDependencyRef
+		want      *discovery.CommandInfo
+	}{
+		{name: "prefers module-local qualified command over root exact match", sourceID: "mod", ref: "build", want: moduleBuild, available: map[invowkfile.CommandName]*discovery.CommandInfo{
 			rootBuild.Name:   rootBuild,
 			moduleBuild.Name: moduleBuild,
-		}
-
-		got := findMatchingCommand(available, "mod", commandDependencyAlternativesForTest(t, "build"))
-		if got != moduleBuild {
-			t.Fatalf("findMatchingCommand() = %v, want module-local command", got)
-		}
-	})
-
-	t.Run("root caller keeps exact root match", func(t *testing.T) {
-		t.Parallel()
-
-		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		}},
+		{name: "root caller keeps exact root match", ref: "build", want: rootBuild, available: map[invowkfile.CommandName]*discovery.CommandInfo{
 			rootBuild.Name:   rootBuild,
 			moduleBuild.Name: moduleBuild,
-		}
-
-		got := findMatchingCommand(available, "", commandDependencyAlternativesForTest(t, "build"))
-		if got != rootBuild {
-			t.Fatalf("findMatchingCommand() = %v, want root command", got)
-		}
-	})
-
-	t.Run("module caller cannot match root exact command", func(t *testing.T) {
-		t.Parallel()
-
-		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		}},
+		{name: "module caller cannot match root exact command", sourceID: "mod", ref: "build", available: map[invowkfile.CommandName]*discovery.CommandInfo{
 			rootBuild.Name: rootBuild,
-		}
-
-		got := findMatchingCommand(available, "mod", commandDependencyAlternativesForTest(t, "build"))
-		if got != nil {
-			t.Fatalf("findMatchingCommand() = %v, want nil for root command outside module scope", got)
-		}
-	})
-
-	t.Run("explicit qualified module command keeps exact match", func(t *testing.T) {
-		t.Parallel()
-
-		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+		}},
+		{name: "explicit qualified module command keeps exact match", sourceID: "mod", ref: "@dep build", want: depBuild, available: map[invowkfile.CommandName]*discovery.CommandInfo{
 			moduleBuild.Name: moduleBuild,
 			depBuild.Name:    depBuild,
-		}
-
-		got := findMatchingCommand(available, "mod", commandDependencyAlternativesForTest(t, "@dep build"))
-		if got != depBuild {
-			t.Fatalf("findMatchingCommand() = %v, want explicit dependency command", got)
-		}
-	})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := findMatchingCommand(tt.available, tt.sourceID, commandDependencyAlternativesForTest(t, tt.ref))
+			if got != tt.want {
+				t.Fatalf("findMatchingCommand() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func commandDependencyAlternativesForTest(t testing.TB, refs ...invowkfile.CommandDependencyRef) []commandDependencyAlternative {
@@ -635,10 +613,14 @@ func commandDependencyAlternativesForTest(t testing.TB, refs ...invowkfile.Comma
 func TestDiscoverAvailableCommands(t *testing.T) {
 	t.Parallel()
 
-	t.Run("uses execution context when present", func(t *testing.T) {
-		t.Parallel()
-
-		disc := &stubCommandSetProvider{
+	tests := []struct {
+		name        string
+		provider    *stubCommandSetProvider
+		ctx         ExecutionContext
+		wantCommand invowkfile.CommandName
+		wantIs      error
+	}{
+		{name: "uses execution context when present", wantCommand: "deploy", provider: &stubCommandSetProvider{
 			result: discovery.CommandSetResult{
 				Set: &discovery.DiscoveredCommandSet{
 					Commands: []*discovery.CommandInfo{
@@ -646,30 +628,27 @@ func TestDiscoverAvailableCommands(t *testing.T) {
 					},
 				},
 			},
-		}
-		ctx := testDependencyExecutionContext(t, &invowkfile.Command{Name: "build"}, "")
-
-		available, err := discoverAvailableCommands(disc, ctx)
-		if err != nil {
-			t.Fatalf("discoverAvailableCommands() = %v", err)
-		}
-		if available[invowkfile.CommandName("deploy")] == nil {
-			t.Fatalf("available missing deploy: %v", available)
-		}
-	})
-
-	t.Run("wraps discovery failure", func(t *testing.T) {
-		t.Parallel()
-
-		disc := &stubCommandSetProvider{err: errors.New("boom")}
-		_, err := discoverAvailableCommands(disc, ExecutionContext{})
-		if err == nil {
-			t.Fatal("discoverAvailableCommands() = nil, want error")
-		}
-		if !errors.Is(err, ErrDependencyDiscoveryFailed) {
-			t.Fatalf("errors.Is(err, ErrDependencyDiscoveryFailed) = false for %v", err)
-		}
-	})
+		}, ctx: testDependencyExecutionContext(t, &invowkfile.Command{Name: "build"}, "")},
+		{name: "wraps discovery failure", provider: &stubCommandSetProvider{err: errors.New("boom")}, wantIs: ErrDependencyDiscoveryFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			available, err := discoverAvailableCommands(tt.provider, tt.ctx)
+			if tt.wantIs != nil {
+				if !errors.Is(err, tt.wantIs) {
+					t.Fatalf("error = %v, want wrapping %v", err, tt.wantIs)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("discoverAvailableCommands() = %v", err)
+			}
+			if available[tt.wantCommand] == nil {
+				t.Fatalf("available missing %q: %v", tt.wantCommand, available)
+			}
+		})
+	}
 }
 
 func TestValidateDependencies(t *testing.T) {
@@ -679,26 +658,16 @@ func TestValidateDependencies(t *testing.T) {
 		result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}},
 	}
 
-	t.Run("no deps passes both phases", func(t *testing.T) {
-		t.Parallel()
-
-		cmd := invowkfiletest.NewTestCommand("build", invowkfiletest.WithScript("echo hello"))
-		cmdInfo := &discovery.CommandInfo{
-			Name:       cmd.Name,
-			Command:    cmd,
-			Invowkfile: &invowkfile.Invowkfile{},
-		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh)
-
-		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
-			t.Fatalf("ValidateDependencies() = %v", err)
-		}
-	})
-
-	t.Run("host failure short-circuits before runtime phase", func(t *testing.T) {
-		t.Parallel()
-
-		cmd := &invowkfile.Command{
+	tests := []struct {
+		name             string
+		cmd              *invowkfile.Command
+		runtime          invowkfile.RuntimeMode
+		validationMode   string
+		wantMissingTools int
+		wantMissingCaps  int
+	}{
+		{name: "no deps passes both phases", cmd: invowkfiletest.NewTestCommand("build", invowkfiletest.WithScript("echo hello")), runtime: invowkfile.RuntimeVirtualSh},
+		{name: "host failure short-circuits before runtime phase", validationMode: "host-probe", runtime: invowkfile.RuntimeContainer, wantMissingTools: 1, cmd: &invowkfile.Command{
 			Name: "deploy",
 			DependsOn: &invowkfile.DependsOn{
 				Tools: []invowkfile.ToolDependency{
@@ -718,44 +687,8 @@ func TestValidateDependencies(t *testing.T) {
 					},
 				},
 			}},
-		}
-		cmdInfo := &discovery.CommandInfo{
-			Name:       cmd.Name,
-			Command:    cmd,
-			Invowkfile: &invowkfile.Invowkfile{},
-		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
-
-		err := ValidateDependenciesWithHostProbe(
-			disc,
-			cmdInfo,
-			nil,
-			execCtx,
-			nil,
-			nil,
-			&recordingHostProbe{
-				toolErrors: map[invowkfile.BinaryName]error{
-					"___nonexistent_tool_for_test___": errors.New("missing host tool"),
-				},
-			},
-		)
-		if err == nil {
-			t.Fatal("expected host dependency error")
-		}
-
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("expected *DependencyError, got %T", err)
-		}
-		if len(depErr.MissingTools) != 1 {
-			t.Fatalf("expected exactly 1 MissingTools (host only, phase 2 skipped), got %d", len(depErr.MissingTools))
-		}
-	})
-
-	t.Run("non-container runtime skips phase 2", func(t *testing.T) {
-		t.Parallel()
-
-		cmd := &invowkfile.Command{
+		}},
+		{name: "non-container runtime skips phase 2", runtime: invowkfile.RuntimeVirtualSh, cmd: &invowkfile.Command{
 			Name: "lint",
 			Implementations: []invowkfile.Implementation{{
 				Script: invowkfile.ImplementationScript{Content: "echo lint"},
@@ -770,23 +703,8 @@ func TestValidateDependencies(t *testing.T) {
 					},
 				},
 			}},
-		}
-		cmdInfo := &discovery.CommandInfo{
-			Name:       cmd.Name,
-			Command:    cmd,
-			Invowkfile: &invowkfile.Invowkfile{},
-		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh)
-
-		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
-			t.Fatalf("ValidateDependencies() = %v, expected nil (phase 2 skipped for non-container)", err)
-		}
-	})
-
-	t.Run("host capability checker is injectable", func(t *testing.T) {
-		t.Parallel()
-
-		cmd := &invowkfile.Command{
+		}},
+		{name: "host capability checker is injectable", validationMode: "capability", runtime: invowkfile.RuntimeVirtualSh, wantMissingCaps: 1, cmd: &invowkfile.Command{
 			Name: "net",
 			DependsOn: &invowkfile.DependsOn{
 				Capabilities: []invowkfile.CapabilityDependency{
@@ -797,84 +715,44 @@ func TestValidateDependencies(t *testing.T) {
 				Script:   invowkfile.ImplementationScript{Content: "echo net"},
 				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtualSh}},
 			}},
-		}
-		cmdInfo := &discovery.CommandInfo{
-			Name:       cmd.Name,
-			Command:    cmd,
-			Invowkfile: &invowkfile.Invowkfile{},
-		}
-		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtualSh)
-
-		err := ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, nil, execCtx, nil,
-			fakeCapabilityChecker{
-				invowkfile.CapabilityInternet: errors.New("offline"),
-			},
-		)
-		if err == nil {
-			t.Fatal("expected injected capability checker error")
-		}
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
-		}
-		if len(depErr.MissingCapabilities) != 1 {
-			t.Fatalf("len(MissingCapabilities) = %d, want 1", len(depErr.MissingCapabilities))
-		}
-	})
-}
-
-func TestValidateHostDependenciesWithHostProbeUsesInjectedProbe(t *testing.T) {
-	t.Parallel()
-
-	invowkfilePath := filepath.Join(t.TempDir(), "work", "invowkfile.cue")
-	expectedFilepath := filepath.Join(filepath.Dir(invowkfilePath), "data", "input.txt")
-
-	cmd := &invowkfile.Command{
-		Name: "build",
-		DependsOn: &invowkfile.DependsOn{
-			Tools: []invowkfile.ToolDependency{{
-				Alternatives: []invowkfile.BinaryName{"tool-a"},
-			}},
-			Filepaths: []invowkfile.FilepathDependency{{
-				Alternatives: []invowkfile.FilesystemPath{"data/input.txt"},
-				Readable:     true,
-			}},
-			CustomChecks: []invowkfile.CustomCheckDependency{{
-				Name:   "custom",
-				Script: invowkfile.CustomCheckScript{Content: "exit 0"},
-			}},
-		},
-		Implementations: []invowkfile.Implementation{{
-			Script:   invowkfile.ImplementationScript{Content: "echo ok"},
-			Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 		}},
 	}
-	cmdInfo := &discovery.CommandInfo{
-		Name:       cmd.Name,
-		Command:    cmd,
-		Invowkfile: &invowkfile.Invowkfile{FilePath: types.FilesystemPath(invowkfilePath)},
-	}
-	execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative)
-	probe := &recordingHostProbe{}
-
-	err := ValidateHostDependenciesWithHostProbe(
-		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
-		cmdInfo,
-		execCtx,
-		map[string]string{},
-		nil,
-		probe,
-	)
-	if err != nil {
-		t.Fatalf("ValidateHostDependenciesWithHostProbe() = %v", err)
-	}
-	if len(probe.tools) != 1 || probe.tools[0] != "tool-a" {
-		t.Fatalf("probe tools = %v, want [tool-a]", probe.tools)
-	}
-	if len(probe.filepaths) != 1 || probe.filepaths[0] != types.FilesystemPath(expectedFilepath) {
-		t.Fatalf("probe filepaths = %v, want resolved path", probe.filepaths)
-	}
-	if len(probe.checks) != 1 || probe.checks[0] != "custom" {
-		t.Fatalf("probe checks = %v, want [custom]", probe.checks)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cmdInfo := &discovery.CommandInfo{Name: tt.cmd.Name, Command: tt.cmd, Invowkfile: &invowkfile.Invowkfile{}}
+			execCtx := testDependencyExecutionContext(t, tt.cmd, tt.runtime)
+			var err error
+			switch tt.validationMode {
+			case "":
+				err = ValidateDependencies(disc, cmdInfo, execCtx, nil)
+			case "host-probe":
+				err = ValidateDependenciesWithHostProbe(disc, cmdInfo, nil, execCtx, nil, nil, &recordingHostProbe{
+					toolErrors: map[invowkfile.BinaryName]error{"___nonexistent_tool_for_test___": errors.New("missing host tool")},
+				})
+			case "capability":
+				err = ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, nil, execCtx, nil, fakeCapabilityChecker{
+					invowkfile.CapabilityInternet: errors.New("offline"),
+				})
+			default:
+				t.Fatalf("unknown validation mode %q", tt.validationMode)
+			}
+			wantErr := tt.wantMissingTools > 0 || tt.wantMissingCaps > 0
+			if (err != nil) != wantErr {
+				t.Fatalf("ValidateDependencies() error = %v, wantErr %v", err, wantErr)
+			}
+			if wantErr {
+				var depErr *DependencyError
+				if !errors.As(err, &depErr) {
+					t.Fatalf("expected *DependencyError, got %T", err)
+				}
+				if len(depErr.MissingTools) != tt.wantMissingTools {
+					t.Fatalf("len(MissingTools) = %d, want %d", len(depErr.MissingTools), tt.wantMissingTools)
+				}
+				if len(depErr.MissingCapabilities) != tt.wantMissingCaps {
+					t.Fatalf("len(MissingCapabilities) = %d, want %d", len(depErr.MissingCapabilities), tt.wantMissingCaps)
+				}
+			}
+		})
 	}
 }

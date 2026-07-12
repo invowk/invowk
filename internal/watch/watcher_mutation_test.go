@@ -22,14 +22,16 @@ import (
 
 type (
 	manualDebounceScheduler struct {
-		mu    sync.Mutex
-		timer *manualDebounceTimer
+		mu        sync.Mutex
+		timer     *manualDebounceTimer
+		scheduled chan struct{}
 	}
 
 	manualDebounceTimer struct {
 		mu         sync.Mutex
 		fire       func()
 		resetCount int
+		reset      chan struct{}
 	}
 )
 
@@ -483,41 +485,45 @@ func requireWatchMutationFieldError(t *testing.T, err, sentinel error, text stri
 }
 
 func newManualDebounceScheduler() *manualDebounceScheduler {
-	return &manualDebounceScheduler{}
+	return &manualDebounceScheduler{scheduled: make(chan struct{})}
 }
 
 func (s *manualDebounceScheduler) Schedule(_ time.Duration, fire func()) debounceTimer {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	timer := &manualDebounceTimer{fire: fire}
+	timer := &manualDebounceTimer{fire: fire, reset: make(chan struct{}, 1)}
 	s.timer = timer
+	close(s.scheduled)
 	return timer
 }
 
 func (s *manualDebounceScheduler) requireTimer(t *testing.T) *manualDebounceTimer {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
-	for {
+	select {
+	case <-s.scheduled:
 		s.mu.Lock()
-		timer := s.timer
-		s.mu.Unlock()
-		if timer != nil {
-			return timer
+		defer s.mu.Unlock()
+		if s.timer == nil {
+			t.Fatal("manual debounce scheduler signaled without a timer")
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("manual debounce timer was not scheduled")
-		}
-		time.Sleep(time.Millisecond)
+		return s.timer
+	case <-time.After(5 * time.Second):
+		t.Fatal("manual debounce timer was not scheduled")
+		return nil
 	}
 }
 
 func (t *manualDebounceTimer) Reset(time.Duration) bool {
 	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	t.resetCount++
+	t.mu.Unlock()
+
+	select {
+	case t.reset <- struct{}{}:
+	default:
+	}
 	return false
 }
 
@@ -537,7 +543,6 @@ func (t *manualDebounceTimer) fireAsync() <-chan struct{} {
 func (t *manualDebounceTimer) waitForResetCount(tb *testing.T, want int) {
 	tb.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
 	for {
 		t.mu.Lock()
 		got := t.resetCount
@@ -545,10 +550,12 @@ func (t *manualDebounceTimer) waitForResetCount(tb *testing.T, want int) {
 		if got >= want {
 			return
 		}
-		if time.Now().After(deadline) {
+
+		select {
+		case <-t.reset:
+		case <-time.After(5 * time.Second):
 			tb.Fatalf("manual timer reset count = %d, want at least %d", got, want)
 		}
-		time.Sleep(time.Millisecond)
 	}
 }
 

@@ -7,7 +7,43 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 )
+
+func TestResolveDockerfilePath_Matrix(t *testing.T) {
+	t.Parallel()
+
+	contextDir := t.TempDir()
+	resolve := func(input string) (string, error) {
+		return ResolveDockerfilePath(contextDir, input)
+	}
+	backslashTraversal := pathmatrix.Custom(func(t testing.TB, got string, gotErr error) {
+		t.Helper()
+		if filepath.Separator == '\\' {
+			if gotErr == nil {
+				t.Fatalf("backslash traversal resolved to %q, want error", got)
+			}
+			return
+		}
+		if gotErr != nil {
+			t.Fatalf("host-relative backslash path rejected: %v", gotErr)
+		}
+		want := filepath.Join(contextDir, pathmatrix.InputBackslashTraversal)
+		if got != want {
+			t.Fatalf("resolved path = %q, want %q", got, want)
+		}
+	})
+	pathmatrix.Resolver(t, contextDir, resolve, pathmatrix.Expectations{
+		UnixAbsolute:       pathmatrix.PassHostNativeAbs(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC),
+		SlashTraversal:     pathmatrix.Reject(),
+		BackslashTraversal: backslashTraversal,
+		ValidRelative:      pathmatrix.PassAny(nil),
+	})
+}
 
 func TestResolveDockerfilePath(t *testing.T) {
 	t.Parallel()

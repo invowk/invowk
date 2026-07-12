@@ -19,6 +19,7 @@ stdout 'No confirmed findings at or above low severity'
 ! stderr 'configured claude invoked'
 
 ! exec invowk audit --llm .
+! stdout .
 stderr 'Using LLM provider: claude'
 stderr 'scan error: checker "llm" failed'
 stderr 'provider output withheld'

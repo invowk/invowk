@@ -548,103 +548,120 @@ default_runtime: "virtual-sh"
 
 	provider := NewProvider()
 
-	t.Run("loads config from directory", func(t *testing.T) {
-		t.Parallel()
-		cfg, err := provider.Load(t.Context(), LoadOptions{
-			ConfigDirPath: types.FilesystemPath(configDir),
-			BaseDir:       types.FilesystemPath(tmpDir),
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "loads config from directory", run: func(t *testing.T) {
+			t.Helper()
+
+			cfg, err := provider.Load(t.Context(), LoadOptions{
+				ConfigDirPath: types.FilesystemPath(configDir),
+				BaseDir:       types.FilesystemPath(tmpDir),
+			})
+			if err != nil {
+				t.Fatalf("Provider.Load() returned error: %v", err)
+			}
+
+			if cfg.ContainerEngine != ContainerEngineDocker {
+				t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+			}
+			if cfg.DefaultRuntime != RuntimeVirtualSh {
+				t.Errorf("DefaultRuntime = %s, want virtual-sh", cfg.DefaultRuntime)
+			}
+		}},
+
+		{name: "loads config from explicit file path", run: func(t *testing.T) {
+			t.Helper()
+
+			cfg, err := provider.Load(t.Context(), LoadOptions{
+				ConfigFilePath: types.FilesystemPath(cfgPath),
+				BaseDir:        types.FilesystemPath(tmpDir),
+			})
+			if err != nil {
+				t.Fatalf("Provider.Load() returned error: %v", err)
+			}
+
+			if cfg.ContainerEngine != ContainerEngineDocker {
+				t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+			}
+		}},
+
+		{name: "reports config directory source", run: func(t *testing.T) {
+			t.Helper()
+
+			result, err := provider.LoadWithSource(t.Context(), LoadOptions{
+				ConfigDirPath: types.FilesystemPath(configDir),
+				BaseDir:       types.FilesystemPath(tmpDir),
+			})
+			if err != nil {
+				t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
+			}
+			if result.Config.ContainerEngine != ContainerEngineDocker {
+				t.Errorf("ContainerEngine = %s, want docker", result.Config.ContainerEngine)
+			}
+			if result.SourcePath != types.FilesystemPath(cfgPath) {
+				t.Errorf("SourcePath = %s, want %s", result.SourcePath, cfgPath)
+			}
+		}},
+
+		{name: "reports local fallback source", run: func(t *testing.T) {
+			t.Helper()
+
+			baseDir := t.TempDir()
+			localPath := filepath.Join(baseDir, ConfigFileName+"."+ConfigFileExt)
+			if err := os.WriteFile(localPath, []byte(validConfig), 0o644); err != nil {
+				t.Fatalf("failed to write local config: %v", err)
+			}
+
+			result, err := provider.LoadWithSource(t.Context(), LoadOptions{
+				ConfigDirPath: types.FilesystemPath(t.TempDir()),
+				BaseDir:       types.FilesystemPath(baseDir),
+			})
+			if err != nil {
+				t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
+			}
+			if result.SourcePath != types.FilesystemPath(localPath) {
+				t.Errorf("SourcePath = %s, want %s", result.SourcePath, localPath)
+			}
+		}},
+
+		{name: "returns defaults when no config exists", run: func(t *testing.T) {
+			t.Helper()
+
+			emptyDir := t.TempDir()
+			cfg, err := provider.Load(t.Context(), LoadOptions{
+				ConfigDirPath: types.FilesystemPath(emptyDir),
+				BaseDir:       types.FilesystemPath(emptyDir),
+			})
+			if err != nil {
+				t.Fatalf("Provider.Load() returned error: %v", err)
+			}
+
+			defaults := DefaultConfig()
+			if cfg.ContainerEngine != defaults.ContainerEngine {
+				t.Errorf("ContainerEngine = %s, want %s", cfg.ContainerEngine, defaults.ContainerEngine)
+			}
+		}},
+
+		{name: "returns error for non-existent explicit path", run: func(t *testing.T) {
+			t.Helper()
+
+			_, err := provider.Load(t.Context(), LoadOptions{
+				ConfigFilePath: "/this/path/does/not/exist.cue",
+			})
+
+			if err == nil {
+				t.Fatal("expected Provider.Load() to return error for non-existent path")
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
 		})
-		if err != nil {
-			t.Fatalf("Provider.Load() returned error: %v", err)
-		}
-
-		if cfg.ContainerEngine != ContainerEngineDocker {
-			t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
-		}
-		if cfg.DefaultRuntime != RuntimeVirtualSh {
-			t.Errorf("DefaultRuntime = %s, want virtual-sh", cfg.DefaultRuntime)
-		}
-	})
-
-	t.Run("loads config from explicit file path", func(t *testing.T) {
-		t.Parallel()
-		cfg, err := provider.Load(t.Context(), LoadOptions{
-			ConfigFilePath: types.FilesystemPath(cfgPath),
-			BaseDir:        types.FilesystemPath(tmpDir),
-		})
-		if err != nil {
-			t.Fatalf("Provider.Load() returned error: %v", err)
-		}
-
-		if cfg.ContainerEngine != ContainerEngineDocker {
-			t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
-		}
-	})
-
-	t.Run("reports config directory source", func(t *testing.T) {
-		t.Parallel()
-		result, err := provider.LoadWithSource(t.Context(), LoadOptions{
-			ConfigDirPath: types.FilesystemPath(configDir),
-			BaseDir:       types.FilesystemPath(tmpDir),
-		})
-		if err != nil {
-			t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
-		}
-		if result.Config.ContainerEngine != ContainerEngineDocker {
-			t.Errorf("ContainerEngine = %s, want docker", result.Config.ContainerEngine)
-		}
-		if result.SourcePath != types.FilesystemPath(cfgPath) {
-			t.Errorf("SourcePath = %s, want %s", result.SourcePath, cfgPath)
-		}
-	})
-
-	t.Run("reports local fallback source", func(t *testing.T) {
-		t.Parallel()
-		baseDir := t.TempDir()
-		localPath := filepath.Join(baseDir, ConfigFileName+"."+ConfigFileExt)
-		if err := os.WriteFile(localPath, []byte(validConfig), 0o644); err != nil {
-			t.Fatalf("failed to write local config: %v", err)
-		}
-
-		result, err := provider.LoadWithSource(t.Context(), LoadOptions{
-			ConfigDirPath: types.FilesystemPath(t.TempDir()),
-			BaseDir:       types.FilesystemPath(baseDir),
-		})
-		if err != nil {
-			t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
-		}
-		if result.SourcePath != types.FilesystemPath(localPath) {
-			t.Errorf("SourcePath = %s, want %s", result.SourcePath, localPath)
-		}
-	})
-
-	t.Run("returns defaults when no config exists", func(t *testing.T) {
-		t.Parallel()
-		emptyDir := t.TempDir()
-		cfg, err := provider.Load(t.Context(), LoadOptions{
-			ConfigDirPath: types.FilesystemPath(emptyDir),
-			BaseDir:       types.FilesystemPath(emptyDir),
-		})
-		if err != nil {
-			t.Fatalf("Provider.Load() returned error: %v", err)
-		}
-
-		defaults := DefaultConfig()
-		if cfg.ContainerEngine != defaults.ContainerEngine {
-			t.Errorf("ContainerEngine = %s, want %s", cfg.ContainerEngine, defaults.ContainerEngine)
-		}
-	})
-
-	t.Run("returns error for non-existent explicit path", func(t *testing.T) {
-		t.Parallel()
-		_, err := provider.Load(t.Context(), LoadOptions{
-			ConfigFilePath: "/this/path/does/not/exist.cue",
-		})
-
-		if err == nil {
-			t.Fatal("expected Provider.Load() to return error for non-existent path")
-		}
-	})
+	}
 }
 
 func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {

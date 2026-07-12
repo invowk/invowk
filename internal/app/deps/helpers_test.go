@@ -13,102 +13,41 @@ import (
 func TestCollectToolErrors(t *testing.T) {
 	t.Parallel()
 
-	alwaysFail := func(_ invowkfile.BinaryName) error {
-		return errors.New("  • tool - not found")
+	tests := []struct {
+		name           string
+		tools          []invowkfile.ToolDependency
+		checkMode      string
+		wantErrors     int
+		wantSubstring  string
+		wantCheckCalls int
+	}{
+		{name: "no tools returns nil", checkMode: "fail"},
+		{name: "single alternative found", tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"go"}}}, checkMode: "pass", wantCheckCalls: 1},
+		{name: "single alternative missing", tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"missing-tool"}}}, checkMode: "fail", wantErrors: 1, wantSubstring: "not found", wantCheckCalls: 1},
+		{name: "multi-alternative all missing", tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"podman", "docker"}}}, checkMode: "fail", wantErrors: 1, wantSubstring: "none of [podman, docker] found", wantCheckCalls: 2},
+		{name: "multi-alternative first found", tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"podman", "docker"}}}, checkMode: "pass", wantCheckCalls: 1},
+		{name: "multiple tools with mixed results", tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"go"}}, {Alternatives: []invowkfile.BinaryName{"missing1", "missing2"}}}, checkMode: "go-only", wantErrors: 1, wantSubstring: "none of [missing1, missing2] found", wantCheckCalls: 3},
 	}
-	alwaysPass := func(_ invowkfile.BinaryName) error {
-		return nil
-	}
-
-	t.Run("no tools returns nil", func(t *testing.T) {
-		t.Parallel()
-
-		result := CollectToolErrors(nil, alwaysFail)
-		if result != nil {
-			t.Errorf("CollectToolErrors(nil) = %v, want nil", result)
-		}
-	})
-
-	t.Run("single alternative found", func(t *testing.T) {
-		t.Parallel()
-
-		tools := []invowkfile.ToolDependency{
-			{Alternatives: []invowkfile.BinaryName{"go"}},
-		}
-		result := CollectToolErrors(tools, alwaysPass)
-		if len(result) != 0 {
-			t.Errorf("expected no errors, got %v", result)
-		}
-	})
-
-	t.Run("single alternative missing", func(t *testing.T) {
-		t.Parallel()
-
-		tools := []invowkfile.ToolDependency{
-			{Alternatives: []invowkfile.BinaryName{"missing-tool"}},
-		}
-		result := CollectToolErrors(tools, alwaysFail)
-		if len(result) != 1 {
-			t.Fatalf("expected 1 error, got %d", len(result))
-		}
-		if !strings.Contains(result[0].String(), "not found") {
-			t.Errorf("expected 'not found' in message, got %q", result[0])
-		}
-	})
-
-	t.Run("multi-alternative all missing", func(t *testing.T) {
-		t.Parallel()
-
-		tools := []invowkfile.ToolDependency{
-			{Alternatives: []invowkfile.BinaryName{"podman", "docker"}},
-		}
-		result := CollectToolErrors(tools, alwaysFail)
-		if len(result) != 1 {
-			t.Fatalf("expected 1 error, got %d", len(result))
-		}
-		msg := result[0].String()
-		if !strings.Contains(msg, "none of [podman, docker] found") {
-			t.Errorf("expected 'none of [podman, docker] found', got %q", msg)
-		}
-	})
-
-	t.Run("multi-alternative first found", func(t *testing.T) {
-		t.Parallel()
-
-		callCount := 0
-		tools := []invowkfile.ToolDependency{
-			{Alternatives: []invowkfile.BinaryName{"podman", "docker"}},
-		}
-		result := CollectToolErrors(tools, func(_ invowkfile.BinaryName) error {
-			callCount++
-			return nil
-		})
-		if len(result) != 0 {
-			t.Errorf("expected no errors, got %v", result)
-		}
-		if callCount != 1 {
-			t.Errorf("expected early return after first match, check called %d times", callCount)
-		}
-	})
-
-	t.Run("multiple tools with mixed results", func(t *testing.T) {
-		t.Parallel()
-
-		tools := []invowkfile.ToolDependency{
-			{Alternatives: []invowkfile.BinaryName{"go"}},
-			{Alternatives: []invowkfile.BinaryName{"missing1", "missing2"}},
-		}
-		result := CollectToolErrors(tools, func(name invowkfile.BinaryName) error {
-			if name == "go" {
-				return nil
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			callCount := 0
+			result := CollectToolErrors(tt.tools, func(name invowkfile.BinaryName) error {
+				callCount++
+				if tt.checkMode == "pass" || (tt.checkMode == "go-only" && name == "go") {
+					return nil
+				}
+				return errors.New("  • " + string(name) + " - not found")
+			})
+			if len(result) != tt.wantErrors {
+				t.Fatalf("CollectToolErrors() returned %d errors, want %d", len(result), tt.wantErrors)
 			}
-			return errors.New("  • " + string(name) + " - not found")
+			if tt.wantSubstring != "" && !strings.Contains(result[0].String(), tt.wantSubstring) {
+				t.Errorf("error = %q, want containing %q", result[0], tt.wantSubstring)
+			}
+			if callCount != tt.wantCheckCalls {
+				t.Errorf("check calls = %d, want %d", callCount, tt.wantCheckCalls)
+			}
 		})
-		if len(result) != 1 {
-			t.Fatalf("expected 1 error (second tool), got %d", len(result))
-		}
-		if !strings.Contains(result[0].String(), "none of [missing1, missing2] found") {
-			t.Errorf("expected multi-alt format, got %q", result[0])
-		}
-	})
+	}
 }

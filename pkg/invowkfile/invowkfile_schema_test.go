@@ -52,7 +52,7 @@ cmds: [
 
 	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
-		t.Error("Parse() should reject custom check with both direct fields and alternatives")
+		t.Fatal("Parse() should reject custom check with both direct fields and alternatives")
 	}
 	// The error could be about conflicting fields or disjunction not matching
 	if !strings.Contains(err.Error(), "conflict") && !strings.Contains(err.Error(), "not allowed") {

@@ -74,13 +74,25 @@ func TestOperationsValidateMutationReportsInaccessibleInvowkmodCue(t *testing.T)
 func TestOperationsValidateMutationTreeEntryContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("symlink named vendored directory is still reported", testOperationsValidateMutationVendoredSymlinkReported)
-	t.Run("file ending in module suffix is not a nested module", testOperationsValidateMutationSuffixFileIsNotNestedModule)
-	t.Run("unreadable nested directory is skipped", testOperationsValidateMutationUnreadableNestedDirSkipped)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "symlink named vendored directory is still reported", run: testOperationsValidateMutationVendoredSymlinkReported},
+		{name: "file ending in module suffix is not a nested module", run: testOperationsValidateMutationSuffixFileIsNotNestedModule},
+		{name: "unreadable nested directory is skipped", run: testOperationsValidateMutationUnreadableNestedDirSkipped},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testOperationsValidateMutationVendoredSymlinkReported(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
 	target := filepath.Join(modulePath, "target")
@@ -99,7 +111,7 @@ func testOperationsValidateMutationVendoredSymlinkReported(t *testing.T) {
 }
 
 func testOperationsValidateMutationSuffixFileIsNotNestedModule(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")
 	if err := os.WriteFile(filepath.Join(modulePath, "notes.invowkmod"), []byte("not a directory\n"), 0o644); err != nil {
@@ -109,7 +121,7 @@ func testOperationsValidateMutationSuffixFileIsNotNestedModule(t *testing.T) {
 }
 
 func testOperationsValidateMutationUnreadableNestedDirSkipped(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 	skipUnixPermissionMutationTest(t)
 
 	modulePath := createValidModule(t, t.TempDir(), "tools.invowkmod", "tools")

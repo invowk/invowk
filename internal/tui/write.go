@@ -272,6 +272,7 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
 		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
 		width:       configuredWidth,
+		height:      opts.Height,
 		forModal:    forModal,
 	}
 }

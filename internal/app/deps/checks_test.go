@@ -224,83 +224,36 @@ func TestCheckEnvVarDependencies(t *testing.T) {
 
 	ctx := newDependencyExecutionContext(t)
 
-	t.Run("nil deps", func(t *testing.T) {
-		t.Parallel()
-		if err := CheckEnvVarDependencies(nil, nil, ctx); err != nil {
-			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
-		}
-	})
-
-	t.Run("empty env vars", func(t *testing.T) {
-		t.Parallel()
-		deps := &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{}}
-		if err := CheckEnvVarDependencies(deps, nil, ctx); err != nil {
-			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
-		}
-	})
-
-	t.Run("existing var", func(t *testing.T) {
-		t.Parallel()
-		deps := &invowkfile.DependsOn{
-			EnvVars: []invowkfile.EnvVarDependency{
-				{Alternatives: []invowkfile.EnvVarCheck{{Name: "HOME"}}},
-			},
-		}
-		userEnv := map[string]string{"HOME": "/home/user"}
-		if err := CheckEnvVarDependencies(deps, userEnv, ctx); err != nil {
-			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
-		}
-	})
-
-	t.Run("missing var", func(t *testing.T) {
-		t.Parallel()
-		deps := &invowkfile.DependsOn{
-			EnvVars: []invowkfile.EnvVarDependency{
-				{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_VAR"}}},
-			},
-		}
-		userEnv := map[string]string{}
-		err := CheckEnvVarDependencies(deps, userEnv, ctx)
-		if err == nil {
-			t.Fatal("CheckEnvVarDependencies() = nil, want error")
-		}
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
-		}
-		if len(depErr.MissingEnvVars) == 0 {
-			t.Fatal("depErr.MissingEnvVars is empty, want at least one entry")
-		}
-	})
-
-	t.Run("regex match", func(t *testing.T) {
-		t.Parallel()
-		deps := &invowkfile.DependsOn{
-			EnvVars: []invowkfile.EnvVarDependency{
-				{Alternatives: []invowkfile.EnvVarCheck{{Name: "PORT", Validation: "^[0-9]+$"}}},
-			},
-		}
-		userEnv := map[string]string{"PORT": "8080"}
-		if err := CheckEnvVarDependencies(deps, userEnv, ctx); err != nil {
-			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
-		}
-	})
-
-	t.Run("regex fail", func(t *testing.T) {
-		t.Parallel()
-		deps := &invowkfile.DependsOn{
-			EnvVars: []invowkfile.EnvVarDependency{
-				{Alternatives: []invowkfile.EnvVarCheck{{Name: "PORT", Validation: "^[0-9]+$"}}},
-			},
-		}
-		userEnv := map[string]string{"PORT": "not-a-number"}
-		err := CheckEnvVarDependencies(deps, userEnv, ctx)
-		if err == nil {
-			t.Fatal("CheckEnvVarDependencies() = nil, want error")
-		}
-		var depErr *DependencyError
-		if !errors.As(err, &depErr) {
-			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
-		}
-	})
+	tests := []struct {
+		name        string
+		deps        *invowkfile.DependsOn
+		userEnv     map[string]string
+		wantErr     bool
+		wantMissing bool
+	}{
+		{name: "nil deps"},
+		{name: "empty env vars", deps: &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{}}},
+		{name: "existing var", deps: &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "HOME"}}}}}, userEnv: map[string]string{"HOME": "/home/user"}},
+		{name: "missing var", deps: &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_VAR"}}}}}, userEnv: map[string]string{}, wantErr: true, wantMissing: true},
+		{name: "regex match", deps: &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "PORT", Validation: "^[0-9]+$"}}}}}, userEnv: map[string]string{"PORT": "8080"}},
+		{name: "regex fail", deps: &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "PORT", Validation: "^[0-9]+$"}}}}}, userEnv: map[string]string{"PORT": "not-a-number"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := CheckEnvVarDependencies(tt.deps, tt.userEnv, ctx)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("CheckEnvVarDependencies() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				var depErr *DependencyError
+				if !errors.As(err, &depErr) {
+					t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+				}
+				if tt.wantMissing && len(depErr.MissingEnvVars) == 0 {
+					t.Fatal("depErr.MissingEnvVars is empty, want at least one entry")
+				}
+			}
+		})
+	}
 }

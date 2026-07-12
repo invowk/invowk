@@ -32,26 +32,22 @@ func TestLayerProvisioner_Integration(t *testing.T) {
 		t.Skip("skipping provision integration tests: container engine not available")
 	}
 
-	t.Run("CacheMiss_BuildsImage", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testCacheMissBuildsImage(t, engine)
-	})
-	t.Run("CacheHit_SkipsBuild", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testCacheHitSkipsBuild(t, engine)
-	})
-	t.Run("ForceRebuild_RebuildsExistingImage", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testForceRebuildRebuildsExistingImage(t, engine)
-	})
-	t.Run("IsImageProvisioned_TrueAfterProvision", func(t *testing.T) {
-		t.Parallel()
-		testutil.AcquireContainerSemaphore(t)
-		testIsImageProvisionedTrueAfterProvision(t, engine)
-	})
+	tests := []struct {
+		name string
+		run  func(*testing.T, container.Engine)
+	}{
+		{name: "CacheMiss_BuildsImage", run: testCacheMissBuildsImage},
+		{name: "CacheHit_SkipsBuild", run: testCacheHitSkipsBuild},
+		{name: "ForceRebuild_RebuildsExistingImage", run: testForceRebuildRebuildsExistingImage},
+		{name: "IsImageProvisioned_TrueAfterProvision", run: testIsImageProvisionedTrueAfterProvision},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			testutil.AcquireContainerSemaphore(t)
+			tt.run(t, engine)
+		})
+	}
 }
 
 // setupProvisionTest creates a snap-safe temp directory with a minimal binary stub.

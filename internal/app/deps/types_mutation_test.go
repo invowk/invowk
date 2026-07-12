@@ -101,55 +101,69 @@ func TestDependencyFailureMutationContracts(t *testing.T) {
 func TestDependencyErrorFailuresMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("structured failures are cloned", func(t *testing.T) {
-		t.Parallel()
-		original := mustDependencyFailureForTypesMutation(t, DependencyFailureTool, "go")
-		depErr := &DependencyError{StructuredFailures: []DependencyFailure{original}}
-		got := depErr.Failures()
-		if len(got) != 1 || got[0].Kind() != DependencyFailureTool || got[0].Detail() != "go" {
-			t.Fatalf("Failures() = %v, want one tool/go failure", got)
-		}
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "structured failures are cloned", run: func(t *testing.T) {
+			t.Helper()
 
-		got[0] = mustDependencyFailureForTypesMutation(t, DependencyFailureCommand, "build")
-		if depErr.StructuredFailures[0].Kind() != DependencyFailureTool ||
-			depErr.StructuredFailures[0].Detail() != "go" {
-			t.Fatalf("Failures() returned aliased slice; source = %v", depErr.StructuredFailures)
-		}
-	})
+			original := mustDependencyFailureForTypesMutation(t, DependencyFailureTool, "go")
+			depErr := &DependencyError{StructuredFailures: []DependencyFailure{original}}
+			got := depErr.Failures()
+			if len(got) != 1 || got[0].Kind() != DependencyFailureTool || got[0].Detail() != "go" {
+				t.Fatalf("Failures() = %v, want one tool/go failure", got)
+			}
 
-	t.Run("legacy categorized failures skip invalid details and keep order", func(t *testing.T) {
-		t.Parallel()
-		depErr := &DependencyError{
-			MissingTools:        []DependencyMessage{" ", "go"},
-			MissingCommands:     []DependencyMessage{"build"},
-			MissingFilepaths:    []DependencyMessage{"config.cue"},
-			MissingCapabilities: []DependencyMessage{"tty"},
-			FailedCustomChecks:  []DependencyMessage{"lint"},
-			MissingEnvVars:      []DependencyMessage{"TOKEN"},
-			ForbiddenCommands:   []DependencyMessage{"blocked"},
-		}
+			got[0] = mustDependencyFailureForTypesMutation(t, DependencyFailureCommand, "build")
+			if depErr.StructuredFailures[0].Kind() != DependencyFailureTool ||
+				depErr.StructuredFailures[0].Detail() != "go" {
+				t.Fatalf("Failures() returned aliased slice; source = %v", depErr.StructuredFailures)
+			}
+		}},
 
-		got := depErr.Failures()
-		requireDependencyFailuresForTypesMutation(t, got, []string{
-			"tool:go",
-			"command:build",
-			"filepath:config.cue",
-			"capability:tty",
-			"custom_check:lint",
-			"env_var:TOKEN",
-			"forbidden_command:blocked",
+		{name: "legacy categorized failures skip invalid details and keep order", run: func(t *testing.T) {
+			t.Helper()
+
+			depErr := &DependencyError{
+				MissingTools:        []DependencyMessage{" ", "go"},
+				MissingCommands:     []DependencyMessage{"build"},
+				MissingFilepaths:    []DependencyMessage{"config.cue"},
+				MissingCapabilities: []DependencyMessage{"tty"},
+				FailedCustomChecks:  []DependencyMessage{"lint"},
+				MissingEnvVars:      []DependencyMessage{"TOKEN"},
+				ForbiddenCommands:   []DependencyMessage{"blocked"},
+			}
+
+			got := depErr.Failures()
+			requireDependencyFailuresForTypesMutation(t, got, []string{
+				"tool:go",
+				"command:build",
+				"filepath:config.cue",
+				"capability:tty",
+				"custom_check:lint",
+				"env_var:TOKEN",
+				"forbidden_command:blocked",
+			})
+		}},
+
+		{name: "direct dependency failure helper appends valid details", run: func(t *testing.T) {
+			t.Helper()
+
+			got := dependencyFailures(DependencyFailureEnvVar, []DependencyMessage{"TOKEN"})
+			requireDependencyFailuresForTypesMutation(
+				t,
+				got,
+				[]string{"env_var:TOKEN"},
+			)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
 		})
-	})
-
-	t.Run("direct dependency failure helper appends valid details", func(t *testing.T) {
-		t.Parallel()
-		got := dependencyFailures(DependencyFailureEnvVar, []DependencyMessage{"TOKEN"})
-		requireDependencyFailuresForTypesMutation(
-			t,
-			got,
-			[]string{"env_var:TOKEN"},
-		)
-	})
+	}
 }
 
 func TestNormalizeDependencyMessageMutationContracts(t *testing.T) {

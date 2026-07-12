@@ -104,33 +104,66 @@ func (p *recordingRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) (Cu
 func TestCommandResolutionMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil and empty command deps do not discover", testCommandResolutionEmptyDeps)
-	t.Run("resolved command records matched discovery name and original alternatives", testCommandResolutionMatchedCommand)
-	t.Run("missing and forbidden commands both report structured failures", testCommandResolutionStructuredFailures)
-	t.Run("discover uses execution context value", testDiscoverAvailableCommandsUsesContext)
-	t.Run("discovery failure preserves sentinel and cause", testDiscoverAvailableCommandsErrorWrap)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "nil and empty command deps do not discover", run: testCommandResolutionEmptyDeps},
+		{name: "resolved command records matched discovery name and original alternatives", run: testCommandResolutionMatchedCommand},
+		{name: "missing and forbidden commands both report structured failures", run: testCommandResolutionStructuredFailures},
+		{name: "discover uses execution context value", run: testDiscoverAvailableCommandsUsesContext},
+		{name: "discovery failure preserves sentinel and cause", run: testDiscoverAvailableCommandsErrorWrap},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestCommandScopeMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("lock provider fallback only loads for module paths", testCommandScopeLockFallback)
-	t.Run("direct requirement matching requires command identity source and lock", testCommandScopeDirectRequirementMatching)
-	t.Run("scope uses command info module override and every global source", testCommandScopeBuildsCompleteIdentity)
-	t.Run("accessible command reports allowed forbidden and root decisions", testCommandScopeAccessibleCommandDecisions)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "lock provider fallback only loads for module paths", run: testCommandScopeLockFallback},
+		{name: "direct requirement matching requires command identity source and lock", run: testCommandScopeDirectRequirementMatching},
+		{name: "scope uses command info module override and every global source", run: testCommandScopeBuildsCompleteIdentity},
+		{name: "accessible command reports allowed forbidden and root decisions", run: testCommandScopeAccessibleCommandDecisions},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func TestCommandCandidateMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("source candidates de-duplicate prioritized lookups and fallback scan", testSourceCommandCandidates)
-	t.Run("prioritized lookups respect qualified and bare lookup order", testPrioritizedCommandLookups)
-	t.Run("source and simple-name helpers classify command identity", testCommandInfoIdentityHelpers)
-	t.Run("current command source falls back from source id to metadata", testCurrentCommandSourceIDFallback)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "source candidates de-duplicate prioritized lookups and fallback scan", run: testSourceCommandCandidates},
+		{name: "prioritized lookups respect qualified and bare lookup order", run: testPrioritizedCommandLookups},
+		{name: "source and simple-name helpers classify command identity", run: testCommandInfoIdentityHelpers},
+		{name: "current command source falls back from source id to metadata", run: testCurrentCommandSourceIDFallback},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testCommandResolutionEmptyDeps(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	resolved, err := resolveCommandDependenciesWithLockProvider(panicCommandSetProvider{t: t}, nil, nil, ExecutionContext{}, nil)
 	if err != nil {
@@ -156,7 +189,7 @@ func testCommandResolutionEmptyDeps(t *testing.T) {
 }
 
 func testCommandResolutionMatchedCommand(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	available := &discovery.DiscoveredCommandSet{
 		Commands: []*discovery.CommandInfo{{Name: depsMutationCommand}},
@@ -185,7 +218,7 @@ func testCommandResolutionMatchedCommand(t *testing.T) {
 }
 
 func testCommandResolutionStructuredFailures(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	blockedID := invowkmod.ModuleID("io.example.blocked")
 	cmd := depsMutationHostCommand(&invowkfile.DependsOn{
@@ -224,7 +257,7 @@ func testCommandResolutionStructuredFailures(t *testing.T) {
 }
 
 func testDiscoverAvailableCommandsUsesContext(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	wantCtx := context.WithValue(t.Context(), depsMutationContextKey{}, "sentinel")
 	provider := &contextRecordingCommandSetProvider{want: wantCtx}
@@ -241,7 +274,7 @@ func testDiscoverAvailableCommandsUsesContext(t *testing.T) {
 }
 
 func testDiscoverAvailableCommandsErrorWrap(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	cause := errors.New("discovery failed")
 	_, err := discoverAvailableCommands(&stubCommandSetProvider{err: cause}, ExecutionContext{Context: t.Context()})
@@ -254,7 +287,7 @@ func testDiscoverAvailableCommandsErrorWrap(t *testing.T) {
 }
 
 func testCommandScopeLockFallback(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	providerErr := &CommandScopeLockError{Path: "invowkmod.lock.cue", Err: errors.New("corrupt")}
 	provider := staticCommandScopeLockProvider{err: providerErr}
@@ -290,7 +323,7 @@ func testCommandScopeLockFallback(t *testing.T) {
 }
 
 func testCommandScopeDirectRequirementMatching(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	req, lock := depsMutationRequirementAndLock()
 	if !invowkmod.IsDeclaredLockedCommandSource(
@@ -337,7 +370,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 }
 
 func testCommandScopeBuildsCompleteIdentity(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	metadataID := invowkmod.ModuleID("io.example.metadata")
 	overrideID := invowkmod.ModuleID("io.example.override")
@@ -369,7 +402,7 @@ func testCommandScopeBuildsCompleteIdentity(t *testing.T) {
 }
 
 func testCommandScopeAccessibleCommandDecisions(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	allowedID := depsMutationModuleID
 	blockedID := invowkmod.ModuleID("io.example.blocked")
@@ -398,7 +431,7 @@ func testCommandScopeAccessibleCommandDecisions(t *testing.T) {
 }
 
 func testSourceCommandCandidates(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	shared := &discovery.CommandInfo{Name: "tools lint", SimpleName: depsMutationSimple, SourceID: depsMutationSource}
 	fallback := &discovery.CommandInfo{Name: "not-indexed", SimpleName: depsMutationSimple, SourceID: depsMutationSource}
@@ -415,7 +448,7 @@ func testSourceCommandCandidates(t *testing.T) {
 }
 
 func testPrioritizedCommandLookups(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	qualified := &discovery.CommandInfo{Name: "tools lint", SimpleName: depsMutationSimple, SourceID: depsMutationSource}
 	bare := &discovery.CommandInfo{Name: depsMutationSimple}
@@ -436,7 +469,7 @@ func testPrioritizedCommandLookups(t *testing.T) {
 }
 
 func testCommandInfoIdentityHelpers(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	if commandInfoSourceID(nil) != "" {
 		t.Fatal("commandInfoSourceID(nil) should be empty")
@@ -472,7 +505,7 @@ func testCommandInfoIdentityHelpers(t *testing.T) {
 }
 
 func testCurrentCommandSourceIDFallback(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	if currentCommandSourceID(nil) != "" {
 		t.Fatal("currentCommandSourceID(nil) should be empty")

@@ -410,36 +410,27 @@ func TestGitFetcher_ValidateAuth(t *testing.T) {
 
 	// Clear auth so we test the no-auth code path explicitly
 	fetcher.auth = nil
-
-	t.Run("https_no_auth", func(t *testing.T) {
-		t.Parallel()
-		err := fetcher.ValidateAuth("https://github.com/user/repo.git")
-		if err != nil {
-			t.Errorf("ValidateAuth() for HTTPS with no auth should return nil, got: %v", err)
-		}
-	})
-
-	t.Run("ssh_no_auth", func(t *testing.T) {
-		t.Parallel()
-		err := fetcher.ValidateAuth("git@github.com:user/repo.git")
-		if err == nil {
-			t.Fatal("ValidateAuth() for SSH URL with no auth should return error, got nil")
-		}
-		if !errors.Is(err, ErrSSHKeyNotFound) {
-			t.Errorf("error should wrap ErrSSHKeyNotFound, got: %v", err)
-		}
-	})
-
-	t.Run("ssh_protocol_no_auth", func(t *testing.T) {
-		t.Parallel()
-		err := fetcher.ValidateAuth("ssh://git@github.com/user/repo.git")
-		if err == nil {
-			t.Fatal("ValidateAuth() for ssh:// URL with no auth should return error, got nil")
-		}
-		if !errors.Is(err, ErrSSHKeyNotFound) {
-			t.Errorf("error should wrap ErrSSHKeyNotFound, got: %v", err)
-		}
-	})
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "https_no_auth", url: "https://github.com/user/repo.git"},
+		{name: "ssh_no_auth", url: "git@github.com:user/repo.git", wantErr: true},
+		{name: "ssh_protocol_no_auth", url: "ssh://git@github.com/user/repo.git", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := fetcher.ValidateAuth(GitURL(tt.url))
+			if !tt.wantErr && err != nil {
+				t.Fatalf("ValidateAuth() error = %v, want nil", err)
+			}
+			if tt.wantErr && !errors.Is(err, ErrSSHKeyNotFound) {
+				t.Fatalf("ValidateAuth() error = %v, want ErrSSHKeyNotFound", err)
+			}
+		})
+	}
 }
 
 func TestGitFetcher_ListTags(t *testing.T) {

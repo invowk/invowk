@@ -410,30 +410,28 @@ func TestIsTransientExitCode(t *testing.T) {
 func TestFlushStderr(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil destination is no-op", func(t *testing.T) {
-		t.Parallel()
-		src := bytes.NewBufferString("some output")
-		// Should not panic.
-		flushStderr(nil, src)
-	})
-
-	t.Run("empty source is no-op", func(t *testing.T) {
-		t.Parallel()
-		var dst bytes.Buffer
-		src := &bytes.Buffer{}
-		flushStderr(&dst, src)
-		if dst.Len() != 0 {
-			t.Errorf("destination should be empty, got %q", dst.String())
-		}
-	})
-
-	t.Run("content is copied", func(t *testing.T) {
-		t.Parallel()
-		var dst bytes.Buffer
-		src := bytes.NewBufferString("error output")
-		flushStderr(&dst, src)
-		if dst.String() != "error output" {
-			t.Errorf("destination = %q, want %q", dst.String(), "error output")
-		}
-	})
+	tests := []struct {
+		name    string
+		content string
+		nilDst  bool
+	}{
+		{name: "nil destination is no-op", content: "some output", nilDst: true},
+		{name: "empty source is no-op"},
+		{name: "content is copied", content: "error output"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			src := bytes.NewBufferString(tt.content)
+			if tt.nilDst {
+				flushStderr(nil, src)
+				return
+			}
+			var dst bytes.Buffer
+			flushStderr(&dst, src)
+			if dst.String() != tt.content {
+				t.Errorf("destination = %q, want %q", dst.String(), tt.content)
+			}
+		})
+	}
 }

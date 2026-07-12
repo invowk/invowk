@@ -10,17 +10,28 @@ import (
 func TestFilesystemValidationMutationBoundaries(t *testing.T) {
 	t.Parallel()
 
-	t.Run("filename length and control characters", testFilesystemMutationFilenameBoundaries)
-	t.Run("containerfile path length", testFilesystemMutationContainerfilePathLength)
-	t.Run("env file path length and parent segments", testFilesystemMutationEnvFilePathBoundaries)
-	t.Run("filepath dependency indexes and lengths", testFilesystemMutationFilepathDependencyIndexes)
-	t.Run("command dependency name length", testFilesystemMutationCommandDependencyNameLength)
-	t.Run("absolute path dialect boundaries", testFilesystemMutationAbsolutePathDialects)
-	t.Run("windows drive letter byte boundaries", testFilesystemMutationWindowsDriveLetterBoundaries)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "filename length and control characters", run: testFilesystemMutationFilenameBoundaries},
+		{name: "containerfile path length", run: testFilesystemMutationContainerfilePathLength},
+		{name: "env file path length and parent segments", run: testFilesystemMutationEnvFilePathBoundaries},
+		{name: "filepath dependency indexes and lengths", run: testFilesystemMutationFilepathDependencyIndexes},
+		{name: "command dependency name length", run: testFilesystemMutationCommandDependencyNameLength},
+		{name: "absolute path dialect boundaries", run: testFilesystemMutationAbsolutePathDialects},
+		{name: "windows drive letter byte boundaries", run: testFilesystemMutationWindowsDriveLetterBoundaries},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testFilesystemMutationFilenameBoundaries(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	requireFilesystemMutationNoError(t, "filename exact max", ValidateFilename(strings.Repeat("a", 255)))
 	requireFilesystemMutationError(
@@ -38,7 +49,7 @@ func testFilesystemMutationFilenameBoundaries(t *testing.T) {
 }
 
 func testFilesystemMutationContainerfilePathLength(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	requireFilesystemMutationNoError(
 		t,
@@ -54,7 +65,7 @@ func testFilesystemMutationContainerfilePathLength(t *testing.T) {
 }
 
 func testFilesystemMutationEnvFilePathBoundaries(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	requireFilesystemMutationNoError(t, "env file exact max", ValidateEnvFilePath(filesystemMutationPathOfLength(MaxPathLength)))
 	requireFilesystemMutationError(
@@ -84,7 +95,7 @@ func testFilesystemMutationEnvFilePathBoundaries(t *testing.T) {
 }
 
 func testFilesystemMutationFilepathDependencyIndexes(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	exactMaxPath := FilesystemPath(strings.Repeat("a", MaxPathLength))
 	requireFilesystemMutationNoError(
@@ -107,7 +118,7 @@ func testFilesystemMutationFilepathDependencyIndexes(t *testing.T) {
 }
 
 func testFilesystemMutationCommandDependencyNameLength(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	requireFilesystemMutationNoError(
 		t,
@@ -123,7 +134,7 @@ func testFilesystemMutationCommandDependencyNameLength(t *testing.T) {
 }
 
 func testFilesystemMutationAbsolutePathDialects(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tests := []struct {
 		name string
@@ -151,7 +162,7 @@ func testFilesystemMutationAbsolutePathDialects(t *testing.T) {
 }
 
 func testFilesystemMutationWindowsDriveLetterBoundaries(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tests := []struct {
 		name string

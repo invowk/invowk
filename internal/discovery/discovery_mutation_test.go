@@ -23,44 +23,55 @@ const (
 func TestNewMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("defaults keep vendored integrity enabled", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "defaults keep vendored integrity enabled", run: func(t *testing.T) {
+			t.Helper()
 
-		d := New(config.DefaultConfig(), WithBaseDir(""), WithCommandsDir(""))
-		if !d.verifyVendoredIntegrity {
-			t.Fatal("verifyVendoredIntegrity = false, want default true")
-		}
-	})
+			d := New(config.DefaultConfig(), WithBaseDir(""), WithCommandsDir(""))
+			if !d.verifyVendoredIntegrity {
+				t.Fatal("verifyVendoredIntegrity = false, want default true")
+			}
+		}},
 
-	t.Run("explicit empty dirs skip default discovery sources", func(t *testing.T) {
-		t.Parallel()
+		{name: "explicit empty dirs skip default discovery sources", run: func(t *testing.T) {
+			t.Helper()
 
-		d := New(nil, WithBaseDir(""), WithCommandsDir(""))
-		if d.baseDir != "" || d.commandsDir != "" {
-			t.Fatalf("New() dirs = (%q, %q), want explicit empty dirs", d.baseDir, d.commandsDir)
-		}
-		if !d.baseDirSet || !d.commandsDirSet {
-			t.Fatalf("New() set flags = (%v, %v), want both true", d.baseDirSet, d.commandsDirSet)
-		}
-		if len(d.initDiagnostics) != 0 {
-			t.Fatalf("initDiagnostics = %#v, want none", d.initDiagnostics)
-		}
-	})
+			d := New(nil, WithBaseDir(""), WithCommandsDir(""))
+			if d.baseDir != "" || d.commandsDir != "" {
+				t.Fatalf("New() dirs = (%q, %q), want explicit empty dirs", d.baseDir, d.commandsDir)
+			}
+			if !d.baseDirSet || !d.commandsDirSet {
+				t.Fatalf("New() set flags = (%v, %v), want both true", d.baseDirSet, d.commandsDirSet)
+			}
+			if len(d.initDiagnostics) != 0 {
+				t.Fatalf("initDiagnostics = %#v, want none", d.initDiagnostics)
+			}
+		}},
 
-	t.Run("preseeded dirs are not overwritten by defaults", func(t *testing.T) {
-		t.Parallel()
+		{name: "preseeded dirs are not overwritten by defaults", run: func(t *testing.T) {
+			t.Helper()
 
-		d := New(nil, func(d *Discovery) {
-			d.baseDir = "/preseeded/work"
-			d.commandsDir = "/preseeded/cmds"
+			d := New(nil, func(d *Discovery) {
+				d.baseDir = "/preseeded/work"
+				d.commandsDir = "/preseeded/cmds"
+			})
+			if d.baseDir != "/preseeded/work" {
+				t.Fatalf("baseDir = %q, want preseeded value", d.baseDir)
+			}
+			if d.commandsDir != "/preseeded/cmds" {
+				t.Fatalf("commandsDir = %q, want preseeded value", d.commandsDir)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
 		})
-		if d.baseDir != "/preseeded/work" {
-			t.Fatalf("baseDir = %q, want preseeded value", d.baseDir)
-		}
-		if d.commandsDir != "/preseeded/cmds" {
-			t.Fatalf("commandsDir = %q, want preseeded value", d.commandsDir)
-		}
-	})
+	}
 }
 
 func TestNewMutationReportsUnavailableWorkingDirectory(t *testing.T) {
@@ -94,17 +105,28 @@ func TestNewMutationReportsUnavailableCommandsDirectory(t *testing.T) {
 func TestCheckModuleCollisionsMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("skips nil and errored files before later collision", testCheckModuleCollisionsSkipsErroredFiles)
-	t.Run("module collision reports module paths and local source kind", testCheckModuleCollisionsReportsModulePaths)
-	t.Run("command source collision reports namespace and second source", testCheckModuleCollisionsReportsCommandSource)
-	t.Run("vendored collision annotates parent module", testCheckModuleCollisionsReportsVendoredParent)
-	t.Run("module metadata wins over invowkfile fallback metadata", testCheckModuleCollisionsUsesModuleMetadata)
-	t.Run("invalid duplicate module namespace reports validation error", testCheckModuleCollisionsInvalidModuleNamespace)
-	t.Run("invalid duplicate command namespace reports validation error", testCheckModuleCollisionsInvalidCommandNamespace)
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "skips nil and errored files before later collision", run: testCheckModuleCollisionsSkipsErroredFiles},
+		{name: "module collision reports module paths and local source kind", run: testCheckModuleCollisionsReportsModulePaths},
+		{name: "command source collision reports namespace and second source", run: testCheckModuleCollisionsReportsCommandSource},
+		{name: "vendored collision annotates parent module", run: testCheckModuleCollisionsReportsVendoredParent},
+		{name: "module metadata wins over invowkfile fallback metadata", run: testCheckModuleCollisionsUsesModuleMetadata},
+		{name: "invalid duplicate module namespace reports validation error", run: testCheckModuleCollisionsInvalidModuleNamespace},
+		{name: "invalid duplicate command namespace reports validation error", run: testCheckModuleCollisionsInvalidCommandNamespace},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.run(t)
+		})
+	}
 }
 
 func testCheckModuleCollisionsSkipsErroredFiles(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		nil,
@@ -127,7 +149,7 @@ func testCheckModuleCollisionsSkipsErroredFiles(t *testing.T) {
 }
 
 func testCheckModuleCollisionsReportsModulePaths(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		discoveryMutationModuleFile(t, "/first/one.invowkmod", "/ignored/first/invowkfile.cue", discoveryMutationSameModule, discoveryMutationSameModule),
@@ -150,7 +172,7 @@ func testCheckModuleCollisionsReportsModulePaths(t *testing.T) {
 }
 
 func testCheckModuleCollisionsReportsCommandSource(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		discoveryMutationModuleFile(t, "/first/tools.invowkmod", "/first/tools.invowkmod/invowkfile.cue", "io.example.first", "io.example.first"),
@@ -170,7 +192,7 @@ func testCheckModuleCollisionsReportsCommandSource(t *testing.T) {
 }
 
 func testCheckModuleCollisionsReportsVendoredParent(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		discoveryMutationVendoredModuleFile(
@@ -199,7 +221,7 @@ func testCheckModuleCollisionsReportsVendoredParent(t *testing.T) {
 }
 
 func testCheckModuleCollisionsUsesModuleMetadata(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		discoveryMutationModuleFile(t, "/first/one.invowkmod", "/first/one.invowkmod/invowkfile.cue", "io.example.module", "io.example.other"),
@@ -212,7 +234,7 @@ func testCheckModuleCollisionsUsesModuleMetadata(t *testing.T) {
 }
 
 func testCheckModuleCollisionsInvalidModuleNamespace(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		{
@@ -233,7 +255,7 @@ func testCheckModuleCollisionsInvalidModuleNamespace(t *testing.T) {
 }
 
 func testCheckModuleCollisionsInvalidCommandNamespace(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	files := []*DiscoveredFile{
 		discoveryMutationModuleFile(t, "/first/1bad.invowkmod", "/first/1bad.invowkmod/invowkfile.cue", "io.example.first", "io.example.first"),
@@ -336,12 +358,18 @@ func TestLoadFirstMutationContracts(t *testing.T) {
 func TestLoadAllMutationContracts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("parse errors stay attached to discovered files", testLoadAllMutationParseErrorsStayAttached)
-	t.Run("module collisions return load error", testLoadAllMutationModuleCollisionsReturnError)
+	t.Run("parse errors stay attached to discovered files", func(t *testing.T) {
+		t.Parallel()
+		testLoadAllMutationParseErrorsStayAttached(t)
+	})
+	t.Run("module collisions return load error", func(t *testing.T) {
+		t.Parallel()
+		testLoadAllMutationModuleCollisionsReturnError(t)
+	})
 }
 
 func testLoadAllMutationParseErrorsStayAttached(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "invowkfile.cue"), []byte("cmds: ["), 0o644); err != nil {
@@ -364,7 +392,7 @@ func testLoadAllMutationParseErrorsStayAttached(t *testing.T) {
 }
 
 func testLoadAllMutationModuleCollisionsReturnError(t *testing.T) {
-	t.Parallel()
+	t.Helper()
 
 	firstModuleDir, secondModuleDir := createDiscoveryMutationCollisionModules(t)
 	cfg := config.DefaultConfig()

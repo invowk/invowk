@@ -587,17 +587,21 @@ func TestCLICompleter_Complete_PromptMerge(t *testing.T) {
 func TestCLICompleter_Complete_GenericError(t *testing.T) {
 	t.Parallel()
 
+	wantErr := errors.New("command not found")
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "test",
 		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
-			return nil, errors.New("command not found")
+			return nil, wantErr
 		},
 	}
 
 	_, err := c.Complete(t.Context(), "system", "user")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("Complete() error = %v, want wrapped %v", err, wantErr)
 	}
 	if !strings.Contains(err.Error(), "claude CLI failed") {
 		t.Errorf("error should mention tool name: %v", err)
@@ -609,34 +613,30 @@ func TestCLICompleter_Complete_GenericError(t *testing.T) {
 func TestParseClaudeOutput(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid output", func(t *testing.T) {
-		t.Parallel()
-		raw := `{"type":"result","result":"Analysis complete: no issues found.","session_id":"abc-123"}`
-		result, err := parseClaudeOutput(raw)
-		if err != nil {
-			t.Fatalf("parseClaudeOutput: %v", err)
-		}
-		if result != "Analysis complete: no issues found." {
-			t.Errorf("result = %q", result)
-		}
-	})
+	tests := []struct {
+		name    string
+		raw     string
+		want    string
+		wantErr error
+	}{
+		{name: "valid output", raw: `{"type":"result","result":"Analysis complete: no issues found.","session_id":"abc-123"}`, want: "Analysis complete: no issues found."},
+		{name: "empty result", raw: `{"type":"result","result":"","session_id":"abc-123"}`, wantErr: llm.ErrLLMEmptyResponse},
+		{name: "invalid JSON", raw: "not json", wantErr: llm.ErrLLMMalformedResponse},
+	}
 
-	t.Run("empty result", func(t *testing.T) {
-		t.Parallel()
-		raw := `{"type":"result","result":"","session_id":"abc-123"}`
-		_, err := parseClaudeOutput(raw)
-		if !errors.Is(err, llm.ErrLLMEmptyResponse) {
-			t.Errorf("expected llm.ErrLLMEmptyResponse, got %v", err)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("invalid JSON", func(t *testing.T) {
-		t.Parallel()
-		_, err := parseClaudeOutput("not json")
-		if !errors.Is(err, llm.ErrLLMMalformedResponse) {
-			t.Errorf("expected llm.ErrLLMMalformedResponse, got %v", err)
-		}
-	})
+			result, err := parseClaudeOutput(tt.raw)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("parseClaudeOutput() error = %v, want %v", err, tt.wantErr)
+			}
+			if result != tt.want {
+				t.Errorf("parseClaudeOutput() = %q, want %q", result, tt.want)
+			}
+		})
+	}
 }
 
 func TestParseCodexOutput(t *testing.T) {
@@ -672,34 +672,30 @@ func TestParseCodexOutput(t *testing.T) {
 func TestParseGeminiOutput(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid output", func(t *testing.T) {
-		t.Parallel()
-		raw := `{"response":"No security issues detected.","stats":{"input_tokens":50}}`
-		result, err := parseGeminiOutput(raw)
-		if err != nil {
-			t.Fatalf("parseGeminiOutput: %v", err)
-		}
-		if result != "No security issues detected." {
-			t.Errorf("result = %q", result)
-		}
-	})
+	tests := []struct {
+		name    string
+		raw     string
+		want    string
+		wantErr error
+	}{
+		{name: "valid output", raw: `{"response":"No security issues detected.","stats":{"input_tokens":50}}`, want: "No security issues detected."},
+		{name: "empty response", raw: `{"response":"","stats":{}}`, wantErr: llm.ErrLLMEmptyResponse},
+		{name: "invalid JSON", raw: "garbage", wantErr: llm.ErrLLMMalformedResponse},
+	}
 
-	t.Run("empty response", func(t *testing.T) {
-		t.Parallel()
-		raw := `{"response":"","stats":{}}`
-		_, err := parseGeminiOutput(raw)
-		if !errors.Is(err, llm.ErrLLMEmptyResponse) {
-			t.Errorf("expected llm.ErrLLMEmptyResponse, got %v", err)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("invalid JSON", func(t *testing.T) {
-		t.Parallel()
-		_, err := parseGeminiOutput("garbage")
-		if !errors.Is(err, llm.ErrLLMMalformedResponse) {
-			t.Errorf("expected llm.ErrLLMMalformedResponse, got %v", err)
-		}
-	})
+			result, err := parseGeminiOutput(tt.raw)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("parseGeminiOutput() error = %v, want %v", err, tt.wantErr)
+			}
+			if result != tt.want {
+				t.Errorf("parseGeminiOutput() = %q, want %q", result, tt.want)
+			}
+		})
+	}
 }
 
 func TestTryOllama_ProbeSucceeds(t *testing.T) {

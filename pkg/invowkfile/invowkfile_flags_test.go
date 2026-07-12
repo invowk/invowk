@@ -257,7 +257,7 @@ cmds: [
 
 	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
-		t.Error("Parse() should reject duplicate flag names")
+		t.Fatal("Parse() should reject duplicate flag names")
 	}
 	if !strings.Contains(err.Error(), "duplicate") {
 		t.Errorf("Error should mention 'duplicate', got: %v", err)

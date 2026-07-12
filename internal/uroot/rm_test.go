@@ -216,7 +216,7 @@ func TestRmCommand_Run_NonexistentWithoutForce(t *testing.T) {
 	// Without -f, removing nonexistent file should error
 	err := cmd.Run(ctx, []string{"rm", "/nonexistent/file.txt"})
 	if err == nil {
-		t.Error("rm on nonexistent file without -f should error")
+		t.Fatal("rm on nonexistent file without -f should error")
 	}
 
 	// Error should have [uroot] prefix
