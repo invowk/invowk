@@ -138,6 +138,8 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/openspec-archive-change/`](.agents/skills/openspec-archive-change/) - **User-only** (`/openspec-archive-change`). Archive a completed change and finalize specifications using the openspec CLI. **Never auto-invoke.**
 - [`.agents/skills/openspec-explore/`](.agents/skills/openspec-explore/) - **User-only** (`/openspec-explore`). Think through ideas and clarify requirements using the openspec CLI. **Never auto-invoke.**
 - [`.agents/skills/openspec-propose/`](.agents/skills/openspec-propose/) - **User-only** (`/openspec-propose`). Propose a new change with artifacts (proposal, design, tasks) in one step using the openspec CLI. **Never auto-invoke.**
+- [`.agents/skills/openspec-sync-specs/`](.agents/skills/openspec-sync-specs/) - **User-only** (`/openspec-sync-specs`). Sync delta specs into main specs without archiving the change. **Never auto-invoke.**
+- [`.agents/skills/openspec-update-change/`](.agents/skills/openspec-update-change/) - **User-only** (`/openspec-update-change`). Revise existing planning artifacts while keeping the change coherent. **Never auto-invoke.**
 
 
 ### Code Area → Rules/Skills Mapping
@@ -172,7 +174,7 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/types/` | testing, licensing, package-design | go, invowk-typesystem, go-hexagonal-ddd |
 | `tests/cli/` | testing | go, testing, cli, invowk-schema, go-testing |
 | `internal/audit/` | testing, licensing, package-design | go, module-security, go-hexagonal-ddd |
-| `openspec/` | general-rules | openspec-apply-change, openspec-archive-change, openspec-explore, openspec-propose |
+| `openspec/` | general-rules | openspec-apply-change, openspec-archive-change, openspec-explore, openspec-propose, openspec-sync-specs, openspec-update-change |
 | `tools/goplint/` | testing, licensing | go, go-testing |
 
 ## Quick Commands
