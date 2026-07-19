@@ -183,7 +183,7 @@ jobs:
   goplint-exceptions:
     name: goplint (exception governance)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
