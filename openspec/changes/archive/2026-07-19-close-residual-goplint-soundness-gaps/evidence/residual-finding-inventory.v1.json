@@ -1,0 +1,177 @@
+{
+  "format_version": 1,
+  "change": "close-residual-goplint-soundness-gaps",
+  "source": "residual adversarial review of the two active goplint soundness changes",
+  "findings": [
+    {
+      "id": "constructor-success-edge",
+      "production_symbols": ["constructorSSAReturnErrorResult", "constructorSSAErrorResultAtReturn", "buildConstructorSSAIdentityModel"],
+      "minimal_counterexample": "if err != nil { return nil, err } else { return unvalidated, err }",
+      "expected_outcome": "the else-edge return retains the object obligation and is a violation or blocking inconclusive",
+      "evidence_layers": [
+        {"kind": "unit", "path": "tools/goplint/goplint/constructor_return_relation_test.go", "status": "implemented"},
+        {"kind": "production-boundary", "path": "tools/goplint/goplint/testdata/src/constructorvalidates/constructorvalidates.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"}
+      ],
+      "owning_requirement": "Successful constructor returns follow exact control-flow evidence",
+      "tasks": ["1.3", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8"]
+    },
+    {
+      "id": "conditional-summary-result",
+      "production_symbols": ["protocolAbstractState.apply", "protocolResultSummaryInvocations", "protocolRecursiveValidationTransfer"],
+      "minimal_counterexample": "err := MutateThenValidate(&value); alias := err; if alias != nil { return alias }; use(value)",
+      "expected_outcome": "validation is restored only on the continuation proving the exact aliased helper result nil; discarded, overwritten, or mismatched results remain invalid or inconclusive",
+      "evidence_layers": [
+        {"kind": "same-package-boundary", "path": "tools/goplint/goplint/testdata/src/protocol_summary_effects/protocol_summary_effects.go", "status": "implemented"},
+        {"kind": "cross-package-boundary", "path": "tools/goplint/goplint/testdata/src/protocol_summary_effects_cross/app/app.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"},
+        {"kind": "existing-profile-regression", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/targeted-mutation-run.v1.json", "status": "passed-two-prior-survivors"},
+        {"kind": "mutation-expansion", "status": "scope-excluded-no-new-credit"}
+      ],
+      "owning_requirement": "Protocol summaries preserve conditional effect relations",
+      "tasks": ["1.4", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9"]
+    },
+    {
+      "id": "package-stored-literal",
+      "production_symbols": ["buildProtocolProcedureIndex", "protocolSourceProcedureKey", "unresolvedProtocolProcedureAvailability"],
+      "minimal_counterexample": "var callback = func(raw string) { use(Value(raw)) }",
+      "expected_outcome": "the package initializer literal is analyzed exactly once even without a visible call, or emits blocking inconclusive if its procedure identity is unresolved",
+      "evidence_layers": [
+        {"kind": "production-boundary", "path": "tools/goplint/goplint/testdata/src/cfa_non_executable_closure/cfa_non_executable_closure.go", "status": "implemented"},
+        {"kind": "architecture", "path": "tools/goplint/goplint/protocol_procedure_route_test.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"}
+      ],
+      "owning_requirement": "Protocol routing covers every package procedure root",
+      "tasks": ["1.5", "4.1", "4.2", "4.3", "4.4", "4.5", "4.9", "4.10"]
+    },
+    {
+      "id": "preclassification-suppression",
+      "production_symbols": ["protocolPolicySuppressesDefiniteFinding", "reportProtocolAnalysis", "reportProtocolAnalysisAt"],
+      "minimal_counterexample": "an excepted or inline-ignored closure has missing SSA or another blocking protocol uncertainty",
+      "expected_outcome": "classification occurs first and the inconclusive diagnostic remains always visible",
+      "evidence_layers": [
+        {"kind": "architecture", "path": "tools/goplint/goplint/protocol_production_architecture_test.go", "status": "implemented"},
+        {"kind": "production-boundary", "path": "tools/goplint/goplint/testdata/src/protocol_ssa_missing_closure/protocol_ssa_missing_closure.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"}
+      ],
+      "owning_requirement": "Protocol uncertainty is classified before suppression",
+      "tasks": ["1.6", "4.6", "4.7", "4.8", "4.9", "4.10"]
+    },
+    {
+      "id": "post-validation-escape",
+      "production_symbols": ["postValidationTargetEffect", "postValidationNonCallTargetEffect", "analyzeProtocolAliases"],
+      "minimal_counterexample": "validate x, then send &x through a channel or store it indirectly before a protected use; compare with an immutable value copy",
+      "expected_outcome": "mutable escape invalidates proof or is blocking inconclusive; an alias-free immutable copy preserves validation",
+      "evidence_layers": [
+        {"kind": "typed-transfer-unit", "path": "tools/goplint/goplint/protocol_validation_effects_test.go", "status": "implemented"},
+        {"kind": "production-boundary-matrix", "path": "tools/goplint/goplint/testdata/src/post_validation_escapes/post_validation_escapes.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"},
+        {"kind": "mutation-expansion", "status": "scope-excluded-no-new-credit"}
+      ],
+      "owning_requirement": "Post-validation escape and fact uncertainty remain conservative",
+      "tasks": ["1.7", "5.1", "5.2", "5.3", "5.8", "5.9"]
+    },
+    {
+      "id": "imported-fact-shape",
+      "production_symbols": ["validateProtocolSummaryFact", "protocolFunctionIdentity", "validProtocolSummaryEffectForFunction"],
+      "minimal_counterexample": "attach a summary fact with the wrong owner, receiver, target/source slot, condition-result slot, role, or type",
+      "expected_outcome": "the entire relevant fact is rejected and dependent analysis becomes blocking inconclusive",
+      "evidence_layers": [
+        {"kind": "fact-oracle", "path": "tools/goplint/goplint/protocol_summary_fact_test.go", "status": "implemented"},
+        {"kind": "cross-package-boundary", "path": "tools/goplint/goplint/testdata/src/protocol_summary_fact", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"},
+        {"kind": "existing-profile-regression", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/targeted-mutation-run.v1.json", "status": "fact-versioning-case-passed"},
+        {"kind": "mutation-expansion", "status": "scope-excluded-no-comprehensive-slot-role-type-credit"}
+      ],
+      "owning_requirement": "Post-validation escape and fact uncertainty remain conservative",
+      "tasks": ["1.8", "5.4", "5.5", "5.6", "5.7", "5.9"]
+    },
+    {
+      "id": "stable-id-global-identity",
+      "production_symbols": ["PackageScopedFindingID", "semanticNodeKey", "recordFindingStreamIdentity"],
+      "minimal_counterexample": "two import paths share one package leaf and finding shape while unrelated source layout changes raw token positions",
+      "expected_outcome": "IDs remain layout-stable, differ across full import paths, and collisions or duplicate emissions fail before baseline write",
+      "evidence_layers": [
+        {"kind": "unit-and-metamorphic", "path": "tools/goplint/goplint/finding_test.go", "status": "implemented"},
+        {"kind": "collision-boundary", "path": "tools/goplint/goplint/baseline_collision_test.go", "status": "implemented"},
+        {"kind": "migration", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/stable-id-migration.v2.json", "status": "accepted-current-tree"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"}
+      ],
+      "owning_requirement": "Finding identities are globally scoped and source-layout independent",
+      "tasks": ["1.9", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.12"]
+    },
+    {
+      "id": "directive-validation",
+      "production_symbols": ["collectDirectiveSites", "parseDirectiveGroups", "inspectDirectivesInFile"],
+      "minimal_counterexample": "a type, declaration, field, method, parameter, or file directive is misspelled, incomplete, invalid, duplicated, conflicting, or misplaced",
+      "expected_outcome": "one deterministic actionable unknown-directive diagnostic is emitted before any directive consumer runs",
+      "evidence_layers": [
+        {"kind": "directive-oracle", "path": "tools/goplint/goplint/directive_validation_test.go", "status": "implemented"},
+        {"kind": "production-fixtures", "path": "tools/goplint/goplint/testdata/src/exceptions/exceptions.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"},
+        {"kind": "causal-mutation", "status": "not-added-explicit-no-expansion-override", "credit": "none"}
+      ],
+      "owning_requirement": "Goplint directives are total and fail visibly",
+      "tasks": ["1.10", "6.8", "6.9", "6.10", "6.11", "6.12"]
+    },
+    {
+      "id": "false-credit-category-evidence",
+      "production_symbols": ["semanticCategoryRegistry", "validateSemanticRuleCatalog", "validateSemanticEvidenceRegistry"],
+      "minimal_counterexample": "award semantic credit from fixture reordering, labels, forged stage lists, or an unrelated deterministic corpus",
+      "expected_outcome": "credit is accepted only when producer-emitted executed observations contain the claimed category, boundary, stages, dimensions, properties, and populations",
+      "evidence_layers": [
+        {"kind": "category-metamorphic", "path": "tools/goplint/goplint/protocol_metamorphic_test.go", "status": "implemented"},
+        {"kind": "decoded-fuzz-seeds", "path": "tools/goplint/goplint/testdata/fuzz/seed-coverage.v1.json", "status": "implemented"},
+        {"kind": "adversarial-census", "path": "tools/goplint/internal/soundnessevidence/model_test.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"}
+      ],
+      "owning_requirement": "Semantic evidence credit matches executed production stages",
+      "tasks": ["1.11", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7", "7.8", "7.9", "7.10", "7.11", "7.12"]
+    },
+    {
+      "id": "noncausal-mutation-attribution",
+      "production_symbols": ["validateProfile", "attributedGoTestFailures", "executeMutationInWorkspace", "mutationEvidenceCases"],
+      "minimal_counterexample": "the expected test name fails for setup, panic, timeout, compilation, environment, or an unrelated assertion",
+      "expected_outcome": "the mutant is invalid unless a structured observation proves the declared semantic mismatch after clean controls and exact restoration",
+      "evidence_layers": [
+        {"kind": "runner-self-test", "path": "tools/goplint/cmd/targeted-mutation/main_test.go", "status": "implemented"},
+        {"kind": "category-stage-matrix", "path": "tools/goplint/testdata/mutation/soundness-mutants-v2.json", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"},
+        {"kind": "causal-mutation-execution", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/targeted-mutation-run.v1.json", "status": "passed-unchanged-profile-27-0-0"}
+      ],
+      "owning_requirement": "Mutation kills prove the intended mismatch",
+      "tasks": ["1.11", "8.1", "8.2", "8.3", "8.4", "8.5", "8.6", "8.11"]
+    },
+    {
+      "id": "hard-coded-subgate-populations",
+      "production_symbols": ["subgatecensus.Load", "subgatecensus.RunManifest", "subgatecensus.derivePopulations"],
+      "minimal_counterexample": "a regex-selected test is deleted or renamed while the command exits zero and the report retains a constant population",
+      "expected_outcome": "the subgate fails before success unless every manifest member exists and is uniquely observed in the current run",
+      "evidence_layers": [
+        {"kind": "reusable-census", "path": "tools/goplint/internal/subgatecensus", "status": "implemented"},
+        {"kind": "subgate-manifests", "path": "tools/goplint/testdata/subgates", "status": "implemented"},
+        {"kind": "observed-member-census", "path": "tools/goplint/internal/soundnessgate/observed_members.go", "status": "implemented"},
+        {"kind": "literal-population-regression", "path": "tools/goplint/internal/soundnessgate/observed_members_test.go", "status": "implemented"},
+        {"kind": "aggregate-adversarial", "path": "tools/goplint/internal/subgatecensus/runner_test.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"}
+      ],
+      "owning_requirement": "Aggregate subgate populations are executable censuses",
+      "tasks": ["1.11", "8.7", "8.8", "8.9", "8.10", "8.12"]
+    },
+    {
+      "id": "incomplete-diff-proof",
+      "production_symbols": ["cleantreeevidence.Capture", "cleantreeevidence.collectDiffCensus", "cleantreeevidence.Verify", "check-goplint-clean-tree-evidence"],
+      "minimal_counterexample": "a tracked or untracked path from any dependent change is absent from clean-tree selection without a reviewed exclusion",
+      "expected_outcome": "materialization and freshness verification fail until one v3 record binds the complete intended diff, all ledgers, artifacts, observations, and archive order",
+      "evidence_layers": [
+        {"kind": "dependency-ledger", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/change-dependencies.v1.json", "status": "implemented"},
+        {"kind": "complete-diff-census", "path": "tools/goplint/internal/cleantreeevidence/diff_census.go", "status": "implemented"},
+        {"kind": "failure-injection", "path": "tools/goplint/internal/cleantreeevidence/diff_census_test.go", "status": "implemented"},
+        {"kind": "pre-fix-red-observation", "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-reconstruction.v1.json", "status": "retained"},
+        {"kind": "combined-v3-proof", "path": "tools/goplint/testdata/gates/clean-tree-run.v3.json", "status": "passed-and-freshness-verified"}
+      ],
+      "owning_requirement": "Completion proof covers the complete dependent diff",
+      "tasks": ["1.1", "9.1", "9.2", "9.3", "9.4", "9.5", "9.6", "9.7", "9.8", "10.8", "10.9", "10.10"]
+    }
+  ]
+}

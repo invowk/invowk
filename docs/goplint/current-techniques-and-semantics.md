@@ -1,163 +1,219 @@
-# goplint Current Techniques, Concepts, and Theories
+# goplint Current Semantics
 
-Date: 2026-03-05  
-Repository commit analyzed: `9027b0b`  
-Primary scope: `tools/goplint/`
+This document is the implementation-current semantic reference for Invowk's
+`tools/goplint` analyzer. The executable catalog and tests remain authoritative
+when prose and code disagree.
 
-## Scope and Method
+## Analysis families
 
-This document inventories the techniques, concepts, and theories used by the current `goplint` implementation, based on direct source inspection and local test execution.
+goplint registers every diagnostic category as one of three families:
 
-Primary inspected sources:
-- `tools/goplint/goplint/*.go`
-- `tools/goplint/main.go`
-- `tools/goplint/README.md`
+1. Structural checks inspect Go syntax and type information. They cover bare
+   primitives, value-type methods, constructors, functional options,
+   immutability, path boundaries, and related repository conventions.
+2. Protocol checks track validation obligations across control flow and calls.
+   They cover raw-to-value casts, use/escape before validation, constructor
+   validation, closures, helpers, methods, and conditional validation errors.
+3. Cross-artifact checks compare facts outside one syntax tree, including
+   cross-package protocol summaries, Go/CUE enum domains, exception policy,
+   and accepted stable finding IDs.
 
-Validation run during analysis:
-- `cd tools/goplint && GOCACHE=/tmp/go-build go test ./goplint/...`
+[`tools/goplint/spec/semantic-rules.v1.json`](../../tools/goplint/spec/semantic-rules.v1.json)
+mirrors the canonical Go category registry with every category, family, and
+oracle strategy. Each owner is a typed traversal or post-traversal callback
+used by the real analyzer. Catalog validation and the machine-readable census
+reject administrative-only owners, duplicate or stale categories, incompatible
+or missing oracles, and missing required evidence layers. The separate typed
+evidence registry binds every exact category/layer pair to an executable TestID
+and expected observation; credit comes from emitted execution observations,
+not symbol names or artifact markers.
 
-## Semantic Model of What goplint Checks Today
+## Canonical protocol domain
 
-`goplint` enforces DDD-oriented type and protocol contracts through multiple analysis families:
+Protocol analysis uses interned identities for SSA values and abstract objects.
+Facts distinguish allocations, parameters, receivers, result slots, copies,
+and phi nodes. There is no type-only identity fallback.
 
-1. Structural/type-shape checks (AST + `go/types`):
-- Bare primitive usage in struct fields, function params, and returns.
-- Missing/wrong `Validate()`, `String()`, constructors, constructor signatures.
-- Functional-option completeness, immutability, struct `Validate()` presence/signature.
-- Redundant conversion detection.
+Must-alias information is flow-sensitive. Rebinding, stores, new allocations,
+and path joins kill facts that are no longer certain. A relevant may-alias
+ambiguity cannot discharge an obligation; it produces a blocking inconclusive
+outcome.
 
-2. Protocol/dataflow checks (CFG path analysis):
-- Cast-validation: conversion to validatable type must be validated on all return paths.
-- Use-before-validate (same-block and cross-block): no consumption before validation.
-- Constructor-validates: constructor return paths for validatable types require validation.
-- Inconclusive outcomes are explicit and policy-controlled (`error|warn|off`).
+The typestate domain and joins are defined in
+[`protocol-domain.md`](../../tools/goplint/spec/protocol-domain.md). Its public
+result vocabulary is:
 
-3. Cross-artifact and cross-package consistency checks:
-- Validate delegation completeness across struct fields.
-- Nonzero-type pointer usage via cross-package facts.
-- Enum sync between Go `Validate()` switch cases and CUE disjunction members.
+- `violation`: an executable unsafe witness or definite unmet obligation;
+- `inconclusive`: proof is blocked by unsupported or exhausted reasoning;
+- `discharged-infeasible`: checked evidence proves one candidate witness is
+  infeasible.
 
-4. Governance and regression controls:
-- Exception config + inline directives.
-- Deterministic finding IDs and category registry.
-- Baseline suppression by semantic ID.
-- JSONL finding stream + subprocess-based baseline generation and verification.
+The last value is retained evidence, not a finding or a general proof of
+safety. Violations outrank inconclusive paths during fail-closed aggregation;
+otherwise any relevant uncertainty is blocking.
 
-## Technique Inventory (Current Implementation)
+## Validation effects
 
-| Technique Name | Type | Where Implemented | Current Role |
-|---|---|---|---|
-| Modular analyzer plugin architecture (`go/analysis`) | Concept | `goplint/analyzer.go` | Integrates checks as one analyzer with standard facts/diagnostics pipeline |
-| Syntax-directed AST traversal | Technique | `goplint/analyzer_run.go`, `goplint/inspect.go` | Collects declarations, signatures, and directive-local signals |
-| Type-driven filtering and classification (`go/types`) | Technique | `goplint/typecheck.go`, `goplint/inspect_contracts.go` | Distinguishes primitive/raw/named/interface-contract semantics |
-| Declarative mode-flag table | Technique | `goplint/flags.go` | Keeps CLI policy, `--check-all` expansion, and run config synchronized |
-| Request-scoped analyzer state isolation | Concept | `goplint/analyzer.go`, `goplint/flags.go` | Avoids global mutable state and supports parallel test execution |
-| Package include filtering with fact-only fallback | Technique | `goplint/analyzer_run.go` | Suppresses diagnostics for excluded packages while still exporting facts |
-| Exception algebra with glob-style path patterns | Technique | `goplint/config.go` | Controlled suppression for intentional boundary violations |
-| Inline directive micro-language | Technique | `goplint/inspect.go` + directive helpers | Localized, code-adjacent suppression/behavior modifiers |
-| Cross-package fact propagation (`analysis.Fact`) | Technique | `goplint/analyzer_nonzero.go`, `goplint/analyzer_constructor_validates.go` | Transfers nonzero and validates-type semantics across package boundaries |
-| CFG construction over function bodies | Technique | `goplint/cfa.go`, `goplint/path_backend.go` | Basis for path-sensitive protocol checks |
-| Dual backend strategy (`ssa` vs `ast`) | Technique | `goplint/path_backend.go`, `goplint/cfa.go` | Trades precision for robustness via backend selection |
-| No-return pruning with alias tracking | Technique | `goplint/cfa.go` | Improves path precision by recognizing terminating calls and rebindings |
-| Path-sensitive DFS from definition sites | Technique | `goplint/cfa_cast_validation.go`, `goplint/analyzer_constructor_validates_cfa.go` | Finds unsafe return-reaching paths lacking required validation |
-| Tri-state path outcomes (`safe/unsafe/inconclusive`) | Concept | `goplint/cfa_outcome.go` | Makes uncertainty explicit instead of silently assuming safety |
-| Budgeted exploration (states/depth) | Technique | `goplint/cfa.go`, `goplint/analyzer_run.go` | Bounds traversal cost and prevents runaway analysis |
-| Adaptive budget scaling by reachable CFG size | Technique | `goplint/cfa_budget.go` | Normalizes exploration budget across small/large functions |
-| SCC-aware cycle handling (Tarjan) | Technique/Theory | `goplint/cfa_traversal.go` | Avoids unsound cycle skipping and improves revisit policy in loops |
-| Memoized traversal state keyed by mode/target/state | Technique | `goplint/cfa_traversal.go` | Reduces repeated path work and stabilizes results |
-| Interprocedural callee target summaries (slot-aware) | Technique | `goplint/cfa_summary.go` | Models receiver/arg validation effects across helper calls |
-| Recursion-cycle detection in summary derivation | Technique | `goplint/cfa_summary.go` | Prevents infinite interprocedural recursion and marks uncertainty |
-| Closure-classification for synchronous path semantics | Technique | `goplint/cfa_collect.go`, `goplint/cfa.go` | Separates immediate/defer/go closure effects for validation ordering |
-| Condition-context sensitivity for validate evidence | Technique | `goplint/cfa_ubv.go`, `goplint/analyzer_validate_delegation.go` | Avoids counting conditionally non-guaranteed validations as unconditional proof |
-| Witness metadata generation for uncertain paths | Technique | `goplint/cfa_outcome.go`, `goplint/cfa_reporting.go` | Emits machine-readable path/call-chain evidence on inconclusive findings |
-| Category registry as single source of diagnostic policy | Concept | `goplint/categories.go` | Centralizes category taxonomy and baseline suppressibility |
-| Deterministic semantic finding IDs | Technique | `goplint/finding.go` | Stable suppression keys independent from message text |
-| Baseline-as-policy (ID-only suppression) | Concept | `goplint/baseline.go` | Prevents regression by allowing only accepted historical findings |
-| Structured finding sink (JSONL) for fail-closed baseline generation | Technique | `goplint/finding_sink.go`, `main.go` | Ensures baseline generation validates stream integrity vs analyzer output |
-| Subprocess orchestration with tolerant diagnostic exit handling | Technique | `main.go` | Supports update-baseline/global-audit workflows without corrupting outputs |
-| CUE/Go enum cross-validation | Technique | `goplint/analyzer_enum_sync.go` | Compares Go switch domain to CUE disjunction domain |
+Every relevant `Validate()` call is represented as a relation between its
+receiver identity and error-result identity. The receiver becomes validated
+only on a continuation edge that proves the associated error is nil.
 
-## Theoretical Posture in the Current Design
+The same conditional-effect API handles direct selectors, method expressions,
+captured method values, interface-resolved calls, explicit error variables,
+inverted checks, and dominating terminating error branches. Merely assigning,
+logging, blanking, returning without correspondence, or otherwise discarding a
+validation error does not validate continued execution.
 
-### 1. Conservative static analysis (soundness-leaning in CFA checks)
+Cross-package summaries use `ProtocolSummaryFact` v5. Each fact is bound to the
+attached package, exact function or receiver identity, signature arity and slot
+roles, compatible slot types, ordered effects, and the exact condition-result
+slot. Missing, legacy, malformed, or incompatible relevant facts are
+inconclusive as a whole; a compatible subset cannot be reinterpreted as a
+complete no-effect summary. Filtered packages still export facts needed by
+analyzed consumers.
 
-Current CFA checks intentionally prefer conservative treatment when proof is incomplete:
-- all calls may return in AST backend,
-- inconclusive classification when traversal budgets or recursion prevent proof,
-- explicit policy for whether inconclusive findings fail or warn.
+Constructor checks additionally prove object correspondence: the validated
+identity must reach the constructor's matching result slot. Each return is
+classified from its exact SSA/CFG edge and returned error identity; condition
+text or branch ancestry cannot classify both sides of `err != nil` as failure.
+A validation of a different same-typed value does not satisfy the obligation.
 
-This aligns with a conservative over-approximation mindset for safety checks.
+Deferred constructor calls are modeled as procedure effects over the canonical
+graph and applied in LIFO order at each realizable return. Successful discharge
+requires the matching validation and its own nil error relation on every
+successful return path. A conditional defer, overwritten result, early exit,
+panic, ambiguous capture, or unresolved effect remains unvalidated or
+inconclusive as appropriate.
 
-### 2. Graph-theoretic control-flow reasoning
+## Interprocedural analysis
 
-The engine relies on CFG traversal and SCC decomposition:
-- path existence from cast/constructor points to return blocks,
-- cycle-aware revisit strategy,
-- DFS with memoized state.
+The canonical solver builds one deterministic package inventory containing
+every function declaration and function literal, including literals stored in
+package initializer expressions as well as returned, stored, passed,
+callback-style, IIFE, `go`, and `defer` closures. Stable procedure identity
+deduplicates package and enclosing-function discovery. Captured identities come
+from SSA closure bindings; unresolved relevant procedures or ambiguous captures
+are blocking inconclusive outcomes.
 
-This is graph algorithm theory applied to static program safety rules.
+It constructs a deterministic exploded supergraph with procedure, CFG, call,
+return, and call-to-return nodes. Every relevant source call must associate
+with one exact SSA caller, block, and instruction. Nested and sibling calls are
+expanded into separate call/matching-return micro-nodes in SSA order. Missing,
+duplicate, cross-block, or generic-instantiation ambiguity is reported as
+`call-mapping` uncertainty rather than guessed from AST position. Calls and
+returns carry call-site identities, so a callee return reaches only its matching
+caller continuation. Recursion converges through finite facts and summary reuse.
 
-### 3. Protocol/typestate flavor checks
+IFDS-style propagation carries object typestate and escape facts. IDE-style
+edge functions carry conditional validation/error relations. A resolved call
+has no unconditional bypass: its call-to-return edge must model every relevant
+effect. An unresolved call becomes inconclusive only when its effect can change
+a tracked obligation.
 
-Several checks are effectively protocol-state obligations:
-- "constructed value must be validated before use",
-- "constructor must validate before returning target",
-- "field-validatable members must be delegated by struct Validate".
+The centralized `mayReturn` contract recognizes compiler/CFG behavior and
+modeled terminal calls, including `panic`, `os.Exit`, `runtime.Goexit`,
+`log.Fatal`, `log.Fatalf`, and `log.Fatalln`, plus soundly resolved aliases.
+Unknown calls remain conservatively returning.
 
-The implementation does this with syntactic+CFG reasoning rather than a formal typestate lattice.
+## Checked feasibility and refinement
 
-### 4. Governance-aware analysis
+Candidate witnesses are checked using the finite fragment in
+[`ssa-constraints.md`](../../tools/goplint/spec/ssa-constraints.md):
+SSA-versioned nil, boolean, string, and integer equality or inequality atoms,
+with normalized negation, conjunction, and disjunction.
 
-Suppression and regression are first-class semantics:
-- exception patterns and directives are policy inputs,
-- baseline IDs encode accepted debt,
-- diagnostics are categorized by suppressibility policy.
+The decision procedure emits normalized contradiction evidence for UNSAT.
+A separate checker must accept that evidence before a witness is discharged.
+SAT retains the witness. Unsupported predicates, missing SSA, timeouts,
+query/iteration limits, malformed evidence, or checker rejection produce
+inconclusive outcomes.
 
-This provides operational correctness controls beyond pure analysis precision.
+Refinement replays a symbolic witness and iteratively adds supported predicates
+until it retains a feasible violation, checks an infeasibility proof, or reaches
+a resource limit. No configuration can disable this semantic layer or convert
+unknown reasoning into success.
 
-## Correctness Boundaries and Trade-offs (Current)
+## Determinism and governance
 
-1. Soundness is not absolute end-to-end.
-- Bounded exploration can produce inconclusive outcomes.
-- `--cfg-inconclusive-policy=off` can intentionally hide uncertain paths.
+Graph edges, worklists, findings, witnesses, summaries, and refinement evidence
+are normalized before comparison or serialization. Repeated-run and reordered
+worklist/package tests require byte-identical output.
 
-2. Interprocedural precision is selective.
-- Summary analysis focuses on receiver/argument target slots relevant to current protocols.
-- It is not a full general-purpose interprocedural dataflow solver.
+Stable `gpl4` finding IDs encode the full import path plus source-local semantic
+identity rather than package leaf names, raw token positions, file-set order,
+or diagnostic prose. Baselines suppress only exact IDs, use the v2
+`entries = [{id, message}]` format, and are generated using the same canonical
+analyzer configuration used by CI. Duplicate emission or an ID collision fails
+both findings-stream and analysis-JSON collection before a baseline can be
+written.
 
-3. Path feasibility remains bounded and intentionally incomplete.
-- Default CFA reasoning is still structural.
-- Opt-in Phase C adds bounded SMT-backed witness discharge plus localized refinement, but only for a narrow supported predicate vocabulary.
-- Unsupported predicates, solver failures, and timeouts degrade to `unknown`, never optimistic `safe`.
+Directive discovery is likewise centralized across file, declaration, type,
+field, function, method, parameter, and supported statement attachments.
+Unknown, incomplete, invalid, misplaced, duplicate, or conflicting directives
+fail visibly before a consumer runs. Protocol inconclusive categories and
+mixed-category inconclusive outcomes are always visible: baseline parsing,
+collection, and update reject them, and exception or inline-ignore policy is
+not consulted. Exception patterns and review dates are independently audited
+for definite policy findings.
 
-4. Suppression is policy-powerful.
-- Exceptions and baseline entries are operationally necessary, but can hide real issues if overused.
+## Verification contract
 
-5. Cross-package knowledge is fact-based and scoped.
-- Facts improve practical correctness for specific rules, but do not yet provide broad abstract-state exchange.
+`make check-goplint-soundness` is the regular/CI alias for the causal `core`
+aggregate profile. A reviewed machine-readable manifest declares exact command
+vectors, required bound reports, and minimum nonzero populations. The runner
+rejects missing, skipped, stale, duplicate, empty, forged, or successful no-op
+subgates. The core profile runs:
 
-## Evidence Index
+- real-analyzer production integration and historical counterexamples;
+- alternate-production-authority absence checks;
+- the total semantic catalog and behavioral boundary oracles;
+- the bounded independent protocol interpreter as supporting solver-core evidence;
+- the required generated-Go end-to-end comparison through extraction,
+  propagation, aggregation, and diagnostics;
+- committed fuzz-seed replay;
+- constraint/evidence/refinement checks;
+- real package/file/map/worklist/schedule deterministic output checks;
+- the causal zero-survivor targeted mutation profile, whose v2 manifest binds
+  each mutant to exact changed stages, source anchors and hashes, selected root
+  tests, and expected assertion-level semantic mismatches;
+- race/repeat and blocking full-repository scans;
+- separate reference-component and full generated-analyzer performance
+  thresholds plus aggregate-gate self-validation.
 
-Key files for current semantics:
-- `tools/goplint/goplint/analyzer_run.go`
-- `tools/goplint/goplint/flags.go`
-- `tools/goplint/goplint/cfa.go`
-- `tools/goplint/goplint/cfa_traversal.go`
-- `tools/goplint/goplint/cfa_outcome.go`
-- `tools/goplint/goplint/cfa_summary.go`
-- `tools/goplint/goplint/cfa_cast_validation.go`
-- `tools/goplint/goplint/cfa_ubv.go`
-- `tools/goplint/goplint/analyzer_constructor_validates_cfa.go`
-- `tools/goplint/goplint/analyzer_validate_delegation.go`
-- `tools/goplint/goplint/analyzer_nonzero.go`
-- `tools/goplint/goplint/analyzer_enum_sync.go`
-- `tools/goplint/goplint/config.go`
-- `tools/goplint/goplint/baseline.go`
-- `tools/goplint/goplint/categories.go`
-- `tools/goplint/goplint/finding.go`
-- `tools/goplint/goplint/finding_sink.go`
-- `tools/goplint/main.go`
+The scheduled oracle enumerates a manifest-derived strict superset of the core
+cases and compares every generated program with the production analyzer in a
+blocking sharded workflow.
 
-## See Also
+Mutation execution is causal rather than test-name based. The runner requires
+clean pre-controls, an exact source transformation, successful compilation,
+the declared structured mismatch with its full subtest and assertion ID, a
+repeatable identical mismatch, exact restoration, and clean post-controls.
+Setup failures, unrelated assertions, panic, timeout, compilation failure, and
+environment failures are invalid outcomes. Mutation-layer evidence receives
+only the canonical union of `changed_stages` declared by mutants mapped to that
+category.
 
-- [State-of-the-Art Soundness Roadmap](./state-of-the-art-soundness-roadmap.md)
+A soundness completion claim additionally requires a retained exact-tree proof.
+The recorder uses a temporary Git index to assemble the reviewed path selection
+on its base commit, first checks that every tracked or non-ignored untracked
+change is selected or has a sorted, justified reviewed exclusion, executes the
+core profile in that synthetic tree, and binds the tree, per-path complete-diff
+census, tools, inputs, all three dependency-ordered task ledgers, commands,
+observations, populations, and causal mutation sequence. Stale exclusions,
+silent omissions, partial predecessor state, or reordered change ledgers are
+blocking. `make check-goplint-clean-tree-evidence` replays and verifies that
+record without modifying the caller's real index or worktree.
+`make check-goplint-soundness-complete` adds this freshness verifier. Record
+generation uses core rather than complete to avoid a recursive dependency.
+
+CI additionally runs nested-module tests with the race detector, baseline and
+exception governance, and a blocking canonical full-repository scan. See the
+[evidence index](./evidence-index.md) for exact files and commands.
+
+## Resource boundary
+
+State, feasibility-query, refinement-iteration, and feasibility-time
+budgets bound computation. Exhaustion is inconclusive. Witness-length limits
+truncate explanation metadata only. The analyzer provides no production
+selector for alternate protocol semantics, backends, engines, alias policies,
+or uncertainty policies.

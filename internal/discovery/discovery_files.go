@@ -325,6 +325,15 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 		))
 		return files, diagnostics
 	}
+	absDirPath := types.FilesystemPath(absDir)
+	if validationErr := absDirPath.Validate(); validationErr != nil {
+		diagnostics = append(diagnostics, mustDiagnostic(
+			SeverityWarning,
+			CodeModuleScanPathInvalid,
+			fmt.Sprintf("resolved module scan path %q is invalid: %v", absDir, validationErr),
+		))
+		return files, diagnostics
+	}
 
 	// Check if directory exists
 	if _, statErr := os.Stat(absDir); os.IsNotExist(statErr) {
@@ -364,8 +373,15 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 		}
 
 		// Check if it's a module
-		entryPath := filepath.Join(absDir, entry.Name())
-		modPath := types.FilesystemPath(entryPath) //goplint:ignore -- filepath.Join from OS-listed entry
+		modPath, err := validatedDiscoveredEntryPath(absDirPath, entry)
+		if err != nil {
+			diagnostics = append(diagnostics, mustDiagnostic(
+				SeverityWarning,
+				CodeModuleLoadSkipped,
+				fmt.Sprintf("skipping module with invalid path: %v", err),
+			))
+			continue
+		}
 		if !invowkmod.IsModule(modPath) {
 			continue
 		}
@@ -390,7 +406,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 			diagnostics = append(diagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeModuleLoadSkipped,
-				fmt.Sprintf("skipping invalid module at %s: %v", entryPath, err),
+				fmt.Sprintf("skipping invalid module at %s: %v", modPath, err),
 				modPath,
 				err,
 			))
@@ -407,6 +423,17 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 	return files, diagnostics
 }
 
+func validatedDiscoveredEntryPath(baseDir types.FilesystemPath, entry os.DirEntry) (types.FilesystemPath, error) {
+	if entry == nil {
+		return "", errors.New("directory entry is required")
+	}
+	entryPath := types.FilesystemPath(filepath.Join(string(baseDir), entry.Name()))
+	if err := entryPath.Validate(); err != nil {
+		return "", fmt.Errorf("validate discovered entry path: %w", err)
+	}
+	return entryPath, nil
+}
+
 // loadIncludesWithDiagnostics processes configured module include entries and
 // emits warnings for skipped entries while keeping permissive discovery behavior.
 func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnostic) {
@@ -419,7 +446,15 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 
 	for _, entry := range d.cfg.Includes {
 		pathStr := string(entry.Path)
-		includePath := types.FilesystemPath(pathStr) //goplint:ignore -- cross-type conversion from config.ModuleIncludePath
+		includePath := types.FilesystemPath(pathStr)
+		if err := includePath.Validate(); err != nil {
+			diagnostics = append(diagnostics, mustDiagnostic(
+				SeverityWarning,
+				CodeIncludeNotModule,
+				fmt.Sprintf("configured include has invalid path %q: %v", entry.Path, err),
+			))
+			continue
+		}
 		if !invowkmod.IsModule(includePath) {
 			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
@@ -530,7 +565,10 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		}
 
 		entryPath := filepath.Join(vendorDirStr, entry.Name())
-		vendoredModPath := types.FilesystemPath(entryPath) //goplint:ignore -- filepath.Join from OS-listed entry
+		vendoredModPath := types.FilesystemPath(entryPath)
+		if err := vendoredModPath.Validate(); err != nil {
+			return nil, diagnostics, fmt.Errorf("validate vendored module path: %w", err)
+		}
 		if !invowkmod.IsModule(vendoredModPath) {
 			continue
 		}

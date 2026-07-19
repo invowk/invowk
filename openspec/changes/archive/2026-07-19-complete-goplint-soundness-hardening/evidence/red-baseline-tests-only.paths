@@ -1,0 +1,16 @@
+tools/goplint/goplint/protocol_counterexamples_blackbox_test.go
+tools/goplint/goplint/protocol_production_architecture_test.go
+tools/goplint/goplint/protocol_red_baseline_meta_test.go
+tools/goplint/goplint/protocol_red_baseline_test.go
+tools/goplint/goplint/testdata/src/protocol_validation_counterexamples
+tools/goplint/goplint/testdata/src/cfa_join_refinement
+tools/goplint/goplint/testdata/src/cfa_alias_counterexamples
+tools/goplint/goplint/testdata/src/cfa_recursive_summary
+tools/goplint/goplint/testdata/src/cfa_generic_constraints
+tools/goplint/goplint/testdata/src/red_baseline_ambiguous_alias
+tools/goplint/goplint/testdata/src/red_baseline_conditional_validation
+tools/goplint/goplint/testdata/src/red_baseline_constructor_identity
+tools/goplint/goplint/testdata/src/red_baseline_generic_constraint
+tools/goplint/goplint/testdata/src/red_baseline_no_return_alias
+tools/goplint/goplint/testdata/src/red_baseline_recursion
+tools/goplint/goplint/testdata/src/red_baseline_unknown_effect

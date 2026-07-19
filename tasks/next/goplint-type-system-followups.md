@@ -60,10 +60,10 @@ Changed `FilePath` → `types.FilesystemPath`, `CUEPath` → new `CUEPath` type,
 
 Subprocess-based aggregation in `main.go`. Reports patterns stale in ALL packages.
 
-### 4E. Constructor Validates: Follow Method Calls on Return Type — DONE
+### 4E. Constructor Validates: Follow Method Calls on Return Type — SUPERSEDED
 
-Extended `bodyCallsValidateTransitive` to follow `*ast.SelectorExpr` method calls on
-variables whose type matches `returnTypeName`. Uses existing `findMethodBody()`.
+The historical AST helper walk was removed. Canonical conditional procedure
+summaries now carry receiver and result-slot validation effects across helpers.
 
 ### 4I. New Advisory Mode: `--suggest-validate-all` — DONE
 

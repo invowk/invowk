@@ -1,0 +1,35 @@
+{
+  "format_version": 1,
+  "change": "close-residual-goplint-soundness-gaps",
+  "observed_at": "2026-07-17",
+  "scope": "existing-profile-verification-only",
+  "command": "make check-goplint-targeted-mutation",
+  "profile": {
+    "path": "tools/goplint/testdata/mutation/profiles/blocking-v2.json",
+    "sha256": "45092c9da10f1876923610570a0fa997239ee87c132920a7244642cdc3dc213b",
+    "repeat_count": 2
+  },
+  "manifest": {
+    "path": "tools/goplint/testdata/mutation/soundness-mutants-v2.json",
+    "sha256": "d41068282c6ee506d8a9199fdaed8332b828df627f54f2c774cdf92898c8dc06",
+    "mutants": 27,
+    "structured_mismatch_records": 33
+  },
+  "outcome": {
+    "killed": 27,
+    "survived": 0,
+    "invalid": 0,
+    "source_restoration": "passed"
+  },
+  "verified_prior_survivors": [
+    "post-validation-summary/drop-constructor-transfer",
+    "post-validation-unknown/drop-cast-transfer"
+  ],
+  "scope_resolution": {
+    "suite_expanded": false,
+    "new_mutants": 0,
+    "new_profiles": 0,
+    "new_targets": 0,
+    "new_mutation_credit_claimed": false
+  }
+}

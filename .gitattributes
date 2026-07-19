@@ -1,3 +1,7 @@
 # Testscript archives contain fixtures with known checksums and exact byte sequences.
 # Force LF line endings to prevent CRLF conversion on Windows.
 *.txtar text eol=lf
+
+# Unified-diff payloads encode context with a leading space, so checking their
+# literal contents as source whitespace would report structurally required data.
+*.patch -whitespace

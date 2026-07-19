@@ -283,11 +283,12 @@ func newFileModel(opts FileOptions, forModal bool) *fileModel {
 		picker.SetHeight(int(opts.Height))
 	}
 
+	//goplint:ignore -- display labels are accepted at the validated TUI option boundary.
 	return &fileModel{
 		picker:      picker,
 		result:      &result,
-		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
-		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
 		forModal:    forModal,
 	}
 }

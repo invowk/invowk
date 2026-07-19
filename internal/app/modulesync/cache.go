@@ -76,8 +76,10 @@ func (m *Resolver) cacheModule(srcDir, dstDir string, expectedHash ContentHash) 
 		return "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	srcPath := types.FilesystemPath(srcDir) //goplint:ignore -- OS-resolved path from repository checkout
-	dstPath := types.FilesystemPath(dstDir) //goplint:ignore -- resolver-managed cache path
+	//goplint:ignore -- OS-resolved path from repository checkout.
+	srcPath := types.FilesystemPath(srcDir)
+	//goplint:ignore -- resolver-managed cache path.
+	dstPath := types.FilesystemPath(dstDir)
 	if err := modulecache.CopyModuleDir(srcPath, dstPath); err != nil {
 		return "", err
 	}

@@ -284,9 +284,10 @@ func smokeBuildEngine(ctx context.Context, engine container.Engine) error {
 	}
 
 	tag := container.ImageTag(fmt.Sprintf("invowk-test-smoke:%d", time.Now().UnixNano()))
+	//goplint:ignore -- smoke-build paths are created locally and use a fixed Dockerfile name
 	if err := engine.Build(ctx, container.BuildOptions{
-		ContextDir: container.HostFilesystemPath(tmpDir),       //goplint:ignore -- temp dir for smoke build
-		Dockerfile: container.HostFilesystemPath("Dockerfile"), //goplint:ignore -- deterministic smoke dockerfile name
+		ContextDir: container.HostFilesystemPath(tmpDir),
+		Dockerfile: container.HostFilesystemPath("Dockerfile"),
 		Tag:        tag,
 		Stdout:     io.Discard,
 		Stderr:     io.Discard,

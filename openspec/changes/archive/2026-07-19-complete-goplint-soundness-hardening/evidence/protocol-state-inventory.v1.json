@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "audited_on": "2026-07-14",
+  "scope": "tools/goplint/goplint compiled non-test Go sources",
+  "canonical_authority": {
+    "type": "protocolAbstractState",
+    "file": "tools/goplint/goplint/protocol_domain.go",
+    "dimensions": [
+      "validation obligation",
+      "pre-validation hazards",
+      "uncertainty set",
+      "edge-conditioned validation result",
+      "identity relevance",
+      "possible conservative effects"
+    ],
+    "production_carriers": [
+      "interprocEntryFact.state",
+      "interprocPathEdge.state",
+      "interprocProcedureSummary.state",
+      "interprocProcedureSummary.exitStateBefore",
+      "interprocWitnessEdge.StateBefore",
+      "interprocWitnessEdge.StateAfter"
+    ],
+    "aggregation": [
+      "protocolAbstractState.lessEqual",
+      "protocolAbstractState.join",
+      "protocolAbstractState.apply",
+      "protocolAbstractState.withUncertainty"
+    ]
+  },
+  "migrated_parallel_state": [
+    {
+      "former_authority": "ideValidationState",
+      "status": "deleted",
+      "replacement": "protocolAbstractState"
+    },
+    {
+      "former_authority": "tabulation reason, possible-effects, and identity sibling fields",
+      "status": "deleted",
+      "replacement": "protocolAbstractState.Uncertainty, PossibleEffects, and Identity"
+    },
+    {
+      "former_authority": "five-row interprocConditionalEdgeFunc state table",
+      "status": "deleted",
+      "replacement": "finite two-input transformer over canonical required/proven states"
+    },
+    {
+      "former_authority": "left-biased joinPathOutcomeReasons",
+      "status": "deleted",
+      "replacement": "uncertainty bit-set accumulation with deterministic reporting projection"
+    },
+    {
+      "former_authority": "calleeSummaryEffectState",
+      "status": "deleted",
+      "replacement": "calleeTargetSummary.protocolStateFrom transforms protocolAbstractState"
+    },
+    {
+      "former_authority": "protocolAliasState",
+      "status": "deleted",
+      "replacement": "flow-sensitive protocolAliasAnalysis"
+    },
+    {
+      "former_authority": "protocolRecursiveValidationNode",
+      "status": "deleted",
+      "replacement": "buildProtocolRecursiveSummary emits canonical calleeTargetSummary fixed-point evidence"
+    }
+  ],
+  "retained_adapters": [
+    {
+      "authority": "ideState* exemplars and ideEdgeFunc* transfer vocabulary",
+      "status": "canonical adapters over protocolAbstractState",
+      "required_action": "retain while they remain typed adapters and do not store or join an independent semantic state"
+    }
+  ],
+  "remaining_migration_plan": [
+    {
+      "authority": "pathOutcomeReason and interprocOutcomeClass",
+      "status": "diagnostic projection",
+      "planned_task": "2.7",
+      "required_action": "keep output-only and prove every retained uncertainty trigger reaches the real analyzer"
+    }
+  ],
+  "blocking_assertion": "TestProtocolProductionArchitecture"
+}

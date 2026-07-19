@@ -21,8 +21,14 @@ func readScriptFileFacts(ctx context.Context, scriptPath, modulePath string) (sc
 	if modulePath != "" && !filepath.IsAbs(resolved) {
 		resolved = filepath.Join(modulePath, resolved)
 	}
-	resolvedPath := types.FilesystemPath(resolved) //goplint:ignore -- resolved from validated module/script path inputs.
-	facts := scriptFileFacts{Path: resolvedPath}
+	facts := scriptFileFacts{}
+	if resolved != "" {
+		resolvedPath := types.FilesystemPath(resolved)
+		if err := resolvedPath.Validate(); err != nil {
+			return facts, fmt.Errorf("validate resolved script path: %w", err)
+		}
+		facts.Path = resolvedPath
+	}
 
 	if err := scanContextErr(ctx); err != nil {
 		return facts, err

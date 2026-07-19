@@ -533,7 +533,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 
 		providerErr := &CommandScopeLockError{
-			Path: types.FilesystemPath(filepath.Join(moduleDir, invowkmod.LockFileName)),
+			Path: filepath.Join(moduleDir, invowkmod.LockFileName),
 			Err:  errors.New("corrupt lock"),
 		}
 		err := CheckCommandDependenciesExistWithLockProvider(disc, deps, callerInfo, ctx, staticCommandScopeLockProvider{err: providerErr})

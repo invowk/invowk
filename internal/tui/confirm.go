@@ -97,8 +97,7 @@ func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
-		m.width = TerminalDimension(msg.Width)
-		m.height = TerminalDimension(msg.Height)
+		m.width, m.height = validatedWindowDimensions(msg)
 	}
 
 	return m, nil
@@ -275,12 +274,13 @@ func (b *ConfirmBuilder) Model() EmbeddableComponent {
 func newConfirmModel(opts ConfirmOptions, forModal bool) *confirmModel {
 	result := opts.Default
 
+	//goplint:ignore -- display labels are accepted at the validated TUI option boundary.
 	return &confirmModel{
 		result:      &result,
-		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
-		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
-		affirmative: types.DescriptionText(opts.Affirmative), //goplint:ignore -- display text from TUI options
-		negative:    types.DescriptionText(opts.Negative),    //goplint:ignore -- display text from TUI options
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
+		affirmative: types.DescriptionText(opts.Affirmative),
+		negative:    types.DescriptionText(opts.Negative),
 		selection:   opts.Default,
 		forModal:    forModal,
 	}

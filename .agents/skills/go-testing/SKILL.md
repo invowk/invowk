@@ -65,6 +65,13 @@ When a test failure is platform-specific, consult the right platform skill:
 4. After the fix, verify with the narrow reproduction and the repo target that
    owns that surface.
 
+For tests under `tools/goplint`, the owning aggregate target is
+`make check-goplint-soundness`. It combines real-analyzer integration and
+counterexamples, architecture absence, the semantic catalog, supporting
+solver-core and required generated-Go end-to-end oracles, committed fuzz seeds,
+checked SSA refinement, determinism, causal targeted mutation, race/repeat,
+full-scan, and benchmark thresholds; focused `go test` runs do not replace it.
+
 ## Toolchain Reference Router
 
 Use the smallest reference that owns the question:

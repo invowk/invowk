@@ -249,8 +249,7 @@ func (e *InvalidImplementationMatchError) Unwrap() error { return ErrInvalidImpl
 // Delegates to Script.Validate() (zero-valid), RuntimeConfig.Validate() for each runtime,
 // PlatformConfig.Validate() for each platform, and validates optional fields when non-empty/non-nil.
 //
-//goplint:ignore -- helper-based delegation keeps field-order stability while reducing Sonar complexity.
-//goplint:ignore -- Sonar refactor keeps optional-field validation local without changing behavior.
+//goplint:ignore -- helper-based Sonar refactor keeps optional-field validation local and field-order stable.
 func (s Implementation) Validate() error {
 	var errs []error
 	appendFieldError(&errs, s.Script.Validate())

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "observations": [
+    {
+      "id": "ordered-nested-call-micro-nodes",
+      "command": "go test -count=1 -run '^TestBuildInterprocSupergraphOrdersNestedCalls$' ./goplint",
+      "working_directory": "tools/goplint",
+      "expected_before_fix": "fail",
+      "observed_before_fix": "build failed because interprocNodeID had no CallOrdinal field; the production graph represented only one call/return pair per CFG AST node",
+      "evidence": [
+        "cfa_interproc_graph_test.go: inner.CallOrdinal undefined",
+        "cfa_interproc_graph_test.go: outer.CallOrdinal undefined"
+      ]
+    },
+    {
+      "id": "ordered-call-production-boundary",
+      "command": "go test -count=1 -run '^TestProtocolReviewGapsBlackBox/ordered_calls$' ./goplint",
+      "working_directory": "tools/goplint",
+      "expected_before_fix": "fail",
+      "observed_before_fix": "the registered analyzer emitted no protocol diagnostic for consume(mutate(&value)) after validation because the outer call hid the inner mutation; sibling mutation and unresolved-effect calls in the same expression were likewise skipped",
+      "evidence": [
+        "protocol_ordered_calls.NestedMutation: missing cast-validation diagnostic",
+        "protocol_ordered_calls.SiblingMutation: missing cast-validation diagnostic",
+        "protocol_ordered_calls.UnresolvedSibling: missing blocking inconclusive diagnostic"
+      ]
+    },
+    {
+      "id": "deferred-constructor-exit-lifo",
+      "command": "go test -count=1 -run '^TestConstructorDeferredValidationUsesExitTimeLIFOPaths$' ./goplint",
+      "working_directory": "tools/goplint",
+      "expected_before_fix": "fail",
+      "observed_before_fix": "conditional validation and validation followed by a later LIFO overwrite were incorrectly safe; an unresolved deferred effect was incorrectly a definite violation instead of blocking inconclusive",
+      "evidence": [
+        "Conditional: got safe, want unsafe",
+        "ValidationThenOverwrite: got safe, want unsafe",
+        "Unresolved: got unsafe, want inconclusive unresolved-target"
+      ]
+    },
+    {
+      "id": "deferred-constructor-production-boundary",
+      "command": "go test -count=1 -run '^TestProtocolReviewGapsBlackBox/deferred_constructors$' ./goplint",
+      "working_directory": "tools/goplint",
+      "expected_before_fix": "fail",
+      "observed_before_fix": "the registered analyzer accepted conditional and overwritten deferred validation as safe and did not surface the unresolved or capture-rebound deferred effects as blocking inconclusive",
+      "evidence": [
+        "constructorvalidates_deferred.NewConditional: missing violation",
+        "constructorvalidates_deferred.NewValidationThenOverwrite: missing violation",
+        "constructorvalidates_deferred.NewUnresolved: missing blocking inconclusive",
+        "constructorvalidates_deferred.NewCaptureRebound: missing blocking inconclusive"
+      ]
+    },
+    {
+      "id": "escaping-closure-production-boundary",
+      "command": "go test -count=1 -run '^TestProtocolReviewGapsBlackBox/(escaping_closures|cross-package_escaping_closure)$' ./goplint",
+      "working_directory": "tools/goplint",
+      "expected_before_fix": "fail",
+      "observed_before_fix": "returned, stored, passed, callback-style, nested, recursive, and cross-package escaping function literals were classified as non-executable when no same-body invocation was visible, so their local casts produced no diagnostics",
+      "evidence": [
+        "cfa_escaping_closure.Returned: missing local cast violation",
+        "cfa_escaping_closure.Stored: missing local cast violation",
+        "cfa_escaping_closure.Passed: missing local cast violation",
+        "cfa_escaping_closure.Callback: missing local cast violation",
+        "cfa_escaping_closure.NestedReturned: missing nested local cast violation",
+        "cfa_escaping_closure.RecursiveCallback: missing recursive local cast violation",
+        "cfa_escaping_closure_cross/lib.Returned: missing cross-package local cast violation"
+      ]
+    }
+  ]
+}

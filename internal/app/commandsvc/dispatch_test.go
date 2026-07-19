@@ -312,7 +312,7 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 			executor := &stubInteractiveExecutor{}
 			svc := &Service{interactive: executor}
 			result, fallback, err := svc.executeWithRequestedMode(
-				Request{Interactive: tt.interactive, Verbose: tt.verbose},
+				Request{Name: "test-command", Interactive: tt.interactive, Verbose: tt.verbose},
 				&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtualSh, Context: t.Context()},
 				&testRuntimeSession{registry: registry},
 			)

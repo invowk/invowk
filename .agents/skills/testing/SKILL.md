@@ -80,6 +80,9 @@ make check-windows-build
 # Repository completion gates
 make lint
 make test
+
+# goplint analyzer or semantic fixture changes
+make check-goplint-soundness
 ```
 
 Add the surface-specific gates from `.agents/rules/checklist.md`; do not treat a

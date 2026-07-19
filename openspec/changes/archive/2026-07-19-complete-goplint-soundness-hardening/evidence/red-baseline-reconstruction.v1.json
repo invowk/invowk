@@ -1,0 +1,62 @@
+{
+  "format_version": 1,
+  "status": "complete",
+  "predecessor_commit": "7192954d9fae183d848009c1874dde5feb2d3e90",
+  "predecessor_tree": "4e0bc9fe1cf00105257f6d11887ea26135ee3d17",
+  "predecessor_parent": "c544dfc81cb486d1c17949cee92b82bc9cda3910",
+  "tests_only_tree": "d84b0829032f92d4f080567d56cca596ed6052a8",
+  "synthetic_commit": "ea66b239995549c59d384861eae2cda76db1e7d4",
+  "path_selection": "red-baseline-tests-only.paths",
+  "command": "go test -count=1 ./goplint -run '^(TestProtocolCounterexamplesBlackBox|TestProtocolProductionArchitecture|TestProtocolTestsUseCanonicalComponents|TestProtocolRedBaselineBlackBox|TestProtocolRedBaselineMetaContracts)$'",
+  "fixed_tree_control": {
+    "status": "passed",
+    "selected_test_events": 30
+  },
+  "predecessor_overlay": {
+    "status": "failed_as_expected",
+    "exit_code": 1,
+    "selected_test_events_passed": 2,
+    "selected_test_events_failed": 28,
+    "proved_red": [
+      "conditional-validation-edge",
+      "constructor-return-identity",
+      "post-validation-unknown-effect",
+      "joined-state-witness-mismatch",
+      "late-timeout-discharge",
+      "missing-ssa-fallback",
+      "ambiguous-alias-optimism",
+      "concrete-stack-recursion",
+      "no-return-alias-rebinding",
+      "generic-obligation-disappears",
+      "alternate-production-authorities",
+      "catalog-coverage-not-total",
+      "bounded-oracle-fixed-topology",
+      "oracle-bypasses-production",
+      "synthetic-determinism-and-fuzz",
+      "mutation-kill-not-causal",
+      "aggregate-gate-vacuity",
+      "completion-proof-not-reproducible"
+    ],
+    "proof_mapping": {
+      "conditional-validation-edge": "TestProtocolRedBaselineBlackBox/conditional-validation-edge",
+      "constructor-return-identity": "TestProtocolRedBaselineBlackBox/constructor-return-identity",
+      "post-validation-unknown-effect": "TestProtocolRedBaselineBlackBox/post-validation-unknown-effect",
+      "joined-state-witness-mismatch": "TestProtocolRedBaselineMetaContracts/joined-state-witness-mismatch",
+      "late-timeout-discharge": "TestProtocolRedBaselineMetaContracts/late-timeout-discharge",
+      "missing-ssa-fallback": "TestProtocolRedBaselineMetaContracts/missing-ssa-fallback",
+      "ambiguous-alias-optimism": "TestProtocolRedBaselineBlackBox/ambiguous-alias-optimism",
+      "concrete-stack-recursion": "TestProtocolRedBaselineMetaContracts/concrete-stack-recursion",
+      "no-return-alias-rebinding": "TestProtocolRedBaselineBlackBox/no-return-alias-rebinding and TestProtocolRedBaselineMetaContracts/no-return-alias-rebinding",
+      "generic-obligation-disappears": "TestProtocolRedBaselineBlackBox/generic-obligation-disappears and TestProtocolCounterexamplesBlackBox/cfa_generic_constraints",
+      "alternate-production-authorities": "TestProtocolProductionArchitecture and TestProtocolTestsUseCanonicalComponents",
+      "catalog-coverage-not-total": "TestProtocolRedBaselineMetaContracts/catalog-coverage-not-total",
+      "bounded-oracle-fixed-topology": "TestProtocolRedBaselineMetaContracts/bounded-oracle-fixed-topology",
+      "oracle-bypasses-production": "TestProtocolRedBaselineMetaContracts/oracle-bypasses-production",
+      "synthetic-determinism-and-fuzz": "TestProtocolRedBaselineMetaContracts/synthetic-determinism-and-fuzz/determinism and TestProtocolRedBaselineMetaContracts/synthetic-determinism-and-fuzz/fuzz",
+      "mutation-kill-not-causal": "TestProtocolRedBaselineMetaContracts/mutation-kill-not-causal",
+      "aggregate-gate-vacuity": "TestProtocolRedBaselineMetaContracts/aggregate-gate-vacuity",
+      "completion-proof-not-reproducible": "TestProtocolRedBaselineMetaContracts/completion-proof-not-reproducible"
+    }
+  },
+  "completion_rule": "Complete red evidence requires every audit-matrix finding to fail on the exact predecessor implementation for its expected semantic or structural reason while the identical selected test set passes on the corrected tree. Both conditions are satisfied."
+}

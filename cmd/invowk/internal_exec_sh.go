@@ -145,11 +145,13 @@ func parseVirtualFilesystemPathsJSON(raw string) (invowkfile.VirtualFilesystemPa
 	}
 	paths := make(invowkfile.VirtualFilesystemPaths, len(decoded))
 	for name, path := range decoded {
-		pathName := invowkfile.VirtualFilesystemPathName(name) //goplint:ignore -- internal CLI JSON boundary value validated immediately below.
+		//goplint:ignore -- internal CLI JSON boundary value validated immediately below.
+		pathName := invowkfile.VirtualFilesystemPathName(name)
 		if err := pathName.Validate(); err != nil {
 			return nil, err
 		}
-		filesystemPath := invowkfile.VirtualFilesystemPath(path) //goplint:ignore -- internal CLI JSON boundary value validated immediately below.
+		//goplint:ignore -- internal CLI JSON boundary value validated immediately below.
+		filesystemPath := invowkfile.VirtualFilesystemPath(path)
 		if err := filesystemPath.Validate(); err != nil {
 			return nil, err
 		}

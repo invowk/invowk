@@ -17,10 +17,24 @@
 | Type check (JSON) | `make check-types-json` |
 | Type check (all DDD) | `make check-types-all` |
 | Type check (all JSON) | `make check-types-all-json` |
-| Semantic spec check | `make check-semantic-spec` |
-| IFDS compatibility check | `make check-ifds-compat` |
-| Phase C refinement check | `make check-cfg-refinement` |
-| Phase D alias check | `make check-cfg-alias` |
+| Canonical goplint soundness (regular/CI core profile) | `make check-goplint-soundness` or `make check-goplint-soundness-core` |
+| goplint completion proof (includes retained exact-tree freshness) | `make check-goplint-soundness-complete` |
+| Generate retained goplint exact-tree record | `make generate-goplint-clean-tree-evidence` |
+| Verify retained goplint exact-tree record | `make check-goplint-clean-tree-evidence` |
+| Mutation-kernel category coverage | `make check-goplint-mutation-kernel-coverage` |
+| Production protocol integration | `make check-goplint-production-integration` |
+| Historical counterexamples | `make check-goplint-counterexamples` |
+| Production architecture absence | `make check-goplint-architecture` |
+| Semantic catalog/oracles | `make check-semantic-spec` |
+| Solver-core reference model | `make check-goplint-protocol-oracle` |
+| Generated-Go end-to-end oracle | `make check-goplint-end-to-end-oracle` |
+| Scheduled strict-superset oracle | `make check-goplint-protocol-oracle-scheduled` |
+| SSA refinement check | `make check-cfg-refinement` |
+| Protocol determinism | `make check-goplint-determinism` |
+| Targeted soundness mutation | `make check-goplint-targeted-mutation` |
+| goplint race/repeat evidence | `make check-goplint-race-repeat` |
+| Canonical goplint full scan | `make check-goplint-full-scan` |
+| goplint benchmark thresholds | `make check-goplint-benchmarks` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
 | Mutation dry-run | `make mutation-dry-run` |
@@ -193,6 +207,13 @@ go test -v ./pkg/invowkfile/...
 
 Mutation testing is a separate manual quality signal and does not run as part of `make test`, the regular CI test matrix, or PR status checks. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; the initial `tools/goplint` full profile mutates explicit analyzer source files from the nested module root rather than every support file. Broaden either profile only after local/manual advisory timing and survivor data are stable.
 
+The separate targeted soundness mutation gate is blocking. It applies the
+versioned manifest in `tools/goplint/testdata/mutation/` inside isolated module
+copies, rejects compile failures as invalid mutants, permits no baseline, and
+requires every protocol-soundness mutant to be killed. The retained blocking
+profile repeats each focused guard twice; add no scheduled or broader profile
+without an explicit mutation-suite expansion decision.
+
 Current `go-mutesting` terminal labels are explicit: `KILLED` means tests caught
 the mutant, and `ESCAPED` means the mutant survived. Automation should continue
 to use summary/agentic JSON fields or stable mutant IDs instead of scraping
@@ -214,6 +235,9 @@ make mutation-baseline-update MUTATION_MODULE=root
 
 # Rerun one escaped mutant by stable id from go-mutesting-agentic.json
 make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>
+
+# Blocking zero-survivor protocol soundness profile
+make check-goplint-targeted-mutation
 ```
 
 Profiles:
@@ -364,7 +388,7 @@ goreleaser release --snapshot --clean
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, all-module govulncheck |
-| `lint.yml` | Push/PR to main (Go code/lint config changes) | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, goplint baseline gate, goplint exception governance, and goplint behavior gates + advisory goplint full scan |
+| `lint.yml` | Push/PR to main (Go code/lint config changes) | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, goplint baseline gate, goplint exception governance, soundness-assurance gates, and the blocking canonical goplint full scan |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
 | `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |

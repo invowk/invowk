@@ -187,9 +187,39 @@ func (o *cliExecutionObserver) InteractiveFallback(runtimeName invowkfile.Runtim
 // ServiceErrors for CLI rendering. Dry-run results are rendered here.
 func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	if err := req.Validate(); err != nil {
-		return ExecuteResult{}, nil, renderAndWrapServiceError(err, req)
+		return ExecuteResult{}, nil, err
 	}
+	return a.executeValidated(ctx, req)
+}
 
+// ResolveFromSource delegates source-filtered command selection to the command service.
+func (a *cliCommandAdapter) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, ExecuteRequest{}, nil, err
+	}
+	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveFromSource(ctx, req)
+	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
+}
+
+// ResolveCommand delegates command selection to the command service.
+func (a *cliCommandAdapter) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, ExecuteRequest{}, nil, err
+	}
+	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveCommand(ctx, req)
+	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
+}
+
+// ResolveWatchPlan delegates watch command selection and planning to the command service.
+func (a *cliCommandAdapter) ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, ExecuteRequest{}, commandsvc.WatchPlan{}, nil, err
+	}
+	cmdInfo, resolvedReq, plan, commandDiags, err := a.svc.ResolveWatchPlan(ctx, req)
+	return cmdInfo, resolvedReq, plan, convertCommandDiagnostics(commandDiags), err
+}
+
+func (a *cliCommandAdapter) executeValidated(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	result, commandDiags, err := a.svc.Execute(ctx, req)
 	diags := convertCommandDiagnostics(commandDiags)
 
@@ -204,24 +234,6 @@ func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (Ex
 		err = renderAndWrapServiceError(err, req)
 	}
 	return ExecuteResult{ExitCode: result.ExitCode}, diags, err
-}
-
-// ResolveFromSource delegates source-filtered command selection to the command service.
-func (a *cliCommandAdapter) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
-	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveFromSource(ctx, req)
-	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
-}
-
-// ResolveCommand delegates command selection to the command service.
-func (a *cliCommandAdapter) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
-	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveCommand(ctx, req)
-	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
-}
-
-// ResolveWatchPlan delegates watch command selection and planning to the command service.
-func (a *cliCommandAdapter) ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
-	cmdInfo, resolvedReq, plan, commandDiags, err := a.svc.ResolveWatchPlan(ctx, req)
-	return cmdInfo, resolvedReq, plan, convertCommandDiagnostics(commandDiags), err
 }
 
 func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagnostic {

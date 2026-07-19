@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -257,7 +258,11 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			simpleName := cmd.Name
 			fullName := simpleName
 			if isModule {
-				fullName = invowkfile.CommandName(string(sourceID) + " " + string(simpleName)) //goplint:ignore -- source ID and simple name were validated by discovery/schema
+				var nameErr error
+				fullName, nameErr = buildModuleCommandName(sourceID, simpleName)
+				if nameErr != nil {
+					return CommandSetResult{}, fmt.Errorf("build module command name: %w", nameErr)
+				}
 			}
 
 			commandSet.Add(&CommandInfo{
@@ -308,8 +313,8 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 		return LookupResult{}, err
 	}
 
-	cmdName := invowkfile.CommandName(name)
-	if err := cmdName.Validate(); err != nil {
+	cmdName := invowkfile.CommandName(name) //goplint:ignore -- validated as a simple or source-qualified command name below.
+	if err := validatePublishedCommandName(cmdName); err != nil {
 		return LookupResult{}, fmt.Errorf("invalid command name: %w", err)
 	}
 	if cmd, ok := result.Set.ByName[cmdName]; ok {
@@ -325,4 +330,37 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 	))
 
 	return LookupResult{Diagnostics: result.Diagnostics}, nil
+}
+
+func buildModuleCommandName(sourceID SourceID, simpleName invowkfile.CommandName) (invowkfile.CommandName, error) {
+	if err := sourceID.Validate(); err != nil {
+		return "", fmt.Errorf("validate command namespace: %w", err)
+	}
+	if err := simpleName.Validate(); err != nil {
+		return "", fmt.Errorf("validate simple command name: %w", err)
+	}
+	// A published module command combines two independently validated value
+	// objects. CommandName itself intentionally excludes dots because user-defined
+	// simple names cannot contain them, while RDNS module namespaces can.
+	return invowkfile.CommandName(string(sourceID) + " " + string(simpleName)), nil //goplint:ignore -- both components and the fixed separator are validated above.
+}
+
+func validatePublishedCommandName(name invowkfile.CommandName) error {
+	if err := name.Validate(); err == nil {
+		return nil
+	}
+
+	namespaceText, simpleText, qualified := strings.Cut(string(name), " ")
+	if !qualified {
+		return name.Validate()
+	}
+	namespace := SourceID(namespaceText)
+	if err := namespace.Validate(); err != nil {
+		return fmt.Errorf("validate command namespace: %w", err)
+	}
+	simpleName := invowkfile.CommandName(simpleText)
+	if err := simpleName.Validate(); err != nil {
+		return fmt.Errorf("validate simple command name: %w", err)
+	}
+	return nil
 }

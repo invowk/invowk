@@ -1,0 +1,1099 @@
+{
+  "schema_version": 1,
+  "status": "proven-current-tree",
+  "predecessor": {
+    "name": "harden-goplint-soundness",
+    "archive": "openspec/changes/archive/2026-07-14-harden-goplint-soundness",
+    "archive_authority": "explicit user authorization on 2026-07-14",
+    "must_remain_archived": true,
+    "requirement_count": 12,
+    "completed_task_count": 66
+  },
+  "corrective_change": "openspec/changes/complete-goplint-soundness-hardening",
+  "requirements": [
+    {
+      "capability": "lint-tooling-quality-gates",
+      "requirement": "Goplint exception governance is enforced",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11",
+        "12"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "lint-tooling-quality-gates",
+      "requirement": "Documentation and verification remain synchronized",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11",
+        "12"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Goplint has one explicit soundness contract",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "7"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Validation requires a proven successful result",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "12"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/red-baseline-reconstruction.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Object identity and alias effects are SSA-sensitive",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "3",
+        "12"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Canonical interprocedural analysis follows realizable paths",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "4",
+        "5",
+        "12"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Generic and method-set forms preserve protocol obligations",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "3",
+        "12"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Feasibility and refinement are SSA-versioned and fail closed",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "6",
+        "12"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Result vocabulary reflects actual evidence",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "6",
+        "11"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "specs/lint-tooling-quality-gates/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Only the canonical analysis pipeline is available",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7",
+        "12"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Independent oracles cover the analyzer contract",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10",
+        "12"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "capability": "goplint-analysis-soundness",
+      "requirement": "Soundness gates are deterministic and performance bounded",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "10",
+        "11",
+        "12"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    }
+  ],
+  "completed_predecessor_tasks": [
+    {
+      "id": "1.1",
+      "description": "Inventory every registered goplint category, classify it as structural, protocol, or cross-artifact, and record its live implementation owner and independent oracle strategy in the semantic catalog.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "1.2",
+      "description": "Replace free-form implementation-entrypoint strings with resolvable registered owner keys and make catalog validation reject missing, duplicate, stale, or unowned categories.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "1.3",
+      "description": "Define the canonical protocol domain, partial order, joins, validation/error relations, escape states, uncertainty reasons, fail-closed obligation aggregation, relevance slice, alias boundary, and result vocabulary in code and synchronized semantic documentation.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "1.4",
+      "description": "Add executable law tests for domain ordering, idempotent/commutative/associative joins, transfer monotonicity, alias kills, conditional effects, and unknown-to-inconclusive behavior.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "1.5",
+      "description": "Add must-report fixtures for continued execution after validation failure, assigned/logged/blank validation errors, discarded method-value errors, wrong same-typed constructor targets, alias rebinding, generic constructors/type parameters, unmatched returns, and mutable-variable feasibility.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "1.6",
+      "description": "Add must-not-report fixtures for terminating validation-error branches, nil-only continuations, value-plus-validation-error constructor returns, sound aliases, recursive summaries, and known non-returning calls including aliases.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "1.7",
+      "description": "Add must-be-inconclusive fixtures for unsupported predicates, unresolved relevant calls, ambiguous may-alias identities, incompatible cross-package facts, missing SSA, and exhausted resource budgets.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "1",
+        "2",
+        "8"
+      ],
+      "evidence": [
+        "evidence/audit-matrix.v1.json",
+        "evidence/protocol-state-inventory.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.1",
+      "description": "Implement interned SSA value and abstract object identities for allocations, parameters, receivers, results, copies, and phi nodes without type-only fallback matching.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.2",
+      "description": "Implement flow-sensitive must-alias propagation with explicit kill behavior for stores, rebinding, new allocations, and path joins; classify relevant may-alias ambiguity as inconclusive.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.3",
+      "description": "Represent each `Validate()` invocation as a receiver/result relation and transition the receiver to validated only on a control-flow edge proving the associated error nil.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.4",
+      "description": "Model direct selector calls, interface-resolved calls, captured method values, explicit error variables, inverted nil checks, and dominating terminating failure branches through the same conditional-effect API.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.5",
+      "description": "Change helper and method summaries to package-qualified, format-versioned, receiver/parameter/result-slot-sensitive conditional effects instead of unconditional validates-type facts.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.6",
+      "description": "Change constructor tracking to prove that the conditionally validated object reaches the corresponding return slot, including `return value, value.Validate()` semantics.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "2.7",
+      "description": "Ensure filtered packages export required conditional facts and make incompatible or missing relevant fact versions produce deterministic inconclusive reasons.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "2",
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "3.1",
+      "description": "Normalize generic `IndexExpr` and `IndexListExpr` calls through instantiated `go/types.Signature` data for constructor names, result slots, and trailing-error checks.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "3.2",
+      "description": "Recognize supported primitive terms in type-parameter type sets when identifying raw-to-validatable conversions, while treating unsupported or mixed constraints conservatively.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "3.3",
+      "description": "Centralize Go method-set resolution for direct calls, interface calls, pointer/value receivers, and method values, and exclude lowercase or unrelated same-signature methods from the Validate protocol.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "3.4",
+      "description": "Add cross-package and filtered-package integration tests combining generics, pointer/value method sets, conditional summaries, and identity-preserving return slots.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "3"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.1",
+      "description": "Build a deterministic exploded supergraph over procedures, nodes, call sites, return sites, and finite protocol facts with explicit call, return, call-to-return, and summary edges.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.2",
+      "description": "Implement worklist tabulation and summary reuse so returns reach only matching caller continuations and recursion converges through finite facts rather than DFS cycle guesses.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.3",
+      "description": "Implement IDE-style conditional edge functions for validation/error relations and IFDS-style propagation for object typestate and UBV escape facts.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.4",
+      "description": "Require every call-to-return edge to model all relevant effects; unresolved relevant effects must become inconclusive and must not use an unconditional bypass.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.5",
+      "description": "Centralize the `mayReturn` contract using compiler/CFG behavior, modeled intrinsics, and analyzed bodies; cover `panic`, `os.Exit`, `log.Fatal`, `log.Fatalf`, `log.Fatalln`, and soundly resolved aliases.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.6",
+      "description": "Make unknown calls conservatively returning and emit a stable inconclusive reason whenever their unresolved effect can change a tracked obligation.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.7",
+      "description": "Migrate cast-validation, UBV escape, constructor-validation, closure, and helper-summary adapters to the canonical solver and delete adapter fallbacks to alternate evaluators.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "4.8",
+      "description": "Re-run the no-return regression through the real analyzer and require zero continuation-only findings while retaining violations on genuinely returning paths.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "4",
+        "5"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.1",
+      "description": "Define and document the supported SSA constraint fragment for SSA-versioned nil, boolean, string, and integer equality/inequality atoms plus normalized negation/conjunction/disjunction, with pointer/interface restrictions and all unsupported syntax mapping to unknown.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.2",
+      "description": "Extract path predicates using SSA value versions so source-level reassignment cannot merge distinct constraint subjects.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.3",
+      "description": "Implement the exact `ssa-constraints` decision procedure and normalized UNSAT contradiction evidence without retaining the misleading SMT engine name.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.4",
+      "description": "Implement a separate evidence checker and forbid witness discharge when evidence is missing, malformed, unsupported, timed out, or rejected.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.5",
+      "description": "Implement symbolic witness replay and iterative predicate refinement that terminates in retained SAT, checked UNSAT discharge, or blocking inconclusive at a resource limit.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.6",
+      "description": "Replace `proven-safe` and old Phase C metadata with deterministic `violation`, `inconclusive`, and `discharged-infeasible` evidence, including SSA subject and refinement provenance.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "5.7",
+      "description": "Add reassignment, branch inversion, unsupported-predicate, timeout, query-limit, iteration-limit, and evidence-corruption tests proving no unknown or unfinished result becomes safe.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "6"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.1",
+      "description": "Implement a test-only normalized protocol IR and reference interpreter that does not import or call production transfer, join, summary, feasibility, or solver functions.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.2",
+      "description": "Add a versioned bounds manifest covering at least two procedures, four nodes per procedure, two identities, two call sites, call depth two, a branch join, and recursion; exhaustively generate every admitted well-formed graph and compare canonical solver outcomes with the independent interpreter.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.3",
+      "description": "Add metamorphic test generation for alpha-renaming, nil-check equivalence, branch inversion, selector/method-value equivalence, harmless statement insertion, alias copies, alias rebindings, and changed error continuations.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.4",
+      "description": "Add Go fuzz targets with committed seed corpora for supergraph construction, tabulation, fact serialization, constraint normalization/evidence checking, semantic-catalog decoding, and finding determinism.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.5",
+      "description": "Add deterministic CI execution for fuzz seed corpora and bounded generated graphs, while wiring longer fuzz runs into the repository's appropriate scheduled/manual validation path.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.6",
+      "description": "Add a versioned targeted mutation manifest and profiles for nil-branch success, receiver identity, alias kills, matched returns, terminal pruning, generic normalization, fact versioning, and unknown-to-safe guards.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.7",
+      "description": "Require every targeted soundness mutant to be killed and update mutation documentation/baselines without weakening survivor policy.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "6.8",
+      "description": "Add repeated-run and reordered-worklist/package tests that compare normalized findings, reasons, witnesses, facts, and refinement evidence byte-for-byte.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "8",
+        "9",
+        "10"
+      ],
+      "evidence": [
+        "specs/goplint-soundness-assurance/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.1",
+      "description": "Delete `--ubv-mode` and order-only UBV production branches, retaining escape semantics directly in the canonical solver.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.2",
+      "description": "Delete `--cfg-backend` and the AST protocol-analysis backend; make unavailable SSA a blocking inconclusive outcome rather than a fallback.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.3",
+      "description": "Delete `--cfg-interproc-engine`, legacy evaluators, compare trackers/classifiers, compatibility code, and every hidden or test-only runtime engine selector.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.4",
+      "description": "Delete `--cfg-alias-mode` and alias-off paths after canonical SSA/object identity tracking covers all protocol adapters.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.5",
+      "description": "Delete `--cfg-feasibility-engine`, `--cfg-refinement-mode`, the off and one-shot branches, and the old unversioned predicate checker after checked iterative refinement is canonical.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.6",
+      "description": "Delete `--cfg-inconclusive-policy` and warning/off paths for protocol outcomes so inconclusive is unconditionally blocking.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.7",
+      "description": "Retain only resource-budget flags whose exhaustion maps to inconclusive, rename Phase C-specific limits where necessary, and test that no setting disables a semantic layer.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "7.8",
+      "description": "Add CLI tests proving every removed flag fails as unknown and repository-wide scans proving no deprecated constant, flag, hidden alias, fallback branch, or legacy-mode fixture remains.",
+      "disposition": "corrected",
+      "active_task_groups": [
+        "7"
+      ],
+      "evidence": [
+        "evidence/legacy-production-inventory.v1.json",
+        "specs/goplint-soundness-assurance/spec.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "8.1",
+      "description": "Replace `check-ifds-compat` and rollout-specific scripts with a blocking `check-goplint-soundness` entrypoint plus directly runnable semantic, oracle, refinement, determinism, mutation, and benchmark subchecks.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "8.2",
+      "description": "Update `make check-baseline` and `make update-baseline` to invoke flagless canonical semantics and remove all legacy engine pinning.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "8.3",
+      "description": "Make the canonical full repository scan blocking in `.github/workflows/lint.yml` and remove advisory output, dual-run logic, and rollout comments.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "8.4",
+      "description": "Update pre-commit and local lint orchestration so the same canonical soundness gate and nested-module lint path run for relevant changes.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "8.5",
+      "description": "Generate and review an old-to-new stable finding ID report, regenerate the baseline only after semantic gates pass, and ensure the accepted baseline does not conceal migration regressions.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "8.6",
+      "description": "Update benchmark coverage and the reviewed threshold manifest with time, bytes, allocations, Go toolchain, CI runner class, and median-of-five enforcement for the mandatory solver, aliases, refinement, generated graphs, and repository full scan.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "9.1",
+      "description": "Rewrite `tools/goplint/README.md` to document the flagless canonical pipeline, supported property boundary, blocking uncertainty, result vocabulary, resource controls, and replacement verification commands.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "9.2",
+      "description": "Replace stale phase/rollout claims across `docs/goplint/` with an implementation-current semantic reference and evidence index; remove support claims for legacy, compare, AST, order, off, once, SMT, and `proven-safe` behavior.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "9.3",
+      "description": "Update `AGENTS.md`, `.agents/rules/commands.md`, relevant goplint/type-system/testing skills, Make help, and workflow comments to reference the canonical soundness gate and removed flags consistently.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "9.4",
+      "description": "Update semantic schemas, structured finding documentation, examples, and any generated snapshots to use live owner keys and the new evidence vocabulary.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "9.5",
+      "description": "Run `make check-agent-docs` and direct semantic-catalog/schema validators, fixing every index, symlink, command, and documentation drift finding.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "11"
+      ],
+      "evidence": [
+        "specs/lint-tooling-quality-gates/spec.md",
+        "evidence/audit-matrix.v1.json"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "10.1",
+      "description": "Run focused tests for each historical counterexample and capture evidence that weak validation handling and wrong-object/generic gaps now report while known no-return continuations do not.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "12"
+      ],
+      "evidence": [
+        "evidence/red-baseline-reconstruction.v1.json",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "10.2",
+      "description": "Run all `tools/goplint` tests with `-count=1`, the race detector, deterministic fuzz seeds, bounded reference-model generation, and the targeted mutation profile.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "12"
+      ],
+      "evidence": [
+        "evidence/red-baseline-reconstruction.v1.json",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "10.3",
+      "description": "Run `make check-goplint-soundness`, baseline, exception governance, benchmark thresholds, `make lint`, and the blocking canonical full repository scan.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "12"
+      ],
+      "evidence": [
+        "evidence/red-baseline-reconstruction.v1.json",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "10.4",
+      "description": "Run root-module tests, Windows build checks, file-length/licensing checks, and any other pre-completion gates required by the touched Go, testing, workflow, and agent-documentation rules.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "12"
+      ],
+      "evidence": [
+        "evidence/red-baseline-reconstruction.v1.json",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "10.5",
+      "description": "Search the repository for all removed flags, modes, labels, compatibility scripts, stale commit snapshots, and advisory language; permit only explicit migration-history references that do not imply support.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "12"
+      ],
+      "evidence": [
+        "evidence/red-baseline-reconstruction.v1.json",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    },
+    {
+      "id": "10.6",
+      "description": "Run `git diff --check`, strict OpenSpec validation for `harden-goplint-soundness`, and a final rerun of every required goplint gate in a clean detached worktree materialized from a synthetic tree containing exactly `HEAD` plus the intended diff, using a temporary Git index that does not mutate the caller's branch or index.",
+      "disposition": "replaced",
+      "active_task_groups": [
+        "12"
+      ],
+      "evidence": [
+        "evidence/red-baseline-reconstruction.v1.json",
+        "evidence/clean-tree-evidence.README.md"
+      ],
+      "final_proof": "clean-tree-run.v1.json records all 16 planned commands passed"
+    }
+  ],
+  "completion_rule": "Every predecessor requirement and completed predecessor task is reconciled to the corrective implementation and proven by the authoritative clean-tree-run.v1.json record. Complete historical red-baseline reconstruction is recorded separately; active-change archival remains a separate authority-bound workflow action."
+}

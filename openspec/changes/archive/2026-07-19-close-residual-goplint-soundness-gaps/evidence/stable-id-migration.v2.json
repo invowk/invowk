@@ -1,0 +1,967 @@
+{
+  "schema_version": 2,
+  "deterministic": true,
+  "accepted": true,
+  "old_scan": {
+    "population": 25,
+    "canonical_sha256": "f84a44cf3dffa8c8ca480f057f7d1a0dcae27c59f293a1e18369420eca5e8876"
+  },
+  "new_scan": {
+    "population": 66,
+    "canonical_sha256": "a3e4ba13be989200d006183a3e0ba1ac91f9729808528cb2cc20d6680452f95e"
+  },
+  "repeat_scan": {
+    "population": 66,
+    "canonical_sha256": "a3e4ba13be989200d006183a3e0ba1ac91f9729808528cb2cc20d6680452f95e"
+  },
+  "counts": {
+    "retained": 0,
+    "changed": 1,
+    "added": 65,
+    "removed": 24
+  },
+  "migrations": [
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/acpclient",
+        "category": "unvalidated-cast-inconclusive",
+        "position": "client.go:547:11",
+        "message": "type conversion to LineNumber from non-constant has inconclusive Validate() path analysis"
+      },
+      "old_id": "gpl3_2c7f0ac114027b8721d6ee22e8fab1e59237ca5fab354153ee91690ffafee04d",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/acpclient",
+        "category": "unvalidated-cast-inconclusive",
+        "position": "client.go:560:11",
+        "message": "type conversion to LineLimit from non-constant has inconclusive Validate() path analysis"
+      },
+      "old_id": "gpl3_81c3bc4d7762d6d2f8f27d4e2444d9219f96746c1ffb7b95a5b64f4d96b6017d",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/commandadapters",
+        "category": "unvalidated-cast",
+        "position": "dependency_host.go:187:15",
+        "message": "type conversion to types.FilesystemPath from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_03b33bfc5b00b9da7f8be3d7990af87432164eb655305297f75aec2752a4ff44",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/commandsvc",
+        "category": "unvalidated-boundary-request",
+        "position": "service.go:311:58",
+        "message": "parameter \"req\" of github.com/invowk/invowk/internal/app/commandsvc.Request is used before checked Validate() at exported boundary"
+      },
+      "old_id": "gpl3_22cdaaf99eb390414c00b1e3549f47971a37b2a69ffd39104521da756e41efe5",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/commandsvc",
+        "category": "unvalidated-boundary-request",
+        "position": "service.go:324:55",
+        "message": "parameter \"req\" of github.com/invowk/invowk/internal/app/commandsvc.Request is used before checked Validate() at exported boundary"
+      },
+      "old_id": "gpl3_a9dbd82809ca5949305e38f9c0599abe5f8238c55b4dc83e3e4b612b23086940",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/commandsvc",
+        "category": "unvalidated-boundary-request",
+        "position": "service.go:338:57",
+        "message": "parameter \"req\" of github.com/invowk/invowk/internal/app/commandsvc.Request is used before checked Validate() at exported boundary"
+      },
+      "old_id": "gpl3_e3ab07d36bd1a6c82f8dce68774f03778d33b20c5be60235dd8f885973ce2b9c",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/moduleops",
+        "category": "unvalidated-cast-inconclusive",
+        "position": "packaging.go:552:12",
+        "message": "type conversion to types.FilesystemPath from non-constant has inconclusive Validate() path analysis"
+      },
+      "old_id": "gpl3_3b023e6f82e88c728353252bab673938ef35cf9eee1c4d4bcb89474e3107ea63",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/modulesync",
+        "category": "nonzero-value-field",
+        "position": "git.go:42:3",
+        "message": "struct field modulesync.tagInfo.Commit uses nonzero type GitCommit as value; use *GitCommit for optional fields"
+      },
+      "new_id": "gpl4_dfd168eb6c65df60c7f6fb2c52d10692f403880592b1702f0a24c540fefb8c45",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/modulesync",
+        "category": "nonzero-value-field",
+        "position": "source_selection.go:41:3",
+        "message": "struct field modulesync.moduleSubpathIdentityMismatchError.dirModule uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_5ba3cc63ca41dc7debd22021c87f7286e2db38303036f3dd3b8c0d8a4aeeda1b",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/modulesync",
+        "category": "nonzero-value-field",
+        "position": "source_selection.go:42:3",
+        "message": "struct field modulesync.moduleSubpathIdentityMismatchError.metaModule uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_9d5920788176e5a0d66f3d0efbe8df105dca28caa9a3c35b4ac20d09fff33a8b",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/modulesync",
+        "category": "nonzero-value-field",
+        "position": "source_selection.go:48:3",
+        "message": "struct field modulesync.CanonicalModuleCollisionError.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_82d4fad376745780a09e298c7f6e8ed345f77c9737197fdf3173c4f0e007acde",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/modulesync",
+        "category": "nonzero-value-field",
+        "position": "source_selection.go:50:3",
+        "message": "struct field modulesync.CanonicalModuleCollisionError.ExistingKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_f0c53669d91c3984ad72f062d7f9d9b3b84f672b5b92b84466f6b0f129a948d5",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/app/modulesync",
+        "category": "nonzero-value-field",
+        "position": "source_selection.go:51:3",
+        "message": "struct field modulesync.CanonicalModuleCollisionError.IncomingKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_74f0c42f16456f4655df07a9c4fa9ed367913434fcae53ffb50761190b7e1c97",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/audit",
+        "category": "missing-constructor-validate",
+        "position": "scanner.go:37:6",
+        "message": "constructor audit.NewScanner returns audit.Scanner which has Validate() but never calls it"
+      },
+      "old_id": "gpl3_268fe7a2f78dc644c05c495997f058c9b7d964bbf88d2044abcbb3818c596bfd",
+      "new_id": "gpl4_1b656c48be217af2a2ac180570f361f1d84e1644e7d42cd78022a1570a6dec70",
+      "status": "changed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/discovery",
+        "category": "nonzero-value-field",
+        "position": "discovery.go:85:3",
+        "message": "struct field discovery.ProvisionedModuleEntry.CommandNamespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_1df168d9c3718f44c8e029d5656eb1688457f4140c9d5e76f98e9bc5bd05f37a",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/discovery",
+        "category": "nonzero-value-field",
+        "position": "discovery.go:98:3",
+        "message": "struct field discovery.commandSourceIdentity.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_49b588c70a732e2fe5c22f9d5189211d2976af812bf3bd4aa7f7efced4a55c52",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/discovery",
+        "category": "nonzero-value-field",
+        "position": "discovery_files.go:49:3",
+        "message": "struct field discovery.DiscoveredFile.CommandNamespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_94ecc4bb3344ef3e49dc445fb4111d32d386592447cf0dbb1f432657998d5f9c",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/provision",
+        "category": "nonzero-value-field",
+        "position": "config.go:83:3",
+        "message": "struct field provision.ModuleEntry.CommandNamespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_1af9707afc3df3e5ae8d2db435a537e06f9597bc8832b36982baaffea28b8195",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/provision",
+        "category": "nonzero-value-field",
+        "position": "module_entries.go:31:3",
+        "message": "struct field provision.provisionedModuleCopy.CommandNamespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_d20e48bda085b586204820e14f97e947f35c6e4c874256ce58a81c8411590420",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/provision",
+        "category": "unvalidated-cast-inconclusive",
+        "position": "helpers.go:128:19",
+        "message": "type conversion to types.FilesystemPath from non-constant has inconclusive Validate() path analysis"
+      },
+      "old_id": "gpl3_214e8ec2e60c5f8488e9df0356789fcb5fbdc395888f0fc5f18ce6a5de76d83f",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/runtime",
+        "category": "unvalidated-cast-inconclusive",
+        "position": "container_exec.go:167:21",
+        "message": "type conversion to types.FilesystemPath from non-constant has inconclusive Validate() path analysis"
+      },
+      "old_id": "gpl3_d38f31bace6732754c2c5ae714a8fe4a843c2830f20d9f2e8f7af0a62875c7d3",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:111:46",
+        "message": "type conversion to invowkfile.InterpreterSpec from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_879a3903afcad8390bded246dadb8119914c73db77f306236d8baf938106e676",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:170:14",
+        "message": "type conversion to invowkfile.EnvVarName from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_dee446aa33bbef1d094a101e6dd532aea58bdf268c1588c172dbb1f15c0c0ac6",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:177:15",
+        "message": "type conversion to invowkfile.WorkDir from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_4d8b43e56d2c767da4dceeb50cca5d24848e9ca4ae8b4b74dcf25355e3df07aa",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:208:30",
+        "message": "type conversion to invowkfile.FlagName from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_48a4214a457618731bf598529a86e439cc4cf81e7cfe887fa95ee66fe20255fe",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:233:13",
+        "message": "type conversion to invowkfile.FlagShorthand from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_e198364858938ce4f34a2573d300b25799d40976f712e0705324a97d60b61013",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:240:19",
+        "message": "type conversion to types.DescriptionText from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_815174f3238f8e2366664b630c6d70a2d0efb2fbcf9e3feb73164867d41d5890",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:254:18",
+        "message": "type conversion to invowkfile.RegexPattern from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_117d2f56e1cd8269b40f4a269f8b3b892ea2927da259f6044c377794c2c3d578",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:263:34",
+        "message": "type conversion to invowkfile.ArgumentName from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_3fa4b9f2b82f0bc0181120605dd65fcff9c628649aa27beaa63061ee0e3d411b",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:295:19",
+        "message": "type conversion to types.DescriptionText from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_4129c746d7512c5009362a179b3230cc7391ef9a34ab9dbb8357141b573c0b23",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:309:18",
+        "message": "type conversion to invowkfile.RegexPattern from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_0602e545c4da79529b85ca0187bdcd947e14813678f4c01ed4fe87ae2554cc16",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:39:9",
+        "message": "type conversion to invowkfile.CommandName from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_9d22a09a5c1802dc53ed6d062411c48288763134499612b3998b3f9f92cc0262",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:61:75",
+        "message": "type conversion to invowkfile.ScriptContent from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_49bcc2841ee1fa9909ecf699ef92d74c0d63e7e940e9a383e7ca3d2c469d75f3",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:70:12",
+        "message": "type conversion to invowkfile.ScriptFilePath from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_cdf7459fbac432cf9729a1984a4a8fb74b77ab05e85735a86481b758de2c6eec",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/internal/testutil/invowkfiletest",
+        "category": "unvalidated-cast",
+        "position": "command.go:79:19",
+        "message": "type conversion to types.DescriptionText from non-constant without Validate() check"
+      },
+      "old_id": "gpl3_6e65d869a8c969fcbfb272c6e2007ba8ec89649931e70e752c920cbd83a60413",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkfile",
+        "category": "nonzero-value-field",
+        "position": "module.go:24:3",
+        "message": "struct field invowkfile.ModuleMetadata.module uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_6382ec3a318077dedca9f3ad414addf209591c308fca94bcce28c61930bd786d",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkfile",
+        "category": "nonzero-value-field",
+        "position": "module.go:25:3",
+        "message": "struct field invowkfile.ModuleMetadata.version uses nonzero type SemVer as value; use *SemVer for optional fields"
+      },
+      "new_id": "gpl4_9be7449f06dbd9ece289d45adf3ac2a832b2bec1e0b6a17a4f70f6dc45bcbbc0",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkfile",
+        "category": "unvalidated-cast-inconclusive",
+        "position": "invowkfile.go:180:18",
+        "message": "type conversion to types.FilesystemPath from non-constant has inconclusive Validate() path analysis"
+      },
+      "old_id": "gpl3_a8bffab2de522ce57defa167ee0d462aff74edd3a86126cb5babf3977a6db1ef",
+      "status": "removed"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "command_scope.go:51:3",
+        "message": "struct field invowkmod.CommandScope.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_2f629d0752a223d74e3f46127c1b2cc0c8b2c3fa53f062b4bbf286633b1db208",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "command_scope.go:69:3",
+        "message": "struct field invowkmod.CommandTarget.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_0fb773fe27b992cb67d31594b8621ec24f5eba97e50e946ef3ea0319d8401225",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "command_scope.go:84:3",
+        "message": "struct field invowkmod.CommandScopeDecision.TargetModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_e71960a61159fb4dab7272507dfde41f96d85eaba9c03bbdccd5671531827c6e",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "content_hash.go:45:3",
+        "message": "struct field invowkmod.InvalidContentHashError.Value uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_538325f947b6b26b1213942b058dea33c92b668764fe0001eff9c1eb8b9f8cdc",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "content_hash.go:51:3",
+        "message": "struct field invowkmod.ContentHashMismatchError.ModuleKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_ec316c51ec5c481b8fdc2f8445ffd4fe86ef203fadaa420b20cdd430c683cf5f",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "content_hash.go:52:3",
+        "message": "struct field invowkmod.ContentHashMismatchError.Expected uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_ff6acde4bcf55bd11d0f0ab3836ce00307a28045b01c5f0eedb235a09d0d55fe",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "content_hash.go:53:3",
+        "message": "struct field invowkmod.ContentHashMismatchError.Actual uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_c8ad135189eab33d708e995cb12b38e03aa3acdc9475ef9dd6e5261266cdb652",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:102:3",
+        "message": "struct field invowkmod.AmbiguousMatch.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_60a8fbcd17c767e061638a76fc2bbfb31206c14c29e879bd723ca8e261542445",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:31:3",
+        "message": "struct field invowkmod.ModuleRef.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_dcc7c93998ff580a73f2799ae96a2700e97dcd358dbd3e5c0bf982dbc0f41776",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:54:3",
+        "message": "struct field invowkmod.ResolvedModule.ResolvedVersion uses nonzero type SemVer as value; use *SemVer for optional fields"
+      },
+      "new_id": "gpl4_290007d29fd6d9a7ce1a9a3b9ada561dc3572c4976f221e11082156c670898b8",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:57:3",
+        "message": "struct field invowkmod.ResolvedModule.GitCommit uses nonzero type GitCommit as value; use *GitCommit for optional fields"
+      },
+      "new_id": "gpl4_beba226113801e63222a16b2e8a8cb4ef014a7e64b692a4ba5cf3c29774f62fc",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:70:3",
+        "message": "struct field invowkmod.ResolvedModule.ModuleName uses nonzero type ModuleShortName as value; use *ModuleShortName for optional fields"
+      },
+      "new_id": "gpl4_82bdbb0bd8adb957f811f49d8f0cb4907c526a3f58e06bddba603b7877e1612b",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:73:3",
+        "message": "struct field invowkmod.ResolvedModule.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_5b97b0f536311199f1eee30262cd1b56009aa511f8e205b53d49a98dc2b3bbd7",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:80:3",
+        "message": "struct field invowkmod.ResolvedModule.ContentHash uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_addba17e99578f9c741ea131e017f83c4cca10bcfbd86f6cb9521e01b6267ad7",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:88:3",
+        "message": "struct field invowkmod.RemoveResult.LockKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_4649ce6c44da11a9a6f766ec91b978768a8b54c82f7511914d86255fe8c958e1",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "dependency_types.go:98:3",
+        "message": "struct field invowkmod.AmbiguousMatch.LockKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_2498d8eef3546cabbecdea0510a2ddd1733549159fd888f5e5b27a70d496c8d7",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "git_types.go:36:3",
+        "message": "struct field invowkmod.InvalidGitURLError.Value uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_b9acc3e6e3e9a73858e920ab80fe1da269948fe2793f0d53b2a0f6014ce8e8d6",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "git_types.go:45:3",
+        "message": "struct field invowkmod.InvalidGitCommitError.Value uses nonzero type GitCommit as value; use *GitCommit for optional fields"
+      },
+      "new_id": "gpl4_241c5d812ff08eec3cb9bc26a75db381154433ad9f96a7dadddbdc854dc355f5",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "invowkmod.go:108:3",
+        "message": "struct field invowkmod.InvalidModuleIDError.Value uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_4b2c5b604b8314f51be267ce1e330ee3b0257de3549143bdd3f75620020623d5",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "invowkmod.go:214:3",
+        "message": "struct field invowkmod.ValidationResult.ModuleName uses nonzero type ModuleDirectoryName as value; use *ModuleDirectoryName for optional fields"
+      },
+      "new_id": "gpl4_b04c22f399a929e2bb6e04beaf27d19a2c4240bdcdca95ea8e825d69412007e9",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "invowkmod.go:250:3",
+        "message": "struct field invowkmod.ModuleRequirement.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_7776516e80cccbc4aa2f06622675523cccbaa108e087e744156d388bda3a5ac8",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "invowkmod.go:273:3",
+        "message": "struct field invowkmod.Invowkmod.Module uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_f6e3ef172af3a2748044e79325196d37358ed3314fb173f6e15e6a584b1f3289",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:107:3",
+        "message": "struct field invowkmod.LockedModule.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_75893a587597b0e7283dfa4f4c34f0c75a0fda7864182e8b483338ecd61cc841",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:113:3",
+        "message": "struct field invowkmod.LockedModule.ResolvedVersion uses nonzero type SemVer as value; use *SemVer for optional fields"
+      },
+      "new_id": "gpl4_5c7009d498dbd97f060dca5eb3a80951e218d0ab01f94e21a7e2e95d4d41e0ad",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:116:3",
+        "message": "struct field invowkmod.LockedModule.GitCommit uses nonzero type GitCommit as value; use *GitCommit for optional fields"
+      },
+      "new_id": "gpl4_1eb06bba600850cf5e6906917fded83c53bc8c9fcce0c32e4579f520cc780d23",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:125:3",
+        "message": "struct field invowkmod.LockedModule.Namespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_2771a7417c6b0225b6c3c68dc9388d4d63f96848d876b2eac630764041054efb",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:131:3",
+        "message": "struct field invowkmod.LockedModule.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_900629f66260b23b4f51147729be9fc08ec156aaa3d1f781791c35f1013b146d",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:135:3",
+        "message": "struct field invowkmod.LockedModule.ContentHash uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_d4b782b0cbb06964eb52bb79de9e6dac08732e2db678a46d069eb36fe711108d",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:45:3",
+        "message": "struct field invowkmod.InvalidModuleNamespaceError.Value uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_65bf4a8b45cb7aa2aed4ee57e17ff1fa0472c99f43a49d3fa9444f182c244923",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:66:3",
+        "message": "struct field invowkmod.InvalidModuleRefKeyError.Value uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_99fa216a8d54566beece41ac5e23bd6f59079e71d898d278b0da0a1d7be86225",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile.go:98:3",
+        "message": "struct field invowkmod.InvalidLockedModuleError.ModuleKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_bc16f868e561411a76fd245d2757046a9f6a2b4d99e8879a21113171e0f291b3",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile_parser.go:60:3",
+        "message": "struct field invowkmod.lockedModuleCUE.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_20521b80d3366c1df6b32fe46711b22de7a3e22adf8c64d47eddc199d347ee7b",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile_parser.go:62:3",
+        "message": "struct field invowkmod.lockedModuleCUE.ResolvedVersion uses nonzero type SemVer as value; use *SemVer for optional fields"
+      },
+      "new_id": "gpl4_d1facbd6cccaddc73ea3509f10f551399d0c13f3e781d047e89d803eb5f5ff7f",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile_parser.go:63:3",
+        "message": "struct field invowkmod.lockedModuleCUE.GitCommit uses nonzero type GitCommit as value; use *GitCommit for optional fields"
+      },
+      "new_id": "gpl4_aeac4e099d71ba9293c619cdba83b164e84ff47cb5d12686a920366a50eb734e",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile_parser.go:66:3",
+        "message": "struct field invowkmod.lockedModuleCUE.Namespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields"
+      },
+      "new_id": "gpl4_ef7c7b03f851b7fc86e3ded96c10b151c06175aaa9b5f6617ba1fa02c4d0bc0a",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile_parser.go:68:3",
+        "message": "struct field invowkmod.lockedModuleCUE.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_9c83fd194ca340f3cce5286b239dbacbad8aefb4563fc87c6d80d7b7ca703fac",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "lockfile_parser.go:69:3",
+        "message": "struct field invowkmod.lockedModuleCUE.ContentHash uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_0216b63a59cbce2c61ccd7c5508974864cde92b57ce1b28b96a521026a39bbd2",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "module_short_name.go:40:3",
+        "message": "struct field invowkmod.InvalidModuleShortNameError.Value uses nonzero type ModuleShortName as value; use *ModuleShortName for optional fields"
+      },
+      "new_id": "gpl4_9d019e9eb62665bc6106ebbf19e5277d9cf382de9e550cf4fbb5610ab7112ff6",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "module_short_name.go:46:3",
+        "message": "struct field invowkmod.InvalidModuleDirectoryNameError.Value uses nonzero type ModuleDirectoryName as value; use *ModuleDirectoryName for optional fields"
+      },
+      "new_id": "gpl4_1bbba5c7bd0a20b8176a1eafb0660f987c971c94ea829803ffc61467a80504e9",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "operations.go:21:3",
+        "message": "struct field invowkmod.CreateOptions.Name uses nonzero type ModuleDirectoryName as value; use *ModuleDirectoryName for optional fields"
+      },
+      "new_id": "gpl4_93d08cd836071f96b267bda3f8559fcb864e5108a7ec57e0203c17838411960e",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "operations.go:25:3",
+        "message": "struct field invowkmod.CreateOptions.Module uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_923a7cae078db5c1891511baaa3325e5969f09b3a1f9ce21b916d58dfe35227b",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "resolver_errors.go:24:3",
+        "message": "struct field invowkmod.MissingTransitiveDepDiagnostic.RequiringModule uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_aac0cac4c596999e9045ee40457dfb41d497084948cb276450611e550af34243",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "resolver_errors.go:26:3",
+        "message": "struct field invowkmod.MissingTransitiveDepDiagnostic.RequiringURL uses nonzero type GitURL as value; use *GitURL for optional fields"
+      },
+      "new_id": "gpl4_8cec0ebfc3800c2a086b61eb6b8fbe40fb0c5b623fa30489a73b2e5918c63d76",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "semver_types.go:48:3",
+        "message": "struct field invowkmod.InvalidSemVerError.Value uses nonzero type SemVer as value; use *SemVer for optional fields"
+      },
+      "new_id": "gpl4_634d516b4ba64453b4526197b644215d27c00c9183c0156c94049d3c31375b63",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "vendored_policy.go:12:2",
+        "message": "struct field invowkmod.declaredLockedModuleEntry.key uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_f105d3c6f92497d1fc82e543888fb80d17064b8e21a193d09bad36a6473ea67f",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:31:3",
+        "message": "struct field invowkmod.lockHashEntry.key uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_b430d088cc19b0cd1d30ab6869bc9797bb90f8e0e329b9fc704daec8cdf6bb77",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:32:3",
+        "message": "struct field invowkmod.lockHashEntry.hash uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_9da0a8b5d9513afde9478f467883ca26e367f99f0b9eb8f590f636ac8acb6776",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:38:3",
+        "message": "struct field invowkmod.LockedModuleAmbiguity.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_c9ff83d93f6408aaa2b8e29ce988f2de8c90b42e925e0e001c5beb48b5e61167",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:49:3",
+        "message": "struct field invowkmod.VendoredHashEvaluation.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields"
+      },
+      "new_id": "gpl4_43dac3ea09e0519a8a3ad1cf08f4da43f7550193cdc6105ca08fd2dfe292393a",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:50:3",
+        "message": "struct field invowkmod.VendoredHashEvaluation.ModuleKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields"
+      },
+      "new_id": "gpl4_fd7309c1cc252be1540985d6825a0df5ade157b3a8c94e865bd9c3185f0922b2",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:52:3",
+        "message": "struct field invowkmod.VendoredHashEvaluation.Expected uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_ebaf72a5ef36ad52a70380a5a694aa4f821cdaa6b47130dc031a508953c3059a",
+      "status": "added"
+    },
+    {
+      "semantic_finding": {
+        "package": "github.com/invowk/invowk/pkg/invowkmod",
+        "category": "nonzero-value-field",
+        "position": "verify.go:53:3",
+        "message": "struct field invowkmod.VendoredHashEvaluation.Actual uses nonzero type ContentHash as value; use *ContentHash for optional fields"
+      },
+      "new_id": "gpl4_2e9476c61ac43597330a87b6f756b17d36eeddfe465d06bcdcfaf02a5e8f79d8",
+      "status": "added"
+    }
+  ],
+  "population_changes": [
+    {
+      "status": "added",
+      "category": "nonzero-value-field",
+      "population": 65,
+      "canonical_sha256": "f18f48cf41717c234870ef76c00b4a15b7bab7d3f2032925f0f3bee63029ca93",
+      "reviewed": true,
+      "reason": "The retained pre-v4 capture covered the protocol, constructor, and boundary ID producers but omitted the structural nonzero-field producer; the final production scan deliberately includes that inventoried producer.",
+      "evidence": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/finding-id-producer-inventory.v1.json"
+    },
+    {
+      "status": "removed",
+      "category": "unvalidated-boundary-request",
+      "population": 3,
+      "canonical_sha256": "c4c5af322fbaa210862f4784bda0c7ad3cb52784ed4a3ab3dcc90ca3f95a1aea",
+      "reviewed": true,
+      "reason": "The three former findings were validation-error paths that returned the invalid request value; the service now returns a zero Request on validation failure, so no unvalidated request crosses the boundary.",
+      "evidence": "openspec/changes/complete-goplint-soundness-hardening/evidence/stable-id-and-fact-migration.md"
+    },
+    {
+      "status": "removed",
+      "category": "unvalidated-cast",
+      "population": 15,
+      "canonical_sha256": "97c8409efd5d34d5c4e1729dbaf3ecbeab484110bd31c54c67d04138dbc6aeac",
+      "reviewed": true,
+      "reason": "One production cast now reuses the already validated lock path; the other fourteen were under the configured internal/testutil exclusion. This is a production-scope correction plus one code fix, not category suppression.",
+      "evidence": "openspec/changes/complete-goplint-soundness-hardening/evidence/stable-id-and-fact-migration.md"
+    },
+    {
+      "status": "removed",
+      "category": "unvalidated-cast-inconclusive",
+      "population": 6,
+      "canonical_sha256": "14a1628d5ec723a4c32614d04a7c9f5da90a694c6acce75e353a31f332817f10",
+      "reviewed": true,
+      "reason": "The six former casts now retain validated typed locals or optional typed wrappers through the checked path, eliminating pointer, named-return, and file-set identity loss without suppressions.",
+      "evidence": "openspec/changes/complete-goplint-soundness-hardening/evidence/stable-id-and-fact-migration.md"
+    }
+  ],
+  "collisions": null,
+  "duplicates": null,
+  "failures": null
+}

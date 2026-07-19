@@ -108,6 +108,18 @@ type (
 	LineNumber int
 	// LineLimit is the maximum number of file lines requested by ACP.
 	LineLimit int
+	// OptionalLineNumber preserves ACP field absence without exposing a mutable
+	// pointer to a validated LineNumber.
+	OptionalLineNumber struct {
+		value   LineNumber //goplint:ignore -- immutable private value guarded by present.
+		present bool
+	}
+	// OptionalLineLimit preserves ACP field absence without exposing a mutable
+	// pointer to a validated LineLimit.
+	OptionalLineLimit struct {
+		value   LineLimit //goplint:ignore -- immutable private value guarded by present.
+		present bool
+	}
 	// TerminalCommand is a command requested through an ACP terminal callback.
 	TerminalCommand string
 	// TerminalArgument is one raw argv item requested through an ACP terminal callback.
@@ -206,8 +218,8 @@ type (
 	ReadTextFileRequest struct {
 		SessionID SessionID
 		Path      types.FilesystemPath //goplint:ignore -- ACP read path is required by protocol validation.
-		Line      *LineNumber
-		Limit     *LineLimit
+		Line      OptionalLineNumber
+		Limit     OptionalLineLimit
 	}
 
 	// ReadTextFileResponse is a mediated ACP filesystem read response.
@@ -413,6 +425,16 @@ func (l LineLimit) Validate() error {
 		return fmt.Errorf("%w: line limit must be positive", ErrInvalidOptions)
 	}
 	return nil
+}
+
+// Value returns the optional line number and whether the ACP request supplied it.
+func (o OptionalLineNumber) Value() (LineNumber, bool) {
+	return o.value, o.present
+}
+
+// Value returns the optional line limit and whether the ACP request supplied it.
+func (o OptionalLineLimit) Value() (LineLimit, bool) {
+	return o.value, o.present
 }
 
 // String returns the terminal command.

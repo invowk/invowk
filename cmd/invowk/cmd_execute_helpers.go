@@ -122,6 +122,7 @@ func buildCommandExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, c
 
 	verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
 	envVarFlags := stringArrayFlagValue(cmd, "ivk-env-var")
+	//goplint:ignore -- raw CLI values cross into typed request fields and are validated by the command service boundary.
 	return ExecuteRequest{
 		Name:            opts.Name,
 		Args:            opts.Args,
@@ -132,11 +133,11 @@ func buildCommandExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, c
 		VerboseSet:      verboseSet,
 		FromSource:      opts.FromSource,
 		ForceRebuild:    cmdFlags.forceRebuild,
-		ContainerName:   invowkfile.ContainerName(cmdFlags.containerName),        //goplint:ignore -- CLI flag boundary conversion
-		Workdir:         invowkfile.WorkDir(stringFlagValue(cmd, "ivk-workdir")), //goplint:ignore -- CLI flag value, may be empty
+		ContainerName:   invowkfile.ContainerName(cmdFlags.containerName),
+		Workdir:         invowkfile.WorkDir(stringFlagValue(cmd, "ivk-workdir")),
 		EnvFiles:        toDotenvFilePaths(stringArrayFlagValue(cmd, "ivk-env-file")),
 		EnvVars:         parseEnvVarFlags(envVarFlags),
-		ConfigPath:      types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		ConfigPath:      types.FilesystemPath(rootFlags.configPath),
 		FlagValues:      flagValuesFromCobra(cmd, opts.FlagDefs),
 		FlagDefs:        opts.FlagDefs,
 		ArgDefs:         opts.ArgDefs,

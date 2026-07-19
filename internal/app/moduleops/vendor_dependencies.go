@@ -62,7 +62,10 @@ func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, up
 		return nil, nil, "", fmt.Errorf("absolute module path: %w", validateErr)
 	}
 
-	invowkmodPath := types.FilesystemPath(filepath.Join(absPath, "invowkmod.cue")) //goplint:ignore -- derived from validated module path and constant filename
+	invowkmodPath := types.FilesystemPath(filepath.Join(absPath, "invowkmod.cue"))
+	if validateErr := invowkmodPath.Validate(); validateErr != nil {
+		return nil, nil, "", fmt.Errorf("invowkmod path: %w", validateErr)
+	}
 	if _, statErr := os.Stat(string(invowkmodPath)); os.IsNotExist(statErr) {
 		return nil, nil, "", fmt.Errorf("not a module directory (no invowkmod.cue found in %s)", absPath)
 	} else if statErr != nil {

@@ -22,7 +22,7 @@ Before considering work complete, follow this sequence. If any step produces cod
 5. **Full test suite passes**: `make test` - Run the FULL test suite, not short mode.
 6. **CLI tests pass**: `make test-cli` (if CLI commands/output changed).
 7. **Baseline check passes**: `make check-baseline` - Verify no new goplint findings introduced. Note: baseline scoped to production packages (`./cmd/... ./internal/... ./pkg/...`). *(Pre-commit hook.)*
-8. **New goplint findings triaged with the user**: Every newly surfaced goplint violation must be evaluated carefully to decide whether the right fix belongs in Invowk production code or in goplint itself, regardless of the original task scope. If both are plausible, stop and ask the user to choose the final direction before closing the work.
+8. **New goplint findings triaged with the user**: Every newly surfaced goplint violation must be evaluated carefully to decide whether the right fix belongs in Invowk production code or in goplint itself, regardless of the original task scope. Protocol inconclusive categories and outcomes are always visible and blocking; do not baseline, except, or inline-ignore proof uncertainty. If both fix locations are plausible, stop and ask the user to choose the final direction before closing the work.
 9. **File length check**: `make check-file-length` - All Go files (production + test) must be under 1000 lines.
 10. **Sonar issues resolved**: Run `make sonar-local` and review all unresolved issues. Fix real bugs and vulnerabilities. For false positives, add suppressions in `sonar-project.properties` and `.sonarcloud.properties` (multicriteria IDs must be gapless). CI analysis is handled by SonarCloud automatic analysis (GitHub App). *(Pre-commit hook.)*
 
@@ -48,11 +48,34 @@ The following items are also enforced by pre-commit hooks (`.pre-commit-config.y
 | `golangci-lint` | 4 (Linting) | `make lint` (normalized root + `tools/goplint` lint, formatter, and config gates) |
 | `goplint-baseline` | 7 (Baseline) | `make check-baseline` |
 | `goplint-exceptions` | — | `make check-goplint-exceptions` |
-| `goplint-behavior` | — | Semantic-spec, IFDS, Phase C/D gates (not explicitly in checklist) |
+| `goplint-behavior` | — | Canonical causal core profile via `make check-goplint-soundness-core` |
 | `pgo-staleness` | — | Advisory only (exit 0); warns when hot-path files staged without `default.pgo` |
 | `sonar-local` | 10 (Sonar) | API-only check; `SONAR_TOKEN` optional (public projects work without auth) |
 
 Items NOT covered by any hook (manual discipline required): `make test`, `make tidy`, `make test-cli`, `make check-file-length`, `make check-agent-docs`, `make test-scripts`, documentation/diagram/module validation, `/simplify`, and `/learn`.
+
+For a goplint soundness completion claim, the regular core profile is not the
+last gate. Run this exact sequence from the repository root:
+
+```bash
+make check-goplint-soundness-core
+make generate-goplint-clean-tree-evidence
+make check-goplint-clean-tree-evidence
+make check-goplint-soundness-complete
+```
+
+The generator consumes the reviewed path selection and command plan, invokes
+the `core` profile rather than `complete` to avoid recursive freshness
+verification, and writes only the retained run record. Verification must not
+change the caller's index or worktree. A missing or stale record is blocking
+and cannot be baselined, excepted, or inline-ignored.
+
+The core profile also runs `make check-goplint-mutation-kernel-coverage`. That
+subgate binds the semantic-rules catalog, blocking mutation profile, and mutant
+catalog; it requires at least one selected causal mutant with stage and
+assertion-mismatch metadata for every category whose semantic rule requires
+the `mutation` layer. Uncovered required categories are blocking and cannot be
+baselined, excepted, exempted, or inline-ignored.
 
 **CI auto-fix:** The `pgo-sanity` CI job auto-regenerates `default.pgo` and pushes a fix commit when hot-path files change without a profile update. This is the safety net — prefer local regeneration with `make pgo-profile-parse-discovery` when the pre-commit hook warns.
 

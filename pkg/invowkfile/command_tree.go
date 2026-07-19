@@ -80,7 +80,7 @@ func ValidateCommandTree(commands []CommandTreeEntry) error {
 	}
 
 	commandsWithArgs := make(map[CommandName]CommandTreeEntry)
-	childCommands := make(map[CommandName][]CommandName)
+	childCommands := make(map[string][]CommandName)
 
 	for _, entry := range commands {
 		if entry.Command == nil {
@@ -91,13 +91,13 @@ func ValidateCommandTree(commands []CommandTreeEntry) error {
 		}
 		parts := strings.Fields(string(entry.Name))
 		for i := 1; i < len(parts); i++ {
-			parentName := CommandName(strings.Join(parts[:i], " ")) //goplint:ignore -- derived from valid command name parts
+			parentName := strings.Join(parts[:i], " ")
 			childCommands[parentName] = append(childCommands[parentName], entry.Name)
 		}
 	}
 
 	for cmdName, entry := range commandsWithArgs {
-		if children, hasChildren := childCommands[cmdName]; hasChildren {
+		if children, hasChildren := childCommands[string(cmdName)]; hasChildren {
 			return &ArgsSubcommandConflictError{
 				CommandName: cmdName,
 				Args:        entry.Command.Args,

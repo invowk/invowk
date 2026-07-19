@@ -609,8 +609,7 @@ func (e *InvalidPlatformConfigError) Unwrap() error { return ErrInvalidPlatformC
 // Delegates to Name.Validate() (nonzero), and validates all
 // zero-value-valid fields only when non-empty/non-nil.
 //
-//goplint:ignore -- helper-based delegation keeps field-order stability while reducing Sonar complexity.
-//goplint:ignore -- Sonar refactor keeps optional-field validation local without changing behavior.
+//goplint:ignore -- helper-based Sonar refactor keeps optional-field validation local and field-order stable.
 func (rc RuntimeConfig) Validate() error {
 	var errs []error
 	appendFieldError(&errs, rc.Name.Validate())

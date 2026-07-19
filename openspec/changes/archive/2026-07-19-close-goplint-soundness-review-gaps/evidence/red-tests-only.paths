@@ -1,0 +1,5 @@
+tools/goplint/goplint/cfa_interproc_graph_test.go
+tools/goplint/goplint/protocol_review_gaps_blackbox_test.go
+tools/goplint/goplint/testdata/src/protocol_ordered_calls/protocol_ordered_calls.go
+tools/goplint/goplint/testdata/src/constructorvalidates_deferred/constructorvalidates_deferred.go
+tools/goplint/goplint/testdata/src/cfa_escaping_closure/cfa_escaping_closure.go

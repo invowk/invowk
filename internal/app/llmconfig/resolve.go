@@ -96,12 +96,16 @@ type (
 // Resolve loads configured LLM defaults and applies environment/request
 // overrides for one LLM-aware use case.
 func Resolve(ctx context.Context, provider config.Loader, opts ResolveOptions) (*Resolved, error) {
-	if provider == nil {
-		return nil, errors.New("config provider is required")
-	}
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
+	if provider == nil {
+		return nil, errors.New("config provider is required")
+	}
+	return resolveValidated(ctx, provider, opts)
+}
+
+func resolveValidated(ctx context.Context, provider config.Loader, opts ResolveOptions) (*Resolved, error) {
 	cfg, err := provider.Load(ctx, config.LoadOptions{
 		ConfigFilePath: opts.configFilePath(),
 	})

@@ -27,8 +27,6 @@ type (
 
 // NewModuleScaffold builds the deterministic file layout for a new module.
 // Filesystem creation is owned by the application layer.
-//
-//goplint:ignore -- scaffold is validated before return; constructor builds generated content locally.
 func NewModuleScaffold(opts CreateOptions) (ModuleScaffold, error) {
 	if err := opts.Validate(); err != nil {
 		return ModuleScaffold{}, err
@@ -99,12 +97,17 @@ cmds: [
 ]
 `, opts.Name, opts.Name)
 
-	return ModuleScaffold{
-		directoryName:     ModuleScaffoldDirectoryName(string(opts.Name) + ModuleSuffix), //goplint:ignore -- derived from validated module short name and fixed suffix.
-		invowkmodContent:  ModuleScaffoldContent(invowkmodContent),                       //goplint:ignore -- generated from a static non-empty template.
-		invowkfileContent: ModuleScaffoldContent(invowkfileContent),                      //goplint:ignore -- generated from a static non-empty template.
+	//goplint:ignore -- all converted fields derive from validated names or generated non-empty templates and are checked below.
+	scaffold := ModuleScaffold{
+		directoryName:     ModuleScaffoldDirectoryName(string(opts.Name) + ModuleSuffix),
+		invowkmodContent:  ModuleScaffoldContent(invowkmodContent),
+		invowkfileContent: ModuleScaffoldContent(invowkfileContent),
 		createScriptsDir:  opts.CreateScriptsDir,
-	}, nil
+	}
+	if err := scaffold.Validate(); err != nil {
+		return ModuleScaffold{}, fmt.Errorf("validate module scaffold: %w", err)
+	}
+	return scaffold, nil
 }
 
 // DirectoryName returns the module scaffold directory name.

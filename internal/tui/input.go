@@ -263,11 +263,12 @@ func newInputModel(opts InputOptions, forModal bool) *inputModel {
 	}
 	ti.SetStyles(newInputStyles(opts.Config.Theme, forModal))
 
+	//goplint:ignore -- display labels are accepted at the validated TUI option boundary.
 	return &inputModel{
 		input:       ti,
 		result:      &result,
-		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
-		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
 		width:       configuredWidth,
 		forModal:    forModal,
 	}

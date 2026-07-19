@@ -125,7 +125,10 @@ func DiscoverModules(paths []types.FilesystemPath) []string {
 			}
 			if strings.HasSuffix(d.Name(), invowkmod.ModuleSuffix) {
 				absPath, _ := filepath.Abs(path)
-				modulePath := types.FilesystemPath(absPath) //goplint:ignore -- filepath.Abs result from WalkDir; validated by invowkmod.Validate below.
+				modulePath := types.FilesystemPath(absPath)
+				if err := modulePath.Validate(); err != nil {
+					return filepath.SkipDir
+				}
 				if !seen[absPath] && isValidProvisioningModule(modulePath) {
 					seen[absPath] = true
 					modules = append(modules, absPath)

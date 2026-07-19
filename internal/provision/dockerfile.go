@@ -43,20 +43,22 @@ func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 	if p.config.InvowkBinaryPath != "" {
 		fmt.Fprintf(&sb, "ENV PATH=\"%s:$PATH\"\n", string(p.config.BinaryMountPath))
 	}
-	modulePathValue := provisionenv.Value(modulesPath)
-	if err := modulePathValue.Validate(); err != nil {
-		modulePathValue = ""
-	}
-	globalModulePathValue := provisionenv.Value(globalModulesPath)
-	if err := globalModulePathValue.Validate(); err != nil {
-		globalModulePathValue = ""
-	}
+	modulePathValue := provisionEnvironmentValue(p.config.ModulesMountPath)
+	globalModulePathValue := provisionEnvironmentValue(p.globalModulesMountPath())
 	writeDockerfileEnv(&sb, provisionenv.ModulePathName, modulePathValue)
 	writeDockerfileEnv(&sb, provisionenv.ModuleManifestName, p.moduleManifest(false))
 	writeDockerfileEnv(&sb, provisionenv.GlobalModulePathName, globalModulePathValue)
 	writeDockerfileEnv(&sb, provisionenv.GlobalModuleManifestName, p.moduleManifest(true))
 
 	return sb.String()
+}
+
+func provisionEnvironmentValue(path container.MountTargetPath) provisionenv.Value {
+	value := provisionenv.Value(path.String())
+	if err := value.Validate(); err != nil {
+		return ""
+	}
+	return value
 }
 
 // buildEnvVars returns environment variables to set in the container.

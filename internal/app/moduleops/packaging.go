@@ -543,13 +543,14 @@ func validateExtractedModule(modulePath types.FilesystemPath) (*invowkmod.Module
 
 // downloadFile downloads a file from a URL and returns the path to the temporary file.
 // The context controls cancellation and timeout for the HTTP request.
-func (f DefaultArchiveSourceFetcher) downloadFile(ctx context.Context, url string) (tmpPath types.FilesystemPath, err error) {
+func (f DefaultArchiveSourceFetcher) downloadFile(ctx context.Context, url string) (_ types.FilesystemPath, err error) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "invowk-module-*.zip")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	tmpPath = types.FilesystemPath(tmpFile.Name()) //goplint:ignore -- validated before return.
+	tmpFilePath := tmpFile.Name()
+	tmpPath := types.FilesystemPath(tmpFilePath)
 	if validateErr := tmpPath.Validate(); validateErr != nil {
 		return "", fmt.Errorf("temporary archive path: %w", validateErr)
 	}
@@ -557,7 +558,7 @@ func (f DefaultArchiveSourceFetcher) downloadFile(ctx context.Context, url strin
 	// Clean up temp file on any error
 	defer func() {
 		if err != nil {
-			_ = os.Remove(string(tmpPath)) // Best-effort cleanup
+			_ = os.Remove(tmpFilePath) // Best-effort cleanup
 		}
 	}()
 

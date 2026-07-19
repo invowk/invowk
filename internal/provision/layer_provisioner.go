@@ -322,7 +322,8 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 	}
 
 	modules := discoverProvisionedModuleCopies(p.config.ModulesPaths, p.config.ModuleEntries)
-	warnings = append(warnings, p.copyProvisionedModules(modules, types.FilesystemPath(modulesDir))...) //goplint:ignore -- build context path is created above.
+	//goplint:ignore -- build context path is created above.
+	warnings = append(warnings, p.copyProvisionedModules(modules, types.FilesystemPath(modulesDir))...)
 
 	globalModulesDir := filepath.Join(tmpDir, "global_modules")
 	if err := os.MkdirAll(globalModulesDir, 0o755); err != nil {
@@ -330,7 +331,8 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 		return "", nil, nil, fmt.Errorf("failed to create global modules directory: %w", err)
 	}
 	globalModules := discoverProvisionedModuleCopies(p.config.GlobalModulesPaths, p.config.GlobalModuleEntries)
-	warnings = append(warnings, p.copyProvisionedModules(globalModules, types.FilesystemPath(globalModulesDir))...) //goplint:ignore -- build context path is created above.
+	//goplint:ignore -- build context path is created above.
+	warnings = append(warnings, p.copyProvisionedModules(globalModules, types.FilesystemPath(globalModulesDir))...)
 
 	// Generate Dockerfile
 	dockerfile := p.generateDockerfile(string(baseImage))

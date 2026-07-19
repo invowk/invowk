@@ -6,7 +6,7 @@ goplint/analyzer_boundary_request_validation.go
 goplint/analyzer_cast_validation.go
 goplint/analyzer_constructor_usage.go
 goplint/analyzer_constructor_validates.go
-goplint/analyzer_constructor_validates_cfa.go
+goplint/semantic_production_routes.go
 goplint/analyzer_cross_platform_path.go
 goplint/analyzer_enum_sync.go
 goplint/analyzer_nonzero.go

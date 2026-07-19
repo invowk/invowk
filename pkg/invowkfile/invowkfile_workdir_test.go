@@ -33,6 +33,20 @@ func TestGetEffectiveWorkDir_DefaultToInvowkfileDir(t *testing.T) {
 	}
 }
 
+func TestGetEffectiveWorkDir_InvalidDirectWorkDirFallsBackToInvowkfileDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &Invowkfile{
+		FilePath: FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+
+	result := inv.GetEffectiveWorkDir(nil, nil, WorkDir("   "))
+	if result != FilesystemPath(tmpDir) {
+		t.Fatalf("GetEffectiveWorkDir() = %q, want safe fallback %q", result, tmpDir)
+	}
+}
+
 func TestGetScriptBasePath_ModulePathOverridesInvowkfileDir(t *testing.T) {
 	t.Parallel()
 

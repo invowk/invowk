@@ -177,7 +177,13 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 		if workdir == "" {
 			return ""
 		}
-		workdirPath := FilesystemPath(workdir) //goplint:ignore -- workdir is a selected non-empty WorkDir value; validators reject whitespace-only values before execution.
+		workdirPath := FilesystemPath(workdir)
+		if err := workdirPath.Validate(); err != nil {
+			// Direct Go construction can bypass the CUE and request validators.
+			// This accessor cannot return an error, so retain its documented safe
+			// fallback instead of exposing an invalid filesystem value.
+			return invowkfileDir
+		}
 
 		// fspath.IsAbs preserves Unix-style absolute workdirs on every platform
 		// while still accepting host-native absolute forms.

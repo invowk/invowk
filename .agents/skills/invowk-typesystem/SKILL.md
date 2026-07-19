@@ -58,6 +58,8 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 
 ## Required Checks After Typesystem Changes
 
+- `make check-goplint-soundness` when goplint protocol behavior, analyzer code,
+  semantic fixtures, or the accepted baseline changes
 - `make check-baseline`
 - `make check-types` for targeted DDD checks when production type shapes changed
 - `make check-types-all` / `make check-types-all-json` for broad type-system sweeps
@@ -65,6 +67,10 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 - `make lint`
 - `make check-file-length`
 - `make check-agent-docs` (if `AGENTS.md` or `.agents/skills/*` changed)
+
+The soundness gate is canonical and flagless. Do not use removed analyzer
+backend, engine, alias, refinement, UBV, or inconclusive-policy selectors in
+local commands or documentation.
 
 For docs-only type-catalog refreshes, use at minimum:
 - `make check-agent-docs`

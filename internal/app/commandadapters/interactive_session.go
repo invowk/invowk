@@ -43,16 +43,22 @@ func runInteractiveCmd(ctx context.Context, opts tui.InteractiveOptions, cmd *ex
 			return result
 		}
 		if exitErr, ok := errors.AsType[*exec.ExitError](waitErr); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if exitCode.Validate() != nil {
-				result.ExitCode = types.ExitCode(1)
-			} else {
-				result.ExitCode = exitCode
-			}
+			result.ExitCode = validatedInteractiveExitCode(exitErr)
 			return result
 		}
 		result.Error = waitErr
 		result.ExitCode = types.ExitCode(1)
 		return result
 	})
+}
+
+func validatedInteractiveExitCode(exitErr *exec.ExitError) types.ExitCode {
+	if exitErr == nil {
+		return types.ExitCode(1)
+	}
+	exitCode := types.ExitCode(exitErr.ExitCode())
+	if err := exitCode.Validate(); err != nil {
+		return types.ExitCode(1)
+	}
+	return exitCode
 }

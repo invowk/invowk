@@ -539,29 +539,27 @@ func permissionResponseToACP(resp PermissionResponse) acp.RequestPermissionRespo
 }
 
 //goplint:ignore -- ACP generated protocol uses primitive int pointers for optional line numbers.
-//nolint:nilnil // A nil line with nil error is the ACP "field absent" value.
-func lineNumberFromPtr(line *int) (*LineNumber, error) {
+func lineNumberFromPtr(line *int) (OptionalLineNumber, error) {
 	if line == nil {
-		return nil, nil
+		return OptionalLineNumber{}, nil
 	}
 	value := LineNumber(*line)
 	if err := value.Validate(); err != nil {
-		return nil, err
+		return OptionalLineNumber{}, err
 	}
-	return &value, nil
+	return OptionalLineNumber{value: value, present: true}, nil
 }
 
 //goplint:ignore -- ACP generated protocol uses primitive int pointers for optional line limits.
-//nolint:nilnil // A nil limit with nil error is the ACP "field absent" value.
-func lineLimitFromPtr(limit *int) (*LineLimit, error) {
+func lineLimitFromPtr(limit *int) (OptionalLineLimit, error) {
 	if limit == nil {
-		return nil, nil
+		return OptionalLineLimit{}, nil
 	}
 	value := LineLimit(*limit)
 	if err := value.Validate(); err != nil {
-		return nil, err
+		return OptionalLineLimit{}, err
 	}
-	return &value, nil
+	return OptionalLineLimit{value: value, present: true}, nil
 }
 
 func createTerminalRequestFromACP(params acp.CreateTerminalRequest) (CreateTerminalRequest, error) {

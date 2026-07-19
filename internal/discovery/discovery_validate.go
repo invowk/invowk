@@ -84,7 +84,9 @@ func (c CommandInfo) Validate() error {
 func (c CommandInfo) appendIdentityValidationErrors(errs *[]error) {
 	if c.Name != "" {
 		if err := c.Name.Validate(); err != nil {
-			*errs = append(*errs, err)
+			if publishedErr := validatePublishedCommandName(c.Name); publishedErr != nil {
+				*errs = append(*errs, publishedErr)
+			}
 		}
 	}
 	if c.Description != "" {

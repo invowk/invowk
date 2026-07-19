@@ -172,7 +172,10 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 		// Try to load CUE config file
 		cuePath := filepath.Join(string(cfgDir), ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
-			resolved := types.FilesystemPath(cuePath) //goplint:ignore -- fileExists confirmed the resolved config path.
+			resolved := types.FilesystemPath(cuePath)
+			if err := resolved.Validate(); err != nil {
+				return nil, "", fmt.Errorf("resolved config path: %w", err)
+			}
 			loaded, err := decodeCUEConfigFile(resolved)
 			if err != nil {
 				return nil, "", cueLoadError(cuePath, err)
@@ -186,7 +189,10 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 				localCuePath = filepath.Join(string(opts.BaseDir), localCuePath)
 			}
 			if fileExists(localCuePath) {
-				resolved := types.FilesystemPath(localCuePath) //goplint:ignore -- fileExists confirmed the local config path.
+				resolved := types.FilesystemPath(localCuePath)
+				if err := resolved.Validate(); err != nil {
+					return nil, "", fmt.Errorf("local config path: %w", err)
+				}
 				loaded, err := decodeCUEConfigFile(resolved)
 				if err != nil {
 					return nil, "", cueLoadError(localCuePath, err)

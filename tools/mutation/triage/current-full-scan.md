@@ -88,7 +88,7 @@ Top not-covered clusters:
 - `goplint/analyzer_validate_delegation.go`: 83 not covered
 - `goplint/analyzer_windows_pitfalls.go`: 62 not covered
 - `goplint/analyzer_boundary_request_validation.go`: 48 not covered
-- `goplint/analyzer_constructor_validates_cfa.go`: 25 not covered
+- former constructor-validates CFA implementation (since consolidated and deleted): 25 not covered
 - `goplint/analyzer_structural.go`: 20 not covered
 - `goplint/analyzer_constructor_validates.go`: 18 not covered
 - `goplint/analyzer_enum_sync.go`: 18 not covered
@@ -234,7 +234,7 @@ Goplint constructor-validates exact-rerun batch:
 
 Goplint constructor-validates-CFA exact-rerun batch:
 
-- Fresh exact reruns proved all 93 accepted `goplint/analyzer_constructor_validates_cfa.go` survivor records killed and removed from the goplint baseline.
+- Fresh exact reruns proved all 93 accepted survivor records from the former constructor-validates CFA implementation killed and removed from the goplint baseline.
 - The proof reruns used `--run-mutant-id` with `--test-flags='-short -count=1'` from the `tools/goplint` module root.
 - Range-break reruns also surfaced same-ID non-baseline escaped sites at lines 321 for the accepted line-330 record, and lines 207, 226, and 248 for the accepted line-351 record. Those were not added during this shrink-only pass; reconcile them with the next full goplint mutation profile before any broader baseline refresh.
 - The committed goplint baseline now accepts 215 survivor records; two larger goplint clusters remain accepted.
@@ -992,7 +992,7 @@ One hundred and twenty-first remediation batch:
 One hundred and twenty-second remediation batch:
 
 - Re-ran every remaining accepted `tools/goplint` stable ID with explicit stable IDs, `--output-statuses=ke`, and `--test-flags='-short -count=1'` from the `tools/goplint` module root. The proof covered 522 accepted rows covering 518 stable mutant IDs and emitted only killed rows, with no escaped or error rows.
-- Fresh exact reruns proved the remaining accepted `tools/goplint` survivor rows killed: `goplint/analyzer_boundary_request_validation.go` (66), `goplint/analyzer_constructor_validates.go` (86), `goplint/analyzer_constructor_validates_cfa.go` (94), `goplint/analyzer_cross_platform_path.go` (60), `goplint/analyzer_validate_delegation.go` (105), and `goplint/analyzer_windows_pitfalls.go` (111).
+- Fresh exact reruns proved the remaining accepted `tools/goplint` survivor rows killed: `goplint/analyzer_boundary_request_validation.go` (66), `goplint/analyzer_constructor_validates.go` (86), the former constructor-validates CFA implementation (94), `goplint/analyzer_cross_platform_path.go` (60), `goplint/analyzer_validate_delegation.go` (105), and `goplint/analyzer_windows_pitfalls.go` (111).
 - The duplicate-site IDs `315fd0aa5bb486e5355539dcef93cc87`, `40c21a286186dfcc53666e46830f9d3f`, `7bdd7a9242372102f5fa04aede64be83`, and `a323a56d53585afece2ed1bc8fcf6cda` each reported killed sites only. The batch removed 522 accepted rows covering 518 stable IDs. The goplint baseline now accepts 0 survivor rows covering 0 stable mutant IDs.
 
 One hundred and twenty-third remediation batch:

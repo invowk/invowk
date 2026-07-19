@@ -61,12 +61,13 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	var provisionCleanup func()
 	var sshConnInfo *HostCallbackConnectionInfo
 	var tempScriptPath types.FilesystemPath
+	var tempScriptCleanupPath string
 	var pCleanup func()
 
 	defer func() {
 		if errResult != nil {
-			if tempScriptPath != "" {
-				_ = os.Remove(string(tempScriptPath))
+			if tempScriptCleanupPath != "" {
+				_ = os.Remove(tempScriptCleanupPath)
 			}
 			if sshConnInfo != nil {
 				r.hostCallbacks.RevokeToken(sshConnInfo.Token)
@@ -164,10 +165,12 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 			return nil, NewErrorResult(1, err)
 		}
 		if tempFile != "" {
-			tempScriptPath = types.FilesystemPath(tempFile)
-			if err := tempScriptPath.Validate(); err != nil {
+			candidate := types.FilesystemPath(tempFile)
+			if err := candidate.Validate(); err != nil {
 				return nil, NewErrorResult(1, fmt.Errorf("temp script path: %w", err))
 			}
+			tempScriptPath = candidate
+			tempScriptCleanupPath = tempFile
 		}
 	} else {
 		// Use default shell execution
@@ -192,8 +195,8 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 
 	// Build combined cleanup function (used on success path by the caller)
 	cleanup := func() {
-		if tempScriptPath != "" {
-			_ = os.Remove(string(tempScriptPath)) // Cleanup temp file; error non-critical
+		if tempScriptCleanupPath != "" {
+			_ = os.Remove(tempScriptCleanupPath) // Cleanup temp file; error non-critical
 		}
 		if sshConnInfo != nil {
 			r.hostCallbacks.RevokeToken(sshConnInfo.Token)
@@ -205,11 +208,13 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 
 	// Success: clear errResult so the deferred cleanup doesn't run
 	// (errResult is nil by default on success since we return nil for the second value)
-	imageTag := container.ImageTag(image) //goplint:ignore -- validated immediately below when present.
-	if imageTag == "" && !skipImagePrep {
-		return nil, NewErrorResult(1, errors.New("container image tag is empty"))
-	}
-	if imageTag != "" {
+	var imageTag container.ImageTag
+	if image == "" {
+		if !skipImagePrep {
+			return nil, NewErrorResult(1, errors.New("container image tag is empty"))
+		}
+	} else {
+		imageTag = container.ImageTag(image)
 		if err := imageTag.Validate(); err != nil {
 			return nil, NewErrorResult(1, fmt.Errorf("container image tag: %w", err))
 		}

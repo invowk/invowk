@@ -1,0 +1,45 @@
+{
+  "format_version": 1,
+  "change": "close-residual-goplint-soundness-gaps",
+  "schema": {
+    "authority": "tools/goplint/goplint.PackageScopedFindingID",
+    "finding_id_version": 4,
+    "mandatory_identity": ["diagnostic category", "full import path", "source-local semantic parts"],
+    "forbidden_identity": ["raw token.Pos", "file-set order", "diagnostic message", "package leaf as package identity"]
+  },
+  "producer_files": [
+    {"path": "tools/goplint/goplint/analyzer.go", "identity_parts": ["type, exception, or review subject", "method or review state"], "semantic_node_key": false},
+    {"path": "tools/goplint/goplint/analyzer_boundary_request_validation.go", "identity_parts": ["boundary function", "request parameter or protocol identity"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_constructor_usage.go", "identity_parts": ["enclosing function", "constructor", "semantic call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_constructor_validates.go", "identity_parts": ["constructor", "returned value type", "outcome class"], "semantic_node_key": false},
+    {"path": "tools/goplint/goplint/analyzer_cross_platform_path.go", "identity_parts": ["function", "semantic call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_enum_sync.go", "identity_parts": ["enum type", "schema path", "enum member or failure class"], "semantic_node_key": false},
+    {"path": "tools/goplint/goplint/analyzer_nonzero.go", "identity_parts": ["field", "field type"], "semantic_node_key": false},
+    {"path": "tools/goplint/goplint/analyzer_path_domain.go", "identity_parts": ["function", "semantic call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_pathmatrix_divergent.go", "identity_parts": ["function", "field", "semantic call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_redundant_conversion.go", "identity_parts": ["function", "semantic conversion site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_structural.go", "identity_parts": ["type", "constructor or member", "structural failure class"], "semantic_node_key": false},
+    {"path": "tools/goplint/goplint/analyzer_test_home_env.go", "identity_parts": ["function", "semantic call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_validate_delegation_modes.go", "identity_parts": ["type or Validate method", "field"], "semantic_node_key": false},
+    {"path": "tools/goplint/goplint/analyzer_validate_usage.go", "identity_parts": ["function", "semantic Validate call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/analyzer_windows_pitfalls.go", "identity_parts": ["function", "semantic call site"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/cfa_cast_shared.go", "identity_parts": ["protocol target", "protocol outcome", "stable procedure or semantic site identity"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/directive_validation.go", "identity_parts": ["directive attachment", "semantic directive site", "normalized problems"], "semantic_node_key": true},
+    {"path": "tools/goplint/goplint/inspect.go", "identity_parts": ["declaration kind", "type, field, parameter, or result", "primitive type"], "semantic_node_key": false}
+  ],
+  "classification": {
+    "all_producers_use_full_import_path": true,
+    "package_leaf_prefixes_are_normalized_out": true,
+    "raw_positions_are_used": false,
+    "messages_are_used": false,
+    "direct_production_calls_to_StableFindingID_outside_finding_go": false,
+    "category_local_ad_hoc_hashers": false
+  },
+  "verification": [
+    "TestPackageScopedFindingIDSeparatesSameLeafPackages",
+    "TestPackageScopedFindingIDIgnoresPackageClauseRename",
+    "TestSemanticNodeKeyIsStableAcrossLayoutChanges",
+    "TestSemanticNodeKeySeparatesSameStatementSites",
+    "TestCollectBaselineFindingsRejectsDuplicateAndCollidedIDs"
+  ]
+}

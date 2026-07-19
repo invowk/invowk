@@ -16,9 +16,8 @@ import (
 
 // RuntimeRegistryFactory creates and populates the runtime registry for command
 // execution.
-//
-//goplint:ignore -- stateless infrastructure adapter has no domain invariants.
 type (
+	//goplint:ignore -- stateless infrastructure adapter has no domain invariants.
 	RuntimeRegistryFactory struct {
 		containerRuntimeFactory func(*config.Config) (*runtime.ContainerRuntime, error)
 	}

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 // ErrInvalidTerminalDimension is the sentinel error wrapped by InvalidTerminalDimensionError.
@@ -34,6 +36,18 @@ func (d TerminalDimension) Validate() error {
 		return &InvalidTerminalDimensionError{Value: d}
 	}
 	return nil
+}
+
+func validatedWindowDimensions(msg tea.WindowSizeMsg) (width, height TerminalDimension) {
+	width = TerminalDimension(msg.Width)
+	if err := width.Validate(); err != nil {
+		width = 0
+	}
+	height = TerminalDimension(msg.Height)
+	if err := height.Validate(); err != nil {
+		height = 0
+	}
+	return width, height
 }
 
 // Error implements the error interface for InvalidTerminalDimensionError.

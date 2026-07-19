@@ -108,7 +108,10 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			return nil, fmt.Errorf("failed to remove existing vendored module at %s: %w", destPath, err)
 		}
 
-		dstPath := types.FilesystemPath(destPath) //goplint:ignore -- filepath.Join from validated vendor directory and cache basename
+		dstPath := types.FilesystemPath(destPath)
+		if err := dstPath.Validate(); err != nil {
+			return nil, fmt.Errorf("validate vendor destination path: %w", err)
+		}
 		if err := modulecache.CopyModuleDir(moduleDirPath, dstPath); err != nil {
 			return nil, fmt.Errorf("failed to copy module to %s: %w", destPath, err)
 		}
@@ -219,7 +222,10 @@ func ListVendoredModules(modulePath types.FilesystemPath) ([]*invowkmod.Module, 
 
 		// Check if it's a module
 		entryPath := filepath.Join(vendorDirStr, entry.Name())
-		vendoredPath := types.FilesystemPath(entryPath) //goplint:ignore -- filepath.Join from OS-listed entry
+		vendoredPath := types.FilesystemPath(entryPath)
+		if err := vendoredPath.Validate(); err != nil {
+			return nil, &moduleError{op: "validate vendored module path", err: err}
+		}
 		if !invowkmod.IsModule(vendoredPath) {
 			continue
 		}

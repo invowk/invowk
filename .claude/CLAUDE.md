@@ -185,6 +185,8 @@ When working in a specific code area, apply these rules and skills:
 | Test (full) | `make test` |
 | Lint | `make lint` |
 | Tidy | `make tidy` |
+| Generate goplint completion evidence | `make generate-goplint-clean-tree-evidence` |
+| Check goplint mutation-kernel coverage | `make check-goplint-mutation-kernel-coverage` |
 
 See [commands reference](.agents/rules/commands.md) for the complete list.
 
@@ -231,7 +233,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `samples/invowkmods/` - Sample invowk modules and audit fixtures for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation, `check-file-length.sh` for 1000-line file limit enforcement).
 - `tools/` - Development tools (separate Go modules):
-  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. Also checks for missing `Validate`/`String` methods, constructor existence/signatures, functional options patterns, and struct immutability. Run via `make check-types`. Full DDD audit via `make check-types-all`. Semantic contract gate via `make check-semantic-spec`. IFDS no-silent-downgrade gate via `make check-ifds-compat`. Phase C feasibility/refinement gate via `make check-cfg-refinement`. Phase D alias gate via `make check-cfg-alias`. Baseline regression gate via `make check-baseline`; update after type improvements with `make update-baseline`. Baseline format is v2 (`entries = [{id, message}]`); legacy `messages = [...]` is rejected.
+  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. It also checks value-type methods, constructors, functional options, immutability, and validation protocols. Run `make check-types` for the default audit and `make check-types-all` for the full DDD audit. `make check-goplint-soundness` is the regular/CI causal core profile and includes mutation-kernel category coverage. A completion claim additionally requires `make generate-goplint-clean-tree-evidence`, `make check-goplint-clean-tree-evidence`, and `make check-goplint-soundness-complete`. Baseline regression is enforced by `make check-baseline`; proof inconclusives, uncovered mutation-required categories, and missing/stale completion evidence are always visible and cannot be baselined, excepted, or inline-ignored. Baseline format is v2 (`entries = [{id, message}]`); legacy `messages = [...]` is rejected.
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 

@@ -100,8 +100,12 @@ Use --dry-run to preview the file patch, or --print to print only the generated
 command object.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			name := invowkfile.CommandName(args[0])
+			if err := name.Validate(); err != nil {
+				return &ExitError{Code: auditExitError, Err: err}
+			}
 			return runAgentCmdCreate(cmd, app, rootFlags, agentcmd.CreateOptions{
-				Name:        invowkfile.CommandName(args[0]),
+				Name:        name,
 				Description: strings.Join(args[1:], " "),
 				TargetPath:  targetPath,
 				FromFile:    fromFile,
@@ -141,8 +145,12 @@ Use --dry-run to preview the file patch, or --print to print only the generated
 command object.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			name := invowkfile.CommandName(args[0])
+			if err := name.Validate(); err != nil {
+				return &ExitError{Code: auditExitError, Err: err}
+			}
 			return runAgentCmdChange(cmd, app, rootFlags, agentcmd.ChangeOptions{
-				Name:        invowkfile.CommandName(args[0]),
+				Name:        name,
 				Description: strings.Join(args[1:], " "),
 				TargetPath:  targetPath,
 				FromFile:    fromFile,
@@ -173,8 +181,12 @@ func newAgentCmdRemoveCommand() *cobra.Command {
 		Short: "Remove a custom invowk command from an invowkfile",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			name := invowkfile.CommandName(args[0])
+			if err := name.Validate(); err != nil {
+				return &ExitError{Code: auditExitError, Err: err}
+			}
 			result, err := agentcmd.RemoveCommand(cmd.Context(), agentcmd.RemoveOptions{
-				Name:       invowkfile.CommandName(args[0]),
+				Name:       name,
 				TargetPath: targetPath,
 				DryRun:     dryRun,
 			})
@@ -249,8 +261,12 @@ Use --dry-run to preview the file patches, or --print to print only the
 generated module file bundle.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			moduleID := invowkmod.ModuleID(args[0])
+			if err := moduleID.Validate(); err != nil {
+				return &ExitError{Code: auditExitError, Err: err}
+			}
 			return runAgentModCreate(cmd, app, rootFlags, agentcmd.ModuleCreateOptions{
-				ModuleID:         invowkmod.ModuleID(args[0]),
+				ModuleID:         moduleID,
 				Description:      strings.Join(args[1:], " "),
 				FromFile:         fromFile,
 				DryRun:           dryRun,

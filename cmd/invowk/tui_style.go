@@ -128,9 +128,10 @@ func tuiStyleFromFlags(
 	width, height int,
 	alignValue, borderValue string,
 ) (tui.Style, error) {
+	//goplint:ignore -- all style conversions are validated by validateTUIStyle before return.
 	style := tui.Style{
-		Foreground:    tui.ColorSpec(foreground), //goplint:ignore -- validated before return by validateTUIStyle.
-		Background:    tui.ColorSpec(background), //goplint:ignore -- validated before return by validateTUIStyle.
+		Foreground:    tui.ColorSpec(foreground),
+		Background:    tui.ColorSpec(background),
 		Bold:          bold,
 		Italic:        italic,
 		Underline:     underline,
@@ -138,10 +139,10 @@ func tuiStyleFromFlags(
 		Faint:         faint,
 		Blink:         blink,
 		Reverse:       reverse,
-		Width:         tui.TerminalDimension(width),  //goplint:ignore -- validated before return by validateTUIStyle.
-		Height:        tui.TerminalDimension(height), //goplint:ignore -- validated before return by validateTUIStyle.
-		Align:         tui.TextAlign(alignValue),     //goplint:ignore -- validated before return by validateTUIStyle.
-		Border:        tui.BorderStyle(borderValue),  //goplint:ignore -- validated before return by validateTUIStyle.
+		Width:         tui.TerminalDimension(width),
+		Height:        tui.TerminalDimension(height),
+		Align:         tui.TextAlign(alignValue),
+		Border:        tui.BorderStyle(borderValue),
 	}
 	if marginLeft > 0 || marginRight > 0 || marginTop > 0 || marginBottom > 0 {
 		style.Margin = []int{marginTop, marginRight, marginBottom, marginLeft}

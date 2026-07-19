@@ -38,6 +38,16 @@ func TestCommandInfo_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid RDNS-qualified module command",
+			cmd: CommandInfo{
+				Name:       invowkfile.CommandName("io.example.tools build"), //goplint:ignore -- qualified form is validated by CommandInfo.Validate.
+				Source:     SourceModule,
+				SourceID:   SourceID("io.example.tools"),
+				SimpleName: invowkfile.CommandName("build"),
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid source",
 			cmd: CommandInfo{
 				Source: Source(99),

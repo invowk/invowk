@@ -392,8 +392,7 @@ func (m *interactiveModel) forwardKeyToPty(msg tea.KeyPressMsg) {
 
 // handleWindowSize handles terminal resize events.
 func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
-	m.width = TerminalDimension(msg.Width)
-	m.height = TerminalDimension(msg.Height)
+	m.width, m.height = validatedWindowDimensions(msg)
 	headerHeight := 2 // Title + separator
 	footerHeight := 1 // Status line
 	viewportHeight := max(msg.Height-headerHeight-footerHeight, 1)

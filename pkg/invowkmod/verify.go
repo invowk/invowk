@@ -179,7 +179,10 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 		}
 
 		entryPath := filepath.Join(vendorDirStr, entry.Name())
-		vendoredModPath := types.FilesystemPath(entryPath) //goplint:ignore -- filepath.Join from OS-listed entry
+		vendoredModPath := types.FilesystemPath(entryPath)
+		if validateErr := vendoredModPath.Validate(); validateErr != nil {
+			return fmt.Errorf("validate vendored module path: %w", validateErr)
+		}
 
 		// Load the module to get its ID/namespace for matching.
 		m, loadErr := Load(vendoredModPath)

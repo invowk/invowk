@@ -310,7 +310,7 @@ func copyStringMap(src map[string]string) map[string]string {
 // ResolveFromSource resolves a source-filtered command request without executing it.
 func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []Diagnostic, error) {
 	if err := req.Validate(); err != nil {
-		return nil, req, nil, err
+		return nil, Request{}, nil, err
 	}
 	ctx = s.beginRequest(ctx, req.ConfigPath)
 	if req.Platform == "" {
@@ -323,7 +323,7 @@ func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discover
 // ResolveCommand resolves a command request without executing it.
 func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []Diagnostic, error) {
 	if err := req.Validate(); err != nil {
-		return nil, req, nil, err
+		return nil, Request{}, nil, err
 	}
 	ctx = s.beginRequest(ctx, req.ConfigPath)
 	if req.Platform == "" {
@@ -337,7 +337,7 @@ func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.C
 // plan using the selected execution runtime.
 func (s *Service) ResolveWatchPlan(ctx context.Context, req Request) (*discovery.CommandInfo, Request, WatchPlan, []Diagnostic, error) {
 	if err := req.Validate(); err != nil {
-		return nil, req, WatchPlan{}, nil, err
+		return nil, Request{}, WatchPlan{}, nil, err
 	}
 	ctx = s.beginRequest(ctx, req.ConfigPath)
 	if req.Platform == "" {
@@ -483,7 +483,10 @@ func resolveCommandFromSet(commandSet *discovery.DiscoveredCommandSet, req Reque
 	tokens := strings.Fields(req.Name)
 	tokens = append(tokens, req.Args...)
 	for i := len(tokens); i > 0; i-- {
-		candidate := invowkfile.CommandName(strings.Join(tokens[:i], " ")) //goplint:ignore -- request tokens validated by Request.Validate()
+		candidate := invowkfile.CommandName(strings.Join(tokens[:i], " "))
+		if err := candidate.Validate(); err != nil {
+			continue
+		}
 		if commandSet.AmbiguousNames[candidate] {
 			return nil, req, candidate
 		}

@@ -51,7 +51,10 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	}
 
 	if req.Verbose {
-		cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
+		cmdName := invowkfile.CommandName(req.Name)
+		if validationErr := cmdName.Validate(); validationErr != nil {
+			return Result{}, diags, fmt.Errorf("resolved command name: %w", validationErr)
+		}
 		s.observer.CommandStarting(cmdName)
 	}
 
@@ -118,7 +121,10 @@ func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.Executi
 		if s.interactive == nil {
 			return &runtime.Result{ExitCode: 1, Error: ErrInteractiveExecutorNotConfigured}, "", nil
 		}
-		cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
+		cmdName := invowkfile.CommandName(req.Name)
+		if err := cmdName.Validate(); err != nil {
+			return nil, "", fmt.Errorf("resolved interactive command name: %w", err)
+		}
 		return s.interactive.Execute(execCtx, cmdName, interactiveRT), "", nil
 	}
 

@@ -1,0 +1,144 @@
+{
+  "format_version": 1,
+  "change": "close-residual-goplint-soundness-gaps",
+  "recorded_at": "2026-07-17T14:15:34-03:00",
+  "base": {
+    "commit": "77b809b91a7aeea5bb312fb907fb0bc1514aa2ae",
+    "tree": "967ec72bc2284c43bf9e2318d969c4a9a4d4508f",
+    "parent": "c544dfc81cb486d1c17949cee92b82bc9cda3910",
+    "subject": "goplint clean-tree evidence",
+    "committed_at": "2026-07-15T13:25:32-03:00",
+    "selection_rationale": "Latest retained predecessor synthetic commit containing the completed predecessor implementation while preserving every residual behavior under test. Repository HEAD predates that combined predecessor state and is not a valid residual baseline."
+  },
+  "environment": {
+    "go_version": "go version go1.26.5 linux/amd64",
+    "working_directory": "tools/goplint",
+    "test_flags": [
+      "-count=1"
+    ]
+  },
+  "probe_overlay": {
+    "path": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/red-baseline-probes.v1.patch",
+    "sha256": "66c3174b8ad48826bb437d29d76e982827d3557eacc4a1216d9fc70ee96fdf23",
+    "line_count": 704,
+    "apply_check": "git apply --check against base commit passed; git apply --check --reverse against the observed probe tree passed",
+    "scope": "Historical counterexample probes only. The overlay is retained evidence and is not part of the active test, mutation, or gate suite."
+  },
+  "observations": [
+    {
+      "finding_id": "constructor-success-edge",
+      "test": "TestCheckConstructorValidates",
+      "command": "go test -count=1 -run '^TestCheckConstructorValidates$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "NewElseBranchSuccess must report a missing Validate call on the nil-error else edge.",
+      "observed_failure": "constructorvalidates.go:765: no diagnostic was reported",
+      "log_sha256": "faa9045816d401a2527a396440479f2cdb76f736139534c708aa23b6adff86e1"
+    },
+    {
+      "finding_id": "preclassification-suppression",
+      "test": "TestResidualClosureUncertaintySurvivesExceptionAndInlineIgnore",
+      "command": "go test -count=1 -run '^TestResidualClosureUncertaintySurvivesExceptionAndInlineIgnore$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "An unresolved stored closure must remain blocking inconclusive before exception and inline-ignore suppression.",
+      "observed_failure": "unresolved closure inconclusive count = 0, want 1",
+      "log_sha256": "39f99c7933fffb7a452be7a61a1bbb5e7f4ff9fbd2cfe9366630c99677ecb2c4"
+    },
+    {
+      "finding_id": "conditional-summary-result",
+      "test": "TestProtocolSummaryFactsExportAllExplicitEffects",
+      "command": "go test -count=1 -run '^TestProtocolSummaryFactsExportAllExplicitEffects$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "Discarded, overwritten, and mismatched conditional results must not receive unconditional validation credit.",
+      "observed_failure": "No diagnostics were reported for the discarded, overwritten, and mismatched conditional-result counterexamples.",
+      "log_sha256": "14a1757616a927ef4576bd77e81b5800b4b523954b6654a1e02e869c78192b99"
+    },
+    {
+      "finding_id": "package-stored-literal",
+      "test": "TestCheckCastValidationCFANonExecutableClosure",
+      "command": "go test -count=1 -run '^TestCheckCastValidationCFANonExecutableClosure$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "Package-stored and detached function literals must be registered even when not directly executable from init.",
+      "observed_failure": "No diagnostics were reported for the package-stored and detached literal sites.",
+      "log_sha256": "5af1abf8402fef2dfa7c58f8225fde1359eb64436ef602ea8f93eb9d0996e922"
+    },
+    {
+      "finding_id": "post-validation-escape",
+      "test": "TestResidualPostValidationEscapeBoundaries",
+      "command": "go test -count=1 -run '^TestResidualPostValidationEscapeBoundaries$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "Pointer channels, aggregate stores, indirect stores, package stores, escaping closures, and recursive helper effects must invalidate proof or become blocking inconclusive.",
+      "observed_failure": "Expected diagnostics were absent across the mutable post-validation escape matrix.",
+      "log_sha256": "facf9a9fa7a2fcf5a3c76dae6024cdaba7b093c26b4cf532ac280db3e35a75bf"
+    },
+    {
+      "finding_id": "imported-fact-shape",
+      "test": "TestResidualImportedFactsBindFunctionSlotsRolesAndTypes",
+      "command": "go test -count=1 -run '^TestResidualImportedFactsBindFunctionSlotsRolesAndTypes$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "Imported facts with a wrong function, target slot, target role, condition slot, or condition type must be rejected.",
+      "observed_failure": "All five structurally incompatible fact mutations were accepted as valid.",
+      "log_sha256": "6f02573878b849abcc7b7d5c8d956d35d842a04c90a0b75ac68736660d8d5097"
+    },
+    {
+      "finding_id": "directive-validation",
+      "test": "TestResidualDirectiveValidationIsTotal",
+      "command": "go test -count=1 -run '^TestResidualDirectiveValidationIsTotal$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "All twelve invalid directive attachment and parameter classes must produce actionable diagnostics.",
+      "observed_failure": "actionable directive diagnostics = 0, want 12",
+      "log_sha256": "a07befd914b732b55069dd1a9606db6ecf8afa9f39093a4bc184ad2cde8c1ffb"
+    },
+    {
+      "finding_id": "stable-id-global-identity",
+      "test": "TestResidualStableIDIgnoresLeafAndRawLayout",
+      "command": "go test -count=1 -run '^TestResidualStableIDIgnoresLeafAndRawLayout$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "Stable IDs must survive package-leaf renames and source-layout shifts when semantic identity is unchanged.",
+      "observed_failure": "Both package-leaf rename and raw source layout changed the finding identity.",
+      "log_sha256": "72f447c8e8df65615633de55aa46517ecc78832924ab81f79c6b09c543420974"
+    },
+    {
+      "finding_id": "false-credit-category-evidence",
+      "test": "TestResidualEvidenceRejectsMarkerOnlyFalseCredit",
+      "command": "go test -count=1 -run '^TestResidualEvidenceRejectsMarkerOnlyFalseCredit$' ./goplint",
+      "exit_code": 1,
+      "expected_red": "String markers without executed semantic case records must not receive evidence-layer credit.",
+      "observed_failure": "marker-only evidence received semantic coverage credit; want rejection",
+      "log_sha256": "92ea6de9a72db90c1096d668ecee424ad822cea19d2accd8ad30662b1b6daeed"
+    },
+    {
+      "finding_id": "noncausal-mutation-attribution",
+      "test": "TestResidualMutationKillRequiresIntendedMismatch",
+      "command": "go test -count=1 -run '^TestResidualMutationKillRequiresIntendedMismatch$' ./cmd/targeted-mutation",
+      "exit_code": 1,
+      "expected_red": "A declared guard test that fails for an unrelated assertion must not receive mutation-kill credit.",
+      "observed_failure": "declared test failure received mutation-kill credit without the intended semantic mismatch",
+      "log_sha256": "d9e8061285794b9384eb8cee1cb7e03518e61d85e94d9ff31038a35fd0fa8912"
+    },
+    {
+      "finding_id": "hard-coded-subgate-populations",
+      "test": "TestResidualGateContractRejectsNeverExecutedDefinitions",
+      "command": "go test -count=1 -run '^TestResidualGateContractRejectsNeverExecutedDefinitions$' ./cmd/gate-contract",
+      "exit_code": 1,
+      "expected_red": "Definitions and marker strings must not receive subgate population credit without current-run member observations.",
+      "observed_failure": "definition and string markers received subgate credit without a current-run execution census",
+      "log_sha256": "61c0a0cf00a7d992eb4b8bad9d15a4bc1c35215c645e6e61897196ad02d20f1f"
+    },
+    {
+      "finding_id": "incomplete-diff-proof",
+      "test": "TestResidualCleanTreeRejectsOmittedDirtyPaths",
+      "command": "go test -count=1 -run '^TestResidualCleanTreeRejectsOmittedDirtyPaths$' ./cmd/clean-tree-evidence",
+      "exit_code": 1,
+      "expected_red": "Clean-tree materialization must reject a reviewed path list that omits any dirty tracked or untracked path.",
+      "observed_failure": "clean-tree capture accepted a reviewed path list that omitted a dirty tracked path",
+      "log_sha256": "2dbd3d3396a738ffe512110d98c572217c73024890bcff187e611213195234b8"
+    }
+  ],
+  "result": {
+    "status": "expected-red-confirmed",
+    "finding_count": 12,
+    "failed_as_expected": 12,
+    "weakened_assertions": 0,
+    "active_suite_changes": 0
+  }
+}

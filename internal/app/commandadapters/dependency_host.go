@@ -187,14 +187,14 @@ func (dependencyLockProvider) LoadCommandScopeLock(inv *invowkfile.Invowkfile) (
 	typedPath := types.FilesystemPath(lockPath)
 	if pathErr := typedPath.Validate(); pathErr != nil {
 		return nil, &deps.CommandScopeLockError{
-			Path: typedPath,
+			Path: lockPath,
 			Err:  pathErr,
 		}
 	}
 	lock, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
 		return nil, &deps.CommandScopeLockError{
-			Path: typedPath,
+			Path: lockPath,
 			Err:  err,
 		}
 	}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "status": "added",
+      "category": "nonzero-value-field",
+      "population": 65,
+      "canonical_sha256": "f18f48cf41717c234870ef76c00b4a15b7bab7d3f2032925f0f3bee63029ca93",
+      "reason": "The retained pre-v4 capture covered the protocol, constructor, and boundary ID producers but omitted the structural nonzero-field producer; the final production scan deliberately includes that inventoried producer.",
+      "evidence": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/finding-id-producer-inventory.v1.json"
+    },
+    {
+      "status": "removed",
+      "category": "unvalidated-boundary-request",
+      "population": 3,
+      "canonical_sha256": "c4c5af322fbaa210862f4784bda0c7ad3cb52784ed4a3ab3dcc90ca3f95a1aea",
+      "reason": "The three former findings were validation-error paths that returned the invalid request value; the service now returns a zero Request on validation failure, so no unvalidated request crosses the boundary.",
+      "evidence": "openspec/changes/complete-goplint-soundness-hardening/evidence/stable-id-and-fact-migration.md"
+    },
+    {
+      "status": "removed",
+      "category": "unvalidated-cast",
+      "population": 15,
+      "canonical_sha256": "97c8409efd5d34d5c4e1729dbaf3ecbeab484110bd31c54c67d04138dbc6aeac",
+      "reason": "One production cast now reuses the already validated lock path; the other fourteen were under the configured internal/testutil exclusion. This is a production-scope correction plus one code fix, not category suppression.",
+      "evidence": "openspec/changes/complete-goplint-soundness-hardening/evidence/stable-id-and-fact-migration.md"
+    },
+    {
+      "status": "removed",
+      "category": "unvalidated-cast-inconclusive",
+      "population": 6,
+      "canonical_sha256": "14a1628d5ec723a4c32614d04a7c9f5da90a694c6acce75e353a31f332817f10",
+      "reason": "The six former casts now retain validated typed locals or optional typed wrappers through the checked path, eliminating pointer, named-return, and file-set identity loss without suppressions.",
+      "evidence": "openspec/changes/complete-goplint-soundness-hardening/evidence/stable-id-and-fact-migration.md"
+    }
+  ]
+}

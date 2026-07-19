@@ -1,0 +1,269 @@
+{
+  "schema_version": 2,
+  "status": "corrective-implementation-combined-v3-proof-passed-archive-pending",
+  "authority": {
+    "current_reconciliation": "openspec/changes/close-goplint-soundness-review-gaps/evidence/cross-change-reconciliation.v2.json",
+    "supersedes_for_current_completion_claims": "openspec/changes/complete-goplint-soundness-hardening/evidence/cross-change-reconciliation.v1.json",
+    "historical_record_retained": true,
+    "historical_record_status": "superseded-for-current-completion-claims",
+    "reason": "The follow-up red observations contradicted completion claims made before ordered call expansion, path-sensitive deferred validation, escaping-closure analysis, unsuppressible protocol uncertainty, category-specific executable evidence, and causal aggregate verification were implemented."
+  },
+  "predecessor": {
+    "name": "complete-goplint-soundness-hardening",
+    "path": "openspec/changes/complete-goplint-soundness-hardening",
+    "required_to_archive_first": true,
+    "prior_reconciliation": "openspec/changes/complete-goplint-soundness-hardening/evidence/cross-change-reconciliation.v1.json",
+    "prior_clean_tree_record": "openspec/changes/complete-goplint-soundness-hardening/evidence/clean-tree-run.v1.json",
+    "prior_clean_tree_record_disposition": "historical-only-because-the-follow-up-changes-the-intended-tree-and-proof-contract"
+  },
+  "corrective_change": {
+    "name": "close-goplint-soundness-review-gaps",
+    "path": "openspec/changes/close-goplint-soundness-review-gaps",
+    "red_observations": "openspec/changes/close-goplint-soundness-review-gaps/evidence/review-gap-red-observations.v1.json",
+    "task_ledger": "openspec/changes/close-goplint-soundness-review-gaps/tasks.md"
+  },
+  "completion_limits": {
+    "mutation_testing_performed_for_this_activity": true,
+    "mutation_evidence_status": "passed-existing-profile-27-killed-zero-survivors-no-expansion",
+    "mutation_evidence": "openspec/changes/close-residual-goplint-soundness-gaps/evidence/targeted-mutation-run.v1.json",
+    "exact_tree_evidence_status": "passed-v3-complete-intended-diff",
+    "exact_tree_evidence": "tools/goplint/testdata/gates/clean-tree-run.v3.json",
+    "combined_soundness_completion_may_be_claimed": true,
+    "archive_may_proceed": false,
+    "required_before_completion": [
+      "obtain explicit user authorization before any archive action",
+      "synchronize and archive the predecessor before this corrective change"
+    ]
+  },
+  "claim_groups": [
+    {
+      "id": "ordered-calls",
+      "predecessor_claims": [
+        "canonical interprocedural analysis follows realizable paths",
+        "production integration and counterexample coverage were complete",
+        "predecessor tasks 4.*, 5.*, 12.2, 12.5, and 12.7"
+      ],
+      "contradicting_observations": [
+        "ordered-nested-call-micro-nodes",
+        "ordered-call-production-boundary"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/goplint/cfa_call_events.go",
+        "tools/goplint/goplint/cfa_interproc_graph.go",
+        "tools/goplint/goplint/cfa_ifds_effects.go"
+      ],
+      "blocking_evidence": [
+        "TestBuildInterprocSupergraphOrdersNestedCalls",
+        "TestProtocolReviewGapsBlackBox/ordered_calls",
+        "check-goplint-production-integration",
+        "check-goplint-counterexamples"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "deferred-validation",
+      "predecessor_claims": [
+        "validation requires a proven successful result on every realizable constructor return",
+        "conditional protocol effects and constructor identity were complete",
+        "predecessor tasks 2.*, 3.*, 12.2, 12.5, and 12.7"
+      ],
+      "contradicting_observations": [
+        "deferred-constructor-exit-lifo",
+        "deferred-constructor-production-boundary"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/goplint/constructor_deferred.go",
+        "tools/goplint/goplint/constructor_ssa_identity.go",
+        "tools/goplint/goplint/cfa_summary.go"
+      ],
+      "blocking_evidence": [
+        "TestConstructorDeferredValidationUsesExitTimeLIFOPaths",
+        "TestProtocolReviewGapsBlackBox/deferred_validation",
+        "check-goplint-counterexamples"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "escaping-closures",
+      "predecessor_claims": [
+        "SSA/object identity and closure effects covered all relevant procedures",
+        "only the canonical analysis pipeline remained",
+        "predecessor tasks 2.*, 3.*, 7.*, 12.2, and 12.9"
+      ],
+      "contradicting_observations": [
+        "escaping-closure-production-boundary"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/goplint/protocol_procedure_index.go",
+        "tools/goplint/goplint/cfa_closure.go",
+        "tools/goplint/goplint/protocol_alias_analysis.go"
+      ],
+      "blocking_evidence": [
+        "TestProtocolReviewGapsBlackBox/escaping_closures",
+        "cfa_escaping_closure",
+        "cfa_escaping_closure_cross",
+        "check-goplint-production-integration"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "inconclusive-suppression",
+      "predecessor_claims": [
+        "unsupported or unresolved relevant behavior failed closed",
+        "baseline and exception governance could not hide proof uncertainty",
+        "predecessor tasks 1.7, 3.5-3.7, 11.5-11.8, and 12.4"
+      ],
+      "contradicting_observations": [
+        "protocol inconclusive categories were accepted by baseline policy before the follow-up"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/goplint/semantic_inconclusive_policy.go",
+        "tools/goplint/goplint/cfa_reporting.go",
+        "tools/goplint/goplint/baseline.go",
+        "tools/goplint/goplint/baseline_collect.go"
+      ],
+      "blocking_evidence": [
+        "TestLoadBaselineRejectsProtocolInconclusiveData",
+        "TestBaselineNeverMatchesProtocolInconclusiveCategories",
+        "TestBaselineCollectionRejectsProtocolInconclusiveFindings",
+        "TestWriteBaselineRejectsProtocolInconclusiveFindings",
+        "check-goplint-inconclusive-suppression",
+        "check-baseline",
+        "check-goplint-full-scan"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "category-evidence",
+      "predecessor_claims": [
+        "the semantic catalog and boundary oracles were total",
+        "every category had independent and production-backed evidence",
+        "predecessor tasks 8.*, 9.*, 11.1-11.2, and 12.5"
+      ],
+      "contradicting_observations": [
+        "semantic-kind and marker-only evidence could previously credit an unrelated category or non-executed boundary"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/goplint/semantic_catalog_registry.go",
+        "tools/goplint/goplint/semantic_evidence_trace.go",
+        "tools/goplint/spec/semantic-evidence.v2.json",
+        "tools/goplint/internal/soundnessevidence"
+      ],
+      "blocking_evidence": [
+        "TestCategoryGeneratedEvidence",
+        "TestCategoryMetamorphicEvidence",
+        "TestCategoryFuzzSeedEvidence",
+        "check-semantic-spec"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "aggregate-causal-execution",
+      "predecessor_claims": [
+        "the aggregate soundness gate causally executed every required proof surface",
+        "successful no-op or stale evidence could not satisfy completion",
+        "predecessor tasks 11.1-11.2, 12.5, and 12.7"
+      ],
+      "contradicting_observations": [
+        "target-header and marker checks could pass without executing the declared semantic evidence"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/spec/soundness-gate.v1.json",
+        "tools/goplint/cmd/soundness-gate",
+        "tools/goplint/internal/soundnessgate",
+        "tools/goplint/scripts/check-aggregate-contract.sh"
+      ],
+      "blocking_evidence": [
+        "check-goplint-gate-contract",
+        "soundnessgate runner self-tests",
+        "gate-contract no-op and missing-dependency self-tests"
+      ],
+      "disposition": "corrected-and-bound-by-existing-profile-and-combined-v3-proof"
+    },
+    {
+      "id": "oracle-fuzz-scheduled",
+      "predecessor_claims": [
+        "independent oracles covered the integrated analyzer contract",
+        "fuzz seeds and scheduled bounds exercised declared dimensions",
+        "predecessor tasks 9.*, 10.3-10.5, 11.1-11.2, and 12.5"
+      ],
+      "contradicting_observations": [
+        "component-only comparison, post-hoc result edits, nonempty seeds, and unscheduled profiles could receive completion credit"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/internal/protocoloracle",
+        "tools/goplint/goplint/protocol_oracle_e2e_test.go",
+        "tools/goplint/goplint/protocol_oracle_scheduled_test.go",
+        "tools/goplint/goplint/soundness_fuzz_seed_coverage_test.go"
+      ],
+      "blocking_evidence": [
+        "check-goplint-protocol-oracle",
+        "check-goplint-end-to-end-oracle",
+        "check-goplint-protocol-oracle-scheduled",
+        "check-goplint-fuzz-seeds"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "benchmark",
+      "predecessor_claims": [
+        "soundness gates were performance bounded using production-representative evidence",
+        "predecessor tasks 5.9, 11.4, 12.4, and 12.7"
+      ],
+      "contradicting_observations": [
+        "reference-interpreter timings could previously stand in for the generated analyzer pipeline"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/goplint/cfa_bench_test.go",
+        "tools/goplint/goplint/protocol_benchmark_evidence_test.go",
+        "tools/goplint/scripts/check-cfg-bench-thresholds.sh",
+        "tools/goplint/bench/thresholds.toml"
+      ],
+      "blocking_evidence": [
+        "TestGeneratedAnalyzerBenchmarkRejectsReferenceOnlyEvidence",
+        "check-goplint-benchmarks"
+      ],
+      "disposition": "corrected-and-bound-by-combined-v3-proof"
+    },
+    {
+      "id": "mutation",
+      "predecessor_claims": [
+        "the complete causal targeted mutation profile was stable with zero survivors",
+        "predecessor tasks 10.6-10.10, 11.1-11.2, 12.5, and 12.7"
+      ],
+      "contradicting_observations": [
+        "generic failure text, compilation failure, pre-existing control failure, or unrelated guard failure could previously be mistaken for a causal kill"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/cmd/targeted-mutation",
+        "tools/goplint/testdata/mutation",
+        "tools/goplint/spec/semantic-evidence.v2.json"
+      ],
+      "blocking_evidence": [
+        "check-goplint-targeted-mutation"
+      ],
+      "disposition": "passed-existing-profile-27-killed-zero-survivors-no-expansion"
+    },
+    {
+      "id": "clean-tree",
+      "predecessor_claims": [
+        "the retained proof matched the complete intended tree and current proof contract",
+        "predecessor tasks 12.6-12.9"
+      ],
+      "contradicting_observations": [
+        "the predecessor record predates the corrective implementation, v2 manifests, follow-up task state, and freshness verifier"
+      ],
+      "corrective_implementation": [
+        "tools/goplint/cmd/clean-tree-evidence",
+        "tools/goplint/cmd/check-clean-tree-evidence",
+        "tools/goplint/internal/cleantreeevidence",
+        "tools/goplint/testdata/gates/clean-tree-v3.json"
+      ],
+      "blocking_evidence": [
+        "check-goplint-clean-tree-evidence",
+        "check-goplint-soundness-complete"
+      ],
+      "disposition": "passed-v3-complete-intended-diff-freshness-verified"
+    }
+  ]
+}

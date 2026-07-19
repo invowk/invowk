@@ -19,13 +19,9 @@ func CreateModule(ctx context.Context, opts invowkmod.CreateOptions) (types.File
 	}
 
 	if opts.ParentDir == "" {
-		wd, err := os.Getwd()
+		parentDir, err := validatedCurrentWorkingDir()
 		if err != nil {
-			return "", fmt.Errorf("resolve current directory: %w", err)
-		}
-		parentDir := types.FilesystemPath(wd)
-		if err := parentDir.Validate(); err != nil {
-			return "", fmt.Errorf("validate current directory: %w", err)
+			return "", err
 		}
 		opts.ParentDir = parentDir
 	}
@@ -57,6 +53,18 @@ func CreateModule(ctx context.Context, opts invowkmod.CreateOptions) (types.File
 	}
 
 	return createdPath, nil
+}
+
+func validatedCurrentWorkingDir() (types.FilesystemPath, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("resolve current directory: %w", err)
+	}
+	parentDir := types.FilesystemPath(wd)
+	if err := parentDir.Validate(); err != nil {
+		return "", fmt.Errorf("validate current directory: %w", err)
+	}
+	return parentDir, nil
 }
 
 func writeModuleScaffold(modulePath types.FilesystemPath, scaffold invowkmod.ModuleScaffold) error {

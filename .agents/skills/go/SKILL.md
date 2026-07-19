@@ -185,6 +185,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - After linter config changes, run `make lint` and the relevant hook/check
   (`make check-baseline` for goplint-sensitive changes).
 - For `tools/goplint` or goplint behavior changes, also read
-  `tools/goplint/AGENTS.md` and use its current gate list; do not rely on this
-  skill to enumerate every goplint semantic, IFDS, CFG, race, repeat, benchmark,
-  or baseline check.
+  `tools/goplint/AGENTS.md`, run the canonical
+  `make check-goplint-soundness` gate, and use its current supplemental gate
+  list; do not rely on this skill to enumerate every race, repeat, baseline, or
+  repository scan check.

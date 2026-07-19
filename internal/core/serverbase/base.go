@@ -58,7 +58,11 @@ func NewBase(opts ...Option) *Base {
 
 // State returns the current server state (atomic, lock-free read).
 func (b *Base) State() State {
-	return State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+	state := State(b.state.Load())
+	if err := state.Validate(); err != nil {
+		return StateFailed
+	}
+	return state
 }
 
 // IsRunning returns true if the server is in the Running state.
@@ -97,7 +101,7 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 
 	// Atomic state transition: Created -> Starting
 	if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-		currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+		currentState := b.State()
 		return fmt.Errorf("cannot start server in state %s", currentState)
 	}
 
@@ -127,7 +131,7 @@ func (b *Base) TransitionToRunning() {
 // lifecycle error without reaching back into LastError().
 func (b *Base) TransitionToFailed(err error) error {
 	b.stateMu.Lock()
-	currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+	currentState := b.State()
 	if currentState.IsTerminal() {
 		recordedErr := b.lastErr
 		b.stateMu.Unlock()
@@ -155,7 +159,7 @@ func (b *Base) TransitionToFailed(err error) error {
 // succeeds and performs cleanup (context cancellation); others return false.
 func (b *Base) TransitionToStopping() bool {
 	for {
-		currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+		currentState := b.State()
 		switch currentState {
 		case StateStopped, StateFailed:
 			return false // Already stopped
@@ -191,7 +195,7 @@ func (b *Base) TransitionToStopping() bool {
 func (b *Base) TransitionToStopped() bool {
 	b.stateMu.Lock()
 
-	currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+	currentState := b.State()
 	if currentState.IsTerminal() {
 		b.stateMu.Unlock()
 		return false

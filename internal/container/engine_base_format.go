@@ -86,8 +86,10 @@ func ParseVolumeMount(volume string) (VolumeMount, error) {
 			switch opt {
 			case "ro":
 				mount.ReadOnly = true
-			case "z", "Z":
-				mount.SELinux = SELinuxLabel(opt) //goplint:ignore -- validated by mount.Validate() below
+			case "z":
+				mount.SELinux = SELinuxLabelShared
+			case "Z":
+				mount.SELinux = SELinuxLabelPrivate
 			}
 		}
 	}
@@ -125,7 +127,8 @@ func ParsePortMapping(portStr string) (PortMapping, error) {
 	if err != nil {
 		return mapping, fmt.Errorf("invalid host port %q: %w", parts[0], err)
 	}
-	mapping.HostPort = NetworkPort(hostPort) //goplint:ignore -- validated by mapping.Validate() below
+	//goplint:ignore -- parsed numeric port is validated by mapping.Validate() below.
+	mapping.HostPort = NetworkPort(hostPort)
 
 	// Split container part on "/" to get port number and optional protocol
 	containerParts := strings.SplitN(parts[1], "/", 2)
@@ -133,10 +136,12 @@ func ParsePortMapping(portStr string) (PortMapping, error) {
 	if err != nil {
 		return mapping, fmt.Errorf("invalid container port %q: %w", containerParts[0], err)
 	}
-	mapping.ContainerPort = NetworkPort(containerPort) //goplint:ignore -- validated by mapping.Validate() below
+	//goplint:ignore -- parsed numeric port is validated by mapping.Validate() below.
+	mapping.ContainerPort = NetworkPort(containerPort)
 
 	if len(containerParts) == 2 {
-		mapping.Protocol = PortProtocol(containerParts[1]) //goplint:ignore -- validated by mapping.Validate() below
+		//goplint:ignore -- parsed protocol is validated by mapping.Validate() below.
+		mapping.Protocol = PortProtocol(containerParts[1])
 	}
 
 	if err := mapping.Validate(); err != nil {

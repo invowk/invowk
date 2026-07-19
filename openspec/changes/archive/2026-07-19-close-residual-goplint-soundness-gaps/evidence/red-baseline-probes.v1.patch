@@ -1,0 +1,704 @@
+diff --git a/tools/goplint/goplint/testdata/src/cfa_non_executable_closure/cfa_non_executable_closure.go b/tools/goplint/goplint/testdata/src/cfa_non_executable_closure/cfa_non_executable_closure.go
+index 6dfe0ef2..744a8776 100644
+--- a/tools/goplint/goplint/testdata/src/cfa_non_executable_closure/cfa_non_executable_closure.go
++++ b/tools/goplint/goplint/testdata/src/cfa_non_executable_closure/cfa_non_executable_closure.go
+@@ -15,11 +15,18 @@ func (c CommandName) Validate() error {
+ 
+ func useCmd(_ CommandName) {}
+ 
+-// DetachedClosureLiteral should not produce cast-validation diagnostics because
+-// the closure literal is never invoked.
++// PackageCallback proves that package-initializer function literals are
++// independent protocol procedures even when no call is visible.
++var PackageCallback = func(raw string) {
++	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
++	useCmd(x)
++}
++
++// DetachedClosureLiteral is still an independently analyzable procedure even
++// though no invocation is visible in this package.
+ func DetachedClosureLiteral(raw string) { // want `parameter "raw" of cfa_non_executable_closure\.DetachedClosureLiteral uses primitive type string`
+ 	_ = func() {
+-		x := CommandName(raw)
++		x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+ 		useCmd(x)
+ 	}
+ }
+diff --git a/tools/goplint/goplint/testdata/src/constructorvalidates/constructorvalidates.go b/tools/goplint/goplint/testdata/src/constructorvalidates/constructorvalidates.go
+index 5efee86a..4bef68f7 100644
+--- a/tools/goplint/goplint/testdata/src/constructorvalidates/constructorvalidates.go
++++ b/tools/goplint/goplint/testdata/src/constructorvalidates/constructorvalidates.go
+@@ -759,3 +759,14 @@ func NewInverseValidationGuard(name string) (*HelperResultValidated, error) { //
+ 		return h, err
+ 	}
+ }
++
++// NewElseBranchSuccess returns an unvalidated value from the nil-error edge.
++// The enclosing non-nil check must not make its else branch unsuccessful.
++func NewElseBranchSuccess(name string, err error) (*EarlyReturn, error) { // want `parameter "name" of constructorvalidates\.NewElseBranchSuccess uses primitive type string` `constructor constructorvalidates\.NewElseBranchSuccess returns constructorvalidates\.EarlyReturn which has Validate\(\) but never calls it`
++	e := &EarlyReturn{name: name}
++	if err != nil {
++		return nil, err
++	} else {
++		return e, err
++	}
++}
+diff --git a/tools/goplint/goplint/testdata/src/protocol_summary_effects/protocol_summary_effects.go b/tools/goplint/goplint/testdata/src/protocol_summary_effects/protocol_summary_effects.go
+index 07872b0c..eebc2153 100644
+--- a/tools/goplint/goplint/testdata/src/protocol_summary_effects/protocol_summary_effects.go
++++ b/tools/goplint/goplint/testdata/src/protocol_summary_effects/protocol_summary_effects.go
+@@ -48,3 +48,62 @@ func Consume(value *Value) error { // want Consume:"protocol-summary:v4:protocol
+ func Terminal(_ *Value) error { // want Terminal:"protocol-summary:v4:protocol_summary_effects.Terminal:1"
+ 	panic("stop")
+ }
++
++func MutateThenValidate(value *Value) error { // want MutateThenValidate:"protocol-summary:v4:protocol_summary_effects.MutateThenValidate:2"
++	*value = "changed"
++	return value.Validate()
++}
++
++func NewDiscardedConditional(raw string) (*Value, error) { // want `parameter "raw" of protocol_summary_effects\.NewDiscardedConditional uses primitive type string` `constructor protocol_summary_effects\.NewDiscardedConditional returns protocol_summary_effects\.Value which has Validate\(\) but never calls it`
++	value := Value(raw)
++	if err := value.Validate(); err != nil {
++		return nil, err
++	}
++	_ = MutateThenValidate(&value)
++	return &value, nil
++}
++
++func NewOverwrittenConditional(raw string) (*Value, error) { // want `parameter "raw" of protocol_summary_effects\.NewOverwrittenConditional uses primitive type string` `constructor protocol_summary_effects\.NewOverwrittenConditional returns protocol_summary_effects\.Value which has Validate\(\) but never calls it`
++	value := Value(raw)
++	if err := value.Validate(); err != nil {
++		return nil, err
++	}
++	err := MutateThenValidate(&value)
++	err = nil
++	if err != nil {
++		return nil, err
++	}
++	return &value, nil
++}
++
++func NewMismatchedConditional(raw string) (*Value, error) { // want `parameter "raw" of protocol_summary_effects\.NewMismatchedConditional uses primitive type string` `constructor protocol_summary_effects\.NewMismatchedConditional returns protocol_summary_effects\.Value which has Validate\(\) but never calls it`
++	value := Value(raw)
++	if err := value.Validate(); err != nil {
++		return nil, err
++	}
++	err := MutateThenValidate(&value)
++	other := error(nil)
++	if other != nil {
++		return nil, other
++	}
++	_ = err
++	return &value, nil
++}
++
++func NewCheckedConditional(raw string) (*Value, error) { // want `parameter "raw" of protocol_summary_effects\.NewCheckedConditional uses primitive type string`
++	value := Value(raw)
++	if err := MutateThenValidate(&value); err != nil {
++		return nil, err
++	}
++	return &value, nil
++}
++
++func NewAliasedConditional(raw string) (*Value, error) { // want `parameter "raw" of protocol_summary_effects\.NewAliasedConditional uses primitive type string`
++	value := Value(raw)
++	err := MutateThenValidate(&value)
++	alias := err
++	if alias != nil {
++		return nil, alias
++	}
++	return &value, nil
++}
+
+diff --git a/tools/goplint/goplint/residual_directive_red_test.go b/tools/goplint/goplint/residual_directive_red_test.go
+new file mode 100644
+index 00000000..aee458d8
+--- /dev/null
++++ b/tools/goplint/goplint/residual_directive_red_test.go
+@@ -0,0 +1,22 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package goplint
++
++import "testing"
++
++func TestResidualDirectiveValidationIsTotal(t *testing.T) {
++	t.Parallel()
++
++	h := newAnalyzerHarness()
++	resetFlags(t, h)
++	diagnostics, _, _ := collectDiagnosticsForPackages(t, h.Analyzer, "residual_directives")
++	count := 0
++	for _, diagnostic := range diagnostics {
++		if diagnostic.Category == CategoryUnknownDirective {
++			count++
++		}
++	}
++	if count != 12 {
++		t.Fatalf("actionable directive diagnostics = %d, want 12; diagnostics=%+v", count, diagnostics)
++	}
++}
+
+diff --git a/tools/goplint/goplint/residual_escape_red_test.go b/tools/goplint/goplint/residual_escape_red_test.go
+new file mode 100644
+index 00000000..f553edd3
+--- /dev/null
++++ b/tools/goplint/goplint/residual_escape_red_test.go
+@@ -0,0 +1,18 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package goplint
++
++import (
++	"testing"
++
++	"golang.org/x/tools/go/analysis/analysistest"
++)
++
++func TestResidualPostValidationEscapeBoundaries(t *testing.T) {
++	t.Parallel()
++
++	h := newAnalyzerHarness()
++	resetFlags(t, h)
++	setFlag(t, h.Analyzer, "check-cast-validation", "true")
++	runAnalysisTest(t, analysistest.TestData(), h.Analyzer, "post_validation_escapes")
++}
+
+diff --git a/tools/goplint/goplint/residual_evidence_credit_red_test.go b/tools/goplint/goplint/residual_evidence_credit_red_test.go
+new file mode 100644
+index 00000000..a65944c6
+--- /dev/null
++++ b/tools/goplint/goplint/residual_evidence_credit_red_test.go
+@@ -0,0 +1,37 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package goplint
++
++import (
++	"encoding/json"
++	"os"
++	"testing"
++)
++
++func TestResidualEvidenceRejectsMarkerOnlyFalseCredit(t *testing.T) {
++	t.Parallel()
++
++	catalogData, err := os.ReadFile(semanticRulesCatalogPath())
++	if err != nil {
++		t.Fatalf("os.ReadFile(semanticRulesCatalogPath()) error: %v", err)
++	}
++	var catalog semanticCoverageCatalog
++	if err := json.Unmarshal(catalogData, &catalog); err != nil {
++		t.Fatalf("json.Unmarshal(catalog) error: %v", err)
++	}
++
++	moduleRoot := t.TempDir()
++	const marker = "marker-only-evidence"
++	if err := os.WriteFile(moduleRoot+"/marker.txt", []byte(marker), 0o600); err != nil {
++		t.Fatalf("os.WriteFile(marker.txt) error: %v", err)
++	}
++	evidence := semanticEvidenceRegistry()
++	for index := range evidence {
++		evidence[index].Artifact = "marker.txt"
++		evidence[index].Marker = marker
++	}
++
++	if _, err := buildSemanticCoverageCensus(catalog, moduleRoot, semanticOwnerRegistry(), evidence); err == nil {
++		t.Fatal("marker-only evidence received semantic coverage credit; want rejection")
++	}
++}
+
+diff --git a/tools/goplint/goplint/residual_fact_red_test.go b/tools/goplint/goplint/residual_fact_red_test.go
+new file mode 100644
+index 00000000..8f23bdb5
+--- /dev/null
++++ b/tools/goplint/goplint/residual_fact_red_test.go
+@@ -0,0 +1,44 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package goplint
++
++import "testing"
++
++func TestResidualImportedFactsBindFunctionSlotsRolesAndTypes(t *testing.T) {
++	t.Parallel()
++
++	base := ProtocolSummaryFact{
++		FormatVersion: protocolSummaryFactVersion,
++		PackagePath:   "example.com/probe",
++		FunctionName:  "Helper",
++		Complete:      true,
++		Effects: []ProtocolSummaryEffectFact{{
++			Kind:                protocolSummaryEffectValidate,
++			TargetKind:          protocolSummaryTargetParameter,
++			TargetSlot:          0,
++			SourceSlot:          -1,
++			ConditionResultSlot: 1,
++			Condition:           protocolSummaryConditionResultNil,
++		}},
++	}
++	tests := []struct {
++		name   string
++		mutate func(*ProtocolSummaryFact)
++	}{
++		{name: "wrong-function", mutate: func(fact *ProtocolSummaryFact) { fact.FunctionName = "Other" }},
++		{name: "target-slot", mutate: func(fact *ProtocolSummaryFact) { fact.Effects[0].TargetSlot = 99 }},
++		{name: "target-role", mutate: func(fact *ProtocolSummaryFact) { fact.Effects[0].TargetKind = protocolSummaryTargetReceiver }},
++		{name: "condition-slot", mutate: func(fact *ProtocolSummaryFact) { fact.Effects[0].ConditionResultSlot = 99 }},
++		{name: "condition-type", mutate: func(fact *ProtocolSummaryFact) { fact.Effects[0].ConditionResultSlot = 0 }},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			fact := base
++			fact.Effects = append([]ProtocolSummaryEffectFact(nil), base.Effects...)
++			test.mutate(&fact)
++			if got := validateProtocolSummaryFact(&fact, base.PackagePath); got != protocolSummaryFactIncompatible {
++				t.Fatalf("malformed attached fact status = %d, want incompatible; fact=%+v", got, fact)
++			}
++		})
++	}
++}
+
+diff --git a/tools/goplint/goplint/residual_stable_id_red_test.go b/tools/goplint/goplint/residual_stable_id_red_test.go
+new file mode 100644
+index 00000000..31dd1e5c
+--- /dev/null
++++ b/tools/goplint/goplint/residual_stable_id_red_test.go
+@@ -0,0 +1,39 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package goplint
++
++import (
++	"go/token"
++	"go/types"
++	"testing"
++
++	"golang.org/x/tools/go/analysis"
++)
++
++func TestResidualStableIDIgnoresLeafAndRawLayout(t *testing.T) {
++	t.Parallel()
++
++	t.Run("package-leaf-rename", func(t *testing.T) {
++		left := &analysis.Pass{Pkg: types.NewPackage("example.com/stable/shared", "shared")}
++		renamed := &analysis.Pass{Pkg: types.NewPackage("example.com/stable/shared", "renamed")}
++		leftID := PackageScopedFindingID(left, CategoryPrimitive, "shared.Value.Name", "string")
++		renamedID := PackageScopedFindingID(renamed, CategoryPrimitive, "renamed.Value.Name", "string")
++		if leftID != renamedID {
++			t.Fatalf("package leaf rename changed full-import-path finding ID: %q != %q", leftID, renamedID)
++		}
++	})
++
++	t.Run("raw-source-layout", func(t *testing.T) {
++		leftSet := token.NewFileSet()
++		leftFile := leftSet.AddFile("probe.go", -1, 32)
++		left := stablePosKey(&analysis.Pass{Fset: leftSet}, leftFile.Pos(5))
++
++		rightSet := token.NewFileSet()
++		rightFile := rightSet.AddFile("probe.go", -1, 32)
++		rightFile.AddLine(3)
++		right := stablePosKey(&analysis.Pass{Fset: rightSet}, rightFile.Pos(5))
++		if left != right {
++			t.Fatalf("unrelated layout changed semantic site key: %q != %q", left, right)
++		}
++	})
++}
+
+diff --git a/tools/goplint/goplint/residual_suppression_red_test.go b/tools/goplint/goplint/residual_suppression_red_test.go
+new file mode 100644
+index 00000000..2912b85f
+--- /dev/null
++++ b/tools/goplint/goplint/residual_suppression_red_test.go
+@@ -0,0 +1,73 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package goplint
++
++import (
++	"go/ast"
++	"go/token"
++	"sync"
++	"testing"
++
++	"golang.org/x/tools/go/analysis"
++	"golang.org/x/tools/go/ssa"
++)
++
++func TestResidualClosureUncertaintySurvivesExceptionAndInlineIgnore(t *testing.T) {
++	t.Parallel()
++
++	const source = `package probe
++type Value string
++func (value *Value) Validate() error { return nil }
++var Stored = func(raw string) {
++	value := Value(raw) //goplint:ignore -- definite findings may be suppressed, proof uncertainty may not
++	_ = value
++}
++`
++	pass, file := buildTypedPassFromSource(t, source)
++	var literal *ast.FuncLit
++	ast.Inspect(file, func(node ast.Node) bool {
++		candidate, ok := node.(*ast.FuncLit)
++		if ok {
++			literal = candidate
++			return false
++		}
++		return true
++	})
++	if literal == nil {
++		t.Fatal("stored function literal is missing")
++	}
++	var diagnostics []analysis.Diagnostic
++	pass.Report = func(diagnostic analysis.Diagnostic) {
++		diagnostics = append(diagnostics, diagnostic)
++	}
++	ssaResult := buildSSAForPass(pass)
++	ssaResult.closureResolver = func(token.Pos) *ssa.Function { return nil }
++	if err := inspectClosureCastsCFA(
++		pass,
++		literal,
++		"probe.init",
++		"stored",
++		&ExceptionConfig{Exceptions: []Exception{{
++			Pattern: "probe.init.cast-validation",
++			Reason:  "definite finding exception",
++		}}},
++		&BaselineConfig{},
++		false,
++		defaultCFGMaxStates,
++		defaultCFGWitnessMaxSteps,
++		newCFGProtocolRefinementOptions(runConfig{}),
++		ssaResult,
++		&sync.Map{},
++	); err != nil {
++		t.Fatalf("inspectClosureCastsCFA() error = %v", err)
++	}
++	count := 0
++	for _, diagnostic := range diagnostics {
++		if diagnostic.Category == CategoryUnvalidatedCastInconclusive {
++			count++
++		}
++	}
++	if count != 1 {
++		t.Fatalf("unresolved closure inconclusive count = %d, want 1; diagnostics=%+v", count, diagnostics)
++	}
++}
+
+diff --git a/tools/goplint/goplint/testdata/src/post_validation_escapes/post_validation_escapes.go b/tools/goplint/goplint/testdata/src/post_validation_escapes/post_validation_escapes.go
+new file mode 100644
+index 00000000..ebe34125
+--- /dev/null
++++ b/tools/goplint/goplint/testdata/src/post_validation_escapes/post_validation_escapes.go
+@@ -0,0 +1,137 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package post_validation_escapes
++
++type Name string
++
++func (name Name) Validate() error { return nil }
++
++func useName(Name) {}
++
++type holder struct {
++	pointer *Name
++	value   Name
++}
++
++var packagePointer *Name
++var storedClosure func()
++
++func PointerChannel(out chan<- *Name, raw string) error { // want `parameter "raw" of post_validation_escapes\.PointerChannel uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	out <- &name
++	useName(name)
++	return nil
++}
++
++func AggregatePointer(target *holder, raw string) error { // want `parameter "raw" of post_validation_escapes\.AggregatePointer uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	target.pointer = &name
++	useName(name)
++	return nil
++}
++
++func IndirectPointer(target **Name, raw string) error { // want `parameter "raw" of post_validation_escapes\.IndirectPointer uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	*target = &name
++	useName(name)
++	return nil
++}
++
++func PackagePointer(raw string) error { // want `parameter "raw" of post_validation_escapes\.PackagePointer uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	packagePointer = &name
++	useName(name)
++	return nil
++}
++
++func StoredClosure(raw string) error { // want `parameter "raw" of post_validation_escapes\.StoredClosure uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	storedClosure = func() { name = Name("changed") }
++	useName(name)
++	return nil
++}
++
++func DeferredClosure(raw string) error { // want `parameter "raw" of post_validation_escapes\.DeferredClosure uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	defer func() { useName(name) }()
++	useName(name)
++	return nil
++}
++
++func storePointer(target **Name, name *Name) { *target = name }
++
++func HelperPointer(target **Name, raw string) error { // want `parameter "raw" of post_validation_escapes\.HelperPointer uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	storePointer(target, &name)
++	useName(name)
++	return nil
++}
++
++func recursiveStore(target **Name, name *Name, depth int) { // want `parameter "depth" of post_validation_escapes\.recursiveStore uses primitive type int`
++	if depth <= 0 {
++		*target = name
++		return
++	}
++	recursiveStore(target, name, depth-1)
++}
++
++func RecursivePointer(target **Name, raw string, depth int) error { // want `parameter "raw" of post_validation_escapes\.RecursivePointer uses primitive type string` `parameter "depth" of post_validation_escapes\.RecursivePointer uses primitive type int`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	recursiveStore(target, &name, depth)
++	useName(name)
++	return nil
++}
++
++func ImmutableChannel(out chan<- Name, raw string) error { // want `parameter "raw" of post_validation_escapes\.ImmutableChannel uses primitive type string`
++	name := Name(raw)
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	out <- name
++	useName(name)
++	return nil
++}
++
++func ImmutableAggregate(target *holder, raw string) error { // want `parameter "raw" of post_validation_escapes\.ImmutableAggregate uses primitive type string`
++	name := Name(raw)
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	target.value = name
++	useName(name)
++	return nil
++}
++
++func ProtectedUseBeforeEscape(target **Name, raw string) error { // want `parameter "raw" of post_validation_escapes\.ProtectedUseBeforeEscape uses primitive type string`
++	name := Name(raw) // want `type conversion to Name from non-constant has inconclusive Validate\(\) path analysis`
++	if err := name.Validate(); err != nil {
++		return err
++	}
++	useName(name)
++	*target = &name
++	return nil
++}
+
+diff --git a/tools/goplint/goplint/testdata/src/residual_directives/residual_directives.go b/tools/goplint/goplint/testdata/src/residual_directives/residual_directives.go
+new file mode 100644
+index 00000000..74c1afe8
+--- /dev/null
++++ b/tools/goplint/goplint/testdata/src/residual_directives/residual_directives.go
+@@ -0,0 +1,47 @@
++// SPDX-License-Identifier: MPL-2.0
++
++//goplint:ignore
++package residual_directives
++
++//goplint:enum-cu=#Thing
++type Typo struct{}
++
++//goplint:enum-cue
++type MissingValue string
++
++//goplint:path-domain=Host/Path
++type InvalidValue string
++
++//goplint:constant-only
++//goplint:mutable
++type Conflicting string
++
++//goplint:nonzero
++//goplint:nonzero
++type Duplicate string
++
++//goplint:no-delegate
++func MisplacedFunction() {}
++
++//goplint:trusted-boundary
++type MisplacedType struct {
++	//goplint:trusted-boundary
++	Value Valid
++}
++
++func MisplacedParameter(
++	//goplint:internal
++	value Valid,
++) {
++	_ = value
++}
++
++func MisplacedStatement() {
++	//goplint:render
++	_ = Valid("")
++}
++
++//goplint:nonzero
++func (Valid) NotValidate() {}
++
++type Valid string
+
+diff --git a/tools/goplint/cmd/targeted-mutation/residual_attribution_red_test.go b/tools/goplint/cmd/targeted-mutation/residual_attribution_red_test.go
+new file mode 100644
+index 00000000..23afdb86
+--- /dev/null
++++ b/tools/goplint/cmd/targeted-mutation/residual_attribution_red_test.go
+@@ -0,0 +1,21 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package main
++
++import (
++	"fmt"
++	"testing"
++)
++
++func TestResidualMutationKillRequiresIntendedMismatch(t *testing.T) {
++	t.Parallel()
++
++	event := func(action, testName, output string) string {
++		return fmt.Sprintf("{\"Action\":%q,\"Test\":%q,\"Output\":%q}\n", action, testName, output)
++	}
++	unrelatedFailure := event("output", "TestSemanticGuard", "unrelated assertion failed\n") +
++		event("fail", "TestSemanticGuard", "")
++	if _, err := attributedGoTestFailures(unrelatedFailure, []string{"TestSemanticGuard"}); err == nil {
++		t.Fatal("declared test failure received mutation-kill credit without the intended semantic mismatch")
++	}
++}
+
+diff --git a/tools/goplint/cmd/gate-contract/residual_execution_census_red_test.go b/tools/goplint/cmd/gate-contract/residual_execution_census_red_test.go
+new file mode 100644
+index 00000000..25577ded
+--- /dev/null
++++ b/tools/goplint/cmd/gate-contract/residual_execution_census_red_test.go
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package main
++
++import "testing"
++
++func TestResidualGateContractRejectsNeverExecutedDefinitions(t *testing.T) {
++	t.Parallel()
++
++	contract := gateContract{
++		FormatVersion:   1,
++		AggregateTarget: "soundness",
++		Checks: []gateContractCheck{{
++			Target:   "semantic",
++			Evidence: "semantic.sh",
++			Markers:  []string{"TestNeverExecuted"},
++			Tests:     []gateContractTest{{Name: "TestNeverExecuted", Evidence: "semantic_test.go"}},
++		}},
++		NonVacuityMarkers:  []gateContractMarker{{Evidence: "semantic_test.go", Marker: "TestNeverExecuted"}},
++		RequiredCITriggers: []string{"tools/goplint/**"},
++	}
++	files := map[string]string{
++		"Makefile":                   "soundness: semantic\nsemantic:\n\ttrue\n",
++		"semantic.sh":                "# TestNeverExecuted is only a marker; no test command runs it\ntrue\n",
++		"semantic_test.go":           "package probe\n\nfunc TestNeverExecuted(t *testing.T) {}\n",
++		".github/workflows/lint.yml": "tools/goplint/**",
++	}
++	if err := validateContract(contract, ".", mapReader(files)); err == nil {
++		t.Fatal("definition and string markers received subgate credit without a current-run execution census")
++	}
++}
+
+diff --git a/tools/goplint/cmd/clean-tree-evidence/residual_diff_census_red_test.go b/tools/goplint/cmd/clean-tree-evidence/residual_diff_census_red_test.go
+new file mode 100644
+index 00000000..91d5b2b5
+--- /dev/null
++++ b/tools/goplint/cmd/clean-tree-evidence/residual_diff_census_red_test.go
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package main
++
++import (
++	"os"
++	"os/exec"
++	"path/filepath"
++	"testing"
++)
++
++func TestResidualCleanTreeRejectsOmittedDirtyPaths(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	runGitForResidualProbe(t, root, "init")
++	writeResidualProbeFile(t, filepath.Join(root, "included.txt"), "base\n")
++	writeResidualProbeFile(t, filepath.Join(root, "omitted.txt"), "base\n")
++	runGitForResidualProbe(t, root, "add", "included.txt", "omitted.txt")
++	runGitForResidualProbe(t, root, "-c", "user.name=goplint probe", "-c", "user.email=probe@invalid", "commit", "-m", "base")
++
++	writeResidualProbeFile(t, filepath.Join(root, "included.txt"), "selected change\n")
++	writeResidualProbeFile(t, filepath.Join(root, "omitted.txt"), "silently omitted change\n")
++	writeResidualProbeFile(t, filepath.Join(root, "paths.txt"), "included.txt\n")
++	writeResidualProbeFile(t, filepath.Join(root, "plan.json"), `{"format_version":1,"commands":[{"name":"clean","args":["git","status","--porcelain"],"timeout_minutes":1}]}`)
++
++	if err := captureEvidence(root, "paths.txt", "plan.json", "evidence"); err == nil {
++		t.Fatal("clean-tree capture accepted a reviewed path list that omitted a dirty tracked path")
++	}
++}
++
++func runGitForResidualProbe(t *testing.T, directory string, args ...string) {
++	t.Helper()
++	command := exec.Command("git", args...)
++	command.Dir = directory
++	if output, err := command.CombinedOutput(); err != nil {
++		t.Fatalf("git %v failed: %v: %s", args, err, output)
++	}
++}
++
++func writeResidualProbeFile(t *testing.T, path, content string) {
++	t.Helper()
++	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
++		t.Fatalf("os.WriteFile(%s) error: %v", path, err)
++	}
++}

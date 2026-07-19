@@ -24,6 +24,12 @@ on:
       - 'scripts/golangci-lint.sh'
       - 'scripts/test_golangci_lint.sh'
       - '.github/workflows/lint.yml'
+      - '.github/workflows/goplint-fuzz.yml'
+      - '.github/workflows/mutation-testing.yml'
+      - 'docs/goplint/**'
+      - 'openspec/specs/goplint-analysis-soundness/**'
+      - 'openspec/specs/goplint-soundness-assurance/**'
+      - 'openspec/specs/lint-tooling-quality-gates/**'
       - 'tools/goplint/**'
   pull_request:
     branches:
@@ -48,6 +54,12 @@ on:
       - 'scripts/golangci-lint.sh'
       - 'scripts/test_golangci_lint.sh'
       - '.github/workflows/lint.yml'
+      - '.github/workflows/goplint-fuzz.yml'
+      - '.github/workflows/mutation-testing.yml'
+      - 'docs/goplint/**'
+      - 'openspec/specs/goplint-analysis-soundness/**'
+      - 'openspec/specs/goplint-soundness-assurance/**'
+      - 'openspec/specs/lint-tooling-quality-gates/**'
       - 'tools/goplint/**'
   # Release validation must always run in full, regardless of changed paths.
   release:
@@ -100,13 +112,11 @@ jobs:
         run: make lint
 
   goplint:
-    name: goplint (advisory full scan)
+    name: goplint (canonical full scan)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-    # Advisory only during rollout - does not block PRs
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -120,14 +130,8 @@ jobs:
       - name: Build goplint
         run: cd tools/goplint && go build -o ../../bin/goplint .
 
-      - name: Run goplint (advisory)
-        run: |
-          set +e
-          ./bin/goplint -check-all -check-enum-sync -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
-          status=$?
-          if [ "$status" -ne 0 ]; then
-            echo "::warning::goplint full scan found findings outside the legacy-pinned baseline regression gate; review the advisory output."
-          fi
+      - name: Run canonical goplint scan
+        run: ./bin/goplint -test=false -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
   goplint-baseline:
     name: goplint (baseline)
@@ -155,7 +159,7 @@ jobs:
   goplint-tests:
     name: goplint tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -168,35 +172,11 @@ jobs:
           go-version-file: tools/goplint/go.mod
           cache: true
 
-      - name: Run goplint tests (race)
-        run: |
-          cd tools/goplint
-          go test -race -count=1 ./...
-
-      - name: Run goplint tests (repeat)
-        run: |
-          cd tools/goplint
-          go test -count=3 ./...
-
-      - name: Check semantic spec contracts
-        run: |
-          ./tools/goplint/scripts/check-semantic-spec.sh
-
-      - name: Check IFDS compatibility
-        run: |
-          ./tools/goplint/scripts/check-ifds-compat.sh
-
-      - name: Check Phase C refinement
-        run: |
-          ./tools/goplint/scripts/check-cfg-refinement.sh
-
-      - name: Check Phase D alias mode
-        run: |
-          make check-cfg-alias
-
-      - name: Check CFG benchmark thresholds
-        run: |
-          ./tools/goplint/scripts/check-cfg-bench-thresholds.sh
+      # Regular CI executes the causal core profile. The completion-only profile
+      # additionally verifies the retained exact-tree record and is run when a
+      # soundness change is closed, avoiding a freshness recursion in ordinary CI.
+      - name: Run canonical soundness core gate
+        run: make check-goplint-soundness-core
 
   goplint-exceptions:
     name: goplint (exception governance)

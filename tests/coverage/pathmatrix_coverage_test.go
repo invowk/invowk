@@ -95,6 +95,10 @@ var (
 			testFile: "internal/discovery/discovery_mutation_test.go",
 			reason:   "alias derivation consumes an already discovered host path and only extracts its module basename",
 		},
+		"internal/discovery.validatedDiscoveredEntryPath": {
+			testFile: "internal/discovery/discovery_modules_test.go",
+			reason:   "joins an already validated host-native discovery root with an os.DirEntry name; it does not interpret portable path syntax",
+		},
 		"internal/provision.provisionedModuleDestinationPath.Validate": {
 			testFile: "internal/provision/provisioner_validate_test.go",
 			reason:   "provisioned destinations use canonical slash-separated Linux layer paths, not host path dialects",
@@ -106,6 +110,14 @@ var (
 		"internal/runtime.isContainerAbsolutePath": {
 			testFile: "internal/runtime/container_provision_test.go",
 			reason:   "predicate intentionally recognizes only Linux-container absolute paths",
+		},
+		"internal/runtime.LuaScriptOptions.validateScriptBasePath": {
+			testFile: "internal/runtime/lua_test.go",
+			reason:   "thin optional-value wrapper around the registered pkg/types.FilesystemPath.Validate path-dialect contract",
+		},
+		"internal/runtime.LuaScriptOptions.validateWorkDir": {
+			testFile: "internal/runtime/lua_test.go",
+			reason:   "thin optional-value wrapper around the registered pkg/types.FilesystemPath.Validate path-dialect contract",
 		},
 		"internal/runtime.resolveVirtualFilesystemPaths": {
 			testFile: "internal/runtime/virtual_policy_test.go",

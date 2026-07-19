@@ -119,7 +119,11 @@ func validateInvowkmodFile(result *ValidationResult, absPath string) *Invowkmod 
 		return nil
 	}
 
-	invowkmodFSPath := types.FilesystemPath(invowkmodPath) //goplint:ignore -- derived from validated absPath
+	invowkmodFSPath := types.FilesystemPath(invowkmodPath)
+	if err := invowkmodFSPath.Validate(); err != nil {
+		result.AddIssue(IssueTypeStructure, fmt.Sprintf("invalid invowkmod.cue path: %v", err), "")
+		return nil
+	}
 	result.InvowkmodPath = invowkmodFSPath
 	if result.ModuleName == "" {
 		return nil
@@ -154,7 +158,12 @@ func validateOptionalInvowkfile(result *ValidationResult, absPath string) {
 	case invowkfileInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkfile.cue must be a file, not a directory", "")
 	default:
-		result.InvowkfilePath = types.FilesystemPath(invowkfilePath) //goplint:ignore -- derived from validated absPath
+		resolvedPath := types.FilesystemPath(invowkfilePath)
+		if err := resolvedPath.Validate(); err != nil {
+			result.AddIssue(IssueTypeStructure, fmt.Sprintf("invalid invowkfile.cue path: %v", err), "")
+			return
+		}
+		result.InvowkfilePath = resolvedPath
 	}
 }
 

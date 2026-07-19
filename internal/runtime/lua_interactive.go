@@ -264,17 +264,11 @@ func RunLuaScript(ctx context.Context, opts LuaScriptOptions) error {
 // Validate returns nil when direct subprocess execution options are valid.
 func (o LuaScriptOptions) Validate() error {
 	var errs []error
-	if o.WorkDir != "" {
-		path := types.FilesystemPath(o.WorkDir) //goplint:ignore -- subprocess CLI boundary path validated immediately below.
-		if err := path.Validate(); err != nil {
-			errs = append(errs, err)
-		}
+	if err := o.validateWorkDir(); err != nil {
+		errs = append(errs, err)
 	}
-	if o.ScriptBasePath != "" {
-		path := types.FilesystemPath(o.ScriptBasePath) //goplint:ignore -- subprocess CLI boundary path validated immediately below.
-		if err := path.Validate(); err != nil {
-			errs = append(errs, err)
-		}
+	if err := o.validateScriptBasePath(); err != nil {
+		errs = append(errs, err)
 	}
 	for _, raw := range o.AllowedBinaries {
 		binary := invowkfile.AllowedBinary(raw) //goplint:ignore -- subprocess CLI boundary value validated immediately below.
@@ -298,4 +292,20 @@ func (o LuaScriptOptions) Validate() error {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+func (o LuaScriptOptions) validateWorkDir() error {
+	if o.WorkDir == "" {
+		return nil
+	}
+	path := types.FilesystemPath(o.WorkDir)
+	return path.Validate()
+}
+
+func (o LuaScriptOptions) validateScriptBasePath() error {
+	if o.ScriptBasePath == "" {
+		return nil
+	}
+	path := types.FilesystemPath(o.ScriptBasePath)
+	return path.Validate()
 }

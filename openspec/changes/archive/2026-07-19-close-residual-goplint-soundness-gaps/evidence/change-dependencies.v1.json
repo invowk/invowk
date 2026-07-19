@@ -1,0 +1,45 @@
+{
+  "format_version": 1,
+  "change": "close-residual-goplint-soundness-gaps",
+  "recorded_at": "2026-07-16",
+  "archive_policy": "No archive is allowed without explicit user authorization. Before archive authorization, every non-archive task and the residual ledger must be complete, the predecessor archive-only terminals remain pending, and the combined exact-tree proof must be fresh.",
+  "predecessors": [
+    {
+      "name": "complete-goplint-soundness-hardening",
+      "task_ledger": "openspec/changes/complete-goplint-soundness-hardening/tasks.md",
+      "unchecked_tasks": ["12.10"],
+      "state": "incomplete"
+    },
+    {
+      "name": "close-goplint-soundness-review-gaps",
+      "task_ledger": "openspec/changes/close-goplint-soundness-review-gaps/tasks.md",
+      "unchecked_tasks": ["10.8"],
+      "state": "incomplete"
+    }
+  ],
+  "current": {
+    "name": "close-residual-goplint-soundness-gaps",
+    "task_ledger": "openspec/changes/close-residual-goplint-soundness-gaps/tasks.md",
+    "unchecked_tasks": [],
+    "state": "complete-nonarchive-work"
+  },
+  "archive_order": [
+    "complete-goplint-soundness-hardening",
+    "close-goplint-soundness-review-gaps",
+    "close-residual-goplint-soundness-gaps"
+  ],
+  "run_constraints": [
+    {
+      "id": "no-mutation-suite-expansion",
+      "authority": "explicit user instruction for this apply run",
+      "effect": "Run and verify the existing blocking mutation profile normally, but do not add mutants, mutation fixtures, profiles, targets, modes, or other mutation-suite or mutation-flow surface area. Tasks that combine semantic work with mutation expansion may complete from the semantic work plus the unchanged existing profile; the excluded expansion is recorded explicitly."
+    }
+  ],
+  "blocking_completion_surfaces": [
+    "all non-archive tasks complete, with only predecessor archive terminals pending",
+    "causal mutation profile complete with zero survivors",
+    "combined core aggregate complete",
+    "complete intended-diff census and reviewed exclusions",
+    "freshness-verified v3 combined exact-tree proof"
+  ]
+}

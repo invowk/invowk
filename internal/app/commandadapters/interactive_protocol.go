@@ -122,7 +122,10 @@ func componentRequestFromProtocol(component tui.ComponentType, options json.RawM
 		if err != nil {
 			return nil, err
 		}
-		text := types.DescriptionText(req.Text) //goplint:ignore -- delegated write text is display content, not a domain identifier.
+		text := types.DescriptionText(req.Text)
+		if err := text.Validate(); err != nil {
+			return nil, fmt.Errorf("styled text: %w", err)
+		}
 		return tui.StyledTextOptions{
 			Text:  text,
 			Style: style,

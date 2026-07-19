@@ -110,12 +110,13 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 		})
 	} else {
 		// Render TUI directly
+		//goplint:ignore -- raw CLI dimensions are validated by the TUI option boundary.
 		results, err = tui.Filter(tui.FilterOptions{
 			Title:       filterTitle,
 			Placeholder: filterPlaceholder,
 			Options:     options,
-			Width:       tui.TerminalDimension(filterWidth),  //goplint:ignore -- CLI integer argument
-			Height:      tui.TerminalDimension(filterHeight), //goplint:ignore -- CLI integer argument
+			Width:       tui.TerminalDimension(filterWidth),
+			Height:      tui.TerminalDimension(filterHeight),
 			Limit:       limit,
 			NoLimit:     filterNoLimit,
 			Reverse:     filterReverse,

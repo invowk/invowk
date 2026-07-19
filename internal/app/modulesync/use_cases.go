@@ -214,6 +214,9 @@ func (s fileSnapshot) Validate() error {
 
 func (m *Resolver) readLockSnapshot() (fileSnapshot, error) {
 	lockPath := types.FilesystemPath(filepath.Join(string(m.workingDir), LockFileName))
+	if err := lockPath.Validate(); err != nil {
+		return fileSnapshot{}, fmt.Errorf("validate lock file path: %w", err)
+	}
 	snapshot, err := readFileSnapshot(lockPath)
 	if err != nil {
 		return fileSnapshot{}, fmt.Errorf("snapshot lock file before dependency edit: %w", err)

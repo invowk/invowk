@@ -92,11 +92,13 @@ func TestCallbackClientDelegatesFilesystemPolicy(t *testing.T) {
 	if policy.readRequest.Path != "/tmp/readme.md" {
 		t.Fatalf("read path = %q, want /tmp/readme.md", policy.readRequest.Path)
 	}
-	if policy.readRequest.Line == nil || *policy.readRequest.Line != 2 {
-		t.Fatalf("read line = %v, want 2", policy.readRequest.Line)
+	observedLine, linePresent := policy.readRequest.Line.Value()
+	if !linePresent || observedLine != 2 {
+		t.Fatalf("read line = (%v, %t), want (2, true)", observedLine, linePresent)
 	}
-	if policy.readRequest.Limit == nil || *policy.readRequest.Limit != 3 {
-		t.Fatalf("read limit = %v, want 3", policy.readRequest.Limit)
+	observedLimit, limitPresent := policy.readRequest.Limit.Value()
+	if !limitPresent || observedLimit != 3 {
+		t.Fatalf("read limit = (%v, %t), want (3, true)", observedLimit, limitPresent)
 	}
 
 	_, err = client.WriteTextFile(t.Context(), acp.WriteTextFileRequest{

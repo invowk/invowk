@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "audited_on": "2026-07-13",
+  "scope": {
+    "module": "tools/goplint",
+    "package": "github.com/invowk/invowk/tools/goplint/goplint",
+    "sources": "compiled non-test Go files",
+    "architecture_gate": "TestProtocolProductionArchitecture"
+  },
+  "authorities": [
+    {
+      "class": "legacy-cfg-modes",
+      "status": "removed",
+      "forbidden_symbols": [
+        "cfgTraversalModeLegacy",
+        "cfgTraversalModeUBVOrder",
+        "cfgTraversalModeConstructorPath"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "interprocSolver canonical EvaluateCastPath and EvaluateUBV methods"
+    },
+    {
+      "class": "nil-traversal-context",
+      "status": "removed",
+      "forbidden_behavior": [
+        "nil receiver compatibility branches on *cfgTraversalContext",
+        "nil arguments supplied to *cfgTraversalContext parameters"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "finite path-edge tabulation through runIFDSPropagation"
+    },
+    {
+      "class": "legacy-dfs-entry-point",
+      "status": "removed",
+      "forbidden_symbols": [
+        "dfsUnvalidatedBlocks",
+        "cfgVisitStateFromBlockVisited"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "runIFDSPropagation with explicit facts, edge functions, and witnesses"
+    },
+    {
+      "class": "untyped-cfg-backend",
+      "status": "removed",
+      "forbidden_symbols": [
+        "buildFuncCFG",
+        "buildFuncCFGForBackend"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "buildProtocolCFG and buildFuncCFGForPass require analysis type information"
+    },
+    {
+      "class": "ast-type-only-protocol-fallback",
+      "status": "removed",
+      "forbidden_behavior": [
+        "untyped CFG construction",
+        "targetKeyForExpr called with a nil analysis pass",
+        "syntactic name: or expr: identity keys",
+        "method selection reconstructed from receiver type when TypesInfo.Selections is missing"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "go/types object keys and SSA allocation/result-slot identities; unsupported expressions remain unresolved and therefore cannot discharge a protocol obligation"
+    },
+    {
+      "class": "name-only-cast-target-adapters",
+      "status": "removed-from-production",
+      "forbidden_symbols": [
+        "newCastTargetFromName"
+      ],
+      "compiled_references": [],
+      "test_only_references": [],
+      "canonical_replacement": "castTargetFromExpr with analysis type information"
+    },
+    {
+      "class": "checked-validation-compatibility-adapters",
+      "status": "removed",
+      "forbidden_symbols": [
+        "protocolCheckedValidationsForClosure",
+        "protocolCheckedValidationsForDecl",
+        "protocolCheckedValidationsForPackage",
+        "protocolCheckedValidationsForDeclWithSSA"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "typed SSA resolution and collectProtocolValidationInvocations"
+    },
+    {
+      "class": "legacy-evaluator-compatibility",
+      "status": "removed",
+      "forbidden_symbols": [
+        "EvaluateCastPathLegacy",
+        "EvaluateUBVCrossBlockLegacy",
+        "EvaluateUBVInBlockLegacy",
+        "newInterprocCompatTracker"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "interprocSolver canonical EvaluateCastPath and EvaluateUBV methods"
+    },
+    {
+      "class": "unconditional-validation-fact",
+      "status": "removed",
+      "forbidden_symbols": [
+        "ValidatesTypeFact"
+      ],
+      "compiled_references": [],
+      "canonical_replacement": "ProtocolSummaryFact v5 with explicit completeness, exact package/function/receiver identity, compatible signature slots, ordered effect kinds, target/source slots, and result-nil conditions"
+    },
+    {
+      "class": "conditional-summary-fact",
+      "status": "live-canonical",
+      "compiled_references": [
+        {
+          "file": "tools/goplint/goplint/analyzer.go",
+          "symbols": [
+            "ProtocolSummaryFact"
+          ],
+          "behavior": "the only registered protocol analysis fact"
+        },
+        {
+          "file": "tools/goplint/goplint/protocol_summary_fact.go",
+          "symbols": [
+            "exportProtocolSummaryFacts",
+            "validateProtocolSummaryFact"
+          ],
+          "behavior": "exports and validates versioned slot-sensitive conditional effects"
+        }
+      ]
+    }
+  ]
+}

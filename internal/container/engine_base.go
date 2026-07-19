@@ -728,9 +728,13 @@ func parseContainerInspect(data []byte, fallbackName ContainerName) (*ContainerI
 	if err := id.Validate(); err != nil {
 		return nil, fmt.Errorf("container inspect ID: %w", err)
 	}
-	name := ContainerName(strings.TrimPrefix(raw.Name, "/"))
-	if name == "" {
-		name = fallbackName
+	name := fallbackName
+	if rawName := strings.TrimPrefix(raw.Name, "/"); rawName != "" {
+		inspectedName := ContainerName(rawName)
+		if err := inspectedName.Validate(); err != nil {
+			return nil, fmt.Errorf("container inspect name: %w", err)
+		}
+		name = inspectedName
 	}
 	if err := name.Validate(); err != nil {
 		return nil, fmt.Errorf("container inspect name: %w", err)

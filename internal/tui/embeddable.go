@@ -452,8 +452,16 @@ func sanitizeModalBackground(content string) string {
 		// Copy everything up to and including this SGR sequence.
 		result.WriteString(content[last:end])
 
-		params := types.DescriptionText(content[paramStart:paramEnd])
-		if shouldRestoreModalBackground(params) && !strings.HasPrefix(content[end:], modalBgANSI) {
+		restoreBackground := paramStart == paramEnd
+		if !restoreBackground {
+			for param := range strings.SplitSeq(content[paramStart:paramEnd], ";") {
+				if param == "0" || param == "49" {
+					restoreBackground = true
+					break
+				}
+			}
+		}
+		if restoreBackground && !strings.HasPrefix(content[end:], modalBgANSI) {
 			result.WriteString(modalBgANSI)
 		}
 

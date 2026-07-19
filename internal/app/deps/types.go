@@ -11,7 +11,6 @@ import (
 
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -159,7 +158,7 @@ type (
 	// CommandScopeLockError reports lock-file load failures that affect
 	// depends_on.cmds scope enforcement.
 	CommandScopeLockError struct {
-		Path types.FilesystemPath
+		Path string //goplint:ignore -- raw diagnostic path may be invalid and therefore cannot satisfy FilesystemPath.
 		Err  error
 	}
 
