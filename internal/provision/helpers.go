@@ -108,38 +108,57 @@ func CalculateDirHash(dirPath string) (string, error) {
 
 // DiscoverModules finds valid .invowkmod directories in the given paths.
 func DiscoverModules(paths []types.FilesystemPath) []string {
-	var modules []string
-	seen := make(map[string]bool)
+	var modulePaths []types.FilesystemPath
+	seen := make(map[types.FilesystemPath]bool)
 
 	for _, basePath := range paths {
 		// Use WalkDir and skip symlinked directories to prevent a symlink named
 		// *.invowkmod from being discovered as a module (SC-05 consistency).
-		_ = filepath.WalkDir(string(basePath), func(path string, d fs.DirEntry, err error) error { //nolint:errcheck // Walk callback returns nil for all errors to continue walking
-			if err != nil {
-				return nil //nolint:nilerr // Intentionally skip errors to continue walking
+		_ = filepath.WalkDir(string(basePath), func(path string, d fs.DirEntry, walkErr error) error { //nolint:errcheck // Walk callback returns nil for all errors to continue walking
+			modulePath := types.FilesystemPath(path)
+			if err := modulePath.Validate(); err != nil {
+				return filepath.SkipDir
 			}
-			// Skip non-directory entries, including symlinks-to-dirs which
-			// WalkDir reports with d.IsDir()=false (SC-05 consistency).
-			if !d.IsDir() {
-				return nil
-			}
-			if strings.HasSuffix(d.Name(), invowkmod.ModuleSuffix) {
-				absPath, _ := filepath.Abs(path)
-				modulePath := types.FilesystemPath(absPath)
-				if err := modulePath.Validate(); err != nil {
-					return filepath.SkipDir
-				}
-				if !seen[absPath] && isValidProvisioningModule(modulePath) {
-					seen[absPath] = true
-					modules = append(modules, absPath)
-				}
-				return filepath.SkipDir // Don't descend into modules
-			}
-			return nil
+			return collectProvisioningModule(modulePath, d, walkErr, seen, &modulePaths)
 		})
 	}
 
+	modules := make([]string, len(modulePaths))
+	for i, modulePath := range modulePaths {
+		modules[i] = string(modulePath)
+	}
 	return modules
+}
+
+func collectProvisioningModule(
+	path types.FilesystemPath,
+	d fs.DirEntry,
+	walkErr error,
+	seen map[types.FilesystemPath]bool,
+	modules *[]types.FilesystemPath,
+) error {
+	if walkErr != nil {
+		return nil //nolint:nilerr // Intentionally skip errors to continue walking
+	}
+	// Skip non-directory entries, including symlinks-to-dirs which WalkDir
+	// reports with d.IsDir()=false (SC-05 consistency).
+	if !d.IsDir() {
+		return nil
+	}
+	if !strings.HasSuffix(d.Name(), invowkmod.ModuleSuffix) {
+		return nil
+	}
+
+	absPath, _ := filepath.Abs(string(path))
+	modulePath := types.FilesystemPath(absPath)
+	if err := modulePath.Validate(); err != nil {
+		return filepath.SkipDir
+	}
+	if !seen[modulePath] && isValidProvisioningModule(modulePath) {
+		seen[modulePath] = true
+		*modules = append(*modules, modulePath)
+	}
+	return filepath.SkipDir // Don't descend into modules
 }
 
 func isValidProvisioningModule(path types.FilesystemPath) bool {

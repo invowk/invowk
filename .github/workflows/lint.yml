@@ -177,6 +177,8 @@ jobs:
       # soundness change is closed, avoiding a freshness recursion in ordinary CI.
       - name: Run canonical soundness core gate
         run: make check-goplint-soundness-core
+        env:
+          GOPLINT_BENCH_THRESHOLDS: tools/goplint/bench/thresholds.github-ubuntu-x64-4cpu.toml
 
   goplint-exceptions:
     name: goplint (exception governance)
