@@ -29,7 +29,9 @@ The main commands are:
 |---|---|
 | `make check-types` | Report bare primitive usage |
 | `make check-types-all` | Run all DDD checks |
-| `make check-goplint-soundness` | Run the regular/CI causal core profile (alias of `check-goplint-soundness-core`) |
+| `make check-goplint-soundness` | Conservatively route staged changes and run the selected resource-aware profile |
+| `make check-goplint-soundness-consumer` | Force the one-audit consumer profile; this makes no analyzer-soundness claim |
+| `make check-goplint-soundness-semantic` | Force the full semantic soundness profile |
 | `make check-goplint-soundness-complete` | Run the completion profile, including retained exact-tree freshness |
 | `make generate-goplint-clean-tree-evidence` | Generate the retained exact-tree run record from the reviewed paths and plan |
 | `make check-goplint-clean-tree-evidence` | Verify the retained exact-tree proof without changing the caller's index or worktree |
@@ -46,8 +48,10 @@ The main commands are:
 | `make check-goplint-determinism` | Compare normalized outputs across repeated and reordered runs |
 | `make check-goplint-targeted-mutation` | Require every versioned soundness mutant to be killed |
 | `make check-goplint-race-repeat` | Run the reviewed race and repeat-count evidence |
+| `make update-goplint-race-repeat-timings` | Refresh the reviewed three-sample weighted test timing manifest |
 | `make check-goplint-full-scan` | Run the blocking canonical production scan |
-| `make check-goplint-benchmarks` | Enforce reviewed solver and repository-scan thresholds |
+| `make check-goplint-performance-smoke` | Run one-sample catastrophic-regression smoke; this is not certification |
+| `make check-goplint-benchmarks` | Enforce five-sample runner-class performance certification |
 | `make check-baseline` | Reject findings absent from the accepted baseline |
 | `make update-baseline` | Regenerate the baseline using canonical semantics |
 
@@ -61,9 +65,14 @@ make check-goplint-soundness-complete
 ```
 
 Generation consumes the reviewed path selection and command plan, invokes the
-`core` profile rather than `complete` to avoid recursive freshness
+`semantic` profile rather than `complete` to avoid recursive freshness
 verification, and writes only `clean-tree-run.v3.json`. Missing or stale
 retained evidence cannot be baselined, excepted, or inline-ignored.
+
+Profile routing, resource discovery and overrides, timing refresh, smoke versus
+certification, immutable plan/bundle schemas, CI reproduction, telemetry, and
+distributed failure diagnostics are documented in
+[`../../docs/goplint/soundness-gate-execution.md`](../../docs/goplint/soundness-gate-execution.md).
 
 The mutation-kernel coverage subgate binds the semantic-rules catalog, the
 blocking v2 profile, and its mutant catalog. Each category whose semantic rule
@@ -208,9 +217,9 @@ diagnostic prose are not identity inputs. Duplicate emission or a collided ID
 fails collection and baseline writing instead of silently replacing a record.
 
 Both `make check-baseline` and `make update-baseline` use the same flagless
-canonical protocol semantics. Update the baseline only after the soundness core
-profile passes, and review stable-ID changes as semantic migrations rather than
-accepting unexplained churn.
+canonical protocol semantics. Update the baseline only after the semantic
+soundness profile passes, and review stable-ID changes as semantic migrations
+rather than accepting unexplained churn.
 
 ## Structured evidence
 
@@ -243,10 +252,11 @@ subgate commands, profiles, evidence outputs, and nonzero populations. Its
 runner rejects a successful no-op just as it rejects a failed command: every
 subgate must produce current, bound observations. Runtime reporters derive
 population counts from unique observed member identities; literal numeric
-population flags are rejected. The regular `core` profile is
-used by pre-commit and CI. The `complete` profile additionally verifies the
-retained synthetic-tree record, so record generation runs the core profile and
-cannot recurse into its own freshness check.
+population flags are rejected. Pre-commit and CI classify changes through the
+versioned ownership manifest, then execute the resource-aware `consumer`,
+`semantic`, or `complete` profile. The `complete` profile additionally verifies
+the retained synthetic-tree record, so record generation runs the semantic
+profile and cannot recurse into its own freshness check.
 
 ## Testing
 
@@ -261,9 +271,11 @@ make check-baseline
 make check-goplint-exceptions
 ```
 
-The core soundness profile is also used by pre-commit and the blocking
-`goplint-tests` CI job. The canonical full-repository scan is blocking in the
-lint workflow. Before claiming a soundness change complete, record the reviewed
+Pre-commit and CI conservatively route changes through the consumer, semantic,
+or completion profile. The lint workflow runs the shared audit plus immutable
+matrix/aggregate topology and retains a legacy serial semantic comparison while
+migration evidence is incomplete. Before claiming a soundness change complete,
+record the reviewed
 v3 synthetic tree and complete tracked/non-ignored-untracked diff census, run
 `make check-goplint-clean-tree-evidence`, then run
 `make check-goplint-soundness-complete`. Every omitted changed path needs a

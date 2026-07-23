@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "aggregate_target": "check-goplint-soundness-core",
+  "aggregate_target": "check-goplint-soundness-semantic",
   "checks": [
     {"target": "check-goplint-gate-contract", "evidence": "tools/goplint/cmd/gate-contract/main.go", "markers": ["validateContract"]},
     {
@@ -78,9 +78,17 @@
     {"evidence": "tools/goplint/cmd/targeted-mutation/runner.go", "marker": "attributedGoTestFailures"}
   ],
   "required_ci_triggers": [
+    ".github/workflows/**",
     "docs/goplint/**",
+    "goplint-legacy-reference",
+	"goplint-parity",
+    "openspec/changes/**",
     "openspec/specs/goplint-soundness-assurance/**",
     ".github/workflows/goplint-fuzz.yml",
-    ".github/workflows/mutation-testing.yml"
+    ".github/workflows/mutation-testing.yml",
+    "overwrite: true",
+    "schedule:",
+    "soundness-aggregate-output/telemetry.json"
+	,"soundness-report-compare"
   ]
 }

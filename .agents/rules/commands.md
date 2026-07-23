@@ -17,7 +17,9 @@
 | Type check (JSON) | `make check-types-json` |
 | Type check (all DDD) | `make check-types-all` |
 | Type check (all JSON) | `make check-types-all-json` |
-| Canonical goplint soundness (regular/CI core profile) | `make check-goplint-soundness` or `make check-goplint-soundness-core` |
+| Routed goplint soundness | `make check-goplint-soundness` |
+| Forced consumer profile (no soundness certification claim) | `make check-goplint-soundness-consumer` |
+| Forced semantic soundness | `make check-goplint-soundness-semantic` |
 | goplint completion proof (includes retained exact-tree freshness) | `make check-goplint-soundness-complete` |
 | Generate retained goplint exact-tree record | `make generate-goplint-clean-tree-evidence` |
 | Verify retained goplint exact-tree record | `make check-goplint-clean-tree-evidence` |
@@ -33,8 +35,10 @@
 | Protocol determinism | `make check-goplint-determinism` |
 | Targeted soundness mutation | `make check-goplint-targeted-mutation` |
 | goplint race/repeat evidence | `make check-goplint-race-repeat` |
+| Refresh goplint race/repeat timings | `make update-goplint-race-repeat-timings` |
 | Canonical goplint full scan | `make check-goplint-full-scan` |
-| goplint benchmark thresholds | `make check-goplint-benchmarks` |
+| goplint consumer performance smoke (not certification) | `make check-goplint-performance-smoke` |
+| goplint five-sample performance certification | `make check-goplint-benchmarks` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
 | Mutation dry-run | `make mutation-dry-run` |
@@ -70,6 +74,29 @@
 - **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.
 - **govulncheck** - Go vulnerability scanner used by `make vulncheck` and CI. Install the pinned version from `.agents/rules/version-pinning.md`.
 - **go-mutesting** - Mutation testing tool pinned through the root `go.mod` tool directive. Do not install it manually with `@latest`; use the Make targets or `go tool go-mutesting` from the repository root.
+
+## Goplint Soundness Profiles
+
+`make check-goplint-soundness` classifies the change through the versioned
+ownership manifest and runs the resource-aware planner. `consumer` reuses one
+exact-tree repository audit and runs catastrophic-regression smoke only;
+passing it is neither analyzer-soundness nor performance certification.
+`semantic` reruns every causal soundness population and five-sample certified
+performance policy. `complete` adds retained exact-tree freshness and is forced
+for completion, release, schedule, or exhaustive dispatch contexts. Missing or
+ambiguous change context fails closed.
+
+Force a profile with `check-goplint-soundness-consumer`,
+`check-goplint-soundness-semantic`, or `check-goplint-soundness-complete`.
+Resource discovery can be overridden with `GOPLINT_SOUNDNESS_CPU_UNITS`,
+`GOPLINT_SOUNDNESS_MEMORY_BYTES`, and `GOPLINT_SOUNDNESS_MAX_WORKERS`. Refresh
+the three-sample weighted test census with
+`make update-goplint-race-repeat-timings`.
+
+The immutable execution-plan, distributed work-bundle, aggregate-report, and
+telemetry schemas; local CI reproduction; digest/freshness boundaries; failure
+diagnostics; and final completion command sequence are documented in
+[`../../docs/goplint/soundness-gate-execution.md`](../../docs/goplint/soundness-gate-execution.md).
 
 ## Internal Commands (Hidden)
 
@@ -388,7 +415,7 @@ goreleaser release --snapshot --clean
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, all-module govulncheck |
-| `lint.yml` | Push/PR to main (Go code/lint config changes) | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, goplint baseline gate, goplint exception governance, soundness-assurance gates, and the blocking canonical goplint full scan |
+| `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, then immutable soundness plan, one shared repository audit, bounded matrix workers, strict no-gap aggregation, retained aggregate telemetry for the routed profile, and byte-identical normalized parity against the retained legacy serial lane during semantic migration |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
 | `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |

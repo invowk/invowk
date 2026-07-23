@@ -24,18 +24,23 @@ const FormatVersion = 3
 var requiredTaskLedgers = []TaskLedgerPlan{
 	{
 		Name:            "complete-goplint-soundness-hardening",
-		Path:            "openspec/changes/complete-goplint-soundness-hardening/tasks.md",
-		ExpectedPending: []string{"12.10"},
+		Path:            "openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+		ExpectedPending: []string{},
 	},
 	{
 		Name:            "close-goplint-soundness-review-gaps",
-		Path:            "openspec/changes/close-goplint-soundness-review-gaps/tasks.md",
-		ExpectedPending: []string{"10.8"},
+		Path:            "openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md",
+		ExpectedPending: []string{},
 	},
 	{
 		Name:            "close-residual-goplint-soundness-gaps",
-		Path:            "openspec/changes/close-residual-goplint-soundness-gaps/tasks.md",
+		Path:            "openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md",
 		ExpectedPending: []string{},
+	},
+	{
+		Name:            "accelerate-goplint-soundness-gates",
+		Path:            "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
+		ExpectedPending: []string{"10.2", "10.3", "10.7", "8.7"},
 	},
 }
 
@@ -292,7 +297,7 @@ func (p Plan) Validate() error {
 		return err
 	}
 	if !reflectTaskLedgerPlansEqual(p.TaskLedgers, requiredTaskLedgers) {
-		return fmt.Errorf("task ledgers must bind the three active changes in dependency order: got %+v, want %+v", p.TaskLedgers, requiredTaskLedgers)
+		return fmt.Errorf("task ledgers must bind the archived predecessor changes and current acceleration change in dependency order: got %+v, want %+v", p.TaskLedgers, requiredTaskLedgers)
 	}
 	if err := validateReviewedExclusions(p.DiffReview.ReviewedExclusions); err != nil {
 		return err
@@ -338,11 +343,11 @@ func (p Plan) Validate() error {
 		p.AggregateReport.ManifestPath == "" || p.AggregateReport.RegistryPath == "" {
 		return errors.New("aggregate report requires command, output, manifest, and registry")
 	}
-	if p.AggregateReport.Profile != soundnessgate.ProfileCore {
+	if p.AggregateReport.Profile != soundnessgate.ProfileSemantic {
 		return fmt.Errorf(
 			"clean-tree aggregate report profile = %q, want %q",
 			p.AggregateReport.Profile,
-			soundnessgate.ProfileCore,
+			soundnessgate.ProfileSemantic,
 		)
 	}
 	outputFile := filepath.FromSlash(p.AggregateReport.OutputFile)

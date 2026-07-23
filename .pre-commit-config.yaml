@@ -16,27 +16,9 @@ repos:
         always_run: true
         verbose: true
 
-      - id: goplint-baseline
-        name: goplint baseline check
-        entry: "bash -c 'make check-baseline 2>&1'"
-        language: system
-        pass_filenames: false
-        files: '^(cmd/|internal/|pkg/|tools/goplint/|docs/goplint/|openspec/specs/(goplint-analysis-soundness|goplint-soundness-assurance|lint-tooling-quality-gates)/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/(lint|goplint-fuzz|mutation-testing)\.yml$)'
-        always_run: true
-        verbose: true
-
-      - id: goplint-exceptions
-        name: goplint exception governance
-        entry: "bash -c 'make check-goplint-exceptions 2>&1'"
-        language: system
-        pass_filenames: false
-        files: '^(cmd/|internal/|pkg/|tools/goplint/|docs/goplint/|openspec/specs/(goplint-analysis-soundness|goplint-soundness-assurance|lint-tooling-quality-gates)/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/(lint|goplint-fuzz|mutation-testing)\.yml$)'
-        always_run: true
-        verbose: true
-
       - id: goplint-behavior
-        name: canonical goplint soundness core gate
-        entry: "bash -c 'make check-goplint-soundness-core 2>&1'"
+        name: conservatively routed goplint soundness gate
+        entry: "bash -c 'make check-goplint-soundness-routed 2>&1'"
         language: system
         pass_filenames: false
         files: '^(cmd/|internal/|pkg/|tools/goplint/|docs/goplint/|openspec/specs/(goplint-analysis-soundness|goplint-soundness-assurance|lint-tooling-quality-gates)/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/(lint|goplint-fuzz|mutation-testing)\.yml$)'

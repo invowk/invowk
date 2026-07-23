@@ -185,6 +185,8 @@ When working in a specific code area, apply these rules and skills:
 | Test (full) | `make test` |
 | Lint | `make lint` |
 | Tidy | `make tidy` |
+| Route and run goplint soundness | `make check-goplint-soundness` |
+| Force goplint semantic soundness | `make check-goplint-soundness-semantic` |
 | Generate goplint completion evidence | `make generate-goplint-clean-tree-evidence` |
 | Check goplint mutation-kernel coverage | `make check-goplint-mutation-kernel-coverage` |
 
@@ -233,7 +235,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `samples/invowkmods/` - Sample invowk modules and audit fixtures for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation, `check-file-length.sh` for 1000-line file limit enforcement).
 - `tools/` - Development tools (separate Go modules):
-  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. It also checks value-type methods, constructors, functional options, immutability, and validation protocols. Run `make check-types` for the default audit and `make check-types-all` for the full DDD audit. `make check-goplint-soundness` is the regular/CI causal core profile and includes mutation-kernel category coverage. A completion claim additionally requires `make generate-goplint-clean-tree-evidence`, `make check-goplint-clean-tree-evidence`, and `make check-goplint-soundness-complete`. Baseline regression is enforced by `make check-baseline`; proof inconclusives, uncovered mutation-required categories, and missing/stale completion evidence are always visible and cannot be baselined, excepted, or inline-ignored. Baseline format is v2 (`entries = [{id, message}]`); legacy `messages = [...]` is rejected.
+  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. It also checks value-type methods, constructors, functional options, immutability, and validation protocols. Run `make check-types` for the default audit and `make check-types-all` for the full DDD audit. `make check-goplint-soundness` conservatively routes changes to the resource-aware consumer, semantic, or completion profile; unknown context fails closed. Consumer smoke is not performance certification and makes no analyzer-soundness claim. Force semantic assurance with `make check-goplint-soundness-semantic`. A completion claim additionally requires `make generate-goplint-clean-tree-evidence`, `make check-goplint-clean-tree-evidence`, and `make check-goplint-soundness-complete`. Baseline regression is enforced by `make check-baseline`; proof inconclusives, uncovered mutation-required categories, and missing/stale completion evidence are always visible and cannot be baselined, excepted, or inline-ignored. Baseline format is v2 (`entries = [{id, message}]`); legacy `messages = [...]` is rejected. Execution plans, distributed bundles, telemetry, resource overrides, timing refresh, and CI reproduction are documented in `docs/goplint/soundness-gate-execution.md`.
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 

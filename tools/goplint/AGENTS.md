@@ -15,7 +15,9 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Run (JSON for agents) | `make check-types-json` |
 | **Run all DDD checks** | **`make check-types-all`** |
 | **Run all DDD checks (JSON)** | **`make check-types-all-json`** |
-| **Check canonical soundness core** | **`make check-goplint-soundness-core`** |
+| **Route and run canonical soundness** | **`make check-goplint-soundness`** |
+| **Force consumer profile** | **`make check-goplint-soundness-consumer`** |
+| **Force semantic soundness** | **`make check-goplint-soundness-semantic`** |
 | **Check completion proof** | **`make check-goplint-soundness-complete`** |
 | **Generate retained exact-tree proof** | **`make generate-goplint-clean-tree-evidence`** |
 | **Verify retained exact-tree proof** | **`make check-goplint-clean-tree-evidence`** |
@@ -31,7 +33,10 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | **Check determinism** | **`make check-goplint-determinism`** |
 | **Check targeted mutation** | **`make check-goplint-targeted-mutation`** |
 | **Check race/repeat evidence** | **`make check-goplint-race-repeat`** |
+| **Refresh race/repeat timings** | **`make update-goplint-race-repeat-timings`** |
 | **Check canonical full scan** | **`make check-goplint-full-scan`** |
+| **Check consumer performance smoke** | **`make check-goplint-performance-smoke`** |
+| **Check certified performance** | **`make check-goplint-benchmarks`** |
 | **Check baseline (regression gate)** | **`make check-baseline`** |
 | **Check exception governance** | **`make check-goplint-exceptions`** |
 | **Update baseline** | **`make update-baseline`** |
@@ -69,21 +74,42 @@ mutant with non-empty `changed_stages` and structured `expected_mismatches`.
 The subgate emits a deterministic category-to-mutant census; uncovered
 required categories cannot be exempted, baselined, excepted, or inline-ignored.
 
-For a completion claim, run the core gate, generate the retained record, verify
+For a completion claim, run the semantic gate, generate the retained record, verify
 it, and then run the complete gate:
 
 ```bash
-make check-goplint-soundness-core
+make check-goplint-soundness-semantic
 make generate-goplint-clean-tree-evidence
 make check-goplint-clean-tree-evidence
 make check-goplint-soundness-complete
 ```
 
 Generation consumes the reviewed `clean-tree-v3.paths` and
-`clean-tree-v3.json` inputs, invokes the `core` profile to avoid recursive
+`clean-tree-v3.json` inputs, invokes the `semantic` profile to avoid recursive
 freshness verification, and writes only `clean-tree-run.v3.json`. Missing or
 stale retained evidence is blocking and cannot be baselined, excepted, or
 inline-ignored.
+
+The routed command uses the versioned ownership manifest and fails unknown or
+ambiguous change context closed. Its default executor is the immutable,
+resource-aware parallel planner. Consumer smoke is deliberately one-sample and
+is not certification; only semantic/complete runs support analyzer-soundness or
+exact-tree completion claims. See
+[`../../docs/goplint/soundness-gate-execution.md`](../../docs/goplint/soundness-gate-execution.md)
+for resource overrides, timing refresh, plan/bundle schemas, CI reproduction,
+telemetry fields, and failure diagnostics.
+
+The local plan gives the short runner-class-calibrated algorithm certification
+the full CPU budget. Race/repeat leaves two four-CPU lanes on larger runners so
+the separately planned five-sample full-scan certification and mutation or
+correctness work can overlap without perturbing the tight algorithm thresholds.
+The analyzer and supporting-package race/repeat populations are separate work
+units, and the deterministic scheduler admits larger reservations before small
+work can fragment the runner. Distributed CI runs each phase on an independent
+four-CPU worker. Worker bundle v2 timestamps and content-binds its embedded
+report plus shared-audit digest; aggregation retains both the canonical report
+and versioned telemetry. Scheduled and release events force completion, while
+the legacy serial semantic lane remains during the measured migration period.
 
 ## Testing Parallelism
 
@@ -740,21 +766,27 @@ Run `make update-baseline` after:
 
 ### CI integration
 
-The `goplint`, `goplint-baseline`, `goplint-exceptions`, and `goplint-tests` jobs
-in `lint.yml` are required checks. The full scan is blocking, baseline and
-exception jobs govern accepted definite debt, and `goplint-tests` runs the
-causal core profile with `make check-goplint-soundness-core`. The scheduled
-oracle workflow runs its manifest-derived strict superset separately.
+The `goplint-plan`, bounded `goplint-workers`, and `goplint-aggregate` jobs in
+`lint.yml` are required checks. The plan job classifies the change, emits an
+immutable plan, and produces the canonical repository audit once. Matrix
+workers execute exact plan units and upload bound bundles; the aggregate job
+recomputes the shared-audit and embedded-report digests, rejects missing,
+duplicate, foreign, stale, or partial results, and uploads the report plus
+telemetry. Semantic migration runs also execute `goplint-legacy-reference`
+and `goplint-parity`, whose `soundness-report-compare` invocation rejects any
+normalized evidence drift, until three CI comparisons satisfy parity and
+performance acceptance. The
+scheduled oracle workflow runs its manifest-derived strict superset separately.
 
 ### Pre-commit hook
 
-The local hooks in `.pre-commit-config.yaml` block on `make check-baseline`,
-`make check-goplint-exceptions`, and `make check-goplint-soundness-core` for
-goplint-relevant changes. Install with `make install-hooks`.
+The consolidated local hook runs `make check-goplint-soundness`. Ordinary root
+consumer changes execute one shared repository audit; goplint-owned or unknown
+changes fail closed to semantic assurance. Install with `make install-hooks`.
 
 The retained exact-tree record is a completion artifact, not an ordinary CI
 input. Generate it from the reviewed temporary-index synthetic tree using the
-core profile, verify it with `make check-goplint-clean-tree-evidence`, then run
+semantic profile, verify it with `make check-goplint-clean-tree-evidence`, then run
 `make check-goplint-soundness-complete`. Never make record generation invoke
 the complete profile: that would recurse into the record's own freshness
 check.

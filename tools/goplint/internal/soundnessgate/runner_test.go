@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/tools/goplint/internal/soundnessevidence"
 )
@@ -25,11 +26,13 @@ func TestRunWritesStrictRetainedReport(t *testing.T) {
 
 	root, manifestPath, registry := writeRunnerFixture(t, validGateManifest(), validGateRegistry())
 	reportPath := filepath.Join(t.TempDir(), "aggregate-report.json")
+	telemetryPath := filepath.Join(t.TempDir(), "aggregate-telemetry.json")
 	dependencies := runnerTestDependencies(t, registry, producerBehavior{})
 	result, err := run(t.Context(), Options{
-		Root:         root,
-		ManifestPath: manifestPath,
-		ReportPath:   reportPath,
+		Root:          root,
+		ManifestPath:  manifestPath,
+		ReportPath:    reportPath,
+		TelemetryPath: telemetryPath,
 	}, dependencies)
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
@@ -50,6 +53,16 @@ func TestRunWritesStrictRetainedReport(t *testing.T) {
 	}
 	if report.WorkspaceDigest != runnerTestWorkspaceDigest {
 		t.Fatalf("run report workspace digest = %q, want %q", report.WorkspaceDigest, runnerTestWorkspaceDigest)
+	}
+	telemetry, err := LoadTelemetry(t.Context(), telemetryPath)
+	if err != nil {
+		t.Fatalf("LoadTelemetry() error = %v", err)
+	}
+	if telemetry.RunID != report.RunID {
+		t.Fatalf("telemetry run id = %q, want %q", telemetry.RunID, report.RunID)
+	}
+	if len(telemetry.Subgates) != len(report.Subgates) {
+		t.Fatalf("telemetry subgate count = %d, want %d", len(telemetry.Subgates), len(report.Subgates))
 	}
 }
 
@@ -185,6 +198,7 @@ func runnerTestDependencies(
 ) runnerDependencies {
 	t.Helper()
 	temporaryBase := t.TempDir()
+	now := time.Date(2026, time.July, 19, 12, 0, 0, 0, time.UTC)
 	return runnerDependencies{
 		workspaceDigest: func(context.Context, string) (string, error) {
 			return runnerTestWorkspaceDigest, nil
@@ -196,11 +210,14 @@ func runnerTestDependencies(
 			environment []string,
 			_ io.Writer,
 			_ io.Writer,
-		) error {
+		) (commandMetrics, error) {
 			if behavior.successfulNoOp && command[0] == "successful-no-op" {
-				return nil
+				return commandMetrics{}, nil
 			}
-			return emitTestProducerOutputs(ctx, registry, environment, behavior)
+			if err := emitTestProducerOutputs(ctx, registry, environment, behavior); err != nil {
+				return commandMetrics{}, err
+			}
+			return commandMetrics{CPUTimeNanoseconds: 7, PeakRSSBytes: 11}, nil
 		},
 		makeTempDir: func(string, string) (string, error) {
 			path := filepath.Join(temporaryBase, "evidence")
@@ -211,6 +228,11 @@ func runnerTestDependencies(
 		},
 		newRunID: func() (string, error) {
 			return "run-test", nil
+		},
+		now: func() time.Time {
+			result := now
+			now = now.Add(time.Second)
+			return result
 		},
 	}
 }

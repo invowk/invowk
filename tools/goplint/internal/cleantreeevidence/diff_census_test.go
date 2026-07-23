@@ -135,7 +135,7 @@ func TestPlanRejectsWrongDependencyOrderAndUnexpectedPredecessorPolicy(t *testin
 		t.Fatalf("Validate() wrong archive order error = %v", err)
 	}
 	plan.TaskLedgers[0], plan.TaskLedgers[1] = plan.TaskLedgers[1], plan.TaskLedgers[0]
-	plan.TaskLedgers[0].ExpectedPending = []string{}
+	plan.TaskLedgers[0].ExpectedPending = []string{"12.10"}
 	if err := plan.Validate(); err == nil || !strings.Contains(err.Error(), "dependency order") {
 		t.Fatalf("Validate() unexpected predecessor policy error = %v", err)
 	}

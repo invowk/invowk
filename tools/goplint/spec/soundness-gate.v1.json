@@ -3,34 +3,12 @@
   "registry_path": "tools/goplint/spec/semantic-evidence.v2.json",
   "profiles": [
     {
-      "id": "core",
-      "subgate_ids": [
-        "aggregate-contract",
-        "architecture",
-        "baseline",
-        "benchmarks",
-        "catalog",
-        "cfg-refinement",
-        "counterexamples",
-        "determinism",
-        "end-to-end-oracle",
-        "full-scan",
-        "fuzz-seeds",
-        "inconclusive-suppression",
-        "mutation-kernel-coverage",
-        "production-integration",
-        "protocol-oracle",
-        "race-repeat",
-        "scheduled-oracle",
-        "targeted-mutation"
-      ]
-    },
-    {
       "id": "complete",
       "subgate_ids": [
         "aggregate-contract",
         "architecture",
         "baseline",
+        "benchmark-full-scan",
         "benchmarks",
         "catalog",
         "cfg-refinement",
@@ -38,6 +16,7 @@
         "counterexamples",
         "determinism",
         "end-to-end-oracle",
+        "exceptions",
         "full-scan",
         "fuzz-seeds",
         "inconclusive-suppression",
@@ -45,6 +24,45 @@
         "production-integration",
         "protocol-oracle",
         "race-repeat",
+        "race-repeat-supporting",
+        "repository-audit",
+        "scheduled-oracle",
+        "targeted-mutation"
+      ]
+    },
+    {
+      "id": "consumer",
+      "subgate_ids": [
+        "baseline",
+        "exceptions",
+        "full-scan",
+        "performance-smoke",
+        "repository-audit"
+      ]
+    },
+    {
+      "id": "semantic",
+      "subgate_ids": [
+        "aggregate-contract",
+        "architecture",
+        "baseline",
+        "benchmark-full-scan",
+        "benchmarks",
+        "catalog",
+        "cfg-refinement",
+        "counterexamples",
+        "determinism",
+        "end-to-end-oracle",
+        "exceptions",
+        "full-scan",
+        "fuzz-seeds",
+        "inconclusive-suppression",
+        "mutation-kernel-coverage",
+        "production-integration",
+        "protocol-oracle",
+        "race-repeat",
+        "race-repeat-supporting",
+        "repository-audit",
         "scheduled-oracle",
         "targeted-mutation"
       ]
@@ -56,6 +74,15 @@
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-aggregate-contract.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 536870912,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 120,
       "report_file": "report.json",
@@ -72,6 +99,15 @@
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-production-architecture.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 2,
+      "estimated_peak_memory_bytes": 2147483648,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 120,
       "report_file": "report.json",
@@ -90,6 +126,18 @@
         "make",
         "check-baseline"
       ],
+      "dependencies": [
+        "repository-audit"
+      ],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 536870912,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "consumer",
+        "semantic"
+      ],
       "timeout_seconds": 900,
       "report_file": "report.json",
       "required_registration_ids": [],
@@ -101,10 +149,48 @@
       ]
     },
     {
+      "id": "benchmark-full-scan",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-cfg-bench-thresholds.sh",
+        "--phase",
+        "full-scan"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 6442450944,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 3600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "certification-full-scans",
+          "minimum": 5
+        }
+      ]
+    },
+    {
       "id": "benchmarks",
       "working_directory": "tools/goplint",
       "command": [
-        "./scripts/check-cfg-bench-thresholds.sh"
+        "./scripts/check-cfg-bench-thresholds.sh",
+        "--phase",
+        "algorithms"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 6442450944,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 3600,
       "report_file": "report.json",
@@ -125,6 +211,15 @@
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-semantic-spec.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 2,
+      "estimated_peak_memory_bytes": 4294967296,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 300,
       "report_file": "report.json",
@@ -179,6 +274,15 @@
       "command": [
         "./scripts/check-cfg-refinement.sh"
       ],
+      "dependencies": [],
+      "cpu_units": 2,
+      "estimated_peak_memory_bytes": 4294967296,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
       "timeout_seconds": 300,
       "report_file": "report.json",
       "required_registration_ids": [],
@@ -205,6 +309,14 @@
         "-evidence",
         "tools/goplint/testdata/gates/clean-tree-run.v3.json"
       ],
+      "dependencies": [],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 1073741824,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete"
+      ],
       "timeout_seconds": 3600,
       "report_file": "clean-tree-freshness.json",
       "required_registration_ids": [],
@@ -221,6 +333,15 @@
       "command": [
         "./scripts/check-counterexamples.sh"
       ],
+      "dependencies": [],
+      "cpu_units": 2,
+      "estimated_peak_memory_bytes": 4294967296,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
       "timeout_seconds": 300,
       "report_file": "report.json",
       "required_registration_ids": [],
@@ -236,6 +357,15 @@
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-protocol-determinism.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 900,
       "report_file": "report.json",
@@ -266,6 +396,15 @@
       "command": [
         "./scripts/check-protocol-oracle-e2e.sh"
       ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
       "timeout_seconds": 600,
       "report_file": "report.json",
       "required_registration_ids": [
@@ -290,11 +429,52 @@
       ]
     },
     {
+      "id": "exceptions",
+      "working_directory": ".",
+      "command": [
+        "make",
+        "check-goplint-exceptions"
+      ],
+      "dependencies": [
+        "repository-audit"
+      ],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 536870912,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "consumer",
+        "semantic"
+      ],
+      "timeout_seconds": 300,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "repository-scans",
+          "minimum": 1
+        }
+      ]
+    },
+    {
       "id": "full-scan",
       "working_directory": ".",
       "command": [
         "make",
         "check-goplint-full-scan"
+      ],
+      "dependencies": [
+        "repository-audit"
+      ],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 536870912,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "consumer",
+        "semantic"
       ],
       "timeout_seconds": 900,
       "report_file": "report.json",
@@ -311,6 +491,15 @@
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-fuzz-seeds.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 600,
       "report_file": "report.json",
@@ -345,6 +534,15 @@
       "command": [
         "./scripts/check-inconclusive-suppression.sh"
       ],
+      "dependencies": [],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 1073741824,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
       "timeout_seconds": 180,
       "report_file": "report.json",
       "required_registration_ids": [],
@@ -367,6 +565,15 @@
         "-manifest",
         "testdata/subgates/mutation-kernel-coverage.v1.json"
       ],
+      "dependencies": [],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 1073741824,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
       "timeout_seconds": 120,
       "report_file": "report.json",
       "required_registration_ids": [],
@@ -386,10 +593,45 @@
       ]
     },
     {
+      "id": "performance-smoke",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-performance-smoke.sh"
+      ],
+      "dependencies": [
+        "repository-audit"
+      ],
+      "cpu_units": 1,
+      "estimated_peak_memory_bytes": 536870912,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "consumer"
+      ],
+      "timeout_seconds": 900,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "consumer-performance-smoke",
+          "minimum": 1
+        }
+      ]
+    },
+    {
       "id": "production-integration",
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-production-integration.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 600,
       "report_file": "report.json",
@@ -428,6 +670,15 @@
       "command": [
         "./scripts/check-protocol-oracle.sh"
       ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 4294967296,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
       "timeout_seconds": 300,
       "report_file": "report.json",
       "required_registration_ids": [
@@ -455,7 +706,18 @@
       "id": "race-repeat",
       "working_directory": "tools/goplint",
       "command": [
-        "./scripts/check-race-repeat.sh"
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "analyzer"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 12884901888,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 3600,
       "report_file": "report.json",
@@ -472,10 +734,79 @@
       ]
     },
     {
+      "id": "race-repeat-supporting",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "supporting"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 1800,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "supporting-race-runs",
+          "minimum": 1
+        },
+        {
+          "id": "supporting-repeat-runs",
+          "minimum": 3
+        }
+      ]
+    },
+    {
+      "id": "repository-audit",
+      "working_directory": ".",
+      "command": [
+        "make",
+        "check-goplint-repository-audit"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 6442450944,
+      "exclusivity_groups": [
+        "repository-analysis"
+      ],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "consumer",
+        "semantic"
+      ],
+      "timeout_seconds": 900,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "repository-scans",
+          "minimum": 1
+        }
+      ]
+    },
+    {
       "id": "scheduled-oracle",
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-protocol-oracle-scheduled.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 3600,
       "report_file": "report.json",
@@ -500,6 +831,15 @@
         "./cmd/targeted-mutation",
         "-profile",
         "testdata/mutation/profiles/blocking-v2.json"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
       ],
       "timeout_seconds": 1800,
       "report_file": "report.json",

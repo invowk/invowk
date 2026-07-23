@@ -40,8 +40,8 @@
     },
     "task_ledgers": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 4,
+      "maxItems": 4,
       "prefixItems": [
         {
           "$ref": "#/$defs/complete_hardening_ledger"
@@ -51,6 +51,9 @@
         },
         {
           "$ref": "#/$defs/residual_gaps_ledger"
+        },
+        {
+          "$ref": "#/$defs/acceleration_ledger"
         }
       ],
       "items": false
@@ -122,7 +125,7 @@
         "output_file": {"type": "string", "minLength": 6, "pattern": "^[^/\\\\]+\\.json$"},
         "manifest_path": {"$ref": "#/$defs/repository_path"},
         "registry_path": {"$ref": "#/$defs/repository_path"},
-        "profile": {"const": "core"}
+        "profile": {"const": "semantic"}
       }
     },
     "mutation_proofs": {
@@ -171,8 +174,8 @@
       "required": ["name", "path", "expected_pending"],
       "properties": {
         "name": {"const": "complete-goplint-soundness-hardening"},
-        "path": {"const": "openspec/changes/complete-goplint-soundness-hardening/tasks.md"},
-        "expected_pending": {"const": ["12.10"]}
+        "path": {"const": "openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md"},
+        "expected_pending": {"const": []}
       }
     },
     "review_gaps_ledger": {
@@ -181,8 +184,8 @@
       "required": ["name", "path", "expected_pending"],
       "properties": {
         "name": {"const": "close-goplint-soundness-review-gaps"},
-        "path": {"const": "openspec/changes/close-goplint-soundness-review-gaps/tasks.md"},
-        "expected_pending": {"const": ["10.8"]}
+        "path": {"const": "openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md"},
+        "expected_pending": {"const": []}
       }
     },
     "residual_gaps_ledger": {
@@ -191,8 +194,18 @@
       "required": ["name", "path", "expected_pending"],
       "properties": {
         "name": {"const": "close-residual-goplint-soundness-gaps"},
-        "path": {"const": "openspec/changes/close-residual-goplint-soundness-gaps/tasks.md"},
+        "path": {"const": "openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md"},
         "expected_pending": {"const": []}
+      }
+    },
+    "acceleration_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "expected_pending"],
+      "properties": {
+        "name": {"const": "accelerate-goplint-soundness-gates"},
+        "path": {"const": "openspec/changes/accelerate-goplint-soundness-gates/tasks.md"},
+        "expected_pending": {"const": ["10.2", "10.3", "10.7", "8.7"]}
       }
     }
   }
