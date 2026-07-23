@@ -348,3 +348,41 @@ func writeRunnerFixture(
 	writeGateJSON(t, manifestPath, manifest)
 	return root, manifestPath, registry
 }
+
+func TestDependencyOrderedSubgatesRunsProducersBeforeDependents(t *testing.T) {
+	t.Parallel()
+
+	subgates := []Subgate{
+		{ID: "audit-consumer", Dependencies: []string{"repository-audit"}},
+		{ID: "baseline", Dependencies: []string{"repository-audit"}},
+		{ID: "independent", Dependencies: []string{}},
+		{ID: "repository-audit", Dependencies: []string{}},
+	}
+	ordered, err := dependencyOrderedSubgates(subgates)
+	if err != nil {
+		t.Fatalf("dependencyOrderedSubgates() error = %v", err)
+	}
+	position := make(map[string]int, len(ordered))
+	for index, subgate := range ordered {
+		position[subgate.ID] = index
+	}
+	if len(position) != len(subgates) {
+		t.Fatalf("ordered subgates = %d, want %d", len(position), len(subgates))
+	}
+	if position["repository-audit"] > position["audit-consumer"] ||
+		position["repository-audit"] > position["baseline"] {
+		t.Fatalf("producer runs after a dependent: %v", position)
+	}
+}
+
+func TestDependencyOrderedSubgatesRejectsCycles(t *testing.T) {
+	t.Parallel()
+
+	subgates := []Subgate{
+		{ID: "first", Dependencies: []string{"second"}},
+		{ID: "second", Dependencies: []string{"first"}},
+	}
+	if _, err := dependencyOrderedSubgates(subgates); err == nil {
+		t.Fatal("dependencyOrderedSubgates() accepted a dependency cycle")
+	}
+}

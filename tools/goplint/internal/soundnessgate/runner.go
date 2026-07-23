@@ -113,6 +113,10 @@ func run(ctx context.Context, options Options, dependencies runnerDependencies) 
 	if err != nil {
 		return Result{}, err
 	}
+	selectedSubgates, err = dependencyOrderedSubgates(selectedSubgates)
+	if err != nil {
+		return Result{}, err
+	}
 	reservations := make(map[string]ResourceReservation, len(selectedSubgates))
 	if options.executionPlan != nil {
 		selectedSubgates, reservations, err = serialSubgatesFromPlan(*options.executionPlan)
@@ -422,6 +426,46 @@ func createSubgateBinding(
 		return soundnessevidence.ObservationBinding{}, fmt.Errorf("soundness subgate %q binding: %w", subgate.ID, err)
 	}
 	return binding, nil
+}
+
+// dependencyOrderedSubgates returns a deterministic topological order so a
+// serial execution always runs producers before their dependents. Ready
+// subgates are admitted in ascending ID order; in-profile dependency cycles
+// or dangling references fail closed.
+func dependencyOrderedSubgates(subgates []Subgate) ([]Subgate, error) {
+	byID := make(map[string]Subgate, len(subgates))
+	pending := make(map[string][]string, len(subgates))
+	for _, subgate := range subgates {
+		byID[subgate.ID] = subgate
+		pending[subgate.ID] = slices.Clone(subgate.Dependencies)
+	}
+	ordered := make([]Subgate, 0, len(subgates))
+	completed := make(map[string]bool, len(subgates))
+	for len(ordered) < len(subgates) {
+		ready := make([]string, 0, len(pending))
+		for id, requires := range pending {
+			satisfied := true
+			for _, dependency := range requires {
+				if _, selected := byID[dependency]; selected && !completed[dependency] {
+					satisfied = false
+					break
+				}
+			}
+			if satisfied {
+				ready = append(ready, id)
+			}
+		}
+		if len(ready) == 0 {
+			return nil, errors.New("soundness serial execution found a subgate dependency cycle")
+		}
+		slices.Sort(ready)
+		for _, id := range ready {
+			ordered = append(ordered, byID[id])
+			completed[id] = true
+			delete(pending, id)
+		}
+	}
+	return ordered, nil
 }
 
 func subgateEnvironment(
