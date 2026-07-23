@@ -170,7 +170,10 @@ func run(ctx context.Context, options Options, dependencies runnerDependencies) 
 			return Result{}, fmt.Errorf("create soundness subgate %q evidence directory: %w", subgate.ID, err)
 		}
 		reportPath := filepath.Join(subgateRoot, filepath.FromSlash(subgate.ReportFile))
-		environment := subgateEnvironment(os.Environ(), binding, observationRoot, reportPath)
+		environment := subgateEnvironment(
+			os.Environ(), binding, observationRoot, reportPath,
+			filepath.Join(evidenceRoot, "repository-audit.json"),
+		)
 		workingDirectory := filepath.Join(root, filepath.FromSlash(subgate.WorkingDirectory))
 		commandCtx, cancel := context.WithTimeout(ctx, time.Duration(subgate.TimeoutSeconds)*time.Second)
 		metrics, executeErr := dependencies.execute(commandCtx, workingDirectory, subgate.Command, environment, stdout, stderr)
@@ -426,6 +429,7 @@ func subgateEnvironment(
 	binding soundnessevidence.ObservationBinding,
 	observationRoot string,
 	reportPath string,
+	repositoryAuditPath string,
 ) []string {
 	replacements := []struct {
 		key   string
@@ -438,7 +442,7 @@ func subgateEnvironment(
 		{key: soundnessevidence.EnvSubgateID, value: binding.SubgateID},
 		{key: soundnessevidence.EnvEvidenceDir, value: observationRoot},
 		{key: EnvSubgateReportPath, value: reportPath},
-		{key: EnvRepositoryAuditPath, value: filepath.Join(filepath.Dir(filepath.Dir(observationRoot)), "repository-audit.json")},
+		{key: EnvRepositoryAuditPath, value: repositoryAuditPath},
 	}
 	result := slices.DeleteFunc(slices.Clone(environment), func(entry string) bool {
 		return strings.HasPrefix(entry, EnvReportPath+"=")

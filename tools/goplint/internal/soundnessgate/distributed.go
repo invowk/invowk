@@ -68,6 +68,14 @@ type (
 		ReportPath          string
 		TelemetryPath       string
 	}
+
+	// distributedWorkDependencies makes the real work-unit execution path
+	// testable without weakening its exact-plan validation.
+	distributedWorkDependencies struct {
+		plan     planDependencies
+		execute  func(context.Context, string, []string, []string, io.Writer, io.Writer) (commandMetrics, error)
+		newRunID func() (string, error)
+	}
 )
 
 // ExecutePlanWorkUnit validates the exact plan and executes one assigned unit.
@@ -77,9 +85,23 @@ func ExecutePlanWorkUnit(
 	workUnitID string,
 	options DistributedWorkOptions,
 ) (WorkBundle, error) {
-	if err := validateCurrentPlan(ctx, plan, options.Root, planDependencies{
-		workspaceDigest: WorkspaceDigest, binaryDigest: executableDigest, toolchain: currentToolchainBinding,
-	}); err != nil {
+	return executePlanWorkUnit(ctx, plan, workUnitID, options, distributedWorkDependencies{
+		plan: planDependencies{
+			workspaceDigest: WorkspaceDigest, binaryDigest: executableDigest, toolchain: currentToolchainBinding,
+		},
+		execute:  executeCommand,
+		newRunID: newRunID,
+	})
+}
+
+func executePlanWorkUnit(
+	ctx context.Context,
+	plan ExecutionPlan,
+	workUnitID string,
+	options DistributedWorkOptions,
+	dependencies distributedWorkDependencies,
+) (WorkBundle, error) {
+	if err := validateCurrentPlan(ctx, plan, options.Root, dependencies.plan); err != nil {
 		return WorkBundle{}, err
 	}
 	command, expectedReport, dependency, err := distributedBindings(plan, workUnitID)
@@ -137,7 +159,7 @@ func ExecutePlanWorkUnit(
 			return WorkBundle{}, writeErr
 		}
 	}
-	runID, err := newRunID()
+	runID, err := dependencies.newRunID()
 	if err != nil {
 		return WorkBundle{}, err
 	}
@@ -147,7 +169,7 @@ func ExecutePlanWorkUnit(
 	}
 	reportPath := filepath.Join(unitRoot, expectedReport.ReportFile)
 	environment := boundedGoEnvironment(
-		subgateEnvironment(os.Environ(), binding, filepath.Join(unitRoot, "observations"), reportPath),
+		subgateEnvironment(os.Environ(), binding, filepath.Join(unitRoot, "observations"), reportPath, auditPath),
 		command.ReservedResources.CPUUnits,
 	)
 	stdout := options.Stdout
@@ -161,7 +183,7 @@ func ExecutePlanWorkUnit(
 	queuedAt := time.Now().UTC()
 	startedAt := time.Now().UTC()
 	commandCtx, cancel := context.WithTimeout(ctx, time.Duration(command.TimeoutSeconds)*time.Second)
-	metrics, executeErr := executeCommand(
+	metrics, executeErr := dependencies.execute(
 		commandCtx,
 		filepath.Join(root, filepath.FromSlash(command.WorkingDirectory)),
 		command.Command,
@@ -201,7 +223,7 @@ func ExecutePlanWorkUnit(
 		}
 		outputAuditDigest = soundnessevidence.DigestBytes(data)
 	}
-	finalWorkspaceDigest, err := WorkspaceDigest(ctx, root)
+	finalWorkspaceDigest, err := dependencies.plan.workspaceDigest(ctx, root)
 	if err != nil {
 		return WorkBundle{}, err
 	}

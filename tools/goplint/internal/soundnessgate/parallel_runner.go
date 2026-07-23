@@ -139,7 +139,10 @@ func runPlanParallel(
 			return workUnitProduct{}, fmt.Errorf("create soundness work unit %q evidence directory: %w", command.WorkUnitID, err)
 		}
 		reportPath := filepath.Join(subgateRoot, filepath.FromSlash(subgate.ReportFile))
-		environment := subgateEnvironment(os.Environ(), binding, observationRoot, reportPath)
+		environment := subgateEnvironment(
+			os.Environ(), binding, observationRoot, reportPath,
+			filepath.Join(evidenceRoot, "repository-audit.json"),
+		)
 		environment = boundedGoEnvironment(environment, command.ReservedResources.CPUUnits)
 		workingDirectory := filepath.Join(root, filepath.FromSlash(command.WorkingDirectory))
 		commandCtx, cancel := context.WithTimeout(workerCtx, time.Duration(command.TimeoutSeconds)*time.Second)

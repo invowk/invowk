@@ -3,8 +3,16 @@
 package soundnessgate
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -237,4 +245,151 @@ func validFixtureWorkBundle(
 		t.Fatal(err)
 	}
 	return bundle
+}
+
+func TestExecutePlanWorkUnitBindsSharedAuditArtifactToChildEnvironment(t *testing.T) {
+	t.Parallel()
+
+	manifest := validGateManifest()
+	auditPopulation := PopulationRequirement{ID: "repository-scans", Minimum: 1}
+	consumerPopulation := PopulationRequirement{ID: "cases", Minimum: 1}
+	extraSubgates := []Subgate{
+		{
+			ID: "repository-audit", WorkingDirectory: ".",
+			Command: []string{"producer", "repository-audit"}, TimeoutSeconds: 10,
+			ReportFile: "report.json", RequiredRegistrationIDs: []string{},
+			RequiredPopulations: []PopulationRequirement{auditPopulation},
+			Dependencies:        []string{}, CPUUnits: 1, EstimatedPeakMemoryBytes: 1024,
+			ExclusivityGroups: []string{}, Distributable: true,
+			ProfileIDs: []ProfileID{ProfileComplete, ProfileSemantic},
+		},
+		{
+			ID: "audit-consumer", WorkingDirectory: ".",
+			Command: []string{"producer", "audit-consumer"}, TimeoutSeconds: 10,
+			ReportFile: "report.json", RequiredRegistrationIDs: []string{},
+			RequiredPopulations: []PopulationRequirement{consumerPopulation},
+			Dependencies:        []string{"repository-audit"}, CPUUnits: 1, EstimatedPeakMemoryBytes: 1024,
+			ExclusivityGroups: []string{}, Distributable: true,
+			ProfileIDs: []ProfileID{ProfileComplete, ProfileSemantic},
+		},
+	}
+	manifest.Subgates = append(manifest.Subgates, extraSubgates...)
+	slices.SortFunc(manifest.Subgates, func(a, b Subgate) int { return strings.Compare(a.ID, b.ID) })
+	for index := range manifest.Profiles {
+		if manifest.Profiles[index].ID == ProfileConsumer {
+			continue
+		}
+		manifest.Profiles[index].SubgateIDs = append(
+			manifest.Profiles[index].SubgateIDs, "repository-audit", "audit-consumer",
+		)
+		slices.Sort(manifest.Profiles[index].SubgateIDs)
+	}
+	registry := validGateRegistry()
+	root, manifestPath, _ := writeRunnerFixture(t, manifest, registry)
+	plan, err := generatePlan(t.Context(), PlanOptions{
+		Root: root, ManifestPath: manifestPath, Profile: ProfileSemantic,
+		Resources: ResourceBudget{
+			CPUUnits: 4, MemoryBytes: 16 * 1024 * 1024 * 1024,
+			MaximumWorkers: 4, RunnerClass: "fixture-runner",
+		},
+	}, deterministicPlanDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditPayload := []byte(`{"result_id":"sha256:fixture-shared-audit"}` + "\n")
+	dependencies := distributedWorkDependencies{
+		plan:     deterministicPlanDependencies(),
+		execute:  sharedAuditTestExecute(t, auditPayload),
+		newRunID: func() (string, error) { return "run-distributed-audit-test", nil },
+	}
+
+	producedBundle, err := executePlanWorkUnit(t.Context(), plan, "repository-audit", DistributedWorkOptions{
+		Root: root, OutputDirectory: t.TempDir(),
+	}, dependencies)
+	if err != nil {
+		t.Fatalf("executePlanWorkUnit(repository-audit) error = %v", err)
+	}
+	wantDigest := soundnessevidence.DigestBytes(auditPayload)
+	if producedBundle.OutputRepositoryAuditDigest != wantDigest {
+		t.Fatalf(
+			"repository-audit bundle output digest = %q, want the child-environment artifact digest %q",
+			producedBundle.OutputRepositoryAuditDigest, wantDigest,
+		)
+	}
+
+	inputPath := filepath.Join(t.TempDir(), "repository-audit.json")
+	if err := os.WriteFile(inputPath, auditPayload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	consumedBundle, err := executePlanWorkUnit(t.Context(), plan, "audit-consumer", DistributedWorkOptions{
+		Root: root, OutputDirectory: t.TempDir(), RepositoryAuditInputPath: inputPath,
+	}, dependencies)
+	if err != nil {
+		t.Fatalf("executePlanWorkUnit(audit-consumer) error = %v", err)
+	}
+	if consumedBundle.InputRepositoryAuditDigest != wantDigest {
+		t.Fatalf(
+			"audit-consumer bundle input digest = %q, want %q",
+			consumedBundle.InputRepositoryAuditDigest, wantDigest,
+		)
+	}
+}
+
+// sharedAuditTestExecute emulates a spawned work-unit process that honors the
+// child environment contract exactly: it writes its report to
+// GOPLINT_SUBGATE_REPORT_PATH and produces or consumes the shared repository
+// audit at GOPLINT_REPOSITORY_AUDIT_PATH.
+func sharedAuditTestExecute(
+	t *testing.T,
+	auditPayload []byte,
+) func(context.Context, string, []string, []string, io.Writer, io.Writer) (commandMetrics, error) {
+	t.Helper()
+	return func(
+		ctx context.Context,
+		_ string,
+		_ []string,
+		environment []string,
+		_ io.Writer,
+		_ io.Writer,
+	) (commandMetrics, error) {
+		lookup := environmentLookup(environment)
+		binding, err := bindingFromLookup(lookup)
+		if err != nil {
+			return commandMetrics{}, err
+		}
+		reportPath, exists := lookup(EnvSubgateReportPath)
+		if !exists {
+			return commandMetrics{}, errors.New("child environment has no report path")
+		}
+		auditPath, exists := lookup(EnvRepositoryAuditPath)
+		if !exists {
+			return commandMetrics{}, errors.New("child environment has no repository-audit path")
+		}
+		population := Population{ID: "cases", Count: 1}
+		switch binding.SubgateID {
+		case "repository-audit":
+			population = Population{ID: "repository-scans", Count: 1}
+			if err := os.WriteFile(auditPath, auditPayload, 0o600); err != nil {
+				return commandMetrics{}, fmt.Errorf("write shared audit artifact: %w", err)
+			}
+		case "audit-consumer":
+			content, err := os.ReadFile(auditPath)
+			if err != nil {
+				return commandMetrics{}, fmt.Errorf("read bound shared audit input: %w", err)
+			}
+			if !bytes.Equal(content, auditPayload) {
+				return commandMetrics{}, errors.New("bound shared audit input does not match the produced artifact")
+			}
+		}
+		report := Report{
+			FormatVersion: ReportFormatVersion,
+			Binding:       binding,
+			Status:        StatusPassed,
+			Populations:   []Population{population},
+		}
+		if err := writeExclusiveJSON(ctx, reportPath, report); err != nil {
+			return commandMetrics{}, err
+		}
+		return commandMetrics{CPUTimeNanoseconds: 7, PeakRSSBytes: 11}, nil
+	}
 }
