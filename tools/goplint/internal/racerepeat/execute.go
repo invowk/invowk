@@ -43,17 +43,53 @@ type (
 // ExecutePlan executes every immutable work unit with bounded local
 // concurrency and retains isolated structured outputs and result bundles.
 func ExecutePlan(ctx context.Context, plan Plan, options ExecuteOptions) ([]WorkResult, error) {
-	return executePlan(ctx, plan, options, executeTest2JSON)
+	return executePlan(ctx, plan, plan.WorkUnits, options, executeTest2JSON)
+}
+
+// ExecutePlanUnits executes one exact subset of plan work units, for
+// deterministic distributed work groups. Every selected unit must be an
+// exact plan unit; completeness across groups is owned by the deterministic
+// group partition and the aggregate's required work-unit set.
+func ExecutePlanUnits(
+	ctx context.Context,
+	plan Plan,
+	units []WorkUnit,
+	options ExecuteOptions,
+) ([]WorkResult, error) {
+	planned := make(map[string]int, len(plan.WorkUnits))
+	for index, unit := range plan.WorkUnits {
+		planned[unit.ID] = index
+	}
+	for _, unit := range units {
+		index, exists := planned[unit.ID]
+		if !exists {
+			return nil, fmt.Errorf("race/repeat selected work unit %q is not planned", unit.ID)
+		}
+		if !workUnitsEqual(plan.WorkUnits[index], unit) {
+			return nil, fmt.Errorf("race/repeat selected work unit %q does not match its plan binding", unit.ID)
+		}
+	}
+	return executePlan(ctx, plan, units, options, executeTest2JSON)
+}
+
+func workUnitsEqual(left, right WorkUnit) bool {
+	return left.ID == right.ID && left.Mode == right.Mode && left.Iteration == right.Iteration &&
+		left.TotalWeight == right.TotalWeight && left.TimeoutSeconds == right.TimeoutSeconds &&
+		left.BinaryDigest == right.BinaryDigest && slices.Equal(left.MemberIDs, right.MemberIDs)
 }
 
 func executePlan(
 	ctx context.Context,
 	plan Plan,
+	units []WorkUnit,
 	options ExecuteOptions,
 	run testCommandFunc,
 ) ([]WorkResult, error) {
 	if err := plan.Validate(); err != nil {
 		return nil, err
+	}
+	if len(units) == 0 {
+		return nil, errors.New("race/repeat execution requires at least one selected work unit")
 	}
 	if options.ModuleRoot == "" || options.BinaryDirectory == "" || options.OutputDirectory == "" ||
 		options.MaximumWorkers <= 0 || options.CPUPerWorker <= 0 {
@@ -69,7 +105,7 @@ func executePlan(
 	defer cancel()
 	jobs := make(chan WorkUnit)
 	outcomes := make(chan workOutcome)
-	workerCount := min(options.MaximumWorkers, len(plan.WorkUnits))
+	workerCount := min(options.MaximumWorkers, len(units))
 	var workers sync.WaitGroup
 	for range workerCount {
 		workers.Go(func() {
@@ -84,7 +120,7 @@ func executePlan(
 	}
 	go func() {
 		defer close(jobs)
-		for _, unit := range plan.WorkUnits {
+		for _, unit := range units {
 			select {
 			case jobs <- unit:
 			case <-workerCtx.Done():
@@ -96,7 +132,7 @@ func executePlan(
 		workers.Wait()
 		close(outcomes)
 	}()
-	results := make([]WorkResult, 0, len(plan.WorkUnits))
+	results := make([]WorkResult, 0, len(units))
 	var firstErr error
 	for outcome := range outcomes {
 		if outcome.result.WorkUnitID != "" {
@@ -109,8 +145,8 @@ func executePlan(
 	if firstErr != nil {
 		return results, firstErr
 	}
-	if len(results) != len(plan.WorkUnits) {
-		return results, fmt.Errorf("race/repeat execution retained %d of %d work results", len(results), len(plan.WorkUnits))
+	if len(results) != len(units) {
+		return results, fmt.Errorf("race/repeat execution retained %d of %d work results", len(results), len(units))
 	}
 	slices.SortFunc(results, func(left, right WorkResult) int { return strings.Compare(left.WorkUnitID, right.WorkUnitID) })
 	return results, nil

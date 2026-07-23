@@ -284,16 +284,12 @@ func buildManifest(registry soundnessevidence.Registry) (soundnessgate.Manifest,
 			population("independent-cases", 42),
 			population("metamorphic-relations", 8),
 		),
-		newSubgate(
-			"race-repeat",
-			"tools/goplint",
-			[]string{"./scripts/check-race-repeat.sh", "--phase", "analyzer"},
-			3600,
-			"report.json",
-			nil,
-			population("race-runs", 1),
-			population("repeat-runs", 3),
-		),
+		raceRepeatGroupSubgate(1),
+		raceRepeatGroupSubgate(2),
+		raceRepeatGroupSubgate(3),
+		raceRepeatGroupSubgate(4),
+		raceRepeatGroupSubgate(5),
+		raceRepeatGroupSubgate(6),
 		newSubgate(
 			"race-repeat-supporting",
 			"tools/goplint",
@@ -394,7 +390,12 @@ func applyExecutionPolicy(subgate *soundnessgate.Subgate) error {
 		"performance-smoke":        {cpu: 1, memory: 512 * 1024 * 1024, dependsOn: []string{"repository-audit"}},
 		"production-integration":   {cpu: 4, memory: 8 * 1024 * 1024 * 1024},
 		"protocol-oracle":          {cpu: 4, memory: 4 * 1024 * 1024 * 1024},
-		"race-repeat":              {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
+		"race-repeat-1":            {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
+		"race-repeat-2":            {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
+		"race-repeat-3":            {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
+		"race-repeat-4":            {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
+		"race-repeat-5":            {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
+		"race-repeat-6":            {cpu: 4, memory: 12 * 1024 * 1024 * 1024},
 		"race-repeat-supporting":   {cpu: 4, memory: 8 * 1024 * 1024 * 1024},
 		"repository-audit":         {cpu: 4, memory: 6 * 1024 * 1024 * 1024, exclusive: []string{"repository-analysis"}},
 		"scheduled-oracle":         {cpu: 4, memory: 8 * 1024 * 1024 * 1024},
@@ -508,6 +509,28 @@ func newSubgate(
 
 func population(id string, minimum int) soundnessgate.PopulationRequirement {
 	return soundnessgate.PopulationRequirement{ID: id, Minimum: minimum}
+}
+
+// raceRepeatGroupCount partitions the analyzer race/repeat plan into
+// deterministic distributable groups so each group fits one reviewed
+// four-CPU worker within its subgate timeout.
+const raceRepeatGroupCount = 6
+
+func raceRepeatGroupSubgate(index int) soundnessgate.Subgate {
+	return newSubgate(
+		fmt.Sprintf("race-repeat-%d", index),
+		"tools/goplint",
+		[]string{
+			"./scripts/check-race-repeat.sh",
+			"--phase", "analyzer",
+			"--group", fmt.Sprintf("%d/%d", index, raceRepeatGroupCount),
+		},
+		3600,
+		"report.json",
+		nil,
+		population("race-runs", 1),
+		population("repeat-runs", 3),
+	)
 }
 
 func registrationIDs(registry soundnessevidence.Registry, producerID string) []string {

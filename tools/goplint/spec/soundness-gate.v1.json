@@ -23,7 +23,12 @@
         "mutation-kernel-coverage",
         "production-integration",
         "protocol-oracle",
-        "race-repeat",
+        "race-repeat-1",
+        "race-repeat-2",
+        "race-repeat-3",
+        "race-repeat-4",
+        "race-repeat-5",
+        "race-repeat-6",
         "race-repeat-supporting",
         "repository-audit",
         "scheduled-oracle",
@@ -60,7 +65,12 @@
         "mutation-kernel-coverage",
         "production-integration",
         "protocol-oracle",
-        "race-repeat",
+        "race-repeat-1",
+        "race-repeat-2",
+        "race-repeat-3",
+        "race-repeat-4",
+        "race-repeat-5",
+        "race-repeat-6",
         "race-repeat-supporting",
         "repository-audit",
         "scheduled-oracle",
@@ -703,12 +713,179 @@
       ]
     },
     {
-      "id": "race-repeat",
+      "id": "race-repeat-1",
       "working_directory": "tools/goplint",
       "command": [
         "./scripts/check-race-repeat.sh",
         "--phase",
-        "analyzer"
+        "analyzer",
+        "--group",
+        "1/6"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 12884901888,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 3600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "race-runs",
+          "minimum": 1
+        },
+        {
+          "id": "repeat-runs",
+          "minimum": 3
+        }
+      ]
+    },
+    {
+      "id": "race-repeat-2",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "analyzer",
+        "--group",
+        "2/6"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 12884901888,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 3600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "race-runs",
+          "minimum": 1
+        },
+        {
+          "id": "repeat-runs",
+          "minimum": 3
+        }
+      ]
+    },
+    {
+      "id": "race-repeat-3",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "analyzer",
+        "--group",
+        "3/6"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 12884901888,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 3600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "race-runs",
+          "minimum": 1
+        },
+        {
+          "id": "repeat-runs",
+          "minimum": 3
+        }
+      ]
+    },
+    {
+      "id": "race-repeat-4",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "analyzer",
+        "--group",
+        "4/6"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 12884901888,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 3600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "race-runs",
+          "minimum": 1
+        },
+        {
+          "id": "repeat-runs",
+          "minimum": 3
+        }
+      ]
+    },
+    {
+      "id": "race-repeat-5",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "analyzer",
+        "--group",
+        "5/6"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 12884901888,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "semantic"
+      ],
+      "timeout_seconds": 3600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "race-runs",
+          "minimum": 1
+        },
+        {
+          "id": "repeat-runs",
+          "minimum": 3
+        }
+      ]
+    },
+    {
+      "id": "race-repeat-6",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-race-repeat.sh",
+        "--phase",
+        "analyzer",
+        "--group",
+        "6/6"
       ],
       "dependencies": [],
       "cpu_units": 4,

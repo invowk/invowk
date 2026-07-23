@@ -62,7 +62,7 @@ func TestExecutePlanProvesExactRaceAndRepeatPopulationCounts(t *testing.T) {
 	run := func(_ context.Context, _, _ string, unit WorkUnit, _ int, _ []string) ([]byte, error) {
 		return test2JSONOutput(unit.MemberIDs, "pass"), nil
 	}
-	results, err := executePlan(t.Context(), plan, options, run)
+	results, err := executePlan(t.Context(), plan, plan.WorkUnits, options, run)
 	if err != nil {
 		t.Fatalf("executePlan() error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestExecutePlanRunsPrebuiltBinaryFromPackageDirectory(t *testing.T) {
 		}
 		return test2JSONOutput(unit.MemberIDs, "pass"), nil
 	}
-	_, err := executePlan(t.Context(), plan, ExecuteOptions{
+	_, err := executePlan(t.Context(), plan, plan.WorkUnits, ExecuteOptions{
 		ModuleRoot: moduleRoot, BinaryDirectory: binaryDirectory,
 		OutputDirectory: t.TempDir(), MaximumWorkers: 2, CPUPerWorker: 1,
 	}, run)
@@ -123,7 +123,7 @@ func TestExecutePlanCancelsRemainingWorkAfterCrash(t *testing.T) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	if _, err := executePlan(t.Context(), plan, options, run); err == nil {
+	if _, err := executePlan(t.Context(), plan, plan.WorkUnits, options, run); err == nil {
 		t.Fatal("executePlan() accepted a crashed work unit")
 	}
 }
@@ -137,7 +137,7 @@ func TestExecutePlanRejectsChangedBinaryAfterPlanning(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(binaryDirectory, "goplint-race.test"), []byte("changed"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, err := executePlan(t.Context(), plan, ExecuteOptions{
+	_, err := executePlan(t.Context(), plan, plan.WorkUnits, ExecuteOptions{
 		ModuleRoot: ".", BinaryDirectory: binaryDirectory,
 		OutputDirectory: t.TempDir(), MaximumWorkers: 1, CPUPerWorker: 1,
 	}, func(context.Context, string, string, WorkUnit, int, []string) ([]byte, error) { return nil, nil })

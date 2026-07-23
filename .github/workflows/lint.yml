@@ -169,7 +169,16 @@ jobs:
             -runner-class github-hosted-ubuntu-x64-4cpu-reviewed \
             -plan "$RUNNER_TEMP/soundness-plan/plan.json" \
             > "$RUNNER_TEMP/soundness-plan/summary.json"
-          matrix="$(jq -c '[.work_units[] | select(. != "repository-audit") | {work_unit: .}]' "$RUNNER_TEMP/soundness-plan/summary.json")"
+          # Start the longest work units first so bounded matrix waves do not
+          # leave a heavy race/repeat group or certification running alone.
+          matrix="$(jq -c '[.work_units[] | select(. != "repository-audit")]
+            | sort_by(
+                if startswith("race-repeat") then 0
+                elif . == "targeted-mutation" then 1
+                elif startswith("benchmark") then 2
+                elif . == "scheduled-oracle" then 3
+                else 4 end, .)
+            | map({work_unit: .})' "$RUNNER_TEMP/soundness-plan/summary.json")"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
 
@@ -197,7 +206,9 @@ jobs:
     if: needs.goplint-plan.outputs.profile != 'consumer'
     needs: goplint-plan
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # The serial reference lane is the honest hosted baseline: it executes
+    # every semantic subgate sequentially on one four-CPU runner.
+    timeout-minutes: 300
     permissions:
       contents: read
     env:
@@ -243,7 +254,7 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 12
       matrix:
         include: ${{ fromJSON(needs.goplint-plan.outputs.matrix) }}
     env:

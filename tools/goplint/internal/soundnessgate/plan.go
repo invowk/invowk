@@ -20,8 +20,6 @@ const selectedSubgatesCensusID = "selected-subgates"
 
 const performanceCertificationSubgateID = "benchmarks"
 
-const raceRepeatSubgateID = "race-repeat"
-
 type (
 	// PlanOptions configures deterministic execution-plan generation.
 	PlanOptions struct {
@@ -280,12 +278,9 @@ func plannedResourceReservation(subgate Subgate, budget ResourceBudget) Resource
 		// The short algorithmic certification thresholds are runner-class
 		// calibrated, so they execute without local contention. The separately
 		// planned full-scan certification retains its reviewed four-CPU weight.
+		// Analyzer race/repeat capacity is expressed as deterministic
+		// four-CPU work groups, so no subgate needs a larger local carve-out.
 		cpuUnits = budget.CPUUnits
-	} else if subgate.ID == raceRepeatSubgateID && budget.CPUUnits > subgate.CPUUnits {
-		// Keep two reviewed four-CPU lanes available for the independent
-		// full-scan certification and mutation or correctness work. A four-CPU
-		// distributed worker still reserves its complete runner.
-		cpuUnits = max(subgate.CPUUnits, budget.CPUUnits-(2*subgate.CPUUnits))
 	}
 	return ResourceReservation{
 		CPUUnits: cpuUnits, MemoryBytes: subgate.EstimatedPeakMemoryBytes, WorkerSlots: 1,

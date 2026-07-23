@@ -51,11 +51,13 @@ order, with canonical work-unit identity as the final tie breaker. This keeps
 small jobs from fragmenting the runner before a critical large unit can start.
 The tight algorithmic certification phase reserves the full local plan CPU
 budget so its runner-class thresholds are not distorted by colocated work.
-On runners larger than four CPUs, weighted race/repeat leaves two four-CPU
-lanes; the separately planned five-sample full-scan certification and mutation
-or another correctness unit can use those lanes. On the reviewed local 24-CPU
-class this permits a 16+4+4 allocation. In distributed CI each phase reserves
-its worker's complete four-CPU budget and overlaps on independent workers.
+The weighted analyzer race/repeat census executes as six deterministic
+four-CPU work groups (`race-repeat-1` through `race-repeat-6`); on the
+reviewed local 24-CPU class the groups run concurrently, while in distributed
+CI each group reserves one complete four-CPU worker so the heaviest race
+shard stays inside its weight-derived timeout. Group assignment partitions
+every plan work unit exactly once by descending effective weight, so the
+union of the groups is the exact analyzer census by construction.
 
 ## Race and repeat timing
 
@@ -74,15 +76,18 @@ make update-goplint-race-repeat-timings
 make check-goplint-race-repeat
 ```
 
-The race/repeat command has two independently planned phases. `race-repeat`
-builds and digests one normal and one race analyzer test binary per exact plan,
-compares the top-level census compiled into both binaries, and fails closed if
-normal-only or race-only build-tagged members would escape either mode. It then
-executes the weighted analyzer census. `race-repeat-supporting` runs the
-remaining module packages once under race and exactly three times normally.
-The direct Make target runs both phases. Every required member must execute at
-the declared count; missing, duplicated, skipped, crashed, timed-out, or
-wrong-binary results are blocking.
+The race/repeat command has two independently planned phases. The analyzer
+phase builds and digests one normal and one race analyzer test binary per
+exact plan, compares the top-level census compiled into both binaries, and
+fails closed if normal-only or race-only build-tagged members would escape
+either mode. It then executes the weighted analyzer census; in the aggregate
+manifest this phase is expressed as the six deterministic work groups
+`race-repeat-1` through `race-repeat-6` (`--group index/6`), each executing
+its exact disjoint share of the plan work units with two workers of two CPUs.
+`race-repeat-supporting` runs the remaining module packages once under race
+and exactly three times normally. The direct Make target runs both phases in
+full. Every required member must execute at the declared count; missing,
+duplicated, skipped, crashed, timed-out, or wrong-binary results are blocking.
 
 ## Smoke versus certification
 

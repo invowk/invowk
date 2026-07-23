@@ -4,12 +4,29 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PHASE="all"
-if [[ "${1:-}" == "--phase" ]]; then
-  PHASE="${2:-}"
-  shift 2
+GROUP=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --phase)
+      PHASE="${2:-}"
+      shift 2
+      ;;
+    --group)
+      GROUP="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "usage: $0 [--phase all|supporting|analyzer] [--group index/count]" >&2
+      exit 2
+      ;;
+  esac
+done
+if [[ ( "$PHASE" != "all" && "$PHASE" != "supporting" && "$PHASE" != "analyzer" ) ]]; then
+  echo "usage: $0 [--phase all|supporting|analyzer] [--group index/count]" >&2
+  exit 2
 fi
-if [[ $# -ne 0 || ( "$PHASE" != "all" && "$PHASE" != "supporting" && "$PHASE" != "analyzer" ) ]]; then
-  echo "usage: $0 [--phase all|supporting|analyzer]" >&2
+if [[ -n "$GROUP" && "$PHASE" != "analyzer" ]]; then
+  echo "--group requires --phase analyzer" >&2
   exit 2
 fi
 
@@ -59,9 +76,20 @@ fi
 # weights and every work result is validated from structured test2json events.
 if [[ "$PHASE" == "all" || "$PHASE" == "analyzer" ]]; then
   echo "Running balanced build-once analyzer race/repeat work..."
-  race_repeat_workers="${GOPLINT_RACE_REPEAT_WORKERS:-4}"
+  # Work-group executions keep two CPUs per shard so the heaviest
+  # race-detector shard stays well inside its weight-derived timeout on
+  # constrained four-CPU runners.
+  default_workers=4
+  if [[ -n "$GROUP" ]]; then
+    default_workers=2
+  fi
+  race_repeat_workers="${GOPLINT_RACE_REPEAT_WORKERS:-$default_workers}"
   if [[ -z "${GOPLINT_RACE_REPEAT_WORKERS:-}" && "${GOMAXPROCS:-}" =~ ^[1-9][0-9]*$ && "$GOMAXPROCS" -lt "$race_repeat_workers" ]]; then
     race_repeat_workers="$GOMAXPROCS"
+  fi
+  group_args=()
+  if [[ -n "$GROUP" ]]; then
+    group_args+=(-work-group "$GROUP")
   fi
   (
     unset GOPLINT_SOUNDNESS_EVIDENCE_DIR
@@ -69,7 +97,8 @@ if [[ "$PHASE" == "all" || "$PHASE" == "analyzer" ]]; then
     GOCACHE="${GOCACHE:-/tmp/go-build}" go run ./cmd/race-repeat \
       -timings spec/goplint-test-timings.v1.json \
       -repeat "${repeat_count}" \
-      -max-workers "$race_repeat_workers"
+      -max-workers "$race_repeat_workers" \
+      "${group_args[@]}"
   )
 
   analyzer_observations=(-observation race-runs=complete-race-profile)

@@ -83,13 +83,13 @@ func TestPlannedResourceReservationPreservesCertificationRunnerClass(t *testing.
 	if hosted.CPUUnits != 4 {
 		t.Fatalf("hosted certification CPU reservation = %d, want 4", hosted.CPUUnits)
 	}
-	raceRepeat := certification
-	raceRepeat.ID = raceRepeatSubgateID
-	if reservation := plannedResourceReservation(raceRepeat, ResourceBudget{CPUUnits: 24}); reservation.CPUUnits != 16 {
-		t.Fatalf("local race/repeat CPU reservation = %d, want 16", reservation.CPUUnits)
+	raceRepeatGroup := certification
+	raceRepeatGroup.ID = "race-repeat-1"
+	if reservation := plannedResourceReservation(raceRepeatGroup, ResourceBudget{CPUUnits: 24}); reservation.CPUUnits != 4 {
+		t.Fatalf("local race/repeat group CPU reservation = %d, want its reviewed 4", reservation.CPUUnits)
 	}
-	if reservation := plannedResourceReservation(raceRepeat, ResourceBudget{CPUUnits: 4}); reservation.CPUUnits != 4 {
-		t.Fatalf("hosted race/repeat CPU reservation = %d, want 4", reservation.CPUUnits)
+	if reservation := plannedResourceReservation(raceRepeatGroup, ResourceBudget{CPUUnits: 4}); reservation.CPUUnits != 4 {
+		t.Fatalf("hosted race/repeat group CPU reservation = %d, want 4", reservation.CPUUnits)
 	}
 	correctness := certification
 	correctness.ID = "protocol-oracle"

@@ -100,13 +100,14 @@ for resource overrides, timing refresh, plan/bundle schemas, CI reproduction,
 telemetry fields, and failure diagnostics.
 
 The local plan gives the short runner-class-calibrated algorithm certification
-the full CPU budget. Race/repeat leaves two four-CPU lanes on larger runners so
-the separately planned five-sample full-scan certification and mutation or
-correctness work can overlap without perturbing the tight algorithm thresholds.
-The analyzer and supporting-package race/repeat populations are separate work
-units, and the deterministic scheduler admits larger reservations before small
-work can fragment the runner. Distributed CI runs each phase on an independent
-four-CPU worker. Worker bundle v2 timestamps and content-binds its embedded
+the full CPU budget. The analyzer race/repeat census executes as six
+deterministic four-CPU work groups (`race-repeat-1` through `race-repeat-6`)
+that partition every plan work unit exactly once by descending effective
+weight; the supporting-package population is its own work unit. The
+deterministic scheduler admits larger reservations before small work can
+fragment the runner. Distributed CI runs each group and phase on an
+independent four-CPU worker so no unit depends on a runner larger than the
+hosted class. Worker bundle v2 timestamps and content-binds its embedded
 report plus shared-audit digest; aggregation retains both the canonical report
 and versioned telemetry. Scheduled and release events force completion, while
 the legacy serial semantic lane remains during the measured migration period.

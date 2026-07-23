@@ -31,12 +31,17 @@ func main() {
 	maximumWorkers := flag.Int("max-workers", defaultMaximumWorkers(), "maximum concurrent analyzer work units")
 	cpuPerWorker := flag.Int("cpu-per-worker", 0, "CPU limit per work unit (default: effective CPUs divided by workers)")
 	outputDirectory := flag.String("output-dir", "", "optional retained output directory outside the workspace")
+	workGroup := flag.String(
+		"work-group", "",
+		"optional deterministic work-unit group selector in index/count form (default: all units)",
+	)
 	flag.Parse()
 
 	if err := execute(context.Background(), executeOptions{
 		moduleRoot: *moduleRoot, repositoryRoot: *repositoryRoot, packagePath: *packagePath,
 		timingPath: *timingPath, shardCount: *shardCount, repeatCount: *repeatCount,
 		maximumWorkers: *maximumWorkers, cpuPerWorker: *cpuPerWorker, outputDirectory: *outputDirectory,
+		workGroup: *workGroup,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "goplint race/repeat:", err)
 		os.Exit(1)
@@ -45,7 +50,7 @@ func main() {
 
 type executeOptions struct {
 	moduleRoot, repositoryRoot, packagePath string
-	timingPath, outputDirectory             string
+	timingPath, outputDirectory, workGroup  string
 	shardCount, repeatCount                 int
 	maximumWorkers, cpuPerWorker            int
 }
@@ -124,7 +129,18 @@ func execute(ctx context.Context, options executeOptions) error {
 	if err := writeFileAtomic(filepath.Join(outputDirectory, "plan.json"), planData); err != nil {
 		return fmt.Errorf("retain race/repeat plan: %w", err)
 	}
-	results, err := racerepeat.ExecutePlan(ctx, plan, racerepeat.ExecuteOptions{
+	selectedUnits := plan.WorkUnits
+	if options.workGroup != "" {
+		groupIndex, groupCount, err := racerepeat.ParseWorkGroup(options.workGroup)
+		if err != nil {
+			return fmt.Errorf("parse race/repeat work group: %w", err)
+		}
+		selectedUnits, err = racerepeat.SelectWorkGroup(plan.WorkUnits, groupIndex, groupCount)
+		if err != nil {
+			return fmt.Errorf("select race/repeat work group: %w", err)
+		}
+	}
+	results, err := racerepeat.ExecutePlanUnits(ctx, plan, selectedUnits, racerepeat.ExecuteOptions{
 		ModuleRoot: options.moduleRoot, BinaryDirectory: binaryDirectory,
 		OutputDirectory: filepath.Join(outputDirectory, "work"),
 		MaximumWorkers:  options.maximumWorkers, CPUPerWorker: options.cpuPerWorker,
@@ -139,15 +155,24 @@ func execute(ctx context.Context, options executeOptions) error {
 	if finalWorkspaceDigest != workspaceDigest {
 		return errors.New("workspace changed during race/repeat execution; no result accepted")
 	}
+	raceExecutions, repeatExecutions := 0, 0
+	for _, unit := range selectedUnits {
+		if unit.Mode == "race" {
+			raceExecutions += len(unit.MemberIDs)
+		} else {
+			repeatExecutions += len(unit.MemberIDs)
+		}
+	}
 	summary := struct {
 		PlanID           string `json:"plan_id"`
 		CensusSize       int    `json:"census_size"`
+		WorkGroup        string `json:"work_group,omitempty"`
 		WorkUnitCount    int    `json:"work_unit_count"`
 		RaceExecutions   int    `json:"race_executions"`
 		RepeatExecutions int    `json:"repeat_executions"`
 	}{
-		PlanID: plan.PlanID, CensusSize: len(plan.Census), WorkUnitCount: len(results),
-		RaceExecutions: len(plan.Census), RepeatExecutions: len(plan.Census) * plan.RepeatCount,
+		PlanID: plan.PlanID, CensusSize: len(plan.Census), WorkGroup: options.workGroup,
+		WorkUnitCount: len(results), RaceExecutions: raceExecutions, RepeatExecutions: repeatExecutions,
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(summary); err != nil {
 		return fmt.Errorf("encode race/repeat summary: %w", err)
