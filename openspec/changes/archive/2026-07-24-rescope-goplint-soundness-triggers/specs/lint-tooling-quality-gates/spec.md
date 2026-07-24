@@ -23,6 +23,11 @@ Repository automation SHALL classify every changed path into exactly one reviewe
 - **THEN** automation MUST select the semantic profile
 - **THEN** the profile MUST retain every causal core population required before this change
 
+#### Scenario: Analyzer or assurance ownership changes
+- **WHEN** a change touches goplint production semantics, tests, evidence producers, manifests, schemas, baselines, exceptions, threshold manifests, or governing goplint specifications, and no ownership rule reclassifies the touched paths into a cheaper class
+- **THEN** automation MUST select the semantic profile
+- **THEN** the profile MUST retain every causal core population required before this optimization
+
 #### Scenario: Completion event requires exhaustive evidence
 - **WHEN** a completion proof, release, scheduled certification, or explicit exhaustive dispatch runs
 - **THEN** automation MUST select the completion profile regardless of changed paths
@@ -55,6 +60,10 @@ The soundness workflow SHALL provide a blocking verifier that recomputes the exa
 #### Scenario: Semantic content changes after evidence generation
 - **WHEN** any tracked or untracked content in a non-documentation class changes after the clean-tree proof is recorded
 - **THEN** the freshness verifier and aggregate soundness gate MUST fail until the proof is regenerated with fresh gate execution for the new semantic content
+
+#### Scenario: Intended diff changes after evidence generation
+- **WHEN** any intended tracked or untracked content changes after the clean-tree proof is recorded and the change touches non-documentation content
+- **THEN** the freshness verifier and aggregate soundness gate MUST fail until the proof is regenerated for the new synthetic tree
 
 #### Scenario: Prose-only drift permits cheap re-binding
 - **WHEN** only `documentation`-class content differs from the retained record
