@@ -54,8 +54,7 @@ func TestCommand_Validate_InvalidName(t *testing.T) {
 	if !errors.Is(err, ErrInvalidCommand) {
 		t.Errorf("error should wrap ErrInvalidCommand, got: %v", err)
 	}
-	var cmdErr *InvalidCommandError
-	if !errors.As(err, &cmdErr) {
+	if cmdErr, ok := errors.AsType[*InvalidCommandError](err); !ok {
 		t.Errorf("error should be *InvalidCommandError, got: %T", err)
 	} else if len(cmdErr.FieldErrors) == 0 {
 		t.Error("InvalidCommandError.FieldErrors should not be empty")

@@ -49,8 +49,7 @@ func TestModuleAlias_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidModuleAlias) {
 					t.Errorf("error should wrap ErrInvalidModuleAlias, got: %v", err)
 				}
-				var aliasErr *InvalidModuleAliasError
-				if !errors.As(err, &aliasErr) {
+				if _, ok := errors.AsType[*InvalidModuleAliasError](err); !ok {
 					t.Errorf("error should be *InvalidModuleAliasError, got: %T", err)
 				}
 			} else if err != nil {
@@ -98,8 +97,7 @@ func TestModuleNamespace_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidModuleNamespace) {
 					t.Errorf("error should wrap ErrInvalidModuleNamespace, got: %v", err)
 				}
-				var nsErr *InvalidModuleNamespaceError
-				if !errors.As(err, &nsErr) {
+				if _, ok := errors.AsType[*InvalidModuleNamespaceError](err); !ok {
 					t.Errorf("error should be *InvalidModuleNamespaceError, got: %T", err)
 				}
 			} else if err != nil {
@@ -151,8 +149,7 @@ func TestSubdirectoryPath_Validate(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		var pathErr *InvalidSubdirectoryPathError
-		if !errors.As(err, &pathErr) {
+		if _, ok := errors.AsType[*InvalidSubdirectoryPathError](err); !ok {
 			t.Errorf("error should be *InvalidSubdirectoryPathError, got: %T", err)
 		}
 	})

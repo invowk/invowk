@@ -178,8 +178,7 @@ func TestRunWatchMode_CommandNotFound(t *testing.T) {
 		&cmdFlagValues{},
 		[]string{"nonexistent"},
 	)
-	var cmdNotFound *ServiceError
-	if !errors.As(err, &cmdNotFound) {
+	if _, ok := errors.AsType[*ServiceError](err); !ok {
 		t.Fatalf("error = %v (%T), want *ServiceError", err, err)
 	}
 }

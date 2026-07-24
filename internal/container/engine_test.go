@@ -292,8 +292,7 @@ func TestPortProtocol_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidPortProtocol) {
 					t.Errorf("error should wrap ErrInvalidPortProtocol, got: %v", err)
 				}
-				var typedErr *InvalidPortProtocolError
-				if !errors.As(err, &typedErr) {
+				if typedErr, ok := errors.AsType[*InvalidPortProtocolError](err); !ok {
 					t.Errorf("error should be *InvalidPortProtocolError, got: %T", err)
 				} else if typedErr.Value != tt.pp {
 					t.Errorf("InvalidPortProtocolError.Value = %q, want %q", typedErr.Value, tt.pp)
@@ -347,8 +346,7 @@ func TestSELinuxLabel_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidSELinuxLabel) {
 					t.Errorf("error should wrap ErrInvalidSELinuxLabel, got: %v", err)
 				}
-				var typedErr *InvalidSELinuxLabelError
-				if !errors.As(err, &typedErr) {
+				if typedErr, ok := errors.AsType[*InvalidSELinuxLabelError](err); !ok {
 					t.Errorf("error should be *InvalidSELinuxLabelError, got: %T", err)
 				} else if typedErr.Value != tt.sl {
 					t.Errorf("InvalidSELinuxLabelError.Value = %q, want %q", typedErr.Value, tt.sl)

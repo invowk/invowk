@@ -61,8 +61,7 @@ func TestSpinOptions_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidSpinOptions) = false, want true")
 	}
 
-	var invalidErr *InvalidSpinOptionsError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidSpinOptionsError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidSpinOptionsError) = false, want true")
 	}
 }
@@ -122,8 +121,7 @@ func TestSpinCommandOptions_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidSpinCommandOptions) = false, want true")
 	}
 
-	var invalidErr *InvalidSpinCommandOptionsError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidSpinCommandOptionsError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidSpinCommandOptionsError) = false, want true")
 	}
 }

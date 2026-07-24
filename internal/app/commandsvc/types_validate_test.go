@@ -79,8 +79,7 @@ func TestRequest_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidRequest) = false, want true")
 	}
 
-	var invalidErr *InvalidRequestError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidRequestError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidRequestError) = false, want true")
 	}
 }
@@ -138,8 +137,7 @@ func TestResult_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidCommandsvcResult) = false, want true")
 	}
 
-	var invalidErr *InvalidResultError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidResultError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidResultError) = false, want true")
 	}
 }
@@ -183,8 +181,7 @@ func TestDryRunData_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidDryRunData) = false, want true")
 	}
 
-	var invalidErr *InvalidDryRunDataError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidDryRunDataError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidDryRunDataError) = false, want true")
 	}
 }

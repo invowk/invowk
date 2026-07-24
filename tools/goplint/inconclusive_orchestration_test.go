@@ -146,8 +146,7 @@ func runInconclusiveAnalyzer(
 	if err == nil {
 		t.Fatalf("real analyzer unexpectedly accepted injected inconclusive\n%s", output)
 	}
-	var exitError *exec.ExitError
-	if !errors.As(err, &exitError) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); !ok || exitErr == nil {
 		t.Fatalf("real analyzer command error = %v, want diagnostic exit\n%s", err, output)
 	}
 	file, err := os.Open(streamPath)

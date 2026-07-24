@@ -35,8 +35,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidToolDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidToolDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidToolDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -47,8 +46,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidCommandDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidCommandDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidCommandDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -59,8 +57,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidCapabilityDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidCapabilityDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidCapabilityDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -71,8 +68,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidEnvVarCheck,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidEnvVarCheckError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidEnvVarCheckError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -83,8 +79,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidEnvVarDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidEnvVarDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidEnvVarDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -95,8 +90,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidFilepathDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidFilepathDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidFilepathDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -112,8 +106,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidCustomCheck,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidCustomCheckError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidCustomCheckError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -129,8 +122,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidCustomCheckDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidCustomCheckDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidCustomCheckDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -143,8 +135,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidCustomCheckDependency,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidCustomCheckDependencyError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidCustomCheckDependencyError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},
@@ -162,8 +153,7 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 			sentinel: ErrInvalidDependsOn,
 			checkAs: func(t *testing.T, err error) {
 				t.Helper()
-				var typed *InvalidDependsOnError
-				if !errors.As(err, &typed) {
+				if typed, ok := errors.AsType[*InvalidDependsOnError](err); !ok {
 					t.Fatalf("errors.As(%T) = false", &typed)
 				}
 			},

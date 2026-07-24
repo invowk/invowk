@@ -116,8 +116,7 @@ func TestInitDiagnostic_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidInitDiagnostic) = false, want true")
 	}
 
-	var invalidErr *InvalidInitDiagnosticError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidInitDiagnosticError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidInitDiagnosticError) = false, want true")
 	}
 }

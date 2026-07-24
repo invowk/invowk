@@ -67,8 +67,7 @@ func TestBorderStyle_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidBorderStyle) {
 					t.Errorf("error should wrap ErrInvalidBorderStyle, got: %v", err)
 				}
-				var bsErr *InvalidBorderStyleError
-				if !errors.As(err, &bsErr) {
+				if _, ok := errors.AsType[*InvalidBorderStyleError](err); !ok {
 					t.Errorf("error should be *InvalidBorderStyleError, got: %T", err)
 				}
 			} else if err != nil {

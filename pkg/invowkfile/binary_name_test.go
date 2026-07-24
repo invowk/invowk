@@ -50,8 +50,7 @@ func TestBinaryName_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidBinaryName) {
 					t.Errorf("error should wrap ErrInvalidBinaryName, got: %v", err)
 				}
-				var bnErr *InvalidBinaryNameError
-				if !errors.As(err, &bnErr) {
+				if _, ok := errors.AsType[*InvalidBinaryNameError](err); !ok {
 					t.Errorf("error should be *InvalidBinaryNameError, got: %T", err)
 				}
 			} else if err != nil {

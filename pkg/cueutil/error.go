@@ -58,8 +58,7 @@ func FormatError(err error, filePath string) error {
 		return nil
 	}
 
-	var cueErr errors.Error
-	if !goerrors.As(err, &cueErr) {
+	if _, isCUE := goerrors.AsType[errors.Error](err); !isCUE { //nolint:errcheck // Only the type-match verdict matters; the CUE errors are re-extracted below.
 		// Fallback: not a CUE error, return as-is.
 		return fmt.Errorf("%s: %w", filePath, err)
 	}

@@ -163,8 +163,7 @@ func requireParseError(t *testing.T, err error, wantSubstring string) {
 func requireWrappedCUEError(t *testing.T, err error) {
 	t.Helper()
 
-	var cueErr cueerrors.Error
-	if !errors.As(err, &cueErr) {
+	if _, ok := errors.AsType[cueerrors.Error](err); !ok {
 		t.Fatalf("ParseAndDecode() error = %v, want wrapped CUE error", err)
 	}
 }

@@ -41,8 +41,7 @@ func TestCheckName_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidCheckName) {
 					t.Errorf("error should wrap ErrInvalidCheckName, got: %v", err)
 				}
-				var cnErr *InvalidCheckNameError
-				if !errors.As(err, &cnErr) {
+				if _, ok := errors.AsType[*InvalidCheckNameError](err); !ok {
 					t.Errorf("error should be *InvalidCheckNameError, got: %T", err)
 				}
 			} else if err != nil {
@@ -92,8 +91,7 @@ func TestScriptContent_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidScriptContent) {
 					t.Errorf("error should wrap ErrInvalidScriptContent, got: %v", err)
 				}
-				var scErr *InvalidScriptContentError
-				if !errors.As(err, &scErr) {
+				if _, ok := errors.AsType[*InvalidScriptContentError](err); !ok {
 					t.Errorf("error should be *InvalidScriptContentError, got: %T", err)
 				}
 			} else if err != nil {

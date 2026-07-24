@@ -47,8 +47,7 @@ func TestPlatformConfig_Validate_InvalidName(t *testing.T) {
 	if !errors.Is(err, ErrInvalidPlatformConfig) {
 		t.Errorf("error should wrap ErrInvalidPlatformConfig, got: %v", err)
 	}
-	var pcErr *InvalidPlatformConfigError
-	if !errors.As(err, &pcErr) {
+	if pcErr, ok := errors.AsType[*InvalidPlatformConfigError](err); !ok {
 		t.Errorf("error should be *InvalidPlatformConfigError, got: %T", err)
 	} else if len(pcErr.FieldErrors) == 0 {
 		t.Error("InvalidPlatformConfigError.FieldErrors should not be empty")

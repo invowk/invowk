@@ -61,8 +61,7 @@ func TestAuthToken_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidAuthToken) {
 					t.Errorf("error should wrap ErrInvalidAuthToken, got: %v", err)
 				}
-				var atErr *InvalidAuthTokenError
-				if !errors.As(err, &atErr) {
+				if _, ok := errors.AsType[*InvalidAuthTokenError](err); !ok {
 					t.Errorf("error should be *InvalidAuthTokenError, got: %T", err)
 				}
 			} else if err != nil {

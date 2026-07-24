@@ -40,8 +40,7 @@ func TestContainerID_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidContainerID) {
 					t.Errorf("error should wrap ErrInvalidContainerID, got: %v", err)
 				}
-				var cidErr *InvalidContainerIDError
-				if !errors.As(err, &cidErr) {
+				if _, ok := errors.AsType[*InvalidContainerIDError](err); !ok {
 					t.Errorf("error should be *InvalidContainerIDError, got: %T", err)
 				}
 			} else if err != nil {
@@ -93,8 +92,7 @@ func TestImageTag_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidImageTag) {
 					t.Errorf("error should wrap ErrInvalidImageTag, got: %v", err)
 				}
-				var itErr *InvalidImageTagError
-				if !errors.As(err, &itErr) {
+				if _, ok := errors.AsType[*InvalidImageTagError](err); !ok {
 					t.Errorf("error should be *InvalidImageTagError, got: %T", err)
 				}
 			} else if err != nil {
@@ -143,8 +141,7 @@ func TestContainerName_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidContainerName) {
 					t.Errorf("error should wrap ErrInvalidContainerName, got: %v", err)
 				}
-				var cnErr *InvalidContainerNameError
-				if !errors.As(err, &cnErr) {
+				if _, ok := errors.AsType[*InvalidContainerNameError](err); !ok {
 					t.Errorf("error should be *InvalidContainerNameError, got: %T", err)
 				}
 			} else if err != nil {
@@ -193,8 +190,7 @@ func TestHostMapping_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidHostMapping) {
 					t.Errorf("error should wrap ErrInvalidHostMapping, got: %v", err)
 				}
-				var hmErr *InvalidHostMappingError
-				if !errors.As(err, &hmErr) {
+				if _, ok := errors.AsType[*InvalidHostMappingError](err); !ok {
 					t.Errorf("error should be *InvalidHostMappingError, got: %T", err)
 				}
 			} else if err != nil {
@@ -242,8 +238,7 @@ func TestNetworkPort_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidNetworkPort) {
 					t.Errorf("error should wrap ErrInvalidNetworkPort, got: %v", err)
 				}
-				var npErr *InvalidNetworkPortError
-				if !errors.As(err, &npErr) {
+				if _, ok := errors.AsType[*InvalidNetworkPortError](err); !ok {
 					t.Errorf("error should be *InvalidNetworkPortError, got: %T", err)
 				}
 			} else if err != nil {
@@ -292,8 +287,7 @@ func TestHostFilesystemPath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidHostFilesystemPath) {
 					t.Errorf("error should wrap ErrInvalidHostFilesystemPath, got: %v", err)
 				}
-				var hfpErr *InvalidHostFilesystemPathError
-				if !errors.As(err, &hfpErr) {
+				if _, ok := errors.AsType[*InvalidHostFilesystemPathError](err); !ok {
 					t.Errorf("error should be *InvalidHostFilesystemPathError, got: %T", err)
 				}
 			} else if err != nil {
@@ -342,8 +336,7 @@ func TestMountTargetPath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidMountTargetPath) {
 					t.Errorf("error should wrap ErrInvalidMountTargetPath, got: %v", err)
 				}
-				var mtpErr *InvalidMountTargetPathError
-				if !errors.As(err, &mtpErr) {
+				if _, ok := errors.AsType[*InvalidMountTargetPathError](err); !ok {
 					t.Errorf("error should be *InvalidMountTargetPathError, got: %T", err)
 				}
 			} else if err != nil {

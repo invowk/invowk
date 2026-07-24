@@ -72,8 +72,7 @@ func TestExecuteRequest_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidExecuteRequest) = false, want true")
 	}
 
-	var invalidErr *InvalidExecuteRequestError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidExecuteRequestError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidExecuteRequestError) = false, want true")
 	}
 }
@@ -131,8 +130,7 @@ func TestExecuteResult_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidExecuteResult) = false, want true")
 	}
 
-	var invalidErr *InvalidExecuteResultError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidExecuteResultError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidExecuteResultError) = false, want true")
 	}
 }
@@ -186,8 +184,7 @@ func TestSourceFilter_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidSourceFilter) = false, want true")
 	}
 
-	var invalidErr *InvalidSourceFilterError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidSourceFilterError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidSourceFilterError) = false, want true")
 	}
 }

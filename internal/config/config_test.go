@@ -521,8 +521,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 		t.Error("expected non-empty error string")
 	}
 
-	var notFound *FileNotFoundError
-	if !errors.As(err, &notFound) {
+	if _, ok := errors.AsType[*FileNotFoundError](err); !ok {
 		t.Fatalf("expected FileNotFoundError, got %T", err)
 	}
 	if !errors.Is(err, ErrConfigFileNotFound) {

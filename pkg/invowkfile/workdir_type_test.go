@@ -41,8 +41,7 @@ func TestWorkDir_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidWorkDir) {
 					t.Errorf("error should wrap ErrInvalidWorkDir, got: %v", err)
 				}
-				var wdErr *InvalidWorkDirError
-				if !errors.As(err, &wdErr) {
+				if _, ok := errors.AsType[*InvalidWorkDirError](err); !ok {
 					t.Errorf("error should be *InvalidWorkDirError, got: %T", err)
 				}
 			} else if err != nil {
@@ -92,8 +91,7 @@ func TestShellPath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidShellPath) {
 					t.Errorf("error should wrap ErrInvalidShellPath, got: %v", err)
 				}
-				var spErr *InvalidShellPathError
-				if !errors.As(err, &spErr) {
+				if _, ok := errors.AsType[*InvalidShellPathError](err); !ok {
 					t.Errorf("error should be *InvalidShellPathError, got: %T", err)
 				}
 			} else if err != nil {

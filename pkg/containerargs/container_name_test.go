@@ -220,8 +220,7 @@ func assertInvalidContainerNameError(t *testing.T, err error) {
 	if !errors.Is(err, ErrInvalidContainerName) {
 		t.Fatalf("Validate() error = %v, want ErrInvalidContainerName", err)
 	}
-	var invalid *InvalidContainerNameError
-	if !errors.As(err, &invalid) {
+	if _, ok := errors.AsType[*InvalidContainerNameError](err); !ok {
 		t.Fatalf("Validate() error type = %T, want *InvalidContainerNameError", err)
 	}
 }

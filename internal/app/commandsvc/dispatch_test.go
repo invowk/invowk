@@ -188,8 +188,7 @@ func TestDispatchExecution_DependencyError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected dependency error")
 	}
-	var depErr *deps.DependencyError
-	if !errors.As(err, &depErr) {
+	if _, ok := errors.AsType[*deps.DependencyError](err); !ok {
 		t.Fatalf("errors.As(*DependencyError) = false for %T", err)
 	}
 }
@@ -233,8 +232,7 @@ func TestFailFastContainerInit(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected classified error")
 	}
-	var classified *ClassifiedError
-	if !errors.As(err, &classified) {
+	if _, ok := errors.AsType[*ClassifiedError](err); !ok {
 		t.Fatalf("errors.As(*ClassifiedError) = false for %T", err)
 	}
 }

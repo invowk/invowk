@@ -374,8 +374,7 @@ func TestRemoveResult_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidRemoveResult) {
 					t.Errorf("error should wrap ErrInvalidRemoveResult, got: %v", err)
 				}
-				var removeErr *InvalidRemoveResultError
-				if !errors.As(err, &removeErr) {
+				if _, ok := errors.AsType[*InvalidRemoveResultError](err); !ok {
 					t.Fatalf("error should be *InvalidRemoveResultError, got: %T", err)
 				}
 			} else if err != nil {

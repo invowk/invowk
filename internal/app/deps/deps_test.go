@@ -543,8 +543,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		if !errors.Is(err, ErrCommandScopeLockLoadFailed) {
 			t.Fatalf("errors.Is(err, ErrCommandScopeLockLoadFailed) = false for %v", err)
 		}
-		var lockErr *CommandScopeLockError
-		if !errors.As(err, &lockErr) {
+		if _, ok := errors.AsType[*CommandScopeLockError](err); !ok {
 			t.Fatalf("errors.As(err, *CommandScopeLockError) = false for %v", err)
 		}
 	})

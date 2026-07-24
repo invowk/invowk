@@ -43,8 +43,7 @@ func TestHostAddress_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidHostAddress) {
 					t.Errorf("error should wrap ErrInvalidHostAddress, got: %v", err)
 				}
-				var addrErr *InvalidHostAddressError
-				if !errors.As(err, &addrErr) {
+				if _, ok := errors.AsType[*InvalidHostAddressError](err); !ok {
 					t.Errorf("error should be *InvalidHostAddressError, got: %T", err)
 				}
 			} else if err != nil {
@@ -105,8 +104,7 @@ func TestTokenValue_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidTokenValue) {
 					t.Errorf("error should wrap ErrInvalidTokenValue, got: %v", err)
 				}
-				var tokenErr *InvalidTokenValueError
-				if !errors.As(err, &tokenErr) {
+				if _, ok := errors.AsType[*InvalidTokenValueError](err); !ok {
 					t.Errorf("error should be *InvalidTokenValueError, got: %T", err)
 				}
 			} else if err != nil {
@@ -170,8 +168,7 @@ func TestListenPort_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidListenPort) {
 					t.Errorf("error should wrap ErrInvalidListenPort, got: %v", err)
 				}
-				var portErr *InvalidListenPortError
-				if !errors.As(err, &portErr) {
+				if _, ok := errors.AsType[*InvalidListenPortError](err); !ok {
 					t.Errorf("error should be *InvalidListenPortError, got: %T", err)
 				}
 			} else if err != nil {

@@ -62,8 +62,7 @@ func TestTerminalDimension_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidTerminalDimension) {
 					t.Errorf("error should wrap ErrInvalidTerminalDimension, got: %v", err)
 				}
-				var tdErr *InvalidTerminalDimensionError
-				if !errors.As(err, &tdErr) {
+				if _, ok := errors.AsType[*InvalidTerminalDimensionError](err); !ok {
 					t.Errorf("error should be *InvalidTerminalDimensionError, got: %T", err)
 				}
 			} else if err != nil {

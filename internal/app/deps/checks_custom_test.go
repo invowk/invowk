@@ -269,8 +269,7 @@ func requireCustomCheckDependencyError(t *testing.T, ctx ExecutionContext) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var depErr *DependencyError
-	if !errors.As(err, &depErr) {
+	if _, ok := errors.AsType[*DependencyError](err); !ok {
 		t.Fatalf("errors.As(*DependencyError) = false for %T", err)
 	}
 }

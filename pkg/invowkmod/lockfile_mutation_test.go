@@ -186,8 +186,7 @@ func TestLockFileMutationSaveAndValidationBoundaries(t *testing.T) {
 			if !strings.Contains(err.Error(), "failed to create directory") {
 				t.Fatalf("Save() error = %v, want mkdir wrapper", err)
 			}
-			var pathErr *os.PathError
-			if !errors.As(err, &pathErr) {
+			if _, ok := errors.AsType[*os.PathError](err); !ok {
 				t.Fatalf("Save() error = %v, want wrapped path error", err)
 			}
 		}},
@@ -343,8 +342,7 @@ func testLockFileMutationGeneratedTimestampParseError(t *testing.T) {
 	_, err := parseLockFile(`version: "2.0"
 generated: "not-rfc3339"
 modules: {}`)
-	var parseErr *time.ParseError
-	if !errors.As(err, &parseErr) {
+	if _, ok := errors.AsType[*time.ParseError](err); !ok {
 		t.Fatalf("parseLockFile() error = %v, want wrapped *time.ParseError", err)
 	}
 }
@@ -426,8 +424,7 @@ func requireLockFileMutationCUEError(t *testing.T, err error, wantWrapper string
 	if !strings.Contains(err.Error(), wantWrapper) {
 		t.Fatalf("decodeLockFileCUE() error = %v, want wrapper %q", err, wantWrapper)
 	}
-	var cueErr cueerrors.Error
-	if !errors.As(err, &cueErr) {
+	if _, ok := errors.AsType[cueerrors.Error](err); !ok {
 		t.Fatalf("decodeLockFileCUE() error = %v, want wrapped CUE error", err)
 	}
 }

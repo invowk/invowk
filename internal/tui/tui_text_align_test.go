@@ -64,8 +64,7 @@ func TestTextAlign_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidTextAlign) {
 					t.Errorf("error should wrap ErrInvalidTextAlign, got: %v", err)
 				}
-				var taErr *InvalidTextAlignError
-				if !errors.As(err, &taErr) {
+				if _, ok := errors.AsType[*InvalidTextAlignError](err); !ok {
 					t.Errorf("error should be *InvalidTextAlignError, got: %T", err)
 				}
 			} else if err != nil {

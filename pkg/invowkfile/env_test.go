@@ -44,8 +44,7 @@ func TestEnvVarName_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidEnvVarName) {
 					t.Errorf("error should wrap ErrInvalidEnvVarName, got: %v", err)
 				}
-				var typedErr *InvalidEnvVarNameError
-				if !errors.As(err, &typedErr) {
+				if typedErr, ok := errors.AsType[*InvalidEnvVarNameError](err); !ok {
 					t.Errorf("error should be *InvalidEnvVarNameError, got: %T", err)
 				} else if typedErr.Value != tt.n {
 					t.Errorf("InvalidEnvVarNameError.Value = %q, want %q", typedErr.Value, tt.n)

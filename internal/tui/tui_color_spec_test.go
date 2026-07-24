@@ -63,8 +63,7 @@ func TestColorSpec_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidColorSpec) {
 					t.Errorf("error should wrap ErrInvalidColorSpec, got: %v", err)
 				}
-				var csErr *InvalidColorSpecError
-				if !errors.As(err, &csErr) {
+				if _, ok := errors.AsType[*InvalidColorSpecError](err); !ok {
 					t.Errorf("error should be *InvalidColorSpecError, got: %T", err)
 				}
 			} else if err != nil {

@@ -160,8 +160,7 @@ func TestBuildContainerError(t *testing.T) {
 				}
 			}
 
-			var opErr *OperationError
-			if !errors.As(err, &opErr) {
+			if _, ok := errors.AsType[*OperationError](err); !ok {
 				t.Fatalf("expected OperationError, got %T", err)
 			}
 			if !errors.Is(err, ErrContainerOperationFailed) {
@@ -194,8 +193,7 @@ func TestRunContainerError(t *testing.T) {
 		t.Errorf("error should contain image, got: %s", errStr)
 	}
 
-	var opErr *OperationError
-	if !errors.As(err, &opErr) {
+	if _, ok := errors.AsType[*OperationError](err); !ok {
 		t.Fatalf("expected OperationError, got %T", err)
 	}
 	if !errors.Is(err, ErrContainerOperationFailed) {
@@ -247,8 +245,7 @@ func TestBaseCLIEngine_RunCommandCombined(t *testing.T) {
 		}
 
 		// Error should wrap the underlying exec error.
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
+		if _, ok := errors.AsType[*exec.ExitError](err); !ok {
 			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})

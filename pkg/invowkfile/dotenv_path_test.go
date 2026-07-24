@@ -39,8 +39,7 @@ func TestDotenvFilePath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidDotenvFilePath) {
 					t.Errorf("error should wrap ErrInvalidDotenvFilePath, got: %v", err)
 				}
-				var dpErr *InvalidDotenvFilePathError
-				if !errors.As(err, &dpErr) {
+				if _, ok := errors.AsType[*InvalidDotenvFilePathError](err); !ok {
 					t.Errorf("error should be *InvalidDotenvFilePathError, got: %T", err)
 				}
 			} else if err != nil {
