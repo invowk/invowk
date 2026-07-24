@@ -386,14 +386,26 @@ check-types-all-json: build-goplint
 	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
 
 # Check semantic spec contracts for CFA-backed goplint categories.
-.PHONY: check-goplint-soundness check-goplint-soundness-routed check-goplint-soundness-consumer check-goplint-soundness-core check-goplint-soundness-semantic check-goplint-soundness-complete generate-goplint-clean-tree-evidence check-goplint-clean-tree-evidence check-goplint-mutation-kernel-coverage check-goplint-gate-contract check-goplint-production-integration check-goplint-counterexamples check-goplint-architecture check-goplint-catalog check-semantic-spec check-goplint-protocol-oracle check-goplint-protocol-oracle-scheduled check-goplint-end-to-end-oracle check-goplint-fuzz-seeds check-goplint-fuzz-scheduled check-goplint-targeted-mutation check-goplint-determinism check-cfg-refinement check-goplint-race-repeat update-goplint-race-repeat-timings check-goplint-repository-audit check-goplint-full-scan check-goplint-performance-smoke check-goplint-benchmarks
+.PHONY: check-goplint-soundness check-goplint-soundness-routed check-goplint-docs check-goplint-soundness-consumer check-goplint-soundness-harness check-goplint-harness-parity check-goplint-module-tests check-goplint-soundness-core check-goplint-soundness-semantic check-goplint-soundness-complete generate-goplint-clean-tree-evidence rebind-goplint-clean-tree-evidence check-goplint-clean-tree-evidence check-goplint-mutation-kernel-coverage check-goplint-gate-contract check-goplint-production-integration check-goplint-counterexamples check-goplint-architecture check-goplint-catalog check-semantic-spec check-goplint-protocol-oracle check-goplint-protocol-oracle-scheduled check-goplint-end-to-end-oracle check-goplint-fuzz-seeds check-goplint-fuzz-scheduled check-goplint-targeted-mutation check-goplint-determinism check-cfg-refinement check-goplint-race-repeat update-goplint-race-repeat-timings check-goplint-repository-audit check-goplint-full-scan check-goplint-performance-smoke check-goplint-benchmarks
 check-goplint-soundness: check-goplint-soundness-routed
 
 check-goplint-soundness-routed:
 	./tools/goplint/scripts/check-routed-soundness.sh
 
+check-goplint-docs:
+	cd tools/goplint && $(GOCMD) run ./cmd/docs-guard -root ../..
+
 check-goplint-soundness-consumer:
 	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile consumer
+
+check-goplint-soundness-harness:
+	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile harness
+
+check-goplint-harness-parity:
+	cd tools/goplint && $(GOCMD) run ./cmd/harness-parity
+
+check-goplint-module-tests:
+	cd tools/goplint && ./scripts/check-module-tests.sh
 
 check-goplint-soundness-core: check-goplint-soundness-semantic
 
@@ -404,10 +416,13 @@ check-goplint-soundness-complete:
 	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile complete
 
 generate-goplint-clean-tree-evidence:
-	cd tools/goplint && $(GOCMD) run ./cmd/clean-tree-evidence -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v3.paths -plan tools/goplint/testdata/gates/clean-tree-v3.json -evidence tools/goplint/testdata/gates/clean-tree-run.v3.json
+	cd tools/goplint && $(GOCMD) run ./cmd/clean-tree-evidence -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v4.paths -plan tools/goplint/testdata/gates/clean-tree-v4.json -evidence tools/goplint/testdata/gates/clean-tree-run.v4.json
+
+rebind-goplint-clean-tree-evidence:
+	cd tools/goplint && $(GOCMD) run ./cmd/clean-tree-evidence -rebind -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v4.paths -plan tools/goplint/testdata/gates/clean-tree-v4.json -evidence tools/goplint/testdata/gates/clean-tree-run.v4.json
 
 check-goplint-clean-tree-evidence:
-	cd tools/goplint && $(GOCMD) run ./cmd/check-clean-tree-evidence -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v3.paths -plan tools/goplint/testdata/gates/clean-tree-v3.json -evidence tools/goplint/testdata/gates/clean-tree-run.v3.json
+	cd tools/goplint && $(GOCMD) run ./cmd/check-clean-tree-evidence -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v4.paths -plan tools/goplint/testdata/gates/clean-tree-v4.json -evidence tools/goplint/testdata/gates/clean-tree-run.v4.json
 
 check-goplint-mutation-kernel-coverage:
 	cd tools/goplint && $(GOCMD) run ./cmd/mutation-kernel-coverage -root . -manifest testdata/subgates/mutation-kernel-coverage.v1.json

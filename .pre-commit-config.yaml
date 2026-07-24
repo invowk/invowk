@@ -17,11 +17,11 @@ repos:
         verbose: true
 
       - id: goplint-behavior
-        name: conservatively routed goplint soundness gate
+        name: conservatively routed goplint soundness gate (capped at the consumer tier locally)
         entry: "bash -c 'make check-goplint-soundness-routed 2>&1'"
         language: system
         pass_filenames: false
-        files: '^(cmd/|internal/|pkg/|tools/goplint/|docs/goplint/|openspec/specs/(goplint-analysis-soundness|goplint-soundness-assurance|lint-tooling-quality-gates)/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/(lint|goplint-fuzz|mutation-testing)\.yml$)'
+        files: '^(cmd/|internal/|pkg/|tools/goplint/|docs/goplint/|openspec/changes/|openspec/specs/(goplint-analysis-soundness|goplint-soundness-assurance|lint-tooling-quality-gates)/|\.agents/|AGENTS\.md$|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/(lint|goplint-fuzz|mutation-testing)\.yml$)'
         always_run: true
         verbose: true
 

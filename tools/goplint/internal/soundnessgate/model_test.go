@@ -89,7 +89,7 @@ func TestManifestValidateRejectsBidirectionalDrift(t *testing.T) {
 		{
 			name: "unscheduled semantic subgate",
 			mutate: func(manifest *Manifest, _ *soundnessevidence.Registry) {
-				manifest.Profiles[2].SubgateIDs = manifest.Profiles[2].SubgateIDs[:1]
+				manifest.Profiles[3].SubgateIDs = manifest.Profiles[3].SubgateIDs[:1]
 			},
 			wantError: "complete profile must equal semantic",
 		},

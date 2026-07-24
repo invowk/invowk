@@ -146,17 +146,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Pull requests classify the full cumulative base-to-head diff, so a
+          # fixup push never escalates past what the whole change requires.
+          # Schedule, release, and dispatch events force the completion profile
+          # inside the router regardless of changed paths.
           base=""
           case "$GITHUB_EVENT_NAME" in
             pull_request) base="${{ github.event.pull_request.base.sha }}" ;;
             push) base="${{ github.event.before }}" ;;
           esac
           cd tools/goplint
-          route_args=(-root ../.. -manifest spec/soundness-ownership.v1.json -event "$GITHUB_EVENT_NAME" -format profile)
+          route_args=(-root ../.. -manifest spec/soundness-ownership.v2.json -event "$GITHUB_EVENT_NAME" -format profile)
           if [[ -n "$base" ]]; then
             route_args+=(-base "$base" -head "$GITHUB_SHA")
           fi
           profile="$(go run ./cmd/soundness-profile "${route_args[@]}")"
+          # One-release migration escape hatch; remove after one quiet release
+          # (see docs/goplint/soundness-gate-execution.md).
+          if [[ "${GOPLINT_FORCE_SEMANTIC:-}" == "1" && "$profile" != "complete" ]]; then
+            echo "GOPLINT_FORCE_SEMANTIC=1 escalates the routed profile to semantic"
+            profile="semantic"
+          fi
+          echo "Selected goplint soundness profile: $profile"
+          if [[ "$profile" == "documentation" ]]; then
+            go run ./cmd/docs-guard -root ../..
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "profile=$profile" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           mkdir -p "$RUNNER_TEMP/soundness-plan"
           go run ./cmd/soundness-gate \
             -action plan \
@@ -183,6 +200,7 @@ jobs:
           echo "profile=$profile" >> "$GITHUB_OUTPUT"
 
       - name: Execute the one shared repository audit
+        if: steps.plan.outputs.profile != 'documentation'
         run: |
           cd tools/goplint
           go run ./cmd/soundness-gate \
@@ -193,6 +211,7 @@ jobs:
             -bundle-dir "$RUNNER_TEMP/soundness-plan"
 
       - name: Upload plan, audit bundle, and shared audit
+        if: steps.plan.outputs.profile != 'documentation'
         uses: actions/upload-artifact@v7
         with:
           name: soundness-plan-audit
@@ -204,6 +223,7 @@ jobs:
   goplint-workers:
     name: goplint soundness worker (${{ matrix.work_unit }})
     needs: goplint-plan
+    if: needs.goplint-plan.outputs.profile != 'documentation'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -259,7 +279,7 @@ jobs:
 
   goplint-aggregate:
     name: goplint soundness aggregate
-    if: always() && needs.goplint-plan.result == 'success'
+    if: always() && needs.goplint-plan.result == 'success' && needs.goplint-plan.outputs.profile != 'documentation'
     needs: [goplint-plan, goplint-workers]
     runs-on: ubuntu-latest
     timeout-minutes: 10

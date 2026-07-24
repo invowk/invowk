@@ -49,7 +49,8 @@ bench_output="$({
 echo "$bench_output"
 
 for benchmark in "${benchmarks[@]}"; do
-  row="$(awk -v benchmark="$benchmark" '$1 ~ ("^" benchmark "-") { print; exit }' <<<"$bench_output")"
+  # GOMAXPROCS=1 reservations omit the -N benchmark name suffix entirely.
+  row="$(awk -v benchmark="$benchmark" '$1 == benchmark || $1 ~ ("^" benchmark "-") { print; exit }' <<<"$bench_output")"
   if [[ -z "$row" ]]; then
     echo "$benchmark produced no consumer smoke sample" >&2
     exit 1

@@ -228,3 +228,23 @@ the default branch will confirm the derived figure.
   `legacy-serial` executor switch were removed. The `plan-serial` executor
   remains the permanent serial reference and rollback path, and
   `cmd/soundness-report-compare` remains for parity diagnosis.
+
+## Four-tier routed timings (2026-07-24, local 16-thread developer machine)
+
+The `rescope-goplint-soundness-triggers` change split routing into four
+reviewed change classes. Each tier was executed once end to end on the same
+tree that shipped the change, with the resource-aware parallel executor and
+default local resource discovery:
+
+| Tier | Command | Wall time | Scope |
+|------|---------|-----------|-------|
+| documentation | `make check-goplint-docs` | 0.4s | static docs-guard anchor validation only |
+| consumer | `make check-goplint-soundness-consumer` | 2m19s | one shared repository audit plus verdict consumers and smoke |
+| harness | `make check-goplint-soundness-harness` | 6m16s | consumer tier plus the goplint module test suite and serial-versus-parallel fixture parity |
+| semantic | `make check-goplint-soundness-semantic` | 43m58s | every causal analyzer soundness population (29 subgates, 88 observations) |
+
+The `harness-parity` subgate alone completes in under one second warm and is
+bounded by its one-minute fixture budget. Prose-only completion-record drift
+is repaired by `make rebind-goplint-clean-tree-evidence` in seconds instead
+of the former full regeneration, which re-executed the semantic profile
+inside the synthetic tree.

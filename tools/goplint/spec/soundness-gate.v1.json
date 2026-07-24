@@ -19,7 +19,9 @@
         "exceptions",
         "full-scan",
         "fuzz-seeds",
+        "harness-parity",
         "inconclusive-suppression",
+        "module-tests",
         "mutation-kernel-coverage",
         "production-integration",
         "protocol-oracle",
@@ -46,6 +48,18 @@
       ]
     },
     {
+      "id": "harness",
+      "subgate_ids": [
+        "baseline",
+        "exceptions",
+        "full-scan",
+        "harness-parity",
+        "module-tests",
+        "performance-smoke",
+        "repository-audit"
+      ]
+    },
+    {
       "id": "semantic",
       "subgate_ids": [
         "aggregate-contract",
@@ -61,7 +75,9 @@
         "exceptions",
         "full-scan",
         "fuzz-seeds",
+        "harness-parity",
         "inconclusive-suppression",
+        "module-tests",
         "mutation-kernel-coverage",
         "production-integration",
         "protocol-oracle",
@@ -146,6 +162,7 @@
       "profile_ids": [
         "complete",
         "consumer",
+        "harness",
         "semantic"
       ],
       "timeout_seconds": 900,
@@ -313,11 +330,11 @@
         "-root",
         "../..",
         "-paths",
-        "tools/goplint/testdata/gates/clean-tree-v3.paths",
+        "tools/goplint/testdata/gates/clean-tree-v4.paths",
         "-plan",
-        "tools/goplint/testdata/gates/clean-tree-v3.json",
+        "tools/goplint/testdata/gates/clean-tree-v4.json",
         "-evidence",
-        "tools/goplint/testdata/gates/clean-tree-run.v3.json"
+        "tools/goplint/testdata/gates/clean-tree-run.v4.json"
       ],
       "dependencies": [],
       "cpu_units": 1,
@@ -455,6 +472,7 @@
       "profile_ids": [
         "complete",
         "consumer",
+        "harness",
         "semantic"
       ],
       "timeout_seconds": 300,
@@ -484,6 +502,7 @@
       "profile_ids": [
         "complete",
         "consumer",
+        "harness",
         "semantic"
       ],
       "timeout_seconds": 900,
@@ -539,6 +558,34 @@
       ]
     },
     {
+      "id": "harness-parity",
+      "working_directory": "tools/goplint",
+      "command": [
+        "go",
+        "run",
+        "./cmd/harness-parity"
+      ],
+      "dependencies": [],
+      "cpu_units": 2,
+      "estimated_peak_memory_bytes": 2147483648,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "harness",
+        "semantic"
+      ],
+      "timeout_seconds": 600,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "parity-fixture-comparisons",
+          "minimum": 1
+        }
+      ]
+    },
+    {
       "id": "inconclusive-suppression",
       "working_directory": "tools/goplint",
       "command": [
@@ -560,6 +607,32 @@
         {
           "id": "suppression-surfaces",
           "minimum": 5
+        }
+      ]
+    },
+    {
+      "id": "module-tests",
+      "working_directory": "tools/goplint",
+      "command": [
+        "./scripts/check-module-tests.sh"
+      ],
+      "dependencies": [],
+      "cpu_units": 4,
+      "estimated_peak_memory_bytes": 8589934592,
+      "exclusivity_groups": [],
+      "distributable": true,
+      "profile_ids": [
+        "complete",
+        "harness",
+        "semantic"
+      ],
+      "timeout_seconds": 1800,
+      "report_file": "report.json",
+      "required_registration_ids": [],
+      "required_populations": [
+        {
+          "id": "module-test-suites",
+          "minimum": 1
         }
       ]
     },
@@ -616,7 +689,8 @@
       "exclusivity_groups": [],
       "distributable": true,
       "profile_ids": [
-        "consumer"
+        "consumer",
+        "harness"
       ],
       "timeout_seconds": 900,
       "report_file": "report.json",
@@ -958,6 +1032,7 @@
       "profile_ids": [
         "complete",
         "consumer",
+        "harness",
         "semantic"
       ],
       "timeout_seconds": 900,

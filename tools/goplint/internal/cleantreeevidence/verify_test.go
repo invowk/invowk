@@ -100,7 +100,7 @@ func TestVerifyRejectsCompleteDiffAndDependencyStateFailures(t *testing.T) {
 				writeTestFile(
 					t,
 					fixture.root,
-					"openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+					"openspec/changes/archive/2026-01-01-fixture-base/tasks.md",
 					"- [ ] 12.9 Review final tree\n- [x] 12.10 Archive\n",
 				)
 				refreshFixtureDiffCensus(t, fixture)
@@ -131,7 +131,7 @@ func TestVerifyRejectsCompleteDiffAndDependencyStateFailures(t *testing.T) {
 				plan.TaskLedgers[0], plan.TaskLedgers[1] = plan.TaskLedgers[1], plan.TaskLedgers[0]
 				writeTestJSON(t, fixture.root, fixture.options.PlanPath, plan)
 			},
-			want: "dependency order",
+			want: "regresses the archive date order",
 		},
 	}
 	for _, tt := range tests {
@@ -184,11 +184,14 @@ func refreshFixtureDiffCensus(t *testing.T, fixture verifyFixture) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	materialization, err := Materialize(t.Context(), fixture.root, fixture.options.PathsPath, false)
+	materialization, err := Materialize(t.Context(), fixture.root, fixture.options.PathsPath, plan.OwnershipManifestPath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	record.Repository = materialization.Identity
+	// Keep the provenance attribution consistent with the refreshed identity so
+	// the mutated dependency state under test is what Verify rejects.
+	record.Provenance.AggregateSemanticTreeDigest = materialization.Identity.SemanticTreeDigest
 	if err := materialization.Close(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +402,8 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 		t.Fatal(err)
 	}
 	plan := Plan{
-		FormatVersion: FormatVersion,
+		FormatVersion:         FormatVersion,
+		OwnershipManifestPath: testOwnershipManifestPath,
 		Inputs: []InputPlan{
 			{Name: "reviewed-input", Path: "input.txt"},
 		},
@@ -412,23 +416,18 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 		},
 		TaskLedgers: []TaskLedgerPlan{
 			{
-				Name:            "complete-goplint-soundness-hardening",
-				Path:            "openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+				Name:            "fixture-base",
+				Path:            "openspec/changes/archive/2026-01-01-fixture-base/tasks.md",
 				ExpectedPending: []string{},
 			},
 			{
-				Name:            "close-goplint-soundness-review-gaps",
-				Path:            "openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md",
+				Name:            "fixture-follow-up",
+				Path:            "openspec/changes/archive/2026-02-01-fixture-follow-up/tasks.md",
 				ExpectedPending: []string{},
 			},
 			{
-				Name:            "close-residual-goplint-soundness-gaps",
-				Path:            "openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md",
-				ExpectedPending: []string{},
-			},
-			{
-				Name:            "accelerate-goplint-soundness-gates",
-				Path:            "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
+				Name:            "fixture-active",
+				Path:            "openspec/changes/fixture-active/tasks.md",
 				ExpectedPending: []string{},
 			},
 		},
@@ -455,29 +454,24 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 	}
 	writeFixtureRegistryAndManifest(t, root, aggregateCommand)
 	writeTestFile(t, root, "input.txt", "input\n")
+	writeTestFile(t, root, "docs/notes.md", "prose notes\n")
 	writeTestFile(
 		t,
 		root,
-		"openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+		"openspec/changes/archive/2026-01-01-fixture-base/tasks.md",
 		"- [x] 12.9 Review final tree\n- [x] 12.10 Ready for archive authorization\n",
 	)
 	writeTestFile(
 		t,
 		root,
-		"openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md",
+		"openspec/changes/archive/2026-02-01-fixture-follow-up/tasks.md",
 		"- [x] 10.7 Record proof\n- [x] 10.8 Ready for archive authorization\n",
 	)
 	writeTestFile(
 		t,
 		root,
-		"openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md",
-		"- [x] 10.10 Ready for archive authorization\n",
-	)
-	writeTestFile(
-		t,
-		root,
-		"openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
-		"- [x] 8.7 Hosted parity\n- [x] 10.2 Consumer CI\n- [x] 10.3 Semantic CI\n- [x] 10.7 Remove legacy topology\n",
+		"openspec/changes/fixture-active/tasks.md",
+		"- [x] 1.1 Implement re-binding\n- [x] 1.2 Verify ledgers\n",
 	)
 	writeTestJSON(t, root, "counterexamples.json", counterexampleInventory{
 		FormatVersion: FormatVersion,
@@ -488,8 +482,8 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 	writeTestJSON(t, root, "plan.json", plan)
 	writeTestFile(t, root, "tracked.txt", "selected tracked drift\n")
 	runTestGit(t, root, "add", "input.txt")
-	writeTestFile(t, root, "paths.txt", "counterexamples.json\ninput.txt\nmanifest.json\nopenspec/changes/accelerate-goplint-soundness-gates/tasks.md\nopenspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md\nopenspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md\nopenspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md\npaths.txt\nplan.json\nregistry.json\ntracked.txt\n")
-	materialization, err := Materialize(t.Context(), root, "paths.txt", true)
+	writeTestFile(t, root, "paths.txt", "counterexamples.json\ndocs/notes.md\ninput.txt\nmanifest.json\nopenspec\npaths.txt\nplan.json\nregistry.json\ntools/goplint/spec/soundness-ownership.v2.json\ntracked.txt\n")
+	materialization, err := Materialize(t.Context(), root, "paths.txt", plan.OwnershipManifestPath, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,6 +525,7 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 		materialization.Worktree,
 		plan.AggregateReport,
 		createFixtureRunReport(t, materialization.Worktree),
+		"",
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -543,11 +538,17 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 		t.Fatal(err)
 	}
 	record := Record{
-		FormatVersion:   FormatVersion,
-		Status:          "passed",
-		StartedAt:       now,
-		FinishedAt:      now,
-		Repository:      identity,
+		FormatVersion: FormatVersion,
+		Status:        "passed",
+		StartedAt:     now,
+		FinishedAt:    now,
+		Repository:    identity,
+		Provenance: ProvenanceIdentity{
+			Kind:                        ProvenanceGenerated,
+			AggregateSemanticTreeDigest: identity.SemanticTreeDigest,
+			AggregateWorkspaceDigest:    aggregateReport.Report.WorkspaceDigest,
+			CarriedReportSHA256:         aggregateReport.SHA256,
+		},
 		DiffCensus:      diffCensus,
 		Inputs:          inputs,
 		Toolchain:       toolchain,
@@ -641,6 +642,7 @@ func writeFixtureRegistryAndManifest(t *testing.T, root string, aggregateCommand
 		Profiles: []soundnessgate.Profile{
 			{ID: soundnessgate.ProfileComplete, SubgateIDs: []string{"clean-tree-freshness", "proof"}},
 			{ID: soundnessgate.ProfileConsumer, SubgateIDs: []string{"proof"}},
+			{ID: soundnessgate.ProfileHarness, SubgateIDs: []string{"proof"}},
 			{ID: soundnessgate.ProfileSemantic, SubgateIDs: []string{"proof"}},
 		},
 		Subgates: []soundnessgate.Subgate{
@@ -673,6 +675,7 @@ func writeFixtureRegistryAndManifest(t *testing.T, root string, aggregateCommand
 				ProfileIDs: []soundnessgate.ProfileID{
 					soundnessgate.ProfileComplete,
 					soundnessgate.ProfileConsumer,
+					soundnessgate.ProfileHarness,
 					soundnessgate.ProfileSemantic,
 				},
 				TimeoutSeconds:          60,

@@ -261,7 +261,7 @@ func TestExecutePlanWorkUnitBindsSharedAuditArtifactToChildEnvironment(t *testin
 			RequiredPopulations: []PopulationRequirement{auditPopulation},
 			Dependencies:        []string{}, CPUUnits: 1, EstimatedPeakMemoryBytes: 1024,
 			ExclusivityGroups: []string{}, Distributable: true,
-			ProfileIDs: []ProfileID{ProfileComplete, ProfileSemantic},
+			ProfileIDs: []ProfileID{ProfileComplete, ProfileHarness, ProfileSemantic},
 		},
 		{
 			ID: "audit-consumer", WorkingDirectory: ".",
@@ -270,7 +270,7 @@ func TestExecutePlanWorkUnitBindsSharedAuditArtifactToChildEnvironment(t *testin
 			RequiredPopulations: []PopulationRequirement{consumerPopulation},
 			Dependencies:        []string{"repository-audit"}, CPUUnits: 1, EstimatedPeakMemoryBytes: 1024,
 			ExclusivityGroups: []string{}, Distributable: true,
-			ProfileIDs: []ProfileID{ProfileComplete, ProfileSemantic},
+			ProfileIDs: []ProfileID{ProfileComplete, ProfileHarness, ProfileSemantic},
 		},
 	}
 	manifest.Subgates = append(manifest.Subgates, extraSubgates...)

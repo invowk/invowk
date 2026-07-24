@@ -44,7 +44,7 @@ func TestGeneratePlanIsDeterministic(t *testing.T) {
 	if !bytes.Equal(leftJSON, rightJSON) {
 		t.Fatalf("generated plans differ:\nleft:  %s\nright: %s", leftJSON, rightJSON)
 	}
-	wantCommands := len(validGateManifest().Profiles[2].SubgateIDs)
+	wantCommands := len(validGateManifest().Profiles[3].SubgateIDs)
 	if len(left.Commands) != wantCommands {
 		t.Fatalf("generated command count = %d, want %d", len(left.Commands), wantCommands)
 	}

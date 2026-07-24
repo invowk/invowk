@@ -1,5 +1,6 @@
 {
-  "format_version": 3,
+  "format_version": 4,
+  "ownership_manifest_path": "tools/goplint/spec/soundness-ownership.v2.json",
   "inputs": [
     {
       "name": "benchmark-thresholds",
@@ -52,6 +53,10 @@
     {
       "name": "semantic-reference",
       "path": "docs/goplint/current-techniques-and-semantics.md"
+    },
+    {
+      "name": "soundness-ownership",
+      "path": "tools/goplint/spec/soundness-ownership.v2.json"
     },
     {
       "name": "stable-id-migration",
@@ -130,7 +135,12 @@
     },
     {
       "name": "accelerate-goplint-soundness-gates",
-      "path": "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
+      "path": "openspec/changes/archive/2026-07-23-accelerate-goplint-soundness-gates/tasks.md",
+      "expected_pending": []
+    },
+    {
+      "name": "rescope-goplint-soundness-triggers",
+      "path": "openspec/changes/rescope-goplint-soundness-triggers/tasks.md",
       "expected_pending": []
     }
   ],
@@ -138,7 +148,7 @@
     "reviewed_exclusions": []
   },
   "counterexamples": {
-    "path": "tools/goplint/testdata/gates/clean-tree-counterexamples-v3.json",
+    "path": "tools/goplint/testdata/gates/clean-tree-counterexamples-v4.json",
     "required": [
       {
         "id": "conditional-summary-result",

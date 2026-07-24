@@ -1,28 +1,110 @@
 # Goplint soundness-gate execution
 
-The goplint assurance gate uses one versioned manifest and three profiles. The
+The goplint assurance gate uses one versioned manifest and five profiles. The
 profile changes how much evidence is freshly executed; it never changes the
 analyzer's production semantics or turns an inconclusive result into success.
 
 | Profile | Intended use | Assurance claim |
 |---|---|---|
+| `documentation` | Prose-only diffs: goplint docs, OpenSpec change artifacts, agent docs, and the three root goplint markdown files | Runs only the static docs-guard anchoring validator; no analyzer execution and no repository audit. It makes no analyzer-soundness, performance, or completion claim. |
 | `consumer` | Root application changes proven not to affect goplint semantics or orchestration | One exact-tree repository audit serves baseline, full-scan, exception, and one-sample performance-smoke consumers. It makes no analyzer-soundness or completion claim. |
-| `semantic` | Goplint code, tests, evidence, manifests, thresholds, workflows, governance, or governing specifications | Re-executes every causal soundness population and five-sample runner-class performance certification. |
+| `harness` | Orchestration changes: CI workflows, pre-commit config, the Makefile, the soundness-gate executors, and goplint scripts | Adds the goplint module test suite and executor parity (byte-identical normalized run reports between the plan-serial reference and parallel executors on the reviewed fixture) to the consumer surface. It never substitutes for semantic assurance. |
+| `semantic` | Goplint analyzer code, tests, evidence, manifests, thresholds, or governing specifications | Re-executes every causal soundness population and five-sample runner-class performance certification. |
 | `complete` | Explicit completion, release, scheduled, and exhaustive dispatch contexts | Runs the semantic profile plus retained exact-tree freshness. |
 
 `make check-goplint-soundness` classifies staged or event-provided changes
-through `spec/soundness-ownership.v1.json`. Unknown paths, shallow history,
-missing merge bases, empty or ambiguous diffs, and invalid context fail closed
-to `semantic` or `complete`. The explicit targets bypass classification:
+through the versioned ownership manifest
+`spec/soundness-ownership.v2.json` (the v1 manifest was deleted). Every
+governed path family carries one of four classes:
+
+- `documentation`: goplint docs (`docs/goplint/**`), OpenSpec change artifacts
+  (`openspec/changes/**`), agent docs (`.agents/**` plus `AGENTS.md`), and the
+  three root markdown files in `tools/goplint/`;
+- `consumer`: `cmd/**`, `internal/**`, `pkg/**`, `go.mod`, and `go.sum`;
+- `harness`: `.github/workflows/**`, `.pre-commit-config.yaml`, the
+  `Makefile`, `tools/goplint/internal/soundnessgate/**`,
+  `tools/goplint/cmd/soundness-gate/**`,
+  `tools/goplint/cmd/soundness-report-compare/**`, and
+  `tools/goplint/scripts/**`;
+- `analyzer-semantics`: everything else under `tools/goplint/**`, the
+  governing `openspec/specs/goplint-*/**` and
+  `openspec/specs/lint-tooling-quality-gates/**` specifications, and the
+  archived evidence directories under `openspec/changes/archive/*/evidence/`.
+
+Routing picks the highest class present in the diff (documentation < consumer
+< harness < analyzer-semantics) and maps it to a profile:
+documentation→`documentation`, consumer→`consumer`, harness→`harness`, and
+analyzer-semantics→`semantic`. Unknown paths, shallow history, missing merge
+bases, empty or ambiguous diffs, and unknown events still fail closed to
+`semantic`; completion, release, schedule, and dispatch events force
+`complete`. A harness-class diff never substitutes for semantic assurance:
+any analyzer-semantics path in the diff escalates to `semantic`. Manifest
+validation structurally rejects a `documentation` class over any
+executable-input family (configuration, manifests, schemas, scripts,
+baselines, thresholds, retained evidence).
+
+The explicit targets bypass classification:
 
 ```bash
+make check-goplint-docs
 make check-goplint-soundness-consumer
+make check-goplint-soundness-harness
 make check-goplint-soundness-semantic
 make check-goplint-soundness-complete
 ```
 
 `check-goplint-soundness-core` remains a compatibility alias for the semantic
 target. New automation and documentation should use `semantic`.
+
+## Documentation tier
+
+`make check-goplint-docs` runs `cmd/docs-guard`: a static validator that
+completes in seconds and loads no Go packages. It checks that every claim row
+in `docs/goplint/evidence-index.md` names at least one existing test, gate, or
+observation anchor, and that every referenced Make target, subgate ID,
+command, and repository path exists in the current tree. Failures name the
+exact stale reference and cannot be baselined, excepted, or inline-ignored.
+Documentation-class diffs run only this tier — no analyzer execution and no
+repository audit.
+
+## Harness tier
+
+The `harness` profile in `spec/soundness-gate.v1.json` binds the subgates
+`baseline`, `exceptions`, `full-scan`, `harness-parity`, `module-tests`,
+`performance-smoke`, and `repository-audit`. `module-tests` runs the goplint
+module test suite through `scripts/check-module-tests.sh`. `harness-parity`
+(`cmd/harness-parity`, also `make check-goplint-harness-parity`) executes the
+reviewed fixture manifest
+`tools/goplint/testdata/parity/soundness-gate.fixture.json` through both the
+plan-serial reference executor and the parallel executor and requires
+byte-identical normalized run reports (via
+`soundnessgate.CompareNormalizedRunReports`), within a one-minute fixture
+budget (typically under a second warm). `make check-goplint-soundness-harness`
+forces the profile. The `module-tests` and `harness-parity` subgates are also
+part of the semantic and complete profiles.
+
+## Trigger surfaces
+
+The pre-commit hook (`goplint-behavior` →
+`make check-goplint-soundness-routed` →
+`tools/goplint/scripts/check-routed-soundness.sh`) is capped below the
+semantic tier: documentation diffs run docs-guard, consumer diffs run the
+shared repository audit, and harness or analyzer-semantics diffs run the
+consumer tier locally while printing the authoritative CI tier and the
+explicit Make targets to run it by hand.
+`make check-goplint-soundness-semantic` and
+`make check-goplint-soundness-complete` remain available for explicit local
+runs.
+
+CI (`lint.yml`) routes pull requests from the cumulative base-to-head diff and
+push-to-main from the push diff; schedule, release, and dispatch events keep
+forcing `complete`. A documentation-class diff runs docs-guard in the plan job
+and skips the worker and aggregation jobs entirely.
+
+**Escape hatch:** `GOPLINT_FORCE_SEMANTIC=1` escalates any routed profile
+except `complete` to `semantic`, in both the local routed script and the CI
+plan job. Removal criterion: remove the escape hatch after one release ships
+with zero misrouting diagnoses that needed it.
 
 ## Local resource policy
 
@@ -156,16 +238,54 @@ the completion profile. The migration-era legacy serial reference lane and its
 [`soundness-gate-performance.md`](soundness-gate-performance.md) established
 byte-identical normalized evidence and the required wall-time reduction.
 
+## Dual-digest completion record and prose re-binding
+
+The retained completion record is the generated `clean-tree-run.v4.json`
+under `tools/goplint/testdata/gates/`, produced from the reviewed plan
+`tools/goplint/testdata/gates/clean-tree-v4.json`, the path
+selection `clean-tree-v4.paths`, and validated against
+`clean-tree-v4.schema.json` (the v3 files were renamed; a retained v3 record
+is rejected with an explicit migration notice directing regeneration under
+the v4 names).
+
+The record's repository identity carries two digests, both computed from the
+ownership manifest read out of the synthetic tree itself:
+
+- `semantic_tree_digest` covers every class any gate executes or reads
+  (consumer, harness, and analyzer-semantics content), plus ungoverned paths
+  conservatively;
+- `prose_tree_digest` covers the documentation class.
+
+A `provenance` block attributes the retained aggregate report to the exact
+semantic content that produced it.
+
+Prose-only drift no longer requires regeneration:
+`make rebind-goplint-clean-tree-evidence` re-binds the retained record in
+seconds. Re-binding recomputes both digests, revalidates the task ledgers and
+the diff census, carries the aggregate report forward untouched, and records
+the carried-forward provenance (`kind: "re-bound"`). Semantic-content drift
+makes re-binding fail closed naming the drifted paths; full regeneration with
+`make generate-goplint-clean-tree-evidence` is then required. The freshness
+verifier accepts re-bound records and tells you to re-bind when only prose is
+stale.
+
+Expected task-ledger names, paths, order, and pending sets live only in the
+reviewed plan `clean-tree-v4.json`; code and schema validate structure only.
+Closing or archiving an OpenSpec change therefore edits exactly one reviewed
+file.
+
 ## Completion proof
 
-After all intended files and task bookkeeping are final, generate and verify
-the retained exact-tree evidence, then run the completion profile:
+After all intended files and task bookkeeping are final, generate (or, when
+only prose drifted since a valid record, re-bind) and verify the retained
+exact-tree evidence, then run the completion profile:
 
 ```bash
 make check-goplint-soundness-semantic
-make generate-goplint-clean-tree-evidence
+make generate-goplint-clean-tree-evidence   # or: make rebind-goplint-clean-tree-evidence
 make check-goplint-clean-tree-evidence
 make check-goplint-soundness-complete
 ```
 
-Any subsequent change makes the retained proof stale and requires regeneration.
+Any subsequent semantic-content change makes the retained proof stale and
+requires regeneration; prose-only drift only requires re-binding.

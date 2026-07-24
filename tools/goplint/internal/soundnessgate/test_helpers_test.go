@@ -69,6 +69,10 @@ func validGateManifest() Manifest {
 				SubgateIDs: []string{"semantic-production-a"},
 			},
 			{
+				ID:         ProfileHarness,
+				SubgateIDs: []string{"semantic-production-a"},
+			},
+			{
 				ID:         ProfileSemantic,
 				SubgateIDs: []string{"semantic-production-a", "semantic-production-b", "targeted-mutation"},
 			},
@@ -123,7 +127,7 @@ func validGateManifest() Manifest {
 		case cleanTreeFreshnessID:
 			subgate.ProfileIDs = []ProfileID{ProfileComplete}
 		case "semantic-production-a":
-			subgate.ProfileIDs = []ProfileID{ProfileComplete, ProfileConsumer, ProfileSemantic}
+			subgate.ProfileIDs = []ProfileID{ProfileComplete, ProfileConsumer, ProfileHarness, ProfileSemantic}
 		default:
 			subgate.ProfileIDs = []ProfileID{ProfileComplete, ProfileSemantic}
 		}

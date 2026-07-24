@@ -201,16 +201,21 @@ Goplint SHALL validate its semantic contract with independent and adversarial ev
 - **AND** surviving targeted soundness mutants MUST fail the gate
 
 ### Requirement: Soundness gates are deterministic and performance bounded
-The canonical soundness gate SHALL produce deterministic findings, reasons, witnesses, and refinement evidence for identical inputs, and SHALL enforce documented performance budgets without converting exhausted analysis into safety.
+The canonical soundness gate SHALL produce deterministic findings, reasons, witnesses, refinement evidence, work-unit censuses, and normalized aggregate evidence for identical inputs, and SHALL enforce documented smoke and certification performance budgets without converting exhausted analysis into safety.
 
-#### Scenario: Repeated and reordered analysis is deterministic
-- **WHEN** the same packages are analyzed repeatedly or in a different package/worklist order
-- **THEN** normalized findings and evidence MUST be byte-for-byte stable after permitted timing fields are removed
+#### Scenario: Repeated, reordered, or concurrently scheduled analysis is deterministic
+- **WHEN** the same packages are analyzed repeatedly, in a different package/worklist order, or through a different valid concurrent schedule
+- **THEN** normalized findings and evidence MUST be byte-for-byte stable after permitted timing and resource fields are removed
 
-#### Scenario: Performance regression exceeds the budget
-- **WHEN** canonical solver benchmarks exceed their reviewed time or memory thresholds
-- **THEN** the performance gate MUST fail
-- **AND** maintainers MUST optimize the canonical path rather than re-enable a weaker semantic mode
+#### Scenario: Performance regression exceeds the certified budget
+- **WHEN** canonical solver benchmarks or full repository scans exceed their reviewed certification time or memory thresholds
+- **THEN** the certified performance gate MUST fail
+- **AND** maintainers MUST optimize the canonical path rather than re-enable a weaker semantic mode, shrink a semantic population, or omit a required analyzer phase
+
+#### Scenario: Consumer smoke measurement detects a catastrophic regression
+- **WHEN** the consumer profile runs its single-sample full-scan and algorithmic smoke checks
+- **THEN** it MUST compare them with separately named conservative smoke limits
+- **AND** passing smoke MUST NOT be described as statistically stable performance certification
 
 #### Scenario: Generated evidence uses reviewed nontrivial bounds
 - **WHEN** the bounded reference-model or targeted mutation gate runs
@@ -219,11 +224,16 @@ The canonical soundness gate SHALL produce deterministic findings, reasons, witn
 - **AND** every well-formed normalized program admitted by those bounds MUST be compared with the independent interpreter
 - **AND** every named targeted soundness mutant MUST be killed
 
-#### Scenario: Benchmark evidence uses reviewed reproducible limits
-- **WHEN** the canonical performance gate runs
+#### Scenario: Certification evidence uses reviewed reproducible limits
+- **WHEN** the canonical certified performance gate runs for semantic, completion, scheduled, or release assurance
 - **THEN** the threshold manifest MUST declare time, byte, and allocation limits for solver, alias, refinement, generated-graph, and full-scan workloads
-- **AND** it MUST record the reviewed Go toolchain and CI runner class
+- **AND** it MUST record the reviewed Go toolchain and runner class
 - **AND** the gate MUST compare the median of five fresh runs against those limits
+
+#### Scenario: Resource controls constrain execution
+- **WHEN** CPU, memory, worker, timeout, or shard controls constrain analysis
+- **THEN** they MUST affect scheduling or produce an explicit blocking failure
+- **AND** they MUST NOT convert a violation, inconclusive outcome, missing population, timeout, or resource exhaustion into a safe result
 
 ### Requirement: Every executable call and closure is conservatively modeled
 Goplint SHALL model every relevant call expression in Go evaluation order and SHALL analyze every function literal body as an executable procedure independent of whether its invocation is syntactically visible in the enclosing function. A nested, sibling, returned, stored, passed, deferred, or concurrently launched closure or call MUST NOT be omitted from protocol transfer; incomplete ordering, identity, capture, or effect information MUST be blocking inconclusive.

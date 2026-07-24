@@ -32,8 +32,15 @@ const (
 	// EnvRepositoryAuditPath is the run-private shared exact-tree audit artifact.
 	EnvRepositoryAuditPath = "GOPLINT_REPOSITORY_AUDIT_PATH"
 
+	// ProfileDocumentation executes only the static goplint documentation
+	// validator; it never runs any analyzer or repository audit.
+	ProfileDocumentation ProfileID = "documentation"
 	// ProfileConsumer executes the single shared audit and its policy consumers.
 	ProfileConsumer ProfileID = "consumer"
+	// ProfileHarness proves orchestration integrity: module test suites, the
+	// shared repository audit, and fixture-driven serial-versus-parallel
+	// normalized-report parity, without semantic population re-execution.
+	ProfileHarness ProfileID = "harness"
 	// ProfileSemantic executes every canonical analyzer soundness population.
 	ProfileSemantic ProfileID = "semantic"
 	// ProfileCore is the compatibility name for the semantic profile.
@@ -281,9 +288,10 @@ func (report RunReport) Validate() error {
 	}
 	if !isKnownProfile(report.Profile) {
 		return fmt.Errorf(
-			"soundness run report profile = %q, want %q, %q, or %q",
+			"soundness run report profile = %q, want %q, %q, %q, or %q",
 			report.Profile,
 			ProfileConsumer,
+			ProfileHarness,
 			ProfileSemantic,
 			ProfileComplete,
 		)
@@ -559,11 +567,12 @@ func (subgate Subgate) validate(index int) error {
 }
 
 func (manifest Manifest) validateProfiles() error {
-	if len(manifest.Profiles) != 3 ||
+	if len(manifest.Profiles) != 4 ||
 		manifest.Profiles[0].ID != ProfileComplete ||
 		manifest.Profiles[1].ID != ProfileConsumer ||
-		manifest.Profiles[2].ID != ProfileSemantic {
-		return errors.New("soundness manifest profiles must be canonical complete, consumer, then semantic")
+		manifest.Profiles[2].ID != ProfileHarness ||
+		manifest.Profiles[3].ID != ProfileSemantic {
+		return errors.New("soundness manifest profiles must be canonical complete, consumer, harness, then semantic")
 	}
 	allSubgateIDs := make([]string, 0, len(manifest.Subgates))
 	for _, subgate := range manifest.Subgates {
@@ -587,7 +596,8 @@ func (manifest Manifest) validateProfiles() error {
 	}
 	completeIDs := manifest.Profiles[0].SubgateIDs
 	consumerIDs := manifest.Profiles[1].SubgateIDs
-	semanticIDs := manifest.Profiles[2].SubgateIDs
+	harnessIDs := manifest.Profiles[2].SubgateIDs
+	semanticIDs := manifest.Profiles[3].SubgateIDs
 	if !slices.Contains(completeIDs, cleanTreeFreshnessID) {
 		return fmt.Errorf("soundness complete profile omits %q", cleanTreeFreshnessID)
 	}
@@ -596,11 +606,17 @@ func (manifest Manifest) validateProfiles() error {
 	if !slices.Equal(completeIDs, wantCompleteIDs) {
 		return fmt.Errorf("soundness complete profile must equal semantic plus %q", cleanTreeFreshnessID)
 	}
-	if slices.Contains(semanticIDs, cleanTreeFreshnessID) || slices.Contains(consumerIDs, cleanTreeFreshnessID) {
+	if slices.Contains(semanticIDs, cleanTreeFreshnessID) || slices.Contains(consumerIDs, cleanTreeFreshnessID) ||
+		slices.Contains(harnessIDs, cleanTreeFreshnessID) {
 		return fmt.Errorf("soundness non-completion profile includes %q", cleanTreeFreshnessID)
 	}
-	if len(consumerIDs) == 0 || len(semanticIDs) == 0 {
-		return errors.New("soundness consumer and semantic profiles must be non-empty")
+	if len(consumerIDs) == 0 || len(harnessIDs) == 0 || len(semanticIDs) == 0 {
+		return errors.New("soundness consumer, harness, and semantic profiles must be non-empty")
+	}
+	for _, subgateID := range consumerIDs {
+		if !slices.Contains(harnessIDs, subgateID) {
+			return fmt.Errorf("soundness harness profile must cover consumer subgate %q", subgateID)
+		}
 	}
 	unusedIDs := slices.DeleteFunc(slices.Clone(allSubgateIDs), func(subgateID string) bool {
 		return slices.Contains(completeIDs, subgateID) || slices.Contains(consumerIDs, subgateID)
@@ -618,7 +634,8 @@ func (manifest Manifest) validateProfiles() error {
 }
 
 func isKnownProfile(profile ProfileID) bool {
-	return profile == ProfileConsumer || profile == ProfileSemantic || profile == ProfileComplete
+	return profile == ProfileConsumer || profile == ProfileHarness ||
+		profile == ProfileSemantic || profile == ProfileComplete
 }
 
 func (result SubgateResult) validate(index int) error {

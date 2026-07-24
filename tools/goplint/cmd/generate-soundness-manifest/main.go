@@ -160,11 +160,11 @@ func buildManifest(registry soundnessevidence.Registry) (soundnessgate.Manifest,
 				"-root",
 				"../..",
 				"-paths",
-				"tools/goplint/testdata/gates/clean-tree-v3.paths",
+				"tools/goplint/testdata/gates/clean-tree-v4.paths",
 				"-plan",
-				"tools/goplint/testdata/gates/clean-tree-v3.json",
+				"tools/goplint/testdata/gates/clean-tree-v4.json",
 				"-evidence",
-				"tools/goplint/testdata/gates/clean-tree-run.v3.json",
+				"tools/goplint/testdata/gates/clean-tree-run.v4.json",
 			},
 			3600,
 			"clean-tree-freshness.json",
@@ -230,6 +230,15 @@ func buildManifest(registry soundnessevidence.Registry) (soundnessgate.Manifest,
 			population("protocol-categories", 8),
 		),
 		newSubgate(
+			"harness-parity",
+			"tools/goplint",
+			[]string{"go", "run", "./cmd/harness-parity"},
+			600,
+			"report.json",
+			nil,
+			population("parity-fixture-comparisons", 1),
+		),
+		newSubgate(
 			"inconclusive-suppression",
 			"tools/goplint",
 			[]string{"./scripts/check-inconclusive-suppression.sh"},
@@ -254,6 +263,15 @@ func buildManifest(registry soundnessevidence.Registry) (soundnessgate.Manifest,
 			"report.json",
 			nil,
 			mutationKernelRequirements...,
+		),
+		newSubgate(
+			"module-tests",
+			"tools/goplint",
+			[]string{"./scripts/check-module-tests.sh"},
+			1800,
+			"report.json",
+			nil,
+			population("module-test-suites", 1),
 		),
 		newSubgate(
 			"performance-smoke",
@@ -351,12 +369,15 @@ func buildManifest(registry soundnessevidence.Registry) (soundnessgate.Manifest,
 	completeIDs := append(slices.Clone(semanticIDs), "clean-tree-freshness")
 	slices.Sort(completeIDs)
 	consumerIDs := []string{"baseline", "exceptions", "full-scan", "performance-smoke", "repository-audit"}
+	harnessIDs := append(slices.Clone(consumerIDs), "harness-parity", "module-tests")
+	slices.Sort(harnessIDs)
 	return soundnessgate.Manifest{
 		FormatVersion: soundnessgate.ManifestFormatVersion,
 		RegistryPath:  "tools/goplint/spec/semantic-evidence.v2.json",
 		Profiles: []soundnessgate.Profile{
 			{ID: soundnessgate.ProfileComplete, SubgateIDs: completeIDs},
 			{ID: soundnessgate.ProfileConsumer, SubgateIDs: consumerIDs},
+			{ID: soundnessgate.ProfileHarness, SubgateIDs: harnessIDs},
 			{ID: soundnessgate.ProfileSemantic, SubgateIDs: semanticIDs},
 		},
 		Subgates: subgates,
@@ -385,7 +406,9 @@ func applyExecutionPolicy(subgate *soundnessgate.Subgate) error {
 		"exceptions":               {cpu: 1, memory: 512 * 1024 * 1024, dependsOn: []string{"repository-audit"}},
 		"full-scan":                {cpu: 1, memory: 512 * 1024 * 1024, dependsOn: []string{"repository-audit"}},
 		"fuzz-seeds":               {cpu: 4, memory: 8 * 1024 * 1024 * 1024},
+		"harness-parity":           {cpu: 2, memory: 2 * 1024 * 1024 * 1024},
 		"inconclusive-suppression": {cpu: 1, memory: 1024 * 1024 * 1024},
+		"module-tests":             {cpu: 4, memory: 8 * 1024 * 1024 * 1024},
 		"mutation-kernel-coverage": {cpu: 1, memory: 1024 * 1024 * 1024},
 		"performance-smoke":        {cpu: 1, memory: 512 * 1024 * 1024, dependsOn: []string{"repository-audit"}},
 		"production-integration":   {cpu: 4, memory: 8 * 1024 * 1024 * 1024},
@@ -420,11 +443,18 @@ func applyExecutionPolicy(subgate *soundnessgate.Subgate) error {
 	case "clean-tree-freshness":
 		subgate.ProfileIDs = []soundnessgate.ProfileID{soundnessgate.ProfileComplete}
 	case "performance-smoke":
-		subgate.ProfileIDs = []soundnessgate.ProfileID{soundnessgate.ProfileConsumer}
+		subgate.ProfileIDs = []soundnessgate.ProfileID{soundnessgate.ProfileConsumer, soundnessgate.ProfileHarness}
 	case "baseline", "exceptions", "full-scan", "repository-audit":
 		subgate.ProfileIDs = []soundnessgate.ProfileID{
 			soundnessgate.ProfileComplete,
 			soundnessgate.ProfileConsumer,
+			soundnessgate.ProfileHarness,
+			soundnessgate.ProfileSemantic,
+		}
+	case "harness-parity", "module-tests":
+		subgate.ProfileIDs = []soundnessgate.ProfileID{
+			soundnessgate.ProfileComplete,
+			soundnessgate.ProfileHarness,
 			soundnessgate.ProfileSemantic,
 		}
 	default:

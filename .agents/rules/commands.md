@@ -18,11 +18,16 @@
 | Type check (all DDD) | `make check-types-all` |
 | Type check (all JSON) | `make check-types-all-json` |
 | Routed goplint soundness | `make check-goplint-soundness` |
+| goplint documentation tier (static docs-guard) | `make check-goplint-docs` |
 | Forced consumer profile (no soundness certification claim) | `make check-goplint-soundness-consumer` |
+| Forced harness profile (executor parity + module tests) | `make check-goplint-soundness-harness` |
+| goplint executor parity (plan-serial vs parallel) | `make check-goplint-harness-parity` |
+| goplint module test suite | `make check-goplint-module-tests` |
 | Forced semantic soundness | `make check-goplint-soundness-semantic` |
 | goplint completion proof (includes retained exact-tree freshness) | `make check-goplint-soundness-complete` |
-| Generate retained goplint exact-tree record | `make generate-goplint-clean-tree-evidence` |
-| Verify retained goplint exact-tree record | `make check-goplint-clean-tree-evidence` |
+| Generate retained goplint exact-tree record (v4) | `make generate-goplint-clean-tree-evidence` |
+| Re-bind retained goplint record after prose-only drift | `make rebind-goplint-clean-tree-evidence` |
+| Verify retained goplint exact-tree record (v4) | `make check-goplint-clean-tree-evidence` |
 | Mutation-kernel category coverage | `make check-goplint-mutation-kernel-coverage` |
 | Production protocol integration | `make check-goplint-production-integration` |
 | Historical counterexamples | `make check-goplint-counterexamples` |
@@ -78,16 +83,33 @@
 ## Goplint Soundness Profiles
 
 `make check-goplint-soundness` classifies the change through the versioned
-ownership manifest and runs the resource-aware planner. `consumer` reuses one
-exact-tree repository audit and runs catastrophic-regression smoke only;
-passing it is neither analyzer-soundness nor performance certification.
-`semantic` reruns every causal soundness population and five-sample certified
+four-class ownership manifest (`tools/goplint/spec/soundness-ownership.v2.json`)
+and runs the resource-aware planner. The `documentation`, `consumer`,
+`harness`, and `analyzer-semantics` classes map to the `documentation`,
+`consumer`, `harness`, and `semantic` profiles; the highest class in the diff
+wins. `documentation` runs only the static docs-guard anchoring validator (no
+analyzer execution or repository audit). `consumer` reuses one exact-tree
+repository audit and runs catastrophic-regression smoke only; passing it is
+neither analyzer-soundness nor performance certification. `harness` adds the
+goplint module test suite and plan-serial/parallel executor parity on the
+reviewed fixture; it never substitutes for semantic assurance. `semantic`
+reruns every causal soundness population and five-sample certified
 performance policy. `complete` adds retained exact-tree freshness and is forced
 for completion, release, schedule, or exhaustive dispatch contexts. Missing or
-ambiguous change context fails closed.
+ambiguous change context fails closed to `semantic`.
 
-Force a profile with `check-goplint-soundness-consumer`,
-`check-goplint-soundness-semantic`, or `check-goplint-soundness-complete`.
+The pre-commit hook is capped below the semantic tier: documentation diffs run
+docs-guard, consumer diffs run the shared audit, and harness or
+analyzer-semantics diffs run the consumer tier locally while printing the
+authoritative CI tier and the explicit Make targets. `GOPLINT_FORCE_SEMANTIC=1`
+escalates any routed profile except `complete` to `semantic` (one-release
+migration escape hatch, locally and in the CI plan job).
+
+Force a profile with `check-goplint-docs`, `check-goplint-soundness-consumer`,
+`check-goplint-soundness-harness`, `check-goplint-soundness-semantic`, or
+`check-goplint-soundness-complete`. The retained completion record uses the v4
+dual-digest format; after prose-only drift, re-bind it in seconds with
+`make rebind-goplint-clean-tree-evidence` instead of regenerating.
 Resource discovery can be overridden with `GOPLINT_SOUNDNESS_CPU_UNITS`,
 `GOPLINT_SOUNDNESS_MEMORY_BYTES`, and `GOPLINT_SOUNDNESS_MAX_WORKERS`. Refresh
 the three-sample weighted test census with
