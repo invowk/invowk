@@ -81,22 +81,34 @@
   "toolchain": [
     {
       "name": "git",
-      "command": ["git", "--version"],
+      "command": [
+        "git",
+        "--version"
+      ],
       "required_version_re": "^git version 2\\.55\\.0$"
     },
     {
       "name": "go",
-      "command": ["go", "version"],
+      "command": [
+        "go",
+        "version"
+      ],
       "required_version_re": "^go version go1\\.26\\.[0-9]+ linux/amd64$"
     },
     {
       "name": "golangci-lint",
-      "command": ["./scripts/golangci-lint.sh", "version"],
+      "command": [
+        "./scripts/golangci-lint.sh",
+        "version"
+      ],
       "required_version_re": "^golangci-lint has version 2\\.12\\.2 .*$"
     },
     {
       "name": "make",
-      "command": ["make", "--version"],
+      "command": [
+        "make",
+        "--version"
+      ],
       "required_version_re": "^GNU Make 4\\.[0-9]+(\\.[0-9]+)?"
     }
   ],
@@ -119,7 +131,7 @@
     {
       "name": "accelerate-goplint-soundness-gates",
       "path": "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
-      "expected_pending": ["10.2", "10.3", "10.7", "8.7"]
+      "expected_pending": []
     }
   ],
   "diff_review": {
@@ -181,69 +193,119 @@
   "commands": [
     {
       "name": "lint",
-      "args": ["make", "lint"],
+      "args": [
+        "make",
+        "lint"
+      ],
       "timeout_minutes": 40
     },
     {
       "name": "build",
-      "args": ["make", "build", "build-goplint"],
+      "args": [
+        "make",
+        "build",
+        "build-goplint"
+      ],
       "timeout_minutes": 20
     },
     {
       "name": "root-tests",
-      "args": ["make", "test"],
+      "args": [
+        "make",
+        "test"
+      ],
       "timeout_minutes": 90
     },
     {
       "name": "goplint-tests",
       "directory": "tools/goplint",
-      "args": ["go", "test", "-count=1", "-timeout=20m", "./..."],
+      "args": [
+        "go",
+        "test",
+        "-count=1",
+        "-timeout=20m",
+        "./..."
+      ],
       "timeout_minutes": 30
     },
     {
       "name": "root-tidy-diff",
-      "args": ["go", "mod", "tidy", "-diff"],
+      "args": [
+        "go",
+        "mod",
+        "tidy",
+        "-diff"
+      ],
       "timeout_minutes": 10
     },
     {
       "name": "goplint-tidy-diff",
       "directory": "tools/goplint",
-      "args": ["go", "mod", "tidy", "-diff"],
+      "args": [
+        "go",
+        "mod",
+        "tidy",
+        "-diff"
+      ],
       "timeout_minutes": 10
     },
     {
       "name": "scheduled-fuzz",
-      "args": ["make", "check-goplint-fuzz-scheduled"],
+      "args": [
+        "make",
+        "check-goplint-fuzz-scheduled"
+      ],
       "timeout_minutes": 30
     },
     {
       "name": "exceptions",
-      "args": ["make", "check-goplint-exceptions"],
+      "args": [
+        "make",
+        "check-goplint-exceptions"
+      ],
       "timeout_minutes": 20
     },
     {
       "name": "windows-build",
-      "args": ["make", "check-windows-build"],
+      "args": [
+        "make",
+        "check-windows-build"
+      ],
       "timeout_minutes": 20
     },
     {
       "name": "license",
-      "args": ["make", "license-check"],
+      "args": [
+        "make",
+        "license-check"
+      ],
       "timeout_minutes": 10
     },
     {
       "name": "file-length",
-      "args": ["make", "check-file-length"],
+      "args": [
+        "make",
+        "check-file-length"
+      ],
       "timeout_minutes": 10
     },
     {
       "name": "agent-docs",
-      "args": ["make", "check-agent-docs"],
+      "args": [
+        "make",
+        "check-agent-docs"
+      ],
       "timeout_minutes": 10
     },
     {
       "name": "openspec-all",
-      "args": ["openspec", "validate", "--all", "--strict", "--no-interactive"],
+      "args": [
+        "openspec",
+        "validate",
+        "--all",
+        "--strict",
+        "--no-interactive"
+      ],
       "timeout_minutes": 10
     },
     {
@@ -262,7 +324,10 @@
     },
     {
       "name": "soundness-semantic",
-      "args": ["make", "check-goplint-soundness-semantic"],
+      "args": [
+        "make",
+        "check-goplint-soundness-semantic"
+      ],
       "timeout_minutes": 180
     }
   ],

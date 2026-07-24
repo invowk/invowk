@@ -75,19 +75,9 @@ type (
 	}
 )
 
-// Run executes every reviewed manifest command in a fresh output root and
-// validates command-bound reports plus the bidirectional semantic census.
-func Run(ctx context.Context, options Options) (Result, error) {
-	dependencies := runnerDependencies{
-		workspaceDigest: WorkspaceDigest,
-		execute:         executeCommand,
-		makeTempDir:     os.MkdirTemp,
-		newRunID:        newRunID,
-		now:             time.Now,
-	}
-	return run(ctx, options, dependencies)
-}
-
+// run executes every selected manifest command serially in a fresh output
+// root and validates command-bound reports plus the bidirectional semantic
+// census. It is the reference serial engine behind RunPlanSerial.
 func run(ctx context.Context, options Options, dependencies runnerDependencies) (Result, error) {
 	root, manifestPath, err := resolvePaths(options.Root, options.ManifestPath)
 	if err != nil {

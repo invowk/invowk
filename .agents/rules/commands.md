@@ -415,7 +415,7 @@ goreleaser release --snapshot --clean
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, all-module govulncheck |
-| `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, then immutable soundness plan, one shared repository audit, bounded matrix workers, strict no-gap aggregation, retained aggregate telemetry for the routed profile, and byte-identical normalized parity against the retained legacy serial lane during semantic migration |
+| `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, then immutable soundness plan, one shared repository audit, bounded matrix workers, strict no-gap aggregation, and retained aggregate telemetry for the routed profile |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
 | `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |

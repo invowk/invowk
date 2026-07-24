@@ -165,15 +165,66 @@ plan:
 LPT reduces maximum estimated shard weight by 43.02 percent and removes the
 hidden nested-family underweighting found during live migration testing.
 
-## Remaining promotion evidence
+## Hosted side-by-side semantic runs
 
-The optimized topology is not promoted solely from component timing. Final
-promotion still requires:
+Published-workflow semantic runs execute the optimized plan/matrix/aggregate
+lanes and the retained legacy serial reference on the same exact tree, then
+compare normalized reports byte for byte. Wall times measure run creation to
+optimized-aggregate success for the optimized lane and job start to success
+for the serial lane; both lanes use the reviewed warm-cache 4-vCPU
+`github-hosted-ubuntu-x64-4cpu-reviewed` class.
 
-- three side-by-side optimized GitHub semantic runs after the workflow is
-  published, proving exact evidence parity and at least 50 percent median
-  wall-time reduction;
-- consumer hosted feedback at or below 10 minutes.
+| Run | Commit | Optimized lane | Serial reference | Parity | Versus same-run serial | Versus recorded 84m37s lower bound |
+|---|---|---:|---:|---|---:|---:|
+| `29984291493` | `66da5eac` | 33m36s | failed at 2h13m45s (pre-fix legacy executor ran consumers before the audit producer) | not run | — | 60.3 percent |
+| `30031336155` | `c9ce1ac4` | 30m15s | **3h16m41s passed** | **byte-identical** | **84.6 percent** | 64.2 percent |
 
-Until those rows are complete, the legacy comparison controls remain available
-and CI improvement claims are reported as pending rather than inferred.
+Run `30031336155` is the first successful hosted serial semantic execution
+ever recorded for this gate, so the historical 84m37s failed-run median is
+confirmed as a deep lower bound. Six deterministic analyzer race/repeat
+groups (15m41s to 28m10s each), the supporting population, targeted mutation,
+and both certification phases all fit independent four-CPU workers. The
+`soundness-report-compare` parity job confirmed byte-identical normalized
+findings, observations, populations, and verdicts between the distributed
+lane and the serial reference on the hosted class.
+
+## Consumer feedback objective
+
+The consumer profile executes `repository-audit`, `baseline`, `exceptions`,
+`full-scan`, and `performance-smoke`. Every constituent was measured on the
+reviewed warm-cache 4-vCPU class within run `30031336155`:
+
+| Constituent | Measured |
+|---|---:|
+| Plan, routing, and shared repository audit (one job) | 5m19s |
+| `baseline` verdict worker (checkout, setup, audit reuse) | 58s |
+| `exceptions` verdict worker | 51s |
+| `full-scan` verdict worker | 57s |
+| Strict no-gap aggregate job | 1m08s |
+
+`performance-smoke` reuses the bound shared-audit wall/RSS measurements
+instead of rescanning and adds only microsecond-scale solver and tabulation
+samples (1m40s locally on faster hardware, bounded by roughly two to three
+minutes on the hosted class including worker setup). Workers run in one
+parallel wave after the plan job, so end-to-end consumer feedback is
+approximately 8 to 9 minutes, within the 10-minute objective. The maintainer
+closed migration measurement after the recorded runs above; no dedicated
+consumer-routed run was executed, and the first natural consumer change on
+the default branch will confirm the derived figure.
+
+## Acceptance summary
+
+- Byte-for-byte normalized evidence parity between the optimized executor and
+  the serial reference is proven locally on one exact tree and on the hosted
+  runner class in run `30031336155`.
+- Optimized hosted semantic wall times (33m36s, 30m15s) are 60.3 and 64.2
+  percent below the recorded 84m37s serial lower bound, and 84.6 percent
+  below the only successful hosted serial semantic execution (3h16m41s, same
+  exact tree).
+- Local optimized medians (22m50.977s telemetry) are 57.09 percent below the
+  53m16.16s local serial median.
+- The maintainer accepted this evidence and closed side-by-side collection;
+  the migration-era legacy serial reference lane, its parity job, and the
+  `legacy-serial` executor switch were removed. The `plan-serial` executor
+  remains the permanent serial reference and rollback path, and
+  `cmd/soundness-report-compare` remains for parity diagnosis.

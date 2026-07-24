@@ -40,7 +40,7 @@ var requiredTaskLedgers = []TaskLedgerPlan{
 	{
 		Name:            "accelerate-goplint-soundness-gates",
 		Path:            "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
-		ExpectedPending: []string{"10.2", "10.3", "10.7", "8.7"},
+		ExpectedPending: []string{},
 	},
 }
 

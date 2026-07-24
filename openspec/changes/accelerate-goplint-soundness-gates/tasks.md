@@ -70,7 +70,7 @@
 - [x] 8.4 Run the consumer repository audit once and remove standalone baseline and exception package-analysis jobs while retaining their distinct blocking verdicts.
 - [x] 8.5 Ensure matrix cancellation, worker loss, artifact expiry, duplicate bundles, and partial uploads fail the aggregate job with actionable missing-work diagnostics.
 - [x] 8.6 Add workflow syntax/action validation and a local fixture-driven simulation of plan, multi-worker bundle production, and final aggregation.
-- [ ] 8.7 Run optimized and legacy CI topologies side by side until three semantic runs prove exact evidence parity and at least 50 percent median wall-time reduction.
+- [x] 8.7 Run optimized and legacy CI topologies side by side until three semantic runs prove exact evidence parity and at least 50 percent median wall-time reduction. (Two hosted semantic runs recorded, including one full side-by-side with byte-identical parity at 84.6 percent reduction; maintainer accepted the evidence and closed collection early.)
 
 ## 9. Documentation and Developer Interfaces
 
@@ -82,9 +82,9 @@
 ## 10. Final Parity, Performance, and Cleanup
 
 - [x] 10.1 Run unit, integration, race, repeat, deterministic scheduling, no-gap aggregation, repository-audit parity, ownership-routing, and resource-bound test suites in both Go modules.
-- [ ] 10.2 Demonstrate consumer CI feedback at or below 10 minutes on the reviewed warm-cache 4-vCPU class.
-- [ ] 10.3 Demonstrate semantic CI and local 24-CPU median wall times at least 50 percent below their recorded serial baselines without a required shard depending on a fixed 20-minute package timeout.
+- [x] 10.2 Demonstrate consumer CI feedback at or below 10 minutes on the reviewed warm-cache 4-vCPU class. (Derived at 8 to 9 minutes from constituents measured in run 30031336155; maintainer closed measurement without a dedicated consumer-routed run.)
+- [x] 10.3 Demonstrate semantic CI and local 24-CPU median wall times at least 50 percent below their recorded serial baselines without a required shard depending on a fixed 20-minute package timeout.
 - [x] 10.4 Compare serial-reference and optimized normalized findings, observations, populations, and verdicts byte-for-byte on the same exact tree.
 - [x] 10.5 Run `make lint`, `make test`, baseline, exception, full-scan, performance smoke, performance certification, semantic soundness, retained clean-tree generation/verification, and completion gates.
 - [x] 10.6 Run strict OpenSpec validation and `git diff --check`, then generate the final exact-tree completion evidence after all task bookkeeping and intended files are final.
-- [ ] 10.7 Remove the legacy serial scripts/workflow topology and temporary comparison switches only after parity, performance, and rollback criteria pass; verify no stale command or documentation references remain.
+- [x] 10.7 Remove the legacy serial scripts/workflow topology and temporary comparison switches only after parity, performance, and rollback criteria pass; verify no stale command or documentation references remain.

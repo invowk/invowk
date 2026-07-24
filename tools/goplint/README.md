@@ -273,8 +273,9 @@ make check-goplint-exceptions
 
 Pre-commit and CI conservatively route changes through the consumer, semantic,
 or completion profile. The lint workflow runs the shared audit plus immutable
-matrix/aggregate topology and retains a legacy serial semantic comparison while
-migration evidence is incomplete. Before claiming a soundness change complete,
+matrix/aggregate topology; recorded hosted parity and wall-time acceptance for
+the migration are retained in `docs/goplint/soundness-gate-performance.md`.
+Before claiming a soundness change complete,
 record the reviewed
 v3 synthetic tree and complete tracked/non-ignored-untracked diff census, run
 `make check-goplint-clean-tree-evidence`, then run

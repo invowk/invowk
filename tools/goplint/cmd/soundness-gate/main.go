@@ -25,7 +25,7 @@ func main() {
 	manifest := flag.String("manifest", "tools/goplint/spec/soundness-gate.v1.json", "root-relative aggregate manifest")
 	profile := flag.String("profile", string(soundnessgate.ProfileSemantic), "reviewed manifest profile: consumer, semantic, or complete")
 	telemetry := flag.String("telemetry", "", "absolute path outside the workspace for versioned execution telemetry")
-	executor := flag.String("executor", executorDefault(), "executor: legacy-serial, plan-serial, or parallel")
+	executor := flag.String("executor", executorDefault(), "executor: plan-serial or parallel")
 	cpuBudget := flag.Int("cpu-budget", 0, "positive CPU-unit override (default: environment or effective GOMAXPROCS)")
 	memoryBudget := flag.Int64("memory-budget-bytes", 0, "positive memory-byte override (default: environment or available memory with headroom)")
 	maximumWorkers := flag.Int("max-workers", 0, "positive worker-count override (default: environment or CPU budget)")
@@ -258,15 +258,6 @@ type executeOptions struct {
 
 func execute(ctx context.Context, options executeOptions) (soundnessgate.Result, error) {
 	switch options.executor {
-	case "legacy-serial":
-		result, err := soundnessgate.Run(ctx, soundnessgate.Options{
-			Root: options.root, ManifestPath: options.manifest, Profile: options.profile,
-			TelemetryPath: options.telemetry, ReportPath: options.report, Stdout: os.Stdout, Stderr: os.Stderr,
-		})
-		if err != nil {
-			return soundnessgate.Result{}, fmt.Errorf("run legacy serial soundness gate: %w", err)
-		}
-		return result, nil
 	case "plan-serial", "parallel":
 		budget, err := soundnessgate.DiscoverResourceBudget(soundnessgate.ResourceOverrides{
 			CPUUnits: options.cpuBudget, MemoryBytes: options.memoryBudget,
@@ -301,7 +292,7 @@ func execute(ctx context.Context, options executeOptions) (soundnessgate.Result,
 		}
 		return result, nil
 	default:
-		return soundnessgate.Result{}, fmt.Errorf("executor %q is invalid; want legacy-serial, plan-serial, or parallel", options.executor)
+		return soundnessgate.Result{}, fmt.Errorf("executor %q is invalid; want plan-serial or parallel", options.executor)
 	}
 }
 

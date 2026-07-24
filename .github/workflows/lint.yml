@@ -201,50 +201,6 @@ jobs:
           retention-days: 3
           overwrite: true
 
-  goplint-legacy-reference:
-    name: goplint legacy semantic reference
-    if: needs.goplint-plan.outputs.profile != 'consumer'
-    needs: goplint-plan
-    runs-on: ubuntu-latest
-    # The serial reference lane is the honest hosted baseline: it executes
-    # every semantic subgate sequentially on one four-CPU runner.
-    timeout-minutes: 300
-    permissions:
-      contents: read
-    env:
-      GOPLINT_BENCH_RUNNER_CLASS: github-hosted-ubuntu-x64-4cpu-reviewed
-      GOPLINT_BENCH_THRESHOLDS: tools/goplint/bench/thresholds.github-ubuntu-x64-4cpu.toml
-    steps:
-      - name: Checkout exact tree
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: tools/goplint/go.mod
-          cache: true
-
-      - name: Run retained serial semantic reference
-        run: |
-          mkdir -p "$RUNNER_TEMP/soundness-legacy"
-          cd tools/goplint
-          go run ./cmd/soundness-gate \
-            -root ../.. \
-            -manifest tools/goplint/spec/soundness-gate.v1.json \
-            -profile semantic \
-            -executor legacy-serial \
-            -telemetry "$RUNNER_TEMP/soundness-legacy/telemetry.json" \
-            -report "$RUNNER_TEMP/soundness-legacy/report.json"
-
-      - name: Upload retained serial comparison evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: soundness-legacy-reference
-          path: ${{ runner.temp }}/soundness-legacy/
-          if-no-files-found: error
-          retention-days: 3
-          overwrite: true
-
   goplint-workers:
     name: goplint soundness worker (${{ matrix.work_unit }})
     needs: goplint-plan
@@ -346,43 +302,6 @@ jobs:
           if-no-files-found: error
           retention-days: 3
           overwrite: true
-
-  goplint-parity:
-    name: goplint optimized versus serial parity
-    if: needs.goplint-legacy-reference.result == 'success' && needs.goplint-aggregate.result == 'success'
-    needs: [goplint-legacy-reference, goplint-aggregate]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout exact tree
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: tools/goplint/go.mod
-          cache: true
-
-      - name: Download serial reference
-        uses: actions/download-artifact@v8
-        with:
-          name: soundness-legacy-reference
-          path: ${{ runner.temp }}/soundness-legacy
-
-      - name: Download optimized aggregate
-        uses: actions/download-artifact@v8
-        with:
-          name: soundness-aggregate-result
-          path: ${{ runner.temp }}/soundness-optimized
-
-      - name: Compare normalized reports byte for byte
-        run: |
-          cd tools/goplint
-          go run ./cmd/soundness-report-compare \
-            -reference "$RUNNER_TEMP/soundness-legacy/report.json" \
-            -candidate "$RUNNER_TEMP/soundness-optimized/report.json"
 
   file-length:
     name: file length gate (1000 lines)

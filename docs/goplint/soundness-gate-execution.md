@@ -43,8 +43,8 @@ go run ./cmd/soundness-gate -profile semantic \
 The equivalent environment variables are
 `GOPLINT_SOUNDNESS_CPU_UNITS`, `GOPLINT_SOUNDNESS_MEMORY_BYTES`, and
 `GOPLINT_SOUNDNESS_MAX_WORKERS`. `GOPLINT_SOUNDNESS_EXECUTOR=plan-serial`
-selects the immutable-plan serial reference for parity diagnosis;
-`legacy-serial` exists only while migration comparison evidence is retained.
+selects the immutable-plan serial reference for parity diagnosis with
+`cmd/soundness-report-compare`.
 Resource limits may delay or fail work, but cannot shrink required populations.
 Dependency-ready work is admitted deterministically in descending reservation
 order, with canonical work-unit identity as the final tie breaker. This keeps
@@ -151,11 +151,10 @@ actionable missing-work or stale-binding failures instead of partial success.
 GitHub Actions reproduces this as plan/audit, bounded matrix-worker, and final
 aggregate jobs. Artifacts have unique work-unit names, support safe job reruns,
 and are merged only for strict aggregation. Scheduled and release events force
-the completion profile. During migration, semantic events also retain the
-single-job legacy serial reference and its report/telemetry; it is removed only
-after the `goplint-parity` job has used `soundness-report-compare` to establish
-byte-identical normalized evidence for three CI comparisons and those runs meet
-the required wall-time reduction.
+the completion profile. The migration-era legacy serial reference lane and its
+`goplint-parity` comparison were removed after the recorded hosted runs in
+[`soundness-gate-performance.md`](soundness-gate-performance.md) established
+byte-identical normalized evidence and the required wall-time reduction.
 
 ## Completion proof
 

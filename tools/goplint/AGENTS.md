@@ -109,8 +109,10 @@ fragment the runner. Distributed CI runs each group and phase on an
 independent four-CPU worker so no unit depends on a runner larger than the
 hosted class. Worker bundle v2 timestamps and content-binds its embedded
 report plus shared-audit digest; aggregation retains both the canonical report
-and versioned telemetry. Scheduled and release events force completion, while
-the legacy serial semantic lane remains during the measured migration period.
+and versioned telemetry. Scheduled and release events force completion. The
+migration-era legacy serial comparison lane was removed after hosted parity
+and wall-time acceptance were recorded in
+[`../../docs/goplint/soundness-gate-performance.md`](../../docs/goplint/soundness-gate-performance.md).
 
 ## Testing Parallelism
 
@@ -773,10 +775,12 @@ immutable plan, and produces the canonical repository audit once. Matrix
 workers execute exact plan units and upload bound bundles; the aggregate job
 recomputes the shared-audit and embedded-report digests, rejects missing,
 duplicate, foreign, stale, or partial results, and uploads the report plus
-telemetry. Semantic migration runs also execute `goplint-legacy-reference`
-and `goplint-parity`, whose `soundness-report-compare` invocation rejects any
-normalized evidence drift, until three CI comparisons satisfy parity and
-performance acceptance. The
+telemetry. The migration-era `goplint-legacy-reference` and `goplint-parity`
+jobs were removed after `soundness-report-compare` established byte-identical
+normalized evidence between the distributed lane and the hosted serial
+reference and the recorded wall-time acceptance passed;
+`cmd/soundness-report-compare` remains available for local parity diagnosis
+against the `plan-serial` executor. The
 scheduled oracle workflow runs its manifest-derived strict superset separately.
 
 ### Pre-commit hook

@@ -429,7 +429,7 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 			{
 				Name:            "accelerate-goplint-soundness-gates",
 				Path:            "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
-				ExpectedPending: []string{"10.2", "10.3", "10.7", "8.7"},
+				ExpectedPending: []string{},
 			},
 		},
 		DiffReview: DiffReviewPlan{ReviewedExclusions: []ReviewedExclusion{}},
@@ -477,7 +477,7 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 		t,
 		root,
 		"openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
-		"- [ ] 8.7 Hosted parity\n- [ ] 10.2 Consumer CI\n- [ ] 10.3 Semantic CI\n- [ ] 10.7 Remove legacy topology\n",
+		"- [x] 8.7 Hosted parity\n- [x] 10.2 Consumer CI\n- [x] 10.3 Semantic CI\n- [x] 10.7 Remove legacy topology\n",
 	)
 	writeTestJSON(t, root, "counterexamples.json", counterexampleInventory{
 		FormatVersion: FormatVersion,
