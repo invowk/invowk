@@ -39,8 +39,7 @@ func TestLockFileVersion_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidLockFileVersion) {
 					t.Errorf("error should wrap ErrInvalidLockFileVersion, got: %v", err)
 				}
-				var lvErr *InvalidLockFileVersionError
-				if !errors.As(err, &lvErr) {
+				if _, ok := errors.AsType[*InvalidLockFileVersionError](err); !ok {
 					t.Errorf("error should be *InvalidLockFileVersionError, got: %T", err)
 				}
 			} else if err != nil {
@@ -89,8 +88,7 @@ func TestModuleRefKey_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidModuleRefKey) {
 					t.Errorf("error should wrap ErrInvalidModuleRefKey, got: %v", err)
 				}
-				var mrkErr *InvalidModuleRefKeyError
-				if !errors.As(err, &mrkErr) {
+				if _, ok := errors.AsType[*InvalidModuleRefKeyError](err); !ok {
 					t.Errorf("error should be *InvalidModuleRefKeyError, got: %T", err)
 				}
 			} else if err != nil {

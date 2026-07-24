@@ -178,18 +178,15 @@ func TestVolumeMount_Validate_FieldErrorTypes(t *testing.T) {
 	}
 
 	// Verify individual error types via errors.As
-	var hfpErr *InvalidHostFilesystemPathError
-	if !errors.As(err, &hfpErr) {
+	if _, ok := errors.AsType[*InvalidHostFilesystemPathError](err); !ok {
 		t.Errorf("error should contain *InvalidHostFilesystemPathError, got: %T", err)
 	}
 
-	var mtpErr *InvalidMountTargetPathError
-	if !errors.As(err, &mtpErr) {
+	if _, ok := errors.AsType[*InvalidMountTargetPathError](err); !ok {
 		t.Errorf("error should contain *InvalidMountTargetPathError, got: %T", err)
 	}
 
-	var slErr *InvalidSELinuxLabelError
-	if !errors.As(err, &slErr) {
+	if _, ok := errors.AsType[*InvalidSELinuxLabelError](err); !ok {
 		t.Errorf("error should contain *InvalidSELinuxLabelError, got: %T", err)
 	}
 }
@@ -206,8 +203,7 @@ func TestInvalidVolumeMountError(t *testing.T) {
 		FieldErrs: fieldErrs,
 	}
 
-	var target *InvalidVolumeMountError
-	if !errors.As(err, &target) {
+	if _, ok := errors.AsType[*InvalidVolumeMountError](err); !ok {
 		t.Errorf("error should be *InvalidVolumeMountError, got %T", err)
 	}
 	if !errors.Is(err, ErrInvalidVolumeMount) {

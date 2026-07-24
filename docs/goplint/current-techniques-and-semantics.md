@@ -158,11 +158,12 @@ for definite policy findings.
 
 ## Verification contract
 
-`make check-goplint-soundness` is the regular/CI alias for the causal `core`
-aggregate profile. A reviewed machine-readable manifest declares exact command
-vectors, required bound reports, and minimum nonzero populations. The runner
-rejects missing, skipped, stale, duplicate, empty, forged, or successful no-op
-subgates. The core profile runs:
+`make check-goplint-soundness` conservatively routes changes to the `consumer`,
+`semantic`, or `complete` aggregate profile. The explicit semantic target is
+the causal analyzer-soundness gate. A reviewed machine-readable manifest
+declares exact command vectors, required bound reports, and minimum nonzero
+populations. The runner rejects missing, skipped, stale, duplicate, empty,
+forged, or successful no-op subgates. The semantic profile runs:
 
 - real-analyzer production integration and historical counterexamples;
 - alternate-production-authority absence checks;
@@ -180,7 +181,7 @@ subgates. The core profile runs:
 - separate reference-component and full generated-analyzer performance
   thresholds plus aggregate-gate self-validation.
 
-The scheduled oracle enumerates a manifest-derived strict superset of the core
+The scheduled oracle enumerates a manifest-derived strict superset of the semantic
 cases and compares every generated program with the production analyzer in a
 blocking sharded workflow.
 
@@ -197,14 +198,14 @@ A soundness completion claim additionally requires a retained exact-tree proof.
 The recorder uses a temporary Git index to assemble the reviewed path selection
 on its base commit, first checks that every tracked or non-ignored untracked
 change is selected or has a sorted, justified reviewed exclusion, executes the
-core profile in that synthetic tree, and binds the tree, per-path complete-diff
+semantic profile in that synthetic tree, and binds the tree, per-path complete-diff
 census, tools, inputs, all three dependency-ordered task ledgers, commands,
 observations, populations, and causal mutation sequence. Stale exclusions,
 silent omissions, partial predecessor state, or reordered change ledgers are
 blocking. `make check-goplint-clean-tree-evidence` replays and verifies that
 record without modifying the caller's real index or worktree.
 `make check-goplint-soundness-complete` adds this freshness verifier. Record
-generation uses core rather than complete to avoid a recursive dependency.
+generation uses semantic rather than complete to avoid a recursive dependency.
 
 CI additionally runs nested-module tests with the race detector, baseline and
 exception governance, and a blocking canonical full-repository scan. See the

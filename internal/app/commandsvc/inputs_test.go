@@ -63,8 +63,7 @@ func TestValidateInputs(t *testing.T) {
 					argDefs: []invowkfile.Argument{{Name: "target", Required: true}},
 				},
 			)
-			var argErr *deps.ArgumentValidationError
-			if !errors.As(err, &argErr) {
+			if _, ok := errors.AsType[*deps.ArgumentValidationError](err); !ok {
 				t.Fatalf("errors.As(*ArgumentValidationError) = false for %T", err)
 			}
 		}},
@@ -128,8 +127,7 @@ func TestResolveRuntime(t *testing.T) {
 		cmdInfo,
 		config.DefaultConfig(),
 	)
-	var notAllowed *RuntimeNotAllowedError
-	if !errors.As(err, &notAllowed) {
+	if _, ok := errors.AsType[*RuntimeNotAllowedError](err); !ok {
 		t.Fatalf("errors.As(*RuntimeNotAllowedError) = false for %T", err)
 	}
 	if !errors.Is(err, ErrRuntimeNotAllowed) {

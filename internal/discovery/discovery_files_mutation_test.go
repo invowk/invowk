@@ -87,8 +87,7 @@ func TestModuleListResult_ValidateSkipsNilModulesAndReportsInvalidDiagnostics(t 
 	if !errors.Is(err, ErrInvalidDiagnostic) {
 		t.Fatalf("invalid ModuleListResult.Validate() error = %v, want ErrInvalidDiagnostic", err)
 	}
-	var diagnosticErr *InvalidDiagnosticError
-	if !errors.As(err, &diagnosticErr) {
+	if _, ok := errors.AsType[*InvalidDiagnosticError](err); !ok {
 		t.Fatalf("invalid ModuleListResult.Validate() error = %T, want *InvalidDiagnosticError", err)
 	}
 }

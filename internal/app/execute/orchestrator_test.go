@@ -115,8 +115,7 @@ func TestResolveRuntime(t *testing.T) {
 					t.Fatal("expected error, got nil")
 				}
 				if tt.wantRuntimeNotAllowed {
-					var runtimeErr *RuntimeNotAllowedError
-					if !errors.As(err, &runtimeErr) {
+					if _, ok := errors.AsType[*RuntimeNotAllowedError](err); !ok {
 						t.Errorf("expected error type *RuntimeNotAllowedError, got %v", err)
 					}
 				}

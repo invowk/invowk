@@ -45,8 +45,7 @@ func TestFilesystemPath_Validate(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		var fpErr *types.InvalidFilesystemPathError
-		if !errors.As(err, &fpErr) {
+		if _, ok := errors.AsType[*types.InvalidFilesystemPathError](err); !ok {
 			t.Errorf("error should be *InvalidFilesystemPathError, got: %T", err)
 		}
 	})

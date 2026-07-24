@@ -95,8 +95,7 @@ func TestValidateCustomCheckOutputMutationContracts(t *testing.T) {
 		invowkfile.CustomCheck{Name: "bad-regex", ExpectedOutput: "["},
 		mustCustomCheckResult(t, "anything", 0),
 	)
-	var syntaxErr *syntax.Error
-	if !errors.As(err, &syntaxErr) {
+	if _, ok := errors.AsType[*syntax.Error](err); !ok {
 		t.Fatalf("invalid regex error = %v, want *syntax.Error", err)
 	}
 
@@ -644,8 +643,7 @@ func testHostEnvFormattingAndRegex(t *testing.T) {
 	}
 
 	err := validateHostEnvVar(invowkfile.EnvVarCheck{Name: "PORT", Validation: "["}, map[string]string{"PORT": "8080"})
-	var syntaxErr *syntax.Error
-	if !errors.As(err, &syntaxErr) {
+	if _, ok := errors.AsType[*syntax.Error](err); !ok {
 		t.Fatalf("invalid host env regex error = %v, want *syntax.Error", err)
 	}
 }

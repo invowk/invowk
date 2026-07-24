@@ -361,8 +361,7 @@ func TestContainerImage_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidContainerImage) {
 					t.Errorf("error should wrap ErrInvalidContainerImage, got: %v", err)
 				}
-				var typedErr *InvalidContainerImageError
-				if !errors.As(err, &typedErr) {
+				if typedErr, ok := errors.AsType[*InvalidContainerImageError](err); !ok {
 					t.Errorf("error should be *InvalidContainerImageError, got: %T", err)
 				} else if typedErr.Value != tt.img {
 					t.Errorf("InvalidContainerImageError.Value = %q, want %q", typedErr.Value, tt.img)

@@ -209,8 +209,7 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 					t.Fatalf("error = %T %v, want *OperationError", err, err)
 				}
 			case tt.wantExitError:
-				var exitErr *exec.ExitError
-				if !errors.As(err, &exitErr) {
+				if _, ok := errors.AsType[*exec.ExitError](err); !ok {
 					t.Fatalf("error = %T %v, want wrapped *exec.ExitError", err, err)
 				}
 			case err != nil:

@@ -44,8 +44,7 @@ func TestVolumeMountSpec_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidVolumeMountSpec) {
 					t.Errorf("error should wrap ErrInvalidVolumeMountSpec, got: %v", err)
 				}
-				var vmErr *InvalidVolumeMountSpecError
-				if !errors.As(err, &vmErr) {
+				if _, ok := errors.AsType[*InvalidVolumeMountSpecError](err); !ok {
 					t.Errorf("error should be *InvalidVolumeMountSpecError, got: %T", err)
 				}
 			} else if err != nil {

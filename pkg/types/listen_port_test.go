@@ -66,8 +66,7 @@ func TestListenPort_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidListenPort) {
 					t.Errorf("error should wrap ErrInvalidListenPort, got: %v", err)
 				}
-				var lpErr *InvalidListenPortError
-				if !errors.As(err, &lpErr) {
+				if _, ok := errors.AsType[*InvalidListenPortError](err); !ok {
 					t.Errorf("error should be *InvalidListenPortError, got: %T", err)
 				}
 			} else if err != nil {

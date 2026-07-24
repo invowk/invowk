@@ -534,8 +534,7 @@ func TestResolveIdentifier(t *testing.T) {
 					t.Fatalf("resolveIdentifier(%q) = %v, want error", tt.identifier, keys)
 				}
 				if tt.wantAmbig {
-					var ambigErr *AmbiguousIdentifierError
-					if !errors.As(err, &ambigErr) {
+					if _, ok := errors.AsType[*AmbiguousIdentifierError](err); !ok {
 						t.Errorf("expected AmbiguousIdentifierError, got %T: %v", err, err)
 					}
 				}

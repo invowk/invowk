@@ -196,8 +196,7 @@ func TestModuleIncludePath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidModuleIncludePath) {
 					t.Errorf("error should wrap ErrInvalidModuleIncludePath, got: %v", err)
 				}
-				var mpErr *InvalidModuleIncludePathError
-				if !errors.As(err, &mpErr) {
+				if _, ok := errors.AsType[*InvalidModuleIncludePathError](err); !ok {
 					t.Errorf("error should be *InvalidModuleIncludePathError, got: %T", err)
 				}
 			} else if err != nil {
@@ -282,8 +281,7 @@ func TestBinaryFilePath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidBinaryFilePath) {
 					t.Errorf("error should wrap ErrInvalidBinaryFilePath, got: %v", err)
 				}
-				var bfpErr *InvalidBinaryFilePathError
-				if !errors.As(err, &bfpErr) {
+				if _, ok := errors.AsType[*InvalidBinaryFilePathError](err); !ok {
 					t.Errorf("error should be *InvalidBinaryFilePathError, got: %T", err)
 				}
 			} else if err != nil {
@@ -334,8 +332,7 @@ func TestCacheDirPath_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidCacheDirPath) {
 					t.Errorf("error should wrap ErrInvalidCacheDirPath, got: %v", err)
 				}
-				var cdpErr *InvalidCacheDirPathError
-				if !errors.As(err, &cdpErr) {
+				if _, ok := errors.AsType[*InvalidCacheDirPathError](err); !ok {
 					t.Errorf("error should be *InvalidCacheDirPathError, got: %T", err)
 				}
 			} else if err != nil {
@@ -677,8 +674,7 @@ func TestContainerConfig_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidContainerConfig) {
 					t.Errorf("error should wrap ErrInvalidContainerConfig, got: %v", err)
 				}
-				var cfgErr *InvalidContainerConfigError
-				if !errors.As(err, &cfgErr) {
+				if _, ok := errors.AsType[*InvalidContainerConfigError](err); !ok {
 					t.Fatalf("error should be *InvalidContainerConfigError, got: %T", err)
 				}
 			} else if err != nil {

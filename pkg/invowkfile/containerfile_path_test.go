@@ -53,8 +53,7 @@ func TestContainerfilePath_Validate(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		var cpErr *invowkfile.InvalidContainerfilePathError
-		if !errors.As(err, &cpErr) {
+		if _, ok := errors.AsType[*invowkfile.InvalidContainerfilePathError](err); !ok {
 			t.Errorf("error should be *InvalidContainerfilePathError, got: %T", err)
 		}
 	})

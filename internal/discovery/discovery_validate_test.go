@@ -206,8 +206,7 @@ func TestDiscoveredFile_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidDiscoveredFile) = false, want true")
 	}
 
-	var invalidErr *InvalidDiscoveredFileError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidDiscoveredFileError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidDiscoveredFileError) = false, want true")
 	}
 }
@@ -297,8 +296,7 @@ func TestLookupResult_Validate_ErrorTypes(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrInvalidLookupResult) = false, want true")
 	}
 
-	var invalidErr *InvalidLookupResultError
-	if !errors.As(err, &invalidErr) {
+	if _, ok := errors.AsType[*InvalidLookupResultError](err); !ok {
 		t.Errorf("errors.As(err, *InvalidLookupResultError) = false, want true")
 	}
 }

@@ -245,8 +245,7 @@ func BenchmarkDiscoveryModuleCollisionCheck(b *testing.B) {
 		if err == nil {
 			b.Fatal("expected module collision error")
 		}
-		var collisionErr *discovery.ModuleCollisionError
-		if !errors.As(err, &collisionErr) {
+		if _, ok := errors.AsType[*discovery.ModuleCollisionError](err); !ok {
 			b.Fatalf("expected ModuleCollisionError, got: %v", err)
 		}
 	}

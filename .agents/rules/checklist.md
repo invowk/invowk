@@ -48,29 +48,34 @@ The following items are also enforced by pre-commit hooks (`.pre-commit-config.y
 | `golangci-lint` | 4 (Linting) | `make lint` (normalized root + `tools/goplint` lint, formatter, and config gates) |
 | `goplint-baseline` | 7 (Baseline) | `make check-baseline` |
 | `goplint-exceptions` | — | `make check-goplint-exceptions` |
-| `goplint-behavior` | — | Canonical causal core profile via `make check-goplint-soundness-core` |
+| `goplint-behavior` | — | Routed soundness via `make check-goplint-soundness-routed`, capped at the consumer tier locally (documentation diffs run docs-guard; harness/analyzer-semantics diffs run consumer and print the authoritative CI tier) |
 | `pgo-staleness` | — | Advisory only (exit 0); warns when hot-path files staged without `default.pgo` |
 | `sonar-local` | 10 (Sonar) | API-only check; `SONAR_TOKEN` optional (public projects work without auth) |
 
 Items NOT covered by any hook (manual discipline required): `make test`, `make tidy`, `make test-cli`, `make check-file-length`, `make check-agent-docs`, `make test-scripts`, documentation/diagram/module validation, `/simplify`, and `/learn`.
 
-For a goplint soundness completion claim, the regular core profile is not the
-last gate. Run this exact sequence from the repository root:
+For a goplint soundness completion claim, the regular semantic profile is not
+the last gate. Run this exact sequence from the repository root:
 
 ```bash
-make check-goplint-soundness-core
-make generate-goplint-clean-tree-evidence
+make check-goplint-soundness-semantic
+make generate-goplint-clean-tree-evidence   # or: make rebind-goplint-clean-tree-evidence
 make check-goplint-clean-tree-evidence
 make check-goplint-soundness-complete
 ```
 
-The generator consumes the reviewed path selection and command plan, invokes
-the `core` profile rather than `complete` to avoid recursive freshness
-verification, and writes only the retained run record. Verification must not
-change the caller's index or worktree. A missing or stale record is blocking
-and cannot be baselined, excepted, or inline-ignored.
+The generator consumes the reviewed v4 path selection and command plan,
+invokes the `semantic` profile rather than `complete` to avoid recursive
+freshness verification, and writes only the retained v4 dual-digest run
+record. When only documentation-class prose drifted since a valid record, use
+`make rebind-goplint-clean-tree-evidence` instead of full regeneration: it
+recomputes both tree digests, revalidates task ledgers and the diff census,
+and carries the aggregate report forward with re-bound provenance;
+semantic-content drift makes re-binding fail closed naming the drifted paths.
+Verification must not change the caller's index or worktree. A missing or
+stale record is blocking and cannot be baselined, excepted, or inline-ignored.
 
-The core profile also runs `make check-goplint-mutation-kernel-coverage`. That
+The semantic profile also runs `make check-goplint-mutation-kernel-coverage`. That
 subgate binds the semantic-rules catalog, blocking mutation profile, and mutant
 catalog; it requires at least one selected causal mutant with stage and
 assertion-mismatch metadata for every category whose semantic rule requires

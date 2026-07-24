@@ -147,8 +147,7 @@ func TestArgument_Validate_InvalidName(t *testing.T) {
 	if !errors.Is(err, ErrInvalidArgument) {
 		t.Errorf("error should wrap ErrInvalidArgument, got: %v", err)
 	}
-	var argErr *InvalidArgumentError
-	if !errors.As(err, &argErr) {
+	if argErr, ok := errors.AsType[*InvalidArgumentError](err); !ok {
 		t.Errorf("error should be *InvalidArgumentError, got: %T", err)
 	} else if len(argErr.FieldErrors) == 0 {
 		t.Error("InvalidArgumentError.FieldErrors should not be empty")

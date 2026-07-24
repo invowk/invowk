@@ -148,8 +148,7 @@ func TestFlag_Validate_InvalidName(t *testing.T) {
 	if !errors.Is(err, ErrInvalidFlag) {
 		t.Errorf("error should wrap ErrInvalidFlag, got: %v", err)
 	}
-	var flagErr *InvalidFlagError
-	if !errors.As(err, &flagErr) {
+	if flagErr, ok := errors.AsType[*InvalidFlagError](err); !ok {
 		t.Errorf("error should be *InvalidFlagError, got: %T", err)
 	} else if len(flagErr.FieldErrors) == 0 {
 		t.Error("InvalidFlagError.FieldErrors should not be empty")

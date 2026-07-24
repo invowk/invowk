@@ -40,8 +40,7 @@ func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
 			t.Fatal("expected error for non-zero exit code")
 		}
 
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
+		if _, ok := errors.AsType[*exec.ExitError](err); !ok {
 			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
@@ -84,8 +83,7 @@ func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
 			t.Errorf("expected empty output on error, got %q", out)
 		}
 
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
+		if _, ok := errors.AsType[*exec.ExitError](err); !ok {
 			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})

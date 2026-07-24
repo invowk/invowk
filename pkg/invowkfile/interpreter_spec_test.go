@@ -40,8 +40,7 @@ func TestInterpreterSpec_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidInterpreterSpec) {
 					t.Errorf("error should wrap ErrInvalidInterpreterSpec, got: %v", err)
 				}
-				var isErr *InvalidInterpreterSpecError
-				if !errors.As(err, &isErr) {
+				if _, ok := errors.AsType[*InvalidInterpreterSpecError](err); !ok {
 					t.Errorf("error should be *InvalidInterpreterSpecError, got: %T", err)
 				}
 			} else if err != nil {

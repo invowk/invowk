@@ -41,8 +41,7 @@ func TestGlobPattern_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidGlobPattern) {
 					t.Errorf("error should wrap ErrInvalidGlobPattern, got: %v", err)
 				}
-				var gpErr *InvalidGlobPatternError
-				if !errors.As(err, &gpErr) {
+				if gpErr, ok := errors.AsType[*InvalidGlobPatternError](err); !ok {
 					t.Errorf("error should be *InvalidGlobPatternError, got: %T", err)
 				} else if gpErr.Value != tt.pattern {
 					t.Errorf("InvalidGlobPatternError.Value = %q, want %q", gpErr.Value, tt.pattern)

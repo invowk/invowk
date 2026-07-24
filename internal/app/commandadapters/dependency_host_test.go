@@ -454,8 +454,7 @@ func assertCapabilityErrorType(t *testing.T, err error) {
 	if err == nil {
 		return
 	}
-	var capErr *invowkfile.CapabilityError
-	if !errors.As(err, &capErr) {
+	if _, ok := errors.AsType[*invowkfile.CapabilityError](err); !ok {
 		t.Errorf("errors.As(*CapabilityError) = false for %T", err)
 	}
 }

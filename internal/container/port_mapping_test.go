@@ -168,13 +168,11 @@ func TestPortMapping_Validate_FieldErrorTypes(t *testing.T) {
 	}
 
 	// Verify individual error types via errors.As
-	var npErr *InvalidNetworkPortError
-	if !errors.As(err, &npErr) {
+	if _, ok := errors.AsType[*InvalidNetworkPortError](err); !ok {
 		t.Errorf("error should contain *InvalidNetworkPortError, got: %T", err)
 	}
 
-	var ppErr *InvalidPortProtocolError
-	if !errors.As(err, &ppErr) {
+	if _, ok := errors.AsType[*InvalidPortProtocolError](err); !ok {
 		t.Errorf("error should contain *InvalidPortProtocolError, got: %T", err)
 	}
 }
@@ -303,8 +301,7 @@ func TestInvalidPortMappingError(t *testing.T) {
 
 	portErr := &InvalidNetworkPortError{Value: 0}
 
-	var portTarget *InvalidNetworkPortError
-	if !errors.As(portErr, &portTarget) {
+	if _, ok := errors.AsType[*InvalidNetworkPortError](portErr); !ok {
 		t.Errorf("error should be *InvalidNetworkPortError, got %T", portErr)
 	}
 	if !errors.Is(portErr, ErrInvalidNetworkPort) {
@@ -313,8 +310,7 @@ func TestInvalidPortMappingError(t *testing.T) {
 
 	protoErr := &InvalidPortProtocolError{Value: "invalid"}
 
-	var protoTarget *InvalidPortProtocolError
-	if !errors.As(protoErr, &protoTarget) {
+	if _, ok := errors.AsType[*InvalidPortProtocolError](protoErr); !ok {
 		t.Errorf("error should be *InvalidPortProtocolError, got %T", protoErr)
 	}
 	if !errors.Is(protoErr, ErrInvalidPortProtocol) {
@@ -327,8 +323,7 @@ func TestInvalidPortMappingError(t *testing.T) {
 		FieldErrs: fieldErrs,
 	}
 
-	var mappingTarget *InvalidPortMappingError
-	if !errors.As(err, &mappingTarget) {
+	if _, ok := errors.AsType[*InvalidPortMappingError](err); !ok {
 		t.Errorf("error should be *InvalidPortMappingError, got %T", err)
 	}
 	if !errors.Is(err, ErrInvalidPortMapping) {

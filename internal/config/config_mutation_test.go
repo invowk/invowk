@@ -434,8 +434,7 @@ func testConfigMutationCreateDefaultDirectoryFailure(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to create config directory") {
 		t.Fatalf("CreateDefaultConfig() error = %v, want directory creation wrapper", err)
 	}
-	var pathErr *os.PathError
-	if !errors.As(err, &pathErr) {
+	if _, ok := errors.AsType[*os.PathError](err); !ok {
 		t.Fatalf("CreateDefaultConfig() error = %v, want wrapped *os.PathError", err)
 	}
 }
@@ -460,8 +459,7 @@ func testConfigMutationCreateDefaultWriteFailure(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to write config file") {
 		t.Fatalf("CreateDefaultConfig() error = %v, want write wrapper", err)
 	}
-	var pathErr *os.PathError
-	if !errors.As(err, &pathErr) {
+	if _, ok := errors.AsType[*os.PathError](err); !ok {
 		t.Fatalf("CreateDefaultConfig() error = %v, want wrapped *os.PathError", err)
 	}
 }

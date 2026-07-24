@@ -41,8 +41,7 @@ func TestDescriptionText_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidDescriptionText) {
 					t.Errorf("error should wrap ErrInvalidDescriptionText, got: %v", err)
 				}
-				var dtErr *InvalidDescriptionTextError
-				if !errors.As(err, &dtErr) {
+				if _, ok := errors.AsType[*InvalidDescriptionTextError](err); !ok {
 					t.Errorf("error should be *InvalidDescriptionTextError, got: %T", err)
 				}
 			} else if err != nil {

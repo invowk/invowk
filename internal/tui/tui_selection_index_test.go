@@ -61,8 +61,7 @@ func TestSelectionIndex_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidSelectionIndex) {
 					t.Errorf("error should wrap ErrInvalidSelectionIndex, got: %v", err)
 				}
-				var idxErr *InvalidSelectionIndexError
-				if !errors.As(err, &idxErr) {
+				if _, ok := errors.AsType[*InvalidSelectionIndexError](err); !ok {
 					t.Errorf("error should be *InvalidSelectionIndexError, got: %T", err)
 				}
 			} else if err != nil {

@@ -40,8 +40,7 @@ func TestPortMappingSpec_Validate(t *testing.T) {
 				if !errors.Is(err, ErrInvalidPortMappingSpec) {
 					t.Errorf("error should wrap ErrInvalidPortMappingSpec, got: %v", err)
 				}
-				var pmErr *InvalidPortMappingSpecError
-				if !errors.As(err, &pmErr) {
+				if _, ok := errors.AsType[*InvalidPortMappingSpecError](err); !ok {
 					t.Errorf("error should be *InvalidPortMappingSpecError, got: %T", err)
 				}
 			} else if err != nil {
