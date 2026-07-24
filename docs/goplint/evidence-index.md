@@ -72,10 +72,12 @@ non-mutation subgate success cannot substitute for either proof.
 
 ## Profiles and exact-tree lifecycle
 
-`make check-goplint-soundness` and
-`make check-goplint-soundness-core` run the regular causal core profile used by
-pre-commit and CI. The core profile executes every semantic subgate except the
-retained exact-tree freshness verifier.
+`make check-goplint-soundness` conservatively routes to `consumer`, `semantic`,
+or `complete`; unknown context fails closed. The explicit
+`make check-goplint-soundness-semantic` target runs every causal semantic
+subgate except the retained exact-tree freshness verifier.
+`check-goplint-soundness-core` remains only as a compatibility alias for that
+semantic target.
 
 The retained v3 authorities are the reviewed
 [`command plan`](../../tools/goplint/testdata/gates/clean-tree-v3.json),
@@ -94,7 +96,7 @@ For a completion claim:
    exclusions and every silent omission, then assemble `HEAD` plus that
    selection through a temporary Git index;
 2. run the reviewed command plan in the resulting detached synthetic tree,
-   including the core aggregate, and retain its bound report;
+   including the semantic aggregate, and retain its bound report;
 3. record the synthetic tree, the per-path complete-diff status/content digest
    and selected-or-excluded disposition, authorized recorder outputs, inputs,
    tools, task ledgers, counterexamples, commands, observations, mutation
@@ -102,7 +104,7 @@ For a completion claim:
 4. run `make check-goplint-clean-tree-evidence` from the caller checkout; then
 5. run `make check-goplint-soundness-complete`.
 
-Record generation deliberately invokes the core profile. The complete profile
+Record generation deliberately invokes the semantic profile. The complete profile
 adds the freshness verifier, so using it during generation would make the proof
 depend recursively on the record it is creating. Verification replays the
 retained base with the current reviewed paths and rejects any changed input or
@@ -112,10 +114,12 @@ synthetic `git diff --check` excludes only the retained
 nested patch misclassifies its unified-diff context prefixes as source
 whitespace errors. The patch remains selected, content-digested, and exercised
 by the red-baseline reconstruction contract. The
-v3 plan fixes the ledger order to `complete-goplint-soundness-hardening`,
-`close-goplint-soundness-review-gaps`, then
-`close-residual-goplint-soundness-gaps`; only the predecessors' final archive
-tasks may remain pending in a retained pre-archive proof.
+v3 plan fixes the ledger order to the archived
+`complete-goplint-soundness-hardening`,
+`close-goplint-soundness-review-gaps`, and
+`close-residual-goplint-soundness-gaps` predecessors, followed by the active
+`accelerate-goplint-soundness-gates` change. Only the current change's declared
+hosted-CI, promotion, and legacy-cleanup tasks may remain pending.
 
 ## Direct commands
 

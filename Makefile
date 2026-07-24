@@ -386,11 +386,19 @@ check-types-all-json: build-goplint
 	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
 
 # Check semantic spec contracts for CFA-backed goplint categories.
-.PHONY: check-goplint-soundness check-goplint-soundness-core check-goplint-soundness-complete generate-goplint-clean-tree-evidence check-goplint-clean-tree-evidence check-goplint-mutation-kernel-coverage check-goplint-gate-contract check-goplint-production-integration check-goplint-counterexamples check-goplint-architecture check-goplint-catalog check-semantic-spec check-goplint-protocol-oracle check-goplint-protocol-oracle-scheduled check-goplint-end-to-end-oracle check-goplint-fuzz-seeds check-goplint-fuzz-scheduled check-goplint-targeted-mutation check-goplint-determinism check-cfg-refinement check-goplint-race-repeat check-goplint-full-scan check-goplint-benchmarks
-check-goplint-soundness: check-goplint-soundness-core
+.PHONY: check-goplint-soundness check-goplint-soundness-routed check-goplint-soundness-consumer check-goplint-soundness-core check-goplint-soundness-semantic check-goplint-soundness-complete generate-goplint-clean-tree-evidence check-goplint-clean-tree-evidence check-goplint-mutation-kernel-coverage check-goplint-gate-contract check-goplint-production-integration check-goplint-counterexamples check-goplint-architecture check-goplint-catalog check-semantic-spec check-goplint-protocol-oracle check-goplint-protocol-oracle-scheduled check-goplint-end-to-end-oracle check-goplint-fuzz-seeds check-goplint-fuzz-scheduled check-goplint-targeted-mutation check-goplint-determinism check-cfg-refinement check-goplint-race-repeat update-goplint-race-repeat-timings check-goplint-repository-audit check-goplint-full-scan check-goplint-performance-smoke check-goplint-benchmarks
+check-goplint-soundness: check-goplint-soundness-routed
 
-check-goplint-soundness-core:
-	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile core
+check-goplint-soundness-routed:
+	./tools/goplint/scripts/check-routed-soundness.sh
+
+check-goplint-soundness-consumer:
+	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile consumer
+
+check-goplint-soundness-core: check-goplint-soundness-semantic
+
+check-goplint-soundness-semantic:
+	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile semantic
 
 check-goplint-soundness-complete:
 	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile complete
@@ -448,9 +456,19 @@ check-cfg-refinement:
 check-goplint-race-repeat:
 	./tools/goplint/scripts/check-race-repeat.sh
 
+update-goplint-race-repeat-timings:
+	cd tools/goplint && $(GOCMD) run ./cmd/race-repeat-timings -samples 3 -output spec/goplint-test-timings.v1.json
+
+check-goplint-repository-audit: build-goplint
+	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode produce
+	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=canonical-superset-audit
+
 check-goplint-full-scan: build-goplint
-	./$(BUILD_DIR)/goplint -test=false -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode full-scan
 	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=baseline-production-scan
+
+check-goplint-performance-smoke:
+	./tools/goplint/scripts/check-performance-smoke.sh
 
 check-goplint-benchmarks:
 	./tools/goplint/scripts/check-cfg-bench-thresholds.sh
@@ -460,16 +478,17 @@ check-goplint-benchmarks:
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	./$(BUILD_DIR)/goplint -test=false -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode baseline
 	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=canonical-production-scan
 
 # Audit goplint exception governance.
 .PHONY: check-goplint-exceptions
 check-goplint-exceptions: build-goplint
 	@echo "Auditing goplint stale exceptions..."
-	./$(BUILD_DIR)/goplint -test=false -check-all -check-enum-sync -audit-exceptions -global -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode exceptions
 	@echo "Auditing goplint exception review dates..."
-	./$(BUILD_DIR)/goplint -test=false -check-all -check-enum-sync -audit-review-dates -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode review-dates
+	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=exception-governance
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
@@ -493,7 +512,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh tools/goplint/scripts/check-protocol-oracle.sh tools/goplint/scripts/check-fuzz-seeds.sh tools/goplint/scripts/check-fuzz-scheduled.sh tools/goplint/scripts/check-protocol-determinism.sh tools/goplint/scripts/check-race-repeat.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh tools/goplint/scripts/check-performance-smoke.sh tools/goplint/scripts/check-protocol-oracle.sh tools/goplint/scripts/check-fuzz-seeds.sh tools/goplint/scripts/check-fuzz-scheduled.sh tools/goplint/scripts/check-protocol-determinism.sh tools/goplint/scripts/check-race-repeat.sh tools/goplint/scripts/check-routed-soundness.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -705,8 +724,10 @@ help:
 	@echo "  lint-fmt         Check golangci-lint formatters for root and tools/goplint"
 	@echo "  lint-config-verify Verify golangci-lint configs for root and tools/goplint"
 	@echo "  lint-linters     Print effective golangci-lint linter JSON for both modules"
-	@echo "  check-goplint-soundness Run the canonical goplint soundness gate"
-	@echo "  check-goplint-soundness-core Run the regular/CI soundness profile"
+	@echo "  check-goplint-soundness Route changes conservatively and run the selected resource-aware goplint profile"
+	@echo "  check-goplint-soundness-consumer Force the one-audit consumer profile (no soundness certification claim)"
+	@echo "  check-goplint-soundness-semantic Run the semantic soundness profile explicitly"
+	@echo "  check-goplint-soundness-core Compatibility alias for check-goplint-soundness-semantic"
 	@echo "  check-goplint-soundness-complete Run the completion profile including clean-tree freshness"
 	@echo "  generate-goplint-clean-tree-evidence Generate the retained exact-tree soundness proof"
 	@echo "  check-goplint-clean-tree-evidence Verify the retained exact-tree soundness proof"
@@ -726,7 +747,9 @@ help:
 	@echo "  check-goplint-determinism Require byte-stable solver, fact, and refinement evidence output"
 	@echo "  check-cfg-refinement Run canonical SSA refinement checks for tools/goplint"
 	@echo "  check-goplint-race-repeat Run race and repeat-count soundness evidence"
+	@echo "  update-goplint-race-repeat-timings Refresh the reviewed three-sample weighted test timing manifest"
 	@echo "  check-goplint-full-scan Run the blocking canonical production scan"
+	@echo "  check-goplint-performance-smoke Run one-sample catastrophic-regression smoke (not certification)"
 	@echo "  check-goplint-benchmarks Run canonical solver benchmark thresholds"
 	@echo "  check-goplint-exceptions Audit stale/overdue goplint exceptions"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"

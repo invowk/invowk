@@ -100,8 +100,8 @@ func TestVerifyRejectsCompleteDiffAndDependencyStateFailures(t *testing.T) {
 				writeTestFile(
 					t,
 					fixture.root,
-					"openspec/changes/complete-goplint-soundness-hardening/tasks.md",
-					"- [ ] 12.9 Review final tree\n- [ ] 12.10 Archive\n",
+					"openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+					"- [ ] 12.9 Review final tree\n- [x] 12.10 Archive\n",
 				)
 				refreshFixtureDiffCensus(t, fixture)
 			},
@@ -413,17 +413,22 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 		TaskLedgers: []TaskLedgerPlan{
 			{
 				Name:            "complete-goplint-soundness-hardening",
-				Path:            "openspec/changes/complete-goplint-soundness-hardening/tasks.md",
-				ExpectedPending: []string{"12.10"},
+				Path:            "openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+				ExpectedPending: []string{},
 			},
 			{
 				Name:            "close-goplint-soundness-review-gaps",
-				Path:            "openspec/changes/close-goplint-soundness-review-gaps/tasks.md",
-				ExpectedPending: []string{"10.8"},
+				Path:            "openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md",
+				ExpectedPending: []string{},
 			},
 			{
 				Name:            "close-residual-goplint-soundness-gaps",
-				Path:            "openspec/changes/close-residual-goplint-soundness-gaps/tasks.md",
+				Path:            "openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md",
+				ExpectedPending: []string{},
+			},
+			{
+				Name:            "accelerate-goplint-soundness-gates",
+				Path:            "openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
 				ExpectedPending: []string{},
 			},
 		},
@@ -453,20 +458,26 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 	writeTestFile(
 		t,
 		root,
-		"openspec/changes/complete-goplint-soundness-hardening/tasks.md",
-		"- [x] 12.9 Review final tree\n- [ ] 12.10 Ready for archive authorization\n",
+		"openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md",
+		"- [x] 12.9 Review final tree\n- [x] 12.10 Ready for archive authorization\n",
 	)
 	writeTestFile(
 		t,
 		root,
-		"openspec/changes/close-goplint-soundness-review-gaps/tasks.md",
-		"- [x] 10.7 Record proof\n- [ ] 10.8 Ready for archive authorization\n",
+		"openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md",
+		"- [x] 10.7 Record proof\n- [x] 10.8 Ready for archive authorization\n",
 	)
 	writeTestFile(
 		t,
 		root,
-		"openspec/changes/close-residual-goplint-soundness-gaps/tasks.md",
+		"openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md",
 		"- [x] 10.10 Ready for archive authorization\n",
+	)
+	writeTestFile(
+		t,
+		root,
+		"openspec/changes/accelerate-goplint-soundness-gates/tasks.md",
+		"- [x] 8.7 Hosted parity\n- [x] 10.2 Consumer CI\n- [x] 10.3 Semantic CI\n- [x] 10.7 Remove legacy topology\n",
 	)
 	writeTestJSON(t, root, "counterexamples.json", counterexampleInventory{
 		FormatVersion: FormatVersion,
@@ -477,7 +488,7 @@ func newVerifyFixture(t *testing.T) verifyFixture {
 	writeTestJSON(t, root, "plan.json", plan)
 	writeTestFile(t, root, "tracked.txt", "selected tracked drift\n")
 	runTestGit(t, root, "add", "input.txt")
-	writeTestFile(t, root, "paths.txt", "counterexamples.json\ninput.txt\nmanifest.json\nopenspec/changes/close-goplint-soundness-review-gaps/tasks.md\nopenspec/changes/close-residual-goplint-soundness-gaps/tasks.md\nopenspec/changes/complete-goplint-soundness-hardening/tasks.md\npaths.txt\nplan.json\nregistry.json\ntracked.txt\n")
+	writeTestFile(t, root, "paths.txt", "counterexamples.json\ninput.txt\nmanifest.json\nopenspec/changes/accelerate-goplint-soundness-gates/tasks.md\nopenspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps/tasks.md\nopenspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps/tasks.md\nopenspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening/tasks.md\npaths.txt\nplan.json\nregistry.json\ntracked.txt\n")
 	materialization, err := Materialize(t.Context(), root, "paths.txt", true)
 	if err != nil {
 		t.Fatal(err)
@@ -628,25 +639,42 @@ func writeFixtureRegistryAndManifest(t *testing.T, root string, aggregateCommand
 		FormatVersion: soundnessgate.ManifestFormatVersion,
 		RegistryPath:  "registry.json",
 		Profiles: []soundnessgate.Profile{
-			{ID: soundnessgate.ProfileCore, SubgateIDs: []string{"proof"}},
 			{ID: soundnessgate.ProfileComplete, SubgateIDs: []string{"clean-tree-freshness", "proof"}},
+			{ID: soundnessgate.ProfileConsumer, SubgateIDs: []string{"proof"}},
+			{ID: soundnessgate.ProfileSemantic, SubgateIDs: []string{"proof"}},
 		},
 		Subgates: []soundnessgate.Subgate{
 			{
-				ID:                      "clean-tree-freshness",
-				WorkingDirectory:        ".",
-				Command:                 []string{"true"},
-				TimeoutSeconds:          60,
-				ReportFile:              "clean-tree-report.json",
-				RequiredRegistrationIDs: []string{},
+				ID:                       "clean-tree-freshness",
+				WorkingDirectory:         ".",
+				Command:                  []string{"true"},
+				Dependencies:             []string{},
+				CPUUnits:                 1,
+				EstimatedPeakMemoryBytes: 1024 * 1024,
+				ExclusivityGroups:        []string{},
+				Distributable:            true,
+				ProfileIDs:               []soundnessgate.ProfileID{soundnessgate.ProfileComplete},
+				TimeoutSeconds:           60,
+				ReportFile:               "clean-tree-report.json",
+				RequiredRegistrationIDs:  []string{},
 				RequiredPopulations: []soundnessgate.PopulationRequirement{
 					{ID: "verified-clean-tree-records", Minimum: 1},
 				},
 			},
 			{
-				ID:                      "proof",
-				WorkingDirectory:        ".",
-				Command:                 aggregateCommand,
+				ID:                       "proof",
+				WorkingDirectory:         ".",
+				Command:                  aggregateCommand,
+				Dependencies:             []string{},
+				CPUUnits:                 1,
+				EstimatedPeakMemoryBytes: 1024 * 1024,
+				ExclusivityGroups:        []string{},
+				Distributable:            true,
+				ProfileIDs: []soundnessgate.ProfileID{
+					soundnessgate.ProfileComplete,
+					soundnessgate.ProfileConsumer,
+					soundnessgate.ProfileSemantic,
+				},
 				TimeoutSeconds:          60,
 				ReportFile:              "proof-report.json",
 				RequiredRegistrationIDs: []string{"test-must-report", "test-mutation"},

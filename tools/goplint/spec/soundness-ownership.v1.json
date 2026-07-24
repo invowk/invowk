@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "rules": [
+    { "pattern": ".agents/**", "profile": "semantic" },
+    { "pattern": ".github/workflows/**", "profile": "semantic" },
+    { "pattern": ".pre-commit-config.yaml", "profile": "semantic" },
+    { "pattern": "AGENTS.md", "profile": "semantic" },
+    { "pattern": "Makefile", "profile": "semantic" },
+    { "pattern": "cmd/**", "profile": "consumer" },
+    { "pattern": "docs/goplint/**", "profile": "semantic" },
+    { "pattern": "go.mod", "profile": "consumer" },
+    { "pattern": "go.sum", "profile": "consumer" },
+    { "pattern": "internal/**", "profile": "consumer" },
+    { "pattern": "openspec/changes/**", "profile": "semantic" },
+    { "pattern": "openspec/specs/goplint-analysis-soundness/**", "profile": "semantic" },
+    { "pattern": "openspec/specs/goplint-soundness-assurance/**", "profile": "semantic" },
+    { "pattern": "openspec/specs/lint-tooling-quality-gates/**", "profile": "semantic" },
+    { "pattern": "pkg/**", "profile": "consumer" },
+    { "pattern": "tools/goplint/**", "profile": "semantic" }
+  ]
+}

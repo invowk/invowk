@@ -7,10 +7,11 @@ Makefile
 cmd
 docs
 internal
+openspec/changes/accelerate-goplint-soundness-gates
 openspec/changes/archive/2026-07-14-harden-goplint-soundness
-openspec/changes/close-goplint-soundness-review-gaps
-openspec/changes/close-residual-goplint-soundness-gaps
-openspec/changes/complete-goplint-soundness-hardening
+openspec/changes/archive/2026-07-19-close-goplint-soundness-review-gaps
+openspec/changes/archive/2026-07-19-close-residual-goplint-soundness-gaps
+openspec/changes/archive/2026-07-19-complete-goplint-soundness-hardening
 openspec/specs
 pkg
 tasks
