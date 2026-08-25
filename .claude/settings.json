@@ -62,70 +62,13 @@
             "timeout": 120000
           }
         ]
-      },
-      {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cozempic checkpoint 2>/dev/null || true"
-          }
-        ]
-      },
-      {
-        "matcher": "TaskCreate|TaskUpdate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cozempic checkpoint 2>/dev/null || true"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cozempic guard --daemon 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "rm -f \"/tmp/.claude-learn-$(echo \"$PWD\" | sha256sum | cut -c1-16)\" 2>/dev/null; true"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cozempic checkpoint 2>/dev/null || true"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cozempic checkpoint 2>/dev/null || true"
-          }
-        ]
       }
     ]
   },
-  "model": "opus",
+  "model": "fable",
   "outputStyle": "Explanatory",
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7[1m]",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-4-6[1m]",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6[1m]"
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "opus",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "opus"
   }
 }
