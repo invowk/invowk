@@ -18,7 +18,7 @@ require (
 	github.com/coder/acp-go-sdk v0.13.5
 	github.com/creack/pty v1.1.24
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-git/go-git/v5 v5.19.1
+	github.com/go-git/go-git/v5 v5.19.2
 	github.com/invowk/golua v0.3.0
 	github.com/muesli/reflow v0.3.0
 	github.com/openai/openai-go/v3 v3.42.0
