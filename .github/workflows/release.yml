@@ -148,9 +148,14 @@ jobs:
       - name: Mask Docker for Podman tests
         if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
         run: |
-          if [ -x /usr/bin/docker ]; then
-            sudo mv /usr/bin/docker /usr/bin/docker.disabled
-          fi
+          # Mask every PATH-resolvable install, not a hardcoded location —
+          # runner images move engine binaries between /usr/bin and /usr/local/bin.
+          for _ in 1 2 3 4 5; do
+            binpath="$(command -v docker || true)"
+            [ -z "$binpath" ] && break
+            sudo mv "$binpath" "${binpath}.disabled"
+            hash -r
+          done
           if command -v docker &>/dev/null; then
             echo "::error::Docker is still on PATH after masking"
             exit 1
@@ -159,9 +164,14 @@ jobs:
       - name: Mask Podman for Docker tests
         if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
         run: |
-          if [ -x /usr/bin/podman ]; then
-            sudo mv /usr/bin/podman /usr/bin/podman.disabled
-          fi
+          # Mask every PATH-resolvable install, not a hardcoded location —
+          # runner images move engine binaries between /usr/bin and /usr/local/bin.
+          for _ in 1 2 3 4 5; do
+            binpath="$(command -v podman || true)"
+            [ -z "$binpath" ] && break
+            sudo mv "$binpath" "${binpath}.disabled"
+            hash -r
+          done
           if command -v podman &>/dev/null; then
             echo "::error::Podman is still on PATH after masking"
             exit 1
