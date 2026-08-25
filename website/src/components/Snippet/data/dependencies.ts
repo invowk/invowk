@@ -1056,7 +1056,7 @@ Install the missing tools and try again.`,
         name: "go-version"
         script: {content: "go version"}
         expected_code: 0  // Must succeed
-        expected_output: "go1\\\\.2[6-9]"  // Must be Go 1.26+
+        expected_output: "go1\\\\.2[7-9]"  // Must be Go 1.27+
     }
 ]`,
   },
@@ -1067,12 +1067,12 @@ Install the missing tools and try again.`,
     {
         alternatives: [
             {
-                name: "go-1.26"
-                script: {content: "go version | grep -q 'go1.26'"}
-            },
-            {
                 name: "go-1.27"
                 script: {content: "go version | grep -q 'go1.27'"}
+            },
+            {
+                name: "go-1.28"
+                script: {content: "go version | grep -q 'go1.28'"}
             }
         ]
     }
@@ -1087,12 +1087,12 @@ Install the missing tools and try again.`,
         tools: [{alternatives: ["go"]}]
         custom_checks: [
             {
-                name: "go-1.26-or-higher"
+                name: "go-1.27-or-higher"
                 script: {content: """
                     version=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | head -1)
                     major=$(echo $version | cut -d. -f1 | tr -d 'go')
                     minor=$(echo $version | cut -d. -f2)
-                    [ "$major" -ge 1 ] && [ "$minor" -ge 26 ]
+                    [ "$major" -ge 1 ] && [ "$minor" -ge 27 ]
                     """}
             }
         ]
@@ -1281,14 +1281,14 @@ Install the missing tools and try again.`,
   'dependencies/custom-checks-tip-keep-simple': {
     language: 'cue',
     code: `// Good - simple and clear
-script: {content: "go version | grep -q 'go1.26'"}
+script: {content: "go version | grep -q 'go1.27'"}
 
 // Avoid - complex and fragile
 script: {content: """
     set -e
     version=$(go version 2>&1)
     if [ $? -ne 0 ]; then exit 1; fi
-    echo "$version" | grep -qE 'go1\.(2[6-9]|[3-9][0-9])'
+    echo "$version" | grep -qE 'go1\.(2[7-9]|[3-9][0-9])'
     """}`,
   },
 

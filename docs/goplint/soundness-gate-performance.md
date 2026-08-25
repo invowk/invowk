@@ -11,7 +11,7 @@ lower-bound critical-path baseline, but are not successful assurance verdicts.
 | Field | Legacy CI | Legacy local | Optimized local |
 |---|---|---|---|
 | Commit | Per-run SHA below | `5b43ee24e2bd48dd352e35f09e013c18cd6f09a1` | Parent commit `5b43ee24e2bd48dd352e35f09e013c18cd6f09a1`, bound dirty-tree digest per artifact |
-| Go toolchain | `go1.26.5` from `go.mod` via `actions/setup-go@v6` | `go1.26.5 linux/amd64` | `go1.26.5 linux/amd64` |
+| Go toolchain | `go1.27.0` from `go.mod` via `actions/setup-go@v6` | `go1.27.0 linux/amd64` | `go1.27.0 linux/amd64` |
 | Runner class | GitHub `ubuntu-latest`, reviewed `github-ubuntu-x64-4cpu` policy | Fedora 44, Intel Core Ultra 9 285K, 24 effective CPUs, 93 GiB RAM | Same local class, reviewed as `fedora-44-x86_64-24cpu-reviewed` |
 | Cache policy | `actions/setup-go` cache enabled; warm-cache comparisons reported separately | Existing local Go build/module caches, no cache clearing between comparable runs | Existing local Go build/module caches; each certification sample reruns analyzer work |
 | Legacy topology | Four independent jobs: semantic core, full scan, baseline, exceptions | Serial aggregate runner | Immutable plan, resource-aware local scheduler, shared audit, split algorithm/full-scan certification, weighted build-once race/repeat |

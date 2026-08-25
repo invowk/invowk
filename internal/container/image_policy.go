@@ -58,11 +58,11 @@ func isAlpineContainerImage(image string) bool {
 	}
 
 	name := imageLower
-	if idx := strings.LastIndex(name, ":"); idx != -1 {
-		name = name[:idx]
+	if before, _, ok := strings.CutLast(name, ":"); ok {
+		name = before
 	}
-	if idx := strings.LastIndex(name, "@"); idx != -1 {
-		name = name[:idx]
+	if before, _, ok := strings.CutLast(name, "@"); ok {
+		name = before
 	}
 
 	return name == "alpine" || strings.HasSuffix(name, "/alpine")

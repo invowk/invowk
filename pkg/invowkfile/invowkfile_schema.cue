@@ -152,7 +152,7 @@ import "strings"
 	// image specifies the pre-built container image source.
 	// Exactly one of image or containerfile is required; CUE models the parsed
 	// user-config shape and Go keeps the invariant for direct RuntimeConfig values.
-	// Example: "debian:stable-slim", "golang:1.26", "python:3-slim"
+	// Example: "debian:stable-slim", "golang:1.27", "python:3-slim"
 	image: #NonWhitespaceString & strings.MaxRunes(512)
 
 	// containerfile is not valid in the image-source variant.

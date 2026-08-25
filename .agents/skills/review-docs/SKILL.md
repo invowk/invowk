@@ -87,7 +87,7 @@ structure? Delegate detailed D2 review (formatting, readability rules, rendering
 ### S6: Container Image Policy
 
 ALL container examples across all documentation surfaces must use `debian:stable-slim`.
-No `ubuntu:*`, no Alpine, no Windows containers. Language-specific images (`golang:1.26`,
+No `ubuntu:*`, no Alpine, no Windows containers. Language-specific images (`golang:1.27`,
 `python:3-slim`, `node:22-slim`) are allowed only in language-specific runtime demonstrations.
 
 ### S7: Config Defaults vs Docs

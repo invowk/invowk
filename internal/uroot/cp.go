@@ -16,15 +16,13 @@ type cpCommand struct {
 // newCpCommand creates a new cp command wrapper.
 func newCpCommand() *cpCommand {
 	return &cpCommand{
-		baseWrapper: baseWrapper{
-			name: "cp",
-			flags: []FlagInfo{
-				{Name: "r", ShortName: "r", Description: "copy directories recursively"},
-				{Name: "R", Description: "same as -r"},
-				{Name: "f", ShortName: "f", Description: "force copy by removing destination file if needed"},
-				{Name: "n", ShortName: "n", Description: "do not overwrite an existing file"},
-				{Name: "P", Description: "never follow symbolic links"},
-			},
+		name: "cp",
+		flags: []FlagInfo{
+			{Name: "r", ShortName: "r", Description: "copy directories recursively"},
+			{Name: "R", Description: "same as -r"},
+			{Name: "f", ShortName: "f", Description: "force copy by removing destination file if needed"},
+			{Name: "n", ShortName: "n", Description: "do not overwrite an existing file"},
+			{Name: "P", Description: "never follow symbolic links"},
 		},
 	}
 }

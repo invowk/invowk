@@ -29,8 +29,6 @@ var ErrInvalidSeverity = errors.New(invalidSeverityErrMsg)
 type (
 	// Severity represents the severity level of a security finding.
 	// Values are ordered from least to most severe for comparison (e.g., s > SeverityMedium).
-	//
-	//nolint:recvcheck // Severity uses value receiver for Validate/String/MarshalJSON and pointer for UnmarshalJSON — intentional DDD pattern.
 	Severity int
 
 	// InvalidSeverityError is returned when a severity string cannot be parsed.

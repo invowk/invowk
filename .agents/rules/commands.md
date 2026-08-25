@@ -59,8 +59,8 @@
 | PGO profile (short) | `make pgo-profile-short` |
 | PGO profile (parse/discovery) | `make pgo-profile-parse-discovery` |
 | PGO audit | `make pgo-audit` |
-| Benchmark report | `make bench-report` |
-| Benchmark report (full) | `make bench-report-full` |
+| Benchmark data (BMF, short) | `make bench-bmf` |
+| Benchmark data (BMF, full) | `make bench-bmf-full` |
 | Release tag | `make release VERSION=v0.1.0` |
 | Release bump | `make release-bump TYPE=minor [PRERELEASE=alpha]` |
 | Version docs | `make version-docs VERSION=1.0.0` |
@@ -71,7 +71,7 @@
 
 ## Prerequisites
 
-- **Go 1.26+** - Required for building.
+- **Go 1.27+** - Required for building.
 - **Make** - Build automation.
 - **Node.js 24+** - For website development (optional).
 - **Docker or Podman** - For container runtime tests (optional).
@@ -180,20 +180,24 @@ profile is not biased by a previously committed one.
 
 **Automation:** Three layers prevent stale profiles: (1) Claude Code PostToolUse hook warns when editing hot-path files, (2) pre-commit `pgo-staleness` hook warns when hot-path files are staged without `default.pgo`, (3) CI `pgo-sanity` job auto-regenerates and pushes a fix commit to the PR branch. Prefer local regeneration when warned.
 
-## Benchmark Reports
+## Benchmark Data (Bencher Metric Format)
 
-Use benchmark reports for readable performance snapshots in terminal and markdown output:
+The former `bench-report`/`bench-report-full` targets were replaced by BMF generation
+(see `.agents/skills/bencher/`):
 
 ```bash
-make bench-report       # Startup + internal/benchmark report (short mode, no container benchmarks)
-make bench-report-full  # Startup + internal/benchmark report (full mode, includes container benchmarks)
+make bench-bmf       # Startup + internal/benchmark BMF JSON (short mode, no container benchmarks)
+make bench-bmf-full  # Startup + internal/benchmark BMF JSON (full mode, includes container benchmarks)
 ```
 
-Reports are written to `docs/benchmarks/YYYY-MM-DD_HH-mm-ss.md` and include:
-- Run metadata (commit, branch, platform, Go version, mode)
-- Startup timing table (`--version`, `--help`, `cmd --help`, `cmd`)
-- Parsed `internal/benchmark` table (`ns/op`, `ms/op`, estimated run/total time, `B/op`, `allocs/op`)
-- Raw benchmark outputs for traceability
+Output goes to `artifacts/benchmarks/invowk.bmf.json` (BMF JSON) and
+`artifacts/benchmarks/go-bench.txt` (raw `go test -bench` output). For an ad-hoc
+local hot-path snapshot, run the `internal/benchmark` suite directly (benchmarks
+skip in `-short` mode):
+
+```bash
+go test -run='^$' -bench='^Benchmark(CUEParsing|Discovery|FullPipeline)$' -benchtime=1s ./internal/benchmark/
+```
 
 ## Local SonarCloud Status Check
 
@@ -301,6 +305,10 @@ Defaults:
 - `MUTATION_MODE=advisory`; use `blocking` only after the baseline and runtime signal are stable.
 - `MUTATION_REPORT_DIR=artifacts/mutation`.
 - `MUTATION_WORKERS=0` locally unless overridden; the manual GitHub Actions workflow sets a bounded worker count.
+
+**Commit regeneration artifacts before running any mutation target.** The wrapper's
+tracked-source restore reverts uncommitted tracked files (not only mutated packages) when
+it exits — an uncommitted regenerated artifact (e.g., a timing census) is silently lost.
 
 Default mutation profiles use package-level Go tests with `-short`, even when a manifest selects explicit source files. They do not pass `-race`, do not run CLI `testscript` suites, and do not run container-engine profiles unless a future opt-in profile documents those costs. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources after the tool exits.
 

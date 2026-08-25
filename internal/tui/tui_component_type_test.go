@@ -52,7 +52,11 @@ func TestCreateEmbeddableComponentRejectsWireJSONOptions(t *testing.T) {
 	if err == nil {
 		t.Fatal("CreateEmbeddableComponent() error = nil, want typed-only renderer options error")
 	}
-	if !strings.Contains(err.Error(), "json.RawMessage") {
+	// Go 1.27 aliases `encoding/json.RawMessage` to `encoding/json/v2/jsontext.Value`,
+	// so `%T` prints `jsontext.Value` rather than `json.RawMessage`. Accept both to
+	// keep the assertion resilient to stdlib aliasing changes.
+	msg := err.Error()
+	if !strings.Contains(msg, "json.RawMessage") && !strings.Contains(msg, "jsontext.Value") {
 		t.Fatalf("CreateEmbeddableComponent() error = %v, want raw JSON type mentioned", err)
 	}
 }

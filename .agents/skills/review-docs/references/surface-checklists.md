@@ -225,7 +225,7 @@ with an implementation block but lack required fields.
 | S6-C02 | No `alpine:*` image references in any documentation file | Step 1 grep results + manual scan | ERROR | policy-violation |
 | S6-C03 | No `mcr.microsoft.com/windows/*` image references in any documentation file | Step 1 grep results + manual scan | ERROR | policy-violation |
 | S6-C04 | All generic container examples use `debian:stable-slim` | Manual scan of CUE snippets with container runtime | ERROR | policy-violation |
-| S6-C05 | Language-specific images (e.g., `golang:1.26`, `python:3-slim`, `node:22-slim`) appear only in language-specific runtime demos, not in general container examples | Manual scan | WARNING | policy-violation |
+| S6-C05 | Language-specific images (e.g., `golang:1.27`, `python:3-slim`, `node:22-slim`) appear only in language-specific runtime demos, not in general container examples | Manual scan | WARNING | policy-violation |
 | S6-C06 | CUE snippets with `container` runtime have `image:` field referencing `debian:stable-slim` (unless language-specific demo) | Snippet data files with container runtime config | ERROR | policy-violation |
 
 ---

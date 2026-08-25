@@ -16,14 +16,12 @@ type findCommand struct {
 // newFindCommand creates a new find command wrapper.
 func newFindCommand() *findCommand {
 	return &findCommand{
-		baseWrapper: baseWrapper{
-			name: "find",
-			flags: []FlagInfo{
-				{Name: "name", Description: "match file name pattern", TakesValue: true},
-				{Name: "type", Description: "match file type (f, d, l)", TakesValue: true},
-				{Name: "mode", Description: "match file mode", TakesValue: true},
-				{Name: "l", Description: "long listing format"},
-			},
+		name: "find",
+		flags: []FlagInfo{
+			{Name: "name", Description: "match file name pattern", TakesValue: true},
+			{Name: "type", Description: "match file type (f, d, l)", TakesValue: true},
+			{Name: "mode", Description: "match file mode", TakesValue: true},
+			{Name: "l", Description: "long listing format"},
 		},
 	}
 }

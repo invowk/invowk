@@ -460,3 +460,26 @@ func isUserCancelledError(err error) bool {
 	msg := err.Error()
 	return msg == "user aborted" || msg == "interrupted" || msg == "user quit"
 }
+
+// TestServerNoGoroutineLeaksAfterStop drives the TUI server through a full
+// Start -> Running -> Stop lifecycle and asserts the Go 1.27 goroutineleak
+// profile reports no leaks attributable to this package after Stop returns.
+//
+// Non-parallel: the goroutineleak profile is process-wide; parallel tests in
+// this package spawn matching frames that would confuse attribution.
+//
+//nolint:paralleltest // Leak assertion attributes by package import path.
+func TestServerNoGoroutineLeaksAfterStop(t *testing.T) {
+	server, err := New()
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if err := server.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if err := server.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+
+	testutil.AssertNoGoroutineLeaks(t, "github.com/invowk/invowk/internal/tuiserver")
+}

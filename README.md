@@ -89,7 +89,7 @@ To upgrade: `winget upgrade Invowk.Invowk`
 go install github.com/invowk/invowk@latest
 ```
 
-Requires Go 1.26+. The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
+Requires Go 1.27+. The binary is installed to `$GOBIN` (or `$GOPATH/bin`).
 
 ### From Source
 
@@ -778,7 +778,7 @@ depends_on: {
 			name: "go-version"
 			script: {content: "go version"}
 			expected_code: 0
-			expected_output: "go1\\.2[6-9]"  // Must be Go 1.26+
+			expected_output: "go1\\.2[7-9]"  // Must be Go 1.27+
 		},
 
 		// Alternatives (OR semantics)
@@ -3283,7 +3283,7 @@ invowk/
 
 ## Dependencies
 
-Invowk requires Go 1.26+. Exact direct and transitive dependency versions are pinned in [`go.mod`](go.mod); the list below calls out the main direct dependencies by role.
+Invowk requires Go 1.27+. Exact direct and transitive dependency versions are pinned in [`go.mod`](go.mod); the list below calls out the main direct dependencies by role.
 
 **Core:**
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
@@ -3315,7 +3315,7 @@ Invowk requires Go 1.26+. Exact direct and transitive dependency versions are pi
 - [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (28 utilities: cat, cp, ls, grep, sort, tar, seq, etc.)
 
 **Virtual Lua:**
-- [golua](https://github.com/arnodel/golua) - Embedded Lua runtime for `virtual-lua`
+- [golua](https://github.com/invowk/golua) - Embedded Lua runtime for `virtual-lua`; invowk's maintained fork of [arnodel/golua](https://github.com/arnodel/golua), patched for Go 1.27's linkname allowlist removal
 
 ## Performance and PGO
 

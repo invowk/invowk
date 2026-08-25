@@ -294,7 +294,7 @@ func TestRegistry_Run_TarPathValidation(t *testing.T) {
 			t.Parallel()
 
 			r := NewRegistry()
-			cmd := &nativePreprocessorMock{baseWrapper: baseWrapper{name: "tar"}}
+			cmd := &nativePreprocessorMock{name: "tar"}
 			r.Register(cmd)
 			ctx := WithHandlerContext(t.Context(), &HandlerContext{
 				Dir: "/work",
@@ -317,7 +317,7 @@ func TestRegistry_Run_TarPathValidationRejectsArchive(t *testing.T) {
 	t.Parallel()
 
 	r := NewRegistry()
-	cmd := &nativePreprocessorMock{baseWrapper: baseWrapper{name: "tar"}}
+	cmd := &nativePreprocessorMock{name: "tar"}
 	r.Register(cmd)
 	deniedErr := errors.New("denied")
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
@@ -349,7 +349,7 @@ func TestRegistry_Run_ShasumSkipsAlgorithmFlagValues(t *testing.T) {
 	t.Parallel()
 
 	r := NewRegistry()
-	cmd := &nativePreprocessorMock{baseWrapper: baseWrapper{name: "shasum"}}
+	cmd := &nativePreprocessorMock{name: "shasum"}
 	r.Register(cmd)
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Dir: "/work",

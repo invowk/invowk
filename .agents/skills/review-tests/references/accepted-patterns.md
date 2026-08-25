@@ -143,7 +143,7 @@ PATTERNS FOR RECONSIDERATION
 ==============================
 AP-001: [Pattern description]
   Confidence : PROVISIONAL -> EXPERIMENTAL (trigger fired)
-  Trigger    : "Go 1.26 adds testing.B.Context()" -- NOW MET
+  Trigger    : "Go 1.27 adds testing.B.Context()" -- NOW MET
   Action     : Re-evaluate in next audit round; if still justified, re-accept
 
 AP-002: [Pattern description]

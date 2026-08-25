@@ -127,7 +127,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - `nolintlint`: avoid `//nolint`; if unavoidable, name the exact linter and add
   a reason.
 - `forbidigo`: production code uses `errors.AsType[T]`.
-- `modernize`: prefer Go 1.26 forms such as `slices.Contains`,
+- `modernize`: prefer Go 1.27 forms such as `slices.Contains`,
   `strings.SplitSeq` in range-only loops, and `fmt.Appendf` instead of
   `[]byte(fmt.Sprintf(...))`.
 - `gocritic rangeValCopy`: range over map/slice keys or indices when values are

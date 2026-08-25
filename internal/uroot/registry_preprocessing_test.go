@@ -264,7 +264,7 @@ func TestRegistry_Run_NativePreprocessorSkipped(t *testing.T) {
 
 	r := NewRegistry()
 	cmd := &nativePreprocessorMock{
-		baseWrapper: baseWrapper{name: "nativecmd"},
+		name: "nativecmd",
 	}
 	r.Register(cmd)
 
@@ -322,7 +322,7 @@ func TestRegistry_Run_NativePreprocessorInterface(t *testing.T) {
 
 	custom := newMockCommand("custom")
 	native := &nativePreprocessorMock{
-		baseWrapper: baseWrapper{name: "native"},
+		name: "native",
 	}
 
 	// Custom commands should NOT implement NativePreprocessor

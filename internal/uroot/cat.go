@@ -16,11 +16,9 @@ type catCommand struct {
 // newCatCommand creates a new cat command wrapper.
 func newCatCommand() *catCommand {
 	return &catCommand{
-		baseWrapper: baseWrapper{
-			name: "cat",
-			flags: []FlagInfo{
-				{Name: "u", Description: "ignored (for compatibility)"},
-			},
+		name: "cat",
+		flags: []FlagInfo{
+			{Name: "u", Description: "ignored (for compatibility)"},
 		},
 	}
 }

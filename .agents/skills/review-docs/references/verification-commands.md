@@ -207,7 +207,7 @@ grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' docs/architecture/ || echo "Archi
 documentation surface covered by the review. Frozen versioned snapshots are validated by version
 asset checks and are not manually reviewed by this gate.
 
-**Expected**: No matches (all PASS), or only language-specific images like `golang:1.26`,
+**Expected**: No matches (all PASS), or only language-specific images like `golang:1.27`,
 `python:3-slim` in language-specific runtime demos.
 
 **Failure triage**: Replace with `debian:stable-slim`. See `.agents/rules/version-pinning.md`

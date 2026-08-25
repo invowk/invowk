@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GO_CMD="${GO_CMD:-go}"
 GOLANGCI_LINT_TOOL="golangci-lint"
 GOLANGCI_LINT_MODULE="github.com/golangci/golangci-lint/v2"
-GOLANGCI_LINT_VERSION="v2.12.2"
+GOLANGCI_LINT_VERSION="v2.13.1"
 
 GOLANGCI_LINT_BIN=""
 

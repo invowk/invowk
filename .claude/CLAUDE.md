@@ -1,6 +1,6 @@
 # Overview
 
-Invowk is a dynamically extensible command runner (similar to `just`, `task`, and `mise`) written in Go 1.26+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). From the user perspective, Invowk offers two key extensibility primitives:
+Invowk is a dynamically extensible command runner (similar to `just`, `task`, and `mise`) written in Go 1.27+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). From the user perspective, Invowk offers two key extensibility primitives:
 - User-defined commands (called `cmds`), which are defined in `invowkfile.cue` files using CUE format. `cmds` are made available under the reserved `invowk cmd` built-in command/namespace.
 - User-defined modules, which are filesystem directories named as `<module-id>.invowkmod` (preferably using the RDNS convention) that contain:
   - an `invowkmod.cue` file
@@ -272,7 +272,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 **When writing tests, documentation, or examples:**
 - Always use `debian:stable-slim` as the reference container image.
-- Never use `ubuntu:*` or other non-`debian:stable-slim` base images. Language-specific images (`golang:1.26`, `python:3-slim`, `node:22-slim`) are allowed when demonstrating language-specific runtimes.
+- Never use `ubuntu:*` or other non-`debian:stable-slim` base images. Language-specific images (`golang:1.27`, `python:3-slim`, `node:22-slim`) are allowed when demonstrating language-specific runtimes.
 - Never use Alpine images.
 - Never use Windows container images (e.g., `mcr.microsoft.com/windows/*`).
 
@@ -283,6 +283,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `cuelang.org/go` - CUE language support for configuration/schema.
 - `github.com/charmbracelet/*` - TUI components (lipgloss, bubbletea, huh).
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
+- `github.com/invowk/golua` - Embedded Lua runtime for `virtual-lua` (invowk's maintained fork of `arnodel/golua`, patched for Go 1.27's `//go:linkname` allowlist removal).
 - `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.
 
 See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.

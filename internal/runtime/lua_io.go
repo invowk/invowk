@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	luart "github.com/arnodel/golua/runtime"
+	luart "github.com/invowk/golua/runtime"
 )
 
 const luaFileClosedMsg = "file is closed"

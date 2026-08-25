@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 // T009: State transition tests
@@ -779,6 +781,45 @@ func TestContext(t *testing.T) {
 	default:
 		t.Error("context should be cancelled after TransitionToStopping")
 	}
+}
+
+// TestNoGoroutineLeaksAfterStop drives Base through the full lifecycle
+// (Created -> Starting -> Running -> Stopping -> Stopped) alongside a
+// goroutine tracked via AddGoroutine/DoneGoroutine, and asserts the Go 1.27
+// goroutineleak profile reports no leaks attributable to this package after
+// the terminal stop.
+//
+// Non-parallel: the goroutineleak profile is process-wide, and other parallel
+// tests in this package spawn goroutines whose stack frames match this
+// package's import path — attribution across them is ambiguous.
+//
+//nolint:paralleltest // Leak assertion attributes by package import path; parallelism would confuse attribution.
+func TestNoGoroutineLeaksAfterStop(t *testing.T) {
+	b := NewBase()
+	ctx := t.Context()
+	if err := b.TransitionToStarting(ctx); err != nil {
+		t.Fatalf("TransitionToStarting() error = %v", err)
+	}
+	b.TransitionToRunning()
+
+	// Spawn a tracked goroutine that returns when the lifecycle context is
+	// cancelled — exercises the AddGoroutine/DoneGoroutine contract that
+	// leak detection depends on.
+	b.AddGoroutine()
+	go func() {
+		defer b.DoneGoroutine()
+		<-b.Context().Done()
+	}()
+
+	if !b.TransitionToStopping() {
+		t.Fatalf("TransitionToStopping() = false, want true")
+	}
+	b.WaitForShutdown()
+	if !b.TransitionToStopped() {
+		t.Fatalf("TransitionToStopped() = false, want true")
+	}
+
+	testutil.AssertNoGoroutineLeaks(t, "github.com/invowk/invowk/internal/core/serverbase")
 }
 
 func TestState_Validate(t *testing.T) {

@@ -20,8 +20,8 @@ func IsWindowsReservedName(name string) bool {
 	// Get the base name without extension
 	upper := strings.ToUpper(name)
 	// Remove extension if present
-	if idx := strings.LastIndex(upper, "."); idx != -1 {
-		upper = upper[:idx]
+	if before, _, ok := strings.CutLast(upper, "."); ok {
+		upper = before
 	}
 	return windowsReservedNames[upper]
 }

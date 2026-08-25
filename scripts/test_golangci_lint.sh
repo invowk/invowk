@@ -72,7 +72,7 @@ write_fake_tools() {
 	printf '\n'
 } >>"$FAKE_GOLANGCI_LOG"
 if [[ "${1:-}" == "version" ]]; then
-	printf 'golangci-lint has version 2.12.2\n'
+	printf 'golangci-lint has version 2.13.1\n'
 fi
 EOF
 	chmod +x "$binary_path"
@@ -90,7 +90,7 @@ case "\${1:-}" in
 		;;
 	version)
 		if [[ "\${2:-}" == "-m" ]]; then
-			printf '%s: go1.26.4\n' "$binary_path"
+			printf '%s: go1.27.0\n' "$binary_path"
 			printf 'path github.com/golangci/golangci-lint/v2/cmd/golangci-lint\n'
 			printf 'mod github.com/golangci/golangci-lint/v2 %s h1:fake\n' "$version"
 		else
@@ -117,7 +117,7 @@ test_root_and_tools_dispatch() {
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
-	write_fake_tools "$tmp" "v2.12.2"
+	write_fake_tools "$tmp" "v2.13.1"
 	run_wrapper "$tmp" root-run --show-stats=false
 	run_wrapper "$tmp" tools-run --show-stats=false
 
@@ -131,7 +131,7 @@ test_formatter_and_config_dispatch() {
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
-	write_fake_tools "$tmp" "v2.12.2"
+	write_fake_tools "$tmp" "v2.13.1"
 	run_wrapper "$tmp" root-fmt
 	run_wrapper "$tmp" tools-config-verify
 
@@ -145,7 +145,7 @@ test_linter_inspection_and_version() {
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
-	write_fake_tools "$tmp" "v2.12.2"
+	write_fake_tools "$tmp" "v2.13.1"
 	run_wrapper "$tmp" root-linters
 	run_wrapper "$tmp" version
 
@@ -167,7 +167,7 @@ test_version_mismatch_fails() {
 
 	assert_status "version mismatch exits before linting" 1 "$status"
 	assert_file_contains "version mismatch names expected version" \
-		"expected github.com/golangci/golangci-lint/v2 v2.12.2, got v0.0.0" \
+		"expected github.com/golangci/golangci-lint/v2 v2.13.1, got v0.0.0" \
 		"$tmp/err"
 }
 
@@ -204,7 +204,7 @@ test_unknown_command_fails() {
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
-	write_fake_tools "$tmp" "v2.12.2"
+	write_fake_tools "$tmp" "v2.13.1"
 	set +e
 	run_wrapper "$tmp" nope >"$tmp/out" 2>"$tmp/err"
 	status=$?

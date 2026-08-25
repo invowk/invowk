@@ -401,8 +401,8 @@ func (r *NativeRuntime) appendPositionalArgs(shell string, args, positionalArgs 
 	}
 
 	base := filepath.Base(shell)
-	if lastSlash := strings.LastIndex(base, "\\"); lastSlash >= 0 {
-		base = base[lastSlash+1:]
+	if _, after, ok := strings.CutLast(base, "\\"); ok {
+		base = after
 	}
 	base = strings.TrimSuffix(base, ".exe")
 

@@ -16,15 +16,13 @@ type lsCommand struct {
 // newLsCommand creates a new ls command wrapper.
 func newLsCommand() *lsCommand {
 	return &lsCommand{
-		baseWrapper: baseWrapper{
-			name: "ls",
-			flags: []FlagInfo{
-				{Name: "l", ShortName: "l", Description: "use a long listing format"},
-				{Name: "a", ShortName: "a", Description: "include entries starting with ."},
-				{Name: "R", Description: "list subdirectories recursively"},
-				{Name: "h", ShortName: "h", Description: "print sizes in human readable format"},
-				{Name: "Q", Description: "enclose entry names in double quotes"},
-			},
+		name: "ls",
+		flags: []FlagInfo{
+			{Name: "l", ShortName: "l", Description: "use a long listing format"},
+			{Name: "a", ShortName: "a", Description: "include entries starting with ."},
+			{Name: "R", Description: "list subdirectories recursively"},
+			{Name: "h", ShortName: "h", Description: "print sizes in human readable format"},
+			{Name: "Q", Description: "enclose entry names in double quotes"},
 		},
 	}
 }

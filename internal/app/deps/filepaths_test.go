@@ -455,11 +455,11 @@ func TestContainerFilepathHelpers(t *testing.T) {
 		t.Fatalf("script = %q", script)
 	}
 
-	err := (newFilepathStubRuntime(t,
+	err := newFilepathStubRuntime(t,
 		func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			_, _ = io.WriteString(ctx.IO.Stderr, "missing permissions")
 			return &runtimepkg.Result{ExitCode: 1}
-		})).CheckFilepath(invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}})
+		}).CheckFilepath(invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}})
 	if !strings.Contains(err.Error(), "missing permissions") {
 		t.Fatalf("err = %q, want containing 'missing permissions'", err.Error())
 	}

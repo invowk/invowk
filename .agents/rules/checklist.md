@@ -74,6 +74,11 @@ and carries the aggregate report forward with re-bound provenance;
 semantic-content drift makes re-binding fail closed naming the drifted paths.
 Verification must not change the caller's index or worktree. A missing or
 stale record is blocking and cannot be baselined, excepted, or inline-ignored.
+The generator also fails closed on ANY uncommitted tracked path outside the
+reviewed selection and exclusions (even unrelated local files such as
+`.claude/settings.json`); exclusions are stale-checked, so do not commit
+one-off exclusions — instead stash unrelated local changes for the
+generation window and restore them afterwards.
 
 The semantic profile also runs `make check-goplint-mutation-kernel-coverage`. That
 subgate binds the semantic-rules catalog, blocking mutation profile, and mutant

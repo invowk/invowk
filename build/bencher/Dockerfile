@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # SPDX-License-Identifier: MPL-2.0
 
-FROM golang:1.26-bookworm AS go-base
+FROM golang:1.27-bookworm AS go-base
 
 FROM node:24-bookworm-slim
 

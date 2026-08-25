@@ -301,9 +301,9 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 			var runtime runtimepkg.Runtime = base
 			if tt.interactiveRT {
 				runtime = &stubInteractiveRuntime{
-					stubRuntime: stubRuntime{name: "interactive", validateErr: tt.validateErr},
-					supports:    true,
-					prepareErr:  tt.prepareErr,
+					name: "interactive", validateErr: tt.validateErr,
+					supports:   true,
+					prepareErr: tt.prepareErr,
 				}
 			}
 			registry.Register(runtimepkg.RuntimeTypeVirtualSh, runtime)

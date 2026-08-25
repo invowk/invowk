@@ -59,7 +59,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | `runtime.HostCallbackServer` | ContainerRuntime | Porta que fornece credenciais de callback do host baseadas em token para execuções em container; `internal/app/commandadapters` adapta o `sshserver.Server` concreto para essa porta |
 | `config.Config` | ContainerRuntime | Configuração da aplicação (preferência de engine de container, etc.) |
 | `mvdan.cc/sh/v3` | ShRuntime | Interpretador de shell POSIX embarcado |
-| `github.com/arnodel/golua` | LuaRuntime | Interpretador Lua embarcado |
+| `github.com/invowk/golua` | LuaRuntime | Interpretador Lua embarcado (fork mantido pela invowk de arnodel/golua, com patch para a remoção de linknames no Go 1.27) |
 | `internal/uroot` | virtual-sh e virtual-lua | Utilitários built-in para a família de runtimes virtuais (cp, mv, cat, etc.) |
 | `pkg/invowkfile` | ExecutionContext | Tipos de Command e Invowkfile, RuntimeMode, EnvInheritMode |
 

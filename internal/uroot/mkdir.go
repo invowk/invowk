@@ -16,12 +16,10 @@ type mkdirCommand struct {
 // newMkdirCommand creates a new mkdir command wrapper.
 func newMkdirCommand() *mkdirCommand {
 	return &mkdirCommand{
-		baseWrapper: baseWrapper{
-			name: "mkdir",
-			flags: []FlagInfo{
-				{Name: "p", Description: "create parent directories as needed"},
-				{Name: "m", Description: "set file mode", TakesValue: true},
-			},
+		name: "mkdir",
+		flags: []FlagInfo{
+			{Name: "p", Description: "create parent directories as needed"},
+			{Name: "m", Description: "set file mode", TakesValue: true},
 		},
 	}
 }

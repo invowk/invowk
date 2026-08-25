@@ -16,12 +16,10 @@ type mvCommand struct {
 // newMvCommand creates a new mv command wrapper.
 func newMvCommand() *mvCommand {
 	return &mvCommand{
-		baseWrapper: baseWrapper{
-			name: "mv",
-			flags: []FlagInfo{
-				{Name: "f", ShortName: "f", Description: "do not prompt before overwriting"},
-				{Name: "n", ShortName: "n", Description: "do not overwrite an existing file"},
-			},
+		name: "mv",
+		flags: []FlagInfo{
+			{Name: "f", ShortName: "f", Description: "do not prompt before overwriting"},
+			{Name: "n", ShortName: "n", Description: "do not overwrite an existing file"},
 		},
 	}
 }

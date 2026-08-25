@@ -16,13 +16,11 @@ type rmCommand struct {
 // newRmCommand creates a new rm command wrapper.
 func newRmCommand() *rmCommand {
 	return &rmCommand{
-		baseWrapper: baseWrapper{
-			name: "rm",
-			flags: []FlagInfo{
-				{Name: "r", ShortName: "r", Description: "remove directories and their contents recursively"},
-				{Name: "R", Description: "same as -r"},
-				{Name: "f", ShortName: "f", Description: "ignore nonexistent files, never prompt"},
-			},
+		name: "rm",
+		flags: []FlagInfo{
+			{Name: "r", ShortName: "r", Description: "remove directories and their contents recursively"},
+			{Name: "R", Description: "same as -r"},
+			{Name: "f", ShortName: "f", Description: "ignore nonexistent files, never prompt"},
 		},
 	}
 }

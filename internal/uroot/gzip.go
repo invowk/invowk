@@ -16,15 +16,13 @@ type gzipCommand struct {
 // newGzipCommand creates a new gzip command wrapper.
 func newGzipCommand() *gzipCommand {
 	return &gzipCommand{
-		baseWrapper: baseWrapper{
-			name: "gzip",
-			flags: []FlagInfo{
-				{Name: "d", Description: "decompress"},
-				{Name: "c", Description: "write to stdout"},
-				{Name: "f", Description: "force overwrite"},
-				{Name: "v", Description: "verbose"},
-				{Name: "q", Description: "suppress warnings"},
-			},
+		name: "gzip",
+		flags: []FlagInfo{
+			{Name: "d", Description: "decompress"},
+			{Name: "c", Description: "write to stdout"},
+			{Name: "f", Description: "force overwrite"},
+			{Name: "v", Description: "verbose"},
+			{Name: "q", Description: "suppress warnings"},
 		},
 	}
 }

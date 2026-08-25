@@ -16,15 +16,13 @@ type tarCommand struct {
 // newTarCommand creates a new tar command wrapper.
 func newTarCommand() *tarCommand {
 	return &tarCommand{
-		baseWrapper: baseWrapper{
-			name: "tar",
-			flags: []FlagInfo{
-				{Name: "c", Description: "create a new archive"},
-				{Name: "x", Description: "extract files from an archive"},
-				{Name: "t", Description: "list the contents of an archive"},
-				{Name: "f", Description: "use archive file", TakesValue: true},
-				{Name: "v", Description: "verbosely list files processed"},
-			},
+		name: "tar",
+		flags: []FlagInfo{
+			{Name: "c", Description: "create a new archive"},
+			{Name: "x", Description: "extract files from an archive"},
+			{Name: "t", Description: "list the contents of an archive"},
+			{Name: "f", Description: "use archive file", TakesValue: true},
+			{Name: "v", Description: "verbosely list files processed"},
 		},
 	}
 }

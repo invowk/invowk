@@ -18,8 +18,24 @@ build configuration.
 - Remove tools with `go get -tool <module>/cmd/<tool>@none`.
 - Verify tools with `go version -m "$(go tool -n <tool>)"` when the tool does not provide a reliable `--version` flag.
 - **Current pinned versions:**
-  - `go-mutesting`: `v2.7.5` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`)
-  - `golangci-lint`: `v2.12.2` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
+  - `go-mutesting`: `v2.8.2` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together)
+  - `golangci-lint`: `v2.13.1` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
+
+### Go Toolchain
+- Version source: the `go` directive in the root `go.mod` and `tools/goplint/go.mod`
+  (lockstep; no `toolchain` directive). CI follows via `go-version-file:`.
+- On a Go minor-version bump, ALL of these must move together:
+  - `build/bencher/Dockerfile` base image (`GOTOOLCHAIN=local` — hard-fails if lagging)
+  - `tools/goplint/bench/*.toml` `go_toolchain` prefixes
+  - `tools/goplint/spec/goplint-test-timings.v1.json` (regenerate, exact-match on `runtime.Version()`)
+  - `tools/goplint/testdata/gates/clean-tree-v4.json` plan `required_version_re` for `go`
+    (and `golangci-lint` if it also moved)
+  - goplint test fixtures carrying toolchain literals; `default.pgo` (regenerate)
+  - `golang.org/x/tools` in both modules, golangci-lint, and go-mutesting (releases built
+    for the new Go version)
+- `github.com/invowk/golua` is invowk's maintained fork of `arnodel/golua` (patched for the
+  Go 1.27 `//go:linkname` allowlist removal via `hash/maphash.Comparable`); check the fork
+  builds on new Go versions before bumping.
 
 ### CI Tool Installs (`go install`, `curl | sh`, etc.)
 - MUST pin to an exact version: `go install tool@vX.Y.Z` (never `@latest`).
@@ -52,7 +68,7 @@ build configuration.
   automatic security patches). Document this exception where the image is referenced.
 - **`debian:stable-slim` is the ONLY Debian/base image allowed in ALL documentation examples,
   CUE snippets, and tests.** No `ubuntu:*`, no `debian:bookworm`, no other base images.
-  Language-specific images (e.g., `golang:1.26`, `python:3-slim`, `node:22-slim`) are allowed
+  Language-specific images (e.g., `golang:1.27`, `python:3-slim`, `node:22-slim`) are allowed
   when demonstrating language-specific runtimes, but must use stable tags (never `latest`).
 - NEVER use Alpine or Windows container images (see `AGENTS.md` "Container Runtime Limitations").
 

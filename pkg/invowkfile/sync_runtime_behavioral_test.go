@@ -89,7 +89,7 @@ func TestBehavioralSync_ContainerImage(t *testing.T) {
 		func(s string) error { return ContainerImage(s).Validate() },
 		[]behavioralSyncCase{
 			{"debian:stable-slim", true, true, ""},
-			{"golang:1.26", true, true, ""},
+			{"golang:1.27", true, true, ""},
 			{"myregistry.io/myimage:latest", true, true, ""},
 			// Go accepts "" (containerfile will be used), CUE rejects "" (!="")
 			{"", true, false, "Go zero-value means no image; CUE uses field optionality with !=\"\""},

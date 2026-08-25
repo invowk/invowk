@@ -51,7 +51,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | `runtime.HostCallbackServer` | ContainerRuntime | Port that supplies token-based host callback credentials to container executions; `internal/app/commandadapters` adapts the concrete `sshserver.Server` to this port |
 | `config.Config` | ContainerRuntime | Application configuration (container engine preference, etc.) |
 | `mvdan.cc/sh/v3` | ShRuntime | Embedded POSIX shell interpreter (syntax, interp, expand) |
-| `github.com/arnodel/golua` | LuaRuntime | Embedded Lua interpreter |
+| `github.com/invowk/golua` | LuaRuntime | Embedded Lua interpreter (invowk's maintained fork of arnodel/golua, patched for Go 1.27 linkname removal) |
 | `internal/uroot` | virtual-sh and virtual-lua | Built-in utilities for the virtual runtime family (cp, mv, cat, etc.) |
 | `pkg/invowkfile` | ExecutionContext | Command and Invowkfile types, RuntimeMode, EnvInheritMode |
 

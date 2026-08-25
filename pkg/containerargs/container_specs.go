@@ -144,12 +144,12 @@ func validateContainerPortMappingSpec(port string) error {
 	}
 
 	portSpec := port
-	if idx := strings.LastIndex(port, "/"); idx != -1 {
-		protocol := strings.ToLower(port[idx+1:])
+	if before, after, ok := strings.CutLast(port, "/"); ok {
+		protocol := strings.ToLower(after)
 		if protocol != "tcp" && protocol != "udp" && protocol != "sctp" {
 			return fmt.Errorf("port mapping has invalid protocol %q (expected tcp, udp, or sctp)", protocol)
 		}
-		portSpec = port[:idx]
+		portSpec = before
 	}
 
 	parts := strings.Split(portSpec, ":")

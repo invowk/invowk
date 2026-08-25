@@ -136,7 +136,7 @@ test_paths() {
 }
 
 test_tool_version_pin() {
-	assert_eq "go-mutesting version pin" "v2.7.5" "$GO_MUTESTING_VERSION"
+	assert_eq "go-mutesting version pin" "v2.8.2" "$GO_MUTESTING_VERSION"
 }
 
 test_command_construction() {

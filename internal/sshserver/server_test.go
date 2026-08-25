@@ -637,3 +637,30 @@ func TestDefaultConfig(t *testing.T) {
 // Note: Server restart (Stop then Start on the same instance) is not supported.
 // Server instances are single-use: once stopped, create a new instance.
 // This simplifies the implementation and avoids complex state management.
+
+// TestServerNoGoroutineLeaksAfterStop drives the SSH server through a full
+// Start -> Running -> Stop lifecycle and asserts the Go 1.27 goroutineleak
+// profile reports no leaks attributable to this package after Stop returns.
+//
+// Non-parallel: the goroutineleak profile is process-wide; parallel tests in
+// this package spawn matching frames (sshserver, wish, ssh) that would
+// confuse attribution.
+//
+//nolint:paralleltest // Leak assertion attributes by package import path.
+func TestServerNoGoroutineLeaksAfterStop(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Port = 0
+
+	srv := mustNew(t, cfg)
+	if err := srv.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if err := srv.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+
+	// Attribute by this package's import path. Leaks in wish/ssh dependencies
+	// that flow from sshserver-owned goroutines will include an sshserver
+	// frame in their stack via AddGoroutine wrappers.
+	testutil.AssertNoGoroutineLeaks(t, "github.com/invowk/invowk/internal/sshserver")
+}

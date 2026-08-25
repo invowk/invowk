@@ -16,11 +16,9 @@ type shasumCommand struct {
 // newShasumCommand creates a new shasum command wrapper.
 func newShasumCommand() *shasumCommand {
 	return &shasumCommand{
-		baseWrapper: baseWrapper{
-			name: urootCommandShasum,
-			flags: []FlagInfo{
-				{Name: "a", Description: "hash algorithm (1, 256, 512)", TakesValue: true},
-			},
+		name: urootCommandShasum,
+		flags: []FlagInfo{
+			{Name: "a", Description: "hash algorithm (1, 256, 512)", TakesValue: true},
 		},
 	}
 }
