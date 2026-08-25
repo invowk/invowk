@@ -1,0 +1,59 @@
+name: CodeQL (Go)
+
+# Go is analyzed via this advanced-setup workflow instead of the GitHub
+# default setup because default-setup runners pin their own Go toolchain
+# (GOTOOLCHAIN=local), which breaks whenever go.mod requires a newer Go
+# than the runner ships. Other languages remain on default setup.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly scan to match the default-setup cadence.
+    - cron: "17 6 * * 1"
+
+concurrency:
+  group: codeql-go-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Fall back to direct module fetches on transient Go proxy failures.
+  GOPROXY: "https://proxy.golang.org|direct"
+
+jobs:
+  analyze-go:
+    name: Analyze (go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # go-version-file keeps the analysis toolchain in lockstep with the
+      # module requirement, immunizing this scan against Go version bumps.
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: autobuild
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"
