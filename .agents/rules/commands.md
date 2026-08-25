@@ -452,7 +452,7 @@ goreleaser release --snapshot --clean
 | `pgo-benchstat.yml` | Weekly schedule + manual dispatch | Compare `pgo=off` vs `pgo=on` with `benchstat` and upload raw/report artifacts |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 
-Other workflows: `version-docs.yml` (doc versioning on release), `validate-diagrams.yml` (D2 syntax checks), `deploy-website.yml` (GitHub Pages deployment), `codeql.yml` (advanced-setup CodeQL analysis for Go with `go-version-file: go.mod`; other languages stay on GitHub default setup, which pins its own Go toolchain and cannot follow `go.mod` bumps).
+Other workflows: `version-docs.yml` (doc versioning on release), `validate-diagrams.yml` (D2 syntax checks), `deploy-website.yml` (GitHub Pages deployment), `codeql.yml` (advanced-setup CodeQL analysis for all languages — actions, go, javascript-typescript, python — with `go-version-file: go.mod` for Go; GitHub default setup is disabled because it cannot coexist with advanced CodeQL uploads and its runners pin their own Go toolchain, which cannot follow `go.mod` bumps).
 
 ### CI Workflow Hygiene
 
