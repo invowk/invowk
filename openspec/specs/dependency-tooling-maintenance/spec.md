@@ -8,7 +8,7 @@ Invowk SHALL refresh dependency and tooling inventory before applying a repo-wid
 
 #### Scenario: Inventory covers every dependency surface
 - **WHEN** maintainers start a repo-wide dependency and tooling upgrade
-- **THEN** they MUST inventory the root Go module, the `tools/goplint` Go module, website npm dependencies, website npm advisories, Go tool pins, workflow tool installs, MCP server pins, GitHub Actions pins, release tooling pins, and Node.js workflow pins
+- **THEN** they MUST inventory the root Go module (including the pinned `github.com/invowk/goplint` tool dependency), website npm dependencies, website npm advisories, Go tool pins, workflow tool installs, MCP server pins, GitHub Actions pins, release tooling pins, and Node.js workflow pins
 - **THEN** inventory output MUST identify available updates, deprecated modules, retracted modules, vulnerabilities, and tooling-policy exceptions
 
 #### Scenario: Inventory failures are visible
@@ -93,3 +93,4 @@ Invowk SHALL finish repo-wide upgrade work with explicit evidence of what change
 - **WHEN** the upgrade implementation is complete
 - **THEN** the implementation summary MUST record the local and remote verification commands or checks that passed
 - **THEN** any skipped verification MUST be called out with the reason and residual risk
+

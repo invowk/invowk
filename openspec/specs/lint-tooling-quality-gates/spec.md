@@ -27,29 +27,26 @@ Invowk SHALL resolve golangci-lint through one exact repository-governed version
 - **THEN** `AGENTS.md`, `.agents/rules/version-pinning.md`, workflow configuration, pre-commit configuration, Make targets, and any wrapper or tool-pin files that mention golangci-lint MUST describe the same version source and current version
 
 ### Requirement: Lint automation covers every Go module
-Invowk SHALL lint the root Go module and the nested `tools/goplint` Go module anywhere the repository advertises full lint coverage.
+Invowk SHALL lint the root Go module — its only Go module after the goplint extraction — anywhere the repository advertises full lint coverage, and SHALL NOT advertise coverage of external tool repositories it does not lint.
 
 #### Scenario: Make lint covers both modules
 - **WHEN** maintainers run `make lint`
-- **THEN** linting MUST run against the root module with the root golangci-lint config
-- **THEN** linting MUST run against `tools/goplint` from the `tools/goplint` module root with that module's golangci-lint config
+- **THEN** linting MUST run against the root module — the repository's only Go module after the goplint extraction — with the root golangci-lint config
+- **THEN** lint automation MUST NOT reference a nested `tools/goplint` module that no longer exists in this repository
 
 #### Scenario: CI lint coverage matches Make lint coverage
 - **WHEN** the lint workflow runs in GitHub Actions
-- **THEN** it MUST lint the root module and `tools/goplint`
-- **THEN** it MUST fail if either module's golangci-lint config fails validation or produces lint findings
-- **THEN** workflow comments and job names MUST NOT imply coverage that is not actually executed
+- **THEN** it MUST lint the root module and fail on config-validation failures or lint findings
+- **THEN** workflow comments and job names MUST NOT imply coverage of the external goplint repository
 
 #### Scenario: Pre-commit lint coverage matches changed Go module surfaces
 - **WHEN** pre-commit runs golangci-lint hooks
-- **THEN** it MUST run the root-module lint gate when root-module Go files or shared lint configuration changes are staged
-- **THEN** it MUST run the `tools/goplint` lint gate when `tools/goplint` Go files or its lint configuration changes are staged
-- **THEN** it MUST provide a supported path to run both module lint gates together
+- **THEN** it MUST run the root-module lint gate
+- **THEN** goplint's own sources MUST be linted by the `invowk/goplint` repository's equivalent gates, not by invowk hooks
 
 #### Scenario: Nested module boundaries are explicit
 - **WHEN** maintainers inspect lint automation
-- **THEN** the automation MUST make clear that root `go list ./...` does not include `tools/goplint`
-- **THEN** the nested-module lint invocation MUST NOT depend on accidental traversal from the root module
+- **THEN** the automation MUST make clear the repository has a single Go module and that the pinned `github.com/invowk/goplint` tool dependency is linted in its own repository
 
 ### Requirement: Golangci-lint formatter policy is enforced
 Invowk SHALL enforce every configured golangci-lint v2 formatter policy instead of leaving formatter sections as documentation-only configuration.
@@ -157,17 +154,15 @@ Invowk SHALL align agent-facing test parallelism rules with the actual linters a
 - **THEN** broad package-wide exclusions MUST be avoided unless every test in the package shares the same constraint
 
 ### Requirement: Goplint exception governance is enforced
-Invowk SHALL keep `tools/goplint` baseline and exception governance aligned with its lint, type-system, canonical semantic-analysis, routed soundness-assurance profile, and exhaustive completion quality gates.
+Invowk SHALL keep its goplint baseline and exception governance — stored under the repository-owned `.goplint/` directory — aligned with its lint, type-system, and canonical semantic-analysis quality gates, executed against the exact pinned goplint tool version.
 
 #### Scenario: Goplint lint and the required routed profile run together
 - **WHEN** repository lint gates run
-- **THEN** `tools/goplint` golangci-lint checks MUST run in addition to the custom goplint analyzer gates
-- **THEN** automation MUST select the conservatively classified goplint assurance profile without a legacy, alternate, fallback, or weakened semantic path
-- **THEN** explicit semantic, completion, release, and scheduled gates MUST retain every population required by their canonical manifests
-- **THEN** neither custom analyzer nor soundness gates MUST be treated as a replacement for the module's golangci-lint config
+- **THEN** the goplint analyzer gates MUST execute the analyzer built from the exact version pinned in the root `go.mod` tool dependency
+- **THEN** a version mismatch between the resolved analyzer and the pinned version MUST fail before analysis results are trusted
 
 #### Scenario: Accepted goplint exceptions are reviewable
-- **WHEN** a goplint exception is kept in `tools/goplint/exceptions.toml`
+- **WHEN** a goplint exception is kept in `.goplint/exceptions.toml`
 - **THEN** it MUST include a reason that explains why the exception remains acceptable
 - **THEN** long-lived or broad exceptions MUST include a review date or equivalent review mechanism
 
@@ -182,312 +177,85 @@ Invowk SHALL keep `tools/goplint` baseline and exception governance aligned with
 - **WHEN** `make check-baseline` or `make update-baseline` invokes goplint
 - **THEN** it MUST use the same canonical production analysis and fail-closed aggregation as the blocking full repository scan
 - **THEN** a read-only baseline check MUST reuse an exact-tree canonical repository-audit result when one exists in the same execution plan
-- **THEN** it MUST NOT retain a legacy fact reader, AST fallback, alternate evaluator, hidden selector, or mode-specific stable-ID path
-- **THEN** stable finding ID changes MUST be reported and reviewed before the baseline is accepted
+- **THEN** baseline data MUST live in `.goplint/baseline.toml`, and stable finding ID changes MUST be reported and reviewed before the baseline is accepted
 
 #### Scenario: Goplint baseline wording matches behavior
 - **WHEN** baseline tooling, goplint documentation, or agent guidance describes baseline behavior
 - **THEN** it MUST distinguish baseline-suppressed categories from always-visible hard-blocking categories
-- **THEN** stale statements about accepted counts, alternate semantics, or advisory soundness scans MUST be removed
+- **THEN** stale statements about removed in-tree soundness machinery MUST NOT remain
 
 #### Scenario: Canonical full scan is blocking
 - **WHEN** the repository goplint full scan runs locally, in pre-commit, or in CI
-- **THEN** violations, blocking inconclusive outcomes, malformed evidence, incomplete required evidence for the selected profile, surviving or non-causal required mutants, legacy-path detections, and analyzer failures MUST fail the gate
+- **THEN** violations, blocking inconclusive outcomes, malformed evidence, incomplete required evidence for the selected profile, and analyzer failures MUST fail the gate
 - **THEN** the workflow MUST NOT downgrade or mask those outcomes
 
 ### Requirement: Documentation and verification remain synchronized
-Invowk SHALL update documentation and validation so contributors can run, understand, and trust the lint and canonical goplint soundness-assurance gates, including generation and verification of the retained exact-tree evidence bundle used for completion claims.
+Invowk SHALL update documentation and validation so contributors can run, understand, and trust the lint and goplint consumer gates against the pinned analyzer version.
 
 #### Scenario: Command documentation lists complete lint workflow
-- **WHEN** contributors read `.agents/rules/commands.md`, `AGENTS.md`, Make help, or goplint documentation
-- **THEN** they MUST see how to run root lint, `tools/goplint` lint, formatter and config checks, exception governance, full scan, the aggregate soundness-assurance gate, and both generation and verification of the retained exact-tree evidence bundle used by `make check-goplint-soundness-complete`
-- **THEN** documented commands and guarantee claims MUST match implemented targets, CI jobs, production code paths, and retained evidence
+- **WHEN** contributors read `.agents/rules/commands.md`, `AGENTS.md`, Make help, or goplint consumer documentation
+- **THEN** they MUST see how to run root lint, formatter and config checks, exception governance, baseline comparison, full scan, and the consumer performance smoke
+- **THEN** documented commands and guarantee claims MUST match implemented targets, CI jobs, and the pinned tool version
 
 #### Scenario: Agent documentation sync check passes
 - **WHEN** implementation changes `AGENTS.md`, `.agents/rules/`, or `.agents/skills/`
 - **THEN** `make check-agent-docs` MUST pass before the change is complete
 
 #### Scenario: Final validation proves production semantics and evidence integrity
-- **WHEN** this change is complete
-- **THEN** maintainers MUST run both-module lint, formatter, config, test, race, repeat, baseline, exception, full-scan, performance, and agent-document gates
-- **THEN** maintainers MUST run real-analyzer counterexamples, catalog completeness, bounded independent oracle, meaningful deterministic fuzz seeds, real package-order determinism, causal targeted mutation, legacy-path absence, and strict OpenSpec validation
-- **THEN** every required gate MUST pass in the recorded clean synthetic-tree worktree without optimistic uncertainty, hidden compatibility behavior, missing evidence, or unreviewed baseline drift
+- **WHEN** a change to the goplint consumer surface is complete
+- **THEN** maintainers MUST run lint, test, baseline, exception, full-scan, and agent-document gates against the pinned analyzer
+- **THEN** analyzer-internal evidence integrity is proven by the `invowk/goplint` repository's gates before the pinned version exists
 
 #### Scenario: Documented completion commands match the implementation
-- **WHEN** contributors read `.agents/rules/commands.md`, `AGENTS.md`, Make help, or goplint documentation
-- **THEN** the documented generation and verification commands for retained exact-tree evidence MUST match the implemented targets and CI jobs
-- **AND** removed rollout phases and semantic-mode flags MUST NOT remain documented as supported behavior
-
-### Requirement: Soundness evidence is category-specific and causally executed
-Every soundness evidence layer SHALL identify the exact goplint category and semantic feature it exercises, SHALL execute through its declared production or independent boundary, and SHALL emit a machine-verifiable observation consumed by the blocking gate. Semantic-kind predicates, source-file existence, test-name markers, nonempty fuzz seeds, or shared generic evidence MUST NOT award category coverage by themselves.
-
-#### Scenario: New protocol category has no inherited evidence
-- **WHEN** a protocol category is added without category-specific production, independent-model, metamorphic, fuzz, mutation, and determinism observations
-- **THEN** the semantic census and aggregate soundness gate MUST fail
-- **AND** generic evidence registered for other protocol categories MUST NOT satisfy the missing layers
-
-#### Scenario: Category evidence reaches extraction and reporting
-- **WHEN** a protocol category claims production-boundary coverage
-- **THEN** its evidence MUST exercise applicable source extraction, identity and graph construction, propagation, refinement, aggregation, and diagnostic reporting
-- **AND** a direct component call or marker-only artifact MUST be labeled supporting evidence rather than end-to-end proof
-
-#### Scenario: Historical fuzz seed proves its declared feature
-- **WHEN** the audit matrix maps a historical counterexample to a committed fuzz seed
-- **THEN** the gate MUST decode that seed, observe the exact declared semantic structure, and demonstrate the independent property that detects the counterexample
-- **AND** nonempty input or an unrelated shared graph shape MUST NOT count as coverage
-
-### Requirement: Aggregate soundness orchestration rejects vacuous subgates
-The aggregate goplint soundness gate SHALL execute every required subgate through a canonical machine-readable manifest and SHALL validate the expected evidence from that execution. Target names, dependency declarations, recipe text, test definitions, or marker strings alone MUST NOT prove that a subgate ran.
-
-#### Scenario: Required recipe is replaced by a no-op
-- **WHEN** an adversarial gate test replaces any required subgate command with a successful no-op
-- **THEN** the gate contract MUST fail because the required evidence was not produced by the declared command
-
-#### Scenario: Empty evidence population cannot pass
-- **WHEN** a subgate executes with zero admitted programs, categories, seeds, mutants, deterministic reorderings, benchmarks, or counterexamples where a nonzero population is required
-- **THEN** the subgate and aggregate gate MUST fail
-
-#### Scenario: Unrelated failure is not causal evidence
-- **WHEN** a mutation or adversarial run fails for compilation, timeout, crash, unrelated test failure, or a pre-existing failing control
-- **THEN** the gate MUST reject the result as non-causal
-- **AND** it MUST NOT report the intended semantic guard as proven
-
-### Requirement: Independent evidence exercises integrated production semantics
-Generated comparison, fuzzing, perturbation, scheduled profiles, and analyzer benchmarks SHALL exercise the integrated production analyzer dimensions named by their manifests. The independent reference model MUST represent the corresponding facts, aliases, constraints, call sites, and realizable call/return behavior without calling production semantic helpers.
-
-#### Scenario: Evidence corruption enters before production validation
-- **WHEN** an end-to-end perturbation corrupts witness, refinement, reason, or summary evidence
-- **THEN** corruption MUST be injected before production evidence checking and aggregation
-- **AND** editing the analyzer result after execution MUST NOT satisfy the perturbation requirement
-
-#### Scenario: Differential fuzzing couples solver dimensions
-- **WHEN** a fuzz program declares aliases, constraints, procedures, call sites, or return edges
-- **THEN** both the production analyzer and independent interpreter MUST use those dimensions in the compared outcome
-- **AND** realizability, alias, and constraint properties MUST NOT be checked only as disconnected component laws
-
-#### Scenario: Scheduled profile compares the real analyzer
-- **WHEN** the scheduled oracle profile runs
-- **THEN** it MUST enumerate a manifest-derived strict superset of the blocking corpus and compare every admitted case with the production analyzer
-- **AND** a documented Make or CI surface MUST invoke it with a derived, self-checked case count
-
-#### Scenario: Generated-analysis benchmark measures the analyzer
-- **WHEN** a benchmark is reported as generated analyzer performance
-- **THEN** it MUST include parsing, typing, SSA extraction, graph construction, propagation, aggregation, and reporting for generated programs
-- **AND** reference-interpreter-only timing MUST be named and budgeted separately
-
-### Requirement: Clean-tree completion evidence is freshness checked
-The soundness workflow SHALL provide a blocking verifier that recomputes the exact synthetic tree and intended-diff identity as two reviewed content-class digests — one over semantic content (every path class that any gate executes or reads) and one over prose — and validates that every required result was produced for the recorded semantic content after final artifact and task state. A retained evidence file without successful freshness verification MUST NOT satisfy completion.
-
-#### Scenario: Semantic content changes after evidence generation
-- **WHEN** any tracked or untracked content in a non-documentation class changes after the clean-tree proof is recorded
-- **THEN** the freshness verifier and aggregate soundness gate MUST fail until the proof is regenerated with fresh gate execution for the new semantic content
-
-#### Scenario: Intended diff changes after evidence generation
-- **WHEN** any intended tracked or untracked content changes after the clean-tree proof is recorded and the change touches non-documentation content
-- **THEN** the freshness verifier and aggregate soundness gate MUST fail until the proof is regenerated for the new synthetic tree
-
-#### Scenario: Prose-only drift permits cheap re-binding
-- **WHEN** only `documentation`-class content differs from the retained record
-- **THEN** evidence generation MUST offer a re-binding path that recomputes both digests, revalidates task ledgers and the diff census, and retains the prior aggregate report without executing any assurance profile
-- **THEN** the re-bound record MUST identify the carried-forward report and the new prose digest, and verification MUST treat it as fresh
-
-#### Scenario: Required result is absent or stale
-- **WHEN** the evidence record omits a required subgate, counterexample, category observation, mutant attribution, manifest identity, toolchain identity, or final task-state identity
-- **THEN** the verifier MUST reject the record with the missing or mismatched field
-
-#### Scenario: Verification preserves the caller index
-- **WHEN** the freshness verifier materializes and checks the intended tree
-- **THEN** it MUST use a temporary index or equivalent isolated mechanism
-- **AND** the caller's real index and worktree contents MUST remain byte-for-byte unchanged
-
-### Requirement: Finding identities are globally scoped and source-layout independent
-Every stable goplint finding ID SHALL include full package-path semantic identity and SHALL remain invariant under unrelated file ordering, file length, token-position, message, and package-leaf collisions. Baseline lookup MUST NOT suppress findings from a different import path or semantic source.
-
-#### Scenario: Equal package leaf names do not collide
-- **WHEN** two import paths contain the same package leaf, type, member, and diagnostic category
-- **THEN** their stable finding IDs MUST differ by full package identity
-- **AND** baselining one finding MUST NOT suppress the other
-
-#### Scenario: Unrelated source edits do not rotate IDs
-- **WHEN** unrelated declarations or files are inserted, removed, reordered, or reformatted without changing a finding's semantic identity
-- **THEN** that finding's stable ID MUST remain byte-identical
-- **AND** raw `token.Pos` or file-set ordinal values MUST NOT participate in the ID
-
-#### Scenario: Stable-ID migration is reviewed
-- **WHEN** correcting an ID algorithm changes existing repository IDs
-- **THEN** tooling MUST produce a deterministic old-to-new migration and collision report from repeated identical scans
-- **AND** unexplained churn or a collision MUST block baseline acceptance
-
-### Requirement: Goplint directives are total and fail visibly
-Goplint SHALL validate directive names, attachment locations, arguments, duplication, and conflicts across field, declaration, type, function, method, and file documentation. An unknown, misspelled, incomplete, misplaced, or conflicting directive MUST produce an actionable failure rather than silently disabling or weakening a check.
-
-#### Scenario: Type-level typo is rejected
-- **WHEN** type or declaration documentation contains an unknown directive resembling `enum-cue`, `nonzero`, `path-domain`, or another supported directive
-- **THEN** goplint MUST report the unknown directive at its source location
-- **AND** the associated check MUST NOT silently disappear
-
-#### Scenario: Parameterized directive requires a value
-- **WHEN** a known parameterized directive is present without its required value or with an invalid value
-- **THEN** directive validation MUST fail before the directive consumer runs
-- **AND** recognizing only the directive name MUST NOT count as valid configuration
-
-#### Scenario: Duplicate or conflicting directives fail
-- **WHEN** the same declaration contains duplicate or mutually incompatible goplint directives
-- **THEN** goplint MUST emit one deterministic actionable configuration error
-- **AND** traversal order MUST NOT choose one directive silently
-
-### Requirement: Semantic evidence credit matches executed production stages
-Every goplint evidence observation SHALL derive its category, semantic feature, boundary, stages, dimensions, properties, and population from cases actually executed by its producer. Declarations, labels, fixture ordering, hard-coded counts, or a final reporting mutation MUST NOT award credit for unobserved semantics.
-
-#### Scenario: Metamorphic evidence transforms semantics-bearing input
-- **WHEN** a category claims metamorphic coverage
-- **THEN** the producer MUST apply a documented semantics-preserving or predictably semantics-changing transformation to a program or semantic model
-- **AND** merely reversing independent fixture order MUST NOT satisfy the relation
-
-#### Scenario: Fuzz evidence decodes variable semantic structure
-- **WHEN** a category claims fuzz coverage
-- **THEN** input bytes MUST control reviewed variable facts, identities, aliases, branches, procedures, calls, returns, effects, or constraints relevant to that category
-- **AND** the target MUST check an independent semantic property rather than only labels, determinism, or internal consistency
-
-#### Scenario: Determinism credit is category specific
-- **WHEN** a category claims file, package, map, worklist, or equivalent-schedule determinism
-- **THEN** that category's real analyzer cases MUST execute under every credited reordering
-- **AND** a stable unrelated global corpus MUST NOT transfer determinism credit to the category
-
-#### Scenario: Mutation stages match the mutated boundary
-- **WHEN** a category mutant changes only diagnostic reporting
-- **THEN** its observation MAY claim reporting-stage mutation evidence only
-- **AND** extraction, identity, graph, propagation, refinement, or aggregation credit MUST require separate causal mutants through those applicable stages
-
-#### Scenario: Fixed fixtures retain honest labels
-- **WHEN** expected outcomes come from explicit declarative fixtures rather than an executable independent interpreter
-- **THEN** the evidence MUST be labeled independent boundary-oracle evidence
-- **AND** it MUST NOT claim an integrated independent-model comparison
-
-### Requirement: Aggregate subgate populations are executable censuses
-Every aggregate subgate SHALL prove that each required test, case, shard, category, seed, mutant, benchmark, or other population member exists and executed in the current run. A successful command with no matching tests or with a hard-coded population MUST fail evidence validation.
-
-#### Scenario: Missing regex-selected test fails
-- **WHEN** a subgate's `go test -run` pattern matches no test or omits any required named test
-- **THEN** the subgate MUST fail before emitting a successful report
-- **AND** Go's zero-exit no-tests behavior MUST NOT count as execution evidence
-
-#### Scenario: Population comes from observations
-- **WHEN** a subgate reports a nonzero population
-- **THEN** the report count MUST be derived from uniquely observed current-run members
-- **AND** a constant count, duplicate observation, skipped shard, or prior report MUST be rejected
-
-#### Scenario: Contract mutation removes a test
-- **WHEN** adversarial gate tests delete or rename each required test while leaving the command and hard-coded report path intact
-- **THEN** the owning subgate and aggregate runner MUST fail
-
-### Requirement: Mutation kills prove the intended mismatch
-The targeted mutation gate SHALL accept a kill only when clean controls pass, the exact declared transformation compiles, the expected guard observes the declared semantic mismatch, restoration succeeds, and repeated post-controls remain clean. Expected-test-name failure alone MUST NOT establish causality.
-
-#### Scenario: Expected test fails for unrelated assertion
-- **WHEN** the named guard fails because of setup, unrelated assertion, environmental error, or a mismatch different from the mutant's declared concern
-- **THEN** the runner MUST classify the mutant invalid rather than killed
-- **AND** no semantic observation or stage credit may be emitted
-
-#### Scenario: Every blocking mutant is killed causally
-- **WHEN** the blocking profile completes
-- **THEN** every selected mutant MUST have zero survivors and one structured intended-mismatch attribution
-- **AND** compilation failure, timeout, panic, generic `FAIL`, missing test, or pre-existing failure MUST remain non-kill outcomes
-
-#### Scenario: Post-validation mutants cannot survive
-- **WHEN** mutation removes post-validation summary or unresolved-effect transfer
-- **THEN** a production-boundary guard MUST fail for the exact lost violation or inconclusive outcome
-- **AND** both post-validation mutants identified by this review MUST be killed before completion
-
-### Requirement: Completion proof covers the complete dependent diff
-The goplint soundness completion proof SHALL materialize and verify every intended tracked and untracked change across `complete-goplint-soundness-hardening`, `close-goplint-soundness-review-gaps`, and `close-residual-goplint-soundness-gaps`. Omitted changed paths, incomplete task state, stale artifacts, or out-of-order archives MUST invalidate completion.
-
-#### Scenario: Changed path is omitted from proof selection
-- **WHEN** any changed or untracked repository path is absent from the proof selection without an explicit reviewed unrelated-path exclusion
-- **THEN** materialization or freshness verification MUST fail
-- **AND** the omitted content MUST NOT remain outside the synthetic-tree identity silently
-
-#### Scenario: Combined proof follows final task state
-- **WHEN** any predecessor or current task, manifest, counterexample, baseline, evidence producer, documentation claim, or artifact changes after proof generation
-- **THEN** freshness verification and the completion profile MUST fail until the proof is regenerated
-
-#### Scenario: Archive order preserves dependencies
-- **WHEN** the combined final tree passes every required gate and freshness check
-- **THEN** maintainers MUST synchronize and archive the three changes in dependency order with strict validation after each transition
-- **AND** artifact readiness or a partially complete task ledger MUST NOT authorize an earlier archive
-
-#### Scenario: Completion record is one combined authority
-- **WHEN** completion evidence is retained
-- **THEN** one reviewed record MUST bind the exact base, full intended diff, synthetic tree, toolchain, task ledgers, commands, observations, mutation attributions, populations, and outcomes
-- **AND** separate partial records MUST NOT substitute for the combined proof
-
-### Requirement: Mutation-kernel coverage contract is a documented blocking subgate
-Invowk SHALL document the blocking mutation-kernel category-coverage contract in the same documentation surfaces that describe other blocking goplint gates, so contributors can see that mutation coverage is a first-class blocking requirement rather than an implementation detail.
-
-#### Scenario: Kernel coverage subgate appears in documentation
-- **WHEN** contributors read `.agents/rules/commands.md`, `.agents/rules/checklist.md`, `tools/goplint/AGENTS.md`, or `tools/goplint/README.md`
-- **THEN** they MUST see that the blocking mutation profile MUST cover every semantic category whose registered rule in `tools/goplint/spec/semantic-rules.v1.json` requires the `mutation` evidence layer
-- **AND** they MUST see the exact command that runs the kernel-coverage subgate
-- **AND** they MUST see that the subgate cannot be baselined, excepted, or inline-ignored
-
-#### Scenario: Repo hygiene excludes goplint test binaries
-- **WHEN** contributors build or run goplint tests locally
-- **THEN** the resulting `tools/goplint/**/*.test` binaries MUST be ignored by `.gitignore`
-- **AND** `git status` MUST NOT list them as untracked candidates for accidental staging
+- **WHEN** contributors read `.agents/rules/commands.md`, `AGENTS.md`, Make help, or goplint consumer documentation
+- **THEN** documented commands MUST match implemented targets and CI jobs
+- **THEN** removed in-tree soundness machinery MUST NOT remain documented as supported invowk behavior; invowk documentation MUST point to the `invowk/goplint` repository as the authoritative source
 
 ### Requirement: Automatic goplint assurance routing is conservative and change aware
-Repository automation SHALL classify every changed path into exactly one reviewed change class — `documentation`, `consumer`, `harness`, or `analyzer-semantics` — through the versioned ownership manifest, SHALL select the least expensive assurance tier that completely covers the highest class present in the diff, and SHALL fail closed to the semantic or completion profile whenever it cannot prove that a cheaper tier is sufficient.
+Repository automation SHALL classify every changed invowk path into exactly one reviewed change class — `documentation` or `consumer` — through a versioned invowk-owned ownership manifest, SHALL run the consumer tier for any diff containing a consumer-class or unmatched path, and SHALL fail closed to the consumer tier whenever classification is missing, malformed, or ambiguous. Analyzer-semantics and harness assurance tiers are governed by the `invowk/goplint` repository against its own tree.
 
 #### Scenario: Documentation and bookkeeping changes route to the documentation tier
-- **WHEN** a diff changes only paths in the `documentation` class, including goplint documentation, OpenSpec change artifacts, agent-facing markdown, and performance reports
-- **THEN** automation MUST run the static goplint documentation validator and no analyzer execution
-- **THEN** no repository audit, semantic population, or performance measurement MAY be triggered by that diff
+- **WHEN** a diff changes only paths in the `documentation` class
+- **THEN** automation MUST NOT trigger a repository audit or analyzer execution for that diff
 
 #### Scenario: Consumer code changes without analyzer ownership changes
-- **WHEN** a pull request changes only root-module code that consumes goplint and no harness or analyzer-semantics path
-- **THEN** automation MUST run one blocking canonical repository audit with baseline and exception governance
-- **THEN** it MUST NOT rerun unchanged analyzer soundness subgates solely because `cmd`, `internal`, or `pkg` changed
+- **WHEN** a diff changes any root-module code, configuration under `.goplint/`, or any path not matched by a documentation rule
+- **THEN** automation MUST run one blocking canonical repository audit with baseline and exception governance against the pinned analyzer
 
 #### Scenario: Harness-only changes route to the harness tier
-- **WHEN** a diff's highest class is `harness` — gate orchestration code, execution planners, distributed plumbing, workflow topology, or gate scripts that cannot change analyzer verdicts
-- **THEN** automation MUST run the harness tier: the goplint module test suites, one shared repository audit, and the fixture-driven serial-versus-parallel normalized-report parity check
-- **THEN** it MUST NOT require re-executing the full semantic populations for that diff alone
+- **WHEN** gate orchestration, execution planners, or distributed plumbing change
+- **THEN** those surfaces now live in the `invowk/goplint` repository, whose own routing governs the harness tier; invowk automation treats its remaining gate wiring as consumer-class
 
 #### Scenario: Analyzer-semantics changes select the semantic profile
-- **WHEN** a change touches goplint production semantics, analyzer tests, evidence producers, manifests, schemas, baselines, exceptions, threshold manifests, or governing goplint specification requirements
-- **THEN** automation MUST select the semantic profile
-- **THEN** the profile MUST retain every causal core population required before this change
+- **WHEN** analyzer production semantics, tests, evidence producers, manifests, schemas, or thresholds change
+- **THEN** those surfaces live in the `invowk/goplint` repository, whose own gates run the semantic profile before any version invowk can pin
 
 #### Scenario: Analyzer or assurance ownership changes
-- **WHEN** a change touches goplint production semantics, tests, evidence producers, manifests, schemas, baselines, exceptions, threshold manifests, or governing goplint specifications, and no ownership rule reclassifies the touched paths into a cheaper class
-- **THEN** automation MUST select the semantic profile
-- **THEN** the profile MUST retain every causal core population required before this optimization
+- **WHEN** ownership of analyzer or assurance surfaces changes
+- **THEN** the `invowk/goplint` repository's ownership manifest governs the routing consequence; invowk's manifest governs only documentation-vs-consumer classification of invowk paths
 
 #### Scenario: Completion event requires exhaustive evidence
-- **WHEN** a completion proof, release, scheduled certification, or explicit exhaustive dispatch runs
-- **THEN** automation MUST select the completion profile regardless of changed paths
-- **THEN** clean-tree freshness and statistically stable performance certification MUST be blocking
+- **WHEN** a completion proof, release, or scheduled certification runs for the analyzer
+- **THEN** the `invowk/goplint` repository's completion profile — including clean-tree freshness — MUST be blocking there; invowk's release gates run the consumer tier
 
 #### Scenario: Executable inputs are never classified as documentation
-- **WHEN** the ownership manifest assigns classes to path families
-- **THEN** every file a gate reads as input — configuration, manifests, schemas, scripts, baselines, thresholds — MUST belong to `consumer`, `harness`, or `analyzer-semantics`
-- **THEN** manifest validation MUST reject a `documentation` assignment for any enumerated executable-input family
+- **WHEN** invowk's ownership manifest assigns classes to path families
+- **THEN** every file a consumer gate reads as input — `.goplint/` configuration, manifests, baselines, thresholds — MUST NOT match a documentation rule
 
 #### Scenario: Change context is missing or ambiguous
 - **WHEN** the merge base, changed-path census, ownership manifest, or event context is missing, malformed, stale, or ambiguous
-- **THEN** routing MUST select the applicable semantic or completion profile
-- **THEN** it MUST NOT silently select the documentation, consumer, or harness tier
+- **THEN** routing MUST select the consumer tier
+- **THEN** it MUST NOT silently skip analysis
 
 #### Scenario: Pre-commit execution is capped below the semantic tier
 - **WHEN** the local pre-commit hook routes a staged diff
 - **THEN** it MUST execute at most the documentation or consumer tier locally
-- **THEN** for harness or analyzer-semantics diffs it MUST report the authoritative tier that continuous integration will run
-- **THEN** explicit Make targets MUST remain available to run the semantic and completion profiles locally on demand
+- **THEN** explicit Make targets MUST remain available to run the consumer gates on demand
 
 #### Scenario: Continuous integration routes from the cumulative pull-request diff
 - **WHEN** a pull-request event triggers the lint workflow
-- **THEN** the selected tier MUST derive from the full base-to-head diff classification, not from the individual push
-- **THEN** schedule, release, dispatch, and default-branch push events MUST retain their forced profiles
+- **THEN** the goplint consumer gates MUST run against the pinned analyzer for the full change
+- **THEN** analyzer-soundness assurance MUST derive from the pinned goplint release, not from re-executing goplint's semantic populations in invowk
 
 ### Requirement: One exact-tree repository analysis serves all read-only audit consumers
 The goplint quality gate SHALL execute at most one canonical package/analyzer traversal per exact execution plan for full-scan enforcement, baseline comparison, and stale-exception matching.
@@ -507,83 +275,20 @@ The goplint quality gate SHALL execute at most one canonical package/analyzer tr
 - **THEN** the audit MUST parse and validate configuration without loading Go packages
 - **THEN** malformed or overdue entries MUST remain blocking
 
-### Requirement: Local goplint execution is resource aware and bounded
-The aggregate goplint executor SHALL discover the effective local CPU and available-memory budgets, schedule independent work concurrently within explicit resource reservations, and provide deterministic overrides and conservative fallbacks.
-
-#### Scenario: High-capacity local machine runs the semantic profile
-- **WHEN** auto mode runs on a machine exposing 24 effective CPUs and sufficient available memory
-- **THEN** the plan MUST admit materially more concurrent independent work than the 4-vCPU hosted-runner plan
-- **THEN** it MUST reserve at least 75 percent of the effective CPU budget while sufficient runnable work exists
-- **THEN** child-process parallelism MUST remain bounded by the resources reserved to each work unit
-
-#### Scenario: Memory budget would be exceeded
-- **WHEN** a ready set of subgates would exceed the detected or configured available-memory budget
-- **THEN** the executor MUST defer work until the required memory tokens are available
-- **THEN** it MUST NOT rely on swap exhaustion or an operating-system kill as ordinary flow control
-
-#### Scenario: Resource discovery is unavailable
-- **WHEN** effective CPU or available memory cannot be determined reliably
-- **THEN** the executor MUST use a documented conservative fallback
-- **THEN** the normalized execution result MUST remain semantically identical to a larger-budget run
-
-#### Scenario: Contributor overrides resources
-- **WHEN** a contributor supplies valid CPU, memory, or worker limits
-- **THEN** the planner MUST record and enforce those limits deterministically
-- **THEN** invalid or impossible limits MUST fail with an actionable error before any subgate runs
-
-### Requirement: Race and repeat execution uses exhaustive balanced work units
-The goplint race/repeat gate SHALL assign the live top-level test census to deterministic duration-weighted work units, compile each required test-binary mode once per plan, and prove that every required test execution occurred exactly once per configured iteration.
-
-#### Scenario: Shards are planned from timing metadata
-- **WHEN** the analyzer test census is divided into shards
-- **THEN** the planner MUST validate every live `Test`, `Fuzz`, and `Example` against versioned timing metadata
-- **THEN** it MUST assign every top-level entry exactly once using a deterministic longest-processing-time policy
-- **THEN** an entry without timing data MUST receive a conservative weight and remain visible for metadata refresh
-
-#### Scenario: Heavy nested family dominates one top-level test
-- **WHEN** one top-level entry contains independently executable cases whose weight prevents balanced shards
-- **THEN** the implementation MUST expose a stable machine-validated case census for sharding or split the cases into stable top-level entries
-- **THEN** no case MAY be skipped, duplicated, or accepted through a name marker alone
-
-#### Scenario: Race and repeat binaries are prepared
-- **WHEN** a race/repeat plan executes
-- **THEN** the normal analyzer test binary MUST be compiled at most once for that plan
-- **THEN** the race-instrumented analyzer test binary MUST be compiled at most once for that plan
-- **THEN** every shard MUST bind to the expected binary digest, test census, mode, and iteration
-
-#### Scenario: A shard times out or is absent
-- **WHEN** a required shard times out, crashes, reports the wrong census, or produces no bound result
-- **THEN** race/repeat aggregation MUST fail
-- **THEN** increasing a workflow-level timeout MUST NOT make the missing population pass
-
 ### Requirement: Goplint gate performance is observable and regression bounded
-Every goplint execution plan SHALL retain enough machine-readable timing and resource evidence to explain its critical path, prove utilization, detect shard imbalance, and enforce reviewed wall-time objectives without changing semantic verdicts.
+Invowk SHALL enforce a consumer performance smoke against its live tree so that goplint scan cost over invowk's codebase remains within reviewed catastrophic-regression limits, while statistical performance certification of the analyzer is governed by the `invowk/goplint` repository against a pinned invowk reference corpus.
 
 #### Scenario: Work unit completes
-- **WHEN** a local or distributed work unit completes
-- **THEN** its result MUST record queue time, wall time, reserved resources, peak memory when available, exit or timeout cause, and population counts
-- **THEN** the aggregate MUST report critical path, maximum concurrent reservations, and shard imbalance in deterministic normalized form
+- **WHEN** the consumer performance smoke runs locally or in CI
+- **THEN** it MUST measure one full repository scan with the pinned analyzer against reviewed wall-time and peak-memory limits stored in `.goplint/`
+- **THEN** exceeding a catastrophic limit MUST fail the gate
 
 #### Scenario: Optimized executor is compared with the serial reference
-- **WHEN** the optimized executor becomes authoritative
-- **THEN** normalized findings, observations, required populations, and verdicts MUST match the serial reference byte-for-byte after permitted timing fields are removed
-- **THEN** semantic-profile median wall time on the same reviewed runner class MUST be at least 50 percent lower than the recorded serial baseline
+- **WHEN** executor-level performance properties of the analyzer need proof
+- **THEN** the `invowk/goplint` repository's harness gates govern them; invowk relies on the pinned release
 
 #### Scenario: Consumer profile performance is accepted
-- **WHEN** the consumer profile is measured on the reviewed warm-cache 4-vCPU CI runner class
-- **THEN** its blocking goplint feedback objective MUST be no more than 10 minutes
-- **THEN** failure to meet the objective MUST remain visible in telemetry and block removal of the legacy topology during migration
-
-### Requirement: Goplint documentation is statically anchored to executable evidence
-A blocking static validator SHALL verify, in seconds and without loading Go packages or executing gates, that goplint prose remains anchored to executable artifacts.
-
-#### Scenario: Evidence claims map to existing executables
-- **WHEN** the documentation validator runs over the goplint evidence index and gate documentation
-- **THEN** every claim-to-evidence row MUST name a test, gate, or observation identifier that exists in the current tree
-- **THEN** every referenced Make target, subgate identifier, command, and repository path MUST exist
-
-#### Scenario: Documentation drift is visible and blocking at its tier
-- **WHEN** prose references a removed target, renamed subgate, or missing file
-- **THEN** the documentation tier MUST fail with the exact stale reference
-- **THEN** the failure MUST NOT be baselinable, exceptable, or inline-ignorable
+- **WHEN** the consumer smoke passes
+- **THEN** automation and documentation MUST NOT present it as analyzer performance certification
+- **THEN** certification claims MUST reference the goplint repository's multi-sample certification against its reference corpus
 
