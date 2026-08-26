@@ -45,7 +45,7 @@ search_docs() {
 	if [[ "$has_rg" -eq 1 ]]; then
 		rg -n -g '!**/speckit.*/SKILL.md' -- "$pattern" \
 			.agents/rules \
-			.agents/skills/*/SKILL.md \
+			.agents/skills/*/SKILL.md
 	else
 		grep -nE -- "$pattern" \
 			.agents/rules/*.md \

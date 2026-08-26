@@ -452,7 +452,7 @@ test-scripts:
 	sh scripts/test_install.sh
 	@echo ""
 	@echo "Running release helper script tests..."
-	bash scripts/test_release.sh scripts/goplint.sh scripts/goplint-consumer-smoke.sh scripts/goplint-consumer-routed.sh
+	bash scripts/test_release.sh
 	@echo ""
 	@echo "Running Bencher BMF script tests..."
 	node scripts/test_bench_bmf.mjs
@@ -631,10 +631,9 @@ help:
 	@echo "  vulncheck        Run govulncheck in all tracked Go modules"
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run normalized lint, config, and formatter gates"
-	@echo "  lint-root        Run normalized golangci-lint for the root module"
 	@echo "  lint-fmt         Check golangci-lint formatters"
 	@echo "  lint-config-verify Verify golangci-lint config"
-	@echo "  lint-linters     Print effective golangci-lint linter JSON for both modules"
+	@echo "  lint-linters     Print effective golangci-lint linter JSON for the module"
 	@echo "  check-goplint-consumer-routed Route the staged diff (documentation vs consumer tier)"
 	@echo "  check-goplint-repository-audit Produce the canonical repository audit"
 	@echo "  check-goplint-full-scan Run the blocking canonical production scan"
@@ -686,4 +685,4 @@ help:
 	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PROMOTE=1  # Promote prerelease to stable"
 	@echo "  make release-bump TYPE=patch RELEASE_NOTES_FILE=release-notes.md DRY_RUN=1  # Preview next patch version"
 	@echo "  make mutation-pr MUTATION_MODULE=root MUTATION_BASE_REF=origin/main  # PR mutation scan"
-	@echo "  make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>  # Focus one survivor"
+	@echo "  make mutation-rerun MUTATION_MUTANT_ID=<id>  # Focus one survivor"
