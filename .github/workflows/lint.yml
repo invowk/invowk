@@ -117,13 +117,17 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    env:
-      # One canonical repository scan serves every consumer verdict below. The
-      # artifact must live outside the hashed workspace or the audit refuses it.
-      GOPLINT_REPOSITORY_AUDIT_PATH: ${{ runner.temp }}/goplint/repository-audit.json
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # One canonical repository scan serves every consumer verdict below. The
+      # artifact must live outside the hashed workspace or the audit refuses
+      # it, and the runner context is step-scoped, so bind the path here.
+      - name: Bind the shared audit artifact path
+        run: |
+          mkdir -p "$RUNNER_TEMP/goplint"
+          echo "GOPLINT_REPOSITORY_AUDIT_PATH=$RUNNER_TEMP/goplint/repository-audit.json" >> "$GITHUB_ENV"
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -135,9 +139,7 @@ jobs:
         run: ./scripts/goplint.sh version
 
       - name: Produce the canonical repository audit
-        run: |
-          mkdir -p "$(dirname "$GOPLINT_REPOSITORY_AUDIT_PATH")"
-          make check-goplint-repository-audit
+        run: make check-goplint-repository-audit
 
       - name: Check baseline regressions
         run: make check-baseline
