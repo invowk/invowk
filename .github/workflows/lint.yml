@@ -30,35 +30,12 @@ on:
       - '.github/workflows/**'
       - '.github/workflows/lint.yml'
       - 'openspec/specs/lint-tooling-quality-gates/**'
+  # Every pull request must report the required "goplint consumer gates"
+  # check, so the pull_request trigger carries no path filter; the consumer
+  # job classifies the diff itself and fast-paths documentation-only changes.
   pull_request:
     branches:
       - main
-    paths:
-      - 'cmd/**'
-      - 'internal/**'
-      - 'pkg/**'
-      - 'tests/**'
-      - '*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.goplint/**'
-      - 'scripts/goplint.sh'
-      - 'scripts/goplint-consumer-smoke.sh'
-      - 'scripts/goplint-consumer-routed.sh'
-      - '.golangci.toml'
-      - 'sonar-project.properties'
-      - '.sonarcloud.properties'
-      - '.pre-commit-config.yaml'
-      - 'Makefile'
-      - 'AGENTS.md'
-      - '.agents/**'
-      - 'scripts/check-agent-docs.sh'
-      - 'scripts/check-file-length.sh'
-      - 'scripts/golangci-lint.sh'
-      - 'scripts/test_golangci_lint.sh'
-      - '.github/workflows/**'
-      - '.github/workflows/lint.yml'
-      - 'openspec/specs/lint-tooling-quality-gates/**'
   # Release validation must always run in full, regardless of changed paths.
   release:
     types:
@@ -132,6 +109,35 @@ jobs:
           mkdir -p "$RUNNER_TEMP/goplint"
           echo "GOPLINT_REPOSITORY_AUDIT_PATH=$RUNNER_TEMP/goplint/repository-audit.json" >> "$GITHUB_ENV"
 
+      # Documentation-only diffs skip analyzer execution, mirroring the local
+      # routed gate; anything else — and any classification failure,
+      # fail-closed — runs the consumer tier. The job always reports.
+      - name: Classify the pull-request diff
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          profile=consumer
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" && -n "$BASE_SHA" ]]; then
+            git fetch -q --depth=1 origin "$BASE_SHA" || true
+            changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true)"
+            if [[ -n "$changed" ]] && command -v jq >/dev/null 2>&1; then
+              mapfile -t doc_patterns < <(jq -r '.documentation_patterns[]' .goplint/ownership.v1.json)
+              profile=documentation
+              while IFS= read -r path; do
+                [[ -z "$path" ]] && continue
+                matched=0
+                for pattern in "${doc_patterns[@]}"; do
+                  if [[ "$path" =~ $pattern ]]; then matched=1; break; fi
+                done
+                if [[ "$matched" -eq 0 ]]; then profile=consumer; break; fi
+              done <<<"$changed"
+            fi
+          fi
+          echo "Selected goplint profile: $profile"
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
@@ -139,21 +145,27 @@ jobs:
           cache: true
 
       - name: Verify pinned goplint version
+        if: steps.classify.outputs.profile != 'documentation'
         run: ./scripts/goplint.sh version
 
       - name: Produce the canonical repository audit
+        if: steps.classify.outputs.profile != 'documentation'
         run: make check-goplint-repository-audit
 
       - name: Check baseline regressions
+        if: steps.classify.outputs.profile != 'documentation'
         run: make check-baseline
 
       - name: Audit exception governance
+        if: steps.classify.outputs.profile != 'documentation'
         run: make check-goplint-exceptions
 
       - name: Run the blocking full scan
+        if: steps.classify.outputs.profile != 'documentation'
         run: make check-goplint-full-scan
 
       - name: Run the consumer performance smoke
+        if: steps.classify.outputs.profile != 'documentation'
         run: make check-goplint-performance-smoke
 
   file-length:
