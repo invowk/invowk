@@ -3,9 +3,9 @@
 ### Requirement: Lint automation covers every Go module
 Invowk SHALL lint the root Go module — its only Go module after the goplint extraction — anywhere the repository advertises full lint coverage, and SHALL NOT advertise coverage of external tool repositories it does not lint.
 
-#### Scenario: Make lint covers the root module
+#### Scenario: Make lint covers both modules
 - **WHEN** maintainers run `make lint`
-- **THEN** linting MUST run against the root module with the root golangci-lint config
+- **THEN** linting MUST run against the root module — the repository's only Go module after the goplint extraction — with the root golangci-lint config
 - **THEN** lint automation MUST NOT reference a nested `tools/goplint` module that no longer exists in this repository
 
 #### Scenario: CI lint coverage matches Make lint coverage
@@ -13,15 +13,19 @@ Invowk SHALL lint the root Go module — its only Go module after the goplint ex
 - **THEN** it MUST lint the root module and fail on config-validation failures or lint findings
 - **THEN** workflow comments and job names MUST NOT imply coverage of the external goplint repository
 
-#### Scenario: Goplint lint coverage lives with goplint
-- **WHEN** maintainers inspect where goplint's own Go sources are linted
-- **THEN** the `invowk/goplint` repository MUST provide equivalent golangci-lint, formatter, and config-verification gates for its module
-- **THEN** invowk documentation MUST point to that repository for goplint-internal lint coverage
+#### Scenario: Pre-commit lint coverage matches changed Go module surfaces
+- **WHEN** pre-commit runs golangci-lint hooks
+- **THEN** it MUST run the root-module lint gate
+- **THEN** goplint's own sources MUST be linted by the `invowk/goplint` repository's equivalent gates, not by invowk hooks
+
+#### Scenario: Nested module boundaries are explicit
+- **WHEN** maintainers inspect lint automation
+- **THEN** the automation MUST make clear the repository has a single Go module and that the pinned `github.com/invowk/goplint` tool dependency is linted in its own repository
 
 ### Requirement: Goplint exception governance is enforced
 Invowk SHALL keep its goplint baseline and exception governance — stored under the repository-owned `.goplint/` directory — aligned with its lint, type-system, and canonical semantic-analysis quality gates, executed against the exact pinned goplint tool version.
 
-#### Scenario: Consumer gates run against the pinned analyzer
+#### Scenario: Goplint lint and the required routed profile run together
 - **WHEN** repository lint gates run
 - **THEN** the goplint analyzer gates MUST execute the analyzer built from the exact version pinned in the root `go.mod` tool dependency
 - **THEN** a version mismatch between the resolved analyzer and the pinned version MUST fail before analysis results are trusted
@@ -44,6 +48,11 @@ Invowk SHALL keep its goplint baseline and exception governance — stored under
 - **THEN** a read-only baseline check MUST reuse an exact-tree canonical repository-audit result when one exists in the same execution plan
 - **THEN** baseline data MUST live in `.goplint/baseline.toml`, and stable finding ID changes MUST be reported and reviewed before the baseline is accepted
 
+#### Scenario: Goplint baseline wording matches behavior
+- **WHEN** baseline tooling, goplint documentation, or agent guidance describes baseline behavior
+- **THEN** it MUST distinguish baseline-suppressed categories from always-visible hard-blocking categories
+- **THEN** stale statements about removed in-tree soundness machinery MUST NOT remain
+
 #### Scenario: Canonical full scan is blocking
 - **WHEN** the repository goplint full scan runs locally, in pre-commit, or in CI
 - **THEN** violations, blocking inconclusive outcomes, malformed evidence, incomplete required evidence for the selected profile, and analyzer failures MUST fail the gate
@@ -56,24 +65,44 @@ Repository automation SHALL classify every changed invowk path into exactly one 
 - **WHEN** a diff changes only paths in the `documentation` class
 - **THEN** automation MUST NOT trigger a repository audit or analyzer execution for that diff
 
-#### Scenario: Consumer code changes run the consumer tier
+#### Scenario: Consumer code changes without analyzer ownership changes
 - **WHEN** a diff changes any root-module code, configuration under `.goplint/`, or any path not matched by a documentation rule
 - **THEN** automation MUST run one blocking canonical repository audit with baseline and exception governance against the pinned analyzer
+
+#### Scenario: Harness-only changes route to the harness tier
+- **WHEN** gate orchestration, execution planners, or distributed plumbing change
+- **THEN** those surfaces now live in the `invowk/goplint` repository, whose own routing governs the harness tier; invowk automation treats its remaining gate wiring as consumer-class
+
+#### Scenario: Analyzer-semantics changes select the semantic profile
+- **WHEN** analyzer production semantics, tests, evidence producers, manifests, schemas, or thresholds change
+- **THEN** those surfaces live in the `invowk/goplint` repository, whose own gates run the semantic profile before any version invowk can pin
+
+#### Scenario: Analyzer or assurance ownership changes
+- **WHEN** ownership of analyzer or assurance surfaces changes
+- **THEN** the `invowk/goplint` repository's ownership manifest governs the routing consequence; invowk's manifest governs only documentation-vs-consumer classification of invowk paths
+
+#### Scenario: Completion event requires exhaustive evidence
+- **WHEN** a completion proof, release, or scheduled certification runs for the analyzer
+- **THEN** the `invowk/goplint` repository's completion profile — including clean-tree freshness — MUST be blocking there; invowk's release gates run the consumer tier
+
+#### Scenario: Executable inputs are never classified as documentation
+- **WHEN** invowk's ownership manifest assigns classes to path families
+- **THEN** every file a consumer gate reads as input — `.goplint/` configuration, manifests, baselines, thresholds — MUST NOT match a documentation rule
 
 #### Scenario: Change context is missing or ambiguous
 - **WHEN** the merge base, changed-path census, ownership manifest, or event context is missing, malformed, stale, or ambiguous
 - **THEN** routing MUST select the consumer tier
 - **THEN** it MUST NOT silently skip analysis
 
-#### Scenario: Pre-commit runs the routed consumer ceiling
+#### Scenario: Pre-commit execution is capped below the semantic tier
 - **WHEN** the local pre-commit hook routes a staged diff
 - **THEN** it MUST execute at most the documentation or consumer tier locally
 - **THEN** explicit Make targets MUST remain available to run the consumer gates on demand
 
-#### Scenario: Analyzer assurance is pinned, not re-derived
-- **WHEN** invowk changes do not modify goplint itself
-- **THEN** invowk automation MUST NOT re-execute goplint's semantic soundness populations
-- **THEN** analyzer-soundness assurance MUST derive from the pinned goplint release, whose own repository gates those populations before release
+#### Scenario: Continuous integration routes from the cumulative pull-request diff
+- **WHEN** a pull-request event triggers the lint workflow
+- **THEN** the goplint consumer gates MUST run against the pinned analyzer for the full change
+- **THEN** analyzer-soundness assurance MUST derive from the pinned goplint release, not from re-executing goplint's semantic populations in invowk
 
 ### Requirement: Documentation and verification remain synchronized
 Invowk SHALL update documentation and validation so contributors can run, understand, and trust the lint and goplint consumer gates against the pinned analyzer version.
@@ -87,20 +116,29 @@ Invowk SHALL update documentation and validation so contributors can run, unders
 - **WHEN** implementation changes `AGENTS.md`, `.agents/rules/`, or `.agents/skills/`
 - **THEN** `make check-agent-docs` MUST pass before the change is complete
 
-#### Scenario: Goplint-internal assurance documentation lives with goplint
-- **WHEN** contributors need the analyzer-soundness, harness, or completion-evidence documentation
-- **THEN** invowk documentation MUST point to the `invowk/goplint` repository as the authoritative source
-- **THEN** invowk MUST NOT retain stale copies that can drift from the tool's actual behavior
+#### Scenario: Final validation proves production semantics and evidence integrity
+- **WHEN** a change to the goplint consumer surface is complete
+- **THEN** maintainers MUST run lint, test, baseline, exception, full-scan, and agent-document gates against the pinned analyzer
+- **THEN** analyzer-internal evidence integrity is proven by the `invowk/goplint` repository's gates before the pinned version exists
+
+#### Scenario: Documented completion commands match the implementation
+- **WHEN** contributors read `.agents/rules/commands.md`, `AGENTS.md`, Make help, or goplint consumer documentation
+- **THEN** documented commands MUST match implemented targets and CI jobs
+- **THEN** removed in-tree soundness machinery MUST NOT remain documented as supported invowk behavior; invowk documentation MUST point to the `invowk/goplint` repository as the authoritative source
 
 ### Requirement: Goplint gate performance is observable and regression bounded
 Invowk SHALL enforce a consumer performance smoke against its live tree so that goplint scan cost over invowk's codebase remains within reviewed catastrophic-regression limits, while statistical performance certification of the analyzer is governed by the `invowk/goplint` repository against a pinned invowk reference corpus.
 
-#### Scenario: Consumer smoke bounds live-tree scan cost
+#### Scenario: Work unit completes
 - **WHEN** the consumer performance smoke runs locally or in CI
 - **THEN** it MUST measure one full repository scan with the pinned analyzer against reviewed wall-time and peak-memory limits stored in `.goplint/`
 - **THEN** exceeding a catastrophic limit MUST fail the gate
 
-#### Scenario: Smoke is not certification
+#### Scenario: Optimized executor is compared with the serial reference
+- **WHEN** executor-level performance properties of the analyzer need proof
+- **THEN** the `invowk/goplint` repository's harness gates govern them; invowk relies on the pinned release
+
+#### Scenario: Consumer profile performance is accepted
 - **WHEN** the consumer smoke passes
 - **THEN** automation and documentation MUST NOT present it as analyzer performance certification
 - **THEN** certification claims MUST reference the goplint repository's multi-sample certification against its reference corpus

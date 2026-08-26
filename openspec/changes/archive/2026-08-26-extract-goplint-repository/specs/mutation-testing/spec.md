@@ -37,6 +37,11 @@ Invowk SHALL select mutation targets deliberately so mutation testing measures p
 - **THEN** it SHALL exclude `tests/`, `website/`, `docs/`, `samples/`, `specs/`, `openspec/`, generated artifacts, testdata fixtures, and Go test files
 - **THEN** large adapter, runtime, TUI, audit, or container surfaces SHALL remain opt-in until advisory timing and survivor data justify adding them to a baselineable full profile
 
+#### Scenario: Goplint target manifest runs from nested module
+- **WHEN** maintainers need the former nested-module goplint mutation profile
+- **THEN** it now runs from the `invowk/goplint` repository root with that repository's dependency graph, reports, and baseline
+- **THEN** invowk MUST NOT retain the nested-module manifests or baseline
+
 #### Scenario: Packages without local test ownership are visible
 - **WHEN** a target manifest includes production packages or file targets whose owning package has no local Go tests
 - **THEN** the mutation workflow SHALL either exclude them with an explicit rationale or report them as not covered rather than hiding them silently

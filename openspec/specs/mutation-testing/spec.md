@@ -21,7 +21,7 @@ Invowk SHALL use an exact pinned Go mutation-testing tool version for local and 
 - **THEN** Invowk SHALL update every workflow, script, Make target, and agent-facing version-pinning rule that references the version
 
 ### Requirement: Mutation run profiles
-Invowk SHALL provide named mutation run profiles for changed-line PR feedback, scheduled broad scans, baseline updates, dry-runs, and focused single-mutant reruns.
+Invowk SHALL provide named mutation run profiles for changed-line PR feedback, scheduled broad scans, baseline updates, dry-runs, and focused single-mutant reruns, scoped to the root Go module. Goplint's mutation profile migrates to the `invowk/goplint` repository.
 
 #### Scenario: Changed-line PR profile runs
 - **WHEN** a pull request mutation profile runs against a branch with Go production-line changes
@@ -30,18 +30,23 @@ Invowk SHALL provide named mutation run profiles for changed-line PR feedback, s
 
 #### Scenario: Scheduled full profile runs
 - **WHEN** a scheduled or manual full mutation profile runs
-- **THEN** Invowk SHALL use curated target manifests for the root module and the `tools/goplint` module
-- **THEN** the profile SHALL write separate reports for each module profile that ran
+- **THEN** Invowk SHALL use the curated target manifest for the root module
+- **THEN** the profile SHALL write reports for the root-module profile
 
 #### Scenario: Baseline update profile runs intentionally
 - **WHEN** maintainers run the baseline update profile
-- **THEN** Invowk SHALL regenerate the accepted-survivor baseline for the selected profile
+- **THEN** Invowk SHALL regenerate the accepted-survivor baseline for the root-module profile
 - **THEN** the command SHALL make clear that the baseline update is an intentional maintenance operation
 
 #### Scenario: Single mutant rerun is supported
 - **WHEN** maintainers provide a stable escaped-mutant ID to the focused rerun profile
-- **THEN** Invowk SHALL rerun only that mutant for the selected module profile
+- **THEN** Invowk SHALL rerun only that mutant for the root-module profile
 - **THEN** the command SHALL preserve enough report output to guide a targeted killing test
+
+#### Scenario: Goplint mutation coverage lives with goplint
+- **WHEN** maintainers need mutation testing over goplint's analyzer sources
+- **THEN** the `invowk/goplint` repository MUST provide the equivalent curated-manifest profile, baseline, and workflow
+- **THEN** invowk automation MUST NOT offer a `goplint` module selection it can no longer execute
 
 ### Requirement: Safe local execution
 Invowk SHALL protect developer worktrees from accidental source mutation during local mutation-testing runs.
@@ -70,10 +75,9 @@ Invowk SHALL select mutation targets deliberately so mutation testing measures p
 - **THEN** large adapter, runtime, TUI, audit, or container surfaces SHALL remain opt-in until advisory timing and survivor data justify adding them to a baselineable full profile
 
 #### Scenario: Goplint target manifest runs from nested module
-- **WHEN** the `tools/goplint` mutation profile runs
-- **THEN** Invowk SHALL execute it from the `tools/goplint` module root with that module's dependency graph
-- **THEN** its reports and baseline SHALL be kept separate from the root-module mutation reports and baseline
-- **THEN** its initial full target manifest SHALL be allowed to select explicit analyzer `.go` source files instead of the whole nested module package
+- **WHEN** maintainers need the former nested-module goplint mutation profile
+- **THEN** it now runs from the `invowk/goplint` repository root with that repository's dependency graph, reports, and baseline
+- **THEN** invowk MUST NOT retain the nested-module manifests or baseline
 
 #### Scenario: Packages without local test ownership are visible
 - **WHEN** a target manifest includes production packages or file targets whose owning package has no local Go tests
@@ -211,3 +215,4 @@ Invowk SHALL document and interpret mutation-testing terminal output labels acco
 - **WHEN** mutation-testing gates decide whether a run passes or fails
 - **THEN** they MUST use machine-readable report fields or stable mutant IDs when available
 - **AND** they MUST NOT introduce new parsing of human terminal status labels unless no machine-readable alternative exists
+
