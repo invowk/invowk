@@ -180,7 +180,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T7-C05 | `tests/cli/tui_tmux_test.go` covers all 9 TUI commands (input, choose, confirm, write, filter, file, table, spin, pager) | `tests/cli/tui_tmux_test.go` | ERROR |
 | T7-C06 | CI runs with `-coverprofile=coverage.out` and uploads as artifact. Note: SonarCloud uses automatic analysis (GitHub App) and cannot consume CI artifacts — this is intentional (see `known-exceptions.md` § SonarCloud Configuration Exceptions). | `.github/workflows/ci.yml` | WARNING |
 | T7-C07 | CI runs with `-race` flag on all platforms | `.github/workflows/ci.yml` | WARNING |
-| T7-C08 | SonarCloud `sonar.test.inclusions` covers all test file locations in `sonar.tests`. Note: `tools/goplint/` is intentionally excluded (see `known-exceptions.md` § SonarCloud Configuration Exceptions). | `sonar-project.properties` | WARNING |
+| T7-C08 | SonarCloud `sonar.test.inclusions` covers all test file locations in `sonar.tests`. | `sonar-project.properties` | WARNING |
 | T7-C09 | Test helpers in `internal/testutil/` are not duplicated in individual package test files | `internal/testutil/` vs all test files | WARNING |
 | T7-C10 | `invowkfiletest` helpers are used by multi-package consumers (not just one file) | `internal/testutil/invowkfiletest/` | INFO |
 | T7-C11 | Issue template guardrail test (`TestIssueTemplates_NoStaleGuidance`) is current and not bypassed | `internal/issue/issue_test.go` | INFO |
@@ -191,7 +191,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 
 ## §SS8: TUI and Domain-Specific Testing
 
-**File scope**: `internal/tui/*_test.go`, `internal/container/*mock*_test.go`, `tools/goplint/**/*_test.go`, `internal/benchmark/*_test.go`, `internal/sshserver/*_test.go`, `internal/core/serverbase/*_test.go`, `internal/watch/*_test.go`, `internal/provision/*_test.go`
+**File scope**: `internal/tui/*_test.go`, `internal/container/*mock*_test.go`, `internal/benchmark/*_test.go`, `internal/sshserver/*_test.go`, `internal/core/serverbase/*_test.go`, `internal/watch/*_test.go`, `internal/provision/*_test.go`
 
 **References**: `pattern-catalog.md` §1-3, `known-exceptions.md`.
 
@@ -202,8 +202,6 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T8-C03 | TUI tests cover edge cases: empty inputs, very long inputs, unicode, special characters | `internal/tui/*_test.go` | WARNING |
 | T8-C04 | Container mock tests use per-test `MockCommandRecorder` instances (not shared globals) | `internal/container/*mock*_test.go` | ERROR |
 | T8-C05 | Container mock tests inject via `WithExecCommand()` functional option pattern | `internal/container/*mock*_test.go` | WARNING |
-| T8-C06 | `tools/goplint` tests use per-test analyzer instances (not shared process-wide state) | `tools/goplint/**/*_test.go` | WARNING |
-| T8-C07 | Semaphore tokens in goplint test helpers released via `defer` in same call (not `t.Cleanup`) | `tools/goplint/**/*_test.go` | WARNING |
 | T8-C08 | Benchmark tests (`internal/benchmark/`) are gated with `testing.Short()` where appropriate | `internal/benchmark/*_test.go` | WARNING |
 | T8-C09 | SSH server tests use sequential subtests (host key collision avoidance) | `internal/sshserver/*_test.go` | WARNING |
 | T8-C10 | `internal/core/serverbase/` tests cover state machine transitions (Created/Starting/Running/Stopping/Stopped) | `internal/core/serverbase/*_test.go` | WARNING |

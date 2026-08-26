@@ -14,7 +14,7 @@ From `sonar-project.properties`:
 - **Sources**: `cmd`, `internal`, `pkg` (explicit directories, not root `.`)
 - **Tests**: `cmd`, `internal`, `pkg`, `tests`
 - **Test inclusions**: `**/*_test.go`
-- **Exclusions**: `**/testdata/**`, `**/vendor/**`, `specs/**`, `modules/**`, `third_party/**`, `builtin/**`, `tools/goplint/**`
+- **Exclusions**: `**/testdata/**`, `**/vendor/**`, `specs/**`, `modules/**`, `third_party/**`, `builtin/**`
 - **CPD exclusions**: `**/*_test.go`, `cmd/invowk/app_validate.go`, `internal/app/commandsvc/types_validate.go`
 
 ### Suppressed Rules
@@ -166,4 +166,3 @@ These packages contain critical business logic where gaps are most dangerous:
 
 | Package | Focus | Coverage Notes |
 |---|---|---|
-| `tools/goplint/` | Custom linter | Own `go.mod`; excluded from SonarCloud production coverage |

@@ -3272,8 +3272,8 @@ invowk/
 ├── scripts/                    # Build, install, and release scripts
 ├── specs/                      # Feature specifications and research
 ├── tasks/                      # Pending analysis documents and planning notes
-├── tools/                      # Development tools (separate Go modules)
-│   └── goplint/                # Custom go/analysis analyzer for DDD value type enforcement
+├── tools/                      # Development tools (mutation manifests)
+├── .goplint/                   # Config for the pinned goplint analyzer (github.com/invowk/goplint)
 ├── docs/                       # Architecture diagrams and design docs
 ├── examples/                   # Example invowkfiles and modules
 ├── vhs/                        # VHS tape files for terminal demo recordings

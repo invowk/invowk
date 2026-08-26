@@ -461,6 +461,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/invowk/golua v0.3.0 h1:ATmFnVldNHXxBgxpkF/fXlTEsNllAFCt8dzCkZIalhc=
 github.com/invowk/golua v0.3.0/go.mod h1:WOlHYs+AlMINp9YHhTptJVV6UYt3MsWCC/jh2yibYj4=
+github.com/invowk/goplint v0.1.0 h1:uIkG8QaGb+Q7mBZ06m8jDHAjxOJB3uvGGAmlJjhum9E=
+github.com/invowk/goplint v0.1.0/go.mod h1:NZ/q2qk125mcC0Gt+H3yhpCR1r82Rxl0QVJwN17Qtx8=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
 github.com/jessevdk/go-flags v1.5.0 h1:1jKYvbxEjfUl0fmqTCOfonvskHHXMjBySTLW4y9LFvc=

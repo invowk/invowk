@@ -69,7 +69,7 @@ BENCH_BMF_OUT ?= artifacts/benchmarks/invowk.bmf.json
 BENCH_GO_RAW_OUT ?= artifacts/benchmarks/go-bench.txt
 
 # Mutation testing defaults
-MUTATION_MODULE ?= all
+MUTATION_MODULE ?= root
 MUTATION_BASE_REF ?= origin/main
 MUTATION_MODE ?= advisory
 MUTATION_MUTANT_ID ?=
@@ -324,194 +324,91 @@ license-check:
 	fi
 
 # Run golangci-lint and formatter checks in all Go modules.
-.PHONY: lint lint-root lint-tools-goplint lint-fmt lint-fmt-root lint-fmt-tools-goplint lint-config-verify lint-config-verify-root lint-config-verify-tools-goplint lint-linters lint-linters-root lint-linters-tools-goplint
-lint: lint-config-verify lint-fmt lint-root lint-tools-goplint
+.PHONY: lint lint-fmt lint-config-verify lint-linters
+lint: lint-config-verify lint-fmt
+	$(GOLANGCI_LINT) run
 
-lint-root:
-	$(GOLANGCI_LINT) root-run
+lint-fmt:
+	$(GOLANGCI_LINT) fmt
 
-lint-tools-goplint:
-	$(GOLANGCI_LINT) tools-run
+lint-config-verify:
+	$(GOLANGCI_LINT) config-verify
 
-lint-fmt: lint-fmt-root lint-fmt-tools-goplint
+lint-linters:
+	$(GOLANGCI_LINT) linters
 
-lint-fmt-root:
-	$(GOLANGCI_LINT) root-fmt
-
-lint-fmt-tools-goplint:
-	$(GOLANGCI_LINT) tools-fmt
-
-lint-config-verify: lint-config-verify-root lint-config-verify-tools-goplint
-
-lint-config-verify-root:
-	$(GOLANGCI_LINT) root-config-verify
-
-lint-config-verify-tools-goplint:
-	$(GOLANGCI_LINT) tools-config-verify
-
-lint-linters: lint-linters-root lint-linters-tools-goplint
-
-lint-linters-root:
-	$(GOLANGCI_LINT) root-linters
-
-lint-linters-tools-goplint:
-	$(GOLANGCI_LINT) tools-linters
-
-# Build the goplint analyzer (DDD Value Type enforcement)
+# Build the goplint analyzer from the pinned github.com/invowk/goplint module
+# (root go.mod tool directive; version verified via go version -m).
 .PHONY: build-goplint
 build-goplint: $(BUILD_DIR)
 	@echo "Building goplint..."
-	cd tools/goplint && $(GOBUILD) -o ../../$(BUILD_DIR)/goplint .
+	./scripts/goplint.sh build
+
+GOPLINT_BASELINE := .goplint/baseline.toml
+GOPLINT_EXCEPTIONS := .goplint/exceptions.toml
+GOPLINT_CONSUMER_MANIFEST := .goplint/consumer-gate.v1.json
+GOPLINT_PACKAGES := ./cmd/... ./internal/... ./pkg/...
+GOPLINT_AUDIT_ARGS := -root . -analyzer bin/goplint -baseline $(GOPLINT_BASELINE) -exceptions $(GOPLINT_EXCEPTIONS) -semantic-manifest $(GOPLINT_CONSUMER_MANIFEST) -packages "./cmd/...,./internal/...,./pkg/..."
 
 # Run DDD primitive type checking
 .PHONY: check-types
 check-types: build-goplint
 	@echo "Checking primitive type usage..."
-	./$(BUILD_DIR)/goplint -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -config=$(GOPLINT_EXCEPTIONS) $(GOPLINT_PACKAGES)
 
 # Run DDD primitive type checking with JSON output (for agent consumption)
 .PHONY: check-types-json
 check-types-json: build-goplint
-	./$(BUILD_DIR)/goplint -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
+	./$(BUILD_DIR)/goplint -json -config=$(GOPLINT_EXCEPTIONS) $(GOPLINT_PACKAGES) 2>/dev/null || true
 
 # Run all DDD checks (primitives + isvalid + stringer + constructors)
 .PHONY: check-types-all
 check-types-all: build-goplint
 	@echo "Checking DDD type compliance (all modes)..."
-	./$(BUILD_DIR)/goplint -check-all -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -config=$(GOPLINT_EXCEPTIONS) $(GOPLINT_PACKAGES)
 
 # Run all DDD checks with JSON output (for agent consumption)
 .PHONY: check-types-all-json
 check-types-all-json: build-goplint
-	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
+	./$(BUILD_DIR)/goplint -check-all -json -config=$(GOPLINT_EXCEPTIONS) $(GOPLINT_PACKAGES) 2>/dev/null || true
 
-# Check semantic spec contracts for CFA-backed goplint categories.
-.PHONY: check-goplint-soundness check-goplint-soundness-routed check-goplint-docs check-goplint-soundness-consumer check-goplint-soundness-harness check-goplint-harness-parity check-goplint-module-tests check-goplint-soundness-core check-goplint-soundness-semantic check-goplint-soundness-complete generate-goplint-clean-tree-evidence rebind-goplint-clean-tree-evidence check-goplint-clean-tree-evidence check-goplint-mutation-kernel-coverage check-goplint-gate-contract check-goplint-production-integration check-goplint-counterexamples check-goplint-architecture check-goplint-catalog check-semantic-spec check-goplint-protocol-oracle check-goplint-protocol-oracle-scheduled check-goplint-end-to-end-oracle check-goplint-fuzz-seeds check-goplint-fuzz-scheduled check-goplint-targeted-mutation check-goplint-determinism check-cfg-refinement check-goplint-race-repeat update-goplint-race-repeat-timings check-goplint-repository-audit check-goplint-full-scan check-goplint-performance-smoke check-goplint-benchmarks
-check-goplint-soundness: check-goplint-soundness-routed
-
-check-goplint-soundness-routed:
-	./tools/goplint/scripts/check-routed-soundness.sh
-
-check-goplint-docs:
-	cd tools/goplint && $(GOCMD) run ./cmd/docs-guard -root ../..
-
-check-goplint-soundness-consumer:
-	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile consumer
-
-check-goplint-soundness-harness:
-	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile harness
-
-check-goplint-harness-parity:
-	cd tools/goplint && $(GOCMD) run ./cmd/harness-parity
-
-check-goplint-module-tests:
-	cd tools/goplint && ./scripts/check-module-tests.sh
-
-check-goplint-soundness-core: check-goplint-soundness-semantic
-
-check-goplint-soundness-semantic:
-	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile semantic
-
-check-goplint-soundness-complete:
-	cd tools/goplint && $(GOCMD) run ./cmd/soundness-gate -root ../.. -manifest tools/goplint/spec/soundness-gate.v1.json -profile complete
-
-generate-goplint-clean-tree-evidence:
-	cd tools/goplint && $(GOCMD) run ./cmd/clean-tree-evidence -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v4.paths -plan tools/goplint/testdata/gates/clean-tree-v4.json -evidence tools/goplint/testdata/gates/clean-tree-run.v4.json
-
-rebind-goplint-clean-tree-evidence:
-	cd tools/goplint && $(GOCMD) run ./cmd/clean-tree-evidence -rebind -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v4.paths -plan tools/goplint/testdata/gates/clean-tree-v4.json -evidence tools/goplint/testdata/gates/clean-tree-run.v4.json
-
-check-goplint-clean-tree-evidence:
-	cd tools/goplint && $(GOCMD) run ./cmd/check-clean-tree-evidence -root ../.. -paths tools/goplint/testdata/gates/clean-tree-v4.paths -plan tools/goplint/testdata/gates/clean-tree-v4.json -evidence tools/goplint/testdata/gates/clean-tree-run.v4.json
-
-check-goplint-mutation-kernel-coverage:
-	cd tools/goplint && $(GOCMD) run ./cmd/mutation-kernel-coverage -root . -manifest testdata/subgates/mutation-kernel-coverage.v1.json
-
-check-goplint-gate-contract:
-	./tools/goplint/scripts/check-aggregate-contract.sh
-
-check-goplint-production-integration:
-	./tools/goplint/scripts/check-production-integration.sh
-
-check-goplint-counterexamples:
-	./tools/goplint/scripts/check-counterexamples.sh
-
-check-goplint-architecture:
-	./tools/goplint/scripts/check-production-architecture.sh
-
-check-goplint-catalog: check-semantic-spec
-
-check-semantic-spec:
-	./tools/goplint/scripts/check-semantic-spec.sh
-
-check-goplint-protocol-oracle:
-	./tools/goplint/scripts/check-protocol-oracle.sh
-
-check-goplint-protocol-oracle-scheduled:
-	./tools/goplint/scripts/check-protocol-oracle-scheduled.sh
-
-check-goplint-end-to-end-oracle:
-	./tools/goplint/scripts/check-protocol-oracle-e2e.sh
-
-check-goplint-fuzz-seeds:
-	./tools/goplint/scripts/check-fuzz-seeds.sh
-
-check-goplint-fuzz-scheduled:
-	./tools/goplint/scripts/check-fuzz-scheduled.sh
-
-check-goplint-targeted-mutation:
-	cd tools/goplint && $(GOCMD) run ./cmd/targeted-mutation -profile testdata/mutation/profiles/blocking-v2.json
-
-check-goplint-determinism:
-	./tools/goplint/scripts/check-protocol-determinism.sh
-
-check-cfg-refinement:
-	./tools/goplint/scripts/check-cfg-refinement.sh
-
-check-goplint-race-repeat:
-	./tools/goplint/scripts/check-race-repeat.sh
-
-update-goplint-race-repeat-timings:
-	cd tools/goplint && $(GOCMD) run ./cmd/race-repeat-timings -samples 3 -output spec/goplint-test-timings.v1.json
+# Consumer-side goplint gates against the pinned analyzer. Set
+# GOPLINT_REPOSITORY_AUDIT_PATH to share one canonical scan across targets.
+.PHONY: check-goplint-consumer-routed check-goplint-repository-audit check-goplint-full-scan check-goplint-performance-smoke
+check-goplint-consumer-routed:
+	./scripts/goplint-consumer-routed.sh
 
 check-goplint-repository-audit: build-goplint
-	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode produce
-	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=canonical-superset-audit
+	go tool repository-audit -mode produce $(GOPLINT_AUDIT_ARGS)
 
 check-goplint-full-scan: build-goplint
-	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode full-scan
-	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=baseline-production-scan
+	go tool repository-audit -mode full-scan $(GOPLINT_AUDIT_ARGS)
 
 check-goplint-performance-smoke:
-	./tools/goplint/scripts/check-performance-smoke.sh
-
-check-goplint-benchmarks:
-	./tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	./scripts/goplint-consumer-smoke.sh
 
 # Check for goplint regressions against the committed baseline.
-# Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
+# Reports only NEW findings not present in the baseline. Exit code 0 = clean.
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode baseline
-	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=canonical-production-scan
+	go tool repository-audit -mode baseline $(GOPLINT_AUDIT_ARGS)
 
 # Audit goplint exception governance.
 .PHONY: check-goplint-exceptions
 check-goplint-exceptions: build-goplint
 	@echo "Auditing goplint stale exceptions..."
-	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode exceptions
+	go tool repository-audit -mode exceptions $(GOPLINT_AUDIT_ARGS)
 	@echo "Auditing goplint exception review dates..."
-	cd tools/goplint && $(GOCMD) run ./cmd/repository-audit -mode review-dates
-	cd tools/goplint && $(GOCMD) run ./cmd/subgate-report -observation repository-scans=exception-governance
+	go tool repository-audit -mode review-dates $(GOPLINT_AUDIT_ARGS)
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
 update-baseline: build-goplint
 	@echo "Updating goplint baseline..."
-	./$(BUILD_DIR)/goplint -test=false -check-all -check-enum-sync -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
-	@echo "Baseline updated: tools/goplint/baseline.toml"
+	./$(BUILD_DIR)/goplint -test=false -check-all -check-enum-sync -update-baseline=$(GOPLINT_BASELINE) -config=$(GOPLINT_EXCEPTIONS) $(GOPLINT_PACKAGES)
+	@echo "Baseline updated: $(GOPLINT_BASELINE)"
 
 # Cross-compile for Windows to catch build-time regressions (Linux-only imports,
 # wrong build tags, missing platform shims) without leaving Linux/macOS.
@@ -527,7 +424,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh tools/goplint/scripts/check-performance-smoke.sh tools/goplint/scripts/check-protocol-oracle.sh tools/goplint/scripts/check-fuzz-seeds.sh tools/goplint/scripts/check-fuzz-scheduled.sh tools/goplint/scripts/check-protocol-determinism.sh tools/goplint/scripts/check-race-repeat.sh tools/goplint/scripts/check-routed-soundness.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh scripts/goplint.sh scripts/goplint-consumer-smoke.sh scripts/goplint-consumer-routed.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -733,39 +630,14 @@ help:
 	@echo "  tidy             Tidy go.mod dependencies"
 	@echo "  vulncheck        Run govulncheck in all tracked Go modules"
 	@echo "  license-check    Verify SPDX headers in all Go files"
-	@echo "  lint             Run normalized lint, config, and formatter gates for root and tools/goplint"
-	@echo "  lint-root        Run normalized golangci-lint for the root module"
-	@echo "  lint-tools-goplint  Run normalized golangci-lint for tools/goplint"
-	@echo "  lint-fmt         Check golangci-lint formatters for root and tools/goplint"
-	@echo "  lint-config-verify Verify golangci-lint configs for root and tools/goplint"
-	@echo "  lint-linters     Print effective golangci-lint linter JSON for both modules"
-	@echo "  check-goplint-soundness Route changes conservatively and run the selected resource-aware goplint profile"
-	@echo "  check-goplint-soundness-consumer Force the one-audit consumer profile (no soundness certification claim)"
-	@echo "  check-goplint-soundness-semantic Run the semantic soundness profile explicitly"
-	@echo "  check-goplint-soundness-core Compatibility alias for check-goplint-soundness-semantic"
-	@echo "  check-goplint-soundness-complete Run the completion profile including clean-tree freshness"
-	@echo "  generate-goplint-clean-tree-evidence Generate the retained exact-tree soundness proof"
-	@echo "  check-goplint-clean-tree-evidence Verify the retained exact-tree soundness proof"
-	@echo "  check-goplint-mutation-kernel-coverage Verify causal coverage for every mutation-required category"
-	@echo "  check-goplint-gate-contract Validate aggregate-gate completeness and non-vacuity"
-	@echo "  check-goplint-production-integration Run real-analyzer protocol integration and reachability checks"
-	@echo "  check-goplint-counterexamples Run historical real-analyzer soundness counterexamples"
-	@echo "  check-goplint-architecture Reject alternate or legacy production semantics"
-	@echo "  check-goplint-catalog Run the total category/owner/oracle/evidence catalog gate"
-	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
-	@echo "  check-goplint-protocol-oracle Compare the solver-core component with the independent bounded oracle"
-	@echo "  check-goplint-protocol-oracle-scheduled Run the blocking scheduled strict-superset oracle"
-	@echo "  check-goplint-end-to-end-oracle Compare generated Go through the real analyzer with the independent oracle"
-	@echo "  check-goplint-fuzz-seeds Run committed goplint fuzz seed corpora deterministically"
-	@echo "  check-goplint-fuzz-scheduled Fuzz every scheduled soundness target"
-	@echo "  check-goplint-targeted-mutation Require zero survivors in the soundness mutation manifest"
-	@echo "  check-goplint-determinism Require byte-stable solver, fact, and refinement evidence output"
-	@echo "  check-cfg-refinement Run canonical SSA refinement checks for tools/goplint"
-	@echo "  check-goplint-race-repeat Run race and repeat-count soundness evidence"
-	@echo "  update-goplint-race-repeat-timings Refresh the reviewed three-sample weighted test timing manifest"
+	@echo "  lint             Run normalized lint, config, and formatter gates"
+	@echo "  lint-fmt         Check golangci-lint formatters"
+	@echo "  lint-config-verify Verify golangci-lint config"
+	@echo "  lint-linters     Print effective golangci-lint linter JSON for the module"
+	@echo "  check-goplint-consumer-routed Route the staged diff (documentation vs consumer tier)"
+	@echo "  check-goplint-repository-audit Produce the canonical repository audit"
 	@echo "  check-goplint-full-scan Run the blocking canonical production scan"
 	@echo "  check-goplint-performance-smoke Run one-sample catastrophic-regression smoke (not certification)"
-	@echo "  check-goplint-benchmarks Run canonical solver benchmark thresholds"
 	@echo "  check-goplint-exceptions Audit stale/overdue goplint exceptions"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Fail on SonarCloud quality gate or unresolved issues (API-only)"
@@ -791,7 +663,7 @@ help:
 	@echo "  BENCH_TIME      Go benchmark benchtime for bench-bmf targets (default: 1s)"
 	@echo "  BENCH_BMF_OUT   Output path for BMF JSON (default: artifacts/benchmarks/invowk.bmf.json)"
 	@echo "  BENCH_GO_RAW_OUT Output path for raw go benchmark output (default: artifacts/benchmarks/go-bench.txt)"
-	@echo "  MUTATION_MODULE  Mutation module: root, goplint, or all (default: all)"
+	@echo "  MUTATION_MODULE  Mutation module: root (default: root)"
 	@echo "  MUTATION_BASE_REF Diff base for mutation-pr (default: origin/main)"
 	@echo "  MUTATION_MODE    Mutation gate mode: advisory or blocking (default: advisory)"
 	@echo "  MUTATION_MUTANT_ID Stable mutant ID for mutation-rerun"
@@ -813,4 +685,4 @@ help:
 	@echo "  make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PROMOTE=1  # Promote prerelease to stable"
 	@echo "  make release-bump TYPE=patch RELEASE_NOTES_FILE=release-notes.md DRY_RUN=1  # Preview next patch version"
 	@echo "  make mutation-pr MUTATION_MODULE=root MUTATION_BASE_REF=origin/main  # PR mutation scan"
-	@echo "  make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>  # Focus one survivor"
+	@echo "  make mutation-rerun MUTATION_MUTANT_ID=<id>  # Focus one survivor"

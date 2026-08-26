@@ -112,18 +112,16 @@ run_wrapper() {
 	FAKE_GOLANGCI_LOG="$tmp/golangci.log" GO_CMD="$tmp/go" "$REPO_ROOT/scripts/golangci-lint.sh" "$@"
 }
 
-test_root_and_tools_dispatch() {
+test_run_dispatch() {
 	local tmp
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
 	write_fake_tools "$tmp" "v2.13.1"
-	run_wrapper "$tmp" root-run --show-stats=false
-	run_wrapper "$tmp" tools-run --show-stats=false
+	run_wrapper "$tmp" run --show-stats=false
 
-	assert_file_contains "root run executes from repo root" "pwd=$REPO_ROOT" "$tmp/golangci.log"
-	assert_file_contains "root run passes config and package pattern" "args=run --config=.golangci.toml --show-stats=false ./... " "$tmp/golangci.log"
-	assert_file_contains "tools run executes from nested module" "pwd=$REPO_ROOT/tools/goplint" "$tmp/golangci.log"
+	assert_file_contains "run executes from repo root" "pwd=$REPO_ROOT" "$tmp/golangci.log"
+	assert_file_contains "run passes config and package pattern" "args=run --config=.golangci.toml --show-stats=false ./... " "$tmp/golangci.log"
 }
 
 test_formatter_and_config_dispatch() {
@@ -132,12 +130,11 @@ test_formatter_and_config_dispatch() {
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
 	write_fake_tools "$tmp" "v2.13.1"
-	run_wrapper "$tmp" root-fmt
-	run_wrapper "$tmp" tools-config-verify
+	run_wrapper "$tmp" fmt
+	run_wrapper "$tmp" config-verify
 
 	assert_file_contains "formatter check uses diff mode" "args=fmt --config=.golangci.toml --diff " "$tmp/golangci.log"
 	assert_file_contains "config verify uses config file" "args=config verify --config=.golangci.toml " "$tmp/golangci.log"
-	assert_file_contains "tools config verify executes from nested module" "pwd=$REPO_ROOT/tools/goplint" "$tmp/golangci.log"
 }
 
 test_linter_inspection_and_version() {
@@ -146,7 +143,7 @@ test_linter_inspection_and_version() {
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
 	write_fake_tools "$tmp" "v2.13.1"
-	run_wrapper "$tmp" root-linters
+	run_wrapper "$tmp" linters
 	run_wrapper "$tmp" version
 
 	assert_file_contains "linter inspection emits JSON" "args=linters --config=.golangci.toml --json " "$tmp/golangci.log"
@@ -161,7 +158,7 @@ test_version_mismatch_fails() {
 	trap 'rm -rf "$tmp"' RETURN
 	write_fake_tools "$tmp" "v0.0.0"
 	set +e
-	run_wrapper "$tmp" root-run >"$tmp/out" 2>"$tmp/err"
+	run_wrapper "$tmp" run >"$tmp/out" 2>"$tmp/err"
 	status=$?
 	set -e
 
@@ -188,7 +185,7 @@ exit 2
 EOF
 	chmod +x "$tmp/go"
 	set +e
-	run_wrapper "$tmp" root-run >"$tmp/out" 2>"$tmp/err"
+	run_wrapper "$tmp" run >"$tmp/out" 2>"$tmp/err"
 	status=$?
 	set -e
 
@@ -214,7 +211,7 @@ test_unknown_command_fails() {
 	assert_file_contains "unknown command reports name" "unknown golangci-lint command: nope" "$tmp/err"
 }
 
-test_root_and_tools_dispatch
+test_run_dispatch
 test_formatter_and_config_dispatch
 test_linter_inspection_and_version
 test_version_mismatch_fails

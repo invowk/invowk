@@ -15,8 +15,6 @@ internal/app/commandsvc/id_ed25519.pub
 
 # Go build cache
 *.test
-tools/goplint/**/*.test
-tools/goplint/goplint.test
 *.out
 
 # Sonar local analysis artifacts

@@ -34,7 +34,7 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 1. `AGENTS.md` (indexes, scope maps, and repository-wide governance contracts)
 2. `.agents/rules/*.md` (normative policy and mandatory requirements)
 3. `.agents/skills/*/SKILL.md` (procedural workflows and implementation guidance)
-4. Package-scoped `AGENTS.md` files (for example, `tools/goplint/AGENTS.md`) for local, explicit exceptions only
+4. Package-scoped `AGENTS.md` files for local, explicit exceptions only
 
 - If a skill conflicts with a rule, the rule wins unless the rule explicitly allows an exception.
 - `.claude/rules`, `.claude/skills`, and `.claude/agents` are compatibility symlinks. Canonical references in documentation must use `.agents/...`.
@@ -175,7 +175,6 @@ When working in a specific code area, apply these rules and skills:
 | `tests/cli/` | testing | go, testing, cli, invowk-schema, go-testing |
 | `internal/audit/` | testing, licensing, package-design | go, module-security, go-hexagonal-ddd |
 | `openspec/` | general-rules | openspec-apply-change, openspec-archive-change, openspec-explore, openspec-propose, openspec-sync-specs, openspec-update-change |
-| `tools/goplint/` | testing, licensing | go, go-testing |
 
 ## Quick Commands
 
@@ -185,10 +184,8 @@ When working in a specific code area, apply these rules and skills:
 | Test (full) | `make test` |
 | Lint | `make lint` |
 | Tidy | `make tidy` |
-| Route and run goplint soundness | `make check-goplint-soundness` |
-| Force goplint semantic soundness | `make check-goplint-soundness-semantic` |
-| Generate goplint completion evidence | `make generate-goplint-clean-tree-evidence` |
-| Check goplint mutation-kernel coverage | `make check-goplint-mutation-kernel-coverage` |
+| Routed goplint consumer gate | `make check-goplint-consumer-routed` |
+| Goplint baseline check | `make check-baseline` |
 
 See [commands reference](.agents/rules/commands.md) for the complete list.
 
@@ -234,8 +231,9 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `samples/invowkmods/` - Sample invowk modules and audit fixtures for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation, `check-file-length.sh` for 1000-line file limit enforcement).
-- `tools/` - Development tools (separate Go modules):
-  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. It also checks value-type methods, constructors, functional options, immutability, and validation protocols. Run `make check-types` for the default audit and `make check-types-all` for the full DDD audit. `make check-goplint-soundness` routes changes through the four-class ownership taxonomy (documentation < consumer < harness < analyzer-semantics; highest class in the diff wins) to the resource-aware `documentation`, `consumer`, `harness`, or `semantic` profile; unknown context fails closed to `semantic`, and completion/release/schedule/dispatch contexts force `complete`. Documentation-class diffs run only the static docs-guard tier (`make check-goplint-docs`); the harness tier adds executor parity and module tests; consumer smoke is not performance certification and makes no analyzer-soundness claim. Force semantic assurance with `make check-goplint-soundness-semantic`. A completion claim additionally requires `make generate-goplint-clean-tree-evidence` (or `make rebind-goplint-clean-tree-evidence` when only prose drifted since a valid v4 record), `make check-goplint-clean-tree-evidence`, and `make check-goplint-soundness-complete`. Baseline regression is enforced by `make check-baseline`; proof inconclusives, uncovered mutation-required categories, and missing/stale completion evidence are always visible and cannot be baselined, excepted, or inline-ignored. Baseline format is v2 (`entries = [{id, message}]`); legacy `messages = [...]` is rejected. Execution plans, distributed bundles, telemetry, resource overrides, timing refresh, and CI reproduction are documented in `docs/goplint/soundness-gate-execution.md`.
+- `tools/` - Development tools:
+  - `mutation/` - Curated go-mutesting target manifests and accepted-survivor baselines for the root module.
+- `.goplint/` - Consumer configuration for [goplint](https://github.com/invowk/goplint), the standalone `go/analysis` analyzer (pinned via a root `go.mod` tool directive) that enforces DDD Value Type conventions. Run `make check-types` for the default audit and `make check-types-all` for the full DDD audit. `make check-goplint-consumer-routed` classifies staged diffs through `.goplint/ownership.v1.json`: documentation-only diffs skip analysis; everything else (and any unmatched path, fail-closed) runs the consumer tier — one canonical repository audit reused by `make check-baseline`, `make check-goplint-exceptions`, and `make check-goplint-full-scan`. Baseline regression is enforced by `make check-baseline`; protocol inconclusives are always visible and cannot be baselined, excepted, or inline-ignored. Baseline format is v2 (`entries = [{id, message}]`). Analyzer-soundness assurance (semantic profiles, retained completion evidence, mutation kernels, performance certification) is governed in the goplint repository before any version invowk can pin; see `docs/goplint/README.md`.
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 

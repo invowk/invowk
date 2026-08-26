@@ -1,3 +1,0 @@
-# import path|rationale
-# The goplint rollout manifest uses explicit analyzer file targets instead of
-# package-wide exclusions.

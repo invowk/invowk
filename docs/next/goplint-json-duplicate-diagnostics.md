@@ -10,7 +10,7 @@ Observed during full backlog triage on 2026-04-30:
 
 ```sh
 ./bin/goplint -check-all -check-enum-sync -json \
-  -config=tools/goplint/exceptions.toml \
+  -config=.goplint/exceptions.toml \
   ./cmd/... ./internal/... ./pkg/... > /tmp/invowk-goplint.json
 
 jq '[.[]?.goplint[]?] | length' /tmp/invowk-goplint.json

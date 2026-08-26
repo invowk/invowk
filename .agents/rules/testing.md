@@ -77,7 +77,7 @@ for _, tt := range tests {
 
 All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `paralleltest` linter enforces missing `t.Parallel()` calls; the `tparallel` linter enforces placement and parent/subtest consistency.
 
-`tools/goplint` no longer relies on shared process-wide analyzer flag state; its tests use per-test analyzer instances and may run in parallel. Keep bounded concurrency controls where needed (for example, a semaphore around heavy `analysistest` runs) to avoid process exhaustion on constrained runners.
+The goplint analyzer now lives in the standalone `github.com/invowk/goplint` repository; its test-parallelism policy is governed there.
 
 When a helper acquires a test semaphore, release that token in the same helper call (typically via `defer`). Do not defer release with `t.Cleanup()` when the helper may run multiple times within one test, because tokens stay held until test end and can stall parallel suites.
 

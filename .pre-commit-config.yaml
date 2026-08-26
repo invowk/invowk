@@ -9,7 +9,7 @@ repos:
   - repo: local
     hooks:
       - id: golangci-lint
-        name: normalized golangci-lint gate (root + tools/goplint)
+        name: normalized golangci-lint gate
         entry: "bash -c 'make lint 2>&1'"
         language: system
         pass_filenames: false
@@ -17,11 +17,11 @@ repos:
         verbose: true
 
       - id: goplint-behavior
-        name: conservatively routed goplint soundness gate (capped at the consumer tier locally)
-        entry: "bash -c 'make check-goplint-soundness-routed 2>&1'"
+        name: routed goplint consumer gate (documentation diffs skip analysis)
+        entry: "bash -c 'make check-goplint-consumer-routed 2>&1'"
         language: system
         pass_filenames: false
-        files: '^(cmd/|internal/|pkg/|tools/goplint/|docs/goplint/|openspec/changes/|openspec/specs/(goplint-analysis-soundness|goplint-soundness-assurance|lint-tooling-quality-gates)/|\.agents/|AGENTS\.md$|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/(lint|goplint-fuzz|mutation-testing)\.yml$)'
+        files: '^(cmd/|internal/|pkg/|\.goplint/|go\.mod$|go\.sum$|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/lint\.yml$)'
         always_run: true
         verbose: true
 
@@ -30,7 +30,7 @@ repos:
         entry: "bash -c 'make check-windows-build 2>&1'"
         language: system
         pass_filenames: false
-        files: '^(cmd/|internal/|pkg/|tools/goplint/|go\.mod$|go\.sum$|tools/goplint/go\.mod$|tools/goplint/go\.sum$|scripts/check-windows-build\.sh$|Makefile$|\.pre-commit-config\.yaml$)'
+        files: '^(cmd/|internal/|pkg/|go\.mod$|go\.sum$|scripts/check-windows-build\.sh$|Makefile$|\.pre-commit-config\.yaml$)'
         verbose: true
 
       - id: pgo-staleness

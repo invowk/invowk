@@ -311,7 +311,7 @@ For rapid diagnosis, map the failure type to the right investigation path:
 | Container test hang | Check WaitDelay, ContainerTestContext | `linux-testing` |
 | All tests `(unknown)` | Binary killed — timeout or OOM | `go-testing` + `linux-testing` |
 | Lint failure | Read linter output, check `.golangci.toml` | `go` |
-| Baseline regression | Run `make check-types-json`, triage findings | `tools/goplint/AGENTS.md` |
+| Baseline regression | Run `make check-types-json`, triage findings | `docs/goplint/README.md` (analyzer docs live in `github.com/invowk/goplint`) |
 
 ### Build Failures
 

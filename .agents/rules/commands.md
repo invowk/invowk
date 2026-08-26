@@ -17,33 +17,10 @@
 | Type check (JSON) | `make check-types-json` |
 | Type check (all DDD) | `make check-types-all` |
 | Type check (all JSON) | `make check-types-all-json` |
-| Routed goplint soundness | `make check-goplint-soundness` |
-| goplint documentation tier (static docs-guard) | `make check-goplint-docs` |
-| Forced consumer profile (no soundness certification claim) | `make check-goplint-soundness-consumer` |
-| Forced harness profile (executor parity + module tests) | `make check-goplint-soundness-harness` |
-| goplint executor parity (plan-serial vs parallel) | `make check-goplint-harness-parity` |
-| goplint module test suite | `make check-goplint-module-tests` |
-| Forced semantic soundness | `make check-goplint-soundness-semantic` |
-| goplint completion proof (includes retained exact-tree freshness) | `make check-goplint-soundness-complete` |
-| Generate retained goplint exact-tree record (v4) | `make generate-goplint-clean-tree-evidence` |
-| Re-bind retained goplint record after prose-only drift | `make rebind-goplint-clean-tree-evidence` |
-| Verify retained goplint exact-tree record (v4) | `make check-goplint-clean-tree-evidence` |
-| Mutation-kernel category coverage | `make check-goplint-mutation-kernel-coverage` |
-| Production protocol integration | `make check-goplint-production-integration` |
-| Historical counterexamples | `make check-goplint-counterexamples` |
-| Production architecture absence | `make check-goplint-architecture` |
-| Semantic catalog/oracles | `make check-semantic-spec` |
-| Solver-core reference model | `make check-goplint-protocol-oracle` |
-| Generated-Go end-to-end oracle | `make check-goplint-end-to-end-oracle` |
-| Scheduled strict-superset oracle | `make check-goplint-protocol-oracle-scheduled` |
-| SSA refinement check | `make check-cfg-refinement` |
-| Protocol determinism | `make check-goplint-determinism` |
-| Targeted soundness mutation | `make check-goplint-targeted-mutation` |
-| goplint race/repeat evidence | `make check-goplint-race-repeat` |
-| Refresh goplint race/repeat timings | `make update-goplint-race-repeat-timings` |
+| Routed goplint consumer gate | `make check-goplint-consumer-routed` |
+| Canonical repository audit | `make check-goplint-repository-audit` |
 | Canonical goplint full scan | `make check-goplint-full-scan` |
 | goplint consumer performance smoke (not certification) | `make check-goplint-performance-smoke` |
-| goplint five-sample performance certification | `make check-goplint-benchmarks` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
 | Mutation dry-run | `make mutation-dry-run` |
@@ -80,45 +57,28 @@
 - **govulncheck** - Go vulnerability scanner used by `make vulncheck` and CI. Install the pinned version from `.agents/rules/version-pinning.md`.
 - **go-mutesting** - Mutation testing tool pinned through the root `go.mod` tool directive. Do not install it manually with `@latest`; use the Make targets or `go tool go-mutesting` from the repository root.
 
-## Goplint Soundness Profiles
+## Goplint Consumer Gates
 
-`make check-goplint-soundness` classifies the change through the versioned
-four-class ownership manifest (`tools/goplint/spec/soundness-ownership.v2.json`)
-and runs the resource-aware planner. The `documentation`, `consumer`,
-`harness`, and `analyzer-semantics` classes map to the `documentation`,
-`consumer`, `harness`, and `semantic` profiles; the highest class in the diff
-wins. `documentation` runs only the static docs-guard anchoring validator (no
-analyzer execution or repository audit). `consumer` reuses one exact-tree
-repository audit and runs catastrophic-regression smoke only; passing it is
-neither analyzer-soundness nor performance certification. `harness` adds the
-goplint module test suite and plan-serial/parallel executor parity on the
-reviewed fixture; it never substitutes for semantic assurance. `semantic`
-reruns every causal soundness population and five-sample certified
-performance policy. `complete` adds retained exact-tree freshness and is forced
-for completion, release, schedule, or exhaustive dispatch contexts. Missing or
-ambiguous change context fails closed to `semantic`.
+Goplint lives in the standalone [`github.com/invowk/goplint`](https://github.com/invowk/goplint)
+repository and is pinned as a Go tool dependency in the root `go.mod`
+(`scripts/goplint.sh` builds `bin/goplint` and verifies the embedded module
+version). Invowk runs only the consumer tier against the pinned analyzer:
 
-The pre-commit hook is capped below the semantic tier: documentation diffs run
-docs-guard, consumer diffs run the shared audit, and harness or
-analyzer-semantics diffs run the consumer tier locally while printing the
-authoritative CI tier and the explicit Make targets. `GOPLINT_FORCE_SEMANTIC=1`
-escalates any routed profile except `complete` to `semantic` (one-release
-migration escape hatch, locally and in the CI plan job).
+- `make check-goplint-consumer-routed` classifies the staged diff through
+  `.goplint/ownership.v1.json` (two classes: documentation skips analysis;
+  everything else, and any unmatched path fail-closed, runs the consumer tier).
+- The consumer tier is one canonical repository audit
+  (`make check-goplint-repository-audit`) reused by `make check-baseline`,
+  `make check-goplint-exceptions`, and `make check-goplint-full-scan` when
+  `GOPLINT_REPOSITORY_AUDIT_PATH` points at the produced artifact.
+- `make check-goplint-performance-smoke` bounds live-tree scan cost against
+  `.goplint/consumer-smoke.github-ubuntu-x64-4cpu.toml`; it is deliberately
+  single-sample and is not performance certification.
 
-Force a profile with `check-goplint-docs`, `check-goplint-soundness-consumer`,
-`check-goplint-soundness-harness`, `check-goplint-soundness-semantic`, or
-`check-goplint-soundness-complete`. The retained completion record uses the v4
-dual-digest format; after prose-only drift, re-bind it in seconds with
-`make rebind-goplint-clean-tree-evidence` instead of regenerating.
-Resource discovery can be overridden with `GOPLINT_SOUNDNESS_CPU_UNITS`,
-`GOPLINT_SOUNDNESS_MEMORY_BYTES`, and `GOPLINT_SOUNDNESS_MAX_WORKERS`. Refresh
-the three-sample weighted test census with
-`make update-goplint-race-repeat-timings`.
-
-The immutable execution-plan, distributed work-bundle, aggregate-report, and
-telemetry schemas; local CI reproduction; digest/freshness boundaries; failure
-diagnostics; and final completion command sequence are documented in
-[`../../docs/goplint/soundness-gate-execution.md`](../../docs/goplint/soundness-gate-execution.md).
+Analyzer-semantics assurance (soundness profiles, semantic evidence, retained
+completion records, fuzzing, mutation kernels, performance certification) is
+governed by the goplint repository's own gates before any version invowk can
+pin. See `docs/goplint/README.md` for the consumer guide.
 
 ## Internal Commands (Hidden)
 
@@ -258,14 +218,7 @@ go test -v ./pkg/invowkfile/...
 
 ## Mutation Testing
 
-Mutation testing is a separate manual quality signal and does not run as part of `make test`, the regular CI test matrix, or PR status checks. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module and `tools/goplint`, and writes reports under `artifacts/mutation/<profile>/<module>/`. The initial root full profile is a baselineable high-signal seed rather than a blanket package-level scan; the initial `tools/goplint` full profile mutates explicit analyzer source files from the nested module root rather than every support file. Broaden either profile only after local/manual advisory timing and survivor data are stable.
-
-The separate targeted soundness mutation gate is blocking. It applies the
-versioned manifest in `tools/goplint/testdata/mutation/` inside isolated module
-copies, rejects compile failures as invalid mutants, permits no baseline, and
-requires every protocol-soundness mutant to be killed. The retained blocking
-profile repeats each focused guard twice; add no scheduled or broader profile
-without an explicit mutation-suite expansion decision.
+Mutation testing is a separate manual quality signal and does not run as part of `make test`, the regular CI test matrix, or PR status checks. The wrapper verifies the pinned `go-mutesting` binary before execution, resolves curated targets for the root module, and writes reports under `artifacts/mutation/<profile>/<module>/`. The root full profile is a baselineable high-signal seed rather than a blanket package-level scan. Broaden it only after local/manual advisory timing and survivor data are stable. Goplint's own mutation profiles (including the blocking targeted soundness gate) are governed in the `github.com/invowk/goplint` repository.
 
 Current `go-mutesting` terminal labels are explicit: `KILLED` means tests caught
 the mutant, and `ESCAPED` means the mutant survived. Automation should continue
@@ -287,21 +240,18 @@ make mutation-full MUTATION_MODULE=all MUTATION_MODE=advisory
 make mutation-baseline-update MUTATION_MODULE=root
 
 # Rerun one escaped mutant by stable id from go-mutesting-agentic.json
-make mutation-rerun MUTATION_MODULE=goplint MUTATION_MUTANT_ID=<id>
-
-# Blocking zero-survivor protocol soundness profile
-make check-goplint-targeted-mutation
+make mutation-rerun MUTATION_MODULE=root MUTATION_MUTANT_ID=<id>
 ```
 
 Profiles:
 - `dry-run` counts candidates and does not mutate source files.
 - `pr` mutates changed eligible Go lines relative to `MUTATION_BASE_REF` and exits successfully when no eligible mutations exist. It is available as a local/manual command, not an automatic PR gate.
-- `full` runs the curated root-module and/or `tools/goplint` target manifests.
+- `full` runs the curated root-module target manifest.
 - `baseline-update` rewrites `tools/mutation/baselines/<module>-baseline.json` intentionally.
 - `rerun` executes only one stable escaped-mutant ID.
 
 Defaults:
-- `MUTATION_MODULE=all` (`root`, `goplint`, or `all`).
+- `MUTATION_MODULE=root`.
 - `MUTATION_MODE=advisory`; use `blocking` only after the baseline and runtime signal are stable.
 - `MUTATION_REPORT_DIR=artifacts/mutation`.
 - `MUTATION_WORKERS=0` locally unless overridden; the manual GitHub Actions workflow sets a bounded worker count.
@@ -314,7 +264,6 @@ Default mutation profiles use package-level Go tests with `-short`, even when a 
 
 Baselines:
 - Root module baseline: `tools/mutation/baselines/root-baseline.json`.
-- `tools/goplint` baseline: `tools/mutation/baselines/goplint-baseline.json`.
 - Baselines contain accepted survivors from reviewed full-scan reports. Update them only as an intentional review step after killing worthwhile survivors.
 - Manual workflow behavior is advisory. Blocking mode fails only on new escaped mutants outside the selected baseline and should be used only for explicit experiments.
 
@@ -445,7 +394,7 @@ goreleaser release --snapshot --clean
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, all-module govulncheck |
-| `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized root + `tools/goplint` golangci-lint, formatter/config checks, agent docs integrity, then immutable soundness plan, one shared repository audit, bounded matrix workers, strict no-gap aggregation, and retained aggregate telemetry for the routed profile |
+| `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized golangci-lint, formatter/config checks, agent docs integrity, and the goplint consumer gates (one shared repository audit, baseline, exceptions, full scan, performance smoke) against the pinned analyzer |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
 | `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |

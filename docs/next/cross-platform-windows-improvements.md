@@ -66,7 +66,7 @@ are correct. The `FromSlash` precondition narrows the rule to exactly the
 ### Suppression
 
 - `//goplint:ignore` on the function declaration.
-- TOML key `pkg.FuncName.cross-platform-path` in `tools/goplint/exceptions.toml`.
+- TOML key `pkg.FuncName.cross-platform-path` in `.goplint/exceptions.toml`.
 
 ### Wiring
 
@@ -162,7 +162,7 @@ Catch Windows-build-time regressions on every commit, on Linux, in seconds.
 
 - `scripts/check-windows-build.sh` — runs `GOOS=windows go build ./...` and
   `GOOS=windows go vet ./...` for both modules (`./...` and
-  `tools/goplint/...`).
+  the `github.com/invowk/goplint` repository).
 - Pre-commit hook in `.pre-commit-config.yaml` triggered on `*.go` changes.
 - Makefile target `check-windows-build` for parity with other gates.
 - Docs entry in `.agents/rules/commands.md` Quick Reference table.

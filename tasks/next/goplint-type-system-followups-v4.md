@@ -1,5 +1,11 @@
 # goplint & Type System Follow-Up Improvements (v4)
 
+> **Relocation note (2026-08-26):** goplint now lives in the standalone
+> [`github.com/invowk/goplint`](https://github.com/invowk/goplint) repository;
+> `tools/goplint/...` paths below refer to its former in-tree location and map
+> to the same paths at that repository's root. Invowk-side configs moved to
+> `.goplint/`.
+
 > **STATUS: COMPLETED** — implemented across follow-up hardening commits (2026-03-03).
 > Follows from `goplint-type-system-followups.md` (v3, COMPLETED).
 

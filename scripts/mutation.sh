@@ -29,7 +29,7 @@ Profiles:
   rerun            Rerun one stable escaped-mutant ID.
 
 Options:
-  --module root|goplint|all   Module profile to run (default: all).
+  --module root               Module profile to run (default: root).
   --base REF                  Diff base for the pr profile (default: origin/main).
   --mode advisory|blocking    Gate behavior for escaped mutants (default: advisory).
   --mutant-id ID              Stable mutant id for the rerun profile.
@@ -100,9 +100,6 @@ module_workdir() {
 		root)
 			printf '%s\n' "$REPO_ROOT"
 			;;
-		goplint)
-			printf '%s/tools/goplint\n' "$REPO_ROOT"
-			;;
 		*)
 			die "unknown mutation module: $module"
 			;;
@@ -115,9 +112,6 @@ target_manifest_path() {
 	case "$module" in
 		root)
 			printf '%s/tools/mutation/root-packages.txt\n' "$REPO_ROOT"
-			;;
-		goplint)
-			printf '%s/tools/mutation/goplint-packages.txt\n' "$REPO_ROOT"
 			;;
 		*)
 			die "unknown mutation module: $module"
@@ -132,9 +126,6 @@ exclude_manifest_path() {
 		root)
 			printf '%s/tools/mutation/root-exclude-packages.txt\n' "$REPO_ROOT"
 			;;
-		goplint)
-			printf '%s/tools/mutation/goplint-exclude-packages.txt\n' "$REPO_ROOT"
-			;;
 		*)
 			die "unknown mutation module: $module"
 			;;
@@ -145,7 +136,7 @@ baseline_path() {
 	local module="$1"
 
 	case "$module" in
-		root|goplint)
+		root)
 			printf '%s/tools/mutation/baselines/%s-baseline.json\n' "$REPO_ROOT" "$module"
 			;;
 		*)
@@ -294,7 +285,7 @@ dirty_path_is_allowed() {
 	local path="$1"
 
 	case "$path" in
-		tools/mutation/baselines/root-baseline.json|tools/mutation/baselines/goplint-baseline.json)
+		tools/mutation/baselines/root-baseline.json)
 			return 0
 			;;
 		artifacts/mutation/*)
@@ -349,9 +340,6 @@ mutation_source_paths() {
 		root)
 			printf '%s\n' cmd internal pkg
 			;;
-		goplint)
-			printf '%s\n' tools/goplint
-			;;
 	esac
 }
 
@@ -392,9 +380,6 @@ restore_tracked_mutation_paths() {
 	case "$module" in
 		root)
 			git -C "$REPO_ROOT" restore --worktree -- cmd internal pkg >/dev/null 2>&1 || true
-			;;
-		goplint)
-			git -C "$REPO_ROOT" restore --worktree -- tools/goplint >/dev/null 2>&1 || true
 			;;
 	esac
 }
@@ -637,11 +622,11 @@ modules_to_run() {
 	local module="$1"
 
 	case "$module" in
-		root|goplint)
+		root)
 			printf '%s\n' "$module"
 			;;
 		all)
-			printf '%s\n' root goplint
+			printf '%s\n' root
 			;;
 		*)
 			die "unknown mutation module: $module"
@@ -651,7 +636,7 @@ modules_to_run() {
 
 main() {
 	local profile="${1:-}"
-	local module="${MUTATION_MODULE:-all}"
+	local module="${MUTATION_MODULE:-root}"
 	local base_ref="${MUTATION_BASE_REF:-origin/main}"
 	local mode="${MUTATION_MODE:-advisory}"
 	local mutant_id="${MUTATION_MUTANT_ID:-}"

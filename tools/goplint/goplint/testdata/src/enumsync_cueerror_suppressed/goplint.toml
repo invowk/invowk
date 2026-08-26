@@ -1,3 +1,0 @@
-[[exceptions]]
-pattern = "enumsync_cueerror_suppressed.RuntimeMode.cue-error.enum-cue-missing-go"
-reason = "suppressed for test"

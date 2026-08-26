@@ -1,0 +1,16 @@
+{
+  "format_version": 1,
+  "description": "Invowk consumer-gate descriptor for the pinned github.com/invowk/goplint analyzer. This file is content-digested into every repository-audit input binding (it is not parsed by the analyzer), so editing it deliberately invalidates previously produced audit artifacts.",
+  "consumer": "github.com/invowk/invowk",
+  "analyzer_module": "github.com/invowk/goplint",
+  "packages": ["./cmd/...", "./internal/...", "./pkg/..."],
+  "baseline": ".goplint/baseline.toml",
+  "exceptions": ".goplint/exceptions.toml",
+  "gates": [
+    { "id": "repository-audit", "command": ["make", "check-goplint-repository-audit"] },
+    { "id": "baseline", "command": ["make", "check-baseline"] },
+    { "id": "exceptions", "command": ["make", "check-goplint-exceptions"] },
+    { "id": "full-scan", "command": ["make", "check-goplint-full-scan"] },
+    { "id": "consumer-performance-smoke", "command": ["make", "check-goplint-performance-smoke"] }
+  ]
+}

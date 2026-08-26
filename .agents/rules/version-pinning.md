@@ -20,19 +20,18 @@ build configuration.
 - **Current pinned versions:**
   - `go-mutesting`: `v2.8.2` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together)
   - `golangci-lint`: `v2.13.1` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
+  - `goplint`: `v0.1.0` (`github.com/invowk/goplint` plus its `cmd/repository-audit` and `cmd/benchmark-policy` commands, built and version-verified by `scripts/goplint.sh`; dependabot bumps the pin through the root `gomod` ecosystem)
 
 ### Go Toolchain
-- Version source: the `go` directive in the root `go.mod` and `tools/goplint/go.mod`
-  (lockstep; no `toolchain` directive). CI follows via `go-version-file:`.
+- Version source: the `go` directive in the root `go.mod` (no `toolchain`
+  directive). CI follows via `go-version-file:`. The standalone
+  `github.com/invowk/goplint` repository manages its own toolchain; check that
+  a compatible goplint release exists (or is cut) when bumping Go here.
 - On a Go minor-version bump, ALL of these must move together:
   - `build/bencher/Dockerfile` base image (`GOTOOLCHAIN=local` — hard-fails if lagging)
-  - `tools/goplint/bench/*.toml` `go_toolchain` prefixes
-  - `tools/goplint/spec/goplint-test-timings.v1.json` (regenerate, exact-match on `runtime.Version()`)
-  - `tools/goplint/testdata/gates/clean-tree-v4.json` plan `required_version_re` for `go`
-    (and `golangci-lint` if it also moved)
-  - goplint test fixtures carrying toolchain literals; `default.pgo` (regenerate)
-  - `golang.org/x/tools` in both modules, golangci-lint, and go-mutesting (releases built
-    for the new Go version)
+  - `default.pgo` (regenerate)
+  - `golang.org/x/tools`, golangci-lint, go-mutesting, and the goplint pin
+    (releases built for the new Go version)
 - `github.com/invowk/golua` is invowk's maintained fork of `arnodel/golua` (patched for the
   Go 1.27 `//go:linkname` allowlist removal via `hash/maphash.Comparable`); check the fork
   builds on new Go versions before bumping.

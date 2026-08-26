@@ -23,7 +23,7 @@ command -v govulncheck || echo "MISSING: Install govulncheck using the pin in .a
 
 If `govulncheck` is missing, report it and continue with update checks only.
 
-Build the module list once; Invowk includes the root module and the separate `tools/goplint` module:
+Build the module list once from tracked `go.mod` files (currently the root module only; the pinned `github.com/invowk/goplint` tool dependency rides the root module graph):
 
 ```bash
 mapfile -t go_modules < <(git ls-files 'go.mod' '*/go.mod' | xargs -n1 dirname | sort -u)
@@ -104,7 +104,7 @@ for mod in "${go_modules[@]}"; do
 done
 ```
 
-If the root module differs, report that `make tidy` is needed. If `tools/goplint` differs, report the module-specific tidy command.
+If the root module differs, report that `make tidy` is needed.
 
 ### Step 7: Generate Report
 
@@ -140,4 +140,4 @@ For each recommended upgrade, provide the exact command:
 (cd <module-dir> && go get module@version)
 ```
 
-Use `make tidy` for the root module and `(cd tools/goplint && go mod tidy)` for `tools/goplint`. Run `make test` after upgrading.
+Use `make tidy` for the root module. Run `make test` after upgrading.

@@ -111,7 +111,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - Keep `Invalid*Error` wrappers and sentinel `Unwrap()` behavior consistent.
 - Avoid bare primitives in domain structs, params, and returns unless the value
   is a real boundary/display/free-form exception already documented in
-  `tools/goplint/exceptions.toml` or justified with `//goplint:ignore -- ...`.
+  `.goplint/exceptions.toml` or justified with `//goplint:ignore -- ...`.
 
 ## Lint Traps
 
@@ -184,8 +184,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - Exclusions must explain why the policy exception is acceptable.
 - After linter config changes, run `make lint` and the relevant hook/check
   (`make check-baseline` for goplint-sensitive changes).
-- For `tools/goplint` or goplint behavior changes, also read
-  `tools/goplint/AGENTS.md`, run the canonical
-  `make check-goplint-soundness` gate, and use its current supplemental gate
-  list; do not rely on this skill to enumerate every race, repeat, baseline, or
-  repository scan check.
+- Analyzer behavior changes belong in the standalone
+  [`github.com/invowk/goplint`](https://github.com/invowk/goplint) repository,
+  which owns its own soundness gates; invowk-side changes run the consumer
+  gates (`make check-goplint-consumer-routed`).
