@@ -46,12 +46,10 @@ search_docs() {
 		rg -n -g '!**/speckit.*/SKILL.md' -- "$pattern" \
 			.agents/rules \
 			.agents/skills/*/SKILL.md \
-			tools/goplint/AGENTS.md
 	else
 		grep -nE -- "$pattern" \
 			.agents/rules/*.md \
 			.agents/skills/*/SKILL.md \
-			tools/goplint/AGENTS.md \
 			| grep -vE '\.agents/skills/speckit\.[^/]+/SKILL\.md:' || true
 	fi
 }

@@ -6,11 +6,9 @@ on:
       module:
         description: "Mutation module profile to run"
         type: choice
-        default: all
+        default: root
         options:
-          - all
           - root
-          - goplint
 
 concurrency:
   group: mutation-testing-${{ github.ref }}

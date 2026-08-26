@@ -1,5 +1,11 @@
 # CUE-Aware goplint Enum Exhaustiveness (`--check-enum-sync`)
 
+> **Relocation note (2026-08-26):** goplint now lives in the standalone
+> [`github.com/invowk/goplint`](https://github.com/invowk/goplint) repository;
+> `tools/goplint/...` paths below refer to its former in-tree location and map
+> to the same paths at that repository's root. Invowk-side configs moved to
+> `.goplint/`.
+
 > **STATUS: COMPLETE** (2026-02-28). The mode is available as `--check-enum-sync` with
 > the `//goplint:enum-cue=<CUEPath>` directive. See `tools/goplint/goplint/analyzer_enum_sync.go`.
 > All 9 production enum types annotated. Named constant resolution implemented.

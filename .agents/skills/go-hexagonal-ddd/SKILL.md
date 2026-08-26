@@ -118,9 +118,9 @@ implementation tasks.
    `references/source-guide.md`.
 2. Capture a stable baseline: branch/HEAD, `git status --short`,
    `go list ./cmd/... ./internal/... ./pkg/...`, and
-   `(cd tools/goplint && go list ./...)`.
+   `go list ./...` (root module).
    Also capture a package inventory for drift checks:
-   `find cmd internal pkg tools/goplint -maxdepth 2 -type d | sort`.
+   `find cmd internal pkg -maxdepth 2 -type d | sort`.
 3. Create a task list and launch subagents for the review surfaces below. Use no
    more than six live subagents. If fewer slots are available, queue the
    remaining surfaces and launch them only as slots free up.
@@ -143,7 +143,7 @@ Use these deterministic surfaces unless the user narrows scope:
 | SA-3 Runtime and outside devices | `internal/runtime/`, `internal/container/`, `internal/containerplan/`, `internal/provision/`, `internal/watch/`, `internal/uroot/` | Ports/adapters, host process/container/filesystem boundaries, persistent/ephemeral container target policy, deterministic test seams |
 | SA-4 Schemas and value types | `pkg/invowkfile/`, `pkg/types/`, `internal/config/`, `pkg/cueutil/` | Invariants, value-object placement, schema/domain language drift |
 | SA-5 Audit and security domains | `internal/audit/`, `internal/issue/`, lock-file and module-security call sites | Finding model, trust boundaries, policy services, error/diagnostic ownership |
-| SA-6 UI/server adapters and tools | `internal/tui/`, `internal/tuiserver/`, `internal/sshserver/`, `internal/core/serverbase/`, `tools/goplint/` | Adapter leakage, server lifecycle boundaries, analyzer/domain contract fit |
+| SA-6 UI/server adapters and tools | `internal/tui/`, `internal/tuiserver/`, `internal/sshserver/`, `internal/core/serverbase/` | Adapter leakage, server lifecycle boundaries |
 
 ### Subagent Prompt Shape
 

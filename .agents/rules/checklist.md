@@ -22,7 +22,7 @@ Before considering work complete, follow this sequence. If any step produces cod
 5. **Full test suite passes**: `make test` - Run the FULL test suite, not short mode.
 6. **CLI tests pass**: `make test-cli` (if CLI commands/output changed).
 7. **Baseline check passes**: `make check-baseline` - Verify no new goplint findings introduced. Note: baseline scoped to production packages (`./cmd/... ./internal/... ./pkg/...`). *(Pre-commit hook.)*
-8. **New goplint findings triaged with the user**: Every newly surfaced goplint violation must be evaluated carefully to decide whether the right fix belongs in Invowk production code or in goplint itself, regardless of the original task scope. Protocol inconclusive categories and outcomes are always visible and blocking; do not baseline, except, or inline-ignore proof uncertainty. If both fix locations are plausible, stop and ask the user to choose the final direction before closing the work.
+8. **New goplint findings triaged with the user**: Every newly surfaced goplint violation must be evaluated carefully to decide whether the right fix belongs in Invowk production code or in the analyzer itself (now the standalone `github.com/invowk/goplint` repository), regardless of the original task scope. Protocol inconclusive categories and outcomes are always visible and blocking; do not baseline, except, or inline-ignore proof uncertainty. If both fix locations are plausible, stop and ask the user to choose the final direction before closing the work.
 9. **File length check**: `make check-file-length` - All Go files (production + test) must be under 1000 lines.
 10. **Sonar issues resolved**: Run `make sonar-local` and review all unresolved issues. Fix real bugs and vulnerabilities. For false positives, add suppressions in `sonar-project.properties` and `.sonarcloud.properties` (multicriteria IDs must be gapless). CI analysis is handled by SonarCloud automatic analysis (GitHub App). *(Pre-commit hook.)*
 
@@ -45,47 +45,17 @@ The following items are also enforced by pre-commit hooks (`.pre-commit-config.y
 
 | Hook | Checklist Step | Notes |
 |------|---------------|-------|
-| `golangci-lint` | 4 (Linting) | `make lint` (normalized root + `tools/goplint` lint, formatter, and config gates) |
-| `goplint-baseline` | 7 (Baseline) | `make check-baseline` |
-| `goplint-exceptions` | — | `make check-goplint-exceptions` |
-| `goplint-behavior` | — | Routed soundness via `make check-goplint-soundness-routed`, capped at the consumer tier locally (documentation diffs run docs-guard; harness/analyzer-semantics diffs run consumer and print the authoritative CI tier) |
+| `golangci-lint` | 4 (Linting) | `make lint` (normalized lint, formatter, and config gates) |
+| `goplint-behavior` | — | Routed consumer gate via `make check-goplint-consumer-routed` (documentation-only diffs skip analysis; everything else runs one shared audit with baseline/exception/full-scan verdicts) |
 | `pgo-staleness` | — | Advisory only (exit 0); warns when hot-path files staged without `default.pgo` |
 | `sonar-local` | 10 (Sonar) | API-only check; `SONAR_TOKEN` optional (public projects work without auth) |
 
 Items NOT covered by any hook (manual discipline required): `make test`, `make tidy`, `make test-cli`, `make check-file-length`, `make check-agent-docs`, `make test-scripts`, documentation/diagram/module validation, `/simplify`, and `/learn`.
 
-For a goplint soundness completion claim, the regular semantic profile is not
-the last gate. Run this exact sequence from the repository root:
-
-```bash
-make check-goplint-soundness-semantic
-make generate-goplint-clean-tree-evidence   # or: make rebind-goplint-clean-tree-evidence
-make check-goplint-clean-tree-evidence
-make check-goplint-soundness-complete
-```
-
-The generator consumes the reviewed v4 path selection and command plan,
-invokes the `semantic` profile rather than `complete` to avoid recursive
-freshness verification, and writes only the retained v4 dual-digest run
-record. When only documentation-class prose drifted since a valid record, use
-`make rebind-goplint-clean-tree-evidence` instead of full regeneration: it
-recomputes both tree digests, revalidates task ledgers and the diff census,
-and carries the aggregate report forward with re-bound provenance;
-semantic-content drift makes re-binding fail closed naming the drifted paths.
-Verification must not change the caller's index or worktree. A missing or
-stale record is blocking and cannot be baselined, excepted, or inline-ignored.
-The generator also fails closed on ANY uncommitted tracked path outside the
-reviewed selection and exclusions (even unrelated local files such as
-`.claude/settings.json`); exclusions are stale-checked, so do not commit
-one-off exclusions — instead stash unrelated local changes for the
-generation window and restore them afterwards.
-
-The semantic profile also runs `make check-goplint-mutation-kernel-coverage`. That
-subgate binds the semantic-rules catalog, blocking mutation profile, and mutant
-catalog; it requires at least one selected causal mutant with stage and
-assertion-mismatch metadata for every category whose semantic rule requires
-the `mutation` layer. Uncovered required categories are blocking and cannot be
-baselined, excepted, exempted, or inline-ignored.
+Goplint analyzer-soundness completion claims (semantic profiles, retained
+clean-tree evidence, mutation-kernel coverage) are governed in the standalone
+`github.com/invowk/goplint` repository; invowk consumes released versions
+through the root `go.mod` tool pin and runs only the consumer gates above.
 
 **CI auto-fix:** The `pgo-sanity` CI job auto-regenerates `default.pgo` and pushes a fix commit when hot-path files change without a profile update. This is the safety net — prefer local regeneration with `make pgo-profile-parse-discovery` when the pre-commit hook warns.
 

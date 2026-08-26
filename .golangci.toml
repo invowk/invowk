@@ -4,7 +4,8 @@
 #
 # This configuration uses golangci-lint v2 format.
 # Run: ./scripts/golangci-lint.sh root-run
-# Differences from tools/goplint are intentional: the root module carries app,
+# Differences from the github.com/invowk/goplint repository's config are
+# intentional: the root module carries app,
 # CLI, runtime, and integration-test policy, while the nested analyzer module
 # enables tool-specific checks such as wrapcheck/staticcheck/depguard/perfsprint.
 

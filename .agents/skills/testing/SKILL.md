@@ -81,8 +81,8 @@ make check-windows-build
 make lint
 make test
 
-# goplint analyzer or semantic fixture changes
-make check-goplint-soundness
+# goplint consumer gates (analyzer changes live in github.com/invowk/goplint)
+make check-goplint-consumer-routed
 ```
 
 Add the surface-specific gates from `.agents/rules/checklist.md`; do not treat a

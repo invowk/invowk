@@ -1,5 +1,11 @@
 # goplint Long-Range Maintainability Refactor
 
+> **Relocation note (2026-08-26):** goplint now lives in the standalone
+> [`github.com/invowk/goplint`](https://github.com/invowk/goplint) repository;
+> `tools/goplint/...` paths below refer to its former in-tree location and map
+> to the same paths at that repository's root. Invowk-side configs moved to
+> `.goplint/`.
+
 > **STATUS: PENDING** - planned 2026-03-01.
 > Scope: `run()` modularization + declarative flag-table rewrite.
 

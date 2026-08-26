@@ -1,3 +1,0 @@
-[[exceptions]]
-pattern = "enumsync_noschema_suppressed.NoSchemaMode.no-schema.enum-cue-missing-go"
-reason = "suppressed for test"

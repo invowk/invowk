@@ -39,7 +39,7 @@ Parse the JSON output. Group findings by category and package. The most actionab
 
 ```bash
 ./bin/goplint -audit-exceptions -global -check-all -check-enum-sync \
-  -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+  -config=.goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 ```
 
 **CRITICAL: Always use `--global` and `--check-all --check-enum-sync` together.** Without `--global`, the audit runs per-package and reports false positives (a pattern matching in package A appears "stale" when analyzing package B). Without `--check-all`, supplementary-mode patterns (`*.constructor`, `*.struct-validate`, `*.validate-delegation`, `*.cast-validation`, etc.) appear stale because their findings are never generated. Both flags are required for accurate results.
@@ -179,7 +179,7 @@ Use `pkg/fspath/` wrappers (`JoinStr`, `Dir`, `Abs`, `Clean`, `FromSlash`, `IsAb
 7. Audit stale exceptions (always global):
    ```bash
    ./bin/goplint -audit-exceptions -global -check-all -check-enum-sync \
-     -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+     -config=.goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
    ```
    Remove any newly stale entries (type conversions often orphan exception patterns).
 8. Report session metrics to the user:

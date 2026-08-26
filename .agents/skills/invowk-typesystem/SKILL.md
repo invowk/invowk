@@ -58,9 +58,8 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 
 ## Required Checks After Typesystem Changes
 
-- `make check-goplint-soundness` when goplint protocol behavior, analyzer code,
-  semantic fixtures, or the accepted baseline changes
-- `make check-baseline`
+- `make check-baseline` (analyzer-behavior changes belong in the standalone
+  `github.com/invowk/goplint` repository, which owns its own soundness gates)
 - `make check-types` for targeted DDD checks when production type shapes changed
 - `make check-types-all` / `make check-types-all-json` for broad type-system sweeps
 - `make test`

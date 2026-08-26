@@ -1,4 +1,0 @@
-[unused-constructor-error]
-entries = [
-    { id = "gpl4_ff3f38e96b0e5af4b43d49de94834c5e20c08d19014fc96647b0c1c8eb7a399f", message = "constructor NewThing error return assigned to blank identifier" },
-]

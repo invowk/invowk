@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "description": "Invowk consumer-side goplint routing manifest: two classes only. Paths matching a documentation rule skip analyzer execution; every other path — and any unmatched path, fail-closed — routes to the consumer tier (one canonical repository audit with baseline and exception governance against the pinned analyzer). Analyzer-semantics and harness assurance are governed by the github.com/invowk/goplint repository against its own tree.",
+  "documentation_patterns": [
+    "^\\.agents/",
+    "^AGENTS\\.md$",
+    "^CLAUDE\\.md$",
+    "^README\\.md$",
+    "^docs/",
+    "^website/",
+    "^openspec/",
+    "^tasks/",
+    "^specs/"
+  ]
+}

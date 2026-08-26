@@ -18,20 +18,12 @@ usage() {
 Usage: scripts/golangci-lint.sh <command> [args...]
 
 Commands:
-  run                  Run golangci-lint for root and tools/goplint.
-  root-run             Run golangci-lint for the root module.
-  tools-run            Run golangci-lint for tools/goplint.
-  fmt                  Check formatter diffs for root and tools/goplint.
-  root-fmt             Check formatter diffs for the root module.
-  tools-fmt            Check formatter diffs for tools/goplint.
-  config-verify        Verify both golangci-lint config files.
-  root-config-verify   Verify the root golangci-lint config.
-  tools-config-verify  Verify the tools/goplint golangci-lint config.
-  linters              Print effective linter JSON for both modules.
-  root-linters         Print effective linter JSON for the root module.
-  tools-linters        Print effective linter JSON for tools/goplint.
-  version              Print the normalized golangci-lint version.
-  help                 Show this help.
+  run            Run golangci-lint for the module.
+  fmt            Check formatter diffs for the module.
+  config-verify  Verify the golangci-lint config file.
+  linters        Print effective linter JSON for the module.
+  version        Print the normalized golangci-lint version.
+  help           Show this help.
 
 Environment:
   GO_CMD               Go command used to resolve the pinned tool (default: go).
@@ -41,38 +33,6 @@ EOF
 die() {
 	printf 'ERROR: %s\n' "$*" >&2
 	exit 1
-}
-
-module_dir() {
-	local module="$1"
-
-	case "$module" in
-		root)
-			printf '%s\n' "$REPO_ROOT"
-			;;
-		tools)
-			printf '%s\n' "$REPO_ROOT/tools/goplint"
-			;;
-		*)
-			die "unknown golangci-lint module: $module"
-			;;
-	esac
-}
-
-module_label() {
-	local module="$1"
-
-	case "$module" in
-		root)
-			printf 'root module\n'
-			;;
-		tools)
-			printf 'tools/goplint module\n'
-			;;
-		*)
-			die "unknown golangci-lint module: $module"
-			;;
-	esac
 }
 
 golangci_lint_binary() {
@@ -102,39 +62,27 @@ verify_golangci_lint_version() {
 }
 
 run_lint() {
-	local module="$1"
-	shift
-
 	verify_golangci_lint_version
-	printf 'Running golangci-lint (%s)...\n' "$(module_label "$module")"
-	(cd "$(module_dir "$module")" && "$GOLANGCI_LINT_BIN" run --config=.golangci.toml "$@" ./...)
+	printf 'Running golangci-lint...\n'
+	(cd "$REPO_ROOT" && "$GOLANGCI_LINT_BIN" run --config=.golangci.toml "$@" ./...)
 }
 
 run_format_check() {
-	local module="$1"
-	shift
-
 	verify_golangci_lint_version
-	printf 'Checking golangci-lint formatters (%s)...\n' "$(module_label "$module")"
-	(cd "$(module_dir "$module")" && "$GOLANGCI_LINT_BIN" fmt --config=.golangci.toml --diff "$@")
+	printf 'Checking golangci-lint formatters...\n'
+	(cd "$REPO_ROOT" && "$GOLANGCI_LINT_BIN" fmt --config=.golangci.toml --diff "$@")
 }
 
 run_config_verify() {
-	local module="$1"
-	shift
-
 	verify_golangci_lint_version
-	printf 'Verifying golangci-lint config (%s)...\n' "$(module_label "$module")"
-	(cd "$(module_dir "$module")" && "$GOLANGCI_LINT_BIN" config verify --config=.golangci.toml "$@")
+	printf 'Verifying golangci-lint config...\n'
+	(cd "$REPO_ROOT" && "$GOLANGCI_LINT_BIN" config verify --config=.golangci.toml "$@")
 }
 
 print_linters() {
-	local module="$1"
-	shift
-
 	verify_golangci_lint_version
-	printf 'Effective golangci-lint linters (%s):\n' "$(module_label "$module")" >&2
-	(cd "$(module_dir "$module")" && "$GOLANGCI_LINT_BIN" linters --config=.golangci.toml --json "$@")
+	printf 'Effective golangci-lint linters:\n' >&2
+	(cd "$REPO_ROOT" && "$GOLANGCI_LINT_BIN" linters --config=.golangci.toml --json "$@")
 }
 
 print_version() {
@@ -151,44 +99,16 @@ main() {
 
 	case "$command" in
 		run)
-			run_lint root "$@"
-			run_lint tools "$@"
-			;;
-		root-run)
-			run_lint root "$@"
-			;;
-		tools-run)
-			run_lint tools "$@"
+			run_lint "$@"
 			;;
 		fmt)
-			run_format_check root "$@"
-			run_format_check tools "$@"
-			;;
-		root-fmt)
-			run_format_check root "$@"
-			;;
-		tools-fmt)
-			run_format_check tools "$@"
+			run_format_check "$@"
 			;;
 		config-verify)
-			run_config_verify root "$@"
-			run_config_verify tools "$@"
-			;;
-		root-config-verify)
-			run_config_verify root "$@"
-			;;
-		tools-config-verify)
-			run_config_verify tools "$@"
+			run_config_verify "$@"
 			;;
 		linters)
-			print_linters root "$@"
-			print_linters tools "$@"
-			;;
-		root-linters)
-			print_linters root "$@"
-			;;
-		tools-linters)
-			print_linters tools "$@"
+			print_linters "$@"
 			;;
 		version)
 			print_version

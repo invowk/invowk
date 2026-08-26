@@ -1,3 +1,0 @@
-[[exceptions]]
-pattern = "constructorusage_suppressed.Excepted.constructor-error-usage"
-reason = "config suppression coverage"

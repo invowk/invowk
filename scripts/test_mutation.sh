@@ -127,9 +127,6 @@ test_paths() {
 	assert_eq "root baseline path" \
 		"$REPO_ROOT/tools/mutation/baselines/root-baseline.json" \
 		"$(baseline_path root)"
-	assert_eq "goplint baseline path" \
-		"$REPO_ROOT/tools/mutation/baselines/goplint-baseline.json" \
-		"$(baseline_path goplint)"
 	assert_eq "profile report path" \
 		"$tmp/reports/pr/root" \
 		"$(profile_report_dir pr root "$tmp/reports")"
@@ -160,7 +157,7 @@ test_command_construction() {
 	assert_contains "dry-run enables dry run" "--dry-run" "$args"
 	assert_not_contains "dry-run does not pass race" "-race" "$args"
 
-	args="$(build_go_mutesting_args rerun goplint advisory origin/main escaped-123)"
+	args="$(build_go_mutesting_args rerun root advisory origin/main escaped-123)"
 	assert_contains "rerun targets stable mutant id" "--run-mutant-id=escaped-123" "$args"
 	assert_contains "rerun selects escaped status code" "--output-statuses=e" "$args"
 }
@@ -247,26 +244,25 @@ test_tool_report_collection_before_untracked_cleanup() {
 	local report
 
 	tmp="$(mktemp -d)"
-	trap 'rm -rf "$tmp"; rm -f -- "$REPO_ROOT/tools/goplint/go-mutesting-summary.json"; [[ -n "${MUTATION_CLEANUP_DIR:-}" ]] && rm -rf "$MUTATION_CLEANUP_DIR"' RETURN
-	workdir="$REPO_ROOT/tools/goplint"
+	trap 'rm -rf "$tmp"; rm -f -- "$REPO_ROOT/go-mutesting-summary.json"; [[ -n "${MUTATION_CLEANUP_DIR:-}" ]] && rm -rf "$MUTATION_CLEANUP_DIR"' RETURN
+	workdir="$REPO_ROOT"
 	report_dir="$tmp/reports"
 	report="$workdir/go-mutesting-summary.json"
 	mkdir -p "$report_dir"
 
-	snapshot_untracked_paths goplint
+	snapshot_untracked_paths root
 	printf '{"totalMutantsCount":1}\n' >"$report"
-	restore_tracked_mutation_paths goplint
+	restore_tracked_mutation_paths root
 	collect_tool_reports "$workdir" "$report_dir"
-	remove_new_untracked_paths goplint
+	remove_new_untracked_paths root
 
-	assert_file_exists "collects nested-module report before cleanup" "$report_dir/go-mutesting-summary.json"
-	assert_file_missing "removes nested-module workdir report after collection" "$report"
-	assert_file_contains "preserves nested-module report content" '"totalMutantsCount":1' "$report_dir/go-mutesting-summary.json"
+	assert_file_exists "collects module report before cleanup" "$report_dir/go-mutesting-summary.json"
+	assert_file_missing "removes module workdir report after collection" "$report"
+	assert_file_contains "preserves module report content" '"totalMutantsCount":1' "$report_dir/go-mutesting-summary.json"
 }
 
 test_dirty_path_policy() {
 	assert_path_allowed "allows root mutation baseline" "tools/mutation/baselines/root-baseline.json"
-	assert_path_allowed "allows goplint mutation baseline" "tools/mutation/baselines/goplint-baseline.json"
 	assert_path_allowed "allows generated mutation reports" "artifacts/mutation/pr/root/go-mutesting-summary.json"
 	assert_path_rejected "rejects source changes" "cmd/invowk/root.go"
 	assert_path_rejected "rejects docs changes" ".agents/rules/commands.md"
@@ -287,24 +283,6 @@ test_root_target_resolution() {
 	assert_not_contains "root curated seed omits virtual runtime package" "github.com/invowk/invowk/internal/runtime" "$targets"
 }
 
-test_goplint_target_resolution() {
-	local tmp
-	local targets
-
-	tmp="$(mktemp -d)"
-	trap 'rm -rf "$tmp"' RETURN
-	targets="$(resolve_targets goplint "$tmp/goplint")"
-
-	assert_contains "goplint targets include analyzer entrypoint" "goplint/analyzer.go" "$targets"
-	assert_contains "goplint targets include constructor validation analyzer" "goplint/analyzer_constructor_validates.go" "$targets"
-	assert_contains "goplint targets include Windows pitfalls analyzer" "goplint/analyzer_windows_pitfalls.go" "$targets"
-	assert_not_contains "goplint targets avoid leading dot-slash ids" "./goplint/analyzer.go" "$targets"
-	assert_not_contains "goplint curated profile omits command package" "github.com/invowk/invowk/tools/goplint" "$targets"
-	assert_not_contains "goplint curated profile omits full analyzer package" "github.com/invowk/invowk/tools/goplint/goplint" "$targets"
-	assert_file_contains "goplint file target metadata records owning package" \
-		"file target in github.com/invowk/invowk/tools/goplint/goplint" \
-		"$tmp/goplint/package-candidates.txt"
-}
 
 test_paths
 test_tool_version_pin
@@ -315,7 +293,6 @@ test_tool_report_collection
 test_tool_report_collection_before_untracked_cleanup
 test_dirty_path_policy
 test_root_target_resolution
-test_goplint_target_resolution
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

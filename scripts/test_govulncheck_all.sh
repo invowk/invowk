@@ -85,9 +85,7 @@ test_scans_tracked_modules() {
 
 	assert_status "scans tracked modules successfully" 0 "$status"
 	assert_file_contains "logs root module scan" "==> govulncheck: ." "$output"
-	assert_file_contains "logs tools/goplint scan" "==> govulncheck: tools/goplint" "$output"
 	assert_file_contains "runs fake in root module" "$REPO_ROOT|./..." "$log"
-	assert_file_contains "runs fake in tools/goplint module" "$REPO_ROOT/tools/goplint|./..." "$log"
 	rm -rf "$tmp"
 }
 
@@ -102,7 +100,7 @@ test_failure_identifies_module() {
 	fake="$tmp/govulncheck"
 	log="$tmp/log"
 	output="$tmp/output"
-	write_fake_govulncheck "$fake" "$log" "tools/goplint"
+	write_fake_govulncheck "$fake" "$log" "$(basename "$REPO_ROOT")"
 
 	set +e
 	(
@@ -113,8 +111,8 @@ test_failure_identifies_module() {
 	set -e
 
 	assert_status "propagates govulncheck failure" 7 "$status"
-	assert_file_contains "logs failing module before error" "==> govulncheck: tools/goplint" "$output"
-	assert_file_contains "reports failing module" "govulncheck failed in module: tools/goplint" "$output"
+	assert_file_contains "logs failing module before error" "==> govulncheck: ." "$output"
+	assert_file_contains "reports failing module" "govulncheck failed in module: ." "$output"
 	rm -rf "$tmp"
 }
 

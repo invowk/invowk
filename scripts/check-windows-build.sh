@@ -6,7 +6,7 @@
 # before they reach Windows CI. Does NOT catch runtime path bugs — that is the
 # cross-platform-paths goplint analyzer's job.
 #
-# Runs on both Go modules: the root module and tools/goplint/.
+# Runs on the root Go module.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,16 +38,11 @@ run() {
 }
 
 # Root module
-echo "  [1/4] go build  (root module)..."
+echo "  [1/2] go build  (root module)..."
 run "root build" go build ./...
-echo "  [2/4] go vet    (root module)..."
+echo "  [2/2] go vet    (root module)..."
 run "root vet" go vet ./...
 
-# Tools module (goplint)
-echo "  [3/4] go build  (tools/goplint)..."
-(cd tools/goplint && run "tools/goplint build" go build ./...)
-echo "  [4/4] go vet    (tools/goplint)..."
-(cd tools/goplint && run "tools/goplint vet" go vet ./...)
 
 if [[ "$errors" -gt 0 ]]; then
     echo ""

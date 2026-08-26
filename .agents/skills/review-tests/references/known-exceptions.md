@@ -94,7 +94,7 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 | `Error()` format tests | ~15 occurrences across `cmd/`, `internal/`, `pkg/` | Tests verifying the output of typed error `Error()` methods (e.g., `DependencyError.Error()`, `CapabilityError.Error()`). The string IS the contract. |
 | DDD `Invalid*Error` rendering | `internal/tui/`, `internal/tuiserver/`, `pkg/types/` | Tests that `Invalid*Error.Error()` includes the bad input value (e.g., "-5", "bad"). Verifies error message quality. |
 | CUE library errors | `pkg/invowkfile/invowkfile_schema_test.go`, `pkg/cueutil/` | Errors from `cuelang.org/go` (e.g., "field not allowed", "conflict") have no sentinel API. |
-| Supplementary checks | `internal/app/deps/`, `internal/uroot/`, `tools/goplint/` | Tests that already use `errors.Is()` for the primary assertion; `strings.Contains` verifies additional message content (e.g., flag name, file path, prefix). |
+| Supplementary checks | `internal/app/deps/`, `internal/uroot/` | Tests that already use `errors.Is()` for the primary assertion; `strings.Contains` verifies additional message content (e.g., flag name, file path, prefix). |
 | External/OS errors | `internal/runtime/`, `internal/config/` | Errors from `os`, `strconv`, `exec.LookPath` without sentinel wrapping. |
 | Non-empty error checks | `internal/tui/`, `internal/config/` | Tests checking `err.Error() == ""` or `err.Error() != ""` — verifying message exists, not content. |
 
@@ -117,7 +117,7 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 | Location | What Is Different | Rationale |
 |---|---|---|
 | `sonar-project.properties` | `sonar.go.coverageReportPaths` is intentionally omitted | SonarCloud is installed as a GitHub App using automatic analysis. The App runs its own analysis on PR events — it cannot access CI-generated artifacts like `coverage.out`. Coverage is collected by CI and uploaded as a GitHub Actions artifact for manual inspection, but not fed to SonarCloud. This is documented in `sonar-project.properties` lines 9-11. |
-| `sonar-project.properties` | `sonar.tests` omits `tools/` directory | `tools/goplint/` is a separate development tool with its own Go module and quality governance via `lint.yml`. It is explicitly excluded from SonarCloud analysis via `sonar.exclusions=...tools/goplint/**`. The omission from `sonar.tests` is consistent with the exclusion. |
+| `sonar-project.properties` | `sonar.tests` omits `tools/` directory | `tools/` holds curated mutation manifests, not production Go sources; the goplint analyzer lives in the standalone `github.com/invowk/goplint` repository with its own quality governance (including SonarCloud). |
 
 ### Test Naming Exceptions
 

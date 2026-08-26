@@ -1,3 +1,0 @@
-[[exceptions]]
-pattern = "boundaryrequest.Service.UnknownEffect.boundary-request-validation"
-reason = "test: proof uncertainty must remain visible"
