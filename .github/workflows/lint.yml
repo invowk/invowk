@@ -118,8 +118,9 @@ jobs:
     permissions:
       contents: read
     env:
-      # One canonical repository scan serves every consumer verdict below.
-      GOPLINT_REPOSITORY_AUDIT_PATH: ${{ github.workspace }}/artifacts/goplint/repository-audit.json
+      # One canonical repository scan serves every consumer verdict below. The
+      # artifact must live outside the hashed workspace or the audit refuses it.
+      GOPLINT_REPOSITORY_AUDIT_PATH: ${{ runner.temp }}/goplint/repository-audit.json
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -135,7 +136,7 @@ jobs:
 
       - name: Produce the canonical repository audit
         run: |
-          mkdir -p artifacts/goplint
+          mkdir -p "$(dirname "$GOPLINT_REPOSITORY_AUDIT_PATH")"
           make check-goplint-repository-audit
 
       - name: Check baseline regressions

@@ -25,6 +25,7 @@ run_consumer_tier() {
   make -C "$ROOT_DIR" check-baseline
   make -C "$ROOT_DIR" check-goplint-exceptions
   make -C "$ROOT_DIR" check-goplint-full-scan
+  make -C "$ROOT_DIR" check-goplint-performance-smoke
 }
 
 if ! command -v jq >/dev/null 2>&1 || [[ ! -f "$MANIFEST" ]]; then
