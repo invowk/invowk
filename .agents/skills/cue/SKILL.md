@@ -200,7 +200,11 @@ When upgrading the CUE library version:
 3. **Check API Deprecations**: Search for deprecated function usage
 4. **Verify Error Formats**: Manually test that error messages still include paths
 5. **Update Documentation**: If CUE behavior changes, update this rules file
-6. **Test Cross-Platform**: Run CI on all platforms (Linux, macOS, Windows)
+6. **Test Cross-Platform**: Run CI on all platforms (Linux, macOS, Windows).
+   Windows-specific gotcha: CUE v0.17+ rejects carriage returns in multiline-string
+   indentation ("non-matching whitespace for multiline strings"), so `*.cue` files
+   must never be checked out with CRLF — `.gitattributes` forces `*.cue text eol=lf`.
+   Keep that rule when touching `.gitattributes`.
 
 ### Known CUE Limitations
 

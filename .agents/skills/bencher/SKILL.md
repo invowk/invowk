@@ -99,6 +99,8 @@ rg -n 'Bencher New Report|thresholds|View report|No thresholds|Job status|BENCHE
 
 ## Known Pitfalls
 
+- A flat absolute latency increase across every CLI-spawning benchmark (`startup/*`, `command/execute-cli-*`) while in-process benchmarks are flat or improved points at process-init cost, not workload cost. Diagnose with `GODEBUG=inittrace=1 bin/invowk version` (per-package init wall time and allocations) and bisect with per-dependency `go get` builds. Precedent: transitive `go-runewidth` v0.0.27 built width tables eagerly in `init()` (~15ms, doubling startup); v0.0.28 restored lazy init.
+- The `Bencher Report (bmf)` GitHub check is created per report and pinned to the head SHA. When a later run goes advisory (e.g., after adding `benchmarks: accepted-regression`), it deliberately creates no new check, so a stale failing check from a pre-label run stays attached until a new commit changes the SHA. Also: workflows read PR labels from the frozen event payload, so a label change needs a fresh `pull_request` event (new push, or close/reopen) — rerunning the old workflow run reuses the unlabeled payload.
 - `latency` versus `Latency` is not a threshold bug by itself. A prior threshold incident had slug `latency` correctly matching displayed `Latency`; the warning came from missing `build-time`.
 - `boundary.baseline: null` usually means the threshold exists but Bencher does not yet have enough samples for that model. This is different from `threshold: null`.
 - A Bencher JWT or registry failure often looks like broken benchmark code. Check `BENCHER_API_TOKEN`, the registry login script, and direct API access before rewriting benchmark logic.
