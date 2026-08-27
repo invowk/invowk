@@ -9,6 +9,7 @@ exec invowk config path
 stdout 'Config directory:'
 stdout 'Config file:'
 stdout 'Commands directory:'
+stdout 'SSH host key:'
 ! stderr .
 
 # Test 2: Paths reference the platform-specific config location

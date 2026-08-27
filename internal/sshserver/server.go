@@ -63,12 +63,11 @@ type (
 		// Clock for time operations (enables deterministic testing)
 		clock Clock
 
-		// Process, PTY, stream, and Wish dependencies are injected privately for deterministic tests.
-		newCommand  commandContextFunc
-		startPTY    startPTYFunc
-		setWinsize  setWinsizeFunc
-		copyBuffer  copyBufferFunc
-		wishOptions []ssh.Option
+		// Process, PTY, and stream dependencies are injected privately for deterministic tests.
+		newCommand commandContextFunc
+		startPTY   startPTYFunc
+		setWinsize setWinsizeFunc
+		copyBuffer copyBufferFunc
 
 		// Initialized during Start() - protected by srvMu for writes
 		srvMu    sync.Mutex
@@ -100,6 +99,12 @@ type (
 		DefaultShell types.ShellPath
 		// StartupTimeout is the max time to wait for server to be ready (default: 5s)
 		StartupTimeout time.Duration
+		// HostKeyPath is where the server's private host key is stored, generated
+		// on first use (default: nil = a fresh in-memory key per Start, never
+		// written to disk). Set it to give the server a stable host identity
+		// across runs; leaving it nil is safe because clients authenticate via
+		// short-lived tokens, not by pinning the host key.
+		HostKeyPath *types.FilesystemPath
 	}
 
 	//goplint:validate-all
@@ -128,7 +133,8 @@ func DefaultConfig() Config {
 
 // Validate returns nil if all typed fields in the Config are valid,
 // or an error wrapping ErrInvalidSSHConfig if any are invalid.
-// It delegates to Host.Validate(), Port.Validate(), and DefaultShell.Validate().
+// It delegates to Host.Validate(), Port.Validate(), DefaultShell.Validate(),
+// and — when set — HostKeyPath.Validate().
 // Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no Validate.
 func (c Config) Validate() error {
 	var errs []error
@@ -140,6 +146,13 @@ func (c Config) Validate() error {
 	}
 	if err := c.DefaultShell.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	// HostKeyPath is optional: nil selects an ephemeral in-memory host key,
+	// so only a set value is validated.
+	if c.HostKeyPath != nil {
+		if err := c.HostKeyPath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if len(errs) > 0 {
 		return &InvalidSSHConfigError{FieldErrors: errs}
@@ -170,7 +183,6 @@ func newWithDependencies(
 	cfg Config,
 	clock Clock,
 	newCommand commandContextFunc,
-	wishOptions ...ssh.Option,
 ) (*Server, error) {
 	// Apply defaults
 	if cfg.Host == "" {
@@ -199,16 +211,15 @@ func newWithDependencies(
 	})
 
 	s := &Server{
-		base:        serverbase.NewBase(),
-		cfg:         cfg,
-		clock:       clock,
-		newCommand:  newCommand,
-		startPTY:    startPty,
-		setWinsize:  setWinsize,
-		copyBuffer:  copyBuffer,
-		wishOptions: wishOptions,
-		tokens:      make(map[TokenValue]*Token),
-		logger:      logger,
+		base:       serverbase.NewBase(),
+		cfg:        cfg,
+		clock:      clock,
+		newCommand: newCommand,
+		startPTY:   startPty,
+		setWinsize: setWinsize,
+		copyBuffer: copyBuffer,
+		tokens:     make(map[TokenValue]*Token),
+		logger:     logger,
 	}
 
 	return s, nil

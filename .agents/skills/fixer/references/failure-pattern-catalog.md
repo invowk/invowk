@@ -149,22 +149,21 @@ Create a new context per subtest if parallelism is needed.
 
 ---
 
-### RC-3: SSH host key file collision
+### RC-3: SSH host key file collision (RESOLVED — historical)
 
-**Symptom**: Race detector fires or tests produce `permission denied` / `file exists`
-errors when multiple `sshServerController` tests run in parallel. The `wish` library
-writes host keys to `.ssh/` in the working directory.
+**Symptom (historical)**: Race detector fired or tests produced `permission denied`
+/ `file exists` errors when multiple SSH server tests ran in parallel, because the
+`wish` library's default wrote host keys (`id_ed25519`) relative to the process
+working directory.
 
-**Root cause**: Parallel SSH server tests share the same working directory. The
-`wish` library writes `id_ed25519` and `id_ed25519.pub` to `.ssh/` relative to the
-current directory. Concurrent writes to the same files cause races.
+**Resolution**: `sshserver.Server` now always configures a host key explicitly via
+`hostKeyOption()` (`internal/sshserver/server_lifecycle.go`): an in-memory
+ephemeral key when `Config.HostKeyPath` is nil, or a stable key generated at the
+configured path. Wish's CWD default can no longer trigger, so SSH server tests may
+parallelize freely. A repo-wide `.gitignore` `id_ed25519*` pattern is the backstop.
 
-**Fix template**: Run SSH server tests sequentially. Do not call `t.Parallel()` on
-the parent test or any subtest in `sshServerController` test groups. Unique temp
-directories per test also work but require plumbing the path to the wish config.
-
-**Prevention**: `.gitignore` entries for `internal/app/commandsvc/id_ed25519{,.pub}`.
-Sequential execution for all `sshServerController` tests.
+**If this pattern reappears**: a new server construction path is bypassing
+`hostKeyOption()` — fix that, do not serialize tests.
 
 **Platform skill**: `go-testing` SKILL.md (Parallelism Decision Framework).
 

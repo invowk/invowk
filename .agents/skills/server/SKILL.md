@@ -60,6 +60,10 @@ Use `LastError()` when callers need the recorded failure after the server reache
 4. Call `TransitionToRunning()` only when the server is ready.
 5. Use `WaitForReady(ctx)` or `StartedChannel()` to block startup until ready or failed.
 6. On startup or serve errors, call `TransitionToFailed(err)` and return that error.
+7. SSH servers must always configure a host key explicitly (see
+   `sshserver.hostKeyOption()`): never let wish's default pick one — it writes
+   `./id_ed25519` into the process working directory, which once leaked private
+   keys into this repository.
 
 ```go
 func (s *Server) Start(ctx context.Context) error {

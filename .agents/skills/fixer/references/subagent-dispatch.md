@@ -272,7 +272,7 @@ You are analyzing a Go race detector report from the invowk project.
 3. Check the Failure Pattern Catalog for known race patterns:
    - lipgloss sync.Once (windows-testing)
    - CUE cue.Value concurrent access (go-testing)
-   - SSH host key file collision (go-testing)
+   - SSH host key file collision (go-testing; resolved — see RC-3, reappearance means a server path bypasses hostKeyOption())
    - os.Stdin replacement in parallel tests (go-testing)
    - Shared MockCommandRecorder (go-testing)
 4. If it matches a known pattern, apply the documented fix
