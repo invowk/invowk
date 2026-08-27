@@ -76,7 +76,7 @@ Para atualizar depois:
   </TabItem>
   <TabItem value="homebrew" label="Homebrew">
 
-Se você usa [Homebrew](https://brew.sh/) no **macOS** ou **Linux**:
+Se você usa [Homebrew](https://brew.sh/) no **macOS** (o Invowk é distribuído como um cask do Homebrew, que não é suportado pelo Homebrew no Linux):
 
 <Snippet id="installation/homebrew" />
 
@@ -132,9 +132,27 @@ Você deverá ver as informações de versão. Se receber um erro "command not f
 | Script shell | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
 | Script PowerShell | — | — | amd64 |
 | WinGet | — | — | amd64 |
-| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Homebrew | — | amd64, arm64 | — |
 | Go install | todos | todos | todos |
 | Código-fonte | todos | todos | todos |
+
+### Verificando Assinaturas de Release
+
+Os artefatos de release são assinados com [Cosign](https://github.com/sigstore/cosign) (sem chave, via OIDC do GitHub Actions). Para verificar o arquivo de checksums baixado de um GitHub Release:
+
+```bash
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
+```
+
+Em seguida, verifique os arquivos individuais contra o `checksums.txt`:
+
+```bash
+sha256sum -c checksums.txt
+```
 
 ## Atualização
 
