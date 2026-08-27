@@ -13,7 +13,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 GO_CMD="${GO_CMD:-go}"
 GOPLINT_MODULE="github.com/invowk/goplint"
-GOPLINT_VERSION="v0.1.0"
+GOPLINT_VERSION="v0.2.0"
 
 usage() {
 	cat <<'EOF'

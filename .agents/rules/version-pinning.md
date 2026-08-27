@@ -20,7 +20,7 @@ build configuration.
 - **Current pinned versions:**
   - `go-mutesting`: `v2.8.2` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together)
   - `golangci-lint`: `v2.13.1` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
-  - `goplint`: `v0.1.0` (`github.com/invowk/goplint` plus its `cmd/repository-audit` and `cmd/benchmark-policy` commands, built and version-verified by `scripts/goplint.sh`; dependabot bumps the pin through the root `gomod` ecosystem)
+  - `goplint`: `v0.2.0` (`github.com/invowk/goplint` plus its `cmd/repository-audit` and `cmd/benchmark-policy` commands, built and version-verified by `scripts/goplint.sh`; dependabot bumps the pin through the root `gomod` ecosystem)
 
 ### Go Toolchain
 - Version source: the `go` directive in the root `go.mod` (no `toolchain`
