@@ -1,12 +1,41 @@
 name: CI
 
 on:
+  # None of this workflow's checks are required by branch protection, so both
+  # push and pull_request can safely skip documentation-only diffs. Keep the
+  # path lists in sync between the two triggers.
   push:
     branches:
       - main
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - 'default.pgo'
+      - '.goreleaser.yaml'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - 'default.pgo'
+      - '.goreleaser.yaml'
+      - '.github/workflows/ci.yml'
   # Release validation must always run in full, regardless of changed paths.
   release:
     types:
