@@ -1,0 +1,131 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Ambiente
+
+O Invowk™ fornece gerenciamento poderoso de variáveis de ambiente para seus comandos. Defina variáveis, carregue de arquivos e controle a precedência em múltiplos níveis.
+
+## Exemplo Rápido
+
+<Snippet id="environment/overview-quick-example" />
+
+## Fontes de Ambiente
+
+Variáveis vêm de múltiplas fontes e são aplicadas nesta ordem (da menor para a maior precedência):
+
+1. **Ambiente do sistema** - Variáveis do host (sujeito a `env_inherit_mode`)
+2. **Arquivos raiz** - `env.files` no nível raiz
+3. **Arquivos de comando** - `env.files` no nível de comando
+4. **Arquivos de implementação** - `env.files` no nível de implementação
+5. **Vars raiz** - `env.vars` no nível raiz
+6. **Vars de comando** - `env.vars` no nível de comando
+7. **Vars de implementação** - `env.vars` no nível de implementação
+8. **Vars do Invowk** - Variáveis embutidas de comando (`INVOWK_*`, `ARG*`)
+9. **Arquivos env da CLI** - `--ivk-env-file .env.custom`
+10. **Vars da CLI** - `--ivk-env-var KEY=value`
+
+Fontes posteriores sobrescrevem as anteriores.
+
+## Níveis de Escopo
+
+### Nível Raiz
+
+Aplica-se a todos os comandos no invowkfile:
+
+<Snippet id="environment/scope-root" />
+
+### Nível de Comando
+
+Aplica-se a um comando específico:
+
+<Snippet id="environment/scope-command" />
+
+### Nível de Implementação
+
+Aplica-se a uma implementação específica:
+
+<Snippet id="environment/scope-implementation" />
+
+### Nível de Plataforma
+
+Defina variáveis por plataforma:
+
+<Snippet id="environment/scope-platform" />
+
+## Arquivos Env
+
+Carregue variáveis de arquivos `.env`:
+
+<Snippet id="environment/env-files" />
+
+Arquivos são carregados em ordem; arquivos posteriores sobrescrevem os anteriores.
+
+Veja [Env Files](./env-files) para detalhes.
+
+## Variáveis de Ambiente
+
+Defina variáveis diretamente:
+
+<Snippet id="environment/env-vars" />
+
+Veja [Env Vars](./env-vars) para detalhes.
+
+## Sobrescrita via CLI
+
+Sobrescreva em tempo de execução:
+
+<Snippet id="environment/cli-overrides" />
+
+## Herança do Ambiente do Host
+
+Por padrão, os runtimes native, virtual-sh e virtual-lua herdam o ambiente do host, enquanto o runtime container começa sem variáveis do host. Você pode controlar isso por runtime ou por execução.
+
+<Snippet id="reference/invowkfile/env-inherit-example" />
+
+<Snippet id="environment/env-inherit-cli" />
+
+## Variáveis Embutidas
+
+O Invowk fornece variáveis para flags e argumentos:
+
+- `INVOWK_FLAG_*` - Valores de flag
+- `INVOWK_ARG_*` - Valores de argumento
+
+Além disso, o invowk injeta variáveis de metadados durante a execução de comandos:
+
+| Variável | Descrição | Sempre Definida |
+|----------|-----------|-----------------|
+| `INVOWK_CMD_NAME` | Nome do comando atual | Sim |
+| `INVOWK_RUNTIME` | Nome do runtime resolvido (`native`, `virtual-sh`, `virtual-lua`, `container`) | Sim |
+| `INVOWK_SOURCE` | Origem (`invowkfile` para comandos raiz, nome do módulo para comandos de módulo) | Sim |
+| `INVOWK_PLATFORM` | Plataforma resolvida (`linux`, `macos`, `windows`) | Sim |
+
+## Ambiente de Container
+
+Para runtime container, o ambiente é passado para dentro do container:
+
+<Snippet id="environment/container-env" />
+
+## Comandos Aninhados
+
+Quando um comando invoca outro comando, algumas variáveis são isoladas:
+
+**Isoladas (NÃO herdadas):**
+- `INVOWK_ARG_*`
+- `INVOWK_FLAG_*`
+
+**Herdadas (comportamento UNIX normal):**
+- Variáveis de `env.vars`
+- Variáveis de nível de plataforma
+- Ambiente do sistema
+
+Isso impede que argumentos do comando pai vazem para comandos filhos.
+
+## Próximos Passos
+
+- [Env Files](./env-files) - Carregar de arquivos .env
+- [Env Vars](./env-vars) - Definir variáveis diretamente
+- [Precedence](./precedence) - Entender ordem de sobrescrita
