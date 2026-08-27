@@ -69,7 +69,7 @@ This downloads the latest release, verifies its SHA256 checksum, installs to `%L
 $env:INSTALL_DIR='C:\tools\invowk'; $env:INVOWK_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.ps1 | iex
 ```
 
-### Homebrew (macOS/Linux)
+### Homebrew (macOS)
 
 ```bash
 brew install --cask invowk/tap/invowk
@@ -138,7 +138,7 @@ Upgrade using the same method you used to install:
 |--------|-------|-------|---------|
 | Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
 | PowerShell script | — | — | amd64 |
-| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Homebrew | — | amd64, arm64 | — |
 | WinGet | — | — | amd64 |
 | Go install | all | all | all |
 | From source | all | all | all |

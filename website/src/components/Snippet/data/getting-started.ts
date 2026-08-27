@@ -201,7 +201,7 @@ $env:INVOWK_NO_MODIFY_PATH='1'; irm https://raw.githubusercontent.com/invowk/inv
 
   'installation/homebrew': {
     language: 'bash',
-    code: `brew install invowk/tap/invowk`,
+    code: `brew install --cask invowk/tap/invowk`,
   },
 
   'installation/go-install': {

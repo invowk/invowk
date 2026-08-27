@@ -76,7 +76,7 @@ To upgrade later:
   </TabItem>
   <TabItem value="homebrew" label="Homebrew">
 
-If you use [Homebrew](https://brew.sh/) on **macOS** or **Linux**:
+If you use [Homebrew](https://brew.sh/) on **macOS** (Invowk is distributed as a Homebrew cask, which Homebrew on Linux does not support):
 
 <Snippet id="installation/homebrew" />
 
@@ -132,9 +132,27 @@ You should see the version information. If you get a "command not found" error, 
 | Shell script | amd64, arm64 | amd64 (Intel), arm64 (Apple Silicon) | — |
 | PowerShell script | — | — | amd64 |
 | WinGet | — | — | amd64 |
-| Homebrew | amd64, arm64 | amd64, arm64 | — |
+| Homebrew | — | amd64, arm64 | — |
 | Go install | all | all | all |
 | From source | all | all | all |
+
+### Verifying Release Signatures
+
+Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (keyless, via GitHub Actions OIDC). To verify the checksums file downloaded from a GitHub Release:
+
+```bash
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  checksums.txt
+```
+
+Then verify individual archives against `checksums.txt`:
+
+```bash
+sha256sum -c checksums.txt
+```
 
 ## Upgrading
 
