@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/ssh"
+	"charm.land/wish/v2"
+
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/types"
-
-	"github.com/charmbracelet/ssh"
-	"github.com/charmbracelet/wish"
 )
 
 type failingServerListener struct {

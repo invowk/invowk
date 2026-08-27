@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"charm.land/log/v2"
+	"charm.land/ssh"
+	"charm.land/wish/v2"
+
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/pkg/types"
-
-	"github.com/charmbracelet/log"
-	"github.com/charmbracelet/ssh"
-	"github.com/charmbracelet/wish"
 )
 
 const cmdWaitDelay = 10 * time.Second
@@ -311,7 +311,7 @@ func isClosedConnError(err error) bool {
 	if errors.Is(err, net.ErrClosed) || errors.Is(err, ssh.ErrServerClosed) {
 		return true
 	}
-	if opErr, ok := errors.AsType[*netOpError](err); ok {
+	if opErr, ok := errors.AsType[*net.OpError](err); ok {
 		return opErr.Err.Error() == "use of closed network connection"
 	}
 	return false

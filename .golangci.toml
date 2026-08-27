@@ -518,6 +518,7 @@ ignore-sigs = [
 ignore-package-globs = [
     "github.com/invowk/invowk/*", # Internal module packages - wrapped at public API boundaries
     "github.com/charmbracelet/*", # TUI library - errors self-descriptive
+    "charm.land/*",               # Charm vanity modules (ssh, wish/v2, log/v2, bubbles/v2, bubbletea/v2, lipgloss/v2)
     "github.com/go-git/*",        # Git library - errors already descriptive
     "github.com/creack/pty",      # PTY library - used in context
     "golang.org/x/sys/*",         # Syscall wrappers - low-level

@@ -32,7 +32,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Shell Completion**: Full tab completion support for bash, zsh, fish, and PowerShell
 
-- **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://charm.land/lipgloss) styling
+- **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://charm.land/lipgloss/v2) styling
 
 - **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, write, choose, confirm, filter, file, table, spin, pager, format, style)
 
@@ -2467,7 +2467,7 @@ cmds: [
 
 ### Host SSH Access from Containers
 
-Container commands can optionally SSH back into the host system. When `enable_host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://github.com/charmbracelet/wish) library and provides connection credentials to the container via environment variables.
+Container commands can optionally SSH back into the host system. When `enable_host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://charm.land/wish/v2) library and provides connection credentials to the container via environment variables.
 
 **Security**: The SSH server only accepts token-based authentication. Each command execution gets a unique, time-limited token that is automatically revoked after the command completes.
 
@@ -3298,8 +3298,8 @@ Invowk requires Go 1.27+. Exact direct and transitive dependency versions are pi
 - [Bubbletea](https://charm.land/bubbletea/v2) - TUI framework
 
 **SSH & PTY:**
-- [Wish](https://github.com/charmbracelet/wish) - SSH server framework (for host SSH access from containers)
-- [Charmbracelet SSH](https://github.com/charmbracelet/ssh) - SSH transport layer
+- [Wish](https://charm.land/wish/v2) - SSH server framework (for host SSH access from containers)
+- [Charm SSH](https://charm.land/ssh) - SSH transport layer
 - [creack/pty](https://github.com/creack/pty) - PTY handling
 
 **Module Dependencies:**

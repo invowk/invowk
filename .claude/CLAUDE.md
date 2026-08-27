@@ -205,7 +205,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `pkg/invowkmod/invowkmod_schema.cue` defines `invowkmod` structure
   - `internal/config/config_schema.cue` defines config structure
 - **Runtime Interface**: All runtimes implement the same interface in `internal/runtime/`.
-- **TUI Components**: Built with Charm libraries (bubbletea, huh, lipgloss).
+- **TUI Components**: Built with Charm libraries (bubbletea, bubbles, lipgloss).
 
 ## Directory Layout
 
@@ -279,7 +279,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `github.com/spf13/cobra` - CLI framework.
 - `github.com/spf13/viper` - Configuration management.
 - `cuelang.org/go` - CUE language support for configuration/schema.
-- `github.com/charmbracelet/*` - TUI components (lipgloss, bubbletea, huh).
+- `charm.land/*` - TUI and SSH components (bubbles, bubbletea, lipgloss, log, ssh, wish).
 - `mvdan.cc/sh/v3` - Virtual shell implementation.
 - `github.com/invowk/golua` - Embedded Lua runtime for `virtual-lua` (invowk's maintained fork of `arnodel/golua`, patched for Go 1.27's `//go:linkname` allowlist removal).
 - `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.

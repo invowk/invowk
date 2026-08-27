@@ -8,24 +8,19 @@ import (
 	"fmt"
 	"net"
 
+	"charm.land/ssh"
+	"charm.land/wish/v2"
+	"charm.land/wish/v2/activeterm"
+
 	"github.com/invowk/invowk/internal/core/serverbase"
-
-	"github.com/charmbracelet/ssh"
-	"github.com/charmbracelet/wish"
-	"github.com/charmbracelet/wish/activeterm"
 )
 
-type (
-	// serverListener is an interface for net.Listener to enable testing.
-	serverListener interface {
-		Accept() (net.Conn, error)
-		Close() error
-		Addr() net.Addr
-	}
-
-	// netOpError is a type alias for net.OpError to avoid importing net in server.go.
-	netOpError = net.OpError
-)
+// serverListener is an interface for net.Listener to enable testing.
+type serverListener interface {
+	Accept() (net.Conn, error)
+	Close() error
+	Addr() net.Addr
+}
 
 // Start starts the SSH server and blocks until either:
 //   - The server is ready to accept connections (returns nil)
