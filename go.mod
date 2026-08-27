@@ -6,7 +6,7 @@ require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.0.9
 	charm.land/lipgloss/v2 v2.0.6
-	cuelang.org/go v0.16.1
+	cuelang.org/go v0.17.1
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/charmbracelet/fang v1.0.0
 	github.com/charmbracelet/glamour v1.0.0
