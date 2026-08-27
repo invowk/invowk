@@ -499,8 +499,8 @@ github.com/jgautheron/goconst v1.11.0 h1:KgN90z5qXt5f0Uzf3cWXev3hfMMFUyNeKdpkSBR
 github.com/jgautheron/goconst v1.11.0/go.mod h1:0p+wv1lFOiUr0IlNNT1nrm6+8DB8u2sU6KHGzFRXHDc=
 github.com/jjti/go-spancheck v0.6.5 h1:lmi7pKxa37oKYIMScialXUK6hP3iY5F1gu+mLBPgYB8=
 github.com/jjti/go-spancheck v0.6.5/go.mod h1:aEogkeatBrbYsyW6y5TgDfihCulDYciL1B7rG2vSsrU=
-github.com/jonbaldie/go-mutesting/v2 v2.8.2 h1:n3Tu6X+AcV9hUt1GaiH7VT04MErZvdMMQMbvf2oY7po=
-github.com/jonbaldie/go-mutesting/v2 v2.8.2/go.mod h1:aSK00XjdAs1d7ESHnCFQ3RIFRtufgkOTYSyUdRYb/64=
+github.com/jonbaldie/go-mutesting/v2 v2.8.3 h1:FjUkUyU+MGtK5O8D0uRhli2/C4uV0b0GZe+3WaLMYms=
+github.com/jonbaldie/go-mutesting/v2 v2.8.3/go.mod h1:aSK00XjdAs1d7ESHnCFQ3RIFRtufgkOTYSyUdRYb/64=
 github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.10/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
