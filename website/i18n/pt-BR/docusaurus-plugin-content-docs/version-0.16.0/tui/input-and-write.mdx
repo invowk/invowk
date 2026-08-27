@@ -1,0 +1,106 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Input e Write
+
+Componentes de entrada de texto para coletar informações do usuário.
+
+## Input
+
+Entrada de texto de linha única com validação opcional.
+
+### Uso Básico
+
+<Snippet id="tui/input-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Texto do prompt |
+| `--description` | Descrição abaixo do título |
+| `--placeholder` | Texto de placeholder |
+| `--value` | Valor inicial |
+| `--password` | Ocultar entrada (para secrets) |
+| `--char-limit` | Máximo de caracteres |
+| `--width` | Largura do campo |
+| `--prompt` | Caracter(es) de prompt antes da entrada |
+
+### Exemplos
+
+<Snippet id="tui/input-examples" />
+
+### Capturando Saída
+
+<Snippet id="tui/input-capture" />
+
+### Em Scripts
+
+<Snippet id="tui/input-script" />
+
+---
+
+## Write
+
+Editor de texto multilinha para entradas mais longas como descrições ou mensagens de commit.
+
+### Uso Básico
+
+<Snippet id="tui/write-basic" />
+
+### Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Título do editor |
+| `--description` | Descrição abaixo do título |
+| `--placeholder` | Texto de placeholder |
+| `--value` | Conteúdo inicial |
+| `--show-line-numbers` | Exibir números de linha |
+| `--char-limit` | Máximo de caracteres |
+| `--width` | Largura do editor |
+| `--height` | Altura do editor |
+
+### Exemplos
+
+<Snippet id="tui/write-examples" />
+
+### Casos de Uso
+
+#### Mensagem de Git Commit
+
+<Snippet id="tui/write-git-commit" />
+
+#### Configuração Multilinha
+
+<Snippet id="tui/write-yaml-config" />
+
+#### Release Notes
+
+<Snippet id="tui/write-release-notes" />
+
+### Em Scripts
+
+<Snippet id="tui/write-script" />
+
+## Dicas
+
+### Tratando Entrada Vazia
+
+<Snippet id="tui/input-empty-handling" />
+
+### Loop de Validação
+
+<Snippet id="tui/input-validation" />
+
+### Valores Padrão
+
+<Snippet id="tui/input-default-value" />
+
+## Próximos Passos
+
+- [Choose e Confirm](./choose-and-confirm) - Componentes de seleção
+- [Visão Geral](./overview) - Todos os componentes TUI

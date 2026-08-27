@@ -1,0 +1,106 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Environment Variables
+
+Set environment variables directly in your invowkfile. These are available to your scripts during execution.
+
+## Basic Usage
+
+<Snippet id="environment/env-vars-basic" />
+
+## Variable Syntax
+
+Variables are key-value string pairs:
+
+<Snippet id="environment/env-vars-syntax" />
+
+All values are strings. The shell interprets them as needed.
+
+## Referencing Other Variables
+
+Reference system environment variables:
+
+<Snippet id="environment/env-vars-references" />
+
+Note: References are expanded at runtime, not definition time.
+
+## Scope Levels
+
+### Root Level
+
+Available to all commands:
+
+<Snippet id="environment/env-vars-scope-root" />
+
+### Command Level
+
+Available to specific command:
+
+<Snippet id="environment/env-vars-scope-command" />
+
+### Implementation Level
+
+Available to specific implementation:
+
+<Snippet id="environment/env-vars-scope-implementation" />
+
+### Platform Level
+
+Per-platform variables:
+
+<Snippet id="environment/env-vars-scope-platform" />
+
+## Combined with Files
+
+Variables override values from env files:
+
+<Snippet id="environment/env-vars-combined-files" />
+
+## CLI Override
+
+Override at runtime:
+
+<Snippet id="environment/env-vars-cli-override" />
+
+CLI variables have the highest priority.
+
+## Real-World Examples
+
+### Build Configuration
+
+<Snippet id="environment/env-vars-build-config" />
+
+### API Configuration
+
+<Snippet id="environment/env-vars-api-config" />
+
+### Dynamic Values
+
+<Snippet id="environment/env-vars-dynamic" />
+
+### Database Configuration
+
+<Snippet id="environment/env-vars-database" />
+
+## Container Environment
+
+Variables are passed into containers:
+
+<Snippet id="environment/env-vars-container" />
+
+## Best Practices
+
+1. **Use defaults**: `${VAR:-default}` for optional config
+2. **Keep secrets out**: Don't hardcode secrets; use env files or external secrets
+3. **Document variables**: Add comments explaining each variable
+4. **Use consistent naming**: `UPPER_SNAKE_CASE` convention
+5. **Scope appropriately**: Root for shared, command for specific
+
+## Next Steps
+
+- [Env Files](./env-files) - Load from .env files
+- [Precedence](./precedence) - Understand override order

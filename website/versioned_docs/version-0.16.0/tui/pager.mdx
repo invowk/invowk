@@ -1,0 +1,82 @@
+---
+sidebar_position: 5.5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Pager
+
+A scrollable content viewer for logs, code, and long output.
+
+## Basic Usage
+
+<Snippet id="tui/pager-basic" />
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Title displayed above the pager |
+| `--line-numbers` | Show line numbers |
+| `--soft-wrap` | Soft wrap long lines instead of horizontal scrolling |
+
+## Examples
+
+<Snippet id="tui/pager-options" />
+
+## Navigation
+
+While viewing content in the pager:
+
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Scroll up one line |
+| `↓` / `j` | Scroll down one line |
+| `PgUp` / `b` | Scroll up half page |
+| `PgDown` / `f` / `Space` | Scroll down half page |
+| `Home` / `g` | Go to top |
+| `End` / `G` | Go to bottom |
+| `q` / `Esc` / `Enter` | Exit pager |
+
+## Use Cases
+
+### View Log Files
+
+```bash
+# View application logs
+invowk tui pager /var/log/app.log
+
+# View with line numbers for debugging
+invowk tui pager --line-numbers /var/log/app.log
+```
+
+### Code Review
+
+<Snippet id="tui/pager-code-review" />
+
+### Command Output
+
+```bash
+# View long command output
+kubectl logs deployment/myapp | invowk tui pager --title "Pod Logs"
+
+# View build output
+make build 2>&1 | invowk tui pager --title "Build Output" --soft-wrap
+```
+
+## In Scripts
+
+<Snippet id="tui/pager-script" />
+
+## Tips
+
+- Use `--soft-wrap` for content with long lines to avoid horizontal scrolling
+- Use `--line-numbers` when you need to reference specific lines
+- Pipe output directly to pager for interactive viewing of command output
+- The pager works well with [interactive mode](/docs/advanced/interactive-mode) for embedded viewing
+
+## Next Steps
+
+- [Format and Style](./format-and-style) - Format content before viewing
+- [Table and Spin](./table-and-spin) - Other data display components
+- [Overview](./overview) - All TUI components
