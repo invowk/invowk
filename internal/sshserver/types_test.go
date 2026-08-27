@@ -351,6 +351,8 @@ func TestConnectionInfo_Validate(t *testing.T) {
 func TestSSHConfig_Validate(t *testing.T) {
 	t.Parallel()
 
+	whitespaceHostKeyPath := types.FilesystemPath("   ")
+
 	tests := []struct {
 		name      string
 		cfg       Config
@@ -366,6 +368,16 @@ func TestSSHConfig_Validate(t *testing.T) {
 				DefaultShell: types.ShellPath("/bin/sh"),
 			},
 			true, false, 0,
+		},
+		{
+			"invalid host key path (whitespace-only)",
+			Config{
+				Host:         HostAddress("127.0.0.1"),
+				Port:         ListenPort(2222),
+				DefaultShell: types.ShellPath("/bin/sh"),
+				HostKeyPath:  &whitespaceHostKeyPath,
+			},
+			false, true, 1,
 		},
 		{
 			"valid with zero port (auto-select)",

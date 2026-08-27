@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/sshserver"
 )
@@ -48,7 +49,18 @@ func (h *HostAccess) Ensure(ctx context.Context) error {
 		return nil
 	}
 
-	srv, err := sshserver.New(sshserver.DefaultConfig())
+	cfg := sshserver.DefaultConfig()
+	// Give the host-callback server a stable host identity across runs so SSH
+	// clients in persistent containers do not hit known_hosts mismatches. If the
+	// path cannot be resolved, fall back to the default ephemeral in-memory key
+	// rather than failing command execution.
+	if hostKeyPath, keyErr := config.HostKeyPath(); keyErr == nil {
+		cfg.HostKeyPath = &hostKeyPath
+	} else {
+		slog.Warn("using ephemeral SSH host key", "error", keyErr)
+	}
+
+	srv, err := sshserver.New(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create SSH server: %w", err)
 	}

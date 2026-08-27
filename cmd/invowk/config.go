@@ -261,6 +261,11 @@ func showConfigPath() error {
 		fmt.Printf("Commands directory: %s\n", cmdsDir)
 	}
 
+	hostKeyPath, err := config.HostKeyPath()
+	if err == nil {
+		fmt.Printf("SSH host key: %s\n", hostKeyPath)
+	}
+
 	return nil
 }
 

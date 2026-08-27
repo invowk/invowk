@@ -138,6 +138,17 @@ func CommandsDir() (types.FilesystemPath, error) {
 	return types.FilesystemPath(filepath.Join(home, ".invowk", "cmds")), nil //goplint:ignore -- derived from OS home directory and fixed config path.
 }
 
+// HostKeyPath returns the private host key location for the built-in SSH
+// host-callback server. The key is generated there on first use.
+// The path is <config-dir>/ssh/host_ed25519 on all platforms.
+func HostKeyPath() (types.FilesystemPath, error) {
+	cfgDir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return types.FilesystemPath(filepath.Join(string(cfgDir), "ssh", "host_ed25519")), nil //goplint:ignore -- derived from OS config directory and fixed app path.
+}
+
 // loadWithOptions performs option-driven config loading from the filesystem.
 // Each call reads and parses configuration from disk with no caching.
 func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.FilesystemPath, error) {

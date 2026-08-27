@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	"charm.land/ssh"
 	"charm.land/wish/v2"
 	"charm.land/wish/v2/activeterm"
+	"github.com/charmbracelet/keygen"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
 )
@@ -39,6 +41,16 @@ func (s *Server) Start(ctx context.Context) error {
 	startupCtx, startupCancel := context.WithTimeout(ctx, s.cfg.StartupTimeout)
 	defer startupCancel()
 
+	// A host key is always configured explicitly: without one, wish.NewServer
+	// generates a key and writes it to ./id_ed25519 in the process working
+	// directory, leaking private keys into arbitrary directories (and, once,
+	// into this repository). Resolved before the listener so failures bind
+	// no socket.
+	hostKeyOption, err := s.hostKeyOption()
+	if err != nil {
+		return s.base.TransitionToFailed(fmt.Errorf("failed to configure SSH host key: %w", err))
+	}
+
 	// Initialize listener
 	addr := net.JoinHostPort(string(s.cfg.Host), s.cfg.Port.String())
 	var lc net.ListenConfig
@@ -55,6 +67,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// Create SSH server
 	wishOptions := []ssh.Option{
 		wish.WithAddress(addr),
+		hostKeyOption,
 		wish.WithPublicKeyAuth(s.publicKeyHandler),
 		wish.WithPasswordAuth(s.passwordHandler),
 		wish.WithMiddleware(
@@ -62,7 +75,6 @@ func (s *Server) Start(ctx context.Context) error {
 			s.commandMiddleware(), //nolint:contextcheck // Wish injects request context into sessions handled by middleware.
 		),
 	}
-	wishOptions = append(wishOptions, s.wishOptions...)
 	srv, err := wish.NewServer(wishOptions...)
 	if err != nil {
 		_ = listener.Close() // Best-effort cleanup on error
@@ -267,4 +279,32 @@ func (s *Server) Wait() error {
 		return s.LastError()
 	}
 	return nil
+}
+
+// hostKeyOption returns the ssh.Option that installs the server's host key.
+// With a configured HostKeyPath the key is generated on first use and reused
+// from then on (stable host identity). Without one, a fresh in-memory key is
+// generated per start: clients authenticate through short-lived tokens rather
+// than host-key pinning, and an ephemeral key must never be written to disk.
+func (s *Server) hostKeyOption() (ssh.Option, error) {
+	if s.cfg.HostKeyPath == nil {
+		kp, err := keygen.New("", keygen.WithKeyType(keygen.Ed25519))
+		if err != nil {
+			return nil, fmt.Errorf("generate ephemeral host key: %w", err)
+		}
+		return wish.WithHostKeyPEM(kp.RawPrivateKey()), nil
+	}
+
+	keyPath := string(*s.cfg.HostKeyPath)
+	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+		if _, genErr := keygen.New(keyPath, keygen.WithKeyType(keygen.Ed25519), keygen.WithWrite()); genErr != nil {
+			// keygen refuses to overwrite an existing key, so a concurrent
+			// first run may have won the race between the stat above and the
+			// write; in that case reuse the winner's key instead of failing.
+			if _, statErr := os.Stat(keyPath); statErr != nil {
+				return nil, fmt.Errorf("generate host key: %w", genErr)
+			}
+		}
+	}
+	return ssh.HostKeyFile(keyPath), nil
 }

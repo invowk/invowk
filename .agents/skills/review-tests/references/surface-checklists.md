@@ -203,7 +203,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T8-C04 | Container mock tests use per-test `MockCommandRecorder` instances (not shared globals) | `internal/container/*mock*_test.go` | ERROR |
 | T8-C05 | Container mock tests inject via `WithExecCommand()` functional option pattern | `internal/container/*mock*_test.go` | WARNING |
 | T8-C08 | Benchmark tests (`internal/benchmark/`) are gated with `testing.Short()` where appropriate | `internal/benchmark/*_test.go` | WARNING |
-| T8-C09 | SSH server tests use sequential subtests (host key collision avoidance) | `internal/sshserver/*_test.go` | WARNING |
+| T8-C09 | SSH server construction never relies on wish's default host key (every path goes through `hostKeyOption()`; tests must not write `id_ed25519` into shared directories) | `internal/sshserver/*_test.go` | WARNING |
 | T8-C10 | `internal/core/serverbase/` tests cover state machine transitions (Created/Starting/Running/Stopping/Stopped) | `internal/core/serverbase/*_test.go` | WARNING |
 | T8-C11 | Watch tests (`internal/watch/`) handle platform-specific behavior (Windows fatal pattern) | `internal/watch/*_test.go` | INFO |
 | T8-C12 | Provision tests (`internal/provision/`) verify layer provisioning with proper container semaphore usage | `internal/provision/*_test.go` | WARNING |

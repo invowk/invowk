@@ -7,13 +7,11 @@ import (
 	"errors"
 	"net"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"charm.land/ssh"
-	"charm.land/wish/v2"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/internal/testutil"
@@ -27,12 +25,7 @@ type failingServerListener struct {
 // mustNew is a test helper that creates a Server and fails the test on error.
 func mustNew(t *testing.T, cfg Config) *Server {
 	t.Helper()
-	srv, err := newWithDependencies(
-		cfg,
-		realClock{},
-		exec.CommandContext,
-		wish.WithHostKeyPath(filepath.Join(t.TempDir(), "id_ed25519")),
-	)
+	srv, err := newWithDependencies(cfg, realClock{}, exec.CommandContext)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

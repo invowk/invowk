@@ -48,7 +48,11 @@ This outputs the raw CUE configuration, useful for debugging or copying to anoth
 
 <Snippet id="config/path" />
 
-This prints your configuration paths (config directory, config file, and commands directory). Handy when you want to find and edit your config directly.
+This prints your configuration paths (config directory, config file, commands directory, and SSH host key). Handy when you want to find and edit your config directly.
+
+:::info SSH host key
+When a command uses `enable_host_ssh` (container-to-host callbacks), invowk generates a private SSH host key at `<config-dir>/ssh/host_ed25519` on first use and reuses it afterwards, so the built-in server keeps a stable host identity. Keep this file private — treat it like any other private key when backing up or syncing your config directory.
+:::
 
 ## Setting Configuration Values
 

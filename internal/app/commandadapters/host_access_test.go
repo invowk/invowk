@@ -161,6 +161,14 @@ func newTestHostAccess(t testing.TB) *HostAccess {
 
 	t.Chdir(t.TempDir())
 
+	// Redirect every platform's config-directory root so Ensure's persistent
+	// host key lands in a test-scoped directory, never the user's real one.
+	configRoot := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("HOME", configRoot)
+	t.Setenv("APPDATA", configRoot)
+	t.Setenv("USERPROFILE", configRoot)
+
 	host, err := NewHostAccess()
 	if err != nil {
 		t.Fatalf("NewHostAccess() error = %v", err)
