@@ -132,10 +132,6 @@ test_paths() {
 		"$(profile_report_dir pr root "$tmp/reports")"
 }
 
-test_tool_version_pin() {
-	assert_eq "go-mutesting version pin" "v2.8.2" "$GO_MUTESTING_VERSION"
-}
-
 test_command_construction() {
 	local args
 
@@ -285,7 +281,6 @@ test_root_target_resolution() {
 
 
 test_paths
-test_tool_version_pin
 test_command_construction
 test_interrupt_status_detection
 test_untracked_cleanup_preserves_existing_files

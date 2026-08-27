@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/ssh"
+	"charm.land/ssh"
 )
 
 type (

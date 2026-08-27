@@ -18,7 +18,7 @@ build configuration.
 - Remove tools with `go get -tool <module>/cmd/<tool>@none`.
 - Verify tools with `go version -m "$(go tool -n <tool>)"` when the tool does not provide a reliable `--version` flag.
 - **Current pinned versions:**
-  - `go-mutesting`: `v2.8.2` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together)
+  - `go-mutesting`: `v2.8.3` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together)
   - `golangci-lint`: `v2.13.1` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
   - `goplint`: `v0.2.0` (`github.com/invowk/goplint` plus its `cmd/repository-audit` and `cmd/benchmark-policy` commands, built and version-verified by `scripts/goplint.sh`; dependabot bumps the pin through the root `gomod` ecosystem)
 
@@ -42,15 +42,15 @@ build configuration.
 - When upgrading, update the version in ALL workflow files that reference it.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
-  - `govulncheck`: `v1.6.0`
-  - `cosign`: `v3.1.1` (via `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml`)
+  - `govulncheck`: `v1.7.0` (install pin in `.github/workflows/ci.yml`)
+  - `cosign`: `v3.1.3` (via `cosign-release` input in `.github/workflows/ci.yml` and `.github/workflows/release.yml`)
   - UPX: `5.2.0`
   - D2: `v0.7.1`
 
 ### MCP Servers (`.mcp.json`)
 - MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).
 - **Current pinned versions:**
-  - `@upstash/context7-mcp`: `3.2.2`
+  - `@upstash/context7-mcp`: `4.0.3` (v4's breaking changes are HTTP-transport-only; the stdio invocation in `.mcp.json` is unchanged)
   - `@modelcontextprotocol/server-github`: `2025.4.8`
 
 ### GitHub Actions
@@ -59,8 +59,8 @@ build configuration.
   when others use `@v6`).
 - **Exception**: `sigstore/cosign-installer` is pinned to `@v4.1.2` (exact version) because
   the floating `@v4` major tag has not been published yet. Switch to `@v4` when available.
-- **Exception**: `bencherdev/bencher` is pinned to the exact release tag `@v0.6.8`
-  with CLI `version: 0.6.8` because upstream has no stable major tag for the action.
+- **Exception**: `bencherdev/bencher` is pinned to the exact release tag `@v0.6.12`
+  with CLI `version: 0.6.12` because upstream has no stable major tag for the action.
 
 ### Container Images
 - Production/CI base images: `debian:stable-slim` (rolling tag — intentional exception for
@@ -79,7 +79,7 @@ build configuration.
   others may use caret/tilde ranges (lockfile provides determinism).
 
 ## When Upgrading Tool Versions
-1. Search all workflow files, wrapper scripts, `go.mod`, `.pre-commit-config.yaml`, and agent rules for the tool name to find every reference.
+1. Search all workflow files, wrapper scripts, `go.mod`, `.pre-commit-config.yaml`, agent rules, and documentation (`docs/`, `website/`) for the tool name to find every reference.
 2. Update the version source and every enforcing wrapper/check simultaneously.
 3. Update the "Current pinned versions" list in this rule.
 4. Update `.agents/rules/commands.md` if the tool appears in Prerequisites or examples.

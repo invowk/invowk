@@ -121,9 +121,9 @@ jobs:
 
       - name: Install Bencher CLI
         if: steps.pr.outputs.skip != 'true' && steps.image.outputs['run-bencher'] == 'true'
-        uses: bencherdev/bencher@v0.6.8
+        uses: bencherdev/bencher@v0.6.12
         with:
-          version: 0.6.8
+          version: 0.6.12
 
       - name: Upload benchmark data to Bencher
         if: steps.pr.outputs.skip != 'true' && steps.image.outputs['run-bencher'] == 'true'

@@ -37,7 +37,7 @@ Committed baselines live under `tools/mutation/baselines/`. The first accepted-s
 
 ## Operating Model
 
-The wrapper verifies the pinned `go-mutesting` version before running. The current tool version is `github.com/jonbaldie/go-mutesting/v2` `v2.7.5`, pinned in the root `go.mod` tool directive. Upgrade it only through the version-pinning workflow.
+The wrapper verifies the pinned `go-mutesting` version before running. The tool (`github.com/jonbaldie/go-mutesting/v2`) is pinned in the root `go.mod` tool directive and mirrored in `scripts/mutation.sh`; see `.agents/rules/version-pinning.md` for the current version. Upgrade it only through the version-pinning workflow.
 
 Current terminal labels are `KILLED` for mutants caught by tests and `ESCAPED`
 for mutants that survived. Use `go-mutesting-summary.json`,

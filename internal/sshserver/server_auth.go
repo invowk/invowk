@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/ssh"
+	"charm.land/ssh"
 )
 
 // GenerateToken creates a new execution-lifetime bearer token for a command.

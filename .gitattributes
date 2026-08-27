@@ -2,6 +2,11 @@
 # Force LF line endings to prevent CRLF conversion on Windows.
 *.txtar text eol=lf
 
+# CUE multiline strings are indentation-sensitive and CUE v0.17+ rejects CR in
+# their whitespace ("non-matching whitespace for multiline strings"), so CRLF
+# checkout conversion on Windows breaks parsing. Force LF.
+*.cue text eol=lf
+
 # Unified-diff payloads encode context with a leading space, so checking their
 # literal contents as source whitespace would report structurally required data.
 *.patch -whitespace

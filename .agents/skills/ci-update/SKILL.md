@@ -38,6 +38,9 @@ closed allowlist.
 | Component | Files or constraints |
 |-----------|----------------------|
 | `golangci-lint` | Root `go.mod`, `scripts/golangci-lint.sh`, normalized workflow/hook targets, `.agents/rules/version-pinning.md` |
+| `go-mutesting` | Root `go.mod` tool pin, `scripts/mutation.sh`, `.agents/rules/version-pinning.md` |
+| `govulncheck` | `.github/workflows/ci.yml` install pin, `.agents/rules/version-pinning.md` |
+| Bencher | Action tag and CLI `version:` input in every workflow using `bencherdev/bencher`, `.agents/rules/version-pinning.md` |
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
 | GoReleaser | Every `goreleaser-action` `version:` input in CI and release workflows |
 | Node.js | Every workflow `node-version:` reference |
