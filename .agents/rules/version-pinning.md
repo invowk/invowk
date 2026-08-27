@@ -50,7 +50,7 @@ build configuration.
 ### MCP Servers (`.mcp.json`)
 - MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).
 - **Current pinned versions:**
-  - `@upstash/context7-mcp`: `3.2.2`
+  - `@upstash/context7-mcp`: `4.0.3` (v4's breaking changes are HTTP-transport-only; the stdio invocation in `.mcp.json` is unchanged)
   - `@modelcontextprotocol/server-github`: `2025.4.8`
 
 ### GitHub Actions
