@@ -24,7 +24,7 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 ## Runner Model
 
 - Preserve the dedicated Bencher runner design. GitHub Actions should package and push the benchmark image only; it must not measure benchmarks on GitHub-hosted runners.
-- Keep `BENCHER_SPEC` and `BENCHER_TESTBED` in sync across both benchmark workflows and release performance tracking. Current values are `intel-v1` and `bencher-intel-v1-go-1-26`.
+- Keep `BENCHER_SPEC` and `BENCHER_TESTBED` in sync across both benchmark workflows and release performance tracking. Current values are `intel-v1` and `bencher-intel-v1-go-1-27`.
 - For base-repo PRs, use branch `pr-<number>`, hash the PR head SHA, and pass the base branch and base SHA as the start point.
 - For PR branches, keep `--start-point-clone-thresholds` and `--start-point-reset` so PR history is anchored to the base branch.
 - For fork PRs, use the trusted upload workflow: checkout trusted packaging separately from untrusted source, build the image with trusted workflow/scripts, then ask Bencher to run the source image.
@@ -57,7 +57,7 @@ When the dashboard says `No thresholds found`, check the report JSON first. A su
 ```bash
 project=ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
 branch=pr-<number>
-testbed=bencher-intel-v1-go-1-26
+testbed=bencher-intel-v1-go-1-27
 api=https://api.bencher.dev/v0
 curl -fsS "$api/projects/$project/reports?branch=$branch&testbed=$testbed&sort=date_time&direction=desc&per_page=1" |
 	jq -r '.[0].results[][] as $bench |
