@@ -21,7 +21,7 @@ concurrency:
 env:
   GOPROXY: "https://proxy.golang.org|direct"
   BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
-  BENCHER_TESTBED: bencher-intel-v1-go-1-26
+  BENCHER_TESTBED: bencher-intel-v1-go-1-27
   BENCHER_SPEC: intel-v1
   BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
   BENCHER_JOB_TIMEOUT: 1800

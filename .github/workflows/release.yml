@@ -536,7 +536,7 @@ jobs:
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
           BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
-          BENCHER_TESTBED: bencher-intel-v1-go-1-26
+          BENCHER_TESTBED: bencher-intel-v1-go-1-27
           BENCHER_SPEC: intel-v1
           BENCHER_IMAGE: ${{ steps.bench-image.outputs.image }}
           BENCHER_JOB_TIMEOUT: 1800
