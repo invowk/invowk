@@ -3,7 +3,6 @@
 package modulesync
 
 import (
-	"context"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -165,20 +164,7 @@ func TestTidyToFixedPointAddsNestedTransitiveDepsOnce(t *testing.T) {
 		refC.Key(): {refD},
 	}
 	resolveCalls := 0
-	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]LockedModule) ([]*ResolvedModule, error) {
-		resolveCalls++
-		resolved := make([]*ResolvedModule, 0, len(requirements))
-		for _, req := range requirements {
-			resolved = append(resolved, &ResolvedModule{
-				ModuleRef:      req,
-				ModuleID:       ModuleID(req.Key()),
-				TransitiveDeps: graph[req.Key()],
-			})
-		}
-		return resolved, nil
-	}
-
-	missing, err := tidyToFixedPoint(t.Context(), []ModuleRef{refA}, nil, resolveAll)
+	missing, err := tidyToFixedPoint(t.Context(), []ModuleRef{refA}, nil, graphResolver(graph, &resolveCalls))
 	if err != nil {
 		t.Fatalf("tidyToFixedPoint() = %v", err)
 	}

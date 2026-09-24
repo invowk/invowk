@@ -10,6 +10,8 @@
     "^website/",
     "^openspec/",
     "^tasks/",
-    "^specs/"
+    "^specs/",
+    "^formal/(alloy|tla)/.*\\.(als|tla|cfg)$",
+    "^formal/README\\.md$"
   ]
 }

@@ -9,6 +9,9 @@ Apply repository test policy from `.agents/rules/testing.md` first. Use this
 skill to select the correct Invowk test surface and load only the reference that
 owns the implementation details.
 
+For Alloy/TLA+ models, golden vectors under `testdata/formal/`, and rapid
+property tests that bind them to code, use `formal-verification`.
+
 ## Workflow
 
 1. Identify the behavior boundary: pure Go package, CLI/testscript, runtime

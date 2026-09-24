@@ -3,7 +3,6 @@
 package modulesync
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -86,16 +85,8 @@ func BenchmarkModuleTidyTransitiveDeps(b *testing.B) {
 		refB.Key(): {refD},
 		refC.Key(): {refD},
 	}
-	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]LockedModule) ([]*ResolvedModule, error) {
-		resolved := make([]*ResolvedModule, 0, len(requirements))
-		for _, req := range requirements {
-			resolved = append(resolved, &ResolvedModule{
-				ModuleRef:      req,
-				TransitiveDeps: graph[req.Key()],
-			})
-		}
-		return resolved, nil
-	}
+	calls := 0
+	resolveAll := graphResolver(graph, &calls)
 
 	b.ResetTimer()
 	for b.Loop() {

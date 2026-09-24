@@ -279,6 +279,18 @@ test_root_target_resolution() {
 	assert_not_contains "root curated seed omits virtual runtime package" "github.com/invowk/invowk/internal/runtime" "$targets"
 }
 
+test_rapid_determinism_env() {
+	local env_lines
+
+	env_lines="$(unset RAPID_SEED RAPID_SHRINKTIME RAPID_NOFAILFILE; export_rapid_determinism_env; env | grep '^RAPID_' | sort)"
+	assert_contains "rapid seed is fixed" "RAPID_SEED=$MUTATION_RAPID_SEED" "$env_lines"
+	assert_contains "rapid failure files are disabled" "RAPID_NOFAILFILE=1" "$env_lines"
+	assert_contains "rapid shrink time is bounded" "RAPID_SHRINKTIME=$MUTATION_RAPID_SHRINKTIME" "$env_lines"
+
+	env_lines="$(RAPID_SEED=7 RAPID_NOFAILFILE=0; export RAPID_SEED RAPID_NOFAILFILE; export_rapid_determinism_env; env | grep '^RAPID_' | sort)"
+	assert_contains "caller may override the seed" "RAPID_SEED=7" "$env_lines"
+	assert_contains "failure files stay disabled" "RAPID_NOFAILFILE=1" "$env_lines"
+}
 
 test_paths
 test_command_construction
@@ -288,6 +300,7 @@ test_tool_report_collection
 test_tool_report_collection_before_untracked_cleanup
 test_dirty_path_policy
 test_root_target_resolution
+test_rapid_determinism_env
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
