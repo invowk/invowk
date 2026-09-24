@@ -165,7 +165,7 @@ func TestTidyToFixedPointAddsNestedTransitiveDepsOnce(t *testing.T) {
 		refC.Key(): {refD},
 	}
 	resolveCalls := 0
-	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error) {
+	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]LockedModule) ([]*ResolvedModule, error) {
 		resolveCalls++
 		resolved := make([]*ResolvedModule, 0, len(requirements))
 		for _, req := range requirements {

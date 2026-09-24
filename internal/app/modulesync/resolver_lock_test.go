@@ -218,7 +218,7 @@ func testResolvedModule(gitURL GitURL, namespace ModuleNamespace) *ResolvedModul
 			Version: "^1.0.0",
 		},
 		ResolvedVersion: "1.2.3",
-		GitCommit:       "abc123def456789012345678901234567890abcd",
+		GitCommit:       defaultFakeCommit,
 		Namespace:       namespace,
 		CommandSourceID: invowkmod.ModuleSourceID(commandSourceID),
 		ModuleName:      "tools",

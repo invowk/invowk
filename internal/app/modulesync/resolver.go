@@ -132,14 +132,14 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 		return nil, fmt.Errorf("invalid requirement: %w", err)
 	}
 
-	// Load existing lock file hashes for cache tamper detection.
-	knownHashes, err := m.loadExistingLockHashes()
+	// Load the existing lock entries for commit and content tamper detection.
+	locked, err := m.loadLockedModules()
 	if err != nil {
 		return nil, err
 	}
 
 	// Resolve the module
-	resolved, err := m.resolveOne(ctx, req, knownHashes)
+	resolved, err := m.resolveOne(ctx, req, locked)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
@@ -248,7 +248,9 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Path:    entry.Path,
 		}
 
-		resolved, err := m.resolveOne(ctx, req, lock.ContentHashes())
+		// Each key is visited once and AddModule rewrites only that key, so
+		// passing the live map never exposes an already-updated entry.
+		resolved, err := m.resolveOne(ctx, req, lock.Modules)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update %s: %w", key, err)
 		}
@@ -275,16 +277,16 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		return nil, nil
 	}
 
-	// Load existing lock file hashes for cache tamper detection.
-	// When re-syncing, cached modules are verified against the prior
-	// lock file's content hashes to detect tampering of the local cache.
-	knownHashes, err := m.loadExistingLockHashes()
+	// Load the existing lock entries for tamper detection. When re-syncing a
+	// locked version, the fetched commit and module content are verified
+	// against the prior lock entry, whether or not the module is cached locally.
+	locked, err := m.loadLockedModules()
 	if err != nil {
 		return nil, err
 	}
 
 	// Resolve only direct dependencies (no transitive recursion).
-	resolved, err := m.resolveAll(ctx, requirements, knownHashes)
+	resolved, err := m.resolveAll(ctx, requirements, locked)
 	if err != nil {
 		return nil, err
 	}
@@ -427,20 +429,20 @@ func (m *Resolver) resolvedModuleFromLockEntry(_ ModuleRefKey, entry LockedModul
 	}, nil
 }
 
-// loadExistingLockHashes loads content hashes from the existing lock file for
-// cache tamper detection. A missing lock file means no prior hashes exist; an
-// unreadable or invalid lock file is an integrity failure and must not silently
-// downgrade cache verification.
-func (m *Resolver) loadExistingLockHashes() (map[ModuleRefKey]ContentHash, error) {
+// loadLockedModules loads the existing lock file's entries for tamper
+// detection. A missing lock file means no prior entries exist; an unreadable or
+// invalid lock file is an integrity failure and must not silently downgrade
+// verification.
+func (m *Resolver) loadLockedModules() (map[ModuleRefKey]LockedModule, error) {
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lockSnapshot := invowkmod.InspectLockFile(types.FilesystemPath(lockPath))
 	if lockSnapshot.StatErr != nil || lockSnapshot.ParseErr != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, errors.Join(lockSnapshot.StatErr, lockSnapshot.ParseErr))
 	}
 	if !lockSnapshot.Present {
-		return map[ModuleRefKey]ContentHash{}, nil
+		return map[ModuleRefKey]LockedModule{}, nil
 	}
-	return lockSnapshot.LockFile.ContentHashes(), nil
+	return lockSnapshot.LockFile.Modules, nil
 }
 
 // isGitURL returns true if s looks like a Git URL.

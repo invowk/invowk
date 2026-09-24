@@ -67,6 +67,27 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 - `make check-file-length`
 - `make check-agent-docs` (if `AGENTS.md` or `.agents/skills/*` changed)
 
+## Triaging New Findings by Precedent
+
+Before baselining or excepting a new finding, look for how the repository already
+handles the same category. List the new findings in the touched packages with
+`./bin/goplint -check-all -json -config=.goplint/exceptions.toml <pkgs>` and
+filter out messages already in `.goplint/baseline.toml`.
+
+- **`nonzero-value-field` on error-struct context fields** (for example
+  `ModuleKey`, `Version`): baseline them, as the existing
+  `ContentHashMismatchError` fields are. Error fields are always set, not optional.
+- **Primitive parameters on new resolver helpers:** make the helper a method of
+  the owning service when that service already has a scoped exception (for
+  example `modulesync.Resolver.*.*`). Do not add a free function that needs a new
+  exception.
+- **`unvalidated-cast-inconclusive` after growing a function with
+  `//goplint:ignore` casts:** move the casts and their single use into a minimal
+  helper that keeps the original shape. Inconclusive findings can never be
+  baselined, excepted, or ignored.
+- **CLI display text returned as `string`:** add a `.return.*` exception, as
+  `invowk.formatDuration` has.
+
 The soundness gate is canonical and flagless. Do not use removed analyzer
 backend, engine, alias, refinement, UBV, or inconclusive-policy selectors in
 local commands or documentation.

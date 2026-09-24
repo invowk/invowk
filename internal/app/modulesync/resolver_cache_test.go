@@ -266,7 +266,7 @@ func TestResolver_cacheModule(t *testing.T) {
 			}
 
 			// Should return hash when destination already exists.
-			hash, cacheErr := resolver.cacheModule(srcDir, dstDir, "")
+			hash, cacheErr := resolver.cacheModule(srcDir, dstDir, "", "", "")
 			if cacheErr != nil {
 				t.Fatalf("cacheModule() error: %v", cacheErr)
 			}
@@ -288,7 +288,7 @@ func TestResolver_cacheModule(t *testing.T) {
 			}
 
 			dstDir := filepath.Join(t.TempDir(), "cache", "module")
-			hash, cacheErr := resolver.cacheModule(srcDir, dstDir, "")
+			hash, cacheErr := resolver.cacheModule(srcDir, dstDir, "", "", "")
 			if cacheErr != nil {
 				t.Fatalf("cacheModule() error: %v", cacheErr)
 			}
@@ -313,7 +313,7 @@ func TestResolver_cacheModule(t *testing.T) {
 			srcDir := filepath.Join(t.TempDir(), "nonexistent")
 			dstDir := filepath.Join(t.TempDir(), "dst")
 
-			_, err := resolver.cacheModule(srcDir, dstDir, "")
+			_, err := resolver.cacheModule(srcDir, dstDir, "", "", "")
 			if err == nil {
 				t.Fatal("expected error for nonexistent source, got nil")
 			}
@@ -334,7 +334,7 @@ func TestResolver_cacheModule(t *testing.T) {
 
 			// Pass an expected hash that doesn't match.
 			wrongHash := ContentHash("sha256:0000000000000000000000000000000000000000000000000000000000000000")
-			_, err := resolver.cacheModule("", dstDir, wrongHash)
+			_, err := resolver.cacheModule("", dstDir, "", "", wrongHash)
 			if err == nil {
 				t.Fatal("expected ContentHashMismatchError, got nil")
 			}

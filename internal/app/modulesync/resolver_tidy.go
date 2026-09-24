@@ -8,7 +8,7 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
-type resolveAllFunc func(context.Context, []ModuleRef, map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error)
+type resolveAllFunc func(context.Context, []ModuleRef, map[ModuleRefKey]LockedModule) ([]*ResolvedModule, error)
 
 // Tidy resolves all direct dependencies and returns any transitive dependencies
 // that are not declared in the root invowkmod.cue. The caller (CLI) is responsible
@@ -26,14 +26,14 @@ func (m *Resolver) Tidy(ctx context.Context, requirements []ModuleRef) ([]Module
 
 	// Tidy expands the explicit-only graph to a fixed point. Sync remains
 	// fail-fast, but tidy should be the one-shot repair operation users expect.
-	knownHashes, err := m.loadExistingLockHashes()
+	locked, err := m.loadLockedModules()
 	if err != nil {
 		return nil, err
 	}
-	return tidyToFixedPoint(ctx, requirements, knownHashes, m.resolveAll)
+	return tidyToFixedPoint(ctx, requirements, locked, m.resolveAll)
 }
 
-func tidyToFixedPoint(ctx context.Context, requirements []ModuleRef, knownHashes map[ModuleRefKey]ContentHash, resolveAll resolveAllFunc) ([]ModuleRef, error) {
+func tidyToFixedPoint(ctx context.Context, requirements []ModuleRef, locked map[ModuleRefKey]LockedModule, resolveAll resolveAllFunc) ([]ModuleRef, error) {
 	current := append([]ModuleRef(nil), requirements...)
 	known := make(map[ModuleRefKey]bool, len(current))
 	for _, req := range current {
@@ -42,7 +42,7 @@ func tidyToFixedPoint(ctx context.Context, requirements []ModuleRef, knownHashes
 
 	var missing []ModuleRef
 	for {
-		resolved, err := resolveAll(ctx, current, knownHashes)
+		resolved, err := resolveAll(ctx, current, locked)
 		if err != nil {
 			return nil, err
 		}

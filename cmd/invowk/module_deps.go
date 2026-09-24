@@ -173,6 +173,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	result, err := modulesync.AddModuleDependency(ctx, types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		fmt.Printf("%s Failed to add module: %v\n", moduleErrorIcon, err)
+		printLockIntegrityHint(err)
 		return err
 	}
 
@@ -261,6 +262,7 @@ func runModuleSync(ctx context.Context) error {
 			return err
 		}
 		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
+		printLockIntegrityHint(err)
 		return err
 	}
 
@@ -282,6 +284,30 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invowkmod.LockFileName)
 
 	return nil
+}
+
+// lockIntegrityHint returns remediation guidance when a module operation failed
+// because re-resolving a locked version did not reproduce its lock entry, or ""
+// for any other error. The lock file is generated ("DO NOT EDIT MANUALLY"), so
+// the guidance re-records a baseline through module remove/add instead.
+func lockIntegrityHint(err error) string {
+	rebaseline := func(key invowkmod.ModuleRefKey) string {
+		return fmt.Sprintf("If the upstream change is intentional, run `invowk module remove %s` and add the module again to record a new baseline.", key)
+	}
+	if commitErr, ok := errors.AsType[*invowkmod.LockedCommitMismatchError](err); ok {
+		return "The upstream tag now points at a different commit than the lock file records. " + rebaseline(commitErr.ModuleKey)
+	}
+	if hashErr, ok := errors.AsType[*invowkmod.ContentHashMismatchError](err); ok {
+		return "If the module cache was modified, delete the module cache directory named above and sync again. " + rebaseline(hashErr.ModuleKey)
+	}
+	return ""
+}
+
+// printLockIntegrityHint prints lockIntegrityHint's guidance when there is any.
+func printLockIntegrityHint(err error) {
+	if hint := lockIntegrityHint(err); hint != "" {
+		fmt.Println(renderHintStyle.Render(hint))
+	}
 }
 
 func renderMissingTransitiveDeps(err *modulesync.MissingTransitiveDepError) {
@@ -318,6 +344,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 			return err
 		}
 		fmt.Printf("%s Failed to update modules: %v\n", moduleErrorIcon, err)
+		printLockIntegrityHint(err)
 		return err
 	}
 

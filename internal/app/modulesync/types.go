@@ -40,6 +40,8 @@ var (
 	ErrModuleSubpathIdentityMismatch = errors.New("module subpath identity mismatch")
 	// ErrCanonicalModuleCollision is returned when different source identities resolve to one module ID.
 	ErrCanonicalModuleCollision = errors.New("canonical module collision")
+	// ErrLockedCommitMismatch is returned when a locked version resolves to a different commit.
+	ErrLockedCommitMismatch = invowkmod.ErrLockedCommitMismatch
 )
 
 type (
@@ -62,6 +64,8 @@ type (
 	ModuleRefKey = invowkmod.ModuleRefKey
 	// LockedModule is a module entry persisted in the lock file.
 	LockedModule = invowkmod.LockedModule
+	// LockedCommitMismatchError reports a locked version that resolved to a different commit.
+	LockedCommitMismatchError = invowkmod.LockedCommitMismatchError
 	// LockFile is the parsed module dependency lock file.
 	LockFile = invowkmod.LockFile
 	// ContentHash is a SHA-256 module tree hash.

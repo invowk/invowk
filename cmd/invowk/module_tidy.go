@@ -42,6 +42,7 @@ func runModuleTidy(ctx context.Context) error {
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
 	requirements, missing, err := modulesync.TidyModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
+		printLockIntegrityHint(err)
 		return err
 	}
 
