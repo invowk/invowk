@@ -1989,6 +1989,10 @@ blocked_by = "typed exec output wrapper adoption"
 [[exceptions]]
 pattern = "container.BaseCLIEngine.RunCommandCombined.return.0"
 reason = "raw exec output []byte return"
+
+[[exceptions]]
+pattern = "container.securityOptionsReportSELinux.securityOptions"
+reason = "raw `docker info` JSON output parsed at the engine CLI boundary"
 review_after = "2027-03-01"
 blocked_by = "typed exec output wrapper adoption"
 

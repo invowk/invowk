@@ -6,7 +6,7 @@ import Diagram from '@site/src/components/Diagram';
 
 # C4 Component: Container (C3)
 
-This diagram zooms into the **Container Engine Abstraction** container from the [C2 Container Diagram](./c4-container) to show the internal components of the `internal/container` package and the adjacent runtime, planning, and provisioning ports that consume them. It reveals how Invowk provides a unified interface over Docker and Podman CLIs, handles Podman-specific concerns (SELinux, rootless), and transparently adapts to sandboxed environments (Flatpak, Snap).
+This diagram zooms into the **Container Engine Abstraction** container from the [C2 Container Diagram](./c4-container) to show the internal components of the `internal/container` package and the adjacent runtime, planning, and provisioning ports that consume them. It reveals how Invowk provides a unified interface over Docker and Podman CLIs, applies SELinux volume labels for both engines, handles Podman-specific rootless concerns, and transparently adapts to sandboxed environments (Flatpak, Snap).
 
 ## Diagram
 
@@ -25,7 +25,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **BaseCLIEngine** | Go struct | Shared base for CLI-based engines. Provides argument builders (`BuildArgs`, `RunArgs`, `ExecArgs`, `CreateArgs`, `StartArgs`) plus inspect/create/start/exec operations, command preparation, and lifecycle coordination. Configured via functional options. |
-| **DockerEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Locates the `docker` binary via `exec.LookPath`. |
+| **DockerEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Locates the `docker` binary via `exec.LookPath`. Injects SELinux volume labels (`:z`) when the daemon reports SELinux in `docker info`. |
 | **PodmanEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Searches for `podman` or `podman-remote` (fallback for immutable distros). Injects SELinux volume labels and rootless user namespace handling. |
 | **SandboxAwareEngine** | Go struct (decorator) | Wraps any `Engine`. Detects Flatpak/Snap sandboxes and prefixes commands with `flatpak-spawn --host` or `snap run --shell`. Passes through when no sandbox is detected (zero overhead). |
 
@@ -35,9 +35,9 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 |------|---------|
 | **BaseCLIEngineOption** | `func(*BaseCLIEngine)` option type for constructor customization. |
 | **ExecCommandFunc** | Injection point for `exec.CommandContext`. Allows tests to mock command execution. |
-| **VolumeFormatFunc** | Transforms `VolumeMountSpec` values before passing them to `-v`. Podman uses this to append SELinux labels (`:z`) on Linux. |
+| **VolumeFormatFunc** | Transforms `VolumeMountSpec` values before passing them to `-v`. Docker and Podman use this to append SELinux labels (`:z`). |
 | **RunArgsTransformer** | Post-processes run arguments. Podman uses this to inject `--userns=keep-id` for rootless compatibility. |
-| **SELinuxCheckFunc** | Determines whether SELinux labeling should be applied. Injected into Podman's volume formatter. |
+| **SELinuxCheckFunc** | Determines whether SELinux labeling should be applied. Injected into both engines' volume formatters: Podman checks the local host, Docker asks its daemon. |
 
 ## Request/Response Types
 
@@ -90,7 +90,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 `BaseCLIEngineOption` follows the [Dave Cheney functional options pattern](https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis). The constructor sets sensible defaults (real `exec.CommandContext`, identity formatters), and options override them:
 
 - **Testing**: Inject a mock `ExecCommandFunc` to verify argument construction without running containers.
-- **Engine-specific behavior**: Podman's constructor prepends `WithVolumeFormatter` (SELinux) and `WithRunArgsTransformer` (rootless userns) before user-supplied options.
+- **Engine-specific behavior**: both constructors prepend `WithVolumeFormatter` (SELinux); Podman's also prepends `WithRunArgsTransformer` (rootless userns). Both go before user-supplied options.
 
 ### Auto-Detection with Fallback
 

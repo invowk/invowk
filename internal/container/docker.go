@@ -4,9 +4,11 @@ package container
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // DockerEngine implements the Engine interface using Docker CLI.
@@ -16,14 +18,34 @@ type DockerEngine struct {
 }
 
 // NewDockerEngine creates a new Docker engine.
+//
+// When the Docker daemon reports SELinux among its security options, volume
+// mounts are labeled with :z, as the Podman engine does. The daemon is asked
+// rather than the local host because it may run elsewhere (a toolbox talking to
+// the host daemon, or a Docker Desktop VM). The answer is cached per engine.
 func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
+	engine := &DockerEngine{}
+	daemonSELinux := sync.OnceValue(engine.daemonReportsSELinux)
+	return newDockerEngine(engine, daemonSELinux, opts...)
+}
+
+// NewDockerEngineWithSELinuxCheck creates a Docker engine with a custom SELinux
+// check, for testing volume labeling without a Docker daemon.
+func NewDockerEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...BaseCLIEngineOption) *DockerEngine {
+	return newDockerEngine(&DockerEngine{}, selinuxCheck, opts...)
+}
+
+func newDockerEngine(engine *DockerEngine, selinuxCheck SELinuxCheckFunc, opts ...BaseCLIEngineOption) *DockerEngine {
 	path, _ := exec.LookPath("docker")
-	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker)), WithImageExistsSubCmd("inspect")}
+	allOpts := []BaseCLIEngineOption{
+		WithName(string(EngineTypeDocker)),
+		WithImageExistsSubCmd("inspect"),
+		WithVolumeFormatter(makeSELinuxLabelAdder(selinuxCheck)),
+	}
 	allOpts = append(allOpts, opts...)
 	// Binary path may be empty if Docker is not installed — validated later via Available().
-	return &DockerEngine{
-		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...), //goplint:ignore -- validated by Available() guard
-	}
+	engine.BaseCLIEngine = NewBaseCLIEngine(HostFilesystemPath(path), allOpts...) //goplint:ignore -- validated by Available() guard
+	return engine
 }
 
 // Available checks if Docker is available.
@@ -54,4 +76,37 @@ func (e *DockerEngine) Version(ctx context.Context) (string, error) {
 func (e *DockerEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
 	err := e.RunCommandStatus(ctx, "image", "inspect", string(image))
 	return err == nil, nil
+}
+
+// daemonReportsSELinux asks the Docker daemon whether it runs containers with
+// SELinux confinement. Any failure (no binary, unreachable daemon) reports
+// false, which keeps volume mounts unlabeled as before.
+func (e *DockerEngine) daemonReportsSELinux() bool {
+	if e.BinaryPath() == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), availabilityTimeout)
+	defer cancel()
+	out, err := e.RunCommandWithOutput(ctx, "info", containerArgFormat, "{{json .SecurityOptions}}")
+	if err != nil {
+		return false
+	}
+	return securityOptionsReportSELinux(out)
+}
+
+// securityOptionsReportSELinux reports whether `docker info` security options
+// (for example ["name=seccomp,profile=builtin","name=selinux"]) include SELinux.
+func securityOptionsReportSELinux(securityOptions string) bool {
+	var options []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(securityOptions)), &options); err != nil {
+		return false
+	}
+	for _, option := range options {
+		for field := range strings.SplitSeq(option, ",") {
+			if field == "name=selinux" {
+				return true
+			}
+		}
+	}
+	return false
 }

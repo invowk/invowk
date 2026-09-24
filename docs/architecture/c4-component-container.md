@@ -1,6 +1,6 @@
 # C3 Component Diagram - Container Package
 
-This diagram zooms into the **Container Engine Abstraction** container from the [C2 Container diagram](./c4-container.md) to show the internal components of the `internal/container` package and the adjacent runtime, planning, and provisioning ports that consume them. It reveals how Invowk provides a unified interface over Docker and Podman CLIs, handles Podman-specific concerns (SELinux, rootless), and transparently adapts to sandboxed environments (Flatpak, Snap).
+This diagram zooms into the **Container Engine Abstraction** container from the [C2 Container diagram](./c4-container.md) to show the internal components of the `internal/container` package and the adjacent runtime, planning, and provisioning ports that consume them. It reveals how Invowk provides a unified interface over Docker and Podman CLIs, applies SELinux volume labels for both engines, handles Podman-specific rootless concerns, and transparently adapts to sandboxed environments (Flatpak, Snap).
 
 ## Diagram
 
@@ -19,7 +19,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **BaseCLIEngine** | Go struct | Shared base for CLI-based engines. Holds `binaryPath`, `execCommand`, `volumeFormatter`, `runArgsTransformer`. Provides argument builders (`BuildArgs`, `RunArgs`, `ExecArgs`, `CreateArgs`, `StartArgs`, `RemoveArgs`, `RemoveImageArgs`, `ImageExistsArgs`), command execution helpers (`RunCommand`, `RunCommandCombined`, `RunCommandStatus`, `RunCommandWithOutput`, `CreateCommand`), container operations (`Build`, `Run`, `InspectContainer`, `Create`, `Start`, `Exec`, `Remove`, `RemoveImage`), and adapter methods (`Close`, `CustomizeCmd`, `BaseCLI`, `CoordinateLifecycle`, `BuildRunArgs`, `PrepareRunCommand`). Constructed via `NewBaseCLIEngine(binaryPath, ...BaseCLIEngineOption)`. |
-| **DockerEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Locates the `docker` binary via `exec.LookPath`. Delegates argument building and execution to the embedded base. Created via `NewDockerEngine()`. |
+| **DockerEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Locates the `docker` binary via `exec.LookPath`. Injects SELinux volume labels (`:z`) via `VolumeFormatFunc` when the daemon reports SELinux in `docker info` security options (asked once per engine, because the daemon may run on another host or VM). Delegates argument building and execution to the embedded base. Created via `NewDockerEngine()`. |
 | **PodmanEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Searches for `podman` or `podman-remote` (fallback for immutable distros). Injects SELinux volume labels (`:z`/`:Z`) via `VolumeFormatFunc` and rootless user namespace (`--userns=keep-id`) via `RunArgsTransformer`. Created via `NewPodmanEngine()`. |
 | **SandboxAwareEngine** | Go struct (decorator) | Wraps any `Engine`. Detects Flatpak/Snap sandboxes via `platform.DetectSandbox()` and prefixes commands with `flatpak-spawn --host` or `snap run --shell` so container CLI invocations target the host, not the sandbox. Returns the unwrapped engine when no sandbox is detected (zero overhead). |
 
@@ -29,9 +29,9 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 |------|-----------|---------|
 | **BaseCLIEngineOption** | `func(*BaseCLIEngine)` | Functional option type for `NewBaseCLIEngine`. Enables constructor customization without parameter explosion. |
 | **ExecCommandFunc** | `func(ctx, name, arg...) *exec.Cmd` | Injection point for `exec.CommandContext`. Allows tests to mock command execution without a real container engine. |
-| **VolumeFormatFunc** | `func(volume VolumeMountSpec) string` | Transforms volume mount specs before passing to `-v`. Podman uses this to append SELinux labels (`:z`) on Linux. Identity function by default. |
+| **VolumeFormatFunc** | `func(volume VolumeMountSpec) string` | Transforms volume mount specs before passing to `-v`. Docker and Podman use this to append SELinux labels (`:z`). Identity function by default. |
 | **RunArgsTransformer** | `func(args []string) []string` | Post-processes the `run` argument slice. Podman uses this to inject `--userns=keep-id` before the image name for rootless compatibility. Identity function by default. |
-| **SELinuxCheckFunc** | `func() bool` | Determines whether SELinux labeling should be applied. Injected into Podman's volume formatter. Defaults to checking `/sys/fs/selinux` existence. |
+| **SELinuxCheckFunc** | `func() bool` | Determines whether SELinux labeling should be applied. Injected into both engines' volume formatters. Podman checks `/sys/fs/selinux` locally; Docker asks its daemon. |
 
 ## Request/Response Types
 
@@ -88,7 +88,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 
 `BaseCLIEngineOption` follows the [Dave Cheney functional options pattern](https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis). The constructor sets sensible defaults (real `exec.CommandContext`, identity volume formatter, identity args transformer), and options override them. This powers two key use cases:
 - **Testing**: Inject a mock `ExecCommandFunc` to verify argument construction without running containers.
-- **Engine-specific behavior**: Podman's constructor prepends `WithVolumeFormatter` (SELinux labels) and `WithRunArgsTransformer` (rootless userns) before any user-supplied options.
+- **Engine-specific behavior**: both constructors prepend `WithVolumeFormatter` (SELinux labels); Podman's also prepends `WithRunArgsTransformer` (rootless userns). Both go before any user-supplied options.
 
 ### Auto-Detection with Fallback
 
@@ -98,7 +98,7 @@ Both `NewEngine` and `AutoDetectEngine` follow a try-preferred-then-fallback str
 
 ### Why embedding over traditional interfaces?
 
-Docker and Podman share identical argument formats for most operations (`build`, `run`, `rm`, `rmi`). Embedding `*BaseCLIEngine` lets concrete engines reuse argument building and command execution without boilerplate delegation methods. Engine-specific behavior (Podman SELinux labels, rootless userns) is injected via functional options rather than method overrides, keeping the base engine generic.
+Docker and Podman share identical argument formats for most operations (`build`, `run`, `rm`, `rmi`). Embedding `*BaseCLIEngine` lets concrete engines reuse argument building and command execution without boilerplate delegation methods. Engine-specific behavior (SELinux labels, Podman rootless userns) is injected via functional options rather than method overrides, keeping the base engine generic.
 
 ### Why a decorator for sandbox handling?
 
