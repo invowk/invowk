@@ -668,3 +668,42 @@ config = "Watch_WitnessDelivery.cfg"
 expect = "counterexample"
 property = "WitnessNoDelivery"
 witness = true
+
+# Trace validation: Go harnesses record traces from the real code; the trace
+# spec must accept every recorded trace and reject every targeted mutation.
+[[trace]]
+name = "Serverbase"
+spec = "formal/tla/ServerbaseTrace.tla"
+module = "ServerbaseTraces"
+package = "./internal/core/serverbase/"
+test = "TestServerbase_TraceHarness"
+constants = """
+    Procs = {p1, p2}
+    Mutant = "none"
+    FixStartOrdering = FALSE
+    FixTerminalCAS = FALSE
+"""
+
+[[trace]]
+name = "AtomicWrite"
+spec = "formal/tla/AtomicWriteTrace.tla"
+module = "AtomicWriteTraces"
+package = "./pkg/fspath/"
+test = "TestAtomicWrite_TraceHarness"
+constants = """
+    SyncFile = FALSE
+    SyncDir = FALSE
+    Mutant = "none"
+"""
+
+[[trace]]
+name = "Watch"
+spec = "formal/tla/WatchTrace.tla"
+module = "WatchTraces"
+package = "./internal/watch/"
+test = "TestWatch_TraceHarness"
+constants = """
+    Events = {"ev1", "ev2"}
+    Goroutines = {g1, g2}
+    Mutant = "none"
+"""

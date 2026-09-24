@@ -82,6 +82,9 @@ jobs:
       - name: Check models
         run: make formal
 
+      - name: Trace validation
+        run: make formal-traces
+
       - name: Replay golden vectors and property tests
         run: go test -count=1 ./internal/app/deps/ ./internal/app/modulesync/ ./internal/container/ ./internal/core/serverbase/ ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkmod/
 

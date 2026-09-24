@@ -183,6 +183,18 @@ class TlcTests(unittest.TestCase):
             formal.check_tlc_config_text("c", "SPECIFICATION Spec\nCHECK_DEADLOCK FALSE\n")
 
 
+class TraceVerdictTests(unittest.TestCase):
+    def test_consumed_trace_is_accepted(self) -> None:
+        self.assertEqual(formal.trace_verdict("Error: Invariant NotFullyConsumed is violated.\n"), "accepted")
+
+    def test_unconsumed_trace_is_rejected(self) -> None:
+        self.assertEqual(formal.trace_verdict("Model checking completed. No error has been found.\n"), "rejected")
+
+    def test_other_violation_is_no_verdict(self) -> None:
+        self.assertEqual(formal.trace_verdict("Error: Invariant TypeOK is violated.\n"), formal.VERDICT_NONE)
+        self.assertEqual(formal.trace_verdict("Parse error\n"), formal.VERDICT_NONE)
+
+
 class ToolAndCorrespondenceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()

@@ -95,15 +95,15 @@
 
 ## 7. Phase 3 — Trace validation
 
-- [ ] 7.1 Implement the trace-module generator, which emits `<Model>Traces.tla` constants, and the existential acceptance through `INVARIANT NotFullyConsumed`
-- [ ] 7.2 Write trace harnesses gated by `INVOWK_FORMAL_TRACE_DIR`:
+- [x] 7.1 Implement the trace-module generator, which emits `<Model>Traces.tla` constants, and the existential acceptance through `INVARIANT NotFullyConsumed`
+- [x] 7.2 Write trace harnesses gated by `INVOWK_FORMAL_TRACE_DIR` (done for watch, serverbase sequential runs, and atomic write; sync and tidy are bound by #142's integrity tests and replays instead, as the spec now states):
   - watch;
   - serverbase sequential runs;
   - sync, through `newResolverWithFetcher`;
   - tidy, through `resolveAllFunc`;
   - atomic write, through `atomicWriteOps` in `pkg/fspath`.
-- [ ] 7.3 Write the trace-validation specs for each harness. `SyncLock` composes the sync and atomic-write traces
-- [ ] 7.4 Add semantically targeted trace mutations with declared verdicts. Examples: a callback start during a callback, an op before its sleep, a rename before close. Keep random mutations report-only
+- [x] 7.3 Write the trace-validation specs for each harness (`ServerbaseTrace`, `AtomicWriteTrace`, `WatchTrace`)
+- [x] 7.4 Add semantically targeted trace mutations with declared verdicts (10 across the three suites). They exposed two weak trace specs before the fix: concurrent callers merging two operations into one record, and "left the loop" conflated with "returned"
 
 ## 8. Phase 3 — CI lane
 
@@ -112,7 +112,7 @@
   - `permissions: contents: read`, `concurrency`, `timeout-minutes`, and job-level `env:`;
   - `upload-artifact@v7` for `artifacts/formal/` on failure.
 - [x] 8.2 Add the pull-request trigger for `formal/` and modelled packages. It runs the full lane (about 35 s) instead of selecting models, which the spec now states
-- [ ] 8.3 Measure per-model wall time on the first green run, and record the budgets and state counts in the manifest
+- [ ] 8.3 Measure per-model wall time on the first green CI run, and record the budgets and state counts in the manifest (locally: `make formal` 35 s, `make formal-traces` about 10 s; CI measurement pending)
 - [x] 8.4 Log rapid seeds on failure in CI and in `make test` output
 - [ ] 8.5 **Phase 3 gate:** trace mutations are rejected as declared. The lane stays non-required until four consecutive weekly runs are green
 

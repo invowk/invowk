@@ -70,8 +70,9 @@ Rename == Step("rename", "syncdir") /\ targetInode' = "tmp" /\ tmpVisible' = FAL
 FsyncDir == Step("syncdir", "done") /\ dirSynced' = SyncDir /\ returnedOk' = TRUE
     /\ Keep(<<tmpVisible, tmpData, fileSynced, targetInode, crashContent, returnedErr>>)
 
-\* Any step before rename may fail; the deferred cleanup removes the temp file.
-Fail == pc \in {"write1", "write2", "sync", "rename"}
+\* Any step up to rename may fail (CreateTemp itself included); the deferred
+\* cleanup removes the temp file if one was created.
+Fail == pc \in {"create", "write1", "write2", "sync", "rename"}
     /\ pc' = "failed" /\ returnedErr' = TRUE
     /\ tmpVisible' = (tmpVisible /\ Mutant = "skip_cleanup")
     /\ Keep(<<tmpData, fileSynced, targetInode, dirSynced, crashContent, returnedOk>>)

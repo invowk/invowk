@@ -16,6 +16,7 @@ Usage:
     scripts/formal.py alloy [MODEL ...]
     scripts/formal.py tla [MODEL ...]
     scripts/formal.py golden [--check] [MODEL ...]
+    scripts/formal.py traces [TRACE ...]
     scripts/formal.py correspondence
     scripts/formal.py all
 """
@@ -23,7 +24,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import dataclasses
+import os
 import gzip
 import hashlib
 import json
@@ -89,6 +92,19 @@ class Model:
     golden: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
+@dataclasses.dataclass(frozen=True)
+class TraceSuite:
+    """A trace-validation suite: a Go harness recording real traces and the
+    TLA+ trace spec that must accept them and reject the targeted mutations."""
+
+    name: str
+    spec: str
+    module: str
+    package: str
+    test: str
+    constants: str
+
+
 # ---------------------------------------------------------------------------
 # Manifest
 
@@ -128,6 +144,18 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
             )
         )
     return tools, models
+
+
+def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:
+    with path.open("rb") as handle:
+        data = tomllib.load(handle)
+    return [
+        TraceSuite(
+            name=raw["name"], spec=raw["spec"], module=raw["module"],
+            package=raw["package"], test=raw["test"], constants=raw["constants"],
+        )
+        for raw in data.get("trace", [])
+    ]
 
 
 def validate_manifest(models: list[Model]) -> None:
@@ -547,6 +575,92 @@ def check_correspondence(models: list[Model], root: Path = REPO_ROOT) -> list[st
 
 
 # ---------------------------------------------------------------------------
+# Trace validation
+#
+# A trace is ACCEPTED when TLC violates the trace spec's NotFullyConsumed
+# invariant: some behaviour of the model consumes every record. Deadlock
+# checking is off for trace specs, because a trace that cannot continue is the
+# expected way to reject it.
+
+TRACE_DIR = REPORT_DIR / "traces"
+TRACE_ACCEPTED = "accepted"
+TRACE_REJECTED = "rejected"
+
+
+def trace_verdict(output: str) -> str:
+    if re.search(r"^Error: Invariant NotFullyConsumed is violated", output, re.M):
+        return TRACE_ACCEPTED
+    if TLC_PASS_RE.search(output):
+        return TRACE_REJECTED
+    return VERDICT_NONE
+
+
+def record_traces(suite: TraceSuite) -> dict[str, int]:
+    """Run the Go harness that writes <module>.tla and <module>.json."""
+    env = dict(os.environ, **{"INVOWK_FORMAL_TRACE_DIR": str(TRACE_DIR)})
+    completed = subprocess.run(
+        ["go", "test", "-count=1", "-run", f"^{suite.test}$", suite.package],
+        capture_output=True, text=True, check=False, env=env, cwd=REPO_ROOT,
+    )
+    if completed.returncode != 0:
+        raise FormalError(f"trace harness {suite.test} failed:\n{completed.stdout}{completed.stderr}")
+    counts_path = TRACE_DIR / f"{suite.module}.json"
+    if not counts_path.exists():
+        raise FormalError(f"trace harness {suite.test} wrote no {counts_path.name} (skipped?)")
+    counts = json.loads(counts_path.read_text())
+    if counts.get(TRACE_ACCEPTED, 0) == 0 or counts.get(TRACE_REJECTED, 0) == 0:
+        raise FormalError(f"{suite.name}: a trace suite needs accepted traces and targeted mutations, got {counts}")
+    return counts
+
+
+def check_trace(jar: Path, suite: TraceSuite, trace_set: str, index: int) -> str | None:
+    work = TRACE_DIR / suite.name / f"{trace_set}-{index}"
+    work.mkdir(parents=True, exist_ok=True)
+    for module in (REPO_ROOT / "formal" / "tla").glob("*.tla"):
+        shutil.copy(module, work / module.name)
+    shutil.copy(TRACE_DIR / f"{suite.module}.tla", work / f"{suite.module}.tla")
+    spec = Path(suite.spec).name
+    cfg = work / "trace.cfg"
+    cfg.write_text(
+        f"CONSTANTS\n{suite.constants.strip()}\n    TraceSet = \"{trace_set}\"\n    TraceIndex = {index}\n"
+        "SPECIFICATION TraceSpec\nINVARIANT NotFullyConsumed\n"
+    )
+    completed = subprocess.run(
+        # Each JVM extracts TLC's standard modules into java.io.tmpdir; parallel
+        # runs sharing /tmp race on that extraction, so each gets its own.
+        ["java", "-XX:+UseParallelGC", f"-Djava.io.tmpdir={work}", "-cp", str(jar), "tlc2.TLC", "-deadlock", "-workers", "1",
+         "-metadir", str(work / "states"), "-config", str(cfg), spec],
+        capture_output=True, text=True, check=False, cwd=work,
+    )
+    output = completed.stdout + completed.stderr
+    (work / "tlc.log").write_text(output)
+    verdict = trace_verdict(output)
+    if verdict != trace_set:
+        return f"{suite.name} {trace_set} trace {index}: expected {trace_set}, observed {verdict} (see {work / 'tlc.log'})"
+    return None
+
+
+def check_trace_suites(jar: Path, suites: list[TraceSuite]) -> list[str]:
+    failures: list[str] = []
+    if TRACE_DIR.exists():
+        shutil.rmtree(TRACE_DIR)
+    TRACE_DIR.mkdir(parents=True)
+    jobs = []
+    for suite in suites:
+        counts = record_traces(suite)
+        print(f"  {suite.name}: {counts[TRACE_ACCEPTED]} recorded traces, {counts[TRACE_REJECTED]} targeted mutations")
+        for trace_set in (TRACE_ACCEPTED, TRACE_REJECTED):
+            jobs.extend((suite, trace_set, index) for index in range(1, counts[trace_set] + 1))
+    workers = max(1, (os.cpu_count() or 2) // 2)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        for result in pool.map(lambda job: check_trace(jar, *job), jobs):
+            if result:
+                failures.append(result)
+    print(f"  checked {len(jobs)} traces, {len(failures)} unexpected")
+    return failures
+
+
+# ---------------------------------------------------------------------------
 # CLI
 
 
@@ -560,7 +674,7 @@ def select(models: list[Model], tool: str, names: list[str]) -> list[Model]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["fetch", "alloy", "tla", "golden", "correspondence", "all"])
+    parser.add_argument("action", choices=["fetch", "alloy", "tla", "golden", "traces", "correspondence", "all"])
     parser.add_argument("models", nargs="*")
     parser.add_argument("--check", action="store_true", help="golden: verify committed vectors instead of rewriting them")
     args = parser.parse_args(argv)
@@ -595,6 +709,11 @@ def main(argv: list[str] | None = None) -> int:
                     failures.append(
                         f"{model.name}: {model.golden['output']} is stale; regenerate with: scripts/formal.py golden {model.name}"
                     )
+        if args.action == "traces":
+            suites = [t for t in load_trace_suites() if not args.models or t.name in args.models]
+            if not suites:
+                raise FormalError("no trace suites selected")
+            failures += check_trace_suites(ensure_tool(tools["tla"]), suites)
         if args.action == "golden":
             jar = ensure_tool(tools["alloy"])
             for model in select(models, "alloy", args.models):

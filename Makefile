@@ -214,7 +214,7 @@ formal-tla:
 	python3 scripts/formal.py tla
 
 formal-traces:
-	@echo "No trace-validation harnesses yet (adopt-formal-verification phase 3)."
+	python3 scripts/formal.py traces
 
 formal-golden:
 	python3 scripts/formal.py golden

@@ -31,6 +31,7 @@ that replay golden vectors and the property tests run in `make test`.
 make formal              # models, golden freshness, correspondence (needs Java 25)
 make formal-alloy        # Alloy models only
 make formal-golden       # regenerate golden vectors after a model change
+make formal-traces       # trace validation of real-code traces against the models
 make formal-rapid-deep   # property tests with RAPID_CHECKS=10000
 python3 scripts/test_formal.py
 ```
@@ -82,6 +83,17 @@ antecedents, witnesses, and mutants failed and exposed it.
 Retry is bound by an exhaustive contract test (`TestRetryWithBackoff_Contract`)
 instead of a model. Every model's calibration record in `formal/manifest.toml`
 lists the seeded defects its bindings detect.
+
+## Trace validation
+
+Harnesses gated by `INVOWK_FORMAL_TRACE_DIR` record traces from the real code
+(`TestServerbase_TraceHarness`, `TestAtomicWrite_TraceHarness`,
+`TestWatch_TraceHarness`) as generated TLA+ modules. Each trace spec
+(`formal/tla/*Trace.tla`) extends its model and must reach every record in
+order without skipping an observable state. Every suite also carries targeted
+mutations that must be rejected. They already exposed two weak specs:
+concurrent callers merging two operations into one record, and a projection
+that treated leaving the loop as returning.
 
 ## Findings
 
