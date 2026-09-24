@@ -353,6 +353,17 @@ def check_fairness_twins(model: Model, config_texts: dict[str, str]) -> None:
             )
 
 
+def attribute_temporal_violation(result: TlcResult, cfg_text: str) -> TlcResult:
+    """TLC does not name the violated temporal property; attribute it when the
+    configuration declares exactly one PROPERTY, and leave it anonymous otherwise."""
+    if result.violated != "<temporal>":
+        return result
+    properties = re.findall(r"^\s*PROPERT(?:Y|IES)\s+(\w+)", cfg_text, re.M)
+    if len(properties) != 1:
+        return result
+    return dataclasses.replace(result, violated=properties[0])
+
+
 def evaluate_tlc_command(model: Model, cmd: Command, result: TlcResult) -> list[str]:
     failures = []
     if result.verdict != cmd.expect:
@@ -389,7 +400,7 @@ def check_tlc_model(jar: Path, model: Model) -> list[str]:
         completed = subprocess.run(args, capture_output=True, text=True, check=False, cwd=spec.parent)
         output = completed.stdout + completed.stderr
         (out_dir / "tlc.log").write_text(output)
-        result = parse_tlc_output(output)
+        result = attribute_temporal_violation(parse_tlc_output(output), config_texts[cmd.name])
         cmd_failures = evaluate_tlc_command(model, cmd, result)
         status = "ok" if not cmd_failures else "FAIL"
         print(f"  [{status}] {model.name}.{cmd.name}: expected {cmd.expect}, observed {result.verdict} {result.violated}".rstrip())

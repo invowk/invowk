@@ -589,3 +589,82 @@ config = "HostCallbackToken_WitnessOverlap.cfg"
 expect = "counterexample"
 property = "WitnessNoOverlap"
 witness = true
+
+[[model]]
+name = "Watch"
+tool = "tla"
+file = "formal/tla/Watch.tla"
+calibration = """2026-09-24: TLC shows no lost burst under fairness of system actions only (and \\
+a counterexample without fairness), no overlapping callbacks, balanced \\
+WaitGroup accounting, and no work after Run returns; each safety property is \\
+guarded by a named-violation mutant. The binding uses a fake timer checked \\
+against time.AfterFunc's Reset/Stop contract, because the existing manual \\
+timer always returned false. It detects two seeded defects (busy fire dropping \\
+the burst, missing wg.Add when Reset returns false)."""
+
+[[model.command]]
+name = "noOverlappingCallbacks"
+config = "Watch_NoOverlap.cfg"
+expect = "pass"
+property = "NoOverlappingCallbacks"
+
+[[model.command]]
+name = "mutantNoBusyGuard"
+config = "Watch_NoOverlap_MutantNoBusyGuard.cfg"
+expect = "counterexample"
+property = "NoOverlappingCallbacks"
+mutant_of = "noOverlappingCallbacks"
+
+[[model.command]]
+name = "waitGroupBalanced"
+config = "Watch_WaitGroup.cfg"
+expect = "pass"
+property = "WaitGroupBalanced"
+
+[[model.command]]
+name = "mutantResetSkipsAdd"
+config = "Watch_WaitGroup_MutantResetSkipsAdd.cfg"
+expect = "counterexample"
+property = "WaitGroupBalanced"
+mutant_of = "waitGroupBalanced"
+
+[[model.command]]
+name = "nothingAfterReturn"
+config = "Watch_NothingAfterReturn.cfg"
+expect = "pass"
+property = "NothingAfterReturn"
+
+[[model.command]]
+name = "mutantNoWait"
+config = "Watch_NothingAfterReturn_MutantNoWait.cfg"
+expect = "counterexample"
+property = "NothingAfterReturn"
+mutant_of = "nothingAfterReturn"
+
+[[model.command]]
+name = "noLostBurst"
+config = "Watch_NoLostBurst.cfg"
+expect = "pass"
+property = "NoLostBurst"
+
+[[model.command]]
+name = "noLostBurstWithoutFairness"
+config = "Watch_NoLostBurst_NoFairness.cfg"
+expect = "counterexample"
+property = "NoLostBurst"
+mutant_of = "noLostBurst"
+fairness_twin_of = "noLostBurst"
+
+[[model.command]]
+name = "witnessBusySkip"
+config = "Watch_WitnessBusySkip.cfg"
+expect = "counterexample"
+property = "WitnessNoBusySkip"
+witness = true
+
+[[model.command]]
+name = "witnessDelivery"
+config = "Watch_WitnessDelivery.cfg"
+expect = "counterexample"
+property = "WitnessNoDelivery"
+witness = true

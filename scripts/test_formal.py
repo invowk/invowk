@@ -171,6 +171,13 @@ class TlcTests(unittest.TestCase):
         paired = Model(name="T", tool="tla", file="t.tla", commands=(live, twin), calibration="seeded")
         formal.check_fairness_twins(paired, {"live": "PROPERTY Live\n", "unfair": "PROPERTY Live\n"})
 
+    def test_temporal_violation_is_attributed_to_single_property(self) -> None:
+        result = formal.parse_tlc_output("Error: Temporal properties were violated.\n")
+        attributed = formal.attribute_temporal_violation(result, "SPECIFICATION S\nPROPERTY NoLostBurst\n")
+        self.assertEqual(attributed.violated, "NoLostBurst")
+        ambiguous = formal.attribute_temporal_violation(result, "PROPERTY A\nPROPERTY B\n")
+        self.assertEqual(ambiguous.violated, "<temporal>")
+
     def test_disabled_deadlock_check_fails(self) -> None:
         with self.assertRaisesRegex(FormalError, "deadlock checking must stay on"):
             formal.check_tlc_config_text("c", "SPECIFICATION Spec\nCHECK_DEADLOCK FALSE\n")
