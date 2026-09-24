@@ -364,3 +364,73 @@ config = "Serverbase_WitnessStartedClosed.cfg"
 expect = "counterexample"
 property = "WitnessNeverStartedClosed"
 witness = true
+
+[[model]]
+name = "LockIntegrity"
+tool = "tla"
+file = "formal/tla/LockIntegrity.tla"
+calibration = """2026-09-24: TLC reproduces finding F5 (tag moved, cache empty, sync rewrites the \\
+lock hash to the attacker's content and so also launders a tampered vendored \\
+copy), and the fix shipped in verify-locked-module-integrity (#142) passes. \\
+F4 and F6 reproduce as counterexamples with passing fix configurations, and \\
+Go replay tests confirm both behaviours in the real code."""
+
+[[model.command]]
+name = "f5FixedSync"
+config = "LockIntegrity_F5_Fixed.cfg"
+expect = "pass"
+property = "OwnLoadTrusted"
+
+[[model.command]]
+name = "findingF5FreshCacheSync"
+config = "LockIntegrity_F5_Current.cfg"
+expect = "counterexample"
+property = "OwnLoadTrusted"
+mutant_of = "f5FixedSync"
+
+[[model.command]]
+name = "f4RejectUnhashed"
+config = "LockIntegrity_F4_Fixed.cfg"
+expect = "pass"
+property = "OwnLoadTrusted"
+
+[[model.command]]
+name = "findingF4HashlessLock"
+config = "LockIntegrity_F4_Current.cfg"
+expect = "counterexample"
+property = "OwnLoadTrusted"
+mutant_of = "f4RejectUnhashed"
+
+[[model.command]]
+name = "f6CheckCallerHash"
+config = "LockIntegrity_F6_Fixed.cfg"
+expect = "pass"
+property = "SiblingCallTrusted"
+
+[[model.command]]
+name = "findingF6CrossLockAdmission"
+config = "LockIntegrity_F6_Current.cfg"
+expect = "counterexample"
+property = "SiblingCallTrusted"
+mutant_of = "f6CheckCallerHash"
+
+[[model.command]]
+name = "witnessMovedTag"
+config = "LockIntegrity_WitnessMovedTag.cfg"
+expect = "counterexample"
+property = "WitnessNoMovedTag"
+witness = true
+
+[[model.command]]
+name = "witnessLoadedGood"
+config = "LockIntegrity_WitnessLoadedGood.cfg"
+expect = "counterexample"
+property = "WitnessNeverLoadedGood"
+witness = true
+
+[[model.command]]
+name = "witnessCalledGood"
+config = "LockIntegrity_WitnessCalledGood.cfg"
+expect = "counterexample"
+property = "WitnessNeverCalledGood"
+witness = true
