@@ -3,11 +3,9 @@
 package fspath
 
 import (
-	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil/tlatrace"
@@ -28,7 +26,7 @@ func TestAtomicWrite_TraceHarness(t *testing.T) {
 	dir := tlatrace.Dir(t)
 
 	var traces tlatrace.Traces
-	for _, failAt := range []string{"none", "create", "chmod", "write", "close", "rename"} {
+	for _, failAt := range atomicWriteSteps {
 		work := t.TempDir()
 		target := filepath.Join(work, "invowkmod.lock.cue")
 		if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
@@ -36,49 +34,15 @@ func TestAtomicWrite_TraceHarness(t *testing.T) {
 		}
 		var trace []tlatrace.Record
 		observe := func(ok, failed bool) {
-			entries, _ := os.ReadDir(work)
-			tmp := false
-			for _, e := range entries {
-				tmp = tmp || strings.HasSuffix(e.Name(), ".tmp")
-			}
 			content, _ := os.ReadFile(target)
-			rec := atomicRecord(tmp, string(content) == "new", ok, failed)
+			rec := atomicRecord(len(tempFilesIn(t, work)) > 0, string(content) == "new", ok, failed)
 			if len(trace) == 0 || !maps.Equal(trace[len(trace)-1], rec) {
 				trace = append(trace, rec)
 			}
 		}
 		observe(false, false)
-		ops := atomicWriteOps{
-			createTemp: func(d, pattern string) (atomicTempFile, error) {
-				if failAt == "create" {
-					return nil, errInjected
-				}
-				file, err := os.CreateTemp(d, pattern)
-				if err != nil {
-					return nil, err
-				}
-				observe(false, false)
-				return &failingTempFile{File: file, failWrite: failAt == "write", failClose: failAt == "close"}, nil
-			},
-			chmod: func(name string, mode os.FileMode) error {
-				if failAt == "chmod" {
-					return errInjected
-				}
-				return os.Chmod(name, mode)
-			},
-			rename: func(from, to string) error {
-				if failAt == "rename" {
-					return errInjected
-				}
-				if err := os.Rename(from, to); err != nil {
-					return fmt.Errorf("rename: %w", err)
-				}
-				observe(false, false)
-				return nil
-			},
-			remove: os.Remove,
-		}
-		err := atomicWriteFile(target, []byte("new"), DefaultFilePerm, ops)
+		err := atomicWriteFile(target, []byte("new"), DefaultFilePerm,
+			injectingAtomicWriteOps(failAt, false, func() { observe(false, false) }))
 		observe(err == nil, err != nil)
 		traces.Accepted = append(traces.Accepted, trace)
 	}

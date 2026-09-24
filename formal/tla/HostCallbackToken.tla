@@ -54,7 +54,8 @@ End(e) == exec[e] = "running"
          /\ token' = [token EXCEPT ![e] =
                 IF path = "success" /\ Mutant = "no_revoke_on_success" THEN token[e]
                 ELSE IF token[e] = "valid" THEN "revoked" ELSE token[e]]
-         /\ session' = [session EXCEPT ![e] = session[e] /\ ~RevokeClosesSessions]
+         /\ session' = [session EXCEPT ![e] = session[e] /\ ~(RevokeClosesSessions
+                /\ ~(path = "error" /\ Mutant = "keep_sessions_on_error"))]
     /\ UNCHANGED <<server, authAfterEnd, authEver>>
 
 Expire(e) == token[e] = "valid" /\ token' = [token EXCEPT ![e] = "expired"]

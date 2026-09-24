@@ -46,6 +46,21 @@ tool or a model.
    `calibration`. If a defect survives, widen the golden scope before trusting
    the model.
 
+## TLA+ commands
+
+- TLC configurations are generated: put base constants in `[model.constants]`
+  and only overrides in each `[[model.command]]` (`constants`, `spec`,
+  `temporal`). Each command checks exactly one property plus `TypeOK`.
+- Thread seeded defects through a `Mutant` constant inside the real actions.
+- Record a finding with `finding = "F<n>"` on the current-code command, and give
+  the fixed property its own mutant; a finding never guards a property.
+- Trace validation: a Go `Test<Model>_TraceHarness` gated by
+  `INVOWK_FORMAL_TRACE_DIR` writes `<Model>Traces.tla` through
+  `internal/testutil/tlatrace`. `formal/tla/<Model>Trace.tla` must forbid
+  skipping an observable state, and targeted mutations must be rejected.
+- Fakes a model depends on must follow the real contract. For example, the
+  watcher's manual timer returns `time.AfterFunc`'s Reset/Stop results.
+
 ## Pitfalls
 
 - **Vacuous implications.** `x.f in S implies ...` holds for an empty `x.f`.

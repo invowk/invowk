@@ -120,14 +120,12 @@ Return == loop = "draining" /\ (wg = 0 \/ Mutant = "no_wait") /\ loop' = "return
     /\ UNCHANGED <<arrived, queued, pending, delivered, timer, fires, gpc, gset, wg, running, callbacks, cbErr, cancelled>>
 
 Finished == loop = "returned" /\ fires = {} /\ UNCHANGED vars
-Quiet == loop = "select" /\ arrived = Events /\ queued = {} /\ timer /= "armed" /\ fires = {} /\ cancelled
-    /\ UNCHANGED vars
 
 System == LoopCancel \/ LoopCallbackErr \/ LoopEvent \/ TimerFire \/ Shutdown \/ Return
     \/ \E g \in Goroutines : FireStart(g) \/ CallbackReturn(g)
 Environment == Cancel \/ Fatal \/ \E e \in Events : Arrive(e)
 
-Next == System \/ Environment \/ Finished \/ Quiet
+Next == System \/ Environment \/ Finished
 
 Fairness == WF_vars(LoopEvent) /\ WF_vars(TimerFire) /\ WF_vars(Shutdown) /\ WF_vars(Return)
     /\ WF_vars(LoopCancel) /\ WF_vars(LoopCallbackErr)

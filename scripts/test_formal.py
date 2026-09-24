@@ -127,8 +127,8 @@ TLC_VIOLATION = """Error: Invariant NotTwo is violated.
 """
 
 
-def tla_model(cmd: Command) -> Model:
-    return Model(name="T", tool="tla", file="t.tla", commands=(cmd,), calibration="seeded")
+def tla_model(*cmds: Command) -> Model:
+    return Model(name="T", tool="tla", file="t.tla", commands=cmds, calibration="seeded")
 
 
 class TlcTests(unittest.TestCase):
@@ -163,20 +163,38 @@ class TlcTests(unittest.TestCase):
         formal.check_tlc_config_text("c", "SPECIFICATION Spec\nINVARIANT Safe\nSYMMETRY Perms\n")
 
     def test_liveness_without_fairness_twin_fails(self) -> None:
-        live = Command("live", "pass", config="Live.cfg")
-        model = Model(name="T", tool="tla", file="t.tla", commands=(live,), calibration="seeded")
+        live = Command("live", "pass", property="Live", temporal=True)
+        guard = Command("mut", "counterexample", property="Live", mutant_of="live", temporal=True)
         with self.assertRaisesRegex(FormalError, "fairness-free twin"):
-            formal.check_fairness_twins(model, {"live": "SPECIFICATION Spec\nPROPERTY Live\n"})
-        twin = Command("unfair", "counterexample", config="Unfair.cfg", fairness_twin_of="live")
-        paired = Model(name="T", tool="tla", file="t.tla", commands=(live, twin), calibration="seeded")
-        formal.check_fairness_twins(paired, {"live": "PROPERTY Live\n", "unfair": "PROPERTY Live\n"})
+            formal.validate_manifest([tla_model(live, guard)])
+        twin = Command("unfair", "counterexample", property="Live", temporal=True, spec="UnfairSpec",
+                       mutant_of="live", fairness_twin_of="live")
+        formal.validate_manifest([tla_model(live, twin)])
 
-    def test_temporal_violation_is_attributed_to_single_property(self) -> None:
+    def test_finding_does_not_guard_its_property(self) -> None:
+        fixed = Command("fixed", "pass", property="P")
+        finding = Command("current", "counterexample", property="P", mutant_of="fixed", finding="F9")
+        with self.assertRaisesRegex(FormalError, "finding records do not count"):
+            formal.validate_manifest([tla_model(fixed, finding)])
+        mutant = Command("mut", "counterexample", property="P", mutant_of="fixed")
+        formal.validate_manifest([tla_model(fixed, finding, mutant)])
+
+    def test_generated_config_checks_one_property(self) -> None:
+        model = Model(name="T", tool="tla", file="t.tla", commands=(), constants=(("N", "2"), ("M", '"none"')))
+        cfg = formal.tlc_config(model, Command("c", "pass", property="Safe", constants=(("M", '"bad"'),)))
+        self.assertIn('M = "bad"', cfg)
+        self.assertIn("N = 2", cfg)
+        self.assertEqual(cfg.count("INVARIANT Safe"), 1)
+        live = formal.tlc_config(model, Command("l", "pass", property="Live", temporal=True, spec="UnfairSpec"))
+        self.assertIn("PROPERTY Live", live)
+        self.assertIn("SPECIFICATION UnfairSpec", live)
+
+    def test_temporal_violation_is_attributed_to_the_checked_property(self) -> None:
         result = formal.parse_tlc_output("Error: Temporal properties were violated.\n")
-        attributed = formal.attribute_temporal_violation(result, "SPECIFICATION S\nPROPERTY NoLostBurst\n")
-        self.assertEqual(attributed.violated, "NoLostBurst")
-        ambiguous = formal.attribute_temporal_violation(result, "PROPERTY A\nPROPERTY B\n")
-        self.assertEqual(ambiguous.violated, "<temporal>")
+        live = Command("l", "counterexample", property="NoLostBurst", temporal=True)
+        self.assertEqual(formal.attribute_temporal_violation(result, live).violated, "NoLostBurst")
+        safety = Command("s", "counterexample", property="Safe")
+        self.assertEqual(formal.attribute_temporal_violation(result, safety).violated, "<temporal>")
 
     def test_disabled_deadlock_check_fails(self) -> None:
         with self.assertRaisesRegex(FormalError, "deadlock checking must stay on"):
@@ -260,11 +278,8 @@ class RepositoryManifestTests(unittest.TestCase):
             if model.tool == "alloy":
                 formal.cross_check_alloy_source(model, (formal.REPO_ROOT / model.file).read_text())
             else:
-                spec_dir = (formal.REPO_ROOT / model.file).parent
-                configs = {c.name: (spec_dir / c.config).read_text() for c in model.commands}
-                formal.check_fairness_twins(model, configs)
-                for name, text in configs.items():
-                    formal.check_tlc_config_text(f"{model.name}.{name}", text)
+                for cmd in model.commands:
+                    formal.check_tlc_config_text(f"{model.name}.{cmd.name}", formal.tlc_config(model, cmd))
             self.assertTrue(model.calibration, f"{model.name} is uncalibrated")
         self.assertEqual(formal.check_correspondence(models), [])
 

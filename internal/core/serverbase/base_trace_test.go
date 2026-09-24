@@ -30,10 +30,9 @@ func TestServerbase_TraceHarness(t *testing.T) {
 	t.Parallel()
 	dir := tlatrace.Dir(t)
 
-	ops := []serverbaseOp{opStart, opStartCancelled, opRun, opFail, opStop, opStopped, opSend}
 	var traces tlatrace.Traces
-	for _, first := range ops {
-		for _, second := range ops {
+	for _, first := range allServerbaseOps {
+		for _, second := range allServerbaseOps {
 			b := NewBase()
 			trace := []tlatrace.Record{serverbaseProjection(b)}
 			for _, op := range []serverbaseOp{first, second} {

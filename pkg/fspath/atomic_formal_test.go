@@ -4,13 +4,19 @@ package fspath
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-var errInjected = errors.New("injected failure")
+var (
+	errInjected = errors.New("injected failure")
+
+	// atomicWriteSteps are the steps a failure can be injected at ("none": no failure).
+	atomicWriteSteps = []string{"none", "create", "chmod", "write", "close", "rename"}
+)
 
 // failingTempFile wraps a real temp file and fails Write or Close on demand.
 type failingTempFile struct {
@@ -34,6 +40,66 @@ func (f *failingTempFile) Close() error {
 	return closeErr
 }
 
+// injectingAtomicWriteOps runs the real filesystem operations, fails the one
+// named by failAt, fails cleanup when removeFails, and calls observe after the
+// temp file is created and after the rename.
+func injectingAtomicWriteOps(failAt string, removeFails bool, observe func()) atomicWriteOps {
+	if observe == nil {
+		observe = func() {}
+	}
+	return atomicWriteOps{
+		createTemp: func(d, pattern string) (atomicTempFile, error) {
+			if failAt == "create" {
+				return nil, errInjected
+			}
+			file, err := os.CreateTemp(d, pattern)
+			if err != nil {
+				return nil, fmt.Errorf("create temp: %w", err)
+			}
+			observe()
+			return &failingTempFile{File: file, failWrite: failAt == "write", failClose: failAt == "close"}, nil
+		},
+		chmod: func(name string, mode os.FileMode) error {
+			if failAt == "chmod" {
+				return errInjected
+			}
+			return os.Chmod(name, mode)
+		},
+		rename: func(from, to string) error {
+			if failAt == "rename" {
+				return errInjected
+			}
+			if err := os.Rename(from, to); err != nil {
+				return fmt.Errorf("rename: %w", err)
+			}
+			observe()
+			return nil
+		},
+		remove: func(name string) error {
+			if removeFails {
+				return errInjected
+			}
+			return os.Remove(name)
+		},
+	}
+}
+
+// tempFilesIn lists the atomic-write temp files left in dir.
+func tempFilesIn(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir() error = %v", err)
+	}
+	var temps []string
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".tmp") {
+			temps = append(temps, entry.Name())
+		}
+	}
+	return temps
+}
+
 // TestAtomicWriteFile_FailureAtEveryStep binds formal/tla/AtomicWrite.tla to
 // the real filesystem. For a failure injected at every step (and a failing
 // cleanup), a returned error leaves the target's old content intact and no temp
@@ -42,10 +108,13 @@ func (f *failingTempFile) Close() error {
 func TestAtomicWriteFile_FailureAtEveryStep(t *testing.T) {
 	t.Parallel()
 
-	steps := []string{"none", "create", "chmod", "write", "close", "rename"}
-	for _, failAt := range steps {
+	for _, failAt := range atomicWriteSteps {
 		for _, removeFails := range []bool{false, true} {
-			t.Run(failAt+map[bool]string{true: "/remove-fails", false: ""}[removeFails], func(t *testing.T) {
+			name := failAt
+			if removeFails {
+				name += "/remove-fails"
+			}
+			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 
 				dir := t.TempDir()
@@ -53,42 +122,7 @@ func TestAtomicWriteFile_FailureAtEveryStep(t *testing.T) {
 				if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
 					t.Fatalf("WriteFile() error = %v", err)
 				}
-				fail := func(step string) error {
-					if failAt == step {
-						return errInjected
-					}
-					return nil
-				}
-				ops := atomicWriteOps{
-					createTemp: func(d, pattern string) (atomicTempFile, error) {
-						if err := fail("create"); err != nil {
-							return nil, err
-						}
-						file, err := os.CreateTemp(d, pattern)
-						if err != nil {
-							return nil, err
-						}
-						return &failingTempFile{File: file, failWrite: failAt == "write", failClose: failAt == "close"}, nil
-					},
-					chmod: func(name string, mode os.FileMode) error {
-						if err := fail("chmod"); err != nil {
-							return err
-						}
-						return os.Chmod(name, mode)
-					},
-					rename: func(from, to string) error {
-						if err := fail("rename"); err != nil {
-							return err
-						}
-						return os.Rename(from, to)
-					},
-					remove: func(name string) error {
-						if removeFails {
-							return errInjected
-						}
-						return os.Remove(name)
-					},
-				}
+				ops := injectingAtomicWriteOps(failAt, removeFails, nil)
 
 				err := atomicWriteFile(target, []byte("new"), DefaultFilePerm, ops)
 
@@ -96,16 +130,7 @@ func TestAtomicWriteFile_FailureAtEveryStep(t *testing.T) {
 				if readErr != nil {
 					t.Fatalf("ReadFile(target) error = %v", readErr)
 				}
-				entries, dirErr := os.ReadDir(dir)
-				if dirErr != nil {
-					t.Fatalf("ReadDir() error = %v", dirErr)
-				}
-				var temps []string
-				for _, entry := range entries {
-					if strings.HasSuffix(entry.Name(), ".tmp") {
-						temps = append(temps, entry.Name())
-					}
-				}
+				temps := tempFilesIn(t, dir)
 
 				if failAt == "none" {
 					if err != nil || string(content) != "new" || len(temps) != 0 {

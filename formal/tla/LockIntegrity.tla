@@ -27,7 +27,7 @@
 \* | CallViaSibling | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_FindingF6AdmissionIgnoresCallerHash | P's copy is assumed consistent with P's own lock |
 EXTENDS Naturals
 
-CONSTANTS FixedSync, RejectUnhashed, CheckCallerHash, LegacyLock
+CONSTANTS FixedSync, RejectUnhashed, CheckCallerHash, LegacyLock, Mutant
 
 Good == "Good"
 Evil == "Evil"
@@ -79,6 +79,7 @@ Sync == syncs < 2 /\
         candidate == IF useCache THEN cache ELSE fetched
         \* The current code compares only an existing cache; FixedSync also checks a fresh copy.
         hashOk    == lockHash = "none" \/ candidate = lockHash \/ (~useCache /\ ~FixedSync)
+                     \/ (useCache /\ Mutant = "trust_cache")
     IN IF commitOk /\ hashOk
        THEN /\ lockVer' = "v2" /\ lockCommit' = remoteCommit /\ lockHash' = candidate
             /\ cache' = candidate /\ syncs' = syncs + 1
@@ -95,7 +96,8 @@ Vendor == cache /= "absent" /\ (lockHash = "none" \/ cache = lockHash)
 
 (* --- discovery of C's own vendored copy --- *)
 Discover == vendored /= "absent" /\ loaded = "none"
-    /\ loaded' = (IF (lockHash /= "none" /\ vendored /= lockHash) \/ (RejectUnhashed /\ lockHash = "none")
+    /\ loaded' = (IF (lockHash /= "none" /\ vendored /= lockHash)
+                     \/ (RejectUnhashed /\ lockHash = "none" /\ Mutant /= "discover_accepts_unhashed")
                   THEN "rejected" ELSE vendored)
     /\ UNCHANGED <<remoteCommit, lockVer, lockCommit, lockHash, cache, vendored, pVendored, called, syncs>>
 
@@ -103,7 +105,9 @@ Discover == vendored /= "absent" /\ loaded = "none"
 \* P's copy passed P's own lock check. Admission compares (ModuleID, SourceID)
 \* with C's lock entry; CheckCallerHash also compares C's locked hash.
 CallViaSibling == vendored = "absent" /\ called = "none"
-    /\ called' = (IF CheckCallerHash /\ lockHash /= "none" /\ pVendored /= lockHash
+    \* The mutant compares P's copy with P's own lock, which always agrees.
+    /\ called' = (IF CheckCallerHash /\ lockHash /= "none"
+                     /\ pVendored /= (IF Mutant = "compare_with_sibling_lock" THEN pVendored ELSE lockHash)
                   THEN "rejected" ELSE pVendored)
     /\ UNCHANGED <<remoteCommit, lockVer, lockCommit, lockHash, cache, vendored, pVendored, loaded, syncs>>
 

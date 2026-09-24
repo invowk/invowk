@@ -38,7 +38,12 @@ const (
 	opSend
 )
 
-var errFormalTest = errors.New("formal test failure")
+var (
+	errFormalTest = errors.New("formal test failure")
+
+	// allServerbaseOps lists every operation the model's callers can run.
+	allServerbaseOps = []serverbaseOp{opStart, opStartCancelled, opRun, opFail, opStop, opStopped, opSend}
+)
 
 type serverbaseOp int
 
@@ -69,9 +74,8 @@ func sequentialStep(from State, op serverbaseOp) (next State, stopWon bool) {
 			return StateStopping, true
 		case StateStopping, StateStopped, StateFailed:
 			return from, false
-		default:
-			return from, false
 		}
+		return from, false
 	case opStopped:
 		if from.IsTerminal() {
 			return from, false
@@ -79,9 +83,8 @@ func sequentialStep(from State, op serverbaseOp) (next State, stopWon bool) {
 		return StateStopped, false
 	case opSend:
 		return from, false
-	default:
-		return from, false
 	}
+	return from, false
 }
 
 func applyServerbaseOp(ctx context.Context, b *Base, op serverbaseOp) (stopWon bool) {
@@ -168,22 +171,22 @@ func TestServerbase_SequentialMatchesModel(t *testing.T) {
 func TestServerbase_ConcurrentSafetyInvariants(t *testing.T) {
 	t.Parallel()
 
-	rounds := 2000
+	// Every ordered pair of operations, repeated to vary the scheduling.
+	repeats := 30
 	if testing.Short() {
-		rounds = 200
+		repeats = 3
 	}
-	ops := []serverbaseOp{opStart, opStartCancelled, opRun, opFail, opStop, opStopped, opSend}
-	for round := range rounds {
-		for _, first := range ops {
-			second := ops[round%len(ops)]
-			b := NewBase()
-			var wg sync.WaitGroup
-			wg.Add(2)
-			go func() { defer wg.Done(); applyServerbaseOp(t.Context(), b, first) }()
-			go func() { defer wg.Done(); applyServerbaseOp(t.Context(), b, second) }()
-			wg.Wait()
-			if startedChannelClosed(b) && b.State() == StateCreated {
-				t.Fatalf("ops %d/%d: started channel closed although Running was never reached", first, second)
+	for range repeats {
+		for _, first := range allServerbaseOps {
+			for _, second := range allServerbaseOps {
+				b := NewBase()
+				var wg sync.WaitGroup
+				wg.Go(func() { applyServerbaseOp(t.Context(), b, first) })
+				wg.Go(func() { applyServerbaseOp(t.Context(), b, second) })
+				wg.Wait()
+				if startedChannelClosed(b) && b.State() == StateCreated {
+					t.Fatalf("ops %d/%d: started channel closed although Running was never reached", first, second)
+				}
 			}
 		}
 	}

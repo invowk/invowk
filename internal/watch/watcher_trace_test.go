@@ -29,23 +29,6 @@ func watchRecord(delivered []string, callbacks int, timer string, returned bool)
 	}
 }
 
-// expireRecording marks the timer fired, lets the caller record that state,
-// and only then starts the fire goroutine, so no callback can race the record.
-func (t *afterFuncTimer) expireRecording(tb *testing.T, record func()) <-chan struct{} {
-	tb.Helper()
-	t.mu.Lock()
-	if !t.armed {
-		t.mu.Unlock()
-		tb.Fatal("expire on a timer that is not pending")
-	}
-	t.armed = false
-	t.mu.Unlock()
-	record()
-	done := make(chan struct{})
-	go func() { defer close(done); t.fn() }()
-	return done
-}
-
 // TestWatch_TraceHarness records the skip-if-busy scenario on the real
 // Watcher.Run for trace validation against Watch.tla, plus targeted mutations
 // that validation must reject.
@@ -103,7 +86,7 @@ func TestWatch_TraceHarness(t *testing.T) {
 		mu.Unlock()
 		return nil
 	}
-	scheduler := newAfterFuncScheduler()
+	scheduler := newManualDebounceScheduler()
 	w.schedule = scheduler.Schedule
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -114,23 +97,23 @@ func TestWatch_TraceHarness(t *testing.T) {
 	<-w.Ready()
 
 	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "first.go"), Op: fsnotify.Write}
-	timer := scheduler.waitTimer(t)
+	timer := scheduler.requireTimer(t)
 	setTimer("armed")
-	firstDone := timer.expireRecording(t, func() { setTimer("expired") })
+	firstDone := timer.fireAsyncAfter(func() { setTimer("expired") })
 	<-firstStarted
 
 	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "second.go"), Op: fsnotify.Write}
-	timer.waitResets(t, 1)
+	timer.waitForResetCount(t, 1)
 	setTimer("armed")
-	busyDone := timer.expireRecording(t, func() { setTimer("expired") })
+	busyDone := timer.fireAsyncAfter(func() { setTimer("expired") })
 	<-busyDone
-	timer.waitResets(t, 2)
+	timer.waitForResetCount(t, 2)
 	setTimer("armed")
 
 	close(releaseFirst)
 	<-firstDone
 	record() // CallbackReturn: the first burst is delivered
-	lastDone := timer.expireRecording(t, func() { setTimer("expired") })
+	lastDone := timer.fireAsyncAfter(func() { setTimer("expired") })
 	<-lastDone
 	record() // CallbackReturn: the second burst is delivered
 

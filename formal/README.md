@@ -14,8 +14,8 @@ The OpenSpec change `adopt-formal-verification` owns the plan and its phases.
 | Path | Contents |
 |---|---|
 | `formal/alloy/*.als` | Alloy 6 relational models |
-| `formal/tla/*.tla`, `*.cfg` | TLA+ models checked by TLC, one configuration per command |
-| `formal/manifest.toml` | Pinned tools and every command's expected verdict |
+| `formal/tla/*.tla` | TLA+ models and trace specs; TLC configurations are generated from the manifest |
+| `formal/manifest.toml` | Pinned tools, each model's base constants, and every command's overrides and expected verdict |
 | `scripts/formal.py` | Fail-closed runner (Python standard library only) |
 | `scripts/test_formal.py` | Tests that every fail-closed path fails |
 | `bin/formal/` | Downloaded tool jars (ignored) |
@@ -97,8 +97,11 @@ that treated leaving the loop as returning.
 
 ## Findings
 
-Each finding is a declared counterexample of the current code, next to a fix
-configuration that passes. Fixing one is a separate change.
+Each finding is a command with a `finding` field: a declared counterexample of
+the current code, next to a fix configuration that passes. A finding never
+counts as its property's vacuity guard, so every fixed property also has its
+own seeded mutant that stays after the fix lands. Fixing one is a separate
+change.
 
 | # | Area | Finding | Verdict | Fix the model validates |
 |---|---|---|---|---|

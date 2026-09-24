@@ -85,8 +85,13 @@ jobs:
       - name: Trace validation
         run: make formal-traces
 
+      # Only the model bindings; ci.yml's make test runs the rest of these packages.
       - name: Replay golden vectors and property tests
-        run: go test -count=1 ./internal/app/deps/ ./internal/app/modulesync/ ./internal/container/ ./internal/core/serverbase/ ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkmod/
+        run: >-
+          go test -count=1
+          -run 'Golden|MatchesIntent|MatchesClosure|MatchesModel|_Contract|ConcurrentSafety|FailureAtEveryStep|LockIntegrity_|TestWatch_|TestHostCallbackToken'
+          ./internal/app/deps/ ./internal/app/modulesync/ ./internal/container/ ./internal/core/serverbase/
+          ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkmod/
 
       - name: Deep property tests
         if: github.event_name != 'pull_request'

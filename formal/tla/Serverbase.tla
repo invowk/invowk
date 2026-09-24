@@ -127,7 +127,7 @@ TermBegin(p) == op[p] \in {"Fail", "Stopped"} /\ pc[p] \in {"begin", "fail_lock"
                    startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
 TermRead(p) == pc[p] = "term_read" /\ seen' = [seen EXCEPT ![p] = state]
     /\ cancelRead' = [cancelRead EXCEPT ![p] = ctxCreated]
-    /\ Goto(p, IF state \in Terminal THEN "term_unlock" ELSE "term_store")
+    /\ Goto(p, IF state \in Terminal /\ Mutant /= "no_terminal_check" THEN "term_unlock" ELSE "term_store")
     /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
                    startedCloses, startedByWinner, stopWon, firstTerminal, op>>
 TermStore(p) == pc[p] = "term_store" /\
@@ -188,7 +188,7 @@ StopUnlock(p) == pc[p] = "stop_unlock" /\ Unlock(p) /\ Goto(p, "stop_cancel")
     /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
                    startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
 StopCancel(p) == pc[p] = "stop_cancel"
-    /\ ctxCancelled' = (ctxCancelled \/ cancelRead[p]) /\ Goto(p, "done")
+    /\ ctxCancelled' = (ctxCancelled \/ (cancelRead[p] /\ Mutant /= "stop_skips_cancel")) /\ Goto(p, "done")
     /\ UNCHANGED <<state, mu, ctxCreated, errClosed, errCloseCount, sentAfterClose,
                    startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
 
