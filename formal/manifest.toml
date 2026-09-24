@@ -434,3 +434,94 @@ config = "LockIntegrity_WitnessCalledGood.cfg"
 expect = "counterexample"
 property = "WitnessNeverCalledGood"
 witness = true
+
+[[model]]
+name = "AtomicWrite"
+tool = "tla"
+file = "formal/tla/AtomicWrite.tla"
+calibration = """2026-09-24: under the named POSIX axioms TLC shows finding F3 (no fsync: power \\
+loss can leave an empty lock file even though readers never see partial \\
+content), that fsync(file) alone restores D-Atomic, and that fsync(file) plus \\
+fsync(dir) are needed for D-Commit. The real-filesystem binding detects two \\
+seeded defects (no temp cleanup, rename before write)."""
+
+[[model.command]]
+name = "readersNeverSeePartial"
+config = "AtomicWrite_Readers.cfg"
+expect = "pass"
+property = "ReadersNeverSeePartial"
+
+[[model.command]]
+name = "mutantWriteInPlace"
+config = "AtomicWrite_Readers_MutantInPlace.cfg"
+expect = "counterexample"
+property = "ReadersNeverSeePartial"
+mutant_of = "readersNeverSeePartial"
+
+[[model.command]]
+name = "tempRemovedOnError"
+config = "AtomicWrite_TempRemoved.cfg"
+expect = "pass"
+property = "TempRemovedOnError"
+
+[[model.command]]
+name = "mutantSkipCleanup"
+config = "AtomicWrite_TempRemoved_MutantSkipCleanup.cfg"
+expect = "counterexample"
+property = "TempRemovedOnError"
+mutant_of = "tempRemovedOnError"
+
+# Finding F3: D-Atomic needs fsync(file); D-Commit needs fsync(file) and fsync(dir).
+[[model.command]]
+name = "durableAtomicWithFileSync"
+config = "AtomicWrite_DAtomic_SyncFile.cfg"
+expect = "pass"
+property = "DurableAtomic"
+
+[[model.command]]
+name = "findingF3DurableAtomicCurrent"
+config = "AtomicWrite_DAtomic_Current.cfg"
+expect = "counterexample"
+property = "DurableAtomic"
+mutant_of = "durableAtomicWithFileSync"
+
+[[model.command]]
+name = "durableAtomicDirSyncOnly"
+config = "AtomicWrite_DAtomic_SyncDirOnly.cfg"
+expect = "counterexample"
+property = "DurableAtomic"
+mutant_of = "durableAtomicWithFileSync"
+
+[[model.command]]
+name = "durableCommitWithFullSync"
+config = "AtomicWrite_DCommit_FullSync.cfg"
+expect = "pass"
+property = "DurableCommit"
+
+[[model.command]]
+name = "findingF3DurableCommitCurrent"
+config = "AtomicWrite_DCommit_Current.cfg"
+expect = "counterexample"
+property = "DurableCommit"
+mutant_of = "durableCommitWithFullSync"
+
+[[model.command]]
+name = "durableCommitFileSyncOnly"
+config = "AtomicWrite_DCommit_SyncFileOnly.cfg"
+expect = "counterexample"
+property = "DurableCommit"
+mutant_of = "durableCommitWithFullSync"
+
+[[model.command]]
+name = "witnessCrashAfterReturn"
+config = "AtomicWrite_WitnessCrashAfterReturn.cfg"
+expect = "counterexample"
+property = "WitnessNoCrashAfterReturn"
+witness = true
+
+[[model.command]]
+name = "witnessFailure"
+config = "AtomicWrite_WitnessFailure.cfg"
+expect = "counterexample"
+property = "WitnessNoFailure"
+witness = true
