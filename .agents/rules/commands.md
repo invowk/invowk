@@ -402,6 +402,7 @@ goreleaser release --snapshot --clean
 | `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized golangci-lint, formatter/config checks, agent docs integrity, and the goplint consumer gates (one shared repository audit, baseline, exceptions, full scan, performance smoke) against the pinned analyzer |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
+| `formal-verification.yml` | Weekly schedule, manual dispatch, and PRs touching `formal/` or modelled packages | Check Alloy/TLA+ models, golden freshness, correspondence, and property tests; not a required check until four consecutive green weekly runs |
 | `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |
 | `pgo-benchstat.yml` | Weekly schedule + manual dispatch | Compare `pgo=off` vs `pgo=on` with `benchstat` and upload raw/report artifacts |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |

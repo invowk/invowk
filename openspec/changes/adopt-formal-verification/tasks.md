@@ -107,13 +107,13 @@
 
 ## 8. Phase 3 — CI lane
 
-- [ ] 8.1 Create `.github/workflows/formal-verification.yml`. It runs weekly and on dispatch, executing `make formal` and `make formal-rapid-deep`, using:
+- [x] 8.1 Create `.github/workflows/formal-verification.yml`. It runs weekly and on dispatch, executing `make formal` and `make formal-rapid-deep`, using:
   - `actions/checkout@v7`, `actions/setup-go@v6`, and `actions/setup-java@v6` (Temurin 25, exact patch `java-version`), with a `java -version` check;
   - `permissions: contents: read`, `concurrency`, `timeout-minutes`, and job-level `env:`;
   - `upload-artifact@v7` for `artifacts/formal/` on failure.
-- [ ] 8.2 Add the pull-request job that selects models from the manifest's correspondence paths
+- [x] 8.2 Add the pull-request trigger for `formal/` and modelled packages. It runs the full lane (about 35 s) instead of selecting models, which the spec now states
 - [ ] 8.3 Measure per-model wall time on the first green run, and record the budgets and state counts in the manifest
-- [ ] 8.4 Log rapid seeds on failure in CI and in `make test` output
+- [x] 8.4 Log rapid seeds on failure in CI and in `make test` output
 - [ ] 8.5 **Phase 3 gate:** trace mutations are rejected as declared. The lane stays non-required until four consecutive weekly runs are green
 
 ## 9. Documentation and governance
@@ -132,7 +132,7 @@
   - add `formal-verification` to the rows of the modelled packages.
 
   Cross-link from the `testing` and `go-testing` skills
-- [ ] 9.4 (Phase 1 done: version-pinning jar entries and commands.md targets. Remaining with the phase 3 workflow: the `setup-java` and JDK CI pin, the `ci-update` sync pairs, and the workflow table row.) Update:
+- [x] 9.4 Update:
   - `.agents/rules/version-pinning.md`: Alloy, TLA+ tools, JDK, `setup-java`. rapid is not listed;
   - `.agents/skills/ci-update/SKILL.md`: the sync-pair table;
   - `.agents/rules/commands.md`: targets, Java prerequisite, and the workflow table row.
