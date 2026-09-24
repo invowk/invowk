@@ -54,44 +54,44 @@
 
 ## 4. Phase 2 — Lock-to-content integrity
 
-- [ ] 4.1 Write `formal/tla/LockIntegrity.tla` with its correspondence table. It models:
+- [x] 4.1 Write `formal/tla/LockIntegrity.tla` with its correspondence table. It models:
   - sync (`cacheModule` with and without an existing cache, `knownHashes`);
   - vendor;
   - discovery's per-parent-lock check;
   - attacker actions: edit or downgrade the lock, edit a vendored directory, move a tag, wipe the cache.
-- [ ] 4.2 Add the "loaded content matches a trusted hash" invariant, witness invariants for each attacker action, and declared verdicts for F4, F5, and F6
-- [ ] 4.3 Write replay tests: a v1.0 lock without hashes plus a tampered vendored directory (F4), and a fresh cache with a lock hash and different fetched content via a fake `moduleFetcher` (F5)
-- [ ] 4.4 Add a `FixedCache` configuration mirroring `verify-locked-module-integrity`. It must pass the trusted-hash invariant for the fresh-cache and moved-tag attacker actions. If that change has already merged, the F5 replay test must pass against the current code
+- [x] 4.2 Add the "loaded content matches a trusted hash" invariant, witness invariants for each attacker action, and declared verdicts for F4, F5, and F6
+- [x] 4.3 Write replay tests: a v1.0 lock without hashes plus a tampered vendored directory (F4), and a fresh cache with a lock hash and different fetched content via a fake `moduleFetcher` (F5)
+- [x] 4.4 Add a `FixedCache` configuration mirroring `verify-locked-module-integrity`. It must pass the trusted-hash invariant for the fresh-cache and moved-tag attacker actions. If that change has already merged, the F5 replay test must pass against the current code
 
 ## 5. Phase 2 — Serverbase lifecycle
 
-- [ ] 5.1 Write `formal/tla/Serverbase.tla`. It decomposes every `Load`/`Store`/CAS and every `stateMu` section as the code does. It includes all transitions and `SendError`/`CloseErrChannel`, with two or three callers drawn from all transitions
-- [ ] 5.2 Add these invariants:
+- [x] 5.1 Write `formal/tla/Serverbase.tla`. It decomposes every `Load`/`Store`/CAS and every `stateMu` section as the code does. It includes all transitions and `SendError`/`CloseErrChannel`, with two or three callers drawn from all transitions
+- [x] 5.2 Add these invariants:
   - errCh is closed at most once and never sent to after closing;
   - startedCh is closed once, by the winning CAS;
   - terminal absorption (expected counterexample, F2);
   - the stop-during-start cancellation safety invariant (expected counterexample, F1).
 
   Add `FixedOrdering.cfg`, which must pass, and add rejecting mutants
-- [ ] 5.3 Record in the correspondence table whether `HostAccess.Ensure` and the interactive TUI path can reach F1 and F2
-- [ ] 5.4 Write `internal/core/serverbase/base_rapid_test.go` as a sequential state machine, and list the interleaving-only properties it cannot reach
-- [ ] 5.5 Write a `-race` stress test that asserts only the model's passing invariants and bounds its iterations under `testing.Short()`. List F1 and F2 as model-only evidence unless a deterministic replay is possible
+- [x] 5.3 Record in the correspondence table whether `HostAccess.Ensure` and the interactive TUI path can reach F1 and F2
+- [x] 5.4 Write `internal/core/serverbase/base_rapid_test.go` as a sequential state machine, and list the interleaving-only properties it cannot reach
+- [x] 5.5 Write a `-race` stress test that asserts only the model's passing invariants and bounds its iterations under `testing.Short()`. List F1 and F2 as model-only evidence unless a deterministic replay is possible. F1 and F2 need interleavings inside one transition, so they stay model-only until the fix change adds a seam
 
 ## 6. Phase 2 — SSH tokens, atomic write, watch
 
-- [ ] 6.1 Write `formal/tla/HostCallbackToken.tla`. It models generate, auth, revoke, TTL, the cleanup goroutine, Stop, and the exec success, error, and cancel paths. Add invariants for "no auth after execution ends" and "tokens do not outlive the server" (F7), plus the in-flight-session characterisation
-- [ ] 6.2 Write `internal/sshserver/token_rapid_test.go` as a state machine over the token API
-- [ ] 6.3 Write `formal/tla/AtomicWrite.tla` with the named axioms and four `SyncFile`/`SyncDir` configurations. Check D-Atomic and D-Commit. Readers-never-see-partial must pass. Record F3 for the current-code configuration, and require the full-sync configuration to pass
-- [ ] 6.4 Write `pkg/fspath/atomic_rapid_test.go`, which injects failures at every step through `atomicWriteOps` and checks cleanup or error joining
-- [ ] 6.5 Write `formal/tla/Watch.tla`. It models:
+- [x] 6.1 Write `formal/tla/HostCallbackToken.tla`. It models generate, auth, revoke, TTL, the cleanup goroutine, Stop, and the exec success, error, and cancel paths. Add invariants for "no auth after execution ends" and "tokens do not outlive the server" (F7), plus the in-flight-session characterisation
+- [x] 6.2 Write `internal/sshserver/token_formal_test.go` as a state machine over the token API
+- [x] 6.3 Write `formal/tla/AtomicWrite.tla` with the named axioms and four `SyncFile`/`SyncDir` configurations. Check D-Atomic and D-Commit. Readers-never-see-partial must pass. Record F3 for the current-code configuration, and require the full-sync configuration to pass
+- [x] 6.4 Write `pkg/fspath/atomic_rapid_test.go`, which injects failures at every step through `atomicWriteOps` and checks cleanup or error joining
+- [x] 6.5 Write `formal/tla/Watch.tla`. It models:
   - `time.AfterFunc` `Reset`/`Stop` return values;
   - skip-if-busy re-arm and wait-group accounting;
   - callback errors and channel closure;
   - cancellation, fatal errors, and `Ready`.
 
   Add the safety invariants and `Arrived(e) ~> (Delivered(e) \/ Terminated)`, with fairness on system actions only, plus its fairness-free twin
-- [ ] 6.6 Write the fake-scheduler conformance test against `time.AfterFunc`, then `internal/watch/watcher_rapid_test.go` using `newWithBackend`, a temp directory, a fake backend, and an asynchronous fake scheduler
-- [ ] 6.7 **Phase 2 gate:** every F1–F7 verdict is recorded, with a replay test or a model-only reason. Present the verdicts to the maintainer and record the decision on follow-up fix changes
+- [x] 6.6 Write the fake-scheduler conformance test against `time.AfterFunc`, then the skip-if-busy binding using `newWithBackend`, a temp directory, a fake backend, and an asynchronous fake scheduler (`internal/watch/watcher_formal_test.go`). The existing manual timer always returned false from Reset/Stop, so a conformant fake was added
+- [x] 6.7 **Phase 2 gate:** every F1–F7 verdict is recorded, with a replay test or a model-only reason. Present the verdicts to the maintainer and record the decision on follow-up fix changes
 
 ## 7. Phase 3 — Trace validation
 
