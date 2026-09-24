@@ -259,3 +259,108 @@ witness = true
 [[model.command]]
 name = "golden"
 expect = "instance"
+
+[[model]]
+name = "Serverbase"
+tool = "tla"
+file = "formal/tla/Serverbase.tla"
+calibration = """2026-09-24: TLC reproduces findings F1 and F2 with exactly the interleavings \\
+predicted by reading internal/core/serverbase/base.go (F1: Start CAS, Stop CAS, \\
+Stop reads nil cancel, Start stores ctx; F2: Fail reads Created under the lock, \\
+Stop CASes Created->Stopped lock-free, Fail stores Failed), and both fixed \\
+configurations pass. The sequential rapid binding detects three seeded defects \\
+(Created stop reporting a win, Running without closing the started channel, \\
+Stopped leaving the error channel open)."""
+
+[[model.command]]
+name = "errClosedOnce"
+config = "Serverbase_ErrClosedOnce.cfg"
+expect = "pass"
+property = "ErrClosedAtMostOnce"
+dead_actions = ["RunCloseLoser"]
+
+[[model.command]]
+name = "mutantCloseTwice"
+config = "Serverbase_ErrClosedOnce_MutantCloseTwice.cfg"
+expect = "counterexample"
+property = "ErrClosedAtMostOnce"
+mutant_of = "errClosedOnce"
+
+[[model.command]]
+name = "noSendAfterClose"
+config = "Serverbase_NoSendAfterClose.cfg"
+expect = "pass"
+property = "NoSendAfterClose"
+dead_actions = ["RunCloseLoser"]
+
+[[model.command]]
+name = "mutantSendWithoutCheck"
+config = "Serverbase_NoSendAfterClose_MutantNoCheck.cfg"
+expect = "counterexample"
+property = "NoSendAfterClose"
+mutant_of = "noSendAfterClose"
+
+[[model.command]]
+name = "startedByWinner"
+config = "Serverbase_StartedByWinner.cfg"
+expect = "pass"
+property = "StartedClosedByWinner"
+dead_actions = ["RunCloseLoser"]
+
+[[model.command]]
+name = "mutantCloseStartedUnconditionally"
+config = "Serverbase_StartedByWinner_MutantUnconditional.cfg"
+expect = "counterexample"
+property = "StartedClosedByWinner"
+mutant_of = "startedByWinner"
+
+# Finding F2: the current code violates TerminalAbsorbing; the fix passes.
+[[model.command]]
+name = "terminalAbsorbingFixed"
+config = "Serverbase_TerminalAbsorbing_Fixed.cfg"
+expect = "pass"
+property = "TerminalAbsorbing"
+dead_actions = ["RunCloseLoser"]
+
+[[model.command]]
+name = "findingF2TerminalOverwrite"
+config = "Serverbase_TerminalAbsorbing_Current.cfg"
+expect = "counterexample"
+property = "TerminalAbsorbing"
+mutant_of = "terminalAbsorbingFixed"
+
+# Finding F1: the current code violates StopCancelsContext; the fix passes.
+[[model.command]]
+name = "stopCancelsContextFixed"
+config = "Serverbase_StopCancels_Fixed.cfg"
+expect = "pass"
+property = "StopCancelsContext"
+dead_actions = ["RunCloseLoser", "StartStore"]
+
+[[model.command]]
+name = "findingF1StopDuringStart"
+config = "Serverbase_StopCancels_Current.cfg"
+expect = "counterexample"
+property = "StopCancelsContext"
+mutant_of = "stopCancelsContextFixed"
+
+[[model.command]]
+name = "witnessConcurrentStop"
+config = "Serverbase_WitnessConcurrentStop.cfg"
+expect = "counterexample"
+property = "WitnessNoConcurrentStop"
+witness = true
+
+[[model.command]]
+name = "witnessRunning"
+config = "Serverbase_WitnessRunning.cfg"
+expect = "counterexample"
+property = "WitnessNeverRunning"
+witness = true
+
+[[model.command]]
+name = "witnessStartedClosed"
+config = "Serverbase_WitnessStartedClosed.cfg"
+expect = "counterexample"
+property = "WitnessNeverStartedClosed"
+witness = true

@@ -163,8 +163,13 @@ def validate_manifest(models: list[Model]) -> None:
                         f"{model.name}.{cmd.name}: Alloy check needs an antecedent run command expecting an instance"
                     )
         for cmd in model.commands:
-            if cmd.witness and cmd.expect != VERDICT_INSTANCE:
-                raise FormalError(f"{model.name}.{cmd.name}: a witness must expect an instance")
+            # Alloy witnesses are satisfiable runs; TLC witnesses are invariants ~W
+            # that must be violated, naming W's situation as reachable.
+            witness_verdict = VERDICT_INSTANCE if model.tool == "alloy" else VERDICT_COUNTEREXAMPLE
+            if cmd.witness and cmd.expect != witness_verdict:
+                raise FormalError(f"{model.name}.{cmd.name}: a {model.tool} witness must expect {witness_verdict}")
+            if cmd.witness and model.tool == "tla" and not cmd.property:
+                raise FormalError(f"{model.name}.{cmd.name}: a TLC witness must name its invariant as property")
         if model.tool == "alloy" and not any(c.expect == VERDICT_INSTANCE for c in model.commands):
             raise FormalError(f"{model.name}: Alloy model has no satisfiable (non-vacuity) run command")
         if not model.calibration:

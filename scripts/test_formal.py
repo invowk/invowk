@@ -220,7 +220,7 @@ class ToolAndCorrespondenceTests(unittest.TestCase):
         self.assertIn("not declared in caller.go", formal.check_correspondence([model], root=self.root)[0])
 
     def test_witness_must_expect_instance(self) -> None:
-        with self.assertRaisesRegex(FormalError, "witness must expect an instance"):
+        with self.assertRaisesRegex(FormalError, "alloy witness must expect instance"):
             formal.validate_manifest([alloy_model(*GUARDED, Command("w", "pass", witness=True))])
 
     def test_correspondence_missing_binding_fails(self) -> None:
@@ -238,7 +238,14 @@ class RepositoryManifestTests(unittest.TestCase):
         formal.validate_manifest(models)
         self.assertTrue(models)
         for model in models:
-            formal.cross_check_alloy_source(model, (formal.REPO_ROOT / model.file).read_text())
+            if model.tool == "alloy":
+                formal.cross_check_alloy_source(model, (formal.REPO_ROOT / model.file).read_text())
+            else:
+                spec_dir = (formal.REPO_ROOT / model.file).parent
+                configs = {c.name: (spec_dir / c.config).read_text() for c in model.commands}
+                formal.check_fairness_twins(model, configs)
+                for name, text in configs.items():
+                    formal.check_tlc_config_text(f"{model.name}.{name}", text)
             self.assertTrue(model.calibration, f"{model.name} is uncalibrated")
         self.assertEqual(formal.check_correspondence(models), [])
 
