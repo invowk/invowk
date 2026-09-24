@@ -525,3 +525,67 @@ config = "AtomicWrite_WitnessFailure.cfg"
 expect = "counterexample"
 property = "WitnessNoFailure"
 witness = true
+
+[[model]]
+name = "HostCallbackToken"
+tool = "tla"
+file = "formal/tla/HostCallbackToken.tla"
+calibration = """2026-09-24: TLC shows that no login succeeds after its execution ends, because \\
+every end path revokes the token, and that an open session outlives the \\
+execution that opened it (finding F7) unless revocation closes sessions. The \\
+rapid token binding detects two seeded defects (revoke as a no-op, expiry \\
+ignored)."""
+
+[[model.command]]
+name = "noAuthAfterExecution"
+config = "HostCallbackToken_NoAuthAfterExecution.cfg"
+expect = "pass"
+property = "NoAuthAfterExecution"
+
+[[model.command]]
+name = "mutantNoRevokeOnSuccess"
+config = "HostCallbackToken_NoAuthAfterExecution_MutantNoRevoke.cfg"
+expect = "counterexample"
+property = "NoAuthAfterExecution"
+mutant_of = "noAuthAfterExecution"
+
+[[model.command]]
+name = "noSessionAfterStop"
+config = "HostCallbackToken_NoSessionAfterStop.cfg"
+expect = "pass"
+property = "NoSessionAfterStop"
+
+[[model.command]]
+name = "mutantListenerLeftOpen"
+config = "HostCallbackToken_NoSessionAfterStop_MutantListenerOpen.cfg"
+expect = "counterexample"
+property = "NoSessionAfterStop"
+mutant_of = "noSessionAfterStop"
+
+# Finding F7: sessions outlive their execution unless revocation closes them.
+[[model.command]]
+name = "sessionLifetimeWithRevokeClosing"
+config = "HostCallbackToken_SessionLifetime_Fixed.cfg"
+expect = "pass"
+property = "NoSessionAfterExecution"
+
+[[model.command]]
+name = "findingF7SessionOutlivesExecution"
+config = "HostCallbackToken_SessionLifetime_Current.cfg"
+expect = "counterexample"
+property = "NoSessionAfterExecution"
+mutant_of = "sessionLifetimeWithRevokeClosing"
+
+[[model.command]]
+name = "witnessAuth"
+config = "HostCallbackToken_WitnessAuth.cfg"
+expect = "counterexample"
+property = "WitnessNoAuth"
+witness = true
+
+[[model.command]]
+name = "witnessOverlap"
+config = "HostCallbackToken_WitnessOverlap.cfg"
+expect = "counterexample"
+property = "WitnessNoOverlap"
+witness = true
