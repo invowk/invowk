@@ -62,6 +62,8 @@
 - [x] 4.6 Add the runner's `Proj` field parser: read from `Proj ==` to the next top-level definition, collect `name |->` only at record depth 1, and fail closed when the body is not a record literal. Compare the fields with the recorded `fields`. Add `scripts/test_formal.py` cases for a multi-line `Proj` with `IF/THEN/ELSE` (like WatchTrace), a `Proj` that nests a record and a function constructor `[e \in Execs |-> ...]`, a non-record `Proj`, and a field mismatch.
 - [x] 4.7 Run `make formal-traces` and `snapshot --compare`. Each suite must keep its accepted and rejected counts, and every trace and targeted mutation its verdict.
 
+- [x] 4.8 (Added) Make the TLC coverage parser accept the ` (l c l c)` location suffix TLC prints after the module name for an action whose definition starts with `LET`, and for an unnamed sub-action such as `\/ UNCHANGED vars` inside `Next`. Before this, such an action with zero generated states passed the dead-action check silently (found by `model-concurrent-lock-writes`). Add a `scripts/test_formal.py` case built from a real TLC coverage line. Expected snapshot delta: `Next` joins the zero-coverage list of `LockIntegrity.witnessLoadedGood` and `LockIntegrity.witnessMovedTag`, both counterexample commands that the coverage gate does not apply to; every verdict is unchanged.
+
 ## 5. Serverbase frame refactor
 
 - [x] 5.1 Snapshot the pre-refactor `Serverbase.tla` to `artifacts/formal/serverbase-equiv/ServerbaseOld.tla`, with the module renamed. Do not commit it.
@@ -92,11 +94,11 @@
 
 - [x] 7.1 Final `scripts/formal.py snapshot --compare <baseline>`: every entry must be identical. Then drop format-1 support from `decode_golden`.
 - [x] 7.2 Re-run each model's calibration defects against the regenerated golden files and the trace suites. Every defect listed in the manifest `calibration` records must still be detected.
-- [ ] 7.3 Run `/simplify` on changed Go and Python files.
-- [ ] 7.4 Run `make tidy`, `make license-check`, `make lint`, `make test-scripts` (which includes `python3 scripts/test_formal.py`), and `make check-file-length`.
-- [ ] 7.5 Run `make test` in full, and record the change in `TestScopeConstructionGoldenVectors` wall time (1.47 s before).
-- [ ] 7.6 Run `make formal` and `make formal-traces` end to end.
-- [ ] 7.7 Run `make check-goplint-consumer-routed` and `make check-baseline`, and triage any new findings with the maintainer.
-- [ ] 7.8 Run `make sonar-local`, and record that `make test-cli` and the native-mirror checks do not apply, because no txtar files change.
-- [ ] 7.9 Confirm that `git ls-files artifacts/` lists nothing. The baseline, the staged models, and the equivalence module stay untracked.
+- [x] 7.3 Run `/simplify` on changed Go and Python files.
+- [x] 7.4 Run `make tidy`, `make license-check`, `make lint`, `make test-scripts` (which includes `python3 scripts/test_formal.py`), and `make check-file-length`.
+- [x] 7.5 Run `make test` in full, and record the change in `TestScopeConstructionGoldenVectors` wall time (1.47 s before).
+- [x] 7.6 Run `make formal` and `make formal-traces` end to end.
+- [x] 7.7 Run `make check-goplint-consumer-routed` and `make check-baseline`, and triage any new findings with the maintainer.
+- [x] 7.8 Run `make sonar-local`, and record that `make test-cli` and the native-mirror checks do not apply, because no txtar files change.
+- [x] 7.9 Confirm that `git ls-files artifacts/` lists nothing. The baseline, the staged models, and the equivalence module stay untracked.
 - [ ] 7.10 Run `/learn`.

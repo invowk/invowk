@@ -354,9 +354,14 @@ def render_alloy_commands(model: Model) -> str:
     return "\n\n".join(render_alloy_command(model, cmd) for cmd in model.commands) + "\n"
 
 
+def blank_matches(pattern: str, source: str) -> str:
+    """Replace every match of `pattern` with spaces, keeping line numbers."""
+    return re.sub(pattern, lambda m: re.sub(r"[^\n]", " ", m[0]), source, flags=re.S)
+
+
 def strip_alloy_comments(source: str) -> str:
-    """Blank out `//`, `--`, and `/* ... */` comments, keeping line numbers."""
-    return re.sub(r"/\*.*?\*/|//[^\n]*|--[^\n]*", lambda m: re.sub(r"[^\n]", " ", m[0]), source, flags=re.S)
+    """Blank out `//`, `--`, and `/* ... */` comments."""
+    return blank_matches(r"/\*.*?\*/|//[^\n]*|--[^\n]*", source)
 
 
 def reject_alloy_source_commands(model: Model, source: str) -> None:
@@ -440,7 +445,11 @@ TLC_PROPERTY_RE = re.compile(r"^Error: Temporal properties were violated", re.M)
 TLC_DEADLOCK_RE = re.compile(r"^Error: Deadlock reached", re.M)
 TLC_PASS_RE = re.compile(r"^Model checking completed\. No error has been found\.", re.M)
 TLC_STATES_RE = re.compile(r"^(\d+) states generated, (\d+) distinct states found", re.M)
-TLC_COVERAGE_RE = re.compile(r"^<(\w+) line \d+, col \d+ to line \d+, col \d+ of module \w+>: (\d+):(\d+)", re.M)
+# An action whose definition starts with LET carries the LET body's location
+# as a suffix: `<Dead line 6, col 1 to line 6, col 4 of module Tiny (6 28 6 42)>: 0:0`.
+TLC_COVERAGE_RE = re.compile(
+    r"^<(\w+) line \d+, col \d+ to line \d+, col \d+ of module \w+(?: \([\d ]+\))?>: (\d+):(\d+)", re.M
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -522,19 +531,18 @@ def stage_tla_modules(work: Path, extra: tuple[Path, ...] = ()) -> None:
 # Static checks of TLA+ sources
 
 TLA_DIR = REPO_ROOT / "formal" / "tla"
-# Operators TraceBase.tla defines. Every other module is instantiated or
-# extended next to TraceBase, so none may define one of these names.
-TRACE_BASE_NAMES = ("TraceRecord", "TraceStart", "TraceAdvanceOnChange", "TraceAdvanceAt", "NotFullyConsumed")
+# A top-level operator definition header: `Name ==` or `Name(args) ==`.
+TLA_DEFINITION = r"^(\w+)\s*(?:\([^)]*\))?\s*=="
 
 
 def strip_tla_comments(source: str) -> str:
-    """Blank out `\\*` line comments and `(* ... *)` block comments, keeping line numbers."""
-    return re.sub(r"\(\*.*?\*\)|\\\*[^\n]*", lambda m: re.sub(r"[^\n]", " ", m[0]), source, flags=re.S)
+    """Blank out `\\*` line comments and `(* ... *)` block comments."""
+    return blank_matches(r"\(\*.*?\*\)|\\\*[^\n]*", source)
 
 
 def tla_definitions(source: str) -> list[str]:
     """Names of the top-level operator definitions (`Name ==` or `Name(args) ==`)."""
-    return re.findall(r"^(\w+)\s*(?:\([^)]*\))?\s*==", strip_tla_comments(source), re.M)
+    return re.findall(TLA_DEFINITION, strip_tla_comments(source), re.M)
 
 
 def tla_variables(source: str) -> list[str]:
@@ -546,12 +554,16 @@ def tla_variables(source: str) -> list[str]:
 
 
 def check_tla_sources(tla_dir: Path = TLA_DIR) -> None:
-    """Trace specs build on TraceBase, and no other module shadows its names."""
+    """Trace specs build on TraceBase, and no other module shadows its names.
+
+    Every definition in TraceBase.tla is reserved: trace specs instantiate it
+    next to their model, so a second definition would clash."""
+    reserved = set(tla_definitions((tla_dir / "TraceBase.tla").read_text()))
     for path in sorted(tla_dir.glob("*.tla")):
         if path.name == "TraceBase.tla":
             continue
         source = path.read_text()
-        clashes = [name for name in tla_definitions(source) if name in TRACE_BASE_NAMES]
+        clashes = [name for name in tla_definitions(source) if name in reserved]
         if clashes:
             raise FormalError(f"{path.name}: defines {', '.join(clashes)}, reserved by TraceBase.tla")
         if not path.stem.endswith("Trace"):
@@ -695,27 +707,17 @@ def golden_fingerprint(tools: dict[str, Tool], model: Model) -> str:
     )
 
 
-def golden_header_problems(model: Model, header: dict) -> list[str]:
-    """Java-free freshness: the committed header's format and golden-command
-    digest must match the manifest's current rendering."""
-    fingerprint = header.get("fingerprint", "")
-    problems = []
-    if golden_file_format(header) != GOLDEN_FORMAT:
-        problems.append(f"{model.name}: {model.golden['output']} is format {golden_file_format(header)}, want {GOLDEN_FORMAT}")
-    if f";golden={golden_command_digest(model)}" not in fingerprint:
-        problems.append(
-            f"{model.name}: the golden command in formal/manifest.toml changed since {model.golden['output']} "
-            f"was generated; regenerate with: scripts/formal.py golden {model.name}"
-        )
-    return problems
-
-
-def golden_is_fresh(tools: dict[str, Tool], model: Model) -> bool:
-    target = REPO_ROOT / model.golden["output"]
+def golden_staleness(tools: dict[str, Tool], model: Model) -> str | None:
+    """Java-free freshness: the committed header must carry the fingerprint the
+    current model source, jar, and manifest golden command produce. Returns a
+    message naming the model when it does not."""
+    output = model.golden["output"]
+    target = REPO_ROOT / output
     if not target.exists():
-        return False
-    header = json.loads(gzip.decompress(target.read_bytes()))
-    return header.get("fingerprint") == golden_fingerprint(tools, model)
+        return f"{model.name}: {output} is missing; generate it with: scripts/formal.py golden {model.name}"
+    if read_golden_header(target).get("fingerprint") != golden_fingerprint(tools, model):
+        return f"{model.name}: {output} is stale; regenerate with: scripts/formal.py golden {model.name}"
+    return None
 
 
 def xml_instance(text: str) -> ET.Element:
@@ -866,11 +868,24 @@ def decode_columns(data: dict) -> list[dict]:
     ]
 
 
+GOLDEN_HEADER_KEYS = ("model", "command", "fingerprint", "count")
+
+
+def read_golden(path: Path) -> dict:
+    return json.loads(gzip.decompress(path.read_bytes()))
+
+
+def read_golden_header(path: Path) -> dict:
+    """A golden file's model, command, fingerprint, and count."""
+    data = read_golden(path)
+    return {k: data.get(k) for k in GOLDEN_HEADER_KEYS}
+
+
 def decode_golden(path: Path) -> tuple[dict, list[dict]]:
     """Return a golden file's header (model, command, fingerprint, count) and
     its instances as {"sig": {name: [atoms]}, "rel": {name: [[atoms...]]}}."""
-    data = json.loads(gzip.decompress(path.read_bytes()))
-    header = {k: data[k] for k in ("model", "command", "fingerprint", "count")}
+    data = read_golden(path)
+    header = {k: data[k] for k in GOLDEN_HEADER_KEYS}
     fmt = golden_file_format(header)
     if fmt != GOLDEN_FORMAT:
         raise FormalError(f"{path}: golden format {fmt} is not {GOLDEN_FORMAT}; regenerate with: make formal-golden")
@@ -970,48 +985,34 @@ def proj_fields(spec: str, source: str) -> list[str]:
     `name |->` segments at bracket depth 1, so nested records, function
     constructors, tuples, and multi-line IF/THEN/ELSE values do not count.
     Anything but a record literal fails closed."""
-    code = strip_tla_comments(source)
-    match = re.search(r"^Proj\s*==(.*?)(?=^\w+\s*(?:\([^)]*\))?\s*==|^====|\Z)", code, re.M | re.S)
+    match = re.search(rf"^Proj\s*==(.*?)(?={TLA_DEFINITION}|^====|\Z)", strip_tla_comments(source), re.M | re.S)
     if match is None:
         raise FormalError(f"{spec}: no top-level `Proj ==` definition")
-    body = match[1].strip()
+    # Blank string literals, and turn << >> into single bracket characters.
+    body = re.sub(r'"[^"]*"', '""', match[1].strip()).replace("<<", "(").replace(">>", ")")
     not_record = FormalError(f"{spec}: Proj must be a single record literal [field |-> ..., ...]")
     if not body.startswith("["):
         raise not_record
-    closes = {"]": "[", ")": "(", "}": "{", ">>": "<<"}
-    stack: list[str] = []
-    segments: list[str] = []
-    current: list[str] = []
-    k = 0
-    while True:
-        if k >= len(body):
-            raise FormalError(f"{spec}: unbalanced brackets in Proj")
-        token = body[k:k + 2] if body[k:k + 2] in closes.values() or body[k:k + 2] in closes else body[k]
-        if token == '"':
-            token = body[k:body.index('"', k + 1) + 1]
-        elif token in closes.values():
-            stack.append(token)
-        elif token in closes:
-            if stack.pop() != closes[token]:
-                raise FormalError(f"{spec}: unbalanced brackets in Proj")
-            if not stack:
+    segments, start, depth = [], 1, 0
+    for k, char in enumerate(body):
+        if char in "[({":
+            depth += 1
+        elif char in "])}":
+            depth -= 1
+            if depth == 0:
                 if body[k + 1:].strip():
                     raise not_record
+                segments.append(body[start:k])
                 break
-        if token == "," and stack == ["["]:
-            segments.append("".join(current))
-            current = []
-        elif k > 0:
-            current.append(token)
-        k += len(token)
-    segments.append("".join(current))
-    fields = []
-    for segment in segments:
-        field = re.match(r"\s*(\w+)\s*\|->", segment)
-        if field is None:
-            raise not_record
-        fields.append(field[1])
-    return sorted(fields)
+        elif char == "," and depth == 1:
+            segments.append(body[start:k])
+            start = k + 1
+    else:
+        raise FormalError(f"{spec}: unbalanced brackets in Proj")
+    fields = [re.match(r"\s*(\w+)\s*\|->", segment) for segment in segments]
+    if not all(fields):
+        raise not_record
+    return sorted(field[1] for field in fields)
 
 
 def record_traces(suite: TraceSuite) -> dict[str, int]:
@@ -1212,10 +1213,9 @@ def main(argv: list[str] | None = None) -> int:
             for model in select(models, "alloy", args.models):
                 if not model.golden:
                     continue
-                if not golden_is_fresh(tools, model):
-                    failures.append(
-                        f"{model.name}: {model.golden['output']} is stale; regenerate with: scripts/formal.py golden {model.name}"
-                    )
+                stale = golden_staleness(tools, model)
+                if stale:
+                    failures.append(stale)
                     continue
                 try:
                     export_golden(ensure_tool(tools["alloy"]), tools, model, check=True)

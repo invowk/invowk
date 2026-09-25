@@ -130,16 +130,24 @@ func decode(r io.Reader, stride int) (vectors, []Instance, error) {
 	if err != nil {
 		return vectors{}, nil, err
 	}
+	// Sig values are atom lists, decoded as tuples of arity 1; unwrap each
+	// distinct value once. Instances share these read-only slices.
+	sigAtoms := make(map[string][][]string, len(sigs))
+	for name, col := range sigs {
+		values := make([][]string, len(col.values))
+		for v, tuples := range col.values {
+			values[v] = make([]string, len(tuples))
+			for j, tuple := range tuples {
+				values[v][j] = tuple[0]
+			}
+		}
+		sigAtoms[name] = values
+	}
 	instances := make([]Instance, 0, (vecs.Count+stride-1)/stride)
 	for k := 0; k < vecs.Count; k += stride {
 		inst := Instance{Sig: make(map[string][]string, len(sigs)), Rel: make(map[string][][]string, len(rels))}
 		for name, col := range sigs {
-			// Sig values are atom lists: tuples of arity 1.
-			atoms := make([]string, 0, len(col.values[col.index[k]]))
-			for _, tuple := range col.values[col.index[k]] {
-				atoms = append(atoms, tuple[0])
-			}
-			inst.Sig[name] = atoms
+			inst.Sig[name] = sigAtoms[name][col.index[k]]
 		}
 		for name, col := range rels {
 			inst.Rel[name] = col.values[col.index[k]]

@@ -26,17 +26,15 @@ TraceRecord == IF TraceSet = "accepted" THEN Accepted[TraceIndex] ELSE Rejected[
 \* The initial state matches the first record.
 TraceStart(p) == i = 1 /\ p = TraceRecord[1]
 
-\* Advance when the observable projection changes; stutter otherwise. Every
-\* step that changes the projection must produce the next record.
-TraceAdvanceOnChange(p, q) ==
-    IF q = p THEN i' = i
-    ELSE i < Len(TraceRecord) /\ q = TraceRecord[i + 1] /\ i' = i + 1
-
 \* Advance exactly at settle points, where the projection must match the next
 \* record; stutter otherwise.
 TraceAdvanceAt(settled, q) ==
     IF settled THEN i < Len(TraceRecord) /\ q = TraceRecord[i + 1] /\ i' = i + 1
     ELSE i' = i
+
+\* Advance when the observable projection changes; stutter otherwise. Every
+\* step that changes the projection must produce the next record.
+TraceAdvanceOnChange(p, q) == TraceAdvanceAt(q /= p, q)
 
 NotFullyConsumed == i < Len(TraceRecord)
 ================================================================================

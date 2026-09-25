@@ -226,6 +226,17 @@ class TlcTests(unittest.TestCase):
         dead = Command("c", "pass", dead_actions=("Dead",))
         self.assertEqual(formal.evaluate_tlc_command(tla_model(dead), dead, result), [])
 
+    def test_uncovered_let_action_fails(self) -> None:
+        # Real TLC 1.7.4 output for `Dead == LET y == x + 10 IN x > 5 /\\ x' = y`.
+        output = TLC_PASS.replace(
+            "<Dead line 6, col 1 to line 6, col 4 of module Tiny>: 0:0",
+            "<Dead line 6, col 1 to line 6, col 4 of module Tiny (6 28 6 42)>: 0:0",
+        )
+        result = formal.parse_tlc_output(output)
+        self.assertEqual(result.zero_state_actions, ("Dead",))
+        cmd = Command("c", "pass")
+        self.assertIn("zero generated states: Dead", formal.evaluate_tlc_command(tla_model(cmd), cmd, result)[0])
+
     def test_symmetry_in_liveness_config_fails(self) -> None:
         with self.assertRaisesRegex(FormalError, "SYMMETRY or VIEW"):
             formal.check_tlc_config_text("c", "SPECIFICATION Spec\nPROPERTY Live\nSYMMETRY Perms\n")
@@ -556,25 +567,23 @@ class RepositoryManifestTests(unittest.TestCase):
     def test_golden_headers_match_the_manifest(self) -> None:
         """Java-free freshness: a manifest-only edit of a golden command's body
         or scope must be caught before `make formal` runs."""
-        _tools, models = formal.load_manifest()
+        tools, models = formal.load_manifest()
         golden = [m for m in models if m.golden]
         self.assertTrue(golden)
         for model in golden:
             with self.subTest(model=model.name):
-                header, _ = formal.decode_golden(formal.REPO_ROOT / model.golden["output"])
-                self.assertEqual(formal.golden_header_problems(model, header), [])
+                self.assertIsNone(formal.golden_staleness(tools, model))
 
     def test_manifest_only_golden_scope_edit_fails_the_digest_check(self) -> None:
-        _tools, models = formal.load_manifest()
+        tools, models = formal.load_manifest()
         model = next(m for m in models if m.golden)
-        header, _ = formal.decode_golden(formal.REPO_ROOT / model.golden["output"])
         commands = tuple(
             dataclasses.replace(c, scope="2") if c.name == model.golden["command"] else c for c in model.commands
         )
-        problems = formal.golden_header_problems(dataclasses.replace(model, commands=commands), header)
-        self.assertEqual(len(problems), 1)
-        self.assertIn(f"{model.name}: the golden command in formal/manifest.toml changed", problems[0])
-
+        stale = formal.golden_staleness(tools, dataclasses.replace(model, commands=commands))
+        self.assertEqual(
+            stale, f"{model.name}: {model.golden['output']} is stale; regenerate with: scripts/formal.py golden {model.name}"
+        )
 
 if __name__ == "__main__":
     unittest.main()
