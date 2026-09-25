@@ -204,8 +204,14 @@ test-cli-cover:
 # test, and lint targets do not. scripts/formal.py fetches and SHA-256 verifies
 # the pinned jars into bin/formal/ and fails closed on any unexpected verdict.
 FORMAL_RAPID_CHECKS ?= 10000
-# Packages with pgregory.net/rapid tests (grep -l pgregory.net/rapid).
-FORMAL_RAPID_PACKAGES := ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./internal/core/serverbase/ ./internal/runtime/ ./internal/sshserver/ ./pkg/invowkfile/
+# Derived, not hand-kept: the test files importing pgregory.net/rapid, their
+# packages, and the tests they declare. formal-rapid-deep runs only those
+# tests, so the deep lane does not rerun whole packages (container tests
+# included) that make test already covers. Recursive (=) so the git grep runs
+# only when the target does.
+FORMAL_RAPID_FILES = $(shell git grep -l pgregory.net/rapid -- '*_test.go')
+FORMAL_RAPID_PACKAGES = $(sort $(addprefix ./,$(dir $(FORMAL_RAPID_FILES))))
+FORMAL_RAPID_TESTS = $(shell sed -n 's/^func \(Test[A-Za-z0-9_]*\).*/\1/p' $(FORMAL_RAPID_FILES) | sort -u | paste -sd'|' -)
 .PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep formal-promotion-gate
 formal:
 	python3 scripts/formal.py all
@@ -223,7 +229,7 @@ formal-golden:
 	python3 scripts/formal.py golden
 
 formal-rapid-deep:
-	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 $(FORMAL_RAPID_PACKAGES)
+	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 -run '^($(FORMAL_RAPID_TESTS))$$' $(FORMAL_RAPID_PACKAGES)
 
 # Read-only (GET-only GitHub API): PASS only after four consecutive first-attempt
 # green scheduled runs of the current Formal Verification pipeline on main.

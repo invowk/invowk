@@ -8,13 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
+	"github.com/invowk/invowk/internal/testutil/procgate"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -32,18 +32,11 @@ const (
 )
 
 type (
-	// processGate parks one simulated process at a seam until the test opens it.
-	processGate struct {
-		once    sync.Once
-		reached chan struct{}
-		release chan struct{}
-	}
-
 	// gatedListFetcher parks its process when resolveOne lists versions, which
 	// is the start of the fetch window (resolver_deps.go:114).
 	gatedListFetcher struct {
 		moduleFetcher
-		gate *processGate
+		gate *procgate.Gate
 	}
 
 	// worktreeGateFetcher serves a fixed version list (the real ListVersions
@@ -53,12 +46,7 @@ type (
 	worktreeGateFetcher struct {
 		inner    *GitFetcher
 		versions []SemVer
-		gate     *processGate
-	}
-
-	processOutcome[T any] struct {
-		val T
-		err error
+		gate     *procgate.Gate
 	}
 
 	// concurrentProject is one invowkmod.cue and lock file with dependency a
@@ -71,38 +59,8 @@ type (
 	}
 )
 
-func newProcessGate() *processGate {
-	return &processGate{reached: make(chan struct{}), release: make(chan struct{})}
-}
-
-func (g *processGate) park() {
-	g.once.Do(func() { close(g.reached) })
-	<-g.release
-}
-
-func (g *processGate) open() { close(g.release) }
-
-// awaitParked fails the test if the gated process returns before its seam.
-func awaitParked[T any](t *testing.T, g *processGate, done <-chan processOutcome[T]) {
-	t.Helper()
-	select {
-	case <-g.reached:
-	case o := <-done:
-		t.Fatalf("gated process returned before its seam: %v", o.err)
-	}
-}
-
-func runProcess[T any](fn func() (T, error)) <-chan processOutcome[T] {
-	done := make(chan processOutcome[T], 1)
-	go func() {
-		val, err := fn()
-		done <- processOutcome[T]{val: val, err: err}
-	}()
-	return done
-}
-
 func (f gatedListFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer, error) {
-	f.gate.park()
+	f.gate.Park()
 	return f.moduleFetcher.ListVersions(ctx, gitURL)
 }
 
@@ -113,7 +71,7 @@ func (f *worktreeGateFetcher) ListVersions(context.Context, GitURL) ([]SemVer, e
 func (f *worktreeGateFetcher) Fetch(ctx context.Context, gitURL GitURL, version SemVer) (types.FilesystemPath, GitCommit, error) {
 	repoPath, commit, err := f.inner.Fetch(ctx, gitURL, version)
 	if err == nil && f.gate != nil {
-		f.gate.park()
+		f.gate.Park()
 	}
 	return repoPath, commit, err
 }
@@ -198,13 +156,13 @@ func assertKeys(t *testing.T, what string, got []ModuleRefKey, want ...GitURL) {
 // p1 finish and returns p1's error.
 func (p *concurrentProject) raceFetchWindow(t *testing.T, url GitURL, p1 func(*Resolver) error, p2 func()) error {
 	t.Helper()
-	gate := newProcessGate()
+	gate := procgate.New()
 	r := p.resolver(t, gatedListFetcher{moduleFetcher: p.fetcher(url), gate: gate})
-	done := runProcess(func() (struct{}, error) { return struct{}{}, p1(r) })
-	awaitParked(t, gate, done)
+	done := procgate.Run(func() (struct{}, error) { return struct{}{}, p1(r) })
+	procgate.AwaitParked(t, gate, done)
 	p2()
-	gate.open()
-	return (<-done).err
+	gate.Open()
+	return (<-done).Err
 }
 
 // TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd replays
@@ -351,7 +309,7 @@ func seedSourceClone(t *testing.T, repoDir, cacheDir string, gitURL GitURL) {
 	}
 }
 
-func newWorktreeResolver(t *testing.T, cacheDir string, gate *processGate) *Resolver {
+func newWorktreeResolver(t *testing.T, cacheDir string, gate *procgate.Gate) *Resolver {
 	t.Helper()
 	fetcher := &worktreeGateFetcher{inner: NewGitFetcher(types.FilesystemPath(cacheDir)), versions: []SemVer{"2.0.0", "1.0.0"}, gate: gate}
 	r, err := newResolverWithFetcher(types.FilesystemPath(t.TempDir()), types.FilesystemPath(cacheDir), fetcher)
@@ -382,21 +340,21 @@ func TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent(t *testing.
 
 	cacheDir := t.TempDir()
 	seedSourceClone(t, repoDir, cacheDir, concurrentURLR)
-	gate := newProcessGate()
+	gate := procgate.New()
 	p1 := newWorktreeResolver(t, cacheDir, gate)
-	done := runProcess(func() (*ResolvedModule, error) {
+	done := procgate.Run(func() (*ResolvedModule, error) {
 		return p1.Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^1.0.0"})
 	})
-	awaitParked(t, gate, done)
+	procgate.AwaitParked(t, gate, done)
 
 	v2, err := newWorktreeResolver(t, cacheDir, nil).Add(t.Context(), ModuleRef{GitURL: concurrentURLR, Version: "^2.0.0"})
 	if err != nil {
 		t.Fatalf("P2 Add() error = %v", err)
 	}
-	gate.open()
+	gate.Open()
 	o := <-done
-	if o.err != nil {
-		t.Fatalf("P1 Add() error = %v", o.err)
+	if o.Err != nil {
+		t.Fatalf("P1 Add() error = %v", o.Err)
 	}
 
 	entry := loadLockFileForTest(t, filepath.Join(string(p1.WorkingDir()), LockFileName)).Modules[ModuleRefKey(concurrentURLR)]

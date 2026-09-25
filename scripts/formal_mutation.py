@@ -46,6 +46,7 @@ import sys
 import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import NamedTuple
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -93,8 +94,7 @@ class PlanError(Exception):
     """A fail-closed plan, pre-flight, or triage condition."""
 
 
-@dataclasses.dataclass(frozen=True)
-class Row:
+class Row(NamedTuple):
     model: str
     element: str
     symbol: str
@@ -191,10 +191,6 @@ def go_list_packages(dirs: Iterable[str], root: Path = REPO_ROOT) -> dict[str, s
     return by_dir
 
 
-def union_match(names: Iterable[str]) -> str:
-    return "^(" + "|".join(sorted(set(names))) + ")$"
-
-
 def match_groups(functions: dict[tuple[str, str], dict], decls_by_file: dict[str, list[FuncDecl]]) -> tuple[list[dict], list[str]]:
     """Partition the target files into go-mutesting invocations whose union
     `--match` selects exactly the named functions of every file in them.
@@ -230,7 +226,7 @@ def match_groups(functions: dict[tuple[str, str], dict], decls_by_file: dict[str
                 break
         else:
             groups.append([file])
-    return [{"match": union_match(leaf for f in group for leaf in leaves[f]), "files": group} for group in groups], problems
+    return [{"match": formal.replay_pattern(leaf for f in group for leaf in leaves[f]), "files": group} for group in groups], problems
 
 
 def build_plan(
@@ -240,13 +236,13 @@ def build_plan(
     resolve_packages: Callable[[Iterable[str]], dict[str, str]] | None = None,
 ) -> dict:
     """The formal-bindings plan, or PlanError listing every fail-closed reason."""
-    failures = formal.check_correspondence(models, root=root, suites=suites)
+    declared, declaring_files = test_declarations(root)
+    failures = formal.check_correspondence(models, root=root, suites=suites, files=declaring_files)
     if failures:
         raise PlanError("correspondence check failed:\n  - " + "\n  - ".join(failures))
 
     rows = model_rows(models, root)
-    noted = formal.characterisation_tests([[r.element, r.symbol, r.file, r.binding, r.abstraction] for r in rows])
-    declared, declaring_files = test_declarations(root)
+    noted = formal.characterisation_tests(rows)
     decls_by_file: dict[str, list[FuncDecl]] = {}
     functions: dict[tuple[str, str], dict] = {}
     unbound = []
@@ -444,7 +440,7 @@ def exec_args(plan: dict, original: str, changed: str) -> dict:
         "function": ",".join(f["symbol"] for f in chosen),
         "preflight": line is None,
         "timeout": exec_timeout(plan, file, line is None),
-        "run": "^(" + "|".join(killers) + ")$",
+        "run": formal.replay_pattern(killers),
         "packages": sorted({p for f in chosen for p in f["packages"]}),
     }
 

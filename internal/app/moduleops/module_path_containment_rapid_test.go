@@ -39,7 +39,7 @@ func TestModulePathContainment_Property(t *testing.T) {
 		if err = os.MkdirAll(mod, 0o755); err != nil {
 			rt.Fatalf("mkdir mod: %v", err)
 		}
-		fstree.WriteModuleFiles(t, mod)
+		fstree.WriteModuleFiles(rt, mod)
 		// an ordinary in-module script file, always safe
 		if err = os.WriteFile(filepath.Join(mod, "script.sh"), []byte("echo hi"), 0o644); err != nil {
 			rt.Fatalf("write script: %v", err)

@@ -47,7 +47,7 @@ func TestLockIntegrity_TraceHarness(t *testing.T) {
 		names = append(names, c.name())
 		byName[c.name()] = c
 	}
-	accepted := tlatrace.RecordEach(t, names, func(t *testing.T, name string) []tlatrace.Record {
+	recorded := tlatrace.RecordEach(t, names, func(t *testing.T, name string) []tlatrace.Record {
 		t.Helper()
 		c := byName[name]
 		r := newLockTraceRun(t, fx, c.start)
@@ -58,14 +58,10 @@ func TestLockIntegrity_TraceHarness(t *testing.T) {
 		}
 		return r.rec.Trace()
 	})
-	if accepted == nil {
+	if recorded == nil {
 		return
 	}
-	recorded := make(map[string][]tlatrace.Record, len(names))
-	for i, name := range names {
-		recorded[name] = accepted[i]
-	}
-	tlatrace.WriteSuite(t, "LockIntegrity", tlatrace.Traces{Accepted: accepted, Rejected: lockTraceMutations(t, recorded)})
+	tlatrace.WriteSuite(t, "LockIntegrity", tlatrace.Traces{Accepted: recorded.Accepted(), Rejected: lockTraceMutations(t, recorded)})
 }
 
 // lockTraceCases returns every sequence of up to two operations from the
@@ -126,15 +122,10 @@ func lockTraceCuratedCases() []lockTraceCase {
 // lockTraceMutations edits accepted traces one step at a time into
 // behaviours LockIntegrity.tla forbids. A sibling admitted under a hashless
 // entry is not among them: the base configuration accepts it (open finding F12).
-func lockTraceMutations(t *testing.T, recorded map[string][]tlatrace.Record) [][]tlatrace.Record {
+func lockTraceMutations(t *testing.T, recorded *tlatrace.Recorded) [][]tlatrace.Record {
 	t.Helper()
 	trace := func(st lockTraceInit, ops string) []tlatrace.Record {
-		c := lockTraceCase{start: st, ops: strings.Fields(ops)}
-		tr, ok := recorded[c.name()]
-		if !ok {
-			t.Fatalf("mutation base %q was not recorded", c.name())
-		}
-		return tr
+		return recorded.Base(t, lockTraceCase{start: st, ops: strings.Fields(ops)}.name())
 	}
 	str := tlatrace.Str
 	tamperDiscover := trace(lockTraceDefaultInit, "TamperVendor Discover")

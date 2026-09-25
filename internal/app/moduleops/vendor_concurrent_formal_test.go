@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
+	"github.com/invowk/invowk/internal/testutil/procgate"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -22,14 +23,12 @@ const (
 // vendoring process after it returns, before VendorModules copies anything.
 type lockLoadedGate struct {
 	*modulesync.Resolver
-	reached chan struct{}
-	release chan struct{}
+	gate *procgate.Gate
 }
 
 func (g *lockLoadedGate) LoadDeclaredFromLock(ctx context.Context, reqs []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error) {
 	mods, err := g.Resolver.LoadDeclaredFromLock(ctx, reqs)
-	close(g.reached)
-	<-g.release
+	g.gate.Park()
 	return mods, err
 }
 
@@ -111,33 +110,25 @@ func TestConcurrentEdits_VendorFromStaleLock(t *testing.T) {
 	}
 	v2Hash := writeStaleVendorModule(t, t.TempDir(), "cmds: {} // 2.0.0\n")
 
-	gate := &lockLoadedGate{Resolver: resolver, reached: make(chan struct{}), release: make(chan struct{})}
-	type outcome struct {
-		result *VendorResult
-		err    error
-	}
-	done := make(chan outcome, 1)
-	go func() {
-		_, result, _, vendorErr := vendorDependenciesWithResolver(t.Context(), types.FilesystemPath(workDir), reqs, gate, false, false)
-		done <- outcome{result: result, err: vendorErr}
-	}()
-	select {
-	case <-gate.reached:
-	case o := <-done:
-		t.Fatalf("vendor returned before loading the lock: %v", o.err)
-	}
+	gate := procgate.New()
+	done := procgate.Run(func() (*VendorResult, error) {
+		_, result, _, vendorErr := vendorDependenciesWithResolver(t.Context(), types.FilesystemPath(workDir), reqs,
+			&lockLoadedGate{Resolver: resolver, gate: gate}, false, false)
+		return result, vendorErr
+	})
+	procgate.AwaitParked(t, gate, done)
 
 	saveStaleVendorLock(t, lockPath, staleVendorResolved("2.0.0", "2222222222222222222222222222222222222222", v2Hash))
-	close(gate.release)
+	gate.Open()
 	o := <-done
-	if o.err != nil {
-		t.Fatalf("vendorDependenciesWithResolver() error = %v", o.err)
+	if o.Err != nil {
+		t.Fatalf("vendorDependenciesWithResolver() error = %v", o.Err)
 	}
-	if len(o.result.Vendored) != 1 {
-		t.Fatalf("vendored %d modules, want 1", len(o.result.Vendored))
+	if len(o.Val.Vendored) != 1 {
+		t.Fatalf("vendored %d modules, want 1", len(o.Val.Vendored))
 	}
 
-	vendorPath := o.result.Vendored[0].VendorPath
+	vendorPath := o.Val.Vendored[0].VendorPath
 	final, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
 		t.Fatalf("LoadLockFile() error = %v", err)

@@ -47,6 +47,12 @@ var (
 )
 
 type (
+	// Fataler is the part of *testing.T and *rapid.T a fixture writer needs.
+	Fataler interface {
+		Helper()
+		Fatalf(format string, args ...any)
+	}
+
 	// Kind is the filesystem kind of a node.
 	Kind int
 
@@ -234,7 +240,8 @@ func (b *Built) createLink(t *testing.T, byAtom map[string]Node, n Node) {
 
 // WriteModuleFiles writes the fixed invowkmod.cue and invowkfile.cue into a
 // module root dir; the module id is the directory name before ".invowkmod".
-func WriteModuleFiles(t *testing.T, dir string) {
+// t is a *testing.T or a *rapid.T, so a property check fails its own case.
+func WriteModuleFiles(t Fataler, dir string) {
 	t.Helper()
 	files := map[string]string{
 		"invowkmod.cue":  "module: \"" + strings.TrimSuffix(filepath.Base(dir), ".invowkmod") + "\"\nversion: \"1.0.0\"\n",
