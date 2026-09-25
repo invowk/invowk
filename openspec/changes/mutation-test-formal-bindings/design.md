@@ -1,0 +1,209 @@
+## Context
+
+Each formal model under `formal/` has a header correspondence table with the columns `| model element | Go symbol | file | binding | abstraction |`. `scripts/formal.py correspondence` checks that every named symbol is declared in its file and every named binding test exists. The tables are the only machine-readable statement of which Go code a model claims to describe and which tests bind it.
+
+Mutation testing already exists (`scripts/mutation.sh`, go-mutesting v2.8.3 pinned in `go.mod`). Its `full` profile mutates the packages in `tools/mutation/root-packages.txt`, runs each package's own tests under `-short` with `--coverage --per-test`, and suppresses accepted survivors through `tools/mutation/baselines/root-baseline.json`. `export_rapid_determinism_env` pins `RAPID_SEED=20260924`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME=2s`.
+
+**Landing order.** Per the orchestrator's decision, the changes land in this order:
+1. `formal-infra-refinements`, alone. It adds Alloy commands generated from the manifest, golden format 2, a golden fingerprint that covers the generated golden command, `TraceBase.tla`, the `tlatrace` Recorder and WriteSuite, and a runner that rejects unknown manifest keys.
+2. `trace-validate-token-and-lock`, `model-concurrent-lock-writes`, and `model-module-path-containment`, in parallel.
+3. This change.
+4. `promote-formal-ci-gate`, last.
+
+This change is written against that machinery. Its target set is whatever the correspondence tables name when it is implemented, including the rows and bindings the three model changes add. Nothing in the plan is hard-coded to today's tables.
+
+go-mutesting v2.8.3 facts that shape the design, read from the pinned module source:
+
+1. `--match=<regex>` filters on the bare function name (the receiver is dropped). `--match='^TransitionToStarting$'` selects 11 mutants in `base.go`; `'Base\.TransitionToStarting'` selects none.
+2. The built-in executor runs `go test -overlay=<mutant> <mutated package>` only. With `--per-test` it appends its own `-run` after `--test-flags`, and the last `-run` wins.
+3. `--exec=<cmd>` receives `MUTATE_ORIGINAL`, `MUTATE_CHANGED`, `MUTATE_PACKAGE`, and `MUTATE_TIMEOUT`, and maps exit codes 0/1/2 to killed/escaped/skipped. It forces one worker.
+4. `--noop` is ignored together with `--exec` (`runNoopChecks`, `engine.go:579-582`). Nothing checks the clean-code run unless the wrapper does it.
+5. Mutant IDs are `baseline.MutantID(relFile, mutator, diff)` (`internal/baseline/baseline.go:40-55`): file, mutator, and diff lines only. The IDs do not depend on the executor.
+
+**Baseline measurement, at HEAD 4831f23d, before the sibling changes.** These numbers must be re-measured once the preceding changes have landed (task 2.4):
+- The bound rows cover 14 files and 29 function leaves.
+- A union `--match` dry-run gives 519 candidate mutants, equal to the sum of the per-file counts, so there are no collisions.
+- A binding-only `go test -count=1 -overlay` after a source change takes 1.6 s for `internal/app/deps`, 1.9 s for `pkg/invowkmod` together with its binding packages, and 0.2 s for `internal/core/serverbase`.
+- Only 3 files are bound from another package: `pkg/invowkmod/command_scope.go` (bound only from deps), `pkg/invowkmod/vendored_policy.go` (from deps and invowkmod), and `pkg/invowkmod/lock_integrity.go` (bound only from modulesync).
+- The unbound rows (binding `-`) hold about 387 more candidates.
+
+## Goals / Non-Goals
+
+**Goals:**
+- Measure how much of the code named in the correspondence tables the binding tests alone constrain, per named function.
+- Derive every target, test, and package from the tables so the profile cannot drift from the models.
+- Keep kill and escape status reproducible and honest: clean code must pass its bindings before any mutant counts.
+- Turn every survivor into a classified decision: accept it, defer it with a follow-up, strengthen a binding or the model, or record a defect as a finding.
+- Stay a manual, advisory signal.
+
+**Non-Goals:**
+- A PR gate, a scheduled run, or membership in `make test`.
+- Mutating callees the tables do not name. A helper that matters gets its own row.
+- Running TLC or trace validation per mutant.
+- Product fixes. A defect found through this profile is recorded as a finding only (D7).
+- Sharding or parallel execution (deferred by the orchestrator decision).
+- Changing go-mutesting, or the root `full` profile and its baseline.
+
+## Decisions
+
+### D1. The tables are the only source; the plan is generated at run time
+A new module, `scripts/formal_mutation.py`, imports `correspondence_rows`, `load_manifest`, and `check_correspondence` from `scripts/formal.py`. It keeps the new code out of the heavily edited `formal.py`, as `promote-formal-ci-gate` does with `formal_promotion_gate.py`. Its `plan --out <report-dir>` subcommand emits `formal-plan.json`:
+- `functions`: one entry per named function leaf, with:
+  - its file;
+  - its line range. gofmt'd top-level `func` declarations are found with `^func …name(` and closed by the next `^}`;
+  - the rows (model and element) that name it;
+  - its killer tests and their owning packages. A killer test is a binding name after the exclusions below, located by its `func TestX(` declaration and resolved with `go list` on the declaring directory.
+- `files`: the target files, and `match`: the union regex `^(leaf|…)$`.
+- `unbound`: rows with their reason:
+  - `no-binding`: the binding cell is `-`;
+  - `type-symbol`: the row names a type or interface;
+  - `trace-only`: every binding is a trace harness;
+  - `characterisation-only`: every binding is a characterisation test.
+- `preflight`: per-file clean wall time and the derived timeout (D3a).
+
+Binding names excluded from killer sets:
+- `Test*_TraceHarness`: these skip without `INVOWK_FORMAL_TRACE_DIR` (`tlatrace.go:63`), so they would make every mutant escape.
+- Characterisation or finding-replay tests (D8). These assert today's behaviour, so they are not killers of the property.
+
+The plan fails closed, with a non-zero exit that names the model and row, when:
+1. the union regex matches a function in a target file that no row names for that file (a collision);
+2. a killer test is declared in zero packages or in more than one;
+3. the plan has no function targets;
+4. `check_correspondence` fails, including the completeness guard in D8.
+
+*Alternatives considered:* a committed target list, which is a second source that can drift; and deriving targets from the binding tests' coverage, which is circular. Generating at run time keeps a single source. The plan is copied into the report directory, so a run stays auditable.
+
+### D2. Function-scoped mutation with `--match`, file targets
+The target files are passed together with the single union `--match` regex, and the collision guard in D1 keeps the union exact. Per-file invocations were rejected: each writes its own report, and `--update-baseline` overwrites rather than merges.
+
+### D3. A custom exec runs only the mutated function's bindings, across packages, through an overlay
+`scripts/mutation-formal-exec.sh` does the following for each mutant:
+1. Refuse to run (exit 3) unless `MUTATION_FORMAL_PLAN`, `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME` are set.
+2. Take the first changed line from `diff MUTATE_ORIGINAL MUTATE_CHANGED`, and find the function whose line range contains it. This is well defined because `--match` mutates only inside named function declarations. If no function or file matches, exit 3.
+3. Write an overlay JSON that maps the original file to `MUTATE_CHANGED`. The tracked file is never touched.
+4. Run `go test -count=1 -overlay=<ovl> -timeout <file timeout>s -run '^(<that function's killer tests>)$' <their packages…>`.
+5. Map the result:
+   - pass → 1 (escaped);
+   - a test failure → 0 (killed);
+   - a build or setup failure → 2 (skipped);
+   - a timeout → 0 (killed; the log records it as `timeout-kill`, and the run summary counts these per file);
+   - any other `go` failure → 3 (errored).
+
+Tests run without `-short` (the orchestrator decision; golden vectors replay every instance), without `-race`, and without `--coverage` or `--per-test`, whose coverage comes from the mutated package's own tests.
+
+*Alternatives considered:*
+- The built-in executor with a `-run` filter. It loses the cross-package bindings of 3 of the 14 files: `command_scope.go` and `lock_integrity.go` entirely, and `vendored_policy.go` partly. The 5 modulesync and sshserver files are also outside `root-packages.txt`. `--per-test` would override the filter anyway.
+- Per-file binding unions. Rejected because a test that binds a different function or a different model could kill the mutant. For example, `TestLockIntegrity_HashlessEntryIsRejected` would kill LockIdentity mutants in `verify.go`, which hides per-model gaps and misattributes kills in the ledger.
+
+### D3a. Pre-flight on clean code
+Because `--noop` is ignored with `--exec`, the wrapper runs the exec script once per target file before it invokes go-mutesting, with `MUTATE_CHANGED=MUTATE_ORIGINAL`, and uses `go test -json` for each function's killer set. Every run must:
+- exit 1 (all tests pass);
+- report at least one killer test per function as run and passed (not skipped).
+
+Any other outcome fails the whole profile before a mutant runs. The clean wall time per file is written to `formal-plan.json`. The file's exec timeout is `max(10 s, 5 × clean)`, overridable with `MUTATION_FORMAL_EXEC_TIMEOUT`, and replaces a fixed guess.
+
+### D4. Wiring into `scripts/mutation.sh`
+- Add `--target-set root|formal-bindings` (`MUTATION_TARGET_SET`, default `root`). The usage text and the Makefile help list document `MUTATION_TARGET_SET` and `MUTATION_FORMAL_EXEC_TIMEOUT`.
+- For `formal-bindings`:
+  - `resolve_targets` runs `python3 scripts/formal_mutation.py plan`, then the pre-flight;
+  - the arguments are `--match`, `--exec`, the maximum per-file timeout as `--exec-timeout` (the exec script applies the per-file value itself), `--baseline=tools/mutation/baselines/formal-bindings-baseline.json`, and the logger flags;
+  - reports go to `artifacts/mutation/<profile>/formal-bindings/`;
+  - `pr` rejects the target set;
+  - `dirty_path_is_allowed` gains the new baseline and ledger;
+  - `dry-run` uses the built-in `--dry-run`.
+- Make targets: `mutation-formal-dry-run`, `mutation-formal`, `mutation-formal-baseline-update`, and `mutation-formal-rerun MUTATION_MUTANT_ID=…`. All are advisory by default.
+
+### D5. Determinism and rerun evidence
+- The exec script runs inside the `export_rapid_determinism_env` subshell and enforces all three rapid variables (D3, step 1).
+- `-count=1` disables the result cache.
+- Two tests depend on goroutine scheduling: `TestServerbase_ConcurrentSafetyInvariants` and `TestRevocationRacesAuthenticationSafely`. Each `mutation-formal-rerun` appends `{id, status, timestamp, commit}` to the tracked evidence file `tools/mutation/triage/formal-bindings-reruns.jsonl`.
+- The triage check requires, for every baselined ID, at least two `escaped` rerun records at the current baseline's commit or later. `confirmed_reruns` is therefore derived from recorded evidence, not typed in by hand.
+
+### D6. Separate baseline and a checked triage ledger
+go-mutesting's baseline stores only `{id, file, mutator, line}`. The reasons live in `tools/mutation/triage/formal-bindings.toml`:
+
+```toml
+[[survivor]]
+id = "<stable id>"
+file = "pkg/invowkmod/verify.go"
+symbol = "EvaluateVendoredModuleHash"
+model = "LockIdentity"
+element = "evaluation"
+class = "abstraction"   # equivalent | abstraction | binding-gap | model-gap | defect
+reason = "content hashing abstracted: a single hashed entry is \"compared\""
+follow_up = ""          # required for binding-gap, model-gap (change or task) and defect (finding id)
+```
+
+`python3 scripts/formal_mutation.py triage --check` fails when:
+- the ID sets in the baseline and the ledger differ;
+- `binding-gap` or `model-gap` has no `follow_up`;
+- `defect` has no `follow_up` naming a finding id that exists as a `finding =` command in `formal/manifest.toml`;
+- an `abstraction` reason is not a substring of the abstraction cell of the row identified by `model` and `element`, after collapsing whitespace (quotes are compared literally, as the example shows);
+- an ID lacks two escaped rerun records (D5);
+- an ID recorded as closed (see D7) is missing from its model's `calibration` text.
+
+IDs are identical across executors (Context, fact 5), so this baseline and the root baseline can be compared directly when needed.
+
+The check runs in `make test-scripts` only, through `scripts/test_formal_mutation.py` and a `triage --check` over the committed files, and from `mutation-formal-baseline-update`. It does not join `make formal`, so `promote-formal-ci-gate`'s `[ci] paths` need not cover the two files.
+
+### D7. Survivors feed back into bindings, models, or findings
+Each survivor is resolved in one of these ways:
+1. **binding-gap, closed**: the model states the property, but the binding misses it. Strengthen the Go binding (widen the golden scope, add a generator dimension, or add an assertion). A focused rerun must report the mutant killed. Then append `mutation <id>: <one-line defect>` to the model's `calibration` text, and remove the mutant from the baseline and the ledger. Only a closed record needs to stay checkable, so the ledger keeps a `[[closed]]` table of `{id, model}` that the calibration check reads.
+2. **model-gap, closed**: add a fact or property with its rejecting `mutant_of` command and antecedent, extend the table, regenerate the golden files if the scope changed, and bind it. Then proceed as in step 1.
+3. **binding-gap or model-gap, deferred**: the mutant stays in the ledger with a `follow_up`.
+4. **abstraction**: make sure the row's abstraction cell states the abstraction, then baseline the mutant.
+5. **equivalent**: baseline it with the reason.
+6. **defect**: a strengthened or new binding fails on unmodified code, so the code violates the model's intent. Following the orchestrator decision, record it as a finding under the next free id after those taken by `model-module-path-containment` at landing time (F8–F10, F11–F12, and F13 onward are already allocated). A finding record consists of:
+   - a `finding =` command next to a passing fix configuration;
+   - a Go characterisation test that asserts today's behaviour and is tabled as a characterisation test (D8);
+   - a `formal/README.md` Findings row.
+
+   The strengthened binding that fails is not committed as a failing test. The product fix is deferred to a later change after maintainer approval. The mutant stays in the ledger as `defect`, with `follow_up` set to the finding id.
+
+A survivor whose behaviour is decided by a helper the table does not name is resolved by adding a row, with model-gap rigour, or by an abstraction note on the calling row.
+
+Scope rule for this change's first run (task 7.3): close a gap only when the fix is an assertion or generator change inside an existing binding test. Everything else is deferred with a follow-up.
+
+### D8. Correspondence extensions (in `scripts/formal.py`)
+- **Multi-test cells.** The binding cell may list several tests, separated by commas, and `check_correspondence` validates each. This supersedes the singular "binding test" column wording in the `adopt-formal-verification` requirement (spec scenario; task 1.4).
+- **Completeness guard.** It scans `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, and `*_trace_test.go`:
+  - every `Test*_TraceHarness` must sit in a package declared by a `[[trace]]` suite, and may be tabled;
+  - every other test must appear in some row's binding cell.
+- **Characterisation policy.** A finding-replay or characterisation test asserts today's defective behaviour. It is either tabled on its finding row with an abstraction note that begins `characterisation:`, or named `Test…_Characterisation` / `Test…_FindingF<n>`. Both forms are recognised as characterisation tests and excluded from killer sets (D1).
+- **Tabling after the siblings land.** The guard is run on the tree after the three preceding changes. Every test it reports is tabled. Today's only gaps are `TestScopeConstruction_MatchesIntent` and `TestTidyToFixedPoint_GoldenVectors`; the sibling changes add more.
+- **Golden regeneration.** Whether table edits force golden regeneration depends on the fingerprint defined by `formal-infra-refinements`. If it still hashes the whole `.als` file, run `make formal-golden`; with the jars from `python3 scripts/formal.py fetch` and Java 25, this is local work.
+
+## Risks / Trade-offs
+
+- [Runtime] Today's clean-cost estimate is roughly 519 mutants × 0.2–2.5 s, or 10–25 min on one worker. Timeout-bound mutants add up to N × their file timeout. The 519 candidates include 33 loop-break and select-removal mutants in `Watcher.Run`, the serverbase transitions, `SendError`, and `admitConn`, which are likely to deadlock. The sibling changes add rows, and the containment golden replays build real directory trees for every instance, at an unknown cost. → Mitigation:
+  - the first run records wall time, timeout-kill count per file, and clean cost per package (task 7.1);
+  - the manual job starts with `timeout-minutes: 90`.
+
+  If a full run exceeds that budget, the rule is: raise the job budget, up to the GitHub-hosted limit, and open the deferred sharding follow-up. A per-model `-short` opt-in was considered and **rejected**, because the orchestrator decided that golden replays run without `-short`, so that the full binding strength is what is measured.
+- [Flaky kills or escapes from concurrency tests] → rerun evidence is recorded and required (D5).
+- [Survivors in unbound rows stay invisible] → `unbound-rows.txt` lists each such row with its reason and candidate count. An opt-in `--include-unbound` flag is a possible follow-up.
+- [A later same-name function could be selected by the leaf union] → the collision guard fails closed.
+- [Characterisation tests misclassified as killers] → the naming and abstraction-note convention (D8) plus the completeness guard. A mistabled characterisation test shows up as a mutant killed by a test that asserts buggy behaviour, which triage can spot.
+- [Merge conflicts with the five sibling changes in `scripts/formal.py` and the tables] → the new logic lives in `scripts/formal_mutation.py`; only the D8 extensions touch `formal.py`; the change lands after `formal-infra-refinements` and the three model changes, and before `promote-formal-ci-gate`.
+- [The go-mutesting exec contract changes on upgrade] → `scripts/test_mutation.sh` covers the exec script with fake `go` stubs, and the upgrade checklist re-verifies report contracts.
+
+## Migration Plan
+
+This is additive. After the three preceding changes land:
+1. Table the new tests (D8), then run `make mutation-formal-dry-run`.
+2. Run `make mutation-formal`; the pre-flight must pass.
+3. Rerun each escaped mutant twice.
+4. Triage each mutant (D6, D7), then run `make mutation-formal-baseline-update`.
+5. Commit the baseline, the ledger, and the rerun evidence.
+
+Rollback: remove the target set, the exec script, `formal_mutation.py`, the Make targets, and the tools files. The D8 extensions can stay.
+
+## Open Questions
+
+- Would a future go-mutesting that allows several workers with `--exec` make sharding unnecessary? Tracked with the deferred sharding follow-up.
+
+## Review edits not applied as written
+
+- Review item 5 offered a per-model `-short` opt-in or sharding. I did not add `-short`, because the orchestrator decided that golden replays run without it. Sharding is deferred, and the rule is to raise the job budget and open the follow-up (Risks).
+- Review item 10 offered two options; I chose the evidence file (D5) over a hand-typed `confirmed_reruns`, and dropped that field from the ledger.
+- Review item 11 asked that calibration text list the IDs of closed gaps. Once a closed gap leaves the baseline, the ledger has nothing to check it against, so I added a `[[closed]]` ledger table to hold those IDs (D7).

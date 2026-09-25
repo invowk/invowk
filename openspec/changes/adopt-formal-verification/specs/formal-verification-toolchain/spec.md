@@ -21,7 +21,7 @@ Invowk SHALL acquire every formal-verification tool at an exact pinned version, 
 - **THEN** it SHALL use only modules shipped in the pinned `tla2tools.jar` plus generated trace modules, and SHALL NOT depend on TLA+ CommunityModules
 
 ### Requirement: Fail-closed verdict handling
-Every model command SHALL have a declared expected verdict, recorded both as Alloy's native `expect 0|1` annotation or TLC configuration and in `formal/manifest.toml`. The runner SHALL fail unless the observed verdict matches both. A checker that exits zero without a parseable verdict SHALL be treated as a failure.
+Every model command SHALL have a declared expected verdict in `formal/manifest.toml`. The runner SHALL render each Alloy command, including its native `expect 0|1` bit, and each TLC configuration from the manifest (change `formal-infra-refinements`). It SHALL fail unless the observed verdict matches the manifest. A checker that exits zero without a parseable verdict SHALL be treated as a failure.
 
 #### Scenario: Missing verdict fails the run
 - **WHEN** a checker exits with status 0 but its output has no recognised verdict line
@@ -31,9 +31,9 @@ Every model command SHALL have a declared expected verdict, recorded both as All
 - **WHEN** a command expected to pass produces a counterexample, or a command expected to produce a counterexample passes
 - **THEN** the runner SHALL exit non-zero and keep the counterexample or trace under `artifacts/formal/`
 
-#### Scenario: Manifest and model disagree
-- **WHEN** an Alloy command's `expect` annotation differs from its manifest entry
-- **THEN** the runner SHALL fail before invoking the solver
+#### Scenario: Command declared outside the manifest
+- **WHEN** an Alloy model source declares a `run` or `check` command instead of leaving it to the manifest
+- **THEN** the runner SHALL fail before invoking the solver, as specified by the `formal-infra-refinements` scenario "Command left in the model source"
 
 ### Requirement: Vacuity and coverage guards
 The runner SHALL enforce the following guards for every model:
