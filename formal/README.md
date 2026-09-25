@@ -105,8 +105,8 @@ change.
 
 | # | Area | Finding | Verdict | Fix the model validates |
 |---|---|---|---|---|
-| F1 | serverbase | Stop during Start leaves the server context uncancelled | Counterexample (`Serverbase.findingF1StopDuringStart`); current callers serialise Start and Stop | CAS and context store in one critical section |
-| F2 | serverbase | A terminal state is overwritten: Stopped becomes Failed | Counterexample (`Serverbase.findingF2TerminalOverwrite`) | compare-and-swap from the observed state instead of Store |
+| F1 | serverbase | Stop during Start leaves the server context uncancelled | Fixed: CAS and context store now share one critical section; the pre-fix code is kept as `Serverbase.mutantPreFixF1UnlockedStart` | (shipped) |
+| F2 | serverbase | A terminal state is overwritten: Stopped becomes Failed | Fixed: terminal transitions CAS from the observed state and re-read on failure; the pre-fix code is kept as `Serverbase.mutantPreFixF2BlindStore` | (shipped) |
 | F3 | atomic write | No fsync: power loss can leave an empty lock file | Counterexample (`AtomicWrite.findingF3*`) | fsync(file) for D-Atomic; plus fsync(dir) for D-Commit |
 | F4 | lock integrity | A v1.0 lock without hashes accepts any vendored content | Counterexample (`LockIntegrity.findingF4HashlessLock`); Go replay confirms | reject hashless entries and refetch instead of trusting the cache |
 | F5 | lock integrity | Fresh-cache sync trusted fetched content and rewrote the lock hash | Fixed by #142; `LockIntegrity.f5FixedSync` passes | (shipped) |
