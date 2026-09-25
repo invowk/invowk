@@ -2,12 +2,13 @@
 #
 # goplint baseline — accepted DDD compliance findings
 # Regenerate: make update-baseline
-# Total: 73 findings
+# Total: 75 findings
 
 # Struct fields using nonzero types as value (non-pointer)
 [nonzero-value-field]
 entries = [
     { id = "gpl4_0216b63a59cbce2c61ccd7c5508974864cde92b57ce1b28b96a521026a39bbd2", message = "struct field invowkmod.lockedModuleCUE.ContentHash uses nonzero type ContentHash as value; use *ContentHash for optional fields" },
+    { id = "gpl4_08773370488b02e79d89b1bbe47f5fe31aa0e38d4f411e9f6895fc8084338981", message = "struct field sshserver.tokenConn.commandID uses nonzero type CommandID as value; use *CommandID for optional fields" },
     { id = "gpl4_0fb773fe27b992cb67d31594b8621ec24f5eba97e50e946ef3ea0319d8401225", message = "struct field invowkmod.CommandTarget.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_1af9707afc3df3e5ae8d2db435a537e06f9597bc8832b36982baaffea28b8195", message = "struct field provision.ModuleEntry.CommandNamespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields" },
     { id = "gpl4_1bbba5c7bd0a20b8176a1eafb0660f987c971c94ea829803ffc61467a80504e9", message = "struct field invowkmod.InvalidModuleDirectoryNameError.Value uses nonzero type ModuleDirectoryName as value; use *ModuleDirectoryName for optional fields" },
@@ -34,6 +35,7 @@ entries = [
     { id = "gpl4_634d516b4ba64453b4526197b644215d27c00c9183c0156c94049d3c31375b63", message = "struct field invowkmod.InvalidSemVerError.Value uses nonzero type SemVer as value; use *SemVer for optional fields" },
     { id = "gpl4_6382ec3a318077dedca9f3ad414addf209591c308fca94bcce28c61930bd786d", message = "struct field invowkfile.ModuleMetadata.module uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_65bf4a8b45cb7aa2aed4ee57e17ff1fa0472c99f43a49d3fa9444f182c244923", message = "struct field invowkmod.InvalidModuleNamespaceError.Value uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields" },
+    { id = "gpl4_6fe2c02157ba227a31f545391fa56fd05579ff525e2af5bb6bf4722c87b6bbb1", message = "struct field sshserver.tokenConn.token uses nonzero type TokenValue as value; use *TokenValue for optional fields" },
     { id = "gpl4_74f0c42f16456f4655df07a9c4fa9ed367913434fcae53ffb50761190b7e1c97", message = "struct field modulesync.CanonicalModuleCollisionError.IncomingKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields" },
     { id = "gpl4_75893a587597b0e7283dfa4f4c34f0c75a0fda7864182e8b483338ecd61cc841", message = "struct field invowkmod.LockedModule.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields" },
     { id = "gpl4_7776516e80cccbc4aa2f06622675523cccbaa108e087e744156d388bda3a5ac8", message = "struct field invowkmod.ModuleRequirement.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields" },

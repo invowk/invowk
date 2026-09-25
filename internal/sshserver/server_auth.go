@@ -57,7 +57,7 @@ func (s *Server) ValidateToken(tokenValue TokenValue) (*Token, bool) {
 	}
 
 	if s.clock.Now().After(snapshot.ExpiresAt) {
-		s.RevokeToken(tokenValue)
+		s.dropExpiredToken(tokenValue)
 		return nil, false
 	}
 
@@ -72,11 +72,23 @@ func cloneToken(token *Token) *Token {
 	return &snapshot
 }
 
-// RevokeToken invalidates a token.
+// RevokeToken invalidates a token and closes the connections it
+// authenticated, ending their sessions and the processes they started.
 func (s *Server) RevokeToken(tokenValue TokenValue) {
 	s.tokenMu.Lock()
-	delete(s.tokens, tokenValue)
+	conns := s.revokeLocked(tokenValue)
 	s.tokenMu.Unlock()
+	closeConns(conns)
+}
+
+// dropExpiredToken removes a token whose TTL has passed. Connections it
+// already authenticated stay open until the owning execution revokes it.
+func (s *Server) dropExpiredToken(tokenValue TokenValue) {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	if token, ok := s.tokens[tokenValue]; ok && s.clock.Now().After(token.ExpiresAt) {
+		delete(s.tokens, tokenValue)
+	}
 }
 
 // RevokeTokensForCommand revokes all tokens for a specific command.
@@ -89,13 +101,23 @@ func (s *Server) RevokeTokensForCommand(commandID CommandID) {
 	}
 
 	s.tokenMu.Lock()
-	defer s.tokenMu.Unlock()
-
+	var conns []*tokenConn
 	for tokenValue, token := range s.tokens {
 		if token.CommandID == commandID {
-			delete(s.tokens, tokenValue)
+			conns = append(conns, s.revokeLocked(tokenValue)...)
 		}
 	}
+	// Expired tokens are gone from s.tokens, but their connections are not.
+	for tokenValue, tokenConns := range s.conns {
+		for conn := range tokenConns {
+			if conn.commandID == commandID {
+				conns = append(conns, s.revokeLocked(tokenValue)...)
+			}
+			break // every connection of a token shares its command
+		}
+	}
+	s.tokenMu.Unlock()
+	closeConns(conns)
 }
 
 // GetConnectionInfo returns connection information for a command.
@@ -158,7 +180,14 @@ func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 		s.logger.Warn("Invalid token format", "user", ctx.User(), "error", err)
 		return false
 	}
-	token, valid := s.ValidateToken(tv)
+	// Fail closed: a connection the server cannot close on revocation must
+	// not be authenticated.
+	conn, tracked := ctx.Value(tokenConnContextKey{}).(*tokenConn)
+	if !tracked {
+		s.logger.Warn("Rejecting authentication on an untracked connection", "user", ctx.User())
+		return false
+	}
+	token, valid := s.admitConn(tv, conn)
 	if !valid {
 		s.logger.Warn("Invalid token authentication attempt", "user", ctx.User())
 		return false
