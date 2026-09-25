@@ -10,11 +10,11 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:363-451` | Mitigated |
+| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:363-451`; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial (scoped lifetime + FilterInvowkEnvVars) |
-| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156`; modelled by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks`) | Mitigated |
 | SC-06 | `--ivk-env-var` highest-priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | Custom-check `script.content` host execution | High | `internal/app/deps/checks.go`, `internal/app/commandadapters/dependency_host.go` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452-488` | Mitigated (allowlist in Validate; residual: `filepath.Base` bypass for absolute paths) |
@@ -62,14 +62,14 @@ Review checklist:
 
 **Files:** `internal/app/moduleops/vendor.go`, `pkg/invowkmod/resolver_cache.go` (line 144), `internal/provision/helpers.go` (line 123)
 
-Two different `copyDir` implementations exist with **different symlink handling**:
-- `pkg/invowkmod/resolver_cache.go:copyDir` — **skips symlinks** (lines 164–170, safe)
-- `internal/provision/helpers.go:CopyDir` — **follows symlinks** via `os.ReadDir` (unsafe, SC-05)
+The copy helpers now agree on symlink handling — both **skip inner symlinks**:
+- `internal/app/modulecache/cache.go:copyDir` — skips symlinks (safe)
+- `internal/provision/helpers.go:CopyDir` — skips symlinks via `entry.Type()&os.ModeSymlink` (safe)
 
-A malicious module containing a symlink pointing outside the module boundary (e.g., `ln -s /etc/shadow ./data`) would have that file's content copied into the Docker build context during provisioning.
+Both are bound by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks` fact and the `mutantCopyFollowsLinks` regression mutant) and replayed on a real filesystem by `TestModulePathContainment_GoldenVectors`, which fails if either copy pulls a symlink target's content into the destination. Note both copies still **follow a symlinked source root** (design D3); discovery's `IsModule` Lstat gate is what rejects a symlinked root before a copy runs.
 
 Review checklist:
-- [ ] `internal/provision/helpers.go:CopyDir` checks `d.Type()&os.ModeSymlink` and skips (matching `resolver_cache.go`)
+- [ ] `internal/provision/helpers.go:CopyDir` checks `entry.Type()&os.ModeSymlink` and skips (matching `modulecache.copyDir`)
 - [ ] Vendored module directory names validated (cannot escape `invowk_modules/`)
 - [ ] Module cache directory permissions restrictive (`0o700` or `0o755`)
 - [ ] ZIP archive extraction validates paths via `normalizeZIPPath()` + `validateDestinationPath()`

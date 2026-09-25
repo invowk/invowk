@@ -230,3 +230,26 @@ The orchestrator has answered the earlier questions, and the answers are encoded
 - the unused validators are for the fix change.
 
 Remaining question: do the golden replays share one golden file across three test packages (`moduleops_test`, `invowkfile_test`, `runtime`)? Or should the containment and container-workdir layers get their own small golden commands? Sharing keeps one fingerprint. Splitting keeps each package independent.
+
+## Implementation Record (2026-09-25)
+
+**Pre-flight (1.2/1.3).** Every enforcement point in the table above was re-read at the branch base; no code had moved in a way that changes a decision. Reproductions confirmed F13 (script and custom-check reads through an `invowk_modules/` symlink), F14 (deep missing path through an escaping runtime symlink), and F15 (`workdir: "/"` added to the allowed roots under `restricted`). They also found **F17**: an env file declared as `invowk_modules/x` is read at runtime by `LoadEnvFile` through the same hole. **F16 (junctions)** cannot be reproduced on Linux. Go 1.27's `os.fileStat.mode` reports a mount point as `ModeIrregular`, not `ModeSymlink`, which supports the hypothesis. The Windows-only `TestModulePathContainment_F16Junction` logs the verdict. F16 stays unused, with no manifest `finding`, until Windows CI confirms it.
+
+**Scope deviation (D9).** Exhaustive enumeration of the relational filesystem did not finish within 150 s, even at scope 3. The golden command therefore adds a `goldenScenario` predicate: a canonical single-module layout, case-folding off, junctions off, and no symlinked root. The fixed dimensions are covered by witness commands, the discovery-fact mutants, the rapid properties, and the Windows-gated test. `ModulePathContainment`: scope `exactly 1 Module, exactly 1 Op, 2 Name, exactly 1 Fold, 3 Dir, 1 File, 1 Link` gives 22848 instances (1680 distinct) in 20,994 B. `VirtualPathHarness` is an abstract location model: `exactly 3 Req` with one location of each kind gives 14580 instances in 18,332 B. 4 Req did not finish. The harness model abstracts filesystem locations into read-root, workdir, and outside classes, plus a missing-depth of 0, 1, or 2+. It does not model a full tree.
+
+**Other deviations.** The moduleops golden test is an internal test (`package moduleops`). The containment layer is bound in `pkg/invowkfile` through `export_test.go`. Vendored discovery is bound through `IsModule` and `Load` admission, not the full `discovery.Discovery` API, which needs lock files and declared requires. Unpack, copy, and hash are bound as follows: layer decisions by transcription, physical containment by real `EvalSymlinks`, and copies and hash by a no-escape check against the real `modulecache.CopyModuleDir`, `provision.CopyDir`, and `ComputeModuleHash`. `invowk audit` is not logged per instance. A shared `internal/testutil/mpctree` translator and an `fstree.Cache` avoid duplicating the translation across the three test packages.
+
+**Measured budgets (Linux, for `promote-formal-ci-gate` `budget_seconds`).**
+
+| Replay | Linux |
+|---|---|
+| `TestModulePathContainment_GoldenVectors` | ~2.8 s |
+| `TestModulePathContainment_ContainmentLayerGolden` | ~0.2 s |
+| `TestModulePathContainment_ContainerWorkDirGolden` | ~0.2 s |
+| `TestVirtualPathHarness_GoldenVectors` | ~1.2 s |
+| deep rapid, `TestModulePathContainment_Property` | ~3.1 s |
+| deep rapid, `TestVirtualPathHarness_Property` | ~0.5 s |
+
+The macOS and Windows legs have not been measured yet. They run in CI after the orchestrator merges.
+
+**Calibration (8.1).** Seeded one at a time, then reverted. The containment check removed from `validateScriptPathContainment` fails the containment-layer golden. `modulecache.copyDir` following symlinks fails the copy-escape check. The remaining defects in the spec list are covered by the per-layer golden decisions and the Alloy mutants; they were not each seeded against the real code (see the manifest `calibration`).
