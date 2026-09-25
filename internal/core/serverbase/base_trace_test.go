@@ -28,7 +28,7 @@ func serverbaseRecord(state string, started, errClosed bool) tlatrace.Record {
 // Serverbase.tla, plus targeted mutations that validation must reject.
 func TestServerbase_TraceHarness(t *testing.T) {
 	t.Parallel()
-	dir := tlatrace.Dir(t)
+	tlatrace.Dir(t) // skip before doing any work when trace output is off
 
 	var traces tlatrace.Traces
 	for _, first := range allServerbaseOps {
@@ -52,5 +52,5 @@ func TestServerbase_TraceHarness(t *testing.T) {
 		// Readiness is never signalled before Running.
 		{serverbaseRecord("Created", false, false), serverbaseRecord("Starting", true, false)},
 	}
-	tlatrace.Write(t, dir, "ServerbaseTraces", traces)
+	tlatrace.WriteSuite(t, "Serverbase", traces)
 }

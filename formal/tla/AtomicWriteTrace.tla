@@ -5,25 +5,21 @@
   atomicWriteFile on the real filesystem; a record is written whenever the
   observable projection changes. Every model step that changes the projection
   must produce the next record, so no observable state can be skipped. A
-  trace is ACCEPTED when TLC violates NotFullyConsumed.
+  trace is ACCEPTED when TLC violates NotFullyConsumed (see TraceBase).
 *)
-EXTENDS AtomicWrite, AtomicWriteTraces, Sequences, Naturals
+EXTENDS AtomicWrite, AtomicWriteTraces
 
 CONSTANTS TraceSet, TraceIndex
 
 VARIABLE i
 
-T == IF TraceSet = "accepted" THEN Accepted[TraceIndex] ELSE Rejected[TraceIndex]
+INSTANCE TraceBase
 
 Proj == [tmp |-> tmpVisible, replaced |-> targetInode = "tmp", ok |-> returnedOk, err |-> returnedErr]
 
-TraceInit == Init /\ i = 1 /\ Proj = T[1]
+TraceInit == Init /\ TraceStart(Proj)
 
-TraceNext == Next /\ pc' /= "crashed" /\
-    IF Proj' = Proj THEN i' = i
-    ELSE i < Len(T) /\ Proj' = T[i + 1] /\ i' = i + 1
+TraceNext == Next /\ pc' /= "crashed" /\ TraceAdvanceOnChange(Proj, Proj')
 
 TraceSpec == TraceInit /\ [][TraceNext]_<<vars, i>>
-
-NotFullyConsumed == i < Len(T)
 =============================================================================

@@ -3,7 +3,6 @@
 package fspath
 
 import (
-	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +22,7 @@ func atomicRecord(tmp, replaced, ok, failed bool) tlatrace.Record {
 // against AtomicWrite.tla, plus targeted mutations validation must reject.
 func TestAtomicWrite_TraceHarness(t *testing.T) {
 	t.Parallel()
-	dir := tlatrace.Dir(t)
+	tlatrace.Dir(t) // skip before doing any work when trace output is off
 
 	var traces tlatrace.Traces
 	for _, failAt := range atomicWriteSteps {
@@ -32,19 +31,16 @@ func TestAtomicWrite_TraceHarness(t *testing.T) {
 		if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
 			t.Fatalf("WriteFile() error = %v", err)
 		}
-		var trace []tlatrace.Record
+		var trace tlatrace.Recorder
 		observe := func(ok, failed bool) {
 			content, _ := os.ReadFile(target)
-			rec := atomicRecord(len(tempFilesIn(t, work)) > 0, string(content) == "new", ok, failed)
-			if len(trace) == 0 || !maps.Equal(trace[len(trace)-1], rec) {
-				trace = append(trace, rec)
-			}
+			trace.Observe(atomicRecord(len(tempFilesIn(t, work)) > 0, string(content) == "new", ok, failed))
 		}
 		observe(false, false)
 		err := atomicWriteFile(target, []byte("new"), DefaultFilePerm,
 			injectingAtomicWriteOps(failAt, false, func() { observe(false, false) }))
 		observe(err == nil, err != nil)
-		traces.Accepted = append(traces.Accepted, trace)
+		traces.Accepted = append(traces.Accepted, trace.Trace())
 	}
 	traces.Rejected = [][]tlatrace.Record{
 		// The target cannot be replaced before a temp file exists.
@@ -54,5 +50,5 @@ func TestAtomicWrite_TraceHarness(t *testing.T) {
 		// A failed write never replaces the target.
 		{atomicRecord(false, false, false, false), atomicRecord(true, false, false, false), atomicRecord(false, true, false, true)},
 	}
-	tlatrace.Write(t, dir, "AtomicWriteTraces", traces)
+	tlatrace.WriteSuite(t, "AtomicWrite", traces)
 }

@@ -27,6 +27,7 @@
 | Formal Alloy models | `make formal-alloy` |
 | Regenerate golden vectors | `make formal-golden` |
 | Deep property tests | `make formal-rapid-deep` |
+| Formal before/after snapshot (needs Java) | `python3 scripts/formal.py snapshot [--out FILE] [--compare FILE]` |
 | Mutation dry-run | `make mutation-dry-run` |
 | Mutation PR scan | `make mutation-pr` |
 | Mutation full scan | `make mutation-full` |

@@ -283,3 +283,18 @@ Remaining:
 ## Review dispositions
 
 Every edit in the independent review was applied. None was rejected. For review item 11, the manifest `distinct_states` edit was dropped from task 5.4. State-count equality comes from `snapshot --compare`, and `promote-formal-ci-gate` owns recorded state counts and budgets for passing TLC commands.
+
+## Implementation evidence
+
+Recorded while implementing (no PR exists yet; copy these into the PR description).
+
+- **Baseline.** `scripts/formal.py snapshot` on the merge base 4831f23d plus the subcommand only: 97 commands, 3 trace suites (Serverbase 49/4, AtomicWrite 8/3, Watch 1/3), and 3 golden digests; 351 entries. `snapshot --compare` reported every entry identical after each refinement and at the end.
+- **Golden format 2.** A scratch converter re-encoded the format-1 files with `decode_golden`; each decoded sequence was equal element by element, and a temporary Go test compared the old and new `[]Instance` values with `reflect.DeepEqual` (116928, 25765, and 28858 instances). Regenerating with `make formal-golden` twice was byte-identical to the converted files. Final sizes after the golden-command digest joined the fingerprint: 32,072 / 31,647 / 24,218 bytes compressed (818,509 → 87,937 total); 4.3 MB / 0.5 MB / 0.9 MB decoded.
+- **Duplicates.** The XML of duplicate solution pairs (LockIdentity 1 and 2, ScopeConstruction 0 and 9, DependencyClosure 1 and 5) is byte-identical, so `parse_alloy_xml_instance` drops nothing; the cause is solver state the XML does not show, not skolems. Recorded as a deferred item in `formal/README.md`.
+- **Alloy command drift check.** All 38 rendered commands (18, 13, 7) matched the removed source commands in label, kind, whitespace-normalised body, scope, and expect bit, in the same order. The ordered golden digests are unchanged, so enumeration order did not change and the Risks fallback was not needed.
+- **Golden re-enumeration wall time** under `formal.py golden --check` (input for `promote-formal-ci-gate`): ScopeConstruction 102.7 s, DependencyClosure 16.5 s, LockIdentity 25.1 s. `make formal` went from about 10 s to 2 min 41 s.
+- **TraceBase.** SANY accepts the unnamed `INSTANCE TraceBase` with implicit substitution of `Accepted` and `Rejected`; the explicit `WITH` fallback was not needed.
+- **Serverbase equivalence.** Under all 8 distinct constant assignments used by the manifest commands, TLC confirmed both `Old!Spec => [][New!Next]_vars` and `New!Spec => [][Old!Next]_vars` (585–665 distinct states each). Seeding an over-broad group (`startedVars` instead of `startedByWinner` in `RunClose`) made TLC report "Action property OldStepsAreNewSteps is violated".
+- **Calibration.** All 13 seeded defects of the golden-bound models (ScopeConstruction 5, DependencyClosure 4, LockIdentity 4) are still detected against the format-2 files, under both `go test` and `go test -short`. Trace-suite rejections are part of the snapshot and unchanged.
+- **Timing.** `TestScopeConstructionGoldenVectors` went from 1.47 s to 0.86 s.
+- **Hazard found.** `make test-scripts` runs `scripts/test_mutation.sh`, which restored every uncommitted tracked file under the Go package directories (Go sources and `testdata/`) during this work. Commit before running `make test-scripts`.

@@ -127,44 +127,9 @@ pred rootDeniedProp { all t: Cmd | t.src = RootSrc implies not allowedImpl[t] }
 pred localBranchDeadProp { no t: Cmd | no t.src and no t.mod }
 
 // ---------------------------------------------------------------------------
-// Commands (labels and `expect` annotations are cross-checked with the manifest)
-
-allowedTargetsBounded: check { discoveryFacts implies boundedProp } for 4 but 3 Key, 3 Entry expect 0
-anteBounded: run { discoveryFacts and some t: Cmd | allowedImpl[t] and t != Caller.self } for 4 but 3 Key, 3 Entry expect 1
-
-allowedTargetsComplete: check { discoveryFacts implies completeProp } for 4 but 3 Key, 3 Entry expect 0
-anteComplete: run { discoveryFacts and some t: Cmd | intendedAllowed[t] and t != Caller.self } for 4 but 3 Key, 3 Entry expect 1
-
-rootDenied: check { discoveryFacts implies rootDeniedProp } for 4 but 3 Key, 3 Entry expect 0
-anteRoot: run { discoveryFacts and some t: Cmd | t.src = RootSrc } for 4 but 3 Key, 3 Entry expect 1
-
-localBranchDead: check { discoveryFacts implies localBranchDeadProp } for 4 but 3 Key, 3 Entry expect 0
-anteLocal: run { discoveryFacts } for 4 but 3 Key, 3 Entry expect 1
-
-// Rejecting mutants: each drops one discovery guarantee and must break the property.
-mutantNoSrcUnique: check { discoveryFactsNoSrcUnique implies boundedProp } for 4 but 3 Key, 3 Entry expect 1
-mutantEmptySrc: check { discoveryFactsEmptySrc implies boundedProp } for 4 but 3 Key, 3 Entry expect 1
-mutantRootNotReserved: check { discoveryFactsRootNotReserved implies rootDeniedProp } for 4 but 3 Key, 3 Entry expect 1
-mutantLocalEmptySrc: check { discoveryFactsEmptySrc implies localBranchDeadProp } for 4 but 3 Key, 3 Entry expect 1
-mutantCompleteEmptySrc: check { discoveryFactsEmptySrc implies completeProp } for 4 but 3 Key, 3 Entry expect 1
-
-// Witnesses: situations the model claims to cover must be reachable.
-witnessGlobalChild: run {
-	discoveryFacts
-	some t: Cmd | some t.childOf and allowedImpl[t] and not ownModule[t] and not declaredLocked[t.mod, t.src]
-} for 4 but 3 Key, 3 Entry expect 1
-witnessDirectDependency: run {
-	discoveryFacts
-	some t: Cmd | t not in GlobalCmd and not ownModule[t] and allowedImpl[t]
-} for 4 but 3 Key, 3 Entry expect 1
-witnessDeniedModule: run {
-	discoveryFacts
-	some t: Cmd | some t.mod and not allowedImpl[t]
-} for 4 but 3 Key, 3 Entry expect 1
-witnessSharedModuleID: run {
-	discoveryFacts
-	some disj a, b: Cmd | some a.mod and a.mod = b.mod and allowedImpl[a] and not allowedImpl[b]
-} for 4 but 3 Key, 3 Entry expect 1
+// Golden-vector support. The model declares no commands: every run and check
+// lives in formal/manifest.toml, and scripts/formal.py renders them into a
+// staged copy under artifacts/formal/ScopeConstruction/.
 
 // Atoms that cannot influence a decision only multiply instances; the golden
 // enumeration excludes them. Every excluded atom is unreferenced by any Cmd,
@@ -175,11 +140,3 @@ pred noJunk {
 	Mod in Cmd.mod + Entry.eid
 	Src in Cmd.src + Entry.esrc + RootSrc
 }
-
-// Golden vectors: every instance at a small scope, with the implementation's
-// decision recorded in Caller.allowedSet, replayed against the real Go code.
-golden: run {
-	discoveryFacts
-	Caller.allowedSet = { t: Cmd | allowedImpl[t] }
-	noJunk
-} for 3 but 2 Mod, 3 Src, 1 Key, 1 Entry expect 1
