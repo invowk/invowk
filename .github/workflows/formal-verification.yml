@@ -2,43 +2,28 @@ name: Formal Verification
 
 # Checks the Alloy and TLA+ models under formal/ against their declared
 # verdicts, golden-vector freshness, and model-to-code correspondence.
-# Not a required status check until four consecutive weekly runs are green
-# (see formal/README.md and the adopt-formal-verification OpenSpec change).
+# Not a required status check until `make formal-promotion-gate` reports
+# PASS: four consecutive first-attempt green weekly runs of this pipeline.
+# Making it required is a manual maintainer step; see "Promoting the lane"
+# in formal/README.md. Budgets are documented under "CI budgets" there.
 
 on:
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
+  # No paths filter: the job always runs and reports under the same check
+  # name, so it can be required. `formal.py affected` classifies the diff
+  # against formal/manifest.toml [ci] paths, and unrelated PRs skip every
+  # heavy step.
   pull_request:
     branches: [main]
-    paths:
-      - "formal/**"
-      - "scripts/formal.py"
-      - "scripts/test_formal.py"
-      - ".github/workflows/formal-verification.yml"
-      - "internal/app/deps/**"
-      - "internal/app/modulesync/**"
-      - "internal/app/moduleops/**"
-      - "internal/container/retry*.go"
-      - "internal/core/serverbase/**"
-      - "internal/discovery/**"
-      - "internal/runtime/container_exec.go"
-      - "internal/sshserver/**"
-      - "internal/testutil/alloygolden/**"
-      - "internal/testutil/fstree/**"
-      - "internal/testutil/mpctree/**"
-      - "internal/app/modulecache/**"
-      - "internal/provision/**"
-      - "internal/audit/**"
-      - "internal/runtime/**"
-      - "pkg/invowkfile/**"
-      - "internal/watch/**"
-      - "pkg/fspath/atomic*.go"
-      - "pkg/invowkmod/**"
 
+# Only pull-request runs share a cancellable group. Scheduled and dispatch
+# runs each get a group of their own, so neither an in-progress nor a queued
+# scheduled run is ever cancelled.
 concurrency:
-  group: formal-verification-${{ github.ref }}
-  cancel-in-progress: true
+  group: formal-verification-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -53,60 +38,106 @@ jobs:
   formal:
     name: Models, golden vectors, and correspondence
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Must exceed the sum of the step timeout-minutes plus 3 minutes of setup
+    # and upload (checked by scripts/test_formal.py), so a step timeout fires
+    # first and the upload step still runs.
+    timeout-minutes: 47
+    env:
+      PYTHONUNBUFFERED: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Fails closed: any non-PR event, any error, or an empty output runs the
+      # full lane. The gate (make formal-promotion-gate) keys on this step's name.
+      - name: Classify changed paths
+        id: affected
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" && -n "$BASE_SHA" ]]; then
+            git fetch -q --no-tags --depth=1 origin "$BASE_SHA" || true
+          fi
+          python3 scripts/formal.py affected --event "$GITHUB_EVENT_NAME" --base "$BASE_SHA" --head "$HEAD_SHA" >> "$GITHUB_OUTPUT" \
+            || echo run=true >> "$GITHUB_OUTPUT"
+
       - name: Setup Go
+        if: steps.affected.outputs.run != 'false'
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Setup Java
+        if: steps.affected.outputs.run != 'false'
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ env.FORMAL_JAVA_VERSION }}
 
       - name: Verify Java version
+        if: steps.affected.outputs.run != 'false'
         run: |
           java -version 2>&1 | tee java-version.txt
           grep -q '"25.0.4.1"' java-version.txt
 
       - name: Cache formal tool jars
+        if: steps.affected.outputs.run != 'false'
         uses: actions/cache@v6
         with:
           path: bin/formal
           key: formal-tools-${{ hashFiles('formal/manifest.toml') }}
 
       - name: Fetch and verify pinned tools
+        if: steps.affected.outputs.run != 'false'
         run: python3 scripts/formal.py fetch
 
       - name: Runner self-tests
-        run: python3 scripts/test_formal.py
+        if: steps.affected.outputs.run != 'false'
+        run: |
+          python3 scripts/test_formal.py
+          python3 scripts/test_formal_promotion_gate.py
 
       - name: Check models
+        if: steps.affected.outputs.run != 'false'
+        timeout-minutes: 25
         run: make formal
 
       - name: Trace validation
+        if: steps.affected.outputs.run != 'false'
+        timeout-minutes: 11
         run: make formal-traces
 
-      # Only the model bindings; ci.yml's make test runs the rest of these packages.
+      # The binding tests named in the correspondence tables, minus the trace
+      # harnesses; ci.yml's make test runs the rest of these packages.
+      - name: Plan golden and property replay
+        id: replay
+        if: steps.affected.outputs.run != 'false'
+        run: python3 scripts/formal.py replay-plan --format github >> "$GITHUB_OUTPUT"
+
       - name: Replay golden vectors and property tests
-        run: >-
-          go test -count=1
-          -run 'Golden|MatchesIntent|MatchesClosure|MatchesModel|_Contract|ConcurrentSafety|FailureAtEveryStep|LockIntegrity_|TestWatch_|TestHostCallbackToken|ModulePathContainment|VirtualPathHarness'
-          ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./internal/container/ ./internal/core/serverbase/
-          ./internal/runtime/ ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkfile/ ./pkg/invowkmod/
+        if: steps.affected.outputs.run != 'false'
+        timeout-minutes: 2
+        env:
+          PACKAGES: ${{ steps.replay.outputs.packages }}
+          RUN_PATTERN: ${{ steps.replay.outputs.run }}
+        run: |
+          read -ra packages <<< "$PACKAGES"
+          if [[ ${#packages[@]} -eq 0 || -z "$RUN_PATTERN" ]]; then
+            echo "::error::replay-plan produced no packages or pattern"
+            exit 1
+          fi
+          go test -count=1 -run "$RUN_PATTERN" "${packages[@]}"
 
       - name: Deep property tests
-        if: github.event_name != 'pull_request'
+        if: steps.affected.outputs.run != 'false' && github.event_name != 'pull_request'
+        timeout-minutes: 5
         run: make formal-rapid-deep
 
+      # A step or job timeout cancels the run, so failure() alone would skip this.
       - name: Upload counterexamples and logs
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: formal-artifacts

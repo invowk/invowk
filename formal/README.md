@@ -19,6 +19,7 @@ The OpenSpec change `adopt-formal-verification` owns the plan and its phases.
 | `formal/manifest.toml` | Pinned tools, each model's base constants or default scope, and every command's body or overrides and expected verdict; unknown keys are rejected |
 | `scripts/formal.py` | Fail-closed runner (Python standard library only) |
 | `scripts/test_formal.py` | Tests that every fail-closed path fails |
+| `scripts/formal_promotion_gate.py` | Read-only promotion gate over the lane's scheduled-run history (`make formal-promotion-gate`) |
 | `bin/formal/` | Downloaded tool jars (ignored) |
 | `artifacts/formal/` | Staged Alloy models with rendered commands (`<Model>/<Model>.als`), counterexamples, logs, solutions, and snapshots (ignored) |
 | `*/testdata/formal/*.json.gz` | Golden vectors (format 2) replayed by Go tests |
@@ -34,6 +35,7 @@ make formal-alloy        # Alloy models only
 make formal-golden       # regenerate golden vectors after a model change
 make formal-traces       # trace validation of real-code traces against the models
 make formal-rapid-deep   # property tests with RAPID_CHECKS=10000
+make formal-promotion-gate  # read-only check of the lane's promotion rule
 python3 scripts/test_formal.py
 python3 scripts/formal.py snapshot [--out FILE] [--compare FILE]
 ```
@@ -226,6 +228,93 @@ after copying the modules named by a lock that a concurrent update replaced
 `TestConcurrentEdits_VendorFromStaleLock`). Discovery rejects the stale copy
 against the new lock, so it fails closed. The project mutex fixes it. None of
 the F8, F9, or F10 hypotheses was refuted.
+
+## CI budgets
+
+`.github/workflows/formal-verification.yml` runs on the weekly schedule, on
+dispatch, and on every pull request. Its `Classify changed paths` step runs
+`scripts/formal.py affected`, which answers `run=false` only for a pull request
+whose changed paths match none of `[ci] paths` in `formal/manifest.toml`
+(`fnmatch.fnmatchcase`, where `*` also matches `/`). Every other event, any
+error, an empty diff, and a manifest that does not load or validate answer
+`run=true`. Unrelated pull requests skip Setup Go, Setup Java, and every formal
+step, and still report success under the same check name.
+`scripts/test_formal.py` fails unless `[ci] paths` matches every
+correspondence-table file, binding-test file, trace package, and golden output.
+Code a model depends on that no table names must be added by hand.
+
+The replay step runs the binding tests named in the correspondence tables'
+binding cells, minus the trace harnesses, from `scripts/formal.py replay-plan`.
+
+Budgets have two tiers:
+
+- **Hard:** step `timeout-minutes` on `Check models`, `Trace validation`, the
+  replay step, and `Deep property tests`, each
+  `max(2, ceil(4 x max CI seconds / 60))`. The job `timeout-minutes` must
+  exceed their sum plus 3, which `scripts/test_formal.py` checks, so a step
+  timeout fires first and the upload step (`failure() || cancelled()`) runs.
+- **Soft:** `budget_seconds` on every `[[model]]` and `[[trace]]`, compared
+  with the runner's `timing` lines: a model's summed checker seconds (Alloy
+  commands plus golden re-enumeration, or every TLC command), and a suite's
+  harness run plus every trace check. An overrun prints `WARNING` (and a
+  `::warning::` in CI) and never changes the exit status. `budget_source =
+  "ci"` means `ceil(1.5 x max CI seconds)`; `"local"` is provisional,
+  `ceil(3 x local seconds)`, and gets a `::notice::` in CI. Under Actions the
+  runner appends a timing table to the step summary.
+
+Every TLC command that expects `pass` records `distinct_states`; TLC runs with
+`-workers 1`, so the count is deterministic, and drift warns.
+
+Measurements (2026-09-25; `[ci.budget]` records the run IDs):
+
+| Step | Measured | Hard limit | Source |
+|---|---|---|---|
+| Check models | 369 s (CI run 36180026549, full model set); 173 s local | 25 min | ci |
+| Trace validation | 164 s (CI max over post-sibling PR runs); 25 s local | 11 min | ci |
+| Replay golden vectors and property tests | 19 s (CI max); 3.3 s local | 2 min | ci |
+| Deep property tests | never run in CI; 15.7 s local, assumed 4x slower on a 4-core runner | 5 min | local |
+| Job | | 47 min | Σ steps + 4 |
+
+All soft budgets are still `local`: the pull-request runs above predate the
+runner's per-model `timing` lines. After merge, three `workflow_dispatch` runs
+on `main` re-measure every step and model, and a follow-up sets
+`budget_source = "ci"` (promote-formal-ci-gate task 2.5).
+
+## Promoting the lane
+
+The lane is advisory until the promotion gate passes. The gate reads workflow
+history with GET requests only and never changes repository settings.
+
+1. Run `make formal-promotion-gate`. It passes only when the four most recent
+   scheduled runs on `main` of the current pipeline (runs whose formal job has
+   the `Classify changed paths` step) all succeeded on their first attempt,
+   every heavy step concluded `success` rather than `skipped`, no two counted
+   runs are more than 8 days apart, and the newest is at most 8 days old.
+   `FORMAL_GATE_ARGS="--since YYYY-MM-DD"` adds a creation-date cut-off, and
+   `--json` prints the verdict as JSON.
+2. When it prints PASS, a maintainer adds the context
+   `Models, golden vectors, and correspondence` (source: GitHub Actions) to the
+   required status checks of the "Safety" ruleset (Settings, Rules), next to
+   `goplint consumer gates`. For reference only, the equivalent API call is:
+
+   ```sh
+   gh api -X PUT repos/invowk/invowk/rulesets/12472716 --input - <<'EOF'
+   {"rules": [{"type": "required_status_checks", "parameters": {
+     "strict_required_status_checks_policy": false,
+     "do_not_enforce_on_create": false,
+     "required_status_checks": [
+       {"context": "goplint consumer gates"},
+       {"context": "Models, golden vectors, and correspondence", "integration_id": 15368}]}}]}
+   EOF
+   ```
+
+   The PUT replaces the ruleset's whole `rules` list, so merge in the other
+   rules from a fresh `gh api repos/invowk/invowk/rulesets/12472716` first.
+3. Tick `adopt-formal-verification` task 8.5 with the date and the gate
+   output, and drop the "Not a required status check" comment from the
+   workflow header.
+
+Rollback: remove the context from the ruleset's required status checks.
 
 ## Mutation testing
 

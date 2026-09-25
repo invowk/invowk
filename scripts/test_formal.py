@@ -4,14 +4,20 @@
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import gzip
 import importlib.util
+import io
 import json
+import os
+import re
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 SCRIPT = Path(__file__).with_name("formal.py")
@@ -27,7 +33,8 @@ FormalError = formal.FormalError
 
 
 def alloy_model(*commands: Command, name: str = "M", scope: str = "3") -> Model:
-    return Model(name=name, tool="alloy", file="m.als", commands=commands, calibration="seeded", scope=scope)
+    return Model(name=name, tool="alloy", file="m.als", commands=commands, calibration="seeded", scope=scope,
+                 budget_seconds=10, budget_source="local")
 
 
 GUARDED = (
@@ -73,6 +80,29 @@ class ManifestGuardTests(unittest.TestCase):
     def test_unknown_verdict_fails(self) -> None:
         with self.assertRaisesRegex(FormalError, "unknown expected verdict"):
             formal.validate_manifest([alloy_model(*GUARDED, Command("x", "maybe", body="x"))])
+
+    def test_missing_budget_or_source_fails(self) -> None:
+        cases = {
+            (0, "local"): r"\[\[model\]\] M: budget_seconds must be a positive integer, got 0",
+            (10, ""): r"\[\[model\]\] M: budget_source must be one of \['ci', 'local'\], got ''",
+            (10, "guess"): "got 'guess'",
+        }
+        for (seconds, source), message in cases.items():
+            with self.subTest(seconds=seconds, source=source):
+                model = dataclasses.replace(alloy_model(*GUARDED), budget_seconds=seconds, budget_source=source)
+                with self.assertRaisesRegex(FormalError, message):
+                    formal.validate_manifest([model])
+        suite = formal.TraceSuite(name="T", package="./t/", budget_seconds=5)
+        with self.assertRaisesRegex(FormalError, r"\[\[trace\]\] T: budget_source must be one of"):
+            formal.validate_manifest([alloy_model(*GUARDED)], [suite])
+        formal.validate_manifest([alloy_model(*GUARDED)], [dataclasses.replace(suite, budget_source="ci")])
+
+    def test_passing_tlc_command_without_distinct_states_fails(self) -> None:
+        safe = Command("safe", "pass", property="P")
+        mutant = Command("mut", "counterexample", property="P", mutant_of="safe")
+        with self.assertRaisesRegex(FormalError, "T.safe: a passing TLC command must record distinct_states"):
+            formal.validate_manifest([tla_model(safe, mutant)])
+        formal.validate_manifest([tla_model(dataclasses.replace(safe, distinct_states=7), mutant)])
 
 
 ALLOY_MODEL_SOURCE = """module M
@@ -211,7 +241,7 @@ TLC_VIOLATION = """Error: Invariant NotTwo is violated.
 
 
 def tla_model(*cmds: Command) -> Model:
-    return Model(name="T", tool="tla", file="t.tla", commands=cmds, calibration="seeded")
+    return Model(name="T", tool="tla", file="t.tla", commands=cmds, calibration="seeded", budget_seconds=10, budget_source="ci")
 
 
 class TlcTests(unittest.TestCase):
@@ -257,7 +287,7 @@ class TlcTests(unittest.TestCase):
         formal.check_tlc_config_text("c", "SPECIFICATION Spec\nINVARIANT Safe\nSYMMETRY Perms\n")
 
     def test_liveness_without_fairness_twin_fails(self) -> None:
-        live = Command("live", "pass", property="Live", temporal=True)
+        live = Command("live", "pass", property="Live", temporal=True, distinct_states=3)
         guard = Command("mut", "counterexample", property="Live", mutant_of="live", temporal=True)
         with self.assertRaisesRegex(FormalError, "fairness-free twin"):
             formal.validate_manifest([tla_model(live, guard)])
@@ -266,7 +296,7 @@ class TlcTests(unittest.TestCase):
         formal.validate_manifest([tla_model(live, twin)])
 
     def test_finding_does_not_guard_its_property(self) -> None:
-        fixed = Command("fixed", "pass", property="P")
+        fixed = Command("fixed", "pass", property="P", distinct_states=3)
         finding = Command("current", "counterexample", property="P", mutant_of="fixed", finding="F9")
         with self.assertRaisesRegex(FormalError, "finding records do not count"):
             formal.validate_manifest([tla_model(fixed, finding)])
@@ -560,10 +590,195 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(formal.compare_snapshots(SNAPSHOT, record), ["commands/A.safe/verdict: 'pass' -> '<absent>'"])
 
 
+class TimingTests(unittest.TestCase):
+    def report(self, env: dict[str, str], timings: dict[str, float], budgets: dict) -> tuple[list[str], str]:
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(out):
+            warnings = formal.report_timings(timings, budgets)
+        return warnings, out.getvalue()
+
+    def test_overrun_warns_without_failing(self) -> None:
+        warnings, out = self.report({}, {"M": 12.34, "trace/T": 1.0}, {"M": (10, "ci"), "trace/T": (5, "local")})
+        self.assertEqual(warnings, ["M took 12.3s, over its 10s soft budget (ci)"])
+        self.assertIn("timing M 12.3s budget 10s (ci)\n", out)
+        self.assertIn("timing trace/T 1.0s budget 5s (local)\n", out)
+        self.assertIn("WARNING: M took 12.3s", out)
+        self.assertNotIn("::", out)  # annotations only under GitHub Actions
+
+    def test_github_annotations_and_step_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = Path(tmp) / "summary.md"
+            env = {"GITHUB_ACTIONS": "true", "GITHUB_STEP_SUMMARY": str(summary)}
+            _warnings, out = self.report(env, {"M": 12.0, "L": 1.0}, {"M": (10, "ci"), "L": (5, "local")})
+            table = summary.read_text()
+        self.assertIn("::warning title=Formal soft budget::M took 12.0s", out)
+        self.assertIn("::notice title=Provisional formal budget::L: budget 5s is provisional", out)
+        self.assertNotIn("::notice title=Provisional formal budget::M", out)
+        self.assertIn("| `M` | 12.0 | 10 | ci | over budget |", table)
+        self.assertIn("| `L` | 1.0 | 5 | local | ok |", table)
+
+    def test_add_time_sums_per_label(self) -> None:
+        timings: dict[str, float] = {}
+        formal.add_time(timings, "M", 1.5)
+        formal.add_time(timings, "M", 2.0)
+        formal.add_time(None, "M", 9.0)  # no collector: ignored
+        self.assertEqual(timings, {"M": 3.5})
+
+
+def no_git(_base: str, _head: str) -> list[str]:
+    raise AssertionError("affected must not diff for this event")
+
+
+class AffectedTests(unittest.TestCase):
+    def affected(self, event: str, diff=no_git, manifest: Path = formal.MANIFEST, base: str = "b", head: str = "h") -> str:
+        with contextlib.redirect_stderr(io.StringIO()):
+            return formal.affected(event, base, head, manifest=manifest, diff=diff)
+
+    def test_non_pull_request_events_run_without_git(self) -> None:
+        for event in ("schedule", "workflow_dispatch", "push", ""):
+            with self.subTest(event=event):
+                self.assertEqual(self.affected(event), "run=true")
+
+    def test_match_and_miss(self) -> None:
+        self.assertEqual(self.affected("pull_request", lambda b, h: ["README.md", "internal/sshserver/server.go"]), "run=true")
+        self.assertEqual(self.affected("pull_request", lambda b, h: ["README.md", "website/docs/intro.md"]), "run=false")
+        # fnmatchcase: no case folding, and `*` crosses `/`.
+        self.assertEqual(self.affected("pull_request", lambda b, h: ["FORMAL/manifest.toml"]), "run=false")
+        self.assertEqual(self.affected("pull_request", lambda b, h: ["internal/container/retry/x.go"]), "run=true")
+
+    def test_empty_diff_runs(self) -> None:
+        self.assertEqual(self.affected("pull_request", lambda b, h: []), "run=true")
+
+    def test_bad_sha_runs_the_full_lane(self) -> None:
+        self.assertEqual(self.affected("pull_request", formal.changed_paths, base="0" * 40, head="HEAD"), "run=true")
+        self.assertEqual(self.affected("pull_request", formal.changed_paths, base="", head="HEAD"), "run=true")
+
+    def test_malformed_manifest_runs_the_full_lane(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            broken = Path(tmp) / "manifest.toml"
+            for text in ("[ci\npaths = [", '[ci]\npaths = ["docs/**"]\n[[model]]\nname = "M"\ntool = "alloy"\nfiel = "x"\n',
+                         '[ci]\npaths = []\n'):
+                with self.subTest(text=text):
+                    broken.write_text(text)
+                    self.assertEqual(self.affected("pull_request", lambda b, h: ["docs/x.md"], manifest=broken), "run=true")
+
+    def test_main_prints_run_and_exits_zero_before_validation(self) -> None:
+        out = io.StringIO()
+        with mock.patch.object(formal, "load_manifest", side_effect=AssertionError("validated")), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = formal.main(["affected", "--event", "schedule"])
+        self.assertEqual((code, out.getvalue()), (0, "run=true\n"))
+
+
+class ReplayPlanTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        for rel, tests in {"a/a_test.go": ["TestA", "TestM_TraceHarness"], "b/c/b_test.go": ["TestB"],
+                           "a/testdata/x_test.go": ["TestIgnored"]}.items():
+            (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / rel).write_text("package x\n\n" + "".join(f"func {t}(t *testing.T) {{}}\n" for t in tests))
+
+    def plan(self, binding: str) -> tuple[list[str], list[str]]:
+        (self.root / "m.als").write_text(f"// | e | `S` | `a/a.go` | {binding} | - |\n")
+        return formal.replay_plan([alloy_model(*GUARDED)], root=self.root)
+
+    def test_comma_separated_cells_and_trace_harnesses(self) -> None:
+        packages, tests = self.plan("TestB, `TestA`, TestM_TraceHarness")
+        self.assertEqual((packages, tests), (["./a/", "./b/c/"], ["TestA", "TestB"]))
+        self.assertEqual(formal.replay_pattern(tests), "^(TestA|TestB)$")
+        self.assertEqual(self.plan("-"), ([], []))
+
+    def test_unknown_test_fails_naming_model_and_row(self) -> None:
+        for binding in ("TestA, TestGone", "TestIgnored"):
+            with self.subTest(binding=binding):
+                with self.assertRaisesRegex(FormalError, r"M: row 'e' names binding test 'Test(Gone|Ignored)', which no _test.go file declares"):
+                    self.plan(binding)
+
+
+WORKFLOW = formal.REPO_ROOT / ".github" / "workflows" / "formal-verification.yml"
+# Tests the pre-change hand-written replay regex missed.
+PREVIOUSLY_UNREPLAYED = (
+    "TestSyncFreshCacheRejectsChangedContent", "TestSyncRejectsRepointedTag", "TestSyncExistingCacheRejectsTamperedContent",
+    "TestRevokeTokenClosesAuthenticatedConnection", "TestRevocationRacesAuthenticationSafely",
+)
+
+
+class CiContractTests(unittest.TestCase):
+    """The repository's [ci] paths, replay plan, and workflow timeouts."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tools, cls.models = formal.load_manifest()
+        cls.patterns = formal.ci_paths()
+        cls.rows = [(m, row) for m in cls.models for row in formal.correspondence_rows((formal.REPO_ROOT / m.file).read_text())]
+        cls.files = formal.test_function_files(formal.REPO_ROOT)
+
+    def assert_covered(self, kind: str, paths: set[str]) -> None:
+        self.assertTrue(paths, kind)
+        missing = sorted(p for p in paths if not formal.matches_ci_paths(p, self.patterns))
+        self.assertEqual(missing, [], f"[ci] paths do not match these {kind}")
+
+    def test_ci_paths_cover_correspondence_files(self) -> None:
+        self.assert_covered("correspondence files", {row[2] for _m, row in self.rows if row[2] not in {"", "-"}} | {m.file for m in self.models})
+
+    def test_ci_paths_cover_binding_test_files(self) -> None:
+        tests = {t for _m, row in self.rows for t in formal.binding_tests(row[3])}
+        self.assert_covered("binding-test files", {p.as_posix() for t in tests for p in self.files.get(t, [])})
+
+    def test_ci_paths_cover_trace_packages(self) -> None:
+        packages = {os.path.normpath(s.package).replace(os.sep, "/") + "/**" for s in formal.load_trace_suites()}
+        self.assert_covered("normalised trace packages", packages)
+
+    def test_ci_paths_cover_golden_outputs(self) -> None:
+        self.assert_covered("golden outputs", {str(m.golden["output"]) for m in self.models if m.golden})
+
+    def test_replay_plan_covers_every_binding_test(self) -> None:
+        packages, tests = formal.replay_plan(self.models, files=self.files)
+        pattern = re.compile(formal.replay_pattern(tests))
+        for _model, row in self.rows:
+            for test in formal.binding_tests(row[3]):
+                if formal.is_trace_harness(test):
+                    self.assertIsNone(pattern.match(test), test)
+                    continue
+                self.assertTrue(pattern.match(test), test)
+                for path in self.files[test]:
+                    self.assertIn(formal.go_package(path), packages, test)
+        for test in PREVIOUSLY_UNREPLAYED:
+            self.assertIn(test, tests)
+
+    def test_budget_record_counts_every_command(self) -> None:
+        data = tomllib.loads(formal.MANIFEST.read_text())
+        self.assertEqual(data["ci"]["budget"]["command_count"], sum(len(m.commands) for m in self.models))
+
+    def test_workflow_job_timeout_covers_step_timeouts(self) -> None:
+        text = WORKFLOW.read_text()
+        job = re.search(r"^    timeout-minutes: (\d+)$", text, re.M)
+        steps = {name: int(minutes) for name, minutes in
+                 re.findall(r"^      - name: (.+)\n(?:        (?!timeout-minutes).*\n)*?        timeout-minutes: (\d+)$", text, re.M)}
+        self.assertIsNotNone(job)
+        self.assertEqual(
+            sorted(steps), ["Check models", "Deep property tests", "Replay golden vectors and property tests", "Trace validation"]
+        )
+        self.assertGreater(int(job[1]), sum(steps.values()) + 3, steps)
+
+    def test_workflow_replays_the_generated_plan(self) -> None:
+        text = WORKFLOW.read_text()
+        self.assertIn("python3 scripts/formal.py replay-plan --format github", text)
+        self.assertNotIn("paths:", text.split("concurrency:")[0])
+        heavy = ("Setup Go", "Setup Java", "Cache formal tool jars", "Fetch and verify pinned tools", "Runner self-tests",
+                 "Check models", "Trace validation", "Replay golden vectors and property tests", "Deep property tests")
+        for name in heavy:
+            with self.subTest(step=name):
+                block = text.split(f"      - name: {name}\n", 1)[1].split("\n      - name: ", 1)[0]
+                self.assertIn("if: steps.affected.outputs.run != 'false'", block)
+
+
 class RepositoryManifestTests(unittest.TestCase):
     def test_repository_manifest_is_valid(self) -> None:
         _tools, models = formal.load_manifest()
-        formal.validate_manifest(models)
+        formal.validate_manifest(models, formal.load_trace_suites())
         self.assertTrue(models)
         for model in models:
             if model.tool == "alloy":

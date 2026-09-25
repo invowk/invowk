@@ -77,6 +77,17 @@ tool or a model.
    confirm the bindings fail. Record the result in the manifest's
    `calibration`. If a defect survives, widen the golden scope before trusting
    the model.
+8. **Budget and wire into CI.** Every `[[model]]` and `[[trace]]` needs
+   `budget_seconds` and `budget_source`: use `budget_source = "local"` with
+   `ceil(3 x local seconds)` (read the runner's `timing` lines) until CI
+   dispatch runs measure it. Every TLC command that expects `pass` needs
+   `distinct_states` (deterministic under `-workers 1`; read the `states`
+   lines). Add every newly modelled file or package to `formal/manifest.toml`
+   `[ci] paths`; `scripts/test_formal.py` fails when a table file, binding-test
+   file, trace package, or golden output is not matched. The CI replay step
+   runs `scripts/formal.py replay-plan`, generated from the binding cells
+   (comma-separated, trace harnesses excluded), so a new binding test only
+   needs its table row. See "CI budgets" in `formal/README.md`.
 
 ## TLA+ commands
 
