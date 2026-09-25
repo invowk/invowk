@@ -231,7 +231,7 @@ func VerifyLockedVendoredModuleHash(moduleKey ModuleRefKey, locked LockedModule,
 		return fmt.Errorf("missing vendored module metadata for lock entry %s", moduleKey)
 	}
 	if locked.ContentHash == "" {
-		return nil
+		return &LockEntryWithoutContentHashError{ModuleKey: moduleKey}
 	}
 
 	evaluation := EvaluateModuleContentHash(moduleKey, module.Metadata.Module, module.Path, locked.ContentHash)

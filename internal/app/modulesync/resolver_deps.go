@@ -137,10 +137,14 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, locked map[Mod
 	// tag never reaches the module cache; cacheModule then verifies the content
 	// hash on both the cached and the fresh-copy paths.
 	var expectedHash ContentHash
+	refetch := false
 	if entry, ok := locked[req.Key()]; ok {
 		if expectedHash, err = entry.ExpectedContentHash(req.Key(), resolvedVersion, commit); err != nil {
 			return nil, err
 		}
+		// A locked version without a content hash (v1.0 lock) cannot vouch for
+		// a cached copy, so the verified-commit fetch replaces it (finding F4).
+		refetch = entry.ResolvedVersion == resolvedVersion && entry.ContentHash == ""
 	}
 
 	// Select the source module before deriving namespace or cache identity.
@@ -157,6 +161,11 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, locked map[Mod
 	cachePath, err := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path), sourceModule.metadata.Module)
 	if err != nil {
 		return nil, err
+	}
+	if refetch {
+		if removeErr := os.RemoveAll(cachePath); removeErr != nil {
+			return nil, fmt.Errorf("failed to drop unverifiable cached copy %s: %w", cachePath, removeErr)
+		}
 	}
 	contentHash, err := m.cacheModule(string(sourceModule.Path()), cachePath, req.Key(), resolvedVersion, expectedHash)
 	if err != nil {

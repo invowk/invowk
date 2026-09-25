@@ -105,10 +105,10 @@ func TestVendorModules_CanonicalCollisionFails(t *testing.T) {
 
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*invowkmod.ResolvedModule{
+		Modules: hashed(t, []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(cache1), Namespace: "dep@1.0.0", ModuleID: "io.example.dep"},
 			{CachePath: types.FilesystemPath(cache2), Namespace: "dep@2.0.0", ModuleID: "io.example.dep"},
-		},
+		}),
 	})
 	if err == nil {
 		t.Fatal("VendorModules() should fail when two modules resolve to the same directory name")
@@ -129,10 +129,10 @@ func TestVendorModules_PruneNoOp(t *testing.T) {
 	cache1 := createCacheModule(t, tmpDir, "dep1.invowkmod", "dep1")
 	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
 
-	modules := []*invowkmod.ResolvedModule{
+	modules := hashed(t, []*invowkmod.ResolvedModule{
 		{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
 		{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
-	}
+	})
 
 	// Vendor both modules initially
 	_, err := VendorModules(VendorOptions{
@@ -175,7 +175,7 @@ func TestVendorModules_PruneNoVendorDir(t *testing.T) {
 	// Prune with empty modules list on a fresh module (no vendor dir yet)
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*invowkmod.ResolvedModule{},
+		Modules:    hashed(t, []*invowkmod.ResolvedModule{}),
 		Prune:      true,
 	})
 	if err != nil {

@@ -63,6 +63,8 @@ Nos dois casos, o lock file não é reescrito.
 
 Quando um módulo resolve para uma versão **diferente**, porque você mudou a restrição ou porque `invowk module update` encontrou uma versão mais nova, o commit e o hash da entrada antiga não são aplicados. Os valores da nova versão viram a próxima linha de base. Um módulo ainda sem entrada no lock é registrado no primeiro sync, com um aviso de que não tem linha de base de integridade.
 
+Um lock file v1.0 não registra hashes de conteúdo, então suas entradas não detectam adulteração. A descoberta e o `invowk module vendor` rejeitam módulos vendorizados apoiados nessas entradas, e o sync busca uma cópia nova em vez de confiar no cache. Rode `invowk module sync` uma vez para atualizar o lock file para v2.0.
+
 Se um re-tag ou uma mudança de conteúdo upstream for intencional, rode `invowk module remove <git-url>` e depois `invowk module add` para adicionar o módulo de novo. Isso grava uma nova linha de base sem editar à mão o lock file gerado. Se você suspeitar que o cache local foi modificado, apague o diretório de cache do módulo indicado no erro.
 
 ## Workflows Comuns

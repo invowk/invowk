@@ -7,20 +7,38 @@ import (
 	"fmt"
 )
 
-const lockedCommitMismatchErrMsg = "locked commit mismatch"
+const (
+	lockedCommitMismatchErrMsg = "locked commit mismatch"
+	lockEntryWithoutHashErrMsg = "lock entry has no content hash"
+)
 
-// ErrLockedCommitMismatch is the sentinel error wrapped by LockedCommitMismatchError.
-var ErrLockedCommitMismatch = errors.New(lockedCommitMismatchErrMsg)
+var (
+	// ErrLockedCommitMismatch is the sentinel error wrapped by LockedCommitMismatchError.
+	ErrLockedCommitMismatch = errors.New(lockedCommitMismatchErrMsg)
+	// ErrLockEntryWithoutContentHash is the sentinel error wrapped by
+	// LockEntryWithoutContentHashError.
+	ErrLockEntryWithoutContentHash = errors.New(lockEntryWithoutHashErrMsg)
+)
 
-// LockedCommitMismatchError is returned when re-resolving a locked version
-// fetches a different commit than the lock file records, for example after an
-// upstream tag was re-pointed.
-type LockedCommitMismatchError struct {
-	ModuleKey ModuleRefKey
-	Version   SemVer
-	Locked    GitCommit
-	Fetched   GitCommit
-}
+type (
+	// LockedCommitMismatchError is returned when re-resolving a locked version
+	// fetches a different commit than the lock file records, for example after
+	// an upstream tag was re-pointed.
+	LockedCommitMismatchError struct {
+		ModuleKey ModuleRefKey
+		Version   SemVer
+		Locked    GitCommit
+		Fetched   GitCommit
+	}
+
+	// LockEntryWithoutContentHashError is returned when vendored content would
+	// be trusted through a lock entry that records no content hash, as v1.0
+	// lock files do. Such an entry cannot detect tampering, so it vouches for
+	// nothing (formal/tla/LockIntegrity.tla, finding F4).
+	LockEntryWithoutContentHashError struct {
+		ModuleKey ModuleRefKey
+	}
+)
 
 // Error implements the error interface.
 func (e *LockedCommitMismatchError) Error() string {
@@ -30,6 +48,15 @@ func (e *LockedCommitMismatchError) Error() string {
 
 // Unwrap returns ErrLockedCommitMismatch for errors.Is() compatibility.
 func (e *LockedCommitMismatchError) Unwrap() error { return ErrLockedCommitMismatch }
+
+// Error implements the error interface.
+func (e *LockEntryWithoutContentHashError) Error() string {
+	return fmt.Sprintf("%s for module %q (v1.0 lock file); run `invowk module sync` to upgrade %s to v2.0",
+		lockEntryWithoutHashErrMsg, e.ModuleKey, LockFileName)
+}
+
+// Unwrap returns ErrLockEntryWithoutContentHash for errors.Is() compatibility.
+func (e *LockEntryWithoutContentHashError) Unwrap() error { return ErrLockEntryWithoutContentHash }
 
 // ExpectedContentHash returns the content hash that a module freshly resolved
 // at version with commit must reproduce under this lock entry.

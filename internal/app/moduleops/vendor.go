@@ -116,11 +116,14 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			return nil, fmt.Errorf("failed to copy module to %s: %w", destPath, err)
 		}
 
-		// Verify content hash after copying for tamper detection.
-		// If the resolved module has a content hash (from the lock file), the
-		// vendored copy must match. This detects cache tampering between
-		// sync/add and vendor operations.
-		if mod.ContentHash != "" {
+		// Verify content hash after copying for tamper detection: the vendored
+		// copy must match the locked hash, which detects cache tampering between
+		// sync/add and vendor operations. An entry without a hash (a v1.0 lock)
+		// cannot vouch for the copy, so vendoring requires upgrading the lock.
+		if mod.ContentHash == "" {
+			return nil, &invowkmod.LockEntryWithoutContentHashError{ModuleKey: mod.ModuleRef.Key()}
+		}
+		{
 			evaluation := invowkmod.EvaluateModuleContentHash(mod.ModuleRef.Key(), mod.ModuleID, dstPath, mod.ContentHash)
 			if evaluation.Status == invowkmod.VendoredHashUnavailable {
 				return nil, fmt.Errorf("failed to verify vendored module hash at %s: %w", destPath, evaluation.Err)
