@@ -28,7 +28,8 @@ type (
 	// Commands in a module can ONLY call:
 	//  1. Commands from the same module
 	//  2. Commands from globally installed user command modules (~/.invowk/cmds/)
-	//  3. Commands from first-level requirements resolved in invowkmod.lock.cue
+	//  3. Commands from first-level requirements resolved in invowkmod.lock.cue,
+	//     when the discovered content matches the locked content hash
 	//
 	// CommandScope holds the commands visible to a module, populated post-construction
 	// from discovered command sources. Global command sources are added via

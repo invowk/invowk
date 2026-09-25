@@ -2119,7 +2119,7 @@ The Git URL is only the source location. Repository names do not need to end in 
 
 The canonical module identity is the `module` value inside `invowkmod.cue`. Synced and vendored dependencies are materialized locally as `<module-id>.invowkmod`, even when the source repository is named something ordinary like `tools.git`.
 
-Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available).
+Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available). A direct dependency is admitted only when its discovered content matches the hash in the calling module's lock file.
 
 > **Explicit-Only Dependency Model**: Every module in the dependency tree must be declared in the root `invowkmod.cue`. Transitive dependencies are NOT resolved automatically — if module A requires module B, and B requires C, then C must also be declared in the root `invowkmod.cue`. Use `invowk module tidy` to auto-add missing transitive deps, or `invowk module sync` to detect missing ones with actionable error messages.
 

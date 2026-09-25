@@ -23,7 +23,6 @@ const (
 	depsMutationVersion         invowkmod.SemVerConstraint = "^1.0.0"
 	depsMutationResolvedVersion                            = "1.2.3"
 	depsMutationGitCommit                                  = "0123456789abcdef0123456789abcdef01234567"
-	depsMutationContentHash                                = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 )
 
 type (
@@ -331,6 +330,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		lock,
 		depsMutationModuleID,
 		invowkmod.ModuleSourceID(depsMutationSource),
+		"",
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching lock identity")
 	}
@@ -339,6 +339,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		nil,
 		depsMutationModuleID,
 		invowkmod.ModuleSourceID(depsMutationSource),
+		"",
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with nil lock")
 	}
@@ -347,6 +348,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		lock,
 		"",
 		invowkmod.ModuleSourceID(depsMutationSource),
+		"",
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty module ID")
 	}
@@ -354,6 +356,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		[]invowkmod.ModuleRequirement{req},
 		lock,
 		depsMutationModuleID,
+		"",
 		"",
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty source ID")
@@ -364,6 +367,7 @@ func testCommandScopeDirectRequirementMatching(t *testing.T) {
 		lock,
 		otherID,
 		invowkmod.ModuleSourceID(depsMutationSource),
+		"",
 	) {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched module ID")
 	}

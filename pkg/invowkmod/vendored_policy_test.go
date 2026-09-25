@@ -156,22 +156,22 @@ func TestIsDeclaredLockedCommandSource(t *testing.T) {
 		CommandSourceID: "tools",
 	}
 
-	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "tools") {
+	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "tools", "") {
 		t.Fatal("IsDeclaredLockedCommandSource() = false, want true for matching identity and source")
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, nil, "io.example.tools", "tools") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, nil, "io.example.tools", "tools", "") {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with nil lock")
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.other", "tools") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.other", "tools", "") {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched module ID")
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "other") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "other", "") {
 		t.Fatal("IsDeclaredLockedCommandSource() = true for mismatched source")
 	}
 
 	emptyIDLock := NewLockFile()
 	emptyIDLock.Modules[ModuleRef(req).Key()] = LockedModule{CommandSourceID: "tools"}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, emptyIDLock, "", "tools") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{req}, emptyIDLock, "", "tools", "") {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty module ID")
 	}
 
@@ -180,7 +180,7 @@ func TestIsDeclaredLockedCommandSource(t *testing.T) {
 	emptySourceLock.Modules[ModuleRef(emptySourceReq).Key()] = LockedModule{
 		Namespace: "io.example.tools@1.2.3",
 	}
-	if IsDeclaredLockedCommandSource([]ModuleRequirement{emptySourceReq}, emptySourceLock, "io.example.tools", "") {
+	if IsDeclaredLockedCommandSource([]ModuleRequirement{emptySourceReq}, emptySourceLock, "io.example.tools", "", "") {
 		t.Fatal("IsDeclaredLockedCommandSource() = true with empty source ID")
 	}
 }

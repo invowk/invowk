@@ -6,6 +6,8 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type declaredLockedModuleEntry struct {
@@ -104,19 +106,30 @@ func declaredLockedModuleEntryMatches(requirements []ModuleRequirement, lock *Lo
 
 // IsDeclaredLockedCommandSource reports whether the discovered command source
 // is a direct requirement whose lock entry resolves to the same module identity
-// and command namespace.
-func IsDeclaredLockedCommandSource(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID, sourceID ModuleSourceID) bool {
+// and command namespace, and whose locked content hash, when recorded, matches
+// the module directory the commands were discovered in.
+//
+// The content check matters when the discovered copy is not the caller's own:
+// a sibling module may vendor a different version of the same module, verified
+// only against the sibling's lock. Identity and namespace alone would admit it
+// under the caller's lock (finding F6 in formal/README.md).
+func IsDeclaredLockedCommandSource(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID, sourceID ModuleSourceID, modulePath types.FilesystemPath) bool {
 	if lock == nil || moduleID == "" || sourceID == "" {
 		return false
 	}
 	for _, req := range requirements {
-		locked, ok := lock.Modules[ModuleRef(req).Key()]
+		key := ModuleRef(req).Key()
+		locked, ok := lock.Modules[key]
 		if !ok {
 			continue
 		}
-		if locked.IdentityModuleID() == moduleID && locked.EffectiveCommandSourceID() == sourceID {
+		if locked.IdentityModuleID() != moduleID || locked.EffectiveCommandSourceID() != sourceID {
+			continue
+		}
+		if locked.ContentHash == "" {
 			return true
 		}
+		return EvaluateModuleContentHash(key, moduleID, modulePath, locked.ContentHash).Status == VendoredHashMatched
 	}
 	return false
 }

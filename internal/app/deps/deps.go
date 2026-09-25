@@ -278,14 +278,27 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 
 	// Wire resolved RDNS module IDs and command namespaces for direct deps.
 	// A dependency is authorized only when the declaration and lock-file entry
-	// agree with the discovered module identity and command source.
+	// agree with the discovered module identity, command source, and content.
+	// Commands of one module share a directory, so each is hashed once.
+	admitted := make(map[directDependencyCandidate]bool)
 	for _, cmd := range available {
 		if cmd.ModuleID == nil {
 			continue
 		}
-		sourceID := invowkmod.ModuleSourceID(cmd.SourceID) //goplint:ignore -- SourceID validated by discovery
-		if invowkmod.IsDeclaredLockedCommandSource(requirements, lock, *cmd.ModuleID, sourceID) {
-			scope.AddDirectDependency(*cmd.ModuleID, invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
+		candidate := directDependencyCandidate{
+			moduleID: *cmd.ModuleID,
+			sourceID: invowkmod.ModuleSourceID(cmd.SourceID), //goplint:ignore -- SourceID validated by discovery
+		}
+		if cmd.Invowkfile != nil {
+			candidate.modulePath = cmd.Invowkfile.ModulePath
+		}
+		ok, seen := admitted[candidate]
+		if !seen {
+			ok = invowkmod.IsDeclaredLockedCommandSource(requirements, lock, candidate.moduleID, candidate.sourceID, candidate.modulePath)
+			admitted[candidate] = ok
+		}
+		if ok {
+			scope.AddDirectDependency(candidate.moduleID, candidate.sourceID)
 		}
 	}
 
@@ -302,8 +315,9 @@ func commandScopeLock(provider CommandScopeLockProvider, inv *invowkfile.Invowkf
 func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.CommandScopeDecision) DependencyMessage {
 	return dependencyMessageFromDetail(fmt.Sprintf(
 		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
-			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires and resolved in invowkmod.lock.cue. "+
-			"Declare the dependency module in invowkmod.cue:requires if it is missing, then run 'invowk module sync' to refresh lock metadata",
+			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires and resolved in invowkmod.lock.cue, whose discovered content matches the locked content hash. "+
+			"Declare the dependency module in invowkmod.cue:requires if it is missing, then run 'invowk module sync' to refresh lock metadata; "+
+			"if it is declared, the discovered copy may be another version (for example one vendored by a sibling module), so align the versions or vendor the locked one",
 		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID))
 }
 

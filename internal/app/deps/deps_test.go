@@ -338,7 +338,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Namespace:       "io.example.dep@1.2.3",
 			ModuleID:        depID,
 			CommandSourceID: invowkmod.ModuleSourceID(depID),
-			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
@@ -391,7 +390,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Alias:           req.Alias,
 			Namespace:       "allowed-tools",
 			ModuleID:        depID,
-			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
@@ -453,7 +451,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Alias:           req.Alias,
 			Namespace:       "tools",
 			ModuleID:        "io.example.expected",
-			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
 		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
