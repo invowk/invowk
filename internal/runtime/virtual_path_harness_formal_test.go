@@ -56,19 +56,21 @@ func TestVirtualPathHarness_F15WorkdirWidening(t *testing.T) {
 	base := fstree.TempRoot(t)
 	scriptBase := mustMkdir(t, filepath.Join(base, "module"))
 
-	// With workdir "/", the resolver's allowed roots include "/", so a read of a
-	// path anywhere on the host is admitted under restricted access.
-	resolver, err := newVirtualPathResolverForFilesystem("/", scriptBase, invowkfile.VirtualFilesystemConfig{
+	// With the filesystem root as workdir ("/", or the volume root on Windows),
+	// the resolver's allowed roots include it, so a read of a path anywhere on
+	// that volume is admitted under restricted access.
+	fsRoot := filepath.VolumeName(base) + string(filepath.Separator)
+	resolver, err := newVirtualPathResolverForFilesystem(fsRoot, scriptBase, invowkfile.VirtualFilesystemConfig{
 		Access: invowkfile.VirtualFilesystemAccessRestricted,
 	})
 	if err != nil {
 		t.Fatalf("build resolver: %v", err)
 	}
-	if !slices.Contains(resolver.allowedRoots, string(filepath.Separator)) {
-		t.Fatalf("F15 precondition: workdir '/' not added to allowed roots: %v", resolver.allowedRoots)
+	if !slices.Contains(resolver.allowedRoots, fsRoot) {
+		t.Fatalf("F15 precondition: workdir %q not added to allowed roots: %v", fsRoot, resolver.allowedRoots)
 	}
 	validator := virtualPathValidator{resolver: resolver}
-	if _, err := validator.validate(scriptBase, filepath.Join(string(filepath.Separator), "etc", "hostname")); err != nil {
+	if _, err := validator.validate(scriptBase, filepath.Join(fsRoot, "etc", "hostname")); err != nil {
 		t.Fatalf("F15 did not reproduce: an out-of-module path was denied under restricted access: %v", err)
 	}
 }

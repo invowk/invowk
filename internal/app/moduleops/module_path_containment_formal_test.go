@@ -105,7 +105,7 @@ func TestModulePathContainment_F17EnvVendoredSymlink(t *testing.T) {
 func TestModulePathContainment_F16Junction(t *testing.T) {
 	t.Parallel()
 	if !fstree.Probe(t).Junction {
-		t.Skip("junctions exist only on Windows; skipped and counted (runs in Windows CI)")
+		t.Skip("junction creation unavailable here (junctions exist only on Windows, and creation can fail even there); skipped and counted")
 	}
 	spec := fstree.Spec{RootAtom: "root", Nodes: []fstree.Node{
 		{Atom: "mod", Parent: "root", Name: "m0.invowkmod", Kind: fstree.KindDir, ModuleRoot: true},
