@@ -38,8 +38,9 @@ permissions:
 
 env:
   GOPROXY: "https://proxy.golang.org|direct"
-  # Exact Temurin build; keep in sync with .agents/rules/version-pinning.md.
-  FORMAL_JAVA_VERSION: "25.0.4+7"
+  # Exact Temurin build, in Temurin's semver form (jdk-25.0.4.1+1 is 25.0.4+101.0.LTS;
+  # a bare "25.0.4+7" matches nothing). Keep in sync with .agents/rules/version-pinning.md.
+  FORMAL_JAVA_VERSION: "25.0.4+101.0.LTS"
 
 jobs:
   formal:
@@ -65,7 +66,7 @@ jobs:
       - name: Verify Java version
         run: |
           java -version 2>&1 | tee java-version.txt
-          grep -q '"25.0.4"' java-version.txt
+          grep -q '"25.0.4.1"' java-version.txt
 
       - name: Cache formal tool jars
         uses: actions/cache@v6
