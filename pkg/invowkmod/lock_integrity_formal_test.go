@@ -13,8 +13,8 @@ import (
 )
 
 // These tests replay the counterexamples formal/tla/LockIntegrity.tla records
-// for findings F4 and F6 against the real code. A characterisation test of an
-// unfixed finding must be inverted together with its fix.
+// for findings F4 and F6 against the real code. Both findings are fixed; each
+// test was inverted together with its fix.
 
 func writeVendoredModule(t *testing.T, moduleID ModuleID, body string) *Module {
 	t.Helper()
@@ -43,33 +43,38 @@ func TestLockIntegrity_HashlessEntryIsRejected(t *testing.T) {
 	}
 }
 
-// TestLockIntegrity_FindingF6AdmissionIgnoresCallerHash: command-scope
-// admission matches the caller's lock entry by module identity and command
-// source only, so a sibling's vendored copy with different content is admitted
-// although the caller locked another hash (LockIntegrity_F6_Current).
-func TestLockIntegrity_FindingF6AdmissionIgnoresCallerHash(t *testing.T) {
+// TestLockIntegrity_SiblingCopyMustMatchCallerHash: command-scope admission
+// compares the caller's locked hash with the discovered copy, so a sibling's
+// vendored copy of another version is rejected (LockIntegrity.f6CheckCallerHash,
+// the fix for finding F6) and a copy of the locked content is admitted.
+func TestLockIntegrity_SiblingCopyMustMatchCallerHash(t *testing.T) {
 	t.Parallel()
 
 	req := ModuleRequirement{GitURL: "https://example.com/tools.git", Version: "^1.0.0"}
-	callerLock := &LockFile{Modules: map[ModuleRefKey]LockedModule{
-		ModuleRef(req).Key(): {
-			GitURL:          req.GitURL,
-			ModuleID:        "io.example.tools",
-			CommandSourceID: "io.example.tools",
-			ContentHash:     "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-		},
-	}}
 	sibling := writeVendoredModule(t, "io.example.tools", "cmds: {} // the sibling's pinned version")
 	siblingHash, err := ComputeModuleHash(string(sibling.Path))
 	if err != nil {
 		t.Fatalf("ComputeModuleHash() error = %v", err)
 	}
-	if siblingHash == callerLock.Modules[ModuleRef(req).Key()].ContentHash {
-		t.Fatal("fixture error: the sibling copy must differ from the caller's locked content")
+	callerLock := func(hash ContentHash) *LockFile {
+		return &LockFile{Modules: map[ModuleRefKey]LockedModule{
+			ModuleRef(req).Key(): {
+				GitURL:          req.GitURL,
+				ModuleID:        "io.example.tools",
+				CommandSourceID: "io.example.tools",
+				ContentHash:     hash,
+			},
+		}}
+	}
+	admit := func(lock *LockFile) bool {
+		return IsDeclaredLockedCommandSource([]ModuleRequirement{req}, lock, "io.example.tools", "io.example.tools", sibling.Path)
 	}
 
-	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, callerLock, "io.example.tools", "io.example.tools") {
-		t.Fatal("IsDeclaredLockedCommandSource() = false; F6 records that admission ignores the caller's hash. " +
-			"If F6 was fixed, invert this test and LockIntegrity_F6_Current together")
+	other := ContentHash("sha256:1111111111111111111111111111111111111111111111111111111111111111")
+	if admit(callerLock(other)) {
+		t.Fatal("IsDeclaredLockedCommandSource() admitted a sibling copy whose content differs from the caller's lock (F6)")
+	}
+	if !admit(callerLock(siblingHash)) {
+		t.Fatal("IsDeclaredLockedCommandSource() rejected a copy of exactly the content the caller locked")
 	}
 }

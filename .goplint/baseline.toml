@@ -2,7 +2,7 @@
 #
 # goplint baseline — accepted DDD compliance findings
 # Regenerate: make update-baseline
-# Total: 71 findings
+# Total: 73 findings
 
 # Struct fields using nonzero types as value (non-pointer)
 [nonzero-value-field]
@@ -18,6 +18,7 @@ entries = [
     { id = "gpl4_2498d8eef3546cabbecdea0510a2ddd1733549159fd888f5e5b27a70d496c8d7", message = "struct field invowkmod.AmbiguousMatch.LockKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields" },
     { id = "gpl4_2771a7417c6b0225b6c3c68dc9388d4d63f96848d876b2eac630764041054efb", message = "struct field invowkmod.LockedModule.Namespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields" },
     { id = "gpl4_290007d29fd6d9a7ce1a9a3b9ada561dc3572c4976f221e11082156c670898b8", message = "struct field invowkmod.ResolvedModule.ResolvedVersion uses nonzero type SemVer as value; use *SemVer for optional fields" },
+    { id = "gpl4_2e59468c0acbeb54d74ad1272949780d7033f63f8c772207f59355b257f75169", message = "struct field deps.directDependencyCandidate.modulePath uses nonzero type FilesystemPath as value; use *FilesystemPath for optional fields" },
     { id = "gpl4_2e9476c61ac43597330a87b6f756b17d36eeddfe465d06bcdcfaf02a5e8f79d8", message = "struct field invowkmod.VendoredHashEvaluation.Actual uses nonzero type ContentHash as value; use *ContentHash for optional fields" },
     { id = "gpl4_2f629d0752a223d74e3f46127c1b2cc0c8b2c3fa53f062b4bbf286633b1db208", message = "struct field invowkmod.CommandScope.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_43dac3ea09e0519a8a3ad1cf08f4da43f7550193cdc6105ca08fd2dfe292393a", message = "struct field invowkmod.VendoredHashEvaluation.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
@@ -64,6 +65,7 @@ entries = [
     { id = "gpl4_d180288687dfd3276ea1ca704c75c7d4a0c7af5ecd63f39e0cb074d2d8a58ae2", message = "struct field invowkmod.LockedCommitMismatchError.ModuleKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields" },
     { id = "gpl4_d1facbd6cccaddc73ea3509f10f551399d0c13f3e781d047e89d803eb5f5ff7f", message = "struct field invowkmod.lockedModuleCUE.ResolvedVersion uses nonzero type SemVer as value; use *SemVer for optional fields" },
     { id = "gpl4_d20e48bda085b586204820e14f97e947f35c6e4c874256ce58a81c8411590420", message = "struct field provision.provisionedModuleCopy.CommandNamespace uses nonzero type ModuleNamespace as value; use *ModuleNamespace for optional fields" },
+    { id = "gpl4_d239956cd8fc21cacfe45161f878042f52992fe2faf65ad84533b70099c9e81a", message = "struct field deps.directDependencyCandidate.moduleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_d4b782b0cbb06964eb52bb79de9e6dac08732e2db678a46d069eb36fe711108d", message = "struct field invowkmod.LockedModule.ContentHash uses nonzero type ContentHash as value; use *ContentHash for optional fields" },
     { id = "gpl4_dcc7c93998ff580a73f2799ae96a2700e97dcd358dbd3e5c0bf982dbc0f41776", message = "struct field invowkmod.ModuleRef.GitURL uses nonzero type GitURL as value; use *GitURL for optional fields" },
     { id = "gpl4_dfd168eb6c65df60c7f6fb2c52d10692f403880592b1702f0a24c540fefb8c45", message = "struct field modulesync.tagInfo.Commit uses nonzero type GitCommit as value; use *GitCommit for optional fields" },
