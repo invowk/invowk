@@ -944,7 +944,10 @@ run_formal_profile() {
 	if [[ "$profile" != "dry-run" ]]; then
 		restore_tracked_mutation_paths root
 		remove_new_untracked_paths root
-		formal_mutation merge-reports --report-dir "$report_dir" || status=1
+		# go-mutesting writes no reports with --update-baseline.
+		if [[ "$profile" != "baseline-update" ]]; then
+			formal_mutation merge-reports --report-dir "$report_dir" || status=1
+		fi
 		timeout_kill_counts "$report_dir/go-mutesting.log" >>"$report_dir/run-metadata.txt"
 	fi
 	if ((status == 0)); then

@@ -504,7 +504,9 @@ def git(*args: str) -> str:
 
 
 def summary_status(summary: dict) -> str:
-    """The status of the single mutant a --run-mutant-id run executed."""
+    """The status of the mutant a --run-mutant-id run executed. The stable id
+    ignores line numbers, so one id can name the same change on several lines;
+    they must then agree."""
     stats = summary.get("stats", summary)
     counts = {
         "killed": stats.get("killedCount", 0),
@@ -513,8 +515,8 @@ def summary_status(summary: dict) -> str:
         "errored": stats.get("errorCount", 0),
     }
     hit = [status for status, count in counts.items() if count]
-    if len(hit) != 1 or counts[hit[0]] != 1:
-        raise PlanError(f"expected exactly one executed mutant in the rerun summary, got {counts}")
+    if len(hit) != 1:
+        raise PlanError(f"expected the rerun to execute the mutant with one status, got {counts}")
     return hit[0]
 
 

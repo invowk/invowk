@@ -328,8 +328,9 @@ class RerunAndReportTests(unittest.TestCase):
     def test_summary_status(self) -> None:
         self.assertEqual(fm.summary_status({"killedCount": 0, "escapedCount": 1}), "escaped")
         self.assertEqual(fm.summary_status({"killedCount": 1}), "killed")
-        for bad in ({}, {"killedCount": 1, "escapedCount": 1}, {"escapedCount": 2}):
-            with self.subTest(bad=bad), self.assertRaisesRegex(PlanError, "exactly one executed mutant"):
+        self.assertEqual(fm.summary_status({"escapedCount": 2}), "escaped")  # one id on two lines
+        for bad in ({}, {"killedCount": 1, "escapedCount": 1}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(PlanError, "with one status"):
                 fm.summary_status(bad)
 
     def test_append_rerun(self) -> None:
