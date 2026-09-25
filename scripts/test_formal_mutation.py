@@ -177,9 +177,11 @@ class PlanTests(Fixture):
         with self.assertRaisesRegex(PlanError, r"match collision: Server.Validate in a/a.go .* M: row 'validate here'"):
             self.plan(rows)
 
-    def test_killer_in_no_package_fails(self) -> None:
+    def test_killer_that_is_not_a_test_fails(self) -> None:
+        # A helper is not a Test function, so the shared test index (the one
+        # the replay plan uses) rejects it before any package is resolved.
         (self.root / "a" / "helpers_test.go").write_text("package a\n\nfunc helperCheck(t *testing.T) {}\n")
-        with self.assertRaisesRegex(PlanError, r"M: row 'helper' \(Decide in a/a.go\): killer test helperCheck is declared in no package"):
+        with self.assertRaisesRegex(PlanError, r"M: row 'helper' names binding test helperCheck that does not exist"):
             self.plan(self.BASE_ROWS + row("helper", "Decide", "a/a.go", "helperCheck", "-"))
 
     def test_killer_in_several_packages_fails(self) -> None:

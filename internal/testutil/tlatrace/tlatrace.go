@@ -43,6 +43,13 @@ type (
 		trace []Record
 	}
 
+	// Recorded holds the traces RecordEach produced, keyed by name, so a
+	// harness can build its targeted mutations from recorded traces.
+	Recorded struct {
+		names  []string
+		byName map[string][]Record
+	}
+
 	suiteCounts struct {
 		Accepted int      `json:"accepted"`
 		Rejected int      `json:"rejected"`
@@ -142,10 +149,10 @@ func Extend(trace []Record, set Record) []Record {
 }
 
 // RecordEach runs record for every name in a parallel subtest and returns the
-// traces in the order of names; it returns nil when a subtest failed. The
-// "traces" group itself is serial, so the caller writes the suite after every
-// parallel trace finished.
-func RecordEach(t *testing.T, names []string, record func(t *testing.T, name string) []Record) [][]Record {
+// recorded traces; it returns nil when a subtest failed. The "traces" group
+// itself is serial, so the caller writes the suite after every parallel trace
+// finished.
+func RecordEach(t *testing.T, names []string, record func(t *testing.T, name string) []Record) *Recorded {
 	t.Helper()
 	var mu sync.Mutex
 	recorded := make(map[string][]Record, len(names))
@@ -163,11 +170,29 @@ func RecordEach(t *testing.T, names []string, record func(t *testing.T, name str
 	if t.Failed() {
 		return nil
 	}
-	traces := make([][]Record, 0, len(names))
-	for _, name := range names {
-		traces = append(traces, recorded[name])
+	return &Recorded{names: slices.Clone(names), byName: recorded}
+}
+
+// Accepted returns the recorded traces in the order RecordEach was given
+// their names.
+func (r *Recorded) Accepted() [][]Record {
+	traces := make([][]Record, 0, len(r.names))
+	for _, name := range r.names {
+		traces = append(traces, r.byName[name])
 	}
 	return traces
+}
+
+// Base returns the trace recorded under name, failing the test when no
+// trace was: a targeted mutation must start from a behaviour the real code
+// produced.
+func (r *Recorded) Base(t *testing.T, name string) []Record {
+	t.Helper()
+	trace, ok := r.byName[name]
+	if !ok {
+		t.Fatalf("mutation base %q was not recorded", name)
+	}
+	return trace
 }
 
 // unique drops duplicate traces, keeping the first occurrence of each in

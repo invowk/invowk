@@ -45,6 +45,7 @@ import time
 import tomllib
 import urllib.request
 import xml.etree.ElementTree as ET  # noqa: S405 - parses local Alloy output only
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -604,14 +605,21 @@ def check_tlc_config_text(name: str, cfg_text: str) -> None:
         raise FormalError(f"{name}: deadlock checking must stay on; use an explicit terminal stuttering action")
 
 
+def render_tlc_config(constants: dict[str, str], spec: str, *checks: str) -> str:
+    """A TLC configuration: CONSTANTS, SPECIFICATION, then one line per
+    check (`INVARIANT X` or `PROPERTY X`), shared by model commands and trace
+    validation."""
+    lines = ["CONSTANTS", *(f"    {k} = {v}" for k, v in constants.items()), f"SPECIFICATION {spec}", *checks]
+    return "\n".join(lines) + "\n"
+
+
 def tlc_config(model: Model, cmd: Command) -> str:
     """Render one command's TLC configuration: the model's base constants with
     the command's overrides, its specification, TypeOK, and exactly one
     checked property."""
     constants = dict(model.constants) | dict(cmd.constants)
-    lines = ["CONSTANTS", *(f"    {k} = {v}" for k, v in constants.items()), f"SPECIFICATION {cmd.spec}", "INVARIANT TypeOK"]
-    lines.append(f"{'PROPERTY' if cmd.temporal else 'INVARIANT'} {cmd.property}")
-    return "\n".join(lines) + "\n"
+    checked = f"{'PROPERTY' if cmd.temporal else 'INVARIANT'} {cmd.property}"
+    return render_tlc_config(constants, cmd.spec, "INVARIANT TypeOK", checked)
 
 
 def parallel_jobs() -> int:
@@ -1085,11 +1093,13 @@ def test_function_files(root: Path) -> dict[str, list[Path]]:
     return files
 
 
-def characterisation_tests(rows: list[list[str]]) -> set[str]:
-    """Tests tabled on a row whose abstraction note marks them as characterisation."""
+def characterisation_tests(rows: Iterable[Sequence[str]]) -> set[str]:
+    """Tests tabled on a row whose abstraction note marks them as
+    characterisation. A row is any sequence ending in its binding and
+    abstraction cells (a `correspondence_rows` list or a model-tagged row)."""
     return {
         test
-        for _element, _symbol, _file, binding, abstraction in rows
+        for *_cells, binding, abstraction in rows
         if abstraction.startswith(CHARACTERISATION_NOTE)
         for test in binding_tests(binding)
     }
@@ -1105,14 +1115,6 @@ def go_test_files(root: Path):
         if SKIP_DIRS.intersection(parts) or "testdata" in parts:
             continue
         yield path
-
-
-def test_function_index(root: Path) -> set[str]:
-    """Names of every Go test function in the repository, built once."""
-    names: set[str] = set()
-    for path in go_test_files(root):
-        names.update(re.findall(r"^func (\w+)\(", path.read_text(), re.M))
-    return names
 
 
 def check_binding_completeness(tabled: set[str], suites: list[TraceSuite], root: Path) -> list[str]:
@@ -1133,11 +1135,17 @@ def check_binding_completeness(tabled: set[str], suites: list[TraceSuite], root:
     return failures
 
 
-def check_correspondence(models: list[Model], root: Path = REPO_ROOT, suites: list[TraceSuite] | None = None) -> list[str]:
+def check_correspondence(
+    models: list[Model],
+    root: Path = REPO_ROOT,
+    suites: list[TraceSuite] | None = None,
+    files: dict[str, list[Path]] | None = None,
+) -> list[str]:
     """Every named Go symbol must be declared in its file; every binding test
-    must exist; every test in a binding-test file must be tabled."""
+    must exist; every test in a binding-test file must be tabled. `files` is a
+    prebuilt `test_function_files(root)`, the same index `replay_plan` uses."""
     failures = []
-    tests = test_function_index(root)
+    tests = test_function_files(root) if files is None else files
     tabled: set[str] = set()
     for model in models:
         rows = correspondence_rows((root / model.file).read_text())
@@ -1197,8 +1205,11 @@ def replay_plan(
     return packages, sorted(tests)
 
 
-def replay_pattern(tests: list[str]) -> str:
-    return f"^({'|'.join(tests)})$"
+def replay_pattern(tests: Iterable[str]) -> str:
+    """The anchored `go test -run` alternation selecting exactly `tests`
+    (sorted, deduplicated), shared by the replay plan and the mutation
+    profile."""
+    return f"^({'|'.join(sorted(set(tests)))})$"
 
 
 # ---------------------------------------------------------------------------
@@ -1354,9 +1365,7 @@ def check_trace(jar: Path, suite: TraceSuite, constants: dict[str, str], trace_s
     work = TRACE_DIR / suite.name / f"{trace_set}-{index}"
     stage_tla_modules(work, (TRACE_DIR / f"{suite.module}.tla",))
     constants = constants | {"TraceSet": f'"{trace_set}"', "TraceIndex": str(index)}
-    cfg_text = "\n".join(
-        ["CONSTANTS", *(f"    {k} = {v}" for k, v in constants.items()), "SPECIFICATION TraceSpec", "INVARIANT NotFullyConsumed"]
-    ) + "\n"
+    cfg_text = render_tlc_config(constants, "TraceSpec", "INVARIANT NotFullyConsumed")
     verdict = trace_verdict(run_tlc(jar, suite.spec, cfg_text, work, ("-deadlock",)))
     if verdict != trace_set:
         return verdict, f"{suite.name} {trace_set} trace {index}: expected {trace_set}, observed {verdict} (see {work / 'tlc.log'})"

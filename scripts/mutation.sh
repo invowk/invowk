@@ -19,7 +19,9 @@ TARGET_SET_FORMAL="formal-bindings"
 FORMAL_MUTATION_PY="$SCRIPT_DIR/formal_mutation.py"
 FORMAL_EXEC_SCRIPT="$SCRIPT_DIR/mutation-formal-exec.sh"
 FORMAL_PLAN_FILE="formal-plan.json"
-FORMAL_RERUNS_FILE="tools/mutation/triage/formal-bindings-reruns.jsonl"
+# The same interpreter mutation-formal-exec.sh uses, so one Python builds and
+# reads the plan.
+PYTHON="${PYTHON:-python3}"
 
 GO_MUTESTING_BIN=""
 MUTATION_RESTORE_MODULES=()
@@ -668,7 +670,7 @@ run_module_profile() {
 # formal-bindings target set (plan and ledger logic: scripts/formal_mutation.py)
 
 formal_mutation() {
-	python3 "$FORMAL_MUTATION_PY" "$@"
+	"$PYTHON" "$FORMAL_MUTATION_PY" "$@"
 }
 
 resolve_formal_targets() {
@@ -865,8 +867,7 @@ run_formal_rerun() {
 			interrupted_status "$id_status" && return "$id_status"
 		done
 		if formal_mutation merge-reports --report-dir "$report_dir/$mutant" >/dev/null &&
-			formal_mutation rerun-record --plan "$plan" --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant" \
-				--reruns "$REPO_ROOT/$FORMAL_RERUNS_FILE"; then
+			formal_mutation rerun-record --plan "$plan" --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant"; then
 			:
 		else
 			status=1

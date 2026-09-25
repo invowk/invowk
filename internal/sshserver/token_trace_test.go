@@ -79,15 +79,11 @@ func TestHostCallbackToken_TraceHarness(t *testing.T) {
 	tlatrace.Dir(t) // skip before doing any work when trace output is off
 
 	sequences := tokenTraceSequences()
-	accepted := tlatrace.RecordEach(t, sequences, runTokenTrace)
-	if accepted == nil {
+	recorded := tlatrace.RecordEach(t, sequences, runTokenTrace)
+	if recorded == nil {
 		return
 	}
-	recorded := make(map[string][]tlatrace.Record, len(sequences))
-	for i, name := range sequences {
-		recorded[name] = accepted[i]
-	}
-	tlatrace.WriteSuite(t, "HostCallbackToken", tlatrace.Traces{Accepted: accepted, Rejected: tokenTraceMutations(t, recorded)})
+	tlatrace.WriteSuite(t, "HostCallbackToken", tlatrace.Traces{Accepted: recorded.Accepted(), Rejected: tokenTraceMutations(t, recorded)})
 }
 
 // tokenTraceSequences returns every sequence of Start(e1) followed by up to
@@ -319,15 +315,9 @@ func (r *tokenTraceRun) observe() {
 // tokenTraceMutations edits accepted traces one step at a time into
 // behaviours HostCallbackToken.tla forbids. A connection left open after Stop
 // is not among them: the base configuration accepts it (open finding F11).
-func tokenTraceMutations(t *testing.T, recorded map[string][]tlatrace.Record) [][]tlatrace.Record {
+func tokenTraceMutations(t *testing.T, recorded *tlatrace.Recorded) [][]tlatrace.Record {
 	t.Helper()
-	trace := func(sequence string) []tlatrace.Record {
-		tr, ok := recorded[sequence]
-		if !ok {
-			t.Fatalf("mutation base %q was not recorded", sequence)
-		}
-		return tr
-	}
+	trace := func(sequence string) []tlatrace.Record { return recorded.Base(t, sequence) }
 	yes, no := tlatrace.Bool(true), tlatrace.Bool(false)
 	return [][]tlatrace.Record{
 		// F7 (NoSessionAfterExecution): revocation leaves the connection open.

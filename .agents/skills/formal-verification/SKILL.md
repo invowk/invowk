@@ -163,8 +163,11 @@ model-gap rigour) or an abstraction note on the calling row. Then run
   spec must forbid skipping an observable state, and targeted mutations must
   be rejected. Keep `Proj` flat so the key-set checks see every field. `WriteSuite`
   drops duplicate traces and fails when a mutation equals a recorded trace;
-  `tlatrace.RecordEach` runs one parallel subtest per sequence, and
-  `tlatrace.Edit`/`Extend` build mutations from recorded traces. A `[[trace]]` entry may set
+  `tlatrace.RecordEach` runs one parallel subtest per sequence and returns a
+  `Recorded` (`Accepted()` for the suite, `Base(t, name)` for a mutation's
+  base trace), and `tlatrace.Edit`/`Extend` build mutations from recorded
+  traces. Concurrency replays park a process at a seam with
+  `internal/testutil/procgate`. A `[[trace]]` entry may set
   `constants` to override the model's base constants (only declared ones).
   Never declare as a mutation a behaviour the base constants accept because
   of an open finding.
