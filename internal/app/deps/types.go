@@ -11,6 +11,8 @@ import (
 
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -112,6 +114,14 @@ type (
 		Command      *invowkfile.CommandName
 	}
 
+	// directDependencyCandidate is the discovered identity, namespace, and
+	// directory that command-scope admission checks against the caller's lock.
+	directDependencyCandidate struct {
+		moduleID   invowkmod.ModuleID
+		sourceID   invowkmod.ModuleSourceID
+		modulePath types.FilesystemPath
+	}
+
 	//goplint:ignore -- dependency-resolution DTO holds already parsed and validated reference parts.
 	commandDependencyAlternative struct {
 		Ref   invowkfile.CommandDependencyRef
@@ -186,6 +196,16 @@ type (
 		ValueError   error
 	}
 )
+
+// Validate returns nil when the candidate carries a module identity and command
+// source; the directory is optional because synthetic commands have none.
+func (c directDependencyCandidate) Validate() error {
+	errs := []error{c.moduleID.Validate(), c.sourceID.Validate()}
+	if c.modulePath != "" {
+		errs = append(errs, c.modulePath.Validate())
+	}
+	return errors.Join(errs...)
+}
 
 func (a commandDependencyAlternative) Validate() error {
 	if err := a.Ref.Validate(); err != nil {

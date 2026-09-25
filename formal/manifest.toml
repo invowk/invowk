@@ -387,9 +387,10 @@ witness = true
 name = "LockIntegrity"
 tool = "tla"
 file = "formal/tla/LockIntegrity.tla"
-calibration = """2026-09-25: finding F4 is fixed (hashless entries are rejected for vendored \\
-content and never vouch for a cached copy); the pre-fix behaviour is a regression \\
-mutant. 2026-09-24: TLC reproduced finding F5 (tag moved, cache empty, sync rewrites the \\
+calibration = """2026-09-25: findings F4 and F6 are fixed (hashless entries are rejected for \\
+vendored content and never vouch for a cached copy; admission compares the \\
+caller's locked hash with the discovered copy); the pre-fix behaviours are \\
+regression mutants. 2026-09-24: TLC reproduced finding F5 (tag moved, cache empty, sync rewrites the \\
 lock hash to the attacker's content and so also launders a tampered vendored \\
 copy), and the fix shipped in verify-locked-module-integrity (#142) passes. \\
 F4 and F6 reproduce as counterexamples with passing fix configurations, and \\
@@ -450,8 +451,7 @@ expect = "pass"
 property = "SiblingCallTrusted"
 
 [[model.command]]
-name = "findingF6CrossLockAdmission"
-finding = "F6"
+name = "mutantPreFixF6AdmitByIdentity"
 constants = { CheckCallerHash = "FALSE" }
 expect = "counterexample"
 property = "SiblingCallTrusted"

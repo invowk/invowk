@@ -62,7 +62,6 @@ func depsMutationRequirementAndLock() (invowkmod.ModuleRequirement, *invowkmod.L
 		Namespace:       invowkmod.ModuleNamespace(depsMutationSource),
 		ModuleID:        depsMutationModuleID,
 		CommandSourceID: invowkmod.ModuleSourceID(depsMutationSource),
-		ContentHash:     depsMutationContentHash,
 	}
 	return req, lock
 }
