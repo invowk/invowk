@@ -2194,7 +2194,7 @@ modules: {
 }
 ```
 
-Whenever `module sync`, `add`, `update`, or `tidy` resolves a module to its already-locked `resolved_version`, the fetched commit must equal `git_commit`, and the module content must hash to `content_hash`. This holds even on a fresh machine or CI runner with an empty module cache. A mismatch fails without rewriting the lock file, and an unverified fresh copy is removed from the cache. A different resolved version, from a changed constraint or `module update`, records a new baseline. To accept an intentional upstream re-tag, run `invowk module remove <git-url>` and add the module again.
+Whenever `module sync`, `add`, `update`, or `tidy` resolves a module to its already-locked `resolved_version`, the fetched commit must equal `git_commit`, and the module content must hash to `content_hash`. This holds even on a fresh machine or CI runner with an empty module cache. A mismatch fails without rewriting the lock file, and an unverified fresh copy is removed from the cache. A different resolved version, from a changed constraint or `module update`, records a new baseline. To accept an intentional upstream re-tag, run `invowk module remove <git-url>` and add the module again. A v1.0 lock file has no content hashes; vendored modules backed by it are rejected until `invowk module sync` upgrades the lock to v2.0.
 
 ### Command Namespacing
 

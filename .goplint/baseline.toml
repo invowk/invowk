@@ -2,7 +2,7 @@
 #
 # goplint baseline — accepted DDD compliance findings
 # Regenerate: make update-baseline
-# Total: 70 findings
+# Total: 71 findings
 
 # Struct fields using nonzero types as value (non-pointer)
 [nonzero-value-field]
@@ -56,6 +56,7 @@ entries = [
     { id = "gpl4_b430d088cc19b0cd1d30ab6869bc9797bb90f8e0e329b9fc704daec8cdf6bb77", message = "struct field invowkmod.lockHashEntry.key uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields" },
     { id = "gpl4_b9acc3e6e3e9a73858e920ab80fe1da269948fe2793f0d53b2a0f6014ce8e8d6", message = "struct field invowkmod.InvalidGitURLError.Value uses nonzero type GitURL as value; use *GitURL for optional fields" },
     { id = "gpl4_bc16f868e561411a76fd245d2757046a9f6a2b4d99e8879a21113171e0f291b3", message = "struct field invowkmod.InvalidLockedModuleError.ModuleKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields" },
+    { id = "gpl4_be68059bcec06b04079b14d1cb2b93a4729c460fc7cd81cc9d9bc0ca74fa4c92", message = "struct field invowkmod.LockEntryWithoutContentHashError.ModuleKey uses nonzero type ModuleRefKey as value; use *ModuleRefKey for optional fields" },
     { id = "gpl4_beba226113801e63222a16b2e8a8cb4ef014a7e64b692a4ba5cf3c29774f62fc", message = "struct field invowkmod.ResolvedModule.GitCommit uses nonzero type GitCommit as value; use *GitCommit for optional fields" },
     { id = "gpl4_c8ad135189eab33d708e995cb12b38e03aa3acdc9475ef9dd6e5261266cdb652", message = "struct field invowkmod.ContentHashMismatchError.Actual uses nonzero type ContentHash as value; use *ContentHash for optional fields" },
     { id = "gpl4_c9ff83d93f6408aaa2b8e29ce988f2de8c90b42e925e0e001c5beb48b5e61167", message = "struct field invowkmod.LockedModuleAmbiguity.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },

@@ -3,16 +3,18 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
 )
 
 // These tests replay the counterexamples formal/tla/LockIntegrity.tla records
-// for findings F4 and F6 against the real code. They characterise current
-// behaviour: when a fix lands, each test must be inverted with it.
+// for findings F4 and F6 against the real code. A characterisation test of an
+// unfixed finding must be inverted together with its fix.
 
 func writeVendoredModule(t *testing.T, moduleID ModuleID, body string) *Module {
 	t.Helper()
@@ -23,18 +25,21 @@ func writeVendoredModule(t *testing.T, moduleID ModuleID, body string) *Module {
 	return &Module{Metadata: &Invowkmod{Module: moduleID}, Path: types.FilesystemPath(dir)}
 }
 
-// TestLockIntegrity_FindingF4HashlessEntryAcceptsAnyContent: a v1.0 lock entry
-// has no content hash, and vendored verification accepts whatever content the
-// vendored directory holds (LockIntegrity_F4_Current).
-func TestLockIntegrity_FindingF4HashlessEntryAcceptsAnyContent(t *testing.T) {
+// TestLockIntegrity_HashlessEntryIsRejected replays the counterexample of
+// finding F4 (now fixed): a v1.0 lock entry without a content hash no longer
+// vouches for whatever the vendored directory holds.
+func TestLockIntegrity_HashlessEntryIsRejected(t *testing.T) {
 	t.Parallel()
 
 	module := writeVendoredModule(t, "io.example.tools", "cmds: {} // tampered")
 	legacy := LockedModule{ModuleID: "io.example.tools", Namespace: "io.example.tools@1.0.0"}
 
-	if err := VerifyLockedVendoredModuleHash("https://example.com/tools.git", legacy, module); err != nil {
-		t.Fatalf("VerifyLockedVendoredModuleHash() = %v; F4 records that a hashless entry accepts any content. "+
-			"If F4 was fixed, invert this test and LockIntegrity_F4_Current together", err)
+	err := VerifyLockedVendoredModuleHash("https://example.com/tools.git", legacy, module)
+	if !errors.Is(err, ErrLockEntryWithoutContentHash) {
+		t.Fatalf("VerifyLockedVendoredModuleHash() = %v, want ErrLockEntryWithoutContentHash", err)
+	}
+	if !strings.Contains(err.Error(), "invowk module sync") {
+		t.Fatalf("error %q should tell the user to upgrade the lock with invowk module sync", err)
 	}
 }
 

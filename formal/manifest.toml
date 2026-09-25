@@ -387,7 +387,9 @@ witness = true
 name = "LockIntegrity"
 tool = "tla"
 file = "formal/tla/LockIntegrity.tla"
-calibration = """2026-09-24: TLC reproduces finding F5 (tag moved, cache empty, sync rewrites the \\
+calibration = """2026-09-25: finding F4 is fixed (hashless entries are rejected for vendored \\
+content and never vouch for a cached copy); the pre-fix behaviour is a regression \\
+mutant. 2026-09-24: TLC reproduced finding F5 (tag moved, cache empty, sync rewrites the \\
 lock hash to the attacker's content and so also launders a tampered vendored \\
 copy), and the fix shipped in verify-locked-module-integrity (#142) passes. \\
 F4 and F6 reproduce as counterexamples with passing fix configurations, and \\
@@ -395,7 +397,7 @@ Go replay tests confirm both behaviours in the real code."""
 
 [model.constants]
 FixedSync = "TRUE"
-RejectUnhashed = "FALSE"
+RejectUnhashed = "TRUE"
 CheckCallerHash = "TRUE"
 LegacyLock = "FALSE"
 Mutant = "\"none\""
@@ -428,9 +430,8 @@ expect = "pass"
 property = "OwnLoadTrusted"
 
 [[model.command]]
-name = "findingF4HashlessLock"
-finding = "F4"
-constants = { LegacyLock = "TRUE" }
+name = "mutantPreFixF4TrustHashless"
+constants = { LegacyLock = "TRUE", RejectUnhashed = "FALSE" }
 expect = "counterexample"
 property = "OwnLoadTrusted"
 mutant_of = "f4RejectUnhashed"
