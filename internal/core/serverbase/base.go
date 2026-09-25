@@ -99,20 +99,22 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 	default:
 	}
 
-	// Atomic state transition: Created -> Starting
-	if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-		currentState := b.State()
-		return fmt.Errorf("cannot start server in state %s", currentState)
-	}
-
-	// Create internal context as a child of the caller's context so that
-	// parent cancellation (e.g., Ctrl+C) propagates to server goroutines.
-	// Shutdown (Stop) uses its own independent context for graceful cleanup.
-	// stateMu protects ctx/cancel fields against concurrent TransitionToStopping.
+	// The Created -> Starting CAS and the ctx/cancel store happen in one
+	// stateMu critical section. TransitionToStopping CASes lock-free and then
+	// reads cancel under stateMu, so it always observes the stored cancel func
+	// and cancels the server context; storing after an unlocked CAS let a
+	// concurrent stopper read a nil cancel and leave the context live
+	// (formal/tla/Serverbase.tla, finding F1).
+	//
+	// The internal context is a child of the caller's context so that parent
+	// cancellation (e.g., Ctrl+C) propagates to server goroutines. Shutdown
+	// (Stop) uses its own independent context for graceful cleanup.
 	b.stateMu.Lock()
+	defer b.stateMu.Unlock()
+	if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
+		return fmt.Errorf("cannot start server in state %s", b.State())
+	}
 	b.ctx, b.cancel = context.WithCancel(ctx)
-	b.stateMu.Unlock()
-
 	return nil
 }
 
@@ -131,15 +133,13 @@ func (b *Base) TransitionToRunning() {
 // lifecycle error without reaching back into LastError().
 func (b *Base) TransitionToFailed(err error) error {
 	b.stateMu.Lock()
-	currentState := b.State()
-	if currentState.IsTerminal() {
+	if !b.casToTerminalLocked(StateFailed) {
 		recordedErr := b.lastErr
 		b.stateMu.Unlock()
 		return recordedErr
 	}
 	b.lastErr = err
 	cancel := b.cancel
-	b.state.Store(int32(StateFailed))
 	b.sendErrorLocked(err)
 	b.closeErrChannelLocked()
 	b.stateMu.Unlock()
@@ -194,13 +194,10 @@ func (b *Base) TransitionToStopping() bool {
 // Must be called after all goroutines have exited.
 func (b *Base) TransitionToStopped() bool {
 	b.stateMu.Lock()
-
-	currentState := b.State()
-	if currentState.IsTerminal() {
+	if !b.casToTerminalLocked(StateStopped) {
 		b.stateMu.Unlock()
 		return false
 	}
-	b.state.Store(int32(StateStopped))
 	b.closeErrChannelLocked()
 	b.stateMu.Unlock()
 	return true
@@ -263,6 +260,24 @@ func (b *Base) CloseErrChannel() {
 // The channel is closed when the server transitions to Running.
 func (b *Base) StartedChannel() <-chan struct{} {
 	return b.startedCh
+}
+
+// casToTerminalLocked moves a non-terminal state to target and reports
+// whether it did. It compare-and-swaps from the observed state, re-reading on
+// failure: TransitionToStopping changes the state lock-free (for example
+// Created -> Stopped), and an unconditional Store here could overwrite that
+// terminal state (formal/tla/Serverbase.tla, finding F2). The caller holds
+// stateMu.
+func (b *Base) casToTerminalLocked(target State) bool {
+	for {
+		current := b.State()
+		if current.IsTerminal() {
+			return false
+		}
+		if b.state.CompareAndSwap(int32(current), int32(target)) {
+			return true
+		}
+	}
 }
 
 func (b *Base) sendErrorLocked(err error) {

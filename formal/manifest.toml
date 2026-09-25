@@ -264,7 +264,9 @@ expect = "instance"
 name = "Serverbase"
 tool = "tla"
 file = "formal/tla/Serverbase.tla"
-calibration = """2026-09-24: TLC reproduces findings F1 and F2 with exactly the interleavings \\
+calibration = """2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
+the fixed code, and the pre-fix code is kept as two regression mutants. \\
+2026-09-24: TLC reproduced findings F1 and F2 with exactly the interleavings \\
 predicted by reading internal/core/serverbase/base.go (F1: Start CAS, Stop CAS, \\
 Stop reads nil cancel, Start stores ctx; F2: Fail reads Created under the lock, \\
 Stop CASes Created->Stopped lock-free, Fail stores Failed), and both fixed \\
@@ -275,14 +277,14 @@ Stopped leaving the error channel open)."""
 [model.constants]
 Procs = "{p1, p2}"
 Mutant = "\"none\""
-FixStartOrdering = "FALSE"
-FixTerminalCAS = "FALSE"
+FixStartOrdering = "TRUE"
+FixTerminalCAS = "TRUE"
 
 [[model.command]]
 name = "errClosedOnce"
 expect = "pass"
 property = "ErrClosedAtMostOnce"
-dead_actions = ["RunCloseLoser"]
+dead_actions = ["RunCloseLoser", "StartStore"]
 
 [[model.command]]
 name = "mutantCloseTwice"
@@ -295,7 +297,7 @@ mutant_of = "errClosedOnce"
 name = "noSendAfterClose"
 expect = "pass"
 property = "NoSendAfterClose"
-dead_actions = ["RunCloseLoser"]
+dead_actions = ["RunCloseLoser", "StartStore"]
 
 [[model.command]]
 name = "mutantSendWithoutCheck"
@@ -308,7 +310,7 @@ mutant_of = "noSendAfterClose"
 name = "startedByWinner"
 expect = "pass"
 property = "StartedClosedByWinner"
-dead_actions = ["RunCloseLoser"]
+dead_actions = ["RunCloseLoser", "StartStore"]
 
 [[model.command]]
 name = "mutantCloseStartedUnconditionally"
@@ -317,22 +319,22 @@ expect = "counterexample"
 property = "StartedClosedByWinner"
 mutant_of = "startedByWinner"
 
-# Finding F2: the current code violates TerminalAbsorbing; the fix passes.
+# F2 (fixed): the pre-fix blind Store violates TerminalAbsorbing.
 [[model.command]]
 name = "terminalAbsorbingFixed"
 constants = { FixTerminalCAS = "TRUE" }
 expect = "pass"
 property = "TerminalAbsorbing"
-dead_actions = ["RunCloseLoser"]
+dead_actions = ["RunCloseLoser", "StartStore"]
 
 [[model.command]]
-name = "findingF2TerminalOverwrite"
-finding = "F2"
+name = "mutantPreFixF2BlindStore"
+constants = { FixTerminalCAS = "FALSE" }
 expect = "counterexample"
 property = "TerminalAbsorbing"
 mutant_of = "terminalAbsorbingFixed"
 
-# Finding F1: the current code violates StopCancelsContext; the fix passes.
+# F1 (fixed): the pre-fix unlocked start violates StopCancelsContext.
 
 [[model.command]]
 name = "mutantNoTerminalCheck"
@@ -349,8 +351,8 @@ property = "StopCancelsContext"
 dead_actions = ["RunCloseLoser", "StartStore"]
 
 [[model.command]]
-name = "findingF1StopDuringStart"
-finding = "F1"
+name = "mutantPreFixF1UnlockedStart"
+constants = { FixStartOrdering = "FALSE" }
 expect = "counterexample"
 property = "StopCancelsContext"
 mutant_of = "stopCancelsContextFixed"
