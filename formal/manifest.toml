@@ -587,7 +587,11 @@ witness = true
 name = "HostCallbackToken"
 tool = "tla"
 file = "formal/tla/HostCallbackToken.tla"
-calibration = """2026-09-24: TLC shows that no login succeeds after its execution ends, because \\
+calibration = """2026-09-25: finding F7 is fixed (revocation closes the connections the token \\
+authenticated); the base configuration now mirrors the code, the pre-fix behaviour \\
+is a regression mutant, and the rapid binding covers sessions (it detects \\
+revocation leaving connections open and expiry closing them). \\
+2026-09-24: TLC shows that no login succeeds after its execution ends, because \\
 every end path revokes the token, and that an open session outlives the \\
 execution that opened it (finding F7) unless revocation closes sessions. The \\
 rapid token binding detects two seeded defects (revoke as a no-op, expiry \\
@@ -596,7 +600,7 @@ ignored)."""
 [model.constants]
 Execs = "{e1, e2}"
 Mutant = "\"none\""
-RevokeClosesSessions = "FALSE"
+RevokeClosesSessions = "TRUE"
 
 [[model.command]]
 name = "noAuthAfterExecution"
@@ -622,16 +626,15 @@ expect = "counterexample"
 property = "NoSessionAfterStop"
 mutant_of = "noSessionAfterStop"
 
-# Finding F7: sessions outlive their execution unless revocation closes them.
+# Fixed finding F7: revocation closes the token's sessions.
 [[model.command]]
 name = "sessionLifetimeWithRevokeClosing"
-constants = { RevokeClosesSessions = "TRUE" }
 expect = "pass"
 property = "NoSessionAfterExecution"
 
 [[model.command]]
-name = "findingF7SessionOutlivesExecution"
-finding = "F7"
+name = "mutantPreFixF7RevokeKeepsSessions"
+constants = { RevokeClosesSessions = "FALSE" }
 expect = "counterexample"
 property = "NoSessionAfterExecution"
 mutant_of = "sessionLifetimeWithRevokeClosing"
@@ -639,7 +642,7 @@ mutant_of = "sessionLifetimeWithRevokeClosing"
 
 [[model.command]]
 name = "mutantKeepSessionsOnError"
-constants = { RevokeClosesSessions = "TRUE", Mutant = "\"keep_sessions_on_error\"" }
+constants = { Mutant = "\"keep_sessions_on_error\"" }
 expect = "counterexample"
 property = "NoSessionAfterExecution"
 mutant_of = "sessionLifetimeWithRevokeClosing"

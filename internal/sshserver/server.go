@@ -75,8 +75,10 @@ type (
 		listener serverListener
 		addr     string // Actual bound address (including resolved port)
 
-		// Token management
+		// Token management. conns holds the connections each token
+		// authenticated; revoking the token closes them.
 		tokens  map[TokenValue]*Token
+		conns   map[TokenValue]map[*tokenConn]struct{}
 		tokenMu sync.RWMutex
 
 		// Logger
@@ -219,6 +221,7 @@ func newWithDependencies(
 		setWinsize: setWinsize,
 		copyBuffer: copyBuffer,
 		tokens:     make(map[TokenValue]*Token),
+		conns:      make(map[TokenValue]map[*tokenConn]struct{}),
 		logger:     logger,
 	}
 
