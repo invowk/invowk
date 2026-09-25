@@ -3606,6 +3606,10 @@ pattern = "invowk.formatDuration.return.*"
 reason = "CLI display formatting helper"
 
 [[exceptions]]
+pattern = "invowk.lockIntegrityHint.return.*"
+reason = "CLI display hint text rendered at the Cobra boundary"
+
+[[exceptions]]
 pattern = "invowk.llmFlagValues.*"
 reason = "Cobra flag binding shared by audit and agent command authoring"
 

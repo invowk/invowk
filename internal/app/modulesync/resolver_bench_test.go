@@ -86,7 +86,7 @@ func BenchmarkModuleTidyTransitiveDeps(b *testing.B) {
 		refB.Key(): {refD},
 		refC.Key(): {refD},
 	}
-	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error) {
+	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]LockedModule) ([]*ResolvedModule, error) {
 		resolved := make([]*ResolvedModule, 0, len(requirements))
 		for _, req := range requirements {
 			resolved = append(resolved, &ResolvedModule{

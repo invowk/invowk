@@ -31,13 +31,13 @@ Each entry in `modules` contains:
 | `git_url` | Git repository URL |
 | `version` | Original version constraint from `invowkmod.cue` |
 | `resolved_version` | Exact resolved version |
-| `git_commit` | Commit SHA for the resolved version |
+| `git_commit` | Commit SHA for the resolved version (re-verified whenever the same version is resolved again) |
 | `alias` | Namespace alias (if set) |
 | `path` | Subdirectory path (if set) |
 | `module_id` | Canonical module identity parsed from `invowkmod.cue` |
 | `namespace` | Computed display namespace for compatibility |
 | `command_source_id` | Source ID used when publishing commands for execution/disambiguation |
-| `content_hash` | SHA-256 content hash of the cached module tree (tamper detection) |
+| `content_hash` | SHA-256 content hash of the module tree (re-verified whenever the same version is resolved again, whether or not the module is cached) |
 
 ## Module Keys
 
@@ -51,6 +51,19 @@ Lock keys preserve the source declaration identity. The parsed `module_id` is st
 
 - Commit `invowkmod.lock.cue` to version control for reproducible builds.
 - `invowk module add` writes the lock file automatically (no need to run `invowk module sync` afterward).
+
+## Integrity Checks During Sync
+
+When `invowk module sync`, `add`, `update`, or `tidy` resolves a module to the **same** `resolved_version` that the lock file already records, Invowk checks that the remote reproduces the locked entry:
+
+- The fetched commit must equal `git_commit`. A different commit means the upstream tag was re-pointed, and sync fails with a locked-commit mismatch.
+- The module content must hash to `content_hash`. This applies on a fresh machine or CI runner with an empty module cache, as well as to modules already cached. A fresh copy that fails the check is removed from the cache.
+
+In both cases the lock file is not rewritten.
+
+When a module resolves to a **different** version, because you changed its constraint or `invowk module update` found a newer match, the old entry's commit and hash are not applied. The new version's values become the next baseline. A module with no lock entry yet is recorded on its first sync with a warning that it has no integrity baseline.
+
+If an upstream re-tag or content change is intentional, run `invowk module remove <git-url>` and then `invowk module add` the module again. That records a new baseline without editing the generated lock file by hand. If you suspect the local cache was modified instead, delete the module's cache directory named in the error.
 
 ## Common Workflows
 

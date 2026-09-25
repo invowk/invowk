@@ -49,8 +49,10 @@ type (
 	// does not match the expected hash from the lock file.
 	ContentHashMismatchError struct {
 		ModuleKey ModuleRefKey
-		Expected  ContentHash
-		Actual    ContentHash
+		// Version is the resolved version being verified (optional context).
+		Version  SemVer
+		Expected ContentHash
+		Actual   ContentHash
 	}
 
 	hashContentFile interface {
@@ -75,6 +77,9 @@ func (e *InvalidContentHashError) Unwrap() error { return ErrInvalidContentHash 
 
 // Error implements the error interface.
 func (e *ContentHashMismatchError) Error() string {
+	if e.Version != "" {
+		return fmt.Sprintf("content hash mismatch for module %q at %s: expected %s, got %s", e.ModuleKey, e.Version, e.Expected, e.Actual)
+	}
 	return fmt.Sprintf("content hash mismatch for module %q: expected %s, got %s", e.ModuleKey, e.Expected, e.Actual)
 }
 

@@ -3,6 +3,7 @@
 package modulesync
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"os"
@@ -16,11 +17,15 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const defaultFakeCommit GitCommit = "abc123def456789012345678901234567890abcd"
+
 type fakeModuleFetcher struct {
 	repoPath     types.FilesystemPath
 	listVersions []SemVer
-	listCalls    int
-	fetchCalls   int
+	// commit overrides the fetched commit; empty uses defaultFakeCommit.
+	commit     GitCommit
+	listCalls  int
+	fetchCalls int
 }
 
 func (f *fakeModuleFetcher) ListVersions(_ context.Context, _ GitURL) ([]SemVer, error) {
@@ -30,7 +35,7 @@ func (f *fakeModuleFetcher) ListVersions(_ context.Context, _ GitURL) ([]SemVer,
 
 func (f *fakeModuleFetcher) Fetch(_ context.Context, _ GitURL, _ SemVer) (types.FilesystemPath, GitCommit, error) {
 	f.fetchCalls++
-	return f.repoPath, GitCommit("abc123def456789012345678901234567890abcd"), nil
+	return f.repoPath, cmp.Or(f.commit, defaultFakeCommit), nil
 }
 
 func TestModuleRefKey(t *testing.T) {
