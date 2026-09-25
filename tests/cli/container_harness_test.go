@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rogpeppe/go-internal/testscript"
+
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -198,5 +200,33 @@ func TestContainerCLISuiteSupportedHost(t *testing.T) {
 	current := invowkfile.CurrentPlatform()
 	if got := containerCLISuiteSupportedHost(current); got != (current == invowkfile.PlatformLinux) {
 		t.Fatalf("containerCLISuiteSupportedHost(CurrentPlatform=%q) = %v", current, got)
+	}
+}
+
+func TestForwardEngineConnectionEnv(t *testing.T) {
+	t.Parallel()
+
+	set := map[string]string{
+		"DOCKER_HOST":    "unix:///run/host/run/docker.sock",
+		"CONTAINER_HOST": "unix:///run/podman/podman.sock",
+		"UNRELATED":      "must-not-leak",
+	}
+	env := &testscript.Env{Vars: []string{"PATH=/bin"}}
+	forwardEngineConnectionEnv(env, func(name string) (string, bool) {
+		value, ok := set[name]
+		return value, ok
+	})
+
+	if got := env.Getenv("DOCKER_HOST"); got != set["DOCKER_HOST"] {
+		t.Fatalf("DOCKER_HOST = %q, want %q", got, set["DOCKER_HOST"])
+	}
+	if got := env.Getenv("CONTAINER_HOST"); got != set["CONTAINER_HOST"] {
+		t.Fatalf("CONTAINER_HOST = %q, want %q", got, set["CONTAINER_HOST"])
+	}
+	if got := env.Getenv("DOCKER_CONTEXT"); got != "" {
+		t.Fatalf("DOCKER_CONTEXT = %q, want unset", got)
+	}
+	if got := env.Getenv("UNRELATED"); got != "" {
+		t.Fatalf("UNRELATED leaked into the testscript environment: %q", got)
 	}
 }

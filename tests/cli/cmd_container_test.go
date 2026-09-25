@@ -35,6 +35,19 @@ const (
 	containerHealthProbeTimeout = 10 * time.Second
 )
 
+// engineConnectionEnv lists the variables that tell the Docker and Podman CLIs
+// how to reach their daemon. testscript starts from a minimal environment, so
+// without forwarding them a daemon reachable only through, say, DOCKER_HOST (a
+// toolbox using the host's socket) is invisible to the invowk binary under test.
+var engineConnectionEnv = []string{
+	"DOCKER_HOST",
+	"DOCKER_CONTEXT",
+	"DOCKER_TLS_VERIFY",
+	"DOCKER_CERT_PATH",
+	"CONTAINER_HOST",
+	"CONTAINER_CONNECTION",
+}
+
 // containerSetup extends commonSetup with container-specific cleanup and
 // engine pinning. Every container txtar uses the exact same verified engine
 // via a test-scoped config file.
@@ -42,6 +55,7 @@ func containerSetup(env *testscript.Env) error {
 	if err := commonSetup(env); err != nil {
 		return err
 	}
+	forwardEngineConnectionEnv(env, os.LookupEnv)
 
 	if err := ensureContainerSuiteConfig(env); err != nil {
 		return err
@@ -67,6 +81,16 @@ func containerSetup(env *testscript.Env) error {
 	})
 
 	return nil
+}
+
+// forwardEngineConnectionEnv copies the engine connection variables that are set
+// in the test process into the testscript environment.
+func forwardEngineConnectionEnv(env *testscript.Env, lookup func(string) (string, bool)) {
+	for _, name := range engineConnectionEnv {
+		if value, ok := lookup(name); ok {
+			env.Setenv(name, value)
+		}
+	}
 }
 
 // probeEngineHealthBeforeTest runs a lightweight "version" check against

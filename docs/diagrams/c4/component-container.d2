@@ -283,6 +283,8 @@ container_pkg: "internal/container" {
       **DockerEngine struct**
       Embeds BaseCLIEngine.
       Implements Engine for Docker CLI.
+      Adds SELinux volume labels (:z)
+      when the daemon reports SELinux.
       Created via NewDockerEngine().
     |
   }
@@ -370,8 +372,8 @@ container_pkg: "internal/container" {
       tooltip: |md
         **VolumeFormatFunc type**
         Formats volume mount strings.
-        Podman uses this to add SELinux :z labels
-        when SELinux is present on the host.
+        Docker and Podman use this to add
+        SELinux :z labels when SELinux is active.
       |
     }
 
@@ -658,6 +660,12 @@ container_pkg.func_options.run_args_xform -> container_pkg.base_cli: "configures
 # ==============================================================================
 # Relationships: Podman Uses Functional Options
 # ==============================================================================
+
+container_pkg.docker_engine -> container_pkg.func_options.volume_fmt_func: "uses for\nSELinux labels" {
+  style: {
+    stroke: "#707070"
+  }
+}
 
 container_pkg.podman_engine -> container_pkg.func_options.volume_fmt_func: "uses for\nSELinux labels" {
   style: {
