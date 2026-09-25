@@ -19,7 +19,12 @@ Created -> Starting -> Running -> Stopping -> Stopped
 ```
 
 `Stopped` and `Failed` are terminal. A server instance is single-use: once it
-stops or fails, create a new instance.
+stops or fails, create a new instance. Terminal states are absorbing under
+concurrent transitions: `TransitionToFailed` and `TransitionToStopped`
+compare-and-swap from the observed state, and `TransitionToStarting` stores the
+server context in the same critical section as its CAS, so a concurrent stop
+always cancels it. `formal/tla/Serverbase.tla` checks both; keep them when
+changing `internal/core/serverbase`.
 
 | State | Meaning |
 |---|---|

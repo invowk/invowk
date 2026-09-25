@@ -132,9 +132,11 @@ TermRead(p) == pc[p] = "term_read" /\ seen' = [seen EXCEPT ![p] = state]
                    startedCloses, startedByWinner, stopWon, firstTerminal, op>>
 TermStore(p) == pc[p] = "term_store" /\
     LET target == IF op[p] = "Fail" THEN "Failed" ELSE "Stopped" IN
-    \* The Go code Stores unconditionally; the fix compare-and-swaps from the observed state.
+    \* Without the fix, the Go code Stores unconditionally. The fix
+    \* compare-and-swaps from the observed state and, if a lock-free CAS changed
+    \* it meanwhile, re-reads it (still holding stateMu) and tries again.
     IF FixTerminalCAS /\ state /= seen[p]
-    THEN Goto(p, "term_unlock")
+    THEN Goto(p, "term_read")
          /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
                         startedCloses, startedByWinner, stopWon, firstTerminal, mu, op, seen, cancelRead>>
     ELSE /\ state' = target /\ firstTerminal' = Mark(target) /\ CloseErrLocked
@@ -166,7 +168,13 @@ StopCASCreated(p) == pc[p] = "stop_cas_created" /\
     ELSE Goto(p, "begin")
          /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
                         startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
-StopCloseLock(p) == pc[p] = "stop_close_lock" /\ Lock(p) /\ CloseErrLocked /\ Goto(p, "stop_close_unlock")
+\* With F2 fixed only one caller wins a terminal transition, so sync.Once is
+\* defense in depth: the close_twice mutant models a path that closes twice
+\* without it (for example CloseErrChannel plus a duplicated deferred close).
+StopCloseLock(p) == pc[p] = "stop_close_lock" /\ Lock(p) /\ Goto(p, "stop_close_unlock")
+    /\ (IF Mutant = "close_twice"
+        THEN errClosed' = TRUE /\ errCloseCount' = errCloseCount + 2
+        ELSE CloseErrLocked)
     /\ UNCHANGED <<state, ctxCreated, ctxCancelled, sentAfterClose, startedCloses, startedByWinner,
                    stopWon, firstTerminal, op, seen, cancelRead>>
 StopCloseUnlock(p) == pc[p] = "stop_close_unlock" /\ Unlock(p) /\ Goto(p, "done")
