@@ -15,14 +15,25 @@ var (
 	errInjected = errors.New("injected failure")
 
 	// atomicWriteSteps are the steps a failure can be injected at ("none": no failure).
-	atomicWriteSteps = []string{"none", "create", "chmod", "write", "close", "rename"}
+	atomicWriteSteps = []string{"none", "create", "chmod", "write", "sync", "close", "rename", "syncdir"}
 )
 
 // failingTempFile wraps a real temp file and fails Write or Close on demand.
 type failingTempFile struct {
 	*os.File
 	failWrite bool
+	failSync  bool
 	failClose bool
+}
+
+func (f *failingTempFile) Sync() error {
+	if f.failSync {
+		return errInjected
+	}
+	if err := f.File.Sync(); err != nil {
+		return fmt.Errorf("sync temp file: %w", err)
+	}
+	return nil
 }
 
 func (f *failingTempFile) Write(data []byte) (int, error) {
@@ -57,7 +68,7 @@ func injectingAtomicWriteOps(failAt string, removeFails bool, observe func()) at
 				return nil, fmt.Errorf("create temp: %w", err)
 			}
 			observe()
-			return &failingTempFile{File: file, failWrite: failAt == "write", failClose: failAt == "close"}, nil
+			return &failingTempFile{File: file, failWrite: failAt == "write", failSync: failAt == "sync", failClose: failAt == "close"}, nil
 		},
 		chmod: func(name string, mode os.FileMode) error {
 			if failAt == "chmod" {
@@ -80,6 +91,12 @@ func injectingAtomicWriteOps(failAt string, removeFails bool, observe func()) at
 				return errInjected
 			}
 			return os.Remove(name)
+		},
+		syncDir: func(dir string) error {
+			if failAt == "syncdir" {
+				return errInjected
+			}
+			return syncDirectory(dir)
 		},
 	}
 }
@@ -141,8 +158,14 @@ func TestAtomicWriteFile_FailureAtEveryStep(t *testing.T) {
 				if !errors.Is(err, errInjected) {
 					t.Fatalf("error = %v, want the injected failure", err)
 				}
-				if string(content) != "old" {
-					t.Fatalf("ReadersNeverSeePartial: target content %q after a failed write, want %q", content, "old")
+				// A failed directory fsync happens after the rename: the new
+				// content is in place and only its durability is unknown.
+				want := "old"
+				if failAt == "syncdir" {
+					want = "new"
+				}
+				if string(content) != want {
+					t.Fatalf("ReadersNeverSeePartial: target content %q after a failed write at %s, want %q", content, failAt, want)
 				}
 				leftTemp := len(temps) > 0
 				if leftTemp && !removeFails {

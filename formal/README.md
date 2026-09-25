@@ -107,7 +107,7 @@ change.
 |---|---|---|---|---|
 | F1 | serverbase | Stop during Start leaves the server context uncancelled | Fixed: CAS and context store now share one critical section; the pre-fix code is kept as `Serverbase.mutantPreFixF1UnlockedStart` | (shipped) |
 | F2 | serverbase | A terminal state is overwritten: Stopped becomes Failed | Fixed: terminal transitions CAS from the observed state and re-read on failure; the pre-fix code is kept as `Serverbase.mutantPreFixF2BlindStore` | (shipped) |
-| F3 | atomic write | No fsync: power loss can leave an empty lock file | Counterexample (`AtomicWrite.findingF3*`) | fsync(file) for D-Atomic; plus fsync(dir) for D-Commit |
+| F3 | atomic write | No fsync: power loss can leave an empty lock file | Fixed: the temp file is fsynced before the rename and the directory after it (skipped on Windows); the pre-fix code is kept as `AtomicWrite.mutantPreFixNoSync*` | (shipped) |
 | F4 | lock integrity | A v1.0 lock without hashes accepts any vendored content | Counterexample (`LockIntegrity.findingF4HashlessLock`); Go replay confirms | reject hashless entries and refetch instead of trusting the cache |
 | F5 | lock integrity | Fresh-cache sync trusted fetched content and rewrote the lock hash | Fixed by #142; `LockIntegrity.f5FixedSync` passes | (shipped) |
 | F6 | lock integrity | A sibling's vendored copy is admitted through the caller's lock without the caller's hash | Counterexample (`LockIntegrity.findingF6CrossLockAdmission`); Go replay confirms | compare the caller's locked hash on admission |
