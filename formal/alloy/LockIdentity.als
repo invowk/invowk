@@ -56,28 +56,7 @@ pred evalCompared[m: Id] { one claims[m] and some claims[m].hash }
 
 pred noUnhashedIdentity[p: Version] { Lock.version = p implies (no m: Id | evalUnhashed[m]) }
 
-v2NeverUnhashed: check { v2Parse implies noUnhashedIdentity[V2] } for 4 expect 0
-anteV2: run { v2Parse and Lock.version = V2 and some Entry } for 4 expect 1
-
-// Rejecting mutant: without the parser fact, a v2 lock could skip verification.
-mutantV2WithoutParseFact: check { noUnhashedIdentity[V2] } for 4 expect 1
-
-// Witnesses.
-witnessV1Unhashed: run { v2Parse and Lock.version = V1 and some m: Id | evalUnhashed[m] } for 4 expect 1
-witnessFallbackCollision: run {
-	v2Parse and Lock.version = V1
-	some disj a, b: Entry | no a.mid and some b.mid and a.nsId = b.mid
-} for 4 expect 1
-witnessEmptyIdentity: run { v2Parse and some e: Entry | no identity[e] } for 4 expect 1
-
 pred noJunk { Hash in Entry.hash }
 
-// Golden vectors: the implementation's decisions for every small lock.
-golden: run {
-	v2Parse
-	noJunk
-	Lock.ambiguous = ambiguousIds
-	Lock.missing = { m: Id | evalMissing[m] }
-	Lock.unhashed = { m: Id | evalUnhashed[m] }
-	Lock.compared = { m: Id | evalCompared[m] }
-} for 3 but 2 Id, 2 Hash expect 1
+// Commands live in formal/manifest.toml; scripts/formal.py renders them into a
+// staged copy of this model under artifacts/formal/LockIdentity/.

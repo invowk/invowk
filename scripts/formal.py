@@ -19,6 +19,7 @@ Usage:
     scripts/formal.py traces [TRACE ...]
     scripts/formal.py correspondence
     scripts/formal.py all
+    scripts/formal.py snapshot [--out FILE] [--compare FILE]
 """
 
 from __future__ import annotations
@@ -85,6 +86,10 @@ class Command:
     constants: tuple[tuple[str, str], ...] = ()
     spec: str = "Spec"
     temporal: bool = False
+    # Alloy only: the command's formula and an optional scope overriding the
+    # model's default; the runner renders the command from them.
+    body: str = ""
+    scope: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -94,8 +99,10 @@ class Model:
     file: str
     commands: tuple[Command, ...]
     calibration: str = ""
-    golden: dict[str, str] = dataclasses.field(default_factory=dict)
+    golden: dict[str, str | int] = dataclasses.field(default_factory=dict)
     constants: tuple[tuple[str, str], ...] = ()
+    # Alloy only: the default scope of every command.
+    scope: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -125,15 +132,62 @@ class TraceSuite:
 # Manifest
 
 
+# Keys each manifest table may declare. Anything else is a typo that would
+# otherwise fall back silently to a default (for example `scop =` on a golden
+# command), so the loader rejects it.
+TOP_KEYS = {"tools", "model", "trace"}
+TOOL_KEYS = {"version", "jar", "url", "sha256"}
+MODEL_KEYS = {"name", "tool", "file", "calibration", "golden", "command", "constants", "scope"}
+GOLDEN_KEYS = {"command", "output", "max_bytes"}
+COMMAND_KEYS = {
+    "name", "expect", "property", "mutant_of", "antecedent", "witness", "finding", "fairness_twin_of",
+    "dead_actions", "distinct_states", "constants", "spec", "temporal", "body", "scope",
+}
+TRACE_KEYS = {"name", "package"}
+# Keys that belong to one tool only.
+TOOL_ONLY_KEYS = {"alloy": {"body", "scope"}, "tla": {"constants", "spec", "temporal"}}
+
+
+def check_keys(table: str, raw: dict, allowed: set[str]) -> None:
+    unknown = sorted(set(raw) - allowed)
+    if unknown:
+        raise FormalError(f"manifest {table}: unknown key(s) {', '.join(unknown)}")
+
+
+def check_tool_keys(table: str, raw: dict, tool: str) -> None:
+    for other, keys in TOOL_ONLY_KEYS.items():
+        misplaced = sorted(set(raw) & keys)
+        if other != tool and misplaced:
+            raise FormalError(f"manifest {table}: key(s) {', '.join(misplaced)} are {other}-only, but the model's tool is {tool}")
+
+
 def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
+    check_keys("top level", data, TOP_KEYS)
+    for key, raw in data.get("tools", {}).items():
+        check_keys(f"[tools.{key}]", raw, TOOL_KEYS)
+    for raw in data.get("trace", []):
+        check_keys(f"[[trace]] {raw.get('name', '?')}", raw, TRACE_KEYS)
     tools = {
         key: Tool(name=key, version=v["version"], jar=v["jar"], url=v["url"], sha256=v["sha256"])
         for key, v in data.get("tools", {}).items()
     }
     models = []
     for raw in data.get("model", []):
+        where = f"[[model]] {raw.get('name', '?')}"
+        tool = raw.get("tool", "")
+        if tool not in TOOL_ONLY_KEYS:
+            raise FormalError(f"manifest {where}: unknown tool {tool!r}")
+        check_tool_keys(where, raw, tool)
+        check_keys(where, raw, MODEL_KEYS)
+        check_keys(f"{where} [model.golden]", raw.get("golden", {}), GOLDEN_KEYS)
+        for c in raw.get("command", []):
+            cmd_where = f"{where} [[model.command]] {c.get('name', '?')}"
+            check_tool_keys(cmd_where, c, tool)
+            check_keys(cmd_where, c, COMMAND_KEYS)
+            if tool == "alloy" and not c.get("body", "").strip():
+                raise FormalError(f"manifest {cmd_where}: an Alloy command needs a non-empty body")
         commands = tuple(
             Command(
                 name=c["name"],
@@ -149,6 +203,8 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
                 temporal=c.get("temporal", False),
                 dead_actions=tuple(c.get("dead_actions", [])),
                 distinct_states=c.get("distinct_states", 0),
+                body=c.get("body", "").strip(),
+                scope=c.get("scope", ""),
             )
             for c in raw.get("command", [])
         )
@@ -161,6 +217,7 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
                 calibration=raw.get("calibration", ""),
                 golden=raw.get("golden", {}),
                 constants=tuple(raw.get("constants", {}).items()),
+                scope=raw.get("scope", ""),
             )
         )
     return tools, models
@@ -230,6 +287,8 @@ def validate_manifest(models: list[Model]) -> None:
                 raise FormalError(f"{model.name}.{cmd.name}: a TLC witness must name its invariant as property")
         if model.tool == "alloy" and not any(c.expect == VERDICT_INSTANCE for c in model.commands):
             raise FormalError(f"{model.name}: Alloy model has no satisfiable (non-vacuity) run command")
+        if model.tool == "alloy":
+            render_alloy_commands(model)  # scope and property-reference guards
         if not model.calibration:
             print(f"WARNING: {model.name} has no calibration record; its properties are not claimed as verified")
 
@@ -273,39 +332,59 @@ def ensure_tool(tool: Tool) -> Path:
 # ---------------------------------------------------------------------------
 # Alloy
 
-ALLOY_COMMAND_RE = re.compile(r"^\s*(?P<label>\w+)\s*:\s*(?P<kind>run|check)\b(?P<body>.*?)\bexpect\s+(?P<expect>[01])", re.S | re.M)
-
-
-def alloy_source_commands(source: str) -> dict[str, tuple[str, int, str]]:
-    """Map labelled command -> (kind, expect, body) from Alloy source text."""
-    commands: dict[str, tuple[str, int, str]] = {}
-    for match in ALLOY_COMMAND_RE.finditer(source):
-        commands[match["label"]] = (match["kind"], int(match["expect"]), match["body"])
-    return commands
-
-
 def alloy_expected_bit(cmd: Command) -> int:
     """Alloy `expect 1` means an instance/counterexample exists."""
     return 0 if cmd.expect == VERDICT_PASS else 1
 
 
-def cross_check_alloy_source(model: Model, source: str) -> None:
-    declared = alloy_source_commands(source)
-    for cmd in model.commands:
-        if cmd.name not in declared:
-            raise FormalError(f"{model.name}.{cmd.name}: no labelled command with an `expect` annotation in {model.file}")
-        kind, expect_bit, body = declared[cmd.name]
-        if expect_bit != alloy_expected_bit(cmd):
-            raise FormalError(
-                f"{model.name}.{cmd.name}: source says `expect {expect_bit}` but the manifest expects {cmd.expect}"
-            )
-        if cmd.expect == VERDICT_INSTANCE and kind != "run":
-            raise FormalError(f"{model.name}.{cmd.name}: an instance-expecting command must be a run")
-        if kind == "check" and cmd.property and not re.search(rf"\b{re.escape(cmd.property)}\b", body):
-            raise FormalError(f"{model.name}.{cmd.name}: check body does not reference property {cmd.property!r}")
-    for label in declared:
-        if label not in {c.name for c in model.commands}:
-            raise FormalError(f"{model.name}: command {label!r} in {model.file} is missing from the manifest")
+def render_alloy_command(model: Model, cmd: Command) -> str:
+    """Render one manifest command as a labelled Alloy command. An instance
+    command is a `run`, every other command a `check`, and the expect bit
+    follows from the manifest verdict."""
+    scope = cmd.scope or model.scope
+    if not scope:
+        raise FormalError(f"{model.name}.{cmd.name}: no scope, and the model declares no default scope")
+    kind = "run" if cmd.expect == VERDICT_INSTANCE else "check"
+    if kind == "check" and cmd.property and not re.search(rf"\b{re.escape(cmd.property)}\b", cmd.body):
+        raise FormalError(f"{model.name}.{cmd.name}: check body does not reference property {cmd.property!r}")
+    return f"{cmd.name}: {kind} {{\n{cmd.body}\n}} for {scope} expect {alloy_expected_bit(cmd)}"
+
+
+def render_alloy_commands(model: Model) -> str:
+    return "\n\n".join(render_alloy_command(model, cmd) for cmd in model.commands) + "\n"
+
+
+def blank_matches(pattern: str, source: str) -> str:
+    """Replace every match of `pattern` with spaces, keeping line numbers."""
+    return re.sub(pattern, lambda m: re.sub(r"[^\n]", " ", m[0]), source, flags=re.S)
+
+
+def strip_alloy_comments(source: str) -> str:
+    """Blank out `//`, `--`, and `/* ... */` comments."""
+    return blank_matches(r"/\*.*?\*/|//[^\n]*|--[^\n]*", source)
+
+
+def reject_alloy_source_commands(model: Model, source: str) -> None:
+    """Commands belong in the manifest. `run` and `check` are Alloy keywords,
+    so any occurrence outside a comment declares a command, labelled or not."""
+    match = re.search(r"\b(run|check)\b", strip_alloy_comments(source))
+    if match:
+        line = source.count("\n", 0, match.start()) + 1
+        raise FormalError(
+            f"{model.name}: {model.file}:{line} declares a `{match[1]}` command; commands belong in formal/manifest.toml"
+        )
+
+
+def stage_alloy_model(model: Model) -> Path:
+    """Write artifacts/formal/<Model>/<Model>.als: the committed source, a
+    generated banner, and the commands rendered from the manifest."""
+    source = (REPO_ROOT / model.file).read_text()
+    reject_alloy_source_commands(model, source)
+    staged = REPORT_DIR / model.name / f"{model.name}.als"
+    staged.parent.mkdir(parents=True, exist_ok=True)
+    banner = "\n// ---- Commands generated by scripts/formal.py from formal/manifest.toml; do not edit. ----\n\n"
+    staged.write_text(source.rstrip("\n") + "\n" + banner + render_alloy_commands(model))
+    return staged
 
 
 def alloy_verdicts(receipt: dict) -> dict[str, str]:
@@ -322,31 +401,35 @@ def alloy_verdicts(receipt: dict) -> dict[str, str]:
     return verdicts
 
 
-def alloy_exec(jar: Path, model: Model, out_dir: Path, command: str = "*", fmt: str = "json", repeat: int = 1) -> None:
-    """Run `alloy exec` for one command (or all with "*") into a fresh out_dir."""
+def alloy_exec(jar: Path, staged: Path, out_dir: Path, command: str = "*", fmt: str = "json", repeat: int = 1) -> None:
+    """Run `alloy exec` on a staged model for one command (or all with "*") into a fresh out_dir."""
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True)
     args = [
         "java", "--enable-native-access=ALL-UNNAMED", "-jar", str(jar), "exec",
         "-f", "-q", "-t", fmt, "-o", str(out_dir), "-c", command, "-r", str(repeat),
-        str(REPO_ROOT / model.file),
+        str(staged),
     ]
     completed = subprocess.run(args, capture_output=True, text=True, check=False)
     (out_dir / "alloy.log").write_text(completed.stdout + completed.stderr)
 
 
-def check_alloy_model(jar: Path, model: Model) -> list[str]:
-    """Run every command of a model in one JVM and compare verdicts."""
-    source = (REPO_ROOT / model.file).read_text()
-    cross_check_alloy_source(model, source)
+def check_alloy_model(jar: Path, model: Model, results: dict[str, dict] | None = None) -> list[str]:
+    """Run every command of a model in one JVM and compare verdicts.
+
+    When `results` is given, each command's observed verdict is recorded in it
+    (see `snapshot`)."""
+    staged = stage_alloy_model(model)
     out_dir = REPORT_DIR / model.name / "commands"
-    alloy_exec(jar, model, out_dir)
+    alloy_exec(jar, staged, out_dir)
     receipt_path = out_dir / "receipt.json"
     verdicts = alloy_verdicts(json.loads(receipt_path.read_text())) if receipt_path.exists() else {}
     failures = []
     for cmd in model.commands:
         observed = verdicts.get(cmd.name, VERDICT_NONE)
+        if results is not None:
+            results[f"{model.name}.{cmd.name}"] = {"verdict": observed}
         status = "ok" if observed == cmd.expect else "FAIL"
         print(f"  [{status}] {model.name}.{cmd.name}: expected {cmd.expect}, observed {observed}")
         if observed != cmd.expect:
@@ -362,7 +445,11 @@ TLC_PROPERTY_RE = re.compile(r"^Error: Temporal properties were violated", re.M)
 TLC_DEADLOCK_RE = re.compile(r"^Error: Deadlock reached", re.M)
 TLC_PASS_RE = re.compile(r"^Model checking completed\. No error has been found\.", re.M)
 TLC_STATES_RE = re.compile(r"^(\d+) states generated, (\d+) distinct states found", re.M)
-TLC_COVERAGE_RE = re.compile(r"^<(\w+) line \d+, col \d+ to line \d+, col \d+ of module \w+>: (\d+):(\d+)", re.M)
+# An action whose definition starts with LET carries the LET body's location
+# as a suffix: `<Dead line 6, col 1 to line 6, col 4 of module Tiny (6 28 6 42)>: 0:0`.
+TLC_COVERAGE_RE = re.compile(
+    r"^<(\w+) line \d+, col \d+ to line \d+, col \d+ of module \w+(?: \([\d ]+\))?>: (\d+):(\d+)", re.M
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -408,6 +495,11 @@ def tlc_config(model: Model, cmd: Command) -> str:
     return "\n".join(lines) + "\n"
 
 
+def parallel_jobs() -> int:
+    """Concurrent JVMs for TLC runs; FORMAL_JOBS lowers it under memory pressure."""
+    return int(os.environ.get("FORMAL_JOBS", "0")) or os.cpu_count() or 2
+
+
 def run_tlc(jar: Path, spec: str, cfg_text: str, work: Path, extra_args: tuple[str, ...] = ()) -> str:
     """Run TLC on `spec` (a module staged into `work`) and return its output.
 
@@ -431,8 +523,81 @@ def stage_tla_modules(work: Path, extra: tuple[Path, ...] = ()) -> None:
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
-    for module in (*(REPO_ROOT / "formal" / "tla").glob("*.tla"), *extra):
+    for module in (*TLA_DIR.glob("*.tla"), *extra):
         shutil.copy(module, work / module.name)
+
+
+# ---------------------------------------------------------------------------
+# Static checks of TLA+ sources
+
+TLA_DIR = REPO_ROOT / "formal" / "tla"
+# A top-level operator definition header: `Name ==` or `Name(args) ==`.
+TLA_DEFINITION = r"^(\w+)\s*(?:\([^)]*\))?\s*=="
+
+
+def strip_tla_comments(source: str) -> str:
+    """Blank out `\\*` line comments and `(* ... *)` block comments."""
+    return blank_matches(r"\(\*.*?\*\)|\\\*[^\n]*", source)
+
+
+def tla_definitions(source: str) -> list[str]:
+    """Names of the top-level operator definitions (`Name ==` or `Name(args) ==`)."""
+    return re.findall(TLA_DEFINITION, strip_tla_comments(source), re.M)
+
+
+def tla_variables(source: str) -> list[str]:
+    """Declared variables, in order, from every VARIABLE(S) declaration."""
+    names: list[str] = []
+    for block in re.findall(r"^VARIABLES?\b(.*?)(?=^\S|\Z)", strip_tla_comments(source), re.M | re.S):
+        names += re.findall(r"\w+", block)
+    return names
+
+
+def check_tla_sources(tla_dir: Path = TLA_DIR) -> None:
+    """Trace specs build on TraceBase, and no other module shadows its names.
+
+    Every definition in TraceBase.tla is reserved: trace specs instantiate it
+    next to their model, so a second definition would clash."""
+    reserved = set(tla_definitions((tla_dir / "TraceBase.tla").read_text()))
+    for path in sorted(tla_dir.glob("*.tla")):
+        if path.name == "TraceBase.tla":
+            continue
+        source = path.read_text()
+        clashes = [name for name in tla_definitions(source) if name in reserved]
+        if clashes:
+            raise FormalError(f"{path.name}: defines {', '.join(clashes)}, reserved by TraceBase.tla")
+        if not path.stem.endswith("Trace"):
+            continue
+        if not re.search(r"^INSTANCE\s+TraceBase\b", strip_tla_comments(source), re.M):
+            raise FormalError(f"{path.name}: a trace spec must `INSTANCE TraceBase` instead of re-implementing it")
+        extra = [name for name in tla_variables(source) if name != "i"]
+        if extra:
+            raise FormalError(f"{path.name}: a trace spec may declare only the cursor variable i, not {', '.join(extra)}")
+
+
+def check_variable_groups(name: str, source: str) -> None:
+    """When `vars` is built from named groups (`fooVars == <<...>>`), the
+    groups and individual variables it names must cover every declared
+    variable exactly once."""
+    code = strip_tla_comments(source)
+    groups = {
+        group: re.findall(r"\w+", members)
+        for group, members in re.findall(r"^(\w+Vars)\s*==\s*<<(.*?)>>", code, re.M | re.S)
+    }
+    if not groups:
+        return
+    match = re.search(r"^vars\s*==\s*<<(.*?)>>", code, re.M | re.S)
+    if match is None:
+        raise FormalError(f"{name}: defines variable groups but no `vars == <<...>>`")
+    members = [v for item in re.findall(r"\w+", match[1]) for v in groups.get(item, [item])]
+    declared = tla_variables(source)
+    duplicates = sorted({v for v in members if members.count(v) > 1})
+    missing = [v for v in declared if v not in members]
+    unknown = [v for v in members if v not in declared]
+    if duplicates or missing or unknown:
+        details = [f"{label}: {', '.join(vs)}" for label, vs in
+                   (("duplicated", duplicates), ("missing", missing), ("not declared", unknown)) if vs]
+        raise FormalError(f"{name}: variable groups in vars do not partition the variables ({'; '.join(details)})")
 
 
 def attribute_temporal_violation(result: TlcResult, cmd: Command) -> TlcResult:
@@ -462,16 +627,21 @@ def evaluate_tlc_command(model: Model, cmd: Command, result: TlcResult) -> list[
     return failures
 
 
-def check_tlc_models(jar: Path, models: list[Model]) -> list[str]:
-    """Check every command of every TLC model in parallel, one JVM each."""
+def check_tlc_models(jar: Path, models: list[Model], results: dict[str, dict] | None = None) -> list[str]:
+    """Check every command of every TLC model in parallel, one JVM each.
+
+    When `results` is given, each command's verdict, violated property,
+    distinct-state count, and zero-coverage actions are recorded in it."""
+    check_tla_sources()
     jobs = []
     for model in models:
+        check_variable_groups(model.name, (REPO_ROOT / model.file).read_text())
         for cmd in model.commands:
             cfg_text = tlc_config(model, cmd)
             check_tlc_config_text(f"{model.name}.{cmd.name}", cfg_text)
             jobs.append((model, cmd, cfg_text, REPORT_DIR / model.name / cmd.name))
 
-    def run(job: tuple[Model, Command, str, Path]) -> tuple[str, list[str]]:
+    def run(job: tuple[Model, Command, str, Path]) -> tuple[str, TlcResult, list[str]]:
         model, cmd, cfg_text, work = job
         stage_tla_modules(work)
         output = run_tlc(jar, Path(model.file).name, cfg_text, work, ("-coverage", "1"))
@@ -479,13 +649,20 @@ def check_tlc_models(jar: Path, models: list[Model]) -> list[str]:
         cmd_failures = evaluate_tlc_command(model, cmd, result)
         status = "ok" if not cmd_failures else "FAIL"
         line = f"  [{status}] {model.name}.{cmd.name}: expected {cmd.expect}, observed {result.verdict} {result.violated}"
-        return line.rstrip(), cmd_failures
+        return line.rstrip(), result, cmd_failures
 
     failures: list[str] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
-        for line, cmd_failures in pool.map(run, jobs):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_jobs()) as pool:
+        for (model, cmd, _cfg, _work), (line, result, cmd_failures) in zip(jobs, pool.map(run, jobs)):
             print(line)
             failures.extend(cmd_failures)
+            if results is not None:
+                results[f"{model.name}.{cmd.name}"] = {
+                    "verdict": result.verdict,
+                    "violated": result.violated,
+                    "distinct_states": result.distinct_states,
+                    "zero_coverage": sorted(result.zero_state_actions),
+                }
     return failures
 
 
@@ -498,33 +675,73 @@ def check_tlc_models(jar: Path, models: list[Model]) -> list[str]:
 
 BUILTIN_SIGS = {"univ", "Int", "seq/Int", "String", "none"}
 # Bump when the exported vector format changes.
-GOLDEN_FORMAT = 1
+GOLDEN_FORMAT = 2
+# Compressed size budget for one golden file; [model.golden] max_bytes may lower it.
+GOLDEN_MAX_BYTES = 600_000
+
+
+def golden_command(model: Model) -> Command:
+    name = model.golden.get("command")
+    cmd = next((c for c in model.commands if c.name == name), None)
+    if cmd is None or cmd.expect != VERDICT_INSTANCE:
+        raise FormalError(f"{model.name}: [model.golden] command {name!r} must name a command expecting an instance")
+    return cmd
+
+
+def golden_command_digest(model: Model) -> str:
+    return hashlib.sha256(render_alloy_command(model, golden_command(model)).encode()).hexdigest()
 
 
 def golden_fingerprint(tools: dict[str, Tool], model: Model) -> str:
-    """Identify what produced a golden file: model source, solver jar, command, format.
+    """Identify what produced a golden file: format, model source, solver jar,
+    golden command name, and the rendered golden command.
 
     Go tests recompute the model-source part (see internal/testutil/alloygolden),
-    so a model edit without regeneration fails plain `make test`.
+    so a model edit without regeneration fails plain `make test`. The rendered
+    command lives in the manifest; scripts/test_formal.py checks it without Java.
     """
     source = sha256_of(REPO_ROOT / model.file)
-    return f"format={GOLDEN_FORMAT};source={source};alloy={tools['alloy'].sha256};command={model.golden['command']}"
+    return (
+        f"format={GOLDEN_FORMAT};source={source};alloy={tools['alloy'].sha256};"
+        f"command={model.golden['command']};golden={golden_command_digest(model)}"
+    )
 
 
-def golden_is_fresh(tools: dict[str, Tool], model: Model) -> bool:
-    target = REPO_ROOT / model.golden["output"]
+def golden_staleness(tools: dict[str, Tool], model: Model) -> str | None:
+    """Java-free freshness: the committed header must carry the fingerprint the
+    current model source, jar, and manifest golden command produce. Returns a
+    message naming the model when it does not."""
+    output = model.golden["output"]
+    target = REPO_ROOT / output
     if not target.exists():
-        return False
-    header = json.loads(gzip.decompress(target.read_bytes()))
-    return header.get("fingerprint") == golden_fingerprint(tools, model)
+        return f"{model.name}: {output} is missing; generate it with: scripts/formal.py golden {model.name}"
+    if read_golden_header(target).get("fingerprint") != golden_fingerprint(tools, model):
+        return f"{model.name}: {output} is stale; regenerate with: scripts/formal.py golden {model.name}"
+    return None
+
+
+def xml_instance(text: str) -> ET.Element:
+    instance = ET.fromstring(text).find("instance")
+    if instance is None:
+        raise FormalError("Alloy XML solution has no <instance>")
+    return instance
+
+
+def parse_alloy_xml_arities(text: str) -> dict[str, int]:
+    """Each relation's declared arity, from its field's <types> (a relation
+    empty in every instance has no tuples to count)."""
+    arities = {}
+    for field in xml_instance(text).findall("field"):
+        types = field.find("types")
+        if types is None or not types.findall("type"):
+            raise FormalError(f"Alloy XML field {field.get('label')!r} declares no <types>")
+        arities[field.get("label", "")] = len(types.findall("type"))
+    return arities
 
 
 def parse_alloy_xml_instance(text: str) -> dict:
     """Return {"sig": {name: [atoms]}, "rel": {name: [[atoms...]]}} for one solution."""
-    root = ET.fromstring(text)
-    instance = root.find("instance")
-    if instance is None:
-        raise FormalError("Alloy XML solution has no <instance>")
+    instance = xml_instance(text)
     sigs: dict[str, list[str]] = {}
     rels: dict[str, list[list[str]]] = {}
     for sig in instance.findall("sig"):
@@ -546,32 +763,145 @@ def export_golden(jar: Path, tools: dict[str, Tool], model: Model, check: bool =
     if not command or not output:
         raise FormalError(f"{model.name}: golden export needs [model.golden] command and output")
     out_dir = REPORT_DIR / model.name / "golden"
-    alloy_exec(jar, model, out_dir, command=command, fmt="xml", repeat=0)
+    alloy_exec(jar, stage_alloy_model(model), out_dir, command=command, fmt="xml", repeat=0)
     files = sorted(out_dir.glob(f"{command}-solution-*.xml"), key=lambda p: int(p.stem.rsplit("-", 1)[1]))
     if not files:
         raise FormalError(f"{model.name}: golden command {command!r} produced no instances")
-    instances = [parse_alloy_xml_instance(f.read_text()) for f in files]
+    texts = [f.read_text() for f in files]
+    instances = [parse_alloy_xml_instance(text) for text in texts]
     vectors = {
         "model": model.name,
         "command": command,
         "fingerprint": golden_fingerprint(tools, model),
         "count": len(instances),
-        "instances": instances,
+        **encode_golden(instances, parse_alloy_xml_arities(texts[0])),
     }
     target = REPO_ROOT / output
     payload = (json.dumps(vectors, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    shutil.rmtree(out_dir)  # one XML file per instance; the .gz is the artefact
     if check:
         committed = gzip.decompress(target.read_bytes()) if target.exists() else b""
         if committed != payload:
             raise FormalError(f"{model.name}: {output} is stale; regenerate with: scripts/formal.py golden {model.name}")
         print(f"  golden {model.name}: {len(instances)} instances match {output}")
         return target
-    target.parent.mkdir(parents=True, exist_ok=True)
     # mtime=0 keeps the archive byte-identical across regenerations.
-    target.write_bytes(gzip.compress(payload, mtime=0))
-    shutil.rmtree(out_dir)  # one XML file per instance; the .gz is the artefact
-    print(f"  golden {model.name}: {len(instances)} instances -> {output}")
+    compressed = gzip.compress(payload, compresslevel=9, mtime=0)
+    check_golden_size(model, output, len(compressed))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(compressed)
+    duplicates = len(instances) - len({json.dumps(i, sort_keys=True) for i in instances})
+    print(f"  golden {model.name}: {len(instances)} instances ({duplicates} duplicates), {len(compressed)} bytes -> {output}")
     return target
+
+
+def check_golden_size(model: Model, output: str, size: int) -> None:
+    budget = min(GOLDEN_MAX_BYTES, model.golden.get("max_bytes", GOLDEN_MAX_BYTES))
+    if size > budget:
+        raise FormalError(f"{model.name}: {output} would be {size} compressed bytes, over the {budget}-byte budget")
+
+
+# Golden format 2 is columnar and dictionary-coded:
+#
+#   atoms: every atom label in the file, sorted;
+#   sig:   {name: {"values": [[atom index, ...], ...], "index": [value per instance]}};
+#   rel:   {name: {"arity": n, "values": [[flat row-major atom indices], ...], "index": [...]}}.
+#
+# Each column stores its distinct values once. Atoms are sorted, so sorted
+# index lists decode to the same sorted label lists as format 1. Instance order
+# and duplicates are kept.
+
+
+def encode_golden(instances: list[dict], arities: dict[str, int]) -> dict:
+    """Encode instances (format-1 dicts) as format-2 atoms, sig, and rel columns."""
+    sig_names = sorted(instances[0]["sig"]) if instances else []
+    rel_names = sorted(instances[0]["rel"]) if instances else []
+    for k, inst in enumerate(instances):
+        if sorted(inst["sig"]) != sig_names or sorted(inst["rel"]) != rel_names:
+            raise FormalError(f"golden instance {k} has a different set of sigs or relations")
+    if set(rel_names) - set(arities):
+        raise FormalError(f"golden relations without a declared arity: {sorted(set(rel_names) - set(arities))}")
+    atoms = sorted(
+        {a for inst in instances for v in inst["sig"].values() for a in v}
+        | {a for inst in instances for v in inst["rel"].values() for t in v for a in t}
+    )
+    index_of = {atom: i for i, atom in enumerate(atoms)}
+
+    def column(cells: list[tuple[int, ...]]) -> dict:
+        values = sorted(set(cells))
+        position = {value: i for i, value in enumerate(values)}
+        return {"values": [list(v) for v in values], "index": [position[c] for c in cells]}
+
+    sig = {name: column([tuple(index_of[a] for a in inst["sig"][name]) for inst in instances]) for name in sig_names}
+    rel = {}
+    for name in rel_names:
+        arity = arities[name]
+        cells = []
+        for inst in instances:
+            if any(len(t) != arity for t in inst["rel"][name]):
+                raise FormalError(f"golden relation {name!r} has a tuple whose arity is not {arity}")
+            cells.append(tuple(index_of[a] for t in inst["rel"][name] for a in t))
+        rel[name] = {"arity": arity, **column(cells)}
+    return {"atoms": atoms, "sig": sig, "rel": rel}
+
+
+def decode_columns(data: dict) -> list[dict]:
+    """Decode format-2 columns back into format-1 instance dicts."""
+    atoms, count = data["atoms"], data["count"]
+    for kind in ("sig", "rel"):
+        for name, col in data[kind].items():
+            if len(col["index"]) != count:
+                raise FormalError(f"golden {kind} column {name!r} has {len(col['index'])} indices, want {count}")
+    sig_values = {name: [[atoms[a] for a in v] for v in col["values"]] for name, col in data["sig"].items()}
+    rel_values = {}
+    for name, col in data["rel"].items():
+        arity = col["arity"]
+        rel_values[name] = [
+            [[atoms[a] for a in v[i:i + arity]] for i in range(0, len(v), arity)] for v in col["values"]
+        ]
+    return [
+        {
+            "sig": {name: sig_values[name][col["index"][k]] for name, col in sorted(data["sig"].items())},
+            "rel": {name: rel_values[name][col["index"][k]] for name, col in sorted(data["rel"].items())},
+        }
+        for k in range(count)
+    ]
+
+
+GOLDEN_HEADER_KEYS = ("model", "command", "fingerprint", "count")
+
+
+def read_golden(path: Path) -> dict:
+    return json.loads(gzip.decompress(path.read_bytes()))
+
+
+def read_golden_header(path: Path) -> dict:
+    """A golden file's model, command, fingerprint, and count."""
+    data = read_golden(path)
+    return {k: data.get(k) for k in GOLDEN_HEADER_KEYS}
+
+
+def decode_golden(path: Path) -> tuple[dict, list[dict]]:
+    """Return a golden file's header (model, command, fingerprint, count) and
+    its instances as {"sig": {name: [atoms]}, "rel": {name: [[atoms...]]}}."""
+    data = read_golden(path)
+    header = {k: data[k] for k in GOLDEN_HEADER_KEYS}
+    fmt = golden_file_format(header)
+    if fmt != GOLDEN_FORMAT:
+        raise FormalError(f"{path}: golden format {fmt} is not {GOLDEN_FORMAT}; regenerate with: make formal-golden")
+    return header, decode_columns(data)
+
+
+def golden_file_format(header: dict) -> int:
+    match = re.match(r"format=(\d+);", header.get("fingerprint", ""))
+    if not match:
+        raise FormalError(f"golden file for {header.get('model')} has no format in its fingerprint")
+    return int(match[1])
+
+
+def golden_digest(instances: list[dict]) -> str:
+    """Encoding-independent digest of an instance sequence (canonical JSON)."""
+    return hashlib.sha256(json.dumps(instances, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -648,6 +978,43 @@ def trace_verdict(output: str) -> str:
     return VERDICT_NONE
 
 
+def proj_fields(spec: str, source: str) -> list[str]:
+    """The sorted top-level field names of the `Proj ==` record literal.
+
+    The definition runs to the next top-level definition. Fields are the
+    `name |->` segments at bracket depth 1, so nested records, function
+    constructors, tuples, and multi-line IF/THEN/ELSE values do not count.
+    Anything but a record literal fails closed."""
+    match = re.search(rf"^Proj\s*==(.*?)(?={TLA_DEFINITION}|^====|\Z)", strip_tla_comments(source), re.M | re.S)
+    if match is None:
+        raise FormalError(f"{spec}: no top-level `Proj ==` definition")
+    # Blank string literals, and turn << >> into single bracket characters.
+    body = re.sub(r'"[^"]*"', '""', match[1].strip()).replace("<<", "(").replace(">>", ")")
+    not_record = FormalError(f"{spec}: Proj must be a single record literal [field |-> ..., ...]")
+    if not body.startswith("["):
+        raise not_record
+    segments, start, depth = [], 1, 0
+    for k, char in enumerate(body):
+        if char in "[({":
+            depth += 1
+        elif char in "])}":
+            depth -= 1
+            if depth == 0:
+                if body[k + 1:].strip():
+                    raise not_record
+                segments.append(body[start:k])
+                break
+        elif char == "," and depth == 1:
+            segments.append(body[start:k])
+            start = k + 1
+    else:
+        raise FormalError(f"{spec}: unbalanced brackets in Proj")
+    fields = [re.match(r"\s*(\w+)\s*\|->", segment) for segment in segments]
+    if not all(fields):
+        raise not_record
+    return sorted(field[1] for field in fields)
+
+
 def record_traces(suite: TraceSuite) -> dict[str, int]:
     """Run the Go harness that writes <module>.tla and <module>.json."""
     env = dict(os.environ, **{"INVOWK_FORMAL_TRACE_DIR": str(TRACE_DIR)})
@@ -663,10 +1030,22 @@ def record_traces(suite: TraceSuite) -> dict[str, int]:
     counts = json.loads(counts_path.read_text())
     if counts.get(TRACE_ACCEPTED, 0) == 0 or counts.get(TRACE_REJECTED, 0) == 0:
         raise FormalError(f"{suite.name}: a trace suite needs accepted traces and targeted mutations, got {counts}")
+    check_proj_fields(suite, counts.get("fields"), (TLA_DIR / suite.spec).read_text())
     return counts
 
 
-def check_trace(jar: Path, suite: TraceSuite, model: Model, trace_set: str, index: int) -> str | None:
+def check_proj_fields(suite: TraceSuite, recorded: list[str] | None, spec_source: str) -> None:
+    """The harness's record keys must be exactly the trace spec's Proj fields;
+    otherwise a misspelled key makes a targeted mutation vacuously rejected."""
+    if not recorded:
+        raise FormalError(f"{suite.name}: {suite.module}.json records no projection fields (use tlatrace.WriteSuite)")
+    parsed = proj_fields(suite.spec, spec_source)
+    if sorted(recorded) != parsed:
+        raise FormalError(f"{suite.name}: harness records fields {sorted(recorded)}, but {suite.spec} projects {parsed}")
+
+
+def check_trace(jar: Path, suite: TraceSuite, model: Model, trace_set: str, index: int) -> tuple[str, str | None]:
+    """Return the observed verdict of one trace, and a failure when it differs."""
     work = TRACE_DIR / suite.name / f"{trace_set}-{index}"
     stage_tla_modules(work, (TRACE_DIR / f"{suite.module}.tla",))
     constants = dict(model.constants) | {"TraceSet": f'"{trace_set}"', "TraceIndex": str(index)}
@@ -675,12 +1054,17 @@ def check_trace(jar: Path, suite: TraceSuite, model: Model, trace_set: str, inde
     ) + "\n"
     verdict = trace_verdict(run_tlc(jar, suite.spec, cfg_text, work, ("-deadlock",)))
     if verdict != trace_set:
-        return f"{suite.name} {trace_set} trace {index}: expected {trace_set}, observed {verdict} (see {work / 'tlc.log'})"
-    return None
+        return verdict, f"{suite.name} {trace_set} trace {index}: expected {trace_set}, observed {verdict} (see {work / 'tlc.log'})"
+    return verdict, None
 
 
-def check_trace_suites(jar: Path, suites: list[TraceSuite], models: list[Model]) -> list[str]:
+def check_trace_suites(
+    jar: Path, suites: list[TraceSuite], models: list[Model], results: dict[str, dict] | None = None
+) -> list[str]:
+    """Record and check every suite. When `results` is given, each suite's
+    counts and per-trace verdicts are recorded in it."""
     failures: list[str] = []
+    check_tla_sources()
     if TRACE_DIR.exists():
         shutil.rmtree(TRACE_DIR)
     TRACE_DIR.mkdir(parents=True)
@@ -691,14 +1075,89 @@ def check_trace_suites(jar: Path, suites: list[TraceSuite], models: list[Model])
             raise FormalError(f"trace suite {suite.name} names no TLA+ model")
         counts = record_traces(suite)
         print(f"  {suite.name}: {counts[TRACE_ACCEPTED]} recorded traces, {counts[TRACE_REJECTED]} targeted mutations")
+        if results is not None:
+            results[suite.name] = {
+                TRACE_ACCEPTED: counts[TRACE_ACCEPTED], TRACE_REJECTED: counts[TRACE_REJECTED], "verdicts": {}
+            }
         for trace_set in (TRACE_ACCEPTED, TRACE_REJECTED):
             jobs.extend((suite, by_name[suite.name], trace_set, index) for index in range(1, counts[trace_set] + 1))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
-        for result in pool.map(lambda job: check_trace(jar, *job), jobs):
-            if result:
-                failures.append(result)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_jobs()) as pool:
+        for (suite, _model, trace_set, index), (verdict, failure) in zip(jobs, pool.map(lambda job: check_trace(jar, *job), jobs)):
+            if results is not None:
+                results[suite.name]["verdicts"][f"{trace_set}-{index}"] = verdict
+            if failure:
+                failures.append(failure)
     print(f"  checked {len(jobs)} traces, {len(failures)} unexpected")
     return failures
+
+
+# ---------------------------------------------------------------------------
+# Snapshot: before/after evidence for infrastructure refactors
+#
+# A snapshot records every observable result of the formal suite: each
+# command's verdict (and, for TLC, violated property, distinct states, and
+# zero-coverage actions), each trace suite's counts and per-trace verdicts, and
+# the digest of each golden file's decoded instances. A refactor of the models
+# or the runner must leave every entry identical.
+
+SNAPSHOT_DEFAULT = REPORT_DIR / "snapshot.json"
+
+
+def take_snapshot(tools: dict[str, Tool], models: list[Model]) -> tuple[dict, list[str]]:
+    commands: dict[str, dict] = {}
+    traces: dict[str, dict] = {}
+    failures: list[str] = []
+    alloy_models = [m for m in models if m.tool == "alloy"]
+    if alloy_models:
+        jar = ensure_tool(tools["alloy"])
+        for model in alloy_models:
+            failures += check_alloy_model(jar, model, commands)
+    tla_jar = ensure_tool(tools["tla"])
+    failures += check_tlc_models(tla_jar, [m for m in models if m.tool == "tla"], commands)
+    failures += check_trace_suites(tla_jar, load_trace_suites(), models, traces)
+    golden = {
+        m.name: golden_digest(decode_golden(REPO_ROOT / m.golden["output"])[1]) for m in alloy_models if m.golden
+    }
+    return {"commands": commands, "traces": traces, "golden": golden}, failures
+
+
+def flatten(record: object, prefix: str = "") -> dict[str, object]:
+    """Flatten nested dicts into dotted-path leaves; lists stay leaves."""
+    if not isinstance(record, dict):
+        return {prefix: record}
+    flat: dict[str, object] = {}
+    for key, value in record.items():
+        flat.update(flatten(value, f"{prefix}/{key}" if prefix else str(key)))
+    return flat
+
+
+def compare_snapshots(old: dict, new: dict) -> list[str]:
+    """Every differing entry, with its old and new values."""
+    before, after = flatten(old), flatten(new)
+    return [
+        f"{key}: {before.get(key, '<absent>')!r} -> {after.get(key, '<absent>')!r}"
+        for key in sorted(before.keys() | after.keys())
+        if before.get(key, "<absent>") != after.get(key, "<absent>")
+    ]
+
+
+def snapshot(tools: dict[str, Tool], models: list[Model], out: Path, compare: Path | None) -> int:
+    record, failures = take_snapshot(tools, models)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(record, indent=1, sort_keys=True) + "\n")
+    print(f"\nsnapshot written to {out}")
+    for failure in failures:
+        print(f"  note: {failure}")
+    if compare is None:
+        return 0
+    diffs = compare_snapshots(json.loads(compare.read_text()), record)
+    if diffs:
+        print(f"\nsnapshot DIFFERS from {compare}:")
+        for diff in diffs:
+            print(f"  - {diff}")
+        return 1
+    print(f"snapshot identical to {compare} ({len(flatten(record))} entries)")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -715,9 +1174,13 @@ def select(models: list[Model], tool: str, names: list[str]) -> list[Model]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["fetch", "alloy", "tla", "golden", "traces", "correspondence", "all"])
+    parser.add_argument(
+        "action", choices=["fetch", "alloy", "tla", "golden", "traces", "correspondence", "all", "snapshot"]
+    )
     parser.add_argument("models", nargs="*")
     parser.add_argument("--check", action="store_true", help="golden: verify committed vectors instead of rewriting them")
+    parser.add_argument("--out", type=Path, default=SNAPSHOT_DEFAULT, help="snapshot: output file")
+    parser.add_argument("--compare", type=Path, help="snapshot: fail unless every entry matches this snapshot")
     args = parser.parse_args(argv)
 
     try:
@@ -728,6 +1191,8 @@ def main(argv: list[str] | None = None) -> int:
             for tool in tools.values():
                 ensure_tool(tool)
             return 0
+        if args.action == "snapshot":
+            return snapshot(tools, models, args.out, args.compare)
         if args.action in {"correspondence", "all"}:
             failures += check_correspondence(models)
         if args.action in {"alloy", "all"}:
@@ -743,11 +1208,19 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 failures += check_tlc_models(ensure_tool(tools["tla"]), chosen)
         if args.action == "all":
+            # The fingerprint pre-check gives a fast, clear message; otherwise
+            # re-enumerate and compare byte for byte.
             for model in select(models, "alloy", args.models):
-                if model.golden and not golden_is_fresh(tools, model):
-                    failures.append(
-                        f"{model.name}: {model.golden['output']} is stale; regenerate with: scripts/formal.py golden {model.name}"
-                    )
+                if not model.golden:
+                    continue
+                stale = golden_staleness(tools, model)
+                if stale:
+                    failures.append(stale)
+                    continue
+                try:
+                    export_golden(ensure_tool(tools["alloy"]), tools, model, check=True)
+                except FormalError as err:
+                    failures.append(str(err))
         if args.action == "traces":
             suites = [t for t in load_trace_suites() if not args.models or t.name in args.models]
             if not suites:

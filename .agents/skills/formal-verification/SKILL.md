@@ -17,8 +17,13 @@ tool or a model.
 2. **Write intent independently.** Keep the implementation transcription
    (`allowedImpl`, `diagKeys`) separate from the policy (`intendedAllowed`,
    `closure`). A check that relates a function to itself proves nothing.
-3. **Label every command** as `name: check { ... } for N expect 0|1`, and add a
-   matching `[[model.command]]` in `formal/manifest.toml`.
+3. **Declare every command in `formal/manifest.toml`**, never in the `.als`:
+   a `[[model.command]]` with `name`, `body` (the formula), `expect`, and an
+   optional `scope` overriding the model's default `scope`. The runner renders
+   `name: run|check { body } for scope expect 0|1` into
+   `artifacts/formal/<Model>/<Model>.als` and fails on a `run` or `check` left
+   in the source. Unknown keys (a `scop =` typo) and keys for the other tool
+   (`body` on TLC, `constants` on Alloy) are rejected.
 4. **Guard every safety check:**
    - an antecedent `run` expecting an instance;
    - at least one mutant with `mutant_of`, checking the same predicate;
@@ -33,9 +38,13 @@ tool or a model.
      of a `one sig`, with a `noJunk` predicate excluding atoms that cannot
      influence a decision.
    - Run `make formal-golden`, then write a Go test that loads the vectors with
-     `alloygolden.Load(t, path, "<Model>")` and replays every instance. `Load`
-     fails when the `.als` changed since generation, and under `-short` (the
-     mutation profiles) it returns every 16th instance.
+     `alloygolden.Load(t, path, "<Model>")` and replays every instance. Files
+     use golden format 2 (columnar, dictionary-coded). `Load` fails when the
+     `.als` changed since generation, and under `-short` (the mutation
+     profiles) it returns every 16th instance. The fingerprint also holds a
+     digest of the rendered golden command, which
+     `python3 scripts/test_formal.py` checks against the manifest, and
+     `make formal` re-enumerates the golden command byte for byte.
    - Map atoms with `alloygolden.GitURL` and `alloygolden.ModuleID`.
    - Transcribe the model's facts and intent in Go and assert them on every
      golden instance too. That keeps the rapid oracle from drifting.
@@ -55,9 +64,17 @@ tool or a model.
 - Record a finding with `finding = "F<n>"` on the current-code command, and give
   the fixed property its own mutant; a finding never guards a property.
 - Trace validation: a Go `Test<Model>_TraceHarness` gated by
-  `INVOWK_FORMAL_TRACE_DIR` writes `<Model>Traces.tla` through
-  `internal/testutil/tlatrace`. `formal/tla/<Model>Trace.tla` must forbid
-  skipping an observable state, and targeted mutations must be rejected.
+  `INVOWK_FORMAL_TRACE_DIR` calls `tlatrace.WriteSuite(t, "<Model>", traces)`
+  (use `tlatrace.Recorder` to record one entry per projection change).
+  `formal/tla/<Model>Trace.tla` EXTENDS the model and `<Model>Traces`,
+  declares `CONSTANTS TraceSet, TraceIndex` and `VARIABLE i`, writes
+  `INSTANCE TraceBase`, and defines only `Proj` (a record literal whose fields
+  must equal the harness's keys), `TraceInit`, `TraceNext`, `TraceSpec`, and
+  helpers. Build on `TraceStart`, `TraceAdvanceOnChange`, or `TraceAdvanceAt`;
+  the names `TraceRecord`, `TraceStart`, `TraceAdvanceOnChange`,
+  `TraceAdvanceAt`, and `NotFullyConsumed` are reserved in every module. The
+  spec must forbid skipping an observable state, and targeted mutations must
+  be rejected.
 - Fakes a model depends on must follow the real contract. For example, the
   watcher's manual timer returns `time.AfterFunc`'s Reset/Stop results.
 
@@ -66,8 +83,8 @@ tool or a model.
 - **Vacuous implications.** `x.f in S implies ...` holds for an empty `x.f`.
   Write `some x.f and x.f in S`.
 - **Instance explosion.** Unreferenced atoms and label-only sigs multiply
-  golden instances. Measure with a capped `-r` first. Keep golden files under
-  about 600 KB compressed.
+  golden instances. Measure with a capped `-r` first. Export fails when a
+  golden file exceeds 600 KB compressed (or `[model.golden] max_bytes`).
 - **Excluding a feature from the golden scope hides defects.** Leaving out
   explicit-scope sources hid two of five seeded scope defects.
 - **Alloy's JSON receipt omits subset-sig membership.** The runner reads the
@@ -81,6 +98,10 @@ tool or a model.
   actions.
 
 ## Verification
+
+Before refactoring models or the runner, record
+`python3 scripts/formal.py snapshot --out <outside artifacts>/baseline.json`,
+and afterwards require `snapshot --compare` to report every entry identical.
 
 ```sh
 make formal

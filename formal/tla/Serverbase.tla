@@ -45,8 +45,17 @@ VARIABLES
     firstTerminal,  \* first terminal state reached, or "none"
     op, pc, seen, cancelRead
 
-vars == <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-          startedCloses, startedByWinner, stopWon, firstTerminal, op, pc, seen, cancelRead>>
+\* Variable groups for the UNCHANGED frames. Together with mu, stopWon, and
+\* pc they partition the variables; scripts/formal.py checks that statically.
+\* A group must never be listed as UNCHANGED by an action that assigns one of
+\* its members: the frame would become a guard and silently disable the step.
+lifeVars == <<state, firstTerminal>>
+ctxVars == <<ctxCreated, ctxCancelled>>
+errVars == <<errClosed, errCloseCount, sentAfterClose>>
+startedVars == <<startedCloses, startedByWinner>>
+callerVars == <<op, seen, cancelRead>>
+
+vars == <<lifeVars, ctxVars, errVars, startedVars, callerVars, mu, stopWon, pc>>
 
 \* Record the first terminal state ever reached, so absorption can be checked.
 Mark(s) == IF firstTerminal = "none" /\ s \in Terminal THEN s ELSE firstTerminal
@@ -76,60 +85,48 @@ CloseErrLocked == \* closeErrChannelLocked: sync.Once + errClosed
 StartBegin(p) == op[p] = "Start" /\ pc[p] = "begin" /\
     \/ /\ Goto(p, "fail_lock")   \* ctx already cancelled: TransitionToFailed
        /\ op' = [op EXCEPT ![p] = "Fail"]
-       /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                      startedCloses, startedByWinner, stopWon, firstTerminal, seen, cancelRead>>
+       /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, seen, cancelRead>>
     \/ /\ ~FixStartOrdering
        /\ IF state = "Created"
           THEN state' = "Starting" /\ Goto(p, "start_store")
           ELSE UNCHANGED state /\ Goto(p, "done")
-       /\ UNCHANGED <<mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                      startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+       /\ UNCHANGED <<firstTerminal, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     \/ /\ FixStartOrdering        \* fix: CAS and ctx store in one critical section
        /\ Lock(p)
        /\ IF state = "Created"
           THEN state' = "Starting" /\ ctxCreated' = TRUE /\ Goto(p, "start_unlock")
           ELSE UNCHANGED <<state, ctxCreated>> /\ Goto(p, "start_unlock")
-       /\ UNCHANGED <<ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                      startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+       /\ UNCHANGED <<firstTerminal, ctxCancelled, errVars, startedVars, stopWon, callerVars>>
 
 StartStore(p) == pc[p] = "start_store" /\ Lock(p) /\ ctxCreated' = TRUE /\ Goto(p, "start_unlock")
-    /\ UNCHANGED <<state, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxCancelled, errVars, startedVars, stopWon, callerVars>>
 StartUnlock(p) == pc[p] = "start_unlock" /\ Unlock(p) /\ Goto(p, "done")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 
 (* --- TransitionToRunning --- *)
 RunCAS(p) == op[p] = "Run" /\ pc[p] = "begin" /\
     IF state = "Starting"
     THEN state' = "Running" /\ Goto(p, "run_close")
-         /\ UNCHANGED <<mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                        startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+         /\ UNCHANGED <<firstTerminal, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     ELSE IF Mutant = "close_started_unconditionally"
          THEN Goto(p, "run_close_loser")
-              /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                             startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+              /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
          ELSE Goto(p, "done")
-              /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                             startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+              /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 RunClose(p) == pc[p] = "run_close" /\ startedCloses' = startedCloses + 1 /\ Goto(p, "done")
-    /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedByWinner, stopWon, callerVars>>
 RunCloseLoser(p) == pc[p] = "run_close_loser" /\ startedCloses' = startedCloses + 1
     /\ startedByWinner' = FALSE /\ Goto(p, "done")
-    /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, stopWon, callerVars>>
 
 (* --- TransitionToFailed / TransitionToStopped: lock, read, store, close --- *)
 TermBegin(p) == op[p] \in {"Fail", "Stopped"} /\ pc[p] \in {"begin", "fail_lock"} /\ Lock(p)
     /\ Goto(p, "term_read")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 TermRead(p) == pc[p] = "term_read" /\ seen' = [seen EXCEPT ![p] = state]
     /\ cancelRead' = [cancelRead EXCEPT ![p] = ctxCreated]
     /\ Goto(p, IF state \in Terminal /\ Mutant /= "no_terminal_check" THEN "term_unlock" ELSE "term_store")
-    /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op>>
+    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, op>>
 TermStore(p) == pc[p] = "term_store" /\
     LET target == IF op[p] = "Fail" THEN "Failed" ELSE "Stopped" IN
     \* Without the fix, the Go code Stores unconditionally. The fix
@@ -137,20 +134,16 @@ TermStore(p) == pc[p] = "term_store" /\
     \* it meanwhile, re-reads it (still holding stateMu) and tries again.
     IF FixTerminalCAS /\ state /= seen[p]
     THEN Goto(p, "term_read")
-         /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                        startedCloses, startedByWinner, stopWon, firstTerminal, mu, op, seen, cancelRead>>
+         /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     ELSE /\ state' = target /\ firstTerminal' = Mark(target) /\ CloseErrLocked
          /\ Goto(p, "term_unlock")
-         /\ UNCHANGED <<mu, ctxCreated, ctxCancelled, sentAfterClose, startedCloses, startedByWinner,
-                        stopWon, op, seen, cancelRead>>
+         /\ UNCHANGED <<mu, ctxVars, sentAfterClose, startedVars, stopWon, callerVars>>
 TermUnlock(p) == pc[p] = "term_unlock" /\ Unlock(p)
     /\ Goto(p, IF op[p] = "Fail" /\ seen[p] \notin Terminal THEN "term_cancel" ELSE "done")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 TermCancel(p) == pc[p] = "term_cancel"
     /\ ctxCancelled' = (ctxCancelled \/ cancelRead[p]) /\ Goto(p, "done")
-    /\ UNCHANGED <<state, mu, ctxCreated, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, mu, ctxCreated, errVars, startedVars, stopWon, callerVars>>
 
 (* --- TransitionToStopping: lock-free CAS retry loop --- *)
 StopRead(p) == op[p] = "Stop" /\ pc[p] = "begin"
@@ -158,16 +151,13 @@ StopRead(p) == op[p] = "Stop" /\ pc[p] = "begin"
     /\ Goto(p, CASE state = "Created" -> "stop_cas_created"
                  [] state \in {"Starting", "Running"} -> "stop_cas"
                  [] OTHER -> "done")
-    /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, cancelRead>>
+    /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, op, cancelRead>>
 StopCASCreated(p) == pc[p] = "stop_cas_created" /\
     IF state = seen[p]
     THEN state' = "Stopped" /\ firstTerminal' = Mark("Stopped") /\ Goto(p, "stop_close_lock")
-         /\ UNCHANGED <<mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                        startedCloses, startedByWinner, stopWon, op, seen, cancelRead>>
+         /\ UNCHANGED <<mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
     ELSE Goto(p, "begin")
-         /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                        startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+         /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 \* With F2 fixed only one caller wins a terminal transition, so sync.Once is
 \* defense in depth: the close_twice mutant models a path that closes twice
 \* without it (for example CloseErrChannel plus a duplicated deferred close).
@@ -175,40 +165,31 @@ StopCloseLock(p) == pc[p] = "stop_close_lock" /\ Lock(p) /\ Goto(p, "stop_close_
     /\ (IF Mutant = "close_twice"
         THEN errClosed' = TRUE /\ errCloseCount' = errCloseCount + 2
         ELSE CloseErrLocked)
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, sentAfterClose, startedCloses, startedByWinner,
-                   stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, sentAfterClose, startedVars, stopWon, callerVars>>
 StopCloseUnlock(p) == pc[p] = "stop_close_unlock" /\ Unlock(p) /\ Goto(p, "done")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 StopCAS(p) == pc[p] = "stop_cas" /\
     IF state = seen[p]
     THEN state' = "Stopping" /\ stopWon' = stopWon + 1 /\ Goto(p, "stop_read_cancel")
-         /\ UNCHANGED <<mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                        startedCloses, startedByWinner, firstTerminal, op, seen, cancelRead>>
+         /\ UNCHANGED <<firstTerminal, mu, ctxVars, errVars, startedVars, callerVars>>
     ELSE Goto(p, "begin")
-         /\ UNCHANGED <<state, mu, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                        startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+         /\ UNCHANGED <<lifeVars, mu, ctxVars, errVars, startedVars, stopWon, callerVars>>
 StopReadCancel(p) == pc[p] = "stop_read_cancel" /\ Lock(p)
     /\ cancelRead' = [cancelRead EXCEPT ![p] = ctxCreated] /\ Goto(p, "stop_unlock")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, op, seen>>
 StopUnlock(p) == pc[p] = "stop_unlock" /\ Unlock(p) /\ Goto(p, "stop_cancel")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 StopCancel(p) == pc[p] = "stop_cancel"
     /\ ctxCancelled' = (ctxCancelled \/ (cancelRead[p] /\ Mutant /= "stop_skips_cancel")) /\ Goto(p, "done")
-    /\ UNCHANGED <<state, mu, ctxCreated, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, mu, ctxCreated, errVars, startedVars, stopWon, callerVars>>
 
 (* --- SendError: under stateMu, skipped once the channel is closed --- *)
 SendError(p) == op[p] = "Send" /\ pc[p] = "begin" /\ Lock(p)
     /\ sentAfterClose' = (sentAfterClose \/ (errClosed /\ Mutant = "send_without_check"))
     /\ Goto(p, "send_unlock")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, startedCloses,
-                   startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errClosed, errCloseCount, startedVars, stopWon, callerVars>>
 SendUnlock(p) == pc[p] = "send_unlock" /\ Unlock(p) /\ Goto(p, "done")
-    /\ UNCHANGED <<state, ctxCreated, ctxCancelled, errClosed, errCloseCount, sentAfterClose,
-                   startedCloses, startedByWinner, stopWon, firstTerminal, op, seen, cancelRead>>
+    /\ UNCHANGED <<lifeVars, ctxVars, errVars, startedVars, stopWon, callerVars>>
 
 Quiescent == \A p \in Procs : pc[p] = "done"
 

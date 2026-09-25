@@ -61,31 +61,5 @@ pred closedIffNoDiag[d: set Key] { no d iff closure in Root.roots }
 pred diagWithinClosure[d: set Key] { d in tidyResult }
 pred tidyMinimal[t: set Key] { no t & Root.roots }
 
-syncAcceptsOnlyClosedSets: check { closedIffNoDiag[diagKeys] } for 5 expect 0
-anteSync: run { some Root.roots and some diagKeys } for 5 expect 1
-
-diagnosticsWithinClosure: check { diagWithinClosure[diagKeys] } for 5 expect 0
-anteDiag: run { some diagKeys } for 5 expect 1
-
-tidyAddsNoDeclaredKey: check { tidyMinimal[tidyResult] } for 5 expect 0
-anteTidy: run { some tidyResult } for 5 expect 1
-
-// Rejecting mutants.
-mutantAllModules: check { closedIffNoDiag[diagKeysAllModules] } for 5 expect 1
-mutantDiagIncludesRoots: check { diagWithinClosure[resolved.requires] } for 5 expect 1
-mutantTidyIncludesRoots: check { tidyMinimal[Root.roots.*step] } for 5 expect 1
-
-// Witnesses.
-witnessDeepChain: run {
-	some disj a, b, c: Key | a in Root.roots and b in a.step and c in b.step and c not in Root.roots + a.step
-} for 5 expect 1
-witnessCycle: run { some k: Key | k in k.^step and some Root.roots } for 5 expect 1
-witnessDiamond: run {
-	some disj a, b, c: Key | (a + b) in Root.roots and c in a.step and c in b.step and c not in Root.roots
-} for 5 expect 1
-
-// Golden vectors: one-step diagnostics and tidy result for every small graph.
-golden: run {
-	Root.diagSet = diagKeys
-	Root.tidySet = tidyResult
-} for 3 expect 1
+// Commands live in formal/manifest.toml; scripts/formal.py renders them into a
+// staged copy of this model under artifacts/formal/DependencyClosure/.

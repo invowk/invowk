@@ -13,32 +13,66 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 )
 
-// shortStride keeps every Nth instance under `go test -short`. Mutation
-// profiles run with -short, so each mutant pays for a stratified sample
-// instead of the full enumeration; `make test` replays every instance.
-const shortStride = 16
+const (
+	// shortStride keeps every Nth instance under `go test -short`. Mutation
+	// profiles run with -short, so each mutant pays for a stratified sample
+	// instead of the full enumeration; `make test` replays every instance.
+	shortStride = 16
+
+	// goldenFormat is the only vector format Load accepts (scripts/formal.py
+	// GOLDEN_FORMAT).
+	goldenFormat = "2"
+)
+
+var (
+	errGoldenFormat = errors.New("unsupported golden vector format")
+	errGoldenShape  = errors.New("malformed golden vectors")
+
+	formatRE = regexp.MustCompile(`^format=(\d+);`)
+)
 
 type (
-	// Vectors is one exported golden file.
-	Vectors struct {
-		Model       string     `json:"model"`
-		Command     string     `json:"command"`
-		Fingerprint string     `json:"fingerprint"`
-		Count       int        `json:"count"`
-		Instances   []Instance `json:"instances"`
+	// Instance is one Alloy solution: sig atoms and relation tuples. Every
+	// sig and relation of the model has a key, with an empty slice when it
+	// has no atoms or tuples.
+	Instance struct {
+		Sig map[string][]string
+		Rel map[string][][]string
 	}
 
-	// Instance is one Alloy solution: sig atoms and relation tuples.
-	Instance struct {
-		Sig map[string][]string   `json:"sig"`
-		Rel map[string][][]string `json:"rel"`
+	// vectors is one exported golden file in format 2: a sorted atom
+	// dictionary and one column per sig and relation. A column stores its
+	// distinct values once, as atom-index lists (relations flattened
+	// row-major), and Index selects each instance's value.
+	vectors struct {
+		Model       string            `json:"model"`
+		Command     string            `json:"command"`
+		Fingerprint string            `json:"fingerprint"`
+		Count       int               `json:"count"`
+		Atoms       []string          `json:"atoms"`
+		Sig         map[string]column `json:"sig"`
+		Rel         map[string]column `json:"rel"`
+	}
+
+	column struct {
+		Arity  int     `json:"arity"`
+		Values [][]int `json:"values"`
+		Index  []int   `json:"index"`
+	}
+
+	// decodedColumn holds a column's distinct values as tuples of atom labels.
+	decodedColumn struct {
+		values [][][]string
+		index  []int
 	}
 )
 
@@ -53,32 +87,114 @@ func Load(t *testing.T, path, model string) []Instance {
 		t.Fatalf("open golden vectors: %v", err)
 	}
 	defer func() { _ = file.Close() }()
-	reader, err := gzip.NewReader(file)
+	stride := 1
+	if testing.Short() {
+		stride = shortStride
+	}
+	vecs, instances, err := decode(file, stride)
 	if err != nil {
-		t.Fatalf("gzip golden vectors: %v", err)
+		t.Fatalf("%s: %v", path, err)
 	}
-	var vectors Vectors
-	if err := json.NewDecoder(reader).Decode(&vectors); err != nil {
-		t.Fatalf("decode golden vectors: %v", err)
-	}
-	if vectors.Model != model || vectors.Command != "golden" {
-		t.Fatalf("golden vectors are for %s.%s, want %s.golden", vectors.Model, vectors.Command, model)
-	}
-	if vectors.Count == 0 || vectors.Count != len(vectors.Instances) {
-		t.Fatalf("golden vectors count = %d, instances = %d (truncated file?)", vectors.Count, len(vectors.Instances))
+	if vecs.Model != model || vecs.Command != "golden" {
+		t.Fatalf("golden vectors are for %s.%s, want %s.golden", vecs.Model, vecs.Command, model)
 	}
 	source := modelSourceDigest(t, model)
-	if !strings.Contains(vectors.Fingerprint, "source="+source+";") {
+	if !strings.Contains(vecs.Fingerprint, "source="+source+";") {
 		t.Fatalf("%s is stale: formal/alloy/%s.als changed since it was generated; run `make formal-golden`", path, model)
 	}
-	if !testing.Short() {
-		return vectors.Instances
+	return instances
+}
+
+// decode reads format-2 vectors and returns every stride-th instance.
+func decode(r io.Reader, stride int) (vectors, []Instance, error) {
+	reader, err := gzip.NewReader(r)
+	if err != nil {
+		return vectors{}, nil, fmt.Errorf("gzip golden vectors: %w", err)
 	}
-	sample := make([]Instance, 0, len(vectors.Instances)/shortStride+1)
-	for i := 0; i < len(vectors.Instances); i += shortStride {
-		sample = append(sample, vectors.Instances[i])
+	var vecs vectors
+	if err = json.NewDecoder(reader).Decode(&vecs); err != nil {
+		return vectors{}, nil, fmt.Errorf("decode golden vectors: %w", err)
 	}
-	return sample
+	if m := formatRE.FindStringSubmatch(vecs.Fingerprint); len(m) < 2 || m[1] != goldenFormat {
+		return vectors{}, nil, fmt.Errorf("%w (fingerprint %q, want format=%s); run `make formal-golden`",
+			errGoldenFormat, vecs.Fingerprint, goldenFormat)
+	}
+	if vecs.Count == 0 {
+		return vectors{}, nil, fmt.Errorf("%w: no instances (truncated file?)", errGoldenShape)
+	}
+	sigs, err := decodeColumns(vecs, vecs.Sig, false)
+	if err != nil {
+		return vectors{}, nil, err
+	}
+	rels, err := decodeColumns(vecs, vecs.Rel, true)
+	if err != nil {
+		return vectors{}, nil, err
+	}
+	// Sig values are atom lists, decoded as tuples of arity 1; unwrap each
+	// distinct value once. Instances share these read-only slices.
+	sigAtoms := make(map[string][][]string, len(sigs))
+	for name, col := range sigs {
+		values := make([][]string, len(col.values))
+		for v, tuples := range col.values {
+			values[v] = make([]string, len(tuples))
+			for j, tuple := range tuples {
+				values[v][j] = tuple[0]
+			}
+		}
+		sigAtoms[name] = values
+	}
+	instances := make([]Instance, 0, (vecs.Count+stride-1)/stride)
+	for k := 0; k < vecs.Count; k += stride {
+		inst := Instance{Sig: make(map[string][]string, len(sigs)), Rel: make(map[string][][]string, len(rels))}
+		for name, col := range sigs {
+			inst.Sig[name] = sigAtoms[name][col.index[k]]
+		}
+		for name, col := range rels {
+			inst.Rel[name] = col.values[col.index[k]]
+		}
+		instances = append(instances, inst)
+	}
+	return vecs, instances, nil
+}
+
+// decodeColumns resolves every column's values to atom labels once, and
+// validates indices, so decode only selects per instance.
+func decodeColumns(vecs vectors, cols map[string]column, relation bool) (map[string]decodedColumn, error) {
+	out := make(map[string]decodedColumn, len(cols))
+	for name, col := range cols {
+		arity := 1
+		if relation {
+			arity = col.Arity
+		}
+		if arity < 1 || len(col.Index) != vecs.Count {
+			return nil, fmt.Errorf("%w: column %s has arity %d and %d indices, want %d", errGoldenShape, name, arity, len(col.Index), vecs.Count)
+		}
+		values := make([][][]string, len(col.Values))
+		for v, flat := range col.Values {
+			if len(flat)%arity != 0 {
+				return nil, fmt.Errorf("%w: column %s value %d is not a multiple of arity %d", errGoldenShape, name, v, arity)
+			}
+			tuples := make([][]string, 0, len(flat)/arity)
+			for i := 0; i < len(flat); i += arity {
+				tuple := make([]string, arity)
+				for j, a := range flat[i : i+arity] {
+					if a < 0 || a >= len(vecs.Atoms) {
+						return nil, fmt.Errorf("%w: column %s names atom %d of %d", errGoldenShape, name, a, len(vecs.Atoms))
+					}
+					tuple[j] = vecs.Atoms[a]
+				}
+				tuples = append(tuples, tuple)
+			}
+			values[v] = tuples
+		}
+		for k, v := range col.Index {
+			if v < 0 || v >= len(values) {
+				return nil, fmt.Errorf("%w: column %s instance %d selects value %d of %d", errGoldenShape, name, k, v, len(values))
+			}
+		}
+		out[name] = decodedColumn{values: values, index: col.Index}
+	}
+	return out, nil
 }
 
 func modelSourceDigest(t *testing.T, model string) string {

@@ -34,7 +34,7 @@ func watchRecord(delivered []string, callbacks int, timer string, returned bool)
 // that validation must reject.
 func TestWatch_TraceHarness(t *testing.T) {
 	t.Parallel()
-	traceDir := tlatrace.Dir(t)
+	tlatrace.Dir(t) // skip before doing any work when trace output is off
 
 	dir := t.TempDir()
 	backend := newFakeWatcherBackend()
@@ -48,7 +48,7 @@ func TestWatch_TraceHarness(t *testing.T) {
 
 	var (
 		mu           sync.Mutex
-		trace        []tlatrace.Record
+		trace        tlatrace.Recorder
 		delivered    []string
 		inCallback   int
 		timerState   = "none"
@@ -59,7 +59,7 @@ func TestWatch_TraceHarness(t *testing.T) {
 	record := func() {
 		mu.Lock()
 		defer mu.Unlock()
-		trace = append(trace, watchRecord(delivered, inCallback, timerState, false))
+		trace.Observe(watchRecord(delivered, inCallback, timerState, false))
 	}
 	setTimer := func(state string) {
 		mu.Lock()
@@ -123,12 +123,12 @@ func TestWatch_TraceHarness(t *testing.T) {
 		t.Fatalf("Run() error = %v", err)
 	}
 	mu.Lock()
-	trace = append(trace, watchRecord(delivered, 0, "none", true))
+	trace.Observe(watchRecord(delivered, 0, "none", true))
 	mu.Unlock()
 
 	start := watchRecord(nil, 0, "none", false)
-	tlatrace.Write(t, traceDir, "WatchTraces", tlatrace.Traces{
-		Accepted: [][]tlatrace.Record{trace},
+	tlatrace.WriteSuite(t, "Watch", tlatrace.Traces{
+		Accepted: [][]tlatrace.Record{trace.Trace()},
 		Rejected: [][]tlatrace.Record{
 			// Two callbacks never run at once.
 			{

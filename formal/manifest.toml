@@ -8,6 +8,13 @@
 #   instance        - Alloy run that must be satisfiable (non-vacuity, witness)
 # A safety command (expect = "pass" with a property) needs at least one
 # command with mutant_of pointing at it, and Alloy checks need an antecedent.
+#
+# Alloy commands are declared only here: `body` is the formula and `scope`
+# overrides the model's default `scope`. The runner renders each one as
+# `name: run|check { body } for scope expect 0|1` (instance -> run, pass -> 0)
+# into artifacts/formal/<Model>/<Model>.als. TLC configurations are rendered
+# from [model.constants] and each command's `constants`, `spec`, and
+# `temporal`. Unknown keys, and keys for the other tool, are rejected.
 
 [tools.alloy]
 version = "6.2.0"
@@ -27,6 +34,7 @@ sha256 = "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
 name = "ScopeConstruction"
 tool = "alloy"
 file = "formal/alloy/ScopeConstruction.als"
+scope = "4 but 3 Key, 3 Entry"  # default for every command below
 calibration = """2026-09-24: the golden vectors (116928 exhaustive instances) and the rapid \
 intent test each detect all five seeded code defects: direct dependency ignoring \
 SourceID, lock match ignoring command_source_id, every module treated as global, \
@@ -40,102 +48,138 @@ output = "internal/app/deps/testdata/formal/scope_construction_golden.json.gz"
 
 [[model.command]]
 name = "allowedTargetsBounded"
+body = "discoveryFacts implies boundedProp"
 expect = "pass"
 property = "boundedProp"
 antecedent = "anteBounded"
 
 [[model.command]]
 name = "anteBounded"
+body = "discoveryFacts and some t: Cmd | allowedImpl[t] and t != Caller.self"
 expect = "instance"
 
 [[model.command]]
 name = "allowedTargetsComplete"
+body = "discoveryFacts implies completeProp"
 expect = "pass"
 property = "completeProp"
 antecedent = "anteComplete"
 
 [[model.command]]
 name = "anteComplete"
+body = "discoveryFacts and some t: Cmd | intendedAllowed[t] and t != Caller.self"
 expect = "instance"
 
 [[model.command]]
 name = "rootDenied"
+body = "discoveryFacts implies rootDeniedProp"
 expect = "pass"
 property = "rootDeniedProp"
 antecedent = "anteRoot"
 
 [[model.command]]
 name = "anteRoot"
+body = "discoveryFacts and some t: Cmd | t.src = RootSrc"
 expect = "instance"
 
 [[model.command]]
 name = "localBranchDead"
+body = "discoveryFacts implies localBranchDeadProp"
 expect = "pass"
 property = "localBranchDeadProp"
 antecedent = "anteLocal"
 
 [[model.command]]
 name = "anteLocal"
+body = "discoveryFacts"
 expect = "instance"
 
+# Rejecting mutants: each drops one discovery guarantee and must break the property.
 [[model.command]]
 name = "mutantNoSrcUnique"
+body = "discoveryFactsNoSrcUnique implies boundedProp"
 expect = "counterexample"
 property = "boundedProp"
 mutant_of = "allowedTargetsBounded"
 
 [[model.command]]
 name = "mutantEmptySrc"
+body = "discoveryFactsEmptySrc implies boundedProp"
 expect = "counterexample"
 property = "boundedProp"
 mutant_of = "allowedTargetsBounded"
 
 [[model.command]]
 name = "mutantRootNotReserved"
+body = "discoveryFactsRootNotReserved implies rootDeniedProp"
 expect = "counterexample"
 property = "rootDeniedProp"
 mutant_of = "rootDenied"
 
 [[model.command]]
 name = "mutantLocalEmptySrc"
+body = "discoveryFactsEmptySrc implies localBranchDeadProp"
 expect = "counterexample"
 property = "localBranchDeadProp"
 mutant_of = "localBranchDead"
 
 [[model.command]]
 name = "mutantCompleteEmptySrc"
+body = "discoveryFactsEmptySrc implies completeProp"
 expect = "counterexample"
 property = "completeProp"
 mutant_of = "allowedTargetsComplete"
 
+# Witnesses: situations the model claims to cover must be reachable.
 [[model.command]]
 name = "witnessGlobalChild"
+body = """
+discoveryFacts
+some t: Cmd | some t.childOf and allowedImpl[t] and not ownModule[t] and not declaredLocked[t.mod, t.src]"""
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessDirectDependency"
+body = """
+discoveryFacts
+some t: Cmd | t not in GlobalCmd and not ownModule[t] and allowedImpl[t]"""
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessDeniedModule"
+body = """
+discoveryFacts
+some t: Cmd | some t.mod and not allowedImpl[t]"""
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessSharedModuleID"
+body = """
+discoveryFacts
+some disj a, b: Cmd | some a.mod and a.mod = b.mod and allowedImpl[a] and not allowedImpl[b]"""
 expect = "instance"
 witness = true
 
+# Golden vectors: every instance at a small scope, with the implementation's
+# decision recorded in Caller.allowedSet, replayed against the real Go code.
+# noJunk (in the model) excludes atoms that cannot influence a decision.
 [[model.command]]
 name = "golden"
+body = """
+discoveryFacts
+Caller.allowedSet = { t: Cmd | allowedImpl[t] }
+noJunk"""
+scope = "3 but 2 Mod, 3 Src, 1 Key, 1 Entry"
 expect = "instance"
 
 [[model]]
 name = "DependencyClosure"
 tool = "alloy"
 file = "formal/alloy/DependencyClosure.als"
+scope = "5"  # default for every command below
 calibration = """2026-09-24: the golden replays (25765 exhaustive instances) and the rapid tidy \
 test detect all four seeded code defects: diagnostics without per-key dedup, \
 declared roots reported as missing, tidy stopping after one round, and the \
@@ -147,75 +191,95 @@ output = "pkg/invowkmod/testdata/formal/dependency_closure_golden.json.gz"
 
 [[model.command]]
 name = "syncAcceptsOnlyClosedSets"
+body = "closedIffNoDiag[diagKeys]"
 expect = "pass"
 property = "closedIffNoDiag"
 antecedent = "anteSync"
 
 [[model.command]]
 name = "anteSync"
+body = "some Root.roots and some diagKeys"
 expect = "instance"
 
 [[model.command]]
 name = "diagnosticsWithinClosure"
+body = "diagWithinClosure[diagKeys]"
 expect = "pass"
 property = "diagWithinClosure"
 antecedent = "anteDiag"
 
 [[model.command]]
 name = "anteDiag"
+body = "some diagKeys"
 expect = "instance"
 
 [[model.command]]
 name = "tidyAddsNoDeclaredKey"
+body = "tidyMinimal[tidyResult]"
 expect = "pass"
 property = "tidyMinimal"
 antecedent = "anteTidy"
 
 [[model.command]]
 name = "anteTidy"
+body = "some tidyResult"
 expect = "instance"
 
+# Rejecting mutants.
 [[model.command]]
 name = "mutantAllModules"
+body = "closedIffNoDiag[diagKeysAllModules]"
 expect = "counterexample"
 property = "closedIffNoDiag"
 mutant_of = "syncAcceptsOnlyClosedSets"
 
 [[model.command]]
 name = "mutantDiagIncludesRoots"
+body = "diagWithinClosure[resolved.requires]"
 expect = "counterexample"
 property = "diagWithinClosure"
 mutant_of = "diagnosticsWithinClosure"
 
 [[model.command]]
 name = "mutantTidyIncludesRoots"
+body = "tidyMinimal[Root.roots.*step]"
 expect = "counterexample"
 property = "tidyMinimal"
 mutant_of = "tidyAddsNoDeclaredKey"
 
+# Witnesses.
 [[model.command]]
 name = "witnessDeepChain"
+body = "some disj a, b, c: Key | a in Root.roots and b in a.step and c in b.step and c not in Root.roots + a.step"
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessCycle"
+body = "some k: Key | k in k.^step and some Root.roots"
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessDiamond"
+body = "some disj a, b, c: Key | (a + b) in Root.roots and c in a.step and c in b.step and c not in Root.roots"
 expect = "instance"
 witness = true
 
+# Golden vectors: one-step diagnostics and tidy result for every small graph.
 [[model.command]]
 name = "golden"
+body = """
+Root.diagSet = diagKeys
+Root.tidySet = tidyResult"""
+scope = "3"
 expect = "instance"
 
 [[model]]
 name = "LockIdentity"
 tool = "alloy"
 file = "formal/alloy/LockIdentity.als"
+scope = "4"  # default for every command below
 calibration = """2026-09-24: the golden replay (28858 exhaustive instances) detects all four \
 seeded code defects: identity without the namespace fallback, namespace preferred \
 over module_id, and an off-by-one ambiguity threshold in each of \
@@ -227,37 +291,56 @@ output = "pkg/invowkmod/testdata/formal/lock_identity_golden.json.gz"
 
 [[model.command]]
 name = "v2NeverUnhashed"
+body = "v2Parse implies noUnhashedIdentity[V2]"
 expect = "pass"
 property = "noUnhashedIdentity"
 antecedent = "anteV2"
 
 [[model.command]]
 name = "anteV2"
+body = "v2Parse and Lock.version = V2 and some Entry"
 expect = "instance"
 
+# Rejecting mutant: without the parser fact, a v2 lock could skip verification.
 [[model.command]]
 name = "mutantV2WithoutParseFact"
+body = "noUnhashedIdentity[V2]"
 expect = "counterexample"
 property = "noUnhashedIdentity"
 mutant_of = "v2NeverUnhashed"
 
+# Witnesses.
 [[model.command]]
 name = "witnessV1Unhashed"
+body = "v2Parse and Lock.version = V1 and some m: Id | evalUnhashed[m]"
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessFallbackCollision"
+body = """
+v2Parse and Lock.version = V1
+some disj a, b: Entry | no a.mid and some b.mid and a.nsId = b.mid"""
 expect = "instance"
 witness = true
 
 [[model.command]]
 name = "witnessEmptyIdentity"
+body = "v2Parse and some e: Entry | no identity[e]"
 expect = "instance"
 witness = true
 
+# Golden vectors: the implementation's decisions for every small lock.
 [[model.command]]
 name = "golden"
+body = """
+v2Parse
+noJunk
+Lock.ambiguous = ambiguousIds
+Lock.missing = { m: Id | evalMissing[m] }
+Lock.unhashed = { m: Id | evalUnhashed[m] }
+Lock.compared = { m: Id | evalCompared[m] }"""
+scope = "3 but 2 Id, 2 Hash"
 expect = "instance"
 
 [[model]]
