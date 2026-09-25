@@ -282,6 +282,8 @@ class PreflightTests(Fixture):
             record = self.record(go_json(("TestDecide", "pass"), ("TestCrossPackage", "pass"), ("TestStop", "pass")), seconds=3.2)
         self.assertEqual(record, {"clean_seconds": 3.2, "timeout_seconds": 16, "overridden": False})
         self.assertEqual(self.plan_data["preflight"]["a/a.go"], record)
+        with mock.patch.dict(os.environ, {fm.TIMEOUT_OVERRIDE_ENV: "soon"}), self.assertRaisesRegex(PlanError, "positive number"):
+            self.record(go_json(("TestDecide", "pass"), ("TestCrossPackage", "pass"), ("TestStop", "pass")))
         self.assertEqual(fm.derive_timeout(0.4), fm.MIN_EXEC_TIMEOUT)
 
     def test_skipped_failed_or_absent_killers_fail(self) -> None:
@@ -295,10 +297,9 @@ class PreflightTests(Fixture):
         with self.assertRaisesRegex(PlanError, "exited 3, expected 1"):
             self.record(go_json(("TestDecide", "pass"), ("TestCrossPackage", "pass"), ("TestStop", "pass")), status=3)
 
-    def test_max_timeout_needs_every_file(self) -> None:
+    def test_max_timeout_is_the_largest_record(self) -> None:
         self.record(go_json(("TestDecide", "pass"), ("TestCrossPackage", "pass"), ("TestStop", "pass")))
-        with self.assertRaisesRegex(PlanError, "no pre-flight record for: b/b.go"):
-            fm.max_timeout(self.plan_data)
+        self.assertEqual(fm.max_timeout(self.plan_data), fm.MIN_EXEC_TIMEOUT)
         self.plan_data["preflight"]["b/b.go"] = {"clean_seconds": 9, "timeout_seconds": 45, "overridden": False}
         self.assertEqual(fm.max_timeout(self.plan_data), 45)
 
@@ -311,12 +312,12 @@ class RerunScopeTests(Fixture):
         scope = fm.rerun_scope(plan, ["x1", "x2", "x3"], [hint, self.root / "absent.json"])
         self.assertEqual(scope, [("x1", "1", "b/b.go"), ("x2", "-", "-"), ("x3", "-", "-")])
 
-    def test_recorded_max_timeout(self) -> None:
+    def test_max_timeout_over_recorded_files(self) -> None:
         plan = self.plan(self.BASE_ROWS)
         with self.assertRaisesRegex(PlanError, "no pre-flight record"):
-            fm.max_timeout(plan, recorded_only=True)
+            fm.max_timeout(plan)
         plan["preflight"]["b/b.go"] = {"clean_seconds": 1, "timeout_seconds": 14, "overridden": False}
-        self.assertEqual(fm.max_timeout(plan, recorded_only=True), 14)
+        self.assertEqual(fm.max_timeout(plan), 14)
 
 
 class RerunAndReportTests(unittest.TestCase):
@@ -361,6 +362,7 @@ class RerunAndReportTests(unittest.TestCase):
                          [{"id": "e1", "file": "f0.go", "mutator": "m", "line": 9}])
         self.write_group(1, {"killedCount": 1, "escapedCount": 0, "errorCount": 0, "skippedCount": 1}, [], [])
         stats = fm.merge_reports(self.dir, "formal-mutation: timeout-kill file=f0.go function=F\n")
+        self.assertEqual((self.dir / "run-metadata.txt").read_text(), "timeout_kills[f0.go]=1\n")
         self.assertEqual((stats["totalMutantsCount"], stats["killedCount"], stats["msi"]), (6, 4, 83.33))
         self.assertEqual(json.loads((self.dir / "go-mutesting-agentic.json").read_text())["mutants"], [{"id": "e1"}])
         self.assertEqual(

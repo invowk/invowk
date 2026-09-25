@@ -768,14 +768,6 @@ build_formal_mutation_args() {
 	printf '%s\n' "${args[@]}"
 }
 
-timeout_kill_counts() {
-	local log="$1"
-
-	[[ -f "$log" ]] || return 0
-	sed -n 's/^formal-mutation: timeout-kill file=\([^ ]*\) .*/\1/p' "$log" | sort | uniq -c |
-		awk '{ printf "timeout_kills[%s]=%s\n", $2, $1 }'
-}
-
 # run_formal_group GROUP_DIR LOG ARGS... FILES are passed after a literal "--".
 run_formal_group() {
 	local group_dir="$1"
@@ -851,7 +843,7 @@ run_formal_rerun() {
 		export_rapid_determinism_env
 		run_formal_preflight "$plan" "$report_dir" "${preflight_files[@]}"
 	) || return 1
-	exec_timeout="$(formal_mutation show --plan "$plan" --recorded max-timeout)"
+	exec_timeout="$(formal_mutation show --plan "$plan" max-timeout)"
 
 	while IFS=$'\t' read -r mutant group file; do
 		if [[ "$group" == "-" ]]; then
@@ -889,8 +881,7 @@ run_formal_rerun() {
 run_formal_profile() {
 	local profile="$1"
 	local mode="$2"
-	local mutant_id="$3"
-	local report_root="$4"
+	local report_root="$3"
 	local report_dir
 	local plan
 	local groups
@@ -931,7 +922,7 @@ run_formal_profile() {
 		group_dir="$report_dir/group-$group"
 		match="$(formal_mutation show --plan "$plan" --group "$group" match)"
 		mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
-		mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "$mutant_id" "$match" "$exec_timeout" "$group_dir/baseline.json")
+		mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "" "$match" "$exec_timeout" "$group_dir/baseline.json")
 		group_status=0
 		run_formal_group "$group_dir" "$report_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${files[@]}" || group_status=$?
 
@@ -944,11 +935,11 @@ run_formal_profile() {
 	if [[ "$profile" != "dry-run" ]]; then
 		restore_tracked_mutation_paths root
 		remove_new_untracked_paths root
-		# go-mutesting writes no reports with --update-baseline.
+		# go-mutesting writes no reports with --update-baseline. merge-reports
+		# also appends the per-file timeout-kill counts to run-metadata.txt.
 		if [[ "$profile" != "baseline-update" ]]; then
 			formal_mutation merge-reports --report-dir "$report_dir" || status=1
 		fi
-		timeout_kill_counts "$report_dir/go-mutesting.log" >>"$report_dir/run-metadata.txt"
 	fi
 	if ((status == 0)); then
 		if [[ "$profile" == "baseline-update" ]]; then
@@ -1100,7 +1091,7 @@ main() {
 		if [[ "$profile" == "rerun" ]]; then
 			run_formal_rerun "$mode" "$mutant_id" "$report_root"
 		else
-			run_formal_profile "$profile" "$mode" "$mutant_id" "$report_root"
+			run_formal_profile "$profile" "$mode" "$report_root"
 		fi
 		return
 	fi

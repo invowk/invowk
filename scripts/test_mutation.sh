@@ -559,14 +559,6 @@ test_formal_dirty_path_policy() {
 	assert_path_rejected "rejects other triage files" "tools/mutation/triage/current-full-scan.md"
 }
 
-test_formal_timeout_kill_counts() {
-	local tmp
-
-	tmp="$(mktemp -d)"
-	trap 'rm -rf "$tmp"' RETURN
-	printf 'formal-mutation: timeout-kill file=a.go function=F\nnoise\nformal-mutation: timeout-kill file=a.go function=G\nformal-mutation: timeout-kill file=b.go function=H\n' >"$tmp/log"
-	assert_eq "timeout kills are counted per file" $'timeout_kills[a.go]=2\ntimeout_kills[b.go]=1' "$(timeout_kill_counts "$tmp/log")"
-}
 
 test_paths
 test_command_construction
@@ -584,7 +576,6 @@ test_formal_command_construction
 test_formal_target_set_rejections
 test_formal_rerun_evidence
 test_formal_dirty_path_policy
-test_formal_timeout_kill_counts
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

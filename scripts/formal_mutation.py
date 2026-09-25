@@ -21,7 +21,7 @@ Standard library only (Python 3.11+ for tomllib).
 
 Usage:
     scripts/formal_mutation.py plan --out DIR
-    scripts/formal_mutation.py show --plan FILE [--group N] [--recorded] {match|files|group-count|max-timeout}
+    scripts/formal_mutation.py show --plan FILE [--group N] {match|files|group-count|max-timeout}
     scripts/formal_mutation.py exec-args --plan FILE --original PATH --changed PATH [--overlay-out FILE]
     scripts/formal_mutation.py preflight-record --plan FILE --file PATH --json FILE --status N --seconds S
     scripts/formal_mutation.py rerun-scope --plan FILE [--hint REPORT ...] ID ...
@@ -36,7 +36,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime
-import difflib
+import functools
 import json
 import math
 import os
@@ -77,6 +77,7 @@ FOLLOW_UP_CLASSES = {"binding-gap", "model-gap", "defect"}
 SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up"}
 CLOSED_KEYS = {"id", "model"}
 REQUIRED_ESCAPED_RERUNS = 2
+# go-mutesting's result classes, as named in report.json and the rerun evidence.
 RERUN_STATUSES = ("killed", "escaped", "skipped", "errored")
 
 # A gofmt'd top-level function declaration: optional receiver (named or not,
@@ -353,10 +354,12 @@ def functions_in(plan: dict, file: str) -> list[dict]:
 
 def first_changed_line(original: list[str], changed: list[str]) -> int | None:
     """1-based line of the original where the first difference starts."""
-    for tag, i1, _i2, _j1, _j2 in difflib.SequenceMatcher(None, original, changed, autojunk=False).get_opcodes():
-        if tag != "equal":
-            return max(1, min(i1 + 1, len(original)))
-    return None
+    index = next((i for i, (a, b) in enumerate(zip(original, changed)) if a != b), None)
+    if index is None:
+        if len(original) == len(changed):
+            return None
+        index = min(len(original), len(changed))
+    return max(1, min(index + 1, len(original)))
 
 
 def plan_relative(plan: dict, path: str) -> str:
@@ -368,12 +371,20 @@ def plan_relative(plan: dict, path: str) -> str:
         raise PlanError(f"{path} is outside the plan root {root}") from err
 
 
-def exec_timeout(plan: dict, file: str, preflight: bool) -> int:
+def timeout_override() -> int | None:
+    """MUTATION_FORMAL_EXEC_TIMEOUT in seconds, or None when unset."""
     override = os.environ.get(TIMEOUT_OVERRIDE_ENV, "")
-    if override:
-        if not override.isdigit() or int(override) <= 0:
-            raise PlanError(f"{TIMEOUT_OVERRIDE_ENV} must be a positive number of seconds, got {override!r}")
-        return int(override)
+    if not override:
+        return None
+    if not override.isdigit() or int(override) <= 0:
+        raise PlanError(f"{TIMEOUT_OVERRIDE_ENV} must be a positive number of seconds, got {override!r}")
+    return int(override)
+
+
+def exec_timeout(plan: dict, file: str, preflight: bool) -> int:
+    override = timeout_override()
+    if override is not None:
+        return override
     if preflight:
         return PREFLIGHT_TIMEOUT
     record = plan["preflight"].get(file)
@@ -456,23 +467,22 @@ def preflight_record(plan: dict, file: str, json_output: str, status: int, secon
         problems.append(f"{file}: clean-code run exited {status}, expected 1 (all killer tests pass)")
     if problems:
         raise PlanError("formal-bindings pre-flight failed:\n  - " + "\n  - ".join(problems))
-    override = os.environ.get(TIMEOUT_OVERRIDE_ENV, "")
+    override = timeout_override()
     record = {
         "clean_seconds": round(seconds, 3),
-        "timeout_seconds": int(override) if override.isdigit() and int(override) > 0 else derive_timeout(seconds),
-        "overridden": bool(override),
+        "timeout_seconds": derive_timeout(seconds) if override is None else override,
+        "overridden": override is not None,
     }
     plan["preflight"][file] = record
     return record
 
 
-def max_timeout(plan: dict, recorded_only: bool = False) -> int:
-    """The largest per-file exec timeout, for go-mutesting's --exec-timeout.
-    Every file must have a pre-flight record unless recorded_only (a focused
-    rerun pre-flights only the files it mutates)."""
-    missing = [f for f in plan["files"] if f not in plan["preflight"]]
-    if (missing and not recorded_only) or not plan["preflight"]:
-        raise PlanError(f"no pre-flight record for: {', '.join(missing) or 'any file'}")
+def max_timeout(plan: dict) -> int:
+    """The largest recorded per-file exec timeout, for go-mutesting's
+    --exec-timeout. The pre-flight fails the run for any file it cannot
+    record, and a focused rerun pre-flights only the files it mutates."""
+    if not plan["preflight"]:
+        raise PlanError("no pre-flight record in the plan; run the clean-code pre-flight first")
     return max(int(r["timeout_seconds"]) for r in plan["preflight"].values())
 
 
@@ -484,8 +494,7 @@ def rerun_scope(plan: dict, ids: list[str], hints: list[Path]) -> list[tuple[str
     known: dict[str, str] = {}
     for hint in hints:
         if hint.exists():
-            data = json.loads(hint.read_text())
-            for mutant in data.get("mutants") or []:
+            for mutant in read_baseline(hint)["mutants"]:
                 known.setdefault(mutant["id"], mutant["file"])
     group_of = {file: str(n) for n, group in enumerate(plan["groups"]) for file in group["files"]}
     scope = []
@@ -567,7 +576,6 @@ def merge_baselines(report_dir: Path, out: Path, commit: str) -> int:
 
 
 STAT_KEYS = ("killedCount", "escapedCount", "errorCount", "skippedCount", "notCoveredCount")
-REPORT_LISTS = {"killed": "killed", "escaped": "escaped", "skipped": "skipped", "errored": "errored"}
 TIMEOUT_KILL_RE = re.compile(r"^formal-mutation: timeout-kill file=(\S+) ", re.M)
 
 
@@ -577,7 +585,7 @@ def merge_reports(report_dir: Path, log: str) -> dict:
     (killed + errored + skipped) / total, as a percentage."""
     stats = dict.fromkeys(STAT_KEYS, 0)
     agentic: list[dict] = []
-    lists: dict[str, list[dict]] = {name: [] for name in REPORT_LISTS}
+    lists: dict[str, list[dict]] = {name: [] for name in RERUN_STATUSES}
     for group in group_dirs(report_dir):
         summary = group / "go-mutesting-summary.json"
         if summary.exists():
@@ -588,7 +596,7 @@ def merge_reports(report_dir: Path, log: str) -> dict:
             agentic += json.loads((group / "go-mutesting-agentic.json").read_text()).get("mutants") or []
         if (group / "report.json").exists():
             full = json.loads((group / "report.json").read_text())
-            for name in REPORT_LISTS:
+            for name in RERUN_STATUSES:
                 lists[name] += full.get(name) or []
     total = sum(stats.values())
     stats["totalMutantsCount"] = total
@@ -600,14 +608,18 @@ def merge_reports(report_dir: Path, log: str) -> dict:
     (report_dir / "report.json").write_text(json.dumps({"stats": stats, **lists}) + "\n")
 
     root = str(REPO_ROOT) + "/"
+    columns = [*RERUN_STATUSES, "timeout-kill"]
     per_file: dict[str, dict[str, int]] = {}
     for name, mutants in lists.items():
         for mutant in mutants:
             file = mutant["mutator"]["originalFilePath"].removeprefix(root)
-            per_file.setdefault(file, dict.fromkeys([*REPORT_LISTS, "timeout-kill"], 0))[name] += 1
-    for file in TIMEOUT_KILL_RE.findall(log):
-        per_file.setdefault(file, dict.fromkeys([*REPORT_LISTS, "timeout-kill"], 0))["timeout-kill"] += 1
-    columns = [*REPORT_LISTS, "timeout-kill"]
+            per_file.setdefault(file, dict.fromkeys(columns, 0))[name] += 1
+    timeout_kills = TIMEOUT_KILL_RE.findall(log)
+    for file in timeout_kills:
+        per_file.setdefault(file, dict.fromkeys(columns, 0))["timeout-kill"] += 1
+    with (report_dir / "run-metadata.txt").open("a") as metadata:
+        for file in sorted(set(timeout_kills)):
+            metadata.write(f"timeout_kills[{file}]={timeout_kills.count(file)}\n")
     lines = ["file\t" + "\t".join(columns)]
     lines += [f"{file}\t" + "\t".join(str(counts[c]) for c in columns) for file, counts in sorted(per_file.items())]
     (report_dir / "per-file.tsv").write_text("\n".join(lines) + "\n")
@@ -703,8 +715,12 @@ def check_triage(
     stamp = baseline.get("commit", "")
     if baseline_ids and not stamp:
         failures.append("baseline: no generation commit; rerun `make mutation-formal-baseline-update`")
+    fresh = functools.cache(lambda commit: bool(stamp) and is_ancestor(stamp, commit))
+    by_id: dict[str, list[dict]] = {}
+    for record in reruns:
+        by_id.setdefault(record["id"], []).append(record)
     for mutant in sorted(baseline_ids):
-        evidence = [r for r in reruns if r["id"] == mutant and stamp and is_ancestor(stamp, r["commit"])]
+        evidence = [r for r in by_id.get(mutant, []) if fresh(r["commit"])]
         escaped = sum(1 for r in evidence if r["status"] == "escaped")
         if escaped < REQUIRED_ESCAPED_RERUNS:
             failures.append(
@@ -742,7 +758,6 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("show")
     p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--group", type=int)
-    p.add_argument("--recorded", action="store_true", help="max-timeout: over pre-flighted files only")
     p.add_argument("field", choices=["match", "files", "group-count", "max-timeout"])
     p = sub.add_parser("exec-args")
     p.add_argument("--plan", type=Path, required=True)
@@ -787,7 +802,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.field == "group-count":
                 print(len(plan["groups"]))
             elif args.field == "max-timeout":
-                print(max_timeout(plan, recorded_only=args.recorded))
+                print(max_timeout(plan))
             elif args.group is None:
                 if args.field == "match":
                     raise PlanError("show match needs --group: each group has its own --match")
