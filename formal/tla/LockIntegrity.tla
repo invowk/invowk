@@ -10,10 +10,20 @@
   copy. A sibling module P may vendor its own pinned copy of M, whose content
   (`Good` or a different version, `Other`) is verified against P's lock.
 
-  Three findings are characterised, each with a fix configuration:
+  Four findings are characterised, each with a fix configuration:
     F5  fresh-cache sync trusted fetched content      (FixedSync, fixed)
     F4  a v1.0 lock without hashes disabled checks     (RejectUnhashed, fixed)
     F6  admission via C's lock, integrity via P's lock (CheckCallerHash, fixed)
+    F12 a hashless caller entry admits P's copy        (AdmitRequiresCallerHash, open)
+
+  Two steps mirror code paths that the trace harness observed, without
+  changing any property: a sync that fails its commit check leaves the cache
+  untouched (the check runs before the cache is read), and a v2 vendor whose
+  hash check fails leaves the copied content in invowk_modules/ (the copy
+  precedes the check; discovery still rejects that copy). A hashless or v1.0
+  lock takes no vendor step, because RequireV2 fails before anything is
+  copied. Command-scope admission loads the lock without RequireV2, so a v1.0
+  entry reaches CallViaSibling (F12).
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
@@ -22,12 +32,15 @@
 \* | Sync | Resolver.Sync | internal/app/modulesync/resolver.go | TestSyncFreshCacheRejectsChangedContent | one module, one version; the constraint always resolves to it |
 \* | Sync commit check | LockedModule.ExpectedContentHash | pkg/invowkmod/lock_integrity.go | TestSyncRejectsRepointedTag | - |
 \* | Sync cache handling | Resolver.cacheModule | internal/app/modulesync/cache.go | TestSyncExistingCacheRejectsTamperedContent | content hashing abstracted to content equality |
-\* | Vendor | VendorModules | internal/app/moduleops/vendor.go | - | vendoring copies the cache after checking the locked hash |
+\* | Sync commit failure | LockedCommitMismatchError | pkg/invowkmod/lock_integrity.go | TestSyncCommitMismatchKeepsCache | a failed commit check leaves the cache untouched |
+\* | Vendor | VendorModules | internal/app/moduleops/vendor.go | TestVendorHashMismatchLeavesCopiedContent | the cache is copied, then its hash checked; a mismatch leaves the copy |
+\* | Vendor lock load | Resolver.LoadDeclaredFromLock | internal/app/modulesync/resolver.go | TestLockIntegrity_TraceHarness | RequireV2 fails a v1.0 lock before anything is copied |
 \* | Discover | VerifyLockedVendoredModuleHash | pkg/invowkmod/verify.go | TestLockIntegrity_HashlessEntryIsRejected | - |
 \* | CallViaSibling | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_SiblingCopyMustMatchCallerHash | P's copy is assumed consistent with P's own lock |
+\* | CallViaSibling, hashless entry | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy | an entry without a hash admits by identity only (F12) |
 EXTENDS Naturals
 
-CONSTANTS FixedSync, RejectUnhashed, CheckCallerHash, LegacyLock, Mutant
+CONSTANTS FixedSync, RejectUnhashed, CheckCallerHash, AdmitRequiresCallerHash, LegacyLock, Mutant
 
 Good == "Good"
 Evil == "Evil"
@@ -84,12 +97,15 @@ Sync == syncs < 2 /\
        THEN /\ lockVer' = "v2" /\ lockCommit' = remoteCommit /\ lockHash' = candidate
             /\ cache' = candidate /\ syncs' = syncs + 1
             /\ UNCHANGED <<remoteCommit, vendored, pVendored, loaded, called>>
-       ELSE \* failure: lock untouched; a rejected fresh copy is removed from the cache
-            /\ cache' = (IF useCache THEN cache ELSE "absent") /\ syncs' = syncs + 1
+       ELSE \* failure: lock untouched. The commit check runs before the cache is
+            \* touched; a fresh copy that fails its hash check is removed.
+            /\ cache' = (IF ~commitOk \/ useCache THEN cache ELSE "absent") /\ syncs' = syncs + 1
             /\ UNCHANGED <<remoteCommit, lockVer, lockCommit, lockHash, vendored, pVendored, loaded, called>>
 
-(* --- module vendor: copy the cache after checking the locked hash --- *)
-Vendor == cache /= "absent" /\ (lockHash = "none" \/ cache = lockHash)
+(* --- module vendor: copy the cache, then check the locked hash --- *)
+\* A hashless entry is refused before the copy (RejectUnhashed). Otherwise the
+\* cache is copied; a hash mismatch then fails the command but leaves the copy.
+Vendor == cache /= "absent"
     /\ ~(RejectUnhashed /\ lockHash = "none")
     /\ vendored' = cache
     /\ UNCHANGED <<remoteCommit, lockVer, lockCommit, lockHash, cache, pVendored, loaded, called, syncs>>
@@ -103,11 +119,15 @@ Discover == vendored /= "absent" /\ loaded = "none"
 
 (* --- C calls M through sibling P's vendored copy --- *)
 \* P's copy passed P's own lock check. Admission compares (ModuleID, SourceID)
-\* with C's lock entry; CheckCallerHash also compares C's locked hash.
+\* with C's lock entry; CheckCallerHash also compares C's locked hash, and
+\* AdmitRequiresCallerHash (the F12 fix) refuses an entry that has none.
 CallViaSibling == vendored = "absent" /\ called = "none"
-    \* The mutant compares P's copy with P's own lock, which always agrees.
-    /\ called' = (IF CheckCallerHash /\ lockHash /= "none"
-                     /\ pVendored /= (IF Mutant = "compare_with_sibling_lock" THEN pVendored ELSE lockHash)
+    \* The mutants compare P's copy with P's own lock, which always agrees:
+    \* always, or only when C's entry has no hash.
+    /\ called' = (IF CheckCallerHash /\ (lockHash /= "none" \/ AdmitRequiresCallerHash)
+                     /\ pVendored /= (IF Mutant = "compare_with_sibling_lock" \/
+                                        (lockHash = "none" /\ Mutant = "hashless_uses_sibling_lock")
+                                     THEN pVendored ELSE lockHash)
                   THEN "rejected" ELSE pVendored)
     /\ UNCHANGED <<remoteCommit, lockVer, lockCommit, lockHash, cache, vendored, pVendored, loaded, syncs>>
 

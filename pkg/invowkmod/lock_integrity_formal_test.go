@@ -13,8 +13,8 @@ import (
 )
 
 // These tests replay the counterexamples formal/tla/LockIntegrity.tla records
-// for findings F4 and F6 against the real code. Both findings are fixed; each
-// test was inverted together with its fix.
+// for findings F4, F6, and F12 against the real code. F4 and F6 are fixed, and
+// each test was inverted together with its fix; F12 is open.
 
 func writeVendoredModule(t *testing.T, moduleID ModuleID, body string) *Module {
 	t.Helper()
@@ -76,5 +76,36 @@ func TestLockIntegrity_SiblingCopyMustMatchCallerHash(t *testing.T) {
 	}
 	if !admit(callerLock(siblingHash)) {
 		t.Fatal("IsDeclaredLockedCommandSource() rejected a copy of exactly the content the caller locked")
+	}
+}
+
+// TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy replays finding F12
+// (LockIntegrity.findingF12HashlessSiblingAdmission), which is open: when the
+// caller's lock entry records no content hash, as a v1.0 lock loaded for
+// command scope does, admission compares only identity and namespace, so a
+// sibling's vendored copy of different content is admitted. The fix
+// (f12AdmitRequiresCallerHash) inverts this test.
+func TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy(t *testing.T) {
+	t.Parallel()
+
+	req := ModuleRequirement{GitURL: "https://example.com/tools.git", Version: "^1.0.0"}
+	callerCopy := writeVendoredModule(t, "io.example.tools", "cmds: {} // the version the caller locked")
+	sibling := writeVendoredModule(t, "io.example.tools", "cmds: {} // the sibling's pinned version")
+	callerHash, err := ComputeModuleHash(string(callerCopy.Path))
+	if err != nil {
+		t.Fatalf("ComputeModuleHash(caller) error = %v", err)
+	}
+	siblingHash, err := ComputeModuleHash(string(sibling.Path))
+	if err != nil {
+		t.Fatalf("ComputeModuleHash(sibling) error = %v", err)
+	}
+	if callerHash == siblingHash {
+		t.Fatal("fixture: the sibling copy must differ from the caller's locked content")
+	}
+	hashless := &LockFile{Version: "1.0", Modules: map[ModuleRefKey]LockedModule{
+		ModuleRef(req).Key(): {GitURL: req.GitURL, ModuleID: "io.example.tools", CommandSourceID: "io.example.tools"},
+	}}
+	if !IsDeclaredLockedCommandSource([]ModuleRequirement{req}, hashless, "io.example.tools", "io.example.tools", sibling.Path) {
+		t.Fatal("IsDeclaredLockedCommandSource() rejected a sibling copy under a hashless caller entry; F12 is fixed, invert this test")
 	}
 }

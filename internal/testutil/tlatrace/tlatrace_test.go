@@ -89,3 +89,46 @@ func TestWriteSuite_RejectsInconsistentSuites(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteSuite_DropsDuplicatesAndRejectsRealMutations(t *testing.T) {
+	t.Parallel()
+	a := []Record{rec("a", false)}
+	ab := []Record{rec("a", false), rec("b", true)}
+	dir := t.TempDir()
+	if err := writeSuite(dir, "Model", Traces{Accepted: [][]Record{ab, a, ab}, Rejected: [][]Record{{rec("c", true)}, {rec("c", true)}}}); err != nil {
+		t.Fatalf("writeSuite() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "ModelTraces.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var counts suiteCounts
+	if err = json.Unmarshal(data, &counts); err != nil {
+		t.Fatal(err)
+	}
+	if counts.Accepted != 2 || counts.Rejected != 1 {
+		t.Fatalf("counts = %+v, want 2 unique accepted and 1 unique rejected", counts)
+	}
+	err = writeSuite(t.TempDir(), "Model", Traces{Accepted: [][]Record{a, ab}, Rejected: [][]Record{ab}})
+	if !errors.Is(err, errSuiteShape) || !strings.Contains(err.Error(), "rejected trace 1 equals an accepted trace") {
+		t.Fatalf("writeSuite() error = %v, want a mutation equal to an accepted trace rejected", err)
+	}
+}
+
+func TestEditAndExtend_CopyTheTrace(t *testing.T) {
+	t.Parallel()
+	trace := []Record{rec("a", false), rec("b", false), rec("c", false)}
+	if got, want := Edit(trace, 1, Record{"ok": Bool(true)}), []Record{rec("a", false), rec("b", true)}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Edit(1) = %v, want %v", got, want)
+	}
+	if got, want := Edit(trace, -1, Record{"ok": Bool(true)}), []Record{rec("a", false), rec("b", false), rec("c", true)}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Edit(-1) = %v, want %v", got, want)
+	}
+	want := []Record{rec("a", false), rec("b", false), rec("c", false), rec("d", false)}
+	if got := Extend(trace, Record{"state": Str("d")}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Extend() = %v, want %v", got, want)
+	}
+	if !reflect.DeepEqual(trace, []Record{rec("a", false), rec("b", false), rec("c", false)}) {
+		t.Fatalf("Edit/Extend modified the original trace: %v", trace)
+	}
+}

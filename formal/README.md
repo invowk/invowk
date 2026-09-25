@@ -94,9 +94,9 @@ antecedents, witnesses, and mutants failed and exposed it.
 | `DependencyClosure` | Alloy | the one-step transitive check decides the closure; tidy adds exactly the undeclared closure | 25765 golden instances; rapid tidy test |
 | `LockIdentity` | Alloy | lock identity and ambiguity agree across the two functions that compute them | 28858 golden instances |
 | `Serverbase` | TLA+ | lifecycle under two concurrent transitions, split into CAS, lock, and cancel steps | rapid sequential state machine; concurrent stress test |
-| `LockIntegrity` | TLA+ | lock-to-content integrity across sync, vendor, discovery, and admission, with attacker actions | integrity tests from #142; Go replays of F4 and F6 |
+| `LockIntegrity` | TLA+ | lock-to-content integrity across sync, vendor, discovery, and admission, with attacker actions | trace validation of real sync, vendor, discovery, and admission; integrity tests from #142; Go replays of F4, F6, and F12 |
 | `AtomicWrite` | TLA+ | visible and durable state of the atomic lock write under power loss | real-filesystem failure injection at every step |
-| `HostCallbackToken` | TLA+ | SSH host-callback token and session lifetime across executions | rapid state machine over the token API |
+| `HostCallbackToken` | TLA+ | SSH host-callback token and session lifetime across executions | trace validation of a started server with real SSH clients; rapid state machine over the token API; Go replay of F11 |
 | `Watch` | TLA+ | debounce loop safety and no-lost-burst liveness under fairness | skip-if-busy scenario on a fake timer checked against `time.AfterFunc` |
 | `ConcurrentModuleEdits` | TLA+ | two module commands interleaved step by step over `invowkmod.cue`, the lock, the shared module cache, and `invowk_modules/`, with advisory-lock and atomic-restore fix configurations | deterministic gated replays of F8, F9, and the stale-vendor case against the real `Resolver` and `vendorDependenciesWithResolver` |
 
@@ -133,7 +133,8 @@ lists the seeded defects its bindings detect.
 
 Harnesses gated by `INVOWK_FORMAL_TRACE_DIR` record traces from the real code
 (`TestServerbase_TraceHarness`, `TestAtomicWrite_TraceHarness`,
-`TestWatch_TraceHarness`) through `tlatrace.WriteSuite`, which writes the
+`TestWatch_TraceHarness`, `TestHostCallbackToken_TraceHarness`, and
+`TestLockIntegrity_TraceHarness`) through `tlatrace.WriteSuite`, which writes the
 generated `<Model>Traces` module and fails when a trace set is empty or records
 have different keys. Each trace spec (`formal/tla/*Trace.tla`) extends its
 model, instantiates `TraceBase` (the reserved operators `TraceRecord`,
@@ -146,6 +147,19 @@ mutation vacuously rejected. Every suite also carries targeted
 mutations that must be rejected. They already exposed two weak specs:
 concurrent callers merging two operations into one record, and a projection
 that treated leaving the loop as returning.
+
+The token harness drives a started `sshserver.Server` on a fake clock and logs
+in with real `golang.org/x/crypto/ssh` clients over loopback; its projection
+reads token admissibility under the token lock and connection liveness from
+the client side, cross-checked against the server's connection map. The lock
+harness runs the real `Resolver.Sync`, `LoadDeclaredFromLock` followed by
+`VendorModules`, the discovery-time hash check, and command-scope admission
+over local fixture trees served by commit, and maps real content hashes to the
+model's `Good`, `Evil`, and `Other`. `tlatrace.WriteSuite` drops duplicate traces
+and fails when a targeted mutation equals a recorded trace. A `[[trace]]` entry may override the model's base constants with
+`constants` (the lock suite sets `LegacyLock = "TRUE"`); an override of an
+undeclared constant fails the run. A behaviour the base constants accept
+because of an open finding (F11, F12) is never a targeted mutation.
 
 ## Findings
 
@@ -167,6 +181,8 @@ change.
 | F8 | concurrent module commands | Lost updates: sync or update saves a lock built from files read before its fetch, dropping a concurrent add or resurrecting a concurrent remove, and a duplicate add's rollback erases another process's successful add (`ConcurrentModuleEdits.findingF8*`; `TestConcurrentEdits_FindingF8_*`) | Open: fix requires maintainer approval | a per-project advisory mutex held from before the first read until after the last write or rollback |
 | F9 | module cache | Two projects sharing the cache fetch two versions of one repository through its single worktree, so a lock records one version's commit with the other's content hash (`ConcurrentModuleEdits.findingF9SharedWorktreeRecordsWrongContent`; `TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent`) | Open: fix requires maintainer approval | a per-source mutex from checkout until the verified cache copy, always taken after the project mutex |
 | F10 | module add rollback | The rollback restores `invowkmod.cue` and the lock with `os.WriteFile`, which truncates in place, so a concurrent reader sees an empty or partial file (`ConcurrentModuleEdits.findingF10NonAtomicRollback`; model-only, as `os.WriteFile` has no seam) | Open: fix requires maintainer approval | an atomic restore (temp file and rename) |
+| F11 | SSH tokens | `Server.Stop` keeps authenticated connections open: `ssh.Server.Shutdown` closes the listener, waits for connections until `ShutdownTimeout`, and closes none, so `Stop` returns `context.DeadlineExceeded` with the client still connected. Production calls `Stop` after executions end, when revocation has already closed their connections, so F11 matters only for sessions of executions still running at `Stop`, for example under a different cancellation ordering | Open: `HostCallbackToken.findingF11StopKeepsSessions`; Go replay `TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen` | `HostCallbackToken.noSessionAfterStopFixed` (`StopClosesSessions`): Stop closes every tracked connection |
+| F12 | lock integrity | Command-scope admission admits a sibling's vendored copy when the caller's lock entry has no content hash; `LoadCommandScopeLock` loads the lock without `RequireV2`, so a v1.0 lock reaches that branch | Open: `LockIntegrity.findingF12HashlessSiblingAdmission`; Go replay `TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy` | `LockIntegrity.f12AdmitRequiresCallerHash` (`AdmitRequiresCallerHash`): admission refuses a caller entry without a hash |
 
 Two hypotheses were refuted: an empty `SourceID` on module targets
 (`ScopeConstruction` keeps discovery's guarantee as a fact, and a mutant shows

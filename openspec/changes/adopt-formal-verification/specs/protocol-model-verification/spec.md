@@ -143,7 +143,7 @@ Invowk SHALL bind `retryWithBackoff` with a rapid test that exhaustively enumera
 Each TLA+ model SHALL be bound to the code as follows:
 - **rapid state-machine tests** whose actions correspond one-to-one with the model's visible actions, and which reuse its invariant names;
 - **replay tests** for every recorded counterexample;
-- **trace validation** for the watch loop, serverbase sequential runs, and the atomic write. Sync and tidy are bound by the integrity tests of `verify-locked-module-integrity` and Go replays instead, because `LockIntegrity` abstracts sync into one adversarial action and a trace of it would add little.
+- **trace validation** for the watch loop, serverbase sequential runs, the atomic write, the host-callback token lifecycle, and lock integrity across sync, vendor, discovery, and admission (`trace-validate-token-and-lock`). A whole-run lock trace checks the file-system side effects that sync, vendor, and discovery claim, which per-finding replays do not. Tidy is bound by the integrity tests of `verify-locked-module-integrity` and Go replays instead.
 
 Trace harnesses SHALL use the existing seams. The atomic write SHALL use `atomicWriteOps` inside `pkg/fspath`. The watch loop SHALL use `newWithBackend` with an assignable `schedule`, over a temp directory, a fake backend, and a fake timer conformant with `time.AfterFunc`. Trace specs SHALL forbid skipping an observable state: every projection change (or, for concurrent models, every point where all callers are settled) SHALL match the next record.
 

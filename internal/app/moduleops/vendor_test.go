@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/modulecache"
+	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -813,3 +814,69 @@ func TestVendorModules_InvalidCachePath(t *testing.T) {
 // ============================================================================
 // Tests for pruneVendorDir (direct unit tests)
 // ============================================================================
+
+// TestVendorHashMismatchLeavesCopiedContent characterises the LockIntegrity.tla
+// Vendor step on the update-false path of resolveVendorDependencies
+// (LoadDeclaredFromLock, then VendorModules): the cache is copied before its
+// hash is checked, so a tampered cache fails vendoring but leaves the copied
+// content in invowk_modules/. Discovery still rejects that copy against the
+// locked hash, so this is a calibration note, not a finding.
+func TestVendorHashMismatchLeavesCopiedContent(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	cacheRoot := filepath.Join(tmpDir, "module-cache")
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	depCacheDir := filepath.Join(cacheRoot, "github.com", "example", "dep", "1.0.0")
+	if err := os.MkdirAll(depCacheDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(dep cache): %v", err)
+	}
+	depModuleDir := createValidModuleForPackaging(t, depCacheDir, "dep.invowkmod", "dep")
+	lockedHash, err := invowkmod.ComputeModuleHash(depModuleDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash(dep): %v", err)
+	}
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/example/dep.git"] = invowkmod.LockedModule{
+		GitURL:          "https://github.com/example/dep.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "dep@1.0.0",
+		CommandSourceID: "dep",
+		ModuleID:        "dep",
+		ContentHash:     lockedHash,
+	}
+	if err = lock.Save(filepath.Join(modulePath, invowkmod.LockFileName)); err != nil {
+		t.Fatalf("Save(lock): %v", err)
+	}
+	// The attacker tampers with the cache after the lock was written.
+	if err = os.WriteFile(filepath.Join(depModuleDir, "invowkfile.cue"), []byte("cmds: [] // tampered"), 0o644); err != nil {
+		t.Fatalf("WriteFile(tamper cache): %v", err)
+	}
+	tamperedHash, err := invowkmod.ComputeModuleHash(depModuleDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash(tampered): %v", err)
+	}
+
+	resolver, err := modulesync.NewResolver(types.FilesystemPath(modulePath), types.FilesystemPath(cacheRoot))
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+	requirements := []invowkmod.ModuleRef{{GitURL: "https://github.com/example/dep.git", Version: "^1.0.0"}}
+	resolved, err := resolver.LoadDeclaredFromLock(t.Context(), requirements)
+	if err != nil {
+		t.Fatalf("LoadDeclaredFromLock() error = %v", err)
+	}
+	_, err = VendorModules(VendorOptions{ModulePath: types.FilesystemPath(modulePath), Modules: resolved})
+	if !errors.Is(err, invowkmod.ErrContentHashMismatch) {
+		t.Fatalf("VendorModules() error = %v, want ErrContentHashMismatch", err)
+	}
+	leftover, err := invowkmod.ComputeModuleHash(filepath.Join(modulePath, VendoredModulesDir, "dep.invowkmod"))
+	if err != nil {
+		t.Fatalf("vendored copy after a failed vendor: %v; want the copied content left behind", err)
+	}
+	if leftover != tamperedHash {
+		t.Fatalf("vendored copy hash = %s, want the tampered cache's %s", leftover, tamperedHash)
+	}
+}

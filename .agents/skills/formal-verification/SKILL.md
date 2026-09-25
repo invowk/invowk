@@ -79,7 +79,13 @@ tool or a model.
   the names `TraceRecord`, `TraceStart`, `TraceAdvanceOnChange`,
   `TraceAdvanceAt`, and `NotFullyConsumed` are reserved in every module. The
   spec must forbid skipping an observable state, and targeted mutations must
-  be rejected.
+  be rejected. Keep `Proj` flat so the key-set checks see every field. `WriteSuite`
+  drops duplicate traces and fails when a mutation equals a recorded trace;
+  `tlatrace.RecordEach` runs one parallel subtest per sequence, and
+  `tlatrace.Edit`/`Extend` build mutations from recorded traces. A `[[trace]]` entry may set
+  `constants` to override the model's base constants (only declared ones).
+  Never declare as a mutation a behaviour the base constants accept because
+  of an open finding.
 - Fakes a model depends on must follow the real contract. For example, the
   watcher's manual timer returns `time.AfterFunc`'s Reset/Stop results.
 

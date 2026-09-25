@@ -636,7 +636,7 @@ help:
 	@echo "  formal           Run all formal models, golden freshness, and correspondence (needs Java)"
 	@echo "  formal-alloy     Check Alloy models against their declared verdicts"
 	@echo "  formal-tla       Check TLA+ models with TLC"
-	@echo "  formal-traces    Run trace validation (phase 3; currently a no-op)"
+	@echo "  formal-traces    Record real-code traces and validate them against the TLA+ models"
 	@echo "  formal-golden    Regenerate Alloy golden vectors used by Go tests"
 	@echo "  formal-rapid-deep Run property tests with RAPID_CHECKS=$(FORMAL_RAPID_CHECKS)"
 	@echo "  mutation-dry-run Count mutation candidates without executing mutants"

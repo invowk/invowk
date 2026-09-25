@@ -3,10 +3,13 @@
 package sshserver
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	gossh "golang.org/x/crypto/ssh"
 	"pgregory.net/rapid"
 
 	"github.com/invowk/invowk/internal/testutil"
@@ -118,4 +121,81 @@ func TestHostCallbackToken_LifecycleMatchesModel(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen replays finding
+// F11 (HostCallbackToken.findingF11StopKeepsSessions) with a real SSH client:
+// Stop closes the listener, but ssh.Server.Shutdown only waits for open
+// connections and closes none, so an authenticated client stays connected
+// after Stop returns, and Stop reports the shutdown deadline. The fix inverts
+// this test.
+func TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.ShutdownTimeout = 100 * time.Millisecond
+	srv := mustNew(t, cfg)
+	if err := srv.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Stop() })
+
+	token, err := srv.GenerateToken("exec-f11")
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+	client := dialWithToken(t, srv, token.Value)
+	closed := closedSignal(client)
+
+	stopErr := srv.Stop()
+	if !errors.Is(stopErr, context.DeadlineExceeded) {
+		t.Fatalf("Stop() error = %v, want context.DeadlineExceeded while a connection is open", stopErr)
+	}
+	select {
+	case <-closed:
+		t.Fatal("Stop() closed the authenticated connection; F11 is fixed, invert this test")
+	case <-time.After(200 * time.Millisecond):
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		t.Fatalf("NewSession() after Stop error = %v, want the connection still usable (F11)", err)
+	}
+	_ = session.Close()
+}
+
+// dialToken logs in to srv over loopback with a real SSH client.
+func dialToken(srv *Server, token TokenValue) (*gossh.Client, error) {
+	client, err := gossh.Dial("tcp", srv.Address(), &gossh.ClientConfig{
+		User:            "invowk",
+		Auth:            []gossh.AuthMethod{gossh.Password(string(token))},
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // test client for a loopback server with an ephemeral host key
+		Timeout:         5 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("dial %s: %w", srv.Address(), err)
+	}
+	return client, nil
+}
+
+// dialWithToken is dialToken that fails the test on error and closes the
+// client when the test ends.
+func dialWithToken(t *testing.T, srv *Server, token TokenValue) *gossh.Client {
+	t.Helper()
+	client, err := dialToken(srv, token)
+	if err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	return client
+}
+
+// closedSignal returns a channel closed once the client's connection closed
+// (gossh.Client.Wait returned).
+func closedSignal(client *gossh.Client) <-chan struct{} {
+	closed := make(chan struct{})
+	go func() {
+		_ = client.Wait()
+		close(closed)
+	}()
+	return closed
 }
