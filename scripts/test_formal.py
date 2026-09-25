@@ -485,6 +485,82 @@ class ToolAndCorrespondenceTests(unittest.TestCase):
         (self.root / "m.als").write_text("module m\n")
         self.assertIn("no correspondence table", formal.check_correspondence([alloy_model(*GUARDED)], root=self.root)[0])
 
+    def check(self, row: str, suites: list | None = None) -> list[str]:
+        return formal.check_correspondence([self.write_model(row)], root=self.root, suites=suites or [])
+
+    def test_correspondence_accepts_a_multi_test_cell(self) -> None:
+        (self.root / "more_test.go").write_text("package x\n\nfunc TestOther(t *testing.T) {}\n")
+        self.assertEqual(self.check("// | e | `RealSymbol` | `code.go` | TestBinding, `TestOther` | - |\n"), [])
+
+    def test_correspondence_multi_test_cell_with_a_missing_test_fails(self) -> None:
+        failures = self.check("// | e | `RealSymbol` | `code.go` | TestBinding, TestGone | - |\n")
+        self.assertEqual(failures, ["M: row 'e' names binding test TestGone that does not exist"])
+
+    def test_correspondence_multi_test_cell_with_an_empty_item_fails(self) -> None:
+        failures = self.check("// | e | `RealSymbol` | `code.go` | TestBinding, | - |\n")
+        self.assertIn("empty name in binding cell", failures[0])
+
+    def test_completeness_rejects_an_untabled_binding_test(self) -> None:
+        (self.root / "x_golden_test.go").write_text("package x\n\nfunc TestUntabled(t *testing.T) {}\n")
+        failures = self.check("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n")
+        self.assertEqual(failures, ["x_golden_test.go: binding test TestUntabled is not named by any correspondence row"])
+
+    def test_completeness_accepts_tabled_tests_in_every_suffix(self) -> None:
+        names = []
+        for suffix in formal.BINDING_TEST_SUFFIXES:
+            name = "TestIn" + suffix.split("_")[1].capitalize()
+            names.append(name)
+            (self.root / f"x{suffix}").write_text(f"package x\n\nfunc {name}(t *testing.T) {{}}\n")
+        self.assertEqual(self.check(f"// | e | `RealSymbol` | `code.go` | {', '.join(names)} | - |\n"), [])
+
+    def test_completeness_ignores_other_test_files(self) -> None:
+        (self.root / "plain_test.go").write_text("package x\n\nfunc TestUnrelated(t *testing.T) {}\n")
+        self.assertEqual(self.check("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n"), [])
+
+    def test_completeness_rejects_a_harness_outside_a_trace_suite(self) -> None:
+        (self.root / "pkg").mkdir()
+        (self.root / "pkg" / "x_trace_test.go").write_text("package pkg\n\nfunc TestM_TraceHarness(t *testing.T) {}\n")
+        failures = self.check("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n")
+        self.assertEqual(failures, ["pkg/x_trace_test.go: trace harness TestM_TraceHarness is not in a package declared by a [[trace]] suite"])
+
+    def test_completeness_accepts_an_untabled_harness_in_a_trace_suite(self) -> None:
+        (self.root / "pkg").mkdir()
+        (self.root / "pkg" / "x_trace_test.go").write_text("package pkg\n\nfunc TestM_TraceHarness(t *testing.T) {}\n")
+        suites = [formal.TraceSuite(name="M", package="./pkg/")]
+        self.assertEqual(self.check("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n", suites), [])
+
+
+class CharacterisationTests(unittest.TestCase):
+    ROWS = [
+        ["f", "Sym", "a.go", "TestReplay, TestShared", "characterisation: asserts today's defect"],
+        ["g", "Sym", "a.go", "TestShared, TestPlain", "the characterisation: prefix must lead"],
+    ]
+
+    def test_note_marks_every_test_on_the_row(self) -> None:
+        self.assertEqual(formal.characterisation_tests(self.ROWS), {"TestReplay", "TestShared"})
+
+    def test_names_mark_characterisation_tests(self) -> None:
+        for name in ("TestX_Characterisation", "TestX_FindingF8", "TestX_FindingF12_Replay", "Test_FindingF3"):
+            with self.subTest(name=name):
+                self.assertTrue(formal.is_characterisation_test(name, set()))
+
+    def test_other_names_are_not_characterisation(self) -> None:
+        for name in ("TestX_CharacterisationHelper", "TestX_FindingFoo", "TestFindingF8", "TestX_F13Replay"):
+            with self.subTest(name=name):
+                self.assertFalse(formal.is_characterisation_test(name, set()))
+
+    def test_noted_tests_are_characterisation(self) -> None:
+        noted = formal.characterisation_tests(self.ROWS)
+        self.assertTrue(formal.is_characterisation_test("TestReplay", noted))
+        self.assertFalse(formal.is_characterisation_test("TestPlain", noted))
+
+    def test_binding_cells(self) -> None:
+        self.assertEqual(formal.binding_tests("-"), [])
+        self.assertEqual(formal.binding_tests(""), [])
+        self.assertEqual(formal.binding_tests("TestA, `TestB`"), ["TestA", "TestB"])
+        self.assertTrue(formal.is_trace_harness("TestM_TraceHarness"))
+        self.assertFalse(formal.is_trace_harness("TestM_TraceHarnessX"))
+
 
 # An empty sig (Key), a ternary relation (lock), a relation empty in every
 # instance (never), and a duplicate instance (the third repeats the first).

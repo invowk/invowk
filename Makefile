@@ -74,6 +74,7 @@ MUTATION_BASE_REF ?= origin/main
 MUTATION_MODE ?= advisory
 MUTATION_MUTANT_ID ?=
 MUTATION_REPORT_DIR ?= artifacts/mutation
+MUTATION_TARGET_SET ?= root
 
 # Default target
 .DEFAULT_GOAL := build
@@ -234,23 +235,43 @@ formal-promotion-gate:
 # default and keep CLI testscript/container/race coverage in the regular gates.
 .PHONY: mutation-dry-run mutation-pr mutation-full mutation-baseline-update mutation-rerun
 mutation-dry-run:
-	@./scripts/mutation.sh dry-run --module "$(MUTATION_MODULE)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@./scripts/mutation.sh dry-run --module "$(MUTATION_MODULE)" --target-set "$(MUTATION_TARGET_SET)" --report-dir "$(MUTATION_REPORT_DIR)"
 
 mutation-pr:
 	@./scripts/mutation.sh pr --module "$(MUTATION_MODULE)" --base "$(MUTATION_BASE_REF)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
 
 mutation-full:
-	@./scripts/mutation.sh full --module "$(MUTATION_MODULE)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@./scripts/mutation.sh full --module "$(MUTATION_MODULE)" --target-set "$(MUTATION_TARGET_SET)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
 
 mutation-baseline-update:
-	@./scripts/mutation.sh baseline-update --module "$(MUTATION_MODULE)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@./scripts/mutation.sh baseline-update --module "$(MUTATION_MODULE)" --target-set "$(MUTATION_TARGET_SET)" --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
 
 mutation-rerun:
 	@if [ -z "$(MUTATION_MUTANT_ID)" ]; then \
 		echo "MUTATION_MUTANT_ID is required. Usage: make mutation-rerun MUTATION_MODULE=root MUTATION_MUTANT_ID=<id>"; \
 		exit 1; \
 	fi
-	@./scripts/mutation.sh rerun --module "$(MUTATION_MODULE)" --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
+	@./scripts/mutation.sh rerun --module "$(MUTATION_MODULE)" --target-set "$(MUTATION_TARGET_SET)" --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+# Formal-bindings mutation profiles: mutate only the Go functions named by bound
+# rows of the formal models' correspondence tables and run only their binding
+# tests (no -short, -count=1). Manual and advisory; never part of make test.
+.PHONY: mutation-formal-dry-run mutation-formal mutation-formal-baseline-update mutation-formal-rerun
+mutation-formal-dry-run:
+	@./scripts/mutation.sh dry-run --target-set formal-bindings --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-formal:
+	@./scripts/mutation.sh full --target-set formal-bindings --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-formal-baseline-update:
+	@./scripts/mutation.sh baseline-update --target-set formal-bindings --mode "$(MUTATION_MODE)" --report-dir "$(MUTATION_REPORT_DIR)"
+
+mutation-formal-rerun:
+	@if [ -z "$(MUTATION_MUTANT_ID)" ]; then \
+		echo "MUTATION_MUTANT_ID is required. Usage: make mutation-formal-rerun MUTATION_MUTANT_ID=<id>"; \
+		exit 1; \
+	fi
+	@./scripts/mutation.sh rerun --target-set formal-bindings --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
 
 # Generate PGO profile from benchmarks (includes container tests).
 # The benchmark run forces -pgo=off so training data is not biased by an
@@ -455,7 +476,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh scripts/goplint.sh scripts/goplint-consumer-smoke.sh scripts/goplint-consumer-routed.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/mutation-formal-exec.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh scripts/goplint.sh scripts/goplint-consumer-smoke.sh scripts/goplint-consumer-routed.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -505,6 +526,10 @@ test-scripts:
 	@echo ""
 	@echo "Running formal promotion-gate tests..."
 	python3 scripts/test_formal_promotion_gate.py
+	@echo ""
+	@echo "Running formal-bindings mutation tests and triage ledger check..."
+	python3 scripts/test_formal_mutation.py
+	python3 scripts/formal_mutation.py triage --check
 	@echo ""
 	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
@@ -654,6 +679,10 @@ help:
 	@echo "  mutation-full    Run curated full mutation profile"
 	@echo "  mutation-baseline-update Update accepted-survivor mutation baselines"
 	@echo "  mutation-rerun   Rerun a single escaped mutant by stable ID"
+	@echo "  mutation-formal-dry-run Count formal-bindings mutation candidates"
+	@echo "  mutation-formal  Mutate correspondence-table functions against their binding tests only"
+	@echo "  mutation-formal-baseline-update Update the formal-bindings baseline and check the triage ledger"
+	@echo "  mutation-formal-rerun Rerun one formal-bindings mutant and record the rerun evidence"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
 	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"
@@ -712,6 +741,8 @@ help:
 	@echo "  MUTATION_MODE    Mutation gate mode: advisory or blocking (default: advisory)"
 	@echo "  MUTATION_MUTANT_ID Stable mutant ID for mutation-rerun"
 	@echo "  MUTATION_REPORT_DIR Mutation report root (default: artifacts/mutation)"
+	@echo "  MUTATION_TARGET_SET Mutation targets: root or formal-bindings (default: root)"
+	@echo "  MUTATION_FORMAL_EXEC_TIMEOUT Per-mutant go test timeout (s) for formal-bindings (default: max(10, 5 x clean))"
 	@echo "  SONAR_TOKEN      SonarCloud token for sonar-local (optional, for private projects)"
 	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
 	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk_invowk)"

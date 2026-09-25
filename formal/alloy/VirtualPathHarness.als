@@ -33,8 +33,8 @@
 // | access | VirtualFilesystemConfig.EffectiveAccess | pkg/invowkfile/virtual_filesystem.go | TestVirtualPathHarness_GoldenVectors | restricted vs full |
 // | contained | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: physical resolution, workdir excluded from read roots |
 // | allowedWorkdirCwd | - | formal/alloy/VirtualPathHarness.als | - | policy: a workdir is a cwd, not an allowed read root |
-// | findingF14 | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_F14DeepSymlink | lexical fallback for a deep missing path |
-// | findingF15 | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_F15WorkdirWidening | workdir added to the allowed roots |
+// | findingF14 | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_F14DeepSymlink | characterisation: lexical fallback for a deep missing path |
+// | findingF15 | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_F15WorkdirWidening | characterisation: workdir added to the allowed roots |
 
 module VirtualPathHarness
 

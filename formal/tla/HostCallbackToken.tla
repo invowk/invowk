@@ -30,7 +30,7 @@
 \* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestRevokeTokenClosesAuthenticatedConnection | sessions abstracted to the connection that carries them |
 \* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely | login and revocation are single atomic actions |
 \* | End paths | ContainerRuntime.prepareContainerExecution | internal/runtime/container_exec.go | - | success, error, and cancel all run the deferred revoke |
-\* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen | closes the listener; open connections stay open (F11) |
+\* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen | characterisation: closes the listener; open connections stay open (F11) |
 EXTENDS Naturals
 
 CONSTANTS Execs, Mutant, RevokeClosesSessions, StopClosesSessions

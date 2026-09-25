@@ -55,7 +55,7 @@
 \* | WriteMod add | AddRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (29) to write (73) window with no seam |
 \* | WriteMod remove | RemoveRequirement | pkg/invowkmod/invowkmod_edit.go | - | narrow read (82) to write (137) window with no seam |
 \* | WriteLock | LockFile.Save | pkg/invowkmod/lockfile.go | TestConcurrentEdits_FindingF8_SyncOverwritesConcurrentAdd | atomic replace (A1) |
-\* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | LoadDeclaredFromLock (127), then VendorModules (104) |
+\* | VendorProg | vendorDependenciesWithResolver | internal/app/moduleops/vendor_dependencies.go | TestConcurrentEdits_VendorFromStaleLock | characterisation: LoadDeclaredFromLock (127), then VendorModules (104) |
 \* | VendorRemove, VendorCopy | VendorModules | internal/app/moduleops/vendor.go | - | the RemoveAll (107) to copy (115) window has no seam |
 EXTENDS Naturals, Sequences, FiniteSets
 

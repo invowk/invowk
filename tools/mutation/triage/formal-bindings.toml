@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# Triage ledger for the formal-bindings mutation baseline
+# (tools/mutation/baselines/formal-bindings-baseline.json).
+#
+# go-mutesting's baseline stores only {id, file, mutator, line}; the reason a
+# survivor is accepted lives here. `python3 scripts/formal_mutation.py triage
+# --check` (run by `make test-scripts` and `make mutation-formal-baseline-update`)
+# fails unless:
+#   - the [[survivor]] ids equal the baseline ids;
+#   - model + element + symbol identify a correspondence row, and file matches it;
+#   - binding-gap and model-gap entries name a follow_up (a change or a task);
+#   - defect entries name, as follow_up, a finding id declared by a `finding =`
+#     command in formal/manifest.toml;
+#   - an abstraction reason, whitespace-collapsed, is a substring of the row's
+#     abstraction cell;
+#   - every id has at least two `escaped` records in formal-bindings-reruns.jsonl
+#     at the baseline's generation commit or a descendant, and no other status.
+#
+# Classes:
+#   equivalent   the mutant cannot change observable behaviour
+#   abstraction  the row's abstraction cell states why the model ignores it
+#   binding-gap  the model states the property but the binding misses it
+#   model-gap    the model does not state the property
+#   defect       a strengthened binding fails on unmodified code (a finding)
+#
+# [[survivor]] fields: id, file, symbol, model, element, class, reason, follow_up.
+#
+# [[closed]] records a gap closed by a stronger binding or a new model property:
+# the mutant left the baseline, and its id must appear in the model's
+# `calibration` text in formal/manifest.toml. Fields: id, model.
