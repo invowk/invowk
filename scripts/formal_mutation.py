@@ -504,9 +504,12 @@ def git(*args: str) -> str:
 
 
 def summary_status(summary: dict) -> str:
-    """The status of the mutant a --run-mutant-id run executed. The stable id
-    ignores line numbers, so one id can name the same change on several lines;
-    they must then agree."""
+    """The status of the mutant id a --run-mutant-id run executed.
+
+    The stable id hashes only the file, the mutator, and the changed text, so
+    one id can name the same change at several places. go-mutesting's baseline
+    suppresses an id when any of its mutants escapes, so the id counts as
+    escaped when at least one did; otherwise all must agree."""
     stats = summary.get("stats", summary)
     counts = {
         "killed": stats.get("killedCount", 0),
@@ -514,6 +517,8 @@ def summary_status(summary: dict) -> str:
         "skipped": stats.get("skippedCount", 0),
         "errored": stats.get("errorCount", 0),
     }
+    if counts["escaped"]:
+        return "escaped"
     hit = [status for status, count in counts.items() if count]
     if len(hit) != 1:
         raise PlanError(f"expected the rerun to execute the mutant with one status, got {counts}")
