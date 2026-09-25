@@ -27,6 +27,7 @@
 | Formal Alloy models | `make formal-alloy` |
 | Regenerate golden vectors | `make formal-golden` |
 | Deep property tests | `make formal-rapid-deep` |
+| Formal lane promotion gate (read-only GitHub API) | `make formal-promotion-gate` |
 | Formal before/after snapshot (needs Java) | `python3 scripts/formal.py snapshot [--out FILE] [--compare FILE]` |
 | Mutation dry-run | `make mutation-dry-run` |
 | Mutation PR scan | `make mutation-pr` |
@@ -403,7 +404,7 @@ goreleaser release --snapshot --clean
 | `lint.yml` | Push/PR to main, weekly schedule, release, or manual dispatch | **Required** normalized golangci-lint, formatter/config checks, agent docs integrity, and the goplint consumer gates (one shared repository audit, baseline, exceptions, full scan, performance smoke) against the pinned analyzer |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
-| `formal-verification.yml` | Weekly schedule, manual dispatch, and PRs touching `formal/` or modelled packages | Check Alloy/TLA+ models, golden freshness, correspondence, and property tests; not a required check until four consecutive green weekly runs |
+| `formal-verification.yml` | Weekly schedule, manual dispatch, and every PR (classified by `formal.py affected` against `[ci] paths`) | Check Alloy/TLA+ models, golden freshness, correspondence, trace validation, and the replay plan generated from the correspondence tables; not a required check until `make formal-promotion-gate` reports PASS (four consecutive first-attempt green weekly runs), and making it required is a manual maintainer step |
 | `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |
 | `pgo-benchstat.yml` | Weekly schedule + manual dispatch | Compare `pgo=off` vs `pgo=on` with `benchstat` and upload raw/report artifacts |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |

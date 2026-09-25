@@ -205,7 +205,7 @@ test-cli-cover:
 FORMAL_RAPID_CHECKS ?= 10000
 # Packages with pgregory.net/rapid tests (grep -l pgregory.net/rapid).
 FORMAL_RAPID_PACKAGES := ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./internal/core/serverbase/ ./internal/runtime/ ./internal/sshserver/ ./pkg/invowkfile/
-.PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep
+.PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep formal-promotion-gate
 formal:
 	python3 scripts/formal.py all
 
@@ -223,6 +223,12 @@ formal-golden:
 
 formal-rapid-deep:
 	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 $(FORMAL_RAPID_PACKAGES)
+
+# Read-only (GET-only GitHub API): PASS only after four consecutive first-attempt
+# green scheduled runs of the current Formal Verification pipeline on main.
+# Extra flags: FORMAL_GATE_ARGS="--since 2026-10-01 --json".
+formal-promotion-gate:
+	python3 scripts/formal_promotion_gate.py $(FORMAL_GATE_ARGS)
 
 # Mutation testing profiles. These use package-level Go tests with -short by
 # default and keep CLI testscript/container/race coverage in the regular gates.
@@ -497,6 +503,9 @@ test-scripts:
 	@echo "Running formal-verification runner tests..."
 	python3 scripts/test_formal.py
 	@echo ""
+	@echo "Running formal promotion-gate tests..."
+	python3 scripts/test_formal_promotion_gate.py
+	@echo ""
 	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
 # Install pre-commit hooks
@@ -639,6 +648,7 @@ help:
 	@echo "  formal-traces    Record real-code traces and validate them against the TLA+ models"
 	@echo "  formal-golden    Regenerate Alloy golden vectors used by Go tests"
 	@echo "  formal-rapid-deep Run property tests with RAPID_CHECKS=$(FORMAL_RAPID_CHECKS)"
+	@echo "  formal-promotion-gate Check the formal lane's weekly-run promotion rule (read-only GitHub API)"
 	@echo "  mutation-dry-run Count mutation candidates without executing mutants"
 	@echo "  mutation-pr      Run changed-line PR mutation profile"
 	@echo "  mutation-full    Run curated full mutation profile"
