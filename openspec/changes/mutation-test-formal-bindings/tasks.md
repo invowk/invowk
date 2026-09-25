@@ -73,7 +73,7 @@
 
 ## 9. Verification
 
-- [ ] 9.1 Run `python3 scripts/test_formal.py`, `python3 scripts/test_formal_mutation.py`, `bash scripts/test_mutation.sh`, and `make test-scripts`
-- [ ] 9.2 Run `make formal` (correspondence, golden freshness), `make lint`, and `make lint-scripts`
-- [ ] 9.3 Run `make test` (the full suite) and `make license-check`
-- [ ] 9.4 Run `openspec validate mutation-test-formal-bindings --strict`
+- [x] 9.1 Run `python3 scripts/test_formal.py`, `python3 scripts/test_formal_mutation.py`, `bash scripts/test_mutation.sh`, and `make test-scripts`
+- [x] 9.2 Run `make formal` (correspondence, golden freshness), `make lint`, and `make lint-scripts`
+- [x] 9.3 Run `make test` (the full suite) and `make license-check`
+- [x] 9.4 Run `openspec validate mutation-test-formal-bindings --strict`
