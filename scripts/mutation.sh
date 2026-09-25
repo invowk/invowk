@@ -687,20 +687,22 @@ elapsed_seconds() {
 }
 
 # Clean-code pre-flight: go-mutesting ignores --noop together with --exec, so
-# every target file's killer tests run once on unmutated code first. Each run
+# every target file's killer tests (or only FILE... when given) run once on
+# unmutated code first. Each run
 # must pass with every killer reported as passed (not skipped); the measured
 # wall time sets the file's exec timeout in the plan.
 run_formal_preflight() {
 	local plan="$1"
 	local report_dir="$2"
+	shift 2
 	local file
 	local json
 	local start
 	local status
-	local -a files=()
+	local -a files=("$@")
 
 	mkdir -p "$report_dir/preflight"
-	mapfile -t files < <(formal_mutation show --plan "$plan" files)
+	((${#files[@]} > 0)) || mapfile -t files < <(formal_mutation show --plan "$plan" files)
 	((${#files[@]} > 0)) || die "formal-bindings plan lists no target files"
 	for file in "${files[@]}"; do
 		json="$report_dir/preflight/${file//\//_}.json"
@@ -774,6 +776,116 @@ timeout_kill_counts() {
 		awk '{ printf "timeout_kills[%s]=%s\n", $2, $1 }'
 }
 
+# run_formal_group GROUP_DIR LOG ARGS... FILES are passed after a literal "--".
+run_formal_group() {
+	local group_dir="$1"
+	local log="$2"
+	local plan="$3"
+	shift 3
+	local -a args=()
+	local status
+
+	while (($# > 0)) && [[ "$1" != "--" ]]; do
+		args+=("$1")
+		shift
+	done
+	shift
+	mkdir -p "$group_dir"
+	set +e
+	(
+		export_rapid_determinism_env
+		export MUTATION_FORMAL_PLAN="$plan"
+		cd "$REPO_ROOT" && "$GO_MUTESTING_BIN" "${args[@]}" "$@"
+	) 2>&1 | tee -a "$log"
+	status=${PIPESTATUS[0]}
+	set -e
+	collect_tool_reports "$REPO_ROOT" "$group_dir"
+	return "$status"
+}
+
+# Focused reruns: MUTATION_MUTANT_ID may list several ids separated by commas.
+# Each id is scoped to its file through the committed baseline or the last full
+# report (the stable id hashes the file), so only that file is pre-flighted and
+# mutated; an unknown id is rerun across every group. Each outcome is appended
+# to the rerun evidence file.
+run_formal_rerun() {
+	local mode="$1"
+	local mutant_ids="$2"
+	local report_root="$3"
+	local report_dir
+	local plan
+	local mutant
+	local group
+	local file
+	local match
+	local exec_timeout
+	local status=0
+	local id_status
+	local -a ids=()
+	local -a scope=()
+	local -a preflight_files=()
+	local -a groups=()
+	local -a files=()
+	local -a args=()
+
+	report_dir="$(profile_report_dir rerun root "$report_root" "$TARGET_SET_FORMAL")"
+	rm -rf "$report_dir"
+	mkdir -p "$report_dir"
+	resolve_formal_targets "$report_dir" >/dev/null
+	plan="$report_dir/$FORMAL_PLAN_FILE"
+	write_run_metadata rerun root "$mode" "" "$report_dir" "$TARGET_SET_FORMAL"
+	remove_stale_tool_reports "$REPO_ROOT"
+	ensure_clean_tracked_worktree_for_mutation
+	register_restore_module root
+
+	IFS=',' read -r -a ids <<<"$mutant_ids"
+	mapfile -t scope < <(formal_mutation rerun-scope --plan "$plan" \
+		--hint "$(baseline_path root "$TARGET_SET_FORMAL")" \
+		--hint "$(repo_path "$report_root")/full/$TARGET_SET_FORMAL/go-mutesting-agentic.json" "${ids[@]}")
+	((${#scope[@]} == ${#ids[@]})) || die "could not scope the rerun ids"
+	printf '%s\n' "${scope[@]}" >"$report_dir/rerun-scope.tsv"
+	if ! grep -q $'\t-\t' "$report_dir/rerun-scope.tsv"; then
+		mapfile -t preflight_files < <(cut -f3 "$report_dir/rerun-scope.tsv" | sort -u)
+	fi
+	(
+		export_rapid_determinism_env
+		run_formal_preflight "$plan" "$report_dir" "${preflight_files[@]}"
+	) || return 1
+	exec_timeout="$(formal_mutation show --plan "$plan" --recorded max-timeout)"
+
+	while IFS=$'\t' read -r mutant group file; do
+		if [[ "$group" == "-" ]]; then
+			mapfile -t groups < <(seq 0 $(($(formal_mutation show --plan "$plan" group-count) - 1)))
+		else
+			groups=("$group")
+		fi
+		for group in "${groups[@]}"; do
+			match="$(formal_mutation show --plan "$plan" --group "$group" match)"
+			if [[ "$file" == "-" ]]; then
+				mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
+			else
+				files=("$file")
+			fi
+			mapfile -t args < <(build_formal_mutation_args rerun "$mode" "$mutant" "$match" "$exec_timeout" "")
+			id_status=0
+			run_formal_group "$report_dir/$mutant/group-$group" "$report_dir/$mutant/go-mutesting.log" "$plan" \
+				"${args[@]}" -- "${files[@]}" || id_status=$?
+			interrupted_status "$id_status" && return "$id_status"
+		done
+		if formal_mutation merge-reports --report-dir "$report_dir/$mutant" >/dev/null &&
+			formal_mutation rerun-record --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant" \
+				--reruns "$REPO_ROOT/$FORMAL_RERUNS_FILE"; then
+			:
+		else
+			status=1
+		fi
+	done <"$report_dir/rerun-scope.tsv"
+
+	restore_tracked_mutation_paths root
+	remove_new_untracked_paths root
+	return "$status"
+}
+
 run_formal_profile() {
 	local profile="$1"
 	local mode="$2"
@@ -817,20 +929,11 @@ run_formal_profile() {
 	: >"$report_dir/go-mutesting.log"
 	for ((group = 0; group < groups; group++)); do
 		group_dir="$report_dir/group-$group"
-		mkdir -p "$group_dir"
 		match="$(formal_mutation show --plan "$plan" --group "$group" match)"
 		mapfile -t files < <(formal_mutation show --plan "$plan" --group "$group" files)
 		mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "$mutant_id" "$match" "$exec_timeout" "$group_dir/baseline.json")
-
-		set +e
-		(
-			export_rapid_determinism_env
-			export MUTATION_FORMAL_PLAN="$plan"
-			cd "$REPO_ROOT" && "$GO_MUTESTING_BIN" "${args[@]}" "${files[@]}"
-		) 2>&1 | tee -a "$report_dir/go-mutesting.log"
-		group_status=${PIPESTATUS[0]}
-		set -e
-		collect_tool_reports "$REPO_ROOT" "$group_dir"
+		group_status=0
+		run_formal_group "$group_dir" "$report_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${files[@]}" || group_status=$?
 
 		if ((group_status != 0)) && { ((status == 0)) || ((status == QUALITY_GATE_EXIT_CODE)); }; then
 			status="$group_status"
@@ -845,16 +948,10 @@ run_formal_profile() {
 		timeout_kill_counts "$report_dir/go-mutesting.log" >>"$report_dir/run-metadata.txt"
 	fi
 	if ((status == 0)); then
-		case "$profile" in
-			baseline-update)
-				formal_mutation merge-baselines --report-dir "$report_dir" &&
-					formal_mutation triage --check || status=1
-				;;
-			rerun)
-				formal_mutation rerun-record --summary "$report_dir/go-mutesting-summary.json" --id "$mutant_id" \
-					--reruns "$REPO_ROOT/$FORMAL_RERUNS_FILE" || status=1
-				;;
-		esac
+		if [[ "$profile" == "baseline-update" ]]; then
+			formal_mutation merge-baselines --report-dir "$report_dir" &&
+				formal_mutation triage --check || status=1
+		fi
 	fi
 	append_step_summary "$profile" "$TARGET_SET_FORMAL" "$report_dir"
 
@@ -997,7 +1094,11 @@ main() {
 	trap cleanup_mutation_paths EXIT INT TERM
 
 	if [[ "$target_set" == "$TARGET_SET_FORMAL" ]]; then
-		run_formal_profile "$profile" "$mode" "$mutant_id" "$report_root"
+		if [[ "$profile" == "rerun" ]]; then
+			run_formal_rerun "$mode" "$mutant_id" "$report_root"
+		else
+			run_formal_profile "$profile" "$mode" "$mutant_id" "$report_root"
+		fi
 		return
 	fi
 

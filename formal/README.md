@@ -320,9 +320,31 @@ Rollback: remove the context from the ruleset's required status checks.
 
 Mutation profiles run rapid with a fixed `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and
 a bounded `RAPID_SHRINKTIME`, so kill and escape results stay reproducible.
-`internal/app/modulesync` and `internal/container` are not in
-`tools/mutation/root-packages.txt`, so their new tests add no killers to the
-full profile until that manifest changes.
+
+The root profiles cannot say whether the bindings pin down the code a model
+names: they mutate curated packages, run every package test under `-short`, and
+credit only tests of the mutated package. The `formal-bindings` target set
+(`make mutation-formal`) measures exactly that. It mutates only the functions
+named by bound correspondence rows and, for each mutant, runs only the killer
+tests of the rows naming the mutated function, across packages, through a
+`go test -overlay`, without `-short`. Trace harnesses and characterisation
+tests (finding replays and probes, marked by name or by a `characterisation:`
+abstraction note) are never killers. The plan is generated from the tables at
+run time, rows without a killer are reported with a reason, and a clean-code
+pre-flight must pass before any mutant counts.
+
+A survivor marks code the model claims to describe but the bindings do not
+constrain. Each one is classified in `tools/mutation/triage/formal-bindings.toml`
+(`equivalent`, `abstraction`, `binding-gap`, `model-gap`, `defect`), backed by
+two recorded escaped reruns, and resolved by a stronger binding, a new model
+property, a stated abstraction, or a finding. Closed gaps are listed in the
+model's `calibration` by mutant id. `.agents/rules/commands.md` has the
+profiles; `.agents/skills/formal-verification/SKILL.md` has the feedback loop.
+
+The first run (2026-09-25) mutated 49 functions in 30 files: 809 mutants, 310
+killed, 441 escaped, 58 skipped (mutants that do not build), 0 errored, and 22
+of the kills were timeouts. Eight functions had no kill at all, because the
+binding their row names never calls them (see the triage ledger).
 
 ## Decision record: rejected tools
 

@@ -268,7 +268,7 @@ mutation-formal-baseline-update:
 
 mutation-formal-rerun:
 	@if [ -z "$(MUTATION_MUTANT_ID)" ]; then \
-		echo "MUTATION_MUTANT_ID is required. Usage: make mutation-formal-rerun MUTATION_MUTANT_ID=<id>"; \
+		echo "MUTATION_MUTANT_ID is required. Usage: make mutation-formal-rerun MUTATION_MUTANT_ID=<id>[,<id>...]"; \
 		exit 1; \
 	fi
 	@./scripts/mutation.sh rerun --target-set formal-bindings --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
@@ -682,7 +682,7 @@ help:
 	@echo "  mutation-formal-dry-run Count formal-bindings mutation candidates"
 	@echo "  mutation-formal  Mutate correspondence-table functions against their binding tests only"
 	@echo "  mutation-formal-baseline-update Update the formal-bindings baseline and check the triage ledger"
-	@echo "  mutation-formal-rerun Rerun one formal-bindings mutant and record the rerun evidence"
+	@echo "  mutation-formal-rerun Rerun formal-bindings mutants (comma-separated IDs) and record the rerun evidence"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
 	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"

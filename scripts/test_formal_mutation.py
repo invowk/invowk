@@ -303,6 +303,22 @@ class PreflightTests(Fixture):
         self.assertEqual(fm.max_timeout(self.plan_data), 45)
 
 
+class RerunScopeTests(Fixture):
+    def test_ids_are_scoped_to_their_file(self) -> None:
+        plan = self.plan(self.BASE_ROWS)
+        hint = self.root / "baseline.json"
+        hint.write_text(json.dumps({"mutants": [{"id": "x1", "file": "b/b.go"}, {"id": "x2", "file": "gone.go"}]}))
+        scope = fm.rerun_scope(plan, ["x1", "x2", "x3"], [hint, self.root / "absent.json"])
+        self.assertEqual(scope, [("x1", "1", "b/b.go"), ("x2", "-", "-"), ("x3", "-", "-")])
+
+    def test_recorded_max_timeout(self) -> None:
+        plan = self.plan(self.BASE_ROWS)
+        with self.assertRaisesRegex(PlanError, "no pre-flight record"):
+            fm.max_timeout(plan, recorded_only=True)
+        plan["preflight"]["b/b.go"] = {"clean_seconds": 1, "timeout_seconds": 14, "overridden": False}
+        self.assertEqual(fm.max_timeout(plan, recorded_only=True), 14)
+
+
 class RerunAndReportTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()

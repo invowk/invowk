@@ -3,6 +3,8 @@
 package moduleops
 
 import (
+	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -204,13 +206,17 @@ func assertCopyHashNoEscape(report *mpctree.Reporter, i int, c mpctree.Case, b *
 	outside := outsideFileContents(c, b)
 	defer func() { _ = os.RemoveAll(filepath.Join(scratch, "copy")) }()
 	dst := filepath.Join(scratch, "copy", "modulecache")
-	if err := modulecache.CopyModuleDir(types.FilesystemPath(src), types.FilesystemPath(dst)); err == nil && copiedOutsideContent(dst, outside) {
+	err := modulecache.CopyModuleDir(types.FilesystemPath(src), types.FilesystemPath(dst))
+	if err == nil && copiedOutsideContent(dst, outside) {
 		report.Errorf("instance %d: modulecache.CopyModuleDir copied content from outside the module", i)
 	}
+	assertCopyMatchesSource(report, i, "modulecache.CopyModuleDir", src, dst, err)
 	dst = filepath.Join(scratch, "copy", "provision")
-	if err := provision.CopyDir(src, dst); err == nil && copiedOutsideContent(dst, outside) {
+	err = provision.CopyDir(src, dst)
+	if err == nil && copiedOutsideContent(dst, outside) {
 		report.Errorf("instance %d: provision.CopyDir copied content from outside the module", i)
 	}
+	assertCopyMatchesSource(report, i, "provision.CopyDir", src, dst, err)
 	if _, err := invowkmod.ComputeModuleHash(src); err != nil {
 		report.Errorf("instance %d: ComputeModuleHash error: %v", i, err)
 	}
@@ -250,4 +256,73 @@ func copiedOutsideContent(dir string, outside map[string]bool) bool {
 		return nil
 	})
 	return leaked
+}
+
+// assertCopyMatchesSource checks a copy against an independent walk of its
+// source (copySkipsInnerLinks): the source root is followed, inner symlinks are
+// skipped, and every other directory and regular file arrives with its
+// content. A source that does not resolve to a directory must fail the copy.
+func assertCopyMatchesSource(report *mpctree.Reporter, i int, name, src, dst string, copyErr error) {
+	want, wantErr := copiedTreeEntries(src)
+	if wantErr != nil {
+		if copyErr == nil {
+			report.Errorf("instance %d: %s copied a source that does not resolve to a directory (%v)", i, name, wantErr)
+		}
+		return
+	}
+	if copyErr != nil {
+		report.Errorf("instance %d: %s failed on a readable module: %v", i, name, copyErr)
+		return
+	}
+	got, err := copiedTreeEntries(dst)
+	if err != nil {
+		report.Errorf("instance %d: %s destination unreadable: %v", i, name, err)
+		return
+	}
+	if !maps.Equal(got, want) {
+		report.Errorf("instance %d: %s copied %v, want %v", i, name, slices.Sorted(maps.Keys(got)), slices.Sorted(maps.Keys(want)))
+	}
+}
+
+// copiedTreeEntries maps each directory ("rel/") and regular file (rel ->
+// content) below root, after resolving root itself, without following inner
+// symlinks.
+func copiedTreeEntries(root string) (map[string]string, error) {
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", root, err)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory", root)
+	}
+	entries := map[string]string{}
+	err = filepath.WalkDir(resolved, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, relErr := filepath.Rel(resolved, path)
+		if relErr != nil {
+			return fmt.Errorf("relative path of %s: %w", path, relErr)
+		}
+		switch {
+		case d.Type()&os.ModeSymlink != 0:
+		case d.IsDir():
+			entries[filepath.ToSlash(rel)+"/"] = ""
+		default:
+			data, readErr := os.ReadFile(path) //nolint:gosec // G122: reads a test-owned materialised tree
+			if readErr != nil {
+				return readErr
+			}
+			entries[filepath.ToSlash(rel)] = string(data)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk %s: %w", root, err)
+	}
+	return entries, nil
 }

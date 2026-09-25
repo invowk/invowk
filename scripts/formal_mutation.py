@@ -21,9 +21,10 @@ Standard library only (Python 3.11+ for tomllib).
 
 Usage:
     scripts/formal_mutation.py plan --out DIR
-    scripts/formal_mutation.py show --plan FILE [--group N] {match|files|group-count|max-timeout}
+    scripts/formal_mutation.py show --plan FILE [--group N] [--recorded] {match|files|group-count|max-timeout}
     scripts/formal_mutation.py exec-args --plan FILE --original PATH --changed PATH [--overlay-out FILE]
     scripts/formal_mutation.py preflight-record --plan FILE --file PATH --json FILE --status N --seconds S
+    scripts/formal_mutation.py rerun-scope --plan FILE [--hint REPORT ...] ID ...
     scripts/formal_mutation.py rerun-record --summary FILE --id ID [--reruns FILE]
     scripts/formal_mutation.py merge-reports --report-dir DIR
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
@@ -465,11 +466,33 @@ def preflight_record(plan: dict, file: str, json_output: str, status: int, secon
     return record
 
 
-def max_timeout(plan: dict) -> int:
+def max_timeout(plan: dict, recorded_only: bool = False) -> int:
+    """The largest per-file exec timeout, for go-mutesting's --exec-timeout.
+    Every file must have a pre-flight record unless recorded_only (a focused
+    rerun pre-flights only the files it mutates)."""
     missing = [f for f in plan["files"] if f not in plan["preflight"]]
-    if missing:
-        raise PlanError(f"no pre-flight record for: {', '.join(missing)}")
+    if (missing and not recorded_only) or not plan["preflight"]:
+        raise PlanError(f"no pre-flight record for: {', '.join(missing) or 'any file'}")
     return max(int(r["timeout_seconds"]) for r in plan["preflight"].values())
+
+
+def rerun_scope(plan: dict, ids: list[str], hints: list[Path]) -> list[tuple[str, str, str]]:
+    """(id, group, file) per mutant id. The stable id hashes the file, so a
+    file recorded for the id in the baseline or a previous report lets the
+    rerun pre-flight and mutate that file alone; an id without a hint (or with
+    a file the plan no longer targets) is rerun across every group ("-")."""
+    known: dict[str, str] = {}
+    for hint in hints:
+        if hint.exists():
+            data = json.loads(hint.read_text())
+            for mutant in data.get("mutants") or []:
+                known.setdefault(mutant["id"], mutant["file"])
+    group_of = {file: str(n) for n, group in enumerate(plan["groups"]) for file in group["files"]}
+    scope = []
+    for mutant in ids:
+        file = known.get(mutant, "")
+        scope.append((mutant, group_of[file], file) if file in group_of else (mutant, "-", "-"))
+    return scope
 
 
 # ---------------------------------------------------------------------------
@@ -712,6 +735,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("show")
     p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--group", type=int)
+    p.add_argument("--recorded", action="store_true", help="max-timeout: over pre-flighted files only")
     p.add_argument("field", choices=["match", "files", "group-count", "max-timeout"])
     p = sub.add_parser("exec-args")
     p.add_argument("--plan", type=Path, required=True)
@@ -728,6 +752,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--summary", type=Path, required=True)
     p.add_argument("--id", required=True)
     p.add_argument("--reruns", type=Path, default=RERUNS)
+    p = sub.add_parser("rerun-scope")
+    p.add_argument("--plan", type=Path, required=True)
+    p.add_argument("--hint", type=Path, action="append", default=[])
+    p.add_argument("ids", nargs="+")
     p = sub.add_parser("merge-reports")
     p.add_argument("--report-dir", type=Path, required=True)
     p = sub.add_parser("merge-baselines")
@@ -752,7 +780,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.field == "group-count":
                 print(len(plan["groups"]))
             elif args.field == "max-timeout":
-                print(max_timeout(plan))
+                print(max_timeout(plan, recorded_only=args.recorded))
             elif args.group is None:
                 if args.field == "match":
                     raise PlanError("show match needs --group: each group has its own --match")
@@ -781,6 +809,9 @@ def main(argv: list[str] | None = None) -> int:
             status = summary_status(json.loads(args.summary.read_text()))
             record = append_rerun(args.reruns, args.id, status, git("rev-parse", "HEAD"))
             print(f"rerun evidence: {record['id']} {record['status']} at {record['commit'][:12]}")
+        elif args.action == "rerun-scope":
+            for mutant, group, file in rerun_scope(load_plan(args.plan), args.ids, args.hint):
+                print(f"{mutant}\t{group}\t{file}")
         elif args.action == "merge-reports":
             log = args.report_dir / "go-mutesting.log"
             stats = merge_reports(args.report_dir, log.read_text() if log.exists() else "")
