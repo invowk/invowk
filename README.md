@@ -2471,7 +2471,7 @@ cmds: [
 
 Container commands can optionally SSH back into the host system. When `enable_host_ssh: true` is set inside the container runtime configuration, invowk starts a secure SSH server using the [Wish](https://charm.land/wish/v2) library and provides connection credentials to the container via environment variables.
 
-**Security**: The SSH server only accepts token-based authentication. Each command execution gets a unique, time-limited token that is automatically revoked after the command completes.
+**Security**: The SSH server only accepts token-based authentication. Each command execution gets a unique, time-limited token that is automatically revoked after the command completes; revocation also closes every SSH connection the token authenticated, so no callback session outlives its execution.
 
 ```cue
 cmds: [

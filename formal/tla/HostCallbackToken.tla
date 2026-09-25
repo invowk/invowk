@@ -9,8 +9,9 @@
   (a deferred cleanup-on-error plus the caller's deferred prep.cleanup()).
   A process inside the container may authenticate with the token and open a
   session, which lasts until the process ends it or the server stops. Tokens
-  also expire by TTL. Revocation only blocks new logins: it does not close
-  sessions already open (finding F7).
+  also expire by TTL, which blocks new logins but closes nothing. Revocation
+  also closes the connections the token authenticated (the fix for finding
+  F7); login and revocation are atomic with respect to each other.
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
@@ -18,7 +19,8 @@
 \* |---|---|---|---|---|
 \* | Generate | Server.GenerateToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | token values abstracted to one per execution |
 \* | Auth | Server.ValidateToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | TTL expiry is a nondeterministic action |
-\* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | - |
+\* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestRevokeTokenClosesAuthenticatedConnection | sessions abstracted to the connection that carries them |
+\* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely | login and revocation are single atomic actions |
 \* | End paths | ContainerRuntime.prepareContainerExecution | internal/runtime/container_exec.go | - | success, error, and cancel all run the deferred revoke |
 \* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | - | stopping closes the listener and ends open sessions |
 EXTENDS Naturals

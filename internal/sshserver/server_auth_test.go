@@ -33,6 +33,17 @@ func newStubSSHContext(ctx context.Context) *stubSSHContext {
 	}
 }
 
+// newTrackedStubSSHContext returns a stub context carrying a tracked
+// connection, as the server's ConnCallback installs for real connections.
+func newTrackedStubSSHContext(t *testing.T, srv *Server) *stubSSHContext {
+	t.Helper()
+	ctx := newStubSSHContext(t.Context())
+	serverEnd, clientEnd := net.Pipe()
+	t.Cleanup(func() { _ = serverEnd.Close(); _ = clientEnd.Close() })
+	ctx.SetValue(tokenConnContextKey{}, &tokenConn{Conn: serverEnd, server: srv})
+	return ctx
+}
+
 func (s *stubSSHContext) User() string          { return s.user }
 func (s *stubSSHContext) SessionID() string     { return "test-session-id" }
 func (s *stubSSHContext) ClientVersion() string { return "SSH-2.0-test" }
@@ -52,6 +63,16 @@ func (s *stubSSHContext) SetValue(key, value any) {
 	s.Lock()
 	defer s.Unlock()
 	s.values[key] = value
+}
+
+func (s *stubSSHContext) Value(key any) any {
+	s.Lock()
+	value, ok := s.values[key]
+	s.Unlock()
+	if ok {
+		return value
+	}
+	return s.Context.Value(key)
 }
 
 func TestPasswordHandler(t *testing.T) {
@@ -110,7 +131,7 @@ func TestPasswordHandler(t *testing.T) {
 				if tt.revokeAfter > 0 && i == tt.revokeAfter {
 					srv.RevokeToken(generated)
 				}
-				got = append(got, srv.passwordHandler(newStubSSHContext(t.Context()), token))
+				got = append(got, srv.passwordHandler(newTrackedStubSSHContext(t, srv), token))
 			}
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("passwordHandler() results = %v, want %v", got, tt.want)

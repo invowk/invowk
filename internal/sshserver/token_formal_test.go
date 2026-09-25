@@ -18,13 +18,25 @@ const (
 	tokenRevoked
 )
 
-type tokenModelState int
+type (
+	tokenModelState int
+
+	// modelSession is an authenticated connection: the server's wrapper and
+	// the recording connection underneath it.
+	modelSession struct {
+		raw  *recordingConn
+		conn *tokenConn
+	}
+)
 
 // TestHostCallbackToken_LifecycleMatchesModel binds formal/tla/HostCallbackToken.tla
-// to the real token API: random sequences of generate, validate, revoke, and
-// clock advances past the TTL must agree with the model's token states. A
-// revoked or expired token never validates again (NoAuthAfterExecution); the
-// model's session properties need a live SSH server and stay model-only.
+// to the real token API: random sequences of generate, login, revoke, session
+// end, and clock advances past the TTL must agree with the model's token
+// states. A revoked or expired token never logs in again (NoAuthAfterExecution),
+// revocation closes every connection the token authenticated
+// (NoSessionAfterExecution), and expiry alone closes none. Connections are
+// recording stand-ins; TestRevokeTokenClosesAuthenticatedConnection covers a
+// real SSH client.
 func TestHostCallbackToken_LifecycleMatchesModel(t *testing.T) {
 	t.Parallel()
 
@@ -40,11 +52,12 @@ func TestHostCallbackToken_LifecycleMatchesModel(t *testing.T) {
 		model := make([]tokenModelState, executions)
 		issuedAt := make([]time.Time, executions)
 		tokens := make([]*Token, executions)
+		sessions := make([][]modelSession, executions)
 
 		steps := rapid.IntRange(1, 20).Draw(rt, "steps")
 		for step := range steps {
 			e := rapid.IntRange(0, executions-1).Draw(rt, fmt.Sprintf("exec%d", step))
-			switch action := rapid.IntRange(0, 3).Draw(rt, fmt.Sprintf("action%d", step)); action {
+			switch action := rapid.IntRange(0, 4).Draw(rt, fmt.Sprintf("action%d", step)); action {
 			case 0: // an execution starts and generates its token
 				if model[e] != tokenNone {
 					continue
@@ -60,11 +73,20 @@ func TestHostCallbackToken_LifecycleMatchesModel(t *testing.T) {
 				}
 				expired := clock.Now().After(issuedAt[e].Add(cfg.TokenTTL))
 				want := model[e] == tokenValid && !expired
-				if _, got := srv.ValidateToken(tokens[e].Value); got != want {
-					rt.Fatalf("step %d: ValidateToken(exec %d) = %v, model %v (state %d, expired %v)", step, e, got, want, model[e], expired)
+				raw := &recordingConn{}
+				conn := &tokenConn{Conn: raw, server: srv}
+				if _, got := srv.admitConn(tokens[e].Value, conn); got != want {
+					rt.Fatalf("step %d: login(exec %d) = %v, model %v (state %d, expired %v)", step, e, got, want, model[e], expired)
+				} else if got {
+					sessions[e] = append(sessions[e], modelSession{raw: raw, conn: conn})
 				}
 				if expired {
-					model[e] = tokenRevoked // ValidateToken revokes expired tokens
+					model[e] = tokenRevoked // expired tokens are dropped at login
+				}
+				for _, open := range sessions[e] {
+					if open.raw.closed.Load() {
+						rt.Fatalf("step %d: expiry closed a session of exec %d; only revocation may", step, e)
+					}
 				}
 			case 2: // the execution ends on any path; the deferred cleanup revokes
 				if tokens[e] == nil {
@@ -72,6 +94,25 @@ func TestHostCallbackToken_LifecycleMatchesModel(t *testing.T) {
 				}
 				srv.RevokeToken(tokens[e].Value)
 				model[e] = tokenRevoked
+				for _, open := range sessions[e] {
+					if !open.raw.closed.Load() {
+						rt.Fatalf("step %d: a session of exec %d outlived its revoked token (F7)", step, e)
+					}
+				}
+				sessions[e] = nil
+			case 3: // the process in the container ends a session itself
+				if len(sessions[e]) == 0 {
+					continue
+				}
+				srv.tokenMu.RLock()
+				tracked := len(srv.conns[tokens[e].Value])
+				srv.tokenMu.RUnlock()
+				if tracked != len(sessions[e]) {
+					rt.Fatalf("step %d: server tracks %d sessions of exec %d, model %d", step, tracked, e, len(sessions[e]))
+				}
+				last := sessions[e][len(sessions[e])-1]
+				sessions[e] = sessions[e][:len(sessions[e])-1]
+				_ = last.conn.Close()
 			default: // time passes beyond the TTL
 				clock.Advance(cfg.TokenTTL + time.Second)
 			}

@@ -139,7 +139,7 @@ Quando `enable_host_ssh: true`, estas variáveis estão disponíveis:
 ### Segurança
 
 - Cada execução de comando recebe um token único
-- Tokens são revogados quando o comando termina
+- Tokens são revogados quando o comando termina, o que também fecha qualquer conexão SSH aberta com eles
 - O servidor SSH apenas aceita autenticação baseada em token
 - O servidor é encerrado após a execução do comando
 

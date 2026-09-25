@@ -111,7 +111,7 @@ change.
 | F4 | lock integrity | A v1.0 lock without hashes accepts any vendored content | Fixed: discovery and vendoring reject hashless entries, and sync refetches instead of trusting a cached copy; the pre-fix code is kept as `LockIntegrity.mutantPreFixF4TrustHashless` | (shipped) |
 | F5 | lock integrity | Fresh-cache sync trusted fetched content and rewrote the lock hash | Fixed by #142; `LockIntegrity.f5FixedSync` passes | (shipped) |
 | F6 | lock integrity | A sibling's vendored copy is admitted through the caller's lock without the caller's hash | Fixed: admission compares the caller's locked hash with the discovered copy; the pre-fix code is kept as `LockIntegrity.mutantPreFixF6AdmitByIdentity` | (shipped) |
-| F7 | SSH tokens | A session opened with a token outlives its execution; revocation blocks only new logins | Counterexample (`HostCallbackToken.findingF7SessionOutlivesExecution`) | close a token's sessions on revocation |
+| F7 | SSH tokens | A session opened with a token outlives its execution; revocation blocks only new logins | Fixed: revocation closes the connections the token authenticated; the pre-fix code is kept as `HostCallbackToken.mutantPreFixF7RevokeKeepsSessions` | (shipped) |
 
 Two hypotheses were refuted: an empty `SourceID` on module targets
 (`ScopeConstruction` keeps discovery's guarantee as a fact, and a mutant shows

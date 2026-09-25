@@ -70,6 +70,7 @@ func (s *Server) Start(ctx context.Context) error {
 		hostKeyOption,
 		wish.WithPublicKeyAuth(s.publicKeyHandler),
 		wish.WithPasswordAuth(s.passwordHandler),
+		s.trackConnections(),
 		wish.WithMiddleware(
 			activeterm.Middleware(),
 			s.commandMiddleware(), //nolint:contextcheck // Wish injects request context into sessions handled by middleware.
