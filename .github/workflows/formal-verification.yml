@@ -25,6 +25,13 @@ on:
       - "internal/runtime/container_exec.go"
       - "internal/sshserver/**"
       - "internal/testutil/alloygolden/**"
+      - "internal/testutil/fstree/**"
+      - "internal/testutil/mpctree/**"
+      - "internal/app/modulecache/**"
+      - "internal/provision/**"
+      - "internal/audit/**"
+      - "internal/runtime/**"
+      - "pkg/invowkfile/**"
       - "internal/watch/**"
       - "pkg/fspath/atomic*.go"
       - "pkg/invowkmod/**"
@@ -90,9 +97,9 @@ jobs:
       - name: Replay golden vectors and property tests
         run: >-
           go test -count=1
-          -run 'Golden|MatchesIntent|MatchesClosure|MatchesModel|_Contract|ConcurrentSafety|FailureAtEveryStep|LockIntegrity_|TestWatch_|TestHostCallbackToken'
-          ./internal/app/deps/ ./internal/app/modulesync/ ./internal/container/ ./internal/core/serverbase/
-          ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkmod/
+          -run 'Golden|MatchesIntent|MatchesClosure|MatchesModel|_Contract|ConcurrentSafety|FailureAtEveryStep|LockIntegrity_|TestWatch_|TestHostCallbackToken|ModulePathContainment|VirtualPathHarness'
+          ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./internal/container/ ./internal/core/serverbase/
+          ./internal/runtime/ ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkfile/ ./pkg/invowkmod/
 
       - name: Deep property tests
         if: github.event_name != 'pull_request'

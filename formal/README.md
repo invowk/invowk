@@ -99,6 +99,8 @@ antecedents, witnesses, and mutants failed and exposed it.
 | `HostCallbackToken` | TLA+ | SSH host-callback token and session lifetime across executions | trace validation of a started server with real SSH clients; rapid state machine over the token API; Go replay of F11 |
 | `Watch` | TLA+ | debounce loop safety and no-lost-burst liveness under fairness | skip-if-busy scenario on a fake timer checked against `time.AfterFunc` |
 | `ConcurrentModuleEdits` | TLA+ | two module commands interleaved step by step over `invowkmod.cue`, the lock, the shared module cache, and `invowk_modules/`, with advisory-lock and atomic-restore fix configurations | deterministic gated replays of F8, F9, and the stale-vendor case against the real `Resolver` and `vendorDependenciesWithResolver` |
+| `ModulePathContainment` | Alloy | module filesystem path containment across script/env/containerfile reads, workdir, vendored discovery, copies, hash, and unpack, with the discovery facts named | 22848 golden instances (1680 distinct trees); rapid property; findings F13, F17 |
+| `VirtualPathHarness` | Alloy | the virtual runtime's allowed-root construction, `normalizeExistingOrParent`, and `pathWithin` under restricted/full access | 14580 golden instances; rapid property; findings F14, F15 |
 
 ### Golden vectors
 
@@ -115,6 +117,10 @@ Export fails when a file exceeds 600,000 compressed bytes, or a smaller
 | `scope_construction_golden.json.gz` | 116928 | 94920 | 559,856 B | 32,072 B | 4.3 MB |
 | `dependency_closure_golden.json.gz` | 25765 | 24709 | 111,493 B | 31,647 B | 0.5 MB |
 | `lock_identity_golden.json.gz` | 28858 | 18198 | 147,160 B | 24,218 B | 0.9 MB |
+| `module_path_containment_golden.json.gz` | 22848 | 1680 | - | 20,994 B | - |
+| `virtual_path_harness_golden.json.gz` | 14580 | 14580 | - | 18,332 B | - |
+
+The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design §7). Case-folding and Windows junctions are fixed off in the goldens and covered by the witness commands, the rapid properties, and the Windows-only `TestModulePathContainment_F16Junction` leg (skipped and counted on Linux/macOS).
 
 **Deferred: duplicate instances.** The counts above show that Alloy's
 enumeration repeats instances. The XML of a duplicate pair is byte-identical
@@ -183,8 +189,30 @@ change.
 | F10 | module add rollback | The rollback restores `invowkmod.cue` and the lock with `os.WriteFile`, which truncates in place, so a concurrent reader sees an empty or partial file (`ConcurrentModuleEdits.findingF10NonAtomicRollback`; model-only, as `os.WriteFile` has no seam) | Open: fix requires maintainer approval | an atomic restore (temp file and rename) |
 | F11 | SSH tokens | `Server.Stop` keeps authenticated connections open: `ssh.Server.Shutdown` closes the listener, waits for connections until `ShutdownTimeout`, and closes none, so `Stop` returns `context.DeadlineExceeded` with the client still connected. Production calls `Stop` after executions end, when revocation has already closed their connections, so F11 matters only for sessions of executions still running at `Stop`, for example under a different cancellation ordering | Open: `HostCallbackToken.findingF11StopKeepsSessions`; Go replay `TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen` | `HostCallbackToken.noSessionAfterStopFixed` (`StopClosesSessions`): Stop closes every tracked connection |
 | F12 | lock integrity | Command-scope admission admits a sibling's vendored copy when the caller's lock entry has no content hash; `LoadCommandScopeLock` loads the lock without `RequireV2`, so a v1.0 lock reaches that branch | Open: `LockIntegrity.findingF12HashlessSiblingAdmission`; Go replay `TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy` | `LockIntegrity.f12AdmitRequiresCallerHash` (`AdmitRequiresCallerHash`): admission refuses a caller entry without a hash |
+| F13 | module path containment | A module's `script.file` (or custom-check file) into `invowk_modules/` reaches a symlink that `Load` never scans, and the read follows it outside the module | Open: `ModulePathContainment.findingF13VendoredSymlink` reproduces; `scriptReadContainedPhysical` (physical containment) passes; replay `TestModulePathContainment_F13VendoredSymlink` | physical containment (out of scope) |
+| F14 | virtual path harness | `normalizeExistingOrParent` evaluates only the path and its parent, so a path with two or more missing components below an escaping symlink is judged lexically and admitted; the write lands outside the allowed root | Open: `VirtualPathHarness.findingF14DeepSymlink` reproduces; `harnessContainedFixed` (deepest-existing-ancestor eval) passes; replay `TestVirtualPathHarness_F14DeepSymlink` | evaluate the deepest existing ancestor (out of scope) |
+| F15 | virtual path harness | A module-declared `workdir` outside the module widens the allowed roots under `restricted` access, admitting reads that are not cwd operations | Open: `VirtualPathHarness.findingF15WorkdirWidening` reproduces; `harnessContainedFixed` passes; replay `TestVirtualPathHarness_F15WorkdirWidening` | keep the workdir out of the read roots (out of scope) |
+| F17 | module path containment | An env file declared as `invowk_modules/x` is read at runtime through the same symlink hole, with no containment check in `LoadEnvFile` | Open: `ModulePathContainment.findingF17EnvVendoredSymlink` reproduces; `envReadContainedPhysical` passes; replay `TestModulePathContainment_F17EnvVendoredSymlink` | physical containment (out of scope) |
 
-Two hypotheses were refuted: an empty `SourceID` on module targets
+F8–F12 are owned by sibling changes (`model-concurrent-lock-writes`, `trace-validate-token-and-lock`) and are merged separately.
+
+**F16 (unconfirmed, id reserved):** a Windows junction inside a module is not
+`ModeSymlink` (Go 1.23+), so `inspectModuleEntry`, the copies, and
+`computeModuleHash` may follow it. Junctions cannot be created on the Linux and
+macOS CI legs, so `TestModulePathContainment_F16Junction` is skipped and counted
+there and runs on Windows CI; until Windows CI confirms it, F16 is unused and no
+manifest `finding` command is recorded.
+
+Two hypotheses were refuted: the symlinked-hash-root escape
+(`computeModuleHash` on a symlinked root hashes an empty tree, but every caller
+is gated by `IsModule`'s Lstat, so `ModulePathContainment` keeps
+`isModuleRejectsLinkedRoot` as a fact and `mutantDropLinkedRootReject` shows the
+escape without it), and the symlinked module root bypassing `Load`'s scan (every
+production `Load` caller is gated by `IsModule` or is user-controlled, design
+D8.4). Earlier suspected finding ids from sibling changes stay as those changes
+record them.
+
+Two further hypotheses were refuted: an empty `SourceID` on module targets
 (`ScopeConstruction` keeps discovery's guarantee as a fact, and a mutant shows
 what breaks without it), and an empty identity in v2.0 locks
 (`LockIdentity.v2NeverUnhashed`). No login succeeds after its execution ends

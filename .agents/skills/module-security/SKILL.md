@@ -345,11 +345,11 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, script path validation helpers | Mitigated |
+| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, script path validation helpers; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container*.go` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go`, interactive adapters | Partial |
-| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go`, scan context artifact copy paths | Mitigated |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go`, scan context artifact copy paths; modelled by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks`) | Mitigated |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | Custom-check `script.content` host execution | High | `internal/app/deps/checks.go`, `internal/app/commandadapters/dependency_host.go` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate) |

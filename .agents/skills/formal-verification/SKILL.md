@@ -50,6 +50,29 @@ tool or a model.
      golden instance too. That keeps the rapid oracle from drifting.
    - Add a rapid test that compares the real code with the intent at larger
      scopes.
+   - **Filesystem-materialising replay** (path-containment models): when the
+     bound code calls `os.ReadFile`, `os.Lstat`, `filepath.EvalSymlinks`, or
+     `filepath.WalkDir`, do not re-model the OS — materialise each golden
+     instance as a real tree with `internal/testutil/fstree` under
+     `filepath.EvalSymlinks(t.TempDir())` and call the real functions.
+     `internal/testutil/mpctree` translates a `ModulePathContainment` instance
+     into an `fstree.Spec`; memoise one materialisation per distinct tree
+     (`Case.StructuralKey`) so a large instance count stays cheap. Record every
+     layer decision (`validate`, `lexContains`, `physContains`, `accept`,
+     `contained`, `touched`) in a golden `one sig` and compare each against the
+     real function, so a layer masked by a later layer end to end is still
+     calibrated (bind the masked layer directly through a test-only
+     `export_test.go` hook). Probe symlink, junction, and case-fold capability
+     once (`fstree.Probe`); skip instances that need a missing capability and
+     log the count per capability. Junctions are Windows-only: their leg is
+     skipped and counted on Linux/macOS. Exhaustive enumeration of a relational
+     filesystem is intractable for a materialised replay, so fix case-folding
+     and junctions off in the golden and constrain the tree topology with a
+     `goldenScenario` predicate; cover the fixed dimensions with witnesses, the
+     rapid property, and platform-gated findings tests. Budget: golden replay
+     ≤ 30 s per OS, deep rapid ≤ 60 s (design §7); build the virtual-harness
+     validator directly over materialised roots so the host's own enclosing
+     roots (`/tmp`, HOME) do not make the check vacuous.
 7. **Calibrate.** Seed plausible defects in the real code, one at a time, and
    confirm the bindings fail. Record the result in the manifest's
    `calibration`. If a defect survives, widen the golden scope before trusting

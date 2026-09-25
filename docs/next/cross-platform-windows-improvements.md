@@ -83,7 +83,7 @@ have the same Windows pattern but were never exercised by the Windows-short test
 suite. These are **fixed in this batch** as part of the analyzer rollout:
 
 - `pkg/invowkmod/invowkmod.go:573-577` — `Module.ResolveScriptPath`
-- `pkg/invowkmod/invowkmod.go:592-595` — `Module.ValidateScriptPath`
+- `pkg/invowkmod/invowkmod.go:592-595` — `Module.ValidateScriptPath` (note: no production caller today; `formal/alloy/ModulePathContainment.als` records it and `checkSymlinkSafety` as dead code, and wiring or deleting them is a separate fix change)
 - `pkg/invowkfile/implementation.go:329-330` — `Implementation.GetScriptFilePathWithModule`
 
 ### Future enhancements (out of scope for V1)

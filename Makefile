@@ -204,7 +204,7 @@ test-cli-cover:
 # the pinned jars into bin/formal/ and fails closed on any unexpected verdict.
 FORMAL_RAPID_CHECKS ?= 10000
 # Packages with pgregory.net/rapid tests (grep -l pgregory.net/rapid).
-FORMAL_RAPID_PACKAGES := ./internal/app/deps/ ./internal/app/modulesync/ ./internal/core/serverbase/ ./internal/sshserver/
+FORMAL_RAPID_PACKAGES := ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./internal/core/serverbase/ ./internal/runtime/ ./internal/sshserver/ ./pkg/invowkfile/
 .PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep
 formal:
 	python3 scripts/formal.py all

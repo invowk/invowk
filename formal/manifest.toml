@@ -884,6 +884,331 @@ expect = "counterexample"
 property = "WitnessNoDelivery"
 witness = true
 
+[[model]]
+name = "ModulePathContainment"
+tool = "alloy"
+file = "formal/alloy/ModulePathContainment.als"
+scope = "5 but 2 Module, 2 Op"  # default for every command below
+calibration = """2026-09-25: the golden replays (22848 instances, 1680 distinct trees) and the \
+rapid property detect the seeded real-code defects. Confirmed one at a time: the \
+containment check removed from validateScriptPathContainment is caught by the \
+pkg/invowkfile containment-layer golden through the export_test.go hook (Validate \
+masks it at every exported entry point, design D5.3); modulecache.copyDir and \
+provision.CopyDir following inner symlinks are caught by the copy-escape check; \
+ScriptFilePath.Validate skipping backslash/absolute rejection, IsModule using \
+os.Stat, and inspectModuleEntry not recording symlinks are covered by the \
+per-layer golden decisions and the discovery-fact assertion plus the Alloy \
+mutants (mutantDropLinkedRootReject, mutantDropLoadScan, mutantCopyFollowsLinks, \
+mutantUnpackNoCheck). Case-folding and junctions are fixed off in the golden \
+(design D9) and covered by the witnesses and the Windows-only F16 leg. Findings \
+F13 (script.file into invowk_modules/) and F17 (env file into invowk_modules/) \
+reproduce with passing physical-containment fixes."""
+
+[model.golden]
+command = "golden"
+output = "internal/app/moduleops/testdata/formal/module_path_containment_golden.json.gz"
+
+# Non-vendored read region, protected by the two discovery facts.
+[[model.command]]
+name = "scriptReadDiscoveryGuarded"
+body = "scriptReadGuarded[True, True]"
+expect = "pass"
+property = "scriptReadGuarded"
+antecedent = "anteScriptGuarded"
+
+[[model.command]]
+name = "anteScriptGuarded"
+body = "anteScriptGuarded"
+expect = "instance"
+
+[[model.command]]
+name = "mutantDropLinkedRootReject"
+body = "scriptReadGuarded[False, True]"
+expect = "counterexample"
+property = "scriptReadGuarded"
+mutant_of = "scriptReadDiscoveryGuarded"
+
+[[model.command]]
+name = "mutantDropLoadScan"
+body = "scriptReadGuarded[True, False]"
+expect = "counterexample"
+property = "scriptReadGuarded"
+mutant_of = "scriptReadDiscoveryGuarded"
+
+# Script read containment (physical fix), with the F13 finding.
+[[model.command]]
+name = "scriptReadContainedPhysical"
+body = "readContainedKind[ScriptRead, PhysMode]"
+expect = "pass"
+property = "readContainedKind"
+antecedent = "anteReadContained"
+
+[[model.command]]
+name = "anteReadContained"
+body = "anteReadContained"
+expect = "instance"
+
+[[model.command]]
+name = "mutantScriptNoContainment"
+body = "readContainedKind[ScriptRead, NoneMode]"
+expect = "counterexample"
+property = "readContainedKind"
+mutant_of = "scriptReadContainedPhysical"
+
+[[model.command]]
+name = "findingF13VendoredSymlink"
+body = "readContainedKind[ScriptRead, LexMode]"
+finding = "F13"
+expect = "counterexample"
+property = "readContainedKind"
+mutant_of = "scriptReadContainedPhysical"
+
+# Env-file read containment (physical fix), with the F17 finding.
+[[model.command]]
+name = "envReadContainedPhysical"
+body = "readContainedKind[EnvRead, PhysMode]"
+expect = "pass"
+property = "readContainedKind"
+antecedent = "anteEnvContained"
+
+[[model.command]]
+name = "anteEnvContained"
+body = "anteEnvContained"
+expect = "instance"
+
+[[model.command]]
+name = "mutantEnvNoContainment"
+body = "readContainedKind[EnvRead, NoneMode]"
+expect = "counterexample"
+property = "readContainedKind"
+mutant_of = "envReadContainedPhysical"
+
+[[model.command]]
+name = "findingF17EnvVendoredSymlink"
+body = "readContainedKind[EnvRead, LexMode]"
+finding = "F17"
+expect = "counterexample"
+property = "readContainedKind"
+mutant_of = "envReadContainedPhysical"
+
+# Copy and hash never follow inner links.
+[[model.command]]
+name = "copyHashStaysInside"
+body = "copyHashInside[False]"
+expect = "pass"
+property = "copyHashInside"
+antecedent = "anteCopyHash"
+
+[[model.command]]
+name = "anteCopyHash"
+body = "anteCopyHash"
+expect = "instance"
+
+[[model.command]]
+name = "mutantCopyFollowsLinks"
+body = "copyHashInside[True]"
+expect = "counterexample"
+property = "copyHashInside"
+mutant_of = "copyHashStaysInside"
+
+# Unpack writes stay inside the destination.
+[[model.command]]
+name = "unpackStaysInside"
+body = "unpackInside[True]"
+expect = "pass"
+property = "unpackInside"
+antecedent = "anteUnpack"
+
+[[model.command]]
+name = "anteUnpack"
+body = "anteUnpack"
+expect = "instance"
+
+[[model.command]]
+name = "mutantUnpackNoCheck"
+body = "unpackInside[False]"
+expect = "counterexample"
+property = "unpackInside"
+mutant_of = "unpackStaysInside"
+
+# Witnesses: every modelled situation is reachable.
+[[model.command]]
+name = "witInModuleLink"
+body = "witInModuleLink"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witEscapingLink"
+body = "witEscapingLink"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witChainOfTwo"
+body = "witChainOfTwo"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witDanglingLink"
+body = "witDanglingLink"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witCycle"
+body = "witCycle"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witSymlinkedRoot"
+body = "witSymlinkedRoot"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witJunction"
+body = "witJunction"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witCaseFold"
+body = "witCaseFold"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witVendoredChild"
+body = "witVendoredChild"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witAbsRef"
+body = "witAbsRef"
+expect = "instance"
+witness = true
+
+# Golden vectors: every layer decision recorded for each op.
+[[model.command]]
+name = "golden"
+body = """
+goldenScenario
+goldenDecisions
+noJunk"""
+scope = "exactly 1 Module, exactly 1 Op, 2 Name, exactly 1 Fold, 3 Dir, 1 File, 1 Link"
+expect = "instance"
+
+
+[[model]]
+name = "VirtualPathHarness"
+tool = "alloy"
+file = "formal/alloy/VirtualPathHarness.als"
+scope = "6 but exactly 3 Req"  # default for every command below
+calibration = """2026-09-25: the golden replays (14580 instances) and the rapid property detect \
+the seeded defects: normalizeExistingOrParent skipping the parent evaluation is \
+caught (mutantNoParentEval and the one-level deny in the F14 replay), and the \
+unevaluated-vs-evaluated comparison is exercised by every escaping-ancestor \
+instance. The replay builds the resolver directly over materialised roots so \
+t.TempDir's enclosing roots do not make the check vacuous (design D5.4), and it \
+fails if no instance places a node outside every root. Findings F14 (deep \
+missing path through an escaping symlink) and F15 (workdir widening the allowed \
+roots under restricted access) reproduce with passing fixed configurations."""
+
+[model.golden]
+command = "golden"
+output = "internal/runtime/testdata/formal/virtual_path_harness_golden.json.gz"
+
+[[model.command]]
+name = "harnessContainedFixed"
+body = "harnessContained[FixedEval, False]"
+expect = "pass"
+property = "harnessContained"
+antecedent = "anteHarness"
+
+[[model.command]]
+name = "anteHarness"
+body = "anteHarness"
+expect = "instance"
+
+[[model.command]]
+name = "mutantNoParentEval"
+body = "harnessContained[NoParentEval, False]"
+expect = "counterexample"
+property = "harnessContained"
+mutant_of = "harnessContainedFixed"
+
+[[model.command]]
+name = "findingF14DeepSymlink"
+body = "harnessContained[CurrentEval, False]"
+finding = "F14"
+expect = "counterexample"
+property = "harnessContained"
+mutant_of = "harnessContainedFixed"
+
+[[model.command]]
+name = "findingF15WorkdirWidening"
+body = "harnessContained[FixedEval, True]"
+finding = "F15"
+expect = "counterexample"
+property = "harnessContained"
+mutant_of = "harnessContainedFixed"
+
+[[model.command]]
+name = "witEscapingAncestor"
+body = "witEscapingAncestor"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witDeepMissing"
+body = "witDeepMissing"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witExisting"
+body = "witExisting"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witFullAccess"
+body = "witFullAccess"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witWorkdirRoot"
+body = "witWorkdirRoot"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witDeepSymlinkEscape"
+body = "deepSymlinkEscape"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witWorkdirWidening"
+body = "workdirWidening"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "golden"
+body = """
+goldenScenario
+goldenDecisions
+noJunk"""
+scope = "exactly 3 Req, exactly 1 InReadRoot, exactly 1 InWorkdir, exactly 1 OutsideAll"
+expect = "instance"
+
+
 # Trace validation: Go harnesses record traces from the real code; the trace
 # spec must accept every recorded trace and reject every targeted mutation.
 [[trace]]
