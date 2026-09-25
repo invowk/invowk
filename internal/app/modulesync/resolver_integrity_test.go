@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -305,17 +306,7 @@ func TestSyncRefetchesWhenLockedEntryHasNoHash(t *testing.T) {
 
 	f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
 	first := f.mustSync(t)
-
-	// Rewrite the lock as a v1.0 file: same entry, no content hash.
-	lockPath := filepath.Join(f.workDir, LockFileName)
-	v1 := regexp.MustCompile(`(?m)^\s*content_hash:.*\n`).ReplaceAll(f.readLock(t), nil)
-	v1 = bytes.Replace(v1, []byte(`version: "2.0"`), []byte(`version: "1.0"`), 1)
-	if err := os.WriteFile(lockPath, v1, 0o644); err != nil {
-		t.Fatalf("WriteFile(lock) error = %v", err)
-	}
-	if lock, err := invowkmod.LoadLockFile(lockPath); err != nil || lock.Modules[ModuleRefKey(integrityTestGitURL)].ContentHash != "" {
-		t.Fatalf("fixture: v1.0 lock = %+v, %v; want an entry without content hash", lock, err)
-	}
+	downgradeLockToV1(t, f.workDir, integrityTestGitURL)
 	if err := os.WriteFile(filepath.Join(string(first.CachePath), "invowkfile.cue"), []byte(integrityTestChangedContent), 0o644); err != nil {
 		t.Fatalf("WriteFile(tamper cache) error = %v", err)
 	}
@@ -323,5 +314,59 @@ func TestSyncRefetchesWhenLockedEntryHasNoHash(t *testing.T) {
 	second := f.mustSync(t)
 	if second.ContentHash != first.ContentHash {
 		t.Fatalf("sync recorded %s from the tampered cache, want the fetched content's %s", second.ContentHash, first.ContentHash)
+	}
+}
+
+// downgradeLockToV1 rewrites workDir's lock as a v1.0 file: same entry for
+// gitURL, no content hash.
+func downgradeLockToV1(t *testing.T, workDir string, gitURL GitURL) {
+	t.Helper()
+	lockPath := filepath.Join(workDir, LockFileName)
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("ReadFile(lock) error = %v", err)
+	}
+	v1 := regexp.MustCompile(`(?m)^\s*content_hash:.*\n`).ReplaceAll(data, nil)
+	v1 = bytes.Replace(v1, []byte(`version: "2.0"`), []byte(`version: "1.0"`), 1)
+	if err = os.WriteFile(lockPath, v1, 0o644); err != nil {
+		t.Fatalf("WriteFile(lock) error = %v", err)
+	}
+	if lock, loadErr := invowkmod.LoadLockFile(lockPath); loadErr != nil || lock.Modules[ModuleRefKey(gitURL)].ContentHash != "" {
+		t.Fatalf("fixture: v1.0 lock = %+v, %v; want an entry without content hash", lock, loadErr)
+	}
+}
+
+// TestSyncCommitMismatchKeepsCache characterises the LockIntegrity.tla Sync
+// failure branch: the commit check runs before the cache is touched, so a
+// sync that fails on a re-pointed tag leaves an existing cached copy in place,
+// even when the lock entry has no hash and a successful sync would refetch it.
+func TestSyncCommitMismatchKeepsCache(t *testing.T) {
+	t.Parallel()
+
+	for _, legacy := range []bool{false, true} {
+		t.Run(fmt.Sprintf("legacy=%v", legacy), func(t *testing.T) {
+			t.Parallel()
+			f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
+			first := f.mustSync(t)
+			if legacy {
+				downgradeLockToV1(t, f.workDir, integrityTestGitURL)
+			}
+			hashBefore, err := invowkmod.ComputeModuleHash(string(first.CachePath))
+			if err != nil {
+				t.Fatalf("ComputeModuleHash(cache) error = %v", err)
+			}
+
+			f.fetcher.commit = integrityTestRepoedCommit
+			if _, err = f.sync(t.Context()); !errors.Is(err, ErrLockedCommitMismatch) {
+				t.Fatalf("Sync() error = %v, want ErrLockedCommitMismatch", err)
+			}
+			hashAfter, err := invowkmod.ComputeModuleHash(string(first.CachePath))
+			if err != nil {
+				t.Fatalf("cache after a failed sync: %v; want the cached copy kept", err)
+			}
+			if hashAfter != hashBefore {
+				t.Fatalf("cache hash = %s after a failed sync, want unchanged %s", hashAfter, hashBefore)
+			}
+		})
 	}
 }

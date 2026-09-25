@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -117,12 +118,94 @@ func (r *Recorder) Observe(rec Record) {
 // Trace returns the records observed so far.
 func (r *Recorder) Trace() []Record { return slices.Clone(r.trace) }
 
-// WriteSuite emits <model>Traces.tla defining Accepted and Rejected into the
-// trace directory, and <model>Traces.json with their counts and the sorted
+// Edit returns a targeted mutation of trace: a copy of records 0..k with set
+// applied to record k. A negative k counts from the end.
+func Edit(trace []Record, k int, set Record) []Record {
+	if k < 0 {
+		k += len(trace)
+	}
+	mutated := make([]Record, 0, k+1)
+	for _, rec := range trace[:k+1] {
+		mutated = append(mutated, maps.Clone(rec))
+	}
+	maps.Copy(mutated[k], set)
+	return mutated
+}
+
+// Extend returns a targeted mutation of trace: a copy with one more record,
+// the last record with set applied.
+func Extend(trace []Record, set Record) []Record {
+	mutated := Edit(trace, -1, nil)
+	next := maps.Clone(mutated[len(mutated)-1])
+	maps.Copy(next, set)
+	return append(mutated, next)
+}
+
+// RecordEach runs record for every name in a parallel subtest and returns the
+// traces in the order of names; it returns nil when a subtest failed. The
+// "traces" group itself is serial, so the caller writes the suite after every
+// parallel trace finished.
+func RecordEach(t *testing.T, names []string, record func(t *testing.T, name string) []Record) [][]Record {
+	t.Helper()
+	var mu sync.Mutex
+	recorded := make(map[string][]Record, len(names))
+	t.Run("traces", func(t *testing.T) {
+		for _, name := range names {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				trace := record(t, name)
+				mu.Lock()
+				recorded[name] = trace
+				mu.Unlock()
+			})
+		}
+	})
+	if t.Failed() {
+		return nil
+	}
+	traces := make([][]Record, 0, len(names))
+	for _, name := range names {
+		traces = append(traces, recorded[name])
+	}
+	return traces
+}
+
+// unique drops duplicate traces, keeping the first occurrence of each in
+// order. Different operation sequences often record the same trace, because
+// operations the model disables leave the projection unchanged, and each
+// trace costs one TLC run. It fails when a targeted mutation equals an
+// accepted trace: the real code produced the behaviour the mutation claims
+// validation must reject.
+func (ts Traces) unique() (Traces, error) {
+	var out Traces
+	accepted := make(map[string]bool, len(ts.Accepted))
+	for _, trace := range ts.Accepted {
+		if key := renderTraces([][]Record{trace}); !accepted[key] {
+			accepted[key] = true
+			out.Accepted = append(out.Accepted, trace)
+		}
+	}
+	rejected := make(map[string]bool, len(ts.Rejected))
+	for i, trace := range ts.Rejected {
+		key := renderTraces([][]Record{trace})
+		if accepted[key] {
+			return Traces{}, fmt.Errorf("%w: rejected trace %d equals an accepted trace", errSuiteShape, i+1)
+		}
+		if !rejected[key] {
+			rejected[key] = true
+			out.Rejected = append(out.Rejected, trace)
+		}
+	}
+	return out, nil
+}
+
+// WriteSuite de-duplicates the traces and emits <model>Traces.tla defining
+// Accepted and Rejected into the trace directory, and <model>Traces.json with their counts and the sorted
 // projection fields, which the runner compares with the trace spec's Proj.
-// It fails the test when either set is empty, a trace is empty, or records
-// have different key sets: a misspelled key in a targeted mutation would
-// otherwise make it vacuously rejected.
+// It fails the test when either set is empty, a trace is empty, a targeted
+// mutation equals an accepted trace, or records have different key sets: a
+// misspelled key in a targeted mutation would otherwise make it vacuously
+// rejected.
 func WriteSuite(t *testing.T, model string, traces Traces) {
 	t.Helper()
 	if err := writeSuite(Dir(t), model, traces); err != nil {
@@ -131,6 +214,10 @@ func WriteSuite(t *testing.T, model string, traces Traces) {
 }
 
 func writeSuite(dir, model string, traces Traces) error {
+	traces, err := traces.unique()
+	if err != nil {
+		return err
+	}
 	fields, err := suiteFields(traces)
 	if err != nil {
 		return err

@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	gossh "golang.org/x/crypto/ssh"
 )
 
 // recordingConn is a net.Conn stand-in that records whether it was closed.
@@ -40,16 +38,7 @@ func TestRevokeTokenClosesAuthenticatedConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateToken() error = %v", err)
 	}
-	client, err := gossh.Dial("tcp", srv.Address(), &gossh.ClientConfig{
-		User:            "invowk",
-		Auth:            []gossh.AuthMethod{gossh.Password(string(token.Value))},
-		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // test client for a loopback server with an ephemeral host key
-		Timeout:         5 * time.Second,
-	})
-	if err != nil {
-		t.Fatalf("Dial() error = %v", err)
-	}
-	t.Cleanup(func() { _ = client.Close() })
+	client := dialWithToken(t, srv, token.Value)
 
 	session, err := client.NewSession()
 	if err != nil {
@@ -57,11 +46,7 @@ func TestRevokeTokenClosesAuthenticatedConnection(t *testing.T) {
 	}
 	_ = session.Close()
 
-	closed := make(chan struct{})
-	go func() {
-		_ = client.Wait()
-		close(closed)
-	}()
+	closed := closedSignal(client)
 	srv.RevokeToken(token.Value)
 
 	select {

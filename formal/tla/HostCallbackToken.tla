@@ -12,6 +12,13 @@
   also expire by TTL, which blocks new logins but closes nothing. Revocation
   also closes the connections the token authenticated (the fix for finding
   F7); login and revocation are atomic with respect to each other.
+
+  Stopping the server closes its listener but no open connection
+  (ssh.Server.Shutdown waits for them and returns at its deadline), so a
+  session opened before Stop stays open: finding F11, with StopClosesSessions
+  as the fix configuration. Production stops the server after executions
+  end, when revocation has already closed their connections, so F11 matters
+  only for executions still running at Stop.
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
@@ -19,13 +26,14 @@
 \* |---|---|---|---|---|
 \* | Generate | Server.GenerateToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | token values abstracted to one per execution |
 \* | Auth | Server.ValidateToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | TTL expiry is a nondeterministic action |
+\* | Start/Auth/End/EndSession/Expire/Stop | Server.GetConnectionInfo | internal/sshserver/server_auth.go | TestHostCallbackToken_TraceHarness | two executions; real SSH clients over loopback on a fake clock |
 \* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestRevokeTokenClosesAuthenticatedConnection | sessions abstracted to the connection that carries them |
 \* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely | login and revocation are single atomic actions |
 \* | End paths | ContainerRuntime.prepareContainerExecution | internal/runtime/container_exec.go | - | success, error, and cancel all run the deferred revoke |
-\* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | - | stopping closes the listener and ends open sessions |
+\* | Stop | Server.Stop | internal/sshserver/server_lifecycle.go | TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen | closes the listener; open connections stay open (F11) |
 EXTENDS Naturals
 
-CONSTANTS Execs, Mutant, RevokeClosesSessions
+CONSTANTS Execs, Mutant, RevokeClosesSessions, StopClosesSessions
 
 VARIABLES
     exec,          \* per execution: "idle" | "running" | "ended"
@@ -74,7 +82,7 @@ EndSession(e) == session[e] /\ session' = [session EXCEPT ![e] = FALSE]
     /\ UNCHANGED <<exec, token, server, authAfterEnd, authEver>>
 
 Stop == server = "running" /\ server' = "stopped"
-    /\ session' = (IF Mutant = "listener_left_open" THEN session ELSE [e \in Execs |-> FALSE])
+    /\ session' = (IF StopClosesSessions /\ Mutant /= "listener_left_open" THEN [e \in Execs |-> FALSE] ELSE session)
     /\ UNCHANGED <<exec, token, authAfterEnd, authEver>>
 
 Idle == UNCHANGED vars \* explicit stuttering
@@ -85,7 +93,8 @@ Spec == Init /\ [][Next]_vars
 TypeOK == server \in {"running", "stopped"}
 \* No login succeeds once the execution that owns the token has ended.
 NoAuthAfterExecution == ~authAfterEnd
-\* No login succeeds after the server stopped, even with tokens left in the map.
+\* No session is open once the server stopped: none survives Stop, and no login
+\* succeeds afterwards even with tokens left in the map.
 NoSessionAfterStop == server = "stopped" => \A e \in Execs : ~session[e]
 \* F7: a session never outlives the execution whose token opened it.
 NoSessionAfterExecution == \A e \in Execs : session[e] => exec[e] /= "ended"

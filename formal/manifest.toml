@@ -470,7 +470,26 @@ witness = true
 name = "LockIntegrity"
 tool = "tla"
 file = "formal/tla/LockIntegrity.tla"
-calibration = """2026-09-25: findings F4 and F6 are fixed (hashless entries are rejected for \\
+calibration = """2026-09-25 (trace validation): TestLockIntegrity_TraceHarness records \
+real Sync, LoadDeclaredFromLock plus VendorModules, the discovery check, and \
+sibling admission under LegacyLock = TRUE: 218 sequences, 131 unique accepted \
+traces, 7 targeted mutations. make formal-traces on 16 cores went from 68 \
+traces in 9.1 s to 208 unique traces in 27.3 s (WriteSuite now de-duplicates \
+every suite: Serverbase 49 -> 11, AtomicWrite 8 -> 4). The traces required two \
+alignments that change no property and keep every command's verdict: a sync \
+failing its commit check keeps the cache (without it one real trace is \
+rejected), and a v2 vendor whose hash check fails leaves the copied content \
+in invowk_modules/ (likewise); the leftover is a calibration note, not a \
+finding, because discovery still rejects it. Reading the admission code found \
+F12 (open): a hashless caller entry, which LoadCommandScopeLock reaches because \
+it skips RequireV2, admits a sibling's copy; findingF12HashlessSiblingAdmission \
+reproduces it, f12AdmitRequiresCallerHash passes, and the Go replay confirms it. \
+Seeded defects: Sync recording a new baseline on a commit mismatch (4 traces \
+rejected; three replays fail) and admission ignoring the caller's hash (the F6 \
+mutation equals a recorded trace, so the harness fails) are detected; \
+VendorModules skipping its hash check is invisible to traces, because the copy \
+lands either way, and TestVendorHashMismatchLeavesCopiedContent detects it. \
+2026-09-25: findings F4 and F6 are fixed (hashless entries are rejected for \\
 vendored content and never vouch for a cached copy; admission compares the \\
 caller's locked hash with the discovered copy); the pre-fix behaviours are \\
 regression mutants. 2026-09-24: TLC reproduced finding F5 (tag moved, cache empty, sync rewrites the \\
@@ -483,6 +502,7 @@ Go replay tests confirm both behaviours in the real code."""
 FixedSync = "TRUE"
 RejectUnhashed = "TRUE"
 CheckCallerHash = "TRUE"
+AdmitRequiresCallerHash = "FALSE"
 LegacyLock = "FALSE"
 Mutant = "\"none\""
 
@@ -547,6 +567,28 @@ constants = { FixedSync = "TRUE", Mutant = "\"compare_with_sibling_lock\"" }
 expect = "counterexample"
 property = "SiblingCallTrusted"
 mutant_of = "f6CheckCallerHash"
+
+# Finding F12 (open): a caller entry without a hash admits a sibling's copy.
+[[model.command]]
+name = "f12AdmitRequiresCallerHash"
+constants = { AdmitRequiresCallerHash = "TRUE", LegacyLock = "TRUE" }
+expect = "pass"
+property = "SiblingCallTrusted"
+
+[[model.command]]
+name = "findingF12HashlessSiblingAdmission"
+finding = "F12"
+constants = { LegacyLock = "TRUE" }
+expect = "counterexample"
+property = "SiblingCallTrusted"
+mutant_of = "f12AdmitRequiresCallerHash"
+
+[[model.command]]
+name = "mutantHashlessUsesSiblingLock"
+constants = { AdmitRequiresCallerHash = "TRUE", LegacyLock = "TRUE", Mutant = "\"hashless_uses_sibling_lock\"" }
+expect = "counterexample"
+property = "SiblingCallTrusted"
+mutant_of = "f12AdmitRequiresCallerHash"
 
 [[model.command]]
 name = "witnessMovedTag"
@@ -670,7 +712,17 @@ witness = true
 name = "HostCallbackToken"
 tool = "tla"
 file = "formal/tla/HostCallbackToken.tla"
-calibration = """2026-09-25: finding F7 is fixed (revocation closes the connections the token \\
+calibration = """2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
+started Server on a fake clock with real SSH clients: 165 sequences, 37 unique \
+accepted traces, 7 targeted mutations. TLC and a Go replay reproduce finding \
+F11 (open): Stop closes the listener but no connection, and returns \
+context.DeadlineExceeded while a client is connected; the base configuration \
+mirrors that (StopClosesSessions = FALSE), noSessionAfterStopFixed passes, and \
+mutantListenerLeftOpen now guards the fix configuration. Seeded defects: \
+RevokeToken not closing connections (the harness's connection-map cross-check \
+fails, as do three binding tests) and admitConn ignoring expiry (4 traces \
+rejected; the rapid binding fails) are detected. \
+2026-09-25: finding F7 is fixed (revocation closes the connections the token \\
 authenticated); the base configuration now mirrors the code, the pre-fix behaviour \\
 is a regression mutant, and the rapid binding covers sessions (it detects \\
 revocation leaving connections open and expiry closing them). \\
@@ -684,6 +736,7 @@ ignored)."""
 Execs = "{e1, e2}"
 Mutant = "\"none\""
 RevokeClosesSessions = "TRUE"
+StopClosesSessions = "FALSE"
 
 [[model.command]]
 name = "noAuthAfterExecution"
@@ -697,17 +750,26 @@ expect = "counterexample"
 property = "NoAuthAfterExecution"
 mutant_of = "noAuthAfterExecution"
 
+# Finding F11 (open): Stop closes the listener but no open connection.
 [[model.command]]
-name = "noSessionAfterStop"
+name = "noSessionAfterStopFixed"
+constants = { StopClosesSessions = "TRUE" }
 expect = "pass"
 property = "NoSessionAfterStop"
 
 [[model.command]]
-name = "mutantListenerLeftOpen"
-constants = { Mutant = "\"listener_left_open\"" }
+name = "findingF11StopKeepsSessions"
+finding = "F11"
 expect = "counterexample"
 property = "NoSessionAfterStop"
-mutant_of = "noSessionAfterStop"
+mutant_of = "noSessionAfterStopFixed"
+
+[[model.command]]
+name = "mutantListenerLeftOpen"
+constants = { StopClosesSessions = "TRUE", Mutant = "\"listener_left_open\"" }
+expect = "counterexample"
+property = "NoSessionAfterStop"
+mutant_of = "noSessionAfterStopFixed"
 
 # Fixed finding F7: revocation closes the token's sessions.
 [[model.command]]
@@ -1122,3 +1184,12 @@ expect = "counterexample"
 property = "WitnessNotAllOk"
 witness = true
 distinct_states = 57
+
+[[trace]]
+name = "HostCallbackToken"
+package = "./internal/sshserver/"
+
+[[trace]]
+name = "LockIntegrity"
+package = "./internal/app/modulesync/"
+constants = { LegacyLock = "TRUE" }

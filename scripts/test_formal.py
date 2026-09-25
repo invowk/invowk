@@ -167,6 +167,20 @@ expect = "instance"
                 with self.assertRaisesRegex(FormalError, message):
                     self.load(text)
 
+    def test_trace_suite_constants_override_the_model(self) -> None:
+        text = '[[trace]]\nname = "T"\npackage = "./x/"\nconstants = { Legacy = "TRUE" }\n'
+        self.load(text)  # `constants` is an allowed [[trace]] key
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(MANIFEST_HEAD + text)
+            suite = formal.load_trace_suites(path)[0]
+        model = Model(name="T", tool="tla", file="t.tla", commands=(), constants=(("Legacy", "FALSE"), ("Mutant", '"none"')))
+        self.assertEqual(formal.trace_constants(suite, model), {"Legacy": "TRUE", "Mutant": '"none"'})
+        self.assertEqual(formal.trace_constants(dataclasses.replace(suite, constants=()), model), dict(model.constants))
+        typo = dataclasses.replace(suite, constants=(("Legacyy", "TRUE"),))
+        with self.assertRaisesRegex(FormalError, r"\[\[trace\]\] T: constants override Legacyy, absent from the model's base constants"):
+            formal.trace_constants(typo, model)
+
     def test_receipt_without_command_is_no_verdict(self) -> None:
         self.assertEqual(formal.alloy_verdicts({"commands": {}}).get("safe", formal.VERDICT_NONE), formal.VERDICT_NONE)
 
@@ -561,8 +575,10 @@ class RepositoryManifestTests(unittest.TestCase):
             self.assertTrue(model.calibration, f"{model.name} is uncalibrated")
         self.assertEqual(formal.check_correspondence(models), [])
         formal.check_tla_sources()
+        by_name = {m.name: m for m in models}
         for suite in formal.load_trace_suites():
             self.assertTrue(formal.proj_fields(suite.spec, (formal.TLA_DIR / suite.spec).read_text()))
+            formal.trace_constants(suite, by_name[suite.name])
 
     def test_golden_headers_match_the_manifest(self) -> None:
         """Java-free freshness: a manifest-only edit of a golden command's body

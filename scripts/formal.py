@@ -110,10 +110,12 @@ class TraceSuite:
     """A trace-validation suite for TLA+ model `name`: the Go test
     Test<name>_TraceHarness in `package` writes <name>Traces.tla, and
     formal/tla/<name>Trace.tla must accept every recorded trace and reject
-    every targeted mutation. Constants come from the model's base."""
+    every targeted mutation. Constants are the model's base constants with
+    `constants` overriding some of them."""
 
     name: str
     package: str
+    constants: tuple[tuple[str, str], ...] = ()
 
     @property
     def spec(self) -> str:
@@ -143,7 +145,7 @@ COMMAND_KEYS = {
     "name", "expect", "property", "mutant_of", "antecedent", "witness", "finding", "fairness_twin_of",
     "dead_actions", "distinct_states", "constants", "spec", "temporal", "body", "scope",
 }
-TRACE_KEYS = {"name", "package"}
+TRACE_KEYS = {"name", "package", "constants"}
 # Keys that belong to one tool only.
 TOOL_ONLY_KEYS = {"alloy": {"body", "scope"}, "tla": {"constants", "spec", "temporal"}}
 
@@ -226,7 +228,10 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
 def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
-    return [TraceSuite(name=raw["name"], package=raw["package"]) for raw in data.get("trace", [])]
+    return [
+        TraceSuite(name=raw["name"], package=raw["package"], constants=tuple(raw.get("constants", {}).items()))
+        for raw in data.get("trace", [])
+    ]
 
 
 def validate_manifest(models: list[Model]) -> None:
@@ -1044,11 +1049,21 @@ def check_proj_fields(suite: TraceSuite, recorded: list[str] | None, spec_source
         raise FormalError(f"{suite.name}: harness records fields {sorted(recorded)}, but {suite.spec} projects {parsed}")
 
 
-def check_trace(jar: Path, suite: TraceSuite, model: Model, trace_set: str, index: int) -> tuple[str, str | None]:
+def trace_constants(suite: TraceSuite, model: Model) -> dict[str, str]:
+    """The model's base constants with the suite's overrides; an override of a
+    constant the model does not declare is a typo and fails closed."""
+    base = dict(model.constants)
+    unknown = sorted(k for k, _ in suite.constants if k not in base)
+    if unknown:
+        raise FormalError(f"[[trace]] {suite.name}: constants override {', '.join(unknown)}, absent from the model's base constants")
+    return base | dict(suite.constants)
+
+
+def check_trace(jar: Path, suite: TraceSuite, constants: dict[str, str], trace_set: str, index: int) -> tuple[str, str | None]:
     """Return the observed verdict of one trace, and a failure when it differs."""
     work = TRACE_DIR / suite.name / f"{trace_set}-{index}"
     stage_tla_modules(work, (TRACE_DIR / f"{suite.module}.tla",))
-    constants = dict(model.constants) | {"TraceSet": f'"{trace_set}"', "TraceIndex": str(index)}
+    constants = constants | {"TraceSet": f'"{trace_set}"', "TraceIndex": str(index)}
     cfg_text = "\n".join(
         ["CONSTANTS", *(f"    {k} = {v}" for k, v in constants.items()), "SPECIFICATION TraceSpec", "INVARIANT NotFullyConsumed"]
     ) + "\n"
@@ -1073,6 +1088,7 @@ def check_trace_suites(
     for suite in suites:
         if suite.name not in by_name:
             raise FormalError(f"trace suite {suite.name} names no TLA+ model")
+        constants = trace_constants(suite, by_name[suite.name])  # fails before recording
         counts = record_traces(suite)
         print(f"  {suite.name}: {counts[TRACE_ACCEPTED]} recorded traces, {counts[TRACE_REJECTED]} targeted mutations")
         if results is not None:
@@ -1080,9 +1096,9 @@ def check_trace_suites(
                 TRACE_ACCEPTED: counts[TRACE_ACCEPTED], TRACE_REJECTED: counts[TRACE_REJECTED], "verdicts": {}
             }
         for trace_set in (TRACE_ACCEPTED, TRACE_REJECTED):
-            jobs.extend((suite, by_name[suite.name], trace_set, index) for index in range(1, counts[trace_set] + 1))
+            jobs.extend((suite, constants, trace_set, index) for index in range(1, counts[trace_set] + 1))
     with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_jobs()) as pool:
-        for (suite, _model, trace_set, index), (verdict, failure) in zip(jobs, pool.map(lambda job: check_trace(jar, *job), jobs)):
+        for (suite, _constants, trace_set, index), (verdict, failure) in zip(jobs, pool.map(lambda job: check_trace(jar, *job), jobs)):
             if results is not None:
                 results[suite.name]["verdicts"][f"{trace_set}-{index}"] = verdict
             if failure:
