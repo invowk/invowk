@@ -47,6 +47,15 @@ build configuration.
   - UPX: `5.2.0`
   - D2: `v0.7.1`
 
+### Formal-Verification Tools (`formal/manifest.toml`)
+- Jars are downloaded by `scripts/formal.py` into `bin/formal/` and SHA-256 verified before every use; the manifest records version, URL, and checksum.
+- Prerelease builds are never pinned (TLA+ `1.8.0` is a prerelease as of 2026-09-24).
+- `pgregory.net/rapid` is a test-only Go dependency; `go.mod` is its single source of truth, so it is not listed here.
+- **Current pinned versions:**
+  - Alloy Analyzer: `6.2.0` (`org.alloytools.alloy.dist.jar`)
+  - TLA+ tools: `1.7.4` (`tla2tools.jar`)
+  - JDK for running them locally: Java 25 (CI pin arrives with the formal-verification workflow)
+
 ### MCP Servers (`.mcp.json`)
 - MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).
 - **Current pinned versions:**

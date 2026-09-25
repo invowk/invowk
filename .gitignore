@@ -46,9 +46,16 @@ artifacts/benchmarks/
 
 # Generated mutation-testing output
 artifacts/mutation/
+artifacts/formal/
+
+# rapid property-test failure files (reproduce with RAPID_SEED from the log)
+**/testdata/rapid/
 
 # Release staging
 release-assets/
 
 # VHS test output (generated files, not golden files)
 vhs/output/
+
+# Python bytecode
+__pycache__/

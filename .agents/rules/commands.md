@@ -23,6 +23,10 @@
 | goplint consumer performance smoke (not certification) | `make check-goplint-performance-smoke` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
+| Formal models (needs Java) | `make formal` |
+| Formal Alloy models | `make formal-alloy` |
+| Regenerate golden vectors | `make formal-golden` |
+| Deep property tests | `make formal-rapid-deep` |
 | Mutation dry-run | `make mutation-dry-run` |
 | Mutation PR scan | `make mutation-pr` |
 | Mutation full scan | `make mutation-full` |
@@ -55,6 +59,7 @@
 - **UPX** - For compressed builds (optional).
 - **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.
 - **govulncheck** - Go vulnerability scanner used by `make vulncheck` and CI. Install the pinned version from `.agents/rules/version-pinning.md`.
+- **Java 25** - Runs the pinned Alloy and TLA+ jars for `make formal` (optional; ordinary build, test, and lint targets do not need it). `scripts/formal.py fetch` downloads and verifies the jars.
 - **go-mutesting** - Mutation testing tool pinned through the root `go.mod` tool directive. Do not install it manually with `@latest`; use the Make targets or `go tool go-mutesting` from the repository root.
 
 ## Goplint Consumer Gates

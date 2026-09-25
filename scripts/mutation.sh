@@ -10,6 +10,8 @@ GO_CMD="${GO_CMD:-go}"
 GO_MUTESTING_TOOL="go-mutesting"
 GO_MUTESTING_MODULE="github.com/jonbaldie/go-mutesting/v2"
 GO_MUTESTING_VERSION="v2.8.3"
+readonly MUTATION_RAPID_SEED=20260924
+readonly MUTATION_RAPID_SHRINKTIME=2s
 DEFAULT_REPORT_DIR="artifacts/mutation"
 QUALITY_GATE_EXIT_CODE=4
 
@@ -429,6 +431,17 @@ verify_go_mutesting_version() {
 	GO_MUTESTING_BIN="$binary"
 }
 
+# Property-based tests (pgregory.net/rapid) must decide each mutant the same way
+# on every run: a fixed seed keeps kill/escape status stable against the
+# stable-ID baseline, no failure files land in package testdata/, and shrinking
+# a killed mutant's counterexample is bounded. Callers may override the seed and
+# shrink time; failure files are always disabled.
+export_rapid_determinism_env() {
+	export RAPID_SEED="${RAPID_SEED:-$MUTATION_RAPID_SEED}"
+	export RAPID_NOFAILFILE=1
+	export RAPID_SHRINKTIME="${RAPID_SHRINKTIME:-$MUTATION_RAPID_SHRINKTIME}"
+}
+
 common_mutation_args() {
 	local module="$1"
 	local baseline
@@ -554,7 +567,9 @@ append_step_summary() {
 
 	{
 		printf '### Mutation testing: %s / %s\n\n' "$profile" "$module"
+		# shellcheck disable=SC2016 # backticks are literal Markdown code spans
 		printf '- Reports: `%s`\n' "${report_dir#"$REPO_ROOT/"}"
+		# shellcheck disable=SC2016 # backticks are literal Markdown code spans
 		printf '- Targets: `%s`\n' "${report_dir#"$REPO_ROOT/"}/resolved-targets.txt"
 		if [[ -f "$summary_file" ]]; then
 			printf '\n```json\n'
@@ -596,6 +611,7 @@ run_module_profile() {
 
 	set +e
 	(
+		export_rapid_determinism_env
 		cd "$workdir" && "$GO_MUTESTING_BIN" "${args[@]}" "${targets[@]}"
 	) 2>&1 | tee "$report_dir/go-mutesting.log"
 	status=${PIPESTATUS[0]}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Formal Verification"
+  short_description: "Author and bind Alloy and TLA+ models to Go"
+  default_prompt: "Use $formal-verification to add, change, or debug an Alloy or TLA+ model, its golden vectors, or its property tests."

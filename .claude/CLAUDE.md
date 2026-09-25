@@ -114,6 +114,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/windows-testing/`](.agents/skills/windows-testing/) - Windows OS primitives for testing: process lifecycle (TerminateProcess, no fork), file system (NTFS, MAX_PATH, sharing violations), timer resolution (15.6ms), race detector overhead.
 - [`.agents/skills/macos-testing/`](.agents/skills/macos-testing/) - macOS OS primitives for testing: APFS case-insensitivity, kqueue coalescing, timer coalescing, /tmp symlink, file descriptor limits, ARM64 specifics.
 - [`.agents/skills/linux-testing/`](.agents/skills/linux-testing/) - Linux OS primitives for testing: container test infrastructure, inotify limits, cgroups/namespaces, OOM killer, process groups, signal handling.
+- [`.agents/skills/formal-verification/`](.agents/skills/formal-verification/) - Alloy 6 and TLA+/TLC models under `formal/`, the fail-closed runner `scripts/formal.py`, golden vectors replayed by Go tests, rapid property tests, calibration, and correspondence tables.
 - [`.agents/skills/fixer/`](.agents/skills/fixer/) - User-invokable (`/fixer`). Platform-aware bug diagnosis and fix workflow with parallel subagents. Auto-triggers on bug fixing, test failures, CI failures, flaky tests, race conditions. Routes to platform skills for OS-specific diagnosis.
 - [`.agents/skills/go/`](.agents/skills/go/) - Go coding conventions and lint guardrails. Use for all Go code edits, Go lint fixes, Go package architecture, and golangci-lint/goplint patterns.
 - [`.agents/skills/tmux-testing/`](.agents/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
@@ -150,7 +151,7 @@ When working in a specific code area, apply these rules and skills:
 |-----------|-------|--------|
 | `cmd/invowk/` | testing, licensing, commands | go, cli, go-hexagonal-ddd, d2-diagrams |
 | `internal/app/commandsvc/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
-| `internal/app/deps/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
+| `internal/app/deps/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd, formal-verification |
 | `internal/app/execute/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
 | `internal/container/` | testing, windows, licensing | go, container, go-hexagonal-ddd, linux-testing |
 | `internal/discovery/` | testing, licensing, package-design | go, discovery, go-hexagonal-ddd, d2-diagrams |
@@ -163,7 +164,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/issue/` | testing, licensing | go |
 | `internal/provision/` | testing, windows, licensing | go, container |
 | `pkg/invowkfile/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd |
-| `pkg/invowkmod/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd |
+| `pkg/invowkmod/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd, formal-verification |
 | `website/` | general-rules | docs, review-docs |
 | `docs/architecture/` | general-rules | docs, review-docs, d2-diagrams |
 | `internal/uroot/` | testing, licensing | go, uroot |
@@ -174,6 +175,7 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/types/` | testing, licensing, package-design | go, invowk-typesystem, go-hexagonal-ddd |
 | `tests/cli/` | testing | go, testing, cli, invowk-schema, go-testing |
 | `internal/audit/` | testing, licensing, package-design | go, module-security, go-hexagonal-ddd |
+| `formal/` | general-rules, version-pinning | formal-verification |
 | `openspec/` | general-rules | openspec-apply-change, openspec-archive-change, openspec-explore, openspec-propose, openspec-sync-specs, openspec-update-change |
 
 ## Quick Commands

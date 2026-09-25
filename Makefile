@@ -199,6 +199,29 @@ test-cli-cover:
 	rm -rf "$$COVDIR"; \
 	exit $$TEST_EXIT
 
+# Formal verification (Alloy 6 + TLA+/TLC). Requires Java; ordinary build,
+# test, and lint targets do not. scripts/formal.py fetches and SHA-256 verifies
+# the pinned jars into bin/formal/ and fails closed on any unexpected verdict.
+FORMAL_RAPID_CHECKS ?= 10000
+.PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep
+formal:
+	python3 scripts/formal.py all
+
+formal-alloy:
+	python3 scripts/formal.py alloy
+
+formal-tla:
+	python3 scripts/formal.py tla
+
+formal-traces:
+	@echo "No trace-validation harnesses yet (adopt-formal-verification phase 3)."
+
+formal-golden:
+	python3 scripts/formal.py golden
+
+formal-rapid-deep:
+	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 ./cmd/... ./internal/... ./pkg/...
+
 # Mutation testing profiles. These use package-level Go tests with -short by
 # default and keep CLI testscript/container/race coverage in the regular gates.
 .PHONY: mutation-dry-run mutation-pr mutation-full mutation-baseline-update mutation-rerun
@@ -469,6 +492,9 @@ test-scripts:
 	@echo "Running mutation wrapper script tests..."
 	bash scripts/test_mutation.sh
 	@echo ""
+	@echo "Running formal-verification runner tests..."
+	python3 scripts/test_formal.py
+	@echo ""
 	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
 # Install pre-commit hooks
@@ -605,6 +631,12 @@ help:
 	@echo "  test-short       Run tests in short mode (skip integration)"
 	@echo "  test-integration Run integration tests only"
 	@echo "  test-cli         Run CLI integration tests (testscript)"
+	@echo "  formal           Run all formal models, golden freshness, and correspondence (needs Java)"
+	@echo "  formal-alloy     Check Alloy models against their declared verdicts"
+	@echo "  formal-tla       Check TLA+ models with TLC"
+	@echo "  formal-traces    Run trace validation (phase 3; currently a no-op)"
+	@echo "  formal-golden    Regenerate Alloy golden vectors used by Go tests"
+	@echo "  formal-rapid-deep Run property tests with RAPID_CHECKS=$(FORMAL_RAPID_CHECKS)"
 	@echo "  mutation-dry-run Count mutation candidates without executing mutants"
 	@echo "  mutation-pr      Run changed-line PR mutation profile"
 	@echo "  mutation-full    Run curated full mutation profile"
