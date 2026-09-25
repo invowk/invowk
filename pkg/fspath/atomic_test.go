@@ -193,6 +193,8 @@ func (f *recordingAtomicTempFile) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+func (f *recordingAtomicTempFile) Sync() error { return nil }
+
 func (f *recordingAtomicTempFile) Close() error {
 	f.closeCalls++
 	return f.closeErr
@@ -220,6 +222,7 @@ func recordingAtomicWriteOps(file *recordingAtomicTempFile, chmodErr error, remo
 			*removed = append(*removed, path)
 			return nil
 		},
+		syncDir: func(string) error { return nil },
 	}
 }
 
