@@ -1,0 +1,107 @@
+name: Formal Verification
+
+# Checks the Alloy and TLA+ models under formal/ against their declared
+# verdicts, golden-vector freshness, and model-to-code correspondence.
+# Not a required status check until four consecutive weekly runs are green
+# (see formal/README.md and the adopt-formal-verification OpenSpec change).
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "formal/**"
+      - "scripts/formal.py"
+      - "scripts/test_formal.py"
+      - ".github/workflows/formal-verification.yml"
+      - "internal/app/deps/**"
+      - "internal/app/modulesync/**"
+      - "internal/app/moduleops/**"
+      - "internal/container/retry*.go"
+      - "internal/core/serverbase/**"
+      - "internal/discovery/**"
+      - "internal/runtime/container_exec.go"
+      - "internal/sshserver/**"
+      - "internal/testutil/alloygolden/**"
+      - "internal/watch/**"
+      - "pkg/fspath/atomic*.go"
+      - "pkg/invowkmod/**"
+
+concurrency:
+  group: formal-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOPROXY: "https://proxy.golang.org|direct"
+  # Exact Temurin build, in Temurin's semver form (jdk-25.0.4.1+1 is 25.0.4+101.0.LTS;
+  # a bare "25.0.4+7" matches nothing). Keep in sync with .agents/rules/version-pinning.md.
+  FORMAL_JAVA_VERSION: "25.0.4+101.0.LTS"
+
+jobs:
+  formal:
+    name: Models, golden vectors, and correspondence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.FORMAL_JAVA_VERSION }}
+
+      - name: Verify Java version
+        run: |
+          java -version 2>&1 | tee java-version.txt
+          grep -q '"25.0.4.1"' java-version.txt
+
+      - name: Cache formal tool jars
+        uses: actions/cache@v6
+        with:
+          path: bin/formal
+          key: formal-tools-${{ hashFiles('formal/manifest.toml') }}
+
+      - name: Fetch and verify pinned tools
+        run: python3 scripts/formal.py fetch
+
+      - name: Runner self-tests
+        run: python3 scripts/test_formal.py
+
+      - name: Check models
+        run: make formal
+
+      - name: Trace validation
+        run: make formal-traces
+
+      # Only the model bindings; ci.yml's make test runs the rest of these packages.
+      - name: Replay golden vectors and property tests
+        run: >-
+          go test -count=1
+          -run 'Golden|MatchesIntent|MatchesClosure|MatchesModel|_Contract|ConcurrentSafety|FailureAtEveryStep|LockIntegrity_|TestWatch_|TestHostCallbackToken'
+          ./internal/app/deps/ ./internal/app/modulesync/ ./internal/container/ ./internal/core/serverbase/
+          ./internal/sshserver/ ./internal/watch/ ./pkg/fspath/ ./pkg/invowkmod/
+
+      - name: Deep property tests
+        if: github.event_name != 'pull_request'
+        run: make formal-rapid-deep
+
+      - name: Upload counterexamples and logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: formal-artifacts
+          path: artifacts/formal/
+          if-no-files-found: warn

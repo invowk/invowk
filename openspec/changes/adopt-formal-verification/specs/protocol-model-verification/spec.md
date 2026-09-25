@@ -143,9 +143,9 @@ Invowk SHALL bind `retryWithBackoff` with a rapid test that exhaustively enumera
 Each TLA+ model SHALL be bound to the code as follows:
 - **rapid state-machine tests** whose actions correspond one-to-one with the model's visible actions, and which reuse its invariant names;
 - **replay tests** for every recorded counterexample;
-- **trace validation** for the watch loop, serverbase sequential runs, sync and tidy, and the atomic write.
+- **trace validation** for the watch loop, serverbase sequential runs, and the atomic write. Sync and tidy are bound by the integrity tests of `verify-locked-module-integrity` and Go replays instead, because `LockIntegrity` abstracts sync into one adversarial action and a trace of it would add little.
 
-Trace harnesses SHALL use the existing seams. Sync SHALL use `newResolverWithFetcher` with a fake `moduleFetcher` over a temp directory. The atomic write SHALL use `atomicWriteOps` inside `pkg/fspath`, and tidy SHALL use `resolveAllFunc`. The watch loop SHALL use `newWithBackend` with an assignable `schedule`, over a temp directory and a fake backend.
+Trace harnesses SHALL use the existing seams. The atomic write SHALL use `atomicWriteOps` inside `pkg/fspath`. The watch loop SHALL use `newWithBackend` with an assignable `schedule`, over a temp directory, a fake backend, and a fake timer conformant with `time.AfterFunc`. Trace specs SHALL forbid skipping an observable state: every projection change (or, for concurrent models, every point where all callers are settled) SHALL match the next record.
 
 #### Scenario: No production instrumentation
 - **WHEN** the bindings are built
@@ -153,7 +153,7 @@ Trace harnesses SHALL use the existing seams. Sync SHALL use `newResolverWithFet
 
 #### Scenario: Trace acceptance is existential
 - **WHEN** a harness emits a trace
-- **THEN** it SHALL write a generated `<Model>Traces.tla` constant module, and TLC SHALL check `INVARIANT NotFullyConsumed`
+- **THEN** it SHALL write a generated `<Model>Traces.tla` constant module, and TLC SHALL check `INVARIANT NotFullyConsumed` with deadlock checking off, because a trace that cannot continue is how a trace is rejected
 - **THEN** a violation of that invariant SHALL mean ACCEPTED, and a pass SHALL mean REJECTED
 
 #### Scenario: Targeted trace mutations

@@ -203,6 +203,8 @@ test-cli-cover:
 # test, and lint targets do not. scripts/formal.py fetches and SHA-256 verifies
 # the pinned jars into bin/formal/ and fails closed on any unexpected verdict.
 FORMAL_RAPID_CHECKS ?= 10000
+# Packages with pgregory.net/rapid tests (grep -l pgregory.net/rapid).
+FORMAL_RAPID_PACKAGES := ./internal/app/deps/ ./internal/app/modulesync/ ./internal/core/serverbase/ ./internal/sshserver/
 .PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep
 formal:
 	python3 scripts/formal.py all
@@ -214,13 +216,13 @@ formal-tla:
 	python3 scripts/formal.py tla
 
 formal-traces:
-	@echo "No trace-validation harnesses yet (adopt-formal-verification phase 3)."
+	python3 scripts/formal.py traces
 
 formal-golden:
 	python3 scripts/formal.py golden
 
 formal-rapid-deep:
-	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 ./cmd/... ./internal/... ./pkg/...
+	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 $(FORMAL_RAPID_PACKAGES)
 
 # Mutation testing profiles. These use package-level Go tests with -short by
 # default and keep CLI testscript/container/race coverage in the regular gates.

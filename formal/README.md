@@ -14,8 +14,8 @@ The OpenSpec change `adopt-formal-verification` owns the plan and its phases.
 | Path | Contents |
 |---|---|
 | `formal/alloy/*.als` | Alloy 6 relational models |
-| `formal/tla/` | TLA+ models checked by TLC (phase 2) |
-| `formal/manifest.toml` | Pinned tools and every command's expected verdict |
+| `formal/tla/*.tla` | TLA+ models and trace specs; TLC configurations are generated from the manifest |
+| `formal/manifest.toml` | Pinned tools, each model's base constants, and every command's overrides and expected verdict |
 | `scripts/formal.py` | Fail-closed runner (Python standard library only) |
 | `scripts/test_formal.py` | Tests that every fail-closed path fails |
 | `bin/formal/` | Downloaded tool jars (ignored) |
@@ -31,6 +31,7 @@ that replay golden vectors and the property tests run in `make test`.
 make formal              # models, golden freshness, correspondence (needs Java 25)
 make formal-alloy        # Alloy models only
 make formal-golden       # regenerate golden vectors after a model change
+make formal-traces       # trace validation of real-code traces against the models
 make formal-rapid-deep   # property tests with RAPID_CHECKS=10000
 python3 scripts/test_formal.py
 ```
@@ -68,35 +69,56 @@ antecedents, witnesses, and mutants failed and exposed it.
 
 ## Models
 
-| Model | Checks | Golden instances | Calibration |
+| Model | Tool | Checks | Binding |
 |---|---|---|---|
-| `ScopeConstruction` | how a command scope is built from discovery, requires, and the lock file, and queried | 116928 | 5 seeded defects detected |
-| `DependencyClosure` | the one-step transitive check decides the closure; tidy adds exactly the undeclared closure | 25765 | 4 seeded defects detected |
-| `LockIdentity` | lock identity and ambiguity agree across the two functions that compute them | 28858 | 4 seeded defects detected |
+| `ScopeConstruction` | Alloy | how a command scope is built from discovery, requires, and the lock file, and queried | 116928 golden instances; rapid intent test |
+| `DependencyClosure` | Alloy | the one-step transitive check decides the closure; tidy adds exactly the undeclared closure | 25765 golden instances; rapid tidy test |
+| `LockIdentity` | Alloy | lock identity and ambiguity agree across the two functions that compute them | 28858 golden instances |
+| `Serverbase` | TLA+ | lifecycle under two concurrent transitions, split into CAS, lock, and cancel steps | rapid sequential state machine; concurrent stress test |
+| `LockIntegrity` | TLA+ | lock-to-content integrity across sync, vendor, discovery, and admission, with attacker actions | integrity tests from #142; Go replays of F4 and F6 |
+| `AtomicWrite` | TLA+ | visible and durable state of the atomic lock write under power loss | real-filesystem failure injection at every step |
+| `HostCallbackToken` | TLA+ | SSH host-callback token and session lifetime across executions | rapid state machine over the token API |
+| `Watch` | TLA+ | debounce loop safety and no-lost-burst liveness under fairness | skip-if-busy scenario on a fake timer checked against `time.AfterFunc` |
 
-Retry is bound by an exhaustive contract test
-(`TestRetryWithBackoff_Contract`) instead of a model.
+Retry is bound by an exhaustive contract test (`TestRetryWithBackoff_Contract`)
+instead of a model. Every model's calibration record in `formal/manifest.toml`
+lists the seeded defects its bindings detect.
+
+## Trace validation
+
+Harnesses gated by `INVOWK_FORMAL_TRACE_DIR` record traces from the real code
+(`TestServerbase_TraceHarness`, `TestAtomicWrite_TraceHarness`,
+`TestWatch_TraceHarness`) as generated TLA+ modules. Each trace spec
+(`formal/tla/*Trace.tla`) extends its model and must reach every record in
+order without skipping an observable state. Every suite also carries targeted
+mutations that must be rejected. They already exposed two weak specs:
+concurrent callers merging two operations into one record, and a projection
+that treated leaving the loop as returning.
 
 ## Findings
 
-The findings come from reading the modelled code and from the four-axis review
-of the change. Phase 2 models must reproduce each one as a declared
-counterexample.
+Each finding is a command with a `finding` field: a declared counterexample of
+the current code, next to a fix configuration that passes. A finding never
+counts as its property's vacuity guard, so every fixed property also has its
+own seeded mutant that stays after the fix lands. Fixing one is a separate
+change.
 
-| # | Area | Finding | Status |
-|---|---|---|---|
-| F1 | serverbase | Stop during Start leaves the server context uncancelled | Confirmed at API level; not reachable from current callers |
-| F2 | serverbase | A terminal state can be overwritten (Stopped to Failed) | Confirmed by reading |
-| F3 | atomic write | No `fsync` of the temp file or directory before rename | Confirmed by reading |
-| F4 | lock integrity | A v1.0 lock without hashes disables tamper detection | Likely; `LockIdentity.witnessV1Unhashed` shows the state is reachable |
-| F5 | lock integrity | Fresh-cache sync never compared fetched content with the lock | Fixed by `verify-locked-module-integrity` |
-| F6 | lock integrity | A vendored copy is verified against one lock and admitted through another | Undetermined |
-| F7 | SSH tokens | Tokens are not cleared when the server stops | Undetermined |
+| # | Area | Finding | Verdict | Fix the model validates |
+|---|---|---|---|---|
+| F1 | serverbase | Stop during Start leaves the server context uncancelled | Counterexample (`Serverbase.findingF1StopDuringStart`); current callers serialise Start and Stop | CAS and context store in one critical section |
+| F2 | serverbase | A terminal state is overwritten: Stopped becomes Failed | Counterexample (`Serverbase.findingF2TerminalOverwrite`) | compare-and-swap from the observed state instead of Store |
+| F3 | atomic write | No fsync: power loss can leave an empty lock file | Counterexample (`AtomicWrite.findingF3*`) | fsync(file) for D-Atomic; plus fsync(dir) for D-Commit |
+| F4 | lock integrity | A v1.0 lock without hashes accepts any vendored content | Counterexample (`LockIntegrity.findingF4HashlessLock`); Go replay confirms | reject hashless entries and refetch instead of trusting the cache |
+| F5 | lock integrity | Fresh-cache sync trusted fetched content and rewrote the lock hash | Fixed by #142; `LockIntegrity.f5FixedSync` passes | (shipped) |
+| F6 | lock integrity | A sibling's vendored copy is admitted through the caller's lock without the caller's hash | Counterexample (`LockIntegrity.findingF6CrossLockAdmission`); Go replay confirms | compare the caller's locked hash on admission |
+| F7 | SSH tokens | A session opened with a token outlives its execution; revocation blocks only new logins | Counterexample (`HostCallbackToken.findingF7SessionOutlivesExecution`) | close a token's sessions on revocation |
 
 Two hypotheses were refuted: an empty `SourceID` on module targets
 (`ScopeConstruction` keeps discovery's guarantee as a fact, and a mutant shows
 what breaks without it), and an empty identity in v2.0 locks
-(`LockIdentity.v2NeverUnhashed`).
+(`LockIdentity.v2NeverUnhashed`). No login succeeds after its execution ends
+(`HostCallbackToken.noAuthAfterExecution`), and the watch loop never loses a
+burst (`Watch.noLostBurst`).
 
 ## Mutation testing
 

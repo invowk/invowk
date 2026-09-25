@@ -54,7 +54,7 @@ build configuration.
 - **Current pinned versions:**
   - Alloy Analyzer: `6.2.0` (`org.alloytools.alloy.dist.jar`)
   - TLA+ tools: `1.7.4` (`tla2tools.jar`)
-  - JDK for running them locally: Java 25 (CI pin arrives with the formal-verification workflow)
+  - JDK: Temurin `jdk-25.0.4.1+1` in CI (written as its semver `25.0.4+101.0.LTS`) (`FORMAL_JAVA_VERSION` in `.github/workflows/formal-verification.yml`, installed with `actions/setup-java@v6` and checked with `java -version`); any Java 25 locally
 
 ### MCP Servers (`.mcp.json`)
 - MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).

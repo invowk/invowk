@@ -16,6 +16,7 @@ Usage:
     scripts/formal.py alloy [MODEL ...]
     scripts/formal.py tla [MODEL ...]
     scripts/formal.py golden [--check] [MODEL ...]
+    scripts/formal.py traces [TRACE ...]
     scripts/formal.py correspondence
     scripts/formal.py all
 """
@@ -23,7 +24,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import dataclasses
+import os
 import gzip
 import hashlib
 import json
@@ -73,10 +76,15 @@ class Command:
     mutant_of: str = ""
     antecedent: str = ""
     witness: bool = False
-    config: str = ""
+    finding: str = ""
     fairness_twin_of: str = ""
     dead_actions: tuple[str, ...] = ()
     distinct_states: int = 0
+    # TLC only: overrides of the model's base constants, the specification
+    # operator, and whether `property` is temporal (PROPERTY, not INVARIANT).
+    constants: tuple[tuple[str, str], ...] = ()
+    spec: str = "Spec"
+    temporal: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -87,6 +95,30 @@ class Model:
     commands: tuple[Command, ...]
     calibration: str = ""
     golden: dict[str, str] = dataclasses.field(default_factory=dict)
+    constants: tuple[tuple[str, str], ...] = ()
+
+
+@dataclasses.dataclass(frozen=True)
+class TraceSuite:
+    """A trace-validation suite for TLA+ model `name`: the Go test
+    Test<name>_TraceHarness in `package` writes <name>Traces.tla, and
+    formal/tla/<name>Trace.tla must accept every recorded trace and reject
+    every targeted mutation. Constants come from the model's base."""
+
+    name: str
+    package: str
+
+    @property
+    def spec(self) -> str:
+        return f"{self.name}Trace.tla"
+
+    @property
+    def module(self) -> str:
+        return f"{self.name}Traces"
+
+    @property
+    def test(self) -> str:
+        return f"Test{self.name}_TraceHarness"
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +142,11 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
                 mutant_of=c.get("mutant_of", ""),
                 antecedent=c.get("antecedent", ""),
                 witness=c.get("witness", False),
-                config=c.get("config", ""),
+                finding=c.get("finding", ""),
                 fairness_twin_of=c.get("fairness_twin_of", ""),
+                constants=tuple(c.get("constants", {}).items()),
+                spec=c.get("spec", "Spec"),
+                temporal=c.get("temporal", False),
                 dead_actions=tuple(c.get("dead_actions", [])),
                 distinct_states=c.get("distinct_states", 0),
             )
@@ -125,9 +160,16 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
                 commands=commands,
                 calibration=raw.get("calibration", ""),
                 golden=raw.get("golden", {}),
+                constants=tuple(raw.get("constants", {}).items()),
             )
         )
     return tools, models
+
+
+def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:
+    with path.open("rb") as handle:
+        data = tomllib.load(handle)
+    return [TraceSuite(name=raw["name"], package=raw["package"]) for raw in data.get("trace", [])]
 
 
 def validate_manifest(models: list[Model]) -> None:
@@ -154,8 +196,13 @@ def validate_manifest(models: list[Model]) -> None:
             is_safety = cmd.expect == VERDICT_PASS and cmd.property and not cmd.mutant_of
             if not is_safety:
                 continue
-            if not any(m.mutant_of == cmd.name for m in model.commands):
-                raise FormalError(f"{model.name}.{cmd.name}: unguarded property {cmd.property!r} has no rejecting mutant")
+            # A finding records today's code; it disappears when the fix lands,
+            # so it never counts as the property's vacuity guard.
+            if not any(m.mutant_of == cmd.name and not m.finding for m in model.commands):
+                raise FormalError(
+                    f"{model.name}.{cmd.name}: unguarded property {cmd.property!r} has no rejecting mutant "
+                    "(finding records do not count)"
+                )
             if model.tool == "alloy":
                 ante = by_name.get(cmd.antecedent)
                 if ante is None or ante.expect != VERDICT_INSTANCE:
@@ -163,8 +210,24 @@ def validate_manifest(models: list[Model]) -> None:
                         f"{model.name}.{cmd.name}: Alloy check needs an antecedent run command expecting an instance"
                     )
         for cmd in model.commands:
-            if cmd.witness and cmd.expect != VERDICT_INSTANCE:
-                raise FormalError(f"{model.name}.{cmd.name}: a witness must expect an instance")
+            if cmd.finding and cmd.expect != VERDICT_COUNTEREXAMPLE:
+                raise FormalError(f"{model.name}.{cmd.name}: a finding record must expect a counterexample")
+            if model.tool == "tla" and not cmd.property:
+                raise FormalError(f"{model.name}.{cmd.name}: a TLC command must name the property it checks")
+            if cmd.temporal and cmd.expect == VERDICT_PASS and not cmd.fairness_twin_of and not any(
+                c.fairness_twin_of == cmd.name and c.expect == VERDICT_COUNTEREXAMPLE for c in model.commands
+            ):
+                raise FormalError(
+                    f"{model.name}.{cmd.name}: liveness property needs a fairness-free twin "
+                    "(fairness_twin_of) that expects a counterexample"
+                )
+            # Alloy witnesses are satisfiable runs; TLC witnesses are invariants ~W
+            # that must be violated, naming W's situation as reachable.
+            witness_verdict = VERDICT_INSTANCE if model.tool == "alloy" else VERDICT_COUNTEREXAMPLE
+            if cmd.witness and cmd.expect != witness_verdict:
+                raise FormalError(f"{model.name}.{cmd.name}: a {model.tool} witness must expect {witness_verdict}")
+            if cmd.witness and model.tool == "tla" and not cmd.property:
+                raise FormalError(f"{model.name}.{cmd.name}: a TLC witness must name its invariant as property")
         if model.tool == "alloy" and not any(c.expect == VERDICT_INSTANCE for c in model.commands):
             raise FormalError(f"{model.name}: Alloy model has no satisfiable (non-vacuity) run command")
         if not model.calibration:
@@ -335,17 +398,49 @@ def check_tlc_config_text(name: str, cfg_text: str) -> None:
         raise FormalError(f"{name}: deadlock checking must stay on; use an explicit terminal stuttering action")
 
 
-def check_fairness_twins(model: Model, config_texts: dict[str, str]) -> None:
-    """Every liveness configuration needs a fairness-free twin expected to fail."""
-    for cmd in model.commands:
-        if not re.search(r"^\s*PROPERT(Y|IES)\b", config_texts.get(cmd.name, ""), re.M) or cmd.fairness_twin_of:
-            continue
-        twins = [c for c in model.commands if c.fairness_twin_of == cmd.name]
-        if not twins or any(t.expect != VERDICT_COUNTEREXAMPLE for t in twins):
-            raise FormalError(
-                f"{model.name}.{cmd.name}: liveness configuration needs a fairness-free twin "
-                "(fairness_twin_of) that expects a counterexample"
-            )
+def tlc_config(model: Model, cmd: Command) -> str:
+    """Render one command's TLC configuration: the model's base constants with
+    the command's overrides, its specification, TypeOK, and exactly one
+    checked property."""
+    constants = dict(model.constants) | dict(cmd.constants)
+    lines = ["CONSTANTS", *(f"    {k} = {v}" for k, v in constants.items()), f"SPECIFICATION {cmd.spec}", "INVARIANT TypeOK"]
+    lines.append(f"{'PROPERTY' if cmd.temporal else 'INVARIANT'} {cmd.property}")
+    return "\n".join(lines) + "\n"
+
+
+def run_tlc(jar: Path, spec: str, cfg_text: str, work: Path, extra_args: tuple[str, ...] = ()) -> str:
+    """Run TLC on `spec` (a module staged into `work`) and return its output.
+
+    Each JVM extracts TLC's standard modules into java.io.tmpdir, so parallel
+    runs each get their own to avoid racing on that extraction.
+    """
+    cfg = work / "run.cfg"
+    cfg.write_text(cfg_text)
+    completed = subprocess.run(
+        ["java", "-XX:+UseParallelGC", f"-Djava.io.tmpdir={work}", "-cp", str(jar), "tlc2.TLC",
+         "-workers", "1", "-metadir", str(work / "states"), *extra_args, "-config", str(cfg), spec],
+        capture_output=True, text=True, check=False, cwd=work,
+    )
+    output = completed.stdout + completed.stderr
+    (work / "tlc.log").write_text(output)
+    return output
+
+
+def stage_tla_modules(work: Path, extra: tuple[Path, ...] = ()) -> None:
+    """Copy the models (and any generated modules) into a fresh work directory."""
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    for module in (*(REPO_ROOT / "formal" / "tla").glob("*.tla"), *extra):
+        shutil.copy(module, work / module.name)
+
+
+def attribute_temporal_violation(result: TlcResult, cmd: Command) -> TlcResult:
+    """TLC does not name a violated temporal property. Generated configurations
+    check exactly one property, so a temporal violation belongs to it."""
+    if result.violated == "<temporal>" and cmd.temporal:
+        return dataclasses.replace(result, violated=cmd.property)
+    return result
 
 
 def evaluate_tlc_command(model: Model, cmd: Command, result: TlcResult) -> list[str]:
@@ -367,28 +462,30 @@ def evaluate_tlc_command(model: Model, cmd: Command, result: TlcResult) -> list[
     return failures
 
 
-def check_tlc_model(jar: Path, model: Model) -> list[str]:
-    spec = REPO_ROOT / model.file
-    config_texts = {cmd.name: (spec.parent / cmd.config).read_text() for cmd in model.commands}
-    check_fairness_twins(model, config_texts)
-    failures = []
-    for cmd in model.commands:
-        cfg = spec.parent / cmd.config
-        check_tlc_config_text(f"{model.name}.{cmd.name}", config_texts[cmd.name])
-        out_dir = REPORT_DIR / model.name / cmd.name
-        out_dir.mkdir(parents=True, exist_ok=True)
-        args = [
-            "java", "-XX:+UseParallelGC", "-cp", str(jar), "tlc2.TLC", "-coverage", "1",
-            "-workers", "auto", "-metadir", str(out_dir / "states"), "-config", str(cfg), str(spec),
-        ]
-        completed = subprocess.run(args, capture_output=True, text=True, check=False, cwd=spec.parent)
-        output = completed.stdout + completed.stderr
-        (out_dir / "tlc.log").write_text(output)
-        result = parse_tlc_output(output)
+def check_tlc_models(jar: Path, models: list[Model]) -> list[str]:
+    """Check every command of every TLC model in parallel, one JVM each."""
+    jobs = []
+    for model in models:
+        for cmd in model.commands:
+            cfg_text = tlc_config(model, cmd)
+            check_tlc_config_text(f"{model.name}.{cmd.name}", cfg_text)
+            jobs.append((model, cmd, cfg_text, REPORT_DIR / model.name / cmd.name))
+
+    def run(job: tuple[Model, Command, str, Path]) -> tuple[str, list[str]]:
+        model, cmd, cfg_text, work = job
+        stage_tla_modules(work)
+        output = run_tlc(jar, Path(model.file).name, cfg_text, work, ("-coverage", "1"))
+        result = attribute_temporal_violation(parse_tlc_output(output), cmd)
         cmd_failures = evaluate_tlc_command(model, cmd, result)
         status = "ok" if not cmd_failures else "FAIL"
-        print(f"  [{status}] {model.name}.{cmd.name}: expected {cmd.expect}, observed {result.verdict} {result.violated}".rstrip())
-        failures.extend(cmd_failures)
+        line = f"  [{status}] {model.name}.{cmd.name}: expected {cmd.expect}, observed {result.verdict} {result.violated}"
+        return line.rstrip(), cmd_failures
+
+    failures: list[str] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
+        for line, cmd_failures in pool.map(run, jobs):
+            print(line)
+            failures.extend(cmd_failures)
     return failures
 
 
@@ -531,6 +628,80 @@ def check_correspondence(models: list[Model], root: Path = REPO_ROOT) -> list[st
 
 
 # ---------------------------------------------------------------------------
+# Trace validation
+#
+# A trace is ACCEPTED when TLC violates the trace spec's NotFullyConsumed
+# invariant: some behaviour of the model consumes every record. Deadlock
+# checking is off for trace specs, because a trace that cannot continue is the
+# expected way to reject it.
+
+TRACE_DIR = REPORT_DIR / "traces"
+TRACE_ACCEPTED = "accepted"
+TRACE_REJECTED = "rejected"
+
+
+def trace_verdict(output: str) -> str:
+    if re.search(r"^Error: Invariant NotFullyConsumed is violated", output, re.M):
+        return TRACE_ACCEPTED
+    if TLC_PASS_RE.search(output):
+        return TRACE_REJECTED
+    return VERDICT_NONE
+
+
+def record_traces(suite: TraceSuite) -> dict[str, int]:
+    """Run the Go harness that writes <module>.tla and <module>.json."""
+    env = dict(os.environ, **{"INVOWK_FORMAL_TRACE_DIR": str(TRACE_DIR)})
+    completed = subprocess.run(
+        ["go", "test", "-count=1", "-run", f"^{suite.test}$", suite.package],
+        capture_output=True, text=True, check=False, env=env, cwd=REPO_ROOT,
+    )
+    if completed.returncode != 0:
+        raise FormalError(f"trace harness {suite.test} failed:\n{completed.stdout}{completed.stderr}")
+    counts_path = TRACE_DIR / f"{suite.module}.json"
+    if not counts_path.exists():
+        raise FormalError(f"trace harness {suite.test} wrote no {counts_path.name} (skipped?)")
+    counts = json.loads(counts_path.read_text())
+    if counts.get(TRACE_ACCEPTED, 0) == 0 or counts.get(TRACE_REJECTED, 0) == 0:
+        raise FormalError(f"{suite.name}: a trace suite needs accepted traces and targeted mutations, got {counts}")
+    return counts
+
+
+def check_trace(jar: Path, suite: TraceSuite, model: Model, trace_set: str, index: int) -> str | None:
+    work = TRACE_DIR / suite.name / f"{trace_set}-{index}"
+    stage_tla_modules(work, (TRACE_DIR / f"{suite.module}.tla",))
+    constants = dict(model.constants) | {"TraceSet": f'"{trace_set}"', "TraceIndex": str(index)}
+    cfg_text = "\n".join(
+        ["CONSTANTS", *(f"    {k} = {v}" for k, v in constants.items()), "SPECIFICATION TraceSpec", "INVARIANT NotFullyConsumed"]
+    ) + "\n"
+    verdict = trace_verdict(run_tlc(jar, suite.spec, cfg_text, work, ("-deadlock",)))
+    if verdict != trace_set:
+        return f"{suite.name} {trace_set} trace {index}: expected {trace_set}, observed {verdict} (see {work / 'tlc.log'})"
+    return None
+
+
+def check_trace_suites(jar: Path, suites: list[TraceSuite], models: list[Model]) -> list[str]:
+    failures: list[str] = []
+    if TRACE_DIR.exists():
+        shutil.rmtree(TRACE_DIR)
+    TRACE_DIR.mkdir(parents=True)
+    by_name = {m.name: m for m in models}
+    jobs = []
+    for suite in suites:
+        if suite.name not in by_name:
+            raise FormalError(f"trace suite {suite.name} names no TLA+ model")
+        counts = record_traces(suite)
+        print(f"  {suite.name}: {counts[TRACE_ACCEPTED]} recorded traces, {counts[TRACE_REJECTED]} targeted mutations")
+        for trace_set in (TRACE_ACCEPTED, TRACE_REJECTED):
+            jobs.extend((suite, by_name[suite.name], trace_set, index) for index in range(1, counts[trace_set] + 1))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
+        for result in pool.map(lambda job: check_trace(jar, *job), jobs):
+            if result:
+                failures.append(result)
+    print(f"  checked {len(jobs)} traces, {len(failures)} unexpected")
+    return failures
+
+
+# ---------------------------------------------------------------------------
 # CLI
 
 
@@ -544,7 +715,7 @@ def select(models: list[Model], tool: str, names: list[str]) -> list[Model]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["fetch", "alloy", "tla", "golden", "correspondence", "all"])
+    parser.add_argument("action", choices=["fetch", "alloy", "tla", "golden", "traces", "correspondence", "all"])
     parser.add_argument("models", nargs="*")
     parser.add_argument("--check", action="store_true", help="golden: verify committed vectors instead of rewriting them")
     args = parser.parse_args(argv)
@@ -570,15 +741,18 @@ def main(argv: list[str] | None = None) -> int:
             if not chosen:
                 print("no TLA+ models selected")
             else:
-                jar = ensure_tool(tools["tla"])
-                for model in chosen:
-                    failures += check_tlc_model(jar, model)
+                failures += check_tlc_models(ensure_tool(tools["tla"]), chosen)
         if args.action == "all":
             for model in select(models, "alloy", args.models):
                 if model.golden and not golden_is_fresh(tools, model):
                     failures.append(
                         f"{model.name}: {model.golden['output']} is stale; regenerate with: scripts/formal.py golden {model.name}"
                     )
+        if args.action == "traces":
+            suites = [t for t in load_trace_suites() if not args.models or t.name in args.models]
+            if not suites:
+                raise FormalError("no trace suites selected")
+            failures += check_trace_suites(ensure_tool(tools["tla"]), suites, models)
         if args.action == "golden":
             jar = ensure_tool(tools["alloy"])
             for model in select(models, "alloy", args.models):

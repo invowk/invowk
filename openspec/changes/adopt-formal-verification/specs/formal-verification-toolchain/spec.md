@@ -132,7 +132,7 @@ No Go package SHALL be placed under `formal/`. Invowk SHALL expose `make formal`
 - **THEN** they SHALL go under `artifacts/formal/` or `testdata/rapid/`, both ignored by `.gitignore`
 
 ### Requirement: CI lane and promotion
-A workflow SHALL run the full lane plus `make formal-rapid-deep` weekly and on dispatch. It SHALL also run a pull-request subset selected by manifest correspondence paths. The workflow SHALL:
+A workflow SHALL run the full lane plus `make formal-rapid-deep` weekly and on dispatch. It SHALL also run the full lane on pull requests that touch `formal/` or a modelled package, because the full lane is fast enough (about 35 s) that selecting individual models adds risk without saving time. The workflow SHALL:
 - declare `permissions: contents: read`, `concurrency`, and `timeout-minutes`;
 - use job-level `env:` for shared variables;
 - upload `artifacts/formal/` on failure.
@@ -141,7 +141,7 @@ The lane SHALL NOT be a required status check until it has four consecutive gree
 
 #### Scenario: Relevant pull request
 - **WHEN** a pull request changes a path named in any model's correspondence table, or `formal/`
-- **THEN** the workflow SHALL run the matching models and bindings within the wall-time budget recorded in the manifest
+- **THEN** the workflow SHALL run the full lane and the bindings within its `timeout-minutes` budget
 
 #### Scenario: Premature promotion
 - **WHEN** a change proposes making the lane required

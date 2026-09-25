@@ -27,9 +27,14 @@ type (
 		scheduled chan struct{}
 	}
 
+	// manualDebounceTimer fires only when a test says so, but otherwise
+	// follows time.AfterFunc: Reset and Stop report whether the timer was
+	// still pending, and a stopped timer never fires. Watcher.Run's WaitGroup
+	// accounting depends on those results (TestWatch_ManualTimerMatchesAfterFuncContract).
 	manualDebounceTimer struct {
 		mu         sync.Mutex
 		fire       func()
+		armed      bool
 		resetCount int
 		reset      chan struct{}
 	}
@@ -492,7 +497,7 @@ func (s *manualDebounceScheduler) Schedule(_ time.Duration, fire func()) debounc
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	timer := &manualDebounceTimer{fire: fire, reset: make(chan struct{}, 1)}
+	timer := &manualDebounceTimer{fire: fire, armed: true, reset: make(chan struct{}, 1)}
 	s.timer = timer
 	close(s.scheduled)
 	return timer
@@ -517,6 +522,8 @@ func (s *manualDebounceScheduler) requireTimer(t *testing.T) *manualDebounceTime
 
 func (t *manualDebounceTimer) Reset(time.Duration) bool {
 	t.mu.Lock()
+	wasArmed := t.armed
+	t.armed = true
 	t.resetCount++
 	t.mu.Unlock()
 
@@ -524,15 +531,37 @@ func (t *manualDebounceTimer) Reset(time.Duration) bool {
 	case t.reset <- struct{}{}:
 	default:
 	}
-	return false
+	return wasArmed
 }
 
 func (t *manualDebounceTimer) Stop() bool {
-	return false
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	wasArmed := t.armed
+	t.armed = false
+	return wasArmed
 }
 
-func (t *manualDebounceTimer) fireAsync() <-chan struct{} {
+// fireAsync expires a pending timer on its own goroutine, as time.AfterFunc
+// does; a stopped timer does not fire.
+func (t *manualDebounceTimer) fireAsync() <-chan struct{} { return t.fireAsyncAfter(nil) }
+
+// fireAsyncAfter expires the timer, runs before (if any) once the timer reads
+// expired, and only then starts the fire goroutine, so no callback can race
+// what before observes.
+func (t *manualDebounceTimer) fireAsyncAfter(before func()) <-chan struct{} {
 	done := make(chan struct{})
+	t.mu.Lock()
+	if !t.armed {
+		t.mu.Unlock()
+		close(done)
+		return done
+	}
+	t.armed = false
+	t.mu.Unlock()
+	if before != nil {
+		before()
+	}
 	go func() {
 		defer close(done)
 		t.fire()
