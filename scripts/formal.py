@@ -20,21 +20,28 @@ Usage:
     scripts/formal.py correspondence
     scripts/formal.py all
     scripts/formal.py snapshot [--out FILE] [--compare FILE]
+    scripts/formal.py affected --event EVENT [--base SHA] [--head SHA]
+    scripts/formal.py replay-plan [--format text|github]
 """
 
 from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import contextlib
 import dataclasses
-import os
+import fnmatch
 import gzip
 import hashlib
+import io
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import tomllib
 import urllib.request
 import xml.etree.ElementTree as ET  # noqa: S405 - parses local Alloy output only
@@ -50,6 +57,8 @@ VERDICT_COUNTEREXAMPLE = "counterexample"
 VERDICT_INSTANCE = "instance"
 VERDICT_NONE = "NO-VERDICT"
 EXPECTED_VERDICTS = {VERDICT_PASS, VERDICT_COUNTEREXAMPLE, VERDICT_INSTANCE}
+# `ci`: measured on CI runners; `local`: provisional, measured on a workstation.
+BUDGET_SOURCES = {"ci", "local"}
 
 
 class FormalError(Exception):
@@ -103,6 +112,9 @@ class Model:
     constants: tuple[tuple[str, str], ...] = ()
     # Alloy only: the default scope of every command.
     scope: str = ""
+    # Soft CI budget for the model's summed checker time (see report_timings).
+    budget_seconds: int = 0
+    budget_source: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -116,6 +128,13 @@ class TraceSuite:
     name: str
     package: str
     constants: tuple[tuple[str, str], ...] = ()
+    budget_seconds: int = 0
+    budget_source: str = ""
+
+    @property
+    def label(self) -> str:
+        """The suite's name in timing lines; distinct from its model's."""
+        return f"trace/{self.name}"
 
     @property
     def spec(self) -> str:
@@ -137,15 +156,18 @@ class TraceSuite:
 # Keys each manifest table may declare. Anything else is a typo that would
 # otherwise fall back silently to a default (for example `scop =` on a golden
 # command), so the loader rejects it.
-TOP_KEYS = {"tools", "model", "trace"}
+TOP_KEYS = {"tools", "model", "trace", "ci"}
 TOOL_KEYS = {"version", "jar", "url", "sha256"}
-MODEL_KEYS = {"name", "tool", "file", "calibration", "golden", "command", "constants", "scope"}
+BUDGET_KEYS = {"budget_seconds", "budget_source"}
+MODEL_KEYS = {"name", "tool", "file", "calibration", "golden", "command", "constants", "scope", *BUDGET_KEYS}
 GOLDEN_KEYS = {"command", "output", "max_bytes"}
 COMMAND_KEYS = {
     "name", "expect", "property", "mutant_of", "antecedent", "witness", "finding", "fairness_twin_of",
     "dead_actions", "distinct_states", "constants", "spec", "temporal", "body", "scope",
 }
-TRACE_KEYS = {"name", "package", "constants"}
+TRACE_KEYS = {"name", "package", "constants", *BUDGET_KEYS}
+CI_KEYS = {"paths", "budget"}
+CI_BUDGET_KEYS = {"soft_headroom", "local_headroom", "hard_headroom", "measured_on", "ci_runs", "command_count"}
 # Keys that belong to one tool only.
 TOOL_ONLY_KEYS = {"alloy": {"body", "scope"}, "tla": {"constants", "spec", "temporal"}}
 
@@ -167,6 +189,8 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
     check_keys("top level", data, TOP_KEYS)
+    check_keys("[ci]", data.get("ci", {}), CI_KEYS)
+    check_keys("[ci.budget]", data.get("ci", {}).get("budget", {}), CI_BUDGET_KEYS)
     for key, raw in data.get("tools", {}).items():
         check_keys(f"[tools.{key}]", raw, TOOL_KEYS)
     for raw in data.get("trace", []):
@@ -220,6 +244,8 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
                 golden=raw.get("golden", {}),
                 constants=tuple(raw.get("constants", {}).items()),
                 scope=raw.get("scope", ""),
+                budget_seconds=raw.get("budget_seconds", 0),
+                budget_source=raw.get("budget_source", ""),
             )
         )
     return tools, models
@@ -229,14 +255,30 @@ def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
     return [
-        TraceSuite(name=raw["name"], package=raw["package"], constants=tuple(raw.get("constants", {}).items()))
+        TraceSuite(
+            name=raw["name"],
+            package=raw["package"],
+            constants=tuple(raw.get("constants", {}).items()),
+            budget_seconds=raw.get("budget_seconds", 0),
+            budget_source=raw.get("budget_source", ""),
+        )
         for raw in data.get("trace", [])
     ]
 
 
-def validate_manifest(models: list[Model]) -> None:
+def check_budget(where: str, seconds: object, source: str) -> None:
+    if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+        raise FormalError(f"{where}: budget_seconds must be a positive integer, got {seconds!r}")
+    if source not in BUDGET_SOURCES:
+        raise FormalError(f"{where}: budget_source must be one of {sorted(BUDGET_SOURCES)}, got {source!r}")
+
+
+def validate_manifest(models: list[Model], suites: list[TraceSuite] = ()) -> None:
     """Static guards that need no checker run."""
+    for suite in suites:
+        check_budget(f"[[trace]] {suite.name}", suite.budget_seconds, suite.budget_source)
     for model in models:
+        check_budget(f"[[model]] {model.name}", model.budget_seconds, model.budget_source)
         by_name = {c.name: c for c in model.commands}
         if len(by_name) != len(model.commands):
             raise FormalError(f"{model.name}: duplicate command names")
@@ -276,6 +318,9 @@ def validate_manifest(models: list[Model]) -> None:
                 raise FormalError(f"{model.name}.{cmd.name}: a finding record must expect a counterexample")
             if model.tool == "tla" and not cmd.property:
                 raise FormalError(f"{model.name}.{cmd.name}: a TLC command must name the property it checks")
+            # -workers 1 makes the count deterministic, so it is recorded locally.
+            if model.tool == "tla" and cmd.expect == VERDICT_PASS and not cmd.distinct_states:
+                raise FormalError(f"{model.name}.{cmd.name}: a passing TLC command must record distinct_states")
             if cmd.temporal and cmd.expect == VERDICT_PASS and not cmd.fairness_twin_of and not any(
                 c.fairness_twin_of == cmd.name and c.expect == VERDICT_COUNTEREXAMPLE for c in model.commands
             ):
@@ -295,7 +340,8 @@ def validate_manifest(models: list[Model]) -> None:
         if model.tool == "alloy":
             render_alloy_commands(model)  # scope and property-reference guards
         if not model.calibration:
-            print(f"WARNING: {model.name} has no calibration record; its properties are not claimed as verified")
+            # stderr keeps stdout data-only for `affected` and `replay-plan` ($GITHUB_OUTPUT).
+            print(f"WARNING: {model.name} has no calibration record; its properties are not claimed as verified", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +378,70 @@ def ensure_tool(tool: Tool) -> Path:
             shutil.copyfileobj(response, out)
         partial.replace(tool.path)
     return verify_tool(tool)
+
+
+# ---------------------------------------------------------------------------
+# Timing and soft budgets
+#
+# A model's time is the sum of its checker runs: one Alloy JVM plus its golden
+# re-enumeration, or every TLC command's wall time. A trace suite's time is its
+# harness run plus every trace check. TLC commands and traces run in parallel,
+# so sums are stable where wall-clock spans would interfere with each other.
+# An overrun warns and never changes the exit status.
+
+
+# TLC commands and trace checks add their times from pool threads.
+TIMINGS_LOCK = threading.Lock()
+
+
+def add_time(timings: dict[str, float] | None, label: str, seconds: float) -> None:
+    if timings is not None:
+        with TIMINGS_LOCK:
+            timings[label] = timings.get(label, 0.0) + seconds
+
+
+@contextlib.contextmanager
+def timed(timings: dict[str, float] | None, label: str):
+    """Add the wall time of the `with` body to `label`, even when it raises."""
+    started = time.monotonic()
+    try:
+        yield
+    finally:
+        add_time(timings, label, time.monotonic() - started)
+
+
+def report_timings(timings: dict[str, float], budgets: dict[str, tuple[int, str]]) -> list[str]:
+    """Print one timing line per entry, warn on soft-budget overruns, and
+    append a table to $GITHUB_STEP_SUMMARY when it is set. Returns the
+    overrun warnings."""
+    actions = os.environ.get("GITHUB_ACTIONS") == "true"
+    warnings = []
+    rows = []
+    for label, seconds in timings.items():
+        budget, source = budgets[label]
+        print(f"timing {label} {seconds:.1f}s budget {budget}s ({source})")
+        over = seconds > budget
+        if over:
+            warning = f"{label} took {seconds:.1f}s, over its {budget}s soft budget ({source})"
+            warnings.append(warning)
+            print(f"WARNING: {warning}")
+            if actions:
+                print(f"::warning title=Formal soft budget::{warning}")
+        if actions and source == "local":
+            print(f"::notice title=Provisional formal budget::{label}: budget {budget}s is provisional (budget_source = local)")
+        rows.append(f"| `{label}` | {seconds:.1f} | {budget} | {source} | {'over budget' if over else 'ok'} |")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary and rows:
+        with open(summary, "a", encoding="utf-8") as handle:
+            handle.write("| Entry | Seconds | Budget (s) | Source | Status |\n|---|---|---|---|---|\n")
+            handle.write("\n".join(rows) + "\n\n")
+    return warnings
+
+
+def manifest_budgets(models: list[Model], suites: list[TraceSuite]) -> dict[str, tuple[int, str]]:
+    return {m.name: (m.budget_seconds, m.budget_source) for m in models} | {
+        s.label: (s.budget_seconds, s.budget_source) for s in suites
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -420,14 +530,18 @@ def alloy_exec(jar: Path, staged: Path, out_dir: Path, command: str = "*", fmt: 
     (out_dir / "alloy.log").write_text(completed.stdout + completed.stderr)
 
 
-def check_alloy_model(jar: Path, model: Model, results: dict[str, dict] | None = None) -> list[str]:
+def check_alloy_model(
+    jar: Path, model: Model, results: dict[str, dict] | None = None, timings: dict[str, float] | None = None
+) -> list[str]:
     """Run every command of a model in one JVM and compare verdicts.
 
     When `results` is given, each command's observed verdict is recorded in it
-    (see `snapshot`)."""
+    (see `snapshot`); when `timings` is given, the JVM's wall time is added to
+    the model's entry."""
     staged = stage_alloy_model(model)
     out_dir = REPORT_DIR / model.name / "commands"
-    alloy_exec(jar, staged, out_dir)
+    with timed(timings, model.name):
+        alloy_exec(jar, staged, out_dir)
     receipt_path = out_dir / "receipt.json"
     verdicts = alloy_verdicts(json.loads(receipt_path.read_text())) if receipt_path.exists() else {}
     failures = []
@@ -632,11 +746,15 @@ def evaluate_tlc_command(model: Model, cmd: Command, result: TlcResult) -> list[
     return failures
 
 
-def check_tlc_models(jar: Path, models: list[Model], results: dict[str, dict] | None = None) -> list[str]:
-    """Check every command of every TLC model in parallel, one JVM each.
+def check_tlc_models(
+    jar: Path, models: list[Model], results: dict[str, dict] | None = None, timings: dict[str, float] | None = None
+) -> list[str]:
+    """Check every command of every TLC model in parallel, one JVM each, and
+    print each result as it completes.
 
     When `results` is given, each command's verdict, violated property,
-    distinct-state count, and zero-coverage actions are recorded in it."""
+    distinct-state count, and zero-coverage actions are recorded in it; when
+    `timings` is given, each command's wall time is added to its model's."""
     check_tla_sources()
     jobs = []
     for model in models:
@@ -648,19 +766,25 @@ def check_tlc_models(jar: Path, models: list[Model], results: dict[str, dict] | 
 
     def run(job: tuple[Model, Command, str, Path]) -> tuple[str, TlcResult, list[str]]:
         model, cmd, cfg_text, work = job
-        stage_tla_modules(work)
-        output = run_tlc(jar, Path(model.file).name, cfg_text, work, ("-coverage", "1"))
+        with timed(timings, model.name):
+            stage_tla_modules(work)
+            output = run_tlc(jar, Path(model.file).name, cfg_text, work, ("-coverage", "1"))
         result = attribute_temporal_violation(parse_tlc_output(output), cmd)
         cmd_failures = evaluate_tlc_command(model, cmd, result)
         status = "ok" if not cmd_failures else "FAIL"
         line = f"  [{status}] {model.name}.{cmd.name}: expected {cmd.expect}, observed {result.verdict} {result.violated}"
         return line.rstrip(), result, cmd_failures
 
-    failures: list[str] = []
+    # Failures keep manifest order; result lines appear in completion order.
+    failures_by_job: list[list[str]] = [[] for _ in jobs]
     with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_jobs()) as pool:
-        for (model, cmd, _cfg, _work), (line, result, cmd_failures) in zip(jobs, pool.map(run, jobs)):
+        futures = {pool.submit(run, job): k for k, job in enumerate(jobs)}
+        for future in concurrent.futures.as_completed(futures):
+            k = futures[future]
+            model, cmd, _cfg, _work = jobs[k]
+            line, result, failures_by_job[k] = future.result()
             print(line)
-            failures.extend(cmd_failures)
+            print(f"  states {model.name}.{cmd.name} {result.distinct_states}")
             if results is not None:
                 results[f"{model.name}.{cmd.name}"] = {
                     "verdict": result.verdict,
@@ -668,7 +792,7 @@ def check_tlc_models(jar: Path, models: list[Model], results: dict[str, dict] | 
                     "distinct_states": result.distinct_states,
                     "zero_coverage": sorted(result.zero_state_actions),
                 }
-    return failures
+    return [failure for job_failures in failures_by_job for failure in job_failures]
 
 
 # ---------------------------------------------------------------------------
@@ -927,6 +1051,33 @@ def correspondence_rows(source: str) -> list[list[str]]:
 
 SKIP_DIRS = {".git", "node_modules", "bin", "artifacts", "website"}
 GO_DECL_RE = r"^(?:func (?:\([^)]*\) )?{name}\b|type {name}\b|\s+{name}\s+(?:=|[A-Za-z*\[])|(?:var|const) {name}\b)"
+TRACE_HARNESS_SUFFIX = "_TraceHarness"
+
+
+def binding_tests(cell: str) -> list[str]:
+    """The test names in a binding cell: `-` or empty for none, otherwise a
+    comma-separated list. An empty list item is returned as "" so the
+    correspondence check can reject it."""
+    if cell in {"", "-"}:
+        return []
+    return [name.strip().strip("`") for name in cell.split(",")]
+
+
+def is_trace_harness(test: str) -> bool:
+    return test.startswith("Test") and test.endswith(TRACE_HARNESS_SUFFIX)
+
+
+def test_function_files(root: Path) -> dict[str, list[Path]]:
+    """Each Go test function name, with the repository-relative files that
+    declare it."""
+    files: dict[str, list[Path]] = {}
+    for path in sorted(root.rglob("*_test.go")):
+        rel = path.relative_to(root)
+        if SKIP_DIRS.intersection(rel.parts) or "testdata" in rel.parts:
+            continue
+        for name in re.findall(r"^func (Test\w+)\(", path.read_text(), re.M):
+            files.setdefault(name, []).append(rel)
+    return files
 
 
 def test_function_index(root: Path) -> set[str]:
@@ -960,6 +1111,95 @@ def check_correspondence(models: list[Model], root: Path = REPO_ROOT) -> list[st
             if binding not in {"", "-"} and binding not in tests:
                 failures.append(f"{model.name}: row {element!r} names binding test {binding} that does not exist")
     return failures
+
+
+# ---------------------------------------------------------------------------
+# Replay plan: the binding tests the CI replay step runs
+
+
+def go_package(path: Path) -> str:
+    """The `go test` package argument (`./dir/`) of a repository-relative file."""
+    return f"./{path.parent.as_posix()}/"
+
+
+def replay_plan(
+    models: list[Model], root: Path = REPO_ROOT, files: dict[str, list[Path]] | None = None
+) -> tuple[list[str], list[str]]:
+    """The declaring packages (`./dir/`) and names of every binding test in
+    the correspondence tables, minus the trace harnesses that trace validation
+    runs. A binding that no `_test.go` file declares fails, naming the model
+    and row. `files` is a prebuilt `test_function_files(root)`."""
+    files = test_function_files(root) if files is None else files
+    tests: set[str] = set()
+    unknown = []
+    for model in models:
+        for element, _symbol, _file, binding, _abstraction in correspondence_rows((root / model.file).read_text()):
+            for test in binding_tests(binding):
+                if is_trace_harness(test):
+                    continue
+                if test not in files:
+                    unknown.append(f"{model.name}: row {element!r} names binding test {test!r}, which no _test.go file declares")
+                    continue
+                tests.add(test)
+    if unknown:
+        raise FormalError("replay plan: " + "; ".join(unknown))
+    packages = sorted({go_package(path) for test in tests for path in files[test]})
+    return packages, sorted(tests)
+
+
+def replay_pattern(tests: list[str]) -> str:
+    return f"^({'|'.join(tests)})$"
+
+
+# ---------------------------------------------------------------------------
+# CI classification (`affected`)
+#
+# Runs before the manifest is validated and fails closed: every non-PR event,
+# every error, an empty diff, and a manifest that does not load or validate
+# all answer run=true. Patterns use fnmatch.fnmatchcase, where `*` also
+# matches `/`, so they can only over-match GitHub `paths` globs.
+
+
+def ci_paths(path: Path = MANIFEST) -> list[str]:
+    with path.open("rb") as handle:
+        patterns = tomllib.load(handle)["ci"]["paths"]
+    if not patterns or not all(isinstance(p, str) and p for p in patterns):
+        raise FormalError("[ci] paths must be a non-empty list of patterns")
+    return patterns
+
+
+def changed_paths(base: str, head: str) -> list[str]:
+    if not base or not head:
+        raise FormalError("affected: a pull_request needs --base and --head")
+    completed = subprocess.run(
+        ["git", "diff", "--name-only", base, head], capture_output=True, text=True, check=True, cwd=REPO_ROOT
+    )
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def matches_ci_paths(path: str, patterns: list[str]) -> bool:
+    return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+
+
+def affected(event: str, base: str, head: str, manifest: Path = MANIFEST, diff=changed_paths) -> str:
+    """`run=true` or `run=false` for $GITHUB_OUTPUT; diagnostics go to stderr."""
+    if event != "pull_request":
+        print(f"affected: event {event!r} runs the full lane", file=sys.stderr)
+        return "run=true"
+    try:
+        # A manifest that does not load or validate must reach `make formal`.
+        validate_manifest(load_manifest(manifest)[1], load_trace_suites(manifest))
+        patterns = ci_paths(manifest)
+        changed = diff(base, head)
+        if not changed:
+            print("affected: empty diff; running the full lane", file=sys.stderr)
+            return "run=true"
+        hits = [path for path in changed if matches_ci_paths(path, patterns)]
+        print(f"affected: {len(hits)} of {len(changed)} changed paths match [ci] paths {hits[:10]}", file=sys.stderr)
+        return f"run={'true' if hits else 'false'}"
+    except Exception as err:  # noqa: BLE001 - fail closed on anything
+        print(f"affected: {type(err).__name__}: {err}; running the full lane", file=sys.stderr)
+        return "run=true"
 
 
 # ---------------------------------------------------------------------------
@@ -1074,10 +1314,15 @@ def check_trace(jar: Path, suite: TraceSuite, constants: dict[str, str], trace_s
 
 
 def check_trace_suites(
-    jar: Path, suites: list[TraceSuite], models: list[Model], results: dict[str, dict] | None = None
+    jar: Path,
+    suites: list[TraceSuite],
+    models: list[Model],
+    results: dict[str, dict] | None = None,
+    timings: dict[str, float] | None = None,
 ) -> list[str]:
     """Record and check every suite. When `results` is given, each suite's
-    counts and per-trace verdicts are recorded in it."""
+    counts and per-trace verdicts are recorded in it; when `timings` is given,
+    each suite's harness and trace-check wall times are added to its entry."""
     failures: list[str] = []
     check_tla_sources()
     if TRACE_DIR.exists():
@@ -1089,7 +1334,8 @@ def check_trace_suites(
         if suite.name not in by_name:
             raise FormalError(f"trace suite {suite.name} names no TLA+ model")
         constants = trace_constants(suite, by_name[suite.name])  # fails before recording
-        counts = record_traces(suite)
+        with timed(timings, suite.label):
+            counts = record_traces(suite)
         print(f"  {suite.name}: {counts[TRACE_ACCEPTED]} recorded traces, {counts[TRACE_REJECTED]} targeted mutations")
         if results is not None:
             results[suite.name] = {
@@ -1097,8 +1343,12 @@ def check_trace_suites(
             }
         for trace_set in (TRACE_ACCEPTED, TRACE_REJECTED):
             jobs.extend((suite, constants, trace_set, index) for index in range(1, counts[trace_set] + 1))
+    def timed_check(job: tuple[TraceSuite, dict[str, str], str, int]) -> tuple[str, str | None]:
+        with timed(timings, job[0].label):
+            return check_trace(jar, *job)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_jobs()) as pool:
-        for (suite, _constants, trace_set, index), (verdict, failure) in zip(jobs, pool.map(lambda job: check_trace(jar, *job), jobs)):
+        for (suite, _constants, trace_set, index), (verdict, failure) in zip(jobs, pool.map(timed_check, jobs)):
             if results is not None:
                 results[suite.name]["verdicts"][f"{trace_set}-{index}"] = verdict
             if failure:
@@ -1191,18 +1441,42 @@ def select(models: list[Model], tool: str, names: list[str]) -> list[Model]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "action", choices=["fetch", "alloy", "tla", "golden", "traces", "correspondence", "all", "snapshot"]
+        "action",
+        choices=["fetch", "alloy", "tla", "golden", "traces", "correspondence", "all", "snapshot", "affected", "replay-plan"],
     )
     parser.add_argument("models", nargs="*")
     parser.add_argument("--check", action="store_true", help="golden: verify committed vectors instead of rewriting them")
     parser.add_argument("--out", type=Path, default=SNAPSHOT_DEFAULT, help="snapshot: output file")
     parser.add_argument("--compare", type=Path, help="snapshot: fail unless every entry matches this snapshot")
+    parser.add_argument("--event", default="", help="affected: the GitHub event name")
+    parser.add_argument("--base", default="", help="affected: the pull request's base SHA")
+    parser.add_argument("--head", default="", help="affected: the commit under test")
+    parser.add_argument("--format", choices=["text", "github"], default="text", help="replay-plan: output format")
     args = parser.parse_args(argv)
+    # Result lines must reach CI logs as they are produced, not when a pipe's
+    # block buffer fills.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
 
+    if args.action == "affected":
+        # Before manifest validation: classification must answer even when
+        # the manifest is broken.
+        print(affected(args.event, args.base, args.head))
+        return 0
+
+    timings: dict[str, float] = {}
     try:
         tools, models = load_manifest()
-        validate_manifest(models)
+        suites = load_trace_suites()
+        validate_manifest(models, suites)
         failures: list[str] = []
+        if args.action == "replay-plan":
+            packages, tests = replay_plan(models)
+            if args.format == "text":
+                print("\n".join(f"  {test}" for test in tests))
+            print(f"packages={' '.join(packages)}")
+            print(f"run={replay_pattern(tests)}")
+            return 0
         if args.action == "fetch":
             for tool in tools.values():
                 ensure_tool(tool)
@@ -1216,13 +1490,13 @@ def main(argv: list[str] | None = None) -> int:
             if chosen:
                 jar = ensure_tool(tools["alloy"])
                 for model in chosen:
-                    failures += check_alloy_model(jar, model)
+                    failures += check_alloy_model(jar, model, timings=timings)
         if args.action in {"tla", "all"}:
             chosen = select(models, "tla", args.models)
             if not chosen:
                 print("no TLA+ models selected")
             else:
-                failures += check_tlc_models(ensure_tool(tools["tla"]), chosen)
+                failures += check_tlc_models(ensure_tool(tools["tla"]), chosen, timings=timings)
         if args.action == "all":
             # The fingerprint pre-check gives a fast, clear message; otherwise
             # re-enumerate and compare byte for byte.
@@ -1234,19 +1508,21 @@ def main(argv: list[str] | None = None) -> int:
                     failures.append(stale)
                     continue
                 try:
-                    export_golden(ensure_tool(tools["alloy"]), tools, model, check=True)
+                    with timed(timings, model.name):
+                        export_golden(ensure_tool(tools["alloy"]), tools, model, check=True)
                 except FormalError as err:
                     failures.append(str(err))
         if args.action == "traces":
-            suites = [t for t in load_trace_suites() if not args.models or t.name in args.models]
-            if not suites:
+            chosen_suites = [t for t in suites if not args.models or t.name in args.models]
+            if not chosen_suites:
                 raise FormalError("no trace suites selected")
-            failures += check_trace_suites(ensure_tool(tools["tla"]), suites, models)
+            failures += check_trace_suites(ensure_tool(tools["tla"]), chosen_suites, models, timings=timings)
         if args.action == "golden":
             jar = ensure_tool(tools["alloy"])
             for model in select(models, "alloy", args.models):
                 if model.golden:
                     export_golden(jar, tools, model, check=args.check)
+        report_timings(timings, manifest_budgets(models, suites))
         if failures:
             print("\nformal verification FAILED:")
             for failure in failures:

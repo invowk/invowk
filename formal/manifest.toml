@@ -30,10 +30,67 @@ url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
 # Matches the checksum independently recorded by the Lushtext evaluation for the same release.
 sha256 = "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
 
+# CI classification and budgets (see formal/README.md, "CI budgets").
+#
+# `scripts/formal.py affected` runs the full lane on a pull request only when a
+# changed path matches one of these patterns under fnmatch.fnmatchcase, where
+# `*` also matches `/`. scripts/test_formal.py fails unless the patterns cover
+# every correspondence-table file, binding-test file, trace package, and golden
+# output. Code a model depends on that no table names is the author's to add.
+[ci]
+paths = [
+    ".github/workflows/formal-verification.yml",
+    "Makefile",
+    "formal/**",
+    "go.mod",
+    "go.sum",
+    "internal/app/deps/**",
+    "internal/app/modulecache/**",
+    "internal/app/moduleops/**",
+    "internal/app/modulesync/**",
+    "internal/audit/**",
+    "internal/container/retry*.go",
+    "internal/core/serverbase/**",
+    "internal/discovery/**",
+    "internal/provision/**",
+    "internal/runtime/**",
+    "internal/sshserver/**",
+    "internal/testutil/**",
+    "internal/watch/**",
+    "pkg/fspath/**",
+    "pkg/invowkfile/**",
+    "pkg/invowkmod/**",
+    "scripts/formal.py",
+    "scripts/formal_promotion_gate.py",
+    "scripts/test_formal.py",
+    "scripts/test_formal_promotion_gate.py",
+]
+
+# How the budgets were derived. Soft budgets (budget_seconds on every [[model]]
+# and [[trace]]) are per-model summed checker seconds; an overrun only warns.
+# `ci`: ceil(soft_headroom x max CI seconds); `local` (provisional, a ::notice::
+# in CI): ceil(local_headroom x local seconds). Hard budgets are the workflow's
+# step timeout-minutes: max(2, ceil(hard_headroom x max CI step seconds / 60)).
+# The runner does not print per-model times in the PR runs below (block-buffered
+# output), so every soft budget is still `local`; re-measure from three
+# workflow_dispatch runs on main after merge (promote-formal-ci-gate task 2.5).
+[ci.budget]
+soft_headroom = 1.5
+local_headroom = 3
+hard_headroom = 4
+measured_on = "2026-09-25"
+# Post-sibling pull_request runs whose step times set the hard budgets
+# (Check models max 369 s in 36180026549, the full model set; Trace validation
+# max 164 s; Replay max 19 s). Deep property tests never ran in CI.
+ci_runs = [36180026549, 36177209228, 36173102386, 36173097154, 36171059790, 36167341811, 36167020718, 36165565859]
+command_count = 174
+
 [[model]]
 name = "ScopeConstruction"
 tool = "alloy"
 file = "formal/alloy/ScopeConstruction.als"
+budget_seconds = 219  # 3 x 72.9s local
+budget_source = "local"
 scope = "4 but 3 Key, 3 Entry"  # default for every command below
 calibration = """2026-09-24: the golden vectors (116928 exhaustive instances) and the rapid \
 intent test each detect all five seeded code defects: direct dependency ignoring \
@@ -179,6 +236,8 @@ expect = "instance"
 name = "DependencyClosure"
 tool = "alloy"
 file = "formal/alloy/DependencyClosure.als"
+budget_seconds = 49  # 3 x 16.1s local
+budget_source = "local"
 scope = "5"  # default for every command below
 calibration = """2026-09-24: the golden replays (25765 exhaustive instances) and the rapid tidy \
 test detect all four seeded code defects: diagnostics without per-key dedup, \
@@ -279,6 +338,8 @@ expect = "instance"
 name = "LockIdentity"
 tool = "alloy"
 file = "formal/alloy/LockIdentity.als"
+budget_seconds = 45  # 3 x 14.7s local
+budget_source = "local"
 scope = "4"  # default for every command below
 calibration = """2026-09-24: the golden replay (28858 exhaustive instances) detects all four \
 seeded code defects: identity without the namespace fallback, namespace preferred \
@@ -347,6 +408,8 @@ expect = "instance"
 name = "Serverbase"
 tool = "tla"
 file = "formal/tla/Serverbase.tla"
+budget_seconds = 120  # 3 x 39.7s local
+budget_source = "local"
 calibration = """2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
 the fixed code, and the pre-fix code is kept as two regression mutants. \\
 2026-09-24: TLC reproduced findings F1 and F2 with exactly the interleavings \\
@@ -368,6 +431,7 @@ name = "errClosedOnce"
 expect = "pass"
 property = "ErrClosedAtMostOnce"
 dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 585
 
 [[model.command]]
 name = "mutantCloseTwice"
@@ -381,6 +445,7 @@ name = "noSendAfterClose"
 expect = "pass"
 property = "NoSendAfterClose"
 dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 585
 
 [[model.command]]
 name = "mutantSendWithoutCheck"
@@ -394,6 +459,7 @@ name = "startedByWinner"
 expect = "pass"
 property = "StartedClosedByWinner"
 dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 585
 
 [[model.command]]
 name = "mutantCloseStartedUnconditionally"
@@ -409,6 +475,7 @@ constants = { FixTerminalCAS = "TRUE" }
 expect = "pass"
 property = "TerminalAbsorbing"
 dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 585
 
 [[model.command]]
 name = "mutantPreFixF2BlindStore"
@@ -432,6 +499,7 @@ constants = { FixStartOrdering = "TRUE" }
 expect = "pass"
 property = "StopCancelsContext"
 dead_actions = ["RunCloseLoser", "StartStore"]
+distinct_states = 585
 
 [[model.command]]
 name = "mutantPreFixF1UnlockedStart"
@@ -470,6 +538,8 @@ witness = true
 name = "LockIntegrity"
 tool = "tla"
 file = "formal/tla/LockIntegrity.tla"
+budget_seconds = 105  # 3 x 34.9s local
+budget_source = "local"
 calibration = """2026-09-25 (trace validation): TestLockIntegrity_TraceHarness records \
 real Sync, LoadDeclaredFromLock plus VendorModules, the discovery check, and \
 sibling admission under LegacyLock = TRUE: 218 sequences, 131 unique accepted \
@@ -510,6 +580,7 @@ Mutant = "\"none\""
 name = "f5FixedSync"
 expect = "pass"
 property = "OwnLoadTrusted"
+distinct_states = 504
 
 [[model.command]]
 name = "findingF5FreshCacheSync"
@@ -532,6 +603,7 @@ name = "f4RejectUnhashed"
 constants = { RejectUnhashed = "TRUE", LegacyLock = "TRUE" }
 expect = "pass"
 property = "OwnLoadTrusted"
+distinct_states = 732
 
 [[model.command]]
 name = "mutantPreFixF4TrustHashless"
@@ -552,6 +624,7 @@ mutant_of = "f4RejectUnhashed"
 name = "f6CheckCallerHash"
 expect = "pass"
 property = "SiblingCallTrusted"
+distinct_states = 504
 
 [[model.command]]
 name = "mutantPreFixF6AdmitByIdentity"
@@ -574,6 +647,7 @@ name = "f12AdmitRequiresCallerHash"
 constants = { AdmitRequiresCallerHash = "TRUE", LegacyLock = "TRUE" }
 expect = "pass"
 property = "SiblingCallTrusted"
+distinct_states = 732
 
 [[model.command]]
 name = "findingF12HashlessSiblingAdmission"
@@ -613,6 +687,8 @@ witness = true
 name = "AtomicWrite"
 tool = "tla"
 file = "formal/tla/AtomicWrite.tla"
+budget_seconds = 74  # 3 x 24.5s local
+budget_source = "local"
 calibration = """2026-09-25: finding F3 is fixed; the base configuration makes both fsyncs and \\
 the pre-fix configurations are regression mutants. 2026-09-24: under the named POSIX axioms TLC showed finding F3 (no fsync: power \\
 loss can leave an empty lock file even though readers never see partial \\
@@ -629,6 +705,7 @@ Mutant = "\"none\""
 name = "readersNeverSeePartial"
 expect = "pass"
 property = "ReadersNeverSeePartial"
+distinct_states = 26
 
 [[model.command]]
 name = "mutantWriteInPlace"
@@ -641,6 +718,7 @@ mutant_of = "readersNeverSeePartial"
 name = "tempRemovedOnError"
 expect = "pass"
 property = "TempRemovedOnError"
+distinct_states = 26
 
 [[model.command]]
 name = "mutantSkipCleanup"
@@ -657,6 +735,7 @@ constants = { SyncFile = "TRUE", SyncDir = "FALSE" }
 expect = "pass"
 property = "DurableAtomic"
 dead_actions = ["FailDir"]
+distinct_states = 24
 
 [[model.command]]
 name = "mutantPreFixNoSyncAtomic"
@@ -669,6 +748,7 @@ mutant_of = "durableAtomicFileSyncOnly"
 name = "durableAtomic"
 expect = "pass"
 property = "DurableAtomic"
+distinct_states = 26
 
 [[model.command]]
 name = "durableAtomicDirSyncOnly"
@@ -681,6 +761,7 @@ mutant_of = "durableAtomic"
 name = "durableCommit"
 expect = "pass"
 property = "DurableCommit"
+distinct_states = 26
 
 [[model.command]]
 name = "mutantPreFixNoSyncCommit"
@@ -712,6 +793,8 @@ witness = true
 name = "HostCallbackToken"
 tool = "tla"
 file = "formal/tla/HostCallbackToken.tla"
+budget_seconds = 56  # 3 x 18.4s local
+budget_source = "local"
 calibration = """2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
 started Server on a fake clock with real SSH clients: 165 sequences, 37 unique \
 accepted traces, 7 targeted mutations. TLC and a Go replay reproduce finding \
@@ -742,6 +825,7 @@ StopClosesSessions = "FALSE"
 name = "noAuthAfterExecution"
 expect = "pass"
 property = "NoAuthAfterExecution"
+distinct_states = 146
 
 [[model.command]]
 name = "mutantNoRevokeOnSuccess"
@@ -756,6 +840,7 @@ name = "noSessionAfterStopFixed"
 constants = { StopClosesSessions = "TRUE" }
 expect = "pass"
 property = "NoSessionAfterStop"
+distinct_states = 122
 
 [[model.command]]
 name = "findingF11StopKeepsSessions"
@@ -776,6 +861,7 @@ mutant_of = "noSessionAfterStopFixed"
 name = "sessionLifetimeWithRevokeClosing"
 expect = "pass"
 property = "NoSessionAfterExecution"
+distinct_states = 146
 
 [[model.command]]
 name = "mutantPreFixF7RevokeKeepsSessions"
@@ -808,6 +894,8 @@ witness = true
 name = "Watch"
 tool = "tla"
 file = "formal/tla/Watch.tla"
+budget_seconds = 77  # 3 x 25.4s local
+budget_source = "local"
 calibration = """2026-09-24: TLC shows no lost burst under fairness of system actions only (and \\
 a counterexample without fairness), no overlapping callbacks, balanced \\
 WaitGroup accounting, and no work after Run returns; each safety property is \\
@@ -825,6 +913,7 @@ Mutant = "\"none\""
 name = "noOverlappingCallbacks"
 expect = "pass"
 property = "NoOverlappingCallbacks"
+distinct_states = 540
 
 [[model.command]]
 name = "mutantNoBusyGuard"
@@ -837,6 +926,7 @@ mutant_of = "noOverlappingCallbacks"
 name = "waitGroupBalanced"
 expect = "pass"
 property = "WaitGroupBalanced"
+distinct_states = 540
 
 [[model.command]]
 name = "mutantResetSkipsAdd"
@@ -849,6 +939,7 @@ mutant_of = "waitGroupBalanced"
 name = "nothingAfterReturn"
 expect = "pass"
 property = "NothingAfterReturn"
+distinct_states = 540
 
 [[model.command]]
 name = "mutantNoWait"
@@ -862,6 +953,7 @@ name = "noLostBurst"
 temporal = true
 expect = "pass"
 property = "NoLostBurst"
+distinct_states = 540
 
 [[model.command]]
 name = "noLostBurstWithoutFairness"
@@ -888,6 +980,8 @@ witness = true
 name = "ModulePathContainment"
 tool = "alloy"
 file = "formal/alloy/ModulePathContainment.als"
+budget_seconds = 93  # 3 x 30.8s local
+budget_source = "local"
 scope = "5 but 2 Module, 2 Op"  # default for every command below
 calibration = """2026-09-25: the golden replays (22848 instances, 1680 distinct trees) and the \
 rapid property detect the seeded real-code defects. Confirmed one at a time: the \
@@ -1107,6 +1201,8 @@ expect = "instance"
 name = "VirtualPathHarness"
 tool = "alloy"
 file = "formal/alloy/VirtualPathHarness.als"
+budget_seconds = 41  # 3 x 13.5s local
+budget_source = "local"
 scope = "6 but exactly 3 Req"  # default for every command below
 calibration = """2026-09-25: the golden replays (14580 instances) and the rapid property detect \
 the seeded defects: normalizeExistingOrParent skipping the parent evaluation is \
@@ -1214,19 +1310,27 @@ expect = "instance"
 [[trace]]
 name = "Serverbase"
 package = "./internal/core/serverbase/"
+budget_seconds = 113  # 3 x 37.6s local
+budget_source = "local"
 
 [[trace]]
 name = "AtomicWrite"
 package = "./pkg/fspath/"
+budget_seconds = 48  # 3 x 15.8s local
+budget_source = "local"
 
 [[trace]]
 name = "Watch"
 package = "./internal/watch/"
+budget_seconds = 26  # 3 x 8.4s local
+budget_source = "local"
 
 [[model]]
 name = "ConcurrentModuleEdits"
 tool = "tla"
 file = "formal/tla/ConcurrentModuleEdits.tla"
+budget_seconds = 1093  # 3 x 364.2s local
+budget_source = "local"
 calibration = """2026-09-25: TLC reproduces F8 on today's code in all four scenarios \
 (sync_add, update_add, update_remove, add_add_same), F9 (fetch_v1_v2), and F10 \
 (rollback_read); no hypothesised id was refuted. vendor_sync also fails: vendor \
@@ -1513,8 +1617,12 @@ distinct_states = 57
 [[trace]]
 name = "HostCallbackToken"
 package = "./internal/sshserver/"
+budget_seconds = 337  # 3 x 112.2s local
+budget_source = "local"
 
 [[trace]]
 name = "LockIntegrity"
 package = "./internal/app/modulesync/"
+budget_seconds = 1053  # 3 x 351.0s local
+budget_source = "local"
 constants = { LegacyLock = "TRUE" }
