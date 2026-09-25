@@ -16,7 +16,7 @@
 - [x] 2.2 Exclude `Test*_TraceHarness` and characterisation tests from killer sets. Report rows left without a killer as `trace-only` or `characterisation-only`, and the other unbound rows as `no-binding` or `type-symbol`
 - [x] 2.3 Emit the union `--match` regex, and fail closed on a collision, a test found in zero or several packages, an empty plan, or a correspondence failure
 - [x] 2.4 Add `scripts/test_formal_mutation.py` with fixtures for every fail-closed path, the trace-only and characterisation-only rows, line-range extraction, and a golden plan. Wire it into `make test-scripts`
-- [ ] 2.5 On the post-sibling tree, re-measure the file, leaf, and candidate counts (union `--match` dry-run) and the clean binding time per package. Replace the HEAD 4831f23d figures in design.md
+- [x] 2.5 On the post-sibling tree, re-measure the file, leaf, and candidate counts (union `--match` dry-run) and the clean binding time per package. Replace the HEAD 4831f23d figures in design.md
 
 ## 3. Executor and pre-flight
 
@@ -59,17 +59,17 @@
 
 ## 7. First run and triage
 
-- [ ] 7.1 Run `make mutation-formal-dry-run`, then `make mutation-formal` on a clean tree. Record in design.md the wall time; the killed, escaped, skipped, and errored counts; the timeout-kill count per file; and the escapes per file. If the run exceeds the 90-minute budget, raise the job budget and open the sharding follow-up (no `-short`)
-- [ ] 7.2 Rerun every escaped mutant twice with `make mutation-formal-rerun`, and classify each per design D7
-- [ ] 7.3 Close only the gaps whose fix is an assertion or generator change inside an existing binding test: confirm the kill, append `mutation <id>: …` to the model's `calibration`, and add the ID to `[[closed]]`. Defer every other gap with a follow-up
-- [ ] 7.4 For each `defect`: allocate the next free finding id after `model-module-path-containment`'s ids; add the `finding` command next to a passing fix configuration, a characterisation test (marked per 1.3), and a `formal/README.md` Findings row. Do not fix the product code
-- [ ] 7.5 Run `make mutation-formal-baseline-update`, fill in the ledger, and make `formal_mutation.py triage --check` pass
+- [x] 7.1 Run `make mutation-formal-dry-run`, then `make mutation-formal` on a clean tree. Record in design.md the wall time; the killed, escaped, skipped, and errored counts; the timeout-kill count per file; and the escapes per file. If the run exceeds the 90-minute budget, raise the job budget and open the sharding follow-up (no `-short`)
+- [x] 7.2 Rerun every escaped mutant twice with `make mutation-formal-rerun`, and classify each per design D7
+- [x] 7.3 Close only the gaps whose fix is an assertion or generator change inside an existing binding test: confirm the kill, append `mutation <id>: …` to the model's `calibration`, and add the ID to `[[closed]]`. Defer every other gap with a follow-up
+- [x] 7.4 For each `defect`: allocate the next free finding id after `model-module-path-containment`'s ids; add the `finding` command next to a passing fix configuration, a characterisation test (marked per 1.3), and a `formal/README.md` Findings row. Do not fix the product code
+- [x] 7.5 Run `make mutation-formal-baseline-update`, fill in the ledger, and make `formal_mutation.py triage --check` pass
 
 ## 8. Documentation
 
-- [ ] 8.1 Update `.agents/rules/commands.md`, Mutation Testing section: the target set, the Make targets, the exec script and pre-flight, runtime, advisory status, and rerun evidence
-- [ ] 8.2 Update `.agents/skills/formal-verification/SKILL.md` (multi-test cells, the completeness guard, characterisation marking, and the survivor feedback loop including defects) and `formal/README.md` (replace the note that modulesync and container add no killers with a "Mutation testing" section)
-- [ ] 8.3 Run `make check-agent-docs`
+- [x] 8.1 Update `.agents/rules/commands.md`, Mutation Testing section: the target set, the Make targets, the exec script and pre-flight, runtime, advisory status, and rerun evidence
+- [x] 8.2 Update `.agents/skills/formal-verification/SKILL.md` (multi-test cells, the completeness guard, characterisation marking, and the survivor feedback loop including defects) and `formal/README.md` (replace the note that modulesync and container add no killers with a "Mutation testing" section)
+- [x] 8.3 Run `make check-agent-docs`
 
 ## 9. Verification
 

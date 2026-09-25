@@ -1,4 +1,2526 @@
 {
   "version": 1,
-  "mutants": []
+  "commit": "ea14dd5c0364a64d9237c1e81a0f62ad64c9a1e9",
+  "mutants": [
+    {
+      "id": "61da5ba63ea3e2814b8e8d2500f93915",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "branch/if",
+      "line": 259
+    },
+    {
+      "id": "e9702c74714610e1edb5145d5f921fa7",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "conditional/negated",
+      "line": 263
+    },
+    {
+      "id": "5ad8904f237640107d04651639620943",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "branch/if",
+      "line": 264
+    },
+    {
+      "id": "5e9dd8d997c290fe9c2116a6775cbf43",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "branch/if",
+      "line": 293
+    },
+    {
+      "id": "a3eea86d64c5458df9d07367a836946b",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "statement/remove",
+      "line": 298
+    },
+    {
+      "id": "46f5a23c931c9ff6a254eaa09ccdece6",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "composite/field-clear",
+      "line": 340
+    },
+    {
+      "id": "47df44b787f091e1adb5a1bd5d8d7cdc",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "composite/field-clear",
+      "line": 340
+    },
+    {
+      "id": "bebe6c6998e097482a36d43301302edd",
+      "file": "internal/app/deps/deps.go",
+      "mutator": "statement/return",
+      "line": 340
+    },
+    {
+      "id": "1865326c32ddf87625e9721479fe0116",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 116
+    },
+    {
+      "id": "07788f752b546bef0f0d61b53ee519bb",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "branch/if",
+      "line": 117
+    },
+    {
+      "id": "2cc86f8b8f450edfd0e622dc9a8fc067",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "statement/return",
+      "line": 117
+    },
+    {
+      "id": "d0a683e9190311b5797d195547ef8452",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 120
+    },
+    {
+      "id": "73409e0584743309b6d937b5f527ac34",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "branch/if",
+      "line": 121
+    },
+    {
+      "id": "51063ae55f0239a2d6b83bcae9d3dba8",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "statement/return",
+      "line": 121
+    },
+    {
+      "id": "5be0d456d0f781daff6dfb5a16006d8d",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 134
+    },
+    {
+      "id": "35cb4c05e6683e3e90a3f5d136b759a6",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "branch/if",
+      "line": 135
+    },
+    {
+      "id": "166ee93d74ae988834d2d491ebe260d2",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "statement/return",
+      "line": 135
+    },
+    {
+      "id": "e69d60890d00ea3cb67af660cb9b2372",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 142
+    },
+    {
+      "id": "0443f5e81a42b00972d5de5c53962657",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "branch/if",
+      "line": 143
+    },
+    {
+      "id": "4d9b0149bc4288e91a48e8517f5f2a62",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "statement/return",
+      "line": 143
+    },
+    {
+      "id": "f903a79f6ab8917a10e61d785b08d0a6",
+      "file": "internal/app/modulecache/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 147
+    },
+    {
+      "id": "818a97aa16a5f2c663ff0af7e73dd31c",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "conditional/negated",
+      "line": 523
+    },
+    {
+      "id": "2de0ff368b4ec4304fb411c5ecd36cdb",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/logical",
+      "line": 523
+    },
+    {
+      "id": "1f1be72781b132d18a6f35b6a077ca53",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "conditional/negated",
+      "line": 524
+    },
+    {
+      "id": "055592d8fb48880e3cec2f0f21679428",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/logical",
+      "line": 524
+    },
+    {
+      "id": "0087737c1ae08d3106d06a71d0eaab0d",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/remove",
+      "line": 524
+    },
+    {
+      "id": "e6063b43d56b74bd35d1775902931352",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/string-literal",
+      "line": 524
+    },
+    {
+      "id": "31687863358bee2bcacc7fd033e1ea8a",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/logical",
+      "line": 525
+    },
+    {
+      "id": "b5880e7045570180d24594779fc7068b",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/remove",
+      "line": 525
+    },
+    {
+      "id": "0d72f8e69406dac5a30eb88c7a955e26",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/remove",
+      "line": 526
+    },
+    {
+      "id": "e5c9979e40913a5114cd855ff51ae787",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "branch/if",
+      "line": 527
+    },
+    {
+      "id": "3112938aeab6d1eb0a0a4b90093ff80c",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 527
+    },
+    {
+      "id": "a868872863e2850ee3eca2c336357194",
+      "file": "internal/app/moduleops/packaging.go",
+      "mutator": "statement/return",
+      "line": 527
+    },
+    {
+      "id": "1e0b2bb92da343e407be50e62de1eb3e",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/error-guard",
+      "line": 78
+    },
+    {
+      "id": "264a297537d8a1848139d38958f2c48b",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 79
+    },
+    {
+      "id": "6fd8db25238e7888b763bb2d186b1978",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 79
+    },
+    {
+      "id": "8fa4def9be8cbeeb6612a5757310457d",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 79
+    },
+    {
+      "id": "80ec0b684ed0ac83434ed8138643a5ab",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 83
+    },
+    {
+      "id": "0cc1ef7dfe71af5e7bb338b4bfcf69ea",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 93
+    },
+    {
+      "id": "c4073c49ec6b45a8e635846a17e70c9b",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 93
+    },
+    {
+      "id": "d900a13c19a9687eb44ad70077e3276c",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 93
+    },
+    {
+      "id": "c90d0133f555de226ff2d6fe84c44ea0",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 98
+    },
+    {
+      "id": "5640facef3f6e8050828d6bf6c008ba5",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 98
+    },
+    {
+      "id": "44efe448ae2335312c2adec61b4e4eef",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 101
+    },
+    {
+      "id": "afcb74e573e29d7fb2952fc7dce45a0d",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 101
+    },
+    {
+      "id": "e551e21de6fc95cbcf1bbb7357b96808",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 101
+    },
+    {
+      "id": "38cdf0691c4bbdfb350665d6dc1039a6",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "conditional/bool-literal",
+      "line": 104
+    },
+    {
+      "id": "a1dd00ac9ee058677220dfa0b7fd74ad",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/remove",
+      "line": 104
+    },
+    {
+      "id": "209c3f0f083273d19ce3d9154c555395",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/error-guard",
+      "line": 107
+    },
+    {
+      "id": "2e8a945d5ce721f83aba98cc34f8528c",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 108
+    },
+    {
+      "id": "89a8c43e104549ac41b4f52c1caf6c82",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 108
+    },
+    {
+      "id": "abe5d0ef2e54925e7b5cb19ecefc6487",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 108
+    },
+    {
+      "id": "9e196b228f550faacfd1b308f95b75e9",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/error-guard",
+      "line": 112
+    },
+    {
+      "id": "a5f6a35de57e50fb568fe2ec8bd447a6",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 113
+    },
+    {
+      "id": "0d5e27464e5f0cf3e1ef91cb837aad7f",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 113
+    },
+    {
+      "id": "99da48bf6c222dc5e114b5dec5598f63",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 113
+    },
+    {
+      "id": "92b8abf357988bc5912e53b9b74b6011",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/error-guard",
+      "line": 115
+    },
+    {
+      "id": "25b763dc3053ad518c0b0c205f178020",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 116
+    },
+    {
+      "id": "88b1c88a0ea7860c96bb85e0df49ff69",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 116
+    },
+    {
+      "id": "5b18862436328b10f366665085022f24",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 116
+    },
+    {
+      "id": "f87bd3082d3c6685ad16ea7d3e88b2ba",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 124
+    },
+    {
+      "id": "a4091a3eab0061d5ff4b3822506ba161",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 124
+    },
+    {
+      "id": "8b92d7fd7cad286cd6a64cbc124e32f0",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 124
+    },
+    {
+      "id": "fe11d52cc79d7ef1100136df8e7c34ec",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 129
+    },
+    {
+      "id": "251fb82008f02840e5e04ffa5dbd2502",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 129
+    },
+    {
+      "id": "f50ef0687f14fc6dd9ae81a1564a4cf4",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 129
+    },
+    {
+      "id": "aabcaffd31b260cdeedcd2963769f880",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 133
+    },
+    {
+      "id": "a48dd06d20e566655ad31600bfb86b01",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 134
+    },
+    {
+      "id": "3b3723436f67ae2a6a4a9e81647832c0",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 135
+    },
+    {
+      "id": "3b741aaefa06e0e334c07a8246613e50",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 141
+    },
+    {
+      "id": "3ce081392184a0b6ce5e253be8119a63",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 142
+    },
+    {
+      "id": "4e5a4cc3ebaeaca5965757564686a1c6",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "composite/field-clear",
+      "line": 143
+    },
+    {
+      "id": "800a97a4b3028572c7a29f318b4c72b4",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "branch/if",
+      "line": 151
+    },
+    {
+      "id": "b2847bc9b61a626b6882fb1d920e308b",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 151
+    },
+    {
+      "id": "a9d2b47b43597d47aaa1fe166a59d0d1",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 151
+    },
+    {
+      "id": "198325605fd29a58402e4aa2a1b59c7f",
+      "file": "internal/app/moduleops/vendor.go",
+      "mutator": "statement/return",
+      "line": 156
+    },
+    {
+      "id": "525fd5586aec701a9f01c110afa0ef5d",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "branch/if",
+      "line": 70
+    },
+    {
+      "id": "7202dcf916240c91d5dd2be530602b6a",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 70
+    },
+    {
+      "id": "3c10a80ddb1fafc73a3090c765319074",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "statement/return",
+      "line": 70
+    },
+    {
+      "id": "fa83c3add7450d84caf01e3268f55173",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "conditional/negated",
+      "line": 73
+    },
+    {
+      "id": "f0683b8bfa0ed8511e7d7278049d03d7",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "branch/if",
+      "line": 74
+    },
+    {
+      "id": "c030583f2fcb097cb84a3231fb9a52b0",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 78
+    },
+    {
+      "id": "61d4785650c381f8ffba46bf959aeb3f",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "branch/if",
+      "line": 79
+    },
+    {
+      "id": "e27ad593686d90cec726edc060093010",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "statement/return",
+      "line": 79
+    },
+    {
+      "id": "de69191bb88cbd0150a562a40edc3bc6",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "branch/if",
+      "line": 85
+    },
+    {
+      "id": "8f9a96ce4e01658944d66f050a3867c3",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "conditional/negated",
+      "line": 85
+    },
+    {
+      "id": "a9c7d9396144e99c5b723457850fd254",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "expression/error-guard",
+      "line": 85
+    },
+    {
+      "id": "85c624aca5ef5d2b50fceaa0cae78afa",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "branch/if",
+      "line": 86
+    },
+    {
+      "id": "a5b33b2bed5060cab40382f82edff74a",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 86
+    },
+    {
+      "id": "d2f992301d85a8d5c280f2118e411e69",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "statement/return",
+      "line": 86
+    },
+    {
+      "id": "a2f4e6074ac8988fad8643d0934479de",
+      "file": "internal/app/modulesync/cache.go",
+      "mutator": "statement/return",
+      "line": 89
+    },
+    {
+      "id": "bbb64e8aafc443cd871270c1746937ad",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "statement/defer-remove",
+      "line": 274
+    },
+    {
+      "id": "96e7a08864f1b1b055f90ee2aa7019d0",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "numbers/decrementer",
+      "line": 276
+    },
+    {
+      "id": "447f20f9a56bc0bebf437186676c32cd",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "branch/if",
+      "line": 277
+    },
+    {
+      "id": "179f01c31a4d292a62dee92634002503",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "branch/if",
+      "line": 285
+    },
+    {
+      "id": "8099a3ca8cfa79a64cb845220fff4022",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "statement/return",
+      "line": 285
+    },
+    {
+      "id": "68c4473cb240d57429cd8758ae0584e7",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "numbers/incrementer",
+      "line": 296
+    },
+    {
+      "id": "41bcb0ddeef3995c655bc30570690083",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "branch/if",
+      "line": 297
+    },
+    {
+      "id": "52ab7713375290501ffd157c6506dc5a",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "composite/field-clear",
+      "line": 297
+    },
+    {
+      "id": "7aa032768f836c8e0767045fa2234910",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "statement/return",
+      "line": 297
+    },
+    {
+      "id": "c832b83f133cf4f4b91ee63b0c65b6c3",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "expression/error-guard",
+      "line": 307
+    },
+    {
+      "id": "0f03c7cffa2304b1276c857f9db11daf",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "branch/if",
+      "line": 308
+    },
+    {
+      "id": "fc71be7d34d6c3b2e6ae56410732b8ab",
+      "file": "internal/app/modulesync/resolver.go",
+      "mutator": "statement/return",
+      "line": 308
+    },
+    {
+      "id": "9c0deacb09af7e0a9ef51344954fb009",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "loop/range_break",
+      "line": 39
+    },
+    {
+      "id": "3a8ec6676e9d507f23511be6baa64ae4",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "conditional/bool-literal",
+      "line": 40
+    },
+    {
+      "id": "4f01aa29cc81fc9bda73e23efdebef4e",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "statement/remove",
+      "line": 40
+    },
+    {
+      "id": "d8673296ed8125f09b685ae4f18f58a4",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "expression/context-nil",
+      "line": 45
+    },
+    {
+      "id": "8d890a5e1ad0518ebd0cf1b22f470456",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "numbers/decrementer",
+      "line": 51
+    },
+    {
+      "id": "9e9e6b8525d7011dc53781d30b9b5db6",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "branch/if",
+      "line": 52
+    },
+    {
+      "id": "a7321723bf961596eb1915b9a24d0c16",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "conditional/bool-literal",
+      "line": 55
+    },
+    {
+      "id": "0f537042c70d69d31442fbb65ee28056",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "branch/if",
+      "line": 59
+    },
+    {
+      "id": "6df0f053405a60f5501c4290ad893091",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "loop/break",
+      "line": 59
+    },
+    {
+      "id": "0973e639d0821b405ec6bb190d9de6d0",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "conditional/bool-literal",
+      "line": 61
+    },
+    {
+      "id": "3f9ea0a3882c90a794d06629c43233e3",
+      "file": "internal/app/modulesync/resolver_tidy.go",
+      "mutator": "statement/remove",
+      "line": 61
+    },
+    {
+      "id": "4345d7975e55009534356c11c229d95f",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 98
+    },
+    {
+      "id": "bf90884fa793206366dc236b0a466af5",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/defer-remove",
+      "line": 113
+    },
+    {
+      "id": "32dab0e50d125815e84ee0ddb7ddb25e",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "conditional/not",
+      "line": 114
+    },
+    {
+      "id": "42ade3c2729221c83cae66708b2b5a99",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/if",
+      "line": 115
+    },
+    {
+      "id": "c788281adcf64b75dbaf128e37002f06",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/return",
+      "line": 115
+    },
+    {
+      "id": "606156dc3925ede856c34507759deeb6",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/remove",
+      "line": 117
+    },
+    {
+      "id": "102f2579ed371df61b3c6e42092dffe6",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/if",
+      "line": 137
+    },
+    {
+      "id": "f54b45c40ca3f01015ab7a873752f013",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/remove",
+      "line": 141
+    },
+    {
+      "id": "f0efb424b8b58511350eff68f25e8a00",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/remove",
+      "line": 143
+    },
+    {
+      "id": "d993ddb176bd9d7b750e54d4322206f3",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/if",
+      "line": 148
+    },
+    {
+      "id": "7cc2090c263feda49ffb36a8e9276574",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/return",
+      "line": 150
+    },
+    {
+      "id": "88fb3c062ca25a52d591153d065ce0b3",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "loop/break",
+      "line": 171
+    },
+    {
+      "id": "52a2e4341784aedc589d957bef7be8de",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/if",
+      "line": 176
+    },
+    {
+      "id": "68c53635d64bdaafbc24542045556219",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "loop/break",
+      "line": 176
+    },
+    {
+      "id": "f454f2d571cb2ca6829c1ac03f873431",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "conditional/negated",
+      "line": 183
+    },
+    {
+      "id": "035a4495d0ad7bf55beb7910163c746c",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/if",
+      "line": 184
+    },
+    {
+      "id": "f2eeb89d913fefd5b68fa8e5cec2b953",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/case",
+      "line": 188
+    },
+    {
+      "id": "9dc28ac2a0ec2cf219d6fa5cd8af3a90",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "branch/if",
+      "line": 198
+    },
+    {
+      "id": "a9b89d75e91e6b1a5600e1b2316a1b6b",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/return",
+      "line": 203
+    },
+    {
+      "id": "9bb48ed533fcebcf055b123e649f41b0",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/remove",
+      "line": 294
+    },
+    {
+      "id": "ea8d8d18e4ba5efa5e75af5a0fcc5cc0",
+      "file": "internal/core/serverbase/base.go",
+      "mutator": "statement/remove",
+      "line": 296
+    },
+    {
+      "id": "84d4cdd528c3e855e562cc685c40335b",
+      "file": "internal/provision/helpers.go",
+      "mutator": "branch/if",
+      "line": 215
+    },
+    {
+      "id": "c8203ce33411159a0157e3d688f19972",
+      "file": "internal/provision/helpers.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 215
+    },
+    {
+      "id": "75ed994a8fec2981161dce23cd5ca2fd",
+      "file": "internal/provision/helpers.go",
+      "mutator": "statement/return",
+      "line": 215
+    },
+    {
+      "id": "3a41efbd36709e6bbe91e151bc1a69ce",
+      "file": "internal/provision/helpers.go",
+      "mutator": "expression/error-guard",
+      "line": 218
+    },
+    {
+      "id": "b5ad623c79d66496c6dc655c364c2b80",
+      "file": "internal/provision/helpers.go",
+      "mutator": "branch/if",
+      "line": 219
+    },
+    {
+      "id": "405ef8aebecad51d5e23ca6168dbc261",
+      "file": "internal/provision/helpers.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 219
+    },
+    {
+      "id": "c3bc71e42d877c4c9af203823167ab4a",
+      "file": "internal/provision/helpers.go",
+      "mutator": "statement/return",
+      "line": 219
+    },
+    {
+      "id": "648cae35e3e91b0e12d4e9cafa2c7f7c",
+      "file": "internal/provision/helpers.go",
+      "mutator": "branch/if",
+      "line": 224
+    },
+    {
+      "id": "8b7e673a1fb824a0aa9d8ea350e2c9d7",
+      "file": "internal/provision/helpers.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 224
+    },
+    {
+      "id": "482261e863a3b27afc3dcfe80f507997",
+      "file": "internal/provision/helpers.go",
+      "mutator": "statement/return",
+      "line": 224
+    },
+    {
+      "id": "7334f08f09a628237d6bb323387044e9",
+      "file": "internal/provision/helpers.go",
+      "mutator": "expression/error-guard",
+      "line": 239
+    },
+    {
+      "id": "cf934758499c91104e45af86339ed817",
+      "file": "internal/provision/helpers.go",
+      "mutator": "expression/error-guard",
+      "line": 243
+    },
+    {
+      "id": "ce870404a77aaa0d68c0c72a7f53b589",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "branch/if",
+      "line": 371
+    },
+    {
+      "id": "d49f5780166eafdd2ec472cf9929a455",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "statement/return",
+      "line": 371
+    },
+    {
+      "id": "ca2fbc36cf1cf6a5066ff376117c5311",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "expression/logical",
+      "line": 378
+    },
+    {
+      "id": "31e858a1e9c7c3c8f41a49657b8ddadb",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "expression/remove",
+      "line": 378
+    },
+    {
+      "id": "4965ed3b094ce2275b46d5484396f299",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "expression/string-literal",
+      "line": 378
+    },
+    {
+      "id": "b4df4e9419368076658b04ec88ca64c1",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "statement/return",
+      "line": 383
+    },
+    {
+      "id": "7d97b9f117ebbdda2569b9cf4c0a7ec8",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "branch/if",
+      "line": 386
+    },
+    {
+      "id": "160c4ff9d174ea80642ee61e1e8e2048",
+      "file": "internal/runtime/container_provision.go",
+      "mutator": "statement/return",
+      "line": 390
+    },
+    {
+      "id": "aa47f5963611bc35b50baa9647b5af2a",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 20
+    },
+    {
+      "id": "55ac8ba4cdef8ef76f1ec2dd4c1baaba",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 26
+    },
+    {
+      "id": "8b9d7c3d47a45b2cc358b90fbcd732af",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/else",
+      "line": 29
+    },
+    {
+      "id": "2ec9a23a65514bec1785a09bce12876a",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "statement/remove",
+      "line": 30
+    },
+    {
+      "id": "056954d84a82652dd8c96fda366c4d4c",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 35
+    },
+    {
+      "id": "faaf139f6d9c02a530f4d76faf23560f",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/logical",
+      "line": 35
+    },
+    {
+      "id": "4187f46d004b5489bf14b22a67429a42",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 35
+    },
+    {
+      "id": "cc1b94aab8bb81f3baa88e2e2ebfe859",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 35
+    },
+    {
+      "id": "0e440523868c03978a29612ea5623971",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 36
+    },
+    {
+      "id": "a33d3c489c9394e05e3aa50d43e7250d",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 38
+    },
+    {
+      "id": "b0a475f928ff9c96f02dfc1e7c44f993",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "statement/return",
+      "line": 38
+    },
+    {
+      "id": "f14cc04f004363e8fff6ea53d0bae953",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 101
+    },
+    {
+      "id": "32f915ba96d5010552a859d31a24f10d",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 101
+    },
+    {
+      "id": "e373a3eab97ff69c1b8c4c1d243ef4cb",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "loop/range_break",
+      "line": 104
+    },
+    {
+      "id": "f432eb90bc9bd3aa6457febe4c45330e",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "conditional/negated",
+      "line": 105
+    },
+    {
+      "id": "6aee615e529b0e8ce65373aa8ff270cd",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 106
+    },
+    {
+      "id": "e373a3eab97ff69c1b8c4c1d243ef4cb",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "loop/range_break",
+      "line": 109
+    },
+    {
+      "id": "74c6d920ce4eb27bb957fd7c25063305",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 110
+    },
+    {
+      "id": "d8c1b525fbc132fb2914cc2fdb14b112",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 112
+    },
+    {
+      "id": "545180ded235a4211cfd3a2a85da090c",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 113
+    },
+    {
+      "id": "763664164f8f3fa0573395a58b0c9e01",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 114
+    },
+    {
+      "id": "7aeb6788a5896c1ef73258b812210f48",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 115
+    },
+    {
+      "id": "afb3eb1401f9b4da12b6b42ee436b8c0",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 116
+    },
+    {
+      "id": "68468ae3df5a2d91b2a34e8669133fb3",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 117
+    },
+    {
+      "id": "633e5399c312d93d4be40996b0e6feae",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "conditional/negated",
+      "line": 156
+    },
+    {
+      "id": "12ff45291df796a6a0ded69f310fad96",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 157
+    },
+    {
+      "id": "90d1ab2371a3677d3f2a66e61d6f5e75",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 159
+    },
+    {
+      "id": "290fa9b67352e416f9bb2811c1fb4ef1",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 162
+    },
+    {
+      "id": "0666ad7de7427d0df405b3e2e6b89bd3",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 163
+    },
+    {
+      "id": "2258e247fb18e9e660ed7b6428bda7a9",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "composite/field-clear",
+      "line": 164
+    },
+    {
+      "id": "51796e7773ce033e48420a1ebddfa7c6",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/case",
+      "line": 168
+    },
+    {
+      "id": "c9f35b4efe1bab53f1dc0a0244505fce",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 170
+    },
+    {
+      "id": "ea671db53f5a8de321a98b0a17bbb216",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 171
+    },
+    {
+      "id": "21ecae4644a1ef7ae7ae80dcc996d98a",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 172
+    },
+    {
+      "id": "aea6311c6f32b6f73718d9998ba1a721",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 173
+    },
+    {
+      "id": "a3e148b02f03cbeb34485849ed555075",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/case",
+      "line": 175
+    },
+    {
+      "id": "5c87b301a1c52f20987b861d2e178679",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 175
+    },
+    {
+      "id": "013320da79a21373fa6ab80fbda17b1d",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 176
+    },
+    {
+      "id": "1404fc633158b8a0aefcfcd0fc31b96f",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 177
+    },
+    {
+      "id": "b6e9053db94add7061ce50fb13bc112e",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 178
+    },
+    {
+      "id": "c323c56c3b466b5e05953a1cff84df00",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/case",
+      "line": 180
+    },
+    {
+      "id": "bf7a7e8c5c0b17b16675278470404b26",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 180
+    },
+    {
+      "id": "11eba44d44c6ab0f0921cb680d1bf6d8",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 181
+    },
+    {
+      "id": "3de3fa8fa4f94926a17e19bc7a890dbf",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 182
+    },
+    {
+      "id": "4386ba3aad2402e228498dbdbeaea39c",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 183
+    },
+    {
+      "id": "42658db60a0835500b32ab4edd9d6c9b",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 185
+    },
+    {
+      "id": "8e7a4c152dc031f7226c2a1017b9097d",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 236
+    },
+    {
+      "id": "74f00a3d541b0067ee60c7a3ea0d096a",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 236
+    },
+    {
+      "id": "2e5753fd2e7156d234c10f2dc73813aa",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 240
+    },
+    {
+      "id": "f4becbedb1da1e13b1b1d17d8aa10003",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 320
+    },
+    {
+      "id": "64d6a9fe921e5bcee1bd15a768e6b2d3",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 320
+    },
+    {
+      "id": "a9cf438e6e90a16465ade68734092675",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 324
+    },
+    {
+      "id": "fa124f29785a8ea4223d0131e605c584",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "conditional/negated",
+      "line": 324
+    },
+    {
+      "id": "4c71ff50962791c78bfe5af875b43cc3",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 325
+    },
+    {
+      "id": "d2151837dd2ae9304334fe8839fbaddb",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 326
+    },
+    {
+      "id": "7a5241db236784ca8b6694fce8774ac8",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "conditional/negated",
+      "line": 327
+    },
+    {
+      "id": "e3a67aacf3792bd6a3f263faeabab54c",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/error-guard",
+      "line": 327
+    },
+    {
+      "id": "b565927ee02fa6f02f80a7280d239814",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 328
+    },
+    {
+      "id": "2d8cc6259cf4638e83fa4328fb6ff54d",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 328
+    },
+    {
+      "id": "f84b4ccb401feac8d4f31d0672d03f13",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 328
+    },
+    {
+      "id": "99c4390a994b666b768e56fb6886ac7c",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 331
+    },
+    {
+      "id": "39d715299d5ee4c22fdc154cee1c2906",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 346
+    },
+    {
+      "id": "1e140b385cf2bcb3dab0fbc5d045c47d",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/logical",
+      "line": 348
+    },
+    {
+      "id": "08023df5337b205e2a47a501daeb4117",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/remove",
+      "line": 348
+    },
+    {
+      "id": "434eb1c69e6aa2e6e33e3c3e49d3cd3a",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/remove",
+      "line": 348
+    },
+    {
+      "id": "f3719f4c35ad066a29df492f0e40b2bc",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/remove",
+      "line": 348
+    },
+    {
+      "id": "f42075084874406d391dce33ce859d05",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/remove",
+      "line": 348
+    },
+    {
+      "id": "58175ee267303096a49ea34f5bacb24f",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/string-literal",
+      "line": 348
+    },
+    {
+      "id": "7ba02b00518ae6e7d5e8ef3d8ce2610c",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/string-literal",
+      "line": 348
+    },
+    {
+      "id": "e04fea9e5f059dc2796bd8d270dcf0b4",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "conditional/negated",
+      "line": 16
+    },
+    {
+      "id": "754ff95f4b9e67882773ed81c9cedf84",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "expression/error-guard",
+      "line": 16
+    },
+    {
+      "id": "dd6c03df9e1858ead28036b8abf5141e",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "expression/error-guard",
+      "line": 22
+    },
+    {
+      "id": "2fa0ea915755ba8ba5564cc1a70a2025",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "branch/if",
+      "line": 23
+    },
+    {
+      "id": "40e6adc88d093bd1614e989f3da5aad4",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 23
+    },
+    {
+      "id": "e47b86042ca90fd6ecd7794b765880c0",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/return",
+      "line": 23
+    },
+    {
+      "id": "c5b7ad47a750f05d51e09525fb07473c",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "expression/error-guard",
+      "line": 27
+    },
+    {
+      "id": "95349ae97099f3b1b63a3f9586db08e9",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "branch/if",
+      "line": 28
+    },
+    {
+      "id": "5db89f52dd4c57689ab7202bc845db92",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 28
+    },
+    {
+      "id": "b1797c41437bcf9eace617ed8ba6d50d",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/return",
+      "line": 28
+    },
+    {
+      "id": "82671f85eddb4da05c26ebf23aaeac68",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "composite/field-clear",
+      "line": 34
+    },
+    {
+      "id": "b8b439e8c1a3c6b5ccf33f3dd8bdc354",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "composite/field-clear",
+      "line": 36
+    },
+    {
+      "id": "878cdf5f8f1d5080a90a97d5dbdf8d3b",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/remove",
+      "line": 43
+    },
+    {
+      "id": "3be05f88bb65ac37b3fe7a2b8a63a1ae",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/return",
+      "line": 45
+    },
+    {
+      "id": "b9ecd73a79f914165b1d166d467b28ae",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/remove",
+      "line": 50
+    },
+    {
+      "id": "6e8e1d2b4a92cf5fbf66a526e76ec5d9",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/remove",
+      "line": 53
+    },
+    {
+      "id": "f2e95d83a50df58bb02a21dcabf4f400",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "conditional/not",
+      "line": 55
+    },
+    {
+      "id": "3400d9b396a91b8413668bbf8b19a187",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "branch/if",
+      "line": 56
+    },
+    {
+      "id": "dec0a3c2cc8cce45245ea6f8a700a4ef",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "branch/if",
+      "line": 60
+    },
+    {
+      "id": "6eaf43027e4018d328f1944f43e6c97f",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/remove",
+      "line": 60
+    },
+    {
+      "id": "c57132fb392fb58cb0ef6ce95419fe90",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/return",
+      "line": 64
+    },
+    {
+      "id": "d16e0f309258355c0702e36be46da2eb",
+      "file": "internal/sshserver/server_auth.go",
+      "mutator": "statement/return",
+      "line": 64
+    },
+    {
+      "id": "1f09fe6b7d164358b6e9924802a9af28",
+      "file": "internal/sshserver/server_conns.go",
+      "mutator": "statement/remove",
+      "line": 82
+    },
+    {
+      "id": "568961e31106744874f64c25198db80f",
+      "file": "internal/sshserver/server_conns.go",
+      "mutator": "statement/return",
+      "line": 87
+    },
+    {
+      "id": "b4981b500368cef0321c2cb09353858c",
+      "file": "internal/sshserver/server_conns.go",
+      "mutator": "statement/return",
+      "line": 87
+    },
+    {
+      "id": "4ee4e45c91d977b8c184ca6e82c3b6e8",
+      "file": "internal/watch/watcher.go",
+      "mutator": "conditional/bool-literal",
+      "line": 310
+    },
+    {
+      "id": "5ba8109e9a641eca21f1c486be1e69e1",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 311
+    },
+    {
+      "id": "ec5c6c3d818928eb0be385e31042b38d",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/return",
+      "line": 311
+    },
+    {
+      "id": "d3580eead103d50b30910410a1dff523",
+      "file": "internal/watch/watcher.go",
+      "mutator": "conditional/bool-literal",
+      "line": 315
+    },
+    {
+      "id": "74eb14b71fa5c9cdba8ed6e7853389df",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/remove",
+      "line": 315
+    },
+    {
+      "id": "1c72aab0ef1c011b08e564e7ef86f4da",
+      "file": "internal/watch/watcher.go",
+      "mutator": "numbers/decrementer",
+      "line": 324
+    },
+    {
+      "id": "57028cadc6e731b0726616b24ee63167",
+      "file": "internal/watch/watcher.go",
+      "mutator": "numbers/incrementer",
+      "line": 324
+    },
+    {
+      "id": "84ac84318770d53e44aff93ebe40534e",
+      "file": "internal/watch/watcher.go",
+      "mutator": "expression/error-guard",
+      "line": 343
+    },
+    {
+      "id": "101f37e297914d4ed3f9066cefbe6df5",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 344
+    },
+    {
+      "id": "186d0d13affca4a6f7a04f88e2201d84",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/remove",
+      "line": 353
+    },
+    {
+      "id": "367e6a2bb66771e02dcebb43b0798951",
+      "file": "internal/watch/watcher.go",
+      "mutator": "numbers/decrementer",
+      "line": 370
+    },
+    {
+      "id": "ba3751a12e2dec10caa69a5295532585",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 371
+    },
+    {
+      "id": "f5bb7646a972613c475dbba5a872a94c",
+      "file": "internal/watch/watcher.go",
+      "mutator": "conditional/negated",
+      "line": 379
+    },
+    {
+      "id": "0e9c2d97b341adf937ba6957f5373129",
+      "file": "internal/watch/watcher.go",
+      "mutator": "expression/context-nil",
+      "line": 379
+    },
+    {
+      "id": "8ecb33b0b402fcc79045bbe2a5ee650f",
+      "file": "internal/watch/watcher.go",
+      "mutator": "expression/error-guard",
+      "line": 379
+    },
+    {
+      "id": "35597bd615a370888b6b0be8e1f8b820",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 380
+    },
+    {
+      "id": "c8bbf54d8fd0fb6bc1b2524e118f8071",
+      "file": "internal/watch/watcher.go",
+      "mutator": "select/case-remove",
+      "line": 381
+    },
+    {
+      "id": "167f3211defa02c989f004384c8b7c92",
+      "file": "internal/watch/watcher.go",
+      "mutator": "select/default-remove",
+      "line": 382
+    },
+    {
+      "id": "621262f9c411f0ec40c18e9d36e280bb",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/defer-remove",
+      "line": 390
+    },
+    {
+      "id": "8f52505d518e950e54ef797ddf82e80f",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/remove",
+      "line": 401
+    },
+    {
+      "id": "0664708dd44bbc52bd18377d5b1539f7",
+      "file": "internal/watch/watcher.go",
+      "mutator": "conditional/negated",
+      "line": 402
+    },
+    {
+      "id": "443ea743ebf6b7d0f9ae5c2673ae2ee8",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 403
+    },
+    {
+      "id": "7b418ed1c86eaf72e27ee331e891ebd9",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 406
+    },
+    {
+      "id": "1cc57839a478cef9719c2a775cd0777c",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/remove",
+      "line": 413
+    },
+    {
+      "id": "11427b62738f2764ad975a3e1944f3b2",
+      "file": "internal/watch/watcher.go",
+      "mutator": "conditional/negated",
+      "line": 414
+    },
+    {
+      "id": "517f6c3fc4cf40efb17fd352d4424c5d",
+      "file": "internal/watch/watcher.go",
+      "mutator": "expression/error-guard",
+      "line": 414
+    },
+    {
+      "id": "4bb9b2c04881bae4aba3484b10fa477d",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 415
+    },
+    {
+      "id": "1cb2fdeaf2145510d1560ac5030dfb54",
+      "file": "internal/watch/watcher.go",
+      "mutator": "select/case-remove",
+      "line": 428
+    },
+    {
+      "id": "5355577468dca051e6053927a8d4a057",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 433
+    },
+    {
+      "id": "3fa9cd7214dad0185b824b4a30d63d13",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/return",
+      "line": 433
+    },
+    {
+      "id": "94368ce1abe8d7dfb6df953772fee336",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 438
+    },
+    {
+      "id": "da5005da8799640cf5a61577682029f1",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 452
+    },
+    {
+      "id": "293858fe68efc4f178e082259c5cae4c",
+      "file": "internal/watch/watcher.go",
+      "mutator": "select/case-remove",
+      "line": 470
+    },
+    {
+      "id": "f1c247e353a5fea14430b02c59217f8b",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 472
+    },
+    {
+      "id": "a9c463bea304bde253e185b55481b8d7",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/return",
+      "line": 472
+    },
+    {
+      "id": "60b531c6a838471e2fbb09ac862b8adf",
+      "file": "internal/watch/watcher.go",
+      "mutator": "branch/if",
+      "line": 478
+    },
+    {
+      "id": "4aa3bf913d85c57bd08f387c1f5c32c8",
+      "file": "internal/watch/watcher.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 478
+    },
+    {
+      "id": "ab27ca0880d077b4038f947903106312",
+      "file": "internal/watch/watcher.go",
+      "mutator": "statement/return",
+      "line": 478
+    },
+    {
+      "id": "5e1fdb413e1c47d8a99cbb9247d4d907",
+      "file": "pkg/fspath/atomic.go",
+      "mutator": "expression/logical",
+      "line": 65
+    },
+    {
+      "id": "1ed6c7eabd726fa2f8e850af8f386ce1",
+      "file": "pkg/fspath/atomic.go",
+      "mutator": "expression/remove",
+      "line": 65
+    },
+    {
+      "id": "545d7a21745f0b7c85434e2de050a5de",
+      "file": "pkg/fspath/atomic.go",
+      "mutator": "conditional/bool-literal",
+      "line": 89
+    },
+    {
+      "id": "3e3cc6097491a3bf0e0406ab94055d20",
+      "file": "pkg/fspath/atomic.go",
+      "mutator": "statement/remove",
+      "line": 89
+    },
+    {
+      "id": "9b1bffe6e4e3754e64ded03f3c579a06",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "conditional/negated",
+      "line": 328
+    },
+    {
+      "id": "67534319cf55cfcecdc29740d79565f8",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "expression/error-guard",
+      "line": 328
+    },
+    {
+      "id": "f4916216395d2b257266c1fe8bec868c",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "branch/if",
+      "line": 332
+    },
+    {
+      "id": "61683030b7933ad34c49bc7c2cc130c3",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "conditional/negated",
+      "line": 332
+    },
+    {
+      "id": "1c3e439f374421663d0c38703246fe8a",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "branch/if",
+      "line": 333
+    },
+    {
+      "id": "214cca17ca177cf2fd22edd0f814f8ce",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "statement/return",
+      "line": 333
+    },
+    {
+      "id": "05f58bfd388bb12f182273ec790f195f",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "conditional/negated",
+      "line": 336
+    },
+    {
+      "id": "058dc19cd0f595c8f1bb5a58ba690bb9",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "expression/error-guard",
+      "line": 336
+    },
+    {
+      "id": "19a1c0d61433206a22d50fefccc64ec1",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "branch/if",
+      "line": 337
+    },
+    {
+      "id": "1e52182105d2e1441b66cd9448572545",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "statement/return",
+      "line": 337
+    },
+    {
+      "id": "3135cd3d0e3f94ac9a26aba595d99428",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "conditional/negated",
+      "line": 339
+    },
+    {
+      "id": "1e36aa4270d5f2375949f40428faa56c",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "branch/if",
+      "line": 340
+    },
+    {
+      "id": "fcf2a85e6c436d048472c45f676a9855",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "statement/return",
+      "line": 340
+    },
+    {
+      "id": "819ec1e73d719b16eabde9e6deafe60e",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "branch/if",
+      "line": 344
+    },
+    {
+      "id": "d1489786fbc5a13e7635b260d51e31f7",
+      "file": "pkg/invowkfile/dependency.go",
+      "mutator": "statement/return",
+      "line": 344
+    },
+    {
+      "id": "1de88e7294e0cbba3cacdc3afc38b027",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "expression/error-guard",
+      "line": 446
+    },
+    {
+      "id": "fc6cc3c2e05267624d669d2db9db566d",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "branch/if",
+      "line": 466
+    },
+    {
+      "id": "5dc9b9d4b61e16a5f2ed9e0bb5ee5d7f",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "statement/return",
+      "line": 466
+    },
+    {
+      "id": "74824b28cee04b2be9ab4b05b8334c4c",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "branch/if",
+      "line": 511
+    },
+    {
+      "id": "dca46643a9ed0d595e13c704c29a5273",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 511
+    },
+    {
+      "id": "fe1345fb133d7a704673b245d2a57c0f",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 511
+    },
+    {
+      "id": "84304490a3b0dd667d063ad0486c4a72",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "statement/return",
+      "line": 511
+    },
+    {
+      "id": "45403da1f2aa6f3604cfcf8858361ccb",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "expression/remove",
+      "line": 513
+    },
+    {
+      "id": "81f342a5ddfe6cb8cc9192c441615595",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "expression/string-literal",
+      "line": 513
+    },
+    {
+      "id": "0e4c45bf75f8043d6bf87fd8eb6f1e95",
+      "file": "pkg/invowkfile/implementation.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 514
+    },
+    {
+      "id": "22860a41568e79a41049b0b9b502ea17",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 177
+    },
+    {
+      "id": "3162498bd99c172c62faf5dee2695f05",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 181
+    },
+    {
+      "id": "b353dfc9fef0fcd794a4b9e476cf71d8",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 185
+    },
+    {
+      "id": "91f34306a44186711686f9d65f6e955a",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 191
+    },
+    {
+      "id": "b4b146a45a548b648ea0d64fab7ba78d",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 200
+    },
+    {
+      "id": "80aaebbad816d88ed393c3959334b819",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 201
+    },
+    {
+      "id": "a599f316d03037342e1bf7589afcfac8",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 205
+    },
+    {
+      "id": "b9776d5178183d31baa03d2f21bb0ca9",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 205
+    },
+    {
+      "id": "3020cfd732028eeca87d3165a3d6f6ea",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "expression/logical",
+      "line": 205
+    },
+    {
+      "id": "77a1b7a1ef4b462e6b1bd09b61bf53b7",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "expression/remove",
+      "line": 205
+    },
+    {
+      "id": "a64d7c605ffa08ce5da0f96adbe4269d",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "expression/remove",
+      "line": 205
+    },
+    {
+      "id": "e420c5878474235b476a71eca4c9f468",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 206
+    },
+    {
+      "id": "4e07ec4329bd4ea4f60156dac909588d",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 210
+    },
+    {
+      "id": "f1dac52dbffef0cef9be8c51eeb2e3dd",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 210
+    },
+    {
+      "id": "f52f6f11d988c0c166aec1601963d74a",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "expression/logical",
+      "line": 210
+    },
+    {
+      "id": "47c2b908edbfd3261b472482df6124c8",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "expression/remove",
+      "line": 210
+    },
+    {
+      "id": "a1a1a2713a2ef47f8cf3b7f451deea30",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "expression/remove",
+      "line": 210
+    },
+    {
+      "id": "5bb0045243885ce5d15c239605a6aa90",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 211
+    },
+    {
+      "id": "ecd3c9ce53861197653972b1947a9ba2",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "conditional/negated",
+      "line": 215
+    },
+    {
+      "id": "d4b127812371aa8d3970846cbbf93d50",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 216
+    },
+    {
+      "id": "9a1750b1ef961187ad34e8ad16cb138d",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "branch/if",
+      "line": 41
+    },
+    {
+      "id": "07057a6cb76d39ed2328638e25549e96",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "statement/return",
+      "line": 41
+    },
+    {
+      "id": "b212a4224e60db19b82429d1743fc88b",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "expression/comparison",
+      "line": 43
+    },
+    {
+      "id": "0bb5fc06fd3669bac852447dd70158c2",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "branch/if",
+      "line": 44
+    },
+    {
+      "id": "7fcc79df68acb9737b34108e1afa1f52",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "statement/return",
+      "line": 44
+    },
+    {
+      "id": "b07134bcfe218ba8454b4d47630f5ffa",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "branch/if",
+      "line": 47
+    },
+    {
+      "id": "b196969c251ef9d0bb94c2ab17d1c406",
+      "file": "pkg/invowkfile/script_file_path.go",
+      "mutator": "statement/return",
+      "line": 47
+    },
+    {
+      "id": "641c2b4565d4c2d12c6cb7feb72111f1",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "branch/if",
+      "line": 65
+    },
+    {
+      "id": "3b1ed0d0d7638528ce20b34d96a925fd",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "expression/comparison",
+      "line": 69
+    },
+    {
+      "id": "680723bdcf8ef5b2590de22d1212e213",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "branch/if",
+      "line": 70
+    },
+    {
+      "id": "1c3c38df1e2a87ab9560d1cbeeec468b",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "statement/return",
+      "line": 70
+    },
+    {
+      "id": "398ce1c59d97de7da0f91935525a40b1",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "branch/if",
+      "line": 80
+    },
+    {
+      "id": "911d318fe9d223e705c4143cd4baf1b7",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "statement/return",
+      "line": 80
+    },
+    {
+      "id": "612858057260bbfe8964d97b04601f5f",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "branch/if",
+      "line": 116
+    },
+    {
+      "id": "6998a4d9272e9bfd8ea7508109f63baf",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "statement/return",
+      "line": 116
+    },
+    {
+      "id": "39c4ad29d38382939b01ed5346039597",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "expression/comparison",
+      "line": 120
+    },
+    {
+      "id": "b20406b277d3e15bacaaff7eafe11520",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "branch/if",
+      "line": 121
+    },
+    {
+      "id": "db13546002b6251bda8e6a806b04cff7",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "statement/return",
+      "line": 121
+    },
+    {
+      "id": "fcaf5605b43e994a1b75b85726f669f8",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "branch/if",
+      "line": 131
+    },
+    {
+      "id": "a3f91871534ceb9af7aaedca50ed441d",
+      "file": "pkg/invowkfile/validation_filesystem.go",
+      "mutator": "statement/return",
+      "line": 131
+    },
+    {
+      "id": "311fe584491ca9a43df8be2e326c6241",
+      "file": "pkg/invowkfile/virtual_filesystem.go",
+      "mutator": "statement/return",
+      "line": 159
+    },
+    {
+      "id": "37bda3cb0baf5690e9485bf9259f40ae",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "composite/field-clear",
+      "line": 183
+    },
+    {
+      "id": "a2232fc09f7a16a88f372712c27cc887",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "composite/field-clear",
+      "line": 185
+    },
+    {
+      "id": "62db1d9255a1a38bbd630d0bb270e825",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "branch/if",
+      "line": 188
+    },
+    {
+      "id": "47e801025a9b259e45a55abe81b20480",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "statement/remove",
+      "line": 188
+    },
+    {
+      "id": "a24cf826f01bf32fce3718e67e74d151",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "statement/return",
+      "line": 189
+    },
+    {
+      "id": "6949de92feccf28597edf3bc91e25980",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "conditional/negated",
+      "line": 193
+    },
+    {
+      "id": "a7e8e585e871050d96b7a7b1a7969dab",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "expression/remove",
+      "line": 193
+    },
+    {
+      "id": "4d53ee350e3460add6bab269d30e78d9",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "branch/if",
+      "line": 194
+    },
+    {
+      "id": "68f9f909a90ede96afe185d002f2e181",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "conditional/bool-literal",
+      "line": 194
+    },
+    {
+      "id": "75948bea9e78ed21527fc2256b32757b",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "statement/remove",
+      "line": 194
+    },
+    {
+      "id": "467c1b558e55cfd9176e46aeb3fc9a72",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "statement/return",
+      "line": 195
+    },
+    {
+      "id": "ded3e05453c085499f1dfeef47bd7fb2",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "statement/remove",
+      "line": 218
+    },
+    {
+      "id": "477da8bf838a783193e108dab0e51ce0",
+      "file": "pkg/invowkmod/command_scope.go",
+      "mutator": "statement/return",
+      "line": 219
+    },
+    {
+      "id": "36cb2ba3c77320c5944f6257e80e61f3",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "branch/if",
+      "line": 126
+    },
+    {
+      "id": "91caf9b72118414c884a2579ce0fedf2",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "conditional/not",
+      "line": 129
+    },
+    {
+      "id": "0d3bed8b18a0296f2f6971f1f35d714c",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "expression/error-guard",
+      "line": 133
+    },
+    {
+      "id": "1dba45fdbfc37e564d37b1d6256514f9",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "branch/if",
+      "line": 134
+    },
+    {
+      "id": "b156d9e885118169875af0a85e1eff20",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 134
+    },
+    {
+      "id": "6866012fc4b772615d1b1f8a81283584",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "statement/return",
+      "line": 134
+    },
+    {
+      "id": "2b2788833f74f82180c0f25054e6414e",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "statement/remove",
+      "line": 137
+    },
+    {
+      "id": "9708f6a4f91fc227c9ea5d0ee01827c9",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "branch/if",
+      "line": 141
+    },
+    {
+      "id": "d0edbfd5680f7a3dc5d34dc1deea014a",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 141
+    },
+    {
+      "id": "f491a1e8fb3a71add10dd72916bd773e",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "statement/return",
+      "line": 141
+    },
+    {
+      "id": "867e3039bb93e0c486141a5f333a467d",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "statement/remove",
+      "line": 145
+    },
+    {
+      "id": "92f73cbef747933fdc21ae330b661ab7",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "loop/range_break",
+      "line": 149
+    },
+    {
+      "id": "f7b9b2218e74da6c0ce499465013607f",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "statement/remove",
+      "line": 152
+    },
+    {
+      "id": "39c8d2d228b695c1c608f175c198540a",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "expression/error-guard",
+      "line": 155
+    },
+    {
+      "id": "af5dffa65175bbfdf859312aab2388ce",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "branch/if",
+      "line": 156
+    },
+    {
+      "id": "0e335321d61150e4c814c123ba550062",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 156
+    },
+    {
+      "id": "cfa010f48f6c4e17f4f084bd81114396",
+      "file": "pkg/invowkmod/content_hash.go",
+      "mutator": "statement/return",
+      "line": 156
+    },
+    {
+      "id": "7b21c01d79d40fca8001f36316afe70d",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "branch/if",
+      "line": 72
+    },
+    {
+      "id": "047e3e2f072d7c273d442131d00b363e",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "expression/logical",
+      "line": 74
+    },
+    {
+      "id": "69e48320f1fe523a77a037376173b9ae",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "expression/remove",
+      "line": 74
+    },
+    {
+      "id": "b59ea82910da256a462901c44bf93501",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "expression/remove",
+      "line": 74
+    },
+    {
+      "id": "293b68f78e8caa371b1e08084e33b802",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "composite/field-clear",
+      "line": 75
+    },
+    {
+      "id": "5421120e638d23dfc2fb75421b038105",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "composite/field-clear",
+      "line": 75
+    },
+    {
+      "id": "1be3f5ae5e4d2d38aba5a1ff81a402c9",
+      "file": "pkg/invowkmod/lock_integrity.go",
+      "mutator": "statement/return",
+      "line": 77
+    },
+    {
+      "id": "af88a8f68d25a2b69b0441bbc1940118",
+      "file": "pkg/invowkmod/operations_validate.go",
+      "mutator": "expression/remove",
+      "line": 194
+    },
+    {
+      "id": "86a54afe9cc1c4c792d381a669bb63e5",
+      "file": "pkg/invowkmod/operations_validate.go",
+      "mutator": "branch/if",
+      "line": 195
+    },
+    {
+      "id": "80495a0cd1cd0073dff9f8ead97f0adb",
+      "file": "pkg/invowkmod/operations_validate.go",
+      "mutator": "branch/if",
+      "line": 198
+    },
+    {
+      "id": "21049436185c8015f85ec0d9d8b0f38b",
+      "file": "pkg/invowkmod/transitive_policy.go",
+      "mutator": "expression/logical",
+      "line": 37
+    },
+    {
+      "id": "87a3948d90fea5e8c7ee8a46654a3345",
+      "file": "pkg/invowkmod/transitive_policy.go",
+      "mutator": "expression/remove",
+      "line": 37
+    },
+    {
+      "id": "cd2bb8db3e9497d310f5461237718f6c",
+      "file": "pkg/invowkmod/transitive_policy.go",
+      "mutator": "expression/remove",
+      "line": 37
+    },
+    {
+      "id": "4fd00ca4026debadb04b8f50cd449545",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "expression/logical",
+      "line": 117
+    },
+    {
+      "id": "5b1bc7a7230d4a209676ca9ba8f821e4",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "expression/logical",
+      "line": 117
+    },
+    {
+      "id": "26554930a9b340079144064d6eab8309",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "expression/remove",
+      "line": 117
+    },
+    {
+      "id": "a36b77cf47136edbbff89d056c61ccf9",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "expression/remove",
+      "line": 117
+    },
+    {
+      "id": "c3caa92c92db3c25ff4b92f99bff8e1e",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "expression/remove",
+      "line": 117
+    },
+    {
+      "id": "e4e47803f0397a84fd7ae03d26f95651",
+      "file": "pkg/invowkmod/vendored_policy.go",
+      "mutator": "expression/remove",
+      "line": 117
+    },
+    {
+      "id": "e68f0adf96fd0b11f93b18c331b05d07",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "expression/logical",
+      "line": 230
+    },
+    {
+      "id": "097436f57d196df119b2dc1dca6195a4",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "expression/remove",
+      "line": 230
+    },
+    {
+      "id": "d21b5d7fdc131bbbaf0091e5a66e1eef",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "expression/remove",
+      "line": 230
+    },
+    {
+      "id": "5f97bc5845479da34e97e3fb1e17eed5",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "branch/if",
+      "line": 231
+    },
+    {
+      "id": "10b262ec15c6f857703d45381f231894",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "statement/return",
+      "line": 231
+    },
+    {
+      "id": "517c070377f9da2ada8533308c75648c",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "composite/field-clear",
+      "line": 234
+    },
+    {
+      "id": "b686e5390ae656180985f9074782b6f1",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "composite/field-clear",
+      "line": 267
+    },
+    {
+      "id": "a9860ef4cffbdf71af34177a187e19b9",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "statement/return",
+      "line": 271
+    },
+    {
+      "id": "3dd41b19e3cb1de8570fcd887f5db313",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "expression/logical",
+      "line": 279
+    },
+    {
+      "id": "2c748822f44b918126466313c5ea48ea",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "expression/remove",
+      "line": 279
+    },
+    {
+      "id": "f7d1cee78b98cef5fea83c713bf501af",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "expression/remove",
+      "line": 279
+    },
+    {
+      "id": "2bc8b6f104d8c9532e81cd4d9069335f",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "branch/if",
+      "line": 280
+    },
+    {
+      "id": "963921ba87777d5df898dc56efded45e",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "composite/field-clear",
+      "line": 280
+    },
+    {
+      "id": "12cf1b6f160142b3d82584fdff396539",
+      "file": "pkg/invowkmod/verify.go",
+      "mutator": "composite/field-clear",
+      "line": 285
+    }
+  ]
 }

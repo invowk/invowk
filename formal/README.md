@@ -341,10 +341,16 @@ property, a stated abstraction, or a finding. Closed gaps are listed in the
 model's `calibration` by mutant id. `.agents/rules/commands.md` has the
 profiles; `.agents/skills/formal-verification/SKILL.md` has the feedback loop.
 
-The first run (2026-09-25) mutated 49 functions in 30 files: 809 mutants, 310
-killed, 441 escaped, 58 skipped (mutants that do not build), 0 errored, and 22
-of the kills were timeouts. Eight functions had no kill at all, because the
-binding their row names never calls them (see the triage ledger).
+The first run (2026-09-25) mutated 49 functions in 30 files in 28 minutes:
+809 mutants, 310 killed, 441 escaped, 58 skipped (mutants that do not build),
+0 errored, and 22 of the kills were timeouts. A stronger copy assertion in the
+path-containment golden closed 19 escapes; the other 419 are deferred
+binding gaps, grouped by function in `tasks/next/formal-binding-gaps.md`. Seven
+rows name a binding that never calls their function (`validateDestinationPath`,
+`LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`,
+`Invowkfile.GetEffectiveWorkDir`, `VirtualFilesystemConfig.EffectiveAccess`,
+`newVirtualPathResolverForFilesystem`, `standardVirtualAnchorsForOS`). No
+survivor was shown to be a product defect, so no finding was recorded.
 
 ## Decision record: rejected tools
 
