@@ -35,7 +35,7 @@
 
 - [x] 4.1 Add `--target-set root|formal-bindings` / `MUTATION_TARGET_SET` to `scripts/mutation.sh`. Route `resolve_targets`, `baseline_path`, and `profile_report_dir` (`artifacts/mutation/<profile>/formal-bindings/`), and reject `pr`. Update the usage block for `MUTATION_TARGET_SET` and `MUTATION_FORMAL_EXEC_TIMEOUT`
 - [x] 4.2 Build the formal-bindings arguments: `--match`, `--exec`, `--exec-timeout` (the maximum per-file timeout), the baseline, and the logger flags. Do not pass `--coverage`, `--per-test`, `--test-flags`, or `--timeout-coefficient`. Export `MUTATION_FORMAL_PLAN` into the `export_rapid_determinism_env` subshell
-- [x] 4.3 Make the rerun profile for the target set append `{id, status, timestamp, commit}` to `tools/mutation/triage/formal-bindings-reruns.jsonl`
+- [x] 4.3 Make the rerun profile for the target set append `{id, status, timestamp, digest}` (digest of the plan inputs; `commit` informational) to `tools/mutation/triage/formal-bindings-reruns.jsonl`
 - [x] 4.4 Extend `dirty_path_is_allowed` (the baseline, the ledger, and the rerun evidence) and `write_run_metadata` (`target_set`, timeout-kill count per file)
 - [x] 4.5 Add the Make targets `mutation-formal-dry-run`, `mutation-formal`, `mutation-formal-baseline-update`, and `mutation-formal-rerun`, their help lines, and the help env-var lines for the two new variables
 - [x] 4.6 Extend `scripts/test_mutation.sh` for target-set argument construction, report paths, `pr` rejection, rerun evidence appends, and the allowed dirty paths

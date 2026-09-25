@@ -115,8 +115,8 @@ Any other outcome fails the whole profile before a mutant runs. The clean wall t
 ### D5. Determinism and rerun evidence
 - The exec script runs inside the `export_rapid_determinism_env` subshell and enforces all three rapid variables (D3, step 1).
 - `-count=1` disables the result cache.
-- Two tests depend on goroutine scheduling: `TestServerbase_ConcurrentSafetyInvariants` and `TestRevocationRacesAuthenticationSafely`. Each `mutation-formal-rerun` appends `{id, status, timestamp, commit}` to the tracked evidence file `tools/mutation/triage/formal-bindings-reruns.jsonl`.
-- The triage check requires, for every baselined ID, at least two `escaped` rerun records at the current baseline's commit or later. `confirmed_reruns` is therefore derived from recorded evidence, not typed in by hand.
+- Two tests depend on goroutine scheduling: `TestServerbase_ConcurrentSafetyInvariants` and `TestRevocationRacesAuthenticationSafely`. Each `mutation-formal-rerun` appends `{id, status, timestamp, digest}` (plus `commit`, information only) to the tracked evidence file `tools/mutation/triage/formal-bindings-reruns.jsonl`, where `digest` is a SHA-256 over the plan inputs (the mutated target files and the files declaring their killer tests, sorted by path, each as path + NUL + bytes).
+- The baseline records the same digest of the inputs it was generated from. The triage check requires, for every baselined ID, at least two `escaped` rerun records whose digest equals the baseline's, and no other status at that digest. Commit ancestry is not used: every PR is squash-merged and its branch deleted, so the commits the evidence was recorded at never reach `main`, while the digest survives squash merges, rebases, and fresh clones as long as the inputs are unchanged. `confirmed_reruns` is therefore derived from recorded evidence, not typed in by hand.
 
 ### D6. Separate baseline and a checked triage ledger
 go-mutesting's baseline stores only `{id, file, mutator, line}`. The reasons live in `tools/mutation/triage/formal-bindings.toml`:
@@ -138,10 +138,12 @@ follow_up = ""          # required for binding-gap, model-gap (change or task) a
 - `binding-gap` or `model-gap` has no `follow_up`;
 - `defect` has no `follow_up` naming a finding id that exists as a `finding =` command in `formal/manifest.toml`;
 - an `abstraction` reason is not a substring of the abstraction cell of the row identified by `model` and `element`, after collapsing whitespace (quotes are compared literally, as the example shows);
-- an ID lacks two escaped rerun records (D5);
+- the baseline carries no input digest, or an ID lacks two escaped rerun records at the baseline's digest (D5);
 - an ID recorded as closed (see D7) is missing from its model's `calibration` text.
 
 IDs are identical across executors (Context, fact 5), so this baseline and the root baseline can be compared directly when needed.
+
+*Revision (evidence identity):* the first implementation stamped the baseline and each rerun with a commit and accepted a rerun only when `git merge-base --is-ancestor <baseline commit> <rerun commit>` held. Squash merges drop those commits from `main`'s history, so the check would fail on `main` and in fresh clones. The digest replaced the commit. The existing evidence was migrated without rerunning: the digest was recomputed from each stamped commit's tree (`git show <commit>:<path>`) and compared with the digest at the rebased HEAD; the baseline commit and both rerun commits matched, so all 860 records were kept and none dropped.
 
 The check runs in `make test-scripts` only, through `scripts/test_formal_mutation.py` and a `triage --check` over the committed files, and from `mutation-formal-baseline-update`. It does not join `make formal`, so `promote-formal-ci-gate`'s `[ci] paths` need not cover the two files.
 

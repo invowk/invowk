@@ -15,7 +15,9 @@
 #   - an abstraction reason, whitespace-collapsed, is a substring of the row's
 #     abstraction cell;
 #   - every id has at least two `escaped` records in formal-bindings-reruns.jsonl
-#     at the baseline's generation commit or a descendant, and no other status.
+#     whose `digest` equals the baseline's input digest, and no other status
+#     there (the digest covers the target files and the files declaring their
+#     killer tests, so it survives squash merges).
 #
 # Classes:
 #   equivalent   the mutant cannot change observable behaviour

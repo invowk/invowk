@@ -545,11 +545,14 @@ test_formal_rerun_evidence() {
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
 	printf '{"killedCount":0,"escapedCount":1,"errorCount":0,"skippedCount":0}\n' >"$tmp/summary.json"
-	formal_mutation rerun-record --summary "$tmp/summary.json" --id abc --reruns "$tmp/reruns.jsonl" >/dev/null
-	formal_mutation rerun-record --summary "$tmp/summary.json" --id abc --reruns "$tmp/reruns.jsonl" >/dev/null
+	printf 'A' >"$tmp/a.go"
+	printf '{"version": 1, "root": "%s", "inputs": ["a.go"]}\n' "$tmp" >"$tmp/plan.json"
+	formal_mutation rerun-record --plan "$tmp/plan.json" --summary "$tmp/summary.json" --id abc --reruns "$tmp/reruns.jsonl" >/dev/null
+	formal_mutation rerun-record --plan "$tmp/plan.json" --summary "$tmp/summary.json" --id abc --reruns "$tmp/reruns.jsonl" >/dev/null
 	assert_eq "rerun evidence appends one record per rerun" "2" "$(wc -l <"$tmp/reruns.jsonl" | tr -d ' ')"
 	assert_file_contains "rerun evidence records the status" '"status": "escaped"' "$tmp/reruns.jsonl"
-	assert_file_contains "rerun evidence records the commit" "\"commit\": \"$(git -C "$REPO_ROOT" rev-parse HEAD)\"" "$tmp/reruns.jsonl"
+	assert_file_contains "rerun evidence records the input digest" \
+		"\"digest\": \"$(printf 'a.go\0A' | sha256sum | cut -d' ' -f1)\"" "$tmp/reruns.jsonl"
 }
 
 test_formal_dirty_path_policy() {

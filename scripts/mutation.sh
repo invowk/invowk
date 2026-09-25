@@ -865,7 +865,7 @@ run_formal_rerun() {
 			interrupted_status "$id_status" && return "$id_status"
 		done
 		if formal_mutation merge-reports --report-dir "$report_dir/$mutant" >/dev/null &&
-			formal_mutation rerun-record --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant" \
+			formal_mutation rerun-record --plan "$plan" --summary "$report_dir/$mutant/go-mutesting-summary.json" --id "$mutant" \
 				--reruns "$REPO_ROOT/$FORMAL_RERUNS_FILE"; then
 			:
 		else

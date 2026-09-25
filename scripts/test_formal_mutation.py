@@ -146,6 +146,8 @@ class PlanTests(Fixture):
         )
         # a/a.go declares Server.Validate, which the leaf of b/b.go's Validate
         # would select, so the two files run in separate invocations.
+        # Target files plus the files declaring their killers.
+        self.assertEqual(plan["inputs"], ["a/a.go", "a/a_formal_test.go", "b/b.go", "b/b_golden_test.go"])
         self.assertEqual(plan["groups"], [
             {"match": "^(Decide|Stop)$", "files": ["a/a.go"]},
             {"match": "^(Validate)$", "files": ["b/b.go"]},
@@ -338,15 +340,27 @@ class RerunAndReportTests(unittest.TestCase):
     def test_append_rerun(self) -> None:
         path = self.dir / "reruns.jsonl"
         now = datetime.datetime(2026, 9, 25, 12, 0, tzinfo=datetime.UTC)
-        fm.append_rerun(path, "abc", "escaped", "c0ffee", now)
-        fm.append_rerun(path, "abc", "escaped", "c0ffee", now)
+        fm.append_rerun(path, "abc", "escaped", "d1", "c0ffee", now)
+        fm.append_rerun(path, "abc", "killed", "d1", now=now)
         self.assertEqual(
             fm.read_reruns(path),
-            [{"commit": "c0ffee", "id": "abc", "status": "escaped", "timestamp": "2026-09-25T12:00:00Z"}] * 2,
+            [{"commit": "c0ffee", "digest": "d1", "id": "abc", "status": "escaped", "timestamp": "2026-09-25T12:00:00Z"},
+             {"digest": "d1", "id": "abc", "status": "killed", "timestamp": "2026-09-25T12:00:00Z"}],
         )
-        path.write_text('{"id": "abc", "status": "maybe", "timestamp": "t", "commit": "c"}\n')
-        with self.assertRaisesRegex(PlanError, "malformed rerun record"):
-            fm.read_reruns(path)
+        for bad in ('{"id": "abc", "status": "maybe", "timestamp": "t", "digest": "d"}',
+                    '{"id": "abc", "status": "escaped", "timestamp": "t", "commit": "c"}'):
+            path.write_text(bad + "\n")
+            with self.subTest(bad=bad), self.assertRaisesRegex(PlanError, "malformed rerun record"):
+                fm.read_reruns(path)
+
+    def test_inputs_digest(self) -> None:
+        files = {"b.go": b"B", "a.go": b"A"}
+        digest = fm.inputs_digest(files, files.__getitem__)
+        self.assertEqual(digest, fm.hashlib.sha256(b"a.go\0Ab.go\0B").hexdigest())
+        self.assertNotEqual(digest, fm.inputs_digest(files, {"a.go": b"A", "b.go": b"C"}.__getitem__))
+        (self.dir / "a.go").write_bytes(b"A")
+        (self.dir / "b.go").write_bytes(b"B")
+        self.assertEqual(fm.plan_digest({"inputs": ["b.go", "a.go"], "root": str(self.dir)}), digest)
 
     def write_group(self, n: int, stats: dict, escaped: list[dict], baseline: list[dict]) -> None:
         group = self.dir / f"group-{n}"
@@ -370,8 +384,8 @@ class RerunAndReportTests(unittest.TestCase):
             "file\tkilled\tescaped\tskipped\terrored\ttimeout-kill\nf0.go\t3\t1\t0\t0\t1\nf1.go\t1\t0\t0\t0\t0\n",
         )
         out = self.dir / "baseline.json"
-        self.assertEqual(fm.merge_baselines(self.dir, out, "c0ffee"), 1)
-        self.assertEqual(json.loads(out.read_text())["commit"], "c0ffee")
+        self.assertEqual(fm.merge_baselines(self.dir, out, "d1"), 1)
+        self.assertEqual(json.loads(out.read_text())["digest"], "d1")
 
     def test_merge_without_groups_fails(self) -> None:
         with self.assertRaisesRegex(PlanError, "no group-"):
@@ -399,13 +413,13 @@ class TriageTests(Fixture):
         return entry
 
     def check(self, survivors: list[dict], baseline_ids: list[str] | None = None, reruns: list[dict] | None = None,
-              closed: list[dict] | None = None, commit: str = "base") -> list[str]:
+              closed: list[dict] | None = None, digest: str = "base") -> list[str]:
         ids = [s["id"] for s in survivors] if baseline_ids is None else baseline_ids
-        baseline = {"version": 1, "commit": commit, "mutants": [{"id": i, "file": "a/a.go", "mutator": "m", "line": 1} for i in ids]}
+        baseline = {"version": 1, "digest": digest, "mutants": [{"id": i, "file": "a/a.go", "mutator": "m", "line": 1} for i in ids]}
         if reruns is None:
-            reruns = [{"id": i, "status": "escaped", "timestamp": "t", "commit": "base"} for i in ids for _ in range(2)]
+            reruns = [{"id": i, "status": "escaped", "timestamp": "t", "digest": "base"} for i in ids for _ in range(2)]
         ledger = {"survivor": survivors, "closed": closed or []}
-        return fm.check_triage(baseline, ledger, reruns, self.models, root=self.root, is_ancestor=lambda a, b: a == b)
+        return fm.check_triage(baseline, ledger, reruns, self.models, root=self.root)
 
     def test_valid_ledger_passes(self) -> None:
         self.assertEqual(self.check([self.survivor()], closed=[{"id": "closed1", "model": "M"}]), [])
@@ -442,15 +456,15 @@ class TriageTests(Fixture):
         self.assertIn("fields must be", self.check([bad])[0])
 
     def test_reruns_are_required(self) -> None:
-        one = [{"id": "s1", "status": "escaped", "timestamp": "t", "commit": "base"}]
+        one = [{"id": "s1", "status": "escaped", "timestamp": "t", "digest": "base"}]
         self.assertIn("baseline id s1: 1 recorded escaped rerun(s)", self.check([self.survivor()], reruns=one)[0])
-        stale = [{"id": "s1", "status": "escaped", "timestamp": "t", "commit": "older"}] * 2
+        stale = [{"id": "s1", "status": "escaped", "timestamp": "t", "digest": "older inputs"}] * 2
         self.assertIn("baseline id s1: 0 recorded escaped rerun(s)", self.check([self.survivor()], reruns=stale)[0])
-        flaky = one * 2 + [{"id": "s1", "status": "killed", "timestamp": "t", "commit": "base"}]
+        flaky = one * 2 + [{"id": "s1", "status": "killed", "timestamp": "t", "digest": "base"}]
         self.assertIn("baseline id s1: inconsistent rerun evidence (killed as well as escaped)", self.check([self.survivor()], reruns=flaky))
 
-    def test_baseline_needs_a_generation_commit(self) -> None:
-        self.assertIn("baseline: no generation commit", self.check([self.survivor()], commit="")[0])
+    def test_baseline_needs_an_input_digest(self) -> None:
+        self.assertIn("baseline: no input digest", self.check([self.survivor()], digest="")[0])
 
     def test_closed_ids_must_be_calibrated(self) -> None:
         failures = self.check([], closed=[{"id": "closed2", "model": "M"}, {"id": "x", "model": "Nope"}])

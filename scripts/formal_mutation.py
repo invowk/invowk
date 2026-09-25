@@ -25,7 +25,7 @@ Usage:
     scripts/formal_mutation.py exec-args --plan FILE --original PATH --changed PATH [--overlay-out FILE]
     scripts/formal_mutation.py preflight-record --plan FILE --file PATH --json FILE --status N --seconds S
     scripts/formal_mutation.py rerun-scope --plan FILE [--hint REPORT ...] ID ...
-    scripts/formal_mutation.py rerun-record --summary FILE --id ID [--reruns FILE]
+    scripts/formal_mutation.py rerun-record --plan FILE --summary FILE --id ID [--reruns FILE]
     scripts/formal_mutation.py merge-reports --report-dir DIR
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
     scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE]
@@ -36,7 +36,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime
-import functools
+import hashlib
 import json
 import math
 import os
@@ -79,6 +79,7 @@ CLOSED_KEYS = {"id", "model"}
 REQUIRED_ESCAPED_RERUNS = 2
 # go-mutesting's result classes, as named in report.json and the rerun evidence.
 RERUN_STATUSES = ("killed", "escaped", "skipped", "errored")
+RERUN_REQUIRED_KEYS = {"id", "status", "timestamp", "digest"}
 
 # A gofmt'd top-level function declaration: optional receiver (named or not,
 # pointer or not, generic or not), the name, optional type parameters, then `(`.
@@ -160,14 +161,11 @@ def find_function(decls: list[FuncDecl], symbol: str) -> FuncDecl | None:
     return found[0] if found else None
 
 
-def test_declarations(root: Path) -> dict[str, set[str]]:
-    """Test name -> directories (relative, POSIX) whose test files declare it."""
-    index: dict[str, set[str]] = {}
-    for path in formal.go_test_files(root):
-        rel_dir = path.parent.relative_to(root).as_posix()
-        for test in formal.TEST_FUNC_RE.findall(path.read_text()):
-            index.setdefault(test, set()).add(rel_dir)
-    return index
+def test_declarations(root: Path) -> tuple[dict[str, set[str]], dict[str, list[Path]]]:
+    """Test name -> directories (relative, POSIX) whose test files declare it,
+    and test name -> the declaring files (formal.test_function_files)."""
+    files = formal.test_function_files(root)
+    return {test: {path.parent.as_posix() for path in paths} for test, paths in files.items()}, files
 
 
 def go_list_packages(dirs: Iterable[str], root: Path = REPO_ROOT) -> dict[str, str]:
@@ -248,7 +246,7 @@ def build_plan(
 
     rows = model_rows(models, root)
     noted = formal.characterisation_tests([[r.element, r.symbol, r.file, r.binding, r.abstraction] for r in rows])
-    declared = test_declarations(root)
+    declared, declaring_files = test_declarations(root)
     decls_by_file: dict[str, list[FuncDecl]] = {}
     functions: dict[tuple[str, str], dict] = {}
     unbound = []
@@ -308,6 +306,8 @@ def build_plan(
     resolve = resolve_packages or (lambda dirs: go_list_packages(dirs, root))
     killer_dirs = {next(iter(declared[t])) for entry in functions.values() for t in entry["killers"]}
     packages = resolve(killer_dirs)
+    inputs = {entry["file"] for entry in functions.values()}
+    inputs.update(path.as_posix() for entry in functions.values() for t in entry["killers"] for path in declaring_files[t])
     ordered = []
     for key in sorted(functions):
         entry = functions[key]
@@ -320,6 +320,9 @@ def build_plan(
         "root": str(root.resolve()),
         "files": sorted({entry["file"] for entry in ordered}),
         "groups": groups,
+        # What decides a mutant's outcome: the target files and the files that
+        # declare their killer tests. Its digest identifies rerun evidence.
+        "inputs": sorted(inputs),
         "functions": ordered,
         "unbound": sorted(unbound, key=lambda u: (u["model"], u["element"], u["symbol"])),
         "preflight": {},
@@ -342,6 +345,33 @@ def load_plan(path: Path) -> dict:
     if plan.get("version") != PLAN_VERSION:
         raise PlanError(f"{path}: unsupported plan version {plan.get('version')!r}")
     return plan
+
+
+def inputs_digest(paths: Iterable[str], read: Callable[[str], bytes]) -> str:
+    """SHA-256 over the plan inputs, sorted by path, each as path + NUL +
+    bytes. Rerun evidence and the baseline carry it, so evidence stays valid
+    across squash merges and rebases as long as the inputs are unchanged."""
+    digest = hashlib.sha256()
+    for path in sorted(paths):
+        digest.update(path.encode() + b"\0" + read(path))
+    return digest.hexdigest()
+
+
+def worktree_reader(root: Path = REPO_ROOT) -> Callable[[str], bytes]:
+    return lambda path: (root / path).read_bytes()
+
+
+def git_reader(commit: str) -> Callable[[str], bytes]:
+    """Read a path from the tree of `commit` (git show <commit>:<path>)."""
+    def read(path: str) -> bytes:
+        return subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "show", f"{commit}:{path}"], capture_output=True, check=True
+        ).stdout
+    return read
+
+
+def plan_digest(plan: dict, read: Callable[[str], bytes] | None = None) -> str:
+    return inputs_digest(plan["inputs"], read or worktree_reader(Path(plan["root"])))
 
 
 def functions_in(plan: dict, file: str) -> list[dict]:
@@ -534,13 +564,19 @@ def summary_status(summary: dict) -> str:
     return hit[0]
 
 
-def append_rerun(reruns: Path, mutant_id: str, status: str, commit: str, now: datetime.datetime | None = None) -> dict:
+def append_rerun(
+    reruns: Path, mutant_id: str, status: str, digest: str, commit: str = "", now: datetime.datetime | None = None
+) -> dict:
+    """Append one rerun outcome. `digest` (of the plan inputs) decides
+    freshness; `commit` is information only."""
     record = {
         "id": mutant_id,
         "status": status,
         "timestamp": (now or datetime.datetime.now(datetime.UTC)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "commit": commit,
+        "digest": digest,
     }
+    if commit:
+        record["commit"] = commit
     reruns.parent.mkdir(parents=True, exist_ok=True)
     with reruns.open("a") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
@@ -560,10 +596,10 @@ def group_dirs(report_dir: Path) -> list[Path]:
     return dirs
 
 
-def merge_baselines(report_dir: Path, out: Path, commit: str) -> int:
+def merge_baselines(report_dir: Path, out: Path, digest: str) -> int:
     """Merge the per-group baselines go-mutesting wrote into one file, stamped
-    with the commit it was generated at (rerun evidence must be from that
-    commit or a descendant)."""
+    with the digest of the plan inputs it was generated from (rerun evidence
+    counts only at the same digest)."""
     mutants = []
     for group in group_dirs(report_dir):
         path = group / "baseline.json"
@@ -571,7 +607,7 @@ def merge_baselines(report_dir: Path, out: Path, commit: str) -> int:
             raise PlanError(f"{path}: go-mutesting wrote no baseline for this group")
         mutants += read_baseline(path)["mutants"]
     mutants.sort(key=lambda m: (m["file"], m["line"], m["mutator"], m["id"]))
-    out.write_text(json.dumps({"version": 1, "commit": commit, "mutants": mutants}, indent=2) + "\n")
+    out.write_text(json.dumps({"version": 1, "digest": digest, "mutants": mutants}, indent=2) + "\n")
     return len(mutants)
 
 
@@ -642,19 +678,10 @@ def read_reruns(path: Path) -> list[dict]:
         if not raw.strip():
             continue
         record = json.loads(raw)
-        if set(record) != {"id", "status", "timestamp", "commit"} or record["status"] not in RERUN_STATUSES:
+        if not RERUN_REQUIRED_KEYS <= set(record) <= RERUN_REQUIRED_KEYS | {"commit"} or record["status"] not in RERUN_STATUSES:
             raise PlanError(f"{path}:{number}: malformed rerun record {raw!r}")
         records.append(record)
     return records
-
-
-def git_is_ancestor(ancestor: str, descendant: str) -> bool:
-    if ancestor == descendant:
-        return True
-    return subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", ancestor, descendant],
-        capture_output=True, check=False,
-    ).returncode == 0
 
 
 def check_triage(
@@ -663,7 +690,6 @@ def check_triage(
     reruns: list[dict],
     models: list[formal.Model],
     root: Path = REPO_ROOT,
-    is_ancestor: Callable[[str, str], bool] = git_is_ancestor,
 ) -> list[str]:
     """Every fail-closed condition of the triage ledger (design D6)."""
     failures = []
@@ -712,19 +738,18 @@ def check_triage(
                 f"of {row.model} row {row.element!r} ({row.abstraction!r})"
             )
 
-    stamp = baseline.get("commit", "")
+    stamp = baseline.get("digest", "")
     if baseline_ids and not stamp:
-        failures.append("baseline: no generation commit; rerun `make mutation-formal-baseline-update`")
-    fresh = functools.cache(lambda commit: bool(stamp) and is_ancestor(stamp, commit))
+        failures.append("baseline: no input digest; rerun `make mutation-formal-baseline-update`")
     by_id: dict[str, list[dict]] = {}
     for record in reruns:
         by_id.setdefault(record["id"], []).append(record)
     for mutant in sorted(baseline_ids):
-        evidence = [r for r in by_id.get(mutant, []) if fresh(r["commit"])]
+        evidence = [r for r in by_id.get(mutant, []) if stamp and r["digest"] == stamp]
         escaped = sum(1 for r in evidence if r["status"] == "escaped")
         if escaped < REQUIRED_ESCAPED_RERUNS:
             failures.append(
-                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at or after the baseline commit, "
+                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at the baseline's input digest, "
                 f"need {REQUIRED_ESCAPED_RERUNS} (make mutation-formal-rerun MUTATION_MUTANT_ID={mutant})"
             )
         flaky = sorted({r["status"] for r in evidence} - {"escaped"})
@@ -771,6 +796,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--status", type=int, required=True)
     p.add_argument("--seconds", type=float, required=True)
     p = sub.add_parser("rerun-record")
+    p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--summary", type=Path, required=True)
     p.add_argument("--id", required=True)
     p.add_argument("--reruns", type=Path, default=RERUNS)
@@ -829,8 +855,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"pre-flight {args.file}: clean {record['clean_seconds']}s, exec timeout {record['timeout_seconds']}s")
         elif args.action == "rerun-record":
             status = summary_status(json.loads(args.summary.read_text()))
-            record = append_rerun(args.reruns, args.id, status, git("rev-parse", "HEAD"))
-            print(f"rerun evidence: {record['id']} {record['status']} at {record['commit'][:12]}")
+            digest = plan_digest(load_plan(args.plan))
+            record = append_rerun(args.reruns, args.id, status, digest, git("rev-parse", "HEAD"))
+            print(f"rerun evidence: {record['id']} {record['status']} at inputs {digest[:12]}")
         elif args.action == "rerun-scope":
             for mutant, group, file in rerun_scope(load_plan(args.plan), args.ids, args.hint):
                 print(f"{mutant}\t{group}\t{file}")
@@ -841,7 +868,7 @@ def main(argv: list[str] | None = None) -> int:
                   f"{stats['escapedCount']} escaped, {stats['skippedCount']} skipped, {stats['errorCount']} errored "
                   f"(MSI {stats['msi']}%); per file: {args.report_dir / 'per-file.tsv'}")
         elif args.action == "merge-baselines":
-            count = merge_baselines(args.report_dir, args.baseline, git("rev-parse", "HEAD"))
+            count = merge_baselines(args.report_dir, args.baseline, plan_digest(load_plan(args.report_dir / PLAN_FILE)))
             print(f"formal-bindings baseline: {count} surviving mutant(s) -> {args.baseline}")
         elif args.action == "triage":
             _tools, models = formal.load_manifest()
