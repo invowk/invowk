@@ -14,8 +14,9 @@
     A6  (filesystem assumption, not POSIX) rename is atomic across a crash:
         the durable entry names either the old or the new inode, never neither.
 
-  SyncFile and SyncDir parameterise the two fsync calls the code does not
-  make today (finding F3).
+  SyncFile and SyncDir parameterise the two fsync calls. The code makes both
+  since finding F3 was fixed; the configurations without them are kept as
+  regression mutants.
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
 \*
@@ -78,6 +79,11 @@ Fail == pc \in {"create", "write1", "write2", "sync", "rename"}
     /\ Keep(<<tmpData, fileSynced, targetInode, dirSynced, crashContent, returnedOk>>)
 
 \* A5 + A6: the surviving entry and data are nondeterministic unless synced.
+\* fsync(dir) can fail after the rename: the new content is in place, and the
+\* error reports that its durability is unknown.
+FailDir == pc = "syncdir" /\ SyncDir /\ pc' = "failed" /\ returnedErr' = TRUE
+    /\ Keep(<<tmpVisible, tmpData, fileSynced, targetInode, dirSynced, crashContent, returnedOk>>)
+
 PowerLoss == pc /= "crashed"
     /\ \E durTarget \in (IF dirSynced THEN {targetInode} ELSE {"old", targetInode}),
          durData \in (IF fileSynced THEN {"new"} ELSE {"empty", tmpData}) :
@@ -87,7 +93,7 @@ PowerLoss == pc /= "crashed"
 
 Finished == pc \in {"done", "failed", "crashed"} /\ UNCHANGED vars
 
-Next == Create \/ Write1 \/ Write2 \/ FsyncFile \/ Rename \/ FsyncDir \/ Fail \/ PowerLoss \/ Finished
+Next == Create \/ Write1 \/ Write2 \/ FsyncFile \/ Rename \/ FsyncDir \/ Fail \/ FailDir \/ PowerLoss \/ Finished
 Spec == Init /\ [][Next]_vars
 
 TypeOK == crashContent \in {"none", "old", "new", "empty", "partial"}

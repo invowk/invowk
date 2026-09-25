@@ -487,15 +487,16 @@ witness = true
 name = "AtomicWrite"
 tool = "tla"
 file = "formal/tla/AtomicWrite.tla"
-calibration = """2026-09-24: under the named POSIX axioms TLC shows finding F3 (no fsync: power \\
+calibration = """2026-09-25: finding F3 is fixed; the base configuration makes both fsyncs and \\
+the pre-fix configurations are regression mutants. 2026-09-24: under the named POSIX axioms TLC showed finding F3 (no fsync: power \\
 loss can leave an empty lock file even though readers never see partial \\
 content), that fsync(file) alone restores D-Atomic, and that fsync(file) plus \\
 fsync(dir) are needed for D-Commit. The real-filesystem binding detects two \\
 seeded defects (no temp cleanup, rename before write)."""
 
 [model.constants]
-SyncFile = "FALSE"
-SyncDir = "FALSE"
+SyncFile = "TRUE"
+SyncDir = "TRUE"
 Mutant = "\"none\""
 
 [[model.command]]
@@ -522,46 +523,52 @@ expect = "counterexample"
 property = "TempRemovedOnError"
 mutant_of = "tempRemovedOnError"
 
-# Finding F3: D-Atomic needs fsync(file); D-Commit needs fsync(file) and fsync(dir).
+# F3 (fixed): D-Atomic needs fsync(file); D-Commit needs fsync(file) and fsync(dir).
+# The code makes both; the configurations without them are regression mutants.
 [[model.command]]
-name = "durableAtomicWithFileSync"
-constants = { SyncFile = "TRUE" }
+name = "durableAtomicFileSyncOnly"
+constants = { SyncFile = "TRUE", SyncDir = "FALSE" }
 expect = "pass"
 property = "DurableAtomic"
+dead_actions = ["FailDir"]
 
 [[model.command]]
-name = "findingF3DurableAtomicCurrent"
-finding = "F3"
+name = "mutantPreFixNoSyncAtomic"
+constants = { SyncFile = "FALSE", SyncDir = "FALSE" }
 expect = "counterexample"
 property = "DurableAtomic"
-mutant_of = "durableAtomicWithFileSync"
+mutant_of = "durableAtomicFileSyncOnly"
+
+[[model.command]]
+name = "durableAtomic"
+expect = "pass"
+property = "DurableAtomic"
 
 [[model.command]]
 name = "durableAtomicDirSyncOnly"
-constants = { SyncDir = "TRUE" }
+constants = { SyncFile = "FALSE", SyncDir = "TRUE" }
 expect = "counterexample"
 property = "DurableAtomic"
-mutant_of = "durableAtomicWithFileSync"
+mutant_of = "durableAtomic"
 
 [[model.command]]
-name = "durableCommitWithFullSync"
-constants = { SyncFile = "TRUE", SyncDir = "TRUE" }
+name = "durableCommit"
 expect = "pass"
 property = "DurableCommit"
 
 [[model.command]]
-name = "findingF3DurableCommitCurrent"
-finding = "F3"
+name = "mutantPreFixNoSyncCommit"
+constants = { SyncFile = "FALSE", SyncDir = "FALSE" }
 expect = "counterexample"
 property = "DurableCommit"
-mutant_of = "durableCommitWithFullSync"
+mutant_of = "durableCommit"
 
 [[model.command]]
 name = "durableCommitFileSyncOnly"
-constants = { SyncFile = "TRUE" }
+constants = { SyncFile = "TRUE", SyncDir = "FALSE" }
 expect = "counterexample"
 property = "DurableCommit"
-mutant_of = "durableCommitWithFullSync"
+mutant_of = "durableCommit"
 
 [[model.command]]
 name = "witnessCrashAfterReturn"
