@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -292,5 +293,35 @@ func TestTidyPassesLockedModulesToEveryRound(t *testing.T) {
 	}
 	if rounds != 2 {
 		t.Fatalf("rounds = %d, want 2", rounds)
+	}
+}
+
+// TestSyncRefetchesWhenLockedEntryHasNoHash covers finding F4 on the sync side:
+// a v1.0 lock entry records a commit but no content hash, so it cannot vouch
+// for a cached copy. Sync must replace a tampered cache with the verified-commit
+// fetch and record that content's hash, instead of trusting the cache.
+func TestSyncRefetchesWhenLockedEntryHasNoHash(t *testing.T) {
+	t.Parallel()
+
+	f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
+	first := f.mustSync(t)
+
+	// Rewrite the lock as a v1.0 file: same entry, no content hash.
+	lockPath := filepath.Join(f.workDir, LockFileName)
+	v1 := regexp.MustCompile(`(?m)^\s*content_hash:.*\n`).ReplaceAll(f.readLock(t), nil)
+	v1 = bytes.Replace(v1, []byte(`version: "2.0"`), []byte(`version: "1.0"`), 1)
+	if err := os.WriteFile(lockPath, v1, 0o644); err != nil {
+		t.Fatalf("WriteFile(lock) error = %v", err)
+	}
+	if lock, err := invowkmod.LoadLockFile(lockPath); err != nil || lock.Modules[ModuleRefKey(integrityTestGitURL)].ContentHash != "" {
+		t.Fatalf("fixture: v1.0 lock = %+v, %v; want an entry without content hash", lock, err)
+	}
+	if err := os.WriteFile(filepath.Join(string(first.CachePath), "invowkfile.cue"), []byte(integrityTestChangedContent), 0o644); err != nil {
+		t.Fatalf("WriteFile(tamper cache) error = %v", err)
+	}
+
+	second := f.mustSync(t)
+	if second.ContentHash != first.ContentHash {
+		t.Fatalf("sync recorded %s from the tampered cache, want the fetched content's %s", second.ContentHash, first.ContentHash)
 	}
 }

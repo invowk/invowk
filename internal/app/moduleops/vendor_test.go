@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -35,6 +36,29 @@ func (r *fakeVendorDependencyResolver) LoadDeclaredFromLock(context.Context, []i
 // ============================================================================
 // Tests for Vendored Modules
 // ============================================================================
+
+// hashed fills each module's ContentHash from the module directory in its
+// cache, as a v2.0 lock file records it; vendoring rejects entries without one.
+func hashed(tb testing.TB, mods []*invowkmod.ResolvedModule) []*invowkmod.ResolvedModule {
+	tb.Helper()
+	for _, mod := range mods {
+		if mod.ContentHash != "" {
+			continue
+		}
+		// Locate the module the way VendorModules does; a cache path that
+		// cannot be located is left unhashed for the test that expects it to fail.
+		dir, _, err := modulecache.LocateModuleInDir(mod.CachePath)
+		if err != nil {
+			continue
+		}
+		hash, err := invowkmod.ComputeModuleHash(string(dir))
+		if err != nil {
+			tb.Fatalf("ComputeModuleHash(%s) error = %v", dir, err)
+		}
+		mod.ContentHash = hash
+	}
+	return mods
+}
 
 func TestVendoredModulesDir(t *testing.T) {
 	t.Parallel()
@@ -355,10 +379,10 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*invowkmod.ResolvedModule{
+		Modules: hashed(t, []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
 			{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
-		},
+		}),
 	})
 	if err != nil {
 		t.Fatalf("VendorModules() error: %v", err)
@@ -425,13 +449,13 @@ func TestVendorModules_UsesCanonicalDestinationFromModuleID(t *testing.T) {
 
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*invowkmod.ResolvedModule{{
+		Modules: hashed(t, []*invowkmod.ResolvedModule{{
 			CachePath:   types.FilesystemPath(cacheDir),
 			Namespace:   "io.example.tools@1.2.3",
 			ModuleID:    "io.example.tools",
 			ContentHash: hash,
 			ModuleRef:   invowkmod.ModuleRef{GitURL: "https://github.com/user/tools.git", Version: "^1.0.0"},
-		}},
+		}}),
 	})
 	if err != nil {
 		t.Fatalf("VendorModules() error: %v", err)
@@ -465,11 +489,11 @@ func TestVendorModules_PrunesRepositoryDerivedDestination(t *testing.T) {
 
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*invowkmod.ResolvedModule{{
+		Modules: hashed(t, []*invowkmod.ResolvedModule{{
 			CachePath: types.FilesystemPath(cacheDir),
 			Namespace: "io.example.tools@1.2.3",
 			ModuleID:  "io.example.tools",
-		}},
+		}}),
 		Prune: true,
 	})
 	if err != nil {
@@ -665,7 +689,7 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 	// Vendor once
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
+		Modules:    hashed(t, []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}}),
 	})
 	if err != nil {
 		t.Fatalf("first VendorModules() error: %v", err)
@@ -681,7 +705,7 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 	// Vendor again — should overwrite, removing the stale marker
 	_, err = VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
+		Modules:    hashed(t, []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}}),
 	})
 	if err != nil {
 		t.Fatalf("second VendorModules() error: %v", err)
@@ -703,10 +727,10 @@ func TestVendorModules_Prune(t *testing.T) {
 	// Vendor both modules initially
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*invowkmod.ResolvedModule{
+		Modules: hashed(t, []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
 			{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
-		},
+		}),
 	})
 	if err != nil {
 		t.Fatalf("initial VendorModules() error: %v", err)
@@ -715,7 +739,7 @@ func TestVendorModules_Prune(t *testing.T) {
 	// Now vendor only dep1 with prune — dep2 should be removed
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
+		Modules:    hashed(t, []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}}),
 		Prune:      true,
 	})
 	if err != nil {
@@ -750,7 +774,7 @@ func TestVendorModules_EmptyModulesList(t *testing.T) {
 
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*invowkmod.ResolvedModule{},
+		Modules:    hashed(t, []*invowkmod.ResolvedModule{}),
 	})
 	if err != nil {
 		t.Fatalf("VendorModules() error: %v", err)
@@ -774,9 +798,9 @@ func TestVendorModules_InvalidCachePath(t *testing.T) {
 
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*invowkmod.ResolvedModule{
+		Modules: hashed(t, []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-cache")), Namespace: "bad@1.0.0"},
-		},
+		}),
 	})
 	if err == nil {
 		t.Fatal("VendorModules() should error with nonexistent cache path")

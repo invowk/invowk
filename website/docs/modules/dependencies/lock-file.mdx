@@ -63,6 +63,8 @@ In both cases the lock file is not rewritten.
 
 When a module resolves to a **different** version, because you changed its constraint or `invowk module update` found a newer match, the old entry's commit and hash are not applied. The new version's values become the next baseline. A module with no lock entry yet is recorded on its first sync with a warning that it has no integrity baseline.
 
+A v1.0 lock file records no content hashes, so its entries cannot detect tampering. Discovery and `invowk module vendor` reject vendored modules backed by such entries, and sync fetches a fresh copy instead of trusting the cache. Run `invowk module sync` once to upgrade the lock file to v2.0.
+
 If an upstream re-tag or content change is intentional, run `invowk module remove <git-url>` and then `invowk module add` the module again. That records a new baseline without editing the generated lock file by hand. If you suspect the local cache was modified instead, delete the module's cache directory named in the error.
 
 ## Common Workflows

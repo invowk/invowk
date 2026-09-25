@@ -11,8 +11,8 @@
   (`Good` or a different version, `Other`) is verified against P's lock.
 
   Three findings are characterised, each with a fix configuration:
-    F5  fresh-cache sync trusted fetched content      (FixedSync)
-    F4  a v1.0 lock without hashes disables checks     (RejectUnhashed)
+    F5  fresh-cache sync trusted fetched content      (FixedSync, fixed)
+    F4  a v1.0 lock without hashes disabled checks     (RejectUnhashed, fixed)
     F6  admission via C's lock, integrity via P's lock (CheckCallerHash)
 *)
 \* Correspondence (checked by `scripts/formal.py correspondence`):
@@ -23,7 +23,7 @@
 \* | Sync commit check | LockedModule.ExpectedContentHash | pkg/invowkmod/lock_integrity.go | TestSyncRejectsRepointedTag | - |
 \* | Sync cache handling | Resolver.cacheModule | internal/app/modulesync/cache.go | TestSyncExistingCacheRejectsTamperedContent | content hashing abstracted to content equality |
 \* | Vendor | VendorModules | internal/app/moduleops/vendor.go | - | vendoring copies the cache after checking the locked hash |
-\* | Discover | VerifyLockedVendoredModuleHash | pkg/invowkmod/verify.go | TestLockIntegrity_FindingF4HashlessEntryAcceptsAnyContent | - |
+\* | Discover | VerifyLockedVendoredModuleHash | pkg/invowkmod/verify.go | TestLockIntegrity_HashlessEntryIsRejected | - |
 \* | CallViaSibling | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_FindingF6AdmissionIgnoresCallerHash | P's copy is assumed consistent with P's own lock |
 EXTENDS Naturals
 
