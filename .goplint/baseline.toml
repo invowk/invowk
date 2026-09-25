@@ -2,7 +2,7 @@
 #
 # goplint baseline — accepted DDD compliance findings
 # Regenerate: make update-baseline
-# Total: 71 findings
+# Total: 75 findings
 
 # Struct fields using nonzero types as value (non-pointer)
 [nonzero-value-field]
