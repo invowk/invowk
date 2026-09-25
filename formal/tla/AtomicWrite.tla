@@ -24,7 +24,7 @@
 \* |---|---|---|---|---|
 \* | steps | atomicWriteFile | pkg/fspath/atomic.go | TestAtomicWriteFile_FailureAtEveryStep | chmod folded into create; one writer |
 \* | cleanup | atomicWriteOps | pkg/fspath/atomic.go | TestAtomicWriteFile_FailureAtEveryStep | temp files left by a process crash are an expected abstraction |
-\* | caller | LockFile.Save | pkg/invowkmod/lockfile.go | - | concurrent multi-process writers not modelled |
+\* | caller | LockFile.Save | pkg/invowkmod/lockfile.go | - | one writer; concurrent multi-process writers are modelled by ConcurrentModuleEdits |
 EXTENDS Naturals
 
 CONSTANTS SyncFile, SyncDir, Mutant

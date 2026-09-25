@@ -63,6 +63,11 @@ tool or a model.
 - Thread seeded defects through a `Mutant` constant inside the real actions.
 - Record a finding with `finding = "F<n>"` on the current-code command, and give
   the fixed property its own mutant; a finding never guards a property.
+- Select per-process programs with a string `Scenario` constant and a `CASE`
+  inside the spec (`ConcurrentModuleEdits`): TLC configurations cannot assign
+  function values, and no new manifest key is needed.
+- Check circular wait between mutexes as an invariant (`NoCircularWait`), with
+  explicit stuttering only in a terminal state, so the deadlock check stays on.
 - Trace validation: a Go `Test<Model>_TraceHarness` gated by
   `INVOWK_FORMAL_TRACE_DIR` calls `tlatrace.WriteSuite(t, "<Model>", traces)`
   (use `tlatrace.Recorder` to record one entry per projection change).
@@ -106,5 +111,5 @@ and afterwards require `snapshot --compare` to report every entry identical.
 ```sh
 make formal
 python3 scripts/test_formal.py
-go test ./internal/app/deps/ ./internal/app/modulesync/ ./pkg/invowkmod/ ./internal/container/
+go test ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./pkg/invowkmod/ ./internal/container/
 ```

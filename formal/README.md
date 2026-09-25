@@ -98,6 +98,7 @@ antecedents, witnesses, and mutants failed and exposed it.
 | `AtomicWrite` | TLA+ | visible and durable state of the atomic lock write under power loss | real-filesystem failure injection at every step |
 | `HostCallbackToken` | TLA+ | SSH host-callback token and session lifetime across executions | rapid state machine over the token API |
 | `Watch` | TLA+ | debounce loop safety and no-lost-burst liveness under fairness | skip-if-busy scenario on a fake timer checked against `time.AfterFunc` |
+| `ConcurrentModuleEdits` | TLA+ | two module commands interleaved step by step over `invowkmod.cue`, the lock, the shared module cache, and `invowk_modules/`, with advisory-lock and atomic-restore fix configurations | deterministic gated replays of F8, F9, and the stale-vendor case against the real `Resolver` and `vendorDependenciesWithResolver` |
 
 ### Golden vectors
 
@@ -163,6 +164,9 @@ change.
 | F5 | lock integrity | Fresh-cache sync trusted fetched content and rewrote the lock hash | Fixed by #142; `LockIntegrity.f5FixedSync` passes | (shipped) |
 | F6 | lock integrity | A sibling's vendored copy is admitted through the caller's lock without the caller's hash | Fixed: admission compares the caller's locked hash with the discovered copy; the pre-fix code is kept as `LockIntegrity.mutantPreFixF6AdmitByIdentity` | (shipped) |
 | F7 | SSH tokens | A session opened with a token outlives its execution; revocation blocks only new logins | Fixed: revocation closes the connections the token authenticated; the pre-fix code is kept as `HostCallbackToken.mutantPreFixF7RevokeKeepsSessions` | (shipped) |
+| F8 | concurrent module commands | Lost updates: sync or update saves a lock built from files read before its fetch, dropping a concurrent add or resurrecting a concurrent remove, and a duplicate add's rollback erases another process's successful add (`ConcurrentModuleEdits.findingF8*`; `TestConcurrentEdits_FindingF8_*`) | Open: fix requires maintainer approval | a per-project advisory mutex held from before the first read until after the last write or rollback |
+| F9 | module cache | Two projects sharing the cache fetch two versions of one repository through its single worktree, so a lock records one version's commit with the other's content hash (`ConcurrentModuleEdits.findingF9SharedWorktreeRecordsWrongContent`; `TestConcurrentEdits_FindingF9_SharedWorktreeRecordsWrongContent`) | Open: fix requires maintainer approval | a per-source mutex from checkout until the verified cache copy, always taken after the project mutex |
+| F10 | module add rollback | The rollback restores `invowkmod.cue` and the lock with `os.WriteFile`, which truncates in place, so a concurrent reader sees an empty or partial file (`ConcurrentModuleEdits.findingF10NonAtomicRollback`; model-only, as `os.WriteFile` has no seam) | Open: fix requires maintainer approval | an atomic restore (temp file and rename) |
 
 Two hypotheses were refuted: an empty `SourceID` on module targets
 (`ScopeConstruction` keeps discovery's guarantee as a fact, and a mutant shows
@@ -170,6 +174,14 @@ what breaks without it), and an empty identity in v2.0 locks
 (`LockIdentity.v2NeverUnhashed`). No login succeeds after its execution ends
 (`HostCallbackToken.noAuthAfterExecution`), and the watch loop never loses a
 burst (`Watch.noLostBurst`).
+
+`ConcurrentModuleEdits` also reported a defect that has no id yet, recorded as a
+proposed finding and escalated for id allocation: `module vendor` returns ok
+after copying the modules named by a lock that a concurrent update replaced
+(`ConcurrentModuleEdits.proposedVendorFromStaleLock`;
+`TestConcurrentEdits_VendorFromStaleLock`). Discovery rejects the stale copy
+against the new lock, so it fails closed. The project mutex fixes it. None of
+the F8, F9, or F10 hypotheses was refuted.
 
 ## Mutation testing
 
