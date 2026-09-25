@@ -89,14 +89,17 @@ func newTestGitRepo(t *testing.T, versions, extraTags []string) GitURL {
 		}
 	}
 
-	// Normalize to a valid file:// URL on all platforms.
-	// On Windows t.TempDir() returns "C:\Users\...", which must become
-	// "file:///C:/Users/..." (three slashes, forward slashes per RFC 8089).
+	return fileGitURL(dir)
+}
+
+// fileGitURL normalizes a local repository directory to a valid file:// URL on
+// all platforms. On Windows t.TempDir() returns "C:\Users\...", which must
+// become "file:///C:/Users/..." (three slashes, forward slashes per RFC 8089).
+func fileGitURL(dir string) GitURL {
 	urlPath := filepath.ToSlash(dir)
 	if !strings.HasPrefix(urlPath, "/") {
 		urlPath = "/" + urlPath
 	}
-
 	return GitURL("file://" + urlPath)
 }
 

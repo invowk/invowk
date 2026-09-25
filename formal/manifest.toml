@@ -835,3 +835,290 @@ package = "./pkg/fspath/"
 [[trace]]
 name = "Watch"
 package = "./internal/watch/"
+
+[[model]]
+name = "ConcurrentModuleEdits"
+tool = "tla"
+file = "formal/tla/ConcurrentModuleEdits.tla"
+calibration = """2026-09-25: TLC reproduces F8 on today's code in all four scenarios \
+(sync_add, update_add, update_remove, add_add_same), F9 (fetch_v1_v2), and F10 \
+(rollback_read); no hypothesised id was refuted. vendor_sync also fails: vendor \
+returns ok from a lock replaced before its copy finished, so it is recorded as \
+proposed finding proposedVendorFromStaleLock without an id and escalated (discovery \
+later rejects the stale copy, so it fails closed). The project mutex fixes F8 and \
+the vendor case, the project-and-source mutexes fix F9 and never deadlock, and an \
+atomic restore fixes F10; each fix has a non-finding mutant. Go replays confirm \
+F8 (four TestConcurrentEdits_FindingF8_* tests), F9, and the vendor case; F10 is \
+model-only. The replays detect five seeded remedies, one at a time: update \
+re-reading the lock before saving, sync keeping the current lock's entries, one \
+worktree per version, a duplicate add skipping the rollback, and vendor rejecting \
+a lock changed while it copied. Total: 31 commands, 2585 distinct states; `scripts/formal.py \
+tla ConcurrentModuleEdits` takes 18 s wall time on 16 cores (218 s CPU, dominated \
+by JVM start-up), the input to promote-formal-ci-gate's budget_seconds."""
+
+[model.constants]
+Procs = "{p1, p2}"
+Projects = "{pA}"
+Scenario = "\"sync_add\""
+AdvisoryLock = "\"none\""
+AtomicRestore = "FALSE"
+Mutant = "\"none\""
+
+# F8 (open): sync rebuilds the lock from requires read before its fetch.
+[[model.command]]
+name = "syncAddProjectLock"
+constants = { AdvisoryLock = "\"project\"" }
+expect = "pass"
+property = "LockMatchesRequires"
+dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
+distinct_states = 49
+
+[[model.command]]
+name = "findingF8SyncOverwritesConcurrentAdd"
+finding = "F8"
+expect = "counterexample"
+property = "LockMatchesRequires"
+mutant_of = "syncAddProjectLock"
+distinct_states = 80
+
+[[model.command]]
+name = "mutantReleaseBetweenFiles"
+constants = { AdvisoryLock = "\"project\"", Mutant = "\"release_between_files\"" }
+expect = "counterexample"
+property = "LockMatchesRequires"
+mutant_of = "syncAddProjectLock"
+distinct_states = 74
+
+# F8 (open): update saves the lock it read before its fetch.
+[[model.command]]
+name = "updateAddProjectLock"
+constants = { Scenario = "\"update_add\"", AdvisoryLock = "\"project\"" }
+expect = "pass"
+property = "NoLostUpdate"
+dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
+distinct_states = 46
+
+[[model.command]]
+name = "findingF8UpdateOverwritesConcurrentAdd"
+finding = "F8"
+constants = { Scenario = "\"update_add\"" }
+expect = "counterexample"
+property = "NoLostUpdate"
+mutant_of = "updateAddProjectLock"
+distinct_states = 89
+
+[[model.command]]
+name = "mutantUpdateAddLockAfterSnapshot"
+constants = { Scenario = "\"update_add\"", AdvisoryLock = "\"project\"", Mutant = "\"lock_after_snapshot\"" }
+expect = "counterexample"
+property = "NoLostUpdate"
+mutant_of = "updateAddProjectLock"
+distinct_states = 89
+
+[[model.command]]
+name = "updateRemoveProjectLock"
+constants = { Scenario = "\"update_remove\"", AdvisoryLock = "\"project\"" }
+expect = "pass"
+property = "NoLostUpdate"
+dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
+distinct_states = 43
+
+[[model.command]]
+name = "findingF8UpdateResurrectsConcurrentRemove"
+finding = "F8"
+constants = { Scenario = "\"update_remove\"" }
+expect = "counterexample"
+property = "NoLostUpdate"
+mutant_of = "updateRemoveProjectLock"
+distinct_states = 80
+
+[[model.command]]
+name = "mutantUpdateRemoveLockAfterSnapshot"
+constants = { Scenario = "\"update_remove\"", AdvisoryLock = "\"project\"", Mutant = "\"lock_after_snapshot\"" }
+expect = "counterexample"
+property = "NoLostUpdate"
+mutant_of = "updateRemoveProjectLock"
+distinct_states = 83
+
+# F8 (open): a duplicate add restores snapshots taken before the other add.
+[[model.command]]
+name = "addAddSameProjectLock"
+constants = { Scenario = "\"add_add_same\"", AdvisoryLock = "\"project\"" }
+expect = "pass"
+property = "NoLostUpdate"
+dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "VendorRemove", "VendorCopy"]
+distinct_states = 71
+
+[[model.command]]
+name = "findingF8DuplicateAddRollsBackOtherAdd"
+finding = "F8"
+constants = { Scenario = "\"add_add_same\"" }
+expect = "counterexample"
+property = "NoLostUpdate"
+mutant_of = "addAddSameProjectLock"
+distinct_states = 342
+
+[[model.command]]
+name = "mutantAddAddLockAfterSnapshot"
+constants = { Scenario = "\"add_add_same\"", AdvisoryLock = "\"project\"", Mutant = "\"lock_after_snapshot\"" }
+expect = "counterexample"
+property = "NoLostUpdate"
+mutant_of = "addAddSameProjectLock"
+distinct_states = 192
+
+# F10 (open): the rollback's os.WriteFile truncates in place.
+[[model.command]]
+name = "rollbackReadAtomicRestore"
+constants = { Scenario = "\"rollback_read\"", AtomicRestore = "TRUE" }
+expect = "pass"
+property = "ReadersSeeWholeFiles"
+dead_actions = ["Checkout", "CopyToCache", "RestoreRemove", "RestoreTruncate", "VendorRemove", "VendorCopy", "Acquire", "Release"]
+distinct_states = 52
+
+[[model.command]]
+name = "findingF10NonAtomicRollback"
+finding = "F10"
+constants = { Scenario = "\"rollback_read\"" }
+expect = "counterexample"
+property = "ReadersSeeWholeFiles"
+mutant_of = "rollbackReadAtomicRestore"
+distinct_states = 31
+
+[[model.command]]
+name = "mutantRestoreRemoveThenWrite"
+constants = { Scenario = "\"rollback_read\"", AtomicRestore = "TRUE", Mutant = "\"restore_remove_then_write\"" }
+expect = "counterexample"
+property = "ReadersSeeWholeFiles"
+mutant_of = "rollbackReadAtomicRestore"
+distinct_states = 31
+
+# F9 (open): one worktree per URL is shared by concurrent fetches of two versions.
+[[model.command]]
+name = "fetchProjectAndSourceLock"
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}", AdvisoryLock = "\"project_and_source\"" }
+expect = "pass"
+property = "LockHashMatchesCommit"
+dead_actions = ["Fetch", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
+distinct_states = 196
+
+[[model.command]]
+name = "findingF9SharedWorktreeRecordsWrongContent"
+finding = "F9"
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}" }
+expect = "counterexample"
+property = "LockHashMatchesCommit"
+mutant_of = "fetchProjectAndSourceLock"
+distinct_states = 47
+
+[[model.command]]
+name = "mutantNoSourceLock"
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}", AdvisoryLock = "\"project\"" }
+expect = "counterexample"
+property = "LockHashMatchesCommit"
+mutant_of = "fetchProjectAndSourceLock"
+distinct_states = 67
+
+# Proposed finding (no id; escalated): vendor returns ok with copies of a lock
+# that a concurrent update replaced before the vendor returned.
+[[model.command]]
+name = "vendorSyncProjectLock"
+constants = { Scenario = "\"vendor_sync\"", AdvisoryLock = "\"project\"" }
+expect = "pass"
+property = "VendorMatchesFinalLock"
+dead_actions = ["Snapshot", "Checkout", "CopyToCache", "WriteMod", "RestoreRemove", "RestoreTruncate", "RestoreWrite"]
+distinct_states = 40
+
+[[model.command]]
+name = "proposedVendorFromStaleLock"
+constants = { Scenario = "\"vendor_sync\"" }
+expect = "counterexample"
+property = "VendorMatchesFinalLock"
+distinct_states = 30
+
+[[model.command]]
+name = "mutantVendorOutsideLock"
+constants = { Scenario = "\"vendor_sync\"", AdvisoryLock = "\"project\"", Mutant = "\"vendor_outside_lock\"" }
+expect = "counterexample"
+property = "VendorMatchesFinalLock"
+mutant_of = "vendorSyncProjectLock"
+distinct_states = 38
+
+# Two mutexes: a fixed acquisition order (project, then source) never deadlocks.
+[[model.command]]
+name = "noCircularWait"
+constants = { Scenario = "\"sync_update_same_source\"", AdvisoryLock = "\"project_and_source\"" }
+expect = "pass"
+property = "NoCircularWait"
+dead_actions = ["Snapshot", "Fetch", "WriteMod", "RestoreRemove", "RestoreTruncate", "RestoreWrite", "VendorRemove", "VendorCopy"]
+distinct_states = 58
+
+[[model.command]]
+name = "mutantReverseOrder"
+constants = { Scenario = "\"sync_update_same_source\"", AdvisoryLock = "\"project_and_source\"", Mutant = "\"reverse_order\"" }
+expect = "counterexample"
+property = "NoCircularWait"
+mutant_of = "noCircularWait"
+distinct_states = 11
+
+[[model.command]]
+name = "witnessFetchOverlap"
+expect = "counterexample"
+property = "WitnessNoFetchOverlap"
+witness = true
+distinct_states = 29
+
+[[model.command]]
+name = "witnessRollback"
+constants = { Scenario = "\"add_add_same\"" }
+expect = "counterexample"
+property = "WitnessNoRollback"
+witness = true
+distinct_states = 318
+
+[[model.command]]
+name = "witnessPartialFile"
+constants = { Scenario = "\"rollback_read\"" }
+expect = "counterexample"
+property = "WitnessNoPartialFile"
+witness = true
+distinct_states = 24
+
+[[model.command]]
+name = "witnessVendorOverlap"
+constants = { Scenario = "\"vendor_vendor\"" }
+expect = "counterexample"
+property = "WitnessNoVendorOverlap"
+witness = true
+distinct_states = 24
+
+[[model.command]]
+name = "witnessProjectLockAllOk"
+constants = { AdvisoryLock = "\"project\"" }
+expect = "counterexample"
+property = "WitnessNotAllOk"
+witness = true
+distinct_states = 48
+
+[[model.command]]
+name = "witnessSourceLockAllOk"
+constants = { Scenario = "\"fetch_v1_v2\"", Projects = "{pA, pB}", AdvisoryLock = "\"project_and_source\"" }
+expect = "counterexample"
+property = "WitnessNotAllOk"
+witness = true
+distinct_states = 195
+
+[[model.command]]
+name = "witnessAtomicRestoreAllOk"
+constants = { Scenario = "\"rollback_read\"", AtomicRestore = "TRUE" }
+expect = "counterexample"
+property = "WitnessNotAllOk"
+witness = true
+distinct_states = 51
+
+[[model.command]]
+name = "witnessLockOrderAllOk"
+constants = { Scenario = "\"sync_update_same_source\"", AdvisoryLock = "\"project_and_source\"" }
+expect = "counterexample"
+property = "WitnessNotAllOk"
+witness = true
+distinct_states = 57
