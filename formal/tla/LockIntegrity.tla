@@ -37,7 +37,7 @@
 \* | Vendor lock load | Resolver.LoadDeclaredFromLock | internal/app/modulesync/resolver.go | TestLockIntegrity_TraceHarness | RequireV2 fails a v1.0 lock before anything is copied |
 \* | Discover | VerifyLockedVendoredModuleHash | pkg/invowkmod/verify.go | TestLockIntegrity_HashlessEntryIsRejected | - |
 \* | CallViaSibling | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_SiblingCopyMustMatchCallerHash | P's copy is assumed consistent with P's own lock |
-\* | CallViaSibling, hashless entry | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy | an entry without a hash admits by identity only (F12) |
+\* | CallViaSibling, hashless entry | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestLockIntegrity_HashlessCallerEntryAdmitsSiblingCopy | characterisation: an entry without a hash admits by identity only (F12) |
 EXTENDS Naturals
 
 CONSTANTS FixedSync, RejectUnhashed, CheckCallerHash, AdmitRequiresCallerHash, LegacyLock, Mutant

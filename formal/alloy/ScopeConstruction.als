@@ -15,10 +15,10 @@
 //
 // | model element | Go symbol | file | binding | abstraction |
 // |---|---|---|---|---|
-// | allowedImpl | buildCommandScope | internal/app/deps/deps.go | TestScopeConstructionGoldenVectors | caller is always a module command (root callers get no scope) |
-// | allowedImpl | commandScopeDecision | internal/app/deps/deps.go | TestScopeConstructionGoldenVectors | - |
-// | allowedImpl | CommandScope.CanCallTarget | pkg/invowkmod/command_scope.go | TestScopeConstructionGoldenVectors | target.Validate() assumed to pass: atoms map to valid IDs |
-// | declaredLocked | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestScopeConstructionGoldenVectors | lock identity uses explicit module_id and command_source_id |
+// | allowedImpl | buildCommandScope | internal/app/deps/deps.go | TestScopeConstructionGoldenVectors, TestScopeConstruction_MatchesIntent | caller is always a module command (root callers get no scope) |
+// | allowedImpl | commandScopeDecision | internal/app/deps/deps.go | TestScopeConstructionGoldenVectors, TestScopeConstruction_MatchesIntent | - |
+// | allowedImpl | CommandScope.CanCallTarget | pkg/invowkmod/command_scope.go | TestScopeConstructionGoldenVectors, TestScopeConstruction_MatchesIntent | target.Validate() assumed to pass: atoms map to valid IDs |
+// | declaredLocked | IsDeclaredLockedCommandSource | pkg/invowkmod/vendored_policy.go | TestScopeConstructionGoldenVectors, TestScopeConstruction_MatchesIntent | lock identity uses explicit module_id and command_source_id |
 // | srcUnique | CheckModuleCollisions | internal/discovery/discovery.go | - | discovery fact, not re-checked here |
 // | modUnlessExplicit | CheckModuleCollisions | internal/discovery/discovery.go | - | discovery fact, not re-checked here |
 // | moduleSourcesHaveIDs | moduleIdentityFor | internal/discovery/discovery.go | - | discovery fact: module-backed sources always get a SourceID |

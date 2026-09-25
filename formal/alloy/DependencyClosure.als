@@ -18,7 +18,7 @@
 // |---|---|---|---|---|
 // | diagKeys | CheckMissingTransitiveDeps | pkg/invowkmod/transitive_policy.go | TestDependencyClosureGoldenVectors | diagnostics compared as a key set; attribution order ignored |
 // | diagKeys | CheckMissingVendoredTransitiveDeps | pkg/invowkmod/transitive_policy.go | TestDependencyClosureGoldenVectors | vendored metadata requires modelled as the same relation |
-// | tidyResult | tidyToFixedPoint | internal/app/modulesync/resolver_tidy.go | TestTidyToFixedPoint_MatchesClosure | round count and termination checked by rapid |
+// | tidyResult | tidyToFixedPoint | internal/app/modulesync/resolver_tidy.go | TestTidyToFixedPoint_GoldenVectors, TestTidyToFixedPoint_MatchesClosure | round count and termination checked by rapid |
 // | resolved | Resolver.resolveAll | internal/app/modulesync/resolver_deps.go | - | every declared key resolves to exactly one module |
 // | Mod.key | ModuleRef.Key | pkg/invowkmod/dependency_types.go | - | version is not part of the key |
 

@@ -4,11 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       module:
-        description: "Mutation module profile to run"
+        description: "Mutation module profile to run (root target set only)"
         type: choice
         default: root
         options:
           - root
+      target_set:
+        description: "Mutation targets: curated root packages, or the functions named by the formal models' correspondence tables"
+        type: choice
+        default: root
+        options:
+          - root
+          - formal-bindings
 
 concurrency:
   group: mutation-testing-${{ github.ref }}
@@ -20,9 +27,11 @@ env:
 
 jobs:
   manual-full:
-    name: Manual full advisory
+    name: Manual full advisory (${{ github.event.inputs.target_set }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The formal-bindings executor forces one worker and replays golden vectors
+    # without -short; raise this budget (not -short) if a run outgrows it.
+    timeout-minutes: ${{ github.event.inputs.target_set == 'formal-bindings' && 90 || 60 }}
     permissions:
       contents: read
     steps:
@@ -43,12 +52,18 @@ jobs:
       - name: Run full mutation profile
         env:
           SELECTED_MODULE: ${{ github.event.inputs.module }}
-        run: make mutation-full MUTATION_MODULE="$SELECTED_MODULE" MUTATION_MODE=advisory
+          SELECTED_TARGET_SET: ${{ github.event.inputs.target_set }}
+        run: |
+          if [ "$SELECTED_TARGET_SET" = "formal-bindings" ]; then
+            make mutation-formal MUTATION_MODE=advisory
+          else
+            make mutation-full MUTATION_MODULE="$SELECTED_MODULE" MUTATION_MODE=advisory
+          fi
 
       - name: Upload mutation reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mutation-full-${{ github.event.inputs.module }}
-          path: artifacts/mutation/full/
+          name: mutation-full-${{ github.event.inputs.target_set == 'formal-bindings' && 'formal-bindings' || github.event.inputs.module }}
+          path: artifacts/mutation/full/${{ github.event.inputs.target_set == 'formal-bindings' && 'formal-bindings' || github.event.inputs.module }}/
           if-no-files-found: warn

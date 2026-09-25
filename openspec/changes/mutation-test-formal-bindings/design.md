@@ -20,12 +20,11 @@ go-mutesting v2.8.3 facts that shape the design, read from the pinned module sou
 4. `--noop` is ignored together with `--exec` (`runNoopChecks`, `engine.go:579-582`). Nothing checks the clean-code run unless the wrapper does it.
 5. Mutant IDs are `baseline.MutantID(relFile, mutator, diff)` (`internal/baseline/baseline.go:40-55`): file, mutator, and diff lines only. The IDs do not depend on the executor.
 
-**Baseline measurement, at HEAD 4831f23d, before the sibling changes.** These numbers must be re-measured once the preceding changes have landed (task 2.4):
-- The bound rows cover 14 files and 29 function leaves.
-- A union `--match` dry-run gives 519 candidate mutants, equal to the sum of the per-file counts, so there are no collisions.
-- A binding-only `go test -count=1 -overlay` after a source change takes 1.6 s for `internal/app/deps`, 1.9 s for `pkg/invowkmod` together with its binding packages, and 0.2 s for `internal/core/serverbase`.
-- Only 3 files are bound from another package: `pkg/invowkmod/command_scope.go` (bound only from deps), `pkg/invowkmod/vendored_policy.go` (from deps and invowkmod), and `pkg/invowkmod/lock_integrity.go` (bound only from modulesync).
-- The unbound rows (binding `-`) hold about 387 more candidates.
+**Measurement on the post-sibling tree (task 2.5, 2026-09-25, on top of `model-module-path-containment`).** The HEAD 4831f23d figures (14 files, 29 leaves, 519 candidates) are superseded:
+- The bound rows name 49 functions in 30 files; 51 rows are unbound (`no-symbol` 5, `no-binding` 21, `type-symbol` 3, `trace-only` 2, `characterisation-only` 20).
+- The dry-run gives 982 candidates (969 and 13 in the two match groups, see D2); go-mutesting's deduplication leaves 809 executed mutants.
+- 15 of the 30 files are bound only or partly from another package, mostly through `internal/app/moduleops`'s path-containment golden.
+- The clean pre-flight (binding tests of a whole file, cold build excluded) takes 0.2–3.3 s per file, 7.2 s at most (`internal/runtime/dotenv.go`, whose killer lives in `moduleops`), and about 72 s in total; every derived exec timeout is 10–36 s.
 
 ## Goals / Non-Goals
 
@@ -116,8 +115,8 @@ Any other outcome fails the whole profile before a mutant runs. The clean wall t
 ### D5. Determinism and rerun evidence
 - The exec script runs inside the `export_rapid_determinism_env` subshell and enforces all three rapid variables (D3, step 1).
 - `-count=1` disables the result cache.
-- Two tests depend on goroutine scheduling: `TestServerbase_ConcurrentSafetyInvariants` and `TestRevocationRacesAuthenticationSafely`. Each `mutation-formal-rerun` appends `{id, status, timestamp, commit}` to the tracked evidence file `tools/mutation/triage/formal-bindings-reruns.jsonl`.
-- The triage check requires, for every baselined ID, at least two `escaped` rerun records at the current baseline's commit or later. `confirmed_reruns` is therefore derived from recorded evidence, not typed in by hand.
+- Two tests depend on goroutine scheduling: `TestServerbase_ConcurrentSafetyInvariants` and `TestRevocationRacesAuthenticationSafely`. Each `mutation-formal-rerun` appends `{id, status, timestamp, digest}` (plus `commit`, information only) to the tracked evidence file `tools/mutation/triage/formal-bindings-reruns.jsonl`, where `digest` is a SHA-256 over the plan inputs (the mutated target files and the files declaring their killer tests, sorted by path, each as path + NUL + bytes).
+- The baseline records the same digest of the inputs it was generated from. The triage check requires, for every baselined ID, at least two `escaped` rerun records whose digest equals the baseline's, and no other status at that digest. Commit ancestry is not used: every PR is squash-merged and its branch deleted, so the commits the evidence was recorded at never reach `main`, while the digest survives squash merges, rebases, and fresh clones as long as the inputs are unchanged. `confirmed_reruns` is therefore derived from recorded evidence, not typed in by hand.
 
 ### D6. Separate baseline and a checked triage ledger
 go-mutesting's baseline stores only `{id, file, mutator, line}`. The reasons live in `tools/mutation/triage/formal-bindings.toml`:
@@ -139,10 +138,12 @@ follow_up = ""          # required for binding-gap, model-gap (change or task) a
 - `binding-gap` or `model-gap` has no `follow_up`;
 - `defect` has no `follow_up` naming a finding id that exists as a `finding =` command in `formal/manifest.toml`;
 - an `abstraction` reason is not a substring of the abstraction cell of the row identified by `model` and `element`, after collapsing whitespace (quotes are compared literally, as the example shows);
-- an ID lacks two escaped rerun records (D5);
+- the baseline carries no input digest, or an ID lacks two escaped rerun records at the baseline's digest (D5);
 - an ID recorded as closed (see D7) is missing from its model's `calibration` text.
 
 IDs are identical across executors (Context, fact 5), so this baseline and the root baseline can be compared directly when needed.
+
+*Revision (evidence identity):* the first implementation stamped the baseline and each rerun with a commit and accepted a rerun only when `git merge-base --is-ancestor <baseline commit> <rerun commit>` held. Squash merges drop those commits from `main`'s history, so the check would fail on `main` and in fresh clones. The digest replaced the commit. The existing evidence was migrated without rerunning: the digest was recomputed from each stamped commit's tree (`git show <commit>:<path>`) and compared with the digest at the rebased HEAD; the baseline commit and both rerun commits matched, so all 860 records were kept and none dropped.
 
 The check runs in `make test-scripts` only, through `scripts/test_formal_mutation.py` and a `triage --check` over the committed files, and from `mutation-formal-baseline-update`. It does not join `make formal`, so `promote-formal-ci-gate`'s `[ci] paths` need not cover the two files.
 
@@ -186,6 +187,18 @@ Scope rule for this change's first run (task 7.3): close a gap only when the fix
 - [Characterisation tests misclassified as killers] → the naming and abstraction-note convention (D8) plus the completeness guard. A mistabled characterisation test shows up as a mutant killed by a test that asserts buggy behaviour, which triage can spot.
 - [Merge conflicts with the five sibling changes in `scripts/formal.py` and the tables] → the new logic lives in `scripts/formal_mutation.py`; only the D8 extensions touch `formal.py`; the change lands after `formal-infra-refinements` and the three model changes, and before `promote-formal-ci-gate`.
 - [The go-mutesting exec contract changes on upgrade] → `scripts/test_mutation.sh` covers the exec script with fake `go` stubs, and the upgrade checklist re-verifies report contracts.
+
+## First run (task 7.1)
+
+`make mutation-formal` on a clean tree at 6f07db5a (2026-09-25, one local worker):
+- **Wall time:** 1673 s (28 min), including the ~90 s pre-flight; well inside the 90-minute job budget, so no sharding follow-up was opened.
+- **Counts:** 809 mutants: 310 killed, 441 escaped, 58 skipped (mutants that do not build), 0 errored. 22 kills were timeouts: 13 in `internal/watch/watcher.go`, 8 in `internal/core/serverbase/base.go`, 1 in `internal/sshserver/server_auth.go`.
+- **Escapes per file:** `virtual_policy.go` 58, `vendor.go` 43, `watcher.go` 38, `modulecache/cache.go` 23, `server_auth.go` 22, `serverbase/base.go` 21, `provision/helpers.go` 21, `invowkfile.go` 20, `content_hash.go` 17, `dependency.go` 15, `modulesync/cache.go` 15, `verify.go` 14, `command_scope.go` 13, `validation_filesystem.go` 13, `packaging.go` 12, `resolver.go` 12, `dotenv.go` 11, `resolver_tidy.go` 11, `implementation.go` 10, `deps.go` 8, `container_provision.go` 8, `script_file_path.go` 7, `lock_integrity.go` 7, `vendored_policy.go` 6, `server_conns.go` 5, `atomic.go` 4, `operations_validate.go` 3, `transitive_policy.go` 3, `virtual_filesystem.go` 1, `operations.go` 0.
+- **Rows whose binding never calls the function:** every mutant of `validateDestinationPath`, `LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`, `Invowkfile.GetEffectiveWorkDir`, and `VirtualFilesystemConfig.EffectiveAccess` escaped; `newVirtualPathResolverForFilesystem` and `standardVirtualAnchorsForOS` are bypassed by the harness golden, which builds its validator directly.
+
+**Triage (tasks 7.2–7.5).** One gap was closed under the D7 scope rule: `TestModulePathContainment_GoldenVectors` now compares both module copies with an independent walk of the source, which kills 19 copy mutants (focused reruns recorded them killed; they are listed under `[[closed]]` and in `ModulePathContainment`'s calibration). The baseline-update run at ea14dd5c left 420 distinct survivors (421 entries: one id names the same change on two lines). Each was rerun twice and escaped both times, and each is a deferred `binding-gap` whose follow-up is its function's section in `tasks/next/formal-binding-gaps.md`. One `server_conns.go` mutant escaped in the first run and was killed in the second (the `TestRevocationRacesAuthenticationSafely` race), which is the flakiness the rerun evidence guards against. No survivor was shown to be a defect, so no finding was recorded and F18 stays free.
+
+**Deviation from D2 (match groups).** The single union `--match` could not be exact: the leaf `Validate` of `ScriptFilePath.Validate` selects 23 other `Validate` methods in 10 target files, which the collision guard rejects. The plan therefore partitions the files into the fewest go-mutesting invocations whose union regex is exact (greedy; two today), writes each group's reports under `group-<n>/`, and merges summaries, agentic reports, and baselines in `scripts/formal_mutation.py`. A collision inside one file still fails closed.
 
 ## Migration Plan
 

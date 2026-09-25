@@ -996,7 +996,40 @@ mutants (mutantDropLinkedRootReject, mutantDropLoadScan, mutantCopyFollowsLinks,
 mutantUnpackNoCheck). Case-folding and junctions are fixed off in the golden \
 (design D9) and covered by the witnesses and the Windows-only F16 leg. Findings \
 F13 (script.file into invowk_modules/) and F17 (env file into invowk_modules/) \
-reproduce with passing physical-containment fixes."""
+reproduce with passing physical-containment fixes. \
+2026-09-25 formal-bindings mutation run: the copy-result assertion added to the \
+golden replay (both copies must reproduce an independent walk of the source) \
+closes 19 copy mutants that escaped the copy-escape check alone: mutation \
+eb09c2dfb3e5934aeaebce1890d0e89d: modulecache.copyDir conditional/negated at line \
+116 breaks the copy; mutation db099bbd6baad66180eef2c08a8863d4: \
+modulecache.copyDir conditional/negated at line 120 breaks the copy; \
+mutation 5bbe206267301f4b8c496b569543f117: modulecache.copyDir loop/range_break at \
+line 129 breaks the copy; mutation c11d7b831c4e90d6b1f4fb6324510361: \
+modulecache.copyDir conditional/negated at line 134 breaks the copy; \
+mutation e8917ea8f825eb2609b045e08fe33073: modulecache.copyDir arithmetic/bitwise \
+at line 137 breaks the copy; mutation \
+d08903a41bc58b2cde3e466f808d1573: modulecache.copyDir conditional/negated at line \
+137 breaks the copy; mutation e08a8d55c3fd39a2129727f23a839863: \
+modulecache.copyDir numbers/incrementer at line 137 breaks the copy; \
+mutation e9b4f008ee7be8c068a557d88d7cad43: modulecache.copyDir branch/if at line \
+142 breaks the copy; mutation a3c918489613b2e151c69a70d35e5d1d: \
+modulecache.copyDir conditional/negated at line 142 breaks the copy; \
+mutation e97aa768b512edf4a381609ff7414452: modulecache.copyDir conditional/negated \
+at line 147 breaks the copy; mutation \
+09c6ee89f2171343e105b0ee742e4da6: provision.CopyDir conditional/negated at line \
+218 breaks the copy; mutation 053043d1979988b25c192564f4298abc: \
+provision.CopyDir loop/range_break at line 227 breaks the copy; \
+mutation 9b3e9edfa56202eec1830814cc84ec50: provision.CopyDir arithmetic/bitwise at \
+line 234 breaks the copy; mutation 8386b0cdd3d70d806d141e110916c339: \
+provision.CopyDir conditional/negated at line 234 breaks the copy; \
+mutation d026d3e81206595614bfbda81439bee0: provision.CopyDir numbers/incrementer \
+at line 234 breaks the copy; mutation \
+4bdb22abe70d5041e47cb279d7498a36: provision.CopyDir branch/if at line 239 breaks the \
+copy; mutation 9a29fa35c1a422532f476846e14dc365: provision.CopyDir \
+conditional/negated at line 239 breaks the copy; mutation \
+324be4fe2a178ea1a57eed2a50b4243a: provision.CopyDir branch/else at line 243 breaks \
+the copy; mutation 8919ef2d6a44e791252a857b12695ec5: \
+provision.CopyDir conditional/negated at line 243 breaks the copy."""
 
 [model.golden]
 command = "golden"

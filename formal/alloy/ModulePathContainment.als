@@ -42,8 +42,9 @@
 // | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a declared workdir is a cwd, not a read/copy/hash target |
 // | ValidateScriptPath | ValidateScriptPath | pkg/invowkmod/invowkmod.go | - | dead code: no production caller (fix change wires or deletes it) |
 // | checkSymlinkSafety | checkSymlinkSafety | pkg/invowkmod/invowkmod.go | - | dead code: no production caller |
-// | findingF13 | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F13VendoredSymlink | invowk_modules/ symlink hole |
-// | findingF17 | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_F17EnvVendoredSymlink | invowk_modules/ symlink hole for env files |
+// | findingF13 | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F13VendoredSymlink | characterisation: invowk_modules/ symlink hole |
+// | findingF17 | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_F17EnvVendoredSymlink | characterisation: invowk_modules/ symlink hole for env files |
+// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction probe; logs its verdict, never asserts (F16 unconfirmed) |
 
 module ModulePathContainment
 

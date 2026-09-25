@@ -78,11 +78,16 @@ The formal-bindings executor SHALL run with the wrapper's fixed rapid seed, disa
 
 #### Scenario: Reruns are recorded
 - **WHEN** `mutation-formal-rerun` runs a mutant
-- **THEN** it SHALL append the mutant ID, status, timestamp, and commit to `tools/mutation/triage/formal-bindings-reruns.jsonl`
+- **THEN** it SHALL append the mutant ID, status, timestamp, and the SHA-256 digest of the plan inputs (the mutated target files and the files declaring their killer tests, sorted by path, each hashed as path, NUL, bytes) to `tools/mutation/triage/formal-bindings-reruns.jsonl`
+- **THEN** a recorded commit, if any, SHALL be information only and SHALL NOT decide whether evidence counts
 
 #### Scenario: Survivors are confirmed by evidence
 - **WHEN** the triage check runs
-- **THEN** it SHALL fail for any baselined ID without at least two recorded `escaped` reruns
+- **THEN** it SHALL fail for any baselined ID without at least two recorded `escaped` reruns whose digest equals the digest the baseline records
+
+#### Scenario: Evidence survives squash merges
+- **WHEN** the branch that recorded the evidence is squash-merged and deleted, or the repository is freshly cloned
+- **THEN** the triage check SHALL give the same verdict as on that branch, as long as the plan inputs are unchanged
 
 ### Requirement: Formal-bindings baseline and triage ledger
 Accepted formal-bindings survivors SHALL be stored in a baseline separate from the root baseline. Each SHALL be classified in a checked triage ledger as `equivalent`, `abstraction`, `binding-gap`, `model-gap`, or `defect`, identified by model and element. The triage check SHALL run in `make test-scripts` and in `mutation-formal-baseline-update`.

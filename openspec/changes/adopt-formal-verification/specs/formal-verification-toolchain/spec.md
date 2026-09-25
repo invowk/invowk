@@ -100,7 +100,7 @@ Relational models SHALL use golden vectors. Every recorded counterexample SHALL 
 - **THEN** a Go test SHALL reproduce the same outcome against the real code, or SHALL be listed as model-only evidence with the reason a deterministic reproduction needs a seam that does not yet exist
 
 ### Requirement: Model-to-code correspondence record
-Every model SHALL carry a header table with these columns: model element, Go symbol, file, binding test, and abstraction. Every omitted or bounded behaviour SHALL be listed as an abstraction.
+Every model SHALL carry a header table with these columns: model element, Go symbol, file, binding test, and abstraction. Every omitted or bounded behaviour SHALL be listed as an abstraction. The binding-test column MAY list several tests separated by commas (`mutation-test-formal-bindings`, "Correspondence binding cells may name several tests"); a multi-test cell satisfies this requirement exactly as a single-test cell does.
 
 #### Scenario: Stale symbol
 - **WHEN** the correspondence check runs

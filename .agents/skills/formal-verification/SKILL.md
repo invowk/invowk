@@ -33,6 +33,18 @@ tool or a model.
    (`pred closedIffNoDiag[d: set Key]`), so mutants reuse the same predicate.
 5. **Add a correspondence table** in the model header:
    `// | model element | Go symbol | file | binding | abstraction |`.
+   - A binding cell may list several tests: `TestA, TestB`. Each must exist.
+   - Completeness guard: every test in a `*_formal_test.go`,
+     `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go` file must be
+     named by some row, except `Test*_TraceHarness`, which must live in a
+     package a `[[trace]]` suite declares.
+   - Characterisation tests (finding replays and probes that assert today's
+     behaviour) are marked by the name `Test…_Characterisation` or
+     `Test…_FindingF<n>`, or by an abstraction note beginning
+     `characterisation:` on the row that tables them. They never kill a
+     mutant.
+   - Editing an `.als` table changes the model source hash, so run
+     `make formal-golden` for that model afterwards.
 6. **Bind to code:**
    - Add a `golden` run that records the implementation's decisions in fields
      of a `one sig`, with a `noJunk` predicate excluding atoms that cannot
@@ -88,6 +100,42 @@ tool or a model.
    runs `scripts/formal.py replay-plan`, generated from the binding cells
    (comma-separated, trace harnesses excluded), so a new binding test only
    needs its table row. See "CI budgets" in `formal/README.md`.
+
+## Mutation testing the bindings
+
+`make mutation-formal` (the `formal-bindings` target set of
+`scripts/mutation.sh`) measures how much of the code a table names its
+bindings alone constrain. `scripts/formal_mutation.py plan` derives the target
+functions, line ranges, killer tests, and packages from the tables at run
+time; rows without a killer land in `unbound-rows.txt` with a reason. Each
+mutant runs only the killer tests of the function it changed, across
+packages, through `go test -overlay`, without `-short`. Read
+`.agents/rules/commands.md` (Mutation Testing) for the profiles.
+
+Resolve every escaped mutant (rerun it twice with `make mutation-formal-rerun`
+first; the evidence lands in `tools/mutation/triage/formal-bindings-reruns.jsonl`):
+
+1. **binding-gap, closed:** strengthen the binding test (assertion, generator
+   dimension, wider golden scope), confirm the focused rerun kills it, append
+   `mutation <id>: <defect>` to the model's `calibration`, and list the id
+   under `[[closed]]` in `tools/mutation/triage/formal-bindings.toml`.
+2. **model-gap, closed:** add the fact or property with its `mutant_of` and
+   antecedent, extend the table, regenerate goldens, bind it, then as in 1.
+3. **deferred gap:** keep it in the ledger with a `follow_up`.
+4. **abstraction:** state it in the row's abstraction cell; the ledger reason
+   must be a substring of that cell.
+5. **equivalent:** record the reason.
+6. **defect:** a strengthened binding fails on unmodified code. Record a
+   finding under the next free id (a `finding =` command next to a passing
+   fix configuration, a characterisation test, a `formal/README.md` Findings
+   row); never commit the failing binding, and leave the product fix to a
+   later change. The ledger entry is `defect` with the finding id as
+   `follow_up`.
+
+A survivor decided by a helper the table does not name gets its own row (with
+model-gap rigour) or an abstraction note on the calling row. Then run
+`make mutation-formal-baseline-update`; it fails until
+`python3 scripts/formal_mutation.py triage --check` passes.
 
 ## TLA+ commands
 

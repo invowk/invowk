@@ -1051,7 +1051,15 @@ def correspondence_rows(source: str) -> list[list[str]]:
 
 SKIP_DIRS = {".git", "node_modules", "bin", "artifacts", "website"}
 GO_DECL_RE = r"^(?:func (?:\([^)]*\) )?{name}\b|type {name}\b|\s+{name}\s+(?:=|[A-Za-z*\[])|(?:var|const) {name}\b)"
+TEST_FUNC_RE = re.compile(r"^func (Test\w+)\(", re.M)
+# Files whose tests bind a model; every test in them must be accounted for.
+BINDING_TEST_SUFFIXES = ("_formal_test.go", "_golden_test.go", "_rapid_test.go", "_trace_test.go")
 TRACE_HARNESS_SUFFIX = "_TraceHarness"
+# A characterisation test asserts today's (defective) behaviour, so it can
+# never kill a mutant of the property. It is marked by its name or by an
+# abstraction note beginning `characterisation:` on the row that tables it.
+CHARACTERISATION_NAME_RE = re.compile(r"^Test\w*?_(?:Characterisation$|FindingF\d+(?:_|$))")
+CHARACTERISATION_NOTE = "characterisation:"
 
 
 def binding_tests(cell: str) -> list[str]:
@@ -1071,34 +1079,77 @@ def test_function_files(root: Path) -> dict[str, list[Path]]:
     """Each Go test function name, with the repository-relative files that
     declare it."""
     files: dict[str, list[Path]] = {}
-    for path in sorted(root.rglob("*_test.go")):
-        rel = path.relative_to(root)
-        if SKIP_DIRS.intersection(rel.parts) or "testdata" in rel.parts:
-            continue
-        for name in re.findall(r"^func (Test\w+)\(", path.read_text(), re.M):
-            files.setdefault(name, []).append(rel)
+    for path in go_test_files(root):
+        for name in TEST_FUNC_RE.findall(path.read_text()):
+            files.setdefault(name, []).append(path.relative_to(root))
     return files
+
+
+def characterisation_tests(rows: list[list[str]]) -> set[str]:
+    """Tests tabled on a row whose abstraction note marks them as characterisation."""
+    return {
+        test
+        for _element, _symbol, _file, binding, abstraction in rows
+        if abstraction.startswith(CHARACTERISATION_NOTE)
+        for test in binding_tests(binding)
+    }
+
+
+def is_characterisation_test(test: str, noted: set[str]) -> bool:
+    return test in noted or CHARACTERISATION_NAME_RE.match(test) is not None
+
+
+def go_test_files(root: Path):
+    for path in sorted(root.rglob("*_test.go")):
+        parts = path.relative_to(root).parts
+        if SKIP_DIRS.intersection(parts) or "testdata" in parts:
+            continue
+        yield path
 
 
 def test_function_index(root: Path) -> set[str]:
     """Names of every Go test function in the repository, built once."""
     names: set[str] = set()
-    for path in root.rglob("*_test.go"):
-        if SKIP_DIRS.intersection(path.relative_to(root).parts):
-            continue
+    for path in go_test_files(root):
         names.update(re.findall(r"^func (\w+)\(", path.read_text(), re.M))
     return names
 
 
-def check_correspondence(models: list[Model], root: Path = REPO_ROOT) -> list[str]:
-    """Every named Go symbol must be declared in its file; every binding test must exist."""
+def check_binding_completeness(tabled: set[str], suites: list[TraceSuite], root: Path) -> list[str]:
+    """Every test in a binding-test file is either a trace harness in a
+    `[[trace]]` suite's package or named by some correspondence row."""
+    failures = []
+    suite_dirs = {os.path.normpath(suite.package) for suite in suites}
+    for path in go_test_files(root):
+        if not path.name.endswith(BINDING_TEST_SUFFIXES):
+            continue
+        rel = path.relative_to(root)
+        for test in TEST_FUNC_RE.findall(path.read_text()):
+            if is_trace_harness(test):
+                if os.path.normpath(rel.parent.as_posix()) not in suite_dirs:
+                    failures.append(f"{rel}: trace harness {test} is not in a package declared by a [[trace]] suite")
+            elif test not in tabled:
+                failures.append(f"{rel}: binding test {test} is not named by any correspondence row")
+    return failures
+
+
+def check_correspondence(models: list[Model], root: Path = REPO_ROOT, suites: list[TraceSuite] | None = None) -> list[str]:
+    """Every named Go symbol must be declared in its file; every binding test
+    must exist; every test in a binding-test file must be tabled."""
     failures = []
     tests = test_function_index(root)
+    tabled: set[str] = set()
     for model in models:
         rows = correspondence_rows((root / model.file).read_text())
         if not rows:
             failures.append(f"{model.name}: no correspondence table in {model.file}")
         for element, symbol, file, binding, _abstraction in rows:
+            for test in binding_tests(binding):
+                tabled.add(test)
+                if not test:
+                    failures.append(f"{model.name}: row {element!r} has an empty name in binding cell {binding!r}")
+                elif test not in tests:
+                    failures.append(f"{model.name}: row {element!r} names binding test {test} that does not exist")
             if symbol in {"", "-"}:
                 continue
             path = root / file
@@ -1108,9 +1159,8 @@ def check_correspondence(models: list[Model], root: Path = REPO_ROOT) -> list[st
             leaf = symbol.split(".")[-1]
             if not re.search(GO_DECL_RE.format(name=re.escape(leaf)), path.read_text(), re.M):
                 failures.append(f"{model.name}: row {element!r} names {symbol}, which is not declared in {file}")
-            if binding not in {"", "-"} and binding not in tests:
-                failures.append(f"{model.name}: row {element!r} names binding test {binding} that does not exist")
-    return failures
+    suites = load_trace_suites() if suites is None else suites
+    return failures + check_binding_completeness(tabled, suites, root)
 
 
 # ---------------------------------------------------------------------------

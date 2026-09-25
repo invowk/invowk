@@ -34,6 +34,7 @@
 | Mutation full scan | `make mutation-full` |
 | Mutation baseline update | `make mutation-baseline-update` |
 | Mutation rerun | `make mutation-rerun MUTATION_MUTANT_ID=<id>` |
+| Formal-bindings mutation | `make mutation-formal` (`-dry-run`, `-baseline-update`, `-rerun`) |
 | File length check | `make check-file-length` |
 | Agent docs check | `make check-agent-docs` |
 | License check | `make license-check` |
@@ -280,6 +281,25 @@ Reports:
 - `go-mutesting-agentic.json`: escaped-mutant details with stable IDs and context when emitted by the tool.
 - `resolved-targets.txt`, `excluded-packages.txt`, and `not-covered-packages.txt`: target-selection evidence.
 
+### Formal-bindings target set
+
+`--target-set formal-bindings` (`MUTATION_TARGET_SET`) mutates only the Go functions named by bound rows of the formal models' correspondence tables and credits a kill only to those functions' binding tests. It is available on `dry-run`, `full`, `baseline-update`, and `rerun`; `pr` rejects it. It is manual and advisory: not in `make test`, not a PR gate, not a required check.
+
+```bash
+make mutation-formal-dry-run                         # candidate counts per file
+make mutation-formal                                 # pre-flight, then every mutant (advisory)
+make mutation-formal-rerun MUTATION_MUTANT_ID=<id>   # one mutant; appends rerun evidence
+make mutation-formal-baseline-update                 # rewrite the baseline, then triage --check
+```
+
+- **Plan.** `scripts/formal_mutation.py plan` builds `formal-plan.json` from the tables and `formal/manifest.toml` at run time: each function's file, line range, rows, killer tests, and their packages (`go list`). Trace harnesses and characterisation tests are never killers; rows left without a killer go to `unbound-rows.txt` (`no-symbol`, `no-binding`, `type-symbol`, `trace-only`, `characterisation-only`). The plan fails closed on a correspondence failure, a killer test declared in zero or several packages, an empty plan, or a same-file `--match` collision.
+- **Match groups.** go-mutesting's `--match` sees only bare function names, so the plan splits the files into the fewest invocations whose union regex selects exactly the named functions (today two: `ScriptFilePath.Validate` runs apart from the files that declare other `Validate` methods). Reports land in `artifacts/mutation/<profile>/formal-bindings/group-<n>/` and are merged into the profile directory, with `per-file.tsv` (killed, escaped, skipped, errored, timeout-kill per file).
+- **Pre-flight.** go-mutesting ignores `--noop` with `--exec`, so the wrapper first runs every file's killer tests on clean code with `go test -json`. Any failure, skip, absent test, or timeout fails the run before a mutant executes. Each file's exec timeout is `max(10 s, 5 x clean wall time)`, recorded in the plan; override it with `MUTATION_FORMAL_EXEC_TIMEOUT`.
+- **Executor.** `scripts/mutation-formal-exec.sh` finds the planned function containing the first changed line and runs `go test -count=1 -vet=off -overlay=<mutant> -timeout <file timeout>s -run '^(<its killers>)$' <their packages>`: no `-short` (golden vectors replay in full), no `-race`, no trace validation or TLC, and the tracked file is never rewritten. Pass is escaped, a test failure or a test-binary timeout is killed (the timeout is logged as `timeout-kill`), a build or setup failure is skipped, and anything else is errored. It refuses to run (errored) without `MUTATION_FORMAL_PLAN`, `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME`. go-mutesting forces one worker with `--exec`; sharding is deferred.
+- **Baseline and ledger.** Accepted survivors live in `tools/mutation/baselines/formal-bindings-baseline.json` (stamped with the digest of its plan inputs: the target files and the files declaring their killer tests) and are classified in `tools/mutation/triage/formal-bindings.toml` as `equivalent`, `abstraction`, `binding-gap`, `model-gap`, or `defect`. Each `mutation-formal-rerun` appends `{id, status, timestamp, digest}` (plus `commit`, information only) to `tools/mutation/triage/formal-bindings-reruns.jsonl`; a baselined id needs two `escaped` records at the baseline's digest. Digests, not commit ancestry, identify evidence, so it survives squash merges; editing a target or killer-test file makes the evidence stale until the survivors are rerun. `python3 scripts/formal_mutation.py triage --check` runs in `make test-scripts` and after `mutation-formal-baseline-update`, not in `make formal`. The survivor feedback loop is in `.agents/skills/formal-verification/SKILL.md`.
+- **Runtime.** The first run (2026-09-25) planned 49 functions in 30 files: 982 candidates, 809 executed after go-mutesting's deduplication, 28 min wall time on one local worker including a ~90 s pre-flight, and 22 timeout kills (in `Watcher.Run`, the serverbase transitions, and `Server.GenerateToken`). The manual workflow job allows 90 min for this target set; if a run outgrows it, raise the budget and open the deferred sharding follow-up rather than adding `-short`.
+- **Reruns.** `MUTATION_MUTANT_ID` may list several ids separated by commas. Each id is scoped to its file through the committed baseline or the last full report (the stable id hashes the file), so only that file is pre-flighted and mutated.
+
 ### gotestsum (CI-Level Retry and Reporting)
 
 CI uses `gotestsum` to wrap `go test` with transient failure retry and JUnit XML reporting. Locally, `make test` auto-detects `gotestsum` and uses it when available.
@@ -405,7 +425,7 @@ goreleaser release --snapshot --clean
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
 | `formal-verification.yml` | Weekly schedule, manual dispatch, and every PR (classified by `formal.py affected` against `[ci] paths`) | Check Alloy/TLA+ models, golden freshness, correspondence, trace validation, and the replay plan generated from the correspondence tables; not a required check until `make formal-promotion-gate` reports PASS (four consecutive first-attempt green weekly runs), and making it required is a manual maintainer step |
-| `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles and upload reports; not a PR or scheduled gate |
+| `mutation-testing.yml` | Manual dispatch only | Run curated mutation profiles (`target_set`: `root` or `formal-bindings`) and upload reports; not a PR or scheduled gate |
 | `pgo-benchstat.yml` | Weekly schedule + manual dispatch | Compare `pgo=off` vs `pgo=on` with `benchstat` and upload raw/report artifacts |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 
