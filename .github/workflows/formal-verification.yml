@@ -41,7 +41,7 @@ jobs:
     # Must exceed the sum of the step timeout-minutes plus 3 minutes of setup
     # and upload (checked by scripts/test_formal.py), so a step timeout fires
     # first and the upload step still runs.
-    timeout-minutes: 47
+    timeout-minutes: 46
     env:
       PYTHONUNBUFFERED: "1"
     steps:
@@ -101,12 +101,12 @@ jobs:
 
       - name: Check models
         if: steps.affected.outputs.run != 'false'
-        timeout-minutes: 25
+        timeout-minutes: 26
         run: make formal
 
       - name: Trace validation
         if: steps.affected.outputs.run != 'false'
-        timeout-minutes: 11
+        timeout-minutes: 12
         run: make formal-traces
 
       # The binding tests named in the correspondence tables, minus the trace
@@ -132,7 +132,7 @@ jobs:
 
       - name: Deep property tests
         if: steps.affected.outputs.run != 'false' && github.event_name != 'pull_request'
-        timeout-minutes: 5
+        timeout-minutes: 2
         run: make formal-rapid-deep
 
       # A step or job timeout cancels the run, so failure() alone would skip this.

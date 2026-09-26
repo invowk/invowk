@@ -79,18 +79,18 @@ soft_headroom = 1.5
 local_headroom = 3
 hard_headroom = 4
 measured_on = "2026-09-25"
-# Post-sibling pull_request runs whose step times set the hard budgets
-# (Check models max 369 s in 36180026549, the full model set; Trace validation
-# max 164 s; Replay max 19 s). Deep property tests never ran in CI.
-ci_runs = [36180026549, 36177209228, 36173102386, 36173097154, 36171059790, 36167341811, 36167020718, 36165565859]
+# workflow_dispatch runs on main b5f86f59 whose step and per-model times set the
+# budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
+# property tests 12 s).
+ci_runs = [36203072183, 36203079356, 36203087452]
 command_count = 174
 
 [[model]]
 name = "ScopeConstruction"
 tool = "alloy"
 file = "formal/alloy/ScopeConstruction.als"
-budget_seconds = 219  # 3 x 72.9s local
-budget_source = "local"
+budget_seconds = 174  # 1.5 x 115.6s CI max (3 dispatch runs)
+budget_source = "ci"
 scope = "4 but 3 Key, 3 Entry"  # default for every command below
 calibration = """2026-09-24: the golden vectors (116928 exhaustive instances) and the rapid \
 intent test each detect all five seeded code defects: direct dependency ignoring \
@@ -236,8 +236,8 @@ expect = "instance"
 name = "DependencyClosure"
 tool = "alloy"
 file = "formal/alloy/DependencyClosure.als"
-budget_seconds = 49  # 3 x 16.1s local
-budget_source = "local"
+budget_seconds = 38  # 1.5 x 25.0s CI max (3 dispatch runs)
+budget_source = "ci"
 scope = "5"  # default for every command below
 calibration = """2026-09-24: the golden replays (25765 exhaustive instances) and the rapid tidy \
 test detect all four seeded code defects: diagnostics without per-key dedup, \
@@ -338,8 +338,8 @@ expect = "instance"
 name = "LockIdentity"
 tool = "alloy"
 file = "formal/alloy/LockIdentity.als"
-budget_seconds = 45  # 3 x 14.7s local
-budget_source = "local"
+budget_seconds = 37  # 1.5 x 24.5s CI max (3 dispatch runs)
+budget_source = "ci"
 scope = "4"  # default for every command below
 calibration = """2026-09-24: the golden replay (28858 exhaustive instances) detects all four \
 seeded code defects: identity without the namespace fallback, namespace preferred \
@@ -408,8 +408,8 @@ expect = "instance"
 name = "Serverbase"
 tool = "tla"
 file = "formal/tla/Serverbase.tla"
-budget_seconds = 120  # 3 x 39.7s local
-budget_source = "local"
+budget_seconds = 58  # 1.5 x 38.3s CI max (3 dispatch runs)
+budget_source = "ci"
 calibration = """2026-09-25: findings F1 and F2 are fixed; the base configuration now mirrors \\
 the fixed code, and the pre-fix code is kept as two regression mutants. \\
 2026-09-24: TLC reproduced findings F1 and F2 with exactly the interleavings \\
@@ -538,8 +538,8 @@ witness = true
 name = "LockIntegrity"
 tool = "tla"
 file = "formal/tla/LockIntegrity.tla"
-budget_seconds = 105  # 3 x 34.9s local
-budget_source = "local"
+budget_seconds = 45  # 1.5 x 29.9s CI max (3 dispatch runs)
+budget_source = "ci"
 calibration = """2026-09-25 (trace validation): TestLockIntegrity_TraceHarness records \
 real Sync, LoadDeclaredFromLock plus VendorModules, the discovery check, and \
 sibling admission under LegacyLock = TRUE: 218 sequences, 131 unique accepted \
@@ -687,8 +687,8 @@ witness = true
 name = "AtomicWrite"
 tool = "tla"
 file = "formal/tla/AtomicWrite.tla"
-budget_seconds = 74  # 3 x 24.5s local
-budget_source = "local"
+budget_seconds = 36  # 1.5 x 23.4s CI max (3 dispatch runs)
+budget_source = "ci"
 calibration = """2026-09-25: finding F3 is fixed; the base configuration makes both fsyncs and \\
 the pre-fix configurations are regression mutants. 2026-09-24: under the named POSIX axioms TLC showed finding F3 (no fsync: power \\
 loss can leave an empty lock file even though readers never see partial \\
@@ -793,8 +793,8 @@ witness = true
 name = "HostCallbackToken"
 tool = "tla"
 file = "formal/tla/HostCallbackToken.tla"
-budget_seconds = 56  # 3 x 18.4s local
-budget_source = "local"
+budget_seconds = 27  # 1.5 x 18.0s CI max (3 dispatch runs)
+budget_source = "ci"
 calibration = """2026-09-25 (trace validation): TestHostCallbackToken_TraceHarness drives a \
 started Server on a fake clock with real SSH clients: 165 sequences, 37 unique \
 accepted traces, 7 targeted mutations. TLC and a Go replay reproduce finding \
@@ -894,8 +894,8 @@ witness = true
 name = "Watch"
 tool = "tla"
 file = "formal/tla/Watch.tla"
-budget_seconds = 77  # 3 x 25.4s local
-budget_source = "local"
+budget_seconds = 36  # 1.5 x 23.6s CI max (3 dispatch runs)
+budget_source = "ci"
 calibration = """2026-09-24: TLC shows no lost burst under fairness of system actions only (and \\
 a counterexample without fairness), no overlapping callbacks, balanced \\
 WaitGroup accounting, and no work after Run returns; each safety property is \\
@@ -980,8 +980,8 @@ witness = true
 name = "ModulePathContainment"
 tool = "alloy"
 file = "formal/alloy/ModulePathContainment.als"
-budget_seconds = 93  # 3 x 30.8s local
-budget_source = "local"
+budget_seconds = 73  # 1.5 x 48.5s CI max (3 dispatch runs)
+budget_source = "ci"
 scope = "5 but 2 Module, 2 Op"  # default for every command below
 calibration = """2026-09-25: the golden replays (22848 instances, 1680 distinct trees) and the \
 rapid property detect the seeded real-code defects. Confirmed one at a time: the \
@@ -1234,8 +1234,8 @@ expect = "instance"
 name = "VirtualPathHarness"
 tool = "alloy"
 file = "formal/alloy/VirtualPathHarness.als"
-budget_seconds = 41  # 3 x 13.5s local
-budget_source = "local"
+budget_seconds = 33  # 1.5 x 21.4s CI max (3 dispatch runs)
+budget_source = "ci"
 scope = "6 but exactly 3 Req"  # default for every command below
 calibration = """2026-09-25: the golden replays (14580 instances) and the rapid property detect \
 the seeded defects: normalizeExistingOrParent skipping the parent evaluation is \
@@ -1343,27 +1343,27 @@ expect = "instance"
 [[trace]]
 name = "Serverbase"
 package = "./internal/core/serverbase/"
-budget_seconds = 113  # 3 x 37.6s local
-budget_source = "local"
+budget_seconds = 72  # 1.5 x 48.0s CI max (3 dispatch runs)
+budget_source = "ci"
 
 [[trace]]
 name = "AtomicWrite"
 package = "./pkg/fspath/"
-budget_seconds = 48  # 3 x 15.8s local
-budget_source = "local"
+budget_seconds = 23  # 1.5 x 14.8s CI max (3 dispatch runs)
+budget_source = "ci"
 
 [[trace]]
 name = "Watch"
 package = "./internal/watch/"
-budget_seconds = 26  # 3 x 8.4s local
-budget_source = "local"
+budget_seconds = 44  # 1.5 x 29.0s CI max (3 dispatch runs)
+budget_source = "ci"
 
 [[model]]
 name = "ConcurrentModuleEdits"
 tool = "tla"
 file = "formal/tla/ConcurrentModuleEdits.tla"
-budget_seconds = 1093  # 3 x 364.2s local
-budget_source = "local"
+budget_seconds = 621  # 1.5 x 414.0s CI max (3 dispatch runs)
+budget_source = "ci"
 calibration = """2026-09-25: TLC reproduces F8 on today's code in all four scenarios \
 (sync_add, update_add, update_remove, add_add_same), F9 (fetch_v1_v2), and F10 \
 (rollback_read); no hypothesised id was refuted. vendor_sync also fails: vendor \
@@ -1650,12 +1650,12 @@ distinct_states = 57
 [[trace]]
 name = "HostCallbackToken"
 package = "./internal/sshserver/"
-budget_seconds = 337  # 3 x 112.2s local
-budget_source = "local"
+budget_seconds = 164  # 1.5 x 109.0s CI max (3 dispatch runs)
+budget_source = "ci"
 
 [[trace]]
 name = "LockIntegrity"
 package = "./internal/app/modulesync/"
-budget_seconds = 1053  # 3 x 351.0s local
-budget_source = "local"
+budget_seconds = 532  # 1.5 x 354.6s CI max (3 dispatch runs)
+budget_source = "ci"
 constants = { LegacyLock = "TRUE" }

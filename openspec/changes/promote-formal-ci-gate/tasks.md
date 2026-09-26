@@ -23,7 +23,7 @@
 - [x] 2.2 Drive the replay step from `formal.py replay-plan --format github`
 - [x] 2.3 Set `PYTHONUNBUFFERED: "1"` in job `env:`. Change the upload step to `if: failure() || cancelled()`. Keep the job `timeout-minutes` at 20 until task 2.5. *Deviation: the job `timeout-minutes` is 47, not 20. The post-sibling PR runs already need `Check models` 369 s, so the 4x step timeouts (25 + 11 + 2 + 5 min) could not satisfy the job invariant at 20.*
 - [x] 2.4 Set the concurrency to `group: formal-verification-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}` and `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`
-- [ ] 2.5 After merge, run at least three `workflow_dispatch` runs on `main`. From their timings:
+- [x] 2.5 After merge, run at least three `workflow_dispatch` runs on `main`. From their timings: *2026-09-25: runs 36203072183, 36203079356, 36203087452 on main b5f86f59, all green. Step maxima: Check models 376 s → 26 min, Trace validation 170 s → 12 min, Replay 22 s → 2 min, Deep property tests 12 s → 2 min; job 46 min. All 16 soft budgets now `ceil(1.5 × CI max)` with `budget_source = "ci"`.*
 
   *Post-merge. Hard limits are provisionally set from post-sibling `pull_request` runs (`[ci.budget] ci_runs`), and every soft budget is `local`.*
   - set step `timeout-minutes = max(2, ceil(4 × max / 60))` for Check models, Trace validation, Replay, and Deep property tests;
@@ -62,7 +62,7 @@
   - add `make formal-promotion-gate` to the Quick Reference table.
 
   Then run `make check-agent-docs`
-- [ ] 4.4 In `openspec/changes/adopt-formal-verification/tasks.md`, tick 8.3 after task 2.5, citing the run IDs and date. Reword 8.5 to "**Phase 3 gate:** trace mutations are rejected as declared, and `make formal-promotion-gate` reports PASS (lane stays non-required until then)". *8.5 reworded; 8.3 stays open until task 2.5.*
+- [x] 4.4 In `openspec/changes/adopt-formal-verification/tasks.md`, tick 8.3 after task 2.5, citing the run IDs and date. Reword 8.5 to "**Phase 3 gate:** trace mutations are rejected as declared, and `make formal-promotion-gate` reports PASS (lane stays non-required until then)". *8.5 reworded; 8.3 stays open until task 2.5.*
 
 ## 5. Verification
 

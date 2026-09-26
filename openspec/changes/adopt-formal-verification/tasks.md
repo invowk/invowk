@@ -112,7 +112,7 @@
   - `permissions: contents: read`, `concurrency`, `timeout-minutes`, and job-level `env:`;
   - `upload-artifact@v7` for `artifacts/formal/` on failure.
 - [x] 8.2 Add the pull-request trigger for `formal/` and modelled packages. It runs the full lane (about 35 s) instead of selecting models, which the spec now states
-- [ ] 8.3 Measure per-model wall time on the first green CI run, and record the budgets and state counts in the manifest (locally: `make formal` 35 s, `make formal-traces` about 10 s; CI measurement pending)
+- [x] 8.3 Measure per-model wall time on the first green CI run, and record the budgets and state counts in the manifest *(2026-09-25: per-model and per-step times from workflow_dispatch runs 36203072183, 36203079356, 36203087452 on main; budgets in `[ci.budget]` and per-model `budget_seconds` with `budget_source = "ci"`; state counts recorded by promote-formal-ci-gate)*
 - [x] 8.4 Log rapid seeds on failure in CI and in `make test` output
 - [ ] 8.5 **Phase 3 gate:** trace mutations are rejected as declared, and `make formal-promotion-gate` reports PASS (lane stays non-required until then)
 
