@@ -101,4 +101,4 @@
 - [x] 7.7 Run `make check-goplint-consumer-routed` and `make check-baseline`, and triage any new findings with the maintainer.
 - [x] 7.8 Run `make sonar-local`, and record that `make test-cli` and the native-mirror checks do not apply, because no txtar files change.
 - [x] 7.9 Confirm that `git ls-files artifacts/` lists nothing. The baseline, the staged models, and the equivalence module stay untracked.
-- [ ] 7.10 Run `/learn`.
+- [x] 7.10 Run `/learn`. *2026-11-14: superseded by the 2026-11-14 agent-docs optimisation (#164), which re-derived rules/skills/runbooks from current state.*
