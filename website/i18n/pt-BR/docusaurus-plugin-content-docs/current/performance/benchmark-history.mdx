@@ -6,7 +6,7 @@ sidebar_position: 1
 
 O Invowk acompanha a performance de releases no [Bencher](https://bencher.dev/perf/invowk). O histórico público é indexado pela tag de release, então usuários podem comparar versões publicadas como `v0.12.0` e `v0.13.0` diretamente.
 
-Execuções de benchmark em pull requests são guardrails para mantenedores. Elas podem falhar uma mudança quando o Bencher detecta regressão, mas não são o histórico de performance voltado a usuários. Pull requests usam a mesma Spec bare-metal do Bencher que as execuções de release.
+Execuções de benchmark em pull requests são guardrails opcionais para mantenedores, habilitados com a label `benchmarks: run` em mudanças de código sensível a performance; a série do `main` é registrada semanalmente. Elas podem falhar uma mudança quando o Bencher detecta regressão, mas não são o histórico de performance voltado a usuários. Pull requests usam a mesma Spec bare-metal do Bencher que as execuções de release.
 
 ## Fluxo de Release
 
