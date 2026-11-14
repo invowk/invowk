@@ -81,6 +81,8 @@ Commands are discovered from:
   3. Configured includes (module paths from config)
   4. ~/.invowk/cmds/ (modules only, non-recursive)
 
+--ivk-no-cwd (or INVOWK_NO_CWD=1) skips sources 1 and 2.
+
 Commands use their simple names when unique across sources. When a command
 name exists in multiple sources, disambiguation is required.
 

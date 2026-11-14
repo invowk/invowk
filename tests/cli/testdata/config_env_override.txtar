@@ -74,10 +74,20 @@ env INVOWK_CONFIG=
 ! exec invowk --ivk-config $WORK/flag/config.cue config set default_runtime virtual-sh
 stderr 'ivk-config'
 [linux] ! exists $WORK/fresh/invowk/config.cue
-[darwin] ! exists '$WORK/Library/Application Support/invowk/config.cue'
+[darwin] ! exists $WORK/Library/'Application Support'/invowk/config.cue
 [windows] ! exists $WORK/appdata/invowk/config.cue
 grep 'container_engine: "docker"' $WORK/env/config.cue
 ! grep 'virtual-sh' $WORK/env/config.cue
+
+# Test 8b: config init ignores INVOWK_CONFIG and creates only the user config file
+env INVOWK_CONFIG=$WORK/env/config.cue
+exec invowk config init
+[linux] exists $WORK/fresh/invowk/config.cue
+[darwin] exists $WORK/Library/'Application Support'/invowk/config.cue
+[windows] exists $WORK/appdata/invowk/config.cue
+grep 'container_engine: "docker"' $WORK/env/config.cue
+! grep 'default_runtime' $WORK/env/config.cue
+env INVOWK_CONFIG=
 
 # Test 9: config show and validate fail on a missing explicit file
 ! exec invowk --ivk-config $WORK/nofile.cue config show

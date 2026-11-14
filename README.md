@@ -2524,7 +2524,7 @@ invowk reads exactly one config source, in this order, without merging:
 3. The user config file above
 4. Built-in defaults
 
-The current directory is **never** a config source: a `config.cue` next to your invowkfile is ignored (earlier versions read it as a fallback). A missing or invalid file named by `--ivk-config` or `INVOWK_CONFIG`, or a relative `INVOWK_CONFIG`, is an error (exit 1) before any command runs; only an invalid user config file falls back to defaults with a warning. `config show`, `config dump` and `config path` honour the explicit source; `config set` edits only the user config file and refuses while `--ivk-config` or `INVOWK_CONFIG` is active.
+The current directory is **never** a config source: a `config.cue` next to your invowkfile is ignored (earlier versions read it as a fallback). A missing or invalid file named by `--ivk-config` or `INVOWK_CONFIG`, or a relative `INVOWK_CONFIG`, is an error (exit 1) before any command runs; an invalid user config file is reported as before, and `invowk cmd` and the other discovery commands continue with the defaults. `config show`, `config dump` and `config path` honour the explicit source; `config set` edits only the user config file and refuses while `--ivk-config` or `INVOWK_CONFIG` is active.
 
 ```bash
 INVOWK_CONFIG=/etc/acme/invowk/config.cue invowk cmd build

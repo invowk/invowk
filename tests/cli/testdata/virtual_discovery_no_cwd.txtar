@@ -25,9 +25,11 @@ exec invowk cmd --ivk-no-cwd
 ! stdout 'modcmd'
 stdout 'glob'
 
-# Test 4: the user commands dir (~/.invowk/cmds, HOME=$WORK) still runs
+# Test 4: the user commands dir (~/.invowk/cmds, HOME=$WORK) still runs, and the
+# flag form is not exported to the child environment
 exec invowk --ivk-no-cwd cmd glob
 stdout 'GLOB_OK'
+stdout 'NOCWD=<>'
 
 # Test 5: a cwd-only command is not found, also when the flag follows cmd
 ! exec invowk --ivk-no-cwd cmd local
@@ -44,11 +46,13 @@ stderr 'invowkfile'
 exec invowk --ivk-verbose --ivk-no-cwd cmd
 stdout 'current-directory sources disabled \(--ivk-no-cwd\)'
 
-# Test 8: INVOWK_NO_CWD=1 turns the switch on
+# Test 8: INVOWK_NO_CWD=1 turns the switch on, and the child inherits the env form
 env INVOWK_NO_CWD=1
 exec invowk cmd
 ! stdout 'local'
 stdout 'glob'
+exec invowk cmd glob
+stdout 'NOCWD=<1>'
 exec invowk --ivk-verbose cmd
 stdout 'current-directory sources disabled \(INVOWK_NO_CWD\)'
 
@@ -116,7 +120,7 @@ cmds: [
 		description: "Command from the user commands directory"
 		implementations: [
 			{
-				script: {content: "echo GLOB_OK"}
+				script: {content: "echo GLOB_OK; echo \"NOCWD=<$INVOWK_NO_CWD>\""}
 				runtimes:  [{name: "virtual-sh"}]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},

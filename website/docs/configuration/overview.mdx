@@ -31,7 +31,7 @@ The chosen source is used on its own: values from lower-precedence sources are n
 
 <Snippet id="config/env-config-path" />
 
-A file you name explicitly must work. If `--ivk-config` or `INVOWK_CONFIG` points to a missing or invalid file, or `INVOWK_CONFIG` is relative, invowk stops with exit code 1 before discovering or running any command, and the error names the source and the path. (`invowk audit` reports it with its own scan-error code, 2.) Only an invalid *user* config file falls back to defaults, with a warning.
+A file you name explicitly must work. If `--ivk-config` or `INVOWK_CONFIG` points to a missing or invalid file, or `INVOWK_CONFIG` is relative, invowk stops with exit code 1 before discovering or running any command, and the error names the source and the path. (`invowk audit` reports it with its own scan-error code, 2.) An invalid *user* config file is handled as before: `invowk cmd` and the other discovery commands report a config-load error and continue with the defaults, while `config show` and `config dump` report the error.
 
 `config show`, `config dump` and `config path` honour `--ivk-config` and `INVOWK_CONFIG`. `config set` and `config init` only touch the user config file, and `config set` refuses while `--ivk-config` or `INVOWK_CONFIG` is active, so it never copies an explicit file's values into your user config.
 

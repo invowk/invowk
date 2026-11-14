@@ -66,8 +66,8 @@ invowk reads exactly one config source, in this order:
   4. Built-in defaults
 
 The current directory is never a config source. A missing or invalid file
-named by --ivk-config or INVOWK_CONFIG is an error (exit 1); an invalid user
-config file falls back to defaults with a diagnostic.
+named by --ivk-config or INVOWK_CONFIG is an error (exit 1). An invalid user
+config file is reported, and 'invowk cmd' continues with the defaults.
 
 'config show', 'config dump' and 'config path' honour --ivk-config and
 INVOWK_CONFIG. 'config set' and 'config init' only touch the user config file,

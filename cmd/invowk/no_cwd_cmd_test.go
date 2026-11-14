@@ -288,3 +288,28 @@ func TestAgentVerifyRejectedUnderNoCwd(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentFailsOnMissingExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	f := newNoCwdFixture(t)
+	env := f.app(t, nil)
+	before, err := os.ReadFile(filepath.Join(f.cwd, "invowkfile.cue"))
+	if err != nil {
+		t.Fatalf("read invowkfile: %v", err)
+	}
+
+	missing := filepath.Join(t.TempDir(), "missing.cue")
+	runErr := env.run(t, "--ivk-config", missing, "agent", "cmd", "create", "--file", filepath.Join(f.cwd, "invowkfile.cue"), "hello", "say hello")
+	exitErr, ok := errors.AsType[*ExitError](runErr)
+	if !ok || exitErr.Code != auditExitError {
+		t.Fatalf("agent error = %v, want ExitError code %d from LLM config resolution", runErr, auditExitError)
+	}
+	if !errors.Is(runErr, config.ErrExplicitConfig) {
+		t.Fatalf("agent error = %v, want ErrExplicitConfig", runErr)
+	}
+	after, err := os.ReadFile(filepath.Join(f.cwd, "invowkfile.cue"))
+	if err != nil || !bytes.Equal(after, before) {
+		t.Fatalf("invowkfile changed after a failed explicit config: %v", err)
+	}
+}

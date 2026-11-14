@@ -13,8 +13,9 @@ Derive: `go run . --help`, `go run . cmd --help`, and
 
 ```text
 --ivk-verbose, -v      enable verbose output
---ivk-config, -c       custom config file path
+--ivk-config, -c       custom config file path (overrides INVOWK_CONFIG)
 --ivk-interactive, -i  run in the alternate screen buffer (interactive mode)
+--ivk-no-cwd           skip the cwd invowkfile and sibling modules (env: INVOWK_NO_CWD)
 ```
 
 ### `cmd` persistent flags (`cmd.go`, stored in `cmdFlagValues`)
@@ -110,7 +111,8 @@ Paths are under `cmd/invowk/` unless stated.
 | File | Purpose |
 |------|---------|
 | `root.go` | Root command, persistent flags, `Execute()` (maps `ExitError` to `os.Exit`) |
-| `app.go` | `App` wiring, `cliCommandAdapter` (renders dry-run results), `renderAndWrapServiceError()`, `issueIDForServiceErrorKind()`, `contextWithConfigPath()` |
+| `app.go` | `App` wiring, `cliCommandAdapter` (renders dry-run results), `renderAndWrapServiceError()`, `issueIDForServiceErrorKind()` |
+| `discovery_scope.go` | `--ivk-no-cwd` / `INVOWK_NO_CWD`: `resolveNoCwd()`, `explicitNoCwdFromArgs()`, `noCwdForRegistration()`, `scopeDiscovery()` / `contextWithDiscoveryScope()` (switch + config path + request cache), `renderExplicitConfigError()`, agent `--verify` rejection |
 | `exit_error.go` | `ExitError{Code types.ExitCode, Err error}` |
 | `cmd.go` | `invowk cmd` parent and its persistent flags, `ParseSourceFilter()`, `normalizeSourceName()`, `shouldRegisterDiscoveredCommands()`, `explicitConfigPathFromArgs()`, `executeRequest()`, `resolveUIFlags()` |
 | `cmd_discovery.go` | Dynamic command registration (`registerDiscoveredCommands`, `buildLeafCommand` with per-leaf reserved flags), completion, `listCommands` |
