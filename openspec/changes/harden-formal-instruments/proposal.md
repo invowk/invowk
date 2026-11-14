@@ -11,8 +11,9 @@ The formal setup fails closed everywhere except in two instruments, and both let
 - Two of these rows name a function that does not carry the model's claim, so no honest binding can reach them:
   - `ValidateToken` has no caller, and the model's `Auth` action is `admitConn`;
   - the model's unpack check is `normalizeZIPPath` followed by `validateDestinationPath`, and `validateDestinationPath` alone disagrees with the model on absolute names.
-- A third, `standardVirtualAnchorsForOS`, does more than the model states. The model has no per-OS anchor layout, so a replay of it would need a non-model oracle (design Open question 2).
-- Related: 38 of the 102 rows (34 distinct model/element pairs) name a "model element" that does not exist in the model or its manifest commands, among them `unpackRejectsEscape`.
+- A third, `standardVirtualAnchorsForOS`, does more than the model states. The model has no per-OS anchor layout, so a replay of it would need a non-model oracle. The maintainer chose to unbind it (design decision 8).
+- Related: 38 of the 102 rows (34 distinct model/element pairs) name a "model element" that does not exist in the model or its manifest commands, among them `unpackRejectsEscape`. They were verified as real naming drift, not matcher artifacts (design decision 10).
+- Unbinding rows leaves survivors in the ledger whose function is no longer planned, and nothing reports them: 42 after this change (`Auth` 8, `unpackRejectsEscape` 12, `anchors` 22).
 
 **A platform-only leg can skip on the one platform it exists for.**
 - `TestModulePathContainment_F16Junction` skipped on windows-latest (run 36202690168, job 108292507012) because `fstree.Probe().Junction` was false. `probeJunction` throws the creation error away, so the cause is unknown.
@@ -53,18 +54,19 @@ The formal setup fails closed everywhere except in two instruments, and both let
    - `GetEffectiveWorkDir` → `TestModulePathContainment_ContainerWorkDirGolden`, which already reaches it.
    - `CustomCheckScript.ResolveWithFSAndModule` and `LoadEnvFile` → real-function replays inside `TestModulePathContainment_GoldenVectors`, compared with the model's current-code verdicts. Those verdicts include the open findings F13 and F17.
    - `newVirtualPathResolverForFilesystem` and `EffectiveAccess` → a new construction-layer binding, `TestVirtualPathHarness_RootConstruction`, whose expectations come from the model's `locIsAllowedRoot` and access modes.
-   - `standardVirtualAnchorsForOS` → unbound under the recommended answer to design Open question 2; under option B, bound to the construction replay against the documented anchor layout.
-   - `Auth` / `ValidateToken` and `unpackRejectsEscape` / `validateDestinationPath` → explicitly unbound (binding `-`), each with the reason in its abstraction cell. Re-pointing them (`Auth` to `admitConn`, `unpackInside` to `normalizeZIPPath`) belongs to the survivor-triage follow-up.
-   - The result is five rows rebound and three unbound, or six and two under option B of Open question 2.
+   - `standardVirtualAnchorsForOS` → explicitly unbound (design decision 8): the model has no per-OS anchor layout, and extending it is a follow-up.
+   - `Auth` / `ValidateToken` and `unpackRejectsEscape` / `validateDestinationPath` → also explicitly unbound (binding `-`), each with the reason in its abstraction cell. Re-pointing them (`Auth` to `admitConn`, `unpackInside` to `normalizeZIPPath`) belongs to the survivor-triage follow-up.
+   - The result is five rows rebound and three unbound (design decision 8, which supersedes the "seven" of decision 1).
    - The README junction coverage claim is corrected.
 
    A strengthened binding that fails on unmodified code, unless an open finding explains it, is a defect. It gets F18, the next free id, through the finding procedure. The implementer stops and reports, and never weakens the assertion or patches product code.
-5. **Model elements must exist.** `formal.py correspondence` checks that each row's model element is named in the model source or in the model's manifest commands. How today's 38 unresolved rows are handled is pending a maintainer decision (design Open question 1). The recommendation is a fail-closed, shrink-only list in the manifest.
-6. **Windows replay budget.** The 30 s budget is not enforced on Windows. Its value is derived from the first three Windows CI runs of PR #163 and recorded with the run ids.
+5. **Model elements must exist.** `formal.py correspondence` checks that each row's model element is named in the model source or in the model's manifest commands. Today's 34 unresolved pairs (38 rows) go on a fail-closed, shrink-only `[correspondence] unresolved_elements` list in the manifest. No new or edited row may enter it, and the survivor-triage follow-up empties it (design decision 7). The match is case-sensitive.
+6. **Unplanned rows and orphaned survivors are reported.** `scripts/formal_mutation.py triage --check` lists every unbound correspondence row (54 after this change) and every baselined survivor whose row is unbound (42) through a shrink-only `[triage]` list in the manifest. A new unbound row or orphan fails, and a listed entry that no longer applies fails as stale (design decision 9, D13).
+7. **Windows replay budget.** The 30 s budget is not enforced on Windows. Its value is derived from the first three Windows CI runs of PR #163 and recorded with the run ids.
 
 **Non-goals:**
 - Triaging the 419 baselined survivors, refreshing the formal-bindings baseline or its rerun evidence, and re-running `make mutation-formal`. All of this belongs to the follow-up survivor-triage change.
-  - Rebinding makes the stated reasons of 59 survivors on the five rebound functions stale, and 42 survivors on the three unbound rows describe functions that are no longer planned. The split is 81 and 20 under option B of Open question 2.
+  - Rebinding makes the stated reasons of 59 survivors on the five rebound functions stale, and 42 survivors on the three unbound rows describe functions that are no longer planned. Item 6 lists those 42; the follow-up empties that list.
   - Because killer-test files change, the rerun evidence of all 419 survivors goes stale by the digest convention.
 - Fixing F13, F14, F15, F17, a confirmed F16, or an F18.
 
@@ -79,28 +81,29 @@ None.
 - `formal-verification-toolchain`:
   - the binding-reach gate, its per-row plan, its fail-closed cases, and its budget;
   - the per-GOOS capability policy and the ban on raw skips in binding-test files;
-  - the model-element check;
+  - the model-element check and its shrink-only list of unresolved elements;
   - the rule that rebinding a row keeps its model, element, symbol, and file cells, so the triage ledger stays valid;
   - unbinding rows whose function does not carry the model's claim.
 - `module-path-containment-model`:
   - junction creation and junction generation in the rapid property, with an identity oracle;
   - a decided F16 leg with three outcomes stated in advance;
-  - real-function replays for the custom-check and env-file rows, an unbound unpack row, and an unbound anchors row (pending design Open question 2);
+  - real-function replays for the custom-check and env-file rows, an unbound unpack row, and an unbound anchors row;
   - a construction-layer binding for the virtual-harness rows.
 
   It MODIFIES "Golden replay tests", so instances skip only off a capability's required platforms. It MODIFIES "Cost budgets", so the Windows budget is derived from three CI runs.
+- `mutation-testing`: `triage --check` reports unbound rows and orphaned survivors through a shrink-only list.
 - `formal-ci-gate`: MODIFIES "CI time budgets" to add the `Binding reach` step to the heavy steps with a hard budget.
 
 ## Impact
 
 - **Scripts:**
-  - `scripts/formal_mutation.py`: the `reach` subcommand, and per-row killers in the plan, which bumps `PLAN_VERSION` to 2;
-  - `scripts/formal.py`: the raw-skip check and the element check in `correspondence`, and the `[reach]` and `[correspondence]` manifest tables;
+  - `scripts/formal_mutation.py`: the `reach` subcommand; per-row killers in the plan, which bumps `PLAN_VERSION` to 2; and the `[triage]` list check in `triage --check`;
+  - `scripts/formal.py`: the raw-skip check and the element check in `correspondence`, and the `[reach]`, `[correspondence]`, and `[triage]` manifest tables;
   - `scripts/test_formal_mutation.py` and `scripts/test_formal.py`.
 - **Build and CI:**
   - `Makefile`: `formal-reach` and its help line;
   - `.github/workflows/formal-verification.yml`: a `Binding reach` step, and a job timeout raised from 46 to 52;
-  - `formal/manifest.toml`: `[reach]` budget and calibration, `[ci] paths`, model calibration text, possibly `[correspondence]`, and a possible F16 or F18 `finding` command.
+  - `formal/manifest.toml`: `[reach]` budget and calibration, `[ci] paths`, model calibration text, `[correspondence] unresolved_elements`, `[triage]`, and a possible F16 or F18 `finding` command.
 - **Test utilities:** `internal/testutil/fstree` (the policy, probe errors, and the junction writer) and `internal/testutil/mpctree` (the dotenv sentinel content).
 - **Tests:**
   - `internal/app/moduleops/module_path_containment_{golden,rapid,formal}_test.go`;

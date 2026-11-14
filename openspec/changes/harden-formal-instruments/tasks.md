@@ -13,6 +13,7 @@
   - If the claim is real, stop and report it as candidate F18. Never weaken an assertion, and never edit product code.
 
   The same rule applies to an F16 outcome (c) with no modelled reason (design D7).
+  It also applies when a recorded F18 would add a characterisation-only row: that row is a new unbound row, which the shrink-only `[triage]` list rejects (design Risks). Report it instead of adding the entry.
 - [ ] 0.4 Check: `test -s <scratch>/baseline.json`.
 
 ## 1. Reach gate: plan and subcommand
@@ -77,16 +78,15 @@
 - [ ] 3.4 `scripts/formal.py correspondence`: fail on a `.Skip(`, `.Skipf(`, or `.SkipNow(` call in a `BINDING_TEST_SUFFIXES` file, naming the file and line. Add `scripts/test_formal.py` fixtures showing that a binding file fails and a plain `_test.go` passes.
 - [ ] 3.5 Check: `go test ./internal/testutil/fstree/`, `python3 scripts/formal.py correspondence`, and `python3 scripts/test_formal.py` pass.
 
-## 3b. Model-element check (BLOCKED: design Open question 1)
+## 3b. Model-element check (design D11; decisions 7 and 10)
 
-- [ ] 3b.1 Wait for the maintainer to choose option A, B, or C in design Open question 1. Do not start 3b.2 before that.
-- [ ] 3b.2 Under option A (recommended), as described in design D11:
-  - implement the leading-identifier check in `check_correspondence`, searching the comment-stripped model source and the model's manifest command `name` and `body` values;
-  - add `[correspondence] unresolved_elements` to `formal/manifest.toml` with today's 34 `"<model>: <element>"` pairs (38 rows) from design Context 4 (the prototype's list, regenerated on the implementation tree), and validate the table in `validate_manifest`;
-  - make a stale entry (it resolves, or names no row) fail.
-
-  Under option B or C, follow the maintainer's wording and amend design D11 first.
-- [ ] 3b.3 Add `scripts/test_formal.py` fixtures for a resolving row, an unresolved unlisted row, a listed row, a stale entry, and an entry with no row.
+- [ ] 3b.1 Implement the leading-identifier check in `check_correspondence`. It is a whole-word, case-sensitive match against the comment-stripped model source and the model's manifest command `name` and `body` values. A row that does not resolve fails as `<model>: row <element> names a model element that is not in <file> or its manifest commands`.
+- [ ] 3b.2 Add `[correspondence] unresolved_elements` to `formal/manifest.toml`:
+  - regenerate the `"<model>: <element>"` pairs on the implementation tree; expect today's 34 pairs (38 rows, design Context 4), and stop and report if the set differs;
+  - validate the table in `validate_manifest`, rejecting other keys with `check_keys`;
+  - report a listed pair instead of failing it;
+  - fail a stale entry: one that resolves, or that names no row.
+- [ ] 3b.3 Add `scripts/test_formal.py` fixtures for a resolving row, a row resolved only by a manifest command `body`, a case-only mismatch that fails, an unresolved unlisted row, a listed row, a stale entry, an entry with no row, and an unknown `[correspondence]` key.
 - [ ] 3b.4 Check: `python3 scripts/formal.py correspondence` and `python3 scripts/test_formal.py` pass.
 
 ## 4. Junction creation (Windows; compile-checked locally)
@@ -126,30 +126,34 @@
   - call `LoadEnvFile(env, path, moduleRoot)` on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts;
   - require the model's accept and touched node, F17 instances included;
   - require an error for a non-file or missing target.
-- [ ] 6.4 Unbind the `unpackRejectsEscape` row (`ModulePathContainment.als:39`). Set the binding to `-`, and rewrite the abstraction cell as described in design D9, "The two unbound rows", ending with the follow-up "bind `unpackInside` to `normalizeZIPPath` (survivor-triage)". Leave the element, symbol, and file cells unchanged.
+- [ ] 6.4 Unbind the `unpackRejectsEscape` row (`ModulePathContainment.als:39`). Set the binding to `-`, and rewrite the abstraction cell as described in design D9, "The unbound rows", ending with the follow-up "bind `unpackInside` to `normalizeZIPPath` (survivor-triage)". Leave the element, symbol, and file cells unchanged.
 - [ ] 6.5 Add `TestVirtualPathHarness_RootConstruction` to `internal/runtime/virtual_path_harness_formal_test.go`, as described in design D9, "The construction replay". It covers:
   - resolvers for access omitted, `restricted`, and `full`, each with and without a declared path;
   - acceptance of probe paths per location kind (`InReadRoot`, `InWorkdir`, `OutsideAll`), compared with `H.access = Full or locIsAllowedRoot[l, True]` (F15);
   - `EffectiveAccess` for omitted, `restricted`, and `full`.
 
   Bind the `allowedRoots` and `access` rows (`formal/alloy/VirtualPathHarness.als:30,32`) to it, then run `make formal-golden` for `VirtualPathHarness`.
-- [ ] 6.5b (BLOCKED: design Open question 2) The `anchors` row (`VirtualPathHarness.als:31`):
-  - under option A (recommended), set its binding to `-` and write the abstraction cell described in design D9, "The unbound rows";
-  - under option B, add the per-OS anchor comparison to `TestVirtualPathHarness_RootConstruction` against the documented anchor layout, and bind the row to it.
+- [ ] 6.5b Unbind the `anchors` row (`VirtualPathHarness.als:31`, decision 8). Set its binding to `-` and write the abstraction cell described in design D9, "The unbound rows": the model abstracts anchors into `InReadRoot`, the construction replay checks only that anchor roots are read roots, and per-OS anchors in the model are the follow-up. Leave the element, symbol, and file cells unchanged. Add no anchor-layout comparison to any test.
 - [ ] 6.6 Unbind the `Auth` row (`formal/tla/HostCallbackToken.tla:28`). Set the binding to `-`, and extend the abstraction cell as described in design D9: keep "TTL expiry is a nondeterministic action", and add the no-production-caller reason, the pointer to `Server.admitConn` (row `Auth/End atomicity`), and the survivor-triage follow-up. Do not add a `ValidateToken` call to any test.
-- [ ] 6.7 Seed one defect at a time for 6.1, 6.2, 6.3, and 6.5 (and 6.5b under option B), confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
+- [ ] 6.7 Seed one defect at a time for 6.1, 6.2, 6.3, and 6.5, confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
   - drop the `validateScriptPathContainment` call in `CustomCheckScript.ResolveWithFSAndModule`;
   - make `LoadEnvFile` ignore `basePath`;
   - make `GetEffectiveWorkDir` ignore the implementation-level `workdir`;
   - drop the declared paths from the roots in `newVirtualPathResolverForFilesystem`;
-  - make `EffectiveAccess` return `full` for an omitted access mode;
-  - under option B only: drop the XDG override in `standardVirtualAnchorsForOS`.
+  - make `EffectiveAccess` return `full` for an omitted access mode.
 - [ ] 6.8 Run `make formal-reach`:
   - it must pass, with every bound pair reached and every row unbound by 6.4, 6.5b, and 6.6 listed as `no-binding`;
   - seed a reach regression by temporarily removing the `LoadEnvFile` call: exactly that pair must fail, then revert it;
   - update `[reach] calibration` and the measured budget, and recompute the step and job timeouts if the measured time exceeds 45 s (design D3).
-- [ ] 6.9 Check:
-  - `python3 scripts/formal_mutation.py triage --check` passes with no ledger edits;
+- [ ] 6.9 Unplanned-row and orphan list (design D13, decision 9), after 6.4, 6.5b, and 6.6:
+  - factor the row classification out of `build_plan` into a helper that `triage --check` also calls, with no `go list`;
+  - add the `[triage]` table (`unbound_rows`, `orphaned_survivors`) to `validate_manifest`, rejecting other keys;
+  - in `check_triage`, fail an unlisted unbound row or orphan, fail a stale entry, and print the listed entries;
+  - seed the list from the plan on this tree; expect 54 rows (the 51 of D13 plus `Auth`, `unpackRejectsEscape`, `anchors`) and 42 orphans (`Auth` 8, `unpackRejectsEscape` 12, `anchors` 22), and stop and report if either set differs;
+  - add the `scripts/test_formal_mutation.py` fixtures listed in D13.
+- [ ] 6.10 Check:
+  - `python3 scripts/formal_mutation.py triage --check` passes with no `[[survivor]]` or `[[closed]]` edits, and fails when one listed entry is removed;
+  - `python3 scripts/test_formal_mutation.py` passes;
   - `python3 scripts/formal.py snapshot --compare <scratch>/baseline.json` shows every verdict and golden instance digest identical, except entries added by a recorded F16 or F18 outcome.
 
 ## 7. Documentation
@@ -160,21 +164,23 @@
   - add `make formal-reach` to Running, and a "Binding reach" bullet to "How a model earns trust";
   - rewrite the Mutation testing paragraph at lines 352-356, covering the maintainer's cross-cutting decision:
     - the reach gate found eight rows, not seven, including `ValidateToken`, which has no production caller;
-    - how many are rebound: five, or six under option B of Open question 2;
-    - which are unbound (`Auth`, `unpackRejectsEscape`, and `anchors` under option A), with their reasons;
+    - how many are rebound: five (decision 8);
+    - which are unbound (`Auth`, `unpackRejectsEscape`, and `anchors`), with their reasons;
+  - describe the `[correspondence] unresolved_elements` and `[triage]` lists, and that both only shrink;
   - add the reach step to the CI budgets table, and a pending Windows replay budget note (design D12).
 - [ ] 7.2 `.agents/skills/formal-verification/SKILL.md`:
   - add the reach gate to the workflow and Verification sections;
   - replace "skipped and counted" (lines 93-96) with the capability policy;
   - state that binding tests skip only through `fstree` helpers;
   - add the junction oracle pitfall: never use `EvalSymlinks` for mount points;
-  - add the rule that rows whose function does not carry the model's claim are unbound, not given a direct-call test.
+  - add the rule that rows whose function does not carry the model's claim are unbound, not given a direct-call test;
+  - add the model-element check and the two shrink-only lists, and how to clear an entry.
 - [ ] 7.3 `.agents/rules/commands.md`: add `formal-reach` to the Formal row of the targets table (line 11).
 - [ ] 7.4 `tasks/next/formal-binding-gaps.md`:
   - mark each of the eight rows rebound or unbound, with the reason for each unbound row;
   - flag their baselined survivors for retriage;
   - note that the rerun evidence of all 419 survivors is stale by the digest convention;
-  - add the survivor-triage follow-up as future work: the 419 survivors, a baseline refresh, re-pointing `Auth` to `Server.admitConn`, a `normalizeZIPPath` row for `unpackInside`, per-OS anchors in `VirtualPathHarness.als` if option A of Open question 2 was chosen, the Alloy-only "`validateDestinationPath` omitted" calibration claim (design Risks), and renaming the unresolved model elements if option A of Open question 1 was chosen.
+  - add the survivor-triage follow-up as future work: the 419 survivors, a baseline refresh, re-pointing `Auth` to `Server.admitConn`, a `normalizeZIPPath` row for `unpackInside`, per-OS anchors in `VirtualPathHarness.als` (decision 8), the Alloy-only "`validateDestinationPath` omitted" calibration claim (design Risks), renaming the 34 unresolved model elements and emptying `unresolved_elements` (decision 7), and emptying `[triage] orphaned_survivors` (decision 9).
 - [ ] 7.5 Check: `make check-agent-docs` passes.
 
 ## 8. Windows CI evidence (open until the runs exist)
@@ -192,6 +198,8 @@
 - [ ] 8.4 Check: the PR's windows-latest job shows `TestCreateJunction`, `TestModulePathContainment_Property`, and `TestModulePathContainment_F16Junction` as run, not skipped.
 
 ## 9. Completion gates (`.agents/rules/checklist.md`)
+
+Owned by stage 4 (the completion stage), after groups 0-8. If any step changes code, restart from 9.1.
 
 - [ ] 9.1 Review the changed code for reuse, simplification, and efficiency (`/simplify`), and fix what you find.
 - [ ] 9.2 `make tidy`, then `make license-check` for the new Go files.

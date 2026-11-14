@@ -23,7 +23,7 @@ Rows the plan reports as unbound (`no-symbol`, `no-binding`, `type-symbol`, `tra
 
 #### Scenario: The gate passes after the rows are resolved
 - **WHEN** this change has rebound or unbound each of the eight rows
-- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list every row it unbound, including `Auth` and `unpackRejectsEscape`, as `no-binding`
+- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list every row it unbound, including `Auth`, `unpackRejectsEscape`, and `anchors`, as `no-binding`
 
 ### Requirement: Reach gate command
 `scripts/formal_mutation.py reach` (`make formal-reach`) SHALL take the rows, functions, line ranges, killers, and packages from the plan that `scripts/formal_mutation.py plan` builds, keeping every fail-closed condition of the plan. It SHALL run each killer alone with `go test -count=1 -json -covermode=set -coverpkg=<the packages of the functions it kills> -coverprofile=…`. It SHALL pin `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME` as the mutation profiles do.
@@ -123,7 +123,7 @@ A `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go
 - **THEN** the correspondence check SHALL NOT report it
 
 ### Requirement: Correspondence rows name existing model elements
-`scripts/formal.py correspondence` SHALL fail on a row whose element cell's leading identifier occurs neither in the model source, with comments stripped, nor in a command `name` or `body` of that model in `formal/manifest.toml`. The failure SHALL name the model, the row, and the file. A pair listed in `[correspondence] unresolved_elements` SHALL be reported instead of failing.
+`scripts/formal.py correspondence` SHALL fail on a row whose element cell's leading identifier occurs, as a whole case-sensitive word, neither in the model source, with comments stripped, nor in a command `name` or `body` of that model in `formal/manifest.toml`. The failure SHALL name the model, the row, and the file. A pair listed in `[correspondence] unresolved_elements` SHALL be reported instead of failing.
 
 #### Scenario: Element missing from the model
 - **WHEN** a new row's element names nothing in its model source or manifest commands, and the pair is not listed
@@ -133,8 +133,12 @@ A `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go
 - **WHEN** a row's leading identifier occurs only in a manifest command `body` of its model
 - **THEN** the row SHALL resolve
 
+#### Scenario: Case-only match does not resolve
+- **WHEN** a row's leading identifier matches a model identifier only when case is ignored, for example `State` against `state`
+- **THEN** the row SHALL NOT resolve
+
 ### Requirement: Unresolved model elements are listed and shrink
-`formal/manifest.toml` SHALL list each `"<model>: <element>"` pair that did not resolve when the element check was introduced in `[correspondence] unresolved_elements`, and manifest validation SHALL reject other keys in that table. A listed pair that resolves, or that names no row, SHALL fail the correspondence check as stale. The survivor-triage follow-up SHALL rename the listed elements and empty the list.
+`formal/manifest.toml` SHALL list each `"<model>: <element>"` pair that did not resolve when the element check was introduced in `[correspondence] unresolved_elements`, and manifest validation SHALL reject other keys in that table. No new pair SHALL be added. A listed pair that resolves, or that names no row, SHALL fail the correspondence check as stale. The survivor-triage follow-up SHALL rename the listed elements and empty the list.
 
 #### Scenario: Listed legacy element
 - **WHEN** the `unpackRejectsEscape` row is checked and `"ModulePathContainment: unpackRejectsEscape"` is listed
@@ -149,7 +153,7 @@ When a row's binding is changed so that it reaches the named function, or when t
 
 #### Scenario: Rebinding keeps the triage ledger valid
 - **WHEN** the eight rows are rebound or unbound
-- **THEN** `python3 scripts/formal_mutation.py triage --check` SHALL pass without ledger edits
+- **THEN** `python3 scripts/formal_mutation.py triage --check` SHALL pass without ledger edits, once the `[triage]` list is seeded
 
 #### Scenario: Characterisation test offered as a binding
 - **WHEN** the only test that reaches a function is a characterisation test
