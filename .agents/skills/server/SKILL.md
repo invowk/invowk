@@ -1,6 +1,6 @@
 ---
 name: server
-description: Server state machine pattern for sshserver/, tuiserver/, core/serverbase/, and new long-running server components. Covers serverbase.Base lifecycle states (Created→Starting→Running→Stopping→Stopped/Failed), readiness, async errors, terminal states, idempotent stop, and race-safe shutdown.
+description: Server state machine pattern for sshserver/, tuiserver/, core/serverbase/, and new long-running server components. Covers serverbase.Base lifecycle states (Created→Starting→Running→Stopping→Stopped/Failed), readiness, async errors, terminal states, idempotent stop, race-safe shutdown, and explicit SSH host keys.
 ---
 
 # Server Pattern
@@ -13,10 +13,17 @@ Use this skill when changing `internal/sshserver/`, `internal/tuiserver/`,
 Servers compose `internal/core/serverbase.Base` and use `serverbase.State`.
 
 ```
-Created -> Starting -> Running -> Stopping -> Stopped
-              |              |
-              +-----------> Failed
+Created  -> Starting | Stopped (stop before start) | Failed
+Starting -> Running  | Stopping | Failed
+Running  -> Stopping | Failed
+Stopping -> Stopped  | Failed
+Stopped, Failed: terminal (no outgoing edges)
 ```
+
+`TransitionToFailed` and `TransitionToStopped` CAS from any non-terminal state;
+the first failure wins: `TransitionToFailed` on an already-terminal server
+changes nothing and returns the recorded error (`LastError()`; nil if it
+stopped cleanly).
 
 `Stopped` and `Failed` are terminal. A server instance is single-use: once it
 stops or fails, create a new instance. Terminal states are absorbing under
@@ -24,7 +31,10 @@ concurrent transitions: `TransitionToFailed` and `TransitionToStopped`
 compare-and-swap from the observed state, and `TransitionToStarting` stores the
 server context in the same critical section as its CAS, so a concurrent stop
 always cancels it. `formal/tla/Serverbase.tla` checks both; keep them when
-changing `internal/core/serverbase`.
+changing `internal/core/serverbase`. The `internal/sshserver` host-callback
+token lifecycle is modelled separately by `formal/tla/HostCallbackToken.tla`
+(`server_auth.go`, `server_conns.go`, and `server_lifecycle.go` are bound);
+both directories follow `.agents/rules/formal-bindings.md`.
 
 | State | Meaning |
 |---|---|
@@ -66,7 +76,7 @@ Use `LastError()` when callers need the recorded failure after the server reache
 5. Use `WaitForReady(ctx)` or `StartedChannel()` to block startup until ready or failed.
 6. On startup or serve errors, call `TransitionToFailed(err)` and return that error.
 7. SSH servers must always configure a host key explicitly (see
-   `sshserver.hostKeyOption()`): never let wish's default pick one — it writes
+   `(*Server).hostKeyOption()` in `internal/sshserver/server_lifecycle.go`): never let wish's default pick one — it writes
    `./id_ed25519` into the process working directory, which once leaked private
    keys into this repository.
 
@@ -130,7 +140,9 @@ closes the error channel, and returns false.
 Server tests should cover:
 
 1. `Created -> Running -> Stopped`.
-2. Double `Start()` returns an invalid-state error.
+2. Double `Start()` returns the plain `cannot start server in state <state>`
+   error from `TransitionToStarting` (not `serverbase.InvalidStateError`, which
+   is only for unrecognized `State` values).
 3. Double `Stop()` is a no-op.
 4. Stop before start transitions `Created -> Stopped`.
 5. Cancelled startup transitions to `Failed`.

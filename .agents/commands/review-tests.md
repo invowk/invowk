@@ -1,5 +1,5 @@
 Review our whole test suite (unit, integration, CLI, domain-specific) using the structured
-review-tests skill. Evaluates 102 checklist items across 8 surfaces: structural hygiene,
+review-tests skill. Evaluates a fixed checklist across 8 surfaces: structural hygiene,
 parallelism/context, test patterns/assertions, integration gating, testscript quality,
 virtual/native mirrors, coverage guardrails, and TUI/domain-specific testing.
 

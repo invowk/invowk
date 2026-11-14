@@ -1,6 +1,6 @@
 ---
 name: publish-release
-description: Publish new Invowk releases through GitHub Releases and every supported release channel. Use when preparing, dry-running, tagging, publishing, monitoring, troubleshooting, rolling back, or repairing a release; drafting release notes; validating Homebrew, WinGet, install-script, Go install, docs-versioning, Cosign, Bencher, or GoReleaser release behavior; or investigating release workflow failures.
+description: Publish Invowk releases through GitHub Releases and every supported release channel. Use when preparing, dry-running, tagging, publishing, monitoring, troubleshooting, rolling back or repairing a release; drafting release notes or the poetic opening; validating Homebrew, WinGet, install-script, Go install, docs-versioning, Cosign, Bencher or GoReleaser release behavior; or investigating release workflow failures.
 ---
 
 # Publish Release
@@ -18,6 +18,7 @@ Use this skill to ship Invowk releases deliberately: derive user-facing notes fr
 - `.goreleaser.yaml`: artifacts, checksums, Cosign bundle, GitHub Release settings, Homebrew cask, and WinGet config.
 - `scripts/enhance-winget-manifest.sh` and `scripts/winget/`: WinGet post-processing and manifest expectations.
 - `.github/workflows/version-docs.yml`: release-triggered documentation versioning.
+- `scripts/install.sh` and `scripts/install.ps1`: install-script channels.
 - `README.md` and `website/docs/getting-started/installation.mdx`: supported installation channels users see.
 
 For details, load only what the task needs:
@@ -42,7 +43,7 @@ For details, load only what the task needs:
 8. Publish by creating a signed annotated tag with reviewed notes: `make release VERSION=<tag> RELEASE_NOTES_FILE=<file>` or `make release-bump TYPE=<type> RELEASE_NOTES_FILE=<file>`.
 9. Monitor GitHub Actions until the release workflow reaches a terminal state. Do not stop at "tag pushed".
 10. Verify GitHub Release, artifacts, checksums, signature bundle, supported package channels, docs versioning, and the WinGet PR/enhancement path.
-11. If anything fails after a tag exists, load `references/recovery.md` before deleting, moving, or reusing tags.
+11. If anything fails after a tag exists, load `references/recovery.md` before deleting, moving, or reusing tags. With immutable releases enabled (verify with `gh api repos/invowk/invowk/immutable-releases`), a published GitHub Release locks its tag and assets: the tag cannot be moved or deleted while the release exists, and its name can never be reused, even after the release is deleted.
 
 ## Release Notes
 
@@ -56,15 +57,15 @@ Required headers, in this order:
 4. `## Warnings and Deprecations`
 5. `## Bug Fixes`
 
-Write in a warm, collaborative tone. Explain changes in clear user language, name risks plainly, and include "Nothing required" or "No known deprecations" when a section has no items.
+Write in a warm, collaborative tone, in clear user language, and name risks plainly (details in the reference). Keep every section; write "Nothing required" or "No known deprecations" when a section has no items.
 
-The poetic opening must include a full stanza/verse from Rimbaud, Oscar Wilde, Baudelaire, Edgar Allan Poe, Shakespeare, or Florbela Espanca. Do not use a stray line, partial stanza, or excerpt that cuts through a stanza. For non-English originals, include the original-language stanza and an English rendering. Use public-domain text or an agent-authored working translation. Never repeat a stanza across releases; run:
+The poetic opening must include a full stanza/verse from Rimbaud, Oscar Wilde, Baudelaire, Edgar Allan Poe, Shakespeare, or Florbela Espanca. Do not use a stray line, partial stanza, or excerpt that cuts through a stanza. For non-English originals, include the original-language stanza and an English rendering (translation sourcing: the reference). Never repeat a stanza across releases; run:
 
 ```bash
 python3 .agents/skills/publish-release/scripts/check-poetic-opening.py release-notes.md
 ```
 
-Then manually double-check prior GitHub Releases or tag bodies for the poem title, author, and first line before publishing.
+The checker also rejects missing, duplicate, empty, or out-of-order required sections, and compares the quoted stanza with local annotated-tag bodies and up to 200 GitHub Releases (`--limit`, `--repo`, `--skip-gh`). It catches only exact or substring reuse of 40+ normalized characters, so a translated stanza with a different English rendering passes. If it prints `gh not found` or `skipped GitHub Release body check`, it still exits 0. Then always run the manual uniqueness search in `references/release-notes.md` for the poem title, author, and first line before publishing.
 
 ## Publish Commands
 
@@ -78,7 +79,7 @@ make release-bump TYPE=minor RELEASE_NOTES_FILE=release-notes.md PROMOTE=1
 make release-bump TYPE=patch RELEASE_NOTES_FILE=release-notes.md DRY_RUN=1
 ```
 
-Manual workflow dispatch is available from GitHub Actions and requires release-notes markdown input. Prefer the Makefile path when publishing from a maintainer workstation because it creates a signed annotated tag.
+Manual workflow dispatch is available from GitHub Actions and requires release-notes markdown input. Prefer the Makefile path when publishing from a maintainer workstation because it creates a signed annotated tag (dispatch creates an unsigned annotated tag).
 
 ## Verification
 
@@ -87,23 +88,25 @@ For local edits to release machinery or this skill:
 ```bash
 bash scripts/test_release.sh
 sh scripts/test_enhance_winget_manifest.sh
+python3 .agents/skills/publish-release/scripts/test_check_poetic_opening.py
 make check-agent-docs
 ```
 
-For an actual release, also verify:
+`make test-scripts` runs only `test_release.sh` of these. `test_enhance_winget_manifest.sh` runs in CI only inside `release.yml`, and no Make target or workflow runs `test_check_poetic_opening.py`, so run both by hand.
+
+For an actual release, load `references/channels.md` "Post-Release Verification" and run its `gh`, `brew`, `winget`, `cosign`, and `sha256sum` checks. Also:
 
 - `gh run list --workflow Release --limit 5` and `gh run view <run-id> --log`.
 - `gh release view <tag> --json tagName,isPrerelease,assets,body` and compare
   its tag with `gh release view --json tagName --jq .tagName` when latest-release
   status matters. `isLatest` is not a supported `gh release view` JSON field.
-- `cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' --certificate-oidc-issuer='https://token.actions.githubusercontent.com' checksums.txt`.
 - Stable releases update or create the Homebrew cask and WinGet PR; prereleases intentionally skip those uploads.
-- `version-docs.yml` runs after GitHub Release publication and commits docs with the GitHub App token.
+- `version-docs.yml` runs after every published GitHub Release, prereleases included, and commits docs with the GitHub App token.
 
 ## Failure Discipline
 
 - Before publication, prefer aborting, fixing, and rerunning.
-- After a tag is pushed but before public artifacts exist, deleting the tag can be acceptable if the team agrees.
-- After public artifacts or package-channel updates exist, do not move or reuse the tag. Repair forward with a new patch/prerelease unless the user explicitly approves a coordinated yank.
+- After a tag is pushed but before any GitHub Release is published from it (a draft is still mutable), deleting the tag can be acceptable if the team agrees.
+- After a GitHub Release is published or package-channel updates exist, do not move or reuse the tag; with immutable releases the tag and assets are locked anyway. Repair forward with a new patch/prerelease unless the user explicitly approves a coordinated yank. A yank deletes the release, and the tag name still cannot be reused.
 - Close or repair package-channel PRs rather than leaving misleading installation paths open.
-- Preserve user trust in the release notes: update the GitHub Release body with known issues and remediation if a release is partially broken.
+- Preserve user trust in the release notes: update the GitHub Release body with known issues and remediation if a release is partially broken. The body stays editable on immutable releases, but a GoReleaser rerun (`release.mode: replace`) overwrites it.

@@ -15,7 +15,8 @@ forwarding, persistent containers, and Podman lifecycle coordination.
 
 ## Engine Shape
 
-`internal/container/engine.go` defines portable runtime operations:
+`internal/container/engine.go` defines portable runtime operations (snapshot;
+the source of truth is `engine.go`):
 
 ```go
 type Engine interface {
@@ -72,9 +73,10 @@ CLI override, configured name, or derived command namespace and applies
 `create_if_missing`. It must remain pure.
 
 Runtime code consumes that plan and performs inspect/create/start/exec/remove.
-When the engine implements `LifecycleCoordinator`, acquire the coordinator for
-the whole state-changing operation. This keeps persistent paths aligned with
-transient Podman serialization.
+When the engine implements `LifecycleCoordinator`, wrap the whole
+state-changing operation in `CoordinateLifecycle(fn func() error)` (see
+`internal/runtime/container_persistent.go`). This keeps persistent paths aligned
+with transient Podman serialization.
 
 ## Podman Sysctl Mitigation
 
@@ -109,8 +111,10 @@ serialize:
   coordinate the Podman VM.
 
 `SysctlOverrideChecker` reports whether serialization can be skipped.
-`LifecycleCoordinator` exposes an operation-scoped lease. Both are forwarded by
-`SandboxAwareEngine` when the wrapped engine implements them.
+`LifecycleCoordinator` is a callback API: `CoordinateLifecycle(fn)` runs `fn`
+under the adapter's serialization policy (directly when no serialization is
+needed). Both are forwarded by `SandboxAwareEngine` when the wrapped engine
+implements them.
 
 Prepared commands must return a cleanup function that holds the lease until the
 interactive child has exited.

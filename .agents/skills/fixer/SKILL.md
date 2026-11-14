@@ -1,17 +1,16 @@
 ---
 name: fixer
 description: >-
-  Platform-aware bug diagnosis and authorized fix workflow with parallel
-  subagents for complex failures. Use when investigating or fixing test
-  failures, CI failures, flaky tests, runtime errors, race conditions, or
-  platform-specific bugs. Diagnosis-only requests remain read-only; apply a
-  fix only when the user asks for implementation or fixing.
-  Also user-invocable as /fixer with an issue description, error output,
-  PR number, or CI run URL. Spawns up to 3 parallel diagnostic subagents
-  based on failure type: platform investigator (consults windows-testing,
-  macos-testing, linux-testing), code path tracer, and pattern matcher.
-  Produces a structured diagnosis report with root cause, recommended fix, and
-  prevention, and verifies changes when implementation is authorized.
+  Platform-aware bug diagnosis and authorized fix workflow. Use when
+  investigating or fixing test failures, CI failures, flaky tests, runtime
+  errors, race conditions, or platform-specific bugs; also user-invocable as
+  /fixer with an issue description, error output, PR number, or CI run URL.
+  Diagnosis-only requests remain read-only; apply a fix only when the user
+  asks for implementation or fixing. For complex failures, spawns up to 3
+  parallel diagnostic subagents (platform investigator consulting
+  windows-testing, macos-testing, linux-testing; code path tracer; pattern
+  matcher) and reports root cause, recommended fix, and prevention, verifying
+  changes when implementation is authorized.
 ---
 
 # Fixer Skill
@@ -55,7 +54,7 @@ Arguments can be:
 Input (error, CI failure, user description)
     │
     ▼
-Phase 1: Evidence Gathering ──── up to 2 parallel subagents
+Phase 1: Evidence Gathering ──── CI Log Analyzer subagent for CI failures
     │
     ▼
 Phase 2: Diagnosis ──────────── up to 3 parallel subagents
@@ -92,9 +91,9 @@ Before spawning diagnostic agents, determine which platform(s) are affected:
 
 | Signal | Platform | Skill to Consult |
 |--------|----------|-----------------|
-| `windows-latest` in CI job name | Windows | `windows-testing` |
-| `macos-15` in CI job name | macOS | `macos-testing` |
-| `ubuntu-*` in CI job name | Linux | `linux-testing` |
+| CI job `Test (windows)` or runner label `windows-*` | Windows | `windows-testing` |
+| CI job `Test (macos)` or runner label `macos-*` | macOS | `macos-testing` |
+| CI job `Test (ubuntu-latest / docker\|podman)` or runner label `ubuntu-*` | Linux | `linux-testing` |
 | Exit code 137 | Linux (OOM) | `linux-testing` |
 | `TerminateProcess` or exit code 1 with timeout | Windows | `windows-testing` |
 | `ERROR_SHARING_VIOLATION` or `Access is denied` | Windows | `windows-testing` |
@@ -103,7 +102,7 @@ Before spawning diagnostic agents, determine which platform(s) are affected:
 | Container test hang | Linux | `linux-testing` |
 | `/private/tmp` path mismatch | macOS | `macos-testing` |
 | `\r\n` or CRLF in assertion mismatch | Windows | `windows-testing` |
-| `sync.Once` race in lipgloss | Windows | `windows-testing` |
+| Windows TUI `-race` failure (incl. lipgloss frames) | Windows | `windows-testing` |
 | Timer/sleep-based flakiness | macOS or Windows | `macos-testing` + `windows-testing` |
 | `-race` timeout on large suite | Windows | `windows-testing` |
 | gotestsum false-FAIL on parallel subtests | macOS | `macos-testing` |
@@ -145,6 +144,7 @@ agents — spawn only what's relevant.
 
 | Subagent | When to Spawn | Focus |
 |----------|--------------|-------|
+| **CI Log Analyzer** (Phase 1) | Input is a CI failure (PR checks, run URL); always first, before the diagnostic roles | Run the `ci-failure-diagnosis.md` queries and extract test, package, job, exit code and rerun status. No root-cause guess. |
 | **Platform Investigator** | Platform-specific symptoms detected | Read the relevant platform skill's Failure Matrix. Match symptoms to known causes. Check if the fix pattern is documented. |
 | **Code Path Tracer** | Failing test identified | Read the failing test AND the production code it exercises. Trace the execution path. Identify data flow, concurrency, and resource lifecycle. |
 | **Pattern Matcher** | Multiple failures or flaky behavior | Search git log for similar past fixes (`git log --oneline --grep="fix(test)" -20`). Check if the same test failed before. Look for patterns across the failure set. |
@@ -159,7 +159,8 @@ agent's suspected cause or preferred fix.
 ### When NOT to Use Subagents
 
 For simple, obvious bugs (typo, missing nil check, wrong variable name), skip
-the subagent overhead entirely. Apply the fix directly and verify. Use subagents
+the subagent overhead entirely. Fix directly and verify only when
+implementation is authorized; otherwise report the diagnosis. Use subagents
 when:
 - The root cause is not immediately obvious
 - The failure is platform-specific or intermittent
@@ -204,12 +205,14 @@ existing patterns:
   `go-testing` § "Parallelism Decision Framework".
 - **Timing flakiness**: replace `time.Sleep` with event-based synchronization
   (channels, `sync.WaitGroup`, poll loops with deadlines). Consult
-  `macos-testing` § "Timer Coalescing" and `windows-testing` § "Timer Resolution".
+  `macos-testing` § "Watcher and Timing Contract" (detail:
+  `references/filesystem-kqueue.md` "Timer Coalescing") and `windows-testing`
+  § "Timing And Race Detector".
 - **Platform mismatch**: add `skipOnWindows`, `[!windows]`/`[windows]`
   conditionals, or platform-agnostic assertions. Consult the relevant platform
   skill's Failure Matrix.
 - **Container hang**: add `ContainerTestContext`, `WaitDelay`, or engine health
-  probe. Consult `linux-testing` § "Container Test Infrastructure".
+  probe. Consult `linux-testing` § "Container Test Invariants".
 - **Context misuse**: replace `context.Background()` with `t.Context()` or
   bounded context. Consult `go-testing` § "Context Patterns Decision Tree".
 
@@ -221,23 +224,20 @@ Every fix should include at least one prevention measure:
 |----------------|------------|---------|
 | Regression test | Logic bugs, nil checks | Add test case to existing table-driven test |
 | Platform guard | OS-specific behavior | `skipOnWindows: true` with reason |
-| Linter rule | Pattern-level prevention | New golangci-lint check or goplint rule |
+| Linter rule | Pattern-level prevention | New golangci-lint check in `.golangci.toml`; a goplint analyzer change belongs in `github.com/invowk/goplint`, so triage it with the user first (`.agents/rules/checklist.md` goplint triage) |
 | CI configuration | Timeout/resource issues | Adjust `-timeout`, `-parallel`, semaphore |
 | Documentation | Subtle gotcha | Add entry to platform skill Failure Matrix |
 
 ### 4. Test-Writing Guardrails
 
-When the fix involves writing or modifying test code, apply the testing skill's
-Pre-Write Checklist (`.agents/skills/testing/SKILL.md` § "Pre-Write Checklist")
-before committing. The most common "fix creates new problem" patterns are:
-
-| Mistake | Consequence | Prevention |
-|---------|-------------|------------|
-| Adding `t.Parallel()` without checking safety | Data races, crashes, multi-round follow-up | Consult `go-testing` § Parallelism Decision Framework BEFORE adding |
-| Leaving stale `//nolint:` after removing suppressed code | `nolintlint` CI failure | Run `make lint` after any code removal near `//nolint` directives |
-| New test helper without `t.Helper()` | Confusing failure locations in CI output | First statement in any helper that calls `t.Error`/`t.Fatal` |
-| `t.Errorf` before nil dereference | Panic in test binary | Use `t.Fatalf` when next line dereferences the result |
-| Orphaned imports after moving tests | Compilation failure | Run `go build ./path/...` after moving test functions |
+When the fix writes or modifies test code, apply the "Pre-Write Checks" in
+`.agents/skills/testing/references/pre-write-and-go-patterns.md` before
+committing. The five "fix creates a new problem" checks: run `make lint` after
+removing code near a `//nolint` directive (stale directives fail `nolintlint`);
+call `t.Helper()` first in any helper that reports failures; use `t.Fatalf`
+when the next line dereferences the result; run `go build ./path/...` after
+moving tests (orphaned imports); check parallel safety (`go-testing` §
+"Parallelism Decision Framework") before adding `t.Parallel()`.
 
 ---
 
@@ -267,13 +267,13 @@ Read and follow `.agents/rules/checklist.md`; the exact gate set depends on the
 changed surface. For ordinary Go fixes, the usual minimum is:
 
 1. `make lint` — fix ALL issues
-2. `make test` — full test suite (NOT `-short`)
+2. `make test` — full test suite (NOT `-short`; it already includes `make test-cli`)
 3. `make check-baseline` — no new goplint findings
 4. `make check-file-length` — all files under 1000 lines
+5. `make sonar-local` — fix real bugs and vulnerabilities
 
-If the fix required new tests or modified test infrastructure, also run:
-- `make test-cli` (if CLI tests changed)
-- `make sonar-local` (if production code changed)
+Also run, when relevant:
+- `make test-cli` alone only while iterating on CLI tests
 - `make check-agent-docs` (if `.agents/` files changed)
 
 ### Cross-Platform Verification
@@ -298,7 +298,7 @@ For rapid diagnosis, map the failure type to the right investigation path:
 | Assertion mismatch | Read test + production code | `testing`, `go-testing` |
 | Race detector report | Read the two conflicting goroutine stacks | `go-testing` (race-detector-guide.md) |
 | Timeout (exit code 1) | Check `-timeout` value and test duration | `go-testing` (test-flags-matrix.md) |
-| Timeout (exit code 137) | OOM killer — check memory pressure | `linux-testing` (OOM Killer section) |
+| Timeout (exit code 137) | OOM killer — check memory pressure | `linux-testing` (`references/process-namespaces.md` "OOM Killer") |
 | Panic / nil pointer | Read stack trace, trace nil source | `go` |
 | Flaky (passes sometimes) | Check for timing, concurrency, or platform issues | platform skills + `go-testing` |
 

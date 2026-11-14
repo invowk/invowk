@@ -7,7 +7,7 @@ Procedures for the profile-guided optimization profile and Bencher benchmark dat
 - `default.pgo` lives in the repository root, is committed, and is picked up automatically by the Go toolchain. Benchmark source: `internal/benchmark/benchmark_test.go`.
 - Targets:
   - `make pgo-profile`: full profile (includes container benchmarks)
-  - `make pgo-profile-short`: skips container benchmarks
+  - `make pgo-profile-short`: passes `-short`. Every benchmark in `internal/benchmark` currently calls `b.Skip` under `testing.Short()`, so this target trains on no benchmark workload; do not use it to regenerate `default.pgo` until that changes (the Makefile help and `README.md` still describe it as "no container benchmarks").
   - `make pgo-profile-parse-discovery`: focused parser/discovery hot-path profile
   - `make pgo-audit`: validates profile freshness and required symbols
 - Profile generation trains with `-pgo=off` so the new profile is not biased by the committed one.

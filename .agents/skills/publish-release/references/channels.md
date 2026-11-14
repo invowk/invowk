@@ -27,7 +27,9 @@ GitHub Release settings:
 
 - `prerelease: auto`.
 - Stable releases become latest; prereleases do not.
-- `mode: replace`, so reruns may replace the GitHub Release content for the same tag.
+- `mode: replace` governs only the release notes when the release already exists: a rerun overwrites the body, including manual known-issue edits. It does not make assets replaceable.
+- Immutable releases are enabled for this repository (a repository setting; verify with `gh api repos/invowk/invowk/immutable-releases`). Once a release is published, its assets cannot be added, replaced, or deleted, and its tag cannot be moved or deleted while the release exists; the tag name can never be reused. Title, notes, and prerelease/latest flags stay editable.
+- GoReleaser creates GitHub Releases as drafts while uploading artifacts, then publishes them. This config sets neither `replace_existing_draft` nor `use_existing_draft`, so a failed run can leave an orphan draft and a rerun may create a second one.
 
 ## Supported User Installation Channels
 
@@ -40,9 +42,9 @@ GitHub Release settings:
 
 ## Stable Versus Prerelease
 
-- Prereleases publish GitHub Release artifacts and checksums.
+- Both publish GitHub Release artifacts and checksums, and both trigger docs versioning (`version-docs.yml` runs on every `release: published` event; `scripts/version-docs.sh` handles prerelease versions).
 - Prereleases skip Homebrew and WinGet via `skip_upload: auto`.
-- Stable releases publish GitHub Release artifacts, update Homebrew cask, create/enhance a WinGet PR, and trigger docs versioning.
+- Stable releases also update the Homebrew cask and create/enhance a WinGet PR.
 
 ## Secrets And Permissions
 

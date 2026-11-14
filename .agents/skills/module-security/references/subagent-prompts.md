@@ -106,8 +106,11 @@ Inputs:
 Check current references in:
 1. `.agents/agents/supply-chain-reviewer.md`
 2. `.agents/skills/module-security/SKILL.md`
-3. `AGENTS.md` security-model sections
-4. User documentation named by the code-to-doc sync map for the changed surface
+3. `AGENTS.md` "Hard invariants" (virtual runtimes, command scope, module
+   dependencies)
+4. User documentation named for the changed surface by
+   `.agents/skills/review-docs/references/consolidated-sync-map.md`, including
+   `website/docs/security/audit.mdx`
 
 Use search only to locate claims. Compare each claim with the supplied
 behavioral evidence. Report File:Line, current claim, evidence-backed correction,

@@ -14,7 +14,7 @@ audit Go code for correctness, performance, or security.
 - [Scanner Self-Defense](#scanner-self-defense)
 - [CLI Layer Review](#cli-layer-review)
 - [Test Coverage Analysis](#test-coverage-analysis)
-- [Known Issues and Opportunities](#known-issues-and-opportunities)
+- [Review Opportunities](#review-opportunities)
 
 ---
 
@@ -49,7 +49,7 @@ find internal/audit -maxdepth 1 -type f -name '*.go' | sort
 - `ScanContext` is immutable after `BuildScanContext()` returns — checkers share it concurrently
 - `Checker.Check()` must be safe for concurrent calls with the same `*ScanContext`
 - `Scanner.Scan()` returns partial results on checker failure (non-nil report + non-nil error)
-- Exit codes: 0 (clean), 1 (findings via `ExitError`), 2 (scan error via `ExitError`)
+- Exit codes: 0 (no confirmed findings after triage), 1 (confirmed findings via `ExitError`), 2 (scan or configuration error via `ExitError`)
 
 ---
 
@@ -61,15 +61,12 @@ For each checker, verify these properties:
 
 | Check | What to Verify |
 |-------|---------------|
-| `checkSize` | Uses `os.Stat` before parse — correct DoS guard. Verify `maxLockFileSize` (5 MiB) matches `pkg/invowkmod` CUE guard |
+| Unparseable / missing lock | A `LockFileParseErr` yields "Lock file present but unparseable" and skips the other checks; no lock with `requires` or with vendored content is flagged, not skipped |
+| `checkSize` | Compares the snapshot size with `invowkmod.LockFileSizeLimit` (5 MiB), the same constant `InspectLockFile` enforces before reading. Both `continue` branches above run first, so verify this path is still reachable |
 | `checkVersion` | Tests both v1.0 and v2.0 recognition. Verify against `invowkmod.LockFileVersionV1` and `LockFileVersionV2` constants |
-| `checkHashMismatches` | Calls `invowkmod.ComputeModuleHash` — verify it's the exported accessor, not duplicated logic |
-| `checkOrphanedEntries` | Cross-references lock modules vs vendored IDs via `ExtractModuleIDFromNamespace`. Verify namespace extraction matches lock file format |
-| `checkMissingEntries` | Builds `reqKey` as `gitURL + "#" + path`. Verify this key format matches how lock entries are keyed |
-| Missing lock file | Modules without lock files are correctly skipped (`if mod.LockFile == nil { continue }`) |
-
-**Attention point:** `checkMissingEntries` uses `strings.Contains` for matching — could false-positive
-if one module's git URL is a substring of another's. Consider exact key matching.
+| `checkHashMismatches` | Calls the injected `VendoredHashEvaluator` (default `invowkmod.EvaluateVendoredModuleHash`, set by `WithHashEvaluator`) — verify no hashing logic is duplicated in the audit package |
+| `checkOrphanedEntries` | Uses `invowkmod.OrphanedLockedModuleEntries`; reports the first 10 individually, then one summary finding |
+| `checkMissingEntries` | Uses exact keys from `invowkmod.MissingLockedModuleRequirementKeys`. Verify it stays exact, with no substring matching |
 
 ### ScriptChecker (`checks_script.go`)
 
@@ -77,13 +74,12 @@ if one module's git URL is a substring of another's. Consider exact key matching
 |-------|---------------|
 | `checkScriptPath` | Only checks file-based scripts (`ref.IsFile`). Inline scripts with `../` in body caught by `checkObfuscation` |
 | `checkScriptFileSize` | Only checks scripts with `ref.ModulePath != ""`. Standalone scripts skip size check — intentional? |
-| `checkRemoteExecution` | Two regex patterns: piped `curl\|sh` and silent `-sS` variant |
+| `checkRemoteExecution` | Three patterns: piped `curl\|sh`, process substitution `bash <(curl …)`, and download-then-execute |
 | `checkObfuscation` | 5 regex patterns in table-driven loop. Deduplication: `pathTraversalPattern` check skips if already caught by `checkScriptPath` |
-| Path concatenation | `checkScriptFileSize` builds path with `/` separator — verify cross-platform correctness (should use `filepath.Join`) |
 
-**Attention point:** Recheck `checkScriptFileSize` path construction whenever
-script path validation changes. It should preserve cross-platform behavior and
-match the rest of the codebase's path helpers.
+**Attention point:** `checkScriptFileSize` uses the pre-resolved `ref.ScriptPath`.
+Whenever script path validation changes, recheck that it keeps cross-platform
+behavior and matches the rest of the codebase's path helpers.
 
 ### NetworkChecker (`checks_network.go`)
 
@@ -91,7 +87,7 @@ match the rest of the codebase's path helpers.
 |-------|---------------|
 | Reverse shell suppression | When reverse shell found, generic network command check is skipped (`len(reverseShellFindings) == 0`). Correct priority |
 | `base64HTTPPattern` | Matches literal `aHR0c` (base64 of "http"). Could false-positive on legitimate base64 content |
-| `dnsExfilPattern` | Requires variable interpolation (`$[{(]?[A-Z_]`). Pure DNS lookups without vars won't trigger — correct |
+| `dnsExfilPattern` | Requires variable interpolation (`$[{(]?[A-Za-z_]`) or backtick expansion. Pure DNS lookups without either won't trigger — correct |
 | Empty content | Early `continue` when `content == ""` — correct |
 
 ### EnvChecker (`checks_env.go`)
@@ -101,7 +97,7 @@ match the rest of the codebase's path helpers.
 | `checkEnvInheritMode` | Checks `ref.Runtimes[i].EnvInheritMode == invowkfile.EnvInheritAll`. Verify this constant exists |
 | `sensitiveVarPattern` | Named credentials: AWS, GitHub, SSH, DB. Review if list is current |
 | `genericSecretPattern` | Catches `API_KEY`, `SECRET_KEY`, etc. with optional `{}` braces around var name |
-| `tokenExtractionPattern` | Detects `$TOKEN[^|>]*[|>]` — piped or redirected. The `[^|>]*` gap allows whitespace/flags between var and pipe |
+| `tokenExtractionPattern` | Detects a credential variable followed by a pipe or redirect (`[^\|>]*[\|>]`). The `[^\|>]*` gap allows whitespace/flags between var and pipe |
 | Double finding | Same script could match both `sensitiveVarPattern` and `genericSecretPattern` — intentional (different severity rationale) |
 
 ### SymlinkChecker (`checks_symlink.go`)
@@ -109,7 +105,7 @@ match the rest of the codebase's path helpers.
 | Check | What to Verify |
 |-------|---------------|
 | Bounded artifact walker | Uses batched `ReadDir(n)` and `DirEntry.Type()&os.ModeSymlink`; symlinked directories are reported but never followed |
-| Boundary check | `filepath.Rel` + `strings.HasPrefix(rel, "..")` — verify this handles `..` at various positions |
+| Boundary check | `isWithinBoundary` (`filepath.Rel`, then rejects `..` and a `..` + separator prefix) — verify this handles `..` at various positions and that a `..foo` name is not treated as an escape |
 | Chain detection | Iterates up to `maxSymlinkChainDepth` (10) with `os.Readlink` + `os.Lstat`. Correct chain-following |
 | Dangling check | Uses `os.Stat(path)` — follows symlinks, so `os.IsNotExist` means target doesn't exist. Correct |
 | Walk error handling | Open, read, close, visitor, cancellation, and artifact-budget errors fail scan-context construction rather than yielding partial clean results |
@@ -131,9 +127,9 @@ match the rest of the codebase's path helpers.
 |-------|---------------|
 | Typosquatting | O(n^2) Levenshtein over all module IDs. Self-comparison excluded (`thisID == otherID`) |
 | Levenshtein | Two-row algorithm, space-efficient. Byte comparison (not rune) — could give wrong distances for non-ASCII module IDs |
-| Dependency "depth" | Actually counts `len(requires)` (number of direct deps), not depth. Naming is slightly misleading |
-| Version pinning | Checks for `""`, `"*"`, `">=0.0.0"`. Other loose constraints (e.g., `>0.0.0`) not caught |
-| Undeclared transitive | Cross-references vendored module requires against root declared deps. Key is `GitURL` string |
+| `checkDependencyFanOut` | Counts direct `requires` against `maxDependencyFanOut` (5); it measures fan-out, not graph depth |
+| Version pinning | `unpinnedVersions` set (`""`, `*`, `>=0.0.0`, `>0`, `>=0`, `>0.0.0`, `>=0.0.0-0`, `*.*`, `*.*.*`). Review for other any-version forms |
+| Undeclared transitive | Delegates to `invowkmod.CheckMissingVendoredTransitiveDeps`; vendored-module declaration uses lock identity when a lock exists |
 
 ---
 
@@ -145,11 +141,11 @@ Regex patterns are the most brittle part of the scanner. When reviewing or modif
 
 | Pattern | False Positive Scenario |
 |---------|----------------------|
-| `remoteExecPattern` | Legitimate `curl ... \| jq` (not piping to shell). Currently only matches shell interpreters — acceptable |
+| `remoteExecPattern` | Legitimate `curl ... \| jq` (not piping to an interpreter). Currently only matches interpreters (shells, python, perl, ruby, node, php, PowerShell) — acceptable |
 | `base64HTTPPattern` (`aHR0c`) | Any content containing the substring `aHR0c` in comments, documentation, or test data |
-| `networkCommandPattern` (`\b(curl\|wget\|nc\|ncat\|socat)\b`) | Any mention of these tools, even in comments within scripts |
+| `networkCommandPattern` (`\b(curl\|wget\|aria2c\|nc\|ncat\|socat)\b`) | Any mention of these tools, even in comments within scripts |
 | `sensitiveVarPattern` | Scripts that intentionally access credentials for authorized operations |
-| `pathTraversalPattern` (`\.\./`) | Legitimate relative path references in non-module scripts |
+| `pathTraversalPattern` (`\.\./`) | Legitimate relative path references inside module scripts (only module scripts are scanned) |
 
 ### False Negative Risks
 
@@ -161,6 +157,7 @@ Regex patterns are the most brittle part of the scanner. When reviewing or modif
 | `evalPattern` | Using `source /dev/stdin <<< "..."` instead of `eval` |
 | `hexSequencePattern` | Using octal (`\077`) or unicode (`\u0041`) escapes instead of hex |
 | `dnsExfilPattern` | Using `getent hosts` or Python's `socket.gethostbyname` instead of `dig`/`nslookup` |
+| `sensitiveVarPattern`, `tokenExtractionPattern` | Brace form `${GITHUB_TOKEN}`: both match only `$NAME`, so braced named credentials evade them (`genericSecretPattern` allows braces, but only for generic names) |
 
 ### Regex Compilation
 
@@ -178,10 +175,9 @@ package-level `var` declarations, never compile inside `Check()`.
 
 1. **No mutation after `BuildScanContext` returns** — all fields are set during construction,
    `scripts` is pre-computed via `buildScriptRefs()`
-2. **Accessor methods return slice headers** — `Modules()`, `Invowkfiles()`, `AllScripts()`
-   return the underlying slices directly. Callers that `append` would corrupt shared state.
-   Current checkers are well-behaved, but this is a latent safety issue.
-   **Recommendation:** Return copies or use read-only wrapper types for defense-in-depth.
+2. **Accessor methods return clones** — `Modules()`, `Invowkfiles()`, `AllScripts()`
+   return cloned snapshots, so a checker cannot corrupt shared state through them.
+   Keep new accessors cloning too.
 3. **No pointer mutation** — checkers receive `*ScanContext` but should never write through it.
    Go's type system doesn't prevent this — rely on convention and review.
 
@@ -202,9 +198,8 @@ wg.Wait()
 - **Correct:** Pre-allocated results slice avoids race on append
 - **Correct:** Index-based assignment (`results[idx]`) is goroutine-safe (distinct indices)
 - **Correct:** Loop variables captured via function parameters, not closure
-- **Note:** Context cancellation check is only at goroutine start — a long-running checker
-  should periodically check `ctx.Done()` within its `Check()` method. Verify this
-  for every checker returned by `DefaultCheckers()`.
+- **Note:** Every default checker checks `ctx.Done()` per module or script inside
+  `Check()`. Verify that any new checker returned by `DefaultCheckers()` does the same.
 
 ### Correlator Thread Safety
 
@@ -257,7 +252,7 @@ scanner itself:
 
 | Attack | Protection | File:Line |
 |--------|-----------|-----------|
-| Giant lock file DoS | `checkSize` with 5 MiB guard before parse | `checks_lockfile.go` |
+| Giant lock file DoS | `invowkmod.InspectLockFile` stats and rejects files over 5 MiB before reading; surfaces as "Lock file present but unparseable" | `pkg/invowkmod/lockfile.go`, `checks_lockfile.go` |
 | Giant script file DoS | `checkScriptFileSize` with 5 MiB guard | `checks_script.go` |
 | Directory traversal in scan path | `filepath.Abs` on scan path input | Recheck current `BuildScanContext` path normalization |
 | Symlink chain loop | `maxSymlinkChainDepth` limit | Recheck current symlink checker |
@@ -270,8 +265,7 @@ scanner itself:
 | Gap | Risk | Mitigation |
 |-----|------|-----------|
 | No total script content memory limit | Many large (but under 5 MiB each) scripts could accumulate | Low: script content is stored in `invowkfile.ScriptContent` from parse, already in memory |
-| `os.Stat` TOCTOU in lock file checker | File could change between `Stat` (size check) and `LoadLockFile` (parse) | Very low: lock files are rarely modified during scan |
-| Error swallowing in `loadSingleModule` | Parse errors for invowkfile and lock file are silently ignored | By design (modules without these files are valid), but errors from corrupt files are lost |
+| `os.Stat` TOCTOU in lock file loading | File could change between `os.Stat` (size check) and `os.ReadFile` in `invowkmod.InspectLockFile` | Very low: lock files are rarely modified during scan |
 
 ---
 
@@ -283,34 +277,26 @@ Inspect the current `cmd/invowk/audit.go` rendering and CLI adapter code.
 
 | Code | Constant | Condition |
 |------|----------|-----------|
-| 0 | `auditExitClean` | `report.HasFindings(minSev)` returns false |
-| 1 | `auditExitFindings` | Findings exist at or above threshold |
-| 2 | `auditExitError` | Scan error or invalid flags |
+| 0 | `auditExitClean` | `triage.HasConfirmedFindings(minSev)` returns false (suppressed by-design findings never count) |
+| 1 | `auditExitFindings` | Confirmed findings exist at or above threshold |
+| 2 | `auditExitError` | Invalid flags or LLM configuration, scanner construction failure, unknown `--format`, render failure, or fatal scan error |
 
-**Verify:** `runAudit` returns `nil` (exit 0) only when no findings. Returns `&ExitError{Code: auditExitFindings}` when findings exist but no scan error. Returns `&ExitError{Code: auditExitError}` on severity parse failure or fatal scan error.
+**Verify:** `runAudit` returns `nil` (exit 0) only when no confirmed finding meets the threshold. A non-nil scan error with a report that `audit.ScanFailureIsFatal` does not classify as fatal only prints `warning: some checkers failed` and keeps the 0/1 decision. Fatal scan errors, severity parse failures, and invalid scanner or LLM configuration return `&ExitError{Code: auditExitError}`.
 
 ### JSON Output Schema
 
-```json
-{
-  "findings": [{"severity": "...", "category": "...", ...}],
-  "compound_threats": [{"severity": "...", ...}],
-  "summary": {
-    "total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0,
-    "modules_scanned": 0, "invowkfiles_scanned": 0, "scripts_scanned": 0,
-    "duration_ms": 0
-  }
-}
-```
-
-**Verify:** `auditJSONOutput` struct tags match this schema. The `compound_threats` field
-uses `omitempty` — empty array omitted from JSON (not `null`). This is correct for clean scans.
+The canonical schema is Phase 1 Step 3 in `../SKILL.md`, mirroring
+`auditJSONOutput` in `cmd/invowk/audit.go`. **Verify:** the struct tags still
+match it. `compound_threats` (like every top-level key except `findings` and
+`summary`, and the finding fields `surface_id`, `surface_kind`, `file_path`,
+`line`, `escalated_from`, `escalated_from_codes`) uses `omitempty` — an empty array is omitted from JSON (not `null`). This is
+correct for clean scans.
 
 ### Rendering Quality
 
 - `renderAuditText` uses lipgloss styling. Verify styles degrade gracefully when
   `NO_COLOR` or non-TTY output is detected (lipgloss handles this automatically)
-- `groupBySeverity` + `severityOrder` ensures Critical → High → Medium → Low → Info ordering
+- `groupBySeverity` + `auditSeverityDisplayOrder()` ensure Critical → High → Medium → Low → Info ordering
 - `formatDuration` should handle sub-millisecond durations (fast scans)
 
 ---
@@ -358,11 +344,10 @@ Re-evaluate these from the live tests rather than treating them as known gaps:
 
 ## Review Opportunities
 
-Re-derive opportunities from source on each review. Pay particular attention to
-exact structured lock-entry matching, platform-aware script paths, defensive
-copies from `ScanContext`, and rune-safe edit distance if module IDs can contain
-non-ASCII text. Do not carry a resolved issue forward because an older version
-of this guide named it.
+Re-derive opportunities from source on each review. Rune-safe edit distance is
+still open if module IDs can contain non-ASCII text. Do not carry a resolved
+issue forward because an older version of this guide named it (closed items:
+`.agents/memorials/skills-security-formal-module-security.md`).
 
 ### Performance Opportunities
 
@@ -382,11 +367,7 @@ of this guide named it.
    operation. If profiling exposes another unbounded surface, extend resource
    accounting without weakening the existing typed, fail-closed behavior.
 
-2. **Structured warnings** — Replace silent `continue` on parse errors with structured
-   warnings in the Report (new field: `Warnings []string`), so users know when scan
-   coverage was incomplete.
-
-3. **Content-based detection** — Currently all script analysis is regex-based. For higher
+2. **Content-based detection** — Currently all script analysis is regex-based. For higher
    accuracy, consider AST-based analysis for shell scripts using `mvdan.cc/sh/v3/syntax`
    (already a dependency) to detect patterns like subshell nesting, process substitution,
    and indirect variable expansion.

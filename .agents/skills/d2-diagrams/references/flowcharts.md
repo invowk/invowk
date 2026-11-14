@@ -1,6 +1,6 @@
 # Flowcharts
 
-D2 excels at flowcharts with its intuitive syntax, extensive shape library, and powerful layout engines. TALA provides superior auto-arrangement with grid support.
+D2 excels at flowcharts with its intuitive syntax, extensive shape library, and powerful layout engines. TALA provides superior auto-arrangement.
 
 ## Basic Syntax
 
@@ -201,9 +201,9 @@ backend: Backend Services {
 }
 ```
 
-## Grid Layout (TALA)
+## Grid Layout
 
-TALA's grid feature creates aligned layouts:
+D2's grid feature (`grid-columns` / `grid-rows`, laid out the same by every engine) creates aligned layouts:
 
 ```d2
 vars: {
@@ -374,7 +374,7 @@ calc_mid: |md
   mid = low + (high - low) / 2
 |
 
-compare: arr[mid] == target? {
+compare: "arr[mid] == target?" {
   shape: diamond
 }
 
@@ -390,7 +390,7 @@ not_found: Return -1 {
   style.font-color: "#ffffff"
 }
 
-check_less: arr[mid] < target? {
+check_less: "arr[mid] < target?" {
   shape: diamond
 }
 
@@ -586,13 +586,16 @@ error -> idle: dismiss()
 ## Best Practices
 
 1. **Set direction explicitly** - `direction: down` for traditional flowcharts
-2. **Make entry explicit** - Use a `Start` node with `shape: oval` and a `Start -> ...` edge
+2. **Make entry explicit** - Use a `Start` node with `shape: oval` and a `Start -> ...` edge. In repository
+   flowcharts (`docs/diagrams/flowcharts/`) the node must be named exactly `Start`, in the block form shown in
+   the skill's readability invariants; the generic examples above use lowercase `start` and would fail
+   `make check-diagram-readability` as written
 3. **Group related steps** - Use containers for logical groupings
 4. **Style consistently** - Same colors for same types of nodes
 5. **Label all decisions** - Every diamond branch needs a label
 6. **Keep it focused** - One process per diagram
 7. **Use TALA for complex flows** - Better auto-layout than dagre
-8. **Use deterministic renders** - Pass `--tala-seeds=100` in CI/local render commands
+8. **Use deterministic renders** - Render with `make render-diagrams`, which applies `--tala-seeds=100` when supported
 
 ## Shape Selection Guide
 

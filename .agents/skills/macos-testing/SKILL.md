@@ -2,11 +2,11 @@
 name: macos-testing
 description: >-
   Invowk macOS and Darwin testing guidance for APFS case and normalization
-  behavior, `/tmp` and `/var` path aliases, kqueue/fsnotify events, timer and
-  descriptor pressure, process cleanup, code signing, and Apple Silicon.
-  Use when debugging macOS-only failures, virtual path assertion drift,
-  watcher or TUI timing flakes, `[darwin]` testscript branches, or failures in
-  the current macOS CI matrix.
+  behavior, `/tmp` and `/var` path aliases (`/private/tmp`), kqueue/fsnotify
+  events, timer coalescing and descriptor pressure, process cleanup, code
+  signing and quarantine, and Apple Silicon. Use when debugging macOS-only
+  failures, virtual path assertion drift, watcher or TUI timing flakes,
+  `[darwin]` testscript branches, or failures in the current macOS CI matrix.
 ---
 
 # macOS Testing
@@ -25,9 +25,10 @@ load only the reference for the affected primitive.
 Load references conditionally:
 
 - Read [references/filesystem-kqueue.md](references/filesystem-kqueue.md) for
-  APFS, path aliases, kqueue, flock, timers, descriptor limits, and signing.
+  APFS, path aliases, kqueue, descriptor limits, timer coalescing, code
+  signing/quarantine/SIP, and the flock fallback.
 - Read [references/process-signals.md](references/process-signals.md) for XNU
-  process creation, signal delivery, cancellation, and debugging.
+  process creation, signal delivery, cancellation, exit codes, and debugging.
 
 ## First Checks
 
@@ -72,7 +73,8 @@ Load references conditionally:
   a bounded condition through the existing debounce/watch helpers.
 - Prefer channels, polling helpers, and explicit readiness over `time.Sleep`.
   When an external TUI or filesystem boundary requires a delay, derive it from
-  current tests and keep a bounded outer timeout.
+  current tests and keep a bounded outer timeout. macOS timer coalescing makes
+  sleeps fire late (`filesystem-kqueue.md` "Timer Coalescing").
 - Inspect `ulimit -n` and live descriptor ownership before attributing a failure
   to a copied macOS soft-limit value.
 
@@ -120,7 +122,7 @@ Load references conditionally:
 | TUI/watcher timing flake | readiness signal and timeout layer | event/poll synchronization, not copied sleeps |
 | `too many open files` | `ulimit -n` and live descriptor count | close leaks or bound concurrency |
 | gotestsum parent status is confusing | current invocation and verbose output | follow `go-testing` rerun guidance |
-| Binary execution is denied | quarantine/signature diagnostics | apply the narrow documented signing/quarantine remedy |
+| Binary execution is denied | `xattr -l` and `codesign -dv` output | apply the narrow remedy in `filesystem-kqueue.md` "Code Signing, Gatekeeper and SIP" |
 | Race appears only on ARM64 | both race stacks and shared state | fix synchronization; do not skip by architecture |
 
 ## Verification

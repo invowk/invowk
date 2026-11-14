@@ -196,17 +196,24 @@ TestTUIConfirm/cancel_path
 
 The CI matrix in `.github/workflows/ci.yml` defines these test configurations:
 
-| Job name pattern | Runner | Platform | Engine | Test mode | Timeout flags |
-|------------------|--------|----------|--------|-----------|---------------|
-| `Test (ubuntu-latest / docker)` | `ubuntu-latest` | Linux | Docker | full | `-race -timeout 15m` |
-| `Test (ubuntu-latest / podman)` | `ubuntu-latest` | Linux | Podman | full | `-race -timeout 15m` |
-| `Test (windows)` | `windows-latest` | Windows | none | short | `-race -short -v` |
-| `Test (macos)` | `macos-15` | macOS | none | short | `-race -short -v` |
+| Job name pattern | Runner | Platform | Engine | Test mode | `go test` flags per step |
+|------------------|--------|----------|--------|-----------|--------------------------|
+| `Test (ubuntu-latest / docker)` | `ubuntu-latest` | Linux | Docker | full | non-CLI and runtime: `-race -timeout 15m`; CLI: `-race -timeout 10m` |
+| `Test (ubuntu-latest / podman)` | `ubuntu-latest` | Linux | Podman | full | non-CLI and runtime: `-race -timeout 15m`; CLI: `-race -timeout 10m` |
+| `Test (windows)` | `windows-latest` | Windows | none | short | unit: `-race -short -v`; CLI: `-race -timeout 5m` |
+| `Test (macos)` | `macos-15` | macOS | none | short | unit: `-race -short -v`; CLI: `-race -timeout 5m` |
+
+Runner labels change; read the matrix in `.github/workflows/ci.yml`. Match a
+failure on the job name or the runner label.
 
 Key differences:
 - **Full mode** runs all tests including container integration tests.
 - **Short mode** skips integration tests (`-short` flag) and container tests
-  (no engine available). `-v` is required on short-mode for correct gotestsum behavior.
+  (no engine available). `-v` is required with `--rerun-fails` for correct
+  gotestsum behavior (`go-testing` § "gotestsum Integration"); the short-mode
+  unit step passes it, but the full-mode `--rerun-fails` steps ("Run tests
+  (full, non-CLI)", "Run internal/runtime tests (full)") currently do not, so
+  a confusing parent FAIL there may be a gotestsum artifact.
 - **Container parallelism**: Full-mode Linux tests set `INVOWK_TEST_CONTAINER_PARALLEL=2`
   to limit concurrent container operations.
 - **Engine masking**: Linux runners have both Docker and Podman installed. CI masks
@@ -234,14 +241,15 @@ of the kill.
 
 **Symptom**: Exit code 137, possibly preceded by `signal: killed`.
 
-**Cause**: The Linux OOM killer terminated the process. Common with `-race` flag
-(10x memory overhead) combined with heavy container operations.
+**Cause**: The Linux OOM killer terminated the process. Common with `-race`
+(roughly 5-10x memory) combined with heavy container operations.
 
 **Diagnosis**: Check if the failure is on a Linux runner with many parallel container
 tests. The container test semaphore (`INVOWK_TEST_CONTAINER_PARALLEL`) should limit
 parallelism, but races in semaphore acquisition can still cause spikes.
 
-**Cross-reference**: `linux-testing` skill (OOM Killer section, container-testing-deep.md).
+**Cross-reference**: `linux-testing` skill (`references/process-namespaces.md`
+"OOM Killer", `references/container-testing-deep.md`).
 
 ### Compilation error (exit code 2)
 
@@ -273,18 +281,25 @@ not reconcile the output.
 **Diagnosis**: Check for timeout or OOM first. If the binary timeout was hit,
 increasing `-timeout` may reveal the actual failing test. If OOM, reduce parallelism.
 
-**Cross-reference**: MEMORY.md "Timeout cascade masks failures" entry.
+**Cross-reference**: `windows-testing` § "Current CI Shape" (a package
+timeout cascades into `(unknown)` results; inspect the first hung package or
+stack dump), `go-testing` (`references/test-flags-matrix.md`, timeout
+behavior).
 
 ### Engine masking failure
 
-**Symptom**: Wrong container engine used in CI, or container tests run when they
-should not.
+**Symptom**: The job fails in a "Mask Docker for Podman tests" or "Mask Podman
+for Docker tests" step with `::error::Docker is still on PATH after masking`
+(or the Podman equivalent), or container tests report the wrong engine.
 
-**Cause**: The `sudo mv` step to mask the non-tested engine failed silently
-(`|| true`). Both engines remain available and `AutoDetectEngine()` picks Docker
-by default.
+**Cause**: The masking steps loop over `command -v`, rename every `PATH`
+install of the non-tested engine to `.disabled`, and fail loudly if the
+engine is still found. A failure usually means the runner image installed the
+engine somewhere new or more than the loop's install count. Masking no longer
+fails silently.
 
-**Diagnosis**: Check the "Mask Docker for Podman tests" or "Mask Podman for Docker
-tests" step output in the CI logs.
+**Diagnosis**: Read the mask step output in the CI logs and the step in
+`.github/workflows/ci.yml`. Keep the step fail-loud (catalog CT-4).
 
-**Cross-reference**: `linux-testing` skill, `.github/workflows/ci.yml` lines 112-117.
+**Cross-reference**: `linux-testing` skill
+(`references/container-testing-deep.md` "Engine Masking").

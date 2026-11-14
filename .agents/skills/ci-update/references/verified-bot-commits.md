@@ -35,5 +35,12 @@ For each commit-producing job, verify:
 that body with `jq`, keep the GraphQL query and variables separate, and fail if
 the response contains `.errors` or lacks `.data.createCommitOnBranch.commit.oid`.
 
-Use the current repository workflows as executable examples only after the
-checks above; do not copy an old static snippet from this skill.
+Live examples, to use only after verifying them against the six checks above:
+the `Commit PGO profile (verified)` step of the `PGO Sanity` job in
+`.github/workflows/ci.yml` (`github.token`, no downstream trigger) and the
+`Commit and push` step in `.github/workflows/version-docs.yml` (App token).
+Neither meets check 5 today: both only print
+`.data.createCommitOnBranch.commit` with `jq` and rely on `gh`'s exit status
+(the ci.yml step under `set -euo pipefail`, the version-docs.yml step under the
+default `bash -e` shell). Add the explicit `.errors`/empty-oid check rather than
+copying that gap.

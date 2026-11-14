@@ -8,7 +8,7 @@ D2 supports multiple layout engines, each with different strengths. Choosing the
 |--------|--------------|---------|-------|----------|
 | **dagre** | Bundled | Basic | Fast | Simple diagrams, quick drafts |
 | **ELK** | Bundled | Orthogonal | Medium | Complex graphs and dense relationships |
-| **TALA** | License-dependent | Constraint-aware | Medium | Layouts needing grids or relative positioning |
+| **TALA** | License-dependent | Constraint-aware | Medium | Layouts needing relative positioning (`near` to other objects) |
 
 ## Configuration
 
@@ -30,6 +30,9 @@ d2 --layout=elk diagram.d2 output.svg
 d2 --layout=dagre diagram.d2 output.svg
 ```
 
+An explicit `--layout` flag overrides the file's `d2-config` engine (`d2 --debug` prints which
+layout plugin was used).
+
 ## Dagre (Default)
 
 **Dagre** is D2's default layout engine. It's free, fast, and produces good results for most diagrams.
@@ -45,7 +48,6 @@ d2 --layout=dagre diagram.d2 output.svg
 
 - Limited control over positioning
 - May produce suboptimal layouts for complex graphs
-- No grid support
 - Less sophisticated edge routing
 
 ### When to Use
@@ -82,7 +84,6 @@ a -> d -> c
 ### Weaknesses
 
 - Slower than dagre
-- No grid support
 - Less intuitive manual positioning
 - May struggle with very large diagrams
 
@@ -95,18 +96,21 @@ a -> d -> c
 
 ### Configuration Options
 
-```d2
-vars: {
-  d2-config: {
-    layout-engine: elk
-    elk: {
-      # ELK-specific options
-      nodeSpacingFactor: 2.0
-      edgeSpacingFactor: 1.5
-    }
-  }
-}
+ELK options are CLI flags, not `d2-config` keys (an `elk: {...}` block inside `d2-config` fails
+to compile with `"elk" needs a value`). `d2 layout elk` lists them; in v0.7.1:
+
+```bash
+d2 --layout=elk \
+  --elk-algorithm layered \
+  --elk-nodeNodeBetweenLayers 70 \
+  --elk-edgeNodeBetweenLayers 40 \
+  --elk-nodeSelfLoop 50 \
+  --elk-padding "[top=50,left=50,bottom=50,right=50]" \
+  diagram.d2 output.svg
 ```
+
+The values shown are the defaults. ELK is a local preview engine in this repository, so these
+flags never belong in committed render commands.
 
 ## TALA (Terrastruct Auto Layout Algorithm)
 
@@ -115,7 +119,6 @@ are not available in every installation.
 
 ### Strengths
 
-- Grid layouts
 - `near` keyword for relative positioning
 - Container-aware algorithms
 - Deterministic with seeds
@@ -130,6 +133,9 @@ are not available in every installation.
 ### Unique Features
 
 #### Grid Layouts
+
+Grids are not TALA-only: D2 lays out `grid-*` containers itself, and dagre and ELK render the
+same grid (checked with D2 v0.7.1). TALA is still the repository engine for the rest of the diagram.
 
 ```d2
 vars: {
@@ -202,7 +208,7 @@ d2 --layout=tala --tala-seeds=100 diagram.d2 diagram.svg
 - When layout quality matters
 - Grid-based architectures
 - When you need `near` positioning
-- CI/CD pipelines (with deterministic seeds)
+- Committed repository renders (`make render-diagrams` applies the deterministic seed)
 
 ### Installation
 
@@ -248,7 +254,7 @@ Is this a quick draft?
 | Sequence Diagram | dagre |
 | Simple Flowchart | dagre |
 | Complex Flowchart | TALA |
-| Grid Layout | TALA (required) |
+| Grid Layout | Any engine (grids are laid out by D2 itself) |
 | Dependency Graph | ELK or TALA |
 | State Machine | dagre or ELK |
 | Network Topology | TALA |
@@ -310,7 +316,7 @@ f -> h
 g -> h
 ```
 
-### Grid Layout (TALA Only)
+### Grid Layout (All Engines)
 
 ```d2
 vars: {
@@ -332,72 +338,27 @@ dashboard: Dashboard Components {
 }
 ```
 
-## Fallback Strategy
+## No Fallback for Committed Renders
 
-For projects that may not have TALA:
+This repository has no engine fallback. Committed renders require TALA and go through
+`make render-diagrams` (`scripts/render-diagrams.sh` probes TALA and exits with an error when it
+is missing). `./scripts/render-diagrams.sh --allow-elk` (or `INVOWK_ALLOW_ELK_DIAGRAMS=1`) renders
+with ELK for local preview only; never commit those SVGs. CI does not render at all:
+`validate-diagrams.yml` validates syntax, readability and the committed render stamps, so it
+needs no TALA token.
 
-```bash
-#!/bin/bash
-# render.sh - Render with fallback
-
-D2_FILE="$1"
-OUTPUT="${D2_FILE%.d2}.svg"
-
-# Try TALA first
-if d2 layout | grep -q tala; then
-    d2 --layout=tala "$D2_FILE" "$OUTPUT"
-else
-    echo "TALA not available, using ELK"
-    d2 --layout=elk "$D2_FILE" "$OUTPUT"
-fi
-```
-
-Or in the D2 file, provide both versions:
+If a diagram must also render elsewhere without TALA, avoid TALA-only features (`near`
+pointing at another object) so it stays portable:
 
 ```d2
-# diagram.d2 - Works with any engine
+# Works with any engine
 vars: {
   d2-config: {
-    # TALA preferred, but works with dagre/elk
     layout-engine: tala
   }
 }
 
-# Avoid TALA-only features (grid, near) for portability
 a -> b -> c
-```
-
-## CI/CD Considerations
-
-### With TALA Token
-
-```yaml
-env:
-  TSTRUCT_TOKEN: ${{ secrets.TSTRUCT_TOKEN }}
-
-steps:
-  - run: d2 --layout=tala diagram.d2 output.svg
-```
-
-### Without TALA License
-
-```yaml
-steps:
-  - run: d2 --layout=elk diagram.d2 output.svg
-```
-
-### Portable Approach
-
-```yaml
-steps:
-  - name: Render diagrams
-    run: |
-      if [ -n "$TSTRUCT_TOKEN" ]; then
-        LAYOUT="tala"
-      else
-        LAYOUT="elk"
-      fi
-      d2 --layout=$LAYOUT diagram.d2 output.svg
 ```
 
 ## Best Practices
@@ -408,4 +369,4 @@ steps:
 4. **Avoid TALA-only features for portability** - If sharing files
 5. **Test with target engine** - Layouts differ between engines
 6. **Document engine requirements** - In project README
-7. **Use CI fallback** - For open source projects
+7. **No ELK fallback for committed renders** - ELK is a local preview (`--allow-elk`) only

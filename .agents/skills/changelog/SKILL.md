@@ -1,13 +1,13 @@
 ---
 name: changelog
-description: Draft commit-derived release notes from conventional commits since the latest semantic version tag. Use for pre-release summaries, reviewing changes since the last release, or preparing text to compare with GitHub-native GoReleaser notes.
+description: Draft a commit-derived changelog or release notes evidence from conventional commits since the latest semantic version tag. Use for pre-release summaries, reviewing changes since the last release, or collecting commit evidence for publish-release notes.
 ---
 
 # Changelog Generator
 
-Generate commit-derived draft release notes from conventional commit history between the latest `v*` semver tag and HEAD.
+Generate a commit-derived draft changelog from conventional commit history between the latest `v*` semver tag and HEAD.
 
-Invowk releases use GoReleaser with GitHub-native release notes (`.goreleaser.yaml` and `.github/release.yml`). Treat this skill's output as a draft/checklist, not the canonical generated GitHub release notes.
+This output is commit evidence that feeds the five-section release notes of the publish-release skill (`.agents/skills/publish-release/references/release-notes.md`); it is never the release body. Real releases publish the reviewed notes bound into the tag: `release.yml` runs GoReleaser with `--release-notes`, wrapped in the `.goreleaser.yaml` header and footer, so `changelog.use: github-native` and the `.github/release.yml` categories are not used.
 
 ## Workflow
 
@@ -67,9 +67,10 @@ Contributor names from git are not GitHub handles unless separately resolved
 through GitHub metadata. For a first release, label the link as unavailable
 instead of emitting a broken comparison.
 
-### Step 6: Output Release Notes
+### Step 6: Output Draft Changelog
 
-Format as markdown:
+Format as markdown. This is a draft changelog, not the release-notes structure
+(that lives in publish-release `references/release-notes.md`):
 
 ```markdown
 ## [version] - YYYY-MM-DD
@@ -100,7 +101,7 @@ Format as markdown:
 
 ### Step 7: Offer Next Steps
 
-After generating the notes, suggest:
-1. Compare against GitHub-native release notes produced by the release workflow
+After generating the draft, suggest:
+1. Feed it into the publish-release release notes (five sections, semantic diff review, poetic opening)
 2. Save to a `CHANGELOG.md` file only if the repo already maintains one
-3. Use with `make release VERSION=vX.Y.Z` when preparing the release tag
+3. Tag with `make release VERSION=vX.Y.Z RELEASE_NOTES_FILE=<notes.md>` through the publish-release skill (`RELEASE_NOTES_FILE` is required)

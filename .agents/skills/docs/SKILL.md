@@ -1,6 +1,6 @@
 ---
 name: docs
-description: Documentation editing workflow for website/, Docusaurus, MDX snippets, i18n localization, architecture/diagram docs that feed the site, and versioning. Use when creating pages, updating snippets/translations/assets, or running version-docs. For documentation accuracy audits, use /review-docs instead.
+description: Documentation editing workflow for website/, Docusaurus, MDX snippets, i18n localization, architecture/diagram docs that feed the site, and versioning. Use when creating pages, updating snippets/translations/assets, backporting to versioned docs, or running version-docs. For documentation accuracy audits, use /review-docs instead.
 ---
 
 # Docs and Website Editing
@@ -26,13 +26,11 @@ When code changes require documentation updates:
 1. **Identify affected docs**: Cross-reference the consolidated sync map (code → website docs + diagrams)
 2. **Read the code change**: Understand what behavior changed
 3. **Update English docs first**: Modify the relevant `.mdx` pages in `website/docs/`
-4. **Update snippets**: If code examples changed, update `Snippet/data/*.ts`. Old entries
-   superseded by new IDs can be removed — versioned docs use immutable snapshots.
+4. **Update snippets**: If code examples changed, update `Snippet/data/*.ts` (for ID renames,
+   follow Snippet/Diagram Migration below)
 5. **Update i18n**: Mirror changes to `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
 6. **Update diagrams**: If architecture changed, use the Diagram Editing workflow below
-7. **Verify parity**: `(cd website && npm run docs:parity)`
-8. **Verify versioned assets**: `(cd website && node ../scripts/validate-version-assets.mjs)`
-9. **Verify build**: `(cd website && npm run build)`
+7. **Verify**: run the parity, version-asset and build commands in Documentation Testing below
 
 ---
 
@@ -55,7 +53,11 @@ All code blocks use the `<Snippet>` component — never inline fenced code block
 2. Create pt-BR translation at `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/<section>/`
 3. **Add to `website/sidebars.ts`** — `sidebar_position` only controls ordering, NOT inclusion
 4. Add `<Snippet>` entries to `Snippet/data/*.ts` if code examples are needed
-5. Run `cd website && npm run docs:parity` to verify parity
+5. **Add the page's entry to `.agents/skills/review-docs/references/doc-ownership.json`**
+   (exactly one semantic owner with resolvable sources). Renaming or removing a page means
+   renaming or removing its entry too: `review_docs.py validate`, and with it
+   `make check-agent-docs`, fails on missing and on stale entries
+6. Run `cd website && npm run docs:parity` to verify parity
 
 ---
 
@@ -138,6 +140,8 @@ website/static/diagrams/v{VERSION}/        # Per-version SVG copies
 ## Diagram Editing
 
 Edit `.d2` source → `d2 fmt` → `d2 validate` → `make render-diagrams` → commit both source and SVG.
+A new diagram shown on the website also needs an id in `svgPaths` in
+`website/src/components/Diagram/index.tsx` (see Versioning Pitfalls for the snapshot impact).
 For D2 syntax, readability rules, and update triggers, use the `/d2-diagrams` skill.
 
 ---

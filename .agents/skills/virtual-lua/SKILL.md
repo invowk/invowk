@@ -1,6 +1,6 @@
 ---
 name: virtual-lua
-description: Virtual-lua runtime and golua integration guidance for Invowk. Use when editing internal/runtime/lua*.go, hidden exec-virtual-lua adapters, internal/app/commandadapters Lua interactive plumbing, virtual-lua bridge APIs, golua library loading, Lua stdlib/require behavior, virtual-lua tests, virtual.utilities.enabled behavior for Lua, Lua audit discovery/checks, or docs/examples for the virtual-lua runtime.
+description: Virtual-lua runtime and golua integration guidance. Use when editing internal/runtime/lua*.go, the hidden exec-virtual-lua command, internal/app/commandadapters Lua interactive plumbing, invowk bridge APIs, golua library loading, Lua stdlib/require behavior, virtual.utilities.enabled for Lua, Lua audit discovery/checks, or virtual-lua tests, docs and examples.
 ---
 
 # Virtual Lua Runtime
@@ -13,7 +13,7 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
   `RunLuaScript` path. Do not reuse a VM across command executions.
 - Wire stdin/stdout/stderr through `ExecutionContext`; interactive execution attaches streams but must not add a Lua REPL.
 - `virtual.utilities.enabled` controls only Invowk-provided built-in utilities. Host binaries are governed only by runtime `allowed_binaries` plus `binary_lookup_mode`.
-- Keep the virtual family boundary honest: `virtual-lua` is a safety harness for VM-controlled operations, not process isolation. Explicitly allowed host binaries run as native host processes.
+- `virtual-lua` is a safety harness for VM-controlled operations, not process isolation; the full statement is in `AGENTS.md` "Hard invariants".
 - Preserve no-silent-fallback behavior: if an enabled built-in utility is registered and fails, do not retry as a host binary.
 
 ## Golua Library Loading
@@ -40,11 +40,13 @@ Use this with `.agents/skills/go/SKILL.md` and `.agents/skills/go-testing/SKILL.
 
 - Route Lua file APIs through the shared virtual path resolver/validator in
   `internal/runtime/virtual_policy.go`.
-- Route module-local `require` through the source-tree-only resolver in
-  `internal/runtime/lua_io.go` (`scriptBasePath`, `normalizeExistingOrParent`,
-  and `pathWithin`). Keep it distinct from general VM-controlled file I/O.
+- Route module-local `require` through the source-tree-only resolver
+  `luaRequireBridge.resolveModule` in `internal/runtime/lua_io.go`, which
+  confines candidates to the bridge's `scriptBasePath` using
+  `normalizeExistingOrParent` and `pathWithin` from `virtual_policy.go`. Keep it
+  distinct from general VM-controlled file I/O.
 - Standard anchors: `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`.
-- In restricted mode, implicit allowed roots are config/data/cache/state/tmp/work plus script/module source roots. `@home` is metadata/resolution only unless explicitly mapped through selected-platform `virtual.filesystem.paths`.
+- In restricted mode, implicit allowed roots are config/data/cache/state/tmp/work plus script/module source roots, mapped `virtual.filesystem.paths`, and the system temp roots from `defaultTempRoots()` (`/tmp` on Unix, none on Windows). `@home` is metadata/resolution only unless explicitly mapped through selected-platform `virtual.filesystem.paths`.
 - `virtual.filesystem.paths` keys are environment suffixes; keep them uppercase and safe for `INVOWK_PATH_<KEY>`.
 - In full mode, VM-controlled file operations can access normalized host paths after resolver checks; path handles remain bridge names, not the permission boundary.
 - Module-local `require` may load Lua source inside the inline script context or source invowkmod tree only. Block absolute/traversal escapes and native shared-library loading.
@@ -88,6 +90,8 @@ Add focused Go tests before relying on CLI fixtures:
 - Stdlib restrictions, path-validated file I/O, module-local `require`, traversal denial, and resource-limit diagnostics.
 
 Useful targeted gates:
+
+`-race` needs cgo (a C compiler and `CGO_ENABLED=1`).
 
 ```bash
 go test -race -count=1 ./internal/runtime

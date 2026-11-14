@@ -1,31 +1,24 @@
 ---
 name: module-security
 description: >-
-  Module system security auditing and supply-chain hardening for invowk.
-  Use when reviewing module vulnerabilities, implementing `invowk audit`,
-  improving `internal/audit/`, or changing module discovery, vendoring, lock
-  files, script resolution, command scope enforcement, or related docs. Runs
-  `invowk audit --format json` first, then adds interpretive review only for
-  threat model drift, supply-chain code review, or documentation consistency.
+  Module-system security auditing and supply-chain hardening for invowk.
+  Use when running or implementing `invowk audit` (`internal/audit/`,
+  `cmd/invowk/audit.go`), reviewing module vulnerabilities or SC-01..SC-10
+  threat-model drift, supply-chain review of module diffs, security docs
+  consistency, or changing module discovery, vendoring, lock files, script
+  resolution, module symlink handling (copy/provision/scan), or command scope
+  enforcement. Starts from `invowk audit --format json`.
 ---
 
 # Module Security
 
-Security auditing and supply-chain attack prevention for invowk's module system.
+**Tool-first, LLM-second.** The compiled scanner (`invowk audit`) is the
+deterministic source of findings: identical input gives identical output. Use
+LLM analysis only for interpretive work a regex scanner cannot do.
 
-**Design principle: tool-first, LLM-second.** The compiled Go scanner
-(`invowk audit`) is the deterministic backbone — it produces identical output
-for identical input every time. LLM analysis is reserved for genuinely
-interpretive tasks that a regex scanner cannot do. This eliminates the variance
-that comes from asking LLMs to pattern-match code.
-
-## Normative Quick Rules
-
-- `.agents/skills/go/SKILL.md` — error handling, context propagation, declaration ordering
-- `.agents/rules/testing.md` — test coverage, testscript patterns
-- `.agents/rules/licensing.md` — SPDX headers on all new Go files
-- `.agents/rules/package-design.md` — package boundaries for `internal/audit/`
-- If this skill conflicts with a rule, **the rule wins**.
+Go changes here follow the `go` skill (error handling, context propagation,
+declaration order) and the path-loaded testing, licensing (SPDX) and
+package-design rules; on conflict, AGENTS.md governance precedence applies.
 
 ## Path Boundary Guardrail
 
@@ -49,41 +42,27 @@ Regression tests for this area must cover:
 | `pkg/invowkmod/` | Lock files, content hashes, vendoring, module operations |
 | `pkg/invowkfile/` | Script path resolution, validation, filesystem checks |
 | `internal/provision/` | Container provisioning, module copying, symlink handling |
+| `internal/app/modulecache/` | Module cache `copyDir` (SC-05 surface) |
 | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`, `internal/runtime/lua_io.go` | Virtual host-binary policy, virtual-lua bridge semantics, and path harness |
 | `internal/app/deps/` | Command scope enforcement |
 | `internal/discovery/` | Global module trust, `IsGlobalModule` propagation |
 | `internal/audit/` | Audit scanner package; derive current file inventory with `find internal/audit -maxdepth 1 -type f -name '*.go' | sort` |
+| `internal/audit/checks_llm.go`, `internal/audit/llm_prompt.go`, `internal/audit/prompts/`, `internal/auditllm/`, `internal/llm/` | Opt-in LLM audit path (`--llm`, `--llm-provider`); untrusted module content flows into the prompts |
 | `cmd/invowk/audit.go` | Top-level CLI command, optional LLM audit flags, and diagnostic rendering |
 
 ---
 
-## Workflow Overview
+## Workflow
 
-```
-Input (audit request, code review, security scan)
-    │
-    ▼
-Phase 1: Deterministic Scan ────── run `invowk audit --format json`
-    │   (compiled Go scanner, structured JSON output)
-    │
-    ▼
-Phase 2: Classify & Triage ────── main agent, no subagents
-    │   (parse JSON, classify findings, identify false positives)
-    │
-    ▼
-Phase 3: Interpretive Review ──── 1-3 subagents (only when needed)
-    │   ├── Threat Model Drift Checker (always, 1 agent)
-    │   ├── Supply-Chain Reviewer (code changes only)
-    │   └── Documentation Drift Checker (when drift detected)
-    │
-    ▼
-Phase 4: Report Assembly ──────── main agent synthesizes
-```
+1. **Phase 1, deterministic scan:** run `invowk audit --format json`. Always
+   first; the single source of truth for findings.
+2. **Phase 2, triage:** main agent, no subagents. Classify each finding.
+3. **Phase 3, interpretive review:** only for gaps Phase 2 found, at most 3
+   subagents (Threat Model Drift Checker always; Supply-Chain Reviewer for code
+   changes; Documentation Drift Checker when drift is reported).
+4. **Phase 4, report:** main agent synthesizes.
 
-**Key difference from subjective scanning:** Phases 1-2 are fully deterministic.
-Phase 3 only runs interpretive analysis for tasks the Go scanner cannot do.
-This reduces subagent count from 10 to at most 3, and eliminates the primary
-source of non-determinism (LLMs doing pattern matching).
+Phases 1-2 are fully deterministic.
 
 ---
 
@@ -105,8 +84,8 @@ If a trusted repo-local binary already exists, set `AUDIT_BIN=./bin/invowk` or
 
 ### Step 2: Run the scanner
 
-Run the compiled scanner against the target path. Always use JSON format and
-`--severity info` to capture all findings (filtering happens in Phase 2):
+Always use JSON format and `--severity info` to capture all findings; the
+default `--severity` is `low`, and filtering happens in Phase 2:
 
 ```bash
 "$AUDIT_BIN" audit --format json --severity info {scan_path}
@@ -121,11 +100,22 @@ For broader scans that include global modules:
 Do not hide stderr on routine runs. If the command exits 2, stderr is evidence
 for a scan error and must be included in the report.
 
-**Exit codes:** 0 = no findings, 1 = findings detected, 2 = scan error.
+**Exit codes** (`runAudit` in `cmd/invowk/audit.go`):
+- 0: no *confirmed* finding at or above `--severity` after triage. Suppressed
+  by-design findings never count.
+- 1: confirmed findings at or above the threshold
+  (`triage.HasConfirmedFindings(minSev)`).
+- 2: invalid flags or LLM configuration, scanner construction failure,
+  unknown `--format`, render failure, or a fatal scan error
+  (`audit.ScanFailureIsFatal`).
+
+Non-fatal checker failures print `warning: some checkers failed: …` on stderr
+and still exit 0 or 1, so read stderr on every run.
 
 ### Step 3: Parse the JSON output
 
-The scanner produces structured JSON with this schema:
+The scanner produces structured JSON with this schema (`auditJSONOutput` in
+`cmd/invowk/audit.go`):
 
 ```json
 {
@@ -172,20 +162,29 @@ The scanner produces structured JSON with this schema:
 }
 ```
 
+Top-level keys other than `findings` and `summary`, and the finding fields
+`surface_id`, `surface_kind`, `file_path`, `line`, `escalated_from` and
+`escalated_from_codes`, are `omitempty`, so parsers must tolerate missing
+keys. A missing `surface_kind` is treated as `root_invowkfile` by triage.
+
 ### What Phase 1 covers (no LLM needed)
 
-The Go scanner already handles all of these deterministically:
+The Go scanner already handles all of these deterministically
+(`DefaultCheckers()` in `internal/audit/scanner.go`):
 
 | Checker | What It Does | Source |
 |---------|-------------|--------|
-| LockFileChecker | Hash mismatches, orphans, missing entries, version, size | `checks_lockfile.go` |
+| LockFileChecker | Hash mismatches, orphans, missing entries, unknown or hashless v1.0 version, size, unparseable lock, missing lock with dependencies | `checks_lockfile.go` |
 | ScriptChecker | Path traversal, remote exec, obfuscation, file size | `checks_script.go` |
 | NetworkChecker | Reverse shells, DNS exfil, encoded URLs, network commands | `checks_network.go` |
 | EnvChecker | Sensitive vars, env_inherit_mode, token extraction | `checks_env.go` |
 | LuaChecker | virtual-lua disabled API references, bridge env reads, host-binary opt-outs, network-capable host binaries, and full virtual filesystem access | `checks_lua.go` |
 | SymlinkChecker | Symlinks, boundary escapes, dangling, chains | `checks_symlink.go` |
-| ModuleMetadataChecker | Dep depth, typosquatting, global trust, version pinning | `checks_module.go` |
-| Correlator | Compound threat escalation from the current rule set | `correlator.go` |
+| ModuleMetadataChecker | Dependency fan-out (>5 direct requires), typosquatting, global trust, version pinning, undeclared transitive or vendored modules, invowkfile parse failure | `checks_module.go` |
+| Correlator | Compound threat escalation from the current rule set | `correlator.go`, `correlator_constants.go` |
+
+`LLMChecker` (`checks_llm.go`) is opt-in: `--llm` or `--llm-provider` adds it
+to the scanner; it is not in `DefaultCheckers()`.
 
 ---
 
@@ -204,14 +203,8 @@ each finding into one of three buckets:
 
 ### Bucket 1: Confirmed findings (report as-is)
 
-Findings that reflect real security concerns for the specific scan target.
-Include these verbatim in the final report.
-
-**Examples:**
-- `curl|bash` in a module script → real remote code execution risk
-- Symlink pointing outside module boundary → real escape vector
-- Lock file hash mismatch → real tamper indicator
-- Reverse shell pattern → always a confirmed finding
+Findings that reflect real security concerns for the scan target, such as the
+always-report codes in R2-R5. Include them verbatim in the final report.
 
 ### Bucket 2: Expected/by-design findings (suppress with explanation)
 
@@ -219,28 +212,38 @@ Findings that the Go scanner correctly flags but that are expected for this
 specific project context. Suppress these from the report but list them in a
 "Suppressed (by-design)" section with justification.
 
-**Classification is deterministic.** Apply these rules in order — the FIRST
-matching rule wins. Do not use judgment; follow the table exactly.
+**Classification is deterministic. Do not use judgment; follow the table
+exactly.** Rules match on finding **codes** (titles shown for reading text
+reports), and `classifyFinding` in `internal/audit/triage.go` evaluates them
+in this order, first match wins:
 
-| Rule # | Condition | Classification | Rationale |
-|--------|-----------|---------------|-----------|
-| R1 | Finding is in a **module** (not root invowkfile) | **Confirmed** | Modules are the supply-chain surface |
-| R2 | Finding code is **`network-execution-reverse-shell-pattern-detected`** | **Confirmed** | Always report regardless of location |
-| R3 | Finding code is **`script-execution-script-downloads-and-executes-remote-code`** | **Confirmed** | Always report regardless of location |
-| R4 | Finding code is **`lockfile-integrity-module-content-hash-mismatch`** | **Confirmed** | Tamper indicator, always report |
-| R5 | Finding code is **`symlink-path-traversal-symlink-points-outside-module-boundary`** | **Confirmed** | Escape vector, always report |
-| R6 | Finding has `escalated_from` field (compound threat) AND all constituent findings are suppressed by R7-R10 | **Suppressed** | Compound escalation of by-design constituents |
-| R7 | Finding is on root invowkfile AND title is **"Command uses default env inheritance (all host variables)"** | **Suppressed** | Root invowkfile is user-controlled, env inheritance is the default |
-| R8 | Finding is on root invowkfile AND title is **"Script accesses sensitive environment variable"** | **Suppressed** | SSH/container commands intentionally forward credentials |
-| R9 | Finding is on root invowkfile AND title is **"Possible DNS exfiltration pattern"** | **Suppressed** | container env command legitimately uses DNS |
-| R10 | Finding is on root invowkfile AND title is **"Potential credential exfiltration"** AND has `escalated_from` containing only suppressed constituent titles | **Suppressed** | Correlator artifact from by-design constituents |
-| R11 | Finding is on root invowkfile AND title is **"High-severity finding combined with other issues"** AND all `escalated_from` entries are suppressed | **Suppressed** | Generic escalation of by-design constituents |
-| R12 | Any other finding | **Confirmed** | Default: report it |
+1. R1, then R2-R5 (any surface).
+2. Root surface only (`surface_kind` is `root_invowkfile` or omitted): R7, R8,
+   R9; then, if every `escalated_from_codes` entry is suppressed, R10 or R11 by
+   code, otherwise R6.
+3. R12 for everything else, including unknown surface kinds.
 
-**Key principle:** Compound/escalated findings (those with `escalated_from`)
-inherit the classification of their constituents. If ALL constituents are
-suppressed, the compound finding is also suppressed. If ANY constituent is
-confirmed, the compound finding is confirmed.
+| Rule | Surface | Match | Classification | Rationale |
+|------|---------|-------|----------------|-----------|
+| R1 | `local_module`, `vendored_module`, `global_module` | any finding | **Confirmed** | Modules are the supply-chain surface |
+| R2 | any | `network-execution-reverse-shell-pattern-detected` ("Reverse shell pattern detected") | **Confirmed** | Always report regardless of location |
+| R3 | any | `script-execution-script-downloads-and-executes-remote-code` ("Script downloads and executes remote code") | **Confirmed** | Always report regardless of location |
+| R4 | any | `lockfile-integrity-module-content-hash-mismatch` ("Module content hash mismatch") | **Confirmed** | Tamper indicator, always report |
+| R5 | any | `symlink-path-traversal-symlink-points-outside-module-boundary` ("Symlink points outside module boundary") | **Confirmed** | Escape vector, always report |
+| R7 | root | `env-exfiltration-command-uses-default-env-inheritance-all-host-variables` ("Command uses default env inheritance (all host variables)") | **Suppressed** | Root invowkfile is user-controlled, env inheritance is the default |
+| R8 | root | `env-exfiltration-script-accesses-sensitive-environment-variable` ("Script accesses sensitive environment variable") | **Suppressed** | SSH/container commands intentionally forward credentials |
+| R9 | root | `network-exfiltration-possible-dns-exfiltration-pattern` ("Possible DNS exfiltration pattern") | **Suppressed** | container env command legitimately uses DNS |
+| R10 | root | `correlator-credential-exfiltration` ("Potential credential exfiltration") and every constituent code suppressed | **Suppressed** | Correlator artifact from by-design constituents |
+| R11 | root | `correlator-high-plus-other` ("High-severity finding combined with other issues") and every constituent code suppressed | **Suppressed** | Generic escalation of by-design constituents |
+| R6 | root | any other compound whose constituent codes are all suppressed | **Suppressed** | Compound escalation of by-design constituents |
+| R12 | any | any other finding | **Confirmed** | Default: report it |
+
+**Compound inheritance** (`compoundConstituentsSuppressed`): a compound is
+suppressed only when every code in `escalated_from_codes` is suppressed; any
+confirmed constituent keeps it confirmed. Plain findings are classified before
+compound ones. The suppressed-code set is global to the report: any suppressed
+instance of a code counts, whatever its surface. A compound with empty
+`escalated_from_codes` is never suppressed.
 
 ### Bucket 3: Scanner gaps (flag for Phase 3 investigation)
 
@@ -248,8 +251,9 @@ Areas the Go scanner cannot cover that need interpretive review:
 
 | Gap | Why Scanner Can't Cover It | Phase 3 Handler |
 |-----|---------------------------|-----------------|
-| Threat model line numbers drifted | Scanner checks content, not SKILL.md accuracy | Threat Model Drift Checker |
+| Threat-model status or key files drifted | Scanner checks content, not SKILL.md accuracy | Threat Model Drift Checker |
 | New attack surface not in SC-01..SC-10 | Scanner only checks known patterns | Threat Model Drift Checker |
+| SC-08 interpreter basename residual | No compiled checker inspects interpreters; only the parse-time allowlist does | Threat Model Drift Checker |
 | Code change introduces regression in mitigation | Scanner checks current state, not diffs | Supply-Chain Reviewer |
 | Documentation references stale security status | Scanner doesn't read docs | Documentation Drift Checker |
 
@@ -263,7 +267,7 @@ work that genuinely requires reading comprehension and contextual judgment.
 ### Subagents
 
 Use `references/subagent-prompts.md` for the full prompts. Keep this file to the
-dispatch rules so the grep patterns and prompt text have one source of truth.
+dispatch rules so the prompt text has one source of truth.
 
 | Subagent | When | Purpose |
 |----------|------|---------|
@@ -305,11 +309,11 @@ Scanned: {N} modules, {N} invowkfiles, {N} scripts
 
 ═══ Threat Model Status ═══
   SC-01: CONFIRMED (Mitigated) — cite current function/symbol evidence
-  SC-02: CONFIRMED (By-design) — cite current function/symbol evidence
+  SC-02: CONFIRMED (Partial) — cite current function/symbol evidence
   ...
 
 ═══ Supply-Chain Review ═══ (if applicable)
-  {Subagent B output}
+  {Supply-Chain Reviewer output}
 
 Summary: {critical} critical, {high} high, {medium} medium
          {suppressed} suppressed (by-design)
@@ -329,8 +333,9 @@ Running this workflow twice on the same codebase at the same commit MUST produce
 - **Identical** Phase 1 output (same JSON, same findings, same counts)
 - **Identical** Phase 2 classification (same suppress/confirm/flag decisions)
 - **Nearly identical** Phase 3 output (subagent analysis may vary slightly in
-  phrasing but NOT in which surfaces are CONFIRMED vs DRIFTED, because the
-  verification uses grep commands with concrete expected output)
+  phrasing but NOT in which surfaces are CONFIRMED vs DRIFTED, because each
+  verdict rests on a traced call path and a focused behavior test, not on
+  grep presence)
 
 If a run produces different findings from a previous run on the same commit,
 inspect Phase 3 evidence. Tighten call-path requirements and focused behavior
@@ -340,8 +345,9 @@ tests rather than adding more subagents or treating symbol presence as proof.
 
 ## Known Attack Surfaces
 
-These 10 surfaces represent the current threat model. The Phase 3 Threat Model
-Drift Checker verifies their accuracy via grep commands at every audit.
+These 10 surfaces are the current threat model and this table is their
+canonical record. The Phase 3 Threat Model Drift Checker verifies them at every
+audit through call-path tracing and focused behavior tests.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
@@ -349,10 +355,10 @@ Drift Checker verifies their accuracy via grep commands at every audit.
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container*.go` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go`, interactive adapters | Partial |
-| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go`, scan context artifact copy paths; modelled by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks`) | Mitigated |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go` `CopyDir`, `internal/app/modulecache/cache.go` `copyDir`, scan context artifact copy paths; modelled by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks`) | Mitigated (residual: `copyDir` skips inner links but follows a symlinked source root, per the model's abstraction note) |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | Custom-check `script.content` host execution | High | `internal/app/deps/checks.go`, `internal/app/commandadapters/dependency_host.go` | Partial |
-| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate) |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate; residual: it checks the interpreter basename only, so an absolute path such as `/tmp/python3` passes) |
 | SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go` | By-design |
 | SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go`, command-scope lock checks | Partial |
 
@@ -364,15 +370,22 @@ Do not preserve date-stamped status notes as evidence if the code has moved.
 
 ---
 
-## Implementation Changes
+## References
 
-When reviewing or modifying `internal/audit/` or `cmd/invowk/audit.go`, load:
+Load both `check-catalog.md` and `implementation-review.md` when reviewing or
+modifying `internal/audit/` or `cmd/invowk/audit.go`. Neither is needed to run
+an audit.
 
-- [`references/check-catalog.md`](references/check-catalog.md) for checker
-  behavior and finding categories.
-- [`references/implementation-review.md`](references/implementation-review.md)
-  for architecture, concurrency, correctness, self-defense, and live test
-  inventory commands.
+- [`references/check-catalog.md`](references/check-catalog.md): what each
+  compiled checker and correlation rule detects, with severities, finding
+  titles, and pattern families.
+- [`references/implementation-review.md`](references/implementation-review.md):
+  per-checker correctness, regex false positives/negatives, concurrency and
+  `ScanContext` immutability, performance, scanner self-defense, CLI exit and
+  JSON contract, and live test inventory commands.
+- [`references/subagent-prompts.md`](references/subagent-prompts.md): Phase 3
+  prompts, which require call-path inspection and focused behavior tests
+  rather than grep-presence assertions.
 
 Derive the current implementation inventory from source. Do not copy file
 counts, line counts, or checker lists into a report without regenerating them.
@@ -396,7 +409,7 @@ When reviewing module-related changes, adapt the workflow:
 |-------------|------------------|
 | `pkg/invowkmod/lockfile.go`, `content_hash.go` | SC-10 (integrity) |
 | `pkg/invowkfile/implementation.go`, `runtime.go` | SC-01 (path traversal), SC-08 (interpreters) |
-| `internal/provision/helpers.go` | SC-05 (symlinks) |
+| `internal/provision/helpers.go`, `internal/app/modulecache/` | SC-05 (symlinks) |
 | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go`, `container_exec.go` | SC-02, SC-03, SC-04 (runtime surfaces) |
 | `internal/discovery/`, `internal/app/deps/` | SC-09, SC-10 (scope, trust) |
 
@@ -407,57 +420,25 @@ When reviewing module-related changes, adapt the workflow:
 | Pitfall | Fix |
 |---------|-----|
 | Regressing symlink skipping in module copy/provision paths | Keep copy helpers and scan-context artifact/clone paths from following symlinked module content outside trusted roots |
-| Script path accepts absolute paths in module context | `ScriptChecker` now detects this (SeverityHigh); `GetScriptFilePathWithModule` still allows it at parse time |
+| Reading a module script without the containment check | `ScriptFilePath.Validate` rejects absolute paths and `..` segments at parse time, and `ScriptChecker` still flags both (High). `GetScriptFilePathWithModule` only resolves, by design; file I/O must go through `ResolveScriptWithModule` / `ResolveScriptWithFSAndModule` (`validateScriptPathContainment`, SC-01) |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
-| `loadSingleModule` silently swallows invowkfile parse errors | Inspect the current parse-error branch; modules without invowkfiles are valid, but corrupt-file diagnostics must remain visible |
+| Hiding corrupt module files | Keep `loadScannedModule` recording `InvowkfileParseErr` / `LockFileParseErr` so they surface as "Module invowkfile failed to parse" and "Lock file present but unparseable"; modules without these files stay valid |
 | Scan context hides invalid modules/files | Preserve structured diagnostics in `Report.Diagnostics` and CLI JSON/text output |
-| `ScanContext` methods expose mutable slices | `Modules()` / `Invowkfiles()` return slice headers — callers can `append` and corrupt shared state (low risk since checkers are well-behaved, but violates immutability contract) |
+| Exposing shared `ScanContext` state | Keep `Modules()`, `Invowkfiles()` and `AllScripts()` returning clones (immutability contract); checkers share the context concurrently |
 | Levenshtein runs O(n²) on module list | Acceptable for small module sets; for >100 modules consider short-circuiting or length pre-filter |
-
-## Audit Implementation Review
-
-**When to load:** Any code changes to `internal/audit/` or `cmd/invowk/audit.go`
-— for correctness, performance, or security review of the scanner implementation itself.
-
-Read **[references/implementation-review.md](references/implementation-review.md)** for:
-- Per-checker correctness checklist (regex accuracy, false positive/negative analysis)
-- Concurrency safety review (goroutine fan-out, `ScanContext` immutability contract)
-- Performance considerations (regex compilation, Levenshtein, `ScanContext` building)
-- Scanner self-defense (crafted input, DoS protection, TOCTOU windows)
-- CLI rendering review (`cmd/invowk/audit.go` exit codes, JSON schema)
-- Test coverage gap analysis for the current `internal/audit/*_test.go` inventory
-
-This reference is only loaded when reviewing or modifying the audit Go code — the
-agent-orchestrated security audit workflow above does not need it.
-
-## Reference Files
-
-- **[references/check-catalog.md](references/check-catalog.md)** —
-  Full check specifications for each compiled checker. Includes regex patterns,
-  severity classifications, and implementation notes. Reference for understanding
-  what the Go scanner checks and how to extend it.
-- **[references/subagent-prompts.md](references/subagent-prompts.md)** —
-  Prompt templates for Phase 3 interpretive subagents. These require call-path
-  inspection and focused behavior tests rather than grep-presence assertions.
-- **[references/implementation-review.md](references/implementation-review.md)** —
-  Correctness, performance, and security review checklist for the compiled
-  `internal/audit/` Go scanner and `cmd/invowk/audit.go` CLI layer. Load when
-  reviewing or improving the audit code itself (not for running audits).
 
 ## Related Skills
 
-| Skill | When to Consult |
-|-------|-----------------|
-| `cli` | Cobra command registration, flag wiring, styled output |
-| `discovery` | Module discovery precedence, vendored module scanning |
-| `container` | Container security, volume mount patterns, provisioning |
-| `dep-audit` | Go dependency auditing (complementary — handles `go.mod`) |
-| `testing` | Test patterns, testscript CLI tests, txtar structure |
-| `go-testing` | Go test execution model, race detector, coverage |
+`cli` (Cobra wiring, flags, styled output), `discovery` (precedence, vendored
+module scanning), `container` (volume mounts, provisioning), `dep-audit` (Go
+dependencies in `go.mod`, not invowk modules), `testing` and `go-testing`
+(test patterns, testscript, race detector, coverage).
 
 ## Skill Integrity Check
 
-After changing this skill or the audit checker inventory, run:
+After changing this skill or the audit checker inventory, run the following.
+The validator is wired into no make target or CI job, so this instruction is
+its only enforcement:
 
 ```bash
 python3 .agents/skills/module-security/scripts/validate-references.py

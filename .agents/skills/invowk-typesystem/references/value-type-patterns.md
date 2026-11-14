@@ -6,9 +6,13 @@ This reference defines the canonical design for Invowk value types.
 
 Use a primitive wrapper when a domain concept can be represented by one scalar value with domain-specific validation.
 
+Sentinel messages are constant-backed, per the `go` skill's Errors section.
+
 ```go
+const invalidExampleErrMsg = "invalid example"
+
 // ErrInvalidExample is the sentinel error wrapped by InvalidExampleError.
-var ErrInvalidExample = errors.New("invalid example")
+var ErrInvalidExample = errors.New(invalidExampleErrMsg)
 
 type (
     // Example is a domain-specific wrapper around a primitive.
@@ -54,7 +58,7 @@ func (c ExampleConfig) Validate() error {
         errs = append(errs, err)
     }
     if c.Limit < 0 {
-        errs = append(errs, fmt.Errorf("limit must be >= 0"))
+        errs = append(errs, errors.New("limit must be >= 0")) // no verbs: errors.New (perfsprint)
     }
 
     return errors.Join(errs...)
@@ -95,10 +99,19 @@ var ErrInvalidDescriptionText = types.ErrInvalidDescriptionText
 - Reuse existing wrappers from the catalog before introducing a new one.
 - If a wrapper already exists in `pkg/types`, prefer re-export aliases over duplication.
 
-## 7. Anti-patterns to Avoid
+## 7. goplint Directives Used In This Repository
+
+Annotations seen in `cmd/`, `internal/`, and `pkg/` (rebuild the list with
+`rg -oN --no-filename '//goplint:[a-z-]+' cmd internal pkg | sort | uniq -c`):
+`//goplint:ignore -- <reason>`, `validate-all`, `nonzero`, `constant-only`,
+`enum-cue`, `mutable`, `cue-fed-path`, `trusted-boundary`, `no-delegate`, and
+`path-domain`. Their semantics are documented in the goplint repository
+(`github.com/invowk/goplint`, `docs/goplint/`), not here; read them there
+before adding a directive. Copy an existing in-repo use as the template.
+
+## 8. Anti-patterns to Avoid
 
 - Adding new function parameters/struct fields as raw `string`/`int` where a domain wrapper exists.
 - Returning only one error when multiple field errors are known.
 - Skipping `Unwrap()` in typed invalid errors.
 - Introducing aliases without documenting compatibility intent.
-

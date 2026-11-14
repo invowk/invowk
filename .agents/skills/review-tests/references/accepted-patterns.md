@@ -102,8 +102,10 @@ When an audit finding is determined to be a justified deviation:
 5. **Set confidence to EXPERIMENTAL** for all new entries unless promoting from a known
    in-round re-evaluation.
 6. **Set Accepted and Last Reviewed to today's date.**
-7. **Mark the original finding as severity SKIP** with a reference: "Accepted pattern -- see
-   `accepted-patterns.md`".
+7. **Drop the original finding and cite the entry** in the checklist item's evidence:
+   "Accepted pattern -- see `accepted-patterns.md`". The item's status then follows the status
+   rule in `SKILL.md` (FAIL if any deviation matches no registry entry, SKIP only when every
+   deviation matches a registry entry, each cited, otherwise PASS with the matches cited).
 
 ---
 
@@ -125,7 +127,7 @@ For each entry in the registry:
    - If triggers are NOT met and the cadence review is routine: update Last Reviewed date,
      promote confidence if eligible, and continue.
    - If any trigger IS met: flag the entry in the "Patterns for Reconsideration" section
-     of the report. The pattern remains SKIP for this round but is demoted to EXPERIMENTAL
+     of the report. The pattern stays accepted (not a finding) for this round but is demoted to EXPERIMENTAL
      for the next round so it gets full re-evaluation.
    - If the pattern no longer exists in the codebase (file deleted, code refactored):
      remove the entry from the registry.

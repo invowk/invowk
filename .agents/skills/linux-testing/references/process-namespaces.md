@@ -1,7 +1,8 @@
 # Linux Namespaces and Cgroups
 
 Reference for the Linux namespace and cgroup primitives that underpin container
-test isolation. Understanding these is essential for diagnosing container test
+test isolation, plus process groups, signals and the OOM killer (sections at
+the end). Understanding these is essential for diagnosing container test
 failures, resource exhaustion, and permission errors.
 
 ---
@@ -21,7 +22,7 @@ together to create the illusion of a separate system.
   host UID 1000 to container UID 0 (root inside the container without real root
   on the host).
 - Requires `subuid`/`subgid` configuration in `/etc/subuid` and `/etc/subgid`.
-  Each user gets a range of subordinate UIDs (e.g., `danilo:100000:65536`).
+  Each user gets a range of subordinate UIDs (e.g., `user:100000:65536`).
 - `newuidmap` and `newgidmap` (from shadow-utils) perform the mapping.
 
 **Implications for file permissions in mounted volumes:**
@@ -226,13 +227,13 @@ podman (CLI)
 
 ```
 Host                    Container
-UID 1000 (danilo)  →   UID 0 (root)
+UID 1000 (user)    →   UID 0 (root)
 UID 100000-165535  →   UID 1-65535
 ```
 
 This mapping is configured in `/etc/subuid`:
 ```
-danilo:100000:65536
+user:100000:65536
 ```
 
 **Implications:**
@@ -333,3 +334,111 @@ operation that works on the host:
 2. Use `docker inspect` to see the applied security options.
 3. Test with `--security-opt seccomp=unconfined` to confirm seccomp is the
    cause (do not use this in production).
+
+---
+
+## Process Groups, Signals and Orphans
+
+Go's `os/exec` starts children with `clone` (not a raw `fork`) so it controls
+exactly which resources the child inherits.
+
+**Process groups and sessions:**
+
+- **Process group** (`setpgid`): signals sent to `-pgid` reach every process
+  in the group. `cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}` puts
+  the child in a new group, and `syscall.Kill(-cmd.Process.Pid, sig)` then
+  signals the child and all descendants that stayed in that group. Invowk
+  production code does not do this today (no `Setpgid`/`Setsid` in the
+  tree); a change that must own a process tree adds it together with a
+  cleanup test.
+- **Session leader** (`setsid`): new session and process group, no
+  controlling terminal. Used by daemons; generally not needed for tests.
+- **Reaping**: a child becomes a zombie until its parent waits on it.
+  `Cmd.Wait` (or `Cmd.Run`) reaps; the Go runtime does not reap arbitrary
+  children. Always wait.
+- **`Pdeathsig`**: `cmd.SysProcAttr.Pdeathsig = syscall.SIGKILL` asks the
+  kernel (`prctl(PR_SET_PDEATHSIG)`) to signal the child when its parent
+  dies. Go does not set it by default. Per `prctl(2)` it fires when the
+  parent *thread* that created the child exits, not only the whole process.
+- **Orphans**: if the parent dies without `Pdeathsig`, the child is
+  reparented to PID 1 (or the nearest subreaper) and keeps running. Orphaned
+  engine subprocesses can accumulate in CI; the container cleanup patterns in
+  `container-testing-deep.md` are the defense.
+
+**Linux signal numbers** (always use the `syscall` constants; numbers differ
+on macOS):
+
+| Signal | Number | Blockable | Go behavior |
+|--------|--------|-----------|-------------|
+| `SIGKILL` | 9 | No | Immediate kill; cannot be caught or ignored |
+| `SIGTERM` | 15 | Yes | Catchable; graceful shutdown |
+| `SIGINT` | 2 | Yes | Delivered as `os.Interrupt`; Ctrl+C |
+| `SIGPIPE` | 13 | Yes | Fatal on a broken pipe to fd 1/2; other fds get `EPIPE` (`os/signal` docs) |
+| `SIGSTOP` | 19 | No | Unblockable pause; `SIGCONT` resumes |
+| `SIGCONT` | 18 | Yes | Resume after `SIGSTOP` |
+| `SIGQUIT` | 3 | Yes | Go prints goroutine stacks and exits |
+| `SIGUSR1` | 10 | Yes | User-defined; no default Go handling |
+| `SIGUSR2` | 12 | Yes | User-defined; no default Go handling |
+
+**`exec.CommandContext` on Linux:**
+
+- Default cancellation is `Process.Kill` (`SIGKILL`): immediate, no cleanup in
+  the child.
+- For graceful termination, set `cmd.Cancel` to send `SIGTERM` and a bounded
+  `cmd.WaitDelay`, after which Go kills the process and closes the pipes:
+
+  ```go
+  cmd := exec.CommandContext(ctx, "some-binary")
+  cmd.Cancel = func() error {
+      return cmd.Process.Signal(syscall.SIGTERM)
+  }
+  cmd.WaitDelay = 10 * time.Second
+  ```
+
+- Container engine CLIs spawn helpers (conmon, crun, runc) that can keep
+  stdout/stderr open after the engine process dies. `cmdWaitDelay` in
+  `internal/container/engine_base.go` bounds that pipe wait; this, not a
+  process group, is what keeps engine subprocess cleanup from hanging today.
+
+**Test binary timeouts:** when `go test -timeout` fires, the test binary
+panics and exits. Deferred functions, `t.Cleanup` and testscript `env.Defer`
+do not run, and children are not killed. Keep operation and testscript
+deadlines inside the binary timeout (`container-testing-deep.md` "Timeout and
+Serialization Layers").
+
+---
+
+## OOM Killer
+
+The Linux OOM killer can terminate test processes under memory pressure,
+most often container tests running with `-race`.
+
+**Why tests are vulnerable:**
+
+- **Race detector**: the Go race detector documentation puts its cost at
+  roughly 5-10x memory and 2-20x execution time, depending on the workload.
+- **Runner memory**: hosted runners have a fixed memory budget shared by the
+  test binaries, the container engine and every container. Read the current
+  runner from the workflow; do not rely on a remembered capacity.
+- **cgroup limits**: an OOM kill can come from the container's own cgroup
+  (`--memory`), the runner's cgroup, or host exhaustion (see "Resource
+  Limits" above).
+
+**Symptoms and evidence:**
+
+- The process dies with no further output; the shell or CI log reports exit
+  code 137 (128 + `SIGKILL`), possibly after `signal: killed`.
+- `dmesg | grep -i oom` or `journalctl -k | grep -i oom` shows the kill
+  (when you have permission to read kernel logs).
+- Every remaining test in that binary shows `(unknown)` in gotestsum/JUnit
+  output, because the binary died mid-run.
+
+**Mitigation:**
+
+- Keep container concurrency bounded by the semaphore
+  (`INVOWK_TEST_CONTAINER_PARALLEL=2` in CI). Never raise it above 2 for
+  race-enabled runs without memory evidence.
+- Do not add `-race` to memory-heavy benchmark or profiling runs
+  (`make pgo-profile` runs benchmarks with `-pgo=off` and no `-race`).
+- Correlate a 137 with what else ran concurrently in that job before
+  changing timeouts or parallelism.

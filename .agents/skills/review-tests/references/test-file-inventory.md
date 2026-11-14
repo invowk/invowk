@@ -63,5 +63,5 @@ go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignme
 - SS5: all live `.txtar` files and testscript harness files.
 - SS6: live virtual/native pair output, the exemption JSON, and platform tests.
 - SS7: coverage/guardrail files named by the checklist plus their current tests.
-- SS8: live TUI, server, container, watcher, benchmark, and goplint test files
+- SS8: live TUI, server, container, watcher, benchmark, and provision test files
   selected by the checklist.

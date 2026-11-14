@@ -43,33 +43,30 @@ func BenchmarkFoo(b *testing.B) {
 
 ### Running Benchmarks
 
+The repo's benchmarks live in `./internal/benchmark` (for example
+`BenchmarkCUEParsing`, `BenchmarkDiscovery`, `BenchmarkFullPipeline`), and they
+skip under `testing.Short()`: never pass `-short` when you want them to run.
+
 ```bash
-# Run all benchmarks in a package
-go test -bench=. ./internal/benchmark/...
+# Run all benchmarks in the package, skipping regular tests
+go test -run=^$ -bench=. ./internal/benchmark/
 
-# Run specific benchmark
-go test -bench=BenchmarkParseCUE ./pkg/cueutil/...
+# Run specific benchmark with memory stats
+go test -run=^$ -bench='^BenchmarkCUEParsing$' -benchmem ./internal/benchmark/
 
-# Skip regular tests, run only benchmarks
-go test -run=^$ -bench=. ./...
+# Benchmark for specific duration / iteration count
+go test -run=^$ -bench=. -benchtime=5s ./internal/benchmark/
+go test -run=^$ -bench=. -benchtime=100x ./internal/benchmark/
 
-# Benchmark with memory profiling
-go test -bench=BenchmarkParseCUE -benchmem ./pkg/cueutil/...
-
-# Benchmark for specific duration
-go test -bench=. -benchtime=5s ./...
-
-# Benchmark for specific iteration count
-go test -bench=. -benchtime=100x ./...
-
-# Benchmark smoke test (CI: verify benchmarks compile and run)
-go test -run=^$ -bench=. -benchtime=1x -short -count=1 ./...
+# Benchmark smoke test (ci.yml form with a shortened regex; ci.yml lists more
+# benchmarks in BENCH_REGEX): verify benchmarks compile and run
+go test ./internal/benchmark -run=^$ -bench='^Benchmark(CUEParsing|Discovery.*|FullPipeline)$' -benchmem -benchtime=1x -count=1
 ```
 
 ### Benchmark Output Format
 
 ```
-BenchmarkParseCUE-8    50000    23456 ns/op    4096 B/op    42 allocs/op
+BenchmarkCUEParsing-8  50000    23456 ns/op    4096 B/op    42 allocs/op
 ```
 
 Fields: `Name-GOMAXPROCS  Iterations  ns/op  B/op  allocs/op`
@@ -92,26 +89,18 @@ func BenchmarkConcurrentLookup(b *testing.B) {
 
 ### PGO Integration
 
-The project uses Profile-Guided Optimization with `default.pgo` in the repository
-root. Benchmark profiles feed PGO:
-
-```bash
-# Generate PGO profile from benchmarks
-make pgo-profile-parse-discovery
-
-# Profile without previous PGO bias
-go test -bench=. -cpuprofile=default.pgo -pgo=off ./internal/benchmark/...
-```
-
-Key commands:
-- `make pgo-profile` — full profile (includes container benchmarks)
-- `make pgo-profile-short` — skip container benchmarks
-- `make pgo-profile-parse-discovery` — focused on parser/discovery hot paths
-- `make pgo-audit` — validate profile freshness
+Benchmark profiles feed `default.pgo` in the repository root. Regenerate it only
+through the Make targets (`make pgo-profile`, `make pgo-profile-short`,
+`make pgo-profile-parse-discovery`, `make pgo-audit`); do not write
+`default.pgo` with a hand-rolled `-cpuprofile` command. Procedure:
+`.agents/runbooks/pgo-and-benchmarks.md`.
 
 ## Fuzzing API
 
 ### Writing a Fuzz Test
+
+The repo has no `Fuzz*` targets today; `FuzzParseVersion`, `ParseVersion` and
+`./pkg/types` below are illustrative names.
 
 ```go
 func FuzzParseVersion(f *testing.F) {
@@ -151,10 +140,13 @@ go test -run=FuzzParseVersion ./pkg/types/...
 
 ### Corpus Management
 
-- Seed corpus: `f.Add()` calls in test code
-- Generated corpus: `testdata/fuzz/FuzzName/` (auto-created by fuzzer)
-- Crashing inputs: `testdata/fuzz/FuzzName/` (saved on failure)
-- Commit the corpus: generated failing inputs become regression tests
+- Seed corpus: `f.Add()` calls in test code, plus files you add under
+  `testdata/fuzz/<FuzzName>/`.
+- Generated corpus: kept in the build cache (`$GOCACHE/fuzz`), not in the repo.
+- Failing inputs: written to `testdata/fuzz/<FuzzName>/` on failure; plain
+  `go test` then replays them.
+- Commit failing inputs and useful seeds as regression tests; do not commit the
+  generated cache corpus.
 
 ### Fuzz Test Design Patterns
 
@@ -192,8 +184,11 @@ f.Fuzz(func(t *testing.T, input []byte) {
 
 ### Fuzzing Limitations
 
-- Only supports `string`, `[]byte`, `int`, `uint`, `float32`, `float64`, `bool`,
-  and `rune` as fuzz parameters (no structs or slices of structs)
-- Cannot fuzz multiple packages simultaneously
-- Fuzzing with `-race` is very slow (2-20x per-iteration overhead)
-- Corpus files are plain text; binary data is hex-encoded
+- Allowed fuzz parameter types (`go doc testing.F.Fuzz`): `[]byte`, `string`,
+  `bool`, `byte`, `rune`, `float32`, `float64`, `int`, `int8`, `int16`, `int32`,
+  `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64` (no structs or slices
+  of structs).
+- Cannot fuzz multiple packages simultaneously (`-fuzz` needs a single package).
+- Fuzzing with `-race` is very slow (2-20x per-iteration overhead).
+- Corpus files use the `go test fuzz v1` format: one Go literal per argument
+  (for example `string("abc")`, `[]byte("\x00")`), not hex dumps.

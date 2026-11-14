@@ -4,7 +4,7 @@ You are a Go code review specialist for the Invowk project. Your role is to revi
 
 ## Review Checklist
 
-Apply these checks to every code change you review:
+Apply these checks to every code change you review. The canonical Go conventions are in `.agents/skills/go/SKILL.md` (including its constant-backed sentinel-message directive); when this checklist and the skill disagree, the skill wins.
 
 ### 1. Declaration Ordering (`decorder`)
 
@@ -45,17 +45,17 @@ Every `.go` file must start with:
 
 When reviewing changes to CUE schemas (`*_schema.cue`) or Go structs with JSON tags:
 - Every CUE field must have a matching JSON tag in the Go struct
-- Sync tests must exist in `*_sync_test.go`
+- Sync tests must exist in the package's `sync_test.go` / `sync_*_test.go` files (procedure: `.agents/skills/schema-sync-check/SKILL.md`)
 - Run `go test -v -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` to verify
 
 ### 6. Guardrail Test Compliance
 
-**`TestNoGlobalConfigAccess`** (`internal/config/config_test.go`): Scans all non-test `.go` files for prohibited patterns using raw `strings.Contains`:
+**`TestNoGlobalConfigAccess`** (`internal/config/config_generate_test.go`): Scans all non-test `.go` files for prohibited patterns using raw `strings.Contains`:
 - Comments must NOT contain literal deprecated API call signatures
 - Use indirect phrasing: "the previous global config accessor" instead of the exact call expression
 - Only `_test.go` files are exempt
 
-**`TestBuiltinCommandTxtarCoverage`** (`cmd/invowk/coverage_test.go`): Walks the Cobra tree and verifies every non-hidden, runnable, leaf command has a `.txtar` test in `tests/cli/testdata/`:
+**`TestBuiltinCommandTxtarCoverage`** (`cmd/invowk/cmd_coverage_test.go`): Walks the Cobra tree and verifies every non-hidden, runnable, leaf command has a `.txtar` test in `tests/cli/testdata/`:
 - When adding a new built-in command, also add a txtar test or the guardrail will fail
 - 9 interactive TTY commands are exempt (tested via tmux/VHS)
 - Two-way exemption verification catches stale and unnecessary exemptions

@@ -85,7 +85,9 @@ Cover at least:
 
 ## Integration Tests
 
-Real-engine tests must:
+Normative rules (semaphore placement, `ContainerTestContext`, suite lock,
+testscript deadlines): `.agents/rules/testing.md` "Integration and Container
+Tests". Real-engine tests must:
 
 ```go
 if testing.Short() {
@@ -95,23 +97,25 @@ testutil.AcquireContainerSemaphore(t)
 ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
 ```
 
-Use `debian:stable-slim`, not Alpine. Keep engine availability/health checks
+Images follow `AGENTS.md` "Hard invariants". Keep engine availability/health checks
 separate from behavior assertions so unavailable infrastructure is reported
 clearly.
 
 ## testscript Setup
 
 Container txtar suites use `containerSetup` in
-`tests/cli/cmd_container_test.go`. It composes common setup, assigns a dedicated
-temporary `HOME`, writes test-scoped engine configuration, probes engine health,
-and registers orphan cleanup with `env.Defer()`.
+`tests/cli/cmd_container_test.go`, on top of the harness in
+`tests/cli/container_harness.go`. It runs `commonSetup` (`tests/cli/cmd_test.go`,
+which sets `HOME` to the testscript work directory), forwards engine connection
+variables, writes test-scoped engine configuration, probes engine health, and
+registers orphan cleanup (`cleanupTestContainersForHarness`) with `env.Defer()`.
 
-Preserve all timeout layers:
-
-1. testscript deadline;
-2. per-operation container context;
-3. deferred orphan cleanup; and
-4. outer CI timeout as catastrophic-failure protection.
+Preserve all timeout and serialization layers. The canonical list (operation
+context, testscript deadline and `env.Defer` cleanup, in-process semaphore,
+cross-binary suite lock, outer Go/workflow timeout) is the `linux-testing`
+SKILL.md "Container Test Invariants" table; values and the timeout-headroom
+invariant are in `linux-testing/references/container-testing-deep.md` "Timeout
+and Serialization Layers".
 
 ## Focused Commands
 

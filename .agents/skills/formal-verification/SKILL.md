@@ -1,6 +1,14 @@
 ---
 name: formal-verification
-description: Invowk formal-verification workflow for Alloy 6 and TLA+/TLC models under formal/, the fail-closed runner scripts/formal.py and formal/manifest.toml, golden vectors replayed by Go tests, rapid property tests, calibration, and model-to-code correspondence tables. Use when adding or changing a model, when a golden-vector or property test fails, when code named in a correspondence table changes, or when `make formal` fails.
+description: >-
+  Invowk formal verification: Alloy 6 and TLA+/TLC models in formal/ (*.als,
+  *.tla), scripts/formal.py, formal/manifest.toml, golden vectors
+  (alloygolden, `make formal-golden`), rapid property tests, trace validation
+  (tlatrace), calibration, model-to-code correspondence tables, formal-bindings
+  mutation survivors. Use when adding or changing a model, when a
+  golden-vector, property or trace test fails or a golden is stale, when code
+  a correspondence table names changes, or when `make formal` or
+  `make mutation-formal` fails.
 ---
 
 # Formal Verification
@@ -23,7 +31,10 @@ tool or a model.
    `name: run|check { body } for scope expect 0|1` into
    `artifacts/formal/<Model>/<Model>.als` and fails on a `run` or `check` left
    in the source. Unknown keys (a `scop =` typo) and keys for the other tool
-   (`body` on TLC, `constants` on Alloy) are rejected.
+   (`body` on TLC, `constants` on Alloy) are rejected; the full command key set
+   is `COMMAND_KEYS` in `scripts/formal.py` (`property`, `antecedent`,
+   `witness`, `finding`, `fairness_twin_of`, `dead_actions`,
+   `distinct_states`, …).
 4. **Guard every safety check:**
    - an antecedent `run` expecting an instance;
    - at least one mutant with `mutant_of`, checking the same predicate;
@@ -52,9 +63,11 @@ tool or a model.
    - Run `make formal-golden`, then write a Go test that loads the vectors with
      `alloygolden.Load(t, path, "<Model>")` and replays every instance. Files
      use golden format 2 (columnar, dictionary-coded). `Load` fails when the
-     `.als` changed since generation, and under `-short` (the mutation
-     profiles) it returns every 16th instance. The fingerprint also holds a
-     digest of the rendered golden command, which
+     `.als` changed since generation (the message says to run
+     `make formal-golden`). Under `-short` (`make test-short` and the root
+     mutation profiles) it returns every 16th instance; the formal-bindings
+     mutation profile runs without `-short` and replays every vector. The
+     fingerprint also holds a digest of the rendered golden command, which
      `python3 scripts/test_formal.py` checks against the manifest, and
      `make formal` re-enumerates the golden command byte for byte.
    - Map atoms with `alloygolden.GitURL` and `alloygolden.ModuleID`.
@@ -62,29 +75,35 @@ tool or a model.
      golden instance too. That keeps the rapid oracle from drifting.
    - Add a rapid test that compares the real code with the intent at larger
      scopes.
-   - **Filesystem-materialising replay** (path-containment models): when the
-     bound code calls `os.ReadFile`, `os.Lstat`, `filepath.EvalSymlinks`, or
-     `filepath.WalkDir`, do not re-model the OS — materialise each golden
-     instance as a real tree with `internal/testutil/fstree` under
-     `filepath.EvalSymlinks(t.TempDir())` and call the real functions.
-     `internal/testutil/mpctree` translates a `ModulePathContainment` instance
-     into an `fstree.Spec`; memoise one materialisation per distinct tree
-     (`Case.StructuralKey`) so a large instance count stays cheap. Record every
-     layer decision (`validate`, `lexContains`, `physContains`, `accept`,
-     `contained`, `touched`) in a golden `one sig` and compare each against the
-     real function, so a layer masked by a later layer end to end is still
-     calibrated (bind the masked layer directly through a test-only
-     `export_test.go` hook). Probe symlink, junction, and case-fold capability
-     once (`fstree.Probe`); skip instances that need a missing capability and
-     log the count per capability. Junctions are Windows-only: their leg is
-     skipped and counted on Linux/macOS. Exhaustive enumeration of a relational
-     filesystem is intractable for a materialised replay, so fix case-folding
-     and junctions off in the golden and constrain the tree topology with a
-     `goldenScenario` predicate; cover the fixed dimensions with witnesses, the
-     rapid property, and platform-gated findings tests. Budget: golden replay
-     ≤ 30 s per OS, deep rapid ≤ 60 s (design §7); build the virtual-harness
-     validator directly over materialised roots so the host's own enclosing
-     roots (`/tmp`, HOME) do not make the check vacuous.
+   - **Filesystem-materialising replay** (path-containment models), whenever
+     the bound code calls `os.ReadFile`, `os.Lstat`, `filepath.EvalSymlinks`,
+     or `filepath.WalkDir`:
+     - Do not re-model the OS. Materialise each golden instance as a real tree
+       with `internal/testutil/fstree` under `filepath.EvalSymlinks(t.TempDir())`
+       (the raw temp dir is a symlinked alias on macOS) and call the real
+       functions.
+     - `internal/testutil/mpctree` translates a `ModulePathContainment`
+       instance into an `fstree.Spec`; memoise one materialisation per distinct
+       tree (`Case.StructuralKey`) so a large instance count stays cheap.
+     - Record every layer decision (`validate`, `lexContains`, `physContains`,
+       `accept`, `contained`, `touched`) in a golden `one sig` and compare each
+       against the real function, so a layer masked end to end by a later one
+       is still calibrated. Bind the masked layer directly through a test-only
+       `export_test.go` hook.
+     - Probe symlink, junction, and case-fold capability once (`fstree.Probe`);
+       skip instances that need a missing capability and log the count per
+       capability. Junctions are Windows-only: their leg is skipped and counted
+       on Linux/macOS.
+     - Exhaustive enumeration of a relational filesystem is intractable for a
+       materialised replay, so fix case-folding and junctions off in the golden
+       and constrain the tree topology with a `goldenScenario` predicate; cover
+       the fixed dimensions with witnesses, the rapid property, and
+       platform-gated findings tests.
+     - Budget: golden replay ≤ 30 s per OS, deep rapid ≤ 60 s (decision D9,
+       "Cost budgets", of the model-module-path-containment OpenSpec change).
+     - Build the virtual-harness validator directly over materialised roots so
+       the host's own enclosing roots (`/tmp`, HOME) do not make the check
+       vacuous.
 7. **Calibrate.** Seed plausible defects in the real code, one at a time, and
    confirm the bindings fail. Record the result in the manifest's
    `calibration`. If a defect survives, widen the golden scope before trusting
@@ -105,12 +124,9 @@ tool or a model.
 
 `make mutation-formal` (the `formal-bindings` target set of
 `scripts/mutation.sh`) measures how much of the code a table names its
-bindings alone constrain. `scripts/formal_mutation.py plan` derives the target
-functions, line ranges, killer tests, and packages from the tables at run
-time; rows without a killer land in `unbound-rows.txt` with a reason. Each
-mutant runs only the killer tests of the function it changed, across
-packages, through `go test -overlay`, without `-short`. Read
-`.agents/runbooks/mutation-testing.md` for the profiles.
+bindings alone constrain. The plan, executor, baseline and rerun mechanics live
+in `.agents/runbooks/mutation-testing.md`; this skill owns the survivor loop
+below.
 
 Resolve every escaped mutant (rerun it twice with `make mutation-formal-rerun`
 first; the evidence lands in `tools/mutation/triage/formal-bindings-reruns.jsonl`):
@@ -150,27 +166,32 @@ model-gap rigour) or an abstraction note on the calling row. Then run
   function values, and no new manifest key is needed.
 - Check circular wait between mutexes as an invariant (`NoCircularWait`), with
   explicit stuttering only in a terminal state, so the deadlock check stays on.
-- Trace validation: a Go `Test<Model>_TraceHarness` gated by
-  `INVOWK_FORMAL_TRACE_DIR` calls `tlatrace.WriteSuite(t, "<Model>", traces)`
-  (use `tlatrace.Recorder` to record one entry per projection change).
-  `formal/tla/<Model>Trace.tla` EXTENDS the model and `<Model>Traces`,
-  declares `CONSTANTS TraceSet, TraceIndex` and `VARIABLE i`, writes
-  `INSTANCE TraceBase`, and defines only `Proj` (a record literal whose fields
-  must equal the harness's keys), `TraceInit`, `TraceNext`, `TraceSpec`, and
-  helpers. Build on `TraceStart`, `TraceAdvanceOnChange`, or `TraceAdvanceAt`;
-  the names `TraceRecord`, `TraceStart`, `TraceAdvanceOnChange`,
-  `TraceAdvanceAt`, and `NotFullyConsumed` are reserved in every module. The
-  spec must forbid skipping an observable state, and targeted mutations must
-  be rejected. Keep `Proj` flat so the key-set checks see every field. `WriteSuite`
-  drops duplicate traces and fails when a mutation equals a recorded trace;
-  `tlatrace.RecordEach` runs one parallel subtest per sequence and returns a
-  `Recorded` (`Accepted()` for the suite, `Base(t, name)` for a mutation's
-  base trace), and `tlatrace.Edit`/`Extend` build mutations from recorded
-  traces. Concurrency replays park a process at a seam with
-  `internal/testutil/procgate`. A `[[trace]]` entry may set
-  `constants` to override the model's base constants (only declared ones).
-  Never declare as a mutation a behaviour the base constants accept because
-  of an open finding.
+- **Trace validation:**
+  - Harness: a Go `Test<Model>_TraceHarness` gated by `INVOWK_FORMAL_TRACE_DIR`
+    calls `tlatrace.WriteSuite(t, "<Model>", traces)`; use `tlatrace.Recorder`
+    to record one entry per projection change. It must live in a package a
+    `[[trace]]` suite declares (step 5 completeness guard).
+  - Spec: `formal/tla/<Model>Trace.tla` EXTENDS the model and `<Model>Traces`,
+    declares `CONSTANTS TraceSet, TraceIndex`, and writes `INSTANCE TraceBase`.
+    It defines only `Proj` (a record literal whose fields must equal the
+    harness's keys), `TraceInit`, `TraceNext`, `TraceSpec`, and helpers, built
+    on `TraceStart`, `TraceAdvanceOnChange`, or `TraceAdvanceAt`.
+  - Runner-enforced (`check_tla_sources` in `scripts/formal.py`): a `*Trace.tla`
+    must `INSTANCE TraceBase` and may declare no variable other than `i`, and
+    every definition in `formal/tla/TraceBase.tla` is reserved in every module
+    (today `TraceRecord`, `TraceStart`, `TraceAdvanceOnChange`,
+    `TraceAdvanceAt`, `NotFullyConsumed`).
+  - The spec must forbid skipping an observable state, and targeted mutations
+    must be rejected. Keep `Proj` flat so the key-set checks see every field.
+  - `WriteSuite` drops duplicate traces and fails when a mutation equals a
+    recorded trace. `tlatrace.RecordEach` runs one parallel subtest per
+    sequence and returns a `Recorded` (`Accepted()` for the suite,
+    `Base(t, name)` for a mutation's base trace); `tlatrace.Edit`/`Extend`
+    build mutations from recorded traces. Concurrency replays park a process
+    at a seam with `internal/testutil/procgate`.
+  - A `[[trace]]` entry may set `constants` to override the model's base
+    constants (only declared ones). Never declare as a mutation a behaviour
+    the base constants accept because of an open finding.
 - Fakes a model depends on must follow the real contract. For example, the
   watcher's manual timer returns `time.AfterFunc`'s Reset/Stop results.
 
@@ -180,7 +201,8 @@ model-gap rigour) or an abstraction note on the calling row. Then run
   Write `some x.f and x.f in S`.
 - **Instance explosion.** Unreferenced atoms and label-only sigs multiply
   golden instances. Measure with a capped `-r` first. Export fails when a
-  golden file exceeds 600 KB compressed (or `[model.golden] max_bytes`).
+  golden file exceeds 600 KB compressed, or a smaller `[model.golden]
+  max_bytes` (it can only lower the cap).
 - **Excluding a feature from the golden scope hides defects.** Leaving out
   explicit-scope sources hid two of five seeded scope defects.
 - **Alloy's JSON receipt omits subset-sig membership.** The runner reads the
@@ -199,8 +221,20 @@ Before refactoring models or the runner, record
 `python3 scripts/formal.py snapshot --out <outside artifacts>/baseline.json`,
 and afterwards require `snapshot --compare` to report every entry identical.
 
-```sh
-make formal
+```bash
+python3 scripts/formal.py correspondence   # no Java needed
+make formal                                # needs Java
 python3 scripts/test_formal.py
-go test ./internal/app/deps/ ./internal/app/modulesync/ ./internal/app/moduleops/ ./pkg/invowkmod/ ./internal/container/
+# Replay every bound golden-vector and property test (packages and -run
+# pattern generated from the correspondence tables, as in CI):
+plan="$(python3 scripts/formal.py replay-plan --format github)" &&
+  packages="$(sed -n 's/^packages=//p' <<<"$plan")" &&
+  run="$(sed -n 's/^run=//p' <<<"$plan")" &&
+  go test -count=1 -run "$run" $packages
 ```
+
+Any change under `formal/`, `scripts/formal*.py`, or `tools/mutation/` also
+needs `make test-scripts`, which includes `scripts/test_formal.py`,
+`scripts/test_formal_mutation.py`, and
+`python3 scripts/formal_mutation.py triage --check`. When the change touches Go
+code a table names, also follow `.agents/rules/formal-bindings.md`.

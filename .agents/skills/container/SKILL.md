@@ -1,9 +1,10 @@
 ---
 name: container
 description: >-
-  Container engine abstraction, Docker/Podman patterns, persistent container
-  lifecycle, provisioning, containerfile validation, path handling, transient
-  retry behavior, and Linux-only policy. Use when working on
+  Container engine abstraction, Docker/Podman patterns, Flatpak/Snap sandbox
+  wrapping, persistent container lifecycle, provisioning, containerfile
+  validation, path handling, transient retry behavior (engine exit codes
+  125/126), and Linux-only image policy. Use when working on
   internal/container/, internal/containerplan/, internal/provision/,
   internal/runtime/container*.go, pkg/invowkfile container runtime fields, or
   container-related tests/docs.
@@ -33,13 +34,9 @@ Read the bundled references according to the change:
 
 ## Non-Negotiable Policy
 
-The container runtime supports Linux containers only.
-
-| Supported | Rejected |
-| --- | --- |
-| Debian-based images, with `debian:stable-slim` as the reference | Alpine images |
-| Standard Linux containers | Windows container images |
-| Approved language-specific slim images for language examples | Unsupported general-purpose substitutes such as `ubuntu:*` |
+Linux containers only; the allowed and rejected images are defined in
+`AGENTS.md` "Hard invariants" (history:
+`.agents/memorials/container-linux-only.md`).
 
 `ValidateSupportedRuntimeImage()` in `internal/container/image_policy.go`
 enforces Alpine and Windows rejection before provisioning. Keep matching
@@ -70,21 +67,18 @@ Keep pure target selection in `containerplan`, engine state mutation in
   factory selection and `Available()` report availability.
 - `NewEngine()` and `AutoDetectEngine()` return sandbox-aware engines when
   Flatpak or Snap requires host execution.
-- Persistent create/start/exec/remove paths use `LifecycleCoordinator` when the
-  selected engine implements it.
+- When the selected engine implements `LifecycleCoordinator`, run the whole
+  persistent create/start/exec/remove sequence inside
+  `CoordinateLifecycle(fn func() error)` (a callback, not an acquire/release
+  API).
 - Prepared interactive commands return cleanup functions. Hold serialization
   leases until the PTY command has exited.
 
 ## Host And Container Paths
 
-Container paths always use `/`, independent of the host OS.
-
-```go
-containerPath := "/workspace/" + filepath.ToSlash(relPath)
-```
-
-Do not use `filepath.Join("/workspace", relPath)` to construct a container
-path; it emits backslashes on Windows hosts.
+Container paths always use `/`, independent of the host OS; never build them
+with `filepath.Join` (backslashes on Windows). Patterns:
+`.agents/rules/windows.md` "Container Path Patterns".
 
 Containerfile validation is layered:
 
@@ -122,12 +116,12 @@ Containerfile validation is layered:
 
 | Pitfall | Required correction |
 | --- | --- |
-| Alpine or Windows image in test/docs | Use `debian:stable-slim` or an approved language-specific slim image |
-| `filepath.Join` for an in-container path | Concatenate `/` paths and normalize host-relative fragments with `filepath.ToSlash` |
+| Alpine or Windows image in test/docs | Follow the image policy in `AGENTS.md` "Hard invariants" |
+| `filepath.Join` for an in-container path | Follow `.agents/rules/windows.md` "Container Path Patterns" |
 | Checking only `err` after `Engine.Run` | Also inspect `RunResult.Error` and `RunResult.ExitCode` |
-| Persistent lifecycle bypasses coordination | Acquire through `LifecycleCoordinator` and release on every exit path |
+| Persistent lifecycle bypasses coordination | Run the whole sequence inside `LifecycleCoordinator.CoordinateLifecycle(fn)` |
 | Shared mutable mock recorder in parallel tests | Create a recorder and engine per test/subtest |
-| Real-engine container operation without bounded context/cleanup | Use the container semaphore, `ContainerTestContext`, and deferred cleanup; do not add them to `Validate()`-only, type-assertion, mocked-engine, or pre-engine error-path tests |
+| Real-engine container operation without bounded context/cleanup | Follow `.agents/rules/testing.md` "Integration and Container Tests" (semaphore, `ContainerTestContext`, deferred cleanup; not for `Validate()`-only, mocked-engine or pre-engine error-path tests) |
 | Podman prepared-command lease released before `Wait` | Compose cleanup with the command lifecycle and release after process exit |
 
 ## Focused Verification

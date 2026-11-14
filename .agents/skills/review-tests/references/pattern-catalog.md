@@ -7,7 +7,7 @@ Consolidated testing patterns for subagent reference (SA-2, SA-3, SA-4, SA-8).
 | Pattern | When Required | Example |
 |---------|---------------|---------|
 | **Table-driven tests** | Functions with 3+ test cases must use `tests := []struct{...}` with `t.Run(tt.name, ...)`. Each case needs `name string`. Error cases need `wantErr bool` and verification of both error presence AND content. | `tests := []struct{ name string; input string; wantErr bool }{...}; for _, tt := range tests { t.Run(tt.name, func(t *testing.T) { ... }) }` |
-| **`t.Parallel()`** | First call in every `Test*` function (before `t.Skip()`). All table-driven subtests inside parallel parents must also call `t.Parallel()`. Exceptions: global state mutation (`os.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`), CUE subtests (thread-unsafe), SSH host key collision. | `func TestFoo(t *testing.T) { t.Parallel(); ... }` |
+| **`t.Parallel()`** | First call in every `Test*` function (before `t.Skip()`). All table-driven subtests inside parallel parents must also call `t.Parallel()`. Exceptions: global state mutation (`os.Chdir`, `t.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`), CUE subtests (thread-unsafe). | `func TestFoo(t *testing.T) { t.Parallel(); ... }` |
 | **`t.Context()`** | Default context in test functions (Go 1.24+). `b.Context()` for benchmarks. | `ctx := t.Context()` |
 | **`testing.Short()` gating** | Required for any test needing external resources (container engine, network). Message: `"skipping integration test in short mode"`. | `if testing.Short() { t.Skip("skipping integration test in short mode") }` |
 | **`t.Helper()`** | Required in all test helper functions. | `func assertNoError(t *testing.T, err error) { t.Helper(); ... }` |
@@ -50,8 +50,8 @@ created) that is wrapped with `%w` in the error chain:
 
 | Category | Why String Matching Is Correct | Example |
 |---|---|---|
-| **ValidationErrors flattening** | `invowkfile.ValidationErrors` flattens sentinel errors into `ValidationError.Message` strings during CUE parsing. `errors.Is()` cannot reach the original sentinel through the error chain. | `pkg/invowkfile/validation_test.go`, `invowkfile_flags_required_test.go` |
-| **Error() format tests** | The test is verifying the `Error()` method output of a typed error. The string IS the contract being tested. | `cmd_deps_caps_env_test.go` testing `DependencyError.Error()` format |
+| **`ValidationError` without a `Cause`** | `ValidationError` carries an optional `Cause`, and both `ValidationError.Unwrap()` and `ValidationErrors.Unwrap() []error` exist (`pkg/invowkfile/validation_types.go`), so `errors.Is` reaches any sentinel stored in `Cause`. String matching is KEEP only when tracing the production constructor shows `Cause` is nil, leaving the sentinel flattened into `Message`. If `Cause` is set, the occurrence is CONVERTIBLE. | `pkg/invowkfile/validation_test.go`, `invowkfile_flags_required_test.go` (trace each occurrence first) |
+| **Error() format tests** | The test is verifying the `Error()` method output of a typed error. The string IS the contract being tested. | `cmd/invowk/cmd_dependency_render_test.go` testing `DependencyError` rendering |
 | **DDD Invalid*Error rendering** | Tests check that `Invalid*Error.Error()` includes the bad value (e.g., "-5", "bad"). These verify error message quality, not error identity. | `tui_border_style_test.go`, `tui_selection_index_test.go` |
 | **CUE library errors** | Errors from `cuelang.org/go` (e.g., "field not allowed", "conflict") have no sentinel API. String matching is the only option. | `invowkfile_schema_test.go` |
 | **Supplementary checks** | The test already uses `errors.Is()` for the primary assertion. The `strings.Contains` is an additional check verifying the error message includes a specific value (e.g., flag name, file path). | `internal/app/deps/input_test.go` checks `errors.Is(err, ErrFlagValidationFailed)` then also checks flag name appears |
@@ -61,7 +61,8 @@ created) that is wrapped with `%w` in the error chain:
 
 **Decision rule**: Before flagging a `strings.Contains(err.Error(), ...)`, trace the error
 to its production source. If the production code returns `fmt.Errorf("...: %w", sentinel)`
-where `sentinel` is a `var Err* = errors.New(...)`, it's CONVERTIBLE. Everything else is KEEP.
+where `sentinel` is a `var Err* = errors.New(...)`, or builds a `ValidationError` whose `Cause`
+holds such a sentinel, it's CONVERTIBLE. Everything else is KEEP.
 
 ### time.Sleep Classification
 
@@ -76,16 +77,21 @@ When evaluating `time.Sleep` in tests (T3-C03), classify each occurrence:
 
 ## 3. Container Test Patterns
 
-Five-layer timeout strategy:
+Five-layer timeout strategy (the review view used by T4-C02; the canonical
+enumeration of container timeout and serialization layers, including the CLI
+cross-binary suite lock, is the `linux-testing` SKILL.md "Container Test
+Invariants" table):
 
 1. **Per-test deadline** -- catches individual test hangs.
    ```go
    testscript.Params{Deadline: time.Now().Add(3 * time.Minute)}
    ```
 
-2. **Container cleanup** -- prevents orphaned containers.
+2. **Container cleanup** -- prevents orphaned containers (`tests/cli/cmd_container_test.go`).
    ```go
-   env.Defer(func() { cleanupTestContainers(containerPrefix) })
+   env.Defer(func() {
+       cleanupTestContainersForHarness(containerPrefix, currentContainerHarness())
+   })
    ```
 
 3. **CI runner timeout** -- catches catastrophic failures.
@@ -96,12 +102,17 @@ Five-layer timeout strategy:
    go test -timeout 10m
    ```
 
-4. **Semaphore** -- prevents Podman resource exhaustion. Place AFTER `t.Parallel()` and `testing.Short()` skip, BEFORE container operations. Default: `min(GOMAXPROCS, 2)`, override via `INVOWK_TEST_CONTAINER_PARALLEL`.
+4. **Semaphore** -- prevents Podman resource exhaustion. Place AFTER `t.Parallel()` and `testing.Short()` skip, BEFORE container operations. Default: `min(GOMAXPROCS, 2)`, override via `INVOWK_TEST_CONTAINER_PARALLEL`. Two forms are correct (`internal/testutil/container_semaphore.go`, `.agents/rules/testing.md`):
    ```go
+   // Once per test: releases via t.Cleanup when the test ends.
+   testutil.AcquireContainerSemaphore(t)
+
+   // Helper that may acquire more than once per test: release in the same call.
    sem := testutil.ContainerSemaphore()
    sem <- struct{}{}
    defer func() { <-sem }()
    ```
+   A multi-acquire helper must never release through `t.Cleanup()`: tokens stay held until the test ends and can stall parallel suites.
 
 5. **Bounded context** -- 5-minute deadline for `Execute()`/`ExecuteCapture()` calls. Bare `t.Context()` has NO deadline.
    ```go
@@ -157,7 +168,7 @@ Additional container patterns:
 1. **`time.Sleep` in assertions** -- Detect: grep for `time.Sleep` in `_test.go` files.
 2. **Shared mock across parallel subtests** -- Detect: `MockCommandRecorder` or similar mock + `Reset()` in parallel loop.
 3. **`os.MkdirTemp` + parallel subtests** -- Detect: `os.MkdirTemp` in parent with `t.Parallel()` subtests.
-4. **Missing container semaphore** -- Detect: container `Execute()`/`ExecuteCapture()` without `ContainerSemaphore()`.
+4. **Missing container semaphore** -- Detect: container `Execute()`/`ExecuteCapture()` without `AcquireContainerSemaphore(t)` or a same-call `ContainerSemaphore()` acquire/release.
 5. **Bare `t.Context()` in container tests** -- Detect: `t.Context()` passed to container `Execute()` without `ContainerTestContext()`.
 6. **Time-based uniqueness** -- Detect: `time.Now()` for unique IDs without atomic counter fallback.
 7. **Port collision** -- Detect: hardcoded ports without `net.Listen(":0")` pattern.
@@ -171,7 +182,8 @@ Additional container patterns:
 
 ### nolintlint Directive Lifecycle
 
-The `nolintlint` linter (enabled in `.golangci.toml` with `require-specific = true`) validates
+The `nolintlint` linter (enabled in `.golangci.toml` with `require-specific = true`,
+`require-explanation = true` and `allow-unused = false`) validates
 all `//nolint:` directives. This is the most common source of "fix creates new problem" failures:
 the test logic is correct, but CI goes red because of a stale lint suppression.
 
@@ -181,7 +193,7 @@ the test logic is correct, but CI goes red because of a stale lint suppression.
 |------|--------------------------|
 | Always name the linter: `//nolint:tparallel` not `//nolint` | `nolintlint` reports "should mention specific linter" |
 | Remove directive when the underlying issue is fixed | `nolintlint` reports "directive is unused" (stale suppression) |
-| Add justification comment: `//nolint:tparallel // CUE not thread-safe` | Required by project convention |
+| Add justification comment: `//nolint:tparallel // CUE not thread-safe` | Enforced by `require-explanation = true`: `nolintlint` reports a directive without an explanation |
 | Directive must be on the correct line | Misplaced directives suppress nothing and become stale |
 
 **Common failure pattern**: A fix removes the code that triggered a linter warning but leaves

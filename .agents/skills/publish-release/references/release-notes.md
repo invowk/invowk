@@ -54,6 +54,8 @@ git diff "$previous..HEAD" -- cmd internal pkg tests docs website README.md .git
 
 If preparing notes for a tag that is not `HEAD`, compare `previous..target-ref`.
 
+Optionally, `python3 .agents/skills/changelog/scripts/collect-changelog.py` gives the commit half as JSON (full bodies, so `BREAKING CHANGE:` trailers are included); it does not replace the diff review.
+
 Look specifically for:
 
 - CLI commands, flags, environment variables, exit behavior, output text, and config defaults.
@@ -93,14 +95,14 @@ Rules:
 <!-- poetic-opening: Author | Poem Title | first line -->
 ```
 
-Double-check uniqueness:
+Double-check uniqueness (run every step):
 
-1. Run `python3 .agents/skills/publish-release/scripts/check-poetic-opening.py <release-notes-file>`.
+1. Run `python3 .agents/skills/publish-release/scripts/check-poetic-opening.py <release-notes-file>`. It covers exact or substring reuse of the quoted stanza only (40+ normalized characters; lightweight tags and bodies without a `## Poetic Opening` heading are skipped; a failed per-release `gh release view` is skipped silently). Compare its `OK: ... across N checked prior release notes` count with the number of prior tags and releases: a low N means the GitHub check was skipped or partial.
 2. Search prior local tag bodies:
    `for t in $(git tag --list 'v[0-9]*'); do git cat-file tag "$t" 2>/dev/null | rg -n "Poem Title|first line|Author" && echo "$t"; done`
 3. Search GitHub Releases:
    `gh release list --limit 200` and `gh release view <tag> --json body`.
-4. If any previous release used the same stanza or substantially the same stanza, choose another.
+4. If any previous release used the same stanza or substantially the same stanza (including the same original stanza with a different English rendering), choose another.
 
 ## Section Guidance
 

@@ -7,29 +7,17 @@ additional confirmation even though ordinary Go reports are highly reliable.
 
 ## How It Works
 
-The Go race detector is built on ThreadSanitizer v2 (TSan), originally developed at
-Google. It instruments memory accesses at compile time and maintains a happens-before
-graph at runtime.
-
-### Shadow Memory
-
-Every 8-byte aligned memory word gets a "shadow word" that tracks:
-- The goroutine ID that last accessed it
-- Whether the access was a read or write
-- A logical clock value (vector clock component)
-
-Shadow memory and per-goroutine history can make memory overhead substantial;
-the multiplier is workload- and platform-dependent, so measure the failing job
-rather than relying on one fixed ratio.
-
-### Happens-Before Tracking
-
-The detector maintains a vector clock per goroutine. Synchronization operations
-(channel send/receive, mutex lock/unlock, `sync.WaitGroup`, atomic operations)
-create happens-before edges. A data race is two accesses to the same memory where:
+The Go race detector (ThreadSanitizer-based) instruments memory accesses at
+compile time and tracks happens-before edges at runtime. Synchronization
+operations (channel send/receive, mutex lock/unlock, `sync.WaitGroup`, atomic
+operations) create those edges. A data race is two accesses to the same memory
+where:
 1. At least one is a write
 2. They are from different goroutines
 3. There is no happens-before relationship between them
+
+Memory and CPU overhead are workload- and platform-dependent; measure the
+failing job rather than relying on one fixed ratio.
 
 ### What It Does NOT Catch
 
@@ -40,49 +28,23 @@ create happens-before edges. A data race is two accesses to the same memory wher
 
 ## Platform-Specific Behavior
 
-### Linux
-
-Uses `futex` syscalls for internal synchronization. Lowest overhead of the three
-platforms. `TSAN_OPTIONS` environment variable can tune behavior but is rarely needed.
-
-### macOS
-
-Uses Mach VM operations for shadow memory allocation. Performance is similar to
-Linux on Apple Silicon (M1+). On Intel Macs, overhead is slightly higher.
-
-The key macOS-specific race issue in invowk is the gotestsum `-v` requirement:
-without verbose output, parallel subtest status is misreported. This is not a
-race detector issue per se, but the `-race` flag exacerbates it by changing timing.
-
-### Windows
-
-Uses Windows synchronization primitives internally (`CRITICAL_SECTION`, `SRWLock`).
-Overhead is typically higher than Linux/macOS for two reasons:
-1. Windows API calls have higher baseline cost than Linux syscalls
-2. `TerminateProcess` semantics interact poorly with TSan shutdown
-
-#### Windows TUI Reports
-
-Do not assume a Windows TUI race comes from lipgloss terminal detection and do
-not add package-wide `TestMain` pre-warming as a generic fix. That historical
-workaround was a no-op for the later failure mode. Reproduce the current report,
-inspect both access stacks, and use `windows-testing` to distinguish a real
-race from timeout or memory pressure under `-race`.
+- Windows overhead is typically higher than Linux/macOS, and `TerminateProcess`
+  semantics interact poorly with race-detector shutdown.
+- gotestsum false-FAILs on parallel subtests (most visible on macOS, where
+  `-race` timing makes them more frequent) are a missing-`-v` problem, not a race:
+  see `SKILL.md` "gotestsum Integration".
+- Windows TUI race reports: do not assume lipgloss terminal detection and do not
+  add package-wide `TestMain` pre-warming as a generic fix (it was a no-op).
+  Inspect both access stacks and distinguish a real race from timeout or memory
+  pressure under `-race`. Canonical guidance: `.agents/skills/windows-testing/SKILL.md`.
 
 ## Common Race Patterns in Go Tests
 
 ### 1. `t.Fatal` in Goroutines
 
-```go
-// BUG: t.Fatal calls runtime.Goexit() — only exits the goroutine, not the test
-go func() {
-    if err != nil {
-        t.Fatal(err) // race: accesses test state from non-test goroutine
-    }
-}()
-```
-
-Fix: use `t.Error` + channel, or communicate failures back to the test goroutine.
+Not a data race but a `FailNow` misuse (`runtime.Goexit` exits only the worker
+goroutine). See the `testinggoroutine` entry in `go-vet-analyzers.md`; report
+failures to the test goroutine with `t.Error` plus a channel.
 
 ### 2. Shared Mock Without Synchronization
 
@@ -179,9 +141,10 @@ Goroutine 7 (running) created at:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `GORACE="halt_on_error=1"` | 0 | Crash immediately on first race (useful for CI) |
+| `GORACE="halt_on_error=1"` | 0 | Crash immediately on first race |
 | `GORACE="history_size=N"` | 1 | Per-goroutine history buffer (powers of 2: 0-7) |
 | `GORACE="atexit_sleep_ms=N"` | 1000 | Wait before exit to flush reports |
 | `GORACE="log_path=FILE"` | stderr | Write reports to file |
 
-CI recommendation: `GORACE="halt_on_error=1"` to fail fast on races.
+`halt_on_error=1` is optional for local debugging. CI does not set `GORACE`;
+halting early would also interact with gotestsum `--rerun-fails`.

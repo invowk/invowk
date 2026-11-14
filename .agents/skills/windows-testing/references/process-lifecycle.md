@@ -28,11 +28,9 @@ Win32 API (or its variants: `CreateProcessAsUser`, `CreateProcessWithLogonW`,
 - **No process inheritance tree**: Unlike Unix where children form a tree
   under the parent PID, Windows processes are independent after creation.
   Killing the parent does NOT automatically kill children.
-- **Environment block**: `CreateProcess` takes an `lpEnvironment` parameter
-  which is a block of null-terminated `KEY=VALUE\0` strings, terminated by
-  an extra `\0`. Go's `cmd.Env` builds this block. The block has a maximum
-  size of 32,767 characters. `t.Setenv` in tests modifies the process-wide
-  environment, which affects all subsequent `CreateProcess` calls.
+- **Environment block**: Go's `cmd.Env` builds the `lpEnvironment` block that
+  `CreateProcess` receives; see "Process Environment" below for its format,
+  size limit, and the `t.Setenv` implications.
 
 ## Job Objects
 
@@ -69,10 +67,11 @@ grandchildren, they become orphans. This differs from Unix where
 
 **In tests**: If your test starts a subprocess that itself starts children
 (e.g., a shell script that launches background processes), killing the
-parent via context cancellation will NOT kill the children. They will
-continue running until they exit naturally or the test binary timeout kills
-the entire process tree (Go's test runner creates a Job Object for itself
-since Go 1.17+).
+parent via context cancellation will NOT kill the children. They keep
+running until they exit naturally. Neither `go test` nor the `testing`
+package places the test binary in a Job Object, so orphans can also outlive
+the test binary itself (including after a `-timeout` kill). Wait on every
+subprocess, and bound pipe cleanup with `cmd.WaitDelay`.
 
 ## TerminateProcess Deep Dive
 
@@ -224,30 +223,19 @@ cancellation:
 
 ### Solution
 
-`promoteContextError` in `internal/runtime/native_helpers.go:96-103` runs
-after `extractExitCode`. It checks whether:
-- `result.Error` is nil (meaning extractExitCode did not detect a hard error)
-- `ctx.Context.Err()` is non-nil (meaning the context was cancelled/expired)
-
-If both conditions are true, it promotes the context error to `result.Error`,
-ensuring the error handler can classify it as a timeout and show a diagnostic.
-
-```go
-func promoteContextError(ctx *ExecutionContext, result *Result) {
-    if result.Error != nil {
-        return
-    }
-    if ctxErr := ctx.Context.Err(); ctxErr != nil {
-        result.Error = ctxErr
-    }
-}
-```
+`promoteContextError` (`internal/runtime/native_helpers.go`) runs after
+`extractExitCode`. When `result.Error` is nil (extractExitCode saw a valid
+exit code) and `ctx.Context.Err()` is non-nil (the context was cancelled or
+expired), it promotes the context error to `result.Error`, so the error
+handler can classify the timeout and show a diagnostic. Read the function in
+source rather than a copy here.
 
 ### Call sites
 
-`promoteContextError` is called in both execution paths of the native runtime:
-- `internal/runtime/native.go:218` (Execute)
-- `internal/runtime/native.go:263` (ExecuteCapture)
+`internal/runtime/native.go` calls it right after `extractExitCode` in both
+native execution paths, `executeShellCommon` and `executeInterpreterCommon`
+(which serve both the streaming and capturing modes). Keep that order in any
+new process-running code.
 
 ### Native-runtime scope
 
@@ -270,7 +258,7 @@ KEY1=VALUE1\0KEY2=VALUE2\0\0
 ```
 
 The block is terminated by an extra null character. Maximum size is 32,767
-characters.
+characters. Go's `cmd.Env` builds it.
 
 ### Implications for t.Setenv
 

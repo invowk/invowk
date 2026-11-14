@@ -1,6 +1,6 @@
 ---
 name: review-docs
-description: Comprehensive documentation review and audit for invowk. Checks README, website docs (next version only), MDX snippets, CUE schema alignment, i18n parity, architecture diagrams, container image policy, security/audit docs, LLM authoring docs, and agent workflow docs against the actual codebase. Use this when reviewing documentation accuracy, when code changes may have caused doc drift, after significant feature work, or before releases. Always use this skill for any documentation review task, even if the user doesn't explicitly say "review docs" — any mention of checking docs, verifying documentation accuracy, or ensuring docs match code should trigger this skill.
+description: Comprehensive documentation review and audit for invowk. Checks README, website docs (next version only), MDX snippets, CUE schema alignment, i18n parity, architecture diagrams, container image policy, config defaults, security/audit docs, LLM authoring docs, and agent workflow docs against the actual codebase. Use when reviewing documentation accuracy, when code changes may have caused doc drift, after significant feature work, or before releases. Always use it for any documentation review task, even if the user doesn't say "review docs" — including checking docs, verifying documentation accuracy, or ensuring docs match code.
 ---
 
 # Documentation Review and Audit
@@ -30,147 +30,88 @@ docs, LLM-assisted authoring docs, and agent workflow docs.
 
 ## Review Surfaces
 
-The review covers 11 surfaces. Each has a source of truth in the codebase.
+The review covers 11 surfaces. Each has a source of truth in the codebase; the exact file
+scopes, sources and checks are in `references/surface-checklists.md` §S1-§S11.
 
-### S1: README.md
+| Surface | Scope | Key reference |
+|---|---|---|
+| S1: README.md | The live `README.md`, the primary external-facing doc | `readme-sync-map.md` |
+| S2: Website Docs | MDX pages in `website/docs/` (the "Next" version at `/docs/next/`), from the live inventory | `doc-ownership.json`, `consolidated-sync-map.md` |
+| S3: Snippet Data and CUE Schema Drift | Live inventory of `website/src/components/Snippet/data/*.ts` | `cue-drift-patterns.md` |
+| S4: i18n Parity | pt-BR mirrors of English docs: structure, `<Snippet>` IDs, `<Diagram>` IDs | `verification-commands.md` §1, §5a |
+| S5: Architecture Diagrams | D2 sources in `docs/diagrams/`, prose in `docs/architecture/`, pages in `website/docs/architecture/` | `consolidated-sync-map.md` (diagram section) |
+| S6: Container Image Policy | Container examples across every documentation surface | `surface-checklists.md` §S6 |
+| S7: Config Defaults vs Docs | Config defaults in docs, pt-BR mirrors and config snippets | `consolidated-sync-map.md` |
+| S8: Homepage and Terminal Demo | `website/src/pages/index.tsx` terminal demo | `intentional-simplifications.md` |
+| S9: Security Audit Docs | `website/docs/security/audit.mdx`, README security sections, security snippets | `surface-checklists.md` §S9 |
+| S10: LLM-Assisted Agent Authoring Docs | `website/docs/advanced/llm-assisted-authoring.mdx`, README LLM authoring sections, related snippets | `surface-checklists.md` §S10 |
+| S11: Agent Workflow Docs | `.agents/commands/review-docs.md`, `.agents/skills/docs/SKILL.md`, `AGENTS.md`, related skill references | `surface-checklists.md` §S11 |
 
-The live `README.md` is the primary external-facing documentation. Key drift-prone
-sections: Invowkfile Format, Dependencies, Command Flags/Arguments, Module Dependencies,
-Configuration, and TUI Components.
+Surface rules that subagents must keep in mind:
 
-Read `references/readme-sync-map.md` for the full section → source-of-truth mapping.
-
-### S2: Website Docs (next version only)
-
-MDX pages discovered by the live inventory in `website/docs/` across the current sections plus
-`architecture/`. Source of truth is the Go code and CUE schemas. Only review `website/docs/`
-(the "Next" unreleased version at `/docs/next/`), never `website/versioned_docs/`.
-
-Use `references/doc-ownership.json` as the exact page → semantic check → source-of-truth
-contract. Read `references/consolidated-sync-map.md` for change-oriented code → docs guidance.
-
-### S3: Snippet Data and CUE Schema Drift
-
-The live inventory of `website/src/components/Snippet/data/*.ts` contains all reusable code
-examples. CUE snippets are the most drift-prone because the schema evolves faster than the
-examples.
-
-The #1 drift pattern is missing `platforms` field in implementation blocks. Five additional
-patterns are cataloged in `references/cue-drift-patterns.md` (6 total).
-
-**Important**: Partial/fragment snippets that show individual CUE fields (e.g., just
-`runtimes:` config) are intentionally incomplete and exempt from schema completeness checks.
-Only flag snippets that show a full `cmds` entry with implementation blocks but lack required
-fields.
-
-### S4: i18n Parity
-
-pt-BR translations must mirror English docs in structure, `<Snippet>` IDs, and `<Diagram>` IDs.
-Prose is translated; code examples are shared via the `<Snippet>` component.
-
-Programmatic check: `(cd website && npm run docs:parity)`
-
-Manual check: Use the deterministic S4-C05 command in
-`references/verification-commands.md` to select the first three English pages
-for stale-prose review, then compare with the corresponding pt-BR files for
-factual drift.
-
-### S5: Architecture Diagrams
-
-The live D2 source inventory in `docs/diagrams/`, architecture prose docs in
-`docs/architecture/`, and website architecture pages in `website/docs/architecture/`.
-
-Focus: Do diagram nodes, labels, and relationships match current package names and code
-structure? Delegate detailed D2 review (formatting, readability rules, rendering) to the
-`/d2-diagrams` skill.
-
-### S6: Container Image Policy
-
-ALL container examples across all documentation surfaces must use `debian:stable-slim`.
-No `ubuntu:*`, no Alpine, no Windows containers. Language-specific images (`golang:1.27`,
-`python:3-slim`, `node:22-slim`) are allowed only in language-specific runtime demonstrations.
-
-### S7: Config Defaults vs Docs
-
-`internal/config/config_schema.cue` is the source of truth for configuration defaults.
-`internal/config/types.go` `DefaultConfig()` must derive from that schema, and docs must match:
-- `website/docs/reference/config-schema.mdx` (default values)
-- `website/docs/configuration/options.mdx` (default values)
-- pt-BR mirrors of both pages
-
-Also check dual-prefix config snippets: `config/*` and `reference/config/*` in
-`Snippet/data/config.ts` must both be updated when config options change.
-
-### S8: Homepage and Terminal Demo
-
-`website/src/pages/index.tsx` contains an intentionally simplified terminal demo for
-marketing purposes. Do NOT flag its simplifications as errors.
-
-Check `references/intentional-simplifications.md` before flagging anything in the homepage,
-Quick Start, or getting-started sections.
-
-### S9: Security Audit Docs
-
-`website/docs/security/audit.mdx`, README security sections, and security snippets document the
-`invowk audit` command. Source of truth is `cmd/invowk/audit.go`, `cmd/invowk/llm_flags.go`,
-`internal/audit/`, `internal/auditllm/`, and `internal/app/llmconfig/`.
-
-### S10: LLM-Assisted Agent Authoring Docs
-
-`website/docs/advanced/llm-assisted-authoring.mdx`, README LLM authoring sections, and related
-snippets document `invowk agent cmd` and `invowk agent mod`. Source of truth is `cmd/invowk/agent.go`,
-`internal/agentcmd/`, shared LLM flags, and the LLM config resolver.
-
-### S11: Agent Workflow Docs
-
-Agent-facing docs must stay in sync with this skill and the current repository surfaces. Review
-`.agents/commands/review-docs.md`, `.agents/skills/docs/SKILL.md`, `AGENTS.md`, and related
-skill references when the review workflow changes.
+- **S1**: the drift-prone README sections are Invowkfile Format, Dependencies, Command
+  Flags/Arguments, Module Dependencies, Configuration, and TUI Components.
+- **S2**: review only `website/docs/`, never `website/versioned_docs/`. `doc-ownership.json` is
+  the exact page → semantic check → source-of-truth contract.
+- **S3**: missing `platforms` in implementation blocks is the #1 drift pattern (six patterns in
+  total). Partial/fragment snippets that show individual CUE fields (e.g., just `runtimes:`)
+  are intentionally incomplete and exempt; only flag snippets that show a full `cmds` entry
+  with implementation blocks but lack required fields.
+- **S4**: run `(cd website && npm run docs:parity)` for structure, and use the deterministic
+  S4-C05 command in `references/verification-commands.md` to select the first three English
+  pages for stale-prose review against their pt-BR files. Prose is translated; code examples
+  are shared via `<Snippet>`.
+- **S5**: check that diagram nodes, labels, and relationships match current package names and
+  code structure. Delegate detailed D2 review (formatting, readability rules, rendering) to the
+  `/d2-diagrams` skill; it is not an S5 finding.
+- **S6**: every container example uses `debian:stable-slim`. No `ubuntu:*`, no Alpine, no
+  Windows containers. Language-specific images (`golang:1.27`, `python:3-slim`,
+  `node:22-slim`) are allowed only in language-specific runtime demonstrations.
+- **S7**: `internal/config/config_schema.cue` is the source of truth for defaults, and
+  `internal/config/types.go` `DefaultConfig()` must derive from it. Docs must match in
+  `website/docs/reference/config-schema.mdx`, `website/docs/configuration/options.mdx`, and the
+  pt-BR mirrors of both. Dual-prefix config snippets (`config/*` and `reference/config/*` in
+  `Snippet/data/config.ts`) must both change when config options change.
+- **S8**: the homepage terminal demo is intentionally simplified for marketing. Do NOT flag its
+  simplifications; check `references/intentional-simplifications.md` before flagging anything
+  in the homepage, Quick Start, or getting-started sections.
+- **S9** sources of truth: `cmd/invowk/audit.go`, `cmd/invowk/llm_flags.go`, `internal/audit/`,
+  `internal/auditllm/`, and `internal/app/llmconfig/` (the `invowk audit` command).
+- **S10** sources of truth: `cmd/invowk/agent.go`, `internal/agentcmd/`, the shared LLM flags,
+  and the LLM config resolver (`invowk agent cmd` and `invowk agent mod`).
+- **S11**: agent-facing docs must stay in sync with this skill and the current repository
+  surfaces whenever the review workflow changes.
 
 ---
 
 ## Consistency Principles
 
-These principles ensure that running the review multiple times produces the same results.
-They apply to both the coordinator and all subagents.
+These keep repeated runs identical. They apply to the coordinator and every subagent.
 
-1. **Checklist-driven review** — Each subagent follows its surface's checklist from
-   `references/surface-checklists.md`. Every checklist item gets a status
-   (PASS/FAIL/SKIP/BLOCKED).
-   This is the review activity. Open-ended exploration may only produce uncounted candidate
-   observations for the coordinator, not findings.
-
-2. **Pre-assigned severity** — Each checklist item has a severity level defined in
-   `surface-checklists.md`. Subagents use that severity, not their own judgment. The reason:
-   subjective severity classification is the second-largest source of run-to-run variance
-   (after scope sampling). Fixing severity at definition time eliminates this.
-
-3. **Deterministic file traversal** — `references/doc-ownership.json` gives every live website
-   page exactly one non-mechanical semantic owner and resolvable sources of truth. The tooling
-   rejects missing, stale, duplicate, case-colliding, or policy-only ownership. Subagents use the
-   sorted inventories from `context.json`; they do not recalculate membership.
-
-4. **Structured context passing** — Generate canonical `context.json` with
-   `scripts/review_docs.py prepare`. Pass its path and context ID to every subagent; do not
+1. **Checklist-driven review** — follow `references/surface-checklists.md`; every item gets PASS,
+   FAIL, SKIP, or BLOCKED. Open-ended exploration may only produce uncounted candidate
+   observations, never findings.
+2. **Pre-assigned severity** — use the checklist severity, never your own judgment (subjective
+   severity is the second-largest source of run-to-run variance, after scope sampling).
+3. **Deterministic file traversal** — `references/doc-ownership.json` gives every live page
+   exactly one non-mechanical semantic owner with resolvable sources; the tooling rejects
+   missing, stale, duplicate, case-colliding, or policy-only ownership. Subagents use the sorted
+   inventories in `context.json` and never recalculate membership.
+4. **Structured context passing** — generate canonical `context.json` with
+   `scripts/review_docs.py prepare` and pass its path and context ID to every subagent; never
    reconstruct context in prose.
-
-5. **Complete reporting** — Every checklist item must appear in canonical result JSON. Use PASS
-   with evidence, FAIL with admitted findings, SKIP only with an explicit whole-check exemption,
-   or BLOCKED with a reason. Any BLOCKED status makes the audit INCOMPLETE.
-
-6. **Finding admission gate** — A FAIL may become a finding only when it has all fields required
-   by `references/structured-output-format.md`: check ID, exact doc path and line/snippet ID,
-   exact source-of-truth file and symbol/command/schema section, current content, expected
-   content, and one-sentence rationale. If required evidence cannot be gathered, report BLOCKED;
-   never silently downgrade an incomplete finding.
-
-7. **Inventory-first coverage** — Run `scripts/review_docs.py validate` before spawning
-   subagents. Any live page without one semantic owner, any stale ownership entry, or any source
-   glob that resolves to nothing is a contract failure and blocks the review.
-
-8. **Stable audit snapshot** — Use the content hash in `context.json`, which includes tracked and
-   untracked repository files, not HEAD alone. Validate it before accepting results and again
-   before merge. If it changes, regenerate context and restart affected subagents.
+5. **Complete reporting** — every checklist item must appear in canonical result JSON; any
+   BLOCKED item makes the audit INCOMPLETE. Status meanings: `references/structured-output-format.md`
+   § "Status Contract".
+6. **Finding admission gate** — a FAIL becomes a finding only with every field the gate
+   requires (`references/structured-output-format.md` § "Finding Admission Gate"). If the
+   evidence cannot be gathered, report BLOCKED; never silently downgrade an incomplete finding.
+7. **Inventory-first coverage** — run `scripts/review_docs.py validate` before spawning
+   subagents. An unowned live page, a stale ownership entry, or a source glob that resolves to
+   nothing is a contract failure and blocks the review.
+8. **Stable audit snapshot** — use the content hash in `context.json` (tracked and untracked
+   files, not HEAD alone). Validate it before accepting results and again before merge; if it
+   changed, regenerate context and restart affected subagents.
 
 ---
 
@@ -180,7 +121,8 @@ They apply to both the coordinator and all subagents.
 
 Run automated checks first to catch mechanical issues. See `references/verification-commands.md`
 for exact commands, the required checks JSON shape, and failure triage. Keep audit artifacts
-outside the repository so they do not change the workspace snapshot.
+outside the repository so they do not change the workspace snapshot (`prepare` rejects
+in-repo outputs).
 
 ```bash
 export LC_ALL=C
@@ -296,26 +238,15 @@ BLOCKED work; resolve the blocker and rerun the affected surfaces before reporti
 
 ## Detailed References
 
-Read these when working on the corresponding review surface:
-
-- **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items. Derive totals with `scripts/review_docs.py validate`.
-- **[references/doc-ownership.json](references/doc-ownership.json)** — Exact semantic owner and
-  resolvable source-of-truth contract for every current website page.
-- **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
-  code → docs mapping (website + diagrams + drift-prone areas)
-- **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →
-  source-of-truth mapping
-- **[references/cue-drift-patterns.md](references/cue-drift-patterns.md)** — 6 CUE snippet
-  drift patterns with detection and correction guidance
-- **[references/intentional-simplifications.md](references/intentional-simplifications.md)** —
-  Registry of known intentional omissions (do NOT flag as errors)
-- **[references/structured-output-format.md](references/structured-output-format.md)** —
-  Finding report template, checklist status format, severity definitions, merge procedure
-- **[references/verification-commands.md](references/verification-commands.md)** — Full
-  command reference with expected output and failure triage
-- **[scripts/review_docs.py](scripts/review_docs.py)** — Contract validation, context/snapshot
-  preparation, i18n lag selection, strict result validation, and deterministic report merging
+- [`references/surface-checklists.md`](references/surface-checklists.md) — per-surface checks with pre-assigned severity and finding type; derive totals with `scripts/review_docs.py validate`.
+- [`references/doc-ownership.json`](references/doc-ownership.json) — exact semantic owner and resolvable sources for every current website page.
+- [`references/consolidated-sync-map.md`](references/consolidated-sync-map.md) — canonical code → docs and code → diagram map, plus drift-prone areas.
+- [`references/readme-sync-map.md`](references/readme-sync-map.md) — README section → source-of-truth map with heading locators.
+- [`references/cue-drift-patterns.md`](references/cue-drift-patterns.md) — the 6 CUE snippet drift patterns with detection and correction.
+- [`references/intentional-simplifications.md`](references/intentional-simplifications.md) — registry of intentional omissions (not findings).
+- [`references/structured-output-format.md`](references/structured-output-format.md) — result JSON, status contract, admission gate, severity and types, merge contract.
+- [`references/verification-commands.md`](references/verification-commands.md) — programmatic gates with expected output and failure triage.
+- [`scripts/review_docs.py`](scripts/review_docs.py) — contract validation, context/snapshot preparation, i18n lag selection, strict result validation, deterministic merge.
 
 ---
 

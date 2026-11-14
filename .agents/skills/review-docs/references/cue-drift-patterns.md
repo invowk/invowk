@@ -27,8 +27,9 @@ entry with an implementation block, it should have `platforms`.
 **Detection**: Search for `implementations:` in snippet data files and verify each has a sibling
 `platforms:` field (or is clearly a partial fragment).
 
-**History**: A bulk fix applied 35 corrections in `dependencies.ts`, 10 in `core-concepts.ts`,
-5 in `advanced.ts`. New snippets can reintroduce this drift.
+**Where to look first**: historically concentrated in `dependencies.ts`, `core-concepts.ts` and
+`advanced.ts`; new snippets reintroduce it. (Bulk-fix tally:
+`.agents/memorials/skills-docs-review-history.md`.)
 
 ## Pattern 2: `cmds` as Map Instead of List
 
@@ -52,9 +53,11 @@ of struct lists.
 
 ## Pattern 5: `v` Prefix in Version Constraints
 
-**What**: Version constraints shown as `version: "v1.0.0"` or `min_version: "v0.2.0"`.
+**What**: Versions shown with a `v` prefix, e.g. `version: "v1.0.0"` in a module's own
+`version` or in a `requires[].version` constraint.
 
-**Correct**: CUE semver constraints do NOT use the `v` prefix: `version: "1.0.0"`, `min_version: "0.2.0"`.
+**Correct**: Neither field takes the `v` prefix: `version: "1.0.0"` for the module version and
+`version: "^1.0.0"` (or another prefix-free constraint) in `requires` (`pkg/invowkmod/invowkmod_schema.cue`).
 
 ## Pattern 6: Missing `.invowkmod` Suffix in Includes
 

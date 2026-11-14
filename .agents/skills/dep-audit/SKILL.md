@@ -1,6 +1,6 @@
 ---
 name: dep-audit
-description: Audit Go dependencies for vulnerabilities, stale modules, deprecated/retracted modules, and available updates across the root module and nested Go modules. Use before releases, for periodic dependency health checks, or when evaluating dependency upgrades.
+description: Audit Go dependencies for vulnerabilities (govulncheck, make vulncheck), stale, deprecated or retracted modules, and available updates across the root module and nested Go modules. Use before releases, for periodic dependency health checks, or when evaluating dependency upgrades.
 ---
 
 # Dependency Audit
@@ -40,8 +40,7 @@ make vulncheck
 
 The `make vulncheck` target uses `scripts/govulncheck-all.sh`, discovers tracked
 Go modules, logs each module before scanning it, and runs `govulncheck ./...`
-from that module root. If the Make target is unavailable in an older checkout,
-fall back to the manual module loop below.
+from that module root. To debug a single module, run the same scan by hand:
 
 ```bash
 for mod in "${go_modules[@]}"; do
@@ -54,17 +53,27 @@ Report:
 - **Critical**: Vulnerabilities in code paths actually called by invowk
 - **Informational**: Vulnerabilities in imported modules but not in called code paths
 
-### Step 3: Check for Available Updates
+### Step 3: Check for Updates, Deprecations and Retractions
+
+Run `go list` once per module and apply both filters to the saved output:
 
 ```bash
-# List all modules with available updates
+work=$(mktemp -d)
 for mod in "${go_modules[@]}"; do
-  (cd "$mod" && go list -m -u -retracted -json all) |
-    jq -r 'select(.Update) | "\(.Path): \(.Version) → \(.Update.Version)"'
+  out="$work/$(printf '%s' "$mod" | tr '/' '_').json"
+  if ! (cd "$mod" && go list -m -u -retracted -json all) >"$out"; then
+    echo "INCOMPLETE: go list failed for module $mod" >&2
+    continue
+  fi
+  echo "==> $mod: available updates"
+  jq -r 'select(.Update) | "\(.Path): \(.Version) → \(.Update.Version)"' "$out"
+  echo "==> $mod: deprecated or retracted"
+  jq -r 'select(.Deprecated or .Retracted) | "\(.Path): deprecated=\(.Deprecated // "-") retracted=\(.Retracted // [])"' "$out"
 done
 ```
 
-If `jq` is not available, fall back to:
+If `jq` is not available, fall back to the following. It lists available updates
+only, not deprecated or retracted modules, so report those as unchecked:
 
 ```bash
 for mod in "${go_modules[@]}"; do
@@ -85,15 +94,10 @@ Group available updates by impact:
 | **Minor** | Minor version bumps (new features, backward-compatible) |
 | **Patch** | Patch version bumps (bug fixes only) |
 
-### Step 5: Check for Deprecated Modules
+### Step 5: Report Deprecated Modules
 
-```bash
-# Look for retracted or deprecated modules
-for mod in "${go_modules[@]}"; do
-  (cd "$mod" && go list -m -u -retracted -json all) |
-    jq -r 'select(.Deprecated or .Retracted) | "\(.Path): deprecated=\(.Deprecated // "-") retracted=\(.Retracted // [])"'
-done
-```
+List every module the Step 3 deprecated/retracted filter printed, with its
+deprecation message or retracted versions.
 
 ### Step 6: Verify Module Tidiness
 
@@ -141,3 +145,12 @@ For each recommended upgrade, provide the exact command:
 ```
 
 Use `make tidy` for the root module. Run `make test` after upgrading.
+
+Do not upgrade these with a bare `go get`:
+
+- Go tool dependencies (golangci-lint, go-mutesting, goplint): use
+  `go get -tool <module>/cmd/<tool>@vX.Y.Z` and update the wrapper scripts and
+  pins together (`.agents/rules/version-pinning.md` "Go Tool Dependencies"; the
+  ci-update skill's "Required Sync Pairs").
+- The CUE library (`cuelang.org/go`): follow the upgrade process in the cue
+  skill (`.agents/skills/cue/SKILL.md` "Upgrade Process").

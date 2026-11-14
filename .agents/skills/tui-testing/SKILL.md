@@ -1,6 +1,9 @@
 ---
 name: tui-testing
-description: VHS-based visual debugging workflow for Invowk TUI demos, screenshots, demo GIFs, VHS tapes, and visual TUI regressions. Use tmux-testing for durable CI TUI tests.
+description: >-
+  VHS-based visual debugging workflow for Invowk TUIs: VHS tapes, screenshots,
+  demo GIFs (`vhs/demos/`, `make vhs-demos`), and visual TUI regressions. Use
+  tmux-testing for durable CI TUI tests.
 ---
 
 # VHS-Based TUI Debugging
@@ -10,7 +13,7 @@ or when maintaining documentation/demo recordings. Durable CI coverage for
 interactive TUI commands belongs in `tmux-testing` and `tests/cli/tui_tmux_test.go`.
 
 **Pre-write guardrails**: Before writing any `*_test.go`, follow
-`.agents/skills/testing/SKILL.md` § "Pre-Write Checklist".
+`.agents/skills/testing/references/pre-write-and-go-patterns.md` § "Pre-Write Checks".
 
 ## Choose The Right Surface
 
@@ -27,7 +30,9 @@ or CI test suites around VHS tapes.
 
 ## Current Repo Policy
 
-Demo tapes live in `vhs/demos/`; see `vhs/README.md`.
+Demo tapes live in `vhs/demos/`; see `vhs/README.md`. `make vhs-demos` builds
+first and needs `vhs`, `ffmpeg` and `ttyd`; `make vhs-validate` needs only `vhs`
+and checks `vhs/demos/*.tape` only.
 
 ```bash
 make build

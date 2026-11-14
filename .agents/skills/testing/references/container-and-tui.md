@@ -6,18 +6,18 @@ Keep the three coordination models distinct:
 
 1. Unit tests use a per-test injected command recorder or mock. Never reset one
    shared recorder from parallel subtests.
-2. Go integration tests that perform real Docker/Podman operations call
-   `t.Parallel()`, skip in short mode, acquire
-   `testutil.AcquireContainerSemaphore(t)`, and use
+2. Go integration tests with real Docker/Podman operations follow rule
+   "Integration and Container Tests": `t.Parallel()`, short skip,
+   `testutil.AcquireContainerSemaphore(t)`, and
    `testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)`.
 3. CLI container tests use `TestContainerCLI`, `containerSetup`, and
    `testutil.AcquireContainerSuiteLock(t)` for cross-process serialization.
    Do not add the suite lock to Go package tests.
 
 Prefer the live CLI container harness in `tests/cli/container_harness.go`; it
-probes engine availability, Linux-container run support, and build support.
-Use `debian:stable-slim` for generic container fixtures. Container commands are
-Linux-only.
+probes engine availability and runs smoke checks for Linux-container run, image
+build, and workspace mounts (`smokeRunEngine`, `smokeBuildEngine`,
+`smokeWorkspaceMountEngine`).
 
 Scripts run by `/bin/sh -c` do not imply `set -e`; include it when the test
 requires fail-fast shell semantics.

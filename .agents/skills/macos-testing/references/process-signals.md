@@ -97,11 +97,14 @@ This means:
 - This is transparent for normal Go test execution -- it only matters when
   debugging tests interactively.
 
-**Go's runtime** installs Mach exception handlers for `EXC_BAD_ACCESS` to
-handle nil pointer dereferences and stack overflow. These are converted to
-Go panics (`runtime: goroutine stack exceeds limit`, `runtime error: invalid
-memory address or nil pointer dereference`). Test code sees these as panics,
-not signals.
+**Go's runtime** does not install Mach exception handlers. On darwin it
+handles faults through its POSIX signal handlers: the kernel converts
+`EXC_BAD_ACCESS` to `SIGSEGV`/`SIGBUS`, and the runtime turns that into a
+recoverable panic (`runtime error: invalid memory address or nil pointer
+dereference`). Stack overflow is different: the goroutine stack check in the
+function prologue reports `goroutine stack exceeds limit` as a fatal runtime
+error, which is not a panic and cannot be recovered. Mach exceptions matter
+only to debuggers such as Delve (above).
 
 ---
 
@@ -114,7 +117,7 @@ identically on macOS and Linux for test-relevant signals.
 
 | Signal | Number | Default | Blockable | Notes |
 |--------|--------|---------|-----------|-------|
-| `SIGHUP` | 1 | Terminate | Yes | Terminal hangup; Go ignores in non-tty |
+| `SIGHUP` | 1 | Terminate | Yes | Terminal hangup; Go exits by default, stays ignored if inherited as ignored (e.g. `nohup`) |
 | `SIGINT` | 2 | Terminate | Yes | Ctrl+C; `os.Interrupt` |
 | `SIGQUIT` | 3 | Core dump | Yes | Ctrl+\\; Go dumps goroutines |
 | `SIGILL` | 4 | Core dump | Yes | Illegal instruction |
@@ -124,7 +127,7 @@ identically on macOS and Linux for test-relevant signals.
 | `SIGKILL` | 9 | Terminate | **No** | Unblockable kill |
 | `SIGBUS` | 10 | Core dump | Yes | Bus error (alignment) |
 | `SIGSEGV` | 11 | Core dump | Yes | Segmentation fault |
-| `SIGPIPE` | 13 | Terminate | Yes | Broken pipe; Go ignores by default |
+| `SIGPIPE` | 13 | Terminate | Yes | Broken pipe; fatal on fd 1/2, `EPIPE` elsewhere (see below) |
 | `SIGALRM` | 14 | Terminate | Yes | Timer alarm |
 | `SIGTERM` | 15 | Terminate | Yes | Graceful shutdown |
 | `SIGSTOP` | 17 | Stop | **No** | Unblockable pause |
@@ -172,10 +175,17 @@ case <-time.After(time.Second):
 
 ### SIGPIPE Behavior
 
-Go ignores `SIGPIPE` by default (via `SA_RESTART`). When writing to a closed
-pipe or socket, `write()` returns `EPIPE` instead of killing the process.
-This is important for test code that pipes output -- a broken pipe produces
-an error return, not a signal death.
+Per the `os/signal` package documentation, when the program has not called
+`signal.Notify` for `SIGPIPE`:
+
+- a write to a broken pipe on file descriptor 1 or 2 (stdout/stderr) makes
+  the program exit with `SIGPIPE`;
+- a write to a broken pipe on any other descriptor (pipes, sockets) fails
+  with `syscall.EPIPE` and the program keeps running.
+
+So test code that pipes a subprocess's output gets an `EPIPE` error return,
+while a Go binary whose own stdout is closed early (`invowk ... | head -1`)
+can die by `SIGPIPE`. This has nothing to do with `SA_RESTART`.
 
 **macOS-specific:** The `SIGPIPE` behavior is identical to Linux in Go
 programs. However, C programs linked via cgo may see different default
@@ -234,21 +244,27 @@ group.
 
 ### Exit Code Semantics
 
-On macOS (and Linux), exit codes follow POSIX conventions:
+Shell and CI-log convention on macOS (and Linux):
 - 0: success
 - 1-125: application-defined failure
 - 126: command found but not executable
 - 127: command not found
-- 128+N: killed by signal N (e.g., 137 = 128 + 9 = SIGKILL)
+- 128+N: killed by signal N (e.g., 137 = 128 + 9 = SIGKILL). Shells and
+  GitHub Actions logs ("Process completed with exit code 137") report a
+  signal death this way, which is why 137 routes to OOM triage.
+
+Go callers see something different: for a signalled child,
+`ProcessState.ExitCode()` returns -1, not 128+N. Detect signal death with
+`WaitStatus.Signaled()` and `WaitStatus.Signal()`.
 
 **Comparison with Windows:** On Windows, `exec.CommandContext` uses
-`TerminateProcess` which sets exit code 1. This makes signal-based deaths
-indistinguishable from normal failures. macOS preserves the signal
-information in the exit code (128+N), enabling tests to distinguish between
-graceful exit, error exit, and signal death.
+`TerminateProcess` which sets exit code 1. This makes a context kill
+indistinguishable from a normal failure. On Unix the signal is preserved in
+the wait status, so tests can distinguish graceful exit, error exit, and
+signal death.
 
 ```go
-// On macOS: can distinguish signal death from error exit
+// On macOS/Linux: distinguish signal death from error exit
 var exitErr *exec.ExitError
 if errors.As(err, &exitErr) {
     status := exitErr.Sys().(syscall.WaitStatus)
@@ -266,14 +282,22 @@ if errors.As(err, &exitErr) {
 ### Native Runtime Command Execution
 
 invowk's native runtime (`internal/runtime/native.go`) uses `exec.CommandContext`
-to run shell commands. On macOS, the native shell is `/bin/bash` (or `/bin/sh`).
-Signal delivery to the child process follows standard POSIX semantics.
+to run shell commands. On macOS and Linux the shell comes from `getShell`:
+`$SHELL` when set, else `bash`, else `sh` from `PATH`. Signal delivery to the
+child process follows standard POSIX semantics. The runtime does not put the
+child in its own process group; context cancellation kills only the direct
+child (`SIGKILL`), bounded by `cmd.WaitDelay`.
 
-When context is cancelled (e.g., user presses Ctrl+C), the signal propagates
-to the child via the process group. The `promoteContextError()` helper in
-`native_helpers.go` is relevant on Windows (where `TerminateProcess` masks
-the context error) but is a no-op pass-through on macOS because the exit
-code already encodes the signal.
+`promoteContextError()` (`native_helpers.go`) exists for Windows, where
+`TerminateProcess` leaves a valid exit code 1 and no error. On Unix the path
+differs, and this is a **known open gap pending a maintainer decision, not a
+contract**: a context-killed child reports `ExitCode() == -1`,
+`ExitCode.Validate` (`pkg/types/exit_code.go`) rejects negative values, so
+`extractExitCode` already sets `result.Error` to an `InvalidExitCodeError`
+and `promoteContextError` does not surface `context.DeadlineExceeded`. The
+behavior has not been verified at run time. Do not write tests or code that
+rely on either classification until the maintainer decides; report it if a
+failure depends on it.
 
 ### Container Runtime on macOS
 
@@ -284,5 +308,5 @@ container process directly. Signal delivery to the Podman client causes it
 to forward the signal to the container via the API.
 
 The flock fallback (`run_lock_other.go`) returns `errFlockUnavailable`
-because host-side file locks cannot reach the VM filesystem. See the
-"flock Behavior" section in the main SKILL.md.
+because host-side file locks cannot reach the VM filesystem; callers fall back
+to `sync.Mutex`. See "flock on macOS" in `filesystem-kqueue.md`.

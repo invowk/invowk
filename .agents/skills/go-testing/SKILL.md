@@ -1,31 +1,27 @@
 ---
 name: go-testing
 description: >-
-  Comprehensive Go 1.22+ testing knowledge. Covers all go test flags and their
-  interactions, execution model (compilation, caching, parallel scheduling),
-  race detector internals and platform-specific overhead, go vet analyzers,
-  context patterns decision tree, parallelism safety framework, testing package
-  API, benchmark/fuzz APIs, gotestsum integration, and coverage tooling.
-  Primary entry point for testing — references platform skills
-  (windows-testing, macos-testing, linux-testing) for OS-level issues.
-  Use this whenever working on test code, debugging test failures, or
-  optimizing CI performance.
+  Go test toolchain entry point for Go test code: `go test` flags, execution
+  model and caching, per-package timeouts, race detector reports and
+  overhead, `go vet` analyzers, context patterns, parallelism safety
+  (`t.Parallel()`), resolver-backed path assertions (`invowk.path`,
+  `INVOWK_PATH_*`/`INVOWK_ANCHOR_*`, `/private/var`, `RUNNER~1`), testing
+  package API, benchmark/fuzz APIs, gotestsum, and coverage. Use when writing
+  or editing Go tests, debugging test failures, flakes or race reports, or
+  tuning CI performance. OS issues: windows-testing, macos-testing,
+  linux-testing; Invowk conventions and testscript: `testing`.
 ---
 
 # Go Testing Skill
 
-Comprehensive reference for the Go testing toolchain and cross-platform test
-engineering. This skill covers Go-level concerns; for OS-level primitives that
-affect test behavior, consult the platform skills listed below.
+Go testing toolchain knowledge and decision frameworks. For OS-level primitives
+that affect test behavior, use the platform skills in the router below.
 
-## Normative Precedence
-
-1. `.agents/rules/testing.md` — authoritative test policy (organization, parallelism rules, cross-platform patterns).
-2. `.agents/skills/go/SKILL.md` — authoritative context propagation and code style.
-3. This skill — Go testing toolchain knowledge, decision frameworks, reference material.
-4. `.agents/skills/testing/SKILL.md` — invowk-specific test patterns, testscript, TUI/container testing.
-
-Do NOT duplicate content from rules or the Go skill; cross-reference instead.
+`.agents/rules/testing.md` and `.agents/skills/go/SKILL.md` win over this skill
+on conflict (AGENTS.md "Governance precedence"). Between skills: this one owns
+the Go toolchain; `testing` owns Invowk conventions, testscript, TUI and
+container surfaces. Do NOT duplicate content from rules or the Go skill;
+cross-reference instead.
 
 ## Platform Skill Router
 
@@ -36,16 +32,16 @@ When a test failure is platform-specific, consult the right platform skill:
 | `TerminateProcess` exit code masking | `windows-testing` | No POSIX signals; exit code 1 indistinguishable from normal failure |
 | `ERROR_SHARING_VIOLATION` on temp files | `windows-testing` | Antivirus scanning, mandatory file locking |
 | Timer-based test flakiness (Windows) | `windows-testing` | Default 15.6ms timer resolution |
-| Race detector timeout on large suites | `windows-testing` | Higher overhead; `-timeout 15m` pattern |
+| Race detector timeout on large suites | `windows-testing` | Higher `-race` overhead; one package timeout turns every gotestsum result of that package `(unknown)` |
 | Windows TUI rendering/race symptoms | `windows-testing` | Current TUI race guidance and known obsolete pre-warm patterns |
 | APFS case-insensitive filename collision | `macos-testing` | Case-preserving but case-insensitive FS |
 | `/tmp` path comparison mismatch | `macos-testing` | `/tmp` → `/private/tmp` symlink |
 | `/var` vs `/private/var` path comparison mismatch | `macos-testing` | macOS runner symlink resolution |
 | Watcher missing rapid file events | `macos-testing` | `kqueue` aggressive event coalescing |
 | Timer-based test flakiness (macOS) | `macos-testing` | Power-saving timer coalescing |
-| gotestsum false-FAIL on parallel subtests | `macos-testing` | Missing `-v` flag; macOS-specific gotestsum issue |
+| gotestsum false-FAIL on parallel subtests | this skill, "gotestsum Integration" | Missing `-v` with `--rerun-fails`; seen most on macOS runners |
 | `RUNNER~1` vs long temp path mismatch | `windows-testing` | 8.3 short path aliases |
-| Virtual runtime env/path assertion mismatch | `macos-testing`, `windows-testing` | Assert against virtual resolver outputs |
+| Virtual runtime env/path assertion mismatch | `macos-testing`, `windows-testing` | Assert against virtual resolver outputs (see "Cross-Platform Path Contract Tests") |
 | Container test hangs indefinitely | `linux-testing` | Missing `WaitDelay`, unbounded context |
 | `inotify: too many watches` (ENOSPC) | `linux-testing` | Per-user inotify watch limits |
 | Container OOM with `-race` | `linux-testing` | Workload-dependent instrumentation overhead + cgroup limits |
@@ -65,9 +61,8 @@ When a test failure is platform-specific, consult the right platform skill:
 4. After the fix, verify with the narrow reproduction and the repo target that
    owns that surface.
 
-Goplint's own test suite and soundness gates are governed in the standalone
-`github.com/invowk/goplint` repository; invowk runs only the consumer gates
-against the pinned analyzer (`make check-goplint-consumer-routed`).
+goplint findings are not a test-toolchain concern: see the goplint row in
+`.agents/rules/commands.md` and `docs/goplint/README.md`.
 
 ## Toolchain Reference Router
 
@@ -82,7 +77,7 @@ Use the smallest reference that owns the question:
   strong evidence and inspect both access stacks; do not promise an absolute
   zero-false-positive guarantee around `unsafe`, cgo, or instrumentation edges.
 - Read [references/go-vet-analyzers.md](references/go-vet-analyzers.md) for test-
-  relevant vet analyzers.
+  relevant vet analyzers and the golangci-lint test linters.
 - Read [references/benchmark-fuzzing-guide.md](references/benchmark-fuzzing-guide.md)
   for benchmark and fuzz workflows.
 
@@ -124,52 +119,34 @@ Is this a TestMain / *testing.M scope?
 │       ├── NO → Do you need manual cancellation control?
 │       │   ├── YES → context.WithCancel(t.Context())
 │       │   └── NO → t.Context()  (DEFAULT — cancelled when test ends)
-│       └── SPECIAL: testscript env.Setup? → context.Background() with explicit timeout
-│           (no *testing.T available in Setup)
+│       └── SPECIAL: structurally forced → context.Background() with explicit timeout
+│           (see the list below)
 ```
 
-**Code patterns:**
+`context.Background()` outside `TestMain` is allowed only when it is
+structurally forced (rule "Test Context Usage"):
+
+- testscript `Env.Setup` and `Env.Defer` hooks: no `*testing.T` in scope.
+- `t.Cleanup` functions: `t.Context()` is already cancelled when they run.
+- rapid property callbacks: `rapid.T` has no `Context()`.
+
+Bound it with `context.WithTimeout`, add a comment saying why, and use
+`//nolint:usetesting // <reason>` when the linter fires. The rule currently
+names only `TestMain` and `Env.Defer`; the other cases follow existing repo
+usage (`tests/cli/cmd_container_test.go` Setup probe, `tests/cli/tui_tmux_test.go`
+`kill`, `internal/app/modulesync/tidy_formal_test.go`).
+
+Container tests that call `Execute()`/`ExecuteCapture()` use the project helper
+(CRITICAL rule item in "Integration and Container Tests"):
 
 ```go
-// DEFAULT — use for most unit tests
-func TestFoo(t *testing.T) {
-    ctx := t.Context()
-    result, err := myFunc(ctx, input)
-    // ...
-}
-
-// BOUNDED — use for operations that may hang (network, subprocess)
-func TestWithTimeout(t *testing.T) {
-    ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-    defer cancel()
-    result, err := client.Call(ctx)
-    // ...
-}
-
-// CONTAINER — use the project's ContainerTestContext helper
 func TestContainer(t *testing.T) {
     ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
     result, err := engine.Execute(ctx, cmd)
     // ...
 }
 
-// MANUAL CANCEL — use when you need to cancel mid-test
-func TestCancellation(t *testing.T) {
-    ctx, cancel := context.WithCancel(t.Context())
-    go func() {
-        time.Sleep(100 * time.Millisecond)
-        cancel()
-    }()
-    err := longOperation(ctx)
-    require.ErrorIs(t, err, context.Canceled)
-}
-
-// TestMain — no *testing.T available
-func TestMain(m *testing.M) {
-    ctx := context.Background()
-    // setup with ctx...
-    os.Exit(m.Run())
-}
+// TestMain: context.Background(): *testing.M has no Context() method
 ```
 
 Cross-ref: `.agents/skills/go/SKILL.md` § "Context And Processes" for production context rules.
@@ -177,7 +154,9 @@ Cross-ref: `.agents/rules/testing.md` § "Test Context Usage" for test-specific 
 
 ## Parallelism Decision Framework
 
-Use `t.Parallel()` by default. Only omit it when the test touches shared mutable state.
+Use `t.Parallel()` by default and omit it only for shared mutable state; the
+policy and placement rules live in `.agents/rules/testing.md` § "Test Parallelism".
+Use this matrix to decide whether a resource is safe.
 
 ### Resource Safety Matrix
 
@@ -191,6 +170,7 @@ Use `t.Parallel()` by default. Only omit it when the test touches shared mutable
 | `t.Setenv()` | **NO** | Modifies process-global `os.Environ` | Omit `t.Parallel()` |
 | `os.Setenv()` | **NO** | Same as `t.Setenv()` but without test-scoping | Omit `t.Parallel()` |
 | `os.Chdir()` | **NO** | Process-global working directory | Omit `t.Parallel()` |
+| `t.Chdir()` | **NO** | Process-global working directory (test-scoped restore only) | Omit `t.Parallel()` |
 | `os.Stdin` replacement | **NO** | Process-global file descriptor | Omit `t.Parallel()` |
 | Shared `sync.Mutex`-protected struct | DEPENDS | Safe if all accesses hold the lock | Verify lock discipline |
 | `cue.Value` / `*cue.Context` | **NO** | CUE is not thread-safe (internal mutation) | Serial subtests; `//nolint:tparallel` |
@@ -202,42 +182,27 @@ Use `t.Parallel()` by default. Only omit it when the test touches shared mutable
 | bubbletea `Model.Init()` / `View()` | YES | No shared state outside `Program`. Tests don't run `Program`. | — |
 | colorprofile color conversion | YES | Global cache protected by `sync.RWMutex` | — |
 
-### Go 1.22+ Loop Variable Rule
+Loop variables: no `tt := tt` rebinding (`modernize` `forvar`), and use
+`maps.Copy` for maps shared with parallel subtests (rule "Test Parallelism").
 
-Go 1.22 changed loop variable semantics — each iteration gets a fresh copy. The old
-`tt := tt` rebinding pattern is no longer needed and should be removed:
-
-```go
-// Go 1.22+ — CORRECT (no rebinding needed)
-for _, tt := range tests {
-    t.Run(tt.name, func(t *testing.T) {
-        t.Parallel()
-        // tt is already a fresh copy per iteration
-    })
-}
-```
-
-For maps in parallel subtests, use `maps.Copy` to avoid concurrent map read/write.
-
-Cross-ref: `.agents/rules/testing.md` § "Test Parallelism" for canonical parallel patterns.
 Cross-ref: `.agents/skills/review-tests/references/known-exceptions.md` for legitimate exceptions.
 
 ## Test API Guardrails
 
-Follow `.agents/rules/testing.md` for `t.Parallel()` placement and exceptions.
-That placement is an Invowk lint/policy contract, not a standard-library API
-requirement. Keep `t.Setenv`, `t.Chdir`, and other process-global mutations out
-of parallel tests. Call `t.Helper()` first in assertion helpers (but not in a
-`t.Run` body), and report worker goroutine failures back to the test goroutine
-instead of calling `t.Fatal` or `t.FailNow` there. Read
-`references/go-vet-analyzers.md` for the analyzers that enforce these patterns.
+`t.Parallel()`-first placement is an Invowk lint/policy contract (rule "Test
+Parallelism"), not a standard-library API requirement. `t.Helper()` placement
+and reporting worker-goroutine failures to the test goroutine are covered in
+`.agents/skills/testing/references/pre-write-and-go-patterns.md` § "Pre-Write
+Checks" and § "Deterministic Tests". Read `references/go-vet-analyzers.md` for
+the analyzers that enforce these patterns.
 
 ## nolintlint Directive Lifecycle
 
-The project enables `nolintlint` with `require-specific = true`. Every `//nolint:` directive
-must name the suppressed linter and include a justification comment. Stale directives (where
-the suppressed issue no longer exists) cause lint failures — this is the most common "fix
-creates new problem" pattern in this codebase.
+`.golangci.toml` configures `nolintlint` with `allow-unused = false`,
+`require-explanation = true` and `require-specific = true`. Every `//nolint:`
+directive must name the suppressed linter and carry a justification (both
+lint-enforced), and a directive whose issue no longer exists fails the gate —
+the most common "fix creates new problem" pattern in this codebase.
 
 **Key rule**: When removing or moving code near a `//nolint:` directive, always run
 `make lint` afterward to verify the directive is still needed.
@@ -250,12 +215,15 @@ for the full lifecycle rules and common failure patterns.
 - **`_test.go` suffix**: automatically excluded from production builds; compiled only during `go test`.
 - **`*_<GOOS>_test.go`**: platform-constrained test file (e.g., `run_lock_linux_test.go`).
 - **`//go:build <expr>`**: explicit build constraint (e.g., `//go:build !windows`).
-- **`-tags` flag**: `go test -tags=integration ./...` — enable custom build tags.
+- The repo uses only GOOS constraints in tests (`linux`, `windows`, `!windows`);
+  there are no custom test tags such as `integration`. Integration gating uses
+  `testing.Short()` (rule "Integration and Container Tests").
 
 Discover current platform-specific test files with:
 
 ```bash
 rg --files -g '*_linux_test.go' -g '*_windows_test.go' -g '*_darwin_test.go'
+rg -l '^//go:build' -g '*_test.go'
 ```
 
 ## Benchmarks and Fuzzing
@@ -267,6 +235,8 @@ measurements, and commit useful fuzz seeds as regression inputs.
 ## gotestsum Integration
 
 The project uses `gotestsum` for enhanced test output and flaky test detection.
+Install the pinned version (`.agents/rules/version-pinning.md`):
+`go install gotest.tools/gotestsum@v1.13.0`.
 
 | Flag | Purpose | Notes |
 |------|---------|-------|
@@ -277,11 +247,20 @@ The project uses `gotestsum` for enhanced test output and flaky test detection.
 | `--junitfile FILE` | JUnit XML output | For CI test reporting |
 | `--packages ./...` | Package list | Passed before `--` separator |
 
+```bash
+# Like `make test` (which also filters the package list), plus CI-style report
+# flags; go test flags such as -v go after `--`
+gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 \
+  --rerun-fails-report rerun-report.txt --junitfile test-results.xml \
+  --packages ./... -- -v
+```
+
 **Critical**: Without `-v`, gotestsum cannot reconcile parallel subtest statuses —
 it may report a parent test as FAIL even when all subtests pass. This is especially
-problematic on macOS CI runners. Always use `-v` with `--rerun-fails` in new or
-edited gotestsum invocations, and audit workflow changes with
-`rg -n 'gotestsum|--rerun-fails|-v' .github Makefile scripts`.
+problematic on macOS CI runners. Always use `-v` (after `--`) with `--rerun-fails`
+in new or edited gotestsum invocations. Some existing CI lanes do not follow this
+yet; do not copy them as templates. Audit workflow changes with
+`rg -n -e '--rerun-fails' -e 'gotestsum' .github Makefile scripts`.
 
 ## Coverage
 
@@ -289,16 +268,8 @@ Use `references/test-flags-matrix.md` for coverage flag interactions. CLI test
 coverage builds an instrumented binary, sets `GOCOVERDIR`, and merges data with
 `go tool covdata`; use `make test-cli-cover` rather than reconstructing it.
 
----
-
 ## Related Skills
 
-| Skill | When to Use |
-|---|---|
-| `windows-testing` | Windows OS primitives: process lifecycle, signals, file system, timer resolution |
-| `macos-testing` | macOS OS primitives: APFS, kqueue, timer coalescing, /tmp symlink, ARM64 |
-| `linux-testing` | Linux OS primitives: container infrastructure, inotify, cgroups, OOM killer |
-| `testing` | Invowk-specific: testscript, TUI component testing, container runtime testing |
-| `review-tests` | Test suite audit with 102-item checklist across 8 surfaces |
-| `tmux-testing` | TUI e2e testing with tmux |
-| `tui-testing` | VHS-based TUI visual testing |
+`testing` (Invowk patterns, testscript, TUI and container surfaces),
+`review-tests` (read-only suite audits), `tmux-testing` (durable interactive TUI
+tests), `tui-testing` (VHS visual debugging), plus the platform skills above.

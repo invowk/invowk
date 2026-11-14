@@ -1,6 +1,6 @@
 ---
 name: invowk-schema
-description: Schema guidelines for invowkfile.cue, invowkmod.cue, pkg/invowkfile/invowkfile_schema.cue, pkg/invowkmod/invowkmod_schema.cue, root invowkfile.cue examples, samples/invowkmods/**/*.cue, command structures, script sources/interpreters, dependency declarations, cross-platform runtime examples, capability checks, and environment variables.
+description: Schema and authoring guidelines for invowkfile.cue and invowkmod.cue (pkg/invowkfile/invowkfile_schema.cue, pkg/invowkmod/invowkmod_schema.cue), root invowkfile.cue examples, samples/invowkmods/**/*.cue, command structures and leaf-only args ("has both args and subcommands"), script sources/interpreters, depends_on dependency declarations, cross-platform runtime examples and the native/virtual-sh platform split, capability checks, and environment variables. Use when writing, reviewing or validating commands, examples, schema-facing fields or sample modules.
 ---
 
 # Invowk Schema Guidelines
@@ -55,16 +55,16 @@ depends_on: {
 ### Command Dependency Scope
 
 `depends_on.cmds` supports bare local command refs and source-qualified refs such
-as `@source command`. Validation checks both discoverability and scope: module
-commands can reference the same module, globally installed modules, or direct
-dependencies whose identity/source agree with the lock data. It is a static
-declaration check, not a runtime subprocess interceptor.
+as `@source command`. Validation checks both discoverability and scope; a direct
+dependency counts only when its identity/source agree with the lock data. Scope
+semantics (same module, global modules, first-level `requires`; a static check,
+not a runtime interceptor): `AGENTS.md` "Hard invariants".
 
 ### Command Structure Validation
 
 #### Leaf-Only Args Constraint
 
-**Commands with positional arguments (`args`) cannot have subcommands.** This is enforced during command discovery and module validation.
+**Commands with positional arguments (`args`) cannot have subcommands.** This is enforced during command discovery and module validation (`ArgsSubcommandConflictError` in `pkg/invowkfile/command_tree.go`, checked from `internal/discovery/validation.go`; `validateCommandTree` in `cmd/invowk/cmd.go`).
 
 Why: CLI parsers interpret positional arguments after a command name as potential subcommand names. If `deploy` has both `args: [{name: "env"}]` and a subcommand `deploy staging`, running `invowk cmd deploy prod` is ambiguous—is `prod` an argument or a subcommand name?
 
@@ -140,18 +140,11 @@ implementations: [
 
 **Invalid (bash script without platform restriction):**
 ```cue
-implementations: [
-    {
-        script: {content: """
-            echo "Hello from bash"
-            if [ -f /etc/os-release ]; then
-                cat /etc/os-release
-            fi
-            """}
-        runtimes: [{name: "native"}, {name: "virtual-sh"}]
-        // Missing platforms restriction - will fail on Windows!
-    },
-]
+implementations: [{
+    script:   {content: "..."}  // same bash script as above
+    runtimes: [{name: "native"}, {name: "virtual-sh"}]
+    // Missing platforms restriction - will fail on Windows!
+}]
 ```
 
 **When to apply this pattern:**
@@ -164,34 +157,9 @@ implementations: [
 - Commands with `runtimes: [{name: "native"}]` only and `platforms: [{name: "linux"}, {name: "macos"}]` (Linux/macOS only)
 - Commands with PowerShell scripts intended for Windows
 
-**Native-only platform-split pattern (for testing):**
-
-When writing native runtime mirror tests (`native_*.txtar`), use native-only implementations without a virtual fallback:
-
-```cue
-implementations: [
-    {
-        script: {content: """
-            echo "Hello from native shell"
-            echo "VAR=$MY_VAR"
-            """}
-        runtimes:  [{name: "native"}]
-        platforms: [{name: "linux"}, {name: "macos"}]
-    },
-    {
-        script: {content: """
-            Write-Output "Hello from native shell"
-            Write-Output "VAR=$($env:MY_VAR)"
-            """}
-        runtimes:  [{name: "native"}]
-        platforms: [{name: "windows"}]
-    },
-]
-```
-
-**When to use native-only vs native+virtual-sh:**
-- **Native-only** (`runtimes: [{name: "native"}]`): For test files that specifically validate native shell behavior on each platform. Used in `native_*.txtar` mirror tests.
-- **Native+virtual-sh** (`runtimes: [{name: "native"}, {name: "virtual-sh"}]`): For production commands that prefer native shell but also allow the embedded shell. Requires the standard platform-split pattern (see above) to avoid PowerShell parsing bash syntax on Windows.
+**Native-only vs native+virtual-sh:**
+- **Native-only** (`runtimes: [{name: "native"}]`, split into a `linux`/`macos` implementation and a PowerShell `windows` implementation): for `native_*.txtar` mirror tests that validate native shell behavior on each platform. Rules: `.agents/rules/testing.md` "Native tests"; generation example: `.agents/skills/native-mirror/SKILL.md`.
+- **Native+virtual-sh** (`runtimes: [{name: "native"}, {name: "virtual-sh"}]`): for production commands that prefer native shell but also allow the embedded shell. Requires the platform split above to avoid PowerShell parsing bash syntax on Windows.
 
 ## Invowkmod Modules
 
@@ -200,11 +168,9 @@ implementations: [
 The `samples/invowkmods/` directory contains sample modules that serve as reference implementations, validation tests, and audit fixtures.
 
 - A module is a `.invowkmod` directory containing required `invowkmod.cue` metadata. `invowkfile.cue` is optional for library-only modules and contains command definitions plus invowkfile-scoped root settings, but no module metadata.
-- The invowkmod schema lives in `pkg/invowkmod/invowkmod_schema.cue` and the invowkfile schema in `pkg/invowkfile/invowkfile_schema.cue`.
 - Always update sample modules when the invowkmod schema, validation rules, or module behavior changes.
 - Modules should demonstrate module-specific features (script file references, cross-platform paths, requirements).
-- After module-related changes, run validation against safe samples: `go run . validate samples/invowkmods/io.invowk.sample.invowkmod`.
-- Intentionally unsafe audit fixtures under `samples/invowkmods/com.example.audit.*.invowkmod` should be verified with `invowk audit`, not normal validation.
+- All samples, including the `com.example.audit.*.invowkmod` fixtures, pass `invowk validate` (the module-related loop in `.agents/rules/checklist.md`). The audit fixtures are intentionally malicious: do not run or sanitise their commands, and exercise their purpose with `invowk audit` (commands in `samples/invowkmods/README.md`).
 
 ### Current Sample Modules
 
@@ -217,7 +183,7 @@ find samples/invowkmods -maxdepth 1 -type d -name '*.invowkmod' | sort
 ### Module Validation Checklist
 
 When modifying module-related code, verify:
-1. Safe modules in `samples/invowkmods/` pass validation: `go run . validate samples/invowkmods/io.invowk.sample.invowkmod`.
+1. All modules in `samples/invowkmods/` pass validation (run the module-related loop in `.agents/rules/checklist.md`).
 2. Module naming conventions and module ID matching are enforced.
 3. `invowkmod.cue` is required and parsed; optional `invowkfile.cue` contains commands and invowkfile-scoped root settings, not module metadata.
 4. Script path resolution works correctly (forward slashes, relative paths).

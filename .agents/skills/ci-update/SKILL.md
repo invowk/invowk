@@ -3,9 +3,9 @@ name: ci-update
 description: >-
   Audit and update CI workflow versions, tool installs, MCP servers,
   Dependabot-covered action pins, inline binary installs, pre-commit hooks,
-  Node.js LTS pins, and CI-created commit mechanisms. Use when preparing a
-  release, doing monthly CI maintenance, investigating version-related CI
-  failures, or reviewing workflow/tooling pin drift.
+  Node.js LTS pins and CI-created commit mechanisms. Use when preparing a
+  release, for monthly CI maintenance, for version-related CI failures, or to
+  review workflow/tooling pin drift.
 ---
 
 # CI Update
@@ -17,14 +17,12 @@ all synchronized references together.
 
 ## Documentation and Version Sources
 
-Before interpreting current CLI, action, API, or tool behavior, use Context7:
-
-1. Resolve the exact library/tool ID with the full maintenance question.
-2. Query the selected ID for the relevant current syntax, compatibility, or
-   migration behavior.
-3. Use official release APIs, package registries, and local module metadata for
-   latest-version facts. If Context7 has no suitable source, use the tool's
-   official documentation or release notes and state the fallback.
+Before interpreting current CLI, action, API, or tool behavior, use Context7
+(resolve, then query with the full maintenance question; protocol:
+`.agents/rules/general-rules.md` "Sources"). Use official release APIs, package
+registries, and local module metadata for latest-version facts, not Context7. If
+Context7 has no suitable source, use the tool's official documentation or
+release notes and state the fallback.
 
 Do not use remembered syntax or secondary posts as evidence. Load
 [`references/version-discovery.md`](references/version-discovery.md) when
@@ -43,9 +41,12 @@ closed allowlist.
 | Bencher | Action tag and CLI `version:` input in every workflow using `bencherdev/bencher`, `.agents/rules/version-pinning.md` |
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
 | GoReleaser | Every `goreleaser-action` `version:` input in CI and release workflows |
-| Node.js | Every workflow `node-version:` reference |
+| Node.js | Every workflow `node-version:` reference; `build/bencher/Dockerfile` `node:` base image |
 | Cosign | Installer action major and `cosign-release` input compatibility in CI and release workflows |
 | UPX | Every inline `UPX_VERSION` installation |
+| D2 | `--version` input of the install script in `.github/workflows/validate-diagrams.yml`, `.agents/rules/version-pinning.md` |
+| Go toolchain | Root `go.mod` `go` directive plus everything listed under version-pinning "Go Toolchain" (`build/bencher/Dockerfile` `golang:` image with `GOTOOLCHAIN=local`, `default.pgo`, `golang.org/x/tools`, golangci-lint, go-mutesting, goplint) |
+| MCP servers | `.mcp.json` `args` pins, `.agents/rules/version-pinning.md` "MCP Servers" |
 | GitHub Actions | Every repeated `uses:` target found by inventory |
 | Documented pins | `.agents/rules/version-pinning.md` |
 | Formal tools | `formal/manifest.toml` (Alloy, TLA+ jar version, URL, SHA-256), `FORMAL_JAVA_VERSION` and `actions/setup-java` major in `.github/workflows/formal-verification.yml`, `.agents/rules/version-pinning.md` |
@@ -57,8 +58,8 @@ closed allowlist.
 
 ```bash
 find .github/workflows -maxdepth 1 -type f -name '*.yml' -print | sort
-rg -n 'uses:|go install|node-version|UPX_VERSION|cosign-release|version:' \
-  .github/workflows .pre-commit-config.yaml .mcp.json \
+rg -n 'uses:|go install|node-version|UPX_VERSION|cosign-release|version:|--version v|^FROM |@[0-9]+\.[0-9]' \
+  .github/workflows .pre-commit-config.yaml .mcp.json build/bencher/Dockerfile \
   .agents/rules/version-pinning.md .agents/rules/commands.md
 ```
 
@@ -151,8 +152,9 @@ which updates to apply.
 
 Update every location in each approved sync pair in the same change. Re-read
 modified files and rerun the live inventory to prove no old pin remains. Update
-the documented pin tables and prerequisites whenever they name the changed
-version.
+`.agents/rules/version-pinning.md` "Current pinned versions" whenever it names
+the changed version, and the `.agents/rules/commands.md` prerequisites line only
+when a tool is added or removed.
 
 ### 8. Verify
 

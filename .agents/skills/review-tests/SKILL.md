@@ -1,14 +1,14 @@
 ---
 name: review-tests
-description: Comprehensive test suite review and audit for invowk. Evaluates 102 checklist items across 8 surfaces — structural hygiene, parallelism/context, test patterns/assertions, integration gating, testscript quality, virtual/native mirrors, coverage guardrails, and TUI/domain-specific testing. Detects both coverage gaps (missing branches, error paths, untested exports) and low-value tests (circular assertions, excessive mocking, dead tests). Use this skill whenever reviewing test quality, checking test coverage, auditing the test suite, preparing for releases, or evaluating whether tests adequately cover recent code changes. Always use this skill for any test review task, even if the user doesn't explicitly say "review tests" — any mention of checking test quality, verifying test coverage, or ensuring tests are comprehensive should trigger this skill.
+description: Comprehensive test suite review and audit for invowk (audit only, no edits). Runs a fixed checklist across 8 surfaces — structural hygiene, parallelism/context, test patterns/assertions, integration gating, testscript quality, virtual/native mirrors, coverage guardrails, and TUI/domain-specific testing — and detects coverage gaps (missing branches, error paths, untested exports) and low-value tests (circular assertions, excessive mocking, dead tests). Use when reviewing test quality, checking test coverage, auditing the test suite, preparing for releases, or evaluating whether tests adequately cover recent code changes. Always use it for any test review task, even if the user doesn't say "review tests" — including checking test quality, verifying test coverage, or ensuring tests are comprehensive.
 ---
 
 # Test Suite Review and Audit
 
-This skill orchestrates a structured review of the entire test suite to evaluate semantic
-comprehensiveness, signal-to-noise ratio, and coverage completeness. It is review-only —
-use the `/testing` skill for writing tests and the `test-writer` agent for generating
-testscript pairs.
+This skill orchestrates a structured, read-only review of the whole test suite for semantic
+comprehensiveness, signal-to-noise ratio, and coverage completeness. A request such as "review
+the tests and tell me what to fix" belongs here: report findings with fix hints, then hand the
+fixes to the `testing` skill (or the `test-writer` agent for new testscript pairs).
 
 ## Purpose and Scope
 
@@ -24,71 +24,40 @@ all `.txtar` files in `tests/cli/testdata/`; CI workflows; SonarCloud configurat
 
 ---
 
-## Review Surfaces
-
-The review covers 8 surfaces. Each maps to a distinct testing dimension.
-
-### SS1: Structural Hygiene
-File size limits, SPDX license headers, naming conventions, import ordering, and test helper
-documentation. Generate the complete sorted scope with `references/test-file-inventory.md`.
-
-### SS2: Parallelism and Context
-`t.Parallel()` rules, `t.Context()` usage, unsafe patterns (global state mutation),
-container test context, shared mock safety. Read `references/pattern-catalog.md` §1-2
-and `references/known-exceptions.md` for legitimate deviations.
-
-### SS3: Test Patterns and Assertions
-Table-driven tests, error assertion quality, behavioral contracts, cross-platform path
-handling, flakiness patterns, `Validate()` usage. Read `references/pattern-catalog.md` §1-2.
-
-### SS4: Integration Test Gating
-`testing.Short()` guards, container 5-layer timeout strategy, container image policy,
-CI race detector, Windows config isolation. Read `references/pattern-catalog.md` §3.
-
-### SS5: Testscript (txtar) Quality
-CUE correctness in inline invowkfiles, workspace isolation, skip guards, regex assertions,
-dual-channel error checks, line endings. Read `references/pattern-catalog.md` §4.
-
-### SS6: Virtual/Native Mirrors and Platform
-Mirror completeness, exemption freshness, platform-split CUE, command-path alignment,
-and `skipOnWindows` legitimacy. Generate mirror pairs live with
-`references/test-file-inventory.md` and validate them with the guardrail tests.
-
-### SS7: Coverage and Guardrails
-Guardrail test health (5 tests), stale/unnecessary exemptions, test helper consolidation,
-SonarCloud gate, CI coverage configuration. Read `references/coverage-expectations.md`.
-
-### SS8: TUI and Domain-Specific Testing
-TUI component model testing, container mock patterns, goplint analyzer tests, server
-state machine coverage, benchmark gating, watch/provision tests.
-
----
-
 ## Consistency Principles
 
-These principles ensure that running the review multiple times produces the same results.
-They apply to both the coordinator and all subagents.
+These principles make repeated runs produce the same results. They apply to the coordinator
+and to every subagent.
 
-1. **Checklist-driven review** — Each subagent follows its surface's checklist from
-   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N/A).
-   This is the primary review activity — open-ended exploration is secondary.
+1. **Checklist-driven review** — Each subagent follows its surface's checklist in
+   `references/surface-checklists.md`, and every checklist item gets a status under the
+   status rule below. This is the primary review activity; open-ended exploration is secondary.
 
-2. **Pre-assigned severity** — Each checklist item has a severity level defined in
-   `surface-checklists.md`. Subagents use that severity, not their own judgment. The reason:
-   subjective severity classification is the second-largest source of run-to-run variance
-   (after scope sampling). Fixing severity at definition time eliminates this.
+2. **Pre-assigned severity** — Each checklist item has a severity in `surface-checklists.md`.
+   Subagents use that severity, not their own judgment, because subjective severity is the
+   second-largest source of run-to-run variance (after scope sampling).
 
-3. **Deterministic file traversal** — Generate a sorted live inventory at the start of
-   every review. Each checklist defines the scope; subagents check every current file in
-   that scope rather than a stale snapshot or sample.
+3. **Deterministic file traversal** — Generate a sorted live inventory at the start of every
+   review (`references/test-file-inventory.md`). Each checklist defines the scope; subagents
+   check every current file in that scope, never a stale snapshot or a sample.
 
 4. **Structured context passing** — The coordinator passes programmatic check results to
-   subagents using the Context Block format defined below, not free-form prose. This ensures
-   every subagent receives identical context in an identical format.
+   subagents in the Context Block format below, not free-form prose, so every subagent receives
+   identical context in an identical format.
 
-5. **Complete reporting** — Every checklist item must appear in the subagent's output. Items
-   that pass are reported as PASS with brief evidence. Items that cannot be checked are N/A
-   with an explanation. The coordinator verifies completeness during merge.
+5. **Complete reporting** — Every checklist item must appear in the subagent's output, with
+   evidence for PASS and SKIP and a reason for N/A. The coordinator verifies completeness
+   during merge.
+
+**Status rule** (the same wording is used in every reference file):
+- **FAIL** if any deviation in the item's scope matches no registry entry; each such
+  deviation becomes a finding.
+- **SKIP** only when every deviation for the item matches an entry in `known-exceptions.md`
+  or `accepted-patterns.md`, each one cited in the evidence.
+- **PASS** otherwise, citing any registry-matched occurrences in the evidence.
+- **N/A** when nothing in the item's scope applies, with the reason.
+
+Registry-matched occurrences are never findings and never carry a severity.
 
 ---
 
@@ -96,35 +65,34 @@ They apply to both the coordinator and all subagents.
 
 ### Step 1: Run Programmatic Checks
 
-Run automated checks first to catch mechanical issues. See `references/verification-commands.md`
-for full details and failure triage.
+Run automated checks first to catch mechanical issues. Per-check expectations and failure
+triage (PC-01 to PC-15) are in `references/verification-commands.md`.
 
 ```bash
 # Parallel group 1 (fast file-level)
-make check-file-length
-make license-check
-rg -n 'context\.Background\(\)' cmd internal pkg tests tools -g '*_test.go'
-rg -n 'time\.Sleep' cmd internal pkg tests tools -g '*_test.go'
-rg -n 'strings\.Contains\([^\n]*\.Error\(\)' cmd internal pkg tests tools -g '*_test.go'
-rg -n '"/(usr|tmp|etc|home|bin)/' cmd internal pkg tests tools -g '*_test.go'
+make check-file-length                                                                # PC-01
+make license-check                                                                    # PC-02
+rg -n 'context\.Background\(\)' cmd internal pkg tests tools -g '*_test.go'           # PC-03
+rg -n 'time\.Sleep' cmd internal pkg tests tools -g '*_test.go'                       # PC-04
+rg -n 'strings\.Contains\([^\n]*\.Error\(\)' cmd internal pkg tests tools -g '*_test.go'  # PC-11
+rg -n '"/(usr|tmp|etc|home|bin)/' cmd internal pkg tests tools -g '*_test.go'         # PC-14
 
 # Parallel group 1b (txtar-specific)
-rg -n '! exec' tests/cli/testdata -g '*.txtar'
-go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
+rg -n '! exec' tests/cli/testdata -g '*.txtar'                                        # PC-12
+go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...  # PC-07, PC-08, PC-13
 
 # Parallel group 2 (targeted test runs)
-make lint
-go test -v -run 'TestBuiltinCommandTxtarCoverage|TestTUIExemptionTmuxCoverage' ./cmd/invowk/...
-go test -v -run TestShRuntimeMirrorCoverage ./tests/cli/...
-go test -v -run TestVirtualNativeCommandPathAlignment ./tests/cli/...
-go test -v -run TestIssueTemplates_NoStaleGuidance ./internal/issue/...
+make lint                                                                             # PC-05
+go test -v -run 'TestBuiltinCommandTxtarCoverage|TestTUIExemptionTmuxCoverage' ./cmd/invowk/...      # PC-06
+go test -v -run TestIssueTemplates_NoStaleGuidance ./internal/issue/...               # PC-15
 
 # Sequential (comprehensive)
-make test-short
-rg --files cmd internal pkg tests tools -g '*_test.go' | sort | xargs -r wc -l | awk '$2 != "total" && $1 > 900 { print }'
+make test-short                                                                       # PC-09
+rg --files cmd internal pkg tests tools -g '*_test.go' | sort | xargs -r wc -l | awk '$2 != "total" && $1 > 900 { print }'  # PC-10
 ```
 
-Record results in the **Context Block** format:
+Record results in the **Context Block** format. This is the only copy of the template; pass it
+verbatim to every surface subagent, including agents dispatched in later capacity-aware waves.
 
 ```
 PROGRAMMATIC CHECK RESULTS
@@ -136,7 +104,7 @@ time-sleep            : PASS | FAIL (count: N, files: ...)
 err-string-matching   : PASS | FAIL (count: N, files: ...)
 hardcoded-unix-paths  : PASS | FAIL (count: N, files: ...)
 txtar-error-assertion : PASS | FAIL (files: ...)
-native-platform-split : PASS | FAIL (files: ...)
+native-platform-split : guardrail PASS | FAIL (detail); manual T6-C06 inspection pending
 lint                  : PASS | FAIL (detail)
 txtar-coverage        : PASS | FAIL (detail)
 tui-tmux-coverage     : PASS | FAIL (detail)
@@ -148,38 +116,44 @@ approaching-limit-files : PASS | FAIL (files: ...)
 ==========================
 ```
 
+`mirror-coverage`, `mirror-alignment` and `native-platform-split` all come from the single
+group 1b test run. The `native-platform-split` row records only that guardrail result: a
+passing run does not prove the Unix/Windows split, so SA-6 must still inspect every native
+implementation for T6-C06 (PC-13).
+
 ### Step 2: Dispatch One Independent Subagent per Surface
 
-Assign one subagent per surface. Run them in capacity-aware waves when fewer
-than eight subagent slots are available; never collapse multiple surfaces into
-one reviewer merely to finish in one wave. Each subagent receives:
+Assign one subagent per surface. Run them in capacity-aware waves when fewer than eight
+subagent slots are available; never collapse multiple surfaces into one reviewer merely to
+finish in one wave, because a merged reviewer samples less. Each subagent receives:
 1. The Context Block from Step 1
 2. Its assigned surface checklist section from `references/surface-checklists.md`
 3. The structured output format from `references/structured-output-format.md`
 
-| Subagent | Surface | References to Read | Focus |
-|----------|---------|-------------------|-------|
-| **SA-1: Structural Hygiene** | SS1 | live inventory output, `surface-checklists.md` §SS1 | File size, headers, naming, imports, helpers |
-| **SA-2: Parallelism & Context** | SS2 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS2 | t.Parallel() rules, t.Context(), unsafe patterns |
-| **SA-3: Test Patterns** | SS3 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS3 | Table-driven tests, assertions, behavioral contracts |
-| **SA-4: Integration Gating** | SS4 | `pattern-catalog.md`, `surface-checklists.md` §SS4 | testing.Short(), container timeouts, CI config |
-| **SA-5: Testscript Quality** | SS5 | live inventory output, `pattern-catalog.md`, `surface-checklists.md` §SS5 | CUE correctness, skip guards, workspace isolation |
-| **SA-6: Mirrors & Platform** | SS6 | live mirror inventory, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS6 | Mirror completeness, platform-split CUE, alignment |
-| **SA-7: Coverage & Guardrails** | SS7 | `coverage-expectations.md`, `surface-checklists.md` §SS7 | Guardrail tests, exemptions, SonarCloud, helpers |
-| **SA-8: TUI & Domain** | SS8 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS8 | TUI models, container mocks, goplint, servers |
+| Subagent | Surface | Focus | References to Read |
+|----------|---------|-------|-------------------|
+| **SA-1: Structural Hygiene** | SS1 | File size limits, SPDX headers, naming conventions, import ordering, test helper documentation | live inventory (`test-file-inventory.md`), `surface-checklists.md` §SS1 |
+| **SA-2: Parallelism & Context** | SS2 | `t.Parallel()` rules, `t.Context()` usage, unsafe patterns (global state mutation), container test context, shared mock safety | `pattern-catalog.md` §1-2, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS2 |
+| **SA-3: Test Patterns** | SS3 | Table-driven tests, error assertion quality, behavioral contracts, cross-platform path handling, flakiness patterns, `Validate()` usage | `pattern-catalog.md` §1-2b, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS3 |
+| **SA-4: Integration Gating** | SS4 | `testing.Short()` guards, container timeout and serialization layers, container image policy, CI race detector, Windows config isolation | `pattern-catalog.md` §3, `coverage-expectations.md` (CI flags), `surface-checklists.md` §SS4 |
+| **SA-5: Testscript Quality** | SS5 | CUE correctness in inline invowkfiles, workspace isolation, skip guards, regex assertions, dual-channel error checks, line endings | live inventory (`test-file-inventory.md`), `pattern-catalog.md` §4, `surface-checklists.md` §SS5 |
+| **SA-6: Mirrors & Platform** | SS6 | Mirror completeness, exemption freshness, platform-split CUE, command-path alignment, `skipOnWindows` legitimacy | live mirror pairs (`test-file-inventory.md`), `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS6 |
+| **SA-7: Coverage & Guardrails** | SS7 | Guardrail test health, stale/unnecessary exemptions, test helper consolidation, SonarCloud gate, CI coverage configuration | `coverage-expectations.md`, `surface-checklists.md` §SS7 |
+| **SA-8: TUI & Domain** | SS8 | TUI component model testing, container mock patterns, server state machine coverage, benchmark gating, watch/provision tests | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS8 |
 
 #### Subagent Prompt Template
 
-Use this template when spawning each subagent. Consistent prompting is important because
-variation in how the task is described to subagents is a source of run-to-run inconsistency.
+Use this template when spawning each subagent. Variation in how the task is described to
+subagents is a source of run-to-run inconsistency.
 
 ```
 You are reviewing test surface SS{N}: {Surface Name} for the invowk project.
 
 ## Your Task
 Follow the checklist in `references/surface-checklists.md` §SS{N} item by item. For each
-checklist item, report PASS, FAIL, or N/A with evidence. Then generate findings for
-all FAIL items using the format in `references/structured-output-format.md`.
+checklist item, report PASS, FAIL, SKIP, or N/A with evidence, using the status rule in the
+skill. Then generate findings for all FAIL items using the format in
+`references/structured-output-format.md`.
 
 ## Reference Files to Read
 {list of reference files from the dispatch table above}
@@ -192,18 +166,19 @@ For each checklist item:
 1. Read the test file(s) specified in the checklist's File Scope column
 2. Apply the check criteria (consult `references/pattern-catalog.md` for detailed patterns)
 3. For semantic checks: assess whether the test exercises meaningful behavioral contracts
-4. Check `references/known-exceptions.md` — is a deviation a permanent exception?
-   Check `references/accepted-patterns.md` — is a deviation an accepted pattern?
-   If the deviation matches either registry, mark as SKIP (not FAIL).
+4. For each deviation, check `references/known-exceptions.md` (permanent exceptions) and
+   `references/accepted-patterns.md` (accepted patterns). A deviation that matches either
+   registry is not a finding; cite the entry in the item's evidence.
+5. Record the status: FAIL if any deviation matches no registry entry (one finding per such
+   deviation); SKIP only if every deviation matches a registry entry, each cited; otherwise
+   PASS with evidence; N/A with the reason when nothing in scope applies.
 
-### Platform-Specific Analysis
-
+## Platform-Specific Analysis
 For findings that may be platform-specific, consult the relevant platform skill:
 - Windows failures: `windows-testing` (process lifecycle, file system, timers)
 - macOS failures: `macos-testing` (APFS, kqueue, timer coalescing)
 - Linux/container failures: `linux-testing` (inotify, cgroups, container timeouts)
 - Cross-platform test toolchain: `go-testing` (race detector, flags, vet)
-5. Record status: PASS (with evidence), FAIL (generate finding), or N/A (with reason)
 
 ## Semantic Analysis (in addition to checklist)
 After completing the checklist, scan your file scope for:
@@ -217,23 +192,25 @@ Set the Source field to "semantic" to distinguish from checklist findings.
 
 ## Output
 1. Checklist Status table (every item, no omissions)
-2. Findings list (one entry per FAIL item, plus semantic findings)
+2. Findings list (one entry per unmatched deviation in a FAIL item, plus semantic findings)
 ```
 
 ### Step 3: Merge and Report
 
-The coordinator:
+This is the canonical merge procedure. The coordinator:
 1. **Verifies completeness** — Each subagent reported on all checklist items for its surface
 2. **Collects** findings from SA-1 through SA-8
 3. **Deduplicates** by (file, test function/line) — keep higher severity on conflicts
 4. **Cross-checks** against `references/known-exceptions.md` (permanent exceptions)
-5. **Cross-checks** against `references/accepted-patterns.md` (conditionally-accepted patterns)
-6. **Runs reconsideration protocol** — evaluates accepted patterns for cadence review and
-   trigger evaluation (see `references/accepted-patterns.md` § "Reconsideration Protocol")
+5. **Cross-checks** against `references/accepted-patterns.md` (conditionally-accepted patterns).
+   Drop any finding that matches either registry, cite the entry in the item's evidence, and
+   re-derive that item's status under the status rule.
+6. **Runs the reconsideration protocol** — cadence review and trigger evaluation for accepted
+   patterns (see `references/accepted-patterns.md` § "Reconsideration Protocol")
 7. **Sorts** by severity (ERROR first), then by surface
 8. **Assigns** sequential IDs (RT-001, RT-002, ...) to the merged list
 9. **Merges** checklist tables into a unified Checklist Completion summary
-10. **Produces** the final report with Patterns for Reconsideration appendix
+10. **Produces** the final report with the Patterns for Reconsideration appendix
     (see `references/structured-output-format.md`)
 
 ---
@@ -256,8 +233,8 @@ A finding is eligible for promotion when ALL of these hold:
 1. **Document the pattern**: Add a grep/find command to `references/verification-commands.md`
    as a new PC-NN entry (follow the existing format)
 2. **Add to Step 1**: Add the command to the appropriate parallel group in this file
-3. **Update Context Block**: Add a new result row to both the Step 1 Context Block here
-   and the template in `verification-commands.md`
+3. **Update Context Block**: Add a new result row to the Step 1 Context Block in this file
+   (the only copy of the template)
 4. **Add to pattern-catalog.md**: If the pattern needs subagent explanation, add an entry
 5. **Update this table**: Record the promotion below
 
@@ -276,25 +253,14 @@ A finding is eligible for promotion when ALL of these hold:
 
 ## Detailed References
 
-Read these when working on the corresponding review surface:
-
-- **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items (102 total across 8 surfaces). This is the primary review driver.
-- **[references/test-file-inventory.md](references/test-file-inventory.md)** — Deterministic
-  commands for generating current test files, line counts, categories, and mirror pairs.
-- **[references/pattern-catalog.md](references/pattern-catalog.md)** — Required patterns,
-  anti-patterns, container patterns, testscript patterns, and flakiness signatures.
-- **[references/coverage-expectations.md](references/coverage-expectations.md)** — SonarCloud
-  gates, guardrail test inventory, CI coverage configuration, per-package expectations.
-- **[references/known-exceptions.md](references/known-exceptions.md)** — Registry of
-  permanent, intentional pattern deviations (do NOT flag as errors).
-- **[references/accepted-patterns.md](references/accepted-patterns.md)** — Registry of
-  conditionally-accepted patterns with reconsideration triggers and confidence levels.
-  Patterns here are SKIP during review but periodically re-evaluated.
-- **[references/structured-output-format.md](references/structured-output-format.md)** —
-  Finding report template, checklist status format, severity definitions, merge procedure.
-- **[references/verification-commands.md](references/verification-commands.md)** — Full
-  command reference with expected output and failure triage.
+- [`references/surface-checklists.md`](references/surface-checklists.md) — per-surface verification items with pre-assigned severity; the primary review driver.
+- [`references/test-file-inventory.md`](references/test-file-inventory.md) — commands for the live sorted file list, line counts, categories and mirror pairs.
+- [`references/pattern-catalog.md`](references/pattern-catalog.md) — required patterns, anti-patterns, error-assertion and `time.Sleep` classification, container and testscript patterns, flakiness signatures, lint directives.
+- [`references/coverage-expectations.md`](references/coverage-expectations.md) — SonarCloud gate, CI coverage flags, guardrail test inventory, per-package expectations.
+- [`references/known-exceptions.md`](references/known-exceptions.md) — permanent, intentional deviations (not findings).
+- [`references/accepted-patterns.md`](references/accepted-patterns.md) — conditionally-accepted patterns with reconsideration triggers and confidence levels (not findings, but periodically re-evaluated).
+- [`references/structured-output-format.md`](references/structured-output-format.md) — report header, checklist status format, finding template, severity definitions, summary tables.
+- [`references/verification-commands.md`](references/verification-commands.md) — PC-01 to PC-15 commands with expected output and failure triage.
 
 ---
 

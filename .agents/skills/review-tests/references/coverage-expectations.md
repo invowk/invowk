@@ -32,8 +32,10 @@ From `sonar-project.properties`:
 | e9 | `go:S107` | `internal/app/commandsvc/service.go` | Service constructor has explicit ports for dependency injection |
 | e10 | `go:S107` | `internal/app/deps/deps.go` | Dependency validator keeps explicit collaborators visible |
 | e11 | `go:S1313` | `internal/app/commandadapters/dependency_host.go` | Host capability probes use well-known private addresses for local checks |
+| e12 | `go:S4507` | `internal/testutil/goroutineleak.go` | Test-only goroutine-leak helper reads the pprof goroutineleak profile in debug mode; never shipped |
 
 IDs must be gapless (`e1, e2, e3, ...`). Adding a new suppression requires using the next ID.
+The canonical sonar-local procedure is `.agents/runbooks/quality-gates.md`.
 
 ### Coverage Gate
 
@@ -49,11 +51,16 @@ move the coverage gate. Tests under `tests/cli/` do NOT contribute to SonarCloud
 
 | Workflow | Coverage Flag | Race | Timeout | Retry |
 |---|---|---|---|---|
-| `ci.yml` main tests | `-coverprofile=coverage.out` | `-race` | `15m` (gotestsum) | `--rerun-fails --rerun-fails-max-failures 5` |
-| `ci.yml` CLI tests | — | `-race` | `10m` | No retry (deterministic) |
-| `make test` | Non-CLI packages via gotestsum/go test, then `make test-cli` | Non-CLI: no `-race`; CLI: `-race` | CLI `10m` | Non-CLI `--rerun-fails` if gotestsum available |
-| `make test-short` | — | — | — | — |
+| `ci.yml` full, non-CLI (excludes `tests/cli` and `internal/runtime`) | `-coverprofile=coverage.out` | `-race` | `15m` | `--rerun-fails --rerun-fails-max-failures 5` |
+| `ci.yml` full, `internal/runtime` | `-coverprofile=runtime-coverage.out` | `-race` | `15m` | `--rerun-fails --rerun-fails-max-failures 5` |
+| `ci.yml` full, CLI (`./tests/cli/...`) | `-coverprofile=cli-coverage.out` | `-race` | `10m` | No retry (deterministic) |
+| `ci.yml` short mode (macOS/Windows), `./...` incl. `tests/cli` | `-coverprofile=coverage.out` | `-race` | go default | `--rerun-fails --rerun-fails-max-failures 3`; also `-short -v` |
+| `ci.yml` short mode, CLI (`./tests/cli/...`) | `-coverprofile=cli-coverage.out` | `-race` | `5m` | No retry |
+| `make test` | Non-CLI packages via gotestsum/go test, then `make test-cli` | Non-CLI: no `-race`; CLI: `-race` | CLI `10m` | Non-CLI `--rerun-fails --rerun-fails-max-failures 5` if gotestsum is available; CLI never |
+| `make test-short` | — | no `-race` | go default | `--rerun-fails --rerun-fails-max-failures 3` if gotestsum is available; `-v -short`, `./...` |
 | `make test-cli-cover` | `GOCOVERDIR=...` + `-cover` build | `-race` | `10m` | — |
+
+Source: `.github/workflows/ci.yml` (test steps) and the `Makefile` `test*` targets.
 
 ### CLI Coverage Collection
 
@@ -135,6 +142,31 @@ Prevents drift where one mirror adds test cases that the other misses.
 Scans embedded `.md` issue templates for stale tokens (deprecated CLI subcommands,
 Alpine-specific commands). Prevents issue templates from suggesting outdated workflows.
 
+### 6. TestPathMatrixSurfaces_AreCovered and TestPathMatrixExemptions_AreCurrent
+
+**File**: `tests/coverage/pathmatrix_coverage_test.go`
+
+`TestPathMatrixSurfaces_AreCovered` discovers production path contracts by AST inspection and
+requires each to be registered, with its registered test function calling a top-level
+`pathmatrix.{Validator,Resolver,VolumeMount}` helper and referencing the symbol.
+`TestPathMatrixExemptions_AreCurrent` fails when an exempted test file no longer exists or
+already calls pathmatrix (so the exemption should become a registered surface). Together
+they enforce the seven-vector rule in `.agents/rules/testing.md` (checked by T3-C09).
+
+### 7. TestNoGlobalConfigAccess
+
+**File**: `internal/config/config_generate_test.go`
+
+Guards against reintroducing global config accessors in production code paths; the config
+package has no global mutable state.
+
+### 8. TestTUITmuxCoverageIssues_Bidirectional
+
+**File**: `cmd/invowk/cmd_coverage_test.go`
+
+Self-test of the two-way exemption/marker reconciliation that `TestTUIExemptionTmuxCoverage`
+relies on, so a regression in the guardrail logic itself cannot pass silently.
+
 ---
 
 ## Per-Package Coverage Expectations
@@ -147,7 +179,7 @@ These packages contain critical business logic where gaps are most dangerous:
 |---|---|---|
 | `pkg/invowkfile/` | Schema parsing, validation | User-facing configuration correctness |
 | `pkg/invowkmod/` | Module metadata, operations | Module resolution, vendoring, locking |
-| `internal/runtime/` | All three runtimes | Command execution correctness |
+| `internal/runtime/` | All four runtimes (native, virtual-sh, virtual-lua, container) | Command execution correctness |
 | `internal/discovery/` | Module/command discovery | Correct precedence and collision detection |
 | `internal/app/commandsvc/` | Command execution service | Core execution pipeline |
 | `internal/app/deps/` | Dependency validation | Prerequisite checking |
@@ -161,8 +193,3 @@ These packages contain critical business logic where gaps are most dangerous:
 | `internal/benchmark/` | PGO benchmarks | Benchmarks test performance, not correctness |
 | `internal/core/serverbase/` | Server state machine | State transitions tested; lifecycle tested through SSH/TUI servers |
 | `cmd/invowk/` | CLI adapters | Thin wrappers; behavior tested via integration tests |
-
-### Separate Module (different coverage gate)
-
-| Package | Focus | Coverage Notes |
-|---|---|---|

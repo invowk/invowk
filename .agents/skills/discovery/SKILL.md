@@ -2,53 +2,68 @@
 name: discovery
 description: >-
   Module/command discovery, precedence order, collision detection, source
-  tracking, vendored module namespace policy, diagnostics, and command-scope
-  discovery inputs. Use when working on internal/discovery/, discovery adapters,
-  command dependency scope checks, or how invowkfiles/modules are found,
-  namespaced, locked, and aggregated.
+  tracking, vendored module (invowk_modules/) namespace policy, diagnostics,
+  and command-scope discovery inputs. Use when working on internal/discovery/,
+  discovery adapters, command dependency scope checks, or how
+  invowkfiles/modules are found, namespaced, locked, and aggregated.
 ---
 
 # Discovery Skill
 
-This skill covers the discovery system in Invowk, which locates and aggregates commands from multiple sources with clear precedence rules and collision detection.
+This skill covers the discovery system in Invowk, which locates and aggregates
+commands from multiple sources with clear precedence rules and collision
+detection. Besides `internal/discovery/`, it applies to the production adapter
+`internal/app/commandadapters/discovery.go` and the command-scope checks in
+`internal/app/deps/` that consume discovered command identities.
 
-Use this skill when working on:
-- `internal/discovery/` - Discovery and aggregation logic
-- `internal/app/commandadapters/discovery.go` - production discovery adapter wiring
-- `internal/app/deps/` - command-scope checks that consume discovered command identities
-- Module resolution and dependency handling
-- Command collision detection and disambiguation
-- Source tracking and precedence
+- `internal/discovery/doc.go` is authoritative for scope and precedence; check
+  it when this file and the code disagree.
+- `discovery.go`, `discovery_files.go`, and `discovery_commands.go` are named by
+  formal correspondence tables: renames or behavior changes there also follow
+  `.agents/rules/formal-bindings.md`.
+- Navigation tables (design decisions with rationale, file organization):
+  `references/internals.md`.
 
 ---
 
 ## Discovery Precedence Order
 
-The discovery system implements a **strict 4-level precedence hierarchy**:
+Discovery follows a **6-level precedence order** (`doc.go`,
+`discoverAllWithDiagnostics()` in `discovery_files.go`):
 
 | Priority | Source | Description |
 |----------|--------|-------------|
 | 1 (Highest) | Current Directory | `invowkfile.cue` in the working directory |
 | 2 | Local Modules | Sibling `*.invowkmod` directories in current directory and their vendored dependencies |
 | 3 | Config Includes | Module paths from `config.Includes` and their vendored dependencies |
-| 4 (Lowest) | User Commands | `~/.invowk/cmds/` — modules only, non-recursive, and their vendored dependencies |
+| 4 | Provisioned Modules | Module entries supplied by the command adapter for provisioned container images (`WithProvisionedModuleEntries`) and their vendored dependencies |
+| 5 | Provisioned Global Modules | Global module entries supplied the same way (`WithProvisionedGlobalModuleEntries`), marked `IsGlobalModule`, and their vendored dependencies |
+| 6 (Lowest) | User Commands | `~/.invowk/cmds/` — modules only, non-recursive, marked `IsGlobalModule`, and their vendored dependencies |
 
 **Key Behavior:**
-- Non-module sources (current dir invowkfile): First source **shadows** later ones
-- Module commands: **All included** with ambiguity flagging for transparent namespace
-- User commands dir only discovers `*.invowkmod` immediate children (no loose invowkfiles, no recursion)
+- The current-directory invowkfile is the only non-module source. Full command
+  names are first-wins in precedence order (`DiscoveredCommandSet.ByName`), but
+  a simple name defined by both the invowkfile and a module is flagged
+  **ambiguous**, not shadowed.
+- Module commands: **All included** with ambiguity flagging for transparent namespace.
+- A local module with the same module ID as a global one wins by precedence and
+  emits a `module_shadows_global` warning (`detectModuleShadowing`).
+- User commands dir only discovers `*.invowkmod` immediate children (no loose invowkfiles, no recursion).
+- When `baseDir` is empty (e.g. `os.Getwd()` failed because the working
+  directory was deleted), current-directory and local-module discovery
+  (levels 1-2) are skipped instead of resolving against the process cwd.
 
 ---
 
 ## File Discovery Algorithm
 
-Discovery has two parallel tracks:
+Discovery has three tracks:
 
 ### Track A: Invowkfile Discovery
 
 ```go
 // Single-level check (current directory only)
-discoverInDir(dir)  // Looks for invowkfile.cue OR invowkfile
+discoverInDir(dir, source)  // Looks for invowkfile.cue OR invowkfile
 ```
 
 **File Priority:** `.cue` extension preferred over non-suffixed `invowkfile`
@@ -64,7 +79,8 @@ discoverModulesInDirWithDiagnostics(dir) → ([]*DiscoveredFile, []Diagnostic)
 
 **Module Validation:**
 - Uses `invowkmod.IsModule()` to verify directory structure
-- Skips reserved module name `"invowkfile"` (reserved for canonical namespace)
+- Skips reserved module name `"invowkfile"` (reserved for canonical namespace) with a warning diagnostic
+- Skips symlinked `.invowkmod` directories to prevent boundary escape (`module_symlink_skipped`; vendored: `vendored_symlink_skipped`)
 - **Graceful degradation**: Invalid modules emit diagnostics (warnings) and are skipped
 
 ### Track C: Vendored Module Discovery
@@ -73,23 +89,26 @@ After discovering each module (from any module source), the system may scan its 
 
 ```go
 // Flat, one-level scan of <parentModule.Path>/invowk_modules/
-discoverVendoredModulesWithDiagnostics(parentModule) → ([]*DiscoveredFile, []Diagnostic)
+discoverVendoredModulesWithDiagnostics(parentModule) → ([]*DiscoveredFile, []Diagnostic, error)
 ```
 
 **Key behaviors:**
 - Loads the parent module lock file and includes vendored modules only when they are declared and locked by the parent dependency graph.
-- Verifies vendored module content hashes; hash mismatches are hard errors, not warnings.
-- Skips vendored modules with missing transitive dependencies from the parent graph.
+- Verifies vendored module content hashes; hash mismatches are hard errors (discovery aborts), not warnings. On by default; the audit scan context disables it with `WithVendoredIntegrityVerification(false)` (`internal/audit/scan_context.go`).
+- Skips vendored modules with missing transitive dependencies from the parent graph, and modules that match several declared lock entries for the same identity (`vendored_ambiguous_lock_skipped`).
 - Sets `ParentModule` on each vendored `DiscoveredFile` for ownership tracking
 - Vendored modules use `SourceModule` (no new Source enum value)
 - **No recursion**: Only immediate `invowk_modules/` children are scanned; nested vendored modules are NOT recursed into (emits `vendored_nested_ignored` diagnostic)
 - Vendored modules are always ordered after their parent in the files slice
+- Vendored children inherit `IsGlobalModule` from their parent.
 
-**DRY helper** used at all 3 module scan sites (local, includes, user-dir):
+**DRY helper** used at all 5 module scan sites (local, includes, provisioned,
+provisioned-global, user-dir):
 
 ```go
-// Appends module files + scans vendored for each, consolidating diagnostics
-appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags) → (files, diagnostics)
+// Appends module files + scans vendored for each, consolidating diagnostics;
+// a vendored integrity error aborts discovery.
+appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags) → (files, diagnostics, error)
 ```
 
 ---
@@ -126,11 +145,15 @@ The aggregation system uses a **two-phase process with transparent namespace**:
 ### Phase 1: Flatten & Index
 
 ```go
-// Get all commands with proper namespacing
-commands := invowkfile.FlattenCommands()
-
-// Modules have commands prefixed:
-// Module "foo" with command "build" → "foo build"
+// Per discovered file: flatten its commands, then publish module commands
+// under the effective command namespace (module ID, include alias, or
+// locked vendored source ID).
+for _, cmd := range file.Invowkfile.FlattenCommands() {
+    fullName := cmd.Name                       // root invowkfile: "build"
+    if isModule {
+        fullName, _ = buildModuleCommandName(sourceID, cmd.Name) // module "foo": "foo build"
+    }
+}
 ```
 
 ### Phase 2: Conflict Analysis
@@ -140,6 +163,7 @@ The `DiscoveredCommandSet` provides:
 | Field | Purpose |
 |-------|---------|
 | `Commands` | All discovered commands |
+| `ByName` | Index: full name → first command added with it (precedence order); used by `GetCommand` |
 | `BySimpleName` | Index: simple name → all commands with that name |
 | `AmbiguousNames` | Set of names that exist in >1 source |
 | `BySource` | Groups commands by source ID |
@@ -147,10 +171,10 @@ The `DiscoveredCommandSet` provides:
 
 ### Precedence vs. Collision Handling
 
-| Source Type | Behavior |
-|-------------|----------|
-| Non-module (current dir invowkfile) | First source **WINS** (shadows later) |
-| Module (local, config includes, user-dir) | **ALL included** with ambiguity flagging |
+| Situation | Behavior |
+|-----------|----------|
+| Same full name from several files | First in precedence order **WINS** in `ByName` |
+| Same simple name across sources (invowkfile vs module, or module vs module) | **ALL included**; `Analyze()` marks every one `IsAmbiguous` |
 
 **IsAmbiguous Flag:** Set to `true` when a simple name conflicts across sources. This enables:
 - **Transparent namespace** for unambiguous commands: `invowk cmd build`
@@ -189,15 +213,18 @@ When two modules have the same ID in different sources:
 Commands can only call:
 
 1. Commands from the **same module**
-2. Commands from **globally installed user command modules** (`~/.invowk/cmds/`)
+2. Commands from **global modules** (`IsGlobalModule`): `~/.invowk/cmds/` modules, provisioned global entries, and their vendored children
 3. Commands from **first-level requirements** (direct dependencies in `invowkmod.cue:requires`) that also match lock-file identity/source metadata
 
 **CRITICAL:** Transitive dependencies are **NOT accessible**. Commands cannot call dependencies of dependencies. This enforces explicit, auditable dependency chains.
 
-Scope enforcement is in `internal/app/deps/`. A direct dependency is authorized
+Scope enforcement is in `internal/app/deps/` (`CheckCommandDependenciesExist()`
+in `deps.go`), applying the policy type `CommandScope.CanCallTarget`
+(`pkg/invowkmod/command_scope.go`). A direct dependency is authorized
 only when the declaration and `invowkmod.lock.cue` agree on both stable module
 identity and effective command source ID. This prevents alias collisions from
-accidentally granting command visibility.
+accidentally granting command visibility. It is a static gate on
+`depends_on.cmds`, not a runtime interceptor (AGENTS.md hard invariant).
 
 ---
 
@@ -205,15 +232,19 @@ accidentally granting command visibility.
 
 ### Command Tree Validation
 
-`ValidateCommandTree()` enforces the **leaf-only args** rule:
+`ValidateCommandTree()` (`validation.go`, delegating to
+`invowkfile.ValidateCommandTree`) enforces the **leaf-only args** rule:
 
 ```go
 // A command cannot have both positional args AND subcommands
 // Positional args would be unreachable if subcommands exist
 
-type ArgsSubcommandConflictError struct {
-    CommandPath []string  // Path to the conflicting command
-    ArgNames    []string  // The args that conflict
+// discovery.ArgsSubcommandConflictError is an alias of:
+type ArgsSubcommandConflictError struct { // pkg/invowkfile/command_tree.go
+    CommandName CommandName
+    Args        []Argument
+    Subcommands []CommandName
+    FilePath    types.FilesystemPath
 }
 ```
 
@@ -258,19 +289,34 @@ type CommandSetResult struct {
     Diagnostics []Diagnostic
 }
 
+// Command is nil when the command was not found; Diagnostics then contains a
+// command_not_found entry.
 type LookupResult struct {
     Command     *CommandInfo
     Diagnostics []Diagnostic
 }
 ```
 
+`DiscoverModules()` returns `ModuleListResult{Modules, Diagnostics}` the same way.
+
 ### Diagnostic Codes
 
-Use `internal/discovery/diagnostic.go` as the source of truth for diagnostic codes. Current families cover init/config/lookup failures, local/include/vendored module scan and load outcomes, vendored undeclared or transitive-dependency skips, container runtime initialization, shebang/interpreter overrides, local-over-global shadowing, and symlink skips.
+Use `internal/discovery/diagnostic.go` as the source of truth for diagnostic
+codes. Current families cover init/config/lookup failures, local/include/vendored
+module scan and load outcomes, reserved-name skips, vendored undeclared,
+ambiguous-lock, or transitive-dependency skips, provisioned module manifest
+errors, container runtime initialization, shebang/interpreter overrides,
+local-over-global shadowing, and symlink skips (symlinked modules are skipped to
+prevent boundary escape).
 
 ---
 
 ## Usage Patterns
+
+Production CLI code reaches discovery through
+`commandadapters.DiscoveryService` (config loading plus a per-request cache;
+see the cli skill). The raw `discovery.Discovery` API below is what that
+adapter, the audit scanner, and tests use.
 
 ### Deterministic Tests
 
@@ -314,39 +360,24 @@ result, err := disc.DiscoverAndValidateCommandSet(ctx)  // Includes tree validat
 
 ```go
 lookup, err := disc.GetCommand(ctx, "foo build")
-// Returns LookupResult with Command, Invowkfile, Module metadata, and Diagnostics
+// lookup.Command (*CommandInfo, nil if not found) carries the invowkfile and
+// module metadata; lookup.Diagnostics includes command_not_found on a miss.
 ```
 
 ---
 
-## Design Decisions
+## Design Invariants
 
-| Decision | Rationale |
-|----------|-----------|
-| Combined file discovery + command aggregation | Tightly coupled; splitting would require large intermediate data structures |
-| Non-module precedence shadows | User dir and config paths are fallback sources |
-| Module commands all included | Modules in current dir are first-class and should all be visible |
-| SimpleName-based collision detection | Enables transparent namespace while flagging attention for conflicts |
-| Lazy parsing (LoadAll vs DiscoverAll) | Parsing deferred until needed; discovery is I/O only |
-| Module aliases in config | Keeps discovery focused on filesystem; config handles naming |
-| Graceful error handling | Invalid modules skipped; one bad module doesn't block others |
-| Vendored modules use `SourceModule` | No new Source enum; vendored modules are modules, distinguished by `ParentModule != nil` |
-| Single-level vendored scanning | No recursive nesting; vendored module's own `invowk_modules/` is ignored with diagnostic |
-| `ParentModule` field for ownership | Minimal, backward-compatible; enables collision annotation and future scope enforcement |
+- File discovery and command aggregation stay in one package (`doc.go` explains
+  why); separate concerns by file.
+- Vendored modules use `SourceModule`; never add a new `Source` enum value for
+  them (`ParentModule != nil` distinguishes them).
+- Vendoring is single-level: never recurse into a vendored module's own
+  `invowk_modules/`.
+- Invalid modules degrade to warning diagnostics; only vendored integrity
+  failures abort discovery.
 
----
-
-## File Organization
-
-| File | Purpose |
-|------|---------|
-| `discovery.go` | Core API: LoadAll, LoadFirst, CheckModuleCollisions, GetEffectiveCommandNamespace, loadAllWithDiagnostics |
-| `discovery_files.go` | File/module discovery: DiscoverAll, discoverInDir, discoverModulesInDirWithDiagnostics, discoverVendoredModulesWithDiagnostics, appendModulesWithVendored, loadIncludesWithDiagnostics, Source enum, DiscoveredFile (with ParentModule) |
-| `discovery_vendored_test.go` | Vendored module discovery tests: parent tracking, ordering, nested blocking, all 3 source types, collision annotation, reserved module skip, scan failure diagnostics |
-| `discovery_commands.go` | Command aggregation: DiscoverCommandSet, DiscoverAndValidateCommandSet, GetCommand, DiscoveredCommandSet |
-| `diagnostic.go` | Diagnostic type, Severity constants, CommandSetResult, LookupResult |
-| `validation.go` | Command tree validation (leaf-only args rule) |
-| `doc.go` | Package documentation |
+Rationale for these and the other design decisions: `references/internals.md`.
 
 ---
 
@@ -357,7 +388,7 @@ lookup, err := disc.GetCommand(ctx, "foo build")
 | Expecting transitive deps | Command can't call dep-of-dep | Add explicit first-level requirement |
 | Forgetting disambiguation | "ambiguous command" error | Use `@source` prefix or `--ivk-from` flag |
 | Args + subcommands together | ArgsSubcommandConflictError | Make args-only or subcommands-only |
-| Testing non-module shadowing | Later source visible | Only first non-module source wins |
-| Module with reserved name "invowkfile" | Module silently skipped | Use different module name |
+| Expecting the root invowkfile to shadow a module command | Both appear, flagged ambiguous | Only full-name lookups are first-wins; same simple names need disambiguation |
+| Module with reserved name "invowkfile" | Module skipped with a `reserved_module_name_skipped` warning (`include_reserved_module_skipped` / `vendored_reserved_module_skipped` for includes/vendored) | Use different module name |
 | Expecting nested vendored modules | Only first level of `invowk_modules/` scanned | Flatten deps into the parent module's vendor dir |
 | Vendored module collision | `ModuleCollisionError` with "(vendored in parent)" | Add alias in includes config for one of the colliding modules |

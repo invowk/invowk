@@ -2,7 +2,10 @@
 
 Items listed here are DELIBERATELY different from standard test patterns and represent
 **permanent, structural exceptions** whose justifications are unlikely to change.
-Do NOT flag these as errors during review. Mark findings against these as severity **SKIP**.
+Do NOT flag these as errors during review. An occurrence that matches an entry here is not a
+finding: cite the entry in the checklist item's evidence. Item status follows the status rule in
+`SKILL.md` — FAIL if any deviation matches no registry entry, SKIP only when every deviation
+matches a registry entry (each cited), otherwise PASS with the matches cited.
 
 > **See also**: [`accepted-patterns.md`](accepted-patterns.md) for conditionally-accepted
 > patterns that carry reconsideration triggers. Use this registry for permanent exceptions;
@@ -20,7 +23,7 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | Tests using `SetHomeDir` or similar process-wide overrides | No `t.Parallel()` | Modifies process-level configuration directory |
 | Tests replacing `os.Stdin` | No `t.Parallel()` | `os.Stdin` is process-wide; concurrent replacement causes data races |
 | CUE `cue.Value` / `*cue.Context` subtests | Serial subtests (no `t.Parallel()` on subtests) | CUE values and contexts are NOT thread-safe; `Unify()` and `CompileString()` mutate internal state. Use `//nolint:tparallel` when parent calls `t.Parallel()` but subtests must be serial |
-| TUI client tests (`internal/tuiserver/client_test.go`) | Sequential subtests | Share request/response channels via `server.RequestChannel()`; parallel subtests would race on the channel |
+| TUI client tests (`internal/tuiclient/client_test.go`) | Sequential subtests (`//nolint:tparallel,paralleltest`) | Share request/response channels via `server.RequestChannel()`; parallel subtests would race on the channel |
 | Mock exec command tests (`internal/container/engine_mock_test.go`) | No `t.Parallel()` | `withMockExecCommand` replaces the package-level `execCommand` variable, which is process-wide for the test binary |
 | Container engine integration tests (`internal/container/engine_test.go`) | No `t.Parallel()` on parent (subtests serial) | `TestDockerEngine_Integration` and `TestPodmanEngine_Integration` share engine instance and context across subtests; per-subtest isolation would require separate engine connections |
 
@@ -81,20 +84,24 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 |---|---|---|
 | `internal/tui/choose_builders.go` | No dedicated `choose_builders_test.go` | All 29 exported methods are fully covered by `choose_test.go` (`TestChooseBuilder_FluentAPI`, `TestMultiChooseBuilder_FluentAPI`, `TestChooseStringBuilder_FluentAPI`, etc.) |
 | `internal/tui/list_styles.go` | No dedicated `list_styles_test.go` | Both functions are unexported; tested indirectly via choose/filter model tests. Direct tests would be circular (asserting color hex == same hex) |
-| `internal/tui/theme_colors.go` | No dedicated `theme_colors_test.go` | All 4 symbols are unexported constants; tested indirectly via `modalBaseStyle()` in `embeddable_test.go`. Direct tests would be trivially circular |
+| `internal/tui/theme_colors.go` | No dedicated `theme_colors_test.go` | All 4 symbols are unexported constants; tested indirectly via `modalBaseStyle()` in `tui_embeddable_test.go`. Direct tests would be trivially circular |
 | `internal/tui/interactive_unix.go`, `interactive_windows.go` | No test files | Thin syscall wrappers (`unix.IoctlGetWinsize` / Windows API); impractical to unit test without mocking the terminal |
 
 ### Error String Matching Exceptions
 
-| Category | Scope | Rationale |
-|---|---|---|
-| `ValidationErrors` flattening | ~40 occurrences in `pkg/invowkfile/` | `invowkfile.ValidationErrors` flattens sentinel errors into `ValidationError.Message` strings during CUE parsing. `errors.Is()` cannot reach the original sentinel through the error chain. Explicitly noted in `invowkfile_deps_custom_test.go:327`. |
-| `Error()` format tests | ~15 occurrences across `cmd/`, `internal/`, `pkg/` | Tests verifying the output of typed error `Error()` methods (e.g., `DependencyError.Error()`, `CapabilityError.Error()`). The string IS the contract. |
-| DDD `Invalid*Error` rendering | `internal/tui/`, `internal/tuiserver/`, `pkg/types/` | Tests that `Invalid*Error.Error()` includes the bad input value (e.g., "-5", "bad"). Verifies error message quality. |
-| CUE library errors | `pkg/invowkfile/invowkfile_schema_test.go`, `pkg/cueutil/` | Errors from `cuelang.org/go` (e.g., "field not allowed", "conflict") have no sentinel API. |
-| Supplementary checks | `internal/app/deps/`, `internal/uroot/` | Tests that already use `errors.Is()` for the primary assertion; `strings.Contains` verifies additional message content (e.g., flag name, file path, prefix). |
-| External/OS errors | `internal/runtime/`, `internal/config/` | Errors from `os`, `strconv`, `exec.LookPath` without sentinel wrapping. |
-| Non-empty error checks | `internal/tui/`, `internal/config/` | Tests checking `err.Error() == ""` or `err.Error() != ""` — verifying message exists, not content. |
+The KEEP categories, their rationale and the CONVERTIBLE decision rule live in
+`pattern-catalog.md` § "Error Assertion Classification" (the canonical classification). This
+table records only where each category is expected to occur.
+
+| Category | Scope |
+|---|---|
+| `ValidationError` without a `Cause` | `pkg/invowkfile/` — KEEP only after tracing shows `Cause` is nil. `ValidationError` and `ValidationErrors` implement `Unwrap`, so a sentinel in `Cause` is reachable by `errors.Is` (for example `invowkfile_deps_custom_test.go` asserts `errors.Is(err, ErrNestedQuantifiers)` and then adds a supplementary `strings.Contains`). |
+| `Error()` format tests | ~15 occurrences across `cmd/`, `internal/`, `pkg/` (e.g., `DependencyError` rendering in `cmd/invowk/cmd_dependency_render_test.go`, `CapabilityError.Error()`) |
+| DDD `Invalid*Error` rendering | `internal/tui/`, `internal/tuiserver/`, `pkg/types/` |
+| CUE library errors | `pkg/invowkfile/invowkfile_schema_test.go`, `pkg/cueutil/` |
+| Supplementary checks | `internal/app/deps/`, `internal/uroot/` |
+| External/OS errors | `internal/runtime/`, `internal/config/` |
+| Non-empty error checks | `internal/tui/`, `internal/config/` |
 
 ### Container Exit-Code Stderr Exceptions
 
@@ -107,14 +114,14 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 | Location | What Is Different | Rationale |
 |---|---|---|
 | `internal/testutil/poll_test.go` | `time.Sleep(50ms)` in goroutine | Tests the `PollUntil` polling helper itself; the goroutine simulates delayed readiness. |
-| `internal/watch/watcher_test.go:83` | `time.Sleep(20ms)` between writes | Forces separate fsnotify events; macOS kqueue coalesces rapid writes into one event. |
-| `internal/watch/watcher_test.go:300` | `time.Sleep(300ms)` in callback | Simulates a slow callback to test serialization behavior (debounce guard). |
+| `internal/watch/watcher_test.go` `TestWatcherDebounce` | `time.Sleep(20ms)` between writes | Forces separate fsnotify events; macOS kqueue coalesces rapid writes into one event. |
+| `internal/watch/watcher_test.go` `TestWatcherSkipIfBusy` | `time.Sleep(300ms)` in callback | Simulates a slow callback to test serialization behavior (debounce guard). |
 
 ### SonarCloud Configuration Exceptions
 
 | Location | What Is Different | Rationale |
 |---|---|---|
-| `sonar-project.properties` | `sonar.go.coverageReportPaths` is intentionally omitted | SonarCloud is installed as a GitHub App using automatic analysis. The App runs its own analysis on PR events — it cannot access CI-generated artifacts like `coverage.out`. Coverage is collected by CI and uploaded as a GitHub Actions artifact for manual inspection, but not fed to SonarCloud. This is documented in `sonar-project.properties` lines 9-11. |
+| `sonar-project.properties` | `sonar.go.coverageReportPaths` is intentionally omitted | SonarCloud is installed as a GitHub App using automatic analysis. The App runs its own analysis on PR events — it cannot access CI-generated artifacts like `coverage.out`. Coverage is collected by CI and uploaded as a GitHub Actions artifact for manual inspection, but not fed to SonarCloud. This is documented in the `sonar.go.coverageReportPaths` comment at the top of `sonar-project.properties`. |
 | `sonar-project.properties` | `sonar.tests` omits `tools/` directory | `tools/` holds curated mutation manifests, not production Go sources; the goplint analyzer lives in the standalone `github.com/invowk/goplint` repository with its own quality governance (including SonarCloud). |
 
 ### Test Naming Exceptions
@@ -163,7 +170,8 @@ When a review finding is determined to be an intentional exception:
 2. Add a row to the appropriate section of the Registry table above.
 3. Describe what is different (be specific about the pattern deviation).
 4. Explain why it is intentional (the technical or design reason).
-5. Mark the original finding as severity **SKIP** with a reference to this entry.
+5. Drop the original finding and cite this entry in the checklist item's evidence; the item's
+   status then follows the status rule in `SKILL.md`.
 
 **Graduation from `accepted-patterns.md`**: SETTLED patterns that have been stable for 12+
 audit rounds and whose reconsideration triggers are structurally unlikely may be moved here

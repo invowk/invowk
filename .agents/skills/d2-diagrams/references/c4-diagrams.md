@@ -67,8 +67,8 @@ email: E-mail System {
 }
 
 # Relationships
-customer -> banking: Views account balances\nand makes payments
-banking -> mainframe: Gets account info\nand makes payments
+customer -> banking: "Views account balances\nand makes payments"
+banking -> mainframe: "Gets account info\nand makes payments"
 banking -> email: Sends emails using
 email -> customer: Sends emails to
 ```
@@ -183,16 +183,16 @@ email: E-mail System {
 }
 
 # Relationships
-customer -> banking.web: Visits\n[HTTPS]
-customer -> banking.spa: Uses\n[HTTPS]
+customer -> banking.web: "Visits\n[HTTPS]"
+customer -> banking.spa: "Uses\n[HTTPS]"
 customer -> banking.mobile: Uses
 
 banking.web -> banking.spa: Delivers
-banking.spa -> banking.api: Makes API calls\n[JSON/HTTPS]
-banking.mobile -> banking.api: Makes API calls\n[JSON/HTTPS]
-banking.api -> banking.db: Reads/writes\n[SQL/TCP]
-banking.api -> mainframe: Gets account info\n[XML/HTTPS]
-banking.api -> email: Sends emails\n[SMTP]
+banking.spa -> banking.api: "Makes API calls\n[JSON/HTTPS]"
+banking.mobile -> banking.api: "Makes API calls\n[JSON/HTTPS]"
+banking.api -> banking.db: "Reads/writes\n[SQL/TCP]"
+banking.api -> mainframe: "Gets account info\n[XML/HTTPS]"
+banking.api -> email: "Sends emails\n[SMTP]"
 ```
 
 ## Component Diagram
@@ -312,20 +312,20 @@ api: API Application {
 }
 
 # Relationships
-spa -> api.signin: Makes API calls\n[JSON/HTTPS]
-spa -> api.accounts: Makes API calls\n[JSON/HTTPS]
-spa -> api.reset: Makes API calls\n[JSON/HTTPS]
-mobile -> api.signin: Makes API calls\n[JSON/HTTPS]
-mobile -> api.accounts: Makes API calls\n[JSON/HTTPS]
+spa -> api.signin: "Makes API calls\n[JSON/HTTPS]"
+spa -> api.accounts: "Makes API calls\n[JSON/HTTPS]"
+spa -> api.reset: "Makes API calls\n[JSON/HTTPS]"
+mobile -> api.signin: "Makes API calls\n[JSON/HTTPS]"
+mobile -> api.accounts: "Makes API calls\n[JSON/HTTPS]"
 
 api.signin -> api.security: Uses
 api.accounts -> api.facade: Uses
 api.reset -> api.security: Uses
 api.reset -> api.emailer: Uses
 
-api.security -> db: Reads/writes\n[SQL/TCP]
-api.facade -> mainframe: Uses\n[XML/HTTPS]
-api.emailer -> email: Sends using\n[SMTP]
+api.security -> db: "Reads/writes\n[SQL/TCP]"
+api.facade -> mainframe: "Uses\n[XML/HTTPS]"
+api.emailer -> email: "Sends using\n[SMTP]"
 ```
 
 ## Multi-Level C4 with Layers
@@ -395,18 +395,14 @@ d2 --layout=tala --tala-seeds=100 --target container banking.d2 container.svg
 
 ## The Suspend Pattern
 
-For complex multi-view diagrams, use the suspend pattern to share a common model:
+For complex multi-view diagrams, define one shared model (elements and relationships) and let
+each view import it, hide everything with `**: suspend`, and bring back only what that view
+needs with `<name>: unsuspend`. Edges between two unsuspended objects reappear automatically.
+Objects declared after the glob (view-only elements) are not suspended.
 
 ```d2
 # shared-model.d2
-vars: {
-  d2-config: {
-    layout-engine: tala
-  }
-}
-
-# Define all elements (suspended - not rendered)
-_.customer: Customer {
+customer: Customer {
   shape: person
   width: 70
   height: 100
@@ -414,55 +410,77 @@ _.customer: Customer {
   style.font-color: "#ffffff"
 }
 
-_.web: Web Application {
+web: Web Application {
   style.fill: "#438DD5"
   style.font-color: "#ffffff"
 }
 
-_.api: API Application {
+api: API Application {
   style.fill: "#438DD5"
   style.font-color: "#ffffff"
 }
 
-_.db: Database {
+db: Database {
   shape: cylinder
   style.fill: "#438DD5"
   style.font-color: "#ffffff"
 }
 
-_.mainframe: Mainframe {
+mainframe: Mainframe {
   style.fill: "#999999"
   style.font-color: "#ffffff"
 }
+
+customer -> web: "Visits\n[HTTPS]"
+web -> api: "Calls\n[JSON/HTTPS]"
+api -> db: "Reads/writes\n[SQL]"
+api -> mainframe: "Gets account info\n[XML/HTTPS]"
 ```
 
 ```d2
 # context-view.d2
-...@shared-model.d2
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
 
-# Unsuspend only context-level elements
-customer: ${_.customer}
+...@shared-model
+
+# Hide the whole model, then show only context-level elements
+**: suspend
+customer: unsuspend
+mainframe: unsuspend
+
+# View-only element (declared after the glob, so it stays visible)
 system: Banking System {
   style.fill: "#1168BD"
+  style.font-color: "#ffffff"
 }
-mainframe: ${_.mainframe}
-
-customer -> system
-system -> mainframe
+customer -> system: "Views balances\n[HTTPS]"
+system -> mainframe: "Gets account info\n[XML/HTTPS]"
 ```
 
 ```d2
 # container-view.d2
-...@shared-model.d2
+vars: {
+  d2-config: {
+    layout-engine: tala
+  }
+}
 
-# Unsuspend container-level elements
-customer: ${_.customer}
-web: ${_.web}
-api: ${_.api}
-db: ${_.db}
+...@shared-model
 
-customer -> web -> api -> db
+# Hide the whole model, then show container-level elements;
+# the model's edges between them come back with them
+**: suspend
+customer: unsuspend
+web: unsuspend
+api: unsuspend
+db: unsuspend
 ```
+
+`...@shared-model` imports `shared-model.d2` from the same directory.
 
 ## E-Commerce Platform Example
 

@@ -77,7 +77,7 @@ cmds: [{
 ```
 
 Key rules:
-- **Same `stdout` assertions** as the virtual test — only script syntax differs
+- **Same `stdout` assertions** as the virtual test by default — only script syntax differs. Runtime-identity output (runtime name, dry-run rendering, runtime-specific error wording) may differ, with a justifying comment in the native file (native-mirror "Step 5: Preserve Assertions")
 - Linux/macOS: Use bash/zsh syntax (`echo`, `$VAR`, `if [ ... ]; then ... fi`)
 - Windows: Use PowerShell (`Write-Output`, `$env:VAR`, `if ($cond) { ... }`)
 - Always split into two implementations: one for Linux+macOS, one for Windows
@@ -94,17 +94,11 @@ Key rules:
 | `$INVOWK_FLAG_NAME` | `$env:INVOWK_FLAG_NAME` |
 | `$INVOWK_ARG_NAME` | `$env:INVOWK_ARG_NAME` |
 
+The full translation table, its open `echo -n` question and the 5.1-compatibility constraints are in `.agents/skills/native-mirror/SKILL.md` "Step 4: Translate Shell Syntax"; that skill is canonical for mirrors.
+
 ### Exemptions — Do NOT Create Native Mirrors For
 
-| Category | Files | Reason |
-|----------|-------|--------|
-| **u-root** | `virtual_uroot_*.txtar` | Virtual shell built-ins; native shell has its own |
-| **virtual shell** | `virtual_shell.txtar` | Tests virtual-shell-specific features |
-| **container** | `container_*.txtar` | Linux-only by design |
-| **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Schema parsing, not runtime behavior |
-| **discovery/diagnostics** | `virtual_diagnostics_footer.txtar` | Diagnostics footer formatting, not shell execution |
-| **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime |
-| **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` | Built-in Cobra handlers, not user-defined runtimes |
+The machine-enforced exemption list is `tests/cli/runtime_mirror_exemptions.json` (enforced by `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment`). Read it before creating a mirror and never copy its entries here. Files whose names do not start with `virtual_` or `native_` (`container_*`, `config_*`, `module_*`, `init_*`, `tui_*`, `completion.txtar`, `dogfooding_*` and so on) are outside the mirror scanner's scope rather than exempt; details are in `.agents/skills/native-mirror/SKILL.md` "Step 1: Check Exemptions".
 
 ## Go Unit Test Generation
 

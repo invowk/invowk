@@ -1,8 +1,9 @@
 # inotify and Linux Filesystem Watching
 
 Deep reference for the inotify API and Linux filesystem watching behavior.
-Covers the API surface, per-user limits, error handling, event coalescing, and
-comparison with other platform watching mechanisms.
+Covers the API surface, per-user limits, error handling, event coalescing,
+comparison with other platform watching mechanisms, and the project's flock
+locks.
 
 ---
 
@@ -260,30 +261,10 @@ caller. Directory walking and new-directory detection belong to the caller.
 
 ## The watcher_fatal_unix_test.go Test
 
-**Source:** `internal/watch/watcher_fatal_unix_test.go`
-
-```go
-//go:build !windows
-
-func TestIsFatalFsnotifyError(t *testing.T) {
-    t.Parallel()
-
-    tests := []struct {
-        name string
-        err  error
-        want bool
-    }{
-        {name: "ENOSPC is fatal", err: syscall.ENOSPC, want: true},
-        {name: "EMFILE is fatal", err: syscall.EMFILE, want: true},
-        {name: "ENFILE is fatal", err: syscall.ENFILE, want: true},
-        {name: "wrapped ENOSPC is fatal", err: fmt.Errorf("fsnotify: %w", syscall.ENOSPC), want: true},
-        {name: "EPERM is not fatal", err: syscall.EPERM, want: false},
-        {name: "EACCES is not fatal", err: syscall.EACCES, want: false},
-        {name: "generic error is not fatal", err: errors.New("something went wrong"), want: false},
-    }
-    // ... table-driven subtests ...
-}
-```
+**Source:** `internal/watch/watcher_fatal_unix_test.go` (`TestIsFatalFsnotifyError_Unix`,
+a table-driven test; read the cases there). The Windows variant of
+`isFatalFsnotifyError` lives in `internal/watch/watcher_fatal_windows.go`
+(tested by `TestIsFatalFsnotifyError_Windows`).
 
 **Build tag:** `//go:build !windows` (not `linux` specifically) because the
 `syscall.Errno` constants (`ENOSPC`, `EMFILE`, `ENFILE`) exist on both Linux
@@ -303,3 +284,41 @@ on macOS, kqueue does not produce `ENOSPC` for watch exhaustion.
 - `EMFILE`: Cannot open more file descriptors. The watcher cannot recover
   without external intervention (closing other fds).
 - `ENFILE`: System-wide fd exhaustion. Same as `EMFILE` but system-wide.
+
+---
+
+## File Locking (flock)
+
+Linux file locks are **advisory**: they do not stop other processes from
+reading or writing; every participant must take the lock first.
+
+- **`flock`**: lock on an open file description (not a file descriptor).
+  Descriptors duplicated by `fork`/`dup` share the description and therefore
+  the lock. The kernel releases it when the last descriptor closes, including
+  on process crash.
+- **`fcntl` record locks**: per-process, not inherited across `fork`,
+  byte-range granular. Not used by this project.
+- **`O_CREAT|O_EXCL`**: atomic create-if-absent, for lock-file-as-existence
+  patterns. Not used for the locks below.
+
+**Project usage of `flock`:**
+
+1. `internal/container/run_lock_linux.go`: serializes container run calls on
+   `$XDG_RUNTIME_DIR/invowk-podman.lock`, falling back to `os.TempDir()` when
+   `XDG_RUNTIME_DIR` is unset. Guards the rootless Podman `ping_group_range`
+   race between concurrent invowk processes. Contention tests:
+   `run_lock_linux_test.go`.
+2. `internal/testutil/container_suite_lock_linux.go`:
+   `AcquireContainerSuiteLock()` takes a blocking exclusive flock on
+   `$XDG_RUNTIME_DIR/invowk-container-suite.lock` (or `os.TempDir()`) to
+   serialize real-container test suites across test binaries. Only
+   `tests/cli` container tests use it; `internal/runtime` tests rely on the
+   in-process semaphore.
+
+**Behaviors to rely on:**
+
+- `unix.Flock(fd, unix.LOCK_EX)` blocks until the lock is free.
+- `Release()` is idempotent (nil-receiver and nil-file guards, then
+  `LOCK_UN` and `Close`).
+- Off Linux, both helpers fall back to an in-process `sync.Mutex`; never use
+  an in-process mutex where cross-binary coordination is required on Linux.
