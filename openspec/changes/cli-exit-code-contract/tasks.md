@@ -1,70 +1,108 @@
 ## 1. Baseline and test harness
 
-- [ ] 1.1 Rebase onto current main. If the base has moved past `85f1eb7b`, re-check every `file:line` citation in design.md, especially `cmd/invowk/root.go` and any custom fang error handler. Planned landing order is S1 → S2 → C2 → C1, but implementation does not wait for it.
-- [ ] 1.2 Record before-state help output for `invowk --help`, `invowk config --help`, `invowk cmd --help` and `invowk --version`, for the help-rendering diff in 4.4.
-- [ ] 1.3 Add an `exitcode <want> <cmd> <args…>` custom command to `testscript.Params.Cmds` in `tests/cli/cmd_test.go`, for both `TestCLI` and the container runner. Build it on `ts.Exec` (go-internal v1.16.0, `testscript/testscript.go:1211`), which runs in the script's cwd and environment and saves stdout/stderr for later `stdout`/`stderr` assertions. Read the status with `errors.As(err, *exec.ExitError)`. Reject `!` negation and fail when the status differs from `<want>`. Done when a throwaway txtar asserts `exitcode 0 invowk --version` and `exitcode 1 invowk cmd nope` on current code, then is removed.
+Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observations were made). Follow `.agents/rules/checklist.md`, `testing.md`, `windows.md` (for `tests/cli/*.go`) and `licensing.md` (for new `*.go`).
+
+- [ ] 1.1 If S1 (`harden-config-trust`) has merged into main, rebase onto it now and re-check the `cmd/invowk/root.go` citations in design.md (`Execute` at `:86-106`, last `AddCommand` at `:79`). If it has not, continue; task 8.1 rebases later. Check: the base commit (`git merge-base HEAD main`) is recorded in the stage report.
+- [ ] 1.2 Record before-state output into scratch files (outside the repo) for the diff in 4.5: `invowk --help`, `invowk config --help`, `invowk module --help`, `invowk cmd --help`, `invowk --version`, and, in a scratch dir with an invowkfile defining `a`, `w2`, `test unit`, `test other` plus a module `m` defining `w2 sub`: `invowk cmd`, `invowk __complete cmd ""`, `invowk __complete cmd test ""`, `invowk __complete config ""`. Check: the files exist and are non-empty.
+- [ ] 1.3 Add an `exitcode` custom command to `testscript.Params.Cmds` in `tests/cli/cmd_test.go` (`:199-203`) and in the container runner (`tests/cli/cmd_container_test.go:167`), defined once in a shared helper file in `tests/cli/`. Syntax: `exitcode <want> <cmd> <args…>`. It calls `ts.Exec(cmd, args...)` (go-internal v1.16.0, `testscript/testscript.go:1211`), reads the status with `errors.AsType[*exec.ExitError]` (0 when `err == nil`; any other error is `ts.Fatalf`), calls `ts.Fatalf("exitcode does not support negation")` when `neg` is true, and fails with the got/want codes and stderr when they differ. Then run `make test-cli` once on the unchanged code to record which tests fail later (expected: none yet). Check: a throwaway txtar with `exitcode 0 invowk --version` and `exitcode 1 invowk cmd nope` passes under `go test -run 'TestCLI/<name>' ./tests/cli/`, then is deleted.
 
 ## 2. Core types and mapping
 
-- [ ] 2.1 Add `cmd/invowk/usage_error.go` with `UsageError` (`Err`, `Error()` delegating, `Unwrap()`), a constructor that refuses to wrap an `*ExitError`, and an `ExitCodeUsage types.ExitCode = 2` constant. Include the SPDX header.
-- [ ] 2.2 Add a pure `exitCodeForError(err error) types.ExitCode` (nil → 0, `ExitError` → its code, `UsageError` → 2, otherwise 1). Make `Execute` (`root.go:95-105`) call `os.Exit(int(exitCodeForError(err)))`.
-- [ ] 2.3 Unit tests: a table for `exitCodeForError` (nil, `ExitError` 0/2/42, `UsageError`, `UsageError{ServiceError}`, wrapped plain error) and the constructor invariant.
+- [ ] 2.1 Add `cmd/invowk/usage_error.go` (SPDX header) with `UsageError` (`Err`; `Error()` delegating; `Unwrap()`), `ExitCodeUsage types.ExitCode = 2`, and `newUsageError(err error) error`: `nil` → `nil`; an error that already contains an `*ExitError` → returned unchanged; otherwise `&UsageError{Err: err}`.
+- [ ] 2.2 Add `exitCodeForError(err error) types.ExitCode` to the same file: `nil` → 0; `errors.AsType[*ExitError]` → its `Code`; `errors.AsType[*UsageError]` → 2; otherwise 1. Change only the body of `Execute` in `root.go` (`:95-105`) to `os.Exit(int(exitCodeForError(fang.Execute(...))))`, keeping the same fang options; leave the `NewApp` failure (`:88-91`) as is.
+- [ ] 2.3 Add `cmd/invowk/usage_error_test.go`: a table for `exitCodeForError` (nil; `ExitError` 0/1/2/42; `UsageError`; `UsageError{ServiceError}`; `ExitError{Err: UsageError}` → the `ExitError` code; `fmt.Errorf("%w", plain)` → 1) and for `newUsageError` (nil; wraps a plain error; returns an `ExitError` unchanged; `Error()` text unchanged). Check: `go test -run 'TestExitCodeForError|TestNewUsageError' ./cmd/invowk/`.
 
 ## 3. Usage-error sources
 
-- [ ] 3.1 Root `SetFlagErrorFunc` that wraps pflag errors in `UsageError`. Unit test: an unknown flag on a nested child resolves to 2 through `exitCodeForError`.
-- [ ] 3.2 Root `Args` validator that returns `UsageError` with Cobra's exact `unknown command %q for %q` text and suggestions, plus a help `RunE`. Unit test: `invowk bogus` gives 2 with the text intact, and bare root still renders help with a nil error.
-- [ ] 3.3 `installUsageGuards(root)` at the end of `NewRootCommand`. It sets the group guard as `Args` on every non-root command that has subcommands and `Args == nil`, adds a help `RunE` where the command is not runnable, and wraps non-nil `Args` validators. Before it runs, give `invowk cmd` (`cmd.go:72`) and every discovered group node an explicit `Args: cobra.ArbitraryArgs`. Unit test on a synthetic tree:
-  - a group with no args gives help and nil;
-  - a non-runnable group (`module`-like) and a runnable help-fallback group (`config`-like) each give `UsageError` for a token, with the subcommand list on stderr and empty stdout;
-  - a `MaximumNArgs` error becomes `UsageError`;
-  - a parent with explicit `ArbitraryArgs` is left alone.
-- [ ] 3.4 Make `renderAndWrapServiceError` (`app.go:263-332`) return `&UsageError{Err: newServiceError(...)}` for `ArgumentValidationError`, `FlagValidationError`, `AmbiguousCommandError`, `SourceNotFoundError`, `RuntimeNotAllowedError`, and `ClassifiedError` with kinds `CommandNotFound`/`CommandAmbiguous`. Extend `cmd/invowk/cmd_execute_error_classifier_test.go`: each usage kind maps to 2, the other kinds map to 1, and `errors.AsType[*ServiceError]` still succeeds.
-- [ ] 3.5 Wrap `errNoCommandSpecified` (all return sites), the invalid `--ivk-runtime` value error (`cmd_execute_helpers.go:113`), `WatchCommandNotFoundError` (`cmd_watch.go:87`) and the CLI `AmbiguousCommandError` returned from group nodes. `cmd_watch_test.go:147` (`errors.Is`) must still pass.
+- [ ] 3.1 Add `installUsageGuards(root *cobra.Command)` to `usage_error.go` and call it once in `NewRootCommand`, after the last `AddCommand` (`root.go:79`). This is the only other `root.go` edit. It:
+  - calls `root.SetFlagErrorFunc` with a func returning `newUsageError(err)`;
+  - sets `root.Args` to a validator that, for a first token that is not a subcommand, returns `newUsageError(fmt.Errorf("unknown command %q for %q%s", args[0], root.CommandPath(), suggestions))` with Cobra's `\n\nDid you mean this?\n\t%s\n` suffix from `root.SuggestionsFor`, and sets `root.RunE` to `cmd.Help()`;
+  - walks every non-root command: if it has subcommands and `Args == nil`, sets `Args` to a guard that calls `rejectUnmatchedGroupToken` (3.2), and adds `RunE: cmd.Help()` if it is not runnable; if `Args != nil`, wraps it so its error goes through `newUsageError`.
+- [ ] 3.2 Add `rejectUnmatchedGroupToken(cmd *cobra.Command, args []string) error` to `usage_error.go`: with no args returns nil; otherwise writes "Available commands:" plus each visible subcommand's name and `Short` (Cobra's sorted order) to `cmd.ErrOrStderr()`, and returns `newUsageError(fmt.Errorf("unknown command %q for %q%s", args[0], cmd.CommandPath(), suggestions))`. Writes nothing to stdout.
+- [ ] 3.3 Give `invowk cmd` (`cmd/invowk/cmd.go:72-131`) an explicit `Args: cobra.ArbitraryArgs`. (Discovered group nodes get theirs in 4.2.)
+- [ ] 3.4 Unit tests in `usage_error_test.go` on a synthetic Cobra tree (root, a runnable `config`-like parent with `RunE: help`, a non-runnable `module`-like parent, a leaf with `cobra.MaximumNArgs(1)`, a parent with explicit `cobra.ArbitraryArgs`):
+  - a bare group gives help on stdout and a nil error;
+  - each group with a token gives a `UsageError` whose message names the token, with the subcommand list on stderr and empty stdout;
+  - a near-miss token gets a `Did you mean` suggestion;
+  - `root bogus` gives 2 with Cobra's text; bare root gives help and nil;
+  - an unknown flag on a nested child gives 2 through `exitCodeForError`;
+  - the `MaximumNArgs` error becomes a `UsageError` with its text unchanged;
+  - the explicit `ArbitraryArgs` parent is left alone.
+
+  Check: `go test -run 'TestInstallUsageGuards|TestRejectUnmatchedGroupToken' ./cmd/invowk/`.
+- [ ] 3.5 In `renderAndWrapServiceError` (`app.go:264-333`), return `newUsageError(newServiceError(...))` for `deps.ArgumentValidationError`, `deps.FlagValidationError`, `AmbiguousCommandError`, `SourceNotFoundError`, `RuntimeNotAllowedError`, and `ClassifiedError` with `ErrorKindCommandNotFound` or `ErrorKindCommandAmbiguous`. Leave all other branches unchanged. Extend `cmd/invowk/cmd_execute_error_classifier_test.go`: each usage kind maps to 2, every other kind maps to 1, and `errors.AsType[*ServiceError]` still succeeds. Check: `go test -run 'TestRenderAndWrapServiceError|TestClassif' ./cmd/invowk/`.
+- [ ] 3.6 Wrap with `newUsageError` at their return sites: `errNoCommandSpecified` (every return site; find them with `grep -n errNoCommandSpecified cmd/invowk/*.go`), `WatchCommandNotFoundError` (`cmd_watch.go:87`) and the CLI `AmbiguousCommandError` returned by `checkAmbiguousCommand` callers. Check: `go test -run 'TestWatch|TestCheckAmbiguous|TestRunDisambiguated' ./cmd/invowk/` (including `cmd_watch_test.go:147`, `errors.Is`).
+- [ ] 3.7 Reserved flags (design.md Decision 9). In `buildCommandExecuteRequest` (`cmd_execute_helpers.go:108-149`):
+  - wrap the `parsedRuntimeMode` error (`:113-116`) and the `ParseEnvInheritMode` error (`:118-121`) with `newUsageError`;
+  - change `parseEnvVarFlags` (`:60-78`) to return `(map[string]string, error)`; an entry whose first `=` is missing or at index 0 returns `fmt.Errorf("invalid --ivk-env-var value %q: expected KEY=VALUE", kv)`; `KEY=` stays valid; remove the `slog.Warn` (and the `log/slog` import if it becomes unused); wrap the error with `newUsageError`;
+  - before building the request, call `Validate()` on the typed `ContainerName` (when non-empty), `WorkDir` (when non-empty), each `DotenvFilePath`, and each `EnvVarName` in the allow and deny lists, returning the first error wrapped with `newUsageError`.
+
+  Update `TestParseEnvVarFlags` (`cmd_execute_helpers_test.go:109`): the skip cases become error cases, plus `KEY=` (valid) and `=v` (error). Add a `buildCommandExecuteRequest` table test: each invalid reserved value gives exit code 2 through `exitCodeForError`. Check: `go test -run 'TestParseEnvVarFlags|TestBuildCommandExecuteRequest' ./cmd/invowk/`.
 
 ## 4. Discovered group nodes and registration
 
-- [ ] 4.1 Register in `SimpleName` order inside `registerDiscoveredCommands` (`cmd_discovery.go:55`). Unit test: invowkfile leaf `w2` plus module `w2 sub` builds a runnable `w2` with child `sub`, for either source order.
-- [ ] 4.2 Rewrite the group `RunE` (`cmd_discovery.go:85-111`) in the Decision 3 order: no args gives help; then `--ivk-from`; then `checkAmbiguousCommand(prefix+args)` on every call; then subcommands on stderr plus `UsageError` with `SuggestionsFor`. Unit tests for each branch, including an ambiguous `deploy prod` reached through group `deploy`, where a unique sibling `deploy dev` keeps the group node registered.
-- [ ] 4.3 Leave the leaf `Args: cobra.ArbitraryArgs` (`cmd_discovery.go:178`) unchanged, and add a unit test that pins `w typo` forwarding.
-- [ ] 4.4 Diff help output against 1.2. Any change outside the intended ones is a bug.
+- [ ] 4.1 In `registerDiscoveredCommands` (`cmd_discovery.go:36`), iterate the node-building loop (`:55`) over `slices.Clone(commandSet.Commands)` sorted with `slices.SortStableFunc` by `SimpleName`. Do not reorder `commandSet.Commands`. Unit tests: invowkfile leaf `w2` plus module `w2 sub` builds a runnable `w2` (`RunE` set, `Args` is `ArbitraryArgs`) with child `sub`, for both input orders; `commandSet.Commands` order is identical before and after registration. Check: `go test -run 'TestRegisterDiscoveredCommands' ./cmd/invowk/`.
+- [ ] 4.2 Rewrite the discovered group node (`cmd_discovery.go:79-114`): add `Args: cobra.ArbitraryArgs`, remove the `isAmbiguous` gate (`:82`, `:98`), and make `RunE` follow design.md Decision 3: no args → `cmd.Help()`; `--ivk-from` → the existing disambiguated path (`:90-96`); then `checkAmbiguousCommand(ctx, app, prefix+args)` on every call, rendering an `AmbiguousCommandError` as today (`:99-107`) and returning `newUsageError(err)`, and returning any other error from it unchanged; otherwise `rejectUnmatchedGroupToken(cmd, args)`. If `ambiguousPrefixes` becomes unused, delete it. Unit tests for each branch, including an ambiguous `deploy prod` reached through group `deploy` with a unique sibling `deploy dev`. Check: `go test -run 'TestDiscoveredGroup' ./cmd/invowk/`.
+- [ ] 4.3 Leave the leaf `Args: cobra.ArbitraryArgs` (`cmd_discovery.go:178`) unchanged, and add a unit test that pins `w typo` forwarding `typo` as the first positional. Check: `go test -run 'TestDiscoveredLeafForwardsUnmatchedToken' ./cmd/invowk/`.
+- [ ] 4.4 Agent and LLM helpers (design.md Decision 8). Add `agentExitFailure types.ExitCode = 1` in `agent.go` and an `llmExitCodes{usage, failure types.ExitCode}` struct in `llm_flags.go`.
+  - `resolveLLMForCommand`, `buildLLMCompleter`, `buildProviderCompleter` and `buildManualCompleter` take `llmExitCodes`. `llm_flags.go:78` uses `codes.usage`; `:93`, `:144`, `:154`, `:169`, `:175`, `:192`, `:197` use `codes.failure`.
+  - `audit.go:240,298` pass `llmExitCodes{auditExitError, auditExitError}`. `resolveAgentAuthoringCompleter` (`agent.go:515-533`) passes `llmExitCodes{ExitCodeUsage, agentExitFailure}`.
+  - In `agent.go`, use `ExitCodeUsage` at `:72`, `:105`, `:150`, `:186`, `:233`, `:266`, `:367`, `:409`, `:450`, `:485`, with a comment at `:72`/`:233` that every `Render*Prompt` error is treated as usage because its only practical failures are an unknown format or operation. Use `agentExitFailure` at `:194`, `:346`, `:377`, `:382`, `:419`, `:424`, `:460`, `:495`. No `auditExitError` remains in `agent.go`.
+
+  Unit tests: an `agent.go` table covering one site per row of the Decision 8 table, and an `audit` test that an invalid `--llm-concurrency` still gives 2. Check: `go test -run 'TestAgentExitCodes|TestAuditLLMFlagExitCode' ./cmd/invowk/` and `grep -c auditExitError cmd/invowk/agent.go` prints 0.
+- [ ] 4.5 Rebuild and diff help, listing and completion output against 1.2. Help, the `invowk cmd` listing and the `__complete` candidates must be byte-identical; any difference is a bug. Check: `diff` of each pair is empty.
 
 ## 5. CLI integration tests (txtar)
 
-- [ ] 5.1 Built-in cases (exempt from mirrors), in a new `tests/cli/testdata/exit_codes_builtin.txtar` using `exitcode`:
-  - 2: `invowk --bogus`, `invowk bogus`, `invowk config bogus`, `invowk module bogus`, `invowk tui bogus`, `invowk init a b c`, `invowk completion bogus`, `invowk audit a b c`;
-  - 0: `invowk module`, `invowk config`;
-  - 1: `invowk audit` with findings.
+- [ ] 5.1 Built-in cases (exempt from mirrors) in a new `tests/cli/testdata/exit_codes_builtin.txtar` using `exitcode`:
+  - 2: `invowk --bogus`, `invowk bogus` (stderr `unknown command "bogus"`), `invowk config bogus`, `invowk module bogus`, `invowk tui bogus`, `invowk agent bogus`, `invowk init a b c`, `invowk completion bogus`, `invowk audit a b c`, `invowk audit --llm-provider claude --llm-concurrency -1`;
+  - 0: `invowk`, `invowk module`, `invowk config` (help on stdout);
+  - 1: `invowk audit` on a fixture with a confirmed finding.
 
-  Assert stdout is empty for the group typos.
-- [ ] 5.2 `virtual_exit_codes.txtar` plus the `native_exit_codes.txtar` mirror, with platform-split CUE (bash, PowerShell):
-  - 2: group typo with a suggestion and an empty stdout; unknown leaf flag; bad typed-flag value; missing and extra declared args; `cmd nope`; `cmd @bogus x`; `--ivk-runtime bogus`; runtime not allowed; `--ivk-watch nope`; script `exit 2`;
-  - 0: bare group, which shows help on stdout;
+  Assert empty stdout for every group typo. Check: `go test -run 'TestCLI/exit_codes_builtin' ./tests/cli/`.
+- [ ] 5.2 Agent codes: in `agent_cmd_prompt.txtar`, `agent_mod_prompt.txtar`, `agent_cmd_create.txtar` and `agent_mod_create.txtar`, replace each `! exec invowk agent …` with `exitcode <n> invowk agent …`: 2 for unknown prompt format/operation, missing description, `--replace` (unknown flag); 1 for already exists, does not exist, `requires --force`. Keep every stderr assertion. Check: `go test -run 'TestCLI/agent_' ./tests/cli/`.
+- [ ] 5.3 `virtual_exit_codes.txtar` plus the `native_exit_codes.txtar` mirror, with platform-split CUE (bash, PowerShell) and the same command paths:
+  - 2: group typo with a suggestion, the subcommand list on stderr and empty stdout; unknown leaf flag; bad typed-flag value; missing and extra declared args; `cmd nope`; `cmd @bogus x`; `cmd @invowkfile`; `--ivk-runtime bogus`; runtime not allowed; `--ivk-env-inherit-mode bogus`; `--ivk-env-inherit-allow 1BAD`; `--ivk-env-var NOEQ`; `--ivk-env-var =v`; `--ivk-watch nope`; script `exit 2`;
+  - 0: bare group (help on stdout); `--ivk-env-var FOO=` sets an empty `FOO`;
   - 42: script `exit 42`;
-  - 1: unsatisfied tool dependency;
-  - pinned: `w typo` runs `w`.
-- [ ] 5.3 Add `exitcode 2` assertions for the ambiguous cases to `virtual_ambiguity.txtar` and `native_ambiguity.txtar`. Cover the top-level ambiguous name and a nested ambiguous name `deploy prod` reached through group `deploy`, with a unique sibling `deploy dev` present. Add the cross-source prefix-leaf case to `virtual_multi_source.txtar` and `native_multi_source.txtar`.
-- [ ] 5.4 Add exact codes 1 and 42 to `container_exitcode.txtar` (container tests are exempt from mirrors).
-- [ ] 5.5 Completion: add `__complete config ""` and `__complete cmd test ""` checks to `completion.txtar` that expect the subcommand lists and status 0. The existing assertions must stay unchanged.
-- [ ] 5.6 Run `make test-cli` (it runs with `-race`) and triage every failure. Look especially at `exec invowk cmd <group> <token>` lines that expected success, and at `virtual_args`/`native_args`, `virtual_disambiguation`/`native_disambiguation`, `virtual_multi_source_full`/`native_multi_source_full`, `version_help`, `agent_cmd_create` and `dogfooding_invowkfile`. Fix a test only when the spec says the old expectation was wrong.
+  - 1: unsatisfied tool dependency; an invowkfile with `args` on a command that has subcommands (`invowk cmd`);
+  - pinned: `w typo` runs `w` with `typo` as `$1`.
+
+  Check: `go test -run 'TestCLI/(virtual|native)_exit_codes' ./tests/cli/` and `go test -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/`.
+- [ ] 5.4 Ambiguity and registration: add `exitcode 2` assertions to `virtual_ambiguity.txtar` and `native_ambiguity.txtar` for the top-level ambiguous name and for nested `deploy prod` reached through group `deploy` (unique sibling `deploy dev` present), plus `deploy prod --ivk-from invowkfile` running the invowkfile's command. Add the cross-source prefix-leaf case to `virtual_multi_source.txtar` and `native_multi_source.txtar`: `w2` runs the invowkfile leaf, `w2 sub` runs the module child, and the `invowk cmd` listing matches a `cmp` golden file in the txtar, created from the pre-change output recorded in 1.2. Check: `go test -run 'TestCLI/(virtual|native)_(ambiguity|multi_source)$' ./tests/cli/`.
+- [ ] 5.5 Add exact codes 1 and 42 to `container_exitcode.txtar` with `exitcode` (container tests are exempt from mirrors). Check: `go test -run 'TestContainerCLI/container_exitcode' ./tests/cli/` when an engine is available; otherwise state that it was skipped and why.
+- [ ] 5.6 Completion: add `exitcode 0 invowk __complete config ""`, `__complete cmd ""` and `__complete cmd test ""` checks to `completion.txtar`, each with `stdout` assertions for the expected candidates. Leave every existing assertion unchanged. Check: `go test -run 'TestCLI/completion' ./tests/cli/`.
+- [ ] 5.7 After the S1 rebase (8.1) only: flip `config_override_flag.txtar` Test 4 expectations from S1's `! exec` to `exitcode 1`, and add the same check for `INVOWK_CONFIG=/nonexistent`. Skip this task, and say so in the PR, if S1 is not on the branch yet. Check: `go test -run 'TestCLI/config_override_flag' ./tests/cli/`.
+- [ ] 5.8 Run `make test-cli` (with the heavy-command lock) and triage every failure. Look especially at `exec invowk cmd <group> <token>` lines that expected success, at `--ivk-env-var` values without `=`, and at `virtual_args`/`native_args`, `virtual_disambiguation`/`native_disambiguation`, `virtual_multi_source_full`/`native_multi_source_full`, `version_help`, `agent_cmd_create` and `dogfooding_invowkfile`. Fix a test only when the spec says the old expectation was wrong. Check: `make test-cli` passes.
 
 ## 6. Documentation
 
-- [ ] 6.1 Replace the "Exit Codes" section of `website/docs/reference/cli.mdx` (`:724-730`) with the contract table, the per-command exceptions, the collision note and the 125/126 note. Update `:568` if its wording changes.
-- [ ] 6.2 Change `website/docs/security/audit.mdx:184` so that argument errors exit 2 (they used to exit 1), and align the README audit "Exit Codes" table (`README.md:3024`).
-- [ ] 6.3 Add a general "Exit codes" subsection to `README.md` with the same contract.
-- [ ] 6.4 Mirror 6.1 and 6.2 in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/reference/cli.mdx` and `.../security/audit.mdx`. Do not edit `website/versioned_docs`.
-- [ ] 6.5 Add one sentence to `website/docs/flags-and-arguments/positional-arguments.mdx`, and its pt-BR copy, saying that a group typo exits 2 while tokens after a leaf are forwarded.
-- [ ] 6.6 Check `website/src/components/Snippet/data/cli.ts` for any snippet that shows exit statuses or group help, and update it if needed.
-- [ ] 6.7 Update `.agents/skills/cli/SKILL.md` "Error Handling & Exit Codes" to cover `UsageError`, `exitCodeForError` and the contract, then run `make check-agent-docs`.
-- [ ] 6.8 Check `docs/diagrams/sequences/execution-main.d2` ("Output + Exit code", `:92`) and `website/docs/architecture/execution-flow.mdx`. Change them only if they state specific codes, and run `make render-diagrams` if a D2 source changes.
+- [ ] 6.1 Replace the "Exit Codes" section of `website/docs/reference/cli.mdx` (`:724-730`) with the contract table (0 / N / 2 / 1, with S1's explicit-config failure under 1), the per-command exceptions (`audit`, `tui confirm`, `tui spin`, `validate`), the collision note, and the 125/126 note. Keep `:568` (audit codes) as is; it is still correct.
+- [ ] 6.2 Change `website/docs/security/audit.mdx:184` so argument errors exit 2 (they used to exit 1), and keep the README audit "Exit Codes" table (`README.md:3024-3030`) consistent with it.
+- [ ] 6.3 Add a general "Exit Codes" section to `README.md` with the same contract, next to the CLI usage material, and link it from the audit table.
+- [ ] 6.4 Add one paragraph on exit codes (2 for argument and flag errors, 1 for other failures) to `website/docs/advanced/llm-assisted-authoring.mdx`.
+- [ ] 6.5 Add one sentence to `website/docs/flags-and-arguments/positional-arguments.mdx` saying that a group typo exits 2 while tokens after a leaf are forwarded, and one sentence to the `--ivk-env-var` reference in `cli.mdx` saying a value without `KEY=` is an error.
+- [ ] 6.6 Mirror 6.1, 6.2, 6.4 and 6.5 in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/` (`reference/cli.mdx`, `security/audit.mdx`, `advanced/llm-assisted-authoring.mdx`, `flags-and-arguments/positional-arguments.mdx`). Do not edit `website/versioned_docs`.
+- [ ] 6.7 Check `website/src/components/Snippet/data/cli.ts` for any snippet that shows exit statuses, group help, agent codes or `--ivk-env-var` values without `=`, and update it if needed.
+- [ ] 6.8 Update `.agents/skills/cli/SKILL.md` "Error Handling & Exit Codes" (`:266-280`) to cover `UsageError`, `newUsageError`, `exitCodeForError`, `installUsageGuards`, the contract, and the rule that a parent accepting positionals declares `Args` explicitly.
+- [ ] 6.9 Check `docs/diagrams/sequences/execution-main.d2` ("Output + Exit code", `:92`) and `website/docs/architecture/execution-flow.mdx`. Change them only if they state specific codes; run `make render-diagrams` if a D2 source changes.
 
-## 7. Verification gates
+Check for the group: `cd website && npm run build` and `make check-agent-docs`.
 
-- [ ] 7.1 `make tidy` and `make license-check`.
-- [ ] 7.2 `make lint`, fixing every finding.
-- [ ] 7.3 `make check-baseline` (triage any new goplint finding with the maintainer) and `make check-file-length`.
-- [ ] 7.4 `make test` (full suite, not short).
-- [ ] 7.5 `make test-cli`.
-- [ ] 7.6 `cd website && npm run build`.
-- [ ] 7.7 `openspec validate cli-exit-code-contract --strict`.
+## 7. Spec sync
+
+- [ ] 7.1 Re-read `specs/cli-exit-codes/spec.md` against the implementation and update any scenario whose wording no longer matches the real stderr text. Check: `openspec validate cli-exit-code-contract --strict` exits 0 with no warnings.
+
+## 8. Rebase and completion gates (`.agents/rules/checklist.md`)
+
+- [ ] 8.1 If S1 merged after 1.1, rebase onto main now, resolve `root.go` by keeping both changes, re-check the `root.go` citations, and do 5.7. Check: `go test -run 'TestExitCodeForError|TestInstallUsageGuards' ./cmd/invowk/`.
+- [ ] 8.2 Review the changed code for reuse, simplification and efficiency, and fix what you find (`/simplify`).
+- [ ] 8.3 `make tidy`, then `make license-check` (new Go files).
+- [ ] 8.4 `make lint`, fixing every finding, including pre-existing ones.
+- [ ] 8.5 `make test` (full suite, not short; it runs `make test-cli`). Report any skipped test and why.
+- [ ] 8.6 `make check-baseline`, and triage every new goplint finding (Invowk or `github.com/invowk/goplint`; ask the maintainer if both are plausible; never baseline protocol inconclusives).
+- [ ] 8.7 `make check-file-length`; split `usage_error.go`, `agent.go` or a test file if one reaches 1000 lines.
+- [ ] 8.8 `make sonar-local`; fix real issues and suppress false positives in both `sonar-project.properties` and `.sonarcloud.properties`.
+- [ ] 8.9 Conditional checks: `make check-agent-docs` (the CLI skill changed); `cd website && npm run build` (website changed); `make render-diagrams` only if a D2 file changed; `python3 scripts/formal.py correspondence` only if `.agents/rules/formal-bindings.md` names a touched file (none expected). The schema-sync and module checks do not apply (no schema or module changes).
+- [ ] 8.10 `openspec validate cli-exit-code-contract --strict` (0 warnings).
+- [ ] 8.11 `/learn` (`.agents/skills/learn/`).
