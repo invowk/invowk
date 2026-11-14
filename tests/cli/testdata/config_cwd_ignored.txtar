@@ -25,11 +25,11 @@ stdout 'native'
 # Test 3: workspace validation does not load an invalid cwd config.cue (the
 # old cwd fallback reported config_load_failed here and exited 1). Control:
 # the same invalid file as the user config is reported, so the absence below
-# is meaningful.
+# is meaningful (Linux only: XDG_CONFIG_HOME locates the user file there).
 cd $WORK/badcfg
-env XDG_CONFIG_HOME=$WORK/badxdg
-! exec invowk validate
-stderr 'config_load_failed'
+[linux] env XDG_CONFIG_HOME=$WORK/badxdg
+[linux] ! exec invowk validate
+[linux] stderr 'config_load_failed'
 env XDG_CONFIG_HOME=$WORK/.config
 exec invowk validate
 stdout 'Workspace is valid'

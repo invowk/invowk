@@ -26,6 +26,8 @@ Release-notes text, ready to paste:
 >
 > **Explicit config errors are now fatal.** If `--ivk-config` or `INVOWK_CONFIG` names a file that is missing or invalid, invowk stops with an error (exit code 1; `invowk audit` and `invowk agent` use their own error code) instead of warning and continuing with defaults. This now also applies to `invowk validate`, `invowk config show` and `invowk config dump`, which previously ignored `--ivk-config`. Fix the path, or unset the variable.
 >
+> **Config base directories must be absolute.** A relative `XDG_CONFIG_HOME` or `APPDATA` is now ignored (the next base, such as `~/.config`, is used), and a relative home directory or `USERPROFILE` is an error, so the user config file and `~/.invowk/cmds` can no longer resolve under the current directory. Set these variables to absolute paths.
+>
 > **`invowk config set` refuses while an explicit config is active.** It edits only your user config file. If `--ivk-config` is given or `INVOWK_CONFIG` is set, it exits with an error instead of copying that file into your user config. Unset the variable (or drop the flag), or edit the selected file directly.
 >
 > **New: `--ivk-no-cwd` / `INVOWK_NO_CWD=1`.** These ignore the current directory's `invowkfile.cue` and `*.invowkmod` modules. Only configured `includes`, `~/.invowk/cmds` and provisioned modules provide commands. Use them in wrappers, CI and anything run as root. Prefer the environment forms when your commands call `invowk` again, because the flags do not reach nested calls: `INVOWK_CONFIG=/etc/x/invowk.cue INVOWK_NO_CWD=1 invowk cmd …`. `invowk agent cmd create|change --verify` cannot be combined with the switch.
