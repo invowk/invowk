@@ -1,28 +1,26 @@
 ---
 name: cue
-description: CUE schema patterns for *.cue files, schema sync and behavioral sync tests, Go struct JSON tag alignment, parser/decode helpers, and error formatting. Use when editing invowkfile_schema.cue, invowkmod_schema.cue, config_schema.cue, pkg/cueutil, CUE-backed Go types, or CUE parsing/validation behavior.
+description: CUE schema patterns for *.cue files, schema sync and behavioral sync tests, Go struct JSON tag alignment, parser/decode helpers, error formatting, and cuelang.org/go upgrades. Use when editing invowkfile_schema.cue, invowkmod_schema.cue, config_schema.cue, pkg/cueutil, CUE-backed Go types, or CUE parsing/validation behavior.
 ---
 
 # CUE Schema Patterns
 
-Always read `.agents/rules/cue-patterns.md` first; repository rules override this skill.
+Always read `.agents/rules/cue-patterns.md` first; repository rules override this skill. Schema file locations are listed in `AGENTS.md` "Where things live".
 
----
+## Rules
 
-## Schema Locations
-
-- `pkg/invowkfile/invowkfile_schema.cue` defines invowkfile structure.
-- `pkg/invowkmod/invowkmod_schema.cue` defines invowkmod structure.
-- `internal/config/config_schema.cue` defines config.
+- All CUE structs MUST be closed with `close({...})`; open structs silently accept unknown fields (pitfall row in `.agents/rules/cue-patterns.md`).
+- When adding CUE struct fields or definitions, always include validation constraints (`strings.MaxRunes()`, `=~` regex patterns, ranges such as `>=0 & <=255`), not just type declarations.
+- Schema sync tests MUST exist for every Go struct that corresponds to a CUE definition. Add or update them when you:
+  - add a CUE definition with a corresponding Go struct;
+  - add fields to existing CUE/Go types;
+  - rename fields (the test fails until both sides are updated).
 
 ## Schema Compilation Pattern
 
-For new parsing paths, prefer `pkg/cueutil` helpers instead of reimplementing
-the CUE boilerplate. Use `cueutil.ParseAndDecode*`, `cueutil.WithFilename`, and
-`cueutil.FormatError` when they fit. Direct CUE parsing is reserved for cases
-that need custom lookup/merge behavior.
+For new parsing paths, prefer `pkg/cueutil` helpers over reimplementing the CUE boilerplate: `cueutil.ParseAndDecode` / `ParseAndDecodeString`, `cueutil.WithFilename`, and `cueutil.FormatError` (which produces the repo-standard file/path-prefixed errors). Direct CUE parsing is reserved for cases that need custom lookup/merge behavior.
 
-The helper-backed flow is still conceptually:
+The helper-backed flow is still conceptually the 3-step parse flow:
 
 ```go
 // Step 1: Compile the schema (embedded via //go:embed)
@@ -32,31 +30,31 @@ if schemaValue.Err() != nil {
     return nil, fmt.Errorf("internal error: failed to compile schema: %w", schemaValue.Err())
 }
 
-// Step 2: Compile user data and unify with schema
+// Step 2: Compile user data, unify with the root definition, validate concretely
 userValue := ctx.CompileBytes(data, cue.Filename(path))
 if userValue.Err() != nil {
-    return nil, formatCUEError(userValue.Err(), path)
+    return nil, cueutil.FormatError(userValue.Err(), path)
 }
 
 schema := schemaValue.LookupPath(cue.ParsePath("#DefinitionName"))
 unified := schema.Unify(userValue)
 if err := unified.Validate(cue.Concrete(true)); err != nil {
-    return nil, formatCUEError(err, path)
+    return nil, cueutil.FormatError(err, path)
 }
 
 // Step 3: Decode to Go struct
 var result GoStructType
 if err := unified.Decode(&result); err != nil {
-    return nil, formatCUEError(err, path)
+    return nil, cueutil.FormatError(err, path)
 }
 ```
 
 **Key Points**:
-- Schema is embedded via `//go:embed` for single-binary distribution
-- Use `LookupPath()` to get the root definition (e.g., `#Invowkfile`, `#Config`)
-- Use `Validate(cue.Concrete(true))` to ensure all values are concrete
-- Config parsing also uses concrete validation; defaults and optional fields belong in the CUE schema/default layer before decode.
-- Always use `Decode()` for type-safe extraction (see Decode Usage Rules below)
+- Schema is embedded via `//go:embed` for single-binary distribution.
+- Use `LookupPath()` to get the root definition (e.g., `#Invowkfile`, `#Config`).
+- Use `Validate(cue.Concrete(true))` so all values are concrete (`cueutil` defaults to concrete validation).
+- Config parsing is also concrete; defaults and optional fields belong in the CUE schema/default layer before decode.
+- Always use `Decode()` for type-safe extraction (see Decode Usage Rules).
 
 **Reference Implementations**:
 - `pkg/invowkfile/parse.go:ParseBytes()` - Invowkfile parsing
@@ -88,16 +86,16 @@ construction, defense-in-depth, richer runtime checks, and drift-detection tests
 
 | Validation Type | Why Go-Only | Example |
 |-----------------|-------------|---------|
-| ReDoS prevention | CUE cannot analyze regex complexity | `ValidateRegexPattern()` |
+| ReDoS prevention | CUE cannot analyze regex complexity | `ValidateRegexPattern()` (`pkg/invowkfile/validation_primitives.go`) |
 | File existence | Requires filesystem access | `os.Stat()` |
-| Path traversal | Cross-platform normalization | `filepath.Clean()` checks |
+| Path traversal | Cross-platform normalization | `filepath.Clean()` checks, `ValidateEnvFilePath()` (`pkg/invowkfile/validation_filesystem.go`) |
 | Cross-field logic | Conditional requirements | Runtime-specific fields |
 | Command hierarchy | Requires tree analysis | Leaf-only args constraint |
 | Length limits (defense-in-depth) | Some limits enforced in Go too | `MaxNameLength` checks |
 
 ### Justification Comments
 
-All Go-only validations MUST include a `[GO-ONLY]` comment explaining why:
+All Go-only validations MUST include a `[GO-ONLY]` comment explaining why CUE cannot handle them. The repo places these comments both on the Go validator and on the corresponding CUE field or definition (e.g. `#InterpreterSpec` in `invowkfile_schema.cue`, `#LLMTimeoutDurationString` in `config_schema.cue`).
 
 ```go
 // ValidateRegexPattern validates a user-provided regex pattern for safety.
@@ -107,54 +105,46 @@ func ValidateRegexPattern(pattern string) error { ... }
 ```
 
 ```go
-// validateEnvFilePath validates an env file path for security.
+// ValidateEnvFilePath validates an env file path for security.
 // [GO-ONLY] Path traversal prevention and cross-platform path handling require Go.
 // CUE cannot perform filesystem operations or cross-platform path normalization.
-func validateEnvFilePath(path string) error { ... }
+func ValidateEnvFilePath(filePath string) error { ... }
 ```
 
 ## Decode Usage Rules
 
 **ALWAYS use `value.Decode(&goStruct)` for type-safe extraction.**
 
-### Correct Pattern
-
 ```go
 var invowkfile Invowkfile
 if err := unified.Decode(&invowkfile); err != nil {
-    return nil, formatCUEError(err, path)
+    return nil, cueutil.FormatError(err, path)
 }
 ```
 
-### Why Not Manual Extraction?
-
-Manual extraction methods (`String()`, `Int64()`, `Bool()`) are error-prone:
-- No compile-time type checking
-- Requires manual error handling for each field
-- Easy to forget optional field handling
-- Doesn't leverage CUE's type system
+Manual extraction (`String()`, `Int64()`, `Bool()`) loses compile-time type checking, needs per-field error handling, and makes optional fields easy to mishandle.
 
 **Exception**: Manual extraction is acceptable only for truly dynamic scenarios (e.g., extracting arbitrary user-defined keys). Document such cases.
 
 ## Field Naming Convention
 
-CUE uses `snake_case`, Go uses `PascalCase`. The JSON tag bridges them:
+CUE uses `snake_case`, Go uses `PascalCase`. The JSON tag bridges them; config structs also carry a matching `mapstructure` tag for Viper:
 
 ```cue
-// CUE Schema (snake_case)
+// CUE Schema (snake_case) - internal/config/config_schema.cue
 #Config: close({
-    container_engine: #ContainerEngine
-    includes:         [...#IncludeEntry]
-    default_runtime:  #RuntimeType
+    container_engine: *"podman" | #ContainerEngineType
+    includes:         *([]) | [...#IncludeEntry]
+    default_runtime:  *"native" | #ConfigRuntimeType
 })
 ```
 
 ```go
-// Go Struct (PascalCase with JSON tags)
+// Go Struct (PascalCase with JSON tags) - internal/config/types.go
 type Config struct {
-    ContainerEngine ContainerEngine `json:"container_engine"`
-    Includes        []IncludeEntry  `json:"includes"`
-    DefaultRuntime  RuntimeMode     `json:"default_runtime"`
+    ContainerEngine ContainerEngine `json:"container_engine" mapstructure:"container_engine"`
+    Includes        []IncludeEntry  `json:"includes" mapstructure:"includes"`
+    DefaultRuntime  RuntimeMode     `json:"default_runtime" mapstructure:"default_runtime"`
 }
 ```
 
@@ -162,13 +152,15 @@ type Config struct {
 JSON tag in the corresponding Go struct. Bottom-field tombstones (`_|_`) are
 intentionally skipped by sync helpers.
 
-**Verification**: Schema sync tests (in `*_sync_test.go` files) catch mismatches at CI time.
+## Schema Sync Tests
+
+Structural sync tests compare Go struct JSON tags with CUE field names using the `internal/testutil/schematest` helpers (`LookupDefinition`, `ExtractCUEFields`, `ExtractGoJSONTags`, `AssertFieldsSync`); behavioral sync tests compare Go `Validate()` and CUE verdicts on the same inputs. invowkfile types go into the table-driven `TestSchemaSync` case list in `pkg/invowkfile/sync_test.go`. All of them run in `make test`.
+
+The complete test-file inventory, the commands, the real failure messages and the add-a-field/add-a-type procedure live in `.agents/skills/schema-sync-check/SKILL.md`.
 
 ## Error Formatting Requirements
 
-All CUE errors MUST include JSON path prefixes for clear error messages:
-
-### Error Format
+All CUE errors MUST include JSON path prefixes:
 
 ```
 <file-path>: <json-path>: <message>
@@ -180,11 +172,7 @@ invowkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
 config.cue: container.auto_provision.enabled: expected bool, got string
 ```
 
-### Implementation Pattern
-
-Use `pkg/cueutil` for new parsing paths. Prefer `cueutil.ParseAndDecode*` helpers when they fit; use `cueutil.FormatError` for custom CUE flows that still need repo-standard file/path-prefixed errors.
-
-Only import `cuelang.org/go/cue/errors` in low-level error-formatting utilities. Most parser code should not reimplement CUE error walking.
+Use `cueutil.FormatError(err, filePath)` (`pkg/cueutil/error.go`) instead of reimplementing CUE error walking; prefer the `cueutil.ParseAndDecode*` helpers when they fit. `pkg/cueutil/error.go` is the only non-test file that imports `cuelang.org/go/cue/errors`. If low-level code must walk CUE errors, import `cuelang.org/go/cue/errors`, not the standard library `errors` (which has no `Path()`), and keep it in that low-level utility.
 
 ## CUE Library Version Pinning
 
@@ -199,7 +187,7 @@ When upgrading the CUE library version:
 2. **Run Full Test Suite**: `make test` including all schema sync tests
 3. **Check API Deprecations**: Search for deprecated function usage
 4. **Verify Error Formats**: Manually test that error messages still include paths
-5. **Update Documentation**: If CUE behavior changes, update this rules file
+5. **Update Documentation**: If CUE behavior changes, update this skill and `.agents/rules/cue-patterns.md`
 6. **Test Cross-Platform**: Run CI on all platforms (Linux, macOS, Windows).
    Windows-specific gotcha: CUE v0.17+ rejects carriage returns in multiline-string
    indentation ("non-matching whitespace for multiline strings"), so `*.cue` files
@@ -217,56 +205,11 @@ When upgrading the CUE library version:
   unify/decode operation; do not impose a new-context-per-parse rule without a
   concrete isolation requirement.
 
-## Rules
-
-- All CUE structs must be closed (use `close({ ... })`) so unknown fields cause validation errors.
-- When adding new CUE struct fields or definitions, always include appropriate validation constraints (e.g., `strings.MaxRunes()`, regex patterns with `=~`, range constraints like `>=0 & <=255`) - not just type declarations. This ensures defense-in-depth validation.
-- Schema sync tests MUST exist for every Go struct that corresponds to a CUE definition.
-- Go-only validations MUST have `[GO-ONLY]` comments explaining why CUE cannot handle them.
-
-## Schema Sync Tests
-
-Sync tests verify Go struct JSON tags match CUE schema field names at CI time. They catch misalignments before they cause silent parsing failures.
-
-**Test Files**:
-- `pkg/invowkfile/sync_test.go` - Invowkfile, Command, Implementation, etc.
-- `pkg/invowkfile/sync_runtime_test.go` and `pkg/invowkfile/sync_runtime_behavioral_test.go` - runtime config shape and behavior
-- `pkg/invowkmod/sync_test.go` - Invowkmod, ModuleRequirement
-- `internal/config/sync_test.go` - Config, VirtualConfig, UIConfig, etc.
-
-**Pattern**:
-```go
-func TestStructNameSchemaSync(t *testing.T) {
-    schema, _ := getCUESchema(t)
-    cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#DefinitionName"))
-    goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[GoStructType]())
-
-    schematest.AssertFieldsSync(t, "StructName", cueFields, goFields)
-}
-```
-
-**When to Add Sync Tests**:
-- Adding a new CUE definition with a corresponding Go struct
-- Adding new fields to existing CUE/Go types
-- Renaming fields (test will fail until both are updated)
-
 ## Common Pitfalls
 
 ### Unclosed CUE Structs
 
-**Problem**: Open structs allow arbitrary unknown fields, bypassing validation.
-
-```cue
-// WRONG: Open struct - unknown fields silently accepted
-#Config: {
-    name: string
-}
-
-// CORRECT: Closed struct - unknown fields rejected
-#Config: close({
-    name: string
-})
-```
+See the "Missing `close()` on struct" row in `.agents/rules/cue-patterns.md` and the first item under Rules.
 
 ### Redundant Validation
 
@@ -298,11 +241,9 @@ if len(name) > MaxNameLength {
 
 ### Missing JSON Tags
 
-**Problem**: Go struct field without JSON tag won't be populated by `Decode()`.
+**Symptom**: A Go field without a JSON tag is never populated by `Decode()`; it stays at its zero value despite being in the CUE file.
 
-**Symptom**: Field is always zero value despite being in CUE file.
-
-**Fix**: Add JSON tag matching the CUE field name:
+**Fix**: Add a JSON tag matching the CUE field name:
 ```go
 type Config struct {
     Includes  []IncludeEntry `json:"includes"`  // Matches CUE field
@@ -310,20 +251,11 @@ type Config struct {
 }
 ```
 
-### Wrong Error Import
-
-**Problem**: Using standard library `errors` instead of CUE's error package.
-
-```go
-// WRONG: Standard library - no Path() function
-import "errors"
-
-// CORRECT: CUE error package with path extraction
-import "cuelang.org/go/cue/errors"
-```
+`ExtractGoJSONTags` skips untagged Go fields, so sync tests catch this only when the CUE field exists: they report `CUE field "..." not found in Go struct (missing JSON tag)`.
 
 ### Stale Schema Sync Tests
 
-**Problem**: Sync test exclusions become outdated after refactoring.
+After any CUE/Go struct change, run `make test` and keep the sync tests current:
 
-**Fix**: After any CUE/Go struct changes, run `make test` and verify sync tests pass. Remove obsolete exclusions.
+- **Structural**: keep the `TestSchemaSync` case table (and the per-package sync tests) in step with the definitions. Go-only fields carry `json:"-"` (skipped by `ExtractGoJSONTags`); CUE tombstones are `_|_` (skipped by `ExtractCUEFields`). There is no other exclusion list.
+- **Behavioral**: an intended Go/CUE disagreement is recorded as a non-empty `divergeNote` on a `behavioralSyncCase` (`pkg/invowkfile`, `pkg/invowkmod`, `internal/config` sync tests) and should pair with a `[GO-ONLY]` comment. A case with a `divergeNote` only logs the disagreement (`Expected divergence: ...`) instead of failing on drift. Re-check every non-empty `divergeNote` touched by the change; when the two sides agree again, update `goExpect`/`cueExpect` and remove the note.

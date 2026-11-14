@@ -40,22 +40,16 @@ For each new/changed type, check:
 
 ## 5. Verification Commands
 
-Minimum for skill-doc changes:
+Minimum for skill-doc changes (including a catalog-only refresh):
 
 ```bash
 make check-agent-docs
 ```
 
-When type-system code changed:
-
-```bash
-make check-types
-make check-baseline
-make test
-make lint
-make check-file-length
-```
+When type-system code changed, run the checks in `SKILL.md` § "Required Checks
+After Typesystem Changes".
 
 ## 6. AGENTS Index Sync
 
-If the skill folder is renamed/added/removed, update `AGENTS.md` Skills Index in the same patch.
+Renaming, adding, or removing the skill folder changes the AGENTS.md Skills
+index in the same patch (`make check-agent-docs` enforces it).

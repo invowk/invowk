@@ -1,20 +1,18 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Read by the openspec skills and `openspec instructions`; keep it to pointers.
+context: |
+  Invowk is a Go command runner (CUE schemas; native, virtual-sh, virtual-lua
+  and container runtimes). Repository governance lives in AGENTS.md and
+  .agents/rules/*.md, which win over these notes; read the rules that match
+  the files a change touches.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - If the change is breaking, mark it **BREAKING** and add a "Migration notes" section ready for release notes.
+  design:
+    - Cite file:line for every claim about current behavior.
+    - Record maintainer decisions in a dated "Maintainer decisions" section; keep unresolved items under "Open questions".
+  tasks:
+    - End each task group with the narrowest check that proves it (a named test or one make target).
+    - The final group runs the completion gates in .agents/rules/checklist.md.

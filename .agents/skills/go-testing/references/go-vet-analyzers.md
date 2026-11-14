@@ -4,7 +4,14 @@
 
 `go vet` runs a suite of static analyzers on Go source code. Unlike the race
 detector (runtime), `go vet` is purely static — it analyzes code without executing
-it. It runs automatically as part of `go test` (since Go 1.10).
+it.
+
+`go test` runs only a high-confidence subset before running the test binary:
+`atomic`, `bools`, `buildtag`, `directive`, `errorsas`, `ifaceassert`, `nilfunc`,
+`printf`, `stdversion`, `stringintconv`, `tests` (Go 1.27 `go help test`). The
+test-critical analyzers below (`testinggoroutine`, `copylocks`, `lostcancel`,
+`waitgroup`) run only under `go vet`, `go test -vet=all`, or golangci-lint's
+`govet` (`make lint`).
 
 ## Analyzers Relevant to Test Code
 
@@ -80,18 +87,9 @@ wg.Wait()
 
 #### `loopclosure`
 
-Detects closures that capture loop variables. **Mitigated in Go 1.22+** (loop
-variable semantics change), but still relevant for `go` statements inside loops
-where the goroutine may execute after the loop advances.
-
-```go
-// Go < 1.22: FLAGGED. Go >= 1.22: safe for range loops, still risky for goroutines.
-for _, v := range values {
-    go func() {
-        fmt.Println(v) // may capture stale value if goroutine runs late
-    }()
-}
-```
+Reports nothing for this repo: since Go 1.22 semantics (`go.mod` is 1.27), each
+iteration has a fresh loop variable, so closures and goroutines cannot capture a
+stale value.
 
 #### `printf`
 
@@ -103,57 +101,28 @@ t.Errorf("expected %d, got %s", "hello", 42) // vet: wrong arg types
 
 #### `atomic`
 
-Detects non-atomic operations on `sync/atomic` values.
+Detects assigning the result of an `atomic` add back to the same variable.
 
 ```go
 var count int64
-count = atomic.LoadInt64(&count) + 1 // vet: should use atomic.AddInt64
+count = atomic.AddInt64(&count, 1) // vet: direct assignment to atomic value
 ```
 
 ### Structural Analyzers
 
-#### `composites`
-
-Flags composite literals without field names.
-
-```go
-// FLAGGED: unkeyed struct literal
-return Result{42, "ok", nil} // vet: unkeyed fields
-// FIX:
-return Result{Code: 42, Message: "ok", Error: nil}
-```
-
-#### `structtag`
-
-Validates struct field tag syntax.
-
-```go
-type Config struct {
-    Name string `json:name` // vet: struct field tag `json:name` not compatible
-}
-```
-
-#### `assign`
-
-Detects useless assignments (`x = x`).
-
-#### `unreachable`
-
-Detects unreachable code after `return`, `panic`, `os.Exit`, etc.
-
-#### `unmarshal`
-
-Detects passing non-pointer values to `json.Unmarshal` and similar.
-
-```go
-var result []string
-json.Unmarshal(data, result) // vet: non-pointer passed to Unmarshal
-```
+| Analyzer | Flags | Example |
+|----------|-------|---------|
+| `composites` | Unkeyed composite literals of struct types **imported from another package** (local types are not flagged) | `pkg.Result{42, "ok"}` → `pkg.Result{Code: 42, Message: "ok"}` |
+| `structtag` | Malformed struct field tags | ``Name string `json:name` `` → `` `json:"name"` `` |
+| `assign` | Useless self-assignments | `x = x` |
+| `unreachable` | Code after `return`, `panic`, etc. | — |
+| `unmarshal` | Non-pointer passed to `json.Unmarshal` and similar | `json.Unmarshal(data, result)` → `&result` |
 
 ### Low-Priority Analyzers
 
 | Analyzer | Purpose |
 |----------|---------|
+| `appends` | Detects `append` calls with only one argument |
 | `asmdecl` | Assembly/Go function declaration mismatches |
 | `bools` | Detects boolean expression mistakes |
 | `buildtag` | Validates `//go:build` lines |
@@ -162,13 +131,15 @@ json.Unmarshal(data, result) // vet: non-pointer passed to Unmarshal
 | `directive` | Validates Go tool directives |
 | `errorsas` | Validates `errors.As` target type |
 | `framepointer` | Assembly frame pointer checks |
+| `hostport` | Detects address strings built with `fmt.Sprintf` that break IPv6 (use `net.JoinHostPort`) |
 | `httpresponse` | Detects `http.Response.Body` leak |
 | `ifaceassert` | Detects impossible interface assertions |
 | `nilfunc` | Detects comparison of function to nil |
 | `shift` | Detects shifts equal to or exceeding width |
-| `sigchanysize` | Detects `signal.Notify` with unbuffered channel |
+| `sigchanyzer` | Detects `signal.Notify` with unbuffered channel |
 | `slog` | Validates `slog` key-value pairs |
 | `stdmethods` | Detects misspelled standard method names |
+| `stdversion` | Detects use of std symbols newer than the file's Go version |
 | `stringintconv` | Detects `string(int)` conversions |
 | `tests` | Validates `Test*` function signatures |
 | `timeformat` | Detects wrong time format strings |
@@ -181,11 +152,14 @@ json.Unmarshal(data, result) // vet: non-pointer passed to Unmarshal
 # Run all analyzers on all packages
 go vet ./...
 
-# Run specific analyzer
-go vet -vettool=$(which analysistool) ./...
+# Run one analyzer
+go vet -testinggoroutine ./...
 
-# Run as part of go test (automatic)
-go test ./...  # go vet runs implicitly
+# go test runs only the high-confidence subset; run every analyzer with
+go test -vet=all ./...
+
+# -vettool substitutes a different analysis binary (not a selector)
+go vet -vettool=/path/to/analyzer ./...
 
 # Disable vet during test (not recommended)
 go test -vet=off ./...
@@ -197,9 +171,18 @@ The project uses `golangci-lint` (configured in `.golangci.toml`) which bundles
 `go vet` analyzers along with many additional linters. Running `make lint` covers
 all `go vet` checks plus project-specific linters.
 
-Key additional linters relevant to tests:
-- `tparallel` — missing `t.Parallel()` in subtests
-- `testifylint` — testify assertion best practices (if testify were used)
+Key additional linters relevant to tests (`.golangci.toml`, `default = "none"`
+plus an explicit list):
+- `paralleltest` — missing `t.Parallel()` calls in tests and subtests
+- `tparallel` — `t.Parallel()` placement and parent/subtest consistency
+- `thelper` — helpers that do not begin with `t.Helper()` (`begin = true`;
+  parameter name and position are not enforced)
+- `usetesting` — configured for contexts only (`context-background = true`,
+  `context-todo = true`): flags `context.Background()`/`context.TODO()` in tests,
+  so a structurally forced use needs `//nolint:usetesting // <reason>`
 - `noctx` — `http.Get` without context (should use `http.NewRequestWithContext`)
-- `errcheck` — unchecked errors (including in test code)
-- `govet` — golangci-lint wrapper for `go vet`
+- `govet` — golangci-lint wrapper for `go vet`, with `shadow` also enabled
+- Disabled for `_test.go` files: `errcheck`, `forcetypeassert`, `contextcheck`,
+  `goconst`, `forbidigo`, `errchkjson`, `dupword`, `makezero`; `gosec` skips
+  tests (`tests = false`)
+- `testifylint` is not enabled; the repo does not use testify directly

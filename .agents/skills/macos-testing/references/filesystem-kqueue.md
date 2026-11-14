@@ -1,7 +1,9 @@
 # macOS Filesystem and kqueue Deep Dive
 
 Reference material for the `macos-testing` skill. Covers APFS filesystem
-behavior and kqueue event notification in depth.
+behavior, path aliases and kqueue event notification in depth, plus
+descriptor limits, timer coalescing, code signing/quarantine/SIP and the
+flock fallback.
 
 ---
 
@@ -99,47 +101,52 @@ in the future.
 
 ### The `/tmp` -> `/private/tmp` Symlink
 
-macOS has a symlink: `/tmp` -> `/private/tmp`. This affects path comparison
-in tests:
+macOS has a symlink: `/tmp` -> `/private/tmp` (and `/var` -> `/private/var`).
+This affects path comparison in tests:
 
 ```
 $ ls -la /tmp
 lrwxr-xr-x  1 root  wheel  11 Jan  1  2020 /tmp -> private/tmp
-
-$ python3 -c "import tempfile; print(tempfile.gettempdir())"
-/var/folders/xx/.../T  (Python uses a different temp location)
-
-$ go run -e 'fmt.Println(os.TempDir())'
-/tmp                    (Go returns the symlink)
-
-$ go run -e 'fmt.Println(filepath.EvalSymlinks("/tmp"))'
-/private/tmp            (resolved path)
+$ echo "$TMPDIR"
+/var/folders/xx/.../T/      (per-user temp dir, itself under /var)
 ```
 
-Go's `t.TempDir()` returns the **resolved** path (e.g.,
-`/private/tmp/TestFoo1234567/001`). But `os.TempDir()` returns `/tmp`.
+Where Go's temp paths come from:
+
+- `os.TempDir()` returns `$TMPDIR` when set (normally `/var/folders/.../T` on
+  macOS), else `/tmp`. It does not resolve symlinks.
+- `t.TempDir()` calls `os.MkdirTemp` under `$GOTMPDIR` or `os.TempDir()`. It
+  does not resolve symlinks either, so it returns a `/var/folders/...` (or
+  `/tmp/...`) path, while anything that resolves it (`filepath.EvalSymlinks`,
+  `os.Getwd` after `chdir`, a child process's `pwd -P`) sees
+  `/private/var/...` (or `/private/tmp/...`).
 
 **Impact on tests:**
 
 ```go
-// BROKEN: path mismatch
+// BROKEN: mixes an unresolved base with a resolved one
 func TestPathOutput(t *testing.T) {
-    dir := t.TempDir() // /private/tmp/TestFoo.../001
-    expected := filepath.Join(os.TempDir(), "TestFoo", "output.txt")
-    // expected = /tmp/TestFoo/output.txt
-    // These paths refer to the same location but string comparison fails
+    dir := t.TempDir()                        // /var/folders/.../T/TestPathOutput.../001
+    got := pathReportedByChildProcess(dir)    // /private/var/folders/.../001/output.txt
+    want := filepath.Join(dir, "output.txt")  // same file, different string
 }
 
-// CORRECT: use t.TempDir() for all paths
+// CORRECT: derive both sides from the same t.TempDir() base, or derive the
+// expected value through the same resolver the production code uses, or
+// compare identity with os.Stat + os.SameFile.
 func TestPathOutput(t *testing.T) {
     dir := t.TempDir()
     expected := filepath.Join(dir, "output.txt")
     actual := filepath.Join(dir, "output.txt")
-    // Both use the same resolved base -- comparison works
+    // Both use the same base -- comparison works
 }
 ```
 
-**Additional symlinks on macOS:**
+Do not paper over a resolver-backed API by calling `filepath.EvalSymlinks` on
+both sides; the SKILL "Filesystem Contract" governs that choice.
+
+**Symlinks into `/private` on macOS:**
+- `/tmp` -> `/private/tmp`
 - `/var` -> `/private/var`
 - `/etc` -> `/private/etc`
 
@@ -165,8 +172,8 @@ Key behaviors:
   or `copyfile(3)` for full metadata preservation).
 
 **Testing relevance:** Extended attributes rarely affect Go tests directly.
-The main exception is `com.apple.quarantine` on downloaded binaries (see the
-"Code Signing / Gatekeeper" section in the main SKILL.md).
+The main exception is `com.apple.quarantine` on downloaded binaries (see
+"Code Signing, Gatekeeper and SIP" below).
 
 ### `.DS_Store` Files
 
@@ -195,8 +202,9 @@ for _, e := range entries {
 }
 ```
 
-The invowk discovery code already handles this through its ignore patterns,
-but test code that directly lists directories should be aware.
+The invowk watcher ignores `**/.DS_Store` in its default ignore patterns
+(`internal/watch/watcher.go`), but test code that directly lists directories
+should be aware.
 
 ---
 
@@ -260,11 +268,12 @@ file watcher tests.
 **Practical impact for invowk's watcher tests:**
 
 ```go
-// In watcher_test.go, the inter-write sleep gives kqueue time to deliver events:
-// generates a separate fsnotify event:
+// Pattern from internal/watch/watcher_test.go: a short pause between writes
+// so each write arrives as a separate fsnotify event instead of being
+// coalesced by kqueue, while staying well inside the debounce window.
 for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
     os.WriteFile(filepath.Join(dir, name), []byte("data"), 0o644)
-    time.Sleep(20 * time.Millisecond) // Allow kqueue to deliver event
+    time.Sleep(20 * time.Millisecond)
 }
 ```
 
@@ -318,9 +327,22 @@ For a project with 100 files across 20 directories, the watcher needs ~121
 file descriptors (1 kqueue + 100 files + 20 directories). This is well within
 limits for typical projects but can become significant for monorepos.
 
-**Connection to fd limits:** macOS's default soft limit of 256 fds means
-watching large directory trees can fail with `EMFILE`. Go raises the soft
-limit at startup, but the hard limit still applies.
+**Connection to fd limits:** macOS's default soft limit of 256 fds (1024 is
+the common Linux default) means watching large directory trees can fail with
+`EMFILE`. Go raises the soft limit toward the hard limit at startup, but the
+hard limit still applies. Parallel tests in one test binary share the fd pool,
+and tests that open temp files without closing them drain it too.
+
+**Checking limits** (inspect live values; do not assume the defaults above):
+
+```bash
+ulimit -n      # soft limit of this shell (Go raises its own at startup)
+ulimit -Hn     # hard limit
+lsof -p <pid> | wc -l   # live descriptors of the test process
+```
+
+The watcher tests in `internal/watch/` open one descriptor per watched path;
+keep fixture directory trees shallow so their fd budget stays small.
 
 ### Debugging kqueue Issues
 
@@ -348,3 +370,95 @@ readily available:
 # Trace filesystem events for a process
 sudo fs_usage -w -f filesys <pid>
 ```
+
+---
+
+## Timer Coalescing
+
+macOS coalesces timers to save power (since OS X 10.9). Timer firings are
+grouped to reduce CPU wake-ups, so `time.Sleep`, `time.After` and
+`time.Ticker` can fire later than requested. The delay is non-deterministic:
+the same test may pass or fail on the same machine.
+
+| Platform | Timer behavior (illustrative) |
+|----------|-------------------------------|
+| Linux | ~1ms high-resolution timers; little coalescing |
+| Windows | 15.6ms default quantum (see `windows-testing`) |
+| macOS | 1ms nominal, but coalesced; a 100ms sleep may take noticeably longer |
+
+**Why it matters for invowk:** watcher tests (`internal/watch/watcher_test.go`)
+use short sleeps to separate write events and longer waits for debounce
+windows, and tmux TUI tests wait between key-send and capture. Coalescing
+stretches those waits. That is harmless until the accumulated delay crosses an
+assertion window or the test deadline. Read the current values in
+`internal/watch/` and the tmux tests; do not copy numbers from this file.
+
+**Mitigation:**
+
+1. Prefer event-based synchronization (channels, `sync.WaitGroup`, readiness
+   signals) over sleeps.
+2. Poll with a deadline instead of a fixed sleep:
+
+   ```go
+   deadline := time.Now().Add(2 * time.Second) // illustrative; keep a bounded outer timeout
+   for time.Now().Before(deadline) {
+       if condition() {
+           break
+       }
+       time.Sleep(50 * time.Millisecond)
+   }
+   ```
+
+3. When a test must measure elapsed time, allow wide tolerance on macOS
+   (roughly 2x-3x the expected duration, versus about 1.5x on Linux) and
+   assert lower bounds rather than exact durations.
+
+---
+
+## Code Signing, Gatekeeper and SIP
+
+Binaries produced by `go build` are unsigned. Gatekeeper may block an
+unsigned binary that carries the `com.apple.quarantine` attribute (set on
+files downloaded through a browser or similar). Binaries built locally,
+including inside a CI job, are not quarantined.
+
+Symptom: "cannot execute binary file", "operation not permitted", or a
+Gatekeeper dialog when a test spawns an `invowk` binary that was downloaded
+rather than built. Narrow remedies for a developer machine:
+
+```bash
+# Inspect, then remove the quarantine attribute
+xattr -l ./invowk
+xattr -d com.apple.quarantine ./invowk
+
+# Ad-hoc sign (no Apple Developer ID needed)
+codesign -s - ./invowk
+```
+
+Do not disable Gatekeeper or SIP, or weaken signing in product code, as a
+test fix.
+
+System Integrity Protection (SIP) protects system locations such as
+`/System` and `/usr/bin` and restricts `dtrace`/`ptrace` on system processes
+(see "Debugging kqueue Issues"). Delve works for user-space Go programs, and
+invowk tests run entirely in user space, so SIP is rarely relevant.
+
+---
+
+## flock on macOS
+
+Cross-process flock is academic for invowk on macOS.
+`internal/container/run_lock_other.go` (build tag `!linux`) returns
+`errFlockUnavailable`, and the callers in
+`internal/container/run_serialization.go` fall back to an in-process
+`sync.Mutex` for container engine run serialization. On macOS and Windows,
+Podman runs inside a Linux VM (`podman machine` / WSL2), so a host-side flock
+could not protect engine state inside that VM anyway. Never claim
+cross-binary locking on macOS without implementing it.
+
+If future code adds macOS flock support, keep in mind:
+- flock locks belong to the open file description; a child started by
+  `exec.Command` can briefly share an inherited descriptor during the
+  fork-to-exec window (Go opens files close-on-exec, so it is dropped at
+  `exec`).
+- `flock` on NFS-mounted volumes is not reliable.

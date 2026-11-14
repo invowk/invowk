@@ -1,7 +1,13 @@
 # Surface Verification Checklists
 
-Each surface has a numbered checklist of verification items. Subagents report PASS, FAIL, or N/A
-for every item — no item may be skipped. Findings are generated from FAIL items only.
+Each surface has a numbered checklist of verification items. Subagents report PASS, FAIL, SKIP,
+or N/A for every item — no item may be omitted. Findings are generated from FAIL items only.
+
+Status rule (same wording as `SKILL.md`): **FAIL** if any deviation in the item's scope matches
+no registry entry; **SKIP** only when every deviation for the item matches an entry in
+`known-exceptions.md` or `accepted-patterns.md`, each one cited in the evidence; **PASS**
+otherwise, citing any registry-matched occurrences in the evidence; **N/A** when nothing in the
+item's scope applies, with the reason. Registry-matched occurrences are never findings.
 
 Severity is pre-assigned per item to eliminate subjective classification. The severity levels
 (ERROR, WARNING, INFO) follow the definitions in `structured-output-format.md`.
@@ -45,14 +51,14 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 |---|---|---|---|
 | T2-C01 | All top-level `Test*` functions call `t.Parallel()` as first statement (unless in `known-exceptions.md`) | All test files | ERROR |
 | T2-C02 | All table-driven subtests inside parallel parents also call `t.Parallel()` | Tests with `t.Run()` inside parallel parents | ERROR |
-| T2-C03 | No `t.Parallel()` in tests that use `os.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`, `MustSetenv`, `MustChdir`, `withPipeStdin`, or any `os.Stdin` replacement | Tests mutating global state | ERROR |
+| T2-C03 | No `t.Parallel()` in tests that use `os.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`, `MustSetenv`, `MustChdir`, or any `os.Stdin` replacement | Tests mutating global state | ERROR |
 | T2-C04 | No `tt := tt` or `tc := tc` loop-variable rebinding (Go 1.22+ per-iteration semantics) | All table-driven tests | WARNING |
 | T2-C05 | `t.Context()` used as default context in test functions (not `context.Background()`) | All test functions | WARNING |
 | T2-C06 | `context.Background()` only used in `TestMain`, package-level init, or `env.Defer()` callbacks — with comment explaining why | All test files | WARNING |
 | T2-C07 | `b.Context()` used in benchmarks (not `t.Context()` or `context.Background()`) | All benchmark files | WARNING |
 | T2-C08 | Tests using `os.MkdirTemp` + `defer os.RemoveAll` do not have `t.Parallel()` subtests (use `t.TempDir()` instead) | Tests with temp dirs + parallel subtests | ERROR |
 | T2-C09 | Container integration tests that call real-engine `Execute()`, `ExecuteCapture()`, or equivalent subprocess operations use `testutil.ContainerTestContext()` instead of bare `t.Context()`. Exclude `Validate()`-only, type-assertion, mocked-engine, and pre-engine error-path tests. | `internal/runtime/container*_test.go` | ERROR |
-| T2-C10 | Container integration tests that perform real engine operations acquire `testutil.ContainerSemaphore()` after `t.Parallel()` and the `testing.Short()` skip. Exclude `Validate()`-only, type-assertion, mocked-engine, and pre-engine error-path tests. | `internal/runtime/container*_test.go`, `internal/container/*_test.go` | ERROR |
+| T2-C10 | Container integration tests that perform real engine operations acquire the container semaphore after `t.Parallel()` and the `testing.Short()` skip, in one of two accepted forms: `testutil.AcquireContainerSemaphore(t)` once per test (releases via `t.Cleanup`), or `testutil.ContainerSemaphore()` with a same-call `defer` release in a helper that may acquire more than once per test. Flag a multi-acquire helper that releases through `t.Cleanup` (it holds tokens until test end and can stall parallel suites). Exclude `Validate()`-only, type-assertion, mocked-engine, and pre-engine error-path tests. | `internal/runtime/container*_test.go`, `internal/container/*_test.go` | ERROR |
 | T2-C11 | No shared `MockCommandRecorder` across parallel subtests (each needs own instance) | `internal/container/*mock*_test.go` | ERROR |
 | T2-C12 | No `maps.Copy` needed where `for k, v := range` loop clones full map (modernize linter) | All test files | INFO |
 
@@ -72,11 +78,11 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T3-C02 | No `reflect.DeepEqual` on typed slices — use `slices.Equal` instead | All test files | WARNING |
 | T3-C03 | No `time.Sleep()` in test assertions — classify per `pattern-catalog.md` § "time.Sleep Classification" before reporting. Sleeps for event separation, latency simulation, or poll-helper testing are KEEP. | All test files | ERROR |
 | T3-C04 | No hardcoded Unix paths (`/foo/bar`) in assertions without `skipOnWindows` or `filepath.Join()` | All test files | WARNING |
-| T3-C05 | Error assertions use `errors.Is`/`errors.As` where a sentinel exists in the error chain. Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification" — only CONVERTIBLE cases are findings. ValidationErrors flattening, Error() format tests, CUE library errors, and supplementary checks are KEEP (not findings). | Tests checking errors | WARNING |
+| T3-C05 | Error assertions use `errors.Is`/`errors.As` where a sentinel exists in the error chain. Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification" — only CONVERTIBLE cases are findings. `ValidationError` string matching is KEEP only after tracing shows the error's `Cause` is nil (both `ValidationError` and `ValidationErrors` implement `Unwrap`, so a non-nil `Cause` sentinel is reachable by `errors.Is`); Error() format tests, CUE library errors, and supplementary checks are KEEP (not findings). | Tests checking errors | WARNING |
 | T3-C06 | Tests verify behavioral contracts, not struct field storage (no trivial constant == literal tests) | All test files | WARNING |
 | T3-C07 | No `Validate()` call results discarded (`_ = x.Validate()` or bare `x.Validate()`) | All test files | WARNING |
 | T3-C08 | `goruntime` import alias used when both `runtime` package and `runtime.GOOS` needed | `internal/runtime/*_test.go`, `cmd/invowk/*_test.go` | INFO |
-| T3-C09 | Cross-platform path validator tests include all 6 vector categories (Unix abs, Windows drive abs, UNC, slash traversal, backslash traversal, valid relative) | `pkg/types/*_test.go`, `pkg/fspath/*_test.go`, `pkg/invowkmod/*_test.go` | WARNING |
+| T3-C09 | Cross-platform path validator/resolver tests cover all 7 canonical vectors (UnixAbsolute, WindowsDriveAbs, WindowsRooted, UNC, SlashTraversal, BackslashTraversal, ValidRelative) through `internal/testutil/pathmatrix` (`Validator` / `Resolver`), per `.agents/rules/testing.md` "Cross-Platform Path Validator Matrix" | Tests calling `internal/testutil/pathmatrix` (today `internal/app/deps`, `internal/config`, `internal/container`, `pkg/invowkfile`, `pkg/invowkmod`, `pkg/types`) plus the surfaces registered in `tests/coverage/pathmatrix_coverage_test.go` | WARNING |
 | T3-C10 | Absolute path fixtures use `t.TempDir()` + `filepath.Join()`, not hardcoded `/foo/bar` | Tests using absolute paths as fixtures | WARNING |
 | T3-C11 | No circular/trivial tests (zero-value == zero, constant == literal without behavioral purpose) | All test files | WARNING |
 | T3-C12 | `t.TempDir()` preferred over `os.MkdirTemp` + manual cleanup | All test files | INFO |
@@ -106,7 +112,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T4-C09 | Container image used in tests is `debian:stable-slim` (unless testing language-specific runtime) | All container test files | WARNING |
 | T4-C10 | CI workflow `ci.yml` runs separate test steps for non-CLI, internal/runtime, and CLI | `.github/workflows/ci.yml` | INFO |
 | T4-C11 | CI workflow uses `-race` flag for all test runs | `.github/workflows/ci.yml` | WARNING |
-| T4-C12 | CI workflow uses `gotestsum --rerun-fails` with `--rerun-fails-max-failures 5` for non-CLI, but NOT for CLI tests | `.github/workflows/ci.yml` | INFO |
+| T4-C12 | CI rerun policy: the full-mode non-CLI and `internal/runtime` steps use `gotestsum --rerun-fails --rerun-fails-max-failures 5`; the short-mode `./...` step (macOS/Windows, which includes `tests/cli`) uses `--rerun-fails-max-failures 3`; the dedicated CLI steps never rerun | `.github/workflows/ci.yml` | INFO |
 
 **Total items**: 12
 
@@ -208,7 +214,11 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T8-C11 | Watch tests (`internal/watch/`) handle platform-specific behavior (Windows fatal pattern) | `internal/watch/*_test.go` | INFO |
 | T8-C12 | Provision tests (`internal/provision/`) verify layer provisioning with proper container semaphore usage | `internal/provision/*_test.go` | WARNING |
 
-**Total items**: 12
+T8-C06 and T8-C07 are retired (goplint moved to its standalone repository); the remaining IDs
+stay stable because registries and the promotion table cite them. History:
+`.agents/memorials/skills-docs-review-history.md`.
+
+**Total items**: 10
 
 ---
 
@@ -223,5 +233,5 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | SS5: Testscript Quality | 15 | 6 | 8 | 1 |
 | SS6: Virtual/Native Mirrors | 12 | 5 | 6 | 1 |
 | SS7: Coverage & Guardrails | 11 | 4 | 5 | 2 |
-| SS8: TUI & Domain-Specific | 12 | 2 | 9 | 1 |
-| **Grand Total** | **102** | **31** | **53** | **18** |
+| SS8: TUI & Domain-Specific | 10 | 2 | 7 | 1 |
+| **Grand Total** | **100** | **31** | **51** | **18** |

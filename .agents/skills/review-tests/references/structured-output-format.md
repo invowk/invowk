@@ -13,7 +13,7 @@ Reviewer: review-tests coordinator + 8 subagents
 Surfaces: SS1-SS8 (StructuralHygiene, ParallelismContext, TestPatterns,
           IntegrationGating, TxtarQuality, Mirrors, CoverageGuardrails,
           DomainTesting)
-Programmatic Checks: PC-01 through PC-14 (see verification-commands.md)
+Programmatic Checks: PC-01 through PC-15 (see verification-commands.md)
 ```
 
 ## Checklist Status (per-subagent output)
@@ -22,7 +22,13 @@ Each subagent produces a checklist table BEFORE listing findings.
 Every item from `surface-checklists.md` for the assigned surface must appear
 -- no item may be omitted.
 
-Status values: PASS (with evidence), FAIL (finding entry required), N/A (explain why).
+Status values (status rule, same wording as `SKILL.md`):
+- **FAIL** if any deviation in the item's scope matches no registry entry; a finding entry is
+  required for each such deviation.
+- **SKIP** only when every deviation for the item matches an entry in `known-exceptions.md` or
+  `accepted-patterns.md`, each one cited in the evidence.
+- **PASS** otherwise, with evidence, citing any registry-matched occurrences.
+- **N/A** when nothing in the item's scope applies, with the reason.
 
 Format:
 
@@ -30,6 +36,7 @@ Format:
 |----------|-------------|--------|-----------------------|
 | T1-C01   | ...         | PASS   | Verified in X files   |
 | T1-C02   | ...         | FAIL   | RT-003                |
+| T2-C01   | ...         | SKIP   | All 4 tests without `t.Parallel()` use `t.Setenv`: known-exceptions.md "Parallelism Exceptions" |
 | T1-C03   | ...         | N/A    | No container tests    |
 
 ## Finding Entry Template
@@ -41,7 +48,7 @@ Format:
 | **ID** | `RT-{NNN}` -- sequential within the report |
 | **Check ID** | The checklist item (e.g., `T3-C05`) |
 | **Surface** | One of: StructuralHygiene, ParallelismContext, TestPatterns, IntegrationGating, TxtarQuality, Mirrors, CoverageGuardrails, DomainTesting |
-| **Severity** | ERROR / WARNING / INFO / SKIP -- use pre-assigned severity from checklist |
+| **Severity** | ERROR / WARNING / INFO -- use pre-assigned severity from checklist |
 | **File** | Path relative to repo root |
 | **Line(s)** | Line number(s) or test function name |
 | **Evidence** | Brief quote of what the code does (keep concise) |
@@ -50,19 +57,19 @@ Format:
 | **Fix Hint** | Actionable remediation guidance (code pattern or command to run) |
 | **Source** | `checklist` or `semantic` (whether from checklist item or semantic analysis) |
 
-Example:
+Example (illustrative file and test names):
 
 ```
 RT-042
   Check ID : T2-C03
   Surface  : ParallelismContext
   Severity : ERROR
-  File     : internal/runtime/virtual_test.go
-  Line(s)  : TestVirtualExec/subtest_env (line 187)
-  Evidence : Subtest captures range variable `tc` without t.Parallel()
-  Expected : Either call t.Parallel() + copy loop var, or run sequentially with comment
-  Rationale: Range variable capture in parallel subtests causes flaky tests and data races
-  Fix Hint : Add `t.Parallel()` at subtest top; Go 1.22+ loop var semantics make copy unnecessary
+  File     : internal/config/config_env_test.go
+  Line(s)  : TestLoadConfig_EnvOverride (line 41)
+  Evidence : Calls t.Parallel() and then t.Setenv("XDG_CONFIG_HOME", dir)
+  Expected : Tests that mutate process environment run serially (no t.Parallel())
+  Rationale: t.Setenv panics in a parallel test, and process-wide env mutation races with other parallel tests
+  Fix Hint : Remove t.Parallel() and add a comment explaining why the test is serial, or pass the directory through a request-scoped parameter instead of the environment
   Source   : checklist
 ```
 
@@ -73,22 +80,19 @@ RT-042
 | **ERROR** | Would cause test failures, race conditions, flaky CI, or false sense of safety | Must fix before merge |
 | **WARNING** | Suboptimal but not broken: missing parallelism, stale patterns, incomplete coverage | Should fix soon |
 | **INFO** | Style improvement, minor hygiene, non-blocking suggestion | Fix when convenient |
-| **SKIP** | Intentional deviation documented in `known-exceptions.md` or `accepted-patterns.md` | No action needed (accepted patterns are periodically reconsidered) |
+
+Deviations documented in `known-exceptions.md` or `accepted-patterns.md` are not findings and
+carry no severity; they appear only as citations in checklist evidence (accepted patterns are
+periodically reconsidered).
 
 ## Semantic Analysis Findings
 
-After completing the checklist, subagents scan for issues not covered by
-specific checklist items:
-
-- **Missing test coverage**: Exported functions without Test*, error-returning
-  functions with only happy path tested, switch/if branches with no exercising
-  test case
-- **Low-value tests**: Circular assertions (constant == literal), struct-storage
-  tests (field set/get only), always-skipped tests (unconditional t.Skip),
-  excessive mocking (80%+ mock setup, trivial assertion)
-
-Semantic findings use the same entry template but set Source to `semantic` and
-use the nearest-match checklist severity.
+After the checklist, subagents scan for issues no checklist item covers: missing test coverage
+(exported functions without Test*, error-returning functions with only the happy path tested,
+switch/if branches with no exercising case) and low-value tests (circular assertions such as
+constant == literal, struct-storage tests, always-skipped tests with an unconditional `t.Skip`,
+excessive mocking with 80%+ mock setup and a trivial assertion). Semantic findings use the same
+entry template with Source set to `semantic` and the nearest-match checklist severity.
 
 ## Summary Table
 
@@ -101,20 +105,19 @@ End the report with aggregate counts:
 | ERROR    | N     |
 | WARNING  | N     |
 | INFO     | N     |
-| SKIP     | N     |
 
 ### Checklist Completion
 
-| Surface | SA | Total | PASS | FAIL | N/A |
-|---------|----|-------|------|------|-----|
-| SS1 StructuralHygiene    | SA-1 | N | N | N | N |
-| SS2 ParallelismContext   | SA-2 | N | N | N | N |
-| SS3 TestPatterns         | SA-3 | N | N | N | N |
-| SS4 IntegrationGating    | SA-4 | N | N | N | N |
-| SS5 TxtarQuality         | SA-5 | N | N | N | N |
-| SS6 Mirrors              | SA-6 | N | N | N | N |
-| SS7 CoverageGuardrails   | SA-7 | N | N | N | N |
-| SS8 DomainTesting        | SA-8 | N | N | N | N |
+| Surface | SA | Total | PASS | FAIL | SKIP | N/A |
+|---------|----|-------|------|------|------|-----|
+| SS1 StructuralHygiene    | SA-1 | N | N | N | N | N |
+| SS2 ParallelismContext   | SA-2 | N | N | N | N | N |
+| SS3 TestPatterns         | SA-3 | N | N | N | N | N |
+| SS4 IntegrationGating    | SA-4 | N | N | N | N | N |
+| SS5 TxtarQuality         | SA-5 | N | N | N | N | N |
+| SS6 Mirrors              | SA-6 | N | N | N | N | N |
+| SS7 CoverageGuardrails   | SA-7 | N | N | N | N | N |
+| SS8 DomainTesting        | SA-8 | N | N | N | N | N |
 
 ### Priority Fix List
 
@@ -139,21 +142,6 @@ or cadence note, and recommended action (re-evaluate, promote, demote, or remove
 
 ## Merge Procedure (for coordinator)
 
-1. Verify completeness (all checklist items reported by every subagent)
-2. Collect findings from SA-1 through SA-8
-3. Deduplicate by (file, test function/line) -- keep higher severity
-4. Cross-check against `known-exceptions.md` (permanent exceptions)
-5. Cross-check against `accepted-patterns.md` (conditionally-accepted patterns)
-6. Run accepted-patterns reconsideration protocol:
-   a. For each registry entry, check if review cadence has elapsed
-   b. Evaluate reconsideration triggers against current codebase state
-   c. Flag entries due for review or with triggered conditions
-   d. Update Last Reviewed dates for entries that pass review
-   e. Promote eligible entries (EXPERIMENTAL -> PROVISIONAL -> SETTLED)
-   f. Demote entries whose triggers fired (any level -> EXPERIMENTAL)
-   g. Remove entries for patterns no longer present in codebase
-7. Sort by severity (ERROR first), then by surface
-8. Assign sequential IDs (RT-001, RT-002, ...)
-9. Merge checklist tables into unified completion summary
-10. Produce summary, checklist completion, priority fix list, and
-    Patterns for Reconsideration appendix
+The canonical merge steps are in `SKILL.md` Step 3. The accepted-patterns reconsideration
+sub-steps (cadence check, trigger evaluation, flagging, Last Reviewed updates, promotion,
+demotion, removal) are in `accepted-patterns.md` § "Reconsideration Protocol".

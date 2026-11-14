@@ -16,6 +16,8 @@ go list -m -versions golang.org/x/perf
 
 For pseudo-versions, check whether the module now has a suitable tagged release
 and inspect the module's official release notes before recommending a change.
+Current example: `benchstat` is installed from `golang.org/x/perf` at a
+pseudo-version in `.github/workflows/pgo-benchstat.yml`.
 
 ## Released Binaries and Actions
 

@@ -3,7 +3,8 @@ name: linux-testing
 description: >-
   Invowk Linux and Ubuntu CI testing guidance for process cleanup, POSIX
   signals, inotify failures, file-descriptor exhaustion, cgroups/namespaces,
-  OOM kills, and the container test infrastructure. Use when debugging
+  OOM kills, and the container test infrastructure (ContainerTestContext,
+  suite lock). Use when debugging
   Linux-only failures, exit code 137, ping_group_range races, context deadline
   exceeded, `[!container-available]`, container test hangs, inotify
   ENOSPC/EMFILE/ENFILE errors, or Linux CI behavior.
@@ -29,9 +30,9 @@ Load references conditionally:
 - Read [references/container-testing-deep.md](references/container-testing-deep.md)
   for deadlines, engine health probes, semaphores, suite locks, and cleanup.
 - Read [references/process-namespaces.md](references/process-namespaces.md) for
-  process groups, signals, cgroups, namespaces, OOM, and seccomp.
+  process groups, signals, cgroups, namespaces, the OOM killer, and seccomp.
 - Read [references/filesystem-inotify.md](references/filesystem-inotify.md) for
-  filesystem, flock, inotify, and descriptor-limit details.
+  inotify, descriptor-limit, and flock ("File Locking") details.
 
 ## First Checks
 
@@ -55,9 +56,12 @@ Load references conditionally:
 
 - A child started with `os/exec.Cmd` is reaped by `Cmd.Wait` or a helper such
   as `Cmd.Run`; the Go runtime does not reap arbitrary children. Always wait.
-- Killing only the direct child may leave descendants. When production code
-  owns a process tree, use the existing process-group pattern and test cleanup
-  rather than adding sleeps.
+- Killing only the direct child may leave descendants. The repo has no
+  process-group code today: `cmd.WaitDelay` (e.g. `cmdWaitDelay` in
+  `internal/container/engine_base.go`) is what bounds pipe cleanup. If
+  production code must own a process tree, add `Setpgid` plus
+  `kill(-pgid)` with a cleanup test (`process-namespaces.md` "Process Groups,
+  Signals and Orphans") rather than adding sleeps.
 - `exec.CommandContext` cancellation is immediate by default. When graceful
   termination matters, configure `cmd.Cancel` and a bounded `cmd.WaitDelay`.
 - Binary-level `go test -timeout` termination cannot be relied on to run
@@ -99,6 +103,10 @@ Keep the timeout and serialization layers distinct:
 | Cross-binary suite lock | CLI container suite | Serialize competing test binaries |
 | Go/workflow timeout | test binary and CI | Outer last-resort termination |
 
+This table is the canonical enumeration; current values and the
+timeout-headroom invariant are in `container-testing-deep.md` "Timeout and
+Serialization Layers".
+
 Do not add the suite lock to ordinary Go package tests. Do not use a bare
 `t.Context()` for an operation that can hang in a container daemon.
 
@@ -116,7 +124,7 @@ The durable Linux-specific mitigations are:
 
 | Symptom | Evidence to collect | Likely route |
 |---|---|---|
-| Exit 137 or abruptly missing output | cgroup state and permitted kernel logs | OOM section in `process-namespaces.md` |
+| Exit 137 or abruptly missing output | cgroup state and permitted kernel logs | "OOM Killer" in `process-namespaces.md` |
 | inotify `ENOSPC` | `/proc/sys/fs/inotify/max_user_watches` and active watch count | `filesystem-inotify.md` |
 | `EMFILE` / `ENFILE` | `ulimit -n`, process fd count, system file table | `filesystem-inotify.md` |
 | Container test deadline | health probe, daemon logs, active containers, timeout layer | `container-testing-deep.md` |

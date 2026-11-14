@@ -1,16 +1,21 @@
 ---
 name: shell
-description: Shell runtime rules for mvdan/sh virtual-sh runtime, hidden exec-sh adapters, shared virtual-shell interactive plumbing, and repository bash scripts. Covers positional arguments gotcha (prepend "--"), bash strict mode, and arithmetic increment pitfalls.
+description: Shell runtime rules for the mvdan/sh virtual-sh runtime (internal/runtime/sh.go), the hidden exec-virtual-sh command (internal_exec_sh.go), shared virtual-shell interactive plumbing, and repository bash scripts. Covers the interp.Params positional arguments gotcha (prepend "--", invalid option errors), bash strict mode, and ((var++)) arithmetic increment pitfalls with set -e.
 ---
 
 # Invowk Shell Runtime Rules
 
-This skill covers how Invowk handles shell interpreters and script execution internally.
-**NOT general bash scripting guidance.**
+This skill covers Invowk shell internals and repository bash script conventions,
+not general bash tutoring.
+
+## Directives
+
+- **CRITICAL:** always pass `append([]string{"--"}, args...)` to `interp.Params()` for user-provided positional arguments.
+- **CRITICAL:** in scripts with `set -e`, use `VAR=$((VAR + 1))`, never `((VAR++))`, when `VAR` might be 0.
 
 Use this skill when working on:
 - `internal/runtime/sh.go` - virtual-sh runtime
-- `cmd/invowk/internal_exec_sh.go` - virtual-sh execution command
+- `cmd/invowk/internal_exec_sh.go` - hidden `exec-virtual-sh` command
 - `internal/app/commandadapters/sh_interactive.go` and shared virtual interactive helpers
 - Repository bash script execution logic
 
@@ -54,21 +59,14 @@ if len(args) > 0 {
 }
 ```
 
-#### Why This Works
-
-In POSIX shells, `"--"` is the standard delimiter that terminates option parsing. Everything after `"--"` is treated as a positional parameter, regardless of whether it starts with `-`:
-
-```bash
-# Shell equivalent:
-set -- -v --env=staging  # Sets $1="-v", $2="--env=staging"
-```
+`"--"` terminates option parsing, exactly like the shell's `set -- -v --env=staging` (sets `$1="-v"`, `$2="--env=staging"`).
 
 ### Affected Locations
 
 When working with mvdan/sh in this codebase, ensure `"--"` is prepended in:
 
 1. `internal/runtime/sh.go` - `prepareShExec()` for normal virtual-sh execution
-2. `internal/runtime/sh.go` - `RunShScript()` for the internal exec-sh path
+2. `internal/runtime/sh.go` - `RunShScript()` for the hidden `exec-virtual-sh` command path (`cmd/invowk/internal_exec_sh.go`)
 
 `internal/app/commandadapters/sh_interactive.go` transports arguments through
 `--args`; verify that transport stays aligned with the runtime-side
@@ -90,20 +88,22 @@ This issue manifests on Windows CI because virtual-sh is the bash-compatible emb
 
 ### Strict Mode (`set -euo pipefail`)
 
-Project-level bash entrypoints should use strict mode for safety. Short sourced
-helpers that only emit shell fragments, such as Bencher helper scripts, may omit
-it deliberately. **Note:** This applies to repository bash scripts, not to CUE
-command scripts executed via container runtimes (`/bin/sh -c`). For container
-script behavior, see the testing skill's "Shell Script Behavior in Containers"
-section.
+Project-level bash entrypoints should use strict mode for safety:
 
 ```bash
 set -euo pipefail
 ```
 
 This exits on command failures, undefined variables, and failed pipeline
-segments. Verify changed repo bash scripts with `bash -n <script>` and
-`make lint-scripts` when applicable.
+segments.
+
+- POSIX `#!/bin/sh` scripts (e.g. `scripts/install.sh`, `scripts/test_install.sh`) use `set -eu`, because `pipefail` is not POSIX.
+- Short sourced helpers that only emit shell fragments, such as the Bencher helper scripts (`scripts/bencher-*.sh`), may omit strict mode deliberately.
+- Strict mode applies to repository bash scripts, not to CUE command scripts executed via container runtimes (`/bin/sh -c` does not imply `set -e`); see `.agents/skills/testing/references/container-and-tui.md`.
+
+Verify changed repo bash scripts with `bash -n <script>` and `make lint-scripts`
+when applicable. Without `shellcheck` on `PATH`, `make lint-scripts` prints a
+skip notice and exits 0, so install it before trusting a pass.
 
 ### Arithmetic Increment Gotcha
 
@@ -113,41 +113,7 @@ In bash, arithmetic expressions return exit status based on the expression's val
 - `((0))` returns exit status 1 (false)
 - `((1))` returns exit status 0 (true)
 
-The post-increment `((x++))` evaluates to the *original* value of `x`:
-
-```bash
-# DANGEROUS with set -e:
-COUNTER=0
-((COUNTER++))  # Evaluates to 0 (the original value), exits with status 1!
-               # Script terminates here due to set -e
-```
-
-### Safe Arithmetic Patterns
-
-**Use assignment syntax instead of increment operators:**
-
-```bash
-# CORRECT: Assignment always succeeds
-COUNTER=$((COUNTER + 1))
-```
-
-### Anti-Patterns to Avoid
-
-```bash
-# WRONG: Will fail if COUNTER is 0
-((COUNTER++))
-
-# WRONG: Will fail if FAILED is 0
-((FAILED++))
-
-# WRONG: Will fail if SKIPPED is 0
-((SKIPPED++))
-```
-
-### Real-World Example
-
-Shell validation scripts commonly use counters for PASSED, FAILED, and SKIPPED
-checks:
+The post-increment `((x++))` evaluates to the *original* value of `x`, so `((COUNTER++))`, `((FAILED++))` or `((SKIPPED++))` starting from 0 returns status 1 and `set -e` terminates the script. Use assignment syntax, which always succeeds:
 
 ```bash
 # WRONG - Script exits on first skip when SKIPPED is 0:
@@ -164,10 +130,3 @@ if [[ ! -f "$golden_file" ]]; then
     continue
 fi
 ```
-
----
-
-## Common Pitfalls
-
-- **Missing `"--"` delimiter** - Always use `append([]string{"--"}, args...)` when calling `interp.Params()` with user-provided positional arguments.
-- **Arithmetic with `set -e`** - Always use `VAR=$((VAR + 1))` instead of `((VAR++))` when `VAR` might be 0.

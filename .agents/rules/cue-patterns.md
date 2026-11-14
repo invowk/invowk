@@ -11,20 +11,14 @@ paths:
 
 ## String Validation
 
-### Use Regex Constraints, Not String Functions
+### Use Regex Constraints for Negative Checks
 
-CUE's `strings.HasPrefix()`, `strings.Contains()`, `strings.HasSuffix()` return **strings**, not booleans. You cannot negate them with `!`.
+CUE's `strings.HasPrefix()`, `strings.Contains()` and `strings.HasSuffix()` are validators: they work positively (`string & strings.HasPrefix("/")`), but they cannot be negated. `!strings.HasPrefix("/")` fails with `invalid operation !strings.HasPrefix("/") (! string)`. Express negative constraints with regex:
 
 ```cue
-// ❌ WRONG - These functions return strings, not booleans
-field?: string & !strings.HasPrefix("/")
-field?: string & !strings.Contains("..")
-
-// Error: "invalid operation !strings.HasPrefix(...) (! string)"
-
-// ✅ CORRECT - Use regex constraints
 field?: string & =~"^[^/]"      // Does not start with /
 field?: string & !~"\\s"       // Does not contain whitespace
+field?: string & !~"\\.\\."    // Does not contain ..
 ```
 
 ### Common Regex Patterns
@@ -37,85 +31,23 @@ field?: string & !~"\\s"       // Does not contain whitespace
 | `=~"^\\s*\\S.*$"` | Non-empty after trim | Required text fields |
 | `=~"^[A-Za-z_][A-Za-z0-9_]*$"` | POSIX identifier | Env var names |
 
-### Safe String Functions
-
-These CUE string functions ARE safe to use for constraints:
-
-```cue
-import "strings"
-
-// ✅ These work correctly
-field?: string & strings.MaxRunes(4096)  // Length limit
-field?: string & strings.MinRunes(1)      // Non-empty
-```
+`strings.MaxRunes(n)` and `strings.MinRunes(n)` are the usual length validators.
 
 ## Schema Organization
 
-### Discriminated Unions for Runtime Types
-
-Use closed structs with discriminated unions for type-safe variant handling:
-
-```cue
-#RuntimeConfig: #RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer
-
-#RuntimeConfigNative: close({
-    name: "native"
-    interpreter?: string
-})
-
-#RuntimeConfigContainer: close({
-    name: "container"
-    image?: string
-    containerfile?: string
-})
-```
-
-### Required List with Minimum One Element
-
-```cue
-// Require at least one element
-implementations: [...#Implementation] & [_, ...]
-```
-
-### Field Removal
-
-For clean breaking schema changes, remove obsolete fields and rely on closed structs
-to reject unsupported input. Only add a bottom (`_|_`) tombstone when a change
-explicitly calls for compatibility-oriented diagnostics:
-
-```cue
-// Compatibility diagnostic only; do not use for clean removals.
-old_field?: _|_
-```
+- Model runtime variants as closed structs in a discriminated union on `name`; see `#RuntimeConfig` in `pkg/invowkfile/invowkfile_schema.cue` (`#RuntimeConfigNative | #RuntimeConfigVirtualSh | #RuntimeConfigVirtualLua | #RuntimeConfigContainer`).
+- Require at least one list element with `& [_, ...]`, e.g. `implementations: [...#Implementation] & [_, ...]`.
+- Mutual exclusion inside disjunction arms uses an optional bottom field: the image arm of the container runtime declares `containerfile?: _|_`, and the containerfile arm declares `image?: _|_`.
+- Field removal: for clean breaking changes, remove the obsolete field and let closed structs reject it. Add an `old_field?: _|_` tombstone only when a change explicitly calls for compatibility diagnostics.
 
 ## Validation Responsibilities
 
-### CUE Schema vs Go Validation
-
-| Validation Type | Where | Why |
-|-----------------|-------|-----|
-| Format patterns (regex) | CUE | Static, declarative |
-| Length limits | CUE | `strings.MaxRunes()` |
-| Enum values | CUE | Type-safe unions |
-| Path traversal security | Go | Requires `filepath.Rel()` |
-| File existence | Go | Runtime filesystem access |
-| Cross-field logic | Go | CUE can't express easily |
-
-### Adding Comments for Split Validation
-
-When validation is split between CUE and Go, add comments:
-
-```cue
-// Path must look relative at the portable string-shape layer.
-// Note: Cross-platform absolute path and traversal validation is performed in Go.
-containerfile?: string & strings.MaxRunes(4096) & =~"^[^/\\\\]"
-```
+CUE owns static shape: format patterns, length limits and enum unions. Go owns what CUE cannot express: path traversal and cross-platform path security, file existence and cross-field logic (full table: `.agents/skills/cue/SKILL.md`). Mark every Go-only validation with a `[GO-ONLY]` comment in the schema, as the `containerfile` field does (`#NonWhitespaceString & strings.MaxRunes(4096)` in CUE; absolute paths and `..` segments rejected in Go).
 
 ## Common Pitfalls
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
-| Using `!strings.HasPrefix()` | "invalid operation (! string)" | Use `=~"^[^x]"` regex |
-| Using `!strings.Contains()` | "invalid operation (! string)" | Use `!~"pattern"` regex |
+| Negating `strings.HasPrefix()` / `strings.Contains()` | "invalid operation (! string)" | Use `=~"^[^x]"` / `!~"pattern"` regex |
 | Forgetting to escape `.` in regex | Matches any char instead of literal | Use `\\.` |
 | Missing `close()` on struct | Extra fields silently allowed | Always use `close({...})` |

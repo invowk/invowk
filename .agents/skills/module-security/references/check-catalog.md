@@ -5,6 +5,18 @@ current default list from `DefaultCheckers()` in `internal/audit/scanner.go`;
 this catalog explains behavior and must not be used as a substitute for the
 source inventory.
 
+Finding titles below are the current ones. For the complete, authoritative
+list use `internal/audit/finding_codes.go` (every stable code) plus:
+
+```bash
+rg -n 'Title|title' internal/audit/checks_*.go internal/audit/correlator*.go
+```
+
+That search also catches the positional titles in the ScriptChecker
+obfuscation table and titles held in constants (`reverseShellFindingTitle`,
+`scriptSensitiveEnvVarTitle`, `obfuscatedNetworkAccessTitle`,
+`highSeverityCombinedIssuesTitle`).
+
 ## Table of Contents
 
 - [Lock File Integrity](#lock-file-integrity) — `checks_lockfile.go`
@@ -14,7 +26,7 @@ source inventory.
 - [Virtual Lua Risks](#virtual-lua-risks) — `checks_lua.go`
 - [Symlink Detection](#symlink-detection) — `checks_symlink.go`
 - [Module Metadata Analysis](#module-metadata-analysis) — `checks_module.go`
-- [Finding Correlation Rules](#finding-correlation-rules) — Phase 3 cross-checks
+- [Finding Correlation Rules](#finding-correlation-rules) — compiled correlator, runs in Phase 1 (`correlator.go`)
 
 ---
 
@@ -22,19 +34,31 @@ source inventory.
 
 **Checker:** `LockFileChecker`
 
-**Key files:** `pkg/invowkmod/lockfile.go`, `content_hash.go`, vendoring/copy helpers in the current module operations packages
+**Key files:** `pkg/invowkmod/lockfile.go`, `lockfile_parser.go`, `content_hash.go`, `verify.go`, `vendored_policy.go`
+
+The lock snapshot comes from `invowkmod.InspectLockFile`: `os.Stat`, then a
+size guard (`invowkmod.LockFileSizeLimit`, 5 MiB) before reading, then
+`parseLockFile`, which uses the CUE parser and evaluator.
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Hash mismatch | Content hash in lock file vs actual module content | Reuse `invowkmod.computeModuleHash()` (needs exported accessor or shared helper) | Critical | "Module content hash mismatch — module may have been tampered with" |
-| Orphaned lock entries | Lock file entries without corresponding `requires` | Cross-reference lock file modules against `invowkmod.cue:requires` | Low | "Lock file contains entry not in requires" |
-| Missing lock entries | `requires` entries without lock file entry | Cross-reference `requires` against lock file | Medium | "Required module has no lock file entry — run `invowk module sync`" |
-| Lock file version | Unknown lock file version | Check `version` field against known versions (currently v2.0) | High | "Unknown lock file version — may have been crafted" |
-| Lock file size | Crafted multi-GB lock file for DoS | `os.Stat` before `parseLockFileCUE` (match 5MB CUE guard) | Medium | "Lock file exceeds size limit" |
-| TOCTOU gap | Hash verified then module modified before load | Check hash → use in atomic sequence | High | "Time-of-check-time-of-use gap in hash verification" |
+| Unparseable lock | Lock present but stat-ok and unreadable, oversized, or invalid CUE | `LockFileParseErr` from the snapshot; skips every other lock check for that module | Medium | "Lock file present but unparseable" |
+| No lock with dependencies | Module declares `requires` but has no lock | `mod.LockFile == nil` and non-empty requires | High | "Module has dependencies but no lock file" |
+| Vendored without lock | `invowk_modules/` content but no lock | `mod.LockFile == nil` and vendored modules present | Medium | "Vendored modules present without lock file" |
+| Lock file size | Crafted multi-GB lock file for DoS | `checkSize` on the snapshot size and stat error | Medium / Low | "Lock file exceeds size limit" / "Lock file size could not be verified" |
+| Lock file version | Unknown version; v1.0 has no content hashes | `checkVersion` against `invowkmod.LockFileVersionV1` / `LockFileVersionV2` | High / Medium (High when vendored modules exist) | "Unknown lock file version"; "Lock file uses v1.0 format without content hashes"; "Vendored modules cannot be verified — V1 lock file has no content hashes" |
+| Ambiguous entries | One module ID with several lock entries | `invowkmod.FindAmbiguousLockedModuleEntries` | Medium | "Ambiguous lock file entries for same module" |
+| Hash mismatch | Content hash in lock file vs actual vendored content | `invowkmod.EvaluateVendoredModuleHash`, injected through `WithHashEvaluator` | Critical | "Module content hash mismatch" |
+| Hash evaluation gaps | Vendored module missing from the lock, or hash not computable / status unknown | Same evaluation result | Medium / High / High | "Vendored module has no lock file entry"; "Vendored module hash could not be computed"; "Vendored module hash status is unknown" |
+| Orphaned lock entries | Lock file entries without corresponding `requires` | `invowkmod.OrphanedLockedModuleEntries`; first 10 reported individually | Low | "Orphaned lock file entry"; "Additional orphaned lock file entries" |
+| Missing lock entries | `requires` entries without an exact lock file entry | `invowkmod.MissingLockedModuleRequirementKeys` | Medium | "Required module has no lock file entry" |
 
 **Implementation notes:**
-- `parseLockFileCUE()` is a line-by-line parser (not full CUE evaluation) with brace-depth tracking
+- Size-guard reachability: `InspectLockFile` turns an oversized lock into a
+  parse error, and a stat failure leaves no parsed lock. `Check` `continue`s on
+  both branches before `checkSize` runs, so through `BuildScanContext` an
+  oversized lock currently surfaces as "Lock file present but unparseable".
+  Verify reachability before relying on the two `checkSize` titles.
 - `computeModuleHash()` / exported hash helpers must skip symlinks during walk
 - `fspath.AtomicWriteFile()` required for all lock file writes (crash safety)
 
@@ -44,41 +68,41 @@ source inventory.
 
 **Checker:** `ScriptChecker`
 
-**Key files:** `pkg/invowkfile/implementation.go` and the current script-path helpers
+**Key files:** `pkg/invowkfile/implementation.go`, `pkg/invowkfile/script_file_path.go`
+
+Parse-time validation (`ScriptFilePath.Validate`) already rejects absolute
+paths and `..` segments; these checks report the same conditions on scanned
+content, and runtime containment lives in `validateScriptPathContainment`.
 
 ### Path Checks
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Path traversal | `script.file` values using `../` or absolute paths | Parse invowkfile, inspect explicit `Implementation.Script.File` references | High | "Script references path outside module boundary" (SC-01) |
-| Absolute paths in modules | Module script fields with absolute paths (`/usr/bin/...`) | Reject absolute paths for module commands (root invowkfile may allow them) | High | "Module script uses absolute path — bypasses module boundary" |
-| Missing bounds check | `GetScriptFilePathWithModule()` lacks `filepath.Rel` containment | Compare against `ValidateContainerfilePath` and `ValidateEnvFilePath` patterns | High | "Script path resolution unbounded — no containment check" |
+| Path traversal | Module `script.file` values using `../` or `..\` | Inspect explicit `Implementation.Script.File` references in module context | High | "Script references path outside module boundary" (SC-01) |
+| Absolute paths in modules | Module script fields with absolute paths (`/usr/bin/...`) | Reject absolute paths for module commands (root invowkfile may allow them) | High | "Module script uses absolute path" |
 
 ### Content Checks
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Obfuscation | `base64 -d`, `eval`, backtick execution, `$()` with encoded content | Regex scan of resolved script content | High | "Script contains obfuscation pattern" |
-| Remote execution | `curl \| sh`, `wget -O- \| bash`, piped remote execution | Regex: `(curl\|wget\|fetch).*\|.*(sh\|bash\|python)` | Critical | "Script downloads and executes remote code" |
-| Large scripts | Scripts exceeding 5MB (matching CUE guard) | `os.Stat` before read | Medium | "Script file unusually large" |
-| Interpreter paths | Arbitrary shebang / `interpreter` field values | Check against known-safe interpreters; flag unusual paths | Medium | "Unusual interpreter path — no allowlist enforcement" (SC-08) |
+| Remote execution | `curl \| sh`, `bash <(curl …)`, download then run | Three patterns: `remoteExecPattern`, `processSubstitutionPattern`, `downloadExecPattern` | Critical | "Script downloads and executes remote code" |
+| Obfuscation | base64 decode, dynamic `eval`, base64 in a subshell, long encoded string piped to base64 | `base64DecodePattern`, `evalPattern`, `base64SubshPattern`, `encodedPipePattern` | High | "Script contains base64 decode"; "Script uses eval with dynamic content"; "Script uses base64 in subshell"; "Script pipes encoded content to base64" |
+| Hex escapes | Three or more `\xNN` sequences | `hexSequencePattern` | High | "Script contains hex escape sequences" |
+| Content path traversal | `../` in module script content not already reported by the path checks (root invowkfile scripts are skipped) | `pathTraversalPattern` when `ref.ModulePath` is set | Medium | "Script content contains path traversal" |
+| Large scripts | Module scripts exceeding 5 MiB (matching the CUE guard) | Pre-computed file size on `ScriptRef`; standalone scripts skipped | Medium | "Script file unusually large" |
 
-**Regex patterns for content scanning:**
-```
-# Remote execution (Critical)
-(curl|wget|fetch)\s+[^\|]*\|\s*(sh|bash|zsh|python|perl|ruby)
-(curl|wget)\s+.*-[sS].*\|\s*(sh|bash)
+**Not scanned: interpreters (SC-08).** No compiled checker inspects
+interpreter values. SC-08 is enforced only by the `InterpreterSpec` allowlist
+at `Validate` (`pkg/invowkfile/interpreter_spec.go`), which checks the
+basename, so an absolute path such as `/tmp/python3` passes. The correlator
+title "Unusual interpreter with path traversal" actually pairs ScriptChecker
+execution and path-traversal findings (see below).
 
-# Obfuscation (High)
-base64\s+(-d|--decode)
-\beval\b\s+[\$\"\']
-\$\(.*base64
-echo\s+[A-Za-z0-9+/=]{20,}\s*\|\s*base64
-
-# Encoded content indicators
-\\x[0-9a-fA-F]{2}{3,}
-\$'\x[0-9a-fA-F]
-```
+**Patterns:** the top-level `var` block in `internal/audit/checks_script.go`
+is the only source. Remote-exec patterns cover `curl`, `wget` and `fetch`
+piped or substituted into `sh`, `bash`, `zsh`, `ash`, `dash`, `python`, `perl`,
+`ruby`, `node`, `php` and PowerShell, plus `-o`/`--output-document` downloads
+followed by `sh`, `bash` or `chmod +x`.
 
 ---
 
@@ -88,21 +112,14 @@ echo\s+[A-Za-z0-9+/=]{20,}\s*\|\s*base64
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Network commands | `curl`, `wget`, `nc`, `ncat`, `socat` usage | Keyword scan in script content | Medium | "Script uses network access command" |
-| Encoded URLs | Base64-encoded URLs, hex-encoded domains | Regex for `aHR0c` (base64 "http") and `\x` sequences | High | "Script contains encoded URL" |
-| DNS exfiltration | `dig`, `nslookup`, `host` with variable interpolation | Regex: `(dig\|nslookup\|host).*\$` | High | "Possible DNS exfiltration pattern" |
-| Reverse shell | `bash -i >& /dev/tcp/`, `nc -e`, `python -c ... socket` | Regex patterns for common reverse shell one-liners | Critical | "Reverse shell pattern detected" |
+| Network commands | `curl`, `wget`, `aria2c`, `nc`, `ncat`, `socat` usage | `networkCommandPattern` keyword scan; skipped when a reverse shell was found | Medium | "Script uses network access command" |
+| Encoded URLs | Base64-encoded URLs | `base64HTTPPattern` matches `aHR0c` (base64 "http"); hex escapes belong to ScriptChecker | High | "Script contains encoded URL" |
+| DNS exfiltration | `dig`, `nslookup`, `host` with variable interpolation or backtick expansion | `dnsExfilPattern` | High | "Possible DNS exfiltration pattern" |
+| Reverse shell | `bash -i >& /dev/tcp/`, `nc`/`ncat` `-e`/`-c /bin/sh`, `python -c … socket … connect` | `reverseShellBashPattern`, `reverseShellNcPattern`, `reverseShellPythonPattern` | Critical | "Reverse shell pattern detected" |
 
-**Regex patterns:**
-```
-# DNS exfiltration (High)
-(dig|nslookup|host)\s+.*\$[\{(]?[A-Z_]
-
-# Reverse shell (Critical)
-bash\s+-i\s+>&\s*/dev/tcp/
-\bnc\b.*-e\s*/bin/(ba)?sh
-python[23]?\s+-c\s+.*socket.*connect
-```
+**Patterns:** the top-level `var` block in `internal/audit/checks_network.go`.
+Gotcha from the code: `fetch` is deliberately excluded from
+`networkCommandPattern` to avoid false positives on `git fetch`.
 
 ---
 
@@ -112,22 +129,15 @@ python[23]?\s+-c\s+.*socket.*connect
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Sensitive var access | Reading `$HOME`, `$SSH_AUTH_SOCK`, `$AWS_*`, `$GITHUB_TOKEN`, etc. | Regex scan for known sensitive variable names | Medium | "Script accesses sensitive environment variable" |
-| `env_inherit_mode: all` | Module commands inheriting full host environment | Parse invowkfile env config | Low | "Command inherits all host environment variables" |
-| Token extraction | Scripts reading token/secret vars and writing to files or pipes | Pattern: `$TOKEN.*>` or `echo.*$SECRET.*\|` | High | "Script may extract credential to external sink" |
+| Sensitive var access | Named credentials: AWS, GitHub, SSH agent, GPG, database URLs, Vault, Docker, npm, PyPI, Azure, GCP, `INVOWK_SSH_TOKEN`, `INVOWK_TUI_*` | `sensitiveVarPattern` | Medium | "Script accesses sensitive environment variable" |
+| Generic secret access | `API_KEY`, `SECRET_KEY`, `PRIVATE_KEY`, `ACCESS_TOKEN`, `AUTH_TOKEN`, `PASSWORD`, with optional braces | `genericSecretPattern` | Medium | "Script accesses generic secret variable" |
+| Explicit `env_inherit_mode: all` | Command inherits the full host environment on purpose | Runtime `EnvInheritMode == invowkfile.EnvInheritAll` | Low | "Command inherits all host environment variables" |
+| Default inheritance | native or virtual-sh runtime with no `env_inherit_mode` (defaults to all); the R7 target | Empty `EnvInheritMode` | Info | "Command uses default env inheritance (all host variables)" |
+| Token extraction | Credential variable followed by a pipe or redirect | `tokenExtractionPattern` (credential variable, then a later `\|` or `>`) | High | "Script may extract credential to external sink" |
 
-**Sensitive variable patterns:**
-```
-# Credentials (Medium → High when correlated with network)
-\$(AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|GITHUB_TOKEN|GH_TOKEN)
-\$(SSH_AUTH_SOCK|GPG_AGENT_INFO)
-\$(DATABASE_URL|REDIS_URL|MONGODB_URI)
-\$\{?(API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN)\}?
-
-# System paths (Medium)
-\$(HOME|USERPROFILE)
-\$(PATH|LD_PRELOAD|LD_LIBRARY_PATH)
-```
+**Patterns:** the top-level `var` block in `internal/audit/checks_env.go`.
+Gotcha from the code: keep `tokenExtractionPattern` in sync with
+`sensitiveVarPattern` whenever a credential name is added.
 
 ---
 
@@ -158,12 +168,18 @@ execution isolation is required.
 
 **Checker:** `SymlinkChecker`
 
+Symlink facts are collected during scan-context construction
+(`internal/audit/scan_context_artifacts.go`, bounded artifact walker) and
+reported by the checker.
+
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Symlinks in modules | Symlinks inside `.invowkmod` directories | `filepath.WalkDir` with `d.Type()&os.ModeSymlink` | High | "Symlink found in module directory — may reference content outside module boundary" (SC-05) |
-| Symlink targets outside boundary | Where symlinks point (inside vs outside module) | `os.Readlink` + `filepath.Rel` check | Critical | "Symlink points outside module boundary" |
+| Symlinks in modules | Symlinks inside `.invowkmod` directories | Batched `ReadDir` with `DirEntry.Type()&os.ModeSymlink` | High | "Symlink found in module directory" (SC-05) |
+| Symlink targets outside boundary | Where symlinks point (inside vs outside module) | `os.Readlink` + boundary check against the module root | Critical | "Symlink points outside module boundary" |
+| Unreadable target | `os.Readlink` failed, so the boundary check could not run | Recorded read error | Medium | "Symlink target could not be read — boundary check bypassed" |
 | Dangling symlinks | Symlinks pointing to nonexistent targets | `os.Stat` after `os.Readlink` | Low | "Dangling symlink in module directory" |
-| Symlink chains | Symlinks pointing to other symlinks | Follow chain with depth limit (max 10) | Medium | "Symlink chain detected — may obscure final target" |
+| Symlink chains | Symlinks pointing to other symlinks | Follow chain with depth limit (`maxSymlinkChainDepth`, 10) | Medium | "Symlink chain detected" |
+| Incomplete walk | The module directory walk stopped early | Recorded walk error | Low | "Module directory walk incomplete" |
 
 **Implementation notes:**
 - Module copy, provisioning, and scan-context artifact/clone paths must avoid
@@ -179,27 +195,32 @@ execution isolation is required.
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
-| Dependency chain depth | Unusually deep transitive dependency chains | Walk `requires` transitively, count depth | Medium | "Deep dependency chain (depth N) — increases supply-chain attack surface" |
-| Namespace collision | Modules with similar IDs (typosquatting) | Levenshtein distance between module IDs in the dependency tree | Medium | "Module ID similar to another module — possible typosquatting" |
+| Invowkfile parse failure | Module invowkfile exists but does not parse, so content checks cannot see it | `InvowkfileParseErr` from scan-context loading | Medium | "Module invowkfile failed to parse" |
+| Wide dependency fan-out | More than `maxDependencyFanOut` (5) direct `requires` | `checkDependencyFanOut` counts direct requires, not graph depth | Medium | "Wide dependency fan-out" |
+| Namespace collision | Modules with similar IDs (typosquatting) | Levenshtein distance ≤ `typosquatLevenshteinThreshold` (3) between module IDs | Medium | "Module ID similar to another module" |
 | Global module warnings | Modules in `~/.invowk/cmds/` with no integrity verification | Check `IsGlobalModule` flag, report all global modules | Info | "Global module has no content hash verification" (SC-10) |
-| Undeclared transitive deps | Modules used transitively but not in root `requires` | Same logic as `checkMissingTransitiveDeps()` in `resolver_deps.go` | Medium | "Transitive dependency not declared in root invowkmod.cue" |
-| Version pinning | Modules without explicit version constraints | Check `requires` entries for version presence | Low | "Module dependency has no version constraint" |
+| Undeclared transitive deps | Vendored modules' requires missing from the root `requires` | `checkUndeclaredTransitive` via `invowkmod.CheckMissingVendoredTransitiveDeps` (the same `MissingTransitiveDepDiagnostic` that `invowk module sync` reports through `MissingTransitiveDepError`) | Medium | "Transitive dependency not declared in root invowkmod.cue" |
+| Undeclared vendored module | A module in `invowk_modules/` with no matching `requires` entry | Lock identity when a lock exists, source ID otherwise | Medium | "Vendored module not declared in requires" |
+| Version pinning | Constraints that accept any version (`""`, `*`, `>=0.0.0`, `>0`, …) | `unpinnedVersions` set | Low | "Module dependency has no version constraint" |
 
 ---
 
 ## Finding Correlation Rules
 
-The compiled correlator combines checker findings to detect compound threats.
+The compiled correlator (`DefaultRules()` in `internal/audit/correlator.go`)
+groups findings by scan surface and combines them into compound threats during
+Phase 1.
 
 | Correlation | Input Findings | Output | Severity |
 |-------------|---------------|--------|----------|
-| Credential exfiltration | Env: sensitive var access + Network: network command | "Potential credential exfiltration — reads sensitive env vars and has network access" | High → Critical (escalation) |
-| Path + symlink escape | Script: path traversal + Symlink: external target | "Combined path traversal and symlink escape — high confidence data access" | Critical |
-| Obfuscated exfiltration | Script: obfuscation + Network: encoded URL | "Obfuscated network access — likely deliberate evasion" | Critical |
-| Trust chain weakness | Module: deep deps + Lock: missing entries | "Deep dependency chain with unverified modules — elevated supply-chain risk" | High (escalation) |
-| Interpreter + traversal | Script: unusual interpreter + Script: path traversal | "Arbitrary interpreter with path traversal — potential arbitrary code execution" | Critical |
+| Credential exfiltration | EnvChecker + NetworkChecker findings on one surface | "Potential credential exfiltration" | Critical |
+| Path + symlink escape | ScriptChecker + SymlinkChecker findings | "Combined path traversal and symlink escape" | Critical |
+| Obfuscated exfiltration | ScriptChecker obfuscation + NetworkChecker exfiltration | "Obfuscated network access detected" | Critical |
+| Trust chain weakness | ModuleMetadataChecker fan-out/undeclared codes + LockFileChecker missing-integrity codes | "Trust chain weakness — dependency graph with missing integrity" | High |
+| Interpreter + traversal | ScriptChecker execution + ScriptChecker path-traversal | "Unusual interpreter with path traversal" | Critical |
 
-**Escalation rules:**
-- Medium + Medium in same module → High (compound risk)
-- High + any in same module → Critical (active threat indicator)
-- Findings spanning 3+ categories in one module → always Critical
+**Escalation rules** (same surface, applied after the named rules; first
+match wins, and none applies when the surface already has a Critical finding):
+- Findings spanning 3+ categories → Critical ("Multiple security concern categories detected")
+- High + any other finding → Critical ("High-severity finding combined with other issues")
+- Medium + Medium → High ("Multiple medium-severity findings compound risk")

@@ -84,10 +84,15 @@ client -> server: Request
 shape: sequence_diagram
 
 client -> server: Request
-server --> client: Response
+server -> client: Response {
+  style.stroke-dash: 3
+}
 ```
 
-**Note:** Use `-->` for dashed arrows (returns/responses).
+**Note:** `-->` is not a dashed arrow: in D2 v0.7.1 it renders exactly like `->`. Dash a
+return by styling the edge with `style.stroke-dash: 3`, as
+`docs/diagrams/sequences/execution-main.d2` does. The other examples in this file write returns
+as `-->` only as a reading aid; they render solid.
 
 ### Self-Messages
 
@@ -131,8 +136,8 @@ a -> b: |md
 ```d2
 shape: sequence_diagram
 
-client -> server: GET /users\n[HTTPS]
-server --> client: 200 OK\n[JSON]
+client -> server: "GET /users\n[HTTPS]"
+server --> client: "200 OK\n[JSON]"
 ```
 
 ## Spans and Groups
@@ -201,12 +206,12 @@ api: API
 
 user -> api: Request
 
-api.note: Validates JWT token and\nchecks permissions
+api.note: "Validates JWT token and\nchecks permissions"
 
 api --> user: Response
 ```
 
-### Note Spanning Multiple Participants
+### Note About Several Participants
 
 ```d2
 shape: sequence_diagram
@@ -216,10 +221,9 @@ backend: Backend
 
 frontend -> backend: HTTPS Request
 
-# Note syntax for spanning
-_.note: All communication is encrypted\nusing TLS 1.3 {
-  near: frontend
-}
+# A note is a child of one participant; there is no multi-participant note.
+# Attach it to the most relevant participant (`_` at the root is invalid).
+backend.tls-note: "All communication is encrypted\nusing TLS 1.3"
 ```
 
 ## Comprehensive Example: User Authentication
@@ -241,7 +245,7 @@ email: Email Service
 user -> browser: Enter credentials
 browser -> frontend: Submit form
 
-frontend -> gateway: POST /api/auth/login\n[HTTPS/JSON]
+frontend -> gateway: "POST /api/auth/login\n[HTTPS/JSON]"
 
 gateway.span: Authentication {
   gateway -> auth: Authenticate user
@@ -260,7 +264,7 @@ gateway.span: Authentication {
   auth --> gateway: JWT + Refresh token
 }
 
-gateway --> frontend: 200 OK\n{token, refreshToken}
+gateway --> frontend: "200 OK\n{token, refreshToken}"
 
 frontend -> frontend: Store tokens
 frontend --> browser: Redirect to dashboard
@@ -280,7 +284,7 @@ inventory: Inventory Service
 payment: Payment Gateway
 events: Kafka
 
-client -> gateway: POST /orders\n[Bearer token]
+client -> gateway: "POST /orders\n[Bearer token]"
 
 gateway.span: Request Pipeline {
   gateway -> gateway: Validate JWT
@@ -309,7 +313,7 @@ orders.span: Order Processing {
 orders -> events: Publish OrderCreated
 events --> orders: ACK
 
-orders --> gateway: 201 Created\n{orderId}
+orders --> gateway: "201 Created\n{orderId}"
 gateway --> client: Order confirmation
 ```
 
@@ -356,7 +360,7 @@ order.span: Order Fulfillment {
 }
 
 order --> gateway: Order confirmed
-gateway --> web: 200 OK\n{orderId}
+gateway --> web: "200 OK\n{orderId}"
 web --> user: Order confirmation
 ```
 
@@ -427,7 +431,7 @@ api --> client: 200 OK
 4. **Show error paths** - Document failure scenarios
 5. **Label with protocols** - Include HTTP methods, status codes
 6. **Keep diagrams focused** - One scenario per diagram
-7. **Use dashed arrows for returns** - Visual distinction for responses
+7. **Use dashed arrows for returns** - Style the return edge with `style.stroke-dash: 3` (`-->` does not dash)
 8. **Order participants by interaction** - Left-to-right follows the flow
 
 ## Common Patterns

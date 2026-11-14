@@ -2,11 +2,13 @@
 
 You are a CUE schema specialist for the Invowk project. Your role is to safely modify CUE schemas while maintaining full sync test compliance and following the project's strict validation patterns.
 
+The canonical procedures are `.agents/skills/cue/SKILL.md` (parse flow, validation matrix, error formatting) and `.agents/skills/schema-sync-check/SKILL.md` (sync-test inventory, failure strings, add-field procedure); when this prompt and those skills disagree, the skills win.
+
 ## Schema Locations
 
 | Schema | File | Go Types | Sync Test |
 |--------|------|----------|-----------|
-| Invowkfile | `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/*.go` | `pkg/invowkfile/sync_test.go` (1295 lines) |
+| Invowkfile | `pkg/invowkfile/invowkfile_schema.cue` | `pkg/invowkfile/*.go` | `pkg/invowkfile/sync_test.go`, `sync_behavioral_test.go`, `sync_runtime_test.go`, `sync_runtime_behavioral_test.go` |
 | Invowkmod | `pkg/invowkmod/invowkmod_schema.cue` | `pkg/invowkmod/*.go` | `pkg/invowkmod/sync_test.go` |
 | Config | `internal/config/config_schema.cue` | `internal/config/types.go` | `internal/config/sync_test.go` |
 
@@ -22,8 +24,8 @@ Step 3: Decode unified value → Go struct
 
 Reference implementations:
 - `pkg/invowkfile/parse.go:ParseBytes()` — Invowkfile parsing
-- `pkg/invowkmod/invowkmod.go:ParseInvowkmodBytes()` — Invowkmod parsing
-- `internal/config/config.go:loadCUEIntoViper()` — Config loading
+- `pkg/invowkmod/parse.go:ParseInvowkmodBytes()` — Invowkmod parsing
+- `internal/config/config.go:decodeCUEConfigSource()` — Config loading
 
 ## Schema Modification Workflow
 
@@ -71,9 +73,9 @@ Rules:
 ```go
 func TestNewDefinitionSchemaSync(t *testing.T) {
     schema, _ := getCUESchema(t)
-    cueFields := extractCUEFields(t, lookupDefinition(t, schema, "#NewDefinition"))
-    goFields := extractGoJSONTags(t, reflect.TypeFor[NewDefinition]())
-    assertFieldsSync(t, "NewDefinition", cueFields, goFields)
+    cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#NewDefinition"))
+    goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[NewDefinition]())
+    schematest.AssertFieldsSync(t, "NewDefinition", cueFields, goFields)
 }
 ```
 
@@ -138,12 +140,12 @@ All CUE errors must include JSON path prefixes:
 invowkfile.cue: cmds[0].implementations[2].script: value exceeds maximum length
 ```
 
-Use the `formatCUEError()` helper with `cuelang.org/go/cue/errors` (NOT standard `errors`).
+Use `cueutil.FormatError()` (`pkg/cueutil/error.go`), which works with `cuelang.org/go/cue/errors` (NOT standard `errors`).
 
 ## Pitfalls
 
 - **Unclosed structs**: Always use `close({})` — open structs bypass validation
 - **Missing JSON tags**: Go struct fields without JSON tags won't be populated by `Decode()`
 - **Wrong error import**: Use `cuelang.org/go/cue/errors`, not standard library `errors`
-- **Stale sync tests**: After refactoring, remove obsolete exclusions from sync tests
+- **Stale sync tests**: After refactoring, re-check Go-only fields (`json:"-"`) and every non-empty `divergeNote` on a `behavioralSyncCase`; remove the note once Go and CUE agree again (cue skill "Stale Schema Sync Tests")
 - **Redundant validation**: Don't duplicate CUE regex validation in Go

@@ -1,6 +1,12 @@
 ---
 name: testing
-description: Invowk-specific testing workflow for Go tests, testscript CLI tests, runtime mirrors, container integration tests, TUI components, race and flake prevention, and repository test helpers. Use when creating or modifying `*_test.go` or `.txtar` tests, selecting the correct test surface, or applying Invowk test conventions. Use `go-testing` for Go toolchain details and `review-tests` for read-only suite audits.
+description: >-
+  Invowk test workflow: choose the test surface and apply repo conventions for
+  Go `*_test.go`, testscript `.txtar` CLI tests, virtual/native runtime
+  mirrors, real container integration tests, TUI components, race and flake
+  prevention, and `internal/testutil` helpers. Use when creating or modifying
+  `*_test.go` or `.txtar` tests or selecting the correct test surface. Go
+  toolchain details: `go-testing`; read-only suite audits: `review-tests`.
 ---
 
 # Invowk Testing
@@ -44,23 +50,25 @@ property tests that bind them to code, use `formal-verification`.
 
 ## Non-Negotiable Guardrails
 
-- Follow the repository's `t.Parallel()` policy, but first verify shared-state
-  safety using `go-testing`. Process-global environment, working directory,
-  stdin, home-directory overrides, shared CUE state, and shared mutable mocks
-  require serial or isolated design.
-- Use `t.Context()` by default and bounded contexts for subprocess, network,
-  and container operations.
+- `t.Parallel()` policy is in `.agents/rules/testing.md` § "Test Parallelism";
+  verify shared-state safety first with the `go-testing` "Resource Safety
+  Matrix" (environment, working directory, stdin, home overrides, CUE state,
+  shared mocks).
+- Use `t.Context()` by default; bound subprocess, network and container work
+  (rule "Test Context Usage"; `go-testing` "Context Patterns Decision Tree").
 - Prefer event-based synchronization, fake clocks, or polling deadlines over
   sleeps. Preserve evidence-backed sleeps only when timing creates the event
   distinction under test.
 - Use existing `internal/testutil` helpers. Inspect their live API instead of
   relying on copied inventories.
-- Use `testutil.SetHomeDir` for home-dependent tests so Windows
-  `USERPROFILE` and Unix `HOME` remain aligned.
-- Build resolver-backed expected paths from the same resolver as production;
-  use identity assertions when the string spelling is not the contract.
-- Keep virtual/native mirror exemptions only in
-  `tests/cli/runtime_mirror_exemptions.json`.
+- For home-dependent tests use `testutil.SetHomeDir(t, dir)`, which sets the
+  platform home variable (`USERPROFILE` on Windows, `HOME` elsewhere); register
+  its returned restore func (`t.Cleanup(testutil.SetHomeDir(t, dir))`) and keep
+  these tests serial.
+- Resolver-backed expected paths: `go-testing` "Cross-Platform Path Contract
+  Tests".
+- Mirror exemptions live only in `tests/cli/runtime_mirror_exemptions.json`
+  (rule "Platform Coverage and Runtime Mirrors").
 - Use only `debian:stable-slim` for generic container fixtures, and keep
   container execution Linux-only.
 - Keep VHS out of durable CI; use the Go tmux harness for interactive TUI

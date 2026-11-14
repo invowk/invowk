@@ -122,7 +122,7 @@ Export fails when a file exceeds 600,000 compressed bytes, or a smaller
 | `module_path_containment_golden.json.gz` | 22848 | 1680 | - | 20,994 B | - |
 | `virtual_path_harness_golden.json.gz` | 14580 | 14580 | - | 18,332 B | - |
 
-The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design §7). Case-folding and Windows junctions are fixed off in the goldens and covered by the witness commands, the rapid properties, and the Windows-only `TestModulePathContainment_F16Junction` leg (skipped and counted on Linux/macOS).
+The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens and covered by the witness commands, the rapid properties, and the Windows-only `TestModulePathContainment_F16Junction` leg (skipped and counted on Linux/macOS).
 
 **Deferred: duplicate instances.** The counts above show that Alloy's
 enumeration repeats instances. The XML of a duplicate pair is byte-identical
@@ -338,7 +338,7 @@ constrain. Each one is classified in `tools/mutation/triage/formal-bindings.toml
 (`equivalent`, `abstraction`, `binding-gap`, `model-gap`, `defect`), backed by
 two recorded escaped reruns, and resolved by a stronger binding, a new model
 property, a stated abstraction, or a finding. Closed gaps are listed in the
-model's `calibration` by mutant id. `.agents/rules/commands.md` has the
+model's `calibration` by mutant id. `.agents/runbooks/mutation-testing.md` has the
 profiles; `.agents/skills/formal-verification/SKILL.md` has the feedback loop.
 
 The first run (2026-09-25) mutated 49 functions in 30 files in 28 minutes:

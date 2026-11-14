@@ -2,8 +2,8 @@
 
 Complete PowerShell reference for writing and debugging testscript (`.txtar`)
 tests that exercise the native runtime on Windows. This reference supports
-the parent skill (`SKILL.md`) and complements `.agents/rules/windows.md`
-(authoritative for CI patterns and common pitfalls).
+the parent skill (`SKILL.md`) and complements `.agents/rules/testing.md`
+(authoritative PowerShell rules for native tests) and `.agents/rules/windows.md`.
 
 ## PowerShell Versions
 
@@ -12,10 +12,17 @@ Two major versions are relevant for testing:
 | Version | Binary | Ships With | Notes |
 |---------|--------|-----------|-------|
 | 5.1 | `powershell.exe` | Windows 10/11, Server 2016+ | Windows built-in; always available on CI |
-| 7+ | `pwsh.exe` (`pwsh`) | Separate install | Cross-platform; may or may not be on CI runners |
+| 7+ | `pwsh.exe` (`pwsh`) | Separate install | Cross-platform; preinstalled on `windows-latest` runners |
 
 **Invowk policy**: Scripts MUST be compatible with both PowerShell 5.1 and
 7+. This means avoiding 7-only features.
+
+**CI does not exercise 5.1 for native txtar tests.** On Windows the native
+runtime picks `pwsh`, then `powershell`, then `cmd` (`getShell` in
+`internal/runtime/native.go`), and `windows-latest` has `pwsh`, so CI runs
+`native_*.txtar` under PowerShell 7. Only `scripts/test_install.ps1` runs
+under both versions in CI. Reviewers must enforce 5.1 compatibility by hand;
+local Windows machines may have only 5.1.
 
 ### Features to avoid (PowerShell 7+ only)
 
@@ -138,11 +145,12 @@ Write-Host "This goes to console only"
 For testscript tests, always use `Write-Output` for stdout assertions:
 
 ```powershell
-# PREFERRED: Explicit, reliable across PS versions
+# REQUIRED: Explicit, reliable across PS versions
 Write-Output "Hello from PowerShell"
 
-# OK but less explicit
-echo "Hello from PowerShell"  # 'echo' is an alias for Write-Output
+# AVOID: 'echo' is an alias for Write-Output, but the testing rule
+# requires Write-Output in native fixtures
+echo "Hello from PowerShell"
 
 # AVOID: Bypasses pipeline, not capturable
 Write-Host "Hello from PowerShell"
@@ -226,7 +234,7 @@ $name = "invowk"
 
 | Bash | PowerShell | Notes |
 |------|-----------|-------|
-| `echo "text"` | `Write-Output "text"` | PS `echo` is alias but `Write-Output` is preferred |
+| `echo "text"` | `Write-Output "text"` | PS `echo` is an alias; native fixtures must use `Write-Output` |
 | `$VAR` | `$env:VAR` | Environment variable; `$VAR` is a PS variable |
 | `export VAR=val` | `$env:VAR = "val"` | No `export` concept in PS |
 | `set -e` | `$ErrorActionPreference = 'Stop'` | Per-script; does not affect native commands |
@@ -259,19 +267,10 @@ $name = "invowk"
 
 ### CRLF from Write-Output
 
-`Write-Output` (and most PowerShell output) produces `\r\n` line endings.
-In testscript regex assertions:
-
-```txtar
-# WRONG: $ matches before \n, not before \r
-stdout '^Hello$'
-
-# CORRECT: Account for optional \r
-stdout '^Hello\r?$'
-
-# ALSO CORRECT: Substring match (no anchoring)
-stdout 'Hello'
-```
+`Write-Output` (and most PowerShell output) produces `\r\n` line endings, and
+`$` in a testscript regex matches before `\n`, not before `\r`. Anchored
+assertions therefore need `\r?$`; substring assertions need nothing. Examples:
+"Assertion patterns for PowerShell output" below.
 
 ### $null vs empty string
 
@@ -332,9 +331,13 @@ defaults to UTF-8 (no BOM). This can affect file content comparisons:
 # PowerShell 5.1: Creates UTF-16LE file
 "hello" > file.txt
 
-# Cross-version safe: Explicit encoding
+# Explicit encoding: UTF-8 on both, but NOT byte-identical
 "hello" | Out-File -FilePath file.txt -Encoding utf8
 ```
+
+`-Encoding utf8` writes a UTF-8 BOM on 5.1 and no BOM on 7+. When the bytes
+matter, compare content after stripping a leading BOM, or assert on a
+substring rather than the whole file.
 
 ## Invowk-Specific Patterns
 
@@ -347,9 +350,9 @@ exec invowk cmd hello
 stdout 'Hello from native shell'
 ```
 
-On Windows, invowk internally selects PowerShell as the native shell. The
-testscript runner itself runs in Go, not in PowerShell -- only the command
-script is executed via PowerShell.
+On Windows, invowk's native runtime selects `pwsh`, then `powershell`, then
+`cmd` (see "PowerShell Versions" above). The testscript runner itself runs in
+Go, not in PowerShell -- only the command script is executed via PowerShell.
 
 ### Assertion patterns for PowerShell output
 
@@ -357,7 +360,10 @@ script is executed via PowerShell.
 # Substring match (safe, no CRLF issues)
 stdout 'expected output'
 
-# Anchored regex (needs \r? for Windows)
+# WRONG: $ matches before \n, not before \r
+stdout '^exact line$'
+
+# Anchored regex (needs \r? for Windows; also passes on Unix)
 stdout '^exact line\r?$'
 
 # Negation
@@ -392,16 +398,19 @@ implementations: [
 ]
 ```
 
-The assertions must be platform-agnostic (identical output from both
-implementations) or use platform conditionals:
+The assertions must be identical across platforms
+(`.agents/rules/testing.md` "Native tests"): make both implementations print
+the same text and only the script syntax differs. Anchored `'^x\r?$'` already
+works on both.
 
 ```txtar
 stdout 'Hello from bash'
-
-# Platform-conditional assertion (if output differs)
-[!windows] stdout 'unix-specific'
-[windows] stdout 'windows-specific'
+stdout '^HOME=.+\r?$'
 ```
+
+Use `[windows]`/`[!windows]` assertion splits only as a last resort, when the
+behavior under test genuinely differs by platform; never to paper over output
+the two implementations could print identically.
 
 ### Environment variable patterns
 

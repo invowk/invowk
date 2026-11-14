@@ -12,7 +12,9 @@ The project uses PGO (Profile-Guided Optimization) with benchmarks in `internal/
 # Full PGO profile (includes container benchmarks)
 make pgo-profile
 
-# Short PGO profile (skips container benchmarks)
+# Short PGO profile: passes -short, and every internal/benchmark benchmark
+# currently skips in short mode, so it trains on no workload (see
+# .agents/runbooks/pgo-and-benchmarks.md); prefer the targets above/below
 make pgo-profile-short
 
 # Focused profile for parser/discovery hot paths

@@ -1,6 +1,6 @@
 ---
 name: d2-diagrams
-description: Agent-optimized D2 diagram generation and maintenance for Invowk architecture documentation. Use when creating or editing `.d2` files, C4 diagrams, sequence diagrams, flowcharts, diagram renders, or when a user explicitly requests a repository diagram. D2 is the default for new Invowk diagrams.
+description: D2 diagram generation and maintenance for Invowk architecture documentation. Use when creating or editing `.d2` files (`docs/diagrams/`), C4 diagrams, sequence diagrams, flowcharts, diagram renders (`make render-diagrams`), or when a user explicitly requests a repository diagram. D2 is the default for new Invowk diagrams.
 ---
 
 # D2 Diagrams
@@ -37,6 +37,12 @@ workflow; load only the reference for the requested diagram type.
    d2 validate path/to/diagram.d2
    ```
 
+   **Gotcha:** `d2 validate` (v0.7.1) only parses. Compile errors such as an
+   unknown shape, an invalid `direction`, an invalid style keyword (`style.fil`),
+   `_` at the root, or an unresolved `${var}` print "is valid D2" and fail only
+   at render time. CI (`validate-diagrams.yml`) also only validates, so do not
+   trust an edit until step 5 renders it.
+
 5. Render and run repository guardrails:
 
    ```bash
@@ -60,6 +66,18 @@ For flowcharts:
 - label every outgoing decision edge;
 - keep one clear primary entry path; and
 - run `make check-diagram-readability`.
+
+`scripts/check-diagram-readability.sh` is literal about the Start node: name it
+`Start`, open its `{` on the `Start:` line, and put `shape: oval` on its own line
+inside the block. The one-line form `Start: "Begin" { shape: oval }` fails the
+check. The edge target after `Start ->` must be an unquoted identifier.
+
+```d2
+Start: "Begin" {
+  shape: oval
+}
+Start -> Check
+```
 
 For person shapes, set consistent explicit dimensions because label width can
 distort the shape. Existing diagrams use `width: 70` and `height: 100`.

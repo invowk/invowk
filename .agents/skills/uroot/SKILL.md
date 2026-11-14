@@ -1,36 +1,21 @@
 ---
 name: uroot
-description: u-root utility implementation patterns for internal/uroot/, virtual runtime built-in registry changes, virtual filesystem path policy, streaming I/O, error format, symlinks, and tests/cli/testdata/virtual_uroot*.txtar coverage. Use when implementing or reviewing built-in utilities for virtual-sh or virtual-lua.
+description: u-root utility implementation patterns for internal/uroot/, virtual runtime built-in registry changes (BuildDefaultRegistry, Registry.Run), virtual filesystem path policy, streaming I/O, the [uroot] error prefix, combined short flags, symlinks, and tests/cli/testdata/virtual_uroot*.txtar coverage. Use when implementing or reviewing built-in utilities for virtual-sh or virtual-lua.
 ---
 
 # u-root Utils Integration
 
-This skill covers implementing shared u-root utility commands in Invowk's
-virtual runtime family.
-
-Use this skill when working on:
-- `internal/uroot/` - u-root utility implementations
-- Adding new built-in utilities used by virtual-sh or virtual-lua
-- Modifying u-root command behavior
-
----
+This skill covers the shared u-root utility commands in Invowk's virtual runtime
+family: `internal/uroot/`, new built-in utilities used by virtual-sh or
+virtual-lua, and changes to u-root command behavior.
 
 ## Terminology
 
-**Standardized naming conventions:**
+- **Project name**: "u-root" (lowercase with hyphen) — use in prose, documentation, and comments (matches upstream `github.com/u-root/u-root`).
+- **Go identifiers**: "uroot" (lowercase, no hyphen) — use for package names, types, and variables (Go identifiers cannot contain hyphens).
+- **Config option**: `virtual.utilities.enabled` — shared virtual runtime utility toggle.
 
-- **Project name**: "u-root" (lowercase with hyphen) — use in prose, documentation, and comments
-- **Go identifiers**: "uroot" (lowercase, no hyphen) — use for package names, types, and variables
-- **Config option**: `virtual.utilities.enabled` — shared virtual runtime utility toggle
-
-**Examples:**
-- Prose: "The u-root integration provides built-in utilities..."
-- Package: `internal/uroot/`
-- Types: `Command`, `HandlerContext`, `Registry`
-- Functions: `BuildDefaultRegistry()`, `tryUrootBuiltin()` for virtual-sh, `runVirtualUtility()` for virtual-lua
-- Config: `virtual.utilities.enabled: true`
-
-**Rationale:** Consistent terminology reduces confusion. The hyphenated form matches the upstream project name (`github.com/u-root/u-root`), while the unhyphenated form follows Go naming conventions (hyphens are not allowed in identifiers).
+Identifiers: package `internal/uroot/`; types `Command`, `HandlerContext`, `Registry`; functions `BuildDefaultRegistry()`, `tryUrootBuiltin()` for virtual-sh, `runVirtualUtility()` for virtual-lua; config `virtual.utilities.enabled: true`.
 
 ---
 
@@ -39,12 +24,12 @@ Use this skill when working on:
 **CRITICAL: New and changed u-root utility implementations should use streaming I/O for file operations and must not worsen unbounded heap growth.**
 
 Do not buffer entire file contents into memory unless the command's semantics
-require a full input set. This rule ensures:
-- Predictable memory usage independent of input size
-- No OOM conditions when processing large files
-- Consistent behavior across all file sizes
+require a full input set. Memory use must stay predictable and independent of
+input size, with no OOM on large files.
 
 ### Required Pattern
+
+Illustrative (the real `cp` is an upstream wrapper):
 
 ```go
 // CORRECT: Resolve virtual paths before opening and stream copy with close handling.
@@ -96,20 +81,10 @@ writer.Write(content)
 
 ### Applies To
 
-All u-root utility implementations that handle file content:
-- `base64` - Base64 encoding/decoding (streaming)
-- `cat` - File concatenation
-- `cp` - File copying
-- `find` - Directory tree searching
-- `gzip` - Compression/decompression (streaming)
-- `head` / `tail` - File viewing
-- `grep` - Pattern matching (line-by-line streaming)
-- `mv` - File moving (when cross-filesystem)
-- `shasum` - SHA checksum computation (streaming)
-- `sort` - Sorting (may require temp files for large inputs)
-- `tar` - Archive creation/extraction (streaming)
-- `tee` - Output duplication (streaming to stdout + files)
-- `wc` - Word/line counting (streaming counters)
+The full inventory (12 upstream wrappers, 16 custom commands) is in `internal/uroot/doc.go`.
+
+- **Custom commands, enforce the rule here**: `cut`, `grep` (line-by-line), `head`, `tail`, `sort` (see exception below), `tee` (streaming to stdout + files), `tr`, `uniq`, `wc` (streaming counters), and generated output such as `seq`.
+- **Upstream wrappers** (`base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`): u-root owns their I/O. Invowk-side handling around a wrapper (such as the path-argument validation in `Registry.Run()`), or replacing a wrapper with a custom command, must follow the streaming rule.
 
 ### Output Generation (Not Just File I/O)
 
@@ -153,20 +128,18 @@ add avoidable unbounded heap growth.
 - Custom commands that touch the filesystem should resolve user paths with
   `HandlerContext.ResolvePath` before `os.Open`, `os.Create`, `os.Link`, or similar calls.
 - The security boundary is normalized allowed-root validation, not symlink
-  following by itself.
+  following by itself: following a symlink can expose its target path, and
+  allowed-root validation decides whether that target may be accessed.
 
 ---
 
 ## Symlink Handling
 
-**Default behavior for `cp`: Follow symlinks (copy target content, not the link).**
-
-This matches standard POSIX `cp` behavior. Path traversal prevention comes from
-normalizing and validating paths against allowed roots before filesystem access.
+**Default behavior for `cp`: Follow symlinks (copy target content, not the link).** This matches standard POSIX `cp`.
 
 - `cp source dest` where `source` is a symlink → copies the target file content
 - `cp -r dir/ dest/` where `dir/` contains symlinks → copies target contents, not links
-- Symlink preservation requires explicit `-P` flag (when supported)
+- Symlink preservation requires the explicit `-P` flag
 
 ### Symlink Creation (`ln -s`)
 
@@ -177,33 +150,15 @@ normalizing and validating paths against allowed roots before filesystem access.
 
 Only resolve the **link name** to absolute (the OS needs the creation path). For **hard links** (no `-s`), resolve the target too because `os.Link` needs the real filesystem path.
 
-### Security Rationale
-
-Symlink behavior must be combined with the virtual path policy above. Following
-symlinks can expose the target path; allowed-root validation decides whether that
-target may be accessed.
-
 ---
 
 ## POSIX Combined Short Flags
 
-Custom implementations support POSIX-style combined short flags (e.g., `ln -sf` instead of `ln -s -f`). This is handled centrally in `Registry.Run()` — individual commands don't need any changes.
+Combined short flags (`ln -sf`) are split centrally in `Registry.Run()` for custom commands; upstream wrappers mark themselves with `NativePreprocessor` via `baseWrapper` and split internally. Read [references/flag-preprocessing.md](references/flag-preprocessing.md) before changing `Registry.Run()` preprocessing, `NativePreprocessor`/`baseWrapper`, or how the runtimes dispatch to the registry; it also lists the key files.
 
-### How It Works
-
-1. `Registry.Run()` checks if the command implements `NativePreprocessor` (a private marker interface).
-2. If it does NOT (custom implementation), args are preprocessed via `unixflag.ArgsToGoArgs()` which splits combined flags: `["-sf", "target"]` → `["-s", "-f", "target"]`.
-3. If it DOES (upstream wrapper via `baseWrapper`), args pass through unchanged — upstream wrappers handle this internally in their `RunContext` method.
-
-### Adding New Custom Commands
-
-No action needed — new custom commands automatically get combined flag support as long as they:
-- Are registered in `BuildDefaultRegistry()` (add `r.Register(newFooCommand())` in the factory function in `registry.go`)
-- Do NOT embed `baseWrapper` (which would mark them as upstream wrappers)
-
-### Adding New Upstream Wrappers
-
-New upstream wrappers that embed `baseWrapper` automatically inherit `NativePreprocessor` and skip centralized preprocessing. No extra code needed.
+- Register new custom commands in `BuildDefaultRegistry()` and do NOT embed `baseWrapper` in them; they then get combined-flag support automatically.
+- New upstream wrappers embed `baseWrapper` and skip central preprocessing.
+- Never call `unixflag.ArgsToGoArgs()` in an individual command, and never remove `baseWrapper` from an upstream wrapper (see Common Pitfalls).
 
 ### Edge Cases
 
@@ -212,13 +167,6 @@ New upstream wrappers that embed `baseWrapper` automatically inherit `NativePrep
   That is not a valid POSIX end-of-options delimiter and must not be described
   as benign. If a custom command needs operands beginning with `-`, preserve
   and handle `--` before calling `ArgsToGoArgs`, and add an end-to-end test.
-
-### Key Files
-
-- `internal/uroot/command.go` — `NativePreprocessor` marker interface
-- `internal/uroot/wrapper.go` — `baseWrapper.nativePreprocessor()` implementation
-- `internal/uroot/registry.go` — `Run()` preprocessing logic
-- `internal/runtime/sh.go`, `internal/runtime/lua.go`, and `internal/runtime/virtual_policy.go` — virtual utility resolution routes through `Registry.Run()`
 
 ---
 
@@ -301,9 +249,7 @@ silent-ignore guarantee across the registry.
 
 ## Error Reporting Format
 
-**All errors from u-root utilities MUST be prefixed with `[uroot]`.**
-
-This prefix clearly identifies the error source, distinguishing u-root implementation errors from system utility errors and aiding debugging.
+**All errors from u-root utilities MUST be prefixed with `[uroot]`**, so users can tell u-root implementation errors from host utility errors in mixed script output.
 
 ### Required Format
 
@@ -320,32 +266,23 @@ This prefix clearly identifies the error source, distinguishing u-root implement
 [uroot] mkdir: cannot create directory 'existing': File exists
 ```
 
+`Registry.Run()` itself returns `[uroot] <name>: command not found` for unknown commands.
+
 ### Implementation Pattern
 
+Wrap errors with `wrapError(name, err)` from `internal/uroot/wrapper.go`, which produces `[uroot] <cmd>: <err>` (and returns nil for a nil error); do not hand-write the prefix.
+
 ```go
-// CORRECT: Prefix errors with [uroot]
-func (h *CpHandler) Run(ctx context.Context, args []string) error {
-    // ... implementation ...
-    if err != nil {
-        return fmt.Errorf("[uroot] cp: %w", err)
-    }
-    return nil
+// CORRECT: wrapError adds the [uroot] <name>: prefix
+if err != nil {
+    return wrapError(c.name, err)
 }
 
 // WRONG: Raw error without prefix
-func (h *CpHandler) Run(ctx context.Context, args []string) error {
-    if err != nil {
-        return fmt.Errorf("cp: %w", err)  // Missing [uroot] prefix!
-    }
-    return nil
+if err != nil {
+    return fmt.Errorf("cp: %w", err)  // Missing [uroot] prefix!
 }
 ```
-
-### Rationale
-
-- Users can immediately identify whether an error comes from u-root or system utilities
-- Simplifies debugging when both u-root and system utilities are used in the same script
-- Enables targeted troubleshooting of u-root implementations vs environment issues
 
 ---
 
@@ -370,9 +307,9 @@ func (h *CpHandler) Run(ctx context.Context, args []string) error {
 3. Add or update unit tests in `internal/uroot/`.
 4. Add or update `tests/cli/testdata/virtual_uroot*.txtar` when CLI-visible
    behavior changes.
-5. Run focused gates:
+5. Run focused gates (txtar files run as `TestCLI/<file>` subtests; `-run Uroot` matches nothing):
 
 ```bash
 go test -v ./internal/uroot ./internal/runtime
-go test -v -run Uroot ./tests/cli/...
+go test -v ./tests/cli -run 'TestCLI/virtual_uroot'
 ```

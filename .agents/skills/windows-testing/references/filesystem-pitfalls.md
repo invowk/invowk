@@ -51,40 +51,32 @@ Windows 10 (version 1607+) supports long paths when:
    (`HKLM\SYSTEM\CurrentControlSet\Control\FileSystem`).
 2. The application manifest declares `longPathAware = true`.
 
-Go 1.21+ handles long paths internally by using extended-length path
-syntax (`\\?\` prefix) for most file operations. However:
+Go's `os` package handles long paths internally by using extended-length
+path syntax (`\\?\` prefix) for most file operations. However:
 - Not all Go standard library functions support extended-length paths.
 - External tools (compilers, container engines) may not support them.
-- `t.TempDir()` names include the full test name, which can be long for
-  table-driven subtests with descriptive names.
 
 ### Impact on Go tests
 
-- `t.TempDir()` generates paths like:
-  `C:\Users\runneradmin\AppData\Local\Temp\TestLongNamedFunction_very_descriptive_subtest_name123456789`
-- With deeply nested test fixture directories, the total path can exceed
-  260 characters.
-- CI runners (GitHub Actions `windows-latest`) may have long base paths.
+- `t.TempDir()` builds its directory name from the test name, but caps that
+  component at about 64 characters (and strips path-unsafe symbols) before
+  calling `os.MkdirTemp`. Long subtest names alone rarely hit MAX_PATH.
+- The base temp path (`%TEMP%`, long on CI runners) plus deeply nested
+  fixture directories is what pushes the total past 260 characters.
 
 ### Mitigation
 
-- Keep test names reasonably short for table-driven subtests.
-- Avoid deeply nesting directories in test fixtures (3-4 levels max).
+- Keep fixture nesting shallow (3-4 levels max); this is the main lever.
+- Always use `t.TempDir()`, never `os.MkdirTemp` with manual cleanup
+  (`.agents/rules/testing.md` "Test Parallelism").
 - If long paths are unavoidable, test on Windows 10+ with long path support
   enabled (GitHub Actions runners have this enabled by default).
-- Use `os.MkdirTemp("", "short")` with short prefixes when `t.TempDir()`
-  paths are too long, but remember to handle cleanup manually.
 
 ## Reserved Names
 
-Windows reserves the following filenames. They cannot be used as file or
-directory names, regardless of extension:
-
-| Category | Names |
-|----------|-------|
-| Device names | `CON`, `PRN`, `AUX`, `NUL` |
-| Serial ports | `COM1` through `COM9` |
-| Parallel ports | `LPT1` through `LPT9` |
+Windows reserves device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`,
+`LPT1`-`LPT9`; canonical list: `.agents/rules/windows.md` "Reserved Names and
+Limits"). They cannot be used as file or directory names.
 
 These names are reserved regardless of:
 - Extension: `NUL.txt`, `CON.log` are also reserved.
@@ -98,7 +90,7 @@ Use `pkg/platform`'s detection function:
 ```go
 import "github.com/invowk/invowk/pkg/platform"
 
-if platform.IsReservedWindowsName(filename) {
+if platform.IsWindowsReservedName(filename) {
     // Skip or adapt the test case
 }
 ```
@@ -113,7 +105,7 @@ if platform.IsReservedWindowsName(filename) {
 ### Mitigation
 
 - Never use reserved names in test fixtures or generated file names.
-- Use `platform.IsReservedWindowsName` to validate user-provided names.
+- Use `platform.IsWindowsReservedName` to validate user-provided names.
 - If testing reserved name handling, use `[!windows]` guard or
   `skipOnWindows`.
 
@@ -268,21 +260,18 @@ Git's line ending handling can corrupt binary fixtures and change checksums:
 
 ### The invowk solution
 
-The project's `.gitattributes` file forces LF line endings for txtar files:
-
-```
-*.txtar text eol=lf
-```
-
-This ensures txtar fixtures have consistent `\n` line endings regardless of
-the developer's `core.autocrlf` setting.
+The project's `.gitattributes` forces `*.txtar text eol=lf`, so fixtures keep
+`\n` line endings regardless of `core.autocrlf`. Keep that line (rule:
+`.agents/rules/testing.md` "Pitfalls").
 
 ### Verification
 
 If a txtar test fails on Windows with unexpected content, check:
-1. Is `.gitattributes` correctly applied? Run `git check-attr eol *.txtar`.
-2. Was the file re-checked out after `.gitattributes` was added?
-   Run `git rm --cached *.txtar && git checkout *.txtar`.
+1. Is the attribute applied? `git check-attr eol -- tests/cli/testdata/<file>.txtar`.
+2. What line endings are in the index and working tree?
+   `git ls-files --eol tests/cli/testdata/*.txtar` (look for `w/crlf`).
+3. If the working tree is wrong, renormalize with `git add --renormalize .`
+   and re-check out the affected files only after reviewing the diff.
 
 ## File Deletion Semantics
 
@@ -326,7 +315,8 @@ Windows file deletion is more complex than Unix `unlink`:
 
 ## Illegal Filename Characters
 
-Windows paths cannot contain these characters: `< > : " | ? *`
+Windows paths cannot contain these characters: `< > : " | ? *` (also listed
+in `.agents/rules/windows.md`).
 
 These characters are valid in Unix filenames. Tests that create files with
 these characters will fail on Windows.

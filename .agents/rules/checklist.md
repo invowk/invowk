@@ -1,66 +1,28 @@
 # Agent Checklist
 
-## Mandatory Verification
+**CRITICAL: Work is NOT complete until `make test` passes.** Never stop at `make test-short`: short mode skips the integration, container and full CLI tests that CI runs. If any step below changes code, restart from step 1.
 
-**CRITICAL: Work is NOT complete until the full test suite passes.**
+1. Review the changed code for reuse, simplification and efficiency, and fix what you find (Claude Code: `/simplify`).
+2. `make tidy`; for new Go files, `make license-check`.
+3. `make lint`: fix ALL issues, including pre-existing ones.
+4. `make test`: the full suite. It already runs `make test-cli`; run `test-cli` alone only while iterating on CLI tests.
+5. `make check-baseline`, then triage every new goplint finding, whatever the task scope: decide whether the fix belongs in Invowk or in the analyzer (`github.com/invowk/goplint`). If both are plausible, stop and ask the user. Protocol inconclusives are always blocking: never baseline, except or inline-ignore them.
+6. `make check-file-length`: every Go file, production and test, stays under 1000 lines.
+7. `make sonar-local`: fix real bugs and vulnerabilities. Suppress false positives in BOTH `sonar-project.properties` and `.sonarcloud.properties`, keeping multicriteria IDs gapless.
+8. Conditional checks:
 
-Run `make test` (NOT `make test-short`) and verify all tests pass before considering any task finished. This is non-negotiable - partial test runs or skipped verifications are not acceptable.
+   | When | Run |
+   |------|-----|
+   | `scripts/`, `tools/mutation/` or `formal/` changed | `make test-scripts` |
+   | Code bound by formal correspondence tables changed (`.agents/rules/formal-bindings.md`) | `python3 scripts/formal.py correspondence`; `make formal` when Java is available |
+   | Hot-path files changed and the `pgo-staleness` pre-commit hook warns | Prefer `make pgo-profile-parse-discovery` and commit `default.pgo`; advisory, since CI `pgo-sanity` regenerates it otherwise |
+   | A `*_schema.cue`, CUE-backed Go struct or `internal/config/types.go` changed | `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` |
+   | Website changed | `cd website && npm run build` |
+   | Module-related changes | `for m in samples/invowkmods/*.invowkmod; do go run . validate "$m"; done` |
+   | `AGENTS.md`, `.claude/`, `.agents/` or `scripts/check-agent-docs.sh` changed | `make check-agent-docs` |
 
-## Pre-Completion Checklist
+9. Docs and diagrams. User-facing behavior, configuration, CLI/API or schema changes update the README and website docs (sync map: `.agents/skills/docs/SKILL.md`). Changes to package boundaries, execution flow, runtime selection, discovery or major integrations re-check `docs/architecture/`. New diagrams use D2 (`.agents/skills/d2-diagrams/`); run `make render-diagrams` after D2 edits. The task is not complete until docs and diagrams match behavior.
+10. Runtime mirrors: every `virtual_<feature>.txtar` needs a `native_<feature>.txtar` mirror (enforced by `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment`). Exceptions for virtual files live only in `tests/cli/runtime_mirror_exemptions.json`; non-virtual tests (`container_*`, `dogfooding_*`, built-in command tests) need no mirror.
+11. Last step: `/learn` (`.agents/skills/learn/`).
 
-Before considering work complete, follow this sequence. If any step produces code changes, re-verify from step 1.
-
-### Code Refinement
-
-1. **Simplify changed code**: Run `/simplify` to review changed code for reuse, quality, and efficiency. Fix any issues found. This step may produce additional changes — all subsequent steps verify the final state.
-2. **Dependencies tidy**: `make tidy`.
-3. **License headers**: `make license-check` (for new Go files).
-
-### Verification
-
-4. **Linting passes**: `make lint` - Fix ALL issues EVEN if pre-existing. *(Pre-commit hook.)*
-5. **Full test suite passes**: `make test` - Run the FULL test suite, not short mode.
-6. **CLI tests pass**: `make test-cli` (if CLI commands/output changed).
-7. **Baseline check passes**: `make check-baseline` - Verify no new goplint findings introduced. Note: baseline scoped to production packages (`./cmd/... ./internal/... ./pkg/...`). *(Pre-commit hook.)*
-8. **New goplint findings triaged with the user**: Every newly surfaced goplint violation must be evaluated carefully to decide whether the right fix belongs in Invowk production code or in the analyzer itself (now the standalone `github.com/invowk/goplint` repository), regardless of the original task scope. Protocol inconclusive categories and outcomes are always visible and blocking; do not baseline, except, or inline-ignore proof uncertainty. If both fix locations are plausible, stop and ask the user to choose the final direction before closing the work.
-9. **File length check**: `make check-file-length` - All Go files (production + test) must be under 1000 lines.
-10. **Sonar issues resolved**: Run `make sonar-local` and review all unresolved issues. Fix real bugs and vulnerabilities. For false positives, add suppressions in `sonar-project.properties` and `.sonarcloud.properties` (multicriteria IDs must be gapless). CI analysis is handled by SonarCloud automatic analysis (GitHub App). *(Pre-commit hook.)*
-
-### Documentation & Housekeeping
-
-11. **Documentation updated**: Check sync map in `.agents/skills/docs/SKILL.md` for affected docs.
-12. **Website builds**: `cd website && npm run build` (if website changed).
-13. **Sample modules valid**: `go run . validate modules/*.invowkmod` (if module-related).
-14. **Native runtime mirrors**: If CLI tests were added/modified, verify native mirrors exist (`native_*.txtar` for each feature test). Exempt: u-root, container, discovery/ambiguity, dogfooding, built-in command tests (config/module/completion/tui/init/validate).
-15. **Architecture diagrams current**: If changes affect component relationships, execution flow, discovery logic, or runtime behavior, verify diagrams in `docs/architecture/` reflect the changes. Run `make render-diagrams` if D2 sources were updated.
-16. **Agent docs integrity**: `make check-agent-docs` (if `AGENTS.md`, `.agents/rules/`, or `.agents/skills/` changed).
-
-### Knowledge Capture
-
-17. **Capture learnings**: Run `/learn` to review and update `.claude/CLAUDE.md`, memory notes, hooks, rules, and skills with key learnings from this session. This is always the last step — it captures insights from the entire workflow including any discoveries made during verification.
-
-## Pre-Commit Hook Coverage
-
-The following items are also enforced by pre-commit hooks (`.pre-commit-config.yaml`), providing a safety net at commit time:
-
-| Hook | Checklist Step | Notes |
-|------|---------------|-------|
-| `golangci-lint` | 4 (Linting) | `make lint` (normalized lint, formatter, and config gates) |
-| `goplint-behavior` | — | Routed consumer gate via `make check-goplint-consumer-routed` (documentation-only diffs skip analysis; everything else runs one shared audit with baseline/exception/full-scan verdicts) |
-| `pgo-staleness` | — | Advisory only (exit 0); warns when hot-path files staged without `default.pgo` |
-| `sonar-local` | 10 (Sonar) | API-only check; `SONAR_TOKEN` optional (public projects work without auth) |
-
-Items NOT covered by any hook (manual discipline required): `make test`, `make tidy`, `make test-cli`, `make check-file-length`, `make check-agent-docs`, `make test-scripts`, documentation/diagram/module validation, `/simplify`, and `/learn`.
-
-Goplint analyzer-soundness completion claims (semantic profiles, retained
-clean-tree evidence, mutation-kernel coverage) are governed in the standalone
-`github.com/invowk/goplint` repository; invowk consumes released versions
-through the root `go.mod` tool pin and runs only the consumer gates above.
-
-**CI auto-fix:** The `pgo-sanity` CI job auto-regenerates `default.pgo` and pushes a fix commit when hot-path files change without a profile update. This is the safety net — prefer local regeneration with `make pgo-profile-parse-discovery` when the pre-commit hook warns.
-
-## Why Full Test Suite?
-
-- `make test-short` skips integration tests that catch real issues.
-- Container runtime tests, cross-package integration, and end-to-end CLI tests only run in full mode.
-- CI runs the full test suite - local verification must match CI expectations.
+Pre-commit runs lint, the routed goplint gate, the Windows cross-build (`make check-windows-build`), `sonar-local` and a PGO staleness advisory. Everything else here is manual. Details: `.agents/runbooks/quality-gates.md`.

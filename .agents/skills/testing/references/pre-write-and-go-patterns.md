@@ -11,8 +11,8 @@ details and its parallelism safety matrix.
    code it suppresses and remove it when no longer needed.
 2. Call `t.Helper()` first in helpers that report failures, including wrappers
    around other assertion helpers. Do not add it to a `t.Run` body.
-3. Clean imports after moving or deleting tests and compile the affected
-   package before widening verification.
+3. After moving or deleting tests, follow rule "File Shape" (clean imports,
+   compile the package before widening verification).
 4. Before adding `t.Parallel()`, check for process-global state, shared CUE
    values, shared channels/paths, and unsafe mocks. Follow the repository's
    parent/subtest placement policy.
@@ -28,7 +28,9 @@ details and its parallelism safety matrix.
 - Prefer events, channels, fake clocks, or polling with a deadline over sleeps.
   Keep sleeps only when the delay itself creates the behavior under test, such
   as watcher event separation or latency simulation, and document why.
-- Use `t.Context()` by default. Bound network, subprocess, and container work.
+- Use `t.Context()` by default and bound network, subprocess, and container
+  work: rule "Test Context Usage" and `go-testing` "Context Patterns Decision
+  Tree".
 - Report goroutine failures to the test goroutine; do not call `t.Fatal` or
   `t.FailNow` from a worker.
 - Run concurrency fixes repeatedly with cache bypass and the race detector:
@@ -37,8 +39,8 @@ details and its parallelism safety matrix.
   go test -count=10 -race -run '<TestName>' ./path/to/package/...
   ```
 
-- Build expected resolver-backed path strings from the same resolver as
-  production. Use `os.SameFile` when only filesystem identity matters.
+- Resolver-backed expected path strings and `os.SameFile` identity checks:
+  `go-testing` "Cross-Platform Path Contract Tests".
 
 ## Helpers and Fixtures
 
@@ -51,13 +53,14 @@ package-specific, or the helper is genuinely single-use. Keep mocks local to
 parallel subtests unless every access is synchronized.
 
 For user-home tests, use `internal/testutil.SetHomeDir(t, dir)`, not a
-`HOME`-only override. Keep these tests serial because home and environment
-state are process-global.
+`HOME`-only override: it sets `USERPROFILE` on Windows and `HOME` elsewhere,
+and returns a restore func to register with `t.Cleanup`. Keep these tests
+serial because home and environment state are process-global.
 
-For host-path validation, create absolute paths with `t.TempDir()` and
-`filepath.Join`. For typed repository-relative paths, cover Unix absolute,
-Windows drive/rooted/UNC, and slash/backslash traversal inputs without
-platform skips.
+Host-absolute fixtures come from `filepath.Join(t.TempDir(), ...)` (rule
+"Cross-Platform Testing"). Typed repository-relative path validators use the
+seven `internal/testutil/pathmatrix` vectors on every OS, without platform
+skips (rule "Cross-Platform Path Validator Matrix").
 
 ## Verification
 

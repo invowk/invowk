@@ -1,6 +1,6 @@
 ---
 name: windows-testing
-description: Windows testing guidance for Invowk Go code. Use for Windows process lifecycle, os/exec, NTFS/MAX_PATH/sharing issues, PATH/PATHEXT, timer resolution, race detector overhead, windows-latest CI, proactive path-touching refactors (`filepath.IsAbs`, `filepath.FromSlash`, `filepath.Join`, `filepath.ToSlash`), CUE-fed path value types, volume mounts, and platform-split testscript coverage.
+description: Invowk Windows testing guidance for Go and testscript code. Use for Windows process lifecycle, os/exec and TerminateProcess, NTFS/MAX_PATH/sharing issues (ERROR_SHARING_VIOLATION, Access is denied), PATH/PATHEXT, USERPROFILE/os.UserHomeDir (SetHomeDir), PowerShell CRLF output, ConPTY hangs, timer resolution, race detector overhead, windows-latest CI, proactive path-touching refactors (`filepath.IsAbs`, `filepath.FromSlash`, `filepath.Join`, `filepath.ToSlash`), CUE-fed path value types, volume mounts, and platform-split testscript coverage.
 ---
 
 # Windows Testing Skill
@@ -11,15 +11,15 @@ This skill routes the work; detailed background lives in `references/`.
 
 ## Precedence
 
-1. `.agents/rules/windows.md` - authoritative for path handling, CI config, and PowerShell patterns.
-2. `.agents/rules/testing.md` - authoritative for test organization, parallelism, and cross-platform patterns.
+1. `.agents/rules/windows.md` - authoritative for path handling and Windows limits.
+2. `.agents/rules/testing.md` - authoritative for test organization, parallelism, cross-platform patterns, and PowerShell rules for native tests.
 3. This skill - Windows triage checklist and repo-specific failure modes.
 4. `references/process-lifecycle.md` - CreateProcess, TerminateProcess, Job Objects, `cmd.WaitDelay`, `cmd.Cancel`.
 5. `references/filesystem-pitfalls.md` - NTFS, MAX_PATH, sharing violations, reserved names.
 6. `references/powershell-testing.md` - PowerShell testscript reference.
 
-Before writing any test code, follow `.agents/skills/testing/SKILL.md` §
-"Pre-Write Checklist".
+Before writing any test code, apply the "Pre-Write Checks" in
+`.agents/skills/testing/references/pre-write-and-go-patterns.md`.
 
 ## First Checks
 
@@ -46,8 +46,9 @@ When a change touches path parsing, validation, or volume-mount composition:
    CUE-fed value type (`FilesystemPath`, `WorkDir`, `SubdirectoryPath`,
    `ScriptPath`, etc.).
 2. Use `internal/testutil/pathmatrix` for validators/resolvers where possible.
-3. Add or update the pathmatrix coverage guardrail when a new path-bearing type
-   participates in cross-platform semantics.
+3. Register a new path-contract validator or resolver in the
+   `pathMatrixCoverage` map in `tests/coverage/pathmatrix_coverage_test.go`
+   (or add a justified exemption there); the guardrail fails otherwise.
 4. Run focused tests, then `make check-baseline` for goplint path regressions.
 
 ## Process Lifecycle
@@ -75,19 +76,19 @@ Deep reference: `references/process-lifecycle.md`.
 Windows filesystem failures often come from path syntax, open handles, or
 case-insensitive lookup.
 
-Checklist:
+Checklist (full tables: `.agents/rules/windows.md` "Container Path Patterns"
+and "Reserved Names and Limits"; that rule is path-scoped and may not be
+loaded):
 
-- Reserved names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`)
-  need Windows-specific handling.
+- Container paths: check absoluteness with a leading `/`
+  (`isContainerAbsolutePath`), never `filepath.IsAbs` (`/app` is not absolute
+  on Windows); join segments with `path.Join`, never `filepath.Join`;
+  `filepath.ToSlash` host paths before composing volume mount strings.
+- Reserved names (`CON`, `NUL`, `COM1`, ...): check with
+  `platform.IsWindowsReservedName`.
 - Use `.bat`, `.cmd`, or `.exe` for executable fixtures; executable permission
   bits alone do not make a file runnable on Windows.
 - Use `${:}` and `${/}` in testscript PATH/path construction.
-- Do not rely on `filepath.IsAbs("/app")`; Unix-style container paths are not
-  absolute Windows host paths.
-- Use `path.Join` or forward-slash strings for container paths, not
-  `filepath.Join`.
-- Convert Windows host paths to slash form before composing Docker/Podman volume
-  mount strings.
 - For tests that exercise `os.UserHomeDir`, `config.CommandsDir`, or global
   module discovery, use `internal/testutil.SetHomeDir(t, dir)`. Direct
   `t.Setenv("HOME", dir)` is Unix-only and leaves Windows `USERPROFILE`
@@ -100,14 +101,12 @@ Deep reference: `references/filesystem-pitfalls.md`.
 
 ## PowerShell Testscript
 
-PowerShell fixtures must work on Windows PowerShell 5.1 and PowerShell 7+.
+Canonical rules: `.agents/rules/testing.md` "Native tests". In short:
+compatible with 5.1 and 7+ (CI runs native txtar under `pwsh` only, so check
+5.1 by hand); `$env:VAR`; `Write-Output`, not `echo`;
+`$ErrorActionPreference = 'Stop'`; `\r?$` on anchored regex assertions
+(CRLF output); identical assertions on every platform.
 
-Checklist:
-
-- Use `$env:VAR` for environment variables.
-- Use `Write-Output` for reliable string output.
-- Use `$ErrorActionPreference = 'Stop'`.
-- Use `\r?$` in anchored regex assertions because PowerShell emits CRLF.
 - Prefer platform-split implementations when Bash and PowerShell behavior would
   otherwise distort the test.
 
@@ -123,10 +122,14 @@ Checklist:
 - Prefer event-based synchronization over `time.Sleep`.
 - Use at least a 50ms margin for timing assertions.
 - Expect `-race` to amplify memory and scheduling pressure.
-- Do not add TUI `TestMain` pre-warming for lipgloss/bubbletea races. The old
-  pre-warm pattern was a no-op; current guidance is to treat future Windows TUI
-  race-detector failures as memory-pressure problems unless new evidence shows a
-  real data race.
+- Do not add TUI `TestMain` pre-warming for lipgloss/bubbletea races (history:
+  `.agents/memorials/skills-platform-testing-history.md`). Treat Windows TUI
+  `-race` failures (timeouts, crashes, `(unknown)` results) as memory or
+  scheduling pressure unless evidence shows a real data race.
+- A `WARNING: DATA RACE` report with two access stacks is that evidence:
+  reproduce it and inspect both stacks
+  (`.agents/skills/go-testing/references/race-detector-guide.md`) instead of
+  dismissing it as pressure.
 
 ## ConPTY And TUI
 
@@ -152,7 +155,8 @@ unit tests and CLI integration tests as separate steps in `.github/workflows/ci.
 Implications:
 
 - Container runtime tests must skip on Windows.
-- Race detector is enabled for the Windows short-test step.
+- `-race` is on in both Windows steps: "Run tests (short)" and "Run CLI
+  integration tests".
 - CLI integration tests must use platform-portable testscript syntax.
 - A Go package timeout can cascade into many `(unknown)` test results; inspect
   the first hung package or stack dump, not only the summary.
@@ -174,7 +178,7 @@ Implications:
 | Symptom | Likely Cause | First Fix |
 |---|---|---|
 | Timeout becomes exit code 1 | `TerminateProcess` masked context error | Check `promoteContextError` call order |
-| `ERROR_SHARING_VIOLATION` | Defender scan or open handle | Close handles, retry, use `t.TempDir()` |
+| `ERROR_SHARING_VIOLATION` or `Access is denied` on cleanup | Defender scan or open handle | Close handles, retry, use `t.TempDir()` |
 | Regex line anchor fails | CRLF output | Use `\r?$` |
 | `/app` not detected as absolute | Windows host path semantics | Check Unix-style container paths before `filepath.IsAbs` |
 | Expected `~/.invowk/cmds` missing after setting `HOME` | Windows `os.UserHomeDir()` reads `USERPROFILE` | Use `testutil.SetHomeDir(t, dir)` and keep the test serial |

@@ -2,17 +2,29 @@
 
 Comprehensive reference for the container test infrastructure that runs
 exclusively on Linux. This is the most complex testing subsystem in the project,
-with 5 layers of timeout defense, cross-binary serialization, engine health
-probes, and container-specific cleanup patterns.
+with layered timeouts and serialization, engine health probes, and
+container-specific cleanup patterns.
 
 ---
 
-## The 5-Layer Timeout Strategy
+## Timeout and Serialization Layers
 
 Container tests are the most failure-prone tests in the project because they
 depend on external daemon processes (Docker/Podman) that can hang indefinitely.
-The 5-layer strategy ensures that every hang is caught at the narrowest possible
-scope.
+The layers below catch every hang at the narrowest possible scope. They match
+the layer table in `linux-testing` SKILL.md "Container Test Invariants" (the
+canonical enumeration):
+
+| # | Layer | Owner | Value today |
+|---|-------|-------|-------------|
+| 1 | Operation context | `testutil.ContainerTestContext` | `DefaultContainerTestTimeout` = 5m |
+| 2 | Testscript deadline and `env.Defer` cleanup | `tests/cli` harness | `containerTestTimeout` = 3m per txtar case |
+| 3 | In-process semaphore | Go package tests | capacity `min(GOMAXPROCS, 2)` |
+| 4 | Cross-binary suite lock | `tests/cli` container suite | flock (Linux) |
+| 5 | Go `-timeout` and job `timeout-minutes` | test binary and CI | 10m (CLI) / 15m (non-CLI, runtime); job 30m |
+
+Read the current values from source and `.github/workflows/ci.yml` before
+relying on them.
 
 ### Layer 1: Per-Test Context Deadline (ContainerTestContext)
 
@@ -45,8 +57,9 @@ func ContainerTestContext(t testing.TB, timeout time.Duration) context.Context {
 (e.g., Podman stuck in a cgroup operation), the subprocess blocks indefinitely:
 - `cmd.Run()` blocks waiting for the process to exit.
 - `cmd.Wait()` blocks waiting for I/O pipes to close.
-- The test binary eventually gets killed by the binary-level `-timeout 15m`,
-  but that produces a confusing panic with no useful error message.
+- The test binary is eventually killed by the binary-level `-timeout`
+  (Layer 5), but that produces a confusing panic with no useful error
+  message, and no cleanup runs.
 
 With `ContainerTestContext`, the deadline fires after 5 minutes, SIGKILL is
 sent, and the test fails with a clear `context deadline exceeded` error.
@@ -59,10 +72,7 @@ func TestContainerExec(t *testing.T) {
     if testing.Short() {
         t.Skip("skipping integration test in short mode")
     }
-
-    sem := testutil.ContainerSemaphore()
-    sem <- struct{}{}
-    defer func() { <-sem }()
+    testutil.AcquireContainerSemaphore(t) // Layer 3; released via t.Cleanup
 
     ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
     execCtx := NewExecutionContext(ctx, cmd, inv)
@@ -71,18 +81,21 @@ func TestContainerExec(t *testing.T) {
 }
 ```
 
-**When NOT to use:**
-- Tests that only call `Validate()` or perform type assertions (no daemon
-  interaction).
-- Tests with mocked container engines.
+When it is not needed (mocked engines, `Validate()`-only or type-assertion
+tests): `.agents/rules/testing.md` "Integration and Container Tests".
 
-### Layer 2: Cleanup via env.Defer (Testscript Container Tests)
+### Layer 2: Testscript Deadline and env.Defer Cleanup (CLI Container Tests)
 
 **Source**: `tests/cli/cmd_container_test.go`
 
+`TestContainerCLI` runs each `container_*.txtar` file as a serial subtest
+under the suite lock (Layer 4), and passes each `testscript.Run` a
+`Deadline` of `time.Now().Add(containerTestTimeout)` (3 minutes).
+`containerSetup` (which first calls `commonSetup`) registers cleanup:
+
 ```go
 func containerSetup(env *testscript.Env) error {
-    // ... common setup ...
+    // ... commonSetup, engine pinning ...
 
     testSuffix := generateTestSuffix(env.WorkDir)
     containerPrefix := containerNamePrefix + testSuffix
@@ -97,16 +110,13 @@ func containerSetup(env *testscript.Env) error {
 **How it works:**
 
 1. Each container test gets a unique name prefix: `invowk-test-<hash>`.
-2. `env.Defer()` registers a cleanup function that runs regardless of test
-   outcome: pass, fail, timeout, or panic.
+2. `env.Defer()` registers a cleanup function that testscript runs when the
+   case ends: pass, fail, or the testscript `Deadline` firing.
 3. Cleanup lists running containers matching the prefix and force-removes them.
 
-**Why this matters:**
-
-When a test is terminated by the testscript deadline (Layer 3) or the binary
-timeout (Layer 3b), deferred Go `defer` statements do NOT run. But
-`env.Defer()` is called by the testscript framework as part of its cleanup
-phase, which runs before the binary is killed.
+**Limits:** `env.Defer` (like `t.Cleanup` and Go `defer`) does NOT run when
+the whole test binary is killed by `go test -timeout` (Layer 5). That is why
+the testscript deadline must fire well before the binary timeout.
 
 For Go tests (not testscript), use `t.Cleanup()` instead:
 
@@ -116,26 +126,7 @@ t.Cleanup(func() {
 })
 ```
 
-### Layer 3: CI Runner Binary Timeout
-
-```yaml
--- -race -timeout 15m -coverprofile=coverage.out
-```
-
-The `-timeout 15m` flag on the `go test` command (passed through `gotestsum`)
-kills the entire test binary after 15 minutes. This is the safety net for:
-- Catastrophic daemon failures where even `ContainerTestContext` cannot kill the
-  subprocess (rare, but possible with kernel-level blocks).
-- Accumulated latency from many slow container tests.
-
-**Relationship to Layer 1:**
-
-The binary timeout must always exceed the sum of all sequential per-test
-deadlines. With `DefaultContainerTestTimeout = 5 * time.Minute` and tests
-running serially within `TestContainerCLI`, 3 tests would require 15 minutes.
-The current configuration has headroom for this.
-
-### Layer 4: Container Semaphore (ContainerSemaphore)
+### Layer 3: Container Semaphore (In-Process)
 
 **Source**: `internal/testutil/container_semaphore.go`
 
@@ -160,13 +151,10 @@ func containerParallelism() int {
 1. `sync.OnceValue` ensures the semaphore is created exactly once per process.
 2. Default capacity: `min(GOMAXPROCS, 2)`. CI sets
    `INVOWK_TEST_CONTAINER_PARALLEL=2`.
-3. Tests acquire a slot before container operations and release after:
-
-```go
-sem := testutil.ContainerSemaphore()
-sem <- struct{}{}        // Acquire (blocks if at capacity)
-defer func() { <-sem }() // Release
-```
+3. Tests acquire a slot once per test with
+   `testutil.AcquireContainerSemaphore(t)`, after `t.Parallel()` and the
+   Short skip and before any container operation; it releases through
+   `t.Cleanup`. Nothing outside `internal/testutil` uses the raw channel.
 
 **Why cap at 2:**
 
@@ -178,26 +166,50 @@ than errors when too many concurrent operations run:
 
 Capping at 2 prevents these issues while still allowing some parallelism.
 
-**When to use the semaphore:**
-- Integration tests that call `Execute()`, `ExecuteCapture()`, or `Build()`.
-- CLI testscript tests that invoke container commands.
+When to acquire it and when not to (mocked engines, validation-only tests,
+error paths that fail before container operations):
+`.agents/rules/testing.md` "Integration and Container Tests".
 
-**When NOT to use:**
-- Unit tests with mocked engines.
-- Validation-only tests.
-- Error-path tests that fail before reaching container operations.
+### Layer 4: Cross-Binary Suite Lock
 
-### Layer 5: Job-Level Timeout
+**Source**: `internal/testutil/container_suite_lock_linux.go`
+
+`AcquireContainerSuiteLock(t)` takes a flock so the `tests/cli` container
+suite never runs real-container work concurrently with another test binary
+during `make test`. Only `tests/cli` uses it. Comparison with the semaphore:
+"Suite Lock vs Semaphore Decision Guide" below; lock semantics:
+`filesystem-inotify.md` "File Locking (flock)".
+
+### Layer 5: Go Binary Timeout and Job Timeout
 
 ```yaml
+# .github/workflows/ci.yml (full mode)
+-- -race -timeout 15m -coverprofile=coverage.out      # non-CLI and internal/runtime steps
+-- -race -timeout 10m -coverprofile=cli-coverage.out  # CLI integration step
+
 jobs:
   test:
     timeout-minutes: 30
 ```
 
-GitHub Actions kills the entire runner after 30 minutes. This is the absolute
-last resort when all other layers fail. Without it, hung jobs burn up to
-GitHub's 6-hour default.
+The `-timeout` flag on `go test` (passed through `gotestsum`) kills the whole
+test binary. It is the safety net for:
+- Catastrophic daemon failures where even `ContainerTestContext` cannot kill
+  the subprocess (rare, but possible with kernel-level blocks).
+- Accumulated latency from many slow container tests.
+
+It produces a `panic: test timed out` with goroutine dumps rather than a
+useful assertion, and deferred cleanup does not run, so never lean on it.
+
+**Invariant:** the binary `-timeout` must exceed the chain of serial
+per-test deadlines with headroom. Today the CLI suite runs under
+`-timeout 10m` against a 3m `containerTestTimeout` per serial txtar case, and
+the non-CLI and `internal/runtime` steps run under `-timeout 15m` against the
+5m `DefaultContainerTestTimeout`. When you add serial container cases or raise
+a per-test deadline, re-check the step timeout.
+
+`timeout-minutes: 30` on the job is the absolute last resort when every
+other layer fails. Without it, hung jobs burn up to GitHub's 6-hour default.
 
 ---
 
@@ -274,20 +286,14 @@ Ubuntu CI runners have both Docker and Podman pre-installed. Without masking,
 `AutoDetectEngine()` picks whichever engine it finds first, which may not be
 the one specified by the CI matrix.
 
-```yaml
-- name: Mask Docker for Podman tests
-  if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
-  run: sudo mv /usr/bin/docker /usr/bin/docker.disabled || true
-
-- name: Mask Podman for Docker tests
-  if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
-  run: sudo mv /usr/bin/podman /usr/bin/podman.disabled || true
-```
-
-**Why `|| true`:**
-
-On rare occasions, one engine may not be installed (e.g., a new runner image).
-The `|| true` prevents the mask step from failing the entire job.
+The "Mask Docker for Podman tests" and "Mask Podman for Docker tests" steps in
+`.github/workflows/ci.yml` resolve every `PATH` install of the other engine
+with `command -v` (looping, because runner images move binaries between
+`/usr/bin` and `/usr/local/bin`), rename each to `<path>.disabled`, and then
+fail the job loudly if the engine is still on `PATH`. Read the steps there
+rather than a copy. Keep the masking fail-loud; never reintroduce a
+`|| true` that lets a job silently test the wrong engine (history:
+`.agents/memorials/skills-platform-testing-history.md`).
 
 **The `INVOWK_TEST_CONTAINER_ENGINE` env var:**
 
@@ -386,9 +392,11 @@ levels:
 
 ### containers.conf
 
-Podman reads configuration from `~/.config/containers/containers.conf`.
-In CI, the testscript library sets `HOME=/no-home`, which breaks this.
-The `containerSetup` function sets `HOME` to `env.WorkDir` to fix this.
+Podman reads configuration from `~/.config/containers/containers.conf`, and
+testscript's default `HOME=/no-home` breaks it. `commonSetup` (which
+`containerSetup` calls first) sets `HOME` to `env.WorkDir`; details, including
+the Windows `APPDATA`/`USERPROFILE` overrides: `.agents/rules/testing.md`
+"Integration and Container Tests".
 
 ---
 
@@ -430,13 +438,13 @@ their informational output. Instead, assert on specific error text with
 
 ## Suite Lock vs Semaphore Decision Guide
 
-| Feature | Suite Lock (`AcquireContainerSuiteLock`) | Semaphore (`ContainerSemaphore`) |
+| Feature | Suite Lock (`AcquireContainerSuiteLock`) | Semaphore (`AcquireContainerSemaphore`) |
 |---------|------------------------------------------|-----------------------------------|
-| Scope | Cross-binary (via flock) | In-process (buffered channel) |
-| Location | `testutil/container_suite_lock_linux.go` | `testutil/container_semaphore.go` |
-| Used by | `tests/cli` container tests | `internal/runtime` container tests |
-| Concurrency | Serializes across test binaries | Limits within one binary (cap 2) |
-| Platform | Linux only (`//go:build linux`) | All platforms (noop on non-Linux) |
+| Scope | Cross-binary on Linux (via flock) | In-process (buffered channel) |
+| Location | `testutil/container_suite_lock_linux.go` (+ `_other.go`) | `testutil/container_semaphore.go` |
+| Used by | `tests/cli` container tests | Go package container tests (`internal/runtime`, `internal/container`, `internal/provision`) |
+| Concurrency | Serializes across test binaries | Limits within one binary (cap 2 by default) |
+| Platform | flock on Linux; in-process `sync.Mutex` elsewhere (`container_suite_lock_other.go`) | Same channel on every platform (no build tag) |
 | Overhead | Filesystem flock (kernel) | Channel send/receive (userspace) |
 
 **Why `internal/runtime` does not use the suite lock:**

@@ -6,20 +6,20 @@ This agent focuses exclusively on the **module system supply chain**. For genera
 
 ## Threat Model
 
-The module system has 10 identified attack surfaces. Each review should evaluate whether changes affect any of these:
+The module system has 10 identified attack surfaces. Each review should evaluate whether changes affect any of these. The canonical record is the "Known Attack Surfaces" table in `.agents/skills/module-security/SKILL.md`; if this summary and that table disagree, the skill wins, and locate code by symbol rather than by line number.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:363-451`; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
+| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go`, script path validation helpers; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
-| SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container_exec.go:118` | By-design |
-| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial (scoped lifetime + FilterInvowkEnvVars) |
-| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156`; modelled by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks`) | Mitigated |
+| SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container*.go` | By-design |
+| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go` (`FilterInvowkEnvVars`), interactive adapters | Partial (scoped lifetime + `FilterInvowkEnvVars`) |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go` `CopyDir`, `internal/app/modulecache/cache.go` `copyDir`; modelled by `formal/alloy/ModulePathContainment.als` (`copySkipsInnerLinks`) | Mitigated (residual: `copyDir` follows a symlinked source root) |
 | SC-06 | `--ivk-env-var` highest-priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | Custom-check `script.content` host execution | High | `internal/app/deps/checks.go`, `internal/app/commandadapters/dependency_host.go` | Partial |
-| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452-488` | Mitigated (allowlist in Validate; residual: `filepath.Base` bypass for absolute paths) |
-| SC-09 | Root invowkfile commands bypass scope | Low | `internal/app/deps/deps.go:199` | By-design |
-| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial (shadowing detection) |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go`, `pkg/invowkfile/runtime.go` | Mitigated (allowlist in Validate; residual: basename-only check, so an absolute path such as `/tmp/python3` passes) |
+| SC-09 | Root invowkfile commands bypass scope | Low | `internal/app/deps/deps.go` | By-design |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go`, command-scope lock checks | Partial (shadowing is reported as the `module_shadows_global` diagnostic) |
 
 **Status legend:**
 - **Open** — No mitigation in place; needs a code fix or explicit risk acceptance
@@ -147,7 +147,7 @@ When reviewing code that touches the module system:
 
 3. **Check for regression**: Verify that existing mitigations (hash checks, path validation, scope enforcement) remain intact after the change. Look for bypasses introduced by new code paths.
 
-4. **Classify findings**: Use the severity table below. "By-design" surfaces (SC-02, SC-03, SC-06, SC-09) only need findings if the change weakens their documentation or introduces new exposure.
+4. **Classify findings**: Use the severity table below. "By-design" surfaces (SC-03, SC-06, SC-09) only need findings if the change weakens their documentation or introduces new exposure.
 
 5. **Generate report**: For each finding, include: file path + line number, severity, attack surface ID, description, and recommended fix that preserves functionality and UX.
 

@@ -1,6 +1,13 @@
 ---
 name: native-mirror
-description: Generate, update, or audit native_*.txtar mirror tests from virtual_*.txtar tests with platform-split CUE patterns and runtime mirror exemption rules. Use when creating or reviewing testscript CLI tests that need native runtime mirrors.
+description: >-
+  Generate, update, or audit `native_*.txtar` mirrors of `virtual_*.txtar`
+  testscript tests: platform-split CUE, mirror exemption rules
+  (`runtime_mirror_exemptions.json`), and
+  `TestShRuntimeMirrorCoverage`/`TestVirtualNativeCommandPathAlignment`
+  failures (missing, orphan or superseded mirrors, command-path mismatch). Use
+  when creating or reviewing testscript CLI tests that need native runtime
+  mirrors.
 ---
 
 # Native Mirror Generator
@@ -26,10 +33,13 @@ Before generating a mirror, verify the virtual test is NOT exempt:
 > `TestShRuntimeMirrorCoverage` enforces the JSON entries; `TestVirtualNativeCommandPathAlignment`
 > enforces command-path alignment except for justified `command_path_exempt` entries.
 
-Only `virtual_*.txtar` files are in this skill's mirror scope. Files such as
-`container_*.txtar`, `config_*.txtar`, `module_*.txtar`, `completion.txtar`,
-`tui_format.txtar`, `tui_style.txtar`, and `init_*.txtar` are outside the mirror
-scanner rather than runtime-mirror exemptions.
+The scanner considers only files whose names start with `virtual_` or `native_`
+(`tests/cli/runtime_mirror_test.go`). Everything else (`container_*`,
+`config_*`, `module_*`, `init_*`, `tui_*`, `completion.txtar`, `dogfooding_*`,
+`audit_*`, `agent_*`, `validate.txtar`, and so on) is outside its scope rather
+than exempt. `lua_virtual.txtar` ends in
+`_virtual` but is not scanned. A `native_<x>.txtar` without `virtual_<x>.txtar`
+fails as an orphan, so name native-only tests without the `native_` prefix.
 
 If the test is exempt, report it and stop.
 
@@ -43,41 +53,22 @@ Read the source `virtual_*.txtar` file and extract:
 
 ### Step 3: Transform the CUE
 
-Replace each virtual implementation with a platform-split native pair:
-
-**From (virtual)**:
-```cue
-implementations: [{
-    script: {content: "echo 'Hello'"}
-    runtimes: [{name: "virtual-sh"}]
-    platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-}]
-```
-
-**To (native, platform-split)**:
-```cue
-implementations: [
-    {
-        script: {content: "echo 'Hello'"}
-        runtimes:  [{name: "native"}]
-        platforms: [{name: "linux"}, {name: "macos"}]
-    },
-    {
-        script: {content: "Write-Output 'Hello'"}
-        runtimes:  [{name: "native"}]
-        platforms: [{name: "windows"}]
-    },
-]
-```
+Replace each virtual implementation with a platform-split native pair: one
+`linux`/`macos` implementation and one `windows` implementation, each declaring
+only `runtimes: [{name: "native"}]` (a virtual fallback defeats the test). See
+the worked example below.
 
 ### Step 4: Translate Shell Syntax
 
-Apply these translations for the Windows (PowerShell) implementation:
+Apply these translations for the Windows (PowerShell) implementation. Also
+follow rule "Native tests": the Unix script must be valid in both bash and zsh,
+PowerShell must stay 5.1-compatible (no ternary, `??`, or `&&`/`||` chains), and
+anchored assertions need `\r?$`.
 
 | Bash/Zsh | PowerShell |
 |----------|------------|
 | `echo "text"` | `Write-Output "text"` |
-| `echo -n "text"` | `Write-Host -NoNewline "text"` |
+| `echo -n "text"` | `Write-Host -NoNewline "text"` (**unverified**, see note) |
 | `$VAR` | `$env:VAR` |
 | `"Value: $VAR"` | `"Value: $($env:VAR)"` |
 | `if [ "$V" = "x" ]; then ... fi` | `if ($env:V -eq 'x') { ... }` |
@@ -89,18 +80,30 @@ Apply these translations for the Windows (PowerShell) implementation:
 | `$INVOWK_FLAG_NAME` | `$env:INVOWK_FLAG_NAME` |
 | `$INVOWK_ARG_NAME` | `$env:INVOWK_ARG_NAME` |
 
+Note on `echo -n`: `Write-Host` bypasses the PowerShell pipeline
+(`.agents/skills/windows-testing/references/powershell-testing.md`), and no
+current mirror uses it. Treat the row as an open question: confirm it with
+`go test -run TestCLI/native_<name> ./tests/cli/` on Windows before relying on it.
+
 ### Step 5: Preserve Assertions
 
-The `stdout`/`stderr` assertions and `exec` command paths should match between
-virtual and native tests by default. Intentional output or command-path divergence
-must be recorded in `tests/cli/runtime_mirror_exemptions.json` with a justification,
-using `command_path_exempt` for command target differences.
+- `exec` command paths must match the virtual test unless `command_path_exempt`
+  in `tests/cli/runtime_mirror_exemptions.json` records the difference with a
+  justification; `TestVirtualNativeCommandPathAlignment` checks this.
+- stdout/stderr assertions should match by default. Runtime-identity output
+  (runtime name, dry-run rendering, runtime-specific error wording, as in
+  `native_dryrun.txtar` and `native_timeout.txtar`) may differ. The JSON has no
+  field for that and nothing checks it, so justify each difference with a
+  comment in the native file.
+- Within the native test, assertions are identical across platforms (rule
+  "Native tests"); only the script syntax differs.
 
 ### Step 6: Write the Mirror
 
 Create `native_<feature>.txtar` with:
 - Updated description noting it's a native mirror
-- Same `exec` commands and assertions
+- Same `exec` commands and assertions, except the Step 5 runtime-identity
+  differences
 - Platform-split CUE implementations
 - Same embedded support files
 
@@ -173,5 +176,14 @@ To check for missing native mirrors, run:
 go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
 ```
 
-Use the test output plus `tests/cli/runtime_mirror_exemptions.json` to report missing
-mirrors, stale exemptions, or command-path divergences.
+Map the test output to fixes (with `tests/cli/runtime_mirror_exemptions.json`):
+
+| Failure | Meaning |
+|---|---|
+| `missing native runtime mirror` | Non-exempt `virtual_<x>` has no `native_<x>` |
+| `stale exact mirror exemption` | `exact` entry names a virtual file that no longer exists |
+| `superseded exact mirror exemption` | `exact` entry whose native mirror now exists; remove the entry |
+| `stale prefix mirror exemption` | `prefix` entry matches no virtual file |
+| `orphan native mirror` | `native_<x>` without `virtual_<x>` |
+| `command-path mismatch` | Pair invokes different command paths and has no `command_path_exempt` entry |
+| `stale command-path exemption` | `command_path_exempt` entry whose native mirror does not exist |

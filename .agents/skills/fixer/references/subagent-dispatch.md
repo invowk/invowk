@@ -10,7 +10,8 @@ are needed.
 
 ```
 Is the root cause obvious (typo, nil check, missing import, lint error)?
-├── YES ──► Fix directly. Skip subagents.
+├── YES ──► Skip subagents. Fix directly if implementation is
+│           authorized; otherwise report the diagnosis.
 │           (Build errors, lint failures, simple logic bugs.)
 │
 └── NO ──► Is this a CI failure (PR checks failing, run URL provided)?
@@ -55,7 +56,8 @@ Is the root cause obvious (typo, nil check, missing import, lint error)?
         │
         └── NO ──► Is it a build or lint error?
             │
-            └── YES ──► Fix directly. No subagents.
+            └── YES ──► No subagents. Fix directly if implementation is
+                        authorized; otherwise report the diagnosis.
                         (Compiler errors and lint violations are self-describing.)
 ```
 
@@ -70,7 +72,7 @@ time scale with subagent count — diminishing returns above 3.
 
 | Scenario | Subagents | Which ones |
 |----------|-----------|------------|
-| Simple bug (typo, nil, import) | 0 | Fix directly |
+| Simple bug (typo, nil, import) | 0 | Fix directly if authorized, else report |
 | Build or lint failure | 0 | Read error output directly |
 | Single deterministic test failure | 1 | Code Path Tracer |
 | Race detector report | 1 | Code Path Tracer (with race focus) |
@@ -97,6 +99,31 @@ time scale with subagent count — diminishing returns above 3.
 
 Adapt the evidence placeholders without supplying the parent agent's suspected
 cause or preferred fix.
+
+### CI Log Analyzer
+
+```
+You are extracting structured evidence from a failing CI run of the invowk Go project.
+
+## Input
+{PR number, run URL or run ID}
+
+## Your Task
+1. Read `.agents/skills/fixer/references/ci-failure-diagnosis.md`.
+2. Run its `gh` queries: failing checks, `gh run view <id> --log-failed`,
+   failed jobs, and download the `test-results-*` artifacts when useful.
+3. For each failure, extract the job name and runner, step name, package,
+   test name, exit code, error type (assertion, panic, timeout, race, build,
+   lint) and whether it appears in a rerun report.
+4. Note the first failure chronologically and any `(unknown)` results.
+5. Do NOT guess a root cause or propose a fix.
+
+## Output Format
+- Run and job list with platform/engine
+- One row per failure: job, step, package, test, exit code, error type, rerun status
+- First failure and cascade notes
+- Raw error excerpts (trimmed)
+```
 
 ### Platform Investigator
 
@@ -270,7 +297,7 @@ You are analyzing a Go race detector report from the invowk project.
    - Which goroutine writes? Which reads?
    - Are they in the same package or across packages?
 3. Check the Failure Pattern Catalog for known race patterns:
-   - lipgloss sync.Once (windows-testing)
+   - Windows TUI `-race` failure (see windows-testing; do not assume lipgloss)
    - CUE cue.Value concurrent access (go-testing)
    - SSH host key file collision (go-testing; resolved — see RC-3, reappearance means a server path bypasses hostKeyOption())
    - os.Stdin replacement in parallel tests (go-testing)

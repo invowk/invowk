@@ -32,7 +32,7 @@ reevaluate after code changes.
 | `cmd/invowk/*.go` (general CLI) | `website/docs/reference/cli.mdx` + relevant feature docs |
 | `cmd/invowk/module*.go` | `website/docs/modules/` pages + `website/docs/reference/cli.mdx` |
 | `cmd/invowk/validate.go` | `website/docs/reference/cli.mdx` (validate command) |
-| `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
+| `internal/app/deps/` (dependency validation) | `website/docs/dependencies/` pages |
 | `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
 | `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | `website/docs/security/audit.mdx`, `website/src/components/Snippet/data/security.ts`, `website/docs/reference/cli.mdx`, `README.md` Security Auditing |
 | `cmd/invowk/agent.go`, `internal/agentcmd/`, shared LLM flags/config | `website/docs/advanced/llm-assisted-authoring.mdx`, `website/src/components/Snippet/data/cli.ts`, `website/docs/reference/cli.mdx`, `README.md` LLM-Assisted Agent Authoring |

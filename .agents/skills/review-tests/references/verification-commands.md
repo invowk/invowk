@@ -5,12 +5,8 @@ Any failure should be investigated and recorded as a finding before proceeding.
 
 ## Execution Order
 
-Run checks in this order (fastest first, parallelizable checks grouped):
-
-1. Parallel Group 1 (fast file-level): PC-01 + PC-02 + PC-03 + PC-04
-2. Parallel Group 2 (targeted test runs): PC-05 + PC-06 + PC-07 + PC-08 + PC-15
-3. Sequential: PC-09 + PC-10
-4. Pattern scans: PC-11 + PC-12 + PC-13 + PC-14
+`SKILL.md` Step 1 is the canonical run order and parallel grouping; each command there is
+tagged with its PC number. PC-07, PC-08 and PC-13 share one test run.
 
 ## 1. File Length Check (PC-01)
 
@@ -80,14 +76,14 @@ Failure triage: Fix failing tests. Common issues: missing imports after refactor
 Command: `rg --files cmd internal pkg tests tools -g '*_test.go' | sort | xargs -r wc -l | awk '$2 != "total" && $1 > 900 { print }'`
 What it checks: Test files approaching the 1000-line hard limit (900+ lines signals need to plan a split).
 Expected: No matches (or only files recently split that are in progress).
-Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow File Splitting Protocol: create new, delete from source, clean imports, `go build` before `make test`.
+Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow `.agents/skills/go/SKILL.md` "File Shape": create new, delete from source, clean imports, `go build` before `make test`.
 
 ## 11. Error String Matching (PC-11)
 
 Command: `rg -n 'strings\.Contains\([^\n]*\.Error\(\)' cmd internal pkg tests tools -g '*_test.go'`
 What it checks: Usage of `strings.Contains(err.Error(), ...)` for error assertions. Should use `errors.Is` / `errors.As` for sentinel errors or typed error assertions.
-Expected: Most matches will be KEEP (not findings). Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification". Only report CONVERTIBLE cases where a sentinel error exists in the error chain via `%w` wrapping. Consult `known-exceptions.md` § "Error String Matching Exceptions" for the full registry of legitimate patterns.
-Failure triage: For CONVERTIBLE cases, replace with `errors.Is(err, ErrFoo)` or `errors.As(err, &target)`. For KEEP cases (ValidationErrors flattening, Error() format tests, CUE library errors, supplementary checks alongside errors.Is, external/OS errors), leave as-is — string matching is correct. The key decision rule: trace the error to its production source. If `fmt.Errorf("...: %w", sentinel)` wraps a sentinel, it's CONVERTIBLE. Everything else is KEEP.
+Expected: Most matches will be KEEP (not findings). Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification" (the KEEP categories and the decision rule live there). Only report CONVERTIBLE cases, where a sentinel is reachable in the error chain. `known-exceptions.md` § "Error String Matching Exceptions" records where each KEEP category occurs.
+Failure triage: Trace each match to its production source before classifying. For CONVERTIBLE cases, replace with `errors.Is(err, ErrFoo)` or `errors.As(err, &target)`. For KEEP cases per §2b, leave as-is — string matching is correct. A `ValidationError` is KEEP only when its `Cause` is nil.
 
 ## 12. Missing Error-Path txtar Assertion (PC-12)
 
@@ -107,7 +103,8 @@ Command: `go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandP
 What it checks: The repository parser and exemption registry enforce mirror
 coverage and command-path alignment. During manual review, also inspect each
 native implementation for a Unix/Windows platform split; do not infer valid CUE
-structure from a one-line grep.
+structure from a one-line grep. The Context Block `native-platform-split` row therefore
+records only the guardrail result, with T6-C06 manual inspection still pending for SA-6.
 Expected: PASS, with no stale or missing exemptions.
 Failure triage: Use `native-mirror` to repair the pair or update the exemption
 JSON only when divergence is intentional and justified.
@@ -128,27 +125,5 @@ Failure triage: Update the issue template text or the stale-token list if the gu
 
 ## Context Block Format
 
-Record all results in this format and pass verbatim to each surface subagent,
-including agents dispatched in later capacity-aware waves:
-
-```
-PROGRAMMATIC CHECK RESULTS
-==========================
-file-length           : PASS | FAIL (files: ...)
-license-check         : PASS | FAIL (files: ...)
-context-background    : PASS | FAIL (count: N, files: ...)
-time-sleep            : PASS | FAIL (count: N, files: ...)
-err-string-matching   : PASS | FAIL (count: N, files: ...)
-hardcoded-unix-paths  : PASS | FAIL (count: N, files: ...)
-txtar-error-assertion : PASS | FAIL (files: ...)
-native-platform-split : PASS | FAIL (files: ...)
-lint                  : PASS | FAIL (detail)
-txtar-coverage        : PASS | FAIL (detail)
-tui-tmux-coverage     : PASS | FAIL (detail)
-mirror-coverage       : PASS | FAIL (detail)
-mirror-alignment      : PASS | FAIL (detail)
-issue-template-guard  : PASS | FAIL (detail)
-test-short            : PASS | FAIL (detail)
-approaching-limit-files : PASS | FAIL (files: ...)
-==========================
-```
+The Context Block template is in `SKILL.md` Step 1 (the only copy). Pass it verbatim to every
+surface subagent, including agents dispatched in later capacity-aware waves.

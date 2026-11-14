@@ -1,6 +1,6 @@
 ---
 name: go
-description: Go coding and lint guardrails for Invowk. Use whenever Codex creates, edits, reviews, refactors, or tests Go code (*.go), changes Go linters or formatters, fixes golangci-lint/goplint/staticcheck/revive/decorder/funcorder/gocritic/modernize/perfsprint/wrapcheck/errcheck errors, or touches Go package architecture.
+description: Go coding and lint guardrails for Invowk. Use whenever you create, edit, review, refactor, or test Go code (*.go), change Go linters or formatters (.golangci.toml), fix golangci-lint/goplint/staticcheck/revive/decorder/funcorder/gocritic/modernize/perfsprint/wrapcheck/errcheck errors, or touch Go package architecture.
 ---
 
 # Go
@@ -13,19 +13,19 @@ check-baseline`, commit hooks, or review.
 
 1. Identify the touched package role: CLI adapter, app service/domain,
    infrastructure adapter, public `pkg/*`, test, or tool.
-2. Preserve hexagonal boundaries: adapters parse/render/wire; services return
-   typed results/errors/diagnostics; domain packages do not write terminal UI.
+2. Preserve hexagonal boundaries: adapters parse/render/wire; services and
+   domain packages return typed results/errors/diagnostics and never write
+   terminal UI (`.agents/rules/package-design.md`; design questions:
+   `go-hexagonal-ddd`).
 3. Keep declaration order as `const`, `var`, `type`, `func`, with one block of
    each kind per file when needed. Place exported funcs before unexported funcs.
 4. Thread caller contexts through all I/O, subprocess, HTTP, server lifecycle,
    discovery, runtime, and long-running operations.
 5. Use project value types and `Validate()` contracts for domain data. Consult
    `invowk-typesystem` when adding or changing value types.
-6. Before finishing, run the narrow relevant `go test` command, then follow
-   `.agents/rules/checklist.md` for completion gates. For Go edits that usually
-   includes `make tidy`, `make lint`, `make test`, `make check-baseline`, and
-   `make check-file-length` unless the user explicitly scoped the work to a
-   read-only review.
+6. Before finishing, run the narrow relevant `go test` command first, then the
+   completion gates in `.agents/rules/checklist.md`, unless the user explicitly
+   scoped the work to a read-only review.
 
 ## File Shape
 
@@ -71,10 +71,12 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 
 - Error variables start with `Err`; error types end with `Error`.
 - Wrap external or boundary errors with context: `fmt.Errorf("load config: %w",
-  err)`.
-- Use `errors.AsType[T]` in production code, not `errors.As`.
+  err)` (`wrapcheck`: required for errors from external packages unless
+  `.golangci.toml` explicitly ignores that signature/package).
+- Use `errors.AsType[T]` in production code, not `errors.As` (`forbidigo`;
+  test files are exempt).
 - Use `errors.New` instead of `fmt.Errorf` when there is no formatting or
-  wrapping.
+  wrapping (`perfsprint`).
 - Never return nil error after checking a non-nil error.
 - Do not discard errors unless the function is allowlisted or the discard is
   deliberate, commented, and accepted by lint.
@@ -83,7 +85,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 
 ## Context And Processes
 
-- `context.Context` is the first parameter.
+- `context.Context` is the first parameter (`revive context-as-argument`).
 - Use `cmd.Context()` at Cobra boundaries and pass `ctx context.Context` into
   helpers.
 - Use `http.NewRequestWithContext`, `exec.CommandContext`, and
@@ -95,8 +97,7 @@ var ErrNotFound = errors.New(notFoundErrMsg)
   synchronized writer/snapshot type or wait for the process first.
 - `context.Background()` is only for true roots, nil fallback documented on an
   options struct, bounded availability probes, `TestMain`, or independent
-  shutdown after caller cancellation.
-- Tests should default to `t.Context()`.
+  shutdown after caller cancellation. Tests use `t.Context()` (see Tests).
 
 ## Validation And Value Types
 
@@ -115,18 +116,20 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 
 ## Lint Traps
 
+Error and context linters (`wrapcheck`, `forbidigo`, `perfsprint` for errors,
+`revive context-as-argument`) are covered in the sections above.
+
 - `decorder`/`funcorder`: do not add extra `const`, `var`, or `type` blocks;
   group related declarations with `type (...)`, etc.
 - `revive exported`: every exported type, const, var, function, and method needs
   a meaningful doc comment starting with the identifier.
-- `revive context-as-argument`: context first, always.
-- `wrapcheck`: wrap errors from external packages unless the config explicitly
-  ignores that signature/package.
 - `errcheck`: check returned errors. In tests, use helpers or assertions rather
   than blank identifiers.
+- `forcetypeassert`: production type assertions use the checked `v, ok :=`
+  form (errcheck's `check-type-assertions` is off because this linter owns it;
+  test files are exempt).
 - `nolintlint`: avoid `//nolint`; if unavoidable, name the exact linter and add
   a reason.
-- `forbidigo`: production code uses `errors.AsType[T]`.
 - `modernize`: prefer Go 1.27 forms such as `slices.Contains`,
   `strings.SplitSeq` in range-only loops, and `fmt.Appendf` instead of
   `[]byte(fmt.Sprintf(...))`.
@@ -134,8 +137,8 @@ var ErrNotFound = errors.New(notFoundErrMsg)
   large structs.
 - `gocritic`/`predeclared`: do not shadow builtins such as `len`, `cap`, `new`,
   `make`, `copy`, or `append`.
-- `perfsprint`: use `errors.New`, `strconv`, or direct conversions where
-  formatting is unnecessary.
+- `perfsprint`: use `strconv` or direct conversions instead of `fmt.Sprintf`
+  where formatting is unnecessary.
 - `staticcheck`: remove redundant struct literals and unnecessary conversions.
 - `unconvert`: avoid conversions that do not change type.
 - `exhaustive`: list every enum value in switches, even when a case matches the
@@ -150,7 +153,8 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - `depguard`: no `io/ioutil`; tests do not use `testify`.
 - `mnd`: name non-obvious numbers, except common ignored cases in
   `.golangci.toml` and test data.
-- `goconst`: repeated production strings usually become constants.
+- `goconst`: repeated production strings usually become constants (fires at 5
+  occurrences of strings of 6+ characters; test files are excluded).
 - `iface`: avoid interfaces until they express a real port/contract. Keep them
   small and consumed by callers.
 
@@ -160,7 +164,9 @@ var ErrNotFound = errors.New(notFoundErrMsg)
   security, precedence, and invariants.
 - Do not restate obvious syntax.
 - Comment subtle ordering, fallback, cleanup, or race-sensitive behavior.
-- Guardrail tests scan comments with raw substring matching. Refer to removed or
+- Guardrail tests scan source, comments included, with raw substring matching
+  (e.g. `TestNoGlobalConfigAccess` in `internal/config/config_generate_test.go`
+  checks non-test `.go` files with `strings.Contains`). Refer to removed or
   forbidden APIs indirectly; do not paste prohibited call expressions into
   comments.
 
@@ -168,8 +174,8 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 
 - Use standard `testing`, not `testify`.
 - Test helpers call `t.Helper()` at the beginning.
-- Use `t.Context()`, `t.TempDir()`, `t.Setenv()`, and `t.Chdir()` where
-  applicable.
+- Default to `t.Context()` for test contexts; use `t.TempDir()`, `t.Setenv()`,
+  and `t.Chdir()` where applicable.
 - When tests exercise libraries that write relative artifacts, isolate with
   `t.Chdir(t.TempDir())`.
 - For Go test execution strategy, race detector behavior, platform flakes, or

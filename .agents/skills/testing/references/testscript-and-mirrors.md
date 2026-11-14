@@ -11,9 +11,9 @@ for the transformation workflow and `invowk-schema` for CUE authoring rules.
 - Set only environment variables used by the test or production code. Use
   `${:}` for path-list separators and `${/}` where testscript path separators
   are required.
-- Testscript normally isolates `HOME`; container CLI setup must provide a
-  writable, test-scoped home because Docker and Podman need configuration
-  directories.
+- `commonSetup` (`tests/cli/cmd_test.go`) sets `HOME=$WORK` for every test
+  (plus `APPDATA`/`USERPROFILE` on Windows); see rule "Integration and Container
+  Tests" before changing home handling.
 - Use `--` between Invowk flags and user-command flags.
 - Assert both output channels on error paths unless the harness documents
   unavoidable incidental output.
@@ -24,26 +24,20 @@ for the transformation workflow and `invowk-schema` for CUE authoring rules.
 
 Virtual runtime implementations may cover Linux, macOS, and Windows together.
 Native mirrors must split Unix shell and Windows PowerShell implementations:
+the CUE split and translation table live in `native-mirror`, and the PowerShell
+and assertion rules in rule "Native tests".
 
-```cue
-implementations: [
-    {
-        script: {content: "echo 'Hello'"}
-        runtimes: [{name: "native"}]
-        platforms: [{name: "linux"}, {name: "macos"}]
-    },
-    {
-        script: {content: "Write-Output 'Hello'"}
-        runtimes: [{name: "native"}]
-        platforms: [{name: "windows"}]
-    },
-]
-```
+Mirror pair alignment:
 
-Use `$env:NAME`, `Write-Output`, and `$ErrorActionPreference = 'Stop'` in
-PowerShell. Keep command paths and stdout/stderr assertions aligned between a
-virtual test and its native mirror unless the machine-readable exemption file
-records a justified divergence.
+- Command paths must match unless `command_path_exempt` in the exemption file
+  records the difference; `TestVirtualNativeCommandPathAlignment` checks this.
+- stdout/stderr assertions should match by default. Runtime-identity output
+  (runtime name, dry-run rendering, runtime-specific error wording, as in
+  `virtual_dryrun`/`native_dryrun` and `virtual_timeout`/`native_timeout`) may
+  differ; that is not recorded in the JSON and not machine-checked, so justify
+  each difference with a comment in the native file.
+- Within one native test, assertions are identical across platforms (rule
+  "Native tests").
 
 The only exemption source of truth is
 `tests/cli/runtime_mirror_exemptions.json`. Do not copy its entries into skill
@@ -55,10 +49,10 @@ Enumerate the suite live:
 
 ```bash
 rg --files tests/cli/testdata -g '*.txtar' | sort
-go test -v -run 'TestBuiltinCommandTxtarCoverage|TestTUIExemptionTmuxCoverage' ./cmd/invowk/...
-go test -v -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/...
-make test-cli
 ```
+
+Guard tests and `make test-cli`: `.agents/skills/testing/SKILL.md` "Verification
+Router".
 
 Use testscript for non-interactive CLI behavior. Route interactive TUI flows to
 `tmux-testing`, and visual/demo recording to `tui-testing`.

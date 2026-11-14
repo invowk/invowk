@@ -36,7 +36,7 @@ complete coverage of that thing. Every FAIL must satisfy the Finding Admission G
 
 **File scope**: `README.md`, using stable heading locators from `readme-sync-map.md`
 
-**Source of truth mapping**: See `readme-sync-map.md` for exact line numbers and source files.
+**Source of truth mapping**: See `readme-sync-map.md` for the stable heading locators and source files (no line-number anchors).
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
@@ -87,7 +87,7 @@ the broad `website/docs/` directory and never review `website/versioned_docs/`.
 | S2-C08 | CLI reference page matches current command structure, flags, and subcommands | `cmd/invowk/*.go` → `website/docs/reference/cli.mdx` | ERROR | cli-contract-drift |
 | S2-C09 | Module CLI pages match module command implementation | `cmd/invowk/module*.go` → `website/docs/modules/` + `website/docs/reference/cli.mdx` | WARNING | cli-contract-drift |
 | S2-C10 | Validate command documentation matches implementation | `cmd/invowk/validate.go` → `website/docs/reference/cli.mdx` | WARNING | cli-contract-drift |
-| S2-C11 | Dependencies pages match validate command implementation | `cmd/invowk/cmd_validate*.go` → `website/docs/dependencies/` pages | WARNING | cli-contract-drift |
+| S2-C11 | Dependencies pages match dependency validation implementation | `internal/app/deps/`, `pkg/invowkfile/invowkfile_schema.cue` → `website/docs/dependencies/` pages | WARNING | cli-contract-drift |
 | S2-C12 | TUI pages match TUI command implementation and flags | `cmd/invowk/tui_*.go` → `website/docs/tui/` pages | WARNING | cli-contract-drift |
 | S2-C13 | No broken internal links (verified by `npm run build` in Step 1) | Build output | ERROR | navigation-drift |
 | S2-C14 | `website/sidebars.ts` includes every intentional current doc page in a deterministic category | `website/docs/`, `website/sidebars.ts` | ERROR | navigation-drift |

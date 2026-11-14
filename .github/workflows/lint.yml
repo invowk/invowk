@@ -22,6 +22,8 @@ on:
       - '.pre-commit-config.yaml'
       - 'Makefile'
       - 'AGENTS.md'
+      # AGENTS.md is a symlink; git records edits under .claude/CLAUDE.md.
+      - '.claude/**'
       - '.agents/**'
       - 'scripts/check-agent-docs.sh'
       - 'scripts/check-file-length.sh'

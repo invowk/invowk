@@ -7,7 +7,7 @@
 | Flag | Syntax | Default | Purpose |
 |------|--------|---------|---------|
 | `-run` | `-run <regex>` | `""` (all) | Run only tests/examples matching regex |
-| `-skip` | `-skip <regex>` | `""` (none) | Skip tests matching regex (Go 1.22+) |
+| `-skip` | `-skip <regex>` | `""` (none) | Skip tests/benchmarks/fuzz tests matching regex; split by `/` like `-run` |
 | `-bench` | `-bench <regex>` | `""` (none) | Run benchmarks matching regex; `.` for all |
 | `-fuzz` | `-fuzz <regex>` | `""` (none) | Run fuzz tests matching regex |
 | `-list` | `-list <regex>` | — | List tests/benchmarks/examples; no execution |
@@ -17,7 +17,7 @@
 
 | Flag | Syntax | Default | Purpose |
 |------|--------|---------|---------|
-| `-count` | `-count N` | `1` | Run each test N times; `-count=1` explicitly bypasses cache |
+| `-count` | `-count N` | `1` | Run each test N times; any explicit `-count` disables caching (idiom: `-count=1`) |
 | `-parallel` | `-parallel N` | `GOMAXPROCS` | Max concurrent `t.Parallel()` tests per package |
 | `-timeout` | `-timeout D` | `10m` | Kill test binary after duration (0 = no limit) |
 | `-short` | `-short` | `false` | Set `testing.Short()` to true |
@@ -45,7 +45,7 @@
 | Flag | Syntax | Default | Purpose |
 |------|--------|---------|---------|
 | `-json` | `-json` | `false` | JSON-encoded output (one event per line) |
-| `-o` | `-o <file>` | — | Compile test binary to file; no execution |
+| `-o` | `-o <file>` | — | Save a copy of the test binary; the test still runs unless `-c` is given |
 | `-c` | `-c` | `false` | Compile test binary but don't run |
 
 ### Benchmark Control
@@ -92,56 +92,56 @@
 
 ### CI-Specific Combinations (from invowk CI)
 
-**Linux full mode (non-CLI packages):**
-```
--race -timeout 15m -v
-INVOWK_TEST_CONTAINER_PARALLEL=2
-gotestsum --rerun-fails --rerun-fails-max-failures 5
-```
+The source of truth is the "Run tests" steps in `.github/workflows/ci.yml` and
+`.github/workflows/release.yml`; read them before quoting a lane. Summary as of
+this writing:
 
-**Linux full mode (runtime package — isolated):**
-```
--race -timeout 15m -v
-gotestsum --rerun-fails --rerun-fails-max-failures 5
-```
+- `ci.yml`
+  - Full, non-CLI packages and the isolated `./internal/runtime` package:
+    `-race -timeout 15m -coverprofile=...`, `--rerun-fails
+    --rerun-fails-max-failures 5`, `INVOWK_TEST_CONTAINER_PARALLEL=2`.
+  - Full CLI (`./tests/cli/...`): `-race -timeout 10m`, intentionally **no**
+    `--rerun-fails` ("so the container CLI suite is no longer hidden behind
+    generic rerun-fails behavior"). Do not "fix" it by adding reruns.
+  - Short (Windows and macOS legs): `-race -short -v`, rerun max 3, default
+    timeout.
+  - Short CLI (Windows and macOS): `-race -timeout 5m`, no reruns.
+- `release.yml`: full non-CLI `-race -timeout 15m`, rerun max 5 (does not split
+  out `internal/runtime`); full CLI `-race -timeout 10m` and short CLI
+  `-race -timeout 5m`, both with `--rerun-fails --rerun-fails-max-failures 3`;
+  short `-race -short -v`, rerun max 3.
+- Several lanes run `--rerun-fails` without `-v`, contrary to the gotestsum rule
+  in `SKILL.md`; do not copy them as templates.
 
-**Linux full mode (CLI integration tests):**
+**Benchmark smoke test** (`ci.yml`, one Ubuntu leg; compile/run check, no
+regression tracking). Do not add `-short`: every `internal/benchmark` benchmark
+skips under `testing.Short()`.
 ```
--race -timeout 10m -v
-gotestsum --rerun-fails --rerun-fails-max-failures 5
-```
-
-**Windows/macOS short mode:**
-```
--race -short -v -timeout 15m
-gotestsum --rerun-fails --rerun-fails-max-failures 3
-```
-
-**Windows/macOS CLI tests:**
-```
--race -timeout 5m -v
-gotestsum --rerun-fails --rerun-fails-max-failures 3
-```
-
-**Benchmark smoke test (CI validation, no regression tracking):**
-```
-go test -run=^$ -bench=. -benchtime=1x -short -count=1
+go test ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime=1x -count=1
 ```
 
 ## Caching Behavior
 
-### What Invalidates the Cache
+Caching applies only in package-list mode (`go test ./...`, `go test ./pkg`),
+never in local-directory mode (`go test` with no package arguments).
+
+### When a Cached Result Is Reused
+
+- Every test flag on the command line must be cacheable: `-benchtime`,
+  `-coverprofile`, `-cpu`, `-failfast`, `-fullpath`, `-list`, `-outputdir`,
+  `-parallel`, `-run`, `-short`, `-skip`, `-timeout`, `-v`. Any other test flag
+  or argument, including any `-count` value, disables caching.
+- A successful cached result is reused regardless of `-timeout`.
+
+### What Goes Into the Cache Key
 
 | Factor | Cache Key |
 |--------|-----------|
-| Go source files | Hash of `.go` files in package and dependencies |
-| Test flags | Each unique flag combination is a separate key |
-| Environment variables | Variables read by `os.Getenv` during test |
-| Files read via `os.Open` | Heuristic — files accessed during last cached run |
-| `-race` flag | Separate key (different binary) |
-| `-cover` flag | Separate key (different instrumentation) |
-| `-count` flag | `-count=1` bypasses cache; other values are keys |
-| Build tags | Each tag set is a separate key |
+| Go source files | Hash of `.go` files in package and dependencies (part of the test binary) |
+| Build flags (`-race`, `-tags`, `-cover` instrumentation) | Different test binary, therefore a separate cache entry; they do **not** disable caching |
+| Cacheable test flags | Part of the key (each combination is a separate entry) |
+| Environment variables | Variables read by `os.Getenv` during the test must be unchanged |
+| Files read via `os.Open` | Files within the module opened during the cached run must be unchanged |
 
 ### Cache Bypass Patterns
 
@@ -159,9 +159,11 @@ go test -count=1 ./internal/runtime/...
 ## Timeout Behavior
 
 The `-timeout` flag applies per test binary (per package). When the timeout fires:
-1. The test binary receives a stack dump of all goroutines
-2. The binary exits with status 1
-3. The `panic: test timed out` message includes the goroutine stacks
+1. The test binary panics with `panic: test timed out after D`, lists the
+   running tests and dumps all goroutine stacks.
+2. The test binary exits with status 2; `go test` reports `FAIL` for that
+   package and itself exits 1, which is indistinguishable from an ordinary
+   test failure by exit code alone.
 
 **Important**: When one package times out with gotestsum, ALL results for that
 package become `(unknown)`. This can mask other failures. The timeout should be
@@ -174,4 +176,3 @@ hangs.
 | Unit tests only | 10m (default) | Sufficient for any unit test suite |
 | Unit + integration | 15m | Container operations need headroom |
 | CLI integration (testscript) | 10m | Testscript tests are process-per-test |
-| TUI tests with `-race` on Windows | 15m | 288 tests + race overhead |

@@ -2,7 +2,8 @@
 
 Comprehensive catalog of failure patterns seen in the invowk project. Each entry
 includes symptom, root cause, fix template, prevention measure, and platform skill
-cross-reference.
+cross-reference. Where another document owns the full explanation, the entry keeps
+the symptom and the one-line fix or directive and points there.
 
 Use this catalog during Phase 2 (Diagnosis) of the fixer workflow to match observed
 symptoms against known patterns. If a match is found, apply the documented fix
@@ -18,33 +19,16 @@ rather than investigating from scratch.
 as `BENCH_REGEX: unbound variable`, often after the preceding build, test, or
 benchmark command succeeded.
 
-**Root cause**: The variable is defined in a previous step's `env:` block.
-GitHub Actions step-level environment values are not shared with later steps, so
-report-generation or summary steps cannot read them unless they define the same
-variable again or the job defines it at job-level `env:`.
+**Root cause**: The variable is defined only in an earlier step's `env:`;
+step-level `env:` is not visible to later steps.
 
-**Fix template**: Promote shared variables to the job `env:` block, or duplicate
-the `env:` block on every step that references the variable. For generated report
-text, prefer reusing the same variable instead of hardcoding a drift-prone command.
+**Fix**: Promote the shared variable to job-level `env:` (or repeat it on every
+step that reads it). Under `set -u`, check every `$VARIABLE` reference in the
+workflow against the step, job, workflow and built-in environments. For
+benchmark workflows, check the `bencher` skill before changing shared variables.
 
-```yaml
-jobs:
-  compare:
-    env:
-      BENCH_REGEX: "^Benchmark(Foo|Bar)$"
-    steps:
-      - run: go test -bench="$BENCH_REGEX"
-      - run: echo "$BENCH_REGEX" >> "$GITHUB_STEP_SUMMARY"
-```
-
-**Prevention**: When editing workflow shell with `set -u`, search the whole
-workflow for every `$VARIABLE` reference and verify each variable is defined in
-that same step, job-level `env:`, workflow-level `env:`, or GitHub's built-in
-environment. For benchmark workflows, check the `bencher` skill before changing
-shared benchmark variables.
-
-**Skill cross-reference**: `bencher` SKILL.md, `.agents/rules/commands.md` (CI
-Workflow Hygiene).
+**Canonical home**: `.agents/rules/ci-workflows.md`; `bencher` SKILL.md;
+`.agents/runbooks/quality-gates.md` (CI workflows).
 
 ---
 
@@ -59,60 +43,48 @@ Commit, stash, or move these tracked changes before mutating:
   report.json
 ```
 
-**Root cause**: Root-level mutation tool report files such as `report.json` are
-generated artifacts. The wrapper removes stale tool reports before checking the
-tracked worktree; if one of those files is tracked, removal creates a tracked
-deletion and the guard correctly aborts to avoid mutating a dirty checkout.
+**Root cause**: A root-level generated mutation report is tracked; the wrapper
+deletes stale reports first, which leaves a tracked deletion, and the guard
+correctly aborts.
 
-**Fix template**: Remove generated mutation reports from Git tracking and keep
-reports under `artifacts/mutation/<profile>/<module>/`, which is ignored. If a
-tool starts writing a new root-level report name, add collection/cleanup coverage
-and ignore/tracking checks in the same patch.
+**Fix**: Untrack the generated reports and keep reports under the ignored
+`artifacts/mutation/<profile>/<module>/`. Check with:
 
 ```bash
 git ls-files report.json go-mutesting-summary.json go-mutesting-agentic.json \
   go-mutesting-gitlab.json go-mutesting-report.html
 ```
 
-**Prevention**: Before changing mutation tooling, run the tracking check above
-and `make test-scripts` or the focused mutation script tests. Do not commit
-root-level go-mutesting output unless it is deliberately converted into a docs or
-release artifact with an explicit path and owner.
+Never commit root-level go-mutesting output unless it is deliberately a docs or
+release artifact with an explicit path and owner; run `make test-scripts` after
+changing mutation tooling. If a tool starts writing a new root-level report name,
+add collection/cleanup coverage and ignore/tracking checks in the same patch.
 
-**Skill cross-reference**: `.agents/rules/commands.md` (Mutation Testing and CI
-Workflow Hygiene), `testing` SKILL.md for script-test updates.
+**Canonical home**: `.agents/rules/ci-workflows.md`,
+`.agents/runbooks/mutation-testing.md`; `testing` SKILL.md for script-test updates.
 
 ---
 
 ## Race Conditions
 
-### RC-1: lipgloss sync.Once terminal detection on Windows
+### RC-1: Windows TUI `-race` failure (formerly attributed to lipgloss `sync.Once`)
 
 **Symptom**: Race detector fires on `lipgloss` internal state during parallel TUI
-tests on `windows-latest`. Goroutine 1 writes terminal capabilities via `sync.Once`;
-goroutine 2 reads the cached result before initialization completes.
+tests on `windows-latest`, or Windows TUI tests under `-race` time out, crash, or
+leave `(unknown)` results.
 
-**Root cause**: lipgloss lazily detects terminal capabilities on first render.
-When multiple parallel tests render simultaneously, the detection races. The
-`sync.Once` protects the write, but the read path in some lipgloss versions
-accesses the result outside the `Once`.
+**Guardrail**: Do not assume lipgloss terminal detection and do not reintroduce a
+`TestMain` pre-warm; it was a no-op in this repo (history:
+`.agents/memorials/skills-platform-testing-history.md`). Treat the failure as
+memory or scheduling pressure under `-race` unless a `DATA RACE` report with two
+access stacks proves a real race.
 
-**Fix template**: First check `.agents/skills/windows-testing/SKILL.md` for the
-current TUI guidance. The older TestMain pre-warm pattern was a no-op in this repo;
-do not reintroduce it unless a fresh race report proves it fixes the current code.
+**Prevention**: Prove the race with `-race` and inspect both stacks; prefer
+package-local serialization or non-parallel tests around first render; add a
+`TestMain` warm-up only when the package already has a verified pattern for it.
 
-```go
-// Prefer targeted serialization or dependency injection based on the live race report.
-```
-
-**Prevention**: Follow the current TUI testing guidance for deterministic
-rendering and parallelism. If lipgloss initialization is implicated, prove the
-race with `-race` and prefer package-local serialization or non-parallel tests
-around first render; add a `TestMain` warm-up only when the package already has
-a verified pattern for it.
-
-**Platform skill**: `windows-testing` SKILL.md (sync.Once race section),
-`go-testing` SKILL.md (Platform Skill Router table).
+**Platform skill**: `windows-testing` SKILL.md ("Timing And Race Detector"),
+`go-testing/references/race-detector-guide.md` ("Platform-Specific Behavior").
 
 ---
 
@@ -145,27 +117,22 @@ func TestBehavioralSync_SomeField(t *testing.T) {
 **Prevention**: Never share `cue.Value` or `*cue.Context` across goroutines.
 Create a new context per subtest if parallelism is needed.
 
-**Platform skill**: `go-testing` SKILL.md (Parallelism Decision Framework).
+**Platform skill**: `go-testing` SKILL.md ("Parallelism Decision Framework").
 
 ---
 
-### RC-3: SSH host key file collision (RESOLVED — historical)
+### RC-3: SSH host key file collision (RESOLVED)
 
-**Symptom (historical)**: Race detector fired or tests produced `permission denied`
-/ `file exists` errors when multiple SSH server tests ran in parallel, because the
-`wish` library's default wrote host keys (`id_ed25519`) relative to the process
-working directory.
+**Symptom**: `permission denied` / `file exists` on `id_ed25519`, or a race
+report, when SSH server tests run in parallel.
 
-**Resolution**: `sshserver.Server` now always configures a host key explicitly via
-`hostKeyOption()` (`internal/sshserver/server_lifecycle.go`): an in-memory
-ephemeral key when `Config.HostKeyPath` is nil, or a stable key generated at the
-configured path. Wish's CWD default can no longer trigger, so SSH server tests may
-parallelize freely. A repo-wide `.gitignore` `id_ed25519*` pattern is the backstop.
+**Guardrail**: `sshserver.Server` always sets a host key through
+`hostKeyOption()` (`internal/sshserver/server_lifecycle.go`), so this should not
+recur. If it reappears, a new server construction path is bypassing
+`hostKeyOption()` — fix that, do not serialize tests. History:
+`.agents/memorials/skills-platform-testing-history.md`.
 
-**If this pattern reappears**: a new server construction path is bypassing
-`hostKeyOption()` — fix that, do not serialize tests.
-
-**Platform skill**: `go-testing` SKILL.md (Parallelism Decision Framework).
+**Platform skill**: `go-testing` SKILL.md ("Parallelism Decision Framework").
 
 ---
 
@@ -185,8 +152,8 @@ instead of direct `os.Stdin` manipulation where possible.
 **Prevention**: Tests that touch `os.Stdin` must omit `t.Parallel()`. Document the
 reason in a comment: `// no t.Parallel(): replaces os.Stdin`.
 
-**Platform skill**: `go-testing` SKILL.md (Parallelism Decision Framework, shared
-mutable state section).
+**Platform skill**: `go-testing` SKILL.md ("Parallelism Decision Framework",
+"Resource Safety Matrix").
 
 ---
 
@@ -196,8 +163,8 @@ mutable state section).
 subtests write to the same mock recorder simultaneously.
 
 **Root cause**: A single `MockCommandRecorder` instance is created in the parent test
-and shared across parallel subtests. The recorder's `Record()` method writes to a
-shared slice without synchronization.
+and shared across parallel subtests. The functions returned by its `CommandFunc` and
+`ContextCommandFunc` append to the exported `Invocations` slice without a lock.
 
 **Fix template**: Create a fresh mock recorder per subtest:
 
@@ -214,7 +181,7 @@ for name, tc := range cases {
 **Prevention**: Never share mock recorders across parallel subtests. Each subtest
 must have its own instance.
 
-**Platform skill**: `go-testing` SKILL.md (Parallelism Decision Framework).
+**Platform skill**: `go-testing` SKILL.md ("Parallelism Decision Framework").
 
 **Codebase locations**: `internal/container/engine_mock_test.go`,
 `internal/container/engine_docker_mock_test.go`,
@@ -256,8 +223,9 @@ for {
 **Prevention**: All watcher tests must use event-based synchronization (channels,
 poll loops) instead of `time.Sleep`. Minimum poll deadline: 2 seconds for macOS.
 
-**Platform skill**: `macos-testing` SKILL.md (kqueue coalescing section),
-`macos-testing/references/filesystem-kqueue.md`.
+**Platform skill**: `macos-testing` SKILL.md ("Watcher and Timing Contract"),
+`macos-testing/references/filesystem-kqueue.md` ("kqueue Event Notification",
+"Timer Coalescing").
 
 ---
 
@@ -276,7 +244,8 @@ pane content repeatedly until the expected text appears or the deadline expires.
 **Prevention**: All tmux test assertions must use polling. Document the expected
 render time in a comment for calibration.
 
-**Platform skill**: `macos-testing` SKILL.md (Timer Coalescing section),
+**Platform skill**: `macos-testing` SKILL.md ("Watcher and Timing Contract";
+detail in `references/filesystem-kqueue.md` "Timer Coalescing"),
 `tmux-testing` SKILL.md.
 
 ---
@@ -297,7 +266,7 @@ operations). Avoid assertions that depend on sub-15ms timing precision.
 **Prevention**: Never assert exact timing on Windows. Use `>=` assertions with wide
 margins. For cross-platform tests, use the largest timeout needed by any platform.
 
-**Platform skill**: `windows-testing` SKILL.md (Timer Resolution section).
+**Platform skill**: `windows-testing` SKILL.md ("Timing And Race Detector").
 
 ---
 
@@ -317,8 +286,8 @@ When sleep is unavoidable, allow 2x the expected duration on macOS.
 possible. Document macOS timer coalescing as the reason when wider timeouts are
 needed.
 
-**Platform skill**: `macos-testing` SKILL.md (Timer Coalescing section),
-`macos-testing/references/process-signals.md`.
+**Platform skill**: `macos-testing` SKILL.md ("Watcher and Timing Contract"),
+`macos-testing/references/filesystem-kqueue.md` ("Timer Coalescing").
 
 ---
 
@@ -338,16 +307,17 @@ it is ready.
 // Use testutil.ContainerTestContext for bounded context
 ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
 
-// CI pre-pulls base images: .github/workflows/ci.yml line 139
-// ${{ matrix.engine }} pull debian:stable-slim
+// CI pre-pulls the base image in the "Pre-pull container test images" step
+// of .github/workflows/ci.yml: ${{ matrix.engine }} pull debian:stable-slim
 ```
 
 **Prevention**: All container tests must use `testutil.ContainerTestContext()` with
 an explicit timeout, never bare `t.Context()`. CI pre-pulls `debian:stable-slim` to
 remove network latency from the critical path.
 
-**Platform skill**: `linux-testing` SKILL.md (Container Test Infrastructure section),
-`linux-testing/references/container-testing-deep.md`.
+**Platform skill**: `linux-testing` SKILL.md ("Container Test Invariants"),
+`linux-testing/references/container-testing-deep.md` ("Engine Health Probes",
+"Image Pre-Pull Strategy").
 
 ---
 
@@ -358,24 +328,14 @@ remove network latency from the critical path.
 **Symptom**: Testscript `stdout` or `stderr` regex assertions fail on Windows even
 though the output looks correct. The regex matches on Linux/macOS but not Windows.
 
-**Root cause**: PowerShell's `Write-Output` and many Windows utilities emit `\r\n`
-(CRLF) line endings. Go's `(?m)$` in regex matches before `\n`, not before `\r`.
-The `\r` is treated as part of the line content.
+**Root cause**: PowerShell and many Windows tools emit `\r\n`; `$` matches before
+`\n`, so the `\r` stays in the line.
 
-**Fix template**: Use `\r?$` in anchored testscript assertions:
+**Fix**: Use `\r?$` on every anchored assertion (`stdout '^done\r?$'`); it also
+passes on Unix. Substring assertions need nothing. Do not split assertions by
+platform for this.
 
-```
-# Bad: fails on Windows
-stdout '^done$'
-
-# Good: handles CRLF
-stdout '^done\r?$'
-```
-
-**Prevention**: All testscript assertions using `$` anchors must use `\r?$` for
-cross-platform compatibility, or guard with `[!windows]`/`[windows]` conditionals.
-
-**Platform skill**: `windows-testing` SKILL.md,
+**Canonical home**: `.agents/rules/testing.md` "Native tests";
 `windows-testing/references/powershell-testing.md`.
 
 ---
@@ -394,37 +354,47 @@ after `extractExitCode`:
 
 ```go
 // In native runtime execution path:
-result := extractExitCode(err)
+result := extractExitCode(err, captured)
 promoteContextError(ctx, result)
 ```
 
 **Prevention**: Always check `ctx.Err()` after process exit on Windows when the
 context may have been cancelled.
 
-**Platform skill**: `windows-testing` SKILL.md (TerminateProcess section),
-`windows-testing/references/process-lifecycle.md`.
+On Unix the same helper does not surface the context error (the killed child's
+exit code -1 fails validation first); that is an open gap pending a maintainer
+decision (`macos-testing/references/process-signals.md` "Native Runtime Command
+Execution").
+
+**Platform skill**: `windows-testing` SKILL.md ("Process Lifecycle"),
+`windows-testing/references/process-lifecycle.md` ("The promoteContextError Pattern").
 
 **Codebase locations**: `internal/runtime/native_helpers.go`, `internal/runtime/native.go`.
 
 ---
 
-### PS-3: macOS /tmp to /private/tmp symlink
+### PS-3: macOS /tmp and /var path aliases (/private/tmp, /private/var)
 
-**Symptom**: Path comparison assertion fails on macOS. Test creates a file in `/tmp/`
-but the resolved path shows `/private/tmp/`. Strings do not match.
+**Symptom**: Path comparison assertion fails on macOS: one side shows `/tmp/...`
+or `/var/folders/...`, the other `/private/tmp/...` or `/private/var/...`.
 
-**Root cause**: On macOS, `/tmp` is a symlink to `/private/tmp`. `os.TempDir()` returns
-`/tmp`, but `filepath.EvalSymlinks()` and `os.Getwd()` resolve to `/private/tmp`.
-Comparing the two without resolution fails.
+**Root cause**: `/tmp` and `/var` are symlinks into `/private`. `os.TempDir()`
+returns `$TMPDIR` (normally `/var/folders/.../T`), and `t.TempDir()` builds on it
+without resolving symlinks, while `filepath.EvalSymlinks`, `os.Getwd` after
+`chdir`, or a child process report the resolved `/private/...` path.
 
-**Fix template**: Use `t.TempDir()` (which returns the resolved path) instead of
-`os.TempDir()`. For path comparisons, resolve both sides with `filepath.EvalSymlinks()`.
+**Fix template**: Build both sides from the same `t.TempDir()` base; for
+resolver-backed APIs derive the expectation through the same production
+resolver; when only identity matters compare `os.Stat` results with
+`os.SameFile`. Do not replace an API string contract with ad hoc
+`filepath.EvalSymlinks` on both sides.
 
-**Prevention**: Never hardcode `/tmp` in tests. Always use `t.TempDir()` for temporary
-directories. For assertions comparing paths, resolve symlinks on both sides.
+**Prevention**: Never hardcode `/tmp` in tests. Always use `t.TempDir()` for
+temporary directories.
 
-**Platform skill**: `macos-testing` SKILL.md (/tmp symlink section),
-`macos-testing/references/filesystem-kqueue.md`.
+**Platform skill**: `macos-testing` SKILL.md ("Filesystem Contract"),
+`macos-testing/references/filesystem-kqueue.md` ("The `/tmp` -> `/private/tmp`
+Symlink").
 
 ---
 
@@ -457,8 +427,8 @@ t.Cleanup(func() {
 **Prevention**: Always close file handles before calling `os.Remove` or relying on
 `t.TempDir()` cleanup. Use `t.TempDir()` which handles retry internally.
 
-**Platform skill**: `windows-testing` SKILL.md (Sharing Violations section),
-`windows-testing/references/filesystem-pitfalls.md`.
+**Platform skill**: `windows-testing` SKILL.md ("Failure Matrix"),
+`windows-testing/references/filesystem-pitfalls.md` ("ERROR_SHARING_VIOLATION").
 
 ---
 
@@ -467,25 +437,23 @@ t.Cleanup(func() {
 **Symptom**: `inotify: too many watches` or `no space left on device` error from
 `fsnotify.NewWatcher()` or `watcher.Add()` on Linux.
 
-**Root cause**: Linux has a per-user limit on inotify watches
-(`/proc/sys/fs/inotify/max_user_watches`, default 8192 on older kernels, 65536+
-on newer). Parallel tests each creating watchers can exhaust this limit.
+**Root cause**: The per-user inotify watch limit
+(`/proc/sys/fs/inotify/max_user_watches`; defaults vary by distro, see
+`linux-testing/references/filesystem-inotify.md` "Per-User Watch Limits") is
+exhausted, often by parallel tests each creating watchers or by leaked watchers.
 
-**Fix template**: Increase the limit in CI environment, or limit test parallelism
-for watcher tests:
+**Fix template**: Evidence first. Read the live limit and count active watches,
+and distinguish `ENOSPC` from `EMFILE`/`ENFILE`. Then close leaked watchers
+(`t.Cleanup`), reduce watched directories, or serialize watcher-heavy tests. Do
+not treat a larger sysctl limit as the root fix without that evidence; CI does
+not raise inotify limits today. A local `sudo sysctl -w
+fs.inotify.max_user_watches=...` is a diagnostic aid, not a fix.
 
-```bash
-# In CI setup
-echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches
-```
+**Prevention**: Watcher tests clean up watchers in `t.Cleanup()`.
 
-For local tests, limit watcher creation or use serial execution for watcher tests.
-
-**Prevention**: Watcher tests should clean up watchers in `t.Cleanup()`. CI workflows
-should increase inotify limits during setup.
-
-**Platform skill**: `linux-testing` SKILL.md (inotify section),
-`linux-testing/references/filesystem-inotify.md`.
+**Platform skill**: `linux-testing` SKILL.md ("Filesystem and Watch Contract",
+"Failure Matrix"), `linux-testing/references/filesystem-inotify.md`
+("Error Handling").
 
 ---
 
@@ -501,14 +469,15 @@ before `foo.exe` if `.BAT` precedes `.EXE` in `PATHEXT`. Tests creating executab
 files must use `.bat` or `.exe` extensions on Windows.
 
 **Fix template**: Use `[windows]`/`[!windows]` conditionals in testscript tests
-to create platform-appropriate executables. In Go tests, use `platform.IsWindows()`
-to choose the correct extension.
+to create platform-appropriate executables. In Go tests, use
+`goruntime.GOOS == platform.Windows` (constants in `pkg/platform/os.go`) to
+choose the correct extension.
 
 **Prevention**: Tests that create or look up executables must account for PATHEXT
 on Windows. Use `pkg/platform` constants for OS detection.
 
-**Platform skill**: `windows-testing` SKILL.md (PATHEXT section),
-`windows-testing/references/filesystem-pitfalls.md`.
+**Platform skill**: `windows-testing` SKILL.md ("Filesystem And Paths",
+"Failure Matrix").
 
 ---
 
@@ -529,16 +498,20 @@ fires to cancel it.
 
 ```go
 ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
-result, err := runtime.Execute(ctx, cmd)
+execCtx := NewExecutionContext(ctx, cmd, inv)
+result := rt.Execute(execCtx)
 ```
 
-**Prevention**: All container tests must use `testutil.ContainerTestContext()`.
-The 5-layer timeout strategy in this project (engine probe, testscript deadline,
-Go `-timeout`, job `timeout-minutes`, and `ContainerTestContext`) provides defense
-in depth.
+**Prevention**: All container tests that reach a real engine must use
+`testutil.ContainerTestContext()`. Defense in depth comes from the timeout and
+serialization layers in `linux-testing` SKILL.md "Container Test Invariants"
+(operation context, testscript deadline and `env.Defer`, in-process semaphore,
+cross-binary suite lock, Go/workflow timeout), plus the per-test engine health
+probe.
 
-**Platform skill**: `linux-testing` SKILL.md (Container Test Infrastructure),
-`linux-testing/references/container-testing-deep.md`.
+**Platform skill**: `linux-testing` SKILL.md ("Container Test Invariants"),
+`linux-testing/references/container-testing-deep.md` ("Timeout and
+Serialization Layers").
 
 **Codebase locations**: `internal/testutil/container_context.go`,
 `internal/runtime/container_integration_validation_test.go`.
@@ -550,7 +523,7 @@ in depth.
 **Symptom**: Container tests exit with code 137 on Linux CI. The race detector
 is enabled. Multiple container tests run in parallel.
 
-**Root cause**: The Go race detector adds ~10x memory overhead. Combined with
+**Root cause**: The Go race detector adds roughly 5-10x memory overhead. Combined with
 container operations (which fork processes and allocate cgroup memory), parallel
 container tests can exceed the runner's memory limit. The Linux OOM killer
 terminates the process with SIGKILL (exit code 137).
@@ -567,8 +540,8 @@ The CI workflow sets `INVOWK_TEST_CONTAINER_PARALLEL: "2"` for all full-mode run
 **Prevention**: Never increase `INVOWK_TEST_CONTAINER_PARALLEL` above 2 for race-enabled
 builds. Monitor CI memory usage if new container tests are added.
 
-**Platform skill**: `linux-testing` SKILL.md (OOM Killer section),
-`linux-testing/references/container-testing-deep.md`.
+**Platform skill**: `linux-testing/references/process-namespaces.md`
+("OOM Killer"), `linux-testing/references/container-testing-deep.md`.
 
 ---
 
@@ -578,51 +551,48 @@ builds. Monitor CI memory usage if new container tests are added.
 `newuidmap`/`newgidmap` failures on Linux CI. Multiple Podman tests start
 containers simultaneously.
 
-**Root cause**: Podman rootless mode uses user namespaces and reads
-`/proc/sys/net/ipv4/ping_group_range` at startup. Concurrent Podman invocations
-can race on reading this file. Additionally, `newuidmap`/`newgidmap` invocations
-can collide when multiple containers start simultaneously.
+**Root cause**: Rootless Podman's OCI runtime (crun) writes
+`/proc/sys/net/ipv4/ping_group_range` from Podman's `default_sysctls` when a
+container starts; concurrent invocations race on that sysctl write.
+`newuidmap`/`newgidmap` invocations can also collide when several containers
+start at once.
 
-**Fix template**: Use `CONTAINERS_CONF_OVERRIDE` to configure Podman, and use
-`flock`-based serialization for container startup in tests:
+**Fix template**: Keep both existing mitigations: `CONTAINERS_CONF_OVERRIDE`
+with `default_sysctls = []` (`internal/container/podman_sysctl_linux.go`; it
+cannot help podman-remote, where the service performs the write) and the flock
+run serialization (`internal/container/run_lock_linux.go`).
 
-```go
-// Container tests use flock-based cross-binary serialization
-// See internal/container/run_lock_linux_test.go
-```
+**Prevention**: The container test semaphore and
+`INVOWK_TEST_CONTAINER_PARALLEL` limit in-process concurrency; `flock` provides
+cross-binary serialization when several test binaries run at once.
 
-**Prevention**: The container test semaphore (`ContainerSemaphore`) and
-`INVOWK_TEST_CONTAINER_PARALLEL` limit concurrency. `flock` provides cross-binary
-serialization when multiple test binaries run simultaneously.
+**Platform skill**: `linux-testing` SKILL.md ("Container Test Invariants",
+"Failure Matrix"), `linux-testing/references/container-testing-deep.md`
+("Podman-Specific Issues").
 
-**Platform skill**: `linux-testing` SKILL.md (Podman rootless section),
-`linux-testing/references/container-testing-deep.md`.
-
-**Codebase locations**: `internal/container/run_lock_linux_test.go`,
-`internal/container/container_exec_test.go`.
+**Codebase locations**: `internal/container/podman_sysctl_linux_test.go`,
+`internal/container/run_lock_linux_test.go`.
 
 ---
 
 ### CT-4: Engine masking failure in CI
 
-**Symptom**: Container tests use the wrong engine, or a Podman-only test runs
-against Docker (or vice versa). The test may pass but produce incorrect coverage.
+**Symptom**: A "Mask Docker for Podman tests" / "Mask Podman for Docker tests"
+step fails with `::error::<engine> is still on PATH after masking`, or container
+tests use the wrong engine.
 
-**Root cause**: The CI workflow masks the non-tested engine by moving its binary
-(`sudo mv /usr/bin/docker /usr/bin/docker.disabled`) and then verifies the masked
-engine is no longer on `PATH`. If runner image paths drift, the fail-loud check
-should stop the job before tests run with the wrong engine.
+**Root cause**: The steps loop over `command -v`, rename each `PATH` install of
+the non-tested engine to `.disabled`, and fail loudly if it is still found.
+Runner images move engine binaries (between `/usr/bin` and `/usr/local/bin`) or
+add installs.
 
-**Fix template**: Verify the mask step output in CI logs. If the mask failed,
-check if the binary path has changed on the runner image. Update the mask command
-to match the actual binary location.
+**Fix template**: Read the mask step output and the step in
+`.github/workflows/ci.yml`; adjust the masking loop to the new install layout.
 
-**Prevention**: Keep masking fail-loud. The test should verify which engine is
-active before proceeding, and missing binaries should be handled explicitly in
-the masking step.
+**Prevention**: Keep masking fail-loud; never add `|| true`.
 
-**Platform skill**: `linux-testing` SKILL.md,
-`.github/workflows/ci.yml` (lines 112-117 for mask steps).
+**Platform skill**: `linux-testing/references/container-testing-deep.md`
+("Engine Masking"); `.github/workflows/ci.yml` mask steps.
 
 ---
 
@@ -632,28 +602,17 @@ the masking step.
 matches unexpected stderr output. The container command produced incidental
 stderr (e.g., shell prompt `#`, container runtime warnings).
 
-**Root cause**: Container commands may produce stderr output that is not part of
-the error being tested. The shell inside the container may emit a prompt character.
-Container runtimes may emit warnings about deprecated features or configuration.
-
-**Fix template**: Remove `! stderr .` from container error-path tests. Instead,
-assert on specific error content:
+**Fix**: Assert specific stderr text; never use `! stderr .` in container
+testscript tests:
 
 ```
-# Bad: fails due to incidental container stderr
-! invowk cmd broken-cmd
-! stderr .
-
-# Good: assert specific error content only
-! invowk cmd broken-cmd
+! exec invowk cmd broken-cmd
 stderr 'expected error message'
 ```
 
-**Prevention**: Never use `! stderr .` in container-related testscript tests.
-Assert on specific stderr patterns instead.
-
-**Platform skill**: `linux-testing` SKILL.md,
-`testing` SKILL.md (testscript patterns).
+**Canonical home**: `linux-testing/references/container-testing-deep.md`
+("Container Stderr in Exit-Code Tests"); `testing/references/testscript-and-mirrors.md`
+("Testscript Contract").
 
 ---
 
@@ -664,27 +623,16 @@ Assert on specific stderr patterns instead.
 **Symptom**: A test assertion comparing file paths fails on Windows. The expected
 path uses `/` separators but the actual path uses `\`.
 
-**Root cause**: `filepath.Join()` uses the OS-native separator (`\` on Windows,
-`/` on Linux/macOS). Hardcoded path strings with `/` do not match.
-
-**Fix template**: Use `filepath.Join()` in both the expected and actual values:
+**Fix**: Never hardcode path separators for host paths: build expected values
+with `filepath.Join()` (in testscript, with `${/}`). Container paths are always
+`/` and may stay literal.
 
 ```go
-// Bad: hardcoded separator
-expected := "internal/config/config.go"
-
-// Good: platform-agnostic
 expected := filepath.Join("internal", "config", "config.go")
 ```
 
-For testscript assertions, use `[!windows]`/`[windows]` conditionals when path
-output differs by platform.
-
-**Prevention**: Never hardcode path separators in test assertions. Use
-`filepath.Join()` for all path construction.
-
-**Platform skill**: `windows-testing` SKILL.md (Filesystem Pitfalls),
-`windows-testing/references/filesystem-pitfalls.md`.
+**Canonical home**: `.agents/rules/testing.md` "Cross-Platform Testing";
+`windows-testing` SKILL.md ("Filesystem And Paths").
 
 ---
 
@@ -701,7 +649,7 @@ the second silently overwrites the first.
 tests that specifically test case sensitivity, skip on macOS:
 
 ```go
-if runtime.GOOS == "darwin" {
+if goruntime.GOOS == platform.Darwin {
     t.Skip("macOS APFS is case-insensitive")
 }
 ```
@@ -709,8 +657,8 @@ if runtime.GOOS == "darwin" {
 **Prevention**: Never rely on case-sensitive filenames in cross-platform tests.
 Use `t.Skip` with explanation for tests that specifically exercise case sensitivity.
 
-**Platform skill**: `macos-testing` SKILL.md (APFS Case Sensitivity section),
-`macos-testing/references/filesystem-kqueue.md`.
+**Platform skill**: `macos-testing` SKILL.md ("Filesystem Contract"),
+`macos-testing/references/filesystem-kqueue.md` ("APFS (Apple File System)").
 
 ---
 
@@ -732,15 +680,17 @@ parallel subtests:
 gotestsum --format testdox --packages ./... -- -v -race
 ```
 
-The CI workflow already includes `-v` on short-mode steps. Verify it is present
-on all `gotestsum` invocations.
+The short-mode unit step ("Run tests (short)") passes `-v`. The full-mode
+`--rerun-fails` steps ("Run tests (full, non-CLI)", "Run internal/runtime tests
+(full)") currently do not, so a confusing parent FAIL there may be this artifact;
+changing the workflow is a CI change outside this catalog.
 
-**Prevention**: All `gotestsum` invocations in CI must include `-v` on the
-`go test` side. This is documented in the MEMORY.md "gotestsum `-v` required"
-entry.
+**Prevention**: Always pass `-v` on the `go test` side of new or edited
+`gotestsum --rerun-fails` invocations (`go-testing` SKILL.md "gotestsum
+Integration").
 
-**Platform skill**: `macos-testing` SKILL.md (gotestsum false-FAIL section),
-`go-testing` SKILL.md (gotestsum integration section).
+**Platform skill**: `go-testing` SKILL.md ("gotestsum Integration");
+`macos-testing` SKILL.md ("Failure Matrix", gotestsum row).
 
 ---
 
@@ -759,7 +709,7 @@ command block before the file markers:
 
 ```
 # Commands go here, before file markers
-invowk cmd my-command
+exec invowk cmd my-command
 stdout 'expected output'
 
 -- invowkfile.cue --
@@ -769,7 +719,7 @@ stdout 'expected output'
 **Prevention**: Review testscript files to ensure all commands appear before the
 first `-- filename --` marker.
 
-**Platform skill**: `testing` SKILL.md (testscript patterns).
+**Platform skill**: `testing/references/testscript-and-mirrors.md` ("Testscript Contract").
 
 ---
 
@@ -780,25 +730,23 @@ verbatim from the corresponding `virtual_*.txtar` test. The native test has
 different scripts per platform (bash vs PowerShell), but the assertions assume
 identical output format.
 
-**Root cause**: Native tests run platform-specific shell scripts (bash on
+**Root cause**: Native tests run platform-specific shell scripts (`$SHELL`/bash on
 Linux/macOS, PowerShell on Windows). Script output format may differ from the
-virtual shell. Assertions must be platform-agnostic or conditionally guarded.
+virtual shell, and PowerShell emits CRLF.
 
-**Fix template**: Use `[!windows]`/`[windows]` conditionals for platform-specific
-assertions, or make assertions generic enough to match both:
+**Fix template**: Make both platform implementations print the same text and
+write one platform-agnostic assertion; `.agents/rules/testing.md` "Native tests"
+requires identical `stdout`/`stderr` assertions across platforms. Anchored
+assertions use `\r?$`, which passes on every platform:
 
 ```
-# Platform-agnostic assertion (matches both formats)
 stdout 'result: ok'
-
-# Platform-specific assertions when output format differs
-[!windows] stdout '^done$'
-[windows] stdout '^done\r?$'
+stdout '^done\r?$'
 ```
 
 **Prevention**: When generating native mirrors from virtual tests (using the
 `native-mirror` skill), review all assertions for platform-specific assumptions.
 Do not copy virtual assertions verbatim.
 
-**Platform skill**: `testing` SKILL.md (testscript patterns),
+**Platform skill**: `testing/references/testscript-and-mirrors.md` ("Cross-Platform Implementations"),
 `native-mirror` SKILL.md.

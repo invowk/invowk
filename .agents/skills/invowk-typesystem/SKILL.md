@@ -1,15 +1,13 @@
 ---
 name: invowk-typesystem
-description: Invowk type-system and goplint guidance for value types across cmd/*, internal/*, and pkg/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, Invalid*Error wrappers, check-types/check-types-all findings, DDD compliance, and baseline updates. Use when adding, reviewing, refactoring, or documenting value types.
+description: Invowk type-system and goplint guidance for value types across cmd/*, internal/*, and pkg/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, Invalid*Error wrappers, check-types/check-types-all findings, DDD compliance, baseline updates, and exception triage. Use when adding, reviewing, refactoring, or documenting value types, or resolving goplint type findings.
 ---
 
 # Invowk Typesystem
 
-Use this skill when:
-- Creating or refactoring value types in `cmd/*`, `pkg/*`, or `internal/*`
-- Debugging `Validate()` behavior, sentinel error wrapping, or `Invalid*Error` shapes
-- Resolving goplint findings related to primitive wrappers, DDD compliance, and type safety
-- Documenting type-system changes for agent guidance
+Also use this skill when debugging `Validate()` behavior, sentinel error
+wrapping, or `Invalid*Error` shapes, and when documenting type-system changes
+for agent guidance.
 
 ---
 
@@ -21,8 +19,8 @@ Use this skill when:
 4. Refresh the catalog with `scripts/extract_value_types.sh` and reconcile the docs.
 5. Run the required checks listed below.
 
-The extractor's repository-wide Go surface is `cmd/`, `internal/`, and `pkg/`.
-Keep all three roots aligned whenever its detection logic changes.
+When changing the extractor's detection logic, keep its three roots aligned
+(`references/maintenance-workflow.md` § 1).
 
 ---
 
@@ -43,16 +41,17 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 ## References
 
 - `references/type-catalog.md`
-  Comprehensive catalog of all current value types, including:
+  Generated catalog of all current value types, including:
   - all types implementing `Validate() error`
   - all primitive-wrapper value objects
   - alias/re-export type mappings
 
 - `references/value-type-patterns.md`
-  Design patterns, naming/error conventions, goplint directives, and anti-patterns.
+  Design patterns, naming/error conventions, the in-repo `//goplint:` directive
+  names (semantics live in the goplint repository), and anti-patterns.
 
 - `references/maintenance-workflow.md`
-  Update protocol, verification commands, and drift-prevention checks.
+  Update protocol, catalog freshness check, and drift-prevention checks.
 
 ---
 
@@ -62,15 +61,16 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
   `github.com/invowk/goplint` repository, which owns its own soundness gates)
 - `make check-types` for targeted DDD checks when production type shapes changed
 - `make check-types-all` / `make check-types-all-json` for broad type-system sweeps
-- `make test`
-- `make lint`
-- `make check-file-length`
-- `make check-agent-docs` (if `AGENTS.md` or `.agents/skills/*` changed)
+- `make test`, `make lint`, `make check-file-length`, and the rest of
+  `.agents/rules/checklist.md` (including `make check-agent-docs` when
+  `AGENTS.md` or `.agents/skills/*` changed)
 
 ## Triaging New Findings by Precedent
 
 Before baselining or excepting a new finding, look for how the repository already
-handles the same category. List the new findings in the touched packages with
+handles the same category. Build `./bin/goplint` first (`make build-goplint`;
+every `check-types*` and `check-baseline` target also builds it), then list the
+new findings in the touched packages with
 `./bin/goplint -check-all -json -config=.goplint/exceptions.toml <pkgs>` and
 filter out messages already in `.goplint/baseline.toml`.
 

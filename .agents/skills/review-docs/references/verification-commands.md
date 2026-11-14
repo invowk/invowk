@@ -6,18 +6,21 @@ BLOCKED, not a passing review. Any BLOCKED result makes the final audit INCOMPLE
 
 ## Contents
 
-- [Deterministic Run Setup](#0-deterministic-run-setup)
-- [Documentation Parity](#1-documentation-parity)
-- [Website Build](#2-website-build)
-- [Website Typecheck](#3-website-typecheck)
-- [Version Asset Validation](#4-version-asset-validation)
-- [Live Documentation Ownership](#5-live-documentation-ownership)
-- [i18n Stale-Prose Candidates](#5a-deterministic-i18n-stale-prose-candidates)
-- [Diagram Checks](#6-diagram-readability)
-- [Agent Docs Integrity](#8-agent-docs-integrity)
-- [Container Image Policy](#9-container-image-policy-check)
-- [CUE and Config Snippets](#10-cue-snippet-schema-spot-check)
-- [Context Artifact](#12-programmatic-results-and-context-artifact)
+- [0. Deterministic Run Setup](#0-deterministic-run-setup)
+- [1. Documentation Parity](#1-documentation-parity)
+- [2. Website Build](#2-website-build)
+- [3. Website Typecheck](#3-website-typecheck)
+- [4. Version Asset Validation](#4-version-asset-validation)
+- [5. Live Documentation Ownership](#5-live-documentation-ownership)
+- [5a. Deterministic i18n Stale-Prose Candidate Set](#5a-deterministic-i18n-stale-prose-candidate-set)
+- [6. Diagram Readability](#6-diagram-readability)
+- [7. D2 Syntax Validation](#7-d2-syntax-validation)
+- [7a. Rendered Diagram Manifest Validation](#7a-rendered-diagram-manifest-validation)
+- [8. Agent Docs Integrity](#8-agent-docs-integrity)
+- [9. Container Image Policy Check](#9-container-image-policy-check)
+- [10. CUE Snippet Schema Spot-Check](#10-cue-snippet-schema-spot-check)
+- [11. Dual-Prefix Config Snippet Check](#11-dual-prefix-config-snippet-check)
+- [12. Programmatic Results and Context Artifact](#12-programmatic-results-and-context-artifact)
 - [Execution Order](#execution-order)
 
 ## 0. Deterministic Run Setup
@@ -178,40 +181,46 @@ rerendering diagrams.
 make check-agent-docs
 ```
 
-**What it checks**: AGENTS.md index entries match the filesystem (no stale or missing entries).
+**What it checks** (`scripts/check-agent-docs.sh`):
+
+- AGENTS.md rule, skill, agent and command indexes match the filesystem;
+- the `.agents/runbooks/README.md` and `.agents/memorials/README.md` indexes match their
+  directories;
+- no non-canonical `.claude` alias references (plus an advisory, non-failing duplicate-policy
+  scan);
+- the skill-package validator (`scripts/check-skill-packages.py`) and its tests
+  (`scripts/test_check_skill_packages.py`);
+- this skill's own contract: `.agents/skills/review-docs/scripts/review_docs.py validate` and
+  `test_review_docs.py`.
+
+A broken review-docs checklist, ownership contract or README locator therefore fails this gate
+too.
 
 **Expected**: Exit 0, no drift detected.
 
-**Failure triage**: Update AGENTS.md to match the current filesystem state.
+**Failure triage**: Read which section failed. Update the matching index (AGENTS.md or a
+README index) to the current filesystem state, fix the skill frontmatter or `agents/openai.yaml`,
+or repair the review-docs contract per §5.
 
 ## 9. Container Image Policy Check
 
 ```bash
-# README
-grep -n 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md || echo "README: PASS"
-
-# Website docs (current)
-grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/docs/ || echo "Website docs: PASS"
-
-# Snippet data
-grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/src/components/Snippet/data/ || echo "Snippet data: PASS"
-
-# Current i18n docs
-grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/i18n/pt-BR/docusaurus-plugin-content-docs/current/ || echo "Current i18n: PASS"
-
-# Architecture prose
-grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' docs/architecture/ || echo "Architecture prose: PASS"
+grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md website/docs/ \
+  website/src/components/Snippet/data/ \
+  website/i18n/pt-BR/docusaurus-plugin-content-docs/current/ docs/architecture/ \
+  || echo "Container image policy: PASS"
 ```
 
 **What it checks**: No prohibited container images (Ubuntu, Alpine, Windows) in any live/current
-documentation surface covered by the review. Frozen versioned snapshots are validated by version
+documentation surface covered by the review: README, current website docs, snippet data, current
+pt-BR docs, and architecture prose. Frozen versioned snapshots are validated by version
 asset checks and are not manually reviewed by this gate.
 
 **Expected**: No matches (all PASS), or only language-specific images like `golang:1.27`,
 `python:3-slim` in language-specific runtime demos.
 
-**Failure triage**: Replace with `debian:stable-slim`. See `.agents/rules/version-pinning.md`
-Container Images section.
+**Failure triage**: Replace with `debian:stable-slim`. See `AGENTS.md` "Hard invariants"
+(container bullet).
 
 ## 10. CUE Snippet Schema Spot-Check
 
@@ -232,7 +241,7 @@ Then apply the full pattern checklist from `references/cue-drift-patterns.md`:
 - `runtimes`/`platforms` are struct lists not string arrays
 - Module requires use `git_url` not `git`
 - Version constraints have no `v` prefix
-- Module `includes` paths end with `.invowkmod`
+- Config `includes` paths end with `.invowkmod`
 
 ## 11. Dual-Prefix Config Snippet Check
 
@@ -280,14 +289,6 @@ repository are rejected so the tool cannot invalidate its own snapshot.
 
 ## Execution Order
 
-Run checks in this order (fastest first, dependency-free checks in parallel):
-
-0. Deterministic run setup + `review_docs.py validate`
-1. `npm run docs:parity` + container image policy grep (parallel)
-2. `check-diagram-readability.sh` + D2 validation loop + `make check-diagram-renders` (parallel)
-3. `make check-agent-docs`
-4. `node scripts/validate-version-assets.mjs`
-5. `npm run typecheck`
-6. `npm run build` (slower, run last — also catches issues from earlier steps)
-7. CUE snippet spot-check + dual-prefix check (manual, during build)
-8. Record checks JSON and run `review_docs.py prepare`
+Commands and their order: `SKILL.md` Step 1, after the §0 setup. Additionally run the §10 and
+§11 manual checks while the website build runs; the build runs last because it is slowest and
+also catches issues from earlier steps. Finish with the §12 checks JSON and `prepare`.

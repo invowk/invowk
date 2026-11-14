@@ -1,52 +1,66 @@
 # Agent Workflow
 
-This reference covers the validation and rendering pipeline optimized for AI agent generation, including error parsing, self-correction loops, and CI/CD integration.
+This reference covers the validation and repair loop for agent-written D2, how to read D2
+errors, and how the repository's CI checks diagrams. Behaviour below was observed with D2
+v0.7.1, the version CI pins.
 
 ## Validation Pipeline
 
-The recommended three-stage pipeline ensures errors are caught early:
+`d2 validate` only parses. Compile errors (unknown shape, invalid `direction`, invalid style
+keyword, `_` at the root, unresolved `${var}`) pass validation with "is valid D2" and fail only
+when the file is compiled. So the loop needs a compile check, and that check must write outside
+the repository:
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 
 D2_FILE="$1"
-OUTPUT="${D2_FILE%.d2}.svg"
+SCRATCH="$(mktemp -d)"   # outside the repository; never render next to the source
 
 # Stage 1: Format (canonicalize)
 d2 fmt "$D2_FILE"
 
-# Stage 2: Validate (no rendering, fast)
-if ! d2 validate "$D2_FILE" 2>&1; then
-    echo "Validation failed" >&2
-    exit 1
-fi
+# Stage 2: Validate (parse errors only, fast)
+d2 validate "$D2_FILE"
 
-# Stage 3: Render (only after validation passes)
-d2 --layout=tala --tala-seeds=100 "$D2_FILE" "$OUTPUT"
+# Stage 3: Compile check (catches compile errors that validate misses)
+d2 "$D2_FILE" "$SCRATCH/out.svg"   # uses the file's d2-config engine (TALA)
 ```
 
-**Why three stages:**
-1. **Format** - Normalizes whitespace, ordering, and syntax for deterministic diffs
-2. **Validate** - Fast check without GPU/rendering overhead
-3. **Render** - Only invoked when diagram is known-valid
+Without TALA, compile-check with `d2 --layout=elk "$D2_FILE" "$SCRATCH/out.svg"`: an explicit
+`--layout` on the CLI overrides the file's `d2-config` engine. TALA-only features (such as
+`near` pointing at another object) can fail under ELK even though they are valid under TALA.
+
+Stage 4 is the committed render, and only after the compile check passes:
+
+```bash
+make render-diagrams
+```
+
+The render script owns engine probing, seeds, the output location
+(`docs/diagrams/rendered/<dir>/<base>.svg`) and the source-hash stamp that
+`make check-diagram-renders` verifies. ELK renders (`./scripts/render-diagrams.sh --allow-elk`)
+are written to the same location for local preview only; never commit them.
+
+**Why the stages:**
+1. **Format** — normalizes whitespace, ordering, and syntax for deterministic diffs
+2. **Validate** — fast parse check
+3. **Compile check** — catches the errors validate cannot see, without touching the repository
+4. **Render** — produces the committed, stamped SVGs
 
 ## Error Output Format
 
-D2 produces machine-parseable error messages:
+D2 v0.7.1 prints errors in three shapes, depending on the command:
 
 ```
-filename.d2:LINE:COLUMN: error: MESSAGE
+err: oss.terrastruct.com/d2/d2cli.validateCmd: 1:17: unexpected text after unquoted string
+err: failed to fmt: /abs/path/diagram.d2:1:17: unexpected text after unquoted string
+err: failed to compile diagram.d2: /abs/path/diagram.d2:1:12: unknown shape "invalid_shape"
 ```
 
-**Examples:**
-
-```
-diagram.d2:5:1: error: connection must reference valid shape: "undefined_node"
-diagram.d2:12:15: error: invalid keyword: "styel" (did you mean "style"?)
-diagram.d2:8:3: error: "direction" can only be one of the following values: "up", "down", "right", "left"
-diagram.d2:15:1: error: shape "invalid_shape" not recognized
-```
+`d2 validate` uses the first shape (line and column only). `d2 fmt` also parses, so it fails
+on the same parse errors with the second shape. Compiling uses the third.
 
 ### Parsing Errors Programmatically
 
@@ -54,101 +68,110 @@ diagram.d2:15:1: error: shape "invalid_shape" not recognized
 import re
 from dataclasses import dataclass
 
+D2_ERROR = re.compile(
+    r'^err: (?:failed to (?:compile \S*?|fmt): \S*?:|\S*validateCmd: )'
+    r'(?P<line>\d+):(?P<col>\d+): (?P<msg>.+)$'
+)
+
 @dataclass
 class D2Error:
-    file: str
     line: int
     column: int
     message: str
 
 def parse_d2_errors(stderr: str) -> list[D2Error]:
-    """Parse D2 error output into structured objects."""
-    pattern = r'^(.+):(\d+):(\d+): error: (.+)$'
+    """Parse D2 fmt, validate or compile error output into structured objects."""
     errors = []
     for line in stderr.strip().split('\n'):
-        if match := re.match(pattern, line):
+        if match := D2_ERROR.match(line):
             errors.append(D2Error(
-                file=match.group(1),
-                line=int(match.group(2)),
-                column=int(match.group(3)),
-                message=match.group(4)
+                line=int(match.group('line')),
+                column=int(match.group('col')),
+                message=match.group('msg'),
             ))
     return errors
 ```
 
 ## Self-Correction Loop Pattern
 
-Agents should implement a retry loop for automatic error correction:
+Agents should retry with automatic error correction, treating a failed `fmt` or compile exactly
+like a failed validation (tested against D2 v0.7.1 with parse and compile errors):
 
 ```python
 import subprocess
-from typing import Optional
+import tempfile
+from pathlib import Path
+from typing import Callable, Optional
 
 MAX_RETRIES = 3
 
-def generate_and_validate_d2(
+def run(args: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(args, capture_output=True, text=True)
+
+def generate_and_check_d2(
     content: str,
     filepath: str,
-    fix_callback: callable
+    fix_callback: Callable[[str, list], str],
 ) -> Optional[str]:
     """
-    Generate D2 diagram with automatic error correction.
+    Write a D2 file and repair it until it validates and compiles.
 
     Args:
         content: Initial D2 source code
-        filepath: Path to write the .d2 file
+        filepath: Path of the .d2 source in the repository
         fix_callback: Function(content, errors) -> fixed_content
 
     Returns:
-        Path to rendered SVG, or None if all retries failed
+        The final source, or None if all retries failed. Run
+        `make render-diagrams` afterwards for the committed render.
     """
     current_content = content
+    scratch = Path(tempfile.mkdtemp())  # outside the repository
 
-    for attempt in range(MAX_RETRIES):
-        # Write current content
-        with open(filepath, 'w') as f:
-            f.write(current_content)
+    for _ in range(MAX_RETRIES):
+        Path(filepath).write_text(current_content)
 
-        # Format
-        subprocess.run(['d2', 'fmt', filepath], check=True)
-
-        # Validate
-        result = subprocess.run(
-            ['d2', 'validate', filepath],
-            capture_output=True,
-            text=True
-        )
-
+        result = run(['d2', 'fmt', filepath])  # fails on parse errors too
         if result.returncode == 0:
-            # Validation passed, render
-            output_path = filepath.replace('.d2', '.svg')
-            subprocess.run(
-                ['d2', '--layout=tala', '--tala-seeds=100', filepath, output_path],
-                check=True
-            )
-            return output_path
+            result = run(['d2', 'validate', filepath])
+        if result.returncode == 0:
+            # validate is parse-only: compile to scratch to catch the rest
+            result = run(['d2', filepath, str(scratch / 'out.svg')])
+            if result.returncode == 0:
+                return Path(filepath).read_text()
 
-        # Parse errors and attempt fix
         errors = parse_d2_errors(result.stderr)
         if not errors:
             break  # Unknown error format
 
-        # Let agent fix the errors
-        current_content = fix_callback(current_content, errors)
+        current_content = fix_callback(Path(filepath).read_text(), errors)
 
     return None  # All retries exhausted
 ```
 
 ## Common Errors and Fixes
 
-| Error Pattern | Cause | Fix |
-|---------------|-------|-----|
-| `connection must reference valid shape` | Typo in node name | Check spelling, ensure node is defined |
-| `invalid keyword` | Misspelled property | Check for typos (e.g., `styel` → `style`) |
-| `shape not recognized` | Invalid shape name | Use valid shape: `rectangle`, `oval`, `diamond`, etc. |
-| `direction can only be one of` | Invalid direction value | Use: `up`, `down`, `right`, `left` |
-| `duplicate key` | Same key defined twice | Remove duplicate or rename |
-| `expected newline` | Missing newline after block | Add newline before next statement |
+Messages observed with D2 v0.7.1. Rows marked "validate" are parse errors, which `d2 fmt` also
+reports. "Compile" errors are reported only when the file is compiled, never by `d2 validate`.
+
+| Error message | Reported by | Cause | Fix |
+|---|---|---|---|
+| `unexpected text after unquoted string` | validate | Unquoted label containing `\n[...]`, brackets or similar | Quote the whole label: `a -> b: "Visits\n[HTTPS]"` |
+| `edge map keys must be reserved keywords` | validate | Unquoted edge label containing `{...}` (e.g. `200 OK\n{orderId}`) | Quote the label |
+| `double quoted strings must be terminated with "` | validate | Missing closing quote | Close the string |
+| `maps must be terminated with }` | validate | Missing closing brace | Close the block |
+| `unknown shape "X"` | compile | Invalid shape name | Use a shape from the reference below |
+| `direction must be one of up, down, right, left, got "X"` | compile | Invalid direction value | Use `up`, `down`, `right` or `left` |
+| `invalid style keyword: "X"` | compile | Misspelled `style.` property (e.g. `style.fil`) | Fix the keyword |
+| `invalid underscore: no parent` | compile | `_` used at the root level | Reference the object directly |
+| `could not resolve variable "X"` | compile | `${X}` with no matching `vars` entry | Define the variable or remove the substitution |
+
+Some mistakes produce no error at all, so inspect the render for unexpected extra shapes:
+
+- A misspelled node name in an edge silently creates a new node.
+- A misspelled keyword without the `style.` prefix (e.g. `styel: red` or `shap: oval`) silently
+  creates a child shape labelled with the value.
+- A duplicate key is not an error; the later value wins.
 
 ### Shape Reference
 
@@ -171,135 +194,35 @@ up      down      right      left
 
 ## Determinism Configuration
 
-For reproducible output in CI/CD:
-
-```bash
-# Keep d2-config layout-only; pass seeds through CLI
-d2 --layout=tala --tala-seeds=100 diagram.d2 diagram.svg
-```
+Keep `d2-config` layout-only and pass seeds on the CLI; `tala-seeds` is not a config key. In
+this repository `scripts/render-diagrams.sh` adds `--tala-seeds=100` when the installed TALA
+supports it, and records the layout and seed in each SVG's stamp. Do not hand-roll render
+commands for committed SVGs.
 
 **Why seeds matter:**
-- Without seeds, TALA uses random initialization
-- Same diagram may render with slight layout differences
-- Version control diffs become noisy
-- CI/CD may fail on visual regression tests
-
-**Seed selection:**
-- Any positive integer works
-- Use consistent seed per project
-- Document seed in team conventions
+- TALA runs every seed in its list in parallel and returns the best layout; without the flag it
+  uses its default list (`[1,2,3]` in v0.7.1), so a different list can produce a different layout
+- Different seed lists or TALA versions make version-control diffs noisy
+- One fixed seed per project keeps renders reproducible
 
 ## CI/CD Integration
 
-### GitHub Actions Workflow
-
-```yaml
-name: Render D2 Diagrams
-
-on:
-  push:
-    paths:
-      - 'docs/diagrams/**/*.d2'
-  pull_request:
-    paths:
-      - 'docs/diagrams/**/*.d2'
-
-jobs:
-  render:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install D2
-        run: |
-          curl -fsSL https://d2lang.com/install.sh | sh -s -- --dry-run
-          curl -fsSL https://d2lang.com/install.sh | sh -s --
-
-      - name: Configure TALA token (optional)
-        if: ${{ secrets.TSTRUCT_TOKEN }}
-        env:
-          TSTRUCT_TOKEN: ${{ secrets.TSTRUCT_TOKEN }}
-        run: |
-          echo "TALA token configured"
-
-      - name: Validate diagrams
-        run: |
-          for file in docs/diagrams/**/*.d2; do
-            echo "Validating $file"
-            d2 fmt "$file"
-            d2 validate "$file"
-          done
-
-      - name: Render diagrams
-        run: |
-          for file in docs/diagrams/**/*.d2; do
-            output="${file%.d2}.svg"
-            echo "Rendering $file -> $output"
-            d2 --layout=tala --tala-seeds=100 "$file" "$output"
-          done
-
-      - name: Check rendered diagrams
-        run: |
-          ./scripts/check-diagram-renders.sh
-```
+`.github/workflows/validate-diagrams.yml` is the CI contract. It installs D2 pinned to v0.7.1,
+then for every `docs/diagrams/**/*.d2` runs `d2 fmt --check` and `d2 validate`, runs
+`scripts/check-diagram-readability.sh`, and runs `scripts/check-diagram-renders.sh`, which checks
+the committed SVG stamps and manifests without TALA. CI does not compile or render, so compile
+errors are caught only by the local loop and `make render-diagrams`.
 
 For this repository, do not add CI auto-commit steps for rendered diagrams.
 Render locally with `make render-diagrams`, review source and SVG diffs together,
 and let CI validate that committed renders are current.
 
-### Pre-commit Hook
+Local equivalents:
 
 ```bash
-#!/bin/bash
-# .git/hooks/pre-commit
-
-# Find modified D2 files
-d2_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.d2$')
-
-if [ -n "$d2_files" ]; then
-    echo "Validating D2 diagrams..."
-
-    for file in $d2_files; do
-        # Format
-        d2 fmt "$file"
-        git add "$file"
-
-        # Validate
-        if ! d2 validate "$file"; then
-            echo "Error: $file failed validation"
-            exit 1
-        fi
-    done
-
-    echo "All D2 diagrams valid"
-fi
-```
-
-## Batch Processing
-
-For projects with many diagrams:
-
-```bash
-#!/bin/bash
-# render-all.sh
-
-set -euo pipefail
-
-DIAGRAMS_DIR="${1:-docs/diagrams}"
-LAYOUT="${2:-tala}"
-PARALLEL="${3:-4}"
-
-find "$DIAGRAMS_DIR" -name '*.d2' -print0 | \
-    xargs -0 -P "$PARALLEL" -I {} sh -c '
-        file="$1"
-        output="${file%.d2}.svg"
-        echo "Rendering: $file"
-        d2 fmt "$file"
-        d2 validate "$file" || exit 1
-        d2 --layout='"$LAYOUT"' "$file" "$output"
-    ' _ {}
-
-echo "All diagrams rendered successfully"
+make render-diagrams
+make check-diagram-renders
+make check-diagram-readability
 ```
 
 ## Watch Mode for Development
@@ -314,26 +237,23 @@ d2 --watch diagram.d2 diagram.svg
 d2 --watch --browser diagram.d2
 ```
 
-**Agent tip:** When iterating on diagram changes, use watch mode to see updates in real-time. Stop watch mode before committing to ensure final render is deterministic.
+**Agent tip:** When iterating on diagram changes, use watch mode to see updates in real-time.
+Point the output outside the repository, and stop watch mode before committing so the final
+render comes from `make render-diagrams`.
 
 ## Debugging Tips
 
 ### Verbose Output
 
 ```bash
-d2 --debug diagram.d2 output.svg
+d2 --debug diagram.d2 output.svg   # also prints which layout plugin was used
 ```
 
 ### Check Layout Engine
 
 ```bash
 d2 layout  # Lists available engines
-```
-
-### Inspect Intermediate Representation
-
-```bash
-d2 --dry-run diagram.d2  # Shows parsed AST
+d2 layout tala  # Engine-specific flags, e.g. --tala-seeds
 ```
 
 ## Error Recovery Strategies
@@ -364,6 +284,8 @@ def generate_incrementally(nodes, connections):
     return content
 ```
 
+Here `validate` should mean "validates and compiles" (see the pipeline above).
+
 ### Strategy 2: Template-Based Generation
 
 Use validated templates as starting points:
@@ -393,23 +315,7 @@ user: User {
 user -> system
 ```
 
-### Strategy 3: Fallback to Simpler Layout
+### No Engine Fallback for Committed Renders
 
-If TALA fails, fall back to dagre:
-
-```python
-def render_with_fallback(filepath):
-    """Try TALA first, fall back to dagre on failure."""
-    try:
-        subprocess.run(
-            ['d2', '--layout=tala', '--tala-seeds=100', filepath, output],
-            check=True,
-            timeout=30
-        )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        # Fall back to dagre
-        subprocess.run(
-            ['d2', '--layout=dagre', filepath, output],
-            check=True
-        )
-```
+Production renders require TALA. If TALA is unavailable, fix the environment; do not switch
+committed renders to dagre or ELK. `--allow-elk` exists only for local preview.

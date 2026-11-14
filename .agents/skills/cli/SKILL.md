@@ -5,23 +5,18 @@ description: >-
   commands, command service adapters, and CLI-facing dependency/runtime
   validation. Use when working on cmd/invowk/, internal/app/commandsvc/,
   internal/app/deps/, internal/app/execute/, or internal/app/commandadapters/,
-  adding commands, modifying Cobra trees, or changing CLI error/output behavior.
+  adding commands or flags, modifying Cobra trees, or changing CLI error/output
+  behavior.
 ---
 
 # CLI Architecture Skill
 
-This skill covers the CLI implementation in Invowk, including Cobra command structure, dynamic command registration, TUI component wrappers, and the execution flow.
+This skill covers the CLI implementation in Invowk: Cobra command structure,
+dynamic command registration, TUI component wrappers, and the execution flow.
+Also use it for TUI component integration and for error handling and exit codes.
 
-Use this skill when working on:
-- `cmd/invowk/` - CLI commands and structure
-- `internal/app/commandsvc/` - command execution service and CLI-facing service errors
-- `internal/app/commandadapters/` - runtime/dependency/discovery adapters used by CLI execution
-- `internal/app/deps/` - dependency validation that renders through CLI paths
-- `internal/app/execute/` - runtime selection and execution-context construction
-- Adding new CLI commands or subcommands
-- Modifying command output format
-- TUI component integration
-- Error handling and exit codes
+Lookup tables (full flag inventory, TUI and module command lists, styling
+palette, file organization) live in `references/cli-inventory.md`.
 
 ---
 
@@ -30,7 +25,10 @@ Use this skill when working on:
 - `.agents/rules/commands.md` is the source of truth for hidden internal command policy.
 - `.agents/rules/testing.md` is the source of truth for CLI test coverage and mirror expectations.
 - `.agents/skills/go/SKILL.md` is the source of truth for Go comments, ordering, and error-handling conventions.
-- This skill documents CLI architecture and implementation details; if this file conflicts with a rule, the rule wins.
+- On conflict with a rule, the rule wins.
+- `internal/app/deps/deps.go` (including `CheckCommandDependenciesExist()`) is
+  named by formal correspondence tables: renames or behavior changes there
+  also follow `.agents/rules/formal-bindings.md`.
 
 ---
 
@@ -51,10 +49,10 @@ Current major groups are expected to include:
 | Command | Description |
 |---------|-------------|
 | `invowk cmd` | Dynamic command execution (discovered from invowkfiles/modules) |
-| `invowk module` | Module management; inspect `cmd/invowk/module*.go` for current subcommands |
+| `invowk module` | Module management; subcommands live in `cmd/invowk/module*.go` |
 | `invowk validate` | Unified validation (workspace, invowkfile, or module) |
 | `invowk audit` | Module supply-chain/security audit |
-| `invowk agent` | Agent workflow helpers |
+| `invowk agent` | LLM-assisted invowk authoring helpers |
 | `invowk config` | Configuration management |
 | `invowk init` | Initialize new invowkfiles |
 | `invowk tui` | Interactive terminal UI components (gum-like) |
@@ -74,22 +72,19 @@ Current major groups are expected to include:
 }
 ```
 
-**Rules:**
-- Internal commands are for inter-process communication and subprocess execution
-- Do NOT document in website docs
-- Only mention in `.agents/` and `README.md`
-- Used by container runtime, SSH server, TUI server internals
-
-**Current internal commands:** derive from `cmd/invowk/internal*.go` before
-making changes:
+- Internal commands are for inter-process communication and subprocess
+  execution, used by container runtime, SSH server, and TUI server internals.
+- Never document them in website docs; mention them only in `README.md` and
+  `.agents/` (canonical: `.agents/rules/commands.md`).
+- Current internal commands: `check-cmd`, `exec-virtual-sh`, `exec-virtual-lua`.
+  Re-derive from `cmd/invowk/internal*.go` before making changes:
 
 ```bash
 rg -n 'newInternal|Use:|Hidden: true' cmd/invowk/internal*.go
 ```
 
-Expected categories include virtual runtime subprocess entrypoints and
-container/runtime dependency probes. Keep all of them under hidden
-`invowk internal` command paths.
+Keep all virtual runtime subprocess entrypoints and container/runtime
+dependency probes under hidden `invowk internal` command paths.
 
 ---
 
@@ -98,21 +93,26 @@ container/runtime dependency probes. Keep all of them under hidden
 The discovery → registration flow (`cmd_discovery.go`):
 
 ```
-Discovery → Validation → Command Registration
-                ↓
-        DiscoveredCommandSet
-         ├── Commands: all discovered
-         ├── AmbiguousNames: conflicts
-         └── SourceOrder: sorted sources
+Discovery → Validation → Command Registration (registerDiscoveredCommands → buildLeafCommand)
 ```
+
+Registration consumes the `DiscoveredCommandSet` (all commands plus the
+by-name, by-simple-name, by-source, ambiguity, and source-order indexes). The
+discovery skill owns the full field table:
+`.agents/skills/discovery/SKILL.md` § "Phase 2: Conflict Analysis".
 
 ### Startup Gate (Important)
 
 Dynamic registration must stay **lazy** for startup-sensitive paths.
 
-- Register discovered commands only when argv targets the `cmd` subtree (or completion requests for it).
-- Do **not** trigger discovery registration for unrelated root paths like `--version` or `--help`.
-- This keeps non-`cmd` startup latency low while preserving full `invowk cmd` behavior.
+- `shouldRegisterDiscoveredCommands()` (`cmd.go`) registers discovered commands
+  only when argv targets the `cmd` subtree, or a `__complete` /
+  `__completeNoDesc` request for it.
+- Do **not** trigger discovery registration for unrelated root paths like
+  `--version` or `--help`; unconditional registration in root init regresses
+  their startup toward discovery cost.
+- `explicitConfigPathFromArgs()` pulls `--ivk-config` / `-c` from raw argv
+  before Cobra parses flags, so registration uses the same config as execution.
 
 ### Transparent Namespace
 
@@ -135,50 +135,26 @@ Multi-word commands (e.g., "deploy staging") are built into a command tree with 
 
 ## TUI Component Wrapper Pattern
 
-All TUI components follow a **dual-layer delegation pattern** (`tui_*.go`):
+All TUI components follow a **dual-layer delegation pattern** (`tui_*.go`,
+e.g. `tui_input.go`):
 
 ```go
-func runTuiInput(cmd *cobra.Command, args []string) error {
-    // Layer 1: Check if running under parent TUI server
-    if client := tuiserver.NewClientFromEnv(); client != nil {
-        // Delegate to parent TUI server via HTTP/IPC
-        result, err := client.Input(tuiserver.InputRequest{...})
-        return handleResult(result)
-    }
-
-    // Layer 2: Direct TUI rendering
-    result, err := tui.Input(tui.InputOptions{...})
-    return handleResult(result)
+// Layer 1: running under a parent TUI server? Delegate over the wire.
+if client := tuiclient.NewClientFromEnv(); client != nil {
+    result, err = client.InputContext(cmd.Context(), tuiwire.InputRequest{...})
+} else {
+    // Layer 2: direct TUI rendering.
+    result, err = tui.Input(tui.InputOptions{...})
 }
 ```
 
-### Available TUI Commands
-
-Rebuild this inventory from `cmd/invowk/tui*.go` when changing TUI command
-behavior:
+Commands therefore work both standalone and nested in a TUI server, and write
+results to stdout for piping/variable assignment. Rebuild the TUI inventory
+(table in `references/cli-inventory.md`) before changing TUI commands:
 
 ```bash
-rg -n 'func newTUI.*Command|Use:|Flags\\(\\)' cmd/invowk/tui*.go
+rg -n 'func newTUI.*Command|Use:|Flags\(\)' cmd/invowk/tui*.go
 ```
-
-| Command | Purpose |
-|---------|---------|
-| `tui input` | Single-line text input |
-| `tui choose` | Single/multi-select from list |
-| `tui confirm` | Yes/no confirmation |
-| `tui spin` | Spinner with command execution |
-| `tui filter` | Fuzzy filter |
-| `tui file` | File picker |
-| `tui table` | Display/select from table |
-| `tui pager` | Scrollable content viewer |
-| `tui format` | Markdown/code/emoji formatting |
-| `tui style` | Apply terminal text styling |
-| `tui write` | Multi-line text editor |
-
-**Benefits:**
-- Commands work both standalone and nested in TUI server
-- Output to stdout for piping/variable assignment
-- Consistent behavior across execution contexts
 
 ---
 
@@ -196,10 +172,12 @@ and runtime packages. Re-read these files before editing flow-sensitive code:
 - `internal/app/execute/` for runtime selection and execution-context
   construction.
 
-At a high level, execution still follows this shape:
+`(*commandsvc.Service).Execute(ctx, req)` currently runs in this order:
 
 ```
-commandService.Execute(ctx, req)
+Execute(ctx, req)
+    │
+    ├── req.Validate()          ← Typed-field validation before any work
     │
     ├── discoverCommand()       ← Uses req.ResolvedCommand when provided by CLI/disambiguation path;
     │                              otherwise loads config and calls s.discovery.GetCommand(ctx, name)
@@ -211,34 +189,46 @@ commandService.Execute(ctx, req)
     ├── resolveRuntime()        ← Delegates to appexec.ResolveRuntime() (3-tier precedence),
     │                              wraps errors as ServiceError
     │
-    ├── ensureSSHIfNeeded()     ← Conditional SSH server start for container host access
-    │
     ├── buildExecContext()      ← Delegates to appexec.BuildExecutionContext() for env var projection
     │                              (includes INVOWK_CMD_NAME, INVOWK_RUNTIME, INVOWK_SOURCE, INVOWK_PLATFORM)
     │
-    ├── [DRY-RUN SHORT-CIRCUIT] ← If req.DryRun: renderDryRun() and return (no execution)
+    ├── [DRY-RUN SHORT-CIRCUIT] ← If req.DryRun: return Result.DryRunData (the CLI adapter calls
+    │                              renderDryRun()). Runs before dependency validation and before host
+    │                              or runtime setup, so planning never starts infrastructure.
     │
-    └── dispatchExecution()     ← Uses command adapters/runtime registry, then executes:
-        ├── Container init fail-fast (via runtimeRegistryResult.ContainerInitErr)
-        ├── Timeout validation (parse-only, fail-fast on invalid strings)
-        ├── Timeout wrapping (context.WithTimeout)
-        ├── Dependency validation (validateAndRenderDeps)
-        ├── Interactive mode (alternate screen + TUI server) OR standard execution
-        └── Error classification via classifyExecutionError()
+    ├── ensureSSHIfNeeded()     ← Conditional host-access (SSH) start for container callbacks; only the
+    │                              Execute call that started it stops it (deferred)
+    │
+    └── dispatchExecution()     ← registryFactory.Create(...) runtime session, then:
+        ├── failFastContainerInit(session.ContainerInitErr())
+        ├── applyExecutionTimeout() ← Parse-only validation (fail-fast on invalid strings),
+        │                              then context.WithTimeout
+        ├── validateDeps()      ← Returns raw typed errors (e.g. *DependencyError); the CLI renders them
+        ├── executeWithRequestedMode() ← Interactive mode (alternate screen + TUI server) OR standard
+        │                              execution
+        └── newClassifiedExecutionError() → classifyExecutionError() on runtime failure
 ```
 
 ### Error Classification Pipeline
 
-Execution error handling is two-stage: `classifyExecutionError()` (`internal/app/commandsvc/errors.go`) maps runtime errors to service-owned `ErrorKind` values, then the CLI layer maps those kinds to issue catalog IDs in `cmd/invowk/app.go`.
+Execution error handling is two-stage: `classifyExecutionError()`
+(`internal/app/commandsvc/errors.go`) maps runtime errors to service-owned
+`ErrorKind` values, then the CLI layer maps those kinds to issue catalog IDs in
+`cmd/invowk/app.go`.
 
 ```go
-classifyExecutionError(err) → commandsvc.ErrorKind
-mapServiceErrorKindToIssueID(kind) → issue.ID
+classifyExecutionError(err) → (commandsvc.ErrorKind, hint)
+issueIDForServiceErrorKind(kind commandsvc.ErrorKind) → issue.Id
 ```
 
 ### ServiceError & renderServiceError()
 
-`ServiceError` (`service_error.go`) carries optional rendering info for the CLI layer. The extracted `renderServiceError()` DRYs the identical rendering pattern used in both `executeRequest()` and `runDisambiguatedCommand()`:
+`ServiceError` (`service_error.go`) carries optional rendering info for the CLI
+layer; `renderAndWrapServiceError()` (`app.go`) builds it from raw service
+errors. `renderServiceError()` is the single rendering path, called from
+`executeRequest()` (`cmd.go`), `renderServiceErrorIfPresent()` (used by
+`runDisambiguatedCommand()` in `cmd_execute_helpers.go`), and watch mode
+(`cmd_watch.go`):
 
 ```go
 renderServiceError(stderr, svcErr)
@@ -250,24 +240,22 @@ renderServiceError(stderr, svcErr)
 
 ## Disambiguation Pattern
 
-Two methods for specifying command source:
+Two methods for specifying command source, parsed by `ParseSourceFilter()`
+(`cmd.go`):
 
-### @source Prefix (First Argument)
+- `--ivk-from` / `-f` takes precedence over an `@source` prefix.
+- `@source` is recognized only as the first positional token, so command
+  arguments that start with `@` are not mistaken for sources.
 
 ```bash
-invowk cmd @foo deploy      # Run deploy from foo.invowkmod
+invowk cmd @foo deploy        # Run deploy from foo.invowkmod
 invowk cmd @invowkfile build  # Run build from invowkfile.cue
-```
-
-### --ivk-from Flag
-
-```bash
 invowk cmd --ivk-from foo deploy
 ```
 
 ### Source Name Normalization
 
-`normalizeSourceName()` handles various formats:
+`normalizeSourceName()` strips a leading `@`, then maps:
 - `"foo"` → `"foo"`
 - `"foo.invowkmod"` → `"foo"`
 - `"invowkfile"` → `"invowkfile"`
@@ -293,7 +281,9 @@ type ExitError struct {
 
 ### Dual-Channel Error Output
 
-CLI handlers (e.g., `runModuleRemove`, `runModuleSync`) use two output channels simultaneously:
+`.agents/rules/testing.md` requires CLI handler error tests to assert both
+channels; this is why. CLI handlers (e.g., `runModuleRemove`, `runModuleSync`)
+use two output channels simultaneously:
 
 1. **stdout** — Handler prints styled progress with icons via `fmt.Printf` (e.g., `"• Removing dep..."`, `"✗ Failed to remove module: ..."`)
 2. **stderr** — Handler returns the error to Cobra, which renders it with styled `ERROR` formatting
@@ -316,48 +306,28 @@ Testing only one channel misses bugs in the other (e.g., handler formatting brea
 - Ambiguous commands
 - Host platform compatibility issues
 
----
+### Styling
 
-## Styling System
-
-Unified color palette (`styles.go`):
-
-| Color | Hex | Use |
-|-------|-----|-----|
-| ColorPrimary | `#7C3AED` | Titles (purple) |
-| ColorMuted | `#6B7280` | Subtitles (gray) |
-| ColorSuccess | `#10B981` | Success (green) |
-| ColorError | `#EF4444` | Errors (red) |
-| ColorWarning | `#F59E0B` | Warnings (amber) |
-| ColorHighlight | `#3B82F6` | Commands/links (blue) |
-| ColorVerbose | `#9CA3AF` | Verbose output (light gray) |
-
-**Reusable Styles:**
-- `TitleStyle`, `SubtitleStyle`, `SuccessStyle`, `ErrorStyle`
-- `WarningStyle`, `CmdStyle`, `VerboseStyle`
+Use the palette and styles from `styles.go` for all CLI output; never ad-hoc
+colors. Palette and style list: `references/cli-inventory.md`.
 
 ---
 
-## Global Flags
+## Flags
 
-### Root Command (Persistent)
+Derive the current set with `go run . --help` and `go run . cmd --help`; the
+full inventory is in `references/cli-inventory.md`. Three kinds exist, each
+registered and read in a different place:
 
-```go
---ivk-verbose, -v     // Enable verbose output
---ivk-config          // Custom config file path
---ivk-interactive, -i // Run in alternate screen buffer
-```
-
-### Cmd Command
-
-```go
---ivk-runtime, -r     // Override runtime (must be allowed)
---ivk-from            // Specify source for disambiguation
---ivk-force-rebuild   // Force container image rebuild
---ivk-container-name  // Override the persistent container target name
---ivk-dry-run         // Print resolved execution context without executing
---ivk-watch, -W       // Watch files for changes and re-execute
-```
+- **Root persistent** (`--ivk-verbose -v`, `--ivk-config -c`,
+  `--ivk-interactive -i`): `root.go`, stored in `rootFlagValues`.
+- **`cmd` persistent** (`--ivk-runtime -r`, `--ivk-from -f`,
+  `--ivk-force-rebuild`, `--ivk-container-name`, `--ivk-dry-run`,
+  `--ivk-watch -W`): `cmd.go`, stored in `cmdFlagValues`.
+- **Per-leaf reserved** (`--ivk-env-file -e`, `--ivk-env-var -E`,
+  `--ivk-env-inherit-{mode,allow,deny}`, `--ivk-workdir -w`): registered on
+  every discovered leaf by `buildLeafCommand()` (`cmd_discovery.go`) and read in
+  `buildCommandExecuteRequest()` via `stringFlagValue` / `stringArrayFlagValue`.
 
 ---
 
@@ -381,87 +351,33 @@ Configuration is request-scoped rather than initialized into global accessors:
 
 ## Module Commands
 
-Module management (`module.go`):
-
-| Command | Purpose |
-|---------|---------|
-| `module create` | Create new module |
-| `module list` | List discovered modules |
-| `module archive` | Package module as archive |
-| `module import` | Import external module |
-| `module vendor` | Vendor module dependencies |
-
-### Dependency Management
-
-```bash
-module add <git-url> <version>  # Add dependency
-module remove <identifier>       # Remove dependency
-module sync                      # Sync dependencies from invowkmod.cue (accepts 0 args)
-module tidy                      # Add missing transitive requirements to invowkmod.cue
-module update [identifier]       # Update all deps or one matching dependency
-module deps                      # List dependencies from lock file (accepts 0 args)
-```
+Module management spans `module.go` (parent and `list`), `module_create.go`,
+`module_package.go` (archive, import, vendor), `module_deps.go` (add, remove,
+sync, update, deps), and `module_tidy.go`. Derive with `go run . module --help`;
+table in `references/cli-inventory.md`.
 
 ---
 
 ## Discovery Integration Points
 
+The CLI never calls `discovery.New` directly. It goes through
+`commandadapters.DiscoveryService` (`internal/app/commandadapters/discovery.go`),
+which loads config through the injected provider and caches per request:
+
 ```go
-disc := discovery.New(cfg)
+svc := commandadapters.NewDiscoveryService(provider)
+// or NewDiscoveryServiceWithDirs(provider, baseDir, commandsDir) for injected dirs
 
-// Discover and validate all commands (with ambiguity detection + diagnostics)
-result, err := disc.DiscoverAndValidateCommandSet(ctx)
-// result.Set is the DiscoveredCommandSet, result.Diagnostics are non-fatal warnings
-
-// Get specific command info (for execution)
-lookup, err := disc.GetCommand(ctx, cmdName)
-// lookup.Command is the CommandInfo, lookup.Diagnostics are accumulated warnings
-
-// Discover command set without tree validation (for listing)
-result, err := disc.DiscoverCommandSet(ctx)
-
-// List all discovered files (for module operations)
-files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
+cfg, diags := svc.LoadConfig(ctx)            // also LoadConfigForCommand(ctx)
+result, err := svc.DiscoverAndValidateCommandSet(ctx) // result.Set + result.Diagnostics
+result, err  = svc.DiscoverCommandSet(ctx)   // without tree validation (listing)
+modules, err := svc.DiscoverModules(ctx)     // discovery.ModuleListResult
+lookup, err  := svc.GetCommand(ctx, cmdName) // lookup.Command (nil if not found) + lookup.Diagnostics
 ```
 
----
-
-## Design Principles
-
-| Principle | Implementation |
-|-----------|----------------|
-| Transparent namespace | Users don't specify source for unambiguous commands |
-| Explicit disambiguation | Require @source or --ivk-from for ambiguous commands |
-| Platform-aware execution | Different runtimes, validation per platform |
-| Dual-layer TUI | Support standalone and server-delegated rendering |
-| Styled consistency | Unified color palette across all output |
-| Hidden internals | Internal commands not documented to users |
-| Configuration priority | CLI flags > config file > defaults |
-
----
-
-## File Organization
-
-| File | Purpose |
-|------|---------|
-| `root.go` | Root command, global flags, config loading |
-| `cmd.go` | `invowk cmd` parent, executeRequest(), disambiguation entry point |
-| `cmd_discovery.go` | Dynamic command registration (registerDiscoveredCommands, buildLeafCommand) |
-| `cmd_execute_helpers.go` | runDisambiguatedCommand() (delegates to executeRequest()), checkAmbiguousCommand(), parseEnvVarFlags(), toEnvVarNames(), toDotenvFilePaths() |
-| `cmd_dryrun.go` | `renderDryRun()` — prints resolved execution context (script, env, runtime, platform, timeout) without executing |
-| `cmd_watch.go` | `runWatchMode()` — discovers command's WatchConfig, executes once, starts `internal/watch/` watcher loop with re-execution callback |
-| `internal/app/execute/orchestrator.go` | RuntimeSelection, RuntimeNotAllowedError, ResolveRuntime() (3-tier precedence), BuildExecutionContext() (env var projection including INVOWK_CMD_NAME, INVOWK_RUNTIME, INVOWK_SOURCE, INVOWK_PLATFORM) |
-| `internal/discovery/validation.go` | ValidateCommandTree() for args/subcommand conflicts |
-| `internal/watch/watcher.go` | File watcher with fsnotify + doublestar glob matching, debouncing, default ignores |
-| `internal/runtime/registry_factory.go` | BuildRegistry(), BuildRegistryOptions, RegistryBuildResult, InitDiagnostic |
-| `internal/app/commandsvc/errors.go` | classifyExecutionError() — maps runtime errors to issue catalog IDs |
-| `service_error.go` | ServiceError type and renderServiceError() |
-| `cmd_render.go` | Styled error rendering (argument validation, deps, runtime, host support) |
-| `validate.go` | Unified `invowk validate` command (workspace, invowkfile, module auto-detection) |
-| `module.go` | Module commands |
-| `tui_*.go` | TUI component wrappers |
-| `styles.go` | Unified styling system |
-| `internal_*.go` | Hidden internal commands |
+`DiscoverAll()` and `LoadAll()` exist only on the raw `discovery.Discovery`
+(used e.g. by `internal/audit/scan_context.go`); for that API see
+`.agents/skills/discovery/SKILL.md` § "Usage Patterns".
 
 ---
 
@@ -475,6 +391,6 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | Missing TUI server check | TUI components fail in nested context | Use dual-layer pattern |
 | Not using styled output | Inconsistent CLI appearance | Use styles from `styles.go` |
 | Wrong flag priority | Config overrides CLI flag | Check precedence logic |
-| New execution flag omitted from request mapping | Flag silently ignored in some paths | Add it to `cmdFlagValues`, Cobra registration, and centralized `buildCommandExecuteRequest()` mapping; verify dynamic leaves, disambiguation, dry-run, and watch child requests |
+| New execution flag omitted from request mapping | Flag silently ignored in some paths | For a `cmd` persistent flag: add it to `cmdFlagValues`, the Cobra registration in `cmd.go`, and `buildCommandExecuteRequest()`. For a per-leaf reserved flag: register it in `buildLeafCommand()` and read it in `buildCommandExecuteRequest()` with `stringFlagValue`/`stringArrayFlagValue`. Either way verify dynamic leaves, disambiguation, dry-run, and watch child requests |
 | `context.Background()` in Cobra RunE handler | Ctrl+C / timeout not propagated | Extract `cmd.Context()` at closure boundary, pass as `ctx context.Context` first param to handler function |
-| Unconditional discovered-command registration in root init | `invowk --version` / `--help` startup regresses toward discovery cost | Gate registration by argv so only `cmd` (and its completion paths) trigger registration |
+| Unconditional discovered-command registration in root init | `invowk --version` / `--help` startup regresses toward discovery cost | Keep the `shouldRegisterDiscoveredCommands()` argv gate (see Startup Gate) |
