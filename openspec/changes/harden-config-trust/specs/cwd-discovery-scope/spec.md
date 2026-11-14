@@ -66,7 +66,7 @@ An explicitly given `--ivk-no-cwd` or `--ivk-no-cwd=<bool>` SHALL decide the swi
 
 ### Requirement: Only affected flows resolve the switch
 
-The switch SHALL be resolved only by the flows that discover command sources (see "Commands affected by the switch"). Other commands, including `invowk --version`, `invowk config *`, `invowk init` and `invowk audit`, SHALL NOT fail because `INVOWK_NO_CWD` holds an invalid value.
+The switch SHALL be resolved only by the flows that discover command sources (see "Commands affected by the switch") and by `invowk agent cmd create|change --verify`, which an invalid value also fails. Other commands, including `invowk --version`, `invowk config *`, `invowk init` and `invowk audit`, SHALL NOT fail because `INVOWK_NO_CWD` holds an invalid value.
 
 #### Scenario: invalid environment value ignored by config path
 - **WHEN** `INVOWK_NO_CWD=yes` and `invowk config path` runs

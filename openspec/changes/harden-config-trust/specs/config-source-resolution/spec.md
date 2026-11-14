@@ -126,7 +126,7 @@ A non-empty `INVOWK_CONFIG` value SHALL be an absolute path for the host OS. A r
 
 ### Requirement: Explicit config sources fail closed
 
-When the selected source is `--ivk-config` or `INVOWK_CONFIG` and the named file is missing, unreadable, not valid CUE, or fails schema or Go validation, invowk SHALL stop the invocation with exit code 1 before discovering or running any user command. invowk SHALL NOT fall back to the user config file or to defaults in that case.
+When the selected source is `--ivk-config` or `INVOWK_CONFIG` and the named file is missing, unreadable, not valid CUE, or fails schema or Go validation, invowk SHALL stop before discovering or running any user command, and SHALL NOT fall back to the user config file or to defaults. Except for the commands in "Explicit config failures outside the exit-1 flows", the exit code SHALL be 1.
 
 #### Scenario: missing file named by the flag
 - **WHEN** `invowk cmd hello --ivk-config nonexistent.cue` runs
@@ -151,6 +151,22 @@ When the selected source is `--ivk-config` or `INVOWK_CONFIG` and the named file
 #### Scenario: validate fails on a missing explicit file
 - **WHEN** `invowk --ivk-config nonexistent.cue validate` runs with no path argument
 - **THEN** the exit code is 1 and no workspace validation result is printed
+
+### Requirement: Explicit config failures outside the exit-1 flows
+
+`invowk audit` and `invowk agent` SHALL report a failed explicit config source through their own documented error exit code, not 1 (`audit` uses 1 for findings). Shell completion SHALL offer no candidates. `invowk cmd --help` MAY render help without discovered commands. None of them SHALL fall back to the user config file or to defaults.
+
+#### Scenario: audit reports the config failure as an audit error
+- **WHEN** `INVOWK_CONFIG` names an absolute path that does not exist and `invowk audit` runs on a target that needs config
+- **THEN** the exit code is audit's error code, not its findings code, and no scan result is printed
+
+#### Scenario: agent reports the config failure as an agent error
+- **WHEN** `--ivk-config` names a missing file and an `invowk agent cmd create` command runs
+- **THEN** the exit code is non-zero, no LLM request is made and no file is written
+
+#### Scenario: completion offers nothing
+- **WHEN** `--ivk-config` names a missing file and `invowk __complete cmd ''` runs in a directory with an `invowkfile.cue`
+- **THEN** no command candidates are offered
 
 ### Requirement: Explicit config errors name the source
 
