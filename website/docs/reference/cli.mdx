@@ -744,7 +744,7 @@ Invowk uses four exit-code classes:
 
 Exit status `2` covers:
 
-- an unknown flag, a flag value that does not parse, or a flag without its required value, at any level;
+- an unknown flag, a flag value that does not parse, a flag without its required value, or a missing required flag, at any level;
 - an unknown command, including a typo under a command group (`invowk cmd test nonexistent`, `invowk config bogus`); the group's subcommands are listed on stderr and nothing is written to stdout;
 - an argument-count error on a built-in command (`invowk init a b c`);
 - a command name under `invowk cmd` that is not found or is ambiguous across sources, an unknown `@source` or `--ivk-from` source, and a source filter without a command name;

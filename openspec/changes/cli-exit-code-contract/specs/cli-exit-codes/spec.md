@@ -165,6 +165,11 @@ Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when de
 - **WHEN** command `a` declares one argument and the user runs `invowk cmd a 1 2`
 - **THEN** invowk SHALL exit with status 2
 
+#### Scenario: Missing required flag
+- **WHEN** command `rf` declares a required flag `name` and the user runs `invowk cmd rf`
+- **THEN** invowk SHALL exit with status 2
+- **AND** the command's script SHALL NOT run
+
 ### Requirement: Invalid reserved flag values exit with status 2
 Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when a reserved `--ivk-*` flag of `invowk cmd` has a value that fails syntactic validation. This covers `--ivk-runtime` (unknown mode, or a runtime the command does not allow), `--ivk-env-inherit-mode`, `--ivk-env-var`, `--ivk-env-inherit-allow`, `--ivk-env-inherit-deny`, `--ivk-workdir`, `--ivk-env-file` and `--ivk-container-name`.
 

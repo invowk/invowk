@@ -81,7 +81,10 @@ func exitCodeForError(err error) types.ExitCode {
 //     bare `invowk` still shows help;
 //   - every group without an explicit Args validator rejects unmatched tokens
 //     through rejectUnmatchedGroupToken, and a bare group still shows help;
-//   - every explicit Args validator's error becomes a UsageError.
+//   - every explicit Args validator's error becomes a UsageError;
+//   - on every non-root command, Cobra's required-flag and flag-group checks
+//     run inside the Args validator so their errors also become UsageError
+//     (Cobra runs them right after Args, outside FlagErrorFunc).
 //
 // A parent that really accepts positionals MUST declare Args explicitly
 // (for example `invowk cmd` and discovered group nodes use cobra.ArbitraryArgs).
@@ -108,27 +111,36 @@ func installUsageGuards(root *cobra.Command) {
 // installGroupGuards applies the group and Args rules of installUsageGuards to
 // cmd and its descendants.
 func installGroupGuards(cmd *cobra.Command) {
-	switch {
-	case cmd.Args != nil:
-		cmd.Args = wrapArgsValidator(cmd.Args)
-	case cmd.HasSubCommands():
-		cmd.Args = rejectUnmatchedGroupToken
+	validate := cmd.Args
+	if validate == nil && cmd.HasSubCommands() {
+		validate = rejectUnmatchedGroupToken
 		if !cmd.Runnable() {
 			// A bare group is a request to browse: print help and succeed.
 			cmd.RunE = func(c *cobra.Command, _ []string) error { return c.Help() }
 		}
 	}
+	cmd.Args = usageArgsValidator(validate)
 
 	for _, child := range cmd.Commands() {
 		installGroupGuards(child)
 	}
 }
 
-// wrapArgsValidator classifies the errors of an explicit Cobra Args validator
-// as usage errors, keeping their messages unchanged.
-func wrapArgsValidator(validate cobra.PositionalArgs) cobra.PositionalArgs {
+// usageArgsValidator classifies the errors of a Cobra Args validator (nil
+// accepts any tokens, like Cobra's default for subcommands) and of Cobra's
+// required-flag and flag-group checks as usage errors, keeping their messages
+// unchanged. Cobra repeats those checks after Args; they pass by then.
+func usageArgsValidator(validate cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
-		return newUsageError(validate(cmd, args))
+		if validate != nil {
+			if err := validate(cmd, args); err != nil {
+				return newUsageError(err)
+			}
+		}
+		if err := cmd.ValidateRequiredFlags(); err != nil {
+			return newUsageError(err)
+		}
+		return newUsageError(cmd.ValidateFlagGroups())
 	}
 }
 

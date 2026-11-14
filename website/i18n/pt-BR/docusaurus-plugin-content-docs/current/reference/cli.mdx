@@ -744,7 +744,7 @@ O Invowk usa quatro classes de código de saída:
 
 O status `2` cobre:
 
-- uma flag desconhecida, um valor de flag que não pode ser interpretado ou uma flag sem o valor exigido, em qualquer nível;
+- uma flag desconhecida, um valor de flag que não pode ser interpretado, uma flag sem o valor exigido ou uma flag obrigatória ausente, em qualquer nível;
 - um comando desconhecido, incluindo um erro de digitação sob um grupo de comandos (`invowk cmd test nonexistent`, `invowk config bogus`); os subcomandos do grupo são listados no stderr e nada é escrito no stdout;
 - um erro de quantidade de argumentos em um comando embutido (`invowk init a b c`);
 - um nome de comando sob `invowk cmd` não encontrado ou ambíguo entre fontes, uma fonte `@source` ou `--ivk-from` desconhecida e um filtro de fonte sem nome de comando;

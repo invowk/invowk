@@ -41,6 +41,8 @@ func TestAgentExitCodes(t *testing.T) {
 		name string
 		args func(t *testing.T) []string
 		want types.ExitCode
+		// dials marks a row that opens a loopback TCP connection.
+		dials bool
 	}{
 		{
 			name: "unknown prompt format",
@@ -112,13 +114,17 @@ func TestAgentExitCodes(t *testing.T) {
 					"--file", missing(t, "invowkfile.cue"),
 				}
 			},
-			want: agentExitFailure,
+			want:  agentExitFailure,
+			dials: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			if tt.dials && testing.Short() {
+				t.Skip("skipping: dials a loopback LLM endpoint")
+			}
 
 			app, err := NewApp(Dependencies{
 				Config: &staticConfigProvider{cfg: config.DefaultConfig()},

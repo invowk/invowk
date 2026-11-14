@@ -116,9 +116,12 @@ func newUsageGuardTree(t *testing.T) usageGuardTree {
 	)
 
 	module := &cobra.Command{Use: "module", Short: "Manage modules"}
+	create := &cobra.Command{Use: "create", Short: "Create a module", RunE: func(*cobra.Command, []string) error { return nil }}
+	create.Flags().String("name", "", "module name")
+	_ = create.MarkFlagRequired("name") // Flag is defined just above; the error is impossible.
 	module.AddCommand(
 		&cobra.Command{Use: "list", Short: "List modules", Args: cobra.MaximumNArgs(1), RunE: func(*cobra.Command, []string) error { return nil }},
-		&cobra.Command{Use: "create", Short: "Create a module", RunE: func(*cobra.Command, []string) error { return nil }},
+		create,
 	)
 
 	passthrough := &cobra.Command{
@@ -227,6 +230,21 @@ func TestInstallUsageGuards(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "unknown flag: --bogus") {
 			t.Fatalf("error = %q, want the pflag message unchanged", err.Error())
+		}
+	})
+
+	t.Run("missing required flag is a usage error with Cobra's message", func(t *testing.T) {
+		t.Parallel()
+		tree := newUsageGuardTree(t)
+		err := tree.execute("module", "create")
+		if _, ok := errors.AsType[*UsageError](err); !ok {
+			t.Fatalf("error = %T (%v), want *UsageError", err, err)
+		}
+		if want := `required flag(s) "name" not set`; err.Error() != want {
+			t.Fatalf("error = %q, want %q", err.Error(), want)
+		}
+		if err := tree.execute("module", "create", "--name", "x"); err != nil {
+			t.Fatalf("with the required flag: error = %v, want nil", err)
 		}
 	})
 

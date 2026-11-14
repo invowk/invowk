@@ -27,9 +27,12 @@ exitcode 2 invowk cmd test unit --bogus
 ! stdout .
 stderr '(?i)unknown flag: --bogus'
 
-# Test 5: a bad typed-flag value exits 2 and the script does not run
+# Test 5: a bad typed-flag value or a missing required flag exits 2 and the script does not run
 exitcode 2 invowk cmd f --n=abc
 ! stdout 'should not run'
+exitcode 2 invowk cmd rf
+! stdout 'should not run'
+stderr '(?i)required flag.*name.*not set'
 
 # Test 6: missing and extra declared arguments exit 2
 exitcode 2 invowk cmd a
@@ -119,6 +122,15 @@ cmds: [
 			{script: {content: "Write-Output 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
 		]
 		flags: [{name: "n", description: "A number", type: "int"}]
+	},
+	{
+		name: "rf"
+		description: "Rf command"
+		implementations: [
+			{script: {content: "echo 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+		flags: [{name: "name", description: "A required name", required: true}]
 	},
 	{
 		name: "a"
