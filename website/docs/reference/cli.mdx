@@ -62,7 +62,7 @@ Built-in per-command flags:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--ivk-env-file` | `-e` | Load environment variables from file (repeatable) |
-| `--ivk-env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable) |
+| `--ivk-env-var` | `-E` | Set environment variable (KEY=VALUE, repeatable); a value without `KEY=` is an error (exit `2`), while `KEY=` sets an empty value |
 | `--ivk-env-inherit-mode` |  | Inherit host environment variables: `none`, `allow`, `all` |
 | `--ivk-env-inherit-allow` |  | Allowlist host env vars to inherit; requires `--ivk-env-inherit-mode=allow` (repeatable) |
 | `--ivk-env-inherit-deny` |  | Denylist host env vars to inherit (repeatable) |
@@ -733,11 +733,41 @@ Show help for any command.
 
 ## Exit Codes
 
-Invowk exits with:
+Invowk uses four exit-code classes:
 
-- `0` on success
-- `1` on CLI or runtime errors
-- The wrapped command's exit code when a command or `tui spin` fails
+| Code | Meaning |
+|------|---------|
+| `0` | The invocation succeeded. A bare command group (for example `invowk module` or `invowk cmd test`) prints its help and exits `0`. |
+| `N` | A user-defined command ran and exited with its own non-zero status `N`, forwarded unchanged for every runtime. |
+| `2` | Invowk rejected the command line before running any user command code. |
+| `1` | Invowk itself failed for any other reason. |
+
+Exit status `2` covers:
+
+- an unknown flag, a flag value that does not parse, or a flag without its required value, at any level;
+- an unknown command, including a typo under a command group (`invowk cmd test nonexistent`, `invowk config bogus`); the group's subcommands are listed on stderr and nothing is written to stdout;
+- an argument-count error on a built-in command (`invowk init a b c`);
+- a command name under `invowk cmd` that is not found or is ambiguous across sources, an unknown `@source` or `--ivk-from` source, and a source filter without a command name;
+- declared arguments or flags that fail validation;
+- an invalid reserved `--ivk-*` flag value, such as an unknown `--ivk-runtime` or a runtime the command does not allow, an unknown `--ivk-env-inherit-mode`, an invalid `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny` name, a whitespace-only `--ivk-workdir`, an empty `--ivk-env-file`, an invalid `--ivk-container-name`, or an `--ivk-env-var` value without `KEY=`;
+- an `invowk agent` error detected from the command line alone, such as an invalid name, mutually exclusive flags, a missing description, an invalid `--llm-*` value, or an unknown prompt format or operation.
+
+Exit status `1` covers everything else: config errors that abort the command, including a config file named by `--ivk-config` or `INVOWK_CONFIG` that is missing or invalid; discovery errors; invalid invowkfiles or command trees; unsatisfied `depends_on` checks; an unsupported host platform; an unavailable container engine or runtime; timeouts and cancellations; and `invowk agent` failures that need files, the config or an LLM.
+
+Per-command exceptions:
+
+| Command | Codes |
+|---------|-------|
+| `invowk audit` | `0` clean, `1` findings detected, `2` scan or configuration error; command-line rejections also exit `2` |
+| `invowk tui confirm` | `1` when the user declines |
+| `invowk tui spin` | the wrapped command's exit code |
+| `invowk validate` | `1` when validation finds errors |
+
+:::note
+A user command can exit with `1` or `2` itself, and a nested `invowk` call inside a script can propagate its own usage error. A wrapper that must tell these cases apart reads stderr. The contract is only exact for commands whose scripts avoid codes `1` and `2`.
+
+Container-engine and OCI-runtime failures (exit codes `125` and `126`) are retried as transient. After the retries run out, the code is forwarded as if it were the command's own.
+:::
 
 ## Error Messages
 

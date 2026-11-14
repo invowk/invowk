@@ -209,7 +209,7 @@ func TestVirtualNativeCommandPathAlignment(t *testing.T) {
 
 // extractCommandPaths reads the script section of a txtar file (lines before the
 // first "-- filename --" marker) and returns the sorted, deduplicated set of
-// invowk command paths found in exec lines.
+// invowk command paths found in exec and exitcode lines.
 func extractCommandPaths(t *testing.T, filePath string) []string {
 	t.Helper()
 
@@ -219,7 +219,7 @@ func extractCommandPaths(t *testing.T, filePath string) []string {
 	}
 	defer func() { _ = f.Close() }() // Read-only file; close error non-critical.
 
-	execRe := regexp.MustCompile(`^!?\s*exec\s+invowk\s+(.+)`)
+	execRe := regexp.MustCompile(`^(?:!?\s*exec|exitcode\s+\d+)\s+invowk\s+(.+)`)
 	sectionRe := regexp.MustCompile(`^-- .+ --$`)
 
 	seen := make(map[string]bool)

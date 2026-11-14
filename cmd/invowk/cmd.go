@@ -97,6 +97,9 @@ Examples:
   invowk cmd @invowkfile deploy             Run 'deploy' from invowkfile
   invowk cmd @foo deploy                  Run 'deploy' from foo.invowkmod
   invowk cmd --ivk-from invowkfile deploy  Same using --ivk-from flag`,
+		// Explicit: `invowk cmd` resolves its positionals itself in RunE, so the
+		// group guard from installUsageGuards must not reject them first.
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create a single cache-equipped context for the entire RunE invocation.
 			// All callees (validateCommandTree, checkAmbiguousCommand, listCommands,
@@ -205,7 +208,7 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 // disambiguation (@source / --ivk-from) is specified and no ambiguity is detected.
 func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return errNoCommandSpecified
+		return newUsageError(errNoCommandSpecified)
 	}
 
 	// Watch mode intercepts before normal execution.

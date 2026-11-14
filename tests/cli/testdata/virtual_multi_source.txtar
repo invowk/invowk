@@ -33,6 +33,22 @@ exec invowk cmd test
 stdout 'Testing from bar!'
 ! stderr .
 
+# Test 5: a command that is also another source's group prefix stays runnable
+# (invowkfile leaf "w2", module child "w2 sub"; "m w2 sub" sorts before "w2")
+cd prefixleaf
+exec invowk cmd w2
+stdout 'w2 leaf from invowkfile!'
+! stderr .
+exec invowk cmd w2 sub
+stdout 'w2 sub from m!'
+! stderr .
+
+# Test 6: the listing keeps the pre-change content and source order
+exec invowk cmd
+stdout '(?s)From invowkfile:.*w2.*Leaf w2 from root invowkfile.*From m\.invowkmod:.*w2 sub.*Child w2 sub from m module'
+! stderr .
+cd $WORK
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -67,5 +83,28 @@ cmds: [
 		name: "test"
 		description: "Test from bar module"
 		implementations: [{script: {content: "echo 'Testing from bar!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- prefixleaf/invowkfile.cue --
+cmds: [
+	{
+		name: "w2"
+		description: "Leaf w2 from root invowkfile"
+		implementations: [{script: {content: "echo 'w2 leaf from invowkfile!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- prefixleaf/m.invowkmod/invowkmod.cue --
+module: "m"
+version: "1.0.0"
+description: "M module"
+
+-- prefixleaf/m.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "w2 sub"
+		description: "Child w2 sub from m module"
+		implementations: [{script: {content: "echo 'w2 sub from m!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]

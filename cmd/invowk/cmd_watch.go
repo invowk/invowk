@@ -56,7 +56,7 @@ func (productionWatchRunnerCreator) Create(cfg watch.Config) (WatchRunner, error
 // (e.g., Ctrl+C).
 func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return errNoCommandSpecified
+		return newUsageError(errNoCommandSpecified)
 	}
 
 	// Dry-run and watch mode are mutually exclusive: watch mode re-executes
@@ -85,7 +85,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return renderAndWrapServiceError(err, resolveReq)
 	}
 	if cmdInfo == nil {
-		return &WatchCommandNotFoundError{Name: args[0]}
+		return newUsageError(&WatchCommandNotFoundError{Name: args[0]})
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)

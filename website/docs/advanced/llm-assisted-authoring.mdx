@@ -44,3 +44,7 @@ LLM-backed create/change operations send the generated authoring system prompt a
 Invowk accepts only one generated command object for command authoring, and the generated `name` must match the requested `<name>`. Module authoring accepts only generated `invowkmod.cue` and `invowkfile.cue` content, and `invowkmod.cue` must keep the requested module ID. Invowk uses structured JSON output with compatible OpenAI API backends, retries once with validation feedback when a model returns invalid output, and rejects malformed JSON, invalid CUE, full command `cmds` arrays in `command_cue`, and arbitrary extra generated module files.
 
 Remove operations are deterministic: `agent cmd remove <name>` edits the target invowkfile without resolving an LLM provider, and `agent mod remove <module-id-or-path>` validates the exact local module and requires `--force` unless you pass `--dry-run`.
+
+## Exit Codes
+
+`invowk agent` follows the general [exit-code contract](../reference/cli#exit-codes). An error detected from the command line alone, before any file is read or any LLM is called, exits `2`: an invalid command name or module ID, mutually exclusive flags, a missing description, an invalid `--llm-provider`, `--llm-url`, `--llm-model` or `--llm-concurrency` value, or an unknown prompt format or operation. Every other failure exits `1`, including a command or module that already exists or does not exist, `agent mod remove` without `--force`, invalid LLM output, and errors that need the config file or an LLM.

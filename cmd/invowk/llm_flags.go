@@ -24,6 +24,15 @@ const (
 	llmFlagModel               = "llm-model"
 )
 
+var (
+	// auditLLMExitCodes keeps `invowk audit`'s documented status 2 for every
+	// LLM configuration error.
+	auditLLMExitCodes = llmExitCodes{usage: auditExitError, failure: auditExitError}
+
+	// agentLLMExitCodes applies the general CLI contract to `invowk agent`.
+	agentLLMExitCodes = llmExitCodes{usage: ExitCodeUsage, failure: agentExitFailure}
+)
+
 type (
 	llmFlagValues struct {
 		enable      bool
@@ -38,7 +47,21 @@ type (
 	llmCompleterResult struct {
 		completer llm.Completer
 	}
+
+	// llmExitCodes selects the exit statuses the shared LLM helpers return, so
+	// each caller keeps its own contract: usage for an invalid --llm-* flag
+	// value detected from argv alone, failure for everything else (config
+	// resolution, provider detection, model verification, client setup).
+	llmExitCodes struct {
+		usage   types.ExitCode
+		failure types.ExitCode
+	}
 )
+
+// Validate reports whether both exit codes are in the valid 0-255 range.
+func (c llmExitCodes) Validate() error {
+	return errors.Join(c.usage.Validate(), c.failure.Validate())
+}
 
 func bindLLMFlags(cmd *cobra.Command, flags *llmFlagValues) {
 	cmd.Flags().StringVar(&flags.provider, "llm-provider", "", "auto-detect or use specific provider: auto, claude, codex, gemini, ollama")
@@ -71,11 +94,12 @@ func resolveLLMForCommand(
 	configPath types.FilesystemPath,
 	flags llmFlagValues,
 	useConfiguredDefault bool,
+	codes llmExitCodes,
 ) (*llmconfig.Resolved, *ExitError) {
 	flagValues, flagErr := llmConfigFlagValues(cmd, flags)
 	if flagErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), invalidLLMConfigurationFmt, flagErr)
-		return nil, &ExitError{Code: auditExitError, Err: flagErr}
+		return nil, &ExitError{Code: codes.usage, Err: flagErr}
 	}
 	resolved, err := llmconfig.Resolve(ctx, provider, llmconfig.ResolveOptions{
 		ConfigFilePath:       optionalConfigFilePath(configPath),
@@ -90,7 +114,7 @@ func resolveLLMForCommand(
 	})
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), invalidLLMConfigurationFmt, err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+		return nil, &ExitError{Code: codes.failure, Err: err}
 	}
 	return resolved, nil
 }
@@ -137,27 +161,27 @@ func optionalConfigFilePath(path types.FilesystemPath) *types.FilesystemPath {
 	return &path
 }
 
-func buildLLMCompleter(ctx context.Context, cmd *cobra.Command, resolved *llmconfig.Resolved) (*llmCompleterResult, *ExitError) {
+func buildLLMCompleter(ctx context.Context, cmd *cobra.Command, resolved *llmconfig.Resolved, codes llmExitCodes) (*llmCompleterResult, *ExitError) {
 	if resolved == nil || resolved.Mode == llmconfig.ModeNone {
 		err := errors.New("LLM is not enabled")
 		fmt.Fprintln(cmd.ErrOrStderr(), err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+		return nil, &ExitError{Code: codes.failure, Err: err}
 	}
 
 	apiConfig := toLLMClientConfig(resolved.APIConfig)
 	if resolved.Mode == llmconfig.ModeAPI {
-		return buildManualCompleter(ctx, cmd, apiConfig)
+		return buildManualCompleter(ctx, cmd, apiConfig, codes)
 	}
 
 	if err := apiConfig.Validate(); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), invalidLLMConfigurationFmt, err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+		return nil, &ExitError{Code: codes.failure, Err: err}
 	}
 
-	return buildProviderCompleter(ctx, cmd, resolved.Provider, resolved.Model, apiConfig)
+	return buildProviderCompleter(ctx, cmd, resolved.Provider, resolved.Model, apiConfig, codes)
 }
 
-func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider config.LLMProvider, modelOverride config.LLMModelName, llmOpts auditllm.LLMClientConfig) (*llmCompleterResult, *ExitError) {
+func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider config.LLMProvider, modelOverride config.LLMModelName, llmOpts auditllm.LLMClientConfig, codes llmExitCodes) (*llmCompleterResult, *ExitError) {
 	timeout := llmOpts.Timeout
 	if timeout == 0 {
 		timeout = auditllm.DefaultLLMTimeout
@@ -166,13 +190,13 @@ func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider co
 	result, err := auditllm.DetectProvider(ctx, provider.String(), modelOverride.String(), timeout)
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+		return nil, &ExitError{Code: codes.failure, Err: err}
 	}
 
 	if verifier, ok := result.Completer().(auditllm.ModelVerifier); ok {
 		if verifyErr := verifier.VerifyModel(ctx); verifyErr != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", verifyErr)
-			return nil, &ExitError{Code: auditExitError, Err: verifyErr}
+			return nil, &ExitError{Code: codes.failure, Err: verifyErr}
 		}
 	}
 
@@ -185,16 +209,16 @@ func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider co
 	return &llmCompleterResult{completer: result.Completer()}, nil
 }
 
-func buildManualCompleter(ctx context.Context, cmd *cobra.Command, llmOpts auditllm.LLMClientConfig) (*llmCompleterResult, *ExitError) {
+func buildManualCompleter(ctx context.Context, cmd *cobra.Command, llmOpts auditllm.LLMClientConfig, codes llmExitCodes) (*llmCompleterResult, *ExitError) {
 	llmClient, llmErr := auditllm.NewLLMClient(llmOpts)
 	if llmErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "LLM configuration error: %v\n", llmErr)
-		return nil, &ExitError{Code: auditExitError, Err: llmErr}
+		return nil, &ExitError{Code: codes.failure, Err: llmErr}
 	}
 
 	if verifyErr := llmClient.VerifyModel(ctx); verifyErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", verifyErr)
-		return nil, &ExitError{Code: auditExitError, Err: verifyErr}
+		return nil, &ExitError{Code: codes.failure, Err: verifyErr}
 	}
 
 	return &llmCompleterResult{completer: llmClient}, nil

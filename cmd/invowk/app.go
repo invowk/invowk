@@ -268,7 +268,10 @@ func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagno
 
 // renderAndWrapServiceError inspects the raw domain error from the service and
 // applies CLI rendering to produce a styled ServiceError. The error type
-// determines the issue catalog ID and rendering function.
+// determines the issue catalog ID and rendering function. Errors caused by the
+// shape of the command line (argument and flag validation, unknown or
+// ambiguous command, unknown source, runtime not allowed) are additionally
+// wrapped in UsageError so the process exits with ExitCodeUsage.
 //
 //plint:render
 func renderAndWrapServiceError(err error, req ExecuteRequest) error {
@@ -277,11 +280,11 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 	}
 
 	if flagErr, ok := errors.AsType[*deps.FlagValidationError](err); ok {
-		return newServiceError(err, issue.InvalidArgumentId, RenderFlagValidationError(flagErr))
+		return newUsageError(newServiceError(err, issue.InvalidArgumentId, RenderFlagValidationError(flagErr)))
 	}
 
 	if argErr, ok := errors.AsType[*deps.ArgumentValidationError](err); ok {
-		return newServiceError(err, issue.InvalidArgumentId, RenderArgumentValidationError(argErr))
+		return newUsageError(newServiceError(err, issue.InvalidArgumentId, RenderArgumentValidationError(argErr)))
 	}
 
 	if ambigErr, ok := errors.AsType[*commandsvc.AmbiguousCommandError](err); ok {
@@ -289,7 +292,7 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 			CommandName: ambigErr.CommandName,
 			Sources:     ambigErr.Sources,
 		})
-		return newServiceError(ambigErr, 0, styledMsg)
+		return newUsageError(newServiceError(ambigErr, 0, styledMsg))
 	}
 
 	if sourceErr, ok := errors.AsType[*commandsvc.SourceNotFoundError](err); ok {
@@ -297,7 +300,7 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 			Source:           sourceErr.Source,
 			AvailableSources: sourceErr.AvailableSources,
 		})
-		return newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg)
+		return newUsageError(newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg))
 	}
 
 	if platformErr, ok := errors.AsType[*commandsvc.UnsupportedPlatformError](err); ok {
@@ -317,11 +320,11 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		for _, r := range notAllowed.Allowed {
 			allowed = append(allowed, string(r))
 		}
-		return newServiceError(
+		return newUsageError(newServiceError(
 			err,
 			issue.InvalidRuntimeModeId,
 			RenderRuntimeNotAllowedError(req.Name, string(req.Runtime), strings.Join(allowed, ", ")),
-		)
+		))
 	}
 
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
@@ -336,10 +339,21 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		default:
 			styledMsg = fmt.Sprintf("\n%s %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		}
-		return newServiceError(classified.Err, issueIDForServiceErrorKind(classified.Kind), styledMsg)
+		svcErr := newServiceError(classified.Err, issueIDForServiceErrorKind(classified.Kind), styledMsg)
+		if isUsageErrorKind(classified.Kind) {
+			return newUsageError(svcErr)
+		}
+		return svcErr
 	}
 
 	return err
+}
+
+// isUsageErrorKind reports whether a classified service error comes from the
+// shape of the command line (exit status ExitCodeUsage) rather than from the
+// environment or an internal failure (exit status 1).
+func isUsageErrorKind(kind commandsvc.ErrorKind) bool {
+	return kind == commandsvc.ErrorKindCommandNotFound || kind == commandsvc.ErrorKindCommandAmbiguous
 }
 
 func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {

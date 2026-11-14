@@ -45,7 +45,7 @@ Invowk SHALL exit with status 2 when Cobra or pflag rejects the command line: an
 #### Scenario: Unknown root command
 - **WHEN** the user runs `invowk bogus`
 - **THEN** invowk SHALL exit with status 2
-- **AND** stderr SHALL contain `unknown command "bogus"`
+- **AND** stderr SHALL contain `unknown command "bogus"`, matched case-insensitively
 
 #### Scenario: Built-in argument arity error
 - **WHEN** the user runs `invowk init a b c`
@@ -86,7 +86,7 @@ When a command group rejects an unmatched token, invowk SHALL write to stderr an
 
 #### Scenario: Group typo lists the subcommands
 - **WHEN** commands `test unit` and `test other` exist and the user runs `invowk cmd test nonexistent`
-- **THEN** stderr SHALL contain `unknown command "nonexistent"`
+- **THEN** stderr SHALL contain `unknown command "nonexistent"`, matched case-insensitively
 - **AND** stderr SHALL list `unit` and `other`
 
 #### Scenario: Near-miss under a discovered group gets a suggestion
@@ -113,7 +113,7 @@ When a command group is invoked with no positional tokens, invowk SHALL print th
 - **AND** invowk SHALL exit with status 0
 
 ### Requirement: Discovered groups resolve the full path before rejecting
-A discovered group node SHALL handle `--ivk-from` first, then check whether the full command path (the group prefix plus the tokens) is ambiguous across sources, and only then reject an unmatched token. An ambiguous full path SHALL render the ambiguous-command message and exit with status 2, whether or not the group prefix itself is ambiguous.
+A discovered group node SHALL handle `--ivk-from` first, then check whether the full command path (the group prefix plus the tokens) is ambiguous across sources, and only then reject an unmatched token. An ambiguous full path SHALL render the ambiguous-command message and exit with status 2, whether or not the group prefix itself is ambiguous. A node whose own name is an ambiguous command SHALL do so even with no tokens.
 
 #### Scenario: Source-filtered invocation through a group node
 - **WHEN** command `deploy prod` exists in both the invowkfile and module `m`, a unique `deploy dev` exists in the invowkfile (so group node `deploy` is registered and the ambiguous leaf is not), and the user runs `invowk cmd deploy prod --ivk-from invowkfile`
@@ -121,6 +121,11 @@ A discovered group node SHALL handle `--ivk-from` first, then check whether the 
 
 #### Scenario: Ambiguous name reached through a group node
 - **WHEN** command `deploy prod` exists in both the invowkfile and module `m`, a unique `deploy dev` exists in the invowkfile, and the user runs `invowk cmd deploy prod`
+- **THEN** invowk SHALL render the ambiguous-command message
+- **AND** invowk SHALL exit with status 2
+
+#### Scenario: Bare node whose name is an ambiguous command
+- **WHEN** command `deploy` exists in both the invowkfile and module `m`, a unique `deploy dev` exists in the invowkfile, and the user runs `invowk cmd deploy`
 - **THEN** invowk SHALL render the ambiguous-command message
 - **AND** invowk SHALL exit with status 2
 

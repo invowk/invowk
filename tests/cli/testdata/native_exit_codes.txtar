@@ -1,0 +1,217 @@
+# Test: exit-code contract for user commands (native)
+# Mirrors virtual_exit_codes.txtar with platform-split native implementations.
+# Command-line rejections exit 2, invowk failures exit 1, and a script's own
+# status is forwarded unchanged.
+
+cd $WORK
+
+# Test 1: a group typo exits 2, lists the subcommands on stderr, writes no stdout
+exitcode 2 invowk cmd test nonexistent
+! stdout .
+stderr '(?i)unknown command "nonexistent" for "invowk cmd test"'
+stderr 'unit'
+stderr 'other'
+
+# Test 2: a near-miss under a group gets a suggestion
+exitcode 2 invowk cmd test uint
+! stdout .
+stderr 'Did you mean this'
+stderr 'unit'
+
+# Test 3: a bare group shows help on stdout and exits 0
+exitcode 0 invowk cmd test
+stdout 'invowk cmd test'
+
+# Test 4: an unknown flag on a leaf exits 2
+exitcode 2 invowk cmd test unit --bogus
+! stdout .
+stderr '(?i)unknown flag: --bogus'
+
+# Test 5: a bad typed-flag value exits 2 and the script does not run
+exitcode 2 invowk cmd f --n=abc
+! stdout 'should not run'
+
+# Test 6: missing and extra declared arguments exit 2
+exitcode 2 invowk cmd a
+! stdout .
+stderr 'Missing required arguments'
+exitcode 2 invowk cmd a 1 2
+! stdout .
+
+# Test 7: command resolution errors exit 2
+exitcode 2 invowk cmd nope
+! stdout .
+stderr '(?i)command .nope. not found'
+exitcode 2 invowk cmd @bogus x
+! stdout .
+exitcode 2 invowk cmd @invowkfile
+! stdout .
+stderr '(?i)no command specified'
+exitcode 2 invowk cmd --ivk-watch nope
+! stdout .
+
+# Test 8: invalid reserved --ivk-* flag values exit 2 and the script does not run
+exitcode 2 invowk cmd --ivk-runtime bogus test unit
+! stdout .
+exitcode 2 invowk cmd --ivk-runtime virtual-sh test unit
+! stdout .
+exitcode 2 invowk cmd test unit --ivk-env-inherit-mode bogus
+! stdout .
+exitcode 2 invowk cmd test unit --ivk-env-inherit-allow 1BAD
+! stdout .
+exitcode 2 invowk cmd test unit --ivk-env-var NOEQ
+! stdout .
+stderr 'NOEQ'
+exitcode 2 invowk cmd test unit --ivk-env-var =v
+! stdout .
+
+# Test 9: an empty --ivk-env-var value is accepted
+exitcode 0 invowk cmd envshow --ivk-env-var FOO=
+stdout 'envshow ran'
+[!windows] stdout 'FOO=\[\]'
+
+# Test 10: a script's own status is forwarded unchanged, including 2
+exitcode 2 invowk cmd exit2
+stdout 'exiting 2'
+exitcode 42 invowk cmd exit42
+stdout 'exiting 42'
+
+# Test 11: an unsatisfied tool dependency exits 1
+exitcode 1 invowk cmd deps missing
+! stdout .
+stderr '(?i)dependencies not satisfied'
+
+# Test 12: an undeclared token after a leaf with children is forwarded to the leaf
+exitcode 0 invowk cmd w typo
+stdout 'first=\[typo\]'
+exitcode 0 invowk cmd w sub
+stdout 'w sub ran'
+
+# Test 13: an invalid command tree (args on a command with subcommands) exits 1
+cd badtree
+exitcode 1 invowk cmd
+stderr 'defines positional arguments but also has subcommands'
+cd $WORK
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "test unit"
+		description: "Test unit command"
+		implementations: [
+			{script: {content: "echo 'unit ran'"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'unit ran'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "test other"
+		description: "Test other command"
+		implementations: [
+			{script: {content: "echo 'other ran'"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'other ran'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "f"
+		description: "F command"
+		implementations: [
+			{script: {content: "echo 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+		flags: [{name: "n", description: "A number", type: "int"}]
+	},
+	{
+		name: "a"
+		description: "A command"
+		implementations: [
+			{script: {content: "echo \"a ran with $INVOWK_ARG_X\""}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output \"a ran with $($env:INVOWK_ARG_X)\""}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+		args: [{name: "x", description: "Required value", required: true}]
+	},
+	{
+		name: "envshow"
+		description: "Envshow command"
+		implementations: [
+			{script: {content: """
+				echo 'envshow ran'
+				echo "FOO=[$FOO]"
+				"""}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'envshow ran'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "exit2"
+		description: "Exit2 command"
+		implementations: [
+			{script: {content: """
+				echo 'exiting 2'
+				exit 2
+				"""}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: """
+				Write-Output 'exiting 2'
+				exit 2
+				"""}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "exit42"
+		description: "Exit42 command"
+		implementations: [
+			{script: {content: """
+				echo 'exiting 42'
+				exit 42
+				"""}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: """
+				Write-Output 'exiting 42'
+				exit 42
+				"""}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "deps missing"
+		description: "Deps missing command"
+		implementations: [
+			{script: {content: "echo 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'should not run'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+		depends_on: {tools: [{alternatives: ["nonexistent-tool-exit-codes-77777"]}]}
+	},
+	{
+		name: "w"
+		description: "W command"
+		implementations: [
+			{script: {content: "echo \"first=[$ARG1]\""}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output \"first=[$($env:ARG1)]\""}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name: "w sub"
+		description: "W sub command"
+		implementations: [
+			{script: {content: "echo 'w sub ran'"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output 'w sub ran'"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+]
+
+-- badtree/invowkfile.cue --
+cmds: [
+	{
+		name: "parent"
+		description: "Parent command"
+		implementations: [
+			{script: {content: "echo parent"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output parent"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+		args: [{name: "x", description: "Not allowed with subcommands"}]
+	},
+	{
+		name: "parent child"
+		description: "Parent child command"
+		implementations: [
+			{script: {content: "echo child"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {content: "Write-Output child"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+]

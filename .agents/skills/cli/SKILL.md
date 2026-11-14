@@ -282,9 +282,27 @@ type ExitError struct {
 ```
 
 **Pattern:**
-- Command `RunE` returns `ExitError` for non-zero exit codes
-- Root `Execute()` catches `ExitError` and calls `os.Exit(exitErr.Code)`
+- Command `RunE` returns `ExitError` for an explicit exit code (a forwarded user-command status, or a command such as `audit`/`agent` that already rendered its message)
+- Root `Execute()` passes the error from `fang.Execute` to `exitCodeForError` and calls `os.Exit` with the result
 - Prevents cascading error messages while maintaining proper exit codes
+
+### Exit-Code Contract and `UsageError`
+
+The contract (documented in `website/docs/reference/cli.mdx` "Exit Codes" and the README) is `0` success, `N` a user command's own status, `2` a rejected command line, `1` any other invowk failure. Per-command exceptions: `audit` (0/1/2), `tui confirm`, `tui spin`, `validate`.
+
+`cmd/invowk/usage_error.go` owns the mechanism:
+- `UsageError{Err}` marks a command-line rejection. `Error()` returns the wrapped text unchanged, so messages and fang's "Try --help" hint stay the same; `Unwrap()` keeps `errors.Is/As` working (for example `errors.AsType[*ServiceError]`).
+- `newUsageError(err)` returns nil for nil and returns `err` unchanged when it already carries an `*ExitError`, so an explicit code always wins. Never build `&UsageError{}` directly.
+- `exitCodeForError(err)` is the pure mapping: nil → 0, `*ExitError` → its `Code`, `*UsageError` → `ExitCodeUsage` (2), anything else → 1.
+- `installUsageGuards(root)` runs once at the end of `NewRootCommand`: it sets a `FlagErrorFunc` (pflag errors → usage), a root `Args` validator with Cobra's unknown-command message and suggestions, a group guard (`rejectUnmatchedGroupToken`) on every parent with `Args == nil` (plus `RunE: help` when it is not runnable), and wraps every explicit `Args` validator.
+- `rejectUnmatchedGroupToken` writes the group's visible subcommands to stderr (nothing to stdout) and returns the unknown-command `UsageError`. A bare group still prints help and exits 0.
+
+Rules:
+- **A parent command that accepts positionals MUST declare `Args` explicitly** (for example `cobra.ArbitraryArgs` on `invowk cmd` and on discovered group nodes); otherwise the group guard rejects its tokens before `RunE` runs.
+- Classify at the CLI adapter, not in domain packages: `renderAndWrapServiceError` wraps argument/flag validation, ambiguous or unknown command, unknown source and runtime-not-allowed errors; `buildCommandExecuteRequest` wraps invalid reserved `--ivk-*` values.
+- Environment and internal failures (dependencies, platform, engine, timeouts, `InvalidRequestError`, config files) stay at 1.
+- `agent` and `audit` keep explicit `ExitError` codes. The shared LLM helpers in `llm_flags.go` take an `llmExitCodes{usage, failure}` value (`auditLLMExitCodes`, `agentLLMExitCodes`).
+- In testscript, assert exact codes with the custom `exitcode <want> <cmd> <args...>` command (`tests/cli/exitcode_test.go`); `! exec` accepts any non-zero status.
 
 ### Dual-Channel Error Output
 

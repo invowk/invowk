@@ -2777,6 +2777,21 @@ cmds: [{
 }]
 ```
 
+## Exit Codes
+
+Invowk uses four exit-code classes, so wrappers, CI jobs and service managers can tell the outcomes apart:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success. A bare command group (`invowk module`, `invowk cmd test`) prints its help and exits `0`. |
+| `N` | A user command ran and exited with its own non-zero status `N`, forwarded unchanged for every runtime. |
+| `2` | Invowk rejected the command line before running any user command code: an unknown flag or command (including a typo under a command group, whose subcommands are listed on stderr), a bad flag value or argument count, an unknown or ambiguous command name or source, failed declared-argument or flag validation, an invalid reserved `--ivk-*` value (for example `--ivk-env-var` without `KEY=`), or an `invowk agent` error detected from the command line alone. |
+| `1` | Invowk itself failed for any other reason, including a missing or invalid config file named by `--ivk-config` or `INVOWK_CONFIG`, discovery and invowkfile errors, unsatisfied `depends_on` checks, an unavailable container engine, timeouts, and `invowk agent` failures that need files, the config or an LLM. |
+
+Per-command exceptions: `invowk audit` exits `0` clean, `1` for findings and `2` for scan, configuration or command-line errors ([details](#exit-codes-1)); `invowk tui confirm` exits `1` when the user declines; `invowk tui spin` exits with the wrapped command's code; `invowk validate` exits `1` when validation finds errors.
+
+A user command can also exit with `1` or `2` itself, so a wrapper that must tell these cases apart reads stderr. Container-engine codes `125` and `126` are retried as transient and then forwarded as the command's own code.
+
 ## Interactive TUI Components
 
 invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). These can be used in shell scripts to create interactive prompts, selections, and styled output.
@@ -3058,7 +3073,9 @@ invowk audit --severity high
 |------|---------|
 | `0` | No confirmed findings at or above the severity threshold, including reports with only suppressed findings |
 | `1` | Confirmed findings detected at or above the severity threshold |
-| `2` | Scan error (e.g., path not found, parse failure) |
+| `2` | Scan or configuration error (e.g., path not found, parse failure), or a rejected command line (e.g., an unknown flag or too many arguments) |
+
+These codes are `audit`'s exception to the general [exit-code contract](#exit-codes).
 
 ### What Gets Scanned
 

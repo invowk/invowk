@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"maps"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
@@ -14,6 +16,8 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+
+	"github.com/spf13/cobra"
 )
 
 type fakeAmbiguityCommandService struct {
@@ -104,25 +108,27 @@ func newTestHostAccess(t testing.TB) *commandadapters.HostAccess {
 }
 
 // TestParseEnvVarFlags verifies parsing of KEY=VALUE strings into a map,
-// including edge cases like empty values, values containing '=', and
-// malformed entries that should be skipped.
+// including edge cases like empty values and values containing '=', and that
+// malformed entries (no '=' or an empty KEY) are rejected with an error
+// naming the value instead of being skipped.
 func TestParseEnvVarFlags(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input []string
-		want  map[string]string
+		name    string
+		input   []string
+		want    map[string]string
+		wantErr string
 	}{
 		{
-			name:  "nil input returns nil",
+			name:  "nil input returns an empty map",
 			input: nil,
-			want:  nil,
+			want:  map[string]string{},
 		},
 		{
-			name:  "empty slice returns nil",
+			name:  "empty slice returns an empty map",
 			input: []string{},
-			want:  nil,
+			want:  map[string]string{},
 		},
 		{
 			name:  "single valid entry",
@@ -135,7 +141,7 @@ func TestParseEnvVarFlags(t *testing.T) {
 			want:  map[string]string{"FOO": "bar", "BAZ": "qux"},
 		},
 		{
-			name:  "empty value after equals",
+			name:  "empty value after equals is valid",
 			input: []string{"FOO="},
 			want:  map[string]string{"FOO": ""},
 		},
@@ -145,24 +151,24 @@ func TestParseEnvVarFlags(t *testing.T) {
 			want:  map[string]string{"FOO": "bar=baz"},
 		},
 		{
-			name:  "missing equals skipped",
-			input: []string{"INVALID"},
-			want:  nil,
+			name:    "missing equals is an error",
+			input:   []string{"INVALID"},
+			wantErr: `invalid --ivk-env-var value "INVALID": expected KEY=VALUE`,
 		},
 		{
-			name:  "equals at start skipped",
-			input: []string{"=value"},
-			want:  nil,
+			name:    "equals at start is an error",
+			input:   []string{"=value"},
+			wantErr: `invalid --ivk-env-var value "=value"`,
 		},
 		{
-			name:  "mix of valid and invalid",
-			input: []string{"GOOD=val", "BAD", "ALSO_GOOD="},
-			want:  map[string]string{"GOOD": "val", "ALSO_GOOD": ""},
+			name:    "empty entry is an error",
+			input:   []string{""},
+			wantErr: `invalid --ivk-env-var value ""`,
 		},
 		{
-			name:  "all invalid returns nil",
-			input: []string{"NO_EQUALS", "=leading", ""},
-			want:  nil,
+			name:    "first invalid entry among valid ones is reported",
+			input:   []string{"GOOD=val", "BAD", "ALSO_GOOD="},
+			wantErr: `"BAD"`,
 		},
 	}
 
@@ -170,32 +176,96 @@ func TestParseEnvVarFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := parseEnvVarFlags(tt.input)
-
-			if tt.want == nil {
+			got, err := parseEnvVarFlags(tt.input)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("parseEnvVarFlags() = %v, want error containing %q", got, tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("parseEnvVarFlags() error = %q, want it to contain %q", err, tt.wantErr)
+				}
 				if got != nil {
-					t.Fatalf("parseEnvVarFlags() = %v, want nil", got)
+					t.Fatalf("parseEnvVarFlags() = %v on error, want nil", got)
 				}
 				return
 			}
-
-			if got == nil {
-				t.Fatalf("parseEnvVarFlags() = nil, want %v", tt.want)
+			if err != nil {
+				t.Fatalf("parseEnvVarFlags() error = %v", err)
 			}
 
-			if len(got) != len(tt.want) {
-				t.Fatalf("parseEnvVarFlags() has %d entries, want %d", len(got), len(tt.want))
+			if !maps.Equal(got, tt.want) {
+				t.Fatalf("parseEnvVarFlags() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
 
-			for k, wantV := range tt.want {
-				gotV, exists := got[k]
-				if !exists {
-					t.Errorf("missing key %q", k)
-					continue
+// newReservedFlagTestCommand returns a Cobra command carrying the reserved
+// --ivk-* leaf flags that buildCommandExecuteRequest reads, parsed from args.
+func newReservedFlagTestCommand(t *testing.T, args ...string) *cobra.Command {
+	t.Helper()
+	cmd := &cobra.Command{Use: "leaf"}
+	cmd.Flags().StringArray("ivk-env-file", nil, "")
+	cmd.Flags().StringArray("ivk-env-var", nil, "")
+	cmd.Flags().String("ivk-env-inherit-mode", "", "")
+	cmd.Flags().StringArray("ivk-env-inherit-allow", nil, "")
+	cmd.Flags().StringArray("ivk-env-inherit-deny", nil, "")
+	cmd.Flags().String("ivk-workdir", "", "")
+	if err := cmd.ParseFlags(args); err != nil {
+		t.Fatalf("ParseFlags(%v) error = %v", args, err)
+	}
+	return cmd
+}
+
+// TestBuildCommandExecuteRequestReservedFlagErrors verifies that every invalid
+// reserved --ivk-* flag value is rejected before the request is built and maps
+// to the usage exit status, while valid values (including KEY=) are accepted.
+func TestBuildCommandExecuteRequestReservedFlagErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		args          []string
+		runtime       string
+		containerName string
+		wantErr       string
+	}{
+		{name: "valid values", args: []string{"--ivk-env-var", "FOO=", "--ivk-workdir", "sub", "--ivk-env-inherit-allow", "HOME"}},
+		{name: "unknown runtime mode", runtime: "bogus", wantErr: "bogus"},
+		{name: "unknown env inherit mode", args: []string{"--ivk-env-inherit-mode", "bogus"}, wantErr: "bogus"},
+		{name: "env var without equals", args: []string{"--ivk-env-var", "NOEQ"}, wantErr: `invalid --ivk-env-var value "NOEQ"`},
+		{name: "env var with empty name", args: []string{"--ivk-env-var", "=v"}, wantErr: `invalid --ivk-env-var value "=v"`},
+		{name: "whitespace workdir", args: []string{"--ivk-workdir", " "}, wantErr: "invalid workdir"},
+		{name: "empty env file", args: []string{"--ivk-env-file="}, wantErr: "dotenv file path"},
+		{name: "invalid allowlist name", args: []string{"--ivk-env-inherit-allow", "1BAD"}, wantErr: "1BAD"},
+		{name: "invalid denylist name", args: []string{"--ivk-env-inherit-deny", "1BAD"}, wantErr: "1BAD"},
+		{name: "invalid container name", containerName: "../x", wantErr: "../x"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := newReservedFlagTestCommand(t, tt.args...)
+			cmdFlags := &cmdFlagValues{runtimeOverride: tt.runtime, containerName: tt.containerName}
+			req, err := buildCommandExecuteRequest(cmd, &rootFlagValues{}, cmdFlags, executeRequestOptions{Name: "leaf"})
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("buildCommandExecuteRequest() error = %v", err)
 				}
-				if gotV != wantV {
-					t.Errorf("key %q = %q, want %q", k, gotV, wantV)
+				if value, ok := req.EnvVars["FOO"]; !ok || value != "" {
+					t.Fatalf("EnvVars = %v, want FOO set to the empty string", req.EnvVars)
 				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("buildCommandExecuteRequest() succeeded, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tt.wantErr)) {
+				t.Fatalf("error = %q, want it to contain %q", err, tt.wantErr)
+			}
+			if got := exitCodeForError(err); got != ExitCodeUsage {
+				t.Fatalf("exitCodeForError(%v) = %d, want %d", err, got, ExitCodeUsage)
 			}
 		})
 	}

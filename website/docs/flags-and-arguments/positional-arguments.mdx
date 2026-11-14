@@ -165,6 +165,8 @@ Choose one approach:
 - **Arguments**: For leaf commands with direct inputs
 - **Subcommands**: For complex command hierarchies where users select an action
 
+A token that does not match a subcommand of a command group (for example `invowk cmd test nonexistent` when only `test unit` and `test other` exist) is rejected with exit status `2`, and the group's subcommands are listed on stderr. A leaf command that declares no `args` still receives extra tokens as positional parameters, even when it also has subcommands: `invowk cmd w typo` runs `w` with `typo` as `$1`.
+
 ## Best Practices
 
 1. **Required args first**: Follow ordering rules

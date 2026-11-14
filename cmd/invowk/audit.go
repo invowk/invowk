@@ -244,6 +244,7 @@ Exit codes:
 					types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
 					llmFlags,
 					false,
+					auditLLMExitCodes,
 				)
 				if llmErr != nil {
 					return llmErr
@@ -295,7 +296,7 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 	}
 
 	if opts.llm != nil && opts.llm.Mode != llmconfig.ModeNone {
-		result, completerErr := buildLLMCompleter(ctx, cmd, opts.llm)
+		result, completerErr := buildLLMCompleter(ctx, cmd, opts.llm, auditLLMExitCodes)
 		if completerErr != nil {
 			return completerErr
 		}

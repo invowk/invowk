@@ -62,7 +62,7 @@ Flags embutidas por comando:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--ivk-env-file` | `-e` | Carregar variáveis de ambiente de arquivo (repetível) |
-| `--ivk-env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível) |
+| `--ivk-env-var` | `-E` | Definir variável de ambiente (KEY=VALUE, repetível); um valor sem `KEY=` é um erro (saída `2`), enquanto `KEY=` define um valor vazio |
 | `--ivk-env-inherit-mode` |  | Herdar variáveis do host: `none`, `allow`, `all` |
 | `--ivk-env-inherit-allow` |  | Allowlist de variáveis do host; exige `--ivk-env-inherit-mode=allow` (repetível) |
 | `--ivk-env-inherit-deny` |  | Denylist de variáveis do host (repetível) |
@@ -733,11 +733,41 @@ Mostrar ajuda para qualquer comando.
 
 ## Exit Codes
 
-Invowk termina com:
+O Invowk usa quatro classes de código de saída:
 
-- `0` em sucesso
-- `1` em erros de CLI ou runtime
-- O código de saída do comando executado quando um comando ou `tui spin` falha
+| Código | Significado |
+|--------|-------------|
+| `0` | A invocação teve sucesso. Um grupo de comandos sem argumentos (por exemplo `invowk module` ou `invowk cmd test`) mostra sua ajuda e sai com `0`. |
+| `N` | Um comando definido pelo usuário executou e saiu com seu próprio status `N` diferente de zero, repassado sem alteração em todos os runtimes. |
+| `2` | O Invowk rejeitou a linha de comando antes de executar qualquer código do comando do usuário. |
+| `1` | O próprio Invowk falhou por qualquer outro motivo. |
+
+O status `2` cobre:
+
+- uma flag desconhecida, um valor de flag que não pode ser interpretado ou uma flag sem o valor exigido, em qualquer nível;
+- um comando desconhecido, incluindo um erro de digitação sob um grupo de comandos (`invowk cmd test nonexistent`, `invowk config bogus`); os subcomandos do grupo são listados no stderr e nada é escrito no stdout;
+- um erro de quantidade de argumentos em um comando embutido (`invowk init a b c`);
+- um nome de comando sob `invowk cmd` não encontrado ou ambíguo entre fontes, uma fonte `@source` ou `--ivk-from` desconhecida e um filtro de fonte sem nome de comando;
+- argumentos ou flags declarados que falham na validação;
+- um valor inválido de uma flag reservada `--ivk-*`, como um `--ivk-runtime` desconhecido ou um runtime não permitido pelo comando, um `--ivk-env-inherit-mode` desconhecido, um nome inválido em `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny`, um `--ivk-workdir` só com espaços, um `--ivk-env-file` vazio, um `--ivk-container-name` inválido ou um valor de `--ivk-env-var` sem `KEY=`;
+- um erro de `invowk agent` detectado apenas pela linha de comando, como um nome inválido, flags mutuamente exclusivas, uma descrição ausente, um valor `--llm-*` inválido ou um formato ou operação de prompt desconhecido.
+
+O status `1` cobre todo o resto: erros de configuração que abortam o comando, incluindo um arquivo de configuração indicado por `--ivk-config` ou `INVOWK_CONFIG` ausente ou inválido; erros de descoberta; invowkfiles ou árvores de comandos inválidas; verificações de `depends_on` não satisfeitas; uma plataforma de host não suportada; um engine de contêiner ou runtime indisponível; timeouts e cancelamentos; e falhas de `invowk agent` que dependem de arquivos, da configuração ou de um LLM.
+
+Exceções por comando:
+
+| Comando | Códigos |
+|---------|---------|
+| `invowk audit` | `0` limpo, `1` achados detectados, `2` erro de scan ou de configuração; rejeições da linha de comando também saem com `2` |
+| `invowk tui confirm` | `1` quando o usuário recusa |
+| `invowk tui spin` | o código de saída do comando executado |
+| `invowk validate` | `1` quando a validação encontra erros |
+
+:::note
+Um comando do usuário pode sair com `1` ou `2` por conta própria, e uma chamada `invowk` aninhada em um script pode propagar seu próprio erro de uso. Um wrapper que precisa distinguir esses casos lê o stderr. O contrato só é exato para comandos cujos scripts evitam os códigos `1` e `2`.
+
+Falhas do engine de contêiner ou do runtime OCI (códigos `125` e `126`) são repetidas como transitórias. Quando as tentativas se esgotam, o código é repassado como se fosse do próprio comando.
+:::
 
 ## Mensagens de Erro
 

@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -56,27 +56,19 @@ func (opts executeRequestOptions) Validate() error {
 }
 
 // parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
-// Malformed entries (missing '=') are logged as warnings and skipped.
-func parseEnvVarFlags(envVarFlags []string) map[string]string {
-	if len(envVarFlags) == 0 {
-		return nil
-	}
-
+// An entry without '=' or with an empty KEY (`NOEQ`, `=v`) is rejected; an
+// empty VALUE (`KEY=`) is valid and sets the variable to the empty string.
+func parseEnvVarFlags(envVarFlags []string) (map[string]string, error) {
 	result := make(map[string]string, len(envVarFlags))
 	for _, kv := range envVarFlags {
-		idx := strings.Index(kv, "=")
-		if idx > 0 {
-			result[kv[:idx]] = kv[idx+1:]
-		} else {
-			slog.Warn("ignoring malformed --ivk-env-var value (expected KEY=VALUE format)", "value", kv)
+		key, value, found := strings.Cut(kv, "=")
+		if !found || key == "" {
+			return nil, fmt.Errorf("invalid --ivk-env-var value %q: expected KEY=VALUE", kv)
 		}
+		result[key] = value
 	}
 
-	if len(result) == 0 {
-		return nil
-	}
-
-	return result
+	return result, nil
 }
 
 // toEnvVarNames converts a CLI string slice (from Cobra flags) to typed EnvVarName values.
@@ -110,20 +102,28 @@ func buildCommandExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, c
 		return ExecuteRequest{}, err
 	}
 
+	// Invalid reserved --ivk-* flag values are command-line rejections.
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
 	if err != nil {
-		return ExecuteRequest{}, err
+		return ExecuteRequest{}, newUsageError(err)
 	}
 
 	envInheritMode, err := invowkfile.ParseEnvInheritMode(stringFlagValue(cmd, "ivk-env-inherit-mode"))
 	if err != nil {
-		return ExecuteRequest{}, err
+		return ExecuteRequest{}, newUsageError(err)
+	}
+
+	var envVars map[string]string
+	if rawEnvVars := stringArrayFlagValue(cmd, "ivk-env-var"); len(rawEnvVars) > 0 {
+		envVars, err = parseEnvVarFlags(rawEnvVars)
+		if err != nil {
+			return ExecuteRequest{}, newUsageError(err)
+		}
 	}
 
 	verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
-	envVarFlags := stringArrayFlagValue(cmd, "ivk-env-var")
 	//goplint:ignore -- raw CLI values cross into typed request fields and are validated by the command service boundary.
-	return ExecuteRequest{
+	req := ExecuteRequest{
 		Name:            opts.Name,
 		Args:            opts.Args,
 		Runtime:         parsedRuntime,
@@ -136,7 +136,7 @@ func buildCommandExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, c
 		ContainerName:   invowkfile.ContainerName(cmdFlags.containerName),
 		Workdir:         invowkfile.WorkDir(stringFlagValue(cmd, "ivk-workdir")),
 		EnvFiles:        toDotenvFilePaths(stringArrayFlagValue(cmd, "ivk-env-file")),
-		EnvVars:         parseEnvVarFlags(envVarFlags),
+		EnvVars:         envVars,
 		ConfigPath:      types.FilesystemPath(rootFlags.configPath),
 		FlagValues:      flagValuesFromCobra(cmd, opts.FlagDefs),
 		FlagDefs:        opts.FlagDefs,
@@ -146,7 +146,40 @@ func buildCommandExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, c
 		EnvInheritDeny:  toEnvVarNames(stringArrayFlagValue(cmd, "ivk-env-inherit-deny")),
 		DryRun:          cmdFlags.dryRun,
 		ResolvedCommand: opts.ResolvedCommand,
-	}, nil
+	}
+	if err := validateReservedFlagValues(req); err != nil {
+		return ExecuteRequest{}, newUsageError(err)
+	}
+	return req, nil
+}
+
+// validateReservedFlagValues applies the syntactic Validate() checks of the
+// typed reserved-flag values (--ivk-container-name, --ivk-workdir,
+// --ivk-env-file, --ivk-env-inherit-allow, --ivk-env-inherit-deny) before the
+// request reaches the command service, so an invalid value is reported as a
+// command-line rejection. It returns the first failure.
+func validateReservedFlagValues(req ExecuteRequest) error {
+	if req.ContainerName != "" {
+		if err := req.ContainerName.Validate(); err != nil {
+			return err
+		}
+	}
+	if req.Workdir != "" {
+		if err := req.Workdir.Validate(); err != nil {
+			return err
+		}
+	}
+	for _, path := range req.EnvFiles {
+		if err := path.Validate(); err != nil {
+			return err
+		}
+	}
+	for _, name := range slices.Concat(req.EnvInheritAllow, req.EnvInheritDeny) {
+		if err := name.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //goplint:ignore -- command flag values are free-form Cobra strings keyed by typed flag names.
@@ -209,13 +242,23 @@ func stringFlagValue(cmd *cobra.Command, name string) string {
 	return value
 }
 
+// stringArrayFlagValue returns the raw values of a repeatable string flag.
+// It reads the flag's slice directly instead of GetStringArray, whose CSV
+// round-trip drops a single empty value (`--ivk-env-file=`), so that empty
+// values reach validation instead of being silently ignored.
+//
 //goplint:ignore -- Cobra flag lookup uses string flag identifiers and returns raw flag text.
 func stringArrayFlagValue(cmd *cobra.Command, name string) []string {
-	value, err := cmd.Flags().GetStringArray(name)
-	if err != nil {
+	flag := cmd.Flags().Lookup(name)
+	if flag == nil || flag.Value.Type() != "stringArray" {
 		return nil
 	}
-	return value
+	// pflag's SliceValue interface (GetSlice) exposes the raw values.
+	sliceValue, ok := flag.Value.(interface{ GetSlice() []string })
+	if !ok {
+		return nil
+	}
+	return sliceValue.GetSlice()
 }
 
 // runDisambiguatedCommand executes a command from a specific source.
@@ -231,7 +274,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	cmd.SetContext(ctx)
 
 	if len(args) == 0 {
-		return errNoCommandSpecified
+		return newUsageError(errNoCommandSpecified)
 	}
 
 	if !cmdFlags.watch {

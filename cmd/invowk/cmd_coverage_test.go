@@ -358,14 +358,15 @@ func walkCobraTree(cmd *cobra.Command, prefix string, commands map[string]bool, 
 }
 
 // scanTxtarCoverage reads all .txtar files in testdataDir and extracts
-// invowk command paths from `exec invowk ...` and `! exec invowk ...` lines.
+// invowk command paths from `exec invowk ...`, `! exec invowk ...` and
+// `exitcode <n> invowk ...` lines.
 // Returns a set of covered canonical command paths.
 func scanTxtarCoverage(t *testing.T, testdataDir string, knownCommands map[string]bool, aliasMap map[string]string) map[string]bool {
 	t.Helper()
 	covered := make(map[string]bool)
 
-	// Match both `exec invowk ...` and `! exec invowk ...`
-	execRe := regexp.MustCompile(`^!?\s*exec\s+invowk\s+(.+)`)
+	// Match `exec invowk ...`, `! exec invowk ...` and `exitcode <n> invowk ...`.
+	execRe := regexp.MustCompile(`^(?:!?\s*exec|exitcode\s+\d+)\s+invowk\s+(.+)`)
 
 	entries, err := os.ReadDir(testdataDir)
 	if err != nil {

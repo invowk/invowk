@@ -168,6 +168,7 @@ func TestContainerCLI(t *testing.T) { //nolint:tparallel // subtests are intenti
 				Files:           []string{testFile},
 				Setup:           containerSetup,
 				Condition:       commonCondition,
+				Cmds:            testscriptCmds(),
 				ContinueOnError: false,
 				Deadline:        deadline,
 			})
