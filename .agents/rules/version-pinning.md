@@ -14,6 +14,8 @@ paths:
   - ".pre-commit-config.yaml"
   - ".goreleaser.yaml"
   - "website/package.json"
+  - "openspec/config.yaml"
+  - ".agents/skills/openspec-*/**"
 ---
 
 # Version Pinning
@@ -91,6 +93,10 @@ build configuration. The exceptions below are deliberate. User-facing install in
 
 ### GoReleaser
 - Pin via semver range in the goreleaser-action `version` input (current track: `~> v2.16`).
+
+### OpenSpec CLI
+- `@fission-ai/openspec` is a local developer tool (no CI use). Current version: `2.0.0`, recorded as `generatedBy` in `.agents/skills/openspec-*/SKILL.md`.
+- Upgrade with `npm install -g @fission-ai/openspec@X.Y.Z`, then `openspec update --dry-run` and `openspec update` in the repo, and commit the regenerated skills and `.agents/skills/.openspec-target`. Never hand-edit `openspec-*` skills: `openspec update` overwrites them. Customise through `openspec/config.yaml`.
 
 ### npm Dependencies (website)
 - Pinned via `package-lock.json`. Core Docusaurus packages use exact versions; others may use caret/tilde ranges (the lockfile provides determinism).
