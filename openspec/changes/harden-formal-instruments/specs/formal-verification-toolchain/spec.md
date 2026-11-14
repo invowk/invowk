@@ -1,66 +1,92 @@
 ## ADDED Requirements
 
 ### Requirement: Bindings reach the functions they bind
-For every bound correspondence row, each of the row's killer tests SHALL execute at least one statement inside the line range of the function the row names. A killer test is a binding test after trace harnesses and characterisation tests are excluded.
+For every bound correspondence row, each of the row's killer tests SHALL execute at least one statement inside the line range of the function the row names. A killer test is a binding test that is neither a trace harness nor a characterisation test.
 
-`scripts/formal_mutation.py reach` (`make formal-reach`) SHALL check this as follows:
-- it derives the rows, functions, line ranges, killers, and packages from the same plan `scripts/formal_mutation.py plan` builds, and keeps every fail-closed condition of the plan;
-- it runs each killer alone with `go test -count=1 -json -covermode=set -coverpkg=<the packages of the functions it kills> -coverprofile=…`;
-- it pins `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME` as the mutation profiles do.
-
-The plan SHALL record each row's own killers, so that a killer of one row never satisfies another row of the same function.
-
-Rows the plan reports as unbound (`no-symbol`, `no-binding`, `type-symbol`, `trace-only`, `characterisation-only`) SHALL be listed in the report and SHALL NOT be gated.
+Rows the plan reports as unbound (`no-symbol`, `no-binding`, `type-symbol`, `trace-only`, `characterisation-only`) SHALL be listed with their reason and abstraction cell, and SHALL NOT be gated.
 
 #### Scenario: A binding never calls its function
 - **WHEN** a killer's coverage profile has no block with a non-zero count inside the named function's line range
 - **THEN** the gate SHALL fail and name the model, the row element, the symbol, the file, the killer, and the covered and total statement counts
 
-#### Scenario: Reach is checked per row
-- **WHEN** two rows name the same function, and only the first row's killer reaches it
-- **THEN** the gate SHALL fail for the second row
+#### Scenario: Unbound rows are exempt and reported
+- **WHEN** a row has only trace-harness or characterisation bindings, or no binding, or names a type
+- **THEN** the gate SHALL list the row with its plan reason and abstraction cell, and SHALL NOT fail because of it
 
-#### Scenario: Missing or unusable evidence fails closed
+#### Scenario: Calibration on the pre-change tree
+- **WHEN** the gate runs on the tree before this change rebinds any row
+- **THEN** it SHALL fail and name exactly these eight (row, killer) pairs:
+  - `validateDestinationPath`, `LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`, and `Invowkfile.GetEffectiveWorkDir`, each under `TestModulePathContainment_GoldenVectors`;
+  - `newVirtualPathResolverForFilesystem`, `standardVirtualAnchorsForOS`, and `VirtualFilesystemConfig.EffectiveAccess`, each under `TestVirtualPathHarness_GoldenVectors`;
+  - `Server.ValidateToken` under `TestHostCallbackToken_LifecycleMatchesModel`
+- **THEN** the result SHALL be recorded in the `[reach]` calibration text of `formal/manifest.toml`
+
+#### Scenario: The gate passes after the rows are resolved
+- **WHEN** this change has rebound six of the eight rows and unbound the other two
+- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list the `Auth` and `unpackRejectsEscape` rows as `no-binding`
+
+### Requirement: Reach gate command
+`scripts/formal_mutation.py reach` (`make formal-reach`) SHALL take the rows, functions, line ranges, killers, and packages from the plan that `scripts/formal_mutation.py plan` builds, keeping every fail-closed condition of the plan. It SHALL run each killer alone with `go test -count=1 -json -covermode=set -coverpkg=<the packages of the functions it kills> -coverprofile=…`. It SHALL pin `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME` as the mutation profiles do.
+
+#### Scenario: Plan failure stops the gate
+- **WHEN** the formal-bindings plan fails closed, for example on a correspondence failure or a killer declared in two packages
+- **THEN** the reach gate SHALL exit non-zero before running any killer
+
+#### Scenario: Report is written
+- **WHEN** the gate finishes
+- **THEN** it SHALL write `reach.json` and a text summary under its output directory (default `artifacts/formal/reach/`), listing every (row, killer, function) triple with its covered and total statements, every failure, and every unbound row
+
+### Requirement: Reach evidence fails closed
+The reach gate SHALL treat missing or unusable coverage evidence as a failure that names the killer and its rows. It SHALL NOT treat such a row as reached.
+
+#### Scenario: Missing or unusable evidence
 - **WHEN** any of these holds:
   - a killer's profile is missing or does not start with a `mode:` line;
   - the function's file has no blocks in the profile;
   - the function's range contains no coverage blocks;
   - the killer is reported as failed, skipped, or not run;
-  - `go test` exits non-zero
-- **THEN** the gate SHALL fail, name the killer and its rows, and SHALL NOT treat the row as reached
+  - `go test` exits non-zero, even if its JSON reports a pass
+- **THEN** the gate SHALL fail and name the killer and its rows
 
-#### Scenario: Unbound rows are exempt and reported
-- **WHEN** a row has only trace-harness or characterisation bindings, or no binding, or names a type
-- **THEN** the gate SHALL list the row with its plan reason and SHALL NOT fail because of it
+### Requirement: Per-row killers in the formal-bindings plan
+The formal-bindings plan SHALL record each row's own killers in `functions[].rows[].killers`, next to the per-function union, and its version SHALL be 2. The reach gate SHALL check each row against its own killers only.
 
-#### Scenario: Calibration on the pre-change tree
-- **WHEN** the gate runs on the tree before the rebinding of this change
-- **THEN** it SHALL fail and name exactly these eight (row, killer) pairs, and the result SHALL be recorded in the `[reach]` calibration text of `formal/manifest.toml`:
-  - `validateDestinationPath`, `LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`, and `Invowkfile.GetEffectiveWorkDir`, each under `TestModulePathContainment_GoldenVectors`;
-  - `newVirtualPathResolverForFilesystem`, `standardVirtualAnchorsForOS`, and `VirtualFilesystemConfig.EffectiveAccess`, each under `TestVirtualPathHarness_GoldenVectors`;
-  - `Server.ValidateToken` under `TestHostCallbackToken_LifecycleMatchesModel`
+#### Scenario: Reach is checked per row
+- **WHEN** two rows name the same function, and only the first row's killer reaches it
+- **THEN** the gate SHALL fail for the second row
 
-#### Scenario: The gate passes after rebinding
-- **WHEN** the rebinding of this change is complete
-- **THEN** the gate SHALL pass with every bound (row, killer) pair reached
+#### Scenario: Old plan versions are rejected
+- **WHEN** a plan file with version 1 is loaded
+- **THEN** loading SHALL fail with an unsupported-version error
 
-### Requirement: The reach gate runs in the formal CI lane within a budget
-The formal-verification workflow SHALL run `make formal-reach` in its own step, under the same `affected` condition as the other heavy steps, with a step `timeout-minutes`. The job timeout SHALL exceed the sum of the step timeouts plus 3 minutes. `formal/manifest.toml` SHALL carry a `[reach]` table with `budget_seconds`, `budget_source`, and `calibration`. The runner SHALL reject unknown keys in it. The gate's timing SHALL be reported against `budget_seconds` as a soft budget, the same way as model and trace budgets.
-
-#### Scenario: Workflow and timeouts stay consistent
-- **WHEN** `scripts/test_formal.py` checks the workflow
-- **THEN** it SHALL require the `Binding reach` step, its timeout, its `affected` condition, and a job timeout above the summed step timeouts plus 3
+### Requirement: Reach budget
+`formal/manifest.toml` SHALL carry a `[reach]` table with exactly the keys `budget_seconds`, `budget_source`, and `calibration`, and manifest validation SHALL reject any other key. The gate SHALL report its wall time against `budget_seconds` as a soft budget, the same way as model and trace budgets: an overrun warns and does not change the exit status.
 
 #### Scenario: Unknown reach key
 - **WHEN** `[reach]` contains a key other than `budget_seconds`, `budget_source`, or `calibration`
 - **THEN** manifest validation SHALL fail
 
+#### Scenario: Soft overrun only warns
+- **WHEN** the gate's wall time exceeds `[reach] budget_seconds`
+- **THEN** the timing report SHALL warn, and the gate's exit status SHALL depend only on reach
+
+### Requirement: Reach step in the formal workflow
+The formal-verification workflow SHALL run `make formal-reach` in a `Binding reach` step after the golden and property replay step. The step SHALL use the same `affected` condition as the other heavy steps and SHALL have a step `timeout-minutes`. `scripts/formal_mutation.py` and `scripts/test_formal_mutation.py` SHALL be in `[ci] paths`.
+
+#### Scenario: Workflow wiring is checked
+- **WHEN** `scripts/test_formal.py` checks the workflow
+- **THEN** it SHALL require the `Binding reach` step, its `timeout-minutes`, and its `affected` condition
+
+#### Scenario: A change to the gate runs the lane
+- **WHEN** a pull request changes only `scripts/formal_mutation.py`
+- **THEN** the `affected` classifier SHALL report `run=true`
+
 ### Requirement: Platform-only capabilities fail on their own platform
 `internal/testutil/fstree` SHALL define, per capability, the GOOS values on which the capability is required:
 - directory junctions: required on `windows`;
-- symbolic links: required on `linux` and `darwin`, and on `windows` when `GITHUB_ACTIONS=true`.
+- symbolic links: required on `linux` and `darwin`, and on `windows` only when `GITHUB_ACTIONS=true`.
 
-The capability probe SHALL keep the error that made a capability unavailable. A test that needs a capability required on the running GOOS SHALL fail with that error, and SHALL NOT skip. Off its required platforms, a missing capability MAY skip, and the skip message SHALL include the GOOS and the probe error. This narrows the "skip instances lacking a capability" behaviour of the path-containment bindings: it applies only off the required platforms.
+A test that needs a capability required on the running GOOS SHALL fail when the capability is unavailable, and SHALL NOT skip.
 
 #### Scenario: Junction unavailable on Windows
 - **WHEN** a binding test needs a junction on Windows and junction creation fails
@@ -70,9 +96,20 @@ The capability probe SHALL keep the error that made a capability unavailable. A 
 - **WHEN** a binding test needs a junction on Linux or macOS
 - **THEN** the test or instance SHALL be skipped or counted as skipped, and SHALL NOT fail
 
+#### Scenario: Symlinks on a local Windows host
+- **WHEN** symlink creation fails on Windows and `GITHUB_ACTIONS` is not `true`
+- **THEN** the test SHALL skip, and the skip message SHALL name `windows` and the probe error
+
 #### Scenario: Golden cache honours the policy
-- **WHEN** a golden replay's materialisation cache meets an instance that needs a capability required on the running GOOS but unavailable
+- **WHEN** a golden replay's materialisation cache meets an instance that needs a capability that is required on the running GOOS but unavailable
 - **THEN** the replay SHALL fail instead of counting the instance as skipped
+
+### Requirement: Capability probes keep their errors
+The capability probe SHALL keep the error that made a capability unavailable. A required-but-unavailable capability SHALL fail with a message that names the capability, the GOOS, and that error. Off its required platforms, a skip message SHALL name the GOOS and that error. The policy SHALL be testable for every GOOS on one host.
+
+#### Scenario: Policy unit test
+- **WHEN** the `fstree` policy test runs with injected GOOS values, environment, and probe results
+- **THEN** it SHALL show a failure for each required-but-unavailable case and a skip for every other unavailable case, each message carrying the probe error
 
 ### Requirement: Binding tests skip only through the capability policy
 A `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go` file SHALL NOT call `Skip`, `Skipf`, or `SkipNow` directly. Its capability skips SHALL go through the `fstree` policy helpers. `scripts/formal.py correspondence` SHALL enforce this.
@@ -85,27 +122,54 @@ A `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go
 - **WHEN** a `_test.go` file without a binding-test suffix calls `t.Skip`
 - **THEN** the correspondence check SHALL NOT report it
 
-### Requirement: Rebinding preserves row identity and the finding procedure
-When a row is rebound so that its binding reaches the named function:
-- only the row's binding and abstraction cells SHALL change; its model element, Go symbol, and file cells SHALL stay, so `scripts/formal_mutation.py triage --check` keeps matching every ledger survivor;
-- a characterisation test SHALL NOT be named as the reaching binding, because that would make the row exempt instead of bound;
-- the new assertion SHALL compare the real function with the model's current-code verdict, including the verdicts of open findings;
-- before a failure is treated as a defect, the replay's comparison target SHALL be checked against the model: the model must make that claim for that operation kind, so that a transcription error in the replay is fixed rather than recorded;
-- a strengthened binding that fails on unmodified code SHALL be recorded as a finding under the next free id (F18 as of this change), through a manifest `finding` command next to a passing fix configuration, a characterisation test, and a `formal/README.md` Findings row, and the failing binding SHALL NOT be committed;
-- product code SHALL NOT change.
+### Requirement: Correspondence rows name existing model elements
+`scripts/formal.py correspondence` SHALL fail on a row whose element cell's leading identifier occurs neither in the model source, with comments stripped, nor in a command `name` or `body` of that model in `formal/manifest.toml`. The failure SHALL name the model, the row, and the file. How rows that already fail this check are handled SHALL be decided by the maintainer (design Open question 1) before this requirement is implemented.
+
+#### Scenario: Element missing from the model
+- **WHEN** a row's element is `unpackRejectsEscape`, and neither `formal/alloy/ModulePathContainment.als` nor its manifest commands contain that identifier
+- **THEN** the correspondence check SHALL report the row, unless the maintainer-approved handling of existing rows covers it
+
+#### Scenario: Element named by a manifest command
+- **WHEN** a row's leading identifier occurs only in a manifest command `body` of its model
+- **THEN** the row SHALL resolve
+
+### Requirement: Rebinding preserves row identity
+When a row's binding is changed so that it reaches the named function, or when the row is unbound, only the row's binding and abstraction cells SHALL change. Its model element, Go symbol, and file cells SHALL stay, so `scripts/formal_mutation.py triage --check` keeps matching every ledger survivor without ledger edits. A characterisation test SHALL NOT be named as the reaching binding.
 
 #### Scenario: Rebinding keeps the triage ledger valid
-- **WHEN** the eight rows are rebound
+- **WHEN** the eight rows are rebound or unbound
 - **THEN** `python3 scripts/formal_mutation.py triage --check` SHALL pass without ledger edits
+
+#### Scenario: Characterisation test offered as a binding
+- **WHEN** the only test that reaches a function is a characterisation test
+- **THEN** it SHALL NOT be named in the row's binding cell as the reaching binding
+
+### Requirement: Rebound assertions compare with the model
+A rebound binding SHALL compare the real function's result with the model's current-code verdict, including the verdicts of open findings. Before a failure is treated as a defect, the comparison target SHALL be checked against the model source: the model must make that claim for that operation kind. A failure caused by a transcription error in the replay SHALL be fixed, not recorded.
+
+#### Scenario: Open finding in the verdict
+- **WHEN** the model's current-code verdict for an instance reproduces an open finding
+- **THEN** the rebound assertion SHALL expect the finding's behaviour
+
+#### Scenario: Transcription error
+- **WHEN** a rebound replay fails because it compares with a decision that the model does not make for that operation kind
+- **THEN** the replay SHALL be corrected, and no finding SHALL be recorded
+
+### Requirement: A rebinding that fails on unmodified code is a finding
+When a rebound binding fails on unmodified code and no open finding explains the failure, the work SHALL stop and the failure SHALL be reported. The discrepancy SHALL be recorded under the next free finding id (F18 as of this change) through the finding procedure, and the failing binding SHALL NOT be committed. The assertion SHALL NOT be weakened, and product code SHALL NOT change.
 
 #### Scenario: A rebinding exposes a defect
 - **WHEN** a new real-function replay fails on unmodified code, and the failure is not explained by an open finding
-- **THEN** the work SHALL stop and the failure SHALL be reported, with no weaker assertion and no product change
-- **THEN** the discrepancy SHALL be recorded as F18 through the finding procedure before the change continues
+- **THEN** the work SHALL stop and report the failure, with no weaker assertion and no product change
+- **THEN** the discrepancy SHALL be recorded as F18, with a manifest `finding` command next to a passing fix configuration, a characterisation test, and a `formal/README.md` Findings row
 
-### Requirement: The token Auth row is bound by the lifecycle state machine
-`TestHostCallbackToken_LifecycleMatchesModel` SHALL call `Server.ValidateToken` for every generated token after every step, and SHALL require the result to be admissible exactly when the Auth step's expectation holds: the model state is `valid` and the fake clock has not passed the token's TTL. The `HostCallbackToken` `Auth` row SHALL keep naming `Server.ValidateToken`.
+### Requirement: Rows whose function does not carry the model's claim are unbound
+A row SHALL NOT be bound by a test that calls its function directly when either holds:
+- the function has no production caller;
+- the function alone does not make the claim the model element states.
 
-#### Scenario: Expired token
-- **WHEN** the state machine advances the clock past a token's TTL
-- **THEN** `ValidateToken` SHALL report the token inadmissible, and later revocation SHALL still close the connections the token authenticated
+Such a row SHALL have binding `-`, and its abstraction cell SHALL state the reason and the follow-up.
+
+#### Scenario: Function with no production caller
+- **WHEN** the `HostCallbackToken` `Auth` row names `Server.ValidateToken`, and no non-test code calls it
+- **THEN** the row's binding SHALL be `-`, and its abstraction cell SHALL say that it is not gated because the function has no production caller, that the model's `Auth` is implemented by `Server.admitConn`, and that re-pointing the row is the survivor-triage follow-up
