@@ -1,7 +1,7 @@
 # invowkmod-source-identity Specification
 
 ## Purpose
-TBD - created by archiving change harden-invowkmod-identity-and-schema-coherence. Update Purpose after archive.
+Separates a module's source identity (the Git requirement or local path it comes from) from its module identity (the metadata in invowkmod.cue). It specifies explicit and deterministic source module selection, directory-name and metadata agreement, metadata-driven command namespaces, lock keys that preserve source identity, and explicit failure on canonical module collisions. It does not cover transitive dependency resolution, which remains explicit-only.
 ## Requirements
 ### Requirement: Git requirements identify sources, not module names
 Invowk SHALL treat `requires[*].git_url` as a Git source location and SHALL NOT require the repository name to end in `.invowkmod`.

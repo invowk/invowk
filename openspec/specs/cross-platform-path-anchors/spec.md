@@ -1,7 +1,7 @@
 # cross-platform-path-anchors Specification
 
 ## Purpose
-TBD - created by archiving change rename-virtual-and-add-lua. Update Purpose after archive.
+Defines the standard path anchors available to the virtual runtimes, the explicit allow roots they expand to, platform-scoped virtual filesystem path mappings, and how these paths are exposed consistently through the runtime bridges. It covers path naming and resolution only; the access modes that gate those paths are specified in virtual-filesystem-access and the broader harness policy in virtual-runtime-sandbox.
 ## Requirements
 ### Requirement: Standard path anchors
 Invowk SHALL support logical path anchors `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`. Anchor resolution SHALL be OS-native, normalized, and stable across `virtual-sh` and `virtual-lua`.

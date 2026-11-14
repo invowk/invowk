@@ -1,7 +1,7 @@
 # virtual-runtime-sandbox Specification
 
 ## Purpose
-TBD - created by archiving change rename-virtual-and-add-lua. Update Purpose after archive.
+Despite the directory name, this spec defines the Go-native safety harness shared by the virtual runtimes (virtual-sh and virtual-lua), which is explicitly not a sandbox. It covers the shared utility-command config namespace, path sanitization, host binaries denied unless listed in allowed_binaries, binary lookup modes, and environment control. Allowed host binaries run as native host processes, and the harness gates path access without being a kernel jail; execution isolation is the container runtime's responsibility.
 ## Requirements
 ### Requirement: Virtual runtimes define a Go-native safety harness
 Invowk SHALL define every `virtual-*` runtime as a Go-native safety harness, not as a kernel-level jail. Invowk SHALL enforce path validation and execution gating for VM-controlled operations and SHALL document that launched host binaries run as normal host processes.

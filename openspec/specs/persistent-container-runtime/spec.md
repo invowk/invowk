@@ -1,7 +1,7 @@
 # persistent-container-runtime Specification
 
 ## Purpose
-TBD - created by archiving change persistent-container-runtime. Update Purpose after archive.
+Defines persistent execution for the container runtime: configuration, target name resolution, managed lifecycle, CLI overrides that target pre-existing containers, exec-time command state, race-safe creation, and visibility of the target in dry-run output. Like the rest of the container runtime, it applies only to Linux containers (debian:stable-slim is the reference image); ephemeral per-run containers and provisioning are outside its scope.
 ## Requirements
 ### Requirement: Container runtime persistent configuration
 The invowkfile schema SHALL allow persistent targeting only inside `runtime` entries whose `name` is `container`.

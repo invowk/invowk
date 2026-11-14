@@ -1,7 +1,7 @@
 # dependency-tooling-maintenance Specification
 
 ## Purpose
-TBD - created by archiving change upgrade-all-dependencies-and-tooling. Update Purpose after archive.
+Governs repository-wide upgrade campaigns across Go modules, website npm dependencies, and pinned tooling and workflow versions: refreshing the inventory before edits, prioritizing security fixes without unsafe dependency-graph swaps, keeping pins synchronized, and reporting deferrals with verification evidence. It is a maintenance-process contract, not a description of runtime behavior; the narrower Go vulnerability-scanning process is specified in go-dependency-maintenance.
 ## Requirements
 ### Requirement: Upgrade inventory is refreshed before edits
 Invowk SHALL refresh dependency and tooling inventory before applying a repo-wide upgrade batch.

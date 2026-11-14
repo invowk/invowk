@@ -1,7 +1,7 @@
 # openai-compatible-llm-client Specification
 
 ## Purpose
-TBD - created by archiving change migrate-openai-sdk-v3. Update Purpose after archive.
+Defines Invowk's LLM client contract against OpenAI-compatible endpoints: configurable endpoints, preserved chat-completion behavior, structured output restricted to OpenAI, model verification through the provider's model listing, and SDK migrations that must not change user-visible LLM behavior. It does not specify the audit or authoring features that consume the client.
 ## Requirements
 ### Requirement: Configurable OpenAI-compatible endpoint
 Invowk SHALL provide an internal LLM client that can call OpenAI-compatible HTTP APIs using a configurable base URL, model name, API key, and timeout.
