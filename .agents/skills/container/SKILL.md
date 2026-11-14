@@ -16,7 +16,7 @@ configuration, provisioning, and container tests.
 
 ## Read First
 
-- `.agents/rules/version-pinning.md` owns canonical image and pinning policy.
+- `AGENTS.md` "Hard invariants" owns the image policy; `.agents/rules/version-pinning.md` owns pinning.
 - `.agents/rules/windows.md` owns host-versus-container path semantics.
 - `.agents/rules/testing.md` owns cross-platform and container test policy.
 - Use `.agents/skills/go/SKILL.md` for Go edits and

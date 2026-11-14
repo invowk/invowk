@@ -47,7 +47,7 @@ closed allowlist.
 | Cosign | Installer action major and `cosign-release` input compatibility in CI and release workflows |
 | UPX | Every inline `UPX_VERSION` installation |
 | GitHub Actions | Every repeated `uses:` target found by inventory |
-| Documented pins | `.agents/rules/version-pinning.md` and prerequisites in `.agents/rules/commands.md` |
+| Documented pins | `.agents/rules/version-pinning.md` |
 | Formal tools | `formal/manifest.toml` (Alloy, TLA+ jar version, URL, SHA-256), `FORMAL_JAVA_VERSION` and `actions/setup-java` major in `.github/workflows/formal-verification.yml`, `.agents/rules/version-pinning.md` |
 | Sonar suppressions | `sonar-project.properties` and `.sonarcloud.properties` must remain synchronized |
 

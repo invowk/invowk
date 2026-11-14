@@ -338,7 +338,7 @@ constrain. Each one is classified in `tools/mutation/triage/formal-bindings.toml
 (`equivalent`, `abstraction`, `binding-gap`, `model-gap`, `defect`), backed by
 two recorded escaped reruns, and resolved by a stronger binding, a new model
 property, a stated abstraction, or a finding. Closed gaps are listed in the
-model's `calibration` by mutant id. `.agents/rules/commands.md` has the
+model's `calibration` by mutant id. `.agents/runbooks/mutation-testing.md` has the
 profiles; `.agents/skills/formal-verification/SKILL.md` has the feedback loop.
 
 The first run (2026-09-25) mutated 49 functions in 30 files in 28 minutes:

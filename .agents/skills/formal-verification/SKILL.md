@@ -110,7 +110,7 @@ functions, line ranges, killer tests, and packages from the tables at run
 time; rows without a killer land in `unbound-rows.txt` with a reason. Each
 mutant runs only the killer tests of the function it changed, across
 packages, through `go test -overlay`, without `-short`. Read
-`.agents/rules/commands.md` (Mutation Testing) for the profiles.
+`.agents/runbooks/mutation-testing.md` for the profiles.
 
 Resolve every escaped mutant (rerun it twice with `make mutation-formal-rerun`
 first; the evidence lands in `tools/mutation/triage/formal-bindings-reruns.jsonl`):

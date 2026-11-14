@@ -3,18 +3,26 @@ paths:
   - "internal/container/**"
   - "internal/runtime/**"
   - "internal/provision/**"
+  - "internal/config/**"
+  - "internal/app/**"
+  - "internal/audit/**"
+  - "internal/uroot/**"
+  - "internal/watch/**"
+  - "internal/testutil/**"
   - "pkg/platform/**"
+  - "pkg/fspath/**"
+  - "pkg/types/**"
+  - "pkg/invowkmod/**"
+  - "pkg/invowkfile/**"
+  - "tests/cli/*.go"
+  - "tests/cli/testdata/native_*.txtar"
 ---
 
 # Windows Compatibility
 
-This Go codebase builds and runs on Windows. Follow these rules to ensure cross-platform compatibility.
-
 ## Path Handling
 
 ### The Two Path Domains
-
-There are two distinct path domains in container-related code:
 
 | Domain | Separator | Example | When Used |
 |--------|-----------|---------|-----------|
@@ -33,206 +41,39 @@ There are two distinct path domains in container-related code:
 
 ### Repo-Relative Path Value Types (Cross-Platform Contract)
 
-For typed values that represent **repository-relative paths** (for example `SubdirectoryPath` in module metadata), validation must be OS-agnostic and deterministic across runners.
-
-Required pattern:
+Typed values that represent **repository-relative paths** (for example `SubdirectoryPath` in module metadata) validate the same way on every OS:
 1. Normalize separators first: `filepath.ToSlash(input)`.
 2. Canonicalize with slash semantics: `path.Clean(...)`.
-3. Reject absolute forms across platforms:
-  - slash-rooted (`/foo`)
-  - Windows drive prefix (`C:/foo`)
-  - UNC/rooted forms (`//server/share`, `\\server\\share`, `\\foo`)
+3. Reject absolute forms across platforms: slash-rooted (`/foo`), Windows drive prefix (`C:/foo`), UNC/rooted forms (`//server/share`, `\\server\share`, `\foo`).
 4. Reject traversal after normalization (`..`, `../...`).
 
-Do **not** rely on `filepath.IsAbs()` alone for repo-relative typed validation. It is host-dependent and can hide Windows failures when tests run on Unix hosts.
+Do **not** rely on `filepath.IsAbs()` alone for repo-relative typed validation. It is host-dependent and hides Windows failures when tests run on Unix hosts. Test such validators with the matrix in `testing.md` "Cross-Platform Path Validator Matrix".
 
 ### Host Absolute Paths in Config Includes
 
-`includes[*].path` and `container.auto_provision.includes[*].path` are **host paths** validated in Go with `filepath.IsAbs()`.
+`includes[*].path` and `container.auto_provision.includes[*].path` are **host paths** validated in Go with `filepath.IsAbs()`. On Linux/macOS `/path/to/module.invowkmod` is absolute; on Windows it is **not** (use `C:\path\to\module.invowkmod` or UNC paths). Keep this OS-native behavior unless there is an explicit product decision to change it. Test fixtures: `testing.md` "Cross-Platform Testing".
 
-- On Linux/macOS, `/path/to/module.invowkmod` is absolute.
-- On Windows, `/path/to/module.invowkmod` is **not** absolute; use `C:\path\to\module.invowkmod` (or UNC paths).
-- Keep this OS-native behavior unless there is an explicit product decision to change it.
+### Container Path Patterns
 
-When writing tests for this validation:
-- Build valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
-- Keep relative-path negative cases (`relative/...`, `./...`) explicit.
-- If a case is intentionally Unix-only, use `skipOnWindows` with a clear reason.
+- Host → container: `containerWorkspacePrefix + filepath.ToSlash(relPath)`, never `filepath.Join("/workspace", relPath)` (backslashes on Windows). Reference implementation: `buildInterpreterCommand` and `getContainerWorkDir` in `internal/runtime/container_provision.go`.
+- Container-absolute check: a leading `/` (see `isContainerAbsolutePath`), never `filepath.IsAbs` (`/app` is not absolute on Windows).
+- Join container segments with `path.Join`, never `filepath.Join`.
+- Always `filepath.ToSlash()` a host path before passing it to a container.
 
-### Common Patterns
+## Tests
 
-**Converting host path to container path:**
-```go
-// CORRECT: Convert Windows backslashes to forward slashes
-containerPath := "/workspace/" + filepath.ToSlash(relPath)
+- Path assertions, `skipOnWindows`, absolute fixtures, the `goruntime` alias and PowerShell rules for `native_*.txtar` live in `testing.md`.
+- Unix-style absolute inputs (`/app`) → skip on Windows; platform behavior → `runtime.GOOS` conditionals; path joins → `filepath.Join()` in expectations; container-path tests → forward-slash inputs.
+- Windows and macOS CI run `-short` unit tests (so `testing.Short()` integration tests skip) plus the CLI tests, with no container engine (container tests skip). All path handling code must still be cross-platform correct.
 
-// WRONG: filepath.Join uses backslashes on Windows
-containerPath := filepath.Join("/workspace", relPath)  // Produces \workspace\relPath on Windows!
-```
+## Reserved Names and Limits
 
-**Checking if a path is "container-absolute":**
-```go
-// CORRECT: Check for Unix-style absolute (starts with /)
-isContainerAbsolute := strings.HasPrefix(path, "/")
+- Reserved filenames (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`): check with `platform.IsWindowsReservedName` (`pkg/platform/windows.go`).
+- Default `MAX_PATH` is 260 characters: avoid deeply nested paths in tests and generated files.
+- Windows paths cannot contain `< > : " | ? *`.
 
-// WRONG: filepath.IsAbs uses platform semantics
-filepath.IsAbs("/app")  // Returns FALSE on Windows!
-```
+## Process Pitfall
 
-**Joining container path segments:**
-```go
-// CORRECT: Use path.Join for container paths (always uses /)
-import "path"
-containerPath := path.Join("/workspace", "scripts", "run.sh")
+On Windows, `exec.CommandContext` kills via `TerminateProcess(pid, 1)`, and exit code 1 looks valid, so a context timeout can be silently dropped. `promoteContextError()` in `internal/runtime/native_helpers.go` promotes `ctx.Err()` when `result.Error == nil`; keep that pattern in new process-running code.
 
-// WRONG: filepath.Join uses platform separators
-filepath.Join("/workspace", "scripts", "run.sh")  // Backslashes on Windows
-```
-
-### Existing Correct Patterns
-
-The codebase already has correct patterns in `internal/runtime/container_provision.go` (search for `filepath.ToSlash`):
-```go
-// In containerScriptPath(), containerWorkDir(), and related functions:
-containerPath := "/workspace/" + filepath.ToSlash(relPath)
-return "/workspace/" + filepath.ToSlash(relPath)
-```
-
-## Test Assertions
-
-For path assertions and the `skipOnWindows` pattern, see `testing.md` § "Cross-Platform Testing". Key rules:
-- Never hardcode path separators — use `filepath.Join()` for host paths.
-- Use the `skipOnWindows` table-driven pattern when test cases are semantically meaningless on Windows.
-- When the file also imports `internal/runtime`, use `goruntime "runtime"` alias for `GOOS` checks.
-
-### When to Skip vs When to Adapt
-
-| Scenario | Action |
-|----------|--------|
-| Test uses Unix-style absolute path (`/app`) | Skip on Windows |
-| Test checks platform-specific behavior | Use `runtime.GOOS` conditionals |
-| Test verifies path joining | Use `filepath.Join()` in expectations |
-| Test checks container paths | Ensure test inputs use forward slashes |
-
-## Reserved Names and Limitations
-
-### Windows Reserved Filenames
-
-Windows has reserved filenames that cannot be used. The `pkg/platform/windows.go` package provides detection:
-
-```go
-import "github.com/invowk/invowk/pkg/platform"
-
-if platform.IsReservedWindowsName(filename) {
-    return fmt.Errorf("cannot use reserved Windows filename: %s", filename)
-}
-```
-
-**Reserved names:** `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`
-
-### Path Length Limits
-
-Windows has a default path length limit of 260 characters (`MAX_PATH`). While modern Windows can exceed this with long path support, avoid creating deeply nested paths in tests and generated files.
-
-### Illegal Characters
-
-Windows paths cannot contain: `< > : " | ? *`
-
-These are valid in Unix filenames but will cause failures on Windows.
-
-## CI/CD Considerations
-
-### Windows CI Configuration
-
-The CI workflow (`.github/workflows/ci.yml`) runs Windows tests in "short" mode:
-```yaml
-- os: windows
-  runner: windows-latest
-  engine: ""  # No container engine on Windows CI
-  test-mode: short
-```
-
-**Key points:**
-- Windows CI runs unit tests only (no container integration tests)
-- Container runtime tests are skipped on Windows
-- All path handling code must still be cross-platform correct
-
-### Testing Locally on Windows
-
-```bash
-# Run tests with race detector
-go test -race ./...
-
-# Run specific package
-go test -v ./internal/container/...
-
-# Skip integration tests
-go test -short ./...
-```
-
-### PowerShell Script Testing in Testscript
-
-Native runtime tests (`native_*.txtar`) include PowerShell implementations for Windows. These tests exercise the native shell path through Invowk, where Invowk internally selects PowerShell as the native shell on Windows.
-
-**How native tests work in CI:**
-- The testscript runner itself uses the Go test runner (bash-based on all CI platforms)
-- The `exec invowk cmd ...` calls within testscript invoke Invowk, which internally selects the native shell per platform
-- On Windows CI: Invowk selects PowerShell to execute the command's script
-- The testscript `stdout`/`stderr` assertions verify the output regardless of which shell produced it
-
-**PowerShell version guidance:**
-- Scripts MUST be compatible with both PowerShell 5.1 (Windows built-in) and PowerShell 7+ (cross-platform)
-- Avoid PowerShell 7-only features (e.g., ternary operator `? :`, null-coalescing `??`, pipeline chain operators `&&`/`||`)
-- Use `Write-Output` instead of `echo` for explicit intent
-
-**Common PowerShell CI pitfalls:**
-
-| Pitfall | Symptom | Fix |
-|---------|---------|-----|
-| Using `$VAR` instead of `$env:VAR` | Empty value; PowerShell treats `$VAR` as PS variable | Always use `$env:VAR` for environment variables |
-| `\r\n` line endings in **string** assertions | Extra blank lines or assertion mismatches | Testscript normalizes for substring `stdout`/`stderr` matching; no action needed |
-| `\r\n` line endings in **regex** assertions | `stdout '^done$'` fails because `$` matches before `\n` but not before `\r` in `\r\n` | Use `\r?$` instead of `$` in anchored regex assertions: `stdout '^done\r?$'` |
-| Using bash comparison syntax (`=`, `!=`) | PowerShell parse error | Use `-eq`, `-ne`, `-lt`, `-gt`, `-like`, `-match` |
-| Using `echo` for reliable output | Inconsistent behavior across PS versions | Use `Write-Output` for string output |
-| Relying on `set -e` behavior | PowerShell does not support `set -e` | Use `$ErrorActionPreference = 'Stop'` at script start |
-
-**Local testing on Windows:**
-```powershell
-# Run all CLI tests (includes native tests)
-make test-cli
-
-# Run a specific native test
-go test -v -run TestCLI/native_simple ./tests/cli/...
-```
-
-## Common Pitfalls
-
-| Pitfall | Symptom | Fix |
-|---------|---------|-----|
-| Using `filepath.Join()` for container paths | Backslashes in container paths on Windows | Use `path.Join()` or string concatenation with `/` |
-| Using `filepath.IsAbs()` for container paths | `/app` not detected as absolute on Windows | Use `strings.HasPrefix(path, "/")` |
-| Using `filepath.IsAbs()` alone for repo-relative typed paths | Windows absolute-path regressions only show up in Windows CI | Normalize with `filepath.ToSlash` + `path.Clean`, then enforce absolute/traversal rules |
-| Hardcoded `/` in test expectations | Tests fail on Windows | Use `filepath.Join()` for host paths |
-| Forgetting `filepath.ToSlash()` | Container receives Windows-style paths | Always convert before passing to container |
-| Testing Unix absolute paths on Windows | Test fails or has wrong behavior | Add `skipOnWindows: true` (see `testing.md`) |
-| `TerminateProcess` exit code masks context timeout | On Windows, `exec.CommandContext` kills via `TerminateProcess(pid, 1)` — exit code 1 is valid, so `extractExitCode` returns `result.Error == nil` and the timeout is silently dropped | `promoteContextError()` in `internal/runtime/native_helpers.go` checks `ctx.Context.Err()` after `extractExitCode` and promotes it when `result.Error == nil` |
-
-## Quick Reference
-
-**Before writing path-related code, ask:**
-1. Is this a **host path** or **container path**?
-2. Will this code run on Windows CI?
-3. Are test assertions platform-independent?
-
-**Container path checklist:**
-- [ ] Using `filepath.ToSlash()` when converting from host path
-- [ ] Using `path.Join()` or string concat with `/` for joining
-- [ ] NOT using `filepath.IsAbs()` to check container paths
-- [ ] Tests skip or adapt for Windows where needed
-
-## Related Skills
-
-| Skill | When to Consult |
-|---|---|
-| `windows-testing` | Windows OS primitives that affect test behavior: process lifecycle, signal handling, timer resolution, file system pitfalls, race detector overhead |
-| `go-testing` | Cross-platform Go test toolchain: flags, execution model, race detector, coverage |
+Related skills: `windows-testing` (process lifecycle, NTFS, timers, PowerShell), `go-testing`.

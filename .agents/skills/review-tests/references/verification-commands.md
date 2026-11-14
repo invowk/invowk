@@ -80,7 +80,7 @@ Failure triage: Fix failing tests. Common issues: missing imports after refactor
 Command: `rg --files cmd internal pkg tests tools -g '*_test.go' | sort | xargs -r wc -l | awk '$2 != "total" && $1 > 900 { print }'`
 What it checks: Test files approaching the 1000-line hard limit (900+ lines signals need to plan a split).
 Expected: No matches (or only files recently split that are in progress).
-Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow File Splitting Protocol: create new, delete from source, clean imports, `go build` before `make test`.
+Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow `.agents/skills/go/SKILL.md` "File Shape": create new, delete from source, clean imports, `go build` before `make test`.
 
 ## 11. Error String Matching (PC-11)
 

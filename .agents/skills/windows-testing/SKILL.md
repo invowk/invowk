@@ -11,8 +11,8 @@ This skill routes the work; detailed background lives in `references/`.
 
 ## Precedence
 
-1. `.agents/rules/windows.md` - authoritative for path handling, CI config, and PowerShell patterns.
-2. `.agents/rules/testing.md` - authoritative for test organization, parallelism, and cross-platform patterns.
+1. `.agents/rules/windows.md` - authoritative for path handling and Windows limits.
+2. `.agents/rules/testing.md` - authoritative for test organization, parallelism, cross-platform patterns, and PowerShell rules for native tests.
 3. This skill - Windows triage checklist and repo-specific failure modes.
 4. `references/process-lifecycle.md` - CreateProcess, TerminateProcess, Job Objects, `cmd.WaitDelay`, `cmd.Cancel`.
 5. `references/filesystem-pitfalls.md` - NTFS, MAX_PATH, sharing violations, reserved names.

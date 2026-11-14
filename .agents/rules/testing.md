@@ -3,563 +3,99 @@ paths:
   - "**/*_test.go"
   - "tests/cli/**"
   - "**/testdata/**"
+  - "internal/testutil/**"
 ---
 
 # Testing
 
-## Test File Size Limits
+Deeper guidance: `go-testing` (toolchain, flags, race detector, gotestsum), `testing` (Invowk patterns, testscript, TUI, containers), `native-mirror`, `review-tests`, and the platform skills `windows-testing`, `macos-testing`, `linux-testing`.
 
-**Test files MUST NOT exceed 1000 lines** (enforced by `make check-file-length`). Large monolithic test files are difficult to navigate and maintain. When a test file approaches this limit, split it by logical concern.
+## File Shape
 
-**Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invowkfile_parsing_test.go`, `invowkfile_deps_test.go`). Each file should cover a single logical area.
-
-**Splitting protocol:** When moving test functions to a new file, follow the File Splitting Protocol from `.agents/skills/go/SKILL.md`. The most common mistake is copying tests to the new file but forgetting to delete the originals — Go test files in the same package share a namespace, so duplicate `Test*` function names cause compiler errors. After moving:
-1. Delete the moved test functions from the source file.
-2. Clean up unused imports in the source file (e.g., `"errors"`, `"fmt"` that were only used by moved tests).
-3. Run `go build ./path/to/package/...` immediately to catch duplicates before running `make test`.
-
-## Test Organization
-
-### Table-Driven Tests
-
-Prefer table-driven tests for functions with multiple test cases:
-
-```go
-tests := []struct {
-    name    string
-    input   string
-    want    string
-    wantErr bool
-}{
-    {
-        name:  "valid input",
-        input: "hello",
-        want:  "HELLO",
-    },
-    {
-        name:    "empty input",
-        input:   "",
-        wantErr: true,
-    },
-}
-
-for _, tt := range tests {
-    t.Run(tt.name, func(t *testing.T) {
-        got, err := Transform(tt.input)
-        if tt.wantErr {
-            if err == nil {
-                t.Error("expected error, got nil")
-            }
-            return
-        }
-        if err != nil {
-            t.Fatalf("unexpected error: %v", err)
-        }
-        if got != tt.want {
-            t.Errorf("got %q, want %q", got, tt.want)
-        }
-    })
-}
-```
+- Test files MUST NOT exceed 1000 lines (`make check-file-length`). Split by concern into `<package>_<concern>_test.go`, one logical area per file, following `.agents/skills/go/SKILL.md` "File Shape".
+- When moving tests: delete the moved `Test*` functions from the source file (same-package test files share a namespace), clean up orphaned imports, and run `go build ./path/to/pkg/...` before `make test`.
+- Before deleting a shared `_test.go` helper, grep the whole package for callers.
+- Prefer table-driven tests for functions with several cases.
 
 ## Test Context Usage
 
-**Use `t.Context()` (Go 1.24+) as the default context in tests.** Do NOT use `context.Background()` unless structurally forced (e.g., `TestMain`, package-level variable init).
-
-- `context.WithCancel(t.Context())` — only when the test scenario requires explicit mid-test cancellation (e.g., testing graceful shutdown)
-- `context.WithTimeout(t.Context(), ...)` — only when the test needs a specific deadline as part of the test logic
-- `context.Background()` — only in `TestMain` (`*testing.M` has no `Context()` method) or in `testscript.Env.Defer()` cleanup hooks (no `*testing.T` in scope). Always comment why `context.Background()` is used.
-- Benchmarks: Use `b.Context()`, not `t.Context()`.
+- **Use `t.Context()` as the default context in tests.** Do NOT use `context.Background()` unless structurally forced.
+- `context.WithCancel(t.Context())` only when the scenario needs explicit mid-test cancellation; `context.WithTimeout(t.Context(), ...)` only when a deadline is part of the test logic.
+- `context.Background()` only in `TestMain` (`*testing.M` has no `Context()`) or in `testscript.Env.Defer()` cleanup hooks (no `*testing.T` in scope), always with a comment saying why.
+- Benchmarks use `b.Context()`.
 
 ## Test Parallelism
 
-### Default Rule
-
 All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `paralleltest` linter enforces missing `t.Parallel()` calls; the `tparallel` linter enforces placement and parent/subtest consistency.
 
-The goplint analyzer now lives in the standalone `github.com/invowk/goplint` repository; its test-parallelism policy is governed there.
+- When a parent calls `t.Parallel()`, ALL its `t.Run()` subtests must too (`tparallel`). If one subtest cannot be parallel, drop `t.Parallel()` from the parent or add a local `//nolint:paralleltest // <reason>` to the intentionally serial parent.
+- Never parallelize tests that use `os.Chdir`, `os.Setenv`, `t.Setenv`, `testutil.MustSetenv()`, `testutil.MustChdir()`, `SetHomeDir` or similar process-wide overrides, or any `os.Stdin` replacement.
+- Use `t.TempDir()`, never `os.MkdirTemp` + `defer os.RemoveAll`: a parent's `defer` runs while its parallel subtests are still executing.
+- No `tt := tt` / `tc := tc` rebinding (`modernize` `forvar`); clone maps with `maps.Copy(dst, src)` (`mapsloop`).
+- Test semaphores: a helper that may acquire more than once per test releases its token in the same call (`defer`), never through `t.Cleanup()`, which holds tokens until test end and can stall parallel suites. Once-per-test container acquisition uses `testutil.AcquireContainerSemaphore(t)`, which releases via `t.Cleanup` (see "Integration and Container Tests").
 
-When a helper acquires a test semaphore, release that token in the same helper call (typically via `defer`). Do not defer release with `t.Cleanup()` when the helper may run multiple times within one test, because tokens stay held until test end and can stall parallel suites.
+## Integration and Container Tests
 
-### Table-Driven Subtests
-
-When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too or add a local `//nolint:paralleltest // ...` rationale to the intentionally serial parent.
-
-Modernize compatibility notes:
-- Do not add `tt := tt` / `tc := tc` loop-variable rebinding before `t.Run(...)`. In Go 1.22+ range variables are per-iteration, and redundant rebinding is flagged by `modernize` (`forvar`).
-- When cloning entire maps in tests, prefer `maps.Copy(dst, src)` instead of manual `for k, v := range src { dst[k] = v }` loops (`mapsloop`).
-
-### Unsafe Patterns (do NOT parallelize)
-
-Do not add `t.Parallel()` to tests that use any of these:
-- `os.Chdir`, `os.Setenv`, or `t.Setenv` (process-wide side effects)
-- Global state mutators: `testutil.MustSetenv()`, `testutil.MustChdir()`
-- `SetHomeDir` or similar process-wide overrides
-- `withPipeStdin()` or any `os.Stdin` replacement (process-wide file descriptor)
-
-### Critical Footgun: TempDir Lifetime with Parallel Subtests
-
-Using `os.MkdirTemp` + `defer os.RemoveAll` in a parent test with `t.Parallel()` subtests causes data races — the parent's `defer` runs when the parent function returns, but parallel subtests are still executing.
-
-**Fix:** Use `t.TempDir()` (lifecycle-managed by the testing framework), or do not parallelize the subtests.
-
-### Correct Pattern
-
-```go
-func TestSomething(t *testing.T) {
-    t.Parallel()
-
-    tests := []struct {
-        name  string
-        input string
-        want  string
-    }{
-        {name: "case A", input: "a", want: "A"},
-        {name: "case B", input: "b", want: "B"},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            t.Parallel() // Required: parent has t.Parallel()
-
-            got := Transform(tt.input)
-            if got != tt.want {
-                t.Errorf("got %q, want %q", got, tt.want)
-            }
-        })
-    }
-}
-```
-
-### Integration vs Unit Tests
-
-- **Unit tests**: Fast, no external dependencies, run in short mode
-- **Integration tests**: Require external resources (container engine, network, etc.)
-
-Use `testing.Short()` to skip integration tests:
-
-```go
-func TestContainerRuntime_Integration(t *testing.T) {
-    if testing.Short() {
-        t.Skip("skipping integration test in short mode")
-    }
-    // ... test code
-}
-```
-
-### Testscript Environment for Container Tests
-
-The `testscript` library intentionally sets `HOME=/no-home` to sandbox tests from user configuration. This breaks tools like Docker/Podman that require a valid `HOME` directory to store configuration in `~/.docker/` or `~/.config/containers/`.
-
-**Symptom:** `mkdir /no-home: permission denied` errors during `docker build` or similar operations.
-
-**Fix:** Set `HOME` to the testscript work directory in the `Setup` function:
-
-```go
-testscript.Run(t, testscript.Params{
-    Dir: "testdata",
-    Setup: func(env *testscript.Env) error {
-        // Set HOME to $WORK directory for container build tests.
-        // Docker/Podman CLI requires a valid HOME to store configuration.
-        // By default, testscript sets HOME=/no-home which causes permission errors.
-        env.Setenv("HOME", env.WorkDir)
-        return nil
-    },
-})
-```
-
-**Why this works:**
-- Each testscript test gets a unique `$WORK` directory that's automatically cleaned up
-- Using `WorkDir` as `HOME` provides isolation while ensuring the directory exists and is writable
-- Tests using pre-built images (e.g., `debian:stable-slim`) may not trigger this issue since they don't invoke `docker build`
-
-### Container Test Timeout Strategy
-
-Container tests use a multi-layer timeout strategy to prevent indefinite hangs:
-
-**Layer 1: Per-Test Deadline (Primary)**
-```go
-deadline := time.Now().Add(3 * time.Minute)
-
-testscript.Run(t, testscript.Params{
-    Files:    []string{testFile},
-    Setup:    containerSetup,
-    Deadline: deadline,  // Enforces 3-minute max per test
-})
-```
-
-**Layer 2: Container Cleanup on Timeout**
-```go
-func containerSetup(env *testscript.Env) error {
-    // ... common setup ...
-
-    testSuffix := generateTestSuffix(env.WorkDir)
-    containerPrefix := "invowk-test-" + testSuffix
-
-    // Cleanup runs regardless of test outcome (pass, fail, timeout, panic)
-    env.Defer(func() {
-        cleanupTestContainers(containerPrefix)
-    })
-    return nil
-}
-```
-
-**Layer 3: CI Test Runner with Retry and Timeout (Safety Net)**
-```yaml
-run: |
-  gotestsum --format testdox --junitfile test-results.xml --rerun-fails \
-    --rerun-fails-max-failures 5 --packages ./... -- -race -timeout 15m
-```
-
-**Why three layers:**
-1. **3-minute deadline** catches individual test hangs early
-2. **Cleanup via `env.Defer()`** prevents orphaned containers from accumulating
-3. **15-minute CI timeout** catches catastrophic failures faster than Go's default 10m
-
-**Layer 4: Test-Level Concurrency Limiting**
-
-All container integration tests must acquire a slot from the process-wide container semaphore before running container operations. This prevents Podman resource exhaustion on constrained CI runners.
-
-```go
-sem := testutil.ContainerSemaphore()
-sem <- struct{}{}
-defer func() { <-sem }()
-```
-
-Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before** any container operations. The semaphore is a `sync.OnceValue` singleton — each test binary gets its own instance. Default capacity is `min(GOMAXPROCS, 2)`, overridable via `INVOWK_TEST_CONTAINER_PARALLEL` env var (set to `"2"` in CI).
-
-**Note:** The `internal/runtime` container tests do NOT use `AcquireContainerSuiteLock` — the semaphore alone provides concurrency control. The suite lock is only used in `tests/cli` container tests for cross-process serialization during `make test` (where `internal/runtime` and `tests/cli` binaries may run concurrently). Do not add suite locks to `internal/runtime` tests — they make everything sequential and are redundant with the semaphore for single-process execution.
-
-**When to use the semaphore:**
-- Integration tests that run real container operations (Execute, ExecuteCapture, Build)
-- CLI testscript tests that invoke container commands
-
-**When NOT to use the semaphore:**
-- Unit tests with mocked container engines
-- Validation-only tests that don't start containers (e.g., `Validate()`, type assertions)
-- Error-path tests that fail before container operations (e.g., missing SSH server)
-
-**Layer 5: Go Integration Test Bounded Context (CRITICAL)**
-
-All Go container integration tests in `internal/runtime/` that call `Execute()` or
-`ExecuteCapture()` MUST use `testutil.ContainerTestContext` instead of bare `t.Context()`.
-Bare `t.Context()` has no deadline — if the container daemon hangs, the subprocess runs
-indefinitely until the binary-level timeout kills everything.
-
-```go
-ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
-execCtx := NewExecutionContext(ctx, cmd, inv)
-result := rt.Execute(execCtx)
-```
-
-`DefaultContainerTestTimeout` is 5 minutes. The deadline propagates through
-`exec.CommandContext` to SIGKILL the subprocess when exceeded. The container engine
-sets `cmd.WaitDelay = 10s` to forcefully close I/O pipes if container child processes
-keep them open after the process is killed, producing a clean test failure instead of
-a 30-minute binary panic.
-
-**When NOT to use:** Tests that only call `Validate()` or perform type assertions
-(no container daemon interaction).
-
-**When to adjust timeouts:**
-- If tests consistently need more than 3 minutes (e.g., large image pulls), increase `containerTestTimeout`
-- The 15m CI timeout should always exceed the sum of all sequential container test deadlines
+- Tests that need external resources (container engine, network) skip under `testing.Short()`.
+- Real container integration tests call `testutil.AcquireContainerSemaphore(t)` once per test, after `t.Parallel()` and the Short skip and before any container operation. Not needed for mocked engines, validation-only tests (`Validate()`, type assertions), or error paths that fail before container operations. Capacity and `INVOWK_TEST_CONTAINER_PARALLEL`: `.agents/skills/linux-testing/references/container-testing-deep.md`.
+- `internal/runtime` container tests do NOT use `AcquireContainerSuiteLock`; the semaphore alone controls concurrency. The suite lock is only for `tests/cli` container tests (cross-process serialization during `make test`).
+- **CRITICAL:** `internal/runtime` container tests that call `Execute()` or `ExecuteCapture()` MUST use `testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)` instead of bare `t.Context()`, which has no deadline. Not needed for `Validate()`-only or type-assertion tests.
+- CLI container tests set a per-test testscript `Deadline` (`containerTestTimeout`) and clean up containers by prefix in `env.Defer` via `cleanupTestContainersForHarness(prefix, currentContainerHarness())`. Raise `containerTestTimeout` if tests consistently need more (e.g., large image pulls); CI step timeouts must exceed the sum of sequential container test deadlines.
+- testscript sets `HOME=/no-home`, which breaks `docker`/`podman build`; `commonSetup` in `tests/cli/cmd_test.go` sets `HOME` to `env.WorkDir`. On Windows it must also set `APPDATA=WorkDir/appdata` and `USERPROFILE=WorkDir`, or tests share the real `%APPDATA%\invowk`.
 
 ## Cross-Platform Testing
 
-### The skipOnWindows Pattern
-
-When a test case is semantically meaningless on Windows (e.g., Unix-style absolute paths), use the `skipOnWindows` field pattern:
-
-```go
-import goruntime "runtime"
-
-tests := []struct {
-    name          string
-    path          string
-    want          string
-    skipOnWindows bool
-}{
-    {
-        name: "relative path",
-        path: "relative/path",
-        want: "relative/path",
-    },
-    {
-        name:          "unix absolute path",
-        path:          "/absolute/path",
-        want:          "/absolute/path",
-        skipOnWindows: true, // Unix-style absolute paths not meaningful on Windows
-    },
-}
-
-for _, tt := range tests {
-    t.Run(tt.name, func(t *testing.T) {
-        if tt.skipOnWindows && goruntime.GOOS == "windows" {
-            t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
-        }
-        // ... test code
-    })
-}
-```
-
-**When to use `skipOnWindows`:**
-- Test uses Unix-style absolute paths (`/foo/bar`)
-- Test relies on Unix-specific behavior (symlinks, permissions)
-- Test assumptions don't translate to Windows semantics
-
-**When NOT to use `skipOnWindows`:**
-- Test can be made cross-platform with `filepath.Join()`
-- Platform differences are implementation bugs, not semantic differences
-- Domain type is expected to enforce a platform-agnostic contract (for example repo-relative paths)
+- Never hardcode path separators in assertions: use `filepath.Join()` for host paths. Container paths (always `/`) are fine as literals. Path domains: `windows.md` "Path Handling".
+- Use a `skipOnWindows bool` table field (checked with `goruntime.GOOS == "windows"`) only for Unix-style absolute paths, Unix-only behavior (symlinks, permissions) or assumptions that do not translate to Windows. Do not skip when `filepath.Join()` makes the case portable, when the difference is an implementation bug, or when the type must enforce a platform-agnostic contract (e.g., repo-relative paths).
+- Valid host-absolute fixtures come from `filepath.Join(t.TempDir(), ...)`, never `/foo/bar` (not absolute on Windows); keep relative negative cases (`relative/...`, `./...`) explicit.
+- Import the stdlib package as `goruntime "runtime"` when `internal/runtime` is also imported.
+- Assert `%q`-rendered paths with `fmt.Sprintf("%q", path)`: `%q` doubles Windows backslashes.
 
 ### Cross-Platform Path Validator Matrix
 
-For value-type validators that must behave identically across OSes, include all of these path vectors in one table-driven test:
-- Unix absolute: `/absolute/path`
-- Windows drive absolute: `C:\\absolute\\path`
-- Windows rooted/UNC: `\\absolute\\path`, `\\\\server\\share`
-- Traversal with slash: `a/../../escape`
-- Traversal with backslash: `a\\..\\..\\escape`
-- Valid relative controls: `tools`, `modules/tools`, `./tools`
+Value-type path validators and resolvers that must behave identically across OSes are tested against the seven canonical vectors — UnixAbsolute (`/absolute/path`), WindowsDriveAbs (`C:\absolute\path`), WindowsRooted (`\absolute\path`), UNC (`\\server\share`), SlashTraversal (`a/../../escape`), BackslashTraversal (`a\..\..\escape`), ValidRelative (`tools`, `modules/tools`, `./tools`) — on every OS, using `internal/testutil/pathmatrix` (`Validator` / `Resolver`). This keeps Linux and macOS runs protective against Windows-only regressions.
 
-Why: this keeps Linux/macOS test runs protective against Windows-only regressions and prevents host-dependent behavior from slipping through CI.
+## Platform Coverage and Runtime Mirrors
 
-### Path Assertions
+- **CRITICAL:** all user-facing features are tested on Linux, macOS AND Windows. CI: Linux runs the full suite (unit, integration, CLI, container); macOS and Windows run short unit tests plus CLI tests.
+- New shell-feature tests default to `virtual-sh` plus a native mirror.
+- **CRITICAL:** every `virtual_<feature>.txtar` needs a `native_<feature>.txtar` mirror testing the same behaviors (`TestShRuntimeMirrorCoverage`, `TestVirtualNativeCommandPathAlignment`). Exceptions for virtual files live only in `tests/cli/runtime_mirror_exemptions.json`, each with a reason, and only for virtual-runtime built-ins, CUE-validation-only or diagnostics-formatting tests (`exact`/`prefix`); its `command_path_exempt` map only lets an existing mirror pair invoke different command paths. Non-virtual tests (`container_*`, `dogfooding_*`, built-in command tests such as `config_*`, `module_*`, `completion`, `tui_*`, `init_*`, `validate`) need no mirror.
+- New testscript tests MUST use inline CUE. Only `dogfooding_*.txtar` may reference `$PROJECT_ROOT`.
+- Every implementation declares all applicable platforms.
 
-Never hardcode path separators in assertions — use `filepath.Join()` for host paths. Container paths (always forward slash) are fine as literals. For the full path handling guide (host vs container paths, `filepath.ToSlash()`, common patterns), see `windows.md` § "Path Handling".
+### Native tests
 
-### Absolute Fixture Pattern (Host Paths)
+- Always platform-split: one implementation for `linux`/`macos`, one for `windows`. The Unix one runs under `$SHELL`, falling back to bash (zsh on macOS, bash on Linux CI), so use syntax valid in both.
+- `stdout`/`stderr` assertions are identical across platforms; only the script syntax differs.
+- Declare `runtimes: [{name: "native"}]` only; a virtual fallback defeats the test.
+- PowerShell implementations (canonical rules; `windows.md` points here):
+  - compatible with both PowerShell 5.1 and 7+: no ternary `? :`, no `??`, no `&&`/`||` pipeline chains
+  - `$env:VAR` for environment variables, never `$VAR`
+  - `Write-Output`, not `echo`
+  - `-eq`, `-ne`, `-lt`, `-gt`, `-like`, `-match`, never bash comparisons
+  - `$ErrorActionPreference = 'Stop'` instead of `set -e`
+  - anchored regex assertions use `\r?$` (`stdout '^done\r?$'`); substring assertions need nothing
+  - run one with `go test -run TestCLI/native_<name> ./tests/cli/`; details: `.agents/skills/windows-testing/references/powershell-testing.md`
 
-When validation logic relies on OS-native absoluteness (`filepath.IsAbs`), avoid hardcoded Unix-style fixtures as "valid absolute" inputs.
+### Platform skips
 
-```go
-// CORRECT: OS-native absolute fixture
-absPath := filepath.Join(t.TempDir(), "modules", "tools.invowkmod")
+- Allowed, for design constraints: `[!container-available] skip`, `[!net] skip`, `[in-sandbox] skip`, `[windows] skip` for genuine Windows limits (Unix permission bits, hardcoded `/tmp` upstream).
+- Not allowed: skipping a platform because an implementation is missing (e.g., `[macos] skip 'not implemented'`); fix the implementation.
+- Use the built-in `[windows]`, `[linux]`, `[darwin]` conditions, never `[GOOS:windows]`; unknown conditions fail through `commonCondition()`.
 
-// RELATIVE NEGATIVE CASES: keep explicit
-relPath := "modules/tools.invowkmod"
-dotRelPath := "./modules/tools.invowkmod"
-```
+## Pitfalls
 
-Why: `/foo/bar` is absolute on Unix but not on Windows. Using `t.TempDir()` + `filepath.Join` keeps tests valid on all CI platforms.
+- testscript `stdout`/`stderr` patterns are Go regex: escape `\(s\)` or use simpler patterns.
+- CLI handler error tests assert both channels: the handler's styled stdout and Cobra's stderr.
+- All txtar file entries land under `$WORK`; isolate tests that need a clean workspace in a subdirectory (`cd $WORK/clean_workspace`) so broken fixtures are not discovered.
+- `*.txtar` is forced to `eol=lf` in `.gitattributes`; keep it, or Windows checkouts change fixture checksums.
+- Ubuntu runners preset `XDG_CONFIG_HOME`; `unset XDG_CONFIG_HOME` before testing the XDG fallback.
+- Make uniqueness deterministic with an atomic counter, never with sleeps or time-based values.
+- Test behavioral contracts (sentinel errors via `errors.Is`, defaults that affect users, state transitions), not constants or zero values.
+- Helpers: `internal/testutil` (`MustSetenv`, `MustChdir`, `MustRemoveAll`, `SetHomeDir`, `pathmatrix`, `invowkfiletest`, container semaphore and context).
 
-### Import Alias for runtime Package
+## Guardrail Tests
 
-When testing code that needs both the `runtime` package and `runtime.GOOS`, use an import alias:
-
-```go
-import (
-    goruntime "runtime"  // For GOOS checks
-
-    "github.com/invowk/invowk/internal/runtime"  // For Runtime types
-)
-```
-
-## Cross-Platform Test Coverage Requirements
-
-### Mandatory Platform Coverage
-
-**CRITICAL**: All user-facing features MUST be tested on Linux, macOS, AND Windows.
-
-The CI pipeline tests on three platform tiers:
-- **Linux (Ubuntu)**: Full test suite (unit + integration + CLI + container)
-- **macOS**: Unit tests (short) + CLI integration tests
-- **Windows**: Unit tests (short) + CLI integration tests
-
-### Runtime Coverage Requirements
-
-Each test file exercises a specific runtime path through the system:
-
-| Runtime | Linux Shell | macOS Shell | Windows Shell | When Used |
-|---------|-------------|-------------|---------------|-----------|
-| **virtual-sh** | mvdan/sh | mvdan/sh | mvdan/sh | Cross-platform POSIX scripts (default for shell feature tests) |
-| **native** | bash | zsh | PowerShell | Platform-specific shell integration |
-| **container** | /bin/sh (in container) | N/A | N/A | Linux-only container execution |
-
-**What native runtime tests catch that virtual tests miss:**
-- Shell-specific quoting/escaping differences (bash vs zsh vs PowerShell)
-- Environment variable expansion syntax (`$VAR` vs `$env:VAR`)
-- Platform-specific command availability and behavior
-- Real shell startup behavior (profile loading, PATH resolution)
-- PowerShell-specific gotchas (cmdlet aliases, object pipeline, encoding)
-
-### Full Feature Mirror Requirement
-
-**CRITICAL**: Every feature-level testscript file that uses the virtual-sh runtime MUST have a corresponding native runtime mirror that tests the same behaviors using native shell implementations.
-
-The pattern is:
-- `virtual_<feature>.txtar` — Tests with `runtimes: [{name: "virtual-sh"}]`, all platforms
-- `native_<feature>.txtar` — Tests with `runtimes: [{name: "native"}]`, platform-split CUE (bash for Linux/macOS, PowerShell for Windows)
-
-This ensures that features work correctly through both the virtual shell (mvdan/sh) and each platform's native shell.
-
-### Exemptions from the Feature Mirror
-
-| Test Category | Files | Reason |
-|---------------|-------|--------|
-| **u-root** | `virtual_uroot_*.txtar` (all u-root tests) | u-root commands are virtual shell built-ins; native shell has its own implementations |
-| **virtual shell** | `virtual_shell.txtar` | Tests virtual-shell-specific features (u-root integration, cross-platform POSIX semantics) |
-| **container** | `container_*.txtar` | Linux-only by design; container runtime is not a native shell |
-| **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Tests schema parsing and validation, not runtime behavior |
-| **discovery/diagnostics** | `virtual_diagnostics_footer.txtar` | Tests diagnostics footer formatting, not shell execution |
-| **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime through the project's own invowkfile.cue |
-| **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar`, `validate.txtar` | Built-in Cobra commands exercise CLI handlers directly, not user-defined command runtimes |
-
-### Testscript (.txtar) Test Strategy
-
-**Preferred: Inline CUE** — All new testscript tests MUST use inline CUE:
-
-````txtar
-cd $WORK
-
-exec invowk cmd hello
-stdout 'Hello!'
-
--- invowkfile.cue --
-cmds: [{
-    name: "hello"
-    description: "Test command"
-    implementations: [{
-        script: {content: "echo 'Hello!'"}
-        runtimes: [{name: "virtual-sh"}]
-        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-    }]
-}]
-````
-
-**Why inline CUE over referencing project invowkfile.cue:**
-- Self-contained: test is readable without cross-referencing
-- Cross-platform: can declare all platforms using virtual-sh runtime
-- Isolated: changes to project invowkfile.cue don't break feature tests
-- Portable: runs on all CI platforms without platform skips
-
-**Exception: Dogfooding tests** in `tests/cli/testdata/dogfooding_*.txtar` MAY reference `$PROJECT_ROOT` to validate the actual project configuration.
-
-### Native Runtime Tests
-
-Native runtime tests use platform-split CUE with separate implementations for Unix shells (bash/zsh) and Windows PowerShell:
-
-````cue
-implementations: [
-    {
-        script: {content: """
-            echo "Hello from native shell"
-            echo "VAR=$MY_VAR"
-            """}
-        runtimes:  [{name: "native"}]
-        platforms: [{name: "linux"}, {name: "macos"}]
-    },
-    {
-        script: {content: """
-            Write-Output "Hello from native shell"
-            Write-Output "VAR=$($env:MY_VAR)"
-            """}
-        runtimes:  [{name: "native"}]
-        platforms: [{name: "windows"}]
-    },
-]
-````
-
-**Key design rules for native tests:**
-
-1. **Always platform-split**: Every native command needs separate Linux/macOS and Windows implementations. Bash syntax fails in PowerShell and vice versa.
-2. **Same assertions**: The `stdout` assertions in the txtar file must be identical for all platforms — only the script syntax differs, not the output.
-3. **Use `Write-Output` on Windows**: Prefer `Write-Output` over `echo` in PowerShell implementations for consistent behavior.
-4. **Use `$env:VAR` on Windows**: PowerShell accesses environment variables via `$env:VAR`, not `$VAR`.
-5. **No virtual fallback**: Native tests declare `runtimes: [{name: "native"}]` only — adding a virtual fallback would defeat the purpose of testing native shell behavior.
-
-### Platform Skip Policy
-
-**Allowed platform skips** (document the design constraint):
-- `[!container-available] skip` — Container tests (Linux-only by design)
-- `[!net] skip` — Tests requiring network connectivity
-- `[in-sandbox] skip` — Tests incompatible with Flatpak/Snap sandboxes
-- `[windows] skip` — Genuine Windows platform limitations (e.g., Unix permission bits, hardcoded `/tmp` in upstream code)
-
-**NOT allowed** (fix the implementation instead):
-- Skipping entire platforms just because a command lacks an implementation for them
-- `[macos] skip 'not implemented'`
-
-### When Adding New Commands
-
-1. All implementations MUST declare all applicable platforms
-2. Use virtual-sh runtime for cross-platform portability
-3. Create both `virtual_<feature>.txtar` (all platforms) and `native_<feature>.txtar` (platform-split CUE for bash on Linux/macOS and PowerShell on Windows) mirrors
-4. Add testscript test with inline CUE covering all platforms
-5. Container runtime commands are exempt (Linux-only by design)
-
-## Test Helpers
-
-### Cleanup with t.TempDir()
-
-Prefer `t.TempDir()` over manual temp directory creation:
-
-```go
-// PREFERRED: Automatic cleanup
-func TestSomething(t *testing.T) {
-    tmpDir := t.TempDir()
-    // ... use tmpDir
-}
-
-// AVOID: Manual cleanup required
-func TestSomething(t *testing.T) {
-    tmpDir, err := os.MkdirTemp("", "test-*")
-    if err != nil {
-        t.Fatalf("failed to create temp dir: %v", err)
-    }
-    defer os.RemoveAll(tmpDir)  // Easy to forget
-    // ... use tmpDir
-}
-```
-
-### Test Utility Functions
-
-Use helpers from `internal/testutil`:
-
-```go
-// Environment variable management
-restore := testutil.MustSetenv(t, "MY_VAR", "value")
-defer restore()
-
-// File cleanup
-defer func() { testutil.MustRemoveAll(t, path) }()
-```
-
-## Common Pitfalls
-
-| Pitfall | Fix |
-|---------|-----|
-| Hardcoded Unix paths in assertions | Use `filepath.Join()` or add `skipOnWindows` |
-| Missing `testing.Short()` check | Add for any test requiring external resources |
-| Time-based uniqueness tests failing | Add atomic counter or small delay |
-| Import conflicts with `runtime` package | Use `goruntime` alias |
-| Forgetting test cleanup | Use `t.TempDir()` and `defer` patterns |
-| Testscript container tests fail with "mkdir /no-home" | Set `HOME` to `env.WorkDir` in Setup |
-| Windows testscript tests share config dirs | `commonSetup()` must set `APPDATA=WorkDir/appdata` and `USERPROFILE=WorkDir` on Windows. Without this, all tests share the real `%APPDATA%\invowk`, causing cross-test contamination (e.g., one test's `config init` affects another) |
-| CI pre-sets `XDG_CONFIG_HOME` breaking shell tests | Ubuntu CI runners set `XDG_CONFIG_HOME=/home/runner/.config`. Tests that rely on XDG fallback (e.g., `${XDG_CONFIG_HOME:-${HOME}/.config}`) must `unset XDG_CONFIG_HOME` before testing the fallback path |
-| Circular/trivial tests (constant == literal, zero-value == zero) | Test behavioral contracts: sentinel errors with `errors.Is`, default configs that affect user behavior, state machine transitions |
-| Pattern guardrail tests fail after adding comments | `TestNoGlobalConfigAccess` scans all non-test `.go` files for prohibited call signatures using raw `strings.Contains`. Comments mentioning deprecated APIs (e.g., the old global config accessor) must use indirect phrasing. See `.agents/skills/go/SKILL.md` "Comments" |
-| Testscript condition silently ignored | `[windows]`, `[linux]`, `[darwin]` are built-in testscript conditions (via `imports.KnownOS`). Do NOT use `[GOOS:windows]` — it is NOT built-in and falls through to `commonCondition()`, which now returns an error for unknown conditions. The `commonCondition` fail-loud default catches typos immediately |
-| SHA hash mismatches in txtar on Windows | Git `core.autocrlf=true` converts `\n` → `\r\n` in txtar fixtures, changing checksums. The `.gitattributes` file forces `*.txtar text eol=lf` project-wide |
-| Issue templates contain stale guidance | `TestIssueTemplates_NoStaleGuidance` (`internal/issue/issue_test.go`) scans all embedded `.md` templates for stale tokens like `"invowk fix"` and `"apk add --no-cache"`. When updating issue templates, avoid Alpine-specific commands and deprecated CLI subcommands |
-| Duplicate `Test*` declarations after file split | When splitting test files to stay under 1000 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See `.agents/skills/go/SKILL.md` "File Shape" |
-| New built-in command missing txtar test | `TestBuiltinCommandTxtarCoverage` (`cmd/invowk/coverage_test.go`) fails when a non-hidden, runnable, leaf built-in command has no txtar test. Add a `.txtar` file in `tests/cli/testdata/` with `exec invowk <command>` |
-| Removing shared test helper breaks other test files | In Go, all `_test.go` files in the same package share a namespace. Removing a helper (e.g., `containsString` from `dotenv_test.go`) that is also called by `container_test.go` or `env_test.go` causes compile errors. Always grep the ENTIRE package for the function name before deleting it |
-| Txtar workspace contamination from broken fixtures | ALL file entries in a `.txtar` archive are created under `$WORK`. If one test creates a broken fixture (e.g., `badmod.invowkmod/`) at `$WORK` root, other tests running `exec invowk validate` or `exec invowk cmd` at `$WORK` will pick up the broken files through discovery. Isolate tests that need a clean workspace into subdirectories (e.g., `cd $WORK/clean_workspace`) |
-| Testscript `stdout`/`stderr` assertions use Go regex | Patterns in `stdout 'foo(s) bar'` interpret `(s)` as a capture group, not a literal `(s)`. Use simpler patterns like `stdout 'discovered'` or escape parentheses `\(s\)`. Particularly tricky with pluralization patterns like `"N source(s)"` |
-| CLI handler error tests only check one output channel | CLI handlers (e.g., `runModuleRemove`) print styled progress to **stdout** (`fmt.Printf` with icons) AND return errors to Cobra which renders to **stderr**. Test BOTH channels: `stdout 'Failed to remove'` verifies the handler's formatting, `stderr '[Nn]o module found'` verifies Cobra's error rendering. A bug in either path would be missed if only one channel is checked |
-| `%q`-formatted path assertion fails on Windows | Go's `%q` escapes backslashes (`\` → `\\`). On Windows, `filepath.Join` produces `\`-separated paths, but `%q` in production code doubles them. Test assertions using raw string concatenation (`` `key: "` + path + `"` ``) won't match. Use `fmt.Sprintf("key: %q", path)` in assertions to match `%q`-rendered output |
-
-## Related Skills
-
-For deep OS-level knowledge beyond this rule:
-
-| Skill | When to Consult |
-|---|---|
-| `go-testing` | Go test execution model, all flags, race detector, vet analyzers, benchmark/fuzz APIs |
-| `windows-testing` | Windows process lifecycle, TerminateProcess, NTFS pitfalls, timer resolution |
-| `macos-testing` | APFS case-insensitivity, kqueue coalescing, timer coalescing, /tmp symlink |
-| `linux-testing` | Container test infrastructure, inotify limits, cgroups/namespaces, OOM killer |
-| `testing` | Invowk-specific test patterns, testscript, TUI testing, container runtime testing |
-| `review-tests` | Test suite audit with 102-item checklist across 8 surfaces |
+- `TestNoGlobalConfigAccess` (`internal/config`) scans non-test `.go` files with `strings.Contains`; comments must not spell out the deprecated global config accessor call.
+- `TestBuiltinCommandTxtarCoverage` (`cmd/invowk/cmd_coverage_test.go`) fails when a non-hidden, runnable leaf built-in command has no `.txtar` test in `tests/cli/testdata/`.
+- `TestIssueTemplates_NoStaleGuidance` (`internal/issue`) rejects stale tokens such as `invowk fix` and `apk add --no-cache` in issue templates.

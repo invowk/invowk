@@ -210,8 +210,8 @@ asset checks and are not manually reviewed by this gate.
 **Expected**: No matches (all PASS), or only language-specific images like `golang:1.27`,
 `python:3-slim` in language-specific runtime demos.
 
-**Failure triage**: Replace with `debian:stable-slim`. See `.agents/rules/version-pinning.md`
-Container Images section.
+**Failure triage**: Replace with `debian:stable-slim`. See `AGENTS.md` "Hard invariants"
+(container bullet).
 
 ## 10. CUE Snippet Schema Spot-Check
 

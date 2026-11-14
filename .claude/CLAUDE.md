@@ -1,289 +1,87 @@
-# Overview
+# Invowk
 
-Invowk is a dynamically extensible command runner (similar to `just`, `task`, and `mise`) written in Go 1.27+. It supports multiple execution runtimes: native shell, virtual shell (mvdan/sh), and containerized execution (Docker/Podman). From the user perspective, Invowk offers two key extensibility primitives:
-- User-defined commands (called `cmds`), which are defined in `invowkfile.cue` files using CUE format. `cmds` are made available under the reserved `invowk cmd` built-in command/namespace.
-- User-defined modules, which are filesystem directories named as `<module-id>.invowkmod` (preferably using the RDNS convention) that contain:
-  - an `invowkmod.cue` file
-  - an `invowkfile.cue` file
+Invowk is a command runner like `just`, `task` and `mise`, written in Go (version: the `go` directive in `go.mod`). Users define commands (`cmds`) in `invowkfile.cue` and run them under the reserved `invowk cmd` namespace. Modules are directories named `<module-id>.invowkmod` (RDNS ids preferred) holding an `invowkmod.cue` and an `invowkfile.cue`; they can require other modules and bundle scripts and files. Runtimes: `native` (host shell), `virtual-sh` (mvdan/sh plus u-root built-ins), `virtual-lua` (embedded golua) and `container` (Docker/Podman).
 
-  Modules can require other modules as dependencies, which is how Invowk effectively provides modularity and `cmd` re-use for users. Additionally, modules also serve as a means to bundle scripts and ad-hoc files required for `cmd` execution.
+## Hard invariants
 
-  Invowk uses the **explicit-only dependency model** (like Go modules): every module in the dependency tree must be declared in the root `invowkmod.cue`. Transitive dependencies are NOT resolved automatically — if module A requires module B, and B requires C, then C must also be declared in the root `invowkmod.cue`. The `invowk module tidy` command auto-adds missing transitive deps, and `invowk module sync` fails with actionable errors if any are missing. The lock file (v2.0) includes SHA-256 content hashes for tamper detection.
+- **Virtual runtimes are not a sandbox.** Never describe `virtual-sh` or `virtual-lua` as sandboxed or isolated.
+  - Host binaries are denied unless listed in `allowed_binaries` (`["*"]` allows all); allowed binaries run as native host processes with host access.
+  - The shared harness gates resolution and path access; it is not a kernel jail, and mvdan/sh has no sandbox API.
+  - The host environment, including `PATH`, is inherited by default (`env_inherit_mode: "all"`).
+  - u-root built-in errors and host-binary policy denials never fall back silently to host execution.
+  - In docs and examples: "no shell dependency" only means the interpreter is built in. Show `allowed_binaries` whenever a virtual example launches a host binary, and point to the `container` runtime for isolation.
+- **The container runtime runs Linux containers only. Never use Alpine or Windows container images anywhere.** In tests, docs, CUE snippets and examples:
+  - use `debian:stable-slim`; never `ubuntu:*`, `debian:<codename>` or any other base image;
+  - language images (`golang:1.N`, `python:3-slim`, `node:22-slim`) only to demonstrate language-specific runtimes, with stable tags.
+  - CI and build images follow the version-pinning rule. Why: `.agents/memorials/container-linux-only.md`.
+- **Module dependencies are explicit only** (like Go modules): the root `invowkmod.cue` declares every module in the tree, and transitive dependencies are never resolved. `invowk module tidy` adds missing ones; `invowk module sync` fails with actionable errors. Lock file v2.0 stores SHA-256 content hashes.
+- **Command scope is a static gate.** `CheckCommandDependenciesExist()` (`internal/app/deps/deps.go`) checks `depends_on.cmds` against the same module, global modules (`~/.invowk/cmds`) and first-level `requires`. It does not intercept scripts that call `invowk cmd` at run time; for isolation, use the container runtime.
+- Pin every dependency, tool, action, image and MCP server in CI, build config, scripts and `.mcp.json` per the version-pinning rule, never `@latest` or unpinned; its documented exceptions apply. User-facing `go install …@latest` instructions are intentional.
+- Sign every commit and merge into `main` only by squash merge (git rule). Work is not done until `make test` passes (checklist rule).
 
-  Command-scope visibility enforcement is a **static analysis gate** applied at `depends_on.cmds` declaration validation time via `CheckCommandDependenciesExist()` in `internal/app/deps/deps.go`. It verifies discovered command identities are within scope (same module, globally installed modules at `~/.invowk/cmds`, or first-level dependencies in `invowkmod.cue:requires`). This is NOT a runtime subprocess interceptor — if a module script dynamically invokes `invowk cmd <command>`, the scope check is not triggered. For execution isolation, use the container runtime.
+## Agent operation
 
-## Rules for Agents (Critical)
+- **CRITICAL:** track all plans and non-trivial work in the harness task tracker (Claude Code: `TaskCreate`/`TaskUpdate`): create tasks at the start, keep statuses current, and remove stale ones.
+- **CRITICAL:** whenever possible and appropriate, use multiple tasks, teammates and subagents.
+- **CRITICAL:** teammates must always get plan approval before they change anything.
+- On compaction, keep file paths, symbol names, open issues and goals, architectural decisions, learnings, next steps and the last ~5 tool outputs. Never compact this file or rule, skill and agent definitions.
 
-### Compaction
+## Governance precedence
 
-- Prioritize the keeping and remembering of file paths, function and symbol names, identified issues and goals, current architectural decisions, semantic learnings, and next steps. Do not discard the output of the latest ~5 tool calls; discard the oldest ones.
-- Never compact the content of `.claude/CLAUDE.md` or rule/agent/skill definitions.
+System and user instructions come first. For repository guidance, this order wins:
 
-### Workflow Orchestration
+1. `AGENTS.md` (this file): indexes, scope maps and governance.
+2. `.agents/rules/*.md`: normative rules.
+3. `.agents/skills/*/SKILL.md`: procedures. Runbooks (`.agents/runbooks/`) have the same standing.
+4. Package-level `AGENTS.md` files: scoped, explicit exceptions only.
 
-**CRITICAL:** All Plans and non-trivial work must be tracked using the Tasks tool (`TaskCreate`, `TaskUpdate`). Create tasks at the start of a plan or work session, update status as items progress (`in_progress`, `completed`), and clean up stale tasks.
+A rule beats a skill or runbook unless the rule grants an exception. Memorials (`.agents/memorials/`) are history and never normative. `.claude/{rules,skills,agents,commands}` are compatibility symlinks; docs reference `.agents/...`.
 
-**CRITICAL:** Whenever possible and appropriate, multiple Tasks, Teammates, and Subagents must be used.
+## Where things live
 
-**CRITICAL:** Teammates must always require plan approval before they make any changes.
+- Schemas: `pkg/invowkfile/invowkfile_schema.cue`, `pkg/invowkmod/invowkmod_schema.cue`, `internal/config/config_schema.cue`. All runtimes implement the interface in `internal/runtime/`.
+- Code: `cmd/invowk/` (thin Cobra adapters), `internal/` (private packages; services under `internal/app/`), `pkg/` (public packages), `tests/cli/` (testscript), `samples/invowkmods/` (sample modules). Package map and code-area routing: `.agents/runbooks/repo-map.md`.
+- Docs: `website/` (Docusaurus), `docs/architecture/` (diagrams), `formal/` (Alloy/TLA+ models), `openspec/` and `specs/` (specifications), `tasks/next/` (pending decisions), `.goplint/` (goplint consumer config; guide `docs/goplint/README.md`).
+- Agent docs: `.agents/{rules,skills,agents,commands}/`. On-demand procedures are indexed in `.agents/runbooks/README.md`, history and past decisions in `.agents/memorials/README.md`; neither is auto-loaded.
 
-### Governance Precedence
+## Quick commands
 
-**CRITICAL:** Use this precedence whenever repository guidance appears to conflict:
+`make build`, `make test`, `make lint`, `make tidy`, `make check-goplint-consumer-routed`, `make check-baseline`. Every target: the commands rule.
 
-1. `AGENTS.md` (indexes, scope maps, and repository-wide governance contracts)
-2. `.agents/rules/*.md` (normative policy and mandatory requirements)
-3. `.agents/skills/*/SKILL.md` (procedural workflows and implementation guidance)
-4. Package-scoped `AGENTS.md` files for local, explicit exceptions only
+## Rules index
 
-- If a skill conflicts with a rule, the rule wins unless the rule explicitly allows an exception.
-- `.claude/rules`, `.claude/skills`, and `.claude/agents` are compatibility symlinks. Canonical references in documentation must use `.agents/...`.
+When a file in `.agents/rules/` is added, renamed or removed, update this index in the same change; `make check-agent-docs` verifies it. Every rule, skill, agent and command appears here exactly once in bracketed form.
 
-### Rules
+- Always loaded:
+  - [`.agents/rules/checklist.md`]: completion gates
+  - [`.agents/rules/commands.md`]: make targets, hidden internal commands
+  - [`.agents/rules/general-rules.md`]: sources, code quality, scope
+  - [`.agents/rules/git.md`]: signing, squash merges, commit messages
+- Loaded when touching matching files (`paths:` frontmatter); read them directly if your tool does not auto-load:
+  - [`.agents/rules/ci-workflows.md`]: `.github/`, `scripts/`, `Makefile`, `tools/`, pre-commit config
+  - [`.agents/rules/version-pinning.md`]: workflows, `go.mod`, `Makefile`, scripts, Dockerfiles, `build/`, `.mcp.json`, `formal/manifest.toml`, GoReleaser, `website/package.json`
+  - [`.agents/rules/formal-bindings.md`]: code named by formal correspondence tables
+  - [`.agents/rules/cue-patterns.md`]: `*.cue`, invowkfile, invowkmod, config, cueutil
+  - [`.agents/rules/licensing.md`]: `*.go`
+  - [`.agents/rules/package-design.md`]: `cmd/`, `internal/`, `pkg/`
+  - [`.agents/rules/testing.md`]: `*_test.go`, `tests/cli/`, testdata, `internal/testutil/`
+  - [`.agents/rules/windows.md`]: path-handling packages (runtime, container, provision, config, app, audit, uroot, watch, testutil, platform, fspath, types, invowkmod, invowkfile), `tests/cli/*.go`, `native_*.txtar`
 
-**CRITICAL:** The files in `.agents/rules/` define the authoritative rules for agents. EVERYTIME there is ANY change to files/rules inside `.agents/rules` (new file, file rename, file removed, etc.), the index/sync map in this file MUST be updated accordingly.
+## Skills index
 
-**Rules Index / Sync Map (must match `.agents/rules/`):**
-- [`.agents/rules/checklist.md`](.agents/rules/checklist.md) - Pre-completion verification steps.
-- [`.agents/rules/commands.md`](.agents/rules/commands.md) - Build, test, and release commands.
-- [`.agents/rules/cue-patterns.md`](.agents/rules/cue-patterns.md) - CUE schema patterns, string validation, common pitfalls.
-- [`.agents/rules/general-rules.md`](.agents/rules/general-rules.md) - Instruction priority, code quality, documentation.
-- [`.agents/rules/git.md`](.agents/rules/git.md) - Commit signing, squash merge, message format.
-- [`.agents/rules/licensing.md`](.agents/rules/licensing.md) - SPDX headers and MPL-2.0 rules.
-- [`.agents/rules/package-design.md`](.agents/rules/package-design.md) - Package boundaries and module design.
-- [`.agents/rules/testing.md`](.agents/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
-- [`.agents/rules/version-pinning.md`](.agents/rules/version-pinning.md) - Version pinning policy for deps, tools, images.
-- [`.agents/rules/windows.md`](.agents/rules/windows.md) - Windows-specific constraints and guidance.
+- Go and architecture: [`.agents/skills/go/`] [`.agents/skills/go-hexagonal-ddd/`] [`.agents/skills/invowk-typesystem/`] [`.agents/skills/cli/`] [`.agents/skills/discovery/`] [`.agents/skills/server/`]
+- Schema: [`.agents/skills/cue/`] [`.agents/skills/invowk-schema/`] [`.agents/skills/schema-sync-check/`]
+- Runtimes: [`.agents/skills/shell/`] [`.agents/skills/virtual-lua/`] [`.agents/skills/uroot/`] [`.agents/skills/container/`]
+- Testing: [`.agents/skills/go-testing/`] [`.agents/skills/testing/`] [`.agents/skills/native-mirror/`] [`.agents/skills/windows-testing/`] [`.agents/skills/macos-testing/`] [`.agents/skills/linux-testing/`] [`.agents/skills/tmux-testing/`] [`.agents/skills/tui-testing/`] [`.agents/skills/fixer/`] [`.agents/skills/review-tests/`]
+- Docs and diagrams: [`.agents/skills/docs/`] (editing), [`.agents/skills/review-docs/`] (audits), [`.agents/skills/d2-diagrams/`] (default for new diagrams)
+- Release, CI and dependencies: [`.agents/skills/publish-release/`] [`.agents/skills/changelog/`] [`.agents/skills/ci-update/`] [`.agents/skills/dep-audit/`] [`.agents/skills/bencher/`]
+- Security and formal methods: [`.agents/skills/module-security/`] [`.agents/skills/formal-verification/`]
+- Meta: [`.agents/skills/learn/`]
+- User-only, never auto-invoke:
+  - [`.agents/skills/speckit.specify/`] [`.agents/skills/speckit.clarify/`] [`.agents/skills/speckit.plan/`] [`.agents/skills/speckit.tasks/`] [`.agents/skills/speckit.taskstoissues/`] [`.agents/skills/speckit.implement/`] [`.agents/skills/speckit.analyze/`] [`.agents/skills/speckit.checklist/`] [`.agents/skills/speckit.constitution/`]
+  - [`.agents/skills/openspec-apply-change/`] [`.agents/skills/openspec-archive-change/`] [`.agents/skills/openspec-explore/`] [`.agents/skills/openspec-propose/`] [`.agents/skills/openspec-sync-specs/`] [`.agents/skills/openspec-update-change/`]
 
-**Verification:** If `AGENTS.md`, `.agents/rules/`, or `.agents/skills/` changes, run `make check-agent-docs` and fix all reported drift before considering the documentation update complete.
+## Agents and commands
 
-### Agents
-
-**Agents Index (`.agents/agents/`):**
-
-Agents are specialized reviewers and generators that can be spawned as subagents for focused tasks.
-
-- [`.agents/agents/code-reviewer.md`](.agents/agents/code-reviewer.md) - Go code review: decorder, sentinel errors, wrapcheck, SPDX headers, guardrail compliance.
-- [`.agents/agents/cue-schema-agent.md`](.agents/agents/cue-schema-agent.md) - CUE schema specialist: 3-step parse flow, sync tests, validation matrix.
-- [`.agents/agents/performance-analyzer.md`](.agents/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
-- [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
-- [`.agents/agents/ci-readiness.md`](.agents/agents/ci-readiness.md) - CI-readiness verifier: runs pre-completion checklist gates in parallel before commits/PRs.
-- [`.agents/agents/supply-chain-reviewer.md`](.agents/agents/supply-chain-reviewer.md) - Supply-chain security: module system threat model, script path traversal, lock file integrity, symlink abuse, trust boundaries.
-- [`.agents/agents/test-writer.md`](.agents/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
-
-### Commands
-
-**Commands Index (`.agents/commands/`):**
-
-Commands are user-invokable slash commands (e.g., `/review-docs`) that execute multi-step workflows.
-
-- [`.agents/commands/fix-it.md`](.agents/commands/fix-it.md) - Analyze issues and propose robust fix plan with prevention strategy.
-- [`.agents/commands/fix-it-simple.md`](.agents/commands/fix-it-simple.md) - Analyze issues and propose concise fix with prevention.
-- [`.agents/commands/improve-type-system.md`](.agents/commands/improve-type-system.md) - Four-phase DDD Value Type conversion: assess goplint findings, plan conversions by impact, execute via invowk-typesystem skill, verify baseline.
-- [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review all documentation surfaces for accuracy against current architecture and behavior: README, current website docs, snippets, i18n, diagrams, config defaults, security audit docs, LLM authoring docs, and agent workflow docs.
-- [`.agents/commands/review-rules.md`](.agents/commands/review-rules.md) - Review rules files for contradictions, ambiguities, incoherence, or excessive noise.
-- [`.agents/commands/review-tests.md`](.agents/commands/review-tests.md) - Review test suite for semantic comprehensiveness, signal-to-noise, and E2E coverage.
-- [`.agents/commands/review-type-system.md`](.agents/commands/review-type-system.md) - Review Go type system for type safety improvements and abstraction opportunities.
-- [`.agents/commands/rust-alt.md`](.agents/commands/rust-alt.md) - Identify next items and plan Go→Rust conversion with DDD and 1000-line file limit.
-
-### Skills
-
-**Skills Index (`.agents/skills/`):**
-
-Skills provide domain-specific procedural guidance. They are invoked when working on specific components.
-
-- [`.agents/skills/bencher/`](.agents/skills/bencher/) - Bencher benchmark CI, BMF output, dedicated runner handoff, thresholds, reports, and alert troubleshooting.
-- [`.agents/skills/cli/`](.agents/skills/cli/) - CLI command structure, Cobra patterns, execution flow, hidden internal commands.
-- [`.agents/skills/container/`](.agents/skills/container/) - Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy.
-- [`.agents/skills/cue/`](.agents/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
-- [`.agents/skills/d2-diagrams/`](.agents/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
-- [`.agents/skills/discovery/`](.agents/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
-- [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation editing workflow: Docusaurus, MDX snippets, i18n, versioning. For review/audit, use `/review-docs`.
-- [`.agents/skills/review-docs/`](.agents/skills/review-docs/) - User-invokable (`/review-docs`). Documentation review and audit across 11 surfaces: README, current website docs, snippet/CUE drift, i18n parity, diagrams, container policy, `DefaultConfig()` docs, security audit docs, LLM authoring docs, and agent workflow docs.
-- [`.agents/skills/review-tests/`](.agents/skills/review-tests/) - User-invokable (`/review-tests`). Test suite review and audit: structural hygiene, parallelism, assertions, integration gating, testscript quality, mirrors, coverage guardrails, domain testing.
-- [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
-- [`.agents/skills/invowk-typesystem/`](.agents/skills/invowk-typesystem/) - Invowk value-type system guidance: Validate() contracts, primitive wrappers, aliases/re-exports, and catalog maintenance.
-- [`.agents/skills/go-hexagonal-ddd/`](.agents/skills/go-hexagonal-ddd/) - Hexagonal Architecture and DDD guidance for Go package boundaries, ports/adapters, application services, and domain modeling while preserving Go simplicity.
-- [`.agents/skills/native-mirror/`](.agents/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
-- [`.agents/skills/schema-sync-check/`](.agents/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
-- [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
-- [`.agents/skills/shell/`](.agents/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
-- [`.agents/skills/virtual-lua/`](.agents/skills/virtual-lua/) - virtual-lua runtime, golua library loading, bridge API, path validation, and Lua tests.
-- [`.agents/skills/testing/`](.agents/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
-- [`.agents/skills/go-testing/`](.agents/skills/go-testing/) - Go 1.22+ test execution model, all flags, race detector, vet analyzers, context/parallelism decision frameworks, benchmark/fuzz APIs, coverage. Primary testing entry point referencing platform skills.
-- [`.agents/skills/windows-testing/`](.agents/skills/windows-testing/) - Windows OS primitives for testing: process lifecycle (TerminateProcess, no fork), file system (NTFS, MAX_PATH, sharing violations), timer resolution (15.6ms), race detector overhead.
-- [`.agents/skills/macos-testing/`](.agents/skills/macos-testing/) - macOS OS primitives for testing: APFS case-insensitivity, kqueue coalescing, timer coalescing, /tmp symlink, file descriptor limits, ARM64 specifics.
-- [`.agents/skills/linux-testing/`](.agents/skills/linux-testing/) - Linux OS primitives for testing: container test infrastructure, inotify limits, cgroups/namespaces, OOM killer, process groups, signal handling.
-- [`.agents/skills/formal-verification/`](.agents/skills/formal-verification/) - Alloy 6 and TLA+/TLC models under `formal/`, the fail-closed runner `scripts/formal.py`, golden vectors replayed by Go tests, rapid property tests, calibration, and correspondence tables.
-- [`.agents/skills/fixer/`](.agents/skills/fixer/) - User-invokable (`/fixer`). Platform-aware bug diagnosis and fix workflow with parallel subagents. Auto-triggers on bug fixing, test failures, CI failures, flaky tests, race conditions. Routes to platform skills for OS-specific diagnosis.
-- [`.agents/skills/go/`](.agents/skills/go/) - Go coding conventions and lint guardrails. Use for all Go code edits, Go lint fixes, Go package architecture, and golangci-lint/goplint patterns.
-- [`.agents/skills/tmux-testing/`](.agents/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
-- [`.agents/skills/tui-testing/`](.agents/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
-- [`.agents/skills/uroot/`](.agents/skills/uroot/) - u-root utility implementation patterns.
-- [`.agents/skills/learn/`](.agents/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep `.claude/CLAUDE.md`, hooks, rules, and skills up-to-date.
-- [`.agents/skills/changelog/`](.agents/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
-- [`.agents/skills/ci-update/`](.agents/skills/ci-update/) - User-invokable (`/ci-update`). Audit and update CI workflow versions, tool installs, MCP servers, and pre-commit hooks with sync pair validation.
-- [`.agents/skills/dep-audit/`](.agents/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
-- [`.agents/skills/publish-release/`](.agents/skills/publish-release/) - Publish Invowk releases through GitHub Releases and all supported release channels, including release notes, semantic diff analysis, channel verification, troubleshooting, and rollback/repair guidance.
-- [`.agents/skills/module-security/`](.agents/skills/module-security/) - Module system security auditing with up to 10 parallel subagents across 4 phases (context gathering, deterministic scanning, correlation, report assembly). Supply-chain attack prevention, `invowk audit` subcommand architecture, and code quality review of `internal/audit/` (correctness, performance, security).
-- [`.agents/skills/speckit.specify/`](.agents/skills/speckit.specify/) - **User-only** (`/speckit.specify`). Create or update feature specification from natural language description. **Never auto-invoke.**
-- [`.agents/skills/speckit.clarify/`](.agents/skills/speckit.clarify/) - **User-only** (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions. **Never auto-invoke.**
-- [`.agents/skills/speckit.plan/`](.agents/skills/speckit.plan/) - **User-only** (`/speckit.plan`). Generate implementation plan from feature specification. **Never auto-invoke.**
-- [`.agents/skills/speckit.tasks/`](.agents/skills/speckit.tasks/) - **User-only** (`/speckit.tasks`). Generate dependency-ordered tasks.md from design artifacts. **Never auto-invoke.**
-- [`.agents/skills/speckit.taskstoissues/`](.agents/skills/speckit.taskstoissues/) - **User-only** (`/speckit.taskstoissues`). Convert tasks.md into GitHub issues with dependency ordering. **Never auto-invoke.**
-- [`.agents/skills/speckit.implement/`](.agents/skills/speckit.implement/) - **User-only** (`/speckit.implement`). Execute implementation plan by processing tasks from tasks.md. **Never auto-invoke.**
-- [`.agents/skills/speckit.analyze/`](.agents/skills/speckit.analyze/) - **User-only** (`/speckit.analyze`). Cross-artifact consistency and quality analysis across spec, plan, and tasks. **Never auto-invoke.**
-- [`.agents/skills/speckit.checklist/`](.agents/skills/speckit.checklist/) - **User-only** (`/speckit.checklist`). Generate custom checklist for current feature based on requirements. **Never auto-invoke.**
-- [`.agents/skills/speckit.constitution/`](.agents/skills/speckit.constitution/) - **User-only** (`/speckit.constitution`). Create or update project constitution from principle inputs. **Never auto-invoke.**
-- [`.agents/skills/openspec-apply-change/`](.agents/skills/openspec-apply-change/) - **User-only** (`/openspec-apply-change`). Apply a proposed change and implement tasks using the openspec CLI. **Never auto-invoke.**
-- [`.agents/skills/openspec-archive-change/`](.agents/skills/openspec-archive-change/) - **User-only** (`/openspec-archive-change`). Archive a completed change and finalize specifications using the openspec CLI. **Never auto-invoke.**
-- [`.agents/skills/openspec-explore/`](.agents/skills/openspec-explore/) - **User-only** (`/openspec-explore`). Think through ideas and clarify requirements using the openspec CLI. **Never auto-invoke.**
-- [`.agents/skills/openspec-propose/`](.agents/skills/openspec-propose/) - **User-only** (`/openspec-propose`). Propose a new change with artifacts (proposal, design, tasks) in one step using the openspec CLI. **Never auto-invoke.**
-- [`.agents/skills/openspec-sync-specs/`](.agents/skills/openspec-sync-specs/) - **User-only** (`/openspec-sync-specs`). Sync delta specs into main specs without archiving the change. **Never auto-invoke.**
-- [`.agents/skills/openspec-update-change/`](.agents/skills/openspec-update-change/) - **User-only** (`/openspec-update-change`). Revise existing planning artifacts while keeping the change coherent. **Never auto-invoke.**
-
-
-### Code Area → Rules/Skills Mapping
-
-When working in a specific code area, apply these rules and skills:
-
-| Code Area | Rules | Skills |
-|-----------|-------|--------|
-| `cmd/invowk/` | testing, licensing, commands | go, cli, go-hexagonal-ddd, d2-diagrams |
-| `internal/app/commandsvc/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
-| `internal/app/deps/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd, formal-verification |
-| `internal/app/execute/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
-| `internal/container/` | testing, windows, licensing | go, container, go-hexagonal-ddd, linux-testing |
-| `internal/discovery/` | testing, licensing, package-design | go, discovery, go-hexagonal-ddd, d2-diagrams |
-| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual-sh runtime), virtual-lua (for Lua runtime), go-hexagonal-ddd, d2-diagrams, go-testing |
-| `internal/config/` | testing, cue-patterns, licensing | go, cue |
-| `pkg/cueutil/` | testing, cue-patterns, licensing | go, cue |
-| `internal/sshserver/` | testing, licensing | go, server |
-| `internal/tuiserver/` | testing, licensing | go, server |
-| `internal/tui/` | testing, licensing | go, testing, tui-testing, tmux-testing, windows-testing |
-| `internal/issue/` | testing, licensing | go |
-| `internal/provision/` | testing, windows, licensing | go, container |
-| `pkg/invowkfile/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd |
-| `pkg/invowkmod/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd, formal-verification |
-| `website/` | general-rules | docs, review-docs |
-| `docs/architecture/` | general-rules | docs, review-docs, d2-diagrams |
-| `internal/uroot/` | testing, licensing | go, uroot |
-| `internal/core/serverbase/` | testing, licensing | go, server |
-| `internal/benchmark/` | testing, licensing, commands | go |
-| `internal/watch/` | testing, licensing | go, macos-testing, linux-testing |
-| `pkg/platform/` | testing, windows, licensing | go, windows-testing |
-| `pkg/types/` | testing, licensing, package-design | go, invowk-typesystem, go-hexagonal-ddd |
-| `tests/cli/` | testing | go, testing, cli, invowk-schema, go-testing |
-| `internal/audit/` | testing, licensing, package-design | go, module-security, go-hexagonal-ddd |
-| `formal/` | general-rules, version-pinning | formal-verification |
-| `openspec/` | general-rules | openspec-apply-change, openspec-archive-change, openspec-explore, openspec-propose, openspec-sync-specs, openspec-update-change |
-
-## Quick Commands
-
-| Task | Command |
-|------|---------|
-| Build | `make build` |
-| Test (full) | `make test` |
-| Lint | `make lint` |
-| Tidy | `make tidy` |
-| Routed goplint consumer gate | `make check-goplint-consumer-routed` |
-| Goplint baseline check | `make check-baseline` |
-
-See [commands reference](.agents/rules/commands.md) for the complete list.
-
-## Architecture Overview
-
-```
-invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
-                                                  |
-                                  +---------------+---------------+
-                                  |               |               |
-                               Native         Virtual        Container
-                            (host shell)    (mvdan/sh)    (Docker/Podman)
-```
-
-- **CUE Schemas**:
-  - `pkg/invowkfile/invowkfile_schema.cue` defines `invowkfile` structure
-  - `pkg/invowkmod/invowkmod_schema.cue` defines `invowkmod` structure
-  - `internal/config/config_schema.cue` defines config structure
-- **Runtime Interface**: All runtimes implement the same interface in `internal/runtime/`.
-- **TUI Components**: Built with Charm libraries (bubbletea, bubbles, lipgloss).
-
-## Directory Layout
-
-- `cmd/invowk/` - CLI adapter layer using Cobra. Thin wrappers that parse flags, build requests, call domain services, and render output.
-- `internal/` - Private packages:
-  - `app/commandsvc/` - Command execution service (hexagonal domain layer). Owns the execution pipeline: discovery, validation, SSH lifecycle, runtime dispatch. Returns raw typed errors; CLI adapter applies rendering.
-  - `app/deps/` - Dependency validation domain logic. Two-phase validation: host deps (always) + container deps (container runtime only). Exported types: `DependencyError`, `ArgumentValidationError`.
-  - `app/execute/` - Execution orchestration (runtime resolution, execution context construction).
-  - `config/` - Configuration management with CUE schema.
-  - `container/` - Docker/Podman container engine abstraction.
-  - `core/serverbase/` - Shared server state machine base type (used by sshserver, tuiserver).
-  - `discovery/` - Module and command discovery.
-  - `issue/` - Error handling with ActionableError type.
-  - `runtime/` - Execution runtimes (native, virtual, container).
-  - `sshserver/` - SSH server for remote execution.
-  - `tui/` - Terminal UI components.
-  - `tuiserver/` - TUI server for interactive sessions.
-  - `uroot/` - u-root utility implementations for virtual shell built-ins.
-  - `benchmark/` - Benchmarks for PGO profile generation.
-  - `watch/` - File-watching with debounced re-execution for `--ivk-watch` mode.
-  - `provision/` - Container provisioning (ephemeral layer attachment).
-- `pkg/` - Public packages (cueutil, fspath, invowkmod, invowkfile, platform, types).
-- `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
-- `samples/invowkmods/` - Sample invowk modules and audit fixtures for validation and reference.
-- `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation, `check-file-length.sh` for 1000-line file limit enforcement).
-- `tools/` - Development tools:
-  - `mutation/` - Curated go-mutesting target manifests and accepted-survivor baselines for the root module.
-- `.goplint/` - Consumer configuration for [goplint](https://github.com/invowk/goplint), the standalone `go/analysis` analyzer (pinned via a root `go.mod` tool directive) that enforces DDD Value Type conventions. Run `make check-types` for the default audit and `make check-types-all` for the full DDD audit. `make check-goplint-consumer-routed` classifies staged diffs through `.goplint/ownership.v1.json`: documentation-only diffs skip analysis; everything else (and any unmatched path, fail-closed) runs the consumer tier — one canonical repository audit reused by `make check-baseline`, `make check-goplint-exceptions`, and `make check-goplint-full-scan`. Baseline regression is enforced by `make check-baseline`; protocol inconclusives are always visible and cannot be baselined, excepted, or inline-ignored. Baseline format is v2 (`entries = [{id, message}]`). Analyzer-soundness assurance (semantic profiles, retained completion evidence, mutation kernels, performance certification) is governed in the goplint repository before any version invowk can pin; see `docs/goplint/README.md`.
-- `specs/` - Feature specifications, research, and implementation plans.
-- `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
-
-## Virtual Runtime Security Model
-
-**The virtual runtime family is NOT a security sandbox.** `virtual-sh` is a portable shell interpreter (mvdan/sh) augmented with 28 u-root built-in utilities, and `virtual-lua` is an embedded Lua runtime with the same shared safety harness. This is a critical distinction:
-
-- **Host binaries are denied by default** and must be explicitly listed with `allowed_binaries`; `allowed_binaries: ["*"]` is the explicit opt-out that allows all host binaries.
-- **Allowed host binaries execute as native host processes** with host access. The virtual harness gates resolution and path access; it is not a kernel jail.
-- **The host's environment variables are inherited by default** (`env_inherit_mode: "all"`), including `PATH`.
-- **mvdan/sh has no sandbox API** — Invowk enforces virtual-sh behavior through its shared virtual path validator, utility registry, and host-binary policy.
-- **The "No Silent Fallback" guarantee** applies to u-root built-in errors and host-binary policy denials: denied host binaries do not silently fall through to host execution.
-
-**When writing documentation, examples, or discussing runtimes:**
-- Never describe virtual-sh or virtual-lua as "sandboxed" or "isolated".
-- Clarify that "no shell dependency" means the interpreter is built in, not that arbitrary external commands are available.
-- Show `allowed_binaries` explicitly whenever a virtual-sh or virtual-lua example launches a host binary.
-- For execution isolation, always point users to the **container** runtime.
-- Command-scope visibility enforcement is a **static analysis gate** at `depends_on.cmds` declaration validation time via `CheckCommandDependenciesExist()` in the deps validation layer. It validates discovered inter-module command identities but does NOT intercept runtime subprocess calls. Commands from a module's `depends_on.cmds` can only reference the same module, global modules, or direct dependencies.
-
-## Container Runtime Limitations
-
-**The container runtime ONLY supports Linux containers.** This is a fundamental design limitation:
-
-- **Supported images**: Debian-based images (e.g., `debian:stable-slim`).
-- **NOT supported**: Alpine-based images (`alpine:*`) and Windows container images.
-
-**Why no Alpine support:**
-- There are many subtle gotchas in musl-based environments.
-- We prioritize reliability over image size.
-
-**Why no Windows container support:**
-- They're rarely used and would introduce too much extra complexity to Invowk's auto-provisioning logic (which attaches an ephemeral image layer containing the `invowk` binary and the needed `invowkfiles` and `invowkmods` to the user-specified image/containerfile when the container runtime is used)
-
-**When writing tests, documentation, or examples:**
-- Always use `debian:stable-slim` as the reference container image.
-- Never use `ubuntu:*` or other non-`debian:stable-slim` base images. Language-specific images (`golang:1.27`, `python:3-slim`, `node:22-slim`) are allowed when demonstrating language-specific runtimes.
-- Never use Alpine images.
-- Never use Windows container images (e.g., `mcr.microsoft.com/windows/*`).
-
-## Key Dependencies
-
-- `github.com/spf13/cobra` - CLI framework.
-- `github.com/spf13/viper` - Configuration management.
-- `cuelang.org/go` - CUE language support for configuration/schema.
-- `charm.land/*` - TUI and SSH components (bubbles, bubbletea, lipgloss, log, ssh, wish).
-- `mvdan.cc/sh/v3` - Virtual shell implementation.
-- `github.com/invowk/golua` - Embedded Lua runtime for `virtual-lua` (invowk's maintained fork of `arnodel/golua`, patched for Go 1.27's `//go:linkname` allowlist removal).
-- `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.
-
-See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.
+- Agents (spawnable reviewers and generators): [`.agents/agents/code-reviewer.md`] [`.agents/agents/cue-schema-agent.md`] [`.agents/agents/performance-analyzer.md`] [`.agents/agents/security-reviewer.md`] [`.agents/agents/supply-chain-reviewer.md`] [`.agents/agents/ci-readiness.md`] [`.agents/agents/test-writer.md`]
+- Slash commands: [`.agents/commands/fix-it.md`] [`.agents/commands/fix-it-simple.md`] [`.agents/commands/improve-type-system.md`] [`.agents/commands/review-docs.md`] [`.agents/commands/review-rules.md`] [`.agents/commands/review-tests.md`] [`.agents/commands/review-type-system.md`] [`.agents/commands/rust-alt.md`]

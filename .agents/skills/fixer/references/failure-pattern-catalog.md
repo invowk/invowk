@@ -43,8 +43,8 @@ that same step, job-level `env:`, workflow-level `env:`, or GitHub's built-in
 environment. For benchmark workflows, check the `bencher` skill before changing
 shared benchmark variables.
 
-**Skill cross-reference**: `bencher` SKILL.md, `.agents/rules/commands.md` (CI
-Workflow Hygiene).
+**Skill cross-reference**: `bencher` SKILL.md, `.agents/rules/ci-workflows.md`,
+`.agents/runbooks/quality-gates.md` (CI workflows).
 
 ---
 
@@ -79,8 +79,8 @@ and `make test-scripts` or the focused mutation script tests. Do not commit
 root-level go-mutesting output unless it is deliberately converted into a docs or
 release artifact with an explicit path and owner.
 
-**Skill cross-reference**: `.agents/rules/commands.md` (Mutation Testing and CI
-Workflow Hygiene), `testing` SKILL.md for script-test updates.
+**Skill cross-reference**: `.agents/runbooks/mutation-testing.md`,
+`.agents/rules/ci-workflows.md`, `testing` SKILL.md for script-test updates.
 
 ---
 

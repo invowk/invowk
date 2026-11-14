@@ -2,8 +2,8 @@
 
 Complete PowerShell reference for writing and debugging testscript (`.txtar`)
 tests that exercise the native runtime on Windows. This reference supports
-the parent skill (`SKILL.md`) and complements `.agents/rules/windows.md`
-(authoritative for CI patterns and common pitfalls).
+the parent skill (`SKILL.md`) and complements `.agents/rules/testing.md`
+(authoritative PowerShell rules for native tests) and `.agents/rules/windows.md`.
 
 ## PowerShell Versions
 

@@ -98,7 +98,7 @@ Use `pkg/platform`'s detection function:
 ```go
 import "github.com/invowk/invowk/pkg/platform"
 
-if platform.IsReservedWindowsName(filename) {
+if platform.IsWindowsReservedName(filename) {
     // Skip or adapt the test case
 }
 ```
@@ -113,7 +113,7 @@ if platform.IsReservedWindowsName(filename) {
 ### Mitigation
 
 - Never use reserved names in test fixtures or generated file names.
-- Use `platform.IsReservedWindowsName` to validate user-provided names.
+- Use `platform.IsWindowsReservedName` to validate user-provided names.
 - If testing reserved name handling, use `[!windows]` guard or
   `skipOnWindows`.
 
