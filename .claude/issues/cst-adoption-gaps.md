@@ -40,6 +40,7 @@ Decisions taken with the maintainer (2026-11-14):
 | N2 | EVOLVE | C2 | S |
 | N3 | EVOLVE | C3 | S |
 | N4 | EVOLVE | C2 | S |
+| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, not yet proposed) | M |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -193,6 +194,14 @@ guide ("set `TMPDIR` if needed").
   not found". Decide whether an invalid cwd invowkfile is fatal.
 - **N4 — `ui.color_scheme` is a dead setting (C2).** `config_schema.cue:116`; only read and
   written by `config show/set` (`cmd/invowk/config.go:32,149,330`).
+- **N5 — the TUI server binds every interface (S3, not yet proposed).** Found 2026-11-14
+  while triaging Sonar go:S5332. `internal/tuiserver/server.go:108` listens on
+  `0.0.0.0:0`, so during interactive commands the port is reachable from the LAN, guarded
+  only by the per-session token. Containers reach it through `host.docker.internal`, which
+  is probably why it binds wide. Restrict the bind to loopback plus the engine's bridge
+  gateway, covering Docker and Podman, rootful and rootless, and Flatpak, with container
+  tests. Until then, Sonar e13 suppresses S5332 there: plain HTTP over loopback or the
+  bridge is by design.
 
 ## Why CST keeps its production paths out of invowk anyway
 
