@@ -539,7 +539,9 @@ jobs:
           BENCHER_TESTBED: bencher-intel-v1-go-1-27
           BENCHER_SPEC: intel-v1
           BENCHER_IMAGE: ${{ steps.bench-image.outputs.image }}
-          BENCHER_JOB_TIMEOUT: 1800
+          # Bencher Cloud's Free plan caps remote jobs at 300 s and clamps larger values;
+          # keep the suite under it (bench-bmf.mjs bench_count) or move to a paid plan.
+          BENCHER_JOB_TIMEOUT: 300
           BENCH_BMF_OUT: /tmp/invowk.bmf.json
           BENCH_GO_RAW_OUT: /tmp/go-bench.txt
           GITHUB_TOKEN: ${{ github.token }}
