@@ -11,8 +11,8 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 
 ## Source Files
 
-- `.github/workflows/benchmarks.yml`: base-repo PR and `main` benchmark flow.
-- `.github/workflows/benchmarks-upload.yml`: trusted workflow for fork PR benchmark upload.
+- `.github/workflows/benchmarks.yml`: weekly `main` series (cron, Monday 06:00 UTC), manual dispatch (use it before tagging a release), and PRs that carry the `benchmarks: run` label. It no longer runs on every push or PR: the Free plan's 10 GiB/day OCI bandwidth allows only ~6 remote runs a day, and a run that cannot push its image skips tracking and still shows green (see the "Benchmarks NOT measured" job summary).
+- `.github/workflows/benchmarks-upload.yml`: trusted workflow for fork PR benchmark upload; it also skips PRs without the `benchmarks: run` label.
 - `.github/workflows/pgo-benchstat.yml`: scheduled/manual GitHub-hosted comparison of `-pgo=off` versus default PGO using `benchstat`; this is not a Bencher upload path, but shares benchmark workflow hygiene.
 - `.github/workflows/release.yml`: release-tag performance tracking against the previous tag.
 - `build/bencher/Dockerfile`: reproducible benchmark image, Go/Node versions, vendoring, warmup.
@@ -30,10 +30,15 @@ Use this skill to keep Invowk's Bencher integration coherent: GitHub Actions pac
 - For PR branches, keep `--start-point-clone-thresholds` and `--start-point-reset` so PR history is anchored to the base branch.
 - For fork PRs, use the trusted upload workflow: checkout trusted packaging separately from untrusted source, build the image with trusted workflow/scripts, then ask Bencher to run the source image.
 - For releases, benchmark the tag against the previous tag as the start point so release history is anchored to shipped versions rather than PR branches.
+- PR benchmarks are opt-in: add the `benchmarks: run` label to PRs that touch hot paths (CUE parsing, discovery, runtime execution, module sync). Adding the label triggers the run; later pushes re-run while the label stays. Other labels do not trigger runs.
+- Job budget: Bencher Cloud's Free plan clamps every remote job to 300 s (`BENCHER_JOB_TIMEOUT: 300`); keep `scripts/bench-bmf.mjs` `bench_count` low enough that the suite fits (~250 s at 3).
 - Alert policy:
   - PR benchmark alerts fail by default through `--error-on-alert`.
   - If a maintainer has deliberately accepted an expected feature cost, add the `benchmarks: accepted-regression` PR label. Workflows then set `BENCHER_ERROR_ON_ALERT=false` for that PR, so alerts remain visible in Bencher while the Actions job stays advisory.
-  - Push and manual benchmark runs are also advisory: they publish main history to Bencher without `--error-on-alert` and without a Bencher GitHub check when alerts would otherwise fail already-merged history.
+  - With the weekly main series, a PR's start point is usually main data up to a week old, so a PR alert can come from a change merged since the last weekly run; check the main series before blaming the PR.
+  - Scheduled and manual runs stay advisory (a weekly series would stay red for weeks after an accepted regression while the 64-sample baseline absorbs it), so their alerts surface only in the Bencher report and dashboard: read the `bencher run` alert output or the report after each weekly run.
+  - GitHub disables scheduled workflows after 60 days without repository activity; if the weekly series stops, re-enable the workflow.
+  - Scheduled and manual benchmark runs are advisory: they publish main history to Bencher without `--error-on-alert` and without a Bencher GitHub check when alerts would otherwise fail already-merged history.
   - Release-tag benchmark alerts remain blocking.
   - Do not use advisory mode for benchmark script bugs, missing thresholds, or unexplained regressions.
 
@@ -65,7 +70,7 @@ Load [`references/diagnostics.md`](references/diagnostics.md) for the `curl`/`jq
 ## Known Pitfalls
 
 - A flat absolute latency increase across every CLI-spawning benchmark (`startup/*`, `command/execute-cli-*`) while in-process benchmarks are flat or improved points at process-init cost, not workload cost. Diagnose with `GODEBUG=inittrace=1 bin/invowk version` (per-package init wall time and allocations) and bisect with per-dependency `go get` builds. Precedent: transitive `go-runewidth` v0.0.27 built width tables eagerly in `init()` (~15ms, doubling startup); v0.0.28 restored lazy init.
-- The `Bencher Report (bmf)` GitHub check is created per report and pinned to the head SHA. When a later run goes advisory (e.g., after adding `benchmarks: accepted-regression`), it deliberately creates no new check, so a stale failing check from a pre-label run stays attached until a new commit changes the SHA. Also: workflows read PR labels from the frozen event payload, so a label change needs a fresh `pull_request` event (new push, or close/reopen) — rerunning the old workflow run reuses the unlabeled payload.
+- The `Bencher Report (bmf)` GitHub check is created per report and pinned to the head SHA. When a later run goes advisory (e.g., after adding `benchmarks: accepted-regression`), it deliberately creates no new check, so a stale failing check from a pre-label run stays attached until a new commit changes the SHA. Also: workflows read PR labels from the frozen event payload. Adding `benchmarks: run`, or adding `benchmarks: accepted-regression` while `benchmarks: run` is present, triggers a fresh run; any other label change needs a fresh `pull_request` event (new push, or close/reopen), and rerunning an old workflow run reuses its old payload.
 - `latency` versus `Latency` is not a threshold bug by itself: the slug `latency` correctly matches the displayed `Latency`. Look for a measure without a threshold instead (the past `No thresholds found` warning came from a missing `build-time` threshold).
 - `boundary.baseline: null` usually means the threshold exists but Bencher does not yet have enough samples for that model. This is different from `threshold: null`.
 - A Bencher JWT or registry failure often looks like broken benchmark code. Check `BENCHER_API_TOKEN`, the registry login script, and direct API access before rewriting benchmark logic.
@@ -87,6 +92,6 @@ After Bencher infrastructure changes:
 - Run focused script checks: `bash -n scripts/bencher-threshold-args.sh`, `node scripts/test_bench_bmf.mjs`, and `bash scripts/test_bencher_registry_login.sh`.
 - Run `make test-scripts` for broad script coverage.
 - Run `make check-agent-docs` if this skill changed.
-- Push and watch the `Benchmarks / Track Benchmarks` check.
+- Push, then add the `benchmarks: run` label (or dispatch the workflow on the branch) and watch the `Benchmarks / Track Benchmarks` check; it no longer runs on plain pushes.
 - Verify the latest Bencher report has zero `threshold: null` measures if the task involved thresholds (recipe: [`references/diagnostics.md`](references/diagnostics.md)).
 - Check PR status with `gh pr view <number> --json mergeStateStatus,mergeable,statusCheckRollup`.

@@ -1,9 +1,13 @@
 name: Benchmarks
 
+# Bencher's Free plan allows ~6 remote runs a day (10 GiB OCI bandwidth), so
+# benchmarks run where they carry signal: a weekly series on main, a manual
+# run before tagging a release (release.yml gates the tag itself), and pull
+# requests that opt in with the `benchmarks: run` label (hot-path changes).
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    # Weekly, Monday 06:00 UTC (pgo-benchstat runs at 07:00 on GitHub runners).
+    - cron: '0 6 * * 1'
   pull_request:
     branches:
       - main
@@ -12,11 +16,8 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+      - labeled
   workflow_dispatch:
-
-concurrency:
-  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 env:
   GOPROXY: "https://proxy.golang.org|direct"
@@ -33,7 +34,19 @@ env:
 jobs:
   bencher:
     name: Track Benchmarks
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'benchmarks: run') &&
+       (github.event.action != 'labeled' ||
+        github.event.label.name == 'benchmarks: run' ||
+        github.event.label.name == 'benchmarks: accepted-regression'))
+    # Job-level, so a pull_request event whose job is skipped (e.g. an unrelated
+    # label) never joins the group and cannot cancel a running measurement.
+    # Scheduled and manual runs on main queue instead of cancelling each other.
+    concurrency:
+      group: benchmarks-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     # GitHub Actions only packages the benchmark image. Bencher runs the actual
     # benchmarks on the bare-metal Spec configured above.
     runs-on: ubuntu-24.04
@@ -163,7 +176,16 @@ jobs:
 
   fork-pr-artifact:
     name: Benchmark Fork PR
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'benchmarks: run') &&
+      (github.event.action != 'labeled' ||
+       github.event.label.name == 'benchmarks: run' ||
+       github.event.label.name == 'benchmarks: accepted-regression')
+    concurrency:
+      group: benchmarks-fork-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     # The trusted workflow_run handler builds the image and asks Bencher to run
     # benchmarks on bare metal. This job only creates a successful trigger.
     runs-on: ubuntu-24.04

@@ -34,10 +34,10 @@ Not covered by any hook (manual discipline): `make test`, `make tidy`, `make che
 | `ci.yml` | push/PR to main (path-filtered), release, dispatch | tests (Linux full; macOS/Windows short unit + CLI), build verification, license check, all-module govulncheck, `pgo-sanity` |
 | `lint.yml` | push to main (path-filtered), every PR (no path filter), release, weekly schedule, dispatch | **required** (`goplint consumer gates` check): golangci-lint, formatter/config checks, agent-docs integrity, goplint consumer gates |
 | `release.yml` | tag push `v*`, dispatch | validate, test, build and publish a release (procedure: publish-release skill) |
-| `formal-verification.yml` | weekly schedule, dispatch, every PR (classified by `scripts/formal.py affected` against `[ci] paths`) | Alloy/TLA+ models, golden freshness, correspondence, trace validation, replay plan; optional until `make formal-promotion-gate` passes |
+| `formal-verification.yml` | weekly schedule, dispatch, every PR (classified by `scripts/formal.py affected` against `[ci] paths`) | Alloy/TLA+ models, golden freshness, correspondence, trace validation, replay plan; required status check since 2026-11-14 (`make formal-promotion-gate` passed) |
 | `mutation-testing.yml` | dispatch only | curated mutation profiles (`target_set`: `root` or `formal-bindings`); see `mutation-testing.md` |
-| `benchmarks.yml` | push, PR, dispatch | benchmark runs for Bencher (bencher skill) |
-| `benchmarks-upload.yml` | `workflow_run` of Benchmarks | uploads fork-PR benchmark results |
+| `benchmarks.yml` | weekly schedule, dispatch, PRs labelled `benchmarks: run` | benchmark runs for Bencher (bencher skill) |
+| `benchmarks-upload.yml` | `workflow_run` of Benchmarks | uploads fork-PR benchmark results (labelled PRs only) |
 | `pgo-benchstat.yml` | weekly schedule, dispatch | compare `pgo=off` vs `pgo=on` with `benchstat` |
 | `test-website.yml` | PR (website/diagram/script changes), release, dispatch | validate version assets and build the website |
 | `validate-diagrams.yml` | PR, push, release | D2 syntax checks |

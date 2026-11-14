@@ -40,6 +40,7 @@ For details, load only what the task needs:
    Keep subagents read-only unless the user explicitly asks for delegated edits, and require plan approval before any teammate/worker edits.
 6. Validate locally before publishing: run the narrow release-script checks first, then broader gates as risk warrants.
 7. Prefer dry runs for risky changes: `make release-bump TYPE=<type> RELEASE_NOTES_FILE=<file> DRY_RUN=1`.
+   Before tagging, run the Benchmarks workflow on `main` (`gh workflow run benchmarks.yml --ref main`). The run is advisory and stays green on alerts, so read the alerts in its `bencher run` output or Bencher report, and confirm the job summary does not say "Benchmarks NOT measured". It compares against main history, while the release job compares against the previous tag with blocking alerts, so it is an early warning, not a prediction of the tag gate. Dispatch plus release costs two image pushes against the day's Bencher OCI quota.
 8. Publish by creating a signed annotated tag with reviewed notes: `make release VERSION=<tag> RELEASE_NOTES_FILE=<file>` or `make release-bump TYPE=<type> RELEASE_NOTES_FILE=<file>`.
 9. Monitor GitHub Actions until the release workflow reaches a terminal state. Do not stop at "tag pushed".
 10. Verify GitHub Release, artifacts, checksums, signature bundle, supported package channels, docs versioning, and the WinGet PR/enhancement path.

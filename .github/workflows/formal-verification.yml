@@ -2,10 +2,9 @@ name: Formal Verification
 
 # Checks the Alloy and TLA+ models under formal/ against their declared
 # verdicts, golden-vector freshness, and model-to-code correspondence.
-# Not a required status check until `make formal-promotion-gate` reports
-# PASS: four consecutive first-attempt green weekly runs of this pipeline.
-# Making it required is a manual maintainer step; see "Promoting the lane"
-# in formal/README.md. Budgets are documented under "CI budgets" there.
+# Required status check since 2026-11-14 (`make formal-promotion-gate`
+# passed); see "Promoting the lane" in formal/README.md. Budgets are
+# documented under "CI budgets" there.
 
 on:
   schedule:

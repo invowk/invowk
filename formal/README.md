@@ -314,6 +314,10 @@ history with GET requests only and never changes repository settings.
    output, and drop the "Not a required status check" comment from the
    workflow header.
 
+Done on 2026-11-14: the gate passed on four weekly runs (2026-10-19 to
+2026-11-09) and the context is required, pinned to GitHub Actions
+(`integration_id` 15368).
+
 Rollback: remove the context from the ruleset's required status checks.
 
 ## Mutation testing
