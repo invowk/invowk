@@ -68,8 +68,8 @@ All design decisions are settled (design.md "Maintainer decisions (2026-11-14)")
 
 Each new file starts with `cd $WORK` and `env XDG_CONFIG_HOME=$WORK/.config` like `config_path.txtar`. Fixtures that must not be discovered by accident go in subdirectories. No `ubuntu`/`alpine` images; these tests use no containers.
 
-- [ ] 5.1 `config_cwd_ignored.txtar`: in `$WORK/proj/`, `config.cue` sets `default_runtime: "virtual-sh"`, with no user config. Assert `cmd` runs the native implementation, `config show` reports defaults and does not name `proj/config.cue`, and stderr is empty.
-- [ ] 5.2 `config_env_override.txtar` (Linux user file via `XDG_CONFIG_HOME`; guard OS-specific lines with `[linux]`/`[!windows]` as needed):
+- [x] 5.1 `config_cwd_ignored.txtar`: in `$WORK/proj/`, `config.cue` sets `default_runtime: "virtual-sh"`, with no user config. Assert `cmd` runs the native implementation, `config show` reports defaults and does not name `proj/config.cue`, and stderr is empty.
+- [x] 5.2 `config_env_override.txtar` (Linux user file via `XDG_CONFIG_HOME`; guard OS-specific lines with `[linux]`/`[!windows]` as needed):
   - `env INVOWK_CONFIG=$WORK/env/config.cue` takes effect and a user config at `$WORK/.config/invowk/config.cue` is ignored;
   - `--ivk-config` beats the env;
   - `env INVOWK_CONFIG=` behaves as unset;
@@ -81,7 +81,7 @@ Each new file starts with `cd $WORK` and `env XDG_CONFIG_HOME=$WORK/.config` lik
   - `audit .` with a missing absolute `INVOWK_CONFIG` exits 2 (audit error), not 1;
   - `__complete cmd ''` with a missing explicit file offers no cwd commands.
 - [x] 5.3 Update `config_override_flag.txtar` Test 4 (`:24-28`): `! exec`, stderr names `nonexistent.cue` and `--ivk-config`, no `RUNTIME=` on stdout. Add an invalid-CUE case.
-- [ ] 5.4 Mirrored pair `virtual_discovery_no_cwd.txtar` / `native_discovery_no_cwd.txtar` (decision 5). Same script section and identical `exec invowk …` lines; only the CUE implementations differ (virtual-sh vs platform-split native). Cover:
+- [x] 5.4 Mirrored pair `virtual_discovery_no_cwd.txtar` / `native_discovery_no_cwd.txtar` (decision 5). Same script section and identical `exec invowk …` lines; only the CUE implementations differ (virtual-sh vs platform-split native). Cover:
   - `--ivk-no-cwd` before and after `cmd`, and `env INVOWK_NO_CWD=1`, hide the cwd invowkfile and module commands;
   - a `$WORK/.invowk/cmds/g.invowkmod` command still runs (`HOME=$WORK`);
   - `cmd @invowkfile local` fails;
@@ -89,13 +89,13 @@ Each new file starts with `cd $WORK` and `env XDG_CONFIG_HOME=$WORK/.config` lik
   - `env INVOWK_NO_CWD=yes` makes `cmd` fail, naming the variable;
   - `cmd local -- --ivk-no-cwd` passes the token to the command;
   - `--ivk-verbose --ivk-no-cwd cmd` prints `current-directory sources disabled (--ivk-no-cwd)`, and the non-verbose listing does not.
-- [ ] 5.5 `no_cwd_builtins.txtar` (runtime-independent, no mirror needed):
+- [x] 5.5 `no_cwd_builtins.txtar` (runtime-independent, no mirror needed):
   - `validate` with no arg does not report an invalid cwd file and prints `current-directory sources disabled`, while `validate ./invowkfile.cue` still reports it;
   - `module list` omits a cwd module and lists a `$WORK/.invowk/cmds` one;
   - `env INVOWK_NO_CWD=yes` then `config path` and `--version` succeed;
   - `__complete --ivk-no-cwd cmd ''` omits cwd commands;
   - `audit .` output is unchanged by `--ivk-no-cwd`.
-- [ ] 5.6 Check: `flock <heavy.lock> make test-cli` passes, including `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment`.
+- [x] 5.6 Check: `flock <heavy.lock> make test-cli` passes, including `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment`.
 
 ## 6. Documentation, i18n, diagrams, agent docs
 

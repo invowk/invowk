@@ -1,0 +1,140 @@
+# Test: --ivk-no-cwd / INVOWK_NO_CWD disable current-directory command sources (native runtime)
+# Mirrors virtual_discovery_no_cwd.txtar with platform-split native implementations.
+# The cwd invowkfile.cue and sibling *.invowkmod modules are skipped; the user
+# commands dir ($WORK/.invowk/cmds, since HOME=$WORK) stays available.
+
+cd $WORK
+env INVOWK_NO_CWD=
+
+# Test 1: without the switch, cwd invowkfile, cwd module and user-dir commands are listed
+exec invowk cmd
+stdout 'local'
+stdout 'modcmd'
+stdout 'glob'
+
+# Test 2: --ivk-no-cwd before cmd hides the cwd invowkfile and cwd module commands
+exec invowk --ivk-no-cwd cmd
+! stdout 'local'
+! stdout 'modcmd'
+stdout 'glob'
+! stdout 'current-directory sources disabled'
+
+# Test 3: --ivk-no-cwd after cmd does the same
+exec invowk cmd --ivk-no-cwd
+! stdout 'local'
+! stdout 'modcmd'
+stdout 'glob'
+
+# Test 4: the user commands dir (~/.invowk/cmds, HOME=$WORK) still runs
+exec invowk --ivk-no-cwd cmd glob
+stdout 'GLOB_OK'
+
+# Test 5: a cwd-only command is not found, also when the flag follows cmd
+! exec invowk --ivk-no-cwd cmd local
+! stdout 'LOCAL_OK'
+! exec invowk cmd --ivk-no-cwd local
+! stdout 'LOCAL_OK'
+
+# Test 6: the invowkfile source does not exist under the switch
+! exec invowk --ivk-no-cwd cmd @invowkfile local
+! stdout 'LOCAL_OK'
+stderr 'invowkfile'
+
+# Test 7: the verbose listing names the switch and its origin
+exec invowk --ivk-verbose --ivk-no-cwd cmd
+stdout 'current-directory sources disabled \(--ivk-no-cwd\)'
+
+# Test 8: INVOWK_NO_CWD=1 turns the switch on
+env INVOWK_NO_CWD=1
+exec invowk cmd
+! stdout 'local'
+stdout 'glob'
+exec invowk --ivk-verbose cmd
+stdout 'current-directory sources disabled \(INVOWK_NO_CWD\)'
+
+# Test 9: an explicit --ivk-no-cwd=false overrides the environment variable
+exec invowk --ivk-no-cwd=false cmd local
+stdout 'LOCAL_OK'
+
+# Test 10: an invalid INVOWK_NO_CWD fails the cmd flow and names the variable,
+# unless the flag decides the switch
+env INVOWK_NO_CWD=yes
+! exec invowk cmd
+stderr 'INVOWK_NO_CWD'
+exec invowk --ivk-no-cwd cmd
+stdout 'glob'
+
+# Test 11: --ivk-no-cwd after the -- terminator is an argument to the command
+env INVOWK_NO_CWD=
+exec invowk cmd local -- --ivk-no-cwd
+stdout 'LOCAL_OK'
+stdout 'ARGS=--ivk-no-cwd'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "local"
+		description: "Command defined only in the cwd invowkfile"
+		args: [{name: "rest", description: "Extra arguments", variadic: true}]
+		implementations: [
+			{
+				script: {content: "echo LOCAL_OK; echo ARGS=$INVOWK_ARG_REST"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'LOCAL_OK'; Write-Output \"ARGS=$env:INVOWK_ARG_REST\""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- foo.invowkmod/invowkmod.cue --
+module: "foo"
+version: "1.0.0"
+
+-- foo.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "modcmd"
+		description: "Command from a cwd sibling module"
+		implementations: [
+			{
+				script: {content: "echo MOD_OK"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'MOD_OK'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- .invowk/cmds/g.invowkmod/invowkmod.cue --
+module: "g"
+version: "1.0.0"
+
+-- .invowk/cmds/g.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "glob"
+		description: "Command from the user commands directory"
+		implementations: [
+			{
+				script: {content: "echo GLOB_OK"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'GLOB_OK'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

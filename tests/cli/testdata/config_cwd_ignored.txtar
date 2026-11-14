@@ -1,0 +1,54 @@
+# Test: a config.cue in the current directory is never a config source.
+# With no --ivk-config, no INVOWK_CONFIG and no user config file, a cwd
+# config.cue that sets default_runtime: "virtual-sh" has no effect: built-in
+# defaults apply (default_runtime "native") and nothing names the cwd file.
+
+cd $WORK/proj
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: the command runs with the default (native) runtime
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 2: config show reports defaults, not the cwd file
+exec invowk config show
+stdout 'using defaults'
+stdout 'native'
+! stdout 'proj'
+! stdout 'virtual-sh'
+! stderr .
+
+# Test 3: workspace validation does not report the cwd file as config
+exec invowk validate
+! stdout 'proj.config\.cue'
+! stderr .
+
+-- proj/config.cue --
+default_runtime: "virtual-sh"
+
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name:        "multi-runtime"
+		description: "Command with both virtual and native implementations"
+		implementations: [
+			{
+				script: {content: "echo 'RUNTIME=virtual'"}
+				runtimes:  [{name: "virtual-sh"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+			{
+				script: {content: "echo 'RUNTIME=native'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'RUNTIME=native'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
