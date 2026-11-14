@@ -424,7 +424,7 @@ config_file: Config File {
   }
   tooltip: |md
     **CUE**
-    Resolved OS-specific config path
+    One source, no merging: --ivk-config, then INVOWK_CONFIG (absolute path), then the OS-specific user config file, then defaults. Never read from the current directory; an explicit source that fails to load aborts with exit 1.
   |
 }
 

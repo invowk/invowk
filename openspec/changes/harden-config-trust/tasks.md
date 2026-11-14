@@ -99,22 +99,22 @@ Each new file starts with `cd $WORK` and `env XDG_CONFIG_HOME=$WORK/.config` lik
 
 ## 6. Documentation, i18n, diagrams, agent docs
 
-- [ ] 6.1 `website/docs/configuration/overview.mdx`: replace line 21 with the precedence list (flag > `INVOWK_CONFIG` > user file > defaults), the absolute-path rule, fail-closed behaviour with exit 1, the `config set` refusal, and an explicit "the current directory is never read" note. Add a short `--ivk-no-cwd` / `INVOWK_NO_CWD` section that recommends the env forms for wrappers whose commands call `invowk` again, and a `:::warning` migration admonition.
-- [ ] 6.2 Mirror 6.1 in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/configuration/overview.mdx`.
-- [ ] 6.3 `website/docs/reference/cli.mdx` Global Flags (`:11-21`): add a `--ivk-no-cwd` row, update the `--ivk-config` row (`:18`), and add an "Environment variables" subsection (`INVOWK_CONFIG`, `INVOWK_NO_CWD`). Mirror it in pt-BR `reference/cli.mdx`.
-- [ ] 6.4 Note that cwd sources (1–2) are skipped under `--ivk-no-cwd` in `website/docs/configuration/options.mdx:52-53`, `reference/config-schema.mdx:72-73`, `core-concepts/commands-and-namespaces.mdx:67-68`, `modules/overview.mdx:42,117-118` and their pt-BR copies.
-- [ ] 6.5 README:
+- [x] 6.1 `website/docs/configuration/overview.mdx`: replace line 21 with the precedence list (flag > `INVOWK_CONFIG` > user file > defaults), the absolute-path rule, fail-closed behaviour with exit 1, the `config set` refusal, and an explicit "the current directory is never read" note. Add a short `--ivk-no-cwd` / `INVOWK_NO_CWD` section that recommends the env forms for wrappers whose commands call `invowk` again, and a `:::warning` migration admonition.
+- [x] 6.2 Mirror 6.1 in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/configuration/overview.mdx`.
+- [x] 6.3 `website/docs/reference/cli.mdx` Global Flags (`:11-21`): add a `--ivk-no-cwd` row, update the `--ivk-config` row (`:18`), and add an "Environment variables" subsection (`INVOWK_CONFIG`, `INVOWK_NO_CWD`). Mirror it in pt-BR `reference/cli.mdx`.
+- [x] 6.4 Note that cwd sources (1–2) are skipped under `--ivk-no-cwd` in `website/docs/configuration/options.mdx:52-53`, `reference/config-schema.mdx:72-73`, `core-concepts/commands-and-namespaces.mdx:67-68`, `modules/overview.mdx:42,117-118` and their pt-BR copies.
+- [x] 6.5 README:
   - `## Configuration` (`README.md:2506-2512`): precedence, `INVOWK_CONFIG`, no cwd config, fail-closed, `config set` refusal.
   - The flags examples (`:2685-2692`): `--ivk-no-cwd`.
   - The discovery order lists (`:22-23`, `:485`, `:2068-2069`): cwd sources are skipped under `--ivk-no-cwd`.
-- [ ] 6.6 Snippets: `website/src/components/Snippet/data/config.ts:35-36` already shows `--ivk-config … config show` and stays; add an `INVOWK_CONFIG` example there only if 6.1/6.3 use a snippet. Do not edit `versions/*` or `versioned_docs`.
-- [ ] 6.7 Diagrams:
+- [x] 6.6 Snippets: `website/src/components/Snippet/data/config.ts:35-36` already shows `--ivk-config … config show` and stays; add an `INVOWK_CONFIG` example there only if 6.1/6.3 use a snippet. Do not edit `versions/*` or `versioned_docs`.
+- [x] 6.7 Diagrams:
   - `docs/diagrams/c4/container.d2:419-428` config_file tooltip: flag/env/user path, no cwd.
   - `docs/diagrams/flowcharts/discovery-flow.d2:28-31`: priorities 1–2 conditional on "no-cwd off".
   - `docs/diagrams/sequences/execution-main.d2:38-39`: config load can abort (explicit source, exit 1).
   - `docs/architecture/flowchart-discovery.md:23-25` and `c4-container.md:28,93` text.
-- [ ] 6.8 `.agents/skills/discovery/SKILL.md` (precedence table and "Key Behavior", lines 31-58): `--ivk-no-cwd` and the `WithBaseDir("")` mechanism. Note config precedence in `.agents/skills/cli/SKILL.md` if it documents config loading.
-- [ ] 6.9 Check: `make render-diagrams` (D2 edits), `make check-agent-docs` (`.agents/` changed) and `cd website && npm run build` pass.
+- [x] 6.8 `.agents/skills/discovery/SKILL.md` (precedence table and "Key Behavior", lines 31-58): `--ivk-no-cwd` and the `WithBaseDir("")` mechanism. Note config precedence in `.agents/skills/cli/SKILL.md` if it documents config loading.
+- [x] 6.9 Check: `make render-diagrams` (D2 edits), `make check-agent-docs` (`.agents/` changed) and `cd website && npm run build` pass.
 
 ## 7. Completion gates (.agents/rules/checklist.md)
 

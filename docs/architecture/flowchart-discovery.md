@@ -19,7 +19,7 @@ When names collide, Invowk handles two different cases:
 | Same **full command name** discovered in multiple sources | First discovered source wins (precedence order) |
 | Same **simple command name** across different sources | Mark ambiguous; user must disambiguate (`@source` / `--ivk-from`) |
 
-**Discovery precedence order**:
+**Discovery precedence order** (1 and 2 are skipped when `--ivk-no-cwd` / `INVOWK_NO_CWD` is on, via `discovery.WithBaseDir("")`):
 1. Current directory invowkfile (`./invowkfile.cue`)
 2. Local modules (`./*.invowkmod`)
 3. Configured includes (module paths from `config.Includes`)

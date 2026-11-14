@@ -18,7 +18,36 @@ The configuration file lives in your OS-specific config directory:
 | macOS    | `~/Library/Application Support/invowk/config.cue` |
 | Windows  | `%APPDATA%\invowk\config.cue` |
 
-Invowk currently reads configuration from the OS-specific path above. If no config exists there, it will also look for a `config.cue` file in the current directory. If neither is present, defaults are used.
+## Which Config File Is Used
+
+Invowk reads exactly one config source, picked in this order:
+
+1. `--ivk-config <path>` (`-c`). The path may be relative to the current directory, since you typed it on that command line.
+2. The `INVOWK_CONFIG` environment variable. It must be an **absolute** path; an empty value counts as unset.
+3. The user config file from the table above.
+4. Built-in defaults.
+
+The chosen source is used on its own: values from lower-precedence sources are never merged in, and a lower source is not even read. **The current directory is never a config source**, so a repository you `cd` into cannot change your includes, LLM endpoint or container provisioning.
+
+<Snippet id="config/env-config-path" />
+
+A file you name explicitly must work. If `--ivk-config` or `INVOWK_CONFIG` points to a missing or invalid file, or `INVOWK_CONFIG` is relative, invowk stops with exit code 1 before discovering or running any command, and the error names the source and the path. (`invowk audit` reports it with its own scan-error code, 2.) Only an invalid *user* config file falls back to defaults, with a warning.
+
+`config show`, `config dump` and `config path` honour `--ivk-config` and `INVOWK_CONFIG`. `config set` and `config init` only touch the user config file, and `config set` refuses while `--ivk-config` or `INVOWK_CONFIG` is active, so it never copies an explicit file's values into your user config.
+
+:::warning Migrating from a current-directory `config.cue`
+Earlier versions also read a `config.cue` from the current directory when no user config existed. That fallback is gone, and nothing warns you: invowk silently uses the defaults. Move the file to the user config path (see `invowk config path`), or point `--ivk-config` / `INVOWK_CONFIG` at it. Scripts that passed `-c missing.cue` and relied on the old fall-back-to-defaults behaviour now fail.
+:::
+
+## Ignoring the Current Directory's Commands
+
+`--ivk-no-cwd` (or `INVOWK_NO_CWD=1`) stops command discovery from loading the current directory's `invowkfile.cue` and its sibling `*.invowkmod` modules. Configured `includes`, `~/.invowk/cmds` and provisioned modules still apply. It affects `invowk cmd` (listing, running, `@source`, `--ivk-dry-run`, `--ivk-watch`), completion, workspace `invowk validate` and `invowk module list`; explicit targets such as `invowk validate <path>` and `invowk audit <path>` are unaffected, and `invowk agent cmd create|change --verify` is rejected while the switch is on.
+
+`INVOWK_NO_CWD` accepts `1`, `t`, `true`, `0`, `f`, `false` (any case Go's `strconv.ParseBool` accepts); any other non-empty value is an error. An explicit `--ivk-no-cwd` or `--ivk-no-cwd=false` wins over the variable.
+
+<Snippet id="config/no-cwd" />
+
+Invowk does not translate the flags into environment variables for child processes. If your commands call `invowk` again, set the env forms in the caller's environment: nested invocations inherit them under the command's normal `env_inherit_mode` rules.
 
 ## Creating a Configuration File
 
@@ -48,7 +77,7 @@ This outputs the raw CUE configuration, useful for debugging or copying to anoth
 
 <Snippet id="config/path" />
 
-This prints your configuration paths (config directory, config file, commands directory, and SSH host key). Handy when you want to find and edit your config directly.
+This prints your configuration paths (config directory, config file, commands directory, and SSH host key). When `--ivk-config` or `INVOWK_CONFIG` selects a file, it also prints that `Effective config file:` with its source, marked `[missing]` or `[invalid: must be absolute]` when it would not load. Handy when you want to find and edit your config directly.
 
 :::info SSH host key
 When a command uses `enable_host_ssh` (container-to-host callbacks), invowk generates a private SSH host key at `<config-dir>/ssh/host_ed25519` on first use and reuses it afterwards, so the built-in server keeps a stable host identity. Keep this file private — treat it like any other private key when backing up or syncing your config directory.

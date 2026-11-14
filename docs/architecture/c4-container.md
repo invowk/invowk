@@ -25,7 +25,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | **Dependency Validator** | Go | Dependency validation domain (`internal/app/deps/`). Checks root, command, and implementation dependencies on the host, plus selected container runtime dependencies inside the container. |
 | **Execution Context Builder** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Produces the selected runtime and `runtime.ExecutionContext`; `internal/app/commandsvc` dispatches through `runtime.Registry`. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
-| **Configuration Manager** | Go/CUE | Loads the resolved global config file. Validates against CUE schema. |
+| **Configuration Manager** | Go/CUE | Loads exactly one config source: `--ivk-config`, then `INVOWK_CONFIG` (absolute path), then the OS-specific user config file, then defaults; never the current directory. Explicit sources fail closed. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
 | **Module Resolver** | Go | Used by module commands such as `invowk module sync` to resolve Git-based dependencies. Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. |
 | **Watch Engine** | Go | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
@@ -90,7 +90,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 ### Module Resolution
 
-1. **Discovery Engine** reads current directory invowkfiles, local modules, configured includes, provisioned module entries, provisioned global entries, user command modules, and one-level vendored modules
+1. **Discovery Engine** reads current directory invowkfiles and local modules (skipped under `--ivk-no-cwd`), configured includes, provisioned module entries, provisioned global entries, user command modules, and one-level vendored modules
 2. **Module Resolver** is used by module commands such as `invowk module sync` to check cache, fetch from Git when needed, and update the lock file
 3. Dependencies use the explicit-only model (every transitive dep must be declared in root `invowkmod.cue`)
 4. Commands from synchronized and discoverable modules become available

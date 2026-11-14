@@ -26,6 +26,8 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
   5. Provisioned global-module entries supplied by the command adapter
   6. `~/.invowk/cmds/` (modules only, non-recursive)
 
+  `--ivk-no-cwd` (or `INVOWK_NO_CWD=1`) skips sources 1 and 2, so wrappers and CI jobs can run only commands from trusted sources.
+
   Module sources also expose their declared, locked first-level dependencies from `invowk_modules/`. Nested vendored dependencies are not traversed.
 
 - **Transparent Namespace**: Commands from different sources use simple names when unique. When command names conflict across sources, use `@<source>` prefix or `--ivk-from` flag to disambiguate
@@ -488,6 +490,8 @@ When you run `invowk cmd` in a directory, invowk discovers commands from **6 sou
 4. **Provisioned modules**: Module entries supplied by the command adapter
 5. **Provisioned global modules**: Global module entries supplied by the command adapter
 6. **User directory**: `~/.invowk/cmds/` (modules only, non-recursive)
+
+With `--ivk-no-cwd` (or `INVOWK_NO_CWD=1`), sources 1 and 2 are skipped; the others still apply.
 
 For module sources, declared and locked first-level dependencies in `invowk_modules/`
 are also discovered. Vendored dependencies are not scanned recursively.
@@ -2072,6 +2076,8 @@ Modules are automatically discovered and loaded from all configured sources:
 5. Provisioned global modules supplied by the command adapter
 6. `~/.invowk/cmds/` (modules only, non-recursive)
 
+Sources 1 and 2 are skipped under `--ivk-no-cwd` / `INVOWK_NO_CWD=1`.
+
 Each module source also exposes its declared and locked first-level vendored
 dependencies. Nested vendored dependencies are not discovered.
 
@@ -2511,6 +2517,19 @@ invowk uses a global configuration file (CUE format):
 - **macOS**: `~/Library/Application Support/invowk/config.cue`
 - **Windows**: `%APPDATA%\invowk\config.cue`
 
+invowk reads exactly one config source, in this order, without merging:
+
+1. `--ivk-config <path>` (`-c`; may be relative)
+2. `INVOWK_CONFIG=<path>` (must be absolute; empty means unset)
+3. The user config file above
+4. Built-in defaults
+
+The current directory is **never** a config source: a `config.cue` next to your invowkfile is ignored (earlier versions read it as a fallback). A missing or invalid file named by `--ivk-config` or `INVOWK_CONFIG`, or a relative `INVOWK_CONFIG`, is an error (exit 1) before any command runs; only an invalid user config file falls back to defaults with a warning. `config show`, `config dump` and `config path` honour the explicit source; `config set` edits only the user config file and refuses while `--ivk-config` or `INVOWK_CONFIG` is active.
+
+```bash
+INVOWK_CONFIG=/etc/acme/invowk/config.cue invowk cmd build
+```
+
 ### Create Default Configuration
 
 ```bash
@@ -2689,6 +2708,16 @@ invowk -i cmd build
 invowk --ivk-config /path/to/custom/config.cue cmd build
 # or
 invowk -c /path/to/custom/config.cue cmd build
+# or, for every call in this shell (absolute path required)
+export INVOWK_CONFIG=/path/to/custom/config.cue
+```
+
+### Ignore the Current Directory's Commands
+```bash
+# Skip ./invowkfile.cue and ./*.invowkmod; includes and ~/.invowk/cmds still apply
+invowk --ivk-no-cwd cmd
+# Env form, inherited by nested invowk calls (the flag is not)
+INVOWK_NO_CWD=1 invowk cmd deploy
 ```
 
 ### Environment Overrides

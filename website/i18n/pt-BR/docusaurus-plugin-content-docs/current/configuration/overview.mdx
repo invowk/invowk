@@ -18,7 +18,36 @@ O arquivo de configuração fica no diretório de configuração específico do 
 | macOS      | `~/Library/Application Support/invowk/config.cue` |
 | Windows    | `%APPDATA%\invowk\config.cue` |
 
-Atualmente, o Invowk lê a configuração do caminho específico do SO acima. Se não existir um arquivo ali, ele também procura por um `config.cue` no diretório atual. Se nenhum estiver presente, usa os padrões.
+## Qual Arquivo de Configuração É Usado
+
+O Invowk lê exatamente uma fonte de configuração, escolhida nesta ordem:
+
+1. `--ivk-config <caminho>` (`-c`). O caminho pode ser relativo ao diretório atual, já que você o digitou naquela linha de comando.
+2. A variável de ambiente `INVOWK_CONFIG`. Ela precisa ser um caminho **absoluto**; um valor vazio conta como não definido.
+3. O arquivo de configuração do usuário da tabela acima.
+4. Os padrões embutidos.
+
+A fonte escolhida é usada sozinha: valores de fontes de menor precedência nunca são mesclados, e uma fonte inferior nem chega a ser lida. **O diretório atual nunca é uma fonte de configuração**, então um repositório em que você entra com `cd` não consegue mudar seus includes, o endpoint de LLM ou o provisionamento de containers.
+
+<Snippet id="config/env-config-path" />
+
+Um arquivo nomeado explicitamente precisa funcionar. Se `--ivk-config` ou `INVOWK_CONFIG` apontar para um arquivo ausente ou inválido, ou se `INVOWK_CONFIG` for relativo, o invowk para com código de saída 1 antes de descobrir ou executar qualquer comando, e o erro nomeia a fonte e o caminho. (O `invowk audit` reporta isso com o seu próprio código de erro de varredura, 2.) Só um arquivo de configuração do *usuário* inválido volta para os padrões, com um aviso.
+
+`config show`, `config dump` e `config path` respeitam `--ivk-config` e `INVOWK_CONFIG`. `config set` e `config init` só mexem no arquivo de configuração do usuário, e `config set` se recusa a rodar enquanto `--ivk-config` ou `INVOWK_CONFIG` estiver ativo, para nunca copiar os valores de um arquivo explícito para a sua configuração de usuário.
+
+:::warning Migrando de um `config.cue` no diretório atual
+Versões anteriores também liam um `config.cue` do diretório atual quando não havia configuração de usuário. Esse fallback não existe mais, e nada avisa: o invowk usa os padrões silenciosamente. Mova o arquivo para o caminho da configuração de usuário (veja `invowk config path`) ou aponte `--ivk-config` / `INVOWK_CONFIG` para ele. Scripts que passavam `-c ausente.cue` e dependiam do antigo retorno aos padrões agora falham.
+:::
+
+## Ignorando os Comandos do Diretório Atual
+
+`--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`) impede a descoberta de comandos de carregar o `invowkfile.cue` do diretório atual e os módulos `*.invowkmod` irmãos. Os `includes` configurados, `~/.invowk/cmds` e os módulos provisionados continuam valendo. Afeta `invowk cmd` (listagem, execução, `@source`, `--ivk-dry-run`, `--ivk-watch`), o completion, o `invowk validate` do workspace e o `invowk module list`; alvos explícitos como `invowk validate <caminho>` e `invowk audit <caminho>` não são afetados, e `invowk agent cmd create|change --verify` é rejeitado enquanto a opção estiver ligada.
+
+`INVOWK_NO_CWD` aceita `1`, `t`, `true`, `0`, `f`, `false` (qualquer forma que o `strconv.ParseBool` do Go aceite); qualquer outro valor não vazio é um erro. Um `--ivk-no-cwd` ou `--ivk-no-cwd=false` explícito vence a variável.
+
+<Snippet id="config/no-cwd" />
+
+O Invowk não traduz as flags em variáveis de ambiente para processos filhos. Se os seus comandos chamam o `invowk` de novo, defina as formas de ambiente no ambiente de quem chama: as invocações aninhadas as herdam pelas regras normais de `env_inherit_mode` do comando.
 
 ## Criando um Arquivo de Configuração
 
@@ -48,7 +77,7 @@ Isso exibe a configuração CUE raw, útil para debug ou copiar para outra máqu
 
 <Snippet id="config/path" />
 
-Isso imprime seus caminhos de configuração (diretório de configuração, arquivo de configuração e diretório de comandos). Prático quando você quer encontrar e editar sua configuração diretamente.
+Isso imprime seus caminhos de configuração (diretório de configuração, arquivo de configuração e diretório de comandos). Quando `--ivk-config` ou `INVOWK_CONFIG` seleciona um arquivo, ele também imprime esse `Effective config file:` com a sua fonte, marcado como `[missing]` ou `[invalid: must be absolute]` quando não carregaria. Prático quando você quer encontrar e editar sua configuração diretamente.
 
 ## Definindo Valores de Configuração
 

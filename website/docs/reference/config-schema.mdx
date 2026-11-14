@@ -74,6 +74,8 @@ Additional modules to include in command discovery. Each entry specifies a path 
 3. Configured `includes` (in order) — explicit includes outrank the user directory
 4. `~/.invowk/cmds` (modules only, non-recursive)
 
+With `--ivk-no-cwd` (or `INVOWK_NO_CWD=1`), sources 1 and 2 are skipped; see [Ignoring the Current Directory's Commands](../configuration/overview#ignoring-the-current-directorys-commands).
+
 ### default_runtime
 
 **Type:** `"native" | "virtual-sh" | "virtual-lua" | "container"`

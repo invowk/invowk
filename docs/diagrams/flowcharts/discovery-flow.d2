@@ -53,7 +53,14 @@ priority1: Priority 1: Current Directory {
   HasPWD -> Skip1: No
 }
 
-Start -> priority1.PWD
+NoCwd: "--ivk-no-cwd / INVOWK_NO_CWD on?" {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
+Start -> NoCwd
+NoCwd -> priority1.PWD: "No (no-cwd off)"
+NoCwd -> priority3.SearchPaths: "Yes: skip priorities 1-2"
 
 # ==============================================================================
 # Priority 2: Local Modules
