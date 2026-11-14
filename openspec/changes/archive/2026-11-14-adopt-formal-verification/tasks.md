@@ -114,7 +114,7 @@
 - [x] 8.2 Add the pull-request trigger for `formal/` and modelled packages. It runs the full lane (about 35 s) instead of selecting models, which the spec now states
 - [x] 8.3 Measure per-model wall time on the first green CI run, and record the budgets and state counts in the manifest *(2026-09-25: per-model and per-step times from workflow_dispatch runs 36203072183, 36203079356, 36203087452 on main; budgets in `[ci.budget]` and per-model `budget_seconds` with `budget_source = "ci"`; state counts recorded by promote-formal-ci-gate)*
 - [x] 8.4 Log rapid seeds on failure in CI and in `make test` output
-- [ ] 8.5 **Phase 3 gate:** trace mutations are rejected as declared, and `make formal-promotion-gate` reports PASS (lane stays non-required until then)
+- [x] 8.5 **Phase 3 gate:** trace mutations are rejected as declared, and `make formal-promotion-gate` reports PASS (lane stays non-required until then) *2026-11-14: `make formal-promotion-gate` reported PASS on 2026-11-09 from four consecutive first-attempt green weekly runs on main (39260158549, 40328419492, 41478013172, 42655328044); `make formal-traces` rejects all 24 declared trace mutations (208 traces checked, 0 unexpected). `Models, golden vectors, and correspondence` is a required check of the "Safety" ruleset since 2026-11-14.*
 
 ## 9. Documentation and governance
 
@@ -142,11 +142,11 @@
 
 ## 10. Verification
 
-- [ ] 10.1 Run `/simplify` on the changed Go tests and scripts
-- [ ] 10.2 Run `make tidy`, `make license-check`, `make lint`, `make lint-scripts`, `make test-scripts`, and `make check-file-length`
-- [ ] 10.3 Run `make test` and record the wall time the rapid tests add
-- [ ] 10.4 Run `make check-goplint-consumer-routed` and `make check-baseline`, and triage any new goplint findings with the maintainer
-- [ ] 10.5 Run `make formal` end to end, and confirm every declared verdict, guard, and trace mutation
-- [ ] 10.6 Confirm that `git ls-files artifacts/ '**/testdata/rapid/**'` lists nothing
-- [ ] 10.7 Run `make sonar-local` and resolve its issues. Record that `make test-cli` and the native-mirror checks do not apply, because no txtar files change
-- [ ] 10.8 Run `/learn`
+- [x] 10.1 Run `/simplify` on the changed Go tests and scripts *2026-11-14: superseded: #147–#159 and formal-infra-refinements 7.3 revisited this code after #143/#144; gates re-verified 2026-11-14 on main 6002b8cf.*
+- [x] 10.2 Run `make tidy`, `make license-check`, `make lint`, `make lint-scripts`, `make test-scripts`, and `make check-file-length` *2026-11-14, main 6002b8cf: `make tidy` (no diff), `make license-check`, `make lint` (0 issues), `make test-scripts` (all suites, including the Bencher login test) and `make check-file-length` pass. `make lint-scripts` exits 2 on 7 pre-existing info-level findings (4 SC1091, 3 SC2016) in `scripts/release.sh`, `test_mutation.sh`, `test_bencher_registry_login.sh` and `test_release.sh`, none in formal files.*
+- [x] 10.3 Run `make test` and record the wall time the rapid tests add *2026-11-14, main 6002b8cf: `make test` passes in 2:01.55 wall (non-CLI 8548 tests, 23 skipped, 29.6 s; CLI 181 tests with `-race`, 86.3 s). The 9 rapid tests add about 0.4 s (fresh `-count=1` run).*
+- [x] 10.4 Run `make check-goplint-consumer-routed` and `make check-baseline`, and triage any new goplint findings with the maintainer *2026-11-14, main 6002b8cf: `make check-goplint-consumer-routed` ran the full consumer tier and passed (275 s; 44751 findings in 48 packages, all within baseline; smoke 136 s, 4.4 GB peak); `make check-baseline` passed (131 s). No new findings to triage.*
+- [x] 10.5 Run `make formal` end to end, and confirm every declared verdict, guard, and trace mutation *2026-11-14, main 6002b8cf: `make formal` passes (212 s wall): correspondence OK, 174 verdicts as declared (43 pass, 46 instance guards, 85 counterexample mutants and witnesses), all five golden-vector sets match. `make formal-traces` passes: 208 traces checked, 24 targeted mutations rejected, 0 unexpected. Only warning: ConcurrentModuleEdits' summed TLC time (1293.8 s) exceeds its 621 s soft budget, which never fails the run.*
+- [x] 10.6 Confirm that `git ls-files artifacts/ '**/testdata/rapid/**'` lists nothing *2026-11-14: `git ls-files artifacts/ '**/testdata/rapid/**'` lists nothing after `make test` and `make formal`.*
+- [x] 10.7 Run `make sonar-local` and resolve its issues. Record that `make test-cli` and the native-mirror checks do not apply, because no txtar files change *2026-11-14: `SONAR_BRANCH=main make sonar-local` failed the quality gate on the pre-existing go:S5332 false positive in `internal/tuiserver/server.go` (local `http://` URL); main gate unblocked by the e13 suppression PR; re-checked after merge. `make test-cli` and the native-mirror checks do not apply: no txtar files change.*
+- [x] 10.8 Run `/learn` *2026-11-14: superseded by the 2026-11-14 agent-docs optimisation (#164), which re-derived rules/skills/runbooks from current state.*
