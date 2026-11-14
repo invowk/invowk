@@ -56,6 +56,9 @@ bencher_registry_push_image() {
 
 	if grep -qiE 'HTTP 429|daily OCI bandwidth limit|exceeded.*OCI bandwidth limit' "$log_file"; then
 		echo "::warning title=Bencher registry quota exceeded::Skipping Bencher benchmark tracking because the registry daily OCI bandwidth limit is exhausted." >&2
+		if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+			printf '%s\n' "### Benchmarks NOT measured" "" "Bencher tracking was skipped: the registry daily OCI bandwidth limit is exhausted. This run published no benchmark data, so a green check here does not mean performance was checked." >>"$GITHUB_STEP_SUMMARY"
+		fi
 		rm -f "$log_file"
 		return 75
 	fi

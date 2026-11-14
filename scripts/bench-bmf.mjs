@@ -89,7 +89,8 @@ function main() {
     const rawGoOutput = optionalString(args, 'raw_go_output');
     const goRawInput = optionalString(args, 'go_raw_input');
     const benchRegex = optionalString(args, 'bench_regex', mode === 'short' ? SHORT_BENCH_REGEX : '.');
-    const benchCount = positiveInt(args, 'bench_count', 5);
+    // 3 keeps the remote Bencher job under the 300 s plan cap (see BENCHER_JOB_TIMEOUT).
+    const benchCount = positiveInt(args, 'bench_count', 3);
     const benchTime = optionalString(args, 'bench_time', '1s');
     const startupSamples = positiveInt(args, 'startup_samples', 40);
     const goCmd = optionalString(args, 'go_cmd', process.env.GOCMD || 'go');
