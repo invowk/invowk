@@ -46,7 +46,7 @@ So symlinks work there and junction creation fails.
 
 Since Go 1.23, a mount point is not `ModeSymlink`. Per the Go 1.23 release notes (the `winsymlink` GODEBUG; `go.mod` is on Go 1.27), `filepath.EvalSymlinks` may no longer evaluate mount points. The rapid property's oracle uses `EvalSymlinks` (`module_path_containment_rapid_test.go:94`), so on junctions it could call an escape "contained". The identity oracle (D6) is correct either way.
 
-**3. Two rows bind functions that do not carry the model's claim.** Both cases were found while reviewing the rebinding plan.
+**3. Three rows bind functions that do not carry the model's claim, or carry more than the model states.** All three were found while reviewing the rebinding plan.
 - **`Auth` / `Server.ValidateToken`** (`formal/tla/HostCallbackToken.tla:28`). The function has no production caller (above). The model's `Auth` action (`HostCallbackToken.tla:75`) is implemented by `Server.admitConn`, which row `Auth/End atomicity` names (`HostCallbackToken.tla:31`). A test that calls `ValidateToken` directly would make the reach gate green without measuring the server.
 - **`unpackRejectsEscape` / `validateDestinationPath`** (`ModulePathContainment.als:39`). No predicate, fact, or command of that name exists in the model or the manifest. The model's claim is `unpackInside[destCheck]` (`ModulePathContainment.als:242-247`; manifest command `unpackStaysInside`, `formal/manifest.toml:1141-1156`). Its destination check is `o.refShape = RelInside`. `refPlacement` (`ModulePathContainment.als:153-156`) places every non-`RelInside` reference outside the module, so the check rejects `AbsPath` and `ParentEscape` alike.
 
@@ -57,18 +57,29 @@ Since Go 1.23, a mount point is not `ModeSymlink`. Per the Go 1.23 release notes
    That gives three results:
    - **Alone, with the `Join` call shape:** the function accepts an `AbsPath` name, because `Join` places it under the root (`packaging.go:521-530`). The model rejects that name. The function alone is therefore not the model's destination check.
    - **Through the pipeline:** acceptance equals the model's on POSIX, but `normalizeZIPPath` makes the function's rejection unreachable there, for `..` and `/` alike. A seeded "drop the `..` check" defect therefore cannot fail any replay. That is reach without measurement, the same problem as `ValidateToken`.
-   - **On Windows:** a drive-letter name passes `normalizeZIPPath` and only `validateDestinationPath`'s `IsAbs` test rejects it. That is real behaviour, but the model has no drive-letter shape.
+   - **On Windows (unverified):** reading the code, a drive-letter name passes `normalizeZIPPath`, and only `validateDestinationPath`'s `IsAbs` test would reject it. This was reasoned, not run, and the model has no drive-letter shape either way.
 
    Under decision 5 the row is marked unbound (D9).
+- **`anchors` / `standardVirtualAnchorsForOS`** (`formal/alloy/VirtualPathHarness.als:31`). The model abstracts every root into three location kinds: `InReadRoot` (an anchor, temp root, script base, or declared path), `InWorkdir`, and `OutsideAll` (`VirtualPathHarness.als:53-59`). Its only claims about construction are:
+  - `locIsAllowedRoot`: read roots, plus the workdir when `includeWorkdir` holds (`VirtualPathHarness.als:89-92`);
+  - the two access modes (`VirtualPathHarness.als:44-45`).
 
-**4. A correspondence row can name a model element that does not exist.** `check_correspondence` never reads the element cell. A prototype (`f1elem3.py` in the session scratchpad) looks for each row's leading identifier in the model source, with comments stripped, and in `formal/manifest.toml`. **34 of 102 rows in 7 of 11 models** do not resolve:
-- `ModulePathContainment`: 15 rows, for example `readOp`, `workdirCwd`, `copySkipsInnerLinks`, `hashSkipsLinks`, `unpackRejectsEscape`, `findingF13`, `probeF16`;
+  It states nothing about which directories are anchors on which OS, or about the XDG and `APPDATA`/`LOCALAPPDATA` overrides. An "independent anchor table" per OS would therefore be written from the Go code or the docs, not from the model. Decision 5 rejects that kind of oracle as circular.
+  - `allowedRoots` and `access` do carry modelled claims. Their replay compares acceptance per location kind with `locIsAllowedRoot` under `includeWorkdir = True`, which is the current code (F15).
+  - The omitted access mode is defined as restricted by `openspec/specs/virtual-filesystem-access/spec.md:14`, which is a normative source.
+  - `newVirtualPathResolverForFilesystem` reaches `standardVirtualAnchorsForOS` for the host GOOS only, through `standardVirtualAnchors` (`internal/runtime/virtual_policy.go:98,140-146`).
+
+  The `anchors` row is Open question 2.
+
+**4. A correspondence row can name a model element that does not exist.** `check_correspondence` never reads the element cell. A prototype applies exactly the D11 rule: it looks for each row's leading identifier in the model source with comments stripped, and in that model's manifest command names and bodies. The script is `f1elem4.py` and its output is `f1-unresolved-elements.txt`, both in the session scratchpad. **38 of 102 rows in 8 of 11 models (34 distinct model/element pairs)** do not resolve:
+- `ModulePathContainment`: 14 rows, for example `readOp`, `workdirCwd`, `copySkipsInnerLinks`, `hashSkipsLinks`, `unpackRejectsEscape`, `findingF13`, `probeF16`;
+- `ConcurrentModuleEdits`: 8 rows;
 - `VirtualPathHarness`: 7 rows;
-- `ConcurrentModuleEdits`: 7 rows;
-- `HostCallbackToken`: 2 rows (`Generate`, `Revoke`);
-- `AtomicWrite`, `Serverbase`, `Watch`: 1 row each.
+- `AtomicWrite`: 3 rows;
+- `HostCallbackToken` and `Watch`: 2 rows each;
+- `LockIdentity` and `Serverbase`: 1 row each.
 
-`check_triage` keys every survivor on (model, element, symbol) (`formal_mutation.py:721-726`). About 200 of the 419 ledger survivors key on these elements, for example `readOp` 29, `workdirCwd` 28, `copySkipsInnerLinks` 25, `anchors` 22. Decision 5 asks for this check. Its scope is Open question 1.
+`check_triage` keys every survivor on (model, element, symbol) (`formal_mutation.py:721-726`). 192 of the 419 ledger survivors key on these pairs, for example `readOp` 29, `workdirCwd` 28, `copySkipsInnerLinks` 25, `anchors` 22. Decision 5 asks for this check. Its scope is Open question 1.
 
 **5. The Windows replay budget is recorded but not enforced.**
 - The `Cost budgets` requirement (`openspec/specs/module-path-containment-model/spec.md:255-265`) sets 30 s per OS.
@@ -90,8 +101,8 @@ Since Go 1.23, a mount point is not `ModeSymlink`. Per the Go 1.23 release notes
 - Calibration: on the current tree the gate fails and names exactly the eight pairs above. After this change it passes.
 - Platform-only capabilities fail on their own platform instead of skipping, and the probe says why.
 - F16 is decided on Windows CI, under one of three outcomes stated in advance.
-- Six rows are rebound to tests that call the real function and assert the model's current-code verdict, including the open findings F13, F15, and F17. The `Auth` and `unpackRejectsEscape` rows become explicitly unbound, with the reason in their abstraction cells.
-- The correspondence check verifies that each row's model element exists (D11, pending Open question 1).
+- Rows are rebound to tests that call the real function and assert the model's current-code verdict, including the open findings F13, F15, and F17. Under the recommended answer to Open question 2 that is five rows. `Auth`, `unpackRejectsEscape`, and `anchors` become explicitly unbound, with the reason in their abstraction cells. Under option B of Open question 2 it is six rebound and two unbound.
+- The correspondence check verifies that each row's model element exists (D11, scope pending Open question 1).
 
 **Non-Goals**
 - Triage of the 419 baselined survivors, a baseline refresh, or new rerun evidence. All of that belongs to the follow-up survivor-triage change.
@@ -105,13 +116,13 @@ Since Go 1.23, a mount point is not `ModeSymlink`. Per the Go 1.23 release notes
 
 The maintainer approved these on 2026-11-14 ("the recommendations, as amended by the advisor review"). They are binding.
 
-1. **Seven rows, not eight, get a reaching binding; `ValidateToken` is not gated.** `Server.ValidateToken` has no non-test caller, so a direct-call test would make the gate green without measuring the server. The `Auth` row gets an explicit not-gated reason: it binds a function with no production caller, and re-pointing `Auth` to `Server.admitConn` is the survivor-triage follow-up. Applied in D9: binding `-`, with the reason in the abstraction cell. This follows the precedent of `ValidateScriptPath` (`ModulePathContainment.als:43`). The decision's "seven" assumed the unpack row could be rebound. Under decision 5 it cannot (Context 3), so six rows are rebound and two are unbound.
+1. **Seven rows, not eight, get a reaching binding; `ValidateToken` is not gated.** `Server.ValidateToken` has no non-test caller, so a direct-call test would make the gate green without measuring the server. The `Auth` row gets an explicit not-gated reason: it binds a function with no production caller, and re-pointing `Auth` to `Server.admitConn` is the survivor-triage follow-up. Applied in D9: binding `-`, with the reason in the abstraction cell. This follows the precedent of `ValidateScriptPath` (`ModulePathContainment.als:43`). The decision's "seven" assumed that the unpack row could be rebound. Under decision 5 it cannot (Context 3). Applying decision 5's oracle rule to the `anchors` row as well (Open question 2) leaves five rebound and three unbound.
 2. **F16's third outcome, "contained", is accepted:** the hypothesis is refuted (D7 c).
 3. **On Windows, symlinks are required only when `GITHUB_ACTIONS=true`** (D4).
 4. **Re-pointing `Auth` to `Server.admitConn` is deferred** to the survivor-triage follow-up.
 5. **The unpack row binds only if it carries the model's claim.** `unpackRejectsEscape` is not a predicate in the `.als`. The row binds to `unpackInside[destCheck]` only if the Go function makes the same claim, with replay expectations derived from the model, because a Go-side oracle would be circular. Otherwise the row is marked unbound. Applied: it is not the same claim (Context 3), so the row is unbound (D9). The decision also extends the correspondence check to verify that each row's model element exists in the model source (D11). Its scope is Open question 1.
 6. **The Windows golden-replay budget is not set from one sample.** First establish whether the 30 s budget is enforced on Windows at all. It is not (Context 5). Then derive the value from the first three Windows CI runs on PR #163 (D12; task 8.2, open until those runs exist).
-7. **Cross-cutting:** the `formal/README.md` notes mention the eight reach rows, their final count of six rebound and two unbound, and the `ValidateToken` finding (task 7.1).
+7. **Cross-cutting:** the `formal/README.md` notes mention the eight reach rows, how many were rebound and how many unbound, and the `ValidateToken` finding (task 7.1).
 
 ## Decisions
 
@@ -249,7 +260,7 @@ Enabling `JunKind` in `goldenScenario` (`ModulePathContainment.als:287-311`) wou
 The README sentence (`formal/README.md:125`) and the calibration text (`formal/manifest.toml:996-997`) are corrected to name what actually covers junctions: the witness commands, the junction branch of the rapid property on Windows, and the F16 leg.
 
 ### D9. Rebinding the rows keeps the row identity
-Only binding cells and abstraction notes change. The model, element, symbol, and file cells stay, so `check_triage` (`formal_mutation.py:721-726`) still matches every ledger survivor. All 20 ledger entries of the two unbound rows (12 unpack, 8 `Auth`) are `binding-gap`, so the abstraction-substring check (`formal_mutation.py:731`) does not apply to them.
+Only binding cells and abstraction notes change. The model, element, symbol, and file cells stay, so `check_triage` (`formal_mutation.py:721-726`) still matches every ledger survivor. Every ledger entry of the unbound rows (12 unpack, 8 `Auth`, and 22 `anchors` under option A of Open question 2) is `binding-gap`, so the abstraction-substring check (`formal_mutation.py:731`) does not apply to them.
 
 Each new assertion compares the real function with the model's current-code verdict. Where that verdict reproduces an open finding (F13, F15, F17), the replay asserts the finding.
 
@@ -258,7 +269,8 @@ Each new assertion compares the real function with the model's current-code verd
 | `workdirCwd` / `GetEffectiveWorkDir` (`.als:32`) | `TestModulePathContainment_ContainerWorkDirGolden`, replacing `…GoldenVectors` | Already calls it (prototype). |
 | `readOp` / `CustomCheckScript.ResolveWithFSAndModule` (`.als:30`) | `TestModulePathContainment_GoldenVectors` (unchanged) | For every `ScriptRead` instance, also replay the custom-check resolver with a recording reader, as `realScriptRead` does (`module_path_containment_golden_test.go:133-148`). Require the same accept and touched node as the model, including F13 instances. |
 | `readOp` / `LoadEnvFile` (`.als:31`) | `TestModulePathContainment_GoldenVectors` (unchanged) | See the `LoadEnvFile` replay below. |
-| `allowedRoots` / `newVirtualPathResolverForFilesystem`, `anchors` / `standardVirtualAnchorsForOS`, `access` / `VirtualFilesystemConfig.EffectiveAccess` (`formal/alloy/VirtualPathHarness.als`) | New `TestVirtualPathHarness_RootConstruction` in `internal/runtime/virtual_path_harness_formal_test.go` | See the construction replay below. |
+| `allowedRoots` / `newVirtualPathResolverForFilesystem`, `access` / `VirtualFilesystemConfig.EffectiveAccess` (`formal/alloy/VirtualPathHarness.als:30,32`) | New `TestVirtualPathHarness_RootConstruction` in `internal/runtime/virtual_path_harness_formal_test.go` | See the construction replay below. |
+| `anchors` / `standardVirtualAnchorsForOS` (`VirtualPathHarness.als:31`) | `-` (unbound) under Open question 2 option A; `TestVirtualPathHarness_RootConstruction` under option B | See the unbound rows below. |
 | `unpackRejectsEscape` / `validateDestinationPath` (`.als:39`) | `-` (unbound) | See the unbound rows below. |
 | `Auth` / `Server.ValidateToken` (`HostCallbackToken.tla:28`) | `-` (unbound) | See the unbound rows below. |
 
@@ -269,14 +281,20 @@ Each new assertion compares the real function with the model's current-code verd
 - A non-file or missing target must make `LoadEnvFile` return an error.
 - If the universal sentinel breaks another assertion, the fallback is an env-only content override in `mpctree`.
 
-**The construction replay.**
-- It calls `standardVirtualAnchorsForOS` for `linux`, `darwin`, and `windows`, with and without the XDG or `APPDATA`/`LOCALAPPDATA` overrides. It compares the result with an independent anchor table, written from the model's tags and the documented layout.
-- It calls `newVirtualPathResolverForFilesystem` with access unset, `restricted`, and `full`, each with and without declared paths.
-- The tagged-root set and the access mode must equal the model's construction with `includeWorkdir = True`, which is the current code (F15).
+**The construction replay.** Its expectations come only from the model, plus one normative spec for the omitted access mode (Context 3).
+- It builds a resolver with `newVirtualPathResolverForFilesystem` on a materialised tree with a workdir, a script base, one declared path, and an outside directory. It does this for access omitted, `restricted`, and `full`, each with and without the declared path.
+- It classifies probe paths by the model's location kinds:
+  - `InReadRoot`: inside the script base, the declared path, the temp root, or an anchor root the resolver reports;
+  - `InWorkdir`: inside the workdir only;
+  - `OutsideAll`: outside every root.
+- It requires the resolver's acceptance to equal `H.access = Full or locIsAllowedRoot[l, includeWorkdir = True]` (`VirtualPathHarness.als:89-97`). `includeWorkdir = True` is the current code, F15, so a workdir-only path is accepted under `restricted`.
+- For `access`, it requires `EffectiveAccess` to return `restricted` when access is omitted (`virtual-filesystem-access/spec.md:14`) or set to `restricted`, and `full` when set to `full`.
+- Under option B of Open question 2 it also compares `standardVirtualAnchorsForOS` for `linux`, `darwin`, and `windows`, with and without the overrides, against the anchor layout documented in the website docs. That is a non-model oracle, which is why it needs the maintainer's choice.
 
-**The two unbound rows.** Both get binding `-`, which the plan reports as `no-binding` (`formal_mutation.py:258-261`).
+**The unbound rows.** Each gets binding `-`, which the plan reports as `no-binding` (`formal_mutation.py:258-261`).
 - **`unpackRejectsEscape`:** it is not the model's claim (Context 3; decision 5). The abstraction cell says the model's destination check, `unpackInside[destCheck]` (refShape = RelInside), transcribes `normalizeZIPPath` followed by `validateDestinationPath`. Alone, with the `Join` call shape, `validateDestinationPath` accepts an `AbsPath` name. After `normalizeZIPPath`, its rejection is unreachable on POSIX. Binding `unpackInside` to `normalizeZIPPath` is left to the survivor-triage follow-up. The element cell stays, so the 12 ledger entries keep matching.
 - **`Auth`:** "not gated" (decision 1). The cell keeps "TTL expiry is a nondeterministic action". It adds that `ValidateToken` has no production caller (`server_auth.go:49` is the only non-test reference), that the model's `Auth` is implemented by `Server.admitConn` (row `Auth/End atomicity`), and that re-pointing the row is the survivor-triage follow-up. `TestHostCallbackToken_LifecycleMatchesModel` stays tabled by the `Generate` row, so binding-test completeness (`formal.py:1120-1135`) still holds.
+- **`anchors`** (Open question 2, option A): the model abstracts anchor locations into `InReadRoot` and does not state the per-OS layout or the environment overrides (Context 3). The abstraction cell says so, says that the construction replay checks only that anchor roots are read roots (through `allowedRoots`), and names extending the model with per-OS anchors as the follow-up. Its 22 ledger entries are `binding-gap`, so they keep matching.
 
 **Defect rule.** Suppose a rebound assertion fails on unmodified code, and no open finding explains it:
 1. Confirm in the model source that the model makes that claim for that operation kind. A transcription error in the replay is fixed, not recorded.
@@ -284,13 +302,13 @@ Each new assertion compares the real function with the model's current-code verd
 3. The failure is recorded as F18 under "Recorded finding contents": a manifest `finding` command next to a passing fix configuration, a characterisation test, and a README row. The failing binding is not committed.
 
 **Ledger fallout.**
-- About 80 baselined survivors on the six rebound functions keep their now-stale reasons ("never calls …"), and the 20 on the two unbound rows describe functions that are no longer planned.
+- Under option A of Open question 2, 59 baselined survivors on the five rebound functions keep their now-stale reasons ("never calls …"), and 42 on the three unbound rows (12 unpack, 8 `Auth`, 22 `anchors`) describe functions that are no longer planned. Under option B the split is 81 and 20.
 - The baseline carries one plan-inputs digest, and this change edits killer-test files that many functions share. By the documented convention, the rerun evidence of all 419 survivors therefore goes stale.
 - `check_triage` still passes. It compares the baseline digest with the rerun records (`formal_mutation.py:737-753`), not with the current tree.
 - `tasks/next/formal-binding-gaps.md` marks the rows as rebound or unbound and flags their survivors for the follow-up.
 
 ### D10. Calibration plan
-- **Reach gate, live.** Before any rebinding, `make formal-reach` must fail and list exactly the eight triples in Context, with no others and no tooling errors. The output goes into `[reach] calibration`. After D9 it must pass with every bound triple reached, and must list the `Auth` and `unpackRejectsEscape` rows as `no-binding`.
+- **Reach gate, live.** Before any rebinding, `make formal-reach` must fail and list exactly the eight triples in Context, with no others and no tooling errors. The output goes into `[reach] calibration`. After D9 it must pass with every bound triple reached, and must list the rows that D9 unbinds as `no-binding`.
 - **Reach gate, seeded.** Temporarily removing the new `LoadEnvFile` replay call must fail exactly that triple again. Revert it afterwards.
 - **Reach gate, unit tests.** `scripts/test_formal_mutation.py` uses fixture profiles and a stub runner. It covers:
   - reached;
@@ -310,8 +328,9 @@ Each new assertion compares the real function with the model's current-code verd
   - drop the `validateScriptPathContainment` call in `CustomCheckScript.ResolveWithFSAndModule`;
   - make `LoadEnvFile` ignore `basePath`;
   - make `GetEffectiveWorkDir` ignore the implementation-level `workdir`;
-  - drop the XDG override in `standardVirtualAnchorsForOS`;
-  - make `EffectiveAccess` return `full` for an unset access mode.
+  - drop the declared paths from the roots in `newVirtualPathResolverForFilesystem`;
+  - make `EffectiveAccess` return `full` for an omitted access mode;
+  - under option B only: drop the XDG override in `standardVirtualAnchorsForOS`.
 - **Windows.** The junction writer, the policy on Windows, the junction branch of the property, and the F16 leg are calibrated on the PR's Windows CI run. The leg's verdict is the calibration. Seeded Windows defects wait until the Windows VM is available, and the calibration text says so.
 - **Golden digests.** Table edits change only fingerprints. `python3 scripts/formal.py snapshot --compare` against a pre-change snapshot must report every golden digest and verdict identical, except entries added by a recorded F16 or F18 outcome.
 
@@ -319,7 +338,7 @@ Each new assertion compares the real function with the model's current-code verd
 `check_correspondence` gains an element check:
 - **Leading identifier.** A row's element cell resolves when its leading identifier, the first `[A-Za-z_][A-Za-z0-9_]*` token, occurs as a whole word in the model source with comments stripped (`strip_alloy_comments` and `strip_tla_comments`, `formal.py:478,665`) or in a command `body` or `name` of that model in `formal/manifest.toml`.
 - **Failure.** A row that does not resolve fails as `<model>: row <element> names a model element that is not in <file> or its manifest commands`.
-- **Recommended handling of today's 34 unresolved rows** (option A in Open question 1). A `[correspondence] unresolved_elements` array in `formal/manifest.toml` lists them as `"<model>: <element>"`. A listed pair is reported, not failed. A listed pair that resolves, or that names no row, fails as stale. `validate_manifest` rejects other keys. The list may only shrink; the survivor-triage follow-up renames the elements, re-keys the ledger, and empties it.
+- **Recommended handling of the rows that do not resolve today** (option A in Open question 1): 38 rows, 34 distinct pairs (Context 4). A `[correspondence] unresolved_elements` array in `formal/manifest.toml` lists the 34 pairs as `"<model>: <element>"`. A listed pair is reported, not failed. A listed pair that resolves, or that names no row, fails as stale. `validate_manifest` rejects other keys. The list may only shrink; the survivor-triage follow-up renames the elements, re-keys the ledger, and empties it.
 - **Tests.** `scripts/test_formal.py` fixtures cover a resolving row, an unresolved unlisted row, a listed row, a stale entry, and an entry with no row.
 
 ### D12. The Windows golden-replay budget comes from three CI runs (decision 6)
@@ -333,13 +352,14 @@ This needs CI evidence, so its task stays open until the runs exist. If the deri
 
 - **The ledger and baseline describe stale reasons after rebinding.** Out of scope by decision. `triage --check` stays green, the follow-up reruns and retriages, and the gaps document flags the affected survivors.
 - **The universal dotenv sentinel changes file content that other assertions read.** Keep the `content-<id>` substring inside the sentinel, run all three golden packages, and fall back to an env-only override (D9).
-- **The construction replay could become a Go-side oracle.** The independent anchor table and root set are written from the model's tags and construction (`VirtualPathHarness.als`), not by calling helpers of `virtual_policy.go`. A reviewer checks that the test imports no unexported construction helper besides the three bound functions.
+- **The construction replay could become a Go-side oracle.** Its expected acceptance comes from `locIsAllowedRoot` and the access modes, and the omitted access mode comes from the virtual-filesystem-access spec. It never comes from calling other helpers of `virtual_policy.go`. The per-OS anchor layout has no model source, which is Open question 2.
+- **A pre-existing calibration claim has no Go detector.** `module-path-containment-model` "Seeded copy, discovery, hash, unpack, and harness calibration defects" (`openspec/specs/module-path-containment-model/spec.md:284-296`) lists "`validateDestinationPath` omitted" among seeded real-code defects. No test calls the function today, and the calibration text credits only the Alloy mutant `mutantUnpackNoCheck` (`formal/manifest.toml:986-997`). Unbinding the row makes this visible but does not change it. Reconciling that requirement (an Alloy-only calibration, or a `normalizeZIPPath` binding) belongs to the survivor-triage follow-up and is reported to the maintainer.
 - **Windows replay time.** The `ModulePathContainment` golden already takes 34.4 s on windows-latest, and the custom-check and env replays add to it. D12 derives the budget from three runs and does not cut instances.
 - **`GITHUB_ACTIONS` in the symlink policy depends on the environment.** It is limited to symlinks on Windows, where local privilege legitimately varies. Junctions need no privilege and are required unconditionally.
 - **The F16 outcome is unknown until CI runs.** All three outcomes are specified in advance (D7). The change cannot be archived until one is recorded.
 - **Coverage builds slow the lane.** The cost is bounded by a soft budget and a hard step timeout, and the killers run in parallel.
 - **A rapid killer reaches a function only on some seeds.** `RAPID_SEED` is pinned in the gate, so the result is deterministic. A seed-dependent reach shows up as a gate failure when the seed changes.
-- **The element check's scope (D11) may change the shape of task group 3b.** The rest of the change does not depend on it.
+- **The element check's scope (D11) may change the shape of task group 3b, and the `anchors` answer changes task 6.5b.** The rest of the change does not depend on either.
 
 ## Migration Plan
 
@@ -347,9 +367,12 @@ This change adds gates and has no runtime migration. Nothing is breaking for use
 
 ## Open Questions
 
-1. **Scope of the model-element check (decision 5, D11). The maintainer must decide before task group 3b.** The approved check assumed `unpackRejectsEscape` was an isolated hole. It is not: 34 of 102 rows in 7 of 11 models fail it (Context 4), and about 200 of the 419 ledger survivors key on those elements. Options:
-   - **(A, recommended)** A fail-closed, shrink-only `[correspondence] unresolved_elements` list in the manifest, seeded with today's 34 rows. New and edited rows must resolve, and the survivor-triage follow-up renames the elements and re-keys the ledger.
-   - **(B)** Rename all 34 element cells in this change and re-key the matching ledger entries mechanically, with only the `element` field edited. This contradicts the "no ledger edits" goal of D9 and widens the change.
+1. **Scope of the model-element check (decision 5, D11). The maintainer must decide before task group 3b.** The approved check assumed `unpackRejectsEscape` was an isolated hole. It is not: 38 of 102 rows in 8 of 11 models (34 distinct pairs) fail it (Context 4), and 192 of the 419 ledger survivors key on those pairs. Options:
+   - **(A, recommended)** A fail-closed, shrink-only `[correspondence] unresolved_elements` list in the manifest, seeded with today's 34 pairs. New and edited rows must resolve, and the survivor-triage follow-up renames the elements and re-keys the ledger.
+   - **(B)** Rename the 34 element names in this change and re-key the 192 ledger entries mechanically, editing only the `element` field. This contradicts the "no ledger edits" goal of D9 and widens the change.
    - **(C)** Defer the whole check to the survivor-triage follow-up.
+2. **The `anchors` row (decision 5's oracle rule applied to `VirtualPathHarness`). The maintainer must decide before task 6.5b.** The model has no per-OS anchor layout and no environment overrides (Context 3), so no model-derived replay of `standardVirtualAnchorsForOS` exists. Options:
+   - **(A, recommended)** Unbind the row, as for `unpackRejectsEscape`, with the reason in its abstraction cell. Extending the model with per-OS anchors (a model gap) goes to the follow-up.
+   - **(B)** Bind it to the construction replay, comparing against the anchor layout documented in the website docs. That oracle is not the model.
 
 Resolved and moved to "Maintainer decisions (2026-11-14)": the `Auth` re-pointing (decisions 1 and 4), the `unpackRejectsEscape` model fact (decision 5), the Windows symlink policy (decision 3), and the Windows replay budget (decision 6).

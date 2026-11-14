@@ -82,7 +82,7 @@
 - [ ] 3b.1 Wait for the maintainer to choose option A, B, or C in design Open question 1. Do not start 3b.2 before that.
 - [ ] 3b.2 Under option A (recommended), as described in design D11:
   - implement the leading-identifier check in `check_correspondence`, searching the comment-stripped model source and the model's manifest command `name` and `body` values;
-  - add `[correspondence] unresolved_elements` to `formal/manifest.toml` with today's 34 `"<model>: <element>"` pairs from design Context 4, and validate the table in `validate_manifest`;
+  - add `[correspondence] unresolved_elements` to `formal/manifest.toml` with today's 34 `"<model>: <element>"` pairs (38 rows) from design Context 4 (the prototype's list, regenerated on the implementation tree), and validate the table in `validate_manifest`;
   - make a stale entry (it resolves, or names no row) fail.
 
   Under option B or C, follow the maintainer's wording and amend design D11 first.
@@ -128,20 +128,24 @@
   - require an error for a non-file or missing target.
 - [ ] 6.4 Unbind the `unpackRejectsEscape` row (`ModulePathContainment.als:39`). Set the binding to `-`, and rewrite the abstraction cell as described in design D9, "The two unbound rows", ending with the follow-up "bind `unpackInside` to `normalizeZIPPath` (survivor-triage)". Leave the element, symbol, and file cells unchanged.
 - [ ] 6.5 Add `TestVirtualPathHarness_RootConstruction` to `internal/runtime/virtual_path_harness_formal_test.go`, as described in design D9, "The construction replay". It covers:
-  - anchors for `linux`, `darwin`, and `windows`, with and without overrides, against an independent table;
-  - the resolver's tagged roots for access unset, `restricted`, and `full`, with and without declared paths, with the workdir included (F15);
-  - the access mode.
+  - resolvers for access omitted, `restricted`, and `full`, each with and without a declared path;
+  - acceptance of probe paths per location kind (`InReadRoot`, `InWorkdir`, `OutsideAll`), compared with `H.access = Full or locIsAllowedRoot[l, True]` (F15);
+  - `EffectiveAccess` for omitted, `restricted`, and `full`.
 
-  Bind the `allowedRoots`, `anchors`, and `access` rows in `formal/alloy/VirtualPathHarness.als` to it, then run `make formal-golden` for `VirtualPathHarness`.
+  Bind the `allowedRoots` and `access` rows (`formal/alloy/VirtualPathHarness.als:30,32`) to it, then run `make formal-golden` for `VirtualPathHarness`.
+- [ ] 6.5b (BLOCKED: design Open question 2) The `anchors` row (`VirtualPathHarness.als:31`):
+  - under option A (recommended), set its binding to `-` and write the abstraction cell described in design D9, "The unbound rows";
+  - under option B, add the per-OS anchor comparison to `TestVirtualPathHarness_RootConstruction` against the documented anchor layout, and bind the row to it.
 - [ ] 6.6 Unbind the `Auth` row (`formal/tla/HostCallbackToken.tla:28`). Set the binding to `-`, and extend the abstraction cell as described in design D9: keep "TTL expiry is a nondeterministic action", and add the no-production-caller reason, the pointer to `Server.admitConn` (row `Auth/End atomicity`), and the survivor-triage follow-up. Do not add a `ValidateToken` call to any test.
-- [ ] 6.7 Seed one defect at a time for 6.1, 6.2, 6.3, and 6.5, confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
+- [ ] 6.7 Seed one defect at a time for 6.1, 6.2, 6.3, and 6.5 (and 6.5b under option B), confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
   - drop the `validateScriptPathContainment` call in `CustomCheckScript.ResolveWithFSAndModule`;
   - make `LoadEnvFile` ignore `basePath`;
   - make `GetEffectiveWorkDir` ignore the implementation-level `workdir`;
-  - drop the XDG override in `standardVirtualAnchorsForOS`;
-  - make `EffectiveAccess` return `full` for an unset access mode.
+  - drop the declared paths from the roots in `newVirtualPathResolverForFilesystem`;
+  - make `EffectiveAccess` return `full` for an omitted access mode;
+  - under option B only: drop the XDG override in `standardVirtualAnchorsForOS`.
 - [ ] 6.8 Run `make formal-reach`:
-  - it must pass, with every bound pair reached and the `Auth` and `unpackRejectsEscape` rows listed as `no-binding`;
+  - it must pass, with every bound pair reached and every row unbound by 6.4, 6.5b, and 6.6 listed as `no-binding`;
   - seed a reach regression by temporarily removing the `LoadEnvFile` call: exactly that pair must fail, then revert it;
   - update `[reach] calibration` and the measured budget, and recompute the step and job timeouts if the measured time exceeds 45 s (design D3).
 - [ ] 6.9 Check:
@@ -156,8 +160,8 @@
   - add `make formal-reach` to Running, and a "Binding reach" bullet to "How a model earns trust";
   - rewrite the Mutation testing paragraph at lines 352-356, covering the maintainer's cross-cutting decision:
     - the reach gate found eight rows, not seven, including `ValidateToken`, which has no production caller;
-    - six are rebound;
-    - `Auth` and `unpackRejectsEscape` are unbound, with their reasons;
+    - how many are rebound: five, or six under option B of Open question 2;
+    - which are unbound (`Auth`, `unpackRejectsEscape`, and `anchors` under option A), with their reasons;
   - add the reach step to the CI budgets table, and a pending Windows replay budget note (design D12).
 - [ ] 7.2 `.agents/skills/formal-verification/SKILL.md`:
   - add the reach gate to the workflow and Verification sections;
@@ -167,10 +171,10 @@
   - add the rule that rows whose function does not carry the model's claim are unbound, not given a direct-call test.
 - [ ] 7.3 `.agents/rules/commands.md`: add `formal-reach` to the Formal row of the targets table (line 11).
 - [ ] 7.4 `tasks/next/formal-binding-gaps.md`:
-  - mark the six rows rebound and the two rows unbound, with their reasons;
+  - mark each of the eight rows rebound or unbound, with the reason for each unbound row;
   - flag their baselined survivors for retriage;
   - note that the rerun evidence of all 419 survivors is stale by the digest convention;
-  - add the survivor-triage follow-up as future work: the 419 survivors, a baseline refresh, re-pointing `Auth` to `Server.admitConn`, a `normalizeZIPPath` row for `unpackInside`, and renaming the unresolved model elements if option A of Open question 1 was chosen.
+  - add the survivor-triage follow-up as future work: the 419 survivors, a baseline refresh, re-pointing `Auth` to `Server.admitConn`, a `normalizeZIPPath` row for `unpackInside`, per-OS anchors in `VirtualPathHarness.als` if option A of Open question 2 was chosen, the Alloy-only "`validateDestinationPath` omitted" calibration claim (design Risks), and renaming the unresolved model elements if option A of Open question 1 was chosen.
 - [ ] 7.5 Check: `make check-agent-docs` passes.
 
 ## 8. Windows CI evidence (open until the runs exist)

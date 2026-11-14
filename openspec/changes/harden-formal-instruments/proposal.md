@@ -11,7 +11,8 @@ The formal setup fails closed everywhere except in two instruments, and both let
 - Two of these rows name a function that does not carry the model's claim, so no honest binding can reach them:
   - `ValidateToken` has no caller, and the model's `Auth` action is `admitConn`;
   - the model's unpack check is `normalizeZIPPath` followed by `validateDestinationPath`, and `validateDestinationPath` alone disagrees with the model on absolute names.
-- Related: 34 of the 102 rows name a "model element" that does not exist in the model, among them `unpackRejectsEscape`.
+- A third, `standardVirtualAnchorsForOS`, does more than the model states. The model has no per-OS anchor layout, so a replay of it would need a non-model oracle (design Open question 2).
+- Related: 38 of the 102 rows (34 distinct model/element pairs) name a "model element" that does not exist in the model or its manifest commands, among them `unpackRejectsEscape`.
 
 **A platform-only leg can skip on the one platform it exists for.**
 - `TestModulePathContainment_F16Junction` skipped on windows-latest (run 36202690168, job 108292507012) because `fstree.Probe().Junction` was false. `probeJunction` throws the creation error away, so the cause is unknown.
@@ -51,17 +52,19 @@ The formal setup fails closed everywhere except in two instruments, and both let
 4. **Resolve the eight rows** without touching production code:
    - `GetEffectiveWorkDir` → `TestModulePathContainment_ContainerWorkDirGolden`, which already reaches it.
    - `CustomCheckScript.ResolveWithFSAndModule` and `LoadEnvFile` → real-function replays inside `TestModulePathContainment_GoldenVectors`, compared with the model's current-code verdicts. Those verdicts include the open findings F13 and F17.
-   - The three `VirtualPathHarness` rows → a new construction-layer binding, `TestVirtualPathHarness_RootConstruction`.
+   - `newVirtualPathResolverForFilesystem` and `EffectiveAccess` → a new construction-layer binding, `TestVirtualPathHarness_RootConstruction`, whose expectations come from the model's `locIsAllowedRoot` and access modes.
+   - `standardVirtualAnchorsForOS` → unbound under the recommended answer to design Open question 2; under option B, bound to the construction replay against the documented anchor layout.
    - `Auth` / `ValidateToken` and `unpackRejectsEscape` / `validateDestinationPath` → explicitly unbound (binding `-`), each with the reason in its abstraction cell. Re-pointing them (`Auth` to `admitConn`, `unpackInside` to `normalizeZIPPath`) belongs to the survivor-triage follow-up.
+   - The result is five rows rebound and three unbound, or six and two under option B of Open question 2.
    - The README junction coverage claim is corrected.
 
    A strengthened binding that fails on unmodified code, unless an open finding explains it, is a defect. It gets F18, the next free id, through the finding procedure. The implementer stops and reports, and never weakens the assertion or patches product code.
-5. **Model elements must exist.** `formal.py correspondence` checks that each row's model element is named in the model source or in the model's manifest commands. How today's 34 unresolved rows are handled is pending a maintainer decision (design Open question 1). The recommendation is a fail-closed, shrink-only list in the manifest.
+5. **Model elements must exist.** `formal.py correspondence` checks that each row's model element is named in the model source or in the model's manifest commands. How today's 38 unresolved rows are handled is pending a maintainer decision (design Open question 1). The recommendation is a fail-closed, shrink-only list in the manifest.
 6. **Windows replay budget.** The 30 s budget is not enforced on Windows. Its value is derived from the first three Windows CI runs of PR #163 and recorded with the run ids.
 
 **Non-goals:**
 - Triaging the 419 baselined survivors, refreshing the formal-bindings baseline or its rerun evidence, and re-running `make mutation-formal`. All of this belongs to the follow-up survivor-triage change.
-  - Rebinding makes the stated reasons of about 80 survivors on the six rebound functions stale, and 20 survivors on the two unbound rows describe functions that are no longer planned.
+  - Rebinding makes the stated reasons of 59 survivors on the five rebound functions stale, and 42 survivors on the three unbound rows describe functions that are no longer planned. The split is 81 and 20 under option B of Open question 2.
   - Because killer-test files change, the rerun evidence of all 419 survivors goes stale by the digest convention.
 - Fixing F13, F14, F15, F17, a confirmed F16, or an F18.
 
@@ -82,7 +85,7 @@ None.
 - `module-path-containment-model`:
   - junction creation and junction generation in the rapid property, with an identity oracle;
   - a decided F16 leg with three outcomes stated in advance;
-  - real-function replays for the custom-check and env-file rows, and an unbound unpack row;
+  - real-function replays for the custom-check and env-file rows, an unbound unpack row, and an unbound anchors row (pending design Open question 2);
   - a construction-layer binding for the virtual-harness rows.
 
   It MODIFIES "Golden replay tests", so instances skip only off a capability's required platforms. It MODIFIES "Cost budgets", so the Windows budget is derived from three CI runs.

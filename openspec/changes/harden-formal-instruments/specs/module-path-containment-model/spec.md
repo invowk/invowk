@@ -167,18 +167,26 @@ The `workdirCwd` row for `Invowkfile.GetEffectiveWorkDir` SHALL name `TestModule
 - **THEN** the `GetEffectiveWorkDir` row SHALL be reached by `TestModulePathContainment_ContainerWorkDirGolden`
 
 ### Requirement: Virtual-harness construction rows are bound by a construction replay
-A new `TestVirtualPathHarness_RootConstruction` SHALL bind the `allowedRoots`, `anchors`, and `access` rows. It SHALL compare, with an independent transcription of the model's construction:
-- the anchors that `standardVirtualAnchorsForOS` builds for `linux`, `darwin`, and `windows`, with and without environment overrides;
-- the tagged roots built by `newVirtualPathResolverForFilesystem`, with the workdir included as the current code does (F15);
-- the access mode that `EffectiveAccess` returns.
-
-#### Scenario: Anchor override honoured
-- **WHEN** the construction replay sets an XDG override for `linux`
-- **THEN** the anchors SHALL use the override, as the independent table states
+A new `TestVirtualPathHarness_RootConstruction` SHALL bind the `allowedRoots` and `access` rows. It SHALL build resolvers with `newVirtualPathResolverForFilesystem` and require their acceptance of probe paths in each location kind (`InReadRoot`, `InWorkdir`, `OutsideAll`) to equal `H.access = Full or locIsAllowedRoot[l, True]`, the current code (F15). `EffectiveAccess` SHALL return `restricted` when access is omitted or set to `restricted`, and `full` when set to `full`.
 
 #### Scenario: Workdir widening reproduced
-- **WHEN** the construction replay builds the roots under `restricted` access with a module-declared workdir
-- **THEN** the tagged roots SHALL include the workdir, as the model's current-code construction (F15) does
+- **WHEN** the construction replay probes a workdir-only path under `restricted` access
+- **THEN** the resolver SHALL accept it, as the model's current-code construction (F15) does
+
+#### Scenario: Outside path rejected
+- **WHEN** the construction replay probes a path outside every root under `restricted` access
+- **THEN** the resolver SHALL reject it
+
+#### Scenario: Omitted access is restricted
+- **WHEN** the filesystem config omits the access mode
+- **THEN** `EffectiveAccess` SHALL return `restricted`, as the virtual-filesystem-access spec states
+
+### Requirement: The anchors row is unbound
+The `anchors` row for `standardVirtualAnchorsForOS` SHALL have binding `-`, because the model abstracts anchor locations into `InReadRoot` and states no per-OS layout or environment override that a replay could compare with. Its abstraction cell SHALL state this and SHALL name the follow-up model extension.
+
+#### Scenario: Anchors row reported, not gated
+- **WHEN** the formal-bindings plan or the reach gate runs
+- **THEN** the `anchors` row SHALL be reported as `no-binding`, with its abstraction cell
 
 ### Requirement: The unpack destination row is unbound
 The `unpackRejectsEscape` row SHALL have binding `-`, because `validateDestinationPath` alone is not the model's destination check (`unpackInside[destCheck]`, `refShape = RelInside`). With the `Join` call shape it accepts an absolute name, and after `normalizeZIPPath` its rejection is unreachable on POSIX. The row's abstraction cell SHALL state this, and SHALL name the follow-up that binds `unpackInside` to `normalizeZIPPath`.

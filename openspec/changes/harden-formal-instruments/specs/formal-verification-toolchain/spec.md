@@ -22,8 +22,8 @@ Rows the plan reports as unbound (`no-symbol`, `no-binding`, `type-symbol`, `tra
 - **THEN** the result SHALL be recorded in the `[reach]` calibration text of `formal/manifest.toml`
 
 #### Scenario: The gate passes after the rows are resolved
-- **WHEN** this change has rebound six of the eight rows and unbound the other two
-- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list the `Auth` and `unpackRejectsEscape` rows as `no-binding`
+- **WHEN** this change has rebound or unbound each of the eight rows
+- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list every row it unbound, including `Auth` and `unpackRejectsEscape`, as `no-binding`
 
 ### Requirement: Reach gate command
 `scripts/formal_mutation.py reach` (`make formal-reach`) SHALL take the rows, functions, line ranges, killers, and packages from the plan that `scripts/formal_mutation.py plan` builds, keeping every fail-closed condition of the plan. It SHALL run each killer alone with `go test -count=1 -json -covermode=set -coverpkg=<the packages of the functions it kills> -coverprofile=…`. It SHALL pin `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME` as the mutation profiles do.
@@ -123,15 +123,26 @@ A `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go
 - **THEN** the correspondence check SHALL NOT report it
 
 ### Requirement: Correspondence rows name existing model elements
-`scripts/formal.py correspondence` SHALL fail on a row whose element cell's leading identifier occurs neither in the model source, with comments stripped, nor in a command `name` or `body` of that model in `formal/manifest.toml`. The failure SHALL name the model, the row, and the file. How rows that already fail this check are handled SHALL be decided by the maintainer (design Open question 1) before this requirement is implemented.
+`scripts/formal.py correspondence` SHALL fail on a row whose element cell's leading identifier occurs neither in the model source, with comments stripped, nor in a command `name` or `body` of that model in `formal/manifest.toml`. The failure SHALL name the model, the row, and the file. A pair listed in `[correspondence] unresolved_elements` SHALL be reported instead of failing.
 
 #### Scenario: Element missing from the model
-- **WHEN** a row's element is `unpackRejectsEscape`, and neither `formal/alloy/ModulePathContainment.als` nor its manifest commands contain that identifier
-- **THEN** the correspondence check SHALL report the row, unless the maintainer-approved handling of existing rows covers it
+- **WHEN** a new row's element names nothing in its model source or manifest commands, and the pair is not listed
+- **THEN** the correspondence check SHALL fail and name the model, the row, and the file
 
 #### Scenario: Element named by a manifest command
 - **WHEN** a row's leading identifier occurs only in a manifest command `body` of its model
 - **THEN** the row SHALL resolve
+
+### Requirement: Unresolved model elements are listed and shrink
+`formal/manifest.toml` SHALL list each `"<model>: <element>"` pair that did not resolve when the element check was introduced in `[correspondence] unresolved_elements`, and manifest validation SHALL reject other keys in that table. A listed pair that resolves, or that names no row, SHALL fail the correspondence check as stale. The survivor-triage follow-up SHALL rename the listed elements and empty the list.
+
+#### Scenario: Listed legacy element
+- **WHEN** the `unpackRejectsEscape` row is checked and `"ModulePathContainment: unpackRejectsEscape"` is listed
+- **THEN** the check SHALL report the row and SHALL NOT fail
+
+#### Scenario: Stale list entry
+- **WHEN** a listed pair's element now resolves, or no row has that model and element
+- **THEN** the correspondence check SHALL fail and name the stale entry
 
 ### Requirement: Rebinding preserves row identity
 When a row's binding is changed so that it reaches the named function, or when the row is unbound, only the row's binding and abstraction cells SHALL change. Its model element, Go symbol, and file cells SHALL stay, so `scripts/formal_mutation.py triage --check` keeps matching every ledger survivor without ledger edits. A characterisation test SHALL NOT be named as the reaching binding.
@@ -164,9 +175,10 @@ When a rebound binding fails on unmodified code and no open finding explains the
 - **THEN** the discrepancy SHALL be recorded as F18, with a manifest `finding` command next to a passing fix configuration, a characterisation test, and a `formal/README.md` Findings row
 
 ### Requirement: Rows whose function does not carry the model's claim are unbound
-A row SHALL NOT be bound by a test that calls its function directly when either holds:
+A row SHALL NOT be bound by a test that calls its function directly when any of these holds:
 - the function has no production caller;
-- the function alone does not make the claim the model element states.
+- the function alone does not make the claim the model element states;
+- the model states nothing about the function's result that a replay could compare with.
 
 Such a row SHALL have binding `-`, and its abstraction cell SHALL state the reason and the follow-up.
 
