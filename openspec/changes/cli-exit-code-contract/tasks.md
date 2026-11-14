@@ -2,7 +2,7 @@
 
 Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observations were made). Follow `.agents/rules/checklist.md`, `testing.md`, `windows.md` (for `tests/cli/*.go`) and `licensing.md` (for new `*.go`).
 
-- [ ] 1.1 If S1 (`harden-config-trust`) has merged into main, rebase onto it now and re-check the `cmd/invowk/root.go` citations in design.md (`Execute` at `:86-106`, last `AddCommand` at `:79`). If it has not, continue; task 8.1 rebases later. Check: the base commit (`git merge-base HEAD main`) is recorded in the stage report.
+- [ ] 1.1 If S1 (`harden-config-trust`) has merged into main, rebase onto it now and re-check the `cmd/invowk/root.go` citations in design.md (`Execute` at `:86-106`, last `AddCommand` at `:78`). If it has not, continue; task 8.1 rebases later. Check: the base commit (`git merge-base HEAD main`) is recorded in the stage report.
 - [ ] 1.2 Record before-state output into scratch files (outside the repo) for the diff in 4.5: `invowk --help`, `invowk config --help`, `invowk module --help`, `invowk cmd --help`, `invowk --version`, and, in a scratch dir with an invowkfile defining `a`, `w2`, `test unit`, `test other` plus a module `m` defining `w2 sub`: `invowk cmd`, `invowk __complete cmd ""`, `invowk __complete cmd test ""`, `invowk __complete config ""`. Check: the files exist and are non-empty.
 - [ ] 1.3 Add an `exitcode` custom command to `testscript.Params.Cmds` in `tests/cli/cmd_test.go` (`:199-203`) and in the container runner (`tests/cli/cmd_container_test.go:167`), defined once in a shared helper file in `tests/cli/`. Syntax: `exitcode <want> <cmd> <args…>`. It calls `ts.Exec(cmd, args...)` (go-internal v1.16.0, `testscript/testscript.go:1211`), reads the status with `errors.AsType[*exec.ExitError]` (0 when `err == nil`; any other error is `ts.Fatalf`), calls `ts.Fatalf("exitcode does not support negation")` when `neg` is true, and fails with the got/want codes and stderr when they differ. Then run `make test-cli` once on the unchanged code to record which tests fail later (expected: none yet). Check: a throwaway txtar with `exitcode 0 invowk --version` and `exitcode 1 invowk cmd nope` passes under `go test -run 'TestCLI/<name>' ./tests/cli/`, then is deleted.
 
@@ -14,7 +14,7 @@ Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observati
 
 ## 3. Usage-error sources
 
-- [ ] 3.1 Add `installUsageGuards(root *cobra.Command)` to `usage_error.go` and call it once in `NewRootCommand`, after the last `AddCommand` (`root.go:79`). This is the only other `root.go` edit. It:
+- [ ] 3.1 Add `installUsageGuards(root *cobra.Command)` to `usage_error.go` and call it once in `NewRootCommand`, after the last `AddCommand` (`root.go:78`). This is the only other `root.go` edit. It:
   - calls `root.SetFlagErrorFunc` with a func returning `newUsageError(err)`;
   - sets `root.Args` to a validator that, for a first token that is not a subcommand, returns `newUsageError(fmt.Errorf("unknown command %q for %q%s", args[0], root.CommandPath(), suggestions))` with Cobra's `\n\nDid you mean this?\n\t%s\n` suffix from `root.SuggestionsFor`, and sets `root.RunE` to `cmd.Help()`;
   - walks every non-root command: if it has subcommands and `Args == nil`, sets `Args` to a guard that calls `rejectUnmatchedGroupToken` (3.2), and adds `RunE: cmd.Help()` if it is not runnable; if `Args != nil`, wraps it so its error goes through `newUsageError`.
@@ -27,7 +27,7 @@ Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observati
   - `root bogus` gives 2 with Cobra's text; bare root gives help and nil;
   - an unknown flag on a nested child gives 2 through `exitCodeForError`;
   - the `MaximumNArgs` error becomes a `UsageError` with its text unchanged;
-  - the explicit `ArbitraryArgs` parent is left alone.
+  - the explicit `ArbitraryArgs` parent still accepts any tokens: its `RunE` runs with them and no error is returned (its validator is wrapped, but it never fails).
 
   Check: `go test -run 'TestInstallUsageGuards|TestRejectUnmatchedGroupToken' ./cmd/invowk/`.
 - [ ] 3.5 In `renderAndWrapServiceError` (`app.go:264-333`), return `newUsageError(newServiceError(...))` for `deps.ArgumentValidationError`, `deps.FlagValidationError`, `AmbiguousCommandError`, `SourceNotFoundError`, `RuntimeNotAllowedError`, and `ClassifiedError` with `ErrorKindCommandNotFound` or `ErrorKindCommandAmbiguous`. Leave all other branches unchanged. Extend `cmd/invowk/cmd_execute_error_classifier_test.go`: each usage kind maps to 2, every other kind maps to 1, and `errors.AsType[*ServiceError]` still succeeds. Check: `go test -run 'TestRenderAndWrapServiceError|TestClassif' ./cmd/invowk/`.
@@ -41,7 +41,7 @@ Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observati
 
 ## 4. Discovered group nodes and registration
 
-- [ ] 4.1 In `registerDiscoveredCommands` (`cmd_discovery.go:36`), iterate the node-building loop (`:55`) over `slices.Clone(commandSet.Commands)` sorted with `slices.SortStableFunc` by `SimpleName`. Do not reorder `commandSet.Commands`. Unit tests: invowkfile leaf `w2` plus module `w2 sub` builds a runnable `w2` (`RunE` set, `Args` is `ArbitraryArgs`) with child `sub`, for both input orders; `commandSet.Commands` order is identical before and after registration. Check: `go test -run 'TestRegisterDiscoveredCommands' ./cmd/invowk/`.
+- [ ] 4.1 In `registerDiscoveredCommands` (`cmd_discovery.go:36`), iterate the node-building loop (`:55`) over `slices.Clone(commandSet.Commands)` sorted with `slices.SortStableFunc` by `SimpleName`. Do not reorder `commandSet.Commands`. Unit tests: invowkfile leaf `w2` plus module `w2 sub` builds a `w2` node with `RunE` set that accepts extra tokens (`cmd.ValidateArgs([]string{"x"})` returns nil) and has child `sub`, for both input orders; `commandSet.Commands` order is identical before and after registration. Check: `go test -run 'TestRegisterDiscoveredCommands' ./cmd/invowk/`.
 - [ ] 4.2 Rewrite the discovered group node (`cmd_discovery.go:79-114`): add `Args: cobra.ArbitraryArgs`, remove the `isAmbiguous` gate (`:82`, `:98`), and make `RunE` follow design.md Decision 3: no args → `cmd.Help()`; `--ivk-from` → the existing disambiguated path (`:90-96`); then `checkAmbiguousCommand(ctx, app, prefix+args)` on every call, rendering an `AmbiguousCommandError` as today (`:99-107`) and returning `newUsageError(err)`, and returning any other error from it unchanged; otherwise `rejectUnmatchedGroupToken(cmd, args)`. If `ambiguousPrefixes` becomes unused, delete it. Unit tests for each branch, including an ambiguous `deploy prod` reached through group `deploy` with a unique sibling `deploy dev`. Check: `go test -run 'TestDiscoveredGroup' ./cmd/invowk/`.
 - [ ] 4.3 Leave the leaf `Args: cobra.ArbitraryArgs` (`cmd_discovery.go:178`) unchanged, and add a unit test that pins `w typo` forwarding `typo` as the first positional. Check: `go test -run 'TestDiscoveredLeafForwardsUnmatchedToken' ./cmd/invowk/`.
 - [ ] 4.4 Agent and LLM helpers (design.md Decision 8). Add `agentExitFailure types.ExitCode = 1` in `agent.go` and an `llmExitCodes{usage, failure types.ExitCode}` struct in `llm_flags.go`.
@@ -87,7 +87,7 @@ Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observati
 - [ ] 6.8 Update `.agents/skills/cli/SKILL.md` "Error Handling & Exit Codes" (`:266-280`) to cover `UsageError`, `newUsageError`, `exitCodeForError`, `installUsageGuards`, the contract, and the rule that a parent accepting positionals declares `Args` explicitly.
 - [ ] 6.9 Check `docs/diagrams/sequences/execution-main.d2` ("Output + Exit code", `:92`) and `website/docs/architecture/execution-flow.mdx`. Change them only if they state specific codes; run `make render-diagrams` if a D2 source changes.
 
-Check for the group: `cd website && npm run build` and `make check-agent-docs`.
+- [ ] 6.10 Group check: `cd website && npm run build` and `make check-agent-docs` both pass.
 
 ## 7. Spec sync
 

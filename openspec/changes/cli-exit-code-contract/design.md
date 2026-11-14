@@ -1,6 +1,6 @@
 ## Context
 
-The behaviour described here was first verified on main `85f1eb7b` on 2026-11-14, using a local build, an isolated `HOME` and a scratch invowkfile. The branch was then rebased onto main `c0a000da`. `git diff --stat 85f1eb7b c0a000da -- cmd/ internal/ pkg/ tests/` is empty, so the observations still hold, and every `file:line` citation below was re-checked against `c0a000da`. S1 (`harden-config-trust`) also edits `cmd/invowk/root.go` and merges first; this branch is rebased onto it afterwards, so re-check the `root.go` citations then.
+The behaviour described here was first verified on main `85f1eb7b` on 2026-11-14, using a local build, an isolated `HOME` and a scratch invowkfile. The branch was then rebased onto main `c0a000da`. `git diff --stat 85f1eb7b c0a000da -- cmd/ internal/ pkg/ tests/` is empty, so the observations still hold, and every `file:line` citation below was re-checked against `c0a000da`. The reserved-flag and `@invowkfile` rows were added during the stage-2 review and observed with a `c0a000da` build the same way; the agent row is derived from code and the existing `agent_*.txtar` tests. S1 (`harden-config-trust`) also edits `cmd/invowk/root.go` and merges first; this branch is rebased onto it afterwards, so re-check the `root.go` citations then.
 
 Observed exit codes:
 
@@ -16,9 +16,11 @@ Observed exit codes:
 | `invowk init a b c`, `completion bogus`, `audit a b c` | 1 | Cobra `Args` validators |
 | `invowk cmd nope`, `cmd e2` (ambiguous), `cmd @bogus x`, `--ivk-runtime native` (not allowed), missing or extra declared args | 1 | `renderAndWrapServiceError` (`cmd/invowk/app.go:264-333`) → `ServiceError` → default 1 |
 | `--ivk-runtime bogus` | 1 | `parsedRuntimeMode` (`cmd/invowk/cmd.go:64-66`) called from `buildCommandExecuteRequest` (`cmd/invowk/cmd_execute_helpers.go:113`) |
-| `--ivk-env-inherit-mode bogus` | 1 | `ParseEnvInheritMode` (`cmd_execute_helpers.go:118-121`) |
+| `--ivk-env-inherit-mode bogus` | 1, `Invalid env_inherit_mode "bogus"` | `ParseEnvInheritMode` (`cmd_execute_helpers.go:118-121`) |
 | `--ivk-env-var=NOEQ`, `--ivk-env-var==v` | **0**, warning | `parseEnvVarFlags` skips entries whose `=` index is `<= 0` and logs `slog.Warn` (`cmd_execute_helpers.go:60-78`); the skip is pinned by `TestParseEnvVarFlags` (`cmd_execute_helpers_test.go:109`) |
-| `--ivk-workdir ' '`, `--ivk-env-inherit-allow 1BAD`, `--ivk-env-file ''` | 1 | passed through unvalidated (`cmd_execute_helpers.go:134-147`), rejected later by `commandsvc.Request.Validate` (`internal/app/commandsvc/types_validate.go:74-145`, called at `service.go:153`) as `InvalidRequestError` |
+| `--ivk-workdir ' '`, `--ivk-env-inherit-allow 1BAD`, `--ivk-container-name ../x` | 1, `Invalid request: 1 field error(s)` | passed through unvalidated (`cmd_execute_helpers.go:134-147`), rejected later by `commandsvc.Request.Validate` (`internal/app/commandsvc/types_validate.go:74-145`, called at `service.go:153`) as `InvalidRequestError` |
+| `--ivk-env-file=` (empty path) | **0**, the command runs | the empty value is not rejected on this path |
+| `invowk cmd @invowkfile` (no command name) | 1, `No command specified` | `errNoCommandSpecified` (`cmd/invowk/cmd.go:200`, `cmd_execute_helpers.go:233`, `cmd_watch.go:59`) |
 | `invowk cmd --ivk-watch nope` | 1 | `WatchCommandNotFoundError` (`cmd/invowk/cmd_watch.go:87`) |
 | `invowk cmd w typo` (leaf `w` with child `w sub`) | 0, runs `w typo` | leaves use `cobra.ArbitraryArgs` (`cmd_discovery.go:178`) |
 | script `exit 2` | 2 | `executeRequest` → `ExitError{Code}` (`cmd/invowk/cmd.go:343-345`) → `root.go:101-103` |
@@ -34,7 +36,7 @@ Existing non-zero codes, gathered from all `ExitError`, `os.Exit` and exit-code 
 | 1 | runtime failures that are not exit statuses: shell not found, start failure | `native_helpers.go:86-88`, `interactive.go:44-97`, `commandsvc/dispatch.go:122`, `commandsvc/ports.go:127-129` |
 | 1 | a child killed by a signal | `ExitCode()` is -1, which fails validation, so 1 is used (`native_helpers.go:76-79`, `interactive_session.go:55-61`). No 128+N convention; S2 owns signals |
 | 1 | `invowk validate` found errors (`cmd/invowk/validate.go:139,193,282,306,400`) | |
-| 1 | `invowk tui confirm` declined (`cmd/invowk/tui_confirm.go:90`) | Documented in `website/docs/tui/choose-and-confirm.mdx:59-61` |
+| 1 | `invowk tui confirm` declined (`cmd/invowk/tui_confirm.go:90`) | Documented in `website/docs/tui/choose-and-confirm.mdx:60-62` |
 | 1 | hidden `invowk internal check-cmd` (`cmd/invowk/internal_check_cmd.go:25-47`), `internal exec-virtual-lua` (`internal_exec_lua.go:127`) | `check-cmd` is consumed only as zero or non-zero by container dependency checks (`internal/app/commandadapters/dependency_runtime.go:169-178`) |
 | 1 / 2 | `invowk audit`: 1 findings, 2 scan or config error (`cmd/invowk/audit.go:23-25`) | Documented in `website/docs/security/audit.mdx:179-185`, `website/docs/reference/cli.mdx:568` and `README.md:3024-3030`. `audit.mdx:184` says that argument errors use status 1 |
 | 2 | every `invowk agent …` failure (see the first table) | Reuses `auditExitError`; undocumented; no intrinsic reason (maintainer decision 3) |
@@ -107,7 +109,7 @@ Alternatives considered:
 
 ### 2. Where `UsageError` is produced
 
-`installUsageGuards(root *cobra.Command)` in `usage_error.go` does all the Cobra-tree wiring. `NewRootCommand` calls it once, after the last `AddCommand` (`root.go:79`). Discovered `invowk cmd` nodes are registered inside `newCmdCommand` (`cmd/invowk/cmd.go:143-148`), so they already exist when the walk runs; they carry an explicit `Args: cobra.ArbitraryArgs`, which never errors, so wrapping it changes nothing.
+`installUsageGuards(root *cobra.Command)` in `usage_error.go` does all the Cobra-tree wiring. `NewRootCommand` calls it once, after the last `AddCommand` (`root.go:78`). Discovered `invowk cmd` nodes are registered inside `newCmdCommand` (`cmd/invowk/cmd.go:143-148`), so they already exist when the walk runs; they carry an explicit `Args: cobra.ArbitraryArgs`, which never errors, so wrapping it changes nothing.
 
 | Source | Hook |
 |---|---|
@@ -130,7 +132,7 @@ Fang adds its hidden `man` leaf inside `fang.Execute`, after the walk, so its `N
 A group's `RunE` applies these rules in order:
 1. **No args.** Show help on stdout and exit 0. This is the bare-group decision. A bare group is an explicit request to browse, as with bare `invowk cmd`, which lists commands and exits 0. Cobra's own default for non-runnable parents, `docker network` and `kubectl config` behave the same way. Changing it would break discovery without making scripts any safer.
 2. **`--ivk-from` set.** Run the existing disambiguated path (`cmd_discovery.go:90-96`).
-3. **Discovered groups only.** Always run `checkAmbiguousCommand(prefix + args)`, whether or not the prefix itself is ambiguous; drop the `isAmbiguous` gate (`cmd_discovery.go:82,98`). If the full path is ambiguous, render the ambiguous-command message as today (`cmd_discovery.go:99-107`) and return `newUsageError(err)` (exit 2). This fixes `invowk cmd deploy prod` showing help. The resolution reuses the per-request discovery cache, and it only runs when the invocation is already wrong.
+3. **Discovered groups only.** Always run `checkAmbiguousCommand(prefix + args)`, whether or not the prefix itself is ambiguous, and drop the `isAmbiguous` gate (`cmd_discovery.go:82,98`). `checkAmbiguousCommand` returns a non-nil error only for an ambiguous path; for a path that is not found, and for a discovery failure, it renders any diagnostics and returns nil (`cmd/invowk/cmd_execute_helpers.go:307-331`), so a plain typo falls through to rule 4. If the full path is ambiguous, render the ambiguous-command message as today (`cmd_discovery.go:99-107`) and return `newUsageError(err)` (exit 2). This fixes `invowk cmd deploy prod` showing help. The resolution reuses the per-request discovery cache, and it only runs when the invocation is already wrong.
 4. **Otherwise.** Write the group's available subcommands (name and short description, visible commands only, in Cobra's sorted order) to stderr. Return `newUsageError(fmt.Errorf("unknown command %q for %q%s", args[0], cmd.CommandPath(), suggestions))`, where `suggestions` uses Cobra's `\n\nDid you mean this?\n\t%s\n` format and comes from `cmd.SuggestionsFor(args[0])`. The top-level error handler, fang's today or C2's later, prints the error line. Nothing goes to stdout.
 
 Rule 4 is one helper, `rejectUnmatchedGroupToken(cmd, args) error`, shared by the built-in group guard (Decision 2) and the discovered group `RunE`.
@@ -193,15 +195,15 @@ One rule for every agent site: an error the CLI detects from argv alone, before 
 | `agent.go:194`, `:346` | `agentcmd.RemoveCommand` / `RemoveModule` (not found, `requires --force`, I/O) | 1 |
 | `agent.go:377`, `:419`, `:460`, `:495` | `agentcmd.Create*` / `Change*` (already exists, does not exist, LLM output invalid, I/O) | 1 |
 | `agent.go:382`, `:424` | `verifyGeneratedCommand` | 1 |
-| `llm_flags.go:78` | `llmConfigFlagValues`: an invalid `--llm-provider`, `--llm-url`, `--llm-model` or `--llm-concurrency` value | 2 |
-| `llm_flags.go:93`, `:144`, `:154`, `:169`, `:175`, `:192`, `:197` | config resolution, "LLM is not enabled", provider detection, model verification, client construction | 1 |
+| `llm_flags.go:78` | `llmConfigFlagValues` (`llm_flags.go:98-130`): an invalid `--llm-provider`, `--llm-url`, `--llm-model` or `--llm-concurrency` value | 2 |
+| `llm_flags.go:93`, `:144`, `:154`, `:169`, `:175`, `:192`, `:197` | config resolution (which also merges the config file), "LLM is not enabled", API-config validation, provider detection, model verification, client construction | 1. These can involve config-file values, so they are not argv-only. `--llm-timeout` and `--llm-api-key` are not checked at `:78`; a bad value surfaces here and exits 1 |
 
 `requires --force` stays 1 because the domain decides it after inspecting the module directory, not from argv alone.
 
-Mechanism: in `agent.go`, each site keeps returning `&ExitError{...}` (agent sites render their own messages first, so the silencing semantics stay the same) but uses `ExitCodeUsage` or a new `agentExitFailure types.ExitCode = 1` instead of `auditExitError`. The shared helpers `resolveLLMForCommand` and `buildLLMCompleter` (`llm_flags.go:67-197`), also used by `audit` (`audit.go:240,298`), take an `llmExitCodes{usage, failure types.ExitCode}` parameter and pass it down to `buildProviderCompleter` and `buildManualCompleter`. `audit` passes `{auditExitError, auditExitError}`, so all of its codes are unchanged. `agent` passes `{ExitCodeUsage, agentExitFailure}` through `resolveAgentAuthoringCompleter` (`agent.go:515-533`).
+Mechanism: in `agent.go`, each site keeps returning `&ExitError{Code, Err}`, whose `Error()` delegates to `Err` (`exit_error.go:18-23`), so fang prints the same message as today; only the code changes. The sites use `ExitCodeUsage` or a new `agentExitFailure types.ExitCode = 1` instead of `auditExitError`. The shared helpers `resolveLLMForCommand` and `buildLLMCompleter` (`llm_flags.go:67-197`), also used by `audit` (`audit.go:240,298`), take an `llmExitCodes{usage, failure types.ExitCode}` parameter and pass it down to `buildProviderCompleter` and `buildManualCompleter`. `audit` passes `{auditExitError, auditExitError}`, so all of its codes are unchanged. `agent` passes `{ExitCodeUsage, agentExitFailure}` through `resolveAgentAuthoringCompleter` (`agent.go:515-533`).
 
 Alternatives considered:
-- Return plain errors and `UsageError` from agent and let `exitCodeForError` decide. Rejected for now: the sites print their own messages, and dropping `ExitError` would change rendering in a way that belongs to C2.
+- Return plain errors and `UsageError` from agent and let `exitCodeForError` decide. Rejected: the shared `llm_flags.go` helpers print their own message before returning (`llm_flags.go:77`, `:92`) and must keep returning audit's explicit 2, so an explicit code per site is the smaller, uniform change. C2 can revisit rendering.
 - Keep agent at 2 and document it as an exception. Rejected by the maintainer (decision 3).
 
 ### 9. Invalid reserved `--ivk-*` flag values exit 2
@@ -210,7 +212,7 @@ Alternatives considered:
 - `--ivk-runtime`: the `parsedRuntimeMode` error (`:113-116`).
 - `--ivk-env-inherit-mode`: the `ParseEnvInheritMode` error (`:118-121`).
 - `--ivk-env-var`: `parseEnvVarFlags` (`:60-78`) returns `(map[string]string, error)`. An entry whose first `=` is missing or at index 0 (`NOEQ`, `=v`) is an error, `invalid --ivk-env-var value %q: expected KEY=VALUE`, instead of a `slog.Warn` and a skip. `KEY=` (empty value) stays valid.
-- `--ivk-workdir`, `--ivk-env-file`, `--ivk-env-inherit-allow`, `--ivk-env-inherit-deny` and `--ivk-container-name`: the CLI calls the same `Validate()` that `commandsvc.Request.Validate` (`types_validate.go:74-145`) would call, on each typed value, before building the request. These checks are syntactic only (for example `WorkDir.Validate` rejects whitespace-only values, `pkg/invowkfile/workdir.go:40-48`; `EnvVarName.Validate` applies the name regex, `pkg/invowkfile/env.go:71-76`); a missing env file stays a runtime failure (1).
+- `--ivk-workdir`, `--ivk-env-file` (an empty path, which today is not rejected at all), `--ivk-env-inherit-allow`, `--ivk-env-inherit-deny` and `--ivk-container-name`: the CLI calls the same `Validate()` that `commandsvc.Request.Validate` (`types_validate.go:74-145`) would call, on each typed value, before building the request (`ContainerName.Validate` is `pkg/containerargs/container_name.go:39`). These checks are syntactic only (for example `WorkDir.Validate` rejects whitespace-only values, `pkg/invowkfile/workdir.go:40-48`; `EnvVarName.Validate` applies the name regex, `pkg/invowkfile/env.go:71-76`); a missing env file stays a runtime failure (1).
 
 `commandsvc.InvalidRequestError` stays 1. After this change it is reachable only for fields the CLI does not validate first (for example `ResolvedCommand`), which indicates a bug, not a usage error. `opts.Validate()` at `:109-111` validates internal options and also stays 1.
 

@@ -242,7 +242,7 @@ These built-in codes SHALL keep their meanings and SHALL be listed in the exit-c
 - **THEN** invowk SHALL exit with status 2
 
 ### Requirement: Agent commands follow the general contract
-`invowk agent` subcommands SHALL NOT define their own codes. An error detected from argv alone, before any file is read or any LLM is called, SHALL exit with status 2: an invalid command name or module ID, mutually exclusive flags, a missing description, an invalid `--llm-*` value, or an unknown prompt format or operation. Every other agent failure SHALL exit with status 1.
+`invowk agent` subcommands SHALL NOT define their own codes. An error detected from argv alone, before any file is read or any LLM is called, SHALL exit with status 2: an invalid command name or module ID, mutually exclusive flags, a missing description, an invalid `--llm-provider`, `--llm-url`, `--llm-model` or `--llm-concurrency` value, or an unknown prompt format or operation. Every other agent failure, including errors that need the config file or an LLM, SHALL exit with status 1.
 
 #### Scenario: Unknown prompt format
 - **WHEN** the user runs `invowk agent cmd prompt --format yaml`

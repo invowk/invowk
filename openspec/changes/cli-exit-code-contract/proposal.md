@@ -50,7 +50,7 @@ For the v0.17.0 release notes. Per the maintainer decision, each change keeps it
 > What to update:
 > - Scripts that test `$? -eq 1` to detect a mistyped invocation should test for `2`, or for any non-zero status.
 > - Scripts that ran `invowk cmd <group> <word>` and expected help on stdout should run `invowk cmd <group>` (still status 0) or `invowk cmd <group> --help`.
-> - A malformed `--ivk-env-var` value (`NAME` without `=`, or `=value` with no name) is now an error with status `2`. It used to be skipped with a warning, so the variable was silently never set. Write `NAME=value`; `NAME=` still sets an empty value.
+> - A malformed `--ivk-env-var` value (`NAME` without `=`, or `=value` with no name) is now an error with status `2`. It used to be skipped with a warning, so the variable was silently never set. Write `NAME=value`; `NAME=` still sets an empty value. An empty `--ivk-env-file=` path, which used to be accepted, also exits `2`.
 > - `invowk agent` used to exit `2` on every failure. It now exits `2` only for argument and flag errors, and `1` for every other failure, such as LLM errors or a command or module that already exists. Scripts that test `$? -eq 2` after `invowk agent …` to detect any failure should test for any non-zero status.
 > - Your own commands can also exit with `2`. If you must tell the two apart, read stderr, or give your scripts codes other than 1 and 2.
 > - `invowk audit` keeps `0` = clean, `1` = findings, `2` = scan error. Its argument errors now also exit `2` instead of `1`.
