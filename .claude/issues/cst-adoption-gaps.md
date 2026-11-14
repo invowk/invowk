@@ -200,8 +200,8 @@ guide ("set `TMPDIR` if needed").
   only by the per-session token. Containers reach it through `host.docker.internal`, which
   is probably why it binds wide. Restrict the bind to loopback plus the engine's bridge
   gateway, covering Docker and Podman, rootful and rootless, and Flatpak, with container
-  tests. Until then, Sonar e13 suppresses S5332 there: plain HTTP over loopback or the
-  bridge is by design.
+  tests. Until then, Sonar S5332 there is resolved in SonarCloud as a false positive
+  (recorded as e13): plain HTTP over loopback or the bridge is by design.
 
 ## Why CST keeps its production paths out of invowk anyway
 
