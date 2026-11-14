@@ -29,11 +29,12 @@ type (
 	// noCwdFixture is a simulated cwd with an invowkfile (command "local") and a
 	// sibling module (command "modcmd"), a user commands dir with module "g"
 	// (command "glob"), and a config dir whose config.cue includes module "inc"
-	// (command "inc") by absolute path.
+	// (command "inc") by absolute path. Running "inc" writes incMarker.
 	noCwdFixture struct {
 		cwd         string
 		commandsDir string
 		userDir     string
+		incMarker   string
 	}
 )
 
@@ -54,11 +55,15 @@ func newNoCwdFixture(t *testing.T) noCwdFixture {
 		cwd:         filepath.Join(root, "cwd"),
 		commandsDir: filepath.Join(root, "cmds"),
 		userDir:     filepath.Join(root, "config"),
+		incMarker:   filepath.Join(root, "inc-ran"),
 	}
 	writeTestFile(t, filepath.Join(f.cwd, "invowkfile.cue"), noCwdTestInvowkfile)
 	createInternalCheckCmdTestModule(t, f.cwd, "foo.invowkmod", "foo", "modcmd")
 	createInternalCheckCmdTestModule(t, f.commandsDir, "g.invowkmod", "g", "glob")
 	incDir := createInternalCheckCmdTestModule(t, filepath.Join(root, "inc"), "bar.invowkmod", "bar", "inc")
+	// The include runs on every OS, so "inc" can be executed end to end.
+	writeTestFile(t, filepath.Join(incDir, "invowkfile.cue"),
+		`cmds: [{name: "inc", implementations: [{script: {content: "echo INC_RAN > '`+filepath.ToSlash(f.incMarker)+`'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`)
 	writeTestFile(t, filepath.Join(f.userDir, "config.cue"), `includes: [{path: "`+filepath.ToSlash(incDir)+`"}]`)
 	return f
 }
@@ -114,6 +119,26 @@ func TestNoCwdKeepsNonCwdSources(t *testing.T) {
 	}
 }
 
+// TestRescopeRegisteredCommand covers the leaf whose registration-time switch
+// differs from the parsed one: under the switch the cwd command is gone (so the
+// service reports it as not found), while a user commands dir command is found
+// again with its own definitions.
+func TestRescopeRegisteredCommand(t *testing.T) {
+	t.Parallel()
+
+	env := newNoCwdFixture(t).app(t, nil)
+	noCwdCtx := contextWithDiscoveryScope(t.Context(), "", true)
+	if got := rescopeRegisteredCommand(noCwdCtx, env.app, "local"); got != nil {
+		t.Fatalf("rescope(local) under --ivk-no-cwd = %s from %s, want nil", got.Name, got.FilePath)
+	}
+	if got := rescopeRegisteredCommand(noCwdCtx, env.app, "g glob"); got == nil || got.Name != "g glob" {
+		t.Fatalf("rescope(g glob) under --ivk-no-cwd = %v, want the user commands dir command", got)
+	}
+	if got := rescopeRegisteredCommand(contextWithDiscoveryScope(t.Context(), "", false), env.app, "local"); got == nil {
+		t.Fatal("rescope(local) without the switch = nil, want the cwd command")
+	}
+}
+
 func TestNoCwdCacheIsolation(t *testing.T) {
 	t.Parallel()
 
@@ -163,6 +188,7 @@ func TestNoCwdFlows(t *testing.T) {
 		{name: "dry-run cwd command fails", args: []string{"--ivk-no-cwd", "cmd", "--ivk-dry-run", "local"}, wantErr: true},
 		{name: "source invowkfile not found", args: []string{"--ivk-no-cwd", "cmd", "@invowkfile", "local"}, wantErr: true},
 		{name: "from invowkfile not found", args: []string{"--ivk-no-cwd", "cmd", "--ivk-from", "invowkfile", "local"}, wantErr: true},
+		{name: "configured include dry-run", args: []string{"--ivk-no-cwd", "cmd", "--ivk-dry-run", "bar", "inc"}, wantOut: []string{"INC_RAN"}},
 		{name: "watch cwd command fails", args: []string{"--ivk-no-cwd", "cmd", "--ivk-watch", "local"}, wantErr: true},
 		{name: "invalid env fails cmd", env: map[string]string{envNoCwd: "yes"}, args: []string{"cmd"}, wantErr: true},
 		{name: "invalid env fails validate", env: map[string]string{envNoCwd: "yes"}, args: []string{"validate"}, wantErr: true},
@@ -197,6 +223,21 @@ func TestNoCwdFlows(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestNoCwdRunsConfiguredInclude executes a configured include under the
+// switch (not a dry run): the script's marker file proves it ran.
+func TestNoCwdRunsConfiguredInclude(t *testing.T) {
+	t.Parallel()
+
+	f := newNoCwdFixture(t)
+	env := f.app(t, nil)
+	if err := env.run(t, "--ivk-no-cwd", "cmd", "bar", "inc"); err != nil {
+		t.Fatalf("run configured include under --ivk-no-cwd: %v\nstderr: %s", err, env.stderr)
+	}
+	if _, err := os.Stat(f.incMarker); err != nil {
+		t.Fatalf("configured include did not run: %v", err)
 	}
 }
 
@@ -235,12 +276,29 @@ func TestAuditHonoursInjectedConfigEnv(t *testing.T) {
 		t.Fatalf("audit error does not name %s: %v\n%s", config.EnvConfigPath, err, env.stderr)
 	}
 
-	valid := writeTestFile(t, filepath.Join(t.TempDir(), "env.cue"), `container_engine: "docker"`)
+	// A includes two modules, while the user config (f.userDir) includes one
+	// ("bar") and defaults include none.
+	envDir := t.TempDir()
+	modA := createInternalCheckCmdTestModule(t, envDir, "auda.invowkmod", "auda", "a")
+	modB := createInternalCheckCmdTestModule(t, envDir, "audb.invowkmod", "audb", "b")
+	valid := writeTestFile(t, filepath.Join(envDir, "env.cue"),
+		`includes: [{path: "`+filepath.ToSlash(modA)+`"}, {path: "`+filepath.ToSlash(modB)+`"}]`)
+	target := t.TempDir()
 	okEnv := newConfigSourceTestApp(t, map[string]string{config.EnvConfigPath: valid}, f.userDir, f.cwd, f.commandsDir)
-	if err := okEnv.run(t, "audit", f.cwd); err != nil {
-		if exitErr, isExit := errors.AsType[*ExitError](err); isExit && exitErr.Code == auditExitError {
-			t.Fatalf("audit with a valid INVOWK_CONFIG failed as a scan error: %v\n%s", err, okEnv.stderr)
+	err = okEnv.run(t, "audit", target)
+	if exitErr, isExit := errors.AsType[*ExitError](err); isExit && exitErr.Code == auditExitError {
+		t.Fatalf("audit with a valid INVOWK_CONFIG failed as a scan error: %v\n%s", err, okEnv.stderr)
+	}
+	// The near-identical IDs also trigger the typosquatting check, which names
+	// both included modules, so the findings show which config audit used.
+	out := okEnv.stdout.String()
+	for _, want := range []string{"Scanned: 2 module(s)", "auda.invowkmod", `"audb"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("audit output missing %q, so it did not scan INVOWK_CONFIG's includes:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "bar.invowkmod") {
+		t.Fatalf("audit scanned the user config's include despite INVOWK_CONFIG:\n%s", out)
 	}
 }
 

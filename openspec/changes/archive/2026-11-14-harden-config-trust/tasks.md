@@ -29,6 +29,7 @@ All design decisions are settled (design.md "Maintainer decisions (2026-11-14)")
 - [x] 2.4 Render the error with the `config_load_failed` issue template (`internal/issue`) plus a hint per source ("check the --ivk-config path" / "fix or unset INVOWK_CONFIG; it must be an absolute path"). In the `cmd`, `validate`, `module list` and `config` flows return it from `RunE` as a plain error so the process exits 1 (`root.go:104`). Leave `audit` (`auditExitError`) and `agent` (`ExitError` from `resolveLLMForCommand`) on their existing error codes.
 - [x] 2.5 Update tests that assert fail-open behaviour: `cmd/invowk/cmd_app_additional_test.go:131-210` (`TestLoadConfigWithFallback*`), `cmd/invowk/cmd_context_test.go:~440-460`, and `cmd/invowk/cmd_execute_runtime_test.go:38-41` (`testConfigFallback`) and `:~80-95`. Add fatal cases for flag and env (missing, invalid CUE, relative env), a user-file fallback case, and a cache test that the error is returned on every lookup of one request.
 - [x] 2.6 Check: `go test ./internal/app/commandsvc/... ./internal/app/commandadapters/... && go test -run 'TestLoadConfigWithFallback|TestExecute|Config' ./cmd/invowk/` passes.
+- [x] 2.7 Decision 8 (S1 round-2 decision 7): add the `explicit_config_load_failed` issue entry (`ExplicitConfigLoadFailedId` appended after `InvalidArgumentId`; map, `Validate` switch and the `internal/issue` test tables) with guidance to fix the named file or drop `--ivk-config`/unset `INVOWK_CONFIG`, and no `config init` or delete-the-user-file advice. `renderExplicitConfigError` renders it; `renderConfigLoadFailure` keeps `config_load_failed`. Tests: flag and env failures omit `config init` and name the fix; an invalid user file still shows `config init` through the same renderer. (2026-11-14: `internal/issue/templates/explicit_config_load_failed.md`, `TestConfigLoadFailureGuidanceBySource` (flag/env omit `config init`, user-file control keeps it), issue tables updated; `go test ./internal/issue/ ./cmd/invowk/` ok)
 
 ## 3. Callers honour the precedence; `config` subcommands
 
@@ -120,15 +121,15 @@ Each new file starts with `cd $WORK` and `env XDG_CONFIG_HOME=$WORK/.config` lik
 
 Run in order; if any step changes code, restart from 7.1. Wrap heavy targets in the workflow's `flock` lock.
 
-- [ ] 7.1 Review the changed code for reuse, simplification and efficiency (`/simplify`), and fix what it finds.
-- [ ] 7.2 `make tidy` and `make license-check` (new Go files carry SPDX headers).
-- [ ] 7.3 `make lint`. Fix every issue, including pre-existing ones.
-- [ ] 7.4 `make test` (full suite; it already runs `make test-cli`).
-- [ ] 7.5 `make check-baseline`. Triage every new goplint finding (new value types `ConfigSourceKind`, `SourceSelection`, `noCwdOrigin`, error types) per checklist step 5; ask the maintainer when both Invowk and goplint are plausible; never baseline an inconclusive.
-- [ ] 7.6 `make check-file-length` (`internal/config/config.go`, `config_test.go`, `cmd/invowk/cmd.go`, `cmd_discovery.go`, `config.go` stay under 1000 lines).
-- [ ] 7.7 `make sonar-local`. Fix real issues; suppress false positives in both `sonar-project.properties` and `.sonarcloud.properties`.
-- [ ] 7.8 Conditional checks: `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` (`internal/config` types change); `python3 scripts/formal.py correspondence` (bound directories `internal/runtime`, `internal/discovery` are touched or adjacent); `for m in samples/invowkmods/*.invowkmod; do go run . validate "$m"; done` (discovery behaviour); `cd website && npm run build`; `make check-agent-docs`.
-- [ ] 7.9 Docs and diagrams match behaviour (checklist step 9): re-read 6.1–6.8 against the final code; `make render-diagrams` after any further D2 edit.
-- [ ] 7.10 Runtime mirrors (checklist step 10): `virtual_discovery_no_cwd.txtar` has its `native_` mirror and no exemption was added.
-- [ ] 7.11 `openspec validate harden-config-trust --strict` passes with 0 warnings.
-- [ ] 7.12 `/learn` (`.agents/skills/learn/`).
+- [x] 7.1 Review the changed code for reuse, simplification and efficiency (`/simplify`), and fix what it finds. (2026-11-14: single-pass /simplify (no Agent tool): extracted `printIssueCatalogEntry` for 4 duplicated render sites)
+- [x] 7.2 `make tidy` and `make license-check` (new Go files carry SPDX headers). (2026-11-14: `make tidy` (pflag direct dep), `make license-check` ok)
+- [x] 7.3 `make lint`. Fix every issue, including pre-existing ones. (2026-11-14: `make lint`: 0 issues)
+- [x] 7.4 `make test` (full suite; it already runs `make test-cli`). (2026-11-14: `make test`: 8696 unit tests and 186 CLI tests pass, exit 0)
+- [x] 7.5 `make check-baseline`. Triage every new goplint finding (new value types `ConfigSourceKind`, `SourceSelection`, `noCwdOrigin`, error types) per checklist step 5; ask the maintainer when both Invowk and goplint are plausible; never baseline an inconclusive. (2026-11-14: `make check-baseline` and `make check-goplint-exceptions` pass; `ExplicitConfigError.Path` moved from baseline to an exception (LoadError.Path precedent), `contextWithConfigPath` exception renamed to `contextWithDiscoveryScope`, stale `LoadOptions.BaseDir` exception removed; inline ignores are OS/CLI boundary strings; no inconclusives)
+- [x] 7.6 `make check-file-length` (`internal/config/config.go`, `config_test.go`, `cmd/invowk/cmd.go`, `cmd_discovery.go`, `config.go` stay under 1000 lines). (2026-11-14: `make check-file-length` ok)
+- [x] 7.7 `make sonar-local`. Fix real issues; suppress false positives in both `sonar-project.properties` and `.sonarcloud.properties`. (2026-11-14: `make sonar-local` reports no data on this branch (known); verified with the PR #161 "SonarCloud Code Analysis" check after push)
+- [x] 7.8 Conditional checks: `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/` (`internal/config` types change); `python3 scripts/formal.py correspondence` (bound directories `internal/runtime`, `internal/discovery` are touched or adjacent); `for m in samples/invowkmods/*.invowkmod; do go run . validate "$m"; done` (discovery behaviour); `cd website && npm run build`; `make check-agent-docs`. (2026-11-14: Sync tests ok; `formal.py correspondence` passed; all sample modules validate; website build ok; `check-agent-docs` ok)
+- [x] 7.9 Docs and diagrams match behaviour (checklist step 9): re-read 6.1–6.8 against the final code; `make render-diagrams` after any further D2 edit. (2026-11-14: docs re-read against code (README, overview/cli mdx + pt-BR name `agent` exit 2); no D2 edits this stage)
+- [x] 7.10 Runtime mirrors (checklist step 10): `virtual_discovery_no_cwd.txtar` has its `native_` mirror and no exemption was added. (2026-11-14: `native_`/`virtual_discovery_no_cwd.txtar` mirrored with identical exec lines; no exemption; mirror tests pass in `make test`)
+- [x] 7.11 `openspec validate harden-config-trust --strict` passes with 0 warnings. (2026-11-14: `openspec validate harden-config-trust --strict` valid)
+- [x] 7.12 `/learn` (`.agents/skills/learn/`). (2026-11-14: /learn: `.agents/skills/cli/SKILL.md` notes the argv-scan vs pflag disagreement)

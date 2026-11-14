@@ -3842,6 +3842,10 @@ pattern = "LoadError.Path.nonzero"
 reason = "required value-field using a nonzero value type"
 
 [[exceptions]]
+pattern = "ExplicitConfigError.Path.nonzero"
+reason = "required value-field using a nonzero value type"
+
+[[exceptions]]
 pattern = "ConnectionInfo.Host.nonzero"
 reason = "required value-field using a nonzero value type"
 

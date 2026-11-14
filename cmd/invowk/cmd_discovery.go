@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"maps"
 	"slices"
 	"strings"
@@ -35,7 +34,8 @@ type commandGroup struct {
 //nolint:contextcheck // Cobra child commands carry cancellation through cmd.Context() at execution time.
 func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
 	// ctx already carries the pre-parsed no-cwd switch.
-	lookupCtx := contextWithDiscoveryScope(ctx, rootFlags.configPath, noCwdFromContext(ctx))
+	registeredNoCwd := noCwdFromContext(ctx)
+	lookupCtx := contextWithDiscoveryScope(ctx, rootFlags.configPath, registeredNoCwd)
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
 	if err != nil {
 		// Dynamic registration is best-effort: command execution paths perform
@@ -75,7 +75,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 			isLeaf := i == len(parts)-1
 			var newCmd *cobra.Command
 			if isLeaf {
-				newCmd = buildLeafCommand(app, rootFlags, cmdFlags, cmdInfo, part)
+				newCmd = buildLeafCommand(app, rootFlags, cmdFlags, cmdInfo, part, registeredNoCwd)
 			} else {
 				// Parent nodes exist to support nested command trees and ambiguity
 				// handling for intermediate prefixes.
@@ -129,7 +129,14 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 // projected into Cobra flags with matching types, and at execution time flag values are
 // extracted and projected into INVOWK_FLAG_* env vars. When --ivk-from doesn't match the
 // registered source, the command re-routes through runDisambiguatedCommand.
-func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdInfo *discovery.CommandInfo, cmdPart string) *cobra.Command {
+//
+// registeredNoCwd is the --ivk-no-cwd value that discovered cmdInfo. The
+// pre-parse argv scan and Cobra's flag parse can disagree (a value-taking flag
+// can swallow a `--`, so pflag still sees a later --ivk-no-cwd), and a cwd
+// command must never run while the switch is on. When the run-time switch
+// differs, the name is resolved again under the request's own scope
+// (rescopeRegisteredCommand) and the captured cmdInfo is not used.
+func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdInfo *discovery.CommandInfo, cmdPart string, registeredNoCwd bool) *cobra.Command {
 	// Capture immutable values for closures created per discovered command.
 	cmdName := cmdInfo.Name
 	cmdSimpleName := cmdInfo.SimpleName
@@ -144,8 +151,14 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		Short: string(cmdInfo.Description),
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if _, _, err := scopeDiscovery(cmd, app, rootFlags); err != nil {
+			ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
+			if err != nil {
 				return err
+			}
+			resolved, flagDefs, argDefs := cmdInfo, cmdRuntimeFlags, cmdArgs
+			if noCwdFromContext(ctx) != registeredNoCwd {
+				resolved = rescopeRegisteredCommand(ctx, app, cmdName)
+				flagDefs, argDefs = commandFlagDefs(resolved), commandArgDefs(resolved)
 			}
 
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
@@ -167,9 +180,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				Name:            string(cmdName),
 				Args:            args,
 				FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
-				ResolvedCommand: cmdInfo,
-				FlagDefs:        cmdRuntimeFlags,
-				ArgDefs:         cmdArgs,
+				ResolvedCommand: resolved,
+				FlagDefs:        flagDefs,
+				ArgDefs:         argDefs,
 			})
 			if err != nil {
 				return err
@@ -240,6 +253,19 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 	}
 
 	return newCmd
+}
+
+// rescopeRegisteredCommand looks cmdName up again under ctx's discovery scope
+// and returns the command found there, or nil. A nil result makes the command
+// service resolve the name itself and report it as not found, so a command
+// registered from a source that ctx excludes never runs. Lookup errors are
+// left to that service resolution, which renders them.
+func rescopeRegisteredCommand(ctx context.Context, app *App, cmdName invowkfile.CommandName) *discovery.CommandInfo {
+	lookup, err := app.Discovery.GetCommand(ctx, string(cmdName))
+	if err != nil {
+		return nil
+	}
+	return lookup.Command
 }
 
 // buildCommandUsageString builds the Cobra Use string including argument placeholders.
@@ -370,21 +396,13 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
 	result, err := app.Discovery.DiscoverCommandSet(cmd.Context())
 	if err != nil {
-		rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.InvowkfileNotFoundId), "dark")
-		if renderErr != nil {
-			slog.Warn("failed to render issue catalog entry", "issue_id", issue.InvowkfileNotFoundId, "error", renderErr)
-		}
-		fmt.Fprint(app.stderr, rendered)
+		printIssueCatalogEntry(app.stderr, issue.InvowkfileNotFoundId)
 		return err
 	}
 
 	commandSet := result.Set
 	if commandSet == nil || len(commandSet.Commands) == 0 {
-		rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.InvowkfileNotFoundId), "dark")
-		if renderErr != nil {
-			slog.Warn("failed to render issue catalog entry", "issue_id", issue.InvowkfileNotFoundId, "error", renderErr)
-		}
-		fmt.Fprint(app.stderr, rendered)
+		printIssueCatalogEntry(app.stderr, issue.InvowkfileNotFoundId)
 		return errors.New("no commands found")
 	}
 

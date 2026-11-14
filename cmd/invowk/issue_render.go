@@ -5,6 +5,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -30,6 +32,16 @@ func (m issueMarkdown) Validate() error { return nil }
 func (e formattedDisplayError) String() string { return string(e) }
 
 func (e formattedDisplayError) Validate() error { return nil }
+
+// printIssueCatalogEntry writes the dark-styled catalog entry for id to w. A
+// rendering failure is logged and leaves w without the entry.
+func printIssueCatalogEntry(w io.Writer, id issue.Id) {
+	rendered, err := renderIssueCatalogEntry(issue.Get(id), "dark")
+	if err != nil {
+		slog.Warn("failed to render issue catalog entry", "issue_id", id, "error", err)
+	}
+	fmt.Fprint(w, rendered)
+}
 
 //goplint:ignore -- CLI rendering helper passes through Glamour style names and rendered text.
 func renderIssueCatalogEntry(catalogEntry *issue.Issue, stylePath string) (string, error) {

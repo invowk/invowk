@@ -23,8 +23,17 @@ exec invowk validate
 stdout 'current-directory sources disabled \(INVOWK_NO_CWD\)'
 env INVOWK_NO_CWD=
 
-# Test 4: an explicit validate target is unaffected by the switch
+# Test 4: an explicit validate target is unaffected by the switch: the named
+# file is validated and reported exactly as without it
+! exec invowk validate ./invowkfile.cue
+stdout 'Invowkfile Validation'
+stderr 'CUE schema validation failed'
+cp stdout $WORK/plain.stdout
+cp stderr $WORK/plain.stderr
 ! exec invowk --ivk-no-cwd validate ./invowkfile.cue
+cmp stdout $WORK/plain.stdout
+cmp stderr $WORK/plain.stderr
+! stdout 'current-directory sources disabled'
 
 # Test 5: module list omits the cwd module and keeps the user commands dir module
 exec invowk module list

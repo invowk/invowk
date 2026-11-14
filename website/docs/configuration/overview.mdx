@@ -18,6 +18,8 @@ The configuration file lives in your OS-specific config directory:
 | macOS    | `~/Library/Application Support/invowk/config.cue` |
 | Windows  | `%APPDATA%\invowk\config.cue` |
 
+These base directories must be absolute. A relative `XDG_CONFIG_HOME` or `APPDATA` is ignored and the next base is used (`~/.config`, or `%USERPROFILE%\AppData\Roaming`); a relative home directory or `USERPROFILE` is an error. The user config file and `~/.invowk/cmds` therefore never resolve under the current directory.
+
 ## Which Config File Is Used
 
 Invowk reads exactly one config source, picked in this order:
@@ -31,7 +33,7 @@ The chosen source is used on its own: values from lower-precedence sources are n
 
 <Snippet id="config/env-config-path" />
 
-A file you name explicitly must work. If `--ivk-config` or `INVOWK_CONFIG` points to a missing or invalid file, or `INVOWK_CONFIG` is relative, invowk stops with exit code 1 before discovering or running any command, and the error names the source and the path. (`invowk audit` reports it with its own scan-error code, 2.) An invalid *user* config file is handled as before: `invowk cmd` and the other discovery commands report a config-load error and continue with the defaults, while `config show` and `config dump` report the error.
+A file you name explicitly must work. If `--ivk-config` or `INVOWK_CONFIG` points to a missing or invalid file, or `INVOWK_CONFIG` is relative, invowk stops with exit code 1 before discovering or running any command, and the error names the source and the path. (`invowk audit` and `invowk agent` report it with their own error code, 2.) An invalid *user* config file is handled as before: `invowk cmd` and the other discovery commands report a config-load error and continue with the defaults, while `config show` and `config dump` report the error.
 
 `config show`, `config dump` and `config path` honour `--ivk-config` and `INVOWK_CONFIG`. `config set` and `config init` only touch the user config file, and `config set` refuses while `--ivk-config` or `INVOWK_CONFIG` is active, so it never copies an explicit file's values into your user config.
 

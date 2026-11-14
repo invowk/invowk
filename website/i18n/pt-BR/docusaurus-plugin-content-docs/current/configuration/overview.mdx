@@ -18,6 +18,8 @@ O arquivo de configuração fica no diretório de configuração específico do 
 | macOS      | `~/Library/Application Support/invowk/config.cue` |
 | Windows    | `%APPDATA%\invowk\config.cue` |
 
+Esses diretórios base precisam ser absolutos. Um `XDG_CONFIG_HOME` ou `APPDATA` relativo é ignorado e a próxima base é usada (`~/.config` ou `%USERPROFILE%\AppData\Roaming`); um diretório home ou `USERPROFILE` relativo é um erro. Assim, o arquivo de configuração do usuário e o `~/.invowk/cmds` nunca são resolvidos dentro do diretório atual.
+
 ## Qual Arquivo de Configuração É Usado
 
 O Invowk lê exatamente uma fonte de configuração, escolhida nesta ordem:
@@ -31,7 +33,7 @@ A fonte escolhida é usada sozinha: valores de fontes de menor precedência nunc
 
 <Snippet id="config/env-config-path" />
 
-Um arquivo nomeado explicitamente precisa funcionar. Se `--ivk-config` ou `INVOWK_CONFIG` apontar para um arquivo ausente ou inválido, ou se `INVOWK_CONFIG` for relativo, o invowk para com código de saída 1 antes de descobrir ou executar qualquer comando, e o erro nomeia a fonte e o caminho. (O `invowk audit` reporta isso com o seu próprio código de erro de varredura, 2.) Um arquivo de configuração do *usuário* inválido é tratado como antes: o `invowk cmd` e os outros comandos de descoberta reportam um erro de carregamento de configuração e seguem com os padrões, enquanto `config show` e `config dump` reportam o erro.
+Um arquivo nomeado explicitamente precisa funcionar. Se `--ivk-config` ou `INVOWK_CONFIG` apontar para um arquivo ausente ou inválido, ou se `INVOWK_CONFIG` for relativo, o invowk para com código de saída 1 antes de descobrir ou executar qualquer comando, e o erro nomeia a fonte e o caminho. (O `invowk audit` e o `invowk agent` reportam isso com o seu próprio código de erro, 2.) Um arquivo de configuração do *usuário* inválido é tratado como antes: o `invowk cmd` e os outros comandos de descoberta reportam um erro de carregamento de configuração e seguem com os padrões, enquanto `config show` e `config dump` reportam o erro.
 
 `config show`, `config dump` e `config path` respeitam `--ivk-config` e `INVOWK_CONFIG`. `config set` e `config init` só mexem no arquivo de configuração do usuário, e `config set` se recusa a rodar enquanto `--ivk-config` ou `INVOWK_CONFIG` estiver ativo, para nunca copiar os valores de um arquivo explícito para a sua configuração de usuário.
 

@@ -121,14 +121,17 @@ func TestConfigShowFailsOnMissingExplicitFile(t *testing.T) {
 
 	missing := filepath.Join(t.TempDir(), "missing.cue")
 	for _, tt := range []struct {
-		name string
-		env  map[string]string
-		args []string
-		hint string
+		name    string
+		env     map[string]string
+		args    []string
+		hint    string
+		notHint string
 	}{
 		{name: "flag", args: []string{"--ivk-config", missing, "config", "show"}, hint: "check the --ivk-config path"},
-		{name: "env", env: map[string]string{config.EnvConfigPath: missing}, args: []string{"config", "show"}, hint: "fix or unset INVOWK_CONFIG"},
-		{name: "env relative dump", env: map[string]string{config.EnvConfigPath: "config.cue"}, args: []string{"config", "dump"}, hint: "it must be an absolute path"},
+		// A missing absolute file is not an absolute-path problem, so the hint
+		// must not blame the path form.
+		{name: "env", env: map[string]string{config.EnvConfigPath: missing}, args: []string{"config", "show"}, hint: "fix or unset INVOWK_CONFIG", notHint: "absolute"},
+		{name: "env relative dump", env: map[string]string{config.EnvConfigPath: "config.cue"}, args: []string{"config", "dump"}, hint: "fix or unset INVOWK_CONFIG; it must be an absolute path"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -143,11 +146,78 @@ func TestConfigShowFailsOnMissingExplicitFile(t *testing.T) {
 			if strings.Contains(env.stdout.String(), "Current Configuration") || strings.Contains(env.stdout.String(), "container_engine") {
 				t.Fatalf("config values printed despite the failure:\n%s", env.stdout)
 			}
-			if !strings.Contains(env.stderr.String(), tt.hint) {
-				t.Fatalf("stderr missing hint %q:\n%s", tt.hint, env.stderr)
+			hintLine := hintLineOf(env.stderr.String())
+			if !strings.Contains(hintLine, tt.hint) {
+				t.Fatalf("hint line %q missing %q:\n%s", hintLine, tt.hint, env.stderr)
+			}
+			if tt.notHint != "" && strings.Contains(hintLine, tt.notHint) {
+				t.Fatalf("hint line %q must not mention %q", hintLine, tt.notHint)
 			}
 		})
 	}
+}
+
+// TestConfigLoadFailureGuidanceBySource checks the issue guidance per source:
+// a failed explicit source must not advise `config init` or deleting the user
+// config file (neither fixes it), while a failed user file keeps that advice.
+// Both go through the same renderer, so the user-file case also proves the
+// needles survive rendering.
+func TestConfigLoadFailureGuidanceBySource(t *testing.T) {
+	t.Parallel()
+
+	missing := filepath.Join(t.TempDir(), "missing.cue")
+	badUserDir := t.TempDir()
+	writeTestFile(t, filepath.Join(badUserDir, "config.cue"), `bogus_field: true`)
+	for _, tt := range []struct {
+		name    string
+		env     map[string]string
+		userDir string
+		args    []string
+		want    []string
+		notWant []string
+	}{
+		{
+			name: "flag", userDir: t.TempDir(), args: []string{"--ivk-config", missing, "config", "show"},
+			want: []string{"--ivk-config", "INVOWK_CONFIG"}, notWant: []string{"config init", "rm ~"},
+		},
+		{
+			name: "env", env: map[string]string{config.EnvConfigPath: missing}, userDir: t.TempDir(), args: []string{"config", "show"},
+			want: []string{"unset INVOWK_CONFIG"}, notWant: []string{"config init", "rm ~"},
+		},
+		{
+			name: "user file", userDir: badUserDir, args: []string{"config", "show"},
+			want: []string{"config init", "rm ~"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			env := newConfigSourceTestApp(t, tt.env, tt.userDir, t.TempDir(), "")
+			if err := env.run(t, tt.args...); err == nil {
+				t.Fatal("config show succeeded, want a config load failure")
+			}
+			stderr := env.stderr.String()
+			for _, want := range tt.want {
+				if !strings.Contains(stderr, want) {
+					t.Fatalf("stderr missing %q:\n%s", want, stderr)
+				}
+			}
+			for _, unwanted := range tt.notWant {
+				if strings.Contains(stderr, unwanted) {
+					t.Fatalf("stderr contains %q:\n%s", unwanted, stderr)
+				}
+			}
+		})
+	}
+}
+
+// hintLineOf returns the "Hint:" line that renderExplicitConfigError writes.
+func hintLineOf(stderr string) string {
+	for line := range strings.SplitSeq(stderr, "\n") {
+		if _, hint, ok := strings.Cut(line, "Hint:"); ok {
+			return hint
+		}
+	}
+	return ""
 }
 
 func TestConfigPathReportsEffectiveSource(t *testing.T) {
@@ -283,5 +353,55 @@ func TestValidateHonoursConfigFlag(t *testing.T) {
 	}
 	if strings.Contains(missing.stdout.String(), "Workspace Validation") {
 		t.Fatalf("validation result printed despite the config failure:\n%s", missing.stdout)
+	}
+}
+
+// TestCmdFailsClosedOnExplicitConfig runs the full `invowk cmd <name>` path
+// with a failed explicit source and checks the exit-1 contract: a plain error
+// (Execute maps it to 1, an ExitError would carry its own code) and a script
+// that never ran. The positive run proves the marker mechanism works.
+func TestCmdFailsClosedOnExplicitConfig(t *testing.T) {
+	t.Parallel()
+
+	missing := filepath.Join(t.TempDir(), "missing.cue")
+	for _, tt := range []struct {
+		name    string
+		env     map[string]string
+		args    []string
+		wantRun bool
+	}{
+		{name: "no explicit source runs", args: []string{"cmd", "hello"}, wantRun: true},
+		{name: "missing flag file", args: []string{"--ivk-config", missing, "cmd", "hello"}},
+		{name: "missing env file", env: map[string]string{config.EnvConfigPath: missing}, args: []string{"cmd", "hello"}},
+		{name: "relative env", env: map[string]string{config.EnvConfigPath: "config.cue"}, args: []string{"cmd", "hello"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cwd := t.TempDir()
+			marker := filepath.Join(t.TempDir(), "ran")
+			writeTestFile(t, filepath.Join(cwd, "invowkfile.cue"),
+				`cmds: [{name: "hello", implementations: [{script: {content: "echo ran > '`+filepath.ToSlash(marker)+`'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]`)
+			// A cwd config.cue with the same name must never rescue the run.
+			writeTestFile(t, filepath.Join(cwd, "config.cue"), `container_engine: "docker"`)
+			env := newConfigSourceTestApp(t, tt.env, t.TempDir(), cwd, "")
+
+			err := env.run(t, tt.args...)
+			_, statErr := os.Stat(marker)
+			if tt.wantRun {
+				if err != nil || statErr != nil {
+					t.Fatalf("run error = %v, marker stat = %v; want the script to run\nstderr: %s", err, statErr, env.stderr)
+				}
+				return
+			}
+			if !errors.Is(err, config.ErrExplicitConfig) {
+				t.Fatalf("error = %v, want ErrExplicitConfig", err)
+			}
+			if _, isExit := errors.AsType[*ExitError](err); isExit {
+				t.Fatalf("error = %v is an ExitError; the explicit config failure must exit 1", err)
+			}
+			if !os.IsNotExist(statErr) {
+				t.Fatalf("the script ran despite the failed explicit config (marker stat = %v)", statErr)
+			}
+		})
 	}
 }

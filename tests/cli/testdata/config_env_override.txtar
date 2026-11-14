@@ -48,6 +48,7 @@ env INVOWK_CONFIG=$WORK/nofile.cue
 ! stdout 'RUNTIME='
 stderr 'nofile.cue'
 stderr 'INVOWK_CONFIG'
+! stderr 'must be an absolute path'
 
 # Test 7: config path shows the effective file and marks problems, exit 0
 env INVOWK_CONFIG=$WORK/env/config.cue
@@ -107,6 +108,19 @@ stderr 'INVOWK_CONFIG'
 env INVOWK_CONFIG=
 exec invowk __complete --ivk-config $WORK/nofile.cue cmd ''
 ! stdout 'multi-runtime'
+
+# Test 12: the fatal explicit-config error exits exactly 1 for `cmd`, and the
+# script does not run (testscript's `! exec` cannot check the code itself)
+[windows] stop 'exit-code probe needs a POSIX sh'
+exec sh -c 'invowk cmd multi-runtime --ivk-config "$WORK/nofile.cue"; echo "exit=$?"'
+stdout '^exit=1$'
+! stdout 'RUNTIME='
+env INVOWK_CONFIG=$WORK/nofile.cue
+exec sh -c 'invowk cmd multi-runtime; echo "exit=$?"'
+stdout '^exit=1$'
+! stdout 'RUNTIME='
+exec sh -c 'invowk audit .; echo "exit=$?"'
+stdout '^exit=2$'
 
 -- .config/invowk/config.cue --
 default_runtime: "virtual-sh"

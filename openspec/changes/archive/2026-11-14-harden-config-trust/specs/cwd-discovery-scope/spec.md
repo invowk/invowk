@@ -108,6 +108,14 @@ The dynamic registration step that runs before Cobra parses flags SHALL apply th
 - **WHEN** `invowk cmd local -- --ivk-no-cwd` runs with `local` defined in the cwd invowkfile
 - **THEN** `local` runs and receives `--ivk-no-cwd` as an argument
 
+### Requirement: The parsed switch decides over registration
+
+When the pre-parse scan and Cobra's flag parse disagree about the switch, the value Cobra parses SHALL decide. A command registered under the other value SHALL be resolved again under the run-time scope, so a cwd command never runs while the switch is on.
+
+#### Scenario: a flag value that swallows the terminator cannot bypass the switch
+- **WHEN** `invowk cmd local --msg -- --ivk-no-cwd` runs with `local` defined only in the cwd invowkfile with a string flag `msg`
+- **THEN** `local` does not run, it is reported as not found, and the exit code is non-zero
+
 ### Requirement: Explicit-target commands are unaffected
 
 The switch SHALL NOT change commands whose directory or file is an explicit target or the object being worked on, rather than a command source: `invowk audit [path]`, `invowk validate <path>`, `invowk module` subcommands other than `list`, `invowk init`, `invowk config *` and `invowk tui *`.

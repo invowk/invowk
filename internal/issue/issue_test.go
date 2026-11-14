@@ -29,6 +29,7 @@ func TestId_Constants(t *testing.T) {
 		DependenciesNotSatisfiedId,
 		HostNotSupportedId,
 		InvalidArgumentId,
+		ExplicitConfigLoadFailedId,
 	}
 
 	seen := make(map[Id]bool)
@@ -178,6 +179,7 @@ func TestGet(t *testing.T) {
 		{PermissionDeniedId, false, "Permission denied"},
 		{DependenciesNotSatisfiedId, false, "Dependencies not satisfied"},
 		{HostNotSupportedId, false, "Host not supported"},
+		{ExplicitConfigLoadFailedId, false, "Failed to load the configuration file you named"},
 		{Id(9999), true, ""},
 	}
 
@@ -257,7 +259,7 @@ func TestValues(t *testing.T) {
 	}
 
 	// Count expected number of issues
-	expectedCount := 15 // Based on the number of predefined issues
+	expectedCount := 16 // Based on the number of predefined issues
 
 	if len(issues) != expectedCount {
 		t.Errorf("Values() returned %d issues, want %d", len(issues), expectedCount)
@@ -303,6 +305,7 @@ func TestIssuesMapCompleteness(t *testing.T) {
 		DependenciesNotSatisfiedId,
 		HostNotSupportedId,
 		InvalidArgumentId,
+		ExplicitConfigLoadFailedId,
 	}
 
 	for _, id := range expectedIds {
@@ -373,6 +376,7 @@ func TestId_Validate(t *testing.T) {
 		{"DependenciesNotSatisfiedId", DependenciesNotSatisfiedId, true, false},
 		{"HostNotSupportedId", HostNotSupportedId, true, false},
 		{"InvalidArgumentId", InvalidArgumentId, true, false},
+		{"ExplicitConfigLoadFailedId", ExplicitConfigLoadFailedId, true, false},
 		{"zero value", Id(0), false, true},
 		{"out of range positive", Id(9999), false, true},
 		{"negative", Id(-1), false, true},

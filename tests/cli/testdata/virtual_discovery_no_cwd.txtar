@@ -74,12 +74,22 @@ exec invowk cmd local -- --ivk-no-cwd
 stdout 'LOCAL_OK'
 stdout 'ARGS=--ivk-no-cwd'
 
+# Test 12: a value-taking flag that consumes `--` hides --ivk-no-cwd from the
+# pre-parse argv scan, but Cobra still parses the switch; the cwd command
+# registered without it must not run
+! exec invowk cmd local --msg -- --ivk-no-cwd
+! stdout 'LOCAL_OK'
+stderr 'not found'
+exec invowk cmd local --msg hi
+stdout 'LOCAL_OK'
+
 -- invowkfile.cue --
 cmds: [
 	{
 		name:        "local"
 		description: "Command defined only in the cwd invowkfile"
 		args: [{name: "rest", description: "Extra arguments", variadic: true}]
+		flags: [{name: "msg", description: "A value-taking flag"}]
 		implementations: [
 			{
 				script: {content: "echo LOCAL_OK; echo ARGS=$INVOWK_ARG_REST"}

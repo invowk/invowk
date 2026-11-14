@@ -183,11 +183,7 @@ func showConfig(ctx context.Context, w, stderr io.Writer, app *App, rootFlags *r
 }
 
 func renderConfigLoadFailure(w io.Writer, err error) error {
-	rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.ConfigLoadFailedId), "dark")
-	if renderErr != nil {
-		slog.Warn("failed to render issue catalog entry", "issue_id", issue.ConfigLoadFailedId, "error", renderErr)
-	}
-	fmt.Fprint(w, rendered)
+	printIssueCatalogEntry(w, issue.ConfigLoadFailedId)
 	return err
 }
 

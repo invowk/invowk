@@ -15,7 +15,7 @@ These flags are available for all commands:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--help` | `-h` | Show help for the command |
-| `--ivk-config` | `-c` | Config file path. Overrides `INVOWK_CONFIG` and the [user config file](/docs/configuration/overview#configuration-file-location); a missing or invalid file is an error (exit 1). See [which config file is used](../configuration/overview#which-config-file-is-used) |
+| `--ivk-config` | `-c` | Config file path. Overrides `INVOWK_CONFIG` and the [user config file](/docs/configuration/overview#configuration-file-location); a missing or invalid file is an error (exit 1; 2 for `invowk audit` and `invowk agent`). See [which config file is used](../configuration/overview#which-config-file-is-used) |
 | `--ivk-no-cwd` | | Ignore the current directory's `invowkfile.cue` and `*.invowkmod` modules during command discovery (overrides `INVOWK_NO_CWD`) |
 | `--ivk-interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
 | `--ivk-verbose` | `-v` | Enable verbose output |
@@ -25,7 +25,7 @@ These flags are available for all commands:
 
 | Variable | Description |
 |----------|-------------|
-| `INVOWK_CONFIG` | Absolute path of the config file to use when `--ivk-config` is not given. Empty means unset; a relative, missing or invalid value is an error (exit 1). Never resolved against the current directory |
+| `INVOWK_CONFIG` | Absolute path of the config file to use when `--ivk-config` is not given. Empty means unset; a relative, missing or invalid value is an error (exit 1; 2 for `invowk audit` and `invowk agent`). Never resolved against the current directory |
 | `INVOWK_NO_CWD` | Same as `--ivk-no-cwd` when the flag is not given. Accepts the values of Go's `strconv.ParseBool` (`1`, `true`, `0`, `false`, ...); empty means off, anything else is an error in the commands that discover command sources |
 
 Nested `invowk` calls inherit these variables only when the caller set them, under the command's normal `env_inherit_mode` rules; the flag forms are never exported to child processes.

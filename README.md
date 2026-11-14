@@ -2517,6 +2517,8 @@ invowk uses a global configuration file (CUE format):
 - **macOS**: `~/Library/Application Support/invowk/config.cue`
 - **Windows**: `%APPDATA%\invowk\config.cue`
 
+These base directories must be absolute: a relative `XDG_CONFIG_HOME` or `APPDATA` is ignored (the next base is used), and a relative home directory or `USERPROFILE` is an error, so the user config file and `~/.invowk/cmds` never resolve under the current directory.
+
 invowk reads exactly one config source, in this order, without merging:
 
 1. `--ivk-config <path>` (`-c`; may be relative)
@@ -2524,7 +2526,7 @@ invowk reads exactly one config source, in this order, without merging:
 3. The user config file above
 4. Built-in defaults
 
-The current directory is **never** a config source: a `config.cue` next to your invowkfile is ignored (earlier versions read it as a fallback). A missing or invalid file named by `--ivk-config` or `INVOWK_CONFIG`, or a relative `INVOWK_CONFIG`, is an error (exit 1) before any command runs; an invalid user config file is reported as before, and `invowk cmd` and the other discovery commands continue with the defaults. `config show`, `config dump` and `config path` honour the explicit source; `config set` edits only the user config file and refuses while `--ivk-config` or `INVOWK_CONFIG` is active.
+The current directory is **never** a config source: a `config.cue` next to your invowkfile is ignored (earlier versions read it as a fallback). A missing or invalid file named by `--ivk-config` or `INVOWK_CONFIG`, or a relative `INVOWK_CONFIG`, is an error (exit 1; `invowk audit` and `invowk agent` use their error code, 2) before any command runs; an invalid user config file is reported as before, and `invowk cmd` and the other discovery commands continue with the defaults. `config show`, `config dump` and `config path` honour the explicit source; `config set` edits only the user config file and refuses while `--ivk-config` or `INVOWK_CONFIG` is active.
 
 ```bash
 INVOWK_CONFIG=/etc/acme/invowk/config.cue invowk cmd build

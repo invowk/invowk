@@ -115,6 +115,11 @@ Dynamic registration must stay **lazy** for startup-sensitive paths.
   before Cobra parses flags, so registration uses the same config as execution.
   `explicitNoCwdFromArgs()` / `noCwdForRegistration()` do the same for
   `--ivk-no-cwd` (stop at `--`, env fallback); any error skips registration.
+- The raw-argv scan and pflag can disagree: a value-taking flag consumes a
+  `--` (`--msg -- --ivk-no-cwd`), so pflag parses a flag the scan skipped.
+  Never trust registration-time state captured in a leaf closure for a
+  security decision; re-check it in `RunE` (see `buildLeafCommand`'s
+  `registeredNoCwd` and `rescopeRegisteredCommand`).
 
 ### Transparent Namespace
 

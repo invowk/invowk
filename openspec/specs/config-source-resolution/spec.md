@@ -1,8 +1,9 @@
-## Purpose
+# config-source-resolution Specification
 
+## Purpose
 This capability defines where invowk reads its configuration from: the `--ivk-config` flag, the `INVOWK_CONFIG` environment variable and the per-user config file, in that order, falling back to built-in defaults. It also defines how a missing or invalid source is handled and which `config` subcommands read or write which file. The current directory is never a config source, so a repository cannot change invowk's includes, LLM endpoint or provisioning just by being the working directory.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Config is never read from the current directory
 
@@ -39,6 +40,18 @@ The only config sources SHALL be the `--ivk-config` flag, the `INVOWK_CONFIG` en
 #### Scenario: defaults when no source applies
 - **WHEN** `--ivk-config` and `INVOWK_CONFIG` are unset and the user config file does not exist
 - **THEN** invowk uses the built-in defaults and reports the source as defaults
+
+### Requirement: Platform base directories must be absolute
+
+Every base directory that the user config directory and the user commands directory (`~/.invowk/cmds`) derive from SHALL be absolute. A relative `XDG_CONFIG_HOME` or `APPDATA` SHALL be ignored, as the XDG Base Directory spec requires, and the next base used. A relative home directory or `USERPROFILE` SHALL be an error, and no directory SHALL be derived from it.
+
+#### Scenario: relative XDG_CONFIG_HOME is ignored
+- **WHEN** `XDG_CONFIG_HOME=.config` is set and the current directory contains `.config/invowk/config.cue`
+- **THEN** the user config file is `~/.config/invowk/config.cue`, and the file under the current directory is not loaded
+
+#### Scenario: relative home directory is rejected
+- **WHEN** the home directory is relative (for example `HOME=.`) and the current directory contains `.invowk/cmds/<module>.invowkmod`
+- **THEN** no user config directory or user commands directory is derived from it, and that module is not discovered as a global module
 
 ### Requirement: Config source precedence
 
@@ -170,7 +183,7 @@ When the selected source is `--ivk-config` or `INVOWK_CONFIG` and the named file
 
 ### Requirement: Explicit config errors name the source
 
-The error for a failed explicit config source SHALL name the source (`--ivk-config` or `INVOWK_CONFIG`) and the path, and SHALL give a hint for fixing it: correct the path, or unset the variable.
+The error for a failed explicit config source SHALL name the source (`--ivk-config` or `INVOWK_CONFIG`) and the path, and SHALL give a hint for fixing it: correct the path, or unset the variable. The hint SHALL mention the absolute-path rule only when a relative `INVOWK_CONFIG` caused the failure.
 
 #### Scenario: flag error names the flag and the path
 - **WHEN** `invowk cmd hello --ivk-config nonexistent.cue` runs
@@ -178,7 +191,23 @@ The error for a failed explicit config source SHALL name the source (`--ivk-conf
 
 #### Scenario: environment error names the variable and the path
 - **WHEN** `INVOWK_CONFIG` names an absolute path that does not exist and `invowk cmd hello` runs
-- **THEN** stderr names the path and `INVOWK_CONFIG`
+- **THEN** stderr names the path and `INVOWK_CONFIG`, and the hint does not say the path must be absolute
+
+#### Scenario: relative environment value hint names the absolute-path rule
+- **WHEN** `INVOWK_CONFIG=config.cue` is set and `invowk config dump` runs
+- **THEN** the hint says to fix or unset `INVOWK_CONFIG` and that it must be an absolute path
+
+### Requirement: Explicit config failures give source-specific guidance
+
+The guidance shown for a failed `--ivk-config` or `INVOWK_CONFIG` source SHALL NOT advise running `invowk config init` or deleting the user config file, because neither fixes the explicit source. It SHALL say how to fix the named file or drop the explicit source. A failed user config file keeps its existing guidance.
+
+#### Scenario: explicit failure guidance does not touch the user config
+- **WHEN** `INVOWK_CONFIG` or `--ivk-config` names a missing file and `invowk config show` runs
+- **THEN** stderr says how to fix or drop the explicit source, and does not suggest `invowk config init` or removing the user config file
+
+#### Scenario: user config failure keeps the user-file guidance
+- **WHEN** no explicit source is set, the user config file is invalid and `invowk config show` runs
+- **THEN** stderr still suggests `invowk config init`
 
 ### Requirement: Invalid user config keeps falling back to defaults
 

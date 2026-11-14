@@ -2,6 +2,8 @@
 # With no --ivk-config, no INVOWK_CONFIG and no user config file, a cwd
 # config.cue that sets default_runtime: "virtual-sh" has no effect: built-in
 # defaults apply (default_runtime "native") and nothing names the cwd file.
+# Relative base directories (XDG_CONFIG_HOME, HOME) never point the user
+# config or user commands dir at the current directory either.
 
 cd $WORK/proj
 env XDG_CONFIG_HOME=$WORK/.config
@@ -20,13 +22,62 @@ stdout 'native'
 ! stdout 'virtual-sh'
 ! stderr .
 
-# Test 3: workspace validation does not report the cwd file as config
+# Test 3: workspace validation does not load an invalid cwd config.cue (the
+# old cwd fallback reported config_load_failed here and exited 1). Control:
+# the same invalid file as the user config is reported, so the absence below
+# is meaningful.
+cd $WORK/badcfg
+env XDG_CONFIG_HOME=$WORK/badxdg
+! exec invowk validate
+stderr 'config_load_failed'
+env XDG_CONFIG_HOME=$WORK/.config
 exec invowk validate
-! stdout 'proj.config\.cue'
+stdout 'Workspace is valid'
+! stdout 'config_load_failed'
 ! stderr .
+
+# Test 4: a relative XDG_CONFIG_HOME is ignored (XDG spec), so a repo-local
+# .config/invowk/config.cue is not the user config; $HOME/.config is used
+cd $WORK/proj
+env XDG_CONFIG_HOME=.config
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stderr .
+exec invowk config path
+! stdout 'proj'
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 5: a relative HOME never makes the current directory the user commands
+# dir: ./.invowk/cmds modules are not discovered as global modules
+[windows] skip 'os.UserHomeDir reads USERPROFILE on Windows'
+env HOME=.
+exec invowk cmd
+stdout 'multi-runtime'
+! stdout 'repoglob'
+! exec invowk cmd r repoglob
+! stdout 'REPO_GLOB'
 
 -- proj/config.cue --
 default_runtime: "virtual-sh"
+
+-- proj/.config/invowk/config.cue --
+default_runtime: "virtual-sh"
+
+-- proj/.invowk/cmds/r.invowkmod/invowkmod.cue --
+module: "r"
+version: "1.0.0"
+
+-- proj/.invowk/cmds/r.invowkmod/invowkfile.cue --
+cmds: [{name: "repoglob", implementations: [{script: {content: "echo REPO_GLOB"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]
+
+-- badcfg/config.cue --
+bogus_field: true
+
+-- badxdg/invowk/config.cue --
+bogus_field: true
+
+-- badcfg/invowkfile.cue --
+cmds: [{name: "ok", implementations: [{script: {content: "echo OK"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]
 
 -- proj/invowkfile.cue --
 cmds: [

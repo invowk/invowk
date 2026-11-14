@@ -29,6 +29,7 @@ const (
 	DependenciesNotSatisfiedId
 	HostNotSupportedId
 	InvalidArgumentId
+	ExplicitConfigLoadFailedId
 )
 
 var (
@@ -117,6 +118,14 @@ var (
 		mdMsg: loadTemplate("invalid_argument"),
 	}
 
+	// explicitConfigLoadFailedIssue is the guidance for a failed --ivk-config or
+	// INVOWK_CONFIG source. Unlike configLoadFailedIssue it never suggests
+	// `config init` or deleting the user config file, which do not fix it.
+	explicitConfigLoadFailedIssue = &Issue{
+		id:    ExplicitConfigLoadFailedId,
+		mdMsg: loadTemplate("explicit_config_load_failed"),
+	}
+
 	issues = map[Id]*Issue{
 		fileNotFoundIssue.Id():             fileNotFoundIssue,
 		invowkfileNotFoundIssue.Id():       invowkfileNotFoundIssue,
@@ -133,6 +142,7 @@ var (
 		dependenciesNotSatisfiedIssue.Id(): dependenciesNotSatisfiedIssue,
 		hostNotSupportedIssue.Id():         hostNotSupportedIssue,
 		invalidArgumentIssue.Id():          invalidArgumentIssue,
+		explicitConfigLoadFailedIssue.Id(): explicitConfigLoadFailedIssue,
 	}
 )
 
@@ -199,7 +209,8 @@ func (id Id) Validate() error {
 		CommandNotFoundId, RuntimeNotAvailableId, ContainerEngineNotFoundId,
 		DockerfileNotFoundId, ScriptExecutionFailedId, ConfigLoadFailedId,
 		InvalidRuntimeModeId, ShellNotFoundId, PermissionDeniedId,
-		DependenciesNotSatisfiedId, HostNotSupportedId, InvalidArgumentId:
+		DependenciesNotSatisfiedId, HostNotSupportedId, InvalidArgumentId,
+		ExplicitConfigLoadFailedId:
 		return nil
 	default:
 		return &InvalidIdError{Value: id}

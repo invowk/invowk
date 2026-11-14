@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"strconv"
 	"strings"
 
@@ -233,21 +232,18 @@ func verifyNoCwdError(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, v
 	return nil
 }
 
-// renderExplicitConfigError renders the config_load_failed issue entry plus a
-// per-source hint when err is a failed explicit config source, and returns err
-// unchanged either way. Callers return the error from RunE as a plain error,
-// so the process exits 1.
+// renderExplicitConfigError renders the explicit_config_load_failed issue
+// entry (never the user-file config_load_failed advice to run `config init` or
+// delete the user file) plus a per-source hint when err is a failed explicit
+// config source, and returns err unchanged either way. Callers return the
+// error from RunE as a plain error, so the process exits 1.
 func renderExplicitConfigError(w io.Writer, err error) error {
 	explicitErr, ok := errors.AsType[*config.ExplicitConfigError](err)
 	if !ok {
 		return err
 	}
-	rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.ConfigLoadFailedId), "dark")
-	if renderErr != nil {
-		slog.Warn("failed to render issue catalog entry", "issue_id", issue.ConfigLoadFailedId, "error", renderErr)
-	}
-	fmt.Fprint(w, rendered)
-	fmt.Fprintf(w, "%s %s\n", WarningStyle.Render("Hint:"), explicitConfigHint(explicitErr.Source))
+	printIssueCatalogEntry(w, issue.ExplicitConfigLoadFailedId)
+	fmt.Fprintf(w, "%s %s\n", WarningStyle.Render("Hint:"), explicitConfigHint(explicitErr))
 	return err
 }
 
@@ -266,10 +262,16 @@ func noCwdFromEnv(getenv func(string) string) (bool, noCwdOrigin, error) {
 	return on, noCwdOriginEnv, nil
 }
 
+// explicitConfigHint says how to fix a failed explicit source. The env hint
+// mentions the absolute-path rule only when that rule is what failed.
+//
 //plint:render
-func explicitConfigHint(source config.ConfigSourceKind) string {
-	if source == config.ConfigSourceEnv {
+func explicitConfigHint(explicitErr *config.ExplicitConfigError) string {
+	if explicitErr.Source != config.ConfigSourceEnv {
+		return "check the " + config.ConfigFlagName + " path"
+	}
+	if errors.Is(explicitErr, config.ErrConfigEnvNotAbsolute) {
 		return "fix or unset " + config.EnvConfigPath + "; it must be an absolute path"
 	}
-	return "check the " + config.ConfigFlagName + " path"
+	return "fix or unset " + config.EnvConfigPath
 }
