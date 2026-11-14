@@ -1,7 +1,7 @@
 # virtual-lua-audit Specification
 
 ## Purpose
-TBD - created by archiving change rename-virtual-and-add-lua. Update Purpose after archive.
+Extends invowk audit to virtual-lua commands: discovery of Lua scripts, deterministic Lua risk checks, and LLM audit guidance that covers Lua. It defines what the audit detects and reports, not how virtual-lua executes scripts, which is specified in virtual-lua-interpreter.
 ## Requirements
 ### Requirement: Lua audit discovery
 Invowk audit SHALL discover Lua content associated with invowk modules and `virtual-lua` command execution.

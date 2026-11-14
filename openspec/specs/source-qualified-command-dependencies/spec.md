@@ -1,7 +1,7 @@
 # source-qualified-command-dependencies Specification
 
 ## Purpose
-TBD - created by archiving change refine-cue-schema-contracts. Update Purpose after archive.
+Defines the syntax and resolution of command references in depends_on.cmds alternatives: bare references resolve locally, source-qualified references resolve through the command-scope policy, the legacy source-prefix-with-space syntax is removed, and diagnostics preserve the user's input. Scope enforcement is a static validation gate on declared dependencies; it does not intercept commands that scripts invoke at runtime.
 ## Requirements
 ### Requirement: Command dependency alternatives use dependency references
 Invowk SHALL parse `depends_on.cmds[].alternatives` as command dependency references rather than raw command names.

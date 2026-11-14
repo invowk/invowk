@@ -1,7 +1,7 @@
 # agent-authoring-crud Specification
 
 ## Purpose
-TBD - created by archiving change expand-agent-authoring-crud. Update Purpose after archive.
+Defines the explicit agent authoring command tree for creating, changing, and removing invowkfile commands and local invowk modules, including caller-supplied identity, deterministic replacement and removal, safe authoring modes, and the prompts that cover each operation. Module removal is limited to guarded deletion of local modules. It does not govern how authored commands are discovered or executed, nor remote or vendored module management.
 ## Requirements
 ### Requirement: Explicit agent authoring command tree
 Invowk SHALL expose explicit command and module authoring operations under `invowk agent cmd` and `invowk agent mod`.

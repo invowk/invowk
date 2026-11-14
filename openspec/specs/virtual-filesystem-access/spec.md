@@ -1,7 +1,7 @@
 # virtual-filesystem-access Specification
 
 ## Purpose
-TBD - created by archiving change reshape-virtual-filesystem-config. Update Purpose after archive.
+Defines the platform-scoped virtual filesystem configuration for the virtual runtimes: access modes, paths exposed as named bridge handles, and generated CUE that uses those paths, while host-binary policy stays scoped to the runtime. These settings gate path access inside Invowk's harness and are not a kernel-level jail or isolation boundary; isolation is the container runtime's job.
 ## Requirements
 ### Requirement: Platform virtual filesystem config
 Invowk SHALL expose virtual-runtime filesystem configuration under each implementation platform at `platforms[].virtual.filesystem`.

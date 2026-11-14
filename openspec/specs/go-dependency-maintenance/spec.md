@@ -1,7 +1,7 @@
 # go-dependency-maintenance Specification
 
 ## Purpose
-TBD - created by archiving change refresh-go-dependencies-and-vulncheck-coverage. Update Purpose after archive.
+Governs maintenance of the repository's Go modules: every tracked Go module is vulnerability-scanned, security updates are prioritized and bounded, direct dependency refreshes are explicit and verified, and deferred findings stay visible. It does not cover website or CI tooling dependencies, which fall under dependency-tooling-maintenance.
 ## Requirements
 ### Requirement: All Go modules are vulnerability-scanned
 Invowk SHALL provide a vulnerability-scan path that checks every Go module tracked by the repository through shared module discovery, and SHALL cover the pinned goplint tool dependency through the root module graph.
