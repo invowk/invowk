@@ -46,7 +46,7 @@ func newWatchTestCmd(t *testing.T) *cobra.Command {
 	t.Helper()
 
 	cmd := &cobra.Command{}
-	cmd.SetContext(contextWithConfigPath(t.Context(), ""))
+	cmd.SetContext(contextWithDiscoveryScope(t.Context(), "", false))
 	return cmd
 }
 

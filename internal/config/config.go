@@ -149,70 +149,61 @@ func HostKeyPath() (types.FilesystemPath, error) {
 	return types.FilesystemPath(filepath.Join(string(cfgDir), "ssh", "host_ed25519")), nil //goplint:ignore -- derived from OS config directory and fixed app path.
 }
 
-// loadWithOptions performs option-driven config loading from the filesystem.
-// Each call reads and parses configuration from disk with no caching.
-func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.FilesystemPath, error) {
+// loadWithOptions loads the source chosen by SelectSource. Each call reads
+// and parses configuration from disk with no caching.
+//
+// Precedence and isolation: an explicit selection (flag or INVOWK_CONFIG) is
+// loaded on its own and the user config directory is never resolved or
+// stat'ed. Only an implicit selection looks at <ConfigDir>/config.cue, and
+// when that file is absent the built-in defaults apply. The current working
+// directory is never a config source.
+func loadWithOptions(ctx context.Context, opts LoadOptions, selection SourceSelection) (*Config, types.FilesystemPath, ConfigSourceKind, error) {
 	select {
 	case <-ctx.Done():
-		return nil, "", fmt.Errorf("load config canceled: %w", ctx.Err())
+		return nil, "", "", fmt.Errorf("load config canceled: %w", ctx.Err())
 	default:
 	}
 
 	cfg := DefaultConfig()
 	var resolvedPath types.FilesystemPath
+	source := ConfigSourceDefault
 
-	// If a custom config file path is set via --ivk-config flag, use it exclusively.
-	configFilePath := string(opts.ConfigFilePath)
-	if configFilePath != "" {
+	switch selection.Kind {
+	case ConfigSourceFlag, ConfigSourceEnv:
+		configFilePath := string(selection.Path)
 		if !fileExists(configFilePath) {
-			return nil, "", &FileNotFoundError{Path: opts.ConfigFilePath}
+			return nil, "", "", &FileNotFoundError{Path: selection.Path}
 		}
-		loaded, err := decodeCUEConfigFile(opts.ConfigFilePath)
+		loaded, err := decodeCUEConfigFile(selection.Path)
 		if err != nil {
-			return nil, "", cueLoadError(configFilePath, err)
+			return nil, "", "", cueLoadError(configFilePath, err)
 		}
 		cfg = loaded
-		resolvedPath = opts.ConfigFilePath
-	} else {
-		// Get config directory
+		resolvedPath = selection.Path
+		source = selection.Kind
+	case ConfigSourceImplicit, ConfigSourceUser, ConfigSourceDefault:
 		cfgDir, err := configDirWithOverride(opts.ConfigDirPath)
 		if err != nil {
-			return nil, "", err
+			return nil, "", "", err
 		}
 
-		// Try to load CUE config file
 		cuePath := filepath.Join(string(cfgDir), ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
 			resolved := types.FilesystemPath(cuePath)
 			if err := resolved.Validate(); err != nil {
-				return nil, "", fmt.Errorf("resolved config path: %w", err)
+				return nil, "", "", fmt.Errorf("resolved config path: %w", err)
 			}
 			loaded, err := decodeCUEConfigFile(resolved)
 			if err != nil {
-				return nil, "", cueLoadError(cuePath, err)
+				return nil, "", "", cueLoadError(cuePath, err)
 			}
 			cfg = loaded
 			resolvedPath = resolved
-		} else {
-			// Also check current directory (or BaseDir override)
-			localCuePath := ConfigFileName + "." + ConfigFileExt
-			if opts.BaseDir != "" {
-				localCuePath = filepath.Join(string(opts.BaseDir), localCuePath)
-			}
-			if fileExists(localCuePath) {
-				resolved := types.FilesystemPath(localCuePath)
-				if err := resolved.Validate(); err != nil {
-					return nil, "", fmt.Errorf("local config path: %w", err)
-				}
-				loaded, err := decodeCUEConfigFile(resolved)
-				if err != nil {
-					return nil, "", cueLoadError(localCuePath, err)
-				}
-				cfg = loaded
-				resolvedPath = resolved
-			}
-			// If no config file found, use defaults (no error)
+			source = ConfigSourceUser
 		}
+		// No user config file: built-in defaults apply (no error).
+	default:
+		return nil, "", "", selection.Kind.Validate()
 	}
 
 	// Defense-in-depth: validate all typed fields after unmarshalling.
@@ -220,12 +211,12 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 	// or values that bypass CUE.
 	if err := cfg.Validate(); err != nil {
 		if includeErr, ok := errors.AsType[*InvalidIncludeCollectionError](err); ok {
-			return nil, "", wrapIncludeCollectionError(includeErr)
+			return nil, "", "", wrapIncludeCollectionError(includeErr)
 		}
-		return nil, "", err
+		return nil, "", "", err
 	}
 
-	return cfg, resolvedPath, nil
+	return cfg, resolvedPath, source, nil
 }
 
 func wrapIncludeCollectionError(err *InvalidIncludeCollectionError) error {
@@ -259,8 +250,8 @@ func commandsDirWithOverride(commandsDirPath types.FilesystemPath) (types.Filesy
 }
 
 // cueLoadError wraps a CUE loading/parsing error with typed config semantics.
-// This is the common error path for all config file locations (explicit path,
-// config dir, current dir).
+// This is the common error path for both config file locations (explicit
+// path and user config dir).
 func cueLoadError(path string, err error) error {
 	return &LoadError{
 		Path: types.FilesystemPath(path), //goplint:ignore -- path came from provider/file discovery and is preserved for diagnostics.

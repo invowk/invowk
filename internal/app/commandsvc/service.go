@@ -52,9 +52,11 @@ type (
 		scriptFileReader  deps.ScriptFileReader
 	}
 
-	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
-	// The CLI layer provides the implementation that emits diagnostics.
-	ConfigFallbackFunc func(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []Diagnostic)
+	// ConfigFallbackFunc loads configuration. A failing user config file falls
+	// back to defaults with diagnostics; a failing explicit source
+	// (--ivk-config or INVOWK_CONFIG) returns an error and no config, and the
+	// caller must stop. The CLI layer provides the implementation.
+	ConfigFallbackFunc func(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []Diagnostic, error)
 )
 
 // NewPorts creates the infrastructure port bundle for production service wiring.
@@ -379,7 +381,11 @@ func (s *Service) beginRequest(ctx context.Context, configPath types.FilesystemP
 // Config is loaded separately because downstream callers need it for runtime
 // registry construction and env builder configuration.
 func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
-	cfg, configDiags := s.loadConfig(ctx, string(req.ConfigPath))
+	cfg, configDiags, cfgErr := s.loadConfig(ctx, string(req.ConfigPath))
+	if cfgErr != nil {
+		// Explicit config sources fail closed before any command resolution.
+		return nil, nil, req, configDiags, cfgErr
+	}
 	req = applyUIConfigDefaults(req, cfg)
 	if req.ResolvedCommand != nil {
 		return cfg, req.ResolvedCommand, req, configDiags, nil
@@ -591,12 +597,13 @@ func (s *Service) resolveDefinitions(req Request, cmdInfo *discovery.CommandInfo
 	}
 }
 
-// loadConfig loads configuration via the configFallback callback. On failure it
-// returns defaults with diagnostics so callers stay operational.
-func (s *Service) loadConfig(ctx context.Context, configPath string) (cfg *config.Config, diags []Diagnostic) {
+// loadConfig loads configuration via the discovery adapter's request cache or
+// the configFallback callback. A failing user config returns defaults with
+// diagnostics; a failing explicit source returns its error.
+func (s *Service) loadConfig(ctx context.Context, configPath string) (cfg *config.Config, diags []Diagnostic, err error) {
 	if discoveryConfig, ok := s.discovery.(ConfigAwareCommandDiscovery); ok {
-		cfg, discoveryDiags := discoveryConfig.LoadConfigForCommand(ctx)
-		return cfg, appendDiagnostics(nil, discoveryDiags...)
+		cfg, discoveryDiags, err := discoveryConfig.LoadConfigForCommand(ctx)
+		return cfg, appendDiagnostics(nil, discoveryDiags...), err
 	}
 	return s.configFallback(ctx, s.config, configPath)
 }

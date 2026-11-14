@@ -2,7 +2,7 @@
 #
 # goplint baseline — accepted DDD compliance findings
 # Regenerate: make update-baseline
-# Total: 75 findings
+# Total: 76 findings
 
 # Struct fields using nonzero types as value (non-pointer)
 [nonzero-value-field]
@@ -42,6 +42,7 @@ entries = [
     { id = "gpl4_82bdbb0bd8adb957f811f49d8f0cb4907c526a3f58e06bddba603b7877e1612b", message = "struct field invowkmod.ResolvedModule.ModuleName uses nonzero type ModuleShortName as value; use *ModuleShortName for optional fields" },
     { id = "gpl4_82d4fad376745780a09e298c7f6e8ed345f77c9737197fdf3173c4f0e007acde", message = "struct field modulesync.CanonicalModuleCollisionError.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_8cec0ebfc3800c2a086b61eb6b8fbe40fb0c5b623fa30489a73b2e5918c63d76", message = "struct field invowkmod.MissingTransitiveDepDiagnostic.RequiringURL uses nonzero type GitURL as value; use *GitURL for optional fields" },
+    { id = "gpl4_8ddb6302a393af42f6487dc007c29e31200f6e0a833593ed8d7d34da284f8d96", message = "struct field config.ExplicitConfigError.Path uses nonzero type FilesystemPath as value; use *FilesystemPath for optional fields" },
     { id = "gpl4_900629f66260b23b4f51147729be9fc08ec156aaa3d1f781791c35f1013b146d", message = "struct field invowkmod.LockedModule.ModuleID uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_923a7cae078db5c1891511baaa3325e5969f09b3a1f9ce21b916d58dfe35227b", message = "struct field invowkmod.CreateOptions.Module uses nonzero type ModuleID as value; use *ModuleID for optional fields" },
     { id = "gpl4_93d08cd836071f96b267bda3f8559fcb864e5108a7ec57e0203c17838411960e", message = "struct field invowkmod.CreateOptions.Name uses nonzero type ModuleDirectoryName as value; use *ModuleDirectoryName for optional fields" },

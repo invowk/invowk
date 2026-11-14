@@ -435,12 +435,10 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
 	)
 
-	customCuePath2 := filepath.Join(t.TempDir(), "custom.cue")
-	req := commandsvc.Request{
-		Name:       "build",
-		ConfigPath: types.FilesystemPath(customCuePath2),
-	}
-	ctx := contextWithConfigPath(t.Context(), string(req.ConfigPath))
+	// No explicit config path: a failing user config falls back to defaults
+	// with one diagnostic (an explicit source would fail closed instead).
+	req := commandsvc.Request{Name: "build"}
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 
 	// Execute the full pipeline; the service returns the config diagnostic once,
 	// followed by discovery diagnostics.
@@ -489,7 +487,7 @@ func TestDiscoverCommand_ResolvedCommandSkipsLookup(t *testing.T) {
 		DryRun:          true,
 		ResolvedCommand: resolved,
 	}
-	ctx := contextWithConfigPath(t.Context(), "")
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 
 	if _, _, err := svc.Execute(ctx, req); err != nil {
 		t.Fatalf("Execute() error = %v", err)

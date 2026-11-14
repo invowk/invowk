@@ -1857,7 +1857,7 @@ reason = "Cobra CLI boundary — callers pass args[0] or ExecuteRequest.Name"
 # the CLI layer is refactored to use a typed request pattern.
 
 [[exceptions]]
-pattern = "invowk.contextWithConfigPath.*"
+pattern = "invowk.contextWithDiscoveryScope.*"
 reason = "Cobra flag binding → FilesystemPath deferred"
 review_after = "2027-09-01"
 blocked_by = "CLI typed request pattern or Cobra typed flags"
@@ -4047,10 +4047,6 @@ reason = "required value-field using a nonzero value type"
 
 [[exceptions]]
 pattern = "Invowkmod.FilePath.nonzero"
-reason = "required value-field using a nonzero value type"
-
-[[exceptions]]
-pattern = "LoadOptions.BaseDir.nonzero"
 reason = "required value-field using a nonzero value type"
 
 [[exceptions]]

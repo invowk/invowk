@@ -34,7 +34,8 @@ type commandGroup struct {
 //
 //nolint:contextcheck // Cobra child commands carry cancellation through cmd.Context() at execution time.
 func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, cmdCmd *cobra.Command) {
-	lookupCtx := contextWithConfigPath(ctx, rootFlags.configPath)
+	// ctx already carries the pre-parsed no-cwd switch.
+	lookupCtx := contextWithDiscoveryScope(ctx, rootFlags.configPath, noCwdFromContext(ctx))
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(lookupCtx)
 	if err != nil {
 		// Dynamic registration is best-effort: command execution paths perform
@@ -84,8 +85,10 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 					Use:   part,
 					Short: fmt.Sprintf("Commands under '%s'", prefix),
 					RunE: func(cmd *cobra.Command, args []string) error {
-						ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-						cmd.SetContext(ctx)
+						ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
+						if err != nil {
+							return err
+						}
 
 						fromFlag, _ := cmd.Flags().GetString("ivk-from")
 						if fromFlag != "" {
@@ -141,8 +144,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		Short: string(cmdInfo.Description),
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-			cmd.SetContext(ctx)
+			if _, _, err := scopeDiscovery(cmd, app, rootFlags); err != nil {
+				return err
+			}
 
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
 			if fromFlag != "" {
@@ -301,7 +305,11 @@ func buildArgsDocumentation(args []invowkfile.Argument) string {
 // polluting shell completion output with stderr noise.
 func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		lookupCtx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+		on, _, err := resolveNoCwd(cmd.Root().PersistentFlags(), rootFlags, app.Getenv)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		lookupCtx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, on)
 		result, err := app.Discovery.DiscoverCommandSet(lookupCtx)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
@@ -415,6 +423,9 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Sources: %d invowkfile(s), %d module(s)", invowkfileCount, moduleCount)))
 		fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(fmt.Sprintf("Commands: %d total (%d ambiguous)", len(commandSet.Commands), len(commandSet.AmbiguousNames))))
+		if origin := activeNoCwdOrigin(cmd, app, rootFlags); origin != "" {
+			fmt.Fprintf(w, "  %s\n", VerboseStyle.Render(noCwdDisabledLine(origin)))
+		}
 		fmt.Fprintln(w)
 	}
 

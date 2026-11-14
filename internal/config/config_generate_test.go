@@ -123,7 +123,7 @@ func TestGenerateCUE_Roundtrip(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	loaded, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
 	if err != nil {
 		t.Fatalf("loadWithOptions() roundtrip error: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestGenerateCUE_LLMProviderRoundtrip(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	loaded, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
 	if err != nil {
 		t.Fatalf("loadWithOptions() error = %v", err)
 	}
@@ -232,7 +232,7 @@ func TestGenerateCUE_LLMAPIRoundtrip(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	loaded, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
 	if err != nil {
 		t.Fatalf("loadWithOptions() error = %v", err)
 	}

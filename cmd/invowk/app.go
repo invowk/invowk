@@ -36,8 +36,11 @@ type (
 		Commands    CommandService
 		Watchers    WatchRunnerCreator
 		Diagnostics DiagnosticRenderer
-		stdout      io.Writer
-		stderr      io.Writer
+		// Getenv is the only way CLI handlers read INVOWK_CONFIG and
+		// INVOWK_NO_CWD, so tests never depend on the process environment.
+		Getenv func(string) string
+		stdout io.Writer
+		stderr io.Writer
 	}
 
 	// Dependencies defines the injection points for building an App. Nil fields are
@@ -49,8 +52,11 @@ type (
 		Commands    CommandService
 		Watchers    WatchRunnerCreator
 		Diagnostics DiagnosticRenderer
-		Stdout      io.Writer
-		Stderr      io.Writer
+		// Getenv reads INVOWK_CONFIG and INVOWK_NO_CWD; nil means os.Getenv.
+		// The default config provider is built from the same function.
+		Getenv func(string) string
+		Stdout io.Writer
+		Stderr io.Writer
 	}
 
 	// ExecuteRequest is the CLI-facing alias for the command service request.
@@ -114,8 +120,11 @@ func NewApp(d Dependencies) (*App, error) {
 	if d.Stderr == nil {
 		d.Stderr = os.Stderr
 	}
+	if d.Getenv == nil {
+		d.Getenv = os.Getenv
+	}
 	if d.Config == nil {
-		d.Config = config.NewProvider()
+		d.Config = config.NewProviderWithEnv(d.Getenv)
 	}
 	if d.Discovery == nil {
 		d.Discovery = commandadapters.NewDiscoveryService(d.Config)
@@ -169,6 +178,7 @@ func NewApp(d Dependencies) (*App, error) {
 		Commands:    d.Commands,
 		Watchers:    d.Watchers,
 		Diagnostics: d.Diagnostics,
+		Getenv:      d.Getenv,
 		stdout:      d.Stdout,
 		stderr:      d.Stderr,
 	}, nil
@@ -351,15 +361,6 @@ func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {
 	default:
 		return issue.ScriptExecutionFailedId
 	}
-}
-
-// contextWithConfigPath attaches the explicit --ivk-config value and a per-request
-// discovery cache to the context. The RunE handler calls this once; all downstream
-// callees (runWorkspaceValidation, registerDiscoveredCommands, checkAmbiguousCommand,
-// listCommands, executeRequest, runDisambiguatedCommand, and runWatchMode) share the
-// same cache.
-func contextWithConfigPath(ctx context.Context, configPath string) context.Context {
-	return commandadapters.ContextWithConfigPath(ctx, configPath)
 }
 
 // configPathFromContext extracts the explicit config path from context.

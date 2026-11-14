@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -81,14 +82,16 @@ func (p pathType) validate() error {
 // newValidateCommand creates the `invowk validate` command.
 // Without arguments, it runs workspace-wide discovery validation.
 // With a path argument, it auto-detects invowkfile vs module and validates accordingly.
-func newValidateCommand(app *App) *cobra.Command {
+func newValidateCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate [path]",
 		Short: "Validate invowkfiles and modules",
 		Long: `Validate invowkfiles, modules, or the entire workspace.
 
 Without arguments, validates the current workspace by running full discovery
-and reporting all diagnostics from every search path.
+and reporting all diagnostics from every search path. It honours --ivk-config
+and INVOWK_CONFIG; with --ivk-no-cwd (or INVOWK_NO_CWD) the current directory's
+invowkfile.cue and *.invowkmod modules are not discovered.
 
 With a path argument, auto-detects the target type:
   - *.invowkmod directory   → module validation
@@ -104,10 +107,14 @@ Examples:
   invowk validate ./mymod.invowkmod            Validate a module`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.SetContext(contextWithConfigPath(cmd.Context(), ""))
-
+			// An explicit path is the validation target, not a command source,
+			// so only the workspace branch resolves the discovery scope.
 			if len(args) == 0 {
-				return runWorkspaceValidation(cmd, app)
+				_, origin, err := scopeDiscovery(cmd, app, rootFlags)
+				if err != nil {
+					return err
+				}
+				return runWorkspaceValidation(cmd, app, origin)
 			}
 
 			return runPathValidation(cmd, args[0])
@@ -118,11 +125,18 @@ Examples:
 // runWorkspaceValidation performs full discovery validation and renders styled results.
 // It reports both discovery diagnostics and tree validation errors in a single pass
 // so users see all issues at once rather than having to fix-and-rerun iteratively.
-func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
+//
+// noCwdBy is the origin of --ivk-no-cwd when the switch is on (empty when off);
+// the header then names it, with or without --ivk-verbose.
+func runWorkspaceValidation(cmd *cobra.Command, app *App, noCwdBy noCwdOrigin) error {
 	stdout := cmd.OutOrStdout()
 	stderr := cmd.ErrOrStderr()
 
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(cmd.Context())
+	if errors.Is(err, config.ErrExplicitConfig) {
+		// Fail closed before printing any validation result.
+		return renderExplicitConfigError(stderr, err)
+	}
 
 	cwd, cwdErr := os.Getwd()
 	if cwdErr != nil {
@@ -130,6 +144,9 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 	}
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Workspace Validation"))
 	fmt.Fprintf(stdout, validatePathLineFmt, moduleInfoIcon, modulePathStyle.Render(cwd))
+	if noCwdBy != "" {
+		fmt.Fprintf(stdout, "%s %s\n", moduleInfoIcon, noCwdDisabledLine(noCwdBy))
+	}
 	fmt.Fprintln(stdout)
 
 	if err != nil && result.Set == nil {

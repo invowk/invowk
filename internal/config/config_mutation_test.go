@@ -37,7 +37,7 @@ func testConfigMutationMissingExplicitPath(t *testing.T) {
 	t.Helper()
 
 	missingPath := types.FilesystemPath(filepath.Join(t.TempDir(), "missing-config.cue"))
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: missingPath})
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigFilePath: missingPath})
 	if err == nil {
 		t.Fatal("loadWithOptions() error = nil, want missing explicit config error")
 	}
@@ -57,7 +57,7 @@ func testConfigMutationLoadErrorSourcePath(t *testing.T) {
 	t.Helper()
 
 	cfgPath := writeConfigMutationFile(t, t.TempDir(), "invalid.cue", `this is not valid CUE syntax {{{`)
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
 	if err == nil {
 		t.Fatal("loadWithOptions() error = nil, want invalid CUE load error")
 	}
@@ -107,47 +107,69 @@ func testConfigMutationDecodeErrorFileName(t *testing.T) {
 func TestConfigMutationLoadSourcePrecedence(t *testing.T) {
 	t.Parallel()
 
-	t.Run("local fallback loads config contents", func(t *testing.T) {
+	t.Run("user config dir loads config contents", func(t *testing.T) {
 		t.Parallel()
 
-		baseDir := t.TempDir()
-		cfgPath := writeConfigMutationFile(t, baseDir, ConfigFileName+"."+ConfigFileExt, `
+		cfgDir := t.TempDir()
+		cfgPath := writeConfigMutationFile(t, cfgDir, ConfigFileName+"."+ConfigFileExt, `
 container_engine: "docker"
 default_runtime: "virtual-sh"
 `)
-		cfg, resolvedPath, err := loadWithOptions(t.Context(), LoadOptions{
-			ConfigDirPath: types.FilesystemPath(t.TempDir()),
-			BaseDir:       types.FilesystemPath(baseDir),
+		result, err := NewProviderWithEnv(emptyEnv).LoadWithSource(t.Context(), LoadOptions{
+			ConfigDirPath: types.FilesystemPath(cfgDir),
 		})
 		if err != nil {
-			t.Fatalf("loadWithOptions() error = %v, want nil", err)
+			t.Fatalf("LoadWithSource() error = %v, want nil", err)
 		}
-		if resolvedPath != types.FilesystemPath(cfgPath) {
-			t.Fatalf("resolvedPath = %q, want %q", resolvedPath, cfgPath)
+		if result.SourcePath != types.FilesystemPath(cfgPath) || result.Source != ConfigSourceUser {
+			t.Fatalf("result = (%q, %s), want (%q, user)", result.SourcePath, result.Source, cfgPath)
 		}
-		if cfg.ContainerEngine != ContainerEngineDocker || cfg.DefaultRuntime != RuntimeVirtualSh {
-			t.Fatalf("loaded config = %+v, want local fallback values", cfg)
+		if result.Config.ContainerEngine != ContainerEngineDocker || result.Config.DefaultRuntime != RuntimeVirtualSh {
+			t.Fatalf("loaded config = %+v, want user config values", result.Config)
 		}
 	})
 
-	t.Run("local fallback invalid CUE keeps local path", func(t *testing.T) {
+	t.Run("explicit flag file wins over user config dir", func(t *testing.T) {
 		t.Parallel()
 
-		baseDir := t.TempDir()
-		cfgPath := writeConfigMutationFile(t, baseDir, ConfigFileName+"."+ConfigFileExt, `this is not valid CUE syntax {{{`)
-		_, _, err := loadWithOptions(t.Context(), LoadOptions{
-			ConfigDirPath: types.FilesystemPath(t.TempDir()),
-			BaseDir:       types.FilesystemPath(baseDir),
+		cfgDir := t.TempDir()
+		writeConfigMutationFile(t, cfgDir, ConfigFileName+"."+ConfigFileExt, `container_engine: "docker"`)
+		flagPath := writeConfigMutationFile(t, t.TempDir(), "flag.cue", `default_runtime: "virtual-sh"`)
+		result, err := NewProviderWithEnv(emptyEnv).LoadWithSource(t.Context(), LoadOptions{
+			ConfigFilePath: types.FilesystemPath(flagPath),
+			ConfigDirPath:  types.FilesystemPath(cfgDir),
+		})
+		if err != nil {
+			t.Fatalf("LoadWithSource() error = %v, want nil", err)
+		}
+		if result.Source != ConfigSourceFlag || result.SourcePath != types.FilesystemPath(flagPath) {
+			t.Fatalf("result = (%s, %q), want (flag, %q)", result.Source, result.SourcePath, flagPath)
+		}
+		if result.Config.ContainerEngine == ContainerEngineDocker {
+			t.Fatal("user config value merged into explicit flag config")
+		}
+	})
+
+	t.Run("user config invalid CUE keeps user path and is not explicit", func(t *testing.T) {
+		t.Parallel()
+
+		cfgDir := t.TempDir()
+		cfgPath := writeConfigMutationFile(t, cfgDir, ConfigFileName+"."+ConfigFileExt, `this is not valid CUE syntax {{{`)
+		_, err := NewProviderWithEnv(emptyEnv).LoadWithSource(t.Context(), LoadOptions{
+			ConfigDirPath: types.FilesystemPath(cfgDir),
 		})
 		if err == nil {
-			t.Fatal("loadWithOptions() error = nil, want local fallback CUE error")
+			t.Fatal("LoadWithSource() error = nil, want user config CUE error")
 		}
 		var loadErr *LoadError
 		if !errors.As(err, &loadErr) {
-			t.Fatalf("loadWithOptions() error type = %T, want *LoadError", err)
+			t.Fatalf("LoadWithSource() error type = %T, want *LoadError", err)
 		}
 		if loadErr.Path != types.FilesystemPath(cfgPath) {
 			t.Fatalf("LoadError.Path = %q, want %q", loadErr.Path, cfgPath)
+		}
+		if errors.Is(err, ErrExplicitConfig) {
+			t.Fatal("user config error must not be an explicit config error")
 		}
 	})
 }
@@ -185,7 +207,7 @@ includes: [
 ]
 `, firstPath, secondPath))
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
 	if err == nil {
 		t.Fatal("loadWithOptions() error = nil, want duplicate include alias error")
 	}
@@ -220,7 +242,7 @@ container: {
 }
 `, includePath, includePath))
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
 	if err == nil {
 		t.Fatal("loadWithOptions() error = nil, want duplicate auto-provision include error")
 	}
@@ -261,7 +283,7 @@ container: {
 }
 `, rootInclude, rootInclude, autoProvisionInclude, autoProvisionInclude))
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigFilePath: types.FilesystemPath(cfgPath)})
 	if err == nil {
 		t.Fatal("loadWithOptions() error = nil, want first duplicate include error")
 	}

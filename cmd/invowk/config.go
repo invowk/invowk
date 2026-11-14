@@ -4,9 +4,12 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"charm.land/lipgloss/v2"
@@ -47,16 +50,28 @@ type (
 
 // newConfigCommand creates the `invowk config` command tree.
 // Subcommands that read configuration use the App's config.Provider.
-func newConfigCommand(app *App) *cobra.Command {
+func newConfigCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cfgCmd := &cobra.Command{
 		Use:   configCommandName,
 		Short: "Manage invowk configuration",
 		Long: `Manage invowk configuration.
 
-Configuration is stored in:
-  - Linux: ~/.config/invowk/config.cue
-  - macOS: ~/Library/Application Support/invowk/config.cue
-  - Windows: %APPDATA%\invowk\config.cue`,
+invowk reads exactly one config source, in this order:
+  1. --ivk-config <path>        (may be relative to the current directory)
+  2. INVOWK_CONFIG=<path>       (must be an absolute path; empty means unset)
+  3. The user config file:
+     - Linux: $XDG_CONFIG_HOME/invowk/config.cue, or ~/.config/invowk/config.cue
+     - macOS: ~/Library/Application Support/invowk/config.cue
+     - Windows: %APPDATA%\invowk\config.cue
+  4. Built-in defaults
+
+The current directory is never a config source. A missing or invalid file
+named by --ivk-config or INVOWK_CONFIG is an error (exit 1); an invalid user
+config file falls back to defaults with a diagnostic.
+
+'config show', 'config dump' and 'config path' honour --ivk-config and
+INVOWK_CONFIG. 'config set' and 'config init' only touch the user config file,
+and 'config set' refuses while --ivk-config or INVOWK_CONFIG is active.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
@@ -66,7 +81,7 @@ Configuration is stored in:
 		Use:   "show",
 		Short: "Show current configuration",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return showConfig(cmd.Context(), app)
+			return showConfig(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), app, rootFlags)
 		},
 	})
 
@@ -81,8 +96,8 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "path",
 		Short: "Show configuration file path",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return showConfigPath()
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return showConfigPath(cmd.OutOrStdout(), app, rootFlags)
 		},
 	})
 
@@ -91,7 +106,7 @@ Configuration is stored in:
 		Short: "Set a configuration value",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return setConfigValue(cmd.Context(), app, args[0], args[1])
+			return setConfigValue(cmd.Context(), cmd.OutOrStdout(), app, rootFlags, args[0], args[1])
 		},
 	})
 
@@ -99,13 +114,13 @@ Configuration is stored in:
 		Use:   "dump",
 		Short: "Output raw configuration as CUE",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := app.Config.Load(cmd.Context(), config.LoadOptions{})
+			cfg, err := app.Config.Load(cmd.Context(), explicitLoadOptions(rootFlags))
 			if err != nil {
-				return err
+				return renderExplicitConfigError(cmd.ErrOrStderr(), err)
 			}
 
 			cueContent := config.GenerateDisplayCUE(cfg)
-			fmt.Print(cueContent)
+			fmt.Fprint(cmd.OutOrStdout(), cueContent)
 			return nil
 		},
 	})
@@ -113,10 +128,20 @@ Configuration is stored in:
 	return cfgCmd
 }
 
-func showConfig(ctx context.Context, app *App) error {
-	result, err := app.Config.LoadWithSource(ctx, config.LoadOptions{})
+// explicitLoadOptions builds the standard-precedence load options for config
+// readers: --ivk-config when given, otherwise the provider applies
+// INVOWK_CONFIG, then the user file, then defaults.
+func explicitLoadOptions(rootFlags *rootFlagValues) config.LoadOptions {
+	return config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)} //goplint:ignore -- CLI flag value, may be empty; validated by the provider.
+}
+
+func showConfig(ctx context.Context, w, stderr io.Writer, app *App, rootFlags *rootFlagValues) error {
+	result, err := app.Config.LoadWithSource(ctx, explicitLoadOptions(rootFlags))
 	if err != nil {
-		return renderConfigLoadFailure(err)
+		if errors.Is(err, config.ErrExplicitConfig) {
+			return renderExplicitConfigError(stderr, err)
+		}
+		return renderConfigLoadFailure(stderr, err)
 	}
 	cfg := result.Config
 
@@ -125,101 +150,118 @@ func showConfig(ctx context.Context, app *App) error {
 	keyStyle := CmdStyle
 	valueStyle := SuccessStyle
 
-	fmt.Println(headerStyle.Render("Current Configuration"))
-	fmt.Println()
+	fmt.Fprintln(w, headerStyle.Render("Current Configuration"))
+	fmt.Fprintln(w)
 
-	printConfigFileLine(keyStyle, result.SourcePath)
-	fmt.Println()
+	printConfigFileLine(w, keyStyle, result)
+	fmt.Fprintln(w)
 
 	// Show values
-	fmt.Printf(configFieldFmt, keyStyle.Render("container_engine"), valueStyle.Render(string(cfg.ContainerEngine)))
-	fmt.Printf(configFieldFmt, keyStyle.Render("default_runtime"), valueStyle.Render(string(cfg.DefaultRuntime)))
+	fmt.Fprintf(w, configFieldFmt, keyStyle.Render("container_engine"), valueStyle.Render(string(cfg.ContainerEngine)))
+	fmt.Fprintf(w, configFieldFmt, keyStyle.Render("default_runtime"), valueStyle.Render(string(cfg.DefaultRuntime)))
 
-	fmt.Println()
-	fmt.Printf("%s:\n", keyStyle.Render("includes"))
-	printIncludes(cfg.Includes, valueStyle)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s:\n", keyStyle.Render("includes"))
+	printIncludes(w, cfg.Includes, valueStyle)
 
-	fmt.Println()
-	fmt.Printf("%s:\n", keyStyle.Render("virtual"))
-	fmt.Println("  utilities:")
-	fmt.Printf("    enabled: %s\n", valueStyle.Render(strconv.FormatBool(cfg.Virtual.Utilities.Enabled)))
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s:\n", keyStyle.Render("virtual"))
+	fmt.Fprintln(w, "  utilities:")
+	fmt.Fprintf(w, "    enabled: %s\n", valueStyle.Render(strconv.FormatBool(cfg.Virtual.Utilities.Enabled)))
 
-	fmt.Println()
-	fmt.Printf("%s:\n", keyStyle.Render("ui"))
-	fmt.Printf("  color_scheme: %s\n", valueStyle.Render(string(cfg.UI.ColorScheme)))
-	fmt.Printf("  interactive: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Interactive)))
-	fmt.Printf("  verbose: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Verbose)))
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s:\n", keyStyle.Render("ui"))
+	fmt.Fprintf(w, "  color_scheme: %s\n", valueStyle.Render(string(cfg.UI.ColorScheme)))
+	fmt.Fprintf(w, "  interactive: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Interactive)))
+	fmt.Fprintf(w, "  verbose: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Verbose)))
 
-	fmt.Println()
-	fmt.Printf("%s:\n", keyStyle.Render("llm"))
-	printLLMConfig(cfg.LLM, valueStyle)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s:\n", keyStyle.Render("llm"))
+	printLLMConfig(w, cfg.LLM, valueStyle)
 
 	return nil
 }
 
-func renderConfigLoadFailure(err error) error {
+func renderConfigLoadFailure(w io.Writer, err error) error {
 	rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.ConfigLoadFailedId), "dark")
 	if renderErr != nil {
 		slog.Warn("failed to render issue catalog entry", "issue_id", issue.ConfigLoadFailedId, "error", renderErr)
 	}
-	fmt.Fprint(os.Stderr, rendered)
+	fmt.Fprint(w, rendered)
 	return err
 }
 
-func printConfigFileLine(keyStyle lipgloss.Style, sourcePath types.FilesystemPath) {
-	if sourcePath != "" {
-		fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), sourcePath)
+// printConfigFileLine names the effective config file and its source:
+// "(from --ivk-config)", "(from INVOWK_CONFIG)", "(user config)", or defaults.
+func printConfigFileLine(w io.Writer, keyStyle lipgloss.Style, result config.LoadResult) {
+	if result.SourcePath == "" {
+		fmt.Fprintf(w, configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
 		return
 	}
-	fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
+	fmt.Fprintf(w, configFieldFmt, keyStyle.Render(configFileLabel), fmt.Sprintf("%s %s", result.SourcePath, SubtitleStyle.Render(configSourceSuffix(result.Source))))
 }
 
-func printIncludes(includes []config.IncludeEntry, valueStyle lipgloss.Style) {
+//plint:render
+func configSourceSuffix(source config.ConfigSourceKind) string {
+	switch source {
+	case config.ConfigSourceFlag, config.ConfigSourceEnv:
+		return "(from " + source.Label() + ")"
+	case config.ConfigSourceUser:
+		return "(user config)"
+	case config.ConfigSourceDefault, config.ConfigSourceImplicit:
+		return "(defaults)"
+	default:
+		return ""
+	}
+}
+
+func printIncludes(w io.Writer, includes []config.IncludeEntry, valueStyle lipgloss.Style) {
 	if len(includes) == 0 {
-		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
+		fmt.Fprintf(w, "  %s\n", SubtitleStyle.Render("(none configured)"))
 		return
 	}
 	for _, inc := range includes {
 		if inc.Alias != "" {
-			fmt.Printf("  - %s (alias: %s)\n", valueStyle.Render(string(inc.Path)), valueStyle.Render(string(inc.Alias)))
+			fmt.Fprintf(w, "  - %s (alias: %s)\n", valueStyle.Render(string(inc.Path)), valueStyle.Render(string(inc.Alias)))
 			continue
 		}
-		fmt.Printf("  - %s\n", valueStyle.Render(string(inc.Path)))
+		fmt.Fprintf(w, "  - %s\n", valueStyle.Render(string(inc.Path)))
 	}
 }
 
-func printLLMConfig(llm config.LLMConfig, valueStyle lipgloss.Style) {
+func printLLMConfig(w io.Writer, llm config.LLMConfig, valueStyle lipgloss.Style) {
 	if !llm.HasConfig() {
-		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
+		fmt.Fprintf(w, "  %s\n", SubtitleStyle.Render("(none configured)"))
 		return
 	}
 	if llm.Provider != "" {
-		fmt.Printf("  provider: %s\n", valueStyle.Render(string(llm.Provider)))
+		fmt.Fprintf(w, "  provider: %s\n", valueStyle.Render(string(llm.Provider)))
 	}
 	if llm.Model != "" {
-		fmt.Printf("  model: %s\n", valueStyle.Render(string(llm.Model)))
+		fmt.Fprintf(w, "  model: %s\n", valueStyle.Render(string(llm.Model)))
 	}
 	if llm.Timeout != "" {
-		fmt.Printf("  timeout: %s\n", valueStyle.Render(string(llm.Timeout)))
+		fmt.Fprintf(w, "  timeout: %s\n", valueStyle.Render(string(llm.Timeout)))
 	}
 	if llm.Concurrency != 0 {
-		fmt.Printf("  concurrency: %s\n", valueStyle.Render(llm.Concurrency.String()))
+		fmt.Fprintf(w, "  concurrency: %s\n", valueStyle.Render(llm.Concurrency.String()))
 	}
 	if llm.API.HasConfig() {
-		fmt.Println("  api:")
+		fmt.Fprintln(w, "  api:")
 		if llm.API.BaseURL != "" {
-			fmt.Printf("    base_url: %s\n", valueStyle.Render(string(llm.API.BaseURL)))
+			fmt.Fprintf(w, "    base_url: %s\n", valueStyle.Render(string(llm.API.BaseURL)))
 		}
 		if llm.API.Model != "" {
-			fmt.Printf("    model: %s\n", valueStyle.Render(string(llm.API.Model)))
+			fmt.Fprintf(w, "    model: %s\n", valueStyle.Render(string(llm.API.Model)))
 		}
 		if llm.API.CredentialEnv != "" {
-			fmt.Printf("    api_key_env: %s\n", valueStyle.Render("(configured)"))
+			fmt.Fprintf(w, "    api_key_env: %s\n", valueStyle.Render("(configured)"))
 		}
 	}
 }
 
 func initConfig() error {
+	w := os.Stdout
 	// Check if config exists
 	cfgDir, err := config.ConfigDir()
 	if err != nil {
@@ -230,7 +272,7 @@ func initConfig() error {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 
-	fmt.Printf("%s Created default configuration at %s/config.cue\n", SuccessStyle.Render("✓"), cfgDir)
+	fmt.Fprintf(w, "%s Created default configuration at %s/config.cue\n", SuccessStyle.Render("✓"), cfgDir)
 
 	// Also create commands directory
 	cmdsDir, err := config.CommandsDir()
@@ -238,7 +280,7 @@ func initConfig() error {
 		if mkdirErr := config.EnsureCommandsDir(""); mkdirErr != nil {
 			slog.Warn("failed to create commands directory", "path", cmdsDir, "error", mkdirErr)
 		} else {
-			fmt.Printf("%s Created commands directory at %s\n", SuccessStyle.Render("✓"), cmdsDir)
+			fmt.Fprintf(w, "%s Created commands directory at %s\n", SuccessStyle.Render("✓"), cmdsDir)
 		}
 	} else {
 		slog.Warn("failed to determine commands directory", "error", err)
@@ -247,29 +289,45 @@ func initConfig() error {
 	return nil
 }
 
-func showConfigPath() error {
+// showConfigPath prints the config directory and the user config file, plus
+// the effective explicit file when --ivk-config or INVOWK_CONFIG selects one.
+// It never loads or validates that file: a missing file or a relative
+// INVOWK_CONFIG is marked in the output and the command still exits 0.
+func showConfigPath(w io.Writer, app *App, rootFlags *rootFlagValues) error {
 	cfgDir, err := config.ConfigDir()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Config directory: %s\n", cfgDir)
-	fmt.Printf("Config file: %s/config.cue\n", cfgDir)
+	fmt.Fprintf(w, "Config directory: %s\n", cfgDir)
+	fmt.Fprintf(w, "Config file: %s/config.cue\n", cfgDir)
+
+	if selection := config.SelectSource(explicitLoadOptions(rootFlags), app.Getenv); selection.IsExplicit() {
+		fmt.Fprintf(w, "Effective config file: %s (from %s)%s\n", selection.Path, selection.Kind.Label(), effectiveConfigMarker(selection))
+	}
 
 	cmdsDir, err := config.CommandsDir()
 	if err == nil {
-		fmt.Printf("Commands directory: %s\n", cmdsDir)
+		fmt.Fprintf(w, "Commands directory: %s\n", cmdsDir)
 	}
 
 	hostKeyPath, err := config.HostKeyPath()
 	if err == nil {
-		fmt.Printf("SSH host key: %s\n", hostKeyPath)
+		fmt.Fprintf(w, "SSH host key: %s\n", hostKeyPath)
 	}
 
 	return nil
 }
 
-func setConfigValue(ctx context.Context, app *App, key, value string) error {
+// setConfigValue edits the user config file only. While --ivk-config or
+// INVOWK_CONFIG is active it refuses before reading or writing any file;
+// otherwise loading the user config and saving it back would copy the explicit
+// source's values into the user file.
+func setConfigValue(ctx context.Context, w io.Writer, app *App, rootFlags *rootFlagValues, key, value string) error {
+	if selection := config.SelectSource(explicitLoadOptions(rootFlags), app.Getenv); selection.IsExplicit() {
+		return configSetRefusal(selection)
+	}
+
 	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
 		return err
@@ -291,8 +349,35 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("%s Set %s = %s\n", SuccessStyle.Render("✓"), key, value)
+	fmt.Fprintf(w, "%s Set %s = %s\n", SuccessStyle.Render("✓"), key, value)
 	return nil
+}
+
+// effectiveConfigMarker flags an explicit selection that would fail to load,
+// using only a stat: " [invalid: must be absolute]" or " [missing]".
+//
+//plint:render
+func effectiveConfigMarker(selection config.SourceSelection) string {
+	if selection.Problem != nil {
+		return " [invalid: must be absolute]"
+	}
+	if info, err := os.Stat(string(selection.Path)); err != nil || info.IsDir() {
+		return " [missing]"
+	}
+	return ""
+}
+
+func configSetRefusal(selection config.SourceSelection) error {
+	userFile := "the user config file"
+	if cfgDir, err := config.ConfigDir(); err == nil {
+		userFile = filepath.Join(string(cfgDir), config.ConfigFileName+"."+config.ConfigFileExt)
+	}
+	remedy := "drop " + config.ConfigFlagName
+	if selection.Kind == config.ConfigSourceEnv {
+		remedy = "unset " + config.EnvConfigPath
+	}
+	return fmt.Errorf("config set edits the user config file %s, but %s selects %s; %s or edit that file directly",
+		userFile, selection.Kind.Label(), selection.Path, remedy)
 }
 
 func (v configValue) String() string { return string(v) }

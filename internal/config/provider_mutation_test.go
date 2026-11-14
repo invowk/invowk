@@ -44,7 +44,7 @@ func TestProviderLoadWithSourcePropagatesLoadErrorMutation(t *testing.T) {
 	t.Parallel()
 
 	missingPath := filepath.Join(t.TempDir(), "missing.cue")
-	_, err := NewProvider().LoadWithSource(t.Context(), LoadOptions{
+	_, err := NewProviderWithEnv(emptyEnv).LoadWithSource(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(missingPath),
 	})
 	if !errors.Is(err, ErrConfigFileNotFound) {

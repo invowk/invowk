@@ -33,6 +33,9 @@ type rootFlagValues struct {
 	interactive bool
 	// configPath overrides the default config file location (--ivk-config flag).
 	configPath string
+	// noCwd disables current-directory command sources (--ivk-no-cwd flag).
+	// Read it through resolveNoCwd, which also honours INVOWK_NO_CWD.
+	noCwd bool
 }
 
 // NewRootCommand creates the root Cobra command.
@@ -63,16 +66,19 @@ be organized hierarchically with support for dependencies.
 	}
 
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "ivk-verbose", "v", false, "enable verbose output")
-	rootCmd.PersistentFlags().StringVarP(&rootFlags.configPath, "ivk-config", "c", "", "config file (default is $HOME/.config/invowk/config.cue)")
+	rootCmd.PersistentFlags().StringVarP(&rootFlags.configPath, "ivk-config", "c", "",
+		"config file; overrides INVOWK_CONFIG and the user config file (see 'invowk config path'; Linux: $XDG_CONFIG_HOME/invowk/config.cue or ~/.config/invowk/config.cue, macOS: ~/Library/Application Support/invowk/config.cue, Windows: %APPDATA%\\invowk\\config.cue)")
+	rootCmd.PersistentFlags().BoolVar(&rootFlags.noCwd, noCwdFlagName, false,
+		"ignore the current directory's invowkfile.cue and *.invowkmod modules (env: INVOWK_NO_CWD)")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "ivk-interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")
 
 	rootCmd.AddCommand(newCmdCommand(app, rootFlags))
 	rootCmd.AddCommand(newInitCommand())
-	rootCmd.AddCommand(newConfigCommand(app))
+	rootCmd.AddCommand(newConfigCommand(app, rootFlags))
 	rootCmd.AddCommand(newCompletionCommand())
 	rootCmd.AddCommand(newTUICommand())
-	rootCmd.AddCommand(newModuleCommand(app))
-	rootCmd.AddCommand(newValidateCommand(app))
+	rootCmd.AddCommand(newModuleCommand(app, rootFlags))
+	rootCmd.AddCommand(newValidateCommand(app, rootFlags))
 	rootCmd.AddCommand(newAuditCommand(app, rootFlags))
 	rootCmd.AddCommand(newAgentCommand(app, rootFlags))
 	rootCmd.AddCommand(newInternalCommand(app, rootFlags))

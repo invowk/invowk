@@ -18,8 +18,14 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+// commandsvc detects request-scoped config loading by type assertion; keep the
+// adapter on that contract so a signature drift fails to compile instead of
+// silently bypassing the request cache.
+var _ commandsvc.ConfigAwareCommandDiscovery = (*DiscoveryService)(nil)
+
 type (
 	configPathContextKey            struct{}
+	noCwdContextKey                 struct{}
 	discoveryRequestCacheContextKey struct{}
 
 	// DiscoveryService implements request-scoped discovery/config memoization
@@ -48,9 +54,15 @@ type (
 	discoveryRequestCache struct {
 		mu sync.Mutex
 
+		// noCwd records the --ivk-no-cwd value the cache was created under.
+		// A cache is reused only by contexts with the same value, so a
+		// cwd-scoped result is never served to a no-cwd request.
+		noCwd bool
+
 		hasConfig              bool
 		cfg                    *config.Config
 		cfgDiags               []discovery.Diagnostic
+		cfgErr                 error
 		cfgDiagsOwnedByCommand bool
 
 		hasCommandSet bool
@@ -171,15 +183,42 @@ func ConfigPathFromContext(ctx context.Context) string {
 	return ""
 }
 
-// ContextWithDiscoveryRequestCache attaches a per-request discovery cache.
+// ContextWithNoCwd records whether current-directory command sources (the cwd
+// invowkfile and sibling modules) are disabled for this request. Apply it
+// before ContextWithConfigPath so the request cache is created for the right
+// scope.
+func ContextWithNoCwd(ctx context.Context, noCwd bool) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, noCwdContextKey{}, noCwd)
+}
+
+// NoCwdFromContext reports whether current-directory command sources are
+// disabled for this request. It defaults to false.
+func NoCwdFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	if v, ok := ctx.Value(noCwdContextKey{}).(bool); ok {
+		return v
+	}
+	return false
+}
+
+// ContextWithDiscoveryRequestCache attaches a per-request discovery cache. A
+// parent cache is reused only when it was created under the same no-cwd value
+// as ctx; otherwise a fresh cache is attached.
 func ContextWithDiscoveryRequestCache(ctx context.Context) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if _, ok := ctx.Value(discoveryRequestCacheContextKey{}).(*discoveryRequestCache); ok {
+	noCwd := NoCwdFromContext(ctx)
+	if cache, ok := ctx.Value(discoveryRequestCacheContextKey{}).(*discoveryRequestCache); ok && cache.noCwd == noCwd {
 		return ctx
 	}
 	return context.WithValue(ctx, discoveryRequestCacheContextKey{}, &discoveryRequestCache{
+		noCwd:   noCwd,
 		lookups: make(map[string]lookupCacheEntry),
 	})
 }
@@ -234,27 +273,34 @@ func prependModuleListDiagnostics(result discovery.ModuleListResult, cfgDiags []
 }
 
 // LoadConfig loads the request config through the same cache used by discovery
-// without claiming ownership of config diagnostics.
-func (s *DiscoveryService) LoadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
+// without claiming ownership of config diagnostics. A non-nil error is a
+// failed explicit config source.
+func (s *DiscoveryService) LoadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic, error) {
 	return s.loadConfig(ctx)
 }
 
 // LoadConfigForCommand loads the request config through the same cache used by
 // discovery, and marks config diagnostics as owned by the command service for
 // this request.
-func (s *DiscoveryService) LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
-	cfg, cfgDiags := s.loadConfig(ctx)
+func (s *DiscoveryService) LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic, error) {
+	cfg, cfgDiags, err := s.loadConfig(ctx)
+	if err != nil {
+		return nil, cfgDiags, err
+	}
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.cfgDiagsOwnedByCommand = true
 		cache.mu.Unlock()
 	}
-	return cfg, cfgDiags
+	return cfg, cfgDiags, nil
 }
 
 // DiscoverCommandSet discovers commands and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
+	cfg, cfgDiags, cfgErr := s.loadConfig(ctx)
+	if cfgErr != nil {
+		return discovery.CommandSetResult{}, cfgErr
+	}
 	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
@@ -267,7 +313,7 @@ func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.Co
 		cache.mu.Unlock()
 	}
 
-	result, err := s.newDiscovery(cfg).DiscoverCommandSet(ctx)
+	result, err := s.newDiscovery(ctx, cfg).DiscoverCommandSet(ctx)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.hasCommandSet = true
@@ -282,7 +328,10 @@ func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.Co
 // DiscoverAndValidateCommandSet discovers commands, validates the command tree,
 // and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
+	cfg, cfgDiags, cfgErr := s.loadConfig(ctx)
+	if cfgErr != nil {
+		return discovery.CommandSetResult{}, cfgErr
+	}
 	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
@@ -295,7 +344,7 @@ func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (d
 		cache.mu.Unlock()
 	}
 
-	result, err := s.newDiscovery(cfg).DiscoverAndValidateCommandSet(ctx)
+	result, err := s.newDiscovery(ctx, cfg).DiscoverAndValidateCommandSet(ctx)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.hasValidatedSet = true
@@ -314,9 +363,12 @@ func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (d
 
 // DiscoverModules discovers modules and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverModules(ctx context.Context) (discovery.ModuleListResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
+	cfg, cfgDiags, cfgErr := s.loadConfig(ctx)
+	if cfgErr != nil {
+		return discovery.ModuleListResult{}, cfgErr
+	}
 	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
-	result, err := s.newDiscovery(cfg).DiscoverModules()
+	result, err := s.newDiscovery(ctx, cfg).DiscoverModules()
 	return prependModuleListDiagnostics(result, cfgDiags), err
 }
 
@@ -324,7 +376,10 @@ func (s *DiscoveryService) DiscoverModules(ctx context.Context) (discovery.Modul
 //
 //goplint:ignore -- command lookup name is received at the adapter boundary.
 func (s *DiscoveryService) GetCommand(ctx context.Context, name string) (discovery.LookupResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
+	cfg, cfgDiags, cfgErr := s.loadConfig(ctx)
+	if cfgErr != nil {
+		return discovery.LookupResult{}, cfgErr
+	}
 	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
@@ -341,7 +396,7 @@ func (s *DiscoveryService) GetCommand(ctx context.Context, name string) (discove
 		cache.mu.Unlock()
 	}
 
-	result, err := s.newDiscovery(cfg).GetCommand(ctx, name)
+	result, err := s.newDiscovery(ctx, cfg).GetCommand(ctx, name)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.lookups[name] = lookupCacheEntry{result: result, err: err}
@@ -351,20 +406,24 @@ func (s *DiscoveryService) GetCommand(ctx context.Context, name string) (discove
 	return prependLookupDiagnostics(result, cfgDiags), err
 }
 
-func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
+// loadConfig loads the request config once per request cache. A failed
+// explicit config source is cached as cfgErr, so every later lookup in the same
+// request returns the same error instead of reloading or falling back.
+func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic, error) {
 	configPath := ConfigPathFromContext(ctx)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		if cache.hasConfig {
 			cfg := cache.cfg
 			diags := slices.Clone(cache.cfgDiags)
+			cfgErr := cache.cfgErr
 			cache.mu.Unlock()
-			return cfg, diags
+			return cfg, diags, cfgErr
 		}
 		cache.mu.Unlock()
 	}
 
-	cfg, commandDiags := commandsvc.LoadConfigWithFallback(ctx, s.config, configPath)
+	cfg, commandDiags, cfgErr := commandsvc.LoadConfigWithFallback(ctx, s.config, configPath)
 	diags := discoveryDiagnosticsFromCommand(commandDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
@@ -372,11 +431,12 @@ func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []di
 			cache.hasConfig = true
 			cache.cfg = cfg
 			cache.cfgDiags = slices.Clone(diags)
+			cache.cfgErr = cfgErr
 		}
 		cache.mu.Unlock()
 	}
 
-	return cfg, diags
+	return cfg, diags, cfgErr
 }
 
 func unconsumedConfigDiagnostics(ctx context.Context, diags []discovery.Diagnostic) []discovery.Diagnostic {
@@ -394,7 +454,12 @@ func unconsumedConfigDiagnostics(ctx context.Context, diags []discovery.Diagnost
 	return diags
 }
 
-func (s *DiscoveryService) newDiscovery(cfg *config.Config) *discovery.Discovery {
+// newDiscovery builds the discovery engine for one request. When the request
+// disables current-directory sources, WithBaseDir("") is appended last so it
+// overrides any injected base dir: discovery then skips the cwd invowkfile and
+// sibling modules and never calls os.Getwd, while includes, the user commands
+// dir and provisioned modules stay available.
+func (s *DiscoveryService) newDiscovery(ctx context.Context, cfg *config.Config) *discovery.Discovery {
 	var opts []discovery.Option
 	if s.baseDir != nil {
 		opts = append(opts, discovery.WithBaseDir(*s.baseDir))
@@ -410,6 +475,9 @@ func (s *DiscoveryService) newDiscovery(cfg *config.Config) *discovery.Discovery
 	}
 	if len(s.provisionedDiagnostics) > 0 {
 		opts = append(opts, discovery.WithInitialDiagnostics(s.provisionedDiagnostics))
+	}
+	if NoCwdFromContext(ctx) {
+		opts = append(opts, discovery.WithBaseDir(""))
 	}
 	return discovery.New(cfg, opts...)
 }
