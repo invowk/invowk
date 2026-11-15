@@ -166,22 +166,25 @@ func (d Dirs) base(xdgEnv string, xdgFallback, darwinFallback []string, win wind
 			dir = filepath.Join(append([]string{profile}, win.fallback...)...)
 		}
 	case platform.Darwin:
-		home, err := d.home()
-		if err != nil {
-			return "", err
-		}
-		dir = filepath.Join(append([]string{home}, darwinFallback...)...)
+		return d.underHome(darwinFallback)
 	default:
 		dir = d.absoluteEnv(xdgEnv)
 		if dir == "" {
-			home, err := d.home()
-			if err != nil {
-				return "", err
-			}
-			dir = filepath.Join(append([]string{home}, xdgFallback...)...)
+			return d.underHome(xdgFallback)
 		}
 	}
-	return types.FilesystemPath(dir), nil //goplint:ignore -- built from an absolute base and fixed elements.
+	return types.FilesystemPath(dir), nil //goplint:ignore -- an absolute variable or USERPROFILE joined with fixed elements.
+}
+
+// underHome joins fixed path elements under the absolute home directory.
+//
+//goplint:ignore -- path elements are fixed OS-boundary literals.
+func (d Dirs) underHome(elems []string) (types.FilesystemPath, error) {
+	home, err := d.home()
+	if err != nil {
+		return "", err
+	}
+	return types.FilesystemPath(filepath.Join(append([]string{home}, elems...)...)), nil //goplint:ignore -- an absolute home joined with fixed elements.
 }
 
 // userProfile returns the absolute USERPROFILE for a Windows AppData
