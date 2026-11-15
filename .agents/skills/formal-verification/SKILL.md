@@ -45,6 +45,16 @@ tool or a model.
 5. **Add a correspondence table** in the model header:
    `// | model element | Go symbol | file | binding | abstraction |`.
    - A binding cell may list several tests: `TestA, TestB`. Each must exist.
+   - Element check: the element cell's leading identifier must occur, as a
+     whole case-sensitive word, in the model source with comments stripped or
+     in a manifest command name or body of that model. Pairs that drifted
+     before the check are in the shrink-only `[correspondence]
+     unresolved_elements`; clear one by renaming the element (and re-keying
+     its ledger survivors), then delete the entry. Never add one.
+   - A row whose Go function does not carry the model's claim (no production
+     caller, or the claim lives in a different function) is unbound (binding
+     `-`, the reason in its abstraction cell), never given a direct-call test
+     that makes the reach gate green without measuring the claim.
    - Completeness guard: every test in a `*_formal_test.go`,
      `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go` file must be
      named by some row, except `Test*_TraceHarness`, which must live in a
@@ -90,10 +100,20 @@ tool or a model.
        against the real function, so a layer masked end to end by a later one
        is still calibrated. Bind the masked layer directly through a test-only
        `export_test.go` hook.
-     - Probe symlink, junction, and case-fold capability once (`fstree.Probe`);
-       skip instances that need a missing capability and log the count per
-       capability. Junctions are Windows-only: their leg is skipped and counted
-       on Linux/macOS.
+     - Probe symlink, junction, and case-fold capability once (`fstree.Probe`,
+       which keeps each probe's error) and apply the capability policy:
+       symlinks are required on Linux, macOS, and Windows CI
+       (`GITHUB_ACTIONS=true`), junctions on Windows. A required capability
+       that is missing fails the test with the probe error (`fstree.Require`,
+       `fstree.Cache.Get`); elsewhere the test or instance is skipped and
+       counted. Binding-test files skip only through these helpers:
+       `scripts/formal.py correspondence` rejects a direct `Skip`, `Skipf`, or
+       `SkipNow`. Rapid draws create links with `fstree.MustSymlink` and
+       `fstree.MustJunction` after a test-level `fstree.Require`.
+     - Judge a junction escape by file identity (`os.SameFile` against a unique
+       outside sentinel, backed by its content), never by
+       `filepath.EvalSymlinks` plus a prefix test: since Go 1.23 a mount point
+       is not `ModeSymlink`, and `EvalSymlinks` may not evaluate it.
      - Exhaustive enumeration of a relational filesystem is intractable for a
        materialised replay, so fix case-folding and junctions off in the golden
        and constrain the tree topology with a `goldenScenario` predicate; cover
@@ -108,7 +128,14 @@ tool or a model.
    confirm the bindings fail. Record the result in the manifest's
    `calibration`. If a defect survives, widen the golden scope before trusting
    the model.
-8. **Budget and wire into CI.** Every `[[model]]` and `[[trace]]` needs
+8. **Check reach.** `make formal-reach` (no Java) runs every killer of every
+   bound row alone under a coverage profile and fails unless each one executes
+   at least one statement of the row's function. A row that names a binding
+   which never calls its function fails here, not only in a mutation run.
+   Every unbound row and every ledger survivor of one is listed in the
+   shrink-only `[triage]` table (`triage --check` enforces it); bind a row or
+   delete its survivors' entries to shrink it, never add an entry.
+9. **Budget and wire into CI.** Every `[[model]]` and `[[trace]]` needs
    `budget_seconds` and `budget_source`: use `budget_source = "local"` with
    `ceil(3 x local seconds)` (read the runner's `timing` lines) until CI
    dispatch runs measure it. Every TLC command that expects `pass` needs
@@ -223,6 +250,7 @@ and afterwards require `snapshot --compare` to report every entry identical.
 
 ```bash
 python3 scripts/formal.py correspondence   # no Java needed
+make formal-reach                          # binding reach, no Java needed
 make formal                                # needs Java
 python3 scripts/test_formal.py
 # Replay every bound golden-vector and property test (packages and -run

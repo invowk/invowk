@@ -18,17 +18,35 @@ id was allocated (F18 stays free).
 
 ## Rows whose binding does not reach the function
 
-The table claims a binding that never calls the function, so every mutant of
-it escapes. Fix the row (name the test that does reach it, or add a replay of
-the real function to the named binding) before trusting the model's claim:
+The table claimed a binding that never called the function, so every mutant of
+it escaped. The binding reach gate (`make formal-reach`, harden-formal-instruments,
+2026-11-14) found eight such rows: the seven this run listed, plus `Auth` /
+`Server.ValidateToken`. Their status:
 
-- `validateDestinationPath` (`internal/app/moduleops/packaging.go`, 12 survivors): no test calls validateDestinationPath; the golden asserts unpackRejectsEscape only as a model fact, so the row's binding does not reach the function.
-- `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors): the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function.
-- `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): the harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
-- `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors): the harness golden never calls standardVirtualAnchorsForOS; only the host OS case can run on one platform.
-- `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors): the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function.
-- `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors): the ModulePathContainment golden never calls GetEffectiveWorkDir; only the container-workdir golden reaches it and the row does not name that test.
-- `VirtualFilesystemConfig.EffectiveAccess` (`pkg/invowkfile/virtual_filesystem.go`, 1 survivor): the harness golden fixes the access mode per instance and never calls EffectiveAccess.
+- `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors): **rebound** to `TestModulePathContainment_ContainerWorkDirGolden`, which calls it through `getContainerWorkDir`.
+- `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included.
+- `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
+- `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction`.
+- `VirtualFilesystemConfig.EffectiveAccess` (`pkg/invowkfile/virtual_filesystem.go`, 1 survivor): **rebound** to `TestVirtualPathHarness_RootConstruction`.
+- `validateDestinationPath` (`internal/app/moduleops/packaging.go`, 12 survivors): **unbound** (decision 5). The model's destination check, `unpackInside[destCheck]`, transcribes `normalizeZIPPath` followed by this function; alone it accepts an `AbsPath` name, and after `normalizeZIPPath` its rejection is unreachable on POSIX.
+- `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors): **unbound** (decision 8). The model abstracts anchors into `InReadRoot` and states no per-OS layout, so any anchor table would be a Go-side oracle.
+- `Server.ValidateToken` (`internal/sshserver/server_auth.go`, 8 survivors): **unbound** (decision 1). It has no production caller; the model's `Auth` is implemented by `Server.admitConn` (row `Auth/End atomicity`).
+
+Retriage flags:
+- The 59 survivors of the five rebound functions keep their now-stale reason ("never calls ..."); rerun and retriage them.
+- The 42 survivors of the three unbound rows (`validateDestinationPath` 12, `ValidateToken` 8, `standardVirtualAnchorsForOS` 22) name functions the plan no longer targets. They are listed in `[triage] orphaned_survivors` in `formal/manifest.toml`.
+- The baseline carries one plan-inputs digest, and the change edited killer-test files many functions share, so by the digest convention the rerun evidence of all 419 survivors is stale. `triage --check` still passes because it compares the baseline digest with the rerun records, not with the current tree.
+
+## Future work: survivor triage
+
+One follow-up change owns all of this:
+- triage the 419 survivors and refresh the baseline (new reruns at the new digest);
+- re-point the `Auth` row to `Server.admitConn`;
+- add a `normalizeZIPPath` row for `unpackInside`;
+- model per-OS anchors in `VirtualPathHarness.als` (decision 8), then bind `anchors`;
+- reconcile the Alloy-only "`validateDestinationPath` omitted" calibration claim in `module-path-containment-model` ("Seeded copy, discovery, hash, unpack, and harness calibration defects"), which no Go test detects;
+- rename the 34 unresolved model elements, re-key their ledger survivors, and empty `[correspondence] unresolved_elements` (decision 7);
+- empty `[triage] orphaned_survivors` (decision 9).
 
 ## Per-function gaps
 
