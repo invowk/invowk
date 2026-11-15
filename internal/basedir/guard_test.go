@@ -23,14 +23,33 @@ var (
 	// a base-directory variable, each with its reason. Review additions like
 	// any lint exception.
 	guardAllowlist = map[string]string{
-		"internal/testutil/home.go": "SetHomeDir writes HOME/USERPROFILE so tests can point the process home at a temp dir",
+		"internal/testutil/home.go":                             "SetHomeDir writes HOME/USERPROFILE so tests can point the process home at a temp dir",
+		"cmd/invowk/config_paths_help.go":                       "user-facing help text that names the per-OS user config paths ($XDG_CONFIG_HOME, %APPDATA%)",
+		"specs/003-test-suite-audit/contracts/testutil_home.go": "historical spec contract for internal/testutil.SetHomeDir; never called by production code",
 	}
 
-	guardScanDirs   = []string{"cmd", "internal", "pkg", "tests"}
-	guardLookups    = []string{"UserHomeDir", "UserConfigDir", "UserCacheDir"}
-	guardExactNames = []string{"HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA"}
-	guardXDGName    = regexp.MustCompile(`^XDG_[A-Z_]+$`)
-	guardWantMarker = regexp.MustCompile(`// want: (.+)$`)
+	// guardSkipDirs are directory names the scan never enters.
+	guardSkipDirs = []string{"testdata", "vendor", "node_modules"}
+	// guardLookups are os functions that read a base directory, or expand
+	// any variable named in a string (ExpandEnv, Expand).
+	guardLookups = []string{"UserHomeDir", "UserConfigDir", "UserCacheDir", "ExpandEnv", "Expand"}
+	// guardHelperImports are third-party home and XDG helpers that would
+	// bypass the resolver.
+	guardHelperImports = []string{
+		"github.com/mitchellh/go-homedir",
+		"github.com/adrg/xdg",
+		"github.com/OpenPeeDeeP/xdg",
+		"github.com/kirsle/configdir",
+		"github.com/shibukawa/configdir",
+		"github.com/muesli/go-app-paths",
+	}
+	// guardWindowsNames match case-insensitively, as Windows looks them up.
+	guardWindowsNames = []string{"USERPROFILE", "APPDATA", "LOCALAPPDATA"}
+	guardXDGName      = regexp.MustCompile(`^XDG_($|[A-Z])`)
+	guardBracedRef    = regexp.MustCompile(`\$\{(HOME|USERPROFILE|APPDATA|LOCALAPPDATA|XDG_[A-Z0-9_]*)\}`)
+	guardShellRef     = regexp.MustCompile(`\$(HOME|USERPROFILE|APPDATA|LOCALAPPDATA|XDG_[A-Z0-9_]*)`)
+	guardWindowsRef   = regexp.MustCompile(`(?i)%(HOME|USERPROFILE|APPDATA|LOCALAPPDATA|XDG_[A-Z0-9_]*)%`)
+	guardWantMarker   = regexp.MustCompile(`// want: (.+)$`)
 )
 
 type guardFinding struct {
@@ -64,8 +83,8 @@ func TestBaseDirGuard(t *testing.T) {
 
 // TestBaseDirGuardPlantedViolations proves the guard is not vacuous: every
 // line of the committed fixture marked "// want: <kind>" must be reported,
-// and nothing else (the skipped, allowlisted and out-of-scope fixture files
-// also contain violations).
+// and nothing else (the skipped and allowlisted fixture files also contain
+// violations).
 func TestBaseDirGuardPlantedViolations(t *testing.T) {
 	t.Parallel()
 
@@ -86,25 +105,36 @@ func TestBaseDirGuardPlantedViolations(t *testing.T) {
 		kinds[f.kind] = true
 	}
 	for _, kind := range []string{
-		"os.UserHomeDir", "os.UserConfigDir", "os.UserCacheDir", "os/user import",
+		"os.UserHomeDir", "os.UserConfigDir", "os.UserCacheDir", "os.ExpandEnv", "os.Expand",
+		"os/user import", "home-helper import",
 		"literal HOME", "literal USERPROFILE", "literal APPDATA", "literal LOCALAPPDATA",
-		"literal XDG_*", "literal $HOME", "literal ${HOME}",
+		"literal HOME=", "literal USERPROFILE=", "literal APPDATA=", "literal LOCALAPPDATA=",
+		"literal XDG_*", "literal $HOME", "literal ${HOME}", "literal $XDG_*", "literal ${XDG_*}",
+		"literal $USERPROFILE", "literal ${APPDATA}", "literal $LOCALAPPDATA",
+		"literal %APPDATA%", "literal %USERPROFILE%", "literal %LOCALAPPDATA%", "literal %HOME%", "literal %XDG_*%",
 	} {
 		if !kinds[kind] {
 			t.Errorf("fixture plants no %q violation", kind)
 		}
 	}
+	if n := countFindings(want, "internal/planted/helpers.go"); n != len(guardHelperImports) {
+		t.Errorf("helpers.go plants %d helper imports, want %d", n, len(guardHelperImports))
+	}
 	for _, file := range []string{"internal/planted/plain.go", "internal/planted/alias.go", "internal/planted/dot.go"} {
-		n := 0
-		for _, f := range want {
-			if f.file == file {
-				n++
-			}
-		}
-		if n != len(guardLookups) {
+		if n := countFindings(want, file); n != len(guardLookups) {
 			t.Errorf("%s plants %d lookups, want %d", file, n, len(guardLookups))
 		}
 	}
+}
+
+func countFindings(findings []guardFinding, file string) int {
+	n := 0
+	for _, f := range findings {
+		if f.file == file {
+			n++
+		}
+	}
+	return n
 }
 
 // plantedMarkers reads the expected findings from the fixture's markers.
@@ -159,46 +189,43 @@ func moduleRoot(t *testing.T) string {
 	}
 }
 
-// scanBaseDirLookups parses every non-test .go file under cmd/, internal/,
-// pkg/ and tests/ below root, plus root/main.go, and reports direct
-// base-directory lookups. testdata directories and internal/basedir (the
-// owner) are skipped, both matched on paths relative to root, and so are the
-// allowlisted files.
+// scanBaseDirLookups parses every non-test .go file of the module below
+// root and reports direct base-directory lookups. It skips guardSkipDirs,
+// hidden directories, directories with their own go.mod (other modules) and
+// internal/basedir (the owner), all matched on paths relative to root, and
+// the allowlisted files.
 func scanBaseDirLookups(root string, allowlist map[string]string) ([]guardFinding, error) {
 	var files []string
-	for _, dir := range guardScanDirs {
-		base := filepath.Join(root, dir)
-		if _, err := os.Stat(base); err != nil {
-			continue
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-		err := filepath.WalkDir(base, func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				return fmt.Errorf("relative path of %s: %w", path, err)
-			}
-			rel = filepath.ToSlash(rel)
-			if d.IsDir() {
-				if d.Name() == "testdata" || rel == "internal/basedir" {
-					return filepath.SkipDir
-				}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return fmt.Errorf("relative path of %s: %w", path, err)
+		}
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if rel == "." {
 				return nil
 			}
-			if strings.HasSuffix(rel, ".go") && !strings.HasSuffix(rel, "_test.go") {
-				if _, allowed := allowlist[rel]; !allowed {
-					files = append(files, rel)
-				}
+			if slices.Contains(guardSkipDirs, d.Name()) || strings.HasPrefix(d.Name(), ".") || rel == "internal/basedir" {
+				return filepath.SkipDir
+			}
+			if _, statErr := os.Stat(filepath.Join(path, "go.mod")); statErr == nil {
+				return filepath.SkipDir
 			}
 			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("walk %s: %w", base, err)
 		}
-	}
-	if _, err := os.Stat(filepath.Join(root, "main.go")); err == nil {
-		files = append(files, "main.go")
+		if strings.HasSuffix(rel, ".go") && !strings.HasSuffix(rel, "_test.go") {
+			if _, allowed := allowlist[rel]; !allowed {
+				files = append(files, rel)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk %s: %w", root, err)
 	}
 
 	var findings []guardFinding
@@ -231,10 +258,12 @@ func scanFile(fset *token.FileSet, file *ast.File) []guardFinding {
 		if err != nil {
 			continue
 		}
-		switch path {
-		case "os/user":
+		switch {
+		case path == "os/user":
 			report(imp.Pos(), "os/user import")
-		case "os":
+		case slices.Contains(guardHelperImports, path):
+			report(imp.Pos(), "home-helper import")
+		case path == "os":
 			switch {
 			case imp.Name == nil:
 				osNames["os"] = true
@@ -271,24 +300,55 @@ func scanFile(fset *token.FileSet, file *ast.File) []guardFinding {
 }
 
 // forbiddenLiteral returns the finding kind for a quoted Go string literal,
-// or "" when it is allowed.
+// or "" when it is allowed. XDG names are reported as XDG_* and Windows
+// names in upper case.
 func forbiddenLiteral(quoted string) string {
 	value, err := strconv.Unquote(quoted)
 	if err != nil {
 		return ""
 	}
-	switch {
-	case slices.Contains(guardExactNames, value):
-		return "literal " + value
-	case guardXDGName.MatchString(value):
-		return "literal XDG_*"
-	case strings.Contains(value, "${HOME}"):
-		return "literal ${HOME}"
-	case strings.Contains(value, "$HOME"):
-		return "literal $HOME"
-	default:
-		return ""
+	if name := exactBaseName(value); name != "" {
+		return "literal " + name
 	}
+	if name, _, found := strings.Cut(value, "="); found {
+		if base := exactBaseName(name); base != "" {
+			return "literal " + base + "="
+		}
+	}
+	if guardXDGName.MatchString(value) {
+		return "literal XDG_*"
+	}
+	if m := guardBracedRef.FindStringSubmatch(value); m != nil {
+		return "literal ${" + refName(m[1]) + "}"
+	}
+	if m := guardShellRef.FindStringSubmatch(value); m != nil {
+		return "literal $" + refName(m[1])
+	}
+	if m := guardWindowsRef.FindStringSubmatch(value); m != nil {
+		return "literal %" + refName(strings.ToUpper(m[1])) + "%"
+	}
+	return ""
+}
+
+// exactBaseName returns the canonical base-variable name that value is, or
+// "". HOME and XDG names match exactly; Windows names in any case.
+func exactBaseName(value string) string {
+	if value == "HOME" {
+		return value
+	}
+	for _, name := range guardWindowsNames {
+		if strings.EqualFold(value, name) {
+			return name
+		}
+	}
+	return ""
+}
+
+func refName(name string) string {
+	if strings.HasPrefix(name, "XDG_") {
+		return "XDG_*"
+	}
+	return name
 }
 
 func sortFindings(findings []guardFinding) {

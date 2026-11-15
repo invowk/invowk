@@ -1,0 +1,34 @@
+# Test: every caller of the shared base-directory resolver agrees on a relative
+# XDG value (base-directory-resolution, "all callers agree on a relative XDG
+# value"). With XDG_CONFIG_HOME=.config and an absolute home, both
+# 'invowk config path' and the virtual-sh @config anchor ignore the relative
+# value and use <home>/.config/invowk, never ./.config/invowk.
+# Linux only: macOS ignores XDG_CONFIG_HOME and Windows uses APPDATA, with a
+# different anchor layout. Only the virtual runtimes inject anchors, so this
+# test has no native mirror (runtime_mirror_exemptions.json).
+
+[!linux] skip 'XDG_CONFIG_HOME is read only on Linux'
+
+cd $WORK
+env HOME=$WORK/h
+env XDG_CONFIG_HOME=.config
+mkdir .config/invowk
+
+exec invowk config path
+stdout 'Config directory: +'$WORK'/h/\.config/invowk$'
+! stdout 'directory: +\.config'
+
+exec invowk cmd anchor-config
+stdout '^config=\['$WORK'/h/\.config/invowk\]$'
+
+-- invowkfile.cue --
+cmds: [{
+	name: "anchor-config"
+	implementations: [{
+		script: {content: """
+			echo "config=[$INVOWK_ANCHOR_CONFIG]"
+			"""}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}]
+	}]
+}]

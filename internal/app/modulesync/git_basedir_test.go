@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/invowk/invowk/internal/basedir"
@@ -67,6 +68,29 @@ func TestTrySSHAuthIgnoresRelativeHome(t *testing.T) { //nolint:paralleltest // 
 	absolute := newGitFetcherWith(types.FilesystemPath(t.TempDir()), basedir.New("linux", nil, homeLookup(work, nil)), gitEnv(nil))
 	if absolute.auth == nil {
 		t.Fatal("absolute home with .ssh/id_ed25519 loaded no SSH auth")
+	}
+}
+
+// TestHTTPSAuthWithRelativeHome covers base-directory-resolution "HTTPS fetch
+// with a relative home still works": with HOME=. and a key under the current
+// directory, an https:// URL passes the gate and token authentication is
+// chosen, not SSH keys from the current directory.
+func TestHTTPSAuthWithRelativeHome(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
+	work := t.TempDir()
+	writeTestSSHKey(t, work)
+	t.Chdir(work)
+
+	f := newGitFetcherWith(types.FilesystemPath(t.TempDir()), basedir.New("linux", nil, homeLookup(".", nil)),
+		gitEnv(map[string]string{"GIT_TOKEN": "tok"}))
+	if err := f.requireTrustedSSHFiles("https://192.0.2.1/x.git"); err != nil {
+		t.Fatalf("requireTrustedSSHFiles(https) = %v, want nil", err)
+	}
+	basic, ok := f.auth.(*githttp.BasicAuth)
+	if !ok {
+		t.Fatalf("auth = %T, want *http.BasicAuth from GIT_TOKEN", f.auth)
+	}
+	if basic.Username != "git" || basic.Password != "tok" {
+		t.Errorf("auth = %q/%q, want git/tok", basic.Username, basic.Password)
 	}
 }
 

@@ -93,6 +93,8 @@ Para URLs SSH (`git@...`), o invowk usa chaves de `~/.ssh/`:
 2. `~/.ssh/id_rsa`
 3. `~/.ssh/id_ecdsa`
 
+URLs SSH (`git@...` e `ssh://...`) exigem um diretório home absoluto (`HOME`, ou `USERPROFILE` no Windows) e entradas absolutas em `SSH_KNOWN_HOSTS`. O invowk lê dali as chaves, o `known_hosts` e o `.ssh/config`. Por isso, com um home relativo ou ausente, ou com uma entrada relativa em `SSH_KNOWN_HOSTS`, ele recusa o fetch antes de conectar, em vez de ler esses arquivos do diretório atual. Nesse caso, defina um home absoluto ou use uma URL `https://` com um dos tokens abaixo.
+
 ### Tokens HTTPS
 
 Para repositórios HTTPS privados, defina variáveis de ambiente:

@@ -34,9 +34,9 @@
   - Keep `DefaultDirWith(getenv)` and `DefaultDir()` as wrappers that pass `basedir.OS()`.
 
   Verify with `DefaultDirFrom` tests: relative env rejected, relative home rejected, absolute values unchanged.
-- [x] 3.2 (2026-11-15: `newGitFetcherWith` is the test constructor; `TestTrySSHAuthIgnoresRelativeHome` also shows the same key loads under an absolute home.) Give `GitFetcher` an unexported `dirs basedir.Dirs` and an injected `getenv`, both set by `NewGitFetcher` (`internal/app/modulesync/git.go:47-51`), plus a test constructor. Make `trySSHAuth` (`git.go:303-326`) use `f.dirs.Home()` and return nil on error. Verify with a unit test: an injected relative home with `.ssh/id_ed25519` in a `t.TempDir()` loads no key.
+- [x] 3.2 (2026-11-15: `newGitFetcherWith` is the test constructor; `TestTrySSHAuthIgnoresRelativeHome` also shows the same key loads under an absolute home.) Give `GitFetcher` an unexported `dirs basedir.Dirs` and an injected `getenv`, both set by `NewGitFetcher` (`internal/app/modulesync/git.go`), plus a test constructor. Make `trySSHAuth` use `f.dirs.Home()` and return nil on error. Verify with a unit test: an injected relative home with `.ssh/id_ed25519` in a `t.TempDir()` loads no key.
 - [x] 3.3 (2026-11-15: `SSHTrustFilesError` wraps `ErrSSHTrustFilesNotAbsolute` plus the cause; `TestRequireTrustedSSHFiles` and `TestSSHGateRunsBeforeDial` pass.) Add `(*GitFetcher).requireTrustedSSHFiles(gitURL)`, which returns `ErrSSHTrustFilesNotAbsolute` (design D2, Git).
-  - Call it first in `ListVersions`, `Fetch`, `GetCommitForTag`, `CloneShallow`, `IsPrivateRepo` (return true without connecting) and `ListTagsWithCommits` (`git.go:59-252`).
+  - Call it first in `ListVersions`, `Fetch`, `GetCommitForTag`, `CloneShallow`, `IsPrivateRepo` (return true without connecting) and `ListTagsWithCommits` (all in `git.go`).
   - For every URL that does not start with `https://`, it requires `Home()` to succeed with an absolute path (an unavailable home is refused too, decision 18) and every non-empty `SSH_KNOWN_HOSTS` entry to be absolute.
 
   Verify with unit tests that use an unroutable endpoint (`ssh://git@192.0.2.1/x.git`, TEST-NET-1) and a short context. The relative-home, unavailable-home and relative-`SSH_KNOWN_HOSTS` cases return the typed error before any dial: the error must be the typed one, not a timeout. An `https://` URL with a relative home passes the gate.
@@ -102,7 +102,7 @@
   Verify that the test passes on the tree, and that `scan("testdata/guardfixture")` returns exactly the expected file:line findings, one per planted pattern, and none for the allowlisted and skipped fixture files.
 - [x] 6.3 (2026-11-15: windows-testing, go skill "Per-User Directories" and the testing rule guardrail list updated; `make check-agent-docs` passes.) Document the helper and the guard where home-directory handling is already covered: `.agents/skills/windows-testing/SKILL.md` (the `os.UserHomeDir`/`SetHomeDir` notes), `.agents/skills/go/SKILL.md` (including "review new dependencies that read per-user files"), and `.agents/rules/testing.md`. Verify with `make check-agent-docs`.
 - [x] 6.4 (2026-11-15: exception added under "Utility Package Boundaries"; `make check-agent-docs` passes.) Add the explicit `internal/basedir` exception to `.agents/rules/package-design.md` "Utility Package Boundaries" (design decision 14), next to the "each gets its own copy" bullet, with its reason and a pointer to the guard. Verify with `make check-agent-docs`.
-- [ ] 6.5 Group check: run `go test ./internal/basedir/ -run Guard && make lint` and confirm it passes.
+- [x] 6.5 (2026-11-15: passes after the 6b guard extension.) Group check: run `go test ./internal/basedir/ -run Guard && make lint` and confirm it passes.
 
 ## 6a. Stage 4a: `HOME`-unset checks and Windows CI (2026-11-15)
 
@@ -111,6 +111,14 @@
 - [x] 6a.3 (2026-11-15: recorded in design Context and decision 19; the migration notes name the unit-level fixes.) Check what `HOME` systemd gives user and system units.
 - [x] 6a.4 (2026-11-15: `virtual_home_unset.txtar`, `native_home_unset.txtar` and `container_home_unset.txtar` pass on Linux, decision 21.) Add tests that plain native, virtual and container commands run with `HOME` unset.
 - [x] 6a.5 (2026-11-15: reproduced, decision 20; the SSH row stays BREAKING and the gate keeps refusing an unavailable home.) Reproduce the cwd-relative `.ssh/config` read on origin/main with `HOME` unset.
+
+## 6b. Stage 4a review fixes (2026-11-15)
+
+- [x] 6b.1 (2026-11-15: done, decision 22; the planted fixture failed before the scan change and passes after; moving the help text left `invowk --help` and `invowk config --help` byte-identical.) Extend the guard (spec first): `os.ExpandEnv`/`os.Expand`, helper-library imports, case-insensitive Windows names, `NAME=` prefixes, the `XDG_` prefix, `$NAME`/`${NAME}`/`%NAME%` references, and a whole-module scan with `vendor`, `node_modules`, hidden and nested-module skips. Move the help strings that name `$XDG_CONFIG_HOME`/`%APPDATA%` to an allowlisted `cmd/invowk/config_paths_help.go`. Plant each new pattern in `testdata/guardfixture`.
+- [x] 6b.2 (2026-11-15: done.) Document the SSH absolute-home and absolute-`SSH_KNOWN_HOSTS` requirement under "SSH Keys" in `website/docs/modules/dependencies/declaring-dependencies.mdx` and its pt-BR copy.
+- [x] 6b.3 (2026-11-15: done.) Replace `git.go` line numbers with function names in the proposal, design, tasks and tracker; restore the tracker's original merge-order line and add the v0.17.0 order as its own line.
+- [x] 6b.4 (2026-11-15: done, decision 23.) Record the Windows `/etc/ssh/ssh_known_hosts` default as a known limitation in the SSH requirement and fold the fix into N10.
+- [x] 6b.5 (2026-11-15: done, decisions 24 and 25.) Close the spec test gaps: `module_sync_ssh_untrusted_files.txtar` (relative, unset home and relative `SSH_KNOWN_HOSTS`, planted `./.ssh/` files), `TestHTTPSAuthWithRelativeHome`, `virtual_anchor_relative_xdg.txtar` (config path and `@config` agree; mirror exemption), `module_cache_relative_home.txtar`, `TestWithRunLock_RelativeXDGRuntimeDirCreatesNoCwdLock`, and the config legacy oracle `TestConfigPathsMatchLegacy`.
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 

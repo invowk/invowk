@@ -84,6 +84,10 @@ The default provisioning cache directory (`<home>/.cache/invowk/provision`) SHAL
 
 A git fetch whose URL is not `https://` (an SSH URL) SHALL run only with an absolute home, which invowk and the git libraries read SSH keys, `known_hosts` and the SSH client config from. An unavailable home SHALL be refused too. Every non-empty `SSH_KNOWN_HOSTS` entry SHALL be absolute. Otherwise the fetch SHALL fail before connecting, with an error that names the relative value or the unavailable home. HTTPS fetches SHALL be unaffected.
 
+#### Scenario: the Windows default known-hosts list is a known limitation
+- **WHEN** `SSH_KNOWN_HOSTS` is unset on Windows and an SSH URL is fetched with an absolute `USERPROFILE`
+- **THEN** the git library's default list applies, which also names the root-relative `/etc/ssh/ssh_known_hosts` on the current drive; this is tracked as a follow-up, and an absolute `SSH_KNOWN_HOSTS` avoids it
+
 #### Scenario: SSH fetch with a relative home is refused
 - **WHEN** `HOME=.` is set, the current directory contains `.ssh/id_ed25519` and `.ssh/known_hosts`, and a module with a `git@` URL is fetched
 - **THEN** the fetch fails before any network connection, stderr names the relative home, and none of those files is read
@@ -122,7 +126,7 @@ When every base variable (`HOME`, `USERPROFILE`, `XDG_*`, `APPDATA`, `LOCALAPPDA
 
 ### Requirement: Direct base-directory lookups are rejected by a repository gate
 
-`make test` SHALL fail when a non-test Go file outside the shared resolver calls `os.UserHomeDir`, `os.UserConfigDir` or `os.UserCacheDir` (under any import name, including a dot import), imports `os/user`, or has a string literal that is `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` or an `XDG_*` name, or that contains `$HOME` or `${HOME}`. Exceptions SHALL be listed by file, each with a reason.
+`make test` SHALL fail when a non-test Go file of the main module outside the shared resolver calls or references `os.UserHomeDir`, `os.UserConfigDir`, `os.UserCacheDir`, `os.ExpandEnv` or `os.Expand` under any import name (a dot import included), imports `os/user` or a known home or XDG helper library, or has a forbidden string literal (next requirement). It SHALL scan the whole module. Exceptions SHALL be listed by file, each with a reason.
 
 #### Scenario: a new direct lookup fails the gate
 - **WHEN** a production file outside the resolver package adds `os.UserHomeDir()` or `os.Getenv("XDG_DATA_HOME")`
@@ -132,9 +136,29 @@ When every base variable (`HOME`, `USERPROFILE`, `XDG_*`, `APPDATA`, `LOCALAPPDA
 - **WHEN** a production file imports `os` as `goos` and calls `goos.UserHomeDir()`
 - **THEN** the gate fails and names the file and line
 
+#### Scenario: an expanded string does not bypass the gate
+- **WHEN** a production file calls `os.ExpandEnv("$XDG_CONFIG_HOME/invowk")`, or builds a name from a `"XDG_"` constant
+- **THEN** the gate fails and names the file and line
+
+#### Scenario: code outside the usual directories is scanned
+- **WHEN** a production file in a new top-level directory, such as `tools/`, adds `os.UserHomeDir()`
+- **THEN** the gate fails; only `testdata`, `vendor`, `node_modules`, hidden and nested-module directories and the resolver package are skipped
+
 #### Scenario: listed exceptions pass
 - **WHEN** an exempt file, such as the test helper that sets `HOME` for tests, names `HOME`
 - **THEN** the gate passes
+
+### Requirement: The gate rejects base-variable string literals
+
+The gate SHALL report a string literal that is `HOME`, `USERPROFILE`, `APPDATA` or `LOCALAPPDATA` (the last three in any case), that starts with one of them and `=`, that is `XDG_` or starts with `XDG_` and an upper-case letter, or that contains `$NAME`, `${NAME}` or `%NAME%` (any case) for one of those names or an `XDG_*` name.
+
+#### Scenario: an environment-list prefix is reported
+- **WHEN** a production file parses `os.Environ()` with `strings.CutPrefix(kv, "HOME=")`
+- **THEN** the gate fails and names the file and line
+
+#### Scenario: a Windows reference in any case is reported
+- **WHEN** a production file has the literal `%userprofile%\.ssh`
+- **THEN** the gate fails and names the file and line
 
 ### Requirement: The base-directory gate is proven not vacuous
 
@@ -142,4 +166,5 @@ The gate SHALL be tested against a committed fixture tree that plants each forbi
 
 #### Scenario: the planted-violation fixture is reported
 - **WHEN** the gate scans its committed fixture tree
-- **THEN** it reports each planted pattern, including an aliased and a dot-imported `os`, an `os/user` import, each exact literal, an `XDG_*` literal and `$HOME`/`${HOME}` substrings, and nothing for the skipped and exempt fixture files
+- **THEN** it reports each planted pattern, including an aliased and a dot-imported `os`, `os.ExpandEnv` and `os.Expand`, an `os/user` import, each helper-library import, each exact literal (and a lower-case Windows name), each `NAME=` prefix, an `XDG_*` literal, the bare `XDG_` prefix, each `$NAME`, `${NAME}` and `%NAME%` reference, and a file in a directory outside `cmd/`, `internal/`, `pkg/` and `tests/`
+- **AND** it reports nothing for the fixture's test files, `testdata`, `vendor`, hidden and nested-module directories, the resolver package and the exempt file

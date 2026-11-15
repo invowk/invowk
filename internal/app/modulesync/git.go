@@ -43,7 +43,8 @@ type (
 		// dirs resolves the home directory that SSH keys and known_hosts
 		// come from; the zero value is the real process.
 		dirs basedir.Dirs
-		// getenv reads SSH_KNOWN_HOSTS; nil means os.Getenv.
+		// getenv reads SSH_KNOWN_HOSTS and the HTTPS token variables; nil
+		// means os.Getenv.
 		getenv func(string) string
 	}
 
@@ -367,16 +368,22 @@ func (f *GitFetcher) requireTrustedSSHFiles(gitURL GitURL) error {
 	if _, err := f.dirs.Home(); err != nil {
 		return &SSHTrustFilesError{Source: "home directory", Err: err}
 	}
-	getenv := f.getenv
-	if getenv == nil {
-		getenv = os.Getenv
-	}
-	for _, entry := range filepath.SplitList(getenv(sshKnownHostsEnv)) {
+	for _, entry := range filepath.SplitList(f.env(sshKnownHostsEnv)) {
 		if entry != "" && !filepath.IsAbs(entry) {
 			return &SSHTrustFilesError{Source: sshKnownHostsEnv, Value: entry, Err: basedir.ErrNotAbsolute}
 		}
 	}
 	return nil
+}
+
+// env reads an environment variable through the injected lookup.
+//
+//goplint:ignore -- raw environment variable name and value at the OS boundary.
+func (f *GitFetcher) env(name string) string {
+	if f.getenv == nil {
+		return os.Getenv(name)
+	}
+	return f.getenv(name)
 }
 
 // setupAuth configures authentication based on available credentials.
@@ -427,7 +434,7 @@ func (f *GitFetcher) trySSHAuth() transport.AuthMethod {
 // tryHTTPAuth attempts to configure HTTP authentication.
 func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 	// Check for GitHub token
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+	if token := f.env("GITHUB_TOKEN"); token != "" {
 		return &http.BasicAuth{
 			Username: "x-access-token",
 			Password: token,
@@ -435,7 +442,7 @@ func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 	}
 
 	// Check for GitLab token
-	if token := os.Getenv("GITLAB_TOKEN"); token != "" {
+	if token := f.env("GITLAB_TOKEN"); token != "" {
 		return &http.BasicAuth{
 			Username: "gitlab-ci-token",
 			Password: token,
@@ -443,7 +450,7 @@ func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 	}
 
 	// Check for generic Git token
-	if token := os.Getenv("GIT_TOKEN"); token != "" {
+	if token := f.env("GIT_TOKEN"); token != "" {
 		return &http.BasicAuth{
 			Username: "git",
 			Password: token,

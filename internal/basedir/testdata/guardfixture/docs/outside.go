@@ -2,5 +2,6 @@
 
 package docs
 
-// Directories outside cmd/, internal/, pkg/ and tests/ are not scanned.
-var name = "HOME"
+// Every directory of the module is scanned, not only cmd/, internal/, pkg/
+// and tests/.
+var name = "HOME" // want: literal HOME
