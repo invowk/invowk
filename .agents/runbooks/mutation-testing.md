@@ -1,6 +1,6 @@
 # Mutation Testing
 
-Procedures for the manual mutation-testing profiles. Targets are listed in `.agents/rules/commands.md`, which also owns the data-loss warning: **commit regenerated artifacts before running any mutation target.** Background and profile history: `docs/next/mutation-testing.md`.
+Procedures for the manual mutation-testing profiles. Targets are listed in `.agents/rules/commands.md`, which also owns the enforced data-loss rule: the wrapper refuses to start with uncommitted tracked work outside its allow-list, and its restore acts only on a checkout it verified clean. Background and profile history: `docs/next/mutation-testing.md`.
 
 ## Scope
 
@@ -29,7 +29,7 @@ Profiles:
 
 Defaults: `MUTATION_MODULE=root`; `MUTATION_MODE=advisory` (use `blocking` only for explicit experiments after the baseline and runtime signal are stable); `MUTATION_REPORT_DIR=artifacts/mutation`; `MUTATION_WORKERS=0` locally (the workflow sets a bounded count).
 
-Execution model: package-level Go tests with `-short`, even when a manifest selects explicit files; no `-race`, no CLI testscript suites, no container-engine profiles unless a future opt-in profile documents the cost. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources on exit.
+Execution model: package-level Go tests with `-short`, even when a manifest selects explicit files; no `-race`, no CLI testscript suites, no container-engine profiles unless a future opt-in profile documents the cost. Local mutating profiles reject tracked dirty work outside mutation baselines/reports and restore mutated package sources on exit. `ensure_clean_tracked_worktree_for_mutation` arms the restore for the resolved checkout path; `restore_tracked_mutation_paths` and `remove_new_untracked_paths` call `require_armed_restore` first. Script tests of these helpers run in temporary repositories (`make_fixture_repo` in `scripts/test_mutation.sh`), never in the checkout.
 
 ## Baselines and reports
 

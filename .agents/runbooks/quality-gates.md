@@ -20,6 +20,14 @@ Reference for what enforces each gate. The normative completion steps are in `.a
 
 Not covered by any hook (manual discipline): `make test`, `make tidy`, `make check-file-length`, `make check-agent-docs`, `make test-scripts`, documentation, diagram and sample-module validation, the code-review/simplify pass, and `/learn`.
 
+## Script tests (`make test-scripts`)
+
+- Single list: `scripts/script-tests.sh` (`SCRIPT_TESTS`). Each run first checks that every `scripts/test_*` file is listed there or, with a reason, in `SCRIPT_TESTS_ELSEWHERE` (only `test_install.ps1`, which runs on Windows CI); `--check-list` runs only that check. CI (`ci.yml` and `release.yml`, Linux legs) runs `make test-scripts`; do not copy individual test commands into workflows.
+- Worktree-safety gate: `scripts/check-script-tests-worktree-safety.sh` runs the list in a throwaway `git worktree add --detach` checkout at HEAD. It mirrors the checkout's staged, unstaged and untracked work and plants canaries: an unstaged edit under each of `cmd/`, `internal/` and `pkg/`, one staged edit, and one untracked file. Afterwards it compares the canary bytes, the staged and unstaged binary diffs and the untracked set (with content hashes). It also compares the real checkout before and after, including HEAD and the stash list.
+- Exit status: 0 pass, 1 suite failed, 2 setup error, 3 a checkout changed. On 3 for the real checkout it keeps the before-state (diffs plus a tar of untracked files) and prints recovery commands; it never restores anything. The throwaway checkout is always removed with `git worktree remove --force`, never `git worktree prune`.
+- Self-test: `scripts/test_check_script_tests_worktree_safety.sh`, in the list, injects destructive commands into the gate over a fixture repository and asserts exit 3. One of them is the old `git restore -- cmd internal pkg`.
+- `make test-scripts-unguarded` runs the list in place, without the gate. Use it only for quick iteration.
+
 ## sonar-local
 
 - API-only: `scripts/sonar-local.sh` reads the quality gate and unresolved issues from SonarCloud; it does not scan locally. CI analysis is SonarCloud Automatic Analysis (GitHub App).

@@ -258,32 +258,13 @@ jobs:
             --packages ./tests/cli/... \
             -- -race -timeout 5m
 
-      # Run install script unit tests (pure function tests, no network calls).
-      - name: Run install script tests
+      # Every script test (single list: scripts/script-tests.sh), run in a
+      # throwaway checkout behind the worktree-safety gate. No network calls.
+      # Linux only; the PowerShell install tests run on Windows below.
+      - name: Run script tests (worktree-safety gate)
         if: startsWith(matrix.runner, 'ubuntu')
         shell: bash
-        run: sh scripts/test_install.sh
-
-      - name: Run release helper script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: bash scripts/test_release.sh
-
-      - name: Run Bencher BMF script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: node scripts/test_bench_bmf.mjs
-
-      - name: Run Bencher registry login script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: bash scripts/test_bencher_registry_login.sh
-
-      # Run WinGet manifest enhancement tests (Python + bash, no network calls).
-      - name: Run WinGet enhancement tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: sh scripts/test_enhance_winget_manifest.sh
+        run: make test-scripts
 
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)
