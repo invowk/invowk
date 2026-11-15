@@ -95,19 +95,20 @@ func TestModulePathContainment_F17EnvVendoredSymlink(t *testing.T) {
 	}
 }
 
-// TestModulePathContainment_F16Junction decides the junction hypothesis F16
-// (design D7 of harden-formal-instruments): a junction inside a module is not
-// ModeSymlink (Go 1.23+), so inspectModuleEntry may not record it and an
-// operation may follow it out of the module. Junctions are required on Windows
-// and skipped elsewhere through the capability policy. It asserts containment,
-// the policy, for every operation production runs on such a module:
-//   - when IsModule and Load admit it, the script read of j/secret does not
-//     return the outside sentinel;
+// TestModulePathContainment_F16Junction records finding F16 (design D7 of
+// harden-formal-instruments, outcome b, windows-latest run 43657442894): a
+// junction inside a module is not ModeSymlink (Go 1.23+), so IsModule and Load
+// admit a module with an inner junction and the script read of j/secret
+// follows it out of the module. This asserts today's behaviour; the fix (a
+// junction-aware scan, findingF16JunctionScan's fix configuration
+// scriptReadScanAllKinds) inverts it in a later change. The same run showed
+// the other operations contained, so the leg asserts that too:
 //   - neither copy (modulecache.CopyModuleDir, provision.CopyDir) contains the
 //     outside sentinel;
 //   - ComputeModuleHash does not change when only the outside sentinel does.
 //
-// Windows CI decides the outcome: a failure here is outcome (b), escape.
+// Junctions are required on Windows and skipped elsewhere through the
+// capability policy.
 func TestModulePathContainment_F16Junction(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapJunction)
@@ -125,17 +126,20 @@ func TestModulePathContainment_F16Junction(t *testing.T) {
 	mod := b.Path["mod"]
 
 	mp := types.FilesystemPath(mod)
-	_, loadErr := invowkmod.Load(mp)
-	admitted := invowkmod.IsModule(mp) && loadErr == nil
-	t.Logf("F16: IsModule and Load admit a module with an inner junction: %v (Load error %v)", admitted, loadErr)
-	if admitted {
-		sfp := invowkfile.ScriptFilePath("j/secret")
-		impl := invowkfile.Implementation{Script: invowkfile.ImplementationScript{File: &sfp}}
-		content, err := impl.ResolveScriptWithFSAndModule("", invowkfile.FilesystemPath(mod), os.ReadFile)
-		t.Logf("F16: script read of j/secret: error %v", err)
-		if err == nil && content == sentinel {
-			t.Errorf("F16 escape: the script read of j/secret returned the outside sentinel")
-		}
+	if !invowkmod.IsModule(mp) {
+		t.Fatal("F16 did not reproduce: IsModule rejected a module with an inner junction")
+	}
+	if _, err := invowkmod.Load(mp); err != nil {
+		t.Fatalf("F16 did not reproduce: Load rejected a module with an inner junction: %v", err)
+	}
+	sfp := invowkfile.ScriptFilePath("j/secret")
+	impl := invowkfile.Implementation{Script: invowkfile.ImplementationScript{File: &sfp}}
+	content, err := impl.ResolveScriptWithFSAndModule("", invowkfile.FilesystemPath(mod), os.ReadFile)
+	if err != nil {
+		t.Fatalf("F16 did not reproduce: the script read of j/secret errored: %v", err)
+	}
+	if content != sentinel {
+		t.Fatalf("F16 did not reproduce: the script read of j/secret returned %q, want the outside sentinel", content)
 	}
 
 	scratch := t.TempDir()
@@ -148,9 +152,8 @@ func TestModulePathContainment_F16Junction(t *testing.T) {
 	for name, copyDir := range copies {
 		dst := filepath.Join(scratch, strings.ReplaceAll(name, ".", "-"))
 		err := copyDir(mod, dst)
-		t.Logf("F16: %s: error %v", name, err)
 		if err == nil && copiedOutsideContent(dst, map[string]bool{sentinel: true}) {
-			t.Errorf("F16 escape: %s copied the outside sentinel", name)
+			t.Errorf("%s copied the outside sentinel through the junction (contained in run 43657442894)", name)
 		}
 	}
 
@@ -159,11 +162,10 @@ func TestModulePathContainment_F16Junction(t *testing.T) {
 		t.Fatalf("change sentinel: %v", err)
 	}
 	after, afterErr := invowkmod.ComputeModuleHash(mod)
-	t.Logf("F16: ComputeModuleHash errors before/after the sentinel change: %v / %v", beforeErr, afterErr)
 	switch {
 	case (beforeErr == nil) != (afterErr == nil):
-		t.Errorf("F16 escape: ComputeModuleHash succeeds only on one side of an outside-only change (%v / %v)", beforeErr, afterErr)
+		t.Errorf("ComputeModuleHash succeeds only on one side of an outside-only change (%v / %v)", beforeErr, afterErr)
 	case beforeErr == nil && before != after:
-		t.Errorf("F16 escape: ComputeModuleHash changed when only the outside sentinel changed (%s -> %s)", before, after)
+		t.Errorf("ComputeModuleHash changed when only the outside sentinel changed (%s -> %s)", before, after)
 	}
 }

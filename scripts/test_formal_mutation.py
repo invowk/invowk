@@ -688,6 +688,65 @@ SEEDED_ORPHANS = frozenset({
 })
 
 
+# The unbound rows [triage] was seeded with (design D13): 54.
+SEEDED_UNBOUND_ROWS = frozenset({
+    ('AtomicWrite', 'caller', 'LockFile.Save'),
+    ('AtomicWrite', 'cleanup', 'atomicWriteOps'),
+    ('ConcurrentModuleEdits', 'AddProg (add_add_same)', 'Resolver.AddModuleDependency'),
+    ('ConcurrentModuleEdits', 'AddProg (fetch_v1_v2)', 'Resolver.Add'),
+    ('ConcurrentModuleEdits', 'AddProg (sync_add)', 'Resolver.AddModuleDependency'),
+    ('ConcurrentModuleEdits', 'Checkout', 'GitFetcher.checkout'),
+    ('ConcurrentModuleEdits', 'Checkout, CopyToCache', 'Resolver.resolveOne'),
+    ('ConcurrentModuleEdits', 'CopyToCache', 'Resolver.cacheModule'),
+    ('ConcurrentModuleEdits', 'RemoveProg', 'Resolver.RemoveModuleDependency'),
+    ('ConcurrentModuleEdits', 'Restore', 'fileSnapshot.restore'),
+    ('ConcurrentModuleEdits', 'SyncProg', 'SyncModule'),
+    ('ConcurrentModuleEdits', 'TidyProg', 'TidyModule'),
+    ('ConcurrentModuleEdits', 'UpdateProg', 'UpdateModule'),
+    ('ConcurrentModuleEdits', 'VendorProg', 'vendorDependenciesWithResolver'),
+    ('ConcurrentModuleEdits', 'VendorRemove, VendorCopy', 'VendorModules'),
+    ('ConcurrentModuleEdits', 'WriteLock', 'LockFile.Save'),
+    ('ConcurrentModuleEdits', 'WriteLock rebuild', 'Resolver.Sync'),
+    ('ConcurrentModuleEdits', 'WriteLock remove', 'Resolver.Remove'),
+    ('ConcurrentModuleEdits', 'WriteLock update (update_add)', 'Resolver.Update'),
+    ('ConcurrentModuleEdits', 'WriteLock update (update_remove)', 'Resolver.Update'),
+    ('ConcurrentModuleEdits', 'WriteMod add', 'AddRequirement'),
+    ('ConcurrentModuleEdits', 'WriteMod remove', 'RemoveRequirement'),
+    ('DependencyClosure', 'Mod.key', 'ModuleRef.Key'),
+    ('DependencyClosure', 'resolved', 'Resolver.resolveAll'),
+    ('HostCallbackToken', 'Auth', 'Server.ValidateToken'),
+    ('HostCallbackToken', 'End paths', 'ContainerRuntime.prepareContainerExecution'),
+    ('HostCallbackToken', 'Start/Auth/End/EndSession/Expire/Stop', 'Server.GetConnectionInfo'),
+    ('HostCallbackToken', 'Stop', 'Server.Stop'),
+    ('LockIdentity', 'v2Parse', 'parseLockFile'),
+    ('LockIntegrity', 'CallViaSibling, hashless entry', 'IsDeclaredLockedCommandSource'),
+    ('LockIntegrity', 'Sync commit failure', 'LockedCommitMismatchError'),
+    ('LockIntegrity', 'Vendor lock load', 'Resolver.LoadDeclaredFromLock'),
+    ('ModulePathContainment', 'ValidateScriptPath', 'ValidateScriptPath'),
+    ('ModulePathContainment', 'allowedVendoredSelf', '-'),
+    ('ModulePathContainment', 'allowedWorkdirCwd', '-'),
+    ('ModulePathContainment', 'checkSymlinkSafety', 'checkSymlinkSafety'),
+    ('ModulePathContainment', 'contained', '-'),
+    ('ModulePathContainment', 'findingF13', 'ResolveScriptWithFSAndModule'),
+    ('ModulePathContainment', 'findingF17', 'LoadEnvFile'),
+    ('ModulePathContainment', 'probeF16', 'inspectModuleEntry'),
+    ('ModulePathContainment', 'unpackRejectsEscape', 'validateDestinationPath'),
+    ('ScopeConstruction', 'RootSrc', 'SourceID'),
+    ('ScopeConstruction', 'globalChildren', 'IsGlobalModule'),
+    ('ScopeConstruction', 'modUnlessExplicit', 'CheckModuleCollisions'),
+    ('ScopeConstruction', 'moduleSourcesHaveIDs', 'moduleIdentityFor'),
+    ('ScopeConstruction', 'srcUnique', 'CheckModuleCollisions'),
+    ('Serverbase', 'State', 'State'),
+    ('VirtualPathHarness', 'allowedWorkdirCwd', '-'),
+    ('VirtualPathHarness', 'anchors', 'standardVirtualAnchorsForOS'),
+    ('VirtualPathHarness', 'contained', '-'),
+    ('VirtualPathHarness', 'findingF14', 'normalizeExistingOrParent'),
+    ('VirtualPathHarness', 'findingF15', 'newVirtualPathResolverForFilesystem'),
+    ('Watch', 'backend', 'watcherBackend'),
+    ('Watch', 'timer', 'debounceTimer'),
+})
+
+
 class UnplannedTests(Fixture):
     """The [triage] shrink-only lists (design D13 of harden-formal-instruments)."""
 
@@ -772,7 +831,8 @@ class RepositoryTests(unittest.TestCase):
         # Seeded on 2026-11-14 with 54 rows and 42 orphans (design D13); a
         # committed list may lose entries but never gain one.
         triage = formal.load_triage()
-        self.assertLessEqual(len(triage["unbound_rows"]), 54)
+        self.assertLessEqual({(r["model"], r["element"], r["symbol"]) for r in triage["unbound_rows"]}, SEEDED_UNBOUND_ROWS)
+        self.assertEqual(len(SEEDED_UNBOUND_ROWS), 54)
         self.assertLessEqual(len(triage["orphaned_survivors"]), 42)
         self.assertLessEqual(set(triage["orphaned_survivors"]), SEEDED_ORPHANS)
 

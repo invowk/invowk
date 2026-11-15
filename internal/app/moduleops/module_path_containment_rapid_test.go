@@ -20,7 +20,8 @@ import (
 // vendored, and escaping links at larger scope than the golden, materialises
 // them, and checks the composed real behaviour: a script read that a module can
 // trigger stays physically inside the module, unless it is the recorded F13
-// invowk_modules/ hole. Any other escape is a policy violation.
+// invowk_modules/ hole or the recorded F16 junction hole. Any other escape is a
+// policy violation.
 //
 // Links are symlinks, or directory junctions where the host offers them
 // (required on Windows, design D6 of harden-formal-instruments). A junction
@@ -129,9 +130,14 @@ func TestModulePathContainment_Property(t *testing.T) {
 		if !escaped {
 			return // contained: the expected case
 		}
-		// An escape is only acceptable as the recorded F13 finding: the path
+		// An escape is only acceptable as a recorded finding: F13, the path
 		// crossed an invowk_modules/ link (either kind; the hole is the unscanned
-		// directory). A non-vendored junction escape would be F16 (design D7).
+		// directory), or F16, the path crossed a junction, which Load's scan does
+		// not record (windows-latest run 43657442894). A non-vendored symlink
+		// escape still fails.
+		if junction && scriptPath == "x/secret" {
+			return // recorded finding F16
+		}
 		if !strings.HasPrefix(filepath.ToSlash(scriptPath), "invowk_modules/") {
 			rt.Fatalf("policy violation: script %q (junction %v) escaped the module to the outside sentinel without the invowk_modules hole", scriptPath, junction)
 		}

@@ -44,7 +44,7 @@
 // | checkSymlinkSafety | checkSymlinkSafety | pkg/invowkmod/invowkmod.go | - | dead code: no production caller |
 // | findingF13 | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F13VendoredSymlink | characterisation: invowk_modules/ symlink hole |
 // | findingF17 | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_F17EnvVendoredSymlink | characterisation: invowk_modules/ symlink hole for env files |
-// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts containment (admission, script read, both copies, hash) pending the Windows CI verdict on F16 (design D7) |
+// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts today's F16 escape (IsModule and Load admit an inner junction, the script read follows it out) and that both copies and the hash stay contained (windows-latest run 43657442894) |
 
 module ModulePathContainment
 
@@ -172,6 +172,25 @@ pred admitted[m: Module, rootReject: Bool, scan: Bool] {
 pred isModuleRejectsLinkedRoot { all m: Module | some m.viaLink implies not admitted[m, True, True] }
 pred loadScansNonLinkedRoot { all m: Module | (no m.viaLink and hasInnerNonVendoredLink[m]) implies not admitted[m, True, True] }
 pred discoveryFacts { isModuleRejectsLinkedRoot and loadScansNonLinkedRoot }
+
+// Finding F16 (windows-latest, CI run 43657442894): a junction is not
+// ModeSymlink (Go 1.23+), so on Windows Load's scan records inner symlinks only
+// and admits a module with an inner non-vendored junction, and a script read
+// through the junction leaves the module. scannedKinds is the set of link kinds
+// the scan rejects: LinkKind is the fix, SymKind is today's Windows code. The
+// golden fixes Link.kind = SymKind, so admitted[...] above stays exact there.
+pred admittedScanning[m: Module, scannedKinds: set LinkKind] {
+	no m.viaLink
+	not (some l: Link | l.kind in scannedKinds and inTree[m.mroot, l] and not underVendor[m, l])
+}
+
+pred scriptReadScanGuarded[scannedKinds: set LinkKind] {
+	all o: Op |
+		(o.kind in (ScriptRead + EnvRead) and validates[o] and lexContains[o]
+			and not underVendor[o.owner, o.ref]
+			and admittedScanning[o.owner, scannedKinds])
+		implies contained[o]
+}
 
 // ---------------------------------------------------------------------------
 // Implementation layers (transcribed per layer)

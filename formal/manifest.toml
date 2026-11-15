@@ -85,7 +85,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 174
+command_count = 177
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -1240,8 +1240,14 @@ validateScriptPathContainment call in CustomCheckScript.ResolveWithFSAndModule \
 SURVIVES, because ScriptFilePath.Validate masks the lexical layer at that entry \
 point too (refPlacement: a validated reference is lexically inside), while \
 resolving the custom-check script against the module's parent is caught \
-(touched-node disagreements). The F16 leg now asserts containment; its outcome \
-is decided on Windows CI (design D7), pending."""
+(touched-node disagreements). F16 decided on windows-latest (CI run \
+43657442894, job 132639016048; design D7 outcome b, escape): TestCreateJunction \
+passes, IsModule and Load admit a module with an inner junction, and the script \
+read of j/secret returns the outside sentinel, while both copies and the hash \
+stay contained. Recorded as findingF16JunctionScan (scan records symlinks only) \
+next to the passing fix configuration scriptReadScanAllKinds, guarded by \
+mutantScanNoKinds; the leg asserts the escape and the property admits the \
+junction hole."""
 
 [model.golden]
 command = "golden"
@@ -1273,6 +1279,30 @@ body = "scriptReadGuarded[True, False]"
 expect = "counterexample"
 property = "scriptReadGuarded"
 mutant_of = "scriptReadDiscoveryGuarded"
+
+# Junction-aware scan (fix) with the F16 finding: Load's scan on Windows
+# records symlinks only, so an inner junction admits an escaping read.
+[[model.command]]
+name = "scriptReadScanAllKinds"
+body = "scriptReadScanGuarded[LinkKind]"
+expect = "pass"
+property = "scriptReadScanGuarded"
+antecedent = "anteScriptGuarded"
+
+[[model.command]]
+name = "mutantScanNoKinds"
+body = "scriptReadScanGuarded[none]"
+expect = "counterexample"
+property = "scriptReadScanGuarded"
+mutant_of = "scriptReadScanAllKinds"
+
+[[model.command]]
+name = "findingF16JunctionScan"
+body = "scriptReadScanGuarded[SymKind]"
+finding = "F16"
+expect = "counterexample"
+property = "scriptReadScanGuarded"
+mutant_of = "scriptReadScanAllKinds"
 
 # Script read containment (physical fix), with the F13 finding.
 [[model.command]]

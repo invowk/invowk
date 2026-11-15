@@ -225,18 +225,18 @@ change.
 | F13 | module path containment | A module's `script.file` (or custom-check file) into `invowk_modules/` reaches a symlink that `Load` never scans, and the read follows it outside the module | Open: `ModulePathContainment.findingF13VendoredSymlink` reproduces; `scriptReadContainedPhysical` (physical containment) passes; replay `TestModulePathContainment_F13VendoredSymlink` | physical containment (out of scope) |
 | F14 | virtual path harness | `normalizeExistingOrParent` evaluates only the path and its parent, so a path with two or more missing components below an escaping symlink is judged lexically and admitted; the write lands outside the allowed root | Open: `VirtualPathHarness.findingF14DeepSymlink` reproduces; `harnessContainedFixed` (deepest-existing-ancestor eval) passes; replay `TestVirtualPathHarness_F14DeepSymlink` | evaluate the deepest existing ancestor (out of scope) |
 | F15 | virtual path harness | A module-declared `workdir` outside the module widens the allowed roots under `restricted` access, admitting reads that are not cwd operations | Open: `VirtualPathHarness.findingF15WorkdirWidening` reproduces; `harnessContainedFixed` passes; replay `TestVirtualPathHarness_F15WorkdirWidening` | keep the workdir out of the read roots (out of scope) |
+| F16 | module path containment | A Windows junction inside a module is not `ModeSymlink` (Go 1.23+), so `IsModule` and `Load` admit a module with an inner non-vendored junction and a script read follows it out of the module (both copies and the hash stay contained) | Open: `ModulePathContainment.findingF16JunctionScan` reproduces; `scriptReadScanAllKinds` (a scan that records junctions) passes; replay `TestModulePathContainment_F16Junction`, confirmed on windows-latest (CI run 43657442894, job 132639016048) | a junction-aware module scan (out of scope) |
 | F17 | module path containment | An env file declared as `invowk_modules/x` is read at runtime through the same symlink hole, with no containment check in `LoadEnvFile` | Open: `ModulePathContainment.findingF17EnvVendoredSymlink` reproduces; `envReadContainedPhysical` passes; replay `TestModulePathContainment_F17EnvVendoredSymlink` | physical containment (out of scope) |
 
 F8–F12 are owned by sibling changes (`model-concurrent-lock-writes`, `trace-validate-token-and-lock`) and are merged separately.
 
-**F16 (id reserved; decided on Windows CI, outcome pending):** a Windows
-junction inside a module is not `ModeSymlink` (Go 1.23+), so
-`inspectModuleEntry`, the copies, and `computeModuleHash` may follow it.
-`TestModulePathContainment_F16Junction` requires junction creation on Windows
-and asserts containment for admission, the script read, both copies, and the
-hash; Windows CI on the harden-formal-instruments PR decides between "creation
-fails", "escape" (F16 recorded), and "contained" (F16 refuted). Until then no
-manifest `finding` command is recorded.
+**F16 was decided on Windows CI** (harden-formal-instruments design D7, outcome
+"escape"): junction creation works on windows-latest, and
+`TestModulePathContainment_F16Junction` showed the module admitted and the
+script read of `j/secret` returning the outside sentinel, while both copies
+and the hash stayed contained (run 43657442894). The leg now asserts that
+behaviour, the rapid property admits a junction escape as the recorded F16
+hole, and `findingF16JunctionScan` records it in the model.
 
 Two hypotheses were refuted: the symlinked-hash-root escape
 (`computeModuleHash` on a symlinked root hashes an empty tree, but every caller
