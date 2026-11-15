@@ -45,6 +45,8 @@ Decisions taken with the maintainer (2026-11-14):
 | N8 | EVOLVE — security | follow-up to S4 (`basedir.TempDir`, not yet proposed) | M |
 | N9 | DECIDE — product | follow-up to S4 (engine environment, not yet proposed) | M |
 | N10 | EVOLVE — security | follow-up to S4 (per-URL git auth: auth order, Windows known_hosts default; not yet proposed) | M |
+| N11 | EVOLVE — bug | `fix-tui-capture-output` (S5a, Part A); no-server `-i` runs gated in S5b | M |
+| N12 | EVOLVE — bug | container auto-provision on non-Linux hosts (not yet proposed; not S5) | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -217,7 +219,9 @@ guide ("set `TMPDIR` if needed").
   call), Docker Desktop on macOS and Linux, and one native Windows `invowk cmd <x> -i`
   container run (decision 27, ConPTY through `xpty`, supported by the code and unverified).
   invowk's own row-6 path (facts query, planner, adapter) has never run on a Docker Desktop
-  host; only unit tests with constructed facts select row 6.
+  host; only unit tests with constructed facts select row 6. Release-note wording for the
+  row-6 Warning: on macOS and Windows hosts, in-container `invowk tui` also needs
+  `container.auto_provision.binary_path` pointing at a Linux build of invowk (N12).
 - **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
   exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
   source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`
@@ -258,16 +262,39 @@ guide ("set `TMPDIR` if needed").
   `<home>\.ssh\known_hosts` only, plus the host-key algorithms for that URL's host (go-git
   stops computing them when a callback is given), on both the key and the `Auth: nil`
   agent paths. Until then, set `SSH_KNOWN_HOSTS` to an absolute path on Windows.
-- **N11 — direct `invowk tui` rendering draws into captured
-  stdout.** Found 2026-11-15 in S3's premise check. Without `INVOWK_TUI_ADDR`, a value
-  component builds `tea.NewProgram(model)` without `tea.WithOutput`
-  (`internal/tui/input.go:137`, same shape in `choose`, `filter`, `file`, `write`), so
-  `name=$(invowk tui input)` draws nothing and `$name` holds terminal control sequences
-  in front of the answer, with exit 0. Reproduced on `main` at 3760a4ba in a plain host
-  terminal. The docs show this capture form for `input`, `choose` and `write`. Fix: draw
-  to stderr or `/dev/tty` when stdout is not a terminal, with a tmux test that captures
-  stdout. Fixing it would let S3's refused modes fall back to direct rendering
-  (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind/design.md`, decision 22).
+- **N11 — direct `invowk tui` rendering draws into captured stdout (S5,
+  `fix-tui-capture-output`).** Found 2026-11-15 in S3's premise check. Without
+  `INVOWK_TUI_ADDR`, every directly rendered component builds `tea.NewProgram(model)`
+  without `tea.WithOutput` (`internal/tui/input.go:137`; same shape in `choose`, `filter`,
+  `file`, `write`, `table`, `confirm`, `pager`, `spin`), and Bubble Tea defaults to stdout
+  (`charm.land/bubbletea/v2@v2.0.9/tea.go:624-627`). So `name=$(invowk tui input)` draws
+  nothing and `$name` holds control sequences in front of the answer, with exit 0, on
+  `main` in a plain terminal. `spin` has the same defect for `out=$(invowk tui spin -- …)`.
+  S5a (Part A) draws on the controlling terminal (`/dev/tty`, `CONIN$`/`CONOUT$`), probed
+  2026-11-15 against stderr (stderr loses the UI under `2>log`). A separate change, S5b,
+  decides whether no-server `-i` runs can replace S3's refusal, with a hardened gate (a tmux
+  test of a real no-server `-i` session on row 10, asserting the screen state). If the
+  gate fails, the refusal stays in v0.17.0.
+- **N12 — on Windows and macOS hosts, container auto-provision copies the host's own
+  non-Linux binary into the Linux container (by code reading; not run on those hosts).**
+  `applyHostProvisionDefaults` defaults `InvowkBinaryPath` to `os.Executable()` with no
+  OS or architecture check (`internal/runtime/container_provision.go:237-240`). The
+  provisioner copies it as-is (`internal/provision/layer_provisioner.go:307-313`), and
+  the generated Dockerfile installs it as `/invowk/bin/invowk` on `PATH`
+  (`internal/provision/dockerfile.go:25-30`, `:43-45`). Nothing in `internal/provision/`
+  or the container runtime checks `GOOS` (grep on d7e4feb4), and the container runtime is
+  available on any host whose engine is (`internal/runtime/container.go:186-188`). The
+  docs say only "uses the running invowk binary" (`website/docs/configuration/options.mdx:245`,
+  `website/docs/reference/config-schema.mdx:352`). On a Windows (PE) or macOS (Mach-O)
+  host, the container run itself still works, because invowk is not the entrypoint
+  (`internal/runtime/container_exec.go:181` uses `invowk` only as `$0`). But every nested
+  `invowk` call inside the container fails with an exec-format error, including
+  `invowk tui *` under `-i` on Docker Desktop (row 6) and in-container `invowk cmd`
+  dependencies, unless `container.auto_provision.binary_path` points at a Linux build.
+  Fix direction: provision a Linux binary that matches the image architecture, or warn
+  and skip the binary on a non-Linux host, and document `binary_path`. This also qualifies
+  S3's row-6 release Warning (N5): on macOS and Windows hosts, in-container `invowk tui`
+  already needs `binary_path`, whatever the TUI server's reachability.
 
 ## Why CST keeps its production paths out of invowk anyway
 
