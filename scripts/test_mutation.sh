@@ -356,6 +356,10 @@ test_restore_guard_refuses_unarmed_checkouts() {
 	make_dirty_fixture_repo "$dirty"
 	make_fixture_repo "$clean"
 	before="$(repo_state "$dirty")"
+	# Stands in for the system TMPDIR: a refused cleanup must not leak its
+	# cleanup directory into it.
+	local -x TMPDIR="$tmp/outer-tmp"
+	mkdir -p "$TMPDIR"
 
 	assert_eq "unarmed tracked restore fails hard" "1" \
 		"$(run_guard_probe "$dirty" 'restore_tracked_mutation_paths root; echo reached >&2')"
@@ -371,6 +375,7 @@ test_restore_guard_refuses_unarmed_checkouts() {
 		"$(run_guard_probe "$dirty" 'snapshot_untracked_paths root; printf new >"$REPO_ROOT/cmd/app/new.go"; remove_new_untracked_paths root')"
 	assert_file_contains "unarmed untracked cleanup says why" "refusing to remove new untracked root files" "$GUARD_PROBE_STDERR"
 	assert_file_exists "unarmed untracked cleanup deletes nothing" "$dirty/cmd/app/new.go"
+	assert_eq "a refused cleanup leaks no temporary directory" "" "$(ls -A "$TMPDIR")"
 	rm -f "$dirty/cmd/app/new.go"
 
 	assert_eq "a dirty checkout refuses to arm" "1" \

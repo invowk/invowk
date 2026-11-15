@@ -220,16 +220,18 @@ canary_comment() {
 
 	case "$1" in
 		*.md) printf '\n<!-- %s -->\n' "$text" ;;
-		*.txt) printf '\n%s\n' "$text" ;;
+		*.txt | *.log) printf '\n%s\n' "$text" ;;
 		*.go | *.cue | *.js | *.mjs | *.ts | *.tsx) printf '\n// %s\n' "$text" ;;
-		*.sh | *.bash | *.py | *.yml | *.yaml | *.toml | *.tape | *.d2 | *.properties) printf '\n# %s\n' "$text" ;;
+		*.sh | *.bash | *.py | *.yml | *.yaml | *.toml | *.tape | *.d2 | *.properties | *.env | .env* | */.env* | Dockerfile | */Dockerfile)
+			printf '\n# %s\n' "$text"
+			;;
 		*) return 1 ;;
 	esac
 }
 
 # canary_files DIR prints up to two tracked regular text files directly in the
 # root (DIR ".") or anywhere under DIR, Markdown and plain text first, then
-# other commented types, Go last. Fixtures (testdata/), Go tests and MDX are
+# other types with a line-comment syntax (canary_comment), Go last. Fixtures (testdata/), Go tests and MDX are
 # never edited.
 canary_files() {
 	local dir="$1"
@@ -240,9 +242,10 @@ canary_files() {
 		awk '$1 == "100644" { sub(/^[^\t]*\t/, ""); print }' |
 		grep -Ev '(^|/)testdata/|_test\.go$|\.mdx$' |
 		awk '
-			/\.(md|txt)$/ { print 0 "\t" $0; next }
+			/\.(md|txt|log)$/ { print 0 "\t" $0; next }
 			/\.go$/ { print 2 "\t" $0; next }
-			/\.(cue|js|mjs|ts|tsx|sh|bash|py|yml|yaml|toml|tape|d2|properties)$/ { print 1 "\t" $0 }
+			/\.(cue|js|mjs|ts|tsx|sh|bash|py|yml|yaml|toml|tape|d2|properties|env)$/ { print 1 "\t" $0; next }
+			/(^|\/)(Dockerfile|\.env(\.[^\/]*)?)$/ { print 1 "\t" $0 }
 		' | LC_ALL=C sort -s -k1,1 | cut -f2 | head -n 2 || true
 }
 
@@ -257,6 +260,7 @@ plant_canaries() {
 	local staged=""
 	local stash
 	local -a files=()
+	local -a no_edit=()
 
 	: >"$WORK/canaries"
 	while IFS= read -r dir; do
@@ -269,6 +273,8 @@ plant_canaries() {
 			fi
 		elif [[ "$dir" =~ ^(cmd|internal|pkg)$ ]]; then
 			setup_error "no tracked text file under $dir/ to plant a canary in"
+		else
+			no_edit+=("$dir")
 		fi
 
 		if [[ "$dir" == "." ]]; then
@@ -286,16 +292,21 @@ plant_canaries() {
 		printf '%s\n' "$file" >>"$WORK/canaries"
 	done < <(printf '.\n'; canary_dirs)
 
+	if ((${#no_edit[@]} > 0)); then
+		printf 'WARNING: no tracked file with a known comment syntax in %s: only an untracked canary guards it (extend canary_comment).\n' "${no_edit[*]}" >&2
+	fi
 	[[ -n "$staged" ]] || setup_error "no second tracked text file under cmd/, internal/ or pkg/ for the staged canary"
 	canary_comment "$staged" "staged $token" >>"$CHECKOUT/$staged"
 	git -C "$CHECKOUT" add -- "$staged"
 	printf '%s\n' "$staged" >>"$WORK/canaries"
 
 	# A stash entry and a branch that only the suite could remove. `stash
-	# create` records the canaries without touching the checkout.
-	stash="$(git -C "$CHECKOUT" stash create "$CANARY_TAG stash")"
+	# create` records the canaries without touching the checkout. The identity
+	# is passed per command: the throwaway config stays as the suite found it,
+	# and CI runners have no global identity.
+	stash="$(git -C "$CHECKOUT" -c user.name="$CANARY_TAG" -c user.email=canary@invalid stash create "$CANARY_TAG stash")"
 	[[ -n "$stash" ]] || setup_error "could not create the canary stash entry"
-	git -C "$CHECKOUT" stash store -m "$CANARY_TAG stash" "$stash"
+	git -C "$CHECKOUT" -c user.name="$CANARY_TAG" -c user.email=canary@invalid stash store -m "$CANARY_TAG stash" "$stash"
 	git -C "$CHECKOUT" branch -- "$CANARY_BRANCH" HEAD
 
 	mkdir -p "$WORK/canary-bytes"

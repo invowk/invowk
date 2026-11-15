@@ -227,6 +227,34 @@ else
 fi
 assert_eq "a broken throwaway repository alone is a violation" "3" "$(gate_status rm -rf .git)"
 
+# An interrupt after the suite started still compares the real checkout, from
+# the exit trap. The suite signals the gate itself (GATE_PID) and exits, so the
+# gate handles the signal as soon as its suite returns.
+interrupted_gate_status() {
+	local status
+
+	set +e
+	TMPDIR="$TMP" bash -c 'export GATE_PID=$$; exec "$@"' gate "$GATE" --repo "$FIXTURE" -- "$@" >"$OUTPUT" 2>&1
+	status=$?
+	set -e
+	printf '%s\n' "$status"
+}
+work_dirs_before="$(leftover_work_dirs)"
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+assert_eq "an interrupted benign run exits with the signal status" "143" \
+	"$(interrupted_gate_status sh -c 'kill -TERM "$GATE_PID"')"
+assert_eq "an interrupted benign run leaves no temporary directory behind" "$work_dirs_before" "$(leftover_work_dirs)"
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+assert_eq "an interrupted run that damaged the real checkout is a violation" "3" \
+	"$(interrupted_gate_status sh -c 'printf "lost on interrupt\n" >>"$1/cmd/app/a.go"; kill -TERM "$GATE_PID"' sh "$FIXTURE")"
+assert_output_contains "an interrupted run still compares the real checkout" "SAFETY VIOLATION: the script tests changed the real checkout"
+kept="$(kept_before_dir)"
+if [[ -n "$kept" && -s "$kept/unstaged.diff" ]]; then
+	record_pass
+else
+	record_fail "an interrupted run keeps the real before fingerprint" "kept: ${kept:-<none>}"
+fi
+
 # shellcheck disable=SC2016 # expanded by the shell that runs the snippet
 assert_eq "a change to the real checkout's guarded config is caught" "3" \
 	"$(gate_status sh -c 'git -C "$1" config core.hooksPath /tmp/elsewhere' sh "$FIXTURE")"
