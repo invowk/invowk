@@ -506,6 +506,22 @@ class ToolAndCorrespondenceTests(CorrespondenceFixture):
         model = self.write_model("// | e | `RealSymbol` | `caller.go` | TestBinding | - |\n")
         self.assertIn("not declared in caller.go", formal.check_correspondence([model], root=self.root)[0])
 
+    def test_correspondence_receiver_must_match(self) -> None:
+        # decision 27: the leaf alone is declared, but not with this receiver.
+        (self.root / "server.go").write_text(
+            "package x\n\ntype Server struct {\n\tstate int\n}\n\nfunc (s *Server) RevokeToken() {}\n\nfunc Plain() {}\n")
+        for symbol, receivers in (("CallbackServer.RevokeToken", "Server"), ("Server.Plain", "(none: a plain function)")):
+            with self.subTest(symbol=symbol):
+                model = self.write_model(f"// | e | `{symbol}` | `server.go` | TestBinding | - |\n")
+                failures = formal.check_correspondence([model], root=self.root)
+                self.assertEqual(len(failures), 1, failures)
+                self.assertIn(f"names {symbol}, but server.go declares {symbol.split('.')[1]} only with receiver {receivers}",
+                              failures[0])
+        for symbol in ("Server.RevokeToken", "RevokeToken", "Server.state"):
+            with self.subTest(symbol=symbol):
+                model = self.write_model(f"// | e | `{symbol}` | `server.go` | TestBinding | - |\n")
+                self.assertEqual(formal.check_correspondence([model], root=self.root), [])
+
     def test_witness_must_expect_instance(self) -> None:
         with self.assertRaisesRegex(FormalError, "alloy witness must expect instance"):
             formal.validate_manifest([alloy_model(*GUARDED, Command("w", "pass", witness=True, body="x"))])
@@ -959,7 +975,7 @@ class CiContractTests(unittest.TestCase):
             sorted(steps),
             ["Binding reach", "Check models", "Deep property tests", "Replay golden vectors and property tests", "Trace validation"],
         )
-        self.assertEqual(steps["Binding reach"], 6)
+        self.assertEqual(steps["Binding reach"], 3)  # decision 33
         self.assertGreater(int(job[1]), sum(steps.values()) + 3, steps)
 
     def test_workflow_replays_the_generated_plan(self) -> None:

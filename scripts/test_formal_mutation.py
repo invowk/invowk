@@ -831,6 +831,86 @@ def lists_manifest(unresolved: list[str] | None = None, gaps: list[tuple] | None
     return data
 
 
+class BaseRowsTests(Fixture):
+    """Decisions 27 and 28: receiver mismatches fail, and rows bound at the
+    base cannot become by-design rows or join a listed unresolved pair."""
+
+    BASE = row("decide", "Decide", "a/a.go", "TestDecide", "-") + row("stop", "Server.Stop", "a/a.go", "TestStop", "-")
+
+    def rows(self, table: str) -> list:
+        return fm.model_rows([self.model(table)], self.root)
+
+    def base(self, table: str, code: str = CODE) -> tuple[list, object]:
+        files = {"m.als": (HEADER + table).encode(), "a/a.go": code.encode()}
+
+        def read(path: str) -> bytes:
+            if path not in files:
+                raise OSError(f"{path} is not in the base")
+            return files[path]
+
+        return fm.base_rows({"model": [{"name": "M", "file": "m.als"}, {"name": "Gone", "file": "gone.als"}]}, read)
+
+    def compare(self, head: str, base: str = BASE, unresolved=(), seeding: bool = False) -> tuple[list[str], list[str]]:
+        rows = self.rows(head)
+        at_base, classified = self.base(base)
+        return fm.check_base_rows(rows, fm.classify_rows(rows, self.root, {}), at_base, classified, unresolved, "B", seeding)
+
+    def test_receiver_mismatch_is_a_problem_not_a_type_symbol(self) -> None:
+        classified = fm.classify_rows(self.rows(row("stop", "Client.Stop", "a/a.go", "TestStop", "-")), self.root, {})
+        self.assertEqual(classified.unbound, [])
+        self.assertEqual(len(classified.problems), 1)
+        self.assertIn("Client.Stop names no function: a/a.go declares Stop only with receiver Server", classified.problems[0])
+        failures, _ = fm.check_unplanned(self.rows(row("stop", "Client.Stop", "a/a.go", "TestStop", "-")), [], {}, self.root)
+        self.assertEqual([f for f in failures if f.startswith("row classification:")], [f"row classification: {classified.problems[0]}"])
+
+    def test_base_rows_are_classified_from_the_base_sources(self) -> None:
+        rows, classified = self.base(self.BASE + row("kind", "Kind", "a/a.go", "TestDecide", "-"))
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(classified.bound, {("M", "decide", "Decide"), ("M", "stop", "Server.Stop")})
+        _rows, without = self.base(self.BASE, code="package a\n")
+        self.assertEqual(without.bound, set())
+
+    def test_unchanged_rows_pass(self) -> None:
+        self.assertEqual(self.compare(self.BASE), ([], []))
+
+    def test_demotion_to_a_by_design_reason_fails(self) -> None:
+        cases = {
+            "characterisation-only": row("decide", "Decide", "a/a.go", "TestDecide", "characterisation: today"),
+            "trace-only": row("decide", "Decide", "a/a.go", "TestM_TraceHarness", "-"),
+            "no-symbol": row("decide", "-", "a/a.go", "TestDecide", "-"),
+        }
+        for reason, demoted in cases.items():
+            with self.subTest(reason=reason):
+                failures, notices = self.compare(demoted + row("stop", "Server.Stop", "a/a.go", "TestStop", "-"))
+                self.assertEqual(failures, [f"row M: 'decide' (Decide) was bound at the base B and is unbound by design now "
+                                            f"({reason}); bind it again or delete the row"])
+                self.assertEqual(notices, [])
+
+    def test_demotion_to_no_binding_is_left_to_the_gaps_list(self) -> None:
+        self.assertEqual(self.compare(row("decide", "Decide", "a/a.go", "-", "-") + row("stop", "Server.Stop", "a/a.go", "TestStop", "-")),
+                         ([], []))
+
+    def test_deletion_and_re_point_are_notices(self) -> None:
+        failures, notices = self.compare(row("decide", "Server.Stop", "a/a.go", "TestStop", "-"))
+        self.assertEqual(failures, [])
+        self.assertEqual(notices, ["row M: 'decide' (Decide), bound at the base B, was re-pointed to Server.Stop",
+                                   "row M: 'stop' (Server.Stop), bound at the base B, was deleted"])
+
+    def test_new_row_under_a_listed_unresolved_pair_fails(self) -> None:
+        head = self.BASE + row("decide", "Map", "a/a.go", "TestDecide", "-")
+        failures, _ = self.compare(head, unresolved=["M: decide"])
+        self.assertEqual(failures, ["[correspondence] unresolved_elements: row M: 'decide' (Map) is not in the base B's tables "
+                                    "and joins a listed pair; the list only shrinks: name an element that exists in the model"])
+        self.assertEqual(self.compare(head), ([], []))
+
+    def test_seeding_reports_failures_as_notices(self) -> None:
+        failures, notices = self.compare(row("decide", "-", "a/a.go", "TestDecide", "-")
+                                         + row("stop", "Server.Stop", "a/a.go", "TestStop", "-"), seeding=True)
+        self.assertEqual(failures, [])
+        self.assertEqual(len(notices), 1)
+        self.assertTrue(notices[0].endswith("(reported only: the base B seeds the lists)"), notices[0])
+
+
 class GrowthTests(unittest.TestCase):
     """The base check of the shrink-only lists (decision 15)."""
 

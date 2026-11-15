@@ -83,6 +83,46 @@ func TestCapabilityPolicy(t *testing.T) {
 	}
 }
 
+// TestCacheGetHonoursThePolicy drives Cache.Get on injected platforms: an
+// instance needing a capability required there fails with the GOOS and the
+// probe error, and one needing a capability not required there is skipped and
+// counted.
+func TestCacheGetHonoursThePolicy(t *testing.T) {
+	t.Parallel()
+	probeErr := errors.New("probe: junction writer failed")
+	missing := Caps{Symlink: true, JunctionErr: probeErr}
+	spec := Spec{RootAtom: "root", Nodes: []Node{
+		{Atom: "out", Parent: "root", Name: "out", Kind: KindDir},
+		{Atom: "j", Parent: "root", Name: "j", Kind: KindJunction, Target: "out"},
+	}}
+
+	t.Run("required", func(t *testing.T) {
+		t.Parallel()
+		c := newCache(missing, Host{GOOS: "windows"})
+		var r policyRecorder
+		c.missing(&r, skipReason(spec, c.caps))
+		for _, want := range []string{string(CapJunction), "windows", probeErr.Error()} {
+			if !strings.Contains(r.fatal, want) {
+				t.Errorf("failure %q does not name %q", r.fatal, want)
+			}
+		}
+		if len(c.skips) != 0 {
+			t.Fatalf("a required capability must not be counted as a skip: %v", c.skips)
+		}
+	})
+
+	t.Run("not required", func(t *testing.T) {
+		t.Parallel()
+		c := newCache(missing, Host{GOOS: "linux", GitHubActions: true})
+		if b := c.Get(t, "k", spec); b != nil {
+			t.Fatalf("Get materialised a tree without the capability: %v", b.Root)
+		}
+		if c.Get(t, "k", spec) != nil || c.skips[CapJunction] != 2 {
+			t.Fatalf("skips = %v, want 2 junction skips", c.skips)
+		}
+	})
+}
+
 func TestCapsHasUnknownCapability(t *testing.T) {
 	t.Parallel()
 	ok, err := Caps{Symlink: true, Junction: true}.Has(Capability("hardlink"))

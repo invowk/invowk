@@ -51,6 +51,9 @@ tool or a model.
      before the check are in the shrink-only `[correspondence]
      unresolved_elements`; clear one by renaming the element (and re-keying
      its ledger survivors), then delete the entry. Never add one.
+   - A `Recv.name` symbol must name a method of `Recv` when the file declares
+     `name` as a function; after renaming a receiver type, update the table,
+     or correspondence, the plan, and `triage --check` fail.
    - A row whose Go function does not carry the model's claim (no production
      caller, or the claim lives in a different function) is unbound (binding
      `-`, the reason in its abstraction cell), never given a direct-call test
@@ -147,7 +150,10 @@ tool or a model.
    `[correspondence] unresolved_elements` that the base does not list. The
    base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else the
    merge-base with `origin/main`; CI sets the variable with
-   `scripts/ci-triage-base.sh` (the base branch tip on a pull request). Bind a row or delete its survivors' entries to shrink a
+   `scripts/ci-triage-base.sh` (the base branch tip on a pull request). It
+   also classifies the base's tables: a row bound at the base that is now
+   by design (for example an abstraction cell turned `characterisation:`)
+   fails, and so does a new row under a listed unresolved pair. Bind a row or delete its survivors' entries to shrink a
    list, never add an entry. A seeded defect that another layer fully masks at
    that entry point is recorded as redundant there in the calibration and
    `tasks/next/formal-binding-gaps.md`, and a defect the binding catches is

@@ -30,19 +30,21 @@ The change SHALL record measured cost budgets:
 - the golden replay time in `make test`: 30 s or less per OS on Linux and macOS, and on Windows a budget derived from three CI runs;
 - the deep rapid time, 60 s or less.
 
-Budgets SHALL be measured on all three operating systems. They SHALL be handed to `promote-formal-ci-gate` as `budget_seconds` values.
+The golden replay time SHALL be measured on all three operating systems, and the deep rapid time on Linux, the only OS whose CI runs `make formal-rapid-deep`. CI figures SHALL state their test flags (`-race -short` replays every 16th instance). The budgets SHALL be handed to `promote-formal-ci-gate` as `budget_seconds` values.
 
 #### Scenario: Budget overrun blocks the scope
 - **WHEN** a replay or deep-rapid time measured while the budgets are recorded exceeds its budget on any operating system
 - **THEN** the golden scope or the rapid generator SHALL be narrowed, with the reason recorded, before the figure is recorded
 - **THEN** `formal/README.md` SHALL say that no CI step enforces the recorded figures
 
-#### Scenario: Windows budget is derived from three runs of the final tree
-- **WHEN** three windows-latest CI runs of the same final head of the change, re-runs included, have finished
-- **THEN** the Windows replay budget SHALL be `ceil(1.5 × the slowest of those runs)`, recorded in `formal/README.md` with the head SHA and the run ids and attempts
+#### Scenario: Windows budget is derived from three runs of the final replay inputs
+- **WHEN** three windows-latest CI runs of one measured head, re-runs included, have finished
+- **AND** the measured head is an ancestor of the archived head, and `git diff <measured head> <archived head>` is empty for the golden-replay inputs
+- **THEN** the Windows replay budget SHALL be `ceil(1.5 × the slowest of those runs)`
+- **THEN** `formal/README.md` SHALL record it with the measured head, the run ids and attempts, the test flags, and the empty input diff
 
 #### Scenario: Windows budget is not set from other trees
-- **WHEN** fewer than three windows-latest runs of the final head exist
+- **WHEN** fewer than three windows-latest runs of such a head exist
 - **THEN** the Windows replay budget SHALL stay pending, and `formal/README.md` SHALL say so and that no step or test enforces it
 
 ## ADDED Requirements
@@ -91,24 +93,29 @@ The rapid property SHALL judge escape, for every link kind, by file identity of 
 - **WHEN** a script read through a junction under `invowk_modules/` opens the outside sentinel
 - **THEN** the property SHALL admit it as the recorded F13 hole
 
-### Requirement: The F16 leg asserts containment for every production operation
-`TestModulePathContainment_F16Junction` SHALL require junctions through the capability policy. For a module with an inner junction to an outside directory, it SHALL assert containment for each operation production runs for that module:
-- `IsModule` and `Load` admission;
-- the script read through the junction;
-- `modulecache.copyDir` and `provision.CopyDir`;
-- `computeModuleHash`.
+### Requirement: The F16 leg asserts each operation's verdict
+`TestModulePathContainment_F16Junction` SHALL require junctions through the capability policy. For a module with an inner junction to an outside directory, it SHALL assert, never only log, a verdict for each operation production runs: `IsModule` and `Load` admission, the script read through the junction, `modulecache.copyDir`, `provision.CopyDir`, and `computeModuleHash`. Before F16 is decided, each verdict is containment; afterwards, it is the recorded outcome's verdict.
 
 #### Scenario: Copy and hash containment
 - **WHEN** the leg checks the copies and the hash
+- **THEN** each copy and both hash computations SHALL succeed, and an error SHALL fail the leg
 - **THEN** a copy SHALL count as escaping if it contains the outside sentinel, and the hash SHALL count as escaping if it changes when only the outside sentinel changes
 
-#### Scenario: Leg asserts instead of logging
-- **WHEN** any of the listed operations escapes the module
-- **THEN** the leg SHALL fail, rather than only logging the verdict
+#### Scenario: Leg asserts the recorded verdicts
+- **WHEN** F16 is recorded under outcome (b)
+- **THEN** the leg SHALL assert the escape for each operation the outcome records as escaping and containment for every other operation
+- **THEN** the leg SHALL fail when any operation's behaviour differs from its recorded verdict
 
 #### Scenario: Junctions unavailable on Windows CI
 - **WHEN** the leg cannot create a junction on Windows CI
 - **THEN** the leg SHALL fail with the probe error, and SHALL NOT be skipped
+
+### Requirement: Copy and hash containment is modelled for junction modules
+The `ModulePathContainment` model SHALL check copy and hash containment for modules that today's Windows scan admits (`admittedScanning[_, SymKind]`), which include modules with an inner non-vendored junction. The pass command SHALL have an antecedent that requires such a junction, and a mutant that follows links.
+
+#### Scenario: Junction module copy and hash
+- **WHEN** `make formal` runs the `ModulePathContainment` commands
+- **THEN** `copyHashJunctionScan` SHALL pass, `anteCopyHashJunction` SHALL find an instance whose module has an inner junction, and `mutantCopyFollowsJunction` SHALL find a counterexample
 
 ### Requirement: F16 is decided by one of three stated outcomes
 The Windows CI run of the change SHALL decide one of these outcomes, recorded with the run id in `ModulePathContainment`'s calibration text:
@@ -196,7 +203,8 @@ The construction replay SHALL require `@config`, `@data`, `@cache`, `@state`, `@
 
 #### Scenario: Abstraction cell lists what the replay catches
 - **WHEN** the `anchors` row's abstraction cell is read
-- **THEN** it SHALL list exactly the defect classes the replay catches: an empty anchor, a reported anchor missing from the allowed roots, and an anchor that covers `@home/.ssh`
+- **THEN** it SHALL list exactly the defect classes the replay catches: an empty anchor, a reported anchor missing from the allowed roots where no other root encloses it, and an anchor that covers `@home/.ssh`
+- **THEN** it SHALL name the masked cases: dropping `@work` is equivalent, because the workdir is always a root, and dropping `@tmp` is masked off Windows while `TMPDIR` lies under `/tmp`
 
 ### Requirement: The unpack destination row is unbound
 The `unpackRejectsEscape` row SHALL have binding `-`, because `validateDestinationPath` alone is not the model's destination check (`unpackInside[destCheck]`, `refShape = RelInside`). With the `Join` call shape it accepts an absolute name, and after `normalizeZIPPath` its rejection is unreachable on POSIX. The row's abstraction cell SHALL state this, and SHALL name the follow-up that binds `unpackInside` to `normalizeZIPPath`.

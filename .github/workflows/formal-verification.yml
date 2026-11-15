@@ -40,7 +40,7 @@ jobs:
     # Must exceed the sum of the step timeout-minutes plus 3 minutes of setup
     # and upload (checked by scripts/test_formal.py), so a step timeout fires
     # first and the upload step still runs.
-    timeout-minutes: 52
+    timeout-minutes: 49
     env:
       PYTHONUNBUFFERED: "1"
     steps:
@@ -147,9 +147,12 @@ jobs:
       # Every killer test of every bound correspondence row must execute the
       # row's function (coverage per killer); reports land in
       # artifacts/formal/reach/, which the upload step keeps on failure.
+      # The larger of max(2, ceil(4 x 2 x 11.8 s local / 60)) = 2 and
+      # ceil(4 x 37.1 s, the first CI run / 60) = 3 (harden-formal-instruments
+      # decision 33), until three CI runs replace it.
       - name: Binding reach
         if: steps.affected.outputs.run != 'false'
-        timeout-minutes: 6
+        timeout-minutes: 3
         run: make formal-reach
 
       - name: Deep property tests

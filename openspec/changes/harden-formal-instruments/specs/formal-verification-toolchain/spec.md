@@ -143,6 +143,13 @@ A `*_formal_test.go`, `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go
 - **WHEN** a row's leading identifier matches a model identifier only when case is ignored, for example `State` against `state`
 - **THEN** the row SHALL NOT resolve
 
+### Requirement: Receiver-qualified symbols name a declared method
+A row whose Go symbol is `Recv.name` and whose file declares `name` as a function or method SHALL name a declaration with receiver `Recv`. `scripts/formal.py correspondence` SHALL fail on such a row when no declaration has that receiver, naming the row, the symbol, and the receivers declared. The formal-bindings plan and `triage --check` SHALL fail on it too, and SHALL NOT classify it as `type-symbol`.
+
+#### Scenario: Receiver renamed without the table
+- **WHEN** a row names `CallbackServer.RevokeToken` and the file declares only `Server.RevokeToken`
+- **THEN** the correspondence check, the plan, and `triage --check` SHALL fail and name the row and the declared receiver `Server`
+
 ### Requirement: Unresolved model elements are listed and shrink
 `formal/manifest.toml` SHALL list each `"<model>: <element>"` pair that did not resolve when the element check was introduced in `[correspondence] unresolved_elements`, and manifest validation SHALL reject other keys in that table. No new pair SHALL be added. A listed pair that resolves, or that names no row, SHALL fail the correspondence check as stale. The survivor-triage follow-up SHALL rename the listed elements and empty the list.
 

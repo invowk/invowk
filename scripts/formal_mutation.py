@@ -97,10 +97,8 @@ RERUN_REQUIRED_KEYS = {"id", "status", "timestamp", "digest"}
 
 # A gofmt'd top-level function declaration: optional receiver (named or not,
 # pointer or not, generic or not), the name, optional type parameters, then `(`.
-FUNC_DECL_RE = re.compile(
-    r"^func (?:\((?:\w+\s+)?\*?(?P<recv>\w+)(?:\[[^\]]*\])?\)\s*)?(?P<name>\w+)\s*(?:\[[^\]]*\])?\(",
-    re.M,
-)
+# Shared with the correspondence check's receiver test.
+FUNC_DECL_RE = formal.FUNC_DECL_RE
 
 
 class PlanError(Exception):
@@ -118,6 +116,11 @@ class Row(NamedTuple):
     @property
     def where(self) -> str:
         return f"{self.model}: row {self.element!r} ({self.symbol} in {self.file})"
+
+    @property
+    def key(self) -> tuple[str, str, str]:
+        """(model, element, symbol): how the ledger and [triage] name a row."""
+        return self.model, self.element, self.symbol
 
 
 @dataclasses.dataclass(frozen=True)
@@ -253,14 +256,27 @@ class Classified:
     unbound: list[dict]
     problems: list[str]
     decls_by_file: dict[str, list[FuncDecl]]
+    # (model, element, symbol) of every bound row.
+    bound: set[tuple[str, str, str]] = dataclasses.field(default_factory=set)
+
+    @property
+    def reasons(self) -> dict[tuple[str, str, str], str]:
+        """(model, element, symbol) -> reason, for every unbound row."""
+        return {(u["model"], u["element"], u["symbol"]): u["reason"] for u in self.unbound}
 
 
-def classify_rows(rows: list[Row], root: Path, declared: dict[str, set[str]]) -> Classified:
+def classify_rows(
+    rows: list[Row], root: Path, declared: dict[str, set[str]], read: Callable[[str], str] | None = None
+) -> Classified:
+    """`read` returns a repository-relative Go file's text (default: from
+    `root`); triage --check passes a reader of the base commit."""
+    read = read or (lambda file: (root / file).read_text())
     noted = formal.characterisation_tests(rows)
     decls_by_file: dict[str, list[FuncDecl]] = {}
     functions: dict[tuple[str, str], dict] = {}
     unbound = []
     problems = []
+    bound: set[tuple[str, str, str]] = set()
 
     def skip(row: Row, reason: str) -> None:
         unbound.append({"model": row.model, "element": row.element, "symbol": row.symbol, "file": row.file,
@@ -271,13 +287,21 @@ def classify_rows(rows: list[Row], root: Path, declared: dict[str, set[str]]) ->
             skip(row, REASON_NO_SYMBOL)
             continue
         if row.file not in decls_by_file:
-            decls_by_file[row.file] = function_decls((root / row.file).read_text())
+            decls_by_file[row.file] = function_decls(read(row.file))
         try:
             decl = find_function(decls_by_file[row.file], row.symbol)
         except PlanError as err:
             problems.append(f"{row.where}: {err}")
             continue
         if decl is None:
+            leaf = split_symbol(row.symbol)[1]
+            receivers = formal.receiver_mismatch(row.symbol, (d.receiver for d in decls_by_file[row.file] if d.name == leaf))
+            if receivers is not None:
+                # The leaf is a function, so this is not a type symbol: the
+                # receiver no longer matches (decision 27).
+                problems.append(f"{row.where}: {row.symbol} names no function: {row.file} declares "
+                                f"{leaf} only with receiver {formal.describe_receivers(receivers)}")
+                continue
             # check_correspondence proved the symbol is declared, so it is a
             # type, interface, field, or value rather than a function. That
             # holds bound or not, so a row without a binding is not a binding
@@ -307,7 +331,8 @@ def classify_rows(rows: list[Row], root: Path, declared: dict[str, set[str]]) ->
         # whose binding misses the function from one that shares it.
         entry["rows"].append({"model": row.model, "element": row.element, "killers": sorted(set(killers))})
         entry["killers"].update(killers)
-    return Classified(functions, unbound, problems, decls_by_file)
+        bound.add(row.key)
+    return Classified(functions, unbound, problems, decls_by_file, bound)
 
 
 def build_plan(
@@ -730,16 +755,18 @@ def check_unplanned(
     characterisation-only) are derived and reported, never listed. Returns the
     failures and the report lines."""
     declared, _files = test_declarations(root)
-    unbound = {(u["model"], u["element"], u["symbol"]): u["reason"]
-               for u in classify_rows(rows, root, declared).unbound}
+    classified = classify_rows(rows, root, declared)
+    unbound = classified.reasons
     gaps = {key for key, reason in unbound.items() if reason == REASON_NO_BINDING}
-    row_keys = {(r.model, r.element, r.symbol) for r in rows}
+    row_keys = {r.key for r in rows}
     listed_gaps = {(r["model"], r["element"], r["symbol"]) for r in triage.get("binding_gaps", [])}
     listed_ids = set(triage.get("orphaned_survivors", []))
     survivor_rows = {s.get("id", ""): (s.get("model"), s.get("element"), s.get("symbol")) for s in survivors}
     orphans = {mutant for mutant, key in survivor_rows.items() if key in unbound}
 
-    failures = []
+    # A row the plan cannot classify (a receiver mismatch, an ambiguous
+    # symbol) is neither bound nor unbound, so it must fail here too.
+    failures = [f"row classification: {problem}" for problem in classified.problems]
     for key in sorted(gaps - listed_gaps):
         failures.append(f"[triage] binding_gaps: new binding gap {key[0]}: {key[1]!r} ({key[2]}) is not listed; "
                         "the list only shrinks: bind the row instead")
@@ -797,6 +824,12 @@ def shrink_lists(data: dict) -> dict[str, set | None]:
     return out
 
 
+def seeds_lists(base: dict) -> bool:
+    """Whether a base manifest has none of the shrink-only lists: the seeding
+    change (decision 19)."""
+    return all(entries is None for entries in shrink_lists(base).values())
+
+
 def entry_label(entry) -> str:
     return f"{entry[0]}: {entry[1]!r} ({entry[2]})" if isinstance(entry, tuple) else repr(entry)
 
@@ -814,7 +847,7 @@ def check_growth(
     head_lists, base_lists = shrink_lists(head), shrink_lists(base)
     failures, notices = [], []
     present = [name for name, entries in base_lists.items() if entries is not None]
-    if not present:
+    if seeds_lists(base):
         return [], [f"{name}: not in the base {base_name} manifest; this change seeds it" for name in head_lists]
     for name, entries in head_lists.items():
         at_base = base_lists[name]
@@ -840,9 +873,8 @@ def departure_reasons(rows: list[Row], survivors: list[dict], root: Path) -> Cal
     def status() -> dict:
         if not state:
             declared, _files = test_declarations(root)
-            state["unbound"] = {(u["model"], u["element"], u["symbol"]): u["reason"]
-                                for u in classify_rows(rows, root, declared).unbound}
-            state["rows"] = {(r.model, r.element, r.symbol) for r in rows}
+            state["unbound"] = classify_rows(rows, root, declared).reasons
+            state["rows"] = {r.key for r in rows}
             state["elements"] = {f"{r.model}: {r.element}" for r in rows}
             state["survivors"] = {s.get("id", ""): (s.get("model"), s.get("element"), s.get("symbol")) for s in survivors}
         return state
@@ -864,6 +896,66 @@ def departure_reasons(rows: list[Row], survivors: list[dict], root: Path) -> Cal
         return f"the row is still unbound ({reason})"
 
     return why
+
+
+def base_rows(base: dict, read: Callable[[str], bytes]) -> tuple[list[Row], Classified]:
+    """The correspondence rows of the base manifest's models, read at the base,
+    and their classification with the base's Go sources (decision 28). A file
+    the base lacks reads as empty: its rows cannot have been bound there."""
+    def text(path: str) -> str | None:
+        try:
+            return read(path).decode()
+        except (subprocess.CalledProcessError, OSError, UnicodeDecodeError):
+            return None
+
+    rows = []
+    for model in base.get("model", []):
+        source = text(model.get("file", "")) if isinstance(model, dict) else None
+        if source is not None:
+            rows += [Row(model.get("name", ""), *cells) for cells in formal.correspondence_rows(source)]
+    return rows, classify_rows(rows, REPO_ROOT, {}, read=lambda file: text(file) or "")
+
+
+def check_base_rows(
+    rows: list[Row], head: Classified, at_base: list[Row], base: Classified, unresolved: Iterable[str],
+    base_name: str, seeding: bool,
+) -> tuple[list[str], list[str]]:
+    """Decision 28: a row bound at the base must not become unbound by design
+    (no-symbol, type-symbol, trace-only, characterisation-only), matched on the
+    row or, when its symbol changed, on its model and element; a new row must
+    not join a listed unresolved pair. Deletions and re-points are notices. A
+    demotion to no-binding is the binding_gaps growth check's. Under seeding
+    (a base without the lists) every failure is a notice. Returns the failures
+    and the notices."""
+    unbound = head.reasons
+    keys = [r.key for r in rows]
+    by_pair: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
+    for key in keys:
+        by_pair.setdefault(key[:2], []).append(key)
+    failures, notices = [], []
+    for key in sorted(base.bound - head.bound):
+        label = entry_label(key)
+        same = by_pair.get(key[:2], [])
+        if not same:
+            notices.append(f"row {label}, bound at the base {base_name}, was deleted")
+            continue
+        bound_now = [k for k in same if k in head.bound]
+        if bound_now:
+            notices.append(f"row {label}, bound at the base {base_name}, was re-pointed to {', '.join(k[2] for k in bound_now)}")
+            continue
+        reasons = sorted({unbound[k] for k in same if k in unbound} - {REASON_NO_BINDING})
+        if reasons:
+            failures.append(f"row {label} was bound at the base {base_name} and is unbound by design now "
+                            f"({', '.join(reasons)}); bind it again or delete the row")
+    base_keys = {r.key for r in at_base}
+    pairs = set(unresolved)
+    for key in sorted(set(keys) - base_keys):
+        if f"{key[0]}: {key[1]}" in pairs:
+            failures.append(f"{UNRESOLVED_LIST}: row {entry_label(key)} is not in the base {base_name}'s tables and "
+                            "joins a listed pair; the list only shrinks: name an element that exists in the model")
+    if seeding:
+        return [], notices + [f"{failure} (reported only: the base {base_name} seeds the lists)" for failure in failures]
+    return failures, notices
 
 
 def resolve_base(arg: str, environ: dict[str, str] | None = None, run: Callable[..., str] | None = None) -> str:
@@ -1313,9 +1405,17 @@ def main(argv: list[str] | None = None) -> int:
             base = resolve_base(args.base)
             with formal.MANIFEST.open("rb") as handle:
                 head = tomllib.load(handle)
-            why = departure_reasons(model_rows(models, REPO_ROOT), ledger.get("survivor", []), REPO_ROOT)
-            growth, notices = check_growth(head, base_manifest(base), base, why)
+            rows = model_rows(models, REPO_ROOT)
+            why = departure_reasons(rows, ledger.get("survivor", []), REPO_ROOT)
+            at_base = base_manifest(base)
+            growth, notices = check_growth(head, at_base, base, why)
             failures += growth
+            base_table, base_classified = base_rows(at_base, git_reader(base))
+            demoted, departed = check_base_rows(
+                rows, classify_rows(rows, REPO_ROOT, {}), base_table, base_classified,
+                head.get("correspondence", {}).get("unresolved_elements", []), base, seeds_lists(at_base))
+            failures += demoted
+            notices += departed
             for notice in notices:
                 print(f"formal-bindings triage: {notice}")
             if listed:

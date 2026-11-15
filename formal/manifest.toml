@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 177
+command_count = 180
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -127,6 +127,11 @@ names no function as type-symbol whether or not it is bound. The gate passes,
 TestVirtualPathHarness_RootConstruction), 24 killers, 53 unbound rows (19
 no-binding, among them Auth and unpackRejectsEscape; 34 by design). Wall time
 5.6 s warm.
+First CI sample (decision 16): PR run 43657442830, Binding reach passed, 53 of
+53 triples, timing reach 37.1 s, a soft overrun of budget_seconds = 36 (local).
+It stays local until three CI runs exist; the step timeout is the larger of
+max(2, ceil(4 x 2 x 11.8 / 60)) = 2 and ceil(4 x 37.1 / 60) = 3 minutes
+(decision 33).
 """
 
 # Correspondence rows whose element cell's leading identifier is not in the
@@ -1202,7 +1207,9 @@ TestModulePathContainment_ContainmentLayerGolden binds directly). F16 decided on
 43657442894, job 132639016048; design D7 outcome b, escape): TestCreateJunction \
 passes, IsModule and Load admit a module with an inner junction, and the script \
 read of j/secret returns the outside sentinel, while both copies and the hash \
-stay contained. Recorded as findingF16JunctionScan (scan records symlinks only) \
+stay contained (modelled for those modules by copyHashJunctionScan, decision 29; \
+the leg fails on a copy or hash error, decision 30). Recorded as \
+findingF16JunctionScan (scan records symlinks only) \
 next to the passing fix configuration scriptReadScanAllKinds, guarded by \
 mutantScanNoKinds; the leg asserts the escape and the property admits the \
 junction hole."""
@@ -1337,6 +1344,28 @@ body = "copyHashInside[True]"
 expect = "counterexample"
 property = "copyHashInside"
 mutant_of = "copyHashStaysInside"
+
+# Copy and hash of a module today's Windows scan admits, inner junctions
+# included (F16): base admission excludes those modules, so copyHashStaysInside
+# never examines them (decision 29).
+[[model.command]]
+name = "copyHashJunctionScan"
+body = "copyHashScanInside[False, SymKind]"
+expect = "pass"
+property = "copyHashScanInside"
+antecedent = "anteCopyHashJunction"
+
+[[model.command]]
+name = "anteCopyHashJunction"
+body = "anteCopyHashJunction"
+expect = "instance"
+
+[[model.command]]
+name = "mutantCopyFollowsJunction"
+body = "copyHashScanInside[True, SymKind]"
+expect = "counterexample"
+property = "copyHashScanInside"
+mutant_of = "copyHashJunctionScan"
 
 # Unpack writes stay inside the destination.
 [[model.command]]

@@ -1145,6 +1145,29 @@ def correspondence_rows(source: str) -> list[list[str]]:
 
 SKIP_DIRS = {".git", "node_modules", "bin", "artifacts", "website"}
 GO_DECL_RE = r"^(?:func (?:\([^)]*\) )?{name}\b|type {name}\b|\s+{name}\s+(?:=|[A-Za-z*\[])|(?:var|const) {name}\b)"
+# A top-level function or method declaration: its receiver type (generic
+# parameters dropped) and name. scripts/formal_mutation.py shares it.
+FUNC_DECL_RE = re.compile(
+    r"^func (?:\((?:\w+\s+)?\*?(?P<recv>\w+)(?:\[[^\]]*\])?\)\s*)?(?P<name>\w+)\s*(?:\[[^\]]*\])?\(",
+    re.M,
+)
+
+
+def receiver_mismatch(symbol: str, receivers: Iterable[str]) -> list[str] | None:
+    """For a `Recv.name` symbol and the receivers of every function the file
+    declares as `name` ("" for a plain function): the declared receivers when
+    the file declares `name` as a function but never with receiver `Recv`,
+    else None. Such a row would otherwise pass the leaf-name check and look
+    like a type symbol (harden-formal-instruments decision 27)."""
+    receiver, _, _leaf = symbol.rpartition(".")
+    declared = sorted(set(receivers))
+    if not receiver or not declared or receiver in declared:
+        return None
+    return declared
+
+
+def describe_receivers(receivers: list[str]) -> str:
+    return ", ".join(r or "(none: a plain function)" for r in receivers)
 TEST_FUNC_RE = re.compile(r"^func (Test\w+)\(", re.M)
 # Files whose tests bind a model; every test in them must be accounted for.
 BINDING_TEST_SUFFIXES = ("_formal_test.go", "_golden_test.go", "_rapid_test.go", "_trace_test.go")
@@ -1333,8 +1356,14 @@ def check_correspondence(
                 failures.append(f"{model.name}: row {element!r} names missing file {file}")
                 continue
             leaf = symbol.split(".")[-1]
-            if not re.search(GO_DECL_RE.format(name=re.escape(leaf)), path.read_text(), re.M):
+            source = path.read_text()
+            if not re.search(GO_DECL_RE.format(name=re.escape(leaf)), source, re.M):
                 failures.append(f"{model.name}: row {element!r} names {symbol}, which is not declared in {file}")
+                continue
+            declared = receiver_mismatch(symbol, (m["recv"] or "" for m in FUNC_DECL_RE.finditer(source) if m["name"] == leaf))
+            if declared is not None:
+                failures.append(f"{model.name}: row {element!r} names {symbol}, but {file} declares {leaf} only with "
+                                f"receiver {describe_receivers(declared)}")
     suites = load_trace_suites() if suites is None else suites
     return failures + check_binding_completeness(tabled, suites, root)
 

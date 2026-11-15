@@ -117,8 +117,13 @@ entry the base lists has left (bound, reclassified, resolved, or deleted). The
 base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else
 `git merge-base HEAD origin/main`. In CI `scripts/ci-triage-base.sh` sets the
 variable for the formal lane and the script-test gate: the base branch tip on a
-pull request, the commit under test otherwise. A base with none of the lists
-seeds them; one with only some fails. A base that cannot be read fails closed. To
+pull request, the commit under test otherwise. It classifies the base's tables
+too: a row bound at the base that is now unbound by design fails, and so does a
+new row under a listed unresolved pair (decision 28); a deleted or re-pointed
+row is a notice. A `Recv.name` symbol whose receiver no longer declares `name`
+fails correspondence, the plan, and the triage check (decision 27). A base with
+none of the lists seeds them, reporting those checks as notices; one with only
+some fails. A base that cannot be read fails closed. To
 clear an entry, rename the element or bind the row, then delete the entry; an
 added entry fails against the base. The survivor-triage follow-up empties
 `unresolved_elements` and `orphaned_survivors` and binds the gaps.
@@ -162,7 +167,7 @@ Export fails when a file exceeds 600,000 compressed bytes, or a smaller
 | `module_path_containment_golden.json.gz` | 22848 | 1680 | - | 20,994 B | - |
 | `virtual_path_harness_golden.json.gz` | 14580 | 14580 | - | 18,332 B | - |
 
-The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens. Junctions are covered by the junction witness commands, the junction branch of `TestModulePathContainment_Property` (required on Windows), and `TestModulePathContainment_F16Junction` (required on Windows, skipped by the capability policy on Linux and macOS); no golden instance replays a junction (harden-formal-instruments design D8). The 30 s replay budget is a recorded figure enforced by no step or test; an overrun found when a budget is measured narrows the golden scope, and nothing in CI checks the figure afterwards. One windows-latest sample measured the `ModulePathContainment` golden at 34.4 s before the custom-check and env replays were added. The Windows golden-replay budget is 56 s: `ceil(1.5 x 37.17)`, the slowest of three windows-latest runs of the final harden-formal-instruments tree (head 3575b947; CI run 43667156106, `Test (windows)` attempts 1, 2, and 3, jobs 132668974832, 132671916514, and 132674591827, measured 37.17 s, 36.97 s, and 29.23 s under `-race -short`, so the loader replays every 16th instance). Runs of earlier trees do not count. Like the 30 s Linux and macOS figure, no step or test enforces it. If it is not accepted, memoising the custom-check and env replays per (tree, path) is the lever, not cutting instances (harden-formal-instruments design D12).
+The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens. Junctions are covered by the junction witness commands, the junction branch of `TestModulePathContainment_Property` (required on Windows), and `TestModulePathContainment_F16Junction` (required on Windows, skipped by the capability policy on Linux and macOS); no golden instance replays a junction (harden-formal-instruments design D8). The 30 s replay budget is a recorded figure enforced by no step or test; an overrun found when a budget is measured narrows the golden scope, and nothing in CI checks the figure afterwards. One windows-latest sample measured the `ModulePathContainment` golden at 34.4 s before the custom-check and env replays were added. The Windows golden-replay budget is pending: the 56 s figure measured on head 3575b947 (CI run 43667156106, attempts 1-3, 37.17 s, 36.97 s, and 29.23 s) is withdrawn, because the stage-4 changes regenerated the `ModulePathContainment` golden. It is re-measured on three windows-latest attempts of one head whose golden-replay inputs equal the archived head's, `ceil(1.5 x slowest)` under `-race -short` (every 16th instance replayed), with the macOS time from the same head (decision 32). Like the 30 s Linux and macOS figure, no step or test enforces it. If it is not accepted, memoising the custom-check and env replays per (tree, path) is the lever, not cutting instances (harden-formal-instruments design D12).
 
 **Deferred: duplicate instances.** The counts above show that Alloy's
 enumeration repeats instances. The XML of a duplicate pair is byte-identical
@@ -234,7 +239,7 @@ change.
 | F13 | module path containment | A module's `script.file` (or custom-check file) into `invowk_modules/` reaches a symlink that `Load` never scans, and the read follows it outside the module | Open: `ModulePathContainment.findingF13VendoredSymlink` reproduces; `scriptReadContainedPhysical` (physical containment) passes; replay `TestModulePathContainment_F13VendoredSymlink` | physical containment (out of scope) |
 | F14 | virtual path harness | `normalizeExistingOrParent` evaluates only the path and its parent, so a path with two or more missing components below an escaping symlink is judged lexically and admitted; the write lands outside the allowed root | Open: `VirtualPathHarness.findingF14DeepSymlink` reproduces; `harnessContainedFixed` (deepest-existing-ancestor eval) passes; replay `TestVirtualPathHarness_F14DeepSymlink` | evaluate the deepest existing ancestor (out of scope) |
 | F15 | virtual path harness | A module-declared `workdir` outside the module widens the allowed roots under `restricted` access, admitting reads that are not cwd operations | Open: `VirtualPathHarness.findingF15WorkdirWidening` reproduces; `harnessContainedFixed` passes; replay `TestVirtualPathHarness_F15WorkdirWidening` | keep the workdir out of the read roots (out of scope) |
-| F16 | module path containment | A Windows junction inside a module is not `ModeSymlink` (Go 1.23+), so `IsModule` and `Load` admit a module with an inner non-vendored junction and a script read follows it out of the module (both copies and the hash stay contained) | Open: `ModulePathContainment.findingF16JunctionScan` reproduces; `scriptReadScanAllKinds` (a scan that records junctions) passes; replay `TestModulePathContainment_F16Junction`, confirmed on windows-latest (CI run 43657442894, job 132639016048) | a junction-aware module scan (out of scope) |
+| F16 | module path containment | A Windows junction inside a module is not `ModeSymlink` (Go 1.23+), so `IsModule` and `Load` admit a module with an inner non-vendored junction and a script read follows it out of the module (both copies and the hash stay contained: `copyHashJunctionScan`) | Open: `ModulePathContainment.findingF16JunctionScan` reproduces; `scriptReadScanAllKinds` (a scan that records junctions) passes; replay `TestModulePathContainment_F16Junction`, confirmed on windows-latest (CI run 43657442894, job 132639016048) | a junction-aware module scan (out of scope) |
 | F17 | module path containment | An env file declared as `invowk_modules/x` is read at runtime through the same symlink hole, with no containment check in `LoadEnvFile` | Open: `ModulePathContainment.findingF17EnvVendoredSymlink` reproduces; `envReadContainedPhysical` passes; replay `TestModulePathContainment_F17EnvVendoredSymlink` | physical containment (out of scope) |
 
 F8–F12 are owned by sibling changes (`model-concurrent-lock-writes`, `trace-validate-token-and-lock`) and are merged separately.
@@ -245,7 +250,13 @@ F8–F12 are owned by sibling changes (`model-concurrent-lock-writes`, `trace-va
 script read of `j/secret` returning the outside sentinel, while both copies
 and the hash stayed contained (run 43657442894). The leg now asserts that
 behaviour, the rapid property admits a junction escape as the recorded F16
-hole, and `findingF16JunctionScan` records it in the model.
+hole, and `findingF16JunctionScan` records it in the model. The copies and the
+hash have a model command for those modules too: base admission counts
+junctions as scanned, so `copyHashStaysInside` never examines a module with an
+inner junction, and `copyHashJunctionScan` checks copy and hash containment
+over the modules today's Windows scan admits (antecedent `anteCopyHashJunction`,
+mutant `mutantCopyFollowsJunction`; decision 29). The leg's copy and hash arms
+fail on an error, so "contained" cannot mean "failed" (decision 30).
 
 Two hypotheses were refuted: the symlinked-hash-root escape
 (`computeModuleHash` on a symlinked root hashes an empty tree, but every caller
@@ -311,12 +322,12 @@ Measurements (2026-09-25; `[ci.budget]` records the run IDs):
 
 | Step | Measured | Hard limit | Source |
 |---|---|---|---|
-| Check models | 369 s (CI run 36180026549, full model set); 173 s local | 25 min | ci |
-| Trace validation | 164 s (CI max over post-sibling PR runs); 25 s local | 11 min | ci |
+| Check models | 369 s (CI run 36180026549, full model set); 173 s local | 26 min | ci |
+| Trace validation | 164 s (CI max over post-sibling PR runs); 25 s local | 12 min | ci |
 | Replay golden vectors and property tests | 19 s (CI max); 3.3 s local | 2 min | ci |
-| Deep property tests | never run in CI; 15.7 s local, assumed 4x slower on a 4-core runner | 5 min | local |
-| Binding reach | not yet measured in CI; 11.8 s local with a cold coverage build (3-7 s warm), CI assumed 2x slower | 6 min (`max(2, ceil(4 x 2 x 45 / 60))`, sized for the prototype's 45 s) | local (`[reach]`, 36 s soft) |
-| Job | | 52 min (the workflow's step timeouts sum to 48; the job must exceed that plus 3) | |
+| Deep property tests | never run in CI; 15.7 s local, assumed 4x slower on a 4-core runner | 2 min | local |
+| Binding reach | 37.1 s in CI (run 43657442830, one run: a soft overrun of the 36 s local budget); 11.8 s local with a cold coverage build (3-9 s warm) | 3 min (the larger of `max(2, ceil(4 x 2 x 11.8 / 60))` = 2 and `ceil(4 x 37.1 / 60)` = 3, until three CI runs replace it) | local (`[reach]`, 36 s soft) |
+| Job | | 49 min (the workflow's step timeouts sum to 45; the job must exceed that plus 3) | |
 
 All soft budgets are still `local`: the pull-request runs above predate the
 runner's per-model `timing` lines. After merge, three `workflow_dispatch` runs

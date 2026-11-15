@@ -12,6 +12,6 @@ Each heavy formal step SHALL have a hard budget, set as a step-level `timeout-mi
 - **WHEN** `scripts/test_formal.py` runs
 - **THEN** it SHALL fail if the formal job's `timeout-minutes` is not greater than the sum of its step `timeout-minutes` plus 3
 
-#### Scenario: Binding reach before it is measured in CI
-- **WHEN** the `Binding reach` step has no measured CI time yet
-- **THEN** its `timeout-minutes` SHALL be `max(2, ceil(4 × 2 × local seconds / 60))`, assuming CI is at most twice as slow as the local measurement, until three CI runs replace it
+#### Scenario: Binding reach before three CI runs
+- **WHEN** the `Binding reach` step has fewer than three measured CI times
+- **THEN** its `timeout-minutes` SHALL be the larger of `max(2, ceil(4 × 2 × local seconds / 60))`, assuming CI is at most twice as slow as the local measurement, and `ceil(4 × the slowest CI time so far / 60)`, until three CI runs replace it

@@ -126,7 +126,13 @@ func TempRoot(t *testing.T) string {
 // NewCache probes the host once and returns an empty materialisation cache.
 func NewCache(t *testing.T) *Cache {
 	t.Helper()
-	return &Cache{caps: Probe(t), host: CurrentHost(), built: map[string]*Built{}, skips: map[Capability]int{}}
+	return newCache(Probe(t), CurrentHost())
+}
+
+// newCache is NewCache with the probe result and the platform injected, so
+// the policy test can drive Get on any GOOS.
+func newCache(caps Caps, host Host) *Cache {
+	return &Cache{caps: caps, host: host, built: map[string]*Built{}, skips: map[Capability]int{}}
 }
 
 // Get returns the tree for spec, materialising it on first use of key. When
@@ -138,15 +144,11 @@ func (c *Cache) Get(t *testing.T, key string, spec Spec) *Built {
 	if b, ok := c.built[key]; ok {
 		return b
 	}
-	b, skip := Materialize(t, spec, c.caps)
-	if skip != "" {
-		if skip.Required(c.host) {
-			_, err := c.caps.Has(skip)
-			t.Fatalf("%s is required on %s: %v", skip, c.host.GOOS, err)
-		}
-		c.skips[skip]++
+	if skip := skipReason(spec, c.caps); skip != "" {
+		c.missing(t, skip)
 		return nil
 	}
+	b, _ := Materialize(t, spec, c.caps)
 	c.built[key] = b
 	return b
 }
@@ -157,6 +159,19 @@ func (c *Cache) LogSkips(t *testing.T) {
 	for capability, n := range c.skips {
 		t.Logf("skipped %d instances needing capability %q (not required on %s)", n, string(capability), c.host.GOOS)
 	}
+}
+
+// missing applies the policy to an instance that needs the missing
+// capability: it fails t when the capability is required here, and otherwise
+// counts the skip.
+func (c *Cache) missing(t Fataler, skip Capability) {
+	t.Helper()
+	if skip.Required(c.host) {
+		_, err := c.caps.Has(skip)
+		t.Fatalf("%s is required on %s: %v", skip, c.host.GOOS, err)
+		return
+	}
+	c.skips[skip]++
 }
 
 // Materialize builds the tree under filepath.EvalSymlinks(t.TempDir()), which

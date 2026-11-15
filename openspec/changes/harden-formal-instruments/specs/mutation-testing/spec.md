@@ -64,6 +64,24 @@ The growth check SHALL treat a base manifest that has none of the three lists as
 - **WHEN** the base manifest has one or two of the three lists
 - **THEN** the growth check SHALL fail and name each list the base lacks
 
+### Requirement: Rows bound at the base stay bound or leave visibly
+`triage --check` SHALL classify the base commit's correspondence tables, read with the model and Go sources at the base, as the plan does. It SHALL fail when a row bound at the base is unbound by design in the tree: the same (model, element, symbol) row, or every row with its model and element, is `no-symbol`, `type-symbol`, `trace-only`, or `characterisation-only`. Other departures SHALL be notices. A base with none of the three lists SHALL report demotions as notices only.
+
+#### Scenario: Bound row demoted to characterisation
+- **WHEN** a row bound at the base gets an abstraction cell beginning `characterisation:`, or only trace-harness or characterisation bindings
+- **THEN** `triage --check` SHALL fail and name the row, its by-design reason, and the base
+
+#### Scenario: Bound row deleted
+- **WHEN** a row bound at the base is deleted from its table
+- **THEN** `triage --check` SHALL pass and print a notice that the row was deleted
+
+### Requirement: Unresolved rows cannot grow against the base
+`triage --check` SHALL fail on a row in the tree whose `"<model>: <element>"` pair is listed in `[correspondence] unresolved_elements` and whose (model, element, symbol) row the base tables do not have, so no new row enters an unresolved pair. A base with none of the three lists SHALL report such rows as notices only.
+
+#### Scenario: New row under a listed pair
+- **WHEN** a row is added under a listed unresolved pair, such as a second `readOp` row naming `IsModule`
+- **THEN** `triage --check` SHALL fail and name the row and the base
+
 ### Requirement: Entries that leave a triage list are explained
 When the base lists an entry that the tree does not, `triage --check` SHALL print a notice naming the list, the entry, and why it left: for a binding gap, its row is bound, reclassified by design, or deleted; for an orphan, its row is bound or its survivor left the ledger; for an unresolved element, it resolves or its row is deleted.
 

@@ -258,6 +258,18 @@ pred copyHashInside[followLinks: Bool] {
 		implies (some touches[o] and inTree[o.owner.mroot, touches[o]])
 }
 
+// copyHashScanInside: copyHashInside over the modules a scan of
+// scannedKinds admits (decision 29 of harden-formal-instruments). Base
+// admission counts junctions as scanned, so copyHashInside never examines the
+// junction modules that today's Windows scan (SymKind) admits (F16); this
+// checks copy and hash containment for them.
+pred copyHashScanInside[followLinks: Bool, scannedKinds: set LinkKind] {
+	all o: Op |
+		(o.kind in (VendorCopy + Hash) and admittedScanning[o.owner, scannedKinds]
+			and inTree[o.owner.mroot, o.ref] and copyReaches[o, followLinks])
+		implies (some touches[o] and inTree[o.owner.mroot, touches[o]])
+}
+
 // unpackInside: unpack rejects a `..`/absolute member (validateDestinationPath);
 // dropping the check writes outside the destination.
 pred unpackInside[destCheck: Bool] {
@@ -272,6 +284,11 @@ pred anteScriptGuarded { some o: Op | o.kind = ScriptRead and accepts[o] and not
 pred anteReadContained { some o: Op | o.kind = ScriptRead and validates[o] and physContains[o] and admitted[o.owner, True, True] }
 pred anteEnvContained { some o: Op | o.kind = EnvRead and validates[o] and physContains[o] and admitted[o.owner, True, True] }
 pred anteCopyHash { some o: Op | o.kind in (VendorCopy + Hash) and admitted[o.owner, True, True] and inTree[o.owner.mroot, o.ref] and o.ref not in Link }
+pred anteCopyHashJunction {
+	some o: Op | o.kind in (VendorCopy + Hash) and admittedScanning[o.owner, SymKind]
+		and inTree[o.owner.mroot, o.ref] and o.ref not in Link
+		and some l: Link | l.kind = JunKind and inTree[o.owner.mroot, l] and not underVendor[o.owner, l]
+}
 pred anteUnpack { some o: Op | o.kind = Unpack and o.refShape = RelInside }
 
 pred witInModuleLink { some l: Link | some m: Module | inTree[m.mroot, l] and not underVendor[m, l] }

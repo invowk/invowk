@@ -103,9 +103,13 @@ func TestModulePathContainment_F17EnvVendoredSymlink(t *testing.T) {
 // junction-aware scan, findingF16JunctionScan's fix configuration
 // scriptReadScanAllKinds) inverts it in a later change. The same run showed
 // the other operations contained, so the leg asserts that too:
-//   - neither copy (modulecache.CopyModuleDir, provision.CopyDir) contains the
-//     outside sentinel;
-//   - ComputeModuleHash does not change when only the outside sentinel does.
+//   - both copies (modulecache.CopyModuleDir, provision.CopyDir) succeed and
+//     neither contains the outside sentinel;
+//   - ComputeModuleHash succeeds and does not change when only the outside
+//     sentinel does.
+//
+// An error from a copy or a hash fails the leg, so the recorded "contained"
+// verdict cannot silently mean "failed" (harden-formal-instruments decision 30).
 //
 // Junctions are required on Windows and skipped elsewhere through the
 // capability policy.
@@ -151,21 +155,27 @@ func TestModulePathContainment_F16Junction(t *testing.T) {
 	}
 	for name, copyDir := range copies {
 		dst := filepath.Join(scratch, strings.ReplaceAll(name, ".", "-"))
-		err := copyDir(mod, dst)
-		if err == nil && copiedOutsideContent(dst, map[string]bool{sentinel: true}) {
+		if copyErr := copyDir(mod, dst); copyErr != nil {
+			t.Errorf("%s failed on a module with an inner junction: %v", name, copyErr)
+			continue
+		}
+		if copiedOutsideContent(dst, map[string]bool{sentinel: true}) {
 			t.Errorf("%s copied the outside sentinel through the junction (contained in run 43657442894)", name)
 		}
 	}
 
-	before, beforeErr := invowkmod.ComputeModuleHash(mod)
-	if err := os.WriteFile(b.Path["secret"], []byte(sentinel+"-changed"), 0o644); err != nil {
-		t.Fatalf("change sentinel: %v", err)
+	before, err := invowkmod.ComputeModuleHash(mod)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash failed on a module with an inner junction: %v", err)
 	}
-	after, afterErr := invowkmod.ComputeModuleHash(mod)
-	switch {
-	case (beforeErr == nil) != (afterErr == nil):
-		t.Errorf("ComputeModuleHash succeeds only on one side of an outside-only change (%v / %v)", beforeErr, afterErr)
-	case beforeErr == nil && before != after:
+	if writeErr := os.WriteFile(b.Path["secret"], []byte(sentinel+"-changed"), 0o644); writeErr != nil {
+		t.Fatalf("change sentinel: %v", writeErr)
+	}
+	after, err := invowkmod.ComputeModuleHash(mod)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash failed after an outside-only change: %v", err)
+	}
+	if before != after {
 		t.Errorf("ComputeModuleHash changed when only the outside sentinel changed (%s -> %s)", before, after)
 	}
 }
