@@ -89,7 +89,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return renderAndWrapServiceError(err, resolveReq, diags)
 	}
 	if cmdInfo == nil {
-		return notFoundError(&WatchCommandNotFoundError{Name: args[0]}, diags)
+		return notFoundError(&WatchCommandNotFoundError{Name: args[0]}, diags, fromSource)
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)

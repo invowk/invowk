@@ -302,7 +302,7 @@ func renderAndWrapServiceError(err error, req ExecuteRequest, diags []discovery.
 			Source:           sourceErr.Source,
 			AvailableSources: sourceErr.AvailableSources,
 		})
-		return notFoundError(newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg), diags)
+		return notFoundError(newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg), diags, req.FromSource)
 	}
 
 	if platformErr, ok := errors.AsType[*commandsvc.UnsupportedPlatformError](err); ok {
@@ -343,7 +343,7 @@ func renderAndWrapServiceError(err error, req ExecuteRequest, diags []discovery.
 		}
 		svcErr := newServiceError(classified.Err, issueIDForServiceErrorKind(classified.Kind), styledMsg)
 		if classified.Kind == commandsvc.ErrorKindCommandNotFound {
-			return notFoundError(svcErr, diags)
+			return notFoundError(svcErr, diags, req.FromSource)
 		}
 		if classified.Kind == commandsvc.ErrorKindCommandAmbiguous {
 			return newUsageError(svcErr)

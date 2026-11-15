@@ -125,8 +125,10 @@ cd skipped
 exitcode 1 invowk cmd build
 ! stdout .
 stderr '(?i)skipping invowkfile'
+stderr 'invowkfile\.cue\s+\(invowkfile_parse_skipped\)'
 exitcode 1 invowk cmd @invowkfile build
 ! stdout .
+stderr 'invowkfile_parse_skipped'
 cd $WORK
 
 -- invowkfile.cue --

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -27,15 +29,27 @@ const (
 	defaultSuggestionsMinimumDistance = 2
 )
 
-// UsageError marks an error caused by the shape of the command line
-// (unknown command, flag or source, bad flag value, arity, ambiguity).
-// It changes only the process exit status (ExitCodeUsage); the message is the
-// wrapped error's text, so rendering and fang's "Try --help" hint are unchanged.
-// Always create via newUsageError, which keeps the invariant that a UsageError
-// never wraps an ExitError (an explicit exit code always wins).
-type UsageError struct {
-	Err error
-}
+type (
+	// UsageError marks an error caused by the shape of the command line
+	// (unknown command, flag or source, bad flag value, arity, ambiguity).
+	// It changes only the process exit status (ExitCodeUsage); the message is the
+	// wrapped error's text, so rendering and fang's "Try --help" hint are unchanged.
+	// Always create via newUsageError, which keeps the invariant that a UsageError
+	// never wraps an ExitError (an explicit exit code always wins).
+	UsageError struct {
+		Err error
+	}
+
+	// SkippedSourcesError is a "command not found" or "source not found" error
+	// raised while discovery skipped sources that failed to parse or load and
+	// that may have defined the request. It keeps exit status 1 (see
+	// notFoundError), and its message names each skipped source and the
+	// diagnostic code, so a wrapper can tell why the status is not ExitCodeUsage.
+	SkippedSourcesError struct {
+		Err     error
+		Skipped []discovery.Diagnostic
+	}
+)
 
 // Error returns the wrapped error's message unchanged.
 func (e *UsageError) Error() string { return e.Err.Error() }
@@ -59,21 +73,87 @@ func newUsageError(err error) error {
 	return &UsageError{Err: err}
 }
 
+// Error returns the not-found message followed by the skipped sources.
+func (e *SkippedSourcesError) Error() string {
+	var sb strings.Builder
+	sb.WriteString(e.Err.Error())
+	sb.WriteString("; discovery skipped sources that failed to load:")
+	for i, diag := range e.Skipped {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		fmt.Fprintf(&sb, " %s (%s)", skippedSourceLabel(diag), diag.Code())
+	}
+	return sb.String()
+}
+
+// Unwrap returns the not-found error for errors.Is/As chains.
+func (e *SkippedSourcesError) Unwrap() error { return e.Err }
+
 // notFoundError classifies a "command not found" or "source not found" error.
 // It is a UsageError (exit status ExitCodeUsage) unless discovery reported an
-// invowkfile or module that failed to parse or load: the command may be
-// defined in that file, so the failure is not attributed to the command line
-// and keeps exit status 1, like any other invalid invowkfile. Which file held
-// the command cannot be known, so any such diagnostic counts. err may already
-// be a UsageError (rejectUnmatchedGroupToken); that classification is removed.
-func notFoundError(err error, diags []discovery.Diagnostic) error {
-	if !slices.ContainsFunc(diags, isSourceLoadFailure) {
+// invowkfile or module that failed to parse or load and that may be the
+// requested source: the command may be defined in that file, so the failure is
+// not attributed to the command line and keeps exit status 1, like any other
+// invalid invowkfile. scope is the request's @source/--ivk-from (empty when
+// unscoped). Unscoped, any such skipped source counts, because which file held
+// the command cannot be known; scoped, only a skipped source that may carry
+// that source ID counts (mayBeSkippedSource). err may already be a UsageError
+// (rejectUnmatchedGroupToken); that classification is removed.
+func notFoundError(err error, diags []discovery.Diagnostic, scope discovery.SourceID) error {
+	var skipped []discovery.Diagnostic
+	for _, diag := range diags {
+		if isSourceLoadFailure(diag) && mayBeSkippedSource(diag, scope) {
+			skipped = append(skipped, diag)
+		}
+	}
+	if len(skipped) == 0 {
 		return newUsageError(err)
 	}
 	if usageErr, ok := errors.AsType[*UsageError](err); ok {
-		return usageErr.Err
+		err = usageErr.Err
 	}
-	return err
+	return &SkippedSourcesError{Err: err, Skipped: skipped}
+}
+
+// mayBeSkippedSource reports whether the skipped source of diag could be the
+// source scope names; an empty scope matches every skipped source. Only the
+// default namespaces are derived from the path: a root invowkfile is
+// `invowkfile`, and a module directory found by the module scan is its
+// directory name. Included and vendored modules can be renamed by an alias or
+// a requires namespace, a module's own invowkfile can belong to either, and a
+// diagnostic without a path names no source, so those always match.
+func mayBeSkippedSource(diag discovery.Diagnostic, scope discovery.SourceID) bool {
+	if scope == "" || diag.Path() == "" {
+		return true
+	}
+	if diag.Code() == discovery.CodeInvowkfileParseSkipped {
+		if strings.HasSuffix(filepath.Dir(string(diag.Path())), invowkmod.ModuleSuffix) {
+			return true
+		}
+		return scope == discovery.SourceIDInvowkfile
+	}
+	if diag.Code() == discovery.CodeModuleLoadSkipped {
+		return discovery.SourceID(invowkmod.CommandSourceIDFromModulePath(diag.Path())) == scope
+	}
+	return true
+}
+
+// skippedSourceLabel names a skipped source by the last element of its path
+// (its module directory, or the invowkfile and the module that holds it). The
+// discovery warning printed before the error carries the full path.
+//
+//plint:render
+func skippedSourceLabel(diag discovery.Diagnostic) string {
+	path := string(diag.Path())
+	if path == "" {
+		return "an unnamed source"
+	}
+	base := filepath.Base(path)
+	if parent := filepath.Base(filepath.Dir(path)); strings.HasSuffix(parent, invowkmod.ModuleSuffix) {
+		return parent + "/" + base
+	}
+	return base
 }
 
 // isSourceLoadFailure reports whether diag means that discovery found an

@@ -74,11 +74,16 @@ Classifying an error as a usage error SHALL NOT change its message text, so that
 - **THEN** stderr SHALL contain `command 'nope' not found`
 
 ### Requirement: Command groups reject unmatched tokens
-A command group is a command node that exists only to hold subcommands, such as the synthesized parent `test` of `test unit` or a built-in parent like `config`, `module`, `tui`, `agent` or `internal`. When a group gets one or more positional tokens that do not resolve to a subcommand, invowk SHALL exit with status 2 and SHALL write nothing to stdout.
+A command group is a command node that exists only to hold subcommands, such as the synthesized parent `test` of `test unit` or a built-in parent such as `config` or `module`. When a group gets one or more positional tokens that do not resolve to a subcommand, invowk SHALL exit with status 2 and SHALL write nothing to stdout. Exception: see "A command missing because a source failed to load exits with status 1".
 
 #### Scenario: Typo under a discovered group
 - **WHEN** commands `test unit` and `test other` exist and the user runs `invowk cmd test nonexistent`
 - **THEN** invowk SHALL exit with status 2
+- **AND** stdout SHALL be empty
+
+#### Scenario: Typo under a discovered group while a module failed to load
+- **WHEN** commands `test unit` and `test other` exist in the invowkfile, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd test typo`
+- **THEN** invowk SHALL exit with status 1
 - **AND** stdout SHALL be empty
 
 #### Scenario: Typo under a built-in group
@@ -184,7 +189,7 @@ A `@source` or `--ivk-from` value SHALL be normalized (a leading `@` and a `.inv
 - **THEN** invowk SHALL run the command and exit with status 0
 
 ### Requirement: A command missing because a source failed to load exits with status 1
-When the command or source named on the command line is not found, and discovery reported in the same invocation an invowkfile or module that it skipped because it failed to parse or load, invowk SHALL exit with status 1 instead of 2. Policy skips, such as reserved module names, do not count. Ambiguity, argument and flag errors keep status 2.
+When the command or source named on the command line is not found, and discovery reported in the same invocation an invowkfile or module that it skipped because it failed to parse or load, invowk SHALL exit with status 1 instead of 2. This covers unknown commands, group typos under `invowk cmd`, unknown sources and watch mode. Policy skips, such as reserved module names, do not count. Ambiguity, argument and flag errors keep status 2.
 
 #### Scenario: Command defined in an invowkfile that does not parse
 - **WHEN** the only invowkfile defines `build` but has a field the schema does not allow, and the user runs `invowk cmd build`
@@ -194,6 +199,29 @@ When the command or source named on the command line is not found, and discovery
 #### Scenario: Source filter on a skipped invowkfile
 - **WHEN** the only invowkfile does not parse and the user runs `invowk cmd @invowkfile build`
 - **THEN** invowk SHALL exit with status 1
+
+#### Scenario: Source filter on the skipped module
+- **WHEN** module directory `broken.invowkmod` fails to load and the user runs `invowk cmd @broken x`
+- **THEN** invowk SHALL exit with status 1
+
+### Requirement: A scoped miss in a source that loaded exits with status 2
+When the request names a source (`@source` or `--ivk-from`), only a skipped invowkfile or module that may be that source SHALL count for the status-1 exception. A root invowkfile may be `invowkfile`, and a module directory found by the module scan may be the source named by its directory. Included and vendored modules, an invowkfile inside a module, and a diagnostic without a path SHALL always count. Otherwise the miss is certain and SHALL exit with status 2.
+
+#### Scenario: Scoped miss in a source that loaded
+- **WHEN** the invowkfile is valid, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd @invowkfile nope`
+- **THEN** invowk SHALL exit with status 2
+
+#### Scenario: Unknown source that cannot be the skipped one
+- **WHEN** module directory `broken.invowkmod` fails to load and the user runs `invowk cmd @bogus x`
+- **THEN** invowk SHALL exit with status 2
+
+### Requirement: A skipped-source not-found error names the skipped sources
+When a not-found error exits with status 1 because a source failed to load, its message SHALL name each skipped source that counted, by the last element of its path, with the discovery diagnostic code (for example `broken.invowkmod (module_load_skipped)`), so a wrapper can tell why the status is 1.
+
+#### Scenario: The error names the skipped source
+- **WHEN** the invowkfile is valid, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd nope`
+- **THEN** invowk SHALL exit with status 1
+- **AND** stderr SHALL contain `broken.invowkmod` and `module_load_skipped`
 
 ### Requirement: Declared argument and flag validation errors exit with status 2
 Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when declared positional arguments fail validation (missing required, too many, or a value that does not match the declared type or pattern) or when invowkfile-declared flag values fail validation.

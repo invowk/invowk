@@ -154,7 +154,7 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			return notFoundError(rejectUnmatchedGroupToken(cmd, args), diags)
+			return notFoundError(rejectUnmatchedGroupToken(cmd, args), diags, "")
 		},
 	}
 }

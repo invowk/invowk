@@ -215,10 +215,10 @@ func TestNotFoundErrorStripsUsageClassification(t *testing.T) {
 		t.Fatalf("NewDiagnostic() error = %v", err)
 	}
 	rejection := newUsageError(errors.New(`unknown command "x" for "invowk cmd test"`))
-	if got := exitCodeForError(notFoundError(rejection, []discovery.Diagnostic{d})); got != 1 {
+	if got := exitCodeForError(notFoundError(rejection, []discovery.Diagnostic{d}, "")); got != 1 {
 		t.Fatalf("exit code with a skipped source = %d, want 1", got)
 	}
-	if got := exitCodeForError(notFoundError(rejection, nil)); got != ExitCodeUsage {
+	if got := exitCodeForError(notFoundError(rejection, nil, "")); got != ExitCodeUsage {
 		t.Fatalf("exit code without diagnostics = %d, want %d", got, ExitCodeUsage)
 	}
 }
