@@ -53,6 +53,15 @@ type (
 		Execute(*runtime.ExecutionContext, invowkfile.CommandName, RuntimeInteractiveCommand) *runtime.Result
 	}
 
+	// InteractivePreflight is optionally implemented by an InteractiveExecutor
+	// that can tell, before dependency validation starts any container,
+	// whether a run can be interactive. An error wrapping
+	// containerplan.ErrTUIExposureRefused means the engine mode has no narrow
+	// TUI server route.
+	InteractivePreflight interface {
+		PreflightInteractive(*runtime.ExecutionContext, RuntimeInteractiveCommand) error
+	}
+
 	// RequestScopeFunc attaches per-request service state such as discovery
 	// caches. Service calls this at entry points so callers are not required
 	// to know adapter-specific context conventions.

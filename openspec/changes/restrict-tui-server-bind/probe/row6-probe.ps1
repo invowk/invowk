@@ -45,7 +45,15 @@ probe "all-interfaces (opt-in control)" "$WILDCARD_PORT"
 '@ -replace "`r", ''
 
 try {
-    $engine = & docker info --format '{{.OperatingSystem}} / server {{.ServerVersion}}' 2>&1
+    # Informational only: under Windows PowerShell 5.1 with Stop, native
+    # stderr can turn into a terminating error, so it must not abort here.
+    $engine = 'unknown'
+    try {
+        $engine = & docker info --format '{{.OperatingSystem}} / server {{.ServerVersion}}' 2>$null
+    }
+    catch {
+        $engine = "unknown ($($_.Exception.Message))"
+    }
     Write-Output "engine: $engine"
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()

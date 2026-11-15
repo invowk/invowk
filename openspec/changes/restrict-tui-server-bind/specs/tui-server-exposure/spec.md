@@ -65,6 +65,14 @@ For an engine mode without a narrow plan, unless the opt-in applies, an interact
 - **WHEN** the user runs the same command in the same engine mode without `-i`
 - **THEN** the command SHALL run as before this change
 
+#### Scenario: Refusal precedes dependency checks
+- **WHEN** such a command declares container-scoped `depends_on` checks and runs with `-i`
+- **THEN** the run SHALL fail before any dependency check runs
+
+#### Scenario: Interactive mode from the config default
+- **WHEN** interactive mode comes only from `ui.interactive: true` in the config, without `-i` or `--ivk-interactive` on the command line, and the mode has no narrow route
+- **THEN** invowk SHALL run the command non-interactively, print one warning that names the reason and `--ivk-interactive=false`, and SHALL NOT fail the run
+
 ### Requirement: No fallback to a run without a TUI server
 invowk SHALL NOT run an interactive container command without a TUI server in place of a narrow or opted-in plan. A delegating `invowk tui` component whose value a script captures renders into the capture instead of the terminal when no server is advertised, so the script would continue with a corrupted value.
 

@@ -9,6 +9,8 @@
 $ invowk cmd <command>
 ~~~
 
+- If `ui.interactive: true` is set in your config, a run without `-i` falls back to non-interactive mode with a warning; `--ivk-interactive=false` turns interactive mode off for one run
+
 - For rootless Podman, use an ephemeral container (no `persistent` block) and install pasta (the `passt` package)
 
 - To accept a TUI server on `0.0.0.0`, reachable from the network and guarded only by a per-session token, set this in the config file invowk reads (the `--ivk-config` or `INVOWK_CONFIG` file when one is given, otherwise your user config file):

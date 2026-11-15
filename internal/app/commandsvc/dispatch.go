@@ -4,10 +4,14 @@ package commandsvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -41,6 +45,13 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 		return Result{}, diags, err
 	}
 	defer cancel()
+
+	// Interactive preflight runs before dependency validation, which may
+	// start containers for container-scoped depends_on checks.
+	req, err = s.preflightInteractive(req, execCtx, session)
+	if err != nil {
+		return Result{}, diags, err
+	}
 
 	// Dependency validation uses the runtime session to check runtime-aware dependencies.
 	depDiags, validateErr := s.validateDeps(cmdInfo, execCtx, session, req.UserEnv)
@@ -105,6 +116,47 @@ func applyExecutionTimeout(execCtx *runtime.ExecutionContext) (context.CancelFun
 	ctx, cancel := context.WithTimeout(execCtx.Context, timeoutDuration)
 	execCtx.Context = ctx
 	return cancel, nil
+}
+
+// preflightInteractive refuses an interactive request whose runtime cannot
+// run interactively (restrict-tui-server-bind decision 28). A refusal fails
+// an explicit -i; when interactive mode only comes from the ui.interactive
+// config default, the run continues non-interactively with one warning.
+func (s *Service) preflightInteractive(req Request, execCtx *runtime.ExecutionContext, session RuntimeSession) (Request, error) {
+	if !req.Interactive {
+		return req, nil
+	}
+	preflight, ok := s.interactive.(InteractivePreflight)
+	if !ok {
+		return req, nil
+	}
+	rt, err := session.RuntimeForContext(execCtx)
+	if err != nil {
+		return req, nil //nolint:nilerr // executeWithRequestedMode reports the runtime error.
+	}
+	interactiveRT := runtime.GetInteractiveRuntime(rt)
+	if interactiveRT == nil {
+		return req, nil
+	}
+	err = preflight.PreflightInteractive(execCtx, interactiveRT)
+	switch {
+	case err == nil:
+		return req, nil
+	case !req.InteractiveSet && errors.Is(err, containerplan.ErrTUIExposureRefused):
+		_, _ = fmt.Fprintf(preflightStderr(execCtx), "invowk: warning: running without interactive mode (ui.interactive is on in your config): %v. "+
+			"Pass -i to make this an error, or --ivk-interactive=false to silence this warning.\n", err)
+		req.Interactive = false
+		return req, nil
+	default:
+		return req, newClassifiedExecutionError(err)
+	}
+}
+
+func preflightStderr(execCtx *runtime.ExecutionContext) io.Writer {
+	if execCtx.IO.Stderr != nil {
+		return execCtx.IO.Stderr
+	}
+	return os.Stderr
 }
 
 func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.ExecutionContext, session RuntimeSession) (*runtime.Result, invowkfile.RuntimeMode, error) {

@@ -22,6 +22,10 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+// InteractiveExecutor refuses a run without a narrow TUI route before
+// dependency validation can start a container.
+var _ commandsvc.InteractivePreflight = InteractiveExecutor{}
+
 type (
 	// tuiExposurePlanner is implemented by runtimes whose children reach the
 	// TUI server from outside the host network view (the container runtime).
@@ -69,14 +73,11 @@ func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invo
 		goCtx = context.Background()
 	}
 
-	plan := planTUIExposure(ctx, interactiveRT)
 	ctx.TUI = runtime.TUIContext{}
-	if err := plan.Validate(); err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("refusing to start the TUI server: %w", err)} //goplint:ignore -- literal exit code for an invalid bind plan
-	}
-	if refusal := plan.RefusalError(); refusal != nil {
+	plan, err := checkedTUIExposurePlan(ctx, interactiveRT)
+	if err != nil {
 		// Before PrepareInteractive: no listener opens and no container starts.
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: refusal} //goplint:ignore -- literal exit code for a refused bind plan
+		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for a refused or invalid bind plan
 	}
 	if plan.Warning() != "" {
 		// Before the alternate screen starts, so it cannot hide the warning.
@@ -123,6 +124,28 @@ func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invo
 		ExitCode: interactiveResult.ExitCode,
 		Error:    interactiveResult.Error,
 	}
+}
+
+// PreflightInteractive reports, before dependency validation starts any
+// container, whether the run's TUI exposure plan lets it run interactively.
+// It returns the refusal error of a refused plan (wrapping
+// containerplan.ErrTUIExposureRefused) or the error of an invalid one.
+func (InteractiveExecutor) PreflightInteractive(ctx *runtime.ExecutionContext, interactiveRT commandsvc.RuntimeInteractiveCommand) error {
+	_, err := checkedTUIExposurePlan(ctx, interactiveRT)
+	return err
+}
+
+// checkedTUIExposurePlan plans the run's TUI exposure and rejects an invalid
+// or refused plan.
+func checkedTUIExposurePlan(ctx *runtime.ExecutionContext, interactiveRT commandsvc.RuntimeInteractiveCommand) (containerplan.TUIExposurePlan, error) {
+	plan := planTUIExposure(ctx, interactiveRT)
+	if err := plan.Validate(); err != nil {
+		return containerplan.TUIExposurePlan{}, fmt.Errorf("refusing to start the TUI server: %w", err)
+	}
+	if refusal := plan.RefusalError(); refusal != nil {
+		return containerplan.TUIExposurePlan{}, refusal
+	}
+	return plan, nil
 }
 
 // planTUIExposure asks the runtime for its bind plan; runtimes without a

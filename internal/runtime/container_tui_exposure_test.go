@@ -128,11 +128,11 @@ func TestContainerPrepareCommandTUINetworkMode(t *testing.T) {
 	}
 	second := engine.PrepareRunCalls[1]
 	if second.NetworkMode != "" || len(second.ExtraHosts) != 0 {
-		t.Fatalf("no-server run got network %q and hosts %v, want neither", second.NetworkMode, second.ExtraHosts)
+		t.Fatalf("empty-TUI run got network %q and hosts %v, want neither", second.NetworkMode, second.ExtraHosts)
 	}
 	for _, key := range []string{"INVOWK_TUI_ADDR", "INVOWK_TUI_TOKEN"} {
 		if _, ok := second.Env[key]; ok {
-			t.Fatalf("no-server run injected %s", key)
+			t.Fatalf("empty-TUI run injected %s", key)
 		}
 	}
 }

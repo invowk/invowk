@@ -72,7 +72,7 @@ func newExposureTestContext(t *testing.T, stderr *bytes.Buffer) *runtime.Executi
 	return &runtime.ExecutionContext{
 		Context: t.Context(),
 		IO:      runtime.IOContext{Stdout: &bytes.Buffer{}, Stderr: stderr},
-		// A stale value from an earlier run must not leak into a no-server run.
+		// A stale value from an earlier run must not leak into a refused run.
 		TUI: runtime.TUIContext{ServerURL: "http://stale:1", ServerToken: "stale"},
 	}
 }
@@ -143,6 +143,27 @@ func TestInteractiveExecutorRefusesInvalidPlan(t *testing.T) {
 	}
 	if rt.prepareRuns != 0 || session.sessionCalls != 0 {
 		t.Fatalf("prepare=%d session=%d, want neither", rt.prepareRuns, session.sessionCalls)
+	}
+}
+
+func TestInteractiveExecutorPreflight(t *testing.T) {
+	t.Parallel()
+
+	refused := &spyPlannerRuntime{plan: containerplan.SelectTUIExposure(containerplan.TUINetworkFacts{
+		Container: true, Engine: containerplan.TUIEngineDocker, Rootless: true,
+	}, false)}
+	ctx := newExposureTestContext(t, &bytes.Buffer{})
+	if err := (InteractiveExecutor{}).PreflightInteractive(ctx, refused); !errors.Is(err, containerplan.ErrTUIExposureRefused) {
+		t.Fatalf("PreflightInteractive(refused) = %v, want ErrTUIExposureRefused", err)
+	}
+	if err := (InteractiveExecutor{}).PreflightInteractive(ctx, &spyPlannerRuntime{}); !errors.Is(err, containerplan.ErrInvalidTUIExposurePlan) {
+		t.Fatalf("PreflightInteractive(zero plan) = %v, want ErrInvalidTUIExposurePlan", err)
+	}
+	if err := (InteractiveExecutor{}).PreflightInteractive(ctx, &plainInteractiveRuntime{}); err != nil {
+		t.Fatalf("PreflightInteractive(host runtime) = %v, want nil", err)
+	}
+	if refused.prepareRuns != 0 {
+		t.Fatal("PreflightInteractive prepared the command")
 	}
 }
 
