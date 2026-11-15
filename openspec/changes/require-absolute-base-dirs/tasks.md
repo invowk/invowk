@@ -104,6 +104,14 @@
 - [x] 6.4 (2026-11-15: exception added under "Utility Package Boundaries"; `make check-agent-docs` passes.) Add the explicit `internal/basedir` exception to `.agents/rules/package-design.md` "Utility Package Boundaries" (design decision 14), next to the "each gets its own copy" bullet, with its reason and a pointer to the guard. Verify with `make check-agent-docs`.
 - [ ] 6.5 Group check: run `go test ./internal/basedir/ -run Guard && make lint` and confirm it passes.
 
+## 6a. Stage 4a: `HOME`-unset checks and Windows CI (2026-11-15)
+
+- [x] 6a.1 (2026-11-15: done; S4's tracker items are now N8, N9 and N10 after main's N6 and S3's N7.) Rebase on origin/main (#174 and C1) and renumber S4's tracker items in `.claude/issues/cst-adoption-gaps.md`, `design.md` and the PR body.
+- [x] 6a.2 (2026-11-15: the only Windows failure on `aa3682e2` was `TestGetDefaultCacheDir/with_env_var`, whose `/custom/path/to/modules` has no volume and is relative on Windows; it now uses a `t.TempDir()` path.) Fix the Windows-only failures of PR #172's `Test (windows)` job and get it green on CI.
+- [x] 6a.3 (2026-11-15: recorded in design Context and decision 19; the migration notes name the unit-level fixes.) Check what `HOME` systemd gives user and system units.
+- [x] 6a.4 (2026-11-15: `virtual_home_unset.txtar`, `native_home_unset.txtar` and `container_home_unset.txtar` pass on Linux, decision 21.) Add tests that plain native, virtual and container commands run with `HOME` unset.
+- [x] 6a.5 (2026-11-15: reproduced, decision 20; the SSH row stays BREAKING and the gate keeps refusing an unavailable home.) Reproduce the cwd-relative `.ssh/config` read on origin/main with `HOME` unset.
+
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
 - [ ] 7.0 Wait for F1 (`harden-formal-instruments`, #163) to merge, then rebase this branch on main (design decision 16). Re-run `go test ./internal/runtime/ -run 'TestVirtualPathHarness_RootConstruction|TestVirtualPathHarness'` and `python3 scripts/formal.py correspondence`, and re-check the guard against any new non-test files that the rebase brings in. Re-triage the formal-bindings mutation survivors of the rewritten `standardVirtualAnchorsForOS` (`tools/mutation/triage/formal-bindings.toml`, which names mutants of the removed `getenv`/`firstNonEmpty` body, and F1's statement and survivor counts for the anchors row), after committing (`make test-scripts` restores the worktree).

@@ -46,6 +46,10 @@ Invowk SHALL support logical path anchors `@config`, `@data`, `@cache`, `@state`
 - **WHEN** `HOME` is unset on Linux and the `XDG_*` variables are unset
 - **THEN** `@home`, `@config`, `@data`, `@cache` and `@state` SHALL be unavailable and their `INVOWK_ANCHOR_*` variables empty, and `@tmp` and `@work` SHALL resolve as before
 
+#### Scenario: A command that uses no home-derived anchor runs without a home
+- **WHEN** `HOME` is unset on Linux, as in a systemd system unit without `User=`, and a `virtual-sh` or `virtual-lua` command that reads only files under its work directory runs
+- **THEN** the command SHALL run and succeed as before
+
 #### Scenario: An absolute XDG value keeps its anchor without a home
 - **WHEN** `HOME` is unset and `XDG_CONFIG_HOME` is an absolute path on Linux
 - **THEN** `@config` SHALL resolve to `$XDG_CONFIG_HOME/invowk`

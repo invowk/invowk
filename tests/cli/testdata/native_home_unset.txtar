@@ -1,0 +1,73 @@
+# Test: plain native commands still run when the home directory is unset
+# (require-absolute-base-dirs, D5). Native mirror of virtual_home_unset.txtar.
+# systemd system units without User= get no HOME (systemd.exec(5)), a case the
+# CST evaluation considers (.claude/issues/cst-adoption-gaps.md, N1).
+# testscript cannot remove a variable, so it is set empty: Go's
+# os.UserHomeDir treats an empty HOME/USERPROFILE exactly like an unset one.
+
+cd $WORK
+
+[!windows] env HOME=
+[!windows] env XDG_CONFIG_HOME=
+[!windows] env XDG_DATA_HOME=
+[!windows] env XDG_CACHE_HOME=
+[!windows] env XDG_STATE_HOME=
+[windows] env USERPROFILE=
+[windows] env APPDATA=
+[windows] env LOCALAPPDATA=
+
+# Test 1: a plain native command runs and reads a file in the work dir
+exec invowk cmd greet
+stdout '^hello with no home\r?$'
+stdout '^data=payload\r?$'
+
+# Test 2: a second plain native command runs
+exec invowk cmd greet-again
+stdout '^hello again with no home\r?$'
+
+-- data.txt --
+payload
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "greet"
+		implementations: [
+			{
+				script: {content: """
+					echo "hello with no home"
+					echo "data=$(cat data.txt)"
+					"""}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+					Write-Output "hello with no home"
+					$data = (Get-Content -Raw data.txt).Trim()
+					Write-Output "data=$data"
+					"""}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "greet-again"
+		implementations: [
+			{
+				script: {content: """
+					echo "hello again with no home"
+					"""}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+					Write-Output "hello again with no home"
+					"""}
+				runtimes: [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

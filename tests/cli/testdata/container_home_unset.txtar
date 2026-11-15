@@ -1,0 +1,38 @@
+# Test: a plain container command still runs when HOME is unset
+# (require-absolute-base-dirs, D5 rows c and d). With no home, invowk sets no
+# default provisioning cache and builds the auto-provisioned image from a
+# fresh directory in the OS temp dir instead of <cwd>/.invowk-build. systemd
+# system units without User= get no HOME (systemd.exec(5)), a case the CST
+# evaluation considers (.claude/issues/cst-adoption-gaps.md, N1).
+# testscript cannot remove a variable, so it is set empty: Go's
+# os.UserHomeDir treats an empty HOME exactly like an unset one.
+
+[!container-available] skip 'no functional container runtime available'
+[in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
+
+cd $WORK
+
+# The suite pins its engine in $HOME/.config/invowk/config.cue, which an
+# empty HOME hides; name that file explicitly (INVOWK_CONFIG must be absolute).
+env INVOWK_CONFIG=$WORK${/}.config${/}invowk${/}config.cue
+exists $INVOWK_CONFIG
+env HOME=
+env XDG_CONFIG_HOME=
+env XDG_CACHE_HOME=
+
+# Test 1: a provisioned container command runs
+exec invowk cmd hello
+stdout '^hello from a container with no home$'
+
+# Test 2: no build context was left in the current directory
+! exists .invowk-build
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	implementations: [{
+		script: {content: "echo 'hello from a container with no home'"}
+		runtimes: [{name: "container", image: "debian:stable-slim"}]
+		platforms: [{name: "linux"}]
+	}]
+}]
