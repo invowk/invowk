@@ -498,15 +498,17 @@ func Stop() error {
 }
 GO
 	cat >"$dir/plan.json" <<JSON
-{"version": 1, "root": "$dir", "files": ["a.go"],
+{"version": 2, "root": "$dir", "files": ["a.go"],
  "groups": [{"match": "^(Decide|Stop)$", "files": ["a.go"]}],
  "functions": [
   {"file": "a.go", "symbol": "Decide", "name": "Decide", "start": 3, "end": 8,
-   "rows": [{"model": "M", "element": "decide"}], "killers": ["TestCross", "TestDecide"],
-   "packages": ["example.com/a", "example.com/b"]},
+   "rows": [{"model": "M", "element": "decide", "killers": ["TestCross", "TestDecide"]}],
+   "killers": ["TestCross", "TestDecide"], "packages": ["example.com/a", "example.com/b"], "package": "example.com/a"},
   {"file": "a.go", "symbol": "Stop", "name": "Stop", "start": 10, "end": 12,
-   "rows": [{"model": "M", "element": "stop"}], "killers": ["TestStop"], "packages": ["example.com/a"]}
+   "rows": [{"model": "M", "element": "stop", "killers": ["TestStop"]}], "killers": ["TestStop"],
+   "packages": ["example.com/a"], "package": "example.com/a"}
  ],
+ "killer_packages": {"TestCross": "example.com/b", "TestDecide": "example.com/a", "TestStop": "example.com/a"},
  "unbound": [], "preflight": {"a.go": {"clean_seconds": 1.0, "timeout_seconds": 11, "overridden": false}}}
 JSON
 	cat >"$dir/bin/go" <<'STUB'
@@ -725,7 +727,7 @@ test_formal_rerun_evidence() {
 	trap 'rm -rf "$tmp"' RETURN
 	printf '{"killedCount":0,"escapedCount":1,"errorCount":0,"skippedCount":0}\n' >"$tmp/summary.json"
 	printf 'A' >"$tmp/a.go"
-	printf '{"version": 1, "root": "%s", "inputs": ["a.go"]}\n' "$tmp" >"$tmp/plan.json"
+	printf '{"version": 2, "root": "%s", "inputs": ["a.go"]}\n' "$tmp" >"$tmp/plan.json"
 	formal_mutation rerun-record --plan "$tmp/plan.json" --summary "$tmp/summary.json" --id abc --reruns "$tmp/reruns.jsonl" >/dev/null
 	formal_mutation rerun-record --plan "$tmp/plan.json" --summary "$tmp/summary.json" --id abc --reruns "$tmp/reruns.jsonl" >/dev/null
 	assert_eq "rerun evidence appends one record per rerun" "2" "$(wc -l <"$tmp/reruns.jsonl" | tr -d ' ')"

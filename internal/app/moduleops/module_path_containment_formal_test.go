@@ -5,8 +5,11 @@ package moduleops
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
+	"github.com/invowk/invowk/internal/provision"
 	ivkruntime "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil/fstree"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -19,9 +22,7 @@ import (
 // and the secret file's content.
 func vendoredSymlinkModule(t *testing.T) (moduleRoot, secret string) {
 	t.Helper()
-	if !fstree.Probe(t).Symlink {
-		t.Skip("symlink creation unavailable on this host")
-	}
+	fstree.Require(t, fstree.CapSymlink)
 	base := fstree.TempRoot(t)
 	mod := filepath.Join(base, "m0.invowkmod")
 	if err := os.MkdirAll(filepath.Join(mod, "invowk_modules"), 0o755); err != nil {
@@ -33,9 +34,7 @@ func vendoredSymlinkModule(t *testing.T) (moduleRoot, secret string) {
 	if err := os.WriteFile(secretPath, []byte(secret), 0o644); err != nil {
 		t.Fatalf("write secret: %v", err)
 	}
-	if err := os.Symlink(secretPath, filepath.Join(mod, "invowk_modules", "x")); err != nil {
-		t.Fatalf("symlink: %v", err)
-	}
+	fstree.MustSymlink(t, secretPath, filepath.Join(mod, "invowk_modules", "x"))
 	// The module is admitted: Load skips invowk_modules by exact name.
 	if !invowkmod.IsModule(types.FilesystemPath(mod)) {
 		t.Fatalf("IsModule rejected the module unexpectedly")
@@ -96,35 +95,87 @@ func TestModulePathContainment_F17EnvVendoredSymlink(t *testing.T) {
 	}
 }
 
-// TestModulePathContainment_F16Junction probes the junction hypothesis (D8.8):
-// a junction inside a module is not ModeSymlink (Go 1.23+), so
-// inspectModuleEntry may not record it and a script read may follow it out of
-// the module. Junctions exist only on Windows; elsewhere the leg is skipped and
-// counted. F16 is unconfirmed, so the verdict is logged, not asserted: Windows CI
-// output decides whether F16 is recorded.
+// TestModulePathContainment_F16Junction records finding F16 (design D7 of
+// harden-formal-instruments, outcome b, windows-latest run 43657442894): a
+// junction inside a module is not ModeSymlink (Go 1.23+), so IsModule and Load
+// admit a module with an inner junction and the script read of j/secret
+// follows it out of the module. This asserts today's behaviour; the fix (a
+// junction-aware scan, findingF16JunctionScan's fix configuration
+// scriptReadScanAllKinds) inverts it in a later change. The same run showed
+// the other operations contained, so the leg asserts that too:
+//   - both copies (modulecache.CopyModuleDir, provision.CopyDir) succeed and
+//     neither contains the outside sentinel;
+//   - ComputeModuleHash succeeds and does not change when only the outside
+//     sentinel does.
+//
+// An error from a copy or a hash fails the leg, so the recorded "contained"
+// verdict cannot silently mean "failed" (harden-formal-instruments decision 30).
+//
+// Junctions are required on Windows and skipped elsewhere through the
+// capability policy.
 func TestModulePathContainment_F16Junction(t *testing.T) {
 	t.Parallel()
-	if !fstree.Probe(t).Junction {
-		t.Skip("junction creation unavailable here (junctions exist only on Windows, and creation can fail even there); skipped and counted")
-	}
+	fstree.Require(t, fstree.CapJunction)
+	const sentinel = "OUTSIDE-SECRET"
 	spec := fstree.Spec{RootAtom: "root", Nodes: []fstree.Node{
 		{Atom: "mod", Parent: "root", Name: "m0.invowkmod", Kind: fstree.KindDir, ModuleRoot: true},
 		{Atom: "out", Parent: "root", Name: "outside", Kind: fstree.KindDir},
-		{Atom: "secret", Parent: "out", Name: "secret", Kind: fstree.KindFile, Content: "OUTSIDE-SECRET"},
+		{Atom: "secret", Parent: "out", Name: "secret", Kind: fstree.KindFile, Content: sentinel},
 		{Atom: "j", Parent: "mod", Name: "j", Kind: fstree.KindJunction, Target: "out"},
 	}}
-	b, skip := fstree.Materialize(t, spec, fstree.Probe(t))
-	if skip != "" {
-		t.Skipf("capability %q unavailable", skip)
+	b, missing := fstree.Materialize(t, spec, fstree.Probe(t))
+	if missing != "" {
+		t.Fatalf("capability %q missing after Require", string(missing))
 	}
 	mod := b.Path["mod"]
-	_, loadErr := invowkmod.Load(types.FilesystemPath(mod))
-	t.Logf("F16 probe: Load admits a module with an inner junction: %v (err %v)", loadErr == nil, loadErr)
-	if loadErr != nil {
-		return
+
+	mp := types.FilesystemPath(mod)
+	if !invowkmod.IsModule(mp) {
+		t.Fatal("F16 did not reproduce: IsModule rejected a module with an inner junction")
+	}
+	if _, err := invowkmod.Load(mp); err != nil {
+		t.Fatalf("F16 did not reproduce: Load rejected a module with an inner junction: %v", err)
 	}
 	sfp := invowkfile.ScriptFilePath("j/secret")
 	impl := invowkfile.Implementation{Script: invowkfile.ImplementationScript{File: &sfp}}
 	content, err := impl.ResolveScriptWithFSAndModule("", invowkfile.FilesystemPath(mod), os.ReadFile)
-	t.Logf("F16 probe: script read through the junction escaped the module: %v (err %v)", content == "OUTSIDE-SECRET", err)
+	if err != nil {
+		t.Fatalf("F16 did not reproduce: the script read of j/secret errored: %v", err)
+	}
+	if content != sentinel {
+		t.Fatalf("F16 did not reproduce: the script read of j/secret returned %q, want the outside sentinel", content)
+	}
+
+	scratch := t.TempDir()
+	copies := map[string]func(src, dst string) error{
+		"modulecache.CopyModuleDir": func(src, dst string) error {
+			return modulecache.CopyModuleDir(types.FilesystemPath(src), types.FilesystemPath(dst))
+		},
+		"provision.CopyDir": provision.CopyDir,
+	}
+	for name, copyDir := range copies {
+		dst := filepath.Join(scratch, strings.ReplaceAll(name, ".", "-"))
+		if copyErr := copyDir(mod, dst); copyErr != nil {
+			t.Errorf("%s failed on a module with an inner junction: %v", name, copyErr)
+			continue
+		}
+		if copiedOutsideContent(dst, map[string]bool{sentinel: true}) {
+			t.Errorf("%s copied the outside sentinel through the junction (contained in run 43657442894)", name)
+		}
+	}
+
+	before, err := invowkmod.ComputeModuleHash(mod)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash failed on a module with an inner junction: %v", err)
+	}
+	if writeErr := os.WriteFile(b.Path["secret"], []byte(sentinel+"-changed"), 0o644); writeErr != nil {
+		t.Fatalf("change sentinel: %v", writeErr)
+	}
+	after, err := invowkmod.ComputeModuleHash(mod)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash failed after an outside-only change: %v", err)
+	}
+	if before != after {
+		t.Errorf("ComputeModuleHash changed when only the outside sentinel changed (%s -> %s)", before, after)
+	}
 }

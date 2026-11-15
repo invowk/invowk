@@ -20,6 +20,7 @@ import (
 // deep-missing-path-through-a-symlink hole.
 func TestVirtualPathHarness_Property(t *testing.T) {
 	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
 	root := fstree.TempRoot(t)
 
 	rapid.Check(t, func(rt *rapid.T) {
@@ -45,9 +46,7 @@ func TestVirtualPathHarness_Property(t *testing.T) {
 		linkName := ""
 		if rapid.Bool().Draw(rt, "escapingLink") {
 			linkName = "x"
-			if err = os.Symlink(outside, filepath.Join(allowed, linkName)); err != nil {
-				rt.Skipf("symlink: %v", err)
-			}
+			fstree.MustSymlink(rt, outside, filepath.Join(allowed, linkName))
 		}
 
 		// Build a requested path: optionally through the link, with a random

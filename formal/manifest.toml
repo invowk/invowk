@@ -60,10 +60,15 @@ paths = [
     "pkg/fspath/**",
     "pkg/invowkfile/**",
     "pkg/invowkmod/**",
+    "scripts/ci-triage-base.sh",
     "scripts/formal.py",
+    "scripts/formal_mutation.py",
     "scripts/formal_promotion_gate.py",
     "scripts/test_formal.py",
+    "scripts/test_formal_mutation.py",
     "scripts/test_formal_promotion_gate.py",
+    "tools/mutation/baselines/formal-bindings-baseline.json",
+    "tools/mutation/triage/**",
 ]
 
 # How the budgets were derived. Soft budgets (budget_seconds on every [[model]]
@@ -83,7 +88,154 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 174
+command_count = 180
+
+# Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
+# every killer test of every bound correspondence row must execute at least one
+# statement of the row's function under a coverage profile. Soft budget:
+# ceil(local_headroom x local seconds); the CI step's timeout-minutes is the
+# hard limit (design D3 of the harden-formal-instruments change).
+[reach]
+budget_seconds = 36
+budget_source = "local"
+calibration = """
+2026-11-14, before any rebinding (tree c0a000da plus the gate): the gate fails
+and names exactly the eight (row, killer) pairs the coverage prototype found,
+with no tooling errors. 48 of 56 (row, killer, function) triples reached, 23
+killers, 51 unbound rows. Unreached, each executing 0 statements:
+HostCallbackToken Auth (Server.ValidateToken, 0/10) by
+TestHostCallbackToken_LifecycleMatchesModel; ModulePathContainment
+unpackRejectsEscape (validateDestinationPath, 0/4), readOp (LoadEnvFile, 0/14;
+CustomCheckScript.ResolveWithFSAndModule, 0/15) and workdirCwd
+(Invowkfile.GetEffectiveWorkDir, 0/20) by TestModulePathContainment_GoldenVectors;
+VirtualPathHarness allowedRoots (newVirtualPathResolverForFilesystem, 0/12),
+anchors (standardVirtualAnchorsForOS, 0/21) and access
+(VirtualFilesystemConfig.EffectiveAccess, 0/1) by
+TestVirtualPathHarness_GoldenVectors. Wall time 11.8 s with a cold coverage
+build (4.8-5.0 s warm), 16 jobs, so budget_seconds = ceil(3 x 11.8) = 36.
+After rebinding (same day): the gate passes, 53 of 53 triples reached, 24
+killers, 54 unbound rows; Auth, unpackRejectsEscape and anchors are listed as
+no-binding. Seeded reach regression: replacing the LoadEnvFile call in the
+golden's env replay with a stand-in fails exactly ModulePathContainment readOp
+-> LoadEnvFile (0 of 14 statements); reverted. Wall time 3.1-6.7 s warm, under
+the cold-build figure the budget uses, so the step (6 min) and job (52 min)
+timeouts of design D3 stand.
+Round 5 (same day, decisions 14 and 15): anchors binds
+TestVirtualPathHarness_RootConstruction, and classify_rows treats a symbol that
+names no function as type-symbol whether or not it is bound. The gate passes,
+54 of 54 triples reached (anchors -> standardVirtualAnchorsForOS by
+TestVirtualPathHarness_RootConstruction), 24 killers, 53 unbound rows (19
+no-binding, among them Auth and unpackRejectsEscape; 34 by design). Wall time
+5.6 s warm.
+First CI sample (decision 16): PR run 43657442830, Binding reach passed, 53 of
+53 triples, timing reach 37.1 s, a soft overrun of budget_seconds = 36 (local).
+It stays local until three CI runs exist; the step timeout is the larger of
+max(2, ceil(4 x 2 x 11.8 / 60)) = 2 and ceil(4 x 37.1 / 60) = 3 minutes
+(decision 33).
+"""
+
+# Correspondence rows whose element cell's leading identifier is not in the
+# model source (comments stripped) nor in a manifest command name or body of
+# that model. These 34 pairs (38 rows) are naming drift recorded when
+# scripts/formal.py correspondence gained the element check (2026-11-14,
+# harden-formal-instruments decisions 7 and 10). The list only shrinks: a new
+# unresolved row fails, and a listed pair that resolves or names no row fails as
+# stale. The survivor-triage follow-up renames the elements, re-keys the
+# ledger, and empties it.
+[correspondence]
+unresolved_elements = [
+    "LockIdentity: evaluation",
+    "Serverbase: State",
+    "AtomicWrite: steps",
+    "AtomicWrite: cleanup",
+    "AtomicWrite: caller",
+    "HostCallbackToken: Generate",
+    "HostCallbackToken: Revoke",
+    "Watch: fire goroutine",
+    "Watch: backend",
+    "ModulePathContainment: readOp",
+    "ModulePathContainment: workdirCwd",
+    "ModulePathContainment: copySkipsInnerLinks",
+    "ModulePathContainment: hashSkipsLinks",
+    "ModulePathContainment: unpackRejectsEscape",
+    "ModulePathContainment: ValidateScriptPath",
+    "ModulePathContainment: checkSymlinkSafety",
+    "ModulePathContainment: findingF13",
+    "ModulePathContainment: findingF17",
+    "ModulePathContainment: probeF16",
+    "VirtualPathHarness: normalize",
+    "VirtualPathHarness: pathWithin",
+    "VirtualPathHarness: allowedRoots",
+    "VirtualPathHarness: anchors",
+    "VirtualPathHarness: validate",
+    "VirtualPathHarness: findingF14",
+    "VirtualPathHarness: findingF15",
+    "ConcurrentModuleEdits: AddProg (add_add_same)",
+    "ConcurrentModuleEdits: AddProg (sync_add)",
+    "ConcurrentModuleEdits: RemoveProg",
+    "ConcurrentModuleEdits: SyncProg",
+    "ConcurrentModuleEdits: UpdateProg",
+    "ConcurrentModuleEdits: TidyProg",
+    "ConcurrentModuleEdits: AddProg (fetch_v1_v2)",
+    "ConcurrentModuleEdits: VendorProg",
+]
+
+# Binding gaps (rows with no binding that name a function) and ledger survivors
+# whose row is unbound (orphaned: their function is no longer a mutation target).
+# Seeded on 2026-11-14 (harden-formal-instruments decisions 9 and 15, design D13)
+# with 19 binding gaps and the 20 survivors of the two rows the change unbinds
+# (Auth 8, unpackRejectsEscape 12). Rows unbound by design (no-symbol,
+# type-symbol, trace-only, characterisation-only) are derived and reported by
+# `scripts/formal_mutation.py triage --check`, never listed. The check fails on a
+# binding gap or orphan that is not listed, on a listed entry that no longer
+# applies, and on any entry here or in [correspondence] unresolved_elements that
+# the base commit does not list (base: --base, else INVOWK_TRIAGE_BASE, else the
+# merge-base with origin/main; CI sets it with scripts/ci-triage-base.sh). The
+# survivor-triage follow-up binds the gaps and empties orphaned_survivors.
+[triage]
+binding_gaps = [
+    { model = "AtomicWrite", element = "caller", symbol = "LockFile.Save" },
+    { model = "ConcurrentModuleEdits", element = "Restore", symbol = "fileSnapshot.restore" },
+    { model = "ConcurrentModuleEdits", element = "SyncProg", symbol = "SyncModule" },
+    { model = "ConcurrentModuleEdits", element = "TidyProg", symbol = "TidyModule" },
+    { model = "ConcurrentModuleEdits", element = "UpdateProg", symbol = "UpdateModule" },
+    { model = "ConcurrentModuleEdits", element = "VendorRemove, VendorCopy", symbol = "VendorModules" },
+    { model = "ConcurrentModuleEdits", element = "WriteMod add", symbol = "AddRequirement" },
+    { model = "ConcurrentModuleEdits", element = "WriteMod remove", symbol = "RemoveRequirement" },
+    { model = "DependencyClosure", element = "Mod.key", symbol = "ModuleRef.Key" },
+    { model = "DependencyClosure", element = "resolved", symbol = "Resolver.resolveAll" },
+    { model = "HostCallbackToken", element = "Auth", symbol = "Server.ValidateToken" },
+    { model = "HostCallbackToken", element = "End paths", symbol = "ContainerRuntime.prepareContainerExecution" },
+    { model = "LockIdentity", element = "v2Parse", symbol = "parseLockFile" },
+    { model = "ModulePathContainment", element = "ValidateScriptPath", symbol = "ValidateScriptPath" },
+    { model = "ModulePathContainment", element = "checkSymlinkSafety", symbol = "checkSymlinkSafety" },
+    { model = "ModulePathContainment", element = "unpackRejectsEscape", symbol = "validateDestinationPath" },
+    { model = "ScopeConstruction", element = "modUnlessExplicit", symbol = "CheckModuleCollisions" },
+    { model = "ScopeConstruction", element = "moduleSourcesHaveIDs", symbol = "moduleIdentityFor" },
+    { model = "ScopeConstruction", element = "srcUnique", symbol = "CheckModuleCollisions" },
+]
+orphaned_survivors = [
+    "0087737c1ae08d3106d06a71d0eaab0d",
+    "055592d8fb48880e3cec2f0f21679428",
+    "0d72f8e69406dac5a30eb88c7a955e26",
+    "1f1be72781b132d18a6f35b6a077ca53",
+    "2de0ff368b4ec4304fb411c5ecd36cdb",
+    "3112938aeab6d1eb0a0a4b90093ff80c",
+    "31687863358bee2bcacc7fd033e1ea8a",
+    "3400d9b396a91b8413668bbf8b19a187",
+    "6e8e1d2b4a92cf5fbf66a526e76ec5d9",
+    "6eaf43027e4018d328f1944f43e6c97f",
+    "818a97aa16a5f2c663ff0af7e73dd31c",
+    "a868872863e2850ee3eca2c336357194",
+    "b5880e7045570180d24594779fc7068b",
+    "b9ecd73a79f914165b1d166d467b28ae",
+    "c57132fb392fb58cb0ef6ce95419fe90",
+    "d16e0f309258355c0702e36be46da2eb",
+    "dec0a3c2cc8cce45245ea6f8a700a4ef",
+    "e5c9979e40913a5114cd855ff51ae787",
+    "e6063b43d56b74bd35d1775902931352",
+    "f2e95d83a50df58bb02a21dcabf4f400",
+]
 
 [[model]]
 name = "ScopeConstruction"
@@ -994,7 +1146,10 @@ os.Stat, and inspectModuleEntry not recording symlinks are covered by the \
 per-layer golden decisions and the discovery-fact assertion plus the Alloy \
 mutants (mutantDropLinkedRootReject, mutantDropLoadScan, mutantCopyFollowsLinks, \
 mutantUnpackNoCheck). Case-folding and junctions are fixed off in the golden \
-(design D9) and covered by the witnesses and the Windows-only F16 leg. Findings \
+(design D9). Junctions are covered by the junction witness commands, the junction \
+branch of the rapid property (TestModulePathContainment_Property, required on \
+Windows), and the F16 leg (TestModulePathContainment_F16Junction, required on \
+Windows); the golden replays none (harden-formal-instruments design D8). Findings \
 F13 (script.file into invowk_modules/) and F17 (env file into invowk_modules/) \
 reproduce with passing physical-containment fixes. \
 2026-09-25 formal-bindings mutation run: the copy-result assertion added to the \
@@ -1029,7 +1184,35 @@ copy; mutation 9a29fa35c1a422532f476846e14dc365: provision.CopyDir \
 conditional/negated at line 239 breaks the copy; mutation \
 324be4fe2a178ea1a57eed2a50b4243a: provision.CopyDir branch/else at line 243 breaks \
 the copy; mutation 8919ef2d6a44e791252a857b12695ec5: \
-provision.CopyDir conditional/negated at line 243 breaks the copy."""
+provision.CopyDir conditional/negated at line 243 breaks the copy. \
+2026-11-14 (harden-formal-instruments): the reach gate found the readOp rows \
+(CustomCheckScript.ResolveWithFSAndModule, LoadEnvFile), workdirCwd \
+(GetEffectiveWorkDir) and unpackRejectsEscape (validateDestinationPath) never \
+executed by their binding. TestModulePathContainment_GoldenVectors now replays \
+the custom-check resolver and LoadEnvFile (every regular file is the dotenv \
+line INVOWK_ATOM=content-<id>) on every ScriptRead and EnvRead instance, F13 \
+and F17 included; workdirCwd binds TestModulePathContainment_ContainerWorkDirGolden; \
+unpackRejectsEscape is unbound (decision 5). Seeded one at a time and reverted: \
+LoadEnvFile ignoring basePath fails the golden (672 disagreements); \
+GetEffectiveWorkDir ignoring the implementation-level workdir fails the \
+container workdir golden (720 disagreements); resolving the custom-check script \
+against the module's parent in CustomCheckScript.ResolveWithFSAndModule fails \
+the golden (touched-node disagreements), the defect seeded for that row \
+(decision 11). The defect first planned, dropping its \
+validateScriptPathContainment call, survives and is recorded here, not in the \
+ledger: redundant at this entry point, fully masked by ScriptFilePath.Validate \
+(refPlacement: a validated reference is lexically inside; no input class is \
+rejected only by validateScriptPathContainment, whose layer \
+TestModulePathContainment_ContainmentLayerGolden binds directly). F16 decided on windows-latest (CI run \
+43657442894, job 132639016048; design D7 outcome b, escape): TestCreateJunction \
+passes, IsModule and Load admit a module with an inner junction, and the script \
+read of j/secret returns the outside sentinel, while both copies and the hash \
+stay contained (modelled for those modules by copyHashJunctionScan, decision 29; \
+the leg fails on a copy or hash error, decision 30). Recorded as \
+findingF16JunctionScan (scan records symlinks only) \
+next to the passing fix configuration scriptReadScanAllKinds, guarded by \
+mutantScanNoKinds; the leg asserts the escape and the property admits the \
+junction hole."""
 
 [model.golden]
 command = "golden"
@@ -1061,6 +1244,30 @@ body = "scriptReadGuarded[True, False]"
 expect = "counterexample"
 property = "scriptReadGuarded"
 mutant_of = "scriptReadDiscoveryGuarded"
+
+# Junction-aware scan (fix) with the F16 finding: Load's scan on Windows
+# records symlinks only, so an inner junction admits an escaping read.
+[[model.command]]
+name = "scriptReadScanAllKinds"
+body = "scriptReadScanGuarded[LinkKind]"
+expect = "pass"
+property = "scriptReadScanGuarded"
+antecedent = "anteScriptGuarded"
+
+[[model.command]]
+name = "mutantScanNoKinds"
+body = "scriptReadScanGuarded[none]"
+expect = "counterexample"
+property = "scriptReadScanGuarded"
+mutant_of = "scriptReadScanAllKinds"
+
+[[model.command]]
+name = "findingF16JunctionScan"
+body = "scriptReadScanGuarded[SymKind]"
+finding = "F16"
+expect = "counterexample"
+property = "scriptReadScanGuarded"
+mutant_of = "scriptReadScanAllKinds"
 
 # Script read containment (physical fix), with the F13 finding.
 [[model.command]]
@@ -1137,6 +1344,28 @@ body = "copyHashInside[True]"
 expect = "counterexample"
 property = "copyHashInside"
 mutant_of = "copyHashStaysInside"
+
+# Copy and hash of a module today's Windows scan admits, inner junctions
+# included (F16): base admission excludes those modules, so copyHashStaysInside
+# never examines them (decision 29).
+[[model.command]]
+name = "copyHashJunctionScan"
+body = "copyHashScanInside[False, SymKind]"
+expect = "pass"
+property = "copyHashScanInside"
+antecedent = "anteCopyHashJunction"
+
+[[model.command]]
+name = "anteCopyHashJunction"
+body = "anteCopyHashJunction"
+expect = "instance"
+
+[[model.command]]
+name = "mutantCopyFollowsJunction"
+body = "copyHashScanInside[True, SymKind]"
+expect = "counterexample"
+property = "copyHashScanInside"
+mutant_of = "copyHashJunctionScan"
 
 # Unpack writes stay inside the destination.
 [[model.command]]
@@ -1245,7 +1474,26 @@ instance. The replay builds the resolver directly over materialised roots so \
 t.TempDir's enclosing roots do not make the check vacuous (design D5.4), and it \
 fails if no instance places a node outside every root. Findings F14 (deep \
 missing path through an escaping symlink) and F15 (workdir widening the allowed \
-roots under restricted access) reproduce with passing fixed configurations."""
+roots under restricted access) reproduce with passing fixed configurations. \
+2026-11-14 (harden-formal-instruments): the reach gate found allowedRoots \
+(newVirtualPathResolverForFilesystem), anchors (standardVirtualAnchorsForOS) and \
+access (EffectiveAccess) never executed by the golden. allowedRoots and access \
+bind TestVirtualPathHarness_RootConstruction, which builds the real resolver \
+for access omitted, restricted and full, with and without a declared path, \
+and requires acceptance per location kind to equal H.access = Full or \
+locIsAllowedRoot[l, True] (F15) and the omitted mode to be restricted \
+(virtual-filesystem-access spec). anchors binds it too with the narrow claim \
+of decision 14: @config, @data, @cache, @state, @tmp and @work as the resolver \
+reports them are accepted, and @home/.ssh/<tag> is denied under restricted \
+access (cross-platform-path-anchors "Anchor allow roots are explicit"); the \
+anchor paths are inputs from the production resolver, not verified. Seeded one \
+at a time and reverted: dropping the declared paths from the roots fails it \
+(declared-path probes denied); EffectiveAccess returning full for an omitted \
+mode fails it (EffectiveAccess and outside probes); adding @home to the allowed \
+roots in newVirtualPathResolverForFilesystem fails it (4 disagreements: the \
+@home probe accepted under omitted and restricted access, with and without a \
+declared path); setting the @config anchor to the home directory itself in \
+standardVirtualAnchorsForOS fails it (the same 4 disagreements)."""
 
 [model.golden]
 command = "golden"

@@ -27,10 +27,10 @@
 // |---|---|---|---|---|
 // | normalize | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | path/parent/lexical fallback modelled by evalMode |
 // | pathWithin | pathWithin | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | filepath.Rel prefix test |
-// | allowedRoots | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | workdir/script base/anchors/temp/declared as tagged roots |
-// | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | - |
+// | allowedRoots | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | workdir/script base/anchors/temp/declared as tagged roots |
+// | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | narrow claim (decision 14): anchors are explicit allowed roots (@config/@data/@cache/@state/@tmp/@work InReadRoot; @home/.ssh denied under restricted, cross-platform-path-anchors); it catches only an empty anchor, a reported anchor missing from the allowed roots where no other root encloses it, and an anchor covering @home/.ssh (decision 17); masked (decision 31): dropping @work is equivalent (the workdir is always a root), and dropping @tmp is masked off Windows while TMPDIR lies under /tmp (defaultTempRoots, the Linux reach lane); anchor paths are inputs from the production resolver for the host GOOS, not verified; follow-up: model per-OS anchors |
 // | validate | virtualPathValidator.validate | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | - |
-// | access | VirtualFilesystemConfig.EffectiveAccess | pkg/invowkfile/virtual_filesystem.go | TestVirtualPathHarness_GoldenVectors | restricted vs full |
+// | access | VirtualFilesystemConfig.EffectiveAccess | pkg/invowkfile/virtual_filesystem.go | TestVirtualPathHarness_RootConstruction | restricted vs full |
 // | contained | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: physical resolution, workdir excluded from read roots |
 // | allowedWorkdirCwd | - | formal/alloy/VirtualPathHarness.als | - | policy: a workdir is a cwd, not an allowed read root |
 // | findingF14 | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_F14DeepSymlink | characterisation: lexical fallback for a deep missing path |

@@ -35,6 +35,7 @@ make formal-alloy        # Alloy models only
 make formal-golden       # regenerate golden vectors after a model change
 make formal-traces       # trace validation of real-code traces against the models
 make formal-rapid-deep   # property tests with RAPID_CHECKS=10000
+make formal-reach        # every binding test executes the function its row names (no Java)
 make formal-promotion-gate  # read-only check of the lane's promotion rule
 python3 scripts/test_formal.py
 python3 scripts/formal.py snapshot [--out FILE] [--compare FILE]
@@ -81,7 +82,51 @@ A model counts as verifying a property only when all of these hold:
    manifest records which ones.
 6. **Correspondence.** Each model's header table names the Go symbols and
    binding tests it represents. `scripts/formal.py correspondence` fails when
-   one goes stale.
+   one goes stale, when a row's model element (the leading identifier of its
+   element cell, matched case-sensitively) occurs neither in the model source
+   with comments stripped nor in a manifest command name or body of that model,
+   and when a binding-test file (`*_formal_test.go`, `*_golden_test.go`,
+   `*_rapid_test.go`, `*_trace_test.go`) calls `Skip`, `Skipf`, or `SkipNow`
+   directly. Capability skips go through the `internal/testutil/fstree` policy
+   (`fstree.Require`): symlinks are required on Linux and macOS and in Windows
+   CI, junctions on Windows, and a required capability that is missing fails
+   with the probe's error instead of skipping.
+7. **Binding reach.** `make formal-reach` builds the formal-bindings plan and
+   runs every killer test of every bound row alone under a coverage profile
+   (`-covermode=set`, the mutation profile's rapid seed). Each (row, killer,
+   function) triple must execute at least one statement of the function; a
+   failing, skipped, or unrun killer, a missing or garbled profile, and an
+   uninstrumented file fail the gate. Rows without a killer are listed with
+   their reason and abstraction cell, not gated. Reports land in
+   `artifacts/formal/reach/`.
+
+Two lists in `formal/manifest.toml` only shrink. `[correspondence]
+unresolved_elements` holds the 34 `"<model>: <element>"` pairs that named no
+model element when the element check was introduced (naming drift, for
+example `State` against the variable `state`); a listed pair is reported, and
+one that resolves or names no row fails as stale. `[triage]` lists every
+binding gap, a row with no binding that names a function (`binding_gaps`, 19
+when seeded), and every ledger survivor whose row is unbound
+(`orphaned_survivors`, 20). Rows unbound by design (no symbol, a symbol that
+names no function, trace-only, or characterisation-only; 34) are derived and
+reported, never listed, so a new one passes.
+`scripts/formal_mutation.py triage --check` fails on an unlisted gap or orphan
+and on a listed entry that no longer applies. It also fails on any entry of the
+three lists that the base commit's manifest does not list, and prints why each
+entry the base lists has left (bound, reclassified, resolved, or deleted). The
+base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else
+`git merge-base HEAD origin/main`. In CI `scripts/ci-triage-base.sh` sets the
+variable for the formal lane and the script-test gate: the base branch tip on a
+pull request, the commit under test otherwise. It classifies the base's tables
+too: a row bound at the base that is now unbound by design fails, and so does a
+new row under a listed unresolved pair (decision 28); a deleted or re-pointed
+row is a notice. A `Recv.name` symbol whose receiver no longer declares `name`
+fails correspondence, the plan, and the triage check (decision 27). A base with
+none of the lists seeds them, reporting those checks as notices; one with only
+some fails. A base that cannot be read fails closed. To
+clear an entry, rename the element or bind the row, then delete the entry; an
+added entry fails against the base. The survivor-triage follow-up empties
+`unresolved_elements` and `orphaned_survivors` and binds the gaps.
 
 The guards have already paid for themselves. A first draft of the scope model
 had a vacuous fact: `c.childOf in GlobalCmd` holds trivially for an empty
@@ -122,7 +167,7 @@ Export fails when a file exceeds 600,000 compressed bytes, or a smaller
 | `module_path_containment_golden.json.gz` | 22848 | 1680 | - | 20,994 B | - |
 | `virtual_path_harness_golden.json.gz` | 14580 | 14580 | - | 18,332 B | - |
 
-The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens and covered by the witness commands, the rapid properties, and the Windows-only `TestModulePathContainment_F16Junction` leg (skipped and counted on Linux/macOS).
+The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens. Junctions are covered by the junction witness commands, the junction branch of `TestModulePathContainment_Property` (required on Windows), and `TestModulePathContainment_F16Junction` (required on Windows, skipped by the capability policy on Linux and macOS); no golden instance replays a junction (harden-formal-instruments design D8). The 30 s replay budget is a recorded figure enforced by no step or test; an overrun found when a budget is measured narrows the golden scope, and nothing in CI checks the figure afterwards. One windows-latest sample measured the `ModulePathContainment` golden at 34.4 s before the custom-check and env replays were added. The Windows golden-replay budget is 60 s: three windows-latest attempts of head 6ce407b0 (CI run 43685015559, attempts 1-3, `Test (windows)` jobs 132723566961, 132726133020, and 132728380605) measured the `ModulePathContainment` golden at 23.39 s, 23.40 s, and 39.39 s, so `ceil(1.5 x 39.39)` = 60 s. The basis is `gotestsum -- -race -short`, which replays every 16th instance. The same head's `Test (macos)` job (132723566989) measured it at 5.47 s, inside the 30 s figure. The measured head's golden-replay inputs equal the archived head's (decision 32); the 56 s figure from head 3575b947 is withdrawn, because the stage-4 changes regenerated the `ModulePathContainment` golden. Like the 30 s Linux and macOS figure, no step or test enforces it. If it is not accepted, memoising the custom-check and env replays per (tree, path) is the lever, not cutting instances (harden-formal-instruments design D12).
 
 **Deferred: duplicate instances.** The counts above show that Alloy's
 enumeration repeats instances. The XML of a duplicate pair is byte-identical
@@ -194,16 +239,24 @@ change.
 | F13 | module path containment | A module's `script.file` (or custom-check file) into `invowk_modules/` reaches a symlink that `Load` never scans, and the read follows it outside the module | Open: `ModulePathContainment.findingF13VendoredSymlink` reproduces; `scriptReadContainedPhysical` (physical containment) passes; replay `TestModulePathContainment_F13VendoredSymlink` | physical containment (out of scope) |
 | F14 | virtual path harness | `normalizeExistingOrParent` evaluates only the path and its parent, so a path with two or more missing components below an escaping symlink is judged lexically and admitted; the write lands outside the allowed root | Open: `VirtualPathHarness.findingF14DeepSymlink` reproduces; `harnessContainedFixed` (deepest-existing-ancestor eval) passes; replay `TestVirtualPathHarness_F14DeepSymlink` | evaluate the deepest existing ancestor (out of scope) |
 | F15 | virtual path harness | A module-declared `workdir` outside the module widens the allowed roots under `restricted` access, admitting reads that are not cwd operations | Open: `VirtualPathHarness.findingF15WorkdirWidening` reproduces; `harnessContainedFixed` passes; replay `TestVirtualPathHarness_F15WorkdirWidening` | keep the workdir out of the read roots (out of scope) |
+| F16 | module path containment | A Windows junction inside a module is not `ModeSymlink` (Go 1.23+), so `IsModule` and `Load` admit a module with an inner non-vendored junction and a script read follows it out of the module (both copies and the hash stay contained: `copyHashJunctionScan`) | Open: `ModulePathContainment.findingF16JunctionScan` reproduces; `scriptReadScanAllKinds` (a scan that records junctions) passes; replay `TestModulePathContainment_F16Junction`, confirmed on windows-latest (CI run 43657442894, job 132639016048) | a junction-aware module scan (out of scope) |
 | F17 | module path containment | An env file declared as `invowk_modules/x` is read at runtime through the same symlink hole, with no containment check in `LoadEnvFile` | Open: `ModulePathContainment.findingF17EnvVendoredSymlink` reproduces; `envReadContainedPhysical` passes; replay `TestModulePathContainment_F17EnvVendoredSymlink` | physical containment (out of scope) |
 
 F8–F12 are owned by sibling changes (`model-concurrent-lock-writes`, `trace-validate-token-and-lock`) and are merged separately.
 
-**F16 (unconfirmed, id reserved):** a Windows junction inside a module is not
-`ModeSymlink` (Go 1.23+), so `inspectModuleEntry`, the copies, and
-`computeModuleHash` may follow it. Junctions cannot be created on the Linux and
-macOS CI legs, so `TestModulePathContainment_F16Junction` is skipped and counted
-there and runs on Windows CI; until Windows CI confirms it, F16 is unused and no
-manifest `finding` command is recorded.
+**F16 was decided on Windows CI** (harden-formal-instruments design D7, outcome
+"escape"): junction creation works on windows-latest, and
+`TestModulePathContainment_F16Junction` showed the module admitted and the
+script read of `j/secret` returning the outside sentinel, while both copies
+and the hash stayed contained (run 43657442894). The leg now asserts that
+behaviour, the rapid property admits a junction escape as the recorded F16
+hole, and `findingF16JunctionScan` records it in the model. The copies and the
+hash have a model command for those modules too: base admission counts
+junctions as scanned, so `copyHashStaysInside` never examines a module with an
+inner junction, and `copyHashJunctionScan` checks copy and hash containment
+over the modules today's Windows scan admits (antecedent `anteCopyHashJunction`,
+mutant `mutantCopyFollowsJunction`; decision 29). The leg's copy and hash arms
+fail on an error, so "contained" cannot mean "failed" (decision 30).
 
 Two hypotheses were refuted: the symlinked-hash-root escape
 (`computeModuleHash` on a symlinked root hashes an empty tree, but every caller
@@ -249,7 +302,7 @@ binding cells, minus the trace harnesses, from `scripts/formal.py replay-plan`.
 Budgets have two tiers:
 
 - **Hard:** step `timeout-minutes` on `Check models`, `Trace validation`, the
-  replay step, and `Deep property tests`, each
+  replay step, `Binding reach`, and `Deep property tests`, each
   `max(2, ceil(4 x max CI seconds / 60))`. The job `timeout-minutes` must
   exceed their sum plus 3, which `scripts/test_formal.py` checks, so a step
   timeout fires first and the upload step (`failure() || cancelled()`) runs.
@@ -269,16 +322,17 @@ Measurements (2026-09-25; `[ci.budget]` records the run IDs):
 
 | Step | Measured | Hard limit | Source |
 |---|---|---|---|
-| Check models | 369 s (CI run 36180026549, full model set); 173 s local | 25 min | ci |
-| Trace validation | 164 s (CI max over post-sibling PR runs); 25 s local | 11 min | ci |
+| Check models | 369 s (CI run 36180026549, full model set); 173 s local | 26 min | ci |
+| Trace validation | 164 s (CI max over post-sibling PR runs); 25 s local | 12 min | ci |
 | Replay golden vectors and property tests | 19 s (CI max); 3.3 s local | 2 min | ci |
-| Deep property tests | never run in CI; 15.7 s local, assumed 4x slower on a 4-core runner | 5 min | local |
-| Job | | 47 min | Σ steps + 4 |
+| Deep property tests | never run in CI; 15.7 s local, assumed 4x slower on a 4-core runner | 2 min | local |
+| Binding reach | 37.1 s in CI (run 43657442830, one run: a soft overrun of the 36 s local budget); 11.8 s local with a cold coverage build (3-9 s warm) | 3 min (the larger of `max(2, ceil(4 x 2 x 11.8 / 60))` = 2 and `ceil(4 x 37.1 / 60)` = 3, until three CI runs replace it) | local (`[reach]`, 36 s soft) |
+| Job | | 49 min (the workflow's step timeouts sum to 45; the job must exceed that plus 3) | |
 
-All soft budgets are still `local`: the pull-request runs above predate the
-runner's per-model `timing` lines. After merge, three `workflow_dispatch` runs
-on `main` re-measure every step and model, and a follow-up sets
-`budget_source = "ci"` (promote-formal-ci-gate task 2.5).
+Every per-model and per-suite soft budget has `budget_source = "ci"`: three
+`workflow_dispatch` runs on `main` (2026-09-25; `[ci.budget]` records the run
+IDs) set them to `ceil(1.5 x CI max)` (promote-formal-ci-gate task 2.5). Only
+the `[reach]` budget is still `local`, until three CI runs replace it.
 
 ## Promoting the lane
 
@@ -349,12 +403,28 @@ The first run (2026-09-25) mutated 49 functions in 30 files in 28 minutes:
 809 mutants, 310 killed, 441 escaped, 58 skipped (mutants that do not build),
 0 errored, and 22 of the kills were timeouts. A stronger copy assertion in the
 path-containment golden closed 19 escapes; the other 419 are deferred
-binding gaps, grouped by function in `tasks/next/formal-binding-gaps.md`. Seven
-rows name a binding that never calls their function (`validateDestinationPath`,
-`LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`,
-`Invowkfile.GetEffectiveWorkDir`, `VirtualFilesystemConfig.EffectiveAccess`,
-`newVirtualPathResolverForFilesystem`, `standardVirtualAnchorsForOS`). No
+binding gaps, grouped by function in `tasks/next/formal-binding-gaps.md`. No
 survivor was shown to be a product defect, so no finding was recorded.
+
+That run listed seven rows whose binding never calls their function. The
+binding reach gate (`make formal-reach`, 2026-11-14) found eight: the seven,
+plus `Auth` / `Server.ValidateToken`, which has no production caller at all
+(the model's `Auth` is implemented by `Server.admitConn`). Six rows are
+rebound to tests that call the real function and assert the model's verdict:
+`workdirCwd` (`GetEffectiveWorkDir`, through
+`TestModulePathContainment_ContainerWorkDirGolden`), both `readOp` rows
+(`CustomCheckScript.ResolveWithFSAndModule` and `LoadEnvFile`, replayed on
+every `ScriptRead` and `EnvRead` golden instance, F13 and F17 included), and
+`allowedRoots`, `anchors`, and `access` (`TestVirtualPathHarness_RootConstruction`).
+`anchors` carries only the narrow claim that anchors are explicit allowed roots
+(`@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` accepted,
+`@home/.ssh` denied under restricted access); the anchor paths are inputs from
+the production resolver, not verified, because the model states no per-OS
+layout. Two are unbound, with the reason in their abstraction cells: `Auth` (no
+production caller; re-pointing it to `Server.admitConn` is follow-up work) and
+`unpackRejectsEscape` (the model's destination check transcribes
+`normalizeZIPPath` followed by `validateDestinationPath`, not the function
+alone). Their 20 baselined survivors are orphaned and listed in `[triage]`.
 
 ## Decision record: rejected tools
 

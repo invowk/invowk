@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -25,6 +24,8 @@ const virtualPathHarnessGoldenFile = "testdata/formal/virtual_path_harness_golde
 // dAcceptsCurrent. It fails if no instance places a node outside every root.
 func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 	t.Parallel()
+	// Instances whose lexical and physical ancestors differ need a symlink.
+	fstree.Require(t, fstree.CapSymlink)
 
 	instances := alloygolden.Load(t, virtualPathHarnessGoldenFile, "VirtualPathHarness")
 
@@ -83,9 +84,7 @@ func buildAncestor(t *testing.T, lexDir, physDir, tag string) string {
 		return mustMkdir(t, filepath.Join(lexDir, "anc_"+tag))
 	}
 	link := filepath.Join(lexDir, "lnk_"+tag)
-	if err := os.Symlink(mustMkdir(t, filepath.Join(physDir, "tgt_"+tag)), link); err != nil {
-		t.Skipf("symlink unsupported: %v", err)
-	}
+	fstree.MustSymlink(t, mustMkdir(t, filepath.Join(physDir, "tgt_"+tag)), link)
 	return link
 }
 

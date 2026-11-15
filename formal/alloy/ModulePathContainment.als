@@ -29,14 +29,14 @@
 // | readOp | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_GoldenVectors | os.ReadFile follows links physically |
 // | readOp | ResolveWithFSAndModule | pkg/invowkfile/dependency.go | TestModulePathContainment_GoldenVectors | custom-check read |
 // | readOp | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_GoldenVectors | - |
-// | workdirCwd | GetEffectiveWorkDir | pkg/invowkfile/invowkfile.go | TestModulePathContainment_GoldenVectors | working directory only, never a read target |
+// | workdirCwd | GetEffectiveWorkDir | pkg/invowkfile/invowkfile.go | TestModulePathContainment_ContainerWorkDirGolden | working directory only, never a read target |
 // | workdirCwd | getContainerWorkDir | internal/runtime/container_provision.go | TestModulePathContainment_ContainerWorkDirGolden | - |
 // | isModuleRejectsLinkedRoot | IsModule | pkg/invowkmod/operations.go | TestModulePathContainment_GoldenVectors | os.Lstat rejects a symlinked root |
 // | loadScansNonLinkedRoot | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_GoldenVectors | WalkDir does not descend a symlinked root; invowk_modules skipped by name |
 // | copySkipsInnerLinks | copyDir | internal/app/modulecache/cache.go | TestModulePathContainment_GoldenVectors | inner links skipped; a symlinked source root is followed |
 // | copySkipsInnerLinks | CopyDir | internal/provision/helpers.go | TestModulePathContainment_GoldenVectors | - |
 // | hashSkipsLinks | computeModuleHash | pkg/invowkmod/content_hash.go | TestModulePathContainment_GoldenVectors | non-regular files skipped |
-// | unpackRejectsEscape | validateDestinationPath | internal/app/moduleops/packaging.go | TestModulePathContainment_GoldenVectors | filepath.Rel of destination vs root |
+// | unpackRejectsEscape | validateDestinationPath | internal/app/moduleops/packaging.go | - | not bound (decision 5): the model's destination check, unpackInside[destCheck] (refShape = RelInside), transcribes normalizeZIPPath followed by validateDestinationPath; alone, with the Join call shape, validateDestinationPath accepts an AbsPath name, and after normalizeZIPPath its rejection is unreachable on POSIX; follow-up: bind unpackInside to normalizeZIPPath (survivor-triage) |
 // | contained | - | formal/alloy/ModulePathContainment.als | TestModulePathContainment_Property | policy: physical resolution and allowed-location predicates only |
 // | allowedVendoredSelf | - | formal/alloy/ModulePathContainment.als | - | policy: a vendored child's own root, for the child's own ops |
 // | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a declared workdir is a cwd, not a read/copy/hash target |
@@ -44,7 +44,7 @@
 // | checkSymlinkSafety | checkSymlinkSafety | pkg/invowkmod/invowkmod.go | - | dead code: no production caller |
 // | findingF13 | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F13VendoredSymlink | characterisation: invowk_modules/ symlink hole |
 // | findingF17 | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_F17EnvVendoredSymlink | characterisation: invowk_modules/ symlink hole for env files |
-// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction probe; logs its verdict, never asserts (F16 unconfirmed) |
+// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts today's F16 escape (IsModule and Load admit an inner junction, the script read follows it out) and that both copies and the hash stay contained (windows-latest run 43657442894) |
 
 module ModulePathContainment
 
@@ -173,6 +173,25 @@ pred isModuleRejectsLinkedRoot { all m: Module | some m.viaLink implies not admi
 pred loadScansNonLinkedRoot { all m: Module | (no m.viaLink and hasInnerNonVendoredLink[m]) implies not admitted[m, True, True] }
 pred discoveryFacts { isModuleRejectsLinkedRoot and loadScansNonLinkedRoot }
 
+// Finding F16 (windows-latest, CI run 43657442894): a junction is not
+// ModeSymlink (Go 1.23+), so on Windows Load's scan records inner symlinks only
+// and admits a module with an inner non-vendored junction, and a script read
+// through the junction leaves the module. scannedKinds is the set of link kinds
+// the scan rejects: LinkKind is the fix, SymKind is today's Windows code. The
+// golden fixes Link.kind = SymKind, so admitted[...] above stays exact there.
+pred admittedScanning[m: Module, scannedKinds: set LinkKind] {
+	no m.viaLink
+	not (some l: Link | l.kind in scannedKinds and inTree[m.mroot, l] and not underVendor[m, l])
+}
+
+pred scriptReadScanGuarded[scannedKinds: set LinkKind] {
+	all o: Op |
+		(o.kind in (ScriptRead + EnvRead) and validates[o] and lexContains[o]
+			and not underVendor[o.owner, o.ref]
+			and admittedScanning[o.owner, scannedKinds])
+		implies contained[o]
+}
+
 // ---------------------------------------------------------------------------
 // Implementation layers (transcribed per layer)
 
@@ -239,6 +258,18 @@ pred copyHashInside[followLinks: Bool] {
 		implies (some touches[o] and inTree[o.owner.mroot, touches[o]])
 }
 
+// copyHashScanInside: copyHashInside over the modules a scan of
+// scannedKinds admits (decision 29 of harden-formal-instruments). Base
+// admission counts junctions as scanned, so copyHashInside never examines the
+// junction modules that today's Windows scan (SymKind) admits (F16); this
+// checks copy and hash containment for them.
+pred copyHashScanInside[followLinks: Bool, scannedKinds: set LinkKind] {
+	all o: Op |
+		(o.kind in (VendorCopy + Hash) and admittedScanning[o.owner, scannedKinds]
+			and inTree[o.owner.mroot, o.ref] and copyReaches[o, followLinks])
+		implies (some touches[o] and inTree[o.owner.mroot, touches[o]])
+}
+
 // unpackInside: unpack rejects a `..`/absolute member (validateDestinationPath);
 // dropping the check writes outside the destination.
 pred unpackInside[destCheck: Bool] {
@@ -253,6 +284,11 @@ pred anteScriptGuarded { some o: Op | o.kind = ScriptRead and accepts[o] and not
 pred anteReadContained { some o: Op | o.kind = ScriptRead and validates[o] and physContains[o] and admitted[o.owner, True, True] }
 pred anteEnvContained { some o: Op | o.kind = EnvRead and validates[o] and physContains[o] and admitted[o.owner, True, True] }
 pred anteCopyHash { some o: Op | o.kind in (VendorCopy + Hash) and admitted[o.owner, True, True] and inTree[o.owner.mroot, o.ref] and o.ref not in Link }
+pred anteCopyHashJunction {
+	some o: Op | o.kind in (VendorCopy + Hash) and admittedScanning[o.owner, SymKind]
+		and inTree[o.owner.mroot, o.ref] and o.ref not in Link
+		and some l: Link | l.kind = JunKind and inTree[o.owner.mroot, l] and not underVendor[o.owner, l]
+}
 pred anteUnpack { some o: Op | o.kind = Unpack and o.refShape = RelInside }
 
 pred witInModuleLink { some l: Link | some m: Module | inTree[m.mroot, l] and not underVendor[m, l] }

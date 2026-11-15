@@ -40,7 +40,7 @@ jobs:
     # Must exceed the sum of the step timeout-minutes plus 3 minutes of setup
     # and upload (checked by scripts/test_formal.py), so a step timeout fires
     # first and the upload step still runs.
-    timeout-minutes: 46
+    timeout-minutes: 49
     env:
       PYTHONUNBUFFERED: "1"
     steps:
@@ -97,6 +97,21 @@ jobs:
         run: |
           python3 scripts/test_formal.py
           python3 scripts/test_formal_promotion_gate.py
+          python3 scripts/test_formal_mutation.py
+
+      # The shrink-only lists ([correspondence] unresolved_elements, [triage]
+      # binding_gaps and orphaned_survivors) may not list an entry the base
+      # commit's manifest does not. scripts/ci-triage-base.sh resolves the
+      # base, as for the script-test gate in lint.yml and release.yml: on a
+      # pull request the base branch tip, fetched at depth 1 (git show needs
+      # only that commit); on other events the commit under test. A failed
+      # fetch fails here, closed.
+      - name: Triage lists
+        if: steps.affected.outputs.run != 'false'
+        run: |
+          base="$(scripts/ci-triage-base.sh)"
+          export INVOWK_TRIAGE_BASE="$base"
+          python3 scripts/formal_mutation.py triage --check
 
       - name: Check models
         if: steps.affected.outputs.run != 'false'
@@ -128,6 +143,17 @@ jobs:
             exit 1
           fi
           go test -count=1 -run "$RUN_PATTERN" "${packages[@]}"
+
+      # Every killer test of every bound correspondence row must execute the
+      # row's function (coverage per killer); reports land in
+      # artifacts/formal/reach/, which the upload step keeps on failure.
+      # The larger of max(2, ceil(4 x 2 x 11.8 s local / 60)) = 2 and
+      # ceil(4 x 37.1 s, the first CI run / 60) = 3 (harden-formal-instruments
+      # decision 33), until three CI runs replace it.
+      - name: Binding reach
+        if: steps.affected.outputs.run != 'false'
+        timeout-minutes: 3
+        run: make formal-reach
 
       - name: Deep property tests
         if: steps.affected.outputs.run != 'false' && github.event_name != 'pull_request'

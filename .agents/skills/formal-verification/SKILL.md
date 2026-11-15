@@ -45,6 +45,23 @@ tool or a model.
 5. **Add a correspondence table** in the model header:
    `// | model element | Go symbol | file | binding | abstraction |`.
    - A binding cell may list several tests: `TestA, TestB`. Each must exist.
+   - Element check: the element cell's leading identifier must occur, as a
+     whole case-sensitive word, in the model source with comments stripped or
+     in a manifest command name or body of that model. Pairs that drifted
+     before the check are in the shrink-only `[correspondence]
+     unresolved_elements`; clear one by renaming the element (and re-keying
+     its ledger survivors), then delete the entry. Never add one.
+   - A `Recv.name` symbol must name a method of `Recv` when the file declares
+     `name` as a function; after renaming a receiver type, update the table,
+     or correspondence, the plan, and `triage --check` fail.
+   - A row whose Go function does not carry the model's claim (no production
+     caller, or the claim lives in a different function) is unbound (binding
+     `-`, the reason in its abstraction cell), never given a direct-call test
+     that makes the reach gate green without measuring the claim. When the
+     model states only part of a function's behaviour, bind it with that
+     narrow claim and say in the abstraction cell which inputs are taken from
+     production unverified (the `anchors` row: anchors are explicit allowed
+     roots; the anchor paths are not verified).
    - Completeness guard: every test in a `*_formal_test.go`,
      `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go` file must be
      named by some row, except `Test*_TraceHarness`, which must live in a
@@ -90,10 +107,29 @@ tool or a model.
        against the real function, so a layer masked end to end by a later one
        is still calibrated. Bind the masked layer directly through a test-only
        `export_test.go` hook.
-     - Probe symlink, junction, and case-fold capability once (`fstree.Probe`);
-       skip instances that need a missing capability and log the count per
-       capability. Junctions are Windows-only: their leg is skipped and counted
-       on Linux/macOS.
+     - Probe symlink, junction, and case-fold capability once (`fstree.Probe`,
+       which keeps each probe's error) and apply the capability policy:
+       symlinks are required on Linux, macOS, and Windows CI
+       (`GITHUB_ACTIONS=true`), junctions on Windows. A required capability
+       that is missing fails the test with the probe error (`fstree.Require`,
+       `fstree.Cache.Get`); elsewhere the test or instance is skipped and
+       counted. Binding-test files skip only through these helpers:
+       `scripts/formal.py correspondence` rejects a direct `Skip`, `Skipf`, or
+       `SkipNow`. Rapid draws create links with `fstree.MustSymlink` and
+       `fstree.MustJunction` after a test-level `fstree.Require`. Never give a
+       capability writer a fallback writer: the probe shares the creation path,
+       so a fallback would let a broken writer pass the policy silently (the
+       junction writer has no `mklink /J` fallback).
+     - Measure a Windows golden-replay budget from three windows-latest
+       attempts of one head (`gh run rerun <id> --job <job>`), never one
+       sample: attempts of the same head have differed by 1.7x (23.4 s vs
+       39.4 s, `formal/README.md`). A later docs-only head may carry the
+       figure if `git diff` of the replay inputs against the measured head is
+       empty.
+     - Judge a junction escape by file identity (`os.SameFile` against a unique
+       outside sentinel, backed by its content), never by
+       `filepath.EvalSymlinks` plus a prefix test: since Go 1.23 a mount point
+       is not `ModeSymlink`, and `EvalSymlinks` may not evaluate it.
      - Exhaustive enumeration of a relational filesystem is intractable for a
        materialised replay, so fix case-folding and junctions off in the golden
        and constrain the tree topology with a `goldenScenario` predicate; cover
@@ -108,7 +144,27 @@ tool or a model.
    confirm the bindings fail. Record the result in the manifest's
    `calibration`. If a defect survives, widen the golden scope before trusting
    the model.
-8. **Budget and wire into CI.** Every `[[model]]` and `[[trace]]` needs
+8. **Check reach.** `make formal-reach` (no Java) runs every killer of every
+   bound row alone under a coverage profile and fails unless each one executes
+   at least one statement of the row's function. A row that names a binding
+   which never calls its function fails here, not only in a mutation run.
+   Every binding gap (a row with no binding that names a function) and every
+   ledger survivor of an unbound row is listed in the shrink-only `[triage]`
+   table; rows unbound by design (no symbol, a non-function symbol,
+   trace-only, characterisation-only) are derived and reported, never listed.
+   `triage --check` fails on any entry of `[triage]` or
+   `[correspondence] unresolved_elements` that the base does not list. The
+   base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else the
+   merge-base with `origin/main`; CI sets the variable with
+   `scripts/ci-triage-base.sh` (the base branch tip on a pull request). It
+   also classifies the base's tables: a row bound at the base that is now
+   by design (for example an abstraction cell turned `characterisation:`)
+   fails, and so does a new row under a listed unresolved pair. Bind a row or delete its survivors' entries to shrink a
+   list, never add an entry. A seeded defect that another layer fully masks at
+   that entry point is recorded as redundant there in the calibration and
+   `tasks/next/formal-binding-gaps.md`, and a defect the binding catches is
+   seeded instead.
+9. **Budget and wire into CI.** Every `[[model]]` and `[[trace]]` needs
    `budget_seconds` and `budget_source`: use `budget_source = "local"` with
    `ceil(3 x local seconds)` (read the runner's `timing` lines) until CI
    dispatch runs measure it. Every TLC command that expects `pass` needs
@@ -223,6 +279,7 @@ and afterwards require `snapshot --compare` to report every entry identical.
 
 ```bash
 python3 scripts/formal.py correspondence   # no Java needed
+make formal-reach                          # binding reach, no Java needed
 make formal                                # needs Java
 python3 scripts/test_formal.py
 # Replay every bound golden-vector and property test (packages and -run
