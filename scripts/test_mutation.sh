@@ -17,6 +17,15 @@ source "$SCRIPT_DIR/mutation.sh"
 PASS=0
 FAIL=0
 
+# sha256_stdin prints the SHA-256 of stdin (macOS has shasum, not sha256sum).
+sha256_stdin() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum
+	else
+		shasum -a 256
+	fi | cut -d' ' -f1
+}
+
 record_pass() {
 	PASS=$((PASS + 1))
 }
@@ -722,7 +731,7 @@ test_formal_rerun_evidence() {
 	assert_eq "rerun evidence appends one record per rerun" "2" "$(wc -l <"$tmp/reruns.jsonl" | tr -d ' ')"
 	assert_file_contains "rerun evidence records the status" '"status": "escaped"' "$tmp/reruns.jsonl"
 	assert_file_contains "rerun evidence records the input digest" \
-		"\"digest\": \"$(printf 'a.go\0A' | sha256sum | cut -d' ' -f1)\"" "$tmp/reruns.jsonl"
+		"\"digest\": \"$(printf 'a.go\0A' | sha256_stdin)\"" "$tmp/reruns.jsonl"
 }
 
 test_formal_dirty_path_policy() {

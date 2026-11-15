@@ -18,7 +18,8 @@
 #      HEAD detached, mirrors the real checkout's staged, unstaged and untracked
 #      work into it, and plants canaries: an unstaged edit to a tracked text
 #      file and an untracked file in every top-level tracked directory and at
-#      the root, one staged edit, one stash entry and one branch.
+#      the root, one staged edit, one stash entry and one branch. A canary
+#      edit never goes into a file a suite reads (see "Canary placement").
 #   3. It runs the suite (default: bash scripts/script-tests.sh) INSIDE the
 #      throwaway checkout, then compares the canary bytes, both diffs, the
 #      untracked set, the throwaway's config, refs and stash list against step
@@ -38,16 +39,46 @@
 # damage is still detected and recoverable, though no longer prevented (and a
 # change to the shared stash, refs or worktree list goes unnoticed).
 #
-# Usage: check-script-tests-worktree-safety.sh [--repo DIR] [--in-place] [-- COMMAND...]
-#   --repo DIR   checkout to guard (default: this script's repository)
-#   --in-place   run the suite in the checkout itself, not a throwaway one
-#   COMMAND      suite to run (default: bash scripts/script-tests.sh)
+# Usage: check-script-tests-worktree-safety.sh [--repo DIR] [--in-place | --list-canaries] [-- COMMAND...]
+#   --repo DIR        checkout to guard (default: this script's repository)
+#   --in-place        run the suite in the checkout itself, not a throwaway one
+#   --list-canaries   print the files that would get a canary edit, one
+#                     "DIR<TAB>FILE..." line per directory, and run nothing
+#   COMMAND           suite to run (default: bash scripts/script-tests.sh)
 #
 # Exit status: 0 suite passed and nothing changed; 1 suite failed and nothing
 # changed; 2 usage or setup error; 3 a checkout changed or could no longer be
 # read (whatever the suite's status).
+#
+# Canary placement. A canary edit in a file a suite reads, parses or hashes
+# would change the very run the gate guards, so candidates (tracked text
+# files, Markdown first, Go last) are skipped when they match
+# CANARY_EXCLUDE (what the suites read wholesale: their own scripts and
+# fixtures, the mutation lists, ledgers and baselines, the formal manifest
+# and models, workflows, testdata, Go tests, MDX, dependency manifests,
+# .gitignore files), or when a file under CANARY_READ_SOURCES names them (the
+# formal correspondence tables name Go files, the mutation lists name Go
+# packages, review_docs.py names README.md, and so on; a Go file is also
+# skipped when its package directory is named). A directory with no
+# candidate left gets only its untracked canary, with a warning (on a
+# developer's checkout, the mirrored uncommitted work in it is still compared
+# byte for byte, so it guards that work as a canary would).
+# The rule was derived on 2026-11-15 by resetting the atimes of the throwaway
+# checkout (tmpfs keeps atime) before each SCRIPT_TESTS entry and listing what
+# the entry read: every file read lay under these rules, except that
+# review_docs.py hashes every non-ignored file (workspace_sha256). It compares
+# two hashes taken in the same run, which a canary planted before the run
+# cannot change. Re-derive it the same way when a suite starts reading new
+# files; scripts/test_check_script_tests_worktree_safety.sh checks the rule.
 
 set -euo pipefail
+
+# mapfile, associative arrays and empty "${array[@]}" under set -u need bash
+# 4.4; macOS ships bash 3.2 as /bin/bash.
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+	printf 'ERROR: %s needs bash 4.4 or newer on PATH (found %s); on macOS: brew install bash\n' "$0" "$BASH_VERSION" >&2
+	exit 2
+fi
 
 # Never let an inherited git environment (for example a git hook's) redirect
 # the commands below to another repository or index.
@@ -62,6 +93,32 @@ readonly CANARY_BRANCH="$CANARY_TAG-branch"
 # real checkout. Only these are compared: sibling worktrees legitimately write
 # others (`git push -u` and `gh` add branch.* entries).
 readonly GUARDED_CONFIG_KEYS='^(core\.(hookspath|bare|worktree|sshcommand)|commit\.gpgsign|tag\.gpgsign|gpg\..*|user\..*|include\..*|includeif\..*)$'
+# Paths that never get a canary edit (see "Canary placement").
+readonly CANARY_EXCLUDE=(
+	':(exclude,glob)scripts/**'
+	':(exclude,glob)tools/**'
+	':(exclude,glob)formal/manifest.toml'
+	':(exclude,glob)formal/**/*.als'
+	':(exclude,glob)formal/**/*.tla'
+	':(exclude,glob).github/**'
+	':(exclude,glob).agents/skills/*/scripts/**'
+	':(exclude,glob)**/testdata/**'
+	':(exclude,glob)**/*_test.go'
+	':(exclude,glob)**/*.mdx'
+	':(exclude,glob)**/go.mod'
+	':(exclude,glob)**/go.sum'
+	':(exclude,glob)**/package.json'
+	':(exclude,glob)**/package-lock.json'
+	':(exclude,glob)**/.gitignore'
+)
+# Files the suites run or parse; a path they name never gets a canary edit.
+readonly CANARY_READ_SOURCES=(
+	':(glob)scripts/**'
+	':(glob)tools/**'
+	':(glob)formal/**'
+	':(glob).github/workflows/**'
+	':(glob).agents/skills/*/scripts/**'
+)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$SCRIPT_DIR/.."
@@ -71,6 +128,9 @@ WORK=""
 CHECKOUT=""
 KEEP_REAL_BEFORE=0
 IN_PLACE=0
+LIST_CANARIES=0
+# The checkout canary_files and canary_dirs read (never written through them).
+CANARY_ROOT=""
 SUITE_STARTED=0
 REAL_CHECKED=0
 
@@ -92,6 +152,10 @@ while (($# > 0)); do
 			;;
 		--in-place)
 			IN_PLACE=1
+			shift
+			;;
+		--list-canaries)
+			LIST_CANARIES=1
 			shift
 			;;
 		--help | -h)
@@ -229,28 +293,78 @@ canary_comment() {
 	esac
 }
 
+# named_by_suites PATH succeeds when a CANARY_READ_SOURCES file names PATH or,
+# for a Go file, when a tools/mutation/ list names its package directory (the
+# mutation tests read every file of those packages). It returns 1 when
+# neither holds, and 2 when git grep fails.
+named_by_suites() {
+	local status=0
+
+	git -C "$CANARY_ROOT" grep -qF -e "$1" -- "${CANARY_READ_SOURCES[@]}" || status=$?
+	if ((status == 1)) && [[ "$1" == *.go ]]; then
+		status=0
+		git -C "$CANARY_ROOT" grep -qF -e "$(dirname "$1")" -- ':(glob)tools/mutation/**' || status=$?
+	fi
+	case "$status" in
+		0 | 1) return "$status" ;;
+		*) return 2 ;;
+	esac
+}
+
 # canary_files DIR prints up to two tracked regular text files directly in the
-# root (DIR ".") or anywhere under DIR, Markdown and plain text first, then
-# other types with a line-comment syntax (canary_comment), Go last. Fixtures (testdata/), Go tests and MDX are
-# never edited.
+# root (DIR ".") or anywhere under DIR that may take a canary edit: Markdown
+# and plain text first, then other types with a line-comment syntax
+# (canary_comment), Go last, minus CANARY_EXCLUDE and the files the suites
+# name (see "Canary placement").
 canary_files() {
 	local dir="$1"
+	local path
+	local count=0
+	local status
 	local -a pathspec=(-- "$dir")
 
 	[[ "$dir" == "." ]] && pathspec=(-- ':(glob)*')
-	git -C "$CHECKOUT" ls-files -s "${pathspec[@]}" |
-		awk '$1 == "100644" { sub(/^[^\t]*\t/, ""); print }' |
-		grep -Ev '(^|/)testdata/|_test\.go$|\.mdx$' |
-		awk '
-			/\.(md|txt|log)$/ { print 0 "\t" $0; next }
-			/\.go$/ { print 2 "\t" $0; next }
-			/\.(cue|js|mjs|ts|tsx|sh|bash|py|yml|yaml|toml|tape|d2|properties|env)$/ { print 1 "\t" $0; next }
-			/(^|\/)(Dockerfile|\.env(\.[^\/]*)?)$/ { print 1 "\t" $0 }
-		' | LC_ALL=C sort -s -k1,1 | cut -f2 | head -n 2 || true
+	while IFS= read -r path; do
+		status=0
+		named_by_suites "$path" || status=$?
+		case "$status" in
+			0) continue ;;
+			1) ;;
+			*) return 2 ;;
+		esac
+		printf '%s\n' "$path"
+		count=$((count + 1))
+		((count < 2)) || break
+	done < <(
+		git -C "$CANARY_ROOT" ls-files -s "${pathspec[@]}" "${CANARY_EXCLUDE[@]}" |
+			awk '$1 == "100644" { sub(/^[^\t]*\t/, ""); print }' |
+			awk '
+				/\.(md|txt|log)$/ { print 0 "\t" $0; next }
+				/\.go$/ { print 2 "\t" $0; next }
+				/\.(cue|js|mjs|ts|tsx|sh|bash|py|yml|yaml|toml|tape|d2|properties|env)$/ { print 1 "\t" $0; next }
+				/(^|\/)(Dockerfile|\.env(\.[^\/]*)?)$/ { print 1 "\t" $0 }
+			' | LC_ALL=C sort -s -k1,1 | cut -f2
+	)
+}
+
+# list_canaries SCRATCH prints one "DIR<TAB>FILE..." line per directory: the files
+# that would get a canary edit (none: the directory only gets its untracked
+# canary).
+list_canaries() {
+	local dir
+	local -a files=()
+
+	while IFS= read -r dir; do
+		canary_files "$dir" >"$1" || return 2
+		mapfile -t files <"$1"
+		printf '%s' "$dir"
+		((${#files[@]} == 0)) || printf '\t%s' "${files[@]}"
+		printf '\n'
+	done < <(printf '.\n'; canary_dirs)
 }
 
 canary_dirs() {
-	git -C "$CHECKOUT" ls-files | awk -F/ 'NF > 1 { print $1 }' | LC_ALL=C sort -u
+	git -C "$CANARY_ROOT" ls-files | awk -F/ 'NF > 1 { print $1 }' | LC_ALL=C sort -u
 }
 
 plant_canaries() {
@@ -263,8 +377,10 @@ plant_canaries() {
 	local -a no_edit=()
 
 	: >"$WORK/canaries"
+	CANARY_ROOT="$CHECKOUT"
 	while IFS= read -r dir; do
-		mapfile -t files < <(canary_files "$dir")
+		canary_files "$dir" >"$WORK/canary-files" || setup_error "could not choose the canary files in $dir/"
+		mapfile -t files <"$WORK/canary-files"
 		if ((${#files[@]} > 0)); then
 			canary_comment "${files[0]}" "unstaged $token" >>"$CHECKOUT/${files[0]}"
 			printf '%s\n' "${files[0]}" >>"$WORK/canaries"
@@ -293,7 +409,7 @@ plant_canaries() {
 	done < <(printf '.\n'; canary_dirs)
 
 	if ((${#no_edit[@]} > 0)); then
-		printf 'WARNING: no tracked file with a known comment syntax in %s: only an untracked canary guards it (extend canary_comment).\n' "${no_edit[*]}" >&2
+		printf 'WARNING: only an untracked canary guards %s: no tracked file there has a known comment syntax and is left alone by the suites (see "Canary placement").\n' "${no_edit[*]}" >&2
 	fi
 	[[ -n "$staged" ]] || setup_error "no second tracked text file under cmd/, internal/ or pkg/ for the staged canary"
 	canary_comment "$staged" "staged $token" >>"$CHECKOUT/$staged"
@@ -421,6 +537,17 @@ cleanup() {
 	fi
 	exit "$status"
 }
+if ((LIST_CANARIES == 1)); then
+	((IN_PLACE == 0)) || setup_error "--list-canaries and --in-place exclude each other"
+	CANARY_ROOT="$REPO"
+	list_file="$(mktemp "${TMPDIR:-/tmp}/invowk-script-tests-canaries.XXXXXX")"
+	status=0
+	list_canaries "$list_file" || status=$?
+	rm -f -- "$list_file"
+	((status == 0)) || setup_error "could not choose the canary files in $REPO"
+	exit 0
+fi
+
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM

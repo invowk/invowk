@@ -11,6 +11,13 @@
 
 set -euo pipefail
 
+# mapfile, associative arrays and empty "${array[@]}" under set -u need bash
+# 4.4; macOS ships bash 3.2 as /bin/bash.
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+	printf 'ERROR: %s needs bash 4.4 or newer on PATH (found %s); on macOS: brew install bash\n' "$0" "$BASH_VERSION" >&2
+	exit 2
+fi
+
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -52,8 +59,8 @@ assert_output_contains() {
 
 # make_fixture DIR creates a repository shaped like this one where the gate
 # looks: two tracked text files under each of cmd/, internal/ and pkg/, a text
-# file in website/ and docs/ and at the root, a tag, a branch, a stash entry, a
-# sibling worktree, and uncommitted work (unstaged, staged, untracked) the gate
+# file in website/ and docs/ and at the root, a tag, a branch, an origin/main
+# remote-tracking ref, a stash entry, a sibling worktree, and uncommitted work (unstaged, staged, untracked) the gate
 # must mirror and keep.
 make_fixture() {
 	local dir="$1"
@@ -79,6 +86,9 @@ make_fixture() {
 	git -C "$dir" commit -qm init
 	git -C "$dir" tag v1.0.0
 	git -C "$dir" branch feature
+	# What actions/checkout or a clone leaves: the triage --check growth base
+	# defaults to the merge-base of HEAD and origin/main.
+	git -C "$dir" update-ref refs/remotes/origin/main HEAD
 	git -C "$dir" worktree add -q --detach "$SIBLING"
 	printf 'sibling work\n' >>"$SIBLING/docs/guide.md"
 
@@ -143,6 +153,8 @@ assert_eq "the suite sees the mirrored real work" "0" \
 	"$(gate_status sh -c 'grep -q "real unstaged work" cmd/app/README.md && git diff --cached --name-only | grep -qx pkg/lib/README.md && test -f internal/core/notes.txt')"
 assert_eq "the suite sees the real tags and branches" "0" \
 	"$(gate_status sh -c 'git rev-parse -q --verify refs/tags/v1.0.0 >/dev/null && git rev-parse -q --verify refs/heads/feature >/dev/null')"
+assert_eq "origin/main and its merge-base with HEAD resolve in the throwaway repository" "0" \
+	"$(gate_status sh -c 'git rev-parse -q --verify origin/main >/dev/null && git merge-base HEAD origin/main >/dev/null')"
 # shellcheck disable=SC2016 # expanded by the shell that runs the snippet
 assert_eq "the suite runs in a repository of its own, with no remote and no real stash" "0" \
 	"$(gate_status sh -c 'test -d .git && test -z "$(git remote)" && ! git stash list | grep -q "real stash"')"
@@ -320,6 +332,66 @@ assert_eq "the list check skips testscript and testdata fixtures" "0" "$(list_ch
 rm "$list_root/scripts/test_mutation.sh"
 assert_eq "the list check fails on a listed file that is missing" "1" "$(list_check_status)"
 assert_output_contains "the list check names the missing file" "lists scripts/test_mutation.sh, which does not exist"
+
+# --- canary placement: never in a file the suites read ---------------------------
+# In each directory the first candidate in the gate's order is one the rule
+# must skip, so a gate that took "the first file found" fails these asserts.
+place_root="$TMP/placement"
+mkdir -p "$place_root"/{scripts,tools/mutation,formal/alloy,.github/workflows,docs/testdata,website,cmd/app,internal/a_listed,internal/b_free,pkg/lib}
+printf 'cat docs/a-named.md website/a-named.md A-NAMED.md\n' >"$place_root/scripts/run.sh"
+printf './internal/a_listed\n' >"$place_root/tools/mutation/packages.txt"
+printf '# see formal/README.md\n' >"$place_root/formal/manifest.toml"
+printf 'module M\n' >"$place_root/formal/alloy/M.als"
+printf '# formal\n' >"$place_root/formal/README.md"
+printf 'on: push # reads pkg/lib/README.md\n' >"$place_root/.github/workflows/ci.yml"
+printf '# fixture\n' >"$place_root/docs/testdata/fixture.md"
+printf '# named\n' >"$place_root/docs/a-named.md"
+printf '# free\n' >"$place_root/docs/b-free.md"
+printf '# named\n' >"$place_root/website/a-named.md"
+printf '# free\n' >"$place_root/website/b-free.md"
+printf '{}\n' >"$place_root/website/package.json"
+printf 'package app\n' >"$place_root/cmd/app/a.go"
+printf 'package app\n' >"$place_root/cmd/app/a_test.go"
+printf 'package a_listed\n' >"$place_root/internal/a_listed/a.go"
+printf 'package b_free\n' >"$place_root/internal/b_free/b.go"
+printf '# lib\n' >"$place_root/pkg/lib/README.md"
+printf 'package lib\n' >"$place_root/pkg/lib/a.go"
+printf '# named\n' >"$place_root/A-NAMED.md"
+printf '# root\n' >"$place_root/ROOT.md"
+git -C "$place_root" init -q
+git -C "$place_root" add -A
+git -C "$place_root" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false commit -qm init
+canaries_in() {
+	"$GATE" --repo "$1" --list-canaries 2>"$OUTPUT" | awk -F'\t' -v dir="$2" '$1 == dir { $1 = ""; sub(/^ /, ""); print }'
+}
+assert_eq "a file a script names is skipped" "docs/b-free.md" "$(canaries_in "$place_root" docs)"
+assert_eq "a file a script names is skipped (second directory)" "website/b-free.md" "$(canaries_in "$place_root" website)"
+assert_eq "the formal manifest, models and the files they name get no edit" "" "$(canaries_in "$place_root" formal)"
+assert_eq "scripts and the mutation lists get no edit" "" "$(canaries_in "$place_root" scripts)$(canaries_in "$place_root" tools)"
+assert_eq "workflows get no edit, and a file a workflow names is skipped" "" "$(canaries_in "$place_root" .github)"
+assert_eq "a Go file of a package a mutation list names is skipped" "internal/b_free/b.go" "$(canaries_in "$place_root" internal)"
+assert_eq "Go tests are skipped, Markdown comes first" "cmd/app/a.go pkg/lib/a.go" \
+	"$(canaries_in "$place_root" cmd) $(canaries_in "$place_root" pkg)"
+assert_eq "the root gets a canary edit in a file no script names" "ROOT.md" "$(canaries_in "$place_root" .)"
+set +e
+TMPDIR="$TMP" "$GATE" --repo "$place_root" -- true >"$OUTPUT" 2>&1
+assert_eq "a gate run over the placement fixture fails only for lack of a staged-canary file" "2" "$?"
+set -e
+assert_output_contains "the staged canary needs a second free file" "no second tracked text file under cmd/, internal/ or pkg/"
+assert_output_contains "directories with no free file are named" "WARNING: only an untracked canary guards"
+
+# On this repository, the chosen files avoid every class the suites read.
+real_canaries="$("$GATE" --repo "$SCRIPT_DIR/.." --list-canaries | cut -f2- | tr '\t' '\n' | sed '/^$/d')"
+if [[ -n "$real_canaries" ]] && ! grep -E '^(scripts|tools|\.github)/|^formal/manifest\.toml$|\.(als|tla|mdx)$|(^|/)testdata/|_test\.go$|(^|/)(package(-lock)?\.json|go\.(mod|sum)|\.gitignore)$|^\.agents/skills/[^/]+/scripts/' <<<"$real_canaries" >"$OUTPUT"; then
+	record_pass
+else
+	record_fail "this repository's canaries avoid the files the suites read" "$(tr '\n' ' ' <"$OUTPUT")"
+fi
+if grep -qx 'cmd/[^/]*/.*\.go' <<<"$real_canaries" && grep -qx 'internal/.*' <<<"$real_canaries" && grep -qx 'pkg/.*' <<<"$real_canaries"; then
+	record_pass
+else
+	record_fail "this repository's cmd/, internal/ and pkg/ keep their canaries" "$(tr '\n' ' ' <<<"$real_canaries")"
+fi
 
 # --- setup errors ---------------------------------------------------------------
 set +e
