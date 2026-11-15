@@ -29,6 +29,11 @@ on:
       - 'scripts/check-file-length.sh'
       - 'scripts/golangci-lint.sh'
       - 'scripts/test_golangci_lint.sh'
+      # make test-scripts (single list: scripts/script-tests.sh) runs or reads
+      # these; .agents/** above covers the skill script tests.
+      - 'scripts/**'
+      - 'tools/mutation/**'
+      - 'formal/**'
       - '.github/workflows/**'
       - '.github/workflows/lint.yml'
       - 'openspec/specs/lint-tooling-quality-gates/**'
@@ -169,6 +174,36 @@ jobs:
       - name: Run the consumer performance smoke
         if: steps.classify.outputs.profile != 'documentation'
         run: make check-goplint-performance-smoke
+
+  # Every POSIX script test (single list: scripts/script-tests.sh), run in a
+  # throwaway repository behind the worktree-safety gate
+  # (scripts/check-script-tests-worktree-safety.sh). Offline and fast, so it
+  # runs on every PR with no path classification. The job name is meant to
+  # become a required status check: keep it stable.
+  script-tests:
+    name: script tests (worktree-safety gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # Python is the runner's system python3.
+      - name: Run script tests (worktree-safety gate)
+        run: make test-scripts
 
   file-length:
     name: file length gate (1000 lines)

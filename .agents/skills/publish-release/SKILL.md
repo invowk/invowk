@@ -93,7 +93,7 @@ python3 .agents/skills/publish-release/scripts/test_check_poetic_opening.py
 make check-agent-docs
 ```
 
-`make test-scripts` runs the three tests (single list: `scripts/script-tests.sh`), and so do the Linux legs of `ci.yml` and `release.yml`.
+`make test-scripts` runs the three tests (single list: `scripts/script-tests.sh`), and so do the `script tests (worktree-safety gate)` job of `lint.yml` and the Linux test legs of `release.yml`.
 
 For an actual release, load `references/channels.md` "Post-Release Verification" and run its `gh`, `brew`, `winget`, `cosign`, and `sha256sum` checks. Also:
 

@@ -17,11 +17,6 @@ on:
       - 'go.sum'
       - 'Makefile'
       - 'scripts/**'
-      # Read or run by make test-scripts (single list: scripts/script-tests.sh).
-      - '.agents/skills/publish-release/scripts/**'
-      - '.agents/skills/review-docs/scripts/**'
-      - 'tools/mutation/**'
-      - 'formal/**'
       - 'default.pgo'
       - '.goreleaser.yaml'
       - '.github/workflows/ci.yml'
@@ -38,11 +33,6 @@ on:
       - 'go.sum'
       - 'Makefile'
       - 'scripts/**'
-      # Read or run by make test-scripts (single list: scripts/script-tests.sh).
-      - '.agents/skills/publish-release/scripts/**'
-      - '.agents/skills/review-docs/scripts/**'
-      - 'tools/mutation/**'
-      - 'formal/**'
       - 'default.pgo'
       - '.goreleaser.yaml'
       - '.github/workflows/ci.yml'
@@ -273,20 +263,9 @@ jobs:
           BENCH_REGEX='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$'
           go test ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime=1x -count=1
 
-      - name: Setup Node.js
-        if: startsWith(matrix.runner, 'ubuntu')
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      # Every script test (single list: scripts/script-tests.sh), run in a
-      # throwaway checkout behind the worktree-safety gate. No network calls.
-      # Linux only; the PowerShell install tests run on Windows below.
-      - name: Run script tests (worktree-safety gate)
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: make test-scripts
-
+      # The POSIX script tests (scripts/script-tests.sh) run behind the
+      # worktree-safety gate in lint.yml's "script tests (worktree-safety
+      # gate)" job, on every PR; only the PowerShell ones run here.
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)
         if: matrix.os == 'windows'
