@@ -194,6 +194,10 @@ The construction replay SHALL require `@config`, `@data`, `@cache`, `@state`, `@
 - **WHEN** `@home` is seeded into the allowed roots of `newVirtualPathResolverForFilesystem`
 - **THEN** the construction replay SHALL fail, and the result SHALL be recorded in `VirtualPathHarness`'s calibration text
 
+#### Scenario: Abstraction cell lists what the replay catches
+- **WHEN** the `anchors` row's abstraction cell is read
+- **THEN** it SHALL list exactly the defect classes the replay catches: an empty anchor, a reported anchor missing from the allowed roots, and an anchor that covers `@home/.ssh`
+
 ### Requirement: The unpack destination row is unbound
 The `unpackRejectsEscape` row SHALL have binding `-`, because `validateDestinationPath` alone is not the model's destination check (`unpackInside[destCheck]`, `refShape = RelInside`). With the `Join` call shape it accepts an absolute name, and after `normalizeZIPPath` its rejection is unreachable on POSIX. The row's abstraction cell SHALL state this, and SHALL name the follow-up that binds `unpackInside` to `normalizeZIPPath`.
 

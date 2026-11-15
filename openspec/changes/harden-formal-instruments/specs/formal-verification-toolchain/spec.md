@@ -15,11 +15,17 @@ Rows the plan reports as unbound (`no-symbol`, `no-binding`, `type-symbol`, `tra
 
 #### Scenario: Calibration on the pre-change tree
 - **WHEN** the gate runs on the tree before this change rebinds any row
-- **THEN** it SHALL fail and name exactly these eight (row, killer) pairs:
-  - `validateDestinationPath`, `LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`, and `Invowkfile.GetEffectiveWorkDir`, each under `TestModulePathContainment_GoldenVectors`;
-  - `newVirtualPathResolverForFilesystem`, `standardVirtualAnchorsForOS`, and `VirtualFilesystemConfig.EffectiveAccess`, each under `TestVirtualPathHarness_GoldenVectors`;
-  - `Server.ValidateToken` under `TestHostCallbackToken_LifecycleMatchesModel`
+- **THEN** it SHALL fail and name exactly eight (row, killer) pairs, the ones the next two scenarios list, and no others
 - **THEN** the result SHALL be recorded in the `[reach]` calibration text of `formal/manifest.toml`
+
+#### Scenario: Calibration pairs under the module-path golden
+- **WHEN** the gate runs on the tree before this change rebinds any row
+- **THEN** four of the eight pairs SHALL be `validateDestinationPath`, `LoadEnvFile`, `CustomCheckScript.ResolveWithFSAndModule`, and `Invowkfile.GetEffectiveWorkDir`, each under `TestModulePathContainment_GoldenVectors`
+
+#### Scenario: Calibration pairs under the harness golden and the token model
+- **WHEN** the gate runs on the tree before this change rebinds any row
+- **THEN** three pairs SHALL be `newVirtualPathResolverForFilesystem`, `standardVirtualAnchorsForOS`, and `VirtualFilesystemConfig.EffectiveAccess`, each under `TestVirtualPathHarness_GoldenVectors`
+- **THEN** the eighth SHALL be `Server.ValidateToken` under `TestHostCallbackToken_LifecycleMatchesModel`
 
 #### Scenario: The gate passes after the rows are resolved
 - **WHEN** this change has rebound or unbound each of the eight rows

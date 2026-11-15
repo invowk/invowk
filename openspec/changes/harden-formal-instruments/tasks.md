@@ -58,7 +58,7 @@
   - leave the upload step unchanged: it already uploads `artifacts/formal/`.
 - [x] 2.2 Update `scripts/test_formal.py`: the expected step list, the job-timeout sum, and the `affected` condition for the new step.
 - [x] 2.3 Add `scripts/formal_mutation.py` and `scripts/test_formal_mutation.py` to `[ci] paths` in `formal/manifest.toml`. Add a `scripts/test_formal.py` case in which a diff touching only `scripts/formal_mutation.py` classifies as `run=true`.
-- [x] 2.3b (2026-11-14: `Runner self-tests` runs `scripts/test_formal_mutation.py`; a `Triage lists` step runs `triage --check --base "${BASE_SHA:-$GITHUB_SHA}"` after it; `[ci] paths` gained the triage ledger directory and the formal-bindings baseline; `test_workflow_runs_the_triage_checks` and `test_ci_paths_cover_the_triage_inputs` check the wiring.) (decision 15) Wire the triage checks into `.github/workflows/formal-verification.yml` (design D13, "CI"):
+- [x] 2.3b (2026-11-15: the base wiring is superseded by 8b.4. 2026-11-14: `Runner self-tests` runs `scripts/test_formal_mutation.py`; a `Triage lists` step runs `triage --check --base "${BASE_SHA:-$GITHUB_SHA}"` after it; `[ci] paths` gained the triage ledger directory and the formal-bindings baseline; `test_workflow_runs_the_triage_checks` and `test_ci_paths_cover_the_triage_inputs` check the wiring.) (decision 15) Wire the triage checks into `.github/workflows/formal-verification.yml` (design D13, "CI"):
   - add `python3 scripts/test_formal_mutation.py` to `Runner self-tests`;
   - add a `Triage lists` step after it, under the `affected` condition, running `python3 scripts/formal_mutation.py triage --check --base "$BASE"`, with `$BASE` the PR base SHA on `pull_request` and `$GITHUB_SHA` otherwise; keep the classify step's depth-1 fetch of the base;
   - add `tools/mutation/triage/**` and `tools/mutation/baselines/formal-bindings-baseline.json` to `[ci] paths`;
@@ -226,6 +226,19 @@
   - if three runs of one head cannot be obtained, leave this task open with a dated note.
 - [x] 8.3 (2026-11-14: run 43657442830 passed `Binding reach`: 53 of 53 triples, `timing reach 37.1s`, a soft overrun warning against the local 36 s budget; well inside the 6-minute step limit. First CI sample for the `budget_source = "ci"` promotion.) Confirm that the formal lane's `Binding reach` step passes on the PR, and record its measured CI seconds for the later `budget_source = "ci"` promotion.
 - [x] 8.4 (2026-11-14: run 43660058330 shows `Create junction`, `Create junction created via reparse point`, `ModulePathContainment F16 junction`, and `ModulePathContainment property` as run and passing.) Check: the PR's windows-latest job shows `TestCreateJunction`, `TestModulePathContainment_Property`, and `TestModulePathContainment_F16Junction` as run, not skipped.
+
+## 8b. Round 6: rebase, triage base, and anchors cell (decisions 17-22)
+
+- [ ] 8b.1 Rebase onto `main` (S1, C1, and the script-test safety gate). Any F1 addition to the old `test-scripts` recipe lands as an entry in `scripts/script-tests.sh`. Check CI on the pre-rebase head once.
+- [ ] 8b.2 Spec first: design decisions 17-22, the `mutation-testing` base and seeding requirements, the split "Calibration on the pre-change tree" scenario, and the `anchors` cell scenario. Check: `openspec validate harden-formal-instruments --strict` and a trial archive whose `openspec validate --specs --strict` reports 0 failures and 0 warnings.
+- [ ] 8b.3 `scripts/formal_mutation.py` (decisions 18, 19, 22):
+  - seed only from a base with none of the three lists; fail for each list a partial base lacks;
+  - print why each entry left a list against the base;
+  - take the base from `--base`, else a non-empty `INVOWK_TRIAGE_BASE`, else the merge-base, and name the variable in every fail-closed message.
+
+  Add `scripts/test_formal_mutation.py` cases for each, and one that pins a `Type.Method` symbol as a function. Unit tests of the merge-base path scrub the variable. Check: `python3 scripts/test_formal_mutation.py`.
+- [ ] 8b.4 `scripts/ci-triage-base.sh` (decision 22): the full base SHA on stdout, notices on stderr, non-zero on a failed fetch. Wire it into the formal lane's `Triage lists` step, `lint.yml`'s `script tests (worktree-safety gate)` job, and `release.yml`'s `make test-scripts` step, each assigning and exporting `INVOWK_TRIAGE_BASE` in the step that runs the check. Add the helper to `[ci] paths`, update the `scripts/test_formal.py` wiring assertions, and add a gate self-test case in `scripts/test_check_script_tests_worktree_safety.sh` for a base that no ref reaches. Check: `make test-scripts`; the pull-request and release checkout simulations with the variable set as the workflows set it.
+- [ ] 8b.5 The `anchors` row's abstraction cell lists what the replay catches (decision 17); regenerate the `VirtualPathHarness` golden. `tasks/next/formal-binding-gaps.md` records "bound is not covered" for the row's 22 survivors and the three re-point candidates (decision 18). Check: `python3 scripts/formal.py correspondence`, `make formal-reach`, and `python3 scripts/formal.py snapshot --compare` against the 0.2 baseline.
 
 ## 9. Completion gates (`.agents/rules/checklist.md`)
 
