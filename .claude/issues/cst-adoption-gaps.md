@@ -210,6 +210,14 @@ guide ("set `TMPDIR` if needed").
   and fails to load inside the container. Fix: have `internal/discovery` attach the
   intended source ID to load-failure diagnostics. Recorded in
   `openspec/changes/archive/2026-11-15-cli-exit-code-contract/design.md` (Decision 14).
+- **N7 — the SSH host-callback server is unreachable from containers (separate change after
+  S3).** Found 2026-11-14 while specifying S3. `internal/sshserver/server.go:124-127` and
+  `internal/app/commandadapters/host_access.go:52` bind `127.0.0.1`, but containers dial
+  `host.docker.internal`. One real run under rootful Docker 29.9.2 (`enable_host_ssh: true`,
+  `debian:stable-slim`, bash `/dev/tcp` to `$INVOWK_SSH_HOST:$INVOWK_SSH_PORT`) got
+  "Connection refused". The test is vacuous: `tests/cli/testdata/container_callback.txtar`
+  only asserts the env vars. Fix by reusing S3's exposure plan (D1-D2) and add a real
+  reachability test.
 
 ## Why CST keeps its production paths out of invowk anyway
 
