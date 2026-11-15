@@ -198,13 +198,22 @@ guide ("set `TMPDIR` if needed").
 - **N5 — the TUI server binds every interface (S3, implemented in PR #173; done on
   merge).** Found 2026-11-14 while triaging Sonar go:S5332. `internal/tuiserver/server.go`
   listened on `0.0.0.0:0`, so during interactive commands the port was reachable from the
-  LAN, guarded only by the per-session token. S3 (`openspec/changes/restrict-tui-server-bind`)
+  LAN, guarded only by the per-session token. S3 (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind`)
   binds loopback plus, at most, the one address a verified engine mode routes to the host,
   refuses `-i` runs in modes without a narrow route before start (exit 1, the error names the opt-in),
   adds the user-config opt-in `container.tui_server_bind: "all-interfaces"`, and requires
   the token on every request in constant time. Sonar S5332 there is resolved in SonarCloud
   as Accepted (real gap tracked as N5/S3; recorded as e13): plain HTTP over loopback or the
   bridge is by design.
+  Docker Desktop (row 6) keeps its loopback-only plan (design decision 36). Verified
+  2026-11-15 on native Windows only (`probe/row6-probe.ps1` on `win11-devbox`, Docker Desktop
+  4.90.0, engine 29.7.2: loopback reachable, all-interfaces control reachable; design D12).
+  **Not run**, and carried as release Warnings: the WSL2 variant (`probe/row6-probe.sh` in a
+  WSL2 distribution; the VM has no user distribution, installing one is the maintainer's
+  call), Docker Desktop on macOS and Linux, and one native Windows `invowk cmd <x> -i`
+  container run (decision 27, ConPTY through `xpty`, supported by the code and unverified).
+  invowk's own row-6 path (facts query, planner, adapter) has never run on a Docker Desktop
+  host; only unit tests with constructed facts select row 6.
 - **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
   exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
   source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`
@@ -230,7 +239,7 @@ guide ("set `TMPDIR` if needed").
   terminal. The docs show this capture form for `input`, `choose` and `write`. Fix: draw
   to stderr or `/dev/tty` when stdout is not a terminal, with a tmux test that captures
   stdout. Fixing it would let S3's refused modes fall back to direct rendering
-  (`openspec/changes/restrict-tui-server-bind/design.md`, decision 22).
+  (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind/design.md`, decision 22).
 
 ## Why CST keeps its production paths out of invowk anyway
 

@@ -22,7 +22,7 @@ During every interactive command (`-i`), the TUI server listens on `0.0.0.0` (`i
   - any mode not listed.
 
   Invowk never widens the bind on its own.
-- The opt-in also applies to Docker Desktop, the only plan that ships without a local probe, so users there have a remedy if its loopback assumption is wrong. It never changes the verified rootful Docker and rootless Podman plans, or host runtimes. It is read only from user configuration (`--ivk-config`, `INVOWK_CONFIG`, the user config file), never from an invowkfile or module.
+- The opt-in also applies to Docker Desktop, the only plan that ships without a probe on every platform (it was probed on native Windows only), so users there have a remedy if its loopback assumption is wrong. It never changes the verified rootful Docker and rootless Podman plans, or host runtimes. It is read only from user configuration (`--ivk-config`, `INVOWK_CONFIG`, the user config file), never from an invowkfile or module.
 - In Flatpak without host networking, interactive container runs also fail before start. The error explains that the sandbox's network is private; no bind is reachable from the engine's containers there, so the opt-in neither applies nor is offered.
 - The bind plan is validated before any listener opens: a narrow plan lists `127.0.0.1` first and only specified IPv4 addresses, and a wildcard plan exists only where the opt-in applies. An invalid plan fails the run.
 - Non-interactive container runs (without `-i`) do not change: no server, no engine query, no warning.
@@ -32,13 +32,14 @@ During every interactive command (`-i`), the TUI server listens on `0.0.0.0` (`i
 
 ## Migration notes
 
-- Nothing changes for native and virtual runs, local rootful Docker on Linux, Docker Desktop, or ephemeral rootless Podman runs where pasta is installed. Interactive mode keeps its overlay. Under rootful Docker and rootless Podman, `INVOWK_TUI_ADDR` now carries an IP literal instead of `host.docker.internal` / `host.containers.internal`. Scripts that read it should treat it as an opaque URL.
+- Nothing changes for native and virtual runs, local rootful Docker on Linux, or ephemeral rootless Podman runs where pasta is installed. Nothing is expected to change for Docker Desktop either: its loopback-only plan was verified on native Windows only (see the Warnings below). Interactive mode keeps its overlay. Under rootful Docker and rootless Podman, `INVOWK_TUI_ADDR` now carries an IP literal instead of `host.docker.internal` / `host.containers.internal`. Scripts that read it should treat it as an opaque URL.
 - **BREAKING**: `invowk cmd … -i` fails before start, with exit status 1, for container runs under remote engines (including Podman machine and a scheme-less `DOCKER_HOST`), rootful Podman (also behind the `docker` CLI), persistent containers under rootless Podman, rootless Podman without pasta, rootless Docker, Snap, and Flatpak without `--share=network`. The same commands without `-i` run as before. When interactive mode comes only from `ui.interactive: true`, invowk runs them non-interactively with one warning instead of failing. The check runs before dependency validation, so container-scoped `depends_on` probes do not start either.
   - For rootless Podman, installing pasta (the `passt` package) restores the overlay for ephemeral runs without widening the bind.
   - To restore the previous exposure knowingly, set `container: tui_server_bind: "all-interfaces"` in `config.cue`. Invowk then warns at every such run that the port is reachable from the network. Set it in the file that invowk actually reads: under `--ivk-config` or `INVOWK_CONFIG`, that file alone, since the user config file is then not read. For a remote engine this helps only when its host alias leads back to this machine. The opt-in does not apply in Flatpak without network.
 - If `invowk tui *` inside a container reports that the TUI server is unreachable (for example under Docker Desktop, or behind a host firewall), the same opt-in restores the previous behaviour.
 - Anything that probed `/health` or any other path without the token now gets `401`. Before this change no shipped invowk command called `/health`; the `invowk tui *` commands send the token on every request, including their new `/health` preflight. `OPTIONS *` also needs the token now.
 - Downgrading below v0.17.0 with `container.tui_server_bind` set fails config validation. Remove the key first.
+- **Warnings** (text for the release notes): Docker Desktop's loopback-only plan (row 6) was verified on native Windows only (Docker Desktop 4.90.0, engine 29.7.2). Docker Desktop on macOS and Linux, and invowk running inside a WSL2 distribution, are unverified, and no `invowk cmd … -i` container run was tried on native Windows. If the TUI server is unreachable there, `invowk tui *` inside the container reports it within 5 seconds, and `container.tui_server_bind: "all-interfaces"` in your invowk config is the remedy.
 
 ## Capabilities
 
@@ -64,7 +65,7 @@ During every interactive command (`-i`), the TUI server listens on `0.0.0.0` (`i
   - unit tests for the plan selection, the server and the adapter;
   - real-engine container integration tests (`debian:stable-slim`), with the expected plan pinned per CI job;
   - updated `config_show`/`config_dump` goldens.
-- Probe: `openspec/changes/restrict-tui-server-bind/probe/` holds the one-command Docker Desktop (row 6) reachability probe for native Windows (PowerShell) and WSL2 or macOS (bash).
+- Probe: `openspec/changes/archive/2026-11-15-restrict-tui-server-bind/probe/` holds the one-command Docker Desktop (row 6) reachability probe for native Windows (PowerShell) and WSL2 or macOS (bash).
 - Docs:
   - `website/docs/advanced/interactive-mode.mdx` and `website/docs/reference/config-schema.mdx`, with their pt-BR translations;
   - README;
