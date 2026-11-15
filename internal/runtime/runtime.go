@@ -364,6 +364,14 @@ func CaptureIO() (ioCtx IOContext, stdout, stderr *bytes.Buffer) {
 	return ioCtx, stdout, stderr
 }
 
+// StderrOrDefault returns Stderr, or os.Stderr when it is unset.
+func (c IOContext) StderrOrDefault() io.Writer {
+	if c.Stderr != nil {
+		return c.Stderr
+	}
+	return os.Stderr
+}
+
 // DefaultEnv returns an EnvContext with an initialized ExtraEnv map.
 func DefaultEnv() EnvContext {
 	return EnvContext{

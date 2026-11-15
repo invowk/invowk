@@ -5,9 +5,7 @@ package commandadapters
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
 	"os/exec"
 
 	tea "charm.land/bubbletea/v2"
@@ -81,7 +79,7 @@ func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invo
 	}
 	if plan.Warning() != "" {
 		// Before the alternate screen starts, so it cannot hide the warning.
-		_, _ = fmt.Fprintln(interactiveStderr(ctx), plan.Warning().String())
+		_, _ = fmt.Fprintln(ctx.IO.StderrOrDefault(), plan.Warning().String())
 	}
 
 	tuiServer, tuiCtx, err := startTUIServer(goCtx, plan)
@@ -188,13 +186,6 @@ func startTUIServer(goCtx context.Context, plan containerplan.TUIExposurePlan) (
 		tuiCtx.NetworkMode = mode
 	}
 	return server, tuiCtx, nil
-}
-
-func interactiveStderr(ctx *runtime.ExecutionContext) io.Writer {
-	if ctx.IO.Stderr != nil {
-		return ctx.IO.Stderr
-	}
-	return os.Stderr
 }
 
 func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {

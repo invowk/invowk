@@ -38,11 +38,10 @@ type (
 // PastaForwardNetworkMode returns the Podman pasta mode that forwards exactly
 // one TCP port from the container to host loopback.
 func PastaForwardNetworkMode(port types.ListenPort) (NetworkMode, error) {
+	mode := NetworkMode(fmt.Sprintf("pasta:-T,%d", int(port)))
 	if port <= 0 {
-		return "", &InvalidNetworkModeError{Value: NetworkMode(fmt.Sprintf("pasta:-T,%d", int(port)))}
+		return "", &InvalidNetworkModeError{Value: mode}
 	}
-	raw := fmt.Sprintf("pasta:-T,%d", int(port))
-	mode := NetworkMode(raw)
 	if err := mode.Validate(); err != nil {
 		return "", err
 	}

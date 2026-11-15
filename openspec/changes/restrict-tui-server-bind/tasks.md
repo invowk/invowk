@@ -114,6 +114,13 @@
 - [x] 9.9 `TestContainerRuntimeConstructionQueriesNoFacts` requires exactly one recorded run instead of guarding on `len(RunCalls) > 0`. *(2026-11-15: passed.)*
 - [x] 9.10 Docs: `pasta_options` caveat, the reach preflight and no-proxy rule, scheme-less endpoints and Podman behind the Docker CLI, in interactive-mode and config-schema (en + pt-BR), README and the proposal; spec delta gains the requirements and scenarios; tracker N5 table row and an N7 row. *(2026-11-15.)*
 
+## 10. Final stage (after F1, #163)
+
+- [x] 10.1 Rebase onto `origin/main` 925e4231 (F1). *(2026-11-15: clean, no conflicts; all twelve commits still signed. `python3 scripts/formal.py affected` selects the formal lane for the `internal/runtime/` paths.)*
+- [x] 10.2 Restart the checklist on the rebased tree. *(2026-11-15: `/simplify` single-pass inline (no Agent tool) merged the two copies of the stderr fallback into `runtime.IOContext.StderrOrDefault()` and dropped a repeated `fmt.Sprintf` in `container.PastaForwardNetworkMode`; `c4-component-runtime.md` IOContext row updated. `make tidy`, `make license-check`, `make lint` (0 issues), `make test` with `INVOWK_TEST_TUI_PLAN_ROW=8` on rootful Docker 29.9.2 (9010 tests, 24 skipped; 192 CLI tests, mirror checks included), `make test-integration` (27 tests, 1 Podman skip), `make check-baseline` (no new findings), `make check-file-length`, `make test-scripts` (16 script tests, triage check passed, checkouts unchanged), `make check-windows-build`, schema Sync tests, `python3 scripts/formal.py correspondence`, `make formal`, `make check-agent-docs` and the website build passed; `sonar-local` runs in the commit hooks. A trial archive in a scratch copy of `openspec/` validated the specs strictly.)*
+- [ ] 10.3 Row-6 probe on `win11-devbox` with Docker Desktop: `probe/row6-probe.sh` in the WSL2 distro and `probe/row6-probe.ps1` in native Windows; record the outcome in design.md's probe table. *Pending VM probe (the maintainer runs it).*
+- [ ] 10.4 Native Windows `-i` session under Docker Desktop on `win11-devbox` (decision 27: ConPTY through `xpty`, unverified from code). *Pending VM probe (the maintainer runs it).*
+
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
 - [x] 7.1 `/simplify` on the diff, then `make tidy` and `make license-check` *(2026-11-15: single-pass inline review (no Agent tool); dropped a duplicated nil-context guard in `checkReachable`; tidy and license-check clean.)*
@@ -124,4 +131,4 @@
 - [x] 7.6 `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/`, `make check-windows-build` and `make check-agent-docs` *(2026-11-15: all passed; `python3 scripts/formal.py correspondence` passed too.)*
 - [x] 7.7 Re-check `docs/architecture/` for the interactive flow (`c4-component-runtime.md:41`), and run `/learn` *(2026-11-15: `TUIContext` gains `NetworkMode`, `HostServiceAddressProvider` now serves SSH only, and a TUI exposure planner row was added; `/learn` put the readiness caveat and the `OPTIONS *` rule into the server skill. Website build passed.)*
 - [x] 7.8 `openspec validate restrict-tui-server-bind --strict` *(2026-11-15: valid.)*
-- [ ] 7.9 Archive the change with `openspec archive restrict-tui-server-bind`, after F1 merges and this branch is rebased onto it
+- [ ] 7.9 Archive the change with `openspec archive restrict-tui-server-bind`, after F1 merges and this branch is rebased onto it *(2026-11-15: F1 merged and the branch is rebased; archive waits for 10.3 and 10.4.)*

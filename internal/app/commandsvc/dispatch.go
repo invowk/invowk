@@ -6,9 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/containerplan"
@@ -143,20 +141,13 @@ func (s *Service) preflightInteractive(req Request, execCtx *runtime.ExecutionCo
 	case err == nil:
 		return req, nil
 	case !req.InteractiveSet && errors.Is(err, containerplan.ErrTUIExposureRefused):
-		_, _ = fmt.Fprintf(preflightStderr(execCtx), "invowk: warning: running without interactive mode (ui.interactive is on in your config): %v. "+
+		_, _ = fmt.Fprintf(execCtx.IO.StderrOrDefault(), "invowk: warning: running without interactive mode (ui.interactive is on in your config): %v. "+
 			"Pass -i to make this an error, or --ivk-interactive=false to silence this warning.\n", err)
 		req.Interactive = false
 		return req, nil
 	default:
 		return req, newClassifiedExecutionError(err)
 	}
-}
-
-func preflightStderr(execCtx *runtime.ExecutionContext) io.Writer {
-	if execCtx.IO.Stderr != nil {
-		return execCtx.IO.Stderr
-	}
-	return os.Stderr
 }
 
 func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.ExecutionContext, session RuntimeSession) (*runtime.Result, invowkfile.RuntimeMode, error) {
