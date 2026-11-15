@@ -202,6 +202,14 @@ guide ("set `TMPDIR` if needed").
   gateway, covering Docker and Podman, rootful and rootless, and Flatpak, with container
   tests. Until then, Sonar S5332 there is resolved in SonarCloud as a false positive
   (recorded as e13): plain HTTP over loopback or the bridge is by design.
+- **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
+  exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
+  source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`
+  alias for a module directory that the module scan also finds, and a provisioned module
+  whose manifest keeps an alias or namespace (`ProvisionedModuleEntry.CommandNamespace`)
+  and fails to load inside the container. Fix: have `internal/discovery` attach the
+  intended source ID to load-failure diagnostics. Recorded in
+  `openspec/changes/archive/2026-11-15-cli-exit-code-contract/design.md` (Decision 14).
 
 ## Why CST keeps its production paths out of invowk anyway
 
