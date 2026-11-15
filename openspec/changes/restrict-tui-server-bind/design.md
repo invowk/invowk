@@ -4,55 +4,72 @@
 
 See proposal.md (Why). Current behaviour, cited against `origin/main` at f4969e90:
 
-- **Bind.** `Server.Start` listens on `0.0.0.0:0` (`internal/tuiserver/server.go:107-108`) with a single listener and one `http.Server` (`:91-96`, `:128`). The type comment says so (`:34-35`).
-- **Token.** It is 32 bytes from `crypto/rand`, hex-encoded (`server.go:71`, `:322-329`). `/tui` checks it with `!=` (`:250-252`), and only after the method check (`:244-247`). `TestServerMethodNotAllowed` pins that order: `GET /tui` without a token returns `405` (`server_test.go:322-350`).
-- **Health.** `/health` is registered without authentication (`server.go:89`) and answers `200 ok` to anyone (`:233-237`). The only caller is `tuiclient.IsAvailableContext`, which already holds the token (`internal/tuiclient/client.go:110`, `:137-140`) but does not send it (`:155-173`). It sends the token only on component requests (`:502`).
-- **Startup order.** The interactive adapter creates and starts the server (`internal/app/commandadapters/interactive.go:47`, `:57`). Only afterwards does it ask the runtime for a host alias (`:66-71`). It then sets `ctx.TUI` (`:73-74`) and calls `PrepareInteractive` (`:76`).
-- **Host alias.** The container runtime's alias is `host.containers.internal` for Podman and `host.docker.internal` otherwise (`internal/runtime/container_prepare.go:121-128`, constants at `internal/runtime/container.go:20-22`). For TUI and SSH it always adds `--add-host host.docker.internal:host-gateway` (`internal/runtime/container_exec.go:189-194`). The runtime injects the URL into the container env as `INVOWK_TUI_ADDR` (`container_exec.go:132-133`, `internal/runtime/runtime.go:530-536`).
-- **Persistent containers.** They take their extra hosts at creation (`internal/runtime/container_persistent.go:160-172`), so their network setup is fixed when they are created.
-- **Engine options.** `RunOptions` has no network-mode field (`internal/container/engine.go:253-254`, the only network-related fields are `ExtraHosts` and `Ports`; validation at `:536-547`).
-- **Config.** `#ContainerConfig` holds only `auto_provision` (`internal/config/config_schema.cue:66-72`).
-- **Sandboxes.** Flatpak and Snap are detected in `pkg/platform/sandbox.go:89`. Engines in a sandbox run on the host through `flatpak-spawn --host` / `snap run --shell` (`internal/container/sandbox_engine.go:458-483`).
+- **Bind.** `Server.Start` listens on `0.0.0.0:0` (`internal/tuiserver/server.go:107-108`) with a single listener and one `http.Server` (`:91-96`, `:128`). The type comment says so (`:34-35`). Readiness is signalled from inside the one serve goroutine (`:123-135`, `TransitionToRunning` at `:127`).
+- **Token.** It is 32 bytes from `crypto/rand`, hex-encoded (`server.go:71`, `:322-329`). `/tui` checks it with `!=` (`:250-252`), and only after the method check (`:244-247`). `TestServerMethodNotAllowed` pins that order: `GET /tui` without a token returns `405` (`internal/tuiserver/server_test.go:322-350`).
+- **Health and unknown paths.** `/health` is registered without authentication (`server.go:89`) and answers `200 ok` to anyone (`:233-237`). Any other path falls through to the `http.ServeMux` default `404`, also unauthenticated (`:87-89`). The only client of `/health` is `tuiclient.IsAvailableContext` (`internal/tuiclient/client.go:155-173`). It holds the token (`:110`, `:137-140`) but does not send it, and it has no production caller (only `internal/tuiclient/client_test.go:532-556`). The shipped `invowk tui *` commands go straight to component requests (for example `cmd/invowk/tui_input.go:70`), which send the token (`client.go:502`).
+- **Startup order.** The interactive adapter creates and starts the server (`internal/app/commandadapters/interactive.go:47`, `:57`). Only afterwards does it ask the runtime for a host alias (`:66-71`). It then sets `ctx.TUI` (`:73-74`) and calls `PrepareInteractive` (`:76`). `InteractiveExecutor` is a stateless struct (`:23`, `:34-37`), so it holds no config today.
+- **Host alias.** The container runtime's alias is `host.containers.internal` for Podman and `host.docker.internal` otherwise (`internal/runtime/container_prepare.go:121-128`, constants at `internal/runtime/container.go:19-23`). A sandbox-wrapped engine reports the wrapped engine's name (`internal/container/sandbox_engine.go:65-67`). For TUI and SSH the runtime always adds `--add-host host.docker.internal:host-gateway` (`internal/runtime/container_exec.go:189-194`). It injects the URL into the container env as `INVOWK_TUI_ADDR` (`container_exec.go:132-133`, `internal/runtime/runtime.go:530-536`).
+- **Persistent containers.** Managed ones take their extra hosts at creation (`internal/runtime/container_persistent.go:161-172`), so their network is fixed then. `--ivk-container-name` may also target an external, running container that invowk did not create (`container_persistent.go:137-151`). Invowk does not know that container's network. TUI values are passed at exec time (`openspec/specs/persistent-container-runtime/spec.md:109-111`).
+- **Engine options.** `RunOptions` has no network-mode field (`internal/container/engine.go:226-255`). Its only network fields are `ExtraHosts` and `Ports`, validated at `:536-547`. The Podman `--userns=keep-id` transformer takes the first non-flag argument as the image. It skips the values of a fixed set of flags only (`internal/container/podman.go:200-230`, list at `:213-216`).
+- **Engine availability.** `DockerEngine.Available` runs `docker version` against the daemon (`internal/container/docker.go:53-61`). The container runtime is available only when its engine is (`internal/runtime/container.go:184-186`). A dead `DOCKER_HOST` therefore fails before any interactive code runs.
+- **Config.** `#ContainerConfig` holds only `auto_provision` (`internal/config/config_schema.cue:66-71`). `GenerateCUE` writes the container block by hand (`internal/config/config.go:592-600`).
+- **Sandboxes.** Flatpak and Snap are detected in `pkg/platform/sandbox.go:89`. Engines in a sandbox run on the host through `flatpak-spawn --host` or `snap run --shell` (`internal/container/sandbox_engine.go:458-483`).
+- **CI.** The Podman job runs on `ubuntu-latest`. It starts the user `podman.socket`, and the Podman CLI runs locally (`.github/workflows/ci.yml:161-167`, matrix at `:73-74`). The Docker job uses rootful Docker on `ubuntu-latest` (`:67-68`, `:169-174`). Neither job installs OS packages.
 
 ### Reachability probes (2026-11-14, Fedora 45 Silverblue host)
 
-Each probe started Python listeners on three host addresses: `127.0.0.1`, `172.17.0.1` (docker0) and `192.168.1.109` (LAN). A `debian:stable-slim` container then tried to connect to each with bash `/dev/tcp`.
+Each probe started TCP listeners on host addresses: `127.0.0.1`, `172.17.0.1` (docker0) and `192.168.1.109` (LAN). A `debian:stable-slim` container then tried to connect to each one with bash `/dev/tcp`.
 
-| Engine / mode | Alias resolves to | Reachable bind | Status |
+| Engine / mode | Alias resolves to | Reachable from the container | Status |
 |---|---|---|---|
-| Docker 29.9.2 rootful, default bridge, `--add-host …:host-gateway` | `172.17.0.1` (= `docker network inspect bridge` gateway) | `172.17.0.1` only; not loopback | verified |
-| Podman 6.1.3 rootless, pasta (default), `host.containers.internal` | `169.254.1.2` (pasta `--map-guest-addr`) | LAN address only; not loopback, not docker0 | verified |
-| Same, with `--add-host host.docker.internal:host-gateway` | `169.254.1.2` | LAN address only | verified |
-| Podman rootless, `--network pasta:-T,<port>`, target `127.0.0.1:<port>` in the container; re-run with invowk's flag set (`-i --userns=keep-id -p 127.0.0.1:<h>:<c> --add-host host.docker.internal:host-gateway`) | n/a | host loopback, that port only; a second loopback port was refused | verified |
+| Docker 29.9.2 rootful, default bridge, `--add-host …:host-gateway` | `172.17.0.1` (= `docker network inspect bridge` gateway) | gateway yes; loopback no; LAN no in the proposal run, yes in the review re-run | verified twice |
+| Podman 6.1.3 rootless, pasta (default), `host.containers.internal` | `169.254.1.2` (pasta `--map-guest-addr`) | LAN address only; not loopback, not docker0 | verified (proposal) |
+| Same, with `--add-host host.docker.internal:host-gateway` | `169.254.1.2` | LAN address only | verified (proposal) |
+| Podman rootless, `--network pasta:-T,<port>`, target `127.0.0.1:<port>` in the container, with invowk's flags (`--userns=keep-id`, `-p 127.0.0.1:<h>:<c>`, `--add-host host.docker.internal:host-gateway`) | n/a | host loopback, that port only; a second loopback port was refused | verified twice (proposal; review re-run on Podman 6.1.3 with `--userns=keep-id` and `--add-host`, without `-p`) |
 | Podman rootless, `--network pasta:--map-host-loopback,169.254.1.3` | n/a | all of host loopback | verified (rejected, see D3) |
 | Podman 6 `slirp4netns` | n/a | n/a | removed in Podman 6 ("slirp4netns support has been removed") |
 
-In the Docker probe, the container could not reach the LAN-bound listener. That result is observed but unexplained; a host firewall rule on bridge-to-host traffic is the likely cause. It does not affect the plan, which never binds the LAN address. `podman info --format '{{.Host.Pasta.Executable}}'` returned `/usr/bin/pasta`. On Podman 6 the `.Host.Slirp4NetNS` field no longer exists.
+The LAN result under Docker changed between the two runs, so it depends on the host firewall state. Exposure tests therefore check from the host side, never only from inside a container (task 5.2). `podman info --format '{{.Host.Pasta.Executable}}'` returned `/usr/bin/pasta`. On Podman 6 the `.Host.Slirp4NetNS` field no longer exists.
 
-Podman documents that pasta passes `--map-guest-addr 169.254.1.2` by default for `host.containers.internal`, together with `--no-map-gw`, and that `pasta:-T,<port>` forwards one TCP port from container to host loopback (docs.podman.io, podman-run(1) `--network`).
+Vendor documentation:
+- Podman: pasta passes `--map-guest-addr 169.254.1.2` by default for `host.containers.internal`, together with `--no-map-gw`. `pasta:-T,<port>` forwards one TCP port from the container to host loopback (docs.podman.io, podman-run(1) `--network`).
+- Docker Desktop: `host.docker.internal` "resolves to the internal IP address of your host". The example server binds all interfaces, so the docs do not show that a loopback-only listener is reachable (docs.docker.com, Desktop networking how-tos).
+- Rootless Docker: RootlessKit runs with host loopback disabled (`--disable-host-loopback`). Engine 29.8.0 release notes fix its enforcement under pasta.
 
-The probes ran from the `devbox` toolbox, which shares the host network namespace, with Podman reached through `flatpak-spawn --host`. That matches the Flatpak `--share=network` path.
+The probes ran from the `devbox` toolbox, which shares the host network namespace. Podman was reached through `flatpak-spawn --host`. This is the same topology as Flatpak with `--share=network`.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- The TUI server never listens on a wildcard address unless the user opts in explicitly (spec: Container bind follows the engine's host route; Wide bind requires explicit opt-in).
-- Each supported engine mode gets one plan that is reachable by construction. A mode we have not verified that would need a non-loopback bind fails fast.
+- The TUI server never listens on a wildcard address unless the user opts in explicitly, and only in a mode where the opt-in can help.
+- Each engine mode has one fixed v0.17.0 behaviour: either a narrow plan that is reachable by construction, or a clear error before any container starts.
 
 **Non-Goals:**
-- The SSH host-callback server. It already defaults to `127.0.0.1` (`internal/sshserver/server.go:127`, `:191`; used unchanged by `internal/app/commandadapters/host_access.go:52`). Per the probes above, that bind is unreachable from rootful Docker and rootless Podman containers. `tests/cli/testdata/container_callback.txtar:15-29` only asserts env vars, so no test notices. This is a separate defect. It should become its own change that reuses this design's exposure plan, not part of S3.
+- The SSH host-callback server. It already defaults to `127.0.0.1` (`internal/sshserver/server.go:124-127`, `:189-191`), and `internal/app/commandadapters/host_access.go:52` uses that default. Per the probes above, the bind is unreachable from rootful Docker and rootless Podman containers. `tests/cli/testdata/container_callback.txtar:15-29` only asserts env vars, so no test notices. This separate defect gets its own change (decision 11).
 - TLS. Sonar go:S5332 stays an accepted design choice for local IPC.
-- IPv6 binds and Windows-container or Alpine images (repository invariants).
+- IPv6 binds, and Windows-container or Alpine images (repository invariants).
+- A reachability preflight from inside the container.
 
 ## Maintainer decisions (2026-11-14)
+
+Items 1-6 restate the maintainer's own decisions from the brief. Items 7-14 were delegated: the maintainer said that advisor-reviewed recommendations proceed without asking. They were taken in the spec review.
 
 1. Restrict the bind to loopback plus the container engine's bridge gateway. Cover Docker and Podman, rootful and rootless, including pasta/slirp4netns where `host.containers.internal` maps to the host, and Flatpak/Snap-wrapped engines.
 2. Compare tokens with `crypto/subtle.ConstantTimeCompare`.
 3. Authenticate `/health`, or reduce it to a non-identifying response; this design decides which (D5).
 4. Add container integration tests, on `debian:stable-slim` only.
 5. If a configuration cannot reach the server without a wide bind, fail safe with an explicit opt-in or a clear error. Never widen silently.
-6. Sonar go:S5332 at `server.go` is resolved in SonarCloud as Accepted. Tracker N5 wording changes from "false positive" to "Accepted (real gap tracked as N5/S3)".
-7. Ship in v0.17.0. Merge order: S1 -> C1 -> F1 -> S3 -> S4.
+6. Ship in v0.17.0. Sonar go:S5332 at `server.go` is resolved in SonarCloud as Accepted. Tracker N5 wording changes from "false positive" to "Accepted (real gap tracked as N5/S3)".
+7. *(delegated)* Every row in D2 is fixed v0.17.0 behaviour. A later probe that would change a row becomes a new change with its own spec delta. Tasks here only record evidence.
+8. *(delegated)* Unroutable modes come in two kinds.
+   - **Restorable** modes are local engines where today's wide bind did reach the server. Their error names the opt-in.
+   - **No-route** modes are remote engines and Flatpak without host networking. A wide bind never reached the host there, so the error says so and does not offer the opt-in, and the opt-in does not apply.
+9. *(delegated)* Rootful Podman is restorable-unroutable. Netavark creates its bridge when a container attaches, so before the container starts there may be no gateway address to bind. No passwordless `sudo` was available for a probe (Q1).
+10. *(delegated)* Persistent containers under rootless Podman, rootless Docker and Snap are restorable-unroutable. Persistent rootless Podman would need a fixed forward port at creation. Rootless Docker disables host loopback and has not been probed. Snap has not been probed.
+11. *(delegated)* The SSH host-callback defect becomes its own change after S3 and reuses D1-D2.
+12. *(delegated)* `/health` and unknown paths require the token (D5); no reduced unauthenticated response.
+13. *(delegated)* The CI Podman job installs no packages, because pinned apt versions disappear from Ubuntu mirrors and the version-pinning rule has no apt exception. Instead, each CI job declares the plan it expects (task 5.1).
+14. *(delegated)* External persistent containers (`--ivk-container-name`) get the plan of their engine mode. The plan never binds wider than that mode, so an external container on a network that cannot reach the bound address sees connection failures, not wider exposure. The docs say so.
 
 ## Decisions
 
@@ -60,94 +77,95 @@ The probes ran from the `devbox` toolbox, which shares the host network namespac
 
 A new optional runtime port, `TUIExposurePlanner`, returns a `TUIExposurePlan` before the server starts. Runtimes that do not implement it (native, virtual) get the loopback plan. The plan holds:
 - the bind addresses (`[]netip.Addr`, loopback always first);
-- the host the container should dial (an IP literal);
-- an optional network mode for the container (`pasta:-T,<port>`);
-- an `Unroutable` reason.
+- the host the container dials: an IP literal, or the engine alias for Docker Desktop;
+- an optional container network mode (`pasta:-T,<port>`; the port is filled in after `Start`);
+- an `Unroutable` kind (`none`, `restorable` or `no-route`) and a reason.
 
-`interactive.go` calls the planner before `tuiserver.New`/`Start`, which moves the alias lookup now at `:66-71` ahead of `:57`. An unroutable plan without the opt-in returns the actionable error before anything starts. `HostServiceAddressProvider` stays for SSH.
+`interactive.go` calls the planner before `tuiserver.New`/`Start`, which moves the alias lookup now at `:66-71` ahead of `:57`. An unroutable plan returns the actionable error before the server or any container starts. The bind policy reaches `InteractiveExecutor` through its constructor (`NewInteractiveExecutor`), not through global state. `HostServiceAddressProvider` stays for SSH.
 - *Alternative:* start wide, then restrict. Rejected: that opens a window of exposure, and the plan has to exist before the port does.
 
 ### D2. Ask the engine for its network facts; never hard-code addresses
 
-A `container` method collects the facts behind each plan, through the existing sandbox-aware engine, so Flatpak and Snap are covered:
-- Docker: `docker info --format '{{.OperatingSystem}}|{{json .SecurityOptions}}'`, `docker context inspect` (endpoint scheme) and `docker network inspect bridge` (gateway). Probed locally: `Fedora Linux …|[…selinux…]`, `unix:///run/host/run/docker.sock`, `172.17.0.1`.
-- Podman: `podman info --format '{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}'` (probed: `true|pasta|false`) and, when rootful, `podman network inspect podman` (gateway).
+A `container` method collects the facts behind each plan. It goes through the existing sandbox-aware engine, so Flatpak and Snap are covered:
+- Docker: `docker info --format '{{.OperatingSystem}}|{{json .SecurityOptions}}'`, the endpoint (`DOCKER_HOST` when set, otherwise `docker context inspect`), and `docker network inspect bridge` for the gateway. Probed locally: `Fedora Linux …|["name=seccomp,…","name=selinux","name=cgroupns"]` and `172.17.0.1`.
+- Podman: `podman info --format '{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}'`. Probed: `true|pasta|false|/usr/bin/pasta`.
+- Sandbox: `platform.DetectSandbox()`, and for Flatpak whether `/.flatpak-info` `[Context] shared` contains `network`.
 
-Plan selection is a pure function in `containerplan` (or `runtime`), tested table-driven.
+Plan selection is a pure function in `internal/containerplan`, tested table-driven. Facts are cached per process.
 
-**Governing rule.**
-- A plan that binds a non-loopback address ships only for a mode a probe has verified. Every other mode that would need one is unroutable.
-- A loopback-only plan can never widen exposure. It may ship for a mode the vendor documents but we have not probed; if the vendor is wrong, the TUI is unreachable, not exposed.
+**Governing rule.** A plan that binds a non-loopback address ships only for a mode a probe has verified (row 8). A loopback-only plan can never widen exposure, so row 6 ships on vendor documentation alone. If the documentation is wrong, the TUI is unreachable, not exposed.
 
-**Row order.** Rows are evaluated top to bottom, and the first match wins.
+Rows are evaluated top to bottom; the first match wins.
 
-| # | Facts | Plan | Evidence |
+| # | Facts | v0.17.0 behaviour | Evidence |
 |---|---|---|---|
-| 1 | native / virtual-sh / virtual-lua | loopback | n/a |
-| 2 | facts query fails; Snap sandbox (Q3); Flatpak without `network` in `/.flatpak-info` `[Context] shared` | unroutable | fail-safe |
-| 3 | Docker with `OperatingSystem` = "Docker Desktop" and a local endpoint (`unix://` or `npipe://`) | loopback; URL host = `host.docker.internal` | vendor-documented, not probed (task 4.4) |
-| 4 | remote endpoint (Docker context `tcp://`/`ssh://`, `DOCKER_HOST` likewise; Podman `ServiceIsRemote` = true, which includes Podman machine) | unroutable | fail-safe (Podman machine revisited by task 4.4) |
-| 5 | Docker rootless (`SecurityOptions` contains `name=rootless`) | unroutable | Q2 |
-| 6 | Docker rootful, Linux, bridge gateway on a local interface | loopback + gateway; URL host = gateway IP | verified (probe row 1) |
-| 7 | Podman rootful, gateway on a local interface | unroutable until task 4.3 verifies it, then loopback + gateway | task 4.3 |
-| 8 | Podman rootless, persistent container | unroutable | D3, Q1 |
-| 9 | Podman rootless, ephemeral, with `.Host.Pasta.Executable` set (whether `RootlessNetworkCmd` is pasta or slirp4netns) | loopback; network `pasta:-T,<port>`; URL host = `127.0.0.1` | verified on pasta 6.1 (probe row 4); Podman 4.x by task 5.1 in CI |
-| 10 | Podman rootless with no pasta binary (slirp4netns-only Podman 4.x) | unroutable | slirp4netns cannot forward one port to the host, and `allow_host_loopback` exposes all of host loopback (rejected like `--map-host-loopback`, D3) |
-| 11 | anything else, including a gateway not on a local interface | unroutable | fail-safe |
+| 1 | native / virtual-sh / virtual-lua | bind `127.0.0.1`; URL `127.0.0.1` | n/a |
+| 2 | Flatpak without `network` in `[Context] shared` | no-route error | the sandbox has its own network namespace |
+| 3 | remote endpoint: Docker `tcp://` or `ssh://` (context or `DOCKER_HOST`); Podman `ServiceIsRemote` = true (`podman-remote`, `podman --remote`, Podman machine) | no-route error | containers run on another host or VM |
+| 4 | the facts query fails (including the Podman `docker` shim, whose `info` template differs) | restorable error; the reason quotes the failure | fail-safe |
+| 5 | Snap sandbox | restorable error | not probed (decision 10) |
+| 6 | Docker, `OperatingSystem` = "Docker Desktop", local endpoint (`unix://`, `npipe://`) | bind `127.0.0.1`; URL host `host.docker.internal` | vendor docs; not probed (see issues) |
+| 7 | Docker rootless (`SecurityOptions` contains `name=rootless`) | restorable error | decision 10 |
+| 8 | Docker rootful, Linux, bridge gateway on a local interface | bind `127.0.0.1` + gateway; URL host = gateway IP | verified (probe row 1, twice) |
+| 9 | Podman rootful | restorable error | decision 9 |
+| 10 | Podman rootless, persistent target | restorable error | D3, decision 10 |
+| 11 | Podman rootless, ephemeral, `.Host.Pasta.Executable` non-empty | bind `127.0.0.1`; network `pasta:-T,<port>`; URL `127.0.0.1` | verified on Podman 6.1.3 (probe row 4) |
+| 12 | Podman rootless, no pasta binary (slirp4netns-only Podman 4.x/5.x) | restorable error that names pasta (`passt`) | slirp4netns cannot forward one port, and `allow_host_loopback` exposes all of host loopback (rejected like `--map-host-loopback`, D3) |
+| 13 | anything else, including a gateway that is not on a local interface | restorable error | fail-safe |
 
-"Gateway on a local interface" means `net.InterfaceAddrs()` contains the IP. That check catches custom `host-gateway-ip` setups and daemons that report a gateway invowk cannot bind.
-
-Flatpak with host networking is inferred, not probed. The probes ran in a toolbox that shares the host network namespace, which is the same topology. Task 5.1 adds a Flatpak run where one is available.
-
-Ubuntu CI runs Podman rootless through the user socket (`.github/workflows/ci.yml:161-166`). Task 5.1 makes sure that job has a pasta binary, so it exercises row 9; otherwise the job asserts the row 10 error.
+"Gateway on a local interface" means that `net.InterfaceAddrs()` contains the IP. This check sends several setups to row 13, because their reported gateway lives in another namespace or VM: Docker-outside-of-Docker devcontainers, Colima, Rancher Desktop, Lima, and custom `host-gateway-ip` configurations.
 
 ### D3. Rootless Podman: forward one port with `pasta:-T`
 
 We rejected two alternatives:
-- Binding the LAN address that `--map-guest-addr` lands on. It is reachable only on the LAN-facing interface, which is the exposure we are removing.
-- `--map-host-loopback`. It gives the container all of host loopback, so local databases and agents become reachable from the container, which weakens the container boundary.
+- Binding the LAN address that `--map-guest-addr` lands on. That address is reachable from the LAN-facing interface, which is the exposure we are removing.
+- `--map-host-loopback`. It gives the container all of host loopback, so local databases and agents become reachable from the container. That weakens the container boundary.
 
-`-T,<port>` forwards exactly the server's port (probe row 4). It needs the port at container start. The port is known then, because `Start` precedes `PrepareInteractive` (`interactive.go:57`, `:76`).
+`-T,<port>` forwards exactly the server's port (probe row 4). Pasta needs the port when the container starts. It is known by then, because `Start` precedes `PrepareInteractive` (`interactive.go:57`, `:76`). A persistent container is created once with a fixed network, while every interactive run picks a fresh port, so persistent targets fall to row 10.
 
-Persistent containers are created once with a fixed network, and every interactive run picks a fresh port, so they are unroutable for now (open question Q1). `RunOptions` gets a validated `NetworkMode` field, passed as `--network`. It applies only to `run`, never to `exec`.
+`RunOptions` gets a validated `NetworkMode` field. It is emitted as the single argument `--network=<mode>`, on `run` only, never on `exec` or `create`. One argument keeps the image scan at `podman.go:213-216` correct; as a separate argument, `pasta:-T,…` would be taken as the image.
 
 ### D4. One port on every bound address
 
-The server listens on `127.0.0.1:0`, reads the port, then listens on `<gateway>:<port>`. If the second listen fails with `EADDRINUSE`, it closes both and retries, up to 5 times, then fails with the last error. One `http.Server` serves every listener. Each `Serve` goroutine is tracked through `serverbase` (`AddGoroutine`/`DoneGoroutine`, as at `server.go:123-135`), and `Stop` closes all of them.
+The server listens on `127.0.0.1:0` and reads the port. It then listens on each other plan address at that port. If a later listen fails, it closes every listener opened so far and starts over, up to 5 attempts, then fails with the last error. It retries on any error, not only `EADDRINUSE`, so the code stays platform-neutral: Windows reports `WSAEADDRINUSE`, which `errors.Is(err, syscall.EADDRINUSE)` does not match.
+
+All listens complete before any serve goroutine starts. One `http.Server` serves every listener, and each `Serve` goroutine is tracked with `AddGoroutine`/`DoneGoroutine`, as at `server.go:123-135`. The server transitions to Running exactly once, after every goroutine is launched. A `Serve` error on any listener fails the server and shuts down the others, which keeps the single-listener semantics at `:128-134`. `Stop` closes every listener.
 - *Alternative:* a different port per address. Rejected: the container gets one URL, and per-address URLs add plumbing for no gain.
 
-### D5. Authenticate `/health`; check the token first, in constant time
+### D5. Authenticate every request, first, in constant time
 
-Both handlers share an auth middleware. It runs before the method check and compares `subtle.ConstantTimeCompare([]byte(header), []byte("Bearer "+token))`. The only length leak is the fixed token length. A failure answers `401` with the body `unauthorized`.
+The auth middleware wraps the whole mux, so `/tui`, `/health` and unknown paths all require the token. It runs before the method check and compares `subtle.ConstantTimeCompare([]byte(header), []byte("Bearer "+token))`. The only length it leaks is the fixed token length. A failure gets `401` with the body `unauthorized`.
 
-`tuiclient.IsAvailableContext` sends the header. We chose this over a non-identifying `204` because the only caller already holds the token, and an open `/health` lets a scanner confirm the port is live even without a body. The `405`-before-auth order goes away with it; update `TestServerMethodNotAllowed` to send the token.
+We chose this over a non-identifying `204` on `/health`. A TCP handshake already shows that the port is open, so hiding liveness is not the goal. The goal is that a request without the token gets no application response at all, not even the mux's default `404`. Nothing in production calls `/health`, so the change breaks no shipped binary. `TestServerMethodNotAllowed` is updated to send the token.
 
 ### D6. The URL carries the bound IP
 
-For bridge plans the container dials the gateway IP literal, not the alias. That keeps reachability independent of how a given engine version or daemon config resolves `host-gateway`. It also keeps working for persistent Docker containers created with the old `host-gateway` mapping. `HostServiceAddress()` keeps serving SSH unchanged.
+For bridge and pasta plans (rows 8 and 11), the container dials an IP literal that the server listens on, not the alias. Reachability then does not depend on how an engine version or daemon config resolves `host-gateway`. It also keeps working for persistent Docker containers created with the old mapping. Docker Desktop (row 6) keeps `host.docker.internal`, because only the engine knows where the alias leads, and the server binds loopback only there. The opt-in keeps today's alias. `HostServiceAddress()` keeps serving SSH unchanged.
 
 ### D7. Opt-in config, with a warning
 
-Add `container.tui_server_bind: *"restricted" | "all-interfaces"` to `#ContainerConfig`, with a typed Go field and the schema sync tests. `"all-interfaces"` turns an unroutable or bridge plan into `0.0.0.0` plus the engine alias (today's behaviour). It prints a one-line stderr warning at every interactive container run, and it never applies to host runtimes. There is no CLI flag or environment variable; `INVOWK_CONFIG` already selects a config file.
+Add `container.tui_server_bind: *"restricted" | "all-interfaces"` to `#ContainerConfig`, with a typed Go value type, the JSON tag, `GenerateCUE` output and the schema sync tests.
+
+`"all-interfaces"` applies only to a restorable-unroutable container plan. There it binds `0.0.0.0` and uses the engine alias (today's behaviour), and invowk prints a one-line stderr warning at each such run. Routable container plans keep their narrow bind, host runtimes always bind loopback, and no-route modes still fail. There is no CLI flag or environment variable; `INVOWK_CONFIG` already selects a config file.
 
 ## Risks / Trade-offs
 
 - [Other containers on the same bridge can reach `<gateway>:<port>`] → They still need the 256-bit token, and the port lives only for the interactive run. Documented as residual exposure.
+- [On-link LAN hosts can route to the bridge gateway] → Linux accepts packets for any local address on any interface unless a firewall drops them. A host on the same L2 segment that adds a route to `172.17.0.0/16` through this machine can therefore reach `<gateway>:<port>`. That is far narrower than `0.0.0.0`, and the token still guards it. Documented.
 - [Local users on the host can reach loopback] → Same as today; the token guards it.
-- [Rootless persistent interactive users regress to an error] → The error names the opt-in. Q1 tracks a narrow fix.
-- [The engine facts query adds latency to every interactive container run] → One or two engine CLI calls, made only for `-i` container runs. Cache them per process.
-- [Rows marked unverified may be wrong] → Under the governing rule, only loopback rows ship unverified, and they fail closed: the TUI is unreachable, nothing is exposed. Tasks 4.3 and 4.4 promote rows only on probe evidence.
-- [A host firewall blocks bridge-to-host traffic to the gateway port] → The run fails as unreachable, not exposed. The docs name the firewall as a cause.
-- [Podman 4.x (Ubuntu 24.04) without passt becomes unroutable for interactive container runs] → The error names the opt-in and says that installing pasta (passt) enables the narrow plan.
-- [An older in-container `invowk` gets `401` on `/health`] → Auto-provisioning installs the host binary, so only hand-installed old binaries are affected. Noted in the migration notes.
+- [Restorable modes regress to an error] → The error names the opt-in; for rootless Podman it also names pasta. Q1 tracks persistent rootless Podman.
+- [Remote engines and Flatpak without network lose `-i` for container runs] → TUI components there never reached the host before either. The error says so and suggests a local engine or a run without `-i`.
+- [Docker Desktop's alias may not reach a loopback-only listener] → Then the TUI is unreachable, not exposed. Most macOS and Windows users are on this row, so a probe there is a release prerequisite (see issues).
+- [Docker Desktop with WSL2 integration] → invowk runs in a WSL distribution while the alias targets the Windows host. The row 6 caveat applies.
+- [The engine facts query adds latency to every interactive container run] → One to three engine CLI calls, only for `-i` container runs, cached per process.
+- [A host firewall blocks bridge-to-host traffic to the gateway port] → The run fails as unreachable, not exposed. The docs name the firewall as a possible cause.
 
 ## Migration Plan
 
-Ship in v0.17.0 after F1 (merge order in decision 7). Roll back by reverting the change. The new config key would then be rejected as unknown by the closed schema, so release notes tell users of `"all-interfaces"` to remove it if they downgrade.
+Ship in v0.17.0. Roll back by reverting the change. The closed schema would then reject the new config key as unknown, so the release notes tell users of `"all-interfaces"` to remove it before they downgrade.
 
 ## Open Questions
 
-- **Q1.** Persistent containers under rootless Podman could reserve a fixed forward port at creation (recorded as a container label, `pasta:-T,<P>`), and the server would bind `127.0.0.1:<P>` on each run. Deferred: the fail-safe error is already correct, and this adds port-conflict handling.
-- **Q2.** Rootless Docker (RootlessKit with slirp4netns or pasta): which host address does `host-gateway` reach, and can a narrow bind serve it? It stays unroutable until it is probed.
-- **Q3.** Snap strict confinement: does the snap share the host network namespace for listeners? Row 2 makes Snap unroutable until it is probed.
-- **Q4.** The SSH host-callback reachability defect from Non-Goals: file it as its own change after S3.
+- **Q1.** Persistent containers under rootless Podman, and rootful Podman. Persistent rootless Podman could reserve a fixed forward port at creation (a container label plus `pasta:-T,<P>`), with the server bound to `127.0.0.1:<P>`. Rootful Podman needs a probe of pasta or of the netavark bridge lifecycle. Both stay restorable-unroutable in v0.17.0 (decisions 9-10). A follow-up would modify this capability and `persistent-container-runtime`. The exec-time rule there (`spec.md:109-111`) needs no MODIFIED delta in S3.
+- **Q2.** Rootless Docker: which host address does `host-gateway` reach under RootlessKit, and can a narrow bind serve it? It stays restorable-unroutable until it is probed.
+- **Q3.** Snap: do the snap's listeners share the host network namespace with the engine's containers? It stays restorable-unroutable until it is probed.
