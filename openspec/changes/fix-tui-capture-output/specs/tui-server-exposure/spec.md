@@ -89,6 +89,21 @@ Before each component request, the TUI client SHALL send an authenticated `GET /
 - **WHEN** the server at `INVOWK_TUI_ADDR` never answers the health check
 - **THEN** the client SHALL treat it as unreachable within 2 seconds
 
+### Requirement: An invalid bind plan is refused before any listener opens
+Before the TUI server starts, invowk SHALL check the run's bind plan. A narrow plan SHALL list `127.0.0.1` first and only specified IPv4 addresses. A wildcard plan SHALL appear only for a mode the opt-in applies to. A no-server plan SHALL carry no address. If the plan breaks any of these rules, the interactive run SHALL fail with status 1 before any listener opens and before any container starts.
+
+#### Scenario: Unspecified address in a narrow plan
+- **WHEN** a narrow plan lists `0.0.0.0`
+- **THEN** the interactive run SHALL fail before any listener opens
+
+#### Scenario: Wildcard plan outside the opt-in
+- **WHEN** a wildcard plan is produced for a host runtime, a verified narrow mode or Flatpak without network
+- **THEN** the interactive run SHALL fail before any listener opens
+
+#### Scenario: No-server plan with an address
+- **WHEN** a no-server plan carries a bind address
+- **THEN** the interactive run SHALL fail with status 1 before any listener opens and before any container starts
+
 ## REMOVED Requirements
 
 ### Requirement: No fallback to a run without a TUI server

@@ -7,7 +7,7 @@ Defines where the `invowk tui` components draw their UI and read keys when they 
 ## ADDED Requirements
 
 ### Requirement: Directly rendered components draw on the controlling terminal
-When an `invowk tui` component other than `format` and `style` renders directly, it SHALL draw its UI on and read keys from the controlling terminal (`/dev/tty` on Unix, `CONIN$` and `CONOUT$` on Windows), whatever stdin, stdout and stderr are connected to. It SHALL write no UI bytes to stdout or stderr.
+When an `invowk tui` component other than `format` and `style` renders directly, it SHALL draw its UI on and read keys from the controlling terminal (`/dev/tty` on Unix, `CONIN$` and `CONOUT$` on Windows), whatever stdin, stdout and stderr are connected to. It SHALL write no UI bytes to stdout, nor to stderr except under the fallback below.
 
 #### Scenario: Captured value is byte-exact
 - **WHEN** a script in a terminal runs `name=$(invowk tui input)`, the user types `Hello World` and presses Enter
@@ -59,7 +59,7 @@ Without any usable terminal, `invowk tui spin` SHALL run the wrapped command wit
 - **THEN** stdout SHALL be `x` and the exit status SHALL be 0
 
 ### Requirement: Server-delegated rendering is unchanged
-When `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` are set and the server answers, a component SHALL delegate to the server as before, SHALL open no terminal itself, and SHALL write only its result to stdout.
+When `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` are set and the server answers, a component other than `spin` SHALL delegate to the server as before, SHALL open no terminal itself, and SHALL write only its result to stdout. `spin` SHALL keep notifying the server and drawing its own spinner, under the terminal rule above.
 
 #### Scenario: Interactive host run with a server
 - **WHEN** an interactive native command runs `name=$(invowk tui input)` and the user answers in the parent's TUI

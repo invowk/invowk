@@ -1,6 +1,6 @@
 # Tasks
 
-Gate rule (maintainer decision 29): groups 1-2 (Part A) ship whatever the gate shows. Group 3 is the gate. Groups 4-5 (Part B) run only if task 3.4 records a pass. **If the gate fails, Part B tasks are dropped and S3's refusal stays.** In that case, carry out task 3.5: revert the gate's no-server commit, delete `specs/tui-server-exposure/`, mark groups 4-5 as dropped with the reason, re-run `openspec validate fix-tui-capture-output --strict`, and tell the maintainer. Then continue with group 6.
+Gate rule (maintainer decision 29): groups 1-2 (Part A) ship whatever the gate shows. Group 3 is the gate. Groups 4-5 (Part B) run only if task 3.4 records a pass. **If the gate fails, Part B tasks are dropped and S3's refusal stays.** In that case, carry out the FAIL procedure under group 3: revert the gate's no-server commit, delete `specs/tui-server-exposure/`, delete the unchecked tasks of groups 4-5 (or turn them into plain bullets under a "Dropped by the gate" note), because unchecked boxes would keep the change incomplete, re-run `openspec validate fix-tui-capture-output --strict`, and tell the maintainer. Then continue with group 6.
 
 ## 1. Part A: terminal resolution in `internal/tui`
 
@@ -8,7 +8,7 @@ Gate rule (maintainer decision 29): groups 1-2 (Part A) ship whatever the gate s
 - [ ] 1.2 Pass the resolved input and output to every directly rendered `tea.NewProgram`, and close the terminal after `Run`. The call sites are `input.go:137`, `choose.go:386`/`:481`, `filter.go:206`, `file.go:142`, `write.go:141`, `table.go:157`, `confirm.go:189`, `pager.go:165` and `spin.go:468`. Leave `interactive_session.go:33` unchanged. Verify that `rg -n 'tea.NewProgram\(' internal/tui` shows only resolver-backed calls plus the viewer.
 - [ ] 1.3 Remove the unused `tui.Config.Output` field and its default, and update `tui_write_test.go:164`. Verify with `go build ./... && go test ./internal/tui/`.
 - [ ] 1.4 Without a terminal, `SpinWithAction` runs the action with no program, and `Pager` writes the content to stdout (D3). Verify with unit tests for both that inject a failing resolver, and with `go test -run 'TestTuiSpin|TestTuiPager' ./cmd/invowk/`.
-- [ ] 1.5 Make the adapters surface `ErrNoTerminal` as a one-line error with exit 1 and empty stdout. Verify with a testscript `tests/cli/testdata/tui_no_terminal.txtar`: `input` exits 1 with `needs a terminal` on stderr, and `spin -- sh -c 'echo ok; exit 3'` prints `ok` and exits 3. Gate it with `[!linux] skip` if `setsid` is needed. It is not a virtual test, so it needs no mirror.
+- [ ] 1.5 Make the adapters surface `ErrNoTerminal` as a one-line error with exit 1 and empty stdout. Verify with a testscript `tests/cli/testdata/tui_no_terminal.txtar` that runs each case under `setsid` with stdio redirected, so that a local run cannot open the developer's `/dev/tty`: `input` exits 1 with `needs a terminal` on stderr, and `spin -- sh -c 'echo ok; exit 3'` prints `ok` and exits 3. Gate it with `[!exec:setsid] skip`. It is not a virtual test, so it needs no mirror.
 - [ ] 1.6 Run `make lint` and `go test ./internal/tui/ ./cmd/invowk/`.
 
 ## 2. Part A: capture tests and docs
@@ -31,8 +31,12 @@ Gate rule (maintainer decision 29): groups 1-2 (Part A) ship whatever the gate s
   - a persistent rootless Podman `debian:stable-slim` target, created and removed by the test;
   - a captured `input` compared as hex, uncaptured `input` and `choose`, the title visible before keys, the warning exactly once, and no `INVOWK_TUI_` in `env`.
   With `INVOWK_TEST_REQUIRE_TUI_GATE=1` it fails instead of skipping. Add that variable to the Podman leg in `.github/workflows/ci.yml`. Verify locally on rootless Podman with `go test -run TestTUI_NoServerInteractiveSession ./tests/cli/`.
-- [ ] 3.4 Run the gate locally and in CI on the Podman leg, then record PASS or FAIL in this file with the CI run ID. Calibrate by pointing the captured case at a build without Part A (`git stash` of group 1 or an older binary via `INVOWK_TEST_BINARY`): it must fail on the hex check.
-- [ ] 3.5 Only on FAIL: revert 3.2's commit, delete `specs/tui-server-exposure/`, keep 3.3's test only if it can assert the refusal instead (otherwise delete it), mark groups 4-5 as dropped, run `openspec validate fix-tui-capture-output --strict`, and report to the maintainer that v0.17.0 keeps the refusal.
+- [ ] 3.4 Run the gate locally and in CI on the Podman leg, then record PASS or FAIL in this file with the CI run ID. Calibrate by pointing the captured case at a build without Part A (a binary built from d7e4feb4, swapped in for the test's `binaryPath`): it must fail on the hex check.
+FAIL procedure (plain bullet, not tracked; only on a FAIL in 3.4):
+
+- Revert 3.2's commit and delete `specs/tui-server-exposure/`.
+- Keep 3.3's test only if it can assert the refusal instead; otherwise delete it.
+- Delete or un-box groups 4-5, run `openspec validate fix-tui-capture-output --strict`, and tell the maintainer that v0.17.0 keeps the refusal.
 
 ## 4. Part B: no-server runs (only after a gate PASS)
 
@@ -41,6 +45,7 @@ Gate rule (maintainer decision 29): groups 1-2 (Part A) ship whatever the gate s
 - [ ] 4.3 Narrow `commandsvc.preflightInteractive` to invalid plans, and drop the `!req.InteractiveSet` downgrade, so that config-default runs behave like `-i`. Remove `InteractiveSet` if unused. Update `dispatch_preflight_test.go` so that an invalid plan still fails before dependency validation and a no-server plan passes. Verify with `go test ./internal/app/commandsvc/`.
 - [ ] 4.4 Remove `ErrorKindTUIExposureRefused`, `TUIExposureRefusedId`, `internal/issue/templates/tui_exposure_refused.md` and their wiring (`cmd/invowk/app.go`, `errors.go`, `types.go`, the issue tests and `cmd_execute_error_classifier_test.go`). Verify that `rg -n 'TUIExposureRefused|tui_exposure_refused' --glob '!openspec/**'` is empty and `go test ./internal/issue/ ./cmd/invowk/` passes.
 - [ ] 4.5 Replace `tests/cli/testdata/tui_exposure_refused.txtar` with `tui_exposure_noserver.txtar`, using the same fake docker on row 4. It covers: an explicit `-i` runs (exit 0) with exactly one warning naming the opt-in; the config default behaves the same; and without `-i` there is no warning and no facts query. Verify with `go test -run 'TestCLI/tui_exposure_noserver' ./tests/cli/`.
+- [ ] 4.6 Edit the Purpose of `openspec/specs/tui-server-exposure/spec.md`, which says invowk refuses interactive runs, to describe no-server runs. Verify with `openspec validate --specs --strict`.
 
 ## 5. Part B: client fallback and docs (only after a gate PASS)
 

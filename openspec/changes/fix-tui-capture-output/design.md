@@ -13,9 +13,9 @@ See proposal.md (Why). Current behaviour, cited against `main` at d7e4feb4:
 - **Server path.** `tuiclient.NewClientFromEnv()` decides between delegating and direct rendering (`cmd/invowk/tui_input.go:70`). The reach timeout is 5 s (`internal/tuiclient/client.go:47-50`), enforced by `checkReachable` (`:521`). An unreachable server is `ErrTUIServerUnreachable` (`:61-66`), and its error names the opt-in (`:193`).
 - **The `-i` viewer is not a terminal emulator.** `RunInteractiveSession` streams the PTY's bytes, minus OSC sequences, into a `strings.Builder` that a `viewport` shows (`internal/tui/interactive_session.go:56-69`, `interactive_model.go:42-56`, `interactive_helpers.go:27-33`). A child Bubble Tea program's cursor movements are therefore shown as text. This explains the "redraw artifacts" of S3's premise check (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind/design.md:56`). Part A does not change it: inside a container, `/dev/tty` is the same PTY.
 - **S3's refusal on main.**
-  - `checkedTUIExposurePlan` returns `plan.RefusalError()` (`internal/app/commandadapters/interactive.go` on d7e4feb4).
-  - `commandsvc.preflightInteractive` runs it before dependency validation, and turns a config-default request into a non-interactive run with a warning (`internal/app/commandsvc/dispatch.go`, the `!req.InteractiveSet` branch).
-  - `classifyExecutionError` maps the refusal and an invalid plan to `ErrorKindTUIExposureRefused` (`internal/app/commandsvc/errors.go`), rendered by `internal/issue/templates/tui_exposure_refused.md`.
+  - `checkedTUIExposurePlan` returns `plan.RefusalError()` (`internal/app/commandadapters/interactive.go:138-147`), called from `Execute` (`:75`) and from `PreflightInteractive` (`:132`).
+  - `commandsvc.preflightInteractive` runs it before dependency validation, and turns a config-default request into a non-interactive run with a warning (`internal/app/commandsvc/dispatch.go:123-151`, the `!req.InteractiveSet` branch at `:143`).
+  - `classifyExecutionError` maps the refusal and an invalid plan to `ErrorKindTUIExposureRefused` (`internal/app/commandsvc/errors.go:58-59`), rendered by `internal/issue/templates/tui_exposure_refused.md`.
   - `tests/cli/testdata/tui_exposure_refused.txtar` pins the behaviour.
 - **S3's stage-3 code.** Commit 3022dea3 (`git fetch origin refs/pull/173/head`) ran refused plans without a server: `plan.HasServer()` guarded the server start, the bridge and `Stop`, and printed `plan.Warning` once before the alternate screen. `git diff 3022dea3 d7e4feb4 -- internal/app/commandadapters/interactive.go` is the exact delta Part B reverses.
 - **Test surfaces.**
@@ -25,7 +25,7 @@ See proposal.md (Why). Current behaviour, cited against `main` at d7e4feb4:
 
 ### Output probe (2026-11-15, Fedora 45 host, tmux 80x20)
 
-A throwaway Bubble Tea v2.0.9 program in the session scratchpad ran in five configurations. Its model shows `PROMPT> <typed>`, and the keys `hey` + Enter came from `tmux send-keys`. "Captured" means `v=$(…)`, and the value was written with `printf %s` and dumped with `od`.
+A throwaway Bubble Tea v2.0.9 program in the session scratchpad ran in seven configurations. Its model shows `PROMPT> <typed>`, and the keys `hey` + Enter came from `tmux send-keys`. "Captured" means `v=$(…)`, and the value was written with `printf %s` and dumped with `od`.
 
 | Configuration | Prompt visible | Captured value |
 |---|---|---|
@@ -137,7 +137,7 @@ On main, row 10 refuses before start, so the gate needs the no-server path. Task
 ### D6. Part B shape
 
 - **Adapter.** Restore stage 3's `HasServer()` branch: no server, no bridge, no `ctx.TUI`, and one warning before the alternate screen. Keep `plan.Validate()` as a hard error.
-- **Plan.** `TUIPlanRefused` becomes `TUIPlanNoServer`. `RefusalError()` and `ErrTUIExposureRefused` go, and `Warning()` carries the text. Row 2's warning names `--share=network` and not the opt-in.
+- **Plan.** `TUIPlanRefused` becomes `TUIPlanNoServer`, and the invalid-plan requirement says "no-server plan" (MODIFIED delta). `RefusalError()` and `ErrTUIExposureRefused` go, and `Warning()` carries the text. Row 2's warning names `--share=network` and not the opt-in.
 - **Preflight.** `InteractivePreflight` stays, but only reports an invalid plan, so that an invalid plan still fails before container-scoped `depends_on` probes start containers. The warning is printed once, by the adapter.
 - **Config default.** The `!req.InteractiveSet` branch in `preflightInteractive` goes. A config-default request runs like `-i`. `InteractiveSet` is removed if nothing else reads it.
 - **Errors.** `ErrorKindTUIExposureRefused`, `TUIExposureRefusedId` and `tui_exposure_refused.md` go. An invalid plan becomes a generic execution failure (exit 1), because the validated constructors leave only the zero value as an invalid plan.
@@ -158,5 +158,7 @@ On main, row 10 refuses before start, so the gate needs the no-server path. Task
 Ship in v0.17.0. S4 merges first, and this branch rebases onto it (decision 31). To roll back, revert the change. Part A has no persisted state. Part B removes an issue kind, which is not part of any config or schema.
 
 ## Open Questions
+
+- With a server, `invowk tui spin` sends `SpinContext` and then still runs its own local spinner (`cmd/invowk/tui_spin.go:90-110`, `internal/tuiclient/client.go:472-478`). Part A keeps that behaviour and only moves the local spinner off stdout. Whether a server-delegated spin should skip the local spinner is a separate question, and it does not change this change's specs.
 
 - Should the `-i` viewer emulate a terminal (for example with `charmbracelet/x/vt`), so that child programs draw without artifacts? This is deferrable: it changes neither this change's specs nor the gate's definition of usable.
