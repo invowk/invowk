@@ -127,7 +127,7 @@
 - [x] 7.2 (2026-11-15: `make lint`: 0 issues.) Run `make lint` and fix every issue.
 - [x] 7.3 (2026-11-15: `make test` exit 0: 9205 tests, 25 skipped, CLI 202 tests. `TestSyncFreshCacheReproducesLockedHash` failed once in the first pass and passed in the re-run; a known flake, recurrence recorded in the tracker; 200 isolated runs pass.) Run `make test` (full suite, including CLI and container tests).
 - [x] 7.4 (2026-11-15: `make check-baseline` exit 0, no new findings; `make check-goplint-consumer-routed` passes.) Run `make check-baseline` and triage every new goplint finding. Never baseline protocol inconclusives.
-- [ ] 7.5 Run `make check-file-length` and `make sonar-local`, and keep the suppressions in both Sonar files in sync.
+- [x] 7.5 (2026-11-15: `make check-file-length` passes (all files under 1000 lines). Sonar per the stage instruction through the PR's "SonarCloud Code Analysis" check, not `make sonar-local`: pass, 0 hotspots, 0 bugs or vulnerabilities; the 6 new-code issues are all go:S3776 in test files, already suppressed by policy entry e5 in both Sonar files, and were resolved as Accepted in SonarCloud with a comment naming e5. No suppression file changed.) Run `make check-file-length` and `make sonar-local`, and keep the suppressions in both Sonar files in sync.
 - [x] 7.6 (2026-11-15: website `npm run build` OK (en, pt-BR); `make check-agent-docs` OK; `make check-windows-build` OK; correspondence OK; the three sample modules validate; schema sync tests pass.) Conditional checks:
   - `cd website && npm run build` (docs changed);
   - `make check-agent-docs` (agent docs changed);
