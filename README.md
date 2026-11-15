@@ -2241,6 +2241,8 @@ Module dependencies are cached in `~/.invowk/modules/` by default. Override with
 export INVOWK_MODULES_PATH=/custom/path/to/modules
 ```
 
+The value must be an absolute path: a relative `INVOWK_MODULES_PATH` is rejected with an error that names the variable, so the cache never resolves under the current directory. The default is never derived from a relative home directory either. SSH-transport fetches (`git@` and `ssh://` URLs) also need an absolute home and absolute `SSH_KNOWN_HOSTS` entries; use an `https://` URL with a token otherwise.
+
 Each module version is cached in a separate source/version directory, and the module payload directory itself is named `<module-id>.invowkmod`. This keeps local installed modules compatible with Invowk's module directory rules while leaving the lock key tied to the original Git URL plus optional `path`.
 
 ### Vendoring

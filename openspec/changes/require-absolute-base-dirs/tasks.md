@@ -2,12 +2,12 @@
 
 ## 1. Shared resolver package
 
-- [ ] 1.1 Create `internal/basedir` (`doc.go`, `basedir.go`) as design D1 describes.
+- [x] 1.1 (2026-11-15: `internal/basedir/{doc.go,basedir.go}`; `go list -deps` shows only `pkg/platform` and `pkg/types`.) Create `internal/basedir` (`doc.go`, `basedir.go`) as design D1 describes.
   - API: `Dirs`, `New(goos, getenv, userHomeDir)`, `OS()` (and a zero `Dirs` that behaves as `OS()`), `Home`, `ConfigHome`, `DataHome`, `CacheHome`, `StateHome`, `RuntimeDir`, `HomeFromEnv(goos, getenv)` and `ErrNotAbsolute`.
   - On Windows the AppData fallbacks read `USERPROFILE` through `getenv` and keep S1's two texts (`internal/config/config.go:107`, `:110`).
   - `doc.go` records why this is one shared package and not a copy per domain.
   - It may import only the standard library, `pkg/platform` and `pkg/types`. Verify with `go list -deps ./internal/basedir | grep invowk`, which should list only those packages.
-- [ ] 1.2 Add table tests in `internal/basedir/basedir_test.go` (injected `goos`, host-absolute fixtures, `t.Parallel()`). For each kind on linux, darwin and windows, cover:
+- [x] 1.2 (2026-11-15: `TestBaseDirs`, `TestHome`, `TestRuntimeDir`, `TestHomeFromEnv`, `TestZeroDirsBehavesAsOS` pass.) Add table tests in `internal/basedir/basedir_test.go` (injected `goos`, host-absolute fixtures, `t.Parallel()`). For each kind on linux, darwin and windows, cover:
   - absolute, relative and empty XDG/AppData values, the last two falling back;
   - a relative home and a failing home lookup, both rejected with `ErrNotAbsolute` or the lookup error;
   - an absolute XDG value with a relative home, which succeeds;
@@ -15,39 +15,39 @@
   - `HomeFromEnv` per OS.
 
   Verify that the tests pass.
-- [ ] 1.3 Add `internal/basedir/basedir_windows_test.go` for `\Users\me`, `C:Users\me`, relative `APPDATA`/`LOCALAPPDATA`/`USERPROFILE` and an absolute UNC profile (design D4).
+- [x] 1.3 (2026-11-15: `TestWindowsPathForms`; only the `GOOS=windows go test -c` compile was proven locally, the behavioural proof is the windows-latest CI job.) Add `internal/basedir/basedir_windows_test.go` for `\Users\me`, `C:Users\me`, relative `APPDATA`/`LOCALAPPDATA`/`USERPROFILE` and an absolute UNC profile (design D4).
   - Locally, `GOOS=windows go test -c -o /dev/null ./internal/basedir` proves only that it compiles.
   - The behavioural proof is the windows-latest CI job on the PR.
-- [ ] 1.4 Run `make license-check` on the new files.
-- [ ] 1.5 Group check: run `go test ./internal/basedir/` and confirm it passes.
+- [x] 1.4 (2026-11-15: `make license-check` clean.) Run `make license-check` on the new files.
+- [x] 1.5 (2026-11-15: `go test ./internal/basedir/` passes.) Group check: run `go test ./internal/basedir/` and confirm it passes.
 
 ## 2. Config adopts the resolver (no behaviour change)
 
-- [ ] 2.1 Make `configDirFrom` and `commandsDirFrom` (`internal/config/config.go:98-184`) build a `basedir.New(...)` from their existing parameters. Then set `ErrBaseDirNotAbsolute = basedir.ErrNotAbsolute` and delete `absoluteEnv` and `absoluteHomeDir`. Verify that `TestConfigDir` and the `commandsDirFrom` tests in `internal/config/config_paths_test.go` pass with no edits.
-- [ ] 2.2 Add the `config-source-resolution` delta's Windows scenarios to `config_paths_test.go`, in a Windows-only test: relative `APPDATA` falls back, and relative `USERPROFILE` gives defaults plus a diagnostic. Verify that they pass on windows-latest CI.
-- [ ] 2.3 Group check: run `go test ./internal/config/ ./internal/discovery/` and confirm it passes.
+- [x] 2.1 (2026-11-15: `absoluteEnv`, `absoluteHomeDir` and `errMsgHomeDir` deleted; `TestConfigDir` and `TestCommandsDirFrom` pass unedited.) Make `configDirFrom` and `commandsDirFrom` (`internal/config/config.go:98-184`) build a `basedir.New(...)` from their existing parameters. Then set `ErrBaseDirNotAbsolute = basedir.ErrNotAbsolute` and delete `absoluteEnv` and `absoluteHomeDir`. Verify that `TestConfigDir` and the `commandsDirFrom` tests in `internal/config/config_paths_test.go` pass with no edits.
+- [x] 2.2 (2026-11-15: `internal/config/config_paths_windows_test.go`; the defaults-plus-diagnostic step is `commandsvc.LoadConfigWithFallback`, already covered by `TestLoadConfigWithFallback`. Compile-checked locally only; behaviour proven on windows-latest CI.) Add the `config-source-resolution` delta's Windows scenarios to `config_paths_test.go`, in a Windows-only test: relative `APPDATA` falls back, and relative `USERPROFILE` gives defaults plus a diagnostic. Verify that they pass on windows-latest CI.
+- [x] 2.3 (2026-11-15: passes.) Group check: run `go test ./internal/config/ ./internal/discovery/` and confirm it passes.
 
 ## 3. Module cache and git authentication
 
-- [ ] 3.1 In `internal/app/modulecache/cache.go`:
+- [x] 3.1 (2026-11-15: `DefaultDirFrom`, `ModulesPathNotAbsoluteError`; `TestDefaultDirFrom` passes.) In `internal/app/modulecache/cache.go`:
   - Add `DefaultDirFrom(getenv, dirs basedir.Dirs)`, which rejects a relative `INVOWK_MODULES_PATH` with `ModulesPathNotAbsoluteError` (it wraps `basedir.ErrNotAbsolute`, names the variable and asks for an absolute path), and otherwise takes the default from `dirs.Home()`.
   - Keep `DefaultDirWith(getenv)` and `DefaultDir()` as wrappers that pass `basedir.OS()`.
 
   Verify with `DefaultDirFrom` tests: relative env rejected, relative home rejected, absolute values unchanged.
-- [ ] 3.2 Give `GitFetcher` an unexported `dirs basedir.Dirs` and an injected `getenv`, both set by `NewGitFetcher` (`internal/app/modulesync/git.go:47-51`), plus a test constructor. Make `trySSHAuth` (`git.go:303-326`) use `f.dirs.Home()` and return nil on error. Verify with a unit test: an injected relative home with `.ssh/id_ed25519` in a `t.TempDir()` loads no key.
-- [ ] 3.3 Add `(*GitFetcher).requireTrustedSSHFiles(gitURL)`, which returns `ErrSSHTrustFilesNotAbsolute` (design D2, Git).
+- [x] 3.2 (2026-11-15: `newGitFetcherWith` is the test constructor; `TestTrySSHAuthIgnoresRelativeHome` also shows the same key loads under an absolute home.) Give `GitFetcher` an unexported `dirs basedir.Dirs` and an injected `getenv`, both set by `NewGitFetcher` (`internal/app/modulesync/git.go:47-51`), plus a test constructor. Make `trySSHAuth` (`git.go:303-326`) use `f.dirs.Home()` and return nil on error. Verify with a unit test: an injected relative home with `.ssh/id_ed25519` in a `t.TempDir()` loads no key.
+- [x] 3.3 (2026-11-15: `SSHTrustFilesError` wraps `ErrSSHTrustFilesNotAbsolute` plus the cause; `TestRequireTrustedSSHFiles` and `TestSSHGateRunsBeforeDial` pass.) Add `(*GitFetcher).requireTrustedSSHFiles(gitURL)`, which returns `ErrSSHTrustFilesNotAbsolute` (design D2, Git).
   - Call it first in `ListVersions`, `Fetch`, `GetCommitForTag`, `CloneShallow`, `IsPrivateRepo` (return true without connecting) and `ListTagsWithCommits` (`git.go:59-252`).
   - For every URL that does not start with `https://`, it requires `Home()` to succeed with an absolute path (an unavailable home is refused too, decision 18) and every non-empty `SSH_KNOWN_HOSTS` entry to be absolute.
 
   Verify with unit tests that use an unroutable endpoint (`ssh://git@192.0.2.1/x.git`, TEST-NET-1) and a short context. The relative-home, unavailable-home and relative-`SSH_KNOWN_HOSTS` cases return the typed error before any dial: the error must be the typed one, not a timeout. An `https://` URL with a relative home passes the gate.
-- [ ] 3.4 Add the testscript `tests/cli/testdata/module_cache_relative_path.txtar`:
+- [x] 3.4 (2026-11-15: passes; the fixture declares an `https://` requirement so the cache dir is resolved before any git call.) Add the testscript `tests/cli/testdata/module_cache_relative_path.txtar`:
   - set `env INVOWK_MODULES_PATH=.modules`, then run `invowk module sync` in a directory that has an `invowkmod.cue`;
   - assert a non-zero exit, stderr naming `INVOWK_MODULES_PATH` and "absolute", and `! exists .modules`.
 
   It is not virtual, so it needs no mirror.
-- [ ] 3.5 Update `INVOWK_MODULES_PATH` in three places (the value must be absolute): `README.md:2241`, `website/docs/modules/dependencies/cli-commands.mdx:238` and `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/modules/dependencies/cli-commands.mdx:229`. Verify that the text matches the spec.
-- [ ] 3.6 Zero-change invariant (design D5 rows e and f): add `TestDefaultDirFromMatchesLegacy` in `internal/app/modulecache/` and `TestSSHGateMatchesLegacy` in `internal/app/modulesync/`. Each freezes today's behaviour as a legacy oracle in the `_test.go` file and compares over a table of absolute and unset environments (absolute existing home, absolute missing home, home unset, `INVOWK_MODULES_PATH` absolute and unset, `SSH_KNOWN_HOSTS` absolute and unset). For the gate, the oracle is "today proceeds to the transport" except where today fails at host-key verification; the unset-home SSH row is listed as the BREAKING expected difference.
-- [ ] 3.7 Group check: run `go test ./internal/app/modulecache/ ./internal/app/modulesync/ && go test ./tests/cli/ -run 'TestCLI/module_cache_relative_path'` and confirm it passes.
+- [x] 3.5 (2026-11-15: README also notes the SSH-transport rule.) Update `INVOWK_MODULES_PATH` in three places (the value must be absolute): `README.md:2241`, `website/docs/modules/dependencies/cli-commands.mdx:238` and `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/modules/dependencies/cli-commands.mdx:229`. Verify that the text matches the spec.
+- [x] 3.6 (2026-11-15: both pass; the unset-home SSH rows assert the BREAKING refusal.) Zero-change invariant (design D5 rows e and f): add `TestDefaultDirFromMatchesLegacy` in `internal/app/modulecache/` and `TestSSHGateMatchesLegacy` in `internal/app/modulesync/`. Each freezes today's behaviour as a legacy oracle in the `_test.go` file and compares over a table of absolute and unset environments (absolute existing home, absolute missing home, home unset, `INVOWK_MODULES_PATH` absolute and unset, `SSH_KNOWN_HOSTS` absolute and unset). For the gate, the oracle is "today proceeds to the transport" except where today fails at host-key verification; the unset-home SSH row is listed as the BREAKING expected difference.
+- [x] 3.7 (2026-11-15: passes.) Group check: run `go test ./internal/app/modulecache/ ./internal/app/modulesync/ && go test ./tests/cli/ -run 'TestCLI/module_cache_relative_path'` and confirm it passes.
 
 ## 4. Provisioning, run locks and test infrastructure
 

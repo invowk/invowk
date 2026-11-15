@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/internal/basedir"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -26,33 +27,60 @@ const (
 // a .invowkmod subdirectory or an invowkmod.cue file.
 var ErrModuleNotFoundInDir = errors.New("no module found")
 
+// ModulesPathNotAbsoluteError reports a relative INVOWK_MODULES_PATH, which
+// would put the verified module cache under the current directory.
+type ModulesPathNotAbsoluteError struct {
+	Value types.FilesystemPath //goplint:ignore -- always set: the rejected non-empty INVOWK_MODULES_PATH value.
+}
+
 // DefaultDir returns the default module cache directory.
 // It checks INVOWK_MODULES_PATH first, then falls back to ~/.invowk/modules.
 func DefaultDir() (types.FilesystemPath, error) {
 	return DefaultDirWith(os.Getenv)
 }
 
-// DefaultDirWith returns the default module cache directory using getenv.
+// DefaultDirWith returns the default module cache directory using getenv,
+// with the home directory of the real process.
 func DefaultDirWith(getenv func(string) string) (types.FilesystemPath, error) {
+	return DefaultDirFrom(getenv, basedir.OS())
+}
+
+// DefaultDirFrom returns the module cache directory: INVOWK_MODULES_PATH when
+// it is set, otherwise <home>/.invowk/modules. The result is always absolute:
+// a relative INVOWK_MODULES_PATH is a *ModulesPathNotAbsoluteError, and a
+// relative or unavailable home is an error from dirs, so the cache never
+// resolves under the current directory.
+func DefaultDirFrom(getenv func(string) string, dirs basedir.Dirs) (types.FilesystemPath, error) {
 	if envPath := getenv(ModuleCachePathEnv); envPath != "" {
 		cachePath := types.FilesystemPath(envPath)
 		if err := cachePath.Validate(); err != nil {
 			return "", fmt.Errorf("module cache path from %s: %w", ModuleCachePathEnv, err)
 		}
+		if !filepath.IsAbs(envPath) {
+			return "", &ModulesPathNotAbsoluteError{Value: cachePath}
+		}
 		return cachePath, nil
 	}
 
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := dirs.Home()
 	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+		return "", err
 	}
 
-	cachePath := types.FilesystemPath(filepath.Join(homeDir, ".invowk", DefaultModulesDir))
+	cachePath := types.FilesystemPath(filepath.Join(string(homeDir), ".invowk", DefaultModulesDir))
 	if err := cachePath.Validate(); err != nil {
 		return "", fmt.Errorf("module cache path: %w", err)
 	}
 	return cachePath, nil
 }
+
+// Error implements error.
+func (e *ModulesPathNotAbsoluteError) Error() string {
+	return fmt.Sprintf("%s=%q: %v; set it to an absolute path", ModuleCachePathEnv, e.Value, basedir.ErrNotAbsolute)
+}
+
+// Unwrap returns basedir.ErrNotAbsolute for errors.Is.
+func (e *ModulesPathNotAbsoluteError) Unwrap() error { return basedir.ErrNotAbsolute }
 
 // LocateModuleInDir finds a module directory inside dir.
 func LocateModuleInDir(dir types.FilesystemPath) (types.FilesystemPath, invowkmod.ModuleShortName, error) {

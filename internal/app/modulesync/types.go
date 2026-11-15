@@ -42,6 +42,9 @@ var (
 	ErrCanonicalModuleCollision = errors.New("canonical module collision")
 	// ErrLockedCommitMismatch is returned when a locked version resolves to a different commit.
 	ErrLockedCommitMismatch = invowkmod.ErrLockedCommitMismatch
+	// ErrSSHTrustFilesNotAbsolute is returned by an SSH-transport fetch whose
+	// home directory or SSH_KNOWN_HOSTS entry is relative or unavailable.
+	ErrSSHTrustFilesNotAbsolute = errors.New("SSH git fetch refused: trusted SSH files need an absolute home directory")
 )
 
 type (
