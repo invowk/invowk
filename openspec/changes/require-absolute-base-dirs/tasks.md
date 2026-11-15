@@ -23,7 +23,7 @@
 
 ## 2. Config adopts the resolver (no behaviour change)
 
-- [x] 2.1 (2026-11-15: `absoluteEnv`, `absoluteHomeDir` and `errMsgHomeDir` deleted; `TestConfigDir` and `TestCommandsDirFrom` pass unedited.) Make `configDirFrom` and `commandsDirFrom` (`internal/config/config.go:98-184`) build a `basedir.New(...)` from their existing parameters. Then set `ErrBaseDirNotAbsolute = basedir.ErrNotAbsolute` and delete `absoluteEnv` and `absoluteHomeDir`. Verify that `TestConfigDir` and the `commandsDirFrom` tests in `internal/config/config_paths_test.go` pass with no edits.
+- [x] 2.1 (2026-11-15: `absoluteEnv`, `absoluteHomeDir` and `errMsgHomeDir` deleted; `ConfigDir`/`CommandsDir` pass a nil home lookup, which the resolver maps to `os.UserHomeDir`; `TestConfigDir` and `TestCommandsDirFrom` pass unedited.) Make `configDirFrom` and `commandsDirFrom` (`internal/config/config.go:98-184`) build a `basedir.New(...)` from their existing parameters. Then set `ErrBaseDirNotAbsolute = basedir.ErrNotAbsolute` and delete `absoluteEnv` and `absoluteHomeDir`. Verify that `TestConfigDir` and the `commandsDirFrom` tests in `internal/config/config_paths_test.go` pass with no edits.
 - [x] 2.2 (2026-11-15: `internal/config/config_paths_windows_test.go`; the defaults-plus-diagnostic step is `commandsvc.LoadConfigWithFallback`, already covered by `TestLoadConfigWithFallback`. Compile-checked locally only; behaviour proven on windows-latest CI.) Add the `config-source-resolution` delta's Windows scenarios to `config_paths_test.go`, in a Windows-only test: relative `APPDATA` falls back, and relative `USERPROFILE` gives defaults plus a diagnostic. Verify that they pass on windows-latest CI.
 - [x] 2.3 (2026-11-15: passes.) Group check: run `go test ./internal/config/ ./internal/discovery/` and confirm it passes.
 
@@ -106,7 +106,7 @@
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.0 Wait for F1 (`harden-formal-instruments`, #163) to merge, then rebase this branch on main (design decision 16). Re-run `go test ./internal/runtime/ -run 'TestVirtualPathHarness_RootConstruction|TestVirtualPathHarness'` and `python3 scripts/formal.py correspondence`, and re-check the guard against any new non-test files that the rebase brings in.
+- [ ] 7.0 Wait for F1 (`harden-formal-instruments`, #163) to merge, then rebase this branch on main (design decision 16). Re-run `go test ./internal/runtime/ -run 'TestVirtualPathHarness_RootConstruction|TestVirtualPathHarness'` and `python3 scripts/formal.py correspondence`, and re-check the guard against any new non-test files that the rebase brings in. Re-triage the formal-bindings mutation survivors of the rewritten `standardVirtualAnchorsForOS` (`tools/mutation/triage/formal-bindings.toml`, which names mutants of the removed `getenv`/`firstNonEmpty` body, and F1's statement and survivor counts for the anchors row), after committing (`make test-scripts` restores the worktree).
 - [ ] 7.1 Review the diff for reuse and simplification (`/simplify`), then run `make tidy` and `make license-check`.
 - [ ] 7.2 Run `make lint` and fix every issue.
 - [ ] 7.3 Run `make test` (full suite, including CLI and container tests).

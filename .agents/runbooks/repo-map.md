@@ -14,6 +14,7 @@ On-demand orientation. Rules load automatically through their `paths:` frontmatt
   - `llmconfig/`: LLM defaults, environment overrides and CLI flag resolution.
 - `internal/` (other):
   - `config/`: configuration with CUE schema (`config_schema.cue`).
+  - `basedir/`: the one resolver for per-user base directories (home, XDG/AppData, runtime dir); every result is absolute. `TestBaseDirGuard` keeps other packages off direct lookups.
   - `container/`: Docker/Podman engine abstraction. `containerplan/`: pure container execution policies. `provision/`: ephemeral image-layer provisioning. `provisionenv/`: environment contract between container provisioning and runtime.
   - `discovery/`: module and command discovery, precedence, collisions, source tracking.
   - `runtime/`: runtimes `native`, `virtual-sh`, `virtual-lua`, `container`, all implementing the interface in `runtime.go`.
@@ -48,6 +49,7 @@ On-demand orientation. Rules load automatically through their `paths:` frontmatt
 | `internal/discovery/` | go, discovery, go-hexagonal-ddd, d2-diagrams |
 | `internal/runtime/` | go, shell (virtual-sh), virtual-lua, go-hexagonal-ddd, d2-diagrams, go-testing |
 | `internal/config/`, `pkg/cueutil/` | go, cue |
+| `internal/basedir/` | go, windows-testing, go-testing |
 | `internal/sshserver/`, `internal/tuiserver/`, `internal/core/serverbase/` | go, server |
 | `internal/tui/` | go, testing, tui-testing, tmux-testing, windows-testing |
 | `internal/uroot/` | go, uroot |

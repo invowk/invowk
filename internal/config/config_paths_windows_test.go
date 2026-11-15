@@ -15,7 +15,7 @@ import (
 // Windows scenarios on a real Windows host, where filepath.IsAbs applies the
 // Windows rules. It uses the process environment, so it does not run in
 // parallel.
-func TestConfigDirWindowsRelativeBases(t *testing.T) {
+func TestConfigDirWindowsRelativeBases(t *testing.T) { //nolint:paralleltest // t.Setenv mutates the process environment.
 	profile := t.TempDir()
 
 	t.Run("relative APPDATA falls back to USERPROFILE", func(t *testing.T) {
