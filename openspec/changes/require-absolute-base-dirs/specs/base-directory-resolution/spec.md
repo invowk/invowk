@@ -54,19 +54,27 @@ The module cache directory SHALL be `INVOWK_MODULES_PATH` when it is set and non
 
 ### Requirement: Provisioning directories never resolve under the current directory
 
-The default provisioning cache (`<home>/.cache/invowk/provision`) and the default build-context parent (`<home>/invowk-build`) SHALL be derived only from an absolute home. When no absolute home is available, the build-context parent SHALL be a fresh directory created in the OS temp directory and removed after the build. The current directory SHALL never be used.
+The default provisioning cache (`<home>/.cache/invowk/provision`) and the default build-context parent (`<home>/invowk-build`) SHALL be derived only from an absolute home. When no absolute, existing home is available, the build-context parent SHALL be a fresh directory created in the OS temp directory and removed after the build. The current directory SHALL never be used.
 
 #### Scenario: relative HOME uses a temporary build context
 - **WHEN** `HOME=.` is set, no cache dir is configured, and a container command with auto-provisioning runs
 - **THEN** the build context is created under the OS temp directory, and no `.cache/invowk`, `invowk-build` or `.invowk-build` directory is created in the current directory
 
-### Requirement: SSH keys for git fetches come only from an absolute home
+#### Scenario: absolute but missing home uses a temporary build context
+- **WHEN** `HOME=/no-home` is set (absolute, does not exist), no cache dir is configured, and auto-provisioning builds an image
+- **THEN** the build context is created under the OS temp directory and removed after the build, and nothing is created in the current directory
 
-Git module fetches SHALL look for SSH private keys (`.ssh/id_ed25519`, `.ssh/id_rsa`, `.ssh/id_ecdsa`) only under an absolute home directory. When the home directory is relative or unavailable, SSH key lookup SHALL be skipped and the HTTPS token sources SHALL still be tried.
+### Requirement: SSH git fetches require an absolute home
 
-#### Scenario: planted key under the current directory is ignored
-- **WHEN** `HOME=.` is set, the current directory contains `.ssh/id_ed25519`, and a git module is fetched
-- **THEN** that key is not loaded, and authentication uses a configured HTTPS token or none
+Git module fetches over SSH (`git@` or `ssh://` URLs) SHALL run only when the home directory is absolute, because invowk reads SSH keys from it and the git library reads `known_hosts` from it. With a relative or unavailable home, such a fetch SHALL fail before connecting, with an error that names the relative home and the absolute-path rule. HTTPS fetches SHALL be unaffected.
+
+#### Scenario: SSH fetch with a relative home is refused
+- **WHEN** `HOME=.` is set, the current directory contains `.ssh/id_ed25519` and `.ssh/known_hosts`, and a module with a `git@` URL is fetched
+- **THEN** the fetch fails before any network connection, stderr names the relative home, and none of those files is read
+
+#### Scenario: HTTPS fetch with a relative home still works
+- **WHEN** `HOME=.` is set and a module with an `https://` URL is fetched with `GIT_TOKEN` set
+- **THEN** the fetch proceeds with token authentication, and no SSH key lookup runs
 
 ### Requirement: The container run lock ignores a relative runtime dir
 

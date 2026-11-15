@@ -6,12 +6,19 @@ Current state, verified on main at f4969e90:
 
 - **S1 helpers (the model):** `configDirFrom` (`internal/config/config.go:98-132`) takes injectable `goos`, `getenv` and `userHomeDir`. `absoluteEnv` (`config.go:138-143`) treats a relative `XDG_CONFIG_HOME` or `APPDATA` as unset. `absoluteHomeDir` (`config.go:150-159`) and the `USERPROFILE` branch (`config.go:109-111`) return `ErrBaseDirNotAbsolute` (`config.go:42-45`). `ConfigDir`, `CommandsDir` and `HostKeyPath` (`config.go:166-195`) are built on them. These are private to `internal/config`, so no other package can reuse them.
 - **Module cache:** `DefaultDirWith` (`internal/app/modulecache/cache.go:36-55`) takes `INVOWK_MODULES_PATH` after only a non-empty check (`cache.go:37-42`; `FilesystemPath.Validate` checks non-blank only, `pkg/types/filesystem_path.go:36-41`). Otherwise it joins `os.UserHomeDir()` without an absolute check (`cache.go:45-50`). `newResolver` then runs `filepath.Abs` on the result (`internal/app/modulesync/resolver.go:78-89`), so a relative value lands under the current directory.
-- **Git auth:** `trySSHAuth` (`internal/app/modulesync/git.go:303-326`) loads `~/.ssh/id_*` from `os.UserHomeDir()` (`git.go:305`) without an absolute check. These are SSH private keys, not git config: the task text said "git config", but the code reads key files. HTTPS tokens come from `GITHUB_TOKEN`, `GITLAB_TOKEN` and `GIT_TOKEN` (`git.go:329-353`). There is no SSH-agent fallback.
-- **Provisioning:** `applyHostProvisionDefaults` sets `CacheDir` to `<home>/.cache/invowk/provision` from `os.UserHomeDir()` (`internal/runtime/container_provision.go:247-250`). With a relative home, that path is relative too. `resolveBuildContextParent` (`internal/provision/layer_provisioner.go:367-409`) uses `CacheDir`, then `<home>/invowk-build` (`:375-383`, existence check only), then `<cwd>/.invowk-build` (`:384-390`), and last a temp dir (`:395`). The build context is a `ctx-*` temp dir under that parent (`:294`).
+- **Git auth:** `trySSHAuth` (`internal/app/modulesync/git.go:303-326`) loads `~/.ssh/id_*` from `os.UserHomeDir()` (`git.go:305`) without an absolute check. HTTPS tokens come from `GITHUB_TOKEN`, `GITLAB_TOKEN` and `GIT_TOKEN` (`git.go:329-353`). `ValidateAuth` already refuses an SSH URL when no auth was configured (`git.go:226-236`).
+- **go-git's own home reads (pinned go-git v5.19.2):** the git library also reads per-user files from the home, which invowk's guard cannot see.
+  - SSH host keys: `getDefaultKnownHostsFiles` uses `SSH_KNOWN_HOSTS`, else `os.UserHomeDir()/.ssh/known_hosts` (`plumbing/transport/ssh/auth_method.go:268-283`).
+  - SSH client config: `DefaultSSHConfig = ssh_config.DefaultUserSettings` (`plumbing/transport/ssh/common.go:23-25`), which reads `<home>/.ssh/config`. That home comes from `os/user.Current()`, the passwd entry, and `$HOME` is used only when that lookup fails (`github.com/kevinburke/ssh_config@v1.6.0` `config.go:63-74`). A relative `HOME` therefore affects it only on hosts with no passwd entry.
+  - With no explicit auth, the default is SSH-agent auth (`common.go:36-40`).
+  - So with a relative home, an SSH fetch would trust `./.ssh/known_hosts`, which lets a repo pin a host key it controls, and, where the passwd lookup fails, `./.ssh/config`, which can override `Hostname` and `Port`. Skipping invowk's key lookup alone does not close that.
+  - go-git's global and system git config (`config/config.go:205-210`, read by `Repository.ConfigScoped`, `repository.go:573-587`) and the global gitignore/gitattributes loaders are not reached: invowk calls none of `ConfigScoped`, `gitignore.*` or `gitattributes.*` (grep of `cmd/`, `internal/` and `pkg/`).
+- **Provisioning:** `applyHostProvisionDefaults` sets `CacheDir` to `<home>/.cache/invowk/provision` from `os.UserHomeDir()` (`internal/runtime/container_provision.go:247-250`). With a relative home, that path is relative too. `resolveBuildContextParent` (`internal/provision/layer_provisioner.go:367-409`) uses `CacheDir`, then `<home>/invowk-build` (`:375-383`, absolute check missing, but the home must exist: an absolute missing home such as testscript's `HOME=/no-home` skips it), then `<cwd>/.invowk-build` (`:385-391`), and last a temp dir (`:395`). The build context is a `ctx-*` temp dir under that parent (`:294`).
 - **Virtual anchors:** `standardVirtualAnchors` (`internal/runtime/virtual_policy.go:140-145`) turns a home lookup error into `""`. `standardVirtualAnchorsForOS` (`:147-186`) then uses `firstNonEmpty` (`:188-193`), so a relative XDG or AppData value is taken as given, and an empty home produces relative anchors such as `.config/invowk` (`:180-183`, `:168-169`). The resolver adds every non-empty anchor except `@home` to the allow roots (`:103-108`). An empty anchor is already rejected when used, with the message "unknown virtual path anchor" (`:289-292`). Every anchor, empty ones included, is injected as `INVOWK_ANCHOR_*` (`:300-304`).
 - **Run locks:** `lockFilePathWith` (`internal/container/run_lock_linux.go:80-86`) uses `XDG_RUNTIME_DIR` as given, and falls back to `os.TempDir()` only when it is empty. `internal/testutil/container_suite_lock_linux.go:52-54` repeats the pattern.
 - **Test infrastructure:** `ContainerSafeTempDir` uses `os.UserHomeDir()` (`internal/testutil/testutil.go:148`). `SetHomeDir` sets `HOME` or `USERPROFILE` (`internal/testutil/home.go:42-50`). `tests/cli/container_harness.go:363-375` rebuilds the config dir from the testscript env by hand.
-- **Search result:** `grep` for `os.UserHomeDir|UserCacheDir|UserConfigDir`, and for the string literals `HOME`, `XDG_*`, `APPDATA`, `LOCALAPPDATA` and `USERPROFILE` in non-test Go code, finds exactly the sites above. Nothing else exists.
+- **Search result:** `grep` for `os.UserHomeDir|UserCacheDir|UserConfigDir`, and for the string literals `HOME`, `XDG_*`, `APPDATA`, `LOCALAPPDATA` and `USERPROFILE` in non-test Go code, finds exactly the sites above. So does `grep` for `"os/user"`, `user.Current`, `os.ExpandEnv` and `os.Expand(` under `cmd/`, `internal/`, `pkg/` and `tests/`: there are no hits. The only third-party lookups invowk reaches are go-git's (above).
+- **In-flight siblings:** C1 (#162, `cli-exit-code-contract`) MODIFIES `config-source-resolution` "Explicit config failures outside the exit-1 flows", a different requirement from the one MODIFIED here. F1 (#163) touches neither capability. Neither S3 branch nor PR exists yet. Recheck before S4's archive.
 - **Lint:** forbidigo is enabled (`.golangci.toml:164-165`) with one pattern (`:422-426`) and is already excluded for `_test.go` (`:698-700`).
 - **Windows semantics:** Go's `filepath.IsAbs` on Windows requires a volume and a root, or a UNC path. So `\Users\me` and `C:Users\me` are relative and are rejected or ignored. `filepath.IsAbs` follows the host OS, not an injected `goos`. S1's tests already work around this with host-absolute fixtures (`internal/config/config_paths_test.go:27-29`).
 
@@ -52,10 +59,16 @@ Current state, verified on main at f4969e90:
   - A relative `INVOWK_MODULES_PATH` is rejected with a new typed error that names the variable. This check belongs to `modulecache`, because the variable is invowk's own.
   - The default comes from `Home()`.
   - `DefaultDirWith` gains the home lookup as an injected input, so tests do not mutate `HOME`.
-- Git: `trySSHAuth` calls `basedir.OS().Home()` and returns nil on error, which skips straight to HTTPS tokens.
+- Git (fail closed):
+  - `trySSHAuth` calls `basedir.OS().Home()` and returns nil on error.
+  - For an SSH URL (`git@` or `ssh://`), the fetcher checks `Home()` before any transport call and returns a typed error that wraps `basedir.ErrNotAbsolute` and names the relative home. This covers go-git's `known_hosts` read and the `ssh_config` `$HOME` fallback, which invowk cannot redirect.
+  - HTTPS URLs are unaffected.
+  - Rejected alternatives:
+    - Setting `SSH_KNOWN_HOSTS` and blanking `DefaultSSHConfig`: that mutates process-global go-git state, and the SSH config file is still read through `HOME`.
+    - Only skipping key lookup: that leaves the known-hosts trust hole open.
 - Provisioning:
   - `applyHostProvisionDefaults` leaves `CacheDir` empty when `Home()` fails.
-  - `resolveBuildContextParent` uses `Home()` and then the temp dir. The `<cwd>/.invowk-build` branch is deleted.
+  - `resolveBuildContextParent` uses an absolute, existing `Home()`, and otherwise a fresh temp dir. The existing-home check (`layer_provisioner.go:376`) is kept. The `<cwd>/.invowk-build` branch is deleted, and the doc comment at `:278-282` is updated.
 - Virtual anchors:
   - `standardVirtualAnchorsForOS` builds each anchor from the `basedir` method for its kind.
   - An unavailable base gives `""`. Existing code then keeps it out of the allow roots (`virtual_policy.go:105`) and rejects it when used (`:290`).
@@ -89,14 +102,17 @@ Current state, verified on main at f4969e90:
 4. Prefer MODIFIED of S1's base-dir requirement where it generalises. "Platform base directories must be absolute" is MODIFIED to point at the shared resolver, and the general rules live in the new `base-directory-resolution` capability.
 5. Recommended by the advisor workflow and taken without asking, per the standing instruction for this programme:
    - reject a relative `INVOWK_MODULES_PATH`, which matches S1's `INVOWK_CONFIG` rule;
-   - remove the `<cwd>/.invowk-build` fallback in favour of the temp dir;
+   - remove the `<cwd>/.invowk-build` fallback in favour of the temp dir, including for an absolute but missing home;
    - make home-derived anchors unavailable, not relative, when the home directory is unavailable;
+   - refuse SSH-transport git fetches without an absolute home, because go-git reads `known_hosts` from it;
    - keep every existing absolute path unchanged.
 
 ## Risks / Trade-offs
 
 - [CI or containers that run with `HOME` unset or relative lose the module cache] → The error names the variable and the absolute-path rule. `INVOWK_MODULES_PATH` set to an absolute path is the documented workaround (Migration notes).
-- [A temp-dir build context may not be visible to Docker Snap, which cannot reach `/tmp`] → It only applies when no absolute home exists. The old cwd fallback was a trust hole. A configured `container.auto_provision.cache_dir` still wins.
+- [A temp-dir build context may not be visible to Docker Snap, which cannot reach `/tmp`] → It only applies when the home is relative, unavailable or missing (for example `HOME=/no-home`). Today the missing-home case goes to the cwd fallback, so a Snap user in that setup moves from the cwd to `/tmp`. The old cwd fallback was a trust hole. A configured `container.auto_provision.cache_dir` still wins.
+- [The guard covers invowk's code only, so third-party libraries can still read `HOME` (go-git, and `ssh_config` as a fallback)] → Fetches that reach those reads (SSH transport) are refused without an absolute home. Any new dependency that reads per-user files needs the same review; this is noted in the go skill (task 6.3).
+- [SSH fetches with a relative home now fail, even when `SSH_KNOWN_HOSTS` is absolute] → One rule is simpler to reason about and test than per-file exemptions, and the key lookup needs the home anyway. The error says to use an absolute home or an HTTPS URL with a token. Relaxing this for an absolute `SSH_KNOWN_HOSTS` is listed under Open questions.
 - [The guard has false positives, for example a log string "HOME"] → Only exact literal matches count. The allowlist with reasons is the escape hatch, and it is reviewed like any lint exception.
 - [Changing the anchor error text breaks tests that match "unknown virtual path anchor"] → Unknown names keep that text. Only known but unavailable anchors get the new message.
 
@@ -108,3 +124,4 @@ Release notes take the proposal's Migration notes. There is no data migration. R
 
 - Should `os.TempDir()` (driven by `TMPDIR`, or `TMP`/`TEMP` on Windows) get the same treatment? A relative `TMPDIR` makes `@tmp`, `os.CreateTemp("", …)` and the temp-dir fallbacks resolve under the current directory. It is used at about ten sites (for example `internal/runtime/native.go:276` and `internal/container/run_lock_linux.go:83`). It is deferrable: adding a `basedir.TempDir()` later fits D1 without changing these specs. Proposed as a follow-up change.
 - Should the provisioning cache move to `CacheHome()` (honouring `XDG_CACHE_HOME`) in a later release? It would be a user-visible relocation, so it is out of scope here.
+- Should an absolute `SSH_KNOWN_HOSTS` (with SSH-agent auth) allow SSH fetches under a relative home? That would be a later relaxation of the fail-closed rule, and needs no change to the approach here.

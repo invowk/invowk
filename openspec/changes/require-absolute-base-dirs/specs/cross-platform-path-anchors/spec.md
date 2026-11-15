@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Standard path anchors
-Invowk SHALL support logical path anchors `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`. Anchor resolution SHALL be OS-native, normalized, and stable across `virtual-sh` and `virtual-lua`. Anchor bases SHALL come from the shared per-user base-directory resolver and SHALL be absolute. An anchor whose base is unavailable SHALL be unavailable: empty in its `INVOWK_ANCHOR_*` variable, never an allow root, and an error when a script uses it.
+Invowk SHALL support logical path anchors `@config`, `@data`, `@cache`, `@state`, `@tmp`, `@home`, and `@work`. Anchor resolution SHALL be OS-native, normalized, and stable across `virtual-sh` and `virtual-lua`. The `@config`, `@data`, `@cache`, `@state` and `@home` bases SHALL be absolute and come from the shared base-directory resolver. An anchor with no base SHALL be unavailable: empty in `INVOWK_ANCHOR_*`, never an allow root, and an error when used.
 
 #### Scenario: Linux anchors resolve using XDG variables
 - **WHEN** Invowk resolves anchors on Linux
