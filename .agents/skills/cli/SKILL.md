@@ -300,7 +300,8 @@ The contract (documented in `website/docs/reference/cli.mdx` "Exit Codes" and th
 Rules:
 - **A parent command that accepts positionals MUST declare `Args` explicitly** (for example `cobra.ArbitraryArgs` on `invowk cmd` and on discovered group nodes); otherwise the group guard rejects its tokens before `RunE` runs.
 - Classify at the CLI adapter, not in domain packages: `renderAndWrapServiceError` wraps argument/flag validation, ambiguous or unknown command, unknown source and runtime-not-allowed errors; `buildCommandExecuteRequest` wraps invalid reserved `--ivk-*` values.
-- Environment and internal failures (dependencies, platform, engine, timeouts, `InvalidRequestError`, config files) stay at 1.
+- A refusal decided from argv and the environment alone, before any file is read, is also usage: an invalid `INVOWK_NO_CWD` (`noCwdFromEnv`), `--ivk-watch` with `--ivk-dry-run`, `config set` under an explicit config source, `agent … --verify` under `--ivk-no-cwd`.
+- Environment and internal failures (dependencies, platform, engine, timeouts, `InvalidRequestError`, config files, including a failed `--ivk-config`/`INVOWK_CONFIG` source) stay at 1.
 - `agent` and `audit` keep explicit `ExitError` codes. The shared LLM helpers in `llm_flags.go` take an `llmExitCodes{usage, failure}` value (`auditLLMExitCodes`, `agentLLMExitCodes`).
 - In testscript, assert exact codes with the custom `exitcode <want> <cmd> <args...>` command (`tests/cli/exitcode_test.go`); `! exec` accepts any non-zero status.
 

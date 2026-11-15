@@ -61,8 +61,9 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Dry-run and watch mode are mutually exclusive: watch mode re-executes
 	// on file changes, while dry-run prevents execution entirely.
+	// The conflict comes from argv alone, so it is a usage error (exit 2).
 	if cmdFlags.dryRun {
-		return errWatchDryRunConflict
+		return newUsageError(errWatchDryRunConflict)
 	}
 
 	// Callers already resolved --ivk-no-cwd into cmd's context; keep it.

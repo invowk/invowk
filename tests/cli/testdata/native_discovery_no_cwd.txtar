@@ -60,10 +60,10 @@ stdout 'current-directory sources disabled \(INVOWK_NO_CWD\)'
 exec invowk --ivk-no-cwd=false cmd local
 stdout 'LOCAL_OK'
 
-# Test 10: an invalid INVOWK_NO_CWD fails the cmd flow and names the variable,
-# unless the flag decides the switch
+# Test 10: an invalid INVOWK_NO_CWD fails the cmd flow as a usage error (exit 2)
+# and names the variable, unless the flag decides the switch
 env INVOWK_NO_CWD=yes
-! exec invowk cmd
+exitcode 2 invowk cmd
 stderr 'INVOWK_NO_CWD'
 exec invowk --ivk-no-cwd cmd
 stdout 'glob'

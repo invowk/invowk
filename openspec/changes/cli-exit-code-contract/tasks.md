@@ -76,7 +76,8 @@ Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observati
   Stage-3 result: the nested case uses group `release` (`release prod` in both sources, unique `release dev`), because the fixture's `deploy` is itself an ambiguous leaf; bare `deploy` covers the ambiguous-prefix case. The listing check is an order-sensitive multi-line `stdout` regex on a `prefixleaf/` fixture with one command per source, not a `cmp` golden: the listing is always ANSI-styled, and its order within a source is nondeterministic (see 4.5).
 - [x] 5.5 Add exact codes 1 and 42 to `container_exitcode.txtar` with `exitcode` (container tests are exempt from mirrors). Check: `go test -run 'TestContainerCLI/container_exitcode' ./tests/cli/` when an engine is available; otherwise state that it was skipped and why.
 - [x] 5.6 Completion: add `exitcode 0 invowk __complete config ""`, `__complete cmd ""` and `__complete cmd test ""` checks to `completion.txtar`, each with `stdout` assertions for the expected candidates. Leave every existing assertion unchanged. Check: `go test -run 'TestCLI/completion' ./tests/cli/`.
-- [ ] 5.7 After the S1 rebase (8.1) only: flip `config_override_flag.txtar` Test 4 expectations from S1's `! exec` to `exitcode 1`, and add the same check for `INVOWK_CONFIG=/nonexistent`. Skip this task, and say so in the PR, if S1 is not on the branch yet. Check: `go test -run 'TestCLI/config_override_flag' ./tests/cli/`.
+- [x] 5.7 After the S1 rebase (8.1) only: flip `config_override_flag.txtar` Test 4 expectations from S1's `! exec` to `exitcode 1`, and add the same check for `INVOWK_CONFIG=/nonexistent`. Skip this task, and say so in the PR, if S1 is not on the branch yet. Check: `go test -run 'TestCLI/config_override_flag' ./tests/cli/`.
+  Stage-3b result: S1 left Test 4 and Test 5 as `! exec`; both are now `exitcode 1`, and Test 4b checks `INVOWK_CONFIG=/nonexistent` (exit 1, stderr names `INVOWK_CONFIG`; on Windows the value is not absolute, which also exits 1). `config_env_override.txtar` Tests 8-10 and 12 also use `exitcode` (Test 12 no longer needs a POSIX `sh`).
 - [x] 5.8 Run `make test-cli` (with the heavy-command lock) and triage every failure. Look especially at `exec invowk cmd <group> <token>` lines that expected success, at `--ivk-env-var` values without `=`, and at `virtual_args`/`native_args`, `virtual_disambiguation`/`native_disambiguation`, `virtual_multi_source_full`/`native_multi_source_full`, `version_help`, `agent_cmd_create` and `dogfooding_invowkfile`. Fix a test only when the spec says the old expectation was wrong. Check: `make test-cli` passes.
 
 ## 6. Documentation
@@ -97,9 +98,17 @@ Base: main `c0a000da` (no code diff from `85f1eb7b`, where design.md's observati
 
 - [x] 7.1 Re-read `specs/cli-exit-codes/spec.md` against the implementation and update any scenario whose wording no longer matches the real stderr text. Check: `openspec validate cli-exit-code-contract --strict` exits 0 with no warnings.
 
+## 7b. Stage 3b: S1 cross-change and decisions 9-12
+
+- [x] 7b.1 Rebase onto main `f4969e90` (S1). Conflicts in `cmd/invowk/agent.go` (S1's `verifyNoCwdError` argument plus C1's `ExitCodeUsage`) and `cmd/invowk/cmd_discovery.go` (C1's `buildDiscoveredGroupCommand` plus S1's `scopeDiscovery` and `registeredNoCwd`). `TestAgentFailsOnMissingExplicitConfig` now expects 1, and `TestAgentVerifyRejectedUnderNoCwd` expects 2. Check: `go test -short ./cmd/invowk/`.
+- [x] 7b.2 Assign the S1-left codes (design.md, Decision 11): invalid `INVOWK_NO_CWD` (`noCwdFromEnv`), the `config set` refusal (`setConfigValue`) and `agent --verify` under the switch exit 2; agent's failed explicit config exits 1. Update the S1 txtars (`config_env_override`, `*_discovery_no_cwd`, `no_cwd_builtins`) to `exitcode`. Add the MODIFIED delta `specs/config-source-resolution/spec.md` and fix the S1 docs that said agent exits 2 (README, `configuration/overview.mdx`, `reference/cli.mdx`, pt-BR copies).
+- [x] 7b.3 Decision 9: `runWatchMode` wraps `errWatchDryRunConflict` with `newUsageError`; `TestRunWatchMode_DryRunConflict` checks 2, and the four watch/dry-run txtars use `exitcode 2`.
+- [x] 7b.4 Decisions 10 and 12: `DiscoveredCommandSet.Analyze` sorts each `BySource` slice by full name. Unit tests `TestDiscoveredCommandSet_Analyze_SortsCommandsWithinSource` and `TestDiscoverCommandSet_ListsSourceCommandsAlphabetically` (both fail without the sort); `(virtual|native)_multi_source.txtar` Test 6 declares commands out of order and asserts the alphabetical listing. Docs: `reference/cli.mdx` (`invowk cmd`), README listing note. Check: `python3 scripts/formal.py correspondence` and `make formal`.
+- [x] 7b.5 Migration notes for each decision-11 item, the agent explicit-config change and the listing order; `openspec validate cli-exit-code-contract --strict` and a trial archive (`validate --specs --strict`) on a copy.
+
 ## 8. Rebase and completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 8.1 If S1 merged after 1.1, rebase onto main now, resolve `root.go` by keeping both changes, re-check the `root.go` citations, and do 5.7. Check: `go test -run 'TestExitCodeForError|TestInstallUsageGuards' ./cmd/invowk/`.
+- [x] 8.1 If S1 merged after 1.1, rebase onto main now, resolve `root.go` by keeping both changes, re-check the `root.go` citations, and do 5.7. Check: `go test -run 'TestExitCodeForError|TestInstallUsageGuards' ./cmd/invowk/`.
 - [ ] 8.2 Review the changed code for reuse, simplification and efficiency, and fix what you find (`/simplify`).
 - [ ] 8.3 `make tidy`, then `make license-check` (new Go files).
 - [ ] 8.4 `make lint`, fixing every finding, including pre-existing ones.

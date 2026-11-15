@@ -218,12 +218,40 @@ Invowk SHALL exit with status 1 for failures that do not come from the shape of 
 - **THEN** invowk SHALL exit with status 1
 
 ### Requirement: An unusable explicit config file exits with status 1
-When `--ivk-config` or `INVOWK_CONFIG` names a config file that is missing or invalid, and the config load is fatal for that invocation, invowk SHALL exit with status 1 and not 2. The path is accepted as argv; what fails is the file. The fatal behaviour itself is specified by the `harden-config-trust` change.
+When `--ivk-config` or `INVOWK_CONFIG` names a config file that is missing or invalid, or `INVOWK_CONFIG` is relative, and the config load is fatal for that invocation, invowk SHALL exit with status 1 and not 2. The fatal behaviour itself is specified by the `config-source-resolution` capability; `invowk audit` keeps its scan-error code 2.
 
 #### Scenario: Missing explicit config file
-- **WHEN** `harden-config-trust` is in effect and the user runs `invowk --ivk-config /nonexistent/config.cue cmd test unit`
+- **WHEN** the user runs `invowk --ivk-config /nonexistent/config.cue cmd test unit`
 - **THEN** invowk SHALL exit with status 1
 - **AND** the command's script SHALL NOT run
+
+#### Scenario: Missing file named by INVOWK_CONFIG
+- **WHEN** `INVOWK_CONFIG=/nonexistent` is set and the user runs `invowk cmd test unit`
+- **THEN** invowk SHALL exit with status 1
+- **AND** stderr SHALL name `INVOWK_CONFIG`
+
+### Requirement: Flag and environment conflicts exit with status 2
+Invowk SHALL exit with status 2 when it refuses an invocation from argv and the environment alone, without reading any file: an invalid `INVOWK_NO_CWD` value in a flow that resolves the switch, `--ivk-watch` with `--ivk-dry-run`, `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create` or `change` with `--verify` while the no-cwd switch is on.
+
+#### Scenario: Invalid INVOWK_NO_CWD
+- **WHEN** `INVOWK_NO_CWD=yes` is set and the user runs `invowk cmd`
+- **THEN** invowk SHALL exit with status 2
+- **AND** stderr SHALL name `INVOWK_NO_CWD`
+
+#### Scenario: Watch together with dry-run
+- **WHEN** the user runs `invowk cmd hello --ivk-watch --ivk-dry-run`
+- **THEN** invowk SHALL exit with status 2
+- **AND** the command's script SHALL NOT run
+
+#### Scenario: config set while an explicit source is active
+- **WHEN** `INVOWK_CONFIG` names an absolute path and the user runs `invowk config set default_runtime virtual-sh`
+- **THEN** invowk SHALL exit with status 2
+- **AND** no config file SHALL be created or changed
+
+#### Scenario: agent verify under the no-cwd switch
+- **WHEN** the user runs `invowk --ivk-no-cwd agent cmd create --verify hello 'say hello'`
+- **THEN** invowk SHALL exit with status 2
+- **AND** no LLM request SHALL be made
 
 ### Requirement: User command exit codes are forwarded unchanged
 When a user-defined command runs and exits with a non-zero status `N` in the range 1–255, invowk SHALL exit with `N`. This SHALL hold for every runtime, including when `N` is 1 or 2.
@@ -286,16 +314,16 @@ When command `X` and a command `X Y` both exist, invowk SHALL register `X` as a 
 - **THEN** invowk SHALL run the invowkfile's `w2` command
 - **AND** `invowk cmd w2 sub` SHALL run the module's `w2 sub` command
 
-### Requirement: Command listing order is unaffected
-The registration-order fix SHALL NOT change the output or the order of the `invowk cmd` command listing, for any mix of sources.
+### Requirement: Command listing order is alphabetical within each source
+The `invowk cmd` listing SHALL show the root invowkfile first and then modules alphabetically by source, and within each source SHALL list commands alphabetically by full command name, within each category group, whatever the declaration order. Registration SHALL NOT reorder the discovery result.
 
-#### Scenario: Listing with a cross-source prefix leaf
-- **WHEN** the invowkfile defines `w2` and `a`, module `m` defines `w2 sub`, and the user runs `invowk cmd`
-- **THEN** the listing SHALL show the same commands in the same order as before this change
+#### Scenario: Commands declared out of order
+- **WHEN** the invowkfile declares `zeta`, `w2` and `alpha` in that order, module `m` declares `w2 sub` and then `beta`, and the user runs `invowk cmd`
+- **THEN** the listing SHALL show `alpha`, `w2`, `zeta` under the invowkfile, then `beta`, `w2 sub` under `m`
 - **AND** invowk SHALL exit with status 0
 
 ### Requirement: Shell completion is unaffected
-Usage-error classification and the registration-order fix SHALL NOT change the candidates or the exit status of Cobra's hidden `__complete` and `__completeNoDesc` commands for any path, including group nodes and the root.
+Usage-error classification and the registration-order fix SHALL NOT change the candidates or the exit status of Cobra's hidden `__complete` and `__completeNoDesc` commands for any path, including group nodes and the root. A prefix leaf that was shadowed by a group node SHALL now show its own description instead of the group's.
 
 #### Scenario: Completing under a discovered group
 - **WHEN** the shell runs `invowk __complete cmd test ""`

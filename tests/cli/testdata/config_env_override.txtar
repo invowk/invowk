@@ -66,13 +66,14 @@ exec invowk config path --ivk-config $WORK/nofile.cue
 stdout 'from --ivk-config\) \[missing\]'
 
 # Test 8: config set refuses while an explicit source is active and writes nothing.
+# The refusal is decided from argv and the environment alone: a usage error (exit 2).
 # Point the Linux user config dir at an empty location for this part.
 env XDG_CONFIG_HOME=$WORK/fresh
 env INVOWK_CONFIG=$WORK/env/config.cue
-! exec invowk config set default_runtime virtual-sh
+exitcode 2 invowk config set default_runtime virtual-sh
 stderr 'INVOWK_CONFIG'
 env INVOWK_CONFIG=
-! exec invowk --ivk-config $WORK/flag/config.cue config set default_runtime virtual-sh
+exitcode 2 invowk --ivk-config $WORK/flag/config.cue config set default_runtime virtual-sh
 stderr 'ivk-config'
 [linux] ! exists $WORK/fresh/invowk/config.cue
 [darwin] ! exists $WORK/Library/'Application Support'/invowk/config.cue
@@ -90,17 +91,17 @@ grep 'container_engine: "docker"' $WORK/env/config.cue
 ! grep 'default_runtime' $WORK/env/config.cue
 env INVOWK_CONFIG=
 
-# Test 9: config show and validate fail on a missing explicit file
-! exec invowk --ivk-config $WORK/nofile.cue config show
+# Test 9: config show and validate fail on a missing explicit file (exit 1)
+exitcode 1 invowk --ivk-config $WORK/nofile.cue config show
 ! stdout 'container_engine'
 stderr 'nofile.cue'
-! exec invowk --ivk-config $WORK/nofile.cue validate
+exitcode 1 invowk --ivk-config $WORK/nofile.cue validate
 ! stdout 'Workspace Validation'
 stderr 'nofile.cue'
 
 # Test 10: audit reports the failed INVOWK_CONFIG as a scan error (exit 2), not findings
 env INVOWK_CONFIG=$WORK/nofile.cue
-! exec invowk audit .
+exitcode 2 invowk audit .
 stderr 'scan error'
 stderr 'INVOWK_CONFIG'
 
@@ -110,17 +111,13 @@ exec invowk __complete --ivk-config $WORK/nofile.cue cmd ''
 ! stdout 'multi-runtime'
 
 # Test 12: the fatal explicit-config error exits exactly 1 for `cmd`, and the
-# script does not run (testscript's `! exec` cannot check the code itself)
-[windows] stop 'exit-code probe needs a POSIX sh'
-exec sh -c 'invowk cmd multi-runtime --ivk-config "$WORK/nofile.cue"; echo "exit=$?"'
-stdout '^exit=1$'
+# script does not run; audit keeps its scan-error code 2
+exitcode 1 invowk cmd multi-runtime --ivk-config $WORK/nofile.cue
 ! stdout 'RUNTIME='
 env INVOWK_CONFIG=$WORK/nofile.cue
-exec sh -c 'invowk cmd multi-runtime; echo "exit=$?"'
-stdout '^exit=1$'
+exitcode 1 invowk cmd multi-runtime
 ! stdout 'RUNTIME='
-exec sh -c 'invowk audit .; echo "exit=$?"'
-stdout '^exit=2$'
+exitcode 2 invowk audit .
 
 -- .config/invowk/config.cue --
 default_runtime: "virtual-sh"

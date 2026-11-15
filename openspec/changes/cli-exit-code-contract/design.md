@@ -1,6 +1,6 @@
 ## Context
 
-The behaviour described here was first verified on main `85f1eb7b` on 2026-11-14, using a local build, an isolated `HOME` and a scratch invowkfile. The branch was then rebased onto main `c0a000da`. `git diff --stat 85f1eb7b c0a000da -- cmd/ internal/ pkg/ tests/` is empty, so the observations still hold, and every `file:line` citation below was re-checked against `c0a000da`. The reserved-flag and `@invowkfile` rows were added during the stage-2 review and observed with a `c0a000da` build the same way; the agent row is derived from code and the existing `agent_*.txtar` tests. S1 (`harden-config-trust`) also edits `cmd/invowk/root.go` and merges first; this branch is rebased onto it afterwards, so re-check the `root.go` citations then.
+The behaviour described here was first verified on main `85f1eb7b` on 2026-11-14, using a local build, an isolated `HOME` and a scratch invowkfile. The branch was then rebased onto main `c0a000da`. `git diff --stat 85f1eb7b c0a000da -- cmd/ internal/ pkg/ tests/` is empty, so the observations still hold, and every `file:line` citation below was re-checked against `c0a000da`. The reserved-flag and `@invowkfile` rows were added during the stage-2 review and observed with a `c0a000da` build the same way; the agent row is derived from code and the existing `agent_*.txtar` tests. S1 (`harden-config-trust`) merged into main as `f4969e90`, and this branch was rebased onto it (stage 3b). The citations in the two tables below are kept as observed on `c0a000da`; S1 added discovery scoping (`scopeDiscovery`, `--ivk-no-cwd`) next to most of them, and Decision 11 assigns the exit codes of the failures it introduced.
 
 Observed exit codes:
 
@@ -40,7 +40,8 @@ Existing non-zero codes, gathered from all `ExitError`, `os.Exit` and exit-code 
 | 1 | hidden `invowk internal check-cmd` (`cmd/invowk/internal_check_cmd.go:25-47`), `internal exec-virtual-lua` (`internal_exec_lua.go:127`) | `check-cmd` is consumed only as zero or non-zero by container dependency checks (`internal/app/commandadapters/dependency_runtime.go:169-178`) |
 | 1 / 2 | `invowk audit`: 1 findings, 2 scan or config error (`cmd/invowk/audit.go:23-25`) | Documented in `website/docs/security/audit.mdx:179-185`, `website/docs/reference/cli.mdx:568` and `README.md:3024-3030`. `audit.mdx:184` says that argument errors use status 1 |
 | 2 | every `invowk agent …` failure (see the first table) | Reuses `auditExitError`; undocumented; no intrinsic reason (maintainer decision 3) |
-| 1 (after S1) | S1's fatal explicit-config error: `--ivk-config` or `INVOWK_CONFIG` names a missing or invalid file | Not on this branch: today `invowk --ivk-config /nonexistent cmd …` warns and exits 0 (`tests/cli/testdata/config_override_flag.txtar`, Test 4). S1 makes it fail with 1 (maintainer decision 7) |
+| 1 (S1) | S1's fatal explicit-config error: `--ivk-config` or `INVOWK_CONFIG` names a missing or invalid file, or `INVOWK_CONFIG` is relative | Before S1, `invowk --ivk-config /nonexistent cmd …` warned and exited 0. S1 made it fail with 1 (maintainer decision 7); `config_override_flag.txtar` Test 4 and 4b now assert exactly 1. S1 had `agent` report it as 2 (its blanket code); Decision 11 moves that to 1 |
+| non-zero (S1) | invalid `INVOWK_NO_CWD`, `config set` while an explicit source is active, `agent … --verify` under `--ivk-no-cwd` | S1 specified only "non-zero"; it exited 1 (2 for the agent case). Decision 11 assigns 2 |
 
 Constraints:
 - Hexagonal rule: domain packages (`internal/app/*`, `internal/agentcmd`, `pkg/*`) return typed errors and `cmd/invowk` renders. This change does not touch domain packages.
@@ -63,20 +64,31 @@ Constraints:
 - Signal forwarding and 128+N codes (S2, N1).
 - Changing `audit` codes, and a dedicated code for "needs a newer invowk" (C3, Issue 6).
 - `invowk help bogus`, which exits 0 with "Unknown help topic" (Cobra's built-in help command). Follow-up (maintainer decision 4).
-- Implementing S1's explicit-config failure. C1 only records its status (1) in the contract.
+- Implementing S1's explicit-config failure. C1 only records its status (1) in the contract and moves `agent`'s code for it to 1 (Decision 11).
 - Remapping container-engine codes 125/126.
 
 ## Maintainer decisions (2026-11-14)
 
 Approved by the maintainer as "the recommendations, as amended by the advisor review". They replace the former open questions.
 
-1. **Both registration fixes stay in C1**: the prefix leaf hidden by another source's child (Decision 7) and the nested ambiguous name that printed help (Decision 3, step 3). Tests prove that the `invowk cmd` listing order and the shell-completion output do not change.
+1. **Both registration fixes stay in C1**: the prefix leaf hidden by another source's child (Decision 7) and the nested ambiguous name that printed help (Decision 3, step 3). Tests prove that the shell-completion output does not change. (The listing-order part was superseded by decisions 10 and 12.)
 2. **Usage status is 2.** `EX_USAGE` (64) is a rejected alternative, not a fallback (Decision 4).
 3. **`invowk agent` is aligned to the contract now**: usage errors 2, every other failure 1. It exited 2 on every failure only because it reuses `auditExitError`. BREAKING; listed in the migration notes. `audit`'s own 0/1/2 stays as documented (Decision 8).
 4. **`invowk help bogus`** is a follow-up, out of scope.
 5. **A malformed `--ivk-env-var`** (today exit 0 plus a warning) is in C1: invalid flag values exit 2 (Decision 9).
 6. **Migration notes have no shared file.** Each change keeps its text in its own `proposal.md` "Migration notes" section, and the release assembles them.
-7. **S1's fatal explicit-config error exits 1** and is listed in the contract table, although S1's code is not on this branch.
+7. **S1's fatal explicit-config error exits 1** and is listed in the contract table.
+
+Round 2 (2026-11-14, after stages 2-3):
+
+8. **Group rule order approved**: `--ivk-from` and the ambiguity check run before bare help (Decision 3), and a missing required invowkfile flag exits 2 (Decision 2).
+9. **`--ivk-watch` with `--ivk-dry-run` is a usage error** and exits 2 (it exited 1).
+10. **The `invowk cmd` listing order is made deterministic within a source**, sorted in `internal/discovery`, stable and documented, with a test.
+
+Round 3 (2026-11-14, after the advisor review of all acceptances):
+
+11. **Accepted, each with a line in proposal.md "Migration notes"**: other invalid reserved flags exit 2 (including an empty `--ivk-env-file=`, 0 → 2); `agent` render errors exit 2; an invalid container name exits 2 with `invalid container name` instead of `Invalid request`; one completion description changes (the `w2` leaf).
+12. **Listing order is alphabetical by full command name within each source** (Decision 12). A requirement with a scenario replaces "listing order does not change", and an order test replaces the unchanged-order test.
 
 ## Decisions
 
@@ -182,7 +194,7 @@ Before the node-building loop in `registerDiscoveredCommands` (`cmd_discovery.go
 
 Alternative: when a leaf finds an existing group node, upgrade that node in place. Rejected. It needs Cobra node surgery (copying children and flags), while a sort is enough.
 
-This was unforeseen scope; the maintainer kept it in C1 (decision 1), because the C1 group rule would otherwise turn `invowk cmd w2 x` into exit 2 for a command that exists.
+This was unforeseen scope; the maintainer kept it in C1 (decision 1), because the C1 group rule would otherwise turn `invowk cmd w2 x` into exit 2 for a command that exists. Since maintainer decision 12 the listing reads `BySource`, which discovery sorts by full name (Decision 12); the registration sort still works on a copy and reorders nothing.
 
 ### 8. `invowk agent` follows the contract
 
@@ -230,13 +242,37 @@ Alternatives considered:
 - **End-to-end:** `! exec` passes for any non-zero status, and `tests/cli/cmd_test.go` defines no custom commands (`testscript.Params` at `cmd_test.go:199-203`). Add `Cmds: {"exitcode": …}` to `testscript.Params`. Its syntax is `exitcode <want> <cmd> <args…>`. It calls `ts.Exec` (`go-internal@v1.16.0/testscript/testscript.go:1211-1214`), which runs the command in the script's cwd with the script's environment and stores stdout and stderr so `stdout`/`stderr` assertions keep working, and it fails unless the status equals `<want>`. It rejects `!` negation, because the expected code is explicit. `exec` keeps working everywhere else. The container runner (`tests/cli/cmd_container_test.go:167`) gets the same `Cmds` entry.
 - Built-in command cases are exempt from native mirrors (`.agents/rules/testing.md`, built-in exemption). User-command cases, such as group typos, declared-arg errors, reserved-flag errors and forwarded codes, need `virtual_*` and `native_*` pairs with platform-split CUE.
 
+### 11. Exit codes for the failures S1 introduced
+
+S1 left four failures at "non-zero" or at agent's blanket 2. They are assigned with the rule of Decision 8, applied to the whole CLI: a refusal decided from argv and the environment alone, before any file is read, is a usage error (2); a failure found by reading files or other state is 1.
+
+| Failure | Decided from | Code |
+|---|---|---|
+| invalid `INVOWK_NO_CWD` (`noCwdFromEnv`, `discovery_scope.go`) | the environment value alone. The flag form `--ivk-no-cwd=bogus` is a pflag error and already exits 2, so the env form matches it | 2 |
+| `config set` while `--ivk-config` or `INVOWK_CONFIG` is active (`setConfigValue`, `config.go`) | argv and the environment: `config.SelectSource` reads no file (the stat lives only in `config path`'s marker) | 2 |
+| `agent cmd create`/`change --verify` under `--ivk-no-cwd` or `INVOWK_NO_CWD` (`verifyNoCwdError`) | argv and the environment; it runs inside `validateAgent*Options`, before any LLM call | 2 |
+| a failed explicit config source in `invowk agent` (LLM config resolution) | reading the named file | 1, like every other command (maintainer decisions 3 and 7). `audit` keeps its scan-error 2 |
+
+A relative `INVOWK_CONFIG` stays 1 although it is also decided from the environment alone: S1 folds it into the explicit-config failure, which maintainer decision 7 fixes at 1, and S1's main spec pins it ("relative INVOWK_CONFIG rejected ... exits 1"). Splitting it out would need a second MODIFIED delta that nobody asked for; the asymmetry is recorded as a follow-up.
+
+The MODIFIED delta `specs/config-source-resolution/spec.md` restates S1's "Explicit config failures outside the exit-1 flows" with `agent` at 1. The other S1 requirements say only "non-zero" for the three usage cases, so 2 satisfies them and needs no delta; `cli-exit-codes` adds "Flag and environment conflicts exit with status 2" to pin the exact code.
+
+### 12. Listing order: alphabetical by full name within each source
+
+`listCommands` iterates `commandSet.SourceOrder` (root invowkfile first, then modules alphabetically) and, per source, `commandSet.BySource[source]`, grouped by category with `groupByCategory` (uncategorized first, then categories alphabetically, preserving input order inside a group). `BySource` was filled in `Add` order, and `Invowkfile.FlattenCommands` walks a map, so the order within a source changed between runs; only `commandSet.Commands` was sorted by `Name` (`discovery_commands.go`, `DiscoverCommandSet`).
+
+`DiscoveredCommandSet.Analyze`, which already sorts `SourceOrder`, now also sorts each `BySource` slice by full `Name` (`compareCommandInfoNames`, shared with the existing `Commands` sort). Full names are unique within a source, so the order is total. Source order, `ByName` first-wins precedence and `BySimpleName` are unchanged, and `pkg/invowkfile` is not touched. The only other `BySource` reader, the `--ivk-from` longest-match lookup in `commandsvc`, matches by unique name, so its result does not depend on order. Completion reads `Commands`, which was already sorted, so its candidates do not change.
+
+`internal/discovery/discovery_commands.go` is named by a formal correspondence row (`ScopeConstruction.als`, `RootSrc`); the sort does not change what any bound function publishes, and `python3 scripts/formal.py correspondence` and `make formal` are run as gates.
+
 ## Risks / Trade-offs
 
 - [Scripts that check `== 1` for usage errors, or `== 2` for agent failures, break] → BREAKING notes and migration text in proposal.md; released in the bundled v0.17.0.
 - [Exit 2 collides with a script's own `exit 2`, a nested invowk, and audit's scan-error 2] → Documented in the contract. Wrappers read stderr.
 - [Scripts that passed a malformed `--ivk-env-var` and relied on it being skipped now fail] → Migration note; the old behaviour silently dropped the variable, which hid the mistake.
 - [Making the root and built-in groups runnable changes help rendering] → Fang's usage line depends on `Use` and subcommands, not on `Runnable` (`fang@v1.0.0/help.go:163-185`). Verify with `version_help.txtar` and a before/after diff of `invowk --help`, `invowk config --help`, `invowk module --help` and `invowk cmd --help`. `TestBuiltinCommandTxtarCoverage` already skips runnable routing nodes (`cmd/invowk/cmd_coverage_test.go:346-352`).
-- [Completion or listing regressions] → Cobra's `__complete` does not run `Args` or `RunE`, and the registration sort works on a copy (Decision 7). Add txtar checks that `__complete config ""`, `__complete cmd ""` and `__complete cmd test ""` keep their candidates, and that the `invowk cmd` listing keeps its order; keep `completion.txtar`'s existing assertions unchanged.
+- [Completion or listing regressions] → Cobra's `__complete` does not run `Args` or `RunE`, and the registration sort works on a copy (Decision 7). Add txtar checks that `__complete config ""`, `__complete cmd ""` and `__complete cmd test ""` keep their candidates, and that the `invowk cmd` listing is alphabetical within each source (Decision 12); keep `completion.txtar`'s existing assertions unchanged.
+- [Scripts that parse the `invowk cmd` listing and relied on declaration order] → The old order was map iteration order and not stable either; migration note.
 - [Engine codes 125/126 forwarded as N] → Documented as a known limitation. Remapping them would need container-runtime changes and is out of scope.
 - [Merge conflicts with S1 in `root.go`] → Two small, separated edits (Constraints). Rebase onto S1 after it merges and re-run the `root.go` unit tests.
 - [Hidden txtar dependence on group help with extra tokens, or on agent exit 2] → Run `make test-cli` early (task 1.3) and triage every failure against the spec.
@@ -247,4 +283,4 @@ Ship in v0.17.0. The text in proposal.md "Migration notes" goes into the release
 
 ## Open Questions
 
-None. Every former question is resolved under "Maintainer decisions (2026-11-14)". Follow-ups outside C1: `invowk help <unknown-topic>` (decision 4), strict tokens after a leaf with children (C3, Decision 6), and 125/126 remapping.
+None. Every former question is resolved under "Maintainer decisions (2026-11-14)". Follow-ups outside C1: `invowk help <unknown-topic>` (decision 4), strict tokens after a leaf with children (C3, Decision 6), 125/126 remapping, and whether a relative `INVOWK_CONFIG` should exit 2 like the other environment-only rejections (Decision 11).

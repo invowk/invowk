@@ -176,7 +176,7 @@ The `DiscoveredCommandSet` provides:
 | `ByName` | Index: full name → first command added with it (precedence order); used by `GetCommand` |
 | `BySimpleName` | Index: simple name → all commands with that name |
 | `AmbiguousNames` | Set of names that exist in >1 source |
-| `BySource` | Groups commands by source ID |
+| `BySource` | Groups commands by source ID; `Analyze` sorts each slice alphabetically by full name (the `invowk cmd` listing order) |
 | `SourceOrder` | Pre-sorted: "invowkfile" first, then modules alphabetically |
 
 ### Precedence vs. Collision Handling

@@ -23,13 +23,22 @@ stdout 'RUNTIME=virtual'
 
 # Test 4: --ivk-config with a non-existent file fails closed: exit 1, the
 # error names the file and the flag, and the command does not run.
-! exec invowk cmd multi-runtime --ivk-config nonexistent.cue
+exitcode 1 invowk cmd multi-runtime --ivk-config nonexistent.cue
 ! stdout 'RUNTIME='
 stderr 'nonexistent.cue'
 stderr 'ivk-config'
 
+# Test 4b: the same for INVOWK_CONFIG=/nonexistent. On Windows the value is not
+# absolute and fails the absolute-path rule instead; both exit 1 and name the
+# variable, so only those are asserted.
+env INVOWK_CONFIG=/nonexistent
+exitcode 1 invowk cmd multi-runtime
+! stdout 'RUNTIME='
+stderr 'INVOWK_CONFIG'
+env INVOWK_CONFIG=
+
 # Test 5: --ivk-config with invalid CUE also fails closed.
-! exec invowk cmd multi-runtime --ivk-config broken-config/config.cue
+exitcode 1 invowk cmd multi-runtime --ivk-config broken-config/config.cue
 ! stdout 'RUNTIME='
 stderr 'ivk-config'
 

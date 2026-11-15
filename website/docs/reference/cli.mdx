@@ -15,7 +15,7 @@ These flags are available for all commands:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--help` | `-h` | Show help for the command |
-| `--ivk-config` | `-c` | Config file path. Overrides `INVOWK_CONFIG` and the [user config file](/docs/configuration/overview#configuration-file-location); a missing or invalid file is an error (exit 1; 2 for `invowk audit` and `invowk agent`). See [which config file is used](../configuration/overview#which-config-file-is-used) |
+| `--ivk-config` | `-c` | Config file path. Overrides `INVOWK_CONFIG` and the [user config file](/docs/configuration/overview#configuration-file-location); a missing or invalid file is an error (exit 1; `invowk audit` uses its scan-error code, 2). See [which config file is used](../configuration/overview#which-config-file-is-used) |
 | `--ivk-no-cwd` | | Ignore the current directory's `invowkfile.cue` and `*.invowkmod` modules during command discovery (overrides `INVOWK_NO_CWD`) |
 | `--ivk-interactive` | `-i` | Run commands in alternate screen buffer (interactive mode) |
 | `--ivk-verbose` | `-v` | Enable verbose output |
@@ -25,8 +25,8 @@ These flags are available for all commands:
 
 | Variable | Description |
 |----------|-------------|
-| `INVOWK_CONFIG` | Absolute path of the config file to use when `--ivk-config` is not given. Empty means unset; a relative, missing or invalid value is an error (exit 1; 2 for `invowk audit` and `invowk agent`). Never resolved against the current directory |
-| `INVOWK_NO_CWD` | Same as `--ivk-no-cwd` when the flag is not given. Accepts the values of Go's `strconv.ParseBool` (`1`, `true`, `0`, `false`, ...); empty means off, anything else is an error in the commands that discover command sources |
+| `INVOWK_CONFIG` | Absolute path of the config file to use when `--ivk-config` is not given. Empty means unset; a relative, missing or invalid value is an error (exit 1; `invowk audit` uses its scan-error code, 2). Never resolved against the current directory |
+| `INVOWK_NO_CWD` | Same as `--ivk-no-cwd` when the flag is not given. Accepts the values of Go's `strconv.ParseBool` (`1`, `true`, `0`, `false`, ...); empty means off, anything else is an error (exit 2) in the commands that discover command sources |
 
 Nested `invowk` calls inherit these variables only when the caller set them, under the command's normal `env_inherit_mode` rules; the flag forms are never exported to child processes.
 
@@ -45,6 +45,8 @@ The root command. Running `invowk` without arguments shows the help message.
 Execute commands defined in invowkfiles.
 
 <Snippet id="reference/cli/cmd-syntax" />
+
+Without a command name, `invowk cmd` lists the available commands: the root invowkfile first, then modules alphabetically, and within each source, commands alphabetically by full name (grouped by category, uncategorized first).
 
 **Flags:**
 
@@ -750,9 +752,10 @@ Exit status `2` covers:
 - a command name under `invowk cmd` that is not found or is ambiguous across sources, an unknown `@source` or `--ivk-from` source, and a source filter without a command name;
 - declared arguments or flags that fail validation;
 - an invalid reserved `--ivk-*` flag value, such as an unknown `--ivk-runtime` or a runtime the command does not allow, an unknown `--ivk-env-inherit-mode`, an invalid `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny` name, a whitespace-only `--ivk-workdir`, an empty `--ivk-env-file`, an invalid `--ivk-container-name`, or an `--ivk-env-var` value without `KEY=`;
-- an `invowk agent` error detected from the command line alone, such as an invalid name, mutually exclusive flags, a missing description, an invalid `--llm-*` value, or an unknown prompt format or operation.
+- an `invowk agent` error detected from the command line alone, such as an invalid name, mutually exclusive flags, a missing description, an invalid `--llm-*` value, or an unknown prompt format or operation;
+- a conflict decided by flags and environment variables alone: an invalid `INVOWK_NO_CWD` value, `--ivk-watch` together with `--ivk-dry-run`, `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create`/`change --verify` under `--ivk-no-cwd` or `INVOWK_NO_CWD`.
 
-Exit status `1` covers everything else: config errors that abort the command, including a config file named by `--ivk-config` or `INVOWK_CONFIG` that is missing or invalid; discovery errors; invalid invowkfiles or command trees; unsatisfied `depends_on` checks; an unsupported host platform; an unavailable container engine or runtime; timeouts and cancellations; and `invowk agent` failures that need files, the config or an LLM.
+Exit status `1` covers everything else: config errors that abort the command, including a config file named by `--ivk-config` or `INVOWK_CONFIG` that is missing or invalid, or a relative `INVOWK_CONFIG`; discovery errors; invalid invowkfiles or command trees; unsatisfied `depends_on` checks; an unsupported host platform; an unavailable container engine or runtime; timeouts and cancellations; and `invowk agent` failures that need files, the config or an LLM.
 
 Per-command exceptions:
 

@@ -15,7 +15,7 @@ Estas flags estão disponíveis para todos os comandos:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--help` | `-h` | Mostrar ajuda para o comando |
-| `--ivk-config` | `-c` | Caminho do arquivo de configuração. Sobrepõe `INVOWK_CONFIG` e o [arquivo de configuração do usuário](/docs/configuration/overview#localização-do-arquivo-de-configuração); um arquivo ausente ou inválido é um erro (saída 1; 2 para `invowk audit` e `invowk agent`). Veja [qual arquivo de configuração é usado](../configuration/overview#qual-arquivo-de-configuração-é-usado) |
+| `--ivk-config` | `-c` | Caminho do arquivo de configuração. Sobrepõe `INVOWK_CONFIG` e o [arquivo de configuração do usuário](/docs/configuration/overview#localização-do-arquivo-de-configuração); um arquivo ausente ou inválido é um erro (saída 1; o `invowk audit` usa seu código de erro de varredura, 2). Veja [qual arquivo de configuração é usado](../configuration/overview#qual-arquivo-de-configuração-é-usado) |
 | `--ivk-no-cwd` | | Ignorar o `invowkfile.cue` e os módulos `*.invowkmod` do diretório atual na descoberta de comandos (sobrepõe `INVOWK_NO_CWD`) |
 | `--ivk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
 | `--ivk-verbose` | `-v` | Habilitar saída verbose |
@@ -25,8 +25,8 @@ Estas flags estão disponíveis para todos os comandos:
 
 | Variável | Descrição |
 |----------|-----------|
-| `INVOWK_CONFIG` | Caminho absoluto do arquivo de configuração usado quando `--ivk-config` não é informado. Vazio significa não definido; um valor relativo, ausente ou inválido é um erro (saída 1; 2 para `invowk audit` e `invowk agent`). Nunca é resolvido em relação ao diretório atual |
-| `INVOWK_NO_CWD` | Igual a `--ivk-no-cwd` quando a flag não é informada. Aceita os valores do `strconv.ParseBool` do Go (`1`, `true`, `0`, `false`, ...); vazio significa desligado, e qualquer outro valor é um erro nos comandos que descobrem fontes de comandos |
+| `INVOWK_CONFIG` | Caminho absoluto do arquivo de configuração usado quando `--ivk-config` não é informado. Vazio significa não definido; um valor relativo, ausente ou inválido é um erro (saída 1; o `invowk audit` usa seu código de erro de varredura, 2). Nunca é resolvido em relação ao diretório atual |
+| `INVOWK_NO_CWD` | Igual a `--ivk-no-cwd` quando a flag não é informada. Aceita os valores do `strconv.ParseBool` do Go (`1`, `true`, `0`, `false`, ...); vazio significa desligado, e qualquer outro valor é um erro (saída 2) nos comandos que descobrem fontes de comandos |
 
 Chamadas aninhadas do `invowk` herdam essas variáveis só quando quem chama as definiu, pelas regras normais de `env_inherit_mode` do comando; as formas de flag nunca são exportadas para processos filhos.
 
@@ -45,6 +45,8 @@ O comando raiz. Executar `invowk` sem argumentos mostra a mensagem de ajuda.
 Executar comandos definidos em invowkfiles.
 
 <Snippet id="reference/cli/cmd-syntax" />
+
+Sem nome de comando, `invowk cmd` lista os comandos disponíveis: primeiro o invowkfile raiz, depois os módulos em ordem alfabética e, dentro de cada fonte, os comandos em ordem alfabética pelo nome completo (agrupados por categoria, os sem categoria primeiro).
 
 **Flags:**
 
@@ -750,9 +752,10 @@ O status `2` cobre:
 - um nome de comando sob `invowk cmd` não encontrado ou ambíguo entre fontes, uma fonte `@source` ou `--ivk-from` desconhecida e um filtro de fonte sem nome de comando;
 - argumentos ou flags declarados que falham na validação;
 - um valor inválido de uma flag reservada `--ivk-*`, como um `--ivk-runtime` desconhecido ou um runtime não permitido pelo comando, um `--ivk-env-inherit-mode` desconhecido, um nome inválido em `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny`, um `--ivk-workdir` só com espaços, um `--ivk-env-file` vazio, um `--ivk-container-name` inválido ou um valor de `--ivk-env-var` sem `KEY=`;
-- um erro de `invowk agent` detectado apenas pela linha de comando, como um nome inválido, flags mutuamente exclusivas, uma descrição ausente, um valor `--llm-*` inválido ou um formato ou operação de prompt desconhecido.
+- um erro de `invowk agent` detectado apenas pela linha de comando, como um nome inválido, flags mutuamente exclusivas, uma descrição ausente, um valor `--llm-*` inválido ou um formato ou operação de prompt desconhecido;
+- um conflito decidido apenas por flags e variáveis de ambiente: um valor inválido de `INVOWK_NO_CWD`, `--ivk-watch` junto com `--ivk-dry-run`, `invowk config set` enquanto `--ivk-config` ou `INVOWK_CONFIG` está ativo, e `invowk agent cmd create`/`change --verify` sob `--ivk-no-cwd` ou `INVOWK_NO_CWD`.
 
-O status `1` cobre todo o resto: erros de configuração que abortam o comando, incluindo um arquivo de configuração indicado por `--ivk-config` ou `INVOWK_CONFIG` ausente ou inválido; erros de descoberta; invowkfiles ou árvores de comandos inválidas; verificações de `depends_on` não satisfeitas; uma plataforma de host não suportada; um engine de contêiner ou runtime indisponível; timeouts e cancelamentos; e falhas de `invowk agent` que dependem de arquivos, da configuração ou de um LLM.
+O status `1` cobre todo o resto: erros de configuração que abortam o comando, incluindo um arquivo de configuração indicado por `--ivk-config` ou `INVOWK_CONFIG` ausente ou inválido, ou um `INVOWK_CONFIG` relativo; erros de descoberta; invowkfiles ou árvores de comandos inválidas; verificações de `depends_on` não satisfeitas; uma plataforma de host não suportada; um engine de contêiner ou runtime indisponível; timeouts e cancelamentos; e falhas de `invowk agent` que dependem de arquivos, da configuração ou de um LLM.
 
 Exceções por comando:
 

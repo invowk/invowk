@@ -17,11 +17,13 @@ CST and other callers that wrap invowk in systemd units, shell wrappers or CI ne
   - `@source` or `--ivk-from` naming a source that does not exist;
   - an invalid `--ivk-runtime` value, or a runtime the command does not allow;
   - declared-argument errors (`deps.ArgumentValidationError`) and invowkfile flag-validation errors (`deps.FlagValidationError`);
-  - `invowk cmd @src` with no command name.
+  - `invowk cmd @src` with no command name;
+  - a conflict decided from flags and environment variables alone: an invalid `INVOWK_NO_CWD`, `--ivk-watch` with `--ivk-dry-run`, `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create|change --verify` under `--ivk-no-cwd` (design.md, Decision 11).
 - **BREAKING**: Usage errors under a command group no longer print help to stdout with status 0. They print an `unknown command` error, `Did you mean` suggestions (Cobra `SuggestionsFor`) and the group's available subcommands, all on **stderr**, and exit 2. A bare group with no arguments (`invowk cmd test`, `invowk config`) still prints help to stdout and exits 0.
-- **BREAKING**: `invowk agent` follows the same contract. Argument and flag errors (invalid name or module ID, mutually exclusive flags, missing description, invalid `--llm-*` value, unknown prompt format or operation) exit **2**. Every other agent failure (LLM detection or verification, a command or module that already exists or does not exist, `requires --force`, I/O) exits **1** instead of 2. `invowk audit` keeps 0 / 1 / 2.
+- **BREAKING**: `invowk agent` follows the same contract. Argument and flag errors (invalid name or module ID, mutually exclusive flags, missing description, invalid `--llm-*` value, unknown prompt format or operation) exit **2**. Every other agent failure (LLM detection or verification, a command or module that already exists or does not exist, `requires --force`, I/O, and a failed `--ivk-config` / `INVOWK_CONFIG` source) exits **1** instead of 2. `invowk audit` keeps 0 / 1 / 2.
 - A typed CLI-layer `UsageError`, plus one pure function that maps an error to an exit code. `Execute` uses that function, so it can be unit-tested.
-- Discovered-command registration is fixed so that a command which is also the prefix of a command from another source (leaf `w2` in the invowkfile, `w2 sub` in a module) is always registered as a runnable leaf. Today it is shadowed by a help-only group node, and `invowk cmd w2` prints help instead of running. Without this fix, the new group rule would turn `invowk cmd w2 x` into exit 2 for a command that exists. The `invowk cmd` listing order and shell-completion output do not change.
+- Discovered-command registration is fixed so that a command which is also the prefix of a command from another source (leaf `w2` in the invowkfile, `w2 sub` in a module) is always registered as a runnable leaf. Today it is shadowed by a help-only group node, and `invowk cmd w2` prints help instead of running. Without this fix, the new group rule would turn `invowk cmd w2 x` into exit 2 for a command that exists. Shell-completion candidates do not change; only `w2`'s completion description becomes the leaf's own.
+- The `invowk cmd` listing becomes deterministic: within each source, commands are listed alphabetically by full command name (sorted in `internal/discovery`). It used to follow map iteration order (maintainer decisions 10 and 12).
 - An ambiguous nested name reached through a group node (`invowk cmd deploy prod`, ambiguous across sources, with a unique sibling `deploy dev`) renders the ambiguity message and exits 2 instead of printing help.
 - A documented exit-code contract:
 
@@ -37,7 +39,7 @@ CST and other callers that wrap invowk in systemd units, shell wrappers or CI ne
 - Not in this change:
   - rejecting unmatched tokens after a leaf that also has children (`invowk cmd w typo` still runs `w` with `typo` as `$1`); deferred to C3 `command-contract-schema` (design.md, Decision 6);
   - `invowk help <unknown-topic>`, which still exits 0 (follow-up);
-  - S1's explicit-config failure itself, which S1 implements; C1 only lists its status.
+  - S1's explicit-config failure itself, which S1 implements; C1 only lists its status (1) and moves `invowk agent`'s code for it from 2 to 1.
 
 ## Migration notes
 
@@ -50,9 +52,16 @@ For the v0.17.0 release notes. Per the maintainer decision, each change keeps it
 > What to update:
 > - Scripts that test `$? -eq 1` to detect a mistyped invocation should test for `2`, or for any non-zero status.
 > - Scripts that ran `invowk cmd <group> <word>` and expected help on stdout should run `invowk cmd <group>` (still status 0) or `invowk cmd <group> --help`.
-> - A malformed `--ivk-env-var` value (`NAME` without `=`, or `=value` with no name) is now an error with status `2`. It used to be skipped with a warning, so the variable was silently never set. Write `NAME=value`; `NAME=` still sets an empty value. An empty `--ivk-env-file=` path, which used to be accepted, also exits `2`.
+> - A malformed `--ivk-env-var` value (`NAME` without `=`, or `=value` with no name) is now an error with status `2`. It used to be skipped with a warning, so the variable was silently never set. Write `NAME=value`; `NAME=` still sets an empty value.
 > - `invowk agent` used to exit `2` on every failure. It now exits `2` only for argument and flag errors, and `1` for every other failure, such as LLM errors or a command or module that already exists. Scripts that test `$? -eq 2` after `invowk agent …` to detect any failure should test for any non-zero status.
 > - Your own commands can also exit with `2`. If you must tell the two apart, read stderr, or give your scripts codes other than 1 and 2.
+> - `invowk agent` render errors (an unknown `--format` or prompt operation) exit `2`.
+> - A failed `--ivk-config` or `INVOWK_CONFIG` source now makes `invowk agent` exit `1` like every other command, not `2`. `invowk audit` keeps `2` for it.
+> - Other invalid reserved `--ivk-*` values also exit `2` (they exited `1`): an unknown `--ivk-runtime` or `--ivk-env-inherit-mode`, an invalid `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny` name, a whitespace-only `--ivk-workdir`, and an empty `--ivk-env-file=` (which used to exit `0`).
+> - An invalid `--ivk-container-name` exits `2` with an `invalid container name` error instead of `1` with `Invalid request: 1 field error(s)`.
+> - Flag and environment conflicts exit `2`: an invalid `INVOWK_NO_CWD` value, `--ivk-watch` with `--ivk-dry-run` (it exited `1`), `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create`/`change --verify` under `--ivk-no-cwd`.
+> - Shell completion: `invowk __complete cmd ""` now shows a prefix leaf's own description (for example `w2` when a module also defines `w2 sub`) instead of `Commands under 'w2'`, because that leaf is now registered as a runnable command.
+> - The `invowk cmd` listing now lists each source's commands alphabetically by full command name. It used to follow an unspecified order that could change between runs. Scripts that parse the listing should not rely on declaration order.
 > - `invowk audit` keeps `0` = clean, `1` = findings, `2` = scan error. Its argument errors now also exit `2` instead of `1`.
 
 ## Capabilities
@@ -61,16 +70,18 @@ For the v0.17.0 release notes. Per the maintainer decision, each change keeps it
 - `cli-exit-codes`: the process exit-code contract of the `invowk` binary. It covers success, forwarding a user command's code, rejecting the command line (2), other invowk failures (1), per-command exceptions, where usage-error output goes (stdout or stderr) for command groups, and the registration rules that keep existing commands reachable.
 
 ### Modified Capabilities
-None. No existing spec in `openspec/specs/` states CLI exit-code requirements (checked 2026-11-14 on `c0a000da`).
+- `config-source-resolution` (from S1, `harden-config-trust`): "Explicit config failures outside the exit-1 flows" now has `invowk agent` exit 1 for a failed explicit config source, per the general contract; `audit` keeps 2.
 
 ## Impact
 
-- **Code** (`cmd/invowk/` only; domain packages unchanged):
+- **Code** (`cmd/invowk/`, plus one sort in `internal/discovery`):
   - `root.go`: two edits only, the body of `Execute` and one `installUsageGuards(rootCmd)` call in `NewRootCommand`, so the S1 rebase stays simple.
   - New `usage_error.go`: `UsageError`, `newUsageError`, `ExitCodeUsage`, `exitCodeForError`, `installUsageGuards` (root flag-error func, root `Args` and `RunE`, built-in group guards) and the shared group-rejection helper.
   - `cmd_discovery.go`: group nodes, plus the registration-order fix.
   - `app.go` (`renderAndWrapServiceError`), `cmd.go`, `cmd_execute_helpers.go` (reserved-flag validation, `parseEnvVarFlags`) and `cmd_watch.go`: wrap the usage-class errors.
   - `agent.go` and `llm_flags.go`: per-site exit codes; the shared LLM helpers take the caller's codes so `audit.go` keeps 2.
+  - `cmd_watch.go` (watch/dry-run conflict), `discovery_scope.go` (invalid `INVOWK_NO_CWD`) and `config.go` (`config set` refusal): wrapped as usage errors.
+  - `internal/discovery/discovery_commands.go`: `DiscoveredCommandSet.Analyze` sorts each source's commands by full name.
 - **Tests**:
   - Go unit tests for the mapper, the guards, group and registration behaviour, reserved flags, and agent codes.
   - A new exact-exit-code command in the `tests/cli` testscript harness.
@@ -80,5 +91,5 @@ None. No existing spec in `openspec/specs/` states CLI exit-code requirements (c
   - `README.md`: a new general "Exit codes" section and the audit "Exit Codes" table (`README.md:3024`).
   - The CLI skill (`.agents/skills/cli/SKILL.md`, "Error Handling & Exit Codes").
   - `website/versioned_docs` is not edited.
-- **Ordering**: S1 (`harden-config-trust`) merges first; this branch is then rebased onto it, because both edit `cmd/invowk/root.go`. Line citations are against main `c0a000da` and must be re-checked on rebase.
-- **Completion and listing**: shell-completion output and the `invowk cmd` listing must not change (`completion.txtar`, `__complete` paths).
+- **Ordering**: S1 (`harden-config-trust`, `f4969e90`) merged first; this branch is rebased onto it. Line citations in design.md's Context tables are against `c0a000da`, where they were observed.
+- **Completion and listing**: shell-completion candidates must not change (`completion.txtar`, `__complete` paths); the `invowk cmd` listing order changes to alphabetical within each source (`virtual_multi_source.txtar` / `native_multi_source.txtar`, Test 6).

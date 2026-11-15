@@ -57,7 +57,8 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 	// Build nodes in SimpleName order so a leaf `X` is always built before any
 	// `X Y` from another source and becomes their parent; otherwise a group
 	// node `X` created first would shadow the runnable leaf. The sort works on
-	// a copy: commandSet.Commands keeps the order used by listing and completion.
+	// a copy, so registration never reorders the discovery result that listing
+	// (BySource, alphabetical within a source) and completion read.
 	ordered := slices.Clone(commandSet.Commands)
 	slices.SortStableFunc(ordered, func(a, b *discovery.CommandInfo) int {
 		return cmp.Compare(a.SimpleName, b.SimpleName)
