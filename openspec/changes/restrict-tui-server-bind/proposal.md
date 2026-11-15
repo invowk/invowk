@@ -5,19 +5,25 @@ During every interactive command (`-i`), the TUI server listens on `0.0.0.0` (`i
 ## What Changes
 
 - **BREAKING (narrow)**: the TUI server no longer listens on every interface. Native, virtual-sh and virtual-lua runs bind loopback only. Container runs bind loopback plus the address the engine actually routes the host alias to:
-  - rootful Docker and Podman on Linux: the engine's default bridge gateway;
-  - Docker Desktop and Podman machine: loopback (the engine forwards the alias there);
-  - rootless Podman with pasta: loopback, with a single forwarded port (`--network pasta:-T,<port>`).
+  - rootful Docker on Linux: the default bridge gateway. Rootful Podman gets the same plan only once a probe verifies it;
+  - Docker Desktop: loopback, because the engine forwards the alias there;
+  - rootless Podman with a pasta binary: loopback, with a single forwarded port (`--network pasta:-T,<port>`).
 - `INVOWK_TUI_ADDR` inside a container names the address the server actually bound, instead of a hostname alias the engine may resolve elsewhere.
-- **BREAKING (narrow)**: some configurations have no route to a loopback or bridge address. These are a persistent container under rootless Podman, rootless Docker, a remote engine (`DOCKER_HOST`, `CONTAINER_HOST`, `podman --remote`), and a Flatpak sandbox without host networking. In those, `invowk cmd … -i` with the container runtime fails before it starts the container. The error names the new opt-in, `container.tui_server_bind: "all-interfaces"`. Invowk never widens the bind on its own.
+- **BREAKING (narrow)**: some configurations have no route to a loopback or bridge address. These are:
+  - a persistent container under rootless Podman;
+  - rootless Podman without pasta (slirp4netns only);
+  - rootless Docker;
+  - a remote engine (`DOCKER_HOST`, `podman --remote`, Podman machine);
+  - Snap, and Flatpak without host networking;
+  - any mode not yet verified that would need a non-loopback bind. In those, `invowk cmd … -i` with the container runtime fails before it starts the container. The error names the new opt-in, `container.tui_server_bind: "all-interfaces"`. Invowk never widens the bind on its own.
 - Token checks on `/tui` use `crypto/subtle.ConstantTimeCompare`.
 - `/health` requires the same bearer token. The in-tree client (`internal/tuiclient/client.go:155-173`) sends it.
 - Container integration tests on `debian:stable-slim` prove that the narrow bind is reachable from the container and that the server does not listen on any other interface.
 
 ## Migration notes
 
-- Nothing changes for native, virtual and ephemeral container runs, or for rootful Docker and Podman. Interactive mode keeps working; only `INVOWK_TUI_ADDR` now carries an IP literal instead of `host.docker.internal` / `host.containers.internal`. Scripts that read `INVOWK_TUI_ADDR` should treat it as an opaque URL.
-- Some configurations now fail fast: interactive persistent containers under rootless Podman, rootless Docker, remote engines, and Flatpak without `--share=network`. To restore the previous exposure knowingly, set `container: tui_server_bind: "all-interfaces"` in `config.cue`. Invowk then warns at every interactive container run that the port is reachable from the network.
+- Nothing changes for native, virtual and rootful Docker runs, or for ephemeral rootless Podman runs where pasta is installed. Interactive mode keeps working; only `INVOWK_TUI_ADDR` now carries an IP literal instead of `host.docker.internal` / `host.containers.internal`. Scripts that read `INVOWK_TUI_ADDR` should treat it as an opaque URL.
+- Some configurations now fail fast. They include interactive persistent containers under rootless Podman, rootless Podman without pasta, rootless Docker, remote engines (including Podman machine), Snap, and Flatpak without `--share=network`. For rootless Podman, installing pasta (`passt`) restores ephemeral interactive runs without widening the bind. To restore the previous exposure knowingly, set `container: tui_server_bind: "all-interfaces"` in `config.cue`. Invowk then warns at every interactive container run that the port is reachable from the network.
 - An `invowk` binary older than v0.17.0 that runs inside a container and calls `/health` without a token gets `401`. It then treats the TUI server as unavailable. The auto-provisioned binary is the host's own and is unaffected.
 
 ## Capabilities

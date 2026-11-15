@@ -23,9 +23,11 @@ Each probe started Python listeners on three host addresses: `127.0.0.1`, `172.1
 | Docker 29.9.2 rootful, default bridge, `--add-host …:host-gateway` | `172.17.0.1` (= `docker network inspect bridge` gateway) | `172.17.0.1` only; not loopback | verified |
 | Podman 6.1.3 rootless, pasta (default), `host.containers.internal` | `169.254.1.2` (pasta `--map-guest-addr`) | LAN address only; not loopback, not docker0 | verified |
 | Same, with `--add-host host.docker.internal:host-gateway` | `169.254.1.2` | LAN address only | verified |
-| Podman rootless, `--network pasta:-T,<port>`, target `127.0.0.1:<port>` in the container | n/a | host loopback, that port only; a second loopback port was refused | verified |
+| Podman rootless, `--network pasta:-T,<port>`, target `127.0.0.1:<port>` in the container; re-run with invowk's flag set (`-i --userns=keep-id -p 127.0.0.1:<h>:<c> --add-host host.docker.internal:host-gateway`) | n/a | host loopback, that port only; a second loopback port was refused | verified |
 | Podman rootless, `--network pasta:--map-host-loopback,169.254.1.3` | n/a | all of host loopback | verified (rejected, see D3) |
 | Podman 6 `slirp4netns` | n/a | n/a | removed in Podman 6 ("slirp4netns support has been removed") |
+
+In the Docker probe, the container could not reach the LAN-bound listener. That result is observed but unexplained; a host firewall rule on bridge-to-host traffic is the likely cause. It does not affect the plan, which never binds the LAN address. `podman info --format '{{.Host.Pasta.Executable}}'` returned `/usr/bin/pasta`. On Podman 6 the `.Host.Slirp4NetNS` field no longer exists.
 
 Podman documents that pasta passes `--map-guest-addr 169.254.1.2` by default for `host.containers.internal`, together with `--no-map-gw`, and that `pasta:-T,<port>` forwards one TCP port from container to host loopback (docs.podman.io, podman-run(1) `--network`).
 
@@ -73,16 +75,31 @@ A `container` method collects the facts behind each plan, through the existing s
 
 Plan selection is a pure function in `containerplan` (or `runtime`), tested table-driven.
 
-| Facts | Plan |
-|---|---|
-| native / virtual-sh / virtual-lua | loopback |
-| Docker, local, rootful, Linux, gateway on a local interface | loopback + gateway; URL host = gateway IP |
-| Podman, local, rootful, gateway on a local interface | loopback + gateway; URL host = gateway IP (unverified, task 4.3) |
-| Docker Desktop (`OperatingSystem` = "Docker Desktop") or Podman machine | loopback; URL host = engine alias (unverified, task 4.4) |
-| Podman, rootless, pasta, ephemeral container | loopback; network `pasta:-T,<port>`; URL host = `127.0.0.1` |
-| Podman rootless + persistent container; Docker rootless (`name=rootless`); remote endpoint (`tcp://`, `ssh://`, `ServiceIsRemote`); gateway not on a local interface; Flatpak without host network; facts query fails | unroutable |
+**Governing rule.**
+- A plan that binds a non-loopback address ships only for a mode a probe has verified. Every other mode that would need one is unroutable.
+- A loopback-only plan can never widen exposure. It may ship for a mode the vendor documents but we have not probed; if the vendor is wrong, the TUI is unreachable, not exposed.
 
-"Gateway on a local interface" means `net.InterfaceAddrs()` contains the IP. That check catches custom `host-gateway-ip` setups and remote daemons that report a gateway invowk cannot bind.
+**Row order.** Rows are evaluated top to bottom, and the first match wins.
+
+| # | Facts | Plan | Evidence |
+|---|---|---|---|
+| 1 | native / virtual-sh / virtual-lua | loopback | n/a |
+| 2 | facts query fails; Snap sandbox (Q3); Flatpak without `network` in `/.flatpak-info` `[Context] shared` | unroutable | fail-safe |
+| 3 | Docker with `OperatingSystem` = "Docker Desktop" and a local endpoint (`unix://` or `npipe://`) | loopback; URL host = `host.docker.internal` | vendor-documented, not probed (task 4.4) |
+| 4 | remote endpoint (Docker context `tcp://`/`ssh://`, `DOCKER_HOST` likewise; Podman `ServiceIsRemote` = true, which includes Podman machine) | unroutable | fail-safe (Podman machine revisited by task 4.4) |
+| 5 | Docker rootless (`SecurityOptions` contains `name=rootless`) | unroutable | Q2 |
+| 6 | Docker rootful, Linux, bridge gateway on a local interface | loopback + gateway; URL host = gateway IP | verified (probe row 1) |
+| 7 | Podman rootful, gateway on a local interface | unroutable until task 4.3 verifies it, then loopback + gateway | task 4.3 |
+| 8 | Podman rootless, persistent container | unroutable | D3, Q1 |
+| 9 | Podman rootless, ephemeral, with `.Host.Pasta.Executable` set (whether `RootlessNetworkCmd` is pasta or slirp4netns) | loopback; network `pasta:-T,<port>`; URL host = `127.0.0.1` | verified on pasta 6.1 (probe row 4); Podman 4.x by task 5.1 in CI |
+| 10 | Podman rootless with no pasta binary (slirp4netns-only Podman 4.x) | unroutable | slirp4netns cannot forward one port to the host, and `allow_host_loopback` exposes all of host loopback (rejected like `--map-host-loopback`, D3) |
+| 11 | anything else, including a gateway not on a local interface | unroutable | fail-safe |
+
+"Gateway on a local interface" means `net.InterfaceAddrs()` contains the IP. That check catches custom `host-gateway-ip` setups and daemons that report a gateway invowk cannot bind.
+
+Flatpak with host networking is inferred, not probed. The probes ran in a toolbox that shares the host network namespace, which is the same topology. Task 5.1 adds a Flatpak run where one is available.
+
+Ubuntu CI runs Podman rootless through the user socket (`.github/workflows/ci.yml:161-166`). Task 5.1 makes sure that job has a pasta binary, so it exercises row 9; otherwise the job asserts the row 10 error.
 
 ### D3. Rootless Podman: forward one port with `pasta:-T`
 
@@ -119,7 +136,9 @@ Add `container.tui_server_bind: *"restricted" | "all-interfaces"` to `#Container
 - [Local users on the host can reach loopback] → Same as today; the token guards it.
 - [Rootless persistent interactive users regress to an error] → The error names the opt-in. Q1 tracks a narrow fix.
 - [The engine facts query adds latency to every interactive container run] → One or two engine CLI calls, made only for `-i` container runs. Cache them per process.
-- [Rows marked unverified may be wrong] → Loopback-only rows fail closed: the TUI is unreachable, nothing is exposed. Bridge rows require the gateway to be a local interface. Tasks 4.3 and 4.4 verify both or move them to unroutable.
+- [Rows marked unverified may be wrong] → Under the governing rule, only loopback rows ship unverified, and they fail closed: the TUI is unreachable, nothing is exposed. Tasks 4.3 and 4.4 promote rows only on probe evidence.
+- [A host firewall blocks bridge-to-host traffic to the gateway port] → The run fails as unreachable, not exposed. The docs name the firewall as a cause.
+- [Podman 4.x (Ubuntu 24.04) without passt becomes unroutable for interactive container runs] → The error names the opt-in and says that installing pasta (passt) enables the narrow plan.
 - [An older in-container `invowk` gets `401` on `/health`] → Auto-provisioning installs the host binary, so only hand-installed old binaries are affected. Noted in the migration notes.
 
 ## Migration Plan
@@ -130,5 +149,5 @@ Ship in v0.17.0 after F1 (merge order in decision 7). Roll back by reverting the
 
 - **Q1.** Persistent containers under rootless Podman could reserve a fixed forward port at creation (recorded as a container label, `pasta:-T,<P>`), and the server would bind `127.0.0.1:<P>` on each run. Deferred: the fail-safe error is already correct, and this adds port-conflict handling.
 - **Q2.** Rootless Docker (RootlessKit with slirp4netns or pasta): which host address does `host-gateway` reach, and can a narrow bind serve it? It stays unroutable until it is probed.
-- **Q3.** Snap strict confinement: does the snap share the host network namespace for listeners? It is covered by the "facts query fails / not local" rule until it is probed.
+- **Q3.** Snap strict confinement: does the snap share the host network namespace for listeners? Row 2 makes Snap unroutable until it is probed.
 - **Q4.** The SSH host-callback reachability defect from Non-Goals: file it as its own change after S3.

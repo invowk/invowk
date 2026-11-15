@@ -18,14 +18,18 @@ When an interactive command runs with the native, virtual-sh or virtual-lua runt
 - **THEN** `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>` and the server SHALL bind no other address
 
 ### Requirement: Container bind follows the engine's host route
-For a container run, the TUI server SHALL listen on loopback plus at most one more address: the local host address the selected engine routes container traffic to. It SHALL never listen on a wildcard address unless the user opted in. The server SHALL use one port on every address it binds.
+For a container run, the TUI server SHALL listen on loopback plus at most one more address: the local host address the engine routes container traffic to. It SHALL bind a non-loopback address only for an engine mode whose reachability has been verified. It SHALL never bind a wildcard address without the opt-in, and SHALL use one port on every address it binds.
 
-#### Scenario: Rootful bridge engine on Linux
-- **WHEN** an interactive container command runs with rootful Docker or rootful Podman on the default bridge network
+#### Scenario: Rootful Docker on Linux
+- **WHEN** an interactive container command runs with local rootful Docker on Linux on the default bridge network
 - **THEN** the server SHALL listen on `127.0.0.1` and on that bridge's gateway address, and on no other address
 
-#### Scenario: Engine forwards the host alias to loopback
-- **WHEN** the engine runs containers in a VM that forwards the host alias to host loopback (Docker Desktop, Podman machine)
+#### Scenario: Unverified mode that needs a bridge bind
+- **WHEN** an interactive container command runs with an engine mode that would need a non-loopback bind and is not verified (for example, rootful Podman before its probe)
+- **THEN** invowk SHALL treat the configuration as unroutable
+
+#### Scenario: Docker Desktop
+- **WHEN** the engine is a local Docker Desktop, which forwards the host alias to host loopback
 - **THEN** the server SHALL listen on `127.0.0.1` only
 
 #### Scenario: Gateway is not a local address
@@ -33,7 +37,7 @@ For a container run, the TUI server SHALL listen on loopback plus at most one mo
 - **THEN** invowk SHALL treat the configuration as unroutable
 
 ### Requirement: Rootless Podman uses a single forwarded port
-For an ephemeral container under rootless Podman with pasta networking, the TUI server SHALL listen on loopback only. The container SHALL forward only the server's port from its own loopback to host loopback, and SHALL gain no other route to host loopback.
+For an ephemeral container under rootless Podman with a pasta binary available, the TUI server SHALL listen on loopback only. The container SHALL forward only the server's port from its own loopback to host loopback, and SHALL gain no other route to host loopback.
 
 #### Scenario: Ephemeral rootless Podman run
 - **WHEN** an interactive container command runs a new container under rootless Podman with pasta
@@ -47,14 +51,18 @@ For an ephemeral container under rootless Podman with pasta networking, the TUI 
 - **THEN** `INVOWK_TUI_ADDR` SHALL be `http://<bridge-gateway-ip>:<port>`, and an authenticated `/health` request to it from the container SHALL succeed
 
 ### Requirement: Unroutable configurations fail before start
-When no narrow bind can reach the container, an interactive container run SHALL fail before it creates or starts a container unless the user opted in. The error SHALL name the reason and the opt-in. Unroutable cases include unverified engines and modes.
+When no narrow bind can reach the container, an interactive container run SHALL fail before it creates or starts a container unless the user opted in. The error SHALL name the reason and the opt-in. Unroutable cases include remote engines, Snap, Flatpak without host networking, and unverified modes that need a non-loopback bind.
 
 #### Scenario: Persistent container under rootless Podman
 - **WHEN** a user runs an interactive command that targets a persistent container under rootless Podman, without the opt-in
 - **THEN** invowk SHALL exit non-zero before it runs anything in the container, with an error that names `container.tui_server_bind`
 
+#### Scenario: Rootless Podman without pasta
+- **WHEN** an interactive container command runs under rootless Podman, no pasta binary is available, and there is no opt-in
+- **THEN** the run SHALL fail before it starts the container, with an error that names `container.tui_server_bind` and pasta
+
 #### Scenario: Remote engine
-- **WHEN** the selected engine is remote (for example `DOCKER_HOST=tcp://…` or `podman --remote`) and there is no opt-in
+- **WHEN** the selected engine is remote (for example `DOCKER_HOST=tcp://…`, `podman --remote` or Podman machine) and there is no opt-in
 - **THEN** the run SHALL fail before it starts the container, with the same actionable error
 
 ### Requirement: Wide bind requires explicit opt-in
