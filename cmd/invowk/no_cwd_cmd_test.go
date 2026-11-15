@@ -329,6 +329,10 @@ func TestAgentVerifyRejectedUnderNoCwd(t *testing.T) {
 			if err == nil {
 				t.Fatal("agent --verify under the switch succeeded, want rejection")
 			}
+			// The conflict comes from argv and env alone, so it is a usage error.
+			if got := exitCodeForError(err); got != ExitCodeUsage {
+				t.Fatalf("exit code = %d (error: %v), want %d", got, err, ExitCodeUsage)
+			}
 			if tt.env[envNoCwd] == "yes" {
 				if !errors.Is(err, ErrInvalidNoCwdEnv) {
 					t.Fatalf("error = %v, want ErrInvalidNoCwdEnv", err)
@@ -359,9 +363,9 @@ func TestAgentFailsOnMissingExplicitConfig(t *testing.T) {
 
 	missing := filepath.Join(t.TempDir(), "missing.cue")
 	runErr := env.run(t, "--ivk-config", missing, "agent", "cmd", "create", "--file", filepath.Join(f.cwd, "invowkfile.cue"), "hello", "say hello")
-	exitErr, ok := errors.AsType[*ExitError](runErr)
-	if !ok || exitErr.Code != auditExitError {
-		t.Fatalf("agent error = %v, want ExitError code %d from LLM config resolution", runErr, auditExitError)
+	// A failed explicit config source is an internal failure, never usage.
+	if got := exitCodeForError(runErr); got != 1 {
+		t.Fatalf("agent error = %v, exit code %d, want 1 from LLM config resolution", runErr, got)
 	}
 	if !errors.Is(runErr, config.ErrExplicitConfig) {
 		t.Fatalf("agent error = %v, want ErrExplicitConfig", runErr)

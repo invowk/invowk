@@ -11,6 +11,11 @@ stdout 'compile'
 stdout 'unit-test'
 stdout 'uncategorized'
 
+# Test 2: within a category, commands are listed alphabetically by name,
+# whatever the declaration order ("link" is declared before "compile")
+exec invowk cmd
+stdout '(?s)\[Build\].*compile.*link.*\[Test\]'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -18,6 +23,16 @@ cmds: [
 		description: "No category"
 		implementations: [{
 			script: {content: "echo uncategorized"}
+			runtimes:  [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "link"
+		description: "Link the project"
+		category:    "Build"
+		implementations: [{
+			script: {content: "echo linking"}
 			runtimes:  [{name: "virtual-sh"}]
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]

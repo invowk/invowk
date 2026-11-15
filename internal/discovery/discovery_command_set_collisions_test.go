@@ -3,10 +3,16 @@
 package discovery
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // moduleIDPtr is a test helper that creates a *invowkmod.ModuleID from a string.
@@ -295,6 +301,79 @@ func requireAmbiguityState(
 		}
 		if command.IsAmbiguous != wantAmbiguous {
 			t.Errorf("Command %q from %s IsAmbiguous = %t, want %t", command.SimpleName, command.SourceID, command.IsAmbiguous, wantAmbiguous)
+		}
+	}
+}
+
+func TestDiscoveredCommandSet_Analyze_SortsCommandsWithinSource(t *testing.T) {
+	t.Parallel()
+
+	set := NewDiscoveredCommandSet()
+	for _, c := range []struct {
+		name   invowkfile.CommandName
+		source SourceID
+	}{
+		{"zeta", "invowkfile"},
+		{"foo mid", "foo"},
+		{"alpha", "invowkfile"},
+		{"mid sub", "invowkfile"},
+		{"foo alpha", "foo"},
+		{"mid", "invowkfile"},
+	} {
+		set.Add(&CommandInfo{Name: c.name, SimpleName: c.name, SourceID: c.source})
+	}
+
+	set.Analyze()
+
+	want := map[SourceID][]invowkfile.CommandName{
+		"invowkfile": {"alpha", "mid", "mid sub", "zeta"},
+		"foo":        {"foo alpha", "foo mid"},
+	}
+	for source, wantNames := range want {
+		var got []invowkfile.CommandName
+		for _, cmd := range set.BySource[source] {
+			got = append(got, cmd.Name)
+		}
+		if !slices.Equal(got, wantNames) {
+			t.Errorf("BySource[%s] = %v, want %v", source, got, wantNames)
+		}
+	}
+	if !slices.Equal(set.SourceOrder, []SourceID{"invowkfile", "foo"}) {
+		t.Errorf("SourceOrder = %v, want [invowkfile foo]", set.SourceOrder)
+	}
+}
+
+// TestDiscoverCommandSet_ListsSourceCommandsAlphabetically discovers an
+// invowkfile whose commands are declared out of order. FlattenCommands walks a
+// map, so repeated discoveries would expose any order that is not sorted.
+func TestDiscoverCommandSet_ListsSourceCommandsAlphabetically(t *testing.T) {
+	t.Parallel()
+
+	baseDir := t.TempDir()
+	impl := `implementations: [{script: {content: "echo test"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]`
+	var content strings.Builder
+	content.WriteString("cmds: [\n")
+	for _, name := range []string{"zeta", "mid", "alpha", "kilo", "mid sub", "bravo", "yankee"} {
+		fmt.Fprintf(&content, "\t{name: %q, %s},\n", name, impl)
+	}
+	content.WriteString("]\n")
+	if err := os.WriteFile(filepath.Join(baseDir, "invowkfile.cue"), []byte(content.String()), 0o644); err != nil {
+		t.Fatalf("write invowkfile.cue: %v", err)
+	}
+
+	want := []invowkfile.CommandName{"alpha", "bravo", "kilo", "mid", "mid sub", "yankee", "zeta"}
+	for range 5 {
+		d := New(config.DefaultConfig(), WithBaseDir(types.FilesystemPath(baseDir)), WithCommandsDir(""))
+		result, err := d.DiscoverCommandSet(t.Context())
+		if err != nil {
+			t.Fatalf("DiscoverCommandSet() error = %v", err)
+		}
+		var got []invowkfile.CommandName
+		for _, cmd := range result.Set.BySource[SourceIDInvowkfile] {
+			got = append(got, cmd.Name)
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("BySource[invowkfile] = %v, want %v", got, want)
 		}
 	}
 }

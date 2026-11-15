@@ -16,7 +16,7 @@ exists invowkfile.cue
 exec invowk cmd agenthello
 stdout 'generated'
 
-! exec invowk agent cmd create agenthello --llm-provider claude 'create a duplicate command'
+exitcode 1 invowk agent cmd create agenthello --llm-provider claude 'create a duplicate command'
 ! stdout .
 stderr 'Command "agenthello" already exists'
 stderr 'agent cmd change'
@@ -50,15 +50,15 @@ stdout 'Removed command "agenthello" from invowkfile.cue'
 ! stdout .
 stderr '[Cc]ommand.*agenthello.*not found'
 
-! exec invowk agent cmd create 'legacy description only'
+exitcode 2 invowk agent cmd create 'legacy description only'
 ! stdout .
 stderr 'Command description is required'
 
-! exec invowk agent cmd create agenthello --replace 'old replace flag'
+exitcode 2 invowk agent cmd create agenthello --replace 'old replace flag'
 ! stdout .
 stderr 'Unknown flag: --replace'
 
-! exec invowk agent cmd change missing --llm-provider claude 'change missing command'
+exitcode 1 invowk agent cmd change missing --llm-provider claude 'change missing command'
 ! stdout .
 stderr 'does not exist'
 stderr 'agent cmd create'

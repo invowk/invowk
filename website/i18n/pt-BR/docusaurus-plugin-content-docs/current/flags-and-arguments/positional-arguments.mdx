@@ -165,6 +165,8 @@ Escolha uma abordagem:
 - **Argumentos**: Para comandos folha com entradas diretas
 - **Subcomandos**: Para hierarquias de comando complexas onde usuários selecionam uma ação
 
+Um token que não corresponde a um subcomando de um grupo de comandos (por exemplo `invowk cmd test nonexistent` quando só existem `test unit` e `test other`) é rejeitado com status de saída `2`, e os subcomandos do grupo são listados no stderr. Um comando folha que não declara `args` continua recebendo tokens extras como parâmetros posicionais, mesmo quando também tem subcomandos: `invowk cmd w typo` executa `w` com `typo` como `$1`.
+
 ## Melhores Práticas
 
 1. **Args obrigatórios primeiro**: Siga as regras de ordenação

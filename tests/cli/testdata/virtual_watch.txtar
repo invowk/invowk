@@ -10,8 +10,8 @@ cd $WORK
 ! stdout .
 stderr '(?i)not found'
 
-# Test 2: --ivk-watch and --ivk-dry-run are mutually exclusive
-! exec invowk cmd hello --ivk-watch --ivk-dry-run
+# Test 2: --ivk-watch and --ivk-dry-run are mutually exclusive (usage error, exit 2)
+exitcode 2 invowk cmd hello --ivk-watch --ivk-dry-run
 ! stdout .
 stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
 

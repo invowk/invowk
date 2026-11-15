@@ -24,6 +24,11 @@ const (
 	agentFromFileFlagName    = "from-file"
 	agentDryRunFlagName      = "dry-run"
 	agentCmdDryRunFlagUsage  = "print the patch without writing the invowkfile"
+
+	// agentExitFailure is the exit status of an agent failure that is not a
+	// command-line rejection (file state, LLM, I/O). Usage errors detected from
+	// argv alone use ExitCodeUsage.
+	agentExitFailure types.ExitCode = 1
 )
 
 // newAgentCommand creates the `invowk agent` command group.
@@ -69,7 +74,9 @@ func newAgentCmdPromptCommand() *cobra.Command {
 			}
 			rendered, err := agentcmd.RenderCommandPrompt(format, operation)
 			if err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				// Every Render*Prompt error is a usage error: its only practical failures
+				// are an unknown --format or operation (static JSON encoding cannot fail).
+				return &ExitError{Code: ExitCodeUsage, Err: err}
 			}
 			fmt.Fprint(cmd.OutOrStdout(), rendered)
 			return nil
@@ -102,7 +109,7 @@ command object.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := invowkfile.CommandName(args[0])
 			if err := name.Validate(); err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				return &ExitError{Code: ExitCodeUsage, Err: err}
 			}
 			return runAgentCmdCreate(cmd, app, rootFlags, agentcmd.CreateOptions{
 				Name:        name,
@@ -147,7 +154,7 @@ command object.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := invowkfile.CommandName(args[0])
 			if err := name.Validate(); err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				return &ExitError{Code: ExitCodeUsage, Err: err}
 			}
 			return runAgentCmdChange(cmd, app, rootFlags, agentcmd.ChangeOptions{
 				Name:        name,
@@ -183,7 +190,7 @@ func newAgentCmdRemoveCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := invowkfile.CommandName(args[0])
 			if err := name.Validate(); err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				return &ExitError{Code: ExitCodeUsage, Err: err}
 			}
 			result, err := agentcmd.RemoveCommand(cmd.Context(), agentcmd.RemoveOptions{
 				Name:       name,
@@ -191,7 +198,7 @@ func newAgentCmdRemoveCommand() *cobra.Command {
 				DryRun:     dryRun,
 			})
 			if err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				return &ExitError{Code: agentExitFailure, Err: err}
 			}
 			renderAgentCmdRemoveResult(cmd, result, dryRun)
 			return nil
@@ -230,7 +237,9 @@ func newAgentModPromptCommand() *cobra.Command {
 			}
 			rendered, err := agentcmd.RenderModulePrompt(format, operation)
 			if err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				// Every Render*Prompt error is a usage error: its only practical failures
+				// are an unknown --format or operation (static JSON encoding cannot fail).
+				return &ExitError{Code: ExitCodeUsage, Err: err}
 			}
 			fmt.Fprint(cmd.OutOrStdout(), rendered)
 			return nil
@@ -263,7 +272,7 @@ generated module file bundle.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			moduleID := invowkmod.ModuleID(args[0])
 			if err := moduleID.Validate(); err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				return &ExitError{Code: ExitCodeUsage, Err: err}
 			}
 			return runAgentModCreate(cmd, app, rootFlags, agentcmd.ModuleCreateOptions{
 				ModuleID:         moduleID,
@@ -337,13 +346,16 @@ func newAgentModRemoveCommand() *cobra.Command {
 		Short: "Remove a validated local invowk module directory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := agentcmd.ValidateModuleTarget(args[0]); err != nil {
+				return &ExitError{Code: ExitCodeUsage, Err: err}
+			}
 			result, err := agentcmd.RemoveModule(cmd.Context(), agentcmd.ModuleRemoveOptions{
 				Target: args[0],
 				DryRun: dryRun,
 				Force:  force,
 			})
 			if err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
+				return &ExitError{Code: agentExitFailure, Err: err}
 			}
 			renderAgentModRemoveResult(cmd, result, dryRun)
 			return nil
@@ -364,7 +376,7 @@ func runAgentCmdCreate(
 	llmFlags llmFlagValues,
 ) error {
 	if err := validateAgentCmdCreateOptions(createOpts, verify, verifyNoCwdError(cmd, app, rootFlags, verify), llmFlags); err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: ExitCodeUsage, Err: err}
 	}
 	llmResult, llmErr := resolveAgentAuthoringCompleter(cmd, app, rootFlags, llmFlags)
 	if llmErr != nil {
@@ -374,12 +386,12 @@ func runAgentCmdCreate(
 	createOpts.Completer = llmResult.completer
 	result, err := agentcmd.CreateCommand(cmd.Context(), createOpts)
 	if err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: agentExitFailure, Err: err}
 	}
 
 	if verify {
 		if err := verifyGeneratedCommand(cmd, app, rootFlags, result); err != nil {
-			return &ExitError{Code: auditExitError, Err: err}
+			return &ExitError{Code: agentExitFailure, Err: err}
 		}
 	}
 
@@ -412,7 +424,7 @@ func runAgentCmdChange(
 	llmFlags llmFlagValues,
 ) error {
 	if err := validateAgentCmdChangeOptions(changeOpts, verify, verifyNoCwdError(cmd, app, rootFlags, verify), llmFlags); err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: ExitCodeUsage, Err: err}
 	}
 	llmResult, llmErr := resolveAgentAuthoringCompleter(cmd, app, rootFlags, llmFlags)
 	if llmErr != nil {
@@ -422,12 +434,12 @@ func runAgentCmdChange(
 	changeOpts.Completer = llmResult.completer
 	result, err := agentcmd.ChangeCommand(cmd.Context(), changeOpts)
 	if err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: agentExitFailure, Err: err}
 	}
 
 	if verify {
 		if err := verifyGeneratedCommand(cmd, app, rootFlags, result); err != nil {
-			return &ExitError{Code: auditExitError, Err: err}
+			return &ExitError{Code: agentExitFailure, Err: err}
 		}
 	}
 
@@ -458,7 +470,7 @@ func runAgentModCreate(
 	llmFlags llmFlagValues,
 ) error {
 	if err := validateAgentModCreateOptions(createOpts, llmFlags); err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: ExitCodeUsage, Err: err}
 	}
 	llmResult, llmErr := resolveAgentAuthoringCompleter(cmd, app, rootFlags, llmFlags)
 	if llmErr != nil {
@@ -468,7 +480,7 @@ func runAgentModCreate(
 	createOpts.Completer = llmResult.completer
 	result, err := agentcmd.CreateModule(cmd.Context(), createOpts)
 	if err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: agentExitFailure, Err: err}
 	}
 
 	renderAgentModCreateResult(cmd, result, createOpts)
@@ -493,7 +505,7 @@ func runAgentModChange(
 	llmFlags llmFlagValues,
 ) error {
 	if err := validateAgentModChangeOptions(changeOpts, llmFlags); err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: ExitCodeUsage, Err: err}
 	}
 	llmResult, llmErr := resolveAgentAuthoringCompleter(cmd, app, rootFlags, llmFlags)
 	if llmErr != nil {
@@ -503,7 +515,7 @@ func runAgentModChange(
 	changeOpts.Completer = llmResult.completer
 	result, err := agentcmd.ChangeModule(cmd.Context(), changeOpts)
 	if err != nil {
-		return &ExitError{Code: auditExitError, Err: err}
+		return &ExitError{Code: agentExitFailure, Err: err}
 	}
 
 	renderAgentModChangeResult(cmd, result, changeOpts)
@@ -516,6 +528,9 @@ func validateAgentModChangeOptions(changeOpts agentcmd.ModuleChangeOptions, llmF
 	}
 	if strings.TrimSpace(changeOpts.Target) == "" {
 		return errors.New("module target is required")
+	}
+	if err := agentcmd.ValidateModuleTarget(changeOpts.Target); err != nil {
+		return err
 	}
 	if err := validateAuthoringDescription(changeOpts.Description, changeOpts.FromFile, "module"); err != nil {
 		return err
@@ -536,11 +551,12 @@ func resolveAgentAuthoringCompleter(
 		types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
 		llmFlags,
 		true,
+		agentLLMExitCodes,
 	)
 	if llmErr != nil {
 		return nil, llmErr
 	}
-	return buildLLMCompleter(cmd.Context(), cmd, resolved)
+	return buildLLMCompleter(cmd.Context(), cmd, resolved, agentLLMExitCodes)
 }
 
 func renderAgentCmdCreateResult(

@@ -477,9 +477,29 @@ func modulePathForID(moduleID invowkmod.ModuleID) (string, error) {
 	return dirName.String(), nil
 }
 
+// ValidateModuleTarget checks a module target from argv alone, without any
+// filesystem access: a target that names a path (it contains a separator, ends
+// in the module suffix or starts with ".") is accepted as is, and any other
+// target must be a valid module ID. ChangeModule and RemoveModule apply the
+// same rule, so CLI adapters can reject a malformed ID before other work.
+//
+//goplint:ignore -- raw argv target that is either a path or a module ID until classified here.
+func ValidateModuleTarget(target string) error {
+	if isModulePathTarget(target) {
+		return nil
+	}
+	return invowkmod.ModuleID(strings.TrimSpace(target)).Validate()
+}
+
+//goplint:ignore -- raw argv target that is either a path or a module ID until classified here.
+func isModulePathTarget(target string) bool {
+	target = strings.TrimSpace(target)
+	return strings.ContainsAny(target, `/\`) || strings.HasSuffix(filepath.Base(target), invowkmod.ModuleSuffix) || strings.HasPrefix(target, ".")
+}
+
 func resolveModulePath(target string) (string, error) {
 	target = strings.TrimSpace(target)
-	if strings.ContainsAny(target, `/\`) || strings.HasSuffix(filepath.Base(target), invowkmod.ModuleSuffix) || strings.HasPrefix(target, ".") {
+	if isModulePathTarget(target) {
 		return filepath.Clean(target), nil
 	}
 	moduleID := invowkmod.ModuleID(target)

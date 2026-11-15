@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -53,7 +54,17 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 		ambiguousPrefixes[string(name)] = true
 	}
 
-	for _, cmdInfo := range commandSet.Commands {
+	// Build nodes in SimpleName order so a leaf `X` is always built before any
+	// `X Y` from another source and becomes their parent; otherwise a group
+	// node `X` created first would shadow the runnable leaf. The sort works on
+	// a copy, so registration never reorders the discovery result that listing
+	// (BySource, alphabetical within a source) and completion read.
+	ordered := slices.Clone(commandSet.Commands)
+	slices.SortStableFunc(ordered, func(a, b *discovery.CommandInfo) int {
+		return cmp.Compare(a.SimpleName, b.SimpleName)
+	})
+
+	for _, cmdInfo := range ordered {
 		// Ambiguous leaf names are intentionally excluded from transparent
 		// registration and must be executed via source disambiguation.
 		if commandSet.AmbiguousNames[cmdInfo.SimpleName] {
@@ -72,54 +83,79 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 				continue
 			}
 
-			isLeaf := i == len(parts)-1
 			var newCmd *cobra.Command
-			if isLeaf {
+			if i == len(parts)-1 {
 				newCmd = buildLeafCommand(app, rootFlags, cmdFlags, cmdInfo, part, registeredNoCwd)
 			} else {
 				// Parent nodes exist to support nested command trees and ambiguity
 				// handling for intermediate prefixes.
-				parentPrefix := prefix
-				isAmbiguous := ambiguousPrefixes[parentPrefix]
-				newCmd = &cobra.Command{
-					Use:   part,
-					Short: fmt.Sprintf("Commands under '%s'", prefix),
-					RunE: func(cmd *cobra.Command, args []string) error {
-						ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
-						if err != nil {
-							return err
-						}
-
-						fromFlag, _ := cmd.Flags().GetString("ivk-from")
-						if fromFlag != "" {
-							// Preserve full path for longest-match disambiguation.
-							fullArgs := append(strings.Fields(parentPrefix), args...)
-							filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag)}
-							return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, fullArgs)
-						}
-
-						if isAmbiguous {
-							cmdArgs := append(strings.Fields(parentPrefix), args...)
-							if err := checkAmbiguousCommand(ctx, app, cmdArgs); err != nil {
-								if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
-									fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
-									cmd.SilenceErrors = true
-									cmd.SilenceUsage = true
-								}
-								return err
-							}
-						}
-
-						// Non-ambiguous parents behave as help-only namespaces.
-						return cmd.Help()
-					},
-				}
+				newCmd = buildDiscoveredGroupCommand(app, rootFlags, cmdFlags, part, prefix, ambiguousPrefixes[prefix])
 			}
 
 			parent.AddCommand(newCmd)
 			commandMap[prefix] = newCmd
 			parent = newCmd
 		}
+	}
+}
+
+// buildDiscoveredGroupCommand creates the synthesized parent node for a
+// space-separated command prefix (for example `test` for `test unit`). Its
+// RunE applies, in order:
+//  1. `--ivk-from` set: run the source-filtered command for prefix + args;
+//  2. no args and the prefix is not itself an ambiguous command: show help;
+//  3. the full path (prefix + args) is ambiguous across sources: render the
+//     ambiguous-command message and fail with a usage error;
+//  4. no args: show help;
+//  5. otherwise reject the unmatched token (rejectUnmatchedGroupToken).
+//
+// Args is explicitly cobra.ArbitraryArgs because RunE does its own checks.
+//
+//goplint:ignore -- Cobra Use token and space-joined command prefix at the CLI adapter boundary.
+func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, part, prefix string, prefixAmbiguous bool) *cobra.Command {
+	return &cobra.Command{
+		Use:   part,
+		Short: fmt.Sprintf("Commands under '%s'", prefix),
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
+			if err != nil {
+				return err
+			}
+
+			fullArgs := append(strings.Fields(prefix), args...)
+			fromFlag, _ := cmd.Flags().GetString("ivk-from")
+			if fromFlag != "" {
+				sourceID, parseErr := parseSourceName(fromFlag)
+				if parseErr != nil {
+					return parseErr
+				}
+				// Preserve full path for longest-match disambiguation.
+				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, &SourceFilter{SourceID: sourceID}, fullArgs)
+			}
+
+			// A bare group is a request to browse. The ambiguity check below is
+			// only needed when the prefix itself names an ambiguous command.
+			if len(args) == 0 && !prefixAmbiguous {
+				return cmd.Help()
+			}
+
+			diags, err := checkAmbiguousCommand(ctx, app, fullArgs)
+			if err != nil {
+				if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
+					fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
+					cmd.SilenceErrors = true
+					cmd.SilenceUsage = true
+					return newUsageError(err)
+				}
+				return err
+			}
+
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			return notFoundError(rejectUnmatchedGroupToken(cmd, args), diags, "")
+		},
 	}
 }
 
@@ -162,13 +198,14 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			}
 
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
-			if fromFlag != "" {
-				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag)}
-				// If Cobra routed to the wrong source-specific leaf, delegate to
-				// source-aware lookup instead of executing the wrong command.
-				if filter.SourceID != cmdSourceID {
-					return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, append(strings.Fields(string(cmdSimpleName)), args...))
-				}
+			fromSource, err := parseSourceName(fromFlag)
+			if err != nil {
+				return err
+			}
+			// If Cobra routed to the wrong source-specific leaf, delegate to
+			// source-aware lookup instead of executing the wrong command.
+			if fromSource != "" && fromSource != cmdSourceID {
+				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, &SourceFilter{SourceID: fromSource}, append(strings.Fields(string(cmdSimpleName)), args...))
 			}
 
 			// Watch mode intercepts before normal execution.
@@ -179,7 +216,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			req, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 				Name:            string(cmdName),
 				Args:            args,
-				FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+				FromSource:      fromSource,
 				ResolvedCommand: resolved,
 				FlagDefs:        flagDefs,
 				ArgDefs:         argDefs,

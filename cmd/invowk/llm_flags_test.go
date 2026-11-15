@@ -55,7 +55,7 @@ func TestResolveLLMForCommand_UsesConfiguredProviderDefault(t *testing.T) {
 	cfg.LLM.Model = "gpt-5.1-codex"
 	provider := &testConfigProvider{cfg: cfg}
 
-	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, true)
+	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, true, auditLLMExitCodes)
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
@@ -72,7 +72,7 @@ func TestResolveLLMForCommand_AuditDoesNotImplicitlyUseConfiguredDefault(t *test
 	cfg.LLM.Provider = config.LLMProviderCodex
 	provider := &testConfigProvider{cfg: cfg}
 
-	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, false)
+	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, false, auditLLMExitCodes)
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
@@ -92,7 +92,7 @@ func TestResolveLLMForCommand_LLMFlagUsesConfiguredProvider(t *testing.T) {
 	cfg.LLM.Provider = config.LLMProviderClaude
 	provider := &testConfigProvider{cfg: cfg}
 
-	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "/tmp/invowk-config.cue", *flags, false)
+	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "/tmp/invowk-config.cue", *flags, false, auditLLMExitCodes)
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
@@ -116,7 +116,7 @@ func TestResolveLLMForCommand_APIConfigUsesEnvReference(t *testing.T) {
 	}
 	provider := &testConfigProvider{cfg: cfg}
 
-	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, true)
+	got, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, true, auditLLMExitCodes)
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
@@ -134,7 +134,7 @@ func TestResolveLLMForCommand_AgentRequiresConfigOrFlag(t *testing.T) {
 	cmd, flags := newTestLLMCommand(t)
 	provider := &testConfigProvider{cfg: config.DefaultConfig()}
 
-	if _, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, true); err == nil {
+	if _, err := resolveLLMForCommand(t.Context(), cmd, provider, "", *flags, true, auditLLMExitCodes); err == nil {
 		t.Fatal("resolveLLMForCommand() succeeded, want error")
 	}
 }

@@ -220,3 +220,31 @@ func moduleInvowkfileCUE() string {
 }]
 `
 }
+
+func TestValidateModuleTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		target  string
+		wantErr bool
+	}{
+		{target: "io.example.tools"},
+		{target: " io.example.tools "},
+		{target: "./tools"},
+		{target: "dir/tools"},
+		{target: `dir\tools`},
+		{target: "io.example.tools.invowkmod"},
+		{target: ".hidden"},
+		{target: "bad id", wantErr: true},
+		{target: "1bad", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.target, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateModuleTarget(tt.target)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ValidateModuleTarget(%q) error = %v, wantErr %v", tt.target, err, tt.wantErr)
+			}
+		})
+	}
+}

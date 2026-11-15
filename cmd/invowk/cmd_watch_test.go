@@ -162,6 +162,9 @@ func TestRunWatchMode_DryRunConflict(t *testing.T) {
 	if !errors.Is(err, errWatchDryRunConflict) {
 		t.Fatalf("error = %v, want errWatchDryRunConflict", err)
 	}
+	if got := exitCodeForError(err); got != ExitCodeUsage {
+		t.Fatalf("exit code = %d, want %d", got, ExitCodeUsage)
+	}
 }
 
 func TestRunWatchMode_CommandNotFound(t *testing.T) {

@@ -257,7 +257,8 @@ func noCwdFromEnv(getenv func(string) string) (bool, noCwdOrigin, error) {
 	}
 	on, err := strconv.ParseBool(raw)
 	if err != nil {
-		return false, noCwdOriginEnv, &InvalidNoCwdEnvError{Value: raw}
+		// Same class as a malformed --ivk-no-cwd=value flag: a usage error (exit 2).
+		return false, noCwdOriginEnv, newUsageError(&InvalidNoCwdEnvError{Value: raw})
 	}
 	return on, noCwdOriginEnv, nil
 }

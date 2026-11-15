@@ -83,12 +83,14 @@ be organized hierarchically with support for dependencies.
 	rootCmd.AddCommand(newAgentCommand(app, rootFlags))
 	rootCmd.AddCommand(newInternalCommand(app, rootFlags))
 
+	installUsageGuards(rootCmd)
+
 	return rootCmd
 }
 
 // Execute runs the invowk CLI. It creates the App with default dependencies,
 // builds the Cobra command tree, and uses fang for graceful signal handling.
-// Non-zero exit codes from ExitError are propagated to os.Exit.
+// The returned error is mapped to the process exit status by exitCodeForError.
 func Execute() {
 	app, err := NewApp(Dependencies{})
 	if err != nil {
@@ -98,17 +100,13 @@ func Execute() {
 
 	rootCmd := NewRootCommand(app)
 
-	if err := fang.Execute(
+	err = fang.Execute(
 		context.Background(),
 		rootCmd,
 		fang.WithVersion(getVersionString(Version, Commit, BuildDate)),
 		fang.WithNotifySignal(os.Interrupt),
-	); err != nil {
-		if exitErr, ok := errors.AsType[*ExitError](err); ok {
-			os.Exit(int(exitErr.Code))
-		}
-		os.Exit(1)
-	}
+	)
+	os.Exit(int(exitCodeForError(classifyUnknownRootCommand(rootCmd, os.Args[1:], err))))
 }
 
 // getVersionString returns a formatted version string for display.

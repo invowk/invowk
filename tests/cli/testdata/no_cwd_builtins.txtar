@@ -48,7 +48,7 @@ env INVOWK_NO_CWD=yes
 exec invowk config path
 stdout 'Config file:'
 exec invowk --version
-! exec invowk module list
+exitcode 2 invowk module list
 stderr 'INVOWK_NO_CWD'
 env INVOWK_NO_CWD=
 

@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
-	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/watch"
 
 	"github.com/spf13/cobra"
@@ -56,22 +55,27 @@ func (productionWatchRunnerCreator) Create(cfg watch.Config) (WatchRunner, error
 // (e.g., Ctrl+C).
 func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return errNoCommandSpecified
+		return newUsageError(errNoCommandSpecified)
 	}
 
 	// Dry-run and watch mode are mutually exclusive: watch mode re-executes
 	// on file changes, while dry-run prevents execution entirely.
+	// The conflict comes from argv alone, so it is a usage error (exit 2).
 	if cmdFlags.dryRun {
-		return errWatchDryRunConflict
+		return newUsageError(errWatchDryRunConflict)
 	}
 
 	// Callers already resolved --ivk-no-cwd into cmd's context; keep it.
 	ctx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, noCwdFromContext(cmd.Context()))
 
+	fromSource, err := parseSourceName(cmdFlags.fromSource)
+	if err != nil {
+		return err
+	}
 	resolveReq, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 		Name:       args[0],
 		Args:       args[1:],
-		FromSource: discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+		FromSource: fromSource,
 	})
 	if err != nil {
 		return err
@@ -82,10 +86,10 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		if planErr, ok := errors.AsType[*commandsvc.InvalidWatchPlanError](err); ok && planErr != nil {
 			return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
 		}
-		return renderAndWrapServiceError(err, resolveReq)
+		return renderAndWrapServiceError(err, resolveReq, diags)
 	}
 	if cmdInfo == nil {
-		return &WatchCommandNotFoundError{Name: args[0]}
+		return notFoundError(&WatchCommandNotFoundError{Name: args[0]}, diags, fromSource)
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)

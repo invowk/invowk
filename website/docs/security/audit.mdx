@@ -181,8 +181,10 @@ invowk audit --severity info
 | Code | Meaning |
 |------|---------|
 | `0` | No confirmed findings at or above the severity threshold; suppressed-only reports exit successfully |
-| `1` | Confirmed findings detected; generic CLI argument-validation errors also use Cobra's standard status 1 |
-| `2` | Audit scan or configuration error |
+| `1` | Confirmed findings detected |
+| `2` | Audit scan or configuration error, or a rejected command line (for example an unknown flag or too many arguments) |
+
+These codes are `audit`'s exception to the general [exit-code contract](../reference/cli#exit-codes).
 
 ## LLM-Powered Analysis
 

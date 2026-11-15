@@ -22,6 +22,26 @@ exec invowk cmd
 ! stdout 'hello.*@'
 ! stdout 'build.*@'
 
+# Test 3: running the top-level ambiguous name without a source exits 2
+exitcode 2 invowk cmd deploy
+! stdout .
+stderr 'Ambiguous command'
+
+# Test 4: an ambiguous nested name reached through an unambiguous group node
+# ("release dev" is unique, so group node "release" is registered) exits 2
+exitcode 2 invowk cmd release prod
+! stdout .
+stderr 'Ambiguous command'
+stderr 'release prod'
+
+# Test 5: the same nested name with --ivk-from runs the invowkfile's command
+exitcode 0 invowk cmd release prod --ivk-from invowkfile
+stdout 'Releasing prod from invowkfile!'
+
+# Test 6: the unique sibling still runs through the group node
+exitcode 0 invowk cmd release dev
+stdout 'Releasing dev from invowkfile!'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -33,6 +53,16 @@ cmds: [
 		name: "deploy"
 		description: "Deploy from root invowkfile"
 		implementations: [{script: {content: "echo 'Deploying from invowkfile!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "release prod"
+		description: "Release prod from root invowkfile"
+		implementations: [{script: {content: "echo 'Releasing prod from invowkfile!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "release dev"
+		description: "Release dev from root invowkfile"
+		implementations: [{script: {content: "echo 'Releasing dev from invowkfile!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
 
@@ -52,5 +82,10 @@ cmds: [
 		name: "deploy"
 		description: "Deploy from foo module"
 		implementations: [{script: {content: "echo 'Deploying from foo!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "release prod"
+		description: "Release prod from foo module"
+		implementations: [{script: {content: "echo 'Releasing prod from foo!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]

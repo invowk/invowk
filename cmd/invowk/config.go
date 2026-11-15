@@ -318,10 +318,11 @@ func showConfigPath(w io.Writer, app *App, rootFlags *rootFlagValues) error {
 // setConfigValue edits the user config file only. While --ivk-config or
 // INVOWK_CONFIG is active it refuses before reading or writing any file;
 // otherwise loading the user config and saving it back would copy the explicit
-// source's values into the user file.
+// source's values into the user file. The refusal is decided from argv and the
+// environment alone (SelectSource reads no file), so it is a usage error (exit 2).
 func setConfigValue(ctx context.Context, w io.Writer, app *App, rootFlags *rootFlagValues, key, value string) error {
 	if selection := config.SelectSource(explicitLoadOptions(rootFlags), app.Getenv); selection.IsExplicit() {
-		return configSetRefusal(selection)
+		return newUsageError(configSetRefusal(selection))
 	}
 
 	cfg, err := app.Config.Load(ctx, config.LoadOptions{})

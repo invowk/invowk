@@ -200,6 +200,7 @@ func TestCLI(t *testing.T) {
 		Files:           nonContainerTests,
 		Setup:           commonSetup,
 		Condition:       commonCondition,
+		Cmds:            testscriptCmds(),
 		ContinueOnError: true,
 	})
 }

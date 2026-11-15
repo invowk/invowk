@@ -17,16 +17,16 @@ cd $WORK
 exec invowk cmd exit-zero
 stdout 'Exiting with code 0'
 
-# Test 2: Exit code 1 (general error)
-! exec invowk cmd exit-one
+# Test 2: Exit code 1 (general error), forwarded exactly
+exitcode 1 invowk cmd exit-one
 stdout 'Exiting with code 1'
 
-# Test 3: Exit code 42 (custom exit code)
-! exec invowk cmd exit-42
+# Test 3: Exit code 42 (custom exit code), forwarded exactly
+exitcode 42 invowk cmd exit-42
 stdout 'Exiting with code 42'
 
-# Test 4: Exit code from failed command
-! exec invowk cmd fail-command
+# Test 4: Exit code from failed command (`false` exits 1)
+exitcode 1 invowk cmd fail-command
 stdout 'About to run a failing command'
 
 -- invowkfile.cue --

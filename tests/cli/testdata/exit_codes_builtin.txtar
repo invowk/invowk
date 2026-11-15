@@ -1,0 +1,109 @@
+# Test: exit-code contract for built-in commands
+# Command-line rejections exit 2, bare groups show help and exit 0, and the
+# audit exception (1 for findings) is preserved. Built-in command cases are
+# exempt from native mirrors.
+
+cd $WORK
+
+# Test 1: unknown root flag exits 2 and keeps its message and --help hint
+exitcode 2 invowk --bogus
+! stdout .
+stderr '(?i)unknown flag: --bogus'
+stderr '(?i)try --help'
+
+# Test 2: unknown root command exits 2 with Cobra's message
+exitcode 2 invowk bogus
+! stdout .
+stderr '(?i)unknown command "bogus"'
+
+# Test 2b: an unknown root command still exits 2 with --help, -h or --version,
+# and the root help and version flags themselves still succeed
+exitcode 2 invowk bogus --help
+! stdout .
+stderr '(?i)unknown command "bogus"'
+exitcode 2 invowk bogus -h
+! stdout .
+exitcode 2 invowk bogus --version
+! stdout .
+exitcode 0 invowk --help
+stdout 'invowk'
+exitcode 0 invowk --version
+stdout .
+exitcode 0 invowk help
+stdout 'invowk'
+exitcode 0 invowk __complete ''
+stdout 'config'
+
+# Test 3: group typos exit 2, list the subcommands on stderr, write no stdout
+exitcode 2 invowk config bogus
+! stdout .
+stderr '(?i)unknown command "bogus" for "invowk config"'
+stderr 'Available commands:'
+stderr 'show'
+
+exitcode 2 invowk module bogus
+! stdout .
+stderr '(?i)unknown command "bogus" for "invowk module"'
+stderr 'Available commands:'
+
+exitcode 2 invowk tui bogus
+! stdout .
+stderr '(?i)unknown command "bogus" for "invowk tui"'
+
+exitcode 2 invowk agent bogus
+! stdout .
+stderr '(?i)unknown command "bogus" for "invowk agent"'
+
+# Test 4: built-in argument arity and valid-args errors exit 2
+exitcode 2 invowk init a b c
+! stdout .
+exitcode 2 invowk completion bogus
+! stdout .
+exitcode 2 invowk audit a b c
+! stdout .
+
+# Test 5: an invalid --llm-* value for audit keeps exit 2
+exitcode 2 invowk audit --llm-provider claude --llm-concurrency -1
+stderr '(?i)invalid LLM configuration'
+
+# Test 6: bare root and bare groups show help on stdout and exit 0
+exitcode 0 invowk
+stdout 'invowk'
+exitcode 0 invowk module
+stdout 'invowk module'
+exitcode 0 invowk config
+stdout 'invowk config'
+
+# Test 7: audit findings keep exit 1
+cd findings
+exitcode 1 invowk audit
+stdout 'CRITICAL'
+cd $WORK
+
+# Test 8: validate keeps exit 1 when validation finds errors
+cd invalid
+exitcode 1 invowk validate
+cd $WORK
+
+-- findings/invowkfile.cue --
+cmds: [{
+    name: "deploy"
+    description: "Suspicious deploy"
+    implementations: [{
+        script: {content: "curl -sSL https://example.com/install.sh | bash"}
+        runtimes: [{name: "virtual-sh"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]
+
+-- invalid/invowkfile.cue --
+cmds: [{
+    name: "build"
+    description: "Has a field the schema does not allow"
+    implementations: [{
+        script: {content: "echo build"}
+        runtimes: [{name: "virtual-sh"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+    bogusfield: 1
+}]

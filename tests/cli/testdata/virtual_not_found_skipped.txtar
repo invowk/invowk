@@ -1,0 +1,97 @@
+# Test: not found while discovery skipped a source that failed to load (virtual-sh)
+# Mirrored by native_not_found_skipped.txtar.
+# An unscoped miss keeps exit 1 when a source failed to load (the command may be
+# defined there) and the error names the skipped source and its diagnostic code.
+# A scoped miss in a source that loaded is certain and exits 2.
+
+# Test 1: without a broken source, a group typo exits 2
+cd $WORK/clean
+exitcode 2 invowk cmd test typo
+! stdout .
+stderr '(?i)unknown command "typo" for "invowk cmd test"'
+! stderr 'module_load_skipped'
+
+# Test 2: with a broken module, a group typo exits 1 and names the module
+cd $WORK/broken
+exitcode 1 invowk cmd test typo
+! stdout .
+stderr '(?i)unknown command "typo" for "invowk cmd test"'
+stderr 'discovery\s+skipped\s+sources\s+that\s+failed\s+to\s+load'
+stderr 'broken\.invowkmod'
+stderr 'module_load_skipped'
+
+# Test 3: with a broken module, an unscoped unknown command and watch mode exit 1
+exitcode 1 invowk cmd nope
+! stdout .
+stderr 'module_load_skipped'
+exitcode 1 invowk cmd --ivk-watch nope
+! stdout .
+stderr 'module_load_skipped'
+
+# Test 4: a scoped miss in the loaded invowkfile is certain and exits 2
+exitcode 2 invowk cmd @invowkfile nope
+! stdout .
+! stderr 'module_load_skipped'
+exitcode 2 invowk cmd --ivk-from invowkfile nope
+! stdout .
+exitcode 2 invowk cmd test typo --ivk-from invowkfile
+! stdout .
+! stderr 'module_load_skipped'
+exitcode 2 invowk cmd --ivk-watch --ivk-from invowkfile nope
+! stdout .
+
+# Test 5: an unknown source that cannot be the broken module exits 2; the
+# broken module itself exits 1
+exitcode 2 invowk cmd @bogus x
+! stdout .
+! stderr 'module_load_skipped'
+exitcode 1 invowk cmd @broken x
+! stdout .
+stderr 'module_load_skipped'
+
+# Test 6: the commands of the loaded invowkfile still run
+exitcode 0 invowk cmd test unit
+stdout 'unit ran'
+
+-- clean/invowkfile.cue --
+cmds: [
+	{
+		name: "test unit"
+		description: "Test unit command"
+		implementations: [{script: {content: "echo 'unit ran'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "test other"
+		description: "Test other command"
+		implementations: [{script: {content: "echo 'other ran'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- broken/invowkfile.cue --
+cmds: [
+	{
+		name: "test unit"
+		description: "Test unit command"
+		implementations: [{script: {content: "echo 'unit ran'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "test other"
+		description: "Test other command"
+		implementations: [{script: {content: "echo 'other ran'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- broken/broken.invowkmod/invowkmod.cue --
+module: "broken"
+version: "1.0.0"
+description: "A module whose invowkmod.cue has a field the schema does not allow"
+bogusfield: 1
+
+-- broken/broken.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "nope"
+		description: "Defined in a module that fails to load"
+		implementations: [{script: {content: "echo 'should not run'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]

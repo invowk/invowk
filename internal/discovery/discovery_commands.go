@@ -147,8 +147,9 @@ func (s *DiscoveredCommandSet) Add(cmd *CommandInfo) {
 // Analyze detects conflicts and marks ambiguous commands.
 // Must be called after all commands have been added and before presenting results
 // to users. It marks SimpleName entries with commands from >1 source as IsAmbiguous,
-// and sorts SourceOrder ("invowkfile" first, then modules alphabetically) for
-// consistent display ordering.
+// sorts SourceOrder ("invowkfile" first, then modules alphabetically), and sorts
+// each source's BySource commands alphabetically by full Name, so the grouped
+// listing is deterministic (Invowkfile.FlattenCommands walks a map).
 func (s *DiscoveredCommandSet) Analyze() {
 	// Detect ambiguous names (commands with same SimpleName from different sources)
 	for simpleName, cmds := range s.BySimpleName {
@@ -165,6 +166,17 @@ func (s *DiscoveredCommandSet) Analyze() {
 
 	// Sort SourceOrder: "invowkfile" first, then modules alphabetically
 	slices.SortFunc(s.SourceOrder, compareSourceIDs)
+
+	// Within a source, list commands alphabetically by full name. Full names
+	// are unique within one source, so the order is total.
+	for _, cmds := range s.BySource {
+		slices.SortFunc(cmds, compareCommandInfoNames)
+	}
+}
+
+//goplint:ignore -- slices.SortFunc comparator must return int by standard-library contract.
+func compareCommandInfoNames(a, b *CommandInfo) int {
+	return cmp.Compare(a.Name, b.Name)
 }
 
 func commandsSpanMultipleSources(cmds []*CommandInfo) bool {
@@ -282,9 +294,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 
 	// Analyze for conflicts
 	commandSet.Analyze()
-	slices.SortFunc(commandSet.Commands, func(a, b *CommandInfo) int {
-		return cmp.Compare(a.Name, b.Name)
-	})
+	slices.SortFunc(commandSet.Commands, compareCommandInfoNames)
 
 	return CommandSetResult{Set: commandSet, Diagnostics: diagnostics}, nil
 }

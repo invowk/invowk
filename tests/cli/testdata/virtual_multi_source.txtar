@@ -33,6 +33,24 @@ exec invowk cmd test
 stdout 'Testing from bar!'
 ! stderr .
 
+# Test 5: a command that is also another source's group prefix stays runnable
+# (invowkfile leaf "w2", module child "w2 sub"; "m w2 sub" sorts before "w2")
+cd prefixleaf
+exec invowk cmd w2
+stdout 'w2 leaf from invowkfile!'
+! stderr .
+exec invowk cmd w2 sub
+stdout 'w2 sub from m!'
+! stderr .
+
+# Test 6: the listing shows the invowkfile first, then the module, and within
+# each source lists commands alphabetically by full name, whatever the
+# declaration order (zeta, w2, alpha in the invowkfile; w2 sub, beta in m)
+exec invowk cmd
+stdout '(?s)From invowkfile:.*alpha.*First by name.*w2.*Leaf w2 from root invowkfile.*zeta.*Last by name.*From m\.invowkmod:.*beta.*Module first by name.*w2 sub.*Child w2 sub from m module'
+! stderr .
+cd $WORK
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -67,5 +85,43 @@ cmds: [
 		name: "test"
 		description: "Test from bar module"
 		implementations: [{script: {content: "echo 'Testing from bar!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- prefixleaf/invowkfile.cue --
+cmds: [
+	{
+		name: "zeta"
+		description: "Last by name"
+		implementations: [{script: {content: "echo 'zeta'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "w2"
+		description: "Leaf w2 from root invowkfile"
+		implementations: [{script: {content: "echo 'w2 leaf from invowkfile!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "alpha"
+		description: "First by name"
+		implementations: [{script: {content: "echo 'alpha'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- prefixleaf/m.invowkmod/invowkmod.cue --
+module: "m"
+version: "1.0.0"
+description: "M module"
+
+-- prefixleaf/m.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name: "w2 sub"
+		description: "Child w2 sub from m module"
+		implementations: [{script: {content: "echo 'w2 sub from m!'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+	{
+		name: "beta"
+		description: "Module first by name"
+		implementations: [{script: {content: "echo 'beta'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
