@@ -128,9 +128,9 @@ func openReparseHandle(path string) (windows.Handle, error) {
 // by field (harden-formal-instruments task 4.2):
 //   - PathBuffer = substitute name + NUL, then print name + NUL. The previous
 //     writer stored no print name and no print-name NUL (PrintNameOffset
-//     pointed past ReparseDataLength), which FSCTL_SET_REPARSE_POINT may reject
-//     as ERROR_INVALID_REPARSE_DATA. That cause is a hypothesis until Windows
-//     CI runs TestCreateJunction.
+//     pointed past ReparseDataLength), and junction creation failed on
+//     windows-latest. With this layout TestCreateJunction passes there and
+//     reports "created via reparse point" (CI run 43660058330).
 //   - SubstituteNameLength and PrintNameLength exclude their NULs; the offsets
 //     are byte offsets into PathBuffer (0 and len(substitute)+2).
 //   - ReparseDataLength = offsetof(MountPointReparseBuffer.PathBuffer) (8) +
