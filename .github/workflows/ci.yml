@@ -67,12 +67,18 @@ jobs:
             runner: ubuntu-latest
             engine: docker
             test-mode: full
+            # restrict-tui-server-bind D2 row this engine must select:
+            # 8 = rootful Docker, loopback + bridge gateway.
+            tui-plan-row: "8"
 
           # Ubuntu with Podman
           - os: ubuntu-latest
             runner: ubuntu-latest
             engine: podman
             test-mode: full
+            # restrict-tui-server-bind D2 row: 11 with a pasta executable,
+            # 12 without (see the "podman network backend" line in Setup Podman).
+            tui-plan-row: "12"
 
           # Windows (unit tests only - container runtime requires Linux)
           - os: windows
@@ -192,6 +198,7 @@ jobs:
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_PARALLEL: "2"
+          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}
         run: |
           PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | grep -v '^github.com/invowk/invowk/internal/runtime$' | tr '\n' ' ')"
           gotestsum \
