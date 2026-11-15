@@ -55,3 +55,22 @@ cmds: [{
 		})
 	}
 }
+
+// TestInvowkmodCannotSetTUIServerBind covers the module manifest side of the
+// trust boundary: invowkmod.cue is closed, so tui_server_bind is rejected.
+func TestInvowkmodCannotSetTUIServerBind(t *testing.T) {
+	t.Parallel()
+
+	control := "module: \"com.example.tuibind\"\nversion: \"0.1.0\"\n"
+	if _, err := ParseInvowkmodBytes([]byte(control), "invowkmod.cue"); err != nil {
+		t.Fatalf("control manifest does not parse: %v", err)
+	}
+	for _, extra := range []string{
+		"tui_server_bind: \"all-interfaces\"\n",
+		"container: tui_server_bind: \"all-interfaces\"\n",
+	} {
+		if _, err := ParseInvowkmodBytes([]byte(control+extra), "invowkmod.cue"); err == nil {
+			t.Fatalf("ParseInvowkmodBytes() accepted %q in a module manifest", extra)
+		}
+	}
+}

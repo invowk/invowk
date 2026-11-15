@@ -28,7 +28,7 @@
 
 ## 3. Opt-in config (D7, D10)
 
-- [x] 3.1 Add the config key and its Go support: *(2026-11-15: `internal/config/tui_server_bind.go`; `tui_server_bind_test.go` (INVOWK_CONFIG source, round trip, unknown value); `pkg/invowkfile/tui_server_bind_boundary_test.go`; `config show` gains a `container` section; goldens updated.)*
+- [x] 3.1 Add the config key and its Go support: *(2026-11-15: `internal/config/tui_server_bind.go`; `tui_server_bind_test.go` (INVOWK_CONFIG source, round trip, unknown value); `pkg/invowkfile/tui_server_bind_boundary_test.go` (invowkfile and invowkmod manifest, each with a control fixture); `config show` gains a `container` section; goldens updated.)*
   - `tui_server_bind: *"restricted" | "all-interfaces"` in `#ContainerConfig` (`internal/config/config_schema.cue:66-71`);
   - a typed Go value type with `Validate()`, the JSON and mapstructure tags beside `AutoProvision` (`internal/config/types.go:343`), and the default in `DefaultConfig`;
   - emission in `writeConfigCUEContainer` (`internal/config/config.go:592-600`);
@@ -56,7 +56,7 @@
   - the no-server plans: rows 2-5, 7, 9, 10, 12 and 13 yield kind `none`; restorable warnings name `container.tui_server_bind: "all-interfaces"`, row 3 adds the alias caveat, row 12 also names pasta, and the row 2 warning does not name `all-interfaces`.
 - [x] 4.3 Add a validated `NetworkMode` to `container.RunOptions`, emitted as the single argument `--network=<mode>` on `run` only. Verify with an engine argument test: for `--network=pasta:-T,<port>` plus `-p`, `--add-host` and `-e`, the Podman `--userns=keep-id` transformer (`internal/container/podman.go:200-230`) places its flag before the image, and `exec`/`create` arguments never contain `--network`. *(2026-11-15: `internal/container/network_mode.go`; `TestPodmanRunArgsNetworkModeBeforeImage`.)*
 - [x] 4.4 Wire the plan into the code (decision 21): *(2026-11-15: planner on `ContainerRuntime` (`container_tui_exposure.go`), consumer-side `tuiExposurePlanner` in the adapter; `interactive_exposure_test.go`, `interactive_exposure_linux_test.go`, `TestContainerRuntimePlanTUIExposure`, `TestContainerPrepareCommandTUINetworkMode`.)*
-  - the container runtime implements `TUIExposurePlanner` from its engine and its `*config.Config`; native and virtual runtimes get the loopback plan;
+  - the container runtime implements `PlanTUIExposure` (the adapter-side `tuiExposurePlanner` port) from its engine and its `*config.Config`; native and virtual runtimes get the loopback plan;
   - the interactive adapter plans before `New`/`Start`; for kind `none` it writes the warning once to `ctx.IO.Stderr` before the alternate screen, starts no server, leaves `ctx.TUI` empty, skips the bridge and `Stop`, and runs the command; for kind `wide` it also writes the exposure warning;
   - set `ctx.TUI.ServerURL` from the plan's dial host;
   - pass the network mode, with the port filled in, into container preparation (`internal/runtime/container_exec.go:189-194`, `container_prepare.go:69-80`).

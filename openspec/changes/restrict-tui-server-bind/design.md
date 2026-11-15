@@ -89,7 +89,7 @@ Items 1-6 restate the maintainer's own decisions from the brief. Items 7-14 were
 
 ### D1. Pick the bind plan before `Start`
 
-A new optional runtime port, `TUIExposurePlanner`, returns a `TUIExposurePlan` before the server starts. Runtimes that do not implement it (native, virtual) get the loopback plan. The container runtime implements it from its engine and its `*config.Config` (decision 21). The plan has one of three kinds:
+A new optional port, `tuiExposurePlanner` (declared by its consumer, the interactive adapter in `internal/app/commandadapters`), returns a `containerplan.TUIExposurePlan` before the server starts. Runtimes that do not implement it (native, virtual) get the loopback plan. The container runtime implements it from its engine and its `*config.Config` (decision 21). The plan has one of three kinds:
 - **narrow**: the bind addresses (`[]netip.Addr`, loopback always first), the host the container dials (an IP literal, or the engine alias for Docker Desktop), and an optional container network mode (`pasta:-T,<port>`; the port is filled in after `Start`);
 - **wide** (opt-in only): the explicit wildcard bind (D4, D7), the engine alias, and the exposure warning;
 - **none**: no server. It carries the warning text and whether the opt-in is offered (restorable) or not (no-route).
