@@ -4,7 +4,8 @@
 # Self-test for check-script-tests-worktree-safety.sh: the gate must fail
 # (exit 3) when the suite reproduces the old test_mutation.sh behaviour
 # (`git restore` of cmd/ internal/ pkg/ in the checkout it runs in) or any
-# other destructive change, and must pass a benign suite. Every run guards a
+# other destructive change, including changes to git config, refs and the
+# stash, and must pass a benign suite. Every run guards a
 # throwaway fixture repository and injects a small command as the suite; the
 # real suite is never run from here, and nothing touches this checkout.
 
@@ -20,6 +21,7 @@ FAIL=0
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 FIXTURE="$TMP/repo"
+SIBLING="$TMP/sibling"
 OUTPUT="$TMP/output"
 
 record_pass() {
@@ -49,17 +51,24 @@ assert_output_contains() {
 }
 
 # make_fixture DIR creates a repository shaped like this one where the gate
-# looks: two tracked text files under each of cmd/, internal/ and pkg/, plus
-# uncommitted work (unstaged, staged, untracked) the gate must mirror and keep.
+# looks: two tracked text files under each of cmd/, internal/ and pkg/, a text
+# file in website/ and docs/ and at the root, a tag, a branch, a stash entry, a
+# sibling worktree, and uncommitted work (unstaged, staged, untracked) the gate
+# must mirror and keep.
 make_fixture() {
 	local dir="$1"
 	local sub
+	local stash
 
 	for sub in cmd/app internal/core pkg/lib; do
 		mkdir -p "$dir/$sub"
 		printf 'package %s\n' "${sub##*/}" >"$dir/$sub/a.go"
 		printf '# %s\n' "$sub" >"$dir/$sub/README.md"
 	done
+	mkdir -p "$dir/website" "$dir/docs"
+	printf '# site\n' >"$dir/website/README.md"
+	printf '# guide\n' >"$dir/docs/guide.md"
+	printf '# fixture\n' >"$dir/README.md"
 	printf 'artifacts/\n' >"$dir/.gitignore"
 	git -C "$dir" init -q
 	git -C "$dir" config user.email test@example.com
@@ -68,6 +77,15 @@ make_fixture() {
 	git -C "$dir" config core.hooksPath /dev/null
 	git -C "$dir" add -A
 	git -C "$dir" commit -qm init
+	git -C "$dir" tag v1.0.0
+	git -C "$dir" branch feature
+	git -C "$dir" worktree add -q --detach "$SIBLING"
+	printf 'sibling work\n' >>"$SIBLING/docs/guide.md"
+
+	printf 'stashed work\n' >>"$dir/docs/guide.md"
+	stash="$(git -C "$dir" stash create)"
+	git -C "$dir" stash store -m "real stash" "$stash"
+	git -C "$dir" checkout -q -- docs/guide.md
 
 	printf 'real unstaged work\n' >>"$dir/cmd/app/README.md"
 	printf 'real staged work\n' >>"$dir/pkg/lib/README.md"
@@ -75,15 +93,18 @@ make_fixture() {
 	printf 'real untracked work\n' >"$dir/internal/core/notes.txt"
 }
 
+# repo_state DIR prints everything of the fixture a suite could damage,
+# including the shared git state: config, refs, stash and worktree list.
 repo_state() {
 	git -C "$1" diff --binary
 	git -C "$1" diff --cached --binary
 	git -C "$1" status --porcelain --untracked-files=all
 	cat "$1/internal/core/notes.txt"
-}
-
-worktree_count() {
-	git -C "$FIXTURE" worktree list --porcelain | grep -c '^worktree '
+	git -C "$1" config --local --list
+	git -C "$1" for-each-ref --format='%(objectname) %(refname)'
+	git -C "$1" stash list --format='%H %gs'
+	git -C "$1" worktree list --porcelain
+	cat "$SIBLING/docs/guide.md"
 }
 
 # gate_status [--in-place] COMMAND... runs the gate over the fixture with
@@ -103,6 +124,14 @@ gate_status() {
 	printf '%s\n' "$status"
 }
 
+leftover_work_dirs() {
+	find "$TMP" -mindepth 1 -maxdepth 1 -name 'invowk-script-tests.*' | wc -l | tr -d ' '
+}
+
+kept_before_dir() {
+	sed -n 's/^  \(.*real-before\)$/\1/p' "$OUTPUT" | head -n 1
+}
+
 make_fixture "$FIXTURE"
 before="$(repo_state "$FIXTURE")"
 
@@ -112,8 +141,14 @@ assert_output_contains "a benign suite reports success" "left every checkout unc
 assert_eq "a suite may write ignored files" "0" "$(gate_status sh -c 'mkdir -p artifacts && echo x >artifacts/report.json')"
 assert_eq "the suite sees the mirrored real work" "0" \
 	"$(gate_status sh -c 'grep -q "real unstaged work" cmd/app/README.md && git diff --cached --name-only | grep -qx pkg/lib/README.md && test -f internal/core/notes.txt')"
+assert_eq "the suite sees the real tags and branches" "0" \
+	"$(gate_status sh -c 'git rev-parse -q --verify refs/tags/v1.0.0 >/dev/null && git rev-parse -q --verify refs/heads/feature >/dev/null')"
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+assert_eq "the suite runs in a repository of its own, with no remote and no real stash" "0" \
+	"$(gate_status sh -c 'test -d .git && test -z "$(git remote)" && ! git stash list | grep -q "real stash"')"
 assert_eq "a failing suite that changes nothing exits 1" "1" "$(gate_status false)"
 assert_output_contains "a failing suite is reported as such" "no checkout was changed"
+assert_eq "passing and failing runs leave no temporary directory behind" "0" "$(leftover_work_dirs)"
 
 # --- the bug this gate exists for ---------------------------------------------
 # The old test_tool_report_collection_before_untracked_cleanup ran
@@ -134,8 +169,34 @@ assert_eq "a violating suite fails as a violation even when it exits 0" "3" \
 	"$(gate_status sh -c 'git checkout -q -- cmd; exit 0')"
 assert_eq "a violating suite fails as a violation even when it exits 1" "3" \
 	"$(gate_status sh -c 'git checkout -q -- cmd; exit 1')"
-assert_eq "the throwaway checkout is removed after every run" "1" "$(worktree_count)"
-assert_eq "runs inside the throwaway checkout leave the real checkout alone" "$before" "$(repo_state "$FIXTURE")"
+
+# Canaries sit in every top-level directory and at the root, not only in the
+# mutation source paths.
+assert_eq "a path-scoped checkout outside cmd/ internal/ pkg/ is caught" "3" "$(gate_status git checkout -q -- website)"
+assert_output_contains "the website canary reports the checkout" "CANARY: website/"
+assert_eq "a path-scoped clean outside cmd/ internal/ pkg/ is caught" "3" "$(gate_status git clean -fdq docs)"
+assert_output_contains "the docs canary reports the clean" "CANARY: docs/"
+assert_eq "a restore of a root file is caught" "3" "$(gate_status git restore -- README.md)"
+assert_eq "deleting a root untracked file is caught" "3" "$(gate_status git clean -fq -- ':(glob).*canary*')"
+
+# Shared git state: the throwaway repository has its own copies, and the gate
+# compares them, so a suite that would damage them in a real checkout fails.
+assert_eq "a config change is caught" "3" \
+	"$(gate_status sh -c 'git config commit.gpgsign true && git config core.hooksPath /tmp/elsewhere')"
+assert_output_contains "a config change is reported" "config changed"
+assert_eq "git -C with an empty directory (the current one) is caught" "3" \
+	"$(gate_status git -C "" config user.email other@example.com)"
+assert_eq "clearing the stash is caught" "3" "$(gate_status git stash clear)"
+assert_output_contains "clearing the stash is reported" "stash changed"
+assert_eq "deleting a branch is caught" "3" "$(gate_status git branch -q -D feature)"
+assert_output_contains "deleting a branch is reported" "refs changed"
+assert_eq "deleting the canary branch is caught" "3" \
+	"$(gate_status git branch -q -D invowk-script-tests-worktree-safety-canary-branch)"
+assert_eq "a sibling worktree cannot be removed from the throwaway repository" "1" \
+	"$(gate_status git worktree remove --force "$SIBLING")"
+assert_eq "runs inside the throwaway repository leave the real one alone, shared state included" "$before" "$(repo_state "$FIXTURE")"
+assert_eq "the throwaway repository is never registered as a worktree" "2" \
+	"$(git -C "$FIXTURE" worktree list --porcelain | grep -c '^worktree ')"
 
 # --- damage to the real checkout -----------------------------------------------
 # shellcheck disable=SC2016 # expanded by the shell that runs the snippet
@@ -143,25 +204,51 @@ assert_eq "a change to the real checkout is caught" "3" \
 	"$(gate_status sh -c 'printf "lost\n" >>"$1/cmd/app/a.go"' sh "$FIXTURE")"
 assert_output_contains "real-checkout damage names the real checkout" "SAFETY VIOLATION: the script tests changed the real checkout"
 assert_output_contains "real-checkout damage prints recovery commands" "apply --index"
-kept="$(sed -n 's/^  \(.*real-before\)$/\1/p' "$OUTPUT" | head -n 1)"
+kept="$(kept_before_dir)"
 if [[ -n "$kept" && -s "$kept/staged.diff" && -s "$kept/unstaged.diff" && -f "$kept/untracked.tar" ]]; then
 	record_pass
 else
 	record_fail "real-checkout damage keeps the before fingerprint" "kept: ${kept:-<none>}"
 fi
 assert_eq "nothing is restored automatically" "lost" "$(tail -n 1 "$FIXTURE/cmd/app/a.go")"
-assert_eq "the throwaway checkout is removed after a violation" "1" "$(worktree_count)"
+
+# A suite that breaks the throwaway repository so that its state cannot be read
+# must still get the real checkout compared, and its recovery data kept.
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+assert_eq "a broken throwaway repository plus real damage is a violation" "3" \
+	"$(gate_status sh -c 'rm -rf .git; printf "lost again\n" >>"$1/cmd/app/a.go"' sh "$FIXTURE")"
+assert_output_contains "a broken throwaway repository is reported" "SAFETY VIOLATION: the script tests broke the throwaway checkout"
+assert_output_contains "the real checkout is still compared" "SAFETY VIOLATION: the script tests changed the real checkout"
+kept="$(kept_before_dir)"
+if [[ -n "$kept" && -s "$kept/unstaged.diff" ]]; then
+	record_pass
+else
+	record_fail "a broken throwaway repository keeps the real before fingerprint" "kept: ${kept:-<none>}"
+fi
+assert_eq "a broken throwaway repository alone is a violation" "3" "$(gate_status rm -rf .git)"
+
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+assert_eq "a change to the real checkout's guarded config is caught" "3" \
+	"$(gate_status sh -c 'git -C "$1" config core.hooksPath /tmp/elsewhere' sh "$FIXTURE")"
+assert_output_contains "a real config change is reported" "config changed"
+git -C "$FIXTURE" config core.hooksPath /dev/null
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+assert_eq "a sibling's branch tracking config is not a violation" "0" \
+	"$(gate_status sh -c 'git -C "$1" config branch.feature.remote origin' sh "$FIXTURE")"
+git -C "$FIXTURE" config --unset branch.feature.remote
 
 # --- in-place (unguarded) runs are still fingerprinted ---------------------------
 in_place_before="$(repo_state "$FIXTURE")"
 assert_eq "an in-place benign suite passes" "0" "$(gate_status --in-place true)"
 assert_output_contains "an in-place run says it is unguarded" "Running the script tests in place (unguarded)"
 assert_eq "an in-place failing suite that changes nothing exits 1" "1" "$(gate_status --in-place false)"
+assert_eq "an in-place config change is caught" "3" "$(gate_status --in-place git config commit.gpgsign true)"
+git -C "$FIXTURE" config commit.gpgsign false
 assert_eq "an in-place git restore is caught" "3" \
 	"$(gate_status --in-place git restore --worktree -- cmd internal pkg)"
 assert_output_contains "an in-place violation names the real checkout" "SAFETY VIOLATION: the script tests changed the real checkout"
 assert_output_contains "an in-place violation prints recovery commands" "apply --index"
-kept="$(sed -n 's/^  \(.*real-before\)$/\1/p' "$OUTPUT" | head -n 1)"
+kept="$(kept_before_dir)"
 if [[ -n "$kept" ]] && git -C "$FIXTURE" apply --check "$kept/unstaged.diff" 2>/dev/null; then
 	git -C "$FIXTURE" apply "$kept/unstaged.diff"
 	assert_eq "the printed recovery restores the lost work" "$in_place_before" "$(repo_state "$FIXTURE")"
@@ -169,13 +256,17 @@ else
 	record_fail "an in-place violation keeps an applicable before-diff" "kept: ${kept:-<none>}"
 fi
 
-# --- the single test list covers every scripts/test_* file ---------------------
+# --- the single test list covers every script test file ------------------------
 list_root="$TMP/list-check"
 mkdir -p "$list_root/scripts"
+git -C "$list_root" init -q
 cp "$SCRIPT_DIR/script-tests.sh" "$list_root/scripts/"
-for file in "$SCRIPT_DIR"/test_*; do
-	: >"$list_root/scripts/${file##*/}"
-done
+while IFS= read -r file; do
+	mkdir -p "$list_root/$(dirname "$file")"
+	: >"$list_root/$file"
+done < <(git -C "$SCRIPT_DIR/.." ls-files --cached --others --exclude-standard |
+	grep -E '(^|/)(test_[^/]+\.(sh|bash|py|mjs|js|ps1)|[^/]+_test\.(sh|bash|py|mjs|js))$' |
+	grep -Ev '^tests/cli/|(^|/)testdata/|(^|/)node_modules/')
 list_check_status() {
 	set +e
 	bash "$list_root/scripts/script-tests.sh" --check-list >"$OUTPUT" 2>&1
@@ -186,7 +277,19 @@ assert_eq "the list check passes when every test file is listed" "0" "$(list_che
 : >"$list_root/scripts/test_unlisted.sh"
 assert_eq "the list check fails on an unlisted test file" "1" "$(list_check_status)"
 assert_output_contains "the list check names the unlisted file" "scripts/test_unlisted.sh is not in scripts/script-tests.sh"
-rm "$list_root/scripts/test_unlisted.sh" "$list_root/scripts/test_mutation.sh"
+rm "$list_root/scripts/test_unlisted.sh"
+mkdir -p "$list_root/.agents/skills/new/scripts" "$list_root/tools/new"
+: >"$list_root/.agents/skills/new/scripts/test_new.py"
+: >"$list_root/tools/new/helper_test.sh"
+assert_eq "the list check fails on unlisted test files outside scripts/" "1" "$(list_check_status)"
+assert_output_contains "the list check names a skill test" ".agents/skills/new/scripts/test_new.py is not in"
+assert_output_contains "the list check names a *_test script" "tools/new/helper_test.sh is not in"
+rm -r "$list_root/.agents/skills/new" "$list_root/tools/new"
+mkdir -p "$list_root/tests/cli/testdata" "$list_root/pkg/x/testdata"
+: >"$list_root/tests/cli/testdata/test_fixture.sh"
+: >"$list_root/pkg/x/testdata/test_fixture.py"
+assert_eq "the list check skips testscript and testdata fixtures" "0" "$(list_check_status)"
+rm "$list_root/scripts/test_mutation.sh"
 assert_eq "the list check fails on a listed file that is missing" "1" "$(list_check_status)"
 assert_output_contains "the list check names the missing file" "lists scripts/test_mutation.sh, which does not exist"
 

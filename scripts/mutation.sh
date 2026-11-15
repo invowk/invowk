@@ -28,8 +28,11 @@ MUTATION_RESTORE_MODULES=()
 MUTATION_CLEANUP_DIR=""
 # The restore helpers below revert tracked sources and delete new untracked
 # files. They act only on the checkout whose resolved path
-# ensure_clean_tracked_worktree_for_mutation verified clean (it "arms" the
-# restore), so they can never discard someone's uncommitted work. Both values
+# ensure_clean_tracked_worktree_for_mutation verified clean when the run
+# started (it "arms" the restore), so they never act on a checkout that held
+# uncommitted source work at that point. The check is not repeated: edits made
+# under cmd/, internal/ or pkg/ in this checkout DURING a run are reverted with
+# the mutants, so do not edit there while a run is in progress. Both values
 # are reset here and never exported, so the environment cannot pre-arm them.
 MUTATION_RESTORE_ARMED_ROOT=""
 MUTATION_IN_CLEANUP_TRAP=0

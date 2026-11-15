@@ -19,6 +19,7 @@ on:
       - 'scripts/**'
       # Read or run by make test-scripts (single list: scripts/script-tests.sh).
       - '.agents/skills/publish-release/scripts/**'
+      - '.agents/skills/review-docs/scripts/**'
       - 'tools/mutation/**'
       - 'formal/**'
       - 'default.pgo'
@@ -39,6 +40,7 @@ on:
       - 'scripts/**'
       # Read or run by make test-scripts (single list: scripts/script-tests.sh).
       - '.agents/skills/publish-release/scripts/**'
+      - '.agents/skills/review-docs/scripts/**'
       - 'tools/mutation/**'
       - 'formal/**'
       - 'default.pgo'

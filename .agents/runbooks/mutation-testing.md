@@ -1,6 +1,6 @@
 # Mutation Testing
 
-Procedures for the manual mutation-testing profiles. Targets are listed in `.agents/rules/commands.md`, which also owns the enforced data-loss rule: the wrapper refuses to start with uncommitted tracked work outside its allow-list, and its restore acts only on a checkout it verified clean. Background and profile history: `docs/next/mutation-testing.md`.
+Procedures for the manual mutation-testing profiles. Targets are listed in `.agents/rules/commands.md`, which also owns the enforced data-loss rule: the wrapper refuses to start with uncommitted tracked work outside its allow-list, and its restore acts only on a checkout it verified clean when the run started. It does not re-check, so do not edit `cmd/`, `internal/` or `pkg/` in that checkout during a run. Background and profile history: `docs/next/mutation-testing.md`.
 
 ## Scope
 

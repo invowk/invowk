@@ -179,6 +179,7 @@ assert_file_eq "extracts multiline markdown tag notes exactly" \
     "$_multiline_notes" "$_extracted_notes"
 
 git -C "$_tag_repo" tag v1.2.4
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
 assert_status_contains "lightweight tag release notes extraction fails" 1 \
     "must be an annotated tag containing release notes" \
     bash -c 'source "$1"; cd "$2"; extract_release_notes_from_tag v1.2.4 "$3"' \

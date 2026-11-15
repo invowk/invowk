@@ -317,14 +317,18 @@ test_tool_report_collection_before_untracked_cleanup() {
 
 # run_guard_probe REPO SNIPPET runs SNIPPET in a fresh bash that sourced
 # mutation.sh with REPO_ROOT=REPO, so a hard failure (exit) cannot end this
-# test run. It prints the exit status; stderr goes to $GUARD_PROBE_STDERR.
+# test run. It prints the exit status; stderr goes to $GUARD_PROBE_STDERR. The
+# probe's temporary directories (mutation.sh's cleanup dir, which a refused
+# cleanup leaves behind) go under $GUARD_PROBE_TMPDIR, inside the caller's
+# temporary directory, so no run leaks one into the system TMPDIR.
 run_guard_probe() {
 	local repo="$1"
 	local snippet="$2"
 	local status
 
+	mkdir -p "$GUARD_PROBE_TMPDIR"
 	set +e
-	INVOWK_MUTATION_TESTING=1 bash -c '
+	TMPDIR="$GUARD_PROBE_TMPDIR" INVOWK_MUTATION_TESTING=1 bash -c '
 		set -euo pipefail
 		source "$1"
 		REPO_ROOT="$2"
@@ -341,10 +345,12 @@ test_restore_guard_refuses_unarmed_checkouts() {
 	local clean
 	local before
 	local GUARD_PROBE_STDERR
+	local GUARD_PROBE_TMPDIR
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
 	GUARD_PROBE_STDERR="$tmp/stderr"
+	GUARD_PROBE_TMPDIR="$tmp/probe-tmp"
 	dirty="$tmp/dirty"
 	clean="$tmp/clean"
 	make_dirty_fixture_repo "$dirty"
@@ -388,12 +394,14 @@ test_cleanup_trap_preserves_exit_status() {
 	local clean
 	local before
 	local GUARD_PROBE_STDERR
+	local GUARD_PROBE_TMPDIR
 	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
 	local trap_setup='MUTATION_RESTORE_MODULES=(root); MUTATION_CLEANUP_DIR="$(mktemp -d)"; trap cleanup_mutation_paths EXIT'
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' RETURN
 	GUARD_PROBE_STDERR="$tmp/stderr"
+	GUARD_PROBE_TMPDIR="$tmp/probe-tmp"
 	dirty="$tmp/dirty"
 	clean="$tmp/clean"
 	make_dirty_fixture_repo "$dirty"
@@ -411,6 +419,7 @@ test_cleanup_trap_preserves_exit_status() {
 	assert_eq "an armed trap keeps the exit status" "7" \
 		"$(run_guard_probe "$clean" 'ensure_clean_tracked_worktree_for_mutation; '"$trap_setup"'; printf "// mutant\n" >>"$REPO_ROOT/pkg/lib/lib.go"; exit 7')"
 	assert_eq "an armed trap restores the mutated source" "package lib" "$(cat "$clean/pkg/lib/lib.go")"
+	assert_eq "the cleanup trap removes its temporary directory" "" "$(ls -A "$GUARD_PROBE_TMPDIR")"
 }
 
 test_dirty_path_policy() {
