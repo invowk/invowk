@@ -183,8 +183,9 @@ unresolved_elements = [
 # type-symbol, trace-only, characterisation-only) are derived and reported by
 # `scripts/formal_mutation.py triage --check`, never listed. The check fails on a
 # binding gap or orphan that is not listed, on a listed entry that no longer
-# applies, and, with --base, on any entry here or in
-# [correspondence] unresolved_elements that the base commit does not list. The
+# applies, and on any entry here or in [correspondence] unresolved_elements that
+# the base commit does not list (base: --base, else INVOWK_TRIAGE_BASE, else the
+# merge-base with origin/main; CI sets it with scripts/ci-triage-base.sh). The
 # survivor-triage follow-up binds the gaps and empties orphaned_survivors.
 [triage]
 binding_gaps = [

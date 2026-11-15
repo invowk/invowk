@@ -62,8 +62,8 @@ The formal setup fails closed everywhere except in two instruments, and both let
    A strengthened binding that fails on unmodified code, unless an open finding explains it, is a defect. It gets F18, the next free id, through the finding procedure. The implementer stops and reports, and never weakens the assertion or patches product code.
 5. **Model elements must exist.** `formal.py correspondence` checks that each row's model element is named in the model source or in the model's manifest commands. Today's 34 unresolved pairs (38 rows) go on a fail-closed, shrink-only `[correspondence] unresolved_elements` list in the manifest. No new or edited row may enter it, and the survivor-triage follow-up empties it (design decision 7). The match is case-sensitive.
 6. **Binding gaps and orphaned survivors are reported, and the lists cannot grow.** `scripts/formal_mutation.py triage --check` lists every `no-binding` row (19 after this change) and every baselined survivor whose row is unbound (20) through a `[triage]` table in the manifest. By-design rows (no-symbol, type-symbol, trace-only, characterisation-only; 34) are derived and reported, not listed. A new gap or orphan fails, and a listed entry that no longer applies fails as stale (design decisions 9 and 15, D13).
-   - `triage --check --base <sha>` fails when `[correspondence] unresolved_elements`, `[triage] binding_gaps`, or `[triage] orphaned_survivors` lists an entry that the base commit's manifest does not. In CI the base is the PR base SHA; locally it defaults to the merge-base with `origin/main`. An unreadable base fails closed.
-   - The formal lane runs `scripts/test_formal_mutation.py` and this check on every affected PR.
+   - `triage --check` fails when `[correspondence] unresolved_elements`, `[triage] binding_gaps`, or `[triage] orphaned_survivors` lists an entry that the base commit's manifest does not, and explains each entry that left. The base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else the merge-base with `origin/main`. A base with none of the lists seeds them; one with only some fails. An unreadable base fails closed (decisions 19, 20, and 22).
+   - In CI a new helper, `scripts/ci-triage-base.sh`, sets `INVOWK_TRIAGE_BASE`: the base branch tip on a pull request, the commit under test otherwise. The formal lane runs `scripts/test_formal_mutation.py` and the check on every affected PR; `lint.yml`'s script-test gate and `release.yml`'s `make test-scripts` step export the same variable.
 7. **Windows replay budget.** The 30 s budget is not enforced on Windows. Its value is derived from three windows-latest runs of the final F1 tree and recorded with the run ids (design decision 13). No CI step enforces it.
 
 **Non-goals:**
@@ -105,6 +105,7 @@ None.
 - **Build and CI:**
   - `Makefile`: `formal-reach` and its help line;
   - `.github/workflows/formal-verification.yml`: a `Binding reach` step, a `Triage lists` step, `scripts/test_formal_mutation.py` in `Runner self-tests`, and a job timeout raised from 46 to 52;
+  - `.github/workflows/lint.yml` and `.github/workflows/release.yml`: the `make test-scripts` steps export `INVOWK_TRIAGE_BASE` from `scripts/ci-triage-base.sh` (new), which the gate self-test covers;
   - `formal/manifest.toml`: `[reach]` budget and calibration, `[ci] paths` (including the triage ledger and baseline), model calibration text, `[correspondence] unresolved_elements`, `[triage]`, and a possible F16 or F18 `finding` command.
 - **Test utilities:** `internal/testutil/fstree` (the policy, probe errors, and the junction writer, with no `mklink` fallback) and `internal/testutil/mpctree` (the dotenv sentinel content).
 - **Tests:**
