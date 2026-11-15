@@ -42,6 +42,14 @@ Invowk SHALL support logical path anchors `@config`, `@data`, `@cache`, `@state`
 - **WHEN** `HOME=.` is set on Linux, the `XDG_*` variables are unset, and a `virtual-lua` script calls `invowk.path("@config")`
 - **THEN** the call SHALL fail with an error that names the anchor as unavailable, `INVOWK_ANCHOR_HOME` and `INVOWK_ANCHOR_CONFIG` SHALL be empty, and no relative path such as `.config/invowk` SHALL become an allow root
 
+#### Scenario: Unset home makes home-derived anchors unavailable
+- **WHEN** `HOME` is unset on Linux and the `XDG_*` variables are unset
+- **THEN** `@home`, `@config`, `@data`, `@cache` and `@state` SHALL be unavailable and their `INVOWK_ANCHOR_*` variables empty, and `@tmp` and `@work` SHALL resolve as before
+
+#### Scenario: An absolute XDG value keeps its anchor without a home
+- **WHEN** `HOME` is unset and `XDG_CONFIG_HOME` is an absolute path on Linux
+- **THEN** `@config` SHALL resolve to `$XDG_CONFIG_HOME/invowk`
+
 #### Scenario: A path mapping on an unavailable anchor fails closed
 - **WHEN** `HOME=.` is set on Linux and the selected platform declares `virtual: {filesystem: {paths: {DOTFILES: "@home/.dotfiles"}}}`
 - **THEN** the `virtual-sh` or `virtual-lua` command SHALL fail before its script runs, with an error that names `@home` as unavailable, and no path under the current directory SHALL become an allow root

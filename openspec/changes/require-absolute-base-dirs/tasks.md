@@ -37,22 +37,23 @@
 - [ ] 3.2 Give `GitFetcher` an unexported `dirs basedir.Dirs` and an injected `getenv`, both set by `NewGitFetcher` (`internal/app/modulesync/git.go:47-51`), plus a test constructor. Make `trySSHAuth` (`git.go:303-326`) use `f.dirs.Home()` and return nil on error. Verify with a unit test: an injected relative home with `.ssh/id_ed25519` in a `t.TempDir()` loads no key.
 - [ ] 3.3 Add `(*GitFetcher).requireTrustedSSHFiles(gitURL)`, which returns `ErrSSHTrustFilesNotAbsolute` (design D2, Git).
   - Call it first in `ListVersions`, `Fetch`, `GetCommitForTag`, `CloneShallow`, `IsPrivateRepo` (return true without connecting) and `ListTagsWithCommits` (`git.go:59-252`).
-  - For every URL that does not start with `https://`, it requires an absolute `Home()` and absolute `SSH_KNOWN_HOSTS` entries.
+  - For every URL that does not start with `https://`, it requires `Home()` to succeed with an absolute path (an unavailable home is refused too, decision 18) and every non-empty `SSH_KNOWN_HOSTS` entry to be absolute.
 
-  Verify with unit tests that use an unroutable endpoint (`ssh://git@192.0.2.1/x.git`, TEST-NET-1) and a short context. The relative-home and relative-`SSH_KNOWN_HOSTS` cases return the typed error before any dial: the error must be the typed one, not a timeout. An `https://` URL with a relative home passes the gate.
+  Verify with unit tests that use an unroutable endpoint (`ssh://git@192.0.2.1/x.git`, TEST-NET-1) and a short context. The relative-home, unavailable-home and relative-`SSH_KNOWN_HOSTS` cases return the typed error before any dial: the error must be the typed one, not a timeout. An `https://` URL with a relative home passes the gate.
 - [ ] 3.4 Add the testscript `tests/cli/testdata/module_cache_relative_path.txtar`:
   - set `env INVOWK_MODULES_PATH=.modules`, then run `invowk module sync` in a directory that has an `invowkmod.cue`;
   - assert a non-zero exit, stderr naming `INVOWK_MODULES_PATH` and "absolute", and `! exists .modules`.
 
   It is not virtual, so it needs no mirror.
 - [ ] 3.5 Update `INVOWK_MODULES_PATH` in three places (the value must be absolute): `README.md:2241`, `website/docs/modules/dependencies/cli-commands.mdx:238` and `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/modules/dependencies/cli-commands.mdx:229`. Verify that the text matches the spec.
-- [ ] 3.6 Group check: run `go test ./internal/app/modulecache/ ./internal/app/modulesync/ && go test ./tests/cli/ -run 'TestCLI/module_cache_relative_path'` and confirm it passes.
+- [ ] 3.6 Zero-change invariant (design D5 rows e and f): add `TestDefaultDirFromMatchesLegacy` in `internal/app/modulecache/` and `TestSSHGateMatchesLegacy` in `internal/app/modulesync/`. Each freezes today's behaviour as a legacy oracle in the `_test.go` file and compares over a table of absolute and unset environments (absolute existing home, absolute missing home, home unset, `INVOWK_MODULES_PATH` absolute and unset, `SSH_KNOWN_HOSTS` absolute and unset). For the gate, the oracle is "today proceeds to the transport" except where today fails at host-key verification; the unset-home SSH row is listed as the BREAKING expected difference.
+- [ ] 3.7 Group check: run `go test ./internal/app/modulecache/ ./internal/app/modulesync/ && go test ./tests/cli/ -run 'TestCLI/module_cache_relative_path'` and confirm it passes.
 
 ## 4. Provisioning, run locks and test infrastructure
 
 - [ ] 4.1 Add `provision.Config.BaseDirs basedir.Dirs` and a `WithBaseDirs` option beside `WithCacheDir` (`internal/provision/config.go:246-251`; the zero value means `basedir.OS()`). Make `applyHostProvisionDefaults` (`internal/runtime/container_provision.go:232-255`, called once at `:190`) read the home from `provisionCfg.BaseDirs`.
-  - It sets the default `CacheDir` only when `Home()` is absolute and is an existing directory, and otherwise leaves it empty (design decision 10).
-  - Verify with unit tests for a relative home and for an absolute missing home (`filepath.Join(t.TempDir(), "missing")`): both leave `CacheDir` empty, and an existing absolute home gives `<home>/.cache/invowk/provision`.
+  - It sets the default `CacheDir` whenever `Home()` succeeds with an absolute path, whether or not it exists, and otherwise leaves it empty (design decision 15, which supersedes decision 10).
+  - Verify with unit tests: a relative home and a failing home lookup leave `CacheDir` empty; an absolute missing home (`filepath.Join(t.TempDir(), "missing")`) and an existing absolute home both give `<home>/.cache/invowk/provision`.
 - [ ] 4.2 Update `resolveBuildContextParent`, which takes the home from `p.config.BaseDirs` (`internal/provision/layer_provisioner.go:367-408`):
   - use `<home>/invowk-build` only for an absolute, existing `Home()`;
   - delete the `<cwd>/.invowk-build` branch (`:385-391`);
@@ -61,13 +62,16 @@
   Verify with unit tests: a relative home and an absolute missing home both give an `invowk-build-*` parent under `os.TempDir()` with a non-nil cleanup, and nothing is created in the test's working directory. Use `t.Chdir(t.TempDir())` and no `t.Parallel()` in the test that checks the working directory.
 - [ ] 4.3 Make `lockFilePathWith` (`internal/container/run_lock_linux.go:80-86`) and `containerSuiteLockFilePath` (`internal/testutil/container_suite_lock_linux.go:51-57`) use `RuntimeDir()` from a `basedir.New` value built over the given `getenv`, then `os.TempDir()`. Verify with a unit test of `lockFilePathWith` with `XDG_RUNTIME_DIR=run`.
 - [ ] 4.4 Make `ContainerSafeTempDir` (`internal/testutil/testutil.go:148`) use `basedir.OS().Home()`. Make `containerSuiteConfigDir` (`tests/cli/container_harness.go:363-375`) use `basedir.New(runtime.GOOS, env.Getenv, …HomeFromEnv…)` and `ConfigHome()` (design D2). Add `TestContainerSuiteConfigDir` in `tests/cli/container_harness_test.go`. It builds a testscript env with a relative `XDG_CONFIG_HOME` and expects `<HOME>/.config/invowk` on Linux. Verify that `go test ./internal/testutil/ && go test ./tests/cli/ -run 'TestContainerSuiteConfigDir|TestDecideContainerSuiteHarness'` passes.
-- [ ] 4.5 Group check: run `go test ./internal/provision/ ./internal/container/ ./internal/runtime/ -run 'Provision|Lock|BuildContext'` and confirm it passes.
+- [ ] 4.5 Zero-change invariant (design D5 rows b, c and d): add legacy-oracle table tests for the default `CacheDir` (`internal/runtime`), the build-context parent kind (`internal/provision`: cache, `<home>/invowk-build`, temp or cwd) and `lockFilePathWith` (`internal/container`), over absolute existing home, absolute missing home, home unset, and `XDG_RUNTIME_DIR` absolute and unset. The rows where today's oracle picks `<cwd>/.invowk-build` are the BREAKING expected differences (now temp); every other row must match.
+- [ ] 4.6 Group check: run `go test ./internal/provision/ ./internal/container/ ./internal/runtime/ -run 'Provision|Lock|BuildContext|Legacy'` and confirm it passes.
 
 ## 5. Virtual-runtime anchors
 
 - [ ] 5.1 Change `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go:148-186`) to `(goos, workDir, tempDir string, dirs basedir.Dirs)`, keeping its name because the formal table binds it.
   - Build each anchor from the matching `basedir` method, and use `""` for an unavailable base.
   - Make `standardVirtualAnchors` (`:140-146`) pass `basedir.OS()`, and drop `firstNonEmpty` (`:188-193`).
+
+  - Keep F1's contract (design decision 16): `newVirtualPathResolverForFilesystem` keeps its signature, and with an absolute home every anchor stays non-empty with today's path.
 
   Verify by updating `internal/runtime/virtual_policy_test.go:66` and adding cases for relative XDG values, relative `LOCALAPPDATA` on Windows and a relative home.
 - [ ] 5.2 In `expandVirtualAnchorPath` (`virtual_policy.go:284-297`), report a known but empty anchor as `virtual path anchor %q is unavailable`, and keep "unknown virtual path anchor" for unknown names. Verify with a unit test covering both, and with a resolver test showing that a `filesystem.paths` entry `@home/.dotfiles` with an unavailable `@home` fails construction.
@@ -79,8 +83,9 @@
 
   Add `"virtual_anchor_relative_home.txtar": "path anchors are injected only by the virtual runtimes"` to `exact` in `tests/cli/runtime_mirror_exemptions.json` (design decision 12).
 - [ ] 5.4 Update the anchor text in `website/docs/runtime-modes/virtual-lua.mdx:21,31` and its pt-BR `current` copy: relative bases are ignored, and home-derived anchors can be unavailable. `virtual.mdx` has no anchor section today, so it is not changed. Do not describe the virtual runtimes as sandboxed.
-- [ ] 5.5 Group check: run `go test ./internal/runtime/ -run 'Anchor|VirtualPath' && go test ./tests/cli/ -run 'TestCLI/virtual_anchor_relative_home'` and confirm it passes.
-- [ ] 5.6 Formal binding (`.agents/rules/formal-bindings.md`):
+- [ ] 5.5 Zero-change invariant (design D5 row a): add `TestStandardVirtualAnchorsMatchLegacy` in `internal/runtime/`, with today's `standardVirtualAnchorsForOS` frozen as the oracle. Table over linux, darwin and windows `goos`, with the home absolute and unset and each XDG/AppData variable absolute and unset. The home-unset rows where today's oracle returns a relative home-derived anchor are the BREAKING expected differences (now `""`); every other anchor must match.
+- [ ] 5.6 Group check: run `go test ./internal/runtime/ -run 'Anchor|VirtualPath|Legacy' && go test ./tests/cli/ -run 'TestCLI/virtual_anchor_relative_home'` and confirm it passes.
+- [ ] 5.7 Formal binding (`.agents/rules/formal-bindings.md`):
   - update the `anchors` row's abstraction note in `formal/alloy/VirtualPathHarness.als:31` if the semantics it names changed;
   - run `python3 scripts/formal.py correspondence` and `go test ./internal/runtime/ -run TestVirtualPathHarness`;
   - run `make formal` when Java is available.
@@ -89,16 +94,19 @@
 
 - [ ] 6.1 Add forbidigo text patterns `^os\.UserHomeDir$`, `^os\.UserConfigDir$` and `^os\.UserCacheDir$` to `.golangci.toml:422-426`, without `analyze-types`, plus a `[[linters.exclusions.rules]]` entry for `internal/basedir/` (design D3). Verify that `make lint` is clean, and that a scratch `os.UserHomeDir()` call in `internal/app` is reported and then removed.
 - [ ] 6.2 Add `internal/basedir/guard_test.go`, the AST walk from design D3.
-  - It covers: `os` imported under any name, `os/user` imports, exact literals, `^XDG_[A-Z_]+$` and `$HOME`/`${HOME}` substrings.
+  - It covers: `os` imported under any name, including a dot import (bare `UserHomeDir` identifiers), `os/user` imports, exact literals, `^XDG_[A-Z_]+$` and `$HOME`/`${HOME}` substrings.
   - It reports file:line, and has a reasoned allowlist (initially `internal/testutil/home.go`).
-  - Factor the walk as `scan(root string) []finding`.
+  - Factor the walk as `scan(root string) []finding`, with the `testdata` and `internal/basedir/` skips matched relative to `root`.
+  - Add the committed planted-violation fixture `internal/basedir/testdata/guardfixture/` (design decision 17): `internal/planted/*.go` with one violation per pattern, plus `internal/testutil/home.go` (allowlisted) and `internal/basedir/x.go` (skipped). Fixture files carry the SPDX header and are gofmt-clean.
 
-  Verify that the test passes on the tree, and that `scan` reports each pattern, including an aliased `goos.UserHomeDir()`, on fixture files written to `t.TempDir()`.
+  Verify that the test passes on the tree, and that `scan("testdata/guardfixture")` returns exactly the expected file:line findings, one per planted pattern, and none for the allowlisted and skipped fixture files.
 - [ ] 6.3 Document the helper and the guard where home-directory handling is already covered: `.agents/skills/windows-testing/SKILL.md` (the `os.UserHomeDir`/`SetHomeDir` notes), `.agents/skills/go/SKILL.md` (including "review new dependencies that read per-user files"), and `.agents/rules/testing.md`. Verify with `make check-agent-docs`.
-- [ ] 6.4 Group check: run `go test ./internal/basedir/ -run Guard && make lint` and confirm it passes.
+- [ ] 6.4 Add the explicit `internal/basedir` exception to `.agents/rules/package-design.md` "Utility Package Boundaries" (design decision 14), next to the "each gets its own copy" bullet, with its reason and a pointer to the guard. Verify with `make check-agent-docs`.
+- [ ] 6.5 Group check: run `go test ./internal/basedir/ -run Guard && make lint` and confirm it passes.
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
+- [ ] 7.0 Wait for F1 (`harden-formal-instruments`, #163) to merge, then rebase this branch on main (design decision 16). Re-run `go test ./internal/runtime/ -run 'TestVirtualPathHarness_RootConstruction|TestVirtualPathHarness'` and `python3 scripts/formal.py correspondence`, and re-check the guard against any new non-test files that the rebase brings in.
 - [ ] 7.1 Review the diff for reuse and simplification (`/simplify`), then run `make tidy` and `make license-check`.
 - [ ] 7.2 Run `make lint` and fix every issue.
 - [ ] 7.3 Run `make test` (full suite, including CLI and container tests).

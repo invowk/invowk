@@ -62,19 +62,27 @@ The module cache directory SHALL be `INVOWK_MODULES_PATH` when it is set and non
 
 ### Requirement: Provisioning directories never fall back to the current directory
 
-The default provisioning directories (`<home>/.cache/invowk/provision` and `<home>/invowk-build`) SHALL be derived only from an absolute home that exists. Otherwise, unless a cache dir is configured, the build-context parent SHALL be a new, randomly named directory that invowk creates in the OS temp directory and removes after the build. The current directory SHALL NOT be used as a fallback.
+The default provisioning cache directory (`<home>/.cache/invowk/provision`) SHALL be derived only from an absolute home, whether or not it exists. `<home>/invowk-build` SHALL be used only for an absolute home that exists. Otherwise, unless a cache dir is configured, the build-context parent SHALL be a new, randomly named directory that invowk creates in the OS temp directory and removes after the build. The current directory SHALL NOT be used as a fallback.
 
 #### Scenario: relative HOME uses a temporary build context
 - **WHEN** `HOME=.` is set, no cache dir is configured, and a container command with auto-provisioning runs
 - **THEN** the build context is created under the OS temp directory, and no `.cache/invowk`, `invowk-build` or `.invowk-build` directory is created in the current directory
 
-#### Scenario: absolute but missing home uses a temporary build context
-- **WHEN** `HOME=/no-home` is set (absolute, does not exist), no cache dir is configured, and auto-provisioning builds an image
-- **THEN** the build context is created under the OS temp directory and removed after the build, and no directory under `/no-home` or the current directory is created
+#### Scenario: unset HOME uses a temporary build context
+- **WHEN** `HOME` is unset, no cache dir is configured, and auto-provisioning builds an image
+- **THEN** the build context is created under the OS temp directory and removed after the build, and no `.invowk-build` directory is created in the current directory
+
+#### Scenario: absolute but missing home keeps the default cache dir
+- **WHEN** `HOME=/no-home` is set (absolute, does not exist) and no cache dir is configured
+- **THEN** the provisioning cache dir is `/no-home/.cache/invowk/provision`, as before this change
+
+#### Scenario: a provisioner without a cache dir and a missing home uses the temp dir
+- **WHEN** a provisioner is built without a cache dir and the home is absolute but does not exist
+- **THEN** the build-context parent is a new directory under the OS temp directory, and nothing is created in the current directory
 
 ### Requirement: SSH git fetches require trusted SSH files
 
-A git fetch whose URL is not `https://` (an SSH URL) SHALL run only with an absolute home, because invowk reads SSH keys from it and the git library reads `known_hosts` from it. It SHALL also need every `SSH_KNOWN_HOSTS` entry to be absolute. Otherwise it SHALL fail before connecting, with an error that names the relative value and the absolute-path rule. HTTPS fetches SHALL be unaffected.
+A git fetch whose URL is not `https://` (an SSH URL) SHALL run only with an absolute home, which invowk and the git libraries read SSH keys, `known_hosts` and the SSH client config from. An unavailable home SHALL be refused too. Every non-empty `SSH_KNOWN_HOSTS` entry SHALL be absolute. Otherwise the fetch SHALL fail before connecting, with an error that names the relative value or the unavailable home. HTTPS fetches SHALL be unaffected.
 
 #### Scenario: SSH fetch with a relative home is refused
 - **WHEN** `HOME=.` is set, the current directory contains `.ssh/id_ed25519` and `.ssh/known_hosts`, and a module with a `git@` URL is fetched
@@ -83,6 +91,10 @@ A git fetch whose URL is not `https://` (an SSH URL) SHALL run only with an abso
 #### Scenario: relative SSH_KNOWN_HOSTS entry is refused
 - **WHEN** the home is absolute, `SSH_KNOWN_HOSTS=known_hosts` is set, and a module with an `ssh://` URL is fetched
 - **THEN** the fetch fails before any network connection, and stderr names `SSH_KNOWN_HOSTS`
+
+#### Scenario: SSH fetch with an unset home is refused
+- **WHEN** `HOME` is unset, `SSH_KNOWN_HOSTS` is an absolute path, and a module with a `git@` URL is fetched
+- **THEN** the fetch fails before any network connection, and stderr says the home directory is unavailable
 
 #### Scenario: HTTPS fetch with a relative home still works
 - **WHEN** `HOME=.` is set and a module with an `https://` URL is fetched with `GIT_TOKEN` set
@@ -96,9 +108,21 @@ The container run lock file SHALL be placed in `XDG_RUNTIME_DIR` only when that 
 - **WHEN** `XDG_RUNTIME_DIR=run` is set on Linux and a container command takes the run lock
 - **THEN** the lock file is created in the OS temp directory and not under `./run`
 
+### Requirement: Absolute or unset bases change nothing else
+
+When every base variable (`HOME`, `USERPROFILE`, `XDG_*`, `APPDATA`, `LOCALAPPDATA`, `INVOWK_MODULES_PATH`, `SSH_KNOWN_HOSTS`) is absolute or unset, every directory, anchor, lock path and SSH verdict SHALL be the same as before this change, except for the documented breaking cases: home-derived anchors with an unset home, the build-context parent where the current directory was used, and SSH fetches with an unset home.
+
+#### Scenario: absolute bases give the same results
+- **WHEN** the home and every set XDG or AppData variable are absolute, on Linux, macOS or Windows
+- **THEN** the virtual anchors, the provisioning cache dir, the build-context parent, the run-lock path, the module cache dir and the SSH gate's verdict are the same as before this change
+
+#### Scenario: unset XDG_RUNTIME_DIR keeps the temp-dir run lock
+- **WHEN** `XDG_RUNTIME_DIR` is unset on Linux
+- **THEN** the run lock is in the OS temp directory, as before this change
+
 ### Requirement: Direct base-directory lookups are rejected by a repository gate
 
-`make test` SHALL fail when a non-test Go file outside the shared resolver calls `os.UserHomeDir`, `os.UserConfigDir` or `os.UserCacheDir` (under any import name), imports `os/user`, or has a string literal that is `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` or an `XDG_*` name, or that contains `$HOME` or `${HOME}`. Exceptions SHALL be listed by file, each with a reason.
+`make test` SHALL fail when a non-test Go file outside the shared resolver calls `os.UserHomeDir`, `os.UserConfigDir` or `os.UserCacheDir` (under any import name, including a dot import), imports `os/user`, or has a string literal that is `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` or an `XDG_*` name, or that contains `$HOME` or `${HOME}`. Exceptions SHALL be listed by file, each with a reason.
 
 #### Scenario: a new direct lookup fails the gate
 - **WHEN** a production file outside the resolver package adds `os.UserHomeDir()` or `os.Getenv("XDG_DATA_HOME")`
@@ -111,3 +135,11 @@ The container run lock file SHALL be placed in `XDG_RUNTIME_DIR` only when that 
 #### Scenario: listed exceptions pass
 - **WHEN** an exempt file, such as the test helper that sets `HOME` for tests, names `HOME`
 - **THEN** the gate passes
+
+### Requirement: The base-directory gate is proven not vacuous
+
+The gate SHALL be tested against a committed fixture tree that plants each forbidden pattern once. The gate's scan SHALL report every planted violation with its file and line, and SHALL report nothing for the fixture's skipped and exempt files.
+
+#### Scenario: the planted-violation fixture is reported
+- **WHEN** the gate scans its committed fixture tree
+- **THEN** it reports each planted pattern, including an aliased and a dot-imported `os`, an `os/user` import, each exact literal, an `XDG_*` literal and `$HOME`/`${HOME}` substrings, and nothing for the skipped and exempt fixture files
