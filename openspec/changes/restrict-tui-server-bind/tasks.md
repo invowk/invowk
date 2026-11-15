@@ -12,7 +12,7 @@
 
 ## 2. Multi-address bind (D4)
 
-- [ ] 2.1 Let `tuiserver.New` take the bind addresses (`[]netip.Addr`, default `127.0.0.1` only; reject unspecified addresses). `Start` does the following:
+- [ ] 2.1 Let `tuiserver.New` take a bind plan: a list of addresses (`[]netip.Addr`, default `127.0.0.1` only, unspecified addresses rejected), or the explicit wildcard kind, which is one `0.0.0.0:0` listener and nothing else (D4). For an address list, `Start` does the following:
   - listen on `127.0.0.1:0`, then on every other address at the same port;
   - on any later listen error, close all listeners and retry, at most 5 attempts;
   - start one tracked `Serve` goroutine per listener on one `http.Server`, then call `TransitionToRunning` once;
@@ -20,6 +20,7 @@
 
   `Stop` closes every listener. Update the type comment (`server.go:34-35`). Verify with tests:
   - under the default plan, every listener address is `127.0.0.1`;
+  - an address list containing `0.0.0.0` is rejected by `New`, and the wildcard kind yields exactly one listener on `0.0.0.0`;
   - a dial to each non-loopback local address at the port is refused. The test skips with an explicit message when the host has none.
 - [ ] 2.2 Add a Linux-only test that binds `127.0.0.1` and `127.0.0.2`. It asserts the same port on both, that both serve authenticated `/health`, a clean `Stop` and no goroutine leak (the `TestServerNoGoroutineLeaksAfterStop` pattern, `server_test.go:472`). Add a test where the second address cannot be bound (for example `192.0.2.1`, TEST-NET-1): `Start` fails after 5 attempts, the state is Failed, and the port of the first listener is closed again.
 - [ ] 2.3 Check: `go test -race -run 'TestServer' ./internal/tuiserver/`
@@ -49,8 +50,8 @@
 - [ ] 4.2 Implement the pure plan selection for the D2 table in `internal/containerplan`, evaluating the rows in order. Verify with a table-driven test that covers:
   - every row, plus row precedence: Flatpak before remote, remote before any Docker or Podman row, Docker Desktop before the gateway check;
   - the gateway-not-local case (row 13);
-  - the opt-in, which changes only restorable rows, never routable rows, no-route rows or host runtimes;
-  - the error text: restorable errors name `container.tui_server_bind`, row 12 also names pasta, and no-route errors do not name `all-interfaces`.
+  - the opt-in: it turns restorable rows and row 6 into the wildcard plan with the engine alias, and never changes rows 1, 2, 8 or 11;
+  - the error text: restorable errors name `container.tui_server_bind`, row 3 adds the alias caveat, row 12 also names pasta, and the row 2 error does not name `all-interfaces`.
 - [ ] 4.3 Add a validated `NetworkMode` to `container.RunOptions`, emitted as the single argument `--network=<mode>` on `run` only. Verify with an engine argument test: for `--network=pasta:-T,<port>` plus `-p`, `--add-host` and `-e`, the Podman `--userns=keep-id` transformer (`internal/container/podman.go:200-230`) places its flag before the image, and `exec`/`create` arguments never contain `--network`.
 - [ ] 4.4 Wire the plan into the code, in this order:
   - inject the bind policy through `NewInteractiveExecutor` (`internal/app/commandadapters/interactive.go:26`) from the loaded config;
@@ -60,24 +61,25 @@
 
   Verify with adapter tests using a fake planner and a spy runtime:
   - an unroutable plan errors before `tuiserver.Start` and `PrepareInteractive` are called;
-  - the URL carries the IP literal for row 8 and `127.0.0.1` for row 11.
+  - the URL carries the IP literal for row 8 and `127.0.0.1` for row 11;
+  - under the opt-in, a restorable plan and a row 6 plan start a server whose only listener is `0.0.0.0`, set the engine alias in the URL, and write the exposure warning to the injected stderr; a row 8 plan under the opt-in writes no warning.
 - [ ] 4.5 Check: `go test ./internal/container/ ./internal/containerplan/ ./internal/runtime/ ./internal/app/commandadapters/`
 
 ## 5. Container integration tests (spec scenarios)
 
 - [ ] 5.1 Add an engine-gated Go integration test (`testutil.ContainerTestContext`, suite lock) in `internal/app/commandadapters`. It runs the production path: the real facts query, the planner, `tuiserver.Start` and `ContainerRuntime.PrepareInteractive`. It then runs the prepared command under a PTY (`github.com/creack/pty`, already in `go.mod`). The `debian:stable-slim` script sends `GET /health` to `INVOWK_TUI_ADDR` over bash `/dev/tcp`, once with `INVOWK_TUI_TOKEN` and once without. The test expects `200` and then `401`.
   - The test reads the expected D2 row from `INVOWK_TEST_TUI_PLAN_ROW` and fails if the selected row differs. If the variable is unset, it fails in CI and skips with a message locally.
-  - The CI Docker job sets row 8, and the CI Podman job sets the row that its `podman info` reports (11 with pasta, otherwise 12, where the test asserts the error instead). Record the observed row in design.md's probe table.
+  - Set the variable as a literal in `.github/workflows/ci.yml`: `"8"` for the Docker job and `"12"` for the Podman job, where the test asserts the row 12 error instead of reachability. If the first CI run shows a pasta binary on the Podman runner, change that literal to `"11"` once in the implementing PR. Record the observed row in design.md's probe table.
   - Locally, run it on rootful Docker (row 8) and on rootless Podman with pasta (row 11).
 - [ ] 5.2 In the same test, assert from the host side that the port refuses connections on every local address outside the plan. Dial each address from `net.InterfaceAddrs()` that is neither loopback nor the gateway, and skip loudly if none exists. Under pasta, also assert from the container that a second host loopback listener is unreachable. Calibrate both:
   - temporarily bind `0.0.0.0`: the host-side check must fail;
   - temporarily use `pasta:--map-host-loopback`: the second-port check must fail.
-- [ ] 5.3 Add an engine-gated Go integration test for the restorable fail-fast path that runs only under rootless Podman (row 10). It builds the `invowk` binary and runs `invowk cmd <persistent-target> -i` with a fresh container name. It expects a non-zero exit, an error that names `container.tui_server_bind`, and `podman ps -a --filter name=<name>` empty afterwards. Do not use a dead `DOCKER_HOST`: it fails `Available()` (`internal/container/docker.go:53-61`) before the planner runs. Cover the no-route rows with the unit tests in 4.2 and 4.4.
+- [ ] 5.3 Add an engine-gated Go integration test for the restorable fail-fast path that runs only under rootless Podman (row 10). It builds the `invowk` binary and runs `invowk cmd <persistent-target> -i` with a fresh container name. It expects a non-zero exit, an error that names `container.tui_server_bind`, and `podman ps -a --filter name=<name>` empty afterwards. Do not use a dead `DOCKER_HOST`: it fails `Available()` (`internal/container/docker.go:53-61`) before the planner runs. Cover the remote and Flatpak rows with the unit tests in 4.2 and 4.4.
 - [ ] 5.4 Check: `make test-integration`
 
 ## 6. Docs and tracking
 
-- [ ] 6.1 Update `website/docs/advanced/interactive-mode.mdx` (Container Runtime Support, `:111-126`) and its pt-BR translation. Cover the per-mode bind rules, the restorable and no-route errors, the opt-in, the residual same-bridge and on-link exposure, firewalls, and external persistent containers. Update the README where it describes interactive mode. Re-check `website/docs/runtime-modes/container.mdx:133` (the alias example stays correct for SSH). Verify with `cd website && npm run build`.
+- [ ] 6.1 Update `website/docs/advanced/interactive-mode.mdx` (Container Runtime Support, `:111-126`) and its pt-BR translation. Cover the per-mode bind rules, the restorable errors and the Flatpak-without-network error, the opt-in (including as the Docker Desktop remedy), the residual same-bridge and on-link exposure, firewalls, and external persistent containers. Update the README where it describes interactive mode. Re-check `website/docs/runtime-modes/container.mdx:133` (the alias example stays correct for SSH). Verify with `cd website && npm run build`.
 - [ ] 6.2 Reword the e13 comments in `sonar-project.properties:65-67` and `.sonarcloud.properties:67-69`. Drop "Open: it binds 0.0.0.0" and state the restricted bind. Keep the IDs gapless. Verify with `make sonar-local`.
 - [ ] 6.3 Mark tracker N5 in `.claude/issues/cst-adoption-gaps.md` as done, with the merged PR. Verify with `make check-agent-docs`.
 - [ ] 6.4 Check: `cd website && npm run build`

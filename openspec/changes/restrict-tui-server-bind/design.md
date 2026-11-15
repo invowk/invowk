@@ -34,7 +34,8 @@ The LAN result under Docker changed between the two runs, so it depends on the h
 Vendor documentation:
 - Podman: pasta passes `--map-guest-addr 169.254.1.2` by default for `host.containers.internal`, together with `--no-map-gw`. `pasta:-T,<port>` forwards one TCP port from the container to host loopback (docs.podman.io, podman-run(1) `--network`).
 - Docker Desktop: `host.docker.internal` "resolves to the internal IP address of your host". The example server binds all interfaces, so the docs do not show that a loopback-only listener is reachable (docs.docker.com, Desktop networking how-tos).
-- Rootless Docker: RootlessKit runs with host loopback disabled (`--disable-host-loopback`). Engine 29.8.0 release notes fix its enforcement under pasta.
+- Rootless Docker: RootlessKit has a `--disable-host-loopback` option, whose enforcement under pasta Engine 29.8.0 fixed. The fetched docs do not say what `host-gateway` reaches in rootless mode.
+- Go on Windows: `syscall.EADDRINUSE` is an invented `APPLICATION_ERROR` value (Go 1.27.4 `src/syscall/zerrors_windows.go:19`, `:154`), and `Errno.Is` (`syscall_windows.go:189`) does not map Winsock's `WSAEADDRINUSE` to it.
 
 The probes ran from the `devbox` toolbox, which shares the host network namespace. Podman was reached through `flatpak-spawn --host`. This is the same topology as Flatpak with `--share=network`.
 
@@ -62,13 +63,13 @@ Items 1-6 restate the maintainer's own decisions from the brief. Items 7-14 were
 6. Ship in v0.17.0. Sonar go:S5332 at `server.go` is resolved in SonarCloud as Accepted. Tracker N5 wording changes from "false positive" to "Accepted (real gap tracked as N5/S3)".
 7. *(delegated)* Every row in D2 is fixed v0.17.0 behaviour. A later probe that would change a row becomes a new change with its own spec delta. Tasks here only record evidence.
 8. *(delegated)* Unroutable modes come in two kinds.
-   - **Restorable** modes are local engines where today's wide bind did reach the server. Their error names the opt-in.
-   - **No-route** modes are remote engines and Flatpak without host networking. A wide bind never reached the host there, so the error says so and does not offer the opt-in, and the opt-in does not apply.
-9. *(delegated)* Rootful Podman is restorable-unroutable. Netavark creates its bridge when a container attaches, so before the container starts there may be no gateway address to bind. No passwordless `sudo` was available for a probe (Q1).
-10. *(delegated)* Persistent containers under rootless Podman, rootless Docker and Snap are restorable-unroutable. Persistent rootless Podman would need a fixed forward port at creation. Rootless Docker disables host loopback and has not been probed. Snap has not been probed.
+   - **Restorable** modes are those where today's wide bind may reach the server. Their error names the opt-in. For remote endpoints (row 3) the reason text adds that the opt-in helps only when the engine's host alias leads back to this machine, as with a local VM or a loopback-forwarded daemon.
+   - **No-route** is only Flatpak without host networking. The sandbox's listeners live in a private network namespace, so no bind is reachable from host-side containers. The error says so, does not offer the opt-in, and the opt-in does not apply.
+9. *(delegated)* Rootful Podman is restorable-unroutable because no rootful probe was possible (no passwordless `sudo`). Under the governing rule (D2), a non-loopback bind needs a probe (Q1).
+10. *(delegated)* Persistent containers under rootless Podman, rootless Docker and Snap are restorable-unroutable. Persistent rootless Podman would need a fixed forward port at creation. Rootless Docker and Snap have not been probed.
 11. *(delegated)* The SSH host-callback defect becomes its own change after S3 and reuses D1-D2.
 12. *(delegated)* `/health` and unknown paths require the token (D5); no reduced unauthenticated response.
-13. *(delegated)* The CI Podman job installs no packages, because pinned apt versions disappear from Ubuntu mirrors and the version-pinning rule has no apt exception. Instead, each CI job declares the plan it expects (task 5.1).
+13. *(delegated)* The CI Podman job installs no packages, because pinned apt versions disappear from Ubuntu mirrors and the version-pinning rule has no apt exception. Instead, each CI job declares the plan row it expects as a literal in `ci.yml` (task 5.1). The Podman job starts at row 12 (no pasta assumed on `ubuntu-latest`); if its first run reports a pasta binary, the implementing PR sets it to 11 once.
 14. *(delegated)* External persistent containers (`--ivk-container-name`) get the plan of their engine mode. The plan never binds wider than that mode, so an external container on a network that cannot reach the bound address sees connection failures, not wider exposure. The docs say so.
 
 ## Decisions
@@ -76,7 +77,7 @@ Items 1-6 restate the maintainer's own decisions from the brief. Items 7-14 were
 ### D1. Pick the bind plan before `Start`
 
 A new optional runtime port, `TUIExposurePlanner`, returns a `TUIExposurePlan` before the server starts. Runtimes that do not implement it (native, virtual) get the loopback plan. The plan holds:
-- the bind addresses (`[]netip.Addr`, loopback always first);
+- the bind addresses (`[]netip.Addr`, loopback always first), or the explicit wildcard kind under the opt-in (D4, D7);
 - the host the container dials: an IP literal, or the engine alias for Docker Desktop;
 - an optional container network mode (`pasta:-T,<port>`; the port is filled in after `Start`);
 - an `Unroutable` kind (`none`, `restorable` or `no-route`) and a reason.
@@ -101,7 +102,7 @@ Rows are evaluated top to bottom; the first match wins.
 |---|---|---|---|
 | 1 | native / virtual-sh / virtual-lua | bind `127.0.0.1`; URL `127.0.0.1` | n/a |
 | 2 | Flatpak without `network` in `[Context] shared` | no-route error | the sandbox has its own network namespace |
-| 3 | remote endpoint: Docker `tcp://` or `ssh://` (context or `DOCKER_HOST`); Podman `ServiceIsRemote` = true (`podman-remote`, `podman --remote`, Podman machine) | no-route error | containers run on another host or VM |
+| 3 | remote endpoint: Docker `tcp://` or `ssh://` (context or `DOCKER_HOST`); Podman `ServiceIsRemote` = true (`podman-remote`, `podman --remote`, Podman machine) | restorable error; the reason says the opt-in helps only if the alias leads back to this machine | containers run on another host or in a VM |
 | 4 | the facts query fails (including the Podman `docker` shim, whose `info` template differs) | restorable error; the reason quotes the failure | fail-safe |
 | 5 | Snap sandbox | restorable error | not probed (decision 10) |
 | 6 | Docker, `OperatingSystem` = "Docker Desktop", local endpoint (`unix://`, `npipe://`) | bind `127.0.0.1`; URL host `host.docker.internal` | vendor docs; not probed (see issues) |
@@ -127,7 +128,9 @@ We rejected two alternatives:
 
 ### D4. One port on every bound address
 
-The server listens on `127.0.0.1:0` and reads the port. It then listens on each other plan address at that port. If a later listen fails, it closes every listener opened so far and starts over, up to 5 attempts, then fails with the last error. It retries on any error, not only `EADDRINUSE`, so the code stays platform-neutral: Windows reports `WSAEADDRINUSE`, which `errors.Is(err, syscall.EADDRINUSE)` does not match.
+The server listens on `127.0.0.1:0` and reads the port. It then listens on each other plan address at that port. If a later listen fails, it closes every listener opened so far and starts over, up to 5 attempts, then fails with the last error. It retries on any error, not only `EADDRINUSE`, so the code stays platform-neutral: on Windows, `errors.Is(err, syscall.EADDRINUSE)` does not match Winsock's `WSAEADDRINUSE` (see Context, vendor documentation).
+
+The opt-in's wide plan (D7) is the one exception. It is a single listener on `0.0.0.0:0`, admitted only through an explicit wildcard plan kind. It cannot be combined with other addresses, since `0.0.0.0` and `127.0.0.1` cannot share a port. `New` rejects an unspecified address in any other plan.
 
 All listens complete before any serve goroutine starts. One `http.Server` serves every listener, and each `Serve` goroutine is tracked with `AddGoroutine`/`DoneGoroutine`, as at `server.go:123-135`. The server transitions to Running exactly once, after every goroutine is launched. A `Serve` error on any listener fails the server and shuts down the others, which keeps the single-listener semantics at `:128-134`. `Stop` closes every listener.
 - *Alternative:* a different port per address. Rejected: the container gets one URL, and per-address URLs add plumbing for no gain.
@@ -146,7 +149,7 @@ For bridge and pasta plans (rows 8 and 11), the container dials an IP literal th
 
 Add `container.tui_server_bind: *"restricted" | "all-interfaces"` to `#ContainerConfig`, with a typed Go value type, the JSON tag, `GenerateCUE` output and the schema sync tests.
 
-`"all-interfaces"` applies only to a restorable-unroutable container plan. There it binds `0.0.0.0` and uses the engine alias (today's behaviour), and invowk prints a one-line stderr warning at each such run. Routable container plans keep their narrow bind, host runtimes always bind loopback, and no-route modes still fail. There is no CLI flag or environment variable; `INVOWK_CONFIG` already selects a config file.
+`"all-interfaces"` applies to restorable container plans and to Docker Desktop (row 6). There it binds `0.0.0.0` through the wildcard plan (D4) and uses the engine alias (today's behaviour), and invowk prints a one-line stderr warning at each such run. Row 6 is included because it is the only plan that ships unprobed: if its loopback assumption is wrong, the opt-in is the user's remedy. The verified plans (rows 8 and 11) keep their narrow bind, host runtimes always bind loopback, and Flatpak without network (row 2) still fails. There is no CLI flag or environment variable; `INVOWK_CONFIG` already selects a config file.
 
 ## Risks / Trade-offs
 
@@ -154,8 +157,8 @@ Add `container.tui_server_bind: *"restricted" | "all-interfaces"` to `#Container
 - [On-link LAN hosts can route to the bridge gateway] → Linux accepts packets for any local address on any interface unless a firewall drops them. A host on the same L2 segment that adds a route to `172.17.0.0/16` through this machine can therefore reach `<gateway>:<port>`. That is far narrower than `0.0.0.0`, and the token still guards it. Documented.
 - [Local users on the host can reach loopback] → Same as today; the token guards it.
 - [Restorable modes regress to an error] → The error names the opt-in; for rootless Podman it also names pasta. Q1 tracks persistent rootless Podman.
-- [Remote engines and Flatpak without network lose `-i` for container runs] → TUI components there never reached the host before either. The error says so and suggests a local engine or a run without `-i`.
-- [Docker Desktop's alias may not reach a loopback-only listener] → Then the TUI is unreachable, not exposed. Most macOS and Windows users are on this row, so a probe there is a release prerequisite (see issues).
+- [Remote engines lose `-i` for container runs unless the user opts in] → The error explains when the opt-in can help. Flatpak without network has no remedy except `--share=network` or a run without `-i`.
+- [Docker Desktop's alias may not reach a loopback-only listener] → Then the TUI is unreachable, not exposed, and `"all-interfaces"` restores today's behaviour. Most macOS and Windows users are on this row, so a probe there is a release prerequisite (see issues).
 - [Docker Desktop with WSL2 integration] → invowk runs in a WSL distribution while the alias targets the Windows host. The row 6 caveat applies.
 - [The engine facts query adds latency to every interactive container run] → One to three engine CLI calls, only for `-i` container runs, cached per process.
 - [A host firewall blocks bridge-to-host traffic to the gateway port] → The run fails as unreachable, not exposed. The docs name the firewall as a possible cause.
@@ -166,6 +169,6 @@ Ship in v0.17.0. Roll back by reverting the change. The closed schema would then
 
 ## Open Questions
 
-- **Q1.** Persistent containers under rootless Podman, and rootful Podman. Persistent rootless Podman could reserve a fixed forward port at creation (a container label plus `pasta:-T,<P>`), with the server bound to `127.0.0.1:<P>`. Rootful Podman needs a probe of pasta or of the netavark bridge lifecycle. Both stay restorable-unroutable in v0.17.0 (decisions 9-10). A follow-up would modify this capability and `persistent-container-runtime`. The exec-time rule there (`spec.md:109-111`) needs no MODIFIED delta in S3.
-- **Q2.** Rootless Docker: which host address does `host-gateway` reach under RootlessKit, and can a narrow bind serve it? It stays restorable-unroutable until it is probed.
-- **Q3.** Snap: do the snap's listeners share the host network namespace with the engine's containers? It stays restorable-unroutable until it is probed.
+- **Q1.** Persistent containers under rootless Podman, and rootful Podman. Persistent rootless Podman could reserve a fixed forward port at creation (a container label plus `pasta:-T,<P>`), with the server bound to `127.0.0.1:<P>`. Rootful Podman needs a probe, either of pasta or of its bridge gateway. Both stay restorable-unroutable in v0.17.0 (decisions 9-10). A follow-up would modify this capability and `persistent-container-runtime`. The exec-time rule there (`spec.md:109-111`) needs no MODIFIED delta in S3.
+- **Q2.** Rootless Docker: which host address does `host-gateway` reach under RootlessKit, and can a narrow bind serve it? It is restorable-unroutable in v0.17.0; a later change with probe evidence may revisit it (decision 7).
+- **Q3.** Snap: do the snap's listeners share the host network namespace with the engine's containers? It is restorable-unroutable in v0.17.0; a later change with probe evidence may revisit it (decision 7).
