@@ -15,10 +15,20 @@ Estas flags estão disponíveis para todos os comandos:
 | Flag | Curta | Descrição |
 |------|-------|-----------|
 | `--help` | `-h` | Mostrar ajuda para o comando |
-| `--ivk-config` | `-c` | Caminho do arquivo de configuração (padrão: [diretório de configuração do SO](/docs/configuration/overview#localização-do-arquivo-de-configuração)) |
+| `--ivk-config` | `-c` | Caminho do arquivo de configuração. Sobrepõe `INVOWK_CONFIG` e o [arquivo de configuração do usuário](/docs/configuration/overview#localização-do-arquivo-de-configuração); um arquivo ausente ou inválido é um erro (saída 1; 2 para `invowk audit` e `invowk agent`). Veja [qual arquivo de configuração é usado](../configuration/overview#qual-arquivo-de-configuração-é-usado) |
+| `--ivk-no-cwd` | | Ignorar o `invowkfile.cue` e os módulos `*.invowkmod` do diretório atual na descoberta de comandos (sobrepõe `INVOWK_NO_CWD`) |
 | `--ivk-interactive` | `-i` | Executar comandos em buffer de tela alternativo (modo interativo) |
 | `--ivk-verbose` | `-v` | Habilitar saída verbose |
 | `--version` | | Mostrar informação de versão (apenas no comando raiz, não herdado por subcomandos) |
+
+### Variáveis de Ambiente
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_CONFIG` | Caminho absoluto do arquivo de configuração usado quando `--ivk-config` não é informado. Vazio significa não definido; um valor relativo, ausente ou inválido é um erro (saída 1; 2 para `invowk audit` e `invowk agent`). Nunca é resolvido em relação ao diretório atual |
+| `INVOWK_NO_CWD` | Igual a `--ivk-no-cwd` quando a flag não é informada. Aceita os valores do `strconv.ParseBool` do Go (`1`, `true`, `0`, `false`, ...); vazio significa desligado, e qualquer outro valor é um erro nos comandos que descobrem fontes de comandos |
+
+Chamadas aninhadas do `invowk` herdam essas variáveis só quando quem chama as definiu, pelas regras normais de `env_inherit_mode` do comando; as formas de flag nunca são exportadas para processos filhos.
 
 ## Comandos
 

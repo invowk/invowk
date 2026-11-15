@@ -133,7 +133,7 @@ func TestAppDiscoveryService_UsesInjectedBaseDir(t *testing.T) {
 		t.Fatalf("NewDiscoveryServiceWithDirs() error = %v", err)
 	}
 
-	result, err := svc.GetCommand(contextWithConfigPath(t.Context(), ""), "build")
+	result, err := svc.GetCommand(contextWithDiscoveryScope(t.Context(), "", false), "build")
 	if err != nil {
 		t.Fatalf("GetCommand() error: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 
-	ctx := contextWithConfigPath(t.Context(), "")
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 
 	first, err := svc.GetCommand(ctx, "build")
 	if err != nil {
@@ -183,7 +183,7 @@ func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *te
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 
-	ctx := contextWithConfigPath(t.Context(), "")
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 
 	// First call: DiscoverAndValidateCommandSet populates the cache.
 	validated, validErr := svc.DiscoverAndValidateCommandSet(ctx)
@@ -216,7 +216,7 @@ func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 
-	// Use a plain context to bypass contextWithConfigPath(), which attaches the
+	// Use a plain context to bypass contextWithDiscoveryScope(), which attaches the
 	// request-scoped discovery cache.
 	ctx := t.Context()
 
@@ -247,7 +247,7 @@ func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testin
 
 	cfgProvider := &countingConfigProvider{cfg: config.DefaultConfig()}
 	svc := commandadapters.NewDiscoveryService(cfgProvider)
-	ctx := contextWithConfigPath(t.Context(), "")
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 
 	if _, err := svc.DiscoverCommandSet(ctx); err != nil {
 		t.Fatalf("DiscoverCommandSet() error: %v", err)
@@ -286,7 +286,7 @@ func TestListCommands_ReusesDiscoveryConfigForUIFlags(t *testing.T) { //nolint:p
 	listCmd := &cobra.Command{Use: "cmd"}
 	listCmd.PersistentFlags().Bool("ivk-verbose", false, "")
 	listCmd.PersistentFlags().Bool("ivk-interactive", false, "")
-	listCmd.SetContext(contextWithConfigPath(t.Context(), ""))
+	listCmd.SetContext(contextWithDiscoveryScope(t.Context(), "", false))
 
 	if err := listCommands(listCmd, app, &rootFlagValues{}); err != nil {
 		t.Fatalf("listCommands() error = %v", err)
@@ -319,7 +319,7 @@ func TestResolveUIFlagsDoesNotConsumeDiscoveryConfigDiagnostics(t *testing.T) { 
 	listCmd := &cobra.Command{Use: "cmd"}
 	listCmd.PersistentFlags().Bool("ivk-verbose", false, "")
 	listCmd.PersistentFlags().Bool("ivk-interactive", false, "")
-	ctx := contextWithConfigPath(t.Context(), "")
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 	listCmd.SetContext(ctx)
 
 	resolveUIFlags(ctx, app, listCmd, &rootFlagValues{})
@@ -343,7 +343,7 @@ func TestAppDiscoveryService_GetCommand_UsesCachedCommandSetLookup(t *testing.T)
 	setupDiscoveryCacheTestDir(t)
 
 	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
-	ctx := contextWithConfigPath(t.Context(), "")
+	ctx := contextWithDiscoveryScope(t.Context(), "", false)
 
 	commandSetResult, err := svc.DiscoverAndValidateCommandSet(ctx)
 	if err != nil {

@@ -1,0 +1,105 @@
+# Test: a config.cue in the current directory is never a config source.
+# With no --ivk-config, no INVOWK_CONFIG and no user config file, a cwd
+# config.cue that sets default_runtime: "virtual-sh" has no effect: built-in
+# defaults apply (default_runtime "native") and nothing names the cwd file.
+# Relative base directories (XDG_CONFIG_HOME, HOME) never point the user
+# config or user commands dir at the current directory either.
+
+cd $WORK/proj
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: the command runs with the default (native) runtime
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 2: config show reports defaults, not the cwd file
+exec invowk config show
+stdout 'using defaults'
+stdout 'native'
+! stdout 'proj'
+! stdout 'virtual-sh'
+! stderr .
+
+# Test 3: workspace validation does not load an invalid cwd config.cue (the
+# old cwd fallback reported config_load_failed here and exited 1). Control:
+# the same invalid file as the user config is reported, so the absence below
+# is meaningful (Linux only: XDG_CONFIG_HOME locates the user file there).
+cd $WORK/badcfg
+[linux] env XDG_CONFIG_HOME=$WORK/badxdg
+[linux] ! exec invowk validate
+[linux] stderr 'config_load_failed'
+env XDG_CONFIG_HOME=$WORK/.config
+exec invowk validate
+stdout 'Workspace is valid'
+! stdout 'config_load_failed'
+! stderr .
+
+# Test 4: a relative XDG_CONFIG_HOME is ignored (XDG spec), so a repo-local
+# .config/invowk/config.cue is not the user config; $HOME/.config is used
+cd $WORK/proj
+env XDG_CONFIG_HOME=.config
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stderr .
+exec invowk config path
+! stdout 'proj'
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 5: a relative HOME never makes the current directory the user commands
+# dir: ./.invowk/cmds modules are not discovered as global modules
+[windows] skip 'os.UserHomeDir reads USERPROFILE on Windows'
+env HOME=.
+exec invowk cmd
+stdout 'multi-runtime'
+! stdout 'repoglob'
+! exec invowk cmd r repoglob
+! stdout 'REPO_GLOB'
+
+-- proj/config.cue --
+default_runtime: "virtual-sh"
+
+-- proj/.config/invowk/config.cue --
+default_runtime: "virtual-sh"
+
+-- proj/.invowk/cmds/r.invowkmod/invowkmod.cue --
+module: "r"
+version: "1.0.0"
+
+-- proj/.invowk/cmds/r.invowkmod/invowkfile.cue --
+cmds: [{name: "repoglob", implementations: [{script: {content: "echo REPO_GLOB"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]
+
+-- badcfg/config.cue --
+bogus_field: true
+
+-- badxdg/invowk/config.cue --
+bogus_field: true
+
+-- badcfg/invowkfile.cue --
+cmds: [{name: "ok", implementations: [{script: {content: "echo OK"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]
+
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name:        "multi-runtime"
+		description: "Command with both virtual and native implementations"
+		implementations: [
+			{
+				script: {content: "echo 'RUNTIME=virtual'"}
+				runtimes:  [{name: "virtual-sh"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+			{
+				script: {content: "echo 'RUNTIME=native'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'RUNTIME=native'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

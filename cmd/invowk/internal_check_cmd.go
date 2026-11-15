@@ -25,12 +25,15 @@ func newInternalCheckCmdCommand(app *App, rootFlags *rootFlagValues) *cobra.Comm
 				return &ExitError{Code: 1, Err: errors.New("discovery service unavailable")}
 			}
 
-			configPath := ""
-			if rootFlags != nil {
-				configPath = rootFlags.configPath
+			if rootFlags == nil {
+				rootFlags = &rootFlagValues{}
+			}
+			ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
+			if err != nil {
+				return &ExitError{Code: 1, Err: err}
 			}
 
-			result, err := app.Discovery.DiscoverCommandSet(contextWithConfigPath(cmd.Context(), configPath))
+			result, err := app.Discovery.DiscoverCommandSet(ctx)
 			if err != nil {
 				return &ExitError{Code: 1, Err: fmt.Errorf("discovery failed: %w", err)}
 			}

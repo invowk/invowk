@@ -46,8 +46,8 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
-		return cfg, nil
+	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic, error) {
+		return cfg, nil, nil
 	}
 	service := &Service{
 		config:         &staticCommandsvcConfigProvider{cfg: cfg},
@@ -115,8 +115,8 @@ func TestServiceResolveCommandRejectsAmbiguousLongestMatch(t *testing.T) {
 	service := &Service{
 		config:    &staticCommandsvcConfigProvider{cfg: cfg},
 		discovery: &stubCommandDiscovery{commandSet: discovery.CommandSetResult{Set: commandSet}},
-		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
-			return cfg, nil
+		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic, error) {
+			return cfg, nil, nil
 		},
 	}
 
@@ -155,8 +155,8 @@ func TestServiceDiscoverCommandFromSourceAdjustsArgs(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
-		return cfg, nil
+	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic, error) {
+		return cfg, nil, nil
 	}
 	cmdInfo := commandsvcTestCommandInfo(t, "deploy staging")
 	cmdInfo.Name = "tools deploy staging"
@@ -196,8 +196,8 @@ func TestServiceDiscoverCommandFromSourceReturnsTypedSourceNotFound(t *testing.T
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
-		return cfg, nil
+	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic, error) {
+		return cfg, nil, nil
 	}
 	cmdInfo := commandsvcTestCommandInfo(t, "deploy")
 	cmdInfo.SourceID = "tools"
@@ -246,9 +246,9 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 	calls := 0
 	service := &Service{
 		config: &staticCommandsvcConfigProvider{cfg: cfg},
-		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
+		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic, error) {
 			calls++
-			return cfg, nil
+			return cfg, nil, nil
 		},
 	}
 
@@ -269,8 +269,8 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 		t.Fatalf("argDefs = %v", defs.argDefs)
 	}
 
-	loaded, diags := service.loadConfig(t.Context(), "")
-	if loaded != cfg || len(diags) != 0 || calls != 1 {
+	loaded, diags, err := service.loadConfig(t.Context(), "")
+	if err != nil || loaded != cfg || len(diags) != 0 || calls != 1 {
 		t.Fatalf("loadConfig() = (%v, %v), calls=%d", loaded, diags, calls)
 	}
 }
@@ -298,8 +298,8 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 		registryFactory: missingRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 		userEnvFunc:     func() map[string]string { return map[string]string{} },
-		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
-			return cfg, nil
+		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic, error) {
+			return cfg, nil, nil
 		},
 	}
 

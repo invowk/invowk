@@ -24,17 +24,47 @@ type configDirTestCase struct {
 func TestConfigDir(t *testing.T) {
 	t.Parallel()
 
-	fakeHomeDir := filepath.Join("fake", "home")
+	// Fixtures are absolute on the host OS: configDirFrom checks them with
+	// filepath.IsAbs, which follows the host, not the injected goos.
+	base := t.TempDir()
+	fakeHomeDir := filepath.Join(base, "fake", "home")
 	fakeHome := func() (string, error) { return fakeHomeDir, nil }
 	failHome := func() (string, error) { return "", errors.New("no home") }
-	xdgPath := filepath.Join("custom", "xdg")
-	appDataPath := filepath.Join("C", "Users", "test", "AppData", "Roaming")
-	userProfile := filepath.Join("C", "Users", "test")
+	relativeHome := func() (string, error) { return "home", nil }
+	xdgPath := filepath.Join(base, "custom", "xdg")
+	appDataPath := filepath.Join(base, "Users", "test", "AppData", "Roaming")
+	userProfile := filepath.Join(base, "Users", "test")
 	tests := []configDirTestCase{
 		{
 			name: "linux with XDG_CONFIG_HOME set", goos: "linux",
 			getenv: environmentLookup(map[string]string{"XDG_CONFIG_HOME": xdgPath}), homeDir: fakeHome,
 			want: types.FilesystemPath(filepath.Join(xdgPath, AppName)),
+		},
+		{
+			name: "linux relative XDG_CONFIG_HOME is ignored", goos: "linux",
+			getenv: environmentLookup(map[string]string{"XDG_CONFIG_HOME": ".config"}), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName)),
+		},
+		{
+			name: "linux relative home rejected", goos: "linux",
+			getenv: environmentLookup(nil), homeDir: relativeHome, wantErrorParts: []string{"absolute", `"home"`},
+		},
+		{
+			name: "linux relative XDG_CONFIG_HOME and relative home rejected", goos: "linux",
+			getenv: environmentLookup(map[string]string{"XDG_CONFIG_HOME": "."}), homeDir: relativeHome, wantErrorParts: []string{"absolute"},
+		},
+		{
+			name: "darwin relative home rejected", goos: "darwin",
+			getenv: environmentLookup(nil), homeDir: relativeHome, wantErrorParts: []string{"absolute"},
+		},
+		{
+			name: "windows relative APPDATA falls back to USERPROFILE", goos: "windows",
+			getenv: environmentLookup(map[string]string{"APPDATA": "appdata", "USERPROFILE": userProfile}), homeDir: fakeHome,
+			want: types.FilesystemPath(filepath.Join(userProfile, "AppData", "Roaming", AppName)),
+		},
+		{
+			name: "windows relative USERPROFILE rejected", goos: "windows",
+			getenv: environmentLookup(map[string]string{"USERPROFILE": "profile"}), homeDir: fakeHome, wantErrorParts: []string{"absolute", "USERPROFILE"},
 		},
 		{
 			name: "linux without XDG_CONFIG_HOME", goos: "linux",
@@ -75,6 +105,29 @@ func TestConfigDir(t *testing.T) {
 			t.Parallel()
 			runConfigDirTestCase(t, tt)
 		})
+	}
+}
+
+func TestCommandsDirFrom(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	dir, err := commandsDirFrom(func() (string, error) { return home, nil })
+	if err != nil {
+		t.Fatalf("commandsDirFrom() error: %v", err)
+	}
+	if want := types.FilesystemPath(filepath.Join(home, ".invowk", "cmds")); dir != want {
+		t.Errorf("commandsDirFrom() = %s, want %s", dir, want)
+	}
+
+	for _, relative := range []string{".", "home", filepath.Join("a", "b")} {
+		_, err := commandsDirFrom(func() (string, error) { return relative, nil })
+		if !errors.Is(err, ErrBaseDirNotAbsolute) {
+			t.Errorf("commandsDirFrom(%q) error = %v, want ErrBaseDirNotAbsolute", relative, err)
+		}
+	}
+	if _, err := commandsDirFrom(func() (string, error) { return "", errors.New("no home") }); err == nil || !strings.Contains(err.Error(), "no home") {
+		t.Errorf("commandsDirFrom(home error) error = %v, want it wrapped", err)
 	}
 }
 
@@ -222,12 +275,13 @@ func TestCommandsDirWithOverride(t *testing.T) {
 func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
 	t.Parallel()
 
-	fakeHomeDir := filepath.Join("fake", "home")
+	base := t.TempDir()
+	fakeHomeDir := filepath.Join(base, "fake", "home")
 	fakeHome := func() (string, error) { return fakeHomeDir, nil }
 
 	t.Run("unknown GOOS with XDG_CONFIG_HOME", func(t *testing.T) {
 		t.Parallel()
-		xdgPath := filepath.Join("custom", "xdg")
+		xdgPath := filepath.Join(base, "custom", "xdg")
 		getenv := func(key string) string {
 			if key == "XDG_CONFIG_HOME" {
 				return xdgPath

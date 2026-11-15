@@ -227,7 +227,7 @@ func TestBuildLeafCommandAcceptsArbitraryArgs(t *testing.T) {
 			},
 		},
 	}
-	leaf := buildLeafCommand(nil, nil, nil, cmdInfo, "deploy")
+	leaf := buildLeafCommand(nil, nil, nil, cmdInfo, "deploy", false)
 
 	if err := leaf.Args(leaf, []string{}); err != nil {
 		t.Errorf("leaf command should defer required argument validation to the app service, got: %v", err)

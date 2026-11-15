@@ -228,9 +228,10 @@ type (
 
 	// ConfigAwareCommandDiscovery lets a discovery adapter own request-scoped
 	// config loading while explicitly assigning config diagnostics to command
-	// execution for the current request.
+	// execution for the current request. A non-nil error is a failed explicit
+	// config source and is fatal for the request.
 	ConfigAwareCommandDiscovery interface {
-		LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic)
+		LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic, error)
 	}
 
 	// UserEnvFunc captures the host environment. The service calls this

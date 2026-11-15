@@ -673,6 +673,12 @@ func FilterInvowkEnvVars(environ []string) []string {
 
 // shouldFilterEnvVar returns true if the environment variable name should be filtered
 // to prevent leakage between nested invowk command invocations.
+//
+// INVOWK_CONFIG and INVOWK_NO_CWD are intentionally NOT filtered, and invowk
+// never exports them: a nested `invowk cmd` sees them only when the caller set
+// them, subject to the normal env_inherit_mode rules. The --ivk-config and
+// --ivk-no-cwd flag forms do not reach children; wrappers that need nested calls
+// to keep the posture use the env forms.
 func shouldFilterEnvVar(name string) bool {
 	// Filter INVOWK_ARG_* and INVOWK_FLAG_* variables
 	if strings.HasPrefix(name, "INVOWK_ARG_") {

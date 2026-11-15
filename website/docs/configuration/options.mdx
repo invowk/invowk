@@ -54,6 +54,8 @@ Additional modules to include in command discovery. Each entry is an `#IncludeEn
 3. Each entry in `includes` in order
 4. `~/.invowk/cmds/` (modules only, non-recursive)
 
+With `--ivk-no-cwd` (or `INVOWK_NO_CWD=1`), sources 1 and 2 are skipped; see [Ignoring the Current Directory's Commands](./overview#ignoring-the-current-directorys-commands).
+
 When multiple includes define commands with the same name, they become ambiguous. Use `@source` prefix or `--ivk-from` flag to disambiguate.
 
 ### default_runtime

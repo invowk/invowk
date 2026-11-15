@@ -65,7 +65,8 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return errWatchDryRunConflict
 	}
 
-	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+	// Callers already resolved --ivk-no-cwd into cmd's context; keep it.
+	ctx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, noCwdFromContext(cmd.Context()))
 
 	resolveReq, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 		Name:       args[0],
@@ -174,7 +175,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 }
 
 func executeWatchRequest(ctx context.Context, cmd *cobra.Command, app *App, req ExecuteRequest) (ExecuteResult, error) {
-	reqCtx := contextWithConfigPath(ctx, string(req.ConfigPath))
+	reqCtx := contextWithDiscoveryScope(ctx, string(req.ConfigPath), noCwdFromContext(ctx))
 	cmd.SetContext(reqCtx)
 
 	result, diags, err := app.Commands.Execute(reqCtx, req)

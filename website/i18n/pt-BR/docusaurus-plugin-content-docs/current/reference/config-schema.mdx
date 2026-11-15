@@ -73,6 +73,8 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada especif
 3. `includes` configurados (em ordem) — includes explícitos superam o diretório do usuário
 4. `~/.invowk/cmds` (apenas módulos, não-recursivo)
 
+Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), as fontes 1 e 2 são ignoradas; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
+
 ### default_runtime
 
 **Tipo:** `"native" | "virtual-sh" | "virtual-lua" | "container"`

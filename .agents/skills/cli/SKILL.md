@@ -113,6 +113,13 @@ Dynamic registration must stay **lazy** for startup-sensitive paths.
   their startup toward discovery cost.
 - `explicitConfigPathFromArgs()` pulls `--ivk-config` / `-c` from raw argv
   before Cobra parses flags, so registration uses the same config as execution.
+  `explicitNoCwdFromArgs()` / `noCwdForRegistration()` do the same for
+  `--ivk-no-cwd` (stop at `--`, env fallback); any error skips registration.
+- The raw-argv scan and pflag can disagree: a value-taking flag consumes a
+  `--` (`--msg -- --ivk-no-cwd`), so pflag parses a flag the scan skipped.
+  Never trust registration-time state captured in a leaf closure for a
+  security decision; re-check it in `RunE` (see `buildLeafCommand`'s
+  `registeredNoCwd` and `rescopeRegisteredCommand`).
 
 ### Transparent Namespace
 
@@ -320,7 +327,7 @@ full inventory is in `references/cli-inventory.md`. Three kinds exist, each
 registered and read in a different place:
 
 - **Root persistent** (`--ivk-verbose -v`, `--ivk-config -c`,
-  `--ivk-interactive -i`): `root.go`, stored in `rootFlagValues`.
+  `--ivk-interactive -i`, `--ivk-no-cwd`): `root.go`, stored in `rootFlagValues`.
 - **`cmd` persistent** (`--ivk-runtime -r`, `--ivk-from -f`,
   `--ivk-force-rebuild`, `--ivk-container-name`, `--ivk-dry-run`,
   `--ivk-watch -W`): `cmd.go`, stored in `cmdFlagValues`.
@@ -335,10 +342,19 @@ registered and read in a different place:
 
 Configuration is request-scoped rather than initialized into global accessors:
 
-1. `--ivk-config` is stored in `rootFlagValues` and attached to the command
-   context by `contextWithConfigPath()`.
+1. `--ivk-config` and `--ivk-no-cwd` are stored in `rootFlagValues`. Every
+   command-source discovery entry calls `scopeDiscovery()` (`resolveNoCwd()`
+   plus `contextWithDiscoveryScope()`, `discovery_scope.go`), which attaches the
+   switch, the config path and the request cache. Do not attach the config path
+   without the switch.
 2. Discovery and command execution load through the injected config provider;
-   the request context also owns the per-request discovery/config cache.
+   the request context also owns the per-request discovery/config cache. The
+   provider applies `--ivk-config` > `INVOWK_CONFIG` > user file > defaults
+   (`config.SelectSource`); the cwd is never a config source. Env reads go
+   through `App.Getenv` / `config.NewProviderWithEnv`, never `os.Getenv` in
+   handlers. A failed explicit source (`config.ErrExplicitConfig`) is fatal and
+   cached per request: render it with `renderExplicitConfigError()` and return
+   it as a plain error (exit 1); only user-file failures fall back to defaults.
 3. `buildCommandExecuteRequest()` carries the explicit config path and whether
    UI flags were explicitly set into the service request.
 4. `resolveUIFlags()` applies `ui.verbose` and `ui.interactive` only when the
@@ -368,7 +384,7 @@ which loads config through the injected provider and caches per request:
 svc := commandadapters.NewDiscoveryService(provider)
 // or NewDiscoveryServiceWithDirs(provider, baseDir, commandsDir) for injected dirs
 
-cfg, diags := svc.LoadConfig(ctx)            // also LoadConfigForCommand(ctx)
+cfg, diags, err := svc.LoadConfig(ctx)       // also LoadConfigForCommand(ctx); err = failed explicit source
 result, err := svc.DiscoverAndValidateCommandSet(ctx) // result.Set + result.Diagnostics
 result, err  = svc.DiscoverCommandSet(ctx)   // without tree validation (listing)
 modules, err := svc.DiscoverModules(ctx)     // discovery.ModuleListResult

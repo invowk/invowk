@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -80,6 +81,8 @@ Commands are discovered from:
   3. Configured includes (module paths from config)
   4. ~/.invowk/cmds/ (modules only, non-recursive)
 
+--ivk-no-cwd (or INVOWK_NO_CWD=1) skips sources 1 and 2.
+
 Commands use their simple names when unique across sources. When a command
 name exists in multiple sources, disambiguation is required.
 
@@ -99,8 +102,9 @@ Examples:
 			// All callees (validateCommandTree, checkAmbiguousCommand, listCommands,
 			// runDisambiguatedCommand, executeRequest) share the same discovery cache
 			// to avoid repeated filesystem scans and CUE parsing.
-			ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-			cmd.SetContext(ctx)
+			if _, _, err := scopeDiscovery(cmd, app, rootFlags); err != nil {
+				return err
+			}
 
 			// Validate structural command constraints in runtime flow so
 			// dynamic registration failures do not break unrelated commands.
@@ -145,7 +149,11 @@ Examples:
 		if configPath := explicitConfigPathFromArgs(os.Args[1:]); configPath != "" {
 			rootFlags.configPath = configPath
 		}
-		registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
+		// A malformed --ivk-no-cwd value or an invalid INVOWK_NO_CWD skips
+		// registration; the cmd RunE then reports the error.
+		if noCwd, err := noCwdForRegistration(os.Args[1:], app.Getenv); err == nil {
+			registerDiscoveredCommands(commandadapters.ContextWithNoCwd(context.Background(), noCwd), app, rootFlags, cmdFlags, cmdCmd)
+		}
 	}
 
 	return cmdCmd
@@ -326,8 +334,9 @@ func firstTopLevelToken(args []string) (token string, remaining []string) {
 // and renders any diagnostics to stderr. Non-zero exit codes are wrapped in
 // ExitError to signal Cobra to exit without printing usage.
 func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
-	// Ensure every execution path carries the explicit config path and request cache.
-	reqCtx := contextWithConfigPath(cmd.Context(), string(req.ConfigPath))
+	// Ensure every execution path carries the explicit config path and request
+	// cache, keeping the no-cwd switch the caller already resolved.
+	reqCtx := contextWithDiscoveryScope(cmd.Context(), string(req.ConfigPath), noCwdFromContext(cmd.Context()))
 	cmd.SetContext(reqCtx)
 
 	// Cobra adapters always render service diagnostics in the CLI layer.
@@ -372,12 +381,12 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	return verbose, interactive
 }
 
+// loadUIConfig loads the request config for UI flag defaults. A failed explicit
+// config source is returned as an error instead of being discarded.
 func loadUIConfig(ctx context.Context, app *App, rootFlags *rootFlagValues) (*config.Config, error) {
-	if discoveryConfig, ok := app.Discovery.(interface {
-		LoadConfig(context.Context) (*config.Config, []discovery.Diagnostic)
-	}); ok {
-		cfg, _ := discoveryConfig.LoadConfig(ctx)
-		return cfg, nil
+	if discoveryConfig, ok := app.Discovery.(uiConfigLoader); ok {
+		cfg, _, err := discoveryConfig.LoadConfig(ctx)
+		return cfg, err
 	}
 	return app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
 }
@@ -402,6 +411,9 @@ func validateCommandTree(ctx context.Context, app *App) error {
 
 	// Error path: downstream callers won't execute, so render diagnostics here.
 	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
+	if errors.Is(err, config.ErrExplicitConfig) {
+		return renderExplicitConfigError(app.stderr, err)
+	}
 
 	if conflictErr, ok := errors.AsType[*discovery.ArgsSubcommandConflictError](err); ok {
 		fmt.Fprintf(app.stderr, "\n%s\n\n", RenderArgsSubcommandConflictError(conflictErr))

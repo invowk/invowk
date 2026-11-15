@@ -21,11 +21,17 @@ exec invowk cmd multi-runtime -c custom-config/config.cue
 stdout 'RUNTIME=virtual'
 ! stderr .
 
-# Test 4: --ivk-config with non-existent file produces a warning but still runs
-exec invowk cmd multi-runtime --ivk-config nonexistent.cue
-stdout 'RUNTIME=native'
-stderr -count=1 '[Ww]arning'
+# Test 4: --ivk-config with a non-existent file fails closed: exit 1, the
+# error names the file and the flag, and the command does not run.
+! exec invowk cmd multi-runtime --ivk-config nonexistent.cue
+! stdout 'RUNTIME='
 stderr 'nonexistent.cue'
+stderr 'ivk-config'
+
+# Test 5: --ivk-config with invalid CUE also fails closed.
+! exec invowk cmd multi-runtime --ivk-config broken-config/config.cue
+! stdout 'RUNTIME='
+stderr 'ivk-config'
 
 -- invowkfile.cue --
 cmds: [
@@ -54,3 +60,6 @@ cmds: [
 
 -- custom-config/config.cue --
 default_runtime: "virtual-sh"
+
+-- broken-config/config.cue --
+this is not valid CUE {{{

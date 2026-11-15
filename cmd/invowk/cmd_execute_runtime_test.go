@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,7 +37,7 @@ func (p *countingFailingConfigProvider) LoadWithSource(ctx context.Context, opts
 }
 
 // testConfigFallback wraps the application-service fallback for commandsvc.ConfigFallbackFunc.
-func testConfigFallback(ctx context.Context, provider config.Loader, configPath string) (cfg *config.Config, diags []commandsvc.Diagnostic) {
+func testConfigFallback(ctx context.Context, provider config.Loader, configPath string) (cfg *config.Config, diags []commandsvc.Diagnostic, err error) {
 	return commandsvc.LoadConfigWithFallback(ctx, provider, configPath)
 }
 
@@ -54,7 +55,6 @@ func TestResolveCommandLoadsConfigOnceAndReportsOneDiagnostic(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "missing-config.cue")
 	writeRuntimeTestInvowkfile(t, tmpDir)
 	provider := &countingFailingConfigProvider{err: os.ErrNotExist}
 	discoverySvc, err := commandadapters.NewDiscoveryServiceWithDirs(
@@ -75,10 +75,8 @@ func TestResolveCommandLoadsConfigOnceAndReportsOneDiagnostic(t *testing.T) {
 		t.Fatalf("NewApp() error = %v", err)
 	}
 
-	_, _, diags, err := app.Commands.ResolveCommand(t.Context(), ExecuteRequest{
-		Name:       "build",
-		ConfigPath: types.FilesystemPath(configPath),
-	})
+	// No explicit source: the failing user config is a diagnostic, not fatal.
+	_, _, diags, err := app.Commands.ResolveCommand(t.Context(), ExecuteRequest{Name: "build"})
 	if err != nil {
 		t.Fatalf("ResolveCommand() error = %v", err)
 	}
@@ -90,6 +88,41 @@ func TestResolveCommandLoadsConfigOnceAndReportsOneDiagnostic(t *testing.T) {
 	}
 	if diags[0].Code() != discovery.DiagnosticCode(commandsvc.DiagnosticCodeConfigLoadFailed) {
 		t.Fatalf("diagnostic code = %q, want %q", diags[0].Code(), commandsvc.DiagnosticCodeConfigLoadFailed)
+	}
+}
+
+func TestExplicitConfigErrorIsCachedPerRequest(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "missing-config.cue")
+	writeRuntimeTestInvowkfile(t, tmpDir)
+	provider := &countingFailingConfigProvider{err: os.ErrNotExist}
+	discoverySvc, err := commandadapters.NewDiscoveryServiceWithDirs(provider, types.FilesystemPath(tmpDir), "")
+	if err != nil {
+		t.Fatalf("NewDiscoveryServiceWithDirs() error = %v", err)
+	}
+	app, err := NewApp(Dependencies{Config: provider, Discovery: discoverySvc, Stdout: io.Discard, Stderr: io.Discard})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+
+	ctx := contextWithDiscoveryScope(t.Context(), configPath, false)
+	_, setErr := discoverySvc.DiscoverAndValidateCommandSet(ctx)
+	_, listErr := discoverySvc.DiscoverCommandSet(ctx)
+	_, lookupErr := discoverySvc.GetCommand(ctx, "build")
+	_, moduleErr := discoverySvc.DiscoverModules(ctx)
+	_, _, resolveDiags, resolveErr := app.Commands.ResolveCommand(ctx, ExecuteRequest{Name: "build", ConfigPath: types.FilesystemPath(configPath)})
+	for name, gotErr := range map[string]error{"validated set": setErr, "command set": listErr, "lookup": lookupErr, "modules": moduleErr, "resolve": resolveErr} {
+		if !errors.Is(gotErr, config.ErrExplicitConfig) {
+			t.Errorf("%s error = %v, want ErrExplicitConfig", name, gotErr)
+		}
+	}
+	if len(resolveDiags) != 0 {
+		t.Errorf("resolve diagnostics = %#v, want none for a fatal explicit config", resolveDiags)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("config load calls = %d, want 1 per request", provider.calls)
 	}
 }
 

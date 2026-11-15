@@ -4,10 +4,10 @@ This catalog is generated from repository source and documents current type-syst
 
 ## Coverage Summary
 
-- `Validate()` value types: 375
-- Primitive-wrapper + `Validate()` types: 186
-- Composite validator + `Validate()` types: 189
-- Primitive-wrapper declarations (all): 226
+- `Validate()` value types: 378
+- Primitive-wrapper + `Validate()` types: 188
+- Composite validator + `Validate()` types: 190
+- Primitive-wrapper declarations (all): 228
 - Alias/re-export type declarations: 112
 
 ## All Types With `Validate() error`
@@ -23,7 +23,8 @@ This catalog is generated from repository source and documents current type-syst
 | `auditJSONSuppressed` | `composite-validator` | `cmd/invowk/audit.go:169` |
 | `auditRunOptions` | `composite-validator` | `cmd/invowk/audit.go:191` |
 | `executeRequestOptions` | `composite-validator` | `cmd/invowk/cmd_execute_helpers.go:30` |
-| `configValue` | `primitive-wrapper` | `cmd/invowk/config.go:300` |
+| `configValue` | `primitive-wrapper` | `cmd/invowk/config.go:385` |
+| `noCwdOrigin` | `primitive-wrapper` | `cmd/invowk/discovery_scope.go:101` |
 | `formattedDisplayError` | `primitive-wrapper` | `cmd/invowk/issue_render.go:32` |
 | `issueMarkdown` | `primitive-wrapper` | `cmd/invowk/issue_render.go:28` |
 | `tuiSpinRunResult` | `composite-validator` | `cmd/invowk/tui_spin.go:134` |
@@ -52,10 +53,10 @@ This catalog is generated from repository source and documents current type-syst
 | `dependencyLockProvider` | `composite-validator` | `internal/app/commandadapters/dependency_host.go:65` |
 | `containerValidationScript` | `primitive-wrapper` | `internal/app/commandadapters/dependency_runtime.go:32` |
 | `dependencyRuntimeProbe` | `composite-validator` | `internal/app/commandadapters/dependency_runtime.go:50` |
-| `discoveryRequestCache` | `composite-validator` | `internal/app/commandadapters/discovery.go:194` |
-| `DiscoveryRequestScope` | `composite-validator` | `internal/app/commandadapters/discovery.go:148` |
-| `DiscoveryService` | `composite-validator` | `internal/app/commandadapters/discovery.go:101` |
-| `lookupCacheEntry` | `composite-validator` | `internal/app/commandadapters/discovery.go:152` |
+| `discoveryRequestCache` | `composite-validator` | `internal/app/commandadapters/discovery.go:233` |
+| `DiscoveryRequestScope` | `composite-validator` | `internal/app/commandadapters/discovery.go:160` |
+| `DiscoveryService` | `composite-validator` | `internal/app/commandadapters/discovery.go:113` |
+| `lookupCacheEntry` | `composite-validator` | `internal/app/commandadapters/discovery.go:164` |
 | `HostAccess` | `composite-validator` | `internal/app/commandadapters/host_access.go:38` |
 | `InteractiveExecutor` | `composite-validator` | `internal/app/commandadapters/interactive.go:35` |
 | `RuntimeRegistryFactory` | `composite-validator` | `internal/app/commandadapters/runtime_registry.go:53` |
@@ -65,7 +66,7 @@ This catalog is generated from repository source and documents current type-syst
 | `DiagnosticCode` | `primitive-wrapper` | `internal/app/commandsvc/diagnostic.go:63` |
 | `DiagnosticMessage` | `primitive-wrapper` | `internal/app/commandsvc/diagnostic.go:74` |
 | `DiagnosticSeverity` | `primitive-wrapper` | `internal/app/commandsvc/diagnostic.go:52` |
-| `ErrorKind` | `primitive-wrapper` | `internal/app/commandsvc/types.go:305` |
+| `ErrorKind` | `primitive-wrapper` | `internal/app/commandsvc/types.go:306` |
 | `DryRunData` | `composite-validator` | `internal/app/commandsvc/types_validate.go:176` |
 | `DryRunPlan` | `composite-validator` | `internal/app/commandsvc/types_validate.go:181` |
 | `Request` | `composite-validator` | `internal/app/commandsvc/types_validate.go:74` |
@@ -134,8 +135,10 @@ This catalog is generated from repository source and documents current type-syst
 | `SurfaceKind` | `primitive-wrapper` | `internal/audit/types.go:169` |
 | `configCUEFilename` | `primitive-wrapper` | `internal/config/config.go:85` |
 | `configCUESource` | `composite-validator` | `internal/config/config.go:81` |
-| `LoadOptions` | `composite-validator` | `internal/config/provider.go:66` |
-| `LoadResult` | `composite-validator` | `internal/config/provider.go:108` |
+| `LoadOptions` | `composite-validator` | `internal/config/provider.go:69` |
+| `LoadResult` | `composite-validator` | `internal/config/provider.go:106` |
+| `ConfigSourceKind` | `primitive-wrapper` | `internal/config/source.go:115` |
+| `SourceSelection` | `composite-validator` | `internal/config/source.go:157` |
 | `AutoProvisionConfig` | `composite-validator` | `internal/config/types.go:749` |
 | `BinaryFilePath` | `primitive-wrapper` | `internal/config/types.go:883` |
 | `CacheDirPath` | `primitive-wrapper` | `internal/config/types.go:907` |
@@ -430,7 +433,8 @@ This catalog is generated from repository source and documents current type-syst
 | `CommandReference` | `string` | `pkg/invowkmod/command_scope.go:63` |
 | `CommandScopeDenyReason` | `string` | `pkg/invowkmod/command_scope.go:74` |
 | `configCUEFilename` | `string` | `internal/config/config.go:62` |
-| `configValue` | `string` | `cmd/invowk/config.go:45` |
+| `ConfigSourceKind` | `string` | `internal/config/source.go:55` |
+| `configValue` | `string` | `cmd/invowk/config.go:48` |
 | `ConstraintOp` | `string` | `pkg/invowkmod/semver_types.go:63` |
 | `ContainerEngine` | `string` | `internal/config/types.go:111` |
 | `ContainerfilePath` | `string` | `pkg/invowkfile/containerfile_path.go:21` |
@@ -526,11 +530,12 @@ This catalog is generated from repository source and documents current type-syst
 | `MountTargetPath` | `string` | `internal/container/engine_base_types.go:94` |
 | `Name` | `string` | `internal/provisionenv/provisionenv.go:40` |
 | `NetworkPort` | `uint16` | `internal/container/engine_base_types.go:72` |
+| `noCwdOrigin` | `string` | `cmd/invowk/discovery_scope.go:61` |
 | `Operation` | `string` | `internal/acpclient/types.go:142` |
 | `OpKind` | `string` | `internal/testutil/mpctree/mpctree.go:39` |
 | `OptionalPositiveDurationString` | `string` | `pkg/types/duration.go:18` |
 | `outcomeKind` | `uint8` | `internal/testutil/pathmatrix/pathmatrix.go:84` |
-| `pathType` | `int` | `cmd/invowk/validate.go:37` |
+| `pathType` | `int` | `cmd/invowk/validate.go:38` |
 | `PermissionOptionID` | `string` | `internal/acpclient/types.go:98` |
 | `PermissionOptionKind` | `string` | `internal/acpclient/types.go:100` |
 | `PermissionOptionName` | `string` | `internal/acpclient/types.go:102` |
@@ -649,7 +654,7 @@ This catalog is generated from repository source and documents current type-syst
 | `ContentHash` | `invowkmod.ContentHash` | `internal/app/modulesync/types.go:72` |
 | `CreateResult` | `CommandResult` | `internal/agentcmd/create.go:76` |
 | `DescriptionText` | `types.DescriptionText` | `pkg/invowkfile/description.go:16` |
-| `ExecuteRequest` | `commandsvc.Request` | `cmd/invowk/app.go:59` |
+| `ExecuteRequest` | `commandsvc.Request` | `cmd/invowk/app.go:65` |
 | `ExitCode` | `types.ExitCode` | `internal/runtime/result.go:14` |
 | `FileRequest` | `tuiwire.FileRequest` | `internal/tuiclient/client.go:82` |
 | `FileRequest` | `tuiwire.FileRequest` | `internal/tuiserver/protocol.go:68` |

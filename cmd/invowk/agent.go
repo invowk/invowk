@@ -363,7 +363,7 @@ func runAgentCmdCreate(
 	verify bool,
 	llmFlags llmFlagValues,
 ) error {
-	if err := validateAgentCmdCreateOptions(createOpts, verify, llmFlags); err != nil {
+	if err := validateAgentCmdCreateOptions(createOpts, verify, verifyNoCwdError(cmd, app, rootFlags, verify), llmFlags); err != nil {
 		return &ExitError{Code: auditExitError, Err: err}
 	}
 	llmResult, llmErr := resolveAgentAuthoringCompleter(cmd, app, rootFlags, llmFlags)
@@ -387,7 +387,13 @@ func runAgentCmdCreate(
 	return nil
 }
 
-func validateAgentCmdCreateOptions(createOpts agentcmd.CreateOptions, verify bool, llmFlags llmFlagValues) error {
+// validateAgentCmdCreateOptions rejects invalid create options before any LLM
+// call. verifyScopeErr is the --verify/--ivk-no-cwd conflict (or the switch's
+// resolution error), resolved by the caller only when --verify is set.
+func validateAgentCmdCreateOptions(createOpts agentcmd.CreateOptions, verify bool, verifyScopeErr error, llmFlags llmFlagValues) error {
+	if verifyScopeErr != nil {
+		return verifyScopeErr
+	}
 	if err := validateAgentAuthoringModes(createOpts.DryRun, createOpts.PrintOnly, verify); err != nil {
 		return err
 	}
@@ -405,7 +411,7 @@ func runAgentCmdChange(
 	verify bool,
 	llmFlags llmFlagValues,
 ) error {
-	if err := validateAgentCmdChangeOptions(changeOpts, verify, llmFlags); err != nil {
+	if err := validateAgentCmdChangeOptions(changeOpts, verify, verifyNoCwdError(cmd, app, rootFlags, verify), llmFlags); err != nil {
 		return &ExitError{Code: auditExitError, Err: err}
 	}
 	llmResult, llmErr := resolveAgentAuthoringCompleter(cmd, app, rootFlags, llmFlags)
@@ -429,7 +435,12 @@ func runAgentCmdChange(
 	return nil
 }
 
-func validateAgentCmdChangeOptions(changeOpts agentcmd.ChangeOptions, verify bool, llmFlags llmFlagValues) error {
+// validateAgentCmdChangeOptions rejects invalid change options before any LLM
+// call; verifyScopeErr has the same meaning as for create.
+func validateAgentCmdChangeOptions(changeOpts agentcmd.ChangeOptions, verify bool, verifyScopeErr error, llmFlags llmFlagValues) error {
+	if verifyScopeErr != nil {
+		return verifyScopeErr
+	}
 	if err := validateAgentAuthoringModes(changeOpts.DryRun, changeOpts.PrintOnly, verify); err != nil {
 		return err
 	}

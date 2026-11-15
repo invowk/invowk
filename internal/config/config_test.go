@@ -114,7 +114,7 @@ func TestLoadAndSave(t *testing.T) {
 	}
 
 	// Reload from disk via loadWithOptions
-	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{
+	loaded, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 	})
 	if err != nil {
@@ -218,9 +218,8 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	cfg, _, err := loadWithOptions(t.Context(), LoadOptions{
+	cfg, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
-		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -321,9 +320,8 @@ func TestLoad_EmptyFile(t *testing.T) {
 		t.Fatalf("failed to write empty config: %v", err)
 	}
 
-	cfg, _, err := loadWithOptions(t.Context(), LoadOptions{
+	cfg, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
-		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error for empty config: %v", err)
@@ -360,9 +358,8 @@ some_future_field: "value"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
-		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err == nil {
 		t.Fatal("loadWithOptions() succeeded, want unknown field error")
@@ -386,9 +383,8 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 		t.Fatalf("failed to write malformed config: %v", err)
 	}
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
-		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for malformed CUE syntax")
@@ -416,9 +412,8 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 	}
 
 	// loadWithOptions should fail with actionable error
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
-		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for invalid config")
@@ -446,9 +441,8 @@ func TestLoad_DuplicateIncludeAliasKeepsActionableSuggestions(t *testing.T) {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(cfgPath),
-		BaseDir:        types.FilesystemPath(tmpDir),
 	})
 	if err == nil {
 		t.Fatal("expected duplicate include alias error")
@@ -480,9 +474,8 @@ default_runtime: "virtual-sh"
 	}
 
 	// Load using custom path via LoadOptions
-	cfg, resolvedPath, err := loadWithOptions(t.Context(), LoadOptions{
+	cfg, resolvedPath, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(customConfigPath),
-		BaseDir:        types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -508,7 +501,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	nonExistentPath := "/this/path/does/not/exist/config.cue"
 
 	// loadWithOptions should fail with an actionable error
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(nonExistentPath),
 	})
 	if err == nil {
@@ -545,7 +538,7 @@ default_runtime: "virtual-sh"
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	provider := NewProvider()
+	provider := NewProviderWithEnv(emptyEnv)
 
 	tests := []struct {
 		name string
@@ -556,7 +549,6 @@ default_runtime: "virtual-sh"
 
 			cfg, err := provider.Load(t.Context(), LoadOptions{
 				ConfigDirPath: types.FilesystemPath(configDir),
-				BaseDir:       types.FilesystemPath(tmpDir),
 			})
 			if err != nil {
 				t.Fatalf("Provider.Load() returned error: %v", err)
@@ -575,7 +567,6 @@ default_runtime: "virtual-sh"
 
 			cfg, err := provider.Load(t.Context(), LoadOptions{
 				ConfigFilePath: types.FilesystemPath(cfgPath),
-				BaseDir:        types.FilesystemPath(tmpDir),
 			})
 			if err != nil {
 				t.Fatalf("Provider.Load() returned error: %v", err)
@@ -591,7 +582,6 @@ default_runtime: "virtual-sh"
 
 			result, err := provider.LoadWithSource(t.Context(), LoadOptions{
 				ConfigDirPath: types.FilesystemPath(configDir),
-				BaseDir:       types.FilesystemPath(tmpDir),
 			})
 			if err != nil {
 				t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
@@ -604,24 +594,20 @@ default_runtime: "virtual-sh"
 			}
 		}},
 
-		{name: "reports local fallback source", run: func(t *testing.T) {
+		{name: "cwd config is not a source", run: func(t *testing.T) {
 			t.Helper()
 
-			baseDir := t.TempDir()
-			localPath := filepath.Join(baseDir, ConfigFileName+"."+ConfigFileExt)
-			if err := os.WriteFile(localPath, []byte(validConfig), 0o644); err != nil {
-				t.Fatalf("failed to write local config: %v", err)
-			}
-
+			// The process-cwd scenario needs t.Chdir and lives in the serial
+			// TestLoadIgnoresCwdConfig; here an empty user config dir must yield
+			// defaults with the default source kind and no source path.
 			result, err := provider.LoadWithSource(t.Context(), LoadOptions{
 				ConfigDirPath: types.FilesystemPath(t.TempDir()),
-				BaseDir:       types.FilesystemPath(baseDir),
 			})
 			if err != nil {
 				t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
 			}
-			if result.SourcePath != types.FilesystemPath(localPath) {
-				t.Errorf("SourcePath = %s, want %s", result.SourcePath, localPath)
+			if result.Source != ConfigSourceDefault || result.SourcePath != "" {
+				t.Errorf("result = (%s, %q), want (default, \"\")", result.Source, result.SourcePath)
 			}
 		}},
 
@@ -631,7 +617,6 @@ default_runtime: "virtual-sh"
 			emptyDir := t.TempDir()
 			cfg, err := provider.Load(t.Context(), LoadOptions{
 				ConfigDirPath: types.FilesystemPath(emptyDir),
-				BaseDir:       types.FilesystemPath(emptyDir),
 			})
 			if err != nil {
 				t.Fatalf("Provider.Load() returned error: %v", err)
@@ -676,7 +661,7 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	}
 
 	// loadWithOptions should fail with an actionable error
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(customConfigPath),
 	})
 	if err == nil {

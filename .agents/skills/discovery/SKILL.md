@@ -52,6 +52,16 @@ Discovery follows a **6-level precedence order** (`doc.go`,
 - When `baseDir` is empty (e.g. `os.Getwd()` failed because the working
   directory was deleted), current-directory and local-module discovery
   (levels 1-2) are skipped instead of resolving against the process cwd.
+- `--ivk-no-cwd` / `INVOWK_NO_CWD` reuse that mechanism: the CLI resolves the
+  switch (`resolveNoCwd`, explicit flag beats env) and attaches it with
+  `commandadapters.ContextWithNoCwd`; `DiscoveryService.newDiscovery(ctx, cfg)`
+  then appends `discovery.WithBaseDir("")` **last**, overriding an injected base
+  dir, so levels 1-2 are skipped and `os.Getwd()` is never called. Levels 3-6
+  stay. The per-request cache records the switch and is reused only by
+  contexts with the same value. `internal/discovery` itself has no switch.
+- Config never comes from the cwd: `config.SelectSource` picks `--ivk-config`
+  > `INVOWK_CONFIG` (absolute) > user file > defaults; explicit sources fail
+  closed (`config.ErrExplicitConfig`) before any `Discovery` is built.
 
 ---
 

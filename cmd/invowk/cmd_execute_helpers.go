@@ -226,7 +226,8 @@ func stringArrayFlagValue(cmd *cobra.Command, name string) []string {
 // For subcommands (e.g., "deploy staging"), the command service resolves the
 // longest possible command name and returns any remaining positional arguments.
 func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, filter *SourceFilter, args []string) error {
-	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
+	// Callers already resolved --ivk-no-cwd into cmd's context; keep it.
+	ctx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, noCwdFromContext(cmd.Context()))
 	cmd.SetContext(ctx)
 
 	if len(args) == 0 {

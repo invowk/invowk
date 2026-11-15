@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,7 +16,6 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
-	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -132,84 +132,106 @@ func TestLoadConfigWithFallback(t *testing.T) {
 	t.Parallel()
 
 	customPath := filepath.Join(t.TempDir(), "custom.cue")
-	explicitCfg, explicitDiags := commandsvc.LoadConfigWithFallback(
+	explicitCfg, explicitDiags, explicitErr := commandsvc.LoadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: errors.New("parse failure")},
 		customPath,
 	)
-	if explicitCfg == nil {
-		t.Fatal("explicitCfg = nil")
+	if explicitCfg != nil || len(explicitDiags) != 0 {
+		t.Fatalf("explicit flag failure = (%v, %v), want no config and no diagnostics", explicitCfg, explicitDiags)
 	}
-	if len(explicitDiags) != 1 {
-		t.Fatalf("len(explicitDiags) = %d, want 1", len(explicitDiags))
-	}
-	if explicitDiags[0].Severity() != commandsvc.DiagnosticSeverityError {
-		t.Fatalf("explicit severity = %s, want error", explicitDiags[0].Severity())
-	}
-	if string(explicitDiags[0].Path()) != customPath {
-		t.Fatalf("explicit path = %q, want %q", explicitDiags[0].Path(), customPath)
+	if !errors.Is(explicitErr, config.ErrExplicitConfig) {
+		t.Fatalf("explicit flag error = %v, want ErrExplicitConfig", explicitErr)
 	}
 
-	defaultCfg, defaultDiags := commandsvc.LoadConfigWithFallback(
+	defaultCfg, defaultDiags, defaultErr := commandsvc.LoadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: errors.New("syntax error")},
 		"",
 	)
-	if defaultCfg == nil {
-		t.Fatal("defaultCfg = nil")
+	if defaultErr != nil || defaultCfg == nil {
+		t.Fatalf("user config failure = (%v, %v), want defaults", defaultCfg, defaultErr)
 	}
 	if len(defaultDiags) != 1 || defaultDiags[0].Severity() != commandsvc.DiagnosticSeverityError {
 		t.Fatalf("defaultDiags = %v", defaultDiags)
 	}
-
-	warnCfg, warnDiags := commandsvc.LoadConfigWithFallback(
-		t.Context(),
-		&errorConfigProvider{err: errors.New("wrapped: " + types.FilesystemPath("").String())},
-		"",
-	)
-	if warnCfg == nil {
-		t.Fatal("warnCfg = nil")
-	}
-	_ = warnDiags
-
-	notExistCfg, notExistDiags := commandsvc.LoadConfigWithFallback(
-		t.Context(),
-		&errorConfigProvider{err: tui.ErrCancelled},
-		"",
-	)
-	if notExistCfg == nil {
-		t.Fatal("notExistCfg = nil")
-	}
-	_ = notExistDiags
 }
 
-func TestLoadConfigWithFallback_NotExistWarning(t *testing.T) {
+func TestLoadConfigWithFallback_ExplicitSourcesFailClosed(t *testing.T) {
 	t.Parallel()
 
-	cfg, diags := commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: errors.New("wrapper: " + context.Canceled.Error())}, "")
-	if cfg == nil {
-		t.Fatal("cfg = nil")
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "missing.cue")
+	invalid := filepath.Join(dir, "invalid.cue")
+	if err := os.WriteFile(invalid, []byte("this is not CUE {{{"), 0o644); err != nil {
+		t.Fatalf("write invalid config: %v", err)
 	}
-	_ = diags
+	userDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(userDir, "config.cue"), []byte(`default_runtime: "virtual-sh"`), 0o644); err != nil {
+		t.Fatalf("write user config: %v", err)
+	}
 
-	cfg, diags = commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: errors.New("wrapper")}, "")
-	if cfg == nil {
-		t.Fatal("cfg = nil")
+	tests := []struct {
+		name       string
+		configPath string
+		env        string
+		wantSource config.ConfigSourceKind
+	}{
+		{name: "flag missing", configPath: missing, wantSource: config.ConfigSourceFlag},
+		{name: "flag invalid CUE", configPath: invalid, wantSource: config.ConfigSourceFlag},
+		{name: "flag whitespace-only path", configPath: "   ", wantSource: config.ConfigSourceFlag},
+		{name: "env missing", env: missing, wantSource: config.ConfigSourceEnv},
+		{name: "env invalid CUE", env: invalid, wantSource: config.ConfigSourceEnv},
+		{name: "env relative", env: "config.cue", wantSource: config.ConfigSourceEnv},
 	}
-	if len(diags) != 1 {
-		t.Fatalf("len(diags) = %d, want 1", len(diags))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			provider := &configDirProvider{
+				inner: config.NewProviderWithEnv(envGetter(map[string]string{config.EnvConfigPath: tt.env})),
+				dir:   userDir,
+			}
+			cfg, diags, err := commandsvc.LoadConfigWithFallback(t.Context(), provider, tt.configPath)
+			if cfg != nil || len(diags) != 0 {
+				t.Fatalf("result = (%v, %v), want no fallback to user config or defaults", cfg, diags)
+			}
+			explicitErr, ok := errors.AsType[*config.ExplicitConfigError](err)
+			if !ok || explicitErr.Source != tt.wantSource {
+				t.Fatalf("error = %v, want *ExplicitConfigError from %s", err, tt.wantSource)
+			}
+		})
+	}
+}
+
+func TestLoadConfigWithFallback_UserFileFallsBackToDefaults(t *testing.T) {
+	t.Parallel()
+
+	userDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(userDir, "config.cue"), []byte("this is not CUE {{{"), 0o644); err != nil {
+		t.Fatalf("write user config: %v", err)
+	}
+	provider := &configDirProvider{inner: config.NewProviderWithEnv(envGetter(nil)), dir: userDir}
+	cfg, diags, err := commandsvc.LoadConfigWithFallback(t.Context(), provider, "")
+	if err != nil {
+		t.Fatalf("LoadConfigWithFallback() error = %v, want defaults for a user config failure", err)
+	}
+	if cfg == nil || cfg.DefaultRuntime != config.DefaultConfig().DefaultRuntime {
+		t.Fatalf("cfg = %v, want defaults", cfg)
+	}
+	if len(diags) != 1 || diags[0].Code() != commandsvc.DiagnosticCodeConfigLoadFailed {
+		t.Fatalf("diags = %v, want one config-load diagnostic", diags)
 	}
 }
 
 func TestLoadConfigWithFallback_DefaultNotExistWarning(t *testing.T) {
 	t.Parallel()
 
-	cfg, diags := commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: context.Canceled}, "")
-	if cfg == nil {
-		t.Fatal("cfg = nil")
+	cfg, diags, err := commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: os.ErrNotExist}, "")
+	if err != nil || cfg == nil {
+		t.Fatalf("result = (%v, %v), want defaults", cfg, err)
 	}
-	if len(diags) != 1 {
-		t.Fatalf("len(diags) = %d, want 1", len(diags))
+	if len(diags) != 1 || diags[0].Severity() != commandsvc.DiagnosticSeverityWarning {
+		t.Fatalf("diags = %v, want one warning", diags)
 	}
 }
 
@@ -217,7 +239,7 @@ func TestContextHelpersAndCacheValidation(t *testing.T) {
 	t.Parallel()
 
 	invowkPath := filepath.Join(t.TempDir(), "invowk.cue")
-	ctx := contextWithConfigPath(t.Context(), invowkPath)
+	ctx := contextWithDiscoveryScope(t.Context(), invowkPath, false)
 	if got := configPathFromContext(ctx); got != invowkPath {
 		t.Fatalf("configPathFromContext() = %q, want %q", got, invowkPath)
 	}

@@ -43,6 +43,8 @@ Módulos são descobertos automaticamente de:
 2. Entradas de `includes` configuradas
 3. `~/.invowk/cmds/` (módulos do usuário — apenas `*.invowkmod`, não recursivo)
 
+Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), a fonte 1 é ignorada; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
+
 <Snippet id="modules/quick-use" />
 
 ### Compartilhar o Módulo
@@ -118,6 +120,8 @@ Módulos são descobertos dessas localizações:
 2. **Módulos locais** (`*.invowkmod` no diretório atual)
 3. **Includes configurados** (caminhos de módulos da configuração)
 4. **Diretório de comandos do usuário** (`~/.invowk/cmds/` — apenas `*.invowkmod`, não recursivo)
+
+Com `--ivk-no-cwd` (ou `INVOWK_NO_CWD=1`), as fontes 1 e 2 são ignoradas; veja [Ignorando os Comandos do Diretório Atual](../configuration/overview#ignorando-os-comandos-do-diretório-atual).
 
 Comandos aparecem em `invowk cmd` com sua origem:
 

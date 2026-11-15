@@ -1,0 +1,87 @@
+# Test: --ivk-no-cwd / INVOWK_NO_CWD on runtime-independent built-in commands.
+# validate (workspace), module list and completion skip current-directory
+# sources; explicit targets (validate <path>, audit <path>) are unaffected; an
+# invalid INVOWK_NO_CWD does not break commands that do not discover command
+# sources. HOME=$WORK, so $WORK/.invowk/cmds is the user commands directory.
+
+env XDG_CONFIG_HOME=$WORK/.config
+env INVOWK_NO_CWD=
+
+# Test 1: workspace validation reports the invalid cwd invowkfile without the switch
+cd $WORK/bad
+! exec invowk validate
+stdout 'Workspace Validation'
+
+# Test 2: with the switch the invalid cwd file is not discovered, and the header names it
+exec invowk --ivk-no-cwd validate
+stdout 'current-directory sources disabled \(--ivk-no-cwd\)'
+! stderr 'invowkfile.cue'
+
+# Test 3: INVOWK_NO_CWD names its origin in the validation header
+env INVOWK_NO_CWD=1
+exec invowk validate
+stdout 'current-directory sources disabled \(INVOWK_NO_CWD\)'
+env INVOWK_NO_CWD=
+
+# Test 4: an explicit validate target is unaffected by the switch: the named
+# file is validated and reported exactly as without it
+! exec invowk validate ./invowkfile.cue
+stdout 'Invowkfile Validation'
+stderr 'CUE schema validation failed'
+cp stdout $WORK/plain.stdout
+cp stderr $WORK/plain.stderr
+! exec invowk --ivk-no-cwd validate ./invowkfile.cue
+cmp stdout $WORK/plain.stdout
+cmp stderr $WORK/plain.stderr
+! stdout 'current-directory sources disabled'
+
+# Test 5: module list omits the cwd module and keeps the user commands dir module
+exec invowk module list
+stdout 'foo'
+stdout 'g.invowkmod'
+exec invowk --ivk-no-cwd module list
+! stdout 'foo'
+stdout 'g.invowkmod'
+
+# Test 6: an invalid INVOWK_NO_CWD is ignored by commands that do not discover command sources
+env INVOWK_NO_CWD=yes
+exec invowk config path
+stdout 'Config file:'
+exec invowk --version
+! exec invowk module list
+stderr 'INVOWK_NO_CWD'
+env INVOWK_NO_CWD=
+
+# Test 7: completion omits cwd commands under the switch
+cd $WORK/good
+exec invowk __complete cmd ''
+stdout 'local'
+exec invowk __complete --ivk-no-cwd cmd ''
+! stdout 'local'
+stdout '^g'
+
+# Test 8: audit scans its explicit target the same way with or without the switch
+exec invowk audit .
+stdout 'Scanned: 0 module\(s\), 1 invowkfile\(s\), 1 script\(s\)'
+exec invowk --ivk-no-cwd audit .
+stdout 'Scanned: 0 module\(s\), 1 invowkfile\(s\), 1 script\(s\)'
+
+-- bad/invowkfile.cue --
+cmds: [ this is not valid CUE
+
+-- bad/foo.invowkmod/invowkmod.cue --
+module: "foo"
+version: "1.0.0"
+
+-- bad/foo.invowkmod/invowkfile.cue --
+cmds: [{name: "modcmd", implementations: [{script: {content: "echo MOD_OK"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]
+
+-- good/invowkfile.cue --
+cmds: [{name: "local", implementations: [{script: {content: "echo LOCAL_OK"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]
+
+-- .invowk/cmds/g.invowkmod/invowkmod.cue --
+module: "g"
+version: "1.0.0"
+
+-- .invowk/cmds/g.invowkmod/invowkfile.cue --
+cmds: [{name: "glob", implementations: [{script: {content: "echo GLOB_OK"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]}]

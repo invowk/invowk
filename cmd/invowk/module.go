@@ -4,8 +4,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 
 	"charm.land/lipgloss/v2"
@@ -41,7 +43,7 @@ var (
 
 // newModuleCommand creates the `invowk module` command tree.
 // Subcommands that need config access capture the App via closure.
-func newModuleCommand(app *App) *cobra.Command {
+func newModuleCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	modCmd := &cobra.Command{
 		Use:     moduleCommandName,
 		Aliases: []string{"mod"},
@@ -70,7 +72,7 @@ Examples:
 		Use:   "list",
 		Short: "List all discovered modules",
 		Long: `List all invowk modules discovered in:
-  - Current directory
+  - Current directory (skipped under --ivk-no-cwd / INVOWK_NO_CWD)
   - User commands directory (~/.invowk/cmds)
   - Configured includes
 
@@ -78,7 +80,11 @@ Examples:
   invowk module list`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runModuleList(cmd.Context(), app)
+			ctx, _, err := scopeDiscovery(cmd, app, rootFlags)
+			if err != nil {
+				return err
+			}
+			return runModuleList(ctx, app)
 		},
 	})
 	modCmd.AddCommand(newModuleArchiveCommand())
@@ -97,9 +103,14 @@ Examples:
 }
 
 func runModuleList(ctx context.Context, app *App) error {
-	fmt.Println(moduleTitleStyle.Render("Discovered Modules"))
-
 	result, err := app.Discovery.DiscoverModules(ctx)
+	if errors.Is(err, config.ErrExplicitConfig) {
+		// Fail closed before printing anything: no module list from a broken
+		// explicit config source.
+		return renderExplicitConfigError(app.stderr, err)
+	}
+	w := app.stdout
+	fmt.Fprintln(w, moduleTitleStyle.Render("Discovered Modules"))
 	if err != nil {
 		app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
 		return fmt.Errorf("failed to discover modules: %w", err)
@@ -107,17 +118,17 @@ func runModuleList(ctx context.Context, app *App) error {
 	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
 
 	if len(result.Modules) == 0 {
-		fmt.Printf("%s No modules found\n", moduleWarningIcon)
-		fmt.Println()
-		fmt.Printf("%s Modules are discovered in:\n", moduleInfoIcon)
-		fmt.Printf("   - Current directory\n")
-		fmt.Printf("   - User commands directory (~/.invowk/cmds)\n")
-		fmt.Printf("   - Configured includes\n")
+		fmt.Fprintf(w, "%s No modules found\n", moduleWarningIcon)
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "%s Modules are discovered in:\n", moduleInfoIcon)
+		fmt.Fprintf(w, "   - Current directory\n")
+		fmt.Fprintf(w, "   - User commands directory (~/.invowk/cmds)\n")
+		fmt.Fprintf(w, "   - Configured includes\n")
 		return nil
 	}
 
-	fmt.Printf("%s Found %d module(s)\n", moduleInfoIcon, len(result.Modules))
-	fmt.Println()
+	fmt.Fprintf(w, "%s Found %d module(s)\n", moduleInfoIcon, len(result.Modules))
+	fmt.Fprintln(w)
 
 	// Group by source
 	bySource := make(map[discovery.Source][]*discovery.DiscoveredFile)
@@ -137,12 +148,12 @@ func runModuleList(ctx context.Context, app *App) error {
 			continue
 		}
 
-		fmt.Printf("%s %s:\n", moduleInfoIcon, source.String())
+		fmt.Fprintf(w, "%s %s:\n", moduleInfoIcon, source.String())
 		for _, p := range sourceModules {
-			fmt.Printf("   %s %s\n", moduleSuccessIcon, CmdStyle.Render(string(p.Module.Name())))
-			fmt.Printf("      %s\n", moduleDetailStyle.Render(string(p.Module.Path)))
+			fmt.Fprintf(w, "   %s %s\n", moduleSuccessIcon, CmdStyle.Render(string(p.Module.Name())))
+			fmt.Fprintf(w, "      %s\n", moduleDetailStyle.Render(string(p.Module.Path)))
 		}
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
 
 	return nil

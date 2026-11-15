@@ -39,6 +39,27 @@ invowk --ivk-config /path/to/config.cue config show
 invowk -c /path/to/config.cue cmd build`,
   },
 
+  'config/env-config-path': {
+    language: 'bash',
+    code: `# Select the config file for every invowk call in this shell.
+# The path must be absolute; an empty value counts as unset.
+export INVOWK_CONFIG=/etc/acme/invowk/config.cue
+invowk config show
+
+# --ivk-config still wins over INVOWK_CONFIG
+invowk --ivk-config ./ci/config.cue cmd build`,
+  },
+
+  'config/no-cwd': {
+    language: 'bash',
+    code: `# Ignore the current directory's invowkfile.cue and *.invowkmod modules
+invowk --ivk-no-cwd cmd
+
+# Wrappers whose commands call invowk again: use the env forms,
+# which nested invocations inherit (flags do not)
+INVOWK_CONFIG=/etc/acme/invowk/config.cue INVOWK_NO_CWD=1 invowk cmd deploy`,
+  },
+
   'config/init': {
     language: 'bash',
     code: `invowk config init`,

@@ -1,0 +1,160 @@
+# Test: INVOWK_CONFIG selects the config file, below --ivk-config and above
+# the user config file; explicit sources fail closed.
+# The user config file exists only at the Linux path ($XDG_CONFIG_HOME), so the
+# user-file assertions are guarded with [linux].
+
+cd $WORK/proj
+env XDG_CONFIG_HOME=$WORK/.config
+
+# Test 1: baseline, the user config file applies (Linux only)
+exec invowk cmd multi-runtime
+[linux] stdout 'RUNTIME=virtual'
+[!linux] stdout 'RUNTIME=native'
+! stderr .
+
+# Test 2: INVOWK_CONFIG takes effect and the user config file is ignored
+env INVOWK_CONFIG=$WORK/env/config.cue
+exec invowk cmd multi-runtime
+stdout 'RUNTIME=native'
+! stderr .
+exec invowk config show
+stdout 'docker'
+stdout 'from INVOWK_CONFIG'
+! stderr .
+exec invowk config dump
+stdout 'container_engine: "docker"'
+
+# Test 3: --ivk-config beats INVOWK_CONFIG
+exec invowk cmd multi-runtime --ivk-config $WORK/flag/config.cue
+stdout 'RUNTIME=virtual'
+! stderr .
+
+# Test 4: an empty INVOWK_CONFIG behaves as unset
+env INVOWK_CONFIG=
+exec invowk cmd multi-runtime
+[linux] stdout 'RUNTIME=virtual'
+[!linux] stdout 'RUNTIME=native'
+
+# Test 5: a relative INVOWK_CONFIG is rejected, even when the file exists in the cwd
+env INVOWK_CONFIG=config.cue
+! exec invowk cmd multi-runtime
+! stdout 'RUNTIME='
+stderr 'INVOWK_CONFIG'
+stderr 'absolute'
+
+# Test 6: a missing absolute INVOWK_CONFIG fails and names the path and the variable
+env INVOWK_CONFIG=$WORK/nofile.cue
+! exec invowk cmd multi-runtime
+! stdout 'RUNTIME='
+stderr 'nofile.cue'
+stderr 'INVOWK_CONFIG'
+! stderr 'must be an absolute path'
+
+# Test 7: config path shows the effective file and marks problems, exit 0
+env INVOWK_CONFIG=$WORK/env/config.cue
+exec invowk config path
+stdout 'Effective config file:'
+stdout 'from INVOWK_CONFIG'
+! stdout 'missing\]'
+env INVOWK_CONFIG=$WORK/nofile.cue
+exec invowk config path
+stdout 'nofile.cue \(from INVOWK_CONFIG\) \[missing\]'
+env INVOWK_CONFIG=config.cue
+exec invowk config path
+stdout 'config.cue \(from INVOWK_CONFIG\) \[invalid: must be absolute\]'
+exec invowk config path --ivk-config $WORK/nofile.cue
+stdout 'from --ivk-config\) \[missing\]'
+
+# Test 8: config set refuses while an explicit source is active and writes nothing.
+# Point the Linux user config dir at an empty location for this part.
+env XDG_CONFIG_HOME=$WORK/fresh
+env INVOWK_CONFIG=$WORK/env/config.cue
+! exec invowk config set default_runtime virtual-sh
+stderr 'INVOWK_CONFIG'
+env INVOWK_CONFIG=
+! exec invowk --ivk-config $WORK/flag/config.cue config set default_runtime virtual-sh
+stderr 'ivk-config'
+[linux] ! exists $WORK/fresh/invowk/config.cue
+[darwin] ! exists $WORK/Library/'Application Support'/invowk/config.cue
+[windows] ! exists $WORK/appdata/invowk/config.cue
+grep 'container_engine: "docker"' $WORK/env/config.cue
+! grep 'virtual-sh' $WORK/env/config.cue
+
+# Test 8b: config init ignores INVOWK_CONFIG and creates only the user config file
+env INVOWK_CONFIG=$WORK/env/config.cue
+exec invowk config init
+[linux] exists $WORK/fresh/invowk/config.cue
+[darwin] exists $WORK/Library/'Application Support'/invowk/config.cue
+[windows] exists $WORK/appdata/invowk/config.cue
+grep 'container_engine: "docker"' $WORK/env/config.cue
+! grep 'default_runtime' $WORK/env/config.cue
+env INVOWK_CONFIG=
+
+# Test 9: config show and validate fail on a missing explicit file
+! exec invowk --ivk-config $WORK/nofile.cue config show
+! stdout 'container_engine'
+stderr 'nofile.cue'
+! exec invowk --ivk-config $WORK/nofile.cue validate
+! stdout 'Workspace Validation'
+stderr 'nofile.cue'
+
+# Test 10: audit reports the failed INVOWK_CONFIG as a scan error (exit 2), not findings
+env INVOWK_CONFIG=$WORK/nofile.cue
+! exec invowk audit .
+stderr 'scan error'
+stderr 'INVOWK_CONFIG'
+
+# Test 11: completion offers no cwd commands when the explicit file is missing
+env INVOWK_CONFIG=
+exec invowk __complete --ivk-config $WORK/nofile.cue cmd ''
+! stdout 'multi-runtime'
+
+# Test 12: the fatal explicit-config error exits exactly 1 for `cmd`, and the
+# script does not run (testscript's `! exec` cannot check the code itself)
+[windows] stop 'exit-code probe needs a POSIX sh'
+exec sh -c 'invowk cmd multi-runtime --ivk-config "$WORK/nofile.cue"; echo "exit=$?"'
+stdout '^exit=1$'
+! stdout 'RUNTIME='
+env INVOWK_CONFIG=$WORK/nofile.cue
+exec sh -c 'invowk cmd multi-runtime; echo "exit=$?"'
+stdout '^exit=1$'
+! stdout 'RUNTIME='
+exec sh -c 'invowk audit .; echo "exit=$?"'
+stdout '^exit=2$'
+
+-- .config/invowk/config.cue --
+default_runtime: "virtual-sh"
+
+-- env/config.cue --
+container_engine: "docker"
+
+-- flag/config.cue --
+default_runtime: "virtual-sh"
+
+-- proj/config.cue --
+default_runtime: "virtual-sh"
+
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name:        "multi-runtime"
+		description: "Command with both virtual and native implementations"
+		implementations: [
+			{
+				script: {content: "echo 'RUNTIME=virtual'"}
+				runtimes:  [{name: "virtual-sh"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+			},
+			{
+				script: {content: "echo 'RUNTIME=native'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: "Write-Output 'RUNTIME=native'"}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

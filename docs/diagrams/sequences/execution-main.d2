@@ -35,10 +35,10 @@ User -> CLI: "invowk cmd <name> [args...]"
 CLI -> SVC: "Execute(ctx, request)"
 
 # Step 1: discoverCommand
-SVC -> Config: Load configuration
+SVC -> Config: "Load configuration\n(--ivk-config > INVOWK_CONFIG > user file > defaults)"
 Config -> CUE: Parse config.cue
 CUE -> Config: Config struct
-Config -> SVC: Configuration loaded
+Config -> SVC: "Configuration loaded\n(explicit source missing/invalid: abort, exit 1)"
 SVC -> Disc: "discoverCommand(ctx, req)"
 Disc -> CUE: Parse invowkfile.cue files
 CUE -> Disc: Invowkfile structs

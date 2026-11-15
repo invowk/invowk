@@ -202,6 +202,6 @@ func loadConfigFromContent(t *testing.T, content string) error {
 		t.Fatalf("write config: %v", err)
 	}
 
-	_, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	_, _, err := loadWithOptionsNoEnv(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
 	return err
 }
