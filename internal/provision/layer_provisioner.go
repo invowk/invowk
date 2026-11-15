@@ -274,12 +274,15 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Reques
 // prepareBuildContext creates a temporary directory with all resources
 // needed to build the provisioned image.
 //
+// The build-context parent is resolved by resolveBuildContextParent: a
+// configured or defaulted CacheDir wins; otherwise ~/invowk-build under an
+// absolute, existing home; otherwise a fresh invowk-build-* directory in the
+// OS temp dir, removed after the build. The current directory is never used.
+//
 // Note: Docker installed via Snap has limited filesystem access:
 // - Cannot access /tmp (different namespace)
 // - Cannot access hidden directories like ~/.cache (home interface restriction)
-// - CAN access visible directories in $HOME like ~/invowk-build
-//
-// We use a visible directory in the user's home as the build context location.
+// - CAN access visible directories in the home like ~/invowk-build
 func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (buildContextDir string, warnings []Warning, cleanup func(), err error) {
 	buildContextParent, parentCleanup, err := p.resolveBuildContextParent()
 	if err != nil {
@@ -369,12 +372,14 @@ func (p *LayerProvisioner) resolveBuildContextParent() (parent types.FilesystemP
 		return p.config.CacheDir, nil, nil
 	}
 
-	// Try HOME first, but verify it actually exists (handles cases like testscript
-	// setting HOME=/no-home or misconfigured environments). Use a visible
-	// directory because Docker Snap cannot access hidden directories.
-	if home, homeErr := os.UserHomeDir(); homeErr == nil {
-		if _, statErr := os.Stat(home); statErr == nil {
-			parentPath := types.FilesystemPath(filepath.Join(home, "invowk-build"))
+	// Try the home directory first, only when it is absolute and exists
+	// (handles cases like testscript setting HOME=/no-home or misconfigured
+	// environments). Use a visible directory because Docker Snap cannot access
+	// hidden directories. A relative home is never used: it would resolve
+	// under the current directory.
+	if home, homeErr := p.config.BaseDirs.Home(); homeErr == nil {
+		if _, statErr := os.Stat(string(home)); statErr == nil {
+			parentPath := types.FilesystemPath(filepath.Join(string(home), "invowk-build"))
 			if pathErr := parentPath.Validate(); pathErr != nil {
 				return "", nil, pathErr
 			}
@@ -382,16 +387,9 @@ func (p *LayerProvisioner) resolveBuildContextParent() (parent types.FilesystemP
 		}
 	}
 
-	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
-		parentPath := types.FilesystemPath(filepath.Join(cwd, ".invowk-build"))
-		if pathErr := parentPath.Validate(); pathErr != nil {
-			return "", nil, pathErr
-		}
-		return parentPath, nil, nil
-	}
-
-	// Last resort: create a random parent in the system temp directory. This
-	// avoids predictable paths in world-writable temp locations.
+	// Otherwise create a random parent in the system temp directory. This
+	// avoids predictable paths in world-writable temp locations and never
+	// uses the current directory, which a repository controls.
 	tempParent, tempErr := os.MkdirTemp("", "invowk-build-*")
 	if tempErr != nil {
 		return "", nil, fmt.Errorf("failed to create fallback build context parent directory: %w", tempErr)

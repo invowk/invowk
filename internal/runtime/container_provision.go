@@ -244,9 +244,12 @@ func applyHostProvisionDefaults(provisionCfg *provision.Config) {
 			provisionCfg.GlobalModulesPaths = append(provisionCfg.GlobalModulesPaths, userDir)
 		}
 	}
+	// The default cache dir needs an absolute home, which need not exist
+	// (decision 15 of require-absolute-base-dirs): a relative home would put
+	// it under the current directory, so the provisioner falls back instead.
 	if provisionCfg.CacheDir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			provisionCfg.CacheDir = types.FilesystemPath(filepath.Join(home, ".cache", "invowk", "provision")) //goplint:ignore -- host path validated by provision.Config.Validate()
+		if home, err := provisionCfg.BaseDirs.Home(); err == nil {
+			provisionCfg.CacheDir = types.FilesystemPath(filepath.Join(string(home), ".cache", "invowk", "provision")) //goplint:ignore -- host path validated by provision.Config.Validate()
 		}
 	}
 	if provisionCfg.TagSuffix == "" {

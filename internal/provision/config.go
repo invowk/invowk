@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/invowk/invowk/internal/basedir"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -71,6 +72,11 @@ type (
 		// When empty (default), standard tag format is used.
 		// Can be set via INVOWK_PROVISION_TAG_SUFFIX environment variable.
 		TagSuffix string
+
+		// BaseDirs resolves the home directory used for the default
+		// build-context parent. The zero value is the real process
+		// (basedir.OS()); tests inject one with WithBaseDirs.
+		BaseDirs basedir.Dirs
 	}
 
 	//goplint:validate-all
@@ -247,6 +253,14 @@ func WithGlobalModuleEntries(entries ModuleEntries) Option {
 func WithCacheDir(dir types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.CacheDir = dir
+	}
+}
+
+// WithBaseDirs returns an Option that sets the base-directory resolver used
+// for the default build-context parent.
+func WithBaseDirs(dirs basedir.Dirs) Option {
+	return func(c *Config) {
+		c.BaseDirs = dirs
 	}
 }
 

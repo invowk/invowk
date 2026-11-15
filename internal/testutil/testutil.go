@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/invowk/invowk/internal/basedir"
 )
 
 // Stopper is an interface for types that have a Stop method returning an error.
@@ -145,10 +147,11 @@ func DeferStop(t testing.TB, s Stopper) func() {
 func ContainerSafeTempDir(t testing.TB, prefix string) string {
 	t.Helper()
 
-	homeDir, err := os.UserHomeDir()
+	home, err := basedir.OS().Home()
 	if err != nil {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
+	homeDir := string(home)
 
 	baseTmpDir := filepath.Join(homeDir, "invowk-test")
 	if mkdirErr := os.MkdirAll(baseTmpDir, 0o755); mkdirErr != nil {
