@@ -205,7 +205,7 @@ When the command or source named on the command line is not found, and discovery
 - **THEN** invowk SHALL exit with status 1
 
 ### Requirement: A scoped miss in a source that loaded exits with status 2
-When the request names a source (`@source` or `--ivk-from`), only a skipped invowkfile or module that may be that source SHALL count for the status-1 exception. A root invowkfile may be `invowkfile`, and a module directory found by the module scan may be the source named by its directory. Included and vendored modules, an invowkfile inside a module, and a diagnostic without a path SHALL always count. Otherwise the miss is certain and SHALL exit with status 2.
+For a request that names a source (`@source` or `--ivk-from`), only a skipped invowkfile or module that may be that source SHALL count for the status-1 exception: a root invowkfile may be `invowkfile`, a scanned module directory the source of its name (residuals: design.md, Decision 14). Included and vendored modules, an invowkfile inside a module, and a diagnostic without a path SHALL always count. Otherwise the miss is certain and SHALL exit with status 2.
 
 #### Scenario: Scoped miss in a source that loaded
 - **WHEN** the invowkfile is valid, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd @invowkfile nope`
@@ -216,7 +216,7 @@ When the request names a source (`@source` or `--ivk-from`), only a skipped invo
 - **THEN** invowk SHALL exit with status 2
 
 ### Requirement: A skipped-source not-found error names the skipped sources
-When a not-found error exits with status 1 because a source failed to load, its message SHALL name each skipped source that counted, by the last element of its path, with the discovery diagnostic code (for example `broken.invowkmod (module_load_skipped)`), so a wrapper can tell why the status is 1.
+When a not-found error exits with status 1 because a source failed to load, its message SHALL name each skipped source that counted by a short label (its file or module directory name, the module directory plus the file for an invowkfile inside a module, or `an unnamed source` when the diagnostic has no path), with the discovery diagnostic code (for example `broken.invowkmod (module_load_skipped)`), so a wrapper can tell why the status is 1.
 
 #### Scenario: The error names the skipped source
 - **WHEN** the invowkfile is valid, module directory `broken.invowkmod` fails to load, and the user runs `invowk cmd nope`

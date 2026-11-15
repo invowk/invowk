@@ -326,6 +326,8 @@ stderr '[Nn]o module found'      # Cobra's error rendering (stderr)
 
 Testing only one channel misses bugs in the other (e.g., handler formatting breaks but Cobra rendering works, or vice versa).
 
+fang's `ERROR` box wraps a long error message at word boundaries, so a txtar assertion that spans several words of a returned error must use `\s+` between them (`stderr 'skipped\s+sources'`); prefer single-token assertions such as a diagnostic code.
+
 ### Styled Error Rendering
 
 `cmd_render.go` provides styled error messages for:
