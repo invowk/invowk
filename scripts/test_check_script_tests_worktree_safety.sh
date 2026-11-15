@@ -393,6 +393,77 @@ else
 	record_fail "this repository's cmd/, internal/ and pkg/ keep their canaries" "$(tr '\n' ' ' <<<"$real_canaries")"
 fi
 
+# --- the triage base reaches the suite (harden-formal-instruments decision 22) ---
+# CI shape: a depth-1 checkout of a pull request with no origin/main.
+# scripts/ci-triage-base.sh fetches the base branch tip at depth 1, so only
+# FETCH_HEAD names it and no ref the gate copies reaches it; the throwaway
+# repository must still see INVOWK_TRIAGE_BASE and read the base's manifest
+# through alternates.
+HELPER="$SCRIPT_DIR/ci-triage-base.sh"
+ci_origin="$TMP/ci-origin"
+ci_clone="$TMP/ci-clone"
+mkdir -p "$ci_origin/formal"
+for sub in cmd/app internal/core pkg/lib; do
+	mkdir -p "$ci_origin/$sub"
+	printf '# %s\n' "$sub" >"$ci_origin/$sub/README.md"
+	printf '# %s notes\n' "$sub" >"$ci_origin/$sub/NOTES.md"
+done
+printf '# base manifest\n' >"$ci_origin/formal/manifest.toml"
+ci_git() {
+	git -C "$ci_origin" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false "$@"
+}
+git -C "$ci_origin" init -q -b main
+ci_git add -A
+ci_git commit -qm base
+base_sha="$(git -C "$ci_origin" rev-parse HEAD)"
+ci_git checkout -q -b pr
+printf '# pull request manifest\n' >"$ci_origin/formal/manifest.toml"
+ci_git commit -qam pr
+git clone -q --depth 1 --no-tags --branch pr "file://$ci_origin" "$ci_clone"
+
+# helper_status ENV... runs the helper in the clone with only ENV set from the
+# Actions variables; stdout goes to $OUTPUT, stderr to $OUTPUT.err.
+helper_status() {
+	set +e
+	(cd "$ci_clone" && env -u GITHUB_EVENT_NAME -u GITHUB_BASE_REF -u GITHUB_SHA "$@" bash "$HELPER") >"$OUTPUT" 2>"$OUTPUT.err"
+	printf '%s\n' "$?"
+	set -e
+}
+# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+reads_base='test "$INVOWK_TRIAGE_BASE" = "$1" && git show "$INVOWK_TRIAGE_BASE:formal/manifest.toml" | grep -qx "# base manifest"'
+assert_eq "before the fetch, the clone does not hold the base" "1" \
+	"$(git -C "$ci_clone" cat-file -e "$base_sha^{commit}" 2>/dev/null && echo 0 || echo 1)"
+set +e
+INVOWK_TRIAGE_BASE="$base_sha" TMPDIR="$TMP" "$GATE" --repo "$ci_clone" -- sh -c "$reads_base" sh "$base_sha" >"$OUTPUT" 2>&1
+assert_eq "an unfetched base does not resolve in the throwaway repository (control)" "1" "$?"
+set -e
+assert_eq "a pull-request run fetches the base branch tip" "0" \
+	"$(helper_status GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=main)"
+assert_eq "the helper prints the full base SHA, alone" "$base_sha" "$(cat "$OUTPUT")"
+assert_eq "no ref the gate copies reaches the fetched base" "0" \
+	"$(git -C "$ci_clone" for-each-ref --format='%(objectname)' | grep -cx "$base_sha" || true)"
+set +e
+INVOWK_TRIAGE_BASE="$base_sha" TMPDIR="$TMP" "$GATE" --repo "$ci_clone" -- sh -c "$reads_base" sh "$base_sha" >"$OUTPUT" 2>&1
+assert_eq "the variable reaches the suite and git show <base>:formal/manifest.toml resolves in the throwaway repository" "0" "$?"
+set -e
+assert_eq "a pull-request run fails when the base branch cannot be fetched" "1" \
+	"$(helper_status GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=no-such-branch)"
+assert_eq "a failed fetch prints no base" "" "$(cat "$OUTPUT")"
+assert_eq "a pull-request run without GITHUB_BASE_REF fails" "1" "$(helper_status GITHUB_EVENT_NAME=pull_request)"
+clone_head="$(git -C "$ci_clone" rev-parse HEAD)"
+assert_eq "a push run resolves to the commit under test" "0" \
+	"$(helper_status GITHUB_EVENT_NAME=push GITHUB_SHA="$clone_head")"
+assert_eq "a push run prints the commit under test" "$clone_head" "$(cat "$OUTPUT")"
+if grep -Fq "triage base == HEAD" "$OUTPUT.err"; then
+	record_pass
+else
+	record_fail "a push run says the base equals HEAD" "$(cat "$OUTPUT.err")"
+fi
+assert_eq "a run with no Actions variables falls back to HEAD" "0" "$(helper_status)"
+assert_eq "the fallback prints HEAD" "$clone_head" "$(cat "$OUTPUT")"
+assert_eq "an unknown commit under test fails" "1" \
+	"$(helper_status GITHUB_EVENT_NAME=push GITHUB_SHA=0000000000000000000000000000000000000001)"
+
 # --- setup errors ---------------------------------------------------------------
 set +e
 "$GATE" --repo "$TMP/not-a-repo" -- true >"$OUTPUT" 2>&1

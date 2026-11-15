@@ -259,12 +259,17 @@ jobs:
             -- -race -timeout 5m
 
       # Every script test (single list: scripts/script-tests.sh), run in a
-      # throwaway checkout behind the worktree-safety gate. No network calls.
+      # throwaway checkout behind the worktree-safety gate. No network calls:
+      # on a tag or dispatch run scripts/ci-triage-base.sh resolves the triage
+      # base to the commit under test, without fetching.
       # Linux only; the PowerShell install tests run on Windows below.
       - name: Run script tests (worktree-safety gate)
         if: startsWith(matrix.runner, 'ubuntu')
         shell: bash
-        run: make test-scripts
+        run: |
+          base="$(scripts/ci-triage-base.sh)"
+          export INVOWK_TRIAGE_BASE="$base"
+          make test-scripts
 
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)

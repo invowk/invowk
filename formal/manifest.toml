@@ -60,6 +60,7 @@ paths = [
     "pkg/fspath/**",
     "pkg/invowkfile/**",
     "pkg/invowkmod/**",
+    "scripts/ci-triage-base.sh",
     "scripts/formal.py",
     "scripts/formal_mutation.py",
     "scripts/formal_promotion_gate.py",

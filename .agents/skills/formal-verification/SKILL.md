@@ -143,10 +143,11 @@ tool or a model.
    ledger survivor of an unbound row is listed in the shrink-only `[triage]`
    table; rows unbound by design (no symbol, a non-function symbol,
    trace-only, characterisation-only) are derived and reported, never listed.
-   `triage --check --base <sha>` fails on any entry of `[triage]` or
-   `[correspondence] unresolved_elements` that the base does not list (the
-   formal lane passes the PR base; locally it defaults to the merge-base with
-   `origin/main`). Bind a row or delete its survivors' entries to shrink a
+   `triage --check` fails on any entry of `[triage]` or
+   `[correspondence] unresolved_elements` that the base does not list. The
+   base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else the
+   merge-base with `origin/main`; CI sets the variable with
+   `scripts/ci-triage-base.sh` (the base branch tip on a pull request). Bind a row or delete its survivors' entries to shrink a
    list, never add an entry. A seeded defect that another layer fully masks at
    that entry point is recorded as redundant there in the calibration and
    `tasks/next/formal-binding-gaps.md`, and a defect the binding catches is

@@ -111,10 +111,14 @@ when seeded), and every ledger survivor whose row is unbound
 names no function, trace-only, or characterisation-only; 34) are derived and
 reported, never listed, so a new one passes.
 `scripts/formal_mutation.py triage --check` fails on an unlisted gap or orphan
-and on a listed entry that no longer applies. With `--base <sha>` it also fails
-on any entry of the three lists that the base commit's manifest does not list;
-the formal lane passes the PR base SHA, and locally the base defaults to
-`git merge-base HEAD origin/main`. A base that cannot be read fails closed. To
+and on a listed entry that no longer applies. It also fails on any entry of the
+three lists that the base commit's manifest does not list, and prints why each
+entry the base lists has left (bound, reclassified, resolved, or deleted). The
+base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else
+`git merge-base HEAD origin/main`. In CI `scripts/ci-triage-base.sh` sets the
+variable for the formal lane and the script-test gate: the base branch tip on a
+pull request, the commit under test otherwise. A base with none of the lists
+seeds them; one with only some fails. A base that cannot be read fails closed. To
 clear an entry, rename the element or bind the row, then delete the entry; an
 added entry fails against the base. The survivor-triage follow-up empties
 `unresolved_elements` and `orphaned_survivors` and binds the gaps.

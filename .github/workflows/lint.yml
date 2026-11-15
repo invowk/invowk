@@ -177,9 +177,10 @@ jobs:
 
   # Every POSIX script test (single list: scripts/script-tests.sh), run in a
   # throwaway repository behind the worktree-safety gate
-  # (scripts/check-script-tests-worktree-safety.sh). Offline and fast, so it
-  # runs on every PR with no path classification. The job name is meant to
-  # become a required status check: keep it stable.
+  # (scripts/check-script-tests-worktree-safety.sh). Fast, so it runs on every
+  # PR with no path classification; its only network call is the depth-1 fetch
+  # of the triage base. The job name is meant to become a required status
+  # check: keep it stable.
   script-tests:
     name: script tests (worktree-safety gate)
     runs-on: ubuntu-latest
@@ -201,9 +202,16 @@ jobs:
         with:
           node-version: '24'
 
-      # Python is the runner's system python3.
+      # Python is the runner's system python3. The triage --check entry reads
+      # its growth base from INVOWK_TRIAGE_BASE (scripts/ci-triage-base.sh:
+      # the base branch tip on a pull request, else the commit under test);
+      # the throwaway checkout inherits it and reads the fetched commit
+      # through alternates.
       - name: Run script tests (worktree-safety gate)
-        run: make test-scripts
+        run: |
+          base="$(scripts/ci-triage-base.sh)"
+          export INVOWK_TRIAGE_BASE="$base"
+          make test-scripts
 
   file-length:
     name: file length gate (1000 lines)

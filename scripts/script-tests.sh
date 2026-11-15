@@ -29,7 +29,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # "label|command", run from the repository root in this order. Arguments are
-# split on whitespace, so commands must not need quoting.
+# split on whitespace, so commands must not need quoting (nor expand
+# variables): `triage --check` reads its growth base from INVOWK_TRIAGE_BASE
+# when it is non-empty, else uses the merge-base of HEAD and origin/main, and
+# fails closed naming the variable when neither resolves. CI exports it from
+# scripts/ci-triage-base.sh.
 SCRIPT_TESTS=(
 	"POSIX install script|sh scripts/test_install.sh"
 	"Release helper scripts|bash scripts/test_release.sh"

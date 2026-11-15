@@ -766,6 +766,36 @@ class UnplannedTests(Fixture):
             "[triage] orphaned_survivors: stale entry nowhere is not in the ledger",
         ])
 
+    def test_method_symbol_classifies_as_a_function(self) -> None:
+        # decision 18: the type-symbol rule must not swallow `Type.Method`.
+        rows = fm.model_rows([self.model(row("stop", "Server.Stop", "a/a.go", "TestStop", "-")
+                                         + row("kind", "Kind", "a/a.go", "TestStop", "-"))], self.root)
+        declared, _files = fm.test_declarations(self.root)
+        classified = fm.classify_rows(rows, self.root, declared)
+        self.assertEqual(list(classified.functions), [("a/a.go", "Server.Stop")])
+        self.assertEqual([(u["element"], u["reason"]) for u in classified.unbound], [("kind", fm.REASON_TYPE_SYMBOL)])
+
+    def test_departure_reasons(self) -> None:
+        self.models = [self.model(self.ROWS + row("kind", "Kind", "a/a.go", "-", "-"))]
+        survivors = [self.survivor("o1"), self.survivor("b1", element="other", symbol="Decide", file="a/a.go"),
+                     {**self.survivor("d1"), "element": "gone", "symbol": "Gone"}]
+        why = fm.departure_reasons(fm.model_rows(self.models, self.root), survivors, self.root)
+        cases = {
+            (fm.GAPS_LIST, ("M", "other", "Decide")): "the row is bound now",
+            (fm.GAPS_LIST, ("M", "kind", "Kind")): "the row was reclassified as type-symbol",
+            (fm.GAPS_LIST, ("M", "gone", "Gone")): "the row was deleted",
+            (fm.GAPS_LIST, ("M", "free", "Helper")): "the row is still unbound (no-binding)",
+            (fm.ORPHANS_LIST, "b1"): "the row is bound now",
+            (fm.ORPHANS_LIST, "d1"): "the row was deleted",
+            (fm.ORPHANS_LIST, "nowhere"): "the survivor left the ledger",
+            (fm.ORPHANS_LIST, "o1"): "the row is still unbound (no-binding)",
+            (fm.UNRESOLVED_LIST, "M: other"): "the element resolves now",
+            (fm.UNRESOLVED_LIST, "M: gone"): "the row was deleted",
+        }
+        for (name, entry), reason in cases.items():
+            with self.subTest(name=name, entry=entry):
+                self.assertEqual(why(name, entry), reason)
+
     def test_unknown_triage_key_and_malformed_entries(self) -> None:
         head = '[tools.alloy]\nversion = "1"\njar = "a"\nurl = "u"\nsha256 = "0"\n'
         path = self.root / "manifest.toml"
@@ -817,13 +847,20 @@ class GrowthTests(unittest.TestCase):
         for name, (head, entry) in cases.items():
             with self.subTest(name=name):
                 failures, notices = fm.check_growth(head, self.BASE, "abc123")
-                self.assertEqual(notices, [])
+                self.assertTrue(all("left the list since the base abc123" in n for n in notices), notices)
                 self.assertEqual(failures, [f"{name}: {entry} is not listed at the base abc123; "
                                             "the list only shrinks: fix the row or survivor instead of listing it"])
 
-    def test_shrink_passes(self) -> None:
+    def test_shrink_passes_and_explains_what_left(self) -> None:
         head = lists_manifest(["M: e2"], [], ["o2"])
-        self.assertEqual(fm.check_growth(head, self.BASE, "abc123"), ([], []))
+        failures, notices = fm.check_growth(head, self.BASE, "abc123", why=lambda name, entry: f"why {entry!r}")
+        self.assertEqual(failures, [])
+        self.assertEqual(notices, [
+            "[correspondence] unresolved_elements: 'M: e1' left the list since the base abc123: why 'M: e1'",
+            "[triage] binding_gaps: M: 'g1' (F1) left the list since the base abc123: why ('M', 'g1', 'F1')",
+            "[triage] binding_gaps: M: 'g2' (F2) left the list since the base abc123: why ('M', 'g2', 'F2')",
+            "[triage] orphaned_survivors: 'o1' left the list since the base abc123: why 'o1'",
+        ])
         self.assertEqual(fm.check_growth(self.BASE, self.BASE, "abc123"), ([], []))
 
     def test_base_without_the_lists_seeds_them(self) -> None:
@@ -833,12 +870,23 @@ class GrowthTests(unittest.TestCase):
                                    for name in ("[correspondence] unresolved_elements", "[triage] binding_gaps",
                                                 "[triage] orphaned_survivors")])
 
+    def test_base_with_only_some_lists_fails(self) -> None:
+        # decision 19: renaming or dropping one key cannot reopen seeding.
+        for base, missing in ((lists_manifest(["M: e1", "M: e2"]), ["[triage] binding_gaps", "[triage] orphaned_survivors"]),
+                              (lists_manifest(None, [("M", "g1", "F1"), ("M", "g2", "F2")], ["o1", "o2"]),
+                               ["[correspondence] unresolved_elements"])):
+            with self.subTest(missing=missing):
+                failures, _notices = fm.check_growth(self.BASE, base, "main")
+                self.assertEqual([f.split(":")[0] for f in failures], missing)
+                for failure in failures:
+                    self.assertIn("a list is seeded only from a base with none of the three", failure)
+
     def test_unreadable_base_fails_closed(self) -> None:
         def missing(_path: str) -> bytes:
             raise fm.subprocess.CalledProcessError(128, ["git", "show"], stderr=b"fatal: bad object deadbeef")
         with self.assertRaisesRegex(fm.PlanError, r"cannot read formal/manifest.toml at the base deadbeef "
                                                   r"\(git show deadbeef:formal/manifest.toml failed: fatal: bad object deadbeef\); "
-                                                  r"fetch the base commit or pass --base <sha>"):
+                                                  r"fetch the base commit, set INVOWK_TRIAGE_BASE=<sha> or pass --base <sha>"):
             fm.base_manifest("deadbeef", read=missing)
         with self.assertRaisesRegex(fm.PlanError, "is not valid TOML"):
             fm.base_manifest("deadbeef", read=lambda _path: b"[triage\n")
@@ -847,9 +895,21 @@ class GrowthTests(unittest.TestCase):
         def no_origin(*_args: str) -> str:
             raise fm.subprocess.CalledProcessError(128, ["git", "merge-base"], stderr="fatal: Not a valid object name origin/main")
         with self.assertRaisesRegex(fm.PlanError, r"cannot determine the base \(git merge-base HEAD origin/main failed: "
-                                                  r"fatal: Not a valid object name origin/main\); fetch origin/main or pass --base <sha>"):
+                                                  r"fatal: Not a valid object name origin/main\); fetch origin/main, "
+                                                  r"set INVOWK_TRIAGE_BASE=<sha> or pass --base <sha>"):
             fm.merge_base(run=no_origin)
         self.assertEqual(fm.merge_base(run=lambda *_args: "abc123"), "abc123")
+
+    def test_base_precedence(self) -> None:
+        # decision 22: --base, then a non-empty INVOWK_TRIAGE_BASE, then the
+        # merge-base. The environments are explicit, so a CI run that sets the
+        # variable cannot change the result.
+        merge = lambda *_args: "merged"  # noqa: E731 - a one-line stub
+        self.assertEqual(fm.resolve_base("arg", {"INVOWK_TRIAGE_BASE": "env"}, merge), "arg")
+        self.assertEqual(fm.resolve_base("", {"INVOWK_TRIAGE_BASE": "env"}, merge), "env")
+        self.assertEqual(fm.resolve_base("", {"INVOWK_TRIAGE_BASE": ""}, merge), "merged")
+        self.assertEqual(fm.resolve_base("", {"INVOWK_TRIAGE_BASE": "  "}, merge), "merged")
+        self.assertEqual(fm.resolve_base("", {}, merge), "merged")
 
     def test_readable_base_parses(self) -> None:
         data = fm.base_manifest("abc", read=lambda path: b'[triage]\norphaned_survivors = ["o1"]\n')

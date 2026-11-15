@@ -984,13 +984,28 @@ class CiContractTests(unittest.TestCase):
             return text.split(f"      - name: {name}\n", 1)[1].split("\n      - name: ", 1)[0]
 
         self.assertIn("python3 scripts/test_formal_mutation.py", step("Runner self-tests"))
-        triage = step("Triage lists")
-        self.assertIn("BASE_SHA: ${{ github.event.pull_request.base.sha }}", triage)
-        self.assertIn('python3 scripts/formal_mutation.py triage --check --base "${BASE_SHA:-$GITHUB_SHA}"', triage)
+        # Decision 22: scripts/ci-triage-base.sh resolves the base in the step
+        # that runs the check, so a failed fetch fails it, and triage --check
+        # reads it from INVOWK_TRIAGE_BASE.
+        self.assert_exports_triage_base(step("Triage lists"), "python3 scripts/formal_mutation.py triage --check\n")
         classify = step("Classify changed paths")
         self.assertIn('git fetch -q --no-tags --depth=1 origin "$BASE_SHA"', classify)
-        names = re.findall(r"^      - name: (.+)$", text, re.M)
-        self.assertLess(names.index("Classify changed paths"), names.index("Triage lists"))
+
+    def assert_exports_triage_base(self, block: str, command: str) -> None:
+        export = 'base="$(scripts/ci-triage-base.sh)"\n          export INVOWK_TRIAGE_BASE="$base"\n          '
+        self.assertIn(export + command, block + "\n")
+        self.assertNotIn("--base", block)
+
+    def test_script_test_gates_export_the_triage_base(self) -> None:
+        # Every `make test-scripts` run in CI runs `triage --check` without
+        # --base; a depth-1 checkout has no origin/main, so each one must set
+        # INVOWK_TRIAGE_BASE from the shared helper (decision 22).
+        for workflow in ("lint.yml", "release.yml"):
+            text = (WORKFLOW.parent / workflow).read_text()
+            blocks = [b for b in text.split("\n      - name: ")[1:] if "make test-scripts" in b]
+            with self.subTest(workflow=workflow):
+                self.assertEqual(len(blocks), 1, workflow)
+                self.assert_exports_triage_base(blocks[0], "make test-scripts\n")
 
     def test_ci_paths_cover_the_triage_inputs(self) -> None:
         self.assert_covered("triage inputs", {"tools/mutation/triage/formal-bindings.toml",

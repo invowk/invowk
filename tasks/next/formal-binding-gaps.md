@@ -29,7 +29,7 @@ it escaped. The binding reach gate (`make formal-reach`, harden-formal-instrumen
 - `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `VirtualFilesystemConfig.EffectiveAccess` (`pkg/invowkfile/virtual_filesystem.go`, 1 survivor): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `validateDestinationPath` (`internal/app/moduleops/packaging.go`, 12 survivors): **unbound** (decision 5). The model's destination check, `unpackInside[destCheck]`, transcribes `normalizeZIPPath` followed by this function; alone it accepts an `AbsPath` name, and after `normalizeZIPPath` its rejection is unreachable on POSIX.
-- `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots" (decision 14, superseding decision 8's unbinding): the reported `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` anchors are accepted and `@home/.ssh` is denied under restricted access. The anchor paths are inputs from the production resolver and are not verified; the model states no per-OS layout.
+- `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots" (decision 14, superseding decision 8's unbinding): the reported `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` anchors are accepted and `@home/.ssh` is denied under restricted access. The anchor paths are inputs from the production resolver and are not verified; the model states no per-OS layout. The replay catches only an empty anchor, a reported anchor missing from the allowed roots, and an anchor covering `@home/.ssh` (decision 17). Its 22 baselined survivors are planned again, but bound is not covered: most mutate the per-OS layout and the environment overrides, which the replay does not assert. Rerun and retriage them; the ledger is unchanged (D9).
 - `Server.ValidateToken` (`internal/sshserver/server_auth.go`, 8 survivors): **unbound** (decision 1). It has no production caller; the model's `Auth` is implemented by `Server.admitConn` (row `Auth/End atomicity`).
 
 Retriage flags:
@@ -47,6 +47,10 @@ One follow-up change owns all of this:
 - reconcile the Alloy-only "`validateDestinationPath` omitted" calibration claim in `module-path-containment-model` ("Seeded copy, discovery, hash, unpack, and harness calibration defects"), which no Go test detects;
 - rename the 34 unresolved model elements, re-key their ledger survivors, and empty `[correspondence] unresolved_elements` (decision 7);
 - empty `[triage] orphaned_survivors` (decision 9) and bind the 19 `[triage] binding_gaps` (decision 15).
+- re-point the type-symbol rows whose claim a function implements (decision 18). They are by design today, so the `[triage]` lists do not carry them:
+  - `Watch` `backend` (`watcherBackend`, `formal/tla/Watch.tla:22`): "closed channels modelled as fatal errors" is implemented by `Watcher.Run` (`internal/watch/watcher.go:432-433`, `:471-472`), which the `loop` row already binds;
+  - `ScopeConstruction` `globalChildren` (`IsGlobalModule`, `formal/alloy/ScopeConstruction.als:25`): vendored children inherit the global flag in `Discovery.appendModulesWithVendored` (`internal/discovery/discovery_files.go:723-728`);
+  - `ScopeConstruction` `RootSrc` (`SourceID`, `formal/alloy/ScopeConstruction.als:26`): the cwd invowkfile gets `SourceIDInvowkfile` and no `ModuleID` in `Discovery.DiscoverCommandSet` (`internal/discovery/discovery_commands.go:260-262`).
 
 ## Per-function gaps
 

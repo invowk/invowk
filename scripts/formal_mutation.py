@@ -29,6 +29,7 @@ Usage:
     scripts/formal_mutation.py merge-reports --report-dir DIR
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
     scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE] [--base SHA]
+        (without --base: $INVOWK_TRIAGE_BASE when non-empty, else git merge-base HEAD origin/main)
     scripts/formal_mutation.py reach [--out DIR]
 
 `reach` is the binding reach gate: it runs every killer test of the plan alone
@@ -770,6 +771,13 @@ def check_unplanned(
 
 # The lists that may only shrink, by the manifest table that holds them.
 GROWTH_LISTS = (("correspondence", "unresolved_elements"), ("triage", "binding_gaps"), ("triage", "orphaned_survivors"))
+UNRESOLVED_LIST, GAPS_LIST, ORPHANS_LIST = (f"[{table}] {key}" for table, key in GROWTH_LISTS)
+
+# The variable that names the growth base when --base is not given
+# (harden-formal-instruments decision 22); scripts/ci-triage-base.sh resolves
+# it in CI. An empty value counts as unset.
+TRIAGE_BASE_ENV = "INVOWK_TRIAGE_BASE"
+BASE_HINT = f"set {TRIAGE_BASE_ENV}=<sha> or pass --base <sha>"
 
 
 def shrink_lists(data: dict) -> dict[str, set | None]:
@@ -793,23 +801,76 @@ def entry_label(entry) -> str:
     return f"{entry[0]}: {entry[1]!r} ({entry[2]})" if isinstance(entry, tuple) else repr(entry)
 
 
-def check_growth(head: dict, base: dict, base_name: str) -> tuple[list[str], list[str]]:
+def check_growth(
+    head: dict, base: dict, base_name: str, why: Callable[[str, object], str] | None = None
+) -> tuple[list[str], list[str]]:
     """Fail on every shrink-only list entry that the base manifest does not
-    list (harden-formal-instruments decision 15). A list the base does not
-    have is being introduced, so it passes with a notice. Returns the failures
-    and the notices."""
+    list (harden-formal-instruments decision 15). A base with none of the
+    lists is the seeding change and passes with a notice per list; a base with
+    only some of them fails for each one it lacks, so renaming a key cannot
+    reopen seeding (decision 19). An entry that left a list is a notice, with
+    the reason `why(list, entry)` gives (decision 18). Returns the failures and
+    the notices."""
     head_lists, base_lists = shrink_lists(head), shrink_lists(base)
     failures, notices = [], []
+    present = [name for name, entries in base_lists.items() if entries is not None]
+    if not present:
+        return [], [f"{name}: not in the base {base_name} manifest; this change seeds it" for name in head_lists]
     for name, entries in head_lists.items():
         at_base = base_lists[name]
         if at_base is None:
-            notices.append(f"{name}: not in the base {base_name} manifest; this change seeds it")
+            failures.append(f"{name}: not in the base {base_name} manifest, which has {', '.join(present)}; "
+                            "a list is seeded only from a base with none of the three")
             continue
-        for entry in sorted(entries or set(), key=str):
-            if entry not in at_base:
-                failures.append(f"{name}: {entry_label(entry)} is not listed at the base {base_name}; "
-                                "the list only shrinks: fix the row or survivor instead of listing it")
+        for entry in sorted((entries or set()) - at_base, key=str):
+            failures.append(f"{name}: {entry_label(entry)} is not listed at the base {base_name}; "
+                            "the list only shrinks: fix the row or survivor instead of listing it")
+        for entry in sorted(at_base - (entries or set()), key=str):
+            reason = why(name, entry) if why else "no longer listed"
+            notices.append(f"{name}: {entry_label(entry)} left the list since the base {base_name}: {reason}")
     return failures, notices
+
+
+def departure_reasons(rows: list[Row], survivors: list[dict], root: Path) -> Callable[[str, object], str]:
+    """Why an entry left a shrink-only list (decision 18), for check_growth.
+    The row classification is computed on the first call only: entries rarely
+    leave, and most runs never call it."""
+    state: dict = {}
+
+    def status() -> dict:
+        if not state:
+            declared, _files = test_declarations(root)
+            state["unbound"] = {(u["model"], u["element"], u["symbol"]): u["reason"]
+                                for u in classify_rows(rows, root, declared).unbound}
+            state["rows"] = {(r.model, r.element, r.symbol) for r in rows}
+            state["elements"] = {f"{r.model}: {r.element}" for r in rows}
+            state["survivors"] = {s.get("id", ""): (s.get("model"), s.get("element"), s.get("symbol")) for s in survivors}
+        return state
+
+    def why(name: str, entry) -> str:
+        s = status()
+        if name == UNRESOLVED_LIST:
+            return "the element resolves now" if entry in s["elements"] else "the row was deleted"
+        key = entry if name == GAPS_LIST else s["survivors"].get(entry)
+        if key is None:
+            return "the survivor left the ledger"
+        if key not in s["rows"]:
+            return "the row was deleted"
+        reason = s["unbound"].get(key)
+        if reason is None:
+            return "the row is bound now"
+        if reason != REASON_NO_BINDING and name == GAPS_LIST:
+            return f"the row was reclassified as {reason}"
+        return f"the row is still unbound ({reason})"
+
+    return why
+
+
+def resolve_base(arg: str, environ: dict[str, str] | None = None, run: Callable[..., str] | None = None) -> str:
+    """The growth base: --base, else a non-empty INVOWK_TRIAGE_BASE, else the
+    merge-base of HEAD and origin/main (decisions 20 and 22)."""
+    environ = os.environ if environ is None else environ
+    return arg or environ.get(TRIAGE_BASE_ENV, "").strip() or merge_base(run)
 
 
 def merge_base(run: Callable[..., str] | None = None) -> str:
@@ -819,7 +880,7 @@ def merge_base(run: Callable[..., str] | None = None) -> str:
     except (subprocess.CalledProcessError, OSError) as err:
         detail = getattr(err, "stderr", "") or err
         raise PlanError(f"triage --check: cannot determine the base (git merge-base HEAD origin/main failed: "
-                        f"{str(detail).strip()}); fetch origin/main or pass --base <sha>") from err
+                        f"{str(detail).strip()}); fetch origin/main, {BASE_HINT}") from err
 
 
 def base_manifest(base: str, read: Callable[[str], bytes] | None = None) -> dict:
@@ -832,7 +893,7 @@ def base_manifest(base: str, read: Callable[[str], bytes] | None = None) -> dict
         if isinstance(detail, bytes):
             detail = detail.decode(errors="replace")
         raise PlanError(f"triage --check: cannot read {path} at the base {base} (git show {base}:{path} failed: "
-                        f"{str(detail).strip()}); fetch the base commit or pass --base <sha>") from err
+                        f"{str(detail).strip()}); fetch the base commit, {BASE_HINT}") from err
     try:
         return tomllib.loads(text.decode())
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as err:
@@ -1181,7 +1242,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--ledger", type=Path, default=LEDGER)
     p.add_argument("--reruns", type=Path, default=RERUNS)
     p.add_argument("--base", default="",
-                   help="commit whose manifest the shrink-only lists may not outgrow (default: git merge-base HEAD origin/main)")
+                   help=f"commit whose manifest the shrink-only lists may not outgrow (default: ${TRIAGE_BASE_ENV}, "
+                        "else git merge-base HEAD origin/main)")
     p = sub.add_parser("reach")
     p.add_argument("--out", type=Path, default=REACH_DIR)
     args = parser.parse_args(argv)
@@ -1248,10 +1310,11 @@ def main(argv: list[str] | None = None) -> int:
                 ledger = tomllib.load(handle)
             listed: list[str] = []
             failures = check_triage(read_baseline(args.baseline), ledger, read_reruns(args.reruns), models, report=listed)
-            base = args.base or merge_base()
+            base = resolve_base(args.base)
             with formal.MANIFEST.open("rb") as handle:
                 head = tomllib.load(handle)
-            growth, notices = check_growth(head, base_manifest(base), base)
+            why = departure_reasons(model_rows(models, REPO_ROOT), ledger.get("survivor", []), REPO_ROOT)
+            growth, notices = check_growth(head, base_manifest(base), base, why)
             failures += growth
             for notice in notices:
                 print(f"formal-bindings triage: {notice}")

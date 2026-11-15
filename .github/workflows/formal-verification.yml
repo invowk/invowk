@@ -101,15 +101,17 @@ jobs:
 
       # The shrink-only lists ([correspondence] unresolved_elements, [triage]
       # binding_gaps and orphaned_survivors) may not list an entry the base
-      # commit's manifest does not. On a pull request the base is the PR base
-      # SHA, fetched at depth 1 by the classify step (git show needs only that
-      # commit); a failed fetch fails here, closed. Other events compare the
-      # tree with itself.
+      # commit's manifest does not. scripts/ci-triage-base.sh resolves the
+      # base, as for the script-test gate in lint.yml and release.yml: on a
+      # pull request the base branch tip, fetched at depth 1 (git show needs
+      # only that commit); on other events the commit under test. A failed
+      # fetch fails here, closed.
       - name: Triage lists
         if: steps.affected.outputs.run != 'false'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: python3 scripts/formal_mutation.py triage --check --base "${BASE_SHA:-$GITHUB_SHA}"
+        run: |
+          base="$(scripts/ci-triage-base.sh)"
+          export INVOWK_TRIAGE_BASE="$base"
+          python3 scripts/formal_mutation.py triage --check
 
       - name: Check models
         if: steps.affected.outputs.run != 'false'
