@@ -322,3 +322,9 @@ gotestsum's re-run in the same step (the job failed for other, real failures:
 
 The test expects the lock file to stay byte-identical when the locked version reproduces
 its hash; once, on Windows, it did not. The cause is not investigated.
+
+Seen again 2026-11-15 on Linux (Fedora, local `make test` of S4 at `3670d1e5`, under load
+from a concurrent mutation run): same assertion in gotestsum's first pass, passed in its
+re-run. 200 isolated `-count=200` runs passed on S4 and on `main` (`d7e4feb4`). Unverified
+hypothesis: the lock file carries an RFC 3339 `generated` timestamp, so a rewrite that
+crosses a second boundary changes its bytes.

@@ -122,17 +122,17 @@
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.0 Wait for F1 (`harden-formal-instruments`, #163) to merge, then rebase this branch on main (design decision 16). Re-run `go test ./internal/runtime/ -run 'TestVirtualPathHarness_RootConstruction|TestVirtualPathHarness'` and `python3 scripts/formal.py correspondence`, and re-check the guard against any new non-test files that the rebase brings in. Re-triage the formal-bindings mutation survivors of the rewritten `standardVirtualAnchorsForOS` (`tools/mutation/triage/formal-bindings.toml`, which names mutants of the removed `getenv`/`firstNonEmpty` body, and F1's statement and survivor counts for the anchors row), after committing (`make test-scripts` restores the worktree).
-- [ ] 7.1 Review the diff for reuse and simplification (`/simplify`), then run `make tidy` and `make license-check`.
-- [ ] 7.2 Run `make lint` and fix every issue.
-- [ ] 7.3 Run `make test` (full suite, including CLI and container tests).
-- [ ] 7.4 Run `make check-baseline` and triage every new goplint finding. Never baseline protocol inconclusives.
+- [x] 7.0 (2026-11-15: rebased on `d7e4feb4` (F1 #163 and S3 #173 merged); tracker conflict resolved with S3 = N7, S4 = N8-N10, the capture defect = N11 (decisions 26, 30). `TestVirtualPathHarness*`, `python3 scripts/formal.py correspondence`, `make formal-reach` (11.5 s, budget 36 s), `formal_mutation.py triage --check` (419 survivors, 19 closed) and the basedir guard pass on the rebased tree. A report-only `make mutation-formal` in a throwaway worktree: the new body has 14 mutants, 9 killed and 5 escaped, all in the `windows` case; the 22 ledger entries mutate the removed body. Recorded in `tasks/next/formal-binding-gaps.md`; ledger and baseline unchanged (F1 D9).) Wait for F1 (`harden-formal-instruments`, #163) to merge, then rebase this branch on main (design decision 16). Re-run `go test ./internal/runtime/ -run 'TestVirtualPathHarness_RootConstruction|TestVirtualPathHarness'` and `python3 scripts/formal.py correspondence`, and re-check the guard against any new non-test files that the rebase brings in. Re-triage the formal-bindings mutation survivors of the rewritten `standardVirtualAnchorsForOS` (`tools/mutation/triage/formal-bindings.toml`, which names mutants of the removed `getenv`/`firstNonEmpty` body, and F1's statement and survivor counts for the anchors row), after committing (`make test-scripts` restores the worktree).
+- [x] 7.1 (2026-11-15: single-pass `/simplify` (no Agent fan-out); extracted `Dirs.underHome`; skipped the run-lock `XDG_RUNTIME_DIR`-or-temp duplication across `internal/container` and `internal/testutil`; `make tidy`, `make license-check` pass.) Review the diff for reuse and simplification (`/simplify`), then run `make tidy` and `make license-check`.
+- [x] 7.2 (2026-11-15: `make lint`: 0 issues.) Run `make lint` and fix every issue.
+- [x] 7.3 (2026-11-15: `make test` exit 0: 9205 tests, 25 skipped, CLI 202 tests. `TestSyncFreshCacheReproducesLockedHash` failed once in the first pass and passed in the re-run; a known flake, recurrence recorded in the tracker; 200 isolated runs pass.) Run `make test` (full suite, including CLI and container tests).
+- [x] 7.4 (2026-11-15: `make check-baseline` exit 0, no new findings; `make check-goplint-consumer-routed` passes.) Run `make check-baseline` and triage every new goplint finding. Never baseline protocol inconclusives.
 - [ ] 7.5 Run `make check-file-length` and `make sonar-local`, and keep the suppressions in both Sonar files in sync.
-- [ ] 7.6 Conditional checks:
+- [x] 7.6 (2026-11-15: website `npm run build` OK (en, pt-BR); `make check-agent-docs` OK; `make check-windows-build` OK; correspondence OK; the three sample modules validate; schema sync tests pass.) Conditional checks:
   - `cd website && npm run build` (docs changed);
   - `make check-agent-docs` (agent docs changed);
   - `make check-windows-build`;
   - `python3 scripts/formal.py correspondence` (formal-bound `internal/runtime`, `internal/provision`, `internal/app/modulesync` and `internal/app/modulecache` changed);
   - `for m in samples/invowkmods/*.invowkmod; do go run . validate "$m"; done` (module cache change).
-- [ ] 7.7 Confirm that the virtual/native mirror checks pass (`TestShRuntimeMirrorCoverage`, `TestVirtualNativeCommandPathAlignment`), and run `/learn`.
-- [ ] 7.8 Run `openspec validate require-absolute-base-dirs --strict` and check for 0 warnings.
+- [x] 7.7 (2026-11-15: both mirror checks pass inside `make test`; `/learn` added the report-only survivor retriage procedure to the formal-verification skill.) Confirm that the virtual/native mirror checks pass (`TestShRuntimeMirrorCoverage`, `TestVirtualNativeCommandPathAlignment`), and run `/learn`.
+- [x] 7.8 (2026-11-15: valid, 0 warnings; delta headers match the current main specs.) Run `openspec validate require-absolute-base-dirs --strict` and check for 0 warnings.

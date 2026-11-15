@@ -209,6 +209,14 @@ model-gap rigour) or an abstraction note on the calling row. Then run
 `make mutation-formal-baseline-update`; it fails until
 `python3 scripts/formal_mutation.py triage --check` passes.
 
+A change that rewrites a bound function without refreshing the baseline still
+retriages its survivors: run `make mutation-formal` (report only) in a
+throwaway `git worktree add --detach` at the committed HEAD, so the wrapper's
+exit restore cannot touch the working checkout, read the function's killed and
+escaped mutants from `report.json`, and record them in
+`tasks/next/formal-binding-gaps.md`. Do not `mutation-formal-rerun` ledger ids
+of the removed body: it appends rerun evidence for mutants that no longer exist.
+
 ## TLA+ commands
 
 - TLC configurations are generated: put base constants in `[model.constants]`
