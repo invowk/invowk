@@ -30,6 +30,8 @@ Lua scripts interact with Invowk through a read-only `invowk` table:
 
 Lua file I/O uses Invowk's virtual path validator. Relative paths resolve from the command workdir. Standard anchors are exposed as metadata, and the implicit writable/readable roots are `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, and the script or module source root.
 
+Anchor bases are always absolute. A relative `XDG_*_HOME`, `APPDATA` or `LOCALAPPDATA` is ignored and the home-based default is used. When the home directory itself is relative or unset (and no absolute `XDG_*`/AppData value covers the anchor), `@home`, `@config`, `@data`, `@cache` and `@state` are unavailable: their `INVOWK_ANCHOR_*` variables are empty, they are not allowed roots, and `invowk.path("@config")` or a `virtual.filesystem.paths` entry such as `"@home/.dotfiles"` fails with `virtual path anchor "@config" is unavailable`.
+
 `@home` can be resolved for metadata, but restricted filesystem access does not make it a blanket allowed root. To make a host path available to Lua file APIs in restricted mode, define a `platforms[].virtual.filesystem.paths` entry. The key becomes `INVOWK_PATH_<KEY>` and can be resolved with `invowk.path("<KEY>/file")`. Set `platforms[].virtual.filesystem.access: "full"` only when VM-controlled Lua file operations should be allowed to access normalized host filesystem paths beyond those named handles.
 
 <Snippet id="runtime-modes/virtual-lua-filesystem-paths" />

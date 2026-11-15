@@ -96,6 +96,7 @@ Value-type path validators and resolvers that must behave identically across OSe
 
 ## Guardrail Tests
 
+- `TestBaseDirGuard` (`internal/basedir`) fails when non-test code outside `internal/basedir` looks up a per-user base directory directly (`os.UserHomeDir`/`UserConfigDir`/`UserCacheDir` under any import name, `os/user`, or `HOME`/`USERPROFILE`/`APPDATA`/`LOCALAPPDATA`/`XDG_*`/`$HOME` literals). `TestBaseDirGuardPlantedViolations` keeps it honest against `internal/basedir/testdata/guardfixture/`; mark new planted lines with `// want: <kind>`.
 - `TestNoGlobalConfigAccess` (`internal/config`) scans non-test `.go` files with `strings.Contains`; comments must not spell out the deprecated global config accessor call.
 - `TestBuiltinCommandTxtarCoverage` (`cmd/invowk/cmd_coverage_test.go`) fails when a non-hidden, runnable leaf built-in command has no `.txtar` test in `tests/cli/testdata/`.
 - `TestIssueTemplates_NoStaleGuidance` (`internal/issue`) rejects stale tokens such as `invowk fix` and `apk add --no-cache` in issue templates.

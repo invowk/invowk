@@ -109,14 +109,15 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 //
 //nolint:revive // ConfigDir is more descriptive than Dir for external callers
 func ConfigDir() (types.FilesystemPath, error) {
-	return configDirFrom(runtime.GOOS, os.Getenv, os.UserHomeDir)
+	// A nil home lookup makes the shared resolver use the real process home.
+	return configDirFrom(runtime.GOOS, os.Getenv, nil)
 }
 
 // CommandsDir returns the directory for user-defined invowkfiles.
 // The path is ~/.invowk/cmds on all platforms; a relative home directory is an
 // ErrBaseDirNotAbsolute error.
 func CommandsDir() (types.FilesystemPath, error) {
-	return commandsDirFrom(os.UserHomeDir)
+	return commandsDirFrom(nil) // nil: the real process home (internal/basedir)
 }
 
 // commandsDirFrom is CommandsDir with an injectable home-directory lookup.

@@ -42,4 +42,5 @@ Keep tightly-coupled concerns in one package when splitting would only add indir
 
 - Utility packages (`testutil`, `cueutil`, etc.) stay **domain-agnostic**. Signs of domain creep: a helper references domain types (e.g., `invowkfile.Command`), is used by only one domain package, or carries domain terminology in its name. Migrate such helpers to the domain they serve.
 - If several domain packages need similar helpers, each gets its own copy: duplication is preferable to hidden coupling in utilities.
+  - Exception: `internal/basedir` is the one shared resolver for per-user base directories (home, XDG/AppData, runtime dir). It enforces a security invariant at the OS boundary (no directory derived from a relative base), where copies would drift; `TestBaseDirGuard` keeps every other package off direct lookups. Do not copy its logic into domain packages.
 - Domain-specific test subpackages such as `testutil/invowkfiletest/` are acceptable when the helpers are reusable across test files and would otherwise cause import cycles (see the `testing` skill).

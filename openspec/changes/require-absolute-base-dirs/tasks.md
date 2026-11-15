@@ -67,41 +67,41 @@
 
 ## 5. Virtual-runtime anchors
 
-- [ ] 5.1 Change `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go:148-186`) to `(goos, workDir, tempDir string, dirs basedir.Dirs)`, keeping its name because the formal table binds it.
+- [x] 5.1 (2026-11-15: signature `(goos, workDir, tempDir string, dirs basedir.Dirs)`; `firstNonEmpty` removed; the existing cases were moved to host-absolute fixtures, because the old Windows case used `C:/Users/...`, which is relative on a Linux host.) Change `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go:148-186`) to `(goos, workDir, tempDir string, dirs basedir.Dirs)`, keeping its name because the formal table binds it.
   - Build each anchor from the matching `basedir` method, and use `""` for an unavailable base.
   - Make `standardVirtualAnchors` (`:140-146`) pass `basedir.OS()`, and drop `firstNonEmpty` (`:188-193`).
 
   - Keep F1's contract (design decision 16): `newVirtualPathResolverForFilesystem` keeps its signature, and with an absolute home every anchor stays non-empty with today's path.
 
   Verify by updating `internal/runtime/virtual_policy_test.go:66` and adding cases for relative XDG values, relative `LOCALAPPDATA` on Windows and a relative home.
-- [ ] 5.2 In `expandVirtualAnchorPath` (`virtual_policy.go:284-297`), report a known but empty anchor as `virtual path anchor %q is unavailable`, and keep "unknown virtual path anchor" for unknown names. Verify with a unit test covering both, and with a resolver test showing that a `filesystem.paths` entry `@home/.dotfiles` with an unavailable `@home` fails construction.
-- [ ] 5.3 Add the testscript `tests/cli/testdata/virtual_anchor_relative_home.txtar`, split by platform:
+- [x] 5.2 (2026-11-15: `TestExpandVirtualAnchorPathUnavailable` and `TestVirtualPathMappingOnUnavailableAnchorFails` pass; the message is `virtual path anchor "@home" is unavailable: its base directory is relative or unset`.) In `expandVirtualAnchorPath` (`virtual_policy.go:284-297`), report a known but empty anchor as `virtual path anchor %q is unavailable`, and keep "unknown virtual path anchor" for unknown names. Verify with a unit test covering both, and with a resolver test showing that a `filesystem.paths` entry `@home/.dotfiles` with an unavailable `@home` fails construction.
+- [x] 5.3 (2026-11-15: passes on Linux; the `[windows]` branch runs on windows-latest CI only.) Add the testscript `tests/cli/testdata/virtual_anchor_relative_home.txtar`, split by platform:
   - on Linux and macOS, `env HOME=.` with the `XDG_*` variables cleared;
   - on Windows, `env USERPROFILE=. APPDATA= LOCALAPPDATA=`;
   - a `virtual-sh` command prints `[$INVOWK_ANCHOR_CONFIG]` and the test expects `[]`;
   - a `virtual-lua` `invowk.path("@config")` fails with "unavailable".
 
   Add `"virtual_anchor_relative_home.txtar": "path anchors are injected only by the virtual runtimes"` to `exact` in `tests/cli/runtime_mirror_exemptions.json` (design decision 12).
-- [ ] 5.4 Update the anchor text in `website/docs/runtime-modes/virtual-lua.mdx:21,31` and its pt-BR `current` copy: relative bases are ignored, and home-derived anchors can be unavailable. `virtual.mdx` has no anchor section today, so it is not changed. Do not describe the virtual runtimes as sandboxed.
-- [ ] 5.5 Zero-change invariant (design D5 row a): add `TestStandardVirtualAnchorsMatchLegacy` in `internal/runtime/`, with today's `standardVirtualAnchorsForOS` frozen as the oracle. Table over linux, darwin and windows `goos`, with the home absolute and unset and each XDG/AppData variable absolute and unset. The home-unset rows where today's oracle returns a relative home-derived anchor are the BREAKING expected differences (now `""`); every other anchor must match.
-- [ ] 5.6 Group check: run `go test ./internal/runtime/ -run 'Anchor|VirtualPath|Legacy' && go test ./tests/cli/ -run 'TestCLI/virtual_anchor_relative_home'` and confirm it passes.
-- [ ] 5.7 Formal binding (`.agents/rules/formal-bindings.md`):
+- [x] 5.4 (2026-11-15: added a paragraph after the "Paths And Files" roots sentence (line 31) in both locales; the line-21 table entry needed no change.) Update the anchor text in `website/docs/runtime-modes/virtual-lua.mdx:21,31` and its pt-BR `current` copy: relative bases are ignored, and home-derived anchors can be unavailable. `virtual.mdx` has no anchor section today, so it is not changed. Do not describe the virtual runtimes as sandboxed.
+- [x] 5.5 (2026-11-15: `TestStandardVirtualAnchorsMatchLegacy` passes over every subset of absolute base variables.) Zero-change invariant (design D5 row a): add `TestStandardVirtualAnchorsMatchLegacy` in `internal/runtime/`, with today's `standardVirtualAnchorsForOS` frozen as the oracle. Table over linux, darwin and windows `goos`, with the home absolute and unset and each XDG/AppData variable absolute and unset. The home-unset rows where today's oracle returns a relative home-derived anchor are the BREAKING expected differences (now `""`); every other anchor must match.
+- [x] 5.6 (2026-11-15: passes.) Group check: run `go test ./internal/runtime/ -run 'Anchor|VirtualPath|Legacy' && go test ./tests/cli/ -run 'TestCLI/virtual_anchor_relative_home'` and confirm it passes.
+- [x] 5.7 (2026-11-15: the `anchors` row abstraction is "-" and names no changed semantics, so the `.als` is unchanged (F1 rewrites that row); `python3 scripts/formal.py correspondence` and `TestVirtualPathHarness*` pass; `make formal` passed with Java.) Formal binding (`.agents/rules/formal-bindings.md`):
   - update the `anchors` row's abstraction note in `formal/alloy/VirtualPathHarness.als:31` if the semantics it names changed;
   - run `python3 scripts/formal.py correspondence` and `go test ./internal/runtime/ -run TestVirtualPathHarness`;
   - run `make formal` when Java is available.
 
 ## 6. Mechanical guard
 
-- [ ] 6.1 Add forbidigo text patterns `^os\.UserHomeDir$`, `^os\.UserConfigDir$` and `^os\.UserCacheDir$` to `.golangci.toml:422-426`, without `analyze-types`, plus a `[[linters.exclusions.rules]]` entry for `internal/basedir/` (design D3). Verify that `make lint` is clean, and that a scratch `os.UserHomeDir()` call in `internal/app` is reported and then removed.
-- [ ] 6.2 Add `internal/basedir/guard_test.go`, the AST walk from design D3.
+- [x] 6.1 (2026-11-15: a scratch `os.UserHomeDir()` in `internal/app` was reported and removed; the exclusion is limited to `internal/basedir/` and these three messages, so `errors.As` stays enforced there; `config.ConfigDir`/`CommandsDir` now pass a nil lookup, which the resolver maps to the real home.) Add forbidigo text patterns `^os\.UserHomeDir$`, `^os\.UserConfigDir$` and `^os\.UserCacheDir$` to `.golangci.toml:422-426`, without `analyze-types`, plus a `[[linters.exclusions.rules]]` entry for `internal/basedir/` (design D3). Verify that `make lint` is clean, and that a scratch `os.UserHomeDir()` call in `internal/app` is reported and then removed.
+- [x] 6.2 (2026-11-15: `TestBaseDirGuard` and `TestBaseDirGuardPlantedViolations` pass; the fixture marks each planted line with `// want: <kind>` and also holds a test file, a nested `testdata/`, an allowlisted file, an `internal/basedir/` file and an out-of-scope `docs/` file that must not be reported; a scratch aliased-`os` `XDG_DATA_HOME` literal in `internal/app` failed the real-tree guard.) Add `internal/basedir/guard_test.go`, the AST walk from design D3.
   - It covers: `os` imported under any name, including a dot import (bare `UserHomeDir` identifiers), `os/user` imports, exact literals, `^XDG_[A-Z_]+$` and `$HOME`/`${HOME}` substrings.
   - It reports file:line, and has a reasoned allowlist (initially `internal/testutil/home.go`).
   - Factor the walk as `scan(root string) []finding`, with the `testdata` and `internal/basedir/` skips matched relative to `root`.
   - Add the committed planted-violation fixture `internal/basedir/testdata/guardfixture/` (design decision 17): `internal/planted/*.go` with one violation per pattern, plus `internal/testutil/home.go` (allowlisted) and `internal/basedir/x.go` (skipped). Fixture files carry the SPDX header and are gofmt-clean.
 
   Verify that the test passes on the tree, and that `scan("testdata/guardfixture")` returns exactly the expected file:line findings, one per planted pattern, and none for the allowlisted and skipped fixture files.
-- [ ] 6.3 Document the helper and the guard where home-directory handling is already covered: `.agents/skills/windows-testing/SKILL.md` (the `os.UserHomeDir`/`SetHomeDir` notes), `.agents/skills/go/SKILL.md` (including "review new dependencies that read per-user files"), and `.agents/rules/testing.md`. Verify with `make check-agent-docs`.
-- [ ] 6.4 Add the explicit `internal/basedir` exception to `.agents/rules/package-design.md` "Utility Package Boundaries" (design decision 14), next to the "each gets its own copy" bullet, with its reason and a pointer to the guard. Verify with `make check-agent-docs`.
+- [x] 6.3 (2026-11-15: windows-testing, go skill "Per-User Directories" and the testing rule guardrail list updated; `make check-agent-docs` passes.) Document the helper and the guard where home-directory handling is already covered: `.agents/skills/windows-testing/SKILL.md` (the `os.UserHomeDir`/`SetHomeDir` notes), `.agents/skills/go/SKILL.md` (including "review new dependencies that read per-user files"), and `.agents/rules/testing.md`. Verify with `make check-agent-docs`.
+- [x] 6.4 (2026-11-15: exception added under "Utility Package Boundaries"; `make check-agent-docs` passes.) Add the explicit `internal/basedir` exception to `.agents/rules/package-design.md` "Utility Package Boundaries" (design decision 14), next to the "each gets its own copy" bullet, with its reason and a pointer to the guard. Verify with `make check-agent-docs`.
 - [ ] 6.5 Group check: run `go test ./internal/basedir/ -run Guard && make lint` and confirm it passes.
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
