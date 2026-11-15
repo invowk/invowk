@@ -29,20 +29,28 @@ Usage:
     scripts/formal_mutation.py merge-reports --report-dir DIR
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
     scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE]
+    scripts/formal_mutation.py reach [--out DIR]
+
+`reach` is the binding reach gate: it runs every killer test of the plan alone
+under a coverage profile and fails unless each killer of each bound row
+executes at least one statement of the row's function.
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import dataclasses
 import datetime
 import hashlib
+import io
 import json
 import math
 import os
 import re
 import subprocess
 import sys
+import time
 import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -55,10 +63,14 @@ import formal  # noqa: E402 - sibling module, imported after the path fix
 
 REPO_ROOT = formal.REPO_ROOT
 PLAN_FILE = "formal-plan.json"
-PLAN_VERSION = 1
+PLAN_VERSION = 2
 BASELINE = REPO_ROOT / "tools" / "mutation" / "baselines" / "formal-bindings-baseline.json"
 LEDGER = REPO_ROOT / "tools" / "mutation" / "triage" / "formal-bindings.toml"
 RERUNS = REPO_ROOT / "tools" / "mutation" / "triage" / "formal-bindings-reruns.jsonl"
+REACH_DIR = formal.REPORT_DIR / "reach"
+# The mutation profile's rapid determinism pins live in scripts/mutation.sh;
+# the reach gate reads them from there so the two cannot drift.
+MUTATION_SH = REPO_ROOT / "scripts" / "mutation.sh"
 
 # Per-file exec timeout: max(MIN_EXEC_TIMEOUT, TIMEOUT_FACTOR x clean wall time).
 MIN_EXEC_TIMEOUT = 10
@@ -229,19 +241,20 @@ def match_groups(functions: dict[tuple[str, str], dict], decls_by_file: dict[str
     return [{"match": formal.replay_pattern(leaf for f in group for leaf in leaves[f]), "files": group} for group in groups], problems
 
 
-def build_plan(
-    models: list[formal.Model],
-    root: Path = REPO_ROOT,
-    suites: list[formal.TraceSuite] | None = None,
-    resolve_packages: Callable[[Iterable[str]], dict[str, str]] | None = None,
-) -> dict:
-    """The formal-bindings plan, or PlanError listing every fail-closed reason."""
-    declared, declaring_files = test_declarations(root)
-    failures = formal.check_correspondence(models, root=root, suites=suites, files=declaring_files)
-    if failures:
-        raise PlanError("correspondence check failed:\n  - " + "\n  - ".join(failures))
+@dataclasses.dataclass
+class Classified:
+    """The plan's row classification: bound rows grouped by function, the
+    unbound rows with their reason, and the fail-closed problems. It reads the
+    tables and the target sources only, never `go list`, so `triage --check`
+    shares it."""
 
-    rows = model_rows(models, root)
+    functions: dict[tuple[str, str], dict]
+    unbound: list[dict]
+    problems: list[str]
+    decls_by_file: dict[str, list[FuncDecl]]
+
+
+def classify_rows(rows: list[Row], root: Path, declared: dict[str, set[str]]) -> Classified:
     noted = formal.characterisation_tests(rows)
     decls_by_file: dict[str, list[FuncDecl]] = {}
     functions: dict[tuple[str, str], dict] = {}
@@ -249,7 +262,8 @@ def build_plan(
     problems = []
 
     def skip(row: Row, reason: str) -> None:
-        unbound.append({"model": row.model, "element": row.element, "symbol": row.symbol, "file": row.file, "reason": reason})
+        unbound.append({"model": row.model, "element": row.element, "symbol": row.symbol, "file": row.file,
+                        "reason": reason, "abstraction": row.abstraction})
 
     for row in rows:
         if row.symbol in {"", "-"}:
@@ -286,22 +300,41 @@ def build_plan(
             {"file": row.file, "symbol": decl.symbol, "name": decl.name, "start": decl.start, "end": decl.end,
              "rows": [], "killers": set()},
         )
-        entry["rows"].append({"model": row.model, "element": row.element})
+        # Each row keeps its own killers, so the reach gate can tell a row
+        # whose binding misses the function from one that shares it.
+        entry["rows"].append({"model": row.model, "element": row.element, "killers": sorted(set(killers))})
         entry["killers"].update(killers)
+    return Classified(functions, unbound, problems, decls_by_file)
 
+
+def build_plan(
+    models: list[formal.Model],
+    root: Path = REPO_ROOT,
+    suites: list[formal.TraceSuite] | None = None,
+    resolve_packages: Callable[[Iterable[str]], dict[str, str]] | None = None,
+) -> dict:
+    """The formal-bindings plan, or PlanError listing every fail-closed reason."""
+    declared, declaring_files = test_declarations(root)
+    failures = formal.check_correspondence(models, root=root, suites=suites, files=declaring_files)
+    if failures:
+        raise PlanError("correspondence check failed:\n  - " + "\n  - ".join(failures))
+
+    classified = classify_rows(model_rows(models, root), root, declared)
+    functions, problems = classified.functions, list(classified.problems)
     if not functions and not problems:
         problems.append("the plan has no function targets: no bound row names a Go function")
 
     groups: list[dict] = []
     if functions:
-        groups, collisions = match_groups(functions, decls_by_file)
+        groups, collisions = match_groups(functions, classified.decls_by_file)
         problems += collisions
     if problems:
         raise PlanError("formal-bindings plan failed:\n  - " + "\n  - ".join(problems))
 
     resolve = resolve_packages or (lambda dirs: go_list_packages(dirs, root))
     killer_dirs = {next(iter(declared[t])) for entry in functions.values() for t in entry["killers"]}
-    packages = resolve(killer_dirs)
+    target_dirs = {Path(entry["file"]).parent.as_posix() or "." for entry in functions.values()}
+    packages = resolve(killer_dirs | target_dirs)
     inputs = {entry["file"] for entry in functions.values()}
     inputs.update(path.as_posix() for entry in functions.values() for t in entry["killers"] for path in declaring_files[t])
     ordered = []
@@ -310,6 +343,7 @@ def build_plan(
         killers = sorted(entry["killers"])
         entry["killers"] = killers
         entry["packages"] = sorted({packages[next(iter(declared[t]))] for t in killers})
+        entry["package"] = packages[Path(entry["file"]).parent.as_posix() or "."]
         ordered.append(entry)
     return {
         "version": PLAN_VERSION,
@@ -320,7 +354,9 @@ def build_plan(
         # declare their killer tests. Its digest identifies rerun evidence.
         "inputs": sorted(inputs),
         "functions": ordered,
-        "unbound": sorted(unbound, key=lambda u: (u["model"], u["element"], u["symbol"])),
+        # Killer test -> the import path of the package that declares it.
+        "killer_packages": {t: packages[next(iter(declared[t]))] for entry in ordered for t in entry["killers"]},
+        "unbound": sorted(classified.unbound, key=lambda u: (u["model"], u["element"], u["symbol"])),
         "preflight": {},
     }
 
@@ -680,14 +716,60 @@ def read_reruns(path: Path) -> list[dict]:
     return records
 
 
+def check_unplanned(
+    rows: list[Row], survivors: list[dict], triage: dict[str, list], root: Path
+) -> tuple[list[str], list[str]]:
+    """The `[triage]` lists (harden-formal-instruments design D13): every row
+    the plan leaves unbound and every ledger survivor whose row is unbound
+    (an orphan, matched on (model, element, symbol) like the ledger check)
+    must be listed, and every listed entry must still apply. Returns the
+    failures and the report lines for the listed entries."""
+    declared, _files = test_declarations(root)
+    unbound = {(u["model"], u["element"], u["symbol"]): u["reason"]
+               for u in classify_rows(rows, root, declared).unbound}
+    row_keys = {(r.model, r.element, r.symbol) for r in rows}
+    listed_rows = {(r["model"], r["element"], r["symbol"]) for r in triage.get("unbound_rows", [])}
+    listed_ids = set(triage.get("orphaned_survivors", []))
+    survivor_rows = {s.get("id", ""): (s.get("model"), s.get("element"), s.get("symbol")) for s in survivors}
+    orphans = {mutant for mutant, key in survivor_rows.items() if key in unbound}
+
+    failures = []
+    for key in sorted(set(unbound) - listed_rows):
+        failures.append(f"[triage] unbound_rows: new unbound row {key[0]}: {key[1]!r} ({key[2]}, {unbound[key]}) is not listed; "
+                        "the list only shrinks: bind the row instead")
+    for key in sorted(listed_rows - set(unbound)):
+        why = "names no correspondence row" if key not in row_keys else "is bound now; remove it"
+        failures.append(f"[triage] unbound_rows: stale entry {key[0]}: {key[1]!r} ({key[2]}) {why}")
+    for mutant in sorted(orphans - listed_ids):
+        key = survivor_rows[mutant]
+        failures.append(f"[triage] orphaned_survivors: survivor {mutant} names unbound row {key[0]}: {key[1]!r} ({key[2]}) "
+                        "and is not listed")
+    for mutant in sorted(listed_ids - orphans):
+        why = "is not in the ledger" if mutant not in survivor_rows else "names a bound row now; remove it"
+        failures.append(f"[triage] orphaned_survivors: stale entry {mutant} {why}")
+
+    report = [f"unbound row {m}: {e!r} ({sym}, {unbound.get((m, e, sym), 'stale')})" for m, e, sym in sorted(listed_rows)]
+    by_row: dict[tuple, int] = {}
+    for mutant in listed_ids:
+        by_row[survivor_rows.get(mutant)] = by_row.get(survivor_rows.get(mutant), 0) + 1
+    report += [f"orphaned survivors of {k[0]}: {k[1]!r} ({k[2]}): {n}" for k, n in sorted(by_row.items(), key=str) if k]
+    return failures, report
+
+
 def check_triage(
     baseline: dict,
     ledger: dict,
     reruns: list[dict],
     models: list[formal.Model],
     root: Path = REPO_ROOT,
+    triage: dict[str, list] | None = None,
+    report: list[str] | None = None,
 ) -> list[str]:
-    """Every fail-closed condition of the triage ledger (design D6)."""
+    """Every fail-closed condition of the triage ledger (design D6) and of the
+    `[triage]` lists (design D13 of harden-formal-instruments). `triage`
+    defaults to the repository manifest's table for the repository root and to
+    empty lists for any other root; the listed entries are appended to
+    `report` when given."""
     failures = []
     unknown_tables = set(ledger) - {"survivor", "closed"}
     if unknown_tables:
@@ -704,6 +786,12 @@ def check_triage(
         failures.append(f"ledger survivor {extra} is not in the baseline")
 
     rows = model_rows(models, root)
+    if triage is None:
+        triage = formal.load_triage() if root == REPO_ROOT else {}
+    unplanned_failures, listed = check_unplanned(rows, survivors, triage, root)
+    failures += unplanned_failures
+    if report is not None:
+        report += listed
     findings = {cmd.finding for model in models for cmd in model.commands if cmd.finding}
     by_model = {model.name: model for model in models}
     for survivor in survivors:
@@ -768,7 +856,206 @@ def check_triage(
 
 
 # ---------------------------------------------------------------------------
+# Binding reach gate
+
+
+def rapid_env(script: Path = MUTATION_SH, environ: dict[str, str] | None = None) -> dict[str, str]:
+    """RAPID_SEED, RAPID_NOFAILFILE and RAPID_SHRINKTIME exactly as
+    scripts/mutation.sh exports them: its defaults unless the caller set them."""
+    environ = os.environ if environ is None else environ
+    source = script.read_text()
+    pins = {}
+    for name in ("RAPID_SEED", "RAPID_SHRINKTIME"):
+        match = re.search(rf"^readonly MUTATION_{name}=(\S+)$", source, re.M)
+        if match is None:
+            raise PlanError(f"{script}: no `readonly MUTATION_{name}=` pin")
+        pins[name] = environ.get(name) or match[1]
+    pins["RAPID_NOFAILFILE"] = "1"
+    return pins
+
+
+class Block(NamedTuple):
+    start: int
+    end: int
+    statements: int
+    count: int
+
+
+def parse_profile(text: str) -> dict[str, list[Block]]:
+    """`go test -coverprofile` blocks per file (import path + "/" + name).
+    A block listed several times (one per -coverpkg build) keeps its highest
+    count."""
+    lines = text.splitlines()
+    if not lines or not lines[0].startswith("mode:"):
+        raise PlanError("garbled coverage profile: the first line is not `mode: ...`")
+    merged: dict[tuple[str, str], Block] = {}
+    for number, raw in enumerate(lines[1:], 2):
+        if not raw.strip():
+            continue
+        match = re.fullmatch(r"(?P<file>.+):(?P<a>\d+)\.\d+,(?P<b>\d+)\.\d+ (?P<n>\d+) (?P<c>\d+)", raw)
+        if match is None:
+            raise PlanError(f"garbled coverage profile: line {number} {raw!r}")
+        block = Block(int(match["a"]), int(match["b"]), int(match["n"]), int(match["c"]))
+        key = (match["file"], raw.rsplit(" ", 2)[0])
+        if key not in merged or block.count > merged[key].count:
+            merged[key] = block
+    blocks: dict[str, list[Block]] = {}
+    for (file, _loc), block in merged.items():
+        blocks.setdefault(file, []).append(block)
+    return blocks
+
+
+class KillerRun(NamedTuple):
+    status: int
+    output: str
+    profile: str | None
+    seconds: float
+
+
+def reach_targets(plan: dict) -> dict[str, list[tuple[dict, dict]]]:
+    """Killer -> every (function, row) it must reach."""
+    targets: dict[str, list[tuple[dict, dict]]] = {}
+    for function in plan["functions"]:
+        for row in function["rows"]:
+            for killer in row["killers"]:
+                targets.setdefault(killer, []).append((function, row))
+    return targets
+
+
+def run_killer(plan: dict, killer: str, coverpkg: list[str], out: Path, env: dict[str, str]) -> KillerRun:
+    profile = out / f"{killer}.cover"
+    profile.unlink(missing_ok=True)
+    go = os.environ.get("GO_CMD", "go")
+    command = [go, "test", "-count=1", "-json", "-covermode=set", f"-coverpkg={','.join(coverpkg)}",
+               f"-coverprofile={profile}", "-run", f"^{killer}$", plan["killer_packages"][killer]]
+    started = time.monotonic()
+    result = subprocess.run(command, cwd=plan["root"], capture_output=True, text=True, check=False,
+                            env=os.environ | env)
+    seconds = time.monotonic() - started
+    (out / f"{killer}.json").write_text(result.stdout + result.stderr)
+    return KillerRun(result.returncode, result.stdout, profile.read_text() if profile.exists() else None, seconds)
+
+
+def function_profile_file(function: dict) -> str:
+    return f"{function['package']}/{Path(function['file']).name}"
+
+
+def check_reach(plan: dict, runs: dict[str, KillerRun]) -> tuple[list[dict], list[str]]:
+    """Each (row, killer, function) triple with its covered/total statements,
+    and every failure (design D1, step 3 and 4)."""
+    triples = []
+    failures = []
+    for killer, pairs in sorted(reach_targets(plan).items()):
+        rows = "; ".join(sorted({f"{r['model']}: row {r['element']!r}" for _f, r in pairs}))
+        run = runs.get(killer)
+        problem = None
+        blocks: dict[str, list[Block]] = {}
+        if run is None:
+            problem = "was not run"
+        else:
+            outcome = test_outcomes(run.output).get(killer, "not run")
+            if outcome != "pass":
+                problem = f"{outcome} (exit {run.status})"
+            elif run.status != 0:
+                problem = f"exited {run.status} although the test passed (build or package failure)"
+            elif run.profile is None:
+                problem = "wrote no coverage profile"
+            else:
+                try:
+                    blocks = parse_profile(run.profile)
+                except PlanError as err:
+                    problem = str(err)
+        if problem is not None:
+            failures.append(f"killer {killer} ({rows}): {problem}")
+            continue
+        for function, row in pairs:
+            where = f"{row['model']}: row {row['element']!r}: killer {killer} -> {function['symbol']} ({function['file']})"
+            file_blocks = blocks.get(function_profile_file(function))
+            triple = {"model": row["model"], "element": row["element"], "killer": killer,
+                      "symbol": function["symbol"], "file": function["file"], "covered": 0, "total": 0}
+            if file_blocks is None:
+                failures.append(f"{where}: not instrumented (the profile has no blocks for the file)")
+                triples.append(triple)
+                continue
+            inside = [b for b in file_blocks if function["start"] <= b.start and b.end <= function["end"]]
+            triple["total"] = sum(b.statements for b in inside)
+            triple["covered"] = sum(b.statements for b in inside if b.count > 0)
+            triples.append(triple)
+            if not inside:
+                failures.append(f"{where}: no coverage blocks in lines {function['start']}-{function['end']}")
+            elif not any(b.count > 0 for b in inside):
+                failures.append(f"{where}: executed 0 of {triple['total']} statements")
+    return triples, failures
+
+
+def reach_coverpkg(plan: dict, killer: str) -> list[str]:
+    """P_K: the import paths of the target files of the functions K kills for."""
+    return sorted({function["package"] for function, _row in reach_targets(plan)[killer]})
+
+
+def write_reach_report(plan: dict, triples: list[dict], failures: list[str], out: Path) -> None:
+    report = {"triples": triples, "failures": failures, "unbound": plan["unbound"]}
+    (out / "reach.json").write_text(json.dumps(report, indent=2) + "\n")
+    lines = [f"{'UNREACHED' if not t['covered'] else 'reached'}\t{t['model']}: {t['element']}\t{t['killer']}\t"
+             f"{t['symbol']} ({t['file']})\t{t['covered']}/{t['total']}" for t in triples]
+    lines += [f"unbound\t{u['model']}: {u['element']}\t{u['reason']}\t{u['symbol'] or '-'}\t{u['abstraction']}"
+              for u in plan["unbound"]]
+    lines += [f"FAILED\t{failure}" for failure in failures]
+    (out / "reach.txt").write_text("\n".join(lines) + "\n")
+
+
+def reach(
+    plan: dict,
+    out: Path,
+    runner: Callable[[dict, str, list[str], Path, dict[str, str]], KillerRun] = run_killer,
+    env: dict[str, str] | None = None,
+) -> tuple[list[dict], list[str], float]:
+    """Run every killer alone with coverage, in parallel, and check reach."""
+    out.mkdir(parents=True, exist_ok=True)
+    env = rapid_env() if env is None else env
+    killers = sorted(reach_targets(plan))
+    started = time.monotonic()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=formal.parallel_jobs()) as pool:
+        futures = {k: pool.submit(runner, plan, k, reach_coverpkg(plan, k), out, env) for k in killers}
+        runs = {k: f.result() for k, f in futures.items()}
+    seconds = time.monotonic() - started
+    triples, failures = check_reach(plan, runs)
+    write_reach_report(plan, triples, failures, out)
+    return triples, failures, seconds
+
+
+# ---------------------------------------------------------------------------
 # CLI
+
+
+def reach_main(out: Path) -> int:
+    """`reach`: build the plan (every fail-closed check stops the gate before
+    any killer runs), run the gate, report, and time it against `[reach]`."""
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
+    _tools, models = formal.load_manifest()
+    budget = formal.load_reach()
+    formal.validate_manifest(models, formal.load_trace_suites(), budget)
+    plan = build_plan(models)
+    write_plan(plan, out)
+    triples, failures, seconds = reach(plan, out)
+    reached = sum(1 for t in triples if t["covered"])
+    print(f"binding reach: {reached} of {len(triples)} (row, killer, function) triples reached, "
+          f"{len(reach_targets(plan))} killers, {len(plan['unbound'])} unbound rows -> {out / 'reach.txt'}")
+    for unbound in plan["unbound"]:
+        if unbound["reason"] == REASON_NO_BINDING:
+            print(f"  not gated: {unbound['model']}: row {unbound['element']!r} ({unbound['symbol']}): no-binding")
+    if budget is not None:
+        formal.report_timings({formal.REACH_LABEL: seconds}, {formal.REACH_LABEL: (budget.budget_seconds, budget.budget_source)})
+    else:
+        print(f"timing {formal.REACH_LABEL} {seconds:.1f}s (no [reach] budget)")
+    if failures:
+        print("binding reach FAILED:")
+        for failure in failures:
+            print(f"  - {failure}")
+        return 1
+    print("binding reach passed")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -810,9 +1097,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--baseline", type=Path, default=BASELINE)
     p.add_argument("--ledger", type=Path, default=LEDGER)
     p.add_argument("--reruns", type=Path, default=RERUNS)
+    p = sub.add_parser("reach")
+    p.add_argument("--out", type=Path, default=REACH_DIR)
     args = parser.parse_args(argv)
 
     try:
+        if args.action == "reach":
+            return reach_main(args.out)
         if args.action == "plan":
             _tools, models = formal.load_manifest()
             plan = build_plan(models)
@@ -870,7 +1161,12 @@ def main(argv: list[str] | None = None) -> int:
             _tools, models = formal.load_manifest()
             with args.ledger.open("rb") as handle:
                 ledger = tomllib.load(handle)
-            failures = check_triage(read_baseline(args.baseline), ledger, read_reruns(args.reruns), models)
+            listed: list[str] = []
+            failures = check_triage(read_baseline(args.baseline), ledger, read_reruns(args.reruns), models, report=listed)
+            if listed:
+                print(f"formal-bindings triage: {len(listed)} listed [triage] entries (shrink-only):")
+                for line in listed:
+                    print(f"  {line}")
             if failures:
                 print("formal-bindings triage check FAILED:")
                 for failure in failures:

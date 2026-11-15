@@ -212,7 +212,7 @@ FORMAL_RAPID_CHECKS ?= 10000
 FORMAL_RAPID_FILES = $(shell git grep -l pgregory.net/rapid -- '*_test.go')
 FORMAL_RAPID_PACKAGES = $(sort $(addprefix ./,$(dir $(FORMAL_RAPID_FILES))))
 FORMAL_RAPID_TESTS = $(shell sed -n 's/^func \(Test[A-Za-z0-9_]*\).*/\1/p' $(FORMAL_RAPID_FILES) | sort -u | paste -sd'|' -)
-.PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep formal-promotion-gate
+.PHONY: formal formal-alloy formal-tla formal-traces formal-golden formal-rapid-deep formal-reach formal-promotion-gate
 formal:
 	python3 scripts/formal.py all
 
@@ -230,6 +230,12 @@ formal-golden:
 
 formal-rapid-deep:
 	RAPID_CHECKS=$(FORMAL_RAPID_CHECKS) $(GOCMD) test -count=1 -run '^($(FORMAL_RAPID_TESTS))$$' $(FORMAL_RAPID_PACKAGES)
+
+# Binding reach gate (no Java): every killer test of every bound
+# correspondence row must execute its row's function under a coverage profile.
+# Reports land in artifacts/formal/reach/.
+formal-reach:
+	GO_CMD=$(GOCMD) python3 scripts/formal_mutation.py reach
 
 # Read-only (GET-only GitHub API): PASS only after four consecutive first-attempt
 # green scheduled runs of the current Formal Verification pipeline on main.
@@ -658,6 +664,7 @@ help:
 	@echo "  formal-traces    Record real-code traces and validate them against the TLA+ models"
 	@echo "  formal-golden    Regenerate Alloy golden vectors used by Go tests"
 	@echo "  formal-rapid-deep Run property tests with RAPID_CHECKS=$(FORMAL_RAPID_CHECKS)"
+	@echo "  formal-reach     Check that every binding test reaches the function its row names (no Java)"
 	@echo "  formal-promotion-gate Check the formal lane's weekly-run promotion rule (read-only GitHub API)"
 	@echo "  mutation-dry-run Count mutation candidates without executing mutants"
 	@echo "  mutation-pr      Run changed-line PR mutation profile"

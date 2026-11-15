@@ -157,7 +157,7 @@ class TraceSuite:
 # Keys each manifest table may declare. Anything else is a typo that would
 # otherwise fall back silently to a default (for example `scop =` on a golden
 # command), so the loader rejects it.
-TOP_KEYS = {"tools", "model", "trace", "ci"}
+TOP_KEYS = {"tools", "model", "trace", "ci", "reach", "correspondence", "triage"}
 TOOL_KEYS = {"version", "jar", "url", "sha256"}
 BUDGET_KEYS = {"budget_seconds", "budget_source"}
 MODEL_KEYS = {"name", "tool", "file", "calibration", "golden", "command", "constants", "scope", *BUDGET_KEYS}
@@ -168,6 +168,16 @@ COMMAND_KEYS = {
 }
 TRACE_KEYS = {"name", "package", "constants", *BUDGET_KEYS}
 CI_KEYS = {"paths", "budget"}
+# The binding reach gate (scripts/formal_mutation.py reach): its soft budget
+# and how it was calibrated.
+REACH_KEYS = {"calibration", *BUDGET_KEYS}
+REACH_LABEL = "reach"
+# Correspondence rows whose model element names nothing in the model source
+# (naming drift recorded on 2026-11-14); the list only shrinks.
+CORRESPONDENCE_KEYS = {"unresolved_elements"}
+# Unbound correspondence rows and orphaned ledger survivors that
+# `formal_mutation.py triage --check` reports; read by formal_mutation.py.
+TRIAGE_KEYS = {"unbound_rows", "orphaned_survivors"}
 CI_BUDGET_KEYS = {"soft_headroom", "local_headroom", "hard_headroom", "measured_on", "ci_runs", "command_count"}
 # Keys that belong to one tool only.
 TOOL_ONLY_KEYS = {"alloy": {"body", "scope"}, "tla": {"constants", "spec", "temporal"}}
@@ -192,6 +202,9 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
     check_keys("top level", data, TOP_KEYS)
     check_keys("[ci]", data.get("ci", {}), CI_KEYS)
     check_keys("[ci.budget]", data.get("ci", {}).get("budget", {}), CI_BUDGET_KEYS)
+    check_keys("[reach]", data.get("reach", {}), REACH_KEYS)
+    check_keys("[correspondence]", data.get("correspondence", {}), CORRESPONDENCE_KEYS)
+    check_keys("[triage]", data.get("triage", {}), TRIAGE_KEYS)
     for key, raw in data.get("tools", {}).items():
         check_keys(f"[tools.{key}]", raw, TOOL_KEYS)
     for raw in data.get("trace", []):
@@ -252,6 +265,64 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
     return tools, models
 
 
+@dataclasses.dataclass(frozen=True)
+class Reach:
+    """The `[reach]` table: the binding reach gate's soft budget."""
+
+    budget_seconds: int = 0
+    budget_source: str = ""
+    calibration: str = ""
+
+
+def manifest_table(name: str, path: Path = MANIFEST) -> dict:
+    """One top-level manifest table, after load_manifest's key checks."""
+    with path.open("rb") as handle:
+        data = tomllib.load(handle)
+    check_keys("top level", data, TOP_KEYS)
+    return data.get(name, {})
+
+
+def load_reach(path: Path = MANIFEST) -> Reach | None:
+    raw = manifest_table("reach", path)
+    if not raw:
+        return None
+    check_keys("[reach]", raw, REACH_KEYS)
+    return Reach(raw.get("budget_seconds", 0), raw.get("budget_source", ""), raw.get("calibration", ""))
+
+
+def load_unresolved_elements(path: Path = MANIFEST) -> list[str]:
+    raw = manifest_table("correspondence", path)
+    check_keys("[correspondence]", raw, CORRESPONDENCE_KEYS)
+    entries = raw.get("unresolved_elements", [])
+    if not isinstance(entries, list) or not all(isinstance(e, str) and ": " in e for e in entries):
+        raise FormalError('manifest [correspondence] unresolved_elements must be a list of "<model>: <element>" strings')
+    if len(entries) != len(set(entries)):
+        raise FormalError("manifest [correspondence] unresolved_elements has duplicate entries")
+    return entries
+
+
+TRIAGE_ROW_KEYS = {"model", "element", "symbol"}
+
+
+def load_triage(path: Path = MANIFEST) -> dict[str, list]:
+    """The `[triage]` table: `unbound_rows` ({model, element, symbol} tables)
+    and `orphaned_survivors` (mutant ids), both shrink-only lists that
+    `formal_mutation.py triage --check` enforces."""
+    raw = manifest_table("triage", path)
+    check_keys("[triage]", raw, TRIAGE_KEYS)
+    rows = raw.get("unbound_rows", [])
+    ids = raw.get("orphaned_survivors", [])
+    if not isinstance(rows, list) or not all(isinstance(r, dict) and set(r) == TRIAGE_ROW_KEYS
+                                             and all(isinstance(v, str) for v in r.values()) for r in rows):
+        raise FormalError("manifest [triage] unbound_rows must be a list of { model, element, symbol } tables")
+    if not isinstance(ids, list) or not all(isinstance(i, str) and i for i in ids):
+        raise FormalError("manifest [triage] orphaned_survivors must be a list of mutant ids")
+    keys = [(r["model"], r["element"], r["symbol"]) for r in rows]
+    if len(keys) != len(set(keys)) or len(ids) != len(set(ids)):
+        raise FormalError("manifest [triage] has duplicate entries")
+    return {"unbound_rows": rows, "orphaned_survivors": ids}
+
+
 def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
@@ -274,8 +345,10 @@ def check_budget(where: str, seconds: object, source: str) -> None:
         raise FormalError(f"{where}: budget_source must be one of {sorted(BUDGET_SOURCES)}, got {source!r}")
 
 
-def validate_manifest(models: list[Model], suites: list[TraceSuite] = ()) -> None:
+def validate_manifest(models: list[Model], suites: list[TraceSuite] = (), reach: Reach | None = None) -> None:
     """Static guards that need no checker run."""
+    if reach is not None:
+        check_budget("[reach]", reach.budget_seconds, reach.budget_source)
     for suite in suites:
         check_budget(f"[[trace]] {suite.name}", suite.budget_seconds, suite.budget_source)
     for model in models:
@@ -439,10 +512,15 @@ def report_timings(timings: dict[str, float], budgets: dict[str, tuple[int, str]
     return warnings
 
 
-def manifest_budgets(models: list[Model], suites: list[TraceSuite]) -> dict[str, tuple[int, str]]:
-    return {m.name: (m.budget_seconds, m.budget_source) for m in models} | {
+def manifest_budgets(
+    models: list[Model], suites: list[TraceSuite], reach: Reach | None = None
+) -> dict[str, tuple[int, str]]:
+    budgets = {m.name: (m.budget_seconds, m.budget_source) for m in models} | {
         s.label: (s.budget_seconds, s.budget_source) for s in suites
     }
+    if reach is not None:
+        budgets[REACH_LABEL] = (reach.budget_seconds, reach.budget_source)
+    return budgets
 
 
 # ---------------------------------------------------------------------------
@@ -1117,16 +1195,36 @@ def go_test_files(root: Path):
         yield path
 
 
+# A direct skip in a binding-test file; capability skips go through the fstree
+# policy (fstree.Require), which fails where the capability is required.
+DIRECT_SKIP_RE = re.compile(r"\.(SkipNow|Skipf|Skip)\(")
+
+
+def direct_skips(rel: Path, source: str) -> list[str]:
+    failures = []
+    for number, line in enumerate(source.splitlines(), 1):
+        code = line.split("//", 1)[0]
+        for match in DIRECT_SKIP_RE.finditer(code):
+            failures.append(
+                f"{rel.as_posix()}:{number}: binding-test file calls .{match[1]}( directly; "
+                "skip only through the fstree capability policy (fstree.Require)"
+            )
+    return failures
+
+
 def check_binding_completeness(tabled: set[str], suites: list[TraceSuite], root: Path) -> list[str]:
     """Every test in a binding-test file is either a trace harness in a
-    `[[trace]]` suite's package or named by some correspondence row."""
+    `[[trace]]` suite's package or named by some correspondence row, and no
+    binding-test file skips directly."""
     failures = []
     suite_dirs = {os.path.normpath(suite.package) for suite in suites}
     for path in go_test_files(root):
         if not path.name.endswith(BINDING_TEST_SUFFIXES):
             continue
         rel = path.relative_to(root)
-        for test in TEST_FUNC_RE.findall(path.read_text()):
+        source = path.read_text()
+        failures += direct_skips(rel, source)
+        for test in TEST_FUNC_RE.findall(source):
             if is_trace_harness(test):
                 if os.path.normpath(rel.parent.as_posix()) not in suite_dirs:
                     failures.append(f"{rel}: trace harness {test} is not in a package declared by a [[trace]] suite")
@@ -1135,17 +1233,79 @@ def check_binding_completeness(tabled: set[str], suites: list[TraceSuite], root:
     return failures
 
 
+LEADING_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def model_element_haystack(model: Model, source: str) -> str:
+    """Where a row's model element must occur: the model source with comments
+    stripped (the correspondence table itself is a comment), plus the name and
+    body of every manifest command of the model."""
+    stripped = strip_alloy_comments(source) if model.tool == "alloy" else strip_tla_comments(source)
+    return stripped + "\n" + "\n".join(f"{cmd.name}\n{cmd.body}" for cmd in model.commands)
+
+
+def element_resolves(element: str, haystack: str) -> bool:
+    """The element cell's leading identifier occurs as a whole, case-sensitive
+    word in the haystack."""
+    lead = LEADING_IDENTIFIER_RE.match(element)
+    token = lead[0] if lead else element
+    return re.search(rf"(?<![A-Za-z0-9_]){re.escape(token)}(?![A-Za-z0-9_])", haystack) is not None
+
+
+def check_model_elements(models: list[Model], root: Path, unresolved: list[str]) -> tuple[list[str], list[str]]:
+    """Failures for rows naming a model element that does not exist, and the
+    listed (`[correspondence] unresolved_elements`) pairs, reported instead of
+    failed. A listed pair that resolves or names no row is stale."""
+    failures = []
+    listed = set(unresolved)
+    reported = []
+    rows_by_pair: dict[str, list[bool]] = {}
+    for model in models:
+        source = (root / model.file).read_text()
+        haystack = model_element_haystack(model, source)
+        for element, *_cells in correspondence_rows(source):
+            pair = f"{model.name}: {element}"
+            resolves = element_resolves(element, haystack)
+            rows_by_pair.setdefault(pair, []).append(resolves)
+            if resolves:
+                continue
+            if pair in listed:
+                reported.append(pair)
+            else:
+                failures.append(
+                    f"{model.name}: row {element!r} names a model element that is not in {model.file} or its manifest commands"
+                )
+    for pair in unresolved:
+        resolved = rows_by_pair.get(pair)
+        if resolved is None:
+            failures.append(f"[correspondence] unresolved_elements: stale entry {pair!r} names no correspondence row")
+        elif any(resolved):
+            failures.append(f"[correspondence] unresolved_elements: stale entry {pair!r} now resolves; remove it")
+    return failures, sorted(set(reported))
+
+
 def check_correspondence(
     models: list[Model],
     root: Path = REPO_ROOT,
     suites: list[TraceSuite] | None = None,
     files: dict[str, list[Path]] | None = None,
+    unresolved: list[str] | None = None,
 ) -> list[str]:
     """Every named Go symbol must be declared in its file; every binding test
-    must exist; every test in a binding-test file must be tabled. `files` is a
-    prebuilt `test_function_files(root)`, the same index `replay_plan` uses."""
+    must exist; every test in a binding-test file must be tabled; every row's
+    model element must exist in the model (unless listed). `files` is a
+    prebuilt `test_function_files(root)`, the same index `replay_plan` uses.
+    `unresolved` defaults to the repository manifest's list for the
+    repository root and to none for any other root."""
     failures = []
     tests = test_function_files(root) if files is None else files
+    if unresolved is None:
+        unresolved = load_unresolved_elements() if root == REPO_ROOT else []
+    element_failures, reported = check_model_elements(models, root, unresolved)
+    failures += element_failures
+    if reported:
+        print(f"correspondence: {len(reported)} listed pairs name unresolved model elements "
+              "([correspondence] unresolved_elements, shrink-only)", file=sys.stderr)
     tabled: set[str] = set()
     for model in models:
         rows = correspondence_rows((root / model.file).read_text())
@@ -1249,7 +1409,7 @@ def affected(event: str, base: str, head: str, manifest: Path = MANIFEST, diff=c
         return "run=true"
     try:
         # A manifest that does not load or validate must reach `make formal`.
-        validate_manifest(load_manifest(manifest)[1], load_trace_suites(manifest))
+        validate_manifest(load_manifest(manifest)[1], load_trace_suites(manifest), load_reach(manifest))
         patterns = ci_paths(manifest)
         changed = diff(base, head)
         if not changed:
@@ -1527,7 +1687,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         tools, models = load_manifest()
         suites = load_trace_suites()
-        validate_manifest(models, suites)
+        validate_manifest(models, suites, load_reach())
         failures: list[str] = []
         if args.action == "replay-plan":
             packages, tests = replay_plan(models)

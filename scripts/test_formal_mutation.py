@@ -86,7 +86,9 @@ class Fixture(unittest.TestCase):
         self.suites = [formal.TraceSuite(name="M", package="./a/")]
 
     def model(self, rows: str) -> formal.Model:
-        (self.root / "m.als").write_text(HEADER + rows)
+        # Declare every row's element so the correspondence element check holds.
+        elements = {cells[0].split()[0] for cells in formal.correspondence_rows(HEADER + rows)}
+        (self.root / "m.als").write_text(HEADER + rows + "".join(f"pred {e} {{}}\n" for e in sorted(elements)))
         return formal.Model(name="M", tool="alloy", file="m.als", commands=(), calibration="seeded")
 
     def plan(self, rows: str) -> dict:
@@ -139,11 +141,17 @@ class PlanTests(Fixture):
             [(f["file"], f["symbol"], f["start"], f["end"], f["killers"], f["packages"], f["rows"]) for f in plan["functions"]],
             [
                 ("a/a.go", "Decide", 4, 9, ["TestCrossPackage", "TestDecide"], ["example.com/a", "example.com/b"],
-                 [{"model": "M", "element": "decide"}]),
-                ("a/a.go", "Server.Stop", 11, 13, ["TestStop"], ["example.com/a"], [{"model": "M", "element": "stop"}]),
-                ("b/b.go", "Validate", 3, 5, ["TestValidate"], ["example.com/b"], [{"model": "M", "element": "validate"}]),
+                 [{"model": "M", "element": "decide", "killers": ["TestCrossPackage", "TestDecide"]}]),
+                ("a/a.go", "Server.Stop", 11, 13, ["TestStop"], ["example.com/a"],
+                 [{"model": "M", "element": "stop", "killers": ["TestStop"]}]),
+                ("b/b.go", "Validate", 3, 5, ["TestValidate"], ["example.com/b"],
+                 [{"model": "M", "element": "validate", "killers": ["TestValidate"]}]),
             ],
         )
+        self.assertEqual([f["package"] for f in plan["functions"]], ["example.com/a", "example.com/a", "example.com/b"])
+        self.assertEqual(plan["killer_packages"], {"TestCrossPackage": "example.com/b", "TestDecide": "example.com/a",
+                                                   "TestStop": "example.com/a", "TestValidate": "example.com/b"})
+        self.assertEqual(plan["version"], 2)
         # a/a.go declares Server.Validate, which the leaf of b/b.go's Validate
         # would select, so the two files run in separate invocations.
         # Target files plus the files declaring their killers.
@@ -163,6 +171,19 @@ class PlanTests(Fixture):
         plan = self.plan(self.BASE_ROWS)
         killers = {t for f in plan["functions"] for t in f["killers"]}
         self.assertFalse(killers & {"TestM_TraceHarness", "TestDecide_FindingF3", "TestReplay"})
+
+    def test_rows_keep_their_own_killers(self) -> None:
+        rows = self.BASE_ROWS + row("decide again", "Decide", "a/a.go", "TestStop", "-")
+        decide = next(f for f in self.plan(rows)["functions"] if f["symbol"] == "Decide")
+        self.assertEqual(decide["killers"], ["TestCrossPackage", "TestDecide", "TestStop"])
+        self.assertEqual([(r["element"], r["killers"]) for r in decide["rows"]],
+                         [("decide", ["TestCrossPackage", "TestDecide"]), ("decide again", ["TestStop"])])
+
+    def test_plan_version_1_is_rejected(self) -> None:
+        path = self.root / "old.json"
+        path.write_text(json.dumps({"version": 1}))
+        with self.assertRaisesRegex(PlanError, "unsupported plan version 1"):
+            fm.load_plan(path)
 
     def test_plan_files(self) -> None:
         out = self.root / "out"
@@ -394,6 +415,149 @@ class RerunAndReportTests(unittest.TestCase):
             fm.merge_reports(self.dir, "")
 
 
+def cover(*blocks: tuple[str, int, int, int, int], mode: str = "mode: set") -> str:
+    """A coverage profile: (file, start line, end line, statements, count)."""
+    return "\n".join([mode] + [f"{f}:{a}.1,{b}.2 {n} {c}" for f, a, b, n, c in blocks]) + "\n"
+
+
+def passing(test: str) -> str:
+    return json.dumps({"Action": "pass", "Test": test}) + "\n"
+
+
+class ReachTests(Fixture):
+    """The binding reach gate over fixture profiles and a stub runner."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.plan_data = self.plan(self.BASE_ROWS)
+        self.out = self.root / "reach"
+        # Decide spans lines 4-9 of a/a.go, Server.Stop 11-13, Validate 3-5 of b/b.go.
+        self.profiles = {
+            "TestDecide": cover(("example.com/a/a.go", 4, 9, 3, 1)),
+            "TestCrossPackage": cover(("example.com/a/a.go", 5, 7, 1, 1), ("example.com/a/a.go", 4, 9, 2, 0)),
+            "TestStop": cover(("example.com/a/a.go", 11, 13, 1, 1)),
+            "TestValidate": cover(("example.com/b/b.go", 3, 5, 1, 1)),
+        }
+        self.runs: dict[str, fm.KillerRun] = {}
+
+    def runner(self, plan: dict, killer: str, coverpkg: list[str], out: Path, env: dict[str, str]) -> fm.KillerRun:
+        self.coverpkg = getattr(self, "coverpkg", {})
+        self.coverpkg[killer] = coverpkg
+        self.env = env
+        if killer in self.runs:
+            return self.runs[killer]
+        return fm.KillerRun(0, passing(killer), self.profiles.get(killer), 0.1)
+
+    def gate(self) -> tuple[list[dict], list[str]]:
+        triples, failures, _seconds = fm.reach(self.plan_data, self.out, runner=self.runner, env={"RAPID_SEED": "1"})
+        return triples, failures
+
+    def test_reached(self) -> None:
+        triples, failures = self.gate()
+        self.assertEqual(failures, [])
+        self.assertEqual(sorted((t["element"], t["killer"], t["covered"], t["total"]) for t in triples), [
+            ("decide", "TestCrossPackage", 1, 3), ("decide", "TestDecide", 3, 3),
+            ("stop", "TestStop", 1, 1), ("validate", "TestValidate", 1, 1),
+        ])
+        self.assertEqual(self.coverpkg["TestCrossPackage"], ["example.com/a"])
+        self.assertEqual(self.env, {"RAPID_SEED": "1"})
+        report = json.loads((self.out / "reach.json").read_text())
+        self.assertEqual(len(report["triples"]), 4)
+        # Every unbound row is listed with its reason and abstraction cell, never gated.
+        self.assertEqual(sorted({u["reason"] for u in report["unbound"]}),
+                         ["characterisation-only", "no-binding", "no-symbol", "trace-only", "type-symbol"])
+        self.assertIn("unbound\tM: replay\tcharacterisation-only\tServer.Stop\tcharacterisation: today's defect",
+                      (self.out / "reach.txt").read_text())
+
+    def test_zero_covered(self) -> None:
+        self.profiles["TestStop"] = cover(("example.com/a/a.go", 11, 13, 4, 0))
+        self.assertEqual(self.gate()[1], [
+            "M: row 'stop': killer TestStop -> Server.Stop (a/a.go): executed 0 of 4 statements"])
+
+    def test_file_not_instrumented(self) -> None:
+        self.profiles["TestStop"] = cover(("example.com/b/b.go", 3, 5, 1, 1))
+        self.assertIn("not instrumented", self.gate()[1][0])
+
+    def test_empty_range(self) -> None:
+        self.profiles["TestStop"] = cover(("example.com/a/a.go", 4, 9, 1, 1))
+        self.assertEqual(self.gate()[1], [
+            "M: row 'stop': killer TestStop -> Server.Stop (a/a.go): no coverage blocks in lines 11-13"])
+
+    def test_missing_and_garbled_profiles(self) -> None:
+        del self.profiles["TestStop"]
+        self.assertEqual(self.gate()[1], ["killer TestStop (M: row 'stop'): wrote no coverage profile"])
+        self.profiles["TestStop"] = "not a profile\n"
+        self.assertIn("killer TestStop (M: row 'stop'): garbled coverage profile: the first line", self.gate()[1][0])
+        self.profiles["TestStop"] = cover(("example.com/a/a.go", 11, 13, 1, 1)) + "junk line\n"
+        self.assertIn("garbled coverage profile: line 3 'junk line'", self.gate()[1][0])
+
+    def test_killer_fail_skip_and_not_run(self) -> None:
+        for action in ("fail", "skip"):
+            with self.subTest(action=action):
+                self.runs["TestStop"] = fm.KillerRun(1, json.dumps({"Action": action, "Test": "TestStop"}) + "\n",
+                                                     self.profiles["TestStop"], 0.1)
+                self.assertEqual(self.gate()[1], [f"killer TestStop (M: row 'stop'): {action} (exit 1)"])
+        self.runs["TestStop"] = fm.KillerRun(1, "# build failed\n", None, 0.1)
+        self.assertEqual(self.gate()[1], ["killer TestStop (M: row 'stop'): not run (exit 1)"])
+
+    def test_nonzero_exit_with_passing_json(self) -> None:
+        self.runs["TestStop"] = fm.KillerRun(2, passing("TestStop"), self.profiles["TestStop"], 0.1)
+        self.assertEqual(self.gate()[1], [
+            "killer TestStop (M: row 'stop'): exited 2 although the test passed (build or package failure)"])
+
+    def test_per_row_killers_do_not_cover_each_other(self) -> None:
+        # Row "decide again" binds only TestStop, which never reaches Decide,
+        # while row "decide"'s killers do: the function-level union would pass.
+        self.plan_data = self.plan(self.BASE_ROWS + row("decide again", "Decide", "a/a.go", "TestStop", "-"))
+        self.assertEqual(self.gate()[1], [
+            "M: row 'decide again': killer TestStop -> Decide (a/a.go): no coverage blocks in lines 4-9"])
+
+    def test_plan_failure_stops_before_any_killer(self) -> None:
+        ran = []
+        with mock.patch.object(fm, "run_killer", side_effect=lambda *a: ran.append(a)), \
+                mock.patch.object(fm, "build_plan", side_effect=PlanError("correspondence check failed")):
+            self.assertEqual(fm.main(["reach", "--out", str(self.out)]), 1)
+        self.assertEqual(ran, [])
+
+    def test_duplicate_blocks_keep_the_highest_count(self) -> None:
+        blocks = fm.parse_profile(cover(("x/a.go", 1, 2, 3, 0), ("x/a.go", 1, 2, 3, 1)))
+        self.assertEqual(blocks, {"x/a.go": [fm.Block(1, 2, 3, 1)]})
+
+    def test_stub_go_command(self) -> None:
+        # run_killer with a stub GO_CMD: it passes the coverage flags and the
+        # pinned rapid environment, and reads back the profile it wrote.
+        stub = self.root / "go"
+        stub.write_text(
+            "#!/bin/sh\n"
+            "for arg; do case $arg in -coverprofile=*) out=${arg#-coverprofile=};; esac; done\n"
+            "printf 'mode: set\\nexample.com/a/a.go:11.1,13.2 1 1\\n' > \"$out\"\n"
+            "echo \"$*\" > \"$out.args\"; echo \"$RAPID_SEED $RAPID_NOFAILFILE\" >> \"$out.args\"\n"
+            "printf '{\"Action\":\"pass\",\"Test\":\"TestStop\"}\\n'\n"
+        )
+        stub.chmod(0o755)
+        self.out.mkdir()
+        with mock.patch.dict(os.environ, {"GO_CMD": str(stub)}):
+            run = fm.run_killer(self.plan_data, "TestStop", ["example.com/a"], self.out, {"RAPID_SEED": "7", "RAPID_NOFAILFILE": "1"})
+        self.assertEqual(run.status, 0)
+        self.assertEqual(fm.test_outcomes(run.output), {"TestStop": "pass"})
+        self.assertTrue(run.profile.startswith("mode: set"))
+        args = (self.out / "TestStop.cover.args").read_text()
+        self.assertIn("-count=1 -json -covermode=set -coverpkg=example.com/a", args)
+        self.assertIn("-run ^TestStop$ example.com/a", args)
+        self.assertIn("7 1", args)
+
+    def test_rapid_env_follows_the_mutation_profile(self) -> None:
+        script = self.root / "mutation.sh"
+        script.write_text("readonly MUTATION_RAPID_SEED=42\nreadonly MUTATION_RAPID_SHRINKTIME=2s\n")
+        self.assertEqual(fm.rapid_env(script, {}), {"RAPID_SEED": "42", "RAPID_SHRINKTIME": "2s", "RAPID_NOFAILFILE": "1"})
+        self.assertEqual(fm.rapid_env(script, {"RAPID_SEED": "9"})["RAPID_SEED"], "9")
+        script.write_text("readonly MUTATION_RAPID_SEED=42\n")
+        with self.assertRaisesRegex(PlanError, "MUTATION_RAPID_SHRINKTIME"):
+            fm.rapid_env(script, {})
+        # The repository's pins are found.
+        self.assertEqual(set(fm.rapid_env(environ={})), {"RAPID_SEED", "RAPID_SHRINKTIME", "RAPID_NOFAILFILE"})
+
+
 MODEL_ROWS = (
     row("evaluation", "Evaluate", "a/a.go", "TestDecide", 'content hashing   abstracted: a single "compared" entry')
     + row("other", "Decide", "a/a.go", "TestDecide", "-")
@@ -476,9 +640,155 @@ class TriageTests(Fixture):
         self.assertIn("closed closed1: still in the baseline", failures)
 
 
+# The orphaned survivors [triage] was seeded with (design D13): Auth 8,
+# unpackRejectsEscape 12, anchors 22.
+SEEDED_ORPHANS = frozenset({
+    "0087737c1ae08d3106d06a71d0eaab0d",
+    "013320da79a21373fa6ab80fbda17b1d",
+    "055592d8fb48880e3cec2f0f21679428",
+    "0666ad7de7427d0df405b3e2e6b89bd3",
+    "0d72f8e69406dac5a30eb88c7a955e26",
+    "11eba44d44c6ab0f0921cb680d1bf6d8",
+    "12ff45291df796a6a0ded69f310fad96",
+    "1404fc633158b8a0aefcfcd0fc31b96f",
+    "1f1be72781b132d18a6f35b6a077ca53",
+    "21ecae4644a1ef7ae7ae80dcc996d98a",
+    "2258e247fb18e9e660ed7b6428bda7a9",
+    "290fa9b67352e416f9bb2811c1fb4ef1",
+    "2de0ff368b4ec4304fb411c5ecd36cdb",
+    "3112938aeab6d1eb0a0a4b90093ff80c",
+    "31687863358bee2bcacc7fd033e1ea8a",
+    "3400d9b396a91b8413668bbf8b19a187",
+    "3de3fa8fa4f94926a17e19bc7a890dbf",
+    "42658db60a0835500b32ab4edd9d6c9b",
+    "4386ba3aad2402e228498dbdbeaea39c",
+    "51796e7773ce033e48420a1ebddfa7c6",
+    "5c87b301a1c52f20987b861d2e178679",
+    "633e5399c312d93d4be40996b0e6feae",
+    "6e8e1d2b4a92cf5fbf66a526e76ec5d9",
+    "6eaf43027e4018d328f1944f43e6c97f",
+    "818a97aa16a5f2c663ff0af7e73dd31c",
+    "90d1ab2371a3677d3f2a66e61d6f5e75",
+    "a3e148b02f03cbeb34485849ed555075",
+    "a868872863e2850ee3eca2c336357194",
+    "aea6311c6f32b6f73718d9998ba1a721",
+    "b5880e7045570180d24594779fc7068b",
+    "b6e9053db94add7061ce50fb13bc112e",
+    "b9ecd73a79f914165b1d166d467b28ae",
+    "bf7a7e8c5c0b17b16675278470404b26",
+    "c323c56c3b466b5e05953a1cff84df00",
+    "c57132fb392fb58cb0ef6ce95419fe90",
+    "c9f35b4efe1bab53f1dc0a0244505fce",
+    "d16e0f309258355c0702e36be46da2eb",
+    "dec0a3c2cc8cce45245ea6f8a700a4ef",
+    "e5c9979e40913a5114cd855ff51ae787",
+    "e6063b43d56b74bd35d1775902931352",
+    "ea671db53f5a8de321a98b0a17bbb216",
+    "f2e95d83a50df58bb02a21dcabf4f400",
+})
+
+
+class UnplannedTests(Fixture):
+    """The [triage] shrink-only lists (design D13 of harden-formal-instruments)."""
+
+    ROWS = MODEL_ROWS + row("free", "Helper", "b/b.go", "-", "-")
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.root / "a" / "a.go").write_text(CODE + "\nfunc Evaluate() {\n}\n")
+        self.models = [self.model(self.ROWS)]
+
+    def survivor(self, mutant: str, element: str = "free", symbol: str = "Helper", file: str = "b/b.go") -> dict:
+        return {"id": mutant, "file": file, "symbol": symbol, "model": "M", "element": element,
+                "class": "binding-gap", "reason": "r", "follow_up": "survivor triage"}
+
+    def check(self, triage: dict, survivors: list[dict] | None = None) -> tuple[list[str], list[str]]:
+        survivors = [self.survivor("o1")] if survivors is None else survivors
+        ids = [s["id"] for s in survivors]
+        baseline = {"version": 1, "digest": "d", "mutants": [{"id": i, "file": "b/b.go", "mutator": "m", "line": 1} for i in ids]}
+        reruns = [{"id": i, "status": "escaped", "timestamp": "t", "digest": "d"} for i in ids for _ in range(2)]
+        report: list[str] = []
+        failures = fm.check_triage(baseline, {"survivor": survivors}, reruns, self.models, root=self.root,
+                                   triage=triage, report=report)
+        return failures, report
+
+    LISTED = {"unbound_rows": [{"model": "M", "element": "free", "symbol": "Helper"}], "orphaned_survivors": ["o1"]}
+
+    def test_listed_unbound_row_and_orphan_pass_and_are_reported(self) -> None:
+        failures, report = self.check(self.LISTED)
+        self.assertEqual(failures, [])
+        self.assertEqual(report, ["unbound row M: 'free' (Helper, no-binding)", "orphaned survivors of M: 'free' (Helper): 1"])
+
+    def test_unlisted_unbound_row_and_orphan_fail(self) -> None:
+        failures, _ = self.check({})
+        self.assertEqual(failures, [
+            "[triage] unbound_rows: new unbound row M: 'free' (Helper, no-binding) is not listed; the list only shrinks: bind the row instead",
+            "[triage] orphaned_survivors: survivor o1 names unbound row M: 'free' (Helper) and is not listed",
+        ])
+
+    def test_listed_row_that_is_bound_or_names_no_row_is_stale(self) -> None:
+        triage = {"unbound_rows": [*self.LISTED["unbound_rows"], {"model": "M", "element": "other", "symbol": "Decide"},
+                                   {"model": "M", "element": "gone", "symbol": "Gone"}],
+                  "orphaned_survivors": ["o1"]}
+        failures, _ = self.check(triage)
+        self.assertEqual(failures, [
+            "[triage] unbound_rows: stale entry M: 'gone' (Gone) names no correspondence row",
+            "[triage] unbound_rows: stale entry M: 'other' (Decide) is bound now; remove it",
+        ])
+
+    def test_listed_id_whose_row_is_bound_or_not_in_the_ledger_is_stale(self) -> None:
+        triage = {**self.LISTED, "orphaned_survivors": ["o1", "b1", "nowhere"]}
+        survivors = [self.survivor("o1"), self.survivor("b1", element="other", symbol="Decide", file="a/a.go")]
+        failures, _ = self.check(triage, survivors)
+        self.assertEqual(failures, [
+            "[triage] orphaned_survivors: stale entry b1 names a bound row now; remove it",
+            "[triage] orphaned_survivors: stale entry nowhere is not in the ledger",
+        ])
+
+    def test_unknown_triage_key_and_malformed_entries(self) -> None:
+        head = '[tools.alloy]\nversion = "1"\njar = "a"\nurl = "u"\nsha256 = "0"\n'
+        path = self.root / "manifest.toml"
+        cases = {
+            '[triage]\nunbound_rows = []\nextra = 1\n': r"\[triage\]: unknown key\(s\) extra",
+            '[triage]\nunbound_rows = [{ model = "M", element = "e" }]\n': "unbound_rows must be a list of",
+            '[triage]\norphaned_survivors = [1]\n': "orphaned_survivors must be a list of mutant ids",
+            '[triage]\norphaned_survivors = ["a", "a"]\n': "duplicate entries",
+        }
+        for text, message in cases.items():
+            with self.subTest(message=message):
+                path.write_text(head + text)
+                with self.assertRaisesRegex(formal.FormalError, message):
+                    formal.load_triage(path)
+        path.write_text(head + '[triage]\nunbound_rows = []\nextra = 1\n')
+        with self.assertRaisesRegex(formal.FormalError, r"\[triage\]: unknown key\(s\) extra"):
+            formal.load_manifest(path)
+
+
 class RepositoryTests(unittest.TestCase):
     def test_committed_ledger_passes(self) -> None:
         self.assertEqual(fm.main(["triage", "--check"]), 0)
+
+    def test_triage_lists_only_shrink(self) -> None:
+        # Seeded on 2026-11-14 with 54 rows and 42 orphans (design D13); a
+        # committed list may lose entries but never gain one.
+        triage = formal.load_triage()
+        self.assertLessEqual(len(triage["unbound_rows"]), 54)
+        self.assertLessEqual(len(triage["orphaned_survivors"]), 42)
+        self.assertLessEqual(set(triage["orphaned_survivors"]), SEEDED_ORPHANS)
+
+    def test_removing_a_listed_entry_fails(self) -> None:
+        _tools, models = formal.load_manifest()
+        triage = formal.load_triage()
+        with fm.LEDGER.open("rb") as handle:
+            ledger = fm.tomllib.load(handle)
+        baseline = fm.read_baseline(fm.BASELINE)
+        reruns = fm.read_reruns(fm.RERUNS)
+        for part in ("unbound_rows", "orphaned_survivors"):
+            with self.subTest(part=part):
+                shrunk = {**triage, part: triage[part][1:]}
+                failures = fm.check_triage(baseline, ledger, reruns, models, triage=shrunk)
+                self.assertEqual(len(failures), 1, failures)
+                self.assertIn("is not listed", failures[0])
 
     def test_repository_plan_generates(self) -> None:
         _tools, models = formal.load_manifest()

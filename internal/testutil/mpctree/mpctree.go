@@ -21,6 +21,10 @@ import (
 const (
 	VendoredModulesDir = "invowk_modules"
 
+	// AtomEnvKey is the dotenv key every materialised regular file defines, so
+	// an env-file replay can read back which file LoadEnvFile loaded.
+	AtomEnvKey = "INVOWK_ATOM"
+
 	ScriptRead       OpKind = "ScriptRead"
 	EnvRead          OpKind = "EnvRead"
 	ContainerfileRef OpKind = "ContainerfileRef"
@@ -94,7 +98,7 @@ func FromInstance(inst alloygolden.Instance) Case {
 		nodes = append(nodes, n)
 	}
 	for _, f := range inst.Atoms("File") {
-		nodes = append(nodes, fstree.Node{Atom: f, Parent: inst.Target("parent", f), Kind: fstree.KindFile, Name: nameOf(f), Content: "content-" + alloygolden.ID(f)})
+		nodes = append(nodes, fstree.Node{Atom: f, Parent: inst.Target("parent", f), Kind: fstree.KindFile, Name: nameOf(f), Content: FileContent(f)})
 	}
 	for _, l := range inst.Atoms("Link") {
 		kind := fstree.KindSymlink
@@ -125,6 +129,14 @@ func FromInstance(inst alloygolden.Instance) Case {
 	c.TouchAtom = touchTarget(inst, dec, opAtom)
 	return c
 }
+
+// FileContent is a regular file's content: the dotenv line
+// INVOWK_ATOM=content-<atom id>. It keeps the content-<id> tag unique per file
+// (copy replays compare it) and is a valid env file (env replays parse it).
+func FileContent(atom string) string { return AtomEnvKey + "=" + AtomTag(atom) }
+
+// AtomTag is the content-<atom id> tag a file's content carries.
+func AtomTag(atom string) string { return "content-" + alloygolden.ID(atom) }
 
 // OpKindOf returns the instance's operation kind without translating the rest
 // of it, so a replay can filter instances cheaply.

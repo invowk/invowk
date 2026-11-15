@@ -40,7 +40,7 @@ jobs:
     # Must exceed the sum of the step timeout-minutes plus 3 minutes of setup
     # and upload (checked by scripts/test_formal.py), so a step timeout fires
     # first and the upload step still runs.
-    timeout-minutes: 46
+    timeout-minutes: 52
     env:
       PYTHONUNBUFFERED: "1"
     steps:
@@ -128,6 +128,14 @@ jobs:
             exit 1
           fi
           go test -count=1 -run "$RUN_PATTERN" "${packages[@]}"
+
+      # Every killer test of every bound correspondence row must execute the
+      # row's function (coverage per killer); reports land in
+      # artifacts/formal/reach/, which the upload step keeps on failure.
+      - name: Binding reach
+        if: steps.affected.outputs.run != 'false'
+        timeout-minutes: 6
+        run: make formal-reach
 
       - name: Deep property tests
         if: steps.affected.outputs.run != 'false' && github.event_name != 'pull_request'

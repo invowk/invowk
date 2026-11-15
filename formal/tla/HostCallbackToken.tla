@@ -25,7 +25,7 @@
 \* | model element | Go symbol | file | binding | abstraction |
 \* |---|---|---|---|---|
 \* | Generate | Server.GenerateToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | token values abstracted to one per execution |
-\* | Auth | Server.ValidateToken | internal/sshserver/server_auth.go | TestHostCallbackToken_LifecycleMatchesModel | TTL expiry is a nondeterministic action |
+\* | Auth | Server.ValidateToken | internal/sshserver/server_auth.go | - | TTL expiry is a nondeterministic action; not gated (decision 1): ValidateToken has no production caller (server_auth.go:49 is the only non-test reference), the model's Auth is implemented by Server.admitConn (row Auth/End atomicity), and re-pointing the row is the survivor-triage follow-up |
 \* | Start/Auth/End/EndSession/Expire/Stop | Server.GetConnectionInfo | internal/sshserver/server_auth.go | TestHostCallbackToken_TraceHarness | two executions; real SSH clients over loopback on a fake clock |
 \* | Revoke | Server.RevokeToken | internal/sshserver/server_auth.go | TestRevokeTokenClosesAuthenticatedConnection | sessions abstracted to the connection that carries them |
 \* | Auth/End atomicity | Server.admitConn | internal/sshserver/server_conns.go | TestRevocationRacesAuthenticationSafely | login and revocation are single atomic actions |

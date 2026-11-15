@@ -197,6 +197,31 @@ expect = "instance"
                 with self.assertRaisesRegex(FormalError, message):
                     self.load(text)
 
+    def test_reach_table(self) -> None:
+        text = '[reach]\nbudget_seconds = 36\nbudget_source = "local"\ncalibration = "eight pairs"\n'
+        self.load(text)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(MANIFEST_HEAD + text)
+            reach = formal.load_reach(path)
+            path.write_text(MANIFEST_HEAD)
+            self.assertIsNone(formal.load_reach(path))
+        self.assertEqual(reach, formal.Reach(36, "local", "eight pairs"))
+        formal.validate_manifest([alloy_model(*GUARDED)], [], reach)
+        self.assertEqual(formal.manifest_budgets([], [], reach), {"reach": (36, "local")})
+        with self.assertRaisesRegex(FormalError, r"\[reach\]: budget_source must be one of"):
+            formal.validate_manifest([alloy_model(*GUARDED)], [], dataclasses.replace(reach, budget_source="guess"))
+        with self.assertRaisesRegex(FormalError, r"\[reach\]: unknown key\(s\) budget"):
+            self.load(text + "budget = 3\n")
+        with self.assertRaisesRegex(FormalError, r"top level: unknown key\(s\) reachh"):
+            self.load("[reachh]\nbudget_seconds = 1\n")
+
+    def test_reach_soft_overrun_only_warns(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()) as out, mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "", "GITHUB_STEP_SUMMARY": ""}):
+            warnings = formal.report_timings({"reach": 40.0}, formal.manifest_budgets([], [], formal.Reach(36, "local")))
+        self.assertEqual(warnings, ["reach took 40.0s, over its 36s soft budget (local)"])
+        self.assertIn("timing reach 40.0s budget 36s (local)", out.getvalue())
+
     def test_trace_suite_constants_override_the_model(self) -> None:
         text = '[[trace]]\nname = "T"\npackage = "./x/"\nconstants = { Legacy = "TRUE" }\n'
         self.load(text)  # `constants` is an allowed [[trace]] key
@@ -430,11 +455,25 @@ vars == <<aVars, cVars, d>>
             formal.check_variable_groups("M", self.GROUPED.replace("cVars == <<c>>", "cVars == <<>>"))
 
 
-class ToolAndCorrespondenceTests(unittest.TestCase):
+class CorrespondenceFixture(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+
+    def write_model(self, row: str, source: str = "pred e {}\n") -> Model:
+        (self.root / "code.go").write_text("package x\n\nfunc RealSymbol() {}\n")
+        (self.root / "code_test.go").write_text("package x\n\nfunc TestBinding(t *testing.T) {}\n")
+        (self.root / "m.als").write_text(
+            "// | model element | Go symbol | file | binding | abstraction |\n// |---|---|---|---|---|\n" + row + source
+        )
+        return alloy_model(*GUARDED)
+
+    def check(self, row: str, suites: list | None = None) -> list[str]:
+        return formal.check_correspondence([self.write_model(row)], root=self.root, suites=suites or [])
+
+
+class ToolAndCorrespondenceTests(CorrespondenceFixture):
 
     def test_checksum_mismatch_removes_jar(self) -> None:
         original = formal.TOOL_DIR
@@ -453,12 +492,6 @@ class ToolAndCorrespondenceTests(unittest.TestCase):
         tool = formal.Tool(name="t", version="1", jar="absent.jar", url="https://invalid.invalid/", sha256="0" * 64)
         with self.assertRaisesRegex(FormalError, "not installed"):
             formal.verify_tool(tool)
-
-    def write_model(self, row: str) -> Model:
-        (self.root / "code.go").write_text("package x\n\nfunc RealSymbol() {}\n")
-        (self.root / "code_test.go").write_text("package x\n\nfunc TestBinding(t *testing.T) {}\n")
-        (self.root / "m.als").write_text("// | model element | Go symbol | file | binding | abstraction |\n// |---|---|---|---|---|\n" + row)
-        return alloy_model(*GUARDED)
 
     def test_correspondence_accepts_real_symbols(self) -> None:
         model = self.write_model("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n")
@@ -484,9 +517,6 @@ class ToolAndCorrespondenceTests(unittest.TestCase):
     def test_correspondence_without_table_fails(self) -> None:
         (self.root / "m.als").write_text("module m\n")
         self.assertIn("no correspondence table", formal.check_correspondence([alloy_model(*GUARDED)], root=self.root)[0])
-
-    def check(self, row: str, suites: list | None = None) -> list[str]:
-        return formal.check_correspondence([self.write_model(row)], root=self.root, suites=suites or [])
 
     def test_correspondence_accepts_a_multi_test_cell(self) -> None:
         (self.root / "more_test.go").write_text("package x\n\nfunc TestOther(t *testing.T) {}\n")
@@ -528,6 +558,93 @@ class ToolAndCorrespondenceTests(unittest.TestCase):
         (self.root / "pkg" / "x_trace_test.go").write_text("package pkg\n\nfunc TestM_TraceHarness(t *testing.T) {}\n")
         suites = [formal.TraceSuite(name="M", package="./pkg/")]
         self.assertEqual(self.check("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n", suites), [])
+
+
+class SkipGuardTests(CorrespondenceFixture):
+    ROW = "// | e | `RealSymbol` | `code.go` | TestBinding | - |\n"
+
+    def test_binding_file_with_a_direct_skip_fails(self) -> None:
+        for call in ("t.Skip(\"x\")", "t.Skipf(\"%v\", err)", "t.SkipNow()", "rt.Skipf(\"symlink\")"):
+            with self.subTest(call=call):
+                (self.root / "x_golden_test.go").write_text(
+                    f"package x\n\nfunc TestBinding2(t *testing.T) {{\n\t{call}\n}}\n"
+                )
+                failures = self.check("// | e | `RealSymbol` | `code.go` | TestBinding, TestBinding2 | - |\n")
+                self.assertEqual(len(failures), 1, failures)
+                self.assertRegex(failures[0], r"^x_golden_test\.go:4: binding-test file calls \.Skip(f|Now)?\( directly")
+
+    def test_plain_test_file_may_skip_and_comments_do_not_count(self) -> None:
+        (self.root / "plain_test.go").write_text("package x\n\nfunc TestPlain(t *testing.T) {\n\tt.Skip(\"fine\")\n}\n")
+        (self.root / "x_rapid_test.go").write_text(
+            "package x\n\n// Never call t.Skip( here.\nfunc TestBinding2(t *testing.T) {\n\tfstree.Require(t, fstree.CapSymlink) // not t.Skipf(\n}\n"
+        )
+        self.assertEqual(self.check("// | e | `RealSymbol` | `code.go` | TestBinding, TestBinding2 | - |\n"), [])
+
+
+class ElementCheckTests(CorrespondenceFixture):
+    def elements(self, rows: str, source: str, unresolved: list[str] | None = None, commands=GUARDED) -> list[str]:
+        self.write_model(rows, source)
+        model = alloy_model(*commands)
+        return formal.check_correspondence([model], root=self.root, suites=[], unresolved=unresolved or [])
+
+    def test_resolving_row(self) -> None:
+        self.assertEqual(self.elements("// | e (detail) | `RealSymbol` | `code.go` | TestBinding | - |\n", "pred e {}\n"), [])
+
+    def test_row_resolved_only_by_a_manifest_command_body_or_name(self) -> None:
+        commands = (*GUARDED, Command("byName", "instance", body="some univ"), Command("w", "instance", body="byBody"))
+        rows = ("// | byBody | `RealSymbol` | `code.go` | TestBinding | - |\n"
+                "// | byName | `RealSymbol` | `code.go` | TestBinding | - |\n")
+        self.assertEqual(self.elements(rows, "", commands=commands), [])
+
+    def test_case_only_match_and_comment_mentions_fail(self) -> None:
+        failures = self.elements("// | State | `RealSymbol` | `code.go` | TestBinding | - |\n", "pred state {}\n// State\n")
+        self.assertEqual(failures, ["M: row 'State' names a model element that is not in m.als or its manifest commands"])
+        # A whole word only: `e` does not resolve against `pre`.
+        self.assertTrue(self.elements("// | e | `RealSymbol` | `code.go` | TestBinding | - |\n", "pred pre {}\n"))
+
+    def test_listed_row_is_reported_not_failed(self) -> None:
+        rows = "// | gone | `RealSymbol` | `code.go` | TestBinding | - |\n" * 2
+        self.assertEqual(self.elements(rows, "pred e {}\n", ["M: gone"]), [])
+
+    def test_stale_and_dangling_entries_fail(self) -> None:
+        row = "// | e | `RealSymbol` | `code.go` | TestBinding | - |\n"
+        self.assertEqual(self.elements(row, "pred e {}\n", ["M: e"]),
+                         ["[correspondence] unresolved_elements: stale entry 'M: e' now resolves; remove it"])
+        self.assertEqual(self.elements(row, "pred e {}\n", ["M: nothing"]),
+                         ["[correspondence] unresolved_elements: stale entry 'M: nothing' names no correspondence row"])
+
+    def test_unknown_correspondence_key_and_malformed_list(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(MANIFEST_HEAD + '[correspondence]\nunresolved_elements = ["M: x"]\nextra = 1\n')
+            with self.assertRaisesRegex(FormalError, r"\[correspondence\]: unknown key\(s\) extra"):
+                formal.load_manifest(path)
+            with self.assertRaisesRegex(FormalError, r"\[correspondence\]: unknown key\(s\) extra"):
+                formal.load_unresolved_elements(path)
+            path.write_text(MANIFEST_HEAD + '[correspondence]\nunresolved_elements = ["no separator"]\n')
+            with self.assertRaisesRegex(FormalError, "must be a list of"):
+                formal.load_unresolved_elements(path)
+            path.write_text(MANIFEST_HEAD + '[correspondence]\nunresolved_elements = ["M: x", "M: x"]\n')
+            with self.assertRaisesRegex(FormalError, "duplicate entries"):
+                formal.load_unresolved_elements(path)
+
+
+# The pairs listed when the element check was introduced (2026-11-14). The
+# list only shrinks: a pair outside this set must never be added.
+SEEDED_UNRESOLVED_ELEMENTS = frozenset({
+    "LockIdentity: evaluation", "Serverbase: State", "AtomicWrite: steps", "AtomicWrite: cleanup",
+    "AtomicWrite: caller", "HostCallbackToken: Generate", "HostCallbackToken: Revoke", "Watch: fire goroutine",
+    "Watch: backend", "ModulePathContainment: readOp", "ModulePathContainment: workdirCwd",
+    "ModulePathContainment: copySkipsInnerLinks", "ModulePathContainment: hashSkipsLinks",
+    "ModulePathContainment: unpackRejectsEscape", "ModulePathContainment: ValidateScriptPath",
+    "ModulePathContainment: checkSymlinkSafety", "ModulePathContainment: findingF13",
+    "ModulePathContainment: findingF17", "ModulePathContainment: probeF16", "VirtualPathHarness: normalize",
+    "VirtualPathHarness: pathWithin", "VirtualPathHarness: allowedRoots", "VirtualPathHarness: anchors",
+    "VirtualPathHarness: validate", "VirtualPathHarness: findingF14", "VirtualPathHarness: findingF15",
+    "ConcurrentModuleEdits: AddProg (add_add_same)", "ConcurrentModuleEdits: AddProg (sync_add)",
+    "ConcurrentModuleEdits: RemoveProg", "ConcurrentModuleEdits: SyncProg", "ConcurrentModuleEdits: UpdateProg",
+    "ConcurrentModuleEdits: TidyProg", "ConcurrentModuleEdits: AddProg (fetch_v1_v2)", "ConcurrentModuleEdits: VendorProg",
+})
 
 
 class CharacterisationTests(unittest.TestCase):
@@ -725,6 +842,10 @@ class AffectedTests(unittest.TestCase):
     def test_empty_diff_runs(self) -> None:
         self.assertEqual(self.affected("pull_request", lambda b, h: []), "run=true")
 
+    def test_reach_gate_script_changes_run_the_lane(self) -> None:
+        self.assertEqual(self.affected("pull_request", lambda b, h: ["scripts/formal_mutation.py"]), "run=true")
+        self.assertEqual(self.affected("pull_request", lambda b, h: ["scripts/test_formal_mutation.py"]), "run=true")
+
     def test_bad_sha_runs_the_full_lane(self) -> None:
         self.assertEqual(self.affected("pull_request", formal.changed_paths, base="0" * 40, head="HEAD"), "run=true")
         self.assertEqual(self.affected("pull_request", formal.changed_paths, base="", head="HEAD"), "run=true")
@@ -835,8 +956,10 @@ class CiContractTests(unittest.TestCase):
                  re.findall(r"^      - name: (.+)\n(?:        (?!timeout-minutes).*\n)*?        timeout-minutes: (\d+)$", text, re.M)}
         self.assertIsNotNone(job)
         self.assertEqual(
-            sorted(steps), ["Check models", "Deep property tests", "Replay golden vectors and property tests", "Trace validation"]
+            sorted(steps),
+            ["Binding reach", "Check models", "Deep property tests", "Replay golden vectors and property tests", "Trace validation"],
         )
+        self.assertEqual(steps["Binding reach"], 6)
         self.assertGreater(int(job[1]), sum(steps.values()) + 3, steps)
 
     def test_workflow_replays_the_generated_plan(self) -> None:
@@ -844,7 +967,8 @@ class CiContractTests(unittest.TestCase):
         self.assertIn("python3 scripts/formal.py replay-plan --format github", text)
         self.assertNotIn("paths:", text.split("concurrency:")[0])
         heavy = ("Setup Go", "Setup Java", "Cache formal tool jars", "Fetch and verify pinned tools", "Runner self-tests",
-                 "Check models", "Trace validation", "Replay golden vectors and property tests", "Deep property tests")
+                 "Check models", "Trace validation", "Replay golden vectors and property tests", "Binding reach",
+                 "Deep property tests")
         for name in heavy:
             with self.subTest(step=name):
                 block = text.split(f"      - name: {name}\n", 1)[1].split("\n      - name: ", 1)[0]
@@ -865,6 +989,8 @@ class RepositoryManifestTests(unittest.TestCase):
                     formal.check_tlc_config_text(f"{model.name}.{cmd.name}", formal.tlc_config(model, cmd))
             self.assertTrue(model.calibration, f"{model.name} is uncalibrated")
         self.assertEqual(formal.check_correspondence(models), [])
+        # Shrink-only: no pair outside the seeded set may enter the list.
+        self.assertLessEqual(set(formal.load_unresolved_elements()), SEEDED_UNRESOLVED_ELEMENTS)
         formal.check_tla_sources()
         by_name = {m.name: m for m in models}
         for suite in formal.load_trace_suites():

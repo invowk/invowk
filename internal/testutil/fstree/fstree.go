@@ -5,13 +5,14 @@
 // tree under a test temporary directory, so that formal-verification replays
 // exercise os.ReadFile, os.Lstat, filepath.EvalSymlinks, and filepath.WalkDir
 // exactly as production does. It maps every spec atom back to its real path,
-// probes symlink and junction capability, and reports a skip reason
-// for any instance that needs a capability the host lacks.
+// probes symlink and junction capability (keeping each probe's error), and
+// applies a per-platform policy to an instance that needs a capability the
+// host lacks: it fails where the capability is required and skips elsewhere.
 package fstree
 
 import (
 	"cmp"
-	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,21 +31,20 @@ const (
 	KindJunction
 )
 
-var (
-	// errNoJunctions is returned by createJunction off Windows; junction
-	// instances are skipped there before creation (Probe reports Junction=false).
-	errNoJunctions = errors.New("directory junctions are supported only on Windows")
-
-	// probeOnce probes the host's temporary filesystem once per test process.
-	probeOnce = sync.OnceValue(func() Caps {
-		base, err := os.MkdirTemp("", "fstree-probe-*")
-		if err != nil {
-			return Caps{}
-		}
-		defer func() { _ = os.RemoveAll(base) }()
-		return Caps{Symlink: probeSymlink(base), Junction: probeJunction(base)}
-	})
-)
+// probeOnce probes the host's temporary filesystem once per test process.
+var probeOnce = sync.OnceValue(func() Caps {
+	base, err := os.MkdirTemp("", "fstree-probe-*")
+	if err != nil {
+		return Caps{SymlinkErr: err, JunctionErr: err}
+	}
+	defer func() { _ = os.RemoveAll(base) }()
+	symlinkErr := probeSymlink(base)
+	junctionErr := probeJunction(base)
+	return Caps{
+		Symlink: symlinkErr == nil, SymlinkErr: symlinkErr,
+		Junction: junctionErr == nil, JunctionErr: junctionErr,
+	}
+})
 
 type (
 	// Fataler is the part of *testing.T and *rapid.T a fixture writer needs.
@@ -80,10 +80,13 @@ type (
 		Nodes    []Node
 	}
 
-	// Caps records which filesystem capabilities the host offers.
+	// Caps records which filesystem capabilities the host offers, and why a
+	// probe failed.
 	Caps struct {
-		Symlink  bool
-		Junction bool
+		Symlink     bool
+		Junction    bool
+		SymlinkErr  error
+		JunctionErr error
 	}
 
 	// Built is a materialised tree. Path maps every atom to its real path.
@@ -93,11 +96,13 @@ type (
 	}
 
 	// Cache memoises one materialisation per distinct tree across the instances
-	// of a golden replay and counts the instances skipped per missing capability.
+	// of a golden replay and counts the instances skipped per missing capability
+	// that the host is not required to offer.
 	Cache struct {
 		caps  Caps
+		host  Host
 		built map[string]*Built
-		skips map[string]int
+		skips map[Capability]int
 	}
 )
 
@@ -121,11 +126,13 @@ func TempRoot(t *testing.T) string {
 // NewCache probes the host once and returns an empty materialisation cache.
 func NewCache(t *testing.T) *Cache {
 	t.Helper()
-	return &Cache{caps: Probe(t), built: map[string]*Built{}, skips: map[string]int{}}
+	return &Cache{caps: Probe(t), host: CurrentHost(), built: map[string]*Built{}, skips: map[Capability]int{}}
 }
 
-// Get returns the tree for spec, materialising it on first use of key. It
-// returns nil (and counts the skip) when the host lacks a needed capability.
+// Get returns the tree for spec, materialising it on first use of key. When
+// the host lacks a needed capability, it fails t if the capability is required
+// on this platform (Capability.Required), and otherwise returns nil and counts
+// the skip.
 func (c *Cache) Get(t *testing.T, key string, spec Spec) *Built {
 	t.Helper()
 	if b, ok := c.built[key]; ok {
@@ -133,6 +140,10 @@ func (c *Cache) Get(t *testing.T, key string, spec Spec) *Built {
 	}
 	b, skip := Materialize(t, spec, c.caps)
 	if skip != "" {
+		if skip.Required(c.host) {
+			_, err := c.caps.Has(skip)
+			t.Fatalf("%s is required on %s: %v", skip, c.host.GOOS, err)
+		}
 		c.skips[skip]++
 		return nil
 	}
@@ -144,15 +155,16 @@ func (c *Cache) Get(t *testing.T, key string, spec Spec) *Built {
 func (c *Cache) LogSkips(t *testing.T) {
 	t.Helper()
 	for capability, n := range c.skips {
-		t.Logf("skipped %d instances needing capability %q", n, capability)
+		t.Logf("skipped %d instances needing capability %q (not required on %s)", n, string(capability), c.host.GOOS)
 	}
 }
 
 // Materialize builds the tree under filepath.EvalSymlinks(t.TempDir()), which
 // removes out-of-model ancestor links such as macOS's /var -> /private/var. It
 // returns a non-empty skip reason (the missing capability) and a nil tree when
-// the spec needs a capability the host lacks.
-func Materialize(t *testing.T, spec Spec, caps Caps) (built *Built, skip string) {
+// the spec needs a capability the host lacks; callers apply the policy (Cache.Get,
+// Require).
+func Materialize(t *testing.T, spec Spec, caps Caps) (built *Built, skip Capability) {
 	t.Helper()
 	if skip = skipReason(spec, caps); skip != "" {
 		return nil, skip
@@ -254,22 +266,22 @@ func WriteModuleFiles(t Fataler, dir string) {
 	}
 }
 
-func skipReason(spec Spec, caps Caps) string {
+func skipReason(spec Spec, caps Caps) Capability {
 	for _, n := range spec.Nodes {
 		if n.Kind == KindSymlink && !caps.Symlink {
-			return "symlink"
+			return CapSymlink
 		}
 		if n.Kind == KindJunction && !caps.Junction {
-			return "junction"
+			return CapJunction
 		}
 	}
 	return ""
 }
 
-func probeSymlink(base string) bool {
+func probeSymlink(base string) error {
 	target := filepath.Join(base, "probe-target")
-	if os.WriteFile(target, []byte("x"), 0o644) != nil {
-		return false
+	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
+		return fmt.Errorf("write probe target: %w", err)
 	}
-	return os.Symlink(target, filepath.Join(base, "probe-link")) == nil
+	return createSymlink(target, filepath.Join(base, "probe-link"))
 }

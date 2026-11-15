@@ -13,6 +13,7 @@ import (
 
 	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/internal/provision"
+	ivkruntime "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil/alloygolden"
 	"github.com/invowk/invowk/internal/testutil/fstree"
 	"github.com/invowk/invowk/internal/testutil/mpctree"
@@ -81,19 +82,81 @@ func replayInstance(report *mpctree.Reporter, i int, c mpctree.Case, b *fstree.B
 	}
 
 	// Accept + touch, bound end to end for script reads through the real
-	// resolver; the interpreter re-opens the same path (SelectedScriptFilePath).
-	if c.OpKind == mpctree.ScriptRead {
-		accepts, touchReal := realScriptRead(moduleRoot, pathStr)
-		effAccept := admit && accepts
-		if effAccept != c.Accepts {
-			report.Errorf("instance %d ScriptRead: real accept=%v, model=%v (path %q)", i, effAccept, c.Accepts, pathStr)
+	// resolvers; the interpreter re-opens the same path (SelectedScriptFilePath).
+	// The implementation script and the custom-check script share the model's
+	// ScriptRead verdict, F13 instances included (readOp rows).
+	switch c.OpKind {
+	case mpctree.ScriptRead:
+		readers := map[string]func(moduleRoot, pathStr string) (bool, string){
+			"Implementation.ResolveScriptWithFSAndModule": realScriptRead,
+			"CustomCheckScript.ResolveWithFSAndModule":    realCustomCheckRead,
 		}
-		if effAccept {
-			wantTouch := b.Path[c.TouchAtom]
-			if !sameOrBothMissing(touchReal, wantTouch) {
-				report.Errorf("instance %d ScriptRead: touched %q, model atom %q -> %q", i, touchReal, c.TouchAtom, wantTouch)
+		for name, read := range readers {
+			accepts, touchReal := read(moduleRoot, pathStr)
+			effAccept := admit && accepts
+			if effAccept != c.Accepts {
+				report.Errorf("instance %d ScriptRead %s: real accept=%v, model=%v (path %q)", i, name, effAccept, c.Accepts, pathStr)
+			}
+			if effAccept {
+				wantTouch := b.Path[c.TouchAtom]
+				if !sameOrBothMissing(touchReal, wantTouch) {
+					report.Errorf("instance %d ScriptRead %s: touched %q, model atom %q -> %q", i, name, touchReal, c.TouchAtom, wantTouch)
+				}
 			}
 		}
+	case mpctree.EnvRead:
+		replayEnvRead(report, i, c, b, admit, gotValidate)
+	case mpctree.ContainerfileRef, mpctree.WorkdirCwd, mpctree.VendorCopy, mpctree.Hash, mpctree.Unpack:
+		// no read effect replayed here (copy and hash: assertCopyHashNoEscape)
+	}
+}
+
+// realCustomCheckRead invokes the real custom-check script resolver with a
+// recording reader, as realScriptRead does for implementation scripts.
+func realCustomCheckRead(moduleRoot, pathStr string) (accept bool, touched string) {
+	sfp := invowkfile.ScriptFilePath(pathStr)
+	cc := invowkfile.CustomCheckScript{File: &sfp}
+	reader := func(p string) ([]byte, error) {
+		accept = true
+		if resolved, rerr := filepath.EvalSymlinks(p); rerr == nil {
+			touched = resolved
+		}
+		return os.ReadFile(p)
+	}
+	_, _ = cc.ResolveWithFSAndModule(invowkfile.FilesystemPath(moduleRoot), reader)
+	return accept, touched
+}
+
+// replayEnvRead replays the production env-file pipeline (readOp row
+// LoadEnvFile): ValidateEnvFilePath at parse time, then LoadEnvFile at run time
+// on an admitted module. Calling LoadEnvFile is the accept (it has no
+// containment check, F17); the touched node is the file it loaded, read back
+// through the AtomEnvKey line every materialised file carries. A touched node
+// that is not a regular file, or none at all, must make LoadEnvFile fail.
+func replayEnvRead(report *mpctree.Reporter, i int, c mpctree.Case, b *fstree.Built, admit, validates bool) {
+	effAccept := admit && validates
+	if effAccept != c.Accepts {
+		report.Errorf("instance %d EnvRead: real accept=%v, model=%v", i, effAccept, c.Accepts)
+	}
+	if !effAccept {
+		return
+	}
+	env := map[string]string{}
+	err := ivkruntime.LoadEnvFile(env, c.RelPath(b), b.Path[c.OwnerAtom])
+	touch := nodeByAtom(c, c.TouchAtom)
+	if c.TouchAtom == "" || touch.Kind != fstree.KindFile {
+		if err == nil {
+			report.Errorf("instance %d EnvRead: LoadEnvFile loaded %q, but the model touches no regular file (atom %q)",
+				i, env[mpctree.AtomEnvKey], c.TouchAtom)
+		}
+		return
+	}
+	if err != nil {
+		report.Errorf("instance %d EnvRead: LoadEnvFile failed on the model's touched file %q: %v", i, c.TouchAtom, err)
+		return
+	}
+	if got, want := env[mpctree.AtomEnvKey], mpctree.AtomTag(c.TouchAtom); got != want {
+		report.Errorf("instance %d EnvRead: LoadEnvFile loaded %q, model touches %q", i, got, want)
 	}
 }
 
