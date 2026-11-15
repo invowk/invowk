@@ -289,6 +289,10 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		wantTUICalls  int
 	}{
 		{name: "non-interactive uses registry execute", exitCode: 7, wantExecCalls: 1},
+		// D11 (restrict-tui-server-bind): without -i an interactive-capable
+		// runtime never reaches the interactive executor, so no TUI server
+		// starts and no TUI exposure facts are queried.
+		{name: "non-interactive interactive-capable runtime skips the interactive executor", interactiveRT: true, wantTUICalls: 0},
 		{name: "interactive fallback logs and executes normally", interactive: true, verbose: true, exitCode: 3, wantFallback: "stub", wantExecCalls: 1},
 		{name: "interactive runtime validation error surfaces in result", interactive: true, interactiveRT: true, validateErr: errors.New("invalid interactive context"), wantTUICalls: 1},
 		{name: "interactive runtime prepare error surfaces in result", interactive: true, interactiveRT: true, prepareErr: errors.New("prepare failed"), wantTUICalls: 1},

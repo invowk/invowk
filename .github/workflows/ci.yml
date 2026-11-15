@@ -67,12 +67,19 @@ jobs:
             runner: ubuntu-latest
             engine: docker
             test-mode: full
+            # restrict-tui-server-bind D2 row this engine must select:
+            # 8 = rootful Docker, loopback + bridge gateway.
+            tui-plan-row: "8"
 
           # Ubuntu with Podman
           - os: ubuntu-latest
             runner: ubuntu-latest
             engine: podman
             test-mode: full
+            # restrict-tui-server-bind D2 row: 11 = rootless Podman with pasta.
+            # The first run's "podman network backend" line (2026-11-15, run
+            # 43677325230) reported true|pasta|false|/usr/bin/pasta.
+            tui-plan-row: "11"
 
           # Windows (unit tests only - container runtime requires Linux)
           - os: windows
@@ -165,6 +172,11 @@ jobs:
           podman --version
           systemctl --user start podman.socket
           systemctl --user is-active podman.socket
+          # TUI exposure plan evidence (restrict-tui-server-bind task 5.1):
+          # rootless|network cmd|remote|pasta executable (empty = no pasta).
+          # Older Podman lacks some fields, so a template error must not fail the job.
+          echo "podman network backend: $(podman info --format '{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}' 2>&1 || true)"
+          echo "pasta on PATH: $(command -v pasta || echo none)"
 
       # Docker setup verification for Ubuntu
       - name: Verify Docker (Ubuntu)
@@ -187,6 +199,7 @@ jobs:
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_PARALLEL: "2"
+          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}
         run: |
           PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | grep -v '^github.com/invowk/invowk/internal/runtime$' | tr '\n' ' ')"
           gotestsum \

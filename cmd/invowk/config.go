@@ -170,6 +170,10 @@ func showConfig(ctx context.Context, w, stderr io.Writer, app *App, rootFlags *r
 	fmt.Fprintf(w, "    enabled: %s\n", valueStyle.Render(strconv.FormatBool(cfg.Virtual.Utilities.Enabled)))
 
 	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s:\n", keyStyle.Render("container"))
+	fmt.Fprintf(w, "  tui_server_bind: %s\n", valueStyle.Render(effectiveTUIServerBind(cfg.Container.TUIServerBind).String()))
+
+	fmt.Fprintln(w)
 	fmt.Fprintf(w, "%s:\n", keyStyle.Render("ui"))
 	fmt.Fprintf(w, "  color_scheme: %s\n", valueStyle.Render(string(cfg.UI.ColorScheme)))
 	fmt.Fprintf(w, "  interactive: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Interactive)))
@@ -180,6 +184,14 @@ func showConfig(ctx context.Context, w, stderr io.Writer, app *App, rootFlags *r
 	printLLMConfig(w, cfg.LLM, valueStyle)
 
 	return nil
+}
+
+// effectiveTUIServerBind maps the zero value to the default policy for display.
+func effectiveTUIServerBind(bind config.TUIServerBind) config.TUIServerBind {
+	if bind == "" {
+		return config.TUIServerBindRestricted
+	}
+	return bind
 }
 
 func renderConfigLoadFailure(w io.Writer, err error) error {

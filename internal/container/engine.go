@@ -252,6 +252,9 @@ type (
 		TTY bool
 		// ExtraHosts are additional host-to-IP mappings (e.g., "host.docker.internal:host-gateway")
 		ExtraHosts []HostMapping
+		// NetworkMode is emitted as --network=<mode> on run only; never on
+		// exec or create. Empty keeps the engine default.
+		NetworkMode NetworkMode
 	}
 
 	//goplint:validate-all
@@ -534,6 +537,9 @@ func (o RunOptions) appendRunLocationValidationErrors(errs *[]error) {
 }
 
 func (o RunOptions) appendNetworkValidationErrors(errs *[]error) {
+	if err := o.NetworkMode.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
 	for _, h := range o.ExtraHosts {
 		if err := h.Validate(); err != nil {
 			*errs = append(*errs, err)

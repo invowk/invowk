@@ -5,6 +5,7 @@ package tuiserver
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,12 +13,22 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+// maxBindAttempts bounds how often Start retries binding every plan address
+// at one shared port.
+const maxBindAttempts = 5
+
+// errServerStoppedDuringStart is returned by Start when Stop ran before the
+// server became ready.
+var errServerStoppedDuringStart = errors.New("TUI server stopped during start")
 
 type (
 	// TUIRequest represents a request for a TUI component to be rendered.
@@ -32,7 +43,9 @@ type (
 	}
 
 	// Server is an HTTP server that handles TUI rendering requests from child processes.
-	// It listens on all interfaces (0.0.0.0) and requires token-based authentication.
+	// It listens on the addresses of its BindPlan (127.0.0.1 by default; never a
+	// wildcard address unless the plan is the explicit wildcard opt-in), all at
+	// one port, and every request must carry the session bearer token.
 	//
 	// Instead of rendering TUI components directly, the server sends requests
 	// to a channel that the parent Bubbletea program reads from. This allows
@@ -44,7 +57,8 @@ type (
 		base *serverbase.Base
 
 		// Immutable configuration (set at creation, never modified)
-		listener   net.Listener
+		plan       BindPlan
+		listeners  []net.Listener
 		httpServer *http.Server
 		port       types.ListenPort
 		token      AuthToken
@@ -64,10 +78,20 @@ type (
 	}
 )
 
-// New creates a new TUI server.
+// New creates a new TUI server that listens on 127.0.0.1 only.
 // The server uses token-based authentication for security.
 // The server is not started until Start() is called.
 func New() (*Server, error) {
+	return NewWithBindPlan(LoopbackBindPlan())
+}
+
+// NewWithBindPlan creates a new TUI server that listens on the plan's
+// addresses. The plan is validated, so an unspecified address is accepted only
+// through WildcardBindPlan.
+func NewWithBindPlan(plan BindPlan) (*Server, error) {
+	if err := plan.Validate(); err != nil {
+		return nil, err
+	}
 	token, err := generateToken(32)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
@@ -79,6 +103,7 @@ func New() (*Server, error) {
 
 	s := &Server{
 		base:       serverbase.NewBase(),
+		plan:       plan,
 		token:      authToken,
 		shutdownCh: make(chan struct{}),
 		requestCh:  make(chan TUIRequest),
@@ -89,60 +114,44 @@ func New() (*Server, error) {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	s.httpServer = &http.Server{
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 5 * time.Minute, // Long timeout for user interaction
-		IdleTimeout:  60 * time.Second,
+		Handler: s.requireToken(mux),
+		// Without this, net/http answers "OPTIONS *" itself, before the
+		// handler, so the token check would never see it (D5).
+		DisableGeneralOptionsHandler: true,
+		ReadTimeout:                  30 * time.Second,
+		WriteTimeout:                 5 * time.Minute, // Long timeout for user interaction
+		IdleTimeout:                  60 * time.Second,
 	}
 
 	return s, nil
 }
 
-// Start begins accepting connections. Blocks until server is ready or context is cancelled.
+// Start binds every plan address and begins accepting connections. It returns
+// once the server is Running, or with the error that prevented it.
+//
+// Every plan address is bound before any serve goroutine starts. For a
+// restricted plan the server binds 127.0.0.1 on an ephemeral port first and
+// then every other address at that port; if a later bind fails, all listeners
+// are closed and the sequence starts over, at most maxBindAttempts times. The
+// retry covers every error, not only EADDRINUSE, because Windows reports
+// WSAEADDRINUSE, which errors.Is does not map to syscall.EADDRINUSE.
 func (s *Server) Start(ctx context.Context) error {
 	if err := s.base.TransitionToStarting(ctx); err != nil {
 		return err
 	}
 
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "tcp", "0.0.0.0:0")
+	listeners, err := s.bindAll(ctx)
 	if err != nil {
-		startErr := fmt.Errorf("failed to create listener: %w", err)
-		return s.base.TransitionToFailed(startErr)
+		return s.base.TransitionToFailed(err)
 	}
-	s.listener = listener
-	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
-	if !ok {
-		_ = listener.Close()
-		startErr := fmt.Errorf("listener address has unexpected type %T", listener.Addr())
-		return s.base.TransitionToFailed(startErr)
+	s.listeners = listeners
+	port, err := listenerPort(listeners[0])
+	if err != nil {
+		closeListeners(listeners)
+		return s.base.TransitionToFailed(err)
 	}
-	s.port = types.ListenPort(tcpAddr.Port)
-
-	// Start serving in background
-	s.base.AddGoroutine()
-	go func() {
-		defer s.base.DoneGoroutine()
-		// Signal that we're ready to accept connections
-		s.base.TransitionToRunning()
-		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
-			s.shutdownOnce.Do(func() { close(s.shutdownCh) })
-			s.closeRequestChannel()
-			if s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)) != nil {
-				return
-			}
-		}
-	}()
-
-	// Wait for ready signal or context cancellation
-	if err := s.base.WaitForReady(ctx); err != nil {
-		failedErr := s.base.TransitionToFailed(err)
-		_ = s.httpServer.Close() // Best-effort cleanup on error
-		_ = s.listener.Close()   // Best-effort cleanup on error
-		return failedErr
-	}
-
-	return nil
+	s.port = port
+	return s.serveListeners(listeners)
 }
 
 // Stop gracefully shuts down the server. Safe to call multiple times.
@@ -151,10 +160,8 @@ func (s *Server) Stop() error {
 	s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 
 	if !s.base.TransitionToStopping() {
-		// Already stopped/stopping, or never started - clean up listener
-		if s.listener != nil {
-			_ = s.listener.Close() // Best-effort cleanup; server already stopping
-		}
+		// Already stopped/stopping, or never started - clean up listeners
+		closeListeners(s.listeners)
 		s.closeRequestChannel()
 		return nil
 	}
@@ -170,6 +177,16 @@ func (s *Server) Stop() error {
 	s.closeRequestChannel()
 
 	return err
+}
+
+// ListenAddrs returns the addresses the server is listening on, in plan
+// order. It is empty before Start.
+func (s *Server) ListenAddrs() []net.Addr {
+	addrs := make([]net.Addr, 0, len(s.listeners))
+	for _, listener := range s.listeners {
+		addrs = append(addrs, listener.Addr())
+	}
+	return addrs
 }
 
 // Port returns the port number the server is listening on.
@@ -224,13 +241,63 @@ func (s *Server) Err() <-chan error {
 	return s.base.Err()
 }
 
+// serveListeners marks the server Running and starts one Serve goroutine per
+// listener. Every listener is already bound, so connections queue in the
+// backlog: the server is ready before any Serve goroutine runs. Transitioning
+// first means a Serve that fails at once, or a Stop that races Start, can
+// never leave the readiness channel open for a caller to block on.
+func (s *Server) serveListeners(listeners []net.Listener) error {
+	s.base.TransitionToRunning()
+	if !s.base.IsRunning() {
+		closeListeners(listeners)
+		if lastErr := s.base.LastError(); lastErr != nil {
+			return lastErr
+		}
+		return errServerStoppedDuringStart
+	}
+
+	// One http.Server serves every listener. A Serve error on any listener
+	// fails the server and closes the others.
+	for _, listener := range listeners {
+		s.base.AddGoroutine()
+		go func(l net.Listener) {
+			defer s.base.DoneGoroutine()
+			if serveErr := s.httpServer.Serve(l); !errors.Is(serveErr, http.ErrServerClosed) {
+				s.shutdownOnce.Do(func() { close(s.shutdownCh) })
+				s.closeRequestChannel()
+				if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", serveErr)); failedErr != nil {
+					_ = s.httpServer.Close() // Stop the remaining listeners.
+				}
+			}
+		}(listener)
+	}
+	return nil
+}
+
 func (s *Server) closeRequestChannel() {
 	s.requestCloseOnce.Do(func() {
 		close(s.requestCh)
 	})
 }
 
-// handleHealth responds with 200 OK for health checks.
+// requireToken wraps every route, so /tui, /health and unknown paths all
+// require the session token before routing, the method check or the body.
+// The comparison runs in constant time; the only length it can leak is the
+// fixed token length.
+func (s *Server) requireToken(next http.Handler) http.Handler {
+	expected := []byte("Bearer " + string(s.token))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), expected) != 1 {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte("unauthorized"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// handleHealth responds with 200 OK for authenticated health checks.
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
@@ -243,14 +310,6 @@ func (s *Server) handleTUI(w http.ResponseWriter, r *http.Request) {
 	// Only accept POST requests
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Verify authentication token
-	authHeader := r.Header.Get("Authorization")
-	expectedAuth := "Bearer " + string(s.token)
-	if authHeader != expectedAuth {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -326,4 +385,75 @@ func generateToken(bytes int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// bindAll opens one listener per plan address, all at the same port.
+func (s *Server) bindAll(ctx context.Context) ([]net.Listener, error) {
+	var lc net.ListenConfig
+	if s.plan.IsWildcard() {
+		listener, err := lc.Listen(ctx, "tcp", "0.0.0.0:0")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create listener: %w", err)
+		}
+		return []net.Listener{listener}, nil
+	}
+
+	addrs := s.plan.Addresses()
+	var lastErr error
+	for range maxBindAttempts {
+		listeners, err := bindAtSharedPort(ctx, &lc, addrs)
+		if err == nil {
+			return listeners, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	return nil, fmt.Errorf("failed to create listeners after %d attempts: %w", maxBindAttempts, lastErr)
+}
+
+// bindAtSharedPort binds addrs[0] on an ephemeral port and every other address
+// at that port. On any failure it closes what it opened.
+func bindAtSharedPort(ctx context.Context, lc *net.ListenConfig, addrs []netip.Addr) ([]net.Listener, error) {
+	first, err := lc.Listen(ctx, "tcp", netip.AddrPortFrom(addrs[0], 0).String())
+	if err != nil {
+		return nil, fmt.Errorf("listen on %s: %w", addrs[0], err)
+	}
+	listeners := []net.Listener{first}
+	tcpAddr, ok := first.Addr().(*net.TCPAddr)
+	if !ok {
+		closeListeners(listeners)
+		return nil, fmt.Errorf("listener address has unexpected type %T", first.Addr())
+	}
+	port := strconv.Itoa(tcpAddr.Port)
+	for _, addr := range addrs[1:] {
+		listener, listenErr := lc.Listen(ctx, "tcp", net.JoinHostPort(addr.String(), port))
+		if listenErr != nil {
+			closeListeners(listeners)
+			return nil, fmt.Errorf("listen on %s:%s: %w", addr, port, listenErr)
+		}
+		listeners = append(listeners, listener)
+	}
+	return listeners, nil
+}
+
+// listenerPort returns the validated TCP port of listener.
+func listenerPort(listener net.Listener) (types.ListenPort, error) {
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("listener address has unexpected type %T", listener.Addr())
+	}
+	rawPort := tcpAddr.Port
+	port := types.ListenPort(rawPort)
+	if err := port.Validate(); err != nil {
+		return 0, fmt.Errorf("listener port: %w", err)
+	}
+	return port, nil
+}
+
+func closeListeners(listeners []net.Listener) {
+	for _, listener := range listeners {
+		_ = listener.Close() // Best-effort cleanup.
+	}
 }

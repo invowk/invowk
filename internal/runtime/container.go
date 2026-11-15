@@ -45,6 +45,8 @@ type (
 		cfg             *config.Config
 		envBuilder      EnvBuilder
 		retrySleep      func(context.Context, time.Duration) error
+		// tuiProbe gathers the TUI exposure facts; tests replace its hooks.
+		tuiProbe tuiExposureProbe
 		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
 		fallbackIDCounter atomic.Uint64
 	}

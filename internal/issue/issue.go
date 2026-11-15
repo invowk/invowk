@@ -30,6 +30,7 @@ const (
 	HostNotSupportedId
 	InvalidArgumentId
 	ExplicitConfigLoadFailedId
+	TUIExposureRefusedId
 )
 
 var (
@@ -126,6 +127,13 @@ var (
 		mdMsg: loadTemplate("explicit_config_load_failed"),
 	}
 
+	// tuiExposureRefusedIssue is the guidance for an interactive container run
+	// refused because the engine mode has no narrow TUI server route.
+	tuiExposureRefusedIssue = &Issue{
+		id:    TUIExposureRefusedId,
+		mdMsg: loadTemplate("tui_exposure_refused"),
+	}
+
 	issues = map[Id]*Issue{
 		fileNotFoundIssue.Id():             fileNotFoundIssue,
 		invowkfileNotFoundIssue.Id():       invowkfileNotFoundIssue,
@@ -143,6 +151,7 @@ var (
 		hostNotSupportedIssue.Id():         hostNotSupportedIssue,
 		invalidArgumentIssue.Id():          invalidArgumentIssue,
 		explicitConfigLoadFailedIssue.Id(): explicitConfigLoadFailedIssue,
+		tuiExposureRefusedIssue.Id():       tuiExposureRefusedIssue,
 	}
 )
 
@@ -210,7 +219,7 @@ func (id Id) Validate() error {
 		DockerfileNotFoundId, ScriptExecutionFailedId, ConfigLoadFailedId,
 		InvalidRuntimeModeId, ShellNotFoundId, PermissionDeniedId,
 		DependenciesNotSatisfiedId, HostNotSupportedId, InvalidArgumentId,
-		ExplicitConfigLoadFailedId:
+		ExplicitConfigLoadFailedId, TUIExposureRefusedId:
 		return nil
 	default:
 		return &InvalidIdError{Value: id}

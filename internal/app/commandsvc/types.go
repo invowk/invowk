@@ -29,6 +29,9 @@ const (
 	ErrorKindPermissionDenied ErrorKind = "permission_denied"
 	// ErrorKindShellNotFound means a configured shell executable could not be found.
 	ErrorKindShellNotFound ErrorKind = "shell_not_found"
+	// ErrorKindTUIExposureRefused means an interactive container run was
+	// refused because its engine mode has no narrow TUI server route.
+	ErrorKindTUIExposureRefused ErrorKind = "tui_exposure_refused"
 )
 
 type (
@@ -311,7 +314,8 @@ func (k ErrorKind) Validate() error {
 		ErrorKindContainerEngineNotFound,
 		ErrorKindRuntimeNotAvailable,
 		ErrorKindPermissionDenied,
-		ErrorKindShellNotFound:
+		ErrorKindShellNotFound,
+		ErrorKindTUIExposureRefused:
 		return nil
 	default:
 		return errors.New("invalid command service error kind")

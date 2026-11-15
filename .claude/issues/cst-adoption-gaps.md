@@ -40,7 +40,8 @@ Decisions taken with the maintainer (2026-11-14):
 | N2 | EVOLVE | C2 | S |
 | N3 | EVOLVE | C3 | S |
 | N4 | EVOLVE | C2 | S |
-| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, not yet proposed) | M |
+| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, implemented in PR #173; done on merge) | M |
+| N7 | EVOLVE — bug | SSH host-callback reachability (own change after S3, not yet proposed) | M |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -194,14 +195,25 @@ guide ("set `TMPDIR` if needed").
   not found". Decide whether an invalid cwd invowkfile is fatal.
 - **N4 — `ui.color_scheme` is a dead setting (C2).** `config_schema.cue:116`; only read and
   written by `config show/set` (`cmd/invowk/config.go:32,149,330`).
-- **N5 — the TUI server binds every interface (S3, not yet proposed).** Found 2026-11-14
-  while triaging Sonar go:S5332. `internal/tuiserver/server.go:108` listens on
-  `0.0.0.0:0`, so during interactive commands the port is reachable from the LAN, guarded
-  only by the per-session token. Containers reach it through `host.docker.internal`, which
-  is probably why it binds wide. Restrict the bind to loopback plus the engine's bridge
-  gateway, covering Docker and Podman, rootful and rootless, and Flatpak, with container
-  tests. Until then, Sonar S5332 there is resolved in SonarCloud as a false positive
-  (recorded as e13): plain HTTP over loopback or the bridge is by design.
+- **N5 — the TUI server binds every interface (S3, implemented in PR #173; done on
+  merge).** Found 2026-11-14 while triaging Sonar go:S5332. `internal/tuiserver/server.go`
+  listened on `0.0.0.0:0`, so during interactive commands the port was reachable from the
+  LAN, guarded only by the per-session token. S3 (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind`)
+  binds loopback plus, at most, the one address a verified engine mode routes to the host,
+  refuses `-i` runs in modes without a narrow route before start (exit 1, the error names the opt-in),
+  adds the user-config opt-in `container.tui_server_bind: "all-interfaces"`, and requires
+  the token on every request in constant time. Sonar S5332 there is resolved in SonarCloud
+  as Accepted (real gap tracked as N5/S3; recorded as e13): plain HTTP over loopback or the
+  bridge is by design.
+  Docker Desktop (row 6) keeps its loopback-only plan (design decision 36). Verified
+  2026-11-15 on native Windows only (`probe/row6-probe.ps1` on `win11-devbox`, Docker Desktop
+  4.90.0, engine 29.7.2: loopback reachable, all-interfaces control reachable; design D12).
+  **Not run**, and carried as release Warnings: the WSL2 variant (`probe/row6-probe.sh` in a
+  WSL2 distribution; the VM has no user distribution, installing one is the maintainer's
+  call), Docker Desktop on macOS and Linux, and one native Windows `invowk cmd <x> -i`
+  container run (decision 27, ConPTY through `xpty`, supported by the code and unverified).
+  invowk's own row-6 path (facts query, planner, adapter) has never run on a Docker Desktop
+  host; only unit tests with constructed facts select row 6.
 - **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
   exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
   source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`
@@ -210,6 +222,24 @@ guide ("set `TMPDIR` if needed").
   and fails to load inside the container. Fix: have `internal/discovery` attach the
   intended source ID to load-failure diagnostics. Recorded in
   `openspec/changes/archive/2026-11-15-cli-exit-code-contract/design.md` (Decision 14).
+- **N7 — the SSH host-callback server is unreachable from containers (separate change after
+  S3).** Found 2026-11-14 while specifying S3. `internal/sshserver/server.go:124-127` and
+  `internal/app/commandadapters/host_access.go:52` bind `127.0.0.1`, but containers dial
+  `host.docker.internal`. One real run under rootful Docker 29.9.2 (`enable_host_ssh: true`,
+  `debian:stable-slim`, bash `/dev/tcp` to `$INVOWK_SSH_HOST:$INVOWK_SSH_PORT`) got
+  "Connection refused". The test is vacuous: `tests/cli/testdata/container_callback.txtar`
+  only asserts the env vars. Fix by reusing S3's exposure plan (D1-D2) and add a real
+  reachability test.
+- **(unnumbered; S4 holds N8-N10) — direct `invowk tui` rendering draws into captured
+  stdout.** Found 2026-11-15 in S3's premise check. Without `INVOWK_TUI_ADDR`, a value
+  component builds `tea.NewProgram(model)` without `tea.WithOutput`
+  (`internal/tui/input.go:137`, same shape in `choose`, `filter`, `file`, `write`), so
+  `name=$(invowk tui input)` draws nothing and `$name` holds terminal control sequences
+  in front of the answer, with exit 0. Reproduced on `main` at 3760a4ba in a plain host
+  terminal. The docs show this capture form for `input`, `choose` and `write`. Fix: draw
+  to stderr or `/dev/tty` when stdout is not a terminal, with a tmux test that captures
+  stdout. Fixing it would let S3's refused modes fall back to direct rendering
+  (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind/design.md`, decision 22).
 
 ## Why CST keeps its production paths out of invowk anyway
 

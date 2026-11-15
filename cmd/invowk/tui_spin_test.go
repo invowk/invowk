@@ -84,6 +84,11 @@ func TestRunTUISpinWithRunnerError(t *testing.T) {
 func TestRunTUISpinDelegatesPresentationAndRunsCommandLocally(t *testing.T) {
 	var requests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			// The client's reachability preflight.
+			_, _ = w.Write([]byte("ok"))
+			return
+		}
 		if r.URL.Path != "/tui" {
 			http.NotFound(w, r)
 			return

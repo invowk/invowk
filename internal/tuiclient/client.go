@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -42,6 +43,14 @@ const (
 	ComponentPager Component = tuiwire.ComponentPager
 	// ComponentTable is the TUI component type constant for tables.
 	ComponentTable Component = tuiwire.ComponentTable
+
+	// reachTimeout bounds the connect and the authenticated /health
+	// preflight that precedes every component request. The component request
+	// itself keeps the long overall timeout, because it waits for the user.
+	reachTimeout = 5 * time.Second
+	// healthBodyLimit caps how much of a /health answer is drained so the
+	// connection can be reused for the component request.
+	healthBodyLimit = 512
 )
 
 var (
@@ -49,6 +58,12 @@ var (
 	ErrTUIServerResponse = errors.New("TUI server error")
 	// ErrUserCancelled is returned when a delegated TUI component is cancelled.
 	ErrUserCancelled = tuiwire.ErrUserCancelled
+	// ErrTUIServerUnreachable is returned when the TUI server named by
+	// INVOWK_TUI_ADDR does not answer an authenticated health check within
+	// the reach timeout: a refused or dropped connect, a peer that resets,
+	// closes or stays silent (for example an engine proxy that accepted the
+	// connection but cannot reach the host), or a non-TUI responder.
+	ErrTUIServerUnreachable = errors.New("TUI server unreachable")
 )
 
 type (
@@ -109,6 +124,16 @@ type (
 		addr   URL
 		token  AuthToken
 		client *http.Client
+		// reachTimeout bounds checkReachable.
+		reachTimeout time.Duration
+	}
+
+	// UnreachableError reports a TUI server that did not answer its health check.
+	// It names the address and the container.tui_server_bind opt-in, because
+	// the usual cause is a container engine that does not route to the host.
+	UnreachableError struct {
+		Addr URL
+		Err  error
 	}
 )
 
@@ -135,14 +160,41 @@ func NewClientFromEnv() *Client {
 
 // NewClient creates a new Client with the given server address and token.
 func NewClient(addr URL, token AuthToken) *Client {
+	return newClientWithReachTimeout(addr, token, reachTimeout)
+}
+
+func newClientWithReachTimeout(addr URL, token AuthToken, timeout time.Duration) *Client {
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if ok {
+		transport = transport.Clone()
+	} else {
+		transport = &http.Transport{}
+	}
+	dialer := &net.Dialer{Timeout: timeout}
+	transport.DialContext = dialer.DialContext
+	// The TUI server is always a direct loopback or bridge peer. An
+	// HTTP_PROXY injected into a container (for example by the Docker CLI's
+	// "proxies" setting) would otherwise receive the bearer token.
+	transport.Proxy = nil
 	return &Client{
 		addr:  addr,
 		token: token,
 		client: &http.Client{
-			Timeout: 10 * time.Minute, // Long timeout for user interaction
+			Transport: transport,
+			Timeout:   10 * time.Minute, // Long timeout for user interaction
 		},
+		reachTimeout: timeout,
 	}
 }
+
+// Error implements error.
+func (e *UnreachableError) Error() string {
+	return fmt.Sprintf("%s at %s: %v; if this runs in a container, its engine may not route to the host: "+
+		"set container.tui_server_bind: \"all-interfaces\" in the invowk config to restore the wide bind", ErrTUIServerUnreachable, e.Addr, e.Err)
+}
+
+// Unwrap returns ErrTUIServerUnreachable and the underlying error.
+func (e *UnreachableError) Unwrap() []error { return []error{ErrTUIServerUnreachable, e.Err} }
 
 // IsAvailable checks if the TUI server is available.
 func (c *Client) IsAvailable() bool {
@@ -160,17 +212,7 @@ func (c *Client) IsAvailableContext(ctx context.Context) bool {
 		ctx = context.Background()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.addr.String()+"/health", http.NoBody)
-	if err != nil {
-		return false
-	}
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }() // Health check; close error non-critical
-
-	return resp.StatusCode == http.StatusOK
+	return c.checkReachable(ctx) == nil
 }
 
 // Input sends an input prompt request to the TUI server.
@@ -471,6 +513,43 @@ func (c *Client) TableContext(ctx context.Context, opts TableRequest) (*TableRes
 	return &result, nil
 }
 
+// checkReachable sends an authenticated GET /health bounded by the reach
+// timeout. The server answers it at once, so a transport error or a timeout
+// here means the address does not lead to a working server: it becomes an
+// UnreachableError. A 401 stays a plain server error, and the caller's own
+// cancellation is returned as such. Callers pass a non-nil ctx.
+func (c *Client) checkReachable(ctx context.Context) error {
+	reachCtx, cancel := context.WithTimeout(ctx, c.reachTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reachCtx, http.MethodGet, c.addr.String()+"/health", http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create health request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+string(c.token))
+	resp, err := c.client.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("TUI server health check: %w", err)
+		}
+		return &UnreachableError{Addr: c.addr, Err: err}
+	}
+	defer func() { _ = resp.Body.Close() }() // Health check; close error non-critical
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, healthBodyLimit))
+	if readErr != nil && resp.StatusCode == http.StatusOK {
+		return &UnreachableError{Addr: c.addr, Err: fmt.Errorf("read health answer: %w", readErr)}
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusUnauthorized:
+		return fmt.Errorf("server error (%d): %s", resp.StatusCode, string(body))
+	default:
+		return &UnreachableError{Addr: c.addr, Err: fmt.Errorf("health check answered %d, not 200 from a TUI server", resp.StatusCode)}
+	}
+}
+
 // sendRequestContext sends a TUI request to the server and returns the response.
 //
 //nolint:contextcheck // nil context is accepted for request helper compatibility.
@@ -493,6 +572,12 @@ func (c *Client) sendRequestContext(ctx context.Context, component Component, op
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	// The component request waits for the user, so only a preflight can
+	// bound how long a dead or silent route takes to fail.
+	if reachErr := c.checkReachable(ctx); reachErr != nil {
+		return nil, reachErr
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.addr.String()+"/tui", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
@@ -503,7 +588,7 @@ func (c *Client) sendRequestContext(ctx context.Context, component Component, op
 
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", c.classifyDialError(err))
 	}
 	defer func() {
 		if closeErr := httpResp.Body.Close(); closeErr != nil && err == nil {
@@ -530,4 +615,13 @@ func (c *Client) sendRequestContext(ctx context.Context, component Component, op
 	}
 
 	return &resp, nil
+}
+
+// classifyDialError wraps connect failures in UnreachableError and returns
+// other errors unchanged.
+func (c *Client) classifyDialError(err error) error {
+	if opErr, ok := errors.AsType[*net.OpError](err); ok && opErr.Op == "dial" {
+		return &UnreachableError{Addr: c.addr, Err: err}
+	}
+	return err
 }

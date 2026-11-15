@@ -77,6 +77,9 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		Interactive: true, // Enable -i for PTY
 		TTY:         true, // Enable -t for PTY
 		ExtraHosts:  prep.extraHosts,
+		// A TUI exposure plan may need a network mode for a new container
+		// (pasta:-T,<port>); exec into a persistent container never gets one.
+		NetworkMode: ctx.TUI.NetworkMode,
 	}
 	if validateErr := runOpts.Validate(); validateErr != nil {
 		return nil, fmt.Errorf("container run options: %w", validateErr)

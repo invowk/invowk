@@ -8,7 +8,7 @@
 
 1. Docs-only PR #165: the formal check skipped Setup Go and every formal step ("affected: 0 of 14 changed paths") and reported success.
 2. The maintainer made `Models, golden vectors, and correspondence` a required check of the "Safety" ruleset, so the "only `goplint consumer gates`" bullet below is historical.
-3. Gates re-verified on main 6002b8cf. These pass: tidy, license-check, lint, test-scripts, check-file-length, `make test` (2:01, `-race` CLI), the goplint routed gate and baseline, `make formal` (174 verdicts) plus `make formal-traces` (208 traces, 24 mutations), and the artifacts check. `lint-scripts` has 7 pre-existing info-level findings. `sonar-local` on main failed on the go:S5332 false positive, which the separate e13 suppression PR addresses. 8.5 and 10.1–10.8 are ticked.
+3. Gates re-verified on main 6002b8cf. These pass: tidy, license-check, lint, test-scripts, check-file-length, `make test` (2:01, `-race` CLI), the goplint routed gate and baseline, `make formal` (174 verdicts) plus `make formal-traces` (208 traces, 24 mutations), and the artifacts check. `lint-scripts` has 7 pre-existing info-level findings. `sonar-local` on main failed on go:S5332 (Accepted; real gap N5/S3), which the separate e13 suppression PR addresses. 8.5 and 10.1–10.8 are ticked.
 4. `promote-formal-ci-gate` 0.1, 5.2 and 5.3 are ticked.
 5. `/learn` was not run: the 2026-11-14 agent-docs optimisation (#164) supersedes it (5.4, 7.10, 10.8).
 6. The seven changes were archived in merge order. The eight new main specs got real Purposes and were split to pass `openspec validate --specs --strict`. The PR is left to the coordinator.

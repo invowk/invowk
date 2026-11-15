@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -140,6 +141,11 @@ type (
 		// When set, runtimes should include this in the command's environment
 		// as INVOWK_TUI_TOKEN.
 		ServerToken TUIServerToken
+		// NetworkMode is the container network mode a TUI exposure plan needs
+		// for a new container (pasta:-T,<port> under rootless Podman). Empty
+		// keeps the engine default. It never applies to exec into a
+		// persistent container.
+		NetworkMode container.NetworkMode
 	}
 
 	//goplint:validate-all
@@ -358,6 +364,14 @@ func CaptureIO() (ioCtx IOContext, stdout, stderr *bytes.Buffer) {
 	return ioCtx, stdout, stderr
 }
 
+// StderrOrDefault returns Stderr, or os.Stderr when it is unset.
+func (c IOContext) StderrOrDefault() io.Writer {
+	if c.Stderr != nil {
+		return c.Stderr
+	}
+	return os.Stderr
+}
+
 // DefaultEnv returns an EnvContext with an initialized ExtraEnv map.
 func DefaultEnv() EnvContext {
 	return EnvContext{
@@ -381,14 +395,17 @@ func (t TUIContext) IsConfigured() bool {
 }
 
 // Validate returns nil if the TUIContext has valid fields, or a validation error if not.
-// It delegates to ServerURL.Validate() and ServerToken.Validate().
-// Both fields are zero-valid, so a zero-value TUIContext is valid.
+// It delegates to ServerURL.Validate(), ServerToken.Validate() and NetworkMode.Validate().
+// All fields are zero-valid, so a zero-value TUIContext is valid.
 func (t TUIContext) Validate() error {
 	var errs []error
 	if err := t.ServerURL.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := t.ServerToken.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := t.NetworkMode.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
