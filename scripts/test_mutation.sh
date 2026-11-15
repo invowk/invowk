@@ -7,12 +7,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INVOWK_MUTATION_TESTING=1
 export INVOWK_MUTATION_TESTING
+# Fixture repositories must never resolve to this checkout through an
+# inherited git environment (for example when run from a git hook).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR
 
 # shellcheck source=mutation.sh
 source "$SCRIPT_DIR/mutation.sh"
 
 PASS=0
 FAIL=0
+
+# sha256_stdin prints the SHA-256 of stdin (macOS has shasum, not sha256sum).
+sha256_stdin() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum
+	else
+		shasum -a 256
+	fi | cut -d' ' -f1
+}
 
 record_pass() {
 	PASS=$((PASS + 1))
@@ -172,31 +184,71 @@ test_interrupt_status_detection() {
 	fi
 }
 
-test_untracked_cleanup_preserves_existing_files() {
-	local existing_path
-	local new_path
+# The restore helpers revert tracked sources and delete files, so every test
+# that exercises them runs against a throwaway repository (make_fixture_repo)
+# through a function-local REPO_ROOT, never against this checkout.
+# make_fixture_repo DIR creates a git repository with one committed file under
+# each mutation source path (cmd, internal, pkg).
+make_fixture_repo() {
+	local dir="$1"
 
-	existing_path="internal/agentcmd/.mutation-existing-$$"
-	new_path="internal/agentcmd/.mutation-generated-$$"
-	rm -f -- "$REPO_ROOT/$existing_path" "$REPO_ROOT/$new_path"
-	trap 'rm -f -- "$REPO_ROOT/$existing_path" "$REPO_ROOT/$new_path"; [[ -n "${MUTATION_CLEANUP_DIR:-}" ]] && rm -rf "$MUTATION_CLEANUP_DIR"' RETURN
+	mkdir -p "$dir/cmd/app" "$dir/internal/agentcmd" "$dir/pkg/lib"
+	printf 'package main\n' >"$dir/cmd/app/main.go"
+	printf 'package agentcmd\n' >"$dir/internal/agentcmd/agentcmd.go"
+	printf 'package lib\n' >"$dir/pkg/lib/lib.go"
+	git -C "$dir" init -q
+	git -C "$dir" config user.email test@example.com
+	git -C "$dir" config user.name Test
+	git -C "$dir" config commit.gpgsign false
+	git -C "$dir" config core.hooksPath /dev/null
+	git -C "$dir" add -A
+	git -C "$dir" commit -qm init
+}
+
+# make_dirty_fixture_repo DIR adds uncommitted work under every source path:
+# an unstaged edit, a staged edit, and an untracked file.
+make_dirty_fixture_repo() {
+	local dir="$1"
+
+	make_fixture_repo "$dir"
+	printf '// unstaged work\n' >>"$dir/cmd/app/main.go"
+	printf '// staged work\n' >>"$dir/pkg/lib/lib.go"
+	git -C "$dir" add pkg/lib/lib.go
+	printf 'untracked work\n' >"$dir/internal/agentcmd/notes.txt"
+}
+
+# repo_state DIR prints everything a destructive restore could change.
+repo_state() {
+	local dir="$1"
+
+	git -C "$dir" diff --binary
+	git -C "$dir" diff --cached --binary
+	git -C "$dir" status --porcelain --untracked-files=all
+}
+
+test_untracked_cleanup_preserves_existing_files() {
+	local tmp
+	local REPO_ROOT
+	local MUTATION_CLEANUP_DIR
+	local MUTATION_RESTORE_ARMED_ROOT=""
+	local existing_path="internal/agentcmd/.mutation-existing"
+	local new_path="internal/agentcmd/.mutation-generated"
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	REPO_ROOT="$tmp/repo"
+	MUTATION_CLEANUP_DIR="$tmp/cleanup"
+	mkdir -p "$MUTATION_CLEANUP_DIR"
+	make_fixture_repo "$REPO_ROOT"
+	ensure_clean_tracked_worktree_for_mutation
 
 	printf 'existing\n' >"$REPO_ROOT/$existing_path"
 	snapshot_untracked_paths root
 	printf 'generated\n' >"$REPO_ROOT/$new_path"
 	remove_new_untracked_paths root
 
-	if [[ -f "$REPO_ROOT/$existing_path" ]]; then
-		record_pass
-	else
-		record_fail "untracked cleanup preserves pre-existing files" "$existing_path was removed"
-	fi
-
-	if [[ -e "$REPO_ROOT/$new_path" ]]; then
-		record_fail "untracked cleanup removes generated files" "$new_path was left behind"
-	else
-		record_pass
-	fi
+	assert_file_exists "untracked cleanup preserves pre-existing files" "$REPO_ROOT/$existing_path"
+	assert_file_missing "untracked cleanup removes generated files" "$REPO_ROOT/$new_path"
 }
 
 test_tool_report_collection() {
@@ -235,26 +287,153 @@ test_tool_report_collection() {
 
 test_tool_report_collection_before_untracked_cleanup() {
 	local tmp
-	local workdir
+	local REPO_ROOT
+	local MUTATION_CLEANUP_DIR
+	local MUTATION_RESTORE_ARMED_ROOT=""
 	local report_dir
 	local report
 
 	tmp="$(mktemp -d)"
-	trap 'rm -rf "$tmp"; rm -f -- "$REPO_ROOT/go-mutesting-summary.json"; [[ -n "${MUTATION_CLEANUP_DIR:-}" ]] && rm -rf "$MUTATION_CLEANUP_DIR"' RETURN
-	workdir="$REPO_ROOT"
+	trap 'rm -rf "$tmp"' RETURN
+	REPO_ROOT="$tmp/repo"
+	MUTATION_CLEANUP_DIR="$tmp/cleanup"
 	report_dir="$tmp/reports"
-	report="$workdir/go-mutesting-summary.json"
-	mkdir -p "$report_dir"
+	report="$REPO_ROOT/go-mutesting-summary.json"
+	mkdir -p "$MUTATION_CLEANUP_DIR" "$report_dir"
+	make_fixture_repo "$REPO_ROOT"
+	ensure_clean_tracked_worktree_for_mutation
+	assert_eq "a clean checkout arms the restore" "$(cd "$REPO_ROOT" && pwd -P)" "$MUTATION_RESTORE_ARMED_ROOT"
 
 	snapshot_untracked_paths root
+	# What a mutation run leaves behind: a mutated tracked source, a new
+	# untracked file under a source path, and the tool's root-level report.
+	printf '// mutant\n' >>"$REPO_ROOT/internal/agentcmd/agentcmd.go"
+	printf 'generated\n' >"$REPO_ROOT/pkg/lib/.mutation-generated"
+	printf 'outside the source paths\n' >"$REPO_ROOT/notes.txt"
 	printf '{"totalMutantsCount":1}\n' >"$report"
 	restore_tracked_mutation_paths root
-	collect_tool_reports "$workdir" "$report_dir"
+	collect_tool_reports "$REPO_ROOT" "$report_dir"
 	remove_new_untracked_paths root
 
 	assert_file_exists "collects module report before cleanup" "$report_dir/go-mutesting-summary.json"
 	assert_file_missing "removes module workdir report after collection" "$report"
 	assert_file_contains "preserves module report content" '"totalMutantsCount":1' "$report_dir/go-mutesting-summary.json"
+	assert_eq "restore reverts the mutated tracked source" "package agentcmd" "$(cat "$REPO_ROOT/internal/agentcmd/agentcmd.go")"
+	assert_file_missing "untracked cleanup removes files new under a source path" "$REPO_ROOT/pkg/lib/.mutation-generated"
+	assert_eq "restore and cleanup leave only untracked files outside the source paths" \
+		"?? notes.txt" "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=all)"
+}
+
+# run_guard_probe REPO SNIPPET runs SNIPPET in a fresh bash that sourced
+# mutation.sh with REPO_ROOT=REPO, so a hard failure (exit) cannot end this
+# test run. It prints the exit status; stderr goes to $GUARD_PROBE_STDERR. The
+# probe's temporary directories (mutation.sh's cleanup dir, which a refused
+# cleanup leaves behind) go under $GUARD_PROBE_TMPDIR, inside the caller's
+# temporary directory, so no run leaks one into the system TMPDIR.
+run_guard_probe() {
+	local repo="$1"
+	local snippet="$2"
+	local status
+
+	mkdir -p "$GUARD_PROBE_TMPDIR"
+	set +e
+	TMPDIR="$GUARD_PROBE_TMPDIR" INVOWK_MUTATION_TESTING=1 bash -c '
+		set -euo pipefail
+		source "$1"
+		REPO_ROOT="$2"
+		eval "$3"
+	' guard-probe "$SCRIPT_DIR/mutation.sh" "$repo" "$snippet" 2>"$GUARD_PROBE_STDERR"
+	status=$?
+	set -e
+	printf '%s\n' "$status"
+}
+
+test_restore_guard_refuses_unarmed_checkouts() {
+	local tmp
+	local dirty
+	local clean
+	local before
+	local GUARD_PROBE_STDERR
+	local GUARD_PROBE_TMPDIR
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	GUARD_PROBE_STDERR="$tmp/stderr"
+	GUARD_PROBE_TMPDIR="$tmp/probe-tmp"
+	dirty="$tmp/dirty"
+	clean="$tmp/clean"
+	make_dirty_fixture_repo "$dirty"
+	make_fixture_repo "$clean"
+	before="$(repo_state "$dirty")"
+	# Stands in for the system TMPDIR: a refused cleanup must not leak its
+	# cleanup directory into it.
+	local -x TMPDIR="$tmp/outer-tmp"
+	mkdir -p "$TMPDIR"
+
+	assert_eq "unarmed tracked restore fails hard" "1" \
+		"$(run_guard_probe "$dirty" 'restore_tracked_mutation_paths root; echo reached >&2')"
+	assert_file_contains "unarmed tracked restore says why" "refusing to restore tracked root sources" "$GUARD_PROBE_STDERR"
+	if grep -Fq reached "$GUARD_PROBE_STDERR"; then
+		record_fail "unarmed tracked restore stops the caller" "execution continued after the refusal"
+	else
+		record_pass
+	fi
+
+	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+	assert_eq "unarmed untracked cleanup fails hard" "1" \
+		"$(run_guard_probe "$dirty" 'snapshot_untracked_paths root; printf new >"$REPO_ROOT/cmd/app/new.go"; remove_new_untracked_paths root')"
+	assert_file_contains "unarmed untracked cleanup says why" "refusing to remove new untracked root files" "$GUARD_PROBE_STDERR"
+	assert_file_exists "unarmed untracked cleanup deletes nothing" "$dirty/cmd/app/new.go"
+	assert_eq "a refused cleanup leaks no temporary directory" "" "$(ls -A "$TMPDIR")"
+	rm -f "$dirty/cmd/app/new.go"
+
+	assert_eq "a dirty checkout refuses to arm" "1" \
+		"$(run_guard_probe "$dirty" 'ensure_clean_tracked_worktree_for_mutation')"
+	assert_eq "the environment cannot pre-arm the restore" "1" \
+		"$(MUTATION_RESTORE_ARMED_ROOT="$(cd "$dirty" && pwd -P)" run_guard_probe "$dirty" 'restore_tracked_mutation_paths root')"
+	assert_eq "arming one checkout does not arm another" "1" \
+		"$(run_guard_probe "$clean" "ensure_clean_tracked_worktree_for_mutation; REPO_ROOT='$dirty'; restore_tracked_mutation_paths root")"
+	assert_eq "unarmed calls change nothing in a dirty checkout" "$before" "$(repo_state "$dirty")"
+
+	ln -s "$clean" "$tmp/clean-link"
+	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+	assert_eq "the armed root is compared after resolving symlinks" "0" \
+		"$(run_guard_probe "$tmp/clean-link" 'ensure_clean_tracked_worktree_for_mutation; printf "// mutant\n" >>"$REPO_ROOT/cmd/app/main.go"; restore_tracked_mutation_paths root')"
+	assert_eq "an armed restore reverts the mutated source" "package main" "$(cat "$clean/cmd/app/main.go")"
+}
+
+test_cleanup_trap_preserves_exit_status() {
+	local tmp
+	local dirty
+	local clean
+	local before
+	local GUARD_PROBE_STDERR
+	local GUARD_PROBE_TMPDIR
+	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+	local trap_setup='MUTATION_RESTORE_MODULES=(root); MUTATION_CLEANUP_DIR="$(mktemp -d)"; trap cleanup_mutation_paths EXIT'
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	GUARD_PROBE_STDERR="$tmp/stderr"
+	GUARD_PROBE_TMPDIR="$tmp/probe-tmp"
+	dirty="$tmp/dirty"
+	clean="$tmp/clean"
+	make_dirty_fixture_repo "$dirty"
+	make_fixture_repo "$clean"
+	before="$(repo_state "$dirty")"
+
+	assert_eq "an unarmed trap keeps the exit status" "7" \
+		"$(run_guard_probe "$dirty" "$trap_setup; exit 7")"
+	assert_file_contains "an unarmed trap logs a loud no-op" "mutation cleanup did NOT restore tracked root sources" "$GUARD_PROBE_STDERR"
+	assert_eq "an unarmed trap changes nothing" "$before" "$(repo_state "$dirty")"
+	assert_eq "an unarmed trap keeps a zero exit status" "0" \
+		"$(run_guard_probe "$dirty" "$trap_setup; exit 0")"
+
+	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
+	assert_eq "an armed trap keeps the exit status" "7" \
+		"$(run_guard_probe "$clean" 'ensure_clean_tracked_worktree_for_mutation; '"$trap_setup"'; printf "// mutant\n" >>"$REPO_ROOT/pkg/lib/lib.go"; exit 7')"
+	assert_eq "an armed trap restores the mutated source" "package lib" "$(cat "$clean/pkg/lib/lib.go")"
+	assert_eq "the cleanup trap removes its temporary directory" "" "$(ls -A "$GUARD_PROBE_TMPDIR")"
 }
 
 test_dirty_path_policy() {
@@ -552,7 +731,7 @@ test_formal_rerun_evidence() {
 	assert_eq "rerun evidence appends one record per rerun" "2" "$(wc -l <"$tmp/reruns.jsonl" | tr -d ' ')"
 	assert_file_contains "rerun evidence records the status" '"status": "escaped"' "$tmp/reruns.jsonl"
 	assert_file_contains "rerun evidence records the input digest" \
-		"\"digest\": \"$(printf 'a.go\0A' | sha256sum | cut -d' ' -f1)\"" "$tmp/reruns.jsonl"
+		"\"digest\": \"$(printf 'a.go\0A' | sha256_stdin)\"" "$tmp/reruns.jsonl"
 }
 
 test_formal_dirty_path_policy() {
@@ -569,6 +748,8 @@ test_interrupt_status_detection
 test_untracked_cleanup_preserves_existing_files
 test_tool_report_collection
 test_tool_report_collection_before_untracked_cleanup
+test_restore_guard_refuses_unarmed_checkouts
+test_cleanup_trap_preserves_exit_status
 test_dirty_path_policy
 test_root_target_resolution
 test_rapid_determinism_env

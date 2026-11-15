@@ -47,9 +47,11 @@ test_subject_extraction() {
 }
 
 test_invalid_tokens_fail() {
+	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
 	assert_rejects "rejects malformed JWT" env BENCHER_API_TOKEN="not-a-jwt" bash -c \
 		'source "$BENCHER_LOGIN_SCRIPT"; bencher_api_token_subject'
 
+	# shellcheck disable=SC2016 # expanded by the shell that runs the snippet
 	assert_rejects "rejects JWT without subject" env BENCHER_API_TOKEN="header.$(printf '{}' | base64 -w0).signature" bash -c \
 		'source "$BENCHER_LOGIN_SCRIPT"; bencher_api_token_subject'
 }

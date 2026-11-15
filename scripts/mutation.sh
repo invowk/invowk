@@ -26,6 +26,17 @@ PYTHON="${PYTHON:-python3}"
 GO_MUTESTING_BIN=""
 MUTATION_RESTORE_MODULES=()
 MUTATION_CLEANUP_DIR=""
+# The restore helpers below revert tracked sources and delete new untracked
+# files. They act only on the checkout whose resolved path
+# ensure_clean_tracked_worktree_for_mutation verified clean when the run
+# started (it "arms" the restore), so they never act on a checkout that held
+# uncommitted source work at that point. The check is not repeated: edits made
+# under cmd/, internal/ or pkg/ in this checkout DURING a run are reverted with
+# the mutants, so do not edit there while a run is in progress. Both values
+# are reset here and never exported, so the environment cannot pre-arm them.
+MUTATION_RESTORE_ARMED_ROOT=""
+MUTATION_IN_CLEANUP_TRAP=0
+export -n MUTATION_RESTORE_ARMED_ROOT MUTATION_IN_CLEANUP_TRAP
 
 usage() {
 	cat <<'EOF'
@@ -329,10 +340,18 @@ dirty_path_is_allowed() {
 	esac
 }
 
+# resolved_repo_root prints REPO_ROOT with every symlink resolved.
+resolved_repo_root() {
+	(cd -- "$REPO_ROOT" 2>/dev/null && pwd -P)
+}
+
 ensure_clean_tracked_worktree_for_mutation() {
 	local path
+	local resolved
 	local -a dirty_paths=()
+	local -a source_paths=()
 
+	MUTATION_RESTORE_ARMED_ROOT=""
 	while IFS= read -r path; do
 		[[ -z "$path" ]] && continue
 		if ! dirty_path_is_allowed "$path"; then
@@ -346,6 +365,41 @@ ensure_clean_tracked_worktree_for_mutation() {
 		printf '  %s\n' "${dirty_paths[@]}" >&2
 		exit 1
 	fi
+
+	# Arm the restore only when the paths it reverts are provably clean. This
+	# also fails closed when REPO_ROOT is not a git checkout, which the
+	# name-only listing above would silently accept.
+	mapfile -t source_paths < <(mutation_source_paths root)
+	if ! git -C "$REPO_ROOT" diff --quiet -- "${source_paths[@]}" ||
+		! git -C "$REPO_ROOT" diff --cached --quiet -- "${source_paths[@]}"; then
+		die "refusing to arm the mutation restore: ${source_paths[*]} have staged or unstaged changes in $REPO_ROOT (or it is not a git checkout)"
+	fi
+	resolved="$(resolved_repo_root)" || die "cannot resolve the repository root: $REPO_ROOT"
+	MUTATION_RESTORE_ARMED_ROOT="$resolved"
+}
+
+# require_armed_restore ACTION guards every destructive restore command. It
+# returns 0 when the restore is armed for the resolved REPO_ROOT. Otherwise,
+# inside cleanup_mutation_paths (the EXIT/INT/TERM trap) it logs a loud no-op
+# and returns 1 so the caller skips its command and the original exit status
+# survives; called directly, it exits non-zero.
+require_armed_restore() {
+	local action="$1"
+	local resolved
+
+	resolved="$(resolved_repo_root)" || resolved=""
+	if [[ -n "$MUTATION_RESTORE_ARMED_ROOT" && "$resolved" == "$MUTATION_RESTORE_ARMED_ROOT" ]]; then
+		return 0
+	fi
+	if [[ "$MUTATION_IN_CLEANUP_TRAP" == "1" ]]; then
+		printf 'WARNING: mutation cleanup did NOT %s in %s: the restore is not armed for this checkout, so nothing was changed.\n' \
+			"$action" "${resolved:-$REPO_ROOT}" >&2
+		return 1
+	fi
+	printf 'ERROR: refusing to %s in %s: the restore is not armed for this checkout.\n' "$action" "${resolved:-$REPO_ROOT}" >&2
+	printf '       Only a checkout that ensure_clean_tracked_worktree_for_mutation verified clean may be restored;\n' >&2
+	printf '       restoring any other checkout would discard uncommitted work.\n' >&2
+	exit 1
 }
 
 register_restore_module() {
@@ -393,6 +447,7 @@ remove_new_untracked_paths() {
 	local path
 	local -a source_paths=()
 
+	require_armed_restore "remove new untracked $module files" || return 0
 	[[ -n "$MUTATION_CLEANUP_DIR" ]] || return 0
 	snapshot="$MUTATION_CLEANUP_DIR/$module.untracked.before"
 	[[ -f "$snapshot" ]] || return 0
@@ -409,6 +464,7 @@ remove_new_untracked_paths() {
 restore_tracked_mutation_paths() {
 	local module="$1"
 
+	require_armed_restore "restore tracked $module sources" || return 0
 	case "$module" in
 		root)
 			git -C "$REPO_ROOT" restore --worktree -- cmd internal pkg >/dev/null 2>&1 || true
@@ -423,15 +479,21 @@ restore_mutation_paths() {
 	remove_new_untracked_paths "$module"
 }
 
+# cleanup_mutation_paths is the EXIT/INT/TERM trap. It returns the status it
+# was entered with, so a skipped (unarmed) restore never changes the exit code.
 cleanup_mutation_paths() {
+	local status=$?
 	local module
 
+	MUTATION_IN_CLEANUP_TRAP=1
 	for module in "${MUTATION_RESTORE_MODULES[@]}"; do
 		restore_mutation_paths "$module"
 	done
 	if [[ -n "$MUTATION_CLEANUP_DIR" ]]; then
 		rm -rf "$MUTATION_CLEANUP_DIR"
 	fi
+	MUTATION_IN_CLEANUP_TRAP=0
+	return "$status"
 }
 
 interrupted_status() {

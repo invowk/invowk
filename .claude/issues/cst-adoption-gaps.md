@@ -219,3 +219,48 @@ rule and user-session daemons as plain executables: those paths must not depend 
 extra runtime that can change underneath them. The realistic adoption path is invowk for
 dev/CI (works today) and, after S1, C1–C4, an optional user-facing layer that forwards to
 the existing programs.
+
+## Flaky tests
+
+Recorded, not fixed. Each passed on a rerun with no code change.
+
+### `TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen` (`internal/sshserver`)
+
+Found 2026-11-15 on PR #174. Lane "Models, golden vectors, and correspondence", step
+"Replay golden vectors and property tests" of `formal-verification.yml`, run
+[43670064960](https://github.com/invowk/invowk/actions/runs/43670064960), attempt 1, head
+`dac3acf7`, ubuntu. Attempt 2 of the job passed. PR #174 changes no Go code.
+
+```
+INFO ssh-server: SSH server started address=127.0.0.1:41749
+INFO ssh-server: SSH server started address=127.0.0.1:34379
+INFO ssh-server: SSH server stopped
+INFO ssh-server: SSH server stopped
+--- FAIL: TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen (0.04s)
+    token_formal_test.go:152: Stop() error = <nil>, want context.DeadlineExceeded while a connection is open
+FAIL
+FAIL	github.com/invowk/invowk/internal/sshserver	0.053s
+```
+
+`Stop()` returned nil although the test expects the open authenticated connection to hold
+it until `context.DeadlineExceeded`. The cause is not investigated; the 0.04 s run suggests
+the connection was not yet (or no longer) tracked when `Stop()` ran.
+
+### `TestSyncFreshCacheReproducesLockedHash` (`internal/app/modulesync`)
+
+Found 2026-11-15 on PR #163. Job "Test (windows)", step "Run tests (short)" of `ci.yml`,
+run [43658445060](https://github.com/invowk/invowk/actions/runs/43658445060), attempt 1,
+head `d6846a2b`, windows-latest. It failed in the first gotestsum pass and passed in
+gotestsum's re-run in the same step (the job failed for other, real failures:
+`TestModulePathContainment_F16Junction` and `TestModulePathContainment_Property`).
+
+```
+=== FAIL: internal/app/modulesync TestSyncFreshCacheReproducesLockedHash (0.26s)
+    resolver_integrity_test.go:122: lock file changed although the locked version reproduced its content
+...
+ ✖ Sync fresh cache reproduces locked hash (0.26s)
+ ✓ Sync fresh cache reproduces locked hash (0.09s)
+```
+
+The test expects the lock file to stay byte-identical when the locked version reproduces
+its hash; once, on Windows, it did not. The cause is not investigated.

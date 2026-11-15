@@ -482,7 +482,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/mutation-formal-exec.sh scripts/test_mutation.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh scripts/goplint.sh scripts/goplint-consumer-smoke.sh scripts/goplint-consumer-routed.sh
+	shellcheck -x -P SCRIPTDIR scripts/install.sh scripts/release.sh scripts/release-notes.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh scripts/golangci-lint.sh scripts/test_golangci_lint.sh scripts/govulncheck-all.sh scripts/test_govulncheck_all.sh scripts/mutation.sh scripts/mutation-formal-exec.sh scripts/test_mutation.sh scripts/script-tests.sh scripts/check-script-tests-worktree-safety.sh scripts/test_check_script_tests_worktree_safety.sh scripts/bencher-registry-login.sh scripts/test_bencher_registry_login.sh scripts/test_release.sh scripts/goplint.sh scripts/goplint-consumer-smoke.sh scripts/goplint-consumer-routed.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -503,41 +503,20 @@ check-file-length:
 check-agent-docs:
 	./scripts/check-agent-docs.sh
 
-# Run install script unit tests (POSIX only; PowerShell tests run on Windows CI)
-.PHONY: test-scripts
+# Run the script tests. The single list is scripts/script-tests.sh (it also
+# fails when a script test file anywhere in the repository is missing from it).
+# test-scripts runs that list inside a throwaway repository guarded by canaries
+# and fails (exit 3) if any test discarded or created work, or changed git
+# config, refs or the stash, in a checkout; CI runs this target.
+# test-scripts-unguarded runs the same list directly in this checkout, still
+# fingerprinted before and after (exit 3 plus recovery commands on a change).
+# PowerShell tests (scripts/test_install.ps1) run on Windows CI only.
+.PHONY: test-scripts test-scripts-unguarded
 test-scripts:
-	@echo "Running shell script tests..."
-	sh scripts/test_install.sh
-	@echo ""
-	@echo "Running release helper script tests..."
-	bash scripts/test_release.sh
-	@echo ""
-	@echo "Running Bencher BMF script tests..."
-	node scripts/test_bench_bmf.mjs
-	@echo ""
-	@echo "Running Bencher registry login script tests..."
-	bash scripts/test_bencher_registry_login.sh
-	@echo ""
-	@echo "Running golangci-lint wrapper script tests..."
-	bash scripts/test_golangci_lint.sh
-	@echo ""
-	@echo "Running govulncheck wrapper script tests..."
-	bash scripts/test_govulncheck_all.sh
-	@echo ""
-	@echo "Running mutation wrapper script tests..."
-	bash scripts/test_mutation.sh
-	@echo ""
-	@echo "Running formal-verification runner tests..."
-	python3 scripts/test_formal.py
-	@echo ""
-	@echo "Running formal promotion-gate tests..."
-	python3 scripts/test_formal_promotion_gate.py
-	@echo ""
-	@echo "Running formal-bindings mutation tests and triage ledger check..."
-	python3 scripts/test_formal_mutation.py
-	python3 scripts/formal_mutation.py triage --check
-	@echo ""
-	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
+	./scripts/check-script-tests-worktree-safety.sh
+
+test-scripts-unguarded:
+	./scripts/check-script-tests-worktree-safety.sh --in-place
 
 # Install pre-commit hooks
 .PHONY: install-hooks
@@ -721,7 +700,8 @@ help:
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Fail on SonarCloud quality gate or unresolved issues (API-only)"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
-	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
+	@echo "  test-scripts     Run all script tests in a throwaway repository behind the worktree-safety gate (PS1 on Windows CI)"
+	@echo "  test-scripts-unguarded Run the same script tests in this checkout, fingerprinted before and after"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
 	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help             Show this help message"

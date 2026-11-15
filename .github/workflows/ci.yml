@@ -263,34 +263,9 @@ jobs:
           BENCH_REGEX='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$'
           go test ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime=1x -count=1
 
-      # Run install script unit tests (pure function tests, no network calls).
-      # Only on Linux — the POSIX install script is not applicable on Windows/macOS CI.
-      - name: Run install script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: sh scripts/test_install.sh
-
-      - name: Run release helper script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: bash scripts/test_release.sh
-
-      - name: Setup Node.js
-        if: startsWith(matrix.runner, 'ubuntu')
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - name: Run Bencher BMF script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: node scripts/test_bench_bmf.mjs
-
-      - name: Run Bencher registry login script tests
-        if: startsWith(matrix.runner, 'ubuntu')
-        shell: bash
-        run: bash scripts/test_bencher_registry_login.sh
-
+      # The POSIX script tests (scripts/script-tests.sh) run behind the
+      # worktree-safety gate in lint.yml's "script tests (worktree-safety
+      # gate)" job, on every PR; only the PowerShell ones run here.
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)
         if: matrix.os == 'windows'
