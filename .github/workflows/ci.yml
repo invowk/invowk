@@ -76,9 +76,10 @@ jobs:
             runner: ubuntu-latest
             engine: podman
             test-mode: full
-            # restrict-tui-server-bind D2 row: 11 with a pasta executable,
-            # 12 without (see the "podman network backend" line in Setup Podman).
-            tui-plan-row: "12"
+            # restrict-tui-server-bind D2 row: 11 = rootless Podman with pasta.
+            # The first run's "podman network backend" line (2026-11-15, run
+            # 43677325230) reported true|pasta|false|/usr/bin/pasta.
+            tui-plan-row: "11"
 
           # Windows (unit tests only - container runtime requires Linux)
           - os: windows

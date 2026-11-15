@@ -29,7 +29,7 @@ Under local rootful Docker on Linux whose default bridge gateway is assigned to 
 - **THEN** invowk SHALL run the command without a TUI server and print one warning that names `container.tui_server_bind`
 
 ### Requirement: Rootless Podman uses a single forwarded port
-For an ephemeral container under local rootless Podman with a pasta binary, the TUI server SHALL listen on `127.0.0.1` only, and the container SHALL run with `--network=pasta:-T,<port>`. `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>`, and the container SHALL gain no other route to host loopback. This plan is verified on a local rootless Podman host; CI verifies it only when the Podman runner reports a pasta executable.
+For an ephemeral container under local rootless Podman with a pasta binary, the TUI server SHALL listen on `127.0.0.1` only, and the container SHALL run with `--network=pasta:-T,<port>`. `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>`, and the container SHALL gain no other route to host loopback. This plan is verified on a local rootless Podman 6 host and in the CI Podman job, whose runner reports a pasta executable.
 
 #### Scenario: Ephemeral rootless Podman run
 - **WHEN** an interactive container command runs a new container under rootless Podman with pasta
