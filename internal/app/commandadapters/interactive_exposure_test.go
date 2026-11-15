@@ -5,6 +5,7 @@ package commandadapters
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/netip"
@@ -97,7 +98,7 @@ func authedHealth(t *testing.T, tuiCtx runtime.TUIContext, host string) int {
 	return resp.StatusCode
 }
 
-func TestInteractiveExecutorNoServerPlan(t *testing.T) {
+func TestInteractiveExecutorRefusedPlan(t *testing.T) {
 	t.Parallel()
 
 	plan := containerplan.SelectTUIExposure(containerplan.TUINetworkFacts{
@@ -109,20 +110,39 @@ func TestInteractiveExecutorNoServerPlan(t *testing.T) {
 	ctx := newExposureTestContext(t, &stderr)
 
 	result := InteractiveExecutor{runSession: session.run}.Execute(ctx, invowkfile.CommandName("probe"), rt)
-	if result.Error != nil || result.ExitCode != 7 {
-		t.Fatalf("result = %+v, want exit 7 and no error", result)
+	if result.ExitCode != 1 || !errors.Is(result.Error, containerplan.ErrTUIExposureRefused) {
+		t.Fatalf("result = %+v, want exit 1 with ErrTUIExposureRefused", result)
 	}
-	if rt.prepareRuns != 1 || session.sessionCalls != 1 {
-		t.Fatalf("prepare=%d session=%d, want the command to run once", rt.prepareRuns, session.sessionCalls)
+	if !strings.Contains(result.Error.Error(), containerplan.TUIOptInSetting) || !strings.Contains(result.Error.Error(), "without -i") {
+		t.Fatalf("error %q does not name the opt-in and the run without -i", result.Error)
 	}
-	if rt.prepareTUI != (runtime.TUIContext{}) {
-		t.Fatalf("TUI context = %+v, want empty (no INVOWK_TUI_* injected)", rt.prepareTUI)
+	if rt.prepareRuns != 0 || session.sessionCalls != 0 {
+		t.Fatalf("prepare=%d session=%d, want neither (no container may start)", rt.prepareRuns, session.sessionCalls)
 	}
-	if session.bridgeWired {
-		t.Fatal("no-server plan wired a TUI bridge")
+	if ctx.TUI != (runtime.TUIContext{}) {
+		t.Fatalf("TUI context = %+v, want the stale value cleared", ctx.TUI)
 	}
-	if got := strings.Count(stderr.String(), containerplan.TUIOptInSetting); got != 1 {
-		t.Fatalf("stderr names the opt-in %d times, want exactly once:\n%s", got, stderr.String())
+	if stderr.Len() != 0 {
+		t.Fatalf("refused plan wrote %q to stderr; the error travels in the result", stderr.String())
+	}
+}
+
+// TestInteractiveExecutorRefusesInvalidPlan pins that the adapter validates
+// the plan before any listener opens. Outside containerplan the only invalid
+// plan that can exist is the zero value: the constructors reject the other
+// shapes (TestTUIExposurePlanConstructorsValidate), and the fields are
+// unexported.
+func TestInteractiveExecutorRefusesInvalidPlan(t *testing.T) {
+	t.Parallel()
+
+	rt := &spyPlannerRuntime{plan: containerplan.TUIExposurePlan{}}
+	session := &fakeSession{}
+	result := InteractiveExecutor{runSession: session.run}.Execute(newExposureTestContext(t, &bytes.Buffer{}), invowkfile.CommandName("probe"), rt)
+	if result.ExitCode != 1 || !errors.Is(result.Error, containerplan.ErrInvalidTUIExposurePlan) {
+		t.Fatalf("result = %+v, want exit 1 with ErrInvalidTUIExposurePlan", result)
+	}
+	if rt.prepareRuns != 0 || session.sessionCalls != 0 {
+		t.Fatalf("prepare=%d session=%d, want neither", rt.prepareRuns, session.sessionCalls)
 	}
 }
 
@@ -197,7 +217,7 @@ func TestInteractiveExecutorOptInWidePlan(t *testing.T) {
 	// A verified narrow plan stays narrow under the opt-in and warns nothing.
 	gw := netip.MustParseAddr("172.17.0.1")
 	narrow := containerplan.SelectTUIExposure(containerplan.TUINetworkFacts{Container: true, Engine: containerplan.TUIEngineDocker, BridgeGateway: gw, GatewayLocal: true}, true)
-	if narrow.Kind != containerplan.TUIPlanNarrow || narrow.Warning != "" || narrow.DialHost.String() != "172.17.0.1" {
+	if narrow.Kind() != containerplan.TUIPlanNarrow || narrow.Warning() != "" || narrow.DialHost().String() != "172.17.0.1" {
 		t.Fatalf("row 8 under the opt-in = %+v, want narrow, gateway URL, no warning", narrow)
 	}
 }

@@ -314,12 +314,12 @@ With auto-provisioning enabled, Invowk builds a cached, derived image by attachi
 
 Controls how widely the TUI server of an interactive container run (`-i`) may listen. Host runtimes (native, virtual-sh, virtual-lua) always bind `127.0.0.1` and ignore this key.
 
-- `"restricted"`: the server binds loopback plus, at most, the one address a verified engine mode routes to the host (the bridge gateway under local rootful Docker on Linux; nothing extra under Docker Desktop or ephemeral rootless Podman with pasta). Engine modes without such a route run the command **without** a TUI server: invowk prints one warning, and `invowk tui *` prompts render directly in the command's terminal.
+- `"restricted"`: the server binds loopback plus, at most, the one address a verified engine mode routes to the host (the bridge gateway under local rootful Docker on Linux; nothing extra under Docker Desktop or ephemeral rootless Podman with pasta). In engine modes without such a route, an interactive run is **refused** before start (exit status 1), with an error that names this key; the same command without `-i` still runs.
 - `"all-interfaces"`: in those modes, and under Docker Desktop, the server binds `0.0.0.0` as before v0.17.0, so anyone who can reach the host can reach the port (the per-session token still guards it). Invowk prints an exposure warning at every such run. The verified narrow modes keep their narrow bind.
 
 <Snippet id="reference/config/container-tui-server-bind" />
 
-This key is user configuration only: invowk reads it from `--ivk-config`, `INVOWK_CONFIG` or your user config file, never from an invowkfile or module, so a repository cannot widen the bind. It has no effect in Flatpak without `--share=network`, where no bind is reachable from the engine's containers. For a remote engine (a `tcp://` or `ssh://` Docker endpoint, `podman-remote`, Podman machine) it helps only if the engine's host alias leads back to this machine. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
+This key is user configuration only: invowk reads it from the config file it selects, the `--ivk-config` or `INVOWK_CONFIG` file when one is given (your user config file is then not read), otherwise your user config file. It never reads it from an invowkfile or module, so a repository cannot widen the bind. It has no effect in Flatpak without `--share=network`, where no bind is reachable from the engine's containers. For a remote engine (a `tcp://` or `ssh://` Docker endpoint, `podman-remote`, Podman machine) it helps only if the engine's host alias leads back to this machine. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
 
 ---
 

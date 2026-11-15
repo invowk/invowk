@@ -22,10 +22,10 @@ func TestInteractiveExecutorGatewayPlanUsesIPLiteral(t *testing.T) {
 	t.Parallel()
 
 	gw := netip.MustParseAddr("127.0.0.2")
-	plan := containerplan.TUIExposurePlan{
-		Row: 8, Kind: containerplan.TUIPlanNarrow,
-		BindAddrs: []netip.Addr{netip.MustParseAddr("127.0.0.1"), gw},
-		DialHost:  "127.0.0.2",
+	plan, err := containerplan.NewTUIExposurePlanNarrow(containerplan.TUIRowDockerBridge,
+		[]netip.Addr{netip.MustParseAddr("127.0.0.1"), gw}, "127.0.0.2", false)
+	if err != nil {
+		t.Fatalf("NewTUIExposurePlanNarrow(): %v", err)
 	}
 	rt := &spyPlannerRuntime{plan: plan}
 	rt.probe = func(tuiCtx runtime.TUIContext) {

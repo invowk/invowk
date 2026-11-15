@@ -5,9 +5,11 @@ package commandsvc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
+	"github.com/invowk/invowk/internal/containerplan"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 )
 
@@ -51,6 +53,16 @@ func TestClassifyExecutionError(t *testing.T) {
 			name:     "shell not found",
 			err:      &runtimepkg.ShellNotFoundError{Attempted: runtimepkg.ShellLookupAttempts{"bash", "sh"}},
 			wantKind: ErrorKindShellNotFound,
+		},
+		{
+			name:     "TUI exposure refused",
+			err:      &containerplan.TUIExposureRefusedError{Row: containerplan.TUIRowPodmanPersistent, Message: "refused"},
+			wantKind: ErrorKindTUIExposureRefused,
+		},
+		{
+			name:     "invalid TUI exposure plan",
+			err:      fmt.Errorf("refusing: %w", containerplan.ErrInvalidTUIExposurePlan),
+			wantKind: ErrorKindTUIExposureRefused,
 		},
 		{
 			name:     "default fallback",

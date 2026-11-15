@@ -57,8 +57,8 @@ func (InteractiveExecutor) Validate() error {
 // Execute runs a command in interactive mode using Bubble Tea's alternate
 // screen buffer. It starts an HTTP-based TUI server for bidirectional component
 // requests between the running command and the terminal UI, bound according to
-// the runtime's TUI exposure plan. When the plan has no narrow route, the
-// command runs without a server and its invowk tui calls render directly.
+// the runtime's TUI exposure plan. When the plan has no narrow route, or is
+// invalid, the run fails before any listener opens or any container starts.
 func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactiveRT commandsvc.RuntimeInteractiveCommand) *runtime.Result {
 	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for validation failure
@@ -70,26 +70,29 @@ func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invo
 	}
 
 	plan := planTUIExposure(ctx, interactiveRT)
-	if plan.Warning != "" {
+	ctx.TUI = runtime.TUIContext{}
+	if err := plan.Validate(); err != nil {
+		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("refusing to start the TUI server: %w", err)} //goplint:ignore -- literal exit code for an invalid bind plan
+	}
+	if refusal := plan.RefusalError(); refusal != nil {
+		// Before PrepareInteractive: no listener opens and no container starts.
+		return &runtime.Result{ExitCode: types.ExitCode(1), Error: refusal} //goplint:ignore -- literal exit code for a refused bind plan
+	}
+	if plan.Warning() != "" {
 		// Before the alternate screen starts, so it cannot hide the warning.
-		_, _ = fmt.Fprintln(interactiveStderr(ctx), plan.Warning.String())
+		_, _ = fmt.Fprintln(interactiveStderr(ctx), plan.Warning().String())
 	}
 
-	var tuiServer *tuiserver.Server
-	ctx.TUI = runtime.TUIContext{}
-	if plan.HasServer() {
-		server, tuiCtx, err := startTUIServer(goCtx, plan)
-		if err != nil {
-			return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for server start failure
-		}
-		tuiServer = server
-		defer func() {
-			if stopErr := tuiServer.Stop(); stopErr != nil {
-				slog.Debug("TUI server stop failed during cleanup", "error", stopErr)
-			}
-		}()
-		ctx.TUI = tuiCtx
+	tuiServer, tuiCtx, err := startTUIServer(goCtx, plan)
+	if err != nil {
+		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for server start failure
 	}
+	defer func() {
+		if stopErr := tuiServer.Stop(); stopErr != nil {
+			slog.Debug("TUI server stop failed during cleanup", "error", stopErr)
+		}
+	}()
+	ctx.TUI = tuiCtx
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {
@@ -104,10 +107,8 @@ func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invo
 		Title:       "Running Command",
 		CommandName: cmdName.String(),
 	}
-	if tuiServer != nil {
-		opts.OnProgramReady = func(p *tea.Program) {
-			go bridgeTUIRequests(tuiServer, p)
-		}
+	opts.OnProgramReady = func(p *tea.Program) {
+		go bridgeTUIRequests(tuiServer, p)
 	}
 	runSession := e.runSession
 	if runSession == nil {
@@ -137,9 +138,9 @@ func planTUIExposure(ctx *runtime.ExecutionContext, interactiveRT commandsvc.Run
 // the command needs to reach it.
 func startTUIServer(goCtx context.Context, plan containerplan.TUIExposurePlan) (*tuiserver.Server, runtime.TUIContext, error) {
 	bindPlan := tuiserver.WildcardBindPlan()
-	if plan.Kind != containerplan.TUIPlanWide {
+	if plan.Kind() != containerplan.TUIPlanWide {
 		var err error
-		bindPlan, err = tuiserver.NewBindPlan(plan.BindAddrs...)
+		bindPlan, err = tuiserver.NewBindPlan(plan.BindAddrs()...)
 		if err != nil {
 			return nil, runtime.TUIContext{}, fmt.Errorf("failed to create TUI server: %w", err)
 		}
@@ -152,10 +153,10 @@ func startTUIServer(goCtx context.Context, plan containerplan.TUIExposurePlan) (
 		return nil, runtime.TUIContext{}, fmt.Errorf("failed to start TUI server: %w", err)
 	}
 	tuiCtx := runtime.TUIContext{
-		ServerURL:   server.URLWithHost(plan.DialHost),
+		ServerURL:   server.URLWithHost(plan.DialHost()),
 		ServerToken: runtime.TUIServerToken(server.Token()),
 	}
-	if plan.PastaForward {
+	if plan.PastaForward() {
 		mode, modeErr := container.PastaForwardNetworkMode(server.Port())
 		if modeErr != nil {
 			_ = server.Stop() //nolint:contextcheck // Stop takes no context; best-effort cleanup before reporting the plan error.

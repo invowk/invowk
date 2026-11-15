@@ -199,7 +199,7 @@ guide ("set `TMPDIR` if needed").
   listened on `0.0.0.0:0`, so during interactive commands the port was reachable from the
   LAN, guarded only by the per-session token. S3 (`openspec/changes/restrict-tui-server-bind`)
   binds loopback plus, at most, the one address a verified engine mode routes to the host,
-  runs modes without a narrow route without a TUI server (one warning, direct rendering),
+  refuses `-i` runs in modes without a narrow route before start (exit 1, the error names the opt-in),
   adds the user-config opt-in `container.tui_server_bind: "all-interfaces"`, and requires
   the token on every request in constant time. Sonar S5332 there is resolved in SonarCloud
   as Accepted (real gap tracked as N5/S3; recorded as e13): plain HTTP over loopback or the
@@ -220,6 +220,16 @@ guide ("set `TMPDIR` if needed").
   "Connection refused". The test is vacuous: `tests/cli/testdata/container_callback.txtar`
   only asserts the env vars. Fix by reusing S3's exposure plan (D1-D2) and add a real
   reachability test.
+- **(unnumbered; S4 holds N8-N10) — direct `invowk tui` rendering draws into captured
+  stdout.** Found 2026-11-15 in S3's premise check. Without `INVOWK_TUI_ADDR`, a value
+  component builds `tea.NewProgram(model)` without `tea.WithOutput`
+  (`internal/tui/input.go:137`, same shape in `choose`, `filter`, `file`, `write`), so
+  `name=$(invowk tui input)` draws nothing and `$name` holds terminal control sequences
+  in front of the answer, with exit 0. Reproduced on `main` at 3760a4ba in a plain host
+  terminal. The docs show this capture form for `input`, `choose` and `write`. Fix: draw
+  to stderr or `/dev/tty` when stdout is not a terminal, with a tmux test that captures
+  stdout. Fixing it would let S3's refused modes fall back to direct rendering
+  (`openspec/changes/restrict-tui-server-bind/design.md`, decision 22).
 
 ## Why CST keeps its production paths out of invowk anyway
 

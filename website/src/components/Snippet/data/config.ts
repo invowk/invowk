@@ -896,7 +896,8 @@ import "strings"
     language: 'cue',
     code: `container: {
     // Restores the pre-v0.17.0 wide bind for container modes without a
-    // narrow route. Invowk warns at every such run.
+    // narrow route, which otherwise refuse -i runs. Invowk warns at every
+    // such run.
     tui_server_bind: "all-interfaces"
 }`,
   },

@@ -75,8 +75,8 @@ import "strings"
 
 	// tui_server_bind selects how widely the interactive TUI server may listen
 	// for container runs. "restricted" binds loopback plus at most the one
-	// address a verified engine mode routes to the host; other modes run
-	// without a TUI server. "all-interfaces" lets those modes (and Docker
+	// address a verified engine mode routes to the host; other modes refuse
+	// interactive runs. "all-interfaces" lets those modes (and Docker
 	// Desktop) bind 0.0.0.0, with a warning at every such run.
 	tui_server_bind: *"restricted" | #TUIServerBindType
 })

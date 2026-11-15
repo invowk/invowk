@@ -143,6 +143,7 @@ func TestRenderAndWrapServiceError_ExitCodes(t *testing.T) {
 		{name: "classified runtime not available", err: &commandsvc.ClassifiedError{Err: errors.New("no runtime"), Kind: commandsvc.ErrorKindRuntimeNotAvailable}, want: 1},
 		{name: "classified permission denied", err: &commandsvc.ClassifiedError{Err: os.ErrPermission, Kind: commandsvc.ErrorKindPermissionDenied}, want: 1},
 		{name: "classified shell not found", err: &commandsvc.ClassifiedError{Err: errors.New("no shell"), Kind: commandsvc.ErrorKindShellNotFound}, want: 1},
+		{name: "classified TUI exposure refused", err: &commandsvc.ClassifiedError{Err: errors.New("refused"), Kind: commandsvc.ErrorKindTUIExposureRefused}, want: 1},
 	}
 
 	for _, tt := range tests {

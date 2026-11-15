@@ -51,6 +51,7 @@ type (
 	tuiRecordingContainerRuntime struct {
 		*runtime.ContainerRuntime
 		tuiCtx       runtime.TUIContext
+		prepareRuns  int
 		onPrepare    func(runtime.TUIContext)
 		planOverride *containerplan.TUIExposurePlan
 	}
@@ -65,6 +66,7 @@ func (r *tuiRecordingContainerRuntime) PlanTUIExposure(ctx *runtime.ExecutionCon
 
 func (r *tuiRecordingContainerRuntime) PrepareInteractive(ctx *runtime.ExecutionContext) (*runtime.PreparedCommand, error) {
 	r.tuiCtx = ctx.TUI
+	r.prepareRuns++
 	if r.onPrepare != nil {
 		r.onPrepare(ctx.TUI)
 	}
@@ -202,7 +204,7 @@ func assertRefusedOutsidePlan(t *testing.T, tuiCtx runtime.TUIContext, plan cont
 			continue
 		}
 		addr, _ := netip.AddrFromSlice(ipNet.IP.To4())
-		if slices.Contains(plan.BindAddrs, addr) {
+		if slices.Contains(plan.BindAddrs(), addr) {
 			continue
 		}
 		checked++
@@ -256,58 +258,64 @@ fi
 `
 	ctx, stderr := newIntegrationContext(t, script, nil)
 	plan := rt.PlanTUIExposure(ctx)
-	if plan.Row != wantRow {
-		t.Fatalf("selected D2 row %d (%s), want %d from %s", plan.Row, plan.Kind, wantRow, envExpectedTUIPlanRow)
+	if plan.Row() != wantRow {
+		t.Fatalf("selected D2 row %d (%s), want %d from %s", plan.Row(), plan.Kind(), wantRow, envExpectedTUIPlanRow)
 	}
 	rt.onPrepare = func(tuiCtx runtime.TUIContext) {
-		if plan.Kind == containerplan.TUIPlanNarrow {
+		if plan.Kind() == containerplan.TUIPlanNarrow {
 			assertRefusedOutsidePlan(t, tuiCtx, plan)
 		}
 	}
 
 	var out bytes.Buffer
 	result := InteractiveExecutor{runSession: ptySession(&out)}.Execute(ctx, invowkfile.CommandName("tui-exposure"), rt)
+	if plan.Kind() == containerplan.TUIPlanRefused {
+		assertRefusedRun(t, rt, result)
+		return
+	}
 	if result.Error != nil || result.ExitCode != 0 {
 		t.Fatalf("Execute() = exit %d, error %v\nstderr:\n%s\noutput:\n%s", result.ExitCode, result.Error, stderr, out.String())
 	}
 	output := out.String()
-	t.Logf("plan row %d (%s), URL %q, output:\n%s", plan.Row, plan.Kind, rt.tuiCtx.ServerURL, output)
+	t.Logf("plan row %d (%s), URL %q, output:\n%s", plan.Row(), plan.Kind(), rt.tuiCtx.ServerURL, output)
 
-	switch plan.Kind {
+	switch plan.Kind() {
 	case containerplan.TUIPlanNarrow:
 		for _, want := range []string{"ADDR_SET=yes", "AUTH:HTTP/1.0 200", "NOAUTH:HTTP/1.0 401"} {
 			if !strings.Contains(output, want) {
 				t.Errorf("container output lacks %q", want)
 			}
 		}
-		if plan.PastaForward && !strings.Contains(output, "SECOND=blocked") {
+		if plan.PastaForward() && !strings.Contains(output, "SECOND=blocked") {
 			t.Error("under pasta the container reached a second host loopback port")
 		}
 		if strings.Contains(stderr.String(), "invowk: ") {
 			t.Errorf("narrow plan printed an invowk warning to stderr:\n%s", stderr.String())
 		}
-	case containerplan.TUIPlanNone:
-		assertNoServerRun(t, output, stderr.String())
-	case containerplan.TUIPlanWide:
-		t.Fatalf("restricted config selected the wide plan")
+	case containerplan.TUIPlanWide, containerplan.TUIPlanRefused:
+		t.Fatalf("restricted config selected the %s plan", plan.Kind())
 	}
 }
 
-func assertNoServerRun(t *testing.T, output, stderr string) {
+// assertRefusedRun checks that a refused plan failed the run with exit 1
+// before PrepareInteractive, so no container was provisioned or started.
+func assertRefusedRun(t *testing.T, rt *tuiRecordingContainerRuntime, result *runtime.Result) {
 	t.Helper()
-	if strings.Contains(output, "ADDR_SET=yes") || strings.Contains(output, "TOKEN_SET=yes") {
-		t.Errorf("no-server run injected INVOWK_TUI_* variables:\n%s", output)
+	if result.ExitCode != 1 || !errors.Is(result.Error, containerplan.ErrTUIExposureRefused) {
+		t.Fatalf("Execute() = exit %d, error %v; want exit 1 with ErrTUIExposureRefused", result.ExitCode, result.Error)
 	}
-	if got := strings.Count(stderr, "interactive TUI overlay disabled"); got != 1 {
-		t.Errorf("no-server warning printed %d times, want once:\n%s", got, stderr)
+	if !strings.Contains(result.Error.Error(), "without -i") {
+		t.Errorf("refusal %q does not say the command runs without -i", result.Error)
+	}
+	if rt.prepareRuns != 0 {
+		t.Errorf("PrepareInteractive ran %d times, want 0 (no container may start)", rt.prepareRuns)
 	}
 }
 
-// TestInteractiveNoServerRunRendersDirectly forces a no-route plan (row 7) on
-// the local engine and checks that the container sees no INVOWK_TUI_*
-// variables, that a delegating `invowk tui spin` renders directly and
-// succeeds, that the exit code propagates and that the warning is printed once.
-func TestInteractiveNoServerRunRendersDirectly(t *testing.T) {
+// TestInteractiveRefusedPlanStartsNoContainer forces a no-route plan (row 7)
+// on the production container runtime and checks that the run fails before
+// any container is prepared, and that the same command still runs without -i.
+func TestInteractiveRefusedPlanStartsNoContainer(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -318,26 +326,19 @@ func TestInteractiveNoServerRunRendersDirectly(t *testing.T) {
 	plan := containerplan.SelectTUIExposure(containerplan.TUINetworkFacts{Container: true, Engine: containerplan.TUIEngineDocker, Rootless: true}, false)
 	rt.planOverride = &plan
 
-	script := `echo "ADDR_SET=${INVOWK_TUI_ADDR:+yes}"
-echo "TOKEN_SET=${INVOWK_TUI_TOKEN:+yes}"
-if invowk tui spin --title probing -- true; then echo SPIN=ok; else echo "SPIN=failed:$?"; fi
-exit 7
-`
-	ctx, stderr := newIntegrationContext(t, script, nil)
-	var out bytes.Buffer
-	result := InteractiveExecutor{runSession: ptySession(&out)}.Execute(ctx, invowkfile.CommandName("tui-exposure"), rt)
-	if result.Error != nil {
-		t.Fatalf("Execute() error = %v\nstderr:\n%s\noutput:\n%s", result.Error, stderr, out.String())
+	ctx, _ := newIntegrationContext(t, "echo RAN; exit 7\n", nil)
+	result := InteractiveExecutor{runSession: ptySession(&bytes.Buffer{})}.Execute(ctx, invowkfile.CommandName("tui-exposure"), rt)
+	assertRefusedRun(t, rt, result)
+	if !strings.Contains(result.Error.Error(), containerplan.TUIOptInSetting) {
+		t.Errorf("refusal %q does not name the opt-in", result.Error)
 	}
-	if result.ExitCode != 7 {
-		t.Fatalf("exit code = %d, want 7\noutput:\n%s", result.ExitCode, out.String())
-	}
-	if !strings.Contains(out.String(), "SPIN=ok") {
-		t.Errorf("invowk tui spin did not render directly:\n%s", out.String())
-	}
-	assertNoServerRun(t, out.String(), stderr.String())
-	if rt.tuiCtx != (runtime.TUIContext{}) {
-		t.Errorf("TUI context = %+v, want empty", rt.tuiCtx)
+
+	// Non-interactive runs are untouched (D11): the same command runs.
+	plain, _ := newIntegrationContext(t, "echo RAN; exit 7\n", nil)
+	var stdout bytes.Buffer
+	plain.IO.Stdout = &stdout
+	if res := rt.Execute(plain); res.ExitCode != 7 || !strings.Contains(stdout.String(), "RAN") {
+		t.Fatalf("non-interactive Execute() = exit %d, error %v, stdout %q; want exit 7 and RAN", res.ExitCode, res.Error, stdout.String())
 	}
 }
 
@@ -395,10 +396,11 @@ func lineWithPrefix(output, prefix string) string {
 	return ""
 }
 
-// TestInteractivePersistentRootlessPodmanRunsWithoutServer uses the real
-// planner against a persistent target (row 10). It runs only under rootless
-// Podman, the CI Podman job's engine.
-func TestInteractivePersistentRootlessPodmanRunsWithoutServer(t *testing.T) {
+// TestInteractivePersistentRootlessPodmanRefused uses the real planner
+// against a persistent target (row 10) and checks that the interactive run
+// fails before the persistent container is created. It runs only under
+// rootless Podman, the CI Podman job's engine.
+func TestInteractivePersistentRootlessPodmanRefused(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -415,22 +417,17 @@ func TestInteractivePersistentRootlessPodmanRunsWithoutServer(t *testing.T) {
 		_ = exec.CommandContext(context.WithoutCancel(t.Context()), "podman", "rm", "-f", name).Run() // Best-effort cleanup.
 	})
 	persistent := &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: invowkfile.ContainerName(name)}
-	script := `echo "ADDR_SET=${INVOWK_TUI_ADDR:+yes}"
-echo "TOKEN_SET=${INVOWK_TUI_TOKEN:+yes}"
-exit 5
-`
-	ctx, stderr := newIntegrationContext(t, script, persistent)
-	if plan := rt.PlanTUIExposure(ctx); plan.Row != containerplan.TUIRowPodmanPersistent {
-		t.Fatalf("selected row %d, want %d (persistent rootless Podman)", plan.Row, containerplan.TUIRowPodmanPersistent)
+	ctx, _ := newIntegrationContext(t, "echo RAN\n", persistent)
+	if plan := rt.PlanTUIExposure(ctx); plan.Row() != containerplan.TUIRowPodmanPersistent {
+		t.Fatalf("selected row %d, want %d (persistent rootless Podman)", plan.Row(), containerplan.TUIRowPodmanPersistent)
 	}
-	var out bytes.Buffer
-	result := InteractiveExecutor{runSession: ptySession(&out)}.Execute(ctx, invowkfile.CommandName("tui-exposure"), rt)
-	if result.Error != nil || result.ExitCode != 5 {
-		t.Fatalf("Execute() = exit %d, error %v\nstderr:\n%s\noutput:\n%s", result.ExitCode, result.Error, stderr, out.String())
+	result := InteractiveExecutor{runSession: ptySession(&bytes.Buffer{})}.Execute(ctx, invowkfile.CommandName("tui-exposure"), rt)
+	assertRefusedRun(t, rt, result)
+	if !strings.Contains(result.Error.Error(), containerplan.TUIOptInSetting) {
+		t.Errorf("refusal %q does not name the opt-in", result.Error)
 	}
-	assertNoServerRun(t, out.String(), stderr.String())
-	if !strings.Contains(stderr.String(), "container.tui_server_bind") {
-		t.Errorf("warning does not name the opt-in:\n%s", stderr.String())
+	if exists := exec.CommandContext(t.Context(), "podman", "container", "exists", name).Run(); exists == nil {
+		t.Errorf("persistent container %s was created by a refused run", name)
 	}
 }
 

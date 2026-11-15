@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/runtime"
 )
 
@@ -54,6 +55,8 @@ func classifyExecutionError(err error) (kind ErrorKind, hint string) {
 		kind = ErrorKindRuntimeNotAvailable
 	case errors.Is(err, runtime.ErrShellNotFound):
 		kind = ErrorKindShellNotFound
+	case errors.Is(err, containerplan.ErrTUIExposureRefused), errors.Is(err, containerplan.ErrInvalidTUIExposurePlan):
+		kind = ErrorKindTUIExposureRefused
 	case errors.Is(err, os.ErrPermission):
 		kind = ErrorKindPermissionDenied
 	}

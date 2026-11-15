@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Bounds the network exposure of the TUI server that interactive commands start. It defines which addresses the server binds for each runtime and container engine mode, how containers are pointed at it, how invowk degrades safely when no narrow route exists, the explicit opt-in for a wide bind and where it may be set, and how every request authenticates.
+Bounds the network exposure of the TUI server that interactive commands start. It defines which addresses the server binds for each runtime and container engine mode, how containers are pointed at it, how invowk refuses an interactive run when no narrow route exists, the explicit opt-in for a wide bind and where it may be set, and how every request authenticates.
 
 ## ADDED Requirements
 
@@ -26,7 +26,7 @@ Under local rootful Docker on Linux whose default bridge gateway is assigned to 
 
 #### Scenario: Gateway is not a local address
 - **WHEN** the bridge gateway that Docker reports is not assigned to any local interface, as in a devcontainer that uses the host's Docker socket
-- **THEN** invowk SHALL run the command without a TUI server and print one warning that names `container.tui_server_bind`
+- **THEN** the interactive run SHALL fail before any container starts, with an error that names `container.tui_server_bind`
 
 ### Requirement: Rootless Podman uses a single forwarded port
 For an ephemeral container under local rootless Podman with a pasta binary, the TUI server SHALL listen on `127.0.0.1` only, and the container SHALL run with `--network=pasta:-T,<port>`. `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>`, and the container SHALL gain no other route to host loopback. This plan is verified on a local rootless Podman 6 host and in the CI Podman job, whose runner reports a pasta executable.
@@ -42,8 +42,8 @@ Under a local Docker Desktop engine without the opt-in, the TUI server SHALL lis
 - **WHEN** an interactive container command runs under a local Docker Desktop engine, without the opt-in
 - **THEN** the server SHALL listen on `127.0.0.1` only, and `INVOWK_TUI_ADDR` SHALL be `http://host.docker.internal:<port>`
 
-### Requirement: Modes without a narrow route run without a TUI server
-For an engine mode without a narrow plan, an interactive container run SHALL NOT fail for that reason. Unless the opt-in applies, invowk SHALL open no TUI server listener, SHALL inject neither `INVOWK_TUI_ADDR` nor `INVOWK_TUI_TOKEN`, SHALL print exactly one stderr warning naming the reason and `container.tui_server_bind: "all-interfaces"`, and SHALL run the command. `invowk tui *` calls in it SHALL render directly.
+### Requirement: Interactive runs in modes without a narrow route fail before start
+For an engine mode without a narrow plan, unless the opt-in applies, an interactive container run SHALL fail before invowk provisions, creates or starts the command's container and before it opens any TUI server listener. invowk SHALL exit with status 1. The error SHALL name the reason, `container.tui_server_bind: "all-interfaces"`, and that the command can run without `-i`.
 
 #### Scenario: Modes covered
 - **WHEN** the engine mode is a remote engine, rootful Podman, persistent rootless Podman, rootless Podman without pasta, rootless Docker, Snap, a failed engine query or any unlisted mode, and the opt-in is not set
@@ -51,37 +51,55 @@ For an engine mode without a narrow plan, an interactive container run SHALL NOT
 
 #### Scenario: Persistent container under rootless Podman
 - **WHEN** a user runs an interactive command that targets a persistent container under rootless Podman, without the opt-in
-- **THEN** the command SHALL run and its exit code SHALL be invowk's exit code, the container SHALL see no `INVOWK_TUI_ADDR` or `INVOWK_TUI_TOKEN`, and stderr SHALL contain the warning naming `container.tui_server_bind` exactly once
-
-#### Scenario: Delegating TUI command still works
-- **WHEN** a command run in such a mode calls a delegating `invowk tui` command such as `invowk tui spin` or `invowk tui confirm`
-- **THEN** that command SHALL render directly and complete, without contacting any server
+- **THEN** invowk SHALL exit with status 1 before it provisions, creates or starts the container, SHALL open no TUI server listener, and stderr SHALL contain an error naming `container.tui_server_bind`
 
 #### Scenario: Rootless Podman without pasta
 - **WHEN** an interactive container command runs under rootless Podman, no pasta binary is available, and the opt-in is not set
-- **THEN** the command SHALL run without a TUI server, and the warning SHALL name `container.tui_server_bind` and pasta
+- **THEN** the run SHALL fail before start, and the error SHALL name `container.tui_server_bind` and pasta
 
 #### Scenario: Remote engine
 - **WHEN** the selected engine is remote (a `tcp://` or `ssh://` Docker endpoint, `podman-remote`, `podman --remote` or Podman machine) and the opt-in is not set
-- **THEN** the command SHALL run without a TUI server, and the warning SHALL name `container.tui_server_bind` and say the opt-in helps only if the engine's host alias leads back to this machine
+- **THEN** the run SHALL fail before start, and the error SHALL name `container.tui_server_bind` and say the opt-in helps only if the engine's host alias leads back to this machine
 
-### Requirement: Flatpak without host networking runs without a server and without offering the opt-in
-When invowk runs in Flatpak without host networking, an interactive container run SHALL start no TUI server, whatever `container.tui_server_bind` is set to, and SHALL run the command. The one warning SHALL say that the sandbox's network is private, and SHALL NOT suggest the opt-in.
+#### Scenario: The same command without -i
+- **WHEN** the user runs the same command in the same engine mode without `-i`
+- **THEN** the command SHALL run as before this change
+
+### Requirement: No fallback to a run without a TUI server
+invowk SHALL NOT run an interactive container command without a TUI server in place of a narrow or opted-in plan. A delegating `invowk tui` component whose value a script captures renders into the capture instead of the terminal when no server is advertised, so the script would continue with a corrupted value.
+
+#### Scenario: Captured prompt in a mode without a narrow route
+- **WHEN** an interactive container command whose script runs `name=$(invowk tui input)` is started in a mode without a narrow route and without the opt-in
+- **THEN** the run SHALL fail before start, and the script SHALL NOT run
+
+### Requirement: Flatpak without host networking refuses interactive container runs without offering the opt-in
+When invowk runs in Flatpak without host networking, an interactive container run SHALL fail before start, whatever `container.tui_server_bind` is set to. invowk SHALL exit with status 1. The error SHALL say that the sandbox's network is private, and SHALL NOT suggest the opt-in.
 
 #### Scenario: Flatpak without network
 - **WHEN** invowk runs in a Flatpak whose `[Context] shared` lacks `network` and an interactive container command runs
-- **THEN** the command SHALL run without a TUI server, and the warning SHALL NOT name `all-interfaces`
+- **THEN** the run SHALL fail before any container starts, and the error SHALL NOT name `all-interfaces`
 
 #### Scenario: Flatpak without network, with the opt-in
 - **WHEN** the same run has `container.tui_server_bind` set to `"all-interfaces"`
-- **THEN** the command SHALL still run without a TUI server, and invowk SHALL NOT bind a wildcard address
+- **THEN** the run SHALL still fail before start, and invowk SHALL NOT bind a wildcard address
+
+### Requirement: An invalid bind plan is refused before any listener opens
+Before the TUI server starts, invowk SHALL check the run's bind plan. A narrow plan SHALL list `127.0.0.1` first and only specified IPv4 addresses. A wildcard plan SHALL appear only for a mode the opt-in applies to. A refused plan SHALL carry no address. If the plan breaks any of these rules, the interactive run SHALL fail with status 1 before any listener opens and before any container starts.
+
+#### Scenario: Unspecified address in a narrow plan
+- **WHEN** a narrow plan lists `0.0.0.0`
+- **THEN** the interactive run SHALL fail before any listener opens
+
+#### Scenario: Wildcard plan outside the opt-in
+- **WHEN** a wildcard plan is produced for a host runtime, a verified narrow mode or Flatpak without network
+- **THEN** the interactive run SHALL fail before any listener opens
 
 ### Requirement: Non-interactive runs are unchanged
-A container run without `-i` SHALL start no TUI server, SHALL NOT query the engine's network facts, and SHALL print no TUI exposure warning.
+A container run without `-i` SHALL start no TUI server, SHALL NOT query the engine's network facts, and SHALL print no TUI exposure warning or error.
 
 #### Scenario: Non-interactive container run
 - **WHEN** a user runs a container command without `-i`, in any engine mode
-- **THEN** no TUI server SHALL start, no engine network facts SHALL be queried, and stderr SHALL contain no TUI exposure warning
+- **THEN** no TUI server SHALL start, no engine network facts SHALL be queried, and stderr SHALL contain no TUI exposure warning or error
 
 ### Requirement: Wide bind requires explicit opt-in
 The config key `container.tui_server_bind` SHALL accept `"restricted"` (default) and `"all-interfaces"`. Only `"all-interfaces"` SHALL make the server listen on `0.0.0.0`, and only for a restorable mode or Docker Desktop. Then `INVOWK_TUI_ADDR` SHALL use the engine alias, and each such run SHALL print a stderr warning that the port is reachable from the network.
@@ -107,18 +125,26 @@ The config key `container.tui_server_bind` SHALL accept `"restricted"` (default)
 - **THEN** the server SHALL still listen on `127.0.0.1` only
 
 ### Requirement: The opt-in is read only from user configuration
-invowk SHALL read `container.tui_server_bind` only from the config sources that the `config-source-resolution` capability defines: the `--ivk-config` flag, the `INVOWK_CONFIG` environment variable and the per-user config file. An invowkfile or a module SHALL NOT be able to set it.
+invowk SHALL read `container.tui_server_bind` only from the config source that the `config-source-resolution` capability selects: the `--ivk-config` flag, the `INVOWK_CONFIG` environment variable or the per-user config file. When `--ivk-config` or `INVOWK_CONFIG` selects a file, invowk SHALL read the key only from that file and SHALL NOT read it from the per-user config file. An invowkfile or a module SHALL NOT be able to set it.
 
 #### Scenario: Opt-in in the selected config source
 - **WHEN** the config file selected by `INVOWK_CONFIG` sets `container.tui_server_bind: "all-interfaces"`
 - **THEN** invowk SHALL apply the opt-in to the interactive container runs it selects
+
+#### Scenario: Opt-in in the --ivk-config file
+- **WHEN** the file named by `--ivk-config` sets `container.tui_server_bind: "all-interfaces"`
+- **THEN** invowk SHALL apply the opt-in to the interactive container runs it selects
+
+#### Scenario: User config file ignored under an explicit source
+- **WHEN** the per-user config file sets `container.tui_server_bind: "all-interfaces"` and `INVOWK_CONFIG` or `--ivk-config` selects a file that does not set the key
+- **THEN** the restricted bind rules SHALL apply
 
 #### Scenario: Opt-in in an invowkfile
 - **WHEN** an invowkfile or a module's invowkfile sets `tui_server_bind` in a container runtime block
 - **THEN** validation SHALL reject the invowkfile, and no run SHALL bind a wildcard address because of it
 
 ### Requirement: An unreachable server fails fast with an actionable error
-When `INVOWK_TUI_ADDR` is set but the server cannot be reached, a delegating `invowk tui` command SHALL fail within a bounded connect timeout, not hang for the interaction timeout. Its error SHALL name the address and `container.tui_server_bind`.
+When `INVOWK_TUI_ADDR` is set but the server cannot be reached, a delegating `invowk tui` command SHALL fail within a bounded connect timeout, not hang for the interaction timeout. Its error SHALL name the address and `container.tui_server_bind`. It SHALL NOT fall back to rendering directly, for the reason given in "No fallback to a run without a TUI server".
 
 #### Scenario: Container cannot reach a loopback-only listener
 - **WHEN** a delegating `invowk tui` command runs with `INVOWK_TUI_ADDR` pointing at an address that refuses or drops the connection, as when a Docker Desktop alias does not reach a loopback-only listener

@@ -6,12 +6,15 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func stubTUIProbe(facts container.EngineNetworkFacts, err error, calls *int) tuiExposureProbe {
@@ -43,11 +46,11 @@ func TestContainerRuntimePlanTUIExposure(t *testing.T) {
 		wantKind   containerplan.TUIPlanKind
 	}{
 		{name: "rootful docker", facts: container.EngineNetworkFacts{Engine: container.EngineTypeDocker, BridgeGateway: gw}, wantRow: 8, wantKind: containerplan.TUIPlanNarrow},
-		{name: "gateway not local", facts: container.EngineNetworkFacts{Engine: container.EngineTypeDocker, BridgeGateway: netip.MustParseAddr("10.9.0.1")}, wantRow: 13, wantKind: containerplan.TUIPlanNone},
+		{name: "gateway not local", facts: container.EngineNetworkFacts{Engine: container.EngineTypeDocker, BridgeGateway: netip.MustParseAddr("10.9.0.1")}, wantRow: 13, wantKind: containerplan.TUIPlanRefused},
 		{name: "pasta", facts: podman, wantRow: 11, wantKind: containerplan.TUIPlanNarrow},
-		{name: "persistent podman", facts: podman, persistent: true, wantRow: 10, wantKind: containerplan.TUIPlanNone},
+		{name: "persistent podman", facts: podman, persistent: true, wantRow: 10, wantKind: containerplan.TUIPlanRefused},
 		{name: "persistent podman with opt-in", facts: podman, persistent: true, bind: config.TUIServerBindAllInterfaces, wantRow: 10, wantKind: containerplan.TUIPlanWide},
-		{name: "query failure", err: errors.New("info failed"), wantRow: 4, wantKind: containerplan.TUIPlanNone},
+		{name: "query failure", err: errors.New("info failed"), wantRow: 4, wantKind: containerplan.TUIPlanRefused},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -65,8 +68,8 @@ func TestContainerRuntimePlanTUIExposure(t *testing.T) {
 				ctx.ContainerNameOverride = "dev"
 			}
 			plan := rt.PlanTUIExposure(ctx)
-			if plan.Row != tt.wantRow || plan.Kind != tt.wantKind {
-				t.Fatalf("plan = row %d kind %s, want row %d kind %s", plan.Row, plan.Kind, tt.wantRow, tt.wantKind)
+			if plan.Row() != tt.wantRow || plan.Kind() != tt.wantKind {
+				t.Fatalf("plan = row %d kind %s, want row %d kind %s", plan.Row(), plan.Kind(), tt.wantRow, tt.wantKind)
 			}
 			_ = rt.PlanTUIExposure(ctx)
 			if calls != 1 {
@@ -131,5 +134,70 @@ func TestContainerPrepareCommandTUINetworkMode(t *testing.T) {
 		if _, ok := second.Env[key]; ok {
 			t.Fatalf("no-server run injected %s", key)
 		}
+	}
+}
+
+// TestContainerRuntimeTUIOptInFollowsConfigSource loads each config-source
+// kind through the production provider (S1 source selection) and plans a
+// persistent rootless Podman run (row 10): the opt-in applies from the
+// selected source, and the user config file is not read under an explicit one.
+func TestContainerRuntimeTUIOptInFollowsConfigSource(t *testing.T) {
+	t.Parallel()
+
+	const optIn = "container: {tui_server_bind: \"all-interfaces\"}\n"
+	tests := []struct {
+		name     string
+		userFile string // content of <config dir>/config.cue; empty = none
+		explicit string // content of the explicit file; empty = none
+		viaFlag  bool   // select the explicit file with --ivk-config instead of INVOWK_CONFIG
+		wantKind containerplan.TUIPlanKind
+	}{
+		{name: "user file opt-in", userFile: optIn, wantKind: containerplan.TUIPlanWide},
+		{name: "INVOWK_CONFIG opt-in", userFile: "\n", explicit: optIn, wantKind: containerplan.TUIPlanWide},
+		{name: "--ivk-config opt-in", userFile: "\n", explicit: optIn, viaFlag: true, wantKind: containerplan.TUIPlanWide},
+		{name: "user file ignored under INVOWK_CONFIG", userFile: optIn, explicit: "\n", wantKind: containerplan.TUIPlanRefused},
+		{name: "user file ignored under --ivk-config", userFile: optIn, explicit: "\n", viaFlag: true, wantKind: containerplan.TUIPlanRefused},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfgDir := t.TempDir()
+			if tt.userFile != "" {
+				writeTestFile(t, filepath.Join(cfgDir, config.ConfigFileName+"."+config.ConfigFileExt), tt.userFile)
+			}
+			opts := config.LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)}
+			env := map[string]string{}
+			if tt.explicit != "" {
+				explicitPath := filepath.Join(t.TempDir(), "explicit.cue")
+				writeTestFile(t, explicitPath, tt.explicit)
+				if tt.viaFlag {
+					opts.ConfigFilePath = types.FilesystemPath(explicitPath)
+				} else {
+					env[config.EnvConfigPath] = explicitPath
+				}
+			}
+			loaded, err := config.NewProviderWithEnv(func(k string) string { return env[k] }).LoadWithSource(t.Context(), opts)
+			if err != nil {
+				t.Fatalf("LoadWithSource(): %v", err)
+			}
+
+			calls := 0
+			rt := newPersistentTestRuntime(t, NewMockEngine())
+			rt.tuiProbe = stubTUIProbe(container.EngineNetworkFacts{Engine: container.EngineTypePodman, Rootless: true, PastaAvailable: true}, nil, &calls)
+			rt.cfg = loaded.Config
+			ctx := newPersistentExecutionContext(t, nil)
+			ctx.ContainerNameOverride = "dev"
+			plan := rt.PlanTUIExposure(ctx)
+			if plan.Row() != containerplan.TUIRowPodmanPersistent || plan.Kind() != tt.wantKind {
+				t.Fatalf("plan = row %d kind %s (source %s), want row 10 kind %s", plan.Row(), plan.Kind(), loaded.Source, tt.wantKind)
+			}
+		})
+	}
+}
+
+func writeTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
 	}
 }

@@ -368,6 +368,8 @@ func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {
 		return issue.PermissionDeniedId
 	case commandsvc.ErrorKindShellNotFound:
 		return issue.ShellNotFoundId
+	case commandsvc.ErrorKindTUIExposureRefused:
+		return issue.TUIExposureRefusedId
 	case commandsvc.ErrorKindScriptExecutionFailed:
 		return issue.ScriptExecutionFailedId
 	default:
