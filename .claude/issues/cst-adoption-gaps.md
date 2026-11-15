@@ -40,7 +40,7 @@ Decisions taken with the maintainer (2026-11-14):
 | N2 | EVOLVE | C2 | S |
 | N3 | EVOLVE | C3 | S |
 | N4 | EVOLVE | C2 | S |
-| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, not yet proposed) | M |
+| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, proposed) | M |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -194,14 +194,14 @@ guide ("set `TMPDIR` if needed").
   not found". Decide whether an invalid cwd invowkfile is fatal.
 - **N4 — `ui.color_scheme` is a dead setting (C2).** `config_schema.cue:116`; only read and
   written by `config show/set` (`cmd/invowk/config.go:32,149,330`).
-- **N5 — the TUI server binds every interface (S3, not yet proposed).** Found 2026-11-14
+- **N5 — the TUI server binds every interface (S3, proposed).** Found 2026-11-14
   while triaging Sonar go:S5332. `internal/tuiserver/server.go:108` listens on
   `0.0.0.0:0`, so during interactive commands the port is reachable from the LAN, guarded
   only by the per-session token. Containers reach it through `host.docker.internal`, which
   is probably why it binds wide. Restrict the bind to loopback plus the engine's bridge
   gateway, covering Docker and Podman, rootful and rootless, and Flatpak, with container
-  tests. Until then, Sonar S5332 there is resolved in SonarCloud as a false positive
-  (recorded as e13): plain HTTP over loopback or the bridge is by design.
+  tests. Sonar S5332 there is resolved in SonarCloud as Accepted (real gap tracked as
+  N5/S3; recorded as e13): plain HTTP over loopback or the bridge is by design.
 - **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
   exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
   source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`
