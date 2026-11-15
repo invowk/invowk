@@ -120,6 +120,12 @@ tool or a model.
        capability writer a fallback writer: the probe shares the creation path,
        so a fallback would let a broken writer pass the policy silently (the
        junction writer has no `mklink /J` fallback).
+     - Measure a Windows golden-replay budget from three windows-latest
+       attempts of one head (`gh run rerun <id> --job <job>`), never one
+       sample: attempts of the same head have differed by 1.7x (23.4 s vs
+       39.4 s, `formal/README.md`). A later docs-only head may carry the
+       figure if `git diff` of the replay inputs against the measured head is
+       empty.
      - Judge a junction escape by file identity (`os.SameFile` against a unique
        outside sentinel, backed by its content), never by
        `filepath.EvalSymlinks` plus a prefix test: since Go 1.23 a mount point
