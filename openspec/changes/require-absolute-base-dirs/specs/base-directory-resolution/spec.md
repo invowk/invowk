@@ -84,10 +84,6 @@ The default provisioning cache directory (`<home>/.cache/invowk/provision`) SHAL
 
 A git fetch whose URL is not `https://` (an SSH URL) SHALL run only with an absolute home, which invowk and the git libraries read SSH keys, `known_hosts` and the SSH client config from. An unavailable home SHALL be refused too. Every non-empty `SSH_KNOWN_HOSTS` entry SHALL be absolute. Otherwise the fetch SHALL fail before connecting, with an error that names the relative value or the unavailable home. HTTPS fetches SHALL be unaffected.
 
-#### Scenario: the Windows default known-hosts list is a known limitation
-- **WHEN** `SSH_KNOWN_HOSTS` is unset on Windows and an SSH URL is fetched with an absolute `USERPROFILE`
-- **THEN** the git library's default list applies, which also names the root-relative `/etc/ssh/ssh_known_hosts` on the current drive; this is tracked as a follow-up, and an absolute `SSH_KNOWN_HOSTS` avoids it
-
 #### Scenario: SSH fetch with a relative home is refused
 - **WHEN** `HOME=.` is set, the current directory contains `.ssh/id_ed25519` and `.ssh/known_hosts`, and a module with a `git@` URL is fetched
 - **THEN** the fetch fails before any network connection, stderr names the relative home, and none of those files is read
