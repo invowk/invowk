@@ -5,7 +5,7 @@ Run targets from the repository root. Go comes from the `go` directive in `go.mo
 | Group | Targets (`make <target>` unless shown) |
 |-------|----------------------------------------|
 | Build | `build` (x86-64 defaults to `GOAMD64=v3`; `GOAMD64=v1` for baseline CPUs), `build-dev`, `build-upx`, `build-all`, `build-cross`, `install`, `clean` |
-| Test | `test` (full suite; already runs `test-cli`), `test-short`, `test-integration`, `test-cli`, `test-cli-cover`, `test-scripts` (guarded; `test-scripts-unguarded` runs the same list in place); one test: `go test -v -run TestName ./path/to/pkg/` |
+| Test | `test` (full suite; already runs `test-cli`), `test-short`, `test-integration`, `test-cli`, `test-cli-cover`, `test-scripts` (guarded; `test-scripts-unguarded` runs the same list in place, fingerprinted only); one test: `go test -v -run TestName ./path/to/pkg/` |
 | Lint & gates | `lint` (runs `lint-config-verify` and `lint-fmt`, then golangci-lint), `tidy`, `license-check`, `check-file-length`, `check-agent-docs`, `check-windows-build`, `vulncheck`, `sonar-local`, `render-diagrams`, `install-hooks` |
 | goplint | `check-goplint-consumer-routed`, `check-baseline`, `update-baseline`, `check-goplint-exceptions`, `check-goplint-full-scan`, `check-goplint-repository-audit`, `check-goplint-performance-smoke` (single-sample smoke, not certification), `check-types[-all][-json]`; details: `docs/goplint/README.md` |
 | Formal | `formal` (needs Java), `formal-alloy`, `formal-tla`, `formal-traces`, `formal-golden`, `formal-rapid-deep`, `formal-promotion-gate` (read-only GitHub API); `python3 scripts/formal.py correspondence`; `python3 scripts/formal.py snapshot [--out FILE] [--compare FILE]` |

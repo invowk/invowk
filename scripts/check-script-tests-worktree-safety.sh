@@ -5,11 +5,11 @@
 #
 # Script tests exercise tools that revert sources and delete files (the
 # mutation wrapper among them). A test that points such a tool at the real
-# checkout silently discards whoever runs it's uncommitted work. This gate
-# makes that mechanically detectable:
+# checkout silently discards the uncommitted work of whoever runs it. This
+# gate makes that mechanically detectable:
 #
 #   1. It fingerprints the real checkout (staged and unstaged binary diffs,
-#      untracked non-ignored files with their content, HEAD, stash list).
+#      untracked non-ignored files with their content, HEAD and branch).
 #   2. It creates a throwaway checkout (`git worktree add --detach` at HEAD),
 #      mirrors the real checkout's staged, unstaged and untracked work into it,
 #      and plants canaries: an unstaged edit to a tracked file under each of
@@ -24,9 +24,14 @@
 # prints the commands that recover it. The throwaway checkout is always
 # removed.
 #
-# Usage: check-script-tests-worktree-safety.sh [--repo DIR] [-- COMMAND...]
+# --in-place (make test-scripts-unguarded) skips steps 2-3: it runs the suite
+# in the real checkout and only compares the step-1 fingerprint afterwards, so
+# damage is still detected and recoverable, though no longer prevented.
+#
+# Usage: check-script-tests-worktree-safety.sh [--repo DIR] [--in-place] [-- COMMAND...]
 #   --repo DIR   checkout to guard (default: this script's repository)
-#   COMMAND      suite to run inside the throwaway checkout
+#   --in-place   run the suite in the checkout itself, not a throwaway one
+#   COMMAND      suite to run (default: bash scripts/script-tests.sh)
 #
 # Exit status: 0 suite passed and nothing changed; 1 suite failed and nothing
 # changed; 2 usage or setup error; 3 a checkout changed (whatever the suite's
@@ -51,6 +56,7 @@ WORK=""
 CHECKOUT=""
 CHECKOUT_ADMIN=""
 KEEP_REAL_BEFORE=0
+IN_PLACE=0
 
 setup_error() {
 	printf 'ERROR: %s\n' "$*" >&2
@@ -67,6 +73,10 @@ while (($# > 0)); do
 			(($# > 1)) || setup_error "--repo requires a directory"
 			REPO="$2"
 			shift 2
+			;;
+		--in-place)
+			IN_PLACE=1
+			shift
 			;;
 		--help | -h)
 			usage
@@ -107,7 +117,6 @@ fingerprint() {
 	mkdir -p "$out"
 	git -C "$dir" rev-parse HEAD >"$out/head"
 	git -C "$dir" symbolic-ref -q HEAD >"$out/branch" || true
-	git -C "$dir" stash list >"$out/stash"
 	git -C "$dir" diff --binary >"$out/unstaged.diff"
 	git -C "$dir" diff --cached --binary >"$out/staged.diff"
 	git -C "$dir" ls-files --others --exclude-standard -z >"$out/untracked.z"
@@ -134,7 +143,10 @@ compare_fingerprints() {
 	local part
 	local changed=0
 
-	for part in head branch stash staged.diff unstaged.diff untracked; do
+	# Not the stash list: it is shared by every worktree of the repository, so
+	# a sibling worktree's stash would be a false alarm. A stash made by the
+	# suite still shows up as changed canaries and diffs.
+	for part in head branch staged.diff unstaged.diff untracked; do
 		if ! cmp -s "$before/$part" "$after/$part"; then
 			if ((changed == 0)); then
 				printf '\nSAFETY VIOLATION: the script tests changed the %s.\n' "$label" >&2
@@ -267,43 +279,48 @@ WORK="$(cd "$WORK" && pwd -P)"
 CHECKOUT="$WORK/checkout"
 
 fingerprint "$REPO" "$WORK/real-before" archive
-
-# No hooks: a post-checkout hook must not run against the throwaway checkout.
-git -C "$REPO" -c core.hooksPath=/dev/null worktree add --quiet --detach -- "$CHECKOUT" HEAD ||
-	setup_error "could not create the throwaway checkout"
-CHECKOUT_ADMIN="$(git -C "$CHECKOUT" rev-parse --absolute-git-dir)"
-
-# Mirror the real checkout's work, so the suite tests what is on disk, not only
-# HEAD: staged changes into the index, unstaged ones on top, untracked files.
-if [[ -s "$WORK/real-before/staged.diff" ]]; then
-	git -C "$CHECKOUT" apply --index --whitespace=nowarn "$WORK/real-before/staged.diff" ||
-		setup_error "could not mirror the staged changes into the throwaway checkout"
-fi
-if [[ -s "$WORK/real-before/unstaged.diff" ]]; then
-	git -C "$CHECKOUT" apply --whitespace=nowarn "$WORK/real-before/unstaged.diff" ||
-		setup_error "could not mirror the unstaged changes into the throwaway checkout"
-fi
-if [[ -f "$WORK/real-before/untracked.tar" ]]; then
-	tar -C "$CHECKOUT" -xf "$WORK/real-before/untracked.tar"
-fi
-
-plant_canaries "$$-$RANDOM"
-fingerprint "$CHECKOUT" "$WORK/checkout-before"
-
-printf 'Running the script tests in a throwaway checkout: %s\n' "$CHECKOUT"
-printf '  (canaries planted in: %s)\n' "$(paste -sd' ' "$WORK/canaries")"
 suite_status=0
-(cd "$CHECKOUT" && "${SUITE[@]}") || suite_status=$?
-
 violation=0
-if [[ -d "$CHECKOUT" ]]; then
-	fingerprint "$CHECKOUT" "$WORK/checkout-after"
-	check_canaries || violation=1
-	compare_fingerprints "throwaway checkout (its canaries stand in for uncommitted work)" \
-		"$WORK/checkout-before" "$WORK/checkout-after" || violation=1
+
+if ((IN_PLACE == 1)); then
+	printf 'Running the script tests in place (unguarded): %s\n' "$REPO"
+	(cd "$REPO" && "${SUITE[@]}") || suite_status=$?
 else
-	printf '\nSAFETY VIOLATION: the script tests deleted the throwaway checkout %s.\n' "$CHECKOUT" >&2
-	violation=1
+	# No hooks: a post-checkout hook must not run against the throwaway checkout.
+	git -C "$REPO" -c core.hooksPath=/dev/null worktree add --quiet --detach -- "$CHECKOUT" HEAD ||
+		setup_error "could not create the throwaway checkout"
+	CHECKOUT_ADMIN="$(git -C "$CHECKOUT" rev-parse --absolute-git-dir)"
+
+	# Mirror the real checkout's work, so the suite tests what is on disk, not only
+	# HEAD: staged changes into the index, unstaged ones on top, untracked files.
+	if [[ -s "$WORK/real-before/staged.diff" ]]; then
+		git -C "$CHECKOUT" apply --index --whitespace=nowarn "$WORK/real-before/staged.diff" ||
+			setup_error "could not mirror the staged changes into the throwaway checkout"
+	fi
+	if [[ -s "$WORK/real-before/unstaged.diff" ]]; then
+		git -C "$CHECKOUT" apply --whitespace=nowarn "$WORK/real-before/unstaged.diff" ||
+			setup_error "could not mirror the unstaged changes into the throwaway checkout"
+	fi
+	if [[ -f "$WORK/real-before/untracked.tar" ]]; then
+		tar -C "$CHECKOUT" -xf "$WORK/real-before/untracked.tar"
+	fi
+
+	plant_canaries "$$-$RANDOM"
+	fingerprint "$CHECKOUT" "$WORK/checkout-before"
+
+	printf 'Running the script tests in a throwaway checkout: %s\n' "$CHECKOUT"
+	printf '  (canaries planted in: %s)\n' "$(paste -sd' ' "$WORK/canaries")"
+	(cd "$CHECKOUT" && "${SUITE[@]}") || suite_status=$?
+
+	if [[ -d "$CHECKOUT" ]]; then
+		fingerprint "$CHECKOUT" "$WORK/checkout-after"
+		check_canaries || violation=1
+		compare_fingerprints "throwaway checkout (its canaries stand in for uncommitted work)" \
+			"$WORK/checkout-before" "$WORK/checkout-after" || violation=1
+	else
+		printf '\nSAFETY VIOLATION: the script tests deleted the throwaway checkout %s.\n' "$CHECKOUT" >&2
+		violation=1
+	fi
 fi
 
 fingerprint "$REPO" "$WORK/real-after"

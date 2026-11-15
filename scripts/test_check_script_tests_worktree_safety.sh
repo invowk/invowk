@@ -86,13 +86,18 @@ worktree_count() {
 	git -C "$FIXTURE" worktree list --porcelain | grep -c '^worktree '
 }
 
-# gate_status COMMAND... runs the gate over the fixture with COMMAND as the
-# suite and prints its exit status.
+# gate_status [--in-place] COMMAND... runs the gate over the fixture with
+# COMMAND as the suite and prints its exit status.
 gate_status() {
 	local status
+	local -a mode=()
 
+	if [[ "$1" == "--in-place" ]]; then
+		mode=(--in-place)
+		shift
+	fi
 	set +e
-	TMPDIR="$TMP" "$GATE" --repo "$FIXTURE" -- "$@" >"$OUTPUT" 2>&1
+	TMPDIR="$TMP" "$GATE" --repo "$FIXTURE" "${mode[@]}" -- "$@" >"$OUTPUT" 2>&1
 	status=$?
 	set -e
 	printf '%s\n' "$status"
@@ -146,6 +151,23 @@ else
 fi
 assert_eq "nothing is restored automatically" "lost" "$(tail -n 1 "$FIXTURE/cmd/app/a.go")"
 assert_eq "the throwaway checkout is removed after a violation" "1" "$(worktree_count)"
+
+# --- in-place (unguarded) runs are still fingerprinted ---------------------------
+in_place_before="$(repo_state "$FIXTURE")"
+assert_eq "an in-place benign suite passes" "0" "$(gate_status --in-place true)"
+assert_output_contains "an in-place run says it is unguarded" "Running the script tests in place (unguarded)"
+assert_eq "an in-place failing suite that changes nothing exits 1" "1" "$(gate_status --in-place false)"
+assert_eq "an in-place git restore is caught" "3" \
+	"$(gate_status --in-place git restore --worktree -- cmd internal pkg)"
+assert_output_contains "an in-place violation names the real checkout" "SAFETY VIOLATION: the script tests changed the real checkout"
+assert_output_contains "an in-place violation prints recovery commands" "apply --index"
+kept="$(sed -n 's/^  \(.*real-before\)$/\1/p' "$OUTPUT" | head -n 1)"
+if [[ -n "$kept" ]] && git -C "$FIXTURE" apply --check "$kept/unstaged.diff" 2>/dev/null; then
+	git -C "$FIXTURE" apply "$kept/unstaged.diff"
+	assert_eq "the printed recovery restores the lost work" "$in_place_before" "$(repo_state "$FIXTURE")"
+else
+	record_fail "an in-place violation keeps an applicable before-diff" "kept: ${kept:-<none>}"
+fi
 
 # --- the single test list covers every scripts/test_* file ---------------------
 list_root="$TMP/list-check"

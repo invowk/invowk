@@ -17,8 +17,10 @@ on:
       - 'go.sum'
       - 'Makefile'
       - 'scripts/**'
-      # Run by make test-scripts (single list: scripts/script-tests.sh).
+      # Read or run by make test-scripts (single list: scripts/script-tests.sh).
       - '.agents/skills/publish-release/scripts/**'
+      - 'tools/mutation/**'
+      - 'formal/**'
       - 'default.pgo'
       - '.goreleaser.yaml'
       - '.github/workflows/ci.yml'
@@ -35,8 +37,10 @@ on:
       - 'go.sum'
       - 'Makefile'
       - 'scripts/**'
-      # Run by make test-scripts (single list: scripts/script-tests.sh).
+      # Read or run by make test-scripts (single list: scripts/script-tests.sh).
       - '.agents/skills/publish-release/scripts/**'
+      - 'tools/mutation/**'
+      - 'formal/**'
       - 'default.pgo'
       - '.goreleaser.yaml'
       - '.github/workflows/ci.yml'

@@ -507,14 +507,15 @@ check-agent-docs:
 # fails when a scripts/test_* file is missing from it). test-scripts runs that
 # list inside a throwaway checkout guarded by canaries and fails (exit 3) if any
 # test discarded or created work in a checkout; CI runs this target.
-# test-scripts-unguarded runs the same list directly in this checkout.
+# test-scripts-unguarded runs the same list directly in this checkout, still
+# fingerprinted before and after (exit 3 plus recovery commands on a change).
 # PowerShell tests (scripts/test_install.ps1) run on Windows CI only.
 .PHONY: test-scripts test-scripts-unguarded
 test-scripts:
 	./scripts/check-script-tests-worktree-safety.sh
 
 test-scripts-unguarded:
-	bash scripts/script-tests.sh
+	./scripts/check-script-tests-worktree-safety.sh --in-place
 
 # Install pre-commit hooks
 .PHONY: install-hooks
@@ -698,7 +699,8 @@ help:
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Fail on SonarCloud quality gate or unresolved issues (API-only)"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
-	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
+	@echo "  test-scripts     Run all script tests in a throwaway checkout behind the worktree-safety gate (PS1 on Windows CI)"
+	@echo "  test-scripts-unguarded Run the same script tests in this checkout, fingerprinted before and after"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
 	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"
 	@echo "  help             Show this help message"
