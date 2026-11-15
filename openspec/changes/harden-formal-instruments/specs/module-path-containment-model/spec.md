@@ -33,16 +33,17 @@ The change SHALL record measured cost budgets:
 Budgets SHALL be measured on all three operating systems. They SHALL be handed to `promote-formal-ci-gate` as `budget_seconds` values.
 
 #### Scenario: Budget overrun blocks the scope
-- **WHEN** a measured replay or deep-rapid time exceeds its budget on any operating system
-- **THEN** the golden scope or the rapid generator SHALL be narrowed, with the reason recorded, before the model is listed in `formal/README.md`
+- **WHEN** a replay or deep-rapid time measured while the budgets are recorded exceeds its budget on any operating system
+- **THEN** the golden scope or the rapid generator SHALL be narrowed, with the reason recorded, before the figure is recorded
+- **THEN** `formal/README.md` SHALL say that no CI step enforces the recorded figures
 
-#### Scenario: Windows budget is derived from three CI runs
-- **WHEN** the first three windows-latest CI runs of PR #163 that include this change's replays have finished
-- **THEN** the Windows replay budget SHALL be `ceil(1.5 × the slowest of those runs)`, recorded in `formal/README.md` with the three run ids
+#### Scenario: Windows budget is derived from three runs of the final tree
+- **WHEN** three windows-latest CI runs of the same final head of the change, re-runs included, have finished
+- **THEN** the Windows replay budget SHALL be `ceil(1.5 × the slowest of those runs)`, recorded in `formal/README.md` with the head SHA and the run ids and attempts
 
-#### Scenario: Windows budget is not set from one sample
-- **WHEN** fewer than three windows-latest CI runs of PR #163 with this change's replays exist
-- **THEN** the Windows replay budget SHALL stay unset, and `formal/README.md` SHALL say that it is pending and that no step or test enforces it
+#### Scenario: Windows budget is not set from other trees
+- **WHEN** fewer than three windows-latest runs of the final head exist
+- **THEN** the Windows replay budget SHALL stay pending, and `formal/README.md` SHALL say so and that no step or test enforces it
 
 ## ADDED Requirements
 
@@ -62,14 +63,15 @@ A Windows-only test SHALL require junction creation and report the creation erro
 - **THEN** junction creation SHALL return the "directory junctions are supported only on Windows" error, and the policy SHALL treat junctions as not required
 
 ### Requirement: Junction-writer failures are investigated in a fixed order
-Junction-writer failures SHALL be investigated in this order, and each step SHALL land only if the previous one did not resolve the failure:
+Junction-writer failures SHALL be investigated in this order, and the second step SHALL land only if the first did not resolve the failure:
 1. surface the creation error;
-2. compare the mount-point reparse buffer field by field with Go's own Windows `os` test helper, and fix each divergence;
-3. fall back to `cmd /c mklink /J`.
+2. compare the mount-point reparse buffer field by field with Go's own Windows `os` test helper, and fix each divergence.
 
-#### Scenario: Both writers fail
-- **WHEN** the reparse writer and the `mklink /J` fallback both fail
-- **THEN** the reported error SHALL contain both errors
+Junction creation SHALL NOT fall back to another writer, such as `cmd /c mklink /J`, because the capability probe uses the same creation path.
+
+#### Scenario: Reparse writer fails
+- **WHEN** the reparse writer fails on Windows
+- **THEN** junction creation and the capability probe SHALL report that error, and no other writer SHALL be tried
 
 ### Requirement: The rapid property generates junctions on Windows
 `TestModulePathContainment_Property` SHALL draw the link kind from {symlink, junction} wherever junctions are available. On Windows they are required, so the junction branch SHALL run there. A junction SHALL target a directory: either inside the module, or outside it with a unique sentinel file.
@@ -167,7 +169,7 @@ The `workdirCwd` row for `Invowkfile.GetEffectiveWorkDir` SHALL name `TestModule
 - **THEN** the `GetEffectiveWorkDir` row SHALL be reached by `TestModulePathContainment_ContainerWorkDirGolden`
 
 ### Requirement: Virtual-harness construction rows are bound by a construction replay
-A new `TestVirtualPathHarness_RootConstruction` SHALL bind the `allowedRoots` and `access` rows. It SHALL build resolvers with `newVirtualPathResolverForFilesystem` and require their acceptance of probe paths in each location kind (`InReadRoot`, `InWorkdir`, `OutsideAll`) to equal `H.access = Full or locIsAllowedRoot[l, True]`, the current code (F15). `EffectiveAccess` SHALL return `restricted` when access is omitted or set to `restricted`, and `full` when set to `full`.
+A new `TestVirtualPathHarness_RootConstruction` SHALL bind the `allowedRoots`, `anchors`, and `access` rows. It SHALL build resolvers with `newVirtualPathResolverForFilesystem` and require their acceptance of probe paths in each location kind (`InReadRoot`, `InWorkdir`, `OutsideAll`) to equal `H.access = Full or locIsAllowedRoot[l, True]`, the current code (F15). `EffectiveAccess` SHALL return `restricted` when access is omitted or set to `restricted`, and `full` when set to `full`.
 
 #### Scenario: Workdir widening reproduced
 - **WHEN** the construction replay probes a workdir-only path under `restricted` access
@@ -181,12 +183,16 @@ A new `TestVirtualPathHarness_RootConstruction` SHALL bind the `allowedRoots` an
 - **WHEN** the filesystem config omits the access mode
 - **THEN** `EffectiveAccess` SHALL return `restricted`, as the virtual-filesystem-access spec states
 
-### Requirement: The anchors row is unbound
-The `anchors` row for `standardVirtualAnchorsForOS` SHALL have binding `-`, because the model abstracts anchor locations into `InReadRoot` and states no per-OS layout or environment override that a replay could compare with. Its abstraction cell SHALL state this and SHALL name the follow-up model extension.
+### Requirement: The anchors row claims only explicit anchor roots
+The construction replay SHALL require `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work`, as the resolver reports them, to be accepted, and a path under `@home` outside every other root to be rejected under restricted access (`cross-platform-path-anchors` "Anchor allow roots are explicit"). The `anchors` row's abstraction cell SHALL say that anchor paths are inputs from the production resolver, not verified.
 
-#### Scenario: Anchors row reported, not gated
-- **WHEN** the formal-bindings plan or the reach gate runs
-- **THEN** the `anchors` row SHALL be reported as `no-binding`, with its abstraction cell
+#### Scenario: Home anchor is not an allowed root
+- **WHEN** the replay probes a path under `@home` that no other anchor or root encloses, under restricted or omitted access
+- **THEN** the resolver SHALL reject it
+
+#### Scenario: Seeded home root
+- **WHEN** `@home` is seeded into the allowed roots of `newVirtualPathResolverForFilesystem`
+- **THEN** the construction replay SHALL fail, and the result SHALL be recorded in `VirtualPathHarness`'s calibration text
 
 ### Requirement: The unpack destination row is unbound
 The `unpackRejectsEscape` row SHALL have binding `-`, because `validateDestinationPath` alone is not the model's destination check (`unpackInside[destCheck]`, `refShape = RelInside`). With the `Join` call shape it accepts an absolute name, and after `normalizeZIPPath` its rejection is unreachable on POSIX. The row's abstraction cell SHALL state this, and SHALL name the follow-up that binds `unpackInside` to `normalizeZIPPath`.
@@ -201,3 +207,7 @@ For each function rebound by this change, one plausible defect SHALL be seeded i
 #### Scenario: Seeded defect in a rebound function
 - **WHEN** a plausible defect is seeded in one rebound function, for example making `LoadEnvFile` ignore `basePath`
 - **THEN** its new binding SHALL fail, and the result SHALL be recorded in the model's calibration text
+
+#### Scenario: Masked defect
+- **WHEN** a planned defect survives because another layer fully masks it at that entry point, as `ScriptFilePath.Validate` masks `validateScriptPathContainment` in `CustomCheckScript.ResolveWithFSAndModule`
+- **THEN** a defect the binding catches SHALL be seeded instead, and the masked one SHALL be recorded as redundant there in the calibration and `tasks/next/formal-binding-gaps.md`, not in the ledger

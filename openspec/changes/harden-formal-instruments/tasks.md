@@ -13,7 +13,7 @@
   - If the claim is real, stop and report it as candidate F18. Never weaken an assertion, and never edit product code.
 
   The same rule applies to an F16 outcome (c) with no modelled reason (design D7).
-  It also applies when a recorded F18 would add a characterisation-only row: that row is a new unbound row, which the shrink-only `[triage]` list rejects (design Risks). Report it instead of adding the entry.
+  It also applies when a recorded F18 would add a `no-binding` row: that row would grow `[triage] binding_gaps`, which the base check rejects (design Risks, decision 15). Report it instead of adding the entry. A new characterisation-only row is by design and passes.
 - [x] 0.4 Check: `test -s <scratch>/baseline.json`.
 
 ## 1. Reach gate: plan and subcommand
@@ -58,6 +58,11 @@
   - leave the upload step unchanged: it already uploads `artifacts/formal/`.
 - [x] 2.2 Update `scripts/test_formal.py`: the expected step list, the job-timeout sum, and the `affected` condition for the new step.
 - [x] 2.3 Add `scripts/formal_mutation.py` and `scripts/test_formal_mutation.py` to `[ci] paths` in `formal/manifest.toml`. Add a `scripts/test_formal.py` case in which a diff touching only `scripts/formal_mutation.py` classifies as `run=true`.
+- [ ] 2.3b (decision 15) Wire the triage checks into `.github/workflows/formal-verification.yml` (design D13, "CI"):
+  - add `python3 scripts/test_formal_mutation.py` to `Runner self-tests`;
+  - add a `Triage lists` step after it, under the `affected` condition, running `python3 scripts/formal_mutation.py triage --check --base "$BASE"`, with `$BASE` the PR base SHA on `pull_request` and `$GITHUB_SHA` otherwise; keep the classify step's depth-1 fetch of the base;
+  - add `tools/mutation/triage/**` and `tools/mutation/baselines/formal-bindings-baseline.json` to `[ci] paths`;
+  - extend `scripts/test_formal.py`: the step list, both commands, the `affected` condition, the `--base` wiring, and the new `[ci] paths`.
 - [x] 2.4 Check: `python3 scripts/test_formal.py` passes.
 
 ## 3. Capability policy and skip guard
@@ -93,7 +98,8 @@
 
 - [x] 4.1 Add a Windows-only `internal/testutil/fstree/links_windows_test.go` with `TestCreateJunction`, as described in design D5 step 1. It requires creation and checks it functionally: the link is not `ModeSymlink`, and `os.SameFile` holds through the link. On failure it prints the probe error.
 - [x] 4.2 Compare `writeMountPointReparse` (`links_windows.go:76-99`) field by field with Go 1.27's `src/os/os_windows_test.go` (`createMountPoint` and `reparseData`). Compare the buffer layout, both NULs, `ReparseDataLength`, the input length, and the `CreateFile` flags. Fix every divergence, and note the comparison in a code comment. The missing print-name NUL is only a hypothesis.
-- [x] 4.3 Add the `cmd /c mklink /J` fallback, used only when the reparse write fails. When both fail, report both errors.
+- [x] 4.3 Add the `cmd /c mklink /J` fallback, used only when the reparse write fails. When both fail, report both errors. (2026-11-14: superseded by decision 12; removed in 4.3b.)
+- [ ] 4.3b (decision 12) Remove the `mklink /J` fallback: `createJunctionVia`, its method constants, and the `exec`/`context`/`strings` imports it alone used, so `createJunction` and `probeJunction` call the reparse writer only. `TestCreateJunction` keeps requiring the reparse writer and checks it functionally. Remove the fallback from the code comments, design D5, the `module-path-containment-model` delta, and the skill.
 - [x] 4.4 Check, locally:
   - `GOOS=windows go vet ./internal/testutil/fstree/ ./internal/app/moduleops/ ./internal/runtime/`;
   - `GOOS=windows go test -c -o /dev/null` for each of those three packages.
@@ -133,14 +139,23 @@
   - `EffectiveAccess` for omitted, `restricted`, and `full`.
 
   Bind the `allowedRoots` and `access` rows (`formal/alloy/VirtualPathHarness.als:30,32`) to it, then run `make formal-golden` for `VirtualPathHarness`.
-- [x] 6.5b Unbind the `anchors` row (`VirtualPathHarness.als:31`, decision 8). Set its binding to `-` and write the abstraction cell described in design D9, "The unbound rows": the model abstracts anchors into `InReadRoot`, the construction replay checks only that anchor roots are read roots, and per-OS anchors in the model are the follow-up. Leave the element, symbol, and file cells unchanged. Add no anchor-layout comparison to any test.
+- [x] 6.5b (2026-11-14: superseded by decision 14; see 6.5c.) Unbind the `anchors` row (`VirtualPathHarness.als:31`, decision 8). Set its binding to `-` and write the abstraction cell described in design D9, "The unbound rows": the model abstracts anchors into `InReadRoot`, the construction replay checks only that anchor roots are read roots, and per-OS anchors in the model are the follow-up. Leave the element, symbol, and file cells unchanged. Add no anchor-layout comparison to any test.
+- [ ] 6.5c (decision 14) Bind the `anchors` row (`VirtualPathHarness.als:31`) to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots":
+  - add `@work` to the anchor probes that must be accepted;
+  - add the `@home` negative from `cross-platform-path-anchors` "Anchor allow roots are explicit": a probe at `@home/.ssh/<tag>` that no other anchor encloses, rejected under restricted and omitted access and accepted under full; fail if `@home` is empty or encloses another root's probe;
+  - rewrite the row's abstraction cell: anchor paths are inputs from the production resolver, not verified; per-OS anchors in the model are the follow-up;
+  - run `make formal-golden` for `VirtualPathHarness` (its source text changes).
 - [x] 6.6 Unbind the `Auth` row (`formal/tla/HostCallbackToken.tla:28`). Set the binding to `-`, and extend the abstraction cell as described in design D9: keep "TTL expiry is a nondeterministic action", and add the no-production-caller reason, the pointer to `Server.admitConn` (row `Auth/End atomicity`), and the survivor-triage follow-up. Do not add a `ValidateToken` call to any test.
-- [ ] 6.7 (2026-11-14: four of five defects fail their binding and are recorded in the calibrations; dropping the `validateScriptPathContainment` call in `CustomCheckScript.ResolveWithFSAndModule` SURVIVES, because `ScriptFilePath.Validate` masks the lexical layer at that entry point, as for the implementation script (design D5.3 of model-module-path-containment). Resolving the custom-check script against the module's parent is caught. Open: maintainer decision on the replacement defect or a direct layer binding.) Seed one defect at a time for 6.1, 6.2, 6.3, and 6.5, confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
-  - drop the `validateScriptPathContainment` call in `CustomCheckScript.ResolveWithFSAndModule`;
+- [ ] 6.7 (2026-11-14: four of five planned defects fail their binding and are recorded in the calibrations; dropping the `validateScriptPathContainment` call survives, masked by `ScriptFilePath.Validate`; decision 11 swaps it.) Seed one defect at a time for 6.1, 6.2, 6.3, 6.5, and 6.5c, confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
+  - resolve the custom-check script against the module's parent in `CustomCheckScript.ResolveWithFSAndModule` (decision 11); record the planned defect (drop its `validateScriptPathContainment` call) as "redundant at this entry point: fully masked by `ScriptFilePath.Validate`" in the `ModulePathContainment` calibration and in `tasks/next/formal-binding-gaps.md`, not in the ledger;
   - make `LoadEnvFile` ignore `basePath`;
   - make `GetEffectiveWorkDir` ignore the implementation-level `workdir`;
   - drop the declared paths from the roots in `newVirtualPathResolverForFilesystem`;
+  - add `@home` to the allowed roots in `newVirtualPathResolverForFilesystem` (decision 14);
+  - set the `@config` anchor to the home directory itself in `standardVirtualAnchorsForOS` (decision 14);
   - make `EffectiveAccess` return `full` for an omitted access mode.
+
+  After each revert, `git status --short -- cmd internal pkg` must list no non-test file.
 - [x] 6.8 Run `make formal-reach`:
   - it must pass, with every bound pair reached and every row unbound by 6.4, 6.5b, and 6.6 listed as `no-binding`;
   - seed a reach regression by temporarily removing the `LoadEnvFile` call: exactly that pair must fail, then revert it;
@@ -151,8 +166,15 @@
   - in `check_triage`, fail an unlisted unbound row or orphan, fail a stale entry, and print the listed entries;
   - seed the list from the plan on this tree; expect 54 rows (the 51 of D13 plus `Auth`, `unpackRejectsEscape`, `anchors`) and 42 orphans (`Auth` 8, `unpackRejectsEscape` 12, `anchors` 22), and stop and report if either set differs;
   - add the `scripts/test_formal_mutation.py` fixtures listed in D13.
-- [x] 6.10 Check:
-  - `python3 scripts/formal_mutation.py triage --check` passes with no `[[survivor]]` or `[[closed]]` edits, and fails when one listed entry is removed;
+- [ ] 6.9b (decision 15) Narrow and guard the `[triage]` lists (design D13):
+  - in `classify_rows`, classify a symbol that names no function as `type-symbol` before the binding check; expect `Serverbase` `State`, `ScopeConstruction` `globalChildren` and `RootSrc`, and `Watch` `backend` to move;
+  - rename `unbound_rows` to `binding_gaps` and list only `no-binding` rows; derive and report the by-design rows; a listed row that is not `no-binding` is stale;
+  - add `triage --check --base <sha>`: read `git show <sha>:formal/manifest.toml` and fail on any `unresolved_elements`, `binding_gaps`, or `orphaned_survivors` entry absent at the base; default to `git merge-base HEAD origin/main`; pass with a notice when the readable base lacks a list; fail closed, naming the base and `--base`, when the base cannot be determined or read; inject the reader so unit tests never call git;
+  - reseed: expect 19 gaps and 20 orphans (`Auth` 8, `unpackRejectsEscape` 12) and 34 by-design rows; stop and report if the sets differ;
+  - add `scripts/test_formal_mutation.py` fixtures: a new by-design row passes, the reclassified type symbol, a listed by-design row is stale, growth at the base fails for each list, a shrink passes, a base without the lists passes as seeding, an unreadable base fails closed.
+- [ ] 6.10 Check:
+  - `python3 scripts/formal_mutation.py triage --check` passes with no `[[survivor]]` or `[[closed]]` edits, and fails when one listed entry is removed; `triage --check --base HEAD` passes;
+  - `python3 scripts/formal.py correspondence` and `make formal-reach` pass, with `anchors` reached by `TestVirtualPathHarness_RootConstruction`;
   - `python3 scripts/test_formal_mutation.py` passes;
   - `python3 scripts/formal.py snapshot --compare <scratch>/baseline.json` shows every verdict and golden instance digest identical, except entries added by a recorded F16 or F18 outcome.
 
@@ -181,7 +203,13 @@
   - flag their baselined survivors for retriage;
   - note that the rerun evidence of all 419 survivors is stale by the digest convention;
   - add the survivor-triage follow-up as future work: the 419 survivors, a baseline refresh, re-pointing `Auth` to `Server.admitConn`, a `normalizeZIPPath` row for `unpackInside`, per-OS anchors in `VirtualPathHarness.als` (decision 8), the Alloy-only "`validateDestinationPath` omitted" calibration claim (design Risks), renaming the 34 unresolved model elements and emptying `unresolved_elements` (decision 7), and emptying `[triage] orphaned_survivors` (decision 9).
-- [x] 7.5 Check: `make check-agent-docs` passes.
+- [ ] 7.4b (decisions 11-15) Update `formal/README.md`, `.agents/skills/formal-verification/SKILL.md`, and `tasks/next/formal-binding-gaps.md`:
+  - six rows rebound and two unbound, with `anchors` bound under its narrow claim, and 20 orphaned survivors;
+  - the `[triage]` lists: binding gaps only, by-design rows derived, the type-symbol rule, the base growth check and how to run it locally;
+  - no `mklink /J` fallback;
+  - the masked custom-check defect, recorded as redundant at that entry point;
+  - the Windows replay budget pending three runs of the final tree, and no CI step enforcing the figure.
+- [ ] 7.5 Check: `make check-agent-docs` passes.
 
 ## 8. Windows CI evidence (open until the runs exist)
 
@@ -191,9 +219,11 @@
   - (c) contained: record F16 as refuted in the README, naming each operation's modelled fact and its dropping mutant; stop if no modelled fact explains an operation.
 
   In every case, write the outcome and the CI run id into `ModulePathContainment`'s calibration, and record in design D5 which step fixed creation.
-- [x] 8.2 (2026-11-14: runs 43657442894, 43658445060, 43660058330 measured the `ModulePathContainment` golden at 31.8 s, 42.7 s, 39.4 s under `-race -short` (every 16th instance); budget `ceil(1.5 x 42.7)` = 64 s, recorded in formal/README.md with the note that nothing enforces it.) After the first three windows-latest runs of PR #163 that include the group 6 replays:
-  - set the Windows golden-replay budget to `ceil(1.5 × max)` of their `ModulePathContainment` golden times;
-  - record the value, the three run ids, and the note that nothing enforces it in `formal/README.md` (design D12).
+- [ ] 8.2 (2026-11-14: the figure first recorded, 64 s from runs 43657442894, 43658445060, and 43660058330, came from earlier trees and is withdrawn by decision 13.) After the last code push, get three windows-latest runs of that same head (re-run the Windows job with `gh run rerun <id> --job <job>` as needed; do not push while they run):
+  - read each attempt's `ModulePathContainment` golden time (`gh run view <id> --attempt N --log`);
+  - set the Windows golden-replay budget to `ceil(1.5 × max)`;
+  - record the value, the measured head SHA, the run ids and attempts, and the note that nothing enforces it in `formal/README.md` (design D12), in a docs-only commit;
+  - if three runs of one head cannot be obtained, leave this task open with a dated note.
 - [x] 8.3 (2026-11-14: run 43657442830 passed `Binding reach`: 53 of 53 triples, `timing reach 37.1s`, a soft overrun warning against the local 36 s budget; well inside the 6-minute step limit. First CI sample for the `budget_source = "ci"` promotion.) Confirm that the formal lane's `Binding reach` step passes on the PR, and record its measured CI seconds for the later `budget_source = "ci"` promotion.
 - [x] 8.4 (2026-11-14: run 43660058330 shows `Create junction`, `Create junction created via reparse point`, `ModulePathContainment F16 junction`, and `ModulePathContainment property` as run and passing.) Check: the PR's windows-latest job shows `TestCreateJunction`, `TestModulePathContainment_Property`, and `TestModulePathContainment_F16Junction` as run, not skipped.
 

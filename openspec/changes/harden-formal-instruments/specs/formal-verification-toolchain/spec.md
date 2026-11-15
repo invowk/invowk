@@ -23,7 +23,7 @@ Rows the plan reports as unbound (`no-symbol`, `no-binding`, `type-symbol`, `tra
 
 #### Scenario: The gate passes after the rows are resolved
 - **WHEN** this change has rebound or unbound each of the eight rows
-- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list every row it unbound, including `Auth`, `unpackRejectsEscape`, and `anchors`, as `no-binding`
+- **THEN** the gate SHALL pass with every bound (row, killer) pair reached, and SHALL list every row it unbound, `Auth` and `unpackRejectsEscape`, as `no-binding`
 
 ### Requirement: Reach gate command
 `scripts/formal_mutation.py reach` (`make formal-reach`) SHALL take the rows, functions, line ranges, killers, and packages from the plan that `scripts/formal_mutation.py plan` builds, keeping every fail-closed condition of the plan. It SHALL run each killer alone with `go test -count=1 -json -covermode=set -coverpkg=<the packages of the functions it kills> -coverprofile=…`. It SHALL pin `RAPID_SEED`, `RAPID_NOFAILFILE=1`, and `RAPID_SHRINKTIME` as the mutation profiles do.
