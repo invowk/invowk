@@ -236,6 +236,8 @@ The order is fixed. Each step lands only if the previous one did not resolve the
 
 The cause is not asserted ahead of CI. The PR's Windows run decides, and design.md records which step fixed it.
 
+**Recorded (2026-11-14).** Step 2 fixed creation: on windows-latest (CI run 43660058330, job 132647141440) `TestCreateJunction` reports `created via reparse point`, so the Go-matching writer succeeds and the `mklink /J` fallback is not used. The first PR run (43657442894) already passed `TestCreateJunction` with the same writer. The fallback stays as a reported second attempt.
+
 ### D6. The rapid property generates junctions, and escapes are judged by identity
 In `TestModulePathContainment_Property`, the link kind is drawn from {symlink, junction} where `CapJunction` is available. On Windows it is required, so the junction branch always runs there.
 - **Targets.** A junction targets a directory: the module's own subdirectory for the contained case, or an outside directory that holds a unique sentinel file. The script path becomes `<rel>x/secret`.
