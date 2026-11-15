@@ -28,7 +28,7 @@ Usage:
     scripts/formal_mutation.py rerun-record --plan FILE --summary FILE --id ID [--reruns FILE]
     scripts/formal_mutation.py merge-reports --report-dir DIR
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
-    scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE]
+    scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE] [--base SHA]
     scripts/formal_mutation.py reach [--out DIR]
 
 `reach` is the binding reach gate: it runs every killer test of the plan alone
@@ -269,10 +269,6 @@ def classify_rows(rows: list[Row], root: Path, declared: dict[str, set[str]]) ->
         if row.symbol in {"", "-"}:
             skip(row, REASON_NO_SYMBOL)
             continue
-        tests = formal.binding_tests(row.binding)
-        if not tests:
-            skip(row, REASON_NO_BINDING)
-            continue
         if row.file not in decls_by_file:
             decls_by_file[row.file] = function_decls((root / row.file).read_text())
         try:
@@ -282,8 +278,14 @@ def classify_rows(rows: list[Row], root: Path, declared: dict[str, set[str]]) ->
             continue
         if decl is None:
             # check_correspondence proved the symbol is declared, so it is a
-            # type, interface, field, or value rather than a function.
+            # type, interface, field, or value rather than a function. That
+            # holds bound or not, so a row without a binding is not a binding
+            # gap (harden-formal-instruments decision 15).
             skip(row, REASON_TYPE_SYMBOL)
+            continue
+        tests = formal.binding_tests(row.binding)
+        if not tests:
+            skip(row, REASON_NO_BINDING)
             continue
         killers = [t for t in tests if not formal.is_trace_harness(t) and not formal.is_characterisation_test(t, noted)]
         if not killers:
@@ -719,27 +721,35 @@ def read_reruns(path: Path) -> list[dict]:
 def check_unplanned(
     rows: list[Row], survivors: list[dict], triage: dict[str, list], root: Path
 ) -> tuple[list[str], list[str]]:
-    """The `[triage]` lists (harden-formal-instruments design D13): every row
-    the plan leaves unbound and every ledger survivor whose row is unbound
-    (an orphan, matched on (model, element, symbol) like the ledger check)
-    must be listed, and every listed entry must still apply. Returns the
-    failures and the report lines for the listed entries."""
+    """The `[triage]` lists (harden-formal-instruments design D13): every
+    no-binding row (a binding gap) and every ledger survivor whose row is
+    unbound for any reason (an orphan, matched on (model, element, symbol) like
+    the ledger check) must be listed, and every listed entry must still apply.
+    Rows unbound by design (no-symbol, type-symbol, trace-only,
+    characterisation-only) are derived and reported, never listed. Returns the
+    failures and the report lines."""
     declared, _files = test_declarations(root)
     unbound = {(u["model"], u["element"], u["symbol"]): u["reason"]
                for u in classify_rows(rows, root, declared).unbound}
+    gaps = {key for key, reason in unbound.items() if reason == REASON_NO_BINDING}
     row_keys = {(r.model, r.element, r.symbol) for r in rows}
-    listed_rows = {(r["model"], r["element"], r["symbol"]) for r in triage.get("unbound_rows", [])}
+    listed_gaps = {(r["model"], r["element"], r["symbol"]) for r in triage.get("binding_gaps", [])}
     listed_ids = set(triage.get("orphaned_survivors", []))
     survivor_rows = {s.get("id", ""): (s.get("model"), s.get("element"), s.get("symbol")) for s in survivors}
     orphans = {mutant for mutant, key in survivor_rows.items() if key in unbound}
 
     failures = []
-    for key in sorted(set(unbound) - listed_rows):
-        failures.append(f"[triage] unbound_rows: new unbound row {key[0]}: {key[1]!r} ({key[2]}, {unbound[key]}) is not listed; "
+    for key in sorted(gaps - listed_gaps):
+        failures.append(f"[triage] binding_gaps: new binding gap {key[0]}: {key[1]!r} ({key[2]}) is not listed; "
                         "the list only shrinks: bind the row instead")
-    for key in sorted(listed_rows - set(unbound)):
-        why = "names no correspondence row" if key not in row_keys else "is bound now; remove it"
-        failures.append(f"[triage] unbound_rows: stale entry {key[0]}: {key[1]!r} ({key[2]}) {why}")
+    for key in sorted(listed_gaps - gaps):
+        if key not in row_keys:
+            why = "names no correspondence row"
+        elif key in unbound:
+            why = f"is unbound by design ({unbound[key]}), which is derived, not listed; remove it"
+        else:
+            why = "is bound now; remove it"
+        failures.append(f"[triage] binding_gaps: stale entry {key[0]}: {key[1]!r} ({key[2]}) {why}")
     for mutant in sorted(orphans - listed_ids):
         key = survivor_rows[mutant]
         failures.append(f"[triage] orphaned_survivors: survivor {mutant} names unbound row {key[0]}: {key[1]!r} ({key[2]}) "
@@ -748,12 +758,85 @@ def check_unplanned(
         why = "is not in the ledger" if mutant not in survivor_rows else "names a bound row now; remove it"
         failures.append(f"[triage] orphaned_survivors: stale entry {mutant} {why}")
 
-    report = [f"unbound row {m}: {e!r} ({sym}, {unbound.get((m, e, sym), 'stale')})" for m, e, sym in sorted(listed_rows)]
+    report = [f"binding gap {m}: {e!r} ({sym})" for m, e, sym in sorted(listed_gaps)]
     by_row: dict[tuple, int] = {}
     for mutant in listed_ids:
         by_row[survivor_rows.get(mutant)] = by_row.get(survivor_rows.get(mutant), 0) + 1
     report += [f"orphaned survivors of {k[0]}: {k[1]!r} ({k[2]}): {n}" for k, n in sorted(by_row.items(), key=str) if k]
+    report += [f"by design {m}: {e!r} ({sym}, {reason})"
+               for (m, e, sym), reason in sorted(unbound.items()) if reason != REASON_NO_BINDING]
     return failures, report
+
+
+# The lists that may only shrink, by the manifest table that holds them.
+GROWTH_LISTS = (("correspondence", "unresolved_elements"), ("triage", "binding_gaps"), ("triage", "orphaned_survivors"))
+
+
+def shrink_lists(data: dict) -> dict[str, set | None]:
+    """The shrink-only lists of a parsed manifest, keyed `[table] key`; None
+    for a list the manifest does not have. It reads only these keys, so a base
+    whose tables carry other keys still yields its lists; the head manifest is
+    validated by load_manifest."""
+    out: dict[str, set | None] = {}
+    for table, key in GROWTH_LISTS:
+        values = data.get(table, {}).get(key)
+        if not isinstance(values, list):
+            out[f"[{table}] {key}"] = None
+            continue
+        out[f"[{table}] {key}"] = {
+            (v.get("model"), v.get("element"), v.get("symbol")) if isinstance(v, dict) else v for v in values
+        }
+    return out
+
+
+def entry_label(entry) -> str:
+    return f"{entry[0]}: {entry[1]!r} ({entry[2]})" if isinstance(entry, tuple) else repr(entry)
+
+
+def check_growth(head: dict, base: dict, base_name: str) -> tuple[list[str], list[str]]:
+    """Fail on every shrink-only list entry that the base manifest does not
+    list (harden-formal-instruments decision 15). A list the base does not
+    have is being introduced, so it passes with a notice. Returns the failures
+    and the notices."""
+    head_lists, base_lists = shrink_lists(head), shrink_lists(base)
+    failures, notices = [], []
+    for name, entries in head_lists.items():
+        at_base = base_lists[name]
+        if at_base is None:
+            notices.append(f"{name}: not in the base {base_name} manifest; this change seeds it")
+            continue
+        for entry in sorted(entries or set(), key=str):
+            if entry not in at_base:
+                failures.append(f"{name}: {entry_label(entry)} is not listed at the base {base_name}; "
+                                "the list only shrinks: fix the row or survivor instead of listing it")
+    return failures, notices
+
+
+def merge_base(run: Callable[..., str] | None = None) -> str:
+    """The default growth base: the merge-base of HEAD and origin/main."""
+    try:
+        return (run or git)("merge-base", "HEAD", "origin/main")
+    except (subprocess.CalledProcessError, OSError) as err:
+        detail = getattr(err, "stderr", "") or err
+        raise PlanError(f"triage --check: cannot determine the base (git merge-base HEAD origin/main failed: "
+                        f"{str(detail).strip()}); fetch origin/main or pass --base <sha>") from err
+
+
+def base_manifest(base: str, read: Callable[[str], bytes] | None = None) -> dict:
+    """The manifest at the growth base, parsed; fails closed when unreadable."""
+    path = str(formal.MANIFEST.relative_to(REPO_ROOT))
+    try:
+        text = (read or git_reader(base))(path)
+    except (subprocess.CalledProcessError, OSError) as err:
+        detail = getattr(err, "stderr", b"") or err
+        if isinstance(detail, bytes):
+            detail = detail.decode(errors="replace")
+        raise PlanError(f"triage --check: cannot read {path} at the base {base} (git show {base}:{path} failed: "
+                        f"{str(detail).strip()}); fetch the base commit or pass --base <sha>") from err
+    try:
+        return tomllib.loads(text.decode())
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as err:
+        raise PlanError(f"triage --check: {path} at the base {base} is not valid TOML: {err}") from err
 
 
 def check_triage(
@@ -1097,6 +1180,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--baseline", type=Path, default=BASELINE)
     p.add_argument("--ledger", type=Path, default=LEDGER)
     p.add_argument("--reruns", type=Path, default=RERUNS)
+    p.add_argument("--base", default="",
+                   help="commit whose manifest the shrink-only lists may not outgrow (default: git merge-base HEAD origin/main)")
     p = sub.add_parser("reach")
     p.add_argument("--out", type=Path, default=REACH_DIR)
     args = parser.parse_args(argv)
@@ -1163,8 +1248,16 @@ def main(argv: list[str] | None = None) -> int:
                 ledger = tomllib.load(handle)
             listed: list[str] = []
             failures = check_triage(read_baseline(args.baseline), ledger, read_reruns(args.reruns), models, report=listed)
+            base = args.base or merge_base()
+            with formal.MANIFEST.open("rb") as handle:
+                head = tomllib.load(handle)
+            growth, notices = check_growth(head, base_manifest(base), base)
+            failures += growth
+            for notice in notices:
+                print(f"formal-bindings triage: {notice}")
             if listed:
-                print(f"formal-bindings triage: {len(listed)} listed [triage] entries (shrink-only):")
+                print("formal-bindings triage report: [triage] binding gaps and orphans (shrink-only), "
+                      "then the derived by-design rows:")
                 for line in listed:
                     print(f"  {line}")
             if failures:

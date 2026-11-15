@@ -967,12 +967,35 @@ class CiContractTests(unittest.TestCase):
         self.assertIn("python3 scripts/formal.py replay-plan --format github", text)
         self.assertNotIn("paths:", text.split("concurrency:")[0])
         heavy = ("Setup Go", "Setup Java", "Cache formal tool jars", "Fetch and verify pinned tools", "Runner self-tests",
-                 "Check models", "Trace validation", "Replay golden vectors and property tests", "Binding reach",
-                 "Deep property tests")
+                 "Triage lists", "Check models", "Trace validation", "Replay golden vectors and property tests",
+                 "Binding reach", "Deep property tests")
         for name in heavy:
             with self.subTest(step=name):
                 block = text.split(f"      - name: {name}\n", 1)[1].split("\n      - name: ", 1)[0]
                 self.assertIn("if: steps.affected.outputs.run != 'false'", block)
+
+
+    def test_workflow_runs_the_triage_checks(self) -> None:
+        # harden-formal-instruments decision 15: the mutation runner tests and
+        # the base growth check of the shrink-only lists run in the formal lane.
+        text = WORKFLOW.read_text()
+
+        def step(name: str) -> str:
+            return text.split(f"      - name: {name}\n", 1)[1].split("\n      - name: ", 1)[0]
+
+        self.assertIn("python3 scripts/test_formal_mutation.py", step("Runner self-tests"))
+        triage = step("Triage lists")
+        self.assertIn("BASE_SHA: ${{ github.event.pull_request.base.sha }}", triage)
+        self.assertIn('python3 scripts/formal_mutation.py triage --check --base "${BASE_SHA:-$GITHUB_SHA}"', triage)
+        classify = step("Classify changed paths")
+        self.assertIn('git fetch -q --no-tags --depth=1 origin "$BASE_SHA"', classify)
+        names = re.findall(r"^      - name: (.+)$", text, re.M)
+        self.assertLess(names.index("Classify changed paths"), names.index("Triage lists"))
+
+    def test_ci_paths_cover_the_triage_inputs(self) -> None:
+        self.assert_covered("triage inputs", {"tools/mutation/triage/formal-bindings.toml",
+                                              "tools/mutation/triage/formal-bindings-reruns.jsonl",
+                                              "tools/mutation/baselines/formal-bindings-baseline.json"})
 
 
 class RepositoryManifestTests(unittest.TestCase):

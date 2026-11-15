@@ -24,17 +24,17 @@ it escaped. The binding reach gate (`make formal-reach`, harden-formal-instrumen
 `Server.ValidateToken`. Their status:
 
 - `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors): **rebound** to `TestModulePathContainment_ContainerWorkDirGolden`, which calls it through `getContainerWorkDir`.
-- `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included.
+- `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included. Calibration note (decision 11): the seeded defect "drop the `validateScriptPathContainment` call" survives, because it is redundant at this entry point, fully masked by `ScriptFilePath.Validate` (no input class is rejected only by `validateScriptPathContainment`; `TestModulePathContainment_ContainmentLayerGolden` binds that layer directly). The calibration seeds "resolve against the module's parent" instead, which the golden catches. This is not a ledger entry.
 - `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
 - `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `VirtualFilesystemConfig.EffectiveAccess` (`pkg/invowkfile/virtual_filesystem.go`, 1 survivor): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `validateDestinationPath` (`internal/app/moduleops/packaging.go`, 12 survivors): **unbound** (decision 5). The model's destination check, `unpackInside[destCheck]`, transcribes `normalizeZIPPath` followed by this function; alone it accepts an `AbsPath` name, and after `normalizeZIPPath` its rejection is unreachable on POSIX.
-- `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors): **unbound** (decision 8). The model abstracts anchors into `InReadRoot` and states no per-OS layout, so any anchor table would be a Go-side oracle.
+- `standardVirtualAnchorsForOS` (`internal/runtime/virtual_policy.go`, 22 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots" (decision 14, superseding decision 8's unbinding): the reported `@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` anchors are accepted and `@home/.ssh` is denied under restricted access. The anchor paths are inputs from the production resolver and are not verified; the model states no per-OS layout.
 - `Server.ValidateToken` (`internal/sshserver/server_auth.go`, 8 survivors): **unbound** (decision 1). It has no production caller; the model's `Auth` is implemented by `Server.admitConn` (row `Auth/End atomicity`).
 
 Retriage flags:
-- The 59 survivors of the five rebound functions keep their now-stale reason ("never calls ..."); rerun and retriage them.
-- The 42 survivors of the three unbound rows (`validateDestinationPath` 12, `ValidateToken` 8, `standardVirtualAnchorsForOS` 22) name functions the plan no longer targets. They are listed in `[triage] orphaned_survivors` in `formal/manifest.toml`.
+- The 81 survivors of the six rebound functions keep their now-stale reason ("never calls ..."); rerun and retriage them.
+- The 20 survivors of the two unbound rows (`validateDestinationPath` 12, `ValidateToken` 8) name functions the plan no longer targets. They are listed in `[triage] orphaned_survivors` in `formal/manifest.toml`, which `triage --check --base` keeps from growing.
 - The baseline carries one plan-inputs digest, and the change edited killer-test files many functions share, so by the digest convention the rerun evidence of all 419 survivors is stale. `triage --check` still passes because it compares the baseline digest with the rerun records, not with the current tree.
 
 ## Future work: survivor triage
@@ -43,10 +43,10 @@ One follow-up change owns all of this:
 - triage the 419 survivors and refresh the baseline (new reruns at the new digest);
 - re-point the `Auth` row to `Server.admitConn`;
 - add a `normalizeZIPPath` row for `unpackInside`;
-- model per-OS anchors in `VirtualPathHarness.als` (decision 8), then bind `anchors`;
+- model per-OS anchors in `VirtualPathHarness.als` (decision 8), then widen the `anchors` row past its narrow claim (decision 14);
 - reconcile the Alloy-only "`validateDestinationPath` omitted" calibration claim in `module-path-containment-model` ("Seeded copy, discovery, hash, unpack, and harness calibration defects"), which no Go test detects;
 - rename the 34 unresolved model elements, re-key their ledger survivors, and empty `[correspondence] unresolved_elements` (decision 7);
-- empty `[triage] orphaned_survivors` (decision 9).
+- empty `[triage] orphaned_survivors` (decision 9) and bind the 19 `[triage] binding_gaps` (decision 15).
 
 ## Per-function gaps
 
@@ -136,7 +136,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### standardVirtualAnchorsForOS
 
-`internal/runtime/virtual_policy.go`, 22 survivors. The harness golden never calls standardVirtualAnchorsForOS; only the host OS case can run on one platform.
+`internal/runtime/virtual_policy.go`, 22 survivors. The harness golden never calls standardVirtualAnchorsForOS; only the host OS case can run on one platform. Since harden-formal-instruments (decision 14) the construction replay reaches it for the host GOOS and checks only that anchors are explicit allowed roots; the per-OS paths and environment overrides stay unasserted.
 
 ### virtualPathValidator.validate
 
@@ -164,7 +164,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### CustomCheckScript.ResolveWithFSAndModule
 
-`pkg/invowkfile/dependency.go`, 15 survivors. The golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function.
+`pkg/invowkfile/dependency.go`, 15 survivors. The golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function. Since harden-formal-instruments the golden replays it; its `validateScriptPathContainment` call is redundant at this entry point (fully masked by `ScriptFilePath.Validate`), so a mutant that drops it is expected to survive here and is caught only by the containment-layer golden.
 
 ### Implementation.ResolveScriptWithFSAndModule
 

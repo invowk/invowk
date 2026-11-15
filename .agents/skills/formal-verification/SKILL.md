@@ -54,7 +54,11 @@ tool or a model.
    - A row whose Go function does not carry the model's claim (no production
      caller, or the claim lives in a different function) is unbound (binding
      `-`, the reason in its abstraction cell), never given a direct-call test
-     that makes the reach gate green without measuring the claim.
+     that makes the reach gate green without measuring the claim. When the
+     model states only part of a function's behaviour, bind it with that
+     narrow claim and say in the abstraction cell which inputs are taken from
+     production unverified (the `anchors` row: anchors are explicit allowed
+     roots; the anchor paths are not verified).
    - Completeness guard: every test in a `*_formal_test.go`,
      `*_golden_test.go`, `*_rapid_test.go`, or `*_trace_test.go` file must be
      named by some row, except `Test*_TraceHarness`, which must live in a
@@ -109,7 +113,10 @@ tool or a model.
        counted. Binding-test files skip only through these helpers:
        `scripts/formal.py correspondence` rejects a direct `Skip`, `Skipf`, or
        `SkipNow`. Rapid draws create links with `fstree.MustSymlink` and
-       `fstree.MustJunction` after a test-level `fstree.Require`.
+       `fstree.MustJunction` after a test-level `fstree.Require`. Never give a
+       capability writer a fallback writer: the probe shares the creation path,
+       so a fallback would let a broken writer pass the policy silently (the
+       junction writer has no `mklink /J` fallback).
      - Judge a junction escape by file identity (`os.SameFile` against a unique
        outside sentinel, backed by its content), never by
        `filepath.EvalSymlinks` plus a prefix test: since Go 1.23 a mount point
@@ -132,9 +139,18 @@ tool or a model.
    bound row alone under a coverage profile and fails unless each one executes
    at least one statement of the row's function. A row that names a binding
    which never calls its function fails here, not only in a mutation run.
-   Every unbound row and every ledger survivor of one is listed in the
-   shrink-only `[triage]` table (`triage --check` enforces it); bind a row or
-   delete its survivors' entries to shrink it, never add an entry.
+   Every binding gap (a row with no binding that names a function) and every
+   ledger survivor of an unbound row is listed in the shrink-only `[triage]`
+   table; rows unbound by design (no symbol, a non-function symbol,
+   trace-only, characterisation-only) are derived and reported, never listed.
+   `triage --check --base <sha>` fails on any entry of `[triage]` or
+   `[correspondence] unresolved_elements` that the base does not list (the
+   formal lane passes the PR base; locally it defaults to the merge-base with
+   `origin/main`). Bind a row or delete its survivors' entries to shrink a
+   list, never add an entry. A seeded defect that another layer fully masks at
+   that entry point is recorded as redundant there in the calibration and
+   `tasks/next/formal-binding-gaps.md`, and a defect the binding catches is
+   seeded instead.
 9. **Budget and wire into CI.** Every `[[model]]` and `[[trace]]` needs
    `budget_seconds` and `budget_source`: use `budget_source = "local"` with
    `ceil(3 x local seconds)` (read the runner's `timing` lines) until CI

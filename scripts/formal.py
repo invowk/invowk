@@ -175,9 +175,9 @@ REACH_LABEL = "reach"
 # Correspondence rows whose model element names nothing in the model source
 # (naming drift recorded on 2026-11-14); the list only shrinks.
 CORRESPONDENCE_KEYS = {"unresolved_elements"}
-# Unbound correspondence rows and orphaned ledger survivors that
+# Binding gaps (no-binding rows) and orphaned ledger survivors that
 # `formal_mutation.py triage --check` reports; read by formal_mutation.py.
-TRIAGE_KEYS = {"unbound_rows", "orphaned_survivors"}
+TRIAGE_KEYS = {"binding_gaps", "orphaned_survivors"}
 CI_BUDGET_KEYS = {"soft_headroom", "local_headroom", "hard_headroom", "measured_on", "ci_runs", "command_count"}
 # Keys that belong to one tool only.
 TOOL_ONLY_KEYS = {"alloy": {"body", "scope"}, "tla": {"constants", "spec", "temporal"}}
@@ -291,7 +291,11 @@ def load_reach(path: Path = MANIFEST) -> Reach | None:
 
 
 def load_unresolved_elements(path: Path = MANIFEST) -> list[str]:
-    raw = manifest_table("correspondence", path)
+    return parse_unresolved_elements(manifest_table("correspondence", path))
+
+
+def parse_unresolved_elements(raw: dict) -> list[str]:
+    """Validate a `[correspondence]` table and return its unresolved_elements."""
     check_keys("[correspondence]", raw, CORRESPONDENCE_KEYS)
     entries = raw.get("unresolved_elements", [])
     if not isinstance(entries, list) or not all(isinstance(e, str) and ": " in e for e in entries):
@@ -305,22 +309,26 @@ TRIAGE_ROW_KEYS = {"model", "element", "symbol"}
 
 
 def load_triage(path: Path = MANIFEST) -> dict[str, list]:
-    """The `[triage]` table: `unbound_rows` ({model, element, symbol} tables)
-    and `orphaned_survivors` (mutant ids), both shrink-only lists that
-    `formal_mutation.py triage --check` enforces."""
-    raw = manifest_table("triage", path)
+    """The `[triage]` table: `binding_gaps` ({model, element, symbol} tables
+    of no-binding rows) and `orphaned_survivors` (mutant ids), both
+    shrink-only lists that `formal_mutation.py triage --check` enforces."""
+    return parse_triage(manifest_table("triage", path))
+
+
+def parse_triage(raw: dict) -> dict[str, list]:
+    """Validate a `[triage]` table and return both lists."""
     check_keys("[triage]", raw, TRIAGE_KEYS)
-    rows = raw.get("unbound_rows", [])
+    rows = raw.get("binding_gaps", [])
     ids = raw.get("orphaned_survivors", [])
     if not isinstance(rows, list) or not all(isinstance(r, dict) and set(r) == TRIAGE_ROW_KEYS
                                              and all(isinstance(v, str) for v in r.values()) for r in rows):
-        raise FormalError("manifest [triage] unbound_rows must be a list of { model, element, symbol } tables")
+        raise FormalError("manifest [triage] binding_gaps must be a list of { model, element, symbol } tables")
     if not isinstance(ids, list) or not all(isinstance(i, str) and i for i in ids):
         raise FormalError("manifest [triage] orphaned_survivors must be a list of mutant ids")
     keys = [(r["model"], r["element"], r["symbol"]) for r in rows]
     if len(keys) != len(set(keys)) or len(ids) != len(set(ids)):
         raise FormalError("manifest [triage] has duplicate entries")
-    return {"unbound_rows": rows, "orphaned_survivors": ids}
+    return {"binding_gaps": rows, "orphaned_survivors": ids}
 
 
 def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:

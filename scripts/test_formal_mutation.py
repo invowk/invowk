@@ -641,109 +641,52 @@ class TriageTests(Fixture):
 
 
 # The orphaned survivors [triage] was seeded with (design D13): Auth 8,
-# unpackRejectsEscape 12, anchors 22.
+# unpackRejectsEscape 12.
 SEEDED_ORPHANS = frozenset({
     "0087737c1ae08d3106d06a71d0eaab0d",
-    "013320da79a21373fa6ab80fbda17b1d",
     "055592d8fb48880e3cec2f0f21679428",
-    "0666ad7de7427d0df405b3e2e6b89bd3",
     "0d72f8e69406dac5a30eb88c7a955e26",
-    "11eba44d44c6ab0f0921cb680d1bf6d8",
-    "12ff45291df796a6a0ded69f310fad96",
-    "1404fc633158b8a0aefcfcd0fc31b96f",
     "1f1be72781b132d18a6f35b6a077ca53",
-    "21ecae4644a1ef7ae7ae80dcc996d98a",
-    "2258e247fb18e9e660ed7b6428bda7a9",
-    "290fa9b67352e416f9bb2811c1fb4ef1",
     "2de0ff368b4ec4304fb411c5ecd36cdb",
     "3112938aeab6d1eb0a0a4b90093ff80c",
     "31687863358bee2bcacc7fd033e1ea8a",
     "3400d9b396a91b8413668bbf8b19a187",
-    "3de3fa8fa4f94926a17e19bc7a890dbf",
-    "42658db60a0835500b32ab4edd9d6c9b",
-    "4386ba3aad2402e228498dbdbeaea39c",
-    "51796e7773ce033e48420a1ebddfa7c6",
-    "5c87b301a1c52f20987b861d2e178679",
-    "633e5399c312d93d4be40996b0e6feae",
     "6e8e1d2b4a92cf5fbf66a526e76ec5d9",
     "6eaf43027e4018d328f1944f43e6c97f",
     "818a97aa16a5f2c663ff0af7e73dd31c",
-    "90d1ab2371a3677d3f2a66e61d6f5e75",
-    "a3e148b02f03cbeb34485849ed555075",
     "a868872863e2850ee3eca2c336357194",
-    "aea6311c6f32b6f73718d9998ba1a721",
     "b5880e7045570180d24594779fc7068b",
-    "b6e9053db94add7061ce50fb13bc112e",
     "b9ecd73a79f914165b1d166d467b28ae",
-    "bf7a7e8c5c0b17b16675278470404b26",
-    "c323c56c3b466b5e05953a1cff84df00",
     "c57132fb392fb58cb0ef6ce95419fe90",
-    "c9f35b4efe1bab53f1dc0a0244505fce",
     "d16e0f309258355c0702e36be46da2eb",
     "dec0a3c2cc8cce45245ea6f8a700a4ef",
     "e5c9979e40913a5114cd855ff51ae787",
     "e6063b43d56b74bd35d1775902931352",
-    "ea671db53f5a8de321a98b0a17bbb216",
     "f2e95d83a50df58bb02a21dcabf4f400",
 })
 
 
-# The unbound rows [triage] was seeded with (design D13): 54.
-SEEDED_UNBOUND_ROWS = frozenset({
+# The binding gaps [triage] was seeded with (design D13, decision 15): 19.
+SEEDED_BINDING_GAPS = frozenset({
     ('AtomicWrite', 'caller', 'LockFile.Save'),
-    ('AtomicWrite', 'cleanup', 'atomicWriteOps'),
-    ('ConcurrentModuleEdits', 'AddProg (add_add_same)', 'Resolver.AddModuleDependency'),
-    ('ConcurrentModuleEdits', 'AddProg (fetch_v1_v2)', 'Resolver.Add'),
-    ('ConcurrentModuleEdits', 'AddProg (sync_add)', 'Resolver.AddModuleDependency'),
-    ('ConcurrentModuleEdits', 'Checkout', 'GitFetcher.checkout'),
-    ('ConcurrentModuleEdits', 'Checkout, CopyToCache', 'Resolver.resolveOne'),
-    ('ConcurrentModuleEdits', 'CopyToCache', 'Resolver.cacheModule'),
-    ('ConcurrentModuleEdits', 'RemoveProg', 'Resolver.RemoveModuleDependency'),
     ('ConcurrentModuleEdits', 'Restore', 'fileSnapshot.restore'),
     ('ConcurrentModuleEdits', 'SyncProg', 'SyncModule'),
     ('ConcurrentModuleEdits', 'TidyProg', 'TidyModule'),
     ('ConcurrentModuleEdits', 'UpdateProg', 'UpdateModule'),
-    ('ConcurrentModuleEdits', 'VendorProg', 'vendorDependenciesWithResolver'),
     ('ConcurrentModuleEdits', 'VendorRemove, VendorCopy', 'VendorModules'),
-    ('ConcurrentModuleEdits', 'WriteLock', 'LockFile.Save'),
-    ('ConcurrentModuleEdits', 'WriteLock rebuild', 'Resolver.Sync'),
-    ('ConcurrentModuleEdits', 'WriteLock remove', 'Resolver.Remove'),
-    ('ConcurrentModuleEdits', 'WriteLock update (update_add)', 'Resolver.Update'),
-    ('ConcurrentModuleEdits', 'WriteLock update (update_remove)', 'Resolver.Update'),
     ('ConcurrentModuleEdits', 'WriteMod add', 'AddRequirement'),
     ('ConcurrentModuleEdits', 'WriteMod remove', 'RemoveRequirement'),
     ('DependencyClosure', 'Mod.key', 'ModuleRef.Key'),
     ('DependencyClosure', 'resolved', 'Resolver.resolveAll'),
     ('HostCallbackToken', 'Auth', 'Server.ValidateToken'),
     ('HostCallbackToken', 'End paths', 'ContainerRuntime.prepareContainerExecution'),
-    ('HostCallbackToken', 'Start/Auth/End/EndSession/Expire/Stop', 'Server.GetConnectionInfo'),
-    ('HostCallbackToken', 'Stop', 'Server.Stop'),
     ('LockIdentity', 'v2Parse', 'parseLockFile'),
-    ('LockIntegrity', 'CallViaSibling, hashless entry', 'IsDeclaredLockedCommandSource'),
-    ('LockIntegrity', 'Sync commit failure', 'LockedCommitMismatchError'),
-    ('LockIntegrity', 'Vendor lock load', 'Resolver.LoadDeclaredFromLock'),
     ('ModulePathContainment', 'ValidateScriptPath', 'ValidateScriptPath'),
-    ('ModulePathContainment', 'allowedVendoredSelf', '-'),
-    ('ModulePathContainment', 'allowedWorkdirCwd', '-'),
     ('ModulePathContainment', 'checkSymlinkSafety', 'checkSymlinkSafety'),
-    ('ModulePathContainment', 'contained', '-'),
-    ('ModulePathContainment', 'findingF13', 'ResolveScriptWithFSAndModule'),
-    ('ModulePathContainment', 'findingF17', 'LoadEnvFile'),
-    ('ModulePathContainment', 'probeF16', 'inspectModuleEntry'),
     ('ModulePathContainment', 'unpackRejectsEscape', 'validateDestinationPath'),
-    ('ScopeConstruction', 'RootSrc', 'SourceID'),
-    ('ScopeConstruction', 'globalChildren', 'IsGlobalModule'),
     ('ScopeConstruction', 'modUnlessExplicit', 'CheckModuleCollisions'),
     ('ScopeConstruction', 'moduleSourcesHaveIDs', 'moduleIdentityFor'),
     ('ScopeConstruction', 'srcUnique', 'CheckModuleCollisions'),
-    ('Serverbase', 'State', 'State'),
-    ('VirtualPathHarness', 'allowedWorkdirCwd', '-'),
-    ('VirtualPathHarness', 'anchors', 'standardVirtualAnchorsForOS'),
-    ('VirtualPathHarness', 'contained', '-'),
-    ('VirtualPathHarness', 'findingF14', 'normalizeExistingOrParent'),
-    ('VirtualPathHarness', 'findingF15', 'newVirtualPathResolverForFilesystem'),
-    ('Watch', 'backend', 'watcherBackend'),
-    ('Watch', 'timer', 'debounceTimer'),
 })
 
 
@@ -771,28 +714,47 @@ class UnplannedTests(Fixture):
                                    triage=triage, report=report)
         return failures, report
 
-    LISTED = {"unbound_rows": [{"model": "M", "element": "free", "symbol": "Helper"}], "orphaned_survivors": ["o1"]}
+    LISTED = {"binding_gaps": [{"model": "M", "element": "free", "symbol": "Helper"}], "orphaned_survivors": ["o1"]}
 
-    def test_listed_unbound_row_and_orphan_pass_and_are_reported(self) -> None:
+    def test_listed_gap_and_orphan_pass_and_are_reported(self) -> None:
         failures, report = self.check(self.LISTED)
         self.assertEqual(failures, [])
-        self.assertEqual(report, ["unbound row M: 'free' (Helper, no-binding)", "orphaned survivors of M: 'free' (Helper): 1"])
+        self.assertEqual(report, ["binding gap M: 'free' (Helper)", "orphaned survivors of M: 'free' (Helper): 1"])
 
-    def test_unlisted_unbound_row_and_orphan_fail(self) -> None:
+    def test_unlisted_gap_and_orphan_fail(self) -> None:
         failures, _ = self.check({})
         self.assertEqual(failures, [
-            "[triage] unbound_rows: new unbound row M: 'free' (Helper, no-binding) is not listed; the list only shrinks: bind the row instead",
+            "[triage] binding_gaps: new binding gap M: 'free' (Helper) is not listed; the list only shrinks: bind the row instead",
             "[triage] orphaned_survivors: survivor o1 names unbound row M: 'free' (Helper) and is not listed",
         ])
 
-    def test_listed_row_that_is_bound_or_names_no_row_is_stale(self) -> None:
-        triage = {"unbound_rows": [*self.LISTED["unbound_rows"], {"model": "M", "element": "other", "symbol": "Decide"},
-                                   {"model": "M", "element": "gone", "symbol": "Gone"}],
+    def test_new_by_design_rows_pass_and_are_reported(self) -> None:
+        # A type symbol with no binding (decision 15: Serverbase State) and a
+        # characterisation-only row are derived, never listed.
+        self.models = [self.model(self.ROWS + row("kind", "Kind", "a/a.go", "-", "-")
+                                  + row("replay", "Server.Stop", "a/a.go", "TestReplay", "characterisation: today's defect"))]
+        failures, report = self.check(self.LISTED)
+        self.assertEqual(failures, [])
+        self.assertIn("by design M: 'kind' (Kind, type-symbol)", report)
+        self.assertIn("by design M: 'replay' (Server.Stop, characterisation-only)", report)
+
+    def test_orphan_of_a_by_design_row_must_be_listed(self) -> None:
+        self.models = [self.model(self.ROWS + row("kind", "Kind", "a/a.go", "-", "-"))]
+        survivors = [self.survivor("o1"), self.survivor("k1", element="kind", symbol="Kind", file="a/a.go")]
+        failures, _ = self.check(self.LISTED, survivors)
+        self.assertEqual(failures, ["[triage] orphaned_survivors: survivor k1 names unbound row M: 'kind' (Kind) and is not listed"])
+
+    def test_listed_row_that_is_bound_by_design_or_names_no_row_is_stale(self) -> None:
+        self.models = [self.model(self.ROWS + row("kind", "Kind", "a/a.go", "-", "-"))]
+        triage = {"binding_gaps": [*self.LISTED["binding_gaps"], {"model": "M", "element": "other", "symbol": "Decide"},
+                                   {"model": "M", "element": "gone", "symbol": "Gone"},
+                                   {"model": "M", "element": "kind", "symbol": "Kind"}],
                   "orphaned_survivors": ["o1"]}
         failures, _ = self.check(triage)
         self.assertEqual(failures, [
-            "[triage] unbound_rows: stale entry M: 'gone' (Gone) names no correspondence row",
-            "[triage] unbound_rows: stale entry M: 'other' (Decide) is bound now; remove it",
+            "[triage] binding_gaps: stale entry M: 'gone' (Gone) names no correspondence row",
+            "[triage] binding_gaps: stale entry M: 'kind' (Kind) is unbound by design (type-symbol), which is derived, not listed; remove it",
+            "[triage] binding_gaps: stale entry M: 'other' (Decide) is bound now; remove it",
         ])
 
     def test_listed_id_whose_row_is_bound_or_not_in_the_ledger_is_stale(self) -> None:
@@ -808,8 +770,9 @@ class UnplannedTests(Fixture):
         head = '[tools.alloy]\nversion = "1"\njar = "a"\nurl = "u"\nsha256 = "0"\n'
         path = self.root / "manifest.toml"
         cases = {
-            '[triage]\nunbound_rows = []\nextra = 1\n': r"\[triage\]: unknown key\(s\) extra",
-            '[triage]\nunbound_rows = [{ model = "M", element = "e" }]\n': "unbound_rows must be a list of",
+            '[triage]\nbinding_gaps = []\nextra = 1\n': r"\[triage\]: unknown key\(s\) extra",
+            '[triage]\nunbound_rows = []\n': r"\[triage\]: unknown key\(s\) unbound_rows",
+            '[triage]\nbinding_gaps = [{ model = "M", element = "e" }]\n': "binding_gaps must be a list of",
             '[triage]\norphaned_survivors = [1]\n': "orphaned_survivors must be a list of mutant ids",
             '[triage]\norphaned_survivors = ["a", "a"]\n': "duplicate entries",
         }
@@ -818,22 +781,94 @@ class UnplannedTests(Fixture):
                 path.write_text(head + text)
                 with self.assertRaisesRegex(formal.FormalError, message):
                     formal.load_triage(path)
-        path.write_text(head + '[triage]\nunbound_rows = []\nextra = 1\n')
+        path.write_text(head + '[triage]\nbinding_gaps = []\nextra = 1\n')
         with self.assertRaisesRegex(formal.FormalError, r"\[triage\]: unknown key\(s\) extra"):
             formal.load_manifest(path)
 
 
+def lists_manifest(unresolved: list[str] | None = None, gaps: list[tuple] | None = None,
+                   orphans: list[str] | None = None) -> dict:
+    """A parsed manifest with the given shrink-only lists (None: absent)."""
+    data: dict = {}
+    if unresolved is not None:
+        data["correspondence"] = {"unresolved_elements": unresolved}
+    if gaps is not None or orphans is not None:
+        data["triage"] = {}
+    if gaps is not None:
+        data["triage"]["binding_gaps"] = [{"model": m, "element": e, "symbol": s} for m, e, s in gaps]
+    if orphans is not None:
+        data["triage"]["orphaned_survivors"] = orphans
+    return data
+
+
+class GrowthTests(unittest.TestCase):
+    """The base check of the shrink-only lists (decision 15)."""
+
+    BASE = lists_manifest(["M: e1", "M: e2"], [("M", "g1", "F1"), ("M", "g2", "F2")], ["o1", "o2"])
+
+    def test_growth_at_the_base_fails_for_each_list(self) -> None:
+        cases = {
+            "[correspondence] unresolved_elements": (lists_manifest(["M: e1", "M: new"], [("M", "g1", "F1")], ["o1"]),
+                                                     "'M: new'"),
+            "[triage] binding_gaps": (lists_manifest(["M: e1"], [("M", "g1", "F1"), ("M", "g3", "F3")], ["o1"]),
+                                      "M: 'g3' (F3)"),
+            "[triage] orphaned_survivors": (lists_manifest(["M: e1"], [("M", "g1", "F1")], ["o1", "o9"]), "'o9'"),
+        }
+        for name, (head, entry) in cases.items():
+            with self.subTest(name=name):
+                failures, notices = fm.check_growth(head, self.BASE, "abc123")
+                self.assertEqual(notices, [])
+                self.assertEqual(failures, [f"{name}: {entry} is not listed at the base abc123; "
+                                            "the list only shrinks: fix the row or survivor instead of listing it"])
+
+    def test_shrink_passes(self) -> None:
+        head = lists_manifest(["M: e2"], [], ["o2"])
+        self.assertEqual(fm.check_growth(head, self.BASE, "abc123"), ([], []))
+        self.assertEqual(fm.check_growth(self.BASE, self.BASE, "abc123"), ([], []))
+
+    def test_base_without_the_lists_seeds_them(self) -> None:
+        failures, notices = fm.check_growth(self.BASE, {"triage": {"unbound_rows": []}}, "main")
+        self.assertEqual(failures, [])
+        self.assertEqual(notices, [f"{name}: not in the base main manifest; this change seeds it"
+                                   for name in ("[correspondence] unresolved_elements", "[triage] binding_gaps",
+                                                "[triage] orphaned_survivors")])
+
+    def test_unreadable_base_fails_closed(self) -> None:
+        def missing(_path: str) -> bytes:
+            raise fm.subprocess.CalledProcessError(128, ["git", "show"], stderr=b"fatal: bad object deadbeef")
+        with self.assertRaisesRegex(fm.PlanError, r"cannot read formal/manifest.toml at the base deadbeef "
+                                                  r"\(git show deadbeef:formal/manifest.toml failed: fatal: bad object deadbeef\); "
+                                                  r"fetch the base commit or pass --base <sha>"):
+            fm.base_manifest("deadbeef", read=missing)
+        with self.assertRaisesRegex(fm.PlanError, "is not valid TOML"):
+            fm.base_manifest("deadbeef", read=lambda _path: b"[triage\n")
+
+    def test_undeterminable_base_fails_closed(self) -> None:
+        def no_origin(*_args: str) -> str:
+            raise fm.subprocess.CalledProcessError(128, ["git", "merge-base"], stderr="fatal: Not a valid object name origin/main")
+        with self.assertRaisesRegex(fm.PlanError, r"cannot determine the base \(git merge-base HEAD origin/main failed: "
+                                                  r"fatal: Not a valid object name origin/main\); fetch origin/main or pass --base <sha>"):
+            fm.merge_base(run=no_origin)
+        self.assertEqual(fm.merge_base(run=lambda *_args: "abc123"), "abc123")
+
+    def test_readable_base_parses(self) -> None:
+        data = fm.base_manifest("abc", read=lambda path: b'[triage]\norphaned_survivors = ["o1"]\n')
+        self.assertEqual(fm.shrink_lists(data)["[triage] orphaned_survivors"], {"o1"})
+
+
 class RepositoryTests(unittest.TestCase):
     def test_committed_ledger_passes(self) -> None:
-        self.assertEqual(fm.main(["triage", "--check"]), 0)
+        # The tree is its own base: CI checkouts are shallow, and the real
+        # base comparison is the formal lane's `Triage lists` step.
+        self.assertEqual(fm.main(["triage", "--check", "--base", "HEAD"]), 0)
 
     def test_triage_lists_only_shrink(self) -> None:
-        # Seeded on 2026-11-14 with 54 rows and 42 orphans (design D13); a
-        # committed list may lose entries but never gain one.
+        # Seeded on 2026-11-14 with 19 binding gaps and 20 orphans (design
+        # D13); a committed list may lose entries but never gain one.
         triage = formal.load_triage()
-        self.assertLessEqual({(r["model"], r["element"], r["symbol"]) for r in triage["unbound_rows"]}, SEEDED_UNBOUND_ROWS)
-        self.assertEqual(len(SEEDED_UNBOUND_ROWS), 54)
-        self.assertLessEqual(len(triage["orphaned_survivors"]), 42)
+        self.assertLessEqual({(r["model"], r["element"], r["symbol"]) for r in triage["binding_gaps"]}, SEEDED_BINDING_GAPS)
+        self.assertEqual(len(SEEDED_BINDING_GAPS), 19)
+        self.assertEqual(len(SEEDED_ORPHANS), 20)
         self.assertLessEqual(set(triage["orphaned_survivors"]), SEEDED_ORPHANS)
 
     def test_removing_a_listed_entry_fails(self) -> None:
@@ -843,7 +878,7 @@ class RepositoryTests(unittest.TestCase):
             ledger = fm.tomllib.load(handle)
         baseline = fm.read_baseline(fm.BASELINE)
         reruns = fm.read_reruns(fm.RERUNS)
-        for part in ("unbound_rows", "orphaned_survivors"):
+        for part in ("binding_gaps", "orphaned_survivors"):
             with self.subTest(part=part):
                 shrunk = {**triage, part: triage[part][1:]}
                 failures = fm.check_triage(baseline, ledger, reruns, models, triage=shrunk)

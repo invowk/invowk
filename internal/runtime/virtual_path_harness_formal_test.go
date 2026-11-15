@@ -75,7 +75,7 @@ func TestVirtualPathHarness_F15WorkdirWidening(t *testing.T) {
 }
 
 // TestVirtualPathHarness_RootConstruction replays the resolver construction
-// (rows allowedRoots and access) against the model's verdict: the real
+// (rows allowedRoots, anchors, and access) against the model's verdict: the real
 // newVirtualPathResolverForFilesystem must accept a probe exactly when
 // H.access = Full or locIsAllowedRoot[l, includeWorkdir = True]
 // (VirtualPathHarness.als), and EffectiveAccess must map an omitted access mode
@@ -87,14 +87,18 @@ func TestVirtualPathHarness_F15WorkdirWidening(t *testing.T) {
 // never from other virtual_policy.go helpers:
 //   - InReadRoot: a file in the script base, the declared path when one is
 //     declared, and each automatically allowed anchor the resolver reports
-//     (@config, @data, @cache, @state, @tmp; openspec cross-platform-path-anchors);
+//     (@config, @data, @cache, @state, @tmp, @work; openspec
+//     cross-platform-path-anchors "Anchor allow roots are explicit");
 //   - InWorkdir: a file under the workdir only;
-//   - OutsideAll: a path outside every root (and the undeclared path).
+//   - OutsideAll: a path outside every root (and the undeclared path), and a
+//     path under @home that no other anchor encloses: the same requirement
+//     denies blanket home access in restricted mode.
 //
 // The workdir, declared path, and outside probe are missing paths directly
-// under the volume root, so no temp or anchor root encloses them. The per-OS
-// anchor layout is not modelled (row anchors is unbound), so no anchor value is
-// compared with a table.
+// under the volume root, so no temp or anchor root encloses them. The anchors
+// row claims only that anchors are explicit allowed roots (decision 14 of
+// harden-formal-instruments): the anchor paths are inputs from the production
+// resolver, never compared with a per-OS table, which the model does not state.
 func TestVirtualPathHarness_RootConstruction(t *testing.T) {
 	t.Parallel()
 	base := fstree.TempRoot(t)
@@ -147,13 +151,15 @@ func TestVirtualPathHarness_RootConstruction(t *testing.T) {
 			if withDeclared {
 				probes[filepath.Join(declared, "x", "probe")] = inReadRoot
 			}
-			for _, anchor := range []string{virtualAnchorConfig, virtualAnchorData, virtualAnchorCache, virtualAnchorState, virtualAnchorTmp} {
+			allowedAnchors := []string{virtualAnchorConfig, virtualAnchorData, virtualAnchorCache, virtualAnchorState, virtualAnchorTmp, virtualAnchorWork}
+			for _, anchor := range allowedAnchors {
 				root := resolver.anchors[anchor]
 				if root == "" {
 					t.Fatalf("access %s: the resolver reports no %s anchor", name, anchor)
 				}
 				probes[root] = inReadRoot
 			}
+			probes[homeProbe(t, resolver, tag)] = outsideAll
 
 			full := wantEffective[name] == invowkfile.VirtualFilesystemAccessFull
 			validator := virtualPathValidator{resolver: resolver}
@@ -168,4 +174,18 @@ func TestVirtualPathHarness_RootConstruction(t *testing.T) {
 			}
 		}
 	}
+}
+
+// homeProbe returns the @home negative of cross-platform-path-anchors ("Home
+// anchor does not grant implicit home access"): a missing path under
+// @home/.ssh, which restricted access must deny. No allowed anchor may enclose
+// it; on Windows %TEMP% and the AppData anchors sit under home but not under
+// .ssh. It fails when the resolver reports no @home anchor.
+func homeProbe(t *testing.T, resolver virtualPathResolver, tag string) string {
+	t.Helper()
+	home := resolver.anchors[virtualAnchorHome]
+	if home == "" {
+		t.Fatal("the resolver reports no @home anchor")
+	}
+	return filepath.Join(home, ".ssh", "invowk-home-probe-"+tag)
 }

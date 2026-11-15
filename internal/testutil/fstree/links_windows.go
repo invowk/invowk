@@ -5,21 +5,12 @@
 package fstree
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/sys/windows"
-)
-
-// Junction creation methods, as createJunctionVia reports them.
-const (
-	junctionViaReparse = "reparse point"
-	junctionViaMklink  = "mklink /J"
 )
 
 // createSymlink creates a symbolic link. os.Symlink picks the directory flag
@@ -36,39 +27,22 @@ func createSymlink(target, link string) error {
 // pointing at target, matching `mklink /J` semantics. os.Lstat does not report a
 // junction with ModeSymlink (Go 1.23+), so the transcribed symlink checks do not
 // see it.
+//
+// It writes the reparse point itself and has no fallback writer: probeJunction
+// shares this path, so a fallback would let a broken reparse writer pass the
+// capability policy silently (decision 12 of the harden-formal-instruments
+// change).
 func createJunction(target, link string) error {
-	_, err := createJunctionVia(target, link)
-	return err
-}
-
-// createJunctionVia writes the reparse point itself and falls back to
-// `cmd /c mklink /J` only when that write fails (design D5 of the
-// harden-formal-instruments change). It reports which method created the
-// junction, so TestCreateJunction can record it; when both fail, the error
-// carries both causes.
-func createJunctionVia(target, link string) (string, error) {
 	if err := os.MkdirAll(target, 0o755); err != nil {
-		return "", fmt.Errorf("junction target: %w", err)
+		return fmt.Errorf("junction target: %w", err)
 	}
 	if err := os.Mkdir(link, 0o755); err != nil {
-		return "", fmt.Errorf("junction directory: %w", err)
+		return fmt.Errorf("junction directory: %w", err)
 	}
-	reparseErr := setMountPoint(link, target)
-	if reparseErr == nil {
-		return junctionViaReparse, nil
+	if err := setMountPoint(link, target); err != nil {
+		return fmt.Errorf("reparse point: %w", err)
 	}
-	if err := os.Remove(link); err != nil {
-		return "", fmt.Errorf("reparse point: %w; removing %s before the mklink fallback: %w", reparseErr, link, err)
-	}
-	absTarget, err := filepath.Abs(target)
-	if err != nil {
-		return "", fmt.Errorf("reparse point: %w; mklink fallback: %w", reparseErr, err)
-	}
-	out, mklinkErr := exec.CommandContext(context.Background(), "cmd", "/c", "mklink", "/J", link, absTarget).CombinedOutput()
-	if mklinkErr != nil {
-		return "", fmt.Errorf("reparse point: %w; mklink /J fallback: %w (%s)", reparseErr, mklinkErr, strings.TrimSpace(string(out)))
-	}
-	return junctionViaMklink, nil
+	return nil
 }
 
 func probeJunction(base string) error {

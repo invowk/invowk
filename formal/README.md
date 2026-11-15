@@ -104,15 +104,20 @@ Two lists in `formal/manifest.toml` only shrink. `[correspondence]
 unresolved_elements` holds the 34 `"<model>: <element>"` pairs that named no
 model element when the element check was introduced (naming drift, for
 example `State` against the variable `state`); a listed pair is reported, and
-one that resolves or names no row fails as stale. `[triage]` lists every row
-the plan leaves unbound (`unbound_rows`, 54 when seeded) and every ledger
-survivor whose row is unbound (`orphaned_survivors`, 42);
-`scripts/formal_mutation.py triage --check` fails on an unlisted entry and on a
-listed one that no longer applies. To clear an entry, rename the element or
-bind the row, then delete the entry; never add one. The survivor-triage
-follow-up empties `unresolved_elements` and `orphaned_survivors`; 30 of the
-unbound rows are unbound by design (no symbol, a type symbol, trace-only, or
-characterisation-only).
+one that resolves or names no row fails as stale. `[triage]` lists every
+binding gap, a row with no binding that names a function (`binding_gaps`, 19
+when seeded), and every ledger survivor whose row is unbound
+(`orphaned_survivors`, 20). Rows unbound by design (no symbol, a symbol that
+names no function, trace-only, or characterisation-only; 34) are derived and
+reported, never listed, so a new one passes.
+`scripts/formal_mutation.py triage --check` fails on an unlisted gap or orphan
+and on a listed entry that no longer applies. With `--base <sha>` it also fails
+on any entry of the three lists that the base commit's manifest does not list;
+the formal lane passes the PR base SHA, and locally the base defaults to
+`git merge-base HEAD origin/main`. A base that cannot be read fails closed. To
+clear an entry, rename the element or bind the row, then delete the entry; an
+added entry fails against the base. The survivor-triage follow-up empties
+`unresolved_elements` and `orphaned_survivors` and binds the gaps.
 
 The guards have already paid for themselves. A first draft of the scope model
 had a vacuous fact: `c.childOf in GlobalCmd` holds trivially for an empty
@@ -153,7 +158,7 @@ Export fails when a file exceeds 600,000 compressed bytes, or a smaller
 | `module_path_containment_golden.json.gz` | 22848 | 1680 | - | 20,994 B | - |
 | `virtual_path_harness_golden.json.gz` | 14580 | 14580 | - | 18,332 B | - |
 
-The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens. Junctions are covered by the junction witness commands, the junction branch of `TestModulePathContainment_Property` (required on Windows), and `TestModulePathContainment_F16Junction` (required on Windows, skipped by the capability policy on Linux and macOS); no golden instance replays a junction (harden-formal-instruments design D8). The 30 s replay budget is a recorded figure enforced by no step or test. One windows-latest sample measured the `ModulePathContainment` golden at 34.4 s before the custom-check and env replays were added. The first three windows-latest runs that include them (CI runs 43657442894, 43658445060, 43660058330; `ci.yml` runs `-race -short`, so the loader replays every 16th instance) measured 31.8 s, 42.7 s, and 39.4 s, which sets the Windows golden-replay budget to `ceil(1.5 x 42.7)` = 64 s. Like the 30 s Linux and macOS figure, no step or test enforces it; if it is not accepted, memoising the custom-check and env replays per (tree, path) is the lever, not cutting instances (harden-formal-instruments design D12).
+The two path-containment goldens are replayed on a real filesystem: `internal/testutil/fstree` materialises every instance as a directory tree under `filepath.EvalSymlinks(t.TempDir())` and the replay memoises one materialisation per distinct tree (design D9). Golden replay in `make test` measures ~2.5 s (`ModulePathContainment`), ~0.2 s (containment layer and container workdir), and ~1.2 s (`VirtualPathHarness`) on Linux; the two deep-rapid properties measure ~3.1 s and ~0.5 s at `RAPID_CHECKS=10000` — well within the 30 s replay and 60 s deep-rapid budgets (design D9, "Cost budgets"). Case-folding and Windows junctions are fixed off in the goldens. Junctions are covered by the junction witness commands, the junction branch of `TestModulePathContainment_Property` (required on Windows), and `TestModulePathContainment_F16Junction` (required on Windows, skipped by the capability policy on Linux and macOS); no golden instance replays a junction (harden-formal-instruments design D8). The 30 s replay budget is a recorded figure enforced by no step or test; an overrun found when a budget is measured narrows the golden scope, and nothing in CI checks the figure afterwards. One windows-latest sample measured the `ModulePathContainment` golden at 34.4 s before the custom-check and env replays were added. The Windows golden-replay budget is pending: it is `ceil(1.5 x the slowest)` of three windows-latest runs of the final harden-formal-instruments tree (one head SHA; runs of earlier trees do not count), and no step or test will enforce it either. If it is not accepted, memoising the custom-check and env replays per (tree, path) is the lever, not cutting instances (harden-formal-instruments design D12).
 
 **Deferred: duplicate instances.** The counts above show that Alloy's
 enumeration repeats instances. The XML of a duplicate pair is byte-identical
@@ -389,19 +394,22 @@ survivor was shown to be a product defect, so no finding was recorded.
 That run listed seven rows whose binding never calls their function. The
 binding reach gate (`make formal-reach`, 2026-11-14) found eight: the seven,
 plus `Auth` / `Server.ValidateToken`, which has no production caller at all
-(the model's `Auth` is implemented by `Server.admitConn`). Five rows are
+(the model's `Auth` is implemented by `Server.admitConn`). Six rows are
 rebound to tests that call the real function and assert the model's verdict:
 `workdirCwd` (`GetEffectiveWorkDir`, through
 `TestModulePathContainment_ContainerWorkDirGolden`), both `readOp` rows
 (`CustomCheckScript.ResolveWithFSAndModule` and `LoadEnvFile`, replayed on
 every `ScriptRead` and `EnvRead` golden instance, F13 and F17 included), and
-`allowedRoots` and `access` (`TestVirtualPathHarness_RootConstruction`). Three
-are unbound, with the reason in their abstraction cells: `Auth` (no production
-caller; re-pointing it to `Server.admitConn` is follow-up work),
+`allowedRoots`, `anchors`, and `access` (`TestVirtualPathHarness_RootConstruction`).
+`anchors` carries only the narrow claim that anchors are explicit allowed roots
+(`@config`, `@data`, `@cache`, `@state`, `@tmp`, and `@work` accepted,
+`@home/.ssh` denied under restricted access); the anchor paths are inputs from
+the production resolver, not verified, because the model states no per-OS
+layout. Two are unbound, with the reason in their abstraction cells: `Auth` (no
+production caller; re-pointing it to `Server.admitConn` is follow-up work) and
 `unpackRejectsEscape` (the model's destination check transcribes
 `normalizeZIPPath` followed by `validateDestinationPath`, not the function
-alone), and `anchors` (the model states no per-OS anchor layout). Their 42
-baselined survivors are orphaned and listed in `[triage]`.
+alone). Their 20 baselined survivors are orphaned and listed in `[triage]`.
 
 ## Decision record: rejected tools
 

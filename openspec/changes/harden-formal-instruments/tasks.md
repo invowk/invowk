@@ -58,7 +58,7 @@
   - leave the upload step unchanged: it already uploads `artifacts/formal/`.
 - [x] 2.2 Update `scripts/test_formal.py`: the expected step list, the job-timeout sum, and the `affected` condition for the new step.
 - [x] 2.3 Add `scripts/formal_mutation.py` and `scripts/test_formal_mutation.py` to `[ci] paths` in `formal/manifest.toml`. Add a `scripts/test_formal.py` case in which a diff touching only `scripts/formal_mutation.py` classifies as `run=true`.
-- [ ] 2.3b (decision 15) Wire the triage checks into `.github/workflows/formal-verification.yml` (design D13, "CI"):
+- [x] 2.3b (2026-11-14: `Runner self-tests` runs `scripts/test_formal_mutation.py`; a `Triage lists` step runs `triage --check --base "${BASE_SHA:-$GITHUB_SHA}"` after it; `[ci] paths` gained the triage ledger directory and the formal-bindings baseline; `test_workflow_runs_the_triage_checks` and `test_ci_paths_cover_the_triage_inputs` check the wiring.) (decision 15) Wire the triage checks into `.github/workflows/formal-verification.yml` (design D13, "CI"):
   - add `python3 scripts/test_formal_mutation.py` to `Runner self-tests`;
   - add a `Triage lists` step after it, under the `affected` condition, running `python3 scripts/formal_mutation.py triage --check --base "$BASE"`, with `$BASE` the PR base SHA on `pull_request` and `$GITHUB_SHA` otherwise; keep the classify step's depth-1 fetch of the base;
   - add `tools/mutation/triage/**` and `tools/mutation/baselines/formal-bindings-baseline.json` to `[ci] paths`;
@@ -99,7 +99,7 @@
 - [x] 4.1 Add a Windows-only `internal/testutil/fstree/links_windows_test.go` with `TestCreateJunction`, as described in design D5 step 1. It requires creation and checks it functionally: the link is not `ModeSymlink`, and `os.SameFile` holds through the link. On failure it prints the probe error.
 - [x] 4.2 Compare `writeMountPointReparse` (`links_windows.go:76-99`) field by field with Go 1.27's `src/os/os_windows_test.go` (`createMountPoint` and `reparseData`). Compare the buffer layout, both NULs, `ReparseDataLength`, the input length, and the `CreateFile` flags. Fix every divergence, and note the comparison in a code comment. The missing print-name NUL is only a hypothesis.
 - [x] 4.3 Add the `cmd /c mklink /J` fallback, used only when the reparse write fails. When both fail, report both errors. (2026-11-14: superseded by decision 12; removed in 4.3b.)
-- [ ] 4.3b (decision 12) Remove the `mklink /J` fallback: `createJunctionVia`, its method constants, and the `exec`/`context`/`strings` imports it alone used, so `createJunction` and `probeJunction` call the reparse writer only. `TestCreateJunction` keeps requiring the reparse writer and checks it functionally. Remove the fallback from the code comments, design D5, the `module-path-containment-model` delta, and the skill.
+- [x] 4.3b (2026-11-14: `createJunctionVia`, its method constants, and the `context`/`os/exec`/`strings` imports are gone; `createJunction` writes the reparse point only; `TestCreateJunction` calls it and keeps the functional check; `GOOS=windows` vet and `go test -c` pass for fstree, moduleops, and runtime.) (decision 12) Remove the `mklink /J` fallback: `createJunctionVia`, its method constants, and the `exec`/`context`/`strings` imports it alone used, so `createJunction` and `probeJunction` call the reparse writer only. `TestCreateJunction` keeps requiring the reparse writer and checks it functionally. Remove the fallback from the code comments, design D5, the `module-path-containment-model` delta, and the skill.
 - [x] 4.4 Check, locally:
   - `GOOS=windows go vet ./internal/testutil/fstree/ ./internal/app/moduleops/ ./internal/runtime/`;
   - `GOOS=windows go test -c -o /dev/null` for each of those three packages.
@@ -140,13 +140,13 @@
 
   Bind the `allowedRoots` and `access` rows (`formal/alloy/VirtualPathHarness.als:30,32`) to it, then run `make formal-golden` for `VirtualPathHarness`.
 - [x] 6.5b (2026-11-14: superseded by decision 14; see 6.5c.) Unbind the `anchors` row (`VirtualPathHarness.als:31`, decision 8). Set its binding to `-` and write the abstraction cell described in design D9, "The unbound rows": the model abstracts anchors into `InReadRoot`, the construction replay checks only that anchor roots are read roots, and per-OS anchors in the model are the follow-up. Leave the element, symbol, and file cells unchanged. Add no anchor-layout comparison to any test.
-- [ ] 6.5c (decision 14) Bind the `anchors` row (`VirtualPathHarness.als:31`) to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots":
+- [x] 6.5c (2026-11-14: the `anchors` row binds `TestVirtualPathHarness_RootConstruction`; the replay accepts `@work` with the other anchors and denies `@home/.ssh/invowk-home-probe-<tag>` under restricted and omitted access; `VirtualPathHarness` golden regenerated, 14580 instances; the reach gate shows `standardVirtualAnchorsForOS` reached, 10/21 statements.) (decision 14) Bind the `anchors` row (`VirtualPathHarness.als:31`) to `TestVirtualPathHarness_RootConstruction` with the narrow claim "anchors are explicit allowed roots":
   - add `@work` to the anchor probes that must be accepted;
   - add the `@home` negative from `cross-platform-path-anchors` "Anchor allow roots are explicit": a probe at `@home/.ssh/<tag>` that no other anchor encloses, rejected under restricted and omitted access and accepted under full; fail if `@home` is empty or encloses another root's probe;
   - rewrite the row's abstraction cell: anchor paths are inputs from the production resolver, not verified; per-OS anchors in the model are the follow-up;
   - run `make formal-golden` for `VirtualPathHarness` (its source text changes).
 - [x] 6.6 Unbind the `Auth` row (`formal/tla/HostCallbackToken.tla:28`). Set the binding to `-`, and extend the abstraction cell as described in design D9: keep "TTL expiry is a nondeterministic action", and add the no-production-caller reason, the pointer to `Server.admitConn` (row `Auth/End atomicity`), and the survivor-triage follow-up. Do not add a `ValidateToken` call to any test.
-- [ ] 6.7 (2026-11-14: four of five planned defects fail their binding and are recorded in the calibrations; dropping the `validateScriptPathContainment` call survives, masked by `ScriptFilePath.Validate`; decision 11 swaps it.) Seed one defect at a time for 6.1, 6.2, 6.3, 6.5, and 6.5c, confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
+- [x] 6.7 (2026-11-14: four of five planned defects fail their binding and are recorded in the calibrations; dropping the `validateScriptPathContainment` call survives, masked by `ScriptFilePath.Validate`; decision 11 swaps it. Round 5, same day: the module's-parent resolution is the recorded custom-check defect and the masked one is recorded as redundant at that entry point in the `ModulePathContainment` calibration and `tasks/next/formal-binding-gaps.md`; `@home` added to the roots and the `@config` anchor set to home each fail the construction replay with 4 disagreements, recorded in the `VirtualPathHarness` calibration; every seed reverted, `git status` clean for non-test files.) Seed one defect at a time for 6.1, 6.2, 6.3, 6.5, and 6.5c, confirm that the new binding fails, and revert each one. Append the results to each model's `calibration`. The defects:
   - resolve the custom-check script against the module's parent in `CustomCheckScript.ResolveWithFSAndModule` (decision 11); record the planned defect (drop its `validateScriptPathContainment` call) as "redundant at this entry point: fully masked by `ScriptFilePath.Validate`" in the `ModulePathContainment` calibration and in `tasks/next/formal-binding-gaps.md`, not in the ledger;
   - make `LoadEnvFile` ignore `basePath`;
   - make `GetEffectiveWorkDir` ignore the implementation-level `workdir`;
@@ -166,13 +166,13 @@
   - in `check_triage`, fail an unlisted unbound row or orphan, fail a stale entry, and print the listed entries;
   - seed the list from the plan on this tree; expect 54 rows (the 51 of D13 plus `Auth`, `unpackRejectsEscape`, `anchors`) and 42 orphans (`Auth` 8, `unpackRejectsEscape` 12, `anchors` 22), and stop and report if either set differs;
   - add the `scripts/test_formal_mutation.py` fixtures listed in D13.
-- [ ] 6.9b (decision 15) Narrow and guard the `[triage]` lists (design D13):
+- [x] 6.9b (2026-11-14: four rows moved to `type-symbol` (`Serverbase` `State`, `ScopeConstruction` `globalChildren` and `RootSrc`, `Watch` `backend`); reseeded with 19 binding gaps and 20 orphans, 34 by-design rows reported; `--base` implemented with an injectable reader; `GrowthTests` and the new `UnplannedTests` cases pass.) (decision 15) Narrow and guard the `[triage]` lists (design D13):
   - in `classify_rows`, classify a symbol that names no function as `type-symbol` before the binding check; expect `Serverbase` `State`, `ScopeConstruction` `globalChildren` and `RootSrc`, and `Watch` `backend` to move;
   - rename `unbound_rows` to `binding_gaps` and list only `no-binding` rows; derive and report the by-design rows; a listed row that is not `no-binding` is stale;
   - add `triage --check --base <sha>`: read `git show <sha>:formal/manifest.toml` and fail on any `unresolved_elements`, `binding_gaps`, or `orphaned_survivors` entry absent at the base; default to `git merge-base HEAD origin/main`; pass with a notice when the readable base lacks a list; fail closed, naming the base and `--base`, when the base cannot be determined or read; inject the reader so unit tests never call git;
   - reseed: expect 19 gaps and 20 orphans (`Auth` 8, `unpackRejectsEscape` 12) and 34 by-design rows; stop and report if the sets differ;
   - add `scripts/test_formal_mutation.py` fixtures: a new by-design row passes, the reclassified type symbol, a listed by-design row is stale, growth at the base fails for each list, a shrink passes, a base without the lists passes as seeding, an unreadable base fails closed.
-- [ ] 6.10 Check:
+- [x] 6.10 (2026-11-14, Round 5: `triage --check` and `--base HEAD` pass, removing a listed entry fails; `scripts/test_formal_mutation.py` passes, 73 tests; correspondence passes; `make formal-reach` passes, 54 of 54 triples, 5.6 s; `snapshot --compare` differs only by the three F16 commands.) Check:
   - `python3 scripts/formal_mutation.py triage --check` passes with no `[[survivor]]` or `[[closed]]` edits, and fails when one listed entry is removed; `triage --check --base HEAD` passes;
   - `python3 scripts/formal.py correspondence` and `make formal-reach` pass, with `anchors` reached by `TestVirtualPathHarness_RootConstruction`;
   - `python3 scripts/test_formal_mutation.py` passes;
@@ -203,13 +203,13 @@
   - flag their baselined survivors for retriage;
   - note that the rerun evidence of all 419 survivors is stale by the digest convention;
   - add the survivor-triage follow-up as future work: the 419 survivors, a baseline refresh, re-pointing `Auth` to `Server.admitConn`, a `normalizeZIPPath` row for `unpackInside`, per-OS anchors in `VirtualPathHarness.als` (decision 8), the Alloy-only "`validateDestinationPath` omitted" calibration claim (design Risks), renaming the 34 unresolved model elements and emptying `unresolved_elements` (decision 7), and emptying `[triage] orphaned_survivors` (decision 9).
-- [ ] 7.4b (decisions 11-15) Update `formal/README.md`, `.agents/skills/formal-verification/SKILL.md`, and `tasks/next/formal-binding-gaps.md`:
+- [x] 7.4b (2026-11-14: README triage and mutation paragraphs, the Windows budget set to pending, the skill's narrow-claim, triage, masked-defect, and no-fallback guidance, and the gaps document updated.) (decisions 11-15) Update `formal/README.md`, `.agents/skills/formal-verification/SKILL.md`, and `tasks/next/formal-binding-gaps.md`:
   - six rows rebound and two unbound, with `anchors` bound under its narrow claim, and 20 orphaned survivors;
   - the `[triage]` lists: binding gaps only, by-design rows derived, the type-symbol rule, the base growth check and how to run it locally;
   - no `mklink /J` fallback;
   - the masked custom-check defect, recorded as redundant at that entry point;
   - the Windows replay budget pending three runs of the final tree, and no CI step enforcing the figure.
-- [ ] 7.5 Check: `make check-agent-docs` passes.
+- [x] 7.5 Check: `make check-agent-docs` passes. (2026-11-14, Round 5: passes.)
 
 ## 8. Windows CI evidence (open until the runs exist)
 

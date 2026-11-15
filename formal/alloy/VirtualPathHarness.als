@@ -28,7 +28,7 @@
 // | normalize | normalizeExistingOrParent | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | path/parent/lexical fallback modelled by evalMode |
 // | pathWithin | pathWithin | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | filepath.Rel prefix test |
 // | allowedRoots | newVirtualPathResolverForFilesystem | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | workdir/script base/anchors/temp/declared as tagged roots |
-// | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | - | not bound (decision 8): the model abstracts anchor locations into InReadRoot and states no per-OS layout or XDG/APPDATA/LOCALAPPDATA override; TestVirtualPathHarness_RootConstruction checks only that anchor roots are read roots (row allowedRoots); follow-up: model per-OS anchors in VirtualPathHarness.als |
+// | anchors | standardVirtualAnchorsForOS | internal/runtime/virtual_policy.go | TestVirtualPathHarness_RootConstruction | narrow claim (decision 14): anchors are explicit allowed roots (@config/@data/@cache/@state/@tmp/@work InReadRoot; @home/.ssh denied under restricted, cross-platform-path-anchors); anchor paths are inputs from the production resolver for the host GOOS, not verified; follow-up: model per-OS anchors |
 // | validate | virtualPathValidator.validate | internal/runtime/virtual_policy.go | TestVirtualPathHarness_GoldenVectors | - |
 // | access | VirtualFilesystemConfig.EffectiveAccess | pkg/invowkfile/virtual_filesystem.go | TestVirtualPathHarness_RootConstruction | restricted vs full |
 // | contained | - | formal/alloy/VirtualPathHarness.als | TestVirtualPathHarness_Property | policy: physical resolution, workdir excluded from read roots |

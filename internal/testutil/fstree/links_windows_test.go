@@ -10,11 +10,10 @@ import (
 	"testing"
 )
 
-// TestCreateJunction requires junction creation on Windows and checks the
-// result functionally: the link is a mount point, not a symlink, and a file
-// read through it is the target's file. Its subtest name reports which method
-// created the junction (the reparse writer or the mklink fallback), the
-// evidence design D5 of the harden-formal-instruments change records.
+// TestCreateJunction requires junction creation on Windows through the reparse
+// writer, which has no fallback (design D5 of the harden-formal-instruments
+// change), and checks the result functionally: the link is a mount point, not
+// a symlink, and a file read through it is the target's file.
 func TestCreateJunction(t *testing.T) {
 	t.Parallel()
 	Require(t, CapJunction)
@@ -27,16 +26,9 @@ func TestCreateJunction(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(target, "f"), []byte("through the junction"), 0o644); err != nil {
 		t.Fatalf("write target file: %v", err)
 	}
-	method, err := createJunctionVia(target, link)
-	if err != nil {
+	if err := createJunction(target, link); err != nil {
 		t.Fatalf("create junction (probe error %v): %v", Probe(t).JunctionErr, err)
 	}
-	// The subtest name carries the method into CI output, which shows passing
-	// subtests but not their logs.
-	t.Run("created via "+method, func(t *testing.T) {
-		t.Parallel()
-		t.Logf("junction created via %s", method)
-	})
 
 	info, err := os.Lstat(link)
 	if err != nil {
