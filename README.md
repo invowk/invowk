@@ -2594,6 +2594,9 @@ container: {
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
     cache_dir: ""                         // Empty default uses the platform cache directory
   }
+  // TUI server bind for interactive container runs: "restricted" (default) or
+  // "all-interfaces" (pre-v0.17.0 wide bind, with a warning at every run)
+  tui_server_bind: "restricted"
 }
 
 // UI options
@@ -2704,6 +2707,8 @@ invowk --ivk-interactive cmd build
 # or
 invowk -i cmd build
 ```
+
+The TUI server of an interactive run binds `127.0.0.1` only for host runtimes. For container runs it binds loopback plus, at most, the one address a verified engine mode routes to the host: the bridge gateway under local rootful Docker on Linux, nothing extra under Docker Desktop, and one forwarded port (`--network=pasta:-T,<port>`) for ephemeral rootless Podman with pasta. Every other engine mode (remote engines, rootful Podman, persistent rootless Podman, rootless Podman without pasta, rootless Docker, Snap, Flatpak without network) runs the command without a TUI server: invowk prints one warning and `invowk tui *` renders directly in the command's terminal. `container.tui_server_bind: "all-interfaces"` in your user config restores the old `0.0.0.0` bind for those modes, with a warning at every run; invowkfiles and modules cannot set it. Every request to the server needs the session token, `/health` included. The rootless Podman pasta plan is verified on a local Podman 6 host. Non-interactive runs are unchanged.
 
 ### Override Config File
 ```bash

@@ -163,6 +163,7 @@ container: {
 #ContainerEngineType: "podman" | "docker"
 #ConfigRuntimeType: "native" | "virtual-sh" | "virtual-lua" | "container"
 #ColorSchemeType: "auto" | "dark" | "light"
+#TUIServerBindType: "restricted" | "all-interfaces"
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 #LLMTimeoutDurationString: string & =~"^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
 
@@ -810,6 +811,7 @@ import "strings"
         inherit_includes: true
         cache_dir: ""
     }
+    tui_server_bind: "restricted"
 }`,
   },
 
@@ -885,8 +887,18 @@ import "strings"
   'reference/config/container-config-structure': {
     language: 'cue',
     code: `#ContainerConfig: close({
-    auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+    auto_provision:  *#AutoProvisionConfig | #AutoProvisionConfig
+    tui_server_bind: *"restricted" | #TUIServerBindType
 })`,
+  },
+
+  'reference/config/container-tui-server-bind': {
+    language: 'cue',
+    code: `container: {
+    // Restores the pre-v0.17.0 wide bind for container modes without a
+    // narrow route. Invowk warns at every such run.
+    tui_server_bind: "all-interfaces"
+}`,
   },
 
   'reference/config/auto-provision-config-structure': {

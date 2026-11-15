@@ -194,14 +194,16 @@ guide ("set `TMPDIR` if needed").
   not found". Decide whether an invalid cwd invowkfile is fatal.
 - **N4 — `ui.color_scheme` is a dead setting (C2).** `config_schema.cue:116`; only read and
   written by `config show/set` (`cmd/invowk/config.go:32,149,330`).
-- **N5 — the TUI server binds every interface (S3, proposed).** Found 2026-11-14
-  while triaging Sonar go:S5332. `internal/tuiserver/server.go:108` listens on
-  `0.0.0.0:0`, so during interactive commands the port is reachable from the LAN, guarded
-  only by the per-session token. Containers reach it through `host.docker.internal`, which
-  is probably why it binds wide. Restrict the bind to loopback plus the engine's bridge
-  gateway, covering Docker and Podman, rootful and rootless, and Flatpak, with container
-  tests. Sonar S5332 there is resolved in SonarCloud as Accepted (real gap tracked as
-  N5/S3; recorded as e13): plain HTTP over loopback or the bridge is by design.
+- **N5 — the TUI server binds every interface (S3, implemented in PR #173; done on
+  merge).** Found 2026-11-14 while triaging Sonar go:S5332. `internal/tuiserver/server.go`
+  listened on `0.0.0.0:0`, so during interactive commands the port was reachable from the
+  LAN, guarded only by the per-session token. S3 (`openspec/changes/restrict-tui-server-bind`)
+  binds loopback plus, at most, the one address a verified engine mode routes to the host,
+  runs modes without a narrow route without a TUI server (one warning, direct rendering),
+  adds the user-config opt-in `container.tui_server_bind: "all-interfaces"`, and requires
+  the token on every request in constant time. Sonar S5332 there is resolved in SonarCloud
+  as Accepted (real gap tracked as N5/S3; recorded as e13): plain HTTP over loopback or the
+  bridge is by design.
 - **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
   exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
   source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`

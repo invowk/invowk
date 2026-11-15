@@ -102,7 +102,7 @@ A `container` method collects the facts behind each plan. It goes through the ex
 - Podman: `podman info --format '{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}'`. Probed: `true|pasta|false|/usr/bin/pasta`.
 - Sandbox: `platform.DetectSandbox()`, and for Flatpak whether `/.flatpak-info` `[Context] shared` contains `network`.
 
-Plan selection is a pure function in `internal/containerplan`, tested table-driven. Facts are cached per process and queried only from the planner, so only interactive container runs pay for them.
+Plan selection is a pure function in `internal/containerplan`, tested table-driven. Facts are cached per container runtime instance (one per request, so once per invowk process in practice) and queried only from the planner, so only interactive container runs pay for them.
 
 **Governing rule.** A plan that binds a non-loopback address ships only for a mode a probe has verified (row 8). A loopback-only plan can never widen exposure, so row 6 ships on vendor documentation alone. If the documentation is wrong, the TUI is unreachable, not exposed, and the client says so (D9).
 
@@ -189,7 +189,7 @@ The planner runs only inside the interactive adapter, and the adapter runs only 
 - [A user misses the warning] → It is printed before the alternate screen, once per run, to stderr. The command's behaviour does not depend on it.
 - [Docker Desktop's alias may not reach a loopback-only listener] → Then the TUI is unreachable, not exposed. The client fails within the dial timeout and names the opt-in (D9), and `"all-interfaces"` restores today's behaviour. Most macOS and Windows users are on this row, so a probe there is a release prerequisite outside this change.
 - [Docker Desktop with WSL2 integration] → invowk runs in a WSL distribution while the alias targets the Windows host. The row 6 caveat applies.
-- [The engine facts query adds latency to every interactive container run] → One to three engine CLI calls, only for `-i` container runs, cached per process.
+- [The engine facts query adds latency to every interactive container run] → One to three engine CLI calls, only for `-i` container runs, cached per runtime instance.
 - [A host firewall blocks bridge-to-host traffic to the gateway port] → The run's `invowk tui *` calls fail within the dial timeout, not exposed. The docs name the firewall as a possible cause.
 
 ## Migration Plan

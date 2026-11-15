@@ -607,6 +607,9 @@ func writeConfigCUEContainer(sb *strings.Builder, container ContainerConfig) {
 	fmt.Fprintf(sb, "\t\tinherit_includes: %v\n", container.AutoProvision.InheritIncludes)
 	fmt.Fprintf(sb, "\t\tcache_dir: %q\n", container.AutoProvision.CacheDir)
 	sb.WriteString("\t}\n")
+	if container.TUIServerBind != "" {
+		fmt.Fprintf(sb, "\ttui_server_bind: %q\n", container.TUIServerBind)
+	}
 	sb.WriteString("}\n")
 }
 

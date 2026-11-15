@@ -113,7 +113,7 @@ This means after exiting interactive mode:
 Interactive mode works seamlessly with the container runtime. Container runs already use the auto-provisioned image layer (enabled by default) so `invowk` is available inside the container; interactive mode adds the TUI plumbing. See [Container Runtime](/docs/runtime-modes/container#auto-provisioning) for details. When you run a container command with `-i`:
 
 1. **Provisioned image layer**: Invowk ensures its binary is available (same as non-interactive runs)
-2. **TUI server**: A local server handles TUI requests from the container
+2. **TUI server**: A local server handles TUI requests from the container (see [Network exposure](#network-exposure-of-the-tui-server))
 3. **Modal overlays**: TUI components render on your terminal, not inside the container
 
 ```bash
@@ -128,6 +128,31 @@ Inside your container scripts, you can use all TUI components:
 :::warning Linux Containers Only
 Alpine-based images are not supported — musl-based environments have subtle behavioral differences that reduce runtime reliability. Use `debian:stable-slim` for generic container examples; language-specific images belong only in language-specific runtime demonstrations.
 :::
+
+### Network exposure of the TUI server
+
+The TUI server never listens on every interface by default. Where it listens depends on the container engine mode, and the container is pointed at an address the server actually binds:
+
+| Engine mode | Server binds | `INVOWK_TUI_ADDR` host |
+|---|---|---|
+| Local rootful Docker on Linux | `127.0.0.1` and the default bridge gateway (for example `172.17.0.1`) | the gateway IP |
+| Docker Desktop (local) | `127.0.0.1` | `host.docker.internal` |
+| Ephemeral rootless Podman with pasta (`passt`) | `127.0.0.1`, with one forwarded port (`--network=pasta:-T,<port>`) | `127.0.0.1` |
+| Anything else (see below) | nothing: no TUI server | not set |
+
+Treat `INVOWK_TUI_ADDR` as an opaque URL; it can be an IP literal.
+
+**Modes without a narrow route** run the command without a TUI server: a remote engine (`tcp://` or `ssh://` Docker endpoint, `podman-remote`, Podman machine), rootful Podman, a persistent container under rootless Podman, rootless Podman without pasta, rootless Docker, Snap, a failed engine query, and any mode not listed above. Invowk opens no listener, sets neither `INVOWK_TUI_ADDR` nor `INVOWK_TUI_TOKEN`, prints one warning that names the reason, and runs the command. `invowk tui *` prompts in the script still work; they render directly in the command's terminal instead of as overlays. For rootless Podman, installing pasta restores the overlay for ephemeral containers.
+
+**Opt-in.** To restore the previous wide bind knowingly, set [`container.tui_server_bind: "all-interfaces"`](../reference/config-schema.mdx#tui_server_bind) in your user config. In the modes above (and under Docker Desktop) the server then binds `0.0.0.0` and uses the engine's host alias, and invowk warns at every such run that the port is reachable from the network. For a remote engine this helps only if its host alias leads back to this machine. The key is read only from `--ivk-config`, `INVOWK_CONFIG` or your user config file, never from an invowkfile or module.
+
+**Flatpak without `--share=network`.** The sandbox's network is private, so no bind is reachable from the engine's containers. Interactive container runs work without a TUI server, and the opt-in does not apply.
+
+**Unreachable server.** If `invowk tui *` inside a container reports that the TUI server is unreachable, the engine does not route to the address the server binds (for example under Docker Desktop, or when a host firewall drops bridge-to-host traffic to the port). The command fails within a few seconds with an error that names the opt-in.
+
+**Residual exposure.** Under rootful Docker the gateway port is also reachable from other containers on the same bridge, and from hosts on the same network segment that route the bridge subnet through this machine. Every request still needs the per-session bearer token, and the port lives only for the interactive run.
+
+**External persistent containers** (`--ivk-container-name` naming a container invowk did not create) get the plan of their engine mode. If such a container sits on a network that cannot reach the bound address, its `invowk tui *` calls fail as unreachable; the bind never widens because of it.
 
 ## Best Practices
 

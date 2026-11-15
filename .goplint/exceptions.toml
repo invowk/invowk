@@ -883,6 +883,14 @@ pattern = "container.*.constructor"
 reason = "container DTOs/options; constructed via struct literals"
 
 [[exceptions]]
+pattern = "containerplan.TUINetworkFacts.constructor"
+reason = "TUI exposure facts DTO; assembled field by field from engine queries, zero value = host runtime"
+
+[[exceptions]]
+pattern = "containerplan.TUIExposurePlan.constructor"
+reason = "TUI exposure plan DTO; produced only by SelectTUIExposure"
+
+[[exceptions]]
 pattern = "discovery.*.constructor"
 reason = "discovery DTOs/results; constructed via struct literals"
 

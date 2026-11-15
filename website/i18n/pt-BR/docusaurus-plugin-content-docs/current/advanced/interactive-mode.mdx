@@ -113,7 +113,7 @@ Isso significa que após sair do modo interativo:
 O modo interativo funciona perfeitamente com o runtime container. As execuções em container já usam a camada de imagem auto-provisionada (habilitada por padrão) para que `invowk` esteja disponível dentro do container; o modo interativo adiciona a infraestrutura de TUI. Veja [Runtime Container](/docs/runtime-modes/container#auto-provisionamento) para detalhes. Quando você executa um comando de container com `-i`:
 
 1. **Camada de imagem provisionada**: Invowk garante que seu binário esteja disponível (mesmo comportamento do modo não interativo)
-2. **Servidor TUI**: Um servidor local trata requisições TUI do container
+2. **Servidor TUI**: Um servidor local trata requisições TUI do container (veja [Exposição de rede](#exposição-de-rede-do-servidor-tui))
 3. **Overlays modais**: Componentes TUI renderizam no seu terminal, não dentro do container
 
 ```bash
@@ -128,6 +128,31 @@ Dentro dos scripts do seu container, você pode usar todos os componentes TUI:
 :::warning Apenas Containers Linux
 Imagens baseadas em Alpine não são suportadas — ambientes baseados em musl possuem diferenças comportamentais sutis que reduzem a confiabilidade do runtime. Use `debian:stable-slim` para exemplos genéricos de container; imagens específicas de linguagem pertencem apenas a demonstrações de runtime específicas da linguagem.
 :::
+
+### Exposição de rede do servidor TUI
+
+Por padrão, o servidor TUI nunca escuta em todas as interfaces. Onde ele escuta depende do modo da engine de container, e o container recebe um endereço em que o servidor realmente escuta:
+
+| Modo da engine | O servidor escuta em | Host em `INVOWK_TUI_ADDR` |
+|---|---|---|
+| Docker rootful local no Linux | `127.0.0.1` e o gateway da bridge padrão (por exemplo `172.17.0.1`) | o IP do gateway |
+| Docker Desktop (local) | `127.0.0.1` | `host.docker.internal` |
+| Podman rootless efêmero com pasta (`passt`) | `127.0.0.1`, com uma porta encaminhada (`--network=pasta:-T,<porta>`) | `127.0.0.1` |
+| Qualquer outro (veja abaixo) | nada: sem servidor TUI | não definido |
+
+Trate `INVOWK_TUI_ADDR` como uma URL opaca; ela pode ser um IP literal.
+
+**Modos sem rota estreita** executam o comando sem servidor TUI: uma engine remota (endpoint Docker `tcp://` ou `ssh://`, `podman-remote`, Podman machine), Podman rootful, um container persistente no Podman rootless, Podman rootless sem pasta, Docker rootless, Snap, uma consulta à engine que falhou, e qualquer modo não listado acima. O invowk não abre nenhum listener, não define `INVOWK_TUI_ADDR` nem `INVOWK_TUI_TOKEN`, imprime um aviso com o motivo e executa o comando. Os prompts de `invowk tui *` no script continuam funcionando; eles são renderizados diretamente no terminal do comando em vez de como overlays. No Podman rootless, instalar o pasta restaura o overlay para containers efêmeros.
+
+**Opt-in.** Para restaurar conscientemente o bind amplo anterior, defina [`container.tui_server_bind: "all-interfaces"`](../reference/config-schema.mdx#tui_server_bind) na sua configuração de usuário. Nos modos acima (e no Docker Desktop) o servidor passa a escutar em `0.0.0.0` e usa o alias de host da engine, e o invowk avisa a cada execução desse tipo que a porta é alcançável pela rede. Para uma engine remota isso só ajuda se o alias de host levar de volta a esta máquina. A chave é lida apenas de `--ivk-config`, `INVOWK_CONFIG` ou do seu arquivo de configuração de usuário, nunca de um invowkfile ou módulo.
+
+**Flatpak sem `--share=network`.** A rede do sandbox é privada, então nenhum bind é alcançável pelos containers da engine. As execuções interativas em container funcionam sem servidor TUI, e o opt-in não se aplica.
+
+**Servidor inalcançável.** Se `invowk tui *` dentro de um container informar que o servidor TUI está inalcançável, a engine não roteia para o endereço em que o servidor escuta (por exemplo no Docker Desktop, ou quando um firewall do host descarta o tráfego da bridge para a porta). O comando falha em poucos segundos com um erro que cita o opt-in.
+
+**Exposição residual.** No Docker rootful, a porta do gateway também é alcançável por outros containers na mesma bridge e por hosts no mesmo segmento de rede que roteiem a sub-rede da bridge por esta máquina. Toda requisição continua exigindo o token bearer da sessão, e a porta existe apenas durante a execução interativa.
+
+**Containers persistentes externos** (`--ivk-container-name` apontando para um container que o invowk não criou) recebem o plano do modo da sua engine. Se esse container estiver numa rede que não alcança o endereço do bind, as chamadas `invowk tui *` falham como inalcançáveis; o bind nunca é ampliado por causa disso.
 
 ## Boas Práticas
 

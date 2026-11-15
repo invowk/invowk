@@ -552,6 +552,11 @@ func TestClientIsAvailable(t *testing.T) {
 	}
 	defer testutil.MustStop(t, server)
 
+	client = NewClient(server.URL(), "wrong-token")
+	if client.IsAvailable() {
+		t.Error("Client with a wrong token should not be available")
+	}
+
 	client = NewClient(server.URL(), server.Token())
 	if !client.IsAvailable() {
 		t.Error("Client to running server should be available")

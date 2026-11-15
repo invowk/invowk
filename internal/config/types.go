@@ -341,6 +341,8 @@ type (
 	ContainerConfig struct {
 		// AutoProvision configures automatic provisioning of invowk resources
 		AutoProvision AutoProvisionConfig `json:"auto_provision" mapstructure:"auto_provision"`
+		// TUIServerBind selects the TUI server bind policy for container runs.
+		TUIServerBind TUIServerBind `json:"tui_server_bind" mapstructure:"tui_server_bind"`
 	}
 
 	//goplint:validate-all
@@ -781,6 +783,9 @@ func (e *InvalidAutoProvisionConfigError) Unwrap() error {
 func (c ContainerConfig) Validate() error {
 	var errs []error
 	if err := c.AutoProvision.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.TUIServerBind.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {

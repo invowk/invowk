@@ -68,6 +68,7 @@ func TestServerStartStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+string(server.Token()))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to check health: %v", err)
@@ -219,7 +220,7 @@ func TestServerServeFailureTransitionsToFailed(t *testing.T) {
 		t.Fatalf("Start() error = %v", err)
 	}
 
-	if err := server.listener.Close(); err != nil {
+	if err := server.listeners[0].Close(); err != nil {
 		t.Fatalf("listener.Close() error = %v", err)
 	}
 
@@ -333,11 +334,13 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	}
 	defer testutil.MustStop(t, server)
 
-	// Test GET request (should be method not allowed)
+	// Test authenticated GET request (should be method not allowed). Without
+	// the token the auth middleware answers 401 first (TestServerAuthCoversEveryPath).
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, string(server.URL())+"/tui", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+string(server.Token()))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to send request: %v", err)

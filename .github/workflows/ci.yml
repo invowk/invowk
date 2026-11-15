@@ -165,6 +165,11 @@ jobs:
           podman --version
           systemctl --user start podman.socket
           systemctl --user is-active podman.socket
+          # TUI exposure plan evidence (restrict-tui-server-bind task 5.1):
+          # rootless|network cmd|remote|pasta executable (empty = no pasta).
+          # Older Podman lacks some fields, so a template error must not fail the job.
+          echo "podman network backend: $(podman info --format '{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}' 2>&1 || true)"
+          echo "pasta on PATH: $(command -v pasta || echo none)"
 
       # Docker setup verification for Ubuntu
       - name: Verify Docker (Ubuntu)

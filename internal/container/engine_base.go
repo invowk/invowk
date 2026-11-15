@@ -314,6 +314,10 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 		args = append(args, containerArgAddHost, string(h))
 	}
 
+	if opts.NetworkMode != "" {
+		args = append(args, containerArgNetworkPrefix+string(opts.NetworkMode))
+	}
+
 	args = append(args, string(opts.Image))
 	args = append(args, opts.Command...)
 
@@ -433,6 +437,14 @@ func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte,
 		return nil, fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return out, nil
+}
+
+// RunQuery runs a read-only engine query and returns its stdout. It
+// implements EngineQueryRunner.
+//
+//goplint:ignore -- raw CLI argv and stdout bytes at the os/exec boundary.
+func (e *BaseCLIEngine) RunQuery(ctx context.Context, args ...string) ([]byte, error) {
+	return e.RunCommand(ctx, args...)
 }
 
 // RunCommandCombined executes a command and returns combined stdout/stderr.

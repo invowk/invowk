@@ -14,6 +14,9 @@ import "strings"
 // ColorSchemeType defines valid color scheme types
 #ColorSchemeType: "auto" | "dark" | "light"
 
+// TUIServerBindType defines the TUI server bind policies for container runs
+#TUIServerBindType: "restricted" | "all-interfaces"
+
 // LLMProviderType defines valid LLM provider harnesses
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
@@ -69,6 +72,13 @@ import "strings"
 	// into containers. When enabled, invowk binary and modules are automatically
 	// added to container images, enabling nested invowk commands.
 	auto_provision: *#AutoProvisionConfig | #AutoProvisionConfig
+
+	// tui_server_bind selects how widely the interactive TUI server may listen
+	// for container runs. "restricted" binds loopback plus at most the one
+	// address a verified engine mode routes to the host; other modes run
+	// without a TUI server. "all-interfaces" lets those modes (and Docker
+	// Desktop) bind 0.0.0.0, with a warning at every such run.
+	tui_server_bind: *"restricted" | #TUIServerBindType
 })
 
 // AutoProvisionConfig controls auto-provisioning of invowk resources

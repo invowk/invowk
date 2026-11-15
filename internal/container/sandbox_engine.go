@@ -92,6 +92,23 @@ func (e *SandboxAwareEngine) Version(ctx context.Context) (string, error) {
 	return e.wrapped.Version(ctx)
 }
 
+// RunQuery runs a read-only engine query on the host engine, through the
+// sandbox spawn wrapper when invowk runs in Flatpak or Snap.
+//
+//goplint:ignore -- raw CLI argv and stdout bytes at the os/exec boundary.
+func (e *SandboxAwareEngine) RunQuery(ctx context.Context, args ...string) ([]byte, error) {
+	if e.sandboxType != platform.SandboxNone {
+		return e.runHostSpawn(ctx, args...)
+	}
+	if runner, ok := e.wrapped.(EngineQueryRunner); ok {
+		return runner.RunQuery(ctx, args...)
+	}
+	if base, ok := e.getBaseCLIEngine(); ok {
+		return base.RunQuery(ctx, args...)
+	}
+	return nil, fmt.Errorf("%w: wrapped engine %T cannot run queries", ErrNetworkFactsUnavailable, e.wrapped)
+}
+
 // BinaryPath returns the path to the container engine binary.
 func (e *SandboxAwareEngine) BinaryPath() string {
 	return e.wrappedBinaryPath()

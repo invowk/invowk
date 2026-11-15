@@ -131,7 +131,7 @@ Use `llm.api` for OpenAI-compatible endpoints when you want to configure an API 
 
 **Type:** `#ContainerConfig`
 **Required:** No
-**Default:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}}`
+**Default:** `{auto_provision: {enabled: true, strict: false, binary_path: "", includes: [], inherit_includes: true, cache_dir: ""}, tui_server_bind: "restricted"}`
 
 Container runtime configuration.
 
@@ -305,6 +305,21 @@ Controls automatic provisioning of invowk resources into containers.
 <Snippet id="reference/config/container-auto-provision" />
 
 With auto-provisioning enabled, Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image. This runs for every container execution (interactive or not); if provisioning fails, Invowk warns and uses the base image.
+
+### tui_server_bind
+
+**Type:** `"restricted" | "all-interfaces"`
+**Required:** No
+**Default:** `"restricted"`
+
+Controls how widely the TUI server of an interactive container run (`-i`) may listen. Host runtimes (native, virtual-sh, virtual-lua) always bind `127.0.0.1` and ignore this key.
+
+- `"restricted"`: the server binds loopback plus, at most, the one address a verified engine mode routes to the host (the bridge gateway under local rootful Docker on Linux; nothing extra under Docker Desktop or ephemeral rootless Podman with pasta). Engine modes without such a route run the command **without** a TUI server: invowk prints one warning, and `invowk tui *` prompts render directly in the command's terminal.
+- `"all-interfaces"`: in those modes, and under Docker Desktop, the server binds `0.0.0.0` as before v0.17.0, so anyone who can reach the host can reach the port (the per-session token still guards it). Invowk prints an exposure warning at every such run. The verified narrow modes keep their narrow bind.
+
+<Snippet id="reference/config/container-tui-server-bind" />
+
+This key is user configuration only: invowk reads it from `--ivk-config`, `INVOWK_CONFIG` or your user config file, never from an invowkfile or module, so a repository cannot widen the bind. It has no effect in Flatpak without `--share=network`, where no bind is reachable from the engine's containers. For a remote engine (a `tcp://` or `ssh://` Docker endpoint, `podman-remote`, Podman machine) it helps only if the engine's host alias leads back to this machine. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
 
 ---
 

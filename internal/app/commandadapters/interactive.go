@@ -5,11 +5,16 @@ package commandadapters
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
+	"os/exec"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
@@ -17,10 +22,23 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// InteractiveExecutor runs commands through the terminal UI adapter.
-//
-//goplint:ignore -- stateless infrastructure adapter has no domain invariants.
-type InteractiveExecutor struct{}
+type (
+	// tuiExposurePlanner is implemented by runtimes whose children reach the
+	// TUI server from outside the host network view (the container runtime).
+	// It runs only for interactive requests, before the TUI server starts.
+	tuiExposurePlanner interface {
+		PlanTUIExposure(ctx *runtime.ExecutionContext) containerplan.TUIExposurePlan
+	}
+
+	// InteractiveExecutor runs commands through the terminal UI adapter.
+	//
+	//goplint:ignore -- infrastructure adapter; its only field is a test seam for the PTY session.
+	InteractiveExecutor struct {
+		// runSession runs the prepared command in the interactive session; nil
+		// selects runInteractiveCmd. Tests replace it to avoid a real terminal.
+		runSession func(context.Context, tui.InteractiveOptions, *exec.Cmd) (*tui.InteractiveResult, error)
+	}
+)
 
 // NewInteractiveExecutor creates an interactive terminal adapter.
 func NewInteractiveExecutor() (InteractiveExecutor, error) {
@@ -31,22 +49,19 @@ func NewInteractiveExecutor() (InteractiveExecutor, error) {
 	return executor, nil
 }
 
-// Validate returns nil because InteractiveExecutor is stateless.
+// Validate returns nil: InteractiveExecutor holds no domain state.
 func (InteractiveExecutor) Validate() error {
 	return nil
 }
 
 // Execute runs a command in interactive mode using Bubble Tea's alternate
 // screen buffer. It starts an HTTP-based TUI server for bidirectional component
-// requests between the running command and the terminal UI.
-func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactiveRT commandsvc.RuntimeInteractiveCommand) *runtime.Result {
+// requests between the running command and the terminal UI, bound according to
+// the runtime's TUI exposure plan. When the plan has no narrow route, the
+// command runs without a server and its invowk tui calls render directly.
+func (e InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactiveRT commandsvc.RuntimeInteractiveCommand) *runtime.Result {
 	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for validation failure
-	}
-
-	tuiServer, err := tuiserver.New()
-	if err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("failed to create TUI server: %w", err)} //goplint:ignore -- literal exit code for server creation failure
 	}
 
 	goCtx := ctx.Context
@@ -54,24 +69,27 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		goCtx = context.Background()
 	}
 
-	if err = tuiServer.Start(goCtx); err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("failed to start TUI server: %w", err)} //goplint:ignore -- literal exit code for server start failure
+	plan := planTUIExposure(ctx, interactiveRT)
+	if plan.Warning != "" {
+		// Before the alternate screen starts, so it cannot hide the warning.
+		_, _ = fmt.Fprintln(interactiveStderr(ctx), plan.Warning.String())
 	}
-	defer func() {
-		if stopErr := tuiServer.Stop(); stopErr != nil {
-			slog.Debug("TUI server stop failed during cleanup", "error", stopErr)
+
+	var tuiServer *tuiserver.Server
+	ctx.TUI = runtime.TUIContext{}
+	if plan.HasServer() {
+		server, tuiCtx, err := startTUIServer(goCtx, plan)
+		if err != nil {
+			return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for server start failure
 		}
-	}()
-
-	var tuiServerURL runtime.TUIServerURL
-	if hostProvider, ok := interactiveRT.(runtime.HostServiceAddressProvider); ok {
-		tuiServerURL = tuiServer.URLWithHost(hostProvider.HostServiceAddress())
-	} else {
-		tuiServerURL = tuiServer.URL()
+		tuiServer = server
+		defer func() {
+			if stopErr := tuiServer.Stop(); stopErr != nil {
+				slog.Debug("TUI server stop failed during cleanup", "error", stopErr)
+			}
+		}()
+		ctx.TUI = tuiCtx
 	}
-
-	ctx.TUI.ServerURL = tuiServerURL
-	ctx.TUI.ServerToken = runtime.TUIServerToken(tuiServer.Token())
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {
@@ -82,17 +100,20 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		defer prepared.Cleanup()
 	}
 
-	interactiveResult, err := runInteractiveCmd(
-		goCtx,
-		tui.InteractiveOptions{
-			Title:       "Running Command",
-			CommandName: cmdName.String(),
-			OnProgramReady: func(p *tea.Program) {
-				go bridgeTUIRequests(tuiServer, p)
-			},
-		},
-		prepared.Cmd,
-	)
+	opts := tui.InteractiveOptions{
+		Title:       "Running Command",
+		CommandName: cmdName.String(),
+	}
+	if tuiServer != nil {
+		opts.OnProgramReady = func(p *tea.Program) {
+			go bridgeTUIRequests(tuiServer, p)
+		}
+	}
+	runSession := e.runSession
+	if runSession == nil {
+		runSession = runInteractiveCmd
+	}
+	interactiveResult, err := runSession(goCtx, opts, prepared.Cmd)
 	if err != nil {
 		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("interactive execution failed: %w", err)} //goplint:ignore -- literal exit code for interactive failure
 	}
@@ -101,6 +122,55 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		ExitCode: interactiveResult.ExitCode,
 		Error:    interactiveResult.Error,
 	}
+}
+
+// planTUIExposure asks the runtime for its bind plan; runtimes without a
+// planner (native, virtual) get the loopback plan.
+func planTUIExposure(ctx *runtime.ExecutionContext, interactiveRT commandsvc.RuntimeInteractiveCommand) containerplan.TUIExposurePlan {
+	if planner, ok := interactiveRT.(tuiExposurePlanner); ok {
+		return planner.PlanTUIExposure(ctx)
+	}
+	return containerplan.SelectTUIExposure(containerplan.TUINetworkFacts{}, false)
+}
+
+// startTUIServer starts a server bound per plan and returns the TUI context
+// the command needs to reach it.
+func startTUIServer(goCtx context.Context, plan containerplan.TUIExposurePlan) (*tuiserver.Server, runtime.TUIContext, error) {
+	bindPlan := tuiserver.WildcardBindPlan()
+	if plan.Kind != containerplan.TUIPlanWide {
+		var err error
+		bindPlan, err = tuiserver.NewBindPlan(plan.BindAddrs...)
+		if err != nil {
+			return nil, runtime.TUIContext{}, fmt.Errorf("failed to create TUI server: %w", err)
+		}
+	}
+	server, err := tuiserver.NewWithBindPlan(bindPlan)
+	if err != nil {
+		return nil, runtime.TUIContext{}, fmt.Errorf("failed to create TUI server: %w", err)
+	}
+	if err := server.Start(goCtx); err != nil {
+		return nil, runtime.TUIContext{}, fmt.Errorf("failed to start TUI server: %w", err)
+	}
+	tuiCtx := runtime.TUIContext{
+		ServerURL:   server.URLWithHost(plan.DialHost),
+		ServerToken: runtime.TUIServerToken(server.Token()),
+	}
+	if plan.PastaForward {
+		mode, modeErr := container.PastaForwardNetworkMode(server.Port())
+		if modeErr != nil {
+			_ = server.Stop() //nolint:contextcheck // Stop takes no context; best-effort cleanup before reporting the plan error.
+			return nil, runtime.TUIContext{}, fmt.Errorf("failed to build pasta forward: %w", modeErr)
+		}
+		tuiCtx.NetworkMode = mode
+	}
+	return server, tuiCtx, nil
+}
+
+func interactiveStderr(ctx *runtime.ExecutionContext) io.Writer {
+	if ctx.IO.Stderr != nil {
+		return ctx.IO.Stderr
+	}
+	return os.Stderr
 }
 
 func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {

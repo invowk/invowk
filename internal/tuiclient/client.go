@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -42,6 +43,10 @@ const (
 	ComponentPager Component = tuiwire.ComponentPager
 	// ComponentTable is the TUI component type constant for tables.
 	ComponentTable Component = tuiwire.ComponentTable
+
+	// dialTimeout bounds only the TCP connect. The overall request timeout
+	// stays long, because a component request waits for the user.
+	dialTimeout = 5 * time.Second
 )
 
 var (
@@ -49,6 +54,9 @@ var (
 	ErrTUIServerResponse = errors.New("TUI server error")
 	// ErrUserCancelled is returned when a delegated TUI component is cancelled.
 	ErrUserCancelled = tuiwire.ErrUserCancelled
+	// ErrTUIServerUnreachable is returned when the TUI server named by
+	// INVOWK_TUI_ADDR cannot be connected to within the dial timeout.
+	ErrTUIServerUnreachable = errors.New("TUI server unreachable")
 )
 
 type (
@@ -110,6 +118,14 @@ type (
 		token  AuthToken
 		client *http.Client
 	}
+
+	// UnreachableError reports a TUI server that could not be connected to.
+	// It names the address and the container.tui_server_bind opt-in, because
+	// the usual cause is a container engine that does not route to the host.
+	UnreachableError struct {
+		Addr URL
+		Err  error
+	}
 )
 
 // NewClientFromEnv creates a new Client from environment variables.
@@ -135,14 +151,36 @@ func NewClientFromEnv() *Client {
 
 // NewClient creates a new Client with the given server address and token.
 func NewClient(addr URL, token AuthToken) *Client {
+	return newClientWithDialTimeout(addr, token, dialTimeout)
+}
+
+func newClientWithDialTimeout(addr URL, token AuthToken, timeout time.Duration) *Client {
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if ok {
+		transport = transport.Clone()
+	} else {
+		transport = &http.Transport{}
+	}
+	dialer := &net.Dialer{Timeout: timeout}
+	transport.DialContext = dialer.DialContext
 	return &Client{
 		addr:  addr,
 		token: token,
 		client: &http.Client{
-			Timeout: 10 * time.Minute, // Long timeout for user interaction
+			Transport: transport,
+			Timeout:   10 * time.Minute, // Long timeout for user interaction
 		},
 	}
 }
+
+// Error implements error.
+func (e *UnreachableError) Error() string {
+	return fmt.Sprintf("%s at %s: %v; if this runs in a container, its engine may not route to the host: "+
+		"set container.tui_server_bind: \"all-interfaces\" in the invowk config to restore the wide bind", ErrTUIServerUnreachable, e.Addr, e.Err)
+}
+
+// Unwrap returns ErrTUIServerUnreachable and the dial error.
+func (e *UnreachableError) Unwrap() []error { return []error{ErrTUIServerUnreachable, e.Err} }
 
 // IsAvailable checks if the TUI server is available.
 func (c *Client) IsAvailable() bool {
@@ -164,6 +202,7 @@ func (c *Client) IsAvailableContext(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
+	req.Header.Set("Authorization", "Bearer "+string(c.token))
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return false
@@ -503,7 +542,7 @@ func (c *Client) sendRequestContext(ctx context.Context, component Component, op
 
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", c.classifyDialError(err))
 	}
 	defer func() {
 		if closeErr := httpResp.Body.Close(); closeErr != nil && err == nil {
@@ -530,4 +569,13 @@ func (c *Client) sendRequestContext(ctx context.Context, component Component, op
 	}
 
 	return &resp, nil
+}
+
+// classifyDialError wraps connect failures in UnreachableError and returns
+// other errors unchanged.
+func (c *Client) classifyDialError(err error) error {
+	if opErr, ok := errors.AsType[*net.OpError](err); ok && opErr.Op == "dial" {
+		return &UnreachableError{Addr: c.addr, Err: err}
+	}
+	return err
 }
