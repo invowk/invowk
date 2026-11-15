@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -57,6 +59,36 @@ func newUsageError(err error) error {
 	return &UsageError{Err: err}
 }
 
+// notFoundError classifies a "command not found" or "source not found" error.
+// It is a UsageError (exit status ExitCodeUsage) unless discovery reported an
+// invowkfile or module that failed to parse or load: the command may be
+// defined in that file, so the failure is not attributed to the command line
+// and keeps exit status 1, like any other invalid invowkfile. Which file held
+// the command cannot be known, so any such diagnostic counts. err may already
+// be a UsageError (rejectUnmatchedGroupToken); that classification is removed.
+func notFoundError(err error, diags []discovery.Diagnostic) error {
+	if !slices.ContainsFunc(diags, isSourceLoadFailure) {
+		return newUsageError(err)
+	}
+	if usageErr, ok := errors.AsType[*UsageError](err); ok {
+		return usageErr.Err
+	}
+	return err
+}
+
+// isSourceLoadFailure reports whether diag means that discovery found an
+// invowkfile or module but skipped it because it failed to parse or load.
+// Policy skips (reserved names, symlinks, undeclared vendored modules) do not
+// count: those sources are excluded on purpose, not broken.
+func isSourceLoadFailure(diag discovery.Diagnostic) bool {
+	return slices.Contains([]discovery.DiagnosticCode{
+		discovery.CodeInvowkfileParseSkipped,
+		discovery.CodeModuleLoadSkipped,
+		discovery.CodeIncludeModuleLoadFailed,
+		discovery.CodeVendoredModuleLoadSkipped,
+	}, diag.Code())
+}
+
 // exitCodeForError maps the error returned by the Cobra tree to the process
 // exit status: nil is 0, an *ExitError carries its own code, a *UsageError is
 // ExitCodeUsage, and every other error is 1.
@@ -77,8 +109,8 @@ func exitCodeForError(err error) types.ExitCode {
 // tree rooted at root. It must run after every subcommand has been added.
 //   - pflag parse errors at any level become UsageError (children inherit the
 //     root FlagErrorFunc through Cobra's parent walk);
-//   - an unknown root command becomes a UsageError with Cobra's message, while
-//     bare `invowk` still shows help;
+//   - bare `invowk` still shows help; an unknown root command keeps Cobra's
+//     own check (classified by classifyUnknownRootCommand);
 //   - every group without an explicit Args validator rejects unmatched tokens
 //     through rejectUnmatchedGroupToken, and a bare group still shows help;
 //   - every explicit Args validator's error becomes a UsageError;
@@ -93,12 +125,9 @@ func installUsageGuards(root *cobra.Command) {
 		return newUsageError(err)
 	})
 
-	root.Args = func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return nil
-		}
-		return newUsageError(unknownCommandError(cmd, args[0]))
-	}
+	// root.Args stays nil on purpose: Cobra then rejects an unknown first
+	// token inside Command.Find, before it handles --help and --version, so
+	// `invowk <typo> --help` fails instead of printing the root help.
 	if !root.Runnable() {
 		root.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
 	}
@@ -106,6 +135,23 @@ func installUsageGuards(root *cobra.Command) {
 	for _, child := range root.Commands() {
 		installGroupGuards(child)
 	}
+}
+
+// classifyUnknownRootCommand classifies Cobra's unknown-root-command error,
+// which Command.Find returns before any Args validator or FlagErrorFunc runs,
+// as a UsageError. args must be the argv the tree was executed with. Find is
+// run again after execution, when Cobra's lazily added help and completion
+// commands exist, so it fails exactly when the execution failed in Find.
+//
+//goplint:ignore -- raw process argv at the Cobra boundary.
+func classifyUnknownRootCommand(root *cobra.Command, args []string, err error) error {
+	if err == nil || exitCodeForError(err) != 1 {
+		return err
+	}
+	if _, _, findErr := root.Find(args); findErr == nil {
+		return err
+	}
+	return newUsageError(err)
 }
 
 // installGroupGuards applies the group and Args rules of installUsageGuards to

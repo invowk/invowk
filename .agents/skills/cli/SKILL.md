@@ -283,7 +283,7 @@ type ExitError struct {
 
 **Pattern:**
 - Command `RunE` returns `ExitError` for an explicit exit code (a forwarded user-command status, or a command such as `audit`/`agent` that already rendered its message)
-- Root `Execute()` passes the error from `fang.Execute` to `exitCodeForError` and calls `os.Exit` with the result
+- Root `Execute()` passes the error from `fang.Execute` through `classifyUnknownRootCommand` to `exitCodeForError` and calls `os.Exit` with the result
 - Prevents cascading error messages while maintaining proper exit codes
 
 ### Exit-Code Contract and `UsageError`
@@ -294,13 +294,16 @@ The contract (documented in `website/docs/reference/cli.mdx` "Exit Codes" and th
 - `UsageError{Err}` marks a command-line rejection. `Error()` returns the wrapped text unchanged, so messages and fang's "Try --help" hint stay the same; `Unwrap()` keeps `errors.Is/As` working (for example `errors.AsType[*ServiceError]`).
 - `newUsageError(err)` returns nil for nil and returns `err` unchanged when it already carries an `*ExitError`, so an explicit code always wins. Never build `&UsageError{}` directly.
 - `exitCodeForError(err)` is the pure mapping: nil → 0, `*ExitError` → its `Code`, `*UsageError` → `ExitCodeUsage` (2), anything else → 1.
-- `installUsageGuards(root)` runs once at the end of `NewRootCommand`: it sets a `FlagErrorFunc` (pflag errors → usage), a root `Args` validator with Cobra's unknown-command message and suggestions, a group guard (`rejectUnmatchedGroupToken`) on every parent with `Args == nil` (plus `RunE: help` when it is not runnable), and wraps every explicit `Args` validator.
+- `installUsageGuards(root)` runs once at the end of `NewRootCommand`: it sets a `FlagErrorFunc` (pflag errors → usage), root `RunE: help`, a group guard (`rejectUnmatchedGroupToken`) on every parent with `Args == nil` (plus `RunE: help` when it is not runnable), and wraps every explicit `Args` validator.
+- The root keeps `Args == nil` on purpose: Cobra's `legacyArgs` then rejects an unknown first token inside `Command.Find`, before `--help`/`--version` are handled (a custom root `Args` lets `invowk bogus --help` print help and exit 0). That error bypasses every hook, so `classifyUnknownRootCommand` re-runs `root.Find(args)` after execution and wraps it as usage.
 - `rejectUnmatchedGroupToken` writes the group's visible subcommands to stderr (nothing to stdout) and returns the unknown-command `UsageError`. A bare group still prints help and exits 0.
 
 Rules:
 - **A parent command that accepts positionals MUST declare `Args` explicitly** (for example `cobra.ArbitraryArgs` on `invowk cmd` and on discovered group nodes); otherwise the group guard rejects its tokens before `RunE` runs.
 - Classify at the CLI adapter, not in domain packages: `renderAndWrapServiceError` wraps argument/flag validation, ambiguous or unknown command, unknown source and runtime-not-allowed errors; `buildCommandExecuteRequest` wraps invalid reserved `--ivk-*` values.
 - A refusal decided from argv and the environment alone, before any file is read, is also usage: an invalid `INVOWK_NO_CWD` (`noCwdFromEnv`), `--ivk-watch` with `--ivk-dry-run`, `config set` under an explicit config source, `agent … --verify` under `--ivk-no-cwd`.
+- `@source`/`--ivk-from` values go through `parseSourceName` (normalize, then `SourceID.Validate`, usage error) on every path; never pass the raw flag text as `FromSource`.
+- A not-found error goes through `notFoundError(err, diags)`: it is usage unless the same request's discovery diagnostics report an invowkfile or module that failed to load, then it stays 1.
 - Environment and internal failures (dependencies, platform, engine, timeouts, `InvalidRequestError`, config files, including a failed `--ivk-config`/`INVOWK_CONFIG` source) stay at 1.
 - `agent` and `audit` keep explicit `ExitError` codes. The shared LLM helpers in `llm_flags.go` take an `llmExitCodes{usage, failure}` value (`auditLLMExitCodes`, `agentLLMExitCodes`).
 - In testscript, assert exact codes with the custom `exitcode <want> <cmd> <args...>` command (`tests/cli/exitcode_test.go`); `! exec` accepts any non-zero status.

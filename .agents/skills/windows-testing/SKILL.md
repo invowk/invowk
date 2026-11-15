@@ -48,7 +48,10 @@ When a change touches path parsing, validation, or volume-mount composition:
 2. Use `internal/testutil/pathmatrix` for validators/resolvers where possible.
 3. Register a new path-contract validator or resolver in the
    `pathMatrixCoverage` map in `tests/coverage/pathmatrix_coverage_test.go`
-   (or add a justified exemption there); the guardrail fails otherwise.
+   (or add a justified exemption there); the guardrail fails otherwise. Its AST
+   discovery also catches small unexported helpers extracted from an existing
+   path function (for example a `filepath.Base`/`strings.HasPrefix` target
+   classifier), so register those too.
 4. Run focused tests, then `make check-baseline` for goplint path regressions.
 
 ## Process Lifecycle

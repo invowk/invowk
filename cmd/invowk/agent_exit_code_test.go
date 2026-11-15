@@ -5,6 +5,7 @@ package cmd
 import (
 	"bytes"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -89,6 +90,16 @@ func TestAgentExitCodes(t *testing.T) {
 			want: ExitCodeUsage,
 		},
 		{
+			name: "remove a malformed module id",
+			args: func(*testing.T) []string { return []string{"agent", "mod", "remove", "bad id"} },
+			want: ExitCodeUsage,
+		},
+		{
+			name: "change a malformed module id",
+			args: func(*testing.T) []string { return []string{"agent", "mod", "change", "bad id", "describe it"} },
+			want: ExitCodeUsage,
+		},
+		{
 			name: "remove command from a missing invowkfile",
 			args: func(t *testing.T) []string {
 				t.Helper()
@@ -139,6 +150,37 @@ func TestAgentExitCodes(t *testing.T) {
 				t.Fatalf("exit code = %d (error: %v), want %d", got, runErr, tt.want)
 			}
 		})
+	}
+}
+
+// TestAgentModChangeRejectsMalformedIDBeforeProviderDetection verifies that a
+// malformed module ID is rejected from argv alone: no LLM provider is resolved
+// (no "Using LLM provider" line) before the usage error.
+func TestAgentModChangeRejectsMalformedIDBeforeProviderDetection(t *testing.T) {
+	t.Parallel()
+
+	app, err := NewApp(Dependencies{
+		Config: &staticConfigProvider{cfg: config.DefaultConfig()},
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	var stderr bytes.Buffer
+	root := &cobra.Command{Use: "invowk", SilenceErrors: true, SilenceUsage: true}
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&stderr)
+	root.AddCommand(newAgentCommand(app, &rootFlagValues{}))
+	installUsageGuards(root)
+	root.SetArgs([]string{"agent", "mod", "change", "bad id", "describe it", "--llm-provider", "claude"})
+	runErr := root.Execute()
+
+	if got := exitCodeForError(runErr); got != ExitCodeUsage {
+		t.Fatalf("exit code = %d (error: %v), want %d", got, runErr, ExitCodeUsage)
+	}
+	if strings.Contains(stderr.String(), "Using LLM provider") {
+		t.Fatalf("stderr = %q, want no LLM provider detection before the ID check", stderr.String())
 	}
 }
 

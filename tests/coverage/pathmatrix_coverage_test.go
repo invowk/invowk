@@ -47,6 +47,10 @@ var (
 	}
 
 	pathMatrixExemptions = map[string]pathMatrixExemption{
+		"internal/agentcmd.isModulePathTarget": {
+			testFile: "internal/agentcmd/module_test.go",
+			reason:   "classifies an agent module target as a host-native path or a module ID from its text; the path branch is resolved by resolveModulePath, which is exempt for the same reason",
+		},
 		"internal/agentcmd.resolveModulePath": {
 			testFile: "internal/agentcmd/module_test.go",
 			reason:   "agent module targets are resolved with host-native filepath.Abs; they do not promise dialect-neutral path interpretation",

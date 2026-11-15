@@ -290,7 +290,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		cmdInfo, resolvedReq, diags, err := app.Commands.ResolveFromSource(ctx, resolveReq)
 		app.Diagnostics.Render(ctx, diags, app.stderr)
 		if err != nil {
-			return renderServiceErrorIfPresent(app, renderAndWrapServiceError(err, resolveReq))
+			return renderServiceErrorIfPresent(app, renderAndWrapServiceError(err, resolveReq, diags))
 		}
 
 		req, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
@@ -317,7 +317,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	_, resolvedReq, diags, err := app.Commands.ResolveFromSource(ctx, req)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err != nil {
-		return renderServiceErrorIfPresent(app, renderAndWrapServiceError(err, req))
+		return renderServiceErrorIfPresent(app, renderAndWrapServiceError(err, req, diags))
 	}
 
 	childFlags := *cmdFlags
@@ -347,10 +347,12 @@ func commandArgDefs(cmdInfo *discovery.CommandInfo) []invowkfile.Argument {
 }
 
 // checkAmbiguousCommand asks the command service to resolve the full candidate
-// path and maps command-service ambiguity into the CLI rendering type.
-func checkAmbiguousCommand(ctx context.Context, app *App, args []string) error {
+// path and maps command-service ambiguity into the CLI rendering type. It also
+// returns the discovery diagnostics of that resolution, so a caller that then
+// rejects the path as not found can classify it with notFoundError.
+func checkAmbiguousCommand(ctx context.Context, app *App, args []string) ([]discovery.Diagnostic, error) {
 	if len(args) == 0 || app.Commands == nil {
-		return nil
+		return nil, nil
 	}
 
 	req := ExecuteRequest{
@@ -360,16 +362,16 @@ func checkAmbiguousCommand(ctx context.Context, app *App, args []string) error {
 	_, _, diags, err := app.Commands.ResolveCommand(ctx, req)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err == nil {
-		return nil
+		return diags, nil
 	}
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
 		if ambigErr, ambigOK := errors.AsType[*commandsvc.AmbiguousCommandError](classified.Err); ambigOK {
-			return &AmbiguousCommandError{CommandName: ambigErr.CommandName, Sources: ambigErr.Sources}
+			return diags, &AmbiguousCommandError{CommandName: ambigErr.CommandName, Sources: ambigErr.Sources}
 		}
-		return nil
+		return diags, nil
 	}
 	if ambigErr, ok := errors.AsType[*commandsvc.AmbiguousCommandError](err); ok {
-		return &AmbiguousCommandError{CommandName: ambigErr.CommandName, Sources: ambigErr.Sources}
+		return diags, &AmbiguousCommandError{CommandName: ambigErr.CommandName, Sources: ambigErr.Sources}
 	}
-	return nil
+	return diags, nil
 }

@@ -16,6 +16,24 @@ exitcode 2 invowk bogus
 ! stdout .
 stderr '(?i)unknown command "bogus"'
 
+# Test 2b: an unknown root command still exits 2 with --help, -h or --version,
+# and the root help and version flags themselves still succeed
+exitcode 2 invowk bogus --help
+! stdout .
+stderr '(?i)unknown command "bogus"'
+exitcode 2 invowk bogus -h
+! stdout .
+exitcode 2 invowk bogus --version
+! stdout .
+exitcode 0 invowk --help
+stdout 'invowk'
+exitcode 0 invowk --version
+stdout .
+exitcode 0 invowk help
+stdout 'invowk'
+exitcode 0 invowk __complete ''
+stdout 'config'
+
 # Test 3: group typos exit 2, list the subcommands on stderr, write no stdout
 exitcode 2 invowk config bogus
 ! stdout .
@@ -60,6 +78,12 @@ stdout 'invowk config'
 cd findings
 exitcode 1 invowk audit
 stdout 'CRITICAL'
+cd $WORK
+
+# Test 8: validate keeps exit 1 when validation finds errors
+cd invalid
+exitcode 1 invowk validate
+cd $WORK
 
 -- findings/invowkfile.cue --
 cmds: [{
@@ -70,4 +94,16 @@ cmds: [{
         runtimes: [{name: "virtual-sh"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
+}]
+
+-- invalid/invowkfile.cue --
+cmds: [{
+    name: "build"
+    description: "Has a field the schema does not allow"
+    implementations: [{
+        script: {content: "echo build"}
+        runtimes: [{name: "virtual-sh"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+    bogusfield: 1
 }]

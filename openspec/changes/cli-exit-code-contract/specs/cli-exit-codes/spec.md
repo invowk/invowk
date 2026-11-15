@@ -26,7 +26,7 @@ The exit-code contract SHALL be documented in the CLI reference and in the READM
 - **AND** it SHALL note the collision with a script's own `exit 1` or `exit 2`
 
 ### Requirement: Cobra and pflag rejections exit with status 2
-Invowk SHALL exit with status 2 when Cobra or pflag rejects the command line: an unknown flag at any level, a flag value that does not parse for the flag's type, a flag that requires a value but has none, an unknown root-level command, or a positional-argument arity or valid-args error on a built-in command.
+Invowk SHALL exit with status 2 when Cobra or pflag rejects the command line: an unknown flag at any level, a flag value that does not parse for the flag's type, a flag that requires a value but has none, an unknown root-level command (also when `--help`, `-h` or `--version` is given), or a positional-argument arity or valid-args error on a built-in command.
 
 #### Scenario: Unknown flag on a user command
 - **WHEN** the user runs `invowk cmd test unit --bogus`
@@ -46,6 +46,16 @@ Invowk SHALL exit with status 2 when Cobra or pflag rejects the command line: an
 - **WHEN** the user runs `invowk bogus`
 - **THEN** invowk SHALL exit with status 2
 - **AND** stderr SHALL contain `unknown command "bogus"`, matched case-insensitively
+
+#### Scenario: Unknown root command with a help or version flag
+- **WHEN** the user runs `invowk bogus --help`, `invowk bogus -h` or `invowk bogus --version`
+- **THEN** invowk SHALL exit with status 2
+- **AND** stdout SHALL be empty
+
+#### Scenario: Flag missing its value
+- **WHEN** the user runs `invowk cmd test unit --ivk-workdir` with no value
+- **THEN** invowk SHALL exit with status 2
+- **AND** stderr SHALL contain `flag needs an argument`, matched case-insensitively
 
 #### Scenario: Built-in argument arity error
 - **WHEN** the user runs `invowk init a b c`
@@ -130,7 +140,7 @@ A discovered group node SHALL handle `--ivk-from` first, then check whether the 
 - **AND** invowk SHALL exit with status 2
 
 ### Requirement: Command resolution errors exit with status 2
-Invowk SHALL exit with status 2 when the requested command name is not found under `invowk cmd` (including in `--ivk-watch` mode), when the command name is ambiguous across sources, when `@source` or `--ivk-from` names a source that does not exist, and when a source filter is given without a command name.
+Invowk SHALL exit with status 2 when the requested command name is not found under `invowk cmd` (including in `--ivk-watch` mode), when the command name is ambiguous across sources, when `@source` or `--ivk-from` names a source that does not exist, and when a source filter is given without a command name. A not-found error after a source failed to load is the exception below (status 1).
 
 #### Scenario: Unknown command
 - **WHEN** the user runs `invowk cmd nope` and no command `nope` exists
@@ -153,6 +163,38 @@ Invowk SHALL exit with status 2 when the requested command name is not found und
 - **WHEN** the user runs `invowk cmd --ivk-watch nope`
 - **THEN** invowk SHALL exit with status 2
 
+### Requirement: A malformed source name exits with status 2
+A `@source` or `--ivk-from` value SHALL be normalized (a leading `@` and a `.invowkmod` suffix removed; `invowkfile.cue` names the invowkfile) and SHALL then be a well-formed source name. A value that is not, such as the path `./m.invowkmod` or `1bad`, SHALL be rejected with an error naming the value and exit status 2 on every invocation path, including watch mode, without running any script.
+
+#### Scenario: A path given as the source
+- **WHEN** the user runs `invowk cmd @./m.invowkmod test unit`
+- **THEN** invowk SHALL exit with status 2
+- **AND** stderr SHALL contain `invalid source`, matched case-insensitively
+
+#### Scenario: A malformed --ivk-from after a leaf
+- **WHEN** the user runs `invowk cmd test unit --ivk-from 1bad`
+- **THEN** invowk SHALL exit with status 2
+
+#### Scenario: A malformed source in watch mode
+- **WHEN** the user runs `invowk cmd --ivk-watch --ivk-from 1bad test unit`
+- **THEN** invowk SHALL exit with status 2
+
+#### Scenario: Normalized source forms still resolve
+- **WHEN** command `test unit` exists in the invowkfile and the user runs `invowk cmd test unit --ivk-from @invowkfile`
+- **THEN** invowk SHALL run the command and exit with status 0
+
+### Requirement: A command missing because a source failed to load exits with status 1
+When the command or source named on the command line is not found, and discovery reported in the same invocation an invowkfile or module that it skipped because it failed to parse or load, invowk SHALL exit with status 1 instead of 2. Policy skips, such as reserved module names, do not count. Ambiguity, argument and flag errors keep status 2.
+
+#### Scenario: Command defined in an invowkfile that does not parse
+- **WHEN** the only invowkfile defines `build` but has a field the schema does not allow, and the user runs `invowk cmd build`
+- **THEN** stderr SHALL report that the invowkfile was skipped
+- **AND** invowk SHALL exit with status 1
+
+#### Scenario: Source filter on a skipped invowkfile
+- **WHEN** the only invowkfile does not parse and the user runs `invowk cmd @invowkfile build`
+- **THEN** invowk SHALL exit with status 1
+
 ### Requirement: Declared argument and flag validation errors exit with status 2
 Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when declared positional arguments fail validation (missing required, too many, or a value that does not match the declared type or pattern) or when invowkfile-declared flag values fail validation.
 
@@ -171,7 +213,7 @@ Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when de
 - **AND** the command's script SHALL NOT run
 
 ### Requirement: Invalid reserved flag values exit with status 2
-Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when a reserved `--ivk-*` flag of `invowk cmd` has a value that fails syntactic validation. This covers `--ivk-runtime` (unknown mode, or a runtime the command does not allow), `--ivk-env-inherit-mode`, `--ivk-env-var`, `--ivk-env-inherit-allow`, `--ivk-env-inherit-deny`, `--ivk-workdir`, `--ivk-env-file` and `--ivk-container-name`.
+Invowk SHALL exit with status 2, and SHALL NOT run the command's script, when a reserved `--ivk-*` flag of `invowk cmd` has a value that fails syntactic validation. This covers `--ivk-runtime` (unknown mode, or a runtime the command does not allow), `--ivk-env-inherit-mode`, `--ivk-env-var`, `--ivk-env-inherit-allow`, `--ivk-env-inherit-deny`, `--ivk-workdir`, `--ivk-env-file` and `--ivk-container-name`. A malformed `--ivk-from` is covered below.
 
 #### Scenario: Unknown runtime mode
 - **WHEN** the user runs `invowk cmd --ivk-runtime bogus test unit`
@@ -275,6 +317,18 @@ These built-in codes SHALL keep their meanings and SHALL be listed in the exit-c
 - **WHEN** the user runs `invowk audit a b c`
 - **THEN** invowk SHALL exit with status 2
 
+#### Scenario: tui confirm declined
+- **WHEN** the user answers no to `invowk tui confirm 'Proceed?'`
+- **THEN** invowk SHALL exit with status 1
+
+#### Scenario: tui spin forwards the wrapped command's code
+- **WHEN** the command wrapped by `invowk tui spin` exits with status 42
+- **THEN** invowk SHALL exit with status 42
+
+#### Scenario: validate finds errors
+- **WHEN** the user runs `invowk validate` and the invowkfile does not pass validation
+- **THEN** invowk SHALL exit with status 1
+
 #### Scenario: Audit LLM configuration error keeps status 2
 - **WHEN** the user runs `invowk audit --llm-provider claude --llm-concurrency -1`, which fails in the LLM helpers that `audit` shares with `agent`
 - **THEN** invowk SHALL exit with status 2
@@ -289,6 +343,11 @@ These built-in codes SHALL keep their meanings and SHALL be listed in the exit-c
 #### Scenario: Missing description
 - **WHEN** the user runs `invowk agent mod create io.example.tools` with no description and no `--from-file`
 - **THEN** invowk SHALL exit with status 2
+
+#### Scenario: Malformed module ID for remove or change
+- **WHEN** the user runs `invowk agent mod remove 'bad id'` or `invowk agent mod change 'bad id' 'describe it' --llm-provider claude`
+- **THEN** invowk SHALL exit with status 2
+- **AND** no LLM provider SHALL be resolved
 
 #### Scenario: Command already exists
 - **WHEN** command `agenthello` already exists and the user runs `invowk agent cmd create agenthello --llm-provider claude 'duplicate'`
@@ -322,6 +381,10 @@ The `invowk cmd` listing SHALL show the root invowkfile first and then modules a
 - **THEN** the listing SHALL show `alpha`, `w2`, `zeta` under the invowkfile, then `beta`, `w2 sub` under `m`
 - **AND** invowk SHALL exit with status 0
 
+#### Scenario: Commands within a category
+- **WHEN** the invowkfile declares `link` and then `compile`, both in category `Build`, and the user runs `invowk cmd`
+- **THEN** the `[Build]` group SHALL list `compile` before `link`
+
 ### Requirement: Shell completion is unaffected
 Usage-error classification and the registration-order fix SHALL NOT change the candidates or the exit status of Cobra's hidden `__complete` and `__completeNoDesc` commands for any path, including group nodes and the root. A prefix leaf that was shadowed by a group node SHALL now show its own description instead of the group's.
 
@@ -334,3 +397,13 @@ Usage-error classification and the registration-order fix SHALL NOT change the c
 - **WHEN** the shell runs `invowk __complete config ""`
 - **THEN** the output SHALL list `config`'s subcommands as before this change
 - **AND** invowk SHALL exit with status 0
+
+#### Scenario: Completing without descriptions
+- **WHEN** the shell runs `invowk __completeNoDesc cmd ""`
+- **THEN** the output SHALL list the same names as `__complete`, without descriptions
+- **AND** invowk SHALL exit with status 0
+
+#### Scenario: Completing a prefix leaf
+- **WHEN** the invowkfile defines `w2`, module `m` defines `w2 sub`, and the shell runs `invowk __complete cmd ""`
+- **THEN** the `w2` candidate SHALL carry the leaf's own description
+- **AND** `invowk __complete cmd w2 ""` SHALL list `sub`

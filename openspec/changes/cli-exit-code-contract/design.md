@@ -104,7 +104,7 @@ func (e *UsageError) Error() string { return e.Err.Error() } // message unchange
 func (e *UsageError) Unwrap() error { return e.Err }
 ```
 
-An exported constant `ExitCodeUsage types.ExitCode = 2` and the constructor `newUsageError(err error) error` sit next to it. `exitCodeForError` lives in the same file. The body of `Execute` (`root.go:95-105`) becomes `os.Exit(int(exitCodeForError(fang.Execute(...))))`; the `NewApp` failure at `root.go:88-91` keeps its direct `os.Exit(1)`. The rules, in order:
+An exported constant `ExitCodeUsage types.ExitCode = 2` and the constructor `newUsageError(err error) error` sit next to it. `exitCodeForError` lives in the same file. The body of `Execute` (`root.go:95-105`) becomes `os.Exit(int(exitCodeForError(classifyUnknownRootCommand(rootCmd, os.Args[1:], fang.Execute(...)))))` (Decision 2, unknown root command); the `NewApp` failure at `root.go:88-91` keeps its direct `os.Exit(1)`. The rules, in order:
 1. `nil` → 0.
 2. `errors.AsType[*ExitError]` → its `Code`.
 3. `errors.AsType[*UsageError]` → 2.
@@ -126,7 +126,7 @@ Alternatives considered:
 | Source | Hook |
 |---|---|
 | pflag parse errors at any level | `installUsageGuards` calls `root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return newUsageError(err) })`. Children inherit it through Cobra's parent walk (`command.go:547-558`) |
-| unknown root command | `installUsageGuards` sets `root.Args` to a validator that returns a `UsageError` with Cobra's exact message: `unknown command %q for %q` plus the `SuggestionsFor` suffix. Setting it also bypasses `legacyArgs`. It sets `root.RunE` to show help, because a non-runnable command never reaches `ValidateArgs` (`command.go:955-966`). Bare `invowk` still prints help and exits 0 |
+| unknown root command | `root.Args` stays `nil`, so Cobra's `legacyArgs` rejects an unknown first token inside `Command.Find`, before it handles `--help`, `-h` and `--version` (a custom `root.Args` made `invowk bogus --help` print the root help and exit 0). That error reaches no validator or `FlagErrorFunc`, so `classifyUnknownRootCommand` (`usage_error.go`) runs `root.Find(args)` again after execution, when Cobra's lazily added `help` and completion commands exist, and wraps the error in a `UsageError` exactly when `Find` fails. `installUsageGuards` sets `root.RunE` to show help, so bare `invowk` still prints help and exits 0 |
 | built-in groups (`config`, `module`, `tui`, `agent`, `agent cmd`, `agent mod`, `internal`, …) | The same tree walk. For every non-root command that has subcommands and `Args == nil`, it sets `Args` to the group guard (Decision 3, rule 4). If the command is not runnable, it also adds `RunE: help`. This covers both non-runnable parents (`module`, `agent`, `internal`) and runnable help-fallback parents (`config`, `tui`). Rule: a parent that really accepts positionals MUST declare `Args` explicitly. `invowk cmd` (`cmd/invowk/cmd.go:72-131`) and the discovered group nodes therefore get an explicit `Args: cobra.ArbitraryArgs`, because they do their own checks in `RunE` (Decision 3); otherwise the guard would reject `invowk cmd nope` before the service runs |
 | Cobra `Args` validators on built-ins | The same walk wraps each non-nil `Args` so that its errors become `UsageError` |
 | Cobra required-flag and flag-group checks (`MarkFlagRequired`, used for invowkfile `required: true` flags) | Cobra runs them right after `Args`, outside `FlagErrorFunc`, so they exited 1. The walk gives every non-root command an `Args` wrapper that also runs `ValidateRequiredFlags` and `ValidateFlagGroups` and wraps their errors (stage-3 addition; message unchanged) |
@@ -134,6 +134,7 @@ Alternatives considered:
 | `ArgumentValidationError`, `FlagValidationError`, `AmbiguousCommandError`, `SourceNotFoundError`, `RuntimeNotAllowedError`, and `ClassifiedError` with kind `CommandNotFound` or `CommandAmbiguous` | `renderAndWrapServiceError` (`app.go:264-333`) returns `newUsageError(newServiceError(...))`. `errors.AsType[*ServiceError]` still finds the inner value, so `renderServiceError` and the existing tests are unchanged |
 | `errNoCommandSpecified` (`app_validate.go:22-23`), `WatchCommandNotFoundError` (`cmd_watch.go:87`), the CLI `AmbiguousCommandError` from `checkAmbiguousCommand` | Wrapped where they are returned. `errors.Is(err, errNoCommandSpecified)` keeps working through `Unwrap` (`cmd_watch_test.go:147`) |
 | reserved `--ivk-*` flag values | `buildCommandExecuteRequest` (`cmd_execute_helpers.go:108-149`); see Decision 9 |
+| a malformed `@source` / `--ivk-from` name | `parseSourceName` (`cmd.go`), used by `ParseSourceFilter`, the discovered group and leaf nodes and `runWatchMode`; see Decision 13 |
 | `invowk agent` argv checks | See Decision 8 |
 
 `UnsupportedPlatformError`, `DependencyError`, timeouts, cancellations, engine-not-found, `commandsvc.InvalidRequestError` and every other `ClassifiedError` kind stay at 1. Their cause is the environment or an internal bug, not the argv. S1's explicit-config failure also stays 1, although it comes from a flag value: the path itself is accepted, and what fails is the file's existence or content (maintainer decision 7).
@@ -261,9 +262,21 @@ The MODIFIED delta `specs/config-source-resolution/spec.md` restates S1's "Expli
 
 `listCommands` iterates `commandSet.SourceOrder` (root invowkfile first, then modules alphabetically) and, per source, `commandSet.BySource[source]`, grouped by category with `groupByCategory` (uncategorized first, then categories alphabetically, preserving input order inside a group). `BySource` was filled in `Add` order, and `Invowkfile.FlattenCommands` walks a map, so the order within a source changed between runs; only `commandSet.Commands` was sorted by `Name` (`discovery_commands.go`, `DiscoverCommandSet`).
 
-`DiscoveredCommandSet.Analyze`, which already sorts `SourceOrder`, now also sorts each `BySource` slice by full `Name` (`compareCommandInfoNames`, shared with the existing `Commands` sort). Full names are unique within a source, so the order is total. Source order, `ByName` first-wins precedence and `BySimpleName` are unchanged, and `pkg/invowkfile` is not touched. The only other `BySource` reader, the `--ivk-from` longest-match lookup in `commandsvc`, matches by unique name, so its result does not depend on order. Completion reads `Commands`, which was already sorted, so its candidates do not change.
+`DiscoveredCommandSet.Analyze`, which already sorts `SourceOrder`, now also sorts each `BySource` slice by full `Name` (`compareCommandInfoNames`, shared with the existing `Commands` sort). Full names are unique within a source, so the order is total. Source order, `ByName` first-wins precedence and `BySimpleName` are unchanged, and `pkg/invowkfile` is not touched. The only other `BySource` reader, the `--ivk-from` longest-match lookup in `commandsvc` (`discoverCommandFromSource`), takes the first entry whose simple or full name matches the candidate. Usually only one does, but two can: with module `m` commands `sub` (full name `m sub`) and `m sub`, `invowk cmd @m m sub` matches both. That pick used to follow map order; it is now deterministic (the alphabetically first full name, `m m sub`, the command whose own name is `m sub`). This is a side effect, not a contract. Completion reads `Commands`, which was already sorted, so its candidates do not change.
 
 `internal/discovery/discovery_commands.go` is named by a formal correspondence row (`ScopeConstruction.als`, `RootSrc`); the sort does not change what any bound function publishes, and `python3 scripts/formal.py correspondence` and `make formal` are run as gates.
+
+### 13. Malformed source names
+
+A `@source` or `--ivk-from` value is normalized (`normalizeSourceName` strips `@` and `.invowkmod`; `invowkfile.cue` means `invowkfile`) and then checked with `SourceID.Validate` by `parseSourceName`. A value that is not a well-formed source name, such as the path `./m.invowkmod` (normalized to `./m`) or `1bad`, returns a `UsageError` (exit 2), like an unknown source. Before, it reached `commandsvc.Request.Validate` and exited 1 with `Invalid request: 1 field error(s)`.
+
+Every path that reads the flag goes through `parseSourceName`: the `invowk cmd` root (`ParseSourceFilter`), discovered group nodes, discovered leaves and `runWatchMode`. The leaf and watch paths used to pass the raw flag text as `FromSource`, so `invowk cmd w2 sub --ivk-from @m` on a leaf exited 1 while `--ivk-from m` worked; they now use the normalized ID.
+
+### 14. Not found after a skipped source
+
+Discovery skips an invowkfile or module that fails to parse or load and reports it as a diagnostic (`invowkfile_parse_skipped`, `module_load_skipped`, `include_module_load_failed`, `vendored_module_load_skipped`). The command the user named may be defined in that file, so "command not found" is then caused by the invalid file, which the contract classes as 1, not by the command line. `notFoundError` (`usage_error.go`) keeps a not-found error (a `ClassifiedError` of kind `CommandNotFound`, `SourceNotFoundError`, `WatchCommandNotFoundError`, or a discovered group's unmatched token) at exit 1 when the same request's diagnostics include one of those codes, and makes it a `UsageError` otherwise. Which file held the command cannot be known, so any such diagnostic counts. Policy skips (reserved module names, symlinked modules, undeclared or ambiguous vendored modules) are deliberate exclusions and do not count. Ambiguity, argument, flag and reserved-flag errors stay 2 whatever the diagnostics say.
+
+This keeps main's status (1) for that case. `renderAndWrapServiceError` and `checkAmbiguousCommand` take or return the request's diagnostics for it. The precedence is pending maintainer confirmation (Open Questions).
 
 ## Risks / Trade-offs
 
@@ -283,4 +296,6 @@ Ship in v0.17.0. The text in proposal.md "Migration notes" goes into the release
 
 ## Open Questions
 
-None. Every former question is resolved under "Maintainer decisions (2026-11-14)". Follow-ups outside C1: `invowk help <unknown-topic>` (decision 4), strict tokens after a leaf with children (C3, Decision 6), 125/126 remapping, and whether a relative `INVOWK_CONFIG` should exit 2 like the other environment-only rejections (Decision 11).
+- **Not found after a skipped source (Decision 14).** Should a command that is missing because an invowkfile or module failed to parse exit 1 (implemented; main's status, matching "invalid invowkfiles exit 1") or 2 (not-found wins)? Pending maintainer confirmation.
+
+Every other former question is resolved under "Maintainer decisions (2026-11-14)". Follow-ups outside C1: `invowk help <unknown-topic>` (decision 4), strict tokens after a leaf with children (C3, Decision 6), 125/126 remapping, and whether a relative `INVOWK_CONFIG` should exit 2 like the other environment-only rejections (Decision 11).

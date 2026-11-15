@@ -747,15 +747,15 @@ O Invowk usa quatro classes de código de saída:
 O status `2` cobre:
 
 - uma flag desconhecida, um valor de flag que não pode ser interpretado, uma flag sem o valor exigido ou uma flag obrigatória ausente, em qualquer nível;
-- um comando desconhecido, incluindo um erro de digitação sob um grupo de comandos (`invowk cmd test nonexistent`, `invowk config bogus`); os subcomandos do grupo são listados no stderr e nada é escrito no stdout;
+- um comando desconhecido, incluindo um erro de digitação sob um grupo de comandos e um comando raiz desconhecido seguido de `--help`, `-h` ou `--version` (`invowk cmd test nonexistent`, `invowk config bogus`); os subcomandos do grupo são listados no stderr e nada é escrito no stdout;
 - um erro de quantidade de argumentos em um comando embutido (`invowk init a b c`);
-- um nome de comando sob `invowk cmd` não encontrado ou ambíguo entre fontes, uma fonte `@source` ou `--ivk-from` desconhecida e um filtro de fonte sem nome de comando;
+- um nome de comando sob `invowk cmd` não encontrado ou ambíguo entre fontes, uma fonte `@source` ou `--ivk-from` desconhecida, um nome de fonte malformado, como um caminho (`@./m.invowkmod`; use o nome do módulo, `m`), e um filtro de fonte sem nome de comando;
 - argumentos ou flags declarados que falham na validação;
 - um valor inválido de uma flag reservada `--ivk-*`, como um `--ivk-runtime` desconhecido ou um runtime não permitido pelo comando, um `--ivk-env-inherit-mode` desconhecido, um nome inválido em `--ivk-env-inherit-allow`/`--ivk-env-inherit-deny`, um `--ivk-workdir` só com espaços, um `--ivk-env-file` vazio, um `--ivk-container-name` inválido ou um valor de `--ivk-env-var` sem `KEY=`;
 - um erro de `invowk agent` detectado apenas pela linha de comando, como um nome inválido, flags mutuamente exclusivas, uma descrição ausente, um valor `--llm-*` inválido ou um formato ou operação de prompt desconhecido;
 - um conflito decidido apenas por flags e variáveis de ambiente: um valor inválido de `INVOWK_NO_CWD`, `--ivk-watch` junto com `--ivk-dry-run`, `invowk config set` enquanto `--ivk-config` ou `INVOWK_CONFIG` está ativo, e `invowk agent cmd create`/`change --verify` sob `--ivk-no-cwd` ou `INVOWK_NO_CWD`.
 
-O status `1` cobre todo o resto: erros de configuração que abortam o comando, incluindo um arquivo de configuração indicado por `--ivk-config` ou `INVOWK_CONFIG` ausente ou inválido, ou um `INVOWK_CONFIG` relativo; erros de descoberta; invowkfiles ou árvores de comandos inválidas; verificações de `depends_on` não satisfeitas; uma plataforma de host não suportada; um engine de contêiner ou runtime indisponível; timeouts e cancelamentos; e falhas de `invowk agent` que dependem de arquivos, da configuração ou de um LLM.
+O status `1` cobre todo o resto: erros de configuração que abortam o comando, incluindo um arquivo de configuração indicado por `--ivk-config` ou `INVOWK_CONFIG` ausente ou inválido, ou um `INVOWK_CONFIG` relativo; erros de descoberta; invowkfiles ou árvores de comandos inválidas, incluindo um comando não encontrado quando um invowkfile ou módulo foi ignorado por falhar ao ser interpretado ou carregado (o comando pode estar definido nele); verificações de `depends_on` não satisfeitas; uma plataforma de host não suportada; um engine de contêiner ou runtime indisponível; timeouts e cancelamentos; e falhas de `invowk agent` que dependem de arquivos, da configuração ou de um LLM.
 
 Exceções por comando:
 

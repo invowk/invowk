@@ -324,7 +324,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 	t.Parallel()
 
 	depErr := &deps.DependencyError{CommandName: "build"}
-	wrapped := renderAndWrapServiceError(depErr, ExecuteRequest{Name: "build"})
+	wrapped := renderAndWrapServiceError(depErr, ExecuteRequest{Name: "build"}, nil)
 	var svcErr *ServiceError
 	if !errors.As(wrapped, &svcErr) {
 		t.Fatalf("dep branch did not return ServiceError: %T", wrapped)
@@ -334,7 +334,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 	}
 
 	argErr := &deps.ArgumentValidationError{Type: deps.ArgErrMissingRequired, CommandName: "build", MinArgs: 1}
-	wrapped = renderAndWrapServiceError(argErr, ExecuteRequest{Name: "build"})
+	wrapped = renderAndWrapServiceError(argErr, ExecuteRequest{Name: "build"}, nil)
 	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.InvalidArgumentId {
 		t.Fatalf("arg branch returned %T issue %v", wrapped, svcErr.IssueID)
 	}
@@ -343,7 +343,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		CommandName: "build",
 		Failures:    []deps.DependencyMessage{"required flag '--name' was not provided"},
 	}
-	wrapped = renderAndWrapServiceError(flagErr, ExecuteRequest{Name: "build"})
+	wrapped = renderAndWrapServiceError(flagErr, ExecuteRequest{Name: "build"}, nil)
 	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.InvalidArgumentId || !strings.Contains(svcErr.StyledMessage, "Invalid flag") {
 		t.Fatalf("flag branch returned %#v", svcErr)
 	}
@@ -353,7 +353,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		Current:     invowkfile.PlatformLinux,
 		Supported:   []invowkfile.Platform{invowkfile.PlatformMac},
 	}
-	wrapped = renderAndWrapServiceError(platformErr, ExecuteRequest{Name: "build"})
+	wrapped = renderAndWrapServiceError(platformErr, ExecuteRequest{Name: "build"}, nil)
 	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.HostNotSupportedId || !strings.Contains(svcErr.StyledMessage, "Host not supported") {
 		t.Fatalf("platform branch returned %#v", svcErr)
 	}
@@ -364,7 +364,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		Platform:    invowkfile.PlatformLinux,
 		Allowed:     []invowkfile.RuntimeMode{invowkfile.RuntimeVirtualSh},
 	}
-	wrapped = renderAndWrapServiceError(runtimeErr, ExecuteRequest{Name: "build", Runtime: invowkfile.RuntimeContainer})
+	wrapped = renderAndWrapServiceError(runtimeErr, ExecuteRequest{Name: "build", Runtime: invowkfile.RuntimeContainer}, nil)
 	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.InvalidRuntimeModeId {
 		t.Fatalf("runtime branch returned %T issue %v", wrapped, svcErr.IssueID)
 	}
@@ -374,7 +374,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		Kind:    commandsvc.ErrorKindScriptExecutionFailed,
 		Message: commandsvc.HintTimedOut,
 	}
-	wrapped = renderAndWrapServiceError(classified, ExecuteRequest{Name: "build"})
+	wrapped = renderAndWrapServiceError(classified, ExecuteRequest{Name: "build"}, nil)
 	if !errors.As(wrapped, &svcErr) || !strings.Contains(svcErr.StyledMessage, "timed out") {
 		t.Fatalf("classified branch returned %#v", svcErr)
 	}
@@ -386,13 +386,13 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		},
 		Kind: commandsvc.ErrorKindCommandNotFound,
 	}
-	wrapped = renderAndWrapServiceError(sourceErr, ExecuteRequest{Name: "build"})
+	wrapped = renderAndWrapServiceError(sourceErr, ExecuteRequest{Name: "build"}, nil)
 	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.CommandNotFoundId || !strings.Contains(svcErr.StyledMessage, "Available sources") {
 		t.Fatalf("source-not-found branch returned %#v", svcErr)
 	}
 
 	plain := errors.New("plain error")
-	got := renderAndWrapServiceError(plain, ExecuteRequest{})
+	got := renderAndWrapServiceError(plain, ExecuteRequest{}, nil)
 	if !errors.Is(got, plain) {
 		t.Fatal("plain error should pass through unchanged")
 	}

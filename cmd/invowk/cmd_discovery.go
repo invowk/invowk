@@ -126,9 +126,12 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 			fullArgs := append(strings.Fields(prefix), args...)
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
 			if fromFlag != "" {
+				sourceID, parseErr := parseSourceName(fromFlag)
+				if parseErr != nil {
+					return parseErr
+				}
 				// Preserve full path for longest-match disambiguation.
-				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag)}
-				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, fullArgs)
+				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, &SourceFilter{SourceID: sourceID}, fullArgs)
 			}
 
 			// A bare group is a request to browse. The ambiguity check below is
@@ -137,7 +140,8 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 				return cmd.Help()
 			}
 
-			if err := checkAmbiguousCommand(ctx, app, fullArgs); err != nil {
+			diags, err := checkAmbiguousCommand(ctx, app, fullArgs)
+			if err != nil {
 				if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
 					fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 					cmd.SilenceErrors = true
@@ -150,7 +154,7 @@ func buildDiscoveredGroupCommand(app *App, rootFlags *rootFlagValues, cmdFlags *
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			return rejectUnmatchedGroupToken(cmd, args)
+			return notFoundError(rejectUnmatchedGroupToken(cmd, args), diags)
 		},
 	}
 }
@@ -194,13 +198,14 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			}
 
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
-			if fromFlag != "" {
-				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag)}
-				// If Cobra routed to the wrong source-specific leaf, delegate to
-				// source-aware lookup instead of executing the wrong command.
-				if filter.SourceID != cmdSourceID {
-					return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, append(strings.Fields(string(cmdSimpleName)), args...))
-				}
+			fromSource, err := parseSourceName(fromFlag)
+			if err != nil {
+				return err
+			}
+			// If Cobra routed to the wrong source-specific leaf, delegate to
+			// source-aware lookup instead of executing the wrong command.
+			if fromSource != "" && fromSource != cmdSourceID {
+				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, &SourceFilter{SourceID: fromSource}, append(strings.Fields(string(cmdSimpleName)), args...))
 			}
 
 			// Watch mode intercepts before normal execution.
@@ -211,7 +216,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			req, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 				Name:            string(cmdName),
 				Args:            args,
-				FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+				FromSource:      fromSource,
 				ResolvedCommand: resolved,
 				FlagDefs:        flagDefs,
 				ArgDefs:         argDefs,

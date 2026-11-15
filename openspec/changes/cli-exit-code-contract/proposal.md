@@ -9,16 +9,18 @@ CST and other callers that wrap invowk in systemd units, shell wrappers or CI ne
 - **BREAKING**: Invowk exits with status **2** whenever it rejects the command line before running any user code. The cases:
   - unknown flag, a flag value that does not parse, a missing flag value;
   - an invalid value for a reserved `--ivk-*` flag, including a malformed `--ivk-env-var` (no `=`, or an empty name), which used to be skipped with a warning and exit 0;
-  - unknown root command (`invowk bogus`);
+  - unknown root command (`invowk bogus`), also with `--help`, `-h` or `--version`;
   - an unmatched token under a discovered command group (`invowk cmd test nonexistent`) or a built-in group (`invowk config bogus`, `invowk module bogus`, `invowk tui bogus`, `invowk agent bogus`);
   - Cobra argument-arity errors on built-in commands (`invowk init a b c`, `invowk completion bogus`);
   - unknown command under `invowk cmd`, including in watch mode;
   - an ambiguous command name;
-  - `@source` or `--ivk-from` naming a source that does not exist;
+  - `@source` or `--ivk-from` naming a source that does not exist, or a malformed source name such as a path (`@./m.invowkmod`, `--ivk-from 1bad`), on every path including watch mode (design.md, Decision 13);
   - an invalid `--ivk-runtime` value, or a runtime the command does not allow;
   - declared-argument errors (`deps.ArgumentValidationError`) and invowkfile flag-validation errors (`deps.FlagValidationError`);
   - `invowk cmd @src` with no command name;
   - a conflict decided from flags and environment variables alone: an invalid `INVOWK_NO_CWD`, `--ivk-watch` with `--ivk-dry-run`, `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create|change --verify` under `--ivk-no-cwd` (design.md, Decision 11).
+- A command or source that is not found while discovery skipped an invowkfile or module that failed to parse or load keeps exit **1**, not 2: the command may be defined in the skipped file, and the contract classes invalid invowkfiles as 1 (design.md, Decision 14; pending maintainer confirmation).
+- `--ivk-from @m` and `--ivk-from @invowkfile` on a discovered leaf now resolve like `--ivk-from m`; the leaf and watch paths passed the raw flag text and exited 1.
 - **BREAKING**: Usage errors under a command group no longer print help to stdout with status 0. They print an `unknown command` error, `Did you mean` suggestions (Cobra `SuggestionsFor`) and the group's available subcommands, all on **stderr**, and exit 2. A bare group with no arguments (`invowk cmd test`, `invowk config`) still prints help to stdout and exits 0.
 - **BREAKING**: `invowk agent` follows the same contract. Argument and flag errors (invalid name or module ID, mutually exclusive flags, missing description, invalid `--llm-*` value, unknown prompt format or operation) exit **2**. Every other agent failure (LLM detection or verification, a command or module that already exists or does not exist, `requires --force`, I/O, and a failed `--ivk-config` / `INVOWK_CONFIG` source) exits **1** instead of 2. `invowk audit` keeps 0 / 1 / 2.
 - A typed CLI-layer `UsageError`, plus one pure function that maps an error to an exit code. `Execute` uses that function, so it can be unit-tested.
@@ -62,6 +64,10 @@ For the v0.17.0 release notes. Per the maintainer decision, each change keeps it
 > - Flag and environment conflicts exit `2`: an invalid `INVOWK_NO_CWD` value, `--ivk-watch` with `--ivk-dry-run` (it exited `1`), `invowk config set` while `--ivk-config` or `INVOWK_CONFIG` is active, and `invowk agent cmd create`/`change --verify` under `--ivk-no-cwd`.
 > - Shell completion: `invowk __complete cmd ""` now shows a prefix leaf's own description (for example `w2` when a module also defines `w2 sub`) instead of `Commands under 'w2'`, because that leaf is now registered as a runnable command.
 > - The `invowk cmd` listing now lists each source's commands alphabetically by full command name. It used to follow an unspecified order that could change between runs. Scripts that parse the listing should not rely on declaration order.
+> - An unknown root command exits `2` also when `--help`, `-h` or `--version` follows it (`invowk bogus --help`); it exited `1`.
+> - A malformed `@source` or `--ivk-from` value, such as a path (`@./m.invowkmod`) or `1bad`, exits `2` with an `invalid source` error instead of `1` with `Invalid request: 1 field error(s)`. Name a source as `invowkfile` or a module name (`m` or `m.invowkmod`).
+> - `--ivk-from @<source>` after a leaf command (`invowk cmd w2 sub --ivk-from @m`) now works; it exited `1`.
+> - A command that cannot be found because an invowkfile or module failed to parse or load still exits `1` (the invowkfile is invalid), not `2`.
 > - `invowk audit` keeps `0` = clean, `1` = findings, `2` = scan error. Its argument errors now also exit `2` instead of `1`.
 
 ## Capabilities
@@ -76,7 +82,8 @@ For the v0.17.0 release notes. Per the maintainer decision, each change keeps it
 
 - **Code** (`cmd/invowk/`, plus one sort in `internal/discovery`):
   - `root.go`: two edits only, the body of `Execute` and one `installUsageGuards(rootCmd)` call in `NewRootCommand`, so the S1 rebase stays simple.
-  - New `usage_error.go`: `UsageError`, `newUsageError`, `ExitCodeUsage`, `exitCodeForError`, `installUsageGuards` (root flag-error func, root `Args` and `RunE`, built-in group guards) and the shared group-rejection helper.
+  - New `usage_error.go`: `UsageError`, `newUsageError`, `ExitCodeUsage`, `exitCodeForError`, `installUsageGuards` (root flag-error func and `RunE`, built-in group guards), `classifyUnknownRootCommand`, `notFoundError` and the shared group-rejection helper.
+  - `internal/agentcmd/module.go`: `ValidateModuleTarget`, the argv-only module-target check that `resolveModulePath` also uses, so `agent mod remove`/`change` reject a malformed ID with 2 before any LLM detection.
   - `cmd_discovery.go`: group nodes, plus the registration-order fix.
   - `app.go` (`renderAndWrapServiceError`), `cmd.go`, `cmd_execute_helpers.go` (reserved-flag validation, `parseEnvVarFlags`) and `cmd_watch.go`: wrap the usage-class errors.
   - `agent.go` and `llm_flags.go`: per-site exit codes; the shared LLM helpers take the caller's codes so `audit.go` keeps 2.

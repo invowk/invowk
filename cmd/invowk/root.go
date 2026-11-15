@@ -100,12 +100,13 @@ func Execute() {
 
 	rootCmd := NewRootCommand(app)
 
-	os.Exit(int(exitCodeForError(fang.Execute(
+	err = fang.Execute(
 		context.Background(),
 		rootCmd,
 		fang.WithVersion(getVersionString(Version, Commit, BuildDate)),
 		fang.WithNotifySignal(os.Interrupt),
-	))))
+	)
+	os.Exit(int(exitCodeForError(classifyUnknownRootCommand(rootCmd, os.Args[1:], err))))
 }
 
 // getVersionString returns a formatted version string for display.

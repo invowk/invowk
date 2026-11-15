@@ -185,22 +185,44 @@ func normalizeSourceName(raw string) discovery.SourceID {
 	return discovery.SourceID(name)
 }
 
+// parseSourceName normalizes a `@source` or `--ivk-from` value and checks that
+// it is a well-formed source ID. A malformed value, such as a path like
+// `./m.invowkmod`, is a command-line rejection (UsageError, exit status 2),
+// like an unknown source. An empty value returns the empty SourceID (no filter).
+//
+//goplint:ignore -- raw @source/--ivk-from text from Cobra argv, validated into a SourceID here.
+func parseSourceName(raw string) (discovery.SourceID, error) {
+	if raw == "" {
+		return "", nil
+	}
+	id := normalizeSourceName(raw)
+	if err := id.Validate(); err != nil {
+		return "", newUsageError(fmt.Errorf("invalid source %q: %w", raw, err))
+	}
+	return id, nil
+}
+
 // ParseSourceFilter extracts source filter from @prefix in args or --ivk-from flag.
 // --ivk-from takes precedence because Cobra parsed it explicitly as a named flag.
 // @source is only recognized as the first positional token to avoid ambiguity
-// with command arguments that happen to start with @.
+// with command arguments that happen to start with @. A malformed source name
+// returns a UsageError (see parseSourceName).
 func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string, error) {
-	// `--ivk-from` takes precedence because Cobra parsed it explicitly.
-	if fromFlag != "" {
-		return &SourceFilter{SourceID: normalizeSourceName(fromFlag)}, args, nil
-	}
-
+	// `--ivk-from` takes precedence because Cobra parsed it explicitly;
 	// `@source` is only recognized as the first positional token.
-	if len(args) > 0 && strings.HasPrefix(args[0], "@") {
-		return &SourceFilter{SourceID: normalizeSourceName(args[0])}, args[1:], nil
+	raw, rest := fromFlag, args
+	if raw == "" {
+		if len(args) == 0 || !strings.HasPrefix(args[0], "@") {
+			return nil, args, nil
+		}
+		raw, rest = args[0], args[1:]
 	}
 
-	return nil, args, nil
+	sourceID, err := parseSourceName(raw)
+	if err != nil {
+		return nil, args, err
+	}
+	return &SourceFilter{SourceID: sourceID}, rest, nil
 }
 
 // runCommand builds an ExecuteRequest from CLI arguments and delegates to
@@ -226,12 +248,14 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 	return err
 }
 
+// buildExecuteRequest maps an unfiltered invocation; a source filter
+// (`@source` or --ivk-from) always goes through runDisambiguatedCommand.
+//
 //goplint:ignore -- CLI adapter maps raw positional tokens into ExecuteRequest.
 func buildExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) (ExecuteRequest, error) {
 	return buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
-		Name:       args[0],
-		Args:       args[1:],
-		FromSource: discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+		Name: args[0],
+		Args: args[1:],
 	})
 }
 

@@ -241,7 +241,7 @@ func (a *cliCommandAdapter) executeValidated(ctx context.Context, req ExecuteReq
 	}
 
 	if err != nil {
-		err = renderAndWrapServiceError(err, req)
+		err = renderAndWrapServiceError(err, req, diags)
 	}
 	return ExecuteResult{ExitCode: result.ExitCode}, diags, err
 }
@@ -271,10 +271,12 @@ func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagno
 // determines the issue catalog ID and rendering function. Errors caused by the
 // shape of the command line (argument and flag validation, unknown or
 // ambiguous command, unknown source, runtime not allowed) are additionally
-// wrapped in UsageError so the process exits with ExitCodeUsage.
+// wrapped in UsageError so the process exits with ExitCodeUsage. diags are the
+// discovery diagnostics of the same request: a not-found error stays exit 1
+// when they report a source that failed to load (notFoundError).
 //
 //plint:render
-func renderAndWrapServiceError(err error, req ExecuteRequest) error {
+func renderAndWrapServiceError(err error, req ExecuteRequest, diags []discovery.Diagnostic) error {
 	if depErr, ok := errors.AsType[*deps.DependencyError](err); ok {
 		return newServiceError(err, issue.DependenciesNotSatisfiedId, RenderDependencyError(depErr))
 	}
@@ -300,7 +302,7 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 			Source:           sourceErr.Source,
 			AvailableSources: sourceErr.AvailableSources,
 		})
-		return newUsageError(newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg))
+		return notFoundError(newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg), diags)
 	}
 
 	if platformErr, ok := errors.AsType[*commandsvc.UnsupportedPlatformError](err); ok {
@@ -340,20 +342,16 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 			styledMsg = fmt.Sprintf("\n%s %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		}
 		svcErr := newServiceError(classified.Err, issueIDForServiceErrorKind(classified.Kind), styledMsg)
-		if isUsageErrorKind(classified.Kind) {
+		if classified.Kind == commandsvc.ErrorKindCommandNotFound {
+			return notFoundError(svcErr, diags)
+		}
+		if classified.Kind == commandsvc.ErrorKindCommandAmbiguous {
 			return newUsageError(svcErr)
 		}
 		return svcErr
 	}
 
 	return err
-}
-
-// isUsageErrorKind reports whether a classified service error comes from the
-// shape of the command line (exit status ExitCodeUsage) rather than from the
-// environment or an internal failure (exit status 1).
-func isUsageErrorKind(kind commandsvc.ErrorKind) bool {
-	return kind == commandsvc.ErrorKindCommandNotFound || kind == commandsvc.ErrorKindCommandAmbiguous
 }
 
 func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {

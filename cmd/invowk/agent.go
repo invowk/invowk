@@ -346,6 +346,9 @@ func newAgentModRemoveCommand() *cobra.Command {
 		Short: "Remove a validated local invowk module directory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := agentcmd.ValidateModuleTarget(args[0]); err != nil {
+				return &ExitError{Code: ExitCodeUsage, Err: err}
+			}
 			result, err := agentcmd.RemoveModule(cmd.Context(), agentcmd.ModuleRemoveOptions{
 				Target: args[0],
 				DryRun: dryRun,
@@ -525,6 +528,9 @@ func validateAgentModChangeOptions(changeOpts agentcmd.ModuleChangeOptions, llmF
 	}
 	if strings.TrimSpace(changeOpts.Target) == "" {
 		return errors.New("module target is required")
+	}
+	if err := agentcmd.ValidateModuleTarget(changeOpts.Target); err != nil {
+		return err
 	}
 	if err := validateAuthoringDescription(changeOpts.Description, changeOpts.FromFile, "module"); err != nil {
 		return err

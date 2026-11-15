@@ -143,7 +143,7 @@ func newUsageGuardTree(t *testing.T) usageGuardTree {
 
 func (tree usageGuardTree) execute(args ...string) error {
 	tree.root.SetArgs(args)
-	return tree.root.Execute() //nolint:wrapcheck // test harness returns Cobra's error unchanged so assertions see the exact message
+	return classifyUnknownRootCommand(tree.root, args, tree.root.Execute())
 }
 
 func TestInstallUsageGuards(t *testing.T) {
@@ -169,6 +169,30 @@ func TestInstallUsageGuards(t *testing.T) {
 		}
 		if want := `unknown command "bogus" for "invowk"`; err.Error() != want {
 			t.Fatalf("error = %q, want %q", err.Error(), want)
+		}
+	})
+
+	for _, flag := range []string{"--help", "-h", "--version"} {
+		t.Run("unknown root command with "+flag+" is a usage error", func(t *testing.T) {
+			t.Parallel()
+			tree := newUsageGuardTree(t)
+			tree.root.Version = "test"
+			err := tree.execute("bogus", flag)
+			if got := exitCodeForError(err); got != ExitCodeUsage {
+				t.Fatalf("exit code = %d (%v), want %d", got, err, ExitCodeUsage)
+			}
+			if tree.stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", tree.stdout.String())
+			}
+		})
+	}
+
+	t.Run("a non-Find error is not reclassified", func(t *testing.T) {
+		t.Parallel()
+		tree := newUsageGuardTree(t)
+		plain := errors.New("boom")
+		if got := classifyUnknownRootCommand(tree.root, []string{"config", "show"}, plain); got != plain { //nolint:errorlint // identity check: the error must be returned unchanged
+			t.Fatalf("classifyUnknownRootCommand() = %v, want the original error", got)
 		}
 	})
 

@@ -162,3 +162,44 @@ func TestParseSourceFilter_EmptyArgs(t *testing.T) {
 		t.Errorf("remaining should be empty, got %v", remaining)
 	}
 }
+
+func TestParseSourceFilter_MalformedSourceIsUsageError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		args     []string
+		fromFlag string
+	}{
+		{name: "path after @", args: []string{"@./m.invowkmod", "w2"}},
+		{name: "bare @", args: []string{"@", "w2"}},
+		{name: "path in --ivk-from", args: []string{"w2"}, fromFlag: "./m.invowkmod"},
+		{name: "leading digit in --ivk-from", args: []string{"hello"}, fromFlag: "1bad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			filter, _, err := ParseSourceFilter(tt.args, tt.fromFlag)
+			if filter != nil {
+				t.Fatalf("ParseSourceFilter() filter = %+v, want nil", filter)
+			}
+			if got := exitCodeForError(err); got != ExitCodeUsage {
+				t.Fatalf("exit code = %d (error: %v), want %d", got, err, ExitCodeUsage)
+			}
+		})
+	}
+}
+
+func TestParseSourceFilter_NormalizesValidForms(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"@m", "m", "m.invowkmod", "@m.invowkmod"} {
+		filter, _, err := ParseSourceFilter([]string{"w2"}, raw)
+		if err != nil {
+			t.Fatalf("ParseSourceFilter(--ivk-from %q) error = %v", raw, err)
+		}
+		if filter.SourceID != "m" {
+			t.Fatalf("ParseSourceFilter(--ivk-from %q) = %q, want %q", raw, filter.SourceID, "m")
+		}
+	}
+}

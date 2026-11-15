@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
-	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/watch"
 
 	"github.com/spf13/cobra"
@@ -69,10 +68,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// Callers already resolved --ivk-no-cwd into cmd's context; keep it.
 	ctx := contextWithDiscoveryScope(cmd.Context(), rootFlags.configPath, noCwdFromContext(cmd.Context()))
 
+	fromSource, err := parseSourceName(cmdFlags.fromSource)
+	if err != nil {
+		return err
+	}
 	resolveReq, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 		Name:       args[0],
 		Args:       args[1:],
-		FromSource: discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+		FromSource: fromSource,
 	})
 	if err != nil {
 		return err
@@ -83,10 +86,10 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		if planErr, ok := errors.AsType[*commandsvc.InvalidWatchPlanError](err); ok && planErr != nil {
 			return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
 		}
-		return renderAndWrapServiceError(err, resolveReq)
+		return renderAndWrapServiceError(err, resolveReq, diags)
 	}
 	if cmdInfo == nil {
-		return newUsageError(&WatchCommandNotFoundError{Name: args[0]})
+		return notFoundError(&WatchCommandNotFoundError{Name: args[0]}, diags)
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)

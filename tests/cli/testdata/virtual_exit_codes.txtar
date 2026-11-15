@@ -53,6 +53,24 @@ stderr '(?i)no command specified'
 exitcode 2 invowk cmd --ivk-watch nope
 ! stdout .
 
+# Test 7b: a malformed source name (a path, a leading digit) exits 2 on every
+# path (root, leaf, group, watch), while the normalized forms still resolve
+exitcode 2 invowk cmd @./m.invowkmod test unit
+! stdout .
+stderr '(?i)invalid source'
+exitcode 2 invowk cmd --ivk-from 1bad test unit
+! stdout .
+exitcode 2 invowk cmd test unit --ivk-from 1bad
+! stdout .
+exitcode 2 invowk cmd test nonexistent --ivk-from 1bad
+! stdout .
+exitcode 2 invowk cmd --ivk-watch --ivk-from 1bad test unit
+! stdout .
+exitcode 0 invowk cmd test unit --ivk-from @invowkfile
+stdout 'unit ran'
+exitcode 0 invowk cmd test unit --ivk-from invowkfile.cue
+stdout 'unit ran'
+
 # Test 8: invalid reserved --ivk-* flag values exit 2 and the script does not run
 exitcode 2 invowk cmd --ivk-runtime bogus test unit
 ! stdout .
@@ -68,10 +86,15 @@ stderr 'NOEQ'
 exitcode 2 invowk cmd test unit --ivk-env-var =v
 ! stdout .
 
+# Test 8b: a reserved flag that needs a value but has none exits 2
+exitcode 2 invowk cmd test unit --ivk-workdir
+! stdout .
+stderr '(?i)flag needs an argument'
+
 # Test 9: an empty --ivk-env-var value is accepted
 exitcode 0 invowk cmd envshow --ivk-env-var FOO=
 stdout 'envshow ran'
-[!windows] stdout 'FOO=\[\]'
+stdout 'FOO=\[\]'
 
 # Test 10: a script's own status is forwarded unchanged, including 2
 exitcode 2 invowk cmd exit2
@@ -94,6 +117,16 @@ stdout 'w sub ran'
 cd badtree
 exitcode 1 invowk cmd
 stderr 'defines positional arguments but also has subcommands'
+cd $WORK
+
+# Test 14: a command missing because its invowkfile failed to parse exits 1,
+# not 2: the failure is the invalid invowkfile, not the command line
+cd skipped
+exitcode 1 invowk cmd build
+! stdout .
+stderr '(?i)skipping invowkfile'
+exitcode 1 invowk cmd @invowkfile build
+! stdout .
 cd $WORK
 
 -- invowkfile.cue --
@@ -180,5 +213,15 @@ cmds: [
 		name: "parent child"
 		description: "Parent child command"
 		implementations: [{script: {content: "echo child"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+	},
+]
+
+-- skipped/invowkfile.cue --
+cmds: [
+	{
+		name: "build"
+		description: "Build command in a file that does not parse"
+		implementations: [{script: {content: "echo 'should not run'"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
+		bogusfield: 1
 	},
 ]

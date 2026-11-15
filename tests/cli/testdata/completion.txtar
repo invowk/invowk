@@ -47,9 +47,43 @@ stdout '^unit\tUnit tests$'
 stdout '^:4$'
 cd $WORK
 
+# Test 9: __completeNoDesc lists the same names without descriptions
+cd comp
+exitcode 0 invowk __completeNoDesc cmd ''
+stdout '^a$'
+stdout '^test$'
+stdout '^:4$'
+cd $WORK
+
+# Test 10: a leaf that is also another source's group prefix completes with
+# its own description, and its child still completes under it
+cd prefixleaf
+exitcode 0 invowk __complete cmd ''
+stdout '^w2\tLeaf w2 from the invowkfile$'
+stdout '^:4$'
+exitcode 0 invowk __complete cmd w2 ''
+stdout '^sub\t'
+stdout '^:4$'
+cd $WORK
+
 -- comp/invowkfile.cue --
 cmds: [
 	{name: "a", description: "Command a", implementations: [{script: {content: "echo a"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
 	{name: "test unit", description: "Unit tests", implementations: [{script: {content: "echo unit"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
 	{name: "test other", description: "Other tests", implementations: [{script: {content: "echo other"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
+]
+
+-- prefixleaf/invowkfile.cue --
+cmds: [
+	{name: "w2", description: "Leaf w2 from the invowkfile", implementations: [{script: {content: "echo w2"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
+]
+
+-- prefixleaf/m.invowkmod/invowkmod.cue --
+module: "m"
+version: "1.0.0"
+description: "M module"
+
+-- prefixleaf/m.invowkmod/invowkfile.cue --
+cmds: [
+	{name: "w2 sub", description: "Child w2 sub from m", implementations: [{script: {content: "echo sub"}, runtimes: [{name: "virtual-sh"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]},
 ]

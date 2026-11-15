@@ -323,7 +323,7 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 				Diagnostics: &defaultDiagnosticRenderer{},
 				stderr:      &bytes.Buffer{},
 			}
-			err := checkAmbiguousCommand(t.Context(), app, tt.args)
+			_, err := checkAmbiguousCommand(t.Context(), app, tt.args)
 
 			if tt.wantErr {
 				if err == nil {
@@ -356,7 +356,7 @@ func TestCheckAmbiguousCommand_ServiceError(t *testing.T) {
 		stderr:      &bytes.Buffer{},
 	}
 
-	err := checkAmbiguousCommand(t.Context(), app, []string{"deploy"})
+	_, err := checkAmbiguousCommand(t.Context(), app, []string{"deploy"})
 	if err != nil {
 		t.Fatalf("expected nil (discovery errors swallowed), got: %v", err)
 	}
