@@ -50,7 +50,7 @@
 
 ## 4. Provisioning, run locks and test infrastructure
 
-- [ ] 4.1 Add `provision.Config.BaseDirs basedir.Dirs` (`internal/provision/config.go`; the zero value means `basedir.OS()`). Make `applyHostProvisionDefaults` (`internal/runtime/container_provision.go:232-255`, called once at `:190`) read the home from `provisionCfg.BaseDirs`.
+- [ ] 4.1 Add `provision.Config.BaseDirs basedir.Dirs` and a `WithBaseDirs` option beside `WithCacheDir` (`internal/provision/config.go:246-251`; the zero value means `basedir.OS()`). Make `applyHostProvisionDefaults` (`internal/runtime/container_provision.go:232-255`, called once at `:190`) read the home from `provisionCfg.BaseDirs`.
   - It sets the default `CacheDir` only when `Home()` is absolute and is an existing directory, and otherwise leaves it empty (design decision 10).
   - Verify with unit tests for a relative home and for an absolute missing home (`filepath.Join(t.TempDir(), "missing")`): both leave `CacheDir` empty, and an existing absolute home gives `<home>/.cache/invowk/provision`.
 - [ ] 4.2 Update `resolveBuildContextParent`, which takes the home from `p.config.BaseDirs` (`internal/provision/layer_provisioner.go:367-408`):
