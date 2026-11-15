@@ -46,6 +46,7 @@ func TestContainerRuntimePlanTUIExposure(t *testing.T) {
 		wantKind   containerplan.TUIPlanKind
 	}{
 		{name: "rootful docker", facts: container.EngineNetworkFacts{Engine: container.EngineTypeDocker, BridgeGateway: gw}, wantRow: 8, wantKind: containerplan.TUIPlanNarrow},
+		{name: "rootful podman behind the docker CLI", facts: container.EngineNetworkFacts{Engine: container.EngineTypeDocker, PodmanBackend: true, BridgeGateway: gw}, wantRow: 9, wantKind: containerplan.TUIPlanRefused},
 		{name: "gateway not local", facts: container.EngineNetworkFacts{Engine: container.EngineTypeDocker, BridgeGateway: netip.MustParseAddr("10.9.0.1")}, wantRow: 13, wantKind: containerplan.TUIPlanRefused},
 		{name: "pasta", facts: podman, wantRow: 11, wantKind: containerplan.TUIPlanNarrow},
 		{name: "persistent podman", facts: podman, persistent: true, wantRow: 10, wantKind: containerplan.TUIPlanRefused},
@@ -92,7 +93,10 @@ func TestContainerRuntimeConstructionQueriesNoFacts(t *testing.T) {
 	if calls != 0 {
 		t.Fatalf("non-interactive Execute queried TUI facts %d times, want 0", calls)
 	}
-	if len(engine.RunCalls) > 0 && engine.RunCalls[0].NetworkMode != "" {
+	if len(engine.RunCalls) != 1 {
+		t.Fatalf("non-interactive Execute recorded %d container runs, want 1", len(engine.RunCalls))
+	}
+	if engine.RunCalls[0].NetworkMode != "" {
 		t.Fatalf("non-interactive run got network mode %q", engine.RunCalls[0].NetworkMode)
 	}
 }

@@ -3,9 +3,15 @@
 package tuiserver
 
 import (
+	"bufio"
+	"errors"
 	"io"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/internal/testutil"
 )
@@ -74,4 +80,111 @@ func TestServerAuthCoversEveryPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestServerAuthCoversEveryMethod pins that the token check also sees methods
+// net/http could answer before the handler. "OPTIONS *" goes over a raw
+// connection, because http.Client cannot send an asterisk target; without
+// DisableGeneralOptionsHandler net/http answers it with 200 itself.
+func TestServerAuthCoversEveryMethod(t *testing.T) {
+	t.Parallel()
+
+	server, err := New()
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	if startErr := server.Start(t.Context()); startErr != nil {
+		t.Fatalf("Start(): %v", startErr)
+	}
+	t.Cleanup(func() { testutil.MustStop(t, server) })
+	hostPort := strings.TrimPrefix(string(server.URL()), "http://")
+
+	tests := []struct {
+		name   string
+		method string
+		target string
+	}{
+		{name: "OPTIONS asterisk", method: http.MethodOptions, target: "*"},
+		{name: "HEAD health", method: http.MethodHead, target: "/health"},
+		{name: "OPTIONS health", method: http.MethodOptions, target: "/health"},
+		{name: "OPTIONS tui", method: http.MethodOptions, target: "/tui"},
+		{name: "POST tui", method: http.MethodPost, target: "/tui"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if code := rawStatus(t, hostPort, tt.method, tt.target); code != http.StatusUnauthorized {
+				t.Errorf("%s %s without token: status = %d, want 401", tt.method, tt.target, code)
+			}
+		})
+	}
+}
+
+// rawStatus sends one request line over a raw TCP connection and returns the
+// response status code.
+func rawStatus(t *testing.T, hostPort, method, target string) int {
+	t.Helper()
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(t.Context(), "tcp", hostPort)
+	if err != nil {
+		t.Fatalf("dial %s: %v", hostPort, err)
+	}
+	defer func() { _ = conn.Close() }()
+	if deadlineErr := conn.SetDeadline(time.Now().Add(10 * time.Second)); deadlineErr != nil {
+		t.Fatalf("SetDeadline: %v", deadlineErr)
+	}
+	body := ""
+	if method == http.MethodPost {
+		body = `{"component":"confirm","options":{"title":"x"}}`
+	}
+	request := method + " " + target + " HTTP/1.1\r\nHost: " + hostPort +
+		"\r\nContent-Type: application/json\r\nContent-Length: " + strconv.Itoa(len(body)) +
+		"\r\nConnection: close\r\n\r\n" + body
+	if _, writeErr := io.WriteString(conn, request); writeErr != nil {
+		t.Fatalf("write request: %v", writeErr)
+	}
+	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: method})
+	if err != nil {
+		t.Fatalf("read response to %s %s: %v", method, target, err)
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode
+}
+
+// TestServerStopDuringStartDoesNotBlock pins that a Stop that wins the race
+// against Start makes Start return at once and close the bound listeners,
+// instead of leaving the readiness channel open.
+func TestServerStopDuringStartDoesNotBlock(t *testing.T) {
+	t.Parallel()
+
+	server, err := New()
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	if startErr := server.base.TransitionToStarting(t.Context()); startErr != nil {
+		t.Fatalf("TransitionToStarting(): %v", startErr)
+	}
+	if !server.base.TransitionToStopping() {
+		t.Fatal("TransitionToStopping() = false, want true")
+	}
+	var lc net.ListenConfig
+	listener, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen(): %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- server.serveListeners([]net.Listener{listener}) }()
+	select {
+	case serveErr := <-done:
+		if !errors.Is(serveErr, errServerStoppedDuringStart) {
+			t.Fatalf("serveListeners() = %v, want errServerStoppedDuringStart", serveErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("serveListeners() blocked after a Stop that raced Start")
+	}
+	if _, acceptErr := listener.Accept(); acceptErr == nil {
+		t.Fatal("listener still accepts connections, want it closed")
+	}
+	server.base.TransitionToStopped()
 }

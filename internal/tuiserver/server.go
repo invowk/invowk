@@ -26,6 +26,10 @@ import (
 // at one shared port.
 const maxBindAttempts = 5
 
+// errServerStoppedDuringStart is returned by Start when Stop ran before the
+// server became ready.
+var errServerStoppedDuringStart = errors.New("TUI server stopped during start")
+
 type (
 	// TUIRequest represents a request for a TUI component to be rendered.
 	// The HTTP handler sends these to the parent Bubbletea program via a channel.
@@ -110,16 +114,20 @@ func NewWithBindPlan(plan BindPlan) (*Server, error) {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	s.httpServer = &http.Server{
-		Handler:      s.requireToken(mux),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 5 * time.Minute, // Long timeout for user interaction
-		IdleTimeout:  60 * time.Second,
+		Handler: s.requireToken(mux),
+		// Without this, net/http answers "OPTIONS *" itself, before the
+		// handler, so the token check would never see it (D5).
+		DisableGeneralOptionsHandler: true,
+		ReadTimeout:                  30 * time.Second,
+		WriteTimeout:                 5 * time.Minute, // Long timeout for user interaction
+		IdleTimeout:                  60 * time.Second,
 	}
 
 	return s, nil
 }
 
-// Start begins accepting connections. Blocks until server is ready or context is cancelled.
+// Start binds every plan address and begins accepting connections. It returns
+// once the server is Running, or with the error that prevented it.
 //
 // Every plan address is bound before any serve goroutine starts. For a
 // restricted plan the server binds 127.0.0.1 on an ephemeral port first and
@@ -143,36 +151,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return s.base.TransitionToFailed(err)
 	}
 	s.port = port
-
-	// One http.Server serves every listener. A Serve error on any listener
-	// fails the server and closes the others.
-	for _, listener := range listeners {
-		s.base.AddGoroutine()
-		go func(l net.Listener) {
-			defer s.base.DoneGoroutine()
-			if serveErr := s.httpServer.Serve(l); !errors.Is(serveErr, http.ErrServerClosed) {
-				s.shutdownOnce.Do(func() { close(s.shutdownCh) })
-				s.closeRequestChannel()
-				if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", serveErr)); failedErr != nil {
-					_ = s.httpServer.Close() // Stop the remaining listeners.
-				}
-			}
-		}(listener)
-	}
-	s.base.TransitionToRunning()
-
-	// Wait for ready signal or context cancellation
-	if err := s.base.WaitForReady(ctx); err != nil {
-		failedErr := s.base.TransitionToFailed(err)
-		_ = s.httpServer.Close() // Best-effort cleanup on error
-		closeListeners(s.listeners)
-		return failedErr
-	}
-	if !s.base.IsRunning() {
-		return s.base.LastError()
-	}
-
-	return nil
+	return s.serveListeners(listeners)
 }
 
 // Stop gracefully shuts down the server. Safe to call multiple times.
@@ -260,6 +239,39 @@ func (s *Server) LastError() error {
 // Err returns a channel for receiving async errors.
 func (s *Server) Err() <-chan error {
 	return s.base.Err()
+}
+
+// serveListeners marks the server Running and starts one Serve goroutine per
+// listener. Every listener is already bound, so connections queue in the
+// backlog: the server is ready before any Serve goroutine runs. Transitioning
+// first means a Serve that fails at once, or a Stop that races Start, can
+// never leave the readiness channel open for a caller to block on.
+func (s *Server) serveListeners(listeners []net.Listener) error {
+	s.base.TransitionToRunning()
+	if !s.base.IsRunning() {
+		closeListeners(listeners)
+		if lastErr := s.base.LastError(); lastErr != nil {
+			return lastErr
+		}
+		return errServerStoppedDuringStart
+	}
+
+	// One http.Server serves every listener. A Serve error on any listener
+	// fails the server and closes the others.
+	for _, listener := range listeners {
+		s.base.AddGoroutine()
+		go func(l net.Listener) {
+			defer s.base.DoneGoroutine()
+			if serveErr := s.httpServer.Serve(l); !errors.Is(serveErr, http.ErrServerClosed) {
+				s.shutdownOnce.Do(func() { close(s.shutdownCh) })
+				s.closeRequestChannel()
+				if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", serveErr)); failedErr != nil {
+					_ = s.httpServer.Close() // Stop the remaining listeners.
+				}
+			}
+		}(listener)
+	}
+	return nil
 }
 
 func (s *Server) closeRequestChannel() {

@@ -318,7 +318,7 @@ Controla em quais endereços o servidor TUI de uma execução interativa em cont
 
 <Snippet id="reference/config/container-tui-server-bind" />
 
-Esta chave é apenas configuração do usuário: o invowk a lê do arquivo de configuração que seleciona, o arquivo de `--ivk-config` ou `INVOWK_CONFIG` quando informado (o seu arquivo de configuração de usuário não é lido nesse caso), senão o seu arquivo de configuração de usuário. Nunca a lê de um invowkfile ou módulo, então um repositório não consegue ampliar o bind. Ela não tem efeito no Flatpak sem `--share=network`, onde nenhum bind é alcançável pelos containers da engine. Para uma engine remota (um endpoint Docker `tcp://` ou `ssh://`, `podman-remote`, Podman machine) ela só ajuda se o alias de host da engine levar de volta a esta máquina. Veja [Modo interativo](../advanced/interactive-mode.mdx#suporte-ao-runtime-container) para as regras por engine.
+Esta chave é apenas configuração do usuário: o invowk a lê do arquivo de configuração que seleciona, o arquivo de `--ivk-config` ou `INVOWK_CONFIG` quando informado (o seu arquivo de configuração de usuário não é lido nesse caso), senão o seu arquivo de configuração de usuário. Nunca a lê de um invowkfile ou módulo, então um repositório não consegue ampliar o bind. Ela não tem efeito no Flatpak sem `--share=network`, onde nenhum bind é alcançável pelos containers da engine. Para uma engine remota (um endpoint Docker que não seja um socket local `unix://`, `npipe://` ou `fd://`, `podman-remote`, Podman machine) ela só ajuda se o alias de host da engine levar de volta a esta máquina. Veja [Modo interativo](../advanced/interactive-mode.mdx#suporte-ao-runtime-container) para as regras por engine.
 
 ---
 

@@ -23,7 +23,12 @@ const (
 	dockerInfoNetworkFmt   = "{{.OperatingSystem}}|{{json .SecurityOptions}}"
 	dockerBridgeGatewayFmt = "{{range .IPAM.Config}}{{.Gateway}} {{end}}"
 	dockerContextHostFmt   = "{{.Endpoints.docker.Host}}"
-	podmanInfoNetworkFmt   = "{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}"
+	// dockerServerComponentsFmt lists the server's component names. Docker
+	// Engine reports "Engine;containerd;runc;…"; Podman's Docker-compatible
+	// API reports "Podman Engine;Conmon;…" (probed on Podman 6.1.3).
+	dockerServerComponentsFmt = "{{range .Server.Components}}{{.Name}};{{end}}"
+	podmanServerComponent     = "Podman Engine"
+	podmanInfoNetworkFmt      = "{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}"
 )
 
 // ErrNetworkFactsUnavailable is returned when an engine cannot report its network facts.
@@ -54,6 +59,10 @@ type (
 		Rootless bool
 		// RemoteEndpoint reports a remote Docker endpoint or Podman service.
 		RemoteEndpoint bool
+		// PodmanBackend reports a Docker CLI talking to Podman's
+		// Docker-compatible API (a server component named "Podman Engine").
+		// It is queried only for a local rootful endpoint.
+		PodmanBackend bool
 		// BridgeGateway is Docker's default bridge gateway, when reported.
 		BridgeGateway netip.Addr
 		// PastaAvailable reports a non-empty Podman Pasta.Executable.
@@ -117,6 +126,19 @@ func queryDockerNetworkFacts(ctx context.Context, runner EngineQueryRunner, gete
 	if facts.RemoteEndpoint || facts.DockerDesktop {
 		return facts, nil
 	}
+	if !facts.Rootless {
+		// Rootless Podman behind the Docker CLI reports name=rootless and is
+		// refused as rootless; a rootful one would otherwise look like rootful
+		// Docker and get its bridge plan without a probe.
+		compOut, compErr := runner.RunQuery(ctx, containerCommandVersion, containerArgFormat, dockerServerComponentsFmt)
+		if compErr != nil {
+			return facts, fmt.Errorf("%w: docker version: %w", ErrNetworkFactsUnavailable, compErr)
+		}
+		facts.PodmanBackend = slices.Contains(strings.Split(strings.TrimSpace(string(compOut)), ";"), podmanServerComponent)
+		if facts.PodmanBackend {
+			return facts, nil
+		}
+	}
 
 	gwOut, gwErr := runner.RunQuery(ctx, "network", "inspect", "bridge", containerArgFormat, dockerBridgeGatewayFmt)
 	if gwErr != nil {
@@ -147,12 +169,23 @@ func queryPodmanNetworkFacts(ctx context.Context, runner EngineQueryRunner) (Eng
 	return facts, nil
 }
 
-// isRemoteDockerEndpoint reports tcp:// and ssh:// endpoints; unix:// and
-// npipe:// (and an empty endpoint, the default socket) are local.
+// isRemoteDockerEndpoint fails closed: only an empty endpoint (the default
+// socket) and the unix://, npipe:// and fd:// schemes are local. Anything
+// else is remote, including tcp://, ssh:// and a scheme-less host:port, which
+// the Docker CLI dials as TCP. A local socket that is itself forwarded to a
+// remote daemon cannot be told apart and counts as local.
 //
 //goplint:ignore -- raw DOCKER_HOST / docker context output, classified only.
 func isRemoteDockerEndpoint(endpoint string) bool {
-	return strings.HasPrefix(endpoint, "tcp://") || strings.HasPrefix(endpoint, "ssh://")
+	if endpoint == "" {
+		return false
+	}
+	for _, local := range []string{"unix://", "npipe://", "fd://"} {
+		if strings.HasPrefix(endpoint, local) {
+			return false
+		}
+	}
+	return true
 }
 
 // FlatpakSharesNetwork reports whether the running Flatpak's /.flatpak-info

@@ -74,7 +74,16 @@ Use `LastError()` when callers need the recorded failure after the server reache
 3. Start background goroutines with `AddGoroutine()` and `defer DoneGoroutine()`.
 4. Call `TransitionToRunning()` only when the server is ready.
 5. Use `WaitForReady(ctx)` or `StartedChannel()` to block startup until ready or failed.
+   Caveat: `startedCh` closes only on a successful Starting→Running CAS. If a
+   `Stop` or a `Serve` failure wins first, `WaitForReady` blocks until `ctx` ends,
+   and an interactive context has no deadline. When readiness is known
+   synchronously (listeners already bound, as in `tuiserver.Server.serveListeners`),
+   call `TransitionToRunning()` before launching the serve goroutines, check
+   `IsRunning()`, and return instead of waiting.
 6. On startup or serve errors, call `TransitionToFailed(err)` and return that error.
+   An `http.Server` behind an auth middleware must set
+   `DisableGeneralOptionsHandler: true`; otherwise net/http answers `OPTIONS *`
+   itself, before the handler, and the request bypasses the token check.
 7. SSH servers must always configure a host key explicitly (see
    `(*Server).hostKeyOption()` in `internal/sshserver/server_lifecycle.go`): never let wish's default pick one — it writes
    `./id_ed25519` into the process working directory, which once leaked private

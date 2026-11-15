@@ -1,0 +1,79 @@
+# Test: CLI-level refusal of an interactive container run without a narrow
+# TUI server route (restrict-tui-server-bind D8, decisions 22 and 28).
+# A fake docker on PATH passes the availability check and fails the network
+# facts query (D2 row 4, as the Podman docker shim does), so no real engine is
+# needed. The fake logs every call, which shows what invowk asked the engine.
+# Not a virtual test, so it needs no native mirror.
+
+[!linux] skip 'the fake docker is a POSIX shell script and the command targets linux'
+[in-sandbox] skip 'a sandboxed invowk spawns the host engine, not the fake'
+
+cd $WORK
+chmod 0755 fakebin/docker
+env PATH=$WORK/fakebin${:}$PATH
+env FAKE_DOCKER_LOG=$WORK/docker.log
+env NO_COLOR=1
+
+# Test 1: an explicit -i in a refused mode fails before start with exit 1,
+# names the reason and the opt-in, and renders the issue template.
+env INVOWK_CONFIG=$WORK/engine.cue
+exitcode 1 invowk cmd hello -i
+! stdout .
+stderr 'interactive container run refused: the container engine''s network facts could not be read'
+stderr 'Run the command without -i'
+stderr 'container.tui_server_bind: "all-interfaces"'
+stderr 'Interactive container run refused.*!'
+# No container was started.
+grep 'fake-docker info --format' docker.log
+! grep 'fake-docker run' docker.log
+
+# Test 2: the same command without -i is untouched: no facts query, and the
+# command runs (the fake's run prints a marker).
+rm docker.log
+exitcode 0 invowk cmd hello
+stdout 'fake-run'
+! stderr 'refused'
+! grep 'fake-docker info --format \{\{\.OperatingSystem\}\}' docker.log
+grep 'fake-docker run' docker.log
+
+# Test 3: interactive mode from the ui.interactive config default falls back
+# to a non-interactive run with exactly one warning.
+rm docker.log
+env INVOWK_CONFIG=$WORK/interactive.cue
+exitcode 0 invowk cmd hello
+stdout 'fake-run'
+stderr -count=1 'invowk: warning: running without interactive mode \(ui.interactive is on in your config\)'
+stderr 'Pass -i to make this an error, or --ivk-interactive=false to silence this warning'
+grep 'fake-docker run' docker.log
+
+# Test 4: with the same config default, an explicit -i is still an error.
+exitcode 1 invowk cmd hello -i
+stderr 'Error:.*interactive container run refused: the container engine'
+
+-- engine.cue --
+container_engine: "docker"
+
+-- interactive.cue --
+container_engine: "docker"
+ui: interactive: true
+
+-- fakebin/docker --
+#!/bin/sh
+echo "fake-docker $*" >> "$FAKE_DOCKER_LOG"
+case "$1" in
+version) echo 29.0.0; exit 0 ;;
+info) echo "fake docker: info templates are not supported" >&2; exit 1 ;;
+run) echo fake-run; exit 0 ;;
+esac
+exit 0
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	description: "Container command for the TUI exposure refusal"
+	implementations: [{
+		script: {content: "echo hello"}
+		runtimes: [{name: "container", image: "debian:stable-slim"}]
+		platforms: [{name: "linux"}]
+	}]
+}]

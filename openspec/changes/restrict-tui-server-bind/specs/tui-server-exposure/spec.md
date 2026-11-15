@@ -18,22 +18,30 @@ When an interactive command runs with the native, virtual-sh or virtual-lua runt
 - **THEN** `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>` and the server SHALL bind no other address
 
 ### Requirement: Rootful Docker binds loopback and the bridge gateway
-Under local rootful Docker on Linux whose default bridge gateway is assigned to a local interface, the TUI server SHALL listen on `127.0.0.1` and on that gateway, at one port, and on no other address. `INVOWK_TUI_ADDR` SHALL be `http://<gateway-ip>:<port>`.
+Under local rootful Docker on Linux whose default bridge gateway is assigned to a local interface, and whose server is Docker Engine rather than Podman's Docker-compatible API, the TUI server SHALL listen on `127.0.0.1` and on that gateway, at one port, and on no other address. `INVOWK_TUI_ADDR` SHALL be `http://<gateway-ip>:<port>`.
 
 #### Scenario: Default bridge
 - **WHEN** an interactive container command runs under local rootful Docker on Linux
 - **THEN** the server SHALL listen on `127.0.0.1` and the bridge gateway only, and an authenticated `/health` request from the container to `INVOWK_TUI_ADDR` SHALL get `200`
+
+#### Scenario: Docker CLI against Podman's Docker-compatible API
+- **WHEN** the `docker` CLI talks to a rootful Podman service (the server reports a `Podman Engine` component), and the opt-in is not set
+- **THEN** the interactive run SHALL fail before start as rootful Podman does, and SHALL NOT bind the reported bridge gateway
 
 #### Scenario: Gateway is not a local address
 - **WHEN** the bridge gateway that Docker reports is not assigned to any local interface, as in a devcontainer that uses the host's Docker socket
 - **THEN** the interactive run SHALL fail before any container starts, with an error that names `container.tui_server_bind`
 
 ### Requirement: Rootless Podman uses a single forwarded port
-For an ephemeral container under local rootless Podman with a pasta binary, the TUI server SHALL listen on `127.0.0.1` only, and the container SHALL run with `--network=pasta:-T,<port>`. `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>`, and the container SHALL gain no other route to host loopback. This plan is verified on a local rootless Podman 6 host and in the CI Podman job, whose runner reports a pasta executable.
+For an ephemeral container under local rootless Podman with a pasta binary, the TUI server SHALL listen on `127.0.0.1` only, and the container SHALL run with `--network=pasta:-T,<port>`. `INVOWK_TUI_ADDR` SHALL be `http://127.0.0.1:<port>`, and invowk SHALL add no other route to host loopback. This plan is verified on a local rootless Podman 6 host and in the CI Podman job, whose runner reports a pasta executable.
 
 #### Scenario: Ephemeral rootless Podman run
 - **WHEN** an interactive container command runs a new container under rootless Podman with pasta
 - **THEN** a process in the container SHALL reach the server at `127.0.0.1:<port>` and SHALL NOT reach any other port bound on host loopback
+
+#### Scenario: Host pasta options
+- **WHEN** the host's `containers.conf` sets `pasta_options` such as `--map-gw` or `--map-host-loopback`
+- **THEN** Podman applies them as well, so they can open more of host loopback than invowk asks for, and the documentation SHALL say so
 
 ### Requirement: Docker Desktop binds loopback only
 Under a local Docker Desktop engine without the opt-in, the TUI server SHALL listen on `127.0.0.1` only, and `INVOWK_TUI_ADDR` SHALL use the engine alias `host.docker.internal`, which the engine forwards to the host.
@@ -58,7 +66,7 @@ For an engine mode without a narrow plan, unless the opt-in applies, an interact
 - **THEN** the run SHALL fail before start, and the error SHALL name `container.tui_server_bind` and pasta
 
 #### Scenario: Remote engine
-- **WHEN** the selected engine is remote (a `tcp://` or `ssh://` Docker endpoint, `podman-remote`, `podman --remote` or Podman machine) and the opt-in is not set
+- **WHEN** the selected engine is remote (a Docker endpoint that is not empty, `unix://`, `npipe://` or `fd://`, which includes `tcp://`, `ssh://` and a scheme-less `host:port`; `podman-remote`, `podman --remote` or Podman machine) and the opt-in is not set
 - **THEN** the run SHALL fail before start, and the error SHALL name `container.tui_server_bind` and say the opt-in helps only if the engine's host alias leads back to this machine
 
 #### Scenario: The same command without -i
@@ -152,11 +160,26 @@ invowk SHALL read `container.tui_server_bind` only from the config source that t
 - **THEN** validation SHALL reject the invowkfile, and no run SHALL bind a wildcard address because of it
 
 ### Requirement: An unreachable server fails fast with an actionable error
-When `INVOWK_TUI_ADDR` is set but the server cannot be reached, a delegating `invowk tui` command SHALL fail within a bounded connect timeout, not hang for the interaction timeout. Its error SHALL name the address and `container.tui_server_bind`. It SHALL NOT fall back to rendering directly, for the reason given in "No fallback to a run without a TUI server".
+When `INVOWK_TUI_ADDR` is set but the server cannot be reached, a delegating `invowk tui` command SHALL fail within a bounded reach timeout, not hang for the interaction timeout. Its unreachable error SHALL name the address and `container.tui_server_bind`. It SHALL NOT fall back to rendering directly, for the reason given in "No fallback to a run without a TUI server".
 
 #### Scenario: Container cannot reach a loopback-only listener
 - **WHEN** a delegating `invowk tui` command runs with `INVOWK_TUI_ADDR` pointing at an address that refuses or drops the connection, as when a Docker Desktop alias does not reach a loopback-only listener
-- **THEN** the command SHALL exit non-zero within the connect timeout, with an error that names the address and `container.tui_server_bind`
+- **THEN** the command SHALL exit non-zero within the reach timeout, with an error that names the address and `container.tui_server_bind`
+
+#### Scenario: A proxy accepts the connection but cannot reach the host
+- **WHEN** the peer at `INVOWK_TUI_ADDR` accepts the TCP connection and then resets it, closes it or never answers
+- **THEN** the command SHALL exit non-zero within the reach timeout with the same unreachable error
+
+### Requirement: The client checks reachability before each component request
+Before each component request, the TUI client SHALL send an authenticated `GET /health` bounded by the reach timeout. A refused, dropped, reset, closed or silent connection, or an answer other than `200` or `401`, SHALL count as unreachable. A `401` SHALL stay a server error, and the caller's own cancellation SHALL NOT be reported as unreachable. The client SHALL NOT send TUI requests through an HTTP proxy from the environment.
+
+#### Scenario: Rejected token
+- **WHEN** the health check gets `401`
+- **THEN** the command SHALL fail with a server error that is not the unreachable error
+
+#### Scenario: Proxy in the container environment
+- **WHEN** `HTTP_PROXY` is set in the environment of a delegating `invowk tui` command
+- **THEN** the request and its bearer token SHALL go directly to `INVOWK_TUI_ADDR`
 
 ### Requirement: Every request requires the session token
 The TUI server SHALL require `Authorization: Bearer <session token>` on every request, whatever the path, and SHALL check it before the method or body. It SHALL compare in constant time. A missing or wrong token SHALL get `401` with the body `unauthorized`.
@@ -172,6 +195,10 @@ The TUI server SHALL require `Authorization: Bearer <session token>` on every re
 #### Scenario: Wrong method without token
 - **WHEN** a client sends `GET /tui` without the token
 - **THEN** the server SHALL answer `401`, not `405`
+
+#### Scenario: Methods net/http could answer itself
+- **WHEN** a client sends `OPTIONS *`, `HEAD /health`, `OPTIONS /tui` or `POST /tui` without the token
+- **THEN** the server SHALL answer `401`
 
 #### Scenario: Unknown path without token
 - **WHEN** a client sends `GET /` or any unregistered path without the token

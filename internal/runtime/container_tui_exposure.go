@@ -91,6 +91,7 @@ func (r *ContainerRuntime) PlanTUIExposure(ctx *ExecutionContext) containerplan.
 	facts.Rootless = engineFacts.Rootless
 	facts.RemoteEndpoint = engineFacts.RemoteEndpoint
 	facts.PastaAvailable = engineFacts.PastaAvailable
+	facts.PodmanBackend = engineFacts.PodmanBackend
 	facts.BridgeGateway = engineFacts.BridgeGateway
 	facts.GatewayLocal = container.IsLocalInterfaceAddr(engineFacts.BridgeGateway, r.tuiProbe.interfaceAddrs)
 	facts.PersistentTarget = r.tuiPersistentTarget(ctx)

@@ -40,7 +40,8 @@ Decisions taken with the maintainer (2026-11-14):
 | N2 | EVOLVE | C2 | S |
 | N3 | EVOLVE | C3 | S |
 | N4 | EVOLVE | C2 | S |
-| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, proposed) | M |
+| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, implemented in PR #173; done on merge) | M |
+| N7 | EVOLVE — bug | SSH host-callback reachability (own change after S3, not yet proposed) | M |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.

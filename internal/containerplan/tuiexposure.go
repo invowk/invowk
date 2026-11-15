@@ -147,6 +147,9 @@ type (
 		BridgeGateway netip.Addr
 		// GatewayLocal reports that BridgeGateway is on a local interface.
 		GatewayLocal bool
+		// PodmanBackend reports a Docker CLI talking to Podman's
+		// Docker-compatible API (rootful; rootless reports Rootless).
+		PodmanBackend bool
 	}
 
 	// TUIExposurePlan is the bind plan for one interactive run. Build it with
@@ -350,6 +353,15 @@ func (p TUIExposurePlan) validateNarrow() error {
 	if len(p.bindAddrs) == 0 || p.bindAddrs[0] != loopbackAddr {
 		return invalidPlan("a narrow plan lists 127.0.0.1 first")
 	}
+	// Row shapes (D2): the bridge row binds loopback plus one non-loopback
+	// gateway; every other narrow row binds loopback only.
+	if p.row == TUIRowDockerBridge {
+		if len(p.bindAddrs) != 2 || p.bindAddrs[1].IsLoopback() {
+			return invalidPlan("row 8 binds 127.0.0.1 and exactly one non-loopback gateway")
+		}
+	} else if len(p.bindAddrs) != 1 {
+		return invalidPlan("row " + p.row.String() + " binds 127.0.0.1 only")
+	}
 	for i, addr := range p.bindAddrs {
 		switch {
 		case !addr.Is4():
@@ -363,7 +375,7 @@ func (p TUIExposurePlan) validateNarrow() error {
 	if p.dialHost == "" {
 		return invalidPlan("a narrow plan needs a dial host")
 	}
-	if p.pastaForward && (p.row != TUIRowPodmanPasta || len(p.bindAddrs) != 1) {
+	if p.pastaForward && p.row != TUIRowPodmanPasta {
 		return invalidPlan("only the loopback-only pasta row forwards a port")
 	}
 	if p.warning != "" || p.refusal != "" {
@@ -444,6 +456,8 @@ func selectTUIExposure(f TUINetworkFacts, allowAllInterfaces bool) (TUIExposureP
 		return NewTUIExposurePlanNarrow(TUIRowDockerDesktop, []netip.Addr{loopbackAddr}, dockerHostAlias, false)
 	case f.Engine == TUIEngineDocker && f.Rootless:
 		return restorable(TUIRowDockerRootless, "no narrow TUI server route is verified for rootless Docker")
+	case f.Engine == TUIEngineDocker && f.PodmanBackend:
+		return restorable(TUIRowPodmanRootful, "the docker CLI talks to Podman's Docker-compatible API, and no narrow TUI server route is verified for rootful Podman")
 	case f.Engine == TUIEngineDocker && f.BridgeGateway.Is4() && f.GatewayLocal && !f.BridgeGateway.IsUnspecified() && !f.BridgeGateway.IsLoopback():
 		return NewTUIExposurePlanNarrow(TUIRowDockerBridge, []netip.Addr{loopbackAddr, f.BridgeGateway}, gatewayDialHost(f.BridgeGateway), false)
 	case f.Engine == TUIEnginePodman && !f.Rootless:

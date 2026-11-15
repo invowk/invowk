@@ -319,7 +319,7 @@ Controls how widely the TUI server of an interactive container run (`-i`) may li
 
 <Snippet id="reference/config/container-tui-server-bind" />
 
-This key is user configuration only: invowk reads it from the config file it selects, the `--ivk-config` or `INVOWK_CONFIG` file when one is given (your user config file is then not read), otherwise your user config file. It never reads it from an invowkfile or module, so a repository cannot widen the bind. It has no effect in Flatpak without `--share=network`, where no bind is reachable from the engine's containers. For a remote engine (a `tcp://` or `ssh://` Docker endpoint, `podman-remote`, Podman machine) it helps only if the engine's host alias leads back to this machine. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
+This key is user configuration only: invowk reads it from the config file it selects, the `--ivk-config` or `INVOWK_CONFIG` file when one is given (your user config file is then not read), otherwise your user config file. It never reads it from an invowkfile or module, so a repository cannot widen the bind. It has no effect in Flatpak without `--share=network`, where no bind is reachable from the engine's containers. For a remote engine (a Docker endpoint other than a local `unix://`, `npipe://` or `fd://` socket, `podman-remote`, Podman machine) it helps only if the engine's host alias leads back to this machine. See [Interactive mode](../advanced/interactive-mode.mdx#container-runtime-support) for the per-engine rules.
 
 ---
 

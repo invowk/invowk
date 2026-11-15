@@ -37,6 +37,7 @@ func TestSelectTUIExposureRows(t *testing.T) {
 		{name: "rootless docker", facts: with(docker, func(f *TUINetworkFacts) { f.Rootless = true }), wantRow: 7, wantKind: TUIPlanRefused},
 		{name: "rootful docker", facts: docker, wantRow: 8, wantKind: TUIPlanNarrow, wantHost: "172.17.0.1"},
 		{name: "rootful podman", facts: with(podman, func(f *TUINetworkFacts) { f.Rootless = false }), wantRow: 9, wantKind: TUIPlanRefused},
+		{name: "rootful podman behind the docker CLI", facts: with(docker, func(f *TUINetworkFacts) { f.PodmanBackend = true }), wantRow: 9, wantKind: TUIPlanRefused, wantWarn: []string{"Docker-compatible", TUIOptInSetting}},
 		{name: "persistent rootless podman", facts: with(podman, func(f *TUINetworkFacts) { f.PersistentTarget = true }), wantRow: 10, wantKind: TUIPlanRefused, wantWarn: []string{TUIOptInSetting}},
 		{name: "ephemeral rootless podman with pasta", facts: podman, wantRow: 11, wantKind: TUIPlanNarrow, wantHost: "127.0.0.1"},
 		{name: "rootless podman without pasta", facts: with(podman, func(f *TUINetworkFacts) { f.PastaAvailable = false }), wantRow: 12, wantKind: TUIPlanRefused, wantWarn: []string{"pasta", TUIOptInSetting}},
@@ -149,6 +150,7 @@ func TestTUIExposurePlanValidate(t *testing.T) {
 
 	loopback := netip.MustParseAddr("127.0.0.1")
 	gw := netip.MustParseAddr("172.17.0.1")
+	lan := netip.MustParseAddr("192.168.1.109")
 	tests := []struct {
 		name    string
 		plan    TUIExposurePlan
@@ -181,6 +183,13 @@ func TestTUIExposurePlanValidate(t *testing.T) {
 		{name: "refused without text", plan: TUIExposurePlan{row: 10, kind: TUIPlanRefused}, wantErr: true},
 		{name: "multi-line refusal", plan: TUIExposurePlan{row: 10, kind: TUIPlanRefused, refusal: "a\nb"}, wantErr: true},
 		{name: "zero value", plan: TUIExposurePlan{}, wantErr: true},
+		{name: "host runtime with a LAN address", plan: TUIExposurePlan{row: 1, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback, lan}, dialHost: "127.0.0.1"}, wantErr: true},
+		{name: "docker desktop with the gateway", plan: TUIExposurePlan{row: 6, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback, gw}, dialHost: "host.docker.internal"}, wantErr: true},
+		{name: "pasta with a second address", plan: TUIExposurePlan{row: 11, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback, gw}, dialHost: "127.0.0.1", pastaForward: true}, wantErr: true},
+		{name: "bridge row loopback only", plan: TUIExposurePlan{row: 8, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback}, dialHost: "172.17.0.1"}, wantErr: true},
+		{name: "bridge row with a loopback gateway", plan: TUIExposurePlan{row: 8, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback, netip.MustParseAddr("127.0.0.2")}, dialHost: "127.0.0.2"}, wantErr: true},
+		{name: "bridge row with three addresses", plan: TUIExposurePlan{row: 8, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback, gw, lan}, dialHost: "172.17.0.1"}, wantErr: true},
+		{name: "narrow docker desktop", plan: TUIExposurePlan{row: 6, kind: TUIPlanNarrow, bindAddrs: []netip.Addr{loopback}, dialHost: "host.docker.internal"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -224,7 +233,7 @@ func TestSelectTUIExposureAlwaysValid(t *testing.T) {
 	engines := []TUIEngineKind{"", TUIEngineDocker, TUIEnginePodman}
 	sandboxes := []TUISandboxKind{TUISandboxNone, TUISandboxFlatpak, TUISandboxSnap}
 	gateways := []netip.Addr{{}, netip.MustParseAddr("172.17.0.1"), netip.IPv4Unspecified(), netip.MustParseAddr("127.0.0.1")}
-	for mask := range 1 << 9 {
+	for mask := range 1 << 10 {
 		bit := func(i int) bool { return mask&(1<<i) != 0 }
 		for _, engine := range engines {
 			for _, sandbox := range sandboxes {
@@ -232,7 +241,7 @@ func TestSelectTUIExposureAlwaysValid(t *testing.T) {
 					f := TUINetworkFacts{
 						Container: bit(0), Sandbox: sandbox, FlatpakNetwork: bit(1), Engine: engine,
 						RemoteEndpoint: bit(2), DockerDesktop: bit(3), Rootless: bit(4), PastaAvailable: bit(5),
-						PersistentTarget: bit(6), BridgeGateway: gw, GatewayLocal: bit(7),
+						PersistentTarget: bit(6), BridgeGateway: gw, GatewayLocal: bit(7), PodmanBackend: bit(9),
 					}
 					plan := SelectTUIExposure(f, bit(8))
 					if err := plan.Validate(); err != nil {

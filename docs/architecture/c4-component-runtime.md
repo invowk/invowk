@@ -15,7 +15,8 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **Runtime** | `Name()`, `Execute()`, `Available()`, `Validate()` | Core execution contract. All runtimes implement this. `Execute` returns a `*Result` with both exit code and error -- non-zero exit code without error is a normal process exit; error indicates infrastructure failure. |
 | **CapturingRuntime** | `ExecuteCapture()` | Optional output capture capability. Returns a `*Result` with `Output` and `ErrOutput` fields populated. Does not embed `Runtime`. |
 | **InteractiveRuntime** | `SupportsInteractive()`, `PrepareInteractive()` | PTY attachment capability. Embeds `Runtime`. Returns a `PreparedCommand` with an `exec.Cmd` ready for PTY attachment and a cleanup function. |
-| **HostServiceAddressProvider** | `HostServiceAddress()` | Optional capability for runtimes whose child processes need a non-localhost address to reach host services such as the TUI server. Implemented by ContainerRuntime. |
+| **HostServiceAddressProvider** | `HostServiceAddress()` | Optional capability for runtimes whose child processes need a non-localhost address to reach host services such as the SSH host-callback server. Implemented by ContainerRuntime. The TUI server no longer uses it. |
+| **TUI exposure planner** | `PlanTUIExposure()` | Optional capability, declared by its consumer (the interactive adapter in `internal/app/commandadapters`). ContainerRuntime implements it: it queries the engine's network facts once per runtime and returns a `containerplan.TUIExposurePlan` (narrow, wide opt-in or refused) before the TUI server starts. Runtimes without it get the loopback plan. |
 | **EnvBuilder** | `Build()` | Environment variable construction following a 10-level precedence hierarchy (host env at level 1 through `--ivk-env-var` CLI flags at level 10). |
 
 ## Implementations
@@ -38,7 +39,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **ExecutionContext** | Primary data structure for command execution. Composed of `IOContext`, `EnvContext`, and `TUIContext` sub-types plus command metadata, selected runtime/implementation, and execution ID. |
 | **IOContext** | Groups I/O streams: `Stdout` (`io.Writer`), `Stderr` (`io.Writer`), `Stdin` (`io.Reader`). Factory functions `DefaultIO()` and `CaptureIO()` provide common configurations. |
 | **EnvContext** | Groups environment configuration: `ExtraEnv` (INVOWK_FLAG_*, INVOWK_ARG_*), `RuntimeEnvVars` (--ivk-env-var), `RuntimeEnvFiles` (--ivk-env-file), and inheritance overrides (mode, allow, deny). |
-| **TUIContext** | Groups TUI server connection details: `ServerURL` and `ServerToken`. Used to pass `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` into command environments. |
+| **TUIContext** | Groups TUI server connection details: `ServerURL`, `ServerToken` and the plan's container `NetworkMode` (`pasta:-T,<port>` for rootless Podman). Used to pass `INVOWK_TUI_ADDR` and `INVOWK_TUI_TOKEN` into command environments and `--network=<mode>` onto a new container run. |
 | **Result** | Execution result: `ExitCode`, `Error`, `Output` (captured stdout), `ErrOutput` (captured stderr), and `Diagnostics []InitDiagnostic` for non-fatal runtime initialization/provisioning notices. The command service bridges those diagnostics into its execution result for rendering. `Success()` returns true when both exit code is 0 and error is nil. |
 | **PreparedCommand** | Returned by `PrepareInteractive()`: contains an `exec.Cmd` ready for PTY attachment and an optional `Cleanup` function. |
 

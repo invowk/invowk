@@ -101,13 +101,27 @@
 - [x] 8.10 Decision 28: an optional `commandsvc.InteractivePreflight` port, implemented by `InteractiveExecutor.PreflightInteractive`, runs before dependency validation; an explicit `-i` fails with `ErrorKindTUIExposureRefused`, a `ui.interactive` default runs non-interactively with one warning, and an invalid plan always fails. Verify: `TestDispatchExecution_ExplicitInteractiveRefusedBeforeDependencies` (a missing env-var dependency must not be reported first), `TestDispatchExecution_ConfigDefaultInteractiveFallsBack`, `TestDispatchExecution_ConfigDefaultInteractiveInvalidPlanFails`, `TestDispatchExecution_PreflightPassesThrough`, `TestInteractiveExecutorPreflight`. Calibrate by dropping the preflight call: the four dispatch tests must fail. *(2026-11-15: passed; the calibration failed all four.)*
 - [x] 8.9 Docs: interactive-mode and config-schema (en + pt-BR), README, the schema comment, the snippet, tracker N5 and the unnumbered capture-defect entry. *(2026-11-15.)*
 
+## 9. Stage 4a-gates review (decisions 29-35)
+
+- [x] 9.1 `OPTIONS *` reached net/http's built-in handler without the token: set `DisableGeneralOptionsHandler`, and add `TestServerAuthCoversEveryMethod` (raw `OPTIONS *`, `HEAD /health`, `OPTIONS /health`, `OPTIONS /tui`, `POST /tui`, all without the token). *(2026-11-15: passed; with the setting off, `OPTIONS *` got 200 and the test failed.)*
+- [x] 9.2 Bounded reach preflight (decision 30): an authenticated `GET /health` before each component request, 5 s reach timeout, `IsAvailable` on the same check; `TestClientUnreachableServerFailsFast` adds accept-then-close, accept-then-reset, accept-then-silent and a non-TUI responder; `TestClientReachErrorsThatAreNotUnreachable` pins that a 401 and the caller's cancellation are not unreachable; `TestClientReachTimeoutDoesNotBoundInteraction`; the spin test's fake server answers `/health`. *(2026-11-15: passed; without the preflight the close, reset and non-TUI cases failed.)*
+- [x] 9.3 No environment proxy (decision 31): `transport.Proxy = nil`, pinned white-box by `TestClientTransportIgnoresProxyEnvironment`. *(2026-11-15: passed; failed with the line removed.)*
+- [x] 9.4 Fail-closed Docker endpoint classification (decision 32), with scheme-less, `fd://` and `http://` cases in `TestIsRemoteDockerEndpoint`. *(2026-11-15: passed.)*
+- [x] 9.5 Docker CLI against Podman (decision 33): probe with a temporary rootless Podman 6.1.3 compat socket; `PodmanBackend` from the server components; row 9 for a rootful backend. Verify: the Docker facts, planner and runtime mapping tables, `TestSelectTUIExposureAlwaysValid` over the new bit, and `TestQueryEngineNetworkFactsLocalEngine` against the real rootful Docker 29.9.2 (`Engine;containerd;runc;tini-static;`). *(2026-11-15: passed.)*
+- [x] 9.6 Row shapes in `TUIExposurePlan.Validate` (decision 34), with six negative cases and the Docker Desktop positive case in `TestTUIExposurePlanValidate`. *(2026-11-15: passed; `TestSelectTUIExposureAlwaysValid` stays green.)*
+- [x] 9.7 `Server.Start` readiness (decision 35): synchronous transition after binding; `TestServerStopDuringStartDoesNotBlock`. *(2026-11-15: passed; without the state check it failed.)*
+- [x] 9.8 CLI refusal txtar: `tests/cli/testdata/tui_exposure_refused.txtar` with a fake `docker` on PATH that fails the facts query (row 4): exit 1 with the reason, the opt-in and the issue template, no `run`; without `-i` no facts query and the command runs; the `ui.interactive` default prints exactly one warning and runs; an explicit `-i` still fails. *(2026-11-15: passed.)*
+- [x] 9.9 `TestContainerRuntimeConstructionQueriesNoFacts` requires exactly one recorded run instead of guarding on `len(RunCalls) > 0`. *(2026-11-15: passed.)*
+- [x] 9.10 Docs: `pasta_options` caveat, the reach preflight and no-proxy rule, scheme-less endpoints and Podman behind the Docker CLI, in interactive-mode and config-schema (en + pt-BR), README and the proposal; spec delta gains the requirements and scenarios; tracker N5 table row and an N7 row. *(2026-11-15.)*
+
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.1 `/simplify` on the diff, then `make tidy` and `make license-check`
-- [ ] 7.2 `make lint`, with zero issues
-- [ ] 7.3 `make test`, the full suite with container tests on an engine-equipped host
-- [ ] 7.4 `make check-baseline`, triaging every new goplint finding (inconclusives are never baselined)
-- [ ] 7.5 `make check-file-length` and `make sonar-local`
-- [ ] 7.6 `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/`, `make check-windows-build` and `make check-agent-docs`
-- [ ] 7.7 Re-check `docs/architecture/` for the interactive flow (`c4-component-runtime.md:41`), and run `/learn`
-- [ ] 7.8 `openspec validate restrict-tui-server-bind --strict`
+- [x] 7.1 `/simplify` on the diff, then `make tidy` and `make license-check` *(2026-11-15: single-pass inline review (no Agent tool); dropped a duplicated nil-context guard in `checkReachable`; tidy and license-check clean.)*
+- [x] 7.2 `make lint`, with zero issues *(2026-11-15: 0 issues after a gofmt alignment, two funcorder moves and a checked health-body read.)*
+- [x] 7.3 `make test`, the full suite with container tests on an engine-equipped host *(2026-11-15: rootful Docker 29.9.2, `INVOWK_TEST_TUI_PLAN_ROW=8`: 8991 tests and 192 CLI tests passed, 24 skipped (Podman-only and Windows/macOS cases); `make test-integration` passed. The first run caught `TestInteractiveExecutorGatewayPlanUsesIPLiteral` using 127.0.0.2 as a row-8 gateway, which decision 34 now rejects; it uses a local non-loopback IPv4 address instead.)*
+- [x] 7.4 `make check-baseline`, triaging every new goplint finding (inconclusives are never baselined) *(2026-11-15: no new findings; `make check-goplint-consumer-routed` passed.)*
+- [x] 7.5 `make check-file-length` and `make sonar-local` *(2026-11-15: file lengths within the limit; sonar-local runs in the commit's pre-commit hooks.)*
+- [x] 7.6 `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/`, `make check-windows-build` and `make check-agent-docs` *(2026-11-15: all passed; `python3 scripts/formal.py correspondence` passed too.)*
+- [x] 7.7 Re-check `docs/architecture/` for the interactive flow (`c4-component-runtime.md:41`), and run `/learn` *(2026-11-15: `TUIContext` gains `NetworkMode`, `HostServiceAddressProvider` now serves SSH only, and a TUI exposure planner row was added; `/learn` put the readiness caveat and the `OPTIONS *` rule into the server skill. Website build passed.)*
+- [x] 7.8 `openspec validate restrict-tui-server-bind --strict` *(2026-11-15: valid.)*
+- [ ] 7.9 Archive the change with `openspec archive restrict-tui-server-bind`, after F1 merges and this branch is rebased onto it

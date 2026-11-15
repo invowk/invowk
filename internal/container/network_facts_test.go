@@ -16,6 +16,7 @@ var (
 	dockerInfoKey    = "info --format " + dockerInfoNetworkFmt
 	dockerContextKey = "context inspect --format " + dockerContextHostFmt
 	dockerBridgeKey  = "network inspect bridge --format " + dockerBridgeGatewayFmt
+	dockerVersionKey = "version --format " + dockerServerComponentsFmt
 	podmanInfoKey    = "info --format " + podmanInfoNetworkFmt
 )
 
@@ -59,10 +60,27 @@ func TestQueryEngineNetworkFactsDocker(t *testing.T) {
 			answers: map[string]string{
 				dockerInfoKey:    `Fedora Linux 45|["name=seccomp,profile=builtin","name=selinux","name=cgroupns"]` + "\n",
 				dockerContextKey: "unix:///var/run/docker.sock\n",
+				dockerVersionKey: "Engine;containerd;runc;tini-static;\n",
 				dockerBridgeKey:  "172.17.0.1 \n",
 			},
 			getenv: noEnv,
 			want:   EngineNetworkFacts{Engine: EngineTypeDocker, BridgeGateway: netip.MustParseAddr("172.17.0.1")},
+		},
+		{
+			// Probed 2026-11-15: Docker CLI 29.7.2 against a rootless Podman
+			// 6.1.3 socket; a rootful socket differs only in name=rootless.
+			name: "rootful podman behind the docker CLI skips the bridge",
+			answers: map[string]string{
+				dockerInfoKey:    `fedora|["name=seccomp,profile=default","name=selinux"]`,
+				dockerVersionKey: "Podman Engine;Conmon;OCI Runtime (crun);Engine;",
+			},
+			getenv: func(key string) string {
+				if key == "DOCKER_HOST" {
+					return "unix:///run/podman/podman.sock"
+				}
+				return ""
+			},
+			want: EngineNetworkFacts{Engine: EngineTypeDocker, PodmanBackend: true},
 		},
 		{
 			name:    "rootless",
@@ -139,6 +157,11 @@ func TestQueryEngineNetworkFactsFailures(t *testing.T) {
 		engine *fakeQueryEngine
 	}{
 		{name: "docker info fails", engine: &fakeQueryEngine{name: "docker", fail: map[string]error{dockerInfoKey: errors.New("daemon down")}}},
+		{name: "docker version fails", engine: &fakeQueryEngine{
+			name:    "docker",
+			answers: map[string]string{dockerInfoKey: `Debian|[]`, dockerContextKey: "unix:///var/run/docker.sock"},
+			fail:    map[string]error{dockerVersionKey: errors.New("daemon down")},
+		}},
 		{name: "podman docker shim template", engine: &fakeQueryEngine{name: "docker", answers: map[string]string{dockerInfoKey: "<no value>"}}},
 		{name: "podman info fails", engine: &fakeQueryEngine{name: "podman", fail: map[string]error{podmanInfoKey: errors.New("template: no field Pasta")}}},
 		{name: "podman short output", engine: &fakeQueryEngine{name: "podman", answers: map[string]string{podmanInfoKey: "true|pasta"}}},
@@ -174,8 +197,13 @@ func TestIsRemoteDockerEndpoint(t *testing.T) {
 		"":                            false,
 		"unix:///var/run/docker.sock": false,
 		"npipe:////./pipe/docker":     false,
+		"fd://":                       false,
 		"tcp://10.0.0.5:2376":         true,
 		"ssh://builder":               true,
+		// The Docker CLI dials a scheme-less host:port as TCP.
+		"build-box:2375":   true,
+		"127.0.0.1:1":      true,
+		"http://dind:2375": true,
 	} {
 		if got := isRemoteDockerEndpoint(endpoint); got != want {
 			t.Errorf("isRemoteDockerEndpoint(%q) = %v, want %v", endpoint, got, want)
