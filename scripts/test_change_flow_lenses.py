@@ -8,6 +8,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -95,6 +96,15 @@ class SourceParsingTest(unittest.TestCase):
     def test_manifest_ci_paths(self) -> None:
         got = lenses.manifest_ci_paths('[ci]\npaths = ["formal/**", "Makefile", "go.mod", "scripts/formal.py"]\n')
         self.assertEqual(got, ["formal/**", "scripts/formal.py"])
+        # Same matcher as scripts/formal.py: fnmatch, where "*" crosses "/".
+        import fnmatch
+
+        self.assertTrue(fnmatch.fnmatchcase("internal/container/retry/x.go", "internal/container/retry*.go"))
+        triggers = lenses.load_triggers()
+        for pattern in lenses.manifest_ci_paths((ROOT / lenses.FORMAL_MANIFEST).read_text(encoding="utf-8")):
+            probe = pattern.replace("**", "a/b").replace("*", "a/b")
+            with self.subTest(pattern=pattern):
+                self.assertTrue(triggers["formal"](probe), f"{probe} matches {pattern} for formal.py but not the lens")
         for text in ("[other]\nx = 1\n", "[ci]\npaths = []\n", "[ci]\npaths = [1]\n", "not toml ["):
             with self.subTest(text=text), self.assertRaises(lenses.LensError):
                 lenses.manifest_ci_paths(text)
@@ -106,8 +116,19 @@ class AntiDriftTest(unittest.TestCase):
         areas = text.split("## High-Risk Code Areas", 1)[1].split("\n## ", 1)[0]
         for path in lenses.SECURITY_PATHS:
             with self.subTest(path=path):
-                self.assertTrue((ROOT / path).is_dir(), f"{path} does not exist")
-                self.assertIn(f"`{path}", areas, f"{path} is not named under High-Risk Code Areas")
+                if path.endswith("*"):
+                    self.assertTrue(list(ROOT.glob(path)), f"{path} matches no file")
+                elif path.endswith("/"):
+                    self.assertTrue((ROOT / path).is_dir(), f"{path} does not exist")
+                else:
+                    self.assertTrue((ROOT / path).is_file(), f"{path} does not exist")
+                self.assertIn(f"`{path.rstrip('*')}", areas, f"{path} is not named under High-Risk Code Areas")
+        # The other direction: every repository path the agent file names is selected.
+        named = set(re.findall(r"`((?:cmd|internal|pkg)/[^`\s]*)`", areas))
+        self.assertTrue(named)
+        for path in sorted(named):
+            with self.subTest(named=path):
+                self.assertTrue(lenses.path_in(path.replace("*", "x"), lenses.SECURITY_PATHS), f"{path} is named but not selected")
 
     def test_supply_chain_paths_exist_and_are_named_in_the_skill(self) -> None:
         text = (ROOT / lenses.MODULE_SECURITY_SKILL).read_text(encoding="utf-8")

@@ -98,7 +98,7 @@ const SAFE_PATH = /^\/[A-Za-z0-9._@%+=,:\/-]*$/
 const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/
 const CHANGE_ID = /^[a-z0-9][a-z0-9-]*$/
 // Names that are, or resolve to, something other than a change branch.
-const NOT_A_CHANGE_BRANCH = /^(?:main|HEAD|refs\/.*|origin\/.*|remotes\/.*)$/
+const NOT_A_CHANGE_BRANCH = /^(?:main|HEAD|(?:refs|heads|tags|origin|remotes)\/.*)$/
 
 function fail(message) {
   throw new Error('change-flow: ' + message)
@@ -223,8 +223,16 @@ function parseTextGuard(text) {
   }
 }
 
-// A line that, alone, reports no findings without saying what was reviewed.
-const BARE_NO_FINDINGS = /^(?:\(none\)|none|nothing|no (?:findings?|issues?|problems?|bugs?)(?: found)?|nothing (?:found|usable|to report)|\[\]|\{\})$/i
+// A line that, alone, reports no findings without saying what was reviewed, or
+// carries no content: a bare bracket, a heading word, an empty JSON array.
+const BARE_NO_FINDINGS = /^(?:\(none\)|none|nothing|no (?:findings?|issues?|problems?|bugs?)(?: found)?|nothing (?:found|usable|to report)|\[\]|\{\}|[\[\]{},]+|summary|result|results|findings|review)$/i
+
+// prNumber returns the PR number in an agent's pr field ("7", "#7", or a pull
+// URL), or null, so a free-text value never becomes the code-review target.
+function prNumber(value) {
+  const m = /^(?:#?([1-9][0-9]*)|https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/([1-9][0-9]*)\/?)$/.exec(String(value || '').trim())
+  return m ? m[1] || m[2] : null
+}
 
 // reviewBody extracts the verbatim code-review text, or null when the lens failed.
 // It fails unless the agent's status line after the markers says ok AND the body
@@ -240,7 +248,7 @@ function reviewBody(text) {
     .replace(/^\s*skill\s+"?[\w:.-]+"?\s+completed\b.*$/gim, '')
     .replace(/^\s*```\w*\s*$/gm, '')
     .split('\n')
-    .map((l) => l.replace(/^\s*#*\s*(?:findings|results?)\s*:?/i, '').trim().replace(/[.!]+$/, '').trim())
+    .map((l) => l.replace(/^\s*#+\s*/, '').replace(/^\s*(?:findings|results?|summary)\s*:?/i, '').trim().replace(/[.!:]+$/, '').trim())
     .filter((l) => l !== '' && !BARE_NO_FINDINGS.test(l))
   return substantive.length ? match[1].trim() : null
 }
@@ -281,6 +289,8 @@ function selfChecks() {
     'same-checkout-slashes': { ...good, worktree: '//w/invowk' },
     'main-branch': { ...good, branch: 'main' },
     'main-ref': { ...good, branch: 'refs/heads/main' },
+    'main-heads': { ...good, branch: 'heads/main' },
+    'tag-ref': { ...good, branch: 'tags/v1' },
     'remote-main': { ...good, branch: 'origin/main' },
     'head-branch': { ...good, branch: 'HEAD' },
     'bad-base': { ...good, base: '-x' },
@@ -337,6 +347,10 @@ function selfChecks() {
   expectEqual('review.no-findings', reviewBody(wrap('No findings.')), null)
   expectEqual('review.fork-empty-json', reviewBody(wrap('Skill "code-review" completed (forked execution).\n\nResult:\n```json\n[]\n```')), null)
   expectEqual('review.skill-only', reviewBody(wrap('Skill execution completed')), null)
+  expectEqual('review.split-empty-json', reviewBody(wrap('Result:\n```json\n[\n]\n```')), null)
+  expectEqual('review.heading-no-findings', reviewBody(wrap('## Summary\nNo findings.')), null)
+  expectEqual('pr.number', [prNumber('7'), prNumber('#7'), prNumber('https://github.com/invowk/invowk/pull/176')], ['7', '7', '176'])
+  expectEqual('pr.junk', [prNumber('seven'), prNumber(''), prNumber('https://example.com/x/7')], [null, null, null])
   expectEqual('review.explained-failure', reviewBody(wrap('The skill returned nothing usable.', 'failed')), null)
   expectEqual('review.no-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\n'), null)
   expectEqual('review.no-markers', reviewBody('Skill execution completed'), null)
@@ -359,11 +373,15 @@ function context(a, stage) {
 }
 
 function specPrompt(a, mode) {
-  const skill = mode === 'new' ? 'openspec-propose' : 'openspec-update-change'
+  const skill = mode === 'new'
+    ? 'Skill openspec-propose'
+    : mode === 'fast-lane'
+      ? 'Skill openspec-propose if openspec/changes/' + a.change + '/ does not exist in the worktree yet, otherwise Skill openspec-update-change,'
+      : 'Skill openspec-update-change'
   const own = mode === 'fast-lane'
     ? '\nFast lane: after writing the artifacts, review them yourself against the openspec conventions and the repo rules they touch, and fix what you find. Say in summary what the self-review checked.'
     : ''
-  return context(a, 'spec') + '\n\nInvoke Skill ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet.' + own +
+  return context(a, 'spec') + '\n\nInvoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet.' + own +
     '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.'
 }
 
@@ -440,15 +458,17 @@ function reviewSection(a, review) {
 
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
-    '1. Before fetching, record the pushed tip: `git -C ' + a.worktree + ' rev-parse --verify --quiet refs/remotes/origin/' + a.branch + '` (empty when never pushed). ' +
-    'Then `git -C ' + a.worktree + ' fetch origin` and rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
+    '1. `git -C ' + a.worktree + ' fetch origin`. If origin/' + a.branch + ' exists and is not an ancestor of the local ' + a.branch + ', other commits landed on it (for example the CI PGO bot\'s): ' +
+    'integrate them first (`git -C ' + a.worktree + ' rebase origin/' + a.branch + '`), never drop them. Record that fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
+    'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
     (a.base === 'origin/main' ? '' : ', and it diffs against main, so drop findings that belong to ' + a.base + '\'s own commits') +
     '); apply the confirmed ones; list each rejected one with its reason. Commit them locally (signed, under the lock) BEFORE the long gates, so a stopped run leaves them committed; push only after step 3.\n' +
     '3. Run the FULL checklist (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. ' +
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if a function body bound by .agents/rules/formal-bindings.md was rewritten.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), and push with ' +
-    '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the tip recorded in step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing); ' +
+    '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the lease from step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing). ' +
+    'If the lease is rejected, someone pushed meanwhile: fetch, integrate their commits as in step 1, re-run the gates their commits touch, and push again with the new lease; never a bare force. Never approve held workflow runs. ' +
     'update the DRAFT PR and watch `gh pr checks`; fix failures. Never mark it ready, never merge.\n' +
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
@@ -492,7 +512,11 @@ function check(stage, result) {
   if (changed) return changed
   if (baseline && !sameSnapshot(baseline, result.guard.before)) log('note: primary checkout differs from the previous stage (' + stage + '); not caused by a stage')
   baseline = result.guard.after
-  if (result.pr) pr = String(result.pr)
+  if (result.pr) {
+    const n = prNumber(result.pr)
+    if (n) pr = n
+    else log('note: ' + stage + ' returned pr ' + JSON.stringify(String(result.pr)) + ', not a PR number; kept ' + (pr || 'the branch as the target'))
+  }
   if (result.head_sha) headSha = result.head_sha
   record.push({ stage, status: result.status || 'done', summary: result.summary || '' })
   return null

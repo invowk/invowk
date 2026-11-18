@@ -145,6 +145,22 @@ for (const [name, reply] of Object.entries({
   assert.ok(fix2.prompt.includes("drop findings that belong to feat/base-change's own commits"))
 }
 
+// fast-lane may propose a new change; an agent's pr URL becomes the number and a
+// junk pr never becomes the code-review target; the fix agent integrates others'
+// commits before using the fetched tip as its lease.
+{
+  const fast = await go({ ...good, mode: 'fast-lane' })
+  const spec = fast.calls.find((c) => c.label === 'spec-fast')
+  assert.ok(spec.prompt.includes('openspec-propose if openspec/changes/add-thing/ does not exist'))
+  const url = await go(good, { implement: () => ({ status: 'done', summary: 'ok', head_sha: 'h1', pr: 'https://github.com/invowk/invowk/pull/176', guard }), simplify: () => ({ status: 'done', summary: 'ok', guard }) })
+  assert.ok(url.calls.find((c) => c.label === 'review:code-review').prompt.includes('"high 176"'))
+  const junk = await go(good, { spec: () => ({ status: 'done', summary: 'ok', guard }), implement: () => ({ status: 'done', summary: 'ok', head_sha: 'h1', pr: 'see above', guard }), simplify: () => ({ status: 'done', summary: 'ok', guard }) })
+  assert.ok(junk.calls.find((c) => c.label === 'review:code-review').prompt.includes('"high feat/add-thing"'))
+  const fix = url.calls.find((c) => c.label === 'fix')
+  assert.ok(fix.prompt.includes('is not an ancestor of the local feat/add-thing'))
+  assert.ok(fix.prompt.includes('never a bare force'))
+}
+
 // a code-review reply without its guard still stops the run.
 {
   const { result } = await go(good, { 'review:code-review': () => 'CODE-REVIEW-BEGIN\n1. x\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\n' })
@@ -231,7 +247,7 @@ for (const [name, reply] of Object.entries({
 {
   const { calls } = await go(good)
   const fix = calls.find((c) => c.label === 'fix')
-  assert.ok(fix.prompt.includes('--force-with-lease=feat/add-thing:<the tip recorded in step 1>'))
+  assert.ok(fix.prompt.includes('--force-with-lease=feat/add-thing:<the lease from step 1>'))
   assert.ok(fix.prompt.indexOf('rev-parse --verify --quiet refs/remotes/origin/feat/add-thing') < fix.prompt.indexOf('fetch origin'))
 }
 

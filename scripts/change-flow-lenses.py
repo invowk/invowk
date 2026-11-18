@@ -33,6 +33,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import subprocess
@@ -67,6 +68,8 @@ SECURITY_PATHS = (
     "internal/provision/",
     "internal/config/",
     "internal/tuiserver/",
+    "internal/app/deps/helpers.go",
+    "cmd/invowk/cmd_validate_*",
 )
 
 MODULE_SECURITY_SKILL = ".agents/skills/module-security/SKILL.md"
@@ -188,9 +191,12 @@ def load_triggers(root: Path = REPO_ROOT) -> dict[str, Callable[[str], bool]]:
     triggers: dict[str, Callable[[str], bool]] = {}
     for lens, sources in RULE_SOURCES.items():
         regexes = [glob_to_regex(p) for src in sources for p in frontmatter_paths(read(src), src)]
-        if lens == "formal":
-            regexes += [glob_to_regex(p) for p in manifest_ci_paths(read(FORMAL_MANIFEST))]
-        triggers[lens] = lambda path, rx=tuple(regexes): any(r.match(path) for r in rx)
+        # The manifest's [ci] paths use fnmatch semantics ("*" crosses "/"), the same
+        # matcher scripts/formal.py `affected` uses, so the lens and the lane agree.
+        ci = tuple(manifest_ci_paths(read(FORMAL_MANIFEST))) if lens == "formal" else ()
+        triggers[lens] = lambda path, rx=tuple(regexes), ci=ci: any(r.match(path) for r in rx) or any(
+            fnmatch.fnmatchcase(path, p) for p in ci
+        )
 
     pgo = pgo_files_regex(read(PRE_COMMIT_CONFIG))
     triggers["perf"] = lambda path: bool(pgo.search(path)) or path.startswith(PERF_EXTRA_PREFIXES)
