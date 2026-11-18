@@ -57,7 +57,7 @@ search_docs() {
 			.agents/rules/*.md \
 			.agents/runbooks/*.md \
 			.agents/memorials/*.md \
-			.agents/workflows/*.js \
+			.agents/workflows/*.*js \
 			.agents/skills/*/SKILL.md \
 			| grep -vE '\.agents/skills/speckit\.[^/]+/SKILL\.md:' || true
 	fi
@@ -138,11 +138,11 @@ check_file_index "Agents index (.agents/agents)" .agents/agents AGENTS.md \
 check_file_index "Commands index (.agents/commands)" .agents/commands AGENTS.md \
 	"\\[\`\\.agents/commands/[^\`]+\`\\]" "s/^\\[\`(.+)\`\\]\$/\\1/"
 
-# Workflow templates (.agents/workflows/*.js) are indexed like commands.
+# Workflow templates (.agents/workflows/*.js and *.mjs) are indexed like commands.
 workflows_on_disk="$(new_tmp)"
 workflows_indexed="$(new_tmp)"
 if [[ -d .agents/workflows ]]; then
-	find .agents/workflows -maxdepth 1 -type f -name '*.js' | sed 's#^\./##' | sort >"$workflows_on_disk"
+	find .agents/workflows -maxdepth 1 -type f \( -name '*.js' -o -name '*.mjs' \) | sed 's#^\./##' | sort >"$workflows_on_disk"
 fi
 extract_matches "\\[\`\\.agents/workflows/[^\`]+\`\\]" AGENTS.md \
 	| sed -E "s/^\\[\`(.+)\`\\]\$/\\1/" \

@@ -7,7 +7,9 @@ The change-flow workflow template (.agents/workflows/change-flow.js) runs the
 script selects. Path triggers are read live from the files that own them, so
 the selector cannot drift from the rules:
 
-    formal        .agents/rules/formal-bindings.md `paths:`
+    formal        .agents/rules/formal-bindings.md `paths:`, plus formal/manifest.toml
+                  `[ci] paths` (models, instruments, triage ledger) minus the
+                  repo-wide files in FORMAL_CI_GENERIC
     windows       .agents/rules/windows.md `paths:`
     schema        .agents/rules/cue-patterns.md `paths:`
     ci            .agents/rules/ci-workflows.md and version-pinning.md `paths:`
@@ -35,6 +37,7 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -50,6 +53,11 @@ RULE_SOURCES = {
     "ci": (".agents/rules/ci-workflows.md", ".agents/rules/version-pinning.md"),
 }
 
+FORMAL_MANIFEST = "formal/manifest.toml"
+# Repo-wide files in the manifest's [ci] paths. The formal CI check reruns on them,
+# but they are not formal instruments; the ci lens covers them.
+FORMAL_CI_GENERIC = ("Makefile", "go.mod", "go.sum")
+
 SECURITY_AGENT = ".agents/agents/security-reviewer.md"
 # Directories named under "High-Risk Code Areas" in SECURITY_AGENT. The test
 # suite checks that each one exists and is still named there.
@@ -58,6 +66,7 @@ SECURITY_PATHS = (
     "internal/container/",
     "internal/provision/",
     "internal/config/",
+    "internal/tuiserver/",
 )
 
 MODULE_SECURITY_SKILL = ".agents/skills/module-security/SKILL.md"
@@ -156,6 +165,17 @@ def pgo_files_regex(text: str) -> re.Pattern[str]:
     raise LensError(f"{PRE_COMMIT_CONFIG}: hook {PGO_HOOK_ID} has no files: regex")
 
 
+def manifest_ci_paths(text: str) -> list[str]:
+    """Return the formal manifest's `[ci] paths`, without FORMAL_CI_GENERIC."""
+    try:
+        paths = tomllib.loads(text)["ci"]["paths"]
+    except (tomllib.TOMLDecodeError, KeyError, TypeError) as err:
+        raise LensError(f"{FORMAL_MANIFEST}: no [ci] paths ({err})") from err
+    if not isinstance(paths, list) or not paths or not all(isinstance(p, str) for p in paths):
+        raise LensError(f"{FORMAL_MANIFEST}: [ci] paths is not a list of strings")
+    return [p for p in paths if p not in FORMAL_CI_GENERIC]
+
+
 def load_triggers(root: Path = REPO_ROOT) -> dict[str, Callable[[str], bool]]:
     """Path predicates for every lens except architecture, read from their sources."""
 
@@ -168,6 +188,8 @@ def load_triggers(root: Path = REPO_ROOT) -> dict[str, Callable[[str], bool]]:
     triggers: dict[str, Callable[[str], bool]] = {}
     for lens, sources in RULE_SOURCES.items():
         regexes = [glob_to_regex(p) for src in sources for p in frontmatter_paths(read(src), src)]
+        if lens == "formal":
+            regexes += [glob_to_regex(p) for p in manifest_ci_paths(read(FORMAL_MANIFEST))]
         triggers[lens] = lambda path, rx=tuple(regexes): any(r.match(path) for r in rx)
 
     pgo = pgo_files_regex(read(PRE_COMMIT_CONFIG))
@@ -205,6 +227,32 @@ def parse_changes(text: str) -> list[Change]:
             changes.append((status, fields[1], fields[2]))
         else:
             changes.append((status, fields[1], fields[1]))
+    return changes
+
+
+def parse_changes_z(text: str) -> list[Change]:
+    """Parse `git diff --name-status -z` output: NUL-separated, paths unquoted.
+
+    Without -z, git quotes paths with special or non-ASCII characters
+    (core.quotePath), and a quoted path defeats every suffix check and trigger.
+    """
+    fields = text.split("\0")
+    if fields and fields[-1] == "":
+        fields.pop()
+    changes: list[Change] = []
+    i = 0
+    while i < len(fields):
+        status = fields[i][:1]
+        if status in ("R", "C"):
+            if i + 2 >= len(fields):
+                raise ValueError("truncated rename record in git diff -z output")
+            changes.append((status, fields[i + 1], fields[i + 2]))
+            i += 3
+        else:
+            if i + 1 >= len(fields):
+                raise ValueError("truncated record in git diff -z output")
+            changes.append((status, fields[i + 1], fields[i + 1]))
+            i += 2
     return changes
 
 
@@ -314,19 +362,22 @@ def main(argv: list[str] | None = None) -> int:
 
     dir_has_go = None
     if args.paths_from:
-        text = Path(args.paths_from).read_text(encoding="utf-8")
+        changes = parse_changes(Path(args.paths_from).read_text(encoding="utf-8"))
     elif args.base:
         try:
-            text = git("diff", "--name-status", "-M", f"{args.base}...{args.head}")
+            changes = parse_changes_z(git("diff", "--name-status", "-z", "-M", f"{args.base}...{args.head}"))
             merge_base = git("merge-base", args.base, args.head).strip()
             dir_has_go = git_dir_has_go({"base": merge_base, "head": args.head})
         except subprocess.CalledProcessError as err:
             print(f"change-flow-lenses: git failed: {err.stderr.strip()}", file=sys.stderr)
             return 2
+        except ValueError as err:
+            print(f"change-flow-lenses: {err}", file=sys.stderr)
+            return 2
     else:
         parser.error("pass --base (with optional --head) or --paths-from")
 
-    print(json.dumps(select_lenses(parse_changes(text), triggers, dir_has_go), sort_keys=True))
+    print(json.dumps(select_lenses(changes, triggers, dir_has_go), sort_keys=True))
     return 0
 
 

@@ -97,15 +97,27 @@ const FIX_SCHEMA = withGuard(
 const SAFE_PATH = /^\/[A-Za-z0-9._@%+=,:\/-]*$/
 const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/
 const CHANGE_ID = /^[a-z0-9][a-z0-9-]*$/
+// Names that are, or resolve to, something other than a change branch.
+const NOT_A_CHANGE_BRANCH = /^(?:main|HEAD|refs\/.*|origin\/.*|remotes\/.*)$/
 
 function fail(message) {
   throw new Error('change-flow: ' + message)
 }
 
+// plainPath returns p without trailing slashes when it is an absolute path with
+// no empty, "." or ".." segment (so two spellings of one directory cannot
+// differ), or null.
+function plainPath(p) {
+  if (typeof p !== 'string' || !SAFE_PATH.test(p)) return null
+  const out = p.replace(/\/+$/, '')
+  if (out === '' || out.includes('//') || /\/\.\.?(?:\/|$)/.test(out)) return null
+  return out
+}
+
 // validateArgs returns normalised args or throws on the first bad one.
 function validateArgs(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('args must be an object')
-  const known = ['mode', 'change', 'worktree', 'branch', 'primary', 'pr', 'base', 'notes', 'from']
+  const known = ['mode', 'change', 'worktree', 'branch', 'primary', 'pr', 'base', 'notes', 'from', 'lane', 'review_file']
   for (const key of Object.keys(raw)) if (!known.includes(key)) fail('unknown arg ' + JSON.stringify(key))
   if (!MODES.includes(raw.mode)) fail('mode must be one of ' + MODES.join(', '))
   const out = { mode: raw.mode, base: raw.base === undefined ? 'origin/main' : raw.base }
@@ -114,12 +126,12 @@ function validateArgs(raw) {
     if (typeof raw[key] !== 'string' || raw[key] === '') fail(key + ' is required')
   }
   if (!CHANGE_ID.test(raw.change)) fail('change must be an OpenSpec change id (kebab-case)')
-  for (const key of ['worktree', 'primary']) {
-    if (!SAFE_PATH.test(raw[key]) || raw[key].includes('/../') || raw[key].endsWith('/..')) fail(key + ' must be a plain absolute path')
-  }
-  const strip = (p) => p.replace(/\/+$/, '')
-  if (strip(raw.worktree) === strip(raw.primary)) fail('worktree must not be the primary checkout')
-  if (!SAFE_REF.test(raw.branch) || raw.branch.includes('..') || raw.branch === 'main') fail('branch must be a change branch, not main')
+  const worktree = plainPath(raw.worktree)
+  const primary = plainPath(raw.primary)
+  if (!worktree) fail('worktree must be a plain absolute path')
+  if (!primary) fail('primary must be a plain absolute path')
+  if (worktree === primary) fail('worktree must not be the primary checkout')
+  if (!SAFE_REF.test(raw.branch) || raw.branch.includes('..') || NOT_A_CHANGE_BRANCH.test(raw.branch)) fail('branch must be a change branch, not main or a ref alias')
   if (typeof out.base !== 'string' || !SAFE_REF.test(out.base) || out.base.includes('..')) fail('base must be a git ref')
   if (raw.pr !== undefined) {
     const pr = String(raw.pr)
@@ -133,7 +145,23 @@ function validateArgs(raw) {
   } else if (raw.from !== undefined) {
     fail('from is only valid with mode continue')
   }
-  return { ...out, change: raw.change, worktree: strip(raw.worktree), primary: strip(raw.primary), branch: raw.branch, notes: raw.notes }
+  // lane "fast": the run being continued was a fast-lane run, so its spec has had
+  // only a self-review and the post-selector independent spec review still applies.
+  if (raw.lane !== undefined) {
+    if (raw.mode !== 'continue' || raw.lane !== 'fast') fail('lane must be "fast", and only with mode continue')
+    out.lane = 'fast'
+  }
+  // review_file: the review of an earlier run (its result's `review` field), for
+  // a fix stage that runs without a review fan-out of its own.
+  const fixOnly = raw.mode === 'finalize' || (raw.mode === 'continue' && raw.from === 'fix')
+  if (raw.review_file !== undefined) {
+    if (!fixOnly) fail('review_file is only valid with finalize or continue from fix')
+    out.review_file = plainPath(raw.review_file)
+    if (!out.review_file) fail('review_file must be a plain absolute path')
+  } else if (raw.mode === 'continue' && raw.from === 'fix') {
+    fail('continue from fix needs review_file: the earlier review is not carried between runs')
+  }
+  return { ...out, change: raw.change, worktree, primary, branch: raw.branch, notes: raw.notes }
 }
 
 // planStages lists the stages a mode runs, in order.
@@ -195,19 +223,26 @@ function parseTextGuard(text) {
   }
 }
 
-// reviewBody extracts the verbatim code-review text, or null when the lens failed:
-// no markers, an empty body, only "Skill execution completed", or a "(none)"
-// result with no explanation (probe P3 in the runbook).
+// A line that, alone, reports no findings without saying what was reviewed.
+const BARE_NO_FINDINGS = /^(?:\(none\)|none|nothing|no (?:findings?|issues?|problems?|bugs?)(?: found)?|nothing (?:found|usable|to report)|\[\]|\{\})$/i
+
+// reviewBody extracts the verbatim code-review text, or null when the lens failed.
+// It fails unless the agent's status line after the markers says ok AND the body
+// holds something besides skill boilerplate and bare "no findings" lines: no
+// markers, no or a non-ok status, an empty body, only "Skill execution
+// completed", or a "(none)" / "No findings." / "[]" result with no explanation
+// (probe P3 in the runbook).
 function reviewBody(text) {
-  const match = /CODE-REVIEW-BEGIN\n([\s\S]*?)\nCODE-REVIEW-END/.exec(String(text || ''))
-  if (!match) return null
-  const rest = match[1]
-    .replace(/skill execution completed\.?/gi, '')
-    .replace(/^\s*#*\s*(findings|results?)\s*:?\s*$/gim, '')
-    .replace(/^\s*(findings|results?)\s*:\s*/gim, '')
-    .replace(/\(none\)/gi, '')
-    .trim()
-  return rest === '' ? null : match[1].trim()
+  const match = /CODE-REVIEW-BEGIN\n([\s\S]*?)\nCODE-REVIEW-END[ \t]*\n+CODE-REVIEW-STATUS:[ \t]*([A-Za-z]+)/.exec(String(text || ''))
+  if (!match || match[2].toLowerCase() !== 'ok') return null
+  const substantive = match[1]
+    .replace(/^.*skill execution completed.*$/gim, '')
+    .replace(/^\s*skill\s+"?[\w:.-]+"?\s+completed\b.*$/gim, '')
+    .replace(/^\s*```\w*\s*$/gm, '')
+    .split('\n')
+    .map((l) => l.replace(/^\s*#*\s*(?:findings|results?)\s*:?/i, '').trim().replace(/[.!]+$/, '').trim())
+    .filter((l) => l !== '' && !BARE_NO_FINDINGS.test(l))
+  return substantive.length ? match[1].trim() : null
 }
 
 // --------------------------------------------------------------- self-checks
@@ -242,13 +277,27 @@ function selfChecks() {
     'dotdot-worktree': { ...good, worktree: '/w/../etc' },
     'shell-worktree': { ...good, worktree: '/w/x;rm' },
     'same-checkout': { ...good, worktree: '/w/invowk/' },
+    'same-checkout-dot': { ...good, worktree: '/w/invowk/.' },
+    'same-checkout-slashes': { ...good, worktree: '//w/invowk' },
     'main-branch': { ...good, branch: 'main' },
+    'main-ref': { ...good, branch: 'refs/heads/main' },
+    'remote-main': { ...good, branch: 'origin/main' },
+    'head-branch': { ...good, branch: 'HEAD' },
     'bad-base': { ...good, base: '-x' },
     'bad-pr': { ...good, pr: '12a' },
     'continue-no-from': { ...good, mode: 'continue' },
     'from-without-continue': { ...good, from: 'fix' },
+    'continue-fix-no-review': { ...good, mode: 'continue', from: 'fix' },
+    'review-file-not-fix': { ...good, review_file: '/w/review.json' },
+    'review-file-relative': { ...good, mode: 'finalize', review_file: 'review.json' },
+    'lane-without-continue': { ...good, mode: 'fast-lane', lane: 'fast' },
+    'lane-unknown': { ...good, mode: 'continue', from: 'review', lane: 'slow' },
   }
   for (const [name, value] of Object.entries(bad)) expectThrow('args.' + name, () => validateArgs(value))
+  expectEqual('args.continue-fix', validateArgs({ ...good, mode: 'continue', from: 'fix', review_file: '/w/r.json' }).review_file, '/w/r.json')
+  expectEqual('args.continue-lane', validateArgs({ ...good, mode: 'continue', from: 'simplify', lane: 'fast' }).lane, 'fast')
+  expectEqual('args.feature-branch-named-main', validateArgs({ ...good, branch: 'feat/main' }).branch, 'feat/main')
+  for (const id of LENS_IDS) expectEqual('lenses.brief-' + id, !!LENS_BRIEFS[id], true)
 
   expectEqual('plan.new', planStages('new'), ['spec', 'spec-review', 'implement', 'simplify', 'lenses', 'review', 'fix'])
   expectEqual('plan.fast-lane', planStages('fast-lane'), ['spec-fast', 'implement', 'simplify', 'lenses', 'review', 'fix'])
@@ -279,11 +328,17 @@ function selfChecks() {
   expectEqual('guard.text', guardChanged(parseTextGuard('x\n' + line + '\n')), null)
   expectEqual('guard.text-missing', parseTextGuard('no guard here'), null)
 
-  const wrap = (body) => 'CODE-REVIEW-BEGIN\n' + body + '\nCODE-REVIEW-END\n'
+  const wrap = (body, status) => 'CODE-REVIEW-BEGIN\n' + body + '\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ' + (status || 'ok') + '\n'
   expectEqual('review.findings', reviewBody(wrap('1. a.go:3 nil deref')), '1. a.go:3 nil deref')
   expectEqual('review.explained-none', reviewBody(wrap('Result: (none). Reviewed 4 files; the retry loop is bounded.')) !== null, true)
   expectEqual('review.bare-none', reviewBody(wrap('## Result\n(none)')), null)
+  expectEqual('review.none-period', reviewBody(wrap('(none).')), null)
+  expectEqual('review.findings-none', reviewBody(wrap('Findings: (none).')), null)
+  expectEqual('review.no-findings', reviewBody(wrap('No findings.')), null)
+  expectEqual('review.fork-empty-json', reviewBody(wrap('Skill "code-review" completed (forked execution).\n\nResult:\n```json\n[]\n```')), null)
   expectEqual('review.skill-only', reviewBody(wrap('Skill execution completed')), null)
+  expectEqual('review.explained-failure', reviewBody(wrap('The skill returned nothing usable.', 'failed')), null)
+  expectEqual('review.no-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\n'), null)
   expectEqual('review.no-markers', reviewBody('Skill execution completed'), null)
   return ['args', 'plan', 'lenses', 'guard', 'review']
 }
@@ -319,8 +374,11 @@ function specReviewPrompt(a, round) {
 }
 
 function specFixPrompt(a, review) {
-  return context(a, 'spec-fix') + '\n\nInvoke Skill openspec-update-change for "' + a.change + '" to resolve these blocking spec-review findings, then commit (signed, under the lock):\n' +
-    JSON.stringify(review.findings.filter((f) => f.severity === 'blocking'), null, 1)
+  // The review is blocking as a whole; the reviewer may not have marked any single
+  // finding "blocking", so the fixer sees every finding and the reviewer's summary.
+  return context(a, 'spec-fix') + '\n\nThe independent spec review is blocking. Invoke Skill openspec-update-change for "' + a.change + '" to resolve it, then commit (signed, under the lock). ' +
+    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' +
+    'Reviewer summary: ' + review.summary + '\nFindings:\n' + JSON.stringify(review.findings, null, 1)
 }
 
 function implementPrompt(a) {
@@ -347,8 +405,10 @@ function baseLensPrompt(a) {
 
 function codeReviewPrompt(a, target) {
   return context(a, 'review:code-review') + '\n\nInvoke Skill code-review with args exactly "high ' + target + '" (never --fix, never --comment). It runs as a fork; that is expected. ' +
-    'Then answer with the fork\'s full text verbatim between a line CODE-REVIEW-BEGIN and a line CODE-REVIEW-END, followed by one line `GUARD-JSON: {"before":{...},"after":{...}}`. ' +
-    'If the skill returned nothing usable, say so between the markers. Make no edits.'
+    'Then answer with the fork\'s full text verbatim between a line CODE-REVIEW-BEGIN and a line CODE-REVIEW-END, then one line `CODE-REVIEW-STATUS: ok` or `CODE-REVIEW-STATUS: failed`, ' +
+    'then one line `GUARD-JSON: {"before":{...},"after":{...}}`. ' +
+    'Status ok only when the fork returned review results: findings, or a statement of what it reviewed and why it found nothing. ' +
+    'Status failed when it returned nothing, only "Skill execution completed", or "(none)" / "No findings" / [] with no explanation; you may say why between the markers. Make no edits.'
 }
 
 function domainLensPrompt(a, lens, reasons) {
@@ -361,18 +421,36 @@ function domainLensPrompt(a, lens, reasons) {
     '\nPaths that selected this lens: ' + JSON.stringify((reasons || []).slice(0, 40)) + '\nREAD-ONLY: findings only, no edits, no commits, no outward writes.'
 }
 
+// reviewSection tells the fix agent what review it acts on: this run's fan-out,
+// an earlier run's review file, or, explicitly, none.
+function reviewSection(a, review) {
+  if (review.ran) {
+    return 'Failed lenses (re-check their angle yourself): ' + JSON.stringify(review.failed) + '\n' +
+      'Structured findings: ' + JSON.stringify(review.findings) + '\n' +
+      'code-review text:\n' + (review.failed.includes('code-review') ? '(the code-review lens FAILED; it is in the failed lenses above)' : review.codeReview)
+  }
+  if (a.review_file) {
+    return 'No review fan-out ran in this run. The review to act on is the earlier run\'s, in ' + a.review_file + ' (a change-flow result\'s `review` field: findings, failed lenses, code-review text). ' +
+      'Read it and treat it exactly as this run\'s findings; if it is missing or unreadable, return status blocked.'
+  }
+  return 'No review fan-out ran in this run and no review file was given, so there are no review findings to apply. ' +
+    'Do not describe the change as reviewed by this run; say in summary that this pass applied no review findings.'
+}
+
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
-    '1. `git -C ' + a.worktree + ' fetch origin` and rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
+    '1. Before fetching, record the pushed tip: `git -C ' + a.worktree + ' rev-parse --verify --quiet refs/remotes/origin/' + a.branch + '` (empty when never pushed). ' +
+    'Then `git -C ' + a.worktree + ' fetch origin` and rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the code; apply the confirmed ones; list each rejected one with its reason.\n' +
     '3. Run the FULL checklist (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. ' +
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if a function body bound by .agents/rules/formal-bindings.md was rewritten.\n' +
-    '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), push ' + a.branch + ' (--force-with-lease only on it), ' +
+    '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), and push with ' +
+    '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the tip recorded in step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing); ' +
     'update the DRAFT PR and watch `gh pr checks`; fix failures. Never mark it ready, never merge.\n' +
-    'Anything that needs an outward write the floor rule forbids goes into maintainer_asks.\n\n' +
-    'Failed lenses (re-check their angle yourself): ' + JSON.stringify(review.failed) + '\n' +
-    'Structured findings: ' + JSON.stringify(review.findings) + '\n' +
-    'code-review text:\n' + (review.codeReview || '(failed lens: none)')
+    'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
+    '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
+    'and return status blocked when the answer decides whether the change is correct.\n\n' +
+    reviewSection(a, review)
 }
 
 // ---------------------------------------------------------------- execution
@@ -391,9 +469,17 @@ const record = []
 let baseline = null
 let pr = a.pr
 let headSha = ''
+// review.ran is false until this run's fan-out finishes.
+let review = { ran: false, findings: [], failed: [], codeReview: '' }
+
+// reviewOut is the review as a result field, so a later finalize or
+// continue-from-fix run can be given it as review_file.
+function reviewOut() {
+  return review.ran ? { findings: review.findings, failed_lenses: review.failed, code_review: review.codeReview } : null
+}
 
 function blocked(stage, why, extra) {
-  return { status: 'blocked', mode: a.mode, change: a.change, branch: a.branch, pr: pr || '', blocked_at: stage, reason: why, stages: record, ...(extra || {}) }
+  return { status: 'blocked', mode: a.mode, change: a.change, branch: a.branch, pr: pr || '', blocked_at: stage, reason: why, stages: record, review: reviewOut(), ...(extra || {}) }
 }
 
 // check enforces the guard and records the stage; it returns an error string or null.
@@ -417,13 +503,15 @@ async function stageAgent(stage, title, prompt, schema, opts) {
   return result
 }
 
+// specReviewLoop returns {why, fixed}: why is the blocking reason or null, and
+// fixed says whether a spec-fix round changed the spec.
 async function specReviewLoop() {
-  let review = await stageAgent('spec-review', 'Spec review', specReviewPrompt(a, 0), SPEC_REVIEW_SCHEMA)
-  if (!review.blocking) return null
-  const fixed = await stageAgent('spec-fix', 'Spec review', specFixPrompt(a, review), STAGE_SCHEMA)
-  if (fixed.status !== 'done') return 'spec fix blocked: ' + fixed.summary
-  review = await stageAgent('spec-review-2', 'Spec review', specReviewPrompt(a, 1), SPEC_REVIEW_SCHEMA)
-  return review.blocking ? 'blocking spec findings remain after one fix round: ' + review.summary : null
+  let specReview = await stageAgent('spec-review', 'Spec review', specReviewPrompt(a, 0), SPEC_REVIEW_SCHEMA)
+  if (!specReview.blocking) return { why: null, fixed: false }
+  const fixed = await stageAgent('spec-fix', 'Spec review', specFixPrompt(a, specReview), STAGE_SCHEMA)
+  if (fixed.status !== 'done') return { why: 'spec fix blocked: ' + fixed.summary, fixed: true }
+  specReview = await stageAgent('spec-review-2', 'Spec review', specReviewPrompt(a, 1), SPEC_REVIEW_SCHEMA)
+  return { why: specReview.blocking ? 'blocking spec findings remain after one fix round: ' + specReview.summary : null, fixed: true }
 }
 
 async function reviewFanOut(selection) {
@@ -438,11 +526,18 @@ async function reviewFanOut(selection) {
   ]
   phase('Review')
   const results = await parallel(lenses.map((l) => l.run))
-  const out = { findings: [], failed: [], codeReview: '' }
+  const out = { ran: true, findings: [], failed: [], codeReview: '' }
   for (let i = 0; i < lenses.length; i++) {
     const id = lenses[i].id
-    let result = results[i]
+    const result = results[i]
     if (id === 'code-review') {
+      if (result === null || result === undefined) {
+        // Skipped or died: a failed lens, like a dead domain lens. A reply with a
+        // missing or changed guard still stops the run below.
+        out.failed.push(id)
+        log('code-review lens FAILED: agent returned nothing (skipped or died); the base lens keeps the floor')
+        continue
+      }
       const body = reviewBody(result)
       const guard = parseTextGuard(result)
       const problem = check('review:code-review', guard ? { guard, summary: body ? 'ok' : 'failed lens' } : null)
@@ -450,7 +545,7 @@ async function reviewFanOut(selection) {
       if (body) out.codeReview = body
       else {
         out.failed.push(id)
-        log('code-review lens FAILED (no output, or "(none)" with no explanation); the base lens keeps the floor')
+        log('code-review lens FAILED (status not ok, no output, or "(none)" with no explanation); the base lens keeps the floor')
       }
       continue
     }
@@ -469,8 +564,8 @@ async function reviewFanOut(selection) {
 }
 
 let selection = { lenses: [...LENS_IDS], fast_lane_eligible: false, reasons: {}, fallback: 'not selected' }
-let review = { findings: [], failed: [], codeReview: '' }
 let final = null
+const fastLaneRun = a.mode === 'fast-lane' || a.lane === 'fast'
 
 try {
   for (const stage of stages) {
@@ -478,7 +573,7 @@ try {
       const r = await stageAgent(stage, 'Spec', specPrompt(a, stage === 'spec-fast' ? 'fast-lane' : a.mode), STAGE_SCHEMA)
       if (r.status !== 'done') return blocked(stage, r.summary)
     } else if (stage === 'spec-review') {
-      const why = await specReviewLoop()
+      const { why } = await specReviewLoop()
       if (why) return blocked(stage, why)
     } else if (stage === 'implement') {
       const r = await stageAgent(stage, 'Implement', implementPrompt(a), STAGE_SCHEMA)
@@ -491,14 +586,17 @@ try {
       selection = r.exit_code === 0 ? normaliseLenses(r.stdout) : normaliseLenses('')
       if (selection.fallback) log('lens selector output unusable (' + selection.fallback + '); running ALL lenses')
       log('domain lenses: ' + (selection.lenses.join(', ') || 'none'))
-      if (a.mode === 'fast-lane' && !selection.fast_lane_eligible) {
+      if (fastLaneRun && !selection.fast_lane_eligible) {
         log('change is not fast-lane eligible: running the independent spec review before code review')
-        const why = await specReviewLoop()
+        const { why, fixed } = await specReviewLoop()
         if (why) return blocked('spec-review', why)
+        // The code was written against the spec before this fix: implement again.
+        if (fixed) return blocked('spec-review', 'the independent spec review changed the spec after implementation; re-run with mode continue, from implement')
       }
     } else if (stage === 'review') {
       review = await reviewFanOut(selection)
     } else if (stage === 'fix') {
+      if (!review.ran) log(a.review_file ? 'no review fan-out in this run: the fix agent reads ' + a.review_file : 'no review fan-out in this run and no review_file: the fix agent applies no review findings')
       final = await stageAgent(stage, 'Fix and gates', fixPrompt(a, review), FIX_SCHEMA)
     }
   }
@@ -517,8 +615,10 @@ return {
   gates: final.gates,
   rejected: final.rejected,
   maintainer_asks: final.maintainer_asks,
-  lenses: selection.lenses,
+  lenses: review.ran ? selection.lenses : [],
+  review_ran: review.ran,
   failed_lenses: review.failed,
+  review: reviewOut(),
   stages: record,
   next: final.status === 'done'
     ? 'ready for maintainer merge: check base_sha == origin/main, then squash-merge per .agents/runbooks/git-merge.md'

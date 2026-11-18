@@ -81,6 +81,25 @@ class SourceParsingTest(unittest.TestCase):
         )
 
 
+    def test_parse_changes_z(self) -> None:
+        text = "M\0a b.go\0R087\0old/x.go\0new/\u00e9.go\0A\0tab\there.md\0"
+        self.assertEqual(
+            lenses.parse_changes_z(text),
+            [("M", "a b.go", "a b.go"), ("R", "old/x.go", "new/\u00e9.go"), ("A", "tab\there.md", "tab\there.md")],
+        )
+        self.assertEqual(lenses.parse_changes_z(""), [])
+        for bad in ("M\0", "R100\0only-old.go\0"):
+            with self.subTest(text=bad), self.assertRaises(ValueError):
+                lenses.parse_changes_z(bad)
+
+    def test_manifest_ci_paths(self) -> None:
+        got = lenses.manifest_ci_paths('[ci]\npaths = ["formal/**", "Makefile", "go.mod", "scripts/formal.py"]\n')
+        self.assertEqual(got, ["formal/**", "scripts/formal.py"])
+        for text in ("[other]\nx = 1\n", "[ci]\npaths = []\n", "[ci]\npaths = [1]\n", "not toml ["):
+            with self.subTest(text=text), self.assertRaises(lenses.LensError):
+                lenses.manifest_ci_paths(text)
+
+
 class AntiDriftTest(unittest.TestCase):
     def test_security_paths_exist_and_are_named_in_the_agent_file(self) -> None:
         text = (ROOT / lenses.SECURITY_AGENT).read_text(encoding="utf-8")
@@ -136,6 +155,14 @@ class SelectionTest(unittest.TestCase):
     def test_security_lens(self) -> None:
         got = select("M\tinternal/sshserver/server_auth.go")
         self.assertIn("security", got["lenses"])
+        self.assertIn("security", select("M\tinternal/tuiserver/server.go")["lenses"])
+
+    def test_formal_instruments_select_formal(self) -> None:
+        for path in ("formal/models/x.tla", "formal/manifest.toml", "scripts/formal.py", "tools/mutation/triage/x.json"):
+            with self.subTest(path=path):
+                got = select("M\t" + path)
+                self.assertIn("formal", got["lenses"])
+                self.assertFalse(got["fast_lane_eligible"])
 
     def test_supply_chain_lock_file_anywhere(self) -> None:
         got = select("M\tsamples/invowkmods/x.invowkmod/invowkmod.lock.cue")
@@ -229,6 +256,32 @@ class CliTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("security", got["lenses"])
         self.assertEqual(set(got), {"lenses", "fast_lane_eligible", "reasons"})
+
+    def test_git_mode_quoted_paths(self) -> None:
+        """A path git would quote without -z still reaches the triggers."""
+        with tempfile.TemporaryDirectory() as tmp:
+
+            def run(*argv: str) -> str:
+                return subprocess.run(["git", "-C", tmp, *argv], check=True, capture_output=True, text=True).stdout
+
+            run("init", "-q")
+            run("config", "user.email", "t@example.invalid")
+            run("config", "user.name", "t")
+            run("config", "commit.gpgsign", "false")
+            (Path(tmp) / "README.md").write_text("x\n")
+            run("add", "-A")
+            run("commit", "-q", "-m", "base")
+            target = Path(tmp) / "internal" / "config"
+            target.mkdir(parents=True)
+            (target / "\u00e9tat.go").write_text("package config\n")
+            run("add", "-A")
+            run("commit", "-q", "-m", "head")
+            self.assertIn('"', run("-c", "core.quotePath=true", "diff", "--name-status", "HEAD~1...HEAD"))  # git quotes it without -z
+            changes = lenses.parse_changes_z(lenses.git("diff", "--name-status", "-z", "-M", "HEAD~1...HEAD", root=Path(tmp)))
+            self.assertEqual(changes, [("A", "internal/config/\u00e9tat.go", "internal/config/\u00e9tat.go")])
+            got = lenses.select_lenses(changes, lenses.load_triggers())
+            self.assertIn("security", got["lenses"])
+            self.assertFalse(got["fast_lane_eligible"])
 
     def test_git_mode_empty_diff(self) -> None:
         code, got = self.run_main("--base", "HEAD", "--head", "HEAD")

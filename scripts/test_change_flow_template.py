@@ -8,8 +8,8 @@ The Workflow runtime runs the script body as an async function, so the body may
   - wraps the body in an exported async function, writes it to a temporary
     .mjs file and runs `node --check` on it (ES-module parse);
   - imports it under node with stub agent()/parallel()/phase()/log() hooks and
-    drives dry-run, bad args, a full run, a failed code-review lens, a guard
-    violation and a malformed lens selector.
+    drives dry-run, bad args, a full run, failed code-review lenses, guard
+    violations, a malformed lens selector, resume and fast-lane paths.
 
 It needs node; without node it skips locally and fails under CI (CI=true).
 """
@@ -41,6 +41,8 @@ const snap = { status: '?? a.log', branch: 'main', head: 'abc123' }
 const guard = { before: snap, after: { ...snap } }
 const good = { mode: 'new', change: 'add-thing', worktree: '/w/invowk-x', branch: 'feat/add-thing', primary: '/w/invowk' }
 
+const codeReview = (body, status) => 'CODE-REVIEW-BEGIN\n' + body + '\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ' + status + '\nGUARD-JSON: ' + JSON.stringify(guard)
+
 function stubs(overrides) {
   const calls = []
   const phases = []
@@ -49,7 +51,7 @@ function stubs(overrides) {
     const label = (opts && opts.label) || '?'
     calls.push({ label, prompt, schema: !!(opts && opts.schema), agentType: opts && opts.agentType })
     if (overrides[label]) return overrides[label](prompt, opts)
-    if (label === 'review:code-review') return 'CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nGUARD-JSON: ' + JSON.stringify(guard)
+    if (label === 'review:code-review') return codeReview('1. a.go:3 nil deref', 'ok')
     if (label === 'lenses') return { exit_code: 0, stdout: '{"lenses":["ci"],"fast_lane_eligible":true,"reasons":{"ci":["Makefile"]}}', guard }
     if (label.startsWith('review:') || label === 'spec-review' || label === 'spec-review-2') return { blocking: false, findings: [], summary: 'ok', guard }
     if (label === 'fix') return { status: 'done', base_sha: 'b1', head_sha: 'h2', pr: '7', gates: ['make test'], rejected: [], maintainer_asks: [], summary: 'ok', guard }
@@ -107,14 +109,32 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(result.next.startsWith('ready for maintainer merge'))
 }
 
-// a "(none)" code-review result with no explanation is a failed lens, not zero findings.
+// a failed code-review lens is logged and reported, never counted as zero findings:
+// skill boilerplate, an explained failure, bare "(none)." / "No findings.", a
+// missing status line, or an agent that returned nothing.
+for (const [name, reply] of Object.entries({
+  'skill-only': codeReview('Skill execution completed', 'ok'),
+  'explained-failure': codeReview('The skill returned only "Skill execution completed"; nothing usable.', 'failed'),
+  'explained-failure-no-phrase': codeReview('Nothing usable: the fork returned no output.', 'failed'),
+  'none-period': codeReview('(none).', 'ok'),
+  'no-findings': codeReview('No findings.', 'ok'),
+  'no-status': 'CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nGUARD-JSON: ' + JSON.stringify(guard),
+  'agent-died': null,
+})) {
+  const { result, logs, calls } = await go(good, { 'review:code-review': () => reply })
+  assert.equal(result.status, 'done', name + ': ' + JSON.stringify(result))
+  assert.deepEqual(result.failed_lenses, ['code-review'], name)
+  assert.ok(logs.some((l) => l.includes('code-review lens FAILED')), name)
+  const fix = calls.find((c) => c.label === 'fix')
+  assert.ok(fix.prompt.includes('the code-review lens FAILED'), name)
+  assert.ok(!fix.prompt.includes('nothing usable'), name)
+}
+
+// a code-review reply without its guard still stops the run.
 {
-  const { result, logs } = await go(good, {
-    'review:code-review': () => 'CODE-REVIEW-BEGIN\nSkill execution completed\nCODE-REVIEW-END\nGUARD-JSON: ' + JSON.stringify(guard),
-  })
-  assert.equal(result.status, 'done')
-  assert.deepEqual(result.failed_lenses, ['code-review'])
-  assert.ok(logs.some((l) => l.includes('code-review lens FAILED')))
+  const { result } = await go(good, { 'review:code-review': () => 'CODE-REVIEW-BEGIN\n1. x\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\n' })
+  assert.equal(result.status, 'blocked')
+  assert.match(result.reason, /review:code-review/)
 }
 
 // a guard difference stops the run at that stage.
@@ -164,10 +184,79 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.deepEqual(calls.map((c) => c.label), ['spec', 'spec-review', 'spec-fix', 'spec-review-2'])
 }
 
-// finalize runs the fix stage only.
+// finalize runs the fix stage only, and says plainly that no review ran.
 {
-  const { calls } = await go({ ...good, mode: 'finalize', pr: 9 })
+  const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
+  assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
+  assert.ok(!calls[0].prompt.includes('failed lens: none'))
+  assert.equal(result.review_ran, false)
+  assert.equal(result.review, null)
+  assert.ok(logs.some((l) => l.includes('no review fan-out in this run')))
+}
+
+// continue from fix needs the earlier review, and hands its file to the fix agent.
+{
+  const s = stubs({})
+  await assert.rejects(run(...s.hooks, { ...good, mode: 'continue', from: 'fix' }, { total: null }, null))
+  assert.equal(s.calls.length, 0)
+  const { calls } = await go({ ...good, mode: 'continue', from: 'fix', review_file: '/w/review.json' })
+  assert.deepEqual(calls.map((c) => c.label), ['fix'])
+  assert.ok(calls[0].prompt.includes('/w/review.json'))
+}
+
+// a run that stops in the fix stage returns its review for review_file.
+{
+  const { result } = await go(good, { fix: () => null })
+  assert.equal(result.status, 'blocked')
+  assert.ok(result.review && result.review.code_review.includes('a.go:3 nil deref'))
+}
+
+// the fix agent pushes with an explicit lease recorded before its fetch.
+{
+  const { calls } = await go(good)
+  const fix = calls.find((c) => c.label === 'fix')
+  assert.ok(fix.prompt.includes('--force-with-lease=feat/add-thing:<the tip recorded in step 1>'))
+  assert.ok(fix.prompt.indexOf('rev-parse --verify --quiet refs/remotes/origin/feat/add-thing') < fix.prompt.indexOf('fetch origin'))
+}
+
+// path and branch aliases of the primary checkout or main are refused.
+for (const bad of [{ ...good, worktree: '/w/invowk/.' }, { ...good, worktree: '//w/invowk' }, { ...good, branch: 'refs/heads/main' }, { ...good, branch: 'origin/main' }, { ...good, branch: 'HEAD' }]) {
+  const s = stubs({})
+  await assert.rejects(run(...s.hooks, bad, { total: null }, null))
+  assert.equal(s.calls.length, 0)
+}
+
+// the spec fixer sees every finding of a blocking review, not only severity "blocking".
+{
+  let n = 0
+  const review = () => (n++ === 0
+    ? { blocking: true, findings: [{ file: 'design.md', severity: 'major', summary: 'untestable requirement', evidence: 'e' }], summary: 'one major gap', guard }
+    : { blocking: false, findings: [], summary: 'ok', guard })
+  const { calls } = await go(good, { 'spec-review': review, 'spec-review-2': review })
+  const fix = calls.find((c) => c.label === 'spec-fix')
+  assert.ok(fix.prompt.includes('untestable requirement') && fix.prompt.includes('one major gap'))
+}
+
+// a fast-lane spec fixed after implementation stops for re-implementation.
+{
+  const blockingOnce = () => ({ blocking: true, findings: [{ file: 'spec.md', severity: 'blocking', summary: 's', evidence: 'e' }], summary: 'gap', guard })
+  const { result, calls } = await go({ ...good, mode: 'fast-lane' }, {
+    lenses: () => ({ exit_code: 0, stdout: '{"lenses":[],"fast_lane_eligible":false,"reasons":{}}', guard }),
+    'spec-review': blockingOnce,
+  })
+  assert.equal(result.status, 'blocked')
+  assert.match(result.reason, /from implement/)
+  assert.ok(!calls.some((c) => c.label.startsWith('review:')))
+}
+
+// continuing a fast-lane run (lane fast) keeps the post-selector spec review.
+{
+  const ineligible = () => ({ exit_code: 0, stdout: '{"lenses":[],"fast_lane_eligible":false,"reasons":{}}', guard })
+  const fast = await go({ ...good, mode: 'continue', from: 'simplify', lane: 'fast' }, { lenses: ineligible })
+  assert.ok(fast.calls.some((c) => c.label === 'spec-review'))
+  const plain = await go({ ...good, mode: 'continue', from: 'simplify' }, { lenses: ineligible })
+  assert.ok(!plain.calls.some((c) => c.label === 'spec-review'))
 }
 console.log('change-flow template harness: ok')
 """
