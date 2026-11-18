@@ -157,7 +157,9 @@ for (const [name, reply] of Object.entries({
   const junk = await go(good, { spec: () => ({ status: 'done', summary: 'ok', guard }), implement: () => ({ status: 'done', summary: 'ok', head_sha: 'h1', pr: 'see above', guard }), simplify: () => ({ status: 'done', summary: 'ok', guard }) })
   assert.ok(junk.calls.find((c) => c.label === 'review:code-review').prompt.includes('"high feat/add-thing"'))
   const fix = url.calls.find((c) => c.label === 'fix')
-  assert.ok(fix.prompt.includes('is not an ancestor of the local feat/add-thing'))
+  assert.ok(fix.prompt.includes('scripts/change-flow-foreign-commits.sh /w/invowk-x feat/add-thing'))
+  assert.ok(fix.prompt.includes('Ancestry is not the test'))
+  assert.ok(fix.prompt.includes('Monitor tool'), 'long gates wait with Monitor')
   assert.ok(fix.prompt.includes('never a bare force'))
 }
 

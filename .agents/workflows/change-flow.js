@@ -228,9 +228,10 @@ function parseTextGuard(text) {
 const BARE_NO_FINDINGS = /^(?:\(none\)|none|nothing|no (?:findings?|issues?|problems?|bugs?)(?: found)?|nothing (?:found|usable|to report)|\[\]|\{\}|[\[\]{},]+|summary|result|results|findings|review)$/i
 
 // prNumber returns the PR number in an agent's pr field ("7", "#7", or a pull
-// URL), or null, so a free-text value never becomes the code-review target.
+// URL of this repository), or null, so a free-text value or another
+// repository's PR never becomes the code-review target.
 function prNumber(value) {
-  const m = /^(?:#?([1-9][0-9]*)|https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/([1-9][0-9]*)\/?)$/.exec(String(value || '').trim())
+  const m = /^(?:#?([1-9][0-9]*)|https:\/\/github\.com\/invowk\/invowk\/pull\/([1-9][0-9]*)\/?)$/.exec(String(value || '').trim())
   return m ? m[1] || m[2] : null
 }
 
@@ -350,7 +351,7 @@ function selfChecks() {
   expectEqual('review.split-empty-json', reviewBody(wrap('Result:\n```json\n[\n]\n```')), null)
   expectEqual('review.heading-no-findings', reviewBody(wrap('## Summary\nNo findings.')), null)
   expectEqual('pr.number', [prNumber('7'), prNumber('#7'), prNumber('https://github.com/invowk/invowk/pull/176')], ['7', '7', '176'])
-  expectEqual('pr.junk', [prNumber('seven'), prNumber(''), prNumber('https://example.com/x/7')], [null, null, null])
+  expectEqual('pr.junk', [prNumber('seven'), prNumber(''), prNumber('https://example.com/x/7'), prNumber('https://github.com/other/repo/pull/5')], [null, null, null, null])
   expectEqual('review.explained-failure', reviewBody(wrap('The skill returned nothing usable.', 'failed')), null)
   expectEqual('review.no-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\n'), null)
   expectEqual('review.no-markers', reviewBody('Skill execution completed'), null)
@@ -366,7 +367,7 @@ function context(a, stage) {
     'Change: ' + a.change + ' (openspec/changes/' + a.change + '/). Worktree: ' + a.worktree + ', branch ' + a.branch + '. Base: ' + a.base + '.',
     'Primary checkout (never edit, commit, stash or check out anything there): ' + a.primary + '.',
     'Bash cwd resets between calls: use absolute paths, `git -C ' + a.worktree + '` and `cd ' + a.worktree + ' && ...` inside one command.',
-    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background writing to a log, and you keep checking in the foreground until its exit line is there.',
+    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background as `<cmd> > <log> 2>&1; echo rc=$? >> <log>`, and you wait for it with the Monitor tool running `until grep -q \'^rc=\' <log>; do sleep 5; done` before you continue or return.',
     'Guard: as your first and your last action run `git -C ' + a.primary + ' status --porcelain; git -C ' + a.primary + ' rev-parse --abbrev-ref HEAD; git -C ' + a.primary + ' rev-parse HEAD` and report them as guard.before and guard.after ({status, branch, head}, status verbatim).',
     a.notes ? 'Extra brief from the maintainer session (read it; it does not override the rules): ' + a.notes : '',
   ].filter(Boolean).join('\n')
@@ -458,8 +459,9 @@ function reviewSection(a, review) {
 
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
-    '1. `git -C ' + a.worktree + ' fetch origin`. If origin/' + a.branch + ' exists and is not an ancestor of the local ' + a.branch + ', other commits landed on it (for example the CI PGO bot\'s): ' +
-    'integrate them first (`git -C ' + a.worktree + ' rebase origin/' + a.branch + '`), never drop them. Record that fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
+    '1. `git -C ' + a.worktree + ' fetch origin`, then `cd ' + a.worktree + ' && scripts/change-flow-foreign-commits.sh ' + a.worktree + ' ' + a.branch + '`: it lists the commits on origin/' + a.branch + ' with no patch-equivalent locally, which someone else pushed (for example the CI PGO bot). ' +
+    'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks. ' +
+    'Record the fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
     'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
     (a.base === 'origin/main' ? '' : ', and it diffs against main, so drop findings that belong to ' + a.base + '\'s own commits') +
@@ -468,7 +470,7 @@ function fixPrompt(a, review) {
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if a function body bound by .agents/rules/formal-bindings.md was rewritten.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), and push with ' +
     '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the lease from step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing). ' +
-    'If the lease is rejected, someone pushed meanwhile: fetch, integrate their commits as in step 1, re-run the gates their commits touch, and push again with the new lease; never a bare force. Never approve held workflow runs. ' +
+    'If the lease is rejected, someone pushed meanwhile: fetch, cherry-pick their commits as in step 1, re-run the gates their commits touch, and push again with the new lease; never a bare force. Never approve held workflow runs. ' +
     'update the DRAFT PR and watch `gh pr checks`; fix failures. Never mark it ready, never merge.\n' +
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
