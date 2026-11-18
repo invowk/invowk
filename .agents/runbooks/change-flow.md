@@ -1,0 +1,65 @@
+# Change Flow
+
+One Workflow per OpenSpec change, one agent per stage, run from the main session with the template `.agents/workflows/change-flow.js`. The floor every stage keeps is `.agents/rules/agent-workflows.md`; on conflict the rule wins over this runbook and over the template.
+
+## Running it
+
+Create the change worktree and branch first (`git worktree add <worktree> -b <branch> origin/main`), then call the Workflow tool with `scriptPath: ".agents/workflows/change-flow.js"` (the main checkout's copy) and `args`. The Workflow tool loads a `scriptPath` only from the session's working directory or a file the session has read, so to try an unmerged template from another worktree, copy it to the scratchpad, Read it, and pass that copy. Loading by `name` through the compatibility symlink to `.agents/workflows` (`meta.name` is `invowk-change-flow`) is not verified yet. The args:
+
+| Arg | Required | Meaning |
+|-----|----------|---------|
+| `mode` | yes | `new`, `revise`, `continue`, `finalize`, `fast-lane` or `dry-run` |
+| `change` | yes (not dry-run) | OpenSpec change id (`openspec/changes/<change>/`) |
+| `worktree` | yes | absolute path of the change worktree |
+| `branch` | yes | the change branch (never `main`) |
+| `primary` | yes | absolute path of the main checkout, for the guard |
+| `pr` | no | the draft PR number, once it exists |
+| `base` | no | default `origin/main` |
+| `from` | with `continue` | `implement`, `simplify`, `review` or `fix` |
+| `lane` | no, `continue` only | `fast` when the run being continued was a `fast-lane` run, so the independent spec review still runs if the change is not fast-lane eligible |
+| `review_file` | with `continue` from `fix`; optional with `finalize` | absolute path of a JSON file holding an earlier run's `review` result field (findings, failed lenses, code-review text) |
+| `notes` | no | an extra brief, for example the path of a decisions file |
+
+The script validates the args and throws on a bad one before it spawns any agent. Run `mode: "dry-run"` after editing the template: it runs the script's self-checks (arg validation, stage plans, lens-id normalisation, guard comparison, failed-review detection) and spawns no agent. `python3 scripts/test_change_flow_template.py` (part of `make test-scripts`) drives the same template under node with stub agents.
+
+## Modes
+
+- `new`: the change does not exist yet. Spec with `openspec-propose`, then the full flow.
+- `revise`: the change exists and its artifacts need edits. Spec with `openspec-update-change`, then the full flow.
+- `fast-lane`: docs, agent tooling or CI-only changes. One agent writes the spec and self-reviews it, then implementation onward. If the lens selector says the change is not fast-lane eligible (Go or non-testdata CUE files, or a formal, schema, security, supply-chain or architecture lens), the independent spec review runs before code review. If that review needed a spec-fix round, the code was written against the old spec, so the run returns `blocked` and asks for `continue` from `implement`.
+- `continue`: resume after a stopped run, at `from`. Use it when the earlier stages are done and committed. Review findings are not committed: every result, `blocked` included, carries a `review` field once the fan-out ran, so save it to a file and pass it as `review_file` with `from: "fix"` (the script refuses `from: "fix"` without one). Pass `lane: "fast"` when continuing a `fast-lane` run.
+- `finalize`: only the fix-and-gates stage, for example after the maintainer answered a `maintainer_asks` item. Without `review_file` the fix agent is told that no review ran in this run and applies no review findings; the result says `review_ran: false`.
+
+## Stages and why this order
+
+1. **Spec** (`openspec-propose` or `openspec-update-change`).
+2. **Spec review**: an independent read-only agent. Blocking findings go to one spec-fix agent (`openspec-update-change`) and a re-review; if they remain, the run returns `blocked`.
+3. **Implement** (`openspec-apply-change`): tests with the code, commit, push, draft PR, and the formal lane below.
+4. **Simplify** (`simplify`, quality only, on the committed diff against the base). It runs only the tests of what it touched.
+5. **Lenses**: `scripts/change-flow-lenses.py --base <base> --head HEAD` picks the domain lenses from the paths the change touches. Triggers are read live from the rules that own them (`paths:` frontmatter of formal-bindings, windows, cue-patterns, ci-workflows and version-pinning; the pgo-staleness hook regex; `formal/manifest.toml` `[ci] paths` without `Makefile`, `go.mod` and `go.sum`) plus the security and module-security areas, which the script test keeps in sync with their agent and skill files. Malformed output selects every lens, and the script logs it.
+6. **Review fan-out**, in parallel, findings only: the `base` lens (`.agents/agents/code-reviewer.md` over the diff, plus the delta specs) always; `code-review high <pr or branch>` always; and the selected domain lenses, each loading its skill or agent file by name. The `code-review` agent returns the fork's text between `CODE-REVIEW-BEGIN` and `CODE-REVIEW-END`, then `CODE-REVIEW-STATUS: ok|failed` and its guard line. The lens counts only with status `ok` and a body that holds more than skill boilerplate and bare "(none)" / "No findings" / `[]` lines; otherwise, or when the agent returned nothing, it is a failed lens, logged and listed in `failed_lenses`, and the `base` lens keeps the floor. A failed `base` lens stops the run.
+7. **Fix and gates**: one independent agent rebases on the base, dedupes and verifies every finding, applies the confirmed ones, records the rejected ones with reasons, runs the full `.agents/rules/checklist.md` once on the final tree, archives the change (`openspec-archive-change`), runs `/learn` minimally, pushes, and watches `gh pr checks`. It first fetches and integrates any commits others put on the branch (for example the CI PGO bot's), then pushes with `--force-with-lease=<branch>:<that fetched tip>`; a rejected lease means fetch, integrate and push again, never a bare force. It returns `{status, base_sha, head_sha, gates, rejected, maintainer_asks}` and never marks the PR ready or merges; questions a rule says to ask the user go into `maintainer_asks`.
+
+`simplify` runs before review because it edits logic: the last pass that edits code must be the bug-hunting one, or refactored code would reach `main` with no correctness review. The gates run once, at the end, because every earlier stage can still change the tree.
+
+## Formal lane
+
+- Implementation runs `python3 scripts/formal.py affected --event pull_request --base <base> --head HEAD`. When it prints `run=true`, it also runs `python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach`.
+- `make formal` is left to the required `Models, golden vectors, and correspondence` CI check, unless Java is present locally and the lane is affected.
+- The fix agent runs `make mutation-formal` once, report-only, in a throwaway worktree, only when a function body bound by `.agents/rules/formal-bindings.md` was rewritten: a green `triage --check` proves nothing about a rewritten body.
+
+## Merging
+
+The template ends at "ready for maintainer merge". The main session then checks that the returned `base_sha` equals the current `origin/main` (otherwise it reruns `finalize`), and squash-merges as `git-merge.md` describes once the maintainer approves. The main session also handles every `maintainer_asks` item: SonarCloud issue status, PR ready, labels and the like.
+
+## Probe facts (2026-11-18)
+
+Measured in this repository's sessions; re-check them after a Claude Code upgrade.
+
+- P1. Workflow agents (the default type and `general-purpose`) have `Skill`, but not `Agent` or `Workflow`. They load `CLAUDE.md`, the always-loaded rules and the memory index, but not the conversation: decisions must live in repo rules.
+- P2. `code-review` always runs as a fork in the session's primary directory (the main checkout), not in the agent's worktree. With no target it reviewed the main checkout. With an explicit branch or PR target it reviews the right diff, because refs are shared across worktrees. A positive control with seeded Go bugs returned 9 findings, both seeded bugs included, to an agent with no schema.
+- P3. When the calling agent has a `schema`, the fork's output does not reach the caller (CST later found it in the fork transcript): the agent sees only "Skill execution completed". A "(none)" result with no explanation counts as a failed lens, not as zero findings; the template logs it and the `base` lens keeps the floor.
+- P4. `simplify` runs inline and single-pass ("Agent tool unavailable -> single-pass inline cleanup"). It follows the cwd only when the agent uses `cd <worktree> && ...` or `git -C`; Bash cwd resets to the primary directory between calls.
+- P5. Checklist step 7 used to tell agents to resolve Sonar false positives in the SonarCloud UI, an outward write. Since 2026-11-18 the agent records the entry in both properties files and lists it for the maintainer.
+- P7. The first real fix-and-gates agent backgrounded its gates and ended its turn to wait. The workflow then forced its result, killing the gates and leaving the fixes uncommitted (run of 2026-11-18). Every stage prompt now forbids ending a turn with work running, and the fix agent commits confirmed fixes before the long gates. `finalize` is the recovery for a run that stopped this way.
+- P6 (observed in the CST and LushText sessions on 2026-11-18, not re-measured here). The fork reads the files around each hunk from the primary checkout, so a finding may describe main's code instead of the branch's: the fix agent checks each one with `git -C <worktree> show HEAD:<file>`. `high <branch>` diffs against `main`, so with another base it also reports the base's own commits. A caller with a `schema` finds the fork's findings only in the fork transcript, as the input of its last `StructuredOutput` call; this template avoids that by giving the code-review lens no schema.

@@ -86,6 +86,12 @@ When reviewing, verify that excluded rules haven't been exploited in new code.
 - Regex patterns in CUE schemas checked for ReDoS potential
 - User-provided CUE data should not cause excessive memory allocation
 
+### 6. TUI Server (`internal/tuiserver/`)
+
+- Every route, `/health` and unknown paths included, requires the token, compared in constant time (`subtle.ConstantTimeCompare`)
+- The restricted bind plan starts at loopback and adds only the addresses the engine and network mode need; it never binds `0.0.0.0` by default
+- The `container.tui_server_bind: "all-interfaces"` opt-in is read only from trusted config sources (`internal/config/tui_server_bind.go`)
+
 ## Review Workflow
 
 When asked to review security-sensitive code:
