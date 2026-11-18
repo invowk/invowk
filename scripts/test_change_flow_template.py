@@ -130,6 +130,21 @@ for (const [name, reply] of Object.entries({
   assert.ok(!fix.prompt.includes('nothing usable'), name)
 }
 
+// every stage forbids ending a turn with work running; the fix agent commits
+// confirmed fixes before the long gates and checks findings on the branch; a
+// base other than origin/main makes it drop findings from the base's commits.
+{
+  const { calls } = await go(good)
+  assert.ok(calls.every((c) => c.prompt.includes('Never end your turn')), 'every stage forbids returning with work running')
+  const fix = calls.find((c) => c.label === 'fix')
+  assert.ok(fix.prompt.includes('BEFORE the long gates'))
+  assert.ok(fix.prompt.includes('show HEAD:<file>'))
+  assert.ok(!fix.prompt.includes("own commits"), 'default base adds no base-commit note')
+  const other = await go({ ...good, base: 'feat/base-change' })
+  const fix2 = other.calls.find((c) => c.label === 'fix')
+  assert.ok(fix2.prompt.includes("drop findings that belong to feat/base-change's own commits"))
+}
+
 // a code-review reply without its guard still stops the run.
 {
   const { result } = await go(good, { 'review:code-review': () => 'CODE-REVIEW-BEGIN\n1. x\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\n' })

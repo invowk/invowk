@@ -352,6 +352,7 @@ function context(a, stage) {
     'Change: ' + a.change + ' (openspec/changes/' + a.change + '/). Worktree: ' + a.worktree + ', branch ' + a.branch + '. Base: ' + a.base + '.',
     'Primary checkout (never edit, commit, stash or check out anything there): ' + a.primary + '.',
     'Bash cwd resets between calls: use absolute paths, `git -C ' + a.worktree + '` and `cd ' + a.worktree + ' && ...` inside one command.',
+    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background writing to a log, and you keep checking in the foreground until its exit line is there.',
     'Guard: as your first and your last action run `git -C ' + a.primary + ' status --porcelain; git -C ' + a.primary + ' rev-parse --abbrev-ref HEAD; git -C ' + a.primary + ' rev-parse HEAD` and report them as guard.before and guard.after ({status, branch, head}, status verbatim).',
     a.notes ? 'Extra brief from the maintainer session (read it; it does not override the rules): ' + a.notes : '',
   ].filter(Boolean).join('\n')
@@ -443,7 +444,7 @@ function fixPrompt(a, review) {
     'Then `git -C ' + a.worktree + ' fetch origin` and rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
     (a.base === 'origin/main' ? '' : ', and it diffs against main, so drop findings that belong to ' + a.base + '\'s own commits') +
-    '); apply the confirmed ones; list each rejected one with its reason.\n' +
+    '); apply the confirmed ones; list each rejected one with its reason. Commit them locally (signed, under the lock) BEFORE the long gates, so a stopped run leaves them committed; push only after step 3.\n' +
     '3. Run the FULL checklist (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. ' +
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if a function body bound by .agents/rules/formal-bindings.md was rewritten.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), and push with ' +

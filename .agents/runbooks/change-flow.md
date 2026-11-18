@@ -4,7 +4,7 @@ One Workflow per OpenSpec change, one agent per stage, run from the main session
 
 ## Running it
 
-Create the change worktree and branch first (`git worktree add <worktree> -b <branch> origin/main`), then call the Workflow tool with `scriptPath: ".agents/workflows/change-flow.js"` and `args`:
+Create the change worktree and branch first (`git worktree add <worktree> -b <branch> origin/main`), then call the Workflow tool with `scriptPath: ".agents/workflows/change-flow.js"` (the main checkout's copy) and `args`. The Workflow tool loads a `scriptPath` only from the session's working directory or a file the session has read, so to try an unmerged template from another worktree, copy it to the scratchpad, Read it, and pass that copy. Loading by `name` through the compatibility symlink to `.agents/workflows` (`meta.name` is `invowk-change-flow`) is not verified yet. The args:
 
 | Arg | Required | Meaning |
 |-----|----------|---------|
@@ -58,7 +58,8 @@ Measured in this repository's sessions; re-check them after a Claude Code upgrad
 
 - P1. Workflow agents (the default type and `general-purpose`) have `Skill`, but not `Agent` or `Workflow`. They load `CLAUDE.md`, the always-loaded rules and the memory index, but not the conversation: decisions must live in repo rules.
 - P2. `code-review` always runs as a fork in the session's primary directory (the main checkout), not in the agent's worktree. With no target it reviewed the main checkout. With an explicit branch or PR target it reviews the right diff, because refs are shared across worktrees. A positive control with seeded Go bugs returned 9 findings, both seeded bugs included, to an agent with no schema.
-- P3. When the calling agent has a `schema`, the fork's output is lost: the agent sees only "Skill execution completed". A "(none)" result with no explanation counts as a failed lens, not as zero findings; the template logs it and the `base` lens keeps the floor.
+- P3. When the calling agent has a `schema`, the fork's output does not reach the caller (CST later found it in the fork transcript): the agent sees only "Skill execution completed". A "(none)" result with no explanation counts as a failed lens, not as zero findings; the template logs it and the `base` lens keeps the floor.
 - P4. `simplify` runs inline and single-pass ("Agent tool unavailable -> single-pass inline cleanup"). It follows the cwd only when the agent uses `cd <worktree> && ...` or `git -C`; Bash cwd resets to the primary directory between calls.
 - P5. Checklist step 7 used to tell agents to resolve Sonar false positives in the SonarCloud UI, an outward write. Since 2026-11-18 the agent records the entry in both properties files and lists it for the maintainer.
+- P7. The first real fix-and-gates agent backgrounded its gates and ended its turn to wait. The workflow then forced its result, killing the gates and leaving the fixes uncommitted (run of 2026-11-18). Every stage prompt now forbids ending a turn with work running, and the fix agent commits confirmed fixes before the long gates. `finalize` is the recovery for a run that stopped this way.
 - P6 (observed in the CST and LushText sessions on 2026-11-18, not re-measured here). The fork reads the files around each hunk from the primary checkout, so a finding may describe main's code instead of the branch's: the fix agent checks each one with `git -C <worktree> show HEAD:<file>`. `high <branch>` diffs against `main`, so with another base it also reports the base's own commits. A caller with a `schema` finds the fork's findings only in the fork transcript, as the input of its last `StructuredOutput` call; this template avoids that by giving the code-review lens no schema.
