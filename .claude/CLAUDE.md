@@ -35,14 +35,14 @@ System and user instructions come first. For repository guidance, this order win
 3. `.agents/skills/*/SKILL.md`: procedures. Runbooks (`.agents/runbooks/`) have the same standing.
 4. Package-level `AGENTS.md` files: scoped, explicit exceptions only.
 
-A rule beats a skill or runbook unless the rule grants an exception. Memorials (`.agents/memorials/`) are history and never normative. `.claude/{rules,skills,agents,commands}` are compatibility symlinks; docs reference `.agents/...`.
+A rule beats a skill or runbook unless the rule grants an exception. Memorials (`.agents/memorials/`) are history and never normative. `.claude/{rules,skills,agents,commands,workflows}` are compatibility symlinks; docs reference `.agents/...`.
 
 ## Where things live
 
 - Schemas: `pkg/invowkfile/invowkfile_schema.cue`, `pkg/invowkmod/invowkmod_schema.cue`, `internal/config/config_schema.cue`. All runtimes implement the interface in `internal/runtime/`.
 - Code: `cmd/invowk/` (thin Cobra adapters), `internal/` (private packages; services under `internal/app/`), `pkg/` (public packages), `tests/cli/` (testscript), `samples/invowkmods/` (sample modules). Package map and code-area routing: `.agents/runbooks/repo-map.md`.
 - Docs: `website/` (Docusaurus), `docs/architecture/` (diagrams), `formal/` (Alloy/TLA+ models), `openspec/` and `specs/` (specifications), `tasks/next/` (pending decisions), `.goplint/` (goplint consumer config; guide `docs/goplint/README.md`).
-- Agent docs: `.agents/{rules,skills,agents,commands}/`. On-demand procedures are indexed in `.agents/runbooks/README.md`, history and past decisions in `.agents/memorials/README.md`; neither is auto-loaded.
+- Agent docs: `.agents/{rules,skills,agents,commands,workflows}/`. On-demand procedures are indexed in `.agents/runbooks/README.md`, history and past decisions in `.agents/memorials/README.md`; neither is auto-loaded.
 
 ## Quick commands
 
@@ -50,9 +50,10 @@ A rule beats a skill or runbook unless the rule grants an exception. Memorials (
 
 ## Rules index
 
-When a file in `.agents/rules/` is added, renamed or removed, update this index in the same change; `make check-agent-docs` verifies it. Every rule, skill, agent and command appears here exactly once in bracketed form.
+When a file in `.agents/rules/` is added, renamed or removed, update this index in the same change; `make check-agent-docs` verifies it. Every rule, skill, agent, workflow and command appears here exactly once in bracketed form.
 
 - Always loaded:
+  - [`.agents/rules/agent-workflows.md`]: Workflow-agent floor (review, guard, outward writes, lock)
   - [`.agents/rules/checklist.md`]: completion gates
   - [`.agents/rules/commands.md`]: make targets, hidden internal commands
   - [`.agents/rules/general-rules.md`]: sources, code quality, scope
@@ -84,4 +85,5 @@ When a file in `.agents/rules/` is added, renamed or removed, update this index 
 ## Agents and commands
 
 - Agents (spawnable reviewers and generators): [`.agents/agents/code-reviewer.md`] [`.agents/agents/cue-schema-agent.md`] [`.agents/agents/performance-analyzer.md`] [`.agents/agents/security-reviewer.md`] [`.agents/agents/supply-chain-reviewer.md`] [`.agents/agents/ci-readiness.md`] [`.agents/agents/test-writer.md`]
+- Workflow templates (Workflow tool scripts; floor: `.agents/rules/agent-workflows.md`): [`.agents/workflows/change-flow.js`]
 - Slash commands: [`.agents/commands/fix-it.md`] [`.agents/commands/fix-it-simple.md`] [`.agents/commands/improve-type-system.md`] [`.agents/commands/review-docs.md`] [`.agents/commands/review-rules.md`] [`.agents/commands/review-tests.md`] [`.agents/commands/review-type-system.md`] [`.agents/commands/rust-alt.md`]

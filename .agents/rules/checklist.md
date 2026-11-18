@@ -8,7 +8,7 @@
 4. `make test`: the full suite. It already runs `make test-cli`; run `test-cli` alone only while iterating on CLI tests.
 5. `make check-baseline`, then triage every new goplint finding, whatever the task scope: decide whether the fix belongs in Invowk or in the analyzer (`github.com/invowk/goplint`). If both are plausible, stop and ask the user. Protocol inconclusives are always blocking: never baseline, except or inline-ignore them.
 6. `make check-file-length`: every Go file, production and test, stays under 1000 lines.
-7. `make sonar-local`: fix real bugs and vulnerabilities. For a false positive, resolve the issue in SonarCloud (False Positive or Accepted, with a comment naming the multicriteria entry) and record it in BOTH `sonar-project.properties` and `.sonarcloud.properties`, keeping multicriteria IDs gapless. Automatic Analysis ignores file-based issue suppressions, so the file entries alone change nothing.
+7. `make sonar-local`: fix real bugs and vulnerabilities. For a false positive, record it in BOTH `sonar-project.properties` and `.sonarcloud.properties`, keeping multicriteria IDs gapless, and list it for the maintainer, who resolves the issue in the SonarCloud UI (False Positive or Accepted, with a comment naming the multicriteria entry). An agent never changes SonarCloud issue status itself. Automatic Analysis ignores file-based issue suppressions, so the file entries alone change nothing.
 8. Conditional checks:
 
    | When | Run |

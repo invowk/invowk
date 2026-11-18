@@ -41,7 +41,8 @@ extract_matches() {
 	fi
 }
 
-# search_docs scans rules, skills, runbooks and memorials (never AGENTS.md).
+# search_docs scans rules, skills, runbooks, memorials and workflow templates
+# (never AGENTS.md).
 search_docs() {
 	local pattern="$1"
 	if [[ "$has_rg" -eq 1 ]]; then
@@ -49,12 +50,14 @@ search_docs() {
 			.agents/rules \
 			.agents/runbooks \
 			.agents/memorials \
+			.agents/workflows \
 			.agents/skills/*/SKILL.md || [[ $? -eq 1 ]]
 	else
 		grep -nE -- "$pattern" \
 			.agents/rules/*.md \
 			.agents/runbooks/*.md \
 			.agents/memorials/*.md \
+			.agents/workflows/*.js \
 			.agents/skills/*/SKILL.md \
 			| grep -vE '\.agents/skills/speckit\.[^/]+/SKILL\.md:' || true
 	fi
@@ -135,6 +138,21 @@ check_file_index "Agents index (.agents/agents)" .agents/agents AGENTS.md \
 check_file_index "Commands index (.agents/commands)" .agents/commands AGENTS.md \
 	"\\[\`\\.agents/commands/[^\`]+\`\\]" "s/^\\[\`(.+)\`\\]\$/\\1/"
 
+# Workflow templates (.agents/workflows/*.js) are indexed like commands.
+workflows_on_disk="$(new_tmp)"
+workflows_indexed="$(new_tmp)"
+if [[ -d .agents/workflows ]]; then
+	find .agents/workflows -maxdepth 1 -type f -name '*.js' | sed 's#^\./##' | sort >"$workflows_on_disk"
+fi
+extract_matches "\\[\`\\.agents/workflows/[^\`]+\`\\]" AGENTS.md \
+	| sed -E "s/^\\[\`(.+)\`\\]\$/\\1/" \
+	| sort >"$workflows_indexed"
+check_set_equality "Workflows index (.agents/workflows)" "$workflows_on_disk" "$workflows_indexed"
+if [[ -d .agents/workflows && "$(readlink .claude/workflows 2>/dev/null || true)" != "../.agents/workflows" ]]; then
+	echo "ERROR: .claude/workflows must be a symlink to ../.agents/workflows."
+	errors=1
+fi
+
 skills_on_disk="$(new_tmp)"
 skills_indexed="$(new_tmp)"
 skills_regex="\\[\`\\.agents/skills/[^\`]+\`\\]"
@@ -169,7 +187,7 @@ for doc_dir in .agents/runbooks .agents/memorials; do
 done
 
 alias_refs="$(new_tmp)"
-search_docs '\.claude/(rules|skills|agents|commands)' >"$alias_refs" || true
+search_docs '\.claude/(rules|skills|agents|commands|workflows)' >"$alias_refs" || true
 if [[ -s "$alias_refs" ]]; then
 	echo "ERROR: Found non-canonical .claude alias references in rules/skills/runbooks/memorials."
 	sed 's/^/  /' "$alias_refs"
