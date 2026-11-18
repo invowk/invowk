@@ -441,7 +441,9 @@ function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
     '1. Before fetching, record the pushed tip: `git -C ' + a.worktree + ' rev-parse --verify --quiet refs/remotes/origin/' + a.branch + '` (empty when never pushed). ' +
     'Then `git -C ' + a.worktree + ' fetch origin` and rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
-    '2. Dedupe and verify every finding below against the code; apply the confirmed ones; list each rejected one with its reason.\n' +
+    '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
+    (a.base === 'origin/main' ? '' : ', and it diffs against main, so drop findings that belong to ' + a.base + '\'s own commits') +
+    '); apply the confirmed ones; list each rejected one with its reason.\n' +
     '3. Run the FULL checklist (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. ' +
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if a function body bound by .agents/rules/formal-bindings.md was rewritten.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), and push with ' +
