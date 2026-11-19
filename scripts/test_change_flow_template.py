@@ -195,6 +195,17 @@ for (const [name, reply] of Object.entries({
   assert.equal(calls[calls.length - 1].label, 'simplify')
 }
 
+// a stale base: the spec or implement stage returns blocked and no later stage runs.
+for (const stage of ['spec', 'implement']) {
+  const { result, calls } = await go(good, {
+    [stage]: () => ({ status: 'blocked', summary: 'branch not rebased on origin/main', guard: { before: snap, after: snap } }),
+  })
+  assert.equal(result.status, 'blocked')
+  assert.equal(result.blocked_at, stage)
+  assert.match(result.reason, /not rebased/)
+  assert.equal(calls[calls.length - 1].label, stage, stage + ' is the last stage that ran')
+}
+
 // a missing guard also stops the run.
 {
   const { result } = await go(good, { implement: () => ({ status: 'done', summary: 'x' }) })
@@ -236,7 +247,7 @@ for (const [name, reply] of Object.entries({
 {
   const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
-  assert.ok(calls[0].prompt.includes('in this finalize run, only if the rebase changed such a body'))
+  assert.ok(calls[0].prompt.includes('in this finalize run, only if the rebase changed such a body compared with the lease from step 1'))
   assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
   assert.ok(!calls[0].prompt.includes('failed lens: none'))
   assert.equal(result.review_ran, false)

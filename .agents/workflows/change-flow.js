@@ -478,7 +478,7 @@ function fixPrompt(a, review) {
     '); apply the confirmed ones; list each rejected one with its reason. Commit them locally (signed, under the lock) BEFORE the long gates, so a stopped run leaves them committed; push only after step 3.\n' +
     '3. Run the FULL checklist (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. Skip checklist step 1 (/simplify): it belongs to the simplify stage, and a cleanup here would land after the review. ' +
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if this change rewrote a function body bound by .agents/rules/formal-bindings.md' +
-    (a.mode === 'finalize' ? '; in this finalize run, only if the rebase changed such a body compared with the head the earlier gates ran on (say which you checked)' : '') + '.\n' +
+    (a.mode === 'finalize' ? '; in this finalize run, only if the rebase changed such a body compared with the lease from step 1, the head the earlier gates ran on (compare it with HEAD and say which bodies you checked)' : '') + '.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '" (skip it when openspec/changes/' + a.change + '/ is gone and openspec/changes/archive/*-' + a.change + '/ exists: the change is already archived), ' +
     'then Skill learn (minimal; never edit the change-flow tooling, i.e. .agents/workflows/, ' + RUNBOOK + ', ' + RULE_FLOOR + ' and scripts/change-flow-*, inside a change\'s PR: list proposed edits to it in maintainer_asks), commit (signed, under the lock), and push with ' +
     '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the lease from step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing). ' +
