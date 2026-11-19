@@ -416,6 +416,20 @@ class RerunAndReportTests(unittest.TestCase):
         self.assertEqual(json.loads(out.read_text()),
                          {"version": 1, "digest": "d2", "mutants": [{"id": "e1", "file": "f0.go", "mutator": "m", "line": 9}]})
 
+    def test_merge_baselines_keeps_one_entry_per_id(self) -> None:
+        # go-mutesting writes both same-diff mutants; the merged baseline keeps the first.
+        self.write_group(0, {"killedCount": 0, "escapedCount": 2}, [], [
+            {"id": "e1", "file": "f0.go", "mutator": "m", "line": 12},
+            {"id": "e1", "file": "f0.go", "mutator": "m", "line": 9},
+        ])
+        self.write_group(1, {"killedCount": 0, "escapedCount": 1}, [], [{"id": "e2", "file": "f1.go", "mutator": "m", "line": 3}])
+        out = self.dir / "baseline.json"
+        self.assertEqual(fm.merge_baselines(self.dir, out, "d1"), 2)
+        self.assertEqual(json.loads(out.read_text())["mutants"], [
+            {"id": "e1", "file": "f0.go", "mutator": "m", "line": 9},
+            {"id": "e2", "file": "f1.go", "mutator": "m", "line": 3},
+        ])
+
     def test_merge_without_groups_fails(self) -> None:
         with self.assertRaisesRegex(PlanError, "no group-"):
             fm.merge_reports(self.dir, "")
@@ -835,13 +849,14 @@ class AnchorTests(Fixture):
         self.assertEqual(why(fm.STALE_LIST, good["id"]),
                          "the survivor moved to orphaned_survivors, which the staleness check does not anchor")
 
-    def test_duplicate_baseline_ids_must_agree(self) -> None:
+    def test_duplicate_baseline_id_fails(self) -> None:
+        # Two mutants with the same diff lines share an id; the baseline lists it once.
         good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
         copy = {"id": good["id"], "file": "a/a.go", "mutator": "m", "line": 24}
-        baseline = {"version": 1, "digest": "d", "mutants": [copy, {**copy, "line": 26}]}
+        baseline = {"version": 1, "digest": "d", "mutants": [copy]}
         self.assertEqual(self.check([good], baseline=baseline)[0], [])
-        baseline["mutants"][1]["digest"] = "own"
-        self.assertIn(f"baseline id {good['id']}: its entries disagree on file, mutator or digest",
+        baseline["mutants"].append({**copy, "line": 26})
+        self.assertIn(f"baseline id {good['id']}: listed 2 times; keep one entry per id",
                       self.check([good], baseline=baseline)[0])
 
     def test_evidence_at_a_per_mutant_digest(self) -> None:

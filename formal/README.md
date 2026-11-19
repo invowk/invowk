@@ -145,7 +145,10 @@ same verdict. Orphaned survivors are not anchored. A fourth shrink-only list,
 did not refresh (seeded empty by refresh-anchors-mutation-ledger); a listed id
 that passes fails as stale. A baseline mutant may carry its own evidence
 `digest` after a partial refresh; a full `mutation-formal-baseline-update`
-writes only the top-level one.
+writes only the top-level one. Mutants with the same diff lines at different
+places share one go-mutesting id, and go-mutesting's baseline matches by id, so
+the baseline lists each id once: the merge keeps the first entry and
+`triage --check` fails on a repeated id.
 
 The guards have already paid for themselves. A first draft of the scope model
 had a vacuous fact: `c.childOf in GlobalCmd` holds trivially for an empty

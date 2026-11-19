@@ -4807,6 +4807,19 @@ added = '''
 '''
 
 [[survivor]]
+id = "4e123d49cece7c3d374bc8a0fdd213c6"
+file = "pkg/invowkfile/invowkfile.go"
+symbol = "GetEffectiveWorkDir"
+model = "ModulePathContainment"
+element = "workdirCwd"
+class = "equivalent"
+reason = "branch/if (Removes an if-block body so the condition becomes a no-op) is equivalent: the `if workdir == \"\"` guard sits in the local resolve closure, and all four resolve call sites (CLI override, implementation, command and root workdir) run only after their own `!= \"\"` check, so resolve never receives an empty string and the removed `return \"\"` is unreachable"
+removed = '''
+			return ""
+'''
+added = "\n"
+
+[[survivor]]
 id = "3162498bd99c172c62faf5dee2695f05"
 file = "pkg/invowkfile/invowkfile.go"
 symbol = "GetEffectiveWorkDir"

@@ -1029,12 +1029,6 @@
       "line": 106
     },
     {
-      "id": "e373a3eab97ff69c1b8c4c1d243ef4cb",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "loop/range_break",
-      "line": 109
-    },
-    {
       "id": "74c6d920ce4eb27bb957fd7c25063305",
       "file": "internal/runtime/virtual_policy.go",
       "mutator": "statement/remove",
@@ -1806,6 +1800,13 @@
       "file": "pkg/invowkfile/invowkfile.go",
       "mutator": "conditional/negated",
       "line": 177
+    },
+    {
+      "id": "4e123d49cece7c3d374bc8a0fdd213c6",
+      "file": "pkg/invowkfile/invowkfile.go",
+      "mutator": "branch/if",
+      "line": 178,
+      "digest": "857457136e35fc2bd2358fd6ee3a9159a1b36cc1327710e6f3948494d4a9fca8"
     },
     {
       "id": "3162498bd99c172c62faf5dee2695f05",

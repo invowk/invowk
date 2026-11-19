@@ -53,6 +53,7 @@ import subprocess
 import sys
 import time
 import tomllib
+from collections import Counter
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import NamedTuple
@@ -677,6 +678,12 @@ def merge_baselines(report_dir: Path, out: Path, digest: str) -> int:
         # per-mutant evidence digests of a partial refresh (design D3).
         mutants += [{key: m[key] for key in BASELINE_MUTANT_KEYS} for m in read_baseline(path)["mutants"]]
     mutants.sort(key=lambda m: (m["file"], m["line"], m["mutator"], m["id"]))
+    # go-mutesting writes one entry per escaped mutant, and mutants with the
+    # same diff lines share an id; its baseline matches by id, so keep the first.
+    first: dict[str, dict] = {}
+    for m in mutants:
+        first.setdefault(m["id"], m)
+    mutants = list(first.values())
     out.write_text(json.dumps({"version": 1, "digest": digest, "mutants": mutants}, indent=2) + "\n")
     return len(mutants)
 
@@ -1160,13 +1167,11 @@ def check_triage(
     for extra in sorted(set(ledger_ids) - baseline_ids):
         failures.append(f"ledger survivor {extra} is not in the baseline")
     # go-mutesting gives two mutants with the same diff lines one id (they
-    # differ only by line). Such copies must agree on everything the checks
-    # below read by id, which keep one value per id.
-    seen: dict[str, tuple] = {}
-    for m in baseline["mutants"]:
-        fields = (m["file"], m["mutator"], m.get("digest"))
-        if seen.setdefault(m["id"], fields) != fields:
-            failures.append(f"baseline id {m['id']}: its entries disagree on file, mutator or digest")
+    # differ only by line) and suppresses the id when any of them escapes, so
+    # one entry per id is enough and the checks below keep one value per id.
+    counts = Counter(m["id"] for m in baseline["mutants"])
+    for mutant in sorted(m for m, n in counts.items() if n > 1):
+        failures.append(f"baseline id {mutant}: listed {counts[mutant]} times; keep one entry per id")
 
     rows = model_rows(models, root)
     if triage is None:
