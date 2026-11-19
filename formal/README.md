@@ -112,7 +112,7 @@ names no function, trace-only, or characterisation-only; 34) are derived and
 reported, never listed, so a new one passes.
 `scripts/formal_mutation.py triage --check` fails on an unlisted gap or orphan
 and on a listed entry that no longer applies. It also fails on any entry of the
-three lists that the base commit's manifest does not list, and prints why each
+four lists that the base commit's manifest does not list, and prints why each
 entry the base lists has left (bound, reclassified, resolved, or deleted). The
 base is `--base <sha>`, else a non-empty `INVOWK_TRIAGE_BASE`, else
 `git merge-base HEAD origin/main`. In CI `scripts/ci-triage-base.sh` sets the
@@ -122,11 +122,33 @@ too: a row bound at the base that is now unbound by design fails, and so does a
 new row under a listed unresolved pair (decision 28); a deleted or re-pointed
 row is a notice. A `Recv.name` symbol whose receiver no longer declares `name`
 fails correspondence, the plan, and the triage check (decision 27). A base with
-none of the lists seeds them, reporting those checks as notices; one with only
-some fails. A base that cannot be read fails closed. To
+none of the first three lists seeds them all, reporting those checks as
+notices; one with only some fails. `stale_survivors` also seeds from a base
+that has the first three but not it. A base that cannot be read fails closed. To
 clear an entry, rename the element or bind the row, then delete the entry; an
 added entry fails against the base. The survivor-triage follow-up empties
 `unresolved_elements` and `orphaned_survivors` and binds the gaps.
+
+Each ledger survivor is anchored to the code it mutates: `removed` and `added`
+hold the exact diff lines go-mutesting hashes into the stable id, plus
+`context` (the unchanged line before the insertion) for a mutant that removes no
+line. `triage --check` fails, naming the id and symbol, when the anchor does not
+hash to the id with the baseline's mutator, when the symbol no longer names a
+function in its file, or when the anchor lines, verbatim with their indentation,
+no longer appear in order inside that function's body (a removed comment line
+may follow the function). It cannot tell which of several identical lines in
+the body was mutated, nor see a line inserted between non-adjacent removed
+lines (design D1 of refresh-anchors-mutation-ledger). Edits elsewhere in a bound file
+pass. The check reads only the current tree, so a depth-1 checkout gives the
+same verdict. Orphaned survivors are not anchored. A fourth shrink-only list,
+`[triage] stale_survivors`, holds survivors that fail it and that their change
+did not refresh (seeded empty by refresh-anchors-mutation-ledger); a listed id
+that passes fails as stale. A baseline mutant may carry its own evidence
+`digest` after a partial refresh; a full `mutation-formal-baseline-update`
+writes only the top-level one. Mutants with the same diff lines at different
+places share one go-mutesting id, and go-mutesting's baseline matches by id, so
+the baseline lists each id once: the merge keeps the first entry and
+`triage --check` fails on a repeated id.
 
 The guards have already paid for themselves. A first draft of the scope model
 had a vacuous fact: `c.childOf in GlobalCmd` holds trivially for an empty

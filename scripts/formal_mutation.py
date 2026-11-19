@@ -53,6 +53,7 @@ import subprocess
 import sys
 import time
 import tomllib
+from collections import Counter
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import NamedTuple
@@ -88,7 +89,12 @@ REASON_CHARACTERISATION_ONLY = "characterisation-only"
 
 TRIAGE_CLASSES = {"equivalent", "abstraction", "binding-gap", "model-gap", "defect"}
 FOLLOW_UP_CLASSES = {"binding-gap", "model-gap", "defect"}
-SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up"}
+SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up", "removed", "added", "context"}
+# The anchor fields (refresh-anchors-mutation-ledger design D1): the removed and
+# added lines of the mutant's diff, which go-mutesting hashes into its id, and,
+# for a mutant that removes no line, the unchanged line its insertion follows.
+# Their absence is reported as an unanchored entry, not as a field error.
+OPTIONAL_SURVIVOR_KEYS = {"follow_up", "removed", "added", "context"}
 CLOSED_KEYS = {"id", "model"}
 REQUIRED_ESCAPED_RERUNS = 2
 # go-mutesting's result classes, as named in report.json and the rerun evidence.
@@ -656,6 +662,9 @@ def group_dirs(report_dir: Path) -> list[Path]:
     return dirs
 
 
+BASELINE_MUTANT_KEYS = ("id", "file", "mutator", "line")
+
+
 def merge_baselines(report_dir: Path, out: Path, digest: str) -> int:
     """Merge the per-group baselines go-mutesting wrote into one file, stamped
     with the digest of the plan inputs it was generated from (rerun evidence
@@ -665,8 +674,16 @@ def merge_baselines(report_dir: Path, out: Path, digest: str) -> int:
         path = group / "baseline.json"
         if not path.exists():
             raise PlanError(f"{path}: go-mutesting wrote no baseline for this group")
-        mutants += read_baseline(path)["mutants"]
+        # Only go-mutesting's own fields: a full regeneration drops the
+        # per-mutant evidence digests of a partial refresh (design D3).
+        mutants += [{key: m[key] for key in BASELINE_MUTANT_KEYS} for m in read_baseline(path)["mutants"]]
     mutants.sort(key=lambda m: (m["file"], m["line"], m["mutator"], m["id"]))
+    # go-mutesting writes one entry per escaped mutant, and mutants with the
+    # same diff lines share an id; its baseline matches by id, so keep the first.
+    first: dict[str, dict] = {}
+    for m in mutants:
+        first.setdefault(m["id"], m)
+    mutants = list(first.values())
     out.write_text(json.dumps({"version": 1, "digest": digest, "mutants": mutants}, indent=2) + "\n")
     return len(mutants)
 
@@ -744,6 +761,106 @@ def read_reruns(path: Path) -> list[dict]:
     return records
 
 
+def mutant_id(file: str, mutator: str, removed: str, added: str) -> str:
+    """go-mutesting's stable mutant id (internal/baseline MutantID, v2.8.3):
+    the md5 of the relative file, the mutator, and the removed and added diff
+    lines, each followed by a newline; no line numbers."""
+    return hashlib.md5(f"{file}\0{mutator}\0{removed}\0{added}".encode()).hexdigest()
+
+
+def anchored_in(lines: list[str], decl: FuncDecl, anchors: list[str]) -> bool:
+    """Whether the anchors appear verbatim and in order in `lines` (a file's
+    lines), the first one inside `decl`'s body (after its `func` line, up to
+    its closing brace; the `func` line itself only for a one-line function).
+    go-mutesting hashes the exact text, indentation included, so a re-indented
+    line is a different mutant. Unchanged lines may separate the anchors. A
+    later code line must lie inside the function too; a later comment line
+    may lie anywhere after it, because go/printer can re-flow a comment past
+    the function's end."""
+    end = min(decl.end, len(lines))
+    first = decl.start - 1 if decl.start == decl.end else decl.start
+    for start in range(first, end):
+        if lines[start] != anchors[0]:
+            continue
+        pos, matched = start + 1, True
+        for anchor in anchors[1:]:
+            limit = len(lines) if anchor.lstrip().startswith("//") else end
+            found = next((i for i in range(pos, limit) if lines[i] == anchor), None)
+            if found is None:
+                matched = False
+                break
+            pos = found + 1
+        if matched:
+            return True
+    return False
+
+
+class ParsedSource(NamedTuple):
+    """A Go file's lines and top-level function declarations."""
+
+    lines: list[str]
+    decls: list[FuncDecl]
+
+
+def anchor_problem(survivor: dict, mutator: str | None, source: Callable[[str], ParsedSource | None]) -> str | None:
+    """Why a ledger entry no longer describes a mutant of the current code
+    (refresh-anchors-mutation-ledger design D1), or None. It reads only the
+    current Go source through `source(file)`: no mutation run, no `go list`, no
+    git history. `mutator` is the baseline's mutator for the id (None when the
+    id is not baselined, which the id-set check reports)."""
+    removed, added = survivor.get("removed"), survivor.get("added")
+    if not isinstance(removed, str) or not isinstance(added, str):
+        return "unanchored: removed and added are required"
+    context = survivor.get("context")
+    if context is not None and (removed or not isinstance(context, str) or "\n" in context):
+        return "unanchored: context is one line, only for a mutant that removes no line"
+    if not removed and not context:
+        return "unanchored: it removes no line and has no context"
+    file, symbol = survivor["file"], survivor["symbol"]
+    if mutator is not None and mutant_id(file, mutator, removed, added) != survivor["id"]:
+        return f"anchor mismatch: removed and added do not hash to the id with {file} and mutator {mutator}"
+    try:
+        parsed = source(file)
+        decl = find_function(parsed.decls, symbol) if parsed is not None else None
+    except PlanError as err:
+        return f"symbol unresolved: {err}"
+    if decl is None:
+        return f"symbol missing: {symbol} no longer names a function in {file}"
+    if not anchored_in(parsed.lines, decl, (removed or context).splitlines()):
+        return (f"mutated code gone: the anchor lines no longer appear verbatim and in order from inside {symbol} "
+                f"({file}:{decl.start}-{decl.end})")
+    return None
+
+
+def source_reader(root: Path) -> Callable[[str], ParsedSource | None]:
+    """The current tree's parsed file, read and parsed once per file; None
+    when it is missing. A file that cannot be read or that function_decls
+    rejects raises PlanError on every call; its message is cached too."""
+    cache: dict[str, ParsedSource | str | None] = {}
+
+    def parse(file: str) -> ParsedSource | str | None:
+        try:
+            text = (root / file).read_text()
+        except FileNotFoundError:
+            return None
+        except (OSError, UnicodeDecodeError) as err:
+            return f"cannot read {file}: {err}"
+        try:
+            return ParsedSource(text.splitlines(), function_decls(text))
+        except PlanError as err:
+            return f"cannot parse {file}: {err}"
+
+    def read(file: str) -> ParsedSource | None:
+        if file not in cache:
+            cache[file] = parse(file)
+        result = cache[file]
+        if isinstance(result, str):
+            raise PlanError(result)
+        return result
+
+    return read
+
+
 def check_unplanned(
     rows: list[Row], survivors: list[dict], triage: dict[str, list], root: Path
 ) -> tuple[list[str], list[str]]:
@@ -797,8 +914,13 @@ def check_unplanned(
 
 
 # The lists that may only shrink, by the manifest table that holds them.
-GROWTH_LISTS = (("correspondence", "unresolved_elements"), ("triage", "binding_gaps"), ("triage", "orphaned_survivors"))
-UNRESOLVED_LIST, GAPS_LIST, ORPHANS_LIST = (f"[{table}] {key}" for table, key in GROWTH_LISTS)
+GROWTH_LISTS = (("correspondence", "unresolved_elements"), ("triage", "binding_gaps"), ("triage", "orphaned_survivors"),
+                ("triage", "stale_survivors"))
+UNRESOLVED_LIST, GAPS_LIST, ORPHANS_LIST, STALE_LIST = (f"[{table}] {key}" for table, key in GROWTH_LISTS)
+# The lists whose absence marks the seeding change (decision 19). The stale
+# list came later: it seeds from a base that has these three but not it
+# (refresh-anchors-mutation-ledger design D5).
+SEEDING_LISTS = (UNRESOLVED_LIST, GAPS_LIST, ORPHANS_LIST)
 
 # The variable that names the growth base when --base is not given
 # (harden-formal-instruments decision 22); scripts/ci-triage-base.sh resolves
@@ -825,9 +947,10 @@ def shrink_lists(data: dict) -> dict[str, set | None]:
 
 
 def seeds_lists(base: dict) -> bool:
-    """Whether a base manifest has none of the shrink-only lists: the seeding
-    change (decision 19)."""
-    return all(entries is None for entries in shrink_lists(base).values())
+    """Whether a base manifest has none of the first three shrink-only lists:
+    the seeding change (decision 19)."""
+    lists = shrink_lists(base)
+    return all(lists[name] is None for name in SEEDING_LISTS)
 
 
 def entry_label(entry) -> str:
@@ -839,21 +962,29 @@ def check_growth(
 ) -> tuple[list[str], list[str]]:
     """Fail on every shrink-only list entry that the base manifest does not
     list (harden-formal-instruments decision 15). A base with none of the
-    lists is the seeding change and passes with a notice per list; a base with
-    only some of them fails for each one it lacks, so renaming a key cannot
-    reopen seeding (decision 19). An entry that left a list is a notice, with
-    the reason `why(list, entry)` gives (decision 18). Returns the failures and
-    the notices."""
+    first three lists is the seeding change and passes with a notice per list;
+    a base with only some of them fails for each one it lacks, so renaming a key
+    cannot reopen seeding (decision 19). The stale list also seeds, with a
+    notice, from a base that has the first three and lacks it
+    (refresh-anchors-mutation-ledger design D5). An entry that left a list is
+    a notice, with the reason `why(list, entry)` gives (decision 18). Returns
+    the failures and the notices."""
     head_lists, base_lists = shrink_lists(head), shrink_lists(base)
     failures, notices = [], []
     present = [name for name, entries in base_lists.items() if entries is not None]
+    seeding = f"not in the base {base_name} manifest; this change seeds it"
     if seeds_lists(base):
-        return [], [f"{name}: not in the base {base_name} manifest; this change seeds it" for name in head_lists]
+        return [], [f"{name}: {seeding}" for name in head_lists]
+    seeds_stale = all(base_lists[name] is not None for name in SEEDING_LISTS)
     for name, entries in head_lists.items():
         at_base = base_lists[name]
+        if at_base is None and name == STALE_LIST and seeds_stale:
+            notices.append(f"{name}: {seeding}")
+            continue
         if at_base is None:
-            failures.append(f"{name}: not in the base {base_name} manifest, which has {', '.join(present)}; "
-                            "a list is seeded only from a base with none of the three")
+            rule = ("it is seeded only from a base that has the other three lists" if name == STALE_LIST
+                    else "a list is seeded only from a base with none of the first three")
+            failures.append(f"{name}: not in the base {base_name} manifest, which has {', '.join(present)}; {rule}")
             continue
         for entry in sorted((entries or set()) - at_base, key=str):
             failures.append(f"{name}: {entry_label(entry)} is not listed at the base {base_name}; "
@@ -864,10 +995,16 @@ def check_growth(
     return failures, notices
 
 
-def departure_reasons(rows: list[Row], survivors: list[dict], root: Path) -> Callable[[str, object], str]:
+def departure_reasons(
+    rows: list[Row], survivors: list[dict], root: Path, problems: dict[str, str] | None = None,
+    orphans: list[str] | None = None,
+) -> Callable[[str, object], str]:
     """Why an entry left a shrink-only list (decision 18), for check_growth.
-    The row classification is computed on the first call only: entries rarely
-    leave, and most runs never call it."""
+    `problems` maps each ledger id to its failed staleness or anchor
+    condition, as check_triage records it; `orphans` is the head's
+    orphaned_survivors, which check_triage does not anchor. The row
+    classification is computed on the first call only: entries rarely leave,
+    and most runs never call it."""
     state: dict = {}
 
     def status() -> dict:
@@ -886,6 +1023,12 @@ def departure_reasons(rows: list[Row], survivors: list[dict], root: Path) -> Cal
         key = entry if name == GAPS_LIST else s["survivors"].get(entry)
         if key is None:
             return "the survivor left the ledger"
+        if name == STALE_LIST:
+            if entry in (orphans or []):
+                return "the survivor moved to orphaned_survivors, which the staleness check does not anchor"
+            problem = (problems or {}).get(entry)
+            return (f"the entry still fails the staleness or anchor check ({problem})" if problem
+                    else "the entry passes the staleness and anchor checks")
         if key not in s["rows"]:
             return "the row was deleted"
         reason = s["unbound"].get(key)
@@ -1000,12 +1143,15 @@ def check_triage(
     root: Path = REPO_ROOT,
     triage: dict[str, list] | None = None,
     report: list[str] | None = None,
+    problems: dict[str, str] | None = None,
 ) -> list[str]:
     """Every fail-closed condition of the triage ledger (design D6) and of the
-    `[triage]` lists (design D13 of harden-formal-instruments). `triage`
-    defaults to the repository manifest's table for the repository root and to
-    empty lists for any other root; the listed entries are appended to
-    `report` when given."""
+    `[triage]` lists (design D13 of harden-formal-instruments), and the
+    per-entry staleness check (refresh-anchors-mutation-ledger design D1).
+    `triage` defaults to the repository manifest's table for the repository
+    root and to empty lists for any other root; the listed entries are
+    appended to `report` when given, and each entry's failed staleness or
+    anchor condition is stored in `problems` when given."""
     failures = []
     unknown_tables = set(ledger) - {"survivor", "closed"}
     if unknown_tables:
@@ -1020,6 +1166,12 @@ def check_triage(
         failures.append(f"baseline id {missing} has no [[survivor]] entry in the ledger")
     for extra in sorted(set(ledger_ids) - baseline_ids):
         failures.append(f"ledger survivor {extra} is not in the baseline")
+    # go-mutesting gives two mutants with the same diff lines one id (they
+    # differ only by line) and suppresses the id when any of them escapes, so
+    # one entry per id is enough and the checks below keep one value per id.
+    counts = Counter(m["id"] for m in baseline["mutants"])
+    for mutant in sorted(m for m, n in counts.items() if n > 1):
+        failures.append(f"baseline id {mutant}: listed {counts[mutant]} times; keep one entry per id")
 
     rows = model_rows(models, root)
     if triage is None:
@@ -1030,12 +1182,33 @@ def check_triage(
         report += listed
     findings = {cmd.finding for model in models for cmd in model.commands if cmd.finding}
     by_model = {model.name: model for model in models}
+    mutators = {m["id"]: m["mutator"] for m in baseline["mutants"]}
+    orphan_ids = set(triage.get("orphaned_survivors", []))
+    stale_ids = set(triage.get("stale_survivors", []))
+    source = source_reader(root)
+    problems = {} if problems is None else problems
     for survivor in survivors:
         mutant = survivor.get("id", "?")
         keys = set(survivor)
-        if keys - SURVIVOR_KEYS or (SURVIVOR_KEYS - {"follow_up"}) - keys:
-            failures.append(f"survivor {mutant}: fields must be {sorted(SURVIVOR_KEYS)} (follow_up optional)")
+        if keys - SURVIVOR_KEYS or (SURVIVOR_KEYS - OPTIONAL_SURVIVOR_KEYS) - keys:
+            failures.append(f"survivor {mutant}: fields must be {sorted(SURVIVOR_KEYS)} "
+                            f"({', '.join(sorted(OPTIONAL_SURVIVOR_KEYS))} optional)")
             continue
+        # Orphans are exempt: the plan no longer targets their function.
+        problem = None if mutant in orphan_ids else anchor_problem(survivor, mutators.get(mutant), source)
+        if problem:
+            problems[mutant] = problem
+        if mutant in stale_ids:
+            if mutant in orphan_ids:
+                failures.append(f"[triage] stale_survivors: {mutant} ({survivor['symbol']}) is also an orphaned "
+                                "survivor; list it once, in orphaned_survivors")
+            elif problem is None:
+                failures.append(f"[triage] stale_survivors: stale entry {mutant} ({survivor['symbol']}) passes the "
+                                "staleness and anchor checks; remove it")
+            elif report is not None:
+                report.append(f"stale survivor {mutant} ({survivor['symbol']}): {problem}")
+        elif problem:
+            failures.append(f"survivor {mutant} ({survivor['symbol']}): {problem}")
         cls = survivor["class"]
         follow_up = survivor.get("follow_up", "").strip()
         if cls not in TRIAGE_CLASSES:
@@ -1058,18 +1231,26 @@ def check_triage(
                 f"of {row.model} row {row.element!r} ({row.abstraction!r})"
             )
 
+    for mutant in sorted(stale_ids - set(ledger_ids)):
+        failures.append(f"[triage] stale_survivors: stale entry {mutant} is not in the ledger")
+
+    # A mutant's evidence digest is its own `digest` after a partial refresh,
+    # else the baseline's (refresh-anchors-mutation-ledger design D3).
     stamp = baseline.get("digest", "")
-    if baseline_ids and not stamp:
+    own = {m["id"]: m["digest"] for m in baseline["mutants"] if m.get("digest")}
+    if baseline_ids - set(own) and not stamp:
         failures.append("baseline: no input digest; rerun `make mutation-formal-baseline-update`")
     by_id: dict[str, list[dict]] = {}
     for record in reruns:
         by_id.setdefault(record["id"], []).append(record)
     for mutant in sorted(baseline_ids):
-        evidence = [r for r in by_id.get(mutant, []) if stamp and r["digest"] == stamp]
+        digest = own.get(mutant, stamp)
+        evidence = [r for r in by_id.get(mutant, []) if digest and r["digest"] == digest]
         escaped = sum(1 for r in evidence if r["status"] == "escaped")
         if escaped < REQUIRED_ESCAPED_RERUNS:
+            where = "its own input digest" if mutant in own else "the baseline's input digest"
             failures.append(
-                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at the baseline's input digest, "
+                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at {where}, "
                 f"need {REQUIRED_ESCAPED_RERUNS} (make mutation-formal-rerun MUTATION_MUTANT_ID={mutant})"
             )
         flaky = sorted({r["status"] for r in evidence} - {"escaped"})
@@ -1401,12 +1582,15 @@ def main(argv: list[str] | None = None) -> int:
             with args.ledger.open("rb") as handle:
                 ledger = tomllib.load(handle)
             listed: list[str] = []
-            failures = check_triage(read_baseline(args.baseline), ledger, read_reruns(args.reruns), models, report=listed)
+            problems: dict[str, str] = {}
+            failures = check_triage(read_baseline(args.baseline), ledger, read_reruns(args.reruns), models,
+                                    report=listed, problems=problems)
             base = resolve_base(args.base)
             with formal.MANIFEST.open("rb") as handle:
                 head = tomllib.load(handle)
             rows = model_rows(models, REPO_ROOT)
-            why = departure_reasons(rows, ledger.get("survivor", []), REPO_ROOT)
+            why = departure_reasons(rows, ledger.get("survivor", []), REPO_ROOT, problems,
+                                    head.get("triage", {}).get("orphaned_survivors", []))
             at_base = base_manifest(base)
             growth, notices = check_growth(head, at_base, base, why)
             failures += growth
@@ -1419,8 +1603,8 @@ def main(argv: list[str] | None = None) -> int:
             for notice in notices:
                 print(f"formal-bindings triage: {notice}")
             if listed:
-                print("formal-bindings triage report: [triage] binding gaps and orphans (shrink-only), "
-                      "then the derived by-design rows:")
+                print("formal-bindings triage report: [triage] binding gaps, orphans and stale survivors "
+                      "(shrink-only), then the derived by-design rows:")
                 for line in listed:
                     print(f"  {line}")
             if failures:
@@ -1428,8 +1612,9 @@ def main(argv: list[str] | None = None) -> int:
                 for failure in failures:
                     print(f"  - {failure}")
                 return 1
+            stale = len(head.get("triage", {}).get("stale_survivors", []))
             print(f"formal-bindings triage check passed ({len(ledger.get('survivor', []))} survivors, "
-                  f"{len(ledger.get('closed', []))} closed)")
+                  f"{len(ledger.get('closed', []))} closed, {stale} listed stale)")
         return 0
     except (PlanError, formal.FormalError) as err:
         print(f"formal-bindings: {err}", file=sys.stderr)

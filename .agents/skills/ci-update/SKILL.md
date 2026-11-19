@@ -36,7 +36,7 @@ closed allowlist.
 | Component | Files or constraints |
 |-----------|----------------------|
 | `golangci-lint` | Root `go.mod`, `scripts/golangci-lint.sh`, normalized workflow/hook targets, `.agents/rules/version-pinning.md` |
-| `go-mutesting` | Root `go.mod` tool pin, `scripts/mutation.sh`, `.agents/rules/version-pinning.md` |
+| `go-mutesting` | Root `go.mod` tool pin, `scripts/mutation.sh`, `.agents/rules/version-pinning.md`, `mutant_id` in `scripts/formal_mutation.py` (copies `internal/baseline` `MutantID`) |
 | `govulncheck` | `.github/workflows/ci.yml` install pin, `.agents/rules/version-pinning.md` |
 | Bencher | Action tag and CLI `version:` input in every workflow using `bencherdev/bencher`, `.agents/rules/version-pinning.md` |
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |

@@ -409,6 +409,26 @@ class RerunAndReportTests(unittest.TestCase):
         out = self.dir / "baseline.json"
         self.assertEqual(fm.merge_baselines(self.dir, out, "d1"), 1)
         self.assertEqual(json.loads(out.read_text())["digest"], "d1")
+        # A full regeneration writes only the top-level digest (design D3).
+        (self.dir / "group-0" / "baseline.json").write_text(json.dumps(
+            {"version": 1, "mutants": [{"id": "e1", "file": "f0.go", "mutator": "m", "line": 9, "digest": "own"}]}))
+        fm.merge_baselines(self.dir, out, "d2")
+        self.assertEqual(json.loads(out.read_text()),
+                         {"version": 1, "digest": "d2", "mutants": [{"id": "e1", "file": "f0.go", "mutator": "m", "line": 9}]})
+
+    def test_merge_baselines_keeps_one_entry_per_id(self) -> None:
+        # go-mutesting writes both same-diff mutants; the merged baseline keeps the first.
+        self.write_group(0, {"killedCount": 0, "escapedCount": 2}, [], [
+            {"id": "e1", "file": "f0.go", "mutator": "m", "line": 12},
+            {"id": "e1", "file": "f0.go", "mutator": "m", "line": 9},
+        ])
+        self.write_group(1, {"killedCount": 0, "escapedCount": 1}, [], [{"id": "e2", "file": "f1.go", "mutator": "m", "line": 3}])
+        out = self.dir / "baseline.json"
+        self.assertEqual(fm.merge_baselines(self.dir, out, "d1"), 2)
+        self.assertEqual(json.loads(out.read_text())["mutants"], [
+            {"id": "e1", "file": "f0.go", "mutator": "m", "line": 9},
+            {"id": "e2", "file": "f1.go", "mutator": "m", "line": 3},
+        ])
 
     def test_merge_without_groups_fails(self) -> None:
         with self.assertRaisesRegex(PlanError, "no group-"):
@@ -585,7 +605,10 @@ class TriageTests(Fixture):
         if reruns is None:
             reruns = [{"id": i, "status": "escaped", "timestamp": "t", "digest": "base"} for i in ids for _ in range(2)]
         ledger = {"survivor": survivors, "closed": closed or []}
-        return fm.check_triage(baseline, ledger, reruns, self.models, root=self.root)
+        # These fixtures carry no anchor; AnchorTests covers the staleness
+        # check, so they are listed as stale to keep each test on its condition.
+        triage = {"stale_survivors": [s["id"] for s in survivors if "removed" not in s]}
+        return fm.check_triage(baseline, ledger, reruns, self.models, root=self.root, triage=triage)
 
     def test_valid_ledger_passes(self) -> None:
         self.assertEqual(self.check([self.survivor()], closed=[{"id": "closed1", "model": "M"}]), [])
@@ -638,6 +661,238 @@ class TriageTests(Fixture):
         self.assertIn("closed x: unknown model 'Nope'", failures)
         failures = self.check([self.survivor(id="closed1")], closed=[{"id": "closed1", "model": "M"}])
         self.assertIn("closed closed1: still in the baseline", failures)
+
+
+ANCHORED = """
+func Evaluate(x int) int {
+	if x > 0 {
+		x++
+	}
+	return x
+}
+
+// Evaluate's trailing comment.
+"""
+
+
+class AnchorTests(Fixture):
+    """The per-entry staleness check (refresh-anchors-mutation-ledger design D1)."""
+
+    ROWS = row("evaluation", "Evaluate", "a/a.go", "TestDecide", "-") + row("free", "Helper", "b/b.go", "-", "-")
+    GAPS = [{"model": "M", "element": "free", "symbol": "Helper"}]
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.write(ANCHORED)
+        self.models = [self.model(self.ROWS)]
+
+    def write(self, tail: str) -> None:
+        (self.root / "a" / "a.go").write_text(CODE + tail)
+
+    def entry(self, removed: str | None, added: str | None, mutator: str = "m", **overrides) -> dict:
+        entry = {"file": "a/a.go", "symbol": "Evaluate", "model": "M", "element": "evaluation", "class": "binding-gap",
+                 "reason": "r", "follow_up": "survivor triage", "mutator": mutator}
+        if removed is not None:
+            entry["removed"] = removed
+        if added is not None:
+            entry["added"] = added
+        entry["id"] = fm.mutant_id("a/a.go", mutator, removed or "", added or "")
+        entry.update(overrides)
+        return entry
+
+    def check(self, entries: list[dict], stale: list[str] | None = None, orphans: list[str] | None = None,
+              baseline: dict | None = None, reruns: list[dict] | None = None) -> tuple[list[str], list[str]]:
+        survivors = [{k: v for k, v in e.items() if k != "mutator"} for e in entries]
+        if baseline is None:
+            baseline = {"version": 1, "digest": "d", "mutants": [
+                {"id": e["id"], "file": e["file"], "mutator": e["mutator"], "line": 1} for e in entries]}
+        if reruns is None:
+            reruns = [{"id": m["id"], "status": "escaped", "timestamp": "t", "digest": m.get("digest", "d")}
+                      for m in baseline["mutants"] for _ in range(2)]
+        triage = {"binding_gaps": self.GAPS, "orphaned_survivors": orphans or [], "stale_survivors": stale or []}
+        report: list[str] = []
+        failures = fm.check_triage(baseline, {"survivor": survivors}, reruns, self.models, root=self.root,
+                                   triage=triage, report=report)
+        return failures, [line for line in report if line.startswith("stale survivor ")]
+
+    def test_mutant_id_matches_go_mutesting(self) -> None:
+        # go-mutesting v2.8.3 MutantID of a real formal-bindings survivor.
+        self.assertEqual(fm.mutant_id("internal/app/deps/deps.go", "conditional/negated",
+                                      "\tif cmdInfo.ModuleID != nil {\n", "\tif cmdInfo.ModuleID == nil {\n"),
+                         "e9702c74714610e1edb5145d5f921fa7")
+
+    def test_matching_entry_passes_and_bad_hash_fails(self) -> None:
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.assertEqual(self.check([good]), ([], []))
+        bad = {**good, "id": "0" * 32}
+        failures, _ = self.check([bad])
+        self.assertEqual(failures, [f"survivor {'0' * 32} (Evaluate): anchor mismatch: removed and added do not hash "
+                                    "to the id with a/a.go and mutator m"])
+
+    def test_missing_symbol_fails(self) -> None:
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.write(ANCHORED.replace("Evaluate(", "Assess("))
+        failures, _ = self.check([good])
+        self.assertIn(f"survivor {good['id']} (Evaluate): symbol missing: Evaluate no longer names a function in a/a.go",
+                      failures)
+
+    def test_removed_lines_that_are_gone_fail(self) -> None:
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.write(ANCHORED.replace("if x > 0 {", "if x > 1 {"))
+        failures, _ = self.check([good])
+        self.assertEqual(failures, [f"survivor {good['id']} (Evaluate): mutated code gone: the anchor lines no longer "
+                                    "appear verbatim and in order from inside Evaluate (a/a.go:23-28)"])
+
+    def test_edits_elsewhere_pass(self) -> None:
+        # Lines move and other body lines change.
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.write("\nfunc Before() {}\n" + ANCHORED.replace("return x", "return x * 2"))
+        self.assertEqual(self.check([good]), ([], []))
+
+    def test_reindented_line_fails(self) -> None:
+        # go-mutesting hashes the indentation: a re-indented line is a new mutant.
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.write(ANCHORED.replace("\tif x", "\t\tif x"))
+        self.assertIn("mutated code gone", self.check([good])[0][0])
+
+    def test_anchor_on_the_func_line_fails(self) -> None:
+        signature = self.entry("func Evaluate(x int) int {\n", "")
+        self.assertIn("mutated code gone", self.check([signature])[0][0])
+
+    def test_unparsable_file_is_reported_once_per_entry_and_parsed_once(self) -> None:
+        first = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        second = self.entry("\treturn x\n", "")
+        self.write(ANCHORED + "\nfunc Broken() {\n")
+        parsed: list[str] = []
+        real = fm.function_decls
+
+        def counting(text: str) -> list:
+            parsed.append(text)
+            return real(text)
+
+        # check_triage classifies rows first, which already rejects a broken
+        # row file; drive the anchor check directly.
+        with mock.patch.object(fm, "function_decls", counting):
+            source = fm.source_reader(self.root)
+            problems = [fm.anchor_problem(e, "m", source) for e in (first, second)]
+        self.assertEqual(len(parsed), 1)
+        for problem in problems:
+            self.assertIn("symbol unresolved: cannot parse a/a.go: function Broken", problem or "")
+        self.write(ANCHORED)
+        path = self.root / "a" / "a.go"
+        path.chmod(0)
+        try:
+            if os.access(path, os.R_OK):
+                self.skipTest("running as a user that ignores file modes")
+            problem = fm.anchor_problem(first, "m", fm.source_reader(self.root))
+        finally:
+            path.chmod(0o644)
+        self.assertIn("symbol unresolved: cannot read a/a.go", problem or "")
+
+    def test_insertion_only_entry_is_anchored_by_context(self) -> None:
+        inserted = self.entry("", "\t\tbreak\n", mutator="loop/range_break", context="\tif x > 0 {")
+        self.assertEqual(self.check([inserted]), ([], []))
+        self.write(ANCHORED.replace("if x > 0 {", "if x > 1 {"))
+        failures, _ = self.check([inserted])
+        self.assertIn("mutated code gone", failures[0])
+        no_context = self.entry("", "\t\tbreak\n", mutator="loop/range_break")
+        failures, _ = self.check([no_context])
+        self.assertEqual(failures, [f"survivor {no_context['id']} (Evaluate): unanchored: it removes no line and has no context"])
+        both = self.entry("\tx++\n", "", context="\tif x > 0 {")
+        failures, _ = self.check([both])
+        self.assertIn("unanchored: context is one line, only for a mutant that removes no line", failures[0])
+
+    def test_non_adjacent_removed_lines_may_end_after_the_function(self) -> None:
+        # go/printer re-flows a comment after the function: the removed lines
+        # are matched in order, and only the first must lie inside the body.
+        spread = self.entry("\tif x > 0 {\n\treturn x\n// Evaluate's trailing comment.\n", "\treturn x\n")
+        self.assertEqual(self.check([spread]), ([], []))
+        reordered = self.entry("\treturn x\n\tif x > 0 {\n", "")
+        self.assertIn("mutated code gone", self.check([reordered])[0][0])
+        outside = self.entry("// Evaluate's trailing comment.\n", "")
+        self.assertIn("mutated code gone", self.check([outside])[0][0])
+        # A later code line must lie inside the function, not in a later one.
+        self.write(ANCHORED + "\nfunc After() {\n\tx := 1\n}\n")
+        later = self.entry("\tif x > 0 {\n\tx := 1\n", "")
+        self.assertIn("mutated code gone", self.check([later])[0][0])
+
+    def test_unanchored_entry_fails_unless_listed(self) -> None:
+        bare = self.entry(None, None)
+        self.assertEqual(self.check([bare])[0], [f"survivor {bare['id']} (Evaluate): unanchored: removed and added are required"])
+        self.assertEqual(self.check([bare], stale=[bare["id"]]),
+                         ([], [f"stale survivor {bare['id']} (Evaluate): unanchored: removed and added are required"]))
+
+    def test_listed_orphan_is_not_anchored(self) -> None:
+        orphan = self.entry(None, None, symbol="Helper", element="free", file="b/b.go")
+        self.assertEqual(self.check([orphan], orphans=[orphan["id"]]), ([], []))
+
+    def test_stale_list_entries_that_no_longer_apply_fail(self) -> None:
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        orphan = self.entry(None, None, symbol="Helper", element="free", file="b/b.go")
+        failures, _ = self.check([good, orphan], stale=[good["id"], orphan["id"], "nowhere"], orphans=[orphan["id"]])
+        self.assertEqual(failures, [
+            f"[triage] stale_survivors: stale entry {good['id']} (Evaluate) passes the staleness and anchor checks; remove it",
+            f"[triage] stale_survivors: {orphan['id']} (Helper) is also an orphaned survivor; list it once, in orphaned_survivors",
+            "[triage] stale_survivors: stale entry nowhere is not in the ledger",
+        ])
+
+    def test_stale_departure_reasons(self) -> None:
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        rows = fm.model_rows(self.models, self.root)
+        why = fm.departure_reasons(rows, [good], self.root, {"other": "x"})
+        self.assertEqual(why(fm.STALE_LIST, good["id"]), "the entry passes the staleness and anchor checks")
+        self.assertEqual(why(fm.STALE_LIST, "gone"), "the survivor left the ledger")
+        why = fm.departure_reasons(rows, [good], self.root, {good["id"]: "mutated code gone: ..."})
+        self.assertEqual(why(fm.STALE_LIST, good["id"]),
+                         "the entry still fails the staleness or anchor check (mutated code gone: ...)")
+        why = fm.departure_reasons(rows, [good], self.root, {}, [good["id"]])
+        self.assertEqual(why(fm.STALE_LIST, good["id"]),
+                         "the survivor moved to orphaned_survivors, which the staleness check does not anchor")
+
+    def test_duplicate_baseline_id_fails(self) -> None:
+        # Two mutants with the same diff lines share an id; the baseline lists it once.
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        copy = {"id": good["id"], "file": "a/a.go", "mutator": "m", "line": 24}
+        baseline = {"version": 1, "digest": "d", "mutants": [copy]}
+        self.assertEqual(self.check([good], baseline=baseline)[0], [])
+        baseline["mutants"].append({**copy, "line": 26})
+        self.assertIn(f"baseline id {good['id']}: listed 2 times; keep one entry per id",
+                      self.check([good], baseline=baseline)[0])
+
+    def test_evidence_at_a_per_mutant_digest(self) -> None:
+        # Design D3: a refreshed entry's own digest replaces the baseline's.
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        mutant = {"id": good["id"], "file": "a/a.go", "mutator": "m", "line": 24, "digest": "own"}
+        baseline = {"version": 1, "digest": "d", "mutants": [mutant]}
+        self.assertEqual(self.check([good], baseline=baseline)[0], [])
+        at_top = [{"id": good["id"], "status": "escaped", "timestamp": "t", "digest": "d"}] * 2
+        failures, _ = self.check([good], baseline=baseline, reruns=at_top)
+        self.assertEqual(failures, [f"baseline id {good['id']}: 0 recorded escaped rerun(s) at its own input digest, need 2 "
+                                    f"(make mutation-formal-rerun MUTATION_MUTANT_ID={good['id']})"])
+        # Every mutant has its own digest: the baseline needs none.
+        self.assertEqual(self.check([good], baseline={**baseline, "digest": ""})[0], [])
+
+    def test_staleness_check_is_static(self) -> None:
+        # Spec "Staleness check is static": no go toolchain, no git history,
+        # under --base too (the base manifest comes from a fake reader).
+        stale = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.write(ANCHORED.replace("if x > 0 {", "if x > 1 {"))
+        calls: list = []
+
+        def record(*args, **kwargs):
+            calls.append(args[0] if args else kwargs.get("args"))
+            raise AssertionError(f"subprocess called: {calls[-1]}")
+
+        with mock.patch.object(fm.subprocess, "run", record), mock.patch.object(fm.subprocess, "check_output", record), \
+                mock.patch.object(fm.subprocess, "Popen", record), mock.patch.object(fm, "git", record):
+            failures, _ = self.check([stale])
+            base = fm.base_manifest("deadbeef", read=lambda _path: b"[triage]\nbinding_gaps = []\n"
+                                                                   b"orphaned_survivors = []\nstale_survivors = []\n"
+                                                                   b"[correspondence]\nunresolved_elements = []\n")
+            growth, _notices = fm.check_growth(lists_manifest([], [], [], []), base, "deadbeef")
+        self.assertEqual(calls, [])
+        self.assertEqual(growth, [])
+        self.assertIn("mutated code gone", failures[0])
 
 
 # The orphaned survivors [triage] was seeded with (design D13): Auth 8,
@@ -710,9 +965,13 @@ class UnplannedTests(Fixture):
         baseline = {"version": 1, "digest": "d", "mutants": [{"id": i, "file": "b/b.go", "mutator": "m", "line": 1} for i in ids]}
         reruns = [{"id": i, "status": "escaped", "timestamp": "t", "digest": "d"} for i in ids for _ in range(2)]
         report: list[str] = []
+        # The fixtures carry no anchor: an id that is not a listed orphan is
+        # listed as stale, unless the test sets the list (AnchorTests covers it).
+        orphans = set(triage.get("orphaned_survivors", []))
+        triage = {"stale_survivors": [i for i in ids if i not in orphans], **triage}
         failures = fm.check_triage(baseline, {"survivor": survivors}, reruns, self.models, root=self.root,
                                    triage=triage, report=report)
-        return failures, report
+        return failures, [line for line in report if not line.startswith("stale survivor ")]
 
     LISTED = {"binding_gaps": [{"model": "M", "element": "free", "symbol": "Helper"}], "orphaned_survivors": ["o1"]}
 
@@ -802,9 +1061,12 @@ class UnplannedTests(Fixture):
         cases = {
             '[triage]\nbinding_gaps = []\nextra = 1\n': r"\[triage\]: unknown key\(s\) extra",
             '[triage]\nunbound_rows = []\n': r"\[triage\]: unknown key\(s\) unbound_rows",
-            '[triage]\nbinding_gaps = [{ model = "M", element = "e" }]\n': "binding_gaps must be a list of",
-            '[triage]\norphaned_survivors = [1]\n': "orphaned_survivors must be a list of mutant ids",
-            '[triage]\norphaned_survivors = ["a", "a"]\n': "duplicate entries",
+            '[triage]\nbinding_gaps = []\norphaned_survivors = []\n': "needs a stale_survivors list",
+            '[triage]\nstale_survivors = []\nbinding_gaps = [{ model = "M", element = "e" }]\n': "binding_gaps must be a list of",
+            '[triage]\nstale_survivors = []\norphaned_survivors = [1]\n': "orphaned_survivors must be a list of mutant ids",
+            '[triage]\nstale_survivors = []\norphaned_survivors = ["a", "a"]\n': "orphaned_survivors has duplicate entries",
+            '[triage]\nstale_survivors = [""]\n': "stale_survivors must be a list of mutant ids",
+            '[triage]\nstale_survivors = ["a", "a"]\n': "stale_survivors has duplicate entries",
         }
         for text, message in cases.items():
             with self.subTest(message=message):
@@ -814,20 +1076,26 @@ class UnplannedTests(Fixture):
         path.write_text(head + '[triage]\nbinding_gaps = []\nextra = 1\n')
         with self.assertRaisesRegex(formal.FormalError, r"\[triage\]: unknown key\(s\) extra"):
             formal.load_manifest(path)
+        # Deleting the key cannot reopen its seeding: validation fails.
+        path.write_text(head + '[triage]\nbinding_gaps = []\norphaned_survivors = []\n')
+        with self.assertRaisesRegex(formal.FormalError, "needs a stale_survivors list"):
+            formal.load_manifest(path)
 
 
 def lists_manifest(unresolved: list[str] | None = None, gaps: list[tuple] | None = None,
-                   orphans: list[str] | None = None) -> dict:
+                   orphans: list[str] | None = None, stale: list[str] | None = None) -> dict:
     """A parsed manifest with the given shrink-only lists (None: absent)."""
     data: dict = {}
     if unresolved is not None:
         data["correspondence"] = {"unresolved_elements": unresolved}
-    if gaps is not None or orphans is not None:
+    if gaps is not None or orphans is not None or stale is not None:
         data["triage"] = {}
     if gaps is not None:
         data["triage"]["binding_gaps"] = [{"model": m, "element": e, "symbol": s} for m, e, s in gaps]
     if orphans is not None:
         data["triage"]["orphaned_survivors"] = orphans
+    if stale is not None:
+        data["triage"]["stale_survivors"] = stale
     return data
 
 
@@ -914,15 +1182,16 @@ class BaseRowsTests(Fixture):
 class GrowthTests(unittest.TestCase):
     """The base check of the shrink-only lists (decision 15)."""
 
-    BASE = lists_manifest(["M: e1", "M: e2"], [("M", "g1", "F1"), ("M", "g2", "F2")], ["o1", "o2"])
+    BASE = lists_manifest(["M: e1", "M: e2"], [("M", "g1", "F1"), ("M", "g2", "F2")], ["o1", "o2"], ["t1", "t2"])
 
     def test_growth_at_the_base_fails_for_each_list(self) -> None:
         cases = {
-            "[correspondence] unresolved_elements": (lists_manifest(["M: e1", "M: new"], [("M", "g1", "F1")], ["o1"]),
+            "[correspondence] unresolved_elements": (lists_manifest(["M: e1", "M: new"], [("M", "g1", "F1")], ["o1"], ["t1"]),
                                                      "'M: new'"),
-            "[triage] binding_gaps": (lists_manifest(["M: e1"], [("M", "g1", "F1"), ("M", "g3", "F3")], ["o1"]),
+            "[triage] binding_gaps": (lists_manifest(["M: e1"], [("M", "g1", "F1"), ("M", "g3", "F3")], ["o1"], ["t1"]),
                                       "M: 'g3' (F3)"),
-            "[triage] orphaned_survivors": (lists_manifest(["M: e1"], [("M", "g1", "F1")], ["o1", "o9"]), "'o9'"),
+            "[triage] orphaned_survivors": (lists_manifest(["M: e1"], [("M", "g1", "F1")], ["o1", "o9"], ["t1"]), "'o9'"),
+            "[triage] stale_survivors": (lists_manifest(["M: e1"], [("M", "g1", "F1")], ["o1"], ["t1", "t9"]), "'t9'"),
         }
         for name, (head, entry) in cases.items():
             with self.subTest(name=name):
@@ -932,7 +1201,7 @@ class GrowthTests(unittest.TestCase):
                                             "the list only shrinks: fix the row or survivor instead of listing it"])
 
     def test_shrink_passes_and_explains_what_left(self) -> None:
-        head = lists_manifest(["M: e2"], [], ["o2"])
+        head = lists_manifest(["M: e2"], [], ["o2"], ["t2"])
         failures, notices = fm.check_growth(head, self.BASE, "abc123", why=lambda name, entry: f"why {entry!r}")
         self.assertEqual(failures, [])
         self.assertEqual(notices, [
@@ -940,6 +1209,7 @@ class GrowthTests(unittest.TestCase):
             "[triage] binding_gaps: M: 'g1' (F1) left the list since the base abc123: why ('M', 'g1', 'F1')",
             "[triage] binding_gaps: M: 'g2' (F2) left the list since the base abc123: why ('M', 'g2', 'F2')",
             "[triage] orphaned_survivors: 'o1' left the list since the base abc123: why 'o1'",
+            "[triage] stale_survivors: 't1' left the list since the base abc123: why 't1'",
         ])
         self.assertEqual(fm.check_growth(self.BASE, self.BASE, "abc123"), ([], []))
 
@@ -948,18 +1218,34 @@ class GrowthTests(unittest.TestCase):
         self.assertEqual(failures, [])
         self.assertEqual(notices, [f"{name}: not in the base main manifest; this change seeds it"
                                    for name in ("[correspondence] unresolved_elements", "[triage] binding_gaps",
-                                                "[triage] orphaned_survivors")])
+                                                "[triage] orphaned_survivors", "[triage] stale_survivors")])
+
+    def test_base_before_the_stale_list_seeds_it(self) -> None:
+        # refresh-anchors-mutation-ledger D5: the first three lists are checked
+        # as usual, and stale_survivors seeds with a notice.
+        base = lists_manifest(["M: e1"], [("M", "g1", "F1")], ["o1"])
+        head = lists_manifest(["M: e1"], [("M", "g1", "F1")], ["o1", "o9"], ["t1"])
+        failures, notices = fm.check_growth(head, base, "main")
+        self.assertEqual(failures, ["[triage] orphaned_survivors: 'o9' is not listed at the base main; "
+                                    "the list only shrinks: fix the row or survivor instead of listing it"])
+        self.assertEqual(notices, ["[triage] stale_survivors: not in the base main manifest; this change seeds it"])
 
     def test_base_with_only_some_lists_fails(self) -> None:
         # decision 19: renaming or dropping one key cannot reopen seeding.
-        for base, missing in ((lists_manifest(["M: e1", "M: e2"]), ["[triage] binding_gaps", "[triage] orphaned_survivors"]),
+        for base, missing in ((lists_manifest(["M: e1", "M: e2"]),
+                               ["[triage] binding_gaps", "[triage] orphaned_survivors", "[triage] stale_survivors"]),
+                              (lists_manifest(None, [("M", "g1", "F1"), ("M", "g2", "F2")], ["o1", "o2"], ["t1", "t2"]),
+                               ["[correspondence] unresolved_elements"]),
                               (lists_manifest(None, [("M", "g1", "F1"), ("M", "g2", "F2")], ["o1", "o2"]),
-                               ["[correspondence] unresolved_elements"])):
+                               ["[correspondence] unresolved_elements", "[triage] stale_survivors"])):
             with self.subTest(missing=missing):
                 failures, _notices = fm.check_growth(self.BASE, base, "main")
                 self.assertEqual([f.split(":")[0] for f in failures], missing)
                 for failure in failures:
-                    self.assertIn("a list is seeded only from a base with none of the three", failure)
+                    rule = ("it is seeded only from a base that has the other three lists"
+                            if failure.startswith(fm.STALE_LIST) else
+                            "a list is seeded only from a base with none of the first three")
+                    self.assertIn(rule, failure)
 
     def test_unreadable_base_fails_closed(self) -> None:
         def missing(_path: str) -> bytes:
@@ -1010,6 +1296,9 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(len(SEEDED_BINDING_GAPS), 19)
         self.assertEqual(len(SEEDED_ORPHANS), 20)
         self.assertLessEqual(set(triage["orphaned_survivors"]), SEEDED_ORPHANS)
+        # Seeded empty on 2026-11-19 (refresh-anchors-mutation-ledger D5): the
+        # fresh run anchored every survivor outside the refresh and the orphans.
+        self.assertEqual(triage["stale_survivors"], [])
 
     def test_removing_a_listed_entry_fails(self) -> None:
         _tools, models = formal.load_manifest()
@@ -1022,8 +1311,11 @@ class RepositoryTests(unittest.TestCase):
             with self.subTest(part=part):
                 shrunk = {**triage, part: triage[part][1:]}
                 failures = fm.check_triage(baseline, ledger, reruns, models, triage=shrunk)
-                self.assertEqual(len(failures), 1, failures)
+                # An orphan that leaves the list loses its anchor exemption too.
+                self.assertEqual(len(failures), 2 if part == "orphaned_survivors" else 1, failures)
                 self.assertIn("is not listed", failures[0])
+                if part == "orphaned_survivors":
+                    self.assertIn("unanchored: removed and added are required", failures[1])
 
     def test_repository_plan_generates(self) -> None:
         _tools, models = formal.load_manifest()
