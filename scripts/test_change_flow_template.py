@@ -160,6 +160,7 @@ for (const [name, reply] of Object.entries({
   assert.ok(fix.prompt.includes('scripts/change-flow-foreign-commits.sh /w/invowk-x feat/add-thing origin/main'))
   assert.ok(fix.prompt.includes('fetch --prune origin'))
   assert.ok(fix.prompt.includes('If it exits 3'))
+  assert.ok(fix.prompt.includes('Any exit other than 0 or 3 is a failure'))
   assert.ok(fix.prompt.includes('Ancestry is not the test'))
   assert.ok(fix.prompt.includes('Monitor tool'), 'long gates wait with Monitor')
   assert.ok(fix.prompt.includes('never a bare force'))

@@ -460,7 +460,7 @@ function reviewSection(a, review) {
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
     '1. `git -C ' + a.worktree + ' fetch --prune origin` (--prune, so a deleted remote branch leaves no stale ref and lease), then `cd ' + a.worktree + ' && scripts/change-flow-foreign-commits.sh ' + a.worktree + ' ' + a.branch + ' ' + a.base + '`: it lists the commits on origin/' + a.branch + ' with no patch-equivalent locally and not on ' + a.base + ', which someone else pushed (for example the CI PGO bot). ' +
-    'If it exits 3, origin/' + a.branch + ' has a merge commit (GitHub "Update branch" or a web conflict resolution) that a force push would drop: return status blocked and list the printed merges in maintainer_asks. ' +
+    'If it exits 3, origin/' + a.branch + ' has a merge commit (GitHub "Update branch" or a web conflict resolution) that a force push would drop: return status blocked and list the printed merges in maintainer_asks. Any exit other than 0 or 3 is a failure, not an empty list: return status blocked with its stderr. ' +
     'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks. ' +
     'Record the fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
     'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
