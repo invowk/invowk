@@ -33,8 +33,8 @@ All paths are relative to the change worktree, `/var/home/danilo/Workspace/githu
 
 ## 4. End-to-end calibration (scratch copy, nothing committed from it)
 
-- [ ] 4.1 Commit groups 1-3 (signed, under the lock). Create a throwaway `git worktree add --detach` of that commit outside the primary checkout. In it, rewrite one anchored line of `normalizeExistingOrParent` (`internal/runtime/virtual_policy.go:325`) without changing behavior, commit it there (signed), and record `triage --check` failing with "mutated code gone" for that symbol. Check whether the tooling can narrow a run to one function; it cannot today (design Context), so say so. Run `make mutation-formal` there in the background under the lock with `> <log> 2>&1; echo rc=$? >> <log>`, and wait with Monitor. Verify: the log ends with `rc=`, and `run-metadata.txt` has `inputs_digest=`.
-- [ ] 4.2 In the throwaway worktree, run `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=normalizeExistingOrParent` under the lock, record its summary, and record `triage --check` failing on the untriaged placeholders (and evidence) and on no staleness or anchor problem of that symbol. Run `make mutation-formal-rerun MUTATION_MUTANT_ID=<added ids>` twice under the lock, write a class and reason for each added entry, and record `triage --check` passing. Verify: the three `triage --check` outputs and the refresh summary are in the result; `git diff` of the baseline and ledger shows only the symbol's entries; then remove the throwaway worktree.
+- [x] 4.1 Commit groups 1-3 (signed, under the lock). Create a throwaway `git worktree add --detach` of that commit outside the primary checkout. In it, rewrite one anchored line of `normalizeExistingOrParent` (`internal/runtime/virtual_policy.go:325`) without changing behavior, commit it there (signed), and record `triage --check` failing with "mutated code gone" for that symbol. Check whether the tooling can narrow a run to one function; it cannot today (design Context), so say so. Run `make mutation-formal` there in the background under the lock with `> <log> 2>&1; echo rc=$? >> <log>`, and wait with Monitor. Verify: the log ends with `rc=`, and `run-metadata.txt` has `inputs_digest=`.
+- [x] 4.2 In the throwaway worktree, run `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=normalizeExistingOrParent` under the lock, record its summary, and record `triage --check` failing on the untriaged placeholders (and evidence) and on no staleness or anchor problem of that symbol. Run `make mutation-formal-rerun MUTATION_MUTANT_ID=<added ids>` twice under the lock, write a class and reason for each added entry, and record `triage --check` passing. Verify: the three `triage --check` outputs and the refresh summary are in the result; `git diff` of the baseline and ledger shows only the symbol's entries; then remove the throwaway worktree.
 
 ## 5. Completion gates (.agents/rules/checklist.md)
 
@@ -48,3 +48,14 @@ All paths are relative to the change worktree, `/var/home/danilo/Workspace/githu
 - Draft PR only.
 - The change-flow template wording ("report-only" in `.agents/workflows/change-flow.js:484` and `.agents/runbooks/change-flow.md:49`) is updated by a separate PR right after this one.
 - Maintainer ask: the ledger header comment says anchors match "whitespace-trimmed" (`tools/mutation/triage/formal-bindings.toml:24-26`); the check is verbatim.
+
+## Calibration record (task 4, 2026-11-19)
+
+Throwaway detached worktree at 6cbdd27e plus one signed local commit that rewrote `internal/runtime/virtual_policy.go:327` (`errors.New("path must not be empty")` -> `errors.New("path must " + "not be empty")`, same string). Nothing from it is committed here; the worktree was removed.
+
+- No narrowing: the plan targets every bound function and neither `scripts/mutation.sh` nor the Makefile selects one, so the full run was used (781 mutants: 370 killed, 356 escaped, 55 skipped; `rc=0`, `group_status[0]=0`, `group_status[1]=0`, `inputs_digest=d3de6367...`).
+- `triage --check` before: FAILED, "mutated code gone" for f4becbedb1da1e13b1b1d17d8aa10003 and 64d6a9fe921e5bcee1bd15a768e6b2d3 (normalizeExistingOrParent).
+- `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=normalizeExistingOrParent`: `refresh: removed 2, moved 0, added 2, untriaged 2, kept 10, re-anchored 0, shared 0, unattributed 0, awaiting evidence 2` (added 284b951d196d87d6a1e8afe239fa9e12, c7e55be1a5b9c7a51d0bd5a7dc7f318c).
+- `triage --check` after the refresh: FAILED only on the two untriaged placeholders and their missing evidence; no staleness or anchor failure.
+- Two `make mutation-formal-rerun` runs recorded `escaped` at inputs d3de636778a2 for both ids (the refresh's own digest); after writing class, reason and follow-up, `triage --check` passed (403 survivors, 19 closed, 0 listed stale).
+- `git diff` touched only the symbol's baseline and ledger entries (plus four rerun records); a second refresh reported `kept 12` and changed no byte.
