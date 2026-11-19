@@ -29,11 +29,11 @@
 
 ## 6. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 6.1 `make tidy`; `make license-check` if new Go files were added.
-- [ ] 6.2 `make lint` passes with no issues.
-- [ ] 6.3 `make test` passes (full suite, under the heavy-command lock).
-- [ ] 6.4 `make check-baseline` passes; triage any new goplint finding.
-- [ ] 6.5 `make check-file-length` passes.
-- [ ] 6.6 `make sonar-local`: no new real issues.
-- [ ] 6.7 Conditional checks: `make test-scripts` (formal changed) and `python3 scripts/formal.py correspondence` pass.
-- [ ] 6.8 `/learn` (`.agents/skills/learn/`) last.
+- [x] 6.1 `make tidy`; `make license-check` if new Go files were added.
+- [x] 6.2 `make lint` passes with no issues.
+- [x] 6.3 `make test` passes (full suite, under the heavy-command lock).
+- [x] 6.4 `make check-baseline` passes; triage any new goplint finding.
+- [x] 6.5 `make check-file-length` passes.
+- [x] 6.6 `make sonar-local`: no new real issues.
+- [x] 6.7 Conditional checks: `make test-scripts` (formal changed) and `python3 scripts/formal.py correspondence` pass.
+- [x] 6.8 `/learn` (`.agents/skills/learn/`) last.
