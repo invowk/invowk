@@ -59,3 +59,4 @@ Throwaway detached worktree at 6cbdd27e plus one signed local commit that rewrot
 - `triage --check` after the refresh: FAILED only on the two untriaged placeholders and their missing evidence; no staleness or anchor failure.
 - Two `make mutation-formal-rerun` runs recorded `escaped` at inputs d3de636778a2 for both ids (the refresh's own digest); after writing class, reason and follow-up, `triage --check` passed (403 survivors, 19 closed, 0 listed stale).
 - `git diff` touched only the symbol's baseline and ledger entries (plus four rerun records); a second refresh reported `kept 12` and changed no byte.
+- Baseline `line` of the added entries (327 for both) equals the `ESCAPED internal/runtime/virtual_policy.go:327` lines go-mutesting printed in the run log (its `originalStartLine`); no `baseline-update` group baseline was at hand, so the comparison with what go-mutesting would write into a baseline is unverified (design Risks; go-mutesting matches by id only).

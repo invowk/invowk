@@ -1439,7 +1439,7 @@ class RefreshTests(Fixture):
         return {k: v for k, v in entry.items() if v is not None}
 
     def write_data(self, entries: list[dict], stale: list[str] | None = None, specs: dict[str, Spec] | None = None,
-                   extra_baseline: list[Spec] = ()) -> None:
+                   extra_baseline: list[Spec] = (), orphans: list[str] | None = None) -> None:
         """The ledger, baseline and manifest for `entries` (baseline lines
         and mutators from the spec of each id), with two escaped reruns at
         the baseline digest for each of them."""
@@ -1453,7 +1453,9 @@ class RefreshTests(Fixture):
         mutants.sort(key=lambda m: (m["file"], m["line"], m["mutator"], m["id"]))
         self.paths.baseline.write_text(json.dumps({"version": 1, "digest": "base", "mutants": mutants}, indent=2) + "\n")
         listed = "".join(f'    "{i}",\n' for i in stale or [])
-        self.paths.manifest.write_text(MANIFEST_HEAD + f"stale_survivors = [\n{listed}]\n\n[ci]\npaths = []\n")
+        head = MANIFEST_HEAD.replace("orphaned_survivors = [\n", "orphaned_survivors = [\n" + "".join(
+            f'    "{i}",\n' for i in orphans or []))
+        self.paths.manifest.write_text(head + f"stale_survivors = [\n{listed}]\n\n[ci]\npaths = []\n")
         self.paths.reruns.write_text("".join(
             json.dumps({"id": m["id"], "status": "escaped", "timestamp": "t", "digest": "base"}) + "\n"
             for m in mutants for _ in range(2)))
@@ -1802,6 +1804,36 @@ class RefreshTests(Fixture):
             self.assert_refused(r"does not parse")
         with mock.patch.object(fm, "render_survivor", lambda e: self.block({**e, "reason": "changed"})):
             self.assert_refused(r"does not parse back to the expected entries; nothing written")
+
+    def test_anchor_still_failing_writes_nothing(self) -> None:
+        # A reported escapee whose removed line is not in the current body.
+        ghost = Spec("Evaluate", 25, "statement/remove", "\t\tx--\n", "")
+        self.base_data()
+        self.write_run([*self.base_run(), self.rep(ghost)])
+        self.assert_refused(rf"(?s)would still fail the anchor check after the refresh; nothing written:\n"
+                            rf"  - survivor {ghost.id} \(Evaluate\): mutated code gone")
+
+    def test_stale_never_chooses_orphans(self) -> None:
+        # An unanchored orphan on an unplanned function: --stale would refuse
+        # it as unplanned if it chose it.
+        orphan = Spec("Map", 18, "statement/remove", "\treturn xs\n", "")
+        entry = self.entry(orphan, element="decide", removed=None, added=None)
+        self.write_data([self.entry(KEEP), entry], specs={"orphan": orphan}, orphans=[orphan.id])
+        self.write_run([self.rep(KEEP), self.rep(orphan)])
+        block = self.block(entry)
+        lines = self.refresh([], stale=True)
+        self.assertIn(block, self.paths.ledger.read_text())
+        touched = [line for line in lines if orphan.id in line and not line.startswith("unattributed ")]
+        self.assertEqual(touched, [])
+        self.assertIn(orphan.id, tomllib.loads(self.paths.manifest.read_text())["triage"]["orphaned_survivors"])
+
+    def test_escapees_of_other_symbols_are_ignored(self) -> None:
+        other = Spec("Decide", 8, "statement/return", "\treturn false\n", "\treturn true\n")
+        self.base_data()
+        self.write_run([*self.base_run(), self.rep(other)])
+        self.refresh(["Evaluate"])
+        self.assertNotIn(other.id, self.survivors())
+        self.assertNotIn(other.id, self.paths.baseline.read_text())
 
     def test_baseline_that_does_not_round_trip_is_refused(self) -> None:
         self.base_data()
