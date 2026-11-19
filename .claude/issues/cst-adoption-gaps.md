@@ -46,10 +46,16 @@ Decisions taken with the maintainer (2026-11-14):
 | N9 | DECIDE — product | follow-up to S4 (engine environment, not yet proposed) | M |
 | N10 | EVOLVE — security | follow-up to S4 (per-URL git auth: auth order, Windows known_hosts default; not yet proposed) | M |
 | N11 | EVOLVE — bug | `fix-tui-capture-output` (S5a, Part A, shipped #175); no-server `-i` runs not proposed (spike failed) | M |
-| N12 | EVOLVE — bug | container auto-provision on non-Linux hosts (not yet proposed; not S5) | S |
+| N12 | EVOLVE — bug | container auto-provision on non-Linux hosts (not S5; scheduled: group D) | S |
 | N13 | EVOLVE — tests | portable no-terminal test helper (`notty`, before v0.17.0) | S |
-| N14 | EVOLVE — bug | `tui spin` Ctrl+C race and dropped output (after v0.17.0; with N1/S2) | S |
-| N15 | DECIDE — product | `pager` and non-selectable `table` with stdout redirected (after v0.17.0) | S |
+| N14 | EVOLVE — bug | `tui spin` Ctrl+C race and dropped output (after v0.17.0; with N1/S2; scheduled: group C) | S |
+| N15 | DECIDE — product | `pager` and non-selectable `table` with stdout redirected (after v0.17.0; scheduled: group C) | S |
+| N16 | EVOLVE — security | F18: Windows junction admitted by the virtual-runtime path policy (scheduled with F14: group B2) | M |
+| N17 | EVOLVE — bug | terminal-emulating `-i` viewer, needed for no-server `-i` runs (N11 spike; not yet proposed) | M |
+| N18 | EVOLVE — bug | `modulesync` Sync rewrites an unchanged lock with a new `generated:` timestamp (the `TestSyncFreshCacheReproducesLockedHash` "flake"; not yet proposed) | S |
+| N19 | EVOLVE — CI | `ci.yml`/`release.yml` test-leg parity check (fixed: `scripts/check-ci-release-parity.py`, PR `chore/ci-parity-and-template-refresh`) | S |
+| N20 | EVOLVE — tests | formal-bindings plan-inputs digest leaves out the killer data files (PR #184 follow-up; not yet proposed) | S |
+| N21 | EVOLVE — tests | insertion-only mutant after a blank line has an empty anchor `context` (PR #184 follow-up; not yet proposed) | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -319,7 +325,9 @@ guide ("set `TMPDIR` if needed").
   with no console on Windows. Then the txtar runs on all three systems. Fixed by the
   `notty` and `tuiaction` helpers in `tests/cli/notty_test.go`, installed through
   `testscript.Main`; calibrated 2026-11-19: without the new session, under a real tty,
-  the test hangs on `/dev/tty` (30 s timeout); with it, it passes.
+  the test hangs on `/dev/tty` (30 s timeout); with it, it passes. That calibration ran on
+  Linux only: the txtar passes on the Windows and macOS CI legs, but nobody has seen it
+  fail there with the detach removed, so its failure mode on those systems is uncalibrated.
 - **N14 — `invowk tui spin`: Ctrl+C abandons the running command, and a spinner failure
   drops its output (S5a review; pre-existing on `main`).** `spinActionModel` returns
   `tea.Quit` on Ctrl+C, so `runActionSpinner` returns nil. `spinWithAction` then returns
@@ -336,6 +344,42 @@ guide ("set `TMPDIR` if needed").
   `table` is a value component, so with no terminal it exits 1. v0.17.0 ships this
   reviewed behaviour. Decide whether either should pass content through to stdout
   whenever stdout is not a terminal.
+- **N16 — F18: on Windows the virtual-runtime path policy admits a path through a junction
+  inside an allowed root, even at depth 0.** Found 2026-11-19 by the Windows probe, run
+  44523520503, job 135557989975. Through a junction, `filepath.EvalSymlinks` returns
+  `ErrNotExist`, and the policy admits the path although the junction leads outside the
+  root; `os.Root` rejects the same path. Junctions are not `ModeSymlink` on Windows (as in
+  F16). Planned with F14 (deepest-existing-ancestor evaluation) in group B2.
+- **N17 — terminal-emulating `-i` viewer (N11 follow-up).** No-server `-i` runs (S5b)
+  need a viewer that emulates a terminal for a Bubble Tea child; the N11 spike shows Enter
+  not submitting `choose` and `input` overdrawing its help line. Diagnosis lead: the
+  components emit `CSI > 4;2 m` (xterm modifyOtherKeys, level 2) and `CSI > 1 u` (kitty
+  keyboard protocol, flag 1), seen in a v0.16.0 capture. Unverified: the child may then
+  expect key encodings the viewer never produces. Separate change after v0.17.0.
+- **N18 — `modulesync` Sync rewrites an unchanged lock file (product bug, was a flake).**
+  See "Flaky tests" below: `TestSyncFreshCacheReproducesLockedHash` fails
+  deterministically when more than 1 s passes between its two syncs, because Sync writes
+  the lock again with a new `generated:` timestamp although nothing else changed. Fix: do
+  not rewrite (or re-stamp) a lock whose content is unchanged.
+- **N19 — `release.yml` test legs drift from `ci.yml` (fixed).** The first v0.17.0 tag run
+  failed because #173 added `tui-plan-row` and `INVOWK_TEST_TUI_PLAN_ROW` to `ci.yml` only
+  (#183 fixed `release.yml`; `INVOWK_TEST_REQUIRE_TMUX` was missing there too).
+  `scripts/check-ci-release-parity.py` now compares the `test` jobs' matrix legs and the
+  test steps' `INVOWK_TEST_*` env, with an explicit exception table; its calibration test
+  (`scripts/test_check_ci_release_parity.py`, fixtures under
+  `scripts/testdata/ci-release-parity/`) fails on `release.yml` at 567e7b00, and it runs in
+  `make test-scripts` on every PR.
+- **N20 — formal-bindings evidence ignores the killer data files (PR #184 follow-up).** The
+  plan-inputs digest covers the target files and the files declaring the killer tests, but
+  not the data files those tests read (golden vectors, helpers). A golden change therefore
+  does not stale the baseline evidence or the refresh's run match; today only the skill's
+  "rerun after `make formal-golden`" note guards it. Fix: fold the killer tests' data
+  files into the digest.
+- **N21 — insertion-only mutant after a blank line has an empty anchor (PR #184
+  follow-up).** An insertion-only survivor is anchored by `context`, the unchanged line
+  before its first added line; when that line is blank the context is empty and the
+  refresh cannot anchor it, so the entry must be anchored by hand. Fix: use the nearest
+  non-blank line before the insertion (or several context lines).
 
 ## Why CST keeps its production paths out of invowk anyway
 
@@ -348,7 +392,8 @@ the existing programs.
 
 ## Flaky tests
 
-Recorded, not fixed. Each passed on a rerun with no code change.
+Recorded, not fixed. Each passed on a rerun with no code change. One turned out to be a
+product bug (`TestSyncFreshCacheReproducesLockedHash`, N18).
 
 ### `TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen` (`internal/sshserver`)
 
@@ -389,12 +434,17 @@ gotestsum's re-run in the same step (the job failed for other, real failures:
 ```
 
 The test expects the lock file to stay byte-identical when the locked version reproduces
-its hash; once, on Windows, it did not. The cause is not investigated.
+its hash; once, on Windows, it did not.
+
+**Diagnosed 2026-11-19: a product bug, not a flake (N18).** With more than 1 s between
+the two syncs the test fails deterministically: Sync rewrites the unchanged lock with a
+new `generated:` timestamp. Every sighting in this section is a run whose two syncs
+happened to straddle a second boundary.
 
 Seen again 2026-11-15 on Linux (Fedora, local `make test` of S4 at `3670d1e5`): same
-assertion in gotestsum's first pass, passed in its re-run. 200 isolated runs passed on S4 and on `main` (`d7e4feb4`). Unverified
-hypothesis: the lock file carries an RFC 3339 `generated` timestamp, so a rewrite that
-crosses a second boundary changes its bytes.
+assertion in gotestsum's first pass, passed in its re-run. 200 isolated runs passed on S4 and on `main` (`d7e4feb4`). Hypothesis
+at the time: the lock file carries an RFC 3339 `generated` timestamp, so a rewrite that
+crosses a second boundary changes its bytes (since confirmed, see above).
 
 Third sighting, 2026-11-19 on Windows: CI run 44475510192, job 135394971934 (PR #175 at
 `e993c5af`, which does not touch `internal/app/modulesync`). Same assertion; the next head
