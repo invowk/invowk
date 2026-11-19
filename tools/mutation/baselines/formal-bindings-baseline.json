@@ -1077,136 +1077,34 @@
       "line": 117
     },
     {
-      "id": "633e5399c312d93d4be40996b0e6feae",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "conditional/negated",
-      "line": 156
-    },
-    {
-      "id": "12ff45291df796a6a0ded69f310fad96",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "branch/if",
-      "line": 157
-    },
-    {
-      "id": "90d1ab2371a3677d3f2a66e61d6f5e75",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/return",
-      "line": 159
-    },
-    {
-      "id": "290fa9b67352e416f9bb2811c1fb4ef1",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "composite/field-clear",
-      "line": 162
-    },
-    {
-      "id": "0666ad7de7427d0df405b3e2e6b89bd3",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "composite/field-clear",
-      "line": 163
-    },
-    {
-      "id": "2258e247fb18e9e660ed7b6428bda7a9",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "composite/field-clear",
-      "line": 164
-    },
-    {
-      "id": "51796e7773ce033e48420a1ebddfa7c6",
+      "id": "f0199139481c561d569d265945e762e2",
       "file": "internal/runtime/virtual_policy.go",
       "mutator": "branch/case",
+      "line": 166
+    },
+    {
+      "id": "13a303fe366f4af4eb76034e4f99fa5d",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 166
+    },
+    {
+      "id": "d7d8827ab532e557c208d3b3edd78f7e",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
+      "line": 167
+    },
+    {
+      "id": "3f3feb26c3e175598cdf541fb3ffaf16",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/remove",
       "line": 168
     },
     {
-      "id": "c9f35b4efe1bab53f1dc0a0244505fce",
+      "id": "bd71514bf0030320b6eacfc23ccbcb79",
       "file": "internal/runtime/virtual_policy.go",
       "mutator": "statement/remove",
-      "line": 170
-    },
-    {
-      "id": "ea671db53f5a8de321a98b0a17bbb216",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 171
-    },
-    {
-      "id": "21ecae4644a1ef7ae7ae80dcc996d98a",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 172
-    },
-    {
-      "id": "aea6311c6f32b6f73718d9998ba1a721",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 173
-    },
-    {
-      "id": "a3e148b02f03cbeb34485849ed555075",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "branch/case",
-      "line": 175
-    },
-    {
-      "id": "5c87b301a1c52f20987b861d2e178679",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 175
-    },
-    {
-      "id": "013320da79a21373fa6ab80fbda17b1d",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 176
-    },
-    {
-      "id": "1404fc633158b8a0aefcfcd0fc31b96f",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 177
-    },
-    {
-      "id": "b6e9053db94add7061ce50fb13bc112e",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 178
-    },
-    {
-      "id": "c323c56c3b466b5e05953a1cff84df00",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "branch/case",
-      "line": 180
-    },
-    {
-      "id": "bf7a7e8c5c0b17b16675278470404b26",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 180
-    },
-    {
-      "id": "11eba44d44c6ab0f0921cb680d1bf6d8",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 181
-    },
-    {
-      "id": "3de3fa8fa4f94926a17e19bc7a890dbf",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 182
-    },
-    {
-      "id": "4386ba3aad2402e228498dbdbeaea39c",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/remove",
-      "line": 183
-    },
-    {
-      "id": "42658db60a0835500b32ab4edd9d6c9b",
-      "file": "internal/runtime/virtual_policy.go",
-      "mutator": "statement/return",
-      "line": 185
+      "line": 169
     },
     {
       "id": "8e7a4c152dc031f7226c2a1017b9097d",

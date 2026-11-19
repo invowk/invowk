@@ -192,6 +192,15 @@ unresolved_elements = [
 # the base commit does not list (base: --base, else INVOWK_TRIAGE_BASE, else the
 # merge-base with origin/main; CI sets it with scripts/ci-triage-base.sh). The
 # survivor-triage follow-up binds the gaps and empties orphaned_survivors.
+#
+# stale_survivors (refresh-anchors-mutation-ledger, 2026-11-19, design D5):
+# ledger survivors whose anchor (`removed`/`added`, or `context`) no longer
+# hashes to the id or no longer appears in its symbol's current body, and that
+# the seeding change did not refresh. A listed id is exempt from that check and
+# reported; a listed id that passes it, or left the ledger, fails as stale. The
+# key is required. Seeded from a base that has the three lists above but not
+# this one; after that it only shrinks. A change that rewrites a bound function
+# refreshes its survivors (formal-verification skill) instead of listing them.
 [triage]
 binding_gaps = [
     { model = "AtomicWrite", element = "caller", symbol = "LockFile.Save" },
@@ -235,6 +244,8 @@ orphaned_survivors = [
     "e5c9979e40913a5114cd855ff51ae787",
     "e6063b43d56b74bd35d1775902931352",
     "f2e95d83a50df58bb02a21dcabf4f400",
+]
+stale_survivors = [
 ]
 
 [[model]]

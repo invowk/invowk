@@ -209,13 +209,35 @@ model-gap rigour) or an abstraction note on the calling row. Then run
 `make mutation-formal-baseline-update`; it fails until
 `python3 scripts/formal_mutation.py triage --check` passes.
 
-A change that rewrites a bound function without refreshing the baseline still
-retriages its survivors: run `make mutation-formal` (report only) in a
-throwaway `git worktree add --detach` at the committed HEAD, so the wrapper's
-exit restore cannot touch the working checkout, read the function's killed and
-escaped mutants from `report.json`, and record them in
-`tasks/next/formal-binding-gaps.md`. Do not `mutation-formal-rerun` ledger ids
-of the removed body: it appends rerun evidence for mutants that no longer exist.
+Every `[[survivor]]` carries its anchor: `removed` and `added` (the exact
+removed and added diff lines, as TOML multi-line literal strings; go-mutesting
+hashes them, with the file and mutator, into the id) and, when it removes no
+line, `context` (the unchanged line before its first added line). `triage
+--check` fails on an entry whose anchor does not hash to its id, whose symbol is
+gone, or whose anchor lines no longer appear in order from inside the symbol's
+body. Orphaned survivors are exempt. `[triage] stale_survivors` only shrinks;
+never add to it.
+
+A change that rewrites a bound function so that a survivor's anchor lines
+disappear refreshes that function's entries in the same change (the partial
+refresh of refresh-anchors-mutation-ledger, design D7):
+
+1. Commit the change, then run `make mutation-formal` (report only) in a
+   throwaway `git worktree add --detach` at that commit, under the heavy-command
+   lock, so the wrapper's exit restore cannot touch the working checkout.
+2. From the run's per-group `report.json` files, recompute each mutant's id from
+   its `diff` (go-mutesting's `MutantID`) and list the function's killed and
+   escaped mutants.
+3. Remove the gone ids from the baseline and the ledger. Do not
+   `mutation-formal-rerun` them: that appends evidence for mutants that no
+   longer exist.
+4. Add each new escaped mutant to the baseline (`{id, file, mutator, line}`
+   verbatim from the run, in sorted order) and to the ledger, anchored from its
+   diff and triaged as above. Commit, then rerun only the new ids twice each
+   with `make mutation-formal-rerun` and set each new baseline entry's own
+   `digest` to the digest those reruns recorded. The other entries and the
+   top-level digest stay unchanged.
+5. `python3 scripts/formal_mutation.py triage --check` must pass.
 
 ## TLA+ commands
 

@@ -175,9 +175,12 @@ REACH_LABEL = "reach"
 # Correspondence rows whose model element names nothing in the model source
 # (naming drift recorded on 2026-11-14); the list only shrinks.
 CORRESPONDENCE_KEYS = {"unresolved_elements"}
-# Binding gaps (no-binding rows) and orphaned ledger survivors that
-# `formal_mutation.py triage --check` reports; read by formal_mutation.py.
-TRIAGE_KEYS = {"binding_gaps", "orphaned_survivors"}
+# Binding gaps (no-binding rows), orphaned ledger survivors and stale ledger
+# survivors that `formal_mutation.py triage --check` reports; read by
+# formal_mutation.py. `stale_survivors` is required, so deleting it cannot
+# reopen its seeding.
+TRIAGE_KEYS = {"binding_gaps", "orphaned_survivors", "stale_survivors"}
+TRIAGE_ID_LISTS = ("orphaned_survivors", "stale_survivors")
 CI_BUDGET_KEYS = {"soft_headroom", "local_headroom", "hard_headroom", "measured_on", "ci_runs", "command_count"}
 # Keys that belong to one tool only.
 TOOL_ONLY_KEYS = {"alloy": {"body", "scope"}, "tla": {"constants", "spec", "temporal"}}
@@ -204,7 +207,8 @@ def load_manifest(path: Path = MANIFEST) -> tuple[dict[str, Tool], list[Model]]:
     check_keys("[ci.budget]", data.get("ci", {}).get("budget", {}), CI_BUDGET_KEYS)
     check_keys("[reach]", data.get("reach", {}), REACH_KEYS)
     check_keys("[correspondence]", data.get("correspondence", {}), CORRESPONDENCE_KEYS)
-    check_keys("[triage]", data.get("triage", {}), TRIAGE_KEYS)
+    if "triage" in data:
+        parse_triage(data["triage"])
     for key, raw in data.get("tools", {}).items():
         check_keys(f"[tools.{key}]", raw, TOOL_KEYS)
     for raw in data.get("trace", []):
@@ -310,25 +314,33 @@ TRIAGE_ROW_KEYS = {"model", "element", "symbol"}
 
 def load_triage(path: Path = MANIFEST) -> dict[str, list]:
     """The `[triage]` table: `binding_gaps` ({model, element, symbol} tables
-    of no-binding rows) and `orphaned_survivors` (mutant ids), both
-    shrink-only lists that `formal_mutation.py triage --check` enforces."""
+    of no-binding rows), `orphaned_survivors` and `stale_survivors` (mutant
+    ids), all shrink-only lists that `formal_mutation.py triage --check`
+    enforces."""
     return parse_triage(manifest_table("triage", path))
 
 
 def parse_triage(raw: dict) -> dict[str, list]:
-    """Validate a `[triage]` table and return both lists."""
+    """Validate a `[triage]` table and return its lists."""
     check_keys("[triage]", raw, TRIAGE_KEYS)
+    if "stale_survivors" not in raw:
+        raise FormalError("manifest [triage] needs a stale_survivors list (empty when no entry is stale)")
     rows = raw.get("binding_gaps", [])
-    ids = raw.get("orphaned_survivors", [])
     if not isinstance(rows, list) or not all(isinstance(r, dict) and set(r) == TRIAGE_ROW_KEYS
                                              and all(isinstance(v, str) for v in r.values()) for r in rows):
         raise FormalError("manifest [triage] binding_gaps must be a list of { model, element, symbol } tables")
-    if not isinstance(ids, list) or not all(isinstance(i, str) and i for i in ids):
-        raise FormalError("manifest [triage] orphaned_survivors must be a list of mutant ids")
     keys = [(r["model"], r["element"], r["symbol"]) for r in rows]
-    if len(keys) != len(set(keys)) or len(ids) != len(set(ids)):
+    lists = {"binding_gaps": rows}
+    for name in TRIAGE_ID_LISTS:
+        ids = raw.get(name, [])
+        if not isinstance(ids, list) or not all(isinstance(i, str) and i for i in ids):
+            raise FormalError(f"manifest [triage] {name} must be a list of mutant ids")
+        if len(ids) != len(set(ids)):
+            raise FormalError("manifest [triage] has duplicate entries")
+        lists[name] = ids
+    if len(keys) != len(set(keys)):
         raise FormalError("manifest [triage] has duplicate entries")
-    return {"binding_gaps": rows, "orphaned_survivors": ids}
+    return lists
 
 
 def load_trace_suites(path: Path = MANIFEST) -> list[TraceSuite]:
