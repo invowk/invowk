@@ -1305,8 +1305,8 @@ def check_triage(
 
     general, by_mutant = evidence_failures(baseline, reruns)
     failures += general
-    for mutant in sorted(baseline_ids):
-        failures += by_mutant.get(mutant, [])
+    for problems in by_mutant.values():
+        failures += problems
 
     for entry in closed:
         mutant = entry.get("id", "?")
@@ -1337,7 +1337,8 @@ RUN_COMMAND = "make mutation-formal"
 # scripts/mutation.sh QUALITY_GATE_EXIT_CODE: what go-mutesting returns for a
 # group that reports escaped mutants.
 QUALITY_GATE_EXIT_CODE = 4
-ANCHOR_KEY_RE = re.compile(r"^(removed|added|context)\s*=\s*(.*)$")
+ANCHOR_KEYS = ("removed", "added", "context")
+ANCHOR_KEY_RE = re.compile(rf"^({'|'.join(ANCHOR_KEYS)})\s*=\s*(.*)$")
 BLOCK_ID_RE = re.compile(r'(?m)^id = "([0-9a-f]+)"$')
 
 Key = tuple[str, str]  # (file, symbol) of a plan function or a ledger symbol
@@ -1584,10 +1585,10 @@ def toml_value(value: str) -> str:
 
 
 def anchor_lines(removed: str, added: str, context: str | None) -> list[str]:
-    text = f"removed = {toml_value(removed)}\nadded = {toml_value(added)}\n"
+    keys = [f"removed = {toml_value(removed)}", f"added = {toml_value(added)}"]
     if context is not None:
-        text += f"context = {toml_value(context)}\n"
-    return text.rstrip("\n").split("\n")
+        keys.append(f"context = {toml_value(context)}")
+    return "\n".join(keys).split("\n")
 
 
 def anchor_of(mutant: Mutant) -> dict[str, str]:
@@ -1846,7 +1847,7 @@ def refresh(
     # Fail closed before writing (design D4).
     expected = {s["id"]: s for s in survivors if s["id"] not in gone}
     for mid, mutant in reanchor.items():
-        expected[mid] = {**{k: v for k, v in expected[mid].items() if k not in {"removed", "added", "context"}},
+        expected[mid] = {**{k: v for k, v in expected[mid].items() if k not in ANCHOR_KEYS},
                          **anchor_of(mutant)}
     expected.update({mid: entry for mid, (_key, entry, _mutant) in added.items()})
     try:
