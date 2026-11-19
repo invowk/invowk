@@ -232,8 +232,9 @@ mutation-partial-refresh):
    MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` (or `MUTATION_FORMAL_STALE=1`
    for every symbol with an entry that fails the anchor check), with
    `MUTATION_REPORT_DIR=<throwaway>/artifacts/mutation`, under the lock. A run
-   in another worktree is accepted when its plan inputs equal the current
-   tree's.
+   in another worktree is accepted when its plan inputs, functions and rows
+   equal the current tree's. The inputs digest does not cover golden-vector
+   data files: rerun step 1 after `make formal-golden`.
    It refuses a run that is not a complete full run of the current inputs
    (profile, `inputs_digest` and each `group_status` in `run-metadata.txt`),
    an unknown or unplanned symbol, and an id that escapes only in a symbol you
@@ -254,6 +255,10 @@ mutation-partial-refresh):
 
 A deleted or renamed function: first remove or rename its correspondence row
 (the plan, and so the refresh, fails while a row names a missing function).
+Editing an `.als` table changes the model source hash, so run `make
+formal-golden` for that model and `python3 scripts/formal.py correspondence`
+before the mutation run; otherwise its pre-flight fails. Any row or golden
+change goes before the run, which the refresh then matches.
 Then `--symbol FILE:OLD` (or `--stale`) is removal-only: its entries are
 removed and nothing is added under it. Refresh the new name with `--symbol` in
 the same command, so ids that moved to it are added (untriaged) instead of

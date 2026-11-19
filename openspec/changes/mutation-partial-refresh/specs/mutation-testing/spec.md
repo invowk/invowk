@@ -125,12 +125,20 @@ Before writing, the refresh SHALL check that the baseline round-trips through it
 - **WHEN** the new ledger text would not parse back to the expected entries
 - **THEN** the refresh SHALL fail without writing any file
 
+#### Scenario: Closed gap escapes again
+- **WHEN** an id the refresh would add is recorded as a closed gap in the ledger
+- **THEN** the refresh SHALL fail without writing any file, naming the id and its model
+
+#### Scenario: Malformed rerun records
+- **WHEN** the rerun evidence file has a malformed record
+- **THEN** the refresh SHALL fail before writing any file
+
 #### Scenario: Anchor still failing
 - **WHEN** a remaining entry of a chosen symbol would still fail the anchor check after the refresh
 - **THEN** the refresh SHALL fail without writing any file and name the entry
 
 ### Requirement: The refresh uses a complete run of the current inputs
-A full formal-bindings run SHALL record its plan-inputs digest and each match group's exit status with its reports. The refresh SHALL fail without writing any file, naming the run command to repeat, when the run has no recorded digest, when the digest of the current tree's plan inputs differs from it, or when the run is incomplete: a plan group has no report, no recorded status, or a status other than success or the escaped-mutants quality-gate status.
+A full formal-bindings run SHALL record its plan-inputs digest and each match group's exit status with its reports. The refresh SHALL fail without writing any file, naming the run command to repeat, when the run has no recorded digest, when the digest of the current tree's plan inputs differs from it, when the current plan's functions, correspondence rows or match groups differ from the run's, or when the run is incomplete: a plan group has no report, no recorded status, or a status other than success or the escaped-mutants quality-gate status.
 
 #### Scenario: Run of other inputs
 - **WHEN** a target file or killer-test file changed after the run
@@ -143,6 +151,14 @@ A full formal-bindings run SHALL record its plan-inputs digest and each match gr
 #### Scenario: Run in another worktree
 - **WHEN** the run was made in a throwaway worktree at a commit whose plan inputs equal the current tree's
 - **THEN** the refresh SHALL accept it and resolve the reported file paths against that run's root
+
+#### Scenario: Row changed after the run
+- **WHEN** a correspondence row of a planned function was bound, unbound or edited after the run, so the plan's functions or rows differ while the inputs digest is unchanged
+- **THEN** the refresh SHALL fail without writing any file, naming the differing functions and `make mutation-formal`
+
+#### Scenario: Report path outside the run's root
+- **WHEN** a reported file path is absolute and lies outside the run's root, also after resolving symlinks
+- **THEN** the refresh SHALL fail without writing any file instead of treating the chosen symbols' ids as not generated
 
 ### Requirement: The refresh checks rerun evidence and reports a summary
 After writing, the refresh SHALL check, for every remaining entry of the chosen symbols, the rerun evidence the triage check requires, and SHALL print the ids that lack it with the `make mutation-formal-rerun` command to run. It SHALL NOT run mutation itself. It SHALL print counts of removed, moved, added, untriaged, kept, re-anchored, shared, unattributed and awaiting-evidence entries.

@@ -444,6 +444,22 @@ class RerunAndReportTests(unittest.TestCase):
         expected = fm.hashlib.sha256(b"a.go\0A").hexdigest()
         self.assertEqual((self.dir / "run-metadata.txt").read_text(), f"inputs_digest={expected}\n")
 
+    def test_merge_reports_without_a_digest_still_succeeds(self) -> None:
+        # An unreadable input records no digest (refresh then refuses the
+        # run) but does not fail the report-only run or skip per-file.tsv.
+        self.write_group(0, {"killedCount": 1, "escapedCount": 0, "errorCount": 0, "skippedCount": 0}, [], [])
+        (self.dir / fm.PLAN_FILE).write_text(json.dumps({"version": 2, "root": str(self.dir), "inputs": ["gone.go"]}))
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            fm.merge_reports(self.dir, "")
+        self.assertNotIn("inputs_digest=", (self.dir / "run-metadata.txt").read_text())
+        self.assertTrue((self.dir / "per-file.tsv").exists())
+        self.assertIn("no inputs_digest recorded", err.getvalue())
+
+    def test_quality_gate_exit_code_matches_the_wrapper(self) -> None:
+        match = re.search(r"^(?:readonly )?QUALITY_GATE_EXIT_CODE=(\d+)$", fm.MUTATION_SH.read_text(), re.M)
+        self.assertIsNotNone(match)
+        self.assertEqual(int(match[1]), fm.QUALITY_GATE_EXIT_CODE)
+
     def test_merge_without_groups_fails(self) -> None:
         with self.assertRaisesRegex(PlanError, "no group-"):
             fm.merge_reports(self.dir, "")
@@ -1782,6 +1798,92 @@ class RefreshTests(Fixture):
         self.write_data([self.entry(DECIDE)], extra_baseline=[KEEP])
         self.write_run([self.rep(KEEP), self.rep(DECIDE)])
         self.assert_refused(rf"{KEEP.id} \(escaped in Evaluate\) is in the baseline but not the ledger")
+
+    def drop_from_baseline(self, *ids: str) -> None:
+        data = json.loads(self.paths.baseline.read_text())
+        data["mutants"] = [m for m in data["mutants"] if m["id"] not in ids]
+        self.paths.baseline.write_text(json.dumps(data, indent=2) + "\n")
+
+    def test_ledger_id_without_baseline_entry_is_refused(self) -> None:
+        self.write_data([self.entry(KEEP), self.entry(KILLED)])
+        self.drop_from_baseline(KEEP.id)
+        self.write_run([self.rep(KEEP), self.rep(KILLED, "killed")])
+        self.assert_refused(rf"{KEEP.id} \(escaped in Evaluate\) is in the ledger but not the baseline")
+        # A chosen symbol's entry that no longer escapes, missing from the baseline.
+        self.write_data([self.entry(KEEP), self.entry(KILLED)])
+        self.drop_from_baseline(KILLED.id)
+        self.assert_refused(rf"ledger survivor {KILLED.id} \(Evaluate\) is not in the baseline; fix the id sets first")
+
+    def test_malformed_reruns_file_writes_nothing(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        with self.paths.reruns.open("a") as handle:
+            handle.write(json.dumps({"id": NEW.id, "status": "bogus", "timestamp": "t", "digest": "d"}) + "\n")
+        self.assert_refused(r"malformed rerun record")
+
+    def test_row_changed_after_the_run_is_refused(self) -> None:
+        # TestStop is declared in a file that is already a plan input, so the
+        # inputs and their digest stay the same.
+        self.base_data()
+        self.write_run(self.base_run())
+        self.set_rows(REFRESH_ROWS.replace(row("evaluation", "Evaluate", "a/a.go", "TestDecide", "-"),
+                                           row("evaluation", "Evaluate", "a/a.go", "TestStop", "-")))
+        self.assert_refused(r"other functions, rows or groups than the current tree \(a correspondence row changed "
+                            r"after the run; differing: a/a.go:Evaluate\); rerun `make mutation-formal`")
+
+    def test_report_paths_resolve_through_symlinks_or_refuse(self) -> None:
+        self.base_data()
+        link = self.root.parent / f"{self.root.name}-link"
+        link.symlink_to(self.root)
+        self.addCleanup(link.unlink)
+        self.write_run([self.rep(KEEP, prefix=f"{link}/"), self.rep(NEW, prefix=f"{link}/")])
+        self.refresh(["Evaluate"])
+        self.assertIn(NEW.id, self.survivors())
+        self.base_data()
+        self.write_run([self.rep(KEEP, prefix="/nowhere/"), self.rep(NEW, prefix="/nowhere/")])
+        self.assert_refused(r"report path /nowhere/a/a.go is outside the run's root")
+
+    def test_closed_id_escaping_again_is_refused(self) -> None:
+        self.base_data()
+        self.paths.ledger.write_text(self.paths.ledger.read_text().replace('id = "c1"', f'id = "{NEW.id}"'))
+        self.write_run(self.base_run())
+        self.assert_refused(rf"{NEW.id} \(Evaluate\) escapes again but is recorded as \[\[closed\]\] \(model M\)")
+
+    def test_unattributed_only_escape_has_its_own_refusal(self) -> None:
+        self.write_data([self.entry(KEEP)])
+        self.write_run([self.rep(KEEP, line=21)])
+        self.assert_refused(rf"survivor {KEEP.id} of Evaluate escapes only outside every plan function .*which no "
+                            r"--symbol can choose")
+
+    def test_blank_context_is_refused_up_front(self) -> None:
+        blank = Spec("Evaluate", 24, "loop/break", "", "\t\tbreak\n", context="")
+        self.base_data()
+        self.write_run([self.rep(KEEP), self.rep(blank)])
+        self.assert_refused(rf"{blank.id} \(Evaluate\): insertion-only loop/break mutant at :24 has a blank context "
+                            r"line, which the ledger's anchor cannot hold")
+
+    def test_comments_of_removed_blocks_are_kept(self) -> None:
+        self.base_data()
+        text = self.paths.ledger.read_text().replace(LEDGER_HEAD, LEDGER_HEAD.rstrip("\n") + "\n", 1)
+        text = text.replace(f'[[survivor]]\nid = "{KILLED.id}"', f'# Killed section.\n[[survivor]]\nid = "{KILLED.id}"')
+        self.paths.ledger.write_text(text)
+        self.write_run(self.base_run())
+        self.refresh(["Evaluate"])
+        ledger = self.paths.ledger.read_text()
+        self.assertTrue(ledger.startswith(LEDGER_HEAD.rstrip("\n") + "\n[[survivor]]\n"), ledger[:200])
+        self.assertIn("# Killed section.\n", ledger)
+        self.assertNotIn(KILLED.id, self.survivors())
+
+    def test_bare_leaf_follows_find_function(self) -> None:
+        # A bare `foo` names the receiver-less function for the anchor check;
+        # so it does not name the planned method `T.foo`.
+        method = {"file": "x.go", "symbol": "T.foo", "name": "foo"}
+        decls = [fm.FuncDecl("", "foo", 1, 2), fm.FuncDecl("T", "foo", 4, 5)]
+        source = lambda _file: fm.ParsedSource([], decls)  # noqa: E731
+        self.assertEqual(fm.matching_functions([method], "foo", "x.go"), [method])
+        self.assertEqual(fm.matching_functions([method], "foo", "x.go", source), [])
+        only_method = lambda _file: fm.ParsedSource([], decls[1:])  # noqa: E731
+        self.assertEqual(fm.matching_functions([method], "foo", "x.go", only_method), [method])
 
     def test_placement(self) -> None:
         one_line = Spec("Server.Validate", 15, "statement/remove", "func (s Server) Validate() error { return nil }\n",

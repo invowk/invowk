@@ -294,8 +294,12 @@ mutation-formal-refresh:
 		echo "MUTATION_FORMAL_SYMBOL or MUTATION_FORMAL_STALE is required. Usage: make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...] [MUTATION_FORMAL_STALE=1]"; \
 		exit 1; \
 	fi
+	@if [ -n "$(MUTATION_FORMAL_STALE)" ] && [ "$(MUTATION_FORMAL_STALE)" != 1 ]; then \
+		echo "MUTATION_FORMAL_STALE must be 1 or unset, not '$(MUTATION_FORMAL_STALE)'"; \
+		exit 1; \
+	fi
 	@GO_CMD=$(GOCMD) python3 scripts/formal_mutation.py refresh --report-dir "$(MUTATION_REPORT_DIR)/full/formal-bindings" \
-		$(if $(MUTATION_FORMAL_SYMBOL),--symbol "$(MUTATION_FORMAL_SYMBOL)") $(if $(MUTATION_FORMAL_STALE),--stale)
+		$(if $(MUTATION_FORMAL_SYMBOL),--symbol "$(MUTATION_FORMAL_SYMBOL)") $(if $(filter 1,$(MUTATION_FORMAL_STALE)),--stale)
 
 # Generate PGO profile from benchmarks (includes container tests).
 # The benchmark run forces -pgo=off so training data is not biased by an
