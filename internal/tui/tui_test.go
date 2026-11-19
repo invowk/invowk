@@ -3,7 +3,6 @@
 package tui
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -136,8 +135,5 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.Width != 0 {
 		t.Errorf("Width = %d, want 0", cfg.Width)
-	}
-	if cfg.Output != os.Stdout {
-		t.Errorf("Output should be os.Stdout")
 	}
 }

@@ -2803,6 +2803,8 @@ A user command can also exit with `1` or `2` itself, so a wrapper that must tell
 
 invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). These can be used in shell scripts to create interactive prompts, selections, and styled output.
 
+The components draw on your terminal (`/dev/tty` on Unix, the console on Windows) and read keys from it, so stdout carries only the result: `NAME=$(invowk tui input)` captures exactly the answer, and the UI stays visible when stdout or stderr is redirected. `format` and `style` write their styled text to stdout, since that is their result. When the controlling terminal cannot be opened, the components use stdin and stderr if both are terminals. With no terminal at all (a CI job, for example), `input`, `write`, `choose`, `confirm`, `filter`, `file` and `table` exit with status 1 and an error saying they need a terminal, with empty stdout; `spin` runs its command once without the spinner, and `pager` writes the content unchanged to stdout.
+
 ### Input
 
 Prompt for single-line text input:

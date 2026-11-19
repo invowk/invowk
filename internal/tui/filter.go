@@ -203,8 +203,7 @@ func Filter(opts FilterOptions) ([]string, error) {
 	}
 
 	model := NewFilterModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeFilter, model)
 	if err != nil {
 		return nil, err
 	}

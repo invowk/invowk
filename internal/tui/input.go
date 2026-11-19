@@ -134,8 +134,7 @@ func (m *inputModel) SetSize(width, height TerminalDimension) {
 // Returns the entered text or an error if the prompt was cancelled.
 func Input(opts InputOptions) (string, error) {
 	model := NewInputModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeInput, model)
 	if err != nil {
 		return "", err
 	}

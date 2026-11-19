@@ -92,6 +92,7 @@ A new helper in `internal/tui` resolves a `componentTerminal` (input reader, out
 - `spin` decorates a command. Today `invowk tui spin -- make build` in CI fails before it runs the command, because Bubble Tea cannot open a TTY (probe row 7). With `ErrNoTerminal`, `SpinWithAction` runs the action without a program, and the adapter keeps its output and exit-code handling (`cmd/invowk/tui_spin.go:104-130`).
 - `SpinWithAction` resolves the terminal **before** it starts the action goroutine (Context: today the goroutine starts first, `spin.go:300-306`). On `ErrNoTerminal` it runs the action synchronously, once, and returns nil. On success it starts the goroutine and the spinner as today. If the spinner program itself fails after the action started, `SpinWithAction` waits on `doneCh` before it returns the error, so the action is never run twice and never abandoned mid-run. A unit test with an injected failing resolver asserts the action runs exactly once.
 - `pager` without a terminal writes the content to stdout, as `less` does.
+- `SpinWithContext` (no non-test caller) follows the same rule: without a terminal it waits for the context to end and returns nil.
 - The other components need an answer, so they fail. `confirm` failing exits 1, which reads as "No". That is today's behaviour too, and the stderr message tells the two apart (Risks).
 
 ### D4. Test coverage per platform

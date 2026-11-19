@@ -139,8 +139,7 @@ func (m *fileModel) SetSize(width, height TerminalDimension) {
 // Returns the selected file path or an error if the prompt was cancelled.
 func File(opts FileOptions) (string, error) {
 	model := NewFileModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeFile, model)
 	if err != nil {
 		return "", err
 	}

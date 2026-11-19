@@ -3,6 +3,11 @@
 package tui
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -159,11 +164,23 @@ func (m *pagerModel) SetSize(width, height TerminalDimension) {
 }
 
 // Pager displays content in a scrollable viewport.
+// Without a terminal it writes the content unchanged to stdout, as less does.
 func Pager(opts PagerOptions) error {
+	return pagerWith(opts, resolveComponentTerminal, os.Stdout)
+}
+
+// pagerWith runs the pager on the terminal that resolve selects, and writes the
+// content verbatim to stdout when there is no terminal.
+func pagerWith(opts PagerOptions, resolve resolveTerminalFunc, stdout io.Writer) error {
 	model := NewPagerModel(opts)
 	model.altScreen = true
-	p := tea.NewProgram(model)
-	_, err := p.Run()
+	_, err := runComponentProgramWith(resolve, ComponentTypePager, model)
+	if errors.Is(err, ErrNoTerminal) {
+		if _, writeErr := io.WriteString(stdout, opts.Content); writeErr != nil {
+			return fmt.Errorf("pager: write content: %w", writeErr)
+		}
+		return nil
+	}
 	return err
 }
 

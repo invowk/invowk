@@ -161,7 +161,7 @@ func TestWriteBuilder(t *testing.T) {
 	want := WriteOptions{
 		Title: "Title", Description: "Description", Placeholder: "Placeholder", Value: "Value",
 		CharLimit: 120, Width: 64, Height: 9, ShowLineNumbers: true,
-		Config: Config{Theme: ThemeDracula, Accessible: true, Output: builder.opts.Config.Output},
+		Config: Config{Theme: ThemeDracula, Accessible: true},
 	}
 	if builder.opts != want {
 		t.Errorf("builder options = %#v, want %#v", builder.opts, want)
