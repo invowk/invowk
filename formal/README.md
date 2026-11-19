@@ -143,9 +143,15 @@ pass. The check reads only the current tree, so a depth-1 checkout gives the
 same verdict. Orphaned survivors are not anchored. A fourth shrink-only list,
 `[triage] stale_survivors`, holds survivors that fail it and that their change
 did not refresh (seeded empty by refresh-anchors-mutation-ledger); a listed id
-that passes fails as stale. A baseline mutant may carry its own evidence
-`digest` after a partial refresh; a full `mutation-formal-baseline-update`
-writes only the top-level one. Mutants with the same diff lines at different
+that passes fails as stale. A change that rewrites a bound function refreshes
+its survivors in the same change with `make mutation-formal-refresh` (the
+`refresh` subcommand) from a report-only `make mutation-formal` run of the
+same inputs: it removes the ids that no longer escape, adds the new escapees
+with their anchor, their own evidence `digest` and an `untriaged` placeholder
+that `triage --check` rejects until a person writes the class and the reason,
+re-anchors kept entries, drops the refreshed ids from `stale_survivors`, and
+names the reruns still owed; every other entry stays byte-identical. A full
+`mutation-formal-baseline-update` writes only the top-level digest. Mutants with the same diff lines at different
 places share one go-mutesting id, and go-mutesting's baseline matches by id, so
 the baseline lists each id once: the merge keeps the first entry and
 `triage --check` fails on a repeated id.

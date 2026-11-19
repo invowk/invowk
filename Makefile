@@ -285,6 +285,22 @@ mutation-formal-rerun:
 	fi
 	@./scripts/mutation.sh rerun --target-set formal-bindings --mode "$(MUTATION_MODE)" --mutant-id "$(MUTATION_MUTANT_ID)" --report-dir "$(MUTATION_REPORT_DIR)"
 
+# Same-change partial refresh of the formal-bindings ledger from the last
+# `make mutation-formal` run: MUTATION_FORMAL_SYMBOL=<[file:]sym>[,...] and/or
+# MUTATION_FORMAL_STALE=1. It mutates nothing (reads the reports, runs go list).
+.PHONY: mutation-formal-refresh
+mutation-formal-refresh:
+	@if [ -z "$(MUTATION_FORMAL_SYMBOL)" ] && [ -z "$(MUTATION_FORMAL_STALE)" ]; then \
+		echo "MUTATION_FORMAL_SYMBOL or MUTATION_FORMAL_STALE is required. Usage: make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...] [MUTATION_FORMAL_STALE=1]"; \
+		exit 1; \
+	fi
+	@if [ -n "$(MUTATION_FORMAL_STALE)" ] && [ "$(MUTATION_FORMAL_STALE)" != 1 ]; then \
+		echo "MUTATION_FORMAL_STALE must be 1 or unset, not '$(MUTATION_FORMAL_STALE)'"; \
+		exit 1; \
+	fi
+	@GO_CMD=$(GOCMD) python3 scripts/formal_mutation.py refresh --report-dir "$(MUTATION_REPORT_DIR)/full/formal-bindings" \
+		$(if $(MUTATION_FORMAL_SYMBOL),--symbol "$(MUTATION_FORMAL_SYMBOL)") $(if $(filter 1,$(MUTATION_FORMAL_STALE)),--stale)
+
 # Generate PGO profile from benchmarks (includes container tests).
 # The benchmark run forces -pgo=off so training data is not biased by an
 # existing profile. The resulting CPU profile is written to default.pgo.
@@ -675,6 +691,7 @@ help:
 	@echo "  mutation-formal  Mutate correspondence-table functions against their binding tests only"
 	@echo "  mutation-formal-baseline-update Update the formal-bindings baseline and check the triage ledger"
 	@echo "  mutation-formal-rerun Rerun formal-bindings mutants (comma-separated IDs) and record the rerun evidence"
+	@echo "  mutation-formal-refresh Refresh chosen symbols' formal-bindings survivors from the last report-only run"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
 	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"

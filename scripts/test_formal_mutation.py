@@ -6,12 +6,16 @@ from __future__ import annotations
 
 import datetime
 import importlib.util
+import io
 import json
 import os
+import re
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
+from typing import NamedTuple
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -430,6 +434,32 @@ class RerunAndReportTests(unittest.TestCase):
             {"id": "e2", "file": "f1.go", "mutator": "m", "line": 3},
         ])
 
+    def test_merge_reports_records_the_inputs_digest(self) -> None:
+        # Design D2 of mutation-partial-refresh: the digest of the plan in the
+        # report dir, read from the plan's root.
+        self.write_group(0, {"killedCount": 1, "escapedCount": 0, "errorCount": 0, "skippedCount": 0}, [], [])
+        (self.dir / "a.go").write_bytes(b"A")
+        (self.dir / fm.PLAN_FILE).write_text(json.dumps({"version": 2, "root": str(self.dir), "inputs": ["a.go"]}))
+        fm.merge_reports(self.dir, "")
+        expected = fm.hashlib.sha256(b"a.go\0A").hexdigest()
+        self.assertEqual((self.dir / "run-metadata.txt").read_text(), f"inputs_digest={expected}\n")
+
+    def test_merge_reports_without_a_digest_still_succeeds(self) -> None:
+        # An unreadable input records no digest (refresh then refuses the
+        # run) but does not fail the report-only run or skip per-file.tsv.
+        self.write_group(0, {"killedCount": 1, "escapedCount": 0, "errorCount": 0, "skippedCount": 0}, [], [])
+        (self.dir / fm.PLAN_FILE).write_text(json.dumps({"version": 2, "root": str(self.dir), "inputs": ["gone.go"]}))
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            fm.merge_reports(self.dir, "")
+        self.assertNotIn("inputs_digest=", (self.dir / "run-metadata.txt").read_text())
+        self.assertTrue((self.dir / "per-file.tsv").exists())
+        self.assertIn("no inputs_digest recorded", err.getvalue())
+
+    def test_quality_gate_exit_code_matches_the_wrapper(self) -> None:
+        match = re.search(r"^(?:readonly )?QUALITY_GATE_EXIT_CODE=(\d+)$", fm.MUTATION_SH.read_text(), re.M)
+        self.assertIsNotNone(match)
+        self.assertEqual(int(match[1]), fm.QUALITY_GATE_EXIT_CODE)
+
     def test_merge_without_groups_fails(self) -> None:
         with self.assertRaisesRegex(PlanError, "no group-"):
             fm.merge_reports(self.dir, "")
@@ -643,6 +673,19 @@ class TriageTests(Fixture):
         bad = self.survivor()
         bad["confirmed_reruns"] = "2"
         self.assertIn("fields must be", self.check([bad])[0])
+
+    def test_untriaged_placeholder_fails(self) -> None:
+        # mutation-partial-refresh design D5: the class or the reason mark.
+        message = ("survivor s1 (Evaluate): untriaged placeholder from `refresh`: write the class (one of abstraction, "
+                   "binding-gap, defect, equivalent, model-gap) and the reason")
+        placeholder = self.survivor(**{"class": fm.UNTRIAGED_CLASS, "reason": f"{fm.UNTRIAGED_MARK} m survives T"})
+        failures = self.check([placeholder])
+        self.assertIn(message, failures)
+        self.assertNotIn("survivor s1: unknown class 'untriaged'", failures)
+        class_only = self.survivor(**{"class": "equivalent", "reason": f"{fm.UNTRIAGED_MARK} m survives T"})
+        self.assertIn(message, self.check([class_only]))
+        self.assertIn(message, self.check([self.survivor(**{"class": fm.UNTRIAGED_CLASS})]))
+        self.assertEqual(self.check([self.survivor(**{"class": "equivalent", "reason": "cannot change behaviour"})]), [])
 
     def test_reruns_are_required(self) -> None:
         one = [{"id": "s1", "status": "escaped", "timestamp": "t", "digest": "base"}]
@@ -1323,6 +1366,601 @@ class RepositoryTests(unittest.TestCase):
         self.assertTrue(plan["functions"])
         killers = {t for f in plan["functions"] for t in f["killers"]}
         self.assertFalse({t for t in killers if formal.is_trace_harness(t) or formal.CHARACTERISATION_NAME_RE.match(t)})
+
+
+# a/a.go for the refresh tests: CODE (Decide 4-9, Server.Stop 11-13,
+# Server.Validate 15, Map 17-19, `type Kind int` 21) then ANCHORED (Evaluate
+# 23-28: `if x > 0 {` 24, `x++` 25, `return x` 27).
+REFRESH_ROWS = (
+    row("decide", "Decide", "a/a.go", "TestDecide", "-")
+    + row("evaluation", "Evaluate", "a/a.go", "TestDecide", "-")
+    + row("stop", "Stop", "a/a.go", "TestStop", "-")
+    + row("validate a", "Server.Validate", "a/a.go", "TestStop", "-")
+    + row("validate", "Validate", "b/b.go", "TestValidate", "-")
+)
+LEDGER_HEAD = "# SPDX-License-Identifier: MPL-2.0\n#\n# Fixture ledger.\n\n"
+LEDGER_TAIL = "# Closed gaps.\n[[closed]]\nid = \"c1\"\nmodel = \"M\"\n"
+MANIFEST_HEAD = "# Fixture manifest.\n[triage]\nbinding_gaps = []\norphaned_survivors = [\n]\n"
+
+
+class Spec(NamedTuple):
+    """One mutant: where, how, and the anchor its diff yields."""
+
+    symbol: str
+    line: int
+    mutator: str
+    removed: str
+    added: str
+    context: str | None = None
+    file: str = "a/a.go"
+
+    @property
+    def id(self) -> str:
+        return fm.mutant_id(self.file, self.mutator, self.removed, self.added)
+
+    def report(self, status: str = "escaped", line: int | None = None, prefix: str = "") -> dict:
+        diff = "--- Original\n+++ New\n@@ -1,3 +1,3 @@\n"
+        if self.context is not None:
+            diff += f" {self.context}\n"
+        diff += "".join(f"-{x}\n" for x in self.removed.splitlines())
+        diff += "".join(f"+{x}\n" for x in self.added.splitlines())
+        diff += " }\n"
+        return {"mutator": {"mutatorName": self.mutator, "originalFilePath": prefix + self.file,
+                            "originalStartLine": self.line if line is None else line}, "diff": diff}
+
+
+KEEP = Spec("Evaluate", 24, "conditional/negated", "\tif x > 0 {\n", "\tif x <= 0 {\n")
+KILLED = Spec("Evaluate", 25, "statement/remove", "\t\tx++\n", "")
+GONE = Spec("Evaluate", 25, "arithmetic/base", "\t\tx--\n", "\t\tx++\n")
+NEW = Spec("Evaluate", 27, "expression/remove", "\treturn x\n", "\treturn 0\n")
+INSERTED = Spec("Evaluate", 24, "loop/break", "", "\t\tbreak\n", context="\tif x > 0 {")
+KILLED_NEW = Spec("Evaluate", 27, "expression/remove", "\treturn x\n", "\treturn 1\n")
+SKIPPED_NEW = Spec("Evaluate", 27, "expression/remove", "\treturn x\n", "\treturn 2\n")
+DECIDE = Spec("Decide", 6, "expression/bool", "\t\treturn true\n", "\t\treturn false\n")
+STOP = Spec("Stop", 12, "statement/remove", "\treturn nil\n", "")
+UNATTRIBUTED = Spec("-", 21, "type/swap", "type Kind int\n", "type Kind uint\n")
+
+
+class RefreshTests(Fixture):
+    """The partial refresh (mutation-partial-refresh design D2-D7)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.root / "a" / "a.go").write_text(CODE + ANCHORED)
+        (self.root / "a" / "a_formal_test.go").write_text("package a\n\nfunc TestDecide(t *testing.T) {}\n\n"
+                                                          "func TestStop(t *testing.T) {}\n")
+        (self.root / "a" / "a_trace_test.go").unlink()
+        (self.root / "b" / "b_golden_test.go").write_text("package b_test\n\nfunc TestValidate(t *testing.T) {}\n")
+        self.set_rows(REFRESH_ROWS)
+        self.paths = fm.RefreshPaths(self.root / "baseline.json", self.root / "ledger.toml",
+                                     self.root / "reruns.jsonl", self.root / "manifest.toml")
+        self.run_dir = self.root / "run"
+
+    def set_rows(self, rows: str) -> None:
+        self.model(rows)
+        self.models = [formal.Model(name="M", tool="alloy", file="m.als", commands=(), calibration="seeded; closed c1")]
+
+    def build(self) -> dict:
+        return fm.build_plan(self.models, root=self.root, suites=[],
+                             resolve_packages=lambda dirs: {d: f"example.com/{d}" for d in dirs})
+
+    def entry(self, spec: Spec, element: str = "", **overrides) -> dict:
+        elements = {"Evaluate": "evaluation", "Decide": "decide", "Stop": "stop", "Validate": "validate"}
+        entry = {"id": spec.id, "file": spec.file, "symbol": spec.symbol, "model": "M",
+                 "element": element or elements[spec.symbol], "class": "binding-gap", "reason": "written triage",
+                 "follow_up": "task 1", "removed": spec.removed, "added": spec.added}
+        if spec.context is not None:
+            entry["context"] = spec.context
+        entry.update(overrides)
+        return {k: v for k, v in entry.items() if v is not None}
+
+    def write_data(self, entries: list[dict], stale: list[str] | None = None, specs: dict[str, Spec] | None = None,
+                   extra_baseline: list[Spec] = (), orphans: list[str] | None = None) -> None:
+        """The ledger, baseline and manifest for `entries` (baseline lines
+        and mutators from the spec of each id), with two escaped reruns at
+        the baseline digest for each of them."""
+        by_id = {s.id: s for s in (KEEP, KILLED, GONE, NEW, INSERTED, DECIDE, STOP, *(specs or {}).values(),
+                                   *extra_baseline)}
+        blocks = "".join(self.block(e) for e in entries)
+        self.paths.ledger.write_text(LEDGER_HEAD + blocks + LEDGER_TAIL)
+        mutants = [{"id": e["id"], "file": e["file"], "mutator": by_id[e["id"]].mutator, "line": by_id[e["id"]].line}
+                   for e in entries]
+        mutants += [{"id": s.id, "file": s.file, "mutator": s.mutator, "line": s.line} for s in extra_baseline]
+        mutants.sort(key=lambda m: (m["file"], m["line"], m["mutator"], m["id"]))
+        self.paths.baseline.write_text(json.dumps({"version": 1, "digest": "base", "mutants": mutants}, indent=2) + "\n")
+        listed = "".join(f'    "{i}",\n' for i in stale or [])
+        head = MANIFEST_HEAD.replace("orphaned_survivors = [\n", "orphaned_survivors = [\n" + "".join(
+            f'    "{i}",\n' for i in orphans or []))
+        self.paths.manifest.write_text(head + f"stale_survivors = [\n{listed}]\n\n[ci]\npaths = []\n")
+        self.paths.reruns.write_text("".join(
+            json.dumps({"id": m["id"], "status": "escaped", "timestamp": "t", "digest": "base"}) + "\n"
+            for m in mutants for _ in range(2)))
+
+    @staticmethod
+    def block(entry: dict) -> str:
+        lines = [f"{k} = {json.dumps(entry[k])}" for k in ("id", "file", "symbol", "model", "element", "class",
+                                                            "reason", "follow_up") if k in entry]
+        anchors = [k for k in ("removed", "added", "context") if k in entry]
+        lines += [f"{k} = {fm.toml_value(entry[k])}" for k in anchors]
+        return "[[survivor]]\n" + "\n".join(lines) + "\n\n"
+
+    def write_run(self, reports: list[dict], plan: dict | None = None, **meta: str | None) -> dict:
+        """A merged run in self.run_dir from the current plan (or `plan`),
+        with every group reported and successful unless `meta` overrides."""
+        plan = plan or self.build()
+        self.run_dir.mkdir(exist_ok=True)
+        (self.run_dir / fm.PLAN_FILE).write_text(json.dumps(plan))
+        # The digest of the inputs read from this tree, whatever root the plan names.
+        values: dict[str, str | None] = {"profile": "full"}
+        if "inputs_digest" not in meta:
+            values["inputs_digest"] = fm.plan_digest(plan, fm.worktree_reader(self.root))
+        for n in range(len(plan["groups"])):
+            (self.run_dir / f"group-{n}").mkdir(exist_ok=True)
+            (self.run_dir / f"group-{n}" / "report.json").write_text("{}")
+            values[f"group_status[{n}]"] = "4"
+        values.update(meta)
+        (self.run_dir / "run-metadata.txt").write_text("".join(f"{k}={v}\n" for k, v in values.items() if v is not None))
+        lists: dict[str, list] = {s: [] for s in fm.RERUN_STATUSES}
+        for report in reports:
+            status = report.pop("status", "escaped")
+            lists[status].append(report)
+        (self.run_dir / "report.json").write_text(json.dumps(lists))
+        (self.run_dir / "go-mutesting-agentic.json").write_text(json.dumps({"mutants": [
+            {"id": NEW.id, "description": "Changes: `return x` → `return 0`"}]}))
+        return plan
+
+    @staticmethod
+    def rep(spec: Spec, status: str = "escaped", **kwargs) -> dict:
+        return {**spec.report(status, **kwargs), "status": status}
+
+    def base_run(self) -> list[dict]:
+        return [self.rep(KEEP), self.rep(KILLED, "killed"), self.rep(NEW), self.rep(INSERTED),
+                self.rep(KILLED_NEW, "killed"), self.rep(SKIPPED_NEW, "skipped"), self.rep(DECIDE), self.rep(STOP),
+                self.rep(UNATTRIBUTED)]
+
+    def refresh(self, symbols: list[str], stale: bool = False) -> list[str]:
+        return fm.refresh(self.run_dir, symbols, stale, self.models, root=self.root, paths=self.paths,
+                          build=self.build)
+
+    def texts(self) -> tuple[str, str, str]:
+        return self.paths.baseline.read_text(), self.paths.ledger.read_text(), self.paths.manifest.read_text()
+
+    def triage(self) -> list[str]:
+        manifest = tomllib.loads(self.paths.manifest.read_text())
+        return fm.check_triage(fm.read_baseline(self.paths.baseline), tomllib.loads(self.paths.ledger.read_text()),
+                               fm.read_reruns(self.paths.reruns), self.models, root=self.root, triage=manifest["triage"])
+
+    def survivors(self) -> dict[str, dict]:
+        return {s["id"]: s for s in tomllib.loads(self.paths.ledger.read_text())["survivor"]}
+
+    def base_data(self) -> None:
+        self.write_data([self.entry(KEEP), self.entry(KILLED), self.entry(GONE), self.entry(DECIDE), self.entry(STOP)],
+                        stale=[GONE.id])
+
+    # 2.1 diff anchors and attribution
+
+    def test_diff_anchor_recomputes_go_mutesting_ids(self) -> None:
+        replace = "--- Original\n+++ New\n@@ -1,3 +1,3 @@\n a\n-\tif x > 0 {\n+\tif x <= 0 {\n b\n"
+        self.assertEqual(fm.diff_anchor(replace), ("\tif x > 0 {\n", "\tif x <= 0 {\n", None))
+        spread = "--- Original\n+++ New\n@@ -1,5 +1,3 @@\n-\tif x > 0 {\n \tx++\n-\t}\n+\tif true {\n z\n"
+        self.assertEqual(fm.diff_anchor(spread), ("\tif x > 0 {\n\t}\n", "\tif true {\n", None))
+        insertion = "--- Original\n+++ New\n@@ -1,2 +1,3 @@\n \tfor x := range xs {\n+\t\tbreak\n \t}\n"
+        self.assertEqual(fm.diff_anchor(insertion), ("", "\t\tbreak\n", "\tfor x := range xs {"))
+        # go-mutesting v2.8.3's MutantID of a real formal-bindings survivor.
+        real = ("--- Original\n+++ New\n@@ -262,3 +262,3 @@\n \tmoduleID := x\n"
+                "-\tif cmdInfo.ModuleID != nil {\n+\tif cmdInfo.ModuleID == nil {\n \t\treturn\n")
+        removed, added, _context = fm.diff_anchor(real)
+        self.assertEqual(fm.mutant_id("internal/app/deps/deps.go", "conditional/negated", removed, added),
+                         "e9702c74714610e1edb5145d5f921fa7")
+        plan = self.write_run([self.rep(INSERTED, prefix=str(self.root) + "/")])
+        [mutant] = fm.load_mutants(self.run_dir, plan)
+        self.assertEqual((mutant.id, mutant.file, mutant.context), (INSERTED.id, "a/a.go", "\tif x > 0 {"))
+
+    def test_attribution(self) -> None:
+        plan = self.build()
+        shared_line = Spec("Decide", 5, KEEP.mutator, KEEP.removed, KEEP.added)
+        mutants = fm.load_mutants(self.run_dir, self.write_run([
+            self.rep(KEEP), self.rep(shared_line, "killed"), self.rep(KEEP, "killed"), self.rep(UNATTRIBUTED)]))
+        attr = fm.attribute(plan, mutants)
+        evaluate, decide = ("a/a.go", "Evaluate"), ("a/a.go", "Decide")
+        # One id in two functions of one file: attributed to each by line.
+        self.assertEqual(shared_line.id, KEEP.id)
+        self.assertEqual(attr.generated[decide], {KEEP.id: {"killed"}})
+        # Killed and escaped in one function: escaped wins.
+        self.assertEqual(attr.generated[evaluate], {KEEP.id: {"escaped", "killed"}})
+        self.assertEqual(list(attr.escaped[evaluate]), [KEEP.id])
+        self.assertNotIn(decide, attr.escaped)
+        self.assertEqual([m.id for m in attr.unattributed], [UNATTRIBUTED.id])
+
+    # 2.2 run validation
+
+    def assert_refused(self, pattern: str, symbols: list[str] | None = None, stale: bool = False) -> None:
+        before = self.texts()
+        with self.assertRaisesRegex(PlanError, pattern):
+            self.refresh(["Evaluate"] if symbols is None else symbols, stale)
+        self.assertEqual(self.texts(), before, "a refusal wrote a file")
+
+    def test_run_must_be_a_full_run_with_a_digest(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run(), profile="rerun")
+        self.assert_refused(r"profile is rerun, not a full report-only run; rerun `make mutation-formal`")
+        self.write_run(self.base_run(), inputs_digest=None)
+        self.assert_refused(r"records no inputs_digest .*rerun `make mutation-formal`")
+        (self.run_dir / fm.PLAN_FILE).unlink()
+        self.assert_refused(r"no formal-plan.json.*`make mutation-formal`")
+
+    def test_run_of_other_inputs_is_refused(self) -> None:
+        self.base_data()
+        plan = self.write_run(self.base_run())
+        recorded = fm.plan_digest(plan)
+        (self.root / "a" / "a_formal_test.go").write_text("package a\n\nfunc TestDecide(t *testing.T) {}\n\n"
+                                                          "func TestStop(t *testing.T) { _ = 1 }\n")
+        now = fm.plan_digest(self.build())
+        self.assert_refused(rf"inputs digest {recorded} differs from the current tree's {now}: .*"
+                            r"`make mutation-formal`")
+        other = {**self.build(), "inputs": [*plan["inputs"], "c.go"]}
+        self.write_run(self.base_run(), plan=other, inputs_digest=now)
+        self.assert_refused(r"other inputs than the current tree \(now also none; no longer c.go\); rerun `make mutation-formal`")
+
+    def test_incomplete_run_is_refused(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run(), **{"group_status[0]": None})
+        self.assert_refused(r"incomplete run: group 0 \(no group_status\).*`make mutation-formal`")
+        self.write_run(self.base_run(), **{"group_status[0]": "3"})
+        self.assert_refused(r"incomplete run: group 0 \(status 3\)")
+        self.write_run(self.base_run())
+        (self.run_dir / "group-0" / "report.json").unlink()
+        self.assert_refused(r"incomplete run: group 0 \(no report.json\)")
+        # A plan group that never ran (the loop stopped early).
+        self.write_run(self.base_run(), plan={**self.build(), "groups": self.build()["groups"] * 2})
+        (self.run_dir / "group-1" / "report.json").unlink()
+        meta = (self.run_dir / "run-metadata.txt").read_text().replace("group_status[1]=4\n", "")
+        (self.run_dir / "run-metadata.txt").write_text(meta)
+        self.assert_refused(r"incomplete run: group 1 \(no report.json, no group_status\)")
+
+    def test_plan_failure_is_refused(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        (self.root / "a" / "a.go").write_text(CODE + ANCHORED.replace("Evaluate(", "Assess("))
+        self.assert_refused(r"(?s)cannot build the current formal-bindings plan.*updated or removed first")
+
+    def test_run_in_another_worktree_is_accepted(self) -> None:
+        self.base_data()
+        plan = self.write_run([], plan={**self.build(), "root": "/elsewhere/worktree"})
+        # The reports name absolute paths under the run's root.
+        (self.run_dir / "report.json").write_text(json.dumps({"escaped": [
+            KEEP.report(prefix="/elsewhere/worktree/"), NEW.report(prefix="/elsewhere/worktree/")]}))
+        self.assertEqual(fm.plan_digest(self.build()), (self.run_dir / "run-metadata.txt").read_text().split(
+            "inputs_digest=")[1].split("\n")[0])
+        self.assertEqual(plan["root"], "/elsewhere/worktree")
+        self.refresh(["Evaluate"])
+        self.assertIn(NEW.id, self.survivors())
+        self.assertIn(KEEP.id, self.survivors())
+
+    # 2.3 symbol choice
+
+    def test_symbol_choice(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        self.assert_refused(r"symbol Valdate: unknown: no planned function and no ledger entry", ["Valdate"])
+        self.assert_refused(r"symbol Validate: names planned functions in several files \(a/a.go, b/b.go\)",
+                            ["Validate"])
+        self.assert_refused(r"symbol a/a.go:Map: Map still names a function in a/a.go \(line 17\), but the "
+                            "formal-bindings plan does not target it", ["a/a.go:Map"])
+        # The bare leaf of a method names it, and a new entry repeats the row's spelling.
+        self.write_run(self.base_run() + [self.rep(Spec("Stop", 12, "expression/remove", "\treturn nil\n",
+                                                        "\treturn errors.New(\"x\")\n"))])
+        lines = self.refresh(["Stop"])
+        self.assertIn(f"kept {STOP.id} Server.Stop statement/remove :12", lines)
+        new = [s for s in self.survivors().values() if s["class"] == fm.UNTRIAGED_CLASS]
+        self.assertEqual([(s["symbol"], s["element"]) for s in new], [("Stop", "stop")])
+
+    def test_stale_chooses_the_symbols_of_failing_entries(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        lines = self.refresh([], stale=True)
+        self.assertIn(f"removed {GONE.id} Evaluate arithmetic/base :25 (not generated)", lines)
+        self.assertNotIn(DECIDE.id, " ".join(lines))
+
+    def test_removal_only_for_a_deleted_function(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        (self.root / "a" / "a.go").write_text(CODE)
+        # The row still names the deleted function: the plan fails first.
+        self.assert_refused(r"(?s)cannot build the current formal-bindings plan.*updated or removed first",
+                            ["a/a.go:Evaluate"])
+        self.set_rows(REFRESH_ROWS.replace(row("evaluation", "Evaluate", "a/a.go", "TestDecide", "-"), ""))
+        for symbols, stale in ((["a/a.go:Evaluate"], False), ([], True)):
+            with self.subTest(stale=stale):
+                self.base_data()
+                self.write_run([self.rep(DECIDE), self.rep(STOP)])
+                lines = self.refresh(symbols, stale)
+                self.assertIn("removal-only a/a.go:Evaluate: the function is gone; 3 entries removed or moved, "
+                              "nothing added under it", lines)
+                self.assertEqual(set(self.survivors()), {DECIDE.id, STOP.id})
+                self.assertTrue(any(line.startswith("refresh: removed 3, moved 0, added 0, untriaged 0, kept 0,")
+                                    for line in lines), lines)
+
+    # 2.4 the write
+
+    def test_calibration_add_remove_and_triage(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        old_baseline, old_ledger, old_manifest = self.texts()
+        self.assertEqual(self.triage(), [])
+        lines = self.refresh(["Evaluate"])
+        survivors = self.survivors()
+        baseline = fm.read_baseline(self.paths.baseline)
+        # Removed: killed now, and not generated; out of the stale list too.
+        for spec in (KILLED, GONE):
+            self.assertNotIn(spec.id, survivors)
+            self.assertNotIn(spec.id, {m["id"] for m in baseline["mutants"]})
+        self.assertIn(f"removed {KILLED.id} Evaluate statement/remove :25 (now killed)", lines)
+        self.assertEqual(tomllib.loads(self.paths.manifest.read_text())["triage"]["stale_survivors"], [])
+        # Killed, skipped and unattributed mutants are not added.
+        for spec in (KILLED_NEW, SKIPPED_NEW, UNATTRIBUTED):
+            self.assertNotIn(spec.id, survivors)
+        self.assertIn(f"unattributed {UNATTRIBUTED.id} a/a.go:21 type/swap (escaped): in no plan function, not added",
+                      lines)
+        # Added, anchored, with its own digest and the placeholder.
+        digest = fm.plan_digest(self.build())
+        self.assertEqual(survivors[NEW.id], {
+            "id": NEW.id, "file": "a/a.go", "symbol": "Evaluate", "model": "M", "element": "evaluation",
+            "class": "untriaged", "reason": "UNTRIAGED: expression/remove (Changes: `return x` → `return 0`) survives "
+            "TestDecide; write the class and the reason", "follow_up": "", "removed": "\treturn x\n",
+            "added": "\treturn 0\n"})
+        self.assertEqual(survivors[INSERTED.id]["context"], "\tif x > 0 {")
+        self.assertIn({"id": NEW.id, "file": "a/a.go", "mutator": "expression/remove", "line": 27, "digest": digest},
+                      baseline["mutants"])
+        self.assertEqual(baseline["mutants"], sorted(baseline["mutants"], key=lambda m: (m["file"], m["line"],
+                                                                                         m["mutator"], m["id"])))
+        # Unrelated bytes are identical.
+        new_baseline, new_ledger, new_manifest = self.texts()
+        added, gone = {NEW.id, INSERTED.id}, {KILLED.id, GONE.id}
+        self.assertEqual([m for m in json.loads(new_baseline)["mutants"] if m["id"] not in added],
+                         [m for m in json.loads(old_baseline)["mutants"] if m["id"] not in gone])
+        self.assertEqual(json.loads(new_baseline)["digest"], "base")
+
+        def blocks(text: str, drop: set[str]) -> list[str]:
+            return [b for b in re.split(r"(?m)^(?=\[\[)", text) if not any(f'id = "{i}"' in b for i in drop)]
+
+        self.assertEqual(blocks(new_ledger, added), blocks(old_ledger, gone))
+        self.assertEqual(new_manifest, old_manifest.replace(f'    "{GONE.id}",\n', ""))
+        # New entries follow the symbol's last entry.
+        order = [b.split('"')[1] for b in re.findall(r'(?m)^id = "\w+"', new_ledger)]
+        self.assertEqual(order, [KEEP.id, INSERTED.id, NEW.id, DECIDE.id, STOP.id, "c1"])
+        # triage --check rejects them as untriaged and for missing evidence...
+        failures = self.triage()
+        for mid in added:
+            self.assertIn(f"survivor {mid} (Evaluate): untriaged placeholder from `refresh`: write the class (one of "
+                          "abstraction, binding-gap, defect, equivalent, model-gap) and the reason", failures)
+            self.assertIn(f"baseline id {mid}: 0 recorded escaped rerun(s) at its own input digest, need 2 "
+                          f"(make mutation-formal-rerun MUTATION_MUTANT_ID={mid})", failures)
+        self.assertEqual(len(failures), 4, failures)
+        # ...and passes once triaged and evidenced.
+        text = self.paths.ledger.read_text().replace('class = "untriaged"', 'class = "binding-gap"')
+        text = re.sub(r'reason = "UNTRIAGED: [^\n]*', 'reason = "the binding never returns x"', text)
+        self.paths.ledger.write_text(text.replace('follow_up = ""', 'follow_up = "task 2"'))
+        with self.paths.reruns.open("a") as handle:
+            for mid in sorted(added):
+                for _ in range(2):
+                    handle.write(json.dumps({"id": mid, "status": "escaped", "timestamp": "t", "digest": digest}) + "\n")
+        self.assertEqual(self.triage(), [])
+        # A second refresh changes no byte.
+        before = self.texts()
+        again = self.refresh(["Evaluate"])
+        self.assertEqual(self.texts(), before)
+        self.assertIn("refresh: removed 0, moved 0, added 0, untriaged 0, kept 3, re-anchored 0, shared 0, "
+                      "unattributed 1, awaiting evidence 0", again)
+        self.assertIn("refresh: no file changed", again)
+
+    def test_reanchor_keeps_the_triage(self) -> None:
+        stale_context = self.entry(INSERTED, context="\tif x > 1 {")
+        unanchored = self.entry(KEEP, removed=None, added=None)
+        self.write_data([stale_context, unanchored], stale=[KEEP.id])
+        failures = self.triage()
+        self.assertTrue(any(f"survivor {INSERTED.id} (Evaluate): mutated code gone" in f for f in failures), failures)
+        self.write_run([self.rep(KEEP), self.rep(INSERTED)])
+        lines = self.refresh(["Evaluate"])
+        self.assertIn(f"re-anchored {INSERTED.id} Evaluate loop/break :24", lines)
+        self.assertIn(f"re-anchored {KEEP.id} Evaluate conditional/negated :24", lines)
+        survivors = self.survivors()
+        self.assertEqual(survivors[INSERTED.id], {**stale_context, "context": "\tif x > 0 {"})
+        self.assertEqual(survivors[KEEP.id], self.entry(KEEP))
+        self.assertEqual(tomllib.loads(self.paths.manifest.read_text())["triage"]["stale_survivors"], [])
+        self.assertEqual(self.triage(), [])
+
+    def test_shared_and_killed_and_escaped_ids(self) -> None:
+        owned = Spec("Decide", 5, KEEP.mutator, KEEP.removed, KEEP.added)
+        self.write_data([self.entry(owned)], specs={"owned": owned})
+        self.write_run([self.rep(owned), self.rep(KEEP), self.rep(KEEP, "killed")])
+        before = self.texts()
+        lines = self.refresh(["Evaluate"])
+        self.assertEqual(self.texts(), before)
+        self.assertIn(f"shared {KEEP.id} Evaluate: ledgered under a/a.go:Decide, left with its owner", lines)
+        # Killed and escaped in the chosen symbol: kept.
+        self.write_data([self.entry(KEEP)])
+        self.write_run([self.rep(KEEP, "killed"), self.rep(KEEP)])
+        self.assertIn(f"kept {KEEP.id} Evaluate conditional/negated :24", self.refresh(["Evaluate"]))
+
+    def test_moves(self) -> None:
+        moved = Spec("Decide", 5, KEEP.mutator, KEEP.removed, KEEP.added)
+        self.write_data([self.entry(KEEP), self.entry(DECIDE)])
+        self.write_run([self.rep(moved), self.rep(KEEP, "killed"), self.rep(DECIDE)])
+        self.assert_refused(rf"survivor {KEEP.id} of Evaluate escapes only in a/a.go:Decide, which this refresh does "
+                            r"not choose; choose them too")
+        lines = self.refresh(["Evaluate", "Decide"])
+        self.assertIn(f"moved {KEEP.id} Evaluate -> Decide conditional/negated :5 (untriaged again)", lines)
+        entry = self.survivors()[KEEP.id]
+        self.assertEqual((entry["symbol"], entry["element"], entry["class"]), ("Decide", "decide", "untriaged"))
+
+    def test_baseline_id_without_ledger_entry_is_refused(self) -> None:
+        self.write_data([self.entry(DECIDE)], extra_baseline=[KEEP])
+        self.write_run([self.rep(KEEP), self.rep(DECIDE)])
+        self.assert_refused(rf"{KEEP.id} \(escaped in Evaluate\) is in the baseline but not the ledger")
+
+    def drop_from_baseline(self, *ids: str) -> None:
+        data = json.loads(self.paths.baseline.read_text())
+        data["mutants"] = [m for m in data["mutants"] if m["id"] not in ids]
+        self.paths.baseline.write_text(json.dumps(data, indent=2) + "\n")
+
+    def test_ledger_id_without_baseline_entry_is_refused(self) -> None:
+        self.write_data([self.entry(KEEP), self.entry(KILLED)])
+        self.drop_from_baseline(KEEP.id)
+        self.write_run([self.rep(KEEP), self.rep(KILLED, "killed")])
+        self.assert_refused(rf"{KEEP.id} \(escaped in Evaluate\) is in the ledger but not the baseline")
+        # A chosen symbol's entry that no longer escapes, missing from the baseline.
+        self.write_data([self.entry(KEEP), self.entry(KILLED)])
+        self.drop_from_baseline(KILLED.id)
+        self.assert_refused(rf"ledger survivor {KILLED.id} \(Evaluate\) is not in the baseline; fix the id sets first")
+
+    def test_malformed_reruns_file_writes_nothing(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        with self.paths.reruns.open("a") as handle:
+            handle.write(json.dumps({"id": NEW.id, "status": "bogus", "timestamp": "t", "digest": "d"}) + "\n")
+        self.assert_refused(r"malformed rerun record")
+
+    def test_row_changed_after_the_run_is_refused(self) -> None:
+        # TestStop is declared in a file that is already a plan input, so the
+        # inputs and their digest stay the same.
+        self.base_data()
+        self.write_run(self.base_run())
+        self.set_rows(REFRESH_ROWS.replace(row("evaluation", "Evaluate", "a/a.go", "TestDecide", "-"),
+                                           row("evaluation", "Evaluate", "a/a.go", "TestStop", "-")))
+        self.assert_refused(r"other functions, rows or groups than the current tree \(a correspondence row changed "
+                            r"after the run; differing: a/a.go:Evaluate\); rerun `make mutation-formal`")
+
+    def test_report_paths_resolve_through_symlinks_or_refuse(self) -> None:
+        self.base_data()
+        link = self.root.parent / f"{self.root.name}-link"
+        link.symlink_to(self.root)
+        self.addCleanup(link.unlink)
+        self.write_run([self.rep(KEEP, prefix=f"{link}/"), self.rep(NEW, prefix=f"{link}/")])
+        self.refresh(["Evaluate"])
+        self.assertIn(NEW.id, self.survivors())
+        self.base_data()
+        self.write_run([self.rep(KEEP, prefix="/nowhere/"), self.rep(NEW, prefix="/nowhere/")])
+        self.assert_refused(r"report path /nowhere/a/a.go is outside the run's root")
+
+    def test_closed_id_escaping_again_is_refused(self) -> None:
+        self.base_data()
+        self.paths.ledger.write_text(self.paths.ledger.read_text().replace('id = "c1"', f'id = "{NEW.id}"'))
+        self.write_run(self.base_run())
+        self.assert_refused(rf"{NEW.id} \(Evaluate\) escapes again but is recorded as \[\[closed\]\] \(model M\)")
+
+    def test_unattributed_only_escape_has_its_own_refusal(self) -> None:
+        self.write_data([self.entry(KEEP)])
+        self.write_run([self.rep(KEEP, line=21)])
+        self.assert_refused(rf"survivor {KEEP.id} of Evaluate escapes only outside every plan function .*which no "
+                            r"--symbol can choose")
+
+    def test_blank_context_is_refused_up_front(self) -> None:
+        blank = Spec("Evaluate", 24, "loop/break", "", "\t\tbreak\n", context="")
+        self.base_data()
+        self.write_run([self.rep(KEEP), self.rep(blank)])
+        self.assert_refused(rf"{blank.id} \(Evaluate\): insertion-only loop/break mutant at :24 has a blank context "
+                            r"line, which the ledger's anchor cannot hold")
+
+    def test_comments_of_removed_blocks_are_kept(self) -> None:
+        self.base_data()
+        text = self.paths.ledger.read_text().replace(LEDGER_HEAD, LEDGER_HEAD.rstrip("\n") + "\n", 1)
+        text = text.replace(f'[[survivor]]\nid = "{KILLED.id}"', f'# Killed section.\n[[survivor]]\nid = "{KILLED.id}"')
+        self.paths.ledger.write_text(text)
+        self.write_run(self.base_run())
+        self.refresh(["Evaluate"])
+        ledger = self.paths.ledger.read_text()
+        self.assertTrue(ledger.startswith(LEDGER_HEAD.rstrip("\n") + "\n[[survivor]]\n"), ledger[:200])
+        self.assertIn("# Killed section.\n", ledger)
+        self.assertNotIn(KILLED.id, self.survivors())
+
+    def test_bare_leaf_follows_find_function(self) -> None:
+        # A bare `foo` names the receiver-less function for the anchor check;
+        # so it does not name the planned method `T.foo`.
+        method = {"file": "x.go", "symbol": "T.foo", "name": "foo"}
+        decls = [fm.FuncDecl("", "foo", 1, 2), fm.FuncDecl("T", "foo", 4, 5)]
+        source = lambda _file: fm.ParsedSource([], decls)  # noqa: E731
+        self.assertEqual(fm.matching_functions([method], "foo", "x.go"), [method])
+        self.assertEqual(fm.matching_functions([method], "foo", "x.go", source), [])
+        only_method = lambda _file: fm.ParsedSource([], decls[1:])  # noqa: E731
+        self.assertEqual(fm.matching_functions([method], "foo", "x.go", only_method), [method])
+
+    def test_placement(self) -> None:
+        one_line = Spec("Server.Validate", 15, "statement/remove", "func (s Server) Validate() error { return nil }\n",
+                        "func (s Server) Validate() error { _ = nil }\n")
+        other_file = Spec("Validate", 4, "statement/remove", "\treturn nil\n", "", file="b/b.go")
+        self.write_data([self.entry(KEEP), self.entry(DECIDE)])
+        self.write_run([self.rep(KEEP), self.rep(DECIDE), self.rep(one_line), self.rep(other_file), self.rep(NEW)])
+        self.refresh(["Evaluate", "a/a.go:Server.Validate", "b/b.go:Validate"])
+        order = [b.split('"')[1] for b in re.findall(r'(?m)^id = "\w+"', self.paths.ledger.read_text())]
+        # Same symbol: after KEEP; same file: after the file's last entry;
+        # no entry of the file: before the first [[closed]].
+        self.assertEqual(order, [KEEP.id, NEW.id, DECIDE.id, one_line.id, other_file.id, "c1"])
+        self.assertTrue(self.paths.ledger.read_text().endswith(LEDGER_TAIL))
+        self.assertEqual(self.survivors()[one_line.id]["element"], "validate a")
+
+    def test_parse_back_failure_writes_nothing(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        with mock.patch.object(fm, "render_survivor", lambda _entry: '[[survivor]]\nid = "broken\n\n'):
+            self.assert_refused(r"does not parse")
+        with mock.patch.object(fm, "render_survivor", lambda e: self.block({**e, "reason": "changed"})):
+            self.assert_refused(r"does not parse back to the expected entries; nothing written")
+
+    def test_anchor_still_failing_writes_nothing(self) -> None:
+        # A reported escapee whose removed line is not in the current body.
+        ghost = Spec("Evaluate", 25, "statement/remove", "\t\tx--\n", "")
+        self.base_data()
+        self.write_run([*self.base_run(), self.rep(ghost)])
+        self.assert_refused(rf"(?s)would still fail the anchor check after the refresh; nothing written:\n"
+                            rf"  - survivor {ghost.id} \(Evaluate\): mutated code gone")
+
+    def test_stale_never_chooses_orphans(self) -> None:
+        # An unanchored orphan on an unplanned function: --stale would refuse
+        # it as unplanned if it chose it.
+        orphan = Spec("Map", 18, "statement/remove", "\treturn xs\n", "")
+        entry = self.entry(orphan, element="decide", removed=None, added=None)
+        self.write_data([self.entry(KEEP), entry], specs={"orphan": orphan}, orphans=[orphan.id])
+        self.write_run([self.rep(KEEP), self.rep(orphan)])
+        block = self.block(entry)
+        lines = self.refresh([], stale=True)
+        self.assertIn(block, self.paths.ledger.read_text())
+        touched = [line for line in lines if orphan.id in line and not line.startswith("unattributed ")]
+        self.assertEqual(touched, [])
+        self.assertIn(orphan.id, tomllib.loads(self.paths.manifest.read_text())["triage"]["orphaned_survivors"])
+
+    def test_escapees_of_other_symbols_are_ignored(self) -> None:
+        other = Spec("Decide", 8, "statement/return", "\treturn false\n", "\treturn true\n")
+        self.base_data()
+        self.write_run([*self.base_run(), self.rep(other)])
+        self.refresh(["Evaluate"])
+        self.assertNotIn(other.id, self.survivors())
+        self.assertNotIn(other.id, self.paths.baseline.read_text())
+
+    def test_baseline_that_does_not_round_trip_is_refused(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        self.paths.baseline.write_text(json.dumps(json.loads(self.paths.baseline.read_text())) + "\n")
+        self.assert_refused(r"does not round-trip")
+
+    # 2.5 summary and CLI
+
+    def test_summary(self) -> None:
+        self.base_data()
+        self.write_run(self.base_run())
+        lines = self.refresh(["Evaluate"])
+        self.assertIn("refresh: removed 2, moved 0, added 2, untriaged 2, kept 1, re-anchored 0, shared 0, "
+                      "unattributed 1, awaiting evidence 2", lines)
+        ids = ",".join(sorted({NEW.id, INSERTED.id}))
+        self.assertIn(f"refresh: 2 id(s) need 2 escaped reruns at their evidence digest; run it twice: "
+                      f"make mutation-formal-rerun MUTATION_MUTANT_ID={ids}", lines)
+        self.assertIn("refresh: commit formal/manifest.toml first: the mutation wrapper refuses a dirty manifest", lines)
+        self.assertIn(f"added {NEW.id} Evaluate expression/remove :27", lines)
+
+    def test_cli_needs_a_symbol_or_stale(self) -> None:
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.assertEqual(fm.main(["refresh"]), 1)
+        self.assertIn("refresh needs --symbol [FILE:]SYMBOL (repeatable) or --stale", err.getvalue())
 
 
 if __name__ == "__main__":

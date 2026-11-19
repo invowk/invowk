@@ -736,6 +736,47 @@ test_formal_rerun_evidence() {
 		"\"digest\": \"$(printf 'a.go\0A' | sha256_stdin)\"" "$tmp/reruns.jsonl"
 }
 
+# test_formal_group_status drives the run_formal_profile loop (dry-run, so no
+# clean-tree check, pre-flight or exit restore) over a three-group fixture plan
+# with stubbed planning and group runs, in a temporary REPO_ROOT, and checks
+# that every group records its exit status (mutation-partial-refresh design D2).
+test_formal_group_status() {
+	local tmp
+	local metadata
+
+	tmp="$(mktemp -d)"
+	trap 'rm -rf "$tmp"' RETURN
+	cat >"$tmp/plan.json" <<'JSON'
+{"version": 2, "root": "/nowhere", "files": ["a.go", "b.go", "c.go"],
+ "groups": [{"match": "^(A)$", "files": ["a.go"]}, {"match": "^(B)$", "files": ["b.go"]}, {"match": "^(C)$", "files": ["c.go"]}],
+ "functions": [], "killer_packages": {}, "unbound": [], "preflight": {}}
+JSON
+	(
+		REPO_ROOT="$tmp/repo"
+		mkdir -p "$REPO_ROOT"
+		unset GITHUB_STEP_SUMMARY
+		resolve_formal_targets() {
+			mkdir -p "$1"
+			cp "$tmp/plan.json" "$1/$FORMAL_PLAN_FILE"
+			printf 'a.go\nb.go\nc.go\n' | tee "$1/resolved-targets.txt"
+		}
+		# Group 0 reports escapes, group 1 fails, group 2 passes.
+		run_formal_group() {
+			case "$1" in
+				*/group-0) return 4 ;;
+				*/group-1) return 3 ;;
+			esac
+			return 0
+		}
+		run_formal_profile dry-run advisory "$tmp/reports"
+	) >/dev/null 2>&1 || true
+	metadata="$(cat "$tmp/reports/dry-run/formal-bindings/run-metadata.txt" 2>/dev/null || true)"
+	assert_contains "a group that reports escapes records status 4" "group_status[0]=4" "$metadata"
+	assert_contains "a failing group records its status" "group_status[1]=3" "$metadata"
+	assert_contains "a passing group records status 0" "group_status[2]=0" "$metadata"
+	assert_eq "one status line per group" "3" "$(grep -c '^group_status\[' <<<"$metadata" || true)"
+}
+
 test_formal_dirty_path_policy() {
 	assert_path_allowed "allows the formal baseline" "tools/mutation/baselines/formal-bindings-baseline.json"
 	assert_path_allowed "allows the formal triage ledger" "tools/mutation/triage/formal-bindings.toml"
@@ -761,6 +802,7 @@ test_formal_preflight
 test_formal_command_construction
 test_formal_target_set_rejections
 test_formal_rerun_evidence
+test_formal_group_status
 test_formal_dirty_path_policy
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

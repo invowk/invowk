@@ -30,7 +30,17 @@ Usage:
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
     scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE] [--base SHA]
         (without --base: $INVOWK_TRIAGE_BASE when non-empty, else git merge-base HEAD origin/main)
+    scripts/formal_mutation.py refresh [--report-dir DIR] (--symbol [FILE:]SYMBOL ... | --stale)
+        [--baseline FILE] [--ledger FILE] [--reruns FILE] [--manifest FILE]
     scripts/formal_mutation.py reach [--out DIR]
+
+`refresh` is the same-change partial refresh of the triage ledger: from a
+complete report-only run of the current inputs (`make mutation-formal`), it
+removes the chosen symbols' survivors that no longer escape, adds their new
+escapees as untriaged placeholders that `triage --check` rejects, re-anchors
+kept entries, drops their ids from `[triage] stale_survivors`, leaves every
+other entry byte-identical, and names the reruns still owed. It never runs
+mutation.
 
 `reach` is the binding reach gate: it runs every killer test of the plan alone
 under a coverage profile and fails unless each killer of each bound row
@@ -88,6 +98,11 @@ REASON_TRACE_ONLY = "trace-only"
 REASON_CHARACTERISATION_ONLY = "characterisation-only"
 
 TRIAGE_CLASSES = {"equivalent", "abstraction", "binding-gap", "model-gap", "defect"}
+# The placeholder `refresh` writes for a new survivor (mutation-partial-refresh
+# design D5). The class is not in TRIAGE_CLASSES, and `triage --check` rejects
+# either marker until a person writes the class and the reason.
+UNTRIAGED_CLASS = "untriaged"
+UNTRIAGED_MARK = "UNTRIAGED:"
 FOLLOW_UP_CLASSES = {"binding-gap", "model-gap", "defect"}
 SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up", "removed", "added", "context"}
 # The anchor fields (refresh-anchors-mutation-ledger design D1): the removed and
@@ -730,9 +745,22 @@ def merge_reports(report_dir: Path, log: str) -> dict:
     timeout_kills = TIMEOUT_KILL_RE.findall(log)
     for file in timeout_kills:
         per_file.setdefault(file, dict.fromkeys(columns, 0))["timeout-kill"] += 1
+    plan_path = report_dir / PLAN_FILE
     with (report_dir / "run-metadata.txt").open("a") as metadata:
         for file in sorted(set(timeout_kills)):
             metadata.write(f"timeout_kills[{file}]={timeout_kills.count(file)}\n")
+        # The digest of the inputs the run mutated (the plan is read after the
+        # exit restore), which `refresh` checks against the current tree
+        # (mutation-partial-refresh design D2). A focused rerun merges each id
+        # in a directory without a plan and records nothing.
+        # A plan or input that cannot be read records no digest, so `refresh`
+        # refuses the run, but the report-only run itself still succeeds.
+        if plan_path.exists():
+            try:
+                metadata.write(f"inputs_digest={plan_digest(load_plan(plan_path))}\n")
+            except (PlanError, OSError, ValueError) as err:
+                print(f"formal-bindings: no inputs_digest recorded ({err}); `refresh` will refuse this run",
+                      file=sys.stderr)
     lines = ["file\t" + "\t".join(columns)]
     lines += [f"{file}\t" + "\t".join(str(counts[c]) for c in columns) for file, counts in sorted(per_file.items())]
     (report_dir / "per-file.tsv").write_text("\n".join(lines) + "\n")
@@ -1135,6 +1163,48 @@ def base_manifest(base: str, read: Callable[[str], bytes] | None = None) -> dict
         raise PlanError(f"triage --check: {path} at the base {base} is not valid TOML: {err}") from err
 
 
+def is_untriaged(survivor: dict) -> bool:
+    """Whether a ledger entry still carries the placeholder `refresh` writes:
+    the class or the start of the reason (mutation-partial-refresh design D5)."""
+    return survivor.get("class") == UNTRIAGED_CLASS or str(survivor.get("reason", "")).startswith(UNTRIAGED_MARK)
+
+
+def evidence_failures(baseline: dict, reruns: list[dict]) -> tuple[list[str], dict[str, list[str]]]:
+    """The rerun evidence rule of the triage check: the baseline-wide failure
+    (no input digest while some id has no digest of its own), and each baselined
+    id's failures. A mutant's evidence digest is its own `digest` after a
+    partial refresh, else the baseline's (refresh-anchors-mutation-ledger design
+    D3); it needs REQUIRED_ESCAPED_RERUNS escaped reruns there and no other
+    status. `refresh` reports the same rule for the ids it touched."""
+    general = []
+    ids = {m["id"] for m in baseline["mutants"]}
+    stamp = baseline.get("digest", "")
+    own = {m["id"]: m["digest"] for m in baseline["mutants"] if m.get("digest")}
+    if ids - set(own) and not stamp:
+        general.append("baseline: no input digest; rerun `make mutation-formal-baseline-update`")
+    by_id: dict[str, list[dict]] = {}
+    for record in reruns:
+        by_id.setdefault(record["id"], []).append(record)
+    by_mutant: dict[str, list[str]] = {}
+    for mutant in sorted(ids):
+        problems = []
+        digest = own.get(mutant, stamp)
+        evidence = [r for r in by_id.get(mutant, []) if digest and r["digest"] == digest]
+        escaped = sum(1 for r in evidence if r["status"] == "escaped")
+        if escaped < REQUIRED_ESCAPED_RERUNS:
+            where = "its own input digest" if mutant in own else "the baseline's input digest"
+            problems.append(
+                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at {where}, "
+                f"need {REQUIRED_ESCAPED_RERUNS} (make mutation-formal-rerun MUTATION_MUTANT_ID={mutant})"
+            )
+        flaky = sorted({r["status"] for r in evidence} - {"escaped"})
+        if flaky:
+            problems.append(f"baseline id {mutant}: inconsistent rerun evidence ({', '.join(flaky)} as well as escaped)")
+        if problems:
+            by_mutant[mutant] = problems
+    return general, by_mutant
+
+
 def check_triage(
     baseline: dict,
     ledger: dict,
@@ -1211,7 +1281,12 @@ def check_triage(
             failures.append(f"survivor {mutant} ({survivor['symbol']}): {problem}")
         cls = survivor["class"]
         follow_up = survivor.get("follow_up", "").strip()
-        if cls not in TRIAGE_CLASSES:
+        if is_untriaged(survivor):
+            # Checking the reason too means setting only the class still fails
+            # (mutation-partial-refresh design D5).
+            failures.append(f"survivor {mutant} ({survivor['symbol']}): untriaged placeholder from `refresh`: write the "
+                            f"class (one of {', '.join(sorted(TRIAGE_CLASSES))}) and the reason")
+        elif cls not in TRIAGE_CLASSES:
             failures.append(f"survivor {mutant}: unknown class {cls!r}")
         if not survivor["reason"].strip():
             failures.append(f"survivor {mutant}: empty reason")
@@ -1234,28 +1309,10 @@ def check_triage(
     for mutant in sorted(stale_ids - set(ledger_ids)):
         failures.append(f"[triage] stale_survivors: stale entry {mutant} is not in the ledger")
 
-    # A mutant's evidence digest is its own `digest` after a partial refresh,
-    # else the baseline's (refresh-anchors-mutation-ledger design D3).
-    stamp = baseline.get("digest", "")
-    own = {m["id"]: m["digest"] for m in baseline["mutants"] if m.get("digest")}
-    if baseline_ids - set(own) and not stamp:
-        failures.append("baseline: no input digest; rerun `make mutation-formal-baseline-update`")
-    by_id: dict[str, list[dict]] = {}
-    for record in reruns:
-        by_id.setdefault(record["id"], []).append(record)
-    for mutant in sorted(baseline_ids):
-        digest = own.get(mutant, stamp)
-        evidence = [r for r in by_id.get(mutant, []) if digest and r["digest"] == digest]
-        escaped = sum(1 for r in evidence if r["status"] == "escaped")
-        if escaped < REQUIRED_ESCAPED_RERUNS:
-            where = "its own input digest" if mutant in own else "the baseline's input digest"
-            failures.append(
-                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at {where}, "
-                f"need {REQUIRED_ESCAPED_RERUNS} (make mutation-formal-rerun MUTATION_MUTANT_ID={mutant})"
-            )
-        flaky = sorted({r["status"] for r in evidence} - {"escaped"})
-        if flaky:
-            failures.append(f"baseline id {mutant}: inconsistent rerun evidence ({', '.join(flaky)} as well as escaped)")
+    general, by_mutant = evidence_failures(baseline, reruns)
+    failures += general
+    for problems in by_mutant.values():
+        failures += problems
 
     for entry in closed:
         mutant = entry.get("id", "?")
@@ -1270,6 +1327,679 @@ def check_triage(
         if mutant in baseline_ids:
             failures.append(f"closed {mutant}: still in the baseline")
     return failures
+
+
+# ---------------------------------------------------------------------------
+# Partial refresh (mutation-partial-refresh)
+#
+# `refresh` turns a report-only run (`make mutation-formal`) into the same-change
+# refresh of chosen symbols' survivors: it removes the entries the run no longer
+# reports escaped, adds the new escapees as untriaged placeholders, re-anchors
+# kept entries whose anchor fails, and leaves every other byte alone. It reads
+# reports and validates evidence; it never runs mutation.
+
+RUN_DIR = REPO_ROOT / "artifacts" / "mutation" / "full" / "formal-bindings"
+RUN_COMMAND = "make mutation-formal"
+# scripts/mutation.sh QUALITY_GATE_EXIT_CODE: what go-mutesting returns for a
+# group that reports escaped mutants.
+QUALITY_GATE_EXIT_CODE = 4
+ANCHOR_KEYS = ("removed", "added", "context")
+ANCHOR_KEY_RE = re.compile(rf"^({'|'.join(ANCHOR_KEYS)})\s*=\s*(.*)$")
+BLOCK_ID_RE = re.compile(r'(?m)^id = "([0-9a-f]+)"$')
+
+Key = tuple[str, str]  # (file, symbol) of a plan function or a ledger symbol
+
+
+class Mutant(NamedTuple):
+    """One reported mutant, with its id recomputed from its diff."""
+
+    id: str
+    status: str
+    file: str
+    mutator: str
+    line: int
+    removed: str
+    added: str
+    context: str | None
+    description: str
+
+
+def diff_anchor(diff: str) -> tuple[str, str, str | None]:
+    """The removed and added lines of a go-mutesting diff exactly as its
+    MutantID hashes them (each followed by a newline), and, for a mutant that
+    removes no line, the unchanged line before its first added line."""
+    removed, added = [], []
+    context = last = None
+    for line in diff.split("\n"):
+        if line.startswith(("---", "+++")):
+            continue
+        if line.startswith("-"):
+            removed.append(line[1:])
+        elif line.startswith("+"):
+            if not added and context is None:
+                context = last
+            added.append(line[1:])
+        elif line.startswith(" "):
+            last = line[1:]
+    removed_text = "".join(f"{line}\n" for line in removed)
+    return removed_text, "".join(f"{line}\n" for line in added), None if removed_text else context
+
+
+def unanchorable(mutant: Mutant) -> str | None:
+    """Why the ledger cannot anchor a reported mutant: an insertion-only
+    mutant needs a context line, and a blank one cannot anchor (anchor_problem
+    treats an empty context as none)."""
+    if mutant.removed or mutant.context:
+        return None
+    what = "a blank context line" if mutant.context == "" else "no context line"
+    return (f"insertion-only {mutant.mutator} mutant at :{mutant.line} has {what}, which the ledger's anchor "
+            "cannot hold; anchor its entry by hand")
+
+
+def read_metadata(path: Path) -> dict[str, str]:
+    """run-metadata.txt as key -> value; a later line wins."""
+    if not path.exists():
+        return {}
+    pairs = (raw.partition("=") for raw in path.read_text().splitlines())
+    return {key: value for key, sep, value in pairs if sep}
+
+
+def validate_run(report_dir: Path, current: Callable[[], dict]) -> tuple[dict, str]:
+    """The run plan and its recorded inputs digest, once the run is a complete
+    full run of the current inputs (design D2); PlanError otherwise. `current`
+    builds the current tree's plan."""
+    rerun = f"rerun `{RUN_COMMAND}`"
+    plan_path = report_dir / PLAN_FILE
+    if not plan_path.exists():
+        raise PlanError(f"{report_dir}: no {PLAN_FILE}, so no formal-bindings run to refresh from; run `{RUN_COMMAND}`")
+    run_plan = load_plan(plan_path)
+    meta = read_metadata(report_dir / "run-metadata.txt")
+    profile = meta.get("profile", "")
+    if profile != "full":
+        raise PlanError(f"{report_dir}: the run's profile is {profile or '(not recorded)'}, not a full report-only run; "
+                        f"{rerun}")
+    recorded = meta.get("inputs_digest", "")
+    if not recorded:
+        raise PlanError(f"{report_dir}: run-metadata.txt records no inputs_digest (a run made before `refresh` "
+                        f"existed, or one whose merge failed); {rerun}")
+    incomplete = []
+    for group in range(len(run_plan["groups"])):
+        why = []
+        if not (report_dir / f"group-{group}" / "report.json").exists():
+            why.append("no report.json")
+        status = meta.get(f"group_status[{group}]")
+        if status is None:
+            why.append("no group_status")
+        elif status not in {"0", str(QUALITY_GATE_EXIT_CODE)}:
+            why.append(f"status {status}")
+        if why:
+            incomplete.append(f"group {group} ({', '.join(why)})")
+    if not (report_dir / "report.json").exists():
+        incomplete.append("no merged report.json")
+    if incomplete:
+        raise PlanError(f"{report_dir}: incomplete run: {'; '.join(incomplete)}; its survivors would be removed as "
+                        f"not generated, so nothing was refreshed; {rerun}")
+    try:
+        plan = current()
+    except PlanError as err:
+        raise PlanError(f"cannot build the current formal-bindings plan, so nothing was refreshed: {err}\n"
+                        "  A correspondence row that still names a deleted or renamed function must be updated "
+                        "or removed first.") from err
+    if plan["inputs"] != run_plan["inputs"]:
+        new = sorted(set(plan["inputs"]) - set(run_plan["inputs"]))
+        gone = sorted(set(run_plan["inputs"]) - set(plan["inputs"]))
+        raise PlanError(f"the run planned other inputs than the current tree (now also {', '.join(new) or 'none'}; "
+                        f"no longer {', '.join(gone) or 'none'}); {rerun}")
+    now = plan_digest(plan)
+    if now != recorded:
+        raise PlanError(f"the run's inputs digest {recorded} differs from the current tree's {now}: a target or "
+                        f"killer-test file changed after the run; {rerun}")
+    # The correspondence rows live in the model files, which are not plan
+    # inputs: a row bound, unbound or edited after the run changes the plan's
+    # functions (rows, killers) or groups without changing the digest.
+    def normal(value: object) -> object:
+        return json.loads(json.dumps(value))
+    now_functions = {(f["file"], f["symbol"]): normal(f) for f in plan["functions"]}
+    run_functions = {(f["file"], f["symbol"]): normal(f) for f in run_plan["functions"]}
+    differ = sorted(f"{k[0]}:{k[1]}" for k in now_functions.keys() | run_functions.keys()
+                    if now_functions.get(k) != run_functions.get(k))
+    if differ or normal(plan["groups"]) != normal(run_plan["groups"]):
+        raise PlanError(f"the run planned other functions, rows or groups than the current tree (a correspondence "
+                        f"row changed after the run; differing: {', '.join(differ) or 'the groups'}); {rerun}")
+    return run_plan, recorded
+
+
+def report_relative(run_plan: dict, path: str) -> str:
+    """A report's file path relative to the run's root, through symlinks
+    (`/home` -> `/var/home`); PlanError for an absolute path outside it, so a
+    path the run root does not prefix never makes every id look removed."""
+    if not Path(path).is_absolute():
+        return Path(path).as_posix()
+    root = Path(run_plan["root"])
+    for candidate in (Path(path), Path(path).resolve()):
+        for base in (root, root.resolve()):
+            if candidate.is_relative_to(base):
+                return candidate.relative_to(base).as_posix()
+    raise PlanError(f"report path {path} is outside the run's root {root}; nothing was refreshed")
+
+
+def load_mutants(report_dir: Path, run_plan: dict) -> list[Mutant]:
+    """Every mutant of the merged report.json, all statuses, its path made
+    relative to the run's root (the run may have used another worktree) and
+    its id recomputed from its diff, sorted by file and line."""
+    report = json.loads((report_dir / "report.json").read_text())
+    descriptions: dict[str, str] = {}
+    agentic = report_dir / "go-mutesting-agentic.json"
+    if agentic.exists():
+        for mutant in json.loads(agentic.read_text()).get("mutants") or []:
+            descriptions.setdefault(mutant.get("id", ""), mutant.get("description", ""))
+    mutants = []
+    for status in RERUN_STATUSES:
+        for raw in report.get(status) or []:
+            info = raw["mutator"]
+            file = report_relative(run_plan, info["originalFilePath"])
+            removed, added, context = diff_anchor(raw.get("diff", ""))
+            mutator = info["mutatorName"]
+            mid = mutant_id(file, mutator, removed, added)
+            mutants.append(Mutant(mid, status, file, mutator, int(info.get("originalStartLine") or 0), removed, added,
+                                  context, descriptions.get(mid, "")))
+    return sorted(mutants, key=lambda m: (m.file, m.line, m.mutator, m.id, m.status))
+
+
+@dataclasses.dataclass
+class Attribution:
+    """Design D3: per plan function, E(S) (id -> its first escaped mutant by
+    line) and G(S) (id -> the statuses of its mutants), and the mutants that
+    lie in no plan function."""
+
+    escaped: dict[Key, dict[str, Mutant]]
+    generated: dict[Key, dict[str, set[str]]]
+    unattributed: list[Mutant]
+
+    def escapes_in(self, mutant: str) -> list[Key]:
+        return [key for key, ids in self.escaped.items() if mutant in ids]
+
+
+def attribute(plan: dict, mutants: list[Mutant]) -> Attribution:
+    """Each mutant belongs to the plan function of its file whose line range
+    holds its original start line. An id escaped in one mutant and killed in
+    another counts as escaped: go-mutesting's baseline matches by id only."""
+    by_file: dict[str, list[dict]] = {}
+    for function in plan["functions"]:
+        by_file.setdefault(function["file"], []).append(function)
+    result = Attribution({}, {}, [])
+    for mutant in mutants:
+        owner = next((f for f in by_file.get(mutant.file, []) if f["start"] <= mutant.line <= f["end"]), None)
+        if owner is None:
+            result.unattributed.append(mutant)
+            continue
+        key = (owner["file"], owner["symbol"])
+        result.generated.setdefault(key, {}).setdefault(mutant.id, set()).add(mutant.status)
+        if mutant.status == "escaped":
+            result.escaped.setdefault(key, {}).setdefault(mutant.id, mutant)
+    return result
+
+
+def matching_functions(
+    functions: list[dict], name: str, file: str | None = None,
+    source: Callable[[str], ParsedSource | None] | None = None,
+) -> list[dict]:
+    """The plan functions a symbol names, in `file` when given: the
+    declaration's symbol (`Recv.name`), or a bare name that is the only planned
+    function of that name in its file (a row may name a method by its leaf, as
+    find_function allows). With `source`, the leaf must also be the function
+    find_function resolves the bare name to among all of the file's
+    declarations, as the anchor check does."""
+    by_file: dict[str, list[dict]] = {}
+    for function in functions:
+        if file is None or function["file"] == file:
+            by_file.setdefault(function["file"], []).append(function)
+    found = []
+    for candidates in by_file.values():
+        exact = [f for f in candidates if f["symbol"] == name]
+        leaf = [f for f in candidates if "." not in name and f["name"] == name]
+        if not exact and len(leaf) == 1 and source is not None and not resolves_to(source, leaf[0], name):
+            leaf = []
+        found += exact or (leaf if len(leaf) == 1 else [])
+    return found
+
+
+def resolves_to(source: Callable[[str], ParsedSource | None], function: dict, name: str) -> bool:
+    try:
+        parsed = source(function["file"])
+        decl = find_function(parsed.decls, name) if parsed is not None else None
+    except PlanError:
+        return False
+    return decl is not None and decl.symbol == function["symbol"]
+
+
+def entry_key(entry: dict, functions: list[dict], source: Callable[[str], ParsedSource | None] | None = None) -> Key:
+    """The (file, symbol) a ledger entry belongs to: its plan function's key,
+    else its own file and symbol (a function the plan does not target)."""
+    found = matching_functions(functions, entry["symbol"], entry["file"], source)
+    return (found[0]["file"], found[0]["symbol"]) if len(found) == 1 else (entry["file"], entry["symbol"])
+
+
+def row_spelling(rows: list[Row], function: dict, model: str, element: str) -> str:
+    """How the correspondence row spells the function's symbol (a bare leaf
+    for a method, say), which the ledger entry must repeat."""
+    for row in rows:
+        if (row.model, row.element, row.file) == (model, element, function["file"]) and (
+                row.symbol == function["symbol"] or ("." not in row.symbol and row.symbol == function["name"])):
+            return row.symbol
+    return function["symbol"]
+
+
+def resolve_symbol(
+    spec: str, functions: list[dict], survivors: list[dict], source: Callable[[str], ParsedSource | None]
+) -> tuple[bool, Key]:
+    """Design D3's choice of one `[FILE:]SYMBOL`: (True, key) for a planned
+    function, (False, key) for a removal-only symbol (ledger entries, and its
+    file no longer declares it); PlanError for an ambiguous, unplanned or
+    unknown name, so a typo never removes anything."""
+    file, _, name = spec.rpartition(":")
+    found = matching_functions(functions, name, file or None, source)
+    files = sorted({f["file"] for f in found})
+    if len(files) > 1:
+        raise PlanError(f"symbol {spec}: names planned functions in several files ({', '.join(files)}); "
+                        f"write FILE:{name}")
+    if len(found) > 1:
+        raise PlanError(f"symbol {spec}: names several planned functions in {files[0]} "
+                        f"({', '.join(f['symbol'] for f in found)}); write the receiver")
+    if found:
+        return True, (found[0]["file"], found[0]["symbol"])
+    ledger_files = sorted({s["file"] for s in survivors if s["symbol"] == name and (not file or s["file"] == file)})
+    if len(ledger_files) > 1:
+        raise PlanError(f"symbol {spec}: ledger entries name {name} in several files ({', '.join(ledger_files)}); "
+                        f"write FILE:{name}")
+    target = file or (ledger_files[0] if ledger_files else "")
+    declared = None
+    if target:
+        parsed = source(target)
+        declared = find_function(parsed.decls, name) if parsed is not None else None
+    if declared is not None:
+        raise PlanError(f"symbol {spec}: {name} still names a function in {target} (line {declared.start}), but the "
+                        "formal-bindings plan does not target it (its row is unbound, as for an orphaned survivor); "
+                        "bind the row or leave its survivors alone")
+    if ledger_files:
+        return False, (target, name)
+    raise PlanError(f"symbol {spec}: unknown: no planned function and no ledger entry is named {name}"
+                    + (f" in {file}" if file else ""))
+
+
+def toml_value(value: str) -> str:
+    """A TOML string for an anchor line: a multi-line literal for text ending
+    in a newline, a literal for a plain line, else a basic string."""
+    if value == "":
+        return "''"
+    safe = "'''" not in value and "\x7f" not in value and not any(ord(c) < 32 and c not in "\t\n" for c in value)
+    if value.endswith("\n") and safe:
+        return "'''\n" + value + "'''"
+    if "\n" not in value and "'" not in value and safe:
+        return "'" + value + "'"
+    return json.dumps(value, ensure_ascii=False)
+
+
+def anchor_lines(removed: str, added: str, context: str | None) -> list[str]:
+    keys = [f"removed = {toml_value(removed)}", f"added = {toml_value(added)}"]
+    if context is not None:
+        keys.append(f"context = {toml_value(context)}")
+    return "\n".join(keys).split("\n")
+
+
+def anchor_of(mutant: Mutant) -> dict[str, str]:
+    anchor = {"removed": mutant.removed, "added": mutant.added}
+    if mutant.context is not None:
+        anchor["context"] = mutant.context
+    return anchor
+
+
+def rewrite_anchor(block: str, mutant: Mutant) -> str:
+    """A ledger block with only its anchor keys replaced by the mutant's,
+    written where the first old anchor key was (else after the last key)."""
+    body = block.rstrip("\n")
+    tail = block[len(body):]
+    lines = body.split("\n")
+    kept: list[str] = []
+    at = None
+    index = 0
+    while index < len(lines):
+        match = ANCHOR_KEY_RE.match(lines[index])
+        if match is None:
+            kept.append(lines[index])
+            index += 1
+            continue
+        at = len(kept) if at is None else at
+        value = match[2]
+        delim = next((d for d in ("'''", '"""') if value.startswith(d) and value.count(d) == 1), None)
+        index += 1
+        if delim is not None:
+            while index < len(lines) and delim not in lines[index]:
+                index += 1
+            index += 1
+    if at is None:
+        at = max((i + 1 for i, line in enumerate(kept) if line.strip() and not line.startswith("#")), default=len(kept))
+    return "\n".join(kept[:at] + anchor_lines(mutant.removed, mutant.added, mutant.context) + kept[at:]) + tail
+
+
+def split_ledger(text: str) -> tuple[str, list[str]]:
+    """The ledger's header and its `[[...]]` blocks, joined back byte for
+    byte. Comment lines right before a block belong to it, so a new entry
+    inserted before a `[[closed]]` lands above that block's comment."""
+    header, *blocks = re.split(r"(?m)^(?=\[\[)", text)
+    parts = [header, *blocks]
+    # The header keeps its own comments (the SPDX line among them), even when
+    # no blank line separates it from the first block.
+    for index in range(2, len(parts)):
+        lines = parts[index - 1].splitlines(keepends=True)
+        start = len(lines)
+        while start > 0 and lines[start - 1].startswith("#"):
+            start -= 1
+        if start < len(lines):
+            parts[index - 1] = "".join(lines[:start])
+            parts[index] = "".join(lines[start:]) + parts[index]
+    return parts[0], parts[1:]
+
+
+def render_survivor(entry: dict) -> str:
+    keys = ("id", "file", "symbol", "model", "element", "class", "reason", "follow_up")
+    lines = ["[[survivor]]"] + [f"{key} = {json.dumps(entry[key], ensure_ascii=False)}" for key in keys]
+    lines += anchor_lines(entry["removed"], entry["added"], entry.get("context"))
+    return "\n".join(lines) + "\n\n"
+
+
+def drop_stale(text: str, ids: set[str]) -> str:
+    """formal/manifest.toml with the given ids' lines deleted from the
+    multi-line `[triage] stale_survivors` array."""
+    if not ids:
+        return text
+    match = re.search(r"(?ms)^stale_survivors = \[\n(.*?)^\]", text)
+    if match is None:
+        raise PlanError("formal/manifest.toml: [triage] stale_survivors is not a one-id-per-line array; "
+                        f"remove {', '.join(sorted(ids))} from it by hand")
+    lines = match[1].splitlines(keepends=True)
+    kept = [line for line in lines if line.strip().rstrip(",").strip().strip('"') not in ids]
+    return text[:match.start(1)] + "".join(kept) + text[match.end(1):]
+
+
+@dataclasses.dataclass
+class RefreshPaths:
+    baseline: Path = BASELINE
+    ledger: Path = LEDGER
+    reruns: Path = RERUNS
+    manifest: Path = formal.MANIFEST
+
+
+def refresh(
+    report_dir: Path,
+    symbols: list[str],
+    stale: bool,
+    models: list[formal.Model],
+    root: Path = REPO_ROOT,
+    paths: RefreshPaths | None = None,
+    build: Callable[[], dict] | None = None,
+) -> list[str]:
+    """The partial refresh (mutation-partial-refresh design D3-D7). Returns
+    the summary lines; raises PlanError, having written nothing, on any
+    refusal. `build` builds the current plan (default: build_plan)."""
+    paths = paths or RefreshPaths()
+    run_plan, digest = validate_run(report_dir, build or (lambda: build_plan(models, root=root)))
+    functions = run_plan["functions"]
+    by_key = {(f["file"], f["symbol"]): f for f in functions}
+
+    baseline_text = paths.baseline.read_text()
+    ledger_text = paths.ledger.read_text()
+    manifest_text = paths.manifest.read_text()
+    baseline = json.loads(baseline_text)
+    if json.dumps(baseline, indent=2) + "\n" != baseline_text:
+        raise PlanError(f"{paths.baseline}: does not round-trip through json.dumps(indent=2); nothing was refreshed")
+    try:
+        ledger = tomllib.loads(ledger_text)
+        manifest = tomllib.loads(manifest_text)
+    except tomllib.TOMLDecodeError as err:
+        raise PlanError(f"cannot parse the ledger or the manifest: {err}") from err
+    survivors = ledger.get("survivor", [])
+    required = SURVIVOR_KEYS - OPTIONAL_SURVIVOR_KEYS
+    malformed = [str(s.get("id", "?")) for s in survivors if not required <= set(s)]
+    if malformed:
+        raise PlanError(f"ledger entries without {sorted(required)}: {', '.join(malformed)}; run `triage --check`")
+    triage = manifest.get("triage", {})
+    orphans = set(triage.get("orphaned_survivors", []))
+    listed_stale = set(triage.get("stale_survivors", []))
+    closed = {c["id"]: c.get("model", "?") for c in ledger.get("closed", []) if isinstance(c, dict) and "id" in c}
+    # Read before anything is written: a malformed reruns file refuses here.
+    reruns = read_reruns(paths.reruns)
+    mutators = {m["id"]: m["mutator"] for m in baseline["mutants"]}
+    source = source_reader(root)
+
+    # Choice (design D3). Orphans are never chosen and never owned: the plan
+    # does not target their row, and they carry no anchor.
+    specs = [part.strip() for value in symbols for part in value.split(",") if part.strip()]
+    if stale:
+        specs += sorted({f"{s['file']}:{s['symbol']}" for s in survivors if s["id"] not in orphans and (
+            s["id"] in listed_stale or anchor_problem(s, mutators.get(s["id"]), source))})
+    planned: set[Key] = set()
+    removal: set[Key] = set()
+    errors = []
+    for spec in dict.fromkeys(specs):
+        try:
+            is_planned, key = resolve_symbol(spec, functions, survivors, source)
+        except PlanError as err:
+            errors.append(str(err))
+            continue
+        (planned if is_planned else removal).add(key)
+    if errors:
+        raise PlanError("refresh refused, nothing written:\n  - " + "\n  - ".join(errors))
+    order = sorted(planned, key=lambda k: (k[0], by_key[k]["start"]))
+    chosen = planned | removal
+
+    attr = attribute(run_plan, load_mutants(report_dir, run_plan))
+    owner = {s["id"]: entry_key(s, functions, source) for s in survivors if s["id"] not in orphans}
+    entries_of = {key: [s for s in survivors if owner.get(s["id"]) == key] for key in chosen}
+    baseline_ids = set(mutators)
+    ledger_ids = {s["id"] for s in survivors}
+    for key in order:
+        for mid in attr.escaped.get(key, {}):
+            if (mid in baseline_ids) != (mid in ledger_ids):
+                where = "the baseline but not the ledger" if mid in baseline_ids else "the ledger but not the baseline"
+                errors.append(f"{mid} (escaped in {key[1]}) is in {where}; fix the id sets first (`triage --check`)")
+    for key in sorted(chosen):
+        errors += [f"ledger survivor {s['id']} ({key[1]}) is not in the baseline; fix the id sets first"
+                   for s in entries_of[key] if s["id"] not in baseline_ids]
+
+    # What happens to each entry of a chosen symbol (design D4).
+    unattributed_escapes = {m.id for m in attr.unattributed if m.status == "escaped"}
+    kept: list[tuple[Key, dict]] = []
+    reanchor: dict[str, Mutant] = {}
+    removed: dict[str, tuple[Key, str]] = {}
+    moved: dict[str, tuple[Key, Key]] = {}
+    for key in sorted(chosen, key=lambda k: (k[0], by_key[k]["start"] if k in by_key else 0, k[1])):
+        for entry in entries_of[key]:
+            mid = entry["id"]
+            if mid in attr.escaped.get(key, {}):
+                kept.append((key, entry))
+                if anchor_problem(entry, mutators.get(mid), source):
+                    reanchor[mid] = attr.escaped[key][mid]
+                    if problem := unanchorable(reanchor[mid]):
+                        errors.append(f"survivor {mid} of {key[1]}: {problem}")
+                continue
+            targets = [t for t in order if t != key and mid in attr.escaped.get(t, {})]
+            if targets:
+                moved[mid] = (key, targets[0])
+                continue
+            elsewhere = sorted(f"{t[0]}:{t[1]}" for t in attr.escapes_in(mid) if t not in chosen)
+            if elsewhere:
+                errors.append(f"survivor {mid} of {key[1]} escapes only in {', '.join(elsewhere)}, which this refresh "
+                              "does not choose; choose them too (--symbol FILE:SYMBOL)")
+                continue
+            if mid in unattributed_escapes:
+                errors.append(f"survivor {mid} of {key[1]} escapes only outside every plan function (its reported "
+                              "line is in no planned function's range), which no --symbol can choose; check the "
+                              f"report's paths and lines against {PLAN_FILE}, or update the ledger entry by hand")
+                continue
+            statuses = attr.generated.get(key, {}).get(mid)
+            removed[mid] = (key, f"now {'/'.join(sorted(statuses))}" if statuses else
+                            "not generated" + ("; the function is gone" if key in removal else ""))
+    if errors:
+        raise PlanError("refresh refused, nothing written:\n  - " + "\n  - ".join(errors))
+
+    gone = set(removed) | set(moved)
+    rows = model_rows(models, root)
+    added: dict[str, tuple[Key, dict, Mutant]] = {}
+    also: dict[str, list[Key]] = {}
+    shared: list[tuple[str, Key, str]] = []
+    for key in order:
+        function = by_key[key]
+        for mid, mutant in sorted(attr.escaped.get(key, {}).items(), key=lambda item: (item[1].line, item[0])):
+            if mid in added:
+                also.setdefault(mid, []).append(key)
+                continue
+            if mid in baseline_ids and mid not in gone:
+                held = owner.get(mid)
+                if held is None or held not in chosen:
+                    shared.append((mid, key, f"{held[0]}:{held[1]}" if held else "orphaned_survivors"))
+                continue
+            if problem := unanchorable(mutant):
+                raise PlanError(f"{mid} ({key[1]}): {problem}; nothing written")
+            if mid in closed:
+                raise PlanError(f"{mid} ({key[1]}) escapes again but is recorded as [[closed]] (model "
+                                f"{closed[mid]}): a closed gap regressed. Fix the regression, or delete its "
+                                "[[closed]] record and calibration note, then refresh again; nothing written")
+            first, *others = sorted(function["rows"], key=lambda r: (r["model"], r["element"]))
+            note = (f"; other rows of {function['symbol']}: "
+                    + ", ".join(f"{r['model']}: {r['element']}" for r in others) + "; pick the right one") if others else ""
+            entry = {
+                "id": mid, "file": function["file"], "symbol": row_spelling(rows, function, first["model"], first["element"]),
+                "model": first["model"], "element": first["element"], "class": UNTRIAGED_CLASS,
+                "reason": (f"{UNTRIAGED_MARK} {mutant.mutator} ({mutant.description or 'no description'}) survives "
+                           f"{', '.join(function['killers'])}; write the class and the reason{note}"),
+                "follow_up": "", **anchor_of(mutant),
+            }
+            added[mid] = (key, entry, mutant)
+
+    # The new texts.
+    header, blocks = split_ledger(ledger_text)
+    meta: list[tuple[str, str | None, Key | None]] = []  # (kind, id, owner)
+    new_blocks: list[str] = []
+    carry = ""  # the comment lines of removed blocks, kept for the next block
+    for block in blocks:
+        match = BLOCK_ID_RE.search(block)
+        mid = match[1] if match else None
+        kind = "survivor" if re.search(r"(?m)^\[\[survivor\]\]$", block) else "other"
+        if kind == "survivor" and mid in gone:
+            carry += block[:block.index("[[")]
+            continue
+        if kind == "survivor" and mid in reanchor:
+            block = rewrite_anchor(block, reanchor[mid])
+        new_blocks.append(carry + block)
+        carry = ""
+        meta.append((kind, mid, owner.get(mid) if kind == "survivor" else None))
+    if carry:
+        if new_blocks:
+            new_blocks[-1] += ("" if new_blocks[-1].endswith("\n\n") else "\n") + carry
+        else:
+            header += carry
+    for mid, (key, entry, _mutant) in added.items():
+        same = [i for i, (kind, _id, own) in enumerate(meta) if kind == "survivor" and own == key]
+        same_file = [i for i, (kind, _id, own) in enumerate(meta) if kind == "survivor" and own and own[0] == key[0]]
+        closed_at = next((i for i, (kind, _id, _own) in enumerate(meta) if kind == "other"), len(meta))
+        at = (same or same_file or [closed_at - 1])[-1] + 1
+        if at == len(new_blocks) and new_blocks and not new_blocks[-1].endswith("\n\n"):
+            new_blocks[-1] += "\n"
+        new_blocks.insert(at, render_survivor(entry))
+        meta.insert(at, ("survivor", mid, key))
+    new_ledger = header + "".join(new_blocks)
+    if not ledger_text.endswith("\n\n") and new_ledger.endswith("\n\n"):
+        new_ledger = new_ledger.rstrip("\n") + "\n"
+
+    mutants = [m for m in baseline["mutants"] if m["id"] not in gone]
+    for mid, (key, _entry, mutant) in added.items():
+        record = {"id": mid, "file": key[0], "mutator": mutant.mutator, "line": mutant.line, "digest": digest}
+        sort_key = (record["file"], record["line"], record["mutator"], mid)
+        at = next((i for i, m in enumerate(mutants) if (m["file"], m["line"], m["mutator"], m["id"]) > sort_key), len(mutants))
+        mutants.insert(at, record)
+    new_baseline_data = {**baseline, "mutants": mutants}
+    new_baseline = json.dumps(new_baseline_data, indent=2) + "\n"
+    leaving = listed_stale & {s["id"] for key in chosen for s in entries_of[key]}
+    new_manifest = drop_stale(manifest_text, leaving)
+
+    # Fail closed before writing (design D4).
+    expected = {s["id"]: s for s in survivors if s["id"] not in gone}
+    for mid, mutant in reanchor.items():
+        expected[mid] = {**{k: v for k, v in expected[mid].items() if k not in ANCHOR_KEYS},
+                         **anchor_of(mutant)}
+    expected.update({mid: entry for mid, (_key, entry, _mutant) in added.items()})
+    try:
+        parsed = tomllib.loads(new_ledger)
+        parsed_manifest = tomllib.loads(new_manifest)
+    except tomllib.TOMLDecodeError as err:
+        raise PlanError(f"the refreshed ledger or manifest does not parse ({err}); nothing written") from err
+    back = parsed.get("survivor", [])
+    if ({s.get("id"): s for s in back} != expected or len(back) != len(expected)
+            or {k: v for k, v in parsed.items() if k != "survivor"} != {k: v for k, v in ledger.items() if k != "survivor"}):
+        raise PlanError("the refreshed ledger does not parse back to the expected entries; nothing written")
+    want = manifest
+    if leaving:
+        want = {**manifest, "triage": {**triage, "stale_survivors": [
+            i for i in triage["stale_survivors"] if i not in leaving]}}
+    if parsed_manifest != want:
+        raise PlanError("the refreshed manifest does not parse back to the expected lists; nothing written")
+    new_mutators = {m["id"]: m["mutator"] for m in mutants}
+    remaining = [(key, expected[e["id"]]) for key, e in kept] + [(key, entry) for _mid, (key, entry, _m) in added.items()]
+    still = [f"survivor {e['id']} ({e['symbol']}): {problem}" for _key, e in remaining
+             if (problem := anchor_problem(e, new_mutators.get(e["id"]), source))]
+    if still:
+        raise PlanError("entries of the chosen symbols would still fail the anchor check after the refresh; "
+                        "nothing written:\n  - " + "\n  - ".join(still))
+
+    changed = []
+    for path, old, new in ((paths.baseline, baseline_text, new_baseline), (paths.ledger, ledger_text, new_ledger),
+                           (paths.manifest, manifest_text, new_manifest)):
+        if new != old:
+            path.write_text(new)
+            changed.append(path)
+
+    # Evidence (design D6) and summary (design D7).
+    _general, by_mutant = evidence_failures(new_baseline_data, reruns)
+    awaiting = sorted({e["id"] for _key, e in remaining if e["id"] in by_mutant})
+    untriaged = sum(1 for _key, e in remaining if is_untriaged(e))
+    line_of = {m["id"]: m for m in baseline["mutants"]}
+    out = []
+    for key in sorted(removal):
+        out.append(f"removal-only {key[0]}:{key[1]}: the function is gone; {len(entries_of[key])} entr"
+                   f"{'y' if len(entries_of[key]) == 1 else 'ies'} removed or moved, nothing added under it")
+    for mid, (key, why) in sorted(removed.items(), key=lambda item: (item[1][0], item[0])):
+        m = line_of[mid]
+        out.append(f"removed {mid} {key[1]} {m['mutator']} :{m['line']} ({why})")
+    for mid, (src, dst) in sorted(moved.items()):
+        _k, _e, mutant = added[mid]
+        out.append(f"moved {mid} {src[1]} -> {dst[1]} {mutant.mutator} :{mutant.line} (untriaged again)")
+    for mid, (key, _entry, mutant) in added.items():
+        if mid in moved:
+            continue
+        extra = f" (also escapes in {', '.join(k[1] for k in also[mid])})" if mid in also else ""
+        out.append(f"added {mid} {key[1]} {mutant.mutator} :{mutant.line}{extra}")
+    for key, entry in kept:
+        label = "re-anchored" if entry["id"] in reanchor else "kept"
+        out.append(f"{label} {entry['id']} {key[1]} {line_of[entry['id']]['mutator']} :{line_of[entry['id']]['line']}")
+    for mid, key, held in shared:
+        out.append(f"shared {mid} {key[1]}: ledgered under {held}, left with its owner")
+    unattributed = sorted({(m.file, m.line, m.mutator, m.id, m.status) for m in attr.unattributed})
+    out += [f"unattributed {mid} {file}:{line} {mutator} ({status}): in no plan function, not added"
+            for file, line, mutator, mid, status in unattributed]
+    out.append(f"refresh: removed {len(removed)}, moved {len(moved)}, added {len(added) - len(moved)}, "
+               f"untriaged {untriaged}, kept {len(kept)}, re-anchored {len(reanchor)}, shared {len(shared)}, "
+               f"unattributed {len(unattributed)}, awaiting evidence {len(awaiting)}")
+    out.append("refresh: " + (f"wrote {', '.join(str(p) for p in changed)}" if changed else "no file changed"))
+    if awaiting:
+        out.append(f"refresh: {len(awaiting)} id(s) need {REQUIRED_ESCAPED_RERUNS} escaped reruns at their evidence "
+                   f"digest; run it twice: make mutation-formal-rerun MUTATION_MUTANT_ID={','.join(awaiting)}")
+        if paths.manifest in changed:
+            out.append("refresh: commit formal/manifest.toml first: the mutation wrapper refuses a dirty manifest")
+    if untriaged:
+        out.append(f"refresh: write the class and the reason of the {untriaged} untriaged entr"
+                   f"{'y' if untriaged == 1 else 'ies'}; `triage --check` rejects them until then")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1517,6 +2247,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--base", default="",
                    help=f"commit whose manifest the shrink-only lists may not outgrow (default: ${TRIAGE_BASE_ENV}, "
                         "else git merge-base HEAD origin/main)")
+    p = sub.add_parser("refresh", help="refresh chosen symbols' survivors from a report-only run")
+    p.add_argument("--report-dir", type=Path, default=RUN_DIR)
+    p.add_argument("--symbol", action="append", default=[], metavar="[FILE:]SYMBOL",
+                   help="a symbol to refresh (repeatable; commas separate several)")
+    p.add_argument("--stale", action="store_true", help="also every symbol with an entry that fails the anchor check")
+    p.add_argument("--baseline", type=Path, default=BASELINE)
+    p.add_argument("--ledger", type=Path, default=LEDGER)
+    p.add_argument("--reruns", type=Path, default=RERUNS)
+    p.add_argument("--manifest", type=Path, default=formal.MANIFEST,
+                   help="the manifest whose models and [triage] lists the refresh reads and updates")
     p = sub.add_parser("reach")
     p.add_argument("--out", type=Path, default=REACH_DIR)
     args = parser.parse_args(argv)
@@ -1524,6 +2264,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.action == "reach":
             return reach_main(args.out)
+        if args.action == "refresh":
+            if not args.symbol and not args.stale:
+                raise PlanError("refresh needs --symbol [FILE:]SYMBOL (repeatable) or --stale")
+            _tools, models = formal.load_manifest(args.manifest)
+            paths = RefreshPaths(args.baseline, args.ledger, args.reruns, args.manifest)
+            for line in refresh(args.report_dir, args.symbol, args.stale, models, paths=paths):
+                print(line)
+            return 0
         if args.action == "plan":
             _tools, models = formal.load_manifest()
             plan = build_plan(models)

@@ -988,6 +988,9 @@ run_formal_profile() {
 		mapfile -t args < <(build_formal_mutation_args "$profile" "$mode" "" "$match" "$exec_timeout" "$group_dir/baseline.json")
 		group_status=0
 		run_formal_group "$group_dir" "$report_dir/go-mutesting.log" "$plan" "${args[@]}" -- "${files[@]}" || group_status=$?
+		# formal_mutation.py refresh refuses a run with a group that has no
+		# status line or a failing one (mutation-partial-refresh design D2).
+		printf 'group_status[%s]=%s\n' "$group" "$group_status" >>"$report_dir/run-metadata.txt"
 
 		if ((group_status != 0)) && { ((status == 0)) || ((status == QUALITY_GATE_EXIT_CODE)); }; then
 			status="$group_status"
