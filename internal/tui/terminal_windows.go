@@ -52,7 +52,8 @@ func platformTerminalOpener() (in, out *os.File, err error) {
 // (which the process owns), CONIN$. Bubble Tea reads a separately opened
 // CONIN$ with a reader it cannot cancel, and os.File.Close waits for a pending
 // read, which would block until the next key press. CONIN$ is therefore
-// closed in the background.
+// closed in the background, where its error has no caller to reach: the
+// component has already returned its result.
 func platformTerminalReleaser(in, out *os.File) func() error {
 	return func() error {
 		var err error
@@ -60,16 +61,8 @@ func platformTerminalReleaser(in, out *os.File) func() error {
 			err = out.Close()
 		}
 		if in != nil && in != os.Stdin {
-			go closeDetached(in)
+			go func() { _ = in.Close() }()
 		}
 		return err
-	}
-}
-
-// closeDetached closes f. Its error has no caller to reach: the component has
-// already returned its result.
-func closeDetached(f *os.File) {
-	if err := f.Close(); err != nil {
-		return
 	}
 }

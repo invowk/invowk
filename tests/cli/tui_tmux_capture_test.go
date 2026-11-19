@@ -37,16 +37,22 @@ type (
 		// keys are sent one tmux send-keys call per element.
 		keys [][]string
 		// want is the exact captured value, given the temporary directory.
-		// $(...) strips the trailing newline. Unused by the stream cases,
-		// which compare their own expectations.
+		// $(...) strips the trailing newline.
 		want func(dir string) string
 	}
 )
 
+// wantValue returns a want function for a value that does not depend on the
+// temporary directory.
+func wantValue(v string) func(string) string {
+	return func(string) string { return v }
+}
+
 // runTUICapture runs c in a tmux pane through a POSIX sh script, so the result
-// does not depend on the login shell, and returns the captured value's bytes
-// as `od -An -tx1` reports them, whitespace removed.
-func runTUICapture(t *testing.T, c tuiCaptureCase) (gotHex, dir string) {
+// does not depend on the login shell, fails unless the captured bytes (as
+// `od -An -tx1` reports them) equal c.want, and returns the case's temporary
+// directory.
+func runTUICapture(t *testing.T, c tuiCaptureCase) (dir string) {
 	t.Helper()
 
 	dir = t.TempDir()
@@ -96,7 +102,12 @@ func runTUICapture(t *testing.T, c tuiCaptureCase) (gotHex, dir string) {
 	if err != nil {
 		t.Fatalf("read capture.hex: %v", err)
 	}
-	return strings.Join(strings.Fields(string(raw)), ""), dir
+	gotHex := strings.Join(strings.Fields(string(raw)), "")
+	want := c.want(dir)
+	if wantHex := hex.EncodeToString([]byte(want)); gotHex != wantHex {
+		t.Fatalf("captured value hex = %s, want %s (%q)", gotHex, wantHex, want)
+	}
+	return dir
 }
 
 // TestTUI_CaptureValue verifies that each value component, with stdout
@@ -114,28 +125,28 @@ func TestTUI_CaptureValue(t *testing.T) {
 			assign: `v=$("$INVOWK" tui input --title 'Capture name')`,
 			ready:  "Capture name",
 			keys:   [][]string{{"Hello World"}, {"Enter"}},
-			want:   func(string) string { return "Hello World" },
+			want:   wantValue("Hello World"),
 		},
 		{
 			name:   "choose",
 			assign: `v=$("$INVOWK" tui choose --title 'Pick fruit' Apple Banana Cherry)`,
 			ready:  "Pick fruit",
 			keys:   [][]string{{"Down"}, {"Enter"}},
-			want:   func(string) string { return "Banana" },
+			want:   wantValue("Banana"),
 		},
 		{
 			name:   "filter_piped_options",
 			assign: `v=$(printf 'alpha_opt\nbeta_opt\n' | "$INVOWK" tui filter --title 'Filter opts')`,
 			ready:  "alpha_opt",
 			keys:   [][]string{{"Down"}, {"Enter"}},
-			want:   func(string) string { return "beta_opt" },
+			want:   wantValue("beta_opt"),
 		},
 		{
 			name:   "write",
 			assign: `v=$("$INVOWK" tui write --title 'Enter notes')`,
 			ready:  "ctrl+d submit",
 			keys:   [][]string{{"Line 1"}, {"Enter"}, {"Line 2"}, {"C-d"}},
-			want:   func(string) string { return "Line 1\nLine 2" },
+			want:   wantValue("Line 1\nLine 2"),
 		},
 		{
 			name:   "file",
@@ -153,17 +164,14 @@ func TestTUI_CaptureValue(t *testing.T) {
 			// view, so readiness is the header line.
 			ready: "name",
 			keys:  [][]string{{"Enter"}},
-			want:  func(string) string { return "Alice,30" },
+			want:  wantValue("Alice,30"),
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			gotHex, dir := runTUICapture(t, c)
-			if wantHex := hex.EncodeToString([]byte(c.want(dir))); gotHex != wantHex {
-				t.Fatalf("captured value hex = %s, want %s (%q)", gotHex, wantHex, c.want(dir))
-			}
+			runTUICapture(t, c)
 		})
 	}
 }
@@ -178,27 +186,23 @@ func TestTUI_CaptureStreams(t *testing.T) {
 
 	t.Run("spin_output", func(t *testing.T) {
 		t.Parallel()
-		gotHex, _ := runTUICapture(t, tuiCaptureCase{
+		runTUICapture(t, tuiCaptureCase{
 			name:   "spin",
 			assign: `v=$("$INVOWK" tui spin --title 'Spin wait' -- sh -c 'sleep 1; echo done')`,
 			ready:  "Spin wait",
+			want:   wantValue("done"),
 		})
-		if wantHex := hex.EncodeToString([]byte("done")); gotHex != wantHex {
-			t.Fatalf("captured spin output hex = %s, want %s", gotHex, wantHex)
-		}
 	})
 
 	t.Run("input_stderr_redirected", func(t *testing.T) {
 		t.Parallel()
-		gotHex, dir := runTUICapture(t, tuiCaptureCase{
+		dir := runTUICapture(t, tuiCaptureCase{
 			name:   "stderr",
 			assign: `v=$("$INVOWK" tui input --title 'Stderr name' 2>err.log)`,
 			ready:  "Stderr name",
 			keys:   [][]string{{"hey"}, {"Enter"}},
+			want:   wantValue("hey"),
 		})
-		if wantHex := hex.EncodeToString([]byte("hey")); gotHex != wantHex {
-			t.Fatalf("captured value hex = %s, want %s", gotHex, wantHex)
-		}
 		errLog, err := os.ReadFile(filepath.Join(dir, "err.log"))
 		if err != nil {
 			t.Fatalf("read err.log: %v", err)
@@ -210,14 +214,12 @@ func TestTUI_CaptureStreams(t *testing.T) {
 
 	t.Run("input_stdin_devnull", func(t *testing.T) {
 		t.Parallel()
-		gotHex, _ := runTUICapture(t, tuiCaptureCase{
+		runTUICapture(t, tuiCaptureCase{
 			name:   "devnull",
 			assign: `v=$("$INVOWK" tui input --title 'Null name' </dev/null)`,
 			ready:  "Null name",
 			keys:   [][]string{{"hey"}, {"Enter"}},
+			want:   wantValue("hey"),
 		})
-		if wantHex := hex.EncodeToString([]byte("hey")); gotHex != wantHex {
-			t.Fatalf("captured value hex = %s, want %s", gotHex, wantHex)
-		}
 	})
 }
