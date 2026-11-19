@@ -9,7 +9,7 @@ Both have model counterexamples and Go replays that reproduce them today. This c
 
 ## What Changes
 
-- **Module script reads are physically contained.** In module context, `Implementation.ResolveScriptWithFSAndModule` and `CustomCheckScript.ResolveWithFSAndModule` first check, through an `os.Root` opened on the module directory, that the script path resolves inside the module. They deny it with `ErrScriptPathTraversal` otherwise.
+- **Module script reads are physically contained.** In module context, `Implementation.ResolveScriptWithFSAndModule` and `CustomCheckScript.ResolveWithFSAndModule` first check, through an `os.Root` opened on the module directory, that the script path resolves inside the module. An escaping path or a dangling link is denied with `ErrScriptPathTraversal`; an operating-system error from the check itself (for example `EACCES`) is returned as a script read error. Either way the injected reader is not called.
   - The check runs whatever reader the caller injects, so every production path is covered: `invowk cmd` on every runtime, custom checks, and `invowk validate`'s interpreter diagnostics.
 - **Module env files are physically contained.** `env.files` of an invowkfile loaded from a module are read through `os.Root`. In those reads:
   - an absolute path is denied;
@@ -21,7 +21,8 @@ Both have model counterexamples and Go replays that reproduce them today. This c
 - **Removed `pkg/invowkmod` API:** `Module.ValidateScriptPath` and its helper `checkSymlinkSafety` are deleted. They had no production caller.
 - **Formal artefacts:**
   - the model's `accepts` uses physical containment for script and env reads;
-  - the golden is regenerated;
+  - the golden is regenerated and replayed twice, with relative and with absolute link targets; the absolute pass classifies in-module absolute-target links explicitly as denied;
+  - the shrink-only `[correspondence] unresolved_elements` and `[triage] binding_gaps` lists lose the entries that the removed or renamed rows make stale; nothing is added to them;
   - the F13 and F17 replays are inverted and renamed;
   - each finding command becomes a `mutantPreFixF<n>…` regression mutant;
   - the README Findings rows become "Fixed".
@@ -43,15 +44,19 @@ Both have model counterexamples and Go replays that reproduce them today. This c
 - **Code:**
   - `pkg/invowkfile`: `implementation.go`, `dependency.go`, and a new contained-read helper;
   - `internal/runtime`: `dotenv.go` and `env_builder.go`;
-  - `pkg/invowkmod/invowkmod.go`, where the API is removed.
+  - `pkg/invowkmod/invowkmod.go`, where the API is removed, with `invowkmod_mutation_test.go` and `operations_test.go` (`TestModule_ValidateScriptPath`).
 - **Tests:**
   - unit tests in `pkg/invowkfile` and `internal/runtime`;
   - the module path containment golden, rapid and formal replays in `internal/app/moduleops`;
   - an `internal/testutil/fstree` option;
-  - a new testscript pair under `tests/cli/testdata/`.
+  - a new testscript pair under `tests/cli/testdata/`;
+  - new tests in `cmd/invowk` (validate interpreter diagnostics) and `internal/app/deps` (custom checks).
 - **Formal:** `formal/alloy/ModulePathContainment.als`, `formal/manifest.toml`, the regenerated golden, `formal/README.md`, `.goplint/exceptions.toml`, and the formal-bindings ledger entries of the rewritten and deleted symbols.
 - **Docs:**
   - `website/docs/modules/validating.mdx` and `creating-modules.mdx`, with their pt-BR copies;
   - `.agents/skills/module-security/` (SC-01 and its check catalog);
+  - `website/docs/environment/env-files.mdx`, with its pt-BR copy;
+  - `README.md`, where it describes `env.files` resolution;
   - `docs/next/cross-platform-windows-improvements.md`.
+- **Not changed:** `internal/audit`'s own script-read containment (`scan_files.go:scriptReadPath`) keeps its `EvalSymlinks` comparison; whether to align it is an open question for the maintainer (design Open questions).
 - **Users:** a module that reads a script or env file through a link to outside the module, or through a link with an absolute target, now fails with a containment error. Reads of real files, including real vendored copies under `invowk_modules/`, keep working.

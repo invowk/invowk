@@ -11,19 +11,42 @@ The model's `accepts` SHALL accept a `ScriptRead` or `EnvRead` operation only wh
 - **WHEN** a golden instance's read reaches a link whose target lies inside the module
 - **THEN** `dAccepts` SHALL contain the operation, and the real resolver and env loader SHALL read the target
 
-### Requirement: Golden links are materialised with relative targets
-The `ModulePathContainment` golden replay SHALL materialise each symlink with a target relative to the link's directory, so that a contained read follows an in-module link exactly as `physContains` does. Other replays that use `internal/testutil/fstree` SHALL keep their current link targets unless they opt in.
+### Requirement: The golden is replayed with relative and with absolute link targets
+`TestModulePathContainment_GoldenVectors` SHALL replay the golden twice: a relative pass, which materialises each symlink with a target relative to the link's directory, and an absolute pass, which materialises each symlink with an absolute target on every instance that contains at least one link. Other replays that use `internal/testutil/fstree` SHALL keep their current link targets unless they opt in.
 
-#### Scenario: Golden verdicts agree with the code on every vector
-- **WHEN** `TestModulePathContainment_GoldenVectors` replays every instance
-- **THEN** the real script, custom-check and env read decisions SHALL equal `dAccepts` on every `ScriptRead` and `EnvRead` instance, with no instance excluded or reclassified
+#### Scenario: Relative pass agrees with the model on every vector
+- **WHEN** the relative pass replays every instance
+- **THEN** the real script, custom-check and env read decisions and touched nodes SHALL equal `dAccepts` on every `ScriptRead` and `EnvRead` instance, with no instance excluded or reclassified
+
+### Requirement: The absolute pass classifies in-module absolute-target links
+In the absolute pass, the replay SHALL classify explicitly, from each instance's tree, the vectors in the class "in-module link with an absolute target": a `ScriptRead` or `EnvRead` whose reference reaches a link whose target lies inside the module, and which `dAccepts` accepts. The class SHALL apply to an operation kind only once that kind's read is physically contained in the code.
+
+#### Scenario: Absolute pass denies the classified vectors
+- **WHEN** the absolute pass replays an instance
+- **THEN** on a vector in the class, the real read SHALL be denied and touch nothing
+- **THEN** on every other vector, absolute-target escapes included, the real read decision and touched node SHALL equal `dAccepts`
+
+#### Scenario: Empty class fails
+- **WHEN** the absolute pass finds no vector in the class for an operation kind the class applies to
+- **THEN** the replay SHALL fail, and the class size of each kind SHALL be recorded in the model's calibration text
 
 ### Requirement: Code stricter than the model is recorded
-The correspondence rows of the contained reads SHALL state that the code is stricter than the model in one case: a link with an absolute target is denied even when the target is inside the module. A dedicated Go test SHALL pin that denial for the script read and the env read.
+The correspondence rows of the contained reads SHALL state that the code is stricter than the model in one case: a link with an absolute target is denied even when the target is inside the module. The golden's absolute pass SHALL classify that case explicitly, and a dedicated Go test SHALL also pin the denial for the script read and the env read outside the golden scope.
 
 #### Scenario: Absolute in-module link denied
 - **WHEN** the dedicated test reads a module file through a symlink with an absolute target inside the same module
-- **THEN** both the script resolver and `LoadEnvFile` in module context SHALL deny it, and the correspondence rows SHALL name that test
+- **THEN** both the script resolver and `LoadEnvFile` in module context SHALL deny it, and the correspondence rows SHALL name that test and the golden test
+
+### Requirement: Correspondence list entries are only removed
+The change SHALL NOT add or rename entries in `[correspondence] unresolved_elements` or `[triage] binding_gaps` of `formal/manifest.toml`: both lists only shrink. An entry whose row is removed, or whose element now resolves in the model source or as a manifest command name, SHALL be removed in the same commit.
+
+#### Scenario: Renamed finding rows drop their entries
+- **WHEN** the `findingF13` or `findingF17` row's element cell names the renamed `mutantPreFix…` manifest command
+- **THEN** its `ModulePathContainment: findingF13` or `ModulePathContainment: findingF17` entry SHALL be removed from `unresolved_elements`, and `scripts/test_formal.py` and `formal_mutation.py triage --check` SHALL pass
+
+#### Scenario: New physContains row adds no entry
+- **WHEN** the `physContains` row is added
+- **THEN** no list entry SHALL be added for it, because `physContains` resolves in the model source
 
 ### Requirement: Fixed findings keep pre-fix regression mutants
 F13 and F17 SHALL be recorded as fixed:
@@ -40,7 +63,11 @@ F13 and F17 SHALL be recorded as fixed:
 - **THEN** each SHALL assert that the read through the `invowk_modules/` link is denied and that the outside sentinel is not returned or loaded
 
 ### Requirement: F16 is reclassified after the contained read
-After this change, the F16 leg's outcome for each operation SHALL be observed on windows-latest and reported with the run and job ids. F16 SHALL then be reclassified from those outcomes under "F16 is decided by one of three stated outcomes", in a commit made after that evidence, and the model note of `findingF16JunctionScan`, or the model, SHALL be updated so that model and code agree.
+After this change, the F16 leg's outcome for each operation SHALL be observed on windows-latest and reported with the run and job ids. F16 SHALL then be reclassified from those outcomes under "F16 is decided by one of the stated outcomes", in a commit made after that evidence, and the model note of `findingF16JunctionScan`, or the model, SHALL be updated so that model and code agree.
+
+#### Scenario: Interim verdict before the evidence
+- **WHEN** the F13 commit is in place and the post-evidence F16 commit is not
+- **THEN** the leg's script-read arm SHALL assert containment, its recorded verdict SHALL be "containment pending windows-latest evidence", and the `findingF16JunctionScan` model note and the F16 calibration text SHALL say so, while the model still reports the escape for that arm
 
 #### Scenario: Script read arm flips to contained
 - **WHEN** the F16 leg runs on windows-latest with the contained read in place, and the script read through the inner junction is denied
@@ -49,6 +76,11 @@ After this change, the F16 leg's outcome for each operation SHALL be observed on
 #### Scenario: Another arm still escapes
 - **WHEN** any other arm of the leg still escapes on windows-latest
 - **THEN** F16 SHALL stay recorded for that arm only, and the README row SHALL name the arms that remain open
+
+## RENAMED Requirements
+
+- FROM: `### Requirement: F16 is decided by one of three stated outcomes`
+- TO: `### Requirement: F16 is decided by one of the stated outcomes`
 
 ## MODIFIED Requirements
 
@@ -105,7 +137,7 @@ The rapid property SHALL judge escape, for every link kind, by file identity of 
 - **THEN** the property SHALL report a policy violation
 
 ### Requirement: The F16 leg asserts each operation's verdict
-`TestModulePathContainment_F16Junction` SHALL require junctions through the capability policy. For a module with an inner junction to an outside directory, it SHALL assert, never only log, a verdict for each operation production runs: `IsModule` and `Load` admission, the script read through the junction, `modulecache.copyDir`, `provision.CopyDir`, and `computeModuleHash`. Each verdict is the one observed on windows-latest for the current code and recorded with its run id; with the contained read in place, the script read's expected verdict is containment.
+`TestModulePathContainment_F16Junction` SHALL require junctions through the capability policy. For a module with an inner junction to an outside directory, it SHALL assert, never only log, a verdict for each operation production runs: `IsModule` and `Load` admission, the script read through the junction, `modulecache.copyDir`, `provision.CopyDir`, and `computeModuleHash`. Each verdict is the one observed on windows-latest for the current code and recorded with its run id; with the contained read in place, the script read's expected verdict is containment, recorded as "pending windows-latest evidence" until the post-evidence F16 commit.
 
 #### Scenario: Copy and hash containment
 - **WHEN** the leg checks the copies and the hash
@@ -114,7 +146,7 @@ The rapid property SHALL judge escape, for every link kind, by file identity of 
 
 #### Scenario: Leg asserts the recorded verdicts
 - **WHEN** F16 is recorded under outcome (b)
-- **THEN** the leg SHALL assert the escape for each operation the outcome records as escaping and containment for every other operation
+- **THEN** the leg SHALL assert the escape for each operation the outcome records as escaping and containment for every other operation, except that the script read's verdict is containment pending evidence (see "Interim verdict before the evidence")
 - **THEN** the leg SHALL fail when any operation's behaviour differs from its recorded verdict
 
 #### Scenario: Script read through the junction is contained
@@ -143,7 +175,7 @@ The rapid property SHALL judge escape, for every link kind, by file identity of 
 - **WHEN** a golden `EnvRead` instance names a dangling link or a directory
 - **THEN** the loader SHALL return an error
 
-### Requirement: F16 is decided by one of three stated outcomes
+### Requirement: F16 is decided by one of the stated outcomes
 The Windows CI run of the change SHALL decide one of these outcomes, recorded with the run id in `ModulePathContainment`'s calibration text:
 - **(a)** junction creation still fails: the leg and the job fail, and the change does not complete;
 - **(b)** an operation escapes: F16 is recorded under "Recorded finding contents", and is not fixed;

@@ -18,7 +18,9 @@ See proposal.md (Why). Current behaviour, verified on `main` at 768fa8c1:
   - A missing optional file is skipped on `os.IsNotExist` (`:35`).
   - `DefaultEnvBuilder.Build` passes `basePath = ctx.Invowkfile.GetScriptBasePath()` (`internal/runtime/env_builder.go:76`, calls at `:80`, `:87`, `:94`). That is the module root when `ModulePath != ""` (`pkg/invowkfile/invowkfile.go:154-159`).
 - **Dead helpers.** `Module.ValidateScriptPath` (`pkg/invowkmod/invowkmod.go:603`) and `checkSymlinkSafety` (`invowkmod.go:682`) have no production caller.
-  - Only `invowkmod_mutation_test.go:282-495` references them, plus these records: the `.als` rows (`formal/alloy/ModulePathContainment.als:43-44`), the manifest reach and binding entries (`formal/manifest.toml:161-162`, `:219-220`), a goplint exception (`.goplint/exceptions.toml:2709`) and a doc note (`docs/next/cross-platform-windows-improvements.md:86`).
+  - Go references: `invowkmod_mutation_test.go:282-495` and `TestModule_ValidateScriptPath` (`pkg/invowkmod/operations_test.go:552-584`, plus the comment at `:522`).
+  - Records: the `.als` rows (`formal/alloy/ModulePathContainment.als:43-44`), the manifest's `[correspondence] unresolved_elements` entries (`formal/manifest.toml:161-162`) and `[triage] binding_gaps` rows (`:219-220`), a goplint exception (`.goplint/exceptions.toml:2709`) and a doc note (`docs/next/cross-platform-windows-improvements.md:86`).
+  - The scripts' seeded sets name them too (`scripts/test_formal.py:655-656` `SEEDED_UNRESOLVED_ELEMENTS`, `scripts/test_formal_mutation.py:982-983` `SEEDED_BINDING_GAPS`). Those are subset checks, so they may keep the entries after the manifest drops them.
   - `Module.ContainsPath` (`invowkmod.go:640`) has no other non-test caller.
 - **The model's accepts is lexical.** `accepts` uses `lexContains` for every kind. The fixed configurations `scriptReadContainedPhysical` and `envReadContainedPhysical` (`readContainedKind[_, PhysMode]`, `formal/manifest.toml:1285`, `:1313`) already pass. The findings are `findingF13VendoredSymlink` (`:1304`) and `findingF17EnvVendoredSymlink` (`:1332`).
 - **The golden links are absolute.** `fstree.createLink` writes absolute targets (`internal/testutil/fstree/fstree.go:249-263`). The golden holds 22848 instances. In 384 `ScriptRead` and 384 `EnvRead` instances, `dAccepts` accepts a read whose `ref` is a link with an in-module target. That count was computed from the golden file.
@@ -59,12 +61,9 @@ Module reads are judged by an `os.Root` opened on the module directory, with the
 
 Rejected alternatives:
 - **(c) `EvalSymlinks` on both sides, failing closed.** The Windows probe shows that a path through an escaping junction returns an error that `errors.Is(err, fs.ErrNotExist)` reports as true. Under decision 5, an optional `?` env file through such a junction would then be silently skipped. The error cannot be told apart from a genuinely missing file without an extra `Lstat` walk. The walk would also need two-sided evaluation, because of the macOS aliases, and normalised comparison, because of case.
-- **(b) model the link-target kind.** This would add a field to `Link` and a dimension to the golden. The only behaviour it captures, the denial of absolute in-root targets, is pinned more cheaply by D4's dedicated test.
+- **(b) model the link-target kind.** This would add a field to `Link` and a dimension to the golden. The only behaviour it captures, the denial of absolute in-root targets, is covered by D4's absolute-target golden pass, which classifies those vectors explicitly, and by D4's dedicated test.
 
-**Departure from the letter of option (a).** Decision 46 has the golden replay classify the absolute in-root case explicitly. This design instead materialises golden links with relative targets (D4), so that case does not occur in the golden, and pins it with a dedicated test.
-- Reason: with absolute targets, 384 `ScriptRead` and 384 `EnvRead` vectors would be classified away. That would empty the golden's coverage of followed in-module links.
-- What does not change: the correspondence rows still record "code stricter than model", as option (a) asks.
-- The spec review or the maintainer can reject this in favour of literal classification.
+**How this meets option (a) to the letter.** Decision 46 has the golden replay classify the absolute in-root case explicitly. D4 replays the golden twice: once with relative link targets, where the code equals `dAccepts` on every vector, and once with absolute link targets, where the code equals `dAccepts` except on the explicitly classified "in-module link with an absolute target" vectors, which must be denied. The relative pass keeps the golden's coverage of followed in-module links; the absolute pass keeps every absolute-target vector, the escaping ones included (the original F13 form). The correspondence rows record "code stricter than model", as option (a) asks.
 
 ### D2. Script reads: containment check before the injected reader
 
@@ -74,7 +73,7 @@ A new unexported helper in `pkg/invowkfile`, for example `checkModuleFilePhysica
   - In production, that reader then fails with the read error users see today.
   - For a virtual or fake filesystem in tests, the module directory does not exist on disk, so the fake reader keeps working.
   - Callers covered by this: the fake-reader unit tests (`implementation_test.go:240`, `implementation_mutation_test.go:114`, `dependency_mutation_test.go:495-512`, `checks_mutation_test.go:386`) and the golden and rapid recording readers (`module_path_containment_golden_test.go:115-126`, `:194-209`; `module_path_containment_rapid_test.go:122`).
-- **escaping**, when `Stat` returns a non-OS error (the inner error is not a `syscall.Errno`, as with `os.Root`'s "path escapes from parent"), and when `Stat` reports `ErrNotExist` while `Lstat` succeeds (a dangling link). The result is `ErrScriptPathTraversal`, wrapped with the selected path and the module, and the reader is not called.
+- **escaping**, when `Stat` returns a non-OS error (the inner error is not a `syscall.Errno`, as with `os.Root`'s "path escapes from parent"), and when `Stat` reports `ErrNotExist` while `Lstat` succeeds (a dangling link). The result is `ErrScriptPathTraversal`, wrapped with the selected path and the module, and the reader is not called. The message names the case: "resolves outside module" for an escape, "dangling link" for a dangling link, so an in-module dangling link is not reported as an escape.
 - **denied**, for any other OS error from `OpenRoot`, `Stat` or `Lstat`, such as `EACCES` on a directory. The resolver returns that error as a script read error and does not call the reader.
 
 The label of a denial is best effort; the read is denied in every case except contained and absent.
@@ -91,11 +90,12 @@ The containment goes inside the bound `LoadEnvFile`, so its correspondence row, 
 - **`moduleRoot == ""`** (a plain invowkfile): behaviour is unchanged. This keeps plain invowkfiles' symlinked `.env` working (decision 46 item 5).
 - **`moduleRoot != ""`**:
   - an absolute `path` is rejected with a containment error;
-  - otherwise `os.OpenRoot(moduleRoot)` is opened and `root.Stat(rel)` runs first. Non-OS errors, and a dangling link (`Stat` not-exist while `Lstat` succeeds), are containment errors;
+  - otherwise `rel` is `filepath.Rel(moduleRoot, filepath.Join(basePath, path))`. When `Rel` fails, or `rel` is `..` or starts with `../` (a lexical escape, for example because `basePath` lies outside `moduleRoot`), the result is a containment error. Today `Build` passes `basePath == moduleRoot` in module context (`GetScriptBasePath()` returns `ModulePath`), so `rel` equals the cleaned `path`; the definition keeps a future caller with a different `basePath` correct, and a unit test covers a `basePath` below `moduleRoot` and one outside it;
+  - `os.OpenRoot(moduleRoot)` is opened and `root.Stat(rel)` runs first. Non-OS errors, and a dangling link (`Stat` not-exist while `Lstat` succeeds), are containment errors;
   - for an optional `?` file, `Stat` and `Lstat` both not-exist return nil;
   - then `root.ReadFile(rel)` reads the file. The content read is race-free. Its OS errors, such as `EISDIR` or `EACCES`, are read errors, as today.
 
-`DefaultEnvBuilder.Build` passes `ctx.Invowkfile.ModulePath` as `moduleRoot` for root-, command- and implementation-level files (`env_builder.go:80`, `:87`, `:94`). The test callers of `LoadEnvFile` are updated. Env files have no reader seam, so nothing argues for D2's check-then-delegate form here.
+`DefaultEnvBuilder.Build` passes `ctx.Invowkfile.ModulePath` as `moduleRoot` for root-, command- and implementation-level files (`env_builder.go:80`, `:87`, `:94`). `LoadEnvFileFromCwd` (`env_builder.go:114`, the `--ivk-env-file` flag) passes `moduleRoot = ""`: those files are named by the user on the command line, not by the module, so they keep today's behaviour. The test callers of `LoadEnvFile` are updated. Env files have no reader seam, so nothing argues for D2's check-then-delegate form here.
 
 Rejected alternative: a separate `LoadModuleEnvFile`. It would move the bound read to a new symbol, and leave `LoadEnvFile`'s row, reach entry and 11 ledger entries without a module-context replay.
 
@@ -104,18 +104,25 @@ A new sentinel, `ErrEnvFileOutsideModule` in `internal/runtime`, distinguishes t
 ### D4. The model and the golden
 
 - **Model.** `accepts` gains `physContains[o]` for `o.kind in (ScriptRead + EnvRead)`. Then `make formal-golden` regenerates the golden. The F13 commit makes the edit for `ScriptRead`, and the F17 commit extends it to `EnvRead`, so each commit has its own regeneration.
-- **Golden materialisation.** `fstree.Build` gains an opt-in option (for example `RelativeLinkTargets`). It writes each symlink target relative to the link's parent directory. Only the `ModulePathContainment` golden replay uses it.
-  - This is semantics-preserving for the golden: a golden `Link` is never a parent (`parent: lone Dir`), so no link sits below another link.
-  - With it, the 384 + 384 in-module link vectors agree with `os.Root`, and `dAccepts` equals the code on every vector, with nothing reclassified.
+- **Golden materialisation: two passes.** `fstree.Build` gains an opt-in option (for example `RelativeLinkTargets`). It writes each symlink target relative to the link's parent directory. `TestModulePathContainment_GoldenVectors` replays the golden twice:
+  - **Relative pass** (the option on). The code SHALL equal `dAccepts`, with the same touched node, on every `ScriptRead` and `EnvRead` vector, with nothing excluded or reclassified. This is semantics-preserving for the golden: a golden `Link` is never a parent (`parent: lone Dir`), so no link sits below another link, and the 384 + 384 in-module link vectors agree with `os.Root`.
+  - **Absolute pass** (today's absolute targets). The replay classifies each vector explicitly, from the instance's own tree: a read whose `ref` reaches a `Link` node whose target lies inside the module, and which `dAccepts` accepts, is in the class "in-module link with an absolute target". On those vectors the code SHALL deny the read and touch nothing. On every other vector the code SHALL equal `dAccepts`, the escaping absolute-target links included. The pass SHALL fail when the class is empty for a kind it applies to, so a classifier that matches nothing cannot pass silently, and the class sizes (384 `ScriptRead` and 384 `EnvRead` on the current golden) go into the calibration text.
+  - The class applies to `ScriptRead` from the F13 commit and to `EnvRead` from the F17 commit. In the F13 commit `LoadEnvFile` is still uncontained and the model's `EnvRead` still lexical, so the env replay equals `dAccepts` on every vector in both passes.
+  - To bound the cost, the absolute pass replays only the instances that contain at least one link; on the others it would repeat the relative pass. If the golden replay's wall time then exceeds the `[reach]` budget, the implement stage re-measures and records it in the `[reach]` calibration text.
+  - What this catches that the relative pass alone does not: a defect that denies relative escapes but follows absolute targets, for example a hand-rolled `Readlink` check that rejects only `..`.
   - Junctions are always absolute, but they stay out of the golden scope.
-  - The VirtualPathHarness replay keeps absolute targets.
-- **Code stricter than the model.** A dedicated test, for example `TestModulePathContainment_AbsoluteInModuleLinkDenied`, pins the absolute in-module target denial for both reads. The `readOp` rows for `ResolveScriptWithFSAndModule`, `ResolveWithFSAndModule` and the env read say "code stricter than model: an absolute link target is denied even inside the module" and name that test.
-- **Correspondence rows:**
-  - Add one new row, `physContains | <script helper> | pkg/invowkfile/<file> | TestModulePathContainment_GoldenVectors`, with a reach entry `ModulePathContainment: physContains`. The golden already records `dPhysContains`.
-  - The `readOp | LoadEnvFile` row keeps its symbol and binding. Its abstraction cell gains "module context: contained read; code stricter than model for absolute link targets".
-  - The `findingF13` and `findingF17` characterisation rows become binding rows for the renamed replays. Their reach entries are renamed to match.
-  - The `ValidateScriptPath` and `checkSymlinkSafety` rows and their reach entries are removed.
-- **Calibration of the new bindings.** One plausible defect is seeded in the new script helper (for example, treating an escape error as "absent"), and one in `LoadEnvFile`'s module branch (for example, skipping the `Stat` check). Each must fail its binding, which the golden replay or the dedicated test provides. Each is then reverted and recorded in the manifest calibration text ("Seeded defects calibrate each rebound function").
+  - The VirtualPathHarness replay keeps absolute targets and runs once.
+- **Code stricter than the model.** The absolute golden pass classifies the absolute in-module target denial explicitly. A dedicated test, for example `TestModulePathContainment_AbsoluteInModuleLinkDenied`, also pins it outside the golden scope (a link to a file in a subdirectory, and a module path given through an alias) for both reads. The `readOp` rows for `ResolveScriptWithFSAndModule`, `ResolveWithFSAndModule` and the env read say "code stricter than model: an absolute link target is denied even inside the module (golden absolute pass)" and name both tests.
+- **Correspondence rows.** The reach gate reads its rows from the `.als` correspondence table; `[reach]` has only a budget and calibration text, and no per-row entries. The manifest lists that can name rows are `[correspondence] unresolved_elements` and `[triage] binding_gaps`. Both only shrink: `scripts/test_formal.py:1047` checks `unresolved_elements` is a subset of `SEEDED_UNRESOLVED_ELEMENTS`, `formal_mutation.py triage --check` fails on an entry the base commit does not list, and a listed pair that resolves or names no row fails as stale. So entries are removed, never added or renamed:
+  - Add one new row, `physContains | <script helper> | pkg/invowkfile/<file> | TestModulePathContainment_GoldenVectors`. `physContains` resolves in the `.als` (`ModulePathContainment.als:200`), so no list entry is added for it. The golden already records `dPhysContains`.
+  - The `readOp | LoadEnvFile` row keeps its symbol and binding. Its abstraction cell gains "module context: contained read; code stricter than model for absolute link targets". The `ModulePathContainment: readOp` entry stays in `unresolved_elements`, because `readOp` still does not resolve.
+  - The `findingF13` and `findingF17` characterisation rows become binding rows for the renamed replays, with the element cell naming the renamed manifest command (`mutantPreFixF13LexicalScriptContainment`, `mutantPreFixF17EnvNoPhysicalContainment`), which resolves as a manifest command name. Their `unresolved_elements` entries (`ModulePathContainment: findingF13`, `ModulePathContainment: findingF17`) are then removed, in the commit that renames each, because they would be stale. Only if an element stays unresolvable does its existing entry stay.
+  - The `ValidateScriptPath` and `checkSymlinkSafety` rows are removed, with their `unresolved_elements` entries and their `[triage] binding_gaps` rows.
+  - The seeded sets in `scripts/test_formal.py` and `scripts/test_formal_mutation.py` may keep the removed entries (subset checks); removing them there is optional.
+- **Calibration of the new bindings.** These defects are seeded, each must fail its binding, and each is then reverted and recorded in the manifest calibration text ("Seeded defects calibrate each rebound function"):
+  - in the new script helper, treating an escape error as "absent" (caught by the relative pass and the F13 replay);
+  - in the new script helper, a check that follows absolute link targets, for example replacing the `os.Root` `Stat` with `EvalSymlinks` of both sides and a prefix test (caught only by the absolute pass's classified vectors and the dedicated test);
+  - in `LoadEnvFile`'s module branch, skipping the `Stat` check (caught by the golden env replay or the dedicated test).
 - **Mutation survivors of the new binding.** The new helper becomes a formal-bindings target, so the fix stage's `make mutation-formal` may report new survivors for it.
   - The fix stage may class them only `equivalent`, or as a deferred `binding-gap` or `model-gap` with a `follow_up`.
   - Anything else goes into `maintainer_asks`, and the stage returns `blocked` (`.agents/runbooks/change-flow.md`).
@@ -132,8 +139,9 @@ A new sentinel, `ErrEnvFileOutsideModule` in `internal/runtime`, distinguishes t
 
 The F16 leg (`internal/app/moduleops/module_path_containment_formal_test.go:77`) reads `j/secret` through a non-vendored junction.
 - With D2, `os.Root` should deny it. This follows the probe's `Open` and `Stat` rejection, but it has not been observed through the resolver. The script-read arm is changed to assert containment.
+- **Interim state between the F13 commit and the F16 commit.** The leg's script-read arm asserts containment while F16 is still recorded under outcome (b). For that window the script arm's recorded verdict is "containment pending windows-latest evidence", and the F13 commit says so in the `findingF16JunctionScan` model note and in the F16 calibration text: the model still reports the escape for the script read because `scriptReadScanGuarded` is unchanged until the evidence is in. The other arms keep their recorded verdicts. The delta spec states this exception to "Leg asserts the recorded verdicts".
 - The other arms are asserted as recorded: admission, both copies and the hash.
-- After the PR's windows-latest run, the outcome of every arm is reported with run and job ids, and F16 is reclassified from that evidence. The modified requirement "F16 is decided by one of three stated outcomes" adds outcome (d) for this case: fixed after an observed escape.
+- After the PR's windows-latest run, the outcome of every arm is reported with run and job ids, and F16 is reclassified from that evidence. The requirement "F16 is decided by one of three stated outcomes" is renamed "F16 is decided by one of the stated outcomes" and adds outcome (d) for this case: fixed after an observed escape.
 - **Sequencing.** `findingF16JunctionScan` expects a counterexample. If the F13 commit edited `scriptReadScanGuarded`, `make formal` would fail there.
   - The F13 commit only flips the leg's script arm and adds a note to the model's F16 calibration text.
   - The model, manifest, golden (if the `.als` changes), correspondence and README edits that reclassify F16 go in a third, post-evidence commit, made once the Windows run is in. It runs `make formal-golden` when needed, then `python3 scripts/formal.py correspondence` and `make formal`.
@@ -147,7 +155,8 @@ The F16 leg (`internal/app/moduleops/module_path_containment_formal_test.go:77`)
 1. **F13.** Contains:
    - the helper and both resolvers;
    - the `ScriptRead` model edit and golden regeneration;
-   - the fstree option;
+   - the fstree option and the two-pass golden replay;
+   - the `unresolved_elements` and `binding_gaps` removals for `findingF13`, `ValidateScriptPath` and `checkSymlinkSafety`;
    - the inverted and renamed F13 replay;
    - `mutantPreFixF13LexicalScriptContainment`;
    - the dead-code deletion;
@@ -158,7 +167,7 @@ The F16 leg (`internal/app/moduleops/module_path_containment_formal_test.go:77`)
 2. **F17.** Contains:
    - `LoadEnvFile`'s module branch and the `Build` arguments;
    - the `EnvRead` model edit and golden regeneration;
-   - the inverted and renamed F17 replay;
+   - the inverted and renamed F17 replay, the absolute-pass class for `EnvRead`, and the `findingF17` `unresolved_elements` removal;
    - `mutantPreFixF17EnvNoPhysicalContainment`;
    - its README row.
 3. **F16 reclassification** (post-evidence, D6).
@@ -195,4 +204,5 @@ There is no data migration. A user whose module reads a file through a link out 
 ## Open Questions
 
 - **`Module.ContainsPath` (`pkg/invowkmod/invowkmod.go:640`)** loses its only non-test caller with D5. Keep it as public API, or delete it in a follow-up? Decision 46 does not name it, so this change keeps it.
+- **`internal/audit` script-read containment** (`internal/audit/scan_files.go:66-89`, `scriptReadPath`) evaluates both sides with `EvalSymlinks` and compares strings. After this change it still accepts an in-module link with an absolute target, which the runtime denies, and it keeps the macOS-alias and case risks D1 avoids. It is not a security hole: the audit only reads content for analysis. Align it with the `os.Root` rule in a follow-up, or leave it? This change leaves it and raises the question for the maintainer (general-rules Scope).
 - **`invowk validate`** checks `script.file` lexically only (`validation_structure_command.go:181`, `validation_structure_deps.go:205`), so a module with an escaping vendored link still validates and fails only at run time. Should validate also report the physical escape? That would be a follow-up change. This change only makes sure validate's interpreter diagnostics no longer read the outside file.
