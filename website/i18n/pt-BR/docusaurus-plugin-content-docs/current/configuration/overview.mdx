@@ -20,6 +20,19 @@ O arquivo de configuração fica no diretório de configuração específico do 
 
 Esses diretórios base precisam ser absolutos. Um `XDG_CONFIG_HOME` ou `APPDATA` relativo é ignorado e a próxima base é usada (`~/.config` ou `%USERPROFILE%\AppData\Roaming`); um diretório home ou `USERPROFILE` relativo é um erro. Assim, o arquivo de configuração do usuário e o `~/.invowk/cmds` nunca são resolvidos dentro do diretório atual.
 
+Todos os outros locais por usuário seguem o mesmo princípio e nunca são resolvidos dentro do diretório atual. O `INVOWK_MODULES_PATH` precisa ser absoluto (um valor relativo é um erro). Os caches de módulos e de provisionamento derivam apenas de um home ou base absolutos. Uma entrada relativa em `SSH_KNOWN_HOSTS`, ou um home relativo quando chaves SSH são necessárias, faz falhar uma busca de módulo que não seja HTTPS. As demais bases `XDG_*`/`LOCALAPPDATA` relativas são ignoradas.
+
+### Executando com `HOME` ausente (serviços e timers)
+
+Units de sistema do systemd sem `User=` rodam com `HOME` ausente (veja `systemd.exec(5)`); units de usuário o herdam do gerenciador do usuário. Com `HOME` (ou `USERPROFILE`) ausente:
+
+- a âncora do runtime virtual `@home` fica indisponível, assim como `@config`, `@data`, `@cache` e `@state`, a menos que a variável `XDG_*` ou AppData correspondente esteja definida; as variáveis `INVOWK_ANCHOR_*` delas ficam vazias, e um mapeamento de `virtual.filesystem.paths` sobre elas falha;
+- buscas de módulos por qualquer transporte que não seja `https://` são recusadas;
+- comandos de módulos precisam de `INVOWK_MODULES_PATH` definido com um caminho absoluto, porque o cache de módulos padrão fica no diretório home;
+- o provisionamento de contêineres faz o build em um diretório temporário.
+
+Comandos que não usam âncora derivada do home, cache de provisionamento nem busca por SSH rodam como antes. Para rodar os demais, adicione `Environment=HOME=/root` (ou outro diretório absoluto) ou `SetLoginEnvironment=yes` à unit, defina `INVOWK_MODULES_PATH` e as variáveis `XDG_*` necessárias com caminhos absolutos, ou busque módulos por HTTPS com `GITHUB_TOKEN`, `GITLAB_TOKEN` ou `GIT_TOKEN`.
+
 ## Qual Arquivo de Configuração É Usado
 
 O Invowk lê exatamente uma fonte de configuração, escolhida nesta ordem:

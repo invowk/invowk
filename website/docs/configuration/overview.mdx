@@ -20,6 +20,19 @@ The configuration file lives in your OS-specific config directory:
 
 These base directories must be absolute. A relative `XDG_CONFIG_HOME` or `APPDATA` is ignored and the next base is used (`~/.config`, or `%USERPROFILE%\AppData\Roaming`); a relative home directory or `USERPROFILE` is an error. The user config file and `~/.invowk/cmds` therefore never resolve under the current directory.
 
+Every other per-user location follows the same principle and never resolves under the current directory. `INVOWK_MODULES_PATH` must be absolute (a relative value is an error). The module and provisioning caches derive only from an absolute home or base. A relative `SSH_KNOWN_HOSTS` entry, or a relative home when SSH keys are needed, makes a non-HTTPS module fetch fail. Other relative `XDG_*`/`LOCALAPPDATA` bases are ignored.
+
+### Running with `HOME` unset (services and timers)
+
+systemd system units without `User=` run with `HOME` unset (see `systemd.exec(5)`); user units inherit it from the user manager. With `HOME` (or `USERPROFILE`) unset:
+
+- the virtual-runtime anchor `@home` is unavailable, and so are `@config`, `@data`, `@cache` and `@state` unless the matching `XDG_*` or AppData variable is set; their `INVOWK_ANCHOR_*` variables are empty, and a `virtual.filesystem.paths` mapping on them fails;
+- module fetches over anything but `https://` are refused;
+- module commands need `INVOWK_MODULES_PATH` set to an absolute path, because the default module cache lives under the home directory;
+- container provisioning builds in a temporary directory.
+
+Commands that use no home-derived anchor, no provisioning cache and no SSH fetch run as before. To run the rest, add `Environment=HOME=/root` (or another absolute directory) or `SetLoginEnvironment=yes` to the unit, set `INVOWK_MODULES_PATH` and the `XDG_*` variables you need to absolute paths, or fetch modules over HTTPS with `GITHUB_TOKEN`, `GITLAB_TOKEN` or `GIT_TOKEN`.
+
 ## Which Config File Is Used
 
 Invowk reads exactly one config source, picked in this order:
