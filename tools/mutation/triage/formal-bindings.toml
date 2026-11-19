@@ -46,6 +46,12 @@
 # First run (2026-09-25): every survivor is a binding-gap deferred to
 # tasks/next/formal-binding-gaps.md, which groups them by function; per-mutant
 # classification (equivalent or abstraction) is part of that follow-up.
+#
+# refresh-anchors-mutation-ledger (2026-11-19): every survivor except the
+# orphans is anchored from a report-only run on 567e7b00, and the 22 stale
+# standardVirtualAnchorsForOS entries were replaced by the 5 windows-case
+# survivors of its new body (419 -> 402), whose baseline entries carry their
+# own evidence digest.
 
 [[survivor]]
 id = "61da5ba63ea3e2814b8e8d2500f93915"

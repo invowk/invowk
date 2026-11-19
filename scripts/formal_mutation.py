@@ -927,18 +927,19 @@ def check_growth(
     a base with only some of them fails for each one it lacks, so renaming a key
     cannot reopen seeding (decision 19). The stale list also seeds, with a
     notice, from a base that has the first three and lacks it
-    (refresh-anchors-mutation-ledger design D5). An entry that left a list is a notice, with
-    the reason `why(list, entry)` gives (decision 18). Returns the failures and
-    the notices."""
+    (refresh-anchors-mutation-ledger design D5). An entry that left a list is
+    a notice, with the reason `why(list, entry)` gives (decision 18). Returns
+    the failures and the notices."""
     head_lists, base_lists = shrink_lists(head), shrink_lists(base)
     failures, notices = [], []
     present = [name for name, entries in base_lists.items() if entries is not None]
     seeding = f"not in the base {base_name} manifest; this change seeds it"
     if seeds_lists(base):
         return [], [f"{name}: {seeding}" for name in head_lists]
+    seeds_stale = all(base_lists[name] is not None for name in SEEDING_LISTS)
     for name, entries in head_lists.items():
         at_base = base_lists[name]
-        if at_base is None and name == STALE_LIST and all(base_lists[n] is not None for n in SEEDING_LISTS):
+        if at_base is None and name == STALE_LIST and seeds_stale:
             notices.append(f"{name}: {seeding}")
             continue
         if at_base is None:
@@ -1560,7 +1561,7 @@ def main(argv: list[str] | None = None) -> int:
                 for failure in failures:
                     print(f"  - {failure}")
                 return 1
-            stale = len(formal.load_triage().get("stale_survivors", []))
+            stale = len(head.get("triage", {}).get("stale_survivors", []))
             print(f"formal-bindings triage check passed ({len(ledger.get('survivor', []))} survivors, "
                   f"{len(ledger.get('closed', []))} closed, {stale} listed stale)")
         return 0

@@ -1237,8 +1237,11 @@ class RepositoryTests(unittest.TestCase):
             with self.subTest(part=part):
                 shrunk = {**triage, part: triage[part][1:]}
                 failures = fm.check_triage(baseline, ledger, reruns, models, triage=shrunk)
-                self.assertEqual(len(failures), 1, failures)
+                # An orphan that leaves the list loses its anchor exemption too.
+                self.assertEqual(len(failures), 2 if part == "orphaned_survivors" else 1, failures)
                 self.assertIn("is not listed", failures[0])
+                if part == "orphaned_survivors":
+                    self.assertIn("unanchored: removed and added are required", failures[1])
 
     def test_repository_plan_generates(self) -> None:
         _tools, models = formal.load_manifest()
