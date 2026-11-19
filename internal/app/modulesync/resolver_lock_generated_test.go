@@ -3,6 +3,7 @@
 package modulesync
 
 import (
+	"bytes"
 	"path/filepath"
 	"testing"
 	"time"
@@ -73,6 +74,58 @@ func TestResolverContentChangeAdvancesGenerated(t *testing.T) {
 			}
 			if !lock.Generated.After(backdated) {
 				t.Fatalf("generated: = %s after a content change, want later than the loaded %s", lock.Generated, backdated)
+			}
+		})
+	}
+}
+
+// TestResolverUnchangedContentKeepsLockBytes covers the spec requirement
+// "Unchanged lock is not rewritten" for every resolver path that saves a
+// non-empty lock: each starts from a lock backdated to a fixed past instant,
+// saves the same module entries again, and must leave the file byte-identical,
+// generated: included.
+func TestResolverUnchangedContentKeepsLockBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		resave func(*testing.T, *integrityFixture)
+	}{
+		{name: "add the already-locked module", resave: func(t *testing.T, f *integrityFixture) {
+			t.Helper()
+			if _, err := f.resolver.Add(t.Context(), ModuleRef{GitURL: integrityTestGitURL, Version: "^1.0.0"}); err != nil {
+				t.Fatalf("Add() error = %v", err)
+			}
+		}},
+		{name: "update all with no newer version", resave: func(t *testing.T, f *integrityFixture) {
+			t.Helper()
+			if _, err := f.resolver.Update(t.Context(), ""); err != nil {
+				t.Fatalf("Update() error = %v", err)
+			}
+		}},
+		{name: "update one with no newer version", resave: func(t *testing.T, f *integrityFixture) {
+			t.Helper()
+			if _, err := f.resolver.Update(t.Context(), integrityTestGitURL); err != nil {
+				t.Fatalf("Update(%s) error = %v", integrityTestGitURL, err)
+			}
+		}},
+		{name: "sync the same requirement", resave: func(t *testing.T, f *integrityFixture) {
+			t.Helper()
+			f.mustSync(t)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
+			f.mustSync(t)
+			lockBefore := f.backdateLock(t)
+
+			tt.resave(t, f)
+
+			if got := f.readLock(t); !bytes.Equal(got, lockBefore) {
+				t.Fatalf("lock file changed although its content did not:\n got: %s\nwant: %s", got, lockBefore)
 			}
 		})
 	}

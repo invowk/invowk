@@ -5,19 +5,15 @@ package invowkmod
 import (
 	"os"
 	"path/filepath"
-	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
 
-var (
-	// saveTestBackdated is a fixed past generated: instant. Every test that
-	// expects a rewrite starts from a file stamped with it, because generated:
-	// has second resolution and two saves in a row can share a second.
-	saveTestBackdated = time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
-
-	saveTestGeneratedLine = regexp.MustCompile(`(?m)^generated: "(.*)"$`)
-)
+// saveTestBackdated is a fixed past generated: instant. Every test that
+// expects a rewrite starts from a file stamped with it, because generated:
+// has second resolution and two saves in a row can share a second.
+var saveTestBackdated = time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
 
 func saveTestLock(modules map[ModuleRefKey]LockedModule) *LockFile {
 	return &LockFile{Version: LockFileVersionV2, Generated: saveTestBackdated, Modules: modules}
@@ -47,28 +43,19 @@ func readSaveTestFile(t *testing.T, path string) string {
 }
 
 // requireRewrittenAfterBackdate asserts that the file at path was written by
-// Save: it parses, carries saved's content, and its generated: is later than
-// saveTestBackdated and matches the saved lock's Generated.
+// Save: it parses, carries saved's content, and both its generated: and the
+// saved lock's Generated are later than saveTestBackdated.
 func requireRewrittenAfterBackdate(t *testing.T, path string, saved *LockFile) {
 	t.Helper()
-	data := readSaveTestFile(t, path)
-	match := saveTestGeneratedLine.FindStringSubmatch(data)
-	if match == nil {
-		t.Fatalf("written lock has no generated: line:\n%s", data)
-	}
-	generated, err := time.Parse(time.RFC3339, match[1])
-	if err != nil {
-		t.Fatalf("written generated: %q does not parse: %v", match[1], err)
-	}
-	if !generated.After(saveTestBackdated) {
-		t.Fatalf("written generated: = %s, want later than %s", generated, saveTestBackdated)
-	}
 	if !saved.Generated.After(saveTestBackdated) {
 		t.Fatalf("saved lock Generated = %s, want the write time", saved.Generated)
 	}
 	loaded, err := LoadLockFile(path)
 	if err != nil {
 		t.Fatalf("LoadLockFile() error = %v", err)
+	}
+	if !loaded.Generated.After(saveTestBackdated) {
+		t.Fatalf("written generated: = %s, want later than %s", loaded.Generated, saveTestBackdated)
 	}
 	if !loaded.sameContent(saved) {
 		t.Fatalf("written lock = %+v, want the saved content %+v", loaded, saved)
@@ -210,6 +197,34 @@ func TestLockFileSaveReplacesUnparseableFile(t *testing.T) {
 	t.Parallel()
 
 	path := writeSaveTestFile(t, "this is { not a lock file\n")
+	lock := saveTestLock(saveTestModules())
+
+	if err := lock.Save(path); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	requireRewrittenAfterBackdate(t, path, lock)
+}
+
+func TestLockFileSaveReplacesUnknownVersionFile(t *testing.T) {
+	t.Parallel()
+
+	// Valid CUE whose version the parser rejects (UnknownLockFileVersionError):
+	// it is not a valid lock, so Save writes over it.
+	path := writeSaveTestFile(t, "version: \"9.0\"\ngenerated: \"2001-02-03T04:05:06Z\"\nmodules: {}\n")
+	lock := saveTestLock(saveTestModules())
+
+	if err := lock.Save(path); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	requireRewrittenAfterBackdate(t, path, lock)
+}
+
+func TestLockFileSaveReplacesOversizedFile(t *testing.T) {
+	t.Parallel()
+
+	// One byte over LockFileSizeLimit: InspectLockFile reports a size error
+	// without parsing, so Save writes over it.
+	path := writeSaveTestFile(t, strings.Repeat("x", LockFileSizeLimit+1))
 	lock := saveTestLock(saveTestModules())
 
 	if err := lock.Save(path); err != nil {

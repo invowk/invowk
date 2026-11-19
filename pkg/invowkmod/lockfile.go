@@ -74,7 +74,9 @@ type (
 		// Version is the lock file format version.
 		Version LockFileVersion
 
-		// Generated is the timestamp when the lock file was generated.
+		// Generated is the time of the last write that changed the lock
+		// file's content. Save owns it: it stamps the write time, or keeps
+		// the on-disk value when it skips an unchanged save.
 		Generated time.Time
 
 		// Modules maps module ref keys to their locked versions.
@@ -417,6 +419,9 @@ func (l *LockFile) GetModule(key ModuleRefKey) (LockedModule, bool) {
 
 // sameContent reports whether l and other lock the same modules: equal format
 // version, equal key sets and an equal entry per key. Generated is ignored.
+// The comparison is only sound while toCUE writes every LockedModule field:
+// a field it omits reads back as zero, never equals the in-memory value, and
+// makes every Save rewrite the file.
 func (l *LockFile) sameContent(other *LockFile) bool {
 	return l.Version == other.Version && maps.Equal(l.Modules, other.Modules)
 }
