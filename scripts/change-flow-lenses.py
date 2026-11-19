@@ -302,11 +302,7 @@ def select_lenses(
     dir_has_go: Callable[[str, str], bool] | None = None,
 ) -> dict:
     """Pure selection: lenses, fast-lane eligibility and the paths behind each lens."""
-    paths: list[str] = []
-    for _, old, new in changes:
-        for path in (old, new):
-            if path and path not in paths:
-                paths.append(path)
+    paths = list(dict.fromkeys(path for _, old, new in changes for path in (old, new) if path))
     reasons: dict[str, list[str]] = {}
     for lens in LENS_IDS:
         if lens == "architecture":

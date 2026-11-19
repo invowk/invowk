@@ -49,6 +49,7 @@ SCRIPT_TESTS=(
 	"Formal-bindings triage ledger|python3 scripts/formal_mutation.py triage --check"
 	"Change-flow lens selector|python3 scripts/test_change_flow_lenses.py"
 	"Change-flow workflow template|python3 scripts/test_change_flow_template.py"
+	"Change-flow foreign-commit lister|bash scripts/test_change_flow_foreign_commits.sh"
 	"Skill package checker|python3 scripts/test_check_skill_packages.py"
 	"Release poetic-opening checker|python3 .agents/skills/publish-release/scripts/test_check_poetic_opening.py"
 	"Review-docs contract checker|python3 .agents/skills/review-docs/scripts/test_review_docs.py"

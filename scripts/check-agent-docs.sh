@@ -53,11 +53,12 @@ search_docs() {
 			.agents/workflows \
 			.agents/skills/*/SKILL.md || [[ $? -eq 1 ]]
 	else
-		grep -nE -- "$pattern" \
+		# -r so .agents/workflows is scanned recursively, every file type, as rg does.
+		grep -rnE -- "$pattern" \
 			.agents/rules/*.md \
 			.agents/runbooks/*.md \
 			.agents/memorials/*.md \
-			.agents/workflows/*.*js \
+			.agents/workflows \
 			.agents/skills/*/SKILL.md \
 			| grep -vE '\.agents/skills/speckit\.[^/]+/SKILL\.md:' || true
 	fi

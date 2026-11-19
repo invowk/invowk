@@ -241,14 +241,7 @@ class ArchitectureTest(unittest.TestCase):
     def test_git_dir_has_go(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
-
-            def run(*argv: str) -> str:
-                return subprocess.run(["git", "-C", tmp, *argv], check=True, capture_output=True, text=True).stdout
-
-            run("init", "-q")
-            run("config", "user.email", "t@example.invalid")
-            run("config", "user.name", "t")
-            run("config", "commit.gpgsign", "false")
+            run = fixture_repo(tmp)
             (repo / "internal" / "old").mkdir(parents=True)
             (repo / "internal" / "old" / "a.go").write_text("package old\n")
             (repo / "internal" / "old" / "a_test.go").write_text("package old\n")
@@ -258,6 +251,19 @@ class ArchitectureTest(unittest.TestCase):
             check = lenses.git_dir_has_go({"base": base, "head": base}, root=repo)
             self.assertTrue(check("base", "internal/old"))
             self.assertFalse(check("base", "internal/missing"))
+
+
+def fixture_repo(tmp: str):
+    """Initialise a throwaway git repository in tmp; return a `git -C tmp` runner."""
+
+    def run(*argv: str) -> str:
+        return subprocess.run(["git", "-C", tmp, *argv], check=True, capture_output=True, text=True).stdout
+
+    run("init", "-q")
+    run("config", "user.email", "t@example.invalid")
+    run("config", "user.name", "t")
+    run("config", "commit.gpgsign", "false")
+    return run
 
 
 class CliTest(unittest.TestCase):
@@ -281,14 +287,7 @@ class CliTest(unittest.TestCase):
     def test_git_mode_quoted_paths(self) -> None:
         """A path git would quote without -z still reaches the triggers."""
         with tempfile.TemporaryDirectory() as tmp:
-
-            def run(*argv: str) -> str:
-                return subprocess.run(["git", "-C", tmp, *argv], check=True, capture_output=True, text=True).stdout
-
-            run("init", "-q")
-            run("config", "user.email", "t@example.invalid")
-            run("config", "user.name", "t")
-            run("config", "commit.gpgsign", "false")
+            run = fixture_repo(tmp)
             (Path(tmp) / "README.md").write_text("x\n")
             run("add", "-A")
             run("commit", "-q", "-m", "base")

@@ -157,7 +157,12 @@ for (const [name, reply] of Object.entries({
   const junk = await go(good, { spec: () => ({ status: 'done', summary: 'ok', guard }), implement: () => ({ status: 'done', summary: 'ok', head_sha: 'h1', pr: 'see above', guard }), simplify: () => ({ status: 'done', summary: 'ok', guard }) })
   assert.ok(junk.calls.find((c) => c.label === 'review:code-review').prompt.includes('"high feat/add-thing"'))
   const fix = url.calls.find((c) => c.label === 'fix')
-  assert.ok(fix.prompt.includes('is not an ancestor of the local feat/add-thing'))
+  assert.ok(fix.prompt.includes('scripts/change-flow-foreign-commits.sh /w/invowk-x feat/add-thing origin/main'))
+  assert.ok(fix.prompt.includes('fetch --prune origin'))
+  assert.ok(fix.prompt.includes('If it exits 3'))
+  assert.ok(fix.prompt.includes('Any exit other than 0 or 3 is a failure'))
+  assert.ok(fix.prompt.includes('Ancestry is not the test'))
+  assert.ok(fix.prompt.includes('Monitor tool'), 'long gates wait with Monitor')
   assert.ok(fix.prompt.includes('never a bare force'))
 }
 
@@ -248,7 +253,11 @@ for (const [name, reply] of Object.entries({
   const { calls } = await go(good)
   const fix = calls.find((c) => c.label === 'fix')
   assert.ok(fix.prompt.includes('--force-with-lease=feat/add-thing:<the lease from step 1>'))
-  assert.ok(fix.prompt.indexOf('rev-parse --verify --quiet refs/remotes/origin/feat/add-thing') < fix.prompt.indexOf('fetch origin'))
+  {
+    const fetchAt = fix.prompt.indexOf('fetch --prune origin')
+    const leaseAt = fix.prompt.indexOf('rev-parse --verify --quiet origin/feat/add-thing')
+    assert.ok(fetchAt >= 0 && leaseAt >= 0 && fetchAt < leaseAt, 'the lease is read after fetch --prune')
+  }
 }
 
 // path and branch aliases of the primary checkout or main are refused.
