@@ -1,0 +1,627 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0, v0.1.0-alpha.1)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (build but do not publish)'
+        required: false
+        type: boolean
+        default: false
+      release_notes:
+        description: 'Release notes markdown for manual dispatch'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.ref_name || github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  # Validate inputs for manual dispatch (skipped for tag-push)
+  validate:
+    name: Validate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - name: Validate version format
+        id: validate
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "::error::Invalid version format: $VERSION"
+            echo "Version must match: v<MAJOR>.<MINOR>.<PATCH>[-<prerelease>]"
+            echo "Examples: v1.0.0, v0.1.0-alpha.1, v2.0.0-rc.1"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Validated version: $VERSION"
+
+      - name: Validate release notes input
+        env:
+          RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
+        run: |
+          if [[ -z "${RELEASE_NOTES//[[:space:]]/}" ]]; then
+            echo "::error::Release notes markdown is required for manual release dispatch"
+            exit 1
+          fi
+          echo "Release notes input provided"
+
+      - name: Validate branch
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [[ "$BRANCH" != "main" ]]; then
+            echo "::error::Releases must be created from the main branch (current: $BRANCH)"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is new
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION already exists"
+            exit 1
+          fi
+          echo "Tag $VERSION does not exist yet — proceeding"
+
+  # Run tests on all platforms before releasing
+  test:
+    name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    strategy:
+      fail-fast: true  # Stop all jobs if one fails
+      matrix:
+        include:
+          # Ubuntu with Docker (ubuntu-latest = ubuntu-24.04 as of 2026-03)
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: docker
+            test-mode: full
+            # restrict-tui-server-bind D2 row this engine must select (keep in
+            # sync with ci.yml): 8 = rootful Docker, loopback + bridge gateway.
+            tui-plan-row: "8"
+
+          # Ubuntu with Podman
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: podman
+            test-mode: full
+            # D2 row (keep in sync with ci.yml): 11 = rootless Podman with pasta.
+            tui-plan-row: "11"
+
+          # Windows (unit tests only - container runtime requires Linux)
+          - os: windows
+            runner: windows-latest
+            engine: ""
+            test-mode: short
+
+          # macOS (unit tests only)
+          - os: macos
+            runner: macos-15
+            engine: ""
+            test-mode: short
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install gotestsum
+        run: |
+          go install gotest.tools/gotestsum@v1.13.0
+          gotestsum --version
+
+      # Engine isolation: mask the non-tested engine so AutoDetectEngine() picks
+      # the correct one. Ubuntu runners have both Docker and Podman installed.
+      # Fail-loud: verify the masked engine is no longer discoverable.
+      - name: Mask Docker for Podman tests
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          # Mask every PATH-resolvable install, not a hardcoded location —
+          # runner images move engine binaries between /usr/bin and /usr/local/bin.
+          for _ in 1 2 3 4 5; do
+            binpath="$(command -v docker || true)"
+            [ -z "$binpath" ] && break
+            sudo mv "$binpath" "${binpath}.disabled"
+            hash -r
+          done
+          if command -v docker &>/dev/null; then
+            echo "::error::Docker is still on PATH after masking"
+            exit 1
+          fi
+
+      - name: Mask Podman for Docker tests
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          # Mask every PATH-resolvable install, not a hardcoded location —
+          # runner images move engine binaries between /usr/bin and /usr/local/bin.
+          for _ in 1 2 3 4 5; do
+            binpath="$(command -v podman || true)"
+            [ -z "$binpath" ] && break
+            sudo mv "$binpath" "${binpath}.disabled"
+            hash -r
+          done
+          if command -v podman &>/dev/null; then
+            echo "::error::Podman is still on PATH after masking"
+            exit 1
+          fi
+
+      # Podman setup for Ubuntu — fail-loud to surface daemon issues immediately.
+      - name: Setup Podman (Ubuntu)
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          podman --version
+          systemctl --user start podman.socket
+          systemctl --user is-active podman.socket
+
+      # Docker verification
+      - name: Verify Docker (Ubuntu)
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          docker --version
+          docker info
+
+      # Pre-pull base image to avoid network flakiness during container builds.
+      - name: Pre-pull container test images
+        if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
+        run: ${{ matrix.engine }} pull debian:stable-slim
+
+      # Run tests with gotestsum (rerun transient failures for non-CLI packages only).
+      # CLI is split out below so the container CLI suite runs deterministically.
+      - name: Run tests (full, non-CLI)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
+          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}
+        run: |
+          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | tr '\n' ' ')"
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report rerun-report.txt \
+            --packages "$PACKAGES" \
+            -- -race -timeout 15m
+
+      - name: Run CLI integration tests (full)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}
+          INVOWK_TEST_REQUIRE_TMUX: "1"
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report cli-rerun-report.txt \
+            --packages ./tests/cli/... \
+            -- -race -timeout 10m
+
+      - name: Run tests (short)
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report rerun-report.txt \
+            --packages ./... \
+            -- -race -short -v
+
+      # Run CLI integration tests on Windows/macOS
+      # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
+      - name: Run CLI integration tests
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report cli-rerun-report.txt \
+            --packages ./tests/cli/... \
+            -- -race -timeout 5m
+
+      # Every script test (single list: scripts/script-tests.sh), run in a
+      # throwaway checkout behind the worktree-safety gate. No network calls:
+      # on a tag or dispatch run scripts/ci-triage-base.sh resolves the triage
+      # base to the commit under test, without fetching.
+      # Linux only; the PowerShell install tests run on Windows below.
+      - name: Run script tests (worktree-safety gate)
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: |
+          base="$(scripts/ci-triage-base.sh)"
+          export INVOWK_TRIAGE_BASE="$base"
+          make test-scripts
+
+      # Run PowerShell install script tests (PS 7.x/Core).
+      - name: Run PowerShell install script tests (pwsh)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: ./scripts/test_install.ps1
+
+      # Run PowerShell install script tests (Windows PowerShell 5.1).
+      - name: Run PowerShell install script tests (powershell)
+        if: matrix.os == 'windows'
+        shell: powershell
+        run: ./scripts/test_install.ps1
+
+      # Upload test results for debugging and flake tracking
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: |
+            test-results.xml
+            cli-test-results.xml
+            rerun-report.txt
+            cli-rerun-report.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+      # Render JUnit results as PR annotations (inline failed test annotations)
+      - name: Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: '*.xml'
+          check_name: Release Tests (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+          fail_on_failure: true
+          check_retries: true
+          flaky_summary: true
+          include_passed: false
+
+      # Surface rerun reports as GitHub Actions warnings for flake visibility
+      - name: Flag flaky tests
+        if: always()
+        shell: bash
+        run: |
+          for report in rerun-report.txt cli-rerun-report.txt; do
+            if [ -s "$report" ]; then
+              echo "::warning::Flaky tests detected (rerun report: $report):"
+              while IFS= read -r line; do
+                echo "::warning::  $line"
+              done < "$report"
+            fi
+          done
+
+  # Release with GoReleaser after all tests pass
+  release:
+    name: Release
+    needs: [validate, test]
+    if: always() && needs.test.result == 'success' && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+    # GitHub Actions only packages the benchmark image. Bencher runs release
+    # benchmarks on the bare-metal Spec configured below.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      checks: write
+      id-token: write  # Required for Cosign keyless signing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Write manual release notes
+        id: manual-release-notes
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          notes_file="$RUNNER_TEMP/manual-release-notes.md"
+          printf '%s\n' "$RELEASE_NOTES" > "$notes_file"
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+
+      # Create and push tag for workflow_dispatch
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_NOTES_FILE: ${{ steps.manual-release-notes.outputs.path }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a --cleanup=verbatim "$VERSION" -F "$RELEASE_NOTES_FILE"
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Created local dry-run tag with release notes: $VERSION"
+          else
+            git push origin "$VERSION"
+            echo "Created and pushed tag with release notes: $VERSION"
+          fi
+
+      # Determine the effective tag for GoReleaser
+      - name: Determine tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_VERSION: ${{ needs.validate.outputs.version }}
+          TAG_REF: ${{ github.ref_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "name=$DISPATCH_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$TAG_REF" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes
+        id: release-notes
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          source scripts/release-notes.sh
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          extract_release_notes_from_tag "$TAG_NAME" "$notes_file"
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+          echo "Extracted release notes from tag: $TAG_NAME"
+
+      - name: Determine release benchmark metadata
+        id: bench-meta
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+
+          release_sha="$(git rev-list -n 1 "$TAG_NAME")"
+          previous_tag=""
+          found_current=false
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$TAG_NAME" ]]; then
+              found_current=true
+              break
+            fi
+            previous_tag="$tag"
+          done < <(git tag --sort=v:refname | grep -E '^v[0-9]' || true)
+
+          if [[ "$found_current" != "true" ]]; then
+            echo "::error::Release tag $TAG_NAME was not found in the local tag list."
+            exit 1
+          fi
+
+          previous_sha=""
+          if [[ -n "$previous_tag" ]]; then
+            previous_sha="$(git rev-list -n 1 "$previous_tag")"
+          fi
+
+          echo "release-sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "previous-tag=$previous_tag" >> "$GITHUB_OUTPUT"
+          echo "previous-sha=$previous_sha" >> "$GITHUB_OUTPUT"
+          echo "Release benchmark branch: $TAG_NAME ($release_sha)"
+          if [[ -n "$previous_tag" ]]; then
+            echo "Release benchmark start point: $previous_tag ($previous_sha)"
+          else
+            echo "No previous release tag found; Bencher will create the release branch without a start point."
+          fi
+
+      # Install UPX for binary compression (pinned to avoid apt repo drift)
+      - name: Install UPX
+        run: |
+          UPX_VERSION="5.2.0"
+          curl -fsSL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" -o /tmp/upx.tar.xz
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo install -m 755 "/tmp/upx-${UPX_VERSION}-amd64_linux/upx" /usr/local/bin/upx
+          rm -rf /tmp/upx.tar.xz "/tmp/upx-${UPX_VERSION}-amd64_linux"
+          upx --version
+
+      # Install Cosign for signing
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.2
+        with:
+          cosign-release: v3.1.3
+
+      # Use a GitHub App token so the release event triggers version-docs.yml.
+      # Releases created with GITHUB_TOKEN do NOT trigger other workflows.
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.DOCS_APP_ID }}
+          private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+
+      - name: Install Bencher CLI
+        uses: bencherdev/bencher@v0.6.12
+        with:
+          version: 0.6.12
+
+      - name: Build and push benchmark image
+        id: bench-image
+        shell: bash
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
+          BENCHER_IMAGE_TAG: ${{ steps.bench-meta.outputs.release-sha }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          set -euo pipefail
+          source scripts/bencher-registry-login.sh
+
+          image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
+          run_bencher=false
+          skip_reason=""
+          docker build --platform linux/amd64 -f build/bencher/Dockerfile -t "$image" .
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Dry run requested; skipping benchmark image push."
+            run_bencher=true
+            skip_reason="dry-run"
+          else
+            bencher_registry_login
+            if bencher_registry_push_image "$image"; then
+              run_bencher=true
+            else
+              push_status=$?
+              if [[ "$push_status" -eq 75 ]]; then
+                skip_reason="bencher-registry-quota"
+              else
+                exit "$push_status"
+              fi
+            fi
+          fi
+          {
+            echo "image=$image"
+            echo "run-bencher=$run_bencher"
+            echo "skip-reason=$skip_reason"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Track release performance in Bencher
+        if: steps.bench-image.outputs['run-bencher'] == 'true'
+        shell: bash
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
+          BENCHER_TESTBED: bencher-intel-v1-go-1-27
+          BENCHER_SPEC: intel-v1
+          BENCHER_IMAGE: ${{ steps.bench-image.outputs.image }}
+          # Bencher Cloud's Free plan caps remote jobs at 300 s and clamps larger values;
+          # keep the suite under it (bench-bmf.mjs bench_count) or move to a paid plan.
+          BENCHER_JOB_TIMEOUT: 300
+          BENCH_BMF_OUT: /tmp/invowk.bmf.json
+          BENCH_GO_RAW_OUT: /tmp/go-bench.txt
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+          RELEASE_SHA: ${{ steps.bench-meta.outputs.release-sha }}
+          PREVIOUS_TAG: ${{ steps.bench-meta.outputs.previous-tag }}
+          PREVIOUS_SHA: ${{ steps.bench-meta.outputs.previous-sha }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          set -euo pipefail
+          source scripts/bencher-threshold-args.sh
+
+          start_point_args=()
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            start_point_args=(
+              --start-point "$PREVIOUS_TAG"
+              --start-point-hash "$PREVIOUS_SHA"
+              --start-point-clone-thresholds
+              --start-point-reset
+            )
+          fi
+
+          dry_run_args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            dry_run_args=(--dry-run)
+          fi
+
+          threshold_args=()
+          bencher_threshold_args threshold_args
+
+          bencher run \
+            --project "$BENCHER_PROJECT" \
+            --branch "$TAG_NAME" \
+            --hash "$RELEASE_SHA" \
+            --testbed "$BENCHER_TESTBED" \
+            --spec "$BENCHER_SPEC" \
+            --image "$BENCHER_IMAGE" \
+            --job-timeout "$BENCHER_JOB_TIMEOUT" \
+            --job-poll-interval 5 \
+            --adapter json \
+            --file "$BENCH_BMF_OUT" \
+            --github-actions "$GITHUB_TOKEN" \
+            --ci-id release-bmf \
+            "${threshold_args[@]}" \
+            --error-on-alert \
+            "${start_point_args[@]}" \
+            "${dry_run_args[@]}" \
+            "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
+
+      # Run GoReleaser (publish)
+      - name: Run GoReleaser
+        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.16"
+          args: release --clean --release-notes=${{ steps.release-notes.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      # Enhance WinGet manifest with fields GoReleaser doesn't support natively.
+      # GoReleaser generates the manifest and creates the WinGet PR; this step adds
+      # Commands, MinimumOSVersion, and Platform to the installer manifest.
+      # Only runs after a real (non-dry-run) release that creates a WinGet PR.
+      - name: Enhance WinGet manifest
+        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          bash scripts/enhance-winget-manifest.sh "$VERSION"
+
+      # Run GoReleaser (dry run)
+      # HOMEBREW_TAP_TOKEN and WINGET_TOKEN are set to dummy values because GoReleaser
+      # template-expands .Env references even in snapshot mode. The real tokens are only
+      # needed for the publish step above; --snapshot skips the actual push.
+      - name: Run GoReleaser (dry run)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.16"
+          args: release --clean --snapshot --release-notes=${{ steps.release-notes.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GORELEASER_CURRENT_TAG: ${{ steps.tag.outputs.name }}
+          HOMEBREW_TAP_TOKEN: "dry-run"
+          WINGET_TOKEN: "dry-run"
