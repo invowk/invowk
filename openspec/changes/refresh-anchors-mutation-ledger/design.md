@@ -113,10 +113,22 @@ Alternatives considered:
 
 ### D6. Calibration
 Calibration proves the check fails on the old ledger and passes on the new one.
-- It builds the old ledger, anchored, from a dry-run in a throwaway worktree at `90e56ad`. `mutation-formal-dry-run` lists candidate mutants and their diffs without running tests. If its reports carry no diffs, the calibration runs the old-tree report-only run in that worktree instead.
+- It builds an anchored copy of the old ledger from a report-only `make mutation-formal` run in a throwaway worktree at `562f6842^` (`fbd6ac1b`, on main, the parent of S4). The evidence commit `90e56ad` is on no branch, so gc may drop it. `mutation-formal-dry-run` cannot serve: it writes only per-mutator counts (`artifacts/mutation/dry-run/*/go-mutesting.log`), with no diffs. The task confirms that the 22 old ids regenerate there.
 - It runs the old ledger's 22 anchored entries through the new check on the current tree. Expected result, from the spec-stage line-text measurement and to be confirmed by task 1.3: the check fails and names 19 ids. The three whose ids the new body regenerates and kills (`Tmp`/`Work` field-clear, `return anchors`) are current mutants, not stale ones. They are explained, not flagged. This differs from the brief's "the 22 stale entries": the check detects mutants that no longer exist, not survivors that are now killed.
 - It records the new ledger passing.
 - Unit tests in `scripts/test_formal_mutation.py` cover each failure condition with fixtures, so the calibration does not depend on the throwaway worktree.
+- The anchor rule was also checked, read-only, against the 21072 escaped and killed mutants in the existing `artifacts/mutation/**/report.json` files. Each mutant was attributed to its function by first changed line and matched against its own original source. There were 0 failures: no healthy mutant would be flagged.
+
+### D7. A change that rewrites a bound function refreshes its entries in the same change
+After this change, a PR that rewrites a bound function so that a survivor's anchor lines disappear fails `triage --check`. `stale_survivors` cannot grow, so the PR cannot list the entry there either. The required remedy is the D3/D4 partial refresh in that PR, the same procedure this change applies to `standardVirtualAnchorsForOS`:
+1. Run a report-only run in a throwaway worktree.
+2. Remove the gone ids.
+3. Add the new escaped ids with two reruns each and a per-mutant `digest`.
+4. Anchor the new ids.
+
+This replaces the formal-verification skill's current instruction to leave the baseline unchanged and record survivors in `tasks/next/formal-binding-gaps.md` (`.agents/skills/formal-verification/SKILL.md:212-218`). Deleting entries without adding the new survivors stays visible in review as a baseline shrink without a matching run.
+
+Alternative considered: let such PRs append to `stale_survivors`. That would turn the check back into the silent pass this change removes.
 
 ## Risks / Trade-offs
 
@@ -125,6 +137,7 @@ Calibration proves the check fails on the old ledger and passes on the new one.
 - [A duplicate `removed` block elsewhere in the body masks a real staleness] → Accepted (D1). The id integrity check prevents mis-anchoring.
 - [The formal-verification skill says "Do not `mutation-formal-rerun` ledger ids of the removed body" (`.agents/skills/formal-verification/SKILL.md:217-218`)] → Task 4.2 reruns only the new ids from the current body, never the 22 removed ones. The skill's report-only run belongs in a throwaway `git worktree add --detach`, so task 1.1 runs it there.
 - [The mutation wrapper reverts `cmd/`, `internal/` and `pkg/` and refuses a dirty tree (`.agents/rules/commands.md`)] → Do the run first, on a clean committed worktree, under the heavy-command lock, before any uncommitted edit.
+- [`context` is not part of the go-mutesting id, so the integrity check does not cover it] → It is used only for the 70-in-3747 insertion-only mutants. Task 4.3 derives it from the run's diff by script, never by hand. A wrong `context` can only make the staleness check fail, never pass a mutant that is gone, unless the wrong line happens to exist in the body.
 - [Per-mutant digests make evidence harder to reason about] → They exist only between partial refreshes. The full regeneration removes them (spec scenario "Full regeneration drops per-mutant digests").
 
 ## Migration Plan
@@ -142,4 +155,4 @@ This changes repository tooling and data only. To roll back, revert the commit. 
 
 ## Open Questions
 
-- Whether `mutation-formal-dry-run` reports carry diffs. It decides only which calibration route D6 takes, not the check.
+- Should the partial refresh (D2/D4/D7) become a committed `formal_mutation.py` subcommand rather than a scratchpad script? D7 makes it a recurring procedure for any change that rewrites a bound function. Either answer leaves the specs and this change's tasks unchanged; the maintainer decides it for the follow-up.

@@ -47,7 +47,7 @@ Accepted formal-bindings survivors SHALL be stored in a baseline separate from t
 
 #### Scenario: Staleness check is static
 - **WHEN** the triage check runs, with or without `--base`
-- **THEN** it SHALL read only the current tree's Go sources, the ledger, and the baseline to decide staleness: it SHALL NOT run a mutation, `go list`, or the Go toolchain, and SHALL NOT read git history: a depth-1 checkout SHALL give the same staleness verdict
+- **THEN** it SHALL read only the current tree's Go sources, the ledger, the baseline, and `formal/manifest.toml` to decide staleness: it SHALL NOT run a mutation, `go list`, or the Go toolchain, and SHALL NOT read git history: a depth-1 checkout SHALL give the same staleness verdict
 
 ### Requirement: Deterministic formal-bindings execution
 The formal-bindings executor SHALL run with the wrapper's fixed rapid seed, disabled failure files, and bounded shrink time, and SHALL refuse to run without them. Focused reruns SHALL record their outcomes as evidence.
