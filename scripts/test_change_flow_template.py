@@ -54,7 +54,7 @@ function stubs(overrides) {
     if (label === 'review:code-review') return codeReview('1. a.go:3 nil deref', 'ok')
     if (label === 'lenses') return { exit_code: 0, stdout: '{"lenses":["ci"],"fast_lane_eligible":true,"reasons":{"ci":["Makefile"]}}', guard }
     if (label.startsWith('review:') || label === 'spec-review' || label === 'spec-review-2') return { blocking: false, findings: [], summary: 'ok', guard }
-    if (label === 'fix') return { status: 'done', base_sha: 'b1', head_sha: 'h2', pr: '7', gates: ['make test'], rejected: [], maintainer_asks: [], summary: 'ok', guard }
+    if (label === 'fix') return { status: 'done', base_sha: 'b1', head_sha: 'h2', pr: '7', gates: ['make test'], rejected: [], maintainer_asks: [], summary: 'ok', changed_files: ['internal/x.go'], guard }
     return { status: 'done', summary: label + ' ok', head_sha: 'h1', pr: '7', guard }
   }
   const parallel = async (thunks) => Promise.all(thunks.map((t) => t().catch(() => null)))
@@ -105,6 +105,16 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   const fix = calls.find((c) => c.label === 'fix')
   assert.ok(fix.prompt.includes('a.go:3 nil deref'), 'code-review text reaches the fix agent')
   assert.equal(result.base_sha, 'b1')
+  assert.deepEqual(result.changed_files, ['internal/x.go'])
+  assert.ok(calls.find((c) => c.label === 'spec').prompt.includes('merge-base --is-ancestor origin/main HEAD'), 'spec refuses a stale base')
+  assert.ok(!calls.find((c) => c.label === 'implement').prompt.includes('merge-base --is-ancestor'), 'implement after spec in the same run does not re-check the base')
+  const fixP = calls.find((c) => c.label === 'fix').prompt
+  assert.ok(fixP.includes('/w/invowk/scripts/change-flow-foreign-commits.sh /w/invowk-x'), 'the helper comes from the primary checkout')
+  assert.ok(fixP.includes('Run checklist steps 2-10') && fixP.includes('Skip step 1 (/simplify)') && fixP.includes('Step 11 (/learn) runs in step 4'))
+  assert.ok(fixP.includes('the change is already archived'))
+  assert.ok(fixP.includes('never edit the change-flow tooling'))
+  assert.ok(fixP.includes('Return changed_files'))
+  assert.ok(!fixP.includes('in this finalize run'))
   assert.deepEqual(result.failed_lenses, [])
   assert.ok(result.next.startsWith('ready for maintainer merge'))
 }
@@ -183,6 +193,27 @@ for (const [name, reply] of Object.entries({
   assert.equal(calls[calls.length - 1].label, 'simplify')
 }
 
+// continue from implement: implement starts the run, so it checks the base.
+{
+  const { calls } = await go({ ...good, mode: 'continue', from: 'implement', pr: 9 })
+  assert.equal(calls[0].label, 'implement')
+  assert.ok(calls[0].prompt.includes('merge-base --is-ancestor origin/main HEAD'))
+  assert.ok(calls[0].prompt.includes('Exit 1 means the branch is behind'))
+}
+
+// blocked-stage plumbing: a spec or implement stage that returns blocked (for
+// example on a stale base) ends the run there. The baseCheck prompt text itself
+// is asserted in the main run above.
+for (const stage of ['spec', 'implement']) {
+  const { result, calls } = await go(good, {
+    [stage]: () => ({ status: 'blocked', summary: 'branch not rebased on origin/main', guard: { before: snap, after: snap } }),
+  })
+  assert.equal(result.status, 'blocked')
+  assert.equal(result.blocked_at, stage)
+  assert.match(result.reason, /not rebased/)
+  assert.equal(calls[calls.length - 1].label, stage, stage + ' is the last stage that ran')
+}
+
 // a missing guard also stops the run.
 {
   const { result } = await go(good, { implement: () => ({ status: 'done', summary: 'x' }) })
@@ -224,6 +255,7 @@ for (const [name, reply] of Object.entries({
 {
   const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
+  assert.ok(calls[0].prompt.includes('In this finalize run, skip it only when the maintainer brief names the head'))
   assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
   assert.ok(!calls[0].prompt.includes('failed lens: none'))
   assert.equal(result.review_ran, false)
