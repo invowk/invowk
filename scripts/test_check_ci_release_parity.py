@@ -19,10 +19,12 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import re
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
@@ -118,8 +120,8 @@ class DriftTests(unittest.TestCase):
         release = self.replace(self.release_text, "- name: Run CLI integration tests (full)", "- name: Run CLI tests (full)")
         rc, output = self.check(self.ci_text, release)
         self.assertEqual(rc, 1, output)
-        self.assertIn("test step 'Run CLI integration tests (full)': in ci.yml only", output)
-        self.assertIn("test step 'Run CLI tests (full)': in release.yml only", output)
+        self.assertIn("parity step 'Run CLI integration tests (full)': in ci.yml only", output)
+        self.assertIn("parity step 'Run CLI tests (full)': in release.yml only", output)
 
     def test_condition_drift(self) -> None:
         release = self.replace(
@@ -155,12 +157,212 @@ class DriftTests(unittest.TestCase):
         ci = self.ci_text[:start] + self.ci_text[end:]
         rc, output = self.check(ci, self.release_text)
         self.assertEqual(rc, 1, output)
-        self.assertIn("exception SPLIT_STEPS['Run internal/runtime tests (full)']: no such ci.yml test step", output)
+        self.assertIn("exception SPLIT_STEPS['Run internal/runtime tests (full)']: no such ci.yml parity step", output)
         self.assertIn("ci.yml excludes internal/runtime and no ci.yml step split from it runs it", output)
 
     def test_unparsable_file_exits_2(self) -> None:
         rc, output = self.check("jobs:\n\ttest: {}\n", self.release_text)
         self.assertEqual(rc, 2, output)
+
+    # Review findings on #185: each test below failed before its fix.
+
+    def test_job_and_workflow_env_are_merged(self) -> None:
+        release = self.replace(
+            self.release_text,
+            "    strategy:\n      fail-fast: true",
+            '    env:\n      INVOWK_TEST_JOB: "1"\n    strategy:\n      fail-fast: true',
+        )
+        ci = self.replace(
+            self.ci_text,
+            '  GOPROXY: "https://proxy.golang.org|direct"\n',
+            '  GOPROXY: "https://proxy.golang.org|direct"\n  INVOWK_TEST_WORKFLOW: "1"\n',
+        )
+        rc, output = self.check(ci, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Run tests (short)': env INVOWK_TEST_JOB ('1') in release.yml only", output)
+        self.assertIn("step 'Run tests (short)': env INVOWK_TEST_WORKFLOW ('1') in ci.yml only", output)
+
+    def test_step_env_overrides_job_env(self) -> None:
+        # The same value moved from step to job level is still parity.
+        release = self.replace(
+            self.release_text,
+            '          INVOWK_TEST_REQUIRE_TMUX: "1"\n',
+            '          INVOWK_TEST_REQUIRE_TMUX: "1"\n          INVOWK_TEST_X: "step"\n',
+        )
+        release = self.replace(
+            release, "    strategy:\n      fail-fast: true", '    env:\n      INVOWK_TEST_X: "job"\n    strategy:\n      fail-fast: true'
+        )
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Run CLI integration tests (full)': env INVOWK_TEST_X ('step') in release.yml only", output)
+        self.assertIn("step 'Run tests (short)': env INVOWK_TEST_X ('job') in release.yml only", output)
+
+    def test_go_test_flags_are_compared(self) -> None:
+        release = self.replace(self.release_text, "-- -race -timeout 10m", "-- -timeout 10m")
+        release = self.replace(release, "-- -race -short -v", "-- -race -v")
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Run CLI integration tests (full)': test command is `gotestsum [./tests/cli/...] -race -timeout 10m` in ci.yml, `gotestsum [./tests/cli/...] -timeout 10m` in release.yml", output)
+        self.assertIn("step 'Run tests (short)': test command is", output)
+        self.assertEqual(output.count("\n  - "), 2, output)
+
+    def test_test_packages_are_compared(self) -> None:
+        release = self.replace(self.release_text, "-- -race -timeout 10m", "-- -race -timeout 10m -run TestX")
+        release = release.replace("--packages ./tests/cli/... \\\n            --rerun-fails", "--packages ./tests/cli \\\n            --rerun-fails")
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Run CLI integration tests (full)': test command is", output)
+
+    def test_coverage_profile_names_are_ignored(self) -> None:
+        ci = self.replace(self.ci_text, "-coverprofile=cli-coverage.out\n\n      # Run short", "-coverprofile other.out\n\n      # Run short")
+        rc, output = self.check(ci, self.release_text)
+        self.assertEqual(rc, 0, output)
+
+    def test_unreadable_package_filter_fails_closed(self) -> None:
+        release = self.replace(
+            self.release_text,
+            "grep -v '^github.com/invowk/invowk/tests/cli$' |",
+            "grep -v '^github.com/invowk/invowk/tests/cli$' | grep -vE '/internal/app/commandadapters$' |",
+        )
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 2, output)
+        self.assertIn("cannot read \"grep -vE '/internal/app/commandadapters$'\"", output)
+
+    def test_new_ci_only_test_step_is_reported(self) -> None:
+        ci = self.replace(
+            self.ci_text,
+            "      - name: Run PowerShell install script tests (pwsh)\n",
+            "      - name: Run Windows-only tests\n        if: matrix.os == 'windows'\n        run: go test ./internal/winonly/...\n\n"
+            "      - name: Run PowerShell install script tests (pwsh)\n",
+        )
+        rc, output = self.check(ci, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("parity step 'Run Windows-only tests': in ci.yml only", output)
+
+    def test_unconditional_test_step_is_selected(self) -> None:
+        ci = self.replace(
+            self.ci_text,
+            "      - name: Run PowerShell install script tests (pwsh)\n",
+            "      - name: Run extra tests\n        run: gotestsum --packages ./internal/extra\n\n"
+            "      - name: Run PowerShell install script tests (pwsh)\n",
+        )
+        rc, output = self.check(ci, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("parity step 'Run extra tests': in ci.yml only", output)
+
+    def test_engine_setup_steps_are_parity_steps(self) -> None:
+        release = self.replace(
+            self.release_text,
+            "      - name: Mask Docker for Podman tests\n        if: matrix.engine == 'podman'",
+            "      - name: Mask Docker for Podman tests\n        if: matrix.engine == 'none'",
+        )
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Mask Docker for Podman tests': if is", output)
+
+    def test_unreadable_test_command_fails_closed(self) -> None:
+        release = self.replace(self.release_text, "          gotestsum \\\n            --format testdox \\\n            --junitfile cli-test-results.xml \\\n            --rerun-fails \\\n            --rerun-fails-max-failures 3 \\\n            --rerun-fails-report cli-rerun-report.txt \\\n            --packages ./tests/cli/... \\\n            -- -race -timeout 10m",
+                               "          cd . && gotestsum --packages ./tests/cli/... -- -race -timeout 10m")
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 2, output)
+        self.assertIn("readable at the start of a line", output)
+
+    def test_no_test_step_fails_closed(self) -> None:
+        release = re.sub(r"(?m)^(\s*)gotestsum \\$", r"\1true \\", self.release_text)
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 2, output)
+        self.assertIn("release.yml: jobs.test has no step that runs gotestsum or go test", output)
+
+    def test_stale_only_in_exception_is_reported(self) -> None:
+        with mock.patch.dict(MODULE.ONLY_IN, {("ci.yml", "Run tests (short)"): "stale"}):
+            rc, output = self.check(self.ci_text, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("exception ONLY_IN[ci.yml, 'Run tests (short)']: both workflows have this step", output)
+
+    def test_flow_collections_are_parse_errors(self) -> None:
+        for old, new in (
+            (
+                '        env:\n          INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}\n          INVOWK_TEST_REQUIRE_TMUX: "1"\n',
+                '        env: {INVOWK_TEST_CONTAINER_ENGINE: "${{ matrix.engine }}", INVOWK_TEST_REQUIRE_TMUX: "1"}\n',
+            ),
+            (
+                '          - os: macos\n            runner: macos-15\n            engine: ""\n            test-mode: short\n',
+                '          - {os: macos, runner: macos-15, engine: "", test-mode: short}\n',
+            ),
+        ):
+            with self.subTest(new=new):
+                rc, output = self.check(self.ci_text, self.replace(self.release_text, old, new))
+                self.assertEqual(rc, 2, output)
+                self.assertIn("flow collection", output)
+
+    def test_split_step_compares_every_variable_it_does_not_omit(self) -> None:
+        ci = self.replace(self.ci_text, "          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}\n",
+                          '          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}\n          INVOWK_TEST_FOO: "1"\n')
+        release = self.replace(self.release_text, "          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}\n",
+                               '          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}\n          INVOWK_TEST_FOO: "1"\n')
+        rc, output = self.check(ci, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Run internal/runtime tests (full)': env INVOWK_TEST_FOO ('1') in release.yml only", output)
+        self.assertEqual(output.count("\n  - "), 1, output)
+
+    def test_split_step_must_not_set_an_omitted_variable(self) -> None:
+        ci = self.replace(
+            self.ci_text,
+            '          INVOWK_TEST_CONTAINER_PARALLEL: "2"\n        run: |\n          gotestsum',
+            '          INVOWK_TEST_CONTAINER_PARALLEL: "2"\n          INVOWK_TEST_TUI_PLAN_ROW: "8"\n        run: |\n          gotestsum',
+        )
+        rc, output = self.check(ci, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("sets INVOWK_TEST_TUI_PLAN_ROW, which its SPLIT_STEPS entry omits", output)
+
+    def test_split_step_flags_must_match_its_origin(self) -> None:
+        ci = self.replace(self.ci_text, "-- -race -timeout 15m -coverprofile=runtime-coverage.out", "-- -timeout 15m -coverprofile=runtime-coverage.out")
+        rc, output = self.check(ci, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("step 'Run internal/runtime tests (full)': test flags", output)
+
+    def test_split_package_must_be_exact(self) -> None:
+        ci = self.replace(self.ci_text, "--packages ./internal/runtime \\", "--packages ./internal/runtime/... \\")
+        rc, output = self.check(ci, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("runs './internal/runtime/...', not one ./<pkg>", output)
+
+    def test_blame_names_release_when_it_also_excludes_the_split_package(self) -> None:
+        release = self.replace(
+            self.release_text,
+            "grep -v '^github.com/invowk/invowk/tests/cli$' |",
+            "grep -v '^github.com/invowk/invowk/tests/cli$' | grep -v '^github.com/invowk/invowk/internal/runtime$' |",
+        )
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("release.yml excludes internal/runtime, which a split ci.yml step runs, so release.yml runs it nowhere", output)
+        self.assertNotIn("this ci.yml step does not exclude it", output)
+
+    def test_stale_env_and_matrix_exceptions_are_reported(self) -> None:
+        with (
+            mock.patch.dict(MODULE.ENV_EXCEPTIONS, {("Run tests (short)", "INVOWK_TEST_NONE"): "stale"}),
+            mock.patch.dict(MODULE.MATRIX_KEY_EXCEPTIONS, {("macos", "", "runner"): "stale"}),
+        ):
+            rc, output = self.check(self.ci_text, self.release_text)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("exception ENV_EXCEPTIONS[('Run tests (short)', 'INVOWK_TEST_NONE')]: matches no difference", output)
+        self.assertIn("exception MATRIX_KEY_EXCEPTIONS[('macos', '', 'runner')]: matches no difference", output)
+
+    def test_used_exceptions_are_not_stale(self) -> None:
+        release = self.replace(self.release_text, "runner: macos-15", "runner: macos-26")
+        release = self.replace(release, 'INVOWK_TEST_REQUIRE_TMUX: "1"', 'INVOWK_TEST_REQUIRE_TMUX: "0"')
+        with (
+            mock.patch.dict(MODULE.ENV_EXCEPTIONS, {("Run CLI integration tests (full)", "INVOWK_TEST_REQUIRE_TMUX"): "r"}),
+            mock.patch.dict(MODULE.MATRIX_KEY_EXCEPTIONS, {("macos", "", "runner"): "r"}),
+        ):
+            rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 0, output)
+
+    def test_matrix_keys_beyond_include_are_compared(self) -> None:
+        release = self.replace(self.release_text, "        include:\n", '        exclude:\n          - os: macos\n            engine: ""\n        include:\n')
+        rc, output = self.check(self.ci_text, release)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("matrix key 'exclude' differs", output)
 
 
 class ParserTests(unittest.TestCase):
