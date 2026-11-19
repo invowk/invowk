@@ -100,8 +100,9 @@ jobs:
           python3 scripts/test_formal_mutation.py
 
       # The shrink-only lists ([correspondence] unresolved_elements, [triage]
-      # binding_gaps and orphaned_survivors) may not list an entry the base
-      # commit's manifest does not. scripts/ci-triage-base.sh resolves the
+      # binding_gaps, orphaned_survivors and stale_survivors) may not list an
+      # entry the base commit's manifest does not; the same check fails on a
+      # ledger survivor whose anchor no longer matches the current code. scripts/ci-triage-base.sh resolves the
       # base, as for the script-test gate in lint.yml and release.yml: on a
       # pull request the base branch tip, fetched at depth 1 (git show needs
       # only that commit); on other events the commit under test. A failed

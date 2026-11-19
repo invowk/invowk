@@ -761,24 +761,37 @@ def mutant_id(file: str, mutator: str, removed: str, added: str) -> str:
     return hashlib.md5(f"{file}\0{mutator}\0{removed}\0{added}".encode()).hexdigest()
 
 
-def anchored_in(stripped: list[str], decl: FuncDecl, anchors: list[str]) -> bool:
-    """Whether the anchors appear in order in `stripped` (a file's lines, each
-    stripped), the first one inside `decl` (its `func` line to its closing
-    brace). Later ones may lie anywhere after it: go/printer can re-flow a
-    comment past the function's end."""
-    for start in range(decl.start - 1, min(decl.end, len(stripped))):
-        if stripped[start] != anchors[0]:
+def anchored_in(lines: list[str], decl: FuncDecl, anchors: list[str]) -> bool:
+    """Whether the anchors appear verbatim and in order in `lines` (a file's
+    lines), the first one inside `decl`'s body (after its `func` line, up to
+    its closing brace; the `func` line itself only for a one-line function).
+    go-mutesting hashes the exact text, indentation included, so a re-indented
+    line is a different mutant. Unchanged lines may separate the anchors. A
+    later code line must lie inside the function too; a later comment line
+    may lie anywhere after it, because go/printer can re-flow a comment past
+    the function's end."""
+    end = min(decl.end, len(lines))
+    first = decl.start - 1 if decl.start == decl.end else decl.start
+    for start in range(first, end):
+        if lines[start] != anchors[0]:
             continue
-        rest = iter(stripped[start + 1:])
-        if all(any(line == anchor for line in rest) for anchor in anchors[1:]):
+        pos, matched = start + 1, True
+        for anchor in anchors[1:]:
+            limit = len(lines) if anchor.lstrip().startswith("//") else end
+            found = next((i for i in range(pos, limit) if lines[i] == anchor), None)
+            if found is None:
+                matched = False
+                break
+            pos = found + 1
+        if matched:
             return True
     return False
 
 
 class ParsedSource(NamedTuple):
-    """A Go file's stripped lines and top-level function declarations."""
+    """A Go file's lines and top-level function declarations."""
 
-    stripped: list[str]
+    lines: list[str]
     decls: list[FuncDecl]
 
 
@@ -803,30 +816,40 @@ def anchor_problem(survivor: dict, mutator: str | None, source: Callable[[str], 
         parsed = source(file)
         decl = find_function(parsed.decls, symbol) if parsed is not None else None
     except PlanError as err:
-        return f"symbol missing: {err}"
+        return f"symbol unresolved: {err}"
     if decl is None:
         return f"symbol missing: {symbol} no longer names a function in {file}"
-    anchors = [line.strip() for line in (removed or context).splitlines()]
-    if not anchored_in(parsed.stripped, decl, anchors):
-        return (f"mutated code gone: the anchor lines no longer appear in order from inside {symbol} "
+    if not anchored_in(parsed.lines, decl, (removed or context).splitlines()):
+        return (f"mutated code gone: the anchor lines no longer appear verbatim and in order from inside {symbol} "
                 f"({file}:{decl.start}-{decl.end})")
     return None
 
 
 def source_reader(root: Path) -> Callable[[str], ParsedSource | None]:
     """The current tree's parsed file, read and parsed once per file; None
-    when it is missing. A file function_decls rejects raises PlanError."""
-    cache: dict[str, ParsedSource | None] = {}
+    when it is missing. A file that cannot be read or that function_decls
+    rejects raises PlanError on every call; its message is cached too."""
+    cache: dict[str, ParsedSource | str | None] = {}
+
+    def parse(file: str) -> ParsedSource | str | None:
+        try:
+            text = (root / file).read_text()
+        except FileNotFoundError:
+            return None
+        except (OSError, UnicodeDecodeError) as err:
+            return f"cannot read {file}: {err}"
+        try:
+            return ParsedSource(text.splitlines(), function_decls(text))
+        except PlanError as err:
+            return f"cannot parse {file}: {err}"
 
     def read(file: str) -> ParsedSource | None:
         if file not in cache:
-            try:
-                text = (root / file).read_text()
-            except (OSError, UnicodeDecodeError):
-                cache[file] = None
-            else:
-                cache[file] = ParsedSource([line.strip() for line in text.splitlines()], function_decls(text))
-        return cache[file]
+            cache[file] = parse(file)
+        result = cache[file]
+        if isinstance(result, str):
+            raise PlanError(result)
+        return result
 
     return read
 
@@ -952,8 +975,9 @@ def check_growth(
             notices.append(f"{name}: {seeding}")
             continue
         if at_base is None:
-            failures.append(f"{name}: not in the base {base_name} manifest, which has {', '.join(present)}; "
-                            "a list is seeded only from a base with none of the three")
+            rule = ("it is seeded only from a base that has the other three lists" if name == STALE_LIST
+                    else "a list is seeded only from a base with none of the first three")
+            failures.append(f"{name}: not in the base {base_name} manifest, which has {', '.join(present)}; {rule}")
             continue
         for entry in sorted((entries or set()) - at_base, key=str):
             failures.append(f"{name}: {entry_label(entry)} is not listed at the base {base_name}; "
@@ -965,13 +989,15 @@ def check_growth(
 
 
 def departure_reasons(
-    rows: list[Row], survivors: list[dict], root: Path, problems: dict[str, str] | None = None
+    rows: list[Row], survivors: list[dict], root: Path, problems: dict[str, str] | None = None,
+    orphans: list[str] | None = None,
 ) -> Callable[[str, object], str]:
     """Why an entry left a shrink-only list (decision 18), for check_growth.
     `problems` maps each ledger id to its failed staleness or anchor
-    condition, as check_triage records it. The row classification is computed
-    on the first call only: entries rarely leave, and most runs never call
-    it."""
+    condition, as check_triage records it; `orphans` is the head's
+    orphaned_survivors, which check_triage does not anchor. The row
+    classification is computed on the first call only: entries rarely leave,
+    and most runs never call it."""
     state: dict = {}
 
     def status() -> dict:
@@ -991,6 +1017,8 @@ def departure_reasons(
         if key is None:
             return "the survivor left the ledger"
         if name == STALE_LIST:
+            if entry in (orphans or []):
+                return "the survivor moved to orphaned_survivors, which the staleness check does not anchor"
             problem = (problems or {}).get(entry)
             return (f"the entry still fails the staleness or anchor check ({problem})" if problem
                     else "the entry passes the staleness and anchor checks")
@@ -1131,6 +1159,14 @@ def check_triage(
         failures.append(f"baseline id {missing} has no [[survivor]] entry in the ledger")
     for extra in sorted(set(ledger_ids) - baseline_ids):
         failures.append(f"ledger survivor {extra} is not in the baseline")
+    # go-mutesting gives two mutants with the same diff lines one id (they
+    # differ only by line). Such copies must agree on everything the checks
+    # below read by id, which keep one value per id.
+    seen: dict[str, tuple] = {}
+    for m in baseline["mutants"]:
+        fields = (m["file"], m["mutator"], m.get("digest"))
+        if seen.setdefault(m["id"], fields) != fields:
+            failures.append(f"baseline id {m['id']}: its entries disagree on file, mutator or digest")
 
     rows = model_rows(models, root)
     if triage is None:
@@ -1548,7 +1584,8 @@ def main(argv: list[str] | None = None) -> int:
             with formal.MANIFEST.open("rb") as handle:
                 head = tomllib.load(handle)
             rows = model_rows(models, REPO_ROOT)
-            why = departure_reasons(rows, ledger.get("survivor", []), REPO_ROOT, problems)
+            why = departure_reasons(rows, ledger.get("survivor", []), REPO_ROOT, problems,
+                                    head.get("triage", {}).get("orphaned_survivors", []))
             at_base = base_manifest(base)
             growth, notices = check_growth(head, at_base, base, why)
             failures += growth

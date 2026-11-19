@@ -30,7 +30,7 @@ Accepted formal-bindings survivors SHALL be stored in a baseline separate from t
 - **THEN** it SHALL fail, naming the id and symbol, unless go-mutesting's stable-id hash of the entry's file, the baseline's mutator for that id, and those lines equals the entry's id
 
 #### Scenario: Survivor whose mutated code is gone
-- **WHEN** the entry's symbol no longer names a function in its file, or the entry's anchor lines (its `removed` lines, or its `context` line when it removes none), each trimmed of surrounding whitespace, no longer appear in order in the current file starting at a line inside that function's body
+- **WHEN** the entry's symbol no longer names a function in its file, or the entry's anchor lines (its `removed` lines, or its `context` line when it removes none), matched verbatim with their indentation, no longer appear in order in the current file starting at a line inside that function's body, with every later code line inside that body too (a later comment line may follow the function)
 - **THEN** the triage check SHALL fail and name the entry's id, its symbol, and which of the two conditions failed
 
 #### Scenario: Edits elsewhere in a bound file

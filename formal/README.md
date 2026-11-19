@@ -134,8 +134,11 @@ hold the exact diff lines go-mutesting hashes into the stable id, plus
 `context` (the unchanged line before the insertion) for a mutant that removes no
 line. `triage --check` fails, naming the id and symbol, when the anchor does not
 hash to the id with the baseline's mutator, when the symbol no longer names a
-function in its file, or when the anchor lines, whitespace-trimmed, no longer
-appear in order starting inside that function. Edits elsewhere in a bound file
+function in its file, or when the anchor lines, verbatim with their indentation,
+no longer appear in order inside that function's body (a removed comment line
+may follow the function). It cannot tell which of several identical lines in
+the body was mutated, nor see a line inserted between non-adjacent removed
+lines (design D1 of refresh-anchors-mutation-ledger). Edits elsewhere in a bound file
 pass. The check reads only the current tree, so a depth-1 checkout gives the
 same verdict. Orphaned survivors are not anchored. A fourth shrink-only list,
 `[triage] stale_survivors`, holds survivors that fail it and that their change

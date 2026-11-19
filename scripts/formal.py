@@ -329,17 +329,16 @@ def parse_triage(raw: dict) -> dict[str, list]:
     if not isinstance(rows, list) or not all(isinstance(r, dict) and set(r) == TRIAGE_ROW_KEYS
                                              and all(isinstance(v, str) for v in r.values()) for r in rows):
         raise FormalError("manifest [triage] binding_gaps must be a list of { model, element, symbol } tables")
-    keys = [(r["model"], r["element"], r["symbol"]) for r in rows]
     lists = {"binding_gaps": rows}
     for name in TRIAGE_ID_LISTS:
         ids = raw.get(name, [])
         if not isinstance(ids, list) or not all(isinstance(i, str) and i for i in ids):
             raise FormalError(f"manifest [triage] {name} must be a list of mutant ids")
-        if len(ids) != len(set(ids)):
-            raise FormalError("manifest [triage] has duplicate entries")
         lists[name] = ids
-    if len(keys) != len(set(keys)):
-        raise FormalError("manifest [triage] has duplicate entries")
+    for name, entries in lists.items():
+        keys = [(e["model"], e["element"], e["symbol"]) if isinstance(e, dict) else e for e in entries]
+        if len(keys) != len(set(keys)):
+            raise FormalError(f"manifest [triage] {name} has duplicate entries")
     return lists
 
 

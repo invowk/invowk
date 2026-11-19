@@ -727,13 +727,53 @@ class AnchorTests(Fixture):
         self.write(ANCHORED.replace("if x > 0 {", "if x > 1 {"))
         failures, _ = self.check([good])
         self.assertEqual(failures, [f"survivor {good['id']} (Evaluate): mutated code gone: the anchor lines no longer "
-                                    "appear in order from inside Evaluate (a/a.go:23-28)"])
+                                    "appear verbatim and in order from inside Evaluate (a/a.go:23-28)"])
 
     def test_edits_elsewhere_pass(self) -> None:
-        # Lines move, the indentation changes, and other body lines change.
+        # Lines move and other body lines change.
         good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
-        self.write("\nfunc Before() {}\n" + ANCHORED.replace("return x", "return x * 2").replace("\tif x", "  if x"))
+        self.write("\nfunc Before() {}\n" + ANCHORED.replace("return x", "return x * 2"))
         self.assertEqual(self.check([good]), ([], []))
+
+    def test_reindented_line_fails(self) -> None:
+        # go-mutesting hashes the indentation: a re-indented line is a new mutant.
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        self.write(ANCHORED.replace("\tif x", "\t\tif x"))
+        self.assertIn("mutated code gone", self.check([good])[0][0])
+
+    def test_anchor_on_the_func_line_fails(self) -> None:
+        signature = self.entry("func Evaluate(x int) int {\n", "")
+        self.assertIn("mutated code gone", self.check([signature])[0][0])
+
+    def test_unparsable_file_is_reported_once_per_entry_and_parsed_once(self) -> None:
+        first = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        second = self.entry("\treturn x\n", "")
+        self.write(ANCHORED + "\nfunc Broken() {\n")
+        parsed: list[str] = []
+        real = fm.function_decls
+
+        def counting(text: str) -> list:
+            parsed.append(text)
+            return real(text)
+
+        # check_triage classifies rows first, which already rejects a broken
+        # row file; drive the anchor check directly.
+        with mock.patch.object(fm, "function_decls", counting):
+            source = fm.source_reader(self.root)
+            problems = [fm.anchor_problem(e, "m", source) for e in (first, second)]
+        self.assertEqual(len(parsed), 1)
+        for problem in problems:
+            self.assertIn("symbol unresolved: cannot parse a/a.go: function Broken", problem or "")
+        self.write(ANCHORED)
+        path = self.root / "a" / "a.go"
+        path.chmod(0)
+        try:
+            if os.access(path, os.R_OK):
+                self.skipTest("running as a user that ignores file modes")
+            problem = fm.anchor_problem(first, "m", fm.source_reader(self.root))
+        finally:
+            path.chmod(0o644)
+        self.assertIn("symbol unresolved: cannot read a/a.go", problem or "")
 
     def test_insertion_only_entry_is_anchored_by_context(self) -> None:
         inserted = self.entry("", "\t\tbreak\n", mutator="loop/range_break", context="\tif x > 0 {")
@@ -757,6 +797,10 @@ class AnchorTests(Fixture):
         self.assertIn("mutated code gone", self.check([reordered])[0][0])
         outside = self.entry("// Evaluate's trailing comment.\n", "")
         self.assertIn("mutated code gone", self.check([outside])[0][0])
+        # A later code line must lie inside the function, not in a later one.
+        self.write(ANCHORED + "\nfunc After() {\n\tx := 1\n}\n")
+        later = self.entry("\tif x > 0 {\n\tx := 1\n", "")
+        self.assertIn("mutated code gone", self.check([later])[0][0])
 
     def test_unanchored_entry_fails_unless_listed(self) -> None:
         bare = self.entry(None, None)
@@ -787,6 +831,18 @@ class AnchorTests(Fixture):
         why = fm.departure_reasons(rows, [good], self.root, {good["id"]: "mutated code gone: ..."})
         self.assertEqual(why(fm.STALE_LIST, good["id"]),
                          "the entry still fails the staleness or anchor check (mutated code gone: ...)")
+        why = fm.departure_reasons(rows, [good], self.root, {}, [good["id"]])
+        self.assertEqual(why(fm.STALE_LIST, good["id"]),
+                         "the survivor moved to orphaned_survivors, which the staleness check does not anchor")
+
+    def test_duplicate_baseline_ids_must_agree(self) -> None:
+        good = self.entry("\tif x > 0 {\n", "\tif x <= 0 {\n")
+        copy = {"id": good["id"], "file": "a/a.go", "mutator": "m", "line": 24}
+        baseline = {"version": 1, "digest": "d", "mutants": [copy, {**copy, "line": 26}]}
+        self.assertEqual(self.check([good], baseline=baseline)[0], [])
+        baseline["mutants"][1]["digest"] = "own"
+        self.assertIn(f"baseline id {good['id']}: its entries disagree on file, mutator or digest",
+                      self.check([good], baseline=baseline)[0])
 
     def test_evidence_at_a_per_mutant_digest(self) -> None:
         # Design D3: a refreshed entry's own digest replaces the baseline's.
@@ -993,9 +1049,9 @@ class UnplannedTests(Fixture):
             '[triage]\nbinding_gaps = []\norphaned_survivors = []\n': "needs a stale_survivors list",
             '[triage]\nstale_survivors = []\nbinding_gaps = [{ model = "M", element = "e" }]\n': "binding_gaps must be a list of",
             '[triage]\nstale_survivors = []\norphaned_survivors = [1]\n': "orphaned_survivors must be a list of mutant ids",
-            '[triage]\nstale_survivors = []\norphaned_survivors = ["a", "a"]\n': "duplicate entries",
+            '[triage]\nstale_survivors = []\norphaned_survivors = ["a", "a"]\n': "orphaned_survivors has duplicate entries",
             '[triage]\nstale_survivors = [""]\n': "stale_survivors must be a list of mutant ids",
-            '[triage]\nstale_survivors = ["a", "a"]\n': "duplicate entries",
+            '[triage]\nstale_survivors = ["a", "a"]\n': "stale_survivors has duplicate entries",
         }
         for text, message in cases.items():
             with self.subTest(message=message):
@@ -1171,7 +1227,10 @@ class GrowthTests(unittest.TestCase):
                 failures, _notices = fm.check_growth(self.BASE, base, "main")
                 self.assertEqual([f.split(":")[0] for f in failures], missing)
                 for failure in failures:
-                    self.assertIn("a list is seeded only from a base with none of the three", failure)
+                    rule = ("it is seeded only from a base that has the other three lists"
+                            if failure.startswith(fm.STALE_LIST) else
+                            "a list is seeded only from a base with none of the first three")
+                    self.assertIn(rule, failure)
 
     def test_unreadable_base_fails_closed(self) -> None:
         def missing(_path: str) -> bytes:

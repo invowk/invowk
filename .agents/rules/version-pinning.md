@@ -39,7 +39,7 @@ build configuration. The exceptions below are deliberate. User-facing install in
 - Add or upgrade with `go get -tool <module>/cmd/<tool>@vX.Y.Z` from the root module; remove with `go get -tool <module>/cmd/<tool>@none`.
 - Verify with `go version -m "$(go tool -n <tool>)"` when the tool has no reliable `--version` flag.
 - **Current pinned versions:**
-  - `go-mutesting`: `v2.8.3` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together)
+  - `go-mutesting`: `v2.8.3` (`github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting`, also pinned and verified by `scripts/mutation.sh`; update both together, and re-check that `mutant_id` in `scripts/formal_mutation.py` still matches its `internal/baseline` `MutantID`, or `triage --check` fails on every anchored survivor)
   - `golangci-lint`: `v2.13.1` (`github.com/golangci/golangci-lint/v2/cmd/golangci-lint`, resolved and verified by `scripts/golangci-lint.sh`)
   - `goplint`: `v0.2.0` (`github.com/invowk/goplint` plus its `cmd/repository-audit` and `cmd/benchmark-policy` commands, built and version-verified by `scripts/goplint.sh`; Dependabot bumps the pin through the root `gomod` ecosystem)
 

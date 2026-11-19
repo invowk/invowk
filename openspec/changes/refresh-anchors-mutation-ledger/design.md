@@ -47,13 +47,13 @@ Each `[[survivor]]` gets `removed` and `added`: the exact removed and added line
 A read-only check of the 3747 mutants in the primary checkout's existing `artifacts/mutation/**/go-mutesting-agentic.json` reports supports this design:
 - the formula below reproduces every reported id;
 - 70 mutants remove no line (`loop/range_break` 66, `branch/case` 4), which is why `context` exists;
-- 8 have removed lines separated by context, and some of those remove a comment after the function that go/printer re-flowed. So the removed lines are matched in order but not as one consecutive block, and only the first must lie inside the function.
+- 8 have removed lines separated by context, and some of those remove a comment after the function that go/printer re-flowed. So the removed lines are matched in order but not as one consecutive block. The code lines must lie inside the function; a comment line may follow it.
 
 The check validates the fields in two ways:
 - **Integrity.** `md5(file \0 baseline mutator \0 removed \0 added)` must equal the id. The anchor then cannot be typed wrong or point at the wrong mutant, and anyone can verify it without tools.
 - **Staleness.**
   - The symbol must still name a function in `file`. The check uses the existing `function_decls` and `find_function`, with no `go list`.
-  - The anchor lines (`removed`, or `context` when `removed` is empty), each stripped of surrounding whitespace, must appear in order in the current file. The first one must be inside the symbol's current body.
+  - The anchor lines (`removed`, or `context` when `removed` is empty), must appear verbatim, indentation included, and in order in the current file. The first one must be inside the symbol's current body (after its `func` line), and so must every later code line; a later comment line may lie after the function.
   - Failures name the id, the symbol, and which condition failed.
 
 Alternatives considered:
@@ -62,7 +62,9 @@ Alternatives considered:
 - *Read the original line from the evidence commit with `git show`.* Squash merges drop those commits, and CI checks out at depth 1.
 - *A per-symbol body hash.* It fails on every edit of the function, which the brief rules out.
 
-Matching uses whitespace-stripped lines, so `gofmt` re-indentation does not flag an entry. A changed line flags it. A `removed` block that also appears elsewhere in the body still passes. That is accepted: the id integrity check pins which mutant the entry is, and the follow-up refresh re-derives everything anyway.
+Matching is verbatim, indentation included: go-mutesting hashes the exact lines, so a re-indented line is a different mutant and flags the entry, as does any changed line. All 382 anchored entries match verbatim on the current tree (fix-and-gates stage, 2026-11-19); the first draft stripped whitespace, and review showed that this passed a re-indented, dead mutant. Known false negatives, accepted: the id integrity check pins which mutant the entry is, and the follow-up refresh re-derives everything anyway.
+- A `removed` block, or a one-line anchor such as `return err`, that also appears elsewhere in the body still passes (about 30 anchored entries have a one-line anchor that occurs more than once in their function).
+- Unchanged lines may separate the removed lines (8 real mutants need this), so a line inserted inside a multi-line removed block, which changes the id, still passes.
 
 ### D2. Backfill the anchors from the fresh run's reports
 The report-only `make mutation-formal` run on 567e7b00 writes per-group `report.json` files. They list escaped and killed mutants with `mutator.mutatorName`, `mutator.originalFilePath` and `diff` (`scripts/formal_mutation.py:678-697`). A one-off script in the scratchpad does the backfill. It is not committed, but its rule is written down here:

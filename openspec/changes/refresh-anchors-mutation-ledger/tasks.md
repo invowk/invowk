@@ -16,7 +16,7 @@ All paths are relative to the change worktree, `/var/home/danilo/Workspace/githu
 - [x] 2.1 In `scripts/formal_mutation.py`:
   - add `removed` and `added` to the survivor fields;
   - add the D1 integrity check (the hash equals the id, using the baseline's mutator);
-  - add the staleness check: the symbol must exist, and the anchor lines (`removed`, else `context`), stripped, must appear in order in the file, starting inside the body;
+  - add the staleness check: the symbol must exist, and the anchor lines (`removed`, else `context`), verbatim, must appear in order in the file, starting inside the body;
   - fail on an unanchored entry, unless the id is listed in `stale_survivors` or `orphaned_survivors`.
   Each failure names the id, the symbol and the condition. Verify: new cases in `scripts/test_formal_mutation.py` cover:
   - a matching entry and a bad hash;
