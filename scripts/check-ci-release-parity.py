@@ -18,7 +18,11 @@ For the `test` job of both files this compares:
     (workflow, job and step `env:` merged, the step winning), and the same
     test commands: the tool, the package selection and the `go test` flags,
     without coverage-profile file names (gotestsum's own flags, such as junit
-    and rerun-report files, are not compared);
+    and rerun-report files, are not compared). `--rerun-fails` is one of those
+    gotestsum flags, and the difference is intentional: release.yml retries its
+    two CLI steps and ci.yml does not, so a tag run is only ever more lenient
+    than PR CI, never stricter. If ci.yml ever retries a step that release.yml
+    does not, compare the flag here;
   - the `go list | grep -v` package exclusions of matched steps. Any other
     `grep` in a test step is an error, so a filter the check cannot read
     fails closed.
