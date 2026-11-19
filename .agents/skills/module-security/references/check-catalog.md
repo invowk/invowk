@@ -72,13 +72,14 @@ size guard (`invowkmod.LockFileSizeLimit`, 5 MiB) before reading, then
 
 Parse-time validation (`ScriptFilePath.Validate`) already rejects absolute
 paths and `..` segments; these checks report the same conditions on scanned
-content, and runtime containment lives in `validateScriptPathContainment`.
+content, and runtime containment lives in `validateScriptPathContainment` (lexical) and `checkModuleFilePhysicalContainment` (physical, `os.Root`).
 
 ### Path Checks
 
 | Check | What | How | Severity | Finding |
 |-------|------|-----|----------|---------|
 | Path traversal | Module `script.file` values using `../` or `..\` | Inspect explicit `Implementation.Script.File` references in module context | High | "Script references path outside module boundary" (SC-01) |
+| Physical escape (runtime) | Module script or custom-check `file` that resolves outside the module through a link, including under `invowk_modules/`, or crosses a link with an absolute target | Not an audit check: `checkModuleFilePhysicalContainment` denies the read at run time with `ErrScriptPathTraversal` (`os.Root` on the module directory). The audit's own `scriptReadPath` still compares `EvalSymlinks` results, so it may read an absolute in-module link the runtime denies | High | Runtime error "script path escapes module boundary" (SC-01) |
 | Absolute paths in modules | Module script fields with absolute paths (`/usr/bin/...`) | Reject absolute paths for module commands (root invowkfile may allow them) | High | "Module script uses absolute path" |
 
 ### Content Checks

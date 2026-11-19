@@ -351,7 +351,7 @@ audit through call-path tracing and focused behavior tests.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, script path validation helpers; modelled by `formal/alloy/ModulePathContainment.als` (findings F13, F17) | Mitigated (findings F13/F17 open) |
+| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go`, `pkg/invowkfile/dependency.go`, `pkg/invowkfile/module_file_containment.go` (`checkModuleFilePhysicalContainment`: `os.Root` check before every module script and custom-check read, whatever reader is injected); modelled by `formal/alloy/ModulePathContainment.als` (F13 fixed, regression mutant `mutantPreFixF13LexicalScriptContainment`; F17 open) | Mitigated (F17 env-file hole open; residual: the interpreter re-opens the checked path, a time-of-check race) |
 | SC-02 | Virtual host-binary policy | Medium | `internal/runtime/virtual_policy.go`, `internal/runtime/sh.go`, `internal/runtime/lua.go` | Partial |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container*.go` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container*.go`, `internal/runtime/runtime.go`, interactive adapters | Partial |

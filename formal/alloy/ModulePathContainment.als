@@ -26,8 +26,9 @@
 // | validates | ValidateEnvFilePath | pkg/invowkfile/validation_filesystem.go | TestModulePathContainment_GoldenVectors | - |
 // | validates | ValidateContainerfilePath | pkg/invowkfile/validation_filesystem.go | TestModulePathContainment_GoldenVectors | - |
 // | lexContains | validateScriptPathContainment | pkg/invowkfile/implementation.go | TestModulePathContainment_ContainmentLayerGolden | filepath.Rel against the raw module path |
-// | readOp | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_GoldenVectors | os.ReadFile follows links physically |
-// | readOp | ResolveWithFSAndModule | pkg/invowkfile/dependency.go | TestModulePathContainment_GoldenVectors | custom-check read |
+// | physContains | checkModuleFilePhysicalContainment | pkg/invowkfile/module_file_containment.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | os.Root Stat of the path relative to the module directory; a dangling or cyclic link is denied (physTarget none); code stricter than model: a link with an absolute target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
+// | readOp | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | physical containment check, then the injected reader on the lexical path; code stricter than model: an absolute link target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
+// | readOp | ResolveWithFSAndModule | pkg/invowkfile/dependency.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | custom-check read, same check; code stricter than model: an absolute link target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
 // | readOp | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_GoldenVectors | - |
 // | workdirCwd | GetEffectiveWorkDir | pkg/invowkfile/invowkfile.go | TestModulePathContainment_ContainerWorkDirGolden | working directory only, never a read target |
 // | workdirCwd | getContainerWorkDir | internal/runtime/container_provision.go | TestModulePathContainment_ContainerWorkDirGolden | - |
@@ -40,11 +41,9 @@
 // | contained | - | formal/alloy/ModulePathContainment.als | TestModulePathContainment_Property | policy: physical resolution and allowed-location predicates only |
 // | allowedVendoredSelf | - | formal/alloy/ModulePathContainment.als | - | policy: a vendored child's own root, for the child's own ops |
 // | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a declared workdir is a cwd, not a read/copy/hash target |
-// | ValidateScriptPath | ValidateScriptPath | pkg/invowkmod/invowkmod.go | - | dead code: no production caller (fix change wires or deletes it) |
-// | checkSymlinkSafety | checkSymlinkSafety | pkg/invowkmod/invowkmod.go | - | dead code: no production caller |
-// | findingF13 | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F13VendoredSymlink | characterisation: invowk_modules/ symlink hole |
+// | mutantPreFixF13LexicalScriptContainment | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_VendoredSymlinkScriptReadDenied | regression: the fixed F13 invowk_modules/ symlink hole; the replay asserts both script reads are denied |
 // | findingF17 | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_F17EnvVendoredSymlink | characterisation: invowk_modules/ symlink hole for env files |
-// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts today's F16 escape (IsModule and Load admit an inner junction, the script read follows it out) and that both copies and the hash stay contained (windows-latest run 43657442894) |
+// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts IsModule and Load still admit an inner junction (F16, windows-latest run 43657442894), the script read through it denied by the physical check (containment pending windows-latest evidence), and both copies and the hash contained |
 
 module ModulePathContainment
 
@@ -179,6 +178,12 @@ pred discoveryFacts { isModuleRejectsLinkedRoot and loadScansNonLinkedRoot }
 // through the junction leaves the module. scannedKinds is the set of link kinds
 // the scan rejects: LinkKind is the fix, SymKind is today's Windows code. The
 // golden fixes Link.kind = SymKind, so admitted[...] above stays exact there.
+// Interim (module-read-physical-containment): the script read is now checked
+// physically through os.Root, which rejects a path through a junction (an
+// absolute target), so the F16 leg asserts that read denied, a verdict
+// "containment pending windows-latest evidence". Until that evidence
+// reclassifies F16, scriptReadScanGuarded still has no physical check and
+// findingF16JunctionScan still reports the escape for the script read.
 pred admittedScanning[m: Module, scannedKinds: set LinkKind] {
 	no m.viaLink
 	not (some l: Link | l.kind in scannedKinds and inTree[m.mroot, l] and not underVendor[m, l])
@@ -210,10 +215,12 @@ pred containCheck[o: Op, mode: ContMode] {
 
 // accepts[o]: the operation's final read/copy/hash effect happens (current
 // code: value-type validate, then the lexical containment check, on an admitted
-// module).
+// module; a script read is also physically contained, through os.Root, since
+// module-read-physical-containment fixed F13).
 pred accepts[o: Op] {
 	o.kind in (ScriptRead + EnvRead + ContainerfileRef + VendorCopy + Hash + Unpack)
 	and validates[o] and lexContains[o] and admitted[o.owner, True, True]
+	and (o.kind = ScriptRead implies physContains[o])
 }
 
 // ---------------------------------------------------------------------------

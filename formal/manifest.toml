@@ -158,9 +158,6 @@ unresolved_elements = [
     "ModulePathContainment: copySkipsInnerLinks",
     "ModulePathContainment: hashSkipsLinks",
     "ModulePathContainment: unpackRejectsEscape",
-    "ModulePathContainment: ValidateScriptPath",
-    "ModulePathContainment: checkSymlinkSafety",
-    "ModulePathContainment: findingF13",
     "ModulePathContainment: findingF17",
     "ModulePathContainment: probeF16",
     "VirtualPathHarness: normalize",
@@ -216,8 +213,6 @@ binding_gaps = [
     { model = "HostCallbackToken", element = "Auth", symbol = "Server.ValidateToken" },
     { model = "HostCallbackToken", element = "End paths", symbol = "ContainerRuntime.prepareContainerExecution" },
     { model = "LockIdentity", element = "v2Parse", symbol = "parseLockFile" },
-    { model = "ModulePathContainment", element = "ValidateScriptPath", symbol = "ValidateScriptPath" },
-    { model = "ModulePathContainment", element = "checkSymlinkSafety", symbol = "checkSymlinkSafety" },
     { model = "ModulePathContainment", element = "unpackRejectsEscape", symbol = "validateDestinationPath" },
     { model = "ScopeConstruction", element = "modUnlessExplicit", symbol = "CheckModuleCollisions" },
     { model = "ScopeConstruction", element = "moduleSourcesHaveIDs", symbol = "moduleIdentityFor" },
@@ -1223,7 +1218,30 @@ the leg fails on a copy or hash error, decision 30). Recorded as \
 findingF16JunctionScan (scan records symlinks only) \
 next to the passing fix configuration scriptReadScanAllKinds, guarded by \
 mutantScanNoKinds; the leg asserts the escape and the property admits the \
-junction hole."""
+junction hole. \
+2026-11-19 (module-read-physical-containment, F13 fixed, decision 46 option \
+(a)): accepts gains physContains for ScriptRead; both resolvers run \
+checkModuleFilePhysicalContainment (os.Root Stat on the module directory) \
+before the injected reader, bound as the physContains row. The golden is \
+replayed twice: a relative pass (fstree RelativeLinkTargets) equal to dAccepts \
+on every vector, and an absolute pass on the instances with a link, in which \
+os.Root denies a link with an absolute target even inside the module (code \
+stricter than model); its class "in-module link with an absolute target" \
+holds 384 ScriptRead vectors, each denied by both resolvers, and the pass \
+fails when the class is empty. Both passes take 3.4-3.9 s locally, and the \
+reach gate 7.3 s, under budget_seconds = 36. Seeded in the helper one at a \
+time and reverted: treating os.Root's escape error as absent fails the golden \
+(1728 disagreements, relative pass first), \
+TestModulePathContainment_VendoredSymlinkScriptReadDenied and \
+TestModulePathContainment_AbsoluteInModuleLinkDenied; following absolute link \
+targets (EvalSymlinks of both sides and a prefix test in place of the os.Root \
+Stat, unresolvable links still denied) fails only the absolute pass's \
+classified vectors (768 disagreements: 384 vectors x 2 resolvers) and \
+TestModulePathContainment_AbsoluteInModuleLinkDenied. findingF13VendoredSymlink \
+is renamed mutantPreFixF13LexicalScriptContainment (pre-fix regression \
+mutant). F16 interim: the leg's script-read arm now asserts the denial \
+(containment pending windows-latest evidence); findingF16JunctionScan keeps \
+reporting the escape for the script read until F16 is reclassified."""
 
 [model.golden]
 command = "golden"
@@ -1280,7 +1298,8 @@ expect = "counterexample"
 property = "scriptReadScanGuarded"
 mutant_of = "scriptReadScanAllKinds"
 
-# Script read containment (physical fix), with the F13 finding.
+# Script read containment (physical fix), with the fixed F13 as its pre-fix
+# regression mutant (module-read-physical-containment).
 [[model.command]]
 name = "scriptReadContainedPhysical"
 body = "readContainedKind[ScriptRead, PhysMode]"
@@ -1301,9 +1320,8 @@ property = "readContainedKind"
 mutant_of = "scriptReadContainedPhysical"
 
 [[model.command]]
-name = "findingF13VendoredSymlink"
+name = "mutantPreFixF13LexicalScriptContainment"
 body = "readContainedKind[ScriptRead, LexMode]"
-finding = "F13"
 expect = "counterexample"
 property = "readContainedKind"
 mutant_of = "scriptReadContainedPhysical"

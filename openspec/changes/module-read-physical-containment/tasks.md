@@ -4,7 +4,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
 
 ## 1. F13: contained script reads (code)
 
-- [ ] 1.1 Add the containment helper in `pkg/invowkfile` (new file, with license header). It opens an `os.Root` on the module path and runs `Stat` on the path relative to it. It returns one of four results (design D2):
+- [x] 1.1 Add the containment helper in `pkg/invowkfile` (new file, with license header). It opens an `os.Root` on the module path and runs `Stat` on the path relative to it. It returns one of four results (design D2):
   - contained;
   - absent: `OpenRoot` not-exist, or `Stat` and `Lstat` both not-exist;
   - escaping: a non-OS error, or `Stat` failing with any OS error while `Lstat` succeeds (an unresolvable link). It wraps `ErrScriptPathTraversal`, with the message "resolves outside module" for an escape, "dangling link" when `Stat` reports not-exist, and "link does not resolve" for another `Stat` error such as a cycle;
@@ -22,67 +22,67 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - a directory without search permission, off Windows.
 
   Each branch needs a test that kills its plausible mutants, because the helper becomes a formal-bindings target.
-- [ ] 1.2 Call the helper from `Implementation.ResolveScriptWithFSAndModule` and `CustomCheckScript.ResolveWithFSAndModule`, after `validateScriptPathContainment` and before the injected reader. Leave `validateScriptPathContainment` unchanged. Verify:
+- [x] 1.2 Call the helper from `Implementation.ResolveScriptWithFSAndModule` and `CustomCheckScript.ResolveWithFSAndModule`, after `validateScriptPathContainment` and before the injected reader. Leave `validateScriptPathContainment` unchanged. Verify:
   - new resolver tests prove a vendored escaping link is denied and the reader is never called;
   - the existing fake-reader tests pass unchanged: `go test ./pkg/invowkfile/ ./internal/app/deps/`.
-- [ ] 1.3 Add a cross-platform test, run on all OSes, in which the module path is given through an alias of the temporary directory (on macOS, the unresolved `os.TempDir()` under `/var`, and on the other OSes a symlinked parent where available). On case-insensitive filesystems, also give the module or script path in a different case. A contained script must be read in each case. Verify with `go test -run <name> ./pkg/invowkfile/`, and note the skip reason per OS where a variant cannot run.
-- [ ] 1.4 Delete `Module.ValidateScriptPath` and `checkSymlinkSafety` (`pkg/invowkmod/invowkmod.go`), and with them their mutation tests (`invowkmod_mutation_test.go`), `TestModule_ValidateScriptPath` (`pkg/invowkmod/operations_test.go:552-584`) and the stale reference in the comment at `operations_test.go:522`, the goplint exception (`.goplint/exceptions.toml`), the `pkg/invowkmod.Module.ValidateScriptPath` entry of the path-matrix coverage registry (`tests/coverage/pathmatrix_coverage_test.go:44`) and the note in `docs/next/cross-platform-windows-improvements.md`. Keep `ContainsPath`. Then grep the tree outside `openspec/` for `ValidateScriptPath\b|checkSymlinkSafety`: only the formal records handled in 3.2-3.3, the seeded sets in `scripts/test_formal*.py` and the historical `tools/mutation/triage/current-full-scan.md` notes may remain. Verify with `go build ./... && go test ./pkg/invowkmod/ ./tests/coverage/ && make check-baseline`.
+- [x] 1.3 Add a cross-platform test, run on all OSes, in which the module path is given through an alias of the temporary directory (on macOS, the unresolved `os.TempDir()` under `/var`, and on the other OSes a symlinked parent where available). On case-insensitive filesystems, also give the module or script path in a different case. A contained script must be read in each case. Verify with `go test -run <name> ./pkg/invowkfile/`, and note the skip reason per OS where a variant cannot run.
+- [x] 1.4 Delete `Module.ValidateScriptPath` and `checkSymlinkSafety` (`pkg/invowkmod/invowkmod.go`), and with them their mutation tests (`invowkmod_mutation_test.go`), `TestModule_ValidateScriptPath` (`pkg/invowkmod/operations_test.go:552-584`) and the stale reference in the comment at `operations_test.go:522`, the goplint exception (`.goplint/exceptions.toml`), the `pkg/invowkmod.Module.ValidateScriptPath` entry of the path-matrix coverage registry (`tests/coverage/pathmatrix_coverage_test.go:44`) and the note in `docs/next/cross-platform-windows-improvements.md`. Keep `ContainsPath`. Then grep the tree outside `openspec/` for `ValidateScriptPath\b|checkSymlinkSafety`: only the formal records handled in 3.2-3.3, the seeded sets in `scripts/test_formal*.py` and the historical `tools/mutation/triage/current-full-scan.md` notes may remain. Verify with `go build ./... && go test ./pkg/invowkmod/ ./tests/coverage/ && make check-baseline`.
 
 ## 2. F13: acceptance through invowk cmd
 
-- [ ] 2.1 Check how testscript can create symlinks: the built-in `symlink` command, and the conditions `commonCondition` offers in `tests/cli/cmd_test.go:88`. No existing txtar creates one. Add a condition if one is needed, and record the platform gating it implies.
-- [ ] 2.2 Add `virtual_module_read_containment.txtar` and its native mirror `native_module_read_containment.txtar`. Each holds a module whose `script.file` is `invowk_modules/x`, where `x` is a symlink to an outside file carrying a sentinel. `invowk cmd` must fail with the containment error, and the sentinel must not appear in stdout or stderr. Verify with `make test-cli` (the `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment` checks included).
+- [x] 2.1 Check how testscript can create symlinks: the built-in `symlink` command, and the conditions `commonCondition` offers in `tests/cli/cmd_test.go:88`. No existing txtar creates one. Add a condition if one is needed, and record the platform gating it implies.
+- [x] 2.2 Add `virtual_module_read_containment.txtar` and its native mirror `native_module_read_containment.txtar`. Each holds a module whose `script.file` is `invowk_modules/x`, where `x` is a symlink to an outside file carrying a sentinel. `invowk cmd` must fail with the containment error, and the sentinel must not appear in stdout or stderr. Verify with `make test-cli` (the `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment` checks included).
 
 ## 3. F13: formal artefacts
 
-- [ ] 3.1 Add the opt-in relative-target option to `internal/testutil/fstree`. It creates each link after its target, with the target relative to the link's directory. Use it only in the `ModulePathContainment` golden replay's relative pass (design D4). Verify with a fstree unit test, and check that `TestVirtualPathHarness_GoldenVectors` is unchanged.
-- [ ] 3.1a Make `TestModulePathContainment_GoldenVectors` replay the golden in two passes (design D4):
+- [x] 3.1 Add the opt-in relative-target option to `internal/testutil/fstree`. It creates each link after its target, with the target relative to the link's directory. Use it only in the `ModulePathContainment` golden replay's relative pass (design D4). Verify with a fstree unit test, and check that `TestVirtualPathHarness_GoldenVectors` is unchanged.
+- [x] 3.1a Make `TestModulePathContainment_GoldenVectors` replay the golden in two passes (design D4):
   - relative pass: the code equals `dAccepts` and the touched node on every vector;
   - absolute pass (today's absolute targets, only on instances with at least one link): a `ScriptRead` whose `ref` reaches a `Link` with an in-module target and which `dAccepts` accepts is classified "in-module link with an absolute target" and must be denied, touching nothing; every other vector equals `dAccepts`;
   - the pass fails when the `ScriptRead` class is empty, and logs the class size for the calibration text.
 
   Verify with `go test -run TestModulePathContainment_GoldenVectors ./internal/app/moduleops/`, and record the replay's wall time against the `[reach]` budget.
-- [ ] 3.2 Model: `accepts` gains `physContains` for `ScriptRead`. Update the header comment and the correspondence table:
+- [x] 3.2 Model: `accepts` gains `physContains` for `ScriptRead`. Update the header comment and the correspondence table:
   - add a `physContains` row bound to the helper (`physContains` resolves in the `.als`, so it gets no `unresolved_elements` entry);
   - mark the `readOp` rows of both resolvers "code stricter than model: absolute link target denied inside the module (golden absolute pass)", naming the golden test and the 3.5 test;
   - turn `findingF13` into a binding row for the renamed replay, its element cell naming `mutantPreFixF13LexicalScriptContainment`;
   - remove the `ValidateScriptPath` and `checkSymlinkSafety` rows.
 
   Then run `make formal-golden`. Verify that the golden fingerprint changed, and that `TestModulePathContainment_GoldenVectors` passes both passes: in the relative pass `dAccepts` equals the real script and custom-check decisions on every `ScriptRead` instance, and in the absolute pass it equals them except on the classified vectors, which are denied.
-- [ ] 3.3 Manifest:
+- [x] 3.3 Manifest:
   - rename `findingF13VendoredSymlink` to `mutantPreFixF13LexicalScriptContainment` (drop `finding`, keep `mutant_of` and `expect = "counterexample"`);
   - remove `ModulePathContainment: findingF13` from `[correspondence] unresolved_elements`, because the row element now resolves as a manifest command name (never rename an entry in that list or add one: it only shrinks);
   - remove `ModulePathContainment: ValidateScriptPath` and `ModulePathContainment: checkSymlinkSafety` from `unresolved_elements`, and their two `[triage] binding_gaps` rows;
   - update the calibration text, including the absolute pass's class size.
 
   The seeded sets in `scripts/test_formal.py` and `scripts/test_formal_mutation.py` are subset checks and may keep the removed entries. Verify with `python3 scripts/formal.py correspondence`, `make formal-reach`, `make test-scripts` (which runs `scripts/test_formal.py`) and `python3 scripts/formal_mutation.py triage --check`.
-- [ ] 3.4 Invert `TestModulePathContainment_F13VendoredSymlink` and rename it, for example to `TestModulePathContainment_VendoredSymlinkScriptReadDenied`. It must assert that both the implementation read and the custom-check read are denied and return no sentinel. Update the golden comment ("F13 instances included"). Verify with `go test -run 'TestModulePathContainment' ./internal/app/moduleops/`.
-- [ ] 3.5 Add `TestModulePathContainment_AbsoluteInModuleLinkDenied`, which tests the script read here and gains its env arm in 5.4, and name it in the `readOp` rows. Verify with `go test -run TestModulePathContainment_AbsoluteInModuleLinkDenied ./internal/app/moduleops/`.
-- [ ] 3.6 Rapid property:
+- [x] 3.4 Invert `TestModulePathContainment_F13VendoredSymlink` and rename it, for example to `TestModulePathContainment_VendoredSymlinkScriptReadDenied`. It must assert that both the implementation read and the custom-check read are denied and return no sentinel. Update the golden comment ("F13 instances included"). Verify with `go test -run 'TestModulePathContainment' ./internal/app/moduleops/`.
+- [x] 3.5 Add `TestModulePathContainment_AbsoluteInModuleLinkDenied`, which tests the script read here and gains its env arm in 5.4, and name it in the `readOp` rows. Verify with `go test -run TestModulePathContainment_AbsoluteInModuleLinkDenied ./internal/app/moduleops/`.
+- [x] 3.6 Rapid property:
   - drop the `invowk_modules/` exemption;
   - judge accept by the resolver's result;
   - generate relative as well as absolute link targets;
   - keep the F16 junction exemption only while F16 remains recorded for the script read.
 
   Verify with `make formal-rapid-deep` at the budget recorded in the manifest.
-- [ ] 3.7 F16 leg: change the script-read arm of `TestModulePathContainment_F16Junction` to assert denial and no sentinel, keep the other arms as recorded, and add a note to the `findingF16JunctionScan` model note and the F16 calibration text: the script arm's verdict is "containment pending windows-latest evidence", and the model keeps reporting its escape until group 7 (design D6, interim state). Do NOT edit `scriptReadScanGuarded` or `findingF16JunctionScan` in this commit, because `make formal` would fail there; that edit belongs to group 7. Verify that `make formal` stays green, and that the leg compiles on Windows with `GOOS=windows go vet ./internal/app/moduleops/`.
-- [ ] 3.8 Seed two plausible defects in the new helper, one at a time (design D4):
+- [x] 3.7 F16 leg: change the script-read arm of `TestModulePathContainment_F16Junction` to assert denial and no sentinel, keep the other arms as recorded, and add a note to the `findingF16JunctionScan` model note and the F16 calibration text: the script arm's verdict is "containment pending windows-latest evidence", and the model keeps reporting its escape until group 7 (design D6, interim state). Do NOT edit `scriptReadScanGuarded` or `findingF16JunctionScan` in this commit, because `make formal` would fail there; that edit belongs to group 7. Verify that `make formal` stays green, and that the leg compiles on Windows with `GOOS=windows go vet ./internal/app/moduleops/`.
+- [x] 3.8 Seed two plausible defects in the new helper, one at a time (design D4):
   - treating an escape error as absent: the relative pass or the F13 replay must fail;
   - following absolute link targets, for example `EvalSymlinks` of both sides and a prefix test in place of the `os.Root` `Stat`: the absolute pass's classified vectors or the 3.5 test must fail.
 
   Revert each and record the results in the manifest calibration text. No reach or `unresolved_elements` entry is added for `physContains`. Verify with `make formal-reach`.
-- [ ] 3.9 `formal/README.md`: mark the F13 row "Fixed", naming `mutantPreFixF13LexicalScriptContainment`; record the code-stricter-than-model case; describe junction coverage as it now is. Verify with `make formal` and `make check-agent-docs`.
+- [x] 3.9 `formal/README.md`: mark the F13 row "Fixed", naming `mutantPreFixF13LexicalScriptContainment`; record the code-stricter-than-model case; describe junction coverage as it now is. Verify with `make formal` and `make check-agent-docs`.
 
 ## 4. F13: docs and commit
 
-- [ ] 4.1 Docs:
+- [x] 4.1 Docs:
   - `website/docs/modules/validating.mdx`: script and custom-check reads are physically contained, `invowk_modules/` included, and links with absolute targets are denied;
   - the same text in its pt-BR copy;
   - `.agents/skills/module-security/SKILL.md` and its check catalog (SC-01).
 
   Verify with `cd website && npm run build`.
-- [ ] 4.2 Add a test where `collectInvowkfileInterpreterDiagnostics` (`cmd/invowk/validate_interpreter_diagnostics.go`) runs on a module whose `script.file` and custom-check file escape through an `invowk_modules/` link. A recording reader must never be called for the outside path. Also add a custom-check test where the escaping file makes the check fail with the traversal error (`internal/app/deps`). Verify with `go test ./cmd/invowk/ ./internal/app/deps/`.
-- [ ] 4.3 Run `make tidy`, `make license-check` and `make lint`, then commit F13 (signed, under the heavy-command lock, with a 600000 ms timeout). Verify with `git log --show-signature -1`.
+- [x] 4.2 Add a test where `collectInvowkfileInterpreterDiagnostics` (`cmd/invowk/validate_interpreter_diagnostics.go`) runs on a module whose `script.file` and custom-check file escape through an `invowk_modules/` link. A recording reader must never be called for the outside path. Also add a custom-check test where the escaping file makes the check fail with the traversal error (`internal/app/deps`). Verify with `go test ./cmd/invowk/ ./internal/app/deps/`.
+- [x] 4.3 Run `make tidy`, `make license-check` and `make lint`, then commit F13 (signed, under the heavy-command lock, with a 600000 ms timeout). Verify with `git log --show-signature -1`.
 
 ## 5. F17: contained module env files (one commit)
 

@@ -31,6 +31,14 @@ Saída para um módulo válido com um invowkfile:
 
 - **Sem symlinks**: Symlinks não são permitidos em módulos por motivos de segurança. Eles podem escapar do diretório do módulo durante extração (vulnerabilidade zip-slip).
 
+### Contenção de Leitura em Tempo de Execução
+
+A validação não examina `invowk_modules/`, então um link colocado ali não é reportado. Mesmo assim, o Invowk se recusa a ler através dele: quando um comando é executado, o `script.file` de um módulo e todo `file` de script de checagem personalizada só são lidos se o caminho, com todos os links seguidos, resolver dentro do diretório do módulo. Isso inclui caminhos em `invowk_modules/`.
+
+- Um caminho que resolve fora do módulo, ou um link que não resolve (pendente ou parte de um ciclo), falha com `script path escapes module boundary` antes de qualquer leitura ou execução.
+- Um link com alvo absoluto é negado mesmo quando o alvo está dentro do módulo. Use um link relativo ou, melhor ainda, um arquivo real.
+- Vincular um módulo irmão, ou qualquer diretório externo, em `invowk_modules/` e executar um script através desse link não funciona. Faça cópias reais com `invowk module vendor`.
+
 ### Checagens de Compatibilidade
 
 - **Nomes reservados no Windows**: Arquivos chamados `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9` ou `LPT1`-`LPT9` criam um problema de validação de compatibilidade. O módulo é inválido e `invowk validate` termina com status 1 porque esses nomes não podem ser extraídos de modo confiável no Windows.

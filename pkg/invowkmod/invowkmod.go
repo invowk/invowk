@@ -6,7 +6,6 @@ import (
 	_ "embed" // required for go:embed invowkmod_schema.cue
 	"errors"
 	"fmt"
-	"os"
 	slashpath "path"
 	"path/filepath"
 	"regexp"
@@ -598,44 +597,6 @@ func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.Filesy
 	return fspath.JoinStr(m.Path, nativePath)
 }
 
-// ValidateScriptPath checks if a script path is valid for this module.
-// Returns an error if the path is invalid (e.g., escapes module directory, is a symlink).
-func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
-	if scriptPath == "" {
-		return errors.New("script path cannot be empty")
-	}
-
-	// Normalize separators and clean before classifying absoluteness/traversal
-	// so the rejection set is identical on every host (Linux/macOS/Windows).
-	// Without this, filepath.IsAbs is platform-native and silently accepts
-	// Windows drive paths like "C:\foo" on non-Windows hosts, and backslash
-	// traversal like "a\..\..\escape" is treated as a single filename on Linux
-	// because '\' is not a separator there. Both classes are the same v0.10.0
-	// cross-platform divergence the SubdirectoryPath.Validate normalization
-	// solved.
-	cleanSlash := slashpath.Clean(strings.ReplaceAll(string(scriptPath), "\\", "/"))
-	if strings.HasPrefix(cleanSlash, "/") || isWindowsDrivePath(cleanSlash) {
-		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
-	}
-	// Check for path escaping (e.g., "../something") before native conversion.
-	if cleanSlash == ".." || strings.HasPrefix(cleanSlash, "../") {
-		return fmt.Errorf("script path '%s' escapes the module directory", scriptPath)
-	}
-
-	// Convert to native path for module-root joining.
-	nativePath := filepath.FromSlash(cleanSlash)
-
-	// Resolve the full path
-	fullPath := filepath.Join(string(m.Path), nativePath)
-
-	// Check if the path or any parent is a symlink
-	if err := m.checkSymlinkSafety(fullPath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // ContainsPath checks if the given path is inside this module.
 func (m *Module) ContainsPath(path types.FilesystemPath) bool {
 	absPath, err := filepath.Abs(string(path))
@@ -678,40 +639,6 @@ func (m Module) Validate() error {
 	return nil
 }
 
-// checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the module.
-func (m *Module) checkSymlinkSafety(path string) error {
-	const symlinkEscapeErrMsg = "path resolves to location outside module directory (symlink escape)"
-
-	// Get the real path by resolving all symlinks
-	realPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		// If the file doesn't exist, that's fine - it'll be caught elsewhere
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("cannot resolve symlinks in path: %w", err)
-	}
-
-	// Ensure the real path is still within the module
-	moduleRealPath, err := filepath.EvalSymlinks(string(m.Path))
-	if err != nil {
-		return fmt.Errorf("cannot resolve module path: %w", err)
-	}
-
-	relPath, err := filepath.Rel(moduleRealPath, realPath)
-	if err != nil {
-		return errors.New(symlinkEscapeErrMsg)
-	}
-	if relPath == ".." {
-		return errors.New(symlinkEscapeErrMsg)
-	}
-	if strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-		return errors.New(symlinkEscapeErrMsg)
-	}
-
-	return nil
-}
-
 // Error implements the error interface for InvalidModuleError.
 func (e *InvalidModuleError) Error() string {
 	return types.FormatFieldErrors("module", e.FieldErrors)
@@ -719,17 +646,3 @@ func (e *InvalidModuleError) Error() string {
 
 // Unwrap returns ErrInvalidModule for errors.Is() compatibility.
 func (e *InvalidModuleError) Unwrap() error { return ErrInvalidModule }
-
-// isWindowsDrivePath reports whether the (already slash-normalized, cleaned)
-// path begins with a Windows drive-letter prefix like "C:" or "c:". Combined
-// with a leading-slash check, this gives a host-independent absolute-path
-// classifier matching the SubdirectoryPath.Validate normalization.
-//
-//goplint:ignore -- cleanPath is a normalized intermediate, not a domain path value.
-func isWindowsDrivePath(cleanPath string) bool {
-	if len(cleanPath) < 2 || cleanPath[1] != ':' {
-		return false
-	}
-	first := cleanPath[0]
-	return (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z')
-}

@@ -519,8 +519,7 @@ version: "1.0.0"
 // recognizes them, otherwise get joined with the module root. UNC and
 // Windows-rooted forms are not absolute on any platform without a drive
 // letter, so they get joined with the module root too. Traversal vectors
-// are NOT rejected by ResolveScriptPath itself — that's ValidateScriptPath's
-// job; the resolver only joins.
+// are NOT rejected by ResolveScriptPath itself; the resolver only joins.
 func TestModule_ResolveScriptPath(t *testing.T) {
 	t.Parallel()
 
@@ -547,42 +546,6 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 		ValidRelative:      pathmatrix.PassAny(nil),
 	}
 	pathmatrix.Resolver(t, modulePath, resolve, expect)
-}
-
-// TestModule_ValidateScriptPath runs the canonical seven-vector matrix
-// against Module.ValidateScriptPath. After the cross-platform-absolute fix
-// (isCrossPlatformAbsolutePath helper), every absolute form is rejected on
-// every platform regardless of host — not just the dialect filepath.IsAbs
-// recognizes for the running platform. Backslash traversal is still
-// silently accepted on non-Windows because backslashes aren't separators
-// there; locking that current behavior in via OnLinux/OnDarwin overrides.
-func TestModule_ValidateScriptPath(t *testing.T) {
-	t.Parallel()
-
-	module := &Module{
-		Path: types.FilesystemPath(filepath.Join(t.TempDir(), "mycommands.invowkmod")),
-	}
-
-	pathmatrix.Validator(t, func(input string) error {
-		return module.ValidateScriptPath(types.FilesystemPath(input))
-	}, pathmatrix.Expectations{
-		UnixAbsolute:    pathmatrix.Reject(),
-		WindowsDriveAbs: pathmatrix.Reject(),
-		WindowsRooted:   pathmatrix.Reject(),
-		UNC:             pathmatrix.Reject(),
-		SlashTraversal:  pathmatrix.Reject(),
-		// Backslash traversal: rejected on Windows where backslashes
-		// are separators; on Linux/macOS the normalization replaces
-		// backslashes with forward slashes too, so this is now also
-		// rejected everywhere.
-		BackslashTraversal: pathmatrix.Reject(),
-		ValidRelative:      pathmatrix.PassAny(nil),
-
-		ExtraVectors: map[string]pathmatrix.VectorCase{
-			"empty_is_invalid":     {Input: "", Expect: pathmatrix.Reject()},
-			"single_dot_traversal": {Input: "../other/script.sh", Expect: pathmatrix.Reject()},
-		},
-	})
 }
 
 func TestModule_ContainsPath(t *testing.T) {

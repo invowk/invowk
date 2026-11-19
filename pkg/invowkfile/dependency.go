@@ -336,6 +336,9 @@ func (s CustomCheckScript) ResolveWithFSAndModule(modulePath FilesystemPath, rea
 		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
 			return "", err
 		}
+		if err := containModuleScriptRead(*s.File, scriptPath, modulePath); err != nil {
+			return "", err
+		}
 		if readFile == nil {
 			return "", ErrScriptReaderRequired
 		}

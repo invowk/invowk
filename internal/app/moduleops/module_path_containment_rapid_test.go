@@ -5,7 +5,6 @@ package moduleops
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"pgregory.net/rapid"
@@ -19,9 +18,11 @@ import (
 // TestModulePathContainment_Property generates module trees with in-module,
 // vendored, and escaping links at larger scope than the golden, materialises
 // them, and checks the composed real behaviour: a script read that a module can
-// trigger stays physically inside the module, unless it is the recorded F13
-// invowk_modules/ hole or the recorded F16 junction hole. Any other escape is a
-// policy violation.
+// trigger, judged by the resolver's result, stays physically inside the
+// module, unless it is the recorded F16 junction hole. Any other escape, an
+// invowk_modules/ link of either kind included (the fixed F13 hole), is a
+// policy violation. Symlink targets are drawn absolute or relative to the
+// link's directory; junction targets are always absolute.
 //
 // Links are symlinks, or directory junctions where the host offers them
 // (required on Windows, design D6 of harden-formal-instruments). A junction
@@ -100,6 +101,11 @@ func TestModulePathContainment_Property(t *testing.T) {
 				if escaping {
 					target = sentinel
 				}
+				if rapid.Bool().Draw(rt, "relativeTarget") {
+					if target, err = filepath.Rel(linkDir, target); err != nil {
+						rt.Fatalf("relative target: %v", err)
+					}
+				}
 				fstree.MustSymlink(rt, target, filepath.Join(linkDir, "x"))
 			}
 			if rapid.Bool().Draw(rt, "useLink") {
@@ -120,8 +126,11 @@ func TestModulePathContainment_Property(t *testing.T) {
 			return os.ReadFile(p)
 		}
 		content, err := impl.ResolveScriptWithFSAndModule("", invowkfile.FilesystemPath(mod), reader)
-		if err != nil || opened == "" {
-			return
+		if err != nil {
+			return // denied (or a read error): nothing was accepted
+		}
+		if opened == "" {
+			rt.Fatalf("script %q accepted without a read", scriptPath)
 		}
 		escaped := sameFile(rt, opened, sentinel)
 		if markerRead := content == marker; markerRead != escaped {
@@ -130,17 +139,16 @@ func TestModulePathContainment_Property(t *testing.T) {
 		if !escaped {
 			return // contained: the expected case
 		}
-		// An escape is only acceptable as a recorded finding: F13, the path
-		// crossed an invowk_modules/ link (either kind; the hole is the unscanned
-		// directory), or F16, the path crossed a junction, which Load's scan does
-		// not record (windows-latest run 43657442894). A non-vendored symlink
-		// escape still fails.
+		// An escape is only acceptable as the recorded finding F16: the path
+		// crossed a non-vendored junction, which Load's scan does not record
+		// (windows-latest run 43657442894). The physical containment check is
+		// expected to deny it too (pending windows-latest evidence); this
+		// carve-out goes when F16 is reclassified. An escape through
+		// invowk_modules/ (F13, fixed) fails like any other.
 		if junction && scriptPath == "x/secret" {
 			return // recorded finding F16
 		}
-		if !strings.HasPrefix(filepath.ToSlash(scriptPath), "invowk_modules/") {
-			rt.Fatalf("policy violation: script %q (junction %v) escaped the module to the outside sentinel without the invowk_modules hole", scriptPath, junction)
-		}
+		rt.Fatalf("policy violation: script %q (junction %v) escaped the module to the outside sentinel", scriptPath, junction)
 	})
 }
 
