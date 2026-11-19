@@ -103,12 +103,17 @@ jobs:
             runner: ubuntu-latest
             engine: docker
             test-mode: full
+            # restrict-tui-server-bind D2 row this engine must select (keep in
+            # sync with ci.yml): 8 = rootful Docker, loopback + bridge gateway.
+            tui-plan-row: "8"
 
           # Ubuntu with Podman
           - os: ubuntu-latest
             runner: ubuntu-latest
             engine: podman
             test-mode: full
+            # D2 row (keep in sync with ci.yml): 11 = rootless Podman with pasta.
+            tui-plan-row: "11"
 
           # Windows (unit tests only - container runtime requires Linux)
           - os: windows
@@ -204,6 +209,7 @@ jobs:
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_PARALLEL: "2"
+          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}
         run: |
           PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | tr '\n' ' ')"
           gotestsum \
@@ -220,6 +226,7 @@ jobs:
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}
+          INVOWK_TEST_REQUIRE_TMUX: "1"
         run: |
           gotestsum \
             --format testdox \
