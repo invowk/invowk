@@ -8,10 +8,10 @@
 
 - Replace the 22 stale `standardVirtualAnchorsForOS` entries in `tools/mutation/triage/formal-bindings.toml` and `tools/mutation/baselines/formal-bindings-baseline.json` with the survivors of a fresh report-only `make mutation-formal` run on origin/main 567e7b00. The S4 run expects 5 survivors, all in the `windows` case; the fresh run decides the final set.
 - Triage the new survivors as `binding-gap`. The reason names the Linux-only mutation lane and `TestStandardVirtualAnchorsMatchLegacy`. That test stays a unit test and does not become a killer of the formal-bindings profile.
-- Give each `[[survivor]]` ledger entry the mutant's own source text: the `removed` and `added` diff lines that go-mutesting hashes into the stable id. The fresh run backfills them for every baselined survivor it regenerates.
+- Give each `[[survivor]]` ledger entry the mutant's own source text: the `removed` and `added` diff lines that go-mutesting hashes into the stable id, plus a `context` line for insertion-only mutants. The fresh run backfills them for every baselined survivor it regenerates. The 20 `[triage] orphaned_survivors` are exempt, because the plan no longer targets their functions.
 - Add a per-entry staleness check to `triage --check`:
   - The recorded text must hash, with the baseline's file and mutator, to the entry's id.
-  - The `removed` lines must still appear, in order, in the current body of the entry's symbol, and the symbol must exist.
+  - The symbol must exist, and its anchor lines must still appear in order, starting inside the symbol's current body.
   - The check fails on each stale entry and names its id and symbol. It needs no mutation run and no `go list`, and it also runs under `--base`.
 - Let a baseline mutant record its own rerun-evidence `digest`. Replacing 22 entries then does not re-stamp the baseline's single digest, which would invalidate the evidence of the ~397 other survivors.
 - Add a shrink-only `[triage] stale_survivors` list to `formal/manifest.toml`. It holds survivors that the check flags, or that the fresh run cannot anchor, outside the anchors refresh, so the check can land without fixing them here. A base that already has the first three `[triage]` lists seeds it.
@@ -34,7 +34,7 @@ None.
 - `mutation-testing`:
   - "Formal-bindings baseline and triage ledger" gains the per-entry staleness check and the `removed`/`added` anchor fields.
   - "Deterministic formal-bindings execution" accepts a per-mutant evidence digest.
-  - "Triage check lists binding gaps and orphaned survivors", "The triage lists cannot grow against the base" and "The triage lists are seeded only from a base without them" gain the `stale_survivors` list and its seeding rule.
+  - "Triage check lists binding gaps and orphaned survivors", "The triage lists cannot grow against the base" and "The triage lists are seeded only from a base without them" gain the `stale_survivors` list and its seeding rule. "The unplanned lists only shrink" is scoped to the original two `[triage]` lists.
 
 ## Impact
 

@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Formal-bindings baseline and triage ledger
-Accepted formal-bindings survivors SHALL be stored in a baseline separate from the root baseline. Each SHALL be classified in a checked triage ledger as `equivalent`, `abstraction`, `binding-gap`, `model-gap`, or `defect`, identified by model and element, and anchored to the code it mutates by the `removed` and `added` lines of its diff. The triage check SHALL run in `make test-scripts` and in `mutation-formal-baseline-update`.
+Accepted formal-bindings survivors SHALL be stored in a baseline separate from the root baseline. Each SHALL be classified in a checked triage ledger as `equivalent`, `abstraction`, `binding-gap`, `model-gap`, or `defect`, identified by model and element, and anchored to the code it mutates by the `removed` and `added` lines of its diff (plus, for a mutant that only inserts lines, the `context` line it inserts after). The triage check SHALL run in `make test-scripts` and in `mutation-formal-baseline-update`.
 
 #### Scenario: Ledger matches baseline
 - **WHEN** the triage check runs
@@ -30,16 +30,20 @@ Accepted formal-bindings survivors SHALL be stored in a baseline separate from t
 - **THEN** it SHALL fail, naming the id and symbol, unless go-mutesting's stable-id hash of the entry's file, the baseline's mutator for that id, and those lines equals the entry's id
 
 #### Scenario: Survivor whose mutated code is gone
-- **WHEN** the entry's symbol no longer names a function in its file, or the entry's `removed` lines, each trimmed of surrounding whitespace, no longer appear as consecutive lines of that function's current body
+- **WHEN** the entry's symbol no longer names a function in its file, or the entry's anchor lines (its `removed` lines, or its `context` line when it removes none), each trimmed of surrounding whitespace, no longer appear in order in the current file starting at a line inside that function's body
 - **THEN** the triage check SHALL fail and name the entry's id, its symbol, and which of the two conditions failed
 
 #### Scenario: Edits elsewhere in a bound file
-- **WHEN** a bound file is edited so that lines move, or code outside an entry's `removed` lines changes, while every entry's `removed` lines still appear in its symbol's body
+- **WHEN** a bound file is edited so that lines move, or code outside an entry's `removed` lines changes, while every entry's anchor lines still appear in its symbol's body
 - **THEN** the staleness check SHALL pass
 
 #### Scenario: Unanchored entry
-- **WHEN** a ledger entry lacks `removed` or `added`, or `removed` is empty
-- **THEN** the triage check SHALL fail and name the id and symbol, unless the id is listed in `[triage] stale_survivors`
+- **WHEN** a ledger entry lacks `removed` or `added`, or has an empty `removed` and no `context`
+- **THEN** the triage check SHALL fail and name the id and symbol, unless the id is listed in `[triage] stale_survivors` or `[triage] orphaned_survivors`
+
+#### Scenario: Orphaned survivors are not anchored
+- **WHEN** a ledger entry's id is listed in `[triage] orphaned_survivors`
+- **THEN** the triage check SHALL NOT require or check its anchor, because the plan no longer targets its function
 
 #### Scenario: Staleness check is static
 - **WHEN** the triage check runs, with or without `--base`
@@ -89,12 +93,16 @@ The formal-bindings executor SHALL run with the wrapper's fixed rapid seed, disa
 - **THEN** `triage --check` SHALL NOT fail because of it, and SHALL print it in the report with its symbol and the failed condition
 
 #### Scenario: Stale entry
-- **WHEN** a listed row is bound, unbound by design, or names no row, or a listed id is not in the ledger or its row is bound, or an id listed in `stale_survivors` passes the staleness and anchor checks
+- **WHEN** a row listed in `binding_gaps` is bound, unbound by design, or names no row; or an id listed in `orphaned_survivors` is not in the ledger or its row is bound; or an id listed in `stale_survivors` is not in the ledger or passes the staleness and anchor checks
 - **THEN** `triage --check` SHALL fail and name the stale entry
 
 #### Scenario: Unknown triage key
 - **WHEN** `[triage]` contains a key other than `binding_gaps`, `orphaned_survivors` or `stale_survivors`
 - **THEN** manifest validation SHALL fail
+
+#### Scenario: Missing stale list key
+- **WHEN** `[triage]` has no `stale_survivors` key
+- **THEN** manifest validation SHALL fail, so deleting the key cannot reopen its seeding in a later change
 
 ### Requirement: The triage lists cannot grow against the base
 `triage --check` SHALL read the base commit's `formal/manifest.toml` and fail on any entry of `[correspondence] unresolved_elements`, `[triage] binding_gaps`, `[triage] orphaned_survivors`, or `[triage] stale_survivors` that the base does not list. The base SHALL be `--base`, else a non-empty `INVOWK_TRIAGE_BASE`, else the merge-base of `HEAD` and `origin/main`. A base that cannot be determined or read SHALL fail closed with a message naming the base, `INVOWK_TRIAGE_BASE`, and `--base`.
@@ -130,6 +138,17 @@ The growth check SHALL treat a base manifest that has none of the first three li
 - **WHEN** the base manifest has the first three lists and no `stale_survivors`, as for the change that introduces it
 - **THEN** the growth check SHALL pass for `stale_survivors` with a seeding notice, and SHALL check the first three lists for growth as usual
 
+### Requirement: The unplanned lists only shrink
+The `[triage]` lists `binding_gaps` and `orphaned_survivors` SHALL be seeded once by this change: 19 binding gaps and 20 orphaned survivors (`Auth` 8, `unpackRejectsEscape` 12). Later changes SHALL NOT add entries. The survivor-triage follow-up SHALL empty `orphaned_survivors`. Listed entries SHALL be printed as a report, and the ledger's `[[survivor]]` entries SHALL NOT change to seed the lists. `stale_survivors` follows its own requirement, "The stale survivors list only shrinks".
+
+#### Scenario: Seeded list passes
+- **WHEN** `triage --check` runs on the tree that seeds the lists
+- **THEN** it SHALL pass, report 19 listed gaps, 20 listed orphans, and the derived by-design rows, and need no `[[survivor]]` edit
+
+#### Scenario: Removing a listed entry fails
+- **WHEN** one listed entry that still applies is removed from `[triage]`
+- **THEN** `triage --check` SHALL fail
+
 ## ADDED Requirements
 
 ### Requirement: The stale survivors list only shrinks
@@ -137,7 +156,7 @@ The growth check SHALL treat a base manifest that has none of the first three li
 
 #### Scenario: Seeded from the refresh run
 - **WHEN** the change that introduces the list lands
-- **THEN** the list SHALL hold exactly the baselined ids, outside `standardVirtualAnchorsForOS`, that the fresh report-only run could not anchor or that fail the staleness check, and SHALL be empty if there are none
+- **THEN** the list SHALL hold exactly the baselined ids, outside `standardVirtualAnchorsForOS` and outside `orphaned_survivors`, that the fresh report-only run could not anchor or that fail the staleness check, and SHALL be empty if there are none
 
 #### Scenario: Stale survivor fixed since the base
 - **WHEN** the base lists a stale survivor whose ledger entry now passes the staleness and anchor checks, or whose id left the ledger

@@ -42,11 +42,18 @@ The three anchors entries that the text rule does not flag are `virtualAnchorTmp
 ## Decisions
 
 ### D1. Anchor each entry with the diff lines that define its id
-Each `[[survivor]]` gets `removed` and `added`: the exact removed and added lines of the mutant's go-mutesting diff, as TOML multi-line literal strings with their indentation. The check validates them in two ways:
+Each `[[survivor]]` gets `removed` and `added`: the exact removed and added lines of the mutant's go-mutesting diff, as TOML multi-line literal strings with their indentation. An insertion-only mutant (no removed lines) also gets `context`, the unchanged line just before its first added line.
+
+A read-only check of the 3747 mutants in the primary checkout's existing `artifacts/mutation/**/go-mutesting-agentic.json` reports supports this design:
+- the formula below reproduces every reported id;
+- 70 mutants remove no line (`loop/range_break` 66, `branch/case` 4), which is why `context` exists;
+- 8 have removed lines separated by context, and some of those remove a comment after the function that go/printer re-flowed. So the removed lines are matched in order but not as one consecutive block, and only the first must lie inside the function.
+
+The check validates the fields in two ways:
 - **Integrity.** `md5(file \0 baseline mutator \0 removed \0 added)` must equal the id. The anchor then cannot be typed wrong or point at the wrong mutant, and anyone can verify it without tools.
 - **Staleness.**
   - The symbol must still name a function in `file`. The check uses the existing `function_decls` and `find_function`, with no `go list`.
-  - The `removed` lines, each stripped of surrounding whitespace, must appear as consecutive lines of the symbol's current body, also stripped.
+  - The anchor lines (`removed`, or `context` when `removed` is empty), each stripped of surrounding whitespace, must appear in order in the current file. The first one must be inside the symbol's current body.
   - Failures name the id, the symbol, and which condition failed.
 
 Alternatives considered:
@@ -63,6 +70,7 @@ The report-only `make mutation-formal` run on 567e7b00 writes per-group `report.
 2. For every baselined id the run regenerates, it writes `removed` and `added` into the ledger entry.
 3. A baselined id that the run does not regenerate cannot be anchored.
    - An `standardVirtualAnchorsForOS` id leaves the ledger and the baseline (D4).
+   - An id listed in `[triage] orphaned_survivors` is exempt from anchoring. The 20 orphans are exactly the ledger survivors whose function the plan no longer targets (`validateDestinationPath` 12, `Server.ValidateToken` 8). A spec-stage plan build confirmed that every other ledger symbol is planned. Anchoring them would only list them twice.
    - Any other such id goes to `[triage] stale_survivors` (D5) and is listed in the result, not fixed.
 
 The run regenerates the old `Tmp`/`Work`/`return anchors` ids as killed. Those stay out of the baseline because D4 removes every old anchors entry.
@@ -87,7 +95,7 @@ Alternatives considered:
 ### D5. `[triage] stale_survivors`, a shrink-only list seeded by this change
 Entries outside the anchors set that D1 flags, or that D2 cannot anchor, are listed by id in `formal/manifest.toml` `[triage] stale_survivors`. A listed id is exempt from the D1 checks but printed in the report. A listed id that passes both checks fails as a stale list entry. The list joins the growth check as a fourth list.
 
-The measurement predicts an empty list. It is still added now, empty or not, so that:
+The line-text measurement and the orphan exemption predict an empty list; task 1.3 confirms it. It is still added now, empty or not, so that:
 - the follow-up has a mechanism;
 - an entry that a later edit breaks cannot be silently deleted from the baseline to make the check green. Removing a ledger id still requires the baseline to change with it (the existing ledger-equals-baseline rule), and that is visible in review.
 
@@ -106,7 +114,7 @@ Alternatives considered:
 ### D6. Calibration
 Calibration proves the check fails on the old ledger and passes on the new one.
 - It builds the old ledger, anchored, from a dry-run in a throwaway worktree at `90e56ad`. `mutation-formal-dry-run` lists candidate mutants and their diffs without running tests. If its reports carry no diffs, the calibration runs the old-tree report-only run in that worktree instead.
-- It runs the old ledger's 22 anchored entries through the new check on the current tree. The expected result is that the check fails and names 19 ids with "removed lines not in body". The three regenerated-but-killed ids are explained, not flagged.
+- It runs the old ledger's 22 anchored entries through the new check on the current tree. Expected result, from the spec-stage line-text measurement and to be confirmed by task 1.3: the check fails and names 19 ids. The three whose ids the new body regenerates and kills (`Tmp`/`Work` field-clear, `return anchors`) are current mutants, not stale ones. They are explained, not flagged. This differs from the brief's "the 22 stale entries": the check detects mutants that no longer exist, not survivors that are now killed.
 - It records the new ledger passing.
 - Unit tests in `scripts/test_formal_mutation.py` cover each failure condition with fixtures, so the calibration does not depend on the throwaway worktree.
 
@@ -115,6 +123,7 @@ Calibration proves the check fails on the old ledger and passes on the new one.
 - [The report-only run lists baselined escapes only in a filtered form] → Before backfilling, check that `report.json` contains every baselined id the run regenerates. Otherwise compute the ids from the `diff` of all reported mutants (escaped and killed), whose ids D1's hash reproduces.
 - [The ledger grows by about 2 multi-line strings per entry, roughly +1600 lines] → This is accepted for a machine-checkable anchor. `make check-file-length` covers only Go files.
 - [A duplicate `removed` block elsewhere in the body masks a real staleness] → Accepted (D1). The id integrity check prevents mis-anchoring.
+- [The formal-verification skill says "Do not `mutation-formal-rerun` ledger ids of the removed body" (`.agents/skills/formal-verification/SKILL.md:217-218`)] → Task 4.2 reruns only the new ids from the current body, never the 22 removed ones. The skill's report-only run belongs in a throwaway `git worktree add --detach`, so task 1.1 runs it there.
 - [The mutation wrapper reverts `cmd/`, `internal/` and `pkg/` and refuses a dirty tree (`.agents/rules/commands.md`)] → Do the run first, on a clean committed worktree, under the heavy-command lock, before any uncommitted edit.
 - [Per-mutant digests make evidence harder to reason about] → They exist only between partial refreshes. The full regeneration removes them (spec scenario "Full regeneration drops per-mutant digests").
 
