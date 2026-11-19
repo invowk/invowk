@@ -172,10 +172,7 @@ func TestLockFileSaveWritesChangedContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			path := filepath.Join(t.TempDir(), LockFileName)
-			if err := os.WriteFile(path, []byte(saveTestLock(saveTestModules()).toCUE()), 0o644); err != nil {
-				t.Fatalf("WriteFile(lock) error = %v", err)
-			}
+			path := writeSaveTestFile(t, saveTestLock(saveTestModules()).toCUE())
 			lock := tt.lock()
 			if err := lock.Save(path); err != nil {
 				t.Fatalf("Save() error = %v", err)

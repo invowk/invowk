@@ -371,8 +371,8 @@ func (l *LockFile) Save(path string) error {
 		return err
 	}
 	existing := InspectLockFile(types.FilesystemPath(path))
-	if existing.Present && existing.StatErr == nil && existing.ParseErr == nil && existing.LockFile != nil &&
-		l.sameContent(existing.LockFile) {
+	// InspectLockFile sets LockFile only for a present file that parsed.
+	if existing.LockFile != nil && l.sameContent(existing.LockFile) {
 		l.Generated = existing.LockFile.Generated
 		return nil
 	}
