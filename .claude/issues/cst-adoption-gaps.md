@@ -52,10 +52,15 @@ Decisions taken with the maintainer (2026-11-14):
 | N15 | DECIDE — product | `pager` and non-selectable `table` with stdout redirected (after v0.17.0; scheduled: group C) | S |
 | N16 | EVOLVE — security | F18: Windows junction admitted by the virtual-runtime path policy (scheduled with F14: group B2) | M |
 | N17 | EVOLVE — bug | terminal-emulating `-i` viewer, needed for no-server `-i` runs (N11 spike; not yet proposed) | M |
-| N18 | EVOLVE — bug | `modulesync` Sync rewrites an unchanged lock with a new `generated:` timestamp (the `TestSyncFreshCacheReproducesLockedHash` "flake"; not yet proposed) | S |
+| N18 | EVOLVE — bug | `modulesync` Sync rewrites an unchanged lock with a new `generated:` timestamp (the `TestSyncFreshCacheReproducesLockedHash` "flake"; FIXED by PR #186, 768fa8c1) | S |
 | N19 | EVOLVE — CI | `ci.yml`/`release.yml` test-leg parity check (fixed: `scripts/check-ci-release-parity.py`, PR `chore/ci-parity-and-template-refresh`) | S |
 | N20 | EVOLVE — tests | formal-bindings plan-inputs digest leaves out the killer data files (PR #184 follow-up; not yet proposed) | S |
 | N21 | EVOLVE — tests | insertion-only mutant after a blank line has an empty anchor `context` (PR #184 follow-up; not yet proposed) | S |
+| N22 | EVOLVE — bug | `module sync/update/add/remove` print "Lock file updated" when `LockFile.Save` skipped the write (#186 follow-up; scheduled before the next tag) | S |
+| N23 | DECIDE — product | lock-format questions: UTC `generated:`, and unknown CUE fields a no-op save no longer normalises (#186 follow-up; deferred) | S |
+| N24 | EVOLVE — security | native and container runtimes re-open `SelectedScriptFilePath()` after the contained read (TOCTOU residual; outside B1; not yet proposed) | S |
+| N25 | EVOLVE — CI | Dependabot version updates have not run since 2026-06-23; security updates disabled (maintainer repository setting) | S |
+| N26 | EVOLVE — supply chain | website npm residuals: `tinypool` (critical), `serialize-javascript` (high) and `uuid` (moderate) pinned by Docusaurus 3.10.2, no fix inside Docusaurus 3 | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -356,11 +361,13 @@ guide ("set `TMPDIR` if needed").
   components emit `CSI > 4;2 m` (xterm modifyOtherKeys, level 2) and `CSI > 1 u` (kitty
   keyboard protocol, flag 1), seen in a v0.16.0 capture. Unverified: the child may then
   expect key encodings the viewer never produces. Separate change after v0.17.0.
-- **N18 — `modulesync` Sync rewrites an unchanged lock file (product bug, was a flake).**
-  See "Flaky tests" below: `TestSyncFreshCacheReproducesLockedHash` fails
-  deterministically when more than 1 s passes between its two syncs, because Sync writes
-  the lock again with a new `generated:` timestamp although nothing else changed. Fix: do
-  not rewrite (or re-stamp) a lock whose content is unchanged.
+- **N18 — `modulesync` Sync rewrites an unchanged lock file (product bug, was a flake;
+  FIXED by PR #186, 768fa8c1).** See "Flaky tests" below:
+  `TestSyncFreshCacheReproducesLockedHash` failed deterministically when more than 1 s
+  passed between its two syncs, because Sync wrote the lock again with a new `generated:`
+  timestamp although nothing else changed. `LockFile.Save` (`pkg/invowkmod/lockfile.go`)
+  now skips the write when the valid lock on disk has equal content, so the file stays
+  byte-identical. Follow-ups: N22, N23.
 - **N19 — `release.yml` test legs drift from `ci.yml` (fixed).** The first v0.17.0 tag run
   failed because #173 added `tui-plan-row` and `INVOWK_TEST_TUI_PLAN_ROW` to `ci.yml` only
   (#183 fixed `release.yml`; `INVOWK_TEST_REQUIRE_TMUX` was missing there too).
@@ -380,6 +387,59 @@ guide ("set `TMPDIR` if needed").
   before its first added line; when that line is blank the context is empty and the
   refresh cannot anchor it, so the entry must be anchored by hand. Fix: use the nearest
   non-blank line before the insertion (or several context lines).
+- **N22 — `module sync/update/add/remove` print "Lock file updated" even when
+  `LockFile.Save` skipped the write (#186 follow-up; scheduled before the next tag).**
+  Since #186, `Save` writes nothing when the valid lock on disk has equal content, but
+  `Save` returns only an error, so the CLI cannot tell a skip from a write and always
+  reports an update. Sites: `cmd/invowk/module_deps.go` :198 (`runModuleAdd`), :237-239
+  (`runModuleRemove`), :284 (`runModuleSync`) and :364 (`runModuleUpdate`); the four
+  `lock.Save` calls in `internal/app/modulesync/resolver.go` (`Add`, `Remove`, `Update`,
+  `Sync`). Fix: `Save` reports whether it wrote, the resolver passes that through in its
+  results, and the CLI prints "unchanged" on a skip.
+- **N23 — lock-format questions (#186 follow-up; deferred).** Two questions the skipped
+  write raises, not yet decided: (a) whether `generated:` should be written in UTC, so the
+  stamp does not carry the writer's zone offset; (b) the open decode keeps unknown CUE
+  fields in the lock file, and a no-op save no longer rewrites (and so no longer
+  normalises) such a file. Decide whether unknown fields should count as a content
+  difference, be rejected, or stay as they are.
+- **N24 — the native and container runtimes re-open `SelectedScriptFilePath()` after the
+  contained read (TOCTOU residual; outside B1's scope).** The script content is read
+  through the containment check, but for interpreter scripts `internal/runtime/native.go`
+  (:240, :454) passes the path itself to the interpreter and
+  `internal/runtime/container_provision.go` (:318) maps it into `/workspace`, so the
+  interpreter re-opens the file: one swapped between the read and the re-open runs
+  unchecked content. Residual risk; fix by running from the already-read content (a temp
+  file, as for inline scripts) or an open handle.
+- **N25 — Dependabot version updates have not run since 2026-06-23.** `.github/dependabot.yml`
+  has not changed since 2026-01-16. The last Dependabot PRs merged were #68 and #89
+  (2026-03-17); every one opened after that was closed unmerged, the last (#124, #125)
+  opened 2026-06-22 and closed 2026-06-23. This looks like GitHub's pause of version
+  updates on inactivity (inferred; the pause state of version updates is not readable
+  through the API). Dependabot security updates are disabled:
+  `GET /repos/invowk/invowk/automated-security-fixes` returns
+  `{"enabled":false,"paused":true}` (2026-11-19). Unpausing (and enabling security updates) is a repository setting for the
+  maintainer; agents do not change GitHub settings.
+- **N26 — website npm residuals with no fix inside Docusaurus 3 (2026-11-19 audit).**
+  After `npm audit fix` (PR `chore/deps-security-refresh`, run twice: the second run
+  bumped `express` 4.22.2 to 4.22.3, whose `qs ~6.16.0` cleared the top-level `qs` 6.15.4
+  moderates GHSA-4mjr-xmp4-gh2g and GHSA-6pq8-jhm2-2vcw and removed the nested
+  `body-parser` copy), `npm audit` reports 22 vulnerable packages (15 critical, 1 high,
+  6 moderate) that all come from three, each pinned under `@docusaurus/core` 3.10.2, the
+  latest 3.x release:
+  - `tinypool` 1.1.1 (critical, GHSA-5gmw-xhrv-c9v3 and GHSA-85c8-ppgw-ccpr, fixed in
+    2.1.2; `@docusaurus/core` requires `^1.0.2`);
+  - `serialize-javascript` 6.0.2 (high, GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v and
+    GHSA-m5mm-p8h7-m29v, fixed in 7.1.3; `copy-webpack-plugin` 11.0.0 requires `^6.0.0`
+    and `css-minimizer-webpack-plugin` 5.0.1 `^6.0.1`, both under `@docusaurus/bundler`);
+  - `uuid` 8.3.2 (moderate, GHSA-w5hq-g745-h8pq, fixed in 11.1.1), through `sockjs`
+    0.3.24 under `webpack-dev-server`, which `@docusaurus/core` requires.
+
+  None of the fixes is semver-compatible with its parent's range, so no `overrides`
+  entry; npm's only offer is `--force`, which would install `@docusaurus/core` 3.7.0.
+  All three are build-time or dev-server only (the site is static). The other 19 flagged
+  packages (the 14 critical Docusaurus packages, `@docusaurus/bundler`, the two webpack
+  plugins, `sockjs`, `webpack-dev-server`) are flagged only through these three. Fix: the
+  Docusaurus release that moves off them (4.x), or a later 3.x.
 
 ## Why CST keeps its production paths out of invowk anyway
 
@@ -439,7 +499,7 @@ its hash; once, on Windows, it did not.
 **Diagnosed 2026-11-19: a product bug, not a flake (N18).** With more than 1 s between
 the two syncs the test fails deterministically: Sync rewrites the unchanged lock with a
 new `generated:` timestamp. Every sighting in this section is a run whose two syncs
-happened to straddle a second boundary.
+happened to straddle a second boundary. Fixed by PR #186 (768fa8c1).
 
 Seen again 2026-11-15 on Linux (Fedora, local `make test` of S4 at `3670d1e5`): same
 assertion in gotestsum's first pass, passed in its re-run. 200 isolated runs passed on S4 and on `main` (`d7e4feb4`). Hypothesis

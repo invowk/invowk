@@ -28,6 +28,12 @@ const RULE_FLOOR = '.agents/rules/agent-workflows.md'
 const RUNBOOK = '.agents/runbooks/change-flow.md'
 const CHECKLIST = '.agents/rules/checklist.md'
 
+// Every stage that commits gets this: the pre-commit hooks (routed goplint gate
+// on a go.mod change, lint, the Windows cross-build) take about 5 minutes, and a
+// commit under the heavy lock also waits for the lock, which counts against any
+// foreground Bash timeout. So a locked commit always runs in the background.
+const COMMIT_TIMEOUT = 'Run every `git commit` under the lock in the background with an rc= line appended to its log, and wait for it with the Monitor wait above; never in the foreground, not even with a 600000 ms timeout: the pre-commit hooks take about 5 minutes, and the time spent waiting for the lock counts against that timeout too.'
+
 // What each domain lens loads. Agent files in .agents/agents/ are not registered
 // agent types: they are named in the prompt, never passed as agentType.
 const LENS_BRIEFS = {
@@ -392,7 +398,7 @@ function specPrompt(a, mode) {
   const own = mode === 'fast-lane'
     ? '\nFast lane: after writing the artifacts, review them yourself against the openspec conventions and the repo rules they touch, and fix what you find. Say in summary what the self-review checked.'
     : ''
-  return context(a, 'spec') + '\n\n' + baseCheck(a) + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet.' + own +
+  return context(a, 'spec') + '\n\n' + baseCheck(a) + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
     '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.'
 }
 
@@ -406,7 +412,7 @@ function specReviewPrompt(a, round) {
 function specFixPrompt(a, review) {
   // The review is blocking as a whole; the reviewer may not have marked any single
   // finding "blocking", so the fixer sees every finding and the reviewer's summary.
-  return context(a, 'spec-fix') + '\n\nThe independent spec review is blocking. Invoke Skill openspec-update-change for "' + a.change + '" to resolve it, then commit (signed, under the lock). ' +
+  return context(a, 'spec-fix') + '\n\nThe independent spec review is blocking. Invoke Skill openspec-update-change for "' + a.change + '" to resolve it, then commit (signed, under the lock). ' + COMMIT_TIMEOUT + ' ' +
     'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' +
     'Reviewer summary: ' + review.summary + '\nFindings:\n' + JSON.stringify(review.findings, null, 1)
 }
@@ -416,7 +422,7 @@ function specFixPrompt(a, review) {
 // review must not block a healthy run.
 function implementPrompt(a, firstStage) {
   return context(a, 'implement') + '\n\n' + (firstStage ? baseCheck(a) : '') + 'Invoke Skill openspec-apply-change for "' + a.change + '" in the worktree. Write tests with the code and run the tests of what you changed. ' +
-    'Commit (signed, under the lock; messages per .agents/rules/git.md), push ' + a.branch + ' and open or update its DRAFT pull request (never ready, never merge).\n' +
+    'Commit (signed, under the lock; messages per .agents/rules/git.md), push ' + a.branch + ' and open or update its DRAFT pull request (never ready, never merge). ' + COMMIT_TIMEOUT + '\n' +
     'Formal lane (' + RUNBOOK + ', "Formal lane"): run `cd ' + a.worktree + ' && python3 scripts/formal.py affected --event pull_request --base ' + a.base + ' --head HEAD`; when it prints run=true, also run ' +
     '`python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach` there, and fix what fails. Leave `make formal` to CI unless Java is present.\n' +
     'Return head_sha, pr (the number) and formal_affected.'
@@ -424,7 +430,7 @@ function implementPrompt(a, firstStage) {
 
 function simplifyPrompt(a) {
   return context(a, 'simplify') + '\n\nInvoke Skill simplify with args "the committed diff `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD`" and apply its cleanups inside the worktree only. ' +
-    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. Return head_sha.'
+    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.'
 }
 
 function selectorPrompt(a) {
@@ -479,10 +485,15 @@ function fixPrompt(a, review) {
     'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
     (a.base === 'origin/main' ? '' : ', and it diffs against main, so drop findings that belong to ' + a.base + '\'s own commits') +
-    '); apply the confirmed ones; list each rejected one with its reason. Commit them locally (signed, under the lock) BEFORE the long gates, so a stopped run leaves them committed; push only after step 3.\n' +
+    '); apply the confirmed ones; list each rejected one with its reason. Commit them locally (signed, under the lock) BEFORE the long gates, so a stopped run leaves them committed; push only after step 3. ' + COMMIT_TIMEOUT + '\n' +
     '3. Run checklist steps 2-10 (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. Skip step 1 (/simplify): it belongs to the simplify stage, and a cleanup here would land after the review (' + RULE_FLOOR + '). Step 11 (/learn) runs in step 4, under its limits. ' +
     'ONLY if this change rewrote a function body bound by .agents/rules/formal-bindings.md, refresh that function\'s ledger entries in this PR, on the FINAL tree after the review fixes are committed (`triage --check` fails otherwise, and `[triage] stale_survivors` only shrinks; procedure: the partial-refresh steps of .agents/skills/formal-verification/SKILL.md). ' +
     'Order: commit the review fixes and the fixes of checklist steps 2-3 (tidy, lint) first, then run the mutation and the refresh; if a later gate makes you edit a bound function body, redo both on the new HEAD (that redo is allowed: "once" is once per final tree). ' +
+    'BEFORE `make mutation-formal`, decide from the plan. `cd ' + a.worktree + ' && python3 scripts/formal_mutation.py plan --out <scratch dir>` must exit 0: a failed plan writes no file and never means "nothing planned", so fix the failure, or put it in maintainer_asks and return status blocked. ' +
+    'Then run `cd ' + a.worktree + ' && python3 scripts/formal_mutation.py symbols --plan <scratch dir>/formal-plan.json <[file:]symbol> ...` with every rewritten bound symbol, plus `FILE:OLD` for each renamed or deleted bound function. It labels each one `planned`, `removal-only` (a renamed or deleted function: it is no longer in functions[], yet its ledger entries still need the refresh), `unplanned` (still declared, but its row is unbound, for example `LockFile.Save`: no planned mutants) or `unknown`, and ends with `-> refresh` or `-> skip`; ' +
+    'it exits 1 on an unknown name or a plan with an empty functions[]: fix the names, and never decide by eye or with jq. ' +
+    'Only when it prints `-> skip`, skip `make mutation-formal` and the refresh (about 35 minutes for nothing), still run `python3 scripts/formal_mutation.py triage --check`, and name in summary every symbol you checked with its label; if that `triage --check` fails, go back to the refresh path below, or put the failure in maintainer_asks and return status blocked. ' +
+    'Otherwise refresh the planned and removal-only symbols: ' +
     'Run `make mutation-formal` once, report-only, in a throwaway `git worktree add --detach` at HEAD, under the lock, backgrounded with an rc= line and waited for with Monitor; ' +
     'then in ' + a.worktree + ' run `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` for the rewritten symbols (or `MUTATION_FORMAL_STALE=1` for every symbol whose entries fail the anchor check) with `MUTATION_REPORT_DIR=<throwaway>/artifacts/mutation`, under the lock; ' +
     'for a renamed or deleted bound function, list `FILE:OLD` (removal-only) and the new name in the same MUTATION_FORMAL_SYMBOL, so ids that moved are added instead of refused; ' +

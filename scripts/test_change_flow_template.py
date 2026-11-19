@@ -127,6 +127,36 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fixP.includes('commit the baseline, the ledger and the reruns'))
   assert.ok(fixP.includes('A survivor you cannot classify goes into maintainer_asks') && fixP.includes('return status blocked'))
   assert.ok(!fixP.includes('report-only, in a throwaway worktree, ONLY'), 'no report-only-only mutation run')
+  {
+    // lesson (#186): check the formal-bindings plan before the 35-minute run.
+    const planAt = fixP.indexOf('python3 scripts/formal_mutation.py plan --out')
+    const runAt = fixP.indexOf('Run `make mutation-formal` once')
+    assert.ok(planAt >= 0 && runAt >= 0 && planAt < runAt, 'the plan check comes before make mutation-formal')
+    const symbolsAt = fixP.indexOf('python3 scripts/formal_mutation.py symbols --plan')
+    assert.ok(planAt < symbolsAt && symbolsAt < runAt, 'the symbols check reads the plan before make mutation-formal')
+    assert.ok(!fixP.includes('jq -r'), 'no jq or by-eye matching of the plan')
+    assert.ok(fixP.includes('never decide by eye or with jq'), 'the symbols subcommand decides')
+    // a failed plan is not "nothing planned".
+    assert.ok(fixP.includes('--out <scratch dir>` must exit 0') && fixP.includes('never means "nothing planned"'), 'the plan must exit 0')
+    assert.ok(fixP.includes('put it in maintainer_asks and return status blocked. '), 'a plan failure blocks unless fixed')
+    // renamed or deleted bound functions are removal-only, never a skip.
+    assert.ok(fixP.includes('plus `FILE:OLD` for each renamed or deleted bound function'), 'renames and deletes are checked')
+    assert.ok(fixP.includes('`removal-only` (a renamed or deleted function'), 'a rename or delete is removal-only')
+    assert.ok(fixP.includes('Only when it prints `-> skip`, skip `make mutation-formal`'), 'only an all-unplanned list skips the run')
+    assert.ok(fixP.includes('Otherwise refresh the planned and removal-only symbols'), 'removal-only symbols are refreshed')
+    assert.ok(fixP.includes('name in summary every symbol you checked'), 'the skip names the symbols checked')
+    // a failing triage --check after a skip goes back to the refresh or blocks.
+    assert.ok(fixP.includes('if that `triage --check` fails, go back to the refresh path below, or put the failure in maintainer_asks and return status blocked'), 'a triage failure after a skip is handled')
+  }
+  // lesson: the pre-commit hooks take about 5 minutes; every committing stage says so.
+  for (const label of ['spec', 'implement', 'simplify', 'fix']) {
+    const p = calls.find((c) => c.label === label).prompt
+    assert.ok(p.includes('Run every `git commit` under the lock in the background with an rc= line'), label + ' gets the commit timeout')
+    assert.ok(p.includes('never in the foreground, not even with a 600000 ms timeout') && p.includes('waiting for the lock counts'), label + ' backgrounds a locked commit')
+  }
+  for (const label of ['spec-review', 'lenses', 'review:base', 'review:code-review']) {
+    assert.ok(!calls.find((c) => c.label === label).prompt.includes('Run every `git commit`'), label + ' does not commit')
+  }
   assert.deepEqual(result.failed_lenses, [])
   assert.ok(result.next.startsWith('ready for maintainer merge'))
 }
@@ -321,6 +351,7 @@ for (const bad of [{ ...good, worktree: '/w/invowk/.' }, { ...good, worktree: '/
   const { calls } = await go(good, { 'spec-review': review, 'spec-review-2': review })
   const fix = calls.find((c) => c.label === 'spec-fix')
   assert.ok(fix.prompt.includes('untestable requirement') && fix.prompt.includes('one major gap'))
+  assert.ok(fix.prompt.includes('Run every `git commit` under the lock in the background'), 'spec-fix gets the commit timeout')
 }
 
 // a fast-lane spec fixed after implementation stops for re-implementation.
