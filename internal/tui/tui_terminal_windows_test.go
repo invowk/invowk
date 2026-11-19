@@ -36,3 +36,16 @@ func TestResolveComponentTerminal_RegularFileConsoleIsNoTerminal(t *testing.T) {
 	assertClosed(t, in)
 	assertClosed(t, out)
 }
+
+func TestPlatformTerminalReleaser_KeepsStdinAndClosesOutput(t *testing.T) {
+	t.Parallel()
+
+	out := tempTerminalFile(t, "conout")
+	if err := platformTerminalReleaser(os.Stdin, out)(); err != nil {
+		t.Fatalf("release() error = %v", err)
+	}
+	assertClosed(t, out)
+	if _, err := os.Stdin.Stat(); err != nil {
+		t.Fatalf("os.Stdin.Stat() after release = %v, want stdin left open", err)
+	}
+}

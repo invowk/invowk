@@ -42,11 +42,18 @@ type (
 	// console. Unix needs none (nil): an opened /dev/tty is the terminal.
 	consoleProbe func(f *os.File) error
 
+	// terminalReleaser returns the function that releases the handles an
+	// opener returned.
+	terminalReleaser func(in, out *os.File) func() error
+
 	// terminalResolver holds the inputs of the terminal-selection rule, so the
 	// rule can be unit-tested without a real terminal.
 	terminalResolver struct {
-		open       terminalOpener
-		probe      consoleProbe
+		open  terminalOpener
+		probe consoleProbe
+		// release releases the opened handles; nil closes both at once
+		// (closeTerminalFiles).
+		release    terminalReleaser
 		isTerminal func(f *os.File) bool
 		stdin      *os.File
 		stderr     *os.File
@@ -73,6 +80,7 @@ func newTerminalResolver() terminalResolver {
 	return terminalResolver{
 		open:       platformTerminalOpener,
 		probe:      platformConsoleProbe(),
+		release:    platformTerminalReleaser,
 		isTerminal: isTerminalFile,
 		stdin:      os.Stdin,
 		stderr:     os.Stderr,
@@ -91,9 +99,13 @@ func resolveComponentTerminal(component ComponentType) (componentTerminal, error
 //
 // The result never involves stdout, which carries only the component's result.
 func (r terminalResolver) resolve(component ComponentType) (componentTerminal, error) {
-	in, out, err := openProbedTerminal(r.open, r.probe)
+	release := r.release
+	if release == nil {
+		release = closeTerminalFiles
+	}
+	in, out, err := openProbedTerminal(r.open, r.probe, release)
 	if err == nil {
-		return componentTerminal{in: in, out: out, close: closeTerminalFiles(in, out)}, nil
+		return componentTerminal{in: in, out: out, close: release(in, out)}, nil
 	}
 
 	if r.stdin != nil && r.stderr != nil && r.isTerminal(r.stdin) && r.isTerminal(r.stderr) {
@@ -118,9 +130,9 @@ func (t componentTerminal) programOptions() []tea.ProgramOption {
 }
 
 // openProbedTerminal opens the controlling terminal and, when a probe is given,
-// checks both handles. A handle that fails the probe closes both and counts as
-// a terminal that could not be opened.
-func openProbedTerminal(open terminalOpener, probe consoleProbe) (in, out *os.File, err error) {
+// checks both handles. A handle that fails the probe releases both and counts
+// as a terminal that could not be opened.
+func openProbedTerminal(open terminalOpener, probe consoleProbe, release terminalReleaser) (in, out *os.File, err error) {
 	in, out, err = open()
 	if err != nil {
 		return nil, nil, err
@@ -131,7 +143,7 @@ func openProbedTerminal(open terminalOpener, probe consoleProbe) (in, out *os.Fi
 	for _, f := range []*os.File{in, out} {
 		if probeErr := probe(f); probeErr != nil {
 			probeErr = fmt.Errorf("%s is not a usable console: %w", f.Name(), probeErr)
-			return nil, nil, errors.Join(probeErr, closeTerminalFiles(in, out)())
+			return nil, nil, errors.Join(probeErr, release(in, out)())
 		}
 	}
 	return in, out, nil

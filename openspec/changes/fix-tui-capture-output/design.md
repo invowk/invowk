@@ -60,7 +60,7 @@ From the program log:
 
 A new helper in `internal/tui` resolves a `componentTerminal` (input reader, output writer, close function). Every directly rendered `tea.NewProgram` call passes it through `tea.WithInput` and `tea.WithOutput`, and closes it after `Run`. Resolution order:
 
-1. `tea.OpenTTY()`: `/dev/tty` on Unix, `CONIN$` and `CONOUT$` on Windows. On Windows the resolver then probes both handles with `windows.GetConsoleMode` (`golang.org/x/sys/windows`, already a dependency). If either probe fails, no usable console is attached: it closes both handles and treats step 1 as failed. It also closes `CONIN$` itself when the open fails halfway (Context). The probe is injected, so the rule is unit-tested on every OS, and a Windows-only test asserts that a regular file fails the real probe.
+1. `tea.OpenTTY()`: `/dev/tty` on Unix, `CONIN$` and `CONOUT$` on Windows. On Windows the resolver then probes both handles with `windows.GetConsoleMode` (`golang.org/x/sys/windows`, already a dependency). If either probe fails, no usable console is attached: it closes both handles and treats step 1 as failed. It also closes `CONIN$` itself when the open fails halfway (Context). The probe is injected, so the rule is unit-tested on every OS, and a Windows-only test asserts that a regular file fails the real probe. On Windows, keys come from stdin itself when stdin is a console, and from `CONIN$` only otherwise: Bubble Tea cancels a pending read only on the stdin handle (`ultraviolet .../cancelreader_windows.go:28-40`), and `os.File.Close` waits for a pending read. So a separately opened `CONIN$` is closed in the background after `Run`, and stdin is never closed.
 2. If step 1 fails, and both stdin and stderr are terminals, use stdin and stderr.
 3. Otherwise fail with `ErrNoTerminal`, which wraps the open error and names the component.
 
@@ -108,6 +108,7 @@ A new helper in `internal/tui` resolves a `componentTerminal` (input reader, out
 - [`confirm` without a terminal exits 1, like "No"] → Unchanged from today. The stderr error names the cause. A distinct exit code would need a `cli-exit-codes` change, outside this change.
 - [Opening `/dev/tty` affects processes that redirect all three streams and expect no UI] → They get the UI on their terminal, which is where an interactive prompt belongs. Without a terminal they get `ErrNoTerminal` instead of Bubble Tea's error.
 - [Windows terminals that are not consoles (mintty without ConPTY)] → `CONIN$` may open but fail the console-mode probe. Step 2 then uses stdin/stderr if they are consoles, otherwise `ErrNoTerminal`. Not covered end to end by CI; the probe and the fallback are unit-tested.
+- [Windows `CONIN$` input when stdin is redirected] → Bubble Tea reads it with a reader it cannot cancel (as it already did before this change when stdin was not a console), so a keypress after the component exits can be consumed by the leftover read. The handle is closed in the background so the component does not block. Not covered end to end by CI.
 - [Capture tests skip on macOS and Windows] → No tmux there. The resolver rule is unit-tested on those legs, and the Linux legs cannot skip the capture tests (D4).
 - [`-i` sessions in no-route modes] → Still refused by S3 in this change. S5b decides whether they can run without a server.
 
