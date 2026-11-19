@@ -19,6 +19,9 @@ import (
 // observations (PROBE: lines) about directory junctions and never fails on
 // behaviour.
 func TestProbeWindowsJunctions(t *testing.T) {
+	// Intentional failure: gotestsum's testdox format prints a test's log only
+	// when it fails, so the PROBE lines reach the CI log this way.
+	t.Cleanup(func() { t.Error("PROBE: intentional failure to surface the log") })
 	base := fstree.TempRoot(t)
 	root := filepath.Join(base, "root")
 	inside := filepath.Join(root, "inside")
