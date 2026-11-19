@@ -1,0 +1,24 @@
+# Test: invowk module update leaves an equivalent lock file byte-identical
+# The seeded lock is valid but not in the writer's canonical layout: an old
+# generated: value with a +00:00 offset and hand-made spacing. Update has no
+# module to re-resolve, so it saves a lock equal in meaning; the file must not
+# be rewritten (spec module-lock-persistence: Unchanged lock is not rewritten).
+
+cd $WORK
+
+cp invowkmod.lock.cue lock.before
+exec invowk module update
+stdout 'Update Module Dependencies'
+stdout 'No modules to update'
+cmp invowkmod.lock.cue lock.before
+
+-- invowkmod.cue --
+module: "io.example.lockunchanged"
+version: "1.0.0"
+
+-- invowkmod.lock.cue --
+// hand-formatted lock file
+version:   "2.0"
+generated: "2001-02-03T04:05:06+00:00"
+modules: {
+}

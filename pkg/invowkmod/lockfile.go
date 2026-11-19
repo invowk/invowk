@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -357,10 +358,25 @@ func LoadLockFile(path string) (*LockFile, error) {
 
 // Save writes the lock file to disk in CUE format.
 // Uses fspath.AtomicWriteFile (temp file + rename) for crash safety.
+//
+// When path already holds a valid lock whose format version and module entries
+// equal l's, Save writes nothing: the file stays byte-identical, generated:
+// and layout included, and l.Generated takes the value read from the file.
+// Otherwise (no file, an unreadable, oversized or unparseable one, or different
+// content) Save stamps l.Generated with the write time and replaces the file.
+// For the formal models, a skipped write equals an atomic replace with
+// identical content.
 func (l *LockFile) Save(path string) error {
 	if err := l.validateForSave(); err != nil {
 		return err
 	}
+	existing := InspectLockFile(types.FilesystemPath(path))
+	if existing.Present && existing.StatErr == nil && existing.ParseErr == nil && existing.LockFile != nil &&
+		l.sameContent(existing.LockFile) {
+		l.Generated = existing.LockFile.Generated
+		return nil
+	}
+	l.Generated = time.Now()
 	content := l.toCUE()
 
 	// Ensure parent directory exists
@@ -397,6 +413,12 @@ func (l *LockFile) HasModule(key ModuleRefKey) bool {
 func (l *LockFile) GetModule(key ModuleRefKey) (LockedModule, bool) {
 	mod, ok := l.Modules[key]
 	return mod, ok
+}
+
+// sameContent reports whether l and other lock the same modules: equal format
+// version, equal key sets and an equal entry per key. Generated is ignored.
+func (l *LockFile) sameContent(other *LockFile) bool {
+	return l.Version == other.Version && maps.Equal(l.Modules, other.Modules)
 }
 
 func (l *LockFile) validateForSave() error {

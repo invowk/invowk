@@ -10,6 +10,8 @@ O lock file (`invowkmod.lock.cue`) registra as versões exatas de todas as depen
 
 Ele é gerado automaticamente por `invowk module sync` e `invowk module update`.
 
+Um comando de módulo só reescreve o lock file quando a versão do formato ou alguma entrada de módulo muda. Quando o resultado é igual ao lock file já existente no disco, o arquivo fica idêntico byte a byte, então execuções repetidas não o deixam modificado no Git.
+
 ## Exemplo de Lock File
 
 <Snippet id="modules/dependencies/lockfile-example" />
@@ -19,7 +21,7 @@ Ele é gerado automaticamente por `invowk module sync` e `invowk module update`.
 | Campo | Descrição |
 |-------|-----------|
 | `version` | Versão do formato do lock file (atual: `"2.0"`) |
-| `generated` | Timestamp de criação do lock file |
+| `generated` | Timestamp da última escrita que mudou o conteúdo do lock file |
 | `modules` | Mapa de chaves de módulo para entradas travadas |
 
 ## Campos de Entrada de Módulo

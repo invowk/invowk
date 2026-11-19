@@ -2177,7 +2177,7 @@ invowk module remove https://github.com/user/module.git
 
 ### Lock File
 
-Module resolution creates an `invowkmod.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments:
+Module resolution creates an `invowkmod.lock.cue` file that records the exact versions resolved. This ensures reproducible builds across environments. Module commands rewrite it only when its content changes, and `generated:` records the time of that write; an unchanged lock stays byte-identical:
 
 ```cue
 // invowkmod.lock.cue - Auto-generated lock file
