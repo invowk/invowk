@@ -8,22 +8,14 @@ import (
 	"errors"
 	"os"
 	"testing"
-	"time"
 )
 
-// waitClosed fails unless f is closed within a generous deadline: the releaser
-// closes a separately opened input in the background.
-func waitClosed(t *testing.T, f *os.File) {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		if _, err := f.Stat(); errors.Is(err, os.ErrClosed) {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%s: still open 10s after release, want it closed in the background", f.Name())
-		}
-		time.Sleep(10 * time.Millisecond)
+// recordingCloser closes each handle synchronously and records it, standing in
+// for the background close of a separately opened CONIN$.
+func recordingCloser(closed *[]*os.File) func(*os.File) {
+	return func(f *os.File) {
+		*closed = append(*closed, f)
+		_ = f.Close()
 	}
 }
 
@@ -67,23 +59,31 @@ func TestPlatformTerminalReleaser_KeepsStdinAndClosesOutput(t *testing.T) {
 	}
 }
 
-func TestPlatformTerminalReleaser_ClosesSeparateInputAndOutput(t *testing.T) {
+func TestWindowsTerminalReleaser_ClosesSeparateInputAndOutput(t *testing.T) {
 	t.Parallel()
 
 	in, out := tempTerminalFile(t, "conin"), tempTerminalFile(t, "conout")
-	if err := platformTerminalReleaser(in, out)(); err != nil {
+	var closed []*os.File
+	if err := windowsTerminalReleaser(in, out, recordingCloser(&closed))(); err != nil {
 		t.Fatalf("release() error = %v", err)
 	}
 	assertClosed(t, out)
-	waitClosed(t, in)
+	if len(closed) != 1 || closed[0] != in {
+		t.Fatalf("closeInput got %v, want only the separately opened input", closed)
+	}
+	assertClosed(t, in)
 }
 
-func TestPlatformTerminalReleaser_HalfOpenClosesInput(t *testing.T) {
+func TestWindowsTerminalReleaser_HalfOpenClosesInput(t *testing.T) {
 	t.Parallel()
 
 	in := tempTerminalFile(t, "conin")
-	if err := platformTerminalReleaser(in, nil)(); err != nil {
+	var closed []*os.File
+	if err := windowsTerminalReleaser(in, nil, recordingCloser(&closed))(); err != nil {
 		t.Fatalf("release() error = %v, want nil when only CONIN$ was opened", err)
 	}
-	waitClosed(t, in)
+	if len(closed) != 1 || closed[0] != in {
+		t.Fatalf("closeInput got %v, want the half-opened input", closed)
+	}
+	assertClosed(t, in)
 }

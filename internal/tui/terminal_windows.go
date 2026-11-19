@@ -58,14 +58,25 @@ func platformTerminalOpener() (in, out *os.File, err error) {
 // closed in the background, where its error has no caller to reach: the
 // component has already returned its result.
 func platformTerminalReleaser(in, out *os.File) func() error {
+	return windowsTerminalReleaser(in, out, closeInBackground)
+}
+
+// windowsTerminalReleaser closes out synchronously and hands a separately
+// opened in (never os.Stdin) to closeInput. Tests pass a synchronous closeInput.
+func windowsTerminalReleaser(in, out *os.File, closeInput func(*os.File)) func() error {
 	return func() error {
 		var err error
 		if out != nil {
 			err = out.Close()
 		}
 		if in != nil && in != os.Stdin {
-			go func() { _ = in.Close() }()
+			closeInput(in)
 		}
 		return err
 	}
+}
+
+// closeInBackground closes f without waiting for a pending read to finish.
+func closeInBackground(f *os.File) {
+	go func() { _ = f.Close() }()
 }
