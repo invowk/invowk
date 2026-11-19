@@ -219,27 +219,45 @@ go-mutesting hashes it) and in order inside the symbol's body. Orphaned
 survivors are exempt. `[triage] stale_survivors` only shrinks; never add to it.
 
 A change that rewrites a bound function so that a survivor's anchor lines
-disappear refreshes that function's entries in the same change (the partial
-refresh of refresh-anchors-mutation-ledger, design D7):
+disappear refreshes that function's entries in the same change, with
+`make mutation-formal-refresh` (`scripts/formal_mutation.py refresh`,
+mutation-partial-refresh):
 
 1. Commit the change, then run `make mutation-formal` (report only) in a
    throwaway `git worktree add --detach` at that commit, under the heavy-command
-   lock, so the wrapper's exit restore cannot touch the working checkout.
-2. From the run's per-group `report.json` files, recompute each mutant's id from
-   its `diff` (go-mutesting's `MutantID`) and list the function's killed and
-   escaped mutants. `--baseline` only gates the exit status: `report.json`
-   still lists baselined escapes. The run takes about 35 minutes and holds
-   the heavy-command lock, so a `git commit` queued behind it waits that long.
-3. Remove the gone ids from the baseline and the ledger. Do not
-   `mutation-formal-rerun` them: that appends evidence for mutants that no
-   longer exist.
-4. Add each new escaped mutant to the baseline (`{id, file, mutator, line}`
-   verbatim from the run, in sorted order) and to the ledger, anchored from its
-   diff and triaged as above. Commit, then rerun only the new ids twice each
-   with `make mutation-formal-rerun` and set each new baseline entry's own
-   `digest` to the digest those reruns recorded. The other entries and the
-   top-level digest stay unchanged.
-5. `python3 scripts/formal_mutation.py triage --check` must pass.
+   lock, so the wrapper's exit restore cannot touch the working checkout. There
+   is no per-function run: it plans every bound function (about 35 minutes),
+   and a `git commit` queued behind the lock waits that long.
+2. In the change's worktree, run `make mutation-formal-refresh
+   MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` (or `MUTATION_FORMAL_STALE=1`
+   for every symbol with an entry that fails the anchor check), with
+   `MUTATION_REPORT_DIR=<throwaway>/artifacts/mutation`, under the lock. A run
+   in another worktree is accepted when its plan inputs equal the current
+   tree's.
+   It refuses a run that is not a complete full run of the current inputs
+   (profile, `inputs_digest` and each `group_status` in `run-metadata.txt`),
+   an unknown or unplanned symbol, and an id that escapes only in a symbol you
+   did not choose; it writes nothing then. Otherwise it removes the ids the run
+   no longer reports escaped (do not rerun them), adds each new escapee with
+   its anchor, its own `digest` and an `untriaged` placeholder, re-anchors kept
+   entries whose anchor fails (class and reason kept), drops the symbols' ids
+   from `[triage] stale_survivors`, and leaves every other byte unchanged.
+3. Triage each placeholder as above: `triage --check` rejects the class
+   `untriaged` and a reason starting `UNTRIAGED:` until you write both. An id
+   moved between two chosen symbols comes back untriaged too.
+4. Run the `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line the refresh
+   printed twice (commit first when it changed `formal/manifest.toml`: the
+   wrapper refuses a dirty manifest). The reruns record evidence at the
+   entries' own digest; no digest is copied by hand.
+5. `python3 scripts/formal_mutation.py triage --check` must pass. Remove the
+   throwaway worktree.
+
+A deleted or renamed function: first remove or rename its correspondence row
+(the plan, and so the refresh, fails while a row names a missing function).
+Then `--symbol FILE:OLD` (or `--stale`) is removal-only: its entries are
+removed and nothing is added under it. Refresh the new name with `--symbol` in
+the same command, so ids that moved to it are added (untriaged) instead of
+refused.
 
 ## TLA+ commands
 
