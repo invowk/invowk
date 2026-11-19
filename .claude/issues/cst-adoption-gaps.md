@@ -45,9 +45,9 @@ Decisions taken with the maintainer (2026-11-14):
 | N8 | EVOLVE — security | follow-up to S4 (`basedir.TempDir`, not yet proposed) | M |
 | N9 | DECIDE — product | follow-up to S4 (engine environment, not yet proposed) | M |
 | N10 | EVOLVE — security | follow-up to S4 (per-URL git auth: auth order, Windows known_hosts default; not yet proposed) | M |
-| N11 | EVOLVE — bug | `fix-tui-capture-output` (S5a, Part A); no-server `-i` runs gated in S5b | M |
+| N11 | EVOLVE — bug | `fix-tui-capture-output` (S5a, Part A, shipped #175); no-server `-i` runs not proposed (spike failed) | M |
 | N12 | EVOLVE — bug | container auto-provision on non-Linux hosts (not yet proposed; not S5) | S |
-| N13 | EVOLVE — tests | portable no-terminal test helper (before v0.17.0) | S |
+| N13 | EVOLVE — tests | portable no-terminal test helper (`notty`, before v0.17.0) | S |
 | N14 | EVOLVE — bug | `tui spin` Ctrl+C race and dropped output (after v0.17.0; with N1/S2) | S |
 | N15 | DECIDE — product | `pager` and non-selectable `table` with stdout redirected (after v0.17.0) | S |
 
@@ -276,10 +276,20 @@ guide ("set `TMPDIR` if needed").
   S5a (`fix-tui-capture-output`) ships Part A only: components draw on the controlling
   terminal (`/dev/tty`, `CONIN$`/`CONOUT$` with a console check), probed 2026-11-15
   against stderr (stderr loses the UI under `2>log`). S5a leaves S3's refusal in force.
-  S5b, a separate later change (not yet proposed), holds the gate: the no-server `-i`
-  path and a hardened tmux test of a real no-server `-i` session on row 10, asserting
-  the screen state. Its earlier drafts are at 9d8483ca and 97d1e6a5. If the gate fails,
-  S5b is shelved and the refusal stays in v0.17.0.
+  S5a merged as #175 (`d21e56f9`). S5b (no-server `-i` runs) is not proposed: a spike on
+  2026-11-19 failed it, so the refusal stays in v0.17.0 (option (a)). Spike: S5a binary,
+  native `invowk cmd pick -i` under tmux (100x30), script unsets `INVOWK_TUI_ADDR` and
+  `INVOWK_TUI_TOKEN` and runs `invowk tui choose --title "Pick one" alpha beta gamma`,
+  then `invowk tui input --title "Your name"`, so the child draws directly through the
+  `-i` viewer. `choose` renders and Down moves the cursor, but Enter does not submit it
+  (only Ctrl+J does). In `input`, typing `Ana` overdraws the help line
+  (`An er submit • esc cancel`) and neither Enter nor Ctrl+J submits. Control (the same
+  harness without the `unset`, so the TUI server renders): both prompts submit on Enter
+  and print `CHOSEN=[beta]` and `NAME=[Ana]`. A raw reader under `-i` receives Enter as
+  `\r` (and `\n` in cooked mode), exactly as without `-i`, so key forwarding is
+  correct; the gap is the viewer's terminal emulation for a Bubble Tea child. No-server
+  `-i` runs need a terminal-emulating viewer first, a separate change after v0.17.0.
+  Earlier S5b drafts: 9d8483ca and 97d1e6a5.
 - **N12 — on Windows and macOS hosts, container auto-provision copies the host's own
   non-Linux binary into the Linux container (by code reading; not run on those hosts).**
   `applyHostProvisionDefaults` defaults `InvowkBinaryPath` to `os.Executable()` with no
@@ -306,7 +316,10 @@ guide ("set `TMPDIR` if needed").
   allowed platform skips, and `setsid` exists only on the Linux CI legs (skipped in jobs
   135403243980 and 135403243939). Fix: a testscript command implemented in Go that starts
   the binary without a controlling terminal: a new session on Unix, a detached process
-  with no console on Windows. Then the txtar runs on all three systems.
+  with no console on Windows. Then the txtar runs on all three systems. Fixed by the
+  `notty` and `tuiaction` helpers in `tests/cli/notty_test.go`, installed through
+  `testscript.Main`; calibrated 2026-11-19: without the new session, under a real tty,
+  the test hangs on `/dev/tty` (30 s timeout); with it, it passes.
 - **N14 — `invowk tui spin`: Ctrl+C abandons the running command, and a spinner failure
   drops its output (S5a review; pre-existing on `main`).** `spinActionModel` returns
   `tea.Quit` on Ctrl+C, so `runActionSpinner` returns nil. `spinWithAction` then returns

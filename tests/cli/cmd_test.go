@@ -106,6 +106,16 @@ func commonCondition(cond string) (bool, error) {
 }
 
 func TestMain(m *testing.M) {
+	// testscript.Main re-runs this test binary as the helper programs (notty,
+	// tuiaction) that it installs on each script's PATH, and calls os.Exit
+	// itself. The invowk build lives in cliTestM.Run, so a helper run never
+	// builds or looks for go.mod.
+	testscript.Main(cliTestM{m: m}, testscriptPrograms())
+}
+
+// buildCLIBinary finds the project root and builds the invowk binary that the
+// scripts run.
+func buildCLIBinary() {
 	// Find project root (where go.mod is located)
 	wd, err := os.Getwd()
 	if err != nil {
@@ -146,7 +156,7 @@ func TestMain(m *testing.M) {
 		buildArgs = append(buildArgs, "-cover")
 	}
 	buildArgs = append(buildArgs, "-o", binaryPath, ".")
-	// context.Background(): *testing.M has no Context() method
+	// context.Background(): TestMain has no *testing.T, so no t.Context()
 	cmd := exec.CommandContext(context.Background(), "go", buildArgs...)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
@@ -154,8 +164,6 @@ func TestMain(m *testing.M) {
 	if err := cmd.Run(); err != nil {
 		panic("failed to build invowk: " + err.Error())
 	}
-
-	os.Exit(m.Run())
 }
 
 // generateTestSuffix creates a short hash from the test's WorkDir.
