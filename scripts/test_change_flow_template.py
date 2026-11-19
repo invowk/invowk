@@ -127,6 +127,23 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fixP.includes('commit the baseline, the ledger and the reruns'))
   assert.ok(fixP.includes('A survivor you cannot classify goes into maintainer_asks') && fixP.includes('return status blocked'))
   assert.ok(!fixP.includes('report-only, in a throwaway worktree, ONLY'), 'no report-only-only mutation run')
+  {
+    // lesson (#186): check the formal-bindings plan before the 35-minute run.
+    const planAt = fixP.indexOf('python3 scripts/formal_mutation.py plan --out')
+    const runAt = fixP.indexOf('Run `make mutation-formal` once')
+    assert.ok(planAt >= 0 && runAt >= 0 && planAt < runAt, 'the plan check comes before make mutation-formal')
+    assert.ok(fixP.includes(".functions[] | .file + \":\" + .symbol"), 'the plan check reads the planned functions')
+    assert.ok(fixP.includes('When none of the rewritten bound symbols is listed, skip `make mutation-formal`'), 'an unplanned symbol skips the run')
+    assert.ok(fixP.includes('name in summary every symbol you checked'), 'the skip names the symbols checked')
+  }
+  // lesson: the pre-commit hooks take about 5 minutes; every committing stage says so.
+  for (const label of ['spec', 'implement', 'simplify', 'fix']) {
+    const p = calls.find((c) => c.label === label).prompt
+    assert.ok(p.includes('Run every `git commit` with a 600000 ms Bash timeout, or in the background with an rc= line'), label + ' gets the commit timeout')
+  }
+  for (const label of ['spec-review', 'lenses', 'review:base', 'review:code-review']) {
+    assert.ok(!calls.find((c) => c.label === label).prompt.includes('Run every `git commit`'), label + ' does not commit')
+  }
   assert.deepEqual(result.failed_lenses, [])
   assert.ok(result.next.startsWith('ready for maintainer merge'))
 }
@@ -321,6 +338,7 @@ for (const bad of [{ ...good, worktree: '/w/invowk/.' }, { ...good, worktree: '/
   const { calls } = await go(good, { 'spec-review': review, 'spec-review-2': review })
   const fix = calls.find((c) => c.label === 'spec-fix')
   assert.ok(fix.prompt.includes('untestable requirement') && fix.prompt.includes('one major gap'))
+  assert.ok(fix.prompt.includes('Run every `git commit` with a 600000 ms Bash timeout'), 'spec-fix gets the commit timeout')
 }
 
 // a fast-lane spec fixed after implementation stops for re-implementation.
