@@ -27,7 +27,8 @@ stderr 'Confirm needs a terminal'
 # Test 2: spin runs the command without the spinner and keeps its stdout and
 # exit status.
 exitcode 3 notty invowk tui spin --title Wait -- tuiaction first.log 3
-stdout '^ok\r?$'
+stdout '^ok$'
+cmp first.log want-count.log
 ! stderr 'needs a terminal'
 
 # Test 3: spin runs the command exactly once.

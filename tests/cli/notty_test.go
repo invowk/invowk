@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
@@ -34,7 +36,13 @@ func testscriptPrograms() map[string]func() {
 // controlling terminal and exits with its status. On Unix the child starts a
 // new session (like `setsid -w`); on Windows it starts with no console at all.
 // stdin, stdout and stderr are inherited, so testscript's `stdin` file and its
-// captured output reach the child unchanged.
+// captured output reach the child unchanged. Interrupt and termination
+// signals are relayed to the child, which no longer shares notty's session.
+// A child killed by a signal exits notty with 128+signal; a command that
+// cannot be found exits 127 and any other start failure 126.
+//
+// On Windows only the direct child loses its console: a console program it
+// starts gets a new console. Run invowk itself as the direct child.
 func nottyMain() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: notty <cmd> [args...]")
@@ -45,14 +53,34 @@ func nottyMain() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = noTerminalProcAttr()
-	if err := cmd.Run(); err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			os.Exit(exitErr.ExitCode())
-		}
+	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "notty: %v\n", err)
-		os.Exit(127)
+		if errors.Is(err, exec.ErrNotFound) {
+			os.Exit(127)
+		}
+		os.Exit(126)
 	}
-	os.Exit(0)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		for s := range sigs {
+			_ = cmd.Process.Signal(s) // best effort: Windows supports only Kill
+		}
+	}()
+	err := cmd.Wait()
+	signal.Stop(sigs)
+	if err == nil {
+		os.Exit(0)
+	}
+	exitErr, ok := errors.AsType[*exec.ExitError](err)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "notty: %v\n", err)
+		os.Exit(126)
+	}
+	if ws, isWait := exitErr.Sys().(syscall.WaitStatus); isWait && ws.Signaled() {
+		os.Exit(128 + int(ws.Signal()))
+	}
+	os.Exit(exitErr.ExitCode())
 }
 
 // tuiactionMain implements `tuiaction <file> <status>`: it appends "run" to
