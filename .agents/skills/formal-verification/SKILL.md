@@ -227,7 +227,9 @@ refresh of refresh-anchors-mutation-ledger, design D7):
    lock, so the wrapper's exit restore cannot touch the working checkout.
 2. From the run's per-group `report.json` files, recompute each mutant's id from
    its `diff` (go-mutesting's `MutantID`) and list the function's killed and
-   escaped mutants.
+   escaped mutants. `--baseline` only gates the exit status: `report.json`
+   still lists baselined escapes. The run takes about 35 minutes and holds
+   the heavy-command lock, so a `git commit` queued behind it waits that long.
 3. Remove the gone ids from the baseline and the ledger. Do not
    `mutation-formal-rerun` them: that appends evidence for mutants that no
    longer exist.
