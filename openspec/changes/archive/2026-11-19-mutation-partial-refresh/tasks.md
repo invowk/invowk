@@ -38,10 +38,10 @@ All paths are relative to the change worktree, `/var/home/danilo/Workspace/githu
 
 ## 5. Completion gates (.agents/rules/checklist.md)
 
-- [ ] 5.1 `/simplify` on the changed Python, then `make tidy` and `make lint`. Verify: no findings.
-- [ ] 5.2 `make test-scripts` and `make test`, under the lock. Verify: both pass.
-- [ ] 5.3 `make check-baseline`, `make check-file-length`, `make sonar-local`, `python3 scripts/formal.py correspondence`, `make check-agent-docs`, and `openspec validate mutation-partial-refresh --strict`. Verify: all pass, and any new finding is triaged per the checklist.
-- [ ] 5.4 `/learn`. Verify: a durable lesson is recorded, or none is noted.
+- [x] 5.1 `/simplify` on the changed Python, then `make tidy` and `make lint`. Verify: no findings.
+- [x] 5.2 `make test-scripts` and `make test`, under the lock. Verify: both pass.
+- [x] 5.3 `make check-baseline`, `make check-file-length`, `make sonar-local`, `python3 scripts/formal.py correspondence`, `make check-agent-docs`, and `openspec validate mutation-partial-refresh --strict`. Verify: all pass, and any new finding is triaged per the checklist.
+- [x] 5.4 `/learn`. Verify: a durable lesson is recorded, or none is noted.
 
 ## Workflow follow-up
 
