@@ -214,9 +214,9 @@ removed and added diff lines, as TOML multi-line literal strings; go-mutesting
 hashes them, with the file and mutator, into the id) and, when it removes no
 line, `context` (the unchanged line before its first added line). `triage
 --check` fails on an entry whose anchor does not hash to its id, whose symbol is
-gone, or whose anchor lines no longer appear in order from inside the symbol's
-body. Orphaned survivors are exempt. `[triage] stale_survivors` only shrinks;
-never add to it.
+gone, or whose anchor lines no longer appear verbatim (indentation included:
+go-mutesting hashes it) and in order inside the symbol's body. Orphaned
+survivors are exempt. `[triage] stale_survivors` only shrinks; never add to it.
 
 A change that rewrites a bound function so that a survivor's anchor lines
 disappear refreshes that function's entries in the same change (the partial
