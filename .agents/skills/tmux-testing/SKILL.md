@@ -65,7 +65,10 @@ longer exists. Add new coverage to the Go tmux harness.
    cleanup. Read the constants in the file instead of copying their values.
 3. Send the command and keys with `s.sendKeys` (tmux `send-keys`).
 4. Poll captured pane output (`s.waitFor`) until the expected prompt,
-   selection, or exit marker appears.
+   selection, or exit marker appears. Make readiness text distinctive (a title
+   or data header such as `tblhdr_name`, never a generic word like `name`), and
+   absent from the command typed into the pane: the shell prompt and the echoed
+   command can otherwise satisfy the wait before the UI draws.
 5. Assert on plain text for behavior and ANSI capture only when style matters.
    Use `INVOWK_EXIT:$?` or a command-specific marker for completion/exit checks,
    and quote filesystem paths with the existing helpers (`shellQuote`).

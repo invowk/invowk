@@ -28,7 +28,7 @@ Scope (maintainer decision 39): this change is Part A only. The no-server `-i` p
 ## 3. Tracker and completion gates
 
 - [x] 3.1 Keep `.claude/issues/cst-adoption-gaps.md` current: N11 says S5a ships Part A and S5b holds the gate.
-- [ ] 3.2 Run the completion gates of `.agents/rules/checklist.md`:
+- [x] 3.2 Run the completion gates of `.agents/rules/checklist.md`:
   - `/simplify`;
   - `make tidy` and `make license-check` (new Go files);
   - `make lint`;
