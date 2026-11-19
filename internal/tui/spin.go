@@ -307,9 +307,8 @@ func SpinWithAction(opts SpinOptions, action func()) error {
 // spinWithAction resolves the terminal before it starts the action, so the
 // action runs exactly once whatever the outcome:
 //   - without a terminal, it runs the action synchronously, without a spinner;
-//   - with a terminal, it runs the action in a goroutine under the spinner that
-//     spinner draws, and waits for the action to finish when that spinner
-//     program fails.
+//   - with a terminal, it runs the action in a goroutine while spinner draws,
+//     and waits for the action to finish when the spinner fails.
 func spinWithAction(opts SpinOptions, action func(), resolve resolveTerminalFunc, spinner actionSpinnerFunc) error {
 	terminal, err := resolve(ComponentTypeSpin)
 	if errors.Is(err, ErrNoTerminal) {

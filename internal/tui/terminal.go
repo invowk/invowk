@@ -109,8 +109,8 @@ func (r terminalResolver) resolve(component ComponentType) (componentTerminal, e
 	}
 
 	if r.stdin != nil && r.stderr != nil && r.isTerminal(r.stdin) && r.isTerminal(r.stderr) {
-		// The process owns stdin and stderr: never close them.
-		return componentTerminal{in: r.stdin, out: r.stderr, close: func() error { return nil }}, nil
+		// The process owns stdin and stderr: no close function, so Close is a no-op.
+		return componentTerminal{in: r.stdin, out: r.stderr}, nil
 	}
 
 	return componentTerminal{}, &NoTerminalError{Component: component, Cause: err}
