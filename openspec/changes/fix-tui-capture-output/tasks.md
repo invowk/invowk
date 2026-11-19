@@ -23,7 +23,7 @@ Scope (maintainer decision 39): this change is Part A only. The no-server `-i` p
   These run on Linux only (D4). Keep `TestTUIExemptionTmuxCoverage` green. Verify with `go test -run 'TestTUI_' ./tests/cli/` under tmux.
 - [x] 2.3 Calibrate: temporarily drop the `tea.WithOutput` option at the input call site, confirm the captured-input test fails with control bytes in the hex, then restore it. Record the result in the PR description.
 - [x] 2.4 Update the `invowk tui` docs: README, `website/docs` TUI pages, and their pt-BR copies. Say that the UI draws on the terminal and stdout carries only the result, and give the no-terminal behaviour per component (D3). Do not change the interactive-mode refusal text (S3 stands). Verify with `cd website && npm run build`.
-- [ ] 2.5 Run `make test-cli`. After the push, check the CI job logs of both Linux full legs: every `TestTUI_*` capture test ran and passed, none skipped. Record the run and job ids in the PR description.
+- [x] 2.5 Run `make test-cli`. After the push, check the CI job logs of both Linux full legs: every `TestTUI_*` capture test ran and passed, none skipped. Record the run and job ids in the PR description.
 
 ## 3. Tracker and completion gates
 
