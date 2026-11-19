@@ -54,7 +54,7 @@ function stubs(overrides) {
     if (label === 'review:code-review') return codeReview('1. a.go:3 nil deref', 'ok')
     if (label === 'lenses') return { exit_code: 0, stdout: '{"lenses":["ci"],"fast_lane_eligible":true,"reasons":{"ci":["Makefile"]}}', guard }
     if (label.startsWith('review:') || label === 'spec-review' || label === 'spec-review-2') return { blocking: false, findings: [], summary: 'ok', guard }
-    if (label === 'fix') return { status: 'done', base_sha: 'b1', head_sha: 'h2', pr: '7', gates: ['make test'], rejected: [], maintainer_asks: [], summary: 'ok', guard }
+    if (label === 'fix') return { status: 'done', base_sha: 'b1', head_sha: 'h2', pr: '7', gates: ['make test'], rejected: [], maintainer_asks: [], summary: 'ok', changed_files: ['internal/x.go'], guard }
     return { status: 'done', summary: label + ' ok', head_sha: 'h1', pr: '7', guard }
   }
   const parallel = async (thunks) => Promise.all(thunks.map((t) => t().catch(() => null)))
@@ -105,6 +105,18 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   const fix = calls.find((c) => c.label === 'fix')
   assert.ok(fix.prompt.includes('a.go:3 nil deref'), 'code-review text reaches the fix agent')
   assert.equal(result.base_sha, 'b1')
+  assert.deepEqual(result.changed_files, ['internal/x.go'])
+  for (const label of ['spec', 'implement']) {
+    const p = calls.find((c) => c.label === label).prompt
+    assert.ok(p.includes('merge-base --is-ancestor origin/main HEAD'), label + ' refuses a stale base')
+  }
+  const fixP = calls.find((c) => c.label === 'fix').prompt
+  assert.ok(fixP.includes('/w/invowk/scripts/change-flow-foreign-commits.sh /w/invowk-x'), 'the helper comes from the primary checkout')
+  assert.ok(fixP.includes('Skip checklist step 1'))
+  assert.ok(fixP.includes('the change is already archived'))
+  assert.ok(fixP.includes('never edit the change-flow tooling'))
+  assert.ok(fixP.includes('Return changed_files'))
+  assert.ok(!fixP.includes('in this finalize run'))
   assert.deepEqual(result.failed_lenses, [])
   assert.ok(result.next.startsWith('ready for maintainer merge'))
 }
@@ -224,6 +236,7 @@ for (const [name, reply] of Object.entries({
 {
   const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
+  assert.ok(calls[0].prompt.includes('in this finalize run, only if the rebase changed such a body'))
   assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
   assert.ok(!calls[0].prompt.includes('failed lens: none'))
   assert.equal(result.review_ran, false)
