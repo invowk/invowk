@@ -1,0 +1,185 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Interactive Mode
+
+Interactive mode (`-i` / `--ivk-interactive`) runs commands in an alternate screen buffer with full PTY (pseudo-terminal) support, enabling rich terminal interactions.
+
+## Overview
+
+When you run a command with `-i`, Invowk:
+
+1. Creates a pseudo-terminal (PTY) for the command
+2. Displays output in an alternate screen buffer (terminal stays clean)
+3. Forwards all keyboard input to the running command
+4. Allows scrolling and reviewing output after completion
+5. Supports embedded TUI components as modal overlays
+
+## Basic Usage
+
+<Snippet id="interactive/basic-usage" />
+
+## When to Use Interactive Mode
+
+Interactive mode is especially useful for:
+
+<Snippet id="interactive/use-cases" />
+
+### Why These Commands Need It
+
+Without interactive mode, stdin is not connected to a TTY, which breaks:
+- Password prompts (they can't read your input securely)
+- `sudo` (requires a TTY for password entry)
+- SSH sessions (need full terminal control)
+- Any program using `readline` or similar libraries
+
+## Enabling by Default
+
+You can enable interactive mode by default in your configuration:
+
+<Snippet id="interactive/config-enable" />
+
+This is equivalent to always passing `--ivk-interactive` on the command line.
+
+:::note
+Interactive mode works with **all runtimes**: native, virtual-sh, virtual-lua, and container.
+:::
+
+## Key Bindings
+
+### During Command Execution
+
+<Snippet id="interactive/key-bindings-executing" />
+
+All keyboard input is forwarded directly to the running command, allowing full interaction with password prompts, editors, and other interactive programs.
+
+### After Command Completion
+
+Once the command finishes, you can review the output:
+
+<Snippet id="interactive/key-bindings-completed" />
+
+The status bar shows:
+- Command exit code
+- Execution duration
+- Scroll position indicator
+
+## Embedded TUI Components
+
+When running in interactive mode, TUI components called from your scripts are rendered as **modal overlays** on top of the command output, rather than in a separate screen:
+
+<Snippet id="interactive/embedded-tui" />
+
+This creates a seamless experience where:
+1. Your script runs in the alternate screen
+2. When a TUI component is needed, it appears as an overlay
+3. After the user completes the interaction, the overlay closes
+4. Script execution continues with the captured value
+
+### How It Works
+
+When a command runs with `-i`:
+1. Invowk starts a local TUI server
+2. Child processes detect the `INVOWK_TUI_ADDR` environment variable
+3. Instead of rendering directly, TUI components send requests to the parent
+4. The parent renders them as modal overlays
+5. Results are sent back to the child process
+
+This happens automatically - no changes needed to your scripts.
+
+## Alternate Screen Buffer
+
+The alternate screen buffer is a terminal feature that:
+- Provides a separate "screen" for the command
+- Preserves your terminal history
+- Automatically restores when the command exits
+
+This means after exiting interactive mode:
+- Your terminal looks exactly as it did before
+- No output pollution in your scrollback
+- Clean separation between invowk output and normal terminal use
+
+## Limitations
+
+- **Single command**: Can't run multiple commands in parallel in interactive mode
+- **PTY required**: The terminal must support PTY operations
+- **Debian-based containers only**: Alpine and Windows container images are not supported
+
+## Container Runtime Support
+
+Interactive mode works seamlessly with the container runtime. Container runs already use the auto-provisioned image layer (enabled by default) so `invowk` is available inside the container; interactive mode adds the TUI plumbing. See [Container Runtime](/docs/runtime-modes/container#auto-provisioning) for details. When you run a container command with `-i`:
+
+1. **Provisioned image layer**: Invowk ensures its binary is available (same as non-interactive runs)
+2. **TUI server**: A local server handles TUI requests from the container (see [Network exposure](#network-exposure-of-the-tui-server))
+3. **Modal overlays**: TUI components render on your terminal, not inside the container
+
+```bash
+# Run a container command interactively
+invowk cmd myproject build -i -r container
+```
+
+Inside your container scripts, you can use all TUI components:
+
+<Snippet id="interactive/container-tui-example" />
+
+:::warning Linux Containers Only
+Alpine-based images are not supported — musl-based environments have subtle behavioral differences that reduce runtime reliability. Use `debian:stable-slim` for generic container examples; language-specific images belong only in language-specific runtime demonstrations.
+:::
+
+### Network exposure of the TUI server
+
+The TUI server never listens on every interface by default. Where it listens depends on the container engine mode, and the container is pointed at an address the server actually binds:
+
+| Engine mode | Server binds | `INVOWK_TUI_ADDR` host |
+|---|---|---|
+| Local rootful Docker on Linux | `127.0.0.1` and the default bridge gateway (for example `172.17.0.1`) | the gateway IP |
+| Docker Desktop (local) | `127.0.0.1` | `host.docker.internal` |
+| Ephemeral rootless Podman with pasta (`passt`) | `127.0.0.1`, with one forwarded port (`--network=pasta:-T,<port>`) | `127.0.0.1` |
+| Anything else (see below) | nothing: the interactive run is refused | not set |
+
+Treat `INVOWK_TUI_ADDR` as an opaque URL; it can be an IP literal.
+
+**Modes without a narrow route** refuse interactive runs: a remote engine (any Docker endpoint other than a local `unix://`, `npipe://` or `fd://` socket, so `tcp://`, `ssh://` and a scheme-less `host:port`; `podman-remote`, Podman machine), rootful Podman (also when the `docker` CLI talks to Podman's Docker-compatible socket), a persistent container under rootless Podman, rootless Podman without pasta, rootless Docker, Snap, a failed engine query, and any mode not listed above. `invowk cmd … -i` exits with status 1 before it opens a listener or starts the command's container, and the error names the reason and the opt-in. The same command without `-i` runs as before. If interactive mode comes only from `ui.interactive: true` in your config, invowk instead runs the command non-interactively and prints one warning (`--ivk-interactive=false` silences it). The check runs before dependency checks, so no probe container starts either. Invowk does not run such commands without a TUI server, because a prompt whose answer a script captures (`name=$(invowk tui input)`) would then draw nothing and hand the script terminal control codes instead of the answer. For rootless Podman, an ephemeral container with pasta installed gets the narrow plan.
+
+**Opt-in.** To restore the previous wide bind knowingly, set [`container.tui_server_bind: "all-interfaces"`](../reference/config-schema.mdx#tui_server_bind) in your invowk config. In the modes above (and under Docker Desktop) the server then binds `0.0.0.0` and uses the engine's host alias, and invowk warns at every such run that the port is reachable from the network. For a remote engine this helps only if its host alias leads back to this machine. The key is read only from the config file invowk selects: the `--ivk-config` or `INVOWK_CONFIG` file when one is given (your user config file is then not read), otherwise your user config file. An invowkfile or module cannot set it.
+
+**Flatpak without `--share=network`.** The sandbox's network is private, so no bind is reachable from the engine's containers. Interactive container runs are refused, and the opt-in does not apply; grant `--share=network` or run without `-i`.
+
+**Unreachable server.** If `invowk tui *` inside a container reports that the TUI server is unreachable, the engine does not route to the address the server binds (for example under Docker Desktop, or when a host firewall drops bridge-to-host traffic to the port). The command fails within a few seconds with an error that names the opt-in. That includes an engine proxy that accepts the connection but cannot reach the host: before every component request, the client sends a short, authenticated health check, so a reset, closed or silent connection fails fast too. The client never sends TUI requests through an `HTTP_PROXY` from the container's environment, so the session token does not reach a proxy.
+
+**Residual exposure.** Under rootful Docker the gateway port is also reachable from other containers on the same bridge, and from hosts on the same network segment that route the bridge subnet through this machine. Every request still needs the per-session bearer token, and the port lives only for the interactive run.
+
+**Host pasta options.** For the pasta plan, invowk forwards one port and nothing else. Podman also applies `pasta_options` from your `containers.conf`; options such as `--map-gw` or `--map-host-loopback` there give the container more of host loopback than invowk asks for.
+
+**External persistent containers** (`--ivk-container-name` naming a container invowk did not create) get the plan of their engine mode. If such a container sits on a network that cannot reach the bound address, its `invowk tui *` calls fail as unreachable; the bind never widens because of it.
+
+## Best Practices
+
+1. **Use for commands that need input**: Deploy scripts with confirmations, database migrations, etc.
+
+2. **Don't use for simple commands**: Quick commands without interaction don't benefit from interactive mode
+
+3. **Combine with TUI components**: Create rich interactive workflows with embedded prompts
+
+4. **Consider config default**: If most of your commands need interaction, enable it in config
+
+## Examples
+
+### Deployment Script
+
+<Snippet id="interactive/deploy-example" />
+
+Run with: `invowk cmd myproject deploy -i`
+
+### Database Migration
+
+<Snippet id="interactive/db-migrate-example" />
+
+## Next Steps
+
+- [TUI Components](/docs/tui/overview) - Components that work with interactive mode
+- [Configuration Options](/docs/configuration/options) - Enable interactive by default
+- [Native Runtime](/docs/runtime-modes/native) - Understanding the native runtime

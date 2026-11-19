@@ -1,0 +1,111 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Criando Módulos
+
+Aprenda como criar, estruturar e organizar módulos para seus comandos.
+
+## Criação Rápida
+
+Use `module create` para criar a estrutura de um novo módulo:
+
+<Snippet id="modules/create-options" />
+
+## Estrutura Gerada
+
+Módulo básico:
+
+<Snippet id="modules/quick-create-output" />
+
+Com `--scripts`:
+
+<Snippet id="modules/create-with-scripts" />
+
+## Metadados do Módulo (invowkmod.cue)
+
+O `invowkmod.cue` gerado contém identidade e dependências do módulo:
+
+<Snippet id="modules/template-invowkmod" />
+
+## Invowkfile Template
+
+O `invowkfile.cue` gerado contém apenas comandos:
+
+<Snippet id="modules/template-invowkfile" />
+
+## Criação Manual
+
+Você também pode criar módulos manualmente:
+
+<Snippet id="modules/manual-create" />
+
+## Adicionando Scripts
+
+### Inline vs Externo
+
+Escolha baseado na complexidade:
+
+<Snippet id="modules/inline-vs-external" />
+
+### Organização de Scripts
+
+<Snippet id="modules/script-organization" />
+
+### Caminhos de Script
+
+Sempre use barras normais:
+
+<Snippet id="modules/script-paths-good-bad" />
+
+## Arquivos de Environment
+
+Inclua arquivos `.env` no seu módulo:
+
+<Snippet id="modules/env-files-structure" />
+
+Referencie-os:
+
+<Snippet id="modules/env-files-ref" />
+
+## Documentação
+
+Inclua um README para usuários:
+
+<Snippet id="modules/docs-structure" />
+
+## Exemplos do Mundo Real
+
+### Módulo de Build Tools
+
+<Snippet id="modules/buildtools-structure" />
+
+<Snippet id="modules/buildtools-invowkfile" />
+
+### Módulo DevOps
+
+<Snippet id="modules/devops-structure" />
+
+## Melhores Práticas
+
+1. **Use nomenclatura RDNS**: Previne conflitos com outros módulos
+2. **Mantenha scripts focados**: Uma tarefa por script
+3. **Inclua documentação**: README com exemplos de uso
+4. **Versione seu módulo**: Defina a versão em `invowkmod.cue`
+5. **Apenas barras normais**: Compatibilidade multiplataforma
+6. **Valide antes de compartilhar**: Execute `invowk validate ./seu-modulo.invowkmod`
+
+## Validando Seu Módulo
+
+Antes de compartilhar, valide:
+
+<Snippet id="modules/validate-before-share" />
+
+Veja [Validando](./validating) para detalhes.
+
+## Próximos Passos
+
+- [Validando](./validating) - Garantir integridade do módulo
+- [Distribuindo](./distributing) - Compartilhar seu módulo

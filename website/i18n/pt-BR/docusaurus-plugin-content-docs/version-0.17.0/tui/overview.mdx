@@ -1,0 +1,98 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Componentes TUI
+
+Invowk™ inclui um conjunto de componentes de interface de terminal interativos inspirados no [gum](https://github.com/charmbracelet/gum). Use-os em seus scripts para criar prompts interativos, seleções e saída estilizada.
+
+## Componentes Disponíveis
+
+| Componente | Descrição | Caso de Uso |
+|------------|-----------|-------------|
+| [input](./input-and-write#input) | Entrada de texto de linha única | Nomes, caminhos, valores simples |
+| [write](./input-and-write#write) | Editor de texto multilinha | Descrições, mensagens de commit |
+| [choose](./choose-and-confirm#choose) | Selecionar de opções | Menus, escolhas |
+| [confirm](./choose-and-confirm#confirm) | Prompt sim/não | Confirmações |
+| [filter](./filter-and-file#filter) | Filtrar lista fuzzy | Buscar entre opções |
+| [file](./filter-and-file#file) | Seletor de arquivo | Selecionar arquivos/diretórios |
+| [table](./table-and-spin#table) | Exibir dados tabulares | CSV, tabelas de dados |
+| [spin](./table-and-spin#spin) | Spinner com comando | Tarefas de longa duração |
+| [pager](./pager) | Visualizador de conteúdo rolável | Logs, revisão de código, saídas longas |
+| [format](./format-and-style#format) | Formatar texto (markdown, código) | Renderizar conteúdo |
+| [style](./format-and-style#style) | Estilizar texto (cores, negrito) | Decorar saída |
+
+## Exemplos Rápidos
+
+<Snippet id="tui/overview-quick-examples" />
+
+## Usando em Invowkfiles
+
+Componentes TUI funcionam muito bem dentro de scripts de comando, incluindo aqueles executando em containers com modo interativo (`-i`):
+
+:::tip Suporte a Container
+Componentes TUI funcionam perfeitamente dentro de containers ao usar o modo interativo. Os componentes são renderizados como overlays modais no seu terminal do host. Veja [Runtime Container - Modo Interativo](/docs/runtime-modes/container#modo-interativo) para detalhes.
+:::
+
+<Snippet id="tui/overview-invowkfile-example" />
+
+## Padrões Comuns
+
+### Input com Validação
+
+<Snippet id="tui/overview-input-validation" />
+
+### Sistema de Menu
+
+<Snippet id="tui/overview-menu-system" />
+
+### Feedback de Progresso
+
+<Snippet id="tui/overview-progress-feedback" />
+
+### Cabeçalhos Estilizados
+
+<Snippet id="tui/overview-styled-headers" />
+
+## Piping e Captura
+
+Os componentes desenham a interface no seu terminal (`/dev/tty` no Unix, o console no Windows) e leem as teclas dele, não de stdin e stdout. stdout leva apenas o resultado, então `NAME=$(invowk tui input)` captura exatamente a resposta, sem sequências de controle. A interface continua visível quando stderr é redirecionado, e stdin fica livre para dados via pipe, como as opções do `filter` ou as linhas do `table`. `format` e `style` são a exceção: o texto estilizado é o resultado deles, então eles o escrevem em stdout.
+
+<Snippet id="tui/overview-piping" />
+
+### Sem Terminal
+
+Se o terminal de controle não puder ser aberto, o componente desenha em stderr e lê as teclas de stdin quando ambos são terminais. Sem nenhum terminal, como num job de CI:
+
+- `input`, `write`, `choose`, `confirm`, `filter`, `file` e `table` saem com status 1, mostram um erro dizendo que o componente precisa de um terminal e deixam stdout vazio;
+- `spin` executa o comando uma vez, sem o spinner, e mantém a saída e o status de saída do comando;
+- `pager` escreve o conteúdo sem alterações em stdout e sai com 0.
+
+## Códigos de Saída
+
+Componentes usam códigos de saída para comunicar:
+
+| Componente | Exit 0 | Exit 1 |
+|------------|--------|--------|
+| confirm | Usuário disse sim | Usuário disse não |
+| input | Valor inserido | Cancelado |
+| choose | Opção selecionada | Cancelado |
+| filter | Opção selecionada | Cancelado |
+| pager | Saiu normalmente | Erro ocorreu |
+
+Use em condicionais:
+
+<Snippet id="tui/overview-exit-codes" />
+
+## Próximos Passos
+
+Explore cada componente em detalhes:
+
+- [Input e Write](./input-and-write) - Entrada de texto
+- [Choose e Confirm](./choose-and-confirm) - Seleção e confirmação
+- [Filter e File](./filter-and-file) - Busca e seleção de arquivo
+- [Table e Spin](./table-and-spin) - Exibição de dados e spinners
+- [Pager](./pager) - Visualização de conteúdo rolável
+- [Format e Style](./format-and-style) - Formatação e estilização de texto

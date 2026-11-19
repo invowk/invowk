@@ -1,0 +1,166 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Flags
+
+Flags são opções nomeadas passadas com sintaxe `--name=value`. São ideais para configurações opcionais, switches booleanos e configurações que não seguem uma ordem estrita.
+
+## Definindo Flags
+
+<Snippet id="flags-args/flags-defining" />
+
+## Propriedades das Flags
+
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Nome da flag (alfanumérico, hífens, underscores) |
+| `description` | Sim | Texto de ajuda |
+| `type` | Não | `string`, `bool`, `int`, `float` (padrão: `string`) |
+| `default_value` | Não | Valor padrão se não fornecido |
+| `required` | Não | Deve ser fornecido (não pode ter default) |
+| `short` | Não | Alias de uma letra |
+| `validation` | Não | Padrão regex para o valor |
+
+## Tipos
+
+### String (Padrão)
+
+<Snippet id="flags-args/flags-type-string" />
+
+<Snippet id="flags-args/flags-type-string-usage" />
+
+### Boolean
+
+<Snippet id="flags-args/flags-type-bool" />
+
+<Snippet id="flags-args/flags-type-bool-usage" />
+
+Flags booleanas só aceitam `true` ou `false`.
+
+### Integer
+
+<Snippet id="flags-args/flags-type-int" />
+
+<Snippet id="flags-args/flags-type-int-usage" />
+
+### Float
+
+<Snippet id="flags-args/flags-type-float" />
+
+<Snippet id="flags-args/flags-type-float-usage" />
+
+## Obrigatório vs Opcional
+
+### Flags Obrigatórias
+
+<Snippet id="flags-args/flags-required" />
+
+<Snippet id="flags-args/flags-required-usage" />
+
+Flags obrigatórias não podem ter um `default_value`.
+
+### Flags Opcionais
+
+<Snippet id="flags-args/flags-optional" />
+
+<Snippet id="flags-args/flags-optional-usage" />
+
+## Aliases Curtos
+
+Adicione atalhos de uma letra:
+
+<Snippet id="flags-args/flags-short-aliases" />
+
+<Snippet id="flags-args/flags-short-usage" />
+
+## Padrões de Validação
+
+Valide valores de flag com regex:
+
+<Snippet id="flags-args/flags-validation" />
+
+<Snippet id="flags-args/flags-validation-usage" />
+
+:::note Limites de Complexidade de Padrão
+Padrões de validação têm limites de complexidade para prevenir problemas de desempenho:
+- Comprimento máximo do padrão: 1000 caracteres
+- Máximo de grupos aninhados: 10 níveis
+- Operadores de repetição excessivos são detectados
+
+Padrões complexos como `(a+)+` ou grupos profundamente aninhados serão rejeitados durante a validação.
+:::
+
+## Acessando em Scripts
+
+Flags estão disponíveis como variáveis de ambiente `INVOWK_FLAG_*`:
+
+<Snippet id="flags-args/flags-accessing" />
+
+### Convenção de Nomenclatura
+
+| Nome da Flag | Variável de Ambiente |
+|--------------|---------------------|
+| `env` | `INVOWK_FLAG_ENV` |
+| `dry-run` | `INVOWK_FLAG_DRY_RUN` |
+| `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
+| `retryCount` | `INVOWK_FLAG_RETRYCOUNT` |
+
+Hífens se tornam underscores, maiúsculo.
+
+## Exemplos do Mundo Real
+
+### Comando de Build
+
+<Snippet id="flags-args/flags-build-example" />
+
+### Comando de Deploy
+
+<Snippet id="flags-args/flags-deploy-example" />
+
+## Variações de Sintaxe de Flag
+
+Todas funcionam:
+
+<Snippet id="flags-args/flags-syntax" />
+
+## Flags Reservadas
+
+Não use esses nomes - são reservados pelo Invowk™:
+
+| Flag | Curto | Descrição |
+|------|-------|-----------|
+| `ivk-env-file` | `e` | Carregar ambiente de arquivo |
+| `ivk-env-var` | `E` | Definir variável de ambiente |
+| `ivk-env-inherit-mode` | | Herdar variáveis de ambiente do host: `none`, `allow`, `all` |
+| `ivk-env-inherit-allow` | | Lista de permissão de variáveis de ambiente do host; exige `ivk-env-inherit-mode=allow` |
+| `ivk-env-inherit-deny` | | Lista de negação de variáveis de ambiente do host |
+| `ivk-workdir` | `w` | Sobrescrever diretório de trabalho |
+| `ivk-runtime` | `r` | Sobrescrever runtime |
+| `ivk-from` | `f` | Origem para executar comando (ex.: 'invowkfile' ou nome do módulo) |
+| `ivk-force-rebuild` | | Forçar reconstrução do container |
+| `ivk-container-name` | | Sobrescrever nome do alvo de container persistente (apenas runtime container) |
+| `ivk-dry-run` | | Imprimir plano de execução sem executar |
+| `ivk-watch` | `W` | Modo watch: reexecutar ao detectar mudanças em arquivos |
+| `ivk-verbose` | `v` | Habilitar saída verbose |
+| `ivk-config` | `c` | Caminho do arquivo de configuração |
+| `ivk-interactive` | `i` | Executar em modo interativo |
+| `help` | `h` | Mostrar ajuda |
+| `version` | | Mostrar informação de versão |
+
+Além disso, os prefixos `ivk-`, `invowk-` e `i-` são reservados para flags do sistema. Não use esses prefixos para nomes de flags.
+
+## Melhores Práticas
+
+1. **Use nomes descritivos**: `--output-dir` não `--od`
+2. **Forneça padrões quando faz sentido**: Reduzir entradas obrigatórias
+3. **Adicione validação para valores restritos**: Falhe rápido em entrada inválida
+4. **Use aliases curtos para flags comuns**: `-v`, `-o`, `-f`
+5. **Flags booleanas devem ter padrão false**: Comportamento opt-in
+
+## Próximos Passos
+
+- [Positional Arguments](./positional-arguments) - Para valores ordenados e obrigatórios
+- [Environment](../environment/overview) - Configurar ambiente do comando

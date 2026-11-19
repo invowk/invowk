@@ -1,0 +1,82 @@
+---
+sidebar_position: 5.5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Pager
+
+Um visualizador de conteúdo rolável para logs, código e saídas longas.
+
+## Uso Básico
+
+<Snippet id="tui/pager-basic" />
+
+## Opções
+
+| Opção | Descrição |
+|-------|-----------|
+| `--title` | Título exibido acima do pager |
+| `--line-numbers` | Mostrar números de linha |
+| `--soft-wrap` | Quebrar linhas longas automaticamente ao invés de rolagem horizontal |
+
+## Exemplos
+
+<Snippet id="tui/pager-options" />
+
+## Navegação
+
+Enquanto visualiza conteúdo no pager:
+
+| Tecla | Ação |
+|-------|------|
+| `↑` / `k` | Rolar uma linha para cima |
+| `↓` / `j` | Rolar uma linha para baixo |
+| `PgUp` / `b` | Rolar meia página para cima |
+| `PgDown` / `f` / `Space` | Rolar meia página para baixo |
+| `Home` / `g` | Ir para o topo |
+| `End` / `G` | Ir para o final |
+| `q` / `Esc` / `Enter` | Sair do pager |
+
+## Casos de Uso
+
+### Visualizar Arquivos de Log
+
+```bash
+# Visualizar logs da aplicação
+invowk tui pager /var/log/app.log
+
+# Visualizar com números de linha para debug
+invowk tui pager --line-numbers /var/log/app.log
+```
+
+### Revisão de Código
+
+<Snippet id="tui/pager-code-review" />
+
+### Saída de Comandos
+
+```bash
+# Visualizar saída longa de comandos
+kubectl logs deployment/myapp | invowk tui pager --title "Pod Logs"
+
+# Visualizar saída de build
+make build 2>&1 | invowk tui pager --title "Build Output" --soft-wrap
+```
+
+## Em Scripts
+
+<Snippet id="tui/pager-script" />
+
+## Dicas
+
+- Use `--soft-wrap` para conteúdo com linhas longas para evitar rolagem horizontal
+- Use `--line-numbers` quando precisar referenciar linhas específicas
+- Direcione saída diretamente para o pager para visualização interativa de comandos
+- O pager funciona bem com o [modo interativo](/docs/advanced/interactive-mode) para visualização embutida
+
+## Próximos Passos
+
+- [Format e Style](./format-and-style) - Formatar conteúdo antes de visualizar
+- [Table e Spin](./table-and-spin) - Outros componentes de exibição de dados
+- [Visão Geral](./overview) - Todos os componentes TUI

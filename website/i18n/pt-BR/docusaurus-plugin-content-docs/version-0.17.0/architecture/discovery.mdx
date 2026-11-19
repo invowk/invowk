@@ -1,0 +1,107 @@
+---
+sidebar_position: 8
+---
+
+import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
+
+# Fluxograma de Precedência de Descoberta
+
+Este diagrama mostra como comandos são descobertos e como colisões de nomes de comando são tratadas entre fontes.
+
+## Fluxo de Descoberta
+
+<Diagram id="architecture/discovery-flow" />
+
+## Resolução de Conflitos
+
+Quando nomes colidem, o Invowk trata dois casos diferentes:
+
+<Diagram id="architecture/discovery-conflict" />
+
+### Regras de Resolução
+
+| Caso | Comportamento |
+|------|---------------|
+| Mesmo **nome completo de comando** descoberto em múltiplas fontes | A primeira fonte descoberta vence (ordem de precedência) |
+| Mesmo **nome simples de comando** em fontes diferentes | Marca como ambíguo; o usuário deve desambiguar (`@source` / `--ivk-from`) |
+
+**Ordem de precedência de descoberta**:
+1. invowkfile do diretório atual (`./invowkfile.cue`)
+2. Módulos locais (`./*.invowkmod`)
+3. Includes configurados (caminhos de módulo em `config.Includes`)
+4. Entradas de módulos provisionadas pelo adaptador de comando
+5. Entradas de módulos globais provisionadas pelo adaptador de comando
+6. Diretório de comandos do usuário (`~/.invowk/cmds/*.invowkmod`, somente módulos, não recursivo)
+
+Módulos vendorizados (`invowk_modules/`) são escaneados um nível abaixo de cada fonte de módulo descoberta.
+
+## Detalhes da Descoberta de Módulos
+
+<Diagram id="architecture/discovery-module-structure" />
+
+### Campos Obrigatórios do Módulo
+
+<Snippet id="architecture/discovery-module-fields" />
+
+## Resolução de Dependências
+
+<Diagram id="architecture/discovery-deps" />
+
+### Visibilidade de Dependências Transitivas
+
+Esta checagem de visibilidade se aplica a dependências declaradas em `depends_on.cmds` durante validação estática. Ela não intercepta subprocessos arbitrários chamados em runtime.
+
+| De | Pode Acessar | Não Pode Acessar |
+|----|--------------|------------------|
+| Módulo A | comandos de A, módulos globais instalados, comandos de B | comandos de C (transitivo) |
+| Módulo B | comandos de B, módulos globais instalados, comandos de C | - |
+| invowkfile raiz | Comandos descobertos | Restrições de escopo não se aplicam; falhas são de descoberta ou resolução explícita de dependências |
+
+**Por que esta restrição?**
+- Previne acoplamento implícito a dependências transitivas
+- Torna dependências explícitas em cada módulo
+- Permite upgrades de dependências sem quebrar consumidores
+
+## Configuração de Includes
+
+Módulos adicionais são configurados no arquivo global de config resolvido:
+
+<Snippet id="architecture/discovery-includes-config" />
+
+### Ordem de Processamento de Entradas
+
+<Diagram id="architecture/discovery-includes" />
+
+## Cache de Descoberta
+
+<Diagram id="architecture/discovery-cache" />
+
+## Problemas Comuns de Descoberta
+
+### Problema: Comando Não Encontrado
+
+<Diagram id="architecture/discovery-not-found" />
+
+### Problema: Versão Errada do Comando
+
+<Diagram id="architecture/discovery-wrong-version" />
+
+## Comandos de Debug
+
+```bash
+# Listar todos os comandos descobertos com fontes
+invowk cmd --ivk-verbose
+
+# Validar descoberta do workspace (reporta todos os diagnósticos)
+invowk validate
+
+# Validar um módulo específico
+invowk validate ./mymodule.invowkmod
+```
+
+## Diagramas Relacionados
+
+- [Sequência de Execução de Comando](./execution-flow) - O que acontece após a descoberta
+- [Fluxograma de Seleção de Runtime](./runtime-selection) - Como runtimes são escolhidos
+- [Diagrama C4 de Container](./c4-container) - Contexto do componente de descoberta
