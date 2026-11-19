@@ -21,7 +21,14 @@ const (
 	integrityTestRepoedCommit    = GitCommit("0000000000000000000000000000000000000001")
 	integrityTestOriginalContent = `cmds: {}`
 	integrityTestChangedContent  = `cmds: {} // served by a compromised or re-tagged remote`
+
+	// integrityTestBackdatedGenerated is a fixed past instant written into a
+	// lock file's generated: field, so tests can tell a rewrite from an
+	// untouched file.
+	integrityTestBackdatedGenerated = "2001-02-03T04:05:06Z"
 )
+
+var lockGeneratedLine = regexp.MustCompile(`(?m)^generated: ".*"$`)
 
 type integrityFixture struct {
 	workDir  string
@@ -98,6 +105,22 @@ func (f *integrityFixture) wipeCache(t *testing.T) {
 	}
 }
 
+// backdateLock rewrites the lock's generated: value to
+// integrityTestBackdatedGenerated, keeps every other byte, and returns the
+// rewritten file.
+func (f *integrityFixture) backdateLock(t *testing.T) []byte {
+	t.Helper()
+	data := f.readLock(t)
+	backdated := lockGeneratedLine.ReplaceAll(data, []byte(`generated: "`+integrityTestBackdatedGenerated+`"`))
+	if bytes.Equal(backdated, data) {
+		t.Fatalf("fixture: lock has no generated: line to backdate:\n%s", data)
+	}
+	if err := os.WriteFile(filepath.Join(f.workDir, LockFileName), backdated, 0o644); err != nil {
+		t.Fatalf("WriteFile(lock) error = %v", err)
+	}
+	return backdated
+}
+
 func assertPathAbsent(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
@@ -110,7 +133,10 @@ func TestSyncFreshCacheReproducesLockedHash(t *testing.T) {
 
 	f := newIntegrityFixture(t, t.TempDir(), "1.2.3")
 	first := f.mustSync(t)
-	lockBefore := f.readLock(t)
+	// Backdating generated: makes the check deterministic: a sync that
+	// restamps an unchanged lock always differs from these bytes, instead of
+	// only when the two syncs straddle a second boundary (tracker N18).
+	lockBefore := f.backdateLock(t)
 
 	f.wipeCache(t)
 	second := f.mustSync(t)
@@ -118,8 +144,8 @@ func TestSyncFreshCacheReproducesLockedHash(t *testing.T) {
 	if second.ContentHash != first.ContentHash {
 		t.Fatalf("ContentHash = %s, want unchanged %s", second.ContentHash, first.ContentHash)
 	}
-	if !bytes.Equal(f.readLock(t), lockBefore) {
-		t.Fatal("lock file changed although the locked version reproduced its content")
+	if got := f.readLock(t); !bytes.Equal(got, lockBefore) {
+		t.Fatalf("lock file changed although the locked version reproduced its content:\n got: %s\nwant: %s", got, lockBefore)
 	}
 }
 
