@@ -88,6 +88,11 @@ REASON_TRACE_ONLY = "trace-only"
 REASON_CHARACTERISATION_ONLY = "characterisation-only"
 
 TRIAGE_CLASSES = {"equivalent", "abstraction", "binding-gap", "model-gap", "defect"}
+# The placeholder `refresh` writes for a new survivor (mutation-partial-refresh
+# design D5). The class is not in TRIAGE_CLASSES, and `triage --check` rejects
+# either marker until a person writes the class and the reason.
+UNTRIAGED_CLASS = "untriaged"
+UNTRIAGED_MARK = "UNTRIAGED:"
 FOLLOW_UP_CLASSES = {"binding-gap", "model-gap", "defect"}
 SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up", "removed", "added", "context"}
 # The anchor fields (refresh-anchors-mutation-ledger design D1): the removed and
@@ -730,9 +735,16 @@ def merge_reports(report_dir: Path, log: str) -> dict:
     timeout_kills = TIMEOUT_KILL_RE.findall(log)
     for file in timeout_kills:
         per_file.setdefault(file, dict.fromkeys(columns, 0))["timeout-kill"] += 1
+    plan_path = report_dir / PLAN_FILE
     with (report_dir / "run-metadata.txt").open("a") as metadata:
         for file in sorted(set(timeout_kills)):
             metadata.write(f"timeout_kills[{file}]={timeout_kills.count(file)}\n")
+        # The digest of the inputs the run mutated (the plan is read after the
+        # exit restore), which `refresh` checks against the current tree
+        # (mutation-partial-refresh design D2). A focused rerun merges each id
+        # in a directory without a plan and records nothing.
+        if plan_path.exists():
+            metadata.write(f"inputs_digest={plan_digest(load_plan(plan_path))}\n")
     lines = ["file\t" + "\t".join(columns)]
     lines += [f"{file}\t" + "\t".join(str(counts[c]) for c in columns) for file, counts in sorted(per_file.items())]
     (report_dir / "per-file.tsv").write_text("\n".join(lines) + "\n")
@@ -1135,6 +1147,48 @@ def base_manifest(base: str, read: Callable[[str], bytes] | None = None) -> dict
         raise PlanError(f"triage --check: {path} at the base {base} is not valid TOML: {err}") from err
 
 
+def is_untriaged(survivor: dict) -> bool:
+    """Whether a ledger entry still carries the placeholder `refresh` writes:
+    the class or the start of the reason (mutation-partial-refresh design D5)."""
+    return survivor.get("class") == UNTRIAGED_CLASS or str(survivor.get("reason", "")).startswith(UNTRIAGED_MARK)
+
+
+def evidence_failures(baseline: dict, reruns: list[dict]) -> tuple[list[str], dict[str, list[str]]]:
+    """The rerun evidence rule of the triage check: the baseline-wide failure
+    (no input digest while some id has no digest of its own), and each baselined
+    id's failures. A mutant's evidence digest is its own `digest` after a
+    partial refresh, else the baseline's (refresh-anchors-mutation-ledger design
+    D3); it needs REQUIRED_ESCAPED_RERUNS escaped reruns there and no other
+    status. `refresh` reports the same rule for the ids it touched."""
+    general = []
+    ids = {m["id"] for m in baseline["mutants"]}
+    stamp = baseline.get("digest", "")
+    own = {m["id"]: m["digest"] for m in baseline["mutants"] if m.get("digest")}
+    if ids - set(own) and not stamp:
+        general.append("baseline: no input digest; rerun `make mutation-formal-baseline-update`")
+    by_id: dict[str, list[dict]] = {}
+    for record in reruns:
+        by_id.setdefault(record["id"], []).append(record)
+    by_mutant: dict[str, list[str]] = {}
+    for mutant in sorted(ids):
+        problems = []
+        digest = own.get(mutant, stamp)
+        evidence = [r for r in by_id.get(mutant, []) if digest and r["digest"] == digest]
+        escaped = sum(1 for r in evidence if r["status"] == "escaped")
+        if escaped < REQUIRED_ESCAPED_RERUNS:
+            where = "its own input digest" if mutant in own else "the baseline's input digest"
+            problems.append(
+                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at {where}, "
+                f"need {REQUIRED_ESCAPED_RERUNS} (make mutation-formal-rerun MUTATION_MUTANT_ID={mutant})"
+            )
+        flaky = sorted({r["status"] for r in evidence} - {"escaped"})
+        if flaky:
+            problems.append(f"baseline id {mutant}: inconsistent rerun evidence ({', '.join(flaky)} as well as escaped)")
+        if problems:
+            by_mutant[mutant] = problems
+    return general, by_mutant
+
+
 def check_triage(
     baseline: dict,
     ledger: dict,
@@ -1211,7 +1265,12 @@ def check_triage(
             failures.append(f"survivor {mutant} ({survivor['symbol']}): {problem}")
         cls = survivor["class"]
         follow_up = survivor.get("follow_up", "").strip()
-        if cls not in TRIAGE_CLASSES:
+        if is_untriaged(survivor):
+            # Checking the reason too means setting only the class still fails
+            # (mutation-partial-refresh design D5).
+            failures.append(f"survivor {mutant} ({survivor['symbol']}): untriaged placeholder from `refresh`: write the "
+                            f"class (one of {', '.join(sorted(TRIAGE_CLASSES))}) and the reason")
+        elif cls not in TRIAGE_CLASSES:
             failures.append(f"survivor {mutant}: unknown class {cls!r}")
         if not survivor["reason"].strip():
             failures.append(f"survivor {mutant}: empty reason")
@@ -1234,28 +1293,10 @@ def check_triage(
     for mutant in sorted(stale_ids - set(ledger_ids)):
         failures.append(f"[triage] stale_survivors: stale entry {mutant} is not in the ledger")
 
-    # A mutant's evidence digest is its own `digest` after a partial refresh,
-    # else the baseline's (refresh-anchors-mutation-ledger design D3).
-    stamp = baseline.get("digest", "")
-    own = {m["id"]: m["digest"] for m in baseline["mutants"] if m.get("digest")}
-    if baseline_ids - set(own) and not stamp:
-        failures.append("baseline: no input digest; rerun `make mutation-formal-baseline-update`")
-    by_id: dict[str, list[dict]] = {}
-    for record in reruns:
-        by_id.setdefault(record["id"], []).append(record)
+    general, by_mutant = evidence_failures(baseline, reruns)
+    failures += general
     for mutant in sorted(baseline_ids):
-        digest = own.get(mutant, stamp)
-        evidence = [r for r in by_id.get(mutant, []) if digest and r["digest"] == digest]
-        escaped = sum(1 for r in evidence if r["status"] == "escaped")
-        if escaped < REQUIRED_ESCAPED_RERUNS:
-            where = "its own input digest" if mutant in own else "the baseline's input digest"
-            failures.append(
-                f"baseline id {mutant}: {escaped} recorded escaped rerun(s) at {where}, "
-                f"need {REQUIRED_ESCAPED_RERUNS} (make mutation-formal-rerun MUTATION_MUTANT_ID={mutant})"
-            )
-        flaky = sorted({r["status"] for r in evidence} - {"escaped"})
-        if flaky:
-            failures.append(f"baseline id {mutant}: inconsistent rerun evidence ({', '.join(flaky)} as well as escaped)")
+        failures += by_mutant.get(mutant, [])
 
     for entry in closed:
         mutant = entry.get("id", "?")

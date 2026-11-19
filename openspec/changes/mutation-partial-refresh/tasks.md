@@ -4,9 +4,9 @@ All paths are relative to the change worktree, `/var/home/danilo/Workspace/githu
 
 ## 1. Run digest and untriaged placeholder
 
-- [ ] 1.1 In `scripts/formal_mutation.py`, make `merge_reports` append `inputs_digest=<plan_digest>` of `<report-dir>/formal-plan.json` to `run-metadata.txt` (design D2), and in `scripts/mutation.sh` make `run_formal_profile` append `group_status[<n>]=<status>` after each group; leave the rerun path (`run_formal_rerun`, which calls `merge-reports` per id) working. Verify: a test in `RerunAndReportTests` asserts the digest line and its value for a fixture plan, and a script test (in the `scripts/script-tests.sh` list) asserts one `group_status` line per group, with a failing group's status.
-- [ ] 1.2 Add `UNTRIAGED_CLASS`/`UNTRIAGED_MARK` and the `check_triage` failure of design D5 (class placeholder or reason mark), before the generic class check. Verify: `TriageTests` cases for a placeholder entry (fails with the untriaged message), a valid class with the placeholder reason (still fails), and a triaged entry (no such failure).
-- [ ] 1.3 Factor the evidence rule of `check_triage` into a helper that returns per-id failures, with `check_triage` output unchanged. Verify: `python3 scripts/test_formal_mutation.py` passes with no expectation changed.
+- [x] 1.1 In `scripts/formal_mutation.py`, make `merge_reports` append `inputs_digest=<plan_digest>` of `<report-dir>/formal-plan.json` to `run-metadata.txt` (design D2), and in `scripts/mutation.sh` make `run_formal_profile` append `group_status[<n>]=<status>` after each group; leave the rerun path (`run_formal_rerun`, which calls `merge-reports` per id) working. Verify: a test in `RerunAndReportTests` asserts the digest line and its value for a fixture plan, and a script test (in the `scripts/script-tests.sh` list) asserts one `group_status` line per group, with a failing group's status.
+- [x] 1.2 Add `UNTRIAGED_CLASS`/`UNTRIAGED_MARK` and the `check_triage` failure of design D5 (class placeholder or reason mark), before the generic class check. Verify: `TriageTests` cases for a placeholder entry (fails with the untriaged message), a valid class with the placeholder reason (still fails), and a triaged entry (no such failure).
+- [x] 1.3 Factor the evidence rule of `check_triage` into a helper that returns per-id failures, with `check_triage` output unchanged. Verify: `python3 scripts/test_formal_mutation.py` passes with no expectation changed.
 
 ## 2. The `refresh` subcommand
 

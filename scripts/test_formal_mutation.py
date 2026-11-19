@@ -430,6 +430,16 @@ class RerunAndReportTests(unittest.TestCase):
             {"id": "e2", "file": "f1.go", "mutator": "m", "line": 3},
         ])
 
+    def test_merge_reports_records_the_inputs_digest(self) -> None:
+        # Design D2 of mutation-partial-refresh: the digest of the plan in the
+        # report dir, read from the plan's root.
+        self.write_group(0, {"killedCount": 1, "escapedCount": 0, "errorCount": 0, "skippedCount": 0}, [], [])
+        (self.dir / "a.go").write_bytes(b"A")
+        (self.dir / fm.PLAN_FILE).write_text(json.dumps({"version": 2, "root": str(self.dir), "inputs": ["a.go"]}))
+        fm.merge_reports(self.dir, "")
+        expected = fm.hashlib.sha256(b"a.go\0A").hexdigest()
+        self.assertEqual((self.dir / "run-metadata.txt").read_text(), f"inputs_digest={expected}\n")
+
     def test_merge_without_groups_fails(self) -> None:
         with self.assertRaisesRegex(PlanError, "no group-"):
             fm.merge_reports(self.dir, "")
@@ -643,6 +653,19 @@ class TriageTests(Fixture):
         bad = self.survivor()
         bad["confirmed_reruns"] = "2"
         self.assertIn("fields must be", self.check([bad])[0])
+
+    def test_untriaged_placeholder_fails(self) -> None:
+        # mutation-partial-refresh design D5: the class or the reason mark.
+        message = ("survivor s1 (Evaluate): untriaged placeholder from `refresh`: write the class (one of abstraction, "
+                   "binding-gap, defect, equivalent, model-gap) and the reason")
+        placeholder = self.survivor(**{"class": fm.UNTRIAGED_CLASS, "reason": f"{fm.UNTRIAGED_MARK} m survives T"})
+        failures = self.check([placeholder])
+        self.assertIn(message, failures)
+        self.assertNotIn("survivor s1: unknown class 'untriaged'", failures)
+        class_only = self.survivor(**{"class": "equivalent", "reason": f"{fm.UNTRIAGED_MARK} m survives T"})
+        self.assertIn(message, self.check([class_only]))
+        self.assertIn(message, self.check([self.survivor(**{"class": fm.UNTRIAGED_CLASS})]))
+        self.assertEqual(self.check([self.survivor(**{"class": "equivalent", "reason": "cannot change behaviour"})]), [])
 
     def test_reruns_are_required(self) -> None:
         one = [{"id": "s1", "status": "escaped", "timestamp": "t", "digest": "base"}]
