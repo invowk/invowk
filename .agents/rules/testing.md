@@ -21,7 +21,7 @@ Deeper guidance: `go-testing` (toolchain, flags, race detector, gotestsum), `tes
 
 - **Use `t.Context()` as the default context in tests.** Do NOT use `context.Background()` unless structurally forced.
 - `context.WithCancel(t.Context())` only when the scenario needs explicit mid-test cancellation; `context.WithTimeout(t.Context(), ...)` only when a deadline is part of the test logic.
-- `context.Background()` only in `TestMain` (`*testing.M` has no `Context()`) or in `testscript.Env.Defer()` cleanup hooks (no `*testing.T` in scope), always with a comment saying why.
+- `context.Background()` only in `TestMain` and helpers it calls (`*testing.M` has no `Context()`) or in `testscript.Env.Defer()` cleanup hooks (no `*testing.T` in scope), always with a comment saying why.
 - Benchmarks use `b.Context()`.
 
 ## Test Parallelism

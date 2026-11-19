@@ -1,42 +1,43 @@
 # Test: directly rendered `invowk tui` components without any terminal
-# (fix-tui-capture-output D1 step 3 and D3). Each run goes through
-# `setsid -w`, so the process has no controlling terminal and a local run
-# cannot open the developer's /dev/tty; testscript gives it a non-terminal
-# stdin and captured stdout and stderr. Not a virtual test, so it needs no
-# native mirror.
-
-[!exec:setsid] skip 'setsid is needed to drop the controlling terminal'
+# (fix-tui-capture-output D1 step 3 and D3). Each run goes through the
+# `notty` helper (tests/cli/notty_test.go): a new session on Unix, no console
+# on Windows, so the process has no controlling terminal and a local run
+# cannot open the developer's terminal. testscript gives it a non-terminal
+# stdin and captured stdout and stderr. `tuiaction` is a portable spin
+# command. Runs on Linux, macOS and Windows. Not a virtual test, so it needs
+# no native mirror.
 
 cd $WORK
 env NO_COLOR=1
 
 # Test 1: value components fail with exit 1, name the component, and leave
 # stdout empty.
-exitcode 1 setsid -w invowk tui input --title Name
+exitcode 1 notty invowk tui input --title Name
 ! stdout .
 stderr 'Input needs a terminal'
 
-exitcode 1 setsid -w invowk tui choose a b
+exitcode 1 notty invowk tui choose a b
 ! stdout .
 stderr 'Choose needs a terminal'
 
-exitcode 1 setsid -w invowk tui confirm 'Proceed?'
+exitcode 1 notty invowk tui confirm 'Proceed?'
 ! stdout .
 stderr 'Confirm needs a terminal'
 
 # Test 2: spin runs the command without the spinner and keeps its stdout and
 # exit status.
-exitcode 3 setsid -w invowk tui spin --title Wait -- sh -c 'echo ok; exit 3'
+exitcode 3 notty invowk tui spin --title Wait -- tuiaction first.log 3
 stdout '^ok$'
+cmp first.log want-count.log
 ! stderr 'needs a terminal'
 
 # Test 3: spin runs the command exactly once.
-exec setsid -w invowk tui spin -- sh -c 'echo run >>count.log'
+exec notty invowk tui spin -- tuiaction count.log 0
 cmp count.log want-count.log
 
 # Test 4: pager writes the content unchanged to stdout and exits 0.
 stdin pager-input.txt
-exec setsid -w invowk tui pager
+exec notty invowk tui pager
 cmp stdout pager-input.txt
 ! stderr .
 

@@ -307,6 +307,7 @@ Rules:
 - Environment and internal failures (dependencies, platform, engine, timeouts, `InvalidRequestError`, config files, including a failed `--ivk-config`/`INVOWK_CONFIG` source) stay at 1.
 - `agent` and `audit` keep explicit `ExitError` codes. The shared LLM helpers in `llm_flags.go` take an `llmExitCodes{usage, failure}` value (`auditLLMExitCodes`, `agentLLMExitCodes`).
 - In testscript, assert exact codes with the custom `exitcode <want> <cmd> <args...>` command (`tests/cli/exitcode_test.go`); `! exec` accepts any non-zero status.
+- Helper programs on every script's PATH (installed by `testscript.Main` in `tests/cli/cmd_test.go`, defined in `tests/cli/notty_test.go`): `notty <cmd> [args...]` runs a command with no controlling terminal (new session on Unix, no console on Windows), so TUI no-terminal paths run on all three systems (on Windows only the direct child loses its console, so run `invowk` itself under it); `tuiaction <file> <status>` appends `run` to the file, prints `ok` and exits with the status, a portable `tui spin` command. Use them instead of `setsid` or `sh -c`, which do not exist on every CI leg.
 
 ### Dual-Channel Error Output
 
