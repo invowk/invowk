@@ -9,7 +9,7 @@ Both have model counterexamples and Go replays that reproduce them today. This c
 
 ## What Changes
 
-- **Module script reads are physically contained.** In module context, `Implementation.ResolveScriptWithFSAndModule` and `CustomCheckScript.ResolveWithFSAndModule` first check, through an `os.Root` opened on the module directory, that the script path resolves inside the module. An escaping path or a dangling link is denied with `ErrScriptPathTraversal`; an operating-system error from the check itself (for example `EACCES`) is returned as a script read error. Either way the injected reader is not called.
+- **Module script reads are physically contained.** In module context, `Implementation.ResolveScriptWithFSAndModule` and `CustomCheckScript.ResolveWithFSAndModule` first check, through an `os.Root` opened on the module directory, that the script path resolves inside the module. An escaping path or an unresolvable link (dangling or a cycle) is denied with `ErrScriptPathTraversal`; an operating-system error that keeps the path itself from being inspected (for example `EACCES` on a directory, where `Lstat` fails too) is returned as a script read error. Either way the injected reader is not called.
   - The check runs whatever reader the caller injects, so every production path is covered: `invowk cmd` on every runtime, custom checks, and `invowk validate`'s interpreter diagnostics.
 - **Module env files are physically contained.** `env.files` of an invowkfile loaded from a module are read through `os.Root`. In those reads:
   - an absolute path is denied;

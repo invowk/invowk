@@ -8,7 +8,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - contained;
   - absent: `OpenRoot` not-exist, or `Stat` and `Lstat` both not-exist;
   - escaping: a non-OS error, or `Stat` failing with any OS error while `Lstat` succeeds (an unresolvable link). It wraps `ErrScriptPathTraversal`, with the message "resolves outside module" for an escape, "dangling link" when `Stat` reports not-exist, and "link does not resolve" for another `Stat` error such as a cycle;
-  - denied: any other OS error, which becomes a read error.
+  - denied: any other OS error (one where `Lstat` fails too), which becomes a read error.
 
   Verify with a table test over:
   - a regular file;
@@ -98,7 +98,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - `rel` is `filepath.Rel(moduleRoot, filepath.Join(basePath, path))`; a failing `Rel` or a `rel` that leaves the module is a containment error.
   - `LoadEnvFileFromCwd` passes `moduleRoot = ""`.
 
-  Update every caller and test caller. Verify with unit tests for each of these cases, including an absolute path built directly in Go, a `basePath` below `moduleRoot` and a `basePath` outside it, a missing module root (optional and required), a cycle, and an optional dangling and an optional escaping link: `go test ./internal/runtime/`. Each branch of the module path needs a test that kills its plausible mutants (error class, optional skip, `Lstat` disambiguation), because `LoadEnvFile` is a formal-bindings target.
+  Update every caller and test caller. Verify with unit tests for each of these cases, including an absolute path built directly in Go, a `basePath` below `moduleRoot` and a `basePath` outside it, a missing module root (optional and required), a cycle, and an optional dangling and an optional escaping link: `go test ./internal/runtime/`. Each branch of the module path needs a test that kills its plausible mutants (error class, optional skip, `Lstat` disambiguation), because `LoadEnvFile` is a formal-bindings target. The `ReadFile` non-OS-error branch is reachable only by a race after `Stat`: route the `Stat` and `ReadFile` errors through one shared classifier and unit-test that classifier directly with an escape error, so the branch needs no race to be covered.
 - [ ] 5.2 `DefaultEnvBuilder.Build` passes `ctx.Invowkfile.ModulePath` as `moduleRoot` for root, command and implementation `env.files`. Verify with:
   - a test where a plain invowkfile's symlinked `.env` that points outside still loads;
   - a module-context test where an escaping link fails before the command runs.
@@ -128,7 +128,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
 
   All must pass.
 - [ ] 6.2 Push the branch and open the draft PR. Its body carries the release-note line from proposal.md (a security fix, no `!`) and states the `pkg/invowkmod` API removal.
-- [ ] 6.3 From the PR's windows-latest job, quote the run id, the job id and the JUnit or test-output lines. They must show that the inverted F13 and F17 replays and `TestModulePathContainment_F16Junction` RAN and passed, not skipped. Report each F16 arm's outcome. The macOS job must show the alias and case tests from 1.3 and 5.3 running.
+- [ ] 6.3 From the PR's windows-latest job, quote the run id, the job id and the JUnit or test-output lines. They must show that the inverted F13 and F17 replays and `TestModulePathContainment_F16Junction` RAN and passed, not skipped. Report each F16 arm's outcome. They must also show `TestModulePathContainment_GoldenVectors` passing both passes, which is the Windows evidence for the errno-independent unresolvable-link rule on the dangling and cycle vectors (design D2, D3). The macOS job must show the alias and case tests from 1.3 and 5.3 running.
 
 ## 7. F16 reclassification (post-evidence commit)
 

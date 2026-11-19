@@ -7,7 +7,7 @@ Keeps every script file, custom-check file and env file that a module makes Invo
 ## ADDED Requirements
 
 ### Requirement: Module script files are physically contained
-When an invowkfile is loaded from a module, Invowk SHALL read an implementation `script.file` or a custom-check script `file` only if the path, with every link on it followed, resolves inside the module directory. When the path escapes the module, or is a dangling link, it SHALL deny the read with the script path traversal error and read nothing.
+When an invowkfile is loaded from a module, Invowk SHALL read an implementation `script.file` or a custom-check script `file` only if the path, with every link on it followed, resolves inside the module directory. When the path escapes the module, or is a link that does not resolve (dangling or a cycle), it SHALL deny the read with the script path traversal error and read nothing.
 
 #### Scenario: Link under invowk_modules to an outside file
 - **WHEN** a module's `script.file` names `invowk_modules/x`, and `x` is a symlink to a file outside the module
@@ -34,7 +34,7 @@ When an invowkfile is loaded from a module, Invowk SHALL read an implementation 
 - **THEN** resolving the script SHALL fail with the script path traversal error, its message SHALL say that the link does not resolve, and the reader SHALL NOT be called
 
 #### Scenario: Operating-system error from the check
-- **WHEN** the containment check of a module's `script.file` fails with an operating-system error, such as a permission error on a directory
+- **WHEN** the containment check of a module's `script.file` fails with an operating-system error that also keeps the path itself from being inspected (`Lstat` fails too), such as a permission error on a directory
 - **THEN** resolving the script SHALL return that error as a script read error and read nothing
 
 #### Scenario: Missing script file
