@@ -14,7 +14,8 @@ Both have model counterexamples and Go replays that reproduce them today. This c
 - **Module env files are physically contained.** `env.files` of an invowkfile loaded from a module are read through `os.Root`. In those reads:
   - an absolute path is denied;
   - an escaping link fails;
-  - a dangling link fails;
+  - a dangling link or a link cycle fails;
+  - an escape reported by the contained read is a containment error (`ErrEnvFileOutsideModule`), never a missing file;
   - an optional `?` file is skipped only when the contained read reports that nothing exists at that path.
 - **Plain invowkfiles keep their current env-file behaviour.** They are not module context, so a symlinked `.env` (for example a link to `~/secrets/.env`) keeps working.
 - **Links are followed only when their target is relative.** A relative link whose target stays inside the module is still followed. A link with an absolute target is denied even when that target is inside the module, because `os.Root` rejects absolute link targets. The model's correspondence records this deliberate strictness.
@@ -44,7 +45,7 @@ Both have model counterexamples and Go replays that reproduce them today. This c
 - **Code:**
   - `pkg/invowkfile`: `implementation.go`, `dependency.go`, and a new contained-read helper;
   - `internal/runtime`: `dotenv.go` and `env_builder.go`;
-  - `pkg/invowkmod/invowkmod.go`, where the API is removed, with `invowkmod_mutation_test.go` and `operations_test.go` (`TestModule_ValidateScriptPath`).
+  - `pkg/invowkmod/invowkmod.go`, where the API is removed, with `invowkmod_mutation_test.go`, `operations_test.go` (`TestModule_ValidateScriptPath`) and its entry in `tests/coverage/pathmatrix_coverage_test.go`.
 - **Tests:**
   - unit tests in `pkg/invowkfile` and `internal/runtime`;
   - the module path containment golden, rapid and formal replays in `internal/app/moduleops`;

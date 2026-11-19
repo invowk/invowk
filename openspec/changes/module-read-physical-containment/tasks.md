@@ -7,7 +7,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
 - [ ] 1.1 Add the containment helper in `pkg/invowkfile` (new file, with license header). It opens an `os.Root` on the module path and runs `Stat` on the path relative to it. It returns one of four results (design D2):
   - contained;
   - absent: `OpenRoot` not-exist, or `Stat` and `Lstat` both not-exist;
-  - escaping: a non-OS error, or `Stat` not-exist while `Lstat` succeeds. It wraps `ErrScriptPathTraversal`, with the message "resolves outside module" for an escape and "dangling link" for a dangling link;
+  - escaping: a non-OS error, or `Stat` failing with any OS error while `Lstat` succeeds (an unresolvable link). It wraps `ErrScriptPathTraversal`, with the message "resolves outside module" for an escape, "dangling link" when `Stat` reports not-exist, and "link does not resolve" for another `Stat` error such as a cycle;
   - denied: any other OS error, which becomes a read error.
 
   Verify with a table test over:
@@ -16,6 +16,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - an absolute in-module link (denied);
   - relative and absolute escaping links;
   - a dangling relative link;
+  - a self-link and a two-link cycle (escaping, "link does not resolve");
   - a missing file and a missing root;
   - a path below an escaping link;
   - a directory without search permission, off Windows.
@@ -25,7 +26,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - new resolver tests prove a vendored escaping link is denied and the reader is never called;
   - the existing fake-reader tests pass unchanged: `go test ./pkg/invowkfile/ ./internal/app/deps/`.
 - [ ] 1.3 Add a cross-platform test, run on all OSes, in which the module path is given through an alias of the temporary directory (on macOS, the unresolved `os.TempDir()` under `/var`, and on the other OSes a symlinked parent where available). On case-insensitive filesystems, also give the module or script path in a different case. A contained script must be read in each case. Verify with `go test -run <name> ./pkg/invowkfile/`, and note the skip reason per OS where a variant cannot run.
-- [ ] 1.4 Delete `Module.ValidateScriptPath` and `checkSymlinkSafety` (`pkg/invowkmod/invowkmod.go`), and with them their mutation tests (`invowkmod_mutation_test.go`), `TestModule_ValidateScriptPath` (`pkg/invowkmod/operations_test.go:552-584`) and the stale reference in the comment at `operations_test.go:522`, the goplint exception (`.goplint/exceptions.toml`) and the note in `docs/next/cross-platform-windows-improvements.md`. Keep `ContainsPath`. Verify with `go build ./... && go test ./pkg/invowkmod/ && make check-baseline`.
+- [ ] 1.4 Delete `Module.ValidateScriptPath` and `checkSymlinkSafety` (`pkg/invowkmod/invowkmod.go`), and with them their mutation tests (`invowkmod_mutation_test.go`), `TestModule_ValidateScriptPath` (`pkg/invowkmod/operations_test.go:552-584`) and the stale reference in the comment at `operations_test.go:522`, the goplint exception (`.goplint/exceptions.toml`), the `pkg/invowkmod.Module.ValidateScriptPath` entry of the path-matrix coverage registry (`tests/coverage/pathmatrix_coverage_test.go:44`) and the note in `docs/next/cross-platform-windows-improvements.md`. Keep `ContainsPath`. Then grep the tree outside `openspec/` for `ValidateScriptPath\b|checkSymlinkSafety`: only the formal records handled in 3.2-3.3, the seeded sets in `scripts/test_formal*.py` and the historical `tools/mutation/triage/current-full-scan.md` notes may remain. Verify with `go build ./... && go test ./pkg/invowkmod/ ./tests/coverage/ && make check-baseline`.
 
 ## 2. F13: acceptance through invowk cmd
 
@@ -88,23 +89,25 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
 - [ ] 5.1 Give `runtime.LoadEnvFile` a `moduleRoot` parameter and add `ErrEnvFileOutsideModule` (design D3).
   - With `moduleRoot == ""`, behaviour is unchanged.
   - Otherwise it denies an absolute path, runs `Stat` through `os.Root`, then reads through it.
+  - `OpenRoot` not-exist (a missing module root): an optional `?` file returns nil, a required one returns the not-exist read error; any other `OpenRoot` error is a read error.
   - An optional `?` file is skipped only when `Stat` and `Lstat` both report not-exist.
-  - A dangling or escaping link fails.
-  - OS errors stay read errors.
+  - A dangling, cycling or escaping link fails with `ErrEnvFileOutsideModule`, the optional ones included.
+  - A non-OS error from `root.ReadFile` ("path escapes from parent") is a containment error, never treated as not-exist.
+  - OS errors from `ReadFile` stay read errors, and no variable is merged on any error.
 
   - `rel` is `filepath.Rel(moduleRoot, filepath.Join(basePath, path))`; a failing `Rel` or a `rel` that leaves the module is a containment error.
   - `LoadEnvFileFromCwd` passes `moduleRoot = ""`.
 
-  Update every caller and test caller. Verify with unit tests for each of these cases, including an absolute path built directly in Go, a `basePath` below `moduleRoot` and a `basePath` outside it: `go test ./internal/runtime/`.
+  Update every caller and test caller. Verify with unit tests for each of these cases, including an absolute path built directly in Go, a `basePath` below `moduleRoot` and a `basePath` outside it, a missing module root (optional and required), a cycle, and an optional dangling and an optional escaping link: `go test ./internal/runtime/`. Each branch of the module path needs a test that kills its plausible mutants (error class, optional skip, `Lstat` disambiguation), because `LoadEnvFile` is a formal-bindings target.
 - [ ] 5.2 `DefaultEnvBuilder.Build` passes `ctx.Invowkfile.ModulePath` as `moduleRoot` for root, command and implementation `env.files`. Verify with:
   - a test where a plain invowkfile's symlinked `.env` that points outside still loads;
   - a module-context test where an escaping link fails before the command runs.
 - [ ] 5.3 Extend the `/private`-alias and case test from 1.3 to the module env read. Verify with `go test ./internal/runtime/`.
 - [ ] 5.4 Formal:
   - model `accepts` gains `physContains` for `EnvRead`, then `make formal-golden`;
-  - `replayEnvRead` calls `LoadEnvFile` with the module root and expects `admit && validates && physContains`, and its comment is updated;
+  - `replayEnvRead` (design D4, "How the env replay ties F17 to the code"): on every vector that the real `Load` admits and the real `ValidateEnvFilePath` accepts, call `LoadEnvFile` with the module root; the code's verdict is denied when `errors.Is(err, ErrEnvFileOutsideModule)` and accepted otherwise; compare it with `dAccepts`, then check the touched node as today (a denied vector merges no variable; a directory touch returns a non-containment error). Never compute `admit && validates && physContains` or read `dPhysContains` for the code's verdict. Update its comment;
   - the `readOp | LoadEnvFile` row keeps its binding, and its abstraction cell is marked code-stricter;
-  - seed one defect in the module branch (for example, skip the `Stat` check), check that its binding fails, revert it, and record it in the calibration text;
+  - seed the root-bypass defect in the module branch (read `filepath.Join(basePath, path)` with `os.ReadFile` in place of `root.Stat` and `root.ReadFile`), check that the relative pass's env replay fails on the escaping-link vectors, record the failing assertion and the vector count in the calibration text, and revert it. Optionally also seed "unresolvable link treated as not-exist" and record its failures on the dangling and cycle vectors. Skipping only the `Stat` check does not count: `root.ReadFile`'s own escape rejection masks it;
   - rename `findingF17EnvVendoredSymlink` to `mutantPreFixF17EnvNoPhysicalContainment`, point the `findingF17` row's element cell at it, and remove `ModulePathContainment: findingF17` from `[correspondence] unresolved_elements` (removed, never renamed);
   - extend the golden absolute pass's class to `EnvRead`, fail when it is empty, and record its size;
   - invert `TestModulePathContainment_F17EnvVendoredSymlink` and rename it, for example to `TestModulePathContainment_VendoredSymlinkEnvReadDenied`;

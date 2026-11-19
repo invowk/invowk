@@ -165,15 +165,27 @@ The rapid property SHALL judge escape, for every link kind, by file identity of 
 - **THEN** the custom-check replay SHALL deny the read and touch nothing, as the model's verdict does
 
 ### Requirement: Env-file reads are replayed through the real loader
-`TestModulePathContainment_GoldenVectors` SHALL call `LoadEnvFile` with the module root on every `EnvRead` instance of an admitted module whose path `ValidateEnvFilePath` accepts. It SHALL require the model's acceptance and touched node for `EnvRead`. The scenario named "Env replay reproduces F17" keeps its name from the pre-fix spec and now asserts the fixed denial. The touched file SHALL be identified by a sentinel in its content, and a non-file or missing target SHALL make the loader return an error.
+`TestModulePathContainment_GoldenVectors` SHALL call `LoadEnvFile` with the module root on every `EnvRead` instance of a module that the real `Load` admits and whose path the real `ValidateEnvFilePath` accepts. The code's verdict SHALL come only from the loader's error class: an error matching `ErrEnvFileOutsideModule` means denied, and nil or any other error means accepted. The replay SHALL NOT compute physical containment itself, nor read `dPhysContains`, to decide that verdict; the instance tree SHALL be consulted only to select the expectation for the absolute pass's class. The verdict SHALL equal the model's acceptance for `EnvRead`, and on an accepted vector the touched node SHALL equal the model's. The scenario named "Env replay reproduces F17" keeps its name from the pre-fix spec and now asserts the fixed denial. The touched file SHALL be identified by a sentinel in its content, and a denied vector SHALL merge no variable.
 
 #### Scenario: Env replay reproduces F17
 - **WHEN** a golden `EnvRead` instance on an admitted module reads `invowk_modules/x`, and `x` is a symlink that escapes
-- **THEN** the loader SHALL return a containment error and load no variable from the outside sentinel, as the model's verdict does
+- **THEN** the loader SHALL return an error matching `ErrEnvFileOutsideModule` and load no variable from the outside sentinel, as the model's verdict does
 
 #### Scenario: Missing env target
-- **WHEN** a golden `EnvRead` instance names a dangling link or a directory
-- **THEN** the loader SHALL return an error
+- **WHEN** a golden `EnvRead` instance names a dangling link or a link cycle, so that no target is reached
+- **THEN** the loader SHALL return an error matching `ErrEnvFileOutsideModule`, and the model SHALL deny the read
+
+#### Scenario: Env target is a directory
+- **WHEN** a golden `EnvRead` instance names a path that physically reaches a directory inside the module
+- **THEN** the loader SHALL return an error that does not match `ErrEnvFileOutsideModule`, the replay SHALL count the read as accepted, as the model does, and the model's touched node SHALL be that directory
+
+#### Scenario: Escape error from the contained read is not not-exist
+- **WHEN** `os.Root`'s "path escapes from parent" error reaches `LoadEnvFile` from `Stat` or from `ReadFile`
+- **THEN** the loader SHALL return an error matching `ErrEnvFileOutsideModule`, also for an optional `?` file
+
+#### Scenario: Env calibration seed is caught by the replay
+- **WHEN** the module branch of `LoadEnvFile` is seeded to bypass the root and read the joined path with `os.ReadFile`
+- **THEN** the relative pass's env replay SHALL fail on the escaping-link vectors, and a seed that `root.ReadFile`'s own escape rejection masks, such as skipping only the `Stat` check, SHALL NOT be recorded as the env calibration
 
 ### Requirement: F16 is decided by one of the stated outcomes
 The Windows CI run of the change SHALL decide one of these outcomes, recorded with the run id in `ModulePathContainment`'s calibration text:

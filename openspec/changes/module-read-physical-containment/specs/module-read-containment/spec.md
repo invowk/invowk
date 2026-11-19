@@ -29,6 +29,10 @@ When an invowkfile is loaded from a module, Invowk SHALL read an implementation 
 - **WHEN** a module's `script.file` names a symlink whose target does not exist
 - **THEN** resolving the script SHALL fail with the script path traversal error, and its message SHALL name a dangling link rather than an escape
 
+#### Scenario: Link cycle inside the module
+- **WHEN** a module's `script.file` names a symlink that is part of a cycle
+- **THEN** resolving the script SHALL fail with the script path traversal error, its message SHALL say that the link does not resolve, and the reader SHALL NOT be called
+
 #### Scenario: Operating-system error from the check
 - **WHEN** the containment check of a module's `script.file` fails with an operating-system error, such as a permission error on a directory
 - **THEN** resolving the script SHALL return that error as a script read error and read nothing
@@ -71,7 +75,11 @@ When an invowkfile is loaded from a module, Invowk SHALL load an `env.files` ent
 - **THEN** its variables SHALL be loaded as before
 
 ### Requirement: Optional module env files are skipped only when absent
-An optional (`?`-suffixed) env file in module context SHALL be skipped only when nothing exists at its path inside the module. A dangling link or an escaping link at that path SHALL fail like a required file.
+An optional (`?`-suffixed) env file in module context SHALL be skipped only when the contained read reports that nothing exists: nothing exists at its path inside the module, or the module directory itself is missing. A dangling link, a link cycle or an escaping link at that path SHALL fail like a required file, and an escape error from the contained read SHALL never be taken for a missing file.
+
+#### Scenario: Module directory missing
+- **WHEN** the module directory no longer exists when a module env file is loaded
+- **THEN** an optional file SHALL be skipped without error, and a required file SHALL fail with a read error that is not a containment error
 
 #### Scenario: Optional file missing
 - **WHEN** an optional module env file names a path at which no file or link exists
