@@ -270,11 +270,13 @@ guide ("set `TMPDIR` if needed").
   (`charm.land/bubbletea/v2@v2.0.9/tea.go:624-627`). So `name=$(invowk tui input)` draws
   nothing and `$name` holds control sequences in front of the answer, with exit 0, on
   `main` in a plain terminal. `spin` has the same defect for `out=$(invowk tui spin -- …)`.
-  S5a (Part A) draws on the controlling terminal (`/dev/tty`, `CONIN$`/`CONOUT$`), probed
-  2026-11-15 against stderr (stderr loses the UI under `2>log`). A separate change, S5b,
-  decides whether no-server `-i` runs can replace S3's refusal, with a hardened gate (a tmux
-  test of a real no-server `-i` session on row 10, asserting the screen state). If the
-  gate fails, the refusal stays in v0.17.0.
+  S5a (`fix-tui-capture-output`) ships Part A only: components draw on the controlling
+  terminal (`/dev/tty`, `CONIN$`/`CONOUT$` with a console check), probed 2026-11-15
+  against stderr (stderr loses the UI under `2>log`). S5a leaves S3's refusal in force.
+  S5b, a separate later change (not yet proposed), holds the gate: the no-server `-i`
+  path and a hardened tmux test of a real no-server `-i` session on row 10, asserting
+  the screen state. Its earlier drafts are at 9d8483ca and 97d1e6a5. If the gate fails,
+  S5b is shelved and the refusal stays in v0.17.0.
 - **N12 — on Windows and macOS hosts, container auto-provision copies the host's own
   non-Linux binary into the Linux container (by code reading; not run on those hosts).**
   `applyHostProvisionDefaults` defaults `InvowkBinaryPath` to `os.Executable()` with no

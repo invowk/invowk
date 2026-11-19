@@ -37,10 +37,14 @@ When an `invowk tui` component other than `format` and `style` renders directly,
 - **THEN** `$s` SHALL hold the styled text, as before this change
 
 ### Requirement: Fallback when no controlling terminal opens
-If the controlling terminal cannot be opened but stdin and stderr are both terminals, a component SHALL read keys from stdin and draw on stderr. If neither works, a drawing component SHALL fail with exit status 1 and an error that names the component and says it needs a terminal. It SHALL write nothing to stdout.
+On Windows, console handles that open but are not a usable console SHALL count as a controlling terminal that cannot be opened. If the controlling terminal cannot be opened but stdin and stderr are both terminals, a component SHALL read keys from stdin and draw on stderr. If neither works, a drawing component SHALL fail with exit status 1 and an error that names the component and says it needs a terminal. It SHALL write nothing to stdout.
 
 #### Scenario: No terminal at all
 - **WHEN** `invowk tui input` runs with no controlling terminal and with stdin and stderr not terminals, as in a CI job
+- **THEN** it SHALL exit with status 1, stdout SHALL be empty, and stderr SHALL say that `input` needs a terminal
+
+#### Scenario: Windows process without a usable console
+- **WHEN** `invowk tui input` runs on Windows where `CONIN$` or `CONOUT$` is not a usable console, and stdin and stderr are not consoles
 - **THEN** it SHALL exit with status 1, stdout SHALL be empty, and stderr SHALL say that `input` needs a terminal
 
 #### Scenario: No controlling terminal, but terminal stdio
@@ -48,11 +52,15 @@ If the controlling terminal cannot be opened but stdin and stderr are both termi
 - **THEN** the component SHALL draw on stderr, read keys from stdin, and write only its result to stdout
 
 ### Requirement: spin and pager degrade without a terminal
-Without any usable terminal, `invowk tui spin` SHALL run the wrapped command without a spinner and keep its stdout and exit-code behavior, and `invowk tui pager` SHALL write the content unchanged to stdout and exit 0.
+Without any usable terminal, `invowk tui spin` SHALL run the wrapped command exactly once, without a spinner, and keep its stdout and exit-code behavior, and `invowk tui pager` SHALL write the content unchanged to stdout and exit 0.
 
 #### Scenario: spin in CI
 - **WHEN** `invowk tui spin -- sh -c 'echo ok; exit 3'` runs with no terminal
 - **THEN** stdout SHALL be `ok`, and the exit status SHALL be 3
+
+#### Scenario: spin runs its command once
+- **WHEN** `invowk tui spin -- sh -c 'echo run >>count.log'` runs with no terminal
+- **THEN** `count.log` SHALL hold exactly one `run` line
 
 #### Scenario: pager in a pipe without a terminal
 - **WHEN** `printf 'x\n' | invowk tui pager` runs with no terminal
