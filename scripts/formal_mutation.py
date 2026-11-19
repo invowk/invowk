@@ -761,12 +761,11 @@ def mutant_id(file: str, mutator: str, removed: str, added: str) -> str:
     return hashlib.md5(f"{file}\0{mutator}\0{removed}\0{added}".encode()).hexdigest()
 
 
-def anchored_in(lines: list[str], decl: FuncDecl, anchors: list[str]) -> bool:
-    """Whether the anchors, compared stripped, appear in order in `lines`, the
-    first one inside `decl` (its `func` line to its closing brace). Later ones
-    may lie anywhere after it: go/printer can re-flow a comment past the
-    function's end."""
-    stripped = [line.strip() for line in lines]
+def anchored_in(stripped: list[str], decl: FuncDecl, anchors: list[str]) -> bool:
+    """Whether the anchors appear in order in `stripped` (a file's lines, each
+    stripped), the first one inside `decl` (its `func` line to its closing
+    brace). Later ones may lie anywhere after it: go/printer can re-flow a
+    comment past the function's end."""
     for start in range(decl.start - 1, min(decl.end, len(stripped))):
         if stripped[start] != anchors[0]:
             continue
@@ -776,7 +775,14 @@ def anchored_in(lines: list[str], decl: FuncDecl, anchors: list[str]) -> bool:
     return False
 
 
-def anchor_problem(survivor: dict, mutator: str | None, source: Callable[[str], str | None]) -> str | None:
+class ParsedSource(NamedTuple):
+    """A Go file's stripped lines and top-level function declarations."""
+
+    stripped: list[str]
+    decls: list[FuncDecl]
+
+
+def anchor_problem(survivor: dict, mutator: str | None, source: Callable[[str], ParsedSource | None]) -> str | None:
     """Why a ledger entry no longer describes a mutant of the current code
     (refresh-anchors-mutation-ledger design D1), or None. It reads only the
     current Go source through `source(file)`: no mutation run, no `go list`, no
@@ -793,30 +799,33 @@ def anchor_problem(survivor: dict, mutator: str | None, source: Callable[[str], 
     file, symbol = survivor["file"], survivor["symbol"]
     if mutator is not None and mutant_id(file, mutator, removed, added) != survivor["id"]:
         return f"anchor mismatch: removed and added do not hash to the id with {file} and mutator {mutator}"
-    text = source(file)
     try:
-        decl = find_function(function_decls(text), symbol) if text is not None else None
+        parsed = source(file)
+        decl = find_function(parsed.decls, symbol) if parsed is not None else None
     except PlanError as err:
         return f"symbol missing: {err}"
     if decl is None:
         return f"symbol missing: {symbol} no longer names a function in {file}"
     anchors = [line.strip() for line in (removed or context).splitlines()]
-    if not anchored_in(text.splitlines(), decl, anchors):
+    if not anchored_in(parsed.stripped, decl, anchors):
         return (f"mutated code gone: the anchor lines no longer appear in order from inside {symbol} "
                 f"({file}:{decl.start}-{decl.end})")
     return None
 
 
-def source_reader(root: Path) -> Callable[[str], str | None]:
-    """The current tree's text of a file, cached; None when it is missing."""
-    cache: dict[str, str | None] = {}
+def source_reader(root: Path) -> Callable[[str], ParsedSource | None]:
+    """The current tree's parsed file, read and parsed once per file; None
+    when it is missing. A file function_decls rejects raises PlanError."""
+    cache: dict[str, ParsedSource | None] = {}
 
-    def read(file: str) -> str | None:
+    def read(file: str) -> ParsedSource | None:
         if file not in cache:
             try:
-                cache[file] = (root / file).read_text()
+                text = (root / file).read_text()
             except (OSError, UnicodeDecodeError):
                 cache[file] = None
+            else:
+                cache[file] = ParsedSource([line.strip() for line in text.splitlines()], function_decls(text))
         return cache[file]
 
     return read
