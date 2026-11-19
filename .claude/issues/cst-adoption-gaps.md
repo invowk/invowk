@@ -47,6 +47,9 @@ Decisions taken with the maintainer (2026-11-14):
 | N10 | EVOLVE — security | follow-up to S4 (per-URL git auth: auth order, Windows known_hosts default; not yet proposed) | M |
 | N11 | EVOLVE — bug | `fix-tui-capture-output` (S5a, Part A); no-server `-i` runs gated in S5b | M |
 | N12 | EVOLVE — bug | container auto-provision on non-Linux hosts (not yet proposed; not S5) | S |
+| N13 | EVOLVE — tests | portable no-terminal test helper (before v0.17.0) | S |
+| N14 | EVOLVE — bug | `tui spin` Ctrl+C race and dropped output (after v0.17.0; with N1/S2) | S |
+| N15 | DECIDE — product | `pager` and non-selectable `table` with stdout redirected (after v0.17.0) | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -297,6 +300,29 @@ guide ("set `TMPDIR` if needed").
   and skip the binary on a non-Linux host, and document `binary_path`. This also qualifies
   S3's row-6 release Warning (N5): on macOS and Windows hosts, in-container `invowk tui`
   already needs `binary_path`, whatever the TUI server's reachability.
+- **N13 — `tui_no_terminal.txtar` skips on macOS and Windows (S5a follow-up, before
+  v0.17.0).** The test drops the controlling terminal with `setsid`, guarded by
+  `[!exec:setsid] skip`. That guard is not in `.agents/rules/testing.md`'s closed list of
+  allowed platform skips, and `setsid` exists only on the Linux CI legs (skipped in jobs
+  135403243980 and 135403243939). Fix: a testscript command implemented in Go that starts
+  the binary without a controlling terminal: a new session on Unix, a detached process
+  with no console on Windows. Then the txtar runs on all three systems.
+- **N14 — `invowk tui spin`: Ctrl+C abandons the running command, and a spinner failure
+  drops its output (S5a review; pre-existing on `main`).** `spinActionModel` returns
+  `tea.Quit` on Ctrl+C, so `runActionSpinner` returns nil. `spinWithAction` then returns
+  without waiting for the action goroutine, and `runTuiSpinWithRunner`
+  (`cmd/invowk/tui_spin.go`) reads `runResult` while the goroutine may still write it.
+  That is a data race: the run exits 0 with empty output and the child keeps running.
+  Separately, when the spinner fails after the command started, the adapter returns the
+  spinner error and drops the command's output and exit code. Fix: cancel the command's
+  context on quit and exit 130; print the output and map the exit code whenever the
+  action ran. Belongs with N1 (S2, termination signals).
+- **N15 — `pager` and non-selectable `table` when only stdout is redirected (S5a review,
+  product decision).** S5a's `pager` opens the terminal and writes nothing to stdout when
+  only stdout is a pipe (unlike `less`, which passes content through), and a non-selectable
+  `table` is a value component, so with no terminal it exits 1. v0.17.0 ships this
+  reviewed behaviour. Decide whether either should pass content through to stdout
+  whenever stdout is not a terminal.
 
 ## Why CST keeps its production paths out of invowk anyway
 
@@ -356,3 +382,7 @@ Seen again 2026-11-15 on Linux (Fedora, local `make test` of S4 at `3670d1e5`): 
 assertion in gotestsum's first pass, passed in its re-run. 200 isolated runs passed on S4 and on `main` (`d7e4feb4`). Unverified
 hypothesis: the lock file carries an RFC 3339 `generated` timestamp, so a rewrite that
 crosses a second boundary changes its bytes.
+
+Third sighting, 2026-11-19 on Windows: CI run 44475510192, job 135394971934 (PR #175 at
+`e993c5af`, which does not touch `internal/app/modulesync`). Same assertion; the next head
+passed. Diagnose after v0.17.0.
