@@ -14,7 +14,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/invowk/invowk/internal/basedir"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"mvdan.cc/sh/v3/interp"
 )
@@ -138,58 +140,60 @@ func defaultTempRoots() []string {
 }
 
 func standardVirtualAnchors(workDir string) map[string]string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-	return standardVirtualAnchorsForOS(runtime.GOOS, workDir, home, os.TempDir(), os.Getenv)
+	return standardVirtualAnchorsForOS(runtime.GOOS, workDir, os.TempDir(), basedir.OS())
 }
 
-func standardVirtualAnchorsForOS(
-	goos string,
-	workDir string,
-	home string,
-	tempDir string,
-	getenv func(string) string,
-) map[string]string {
-	get := func(name string) string {
-		if getenv == nil {
-			return ""
-		}
-		return getenv(name)
-	}
+// standardVirtualAnchorsForOS builds the anchor map for goos. Every base comes
+// from the shared resolver, so it is absolute: a relative XDG or AppData
+// variable falls back to the home-based default, and an anchor whose base is
+// unavailable (a relative or unset home) is "". An empty anchor is never an
+// allow root and is an error when used (expandVirtualAnchorPath).
+//
+// The name is bound by the VirtualPathHarness correspondence table
+// (formal/alloy/VirtualPathHarness.als); keep it.
+func standardVirtualAnchorsForOS(goos, workDir, tempDir string, dirs basedir.Dirs) map[string]string {
 	anchors := map[string]string{
-		virtualAnchorHome: home,
+		virtualAnchorHome: availableBase(dirs.Home()),
 		virtualAnchorTmp:  tempDir,
 		virtualAnchorWork: workDir,
 	}
+	config := availableBase(dirs.ConfigHome())
+	data := availableBase(dirs.DataHome())
+	cache := availableBase(dirs.CacheHome())
+	state := availableBase(dirs.StateHome())
 	switch goos {
 	case goosWindows:
-		roaming := firstNonEmpty(get("APPDATA"), filepath.Join(home, "AppData", "Roaming"))
-		local := firstNonEmpty(get("LOCALAPPDATA"), filepath.Join(home, "AppData", "Local"))
-		anchors[virtualAnchorConfig] = filepath.Join(roaming, "invowk", "config")
-		anchors[virtualAnchorData] = filepath.Join(local, "invowk", "data")
-		anchors[virtualAnchorCache] = filepath.Join(local, "invowk", "cache")
-		anchors[virtualAnchorState] = filepath.Join(local, "invowk", "state")
-	case "darwin":
-		anchors[virtualAnchorConfig] = filepath.Join(home, "Library", "Application Support", "invowk")
-		anchors[virtualAnchorData] = filepath.Join(home, "Library", "Application Support", "invowk")
-		anchors[virtualAnchorCache] = filepath.Join(home, "Library", "Caches", "invowk")
-		anchors[virtualAnchorState] = filepath.Join(home, "Library", "Logs", "invowk")
+		anchors[virtualAnchorConfig] = joinAvailable(config, "invowk", "config")
+		anchors[virtualAnchorData] = joinAvailable(data, "invowk", "data")
+		anchors[virtualAnchorCache] = joinAvailable(cache, "invowk", "cache")
+		anchors[virtualAnchorState] = joinAvailable(state, "invowk", "state")
 	default:
-		anchors[virtualAnchorConfig] = filepath.Join(firstNonEmpty(get("XDG_CONFIG_HOME"), filepath.Join(home, ".config")), "invowk")
-		anchors[virtualAnchorData] = filepath.Join(firstNonEmpty(get("XDG_DATA_HOME"), filepath.Join(home, ".local", "share")), "invowk")
-		anchors[virtualAnchorCache] = filepath.Join(firstNonEmpty(get("XDG_CACHE_HOME"), filepath.Join(home, ".cache")), "invowk")
-		anchors[virtualAnchorState] = filepath.Join(firstNonEmpty(get("XDG_STATE_HOME"), filepath.Join(home, ".local", "state")), "invowk")
+		anchors[virtualAnchorConfig] = joinAvailable(config, "invowk")
+		anchors[virtualAnchorData] = joinAvailable(data, "invowk")
+		anchors[virtualAnchorCache] = joinAvailable(cache, "invowk")
+		anchors[virtualAnchorState] = joinAvailable(state, "invowk")
 	}
 	return anchors
 }
 
-func firstNonEmpty(first, second string) string {
-	if first != "" {
-		return first
+// availableBase returns the resolved base, or "" when it is unavailable.
+//
+//goplint:ignore -- anchor maps hold raw OS path strings; "" marks an unavailable anchor.
+func availableBase(dir types.FilesystemPath, err error) string {
+	if err != nil {
+		return ""
 	}
-	return second
+	return string(dir)
+}
+
+// joinAvailable joins elems under base, keeping an unavailable base "".
+//
+//goplint:ignore -- raw OS path strings for the anchor map.
+func joinAvailable(base string, elems ...string) string {
+	if base == "" {
+		return ""
+	}
+	return filepath.Join(append([]string{base}, elems...)...)
 }
 
 func normalizedRoots(paths []string) []string {
@@ -287,8 +291,11 @@ func expandVirtualAnchorPath(path string, anchors map[string]string) (string, er
 	}
 	name, suffix := splitVirtualAnchorPath(path)
 	root, ok := anchors[name]
-	if !ok || root == "" {
+	if !ok {
 		return "", fmt.Errorf("unknown virtual path anchor %q", name)
+	}
+	if root == "" {
+		return "", fmt.Errorf("virtual path anchor %q is unavailable: its base directory is relative or unset", name)
 	}
 	if suffix == "" {
 		return root, nil

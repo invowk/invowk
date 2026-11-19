@@ -40,11 +40,15 @@ Decisions taken with the maintainer (2026-11-14):
 | N2 | EVOLVE | C2 | S |
 | N3 | EVOLVE | C3 | S |
 | N4 | EVOLVE | C2 | S |
-| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, implemented in PR #173; done on merge) | M |
+| N5 | EVOLVE — security | `restrict-tui-server-bind` (S3, done: PR #173, merged as d7e4feb4) | M |
 | N7 | EVOLVE — bug | SSH host-callback reachability (own change after S3, not yet proposed) | M |
+| N8 | EVOLVE — security | follow-up to S4 (`basedir.TempDir`, not yet proposed) | M |
+| N9 | DECIDE — product | follow-up to S4 (engine environment, not yet proposed) | M |
+| N10 | EVOLVE — security | follow-up to S4 (per-URL git auth: auth order, Windows known_hosts default; not yet proposed) | M |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
+v0.17.0 merge order: S1 → C1 → scripts-safety → F1 → S3 → S4, W2 after.
 
 ---
 
@@ -195,8 +199,8 @@ guide ("set `TMPDIR` if needed").
   not found". Decide whether an invalid cwd invowkfile is fatal.
 - **N4 — `ui.color_scheme` is a dead setting (C2).** `config_schema.cue:116`; only read and
   written by `config show/set` (`cmd/invowk/config.go:32,149,330`).
-- **N5 — the TUI server binds every interface (S3, implemented in PR #173; done on
-  merge).** Found 2026-11-14 while triaging Sonar go:S5332. `internal/tuiserver/server.go`
+- **N5 — the TUI server binds every interface (S3, done: PR #173, merged as
+  d7e4feb4).** Found 2026-11-14 while triaging Sonar go:S5332. `internal/tuiserver/server.go`
   listened on `0.0.0.0:0`, so during interactive commands the port was reachable from the
   LAN, guarded only by the per-session token. S3 (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind`)
   binds loopback plus, at most, the one address a verified engine mode routes to the host,
@@ -230,7 +234,31 @@ guide ("set `TMPDIR` if needed").
   "Connection refused". The test is vacuous: `tests/cli/testdata/container_callback.txtar`
   only asserts the env vars. Fix by reusing S3's exposure plan (D1-D2) and add a real
   reachability test.
-- **(unnumbered; S4 holds N8-N10) — direct `invowk tui` rendering draws into captured
+- **N8 — `TMPDIR`/`TMP`/`TEMP` are not validated (follow-up to S4).** Found 2026-11-14 in
+  the `require-absolute-base-dirs` review (design decision 6). `os.TempDir()` returns a
+  relative `TMPDIR` as given, and about ten sites use it (`os.TempDir`, `os.CreateTemp("",
+  …)`, `os.MkdirTemp("", …)`, for example `internal/runtime/native.go:276`). On Windows
+  the OS call derives it from `TMP`, `TEMP` and `USERPROFILE`. Add `basedir.TempDir()`
+  with per-OS rules and route those sites through it; S4's temp fallbacks are safe
+  without it (random `MkdirTemp` names, a non-truncating run lock).
+- **N9 — Docker/Podman read their per-user config through a relative `HOME`/XDG
+  environment (follow-up to S4, product decision).** Design decision 9 of S4: invowk
+  passes the inherited environment to the engine CLIs, which read `~/.docker` and
+  `$XDG_CONFIG_HOME/containers`. With a relative value they may read files under the
+  current directory. Options: refuse to launch an engine, or rewrite its environment.
+  Needs a maintainer decision.
+- **N10 — git auth is chosen once, not per URL (follow-up to S4).** `setupAuth` in
+  `internal/app/modulesync/git.go` runs in `NewGitFetcher`, before any URL is known, and
+  tries SSH keys before HTTPS tokens: an `https://` fetch gets SSH public-key auth when
+  `~/.ssh/id_*` exists, so `GITHUB_TOKEN`/`GITLAB_TOKEN`/`GIT_TOKEN` is ignored. Build the
+  auth per URL from its scheme. The same per-URL construction closes a Windows gap found in
+  S4's review: with `SSH_KNOWN_HOSTS` unset, go-git v5.19.2 (`getDefaultKnownHostsFiles`)
+  also trusts `/etc/ssh/ssh_known_hosts`, which on Windows is root-relative and resolves on
+  the current directory's drive. The fix passes go-git a host-key callback built from
+  `<home>\.ssh\known_hosts` only, plus the host-key algorithms for that URL's host (go-git
+  stops computing them when a callback is given), on both the key and the `Auth: nil`
+  agent paths. Until then, set `SSH_KNOWN_HOSTS` to an absolute path on Windows.
+- **N11 — direct `invowk tui` rendering draws into captured
   stdout.** Found 2026-11-15 in S3's premise check. Without `INVOWK_TUI_ADDR`, a value
   component builds `tea.NewProgram(model)` without `tea.WithOutput`
   (`internal/tui/input.go:137`, same shape in `choose`, `filter`, `file`, `write`), so
@@ -294,3 +322,8 @@ gotestsum's re-run in the same step (the job failed for other, real failures:
 
 The test expects the lock file to stay byte-identical when the locked version reproduces
 its hash; once, on Windows, it did not. The cause is not investigated.
+
+Seen again 2026-11-15 on Linux (Fedora, local `make test` of S4 at `3670d1e5`): same
+assertion in gotestsum's first pass, passed in its re-run. 200 isolated runs passed on S4 and on `main` (`d7e4feb4`). Unverified
+hypothesis: the lock file carries an RFC 3339 `generated` timestamp, so a rewrite that
+crosses a second boundary changes its bytes.

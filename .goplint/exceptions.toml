@@ -1448,14 +1448,6 @@ pattern = "runtime.defaultTempRoots.return.*"
 reason = "platform filesystem boundary paths"
 
 [[exceptions]]
-pattern = "runtime.firstNonEmpty.*"
-reason = "platform environment fallback helper"
-
-[[exceptions]]
-pattern = "runtime.firstNonEmpty.return.*"
-reason = "platform environment fallback helper"
-
-[[exceptions]]
 pattern = "runtime.normalizedRoots.*"
 reason = "filesystem boundary helper for virtual runtime containment"
 

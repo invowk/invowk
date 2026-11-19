@@ -92,10 +92,16 @@ loaded):
 - Use `.bat`, `.cmd`, or `.exe` for executable fixtures; executable permission
   bits alone do not make a file runnable on Windows.
 - Use `${:}` and `${/}` in testscript PATH/path construction.
-- For tests that exercise `os.UserHomeDir`, `config.CommandsDir`, or global
+- For tests that exercise the process home, `config.CommandsDir`, or global
   module discovery, use `internal/testutil.SetHomeDir(t, dir)`. Direct
   `t.Setenv("HOME", dir)` is Unix-only and leaves Windows `USERPROFILE`
-  unchanged.
+  unchanged. Prefer injecting the home instead: production code reads it only
+  through `internal/basedir` (`basedir.New(goos, getenv, userHomeDir)`), so a
+  test can pass a resolver without touching the process environment.
+- `filepath.IsAbs` follows the host OS: `\Users\me` and `C:Users\me` are
+  relative on Windows, and `/home/user` is relative there too. Table tests
+  with an injected `goos` must use host-absolute fixtures (`t.TempDir()`
+  children); Windows-only path forms belong in `_windows_test.go` files.
 - Account for NTFS case-insensitivity and 8.3 short-path aliases in string
   assertions. If only identity matters, compare `os.Stat` results with
   `os.SameFile`.

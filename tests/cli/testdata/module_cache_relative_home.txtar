@@ -1,0 +1,46 @@
+# Test: a relative home disables the default module cache
+# (base-directory-resolution, "relative home disables the default cache"). With
+# INVOWK_MODULES_PATH unset and HOME=. (USERPROFILE=. on Windows), a module
+# command that needs the cache fails with the absolute-path error, and the
+# planted ./.invowk/modules is never used as the cache. The cache directory is
+# resolved before any git operation, so no network is needed.
+
+cd $WORK
+env INVOWK_MODULES_PATH=
+[!windows] env HOME=.
+[windows] env USERPROFILE=.
+
+# stdout carries the unwrapped error line; the stderr box wraps it.
+! exec invowk module sync
+stdout 'must be an absolute path: home directory "\."'
+stderr 'absolute'
+
+# The planted cache is untouched: no source checkout and no new entries.
+! exists .invowk/modules/sources
+exists .invowk/modules/planted.txt
+! exists invowk.lock.cue
+
+-- .invowk/modules/planted.txt --
+a repository-supplied module cache
+
+-- invowkmod.cue --
+module: "io.invowk.test.cachehome"
+version: "1.0.0"
+description: "Test module for a relative home and the default module cache"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	description: "Test command"
+	implementations: [{
+		script: {content: "echo hello"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]

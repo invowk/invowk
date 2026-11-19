@@ -20,12 +20,19 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 
+	"github.com/invowk/invowk/internal/basedir"
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
-const errMsgListRemoteRefs = "failed to list remote refs: %w"
+const (
+	errMsgListRemoteRefs = "failed to list remote refs: %w"
+
+	// sshKnownHostsEnv is go-git's known_hosts override. It is not a base
+	// directory variable, so it is read here and not through basedir.
+	sshKnownHostsEnv = "SSH_KNOWN_HOSTS"
+)
 
 type (
 	// GitFetcher handles Git operations for module fetching.
@@ -33,6 +40,24 @@ type (
 	GitFetcher struct {
 		cacheDir types.FilesystemPath
 		auth     transport.AuthMethod
+		// dirs resolves the home directory that SSH keys and known_hosts
+		// come from; the zero value is the real process.
+		dirs basedir.Dirs
+		// getenv reads SSH_KNOWN_HOSTS and the HTTPS token variables; nil
+		// means os.Getenv.
+		getenv func(string) string
+	}
+
+	// SSHTrustFilesError reports an SSH-transport fetch refused before
+	// connecting, because the home directory or an SSH_KNOWN_HOSTS entry is
+	// relative or unavailable (base-directory-resolution).
+	SSHTrustFilesError struct {
+		// Source names the refused value: "home directory" or
+		// "SSH_KNOWN_HOSTS".
+		Source string //goplint:ignore -- fixed label for the diagnostic text.
+		// Value is the refused SSH_KNOWN_HOSTS entry; empty for the home.
+		Value string //goplint:ignore -- raw environment value preserved for the diagnostic.
+		Err   error
 	}
 
 	// tagInfo contains information about a Git tag.
@@ -45,11 +70,37 @@ type (
 
 // NewGitFetcher creates a new Git fetcher.
 func NewGitFetcher(cacheDir types.FilesystemPath) *GitFetcher {
+	return newGitFetcherWith(cacheDir, basedir.OS(), os.Getenv)
+}
+
+// newGitFetcherWith is NewGitFetcher with an injected base-directory
+// resolver and environment lookup.
+func newGitFetcherWith(cacheDir types.FilesystemPath, dirs basedir.Dirs, getenv func(string) string) *GitFetcher {
 	f := &GitFetcher{
 		cacheDir: cacheDir,
+		dirs:     dirs,
+		getenv:   getenv,
 	}
 	f.setupAuth()
 	return f
+}
+
+// Error implements error.
+func (e *SSHTrustFilesError) Error() string {
+	subject := e.Source
+	if e.Value != "" {
+		subject = fmt.Sprintf("%s entry %q", e.Source, e.Value)
+	}
+	return fmt.Sprintf("%v: %s: %v; use an absolute home directory and SSH_KNOWN_HOSTS, "+
+		"or an https:// URL with GITHUB_TOKEN, GITLAB_TOKEN or GIT_TOKEN",
+		ErrSSHTrustFilesNotAbsolute, subject, e.Err)
+}
+
+// Unwrap returns the sentinel and the cause, so errors.Is matches
+// ErrSSHTrustFilesNotAbsolute and basedir.ErrNotAbsolute (or the home lookup
+// error).
+func (e *SSHTrustFilesError) Unwrap() []error {
+	return []error{ErrSSHTrustFilesNotAbsolute, e.Err}
 }
 
 // CacheDir returns the base directory for the Git source cache.
@@ -57,6 +108,9 @@ func (f *GitFetcher) CacheDir() types.FilesystemPath { return f.cacheDir }
 
 // ListVersions returns all version tags from a Git repository.
 func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer, error) {
+	if err := f.requireTrustedSSHFiles(gitURL); err != nil {
+		return nil, err
+	}
 	// Use in-memory storage to list remote refs without cloning
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
@@ -92,6 +146,9 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer,
 // Fetch clones or fetches a Git repository and checks out the specified version.
 // Returns the path to the repository and the commit SHA.
 func (f *GitFetcher) Fetch(ctx context.Context, gitURL GitURL, version SemVer) (repoPath types.FilesystemPath, commitSHA GitCommit, err error) {
+	if gateErr := f.requireTrustedSSHFiles(gitURL); gateErr != nil {
+		return "", "", gateErr
+	}
 	// Generate a cache path for this repository
 	cachePath := f.getRepoCachePath(gitURL)
 
@@ -121,6 +178,9 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL GitURL, version SemVer) (
 
 // GetCommitForTag returns the commit hash for a specific tag.
 func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName SemVer) (GitCommit, error) {
+	if err := f.requireTrustedSSHFiles(gitURL); err != nil {
+		return "", err
+	}
 	// Use in-memory storage to list remote refs without cloning
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
@@ -159,6 +219,9 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName
 // CloneShallow performs a shallow clone of a repository at a specific tag.
 // This is more efficient for modules where we only need a specific version.
 func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL GitURL, version SemVer, destPath types.FilesystemPath) (GitCommit, error) {
+	if err := f.requireTrustedSSHFiles(gitURL); err != nil {
+		return "", err
+	}
 	dest := string(destPath)
 
 	// Ensure parent directory exists
@@ -208,8 +271,12 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL GitURL, version Se
 	return "", fmt.Errorf("%w at version %s: %w", ErrCloneFailed, version, lastErr)
 }
 
-// IsPrivateRepo checks if a repository requires authentication.
+// IsPrivateRepo checks if a repository requires authentication. An SSH URL
+// refused by requireTrustedSSHFiles reports true without connecting.
 func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL GitURL) bool {
+	if f.requireTrustedSSHFiles(gitURL) != nil {
+		return true
+	}
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{string(gitURL)},
@@ -243,6 +310,9 @@ func (f *GitFetcher) ListTags(ctx context.Context, gitURL GitURL) ([]SemVer, err
 
 // ListTagsWithCommits returns all tags with their commit hashes.
 func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]tagInfo, error) {
+	if err := f.requireTrustedSSHFiles(gitURL); err != nil {
+		return nil, err
+	}
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{string(gitURL)},
@@ -282,6 +352,40 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]
 	return tags, nil
 }
 
+// requireTrustedSSHFiles refuses an SSH-transport URL (anything that is not
+// https://) unless the home directory resolves to an absolute path and every
+// non-empty SSH_KNOWN_HOSTS entry is absolute. invowk reads SSH keys from the
+// home; go-git reads known_hosts from it and uses SSH_KNOWN_HOSTS entries as
+// given; ssh_config reads .ssh/config from it. A relative or unavailable value
+// would let a repository supply those files from the current directory.
+//
+// The test is "not https://" rather than a list of SSH prefixes, so a scheme
+// added to GitURL.Validate later fails closed.
+func (f *GitFetcher) requireTrustedSSHFiles(gitURL GitURL) error {
+	if strings.HasPrefix(string(gitURL), "https://") {
+		return nil
+	}
+	if _, err := f.dirs.Home(); err != nil {
+		return &SSHTrustFilesError{Source: "home directory", Err: err}
+	}
+	for _, entry := range filepath.SplitList(f.env(sshKnownHostsEnv)) {
+		if entry != "" && !filepath.IsAbs(entry) {
+			return &SSHTrustFilesError{Source: sshKnownHostsEnv, Value: entry, Err: basedir.ErrNotAbsolute}
+		}
+	}
+	return nil
+}
+
+// env reads an environment variable through the injected lookup.
+//
+//goplint:ignore -- raw environment variable name and value at the OS boundary.
+func (f *GitFetcher) env(name string) string {
+	if f.getenv == nil {
+		return os.Getenv(name)
+	}
+	return f.getenv(name)
+}
+
 // setupAuth configures authentication based on available credentials.
 func (f *GitFetcher) setupAuth() {
 	// Try SSH authentication first
@@ -301,11 +405,13 @@ func (f *GitFetcher) setupAuth() {
 
 // trySSHAuth attempts to configure SSH authentication.
 func (f *GitFetcher) trySSHAuth() transport.AuthMethod {
-	// Check common SSH key locations
-	homeDir, err := os.UserHomeDir()
+	// Check common SSH key locations, only under an absolute home: a
+	// relative one would load keys from the current directory.
+	home, err := f.dirs.Home()
 	if err != nil {
 		return nil
 	}
+	homeDir := string(home)
 
 	keyPaths := []string{
 		filepath.Join(homeDir, ".ssh", "id_ed25519"),
@@ -328,7 +434,7 @@ func (f *GitFetcher) trySSHAuth() transport.AuthMethod {
 // tryHTTPAuth attempts to configure HTTP authentication.
 func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 	// Check for GitHub token
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+	if token := f.env("GITHUB_TOKEN"); token != "" {
 		return &http.BasicAuth{
 			Username: "x-access-token",
 			Password: token,
@@ -336,7 +442,7 @@ func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 	}
 
 	// Check for GitLab token
-	if token := os.Getenv("GITLAB_TOKEN"); token != "" {
+	if token := f.env("GITLAB_TOKEN"); token != "" {
 		return &http.BasicAuth{
 			Username: "gitlab-ci-token",
 			Password: token,
@@ -344,7 +450,7 @@ func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 	}
 
 	// Check for generic Git token
-	if token := os.Getenv("GIT_TOKEN"); token != "" {
+	if token := f.env("GIT_TOKEN"); token != "" {
 		return &http.BasicAuth{
 			Username: "git",
 			Password: token,

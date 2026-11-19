@@ -46,7 +46,7 @@ The script validates the args and throws on a bad one before it spawns any agent
 
 - Implementation runs `python3 scripts/formal.py affected --event pull_request --base <base> --head HEAD`. When it prints `run=true`, it also runs `python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach`.
 - `make formal` is left to the required `Models, golden vectors, and correspondence` CI check, unless Java is present locally and the lane is affected.
-- The fix agent runs `make mutation-formal` once, report-only, in a throwaway worktree, only when a function body bound by `.agents/rules/formal-bindings.md` was rewritten: a green `triage --check` proves nothing about a rewritten body.
+- The fix agent runs `make mutation-formal` once, report-only, in a throwaway worktree, only when a function body bound by `.agents/rules/formal-bindings.md` was rewritten: a green `triage --check` proves nothing about a rewritten body. The target has no file scope, so even one rewritten function plans every formal-bindings mutant (780 mutants in about 35 minutes locally on 2026-11-19). Run it in the background with an `rc=` line and wait for it with Monitor. Read the rewritten function's lines from the `ESCAPED` lines in the log.
 
 ## Merging
 

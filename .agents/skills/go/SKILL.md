@@ -83,6 +83,25 @@ var ErrNotFound = errors.New(notFoundErrMsg)
 - For resources, prefer named returns and deferred close aggregation. For
   best-effort cleanup, log or comment the intentional discard.
 
+## Per-User Directories
+
+- Never call `os.UserHomeDir`, `os.UserConfigDir`, `os.UserCacheDir`,
+  `os.ExpandEnv` or `os.Expand`, import `os/user` or a home/XDG helper
+  (`go-homedir`, `adrg/xdg`, ...), or read `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` or an
+  `XDG_*` variable outside `internal/basedir`. Take a `basedir.Dirs` (zero
+  value = the real process) and call `Home`, `ConfigHome`, `DataHome`,
+  `CacheHome`, `StateHome` or `RuntimeDir`; every result is absolute or an
+  error. forbidigo flags the three calls; `TestBaseDirGuard`
+  (`internal/basedir/guard_test.go`) is the authority and also catches
+  aliases, dot imports, literals, `NAME=` prefixes and `$NAME`/`%NAME%`
+  references, across the whole module. Help text that must name a variable
+  goes in `cmd/invowk/config_paths_help.go`. Exceptions go in its
+  `guardAllowlist` with a reason.
+- Review new dependencies that read per-user files (`~/.ssh`, `known_hosts`,
+  `~/.gitconfig`, engine configs): the guard cannot see inside them, so gate
+  the call site the way `requireTrustedSSHFiles` (`internal/app/modulesync`)
+  gates go-git's SSH transport.
+
 ## Context And Processes
 
 - `context.Context` is the first parameter (`revive context-as-argument`).

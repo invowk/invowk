@@ -133,7 +133,9 @@ func TestGetDefaultCacheDir(t *testing.T) {
 	t.Run("with env var", func(t *testing.T) {
 		t.Parallel()
 
-		customPath := "/custom/path/to/modules"
+		// INVOWK_MODULES_PATH must be absolute, and "/custom/..." is not
+		// absolute on Windows (no volume), so derive a per-OS absolute path.
+		customPath := filepath.Join(t.TempDir(), "custom", "modules")
 		result, err := modulecache.DefaultDirWith(func(key string) string {
 			if key == modulecache.ModuleCachePathEnv {
 				return customPath

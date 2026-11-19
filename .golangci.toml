@@ -423,6 +423,12 @@ enable = ["shadow"]  # Detect variable shadowing
 forbid = [
     # Go 1.26+ supports typed extraction via errors.AsType[T].
     { pattern = '^errors\.As$', msg = "use errors.AsType[T] (Go 1.26+)" },
+    # Per-user base directories go through internal/basedir, which applies the
+    # absolute-path rules (require-absolute-base-dirs). The AST guard in
+    # internal/basedir/guard_test.go is the authority and also sees aliases.
+    { pattern = '^os\.UserHomeDir$', msg = "use internal/basedir (Dirs.Home)" },
+    { pattern = '^os\.UserConfigDir$', msg = "use internal/basedir (Dirs.ConfigHome)" },
+    { pattern = '^os\.UserCacheDir$', msg = "use internal/basedir (Dirs.CacheHome)" },
 ]
 
 # -----------------------------------------------------------------------------
@@ -698,6 +704,12 @@ path = "_test\\.go$"
 [[linters.exclusions.rules]]
 linters = ["forbidigo"]
 path = "_test\\.go$"
+
+# internal/basedir is the one owner of per-user base-directory lookups.
+[[linters.exclusions.rules]]
+linters = ["forbidigo"]
+path = "^internal/basedir/"
+text = "os\\.User(Home|Config|Cache)Dir"
 
 # Don't enforce errchkjson in test files - test data types are controlled
 [[linters.exclusions.rules]]

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/invowk/invowk/internal/basedir"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -350,7 +351,10 @@ func ensureContainerSuiteConfig(env *testscript.Env) error {
 
 	env.Setenv("INVOWK_TEST_CONTAINER_ENGINE", harness.engineType.String())
 
-	configDir := containerSuiteConfigDir(env)
+	configDir, err := containerSuiteConfigDir(env)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
@@ -360,18 +364,17 @@ func ensureContainerSuiteConfig(env *testscript.Env) error {
 	return os.WriteFile(configPath, []byte(configBody), 0o600)
 }
 
-func containerSuiteConfigDir(env *testscript.Env) string {
-	switch runtime.GOOS {
-	case "windows":
-		return filepath.Join(env.Getenv("APPDATA"), config.AppName)
-	case "darwin":
-		return filepath.Join(env.Getenv("HOME"), "Library", "Application Support", config.AppName)
-	default:
-		if xdg := env.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-			return filepath.Join(xdg, config.AppName)
-		}
-		return filepath.Join(env.Getenv("HOME"), ".config", config.AppName)
+// containerSuiteConfigDir returns the user config directory the invowk binary
+// will use for this testscript environment. It runs the shared resolver over
+// the script's environment, so it applies the same absolute-path rules as the
+// binary (a relative XDG_CONFIG_HOME is ignored, a relative home is an error).
+func containerSuiteConfigDir(env *testscript.Env) (string, error) {
+	homeFromEnv := func() (string, error) { return basedir.HomeFromEnv(runtime.GOOS, env.Getenv) }
+	configHome, err := basedir.New(runtime.GOOS, env.Getenv, homeFromEnv).ConfigHome()
+	if err != nil {
+		return "", fmt.Errorf("container suite config dir: %w", err)
 	}
+	return filepath.Join(string(configHome), config.AppName), nil
 }
 
 func cleanupTestContainersForHarness(prefix string, harness containerSuiteHarness) {

@@ -60,9 +60,7 @@ invowk reads exactly one config source, in this order:
   1. --ivk-config <path>        (may be relative to the current directory)
   2. INVOWK_CONFIG=<path>       (must be an absolute path; empty means unset)
   3. The user config file:
-     - Linux: $XDG_CONFIG_HOME/invowk/config.cue, or ~/.config/invowk/config.cue
-     - macOS: ~/Library/Application Support/invowk/config.cue
-     - Windows: %APPDATA%\invowk\config.cue
+` + userConfigPathsHelp + `
   4. Built-in defaults
 
 The current directory is never a config source. A missing or invalid file

@@ -14,9 +14,9 @@ import (
 
 	"cuelang.org/go/cue"
 
+	"github.com/invowk/invowk/internal/basedir"
 	"github.com/invowk/invowk/pkg/cueutil"
 	"github.com/invowk/invowk/pkg/invowkmod"
-	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -27,8 +27,6 @@ const (
 	ConfigFileName = "config"
 	// ConfigFileExt is the config file extension.
 	ConfigFileExt = "cue"
-
-	errMsgHomeDir = "failed to get home directory: %w"
 )
 
 var (
@@ -41,8 +39,9 @@ var (
 	ErrConfigLoadFailed = errors.New("config load failed")
 	// ErrBaseDirNotAbsolute marks a relative home directory or USERPROFILE.
 	// invowk never derives the user config or commands directory from one,
-	// because it would resolve under the current directory.
-	ErrBaseDirNotAbsolute = errors.New("base directory must be an absolute path")
+	// because it would resolve under the current directory. It is the shared
+	// resolver's sentinel, so errors.Is matches either name.
+	ErrBaseDirNotAbsolute = basedir.ErrNotAbsolute
 )
 
 type (
@@ -92,70 +91,16 @@ func (f configCUEFilename) Validate() error { return nil }
 // enabling tests to avoid mutating process-global environment variables.
 //
 // Every base directory must be absolute, so the user config file can never
-// resolve under the current directory. A relative XDG_CONFIG_HOME or APPDATA is
-// ignored, as the XDG Base Directory spec requires, and the next base is used;
-// a relative home directory or USERPROFILE is an ErrBaseDirNotAbsolute error.
+// resolve under the current directory. The shared resolver (internal/basedir)
+// ignores a relative XDG_CONFIG_HOME or APPDATA, as the XDG Base Directory spec
+// requires, and uses the next base; a relative home directory or USERPROFILE
+// is an ErrBaseDirNotAbsolute error.
 func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (string, error)) (types.FilesystemPath, error) {
-	var configDir string
-
-	switch goos {
-	case platform.Windows:
-		configDir = absoluteEnv(getenv, "APPDATA")
-		if configDir == "" {
-			userProfile := getenv("USERPROFILE")
-			if userProfile == "" {
-				return "", errors.New("neither APPDATA nor USERPROFILE environment variable is set")
-			}
-			if !filepath.IsAbs(userProfile) {
-				return "", fmt.Errorf("%w: USERPROFILE=%q", ErrBaseDirNotAbsolute, userProfile)
-			}
-			configDir = filepath.Join(userProfile, "AppData", "Roaming")
-		}
-	case "darwin":
-		home, err := absoluteHomeDir(userHomeDir)
-		if err != nil {
-			return "", err
-		}
-		configDir = filepath.Join(home, "Library", "Application Support")
-	default: // Linux and others
-		configDir = absoluteEnv(getenv, "XDG_CONFIG_HOME")
-		if configDir == "" {
-			home, err := absoluteHomeDir(userHomeDir)
-			if err != nil {
-				return "", err
-			}
-			configDir = filepath.Join(home, ".config")
-		}
-	}
-
-	return types.FilesystemPath(filepath.Join(configDir, AppName)), nil //goplint:ignore -- derived from an absolute OS config directory and fixed app name.
-}
-
-// absoluteEnv returns the value of the environment variable name, or "" when
-// it is unset or not an absolute path.
-//
-//goplint:ignore -- environment variable name and raw value at the OS boundary.
-func absoluteEnv(getenv func(string) string, name string) string {
-	if value := getenv(name); filepath.IsAbs(value) {
-		return value
-	}
-	return ""
-}
-
-// absoluteHomeDir returns the user's home directory and rejects a relative one
-// (for example HOME=. or HOME=home), which would put the user config file and
-// the user commands directory under the current directory.
-//
-//goplint:ignore -- raw OS home directory string at the OS boundary.
-func absoluteHomeDir(userHomeDir func() (string, error)) (string, error) {
-	home, err := userHomeDir()
+	configHome, err := basedir.New(goos, getenv, userHomeDir).ConfigHome()
 	if err != nil {
-		return "", fmt.Errorf(errMsgHomeDir, err)
+		return "", err
 	}
-	if !filepath.IsAbs(home) {
-		return "", fmt.Errorf("%w: home directory %q", ErrBaseDirNotAbsolute, home)
-	}
-	return home, nil
+	return types.FilesystemPath(filepath.Join(string(configHome), AppName)), nil //goplint:ignore -- derived from an absolute OS config directory and fixed app name.
 }
 
 // ConfigDir returns the invowk configuration directory using platform-specific
@@ -164,23 +109,24 @@ func absoluteHomeDir(userHomeDir func() (string, error)) (string, error) {
 //
 //nolint:revive // ConfigDir is more descriptive than Dir for external callers
 func ConfigDir() (types.FilesystemPath, error) {
-	return configDirFrom(runtime.GOOS, os.Getenv, os.UserHomeDir)
+	// A nil home lookup makes the shared resolver use the real process home.
+	return configDirFrom(runtime.GOOS, os.Getenv, nil)
 }
 
 // CommandsDir returns the directory for user-defined invowkfiles.
 // The path is ~/.invowk/cmds on all platforms; a relative home directory is an
 // ErrBaseDirNotAbsolute error.
 func CommandsDir() (types.FilesystemPath, error) {
-	return commandsDirFrom(os.UserHomeDir)
+	return commandsDirFrom(nil) // nil: the real process home (internal/basedir)
 }
 
 // commandsDirFrom is CommandsDir with an injectable home-directory lookup.
 func commandsDirFrom(userHomeDir func() (string, error)) (types.FilesystemPath, error) {
-	home, err := absoluteHomeDir(userHomeDir)
+	home, err := basedir.New(runtime.GOOS, os.Getenv, userHomeDir).Home()
 	if err != nil {
 		return "", err
 	}
-	return types.FilesystemPath(filepath.Join(home, ".invowk", "cmds")), nil //goplint:ignore -- derived from an absolute OS home directory and fixed config path.
+	return types.FilesystemPath(filepath.Join(string(home), ".invowk", "cmds")), nil //goplint:ignore -- derived from an absolute OS home directory and fixed config path.
 }
 
 // HostKeyPath returns the private host key location for the built-in SSH

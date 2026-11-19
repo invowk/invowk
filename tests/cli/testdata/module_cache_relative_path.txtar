@@ -1,0 +1,34 @@
+# Test: a relative INVOWK_MODULES_PATH is rejected (base-directory-resolution,
+# "The module cache location is absolute"). It used to resolve against the
+# current directory, so a cloned repository could supply the verified cache.
+# The cache directory is resolved before any git operation, so no network is
+# needed.
+
+cd $WORK
+env INVOWK_MODULES_PATH=.modules
+! exec invowk module sync
+stderr 'INVOWK_MODULES_PATH'
+stderr 'absolute'
+! exists .modules
+
+-- invowkmod.cue --
+module: "io.invowk.test.cacherel"
+version: "1.0.0"
+description: "Test module for a relative module cache path"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	description: "Test command"
+	implementations: [{
+		script: {content: "echo hello"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]

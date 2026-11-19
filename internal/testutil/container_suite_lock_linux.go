@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/invowk/invowk/internal/basedir"
 )
 
 const containerSuiteLockFileName = "invowk-container-suite.lock"
@@ -48,10 +50,12 @@ func (l *containerSuiteLock) Release() {
 	l.file = nil
 }
 
+// containerSuiteLockFilePath places the suite lock in an absolute
+// XDG_RUNTIME_DIR, otherwise in the OS temp directory.
 func containerSuiteLockFilePath() string {
-	dir := os.Getenv("XDG_RUNTIME_DIR")
-	if dir == "" {
-		dir = os.TempDir()
+	dir := os.TempDir()
+	if runtimeDir, ok := basedir.OS().RuntimeDir(); ok {
+		dir = string(runtimeDir)
 	}
 	return filepath.Join(dir, containerSuiteLockFileName)
 }

@@ -1,0 +1,73 @@
+# Test: SSH-transport module fetches are refused before connecting when the
+# SSH trust files would come from the current directory
+# (base-directory-resolution, "SSH fetch with a relative home is refused" and
+# "SSH fetch with an unset home is refused"). The repository plants .ssh/ files
+# under the current directory; the fetch must fail with the gate's error and
+# never reach host-key checking or the network. The git URL points at
+# TEST-NET-1 (RFC 5737), so a regression would time out rather than succeed.
+
+cd $WORK
+env INVOWK_MODULES_PATH=$WORK/cache
+env GIT_TOKEN=
+env GITHUB_TOKEN=
+env GITLAB_TOKEN=
+env SSH_KNOWN_HOSTS=
+
+# Relative home: refused, naming the home and pointing at HTTPS tokens.
+[!windows] env HOME=.
+[windows] env USERPROFILE=.
+# stdout carries the unwrapped error line; the stderr box wraps it.
+! exec invowk module sync
+stdout 'home directory: base directory must be an absolute path'
+stdout 'https:// URL with GITHUB_TOKEN'
+stderr 'absolute'
+! stdout '(?i)knownhosts|host key|dial|timeout'
+
+# Unset home: also refused (ssh_config would read ./.ssh/config).
+[!windows] env HOME=
+[windows] env USERPROFILE=
+! exec invowk module sync
+stdout 'home directory: .*not defined'
+! stdout '(?i)knownhosts|host key|dial|timeout'
+
+# Absolute home but a relative SSH_KNOWN_HOSTS entry: refused, naming it.
+mkdir $WORK/h
+[!windows] env HOME=$WORK/h
+[windows] env USERPROFILE=$WORK\h
+env SSH_KNOWN_HOSTS=.ssh/known_hosts
+! exec invowk module sync
+stdout 'SSH_KNOWN_HOSTS entry "\.ssh/known_hosts"'
+! stdout '(?i)knownhosts:|host key|dial|timeout'
+
+! exists invowk.lock.cue
+! exists cache/sources
+
+-- .ssh/id_ed25519 --
+not a key; must never be read
+-- .ssh/known_hosts --
+192.0.2.1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlantedRepositoryHostKeyPlantedRepositoryKey
+-- .ssh/config --
+Host 192.0.2.1
+	Hostname 127.0.0.1
+
+-- invowkmod.cue --
+module: "io.invowk.test.sshgate"
+version: "1.0.0"
+description: "Test module for the SSH trust-file gate"
+requires: [
+	{
+		git_url: "git@192.0.2.1:example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	description: "Test command"
+	implementations: [{
+		script: {content: "echo hello"}
+		runtimes: [{name: "virtual-sh"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]

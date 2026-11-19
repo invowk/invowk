@@ -1,0 +1,52 @@
+# Test: home-derived virtual path anchors are unavailable, never relative,
+# when the home directory is relative (cross-platform-path-anchors, "Relative
+# home makes home-derived anchors unavailable"). They used to become
+# cwd-relative paths such as .config/invowk, which a repository controls.
+# Only the virtual runtimes inject anchors, so this test has no native mirror
+# (runtime_mirror_exemptions.json).
+
+cd $WORK
+
+[!windows] env HOME=.
+[!windows] env XDG_CONFIG_HOME=
+[!windows] env XDG_DATA_HOME=
+[!windows] env XDG_CACHE_HOME=
+[!windows] env XDG_STATE_HOME=
+[windows] env USERPROFILE=.
+[windows] env APPDATA=
+[windows] env LOCALAPPDATA=
+
+# virtual-sh: the anchor variables are injected but empty
+exec invowk cmd sh-anchors
+stdout '^config=\[\]$'
+stdout '^home=\[\]$'
+! stdout 'config=\[.+\]'
+
+# virtual-lua: using an unavailable anchor is an error that names it
+! exec invowk cmd lua-config
+stderr 'virtual path anchor "@config" is unavailable'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "sh-anchors"
+		implementations: [{
+			script: {content: """
+				echo "config=[$INVOWK_ANCHOR_CONFIG]"
+				echo "home=[$INVOWK_ANCHOR_HOME]"
+				"""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "lua-config"
+		implementations: [{
+			script: {content: """
+				print(invowk.path("@config"))
+				"""}
+			runtimes: [{name: "virtual-lua"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

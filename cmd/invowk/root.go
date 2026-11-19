@@ -67,7 +67,7 @@ be organized hierarchically with support for dependencies.
 
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.verbose, "ivk-verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().StringVarP(&rootFlags.configPath, "ivk-config", "c", "",
-		"config file; overrides INVOWK_CONFIG and the user config file (see 'invowk config path'; Linux: $XDG_CONFIG_HOME/invowk/config.cue or ~/.config/invowk/config.cue, macOS: ~/Library/Application Support/invowk/config.cue, Windows: %APPDATA%\\invowk\\config.cue)")
+		"config file; overrides INVOWK_CONFIG and the user config file (see 'invowk config path'; "+userConfigPathsFlagHelp+")")
 	rootCmd.PersistentFlags().BoolVar(&rootFlags.noCwd, noCwdFlagName, false,
 		"ignore the current directory's invowkfile.cue and *.invowkmod modules (env: INVOWK_NO_CWD)")
 	rootCmd.PersistentFlags().BoolVarP(&rootFlags.interactive, "ivk-interactive", "i", false, "run commands in alternate screen buffer (interactive mode)")

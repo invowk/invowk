@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/invowk/invowk/internal/basedir"
+	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 	"golang.org/x/sys/unix"
 )
@@ -77,10 +79,13 @@ func lockFilePath() types.FilesystemPath {
 	return lockFilePathWith(os.Getenv)
 }
 
+// lockFilePathWith places the lock in XDG_RUNTIME_DIR when it is absolute,
+// otherwise in the OS temp directory. A relative XDG_RUNTIME_DIR is ignored,
+// so the lock never lands under the current directory.
 func lockFilePathWith(getenv func(string) string) types.FilesystemPath {
-	dir := getenv("XDG_RUNTIME_DIR")
-	if dir == "" {
-		dir = os.TempDir()
+	dir := os.TempDir()
+	if runtimeDir, ok := basedir.New(platform.Linux, getenv, nil).RuntimeDir(); ok {
+		dir = string(runtimeDir)
 	}
 	return types.FilesystemPath(filepath.Join(dir, lockFileName)) //goplint:ignore -- OS path composition returns the lock file path opened immediately by this package
 }
