@@ -138,7 +138,7 @@ Before writing, the refresh SHALL check that the baseline round-trips through it
 - **THEN** the refresh SHALL fail without writing any file and name the entry
 
 ### Requirement: The refresh uses a complete run of the current inputs
-A full formal-bindings run SHALL record its plan-inputs digest and each match group's exit status with its reports. The refresh SHALL fail without writing any file, naming the run command to repeat, when the run has no recorded digest, when the digest of the current tree's plan inputs differs from it, when the current plan's functions, correspondence rows or match groups differ from the run's, or when the run is incomplete: a plan group has no report, no recorded status, or a status other than success or the escaped-mutants quality-gate status.
+A full formal-bindings run SHALL record its plan-inputs digest and each match group's exit status with its reports. The refresh SHALL fail without writing any file, naming the run command to repeat, when the run has no recorded digest, when the digest of the current tree's plan inputs differs from it, or when the run is incomplete: a plan group has no report, no recorded status, or a status other than success or the escaped-mutants quality-gate status.
 
 #### Scenario: Run of other inputs
 - **WHEN** a target file or killer-test file changed after the run
