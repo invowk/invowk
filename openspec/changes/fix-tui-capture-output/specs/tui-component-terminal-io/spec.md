@@ -7,7 +7,7 @@ Defines where the `invowk tui` components draw their UI and read keys when they 
 ## ADDED Requirements
 
 ### Requirement: Directly rendered components draw on the controlling terminal
-When an `invowk tui` component other than `format` and `style` renders directly, it SHALL draw its UI on and read keys from the controlling terminal (`/dev/tty` on Unix, `CONIN$` and `CONOUT$` on Windows), whatever stdin, stdout and stderr are connected to. It SHALL write no UI bytes to stdout, nor to stderr except under the fallback below.
+When an `invowk tui` component other than `format` and `style` renders directly, it SHALL draw its UI on and read keys from the controlling terminal (`/dev/tty` on Unix; on Windows the console: keys from stdin when stdin is a console, otherwise from `CONIN$`, and output to `CONOUT$`), whatever stdin, stdout and stderr are connected to. It SHALL write no UI bytes to stdout, nor to stderr except under the fallback below.
 
 #### Scenario: Captured value is byte-exact
 - **WHEN** a script in a terminal runs `name=$(invowk tui input)`, the user types `Hello World` and presses Enter

@@ -159,10 +159,11 @@ func TestTUI_CaptureValue(t *testing.T) {
 		{
 			name:   "table_selectable",
 			assign: `v=$("$INVOWK" tui table --file rows.csv --selectable)`,
-			files:  map[string]string{"rows.csv": "name,age\nAlice,30\nBob,25\n"},
+			files:  map[string]string{"rows.csv": "tblhdr_name,tblhdr_age\nAlice,30\nBob,25\n"},
 			// The auto height (rows+1) leaves the data rows scrolled out of
-			// view, so readiness is the header line.
-			ready: "name",
+			// view, so readiness is the header line. Its distinctive text
+			// cannot match the prompt or the typed command.
+			ready: "tblhdr_name",
 			keys:  [][]string{{"Enter"}},
 			want:  wantValue("Alice,30"),
 		},

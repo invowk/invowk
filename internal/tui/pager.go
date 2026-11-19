@@ -164,7 +164,8 @@ func (m *pagerModel) SetSize(width, height TerminalDimension) {
 }
 
 // Pager displays content in a scrollable viewport.
-// Without a terminal it writes the content unchanged to stdout, as less does.
+// Without any terminal it writes the content unchanged to stdout. Unlike less,
+// it still opens the terminal when only stdout is redirected.
 func Pager(opts PagerOptions) error {
 	return pagerWith(opts, resolveComponentTerminal, os.Stdout)
 }

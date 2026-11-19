@@ -167,13 +167,13 @@ func isTerminalFile(f *os.File) bool {
 }
 
 // runComponentProgram runs model on the terminal of the current process.
-func runComponentProgram(component ComponentType, model tea.Model, opts ...tea.ProgramOption) (tea.Model, error) {
-	return runComponentProgramWith(resolveComponentTerminal, component, model, opts...)
+func runComponentProgram(component ComponentType, model tea.Model) (tea.Model, error) {
+	return runComponentProgramWith(resolveComponentTerminal, component, model)
 }
 
 // runComponentProgramWith runs model on the terminal that resolve selects and
 // closes that terminal after the program exits.
-func runComponentProgramWith(resolve resolveTerminalFunc, component ComponentType, model tea.Model, opts ...tea.ProgramOption) (finalModel tea.Model, err error) {
+func runComponentProgramWith(resolve resolveTerminalFunc, component ComponentType, model tea.Model) (finalModel tea.Model, err error) {
 	terminal, err := resolve(component)
 	if err != nil {
 		return model, err
@@ -182,6 +182,6 @@ func runComponentProgramWith(resolve resolveTerminalFunc, component ComponentTyp
 		err = errors.Join(err, terminal.Close())
 	}()
 
-	p := tea.NewProgram(model, append(terminal.programOptions(), opts...)...)
+	p := tea.NewProgram(model, terminal.programOptions()...)
 	return p.Run()
 }

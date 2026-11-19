@@ -257,7 +257,7 @@ func TestSpinWithAction_NoTerminalRunsActionOnce(t *testing.T) {
 	t.Parallel()
 
 	var calls atomic.Int32
-	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, func() { calls.Add(1) }, noTerminalResolver)
+	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, func() { calls.Add(1) }, noTerminalResolver, runActionSpinner)
 	if err != nil {
 		t.Fatalf("spinWithAction() error = %v, want nil without a terminal", err)
 	}
@@ -272,12 +272,45 @@ func TestSpinWithAction_ResolverErrorSkipsAction(t *testing.T) {
 	errResolve := errors.New("resolver broke")
 	var calls atomic.Int32
 	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, func() { calls.Add(1) },
-		func(ComponentType) (componentTerminal, error) { return componentTerminal{}, errResolve })
+		func(ComponentType) (componentTerminal, error) { return componentTerminal{}, errResolve }, runActionSpinner)
 	if !errors.Is(err, errResolve) {
 		t.Fatalf("spinWithAction() error = %v, want the resolver error", err)
 	}
 	if n := calls.Load(); n != 0 {
 		t.Fatalf("action calls = %d, want 0 when the terminal cannot be resolved", n)
+	}
+}
+
+func TestSpinWithAction_SpinnerFailureWaitsForAction(t *testing.T) {
+	t.Parallel()
+
+	errSpinner := errors.New("spinner program failed")
+	release := make(chan struct{})
+	var calls, finished atomic.Int32
+	action := func() {
+		calls.Add(1)
+		<-release
+		finished.Add(1)
+	}
+	resolve := func(ComponentType) (componentTerminal, error) {
+		return componentTerminal{close: func() error { return nil }}, nil
+	}
+	// The spinner fails while the action is still blocked, and lets the action
+	// finish only as it returns: spinWithAction must still wait for it.
+	spinner := func(_ componentTerminal, _ SpinOptions, _ <-chan struct{}) error {
+		close(release)
+		return errSpinner
+	}
+
+	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, action, resolve, spinner)
+	if !errors.Is(err, errSpinner) {
+		t.Fatalf("spinWithAction() error = %v, want the spinner error", err)
+	}
+	if n := finished.Load(); n != 1 {
+		t.Fatalf("action finished %d times before spinWithAction returned, want 1", n)
+	}
+	if n := calls.Load(); n != 1 {
+		t.Fatalf("action calls = %d, want exactly 1", n)
 	}
 }
 

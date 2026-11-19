@@ -32,6 +32,9 @@ func windowsConsoleProbe(f *os.File) error {
 // from a separately opened CONIN$ would leave a read pending after the program
 // exits. Otherwise it opens CONIN$. Output always goes to CONOUT$. Unlike
 // Bubble Tea's OpenTTY, it closes CONIN$ when CONOUT$ cannot be opened.
+// When stdin is chosen, openProbedTerminal probes it a second time; that is
+// one extra GetConsoleMode call, kept so the opener and the probe stay
+// independent.
 func platformTerminalOpener() (in, out *os.File, err error) {
 	if windowsConsoleProbe(os.Stdin) == nil {
 		in = os.Stdin

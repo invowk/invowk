@@ -117,6 +117,10 @@ type (
 		spinner bspinner.Model
 		doneCh  <-chan struct{}
 	}
+
+	// actionSpinnerFunc draws the spinner on terminal until doneCh is closed
+	// (runActionSpinner); tests inject a failing one.
+	actionSpinnerFunc func(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) error
 )
 
 // Error implements the error interface.
@@ -297,15 +301,16 @@ func SpinWithAction(opts SpinOptions, action func()) error {
 		return err
 	}
 
-	return spinWithAction(opts, action, resolveComponentTerminal)
+	return spinWithAction(opts, action, resolveComponentTerminal, runActionSpinner)
 }
 
 // spinWithAction resolves the terminal before it starts the action, so the
 // action runs exactly once whatever the outcome:
 //   - without a terminal, it runs the action synchronously, without a spinner;
-//   - with a terminal, it runs the action in a goroutine under the spinner, and
-//     waits for the action to finish when the spinner program fails.
-func spinWithAction(opts SpinOptions, action func(), resolve resolveTerminalFunc) error {
+//   - with a terminal, it runs the action in a goroutine under the spinner that
+//     spinner draws, and waits for the action to finish when that spinner
+//     program fails.
+func spinWithAction(opts SpinOptions, action func(), resolve resolveTerminalFunc, spinner actionSpinnerFunc) error {
 	terminal, err := resolve(ComponentTypeSpin)
 	if errors.Is(err, ErrNoTerminal) {
 		action()
@@ -321,7 +326,7 @@ func spinWithAction(opts SpinOptions, action func(), resolve resolveTerminalFunc
 		close(doneCh)
 	}()
 
-	if err := runActionSpinner(terminal, opts, doneCh); err != nil {
+	if err := spinner(terminal, opts, doneCh); err != nil {
 		<-doneCh
 		return err
 	}
