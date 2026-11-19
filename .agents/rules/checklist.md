@@ -1,6 +1,6 @@
 # Agent Checklist
 
-**CRITICAL: Work is NOT complete until `make test` passes.** Never stop at `make test-short`: short mode skips the integration, container and full CLI tests that CI runs. If any step below changes code, restart from step 1.
+**CRITICAL: Work is NOT complete until `make test` passes.** Never stop at `make test-short`: short mode skips the integration, container and full CLI tests that CI runs. If any step below changes code, restart from step 1 (a change-flow fix-and-gates agent restarts from step 2: `.agents/rules/agent-workflows.md`).
 
 1. Review the changed code for reuse, simplification and efficiency, and fix what you find (Claude Code: `/simplify`).
 2. `make tidy`; for new Go files, `make license-check`.

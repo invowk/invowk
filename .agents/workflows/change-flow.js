@@ -378,8 +378,9 @@ function context(a, stage) {
 // implementation written on a stale base defers conflicts to the fix stage. The
 // maintainer session rebases between runs.
 function baseCheck(a) {
-  return 'Before anything else: `git -C ' + a.worktree + ' fetch --prune origin`. If `git -C ' + a.worktree + ' merge-base --is-ancestor ' + a.base + ' HEAD` fails, the branch is behind ' + a.base +
-    ': change nothing and return status blocked with the reason "branch not rebased on ' + a.base + '". '
+  return 'Right after your first guard snapshot: `git -C ' + a.worktree + ' fetch --prune origin`, then `git -C ' + a.worktree + ' merge-base --is-ancestor ' + a.base + ' HEAD`. ' +
+    'Exit 1 means the branch is behind ' + a.base + ': change nothing and return status blocked with the reason "branch not rebased on ' + a.base + '" (still report guard.after). ' +
+    'Any other non-zero exit (for example 128, a missing ref) is a failure: return status blocked with its stderr. '
 }
 
 function specPrompt(a, mode) {
@@ -410,8 +411,11 @@ function specFixPrompt(a, review) {
     'Reviewer summary: ' + review.summary + '\nFindings:\n' + JSON.stringify(review.findings, null, 1)
 }
 
-function implementPrompt(a) {
-  return context(a, 'implement') + '\n\n' + baseCheck(a) + 'Invoke Skill openspec-apply-change for "' + a.change + '" in the worktree. Write tests with the code and run the tests of what you changed. ' +
+// implementPrompt checks the base only when implement starts the run (continue
+// from implement): within one run, a merge to the base during spec or spec
+// review must not block a healthy run.
+function implementPrompt(a, firstStage) {
+  return context(a, 'implement') + '\n\n' + (firstStage ? baseCheck(a) : '') + 'Invoke Skill openspec-apply-change for "' + a.change + '" in the worktree. Write tests with the code and run the tests of what you changed. ' +
     'Commit (signed, under the lock; messages per .agents/rules/git.md), push ' + a.branch + ' and open or update its DRAFT pull request (never ready, never merge).\n' +
     'Formal lane (' + RUNBOOK + ', "Formal lane"): run `cd ' + a.worktree + ' && python3 scripts/formal.py affected --event pull_request --base ' + a.base + ' --head HEAD`; when it prints run=true, also run ' +
     '`python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach` there, and fix what fails. Leave `make formal` to CI unless Java is present.\n' +
@@ -476,18 +480,18 @@ function fixPrompt(a, review) {
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
     (a.base === 'origin/main' ? '' : ', and it diffs against main, so drop findings that belong to ' + a.base + '\'s own commits') +
     '); apply the confirmed ones; list each rejected one with its reason. Commit them locally (signed, under the lock) BEFORE the long gates, so a stopped run leaves them committed; push only after step 3.\n' +
-    '3. Run the FULL checklist (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. Skip checklist step 1 (/simplify): it belongs to the simplify stage, and a cleanup here would land after the review. ' +
+    '3. Run checklist steps 2-10 (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. Skip step 1 (/simplify): it belongs to the simplify stage, and a cleanup here would land after the review (' + RULE_FLOOR + '). Step 11 (/learn) runs in step 4, under its limits. ' +
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if this change rewrote a function body bound by .agents/rules/formal-bindings.md' +
-    (a.mode === 'finalize' ? '; in this finalize run, only if the rebase changed such a body compared with the lease from step 1, the head the earlier gates ran on (compare it with HEAD and say which bodies you checked)' : '') + '.\n' +
-    '4. Invoke Skill openspec-archive-change for "' + a.change + '" (skip it when openspec/changes/' + a.change + '/ is gone and openspec/changes/archive/*-' + a.change + '/ exists: the change is already archived), ' +
-    'then Skill learn (minimal; never edit the change-flow tooling, i.e. .agents/workflows/, ' + RUNBOOK + ', ' + RULE_FLOOR + ' and scripts/change-flow-*, inside a change\'s PR: list proposed edits to it in maintainer_asks), commit (signed, under the lock), and push with ' +
+    (a.mode === 'finalize' ? '. In this finalize run, skip it only when the maintainer brief names the head an earlier fix stage gated, mutation-formal ran or was not needed there, and no bound body changed between that head and HEAD (say which bodies you checked); otherwise apply the rule above to the whole change against ' + a.base : '') + '.\n' +
+    '4. Invoke Skill openspec-archive-change for "' + a.change + '" (skip it when openspec/changes/' + a.change + '/ is gone and exactly `openspec/changes/archive/YYYY-MM-DD-' + a.change + '/` exists, a date prefix followed by this exact id: the change is already archived), ' +
+    'then Skill learn (minimal; never edit the change-flow tooling, i.e. .agents/workflows/, ' + RUNBOOK + ', ' + RULE_FLOOR + ', scripts/change-flow-*, scripts/test_change_flow_* and their AGENTS.md index entries, inside a change\'s PR: list proposed edits to it in maintainer_asks), commit (signed, under the lock), and push with ' +
     '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the lease from step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing). ' +
     'If the lease is rejected, someone pushed meanwhile: repeat step 1 (fetch --prune, the helper, cherry-picks), re-run the gates their commits touch, and push again with the new lease; never a bare force. Never approve held workflow runs. ' +
     'update the DRAFT PR and watch `gh pr checks`; fix failures. Never mark it ready, never merge.\n' +
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
     'and return status blocked when the answer decides whether the change is correct.\n' +
-    'Return changed_files: every non-test file you changed in this stage (paths relative to the worktree), so the maintainer session can review post-review edits.\n\n' +
+    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing.\n\n' +
     reviewSection(a, review)
 }
 
@@ -618,7 +622,7 @@ try {
       const { why } = await specReviewLoop()
       if (why) return blocked(stage, why)
     } else if (stage === 'implement') {
-      const r = await stageAgent(stage, 'Implement', implementPrompt(a), STAGE_SCHEMA)
+      const r = await stageAgent(stage, 'Implement', implementPrompt(a, stages[0] === 'implement'), STAGE_SCHEMA)
       if (r.status !== 'done') return blocked(stage, r.summary)
     } else if (stage === 'simplify') {
       const r = await stageAgent(stage, 'Simplify', simplifyPrompt(a), STAGE_SCHEMA)

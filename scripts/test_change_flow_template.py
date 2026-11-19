@@ -106,13 +106,11 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fix.prompt.includes('a.go:3 nil deref'), 'code-review text reaches the fix agent')
   assert.equal(result.base_sha, 'b1')
   assert.deepEqual(result.changed_files, ['internal/x.go'])
-  for (const label of ['spec', 'implement']) {
-    const p = calls.find((c) => c.label === label).prompt
-    assert.ok(p.includes('merge-base --is-ancestor origin/main HEAD'), label + ' refuses a stale base')
-  }
+  assert.ok(calls.find((c) => c.label === 'spec').prompt.includes('merge-base --is-ancestor origin/main HEAD'), 'spec refuses a stale base')
+  assert.ok(!calls.find((c) => c.label === 'implement').prompt.includes('merge-base --is-ancestor'), 'implement after spec in the same run does not re-check the base')
   const fixP = calls.find((c) => c.label === 'fix').prompt
   assert.ok(fixP.includes('/w/invowk/scripts/change-flow-foreign-commits.sh /w/invowk-x'), 'the helper comes from the primary checkout')
-  assert.ok(fixP.includes('Skip checklist step 1'))
+  assert.ok(fixP.includes('Run checklist steps 2-10') && fixP.includes('Skip step 1 (/simplify)') && fixP.includes('Step 11 (/learn) runs in step 4'))
   assert.ok(fixP.includes('the change is already archived'))
   assert.ok(fixP.includes('never edit the change-flow tooling'))
   assert.ok(fixP.includes('Return changed_files'))
@@ -195,7 +193,17 @@ for (const [name, reply] of Object.entries({
   assert.equal(calls[calls.length - 1].label, 'simplify')
 }
 
-// a stale base: the spec or implement stage returns blocked and no later stage runs.
+// continue from implement: implement starts the run, so it checks the base.
+{
+  const { calls } = await go({ ...good, mode: 'continue', from: 'implement', pr: 9 })
+  assert.equal(calls[0].label, 'implement')
+  assert.ok(calls[0].prompt.includes('merge-base --is-ancestor origin/main HEAD'))
+  assert.ok(calls[0].prompt.includes('Exit 1 means the branch is behind'))
+}
+
+// blocked-stage plumbing: a spec or implement stage that returns blocked (for
+// example on a stale base) ends the run there. The baseCheck prompt text itself
+// is asserted in the main run above.
 for (const stage of ['spec', 'implement']) {
   const { result, calls } = await go(good, {
     [stage]: () => ({ status: 'blocked', summary: 'branch not rebased on origin/main', guard: { before: snap, after: snap } }),
@@ -247,7 +255,7 @@ for (const stage of ['spec', 'implement']) {
 {
   const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
-  assert.ok(calls[0].prompt.includes('in this finalize run, only if the rebase changed such a body compared with the lease from step 1'))
+  assert.ok(calls[0].prompt.includes('In this finalize run, skip it only when the maintainer brief names the head'))
   assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
   assert.ok(!calls[0].prompt.includes('failed lens: none'))
   assert.equal(result.review_ran, false)
