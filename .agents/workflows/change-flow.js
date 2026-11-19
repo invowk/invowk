@@ -459,7 +459,8 @@ function reviewSection(a, review) {
 
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
-    '1. `git -C ' + a.worktree + ' fetch origin`, then `cd ' + a.worktree + ' && scripts/change-flow-foreign-commits.sh ' + a.worktree + ' ' + a.branch + '`: it lists the commits on origin/' + a.branch + ' with no patch-equivalent locally, which someone else pushed (for example the CI PGO bot). ' +
+    '1. `git -C ' + a.worktree + ' fetch --prune origin` (--prune, so a deleted remote branch leaves no stale ref and lease), then `cd ' + a.worktree + ' && scripts/change-flow-foreign-commits.sh ' + a.worktree + ' ' + a.branch + ' ' + a.base + '`: it lists the commits on origin/' + a.branch + ' with no patch-equivalent locally and not on ' + a.base + ', which someone else pushed (for example the CI PGO bot). ' +
+    'If it exits 3, origin/' + a.branch + ' has a merge commit (GitHub "Update branch" or a web conflict resolution) that a force push would drop: return status blocked and list the printed merges in maintainer_asks. ' +
     'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks. ' +
     'Record the fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
     'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
@@ -470,7 +471,7 @@ function fixPrompt(a, review) {
     'Run `make mutation-formal` once, report-only, in a throwaway worktree, ONLY if a function body bound by .agents/rules/formal-bindings.md was rewritten.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '", then Skill learn (minimal), commit (signed, under the lock), and push with ' +
     '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the lease from step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing). ' +
-    'If the lease is rejected, someone pushed meanwhile: fetch, cherry-pick their commits as in step 1, re-run the gates their commits touch, and push again with the new lease; never a bare force. Never approve held workflow runs. ' +
+    'If the lease is rejected, someone pushed meanwhile: repeat step 1 (fetch --prune, the helper, cherry-picks), re-run the gates their commits touch, and push again with the new lease; never a bare force. Never approve held workflow runs. ' +
     'update the DRAFT PR and watch `gh pr checks`; fix failures. Never mark it ready, never merge.\n' +
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +

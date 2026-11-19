@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MPL-2.0
 #
-# Tests scripts/change-flow-foreign-commits.sh in throwaway repositories: a bot
-# commit only, a stopped-run rebase only, both, and a never-pushed branch.
+# Tests scripts/change-flow-foreign-commits.sh in throwaway repositories:
+# - a bot commit only, a stopped-run rebase only, and both;
+# - two bot commits, which must come out oldest first;
+# - a merge of main pushed to the branch (GitHub "Update branch"): exit 3, and
+#   main's commits are never listed as foreign;
+# - a deleted remote branch after `fetch --prune`, and a branch never pushed.
 
 set -euo pipefail
 
@@ -27,10 +31,15 @@ check() {
 
 ident() { git -C "$1" config user.email "$2@example.invalid" && git -C "$1" config user.name "$2"; }
 commit() { echo "$3" >"$1/$2" && git -C "$1" add -A && git -C "$1" commit -q -m "$2"; }
-subjects() { "$HELPER" "$1" feat | sed 's/^[0-9a-f]* //'; }
+# run <local>: the helper's output without SHAs, then its exit status.
+run() {
+	local out rc=0
+	out="$("$HELPER" "$1" feat origin/main)" || rc=$?
+	printf '%s|rc=%s' "$(printf '%s' "$out" | sed -E 's/^(merge )?[0-9a-f]{40} /\1/')" "$rc"
+}
 
 # setup <dir>: a remote with main and feat (two commits), a local clone on feat,
-# and a bot clone; prints nothing.
+# and a bot clone.
 setup() {
 	local d="$1"
 	mkdir -p "$d"
@@ -40,46 +49,76 @@ setup() {
 	commit "$d/seed" a 1
 	commit "$d/seed" b 2
 	git clone -q --bare "$d/seed" "$d/remote.git"
+	git -C "$d/remote.git" symbolic-ref HEAD refs/heads/main
 	git clone -q -b feat "$d/remote.git" "$d/local" && ident "$d/local" dev
 	git clone -q -b feat "$d/remote.git" "$d/bot" && ident "$d/bot" bot
 }
-bot_push() { commit "$1/bot" pgo p && git -C "$1/bot" push -q origin feat; }
-main_moves_and_local_rebases() {
-	git -C "$1/seed" checkout -q main && commit "$1/seed" m 3
-	git -C "$1/local" fetch -q "$1/seed" main:refs/remotes/seed/main
-	git -C "$1/local" rebase -q refs/remotes/seed/main
+bot_push() { commit "$1/bot" "$2" p && git -C "$1/bot" push -q origin feat; }
+main_moves() {
+	git -C "$1/bot" checkout -q main && commit "$1/bot" m 3 && git -C "$1/bot" push -q origin main
+	git -C "$1/bot" checkout -q feat
 }
+local_rebases() { git -C "$1/local" fetch -q origin && git -C "$1/local" rebase -q origin/main; }
 
 d="$TMP/bot"
 setup "$d"
-bot_push "$d"
-git -C "$d/local" fetch -q origin
-check "bot commit only" "bot: pgo" "$(subjects "$d/local")"
+bot_push "$d" pgo
+git -C "$d/local" fetch -q --prune origin
+check "bot commit only" "bot: pgo|rc=0" "$(run "$d/local")"
+
+d="$TMP/order"
+setup "$d"
+bot_push "$d" pgo1
+bot_push "$d" pgo2
+git -C "$d/local" fetch -q --prune origin
+check "two bot commits, oldest first" "bot: pgo1
+bot: pgo2|rc=0" "$(run "$d/local")"
 
 d="$TMP/stopped"
 setup "$d"
-main_moves_and_local_rebases "$d"
-git -C "$d/local" fetch -q origin
-check "stopped-run rebase only" "" "$(subjects "$d/local")"
+main_moves "$d"
+local_rebases "$d"
+check "stopped-run rebase only" "|rc=0" "$(run "$d/local")"
 
 d="$TMP/both"
 setup "$d"
-bot_push "$d"
-main_moves_and_local_rebases "$d"
+bot_push "$d" pgo
+main_moves "$d"
+local_rebases "$d"
+check "bot commit and stopped-run rebase" "bot: pgo|rc=0" "$(run "$d/local")"
+
+d="$TMP/merge"
+setup "$d"
+main_moves "$d"
+git -C "$d/bot" pull -q --no-rebase --no-edit origin main && git -C "$d/bot" push -q origin feat
+bot_push "$d" pgo
+git -C "$d/local" fetch -q --prune origin
+check "merge of main pushed to the branch" "merge bot: Merge branch 'main' of $d/remote into feat|rc=3" "$(run "$d/local")"
+
+d="$TMP/remote-rebased"
+setup "$d"
+main_moves "$d"
+git -C "$d/bot" rebase -q origin/main && git -C "$d/bot" push -q -f origin feat
+git -C "$d/local" fetch -q --prune origin
+check "branch rebased onto newer main by someone else" "|rc=0" "$(run "$d/local")"
+
+d="$TMP/deleted"
+setup "$d"
 git -C "$d/local" fetch -q origin
-check "bot commit and stopped-run rebase" "bot: pgo" "$(subjects "$d/local")"
+git -C "$d/bot" push -q origin --delete feat
+git -C "$d/local" fetch -q --prune origin
+check "deleted remote branch after fetch --prune" "|rc=0" "$(run "$d/local")"
 
 d="$TMP/never"
 mkdir -p "$d"
 git init -q -b main "$d/local" && ident "$d/local" dev
 commit "$d/local" base 0
+git -C "$d/local" update-ref refs/remotes/origin/main HEAD
 git -C "$d/local" checkout -q -b feat
-check "never pushed" "" "$("$HELPER" "$d/local" feat)"
+check "never pushed" "|rc=0" "$(run "$d/local")"
 
-if "$HELPER" only-one-arg >/dev/null 2>&1; then
-	check "usage error" "exit 2" "exit 0"
-else
-	check "usage error" "exit 2" "exit $?"
-fi
+rc=0
+"$HELPER" only-one-arg >/dev/null 2>&1 || rc=$?
+check "usage error" "2" "$rc"
 
 exit "$fail"
