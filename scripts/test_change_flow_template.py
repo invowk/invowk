@@ -115,6 +115,12 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fixP.includes('never edit the change-flow tooling'))
   assert.ok(fixP.includes('Return changed_files'))
   assert.ok(!fixP.includes('in this finalize run'))
+  assert.ok(fixP.includes('make mutation-formal-refresh MUTATION_FORMAL_SYMBOL='), 'the fix stage refreshes the formal-bindings ledger')
+  assert.ok(fixP.includes('on the FINAL tree after the review fixes are committed'), 'the refresh runs on the final tree')
+  assert.ok(fixP.includes('`make mutation-formal-rerun MUTATION_MUTANT_ID=...` line it printed twice'), 'two reruns per new escapee')
+  assert.ok(fixP.includes('commit the baseline, the ledger and the reruns'))
+  assert.ok(fixP.includes('A survivor you cannot classify goes into maintainer_asks') && fixP.includes('return status blocked'))
+  assert.ok(!fixP.includes('report-only, in a throwaway worktree, ONLY'), 'no report-only-only mutation run')
   assert.deepEqual(result.failed_lenses, [])
   assert.ok(result.next.startsWith('ready for maintainer merge'))
 }
@@ -255,7 +261,7 @@ for (const stage of ['spec', 'implement']) {
 {
   const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
-  assert.ok(calls[0].prompt.includes('In this finalize run, skip it only when the maintainer brief names the head'))
+  assert.ok(calls[0].prompt.includes('In this finalize run, skip the refresh only when the maintainer brief names the head'))
   assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
   assert.ok(!calls[0].prompt.includes('failed lens: none'))
   assert.equal(result.review_ran, false)
