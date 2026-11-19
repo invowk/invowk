@@ -1681,6 +1681,56 @@ class RefreshTests(Fixture):
                 self.assertTrue(any(line.startswith("refresh: removed 3, moved 0, added 0, untriaged 0, kept 0,")
                                     for line in lines), lines)
 
+    def classify(self, specs: list[str]) -> list[tuple[str, str]]:
+        survivors = tomllib.loads(self.paths.ledger.read_text())["survivor"]
+        return fm.classify_symbols(specs, self.build(), survivors, fm.source_reader(self.root))
+
+    def test_symbols_classifies_like_the_refresh(self) -> None:
+        self.base_data()
+        choices = self.classify(["Evaluate,Stop", "a/a.go:Map", "Valdate", "Validate", "Evaluate"])
+        self.assertEqual([kind for kind, _ in choices], ["planned", "planned", "unplanned", "unknown", "unknown"])
+        self.assertEqual(choices[0], ("planned", "a/a.go:Evaluate"))
+        self.assertEqual(choices[1], ("planned", "a/a.go:Server.Stop"))
+        self.assertIn("does not target it", choices[2][1])
+        self.assertIn("unknown: no planned function and no ledger entry", choices[3][1])
+        self.assertIn("several files", choices[4][1])
+
+    def test_symbols_lists_a_deleted_function_as_removal_only(self) -> None:
+        self.base_data()
+        (self.root / "a" / "a.go").write_text(CODE)
+        self.set_rows(REFRESH_ROWS.replace(row("evaluation", "Evaluate", "a/a.go", "TestDecide", "-"), ""))
+        # The deleted name is not in functions[], yet it still needs the refresh.
+        self.assertNotIn("Evaluate", {f["symbol"] for f in self.build()["functions"]})
+        self.assertEqual(self.classify(["a/a.go:Evaluate"]), [("removal-only", "a/a.go:Evaluate")])
+
+    def test_symbols_refuses_an_empty_plan(self) -> None:
+        self.base_data()
+        with self.assertRaisesRegex(PlanError, r"plan has no functions\[\]"):
+            fm.classify_symbols(["Evaluate"], {**self.build(), "functions": []}, [], fm.source_reader(self.root))
+
+    def symbols_cli(self, *specs: str) -> tuple[int, str, str]:
+        plan_path = self.root / "plan.json"
+        plan_path.write_text(json.dumps(self.build()))
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as out, \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            code = fm.main(["symbols", "--plan", str(plan_path), "--ledger", str(self.paths.ledger), *specs])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_symbols_cli_verdicts(self) -> None:
+        self.base_data()
+        code, out, _err = self.symbols_cli("a/a.go:Map")
+        self.assertEqual(code, 0)
+        self.assertIn("symbols: 0 planned, 0 removal-only, 1 unplanned -> skip", out)
+        code, out, _err = self.symbols_cli("a/a.go:Map", "Evaluate")
+        self.assertEqual(code, 0)
+        self.assertIn("planned a/a.go:Evaluate", out)
+        self.assertIn("-> refresh", out)
+        code, out, err = self.symbols_cli("Evaluate", "Valdate")
+        self.assertEqual(code, 1)
+        self.assertIn("unknown symbol Valdate", out)
+        self.assertIn("1 unknown", err)
+        self.assertNotIn("->", out)
+
     # 2.4 the write
 
     def test_calibration_add_remove_and_triage(self) -> None:

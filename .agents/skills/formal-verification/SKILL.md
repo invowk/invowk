@@ -223,6 +223,14 @@ disappear refreshes that function's entries in the same change, with
 `make mutation-formal-refresh` (`scripts/formal_mutation.py refresh`,
 mutation-partial-refresh):
 
+0. Check whether the refresh is needed: `python3 scripts/formal_mutation.py
+   plan --out DIR` (it must exit 0), then `python3 scripts/formal_mutation.py
+   symbols --plan DIR/formal-plan.json <[file:]symbol> ...` with the rewritten
+   symbols and `FILE:OLD` for a renamed or deleted one. It resolves each name as
+   the refresh does and labels it `planned`, `removal-only`, `unplanned`
+   (declared, row unbound: no planned mutants) or `unknown` (exit 1). On
+   `-> skip` (all unplanned) there is nothing to refresh; `triage --check` must
+   still pass.
 1. Commit the change, then run `make mutation-formal` (report only) in a
    throwaway `git worktree add --detach` at that commit, under the heavy-command
    lock, so the wrapper's exit restore cannot touch the working checkout. There

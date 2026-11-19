@@ -29,9 +29,10 @@ const RUNBOOK = '.agents/runbooks/change-flow.md'
 const CHECKLIST = '.agents/rules/checklist.md'
 
 // Every stage that commits gets this: the pre-commit hooks (routed goplint gate
-// on a go.mod change, lint, the Windows cross-build) take about 5 minutes, longer
-// than the default 120000 ms Bash timeout.
-const COMMIT_TIMEOUT = 'Run every `git commit` with a 600000 ms Bash timeout, or in the background with an rc= line appended to its log and the Monitor wait above: the pre-commit hooks take about 5 minutes.'
+// on a go.mod change, lint, the Windows cross-build) take about 5 minutes, and a
+// commit under the heavy lock also waits for the lock, which counts against any
+// foreground Bash timeout. So a locked commit always runs in the background.
+const COMMIT_TIMEOUT = 'Run every `git commit` under the lock in the background with an rc= line appended to its log, and wait for it with the Monitor wait above; never in the foreground, not even with a 600000 ms timeout: the pre-commit hooks take about 5 minutes, and the time spent waiting for the lock counts against that timeout too.'
 
 // What each domain lens loads. Agent files in .agents/agents/ are not registered
 // agent types: they are named in the prompt, never passed as agentType.
@@ -488,8 +489,11 @@ function fixPrompt(a, review) {
     '3. Run checklist steps 2-10 (' + CHECKLIST + ') ONCE on the final tree, plus the formal lane of ' + RUNBOOK + '. Skip step 1 (/simplify): it belongs to the simplify stage, and a cleanup here would land after the review (' + RULE_FLOOR + '). Step 11 (/learn) runs in step 4, under its limits. ' +
     'ONLY if this change rewrote a function body bound by .agents/rules/formal-bindings.md, refresh that function\'s ledger entries in this PR, on the FINAL tree after the review fixes are committed (`triage --check` fails otherwise, and `[triage] stale_survivors` only shrinks; procedure: the partial-refresh steps of .agents/skills/formal-verification/SKILL.md). ' +
     'Order: commit the review fixes and the fixes of checklist steps 2-3 (tidy, lint) first, then run the mutation and the refresh; if a later gate makes you edit a bound function body, redo both on the new HEAD (that redo is allowed: "once" is once per final tree). ' +
-    'BEFORE `make mutation-formal`, check that the plan mutates them: `cd ' + a.worktree + ' && python3 scripts/formal_mutation.py plan --out <scratch dir>`, then `jq -r \'.functions[] | .file + ":" + .symbol\' <scratch dir>/formal-plan.json`; a rewritten symbol that is not listed there (for example one in `.unbound`, which has no binding test) has no planned mutants. ' +
-    'When none of the rewritten bound symbols is listed, skip `make mutation-formal` and the refresh (about 35 minutes for nothing), still run `python3 scripts/formal_mutation.py triage --check`, and name in summary every symbol you checked and why it is not planned. Otherwise refresh only the listed symbols: ' +
+    'BEFORE `make mutation-formal`, decide from the plan. `cd ' + a.worktree + ' && python3 scripts/formal_mutation.py plan --out <scratch dir>` must exit 0: a failed plan writes no file and never means "nothing planned", so fix the failure, or put it in maintainer_asks and return status blocked. ' +
+    'Then run `cd ' + a.worktree + ' && python3 scripts/formal_mutation.py symbols --plan <scratch dir>/formal-plan.json <[file:]symbol> ...` with every rewritten bound symbol, plus `FILE:OLD` for each renamed or deleted bound function. It labels each one `planned`, `removal-only` (a renamed or deleted function: it is no longer in functions[], yet its ledger entries still need the refresh), `unplanned` (still declared, but its row is unbound, for example `LockFile.Save`: no planned mutants) or `unknown`, and ends with `-> refresh` or `-> skip`; ' +
+    'it exits 1 on an unknown name or a plan with an empty functions[]: fix the names, and never decide by eye or with jq. ' +
+    'Only when it prints `-> skip`, skip `make mutation-formal` and the refresh (about 35 minutes for nothing), still run `python3 scripts/formal_mutation.py triage --check`, and name in summary every symbol you checked with its label; if that `triage --check` fails, go back to the refresh path below, or put the failure in maintainer_asks and return status blocked. ' +
+    'Otherwise refresh the planned and removal-only symbols: ' +
     'Run `make mutation-formal` once, report-only, in a throwaway `git worktree add --detach` at HEAD, under the lock, backgrounded with an rc= line and waited for with Monitor; ' +
     'then in ' + a.worktree + ' run `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` for the rewritten symbols (or `MUTATION_FORMAL_STALE=1` for every symbol whose entries fail the anchor check) with `MUTATION_REPORT_DIR=<throwaway>/artifacts/mutation`, under the lock; ' +
     'for a renamed or deleted bound function, list `FILE:OLD` (removal-only) and the new name in the same MUTATION_FORMAL_SYMBOL, so ids that moved are added instead of refused; ' +

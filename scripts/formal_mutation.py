@@ -28,6 +28,7 @@ Usage:
     scripts/formal_mutation.py rerun-record --plan FILE --summary FILE --id ID [--reruns FILE]
     scripts/formal_mutation.py merge-reports --report-dir DIR
     scripts/formal_mutation.py merge-baselines --report-dir DIR [--baseline FILE]
+    scripts/formal_mutation.py symbols --plan FILE [--ledger FILE] [FILE:]SYMBOL ...
     scripts/formal_mutation.py triage --check [--baseline FILE] [--ledger FILE] [--reruns FILE] [--base SHA]
         (without --base: $INVOWK_TRIAGE_BASE when non-empty, else git merge-base HEAD origin/main)
     scripts/formal_mutation.py refresh [--report-dir DIR] (--symbol [FILE:]SYMBOL ... | --stale)
@@ -124,6 +125,11 @@ FUNC_DECL_RE = formal.FUNC_DECL_RE
 
 class PlanError(Exception):
     """A fail-closed plan, pre-flight, or triage condition."""
+
+
+class UnplannedSymbol(PlanError):
+    """A symbol that still names a declared function the plan does not target
+    (its row is unbound): it has no planned mutants and nothing to refresh."""
 
 
 class Row(NamedTuple):
@@ -1618,13 +1624,39 @@ def resolve_symbol(
         parsed = source(target)
         declared = find_function(parsed.decls, name) if parsed is not None else None
     if declared is not None:
-        raise PlanError(f"symbol {spec}: {name} still names a function in {target} (line {declared.start}), but the "
+        raise UnplannedSymbol(f"symbol {spec}: {name} still names a function in {target} (line {declared.start}), but the "
                         "formal-bindings plan does not target it (its row is unbound, as for an orphaned survivor); "
                         "bind the row or leave its survivors alone")
     if ledger_files:
         return False, (target, name)
     raise PlanError(f"symbol {spec}: unknown: no planned function and no ledger entry is named {name}"
                     + (f" in {file}" if file else ""))
+
+
+def classify_symbols(
+    specs: list[str], plan: dict, survivors: list[dict], source: Callable[[str], ParsedSource | None]
+) -> list[tuple[str, str]]:
+    """How the refresh would choose each `[FILE:]SYMBOL` (resolve_symbol):
+    ("planned", FILE:SYMBOL), ("removal-only", FILE:NAME), ("unplanned",
+    reason) for a declared function the plan does not target, or ("unknown",
+    reason) for a typo or an ambiguous name. PlanError for a plan with no
+    functions, so a failed or empty plan never reads as "nothing planned"."""
+    functions = plan.get("functions") or []
+    if not functions:
+        raise PlanError("the formal-bindings plan has no functions[]; rebuild it with `plan --out DIR` and check that "
+                        "it exits 0")
+    result = []
+    for spec in dict.fromkeys(part.strip() for value in specs for part in value.split(",") if part.strip()):
+        try:
+            is_planned, (file, symbol) = resolve_symbol(spec, functions, survivors, source)
+        except UnplannedSymbol as err:
+            result.append(("unplanned", str(err)))
+            continue
+        except PlanError as err:
+            result.append(("unknown", str(err)))
+            continue
+        result.append(("planned" if is_planned else "removal-only", f"{file}:{symbol}"))
+    return result
 
 
 def toml_value(value: str) -> str:
@@ -2257,6 +2289,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--reruns", type=Path, default=RERUNS)
     p.add_argument("--manifest", type=Path, default=formal.MANIFEST,
                    help="the manifest whose models and [triage] lists the refresh reads and updates")
+    p = sub.add_parser("symbols", help="how the refresh would choose each symbol: planned, removal-only, "
+                                       "unplanned or unknown")
+    p.add_argument("--plan", type=Path, required=True)
+    p.add_argument("--ledger", type=Path, default=LEDGER)
+    p.add_argument("symbols", nargs="+", metavar="[FILE:]SYMBOL", help="commas separate several, as for refresh")
     p = sub.add_parser("reach")
     p.add_argument("--out", type=Path, default=REACH_DIR)
     args = parser.parse_args(argv)
@@ -2271,6 +2308,23 @@ def main(argv: list[str] | None = None) -> int:
             paths = RefreshPaths(args.baseline, args.ledger, args.reruns, args.manifest)
             for line in refresh(args.report_dir, args.symbol, args.stale, models, paths=paths):
                 print(line)
+            return 0
+        if args.action == "symbols":
+            with args.ledger.open("rb") as handle:
+                survivors = tomllib.load(handle).get("survivor", [])
+            plan = load_plan(args.plan)
+            source = source_reader(Path(plan.get("root") or REPO_ROOT))
+            choices = classify_symbols(args.symbols, plan, survivors, source)
+            for kind, detail in choices:
+                print(f"{kind} {detail}")
+            counts = {kind: sum(1 for k, _ in choices if k == kind)
+                      for kind in ("planned", "removal-only", "unplanned", "unknown")}
+            if counts["unknown"]:
+                print(f"symbols: {counts['unknown']} unknown; fix the names before deciding", file=sys.stderr)
+                return 1
+            verdict = "refresh" if counts["planned"] or counts["removal-only"] else "skip"
+            print(f"symbols: {counts['planned']} planned, {counts['removal-only']} removal-only, "
+                  f"{counts['unplanned']} unplanned -> {verdict}")
             return 0
         if args.action == "plan":
             _tools, models = formal.load_manifest()
