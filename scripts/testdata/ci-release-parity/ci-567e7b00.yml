@@ -1,0 +1,729 @@
+name: CI
+
+on:
+  # None of this workflow's checks are required by branch protection, so both
+  # push and pull_request can safely skip documentation-only diffs. Keep the
+  # path lists in sync between the two triggers.
+  push:
+    branches:
+      - main
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - 'default.pgo'
+      - '.goreleaser.yaml'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'tests/**'
+      - '*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - 'default.pgo'
+      - '.goreleaser.yaml'
+      - '.github/workflows/ci.yml'
+  # Release validation must always run in full, regardless of changed paths.
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Fall back to direct module fetches on transient Go proxy failures.
+  GOPROXY: "https://proxy.golang.org|direct"
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu with Docker (ubuntu-latest = ubuntu-24.04 as of 2026-03)
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: docker
+            test-mode: full
+            # restrict-tui-server-bind D2 row this engine must select:
+            # 8 = rootful Docker, loopback + bridge gateway.
+            tui-plan-row: "8"
+
+          # Ubuntu with Podman
+          - os: ubuntu-latest
+            runner: ubuntu-latest
+            engine: podman
+            test-mode: full
+            # restrict-tui-server-bind D2 row: 11 = rootless Podman with pasta.
+            # The first run's "podman network backend" line (2026-11-15, run
+            # 43677325230) reported true|pasta|false|/usr/bin/pasta.
+            tui-plan-row: "11"
+
+          # Windows (unit tests only - container runtime requires Linux)
+          - os: windows
+            runner: windows-latest
+            engine: ""
+            test-mode: short
+
+          # macOS (unit tests only, no container engine)
+          - os: macos
+            runner: macos-15
+            engine: ""
+            test-mode: short
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum${{ matrix.os == 'windows' && '.exe' || '' }}
+          key: gotestsum-${{ runner.os }}-v1.13.0
+
+      - name: Install gotestsum
+        if: steps.cache-gotestsum.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@v1.13.0
+
+      - name: Verify gotestsum
+        run: gotestsum --version
+
+      # Engine isolation: mask the non-tested engine so AutoDetectEngine() picks
+      # the correct one. Ubuntu runners have both Docker and Podman installed.
+      # Fail-loud: verify the masked engine is no longer discoverable.
+      - name: Mask Docker for Podman tests
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          # Mask every PATH-resolvable install, not a hardcoded location —
+          # runner images move engine binaries between /usr/bin and /usr/local/bin.
+          for _ in 1 2 3 4 5; do
+            binpath="$(command -v docker || true)"
+            [ -z "$binpath" ] && break
+            sudo mv "$binpath" "${binpath}.disabled"
+            hash -r
+          done
+          if command -v docker &>/dev/null; then
+            echo "::error::Docker is still on PATH after masking"
+            exit 1
+          fi
+
+      - name: Mask Podman for Docker tests
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          # Mask every PATH-resolvable install, not a hardcoded location —
+          # runner images move engine binaries between /usr/bin and /usr/local/bin.
+          for _ in 1 2 3 4 5; do
+            binpath="$(command -v podman || true)"
+            [ -z "$binpath" ] && break
+            sudo mv "$binpath" "${binpath}.disabled"
+            hash -r
+          done
+          if command -v podman &>/dev/null; then
+            echo "::error::Podman is still on PATH after masking"
+            exit 1
+          fi
+
+      # Podman setup for Ubuntu — fail-loud to surface daemon issues immediately.
+      - name: Setup Podman (Ubuntu)
+        if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          podman --version
+          systemctl --user start podman.socket
+          systemctl --user is-active podman.socket
+          # TUI exposure plan evidence (restrict-tui-server-bind task 5.1):
+          # rootless|network cmd|remote|pasta executable (empty = no pasta).
+          # Older Podman lacks some fields, so a template error must not fail the job.
+          echo "podman network backend: $(podman info --format '{{.Host.Security.Rootless}}|{{.Host.RootlessNetworkCmd}}|{{.Host.ServiceIsRemote}}|{{.Host.Pasta.Executable}}' 2>&1 || true)"
+          echo "pasta on PATH: $(command -v pasta || echo none)"
+
+      # Docker setup verification for Ubuntu
+      - name: Verify Docker (Ubuntu)
+        if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
+        run: |
+          docker --version
+          docker info
+
+      # Pre-pull base image to avoid network flakiness during container builds.
+      # This removes the image-pull dependency from the critical path of test builds.
+      - name: Pre-pull container test images
+        if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
+        run: ${{ matrix.engine }} pull debian:stable-slim
+
+      # Run full tests except CLI integration tests.
+      # CLI is split out below so the container CLI suite is no longer hidden
+      # behind generic rerun-fails behavior.
+      - name: Run tests (full, non-CLI)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
+          INVOWK_TEST_TUI_PLAN_ROW: ${{ matrix.tui-plan-row }}
+        run: |
+          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | grep -v '^github.com/invowk/invowk/internal/runtime$' | tr '\n' ' ')"
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report rerun-report.txt \
+            --packages "$PACKAGES" \
+            -- -race -timeout 15m -coverprofile=coverage.out
+
+      - name: Run internal/runtime tests (full)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile runtime-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report runtime-rerun-report.txt \
+            --packages ./internal/runtime \
+            -- -race -timeout 15m -coverprofile=runtime-coverage.out
+
+      # The full legs are Linux, where the runner image ships tmux: a missing
+      # tmux fails the TUI tmux tests here instead of skipping them.
+      - name: Run CLI integration tests (full)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}
+          INVOWK_TEST_REQUIRE_TMUX: "1"
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --packages ./tests/cli/... \
+            -- -race -timeout 10m -coverprofile=cli-coverage.out
+
+      # Run short tests (unit tests only, no container dependencies).
+      # Uses bash shell to avoid PowerShell parsing issues on Windows.
+      - name: Run tests (short)
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report rerun-report.txt \
+            --packages ./... \
+            -- -race -short -v -coverprofile=coverage.out
+
+      # Run CLI integration tests on Windows/macOS
+      # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
+      # Container tests auto-skip via [!container-available] guard.
+      - name: Run CLI integration tests
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --packages ./tests/cli/... \
+            -- -race -timeout 5m -coverprofile=cli-coverage.out
+
+      # Benchmark smoke test (single ubuntu-latest leg only).
+      # Ensures benchmarks stay compilable/runnable in regular CI without
+      # adding heavy benchmark load to every matrix entry.
+      - name: Run benchmark smoke tests
+        if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
+        shell: bash
+        run: |
+          BENCH_REGEX='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$'
+          go test ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime=1x -count=1
+
+      # The POSIX script tests (scripts/script-tests.sh) run behind the
+      # worktree-safety gate in lint.yml's "script tests (worktree-safety
+      # gate)" job, on every PR; only the PowerShell ones run here.
+      # Run PowerShell install script tests (PS 7.x/Core).
+      - name: Run PowerShell install script tests (pwsh)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: ./scripts/test_install.ps1
+
+      # Run PowerShell install script tests (Windows PowerShell 5.1).
+      - name: Run PowerShell install script tests (powershell)
+        if: matrix.os == 'windows'
+        shell: powershell
+        run: ./scripts/test_install.ps1
+
+      - name: Merge coverage profiles
+        if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
+        run: |
+          # All profiles use the same -covermode (from go test defaults), so
+          # raw concat is safe after stripping the duplicate mode: header line.
+          if [ -f runtime-coverage.out ]; then
+            tail -n +2 runtime-coverage.out >> coverage.out
+          fi
+          if [ -f cli-coverage.out ]; then
+            tail -n +2 cli-coverage.out >> coverage.out
+          fi
+
+      # Upload test results (JUnit XML + rerun reports) for debugging and flake tracking
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: |
+            test-results.xml
+            runtime-test-results.xml
+            cli-test-results.xml
+            rerun-report.txt
+            runtime-rerun-report.txt
+            cli-rerun-report.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+      # Render JUnit results as PR annotations (inline failed test annotations)
+      - name: Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: '*.xml'
+          check_name: JUnit Report (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+          fail_on_failure: true
+          check_retries: true
+          flaky_summary: true
+          include_passed: false
+
+      # Surface rerun reports as GitHub Actions warnings for flake visibility
+      - name: Flag flaky tests
+        if: always()
+        shell: bash
+        run: |
+          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt; do
+            if [ -s "$report" ]; then
+              echo "::warning::Flaky tests detected (rerun report: $report):"
+              while IFS= read -r line; do
+                echo "::warning::  $line"
+              done < "$report"
+            fi
+          done
+
+      # Upload coverage
+      - name: Upload coverage
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
+          path: coverage.out
+          retention-days: 7
+
+  # Build verification (ensures the binary compiles on all platforms)
+  build:
+    name: Build (${{ matrix.os }}/${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+          - os: darwin
+            arch: amd64
+            runner: macos-15-intel
+          - os: darwin
+            arch: arm64
+            runner: macos-15
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          GOAMD64: v3
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags="-s -w" -o invowk${{ matrix.os == 'windows' && '.exe' || '' }} .
+
+      - name: Verify binary
+        if: (matrix.os == 'linux' && matrix.arch == 'amd64') || matrix.os == 'darwin' || matrix.os == 'windows'
+        run: ./invowk${{ matrix.os == 'windows' && '.exe' || '' }} --version
+        shell: bash
+
+  # PGO profile sanity and freshness checks.
+  # On same-repo PRs: auto-regenerates default.pgo and pushes a verified fix
+  # commit via the GitHub GraphQL API (createCommitOnBranch).
+  # On fork PRs: warns but cannot auto-fix (GITHUB_TOKEN is read-only for forks).
+  # On push/release: audit-only.
+  # Note: The auto-pushed commit uses GITHUB_TOKEN, so it will NOT re-trigger CI
+  # (GitHub's anti-recursion protection). This is acceptable because pgo-audit
+  # already validated the profile format in this same job run.
+  pgo-sanity:
+    name: PGO Sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref || '' }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Audit committed PGO profile
+        run: make pgo-audit
+
+      - name: Check PGO freshness for parser/discovery changes
+        id: pgo-check
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          changed_files="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+
+          echo "Changed files between base and head:"
+          echo "$changed_files"
+
+          hot_path_pattern='^(pkg/cueutil/|pkg/invowkfile/|pkg/invowkmod/|internal/discovery/)'
+          prod_files="$(echo "$changed_files" | grep -Ev '_test\.go$' || true)"
+          if [ -n "$prod_files" ] && echo "$prod_files" | grep -Eq "$hot_path_pattern"; then
+            if ! echo "$changed_files" | grep -Eq '^default\.pgo$'; then
+              if [ "$PR_HEAD_REPO" = "$BASE_REPO" ]; then
+                echo "::warning::Hot-path files changed without PGO refresh — auto-regenerating."
+                echo "needs_refresh=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "::error::Hot-path files changed without PGO refresh."
+                echo "::error::Fork PRs cannot be auto-fixed. Run 'make pgo-profile-parse-discovery' and commit default.pgo."
+                exit 1
+              fi
+            else
+              echo "PGO profile already updated in this PR."
+              echo "needs_refresh=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "No hot-path production files changed."
+            echo "needs_refresh=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-regenerate PGO profile
+        if: steps.pgo-check.outputs.needs_refresh == 'true'
+        run: make pgo-profile-parse-discovery
+
+      # Create a verified commit via the GitHub GraphQL API.
+      # Direct git commits on CI runners are unsigned and blocked by the
+      # required_signatures ruleset. The GraphQL createCommitOnBranch mutation
+      # produces GitHub-signed commits that satisfy the ruleset.
+      # Uses GITHUB_TOKEN (not an app token) to preserve anti-recursion:
+      # the commit will NOT re-trigger CI workflows.
+      - name: Commit PGO profile (verified)
+        if: steps.pgo-check.outputs.needs_refresh == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          HEAD_SHA=$(git rev-parse HEAD)
+
+          # Base64-encode the regenerated PGO profile.
+          B64_FILE=$(mktemp)
+          base64 -w 0 < default.pgo > "$B64_FILE"
+
+          QUERY='
+            mutation ($input: CreateCommitOnBranchInput!) {
+              createCommitOnBranch(input: $input) {
+                commit { oid url }
+              }
+            }'
+
+          RESULT=$(jq -n \
+            --arg query "$QUERY" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$HEAD_BRANCH" \
+            --arg headline "chore(pgo): auto-regenerate profile for hot-path changes" \
+            --arg oid "$HEAD_SHA" \
+            --rawfile contents "$B64_FILE" \
+            '{
+              query: $query,
+              variables: {
+                input: {
+                  branch: {
+                    repositoryNameWithOwner: $repo,
+                    branchName: $branch
+                  },
+                  message: { headline: $headline },
+                  fileChanges: {
+                    additions: [{path: "default.pgo", contents: $contents}]
+                  },
+                  expectedHeadOid: $oid
+                }
+              }
+            }' | gh api graphql --input -)
+
+          rm -f "$B64_FILE"
+          echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created verified commit \(.oid)\n\(.url)"'
+
+  # License header check
+  license-check:
+    name: License Headers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check SPDX headers
+        run: make license-check
+
+  # Vulnerability scanning (checks Go vulnerability database)
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          while IFS= read -r mod_file; do
+            mod_dir="$(dirname "$mod_file")"
+            echo "Downloading Go modules: $mod_dir"
+            for attempt in 1 2 3; do
+              if (cd "$mod_dir" && go mod download); then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              sleep "$((attempt * 20))"
+            done
+          done < <(git ls-files 'go.mod' '*/go.mod')
+
+      - name: Install govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          govulncheck -version
+
+      - name: Run govulncheck
+        run: make vulncheck
+
+  # GoReleaser dry-run (validates configuration)
+  goreleaser-check:
+    name: GoReleaser Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Check GoReleaser config
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.16"
+          args: check
+
+  # Release dry run: exercises the release-only path on every push/PR so
+  # compression hooks, signing setup, and GoReleaser packaging do not first
+  # meet CI on tag day. Release performance tracking is covered by the
+  # dedicated release workflow once a real tag exists.
+  release-dry-run:
+    name: Release Dry Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Install UPX
+        run: |
+          UPX_VERSION="5.2.0"
+          curl -fsSL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" -o /tmp/upx.tar.xz
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo install -m 755 "/tmp/upx-${UPX_VERSION}-amd64_linux/upx" /usr/local/bin/upx
+          rm -rf /tmp/upx.tar.xz "/tmp/upx-${UPX_VERSION}-amd64_linux"
+          upx --version
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.2
+        with:
+          cosign-release: v3.1.3
+
+      - name: Run GoReleaser release dry run (PR)
+        if: github.event_name == 'pull_request'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.16"
+          args: release --clean --snapshot --skip=sign
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GORELEASER_CURRENT_TAG: v0.0.0-ci
+          HOMEBREW_TAP_TOKEN: "dry-run"
+          WINGET_TOKEN: "dry-run"
+
+      - name: Run GoReleaser release dry run (integration)
+        if: github.event_name != 'pull_request'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.16"
+          args: release --clean --snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GORELEASER_CURRENT_TAG: v0.0.0-ci
+          HOMEBREW_TAP_TOKEN: "dry-run"
+          WINGET_TOKEN: "dry-run"
