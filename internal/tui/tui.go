@@ -5,7 +5,6 @@ package tui
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -74,8 +73,6 @@ type (
 		Accessible bool
 		// Width specifies the width of the component (0 for auto).
 		Width TerminalDimension
-		// Output specifies where to write the component output.
-		Output io.Writer
 	}
 
 	// Style represents styling options for text output.
@@ -210,7 +207,6 @@ func DefaultConfig() Config {
 		Theme:      ThemeDefault,
 		Accessible: os.Getenv("ACCESSIBLE") != "",
 		Width:      0,
-		Output:     os.Stdout,
 	}
 }
 

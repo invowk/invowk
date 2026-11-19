@@ -138,8 +138,7 @@ func (m *writeModel) SetSize(width, height TerminalDimension) {
 // Returns the entered text or an error if the prompt was cancelled.
 func Write(opts WriteOptions) (string, error) {
 	model := NewWriteModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeWrite, model)
 	if err != nil {
 		return "", err
 	}

@@ -383,8 +383,7 @@ func (m *chooseModel) selectedIndices() []SelectionIndex {
 
 func chooseIndicesWithModel(opts ChooseStringOptions) ([]SelectionIndex, error) {
 	model := NewChooseModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeChoose, model)
 	if err != nil {
 		return nil, err
 	}
@@ -478,8 +477,7 @@ func ChooseStrings(title string, options []string, config Config) (string, error
 // using the embeddable model internally.
 func ChooseStringsWithModel(opts ChooseStringOptions) ([]string, error) {
 	model := NewChooseModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeChoose, model)
 	if err != nil {
 		return nil, err
 	}

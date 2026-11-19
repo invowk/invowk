@@ -45,6 +45,11 @@ Decisions taken with the maintainer (2026-11-14):
 | N8 | EVOLVE — security | follow-up to S4 (`basedir.TempDir`, not yet proposed) | M |
 | N9 | DECIDE — product | follow-up to S4 (engine environment, not yet proposed) | M |
 | N10 | EVOLVE — security | follow-up to S4 (per-URL git auth: auth order, Windows known_hosts default; not yet proposed) | M |
+| N11 | EVOLVE — bug | `fix-tui-capture-output` (S5a, Part A); no-server `-i` runs gated in S5b | M |
+| N12 | EVOLVE — bug | container auto-provision on non-Linux hosts (not yet proposed; not S5) | S |
+| N13 | EVOLVE — tests | portable no-terminal test helper (before v0.17.0) | S |
+| N14 | EVOLVE — bug | `tui spin` Ctrl+C race and dropped output (after v0.17.0; with N1/S2) | S |
+| N15 | DECIDE — product | `pager` and non-selectable `table` with stdout redirected (after v0.17.0) | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -217,7 +222,9 @@ guide ("set `TMPDIR` if needed").
   call), Docker Desktop on macOS and Linux, and one native Windows `invowk cmd <x> -i`
   container run (decision 27, ConPTY through `xpty`, supported by the code and unverified).
   invowk's own row-6 path (facts query, planner, adapter) has never run on a Docker Desktop
-  host; only unit tests with constructed facts select row 6.
+  host; only unit tests with constructed facts select row 6. Release-note wording for the
+  row-6 Warning: on macOS and Windows hosts, in-container `invowk tui` also needs
+  `container.auto_provision.binary_path` pointing at a Linux build of invowk (N12).
 - **N6 — skipped-source diagnostics carry only a path (C1 follow-up).** C1 Decision 14
   exits 2 for a scoped miss in a source that loaded, but the CLI can only match a skipped
   source by its diagnostic path. Two cases can therefore wrongly exit 2: an `includes`
@@ -258,16 +265,64 @@ guide ("set `TMPDIR` if needed").
   `<home>\.ssh\known_hosts` only, plus the host-key algorithms for that URL's host (go-git
   stops computing them when a callback is given), on both the key and the `Auth: nil`
   agent paths. Until then, set `SSH_KNOWN_HOSTS` to an absolute path on Windows.
-- **N11 — direct `invowk tui` rendering draws into captured
-  stdout.** Found 2026-11-15 in S3's premise check. Without `INVOWK_TUI_ADDR`, a value
-  component builds `tea.NewProgram(model)` without `tea.WithOutput`
-  (`internal/tui/input.go:137`, same shape in `choose`, `filter`, `file`, `write`), so
-  `name=$(invowk tui input)` draws nothing and `$name` holds terminal control sequences
-  in front of the answer, with exit 0. Reproduced on `main` at 3760a4ba in a plain host
-  terminal. The docs show this capture form for `input`, `choose` and `write`. Fix: draw
-  to stderr or `/dev/tty` when stdout is not a terminal, with a tmux test that captures
-  stdout. Fixing it would let S3's refused modes fall back to direct rendering
-  (`openspec/changes/archive/2026-11-15-restrict-tui-server-bind/design.md`, decision 22).
+- **N11 — direct `invowk tui` rendering draws into captured stdout (S5,
+  `fix-tui-capture-output`).** Found 2026-11-15 in S3's premise check. Without
+  `INVOWK_TUI_ADDR`, every directly rendered component builds `tea.NewProgram(model)`
+  without `tea.WithOutput` (`internal/tui/input.go:137`; same shape in `choose`, `filter`,
+  `file`, `write`, `table`, `confirm`, `pager`, `spin`), and Bubble Tea defaults to stdout
+  (`charm.land/bubbletea/v2@v2.0.9/tea.go:624-627`). So `name=$(invowk tui input)` draws
+  nothing and `$name` holds control sequences in front of the answer, with exit 0, on
+  `main` in a plain terminal. `spin` has the same defect for `out=$(invowk tui spin -- …)`.
+  S5a (`fix-tui-capture-output`) ships Part A only: components draw on the controlling
+  terminal (`/dev/tty`, `CONIN$`/`CONOUT$` with a console check), probed 2026-11-15
+  against stderr (stderr loses the UI under `2>log`). S5a leaves S3's refusal in force.
+  S5b, a separate later change (not yet proposed), holds the gate: the no-server `-i`
+  path and a hardened tmux test of a real no-server `-i` session on row 10, asserting
+  the screen state. Its earlier drafts are at 9d8483ca and 97d1e6a5. If the gate fails,
+  S5b is shelved and the refusal stays in v0.17.0.
+- **N12 — on Windows and macOS hosts, container auto-provision copies the host's own
+  non-Linux binary into the Linux container (by code reading; not run on those hosts).**
+  `applyHostProvisionDefaults` defaults `InvowkBinaryPath` to `os.Executable()` with no
+  OS or architecture check (`internal/runtime/container_provision.go:237-240`). The
+  provisioner copies it as-is (`internal/provision/layer_provisioner.go:307-313`), and
+  the generated Dockerfile installs it as `/invowk/bin/invowk` on `PATH`
+  (`internal/provision/dockerfile.go:25-30`, `:43-45`). Nothing in `internal/provision/`
+  or the container runtime checks `GOOS` (grep on d7e4feb4), and the container runtime is
+  available on any host whose engine is (`internal/runtime/container.go:186-188`). The
+  docs say only "uses the running invowk binary" (`website/docs/configuration/options.mdx:245`,
+  `website/docs/reference/config-schema.mdx:352`). On a Windows (PE) or macOS (Mach-O)
+  host, the container run itself still works, because invowk is not the entrypoint
+  (`internal/runtime/container_exec.go:181` uses `invowk` only as `$0`). But every nested
+  `invowk` call inside the container fails with an exec-format error, including
+  `invowk tui *` under `-i` on Docker Desktop (row 6) and in-container `invowk cmd`
+  dependencies, unless `container.auto_provision.binary_path` points at a Linux build.
+  Fix direction: provision a Linux binary that matches the image architecture, or warn
+  and skip the binary on a non-Linux host, and document `binary_path`. This also qualifies
+  S3's row-6 release Warning (N5): on macOS and Windows hosts, in-container `invowk tui`
+  already needs `binary_path`, whatever the TUI server's reachability.
+- **N13 — `tui_no_terminal.txtar` skips on macOS and Windows (S5a follow-up, before
+  v0.17.0).** The test drops the controlling terminal with `setsid`, guarded by
+  `[!exec:setsid] skip`. That guard is not in `.agents/rules/testing.md`'s closed list of
+  allowed platform skips, and `setsid` exists only on the Linux CI legs (skipped in jobs
+  135403243980 and 135403243939). Fix: a testscript command implemented in Go that starts
+  the binary without a controlling terminal: a new session on Unix, a detached process
+  with no console on Windows. Then the txtar runs on all three systems.
+- **N14 — `invowk tui spin`: Ctrl+C abandons the running command, and a spinner failure
+  drops its output (S5a review; pre-existing on `main`).** `spinActionModel` returns
+  `tea.Quit` on Ctrl+C, so `runActionSpinner` returns nil. `spinWithAction` then returns
+  without waiting for the action goroutine, and `runTuiSpinWithRunner`
+  (`cmd/invowk/tui_spin.go`) reads `runResult` while the goroutine may still write it.
+  That is a data race: the run exits 0 with empty output and the child keeps running.
+  Separately, when the spinner fails after the command started, the adapter returns the
+  spinner error and drops the command's output and exit code. Fix: cancel the command's
+  context on quit and exit 130; print the output and map the exit code whenever the
+  action ran. Belongs with N1 (S2, termination signals).
+- **N15 — `pager` and non-selectable `table` when only stdout is redirected (S5a review,
+  product decision).** S5a's `pager` opens the terminal and writes nothing to stdout when
+  only stdout is a pipe (unlike `less`, which passes content through), and a non-selectable
+  `table` is a value component, so with no terminal it exits 1. v0.17.0 ships this
+  reviewed behaviour. Decide whether either should pass content through to stdout
+  whenever stdout is not a terminal.
 
 ## Why CST keeps its production paths out of invowk anyway
 
@@ -327,3 +382,7 @@ Seen again 2026-11-15 on Linux (Fedora, local `make test` of S4 at `3670d1e5`): 
 assertion in gotestsum's first pass, passed in its re-run. 200 isolated runs passed on S4 and on `main` (`d7e4feb4`). Unverified
 hypothesis: the lock file carries an RFC 3339 `generated` timestamp, so a rewrite that
 crosses a second boundary changes its bytes.
+
+Third sighting, 2026-11-19 on Windows: CI run 44475510192, job 135394971934 (PR #175 at
+`e993c5af`, which does not touch `internal/app/modulesync`). Same assertion; the next head
+passed. Diagnose after v0.17.0.

@@ -154,8 +154,7 @@ func Table(opts TableOptions) (selectedIdx int, row []string, err error) {
 	}
 
 	model := NewTableModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeTable, model)
 	if err != nil {
 		return -1, nil, err
 	}

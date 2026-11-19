@@ -186,8 +186,7 @@ func (m *confirmModel) SetSize(width, height TerminalDimension) {
 // Returns true for affirmative, false for negative, or an error if cancelled.
 func Confirm(opts ConfirmOptions) (bool, error) {
 	model := NewConfirmModel(opts)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
+	finalModel, err := runComponentProgram(ComponentTypeConfirm, model)
 	if err != nil {
 		return false, err
 	}

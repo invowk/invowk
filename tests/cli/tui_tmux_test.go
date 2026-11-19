@@ -27,6 +27,10 @@ const (
 	tuiInputSettleDelay = 100 * time.Millisecond
 
 	tmuxCleanupTimeout = 5 * time.Second
+
+	// requireTmuxEnv names the variable that turns a missing tmux into a
+	// test failure instead of a skip.
+	requireTmuxEnv = "INVOWK_TEST_REQUIRE_TMUX"
 )
 
 var tmuxSessionMu sync.Mutex
@@ -53,7 +57,7 @@ func newTmuxSession(t *testing.T, suffix string) *tmuxSession {
 
 	cmd := exec.CommandContext(ctx, "tmux", "new-session", "-d", "-s", name, "-x", "100", "-y", "30")
 	if err := cmd.Run(); err != nil {
-		t.Skipf("tmux not available or cannot create session: %v", err)
+		skipOrFailWithoutTmux(t, fmt.Sprintf("tmux cannot create session: %v", err))
 	}
 
 	s := &tmuxSession{name: name, t: t}
@@ -100,6 +104,9 @@ func (s *tmuxSession) kill() {
 	_ = exec.CommandContext(ctx, "tmux", "kill-session", "-t", s.name).Run()
 }
 
+// requireTmux skips the test in short mode and when tmux is missing, unless
+// INVOWK_TEST_REQUIRE_TMUX=1, which CI sets on the Linux full legs so the tmux
+// tests there cannot skip silently.
 func requireTmux(t *testing.T) {
 	t.Helper()
 
@@ -107,8 +114,19 @@ func requireTmux(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not available")
+		skipOrFailWithoutTmux(t, fmt.Sprintf("tmux not available: %v", err))
 	}
+}
+
+// skipOrFailWithoutTmux fails the test when INVOWK_TEST_REQUIRE_TMUX=1 and
+// skips it otherwise.
+func skipOrFailWithoutTmux(t *testing.T, reason string) {
+	t.Helper()
+
+	if os.Getenv(requireTmuxEnv) == "1" {
+		t.Fatalf("%s, and %s=1 requires tmux", reason, requireTmuxEnv)
+	}
+	t.Skip(reason)
 }
 
 func shellQuote(path string) string {

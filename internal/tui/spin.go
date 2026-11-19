@@ -117,6 +117,10 @@ type (
 		spinner bspinner.Model
 		doneCh  <-chan struct{}
 	}
+
+	// actionSpinnerFunc draws the spinner on terminal until doneCh is closed
+	// (runActionSpinner); tests inject a failing one.
+	actionSpinnerFunc func(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) error
 )
 
 // Error implements the error interface.
@@ -297,18 +301,55 @@ func SpinWithAction(opts SpinOptions, action func()) error {
 		return err
 	}
 
+	return spinWithAction(opts, action, resolveComponentTerminal, runActionSpinner)
+}
+
+// spinWithAction resolves the terminal before it starts the action, so the
+// action runs exactly once whatever the outcome:
+//   - without a terminal, it runs the action synchronously, without a spinner;
+//   - with a terminal, it runs the action in a goroutine while spinner draws,
+//     and waits for the action to finish when the spinner fails.
+func spinWithAction(opts SpinOptions, action func(), resolve resolveTerminalFunc, spinner actionSpinnerFunc) error {
+	terminal, err := resolve(ComponentTypeSpin)
+	if errors.Is(err, ErrNoTerminal) {
+		action()
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
 	doneCh := make(chan struct{})
 	go func() {
 		action()
 		close(doneCh)
 	}()
 
-	return runActionSpinner(opts, doneCh)
+	if err := spinner(terminal, opts, doneCh); err != nil {
+		<-doneCh
+		return err
+	}
+	return nil
 }
 
 // SpinWithContext displays a spinner until the context is cancelled.
+// Without a terminal it waits for the cancellation without a spinner.
 func SpinWithContext(ctx context.Context, opts SpinOptions) error {
 	if err := opts.Validate(); err != nil {
+		return err
+	}
+	return spinWithContext(ctx, opts, resolveComponentTerminal)
+}
+
+// spinWithContext shows the spinner on the terminal that resolve selects until
+// ctx is cancelled.
+func spinWithContext(ctx context.Context, opts SpinOptions, resolve resolveTerminalFunc) error {
+	terminal, err := resolve(ComponentTypeSpin)
+	if errors.Is(err, ErrNoTerminal) {
+		<-ctx.Done()
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
@@ -318,7 +359,7 @@ func SpinWithContext(ctx context.Context, opts SpinOptions) error {
 		close(doneCh)
 	}()
 
-	return runActionSpinner(opts, doneCh)
+	return runActionSpinner(terminal, opts, doneCh)
 }
 
 // NewSpin creates a new SpinBuilder with default options.
@@ -454,8 +495,13 @@ func (m spinActionModel) View() tea.View {
 	return tea.NewView(content)
 }
 
-// runActionSpinner displays a spinner until doneCh is closed.
-func runActionSpinner(opts SpinOptions, doneCh <-chan struct{}) error {
+// runActionSpinner displays a spinner on terminal until doneCh is closed, then
+// closes terminal.
+func runActionSpinner(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) (err error) {
+	defer func() {
+		err = errors.Join(err, terminal.Close())
+	}()
+
 	model := spinActionModel{
 		title: types.DescriptionText(opts.Title), //goplint:ignore -- display text from TUI options
 		spinner: bspinner.New(
@@ -465,8 +511,8 @@ func runActionSpinner(opts SpinOptions, doneCh <-chan struct{}) error {
 		doneCh: doneCh,
 	}
 
-	program := tea.NewProgram(model)
-	_, err := program.Run()
+	program := tea.NewProgram(model, terminal.programOptions()...)
+	_, err = program.Run()
 	return err
 }
 
