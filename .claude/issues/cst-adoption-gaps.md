@@ -60,7 +60,7 @@ Decisions taken with the maintainer (2026-11-14):
 | N23 | DECIDE — product | lock-format questions: UTC `generated:`, and unknown CUE fields a no-op save no longer normalises (#186 follow-up; deferred) | S |
 | N24 | EVOLVE — security | native and container runtimes re-open `SelectedScriptFilePath()` after the contained read (TOCTOU residual; outside B1; not yet proposed) | S |
 | N25 | EVOLVE — CI | Dependabot version updates have not run since 2026-06-23; security updates disabled (maintainer repository setting) | S |
-| N26 | EVOLVE — supply chain | website npm residuals: `tinypool` (critical) and `serialize-javascript` (high) pinned by Docusaurus 3.10.2, no fix inside Docusaurus 3 | S |
+| N26 | EVOLVE — supply chain | website npm residuals: `tinypool` (critical), `serialize-javascript` (high) and `uuid` (moderate) pinned by Docusaurus 3.10.2, no fix inside Docusaurus 3 | S |
 
 Merge order: S1 → S2 → C2 → C1 → C3 → C4 (interleaved with the formal track).
 S2, C1 and C2 all touch `cmd/invowk/root.go`, so they land in sequence.
@@ -420,17 +420,26 @@ guide ("set `TMPDIR` if needed").
   `{"enabled":false,"paused":true}` (2026-11-19). Unpausing (and enabling security updates) is a repository setting for the
   maintainer; agents do not change GitHub settings.
 - **N26 — website npm residuals with no fix inside Docusaurus 3 (2026-11-19 audit).**
-  After `npm audit fix` (PR `chore/deps-security-refresh`) two vulnerable packages remain,
-  both pinned by `@docusaurus/core` 3.10.2, the latest 3.x release:
-  `tinypool` 1.1.1 (critical, GHSA-5gmw-xhrv-c9v3 and GHSA-85c8-ppgw-ccpr, fixed in 2.1.2;
-  `@docusaurus/core` requires `^1.0.2`) and `serialize-javascript` 6.0.2 (high,
-  GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v and GHSA-m5mm-p8h7-m29v, fixed in 7.1.3;
-  `copy-webpack-plugin` 11.0.0 requires `^6.0.0` and `css-minimizer-webpack-plugin`
-  5.0.1 `^6.0.1`, both under `@docusaurus/bundler`). Neither fix is semver-compatible
-  with its parent's range, so no `overrides` entry; npm's only offer is
-  `--force`, which would install `@docusaurus/core` 3.7.0. Both are build-time only (the
-  site is static). The 13 Docusaurus packages flagged critical are flagged only through
-  these two. Fix: the Docusaurus release that moves off them (4.x), or a later 3.x.
+  After `npm audit fix` (PR `chore/deps-security-refresh`, run twice: the second run
+  bumped `express` 4.22.2 to 4.22.3, whose `qs ~6.16.0` cleared the top-level `qs` 6.15.4
+  moderates GHSA-4mjr-xmp4-gh2g and GHSA-6pq8-jhm2-2vcw and removed the nested
+  `body-parser` copy), `npm audit` reports 22 vulnerable packages (15 critical, 1 high,
+  6 moderate) that all come from three, each pinned under `@docusaurus/core` 3.10.2, the
+  latest 3.x release:
+  - `tinypool` 1.1.1 (critical, GHSA-5gmw-xhrv-c9v3 and GHSA-85c8-ppgw-ccpr, fixed in
+    2.1.2; `@docusaurus/core` requires `^1.0.2`);
+  - `serialize-javascript` 6.0.2 (high, GHSA-5c6j-r48x-rmvq, GHSA-qj8w-gfj5-8c6v and
+    GHSA-m5mm-p8h7-m29v, fixed in 7.1.3; `copy-webpack-plugin` 11.0.0 requires `^6.0.0`
+    and `css-minimizer-webpack-plugin` 5.0.1 `^6.0.1`, both under `@docusaurus/bundler`);
+  - `uuid` 8.3.2 (moderate, GHSA-w5hq-g745-h8pq, fixed in 11.1.1), through `sockjs`
+    0.3.24 under `webpack-dev-server`, which `@docusaurus/core` requires.
+
+  None of the fixes is semver-compatible with its parent's range, so no `overrides`
+  entry; npm's only offer is `--force`, which would install `@docusaurus/core` 3.7.0.
+  All three are build-time or dev-server only (the site is static). The other 19 flagged
+  packages (the 14 critical Docusaurus packages, `@docusaurus/bundler`, the two webpack
+  plugins, `sockjs`, `webpack-dev-server`) are flagged only through these three. Fix: the
+  Docusaurus release that moves off them (4.x), or a later 3.x.
 
 ## Why CST keeps its production paths out of invowk anyway
 
