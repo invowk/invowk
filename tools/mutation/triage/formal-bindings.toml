@@ -2481,29 +2481,13 @@ added = '''
 '''
 
 [[survivor]]
-id = "aa47f5963611bc35b50baa9647b5af2a"
-file = "internal/runtime/dotenv.go"
-symbol = "LoadEnvFile"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "branch/if (Changes: `path = strings.TrimSuffix(path, \"?\")` → `_, _, _ = path, strings.TrimSuffix, path`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
-follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
-removed = '''
-		path = strings.TrimSuffix(path, "?")
-'''
-added = '''
-		_, _, _ = path, strings.TrimSuffix, path
-'''
-
-[[survivor]]
 id = "55ac8ba4cdef8ef76f1ec2dd4c1baaba"
 file = "internal/runtime/dotenv.go"
 symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `fullPath = path` → `_, _ = fullPath, path`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Changes: `fullPath = path` → `_, _ = fullPath, path`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		fullPath = path
@@ -2519,7 +2503,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/else (Removes an else-block body) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/else (Removes an else-block body) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		nativePath := filepath.FromSlash(path)
@@ -2536,7 +2520,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "statement/remove (Changes: `fullPath = filepath.Join(basePath, nativePath)` → `_, _, _, _ = fullPath, filepath.Join, basePath, nativePath`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "statement/remove (Changes: `fullPath = filepath.Join(basePath, nativePath)` → `_, _, _, _ = fullPath, filepath.Join, basePath, nativePath`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		fullPath = filepath.Join(basePath, nativePath)
@@ -2552,7 +2536,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		if optional && os.IsNotExist(err) {
@@ -2573,7 +2557,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/logical (Changes: `if optional && os.IsNotExist(err) {` → `if optional || os.IsNotExist(err) {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "expression/logical (Changes: `if optional && os.IsNotExist(err) {` → `if optional || os.IsNotExist(err) {`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		if optional && os.IsNotExist(err) {
@@ -2589,7 +2573,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/remove (Changes: `if optional && os.IsNotExist(err) {` → `if optional && true {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "expression/remove (Changes: `if optional && os.IsNotExist(err) {` → `if optional && true {`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		if optional && os.IsNotExist(err) {
@@ -2605,7 +2589,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/remove (Changes: `if optional && os.IsNotExist(err) {` → `if true && os.IsNotExist(err) {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "expression/remove (Changes: `if optional && os.IsNotExist(err) {` → `if true && os.IsNotExist(err) {`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		if optional && os.IsNotExist(err) {
@@ -2621,7 +2605,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `return nil // Optional file missing is OK` → `// Optional file missing is OK`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Changes: `return nil // Optional file missing is OK` → `// Optional file missing is OK`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 			return nil // Optional file missing is OK
@@ -2637,7 +2621,7 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/errorf-wrap (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, err)` → `return fmt.Errorf(\"failed to read env file '%s': %v\", path...) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "expression/errorf-wrap (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, err)` → `return fmt.Errorf(\"failed to read env file '%s': %v\", path...) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		return fmt.Errorf("failed to read env file '%s': %w", path, err)
@@ -2653,13 +2637,402 @@ symbol = "LoadEnvFile"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "statement/return (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, err)` → `return nil`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function"
+reason = "statement/return (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, err)` → `return nil`) survives TestModulePathContainment_GoldenVectors: the golden replay calls LoadEnvFile only with a module root (module context), so the plain-invowkfile branch (moduleRoot empty) is never reached; TestLoadEnvFile_RelativePath, _AbsolutePath, _OptionalMissing and _RequiredMissing cover it but are not in the row's binding"
 follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
 removed = '''
 		return fmt.Errorf("failed to read env file '%s': %w", path, err)
 '''
 added = '''
 		return nil
+'''
+
+[[survivor]]
+id = "2e6c63b68811286e1fc50e10eea15eac"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "branch/if (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"is an absolute path outside\", nil)` → `_, _ = path, moduleRoot`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so an absolute path never reaches the check; TestLoadEnvFile_ModuleContext (\"absolute path built in Go\") kills it but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			return envFileOutsideModuleError(path, moduleRoot, "is an absolute path outside", nil)
+'''
+added = '''
+			_, _ = path, moduleRoot
+'''
+
+[[survivor]]
+id = "c63587d52d6dd8097397c545cf4111c3"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "statement/return (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"is an absolute path outside\", nil)` → `return nil`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so an absolute path never reaches the check; TestLoadEnvFile_ModuleContext (\"absolute path built in Go\") kills it but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			return envFileOutsideModuleError(path, moduleRoot, "is an absolute path outside", nil)
+'''
+added = '''
+			return nil
+'''
+
+[[survivor]]
+id = "069d17a0520728bfda8dd12349721377"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if false || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so filepath.Rel never fails there (it fails only when moduleRoot and basePath differ in absoluteness, which no production caller passes) and no test drives relErr"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if false || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+
+[[survivor]]
+id = "4b9493baa905506edf7f413c034da3f5"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/logical (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if (relErr != nil || rel == \"..\") && strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so filepath.Rel never fails there (it fails only when moduleRoot and basePath differ in absoluteness, which no production caller passes) and no test drives relErr"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if (relErr != nil || rel == "..") && strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+
+[[survivor]]
+id = "6f231848d0f27a4a484a88df678a73d6"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if false || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so filepath.Rel never fails there (it fails only when moduleRoot and basePath differ in absoluteness, which no production caller passes) and no test drives relErr"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if false || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+
+[[survivor]]
+id = "98eb12fbf1148a946a8791a5332d806f"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/logical (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if relErr != nil && rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so filepath.Rel never fails there (it fails only when moduleRoot and basePath differ in absoluteness, which no production caller passes) and no test drives relErr"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if relErr != nil && rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+
+[[survivor]]
+id = "deeb50e132eb62f16b0ba065e43d9551"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "equivalent"
+reason = "expression/remove (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if relErr != nil || false || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: a rel that leaves the module (\"..\", \"../x\") then reaches os.Root, whose Stat rejects it with the non-errno \"path escapes from parent\" (probed with go1.27.4), which LoadEnvFile reports as ErrEnvFileOutsideModule: the same verdict and sentinel; Rel never returns \"\" for a non-empty join"
+follow_up = ""
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if relErr != nil || false || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+
+[[survivor]]
+id = "f25f2e933a8a0d4cf592529a75ab99db"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "equivalent"
+reason = "expression/remove (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if relErr != nil || rel == \"..\" || false {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: a rel that leaves the module (\"..\", \"../x\") then reaches os.Root, whose Stat rejects it with the non-errno \"path escapes from parent\" (probed with go1.27.4), which LoadEnvFile reports as ErrEnvFileOutsideModule: the same verdict and sentinel; Rel never returns \"\" for a non-empty join"
+follow_up = ""
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if relErr != nil || rel == ".." || false {
+'''
+
+[[survivor]]
+id = "f458570903f378c6ae8b3bbae8992072"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "equivalent"
+reason = "expression/string-literal (Changes: `if relErr != nil || rel == \"..\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {` → `if relErr != nil || rel == \"\" || strings.HasPrefix(rel, \"..\"+string(filepath.Separator)) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: a rel that leaves the module (\"..\", \"../x\") then reaches os.Root, whose Stat rejects it with the non-errno \"path escapes from parent\" (probed with go1.27.4), which LoadEnvFile reports as ErrEnvFileOutsideModule: the same verdict and sentinel; Rel never returns \"\" for a non-empty join"
+follow_up = ""
+removed = '''
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+added = '''
+		if relErr != nil || rel == "" || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+'''
+
+[[survivor]]
+id = "95d775f4e059b99261634374801a9184"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "equivalent"
+reason = "branch/if (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"resolves outside\", relErr)` → `_, _, _ = path, moduleRoot, relErr`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: without the early return, the leaving rel reaches os.Root, whose Stat rejects it with \"path escapes from parent\", reported as ErrEnvFileOutsideModule: the same verdict and sentinel"
+follow_up = ""
+removed = '''
+			return envFileOutsideModuleError(path, moduleRoot, "resolves outside", relErr)
+'''
+added = '''
+			_, _, _ = path, moduleRoot, relErr
+'''
+
+[[survivor]]
+id = "c3ed4846009afebb70b119b4551aeee3"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "statement/return (Changes: `return envFileOutsideModuleError(path, moduleRoot, \"resolves outside\", relErr)` → `return nil`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so a lexically leaving path never reaches the check; TestLoadEnvFile_ModuleContext (\"lexical escape\", \"basePath outside moduleRoot\") kills it but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			return envFileOutsideModuleError(path, moduleRoot, "resolves outside", relErr)
+'''
+added = '''
+			return nil
+'''
+
+[[survivor]]
+id = "517c2f9fe01f106b947ac8eee031ce56"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if rootErr != nil {` → `if false {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+		if rootErr != nil {
+'''
+added = '''
+		if false {
+'''
+
+[[survivor]]
+id = "1df353d8f3955d7a55c7bce056d15a3c"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if optional && errors.Is(rootErr, fs.ErrNotExist) {` → `if true && errors.Is(rootErr, fs.ErrNotExist) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			if optional && errors.Is(rootErr, fs.ErrNotExist) {
+'''
+added = '''
+			if true && errors.Is(rootErr, fs.ErrNotExist) {
+'''
+
+[[survivor]]
+id = "63df51c19f777efb9878606e29f53451"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/logical (Changes: `if optional && errors.Is(rootErr, fs.ErrNotExist) {` → `if optional || errors.Is(rootErr, fs.ErrNotExist) {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			if optional && errors.Is(rootErr, fs.ErrNotExist) {
+'''
+added = '''
+			if optional || errors.Is(rootErr, fs.ErrNotExist) {
+'''
+
+[[survivor]]
+id = "63f7b6cc64a1faf8fd1ff7ca7ebfe402"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if optional && errors.Is(rootErr, fs.ErrNotExist) {` → `if optional && true {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			if optional && errors.Is(rootErr, fs.ErrNotExist) {
+'''
+added = '''
+			if optional && true {
+'''
+
+[[survivor]]
+id = "988776116e557d2e2d68f53dbcc0e406"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			if optional && errors.Is(rootErr, fs.ErrNotExist) {
+				return nil // a missing module directory holds no file and no link
+			}
+			return fmt.Errorf("failed to read env file '%s': %w", path, rootErr)
+'''
+added = '''
+			_, _, _, _, _, _, _ = optional, errors.Is, rootErr, fs.ErrNotExist, fmt.Errorf, path, rootErr
+			// a missing module directory holds no file and no link
+
+'''
+
+[[survivor]]
+id = "5d02c507a84dd469108a240d4f577af0"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "branch/if (Changes: `return nil // a missing module directory holds no file and no link` → `// a missing module directory holds no file and no link`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+				return nil // a missing module directory holds no file and no link
+'''
+added = '''
+				// a missing module directory holds no file and no link
+'''
+
+[[survivor]]
+id = "7d2bf77c47dec09389392a66ff2b6208"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, rootErr)` → `return fmt.Errorf(\"failed to read env file '%s': %v\", path, rootErr)`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			return fmt.Errorf("failed to read env file '%s': %w", path, rootErr)
+'''
+added = '''
+			return fmt.Errorf("failed to read env file '%s': %v", path, rootErr)
+'''
+
+[[survivor]]
+id = "b4d2b91b12d6d0433d357a207c891af7"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "statement/return (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, rootErr)` → `return nil`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden replay calls LoadEnvFile only on paths ValidateEnvFilePath accepts, with basePath equal to an existing module root, so OpenRoot never fails there; TestLoadEnvFile_ModuleRootMissing and TestLoadEnvFile_ModuleRootNotADirectory drive the OpenRoot error branches but are not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			return fmt.Errorf("failed to read env file '%s': %w", path, rootErr)
+'''
+added = '''
+			return nil
+'''
+
+[[survivor]]
+id = "eb14d7d22e7eadebf73cd7cf208f6dbf"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if optional && absent {` → `if true && absent {`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden env verdict is denied only on ErrEnvFileOutsideModule, so skipping a missing required file and failing a missing optional one are both \"accepted\"; TestLoadEnvFile_ModuleContext (\"required missing file\", \"optional missing file\") asserts the skip but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			if optional && absent {
+'''
+added = '''
+			if true && absent {
+'''
+
+[[survivor]]
+id = "7624f7c08bd582c1d349ebab1421498f"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "branch/if (Changes: `return nil // Optional file missing is OK` → `// Optional file missing is OK`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden env verdict is denied only on ErrEnvFileOutsideModule, so skipping a missing required file and failing a missing optional one are both \"accepted\"; TestLoadEnvFile_ModuleContext (\"required missing file\", \"optional missing file\") asserts the skip but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+				return nil // Optional file missing is OK
+'''
+added = '''
+				// Optional file missing is OK
+'''
+
+[[survivor]]
+id = "a84e68766110f1c6da6416aca54b3634"
+file = "internal/runtime/dotenv.go"
+symbol = "LoadEnvFile"
+model = "ModulePathContainment"
+element = "readOp"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return fmt.Errorf(\"failed to read env file '%s': %w\", path, readErr)` → `return fmt.Errorf(\"failed to read env file '%s': %v\", path, readErr)`) survives TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors, TestModulePathContainment_VendoredSymlinkEnvReadDenied: the golden env verdict only tests ErrEnvFileOutsideModule, not the wrapped read error; TestLoadEnvFile_ModuleNoSearchPermission asserts errors.Is(fs.ErrPermission) but skips directly by platform and user, so it cannot be a binding test"
+follow_up = "tasks/next/formal-binding-gaps.md#loadenvfile"
+removed = '''
+			return fmt.Errorf("failed to read env file '%s': %w", path, readErr)
+'''
+added = '''
+			return fmt.Errorf("failed to read env file '%s': %v", path, readErr)
+'''
+
+[[survivor]]
+id = "4279b1962e09d21b0ce2386824c21185"
+file = "internal/runtime/dotenv.go"
+symbol = "readModuleEnvFileWith"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "statement/remove (Changes: `absent, err = classifyModuleEnvFileError(err, err)` → `_, _, _, _ = absent, err, err, err`) survives TestLoadEnvFile_ModuleContext, TestLoadEnvFile_ModuleLinkToOwnDirectory, TestModulePathContainment_GoldenVectors, TestReadModuleEnvFile_PanicIsReadError; write the class and the reason: the ReadFile-error classification runs only when ReadFile fails after a successful Stat: deterministically for a directory (EISDIR, an OS error the classifier returns unchanged, as the mutant does) and otherwise only under a race; an injected readFile returning an escape error through readModuleEnvFileWith would kill it, and no bound test does that"
+follow_up = "tasks/next/formal-binding-gaps.md#readmoduleenvfilewith"
+removed = '''
+		absent, err = classifyModuleEnvFileError(err, err)
+'''
+added = '''
+		_, _, _, _ = absent, err, err, err
+'''
+
+[[survivor]]
+id = "35dcea121047f2a36b685d7ac72ddeea"
+file = "internal/runtime/dotenv.go"
+symbol = "classifyModuleEnvFileError"
+model = "ModulePathContainment"
+element = "physContains"
+class = "equivalent"
+reason = "expression/remove (Changes: `case errors.Is(err, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):` → `case true && errors.Is(lstatErr, fs.ErrNotExist):`) survives TestClassifyModuleEnvFileError, TestLoadEnvFile_ModuleContext, TestModulePathContainment_GoldenVectors; write the class and the reason: the case is reached with an OS err and a non-nil lstatErr; Lstat reporting not-exist means a path component is missing, so Stat on the same path reports not-exist too, and on the ReadFile path both arguments are the same error, so dropping the err conjunct never changes the result"
+follow_up = ""
+removed = '''
+	case errors.Is(err, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):
+'''
+added = '''
+	case true && errors.Is(lstatErr, fs.ErrNotExist):
 '''
 
 [[survivor]]
@@ -4375,29 +4748,13 @@ added = '''
 '''
 
 [[survivor]]
-id = "9b1bffe6e4e3754e64ded03f3c579a06"
-file = "pkg/invowkfile/dependency.go"
-symbol = "ResolveWithFSAndModule"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if err := s.Validate(); err != nil {` → `if err := s.Validate(); err == nil {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
-follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
-removed = '''
-	if err := s.Validate(); err != nil {
-'''
-added = '''
-	if err := s.Validate(); err == nil {
-'''
-
-[[survivor]]
 id = "67534319cf55cfcecdc29740d79565f8"
 file = "pkg/invowkfile/dependency.go"
 symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/error-guard (Changes: `if err := s.Validate(); err != nil {` → `if err := s.Validate(); false {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "expression/error-guard (Changes: `if err := s.Validate(); err != nil {` → `if err := s.Validate(); false {`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 	if err := s.Validate(); err != nil {
@@ -4407,61 +4764,13 @@ added = '''
 '''
 
 [[survivor]]
-id = "f4916216395d2b257266c1fe8bec868c"
-file = "pkg/invowkfile/dependency.go"
-symbol = "ResolveWithFSAndModule"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
-follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
-removed = '''
-		if modulePath == "" {
-			return "", ErrScriptFileRequiresModule
-		}
-		scriptPath := s.GetScriptFilePathWithModule(modulePath)
-		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
-			return "", err
-		}
-		if readFile == nil {
-			return "", ErrScriptReaderRequired
-		}
-		content, err := readFile(string(scriptPath))
-		if err != nil {
-			return "", scriptFileReadError(*s.File, scriptPath, err)
-		}
-		return validateResolvedScriptContent("custom check script file content", ScriptContent(content)) //goplint:ignore -- validated before use.
-'''
-added = '''
-		_, _, _, _, _, _, _, _, _ = modulePath, ErrScriptFileRequiresModule, s.GetScriptFilePathWithModule, modulePath, modulePath, readFile, ErrScriptReaderRequired, readFile, s.File
-
-		//goplint:ignore -- validated before use.
-'''
-
-[[survivor]]
-id = "61683030b7933ad34c49bc7c2cc130c3"
-file = "pkg/invowkfile/dependency.go"
-symbol = "ResolveWithFSAndModule"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if modulePath == \"\" {` → `if modulePath != \"\" {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
-follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
-removed = '''
-		if modulePath == "" {
-'''
-added = '''
-		if modulePath != "" {
-'''
-
-[[survivor]]
 id = "1c3e439f374421663d0c38703246fe8a"
 file = "pkg/invowkfile/dependency.go"
 symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", ErrScriptFileRequiresModule` → `_ = ErrScriptFileRequiresModule`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Changes: `return \"\", ErrScriptFileRequiresModule` → `_ = ErrScriptFileRequiresModule`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", ErrScriptFileRequiresModule
@@ -4477,7 +4786,7 @@ symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", ErrScriptFileRequiresModule` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "statement/return (Changes: `return \"\", ErrScriptFileRequiresModule` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", ErrScriptFileRequiresModule
@@ -4487,29 +4796,13 @@ added = '''
 '''
 
 [[survivor]]
-id = "05f58bfd388bb12f182273ec790f195f"
-file = "pkg/invowkfile/dependency.go"
-symbol = "ResolveWithFSAndModule"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {` → `if err := validateScriptPathContainment(scrip...) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
-follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
-removed = '''
-		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
-'''
-added = '''
-		if err := validateScriptPathContainment(scriptPath, modulePath); err == nil {
-'''
-
-[[survivor]]
 id = "058dc19cd0f595c8f1bb5a58ba690bb9"
 file = "pkg/invowkfile/dependency.go"
 symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "expression/error-guard (Changes: `if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {` → `if err := validateScriptPathContainment(scrip...) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "expression/error-guard (Changes: `if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {` → `if err := validateScriptPathContainment(scrip...) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 		if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
@@ -4525,7 +4818,7 @@ symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", err` → `_ = err`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Changes: `return \"\", err` → `_ = err`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", err
@@ -4541,7 +4834,7 @@ symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", err` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "statement/return (Changes: `return \"\", err` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", err
@@ -4551,29 +4844,13 @@ added = '''
 '''
 
 [[survivor]]
-id = "3135cd3d0e3f94ac9a26aba595d99428"
-file = "pkg/invowkfile/dependency.go"
-symbol = "ResolveWithFSAndModule"
-model = "ModulePathContainment"
-element = "readOp"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if readFile == nil {` → `if readFile != nil {`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
-follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
-removed = '''
-		if readFile == nil {
-'''
-added = '''
-		if readFile != nil {
-'''
-
-[[survivor]]
 id = "1e36aa4270d5f2375949f40428faa56c"
 file = "pkg/invowkfile/dependency.go"
 symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", ErrScriptReaderRequired` → `_ = ErrScriptReaderRequired`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Changes: `return \"\", ErrScriptReaderRequired` → `_ = ErrScriptReaderRequired`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", ErrScriptReaderRequired
@@ -4589,7 +4866,7 @@ symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", ErrScriptReaderRequired` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "statement/return (Changes: `return \"\", ErrScriptReaderRequired` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", ErrScriptReaderRequired
@@ -4605,7 +4882,7 @@ symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", scriptFileReadError(*s.File, scriptPath, err)` → `_, _, _ = s.File, scriptPath, err`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "branch/if (Changes: `return \"\", scriptFileReadError(*s.File, scriptPath, err)` → `_, _, _ = s.File, scriptPath, err`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", scriptFileReadError(*s.File, scriptPath, err)
@@ -4621,7 +4898,7 @@ symbol = "ResolveWithFSAndModule"
 model = "ModulePathContainment"
 element = "readOp"
 class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", scriptFileReadError(*s.File, scriptPath, err)` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function"
+reason = "statement/return (Changes: `return \"\", scriptFileReadError(*s.File, scriptPath, err)` → `return \"\", nil`) survives TestModulePathContainment_GoldenVectors: the golden replay calls CustomCheckScript.ResolveWithFSAndModule on every ScriptRead vector, always with a file script, a module path, a recording reader and a validated path, so this branch is never reached or its error is not asserted (only accept and touch are)"
 follow_up = "tasks/next/formal-binding-gaps.md#customcheckscriptresolvewithfsandmodule"
 removed = '''
 			return "", scriptFileReadError(*s.File, scriptPath, err)
@@ -6485,6 +6762,182 @@ removed = '''
 '''
 added = '''
 	evaluation := VendoredHashEvaluation{Status: VendoredHashMissing}
+'''
+
+[[survivor]]
+id = "5e593f03e77af317009e1ee987bcc470"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return false, fmt.Errorf(\"%w: failed to resolve path relative to module: %w\", ErrScriptPathTraversal, err)` → `return false, fmt.Errorf(\"%v: failed to resolve path relative to module: %w\", ErrScriptPathTraversal, err)`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the resolvers and the golden pass an absolute script path under an absolute module path, so filepath.Rel never fails there; TestCheckModuleFilePhysicalContainment_RelFailure drives the branch but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("%w: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
+'''
+added = '''
+		return false, fmt.Errorf("%v: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
+'''
+
+[[survivor]]
+id = "758fffe1761cacb95dc6bba3e072c4fb"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return false, fmt.Errorf(\"%w: failed to resolve path relative to module: %w\", ErrScriptPathTraversal, err)` → `return false, fmt.Errorf(\"%w: failed to resolve path relative to module: %v\", ErrScriptPathTraversal, err)`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the resolvers and the golden pass an absolute script path under an absolute module path, so filepath.Rel never fails there; TestCheckModuleFilePhysicalContainment_RelFailure drives the branch but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("%w: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
+'''
+added = '''
+		return false, fmt.Errorf("%w: failed to resolve path relative to module: %v", ErrScriptPathTraversal, err)
+'''
+
+[[survivor]]
+id = "828f3eab491a34619d8ed3ce794516ce"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "statement/return (Changes: `return false, fmt.Errorf(\"%w: failed to resolve path relative to module: %w\", ErrScriptPathTraversal, err)` → `return false, nil`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the resolvers and the golden pass an absolute script path under an absolute module path, so filepath.Rel never fails there; TestCheckModuleFilePhysicalContainment_RelFailure drives the branch but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("%w: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
+'''
+added = '''
+		return false, nil
+'''
+
+[[survivor]]
+id = "d24590a887ce2a5fe14ad75976979261"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "branch/if (Changes: `return false, fmt.Errorf(\"%w: failed to resolve path relative to module: %w\", ErrScriptPathTraversal, err)` → `_, _, _ = fmt.Errorf, ErrScriptPathTraversal, err`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the resolvers and the golden pass an absolute script path under an absolute module path, so filepath.Rel never fails there; TestCheckModuleFilePhysicalContainment_RelFailure drives the branch but is not in the row's binding"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("%w: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
+'''
+added = '''
+		_, _, _ = fmt.Errorf, ErrScriptPathTraversal, err
+'''
+
+[[survivor]]
+id = "95f7831e58a19adfc4df83025eb0a78a"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return false, fmt.Errorf(\"open module root: %w\", err)` → `return false, fmt.Errorf(\"open module root: %v\", err)`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the golden module roots always open; TestCheckModuleFilePhysicalContainment_RootIsFile reaches the branch but asserts only that the error is a non-traversal denial, not that it wraps the OS error"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("open module root: %w", err)
+'''
+added = '''
+		return false, fmt.Errorf("open module root: %v", err)
+'''
+
+[[survivor]]
+id = "1db571941594c9a9c6ec480c595721ef"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "branch/if (Changes: `return judgeRootResolverPanic(scriptPath, modulePath, statErr)` → `_, _, _ = scriptPath, modulePath, statErr`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the os.Root Stat panic (a link to its own directory) occurs only on Windows (Go 1.27.4 doInRoot), and the formal mutation run is Linux-only; TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory kills it on windows-latest"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return judgeRootResolverPanic(scriptPath, modulePath, statErr)
+'''
+added = '''
+		_, _, _ = scriptPath, modulePath, statErr
+'''
+
+[[survivor]]
+id = "0abacb2a2f6c60fcd857997a1659d13f"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "equivalent"
+reason = "expression/remove (Changes: `case errors.Is(statErr, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):` → `case errors.Is(statErr, fs.ErrNotExist) && true:`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the case is reached with an OS statErr and a non-nil lstatErr; Lstat and Stat walk the same parent components, so one reports not-exist exactly when the other does (a missing final name or parent), and the conjuncts never disagree"
+follow_up = ""
+removed = '''
+	case errors.Is(statErr, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):
+'''
+added = '''
+	case errors.Is(statErr, fs.ErrNotExist) && true:
+'''
+
+[[survivor]]
+id = "4f6383975bf877984baaf7653e676cd9"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "equivalent"
+reason = "expression/remove (Changes: `case errors.Is(statErr, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):` → `case true && errors.Is(lstatErr, fs.ErrNotExist):`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the case is reached with an OS statErr and a non-nil lstatErr; Lstat and Stat walk the same parent components, so one reports not-exist exactly when the other does (a missing final name or parent), and the conjuncts never disagree"
+follow_up = ""
+removed = '''
+	case errors.Is(statErr, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):
+'''
+added = '''
+	case true && errors.Is(lstatErr, fs.ErrNotExist):
+'''
+
+[[survivor]]
+id = "bd5770f04d8460ccb77f68c20749d56f"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "equivalent"
+reason = "expression/logical (Changes: `case errors.Is(statErr, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):` → `case errors.Is(statErr, fs.ErrNotExist) || errors.Is(lstatErr, fs.ErrNotExist):`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the case is reached with an OS statErr and a non-nil lstatErr; Lstat and Stat walk the same parent components, so one reports not-exist exactly when the other does (a missing final name or parent), and the conjuncts never disagree"
+follow_up = ""
+removed = '''
+	case errors.Is(statErr, fs.ErrNotExist) && errors.Is(lstatErr, fs.ErrNotExist):
+'''
+added = '''
+	case errors.Is(statErr, fs.ErrNotExist) || errors.Is(lstatErr, fs.ErrNotExist):
+'''
+
+[[survivor]]
+id = "0e1bf377aa62cf4b5d2fded11f3e591c"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return false, fmt.Errorf(\"check module file: %w\", statErr)` → `return false, fmt.Errorf(\"check module file: %v\", statErr)`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the default case (an OS error from both Stat and Lstat, such as EACCES) never occurs on the golden trees; TestCheckModuleFilePhysicalContainment_NoSearchPermission kills it but skips directly by platform and user, so it cannot be a binding test"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("check module file: %w", statErr)
+'''
+added = '''
+		return false, fmt.Errorf("check module file: %v", statErr)
+'''
+
+[[survivor]]
+id = "f1a91d769bfd590baa0bd447684bae68"
+file = "pkg/invowkfile/module_file_containment.go"
+symbol = "checkModuleFilePhysicalContainment"
+model = "ModulePathContainment"
+element = "physContains"
+class = "binding-gap"
+reason = "statement/return (Changes: `return false, fmt.Errorf(\"check module file: %w\", statErr)` → `return false, nil`) survives TestCheckModuleFilePhysicalContainment, TestCheckModuleFilePhysicalContainment_LinkToOwnDirectory, TestCheckModuleFilePhysicalContainment_MissingRoot, TestCheckModuleFilePhysicalContainment_RootIsFile, TestModulePathContainment_AbsoluteInModuleLinkDenied, TestModulePathContainment_GoldenVectors; write the class and the reason: the default case (an OS error from both Stat and Lstat, such as EACCES) never occurs on the golden trees; TestCheckModuleFilePhysicalContainment_NoSearchPermission kills it but skips directly by platform and user, so it cannot be a binding test"
+follow_up = "tasks/next/formal-binding-gaps.md#checkmodulefilephysicalcontainment"
+removed = '''
+		return false, fmt.Errorf("check module file: %w", statErr)
+'''
+added = '''
+		return false, nil
 '''
 
 [[closed]]

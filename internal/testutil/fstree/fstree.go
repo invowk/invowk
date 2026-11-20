@@ -89,6 +89,16 @@ type (
 		JunctionErr error
 	}
 
+	// Options tunes how a tree is materialised. The zero value is the
+	// default every replay uses.
+	Options struct {
+		// RelativeLinkTargets writes each symlink's target relative to the
+		// link's parent directory instead of as an absolute path. Junctions
+		// stay absolute (NTFS mount points hold absolute targets). Links are
+		// created after their targets either way.
+		RelativeLinkTargets bool
+	}
+
 	// Built is a materialised tree. Path maps every atom to its real path.
 	Built struct {
 		Root string
@@ -101,6 +111,7 @@ type (
 	Cache struct {
 		caps  Caps
 		host  Host
+		opts  Options
 		built map[string]*Built
 		skips map[Capability]int
 	}
@@ -129,6 +140,14 @@ func NewCache(t *testing.T) *Cache {
 	return newCache(Probe(t), CurrentHost())
 }
 
+// NewCacheWithOptions is NewCache whose trees are materialised with opts.
+func NewCacheWithOptions(t *testing.T, opts Options) *Cache {
+	t.Helper()
+	c := NewCache(t)
+	c.opts = opts
+	return c
+}
+
 // newCache is NewCache with the probe result and the platform injected, so
 // the policy test can drive Get on any GOOS.
 func newCache(caps Caps, host Host) *Cache {
@@ -148,7 +167,7 @@ func (c *Cache) Get(t *testing.T, key string, spec Spec) *Built {
 		c.missing(t, skip)
 		return nil
 	}
-	b, _ := Materialize(t, spec, c.caps)
+	b, _ := MaterializeWithOptions(t, spec, c.caps, c.opts)
 	c.built[key] = b
 	return b
 }
@@ -180,6 +199,12 @@ func (c *Cache) missing(t Fataler, skip Capability) {
 // the spec needs a capability the host lacks; callers apply the policy (Cache.Get,
 // Require).
 func Materialize(t *testing.T, spec Spec, caps Caps) (built *Built, skip Capability) {
+	t.Helper()
+	return MaterializeWithOptions(t, spec, caps, Options{})
+}
+
+// MaterializeWithOptions is Materialize with opts applied.
+func MaterializeWithOptions(t *testing.T, spec Spec, caps Caps, opts Options) (built *Built, skip Capability) {
 	t.Helper()
 	if skip = skipReason(spec, caps); skip != "" {
 		return nil, skip
@@ -215,12 +240,45 @@ func Materialize(t *testing.T, spec Spec, caps Caps) (built *Built, skip Capabil
 		}
 		built.Path[n.Atom] = p
 	}
-	for _, n := range spec.Nodes {
-		if n.Kind == KindSymlink || n.Kind == KindJunction {
-			built.createLink(t, byAtom, n)
-		}
+	for _, n := range linkCreationOrder(spec, byAtom) {
+		built.createLink(t, byAtom, n, opts)
 	}
 	return built, ""
+}
+
+// linkCreationOrder returns the spec's links so that a link whose target is
+// another link comes after that link (Windows picks a symlink's file or
+// directory type from its target when it is created). Links on a cycle keep
+// their spec order once nothing else can be placed.
+func linkCreationOrder(spec Spec, byAtom map[string]Node) []Node {
+	isLink := func(n Node) bool { return n.Kind == KindSymlink || n.Kind == KindJunction }
+	var pending []Node
+	for _, n := range spec.Nodes {
+		if isLink(n) {
+			pending = append(pending, n)
+		}
+	}
+	created := map[string]bool{}
+	order := make([]Node, 0, len(pending))
+	for len(pending) > 0 {
+		var rest []Node
+		for _, n := range pending {
+			target, ok := byAtom[n.Target]
+			if !n.Dangling && ok && isLink(target) && !created[target.Atom] && target.Atom != n.Atom {
+				rest = append(rest, n)
+				continue
+			}
+			created[n.Atom] = true
+			order = append(order, n)
+		}
+		if len(rest) == len(pending) { // a cycle: place the first and retry
+			created[rest[0].Atom] = true
+			order = append(order, rest[0])
+			rest = rest[1:]
+		}
+		pending = rest
+	}
+	return order
 }
 
 // Within reports whether path lies inside (or equals) root, lexically. It is
@@ -246,12 +304,19 @@ func (b *Built) pathOf(byAtom map[string]Node, n Node) string {
 	return filepath.Join(b.pathOf(byAtom, byAtom[n.Parent]), n.Name)
 }
 
-func (b *Built) createLink(t *testing.T, byAtom map[string]Node, n Node) {
+func (b *Built) createLink(t *testing.T, byAtom map[string]Node, n Node, opts Options) {
 	t.Helper()
 	linkPath := b.pathOf(byAtom, n)
 	target := filepath.Join(b.Root, "does-not-exist-"+n.Atom)
 	if !n.Dangling && n.Target != "" {
 		target = b.pathOf(byAtom, byAtom[n.Target])
+	}
+	if opts.RelativeLinkTargets && n.Kind == KindSymlink {
+		rel, err := filepath.Rel(filepath.Dir(linkPath), target)
+		if err != nil {
+			t.Fatalf("relative target of %s -> %s: %v", linkPath, target, err)
+		}
+		target = rel
 	}
 	var err error
 	if n.Kind == KindJunction {

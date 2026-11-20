@@ -1,0 +1,59 @@
+# Test: module script reads are physically contained (SC-01, finding F13).
+# Native mirror of virtual_module_read_containment.txtar, with platform-split
+# implementations. The script is resolved, and denied, before the native
+# interpreter is started on SelectedScriptFilePath().
+
+[!symlink] skip 'symbolic links unavailable on this host'
+
+cd $WORK
+mkdir guard.invowkmod/invowk_modules
+[!windows] symlink guard.invowkmod/invowk_modules/x -> $WORK/outside.sh
+[windows] symlink guard.invowkmod/invowk_modules/x -> $WORK/outside.ps1
+
+# Control: a regular script file inside the module runs.
+exec invowk cmd contained
+stdout 'contained-ok'
+
+# The escaping link is denied with the containment error, and the outside
+# script neither runs nor leaks its content.
+! exec invowk cmd escaping
+stderr 'script path escapes module boundary'
+! stdout 'F13-OUTSIDE-SENTINEL'
+! stderr 'F13-OUTSIDE-SENTINEL'
+
+-- outside.sh --
+echo F13-OUTSIDE-SENTINEL
+
+-- outside.ps1 --
+Write-Output 'F13-OUTSIDE-SENTINEL'
+
+-- guard.invowkmod/invowkmod.cue --
+module: "guard"
+version: "1.0.0"
+description: "Module read containment"
+
+-- guard.invowkmod/ok.sh --
+echo contained-ok
+
+-- guard.invowkmod/ok.ps1 --
+Write-Output 'contained-ok'
+
+-- guard.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "contained"
+		description: "Reads a script file inside the module"
+		implementations: [
+			{script: {file: "ok.sh"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {file: "ok.ps1"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+	{
+		name:        "escaping"
+		description: "Reads a script file through an escaping invowk_modules link"
+		implementations: [
+			{script: {file: "invowk_modules/x"}, runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}]},
+			{script: {file: "invowk_modules/x"}, runtimes: [{name: "native"}], platforms: [{name: "windows"}]},
+		]
+	},
+]

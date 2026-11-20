@@ -2705,10 +2705,6 @@ reason = "display text — validation issue message"
 pattern = "invowkmod.ValidationResult.AddIssue.path"
 reason = "display text — validation issue path context"
 
-[[exceptions]]
-pattern = "invowkmod.Module.checkSymlinkSafety.path"
-reason = "filesystem boundary — path for symlink safety check"
-
 # --- invowkfile: Validation / Parse Internals ---
 
 [[exceptions]]

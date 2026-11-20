@@ -279,8 +279,6 @@ func TestModuleMutationContracts(t *testing.T) {
 	}{
 		{name: "path helpers expose metadata and library-only state", run: testModulePathHelpers},
 		{name: "resolve script path preserves absolute unix input and joins relative input", run: testModuleResolveScriptPath},
-		{name: "validate script path rejects symlink escapes", run: testModuleValidateScriptPathSymlinkEscape},
-		{name: "validate script path rejects direct traversal", run: testModuleValidateScriptPathTraversal},
 		{name: "validate collects invalid metadata and path", run: testModuleValidateInvalidMetadataAndPath},
 	}
 	for _, tt := range tests {
@@ -442,61 +440,6 @@ func testModuleResolveScriptPath(t *testing.T) {
 	}
 }
 
-func testModuleValidateScriptPathSymlinkEscape(t *testing.T) {
-	t.Helper()
-
-	tempDir := t.TempDir()
-	moduleRoot := filepath.Join(tempDir, "io.example.tools.invowkmod")
-	if err := os.Mkdir(moduleRoot, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	outsidePath := filepath.Join(tempDir, "outside.sh")
-	if err := os.WriteFile(outsidePath, []byte("#!/bin/sh\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	linkPath := filepath.Join(moduleRoot, "escape.sh")
-	if err := os.Symlink(outsidePath, linkPath); err != nil {
-		t.Skipf("symlink test skipped: %v", err)
-	}
-
-	module := &Module{Path: types.FilesystemPath(moduleRoot)}
-	err := module.ValidateScriptPath("escape.sh")
-	if err == nil {
-		t.Fatal("Module.ValidateScriptPath() returned nil, want symlink escape error")
-	}
-	if !strings.Contains(err.Error(), "symlink escape") {
-		t.Fatalf("Module.ValidateScriptPath() error = %v, want symlink escape", err)
-	}
-
-	parentLinkPath := filepath.Join(moduleRoot, "parent")
-	if symlinkErr := os.Symlink(tempDir, parentLinkPath); symlinkErr != nil {
-		t.Skipf("parent symlink test skipped: %v", symlinkErr)
-	}
-	err = module.ValidateScriptPath("parent")
-	if err == nil {
-		t.Fatal("Module.ValidateScriptPath() returned nil for parent symlink, want symlink escape error")
-	}
-	if !strings.Contains(err.Error(), "symlink escape") {
-		t.Fatalf("Module.ValidateScriptPath() parent symlink error = %v, want symlink escape", err)
-	}
-}
-
-func testModuleValidateScriptPathTraversal(t *testing.T) {
-	t.Helper()
-
-	module := &Module{Path: types.FilesystemPath(t.TempDir())}
-
-	for _, scriptPath := range []types.FilesystemPath{"..", "../escape.sh"} {
-		err := module.ValidateScriptPath(scriptPath)
-		if err == nil {
-			t.Fatalf("Module.ValidateScriptPath(%q) error = nil, want traversal error", scriptPath)
-		}
-		if !strings.Contains(err.Error(), "escapes the module directory") {
-			t.Fatalf("Module.ValidateScriptPath(%q) error = %v, want traversal error", scriptPath, err)
-		}
-	}
-}
-
 func TestModuleContainsPathReturnsFalseWhenAbsFails(t *testing.T) { //nolint:paralleltest // t.Chdir mutates process cwd.
 	tempDir := t.TempDir()
 	deletedDir := filepath.Join(tempDir, "deleted-cwd")
@@ -535,39 +478,6 @@ func testModuleValidateInvalidMetadataAndPath(t *testing.T) {
 	}
 	if !fieldErrorsContain(moduleErr.FieldErrors, types.ErrInvalidFilesystemPath) {
 		t.Fatalf("Module field errors should contain ErrInvalidFilesystemPath, got %#v", moduleErr.FieldErrors)
-	}
-}
-
-func TestIsWindowsDrivePathMutationEdges(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		path string
-		want bool
-	}{
-		{path: "C:/module", want: true},
-		{path: "A:", want: true},
-		{path: "a:", want: true},
-		{path: "c:/module", want: true},
-		{path: "z:/module", want: true},
-		{path: "Z:", want: true},
-		{path: "1:/module", want: false},
-		{path: "@:/module", want: false},
-		{path: "[:/module", want: false},
-		{path: "{:/module", want: false},
-		{path: ":/module", want: false},
-		{path: "C", want: false},
-		{path: "/C:/module", want: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			t.Parallel()
-
-			if got := isWindowsDrivePath(tt.path); got != tt.want {
-				t.Fatalf("isWindowsDrivePath(%q) = %v, want %v", tt.path, got, tt.want)
-			}
-		})
 	}
 }
 

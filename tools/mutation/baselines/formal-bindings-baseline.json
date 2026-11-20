@@ -933,12 +933,6 @@
       "line": 390
     },
     {
-      "id": "aa47f5963611bc35b50baa9647b5af2a",
-      "file": "internal/runtime/dotenv.go",
-      "mutator": "branch/if",
-      "line": 20
-    },
-    {
       "id": "55ac8ba4cdef8ef76f1ec2dd4c1baaba",
       "file": "internal/runtime/dotenv.go",
       "mutator": "branch/if",
@@ -997,6 +991,174 @@
       "file": "internal/runtime/dotenv.go",
       "mutator": "statement/return",
       "line": 38
+    },
+    {
+      "id": "2e6c63b68811286e1fc50e10eea15eac",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 56,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "c63587d52d6dd8097397c545cf4111c3",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "statement/return",
+      "line": 56,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "4b9493baa905506edf7f413c034da3f5",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/logical",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "98eb12fbf1148a946a8791a5332d806f",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/logical",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "069d17a0520728bfda8dd12349721377",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "6f231848d0f27a4a484a88df678a73d6",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "deeb50e132eb62f16b0ba065e43d9551",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "f25f2e933a8a0d4cf592529a75ab99db",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "f458570903f378c6ae8b3bbae8992072",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/string-literal",
+      "line": 59,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "95d775f4e059b99261634374801a9184",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 60,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "c3ed4846009afebb70b119b4551aeee3",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "statement/return",
+      "line": 60,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "517c2f9fe01f106b947ac8eee031ce56",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/error-guard",
+      "line": 63,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "988776116e557d2e2d68f53dbcc0e406",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 64,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "63df51c19f777efb9878606e29f53451",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/logical",
+      "line": 64,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "1df353d8f3955d7a55c7bce056d15a3c",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 64,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "63f7b6cc64a1faf8fd1ff7ca7ebfe402",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 64,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "5d02c507a84dd469108a240d4f577af0",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 65,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "7d2bf77c47dec09389392a66ff2b6208",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 67,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "b4d2b91b12d6d0433d357a207c891af7",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "statement/return",
+      "line": 67,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "eb14d7d22e7eadebf73cd7cf208f6dbf",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 73,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "7624f7c08bd582c1d349ebab1421498f",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "branch/if",
+      "line": 74,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "a84e68766110f1c6da6416aca54b3634",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 79,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "4279b1962e09d21b0ce2386824c21185",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "statement/remove",
+      "line": 159,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "35dcea121047f2a36b685d7ac72ddeea",
+      "file": "internal/runtime/dotenv.go",
+      "mutator": "expression/remove",
+      "line": 199,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
     },
     {
       "id": "f14cc04f004363e8fff6ea53d0bae953",
@@ -1646,28 +1808,10 @@
       "line": 89
     },
     {
-      "id": "9b1bffe6e4e3754e64ded03f3c579a06",
-      "file": "pkg/invowkfile/dependency.go",
-      "mutator": "conditional/negated",
-      "line": 328
-    },
-    {
       "id": "67534319cf55cfcecdc29740d79565f8",
       "file": "pkg/invowkfile/dependency.go",
       "mutator": "expression/error-guard",
       "line": 328
-    },
-    {
-      "id": "f4916216395d2b257266c1fe8bec868c",
-      "file": "pkg/invowkfile/dependency.go",
-      "mutator": "branch/if",
-      "line": 332
-    },
-    {
-      "id": "61683030b7933ad34c49bc7c2cc130c3",
-      "file": "pkg/invowkfile/dependency.go",
-      "mutator": "conditional/negated",
-      "line": 332
     },
     {
       "id": "1c3e439f374421663d0c38703246fe8a",
@@ -1680,12 +1824,6 @@
       "file": "pkg/invowkfile/dependency.go",
       "mutator": "statement/return",
       "line": 333
-    },
-    {
-      "id": "05f58bfd388bb12f182273ec790f195f",
-      "file": "pkg/invowkfile/dependency.go",
-      "mutator": "conditional/negated",
-      "line": 336
     },
     {
       "id": "058dc19cd0f595c8f1bb5a58ba690bb9",
@@ -1704,12 +1842,6 @@
       "file": "pkg/invowkfile/dependency.go",
       "mutator": "statement/return",
       "line": 337
-    },
-    {
-      "id": "3135cd3d0e3f94ac9a26aba595d99428",
-      "file": "pkg/invowkfile/dependency.go",
-      "mutator": "conditional/negated",
-      "line": 339
     },
     {
       "id": "1e36aa4270d5f2375949f40428faa56c",
@@ -1921,6 +2053,83 @@
       "file": "pkg/invowkfile/invowkfile.go",
       "mutator": "branch/if",
       "line": 216
+    },
+    {
+      "id": "d24590a887ce2a5fe14ad75976979261",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "branch/if",
+      "line": 63,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "5e593f03e77af317009e1ee987bcc470",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 63,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "758fffe1761cacb95dc6bba3e072c4fb",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 63,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "828f3eab491a34619d8ed3ce794516ce",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "statement/return",
+      "line": 63,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "95f7831e58a19adfc4df83025eb0a78a",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 70,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "1db571941594c9a9c6ec480c595721ef",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "branch/if",
+      "line": 79,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "bd5770f04d8460ccb77f68c20749d56f",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/logical",
+      "line": 90,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "0abacb2a2f6c60fcd857997a1659d13f",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/remove",
+      "line": 90,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "4f6383975bf877984baaf7653e676cd9",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/remove",
+      "line": 90,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "0e1bf377aa62cf4b5d2fded11f3e591c",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 93,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
+    },
+    {
+      "id": "f1a91d769bfd590baa0bd447684bae68",
+      "file": "pkg/invowkfile/module_file_containment.go",
+      "mutator": "statement/return",
+      "line": 93,
+      "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
     },
     {
       "id": "9a1750b1ef961187ad34e8ad16cb138d",
