@@ -43,7 +43,8 @@
 // | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a declared workdir is a cwd, not a read/copy/hash target |
 // | mutantPreFixF13LexicalScriptContainment | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_VendoredSymlinkScriptReadDenied | regression: the fixed F13 invowk_modules/ symlink hole; the replay asserts both script reads are denied |
 // | mutantPreFixF17EnvNoPhysicalContainment | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_VendoredSymlinkEnvReadDenied | regression: the fixed F17 invowk_modules/ symlink hole for env files; the replay asserts the module env read is denied |
-// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts IsModule and Load still admit an inner junction (F16, windows-latest run 43657442894), the script read through it denied by the physical check (containment pending windows-latest evidence), and both copies and the hash contained |
+// | mutantPreFixF16JunctionScriptRead | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_F16Junction | regression: the fixed F16 junction hole (windows-latest CI run 44648263846, job 135996334113); the leg asserts the script and env reads through an inner junction are denied |
+// | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts IsModule and Load still admit an inner junction (windows-latest runs 43657442894 and 44648263846), the reads through it denied by the physical check (F16 fixed), and both copies and the hash contained |
 
 module ModulePathContainment
 
@@ -174,26 +175,28 @@ pred discoveryFacts { isModuleRejectsLinkedRoot and loadScansNonLinkedRoot }
 
 // Finding F16 (windows-latest, CI run 43657442894): a junction is not
 // ModeSymlink (Go 1.23+), so on Windows Load's scan records inner symlinks only
-// and admits a module with an inner non-vendored junction, and a script read
-// through the junction leaves the module. scannedKinds is the set of link kinds
-// the scan rejects: LinkKind is the fix, SymKind is today's Windows code. The
-// golden fixes Link.kind = SymKind, so admitted[...] above stays exact there.
-// Interim (module-read-physical-containment): the script read is now checked
-// physically through os.Root, which rejects a path through a junction (an
-// absolute target), so the F16 leg asserts that read denied, a verdict
-// "containment pending windows-latest evidence". Until that evidence
-// reclassifies F16, scriptReadScanGuarded still has no physical check and
-// findingF16JunctionScan still reports the escape for the script read.
+// and admits a module with an inner non-vendored junction, and before
+// module-read-physical-containment a script read through the junction left the
+// module. scannedKinds is the set of link kinds the scan rejects: LinkKind is a
+// junction-aware scan, SymKind is today's Windows code. phys adds the physical
+// containment check of the script and env reads (os.Root), which denies a path
+// through a junction (an absolute target). The golden fixes Link.kind =
+// SymKind, so admitted[...] above stays exact there. F16 is fixed (outcome d,
+// windows-latest CI run 44648263846, Test (windows) job 135996334113): the
+// admission still admits such a module, but the read is contained, so
+// scriptReadScanGuarded[SymKind, True] passes and the pre-fix configuration
+// [SymKind, False] is the regression mutant mutantPreFixF16JunctionScriptRead.
 pred admittedScanning[m: Module, scannedKinds: set LinkKind] {
 	no m.viaLink
 	not (some l: Link | l.kind in scannedKinds and inTree[m.mroot, l] and not underVendor[m, l])
 }
 
-pred scriptReadScanGuarded[scannedKinds: set LinkKind] {
+pred scriptReadScanGuarded[scannedKinds: set LinkKind, phys: Bool] {
 	all o: Op |
 		(o.kind in (ScriptRead + EnvRead) and validates[o] and lexContains[o]
 			and not underVendor[o.owner, o.ref]
-			and admittedScanning[o.owner, scannedKinds])
+			and admittedScanning[o.owner, scannedKinds]
+			and (phys = True implies physContains[o]))
 		implies contained[o]
 }
 

@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 180
+command_count = 181
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -1258,7 +1258,20 @@ golden's dangling links name a missing entry under the host root, so os.Root \
 reports them as escapes before the Lstat branch; the unit tests in \
 internal/runtime cover a dangling link inside the module. \
 findingF17EnvVendoredSymlink is renamed \
-mutantPreFixF17EnvNoPhysicalContainment (pre-fix regression mutant)."""
+mutantPreFixF17EnvNoPhysicalContainment (pre-fix regression mutant). \
+F16 fixed (outcome d): on windows-latest (CI run 44648263846, Test (windows) \
+job 135996334113) TestModulePathContainment_F16Junction ran and passed with \
+IsModule and Load still admitting a module with an inner junction, the script \
+read of j/secret denied (ErrScriptPathTraversal, no sentinel), and both copies \
+and the hash contained. The same run first needed a recovered os.Root panic \
+(Go 1.27.4 on Windows, a link to its own directory; run 44645245657, job \
+135986033972). scriptReadScanGuarded gains phys (the os.Root read check); the \
+fix configuration scriptReadScanPhysical (SymKind scan, phys) passes, and \
+findingF16JunctionScan is renamed mutantPreFixF16JunctionScriptRead (SymKind \
+scan, no phys: counterexample). scriptReadScanAllKinds and mutantScanNoKinds \
+keep their meaning with phys off. The leg gains an env-read arm, and the rapid \
+property drops its F16 carve-out; both are confirmed by the next windows-latest \
+run of the PR."""
 
 [model.golden]
 command = "golden"
@@ -1291,29 +1304,36 @@ expect = "counterexample"
 property = "scriptReadGuarded"
 mutant_of = "scriptReadDiscoveryGuarded"
 
-# Junction-aware scan (fix) with the F16 finding: Load's scan on Windows
-# records symlinks only, so an inner junction admits an escaping read.
+# Junction-aware scan, and the physical read check that fixed F16: Load's scan
+# on Windows records symlinks only, so an inner junction is admitted, and only
+# the os.Root read check keeps the read inside (module-read-physical-containment).
 [[model.command]]
 name = "scriptReadScanAllKinds"
-body = "scriptReadScanGuarded[LinkKind]"
+body = "scriptReadScanGuarded[LinkKind, False]"
 expect = "pass"
 property = "scriptReadScanGuarded"
 antecedent = "anteScriptGuarded"
 
 [[model.command]]
 name = "mutantScanNoKinds"
-body = "scriptReadScanGuarded[none]"
+body = "scriptReadScanGuarded[none, False]"
 expect = "counterexample"
 property = "scriptReadScanGuarded"
 mutant_of = "scriptReadScanAllKinds"
 
 [[model.command]]
-name = "findingF16JunctionScan"
-body = "scriptReadScanGuarded[SymKind]"
-finding = "F16"
+name = "scriptReadScanPhysical"
+body = "scriptReadScanGuarded[SymKind, True]"
+expect = "pass"
+property = "scriptReadScanGuarded"
+antecedent = "anteScriptGuarded"
+
+[[model.command]]
+name = "mutantPreFixF16JunctionScriptRead"
+body = "scriptReadScanGuarded[SymKind, False]"
 expect = "counterexample"
 property = "scriptReadScanGuarded"
-mutant_of = "scriptReadScanAllKinds"
+mutant_of = "scriptReadScanPhysical"
 
 # Script read containment (physical fix), with the fixed F13 as its pre-fix
 # regression mutant (module-read-physical-containment).

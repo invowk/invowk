@@ -176,16 +176,16 @@ func TestModulePathContainment_VendoredSymlinkEnvReadDenied(t *testing.T) {
 	}
 }
 
-// TestModulePathContainment_F16Junction records finding F16 (design D7 of
-// harden-formal-instruments, outcome b, windows-latest run 43657442894): a
-// junction inside a module is not ModeSymlink (Go 1.23+), so IsModule and Load
-// admit a module with an inner junction, and before
-// module-read-physical-containment the script read of j/secret followed it out
-// of the module. The admission arm still asserts that behaviour; the
-// script-read arm now asserts the denial by the physical containment check,
-// with the verdict "containment pending windows-latest evidence" until F16 is
-// reclassified (design D6 of module-read-physical-containment). The same run
-// showed the other operations contained, so the leg asserts that too:
+// TestModulePathContainment_F16Junction is the regression leg of the fixed
+// finding F16 (design D7 of harden-formal-instruments, outcome b, windows-latest
+// run 43657442894; fixed by module-read-physical-containment, outcome d,
+// windows-latest run 44648263846): a junction inside a module is not
+// ModeSymlink (Go 1.23+), so IsModule and Load still admit a module with an
+// inner junction, and before the fix the script read of j/secret followed it
+// out of the module. The admission arm asserts that behaviour; the script and
+// env read arms assert the denial by the physical containment check (os.Root
+// rejects the junction's absolute target). The same runs showed the other
+// operations contained, so the leg asserts that too:
 //   - both copies (modulecache.CopyModuleDir, provision.CopyDir) succeed and
 //     neither contains the outside sentinel;
 //   - ComputeModuleHash succeeds and does not change when only the outside
@@ -219,16 +219,27 @@ func TestModulePathContainment_F16Junction(t *testing.T) {
 	if _, err := invowkmod.Load(mp); err != nil {
 		t.Fatalf("F16 did not reproduce: Load rejected a module with an inner junction: %v", err)
 	}
-	// Script-read arm: with the physical containment check (module-read-
-	// physical-containment), os.Root rejects the path through the junction, so
-	// the read is denied. Recorded verdict: containment pending windows-latest
-	// evidence (the model still reports the escape until F16 is reclassified).
+	// Script-read arm: the physical containment check (module-read-physical-
+	// containment) denies the path through the junction (windows-latest run
+	// 44648263846), so F16 is fixed.
 	content, err := scriptRead(mod, "j/secret")
 	if !errors.Is(err, invowkfile.ErrScriptPathTraversal) {
 		t.Errorf("script-read arm: the read of j/secret through the junction: err = %v, want ErrScriptPathTraversal", err)
 	}
 	if strings.Contains(content, sentinel) {
 		t.Errorf("script-read arm: the read of j/secret returned the outside sentinel")
+	}
+	// Env-read arm: the module env read goes through the same os.Root check
+	// and fails with ErrEnvFileOutsideModule, an optional file included.
+	for _, envPath := range []string{"j/secret", "j/secret?"} {
+		env := map[string]string{}
+		envErr := ivkruntime.LoadEnvFile(env, envPath, mod, mod)
+		if !errors.Is(envErr, ivkruntime.ErrEnvFileOutsideModule) {
+			t.Errorf("env-read arm: %s through the junction: err = %v, want ErrEnvFileOutsideModule", envPath, envErr)
+		}
+		if len(env) != 0 {
+			t.Errorf("env-read arm: %s merged variables from outside the module: %v", envPath, env)
+		}
 	}
 
 	scratch := t.TempDir()

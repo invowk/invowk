@@ -19,9 +19,9 @@ import (
 // vendored, and escaping links at larger scope than the golden, materialises
 // them, and checks the composed real behaviour: a script read that a module can
 // trigger, judged by the resolver's result, stays physically inside the
-// module, unless it is the recorded F16 junction hole. Any other escape, an
-// invowk_modules/ link of either kind included (the fixed F13 hole), is a
-// policy violation. Symlink targets are drawn absolute or relative to the
+// module. Every escape is a policy violation: an invowk_modules/ link of
+// either kind (the fixed F13 hole) and a non-vendored junction (the fixed F16
+// hole) included. Symlink targets are drawn absolute or relative to the
 // link's directory; junction targets are always absolute.
 //
 // Links are symlinks, or directory junctions where the host offers them
@@ -139,15 +139,9 @@ func TestModulePathContainment_Property(t *testing.T) {
 		if !escaped {
 			return // contained: the expected case
 		}
-		// An escape is only acceptable as the recorded finding F16: the path
-		// crossed a non-vendored junction, which Load's scan does not record
-		// (windows-latest run 43657442894). The physical containment check is
-		// expected to deny it too (pending windows-latest evidence); this
-		// carve-out goes when F16 is reclassified. An escape through
-		// invowk_modules/ (F13, fixed) fails like any other.
-		if junction && scriptPath == "x/secret" {
-			return // recorded finding F16
-		}
+		// Every escape fails, through invowk_modules/ (F13, fixed) or through
+		// a non-vendored junction that Load's scan admits (F16, fixed by the
+		// physical read check: windows-latest CI run 44648263846).
 		rt.Fatalf("policy violation: script %q (junction %v) escaped the module to the outside sentinel", scriptPath, junction)
 	})
 }
