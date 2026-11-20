@@ -129,7 +129,15 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### LoadEnvFile
 
-`internal/runtime/dotenv.go`, 11 survivors. The golden replay never calls LoadEnvFile (only the F17 characterisation test does), so the row's binding does not reach the function.
+`internal/runtime/dotenv.go`. Refreshed by module-read-physical-containment (2026-11-19): the golden replay calls LoadEnvFile with the module root on every admitted, validated `EnvRead` vector, so its verdict binds the contained read. Its remaining binding gaps are branches the golden never reaches: the absolute and lexical pre-checks (masked by `ValidateEnvFilePath`), the `filepath.Rel` failure, the `OpenRoot` error branches (the golden module roots always exist), the optional skip, and the read-error wrapping. `TestLoadEnvFile_ModuleContext`, `TestLoadEnvFile_ModuleRootMissing` and `TestLoadEnvFile_ModuleRootNotADirectory` kill most of them; binding them to the `readOp | LoadEnvFile` row would close the gaps (`TestLoadEnvFile_ModuleNoSearchPermission` would first need its skips moved to an fstree-style helper). The lexical pre-check mutants that os.Root's own escape rejection masks are `equivalent`.
+
+### readModuleEnvFileWith
+
+`internal/runtime/dotenv.go`, bound by module-read-physical-containment's review (2026-11-19). The ReadFile-error classification after a successful Stat is reached only for a directory (EISDIR, returned unchanged) or under a race; a bound test injecting a readFile that returns an escape error would close the gap.
+
+### checkModuleFilePhysicalContainment
+
+`pkg/invowkfile/module_file_containment.go`, bound by module-read-physical-containment. Gaps: the `filepath.Rel` failure (`TestCheckModuleFilePhysicalContainment_RelFailure` kills it; add it to the `physContains` binding), the OpenRoot error wrapping (`_RootIsFile` does not assert the wrapped OS error), the Windows-only os.Root panic branch (killed on windows-latest only), and the default OS-error case (`_NoSearchPermission`, which skips directly). The not-exist conjunct mutants are `equivalent`: Stat and Lstat report not-exist together.
 
 ### newVirtualPathResolverForFilesystem
 
