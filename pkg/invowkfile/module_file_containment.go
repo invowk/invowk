@@ -11,6 +11,16 @@ import (
 	"syscall"
 )
 
+// errRootResolverPanic marks a panic recovered from os.Root path resolution.
+//
+// Go 1.27's os.Root on Windows panics (index out of range in doInRoot) when the
+// last path component is a link whose target resolves to the directory that
+// holds it, such as a/x -> "." or a/b/x -> "../b": rootCleanPath folds the
+// target into the already-traversed prefix, and the resolution loop indexes
+// past the shortened path. Such a link resolves to a directory inside the
+// root, which no script or env read can return content from.
+var errRootResolverPanic = errors.New("os.Root path resolution panicked")
+
 // containModuleScriptRead runs the physical containment check of a module
 // script read (SC-01) and turns its result into the resolver's error: nil when
 // the injected reader may run, the traversal error when the path escapes or is
@@ -60,9 +70,12 @@ func checkModuleFilePhysicalContainment(scriptPath, modulePath FilesystemPath) (
 	}
 	defer func() { _ = root.Close() }() //nolint:errcheck // read-only os.Root; a close error is not actionable
 
-	_, statErr := root.Stat(rel)
+	_, statErr := rootStat(root.Stat, rel)
 	if statErr == nil {
 		return false, nil
+	}
+	if errors.Is(statErr, errRootResolverPanic) {
+		return judgeRootResolverPanic(scriptPath, modulePath, statErr)
 	}
 	if !isOSError(statErr) {
 		return false, moduleFileEscapeError(scriptPath, modulePath, "resolves outside module", statErr)
@@ -78,6 +91,31 @@ func checkModuleFilePhysicalContainment(scriptPath, modulePath FilesystemPath) (
 	default:
 		return false, fmt.Errorf("check module file: %w", statErr)
 	}
+}
+
+// rootStat runs stat (os.Root.Stat) on rel and turns a panic into an error
+// wrapping errRootResolverPanic, so a module link cannot crash invowk.
+//
+//goplint:ignore -- rel is a transient os.Root-relative name, as with os.Root.Stat.
+func rootStat(stat func(string) (fs.FileInfo, error), rel string) (fi fs.FileInfo, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fi, err = nil, fmt.Errorf("%w: %v", errRootResolverPanic, r)
+		}
+	}()
+	return stat(rel)
+}
+
+// judgeRootResolverPanic decides a path whose os.Root Stat panicked. The panic
+// only arises for a link that resolves to a directory inside the root, and a
+// directory yields no content, so the path is passed on (contained) when it is
+// a directory and the reader then reports the read error, as it does on the
+// other platforms. Anything else fails closed as an escape.
+func judgeRootResolverPanic(scriptPath, modulePath FilesystemPath, cause error) (absent bool, err error) {
+	if fi, statErr := os.Stat(string(scriptPath)); statErr == nil && fi.IsDir() {
+		return false, nil
+	}
+	return false, moduleFileEscapeError(scriptPath, modulePath, "is unresolvable (os.Root failed) in module", cause)
 }
 
 // moduleFileEscapeError wraps ErrScriptPathTraversal with the path, the

@@ -24,6 +24,9 @@ var (
 	// classifyModuleEnvFileError judged an escape; LoadEnvFile turns it into
 	// ErrEnvFileOutsideModule.
 	errEnvFileEscapes = errors.New("contained read escapes the module")
+
+	// errRootResolverPanic marks a panic recovered from os.Root (rootCall).
+	errRootResolverPanic = errors.New("os.Root path resolution panicked")
 )
 
 // LoadEnvFile loads a dotenv file and merges its contents into the provided env map.
@@ -105,13 +108,28 @@ func LoadEnvFile(env map[string]string, path, basePath, moduleRoot string) error
 //
 //goplint:ignore -- rel is a transient os.Root-relative name and content raw dotenv bytes, as with os.ReadFile.
 func readModuleEnvFile(root *os.Root, rel string) (content []byte, absent bool, err error) {
-	if _, statErr := root.Stat(rel); statErr != nil {
+	return readModuleEnvFileWith(root, rel, root.Stat, root.ReadFile)
+}
+
+// readModuleEnvFileWith is readModuleEnvFile with the Stat and ReadFile calls
+// injected, so a test can drive the recovered-panic branches; Lstat still runs
+// on root.
+//
+//goplint:ignore -- rel is a transient os.Root-relative name and content raw dotenv bytes, as with os.ReadFile.
+func readModuleEnvFileWith(root *os.Root, rel string, stat func(string) (fs.FileInfo, error), readFile func(string) ([]byte, error)) (content []byte, absent bool, err error) {
+	if _, statErr := rootCall(stat, rel); statErr != nil {
+		if errors.Is(statErr, errRootResolverPanic) {
+			return nil, false, statErr // a link to its own directory: a read error
+		}
 		_, lstatErr := root.Lstat(rel)
 		absent, err = classifyModuleEnvFileError(statErr, lstatErr)
 		return nil, absent, err
 	}
-	content, err = root.ReadFile(rel)
+	content, err = rootCall(readFile, rel)
 	if err != nil {
+		if errors.Is(err, errRootResolverPanic) {
+			return nil, false, err
+		}
 		// After a successful Stat, a non-OS error is an escape that appeared
 		// since (os.Root's "path escapes from parent"); an OS error stays a
 		// read error, or absent when the file vanished.
@@ -119,6 +137,25 @@ func readModuleEnvFile(root *os.Root, rel string) (content []byte, absent bool, 
 		return nil, absent, err
 	}
 	return content, false, nil
+}
+
+// rootCall runs an os.Root method on rel and turns a panic into an error
+// wrapping errRootResolverPanic. Go 1.27's os.Root on Windows panics (index out
+// of range in doInRoot) when the last path component is a link whose target
+// resolves to the directory that holds it, such as a/x -> "." or
+// a/b/x -> "../b". Such a link names a directory inside the root, which holds
+// no env content, so LoadEnvFile reports a read error, as it does for a
+// directory on the other platforms.
+//
+//goplint:ignore -- rel is a transient os.Root-relative name, as with the os.Root methods.
+func rootCall[T any](call func(string) (T, error), rel string) (v T, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			var zero T
+			v, err = zero, fmt.Errorf("%w: %v", errRootResolverPanic, r)
+		}
+	}()
+	return call(rel)
 }
 
 // classifyModuleEnvFileError classifies an os.Root error on a module env file.

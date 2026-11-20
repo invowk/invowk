@@ -127,7 +127,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - `for m in samples/invowkmods/*.invowkmod; do go run . validate "$m"; done`.
 
   All must pass.
-- [ ] 6.2 Push the branch and open the draft PR. Its body carries the release-note line from proposal.md (a security fix, no `!`) and states the `pkg/invowkmod` API removal.
+- [x] 6.2 Push the branch and open the draft PR. Its body carries the release-note line from proposal.md (a security fix, no `!`) and states the `pkg/invowkmod` API removal.
 - [ ] 6.3 From the PR's windows-latest job, quote the run id, the job id and the JUnit or test-output lines. They must show that the inverted F13 and F17 replays and `TestModulePathContainment_F16Junction` RAN and passed, not skipped. Report each F16 arm's outcome. They must also show `TestModulePathContainment_GoldenVectors` passing both passes, which is the Windows evidence for the errno-independent unresolvable-link rule on the dangling and cycle vectors (design D2, D3). The macOS job must show the alias and case tests from 1.3 and 5.3 running.
 
 ## 7. F16 reclassification (post-evidence commit)
