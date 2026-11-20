@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/testutil/fstree"
 )
 
@@ -47,7 +48,7 @@ func TestResolvers_VendoredEscapingLinkDenied(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapSymlink)
 	base, mod := containmentFixture(t)
-	mustMkdir(t, filepath.Join(mod, "invowk_modules"))
+	testutil.MustMkdirAll(t, filepath.Join(mod, "invowk_modules"), 0o755)
 	fstree.MustSymlink(t, filepath.Join(base, "outside"), filepath.Join(mod, "invowk_modules", "x"))
 
 	r := resolveBoth(t, mod, "invowk_modules/x")
@@ -79,7 +80,7 @@ func TestResolvers_ContainedAndMissingStillReach(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapSymlink)
 	_, mod := containmentFixture(t)
-	mustMkdir(t, filepath.Join(mod, "invowk_modules", "dep.invowkmod"))
+	testutil.MustMkdirAll(t, filepath.Join(mod, "invowk_modules", "dep.invowkmod"), 0o755)
 	mustWrite(t, filepath.Join(mod, "invowk_modules", "dep.invowkmod", "run.sh"), "echo vendored")
 	fstree.MustSymlink(t, filepath.Join("..", "script.sh"), filepath.Join(mod, "invowk_modules", "rel"))
 
@@ -177,7 +178,7 @@ func TestResolvers_PhysicalContainmentAliasAndCase(t *testing.T) {
 			t.Skipf("filesystem at %s is case-sensitive on %s; the case variant needs a case-insensitive one", base, runtime.GOOS)
 		}
 		mod := filepath.Join(base, "CaseMod")
-		mustMkdir(t, mod)
+		testutil.MustMkdirAll(t, mod, 0o755)
 		mustWrite(t, filepath.Join(mod, "Script.sh"), "echo case")
 		r := resolveBoth(t, filepath.Join(base, "casemod"), "script.SH")
 		implContent := r.implContent
@@ -200,13 +201,13 @@ func aliasedModuleDir(t *testing.T) string {
 			t.Fatalf("macOS temp dir %s is not aliased (resolved %q, %v)", raw, resolved, err)
 		}
 		mod := filepath.Join(raw, "mod")
-		mustMkdir(t, mod)
+		testutil.MustMkdirAll(t, mod, 0o755)
 		return mod
 	}
 	fstree.Require(t, fstree.CapSymlink)
 	base := fstree.TempRoot(t)
 	realDir := filepath.Join(base, "real")
-	mustMkdir(t, filepath.Join(realDir, "mod"))
+	testutil.MustMkdirAll(t, filepath.Join(realDir, "mod"), 0o755)
 	fstree.MustSymlink(t, realDir, filepath.Join(base, "alias"))
 	return filepath.Join(base, "alias", "mod")
 }

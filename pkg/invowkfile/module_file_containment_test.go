@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/testutil/fstree"
 )
 
@@ -22,18 +23,11 @@ func containmentFixture(t *testing.T) (base, mod string) {
 	t.Helper()
 	base = fstree.TempRoot(t)
 	mod = filepath.Join(base, "mod")
-	mustMkdir(t, filepath.Join(mod, "sub"))
+	testutil.MustMkdirAll(t, filepath.Join(mod, "sub"), 0o755)
 	mustWrite(t, filepath.Join(mod, "script.sh"), "echo inside")
 	mustWrite(t, filepath.Join(mod, "sub", "inner.sh"), "echo inner")
 	mustWrite(t, filepath.Join(base, "outside"), "OUTSIDE")
 	return base, mod
-}
-
-func mustMkdir(t *testing.T, dir string) {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", dir, err)
-	}
 }
 
 func mustWrite(t *testing.T, path, content string) {
