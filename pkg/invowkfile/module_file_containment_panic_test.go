@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/testutil/fstree"
 )
 
@@ -35,20 +36,65 @@ func TestRootStat_RecoversPanic(t *testing.T) {
 }
 
 // TestJudgeRootResolverPanic: a path whose os.Root Stat panicked is passed on
-// only when it is a directory (no content can be read from it); a file or a
-// missing path fails closed as an escape.
+// only when it is a directory that resolves inside the module (no content can
+// be read from it); a file, a missing path, or a directory outside the module
+// (directly or through a link) fails closed as an escape.
 func TestJudgeRootResolverPanic(t *testing.T) {
 	t.Parallel()
-	_, mod := containmentFixture(t)
+	base, mod := containmentFixture(t)
 	cause := errRootResolverPanic
-	absent, err := judgeRootResolverPanic(FilesystemPath(filepath.Join(mod, "sub")), FilesystemPath(mod), cause)
-	if err != nil || absent {
-		t.Fatalf("directory: absent=%v err=%v, want contained", absent, err)
+	for _, p := range []string{"sub", "."} {
+		absent, err := judgeRootResolverPanic(FilesystemPath(filepath.Join(mod, p)), FilesystemPath(mod), cause)
+		if err != nil || absent {
+			t.Fatalf("directory %s: absent=%v err=%v, want contained", p, absent, err)
+		}
 	}
-	for _, p := range []string{"script.sh", "missing"} {
-		absent, err = judgeRootResolverPanic(FilesystemPath(filepath.Join(mod, p)), FilesystemPath(mod), cause)
+	for _, p := range []string{filepath.Join(mod, "script.sh"), filepath.Join(mod, "missing"), base} {
+		absent, err := judgeRootResolverPanic(FilesystemPath(p), FilesystemPath(mod), cause)
 		if !errors.Is(err, ErrScriptPathTraversal) || !errors.Is(err, errRootResolverPanic) || absent {
 			t.Errorf("%s: absent=%v err=%v, want an escape wrapping the panic", p, absent, err)
+		}
+	}
+}
+
+// TestJudgeRootResolverPanic_LinkToOutsideDirectory: a module link that
+// resolves to a directory outside the module fails closed as an escape, even
+// though no content could be read from a directory.
+func TestJudgeRootResolverPanic_LinkToOutsideDirectory(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapSymlink)
+	base, mod := containmentFixture(t)
+	link := filepath.Join(mod, "sub", "outdir")
+	fstree.MustSymlink(t, base, link)
+	absent, err := judgeRootResolverPanic(FilesystemPath(link), FilesystemPath(mod), errRootResolverPanic)
+	if !errors.Is(err, ErrScriptPathTraversal) || !errors.Is(err, errRootResolverPanic) || absent {
+		t.Fatalf("link to outside directory: absent=%v err=%v, want an escape wrapping the panic", absent, err)
+	}
+}
+
+// TestResolvesUnder: the resolved path must be the directory or lie below it;
+// a sibling with a shared name prefix, the parent, and an unresolvable path or
+// directory are not under it.
+func TestResolvesUnder(t *testing.T) {
+	t.Parallel()
+	_, mod := containmentFixture(t)
+	sibling := mod + "-sibling"
+	testutil.MustMkdirAll(t, sibling, 0o755)
+	cases := []struct {
+		path, dir string
+		want      bool
+	}{
+		{mod, mod, true},
+		{filepath.Join(mod, "sub"), mod, true},
+		{filepath.Join(mod, "script.sh"), mod, true},
+		{filepath.Dir(mod), mod, false},
+		{sibling, mod, false},
+		{filepath.Join(mod, "missing"), mod, false},
+		{mod, filepath.Join(mod, "missing"), false},
+	}
+	for _, c := range cases {
+		if got := resolvesUnder(FilesystemPath(c.path), FilesystemPath(c.dir)); got != c.want {
+			t.Errorf("resolvesUnder(%q, %q) = %v, want %v", c.path, c.dir, got, c.want)
 		}
 	}
 }

@@ -420,7 +420,7 @@ When reviewing module-related changes, adapt the workflow:
 | Pitfall | Fix |
 |---------|-----|
 | Regressing symlink skipping in module copy/provision paths | Keep copy helpers and scan-context artifact/clone paths from following symlinked module content outside trusted roots |
-| Reading a module script without the containment check | `ScriptFilePath.Validate` rejects absolute paths and `..` segments at parse time, and `ScriptChecker` still flags both (High). `GetScriptFilePathWithModule` only resolves, by design; file I/O must go through `ResolveScriptWithModule` / `ResolveScriptWithFSAndModule` (`validateScriptPathContainment`, SC-01) |
+| Reading a module script without the containment check | `ScriptFilePath.Validate` rejects absolute paths and `..` segments at parse time, and `ScriptChecker` still flags both (High). `GetScriptFilePathWithModule` only resolves, by design; file I/O must go through `ResolveScriptWithModule` / `ResolveScriptWithFSAndModule`, which run both the lexical `validateScriptPathContainment` and the physical `os.Root` check (`containModuleScriptRead` / `checkModuleFilePhysicalContainment`) before the injected reader (SC-01); module `env.files` go through `LoadEnvFile` with the module root |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
 | Hiding corrupt module files | Keep `loadScannedModule` recording `InvowkfileParseErr` / `LockFileParseErr` so they surface as "Module invowkfile failed to parse" and "Lock file present but unparseable"; modules without these files stay valid |
 | Scan context hides invalid modules/files | Preserve structured diagnostics in `Report.Diagnostics` and CLI JSON/text output |

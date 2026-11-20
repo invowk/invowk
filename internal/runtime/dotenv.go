@@ -52,7 +52,7 @@ func LoadEnvFile(env map[string]string, path, basePath, moduleRoot string) error
 	if moduleRoot != "" {
 		// Module context (SC-01): the module names this file, so it must
 		// resolve inside the module directory.
-		if filepath.IsAbs(path) {
+		if isAbsoluteOnAnyOS(path) {
 			return envFileOutsideModuleError(path, moduleRoot, "is an absolute path outside", nil)
 		}
 		rel, relErr := filepath.Rel(moduleRoot, filepath.Join(basePath, filepath.FromSlash(path)))
@@ -100,6 +100,29 @@ func LoadEnvFile(env map[string]string, path, basePath, moduleRoot string) error
 	}
 
 	return ParseEnvFile(env, content, path)
+}
+
+// isAbsoluteOnAnyOS reports whether a module env path is absolute on any
+// platform: rooted with a slash or a backslash, a Windows drive path ("C:/x"
+// or its backslash form), or absolute on this host. A module env path comes
+// from CUE, so the verdict must not depend on the host (filepath.IsAbs alone
+// treats "/x" as relative on Windows); ValidateEnvFilePath applies the same
+// rule at parse time.
+//
+//goplint:ignore -- path is the raw CUE env.files entry, already validated at parse time.
+func isAbsoluteOnAnyOS(path string) bool {
+	if path == "" {
+		return false
+	}
+	if path[0] == '/' || path[0] == '\\' {
+		return true
+	}
+	if len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
+		if c := path[0]; (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+			return true
+		}
+	}
+	return filepath.IsAbs(path)
 }
 
 // readModuleEnvFile reads rel through root: Stat first, so an unresolvable link

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -109,13 +110,34 @@ func rootStat(stat func(string) (fs.FileInfo, error), rel string) (fi fs.FileInf
 // judgeRootResolverPanic decides a path whose os.Root Stat panicked. The panic
 // only arises for a link that resolves to a directory inside the root, and a
 // directory yields no content, so the path is passed on (contained) when it is
-// a directory and the reader then reports the read error, as it does on the
-// other platforms. Anything else fails closed as an escape.
+// a directory whose fully resolved path stays under the resolved module
+// directory; the reader then reports the read error, as it does on the other
+// platforms. Anything else, a directory outside the module included, fails
+// closed as an escape, so the verdict never rests on the reader rejecting
+// directories.
 func judgeRootResolverPanic(scriptPath, modulePath FilesystemPath, cause error) (absent bool, err error) {
-	if fi, statErr := os.Stat(string(scriptPath)); statErr == nil && fi.IsDir() {
+	if fi, statErr := os.Stat(string(scriptPath)); statErr == nil && fi.IsDir() && resolvesUnder(scriptPath, modulePath) {
 		return false, nil
 	}
 	return false, moduleFileEscapeError(scriptPath, modulePath, "is unresolvable (os.Root failed) in module", cause)
+}
+
+// resolvesUnder reports whether path, with every link resolved, is dir or lies
+// below it (dir resolved the same way). Any resolution error is false.
+func resolvesUnder(path, dir FilesystemPath) bool {
+	resolvedPath, err := filepath.EvalSymlinks(string(path))
+	if err != nil {
+		return false
+	}
+	resolvedDir, err := filepath.EvalSymlinks(string(dir))
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(resolvedDir, resolvedPath)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 // moduleFileEscapeError wraps ErrScriptPathTraversal with the path, the
@@ -129,7 +151,9 @@ func moduleFileEscapeError(scriptPath, modulePath FilesystemPath, reason string,
 // isOSError reports whether err carries an operating-system error number.
 // os.Root reports a path that leaves the root with a plain (non-errno) error,
 // on every platform; a missing name, a permission error or a link cycle is an
-// errno.
+// errno. On Windows, os.Root also rejects a reserved device name (AUX, NUL,
+// CON, COM1 and the like) with that plain error, so such a module file is
+// reported as an escape: fail-closed, with a misleading but safe message.
 func isOSError(err error) bool {
 	_, ok := errors.AsType[syscall.Errno](err) //nolint:errcheck // only the type-match verdict matters
 	return ok

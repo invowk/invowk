@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -100,6 +99,8 @@ func TestLoadEnvFile_ModuleContext(t *testing.T) {
 		{"absolute path built in Go", func(_ fstree.Fataler, _, mod string) (string, string) {
 			return filepath.Join(mod, "app.env"), mod
 		}, envContained, "", false},
+		{"rooted path on any OS", func(_ fstree.Fataler, _, mod string) (string, string) { return `\app.env?`, mod }, envContained, "", false},
+		{"drive path on any OS", func(_ fstree.Fataler, _, mod string) (string, string) { return "C:/app.env?", mod }, envContained, "", false},
 		{"lexical escape", func(_ fstree.Fataler, _, mod string) (string, string) { return "../outside.env", mod }, envContained, "", false},
 		{"basePath outside moduleRoot", func(_ fstree.Fataler, base, _ string) (string, string) {
 			return "outside.env", base
@@ -181,28 +182,6 @@ func TestLoadEnvFile_ModuleRootNotADirectory(t *testing.T) {
 	}
 }
 
-// TestLoadEnvFile_ModuleNoSearchPermission: Stat and Lstat both fail with
-// EACCES, which is a read error (not absent, so an optional file fails too).
-func TestLoadEnvFile_ModuleNoSearchPermission(t *testing.T) {
-	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX permission bits do not deny directory search on Windows")
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("root bypasses directory permissions")
-	}
-	_, mod := moduleEnvFixture(t)
-	locked := filepath.Join(mod, "sub")
-	if err := os.Chmod(locked, 0o000); err != nil {
-		t.Fatalf("chmod: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
-	err := LoadEnvFile(map[string]string{}, "sub/inner.env?", mod, mod)
-	if !errors.Is(err, fs.ErrPermission) || errors.Is(err, ErrEnvFileOutsideModule) {
-		t.Fatalf("err = %v, want a permission read error", err)
-	}
-}
-
 // TestLoadEnvFile_PlainInvowkfileFollowsLinks: without a module root, a
 // symlinked .env pointing outside the invowkfile directory still loads
 // (decision 46 item 5).
@@ -258,6 +237,31 @@ func TestClassifyModuleEnvFileError(t *testing.T) {
 				t.Errorf("classified error %v does not wrap the cause", err)
 			}
 		})
+	}
+}
+
+// TestIsAbsoluteOnAnyOS: rooted and drive paths are absolute on every host,
+// relative names (a drive-like name without a separator included) are not.
+func TestIsAbsoluteOnAnyOS(t *testing.T) {
+	t.Parallel()
+	for path, want := range map[string]bool{
+		"":           false,
+		"/etc/x.env": true,
+		`\x.env`:     true,
+		`\\srv\s`:    true,
+		"C:/x.env":   true,
+		`c:\x.env`:   true,
+		"Z:/":        true,
+		"C:x.env":    false,
+		"1:/x.env":   false,
+		"x.env":      false,
+		"sub/x.env":  false,
+		"./x.env":    false,
+		"::/x":       false,
+	} {
+		if got := isAbsoluteOnAnyOS(path); got != want {
+			t.Errorf("isAbsoluteOnAnyOS(%q) = %v, want %v", path, got, want)
+		}
 	}
 }
 

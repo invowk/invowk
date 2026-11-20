@@ -1321,6 +1321,12 @@ expect = "counterexample"
 property = "scriptReadScanGuarded"
 mutant_of = "scriptReadScanAllKinds"
 
+# scriptReadScanPhysical is a definitional fix configuration: with phys on, the
+# guard includes physContains, which already implies contained whatever the
+# scan records, so the command restates the F16 fix rather than checking it.
+# The code-side assurance (os.Root denies the read through an inner junction)
+# comes from TestModulePathContainment_F16Junction on windows-latest and the
+# golden replay's absolute pass. The same holds for the PhysMode commands.
 [[model.command]]
 name = "scriptReadScanPhysical"
 body = "scriptReadScanGuarded[SymKind, True]"
