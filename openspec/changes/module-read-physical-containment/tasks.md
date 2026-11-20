@@ -86,7 +86,7 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
 
 ## 5. F17: contained module env files (one commit)
 
-- [ ] 5.1 Give `runtime.LoadEnvFile` a `moduleRoot` parameter and add `ErrEnvFileOutsideModule` (design D3).
+- [x] 5.1 Give `runtime.LoadEnvFile` a `moduleRoot` parameter and add `ErrEnvFileOutsideModule` (design D3).
   - With `moduleRoot == ""`, behaviour is unchanged.
   - Otherwise it denies an absolute path, runs `Stat` through `os.Root`, then reads through it.
   - `OpenRoot` not-exist (a missing module root): an optional `?` file returns nil, a required one returns the not-exist read error; any other `OpenRoot` error is a read error.
@@ -99,11 +99,11 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - `LoadEnvFileFromCwd` passes `moduleRoot = ""`.
 
   Update every caller and test caller. Verify with unit tests for each of these cases, including an absolute path built directly in Go, a `basePath` below `moduleRoot` and a `basePath` outside it, a missing module root (optional and required), a cycle, and an optional dangling and an optional escaping link: `go test ./internal/runtime/`. Each branch of the module path needs a test that kills its plausible mutants (error class, optional skip, `Lstat` disambiguation), because `LoadEnvFile` is a formal-bindings target. The `ReadFile` non-OS-error branch is reachable only by a race after `Stat`: route the `Stat` and `ReadFile` errors through one shared classifier and unit-test that classifier directly with an escape error, so the branch needs no race to be covered.
-- [ ] 5.2 `DefaultEnvBuilder.Build` passes `ctx.Invowkfile.ModulePath` as `moduleRoot` for root, command and implementation `env.files`. Verify with:
+- [x] 5.2 `DefaultEnvBuilder.Build` passes `ctx.Invowkfile.ModulePath` as `moduleRoot` for root, command and implementation `env.files`. Verify with:
   - a test where a plain invowkfile's symlinked `.env` that points outside still loads;
   - a module-context test where an escaping link fails before the command runs.
-- [ ] 5.3 Extend the `/private`-alias and case test from 1.3 to the module env read. Verify with `go test ./internal/runtime/`.
-- [ ] 5.4 Formal:
+- [x] 5.3 Extend the `/private`-alias and case test from 1.3 to the module env read. Verify with `go test ./internal/runtime/`.
+- [x] 5.4 Formal:
   - model `accepts` gains `physContains` for `EnvRead`, then `make formal-golden`;
   - `replayEnvRead` (design D4, "How the env replay ties F17 to the code"): on every vector that the real `Load` admits and the real `ValidateEnvFilePath` accepts, call `LoadEnvFile` with the module root; the code's verdict is denied when `errors.Is(err, ErrEnvFileOutsideModule)` and accepted otherwise; compare it with `dAccepts`, then check the touched node as today (a denied vector merges no variable; a directory touch returns a non-containment error). Never compute `admit && validates && physContains` or read `dPhysContains` for the code's verdict. Update its comment;
   - the `readOp | LoadEnvFile` row keeps its binding, and its abstraction cell is marked code-stricter;
@@ -115,12 +115,12 @@ Commit boundaries follow design D7. Groups 1-4 form the F13 commit, group 5 the 
   - mark the README F17 row "Fixed".
 
   Verify with `python3 scripts/formal.py correspondence`, `make test-scripts`, `python3 scripts/formal_mutation.py triage --check` and `make formal`, which must leave `envReadContainedPhysical` passing and the F17 pre-fix mutant producing a counterexample on its own.
-- [ ] 5.5 Docs: the env-files section of `website/docs/modules/creating-modules.mdx` and the path-resolution section of `website/docs/environment/env-files.mdx` (both with their pt-BR copies) state that module env files must resolve inside the module, and when `?` skips a file. Also add the env sentence to `validating.mdx`, update the module-security SC-01 text for env files, and grep `README.md` for `env.files` resolution text. Verify with `cd website && npm run build`.
-- [ ] 5.6 Run `make tidy` and `make lint`, then commit F17 (signed, under the lock, with a 600000 ms timeout). Verify with `git log --show-signature -1`.
+- [x] 5.5 Docs: the env-files section of `website/docs/modules/creating-modules.mdx` and the path-resolution section of `website/docs/environment/env-files.mdx` (both with their pt-BR copies) state that module env files must resolve inside the module, and when `?` skips a file. Also add the env sentence to `validating.mdx`, update the module-security SC-01 text for env files, and grep `README.md` for `env.files` resolution text. Verify with `cd website && npm run build`.
+- [x] 5.6 Run `make tidy` and `make lint`, then commit F17 (signed, under the lock, with a 600000 ms timeout). Verify with `git log --show-signature -1`.
 
 ## 6. Integration gates and evidence
 
-- [ ] 6.1 Run the checklist gates on the final tree:
+- [x] 6.1 Run the checklist gates on the final tree:
   - `make test`, `make check-baseline` (triage any new goplint finding), `make check-file-length`, `make sonar-local`;
   - `make test-scripts` and `make check-agent-docs`;
   - `go test -run Sync ./pkg/invowkfile/ ./pkg/invowkmod/ ./internal/config/`;

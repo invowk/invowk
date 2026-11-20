@@ -158,7 +158,6 @@ unresolved_elements = [
     "ModulePathContainment: copySkipsInnerLinks",
     "ModulePathContainment: hashSkipsLinks",
     "ModulePathContainment: unpackRejectsEscape",
-    "ModulePathContainment: findingF17",
     "ModulePathContainment: probeF16",
     "VirtualPathHarness: normalize",
     "VirtualPathHarness: pathWithin",
@@ -1241,7 +1240,25 @@ TestModulePathContainment_AbsoluteInModuleLinkDenied. findingF13VendoredSymlink 
 is renamed mutantPreFixF13LexicalScriptContainment (pre-fix regression \
 mutant). F16 interim: the leg's script-read arm now asserts the denial \
 (containment pending windows-latest evidence); findingF16JunctionScan keeps \
-reporting the escape for the script read until F16 is reclassified."""
+reporting the escape for the script read until F16 is reclassified. \
+Same day, F17 fixed: accepts gains physContains for EnvRead; LoadEnvFile \
+takes the module root and, in module context, reads through os.Root \
+(ErrEnvFileOutsideModule for an absolute path, an escape or an unresolvable \
+link). The golden env replay calls the real LoadEnvFile with the module root \
+on every admitted and validated vector and takes the code's verdict only from \
+the error class (ErrEnvFileOutsideModule = denied). The absolute pass's class \
+holds 384 EnvRead vectors. Seeded in LoadEnvFile's module branch and \
+reverted: bypassing the root (os.ReadFile of the joined path after the \
+lexical check) fails the golden with 960 disagreements, among them the 96 \
+relative-pass escaping-link vectors on which LoadEnvFile loads the outside \
+sentinel with no error ("real accept=true, want false"), 288 relative-pass \
+env disagreements in all; treating an unresolvable link as not-exist fails it \
+with 96 disagreements, the relative-pass link-cycle vectors (ELOOP). The \
+golden's dangling links name a missing entry under the host root, so os.Root \
+reports them as escapes before the Lstat branch; the unit tests in \
+internal/runtime cover a dangling link inside the module. \
+findingF17EnvVendoredSymlink is renamed \
+mutantPreFixF17EnvNoPhysicalContainment (pre-fix regression mutant)."""
 
 [model.golden]
 command = "golden"
@@ -1326,7 +1343,8 @@ expect = "counterexample"
 property = "readContainedKind"
 mutant_of = "scriptReadContainedPhysical"
 
-# Env-file read containment (physical fix), with the F17 finding.
+# Env-file read containment (physical fix), with the fixed F17 as its pre-fix
+# regression mutant (module-read-physical-containment).
 [[model.command]]
 name = "envReadContainedPhysical"
 body = "readContainedKind[EnvRead, PhysMode]"
@@ -1347,9 +1365,8 @@ property = "readContainedKind"
 mutant_of = "envReadContainedPhysical"
 
 [[model.command]]
-name = "findingF17EnvVendoredSymlink"
+name = "mutantPreFixF17EnvNoPhysicalContainment"
 body = "readContainedKind[EnvRead, LexMode]"
-finding = "F17"
 expect = "counterexample"
 property = "readContainedKind"
 mutant_of = "envReadContainedPhysical"

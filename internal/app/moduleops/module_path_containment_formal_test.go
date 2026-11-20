@@ -90,7 +90,8 @@ func TestModulePathContainment_VendoredSymlinkScriptReadDenied(t *testing.T) {
 // link with an absolute target is denied even when the target lies inside the
 // module, because os.Root rejects absolute link targets. It covers a target in
 // a subdirectory and a module path given through an aliased parent, outside
-// the golden scope; the same link with a relative target is followed.
+// the golden scope, for both script resolvers and for the module env read;
+// the same link with a relative target is followed.
 func TestModulePathContainment_AbsoluteInModuleLinkDenied(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapSymlink)
@@ -112,6 +113,13 @@ func TestModulePathContainment_AbsoluteInModuleLinkDenied(t *testing.T) {
 		"CustomCheckScript.ResolveWithFSAndModule":    customCheckRead,
 	}
 	for _, mod := range []string{realMod, filepath.Join(base, "alias", "m0.invowkmod")} {
+		env := map[string]string{}
+		if err := ivkruntime.LoadEnvFile(env, "abs", mod, mod); !errors.Is(err, ivkruntime.ErrEnvFileOutsideModule) || len(env) != 0 {
+			t.Errorf("LoadEnvFile, module %s: read through an absolute in-module link: env %v, err = %v; want ErrEnvFileOutsideModule", mod, env, err)
+		}
+		if err := ivkruntime.LoadEnvFile(env, "rel", mod, mod); err != nil || env["INSIDE"] != "1" {
+			t.Errorf("LoadEnvFile, module %s: read through a relative in-module link: env %v, err = %v; want INSIDE=1", mod, env, err)
+		}
 		for name, read := range reads {
 			if _, err := read(mod, "abs"); !errors.Is(err, invowkfile.ErrScriptPathTraversal) {
 				t.Errorf("%s, module %s: read through an absolute in-module link: err = %v, want ErrScriptPathTraversal", name, mod, err)
@@ -138,10 +146,13 @@ func customCheckRead(mod, file string) (string, error) {
 	return string(content), err
 }
 
-// TestModulePathContainment_F17EnvVendoredSymlink records finding F17: an env
-// file declared as invowk_modules/x is read at runtime through the same symlink
-// hole, with no containment check in LoadEnvFile.
-func TestModulePathContainment_F17EnvVendoredSymlink(t *testing.T) {
+// TestModulePathContainment_VendoredSymlinkEnvReadDenied is the regression
+// replay of fixed finding F17 (pre-fix mutant
+// mutantPreFixF17EnvNoPhysicalContainment): an env file declared as
+// invowk_modules/x reaches the same symlink hole, and the module-context read
+// fails with ErrEnvFileOutsideModule, the optional form included, without
+// loading the outside variable.
+func TestModulePathContainment_VendoredSymlinkEnvReadDenied(t *testing.T) {
 	t.Parallel()
 	mod, _ := vendoredSymlinkModule(t)
 	// point the symlink at a real dotenv file
@@ -151,14 +162,17 @@ func TestModulePathContainment_F17EnvVendoredSymlink(t *testing.T) {
 	}
 
 	if err := invowkfile.ValidateEnvFilePath("invowk_modules/x"); err != nil {
-		t.Fatalf("F17 precondition: ValidateEnvFilePath rejected the path: %v", err)
+		t.Fatalf("precondition: ValidateEnvFilePath rejected the path: %v", err)
 	}
-	env := map[string]string{}
-	if err := ivkruntime.LoadEnvFile(env, "invowk_modules/x", mod); err != nil {
-		t.Fatalf("F17 did not reproduce: LoadEnvFile errored: %v", err)
-	}
-	if env["LEAKED"] != "1" {
-		t.Fatalf("F17 did not reproduce: env not loaded from outside the module: %v", env)
+	for _, path := range []string{"invowk_modules/x", "invowk_modules/x?"} {
+		env := map[string]string{}
+		err := ivkruntime.LoadEnvFile(env, path, mod, mod)
+		if !errors.Is(err, ivkruntime.ErrEnvFileOutsideModule) {
+			t.Errorf("%s: err = %v, want ErrEnvFileOutsideModule", path, err)
+		}
+		if len(env) != 0 {
+			t.Errorf("%s: env loaded from outside the module: %v", path, env)
+		}
 	}
 }
 

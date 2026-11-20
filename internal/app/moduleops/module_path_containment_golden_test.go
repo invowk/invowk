@@ -3,6 +3,7 @@
 package moduleops
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -81,7 +82,7 @@ func TestModulePathContainment_GoldenVectors(t *testing.T) {
 func modulePathContainmentGoldenPasses() []goldenPass {
 	return []goldenPass{
 		{name: "relative", opts: fstree.Options{RelativeLinkTargets: true}},
-		{name: "absolute", linksOnly: true, absoluteClass: map[mpctree.OpKind]bool{mpctree.ScriptRead: true}},
+		{name: "absolute", linksOnly: true, absoluteClass: map[mpctree.OpKind]bool{mpctree.ScriptRead: true, mpctree.EnvRead: true}},
 	}
 }
 
@@ -186,7 +187,7 @@ func replayInstance(report *mpctree.Reporter, pass string, i int, c mpctree.Case
 			}
 		}
 	case mpctree.EnvRead:
-		replayEnvRead(report, pass, i, c, b, admit, gotValidate)
+		replayEnvRead(report, pass, i, c, b, admit, gotValidate, classified)
 	case mpctree.ContainerfileRef, mpctree.WorkdirCwd, mpctree.VendorCopy, mpctree.Hash, mpctree.Unpack:
 		// no read effect replayed here (copy and hash: assertCopyHashNoEscape)
 	}
@@ -210,34 +211,52 @@ func realCustomCheckRead(moduleRoot, pathStr string) (accept bool, touched strin
 
 // replayEnvRead replays the production env-file pipeline (readOp row
 // LoadEnvFile): ValidateEnvFilePath at parse time, then LoadEnvFile at run time
-// on an admitted module. Calling LoadEnvFile is the accept (it has no
-// containment check, F17); the touched node is the file it loaded, read back
-// through the AtomEnvKey line every materialised file carries. A touched node
-// that is not a regular file, or none at all, must make LoadEnvFile fail.
-func replayEnvRead(report *mpctree.Reporter, pass string, i int, c mpctree.Case, b *fstree.Built, admit, validates bool) {
-	effAccept := admit && validates
-	if effAccept != c.Accepts {
-		report.Errorf("%s instance %d EnvRead: real accept=%v, model=%v", pass, i, effAccept, c.Accepts)
-	}
-	if !effAccept {
+// on an admitted module, with the module root (module context). The code's
+// verdict comes only from LoadEnvFile's error class: ErrEnvFileOutsideModule
+// means denied, nil or any other error means accepted (the replay never
+// computes physical containment itself). A classified vector (absolute pass)
+// must be denied. On an accepted vector the touched node is the file it
+// loaded, read back through the AtomEnvKey line every materialised file
+// carries; a touched node that is not a regular file, or none at all, must
+// make LoadEnvFile fail with a non-containment error. A denied vector merges
+// no variable.
+func replayEnvRead(report *mpctree.Reporter, pass string, i int, c mpctree.Case, b *fstree.Built, admit, validates, classified bool) {
+	wantAccept := c.Accepts && !classified
+	if !admit || !validates {
+		if wantAccept {
+			report.Errorf("%s instance %d EnvRead: real admit=%v validate=%v, model accepts", pass, i, admit, validates)
+		}
 		return
 	}
 	env := map[string]string{}
-	err := ivkruntime.LoadEnvFile(env, c.RelPath(b), b.Path[c.OwnerAtom])
+	moduleRoot := b.Path[c.OwnerAtom]
+	err := ivkruntime.LoadEnvFile(env, c.RelPath(b), moduleRoot, moduleRoot)
+	codeAccept := !errors.Is(err, ivkruntime.ErrEnvFileOutsideModule)
+	if codeAccept != wantAccept {
+		report.Errorf("%s instance %d EnvRead: real accept=%v, want %v (model %v, classified %v, err %v)",
+			pass, i, codeAccept, wantAccept, c.Accepts, classified, err)
+		return
+	}
+	if !codeAccept {
+		if len(env) != 0 {
+			report.Errorf("%s instance %d EnvRead: denied read merged %v", pass, i, env)
+		}
+		return
+	}
 	touch := nodeByAtom(c, c.TouchAtom)
 	if c.TouchAtom == "" || touch.Kind != fstree.KindFile {
 		if err == nil {
-			report.Errorf("instance %d EnvRead: LoadEnvFile loaded %q, but the model touches no regular file (atom %q)",
-				i, env[mpctree.AtomEnvKey], c.TouchAtom)
+			report.Errorf("%s instance %d EnvRead: LoadEnvFile loaded %q, but the model touches no regular file (atom %q)",
+				pass, i, env[mpctree.AtomEnvKey], c.TouchAtom)
 		}
 		return
 	}
 	if err != nil {
-		report.Errorf("instance %d EnvRead: LoadEnvFile failed on the model's touched file %q: %v", i, c.TouchAtom, err)
+		report.Errorf("%s instance %d EnvRead: LoadEnvFile failed on the model's touched file %q: %v", pass, i, c.TouchAtom, err)
 		return
 	}
 	if got, want := env[mpctree.AtomEnvKey], mpctree.AtomTag(c.TouchAtom); got != want {
-		report.Errorf("instance %d EnvRead: LoadEnvFile loaded %q, model touches %q", i, got, want)
+		report.Errorf("%s instance %d EnvRead: LoadEnvFile loaded %q, model touches %q", pass, i, got, want)
 	}
 }
 

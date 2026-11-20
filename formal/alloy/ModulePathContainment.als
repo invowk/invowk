@@ -29,7 +29,7 @@
 // | physContains | checkModuleFilePhysicalContainment | pkg/invowkfile/module_file_containment.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | os.Root Stat of the path relative to the module directory; a dangling or cyclic link is denied (physTarget none); code stricter than model: a link with an absolute target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
 // | readOp | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | physical containment check, then the injected reader on the lexical path; code stricter than model: an absolute link target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
 // | readOp | ResolveWithFSAndModule | pkg/invowkfile/dependency.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | custom-check read, same check; code stricter than model: an absolute link target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
-// | readOp | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_GoldenVectors | - |
+// | readOp | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_GoldenVectors, TestModulePathContainment_AbsoluteInModuleLinkDenied | module context: contained read through os.Root on the module root, verdict from ErrEnvFileOutsideModule; code stricter than model: an absolute link target is denied even inside the module (golden absolute pass, TestModulePathContainment_AbsoluteInModuleLinkDenied) |
 // | workdirCwd | GetEffectiveWorkDir | pkg/invowkfile/invowkfile.go | TestModulePathContainment_ContainerWorkDirGolden | working directory only, never a read target |
 // | workdirCwd | getContainerWorkDir | internal/runtime/container_provision.go | TestModulePathContainment_ContainerWorkDirGolden | - |
 // | isModuleRejectsLinkedRoot | IsModule | pkg/invowkmod/operations.go | TestModulePathContainment_GoldenVectors | os.Lstat rejects a symlinked root |
@@ -42,7 +42,7 @@
 // | allowedVendoredSelf | - | formal/alloy/ModulePathContainment.als | - | policy: a vendored child's own root, for the child's own ops |
 // | allowedWorkdirCwd | - | formal/alloy/ModulePathContainment.als | - | policy: a declared workdir is a cwd, not a read/copy/hash target |
 // | mutantPreFixF13LexicalScriptContainment | ResolveScriptWithFSAndModule | pkg/invowkfile/implementation.go | TestModulePathContainment_VendoredSymlinkScriptReadDenied | regression: the fixed F13 invowk_modules/ symlink hole; the replay asserts both script reads are denied |
-// | findingF17 | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_F17EnvVendoredSymlink | characterisation: invowk_modules/ symlink hole for env files |
+// | mutantPreFixF17EnvNoPhysicalContainment | LoadEnvFile | internal/runtime/dotenv.go | TestModulePathContainment_VendoredSymlinkEnvReadDenied | regression: the fixed F17 invowk_modules/ symlink hole for env files; the replay asserts the module env read is denied |
 // | probeF16 | inspectModuleEntry | pkg/invowkmod/operations_validate.go | TestModulePathContainment_F16Junction | characterisation: Windows junction leg; asserts IsModule and Load still admit an inner junction (F16, windows-latest run 43657442894), the script read through it denied by the physical check (containment pending windows-latest evidence), and both copies and the hash contained |
 
 module ModulePathContainment
@@ -215,12 +215,12 @@ pred containCheck[o: Op, mode: ContMode] {
 
 // accepts[o]: the operation's final read/copy/hash effect happens (current
 // code: value-type validate, then the lexical containment check, on an admitted
-// module; a script read is also physically contained, through os.Root, since
-// module-read-physical-containment fixed F13).
+// module; a script or env-file read is also physically contained, through
+// os.Root, since module-read-physical-containment fixed F13 and F17).
 pred accepts[o: Op] {
 	o.kind in (ScriptRead + EnvRead + ContainerfileRef + VendorCopy + Hash + Unpack)
 	and validates[o] and lexContains[o] and admitted[o.owner, True, True]
-	and (o.kind = ScriptRead implies physContains[o])
+	and (o.kind in (ScriptRead + EnvRead) implies physContains[o])
 }
 
 // ---------------------------------------------------------------------------

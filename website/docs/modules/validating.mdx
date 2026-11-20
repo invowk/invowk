@@ -33,7 +33,7 @@ Output for a valid module with an invowkfile:
 
 ### Runtime Read Containment
 
-Validation does not scan `invowk_modules/`, so a link placed there is not reported. Invowk still refuses to read through it: when a command runs, a module's `script.file` and every custom-check script `file` are read only if the path, with every link on it followed, resolves inside the module directory. This includes paths under `invowk_modules/`.
+Validation does not scan `invowk_modules/`, so a link placed there is not reported. Invowk still refuses to read through it: when a command runs, a module's `script.file` and every custom-check script `file` are read only if the path, with every link on it followed, resolves inside the module directory. This includes paths under `invowk_modules/`. The same rule applies to the module's `env.files` entries, which fail with `env file resolves outside module`.
 
 - A path that resolves outside the module, or a link that does not resolve (dangling or part of a cycle), fails with `script path escapes module boundary` before anything is read or run.
 - A link with an absolute target is denied even when its target is inside the module. Use a relative link, or better, a real file.
