@@ -316,6 +316,10 @@ func (m *spinModel) tick() tea.Cmd {
 //     action ended, or ErrSpinActionStillRunning when it did not;
 //   - when the spinner fails to draw, the action keeps running and
 //     SpinWithAction waits for it, then returns the spinner error.
+//
+// Whenever a terminal was opened, an error from closing it is joined to the
+// result, so a nil result above becomes that close error; callers classify
+// the result with errors.Is.
 func SpinWithAction(ctx context.Context, opts SpinOptions, action func(context.Context)) error {
 	if err := opts.Validate(); err != nil {
 		return err
