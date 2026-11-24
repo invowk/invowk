@@ -314,7 +314,7 @@ This is a problem with the cosign installation, not with the release.
 cosign output:
 ${_cv_output}
 
-Repair or upgrade cosign (v${COSIGN_MIN_BUNDLE_VERSION} or later), or remove it from PATH."
+Repair or upgrade cosign (v${COSIGN_MIN_BUNDLE_VERSION} or later) and try again."
     fi
     _cv_version=$(parse_cosign_version "${_cv_output}")
     if [ -z "${_cv_version}" ]; then
@@ -322,17 +322,23 @@ Repair or upgrade cosign (v${COSIGN_MIN_BUNDLE_VERSION} or later), or remove it 
         return 0
     fi
     if ! version_at_least "${_cv_version}" "${COSIGN_MIN_BUNDLE_VERSION}"; then
-        die "cosign ${_cv_version} is older than the minimum ${COSIGN_MIN_BUNDLE_VERSION} needed to verify this release; upgrade cosign or remove it from PATH.
-Without cosign on PATH, the installer checks only the SHA256 checksum of the archive (and fails if INVOWK_REQUIRE_SIGNATURE is on)."
+        die "cosign ${_cv_version} is older than the minimum ${COSIGN_MIN_BUNDLE_VERSION} needed to verify this release; upgrade cosign to v${COSIGN_MIN_BUNDLE_VERSION} or later and try again."
     fi
 }
 
 # Report whether cosign output ($1) shows that cosign could not reach the
 # Sigstore services (TUF metadata, Rekor) rather than a signature that does
-# not verify. Both outcomes are fatal; only the message differs.
+# not verify. Both outcomes are fatal; only the message differs. Part of the
+# output comes from the certificate under test (an identity mismatch prints the
+# SAN it got), so any identity or signature error counts as a bad signature, and
+# only cosign's own network phrases count as a network failure.
 cosign_output_is_network_error() {
+    if printf '%s\n' "$1" |
+        grep -Eiq 'CertificateIdentity|expected SAN|invalid signature|failed to verify|verification failed|no matching'; then
+        return 1
+    fi
     printf '%s\n' "$1" |
-        grep -Eiq '(^|[^a-z])tuf([^a-z]|$)|dial tcp|proxyconnect|no such host|connection refused|connection reset|i/o timeout|tls handshake timeout|deadline exceeded|network is unreachable'
+        grep -Eiq 'tuf refresh failed|getting trusted root from TUF|failed to create TUF client|dial tcp|proxyconnect tcp|no such host|connection refused|connection reset by peer|i/o timeout|TLS handshake timeout|context deadline exceeded|network is unreachable'
 }
 
 # Verify the Cosign signature of checksums.txt before it is trusted.
@@ -390,8 +396,8 @@ If this persists, report at https://github.com/${GITHUB_REPO}/issues"
         "${_sig_checksums}" 2>&1); then
         if cosign_output_is_network_error "${_sig_output}"; then
             die "cosign could not verify the signature of checksums.txt for ${_sig_version}: it could not reach the Sigstore services (TUF metadata or Rekor).
-This points to a network, proxy or cosign problem, not to a bad signature,
-but the installer does not continue without verifying the signature.
+This usually points to a network or proxy problem. Do not install this release
+until its signature verifies; the installer does not continue without it.
 cosign output:
 ${_sig_output}
 
@@ -482,6 +488,8 @@ This may indicate an API change. Report at: https://github.com/${GITHUB_REPO}/is
 validate_version_format() {
     _ver="$1"
     case "${_ver}" in
+        *[!0-9A-Za-z.+-]*)
+            return 1 ;; # Only tag characters: no '/', spaces or shell metacharacters
         v[0-9]*.[0-9]*.[0-9]*)
             return 0 ;; # Approximate semver format
         *)

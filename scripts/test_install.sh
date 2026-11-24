@@ -298,7 +298,7 @@ assert_eq "resolve_version adds the v prefix" "v1.2.3" "$(run_resolve 1.2.3)"
 assert_eq "resolve_version keeps a prerelease tag" "v0.1.0-alpha.1" "$(run_resolve v0.1.0-alpha.1)"
 assert_eq "resolve_version checks the tag endpoint" \
     "https://api.github.com/repos/invowk/invowk/releases/tags/v0.1.0-alpha.1" "$(cat "$_rv_log")"
-for _v in latest v1.2 1 "v" "../v1.0.0" "vx.y.z"; do
+for _v in latest v1.2 1 "v" "../v1.0.0" "vx.y.z" "v1.0.0/../../evil/v1.0.0" "v1.0.0 x" 'v1.0.0;x'; do
     assert_eq "resolve_version rejects INVOWK_VERSION '$_v'" "" "$(run_resolve "$_v")"
     assert_eq "resolve_version downloads nothing for INVOWK_VERSION '$_v'" "" "$(cat "$_rv_log")"
 done
@@ -449,8 +449,17 @@ assert_eq "verify_checksums_signature fails closed when cosign cannot reach Sigs
     "$(run_sig_case "" "$_fake_cosign_path" ".sigstore.json" 1)"
 assert_output_has "verify_checksums_signature reports a network failure as one" \
     "could not reach the Sigstore services"
-assert_output_lacks "verify_checksums_signature does not call a network failure a bad release" \
-    "Do not install this release."
+assert_output_lacks "verify_checksums_signature does not call a network failure a bad signature" \
+    "Signature verification of checksums.txt failed"
+assert_output_has "verify_checksums_signature still says not to install on a network failure" \
+    "Do not install this release"
+
+# A forged release signed by an attacker workflow whose path contains "tuf" stays a bad signature.
+FAKE_COSIGN_OUTPUT='Error: failed to verify certificate identity: no matching CertificateIdentity found, last error: expected SAN value "https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/v0.17.0", got "https://github.com/attacker/fork/.github/workflows/tuf.yml@refs/tags/v0.17.0"'
+assert_eq "verify_checksums_signature fails closed on an attacker SAN that mentions tuf" "1" \
+    "$(run_sig_case "" "$_fake_cosign_path" ".sigstore.json" 1)"
+assert_output_has "verify_checksums_signature reports an attacker SAN that mentions tuf as a bad release" \
+    "Signature verification of checksums.txt failed"
 unset FAKE_COSIGN_OUTPUT
 
 # The cosign version check (bundles only).
@@ -459,7 +468,7 @@ export FAKE_COSIGN_VERSION_OUTPUT
 assert_eq "verify_checksums_signature fails with a cosign older than the minimum" "1" \
     "$(run_sig_case "" "$_fake_cosign_path" ".sigstore.json" 0)"
 assert_output_has "verify_checksums_signature names the cosign minimum" \
-    "cosign 2.4.1 is older than the minimum 2.4.2 needed to verify this release; upgrade cosign or remove it from PATH"
+    "cosign 2.4.1 is older than the minimum 2.4.2 needed to verify this release; upgrade cosign to v2.4.2 or later and try again"
 assert_output_lacks "verify_checksums_signature does not call an old cosign a bad release" \
     "Do not install this release."
 assert_exit_code "verify_checksums_signature does not verify with a cosign older than the minimum" 1 \
