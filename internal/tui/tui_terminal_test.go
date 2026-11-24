@@ -333,7 +333,7 @@ func TestSpinWithAction_SpinnerFailureWaitsForAction(t *testing.T) {
 	if n := calls.Load(); n != 1 {
 		t.Fatalf("action calls = %d, want exactly 1", n)
 	}
-	if n := cancelled.Load(); n != 0 {
+	if cancelled.Load() != 0 {
 		t.Fatal("action context was cancelled after a spinner failure, want it left running")
 	}
 }
