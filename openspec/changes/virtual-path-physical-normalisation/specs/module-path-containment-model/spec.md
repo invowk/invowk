@@ -33,7 +33,11 @@ Findings SHALL use fixed ids. F8–F12 are reserved by sibling changes, and the 
 
 #### Scenario: Harness findings cite their evidence
 - **WHEN** the README Findings rows of F18 and F19 are read
-- **THEN** the F18 row SHALL cite the windows-latest probe (CI run 44523520503, job 135557989975) as the observed escape, and the F19 row SHALL cite the Linux probe of the spec stage at c2fe96ff, and each row SHALL say "Fixed" and name its pre-fix mutant and its replay
+- **THEN** the F18 row SHALL cite the windows-latest probe (CI run 44523520503, job 135557989975) as the observed escape, and the F19 row SHALL cite its replay `TestVirtualPathHarness_DanglingLinkEscapeDenied` failing against the product code of c2fe96ff, with the steps to re-run it, and each row SHALL say "Fixed" and name its pre-fix mutant and its replay
+
+#### Scenario: F19 evidence can be re-run
+- **WHEN** `internal/runtime/virtual_path_harness_formal_test.go` of this change replaces the same file in an export of c2fe96ff, and `TestVirtualPathHarness_DanglingLinkEscapeDenied` is run there
+- **THEN** the file SHALL compile, and the test SHALL fail
 
 ### Requirement: Seeded copy, discovery, hash, unpack, and harness calibration defects
 The seeded defects SHALL also include:
@@ -43,7 +47,7 @@ The seeded defects SHALL also include:
 - `inspectModuleEntry` not recording symlinks;
 - `computeModuleHash` following symlinks;
 - `validateDestinationPath` omitted;
-- in the harness resolver, one at a time: returning the unresolved path when two or more components are missing; treating a link whose target is missing as a missing name; not following a junction; and treating an error other than not-exist as a missing component.
+- in the harness resolver, one at a time: returning the unresolved path when two or more components are missing; treating a link whose target is missing as a missing name; not following a junction; treating an error other than not-exist as a missing component; and joining a `..` that follows a missing component instead of refusing it.
 
 #### Scenario: Remaining defects are seeded
 - **WHEN** the calibration defects are seeded one at a time
@@ -108,10 +112,14 @@ The `VirtualPathHarness` golden SHALL contain requests whose link kind is a junc
 
 #### Scenario: Junction vectors are counted off Windows
 - **WHEN** the harness golden is replayed on Linux or macOS
-- **THEN** the junction requests SHALL be skipped by the capability policy and their count SHALL be logged
+- **THEN** the junction requests SHALL be left out by the capability policy and their count SHALL be logged, and the test itself SHALL NOT be reported as skipped
 
 ### Requirement: Harness escape replays assert the denial
-Three replays in a `*_formal_test.go` file SHALL assert the fixed behaviour, each named in a binding cell: `TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied` (F14), `TestVirtualPathHarness_JunctionEscapeDenied` (F18, required on Windows and skipped elsewhere by the capability policy) and `TestVirtualPathHarness_DanglingLinkEscapeDenied` (F19). Each SHALL also show that nothing is created outside the allowed root. `TestVirtualPathHarness_F14DeepSymlink` SHALL no longer exist.
+Three replays in `internal/runtime/virtual_path_harness_formal_test.go` SHALL assert the fixed behaviour, each named in the binding cell of its own correspondence row: `TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied` (F14), `TestVirtualPathHarness_JunctionEscapeDenied` (F18) and `TestVirtualPathHarness_DanglingLinkEscapeDenied` (F19). Each SHALL also show that nothing is created outside the allowed root. `TestVirtualPathHarness_F14DeepSymlink` SHALL no longer exist.
+
+#### Scenario: Which replays are killers
+- **WHEN** the formal-bindings plan is built
+- **THEN** the F14 and F19 replays SHALL be killers of their rows, and the F18 replay, required on Windows and skipped elsewhere by the capability policy, SHALL NOT be one (see "The junction replay is never a killer")
 
 #### Scenario: Deep path replay
 - **WHEN** the F14 replay requests a path two missing components below an escaping symlink
@@ -125,12 +133,35 @@ Three replays in a `*_formal_test.go` file SHALL assert the fixed behaviour, eac
 - **WHEN** the F19 replay requests a symlink whose missing target lies in an outside directory
 - **THEN** the validator SHALL deny it, and the target SHALL NOT exist afterwards
 
+#### Scenario: Link target that climbs out of a missing directory
+- **WHEN** the F19 replay requests a link `d` whose target is `nope/../in/new`, with `nope` missing and `in` a link to an outside directory, written as a relative and as an absolute target
+- **THEN** the validator SHALL deny it, and the outside directory SHALL stay empty
+
 #### Scenario: Evidence names the tests
 - **WHEN** the change's pull request reports its Windows and macOS evidence
 - **THEN** it SHALL quote the CI run id, the job id and the names of the replays that ran and passed in that job, and a replay reported as skipped SHALL NOT count
 
+### Requirement: The junction replay is never a killer
+`TestVirtualPathHarness_JunctionEscapeDenied` SHALL NOT be a mutation or reach killer, because it is skipped off Windows and a skipped killer fails the reach gate and the mutation run. Its correspondence row SHALL name the F18 mutant command and the walk helper, and its abstraction cell SHALL begin `characterisation:`. The test SHALL be named on no other row. The walk helper's row SHALL keep killers that run on Linux.
+
+#### Scenario: Replay excluded from killers
+- **WHEN** the formal-bindings plan is built
+- **THEN** `TestVirtualPathHarness_JunctionEscapeDenied` SHALL NOT appear among any row's killers, and its row SHALL be reported as `characterisation-only`
+
+#### Scenario: Gates pass on Linux
+- **WHEN** `make formal-reach` runs on Linux
+- **THEN** it SHALL pass, with the walk helper reached by `TestVirtualPathHarness_GoldenVectors` and by the fake-filesystem test, and with no killer reported as skipped
+
+#### Scenario: Golden test is never reported as skipped
+- **WHEN** the harness golden is replayed on Linux or macOS
+- **THEN** `TestVirtualPathHarness_GoldenVectors` SHALL be reported as passed, with the junction requests left out inside the test and counted in its log
+
 ### Requirement: Harness rapid property has no finding exemption
-`TestVirtualPathHarness_Property` SHALL fail on every accepted path that resolves outside the allowed root, with no exemption for a deep path through a link, and on every denied path that resolves inside it. It SHALL generate links that escape and links that stay inside, with relative and with absolute targets, dangling links, and zero to three missing components. On Windows it SHALL also draw junctions.
+`TestVirtualPathHarness_Property` SHALL fail on every accepted path that resolves outside the allowed root, with no exemption for a deep path through a link, on every accepted path that cannot be resolved, and on every denied path that resolves inside the root.
+
+#### Scenario: Generated shapes
+- **WHEN** the property generates its cases
+- **THEN** they SHALL include links that escape and links that stay inside, with relative and with absolute targets, dangling links, link targets with `..` before and after a missing component, and zero to three missing components, and on Windows also junctions
 
 #### Scenario: Escape is a failure at every depth
 - **WHEN** the property generates a path through an escaping link with two or more missing components
@@ -140,9 +171,22 @@ Three replays in a `*_formal_test.go` file SHALL assert the fixed behaviour, eac
 - **WHEN** the property generates a path that resolves inside the allowed root, through a link or not
 - **THEN** a denial SHALL fail the property
 
+#### Scenario: Unresolvable path is denied
+- **WHEN** the property generates a path whose link target holds `..` after a missing component
+- **THEN** an acceptance SHALL fail the property, and nothing SHALL exist outside the allowed root afterwards
+
 ### Requirement: Harness resolver is tested over a fake filesystem
-The harness resolver SHALL read the filesystem through injected lookups, and a test SHALL drive it with a fake filesystem on every platform. That test SHALL cover what a Linux run cannot materialise: a junction-like entry, a reparse entry whose target cannot be read, a link target that is rooted but has no volume, a missing volume root, and a hop limit.
+The harness resolver SHALL read the filesystem through injected lookups, and a test SHALL drive it with a fake filesystem on every platform. That test SHALL cover what a Linux run cannot materialise: a junction-like entry, a reparse entry whose target cannot be read, a link target that is rooted but has no volume, a missing volume root, and a hop limit. It SHALL live in a `*_formal_test.go` file of its own, apart from the escape replays.
+
+#### Scenario: Result invariant and `..` handling
+- **WHEN** the fake-filesystem test checks a result of the resolver
+- **THEN** it SHALL assert that the existing prefix holds no link and that the missing components are plain names
+- **THEN** its cases SHALL include a `..` on an existing prefix (applied to the physical prefix), a `..` after a missing component (refused), and the report of a link whose target does not resolve
 
 #### Scenario: Junction branch is killed on Linux
 - **WHEN** the junction-following branch of the resolver is removed and the fake-filesystem test runs on Linux
 - **THEN** the test SHALL fail
+
+#### Scenario: Unwalked link after a missing component
+- **WHEN** the fake filesystem holds `root/in`, a link to `outside`, and `root/d`, a link to `nope/../in/new` with `nope` missing, and the resolver is given `root/d`
+- **THEN** it SHALL return an error, and SHALL NOT return `root/in/new`
