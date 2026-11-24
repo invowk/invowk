@@ -79,9 +79,12 @@ jobs:
       - name: Validate docs parity
         run: node scripts/validate-docs-parity.mjs --mode strict --all-locales
 
+      # See the header of scripts/ci-website-build.sh. The watchdog stays
+      # under this job's 10-minute timeout.
       - name: Verify website builds
-        working-directory: website
-        run: npm run build
+        env:
+          WEBSITE_BUILD_TIMEOUT_SECS: '420'
+        run: ./scripts/ci-website-build.sh
 
       # Create a verified commit via the GitHub GraphQL API.
       # Direct git commits on the runner are unsigned and rejected by the

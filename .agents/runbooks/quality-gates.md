@@ -55,7 +55,7 @@ Rulesets: "Safety" on `main` (pull request required with 0 approvals, signatures
 | `benchmarks.yml` | weekly schedule, dispatch, PRs labelled `benchmarks: run` | benchmark runs for Bencher (bencher skill) |
 | `benchmarks-upload.yml` | `workflow_run` of Benchmarks | uploads fork-PR benchmark results (labelled PRs only) |
 | `pgo-benchstat.yml` | weekly schedule, dispatch | compare `pgo=off` vs `pgo=on` with `benchstat` |
-| `test-website.yml` | PR (website/diagram/script changes), release, dispatch | validate version assets and build the website |
+| `test-website.yml` | PR (website/diagram/script changes), release, dispatch | validate version assets and build the website; this build, `deploy-website.yml`'s and `version-docs.yml`'s run through `scripts/ci-website-build.sh` (memory bounds for Rspack, a watchdog under the job timeout, memory samples and low-memory annotations) |
 | `validate-diagrams.yml` | PR, push, release | D2 syntax checks |
 | `deploy-website.yml` | push, dispatch | GitHub Pages deployment |
 | `version-docs.yml` | release published, dispatch | docs versioning |

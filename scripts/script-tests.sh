@@ -39,6 +39,7 @@ SCRIPT_TESTS=(
 	"Release helper scripts|bash scripts/test_release.sh"
 	"Bencher BMF script|node scripts/test_bench_bmf.mjs"
 	"Bencher registry login script|bash scripts/test_bencher_registry_login.sh"
+	"CI website build wrapper|bash scripts/test_ci_website_build.sh"
 	"WinGet manifest enhancement|sh scripts/test_enhance_winget_manifest.sh"
 	"golangci-lint wrapper|bash scripts/test_golangci_lint.sh"
 	"govulncheck wrapper|bash scripts/test_govulncheck_all.sh"
