@@ -19,16 +19,21 @@
 #    (13.2 GiB in the fourth) at the same build time. Each locale building in
 #    its own process would bound it further, but `--locale X` also drops the
 #    /X/ baseUrl, so that needs explicit i18n.localeConfigs baseUrls first.
-#    Values already set in the environment win.
+#    This lowers the risk; it does not remove it. Values already set in the
+#    environment win; Docusaurus treats any non-empty
+#    DOCUSAURUS_NO_PERSISTENT_CACHE (even "false" or "0") as set, so only an
+#    empty value turns the cache back on.
 # 2. A watchdog. The command runs under `timeout` in its own process group,
 #    which is killed after WEBSITE_BUILD_TIMEOUT_SECS (default 600, under the
-#    15-minute job limit), so a hang fails the step and its log is kept.
+#    15-minute job limit; release builds took 178-272 s at v0.14-v0.17 and
+#    grow with every docs version), so a hang fails the step and its log is
+#    kept.
 # 3. A memory sampler. Every WEBSITE_BUILD_SAMPLE_SECS (default 10) it prints
 #    available memory, swap and the largest processes, and it raises a
 #    `::warning::` annotation (at most three) when available memory drops
 #    below WEBSITE_BUILD_LOW_MEM_MIB (default 1536). Annotations travel with
-#    the step status, so they can survive a runner that dies before its log
-#    is uploaded.
+#    the step status, so they may survive a runner that dies before its log
+#    is uploaded (not verified).
 #
 # The exit status is the command's own; 124 or 137 after a watchdog kill.
 
@@ -83,8 +88,14 @@ sample_memory() {
 	set +e +o pipefail
 	local warnings=0
 
+	# The sleep runs as a background job that the TERM trap kills, so no
+	# sleep outlives the sampler and holds the step's stdout open.
+	local sleep_pid=""
+	trap 'kill "$sleep_pid" 2>/dev/null; exit 0' TERM
 	while :; do
-		sleep "$sample_secs"
+		sleep "$sample_secs" &
+		sleep_pid=$!
+		wait "$sleep_pid"
 		if ! memory_line $((SECONDS - started)) && ((warnings < 3)); then
 			warnings=$((warnings + 1))
 			printf '::warning title=Website build memory::%s\n' "$LOW_MEM_DETAIL"
@@ -112,18 +123,24 @@ cleanup() {
 	fi
 }
 
-# forward_signal stops the command's whole process group, then exits.
-# shellcheck disable=SC2329 # invoked by the INT/TERM trap
+# forward_signal SIG stops the command's whole process group, waits for it
+# (bounded: timeout arms its --kill-after alarm on an external TERM too), then
+# exits with the signal's conventional status.
+# shellcheck disable=SC2329 # invoked by the INT/TERM traps
 forward_signal() {
+	local status=143
+	[[ "$1" == INT ]] && status=130
 	if [[ -n "$build_pid" ]]; then
 		kill -TERM -- "-$build_pid" 2>/dev/null || kill -TERM "$build_pid" 2>/dev/null || true
+		wait "$build_pid" 2>/dev/null || true
 	fi
 	cleanup
-	exit 143
+	exit "$status"
 }
 
 trap cleanup EXIT
-trap forward_signal INT TERM
+trap 'forward_signal INT' INT
+trap 'forward_signal TERM' TERM
 
 cd "$WEBSITE_DIR"
 
@@ -140,7 +157,8 @@ sample_memory &
 sampler_pid=$!
 
 # Without --foreground, timeout makes itself a process-group leader and sends
-# its signals to the whole group, so worker processes cannot outlive it.
+# its signals to the whole group, so worker processes cannot outlive it once
+# it fires.
 timeout --kill-after="${kill_after_secs}s" "${timeout_secs}s" "$@" &
 build_pid=$!
 rc=0
