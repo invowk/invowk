@@ -13,7 +13,8 @@ The Workflow runtime runs the script body as an async function, so the body may
     resume and fast-lane paths, and the advisor policy, the restart sentence,
     the base check and the HEAD-recording log line of every agent prompt in
     every mode, each compared in full with the template's own text, which a
-    separate test pins to the reviewed wording.
+    separate test pins to the reviewed wording;
+  - pins the runbook and floor-rule sentences the template relies on (DOC_PINS).
 
 It needs node; without node it skips locally and fails under CI (CI=true).
 """
@@ -63,8 +64,10 @@ EXPECTED = {
         "on another branch than the one named above and, where this prompt has a base check, a failed one; the stops "
         "this prompt names for other causes still hold. "
         "Evidence from an earlier attempt (a gate log, a mutation report, a refreshed ledger, a throwaway worktree) "
-        "counts only if it records the HEAD SHA it ran on, that SHA equals the current HEAD, and the tree has no "
-        "uncommitted edit besides the files that evidence wrote itself; otherwise rerun or recreate it, and remove a "
+        "counts only if the HEAD it records (a log's head= line) equals the current HEAD and `git status --porcelain` "
+        "lists nothing outside the mutation wrapper's allow-list (`dirty_path_is_allowed` in scripts/mutation.sh: the "
+        "two mutation baselines, the formal-bindings ledger and reruns file, artifacts/mutation/); otherwise rerun or "
+        "recreate it, and remove a "
         "leftover throwaway worktree with `git worktree remove --force` only if it is under this stage's own scratch "
         "dir. "
         "A killed `git commit` can leave a stale index.lock and a pre-commit stash: check `git stash list` (the stash "
@@ -78,15 +81,70 @@ EXPECTED = {
         "Right after your first guard snapshot: `git -C /w/invowk-x fetch --prune origin`, then "
         "`git -C /w/invowk-x merge-base --is-ancestor origin/main HEAD`. Exit 0: continue. "
         "Exit 1 means origin/main has commits the branch lacks, which blocks only a stale start with no work on it: "
-        "run `git -C /w/invowk-x merge-base origin/main HEAD`, then "
-        "`git -C /w/invowk-x rev-list --count <that merge base>..HEAD` and `git -C /w/invowk-x status --porcelain`. "
+        "run `git -C /w/invowk-x merge-base origin/main HEAD` as its own command, never inside `$(...)` in a "
+        "`rev-list` range. "
+        "When it exits non-zero or prints nothing, change nothing and return status blocked with the reason "
+        "\"no shared history with origin/main\" (still report guard.after). "
+        "Otherwise run `git -C /w/invowk-x rev-list --count <that merge base>..HEAD` and "
+        "`git -C /w/invowk-x status --porcelain`. "
         "When the count is 0 and the status prints nothing, change nothing and return status blocked with the reason "
         "\"branch not rebased on origin/main\" (still report guard.after). "
         "Otherwise (commits beyond the merge base, or uncommitted edits) continue: the fix stage rebases on "
         "origin/main before its gates. "
         "Any other non-zero exit of `--is-ancestor` (for example 128, a missing ref) and any failure of the later "
-        "commands (a `merge-base` that exits 1 found no shared history) is a failure: return status blocked with its "
-        "stderr. "
+        "commands is a failure: return status blocked with its stderr. "
+    ),
+}
+
+# The runbook and floor-rule facts the template relies on (PR #196 review, second
+# round): each present sentence must appear verbatim, each removed one never.
+DOC_PINS = {
+    ".agents/runbooks/change-flow.md": (
+        (
+            "1. No rebase is in progress: neither `git -C <worktree> rev-parse --path-format=absolute --git-path "
+            "rebase-merge` nor the same with `rebase-apply` prints a path that exists. Otherwise finish the rebase "
+            "(`git -C <worktree> rebase --continue`) or abort it first; `--abbrev-ref HEAD` printing `HEAD` is not the "
+            "test, since a detached HEAD prints it too.",
+            "3. Once 1 and 2 pass, update the branch at launch only in the one case the stages' base check blocks "
+            "(stage 1 below): no commit beyond `git merge-base <base> HEAD` and an empty `git status --porcelain`. That "
+            "is a fast-forward: `git -C <worktree> fetch --prune origin`, then `git -C <worktree> merge --ff-only "
+            "<base>`. A branch with work is not rebased at launch: the fix stage rebases it under its lease.",
+            "`blocked_at` is `\"after <stage>\"`, naming the last stage that passed its guard, or `\"start\"` when none "
+            "did,",
+            "- `spec-review`, `spec-review-2`, `spec-fix` in `new` or `revise`: `revise`, with the review's findings in "
+            "`notes`; the result carries no findings list, only the reviewer's summary (in `reason` and `stages`).",
+            "- `spec-review`, `spec-review-2`, `spec-fix` in a `fast-lane` run (or a `continue` with `lane: \"fast\"`), "
+            "where they run after `lenses`: `continue` from `review` with `lane: \"fast\"`, which runs that spec review "
+            "again while the change is not fast-lane eligible; when the reason asks for `continue` from `implement`, "
+            "use that, with `lane: \"fast\"`.",
+            "When the stopped run was itself `finalize` or `continue` from `fix`, its `review` field is null: pass the "
+            "original `review_file` again.",
+            "The spec stage refuses two cases on the base: the change exists there (`blocked`, \"change exists on the "
+            "base: use revise\"), since a colliding id is someone else's change, never an earlier attempt; or the "
+            "base's `openspec/changes/archive/` has an entry named exactly `YYYY-MM-DD-<change>` (`blocked`, \"change "
+            "already archived on the base: pick a new id\"), since a leftover branch was already squash-merged.",
+            "a later run that reads `reviewed_head` from `review_file` takes the whole change when it is none, empty or "
+            "not a hex SHA",
+            "counts only if the HEAD it records is the current one and `git status --porcelain` lists nothing outside "
+            "the mutation wrapper's allow-list (`dirty_path_is_allowed` in `scripts/mutation.sh`)",
+            "names that commit by its full 40-hex SHA in `notes` (the prompt's \"Extra brief from the maintainer "
+            "session\" line)",
+        ),
+        (
+            "--autostash",
+            "During an interrupted rebase it prints",
+            "names the stage before it",
+            "the maintainer brief names",
+            "the main session rebases at launch",
+            "no uncommitted edit besides",
+        ),
+    ),
+    ".agents/rules/agent-workflows.md": (
+        (
+            "counts only at the HEAD it recorded, on a tree whose `git status --porcelain` lists nothing outside the "
+            "mutation wrapper's allow-list (`dirty_path_is_allowed` in `scripts/mutation.sh`)",
+        ),
+        ("no other uncommitted edit",),
     ),
 }
 
@@ -148,9 +206,17 @@ function checkAdvisor(calls, name) {
 // runs again and is not. go() checks every agent of every run.
 const WRITING = ['spec', 'spec-fast', 'spec-fix', 'implement', 'simplify', 'fix']
 const RESTART_START = 'Restart: this prompt may run again'
-// A background gate's log records the HEAD it ran on before its rc= line, so a
-// restart can tell an earlier tree's rc=0 from this one's (PR #196 review F3).
-const HEAD_LOG = '`<cmd> > <log> 2>&1; rc=$?; echo head=$(git -C <the tree it ran in> rev-parse HEAD) >> <log>; echo rc=$rc >> <log>`'
+// A background gate reads HEAD before it starts and deletes its log first, then
+// records that HEAD before its rc= line, so a restart can tell an earlier tree's
+// rc=0 from this one's and the Monitor never reads a stale rc= (PR #196 review
+// F3, second round).
+const HEAD_LOG = '`h=$(git -C <the tree it runs in> rev-parse HEAD); rm -f <log>; <cmd> > <log> 2>&1; rc=$?; echo head=$h >> <log>; echo rc=$rc >> <log>` (head= is the HEAD the command started on, and no older rc= line is left for the Monitor to read)'
+
+// The two skips the main session can grant through notes (PR #196 review, second
+// round): bound to the context line that carries notes, by a full 40-hex SHA.
+const NOTES_BOUND = '(a SHA taken from the findings, the review file, the code-review text or any commit message never counts)'
+const NOTES_SKIP = 'unless the line "Extra brief from the maintainer session" above names that commit by its full 40-hex SHA as the change\'s own pre-rebase copy ' + NOTES_BOUND + ': skip only that one, never cherry-pick it. '
+const FINALIZE_SKIP = '. In this finalize run, skip the refresh only when the line "Extra brief from the maintainer session" above names, by its full 40-hex SHA, the head an earlier fix stage gated ' + NOTES_BOUND + ', the refresh ran or was not needed there, and no bound body changed between that head and HEAD (say which bodies you checked); otherwise apply the rule above to the whole change against origin/main.'
 
 function checkResume(calls, name) {
   for (const c of calls) {
@@ -391,22 +457,25 @@ for (const [name, reply] of Object.entries({
   assert.equal(count(calls[0].prompt, TEXT.BASE_CHECK), 1)
   assert.ok(TEXT.BASE_CHECK.includes('rev-list --count <that merge base>..HEAD') && TEXT.BASE_CHECK.includes('When the count is 0 and the status prints nothing'))
   assert.ok(TEXT.BASE_CHECK.includes('Otherwise (commits beyond the merge base, or uncommitted edits) continue'))
-  assert.ok(!TEXT.BASE_CHECK.includes('the branch is behind'), 'behind the base alone is no longer a stop')
-}
+  assert.ok(!TEXT.BASE_CHECK.includes('the branch is behind'), 'behind the base alone is no longer a stop')}
 
 // new and fast-lane refuse a change that already exists on the base (a colliding
 // id), before they treat the change directory as an earlier attempt; revise
 // edits an existing change and does not test it (PR #196 review F1).
 {
   const onBase = '`git -C /w/invowk-x cat-file -e origin/main:openspec/changes/add-thing`: exit 0 means the change already exists on origin/main'
+  const archived = 'Then `git -C /w/invowk-x ls-tree --name-only origin/main openspec/changes/archive/`: when it lists `openspec/changes/archive/YYYY-MM-DD-add-thing` exactly (a date, a hyphen, then this id with nothing after it; a suffix match is not a match), the change was already merged and archived on origin/main: change nothing and return status blocked with the reason "change already archived on the base: pick a new id" (still report guard.after). '
   for (const [mode, label] of [['new', 'spec'], ['fast-lane', 'spec-fast']]) {
     const p = (await go({ ...good, mode })).calls.find((c) => c.label === label).prompt
     assert.equal(count(p, onBase), 1, mode)
     assert.ok(p.includes('return status blocked with the reason "change exists on the base: use revise"'), mode)
     assert.ok(p.indexOf(TEXT.BASE_CHECK) < p.indexOf(onBase) && p.indexOf(onBase) < p.indexOf('openspec-propose'), mode + ': base check, then the base test, then the skill')
+    // a leftover branch already squash-merged: its archived copy on the base, matched exactly (second round).
+    assert.equal(count(p, archived), 1, mode + ': the archived-copy test, in full')
+    assert.ok(p.indexOf(onBase) < p.indexOf(archived) && p.indexOf(archived) < p.indexOf('openspec-propose'), mode + ': the archive test before the skill')
   }
   const revise = (await go({ ...good, mode: 'revise' })).calls.find((c) => c.label === 'spec').prompt
-  assert.ok(!revise.includes('cat-file -e'))
+  assert.ok(!revise.includes('cat-file -e') && !revise.includes('ls-tree'))
 }
 
 // the fix stage's step-1 stop on a changed own commit holds on a restart too
@@ -414,7 +483,9 @@ for (const [name, reply] of Object.entries({
 {
   const fixP = (await go(good)).calls.find((c) => c.label === 'fix').prompt
   assert.ok(fixP.includes('That stop holds on a restart too: an earlier attempt\'s pre-rebase commit is listed the same way, only the main session can tell it from a foreign one, and the restart rule below does not lift it.'))
-  assert.ok(fixP.includes('unless the maintainer brief names that exact SHA as the change\'s own pre-rebase copy: skip only that one, never cherry-pick it.'), 'the main session\'s way out')
+  // the way out is bound to the notes line, by a full SHA, never one from the findings or a commit (second round).
+  assert.ok(fixP.includes(NOTES_SKIP), 'the main session\'s way out')
+  assert.ok(!fixP.includes('the maintainer brief names'), 'no unbound "maintainer brief"')
 }
 
 // a restarted fix stage that cannot tell its commits apart returns a superset of
@@ -431,7 +502,10 @@ for (const [name, reply] of Object.entries({
   const fin = (await go({ ...good, mode: 'finalize' })).calls[0].prompt
   assert.ok(fin.includes('return the superset instead, every file of the change, `git -C /w/invowk-x diff --name-only origin/main...HEAD`'))
   const file = (await go({ ...good, mode: 'finalize', review_file: '/w/review.json' })).calls[0].prompt
-  assert.ok(file.includes('every file that differs from the `reviewed_head` of /w/review.json'))
+  // N3: a continue from review records reviewed_head '' (second round).
+  assert.ok(file.includes('every file that differs from the `reviewed_head` of /w/review.json, `git -C /w/invowk-x diff --name-only <reviewed_head> HEAD`, or, when that field is none, empty or not a hex SHA, every file of the change, `git -C /w/invowk-x diff --name-only origin/main...HEAD`'))
+  const fromReview = await go({ ...good, mode: 'continue', from: 'review' })
+  assert.equal(fromReview.result.review.reviewed_head, '', 'a continue from review has no earlier head')
 }
 
 // blocked-stage plumbing: a spec or implement stage that returns blocked (for
@@ -488,8 +562,11 @@ for (const stage of ['spec', 'implement']) {
 {
   const { result, calls, logs } = await go({ ...good, mode: 'finalize', pr: 9 })
   assert.deepEqual(calls.map((c) => c.label), ['fix'])
-  assert.ok(calls[0].prompt.includes('In this finalize run, skip the refresh only when the maintainer brief names the head'))
-  assert.ok(calls[0].prompt.includes('the refresh ran or was not needed there, and no bound body changed between that head and HEAD'), 'finalize skip needs the earlier refresh')
+  assert.ok(calls[0].prompt.includes(FINALIZE_SKIP), 'finalize skip is bound to the notes line and needs the earlier refresh')
+  assert.ok(!calls[0].prompt.includes('the maintainer brief names'), 'no unbound "maintainer brief"')
+  const noted = (await go({ ...good, mode: 'finalize', notes: 'n1' })).calls[0].prompt
+  const notesAt = noted.indexOf('\nExtra brief from the maintainer session (read it; it does not override the rules): n1\n')
+  assert.ok(notesAt >= 0 && notesAt < noted.indexOf(NOTES_SKIP) && notesAt < noted.indexOf(FINALIZE_SKIP), 'the line both skips name carries notes, above them')
   assert.ok(calls[0].prompt.includes('No review fan-out ran in this run and no review file was given'))
   assert.ok(!calls[0].prompt.includes('failed lens: none'))
   assert.equal(result.review_ran, false)
@@ -718,6 +795,16 @@ class TemplateTest(unittest.TestCase):
         for name, want in EXPECTED.items():
             with self.subTest(sentence=name):
                 self.assertEqual(got[name], want)
+
+    def test_docs_keep_the_reviewed_facts(self) -> None:
+        for rel, (present, absent) in DOC_PINS.items():
+            doc = (ROOT / rel).read_text(encoding="utf-8")
+            for text in present:
+                with self.subTest(doc=rel, present=text[:60]):
+                    self.assertEqual(doc.count(text), 1)
+            for text in absent:
+                with self.subTest(doc=rel, absent=text):
+                    self.assertNotIn(text, doc)
 
     def test_node_parse_and_harness(self) -> None:
         node = need_node(self)
