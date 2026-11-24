@@ -245,15 +245,6 @@ func TestRunTUISpinCancelledContextMapsToStatusOne(t *testing.T) {
 	}
 }
 
-func TestTUISpinCommandWaitDelayBelowCancelWait(t *testing.T) {
-	t.Parallel()
-
-	if tuiSpinCommandWaitDelay >= tui.SpinCancelWait {
-		t.Fatalf("tuiSpinCommandWaitDelay = %v, want it below tui.SpinCancelWait (%v)",
-			tuiSpinCommandWaitDelay, tui.SpinCancelWait)
-	}
-}
-
 func immediateSpin(ctx context.Context, _ tui.SpinOptions, action func(context.Context)) error {
 	action(ctx)
 	return nil

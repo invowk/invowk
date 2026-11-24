@@ -84,7 +84,7 @@ Components use exit codes to communicate:
 | choose | Option selected | Cancelled |
 | filter | Option selected | Cancelled |
 | pager | Exited normally | Error occurred |
-| spin | Command succeeded | Cancelled with Ctrl+C (other failures forward the command's own code) |
+| spin | Command succeeded | Cancelled with Ctrl+C, the command was killed by a signal, or it was still running 15 seconds after it was stopped (any other failure forwards the command's own code) |
 
 Use in conditionals:
 

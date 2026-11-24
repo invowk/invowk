@@ -407,6 +407,35 @@ func TestTUI_Table(t *testing.T) {
 		}
 	})
 
+	// With stdout on the terminal, a non-selectable table still draws there
+	// and waits for a key (tui-clean-terminal-path, N15).
+	t.Run("display_on_terminal", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		csvPath := filepath.Join(tmpDir, "rows.csv")
+		if err := os.WriteFile(csvPath, []byte("name,age\nAlice,30\nBob,25\n"), 0o644); err != nil {
+			t.Fatalf("failed to create csv file: %v", err)
+		}
+
+		s := newTmuxSession(t, "table-display")
+		command := fmt.Sprintf("%s tui table --file %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("name", tmuxWaitTimeout) {
+			t.Fatalf("table did not render within timeout, pane:\n%s", s.capturePlain())
+		}
+		time.Sleep(tuiInputSettleDelay)
+		if pane := s.capturePlain(); strings.Contains(pane, "INVOWK_EXIT:0") {
+			t.Fatalf("table exited before a key press, pane:\n%s", pane)
+		}
+		s.sendKeys("Escape")
+
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("table command did not exit within timeout, pane:\n%s", s.capturePlain())
+		}
+	})
+
 	// With a terminal present and stdout piped, a non-selectable table prints
 	// plain-text rows and exits without a key press (tui-clean-terminal-path,
 	// N15).
@@ -456,15 +485,17 @@ func TestTUI_Spin(t *testing.T) {
 
 	// Ctrl+C stops the wrapped command, keeps its output and exits 1
 	// (tui-clean-terminal-path, N14). `exec sleep` makes the sleeper the
-	// direct child, so the kill reaches it. Markers are assembled by the shell
-	// so the typed command line cannot match them.
+	// direct child, so the kill reaches it. The pid file is written after the
+	// output line, so once it exists the line is already in spin's pipe.
+	// Markers are assembled by the shell so the typed command line cannot
+	// match them.
 	t.Run("ctrl_c_cancels_command", func(t *testing.T) {
 		t.Parallel()
 
 		pidPath := filepath.Join(t.TempDir(), "pid")
 		s := newTmuxSession(t, "spin-ctrl-c")
 		s.sendKeys("export INVOWK_T1=Spin INVOWK_T2=Wait INVOWK_S1=sta INVOWK_S2=rted", "Enter")
-		command := fmt.Sprintf(`%s tui spin --title "$INVOWK_T1$INVOWK_T2" -- sh -c 'echo $$ > %s; echo "$INVOWK_S1$INVOWK_S2"; exec sleep 30'; echo INVOWK_EXIT:$?`,
+		command := fmt.Sprintf(`%s tui spin --title "$INVOWK_T1$INVOWK_T2" -- sh -c 'echo "$INVOWK_S1$INVOWK_S2"; echo $$ > %s; exec sleep 30'; echo INVOWK_EXIT:$?`,
 			binaryPath, shellQuote(pidPath))
 		s.sendKeys(command, "Enter")
 

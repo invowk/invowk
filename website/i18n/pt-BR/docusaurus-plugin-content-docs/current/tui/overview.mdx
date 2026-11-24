@@ -84,7 +84,7 @@ Componentes usam códigos de saída para comunicar:
 | choose | Opção selecionada | Cancelado |
 | filter | Opção selecionada | Cancelado |
 | pager | Saiu normalmente | Erro ocorreu |
-| spin | Comando teve sucesso | Cancelado com Ctrl+C (outras falhas repassam o código do próprio comando) |
+| spin | Comando teve sucesso | Cancelado com Ctrl+C, o comando foi morto por um sinal, ou ainda rodava 15 segundos depois de ser parado (qualquer outra falha repassa o código do próprio comando) |
 
 Use em condicionais:
 

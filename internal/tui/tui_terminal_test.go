@@ -272,7 +272,7 @@ func TestSpinWithAction_NoTerminalRunsActionOnce(t *testing.T) {
 	t.Parallel()
 
 	var calls atomic.Int32
-	deps := spinActionDeps{resolve: noTerminalResolver, spinner: runActionSpinner, cancelWait: SpinCancelWait}
+	deps := spinActionDeps{resolve: noTerminalResolver, spinner: runSpinnerProgram, cancelWait: SpinCancelWait}
 	err := spinWithAction(t.Context(), spinOpts(), func(context.Context) { calls.Add(1) }, deps)
 	if err != nil {
 		t.Fatalf("spinWithAction() error = %v, want nil without a terminal", err)
@@ -289,7 +289,7 @@ func TestSpinWithAction_ResolverErrorSkipsAction(t *testing.T) {
 	var calls atomic.Int32
 	deps := spinActionDeps{
 		resolve:    func(ComponentType) (componentTerminal, error) { return componentTerminal{}, errResolve },
-		spinner:    runActionSpinner,
+		spinner:    runSpinnerProgram,
 		cancelWait: SpinCancelWait,
 	}
 	err := spinWithAction(t.Context(), spinOpts(), func(context.Context) { calls.Add(1) }, deps)
@@ -378,7 +378,7 @@ func TestSpinWithAction_CancelWaitsForAction(t *testing.T) {
 func TestSpinWithAction_ActionDoneBeforeSpinnerQuit(t *testing.T) {
 	t.Parallel()
 
-	// The spinner waits for doneCh, as runActionSpinner does, so the action
+	// The spinner waits for doneCh, as runSpinnerProgram does, so the action
 	// ended first: a normal completion.
 	spinner := func(_ componentTerminal, _ SpinOptions, doneCh <-chan struct{}) error {
 		<-doneCh
@@ -413,6 +413,48 @@ func TestSpinWithAction_CancelWaitBound(t *testing.T) {
 	}
 	if elapsed < bound || elapsed > bound+5*time.Second {
 		t.Fatalf("spinWithAction() returned after %v, want about the %v bound", elapsed, bound)
+	}
+}
+
+// TestSpinWithAction_CloseErrorKeepsCancellation covers a spinner that stops
+// early while closing the terminal fails: the outcome still comes from the
+// spinner's own result, so the action is cancelled and the wait stays bounded,
+// and the close error is reported with it.
+func TestSpinWithAction_CloseErrorKeepsCancellation(t *testing.T) {
+	t.Parallel()
+
+	errClose := errors.New("terminal close failed")
+	for _, tc := range []struct {
+		name    string
+		spinErr error
+	}{
+		{name: "spinner quits", spinErr: nil},
+		{name: "spinner interrupted", spinErr: tea.ErrInterrupted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var closes atomic.Int32
+			deps := spinActionDeps{
+				resolve: func(ComponentType) (componentTerminal, error) {
+					return componentTerminal{close: func() error { closes.Add(1); return errClose }}, nil
+				},
+				spinner:    func(componentTerminal, SpinOptions, <-chan struct{}) error { return tc.spinErr },
+				cancelWait: SpinCancelWait,
+			}
+			action := func(ctx context.Context) { <-ctx.Done() }
+
+			err := spinWithAction(t.Context(), spinOpts(), action, deps)
+			if !errors.Is(err, ErrSpinCancelled) {
+				t.Fatalf("spinWithAction() error = %v, want ErrSpinCancelled", err)
+			}
+			if !errors.Is(err, errClose) {
+				t.Fatalf("spinWithAction() error = %v, want the close error joined", err)
+			}
+			if n := closes.Load(); n != 1 {
+				t.Fatalf("terminal closed %d times, want 1", n)
+			}
+		})
 	}
 }
 

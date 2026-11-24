@@ -26,6 +26,7 @@ N15, display-only components with stdout redirected:
   - cells are left-aligned and padded with spaces to the widest cell of their column, measured in terminal cells, so wide characters line up;
   - columns are separated by two spaces, trailing spaces are trimmed, and every line ends with `\n`;
   - there is no border, no header rule and no ANSI;
+  - a control character in a cell (a newline, a tab, an escape) is written as a space, so each row stays on one line;
   - every row is printed: `--height` and `--widths` do not apply, so nothing is cut off;
   - a row with fewer cells than the widest row is padded with empty cells.
 

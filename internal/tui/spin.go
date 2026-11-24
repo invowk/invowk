@@ -119,7 +119,7 @@ type (
 	}
 
 	// actionSpinnerFunc draws the spinner on terminal until doneCh is closed
-	// (runActionSpinner); tests inject a failing one.
+	// and leaves terminal open (runSpinnerProgram); tests inject a failing one.
 	actionSpinnerFunc func(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) error
 
 	// spinActionDeps holds what spinWithAction needs besides its inputs; tests
@@ -323,7 +323,7 @@ func SpinWithAction(ctx context.Context, opts SpinOptions, action func(context.C
 
 	return spinWithAction(ctx, opts, action, spinActionDeps{
 		resolve:    resolveComponentTerminal,
-		spinner:    runActionSpinner,
+		spinner:    runSpinnerProgram,
 		cancelWait: SpinCancelWait,
 	})
 }
@@ -331,6 +331,8 @@ func SpinWithAction(ctx context.Context, opts SpinOptions, action func(context.C
 // spinWithAction resolves the terminal before it starts the action, so the
 // action runs exactly once whatever the outcome. deps.cancelWait bounds the
 // wait after a cancellation (SpinWithAction documents the outcomes).
+// spinWithAction closes the terminal itself once the spinner has stopped, so
+// that a failure to close it is joined to the outcome and never decides it.
 func spinWithAction(ctx context.Context, opts SpinOptions, action func(context.Context), deps spinActionDeps) error {
 	actionCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -351,15 +353,16 @@ func spinWithAction(ctx context.Context, opts SpinOptions, action func(context.C
 	}()
 
 	spinErr := deps.spinner(terminal, opts, doneCh)
+	closeErr := terminal.Close()
 	if spinErr != nil && !errors.Is(spinErr, tea.ErrInterrupted) {
 		// A drawing failure, not a cancellation: the action keeps running.
 		<-doneCh
-		return spinErr
+		return errors.Join(spinErr, closeErr)
 	}
 
 	select {
 	case <-doneCh:
-		return nil
+		return closeErr
 	default:
 	}
 
@@ -369,9 +372,9 @@ func spinWithAction(ctx context.Context, opts SpinOptions, action func(context.C
 	defer timer.Stop()
 	select {
 	case <-doneCh:
-		return ErrSpinCancelled
+		return errors.Join(ErrSpinCancelled, closeErr)
 	case <-timer.C:
-		return ErrSpinActionStillRunning
+		return errors.Join(ErrSpinActionStillRunning, closeErr)
 	}
 }
 
@@ -553,11 +556,14 @@ func (m spinActionModel) View() tea.View {
 
 // runActionSpinner displays a spinner on terminal until doneCh is closed, then
 // closes terminal.
-func runActionSpinner(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) (err error) {
-	defer func() {
-		err = errors.Join(err, terminal.Close())
-	}()
+func runActionSpinner(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) error {
+	err := runSpinnerProgram(terminal, opts, doneCh)
+	return errors.Join(err, terminal.Close())
+}
 
+// runSpinnerProgram displays a spinner on terminal until doneCh is closed, and
+// returns the Bubble Tea program's own result. It leaves terminal open.
+func runSpinnerProgram(terminal componentTerminal, opts SpinOptions, doneCh <-chan struct{}) error {
 	model := spinActionModel{
 		title: types.DescriptionText(opts.Title), //goplint:ignore -- display text from TUI options
 		spinner: bspinner.New(
@@ -568,7 +574,7 @@ func runActionSpinner(terminal componentTerminal, opts SpinOptions, doneCh <-cha
 	}
 
 	program := tea.NewProgram(model, terminal.programOptions()...)
-	_, err = program.Run()
+	_, err := program.Run()
 	return err
 }
 

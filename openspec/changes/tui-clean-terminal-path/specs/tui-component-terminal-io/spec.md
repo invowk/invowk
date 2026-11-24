@@ -77,7 +77,7 @@ When the stdout of `invowk tui pager`, or of `invowk tui table` without `--selec
 - **THEN** the table SHALL draw on the terminal, and `$row` SHALL hold only the selected row
 
 ### Requirement: Plain-text table format
-The plain-text `table` output SHALL start with a line of column titles (the header row, or `--columns`), followed by one line per data row in input order. Each cell SHALL be left-aligned and padded with spaces to the widest cell of its column, measured in terminal cells, with two spaces between columns, trailing spaces trimmed, and `\n` line endings. It SHALL hold no control sequences, borders or header rule. Every row SHALL be printed, whatever `--height` and `--widths` say.
+The plain-text `table` output SHALL start with a line of column titles (the header row, or `--columns`), followed by one line per data row in input order. Each cell SHALL be left-aligned and padded with spaces to the widest cell of its column, measured in terminal cells, with two spaces between columns, trailing spaces trimmed, and `\n` line endings. Each control character in a cell (a newline, a tab, an escape) SHALL be written as a space, so every row stays on one line. It SHALL hold no control sequences, borders or header rule. Every row SHALL be printed, whatever `--height` and `--widths` say.
 
 #### Scenario: Aligned rows
 - **WHEN** `invowk tui table --separator '|'` runs with stdout not a terminal and stdin `name|age|city`, `Alice|30|NYC`, `Bob|25|LA`
@@ -86,6 +86,10 @@ The plain-text `table` output SHALL start with a line of column titles (the head
 #### Scenario: Short rows and overridden titles
 - **WHEN** `invowk tui table --columns a,b,c` runs with stdout not a terminal and stdin `x,y,z` and `1`
 - **THEN** stdout SHALL be exactly `a  b  c`, `x  y  z`, `1`, one per line
+
+#### Scenario: Control characters in a cell
+- **WHEN** `invowk tui table --file rows.csv` runs with stdout not a terminal and `rows.csv` holds `name,notes` and `Alice,"line1` / `line2"` (a quoted field with a newline)
+- **THEN** stdout SHALL be exactly `name   notes`, `Alice  line1 line2`, one per line
 
 #### Scenario: Height does not cut rows
 - **WHEN** `invowk tui table --height 2 --file rows.csv` runs with stdout not a terminal and `rows.csv` holds 30 data rows

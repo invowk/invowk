@@ -26,6 +26,11 @@ exitcode 1 notty invowk tui confirm 'Proceed?'
 ! stdout .
 stderr 'Confirm needs a terminal'
 
+# A selectable table is a value component too, unlike a display table.
+exitcode 1 notty invowk tui table --selectable --file rows.csv
+! stdout .
+stderr 'Table needs a terminal'
+
 # Test 2: spin runs the command without the spinner and keeps its stdout and
 # exit status.
 exitcode 3 notty invowk tui spin --title Wait -- tuiaction first.log 3

@@ -27,9 +27,11 @@ func TestTUISpinSIGINTWithoutTerminal(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	// The pid file is written after the marker, so once it exists "started"
+	// is already in spin's output pipe, whenever SIGINT then lands.
 	pidPath := filepath.Join(t.TempDir(), "pid")
 	cmd := exec.CommandContext(t.Context(), binaryPath, "tui", "spin", "--",
-		"sh", "-c", `echo $$ > "$1"; echo started; exec sleep 30`, "sh", pidPath)
+		"sh", "-c", `echo started; echo $$ > "$1"; exec sleep 30`, "sh", pidPath)
 	devNull, err := os.Open(os.DevNull)
 	if err != nil {
 		t.Fatalf("open %s: %v", os.DevNull, err)

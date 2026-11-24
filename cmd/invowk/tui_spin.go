@@ -19,15 +19,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tuiSpinCommandWaitDelay bounds Wait after the wrapped command was killed, so
-// a grandchild that holds the output pipe cannot keep spin alive. It must stay
-// below tui.SpinCancelWait, so that a cancelled command normally ends before
-// SpinWithAction stops waiting for it.
-const tuiSpinCommandWaitDelay = 10 * time.Second
+const (
+	// tuiSpinCommandWaitDelay bounds Wait after the wrapped command was killed,
+	// so a grandchild that holds the output pipe cannot keep spin alive. It
+	// must stay below tui.SpinCancelWait, so that a cancelled command normally
+	// ends before SpinWithAction stops waiting for it.
+	tuiSpinCommandWaitDelay = 10 * time.Second
+
+	// The build fails unless tuiSpinCommandWaitDelay is below
+	// tui.SpinCancelWait: a negative constant does not convert to uint64.
+	_ = uint64(tui.SpinCancelWait - tuiSpinCommandWaitDelay - 1)
+
+	// errTUISpinNotRunMsg is the message of errTUISpinNotRun.
+	errTUISpinNotRunMsg = "spin: the command did not run"
+)
 
 // errTUISpinNotRun reports a spin function that returned without running the
 // command and without an error; tui.SpinWithAction never does that.
-var errTUISpinNotRun = errors.New("spin: the command did not run")
+var errTUISpinNotRun = errors.New(errTUISpinNotRunMsg)
 
 type (
 	tuiSpinRunner interface {

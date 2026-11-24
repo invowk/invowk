@@ -62,6 +62,12 @@ func TestWriteTableText(t *testing.T) {
 			want:    "a\nx  y\n",
 		},
 		{
+			name:    "control characters become spaces",
+			headers: []string{"name", "notes"},
+			rows:    [][]string{{"Alice", "line1\nline2"}, {"Bob", "a\tb\x1b[31mc\r"}},
+			want:    "name   notes\nAlice  line1 line2\nBob    a b [31mc\n",
+		},
+		{
 			name:    "headers only",
 			headers: []string{"name", "age"},
 			want:    "name  age\n",
