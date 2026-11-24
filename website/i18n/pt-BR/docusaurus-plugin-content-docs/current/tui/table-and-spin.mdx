@@ -101,6 +101,13 @@ O comando spin retorna o código de saída do comando encapsulado:
 
 <Snippet id="tui/spin-exit-code" />
 
+Outros resultados:
+
+- **Ctrl+C.** Pressionar Ctrl+C enquanto o spinner aparece para o comando encapsulado, mostra a saída que ele produziu até ali e sai com status `1`, o status que qualquer comando invowk cancelado dá. Só o comando que o spin iniciou é parado: processos que ele mesmo iniciou podem continuar rodando.
+- **Um comando que não para.** Se o comando não terminou 15 segundos depois de ser parado, o spin sai com status `1`, não mostra nada dele e avisa em stderr que ele pode continuar rodando.
+- **Um comando morto por um sinal.** Um comando que termina sem status de saída, porque um sinal o matou, faz o spin mostrar a saída dele e sair com status `1`.
+- **Uma falha do spinner.** Se o spinner não consegue desenhar depois que o comando começou, o comando continua rodando. O spin então mostra a saída e sai com o status dele, e o erro do spinner vai para stderr como aviso.
+
 ### Em Scripts
 
 <Snippet id="tui/spin-script" />

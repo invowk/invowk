@@ -763,7 +763,7 @@ Per-command exceptions:
 |---------|-------|
 | `invowk audit` | `0` clean, `1` findings detected, `2` scan or configuration error; command-line rejections also exit `2` |
 | `invowk tui confirm` | `1` when the user declines |
-| `invowk tui spin` | the wrapped command's exit code |
+| `invowk tui spin` | the wrapped command's exit code; `1` when cancelled with Ctrl+C or when a signal ended the command |
 | `invowk validate` | `1` when validation finds errors |
 
 :::note

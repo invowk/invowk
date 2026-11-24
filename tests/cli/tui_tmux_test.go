@@ -430,6 +430,62 @@ func TestTUI_Spin(t *testing.T) {
 			t.Errorf("expected spin command output in pane, got:\n%s", output)
 		}
 	})
+
+	// Ctrl+C stops the wrapped command, keeps its output and exits 1
+	// (tui-clean-terminal-path, N14). `exec sleep` makes the sleeper the
+	// direct child, so the kill reaches it. Markers are assembled by the shell
+	// so the typed command line cannot match them.
+	t.Run("ctrl_c_cancels_command", func(t *testing.T) {
+		t.Parallel()
+
+		pidPath := filepath.Join(t.TempDir(), "pid")
+		s := newTmuxSession(t, "spin-ctrl-c")
+		s.sendKeys("export INVOWK_T1=Spin INVOWK_T2=Wait INVOWK_S1=sta INVOWK_S2=rted", "Enter")
+		command := fmt.Sprintf(`%s tui spin --title "$INVOWK_T1$INVOWK_T2" -- sh -c 'echo $$ > %s; echo "$INVOWK_S1$INVOWK_S2"; exec sleep 30'; echo INVOWK_EXIT:$?`,
+			binaryPath, shellQuote(pidPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("SpinWait", tmuxWaitTimeout) {
+			t.Fatalf("spinner did not render within timeout, pane:\n%s", s.capturePlain())
+		}
+		deadline := time.Now().Add(tmuxWaitTimeout)
+		for _, err := os.Stat(pidPath); err != nil; _, err = os.Stat(pidPath) {
+			if time.Now().After(deadline) {
+				t.Fatal("wrapped command did not start within timeout")
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		time.Sleep(tuiInputSettleDelay)
+		start := time.Now()
+		s.sendKeys("C-c")
+
+		// Well before the 30 s sleep: the command was stopped, not awaited.
+		if !s.waitFor("INVOWK_EXIT:1", 20*time.Second) {
+			t.Fatalf("spin did not exit 1 after Ctrl+C, pane:\n%s", s.capturePlain())
+		}
+		if elapsed := time.Since(start); elapsed > 20*time.Second {
+			t.Fatalf("spin exited %v after Ctrl+C, want well before the 30 s sleep", elapsed)
+		}
+		if output := s.capturePlain(); !paneHasLine(output, "started") {
+			t.Errorf("expected the command output line 'started' in the pane, got:\n%s", output)
+		}
+
+		s.sendKeys(fmt.Sprintf("echo INVOWK_PID_$(kill -0 $(cat %s) 2>/dev/null && echo ALIVE || echo GONE)", shellQuote(pidPath)), "Enter")
+		if !s.waitFor("INVOWK_PID_GONE", 5*time.Second) {
+			t.Errorf("the wrapped command is still running after Ctrl+C, pane:\n%s", s.capturePlain())
+		}
+	})
+}
+
+// paneHasLine reports whether a line of the captured pane, without trailing
+// spaces, equals want.
+func paneHasLine(pane, want string) bool {
+	for line := range strings.SplitSeq(pane, "\n") {
+		if strings.TrimRight(line, " ") == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestTUI_Pager exercises `invowk tui pager` dismissal flow via tmux.

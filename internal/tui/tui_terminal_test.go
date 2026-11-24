@@ -11,6 +11,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 var (
@@ -253,11 +256,24 @@ func TestRunComponentProgramWith_NoTerminal(t *testing.T) {
 	}
 }
 
+func fakeTerminalResolver(ComponentType) (componentTerminal, error) {
+	return componentTerminal{close: func() error { return nil }}, nil
+}
+
+// spinOpts is the option set every spinWithAction test uses.
+func spinOpts() SpinOptions { return SpinOptions{Title: "Wait", Type: SpinnerLine} }
+
+// spinDeps returns test dependencies with a fake terminal and spinner.
+func spinDeps(spinner actionSpinnerFunc, cancelWait time.Duration) spinActionDeps {
+	return spinActionDeps{resolve: fakeTerminalResolver, spinner: spinner, cancelWait: cancelWait}
+}
+
 func TestSpinWithAction_NoTerminalRunsActionOnce(t *testing.T) {
 	t.Parallel()
 
 	var calls atomic.Int32
-	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, func() { calls.Add(1) }, noTerminalResolver, runActionSpinner)
+	deps := spinActionDeps{resolve: noTerminalResolver, spinner: runActionSpinner, cancelWait: SpinCancelWait}
+	err := spinWithAction(t.Context(), spinOpts(), func(context.Context) { calls.Add(1) }, deps)
 	if err != nil {
 		t.Fatalf("spinWithAction() error = %v, want nil without a terminal", err)
 	}
@@ -271,8 +287,12 @@ func TestSpinWithAction_ResolverErrorSkipsAction(t *testing.T) {
 
 	errResolve := errors.New("resolver broke")
 	var calls atomic.Int32
-	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, func() { calls.Add(1) },
-		func(ComponentType) (componentTerminal, error) { return componentTerminal{}, errResolve }, runActionSpinner)
+	deps := spinActionDeps{
+		resolve:    func(ComponentType) (componentTerminal, error) { return componentTerminal{}, errResolve },
+		spinner:    runActionSpinner,
+		cancelWait: SpinCancelWait,
+	}
+	err := spinWithAction(t.Context(), spinOpts(), func(context.Context) { calls.Add(1) }, deps)
 	if !errors.Is(err, errResolve) {
 		t.Fatalf("spinWithAction() error = %v, want the resolver error", err)
 	}
@@ -286,23 +306,24 @@ func TestSpinWithAction_SpinnerFailureWaitsForAction(t *testing.T) {
 
 	errSpinner := errors.New("spinner program failed")
 	release := make(chan struct{})
-	var calls, finished atomic.Int32
-	action := func() {
+	var calls, finished, cancelled atomic.Int32
+	action := func(ctx context.Context) {
 		calls.Add(1)
 		<-release
+		if ctx.Err() != nil {
+			cancelled.Add(1)
+		}
 		finished.Add(1)
 	}
-	resolve := func(ComponentType) (componentTerminal, error) {
-		return componentTerminal{close: func() error { return nil }}, nil
-	}
 	// The spinner fails while the action is still blocked, and lets the action
-	// finish only as it returns: spinWithAction must still wait for it.
+	// finish only as it returns: spinWithAction must still wait for it, and
+	// must not cancel it, since a drawing failure is not a cancellation.
 	spinner := func(_ componentTerminal, _ SpinOptions, _ <-chan struct{}) error {
 		close(release)
 		return errSpinner
 	}
 
-	err := spinWithAction(SpinOptions{Title: "Wait", Type: SpinnerLine}, action, resolve, spinner)
+	err := spinWithAction(t.Context(), spinOpts(), action, spinDeps(spinner, SpinCancelWait))
 	if !errors.Is(err, errSpinner) {
 		t.Fatalf("spinWithAction() error = %v, want the spinner error", err)
 	}
@@ -311,6 +332,100 @@ func TestSpinWithAction_SpinnerFailureWaitsForAction(t *testing.T) {
 	}
 	if n := calls.Load(); n != 1 {
 		t.Fatalf("action calls = %d, want exactly 1", n)
+	}
+	if n := cancelled.Load(); n != 0 {
+		t.Fatal("action context was cancelled after a spinner failure, want it left running")
+	}
+}
+
+// TestSpinWithAction_CancelWaitsForAction is the N14 race test: it failed on
+// the code before the fix, where spinWithAction returned as soon as the
+// spinner quit and the action still wrote its result afterwards.
+func TestSpinWithAction_CancelWaitsForAction(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		spinErr error
+	}{
+		{name: "spinner quits", spinErr: nil},
+		{name: "spinner interrupted", spinErr: tea.ErrInterrupted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// The spinner returns at once, as it does after Ctrl+C: spinWithAction
+			// must cancel the action and not return while it can still write.
+			spinner := func(componentTerminal, SpinOptions, <-chan struct{}) error { return tc.spinErr }
+			var result string
+			action := func(ctx context.Context) {
+				<-ctx.Done()
+				time.Sleep(20 * time.Millisecond)
+				result = "written"
+			}
+
+			err := spinWithAction(t.Context(), spinOpts(), action, spinDeps(spinner, SpinCancelWait))
+			if !errors.Is(err, ErrSpinCancelled) || !errors.Is(err, context.Canceled) {
+				t.Fatalf("spinWithAction() error = %v, want ErrSpinCancelled wrapping context.Canceled", err)
+			}
+			if result != "written" {
+				t.Fatalf("result = %q after spinWithAction returned, want the action finished", result)
+			}
+		})
+	}
+}
+
+func TestSpinWithAction_ActionDoneBeforeSpinnerQuit(t *testing.T) {
+	t.Parallel()
+
+	// The spinner waits for doneCh, as runActionSpinner does, so the action
+	// ended first: a normal completion.
+	spinner := func(_ componentTerminal, _ SpinOptions, doneCh <-chan struct{}) error {
+		<-doneCh
+		return nil
+	}
+	var cancelled atomic.Bool
+	action := func(ctx context.Context) { cancelled.Store(ctx.Err() != nil) }
+
+	if err := spinWithAction(t.Context(), spinOpts(), action, spinDeps(spinner, SpinCancelWait)); err != nil {
+		t.Fatalf("spinWithAction() error = %v, want nil when the action ended first", err)
+	}
+	if cancelled.Load() {
+		t.Fatal("action saw a cancelled context, want it left alone")
+	}
+}
+
+func TestSpinWithAction_CancelWaitBound(t *testing.T) {
+	t.Parallel()
+
+	spinner := func(componentTerminal, SpinOptions, <-chan struct{}) error { return tea.ErrInterrupted }
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	// The action ignores its context and blocks until the test ends.
+	action := func(context.Context) { <-release }
+
+	const bound = 50 * time.Millisecond
+	start := time.Now()
+	err := spinWithAction(t.Context(), spinOpts(), action, spinDeps(spinner, bound))
+	elapsed := time.Since(start)
+	if !errors.Is(err, ErrSpinActionStillRunning) {
+		t.Fatalf("spinWithAction() error = %v, want ErrSpinActionStillRunning", err)
+	}
+	if elapsed < bound || elapsed > bound+5*time.Second {
+		t.Fatalf("spinWithAction() returned after %v, want about the %v bound", elapsed, bound)
+	}
+}
+
+func TestSpinActionModel_CtrlCInterrupts(t *testing.T) {
+	t.Parallel()
+
+	model := spinActionModel{doneCh: make(chan struct{})}
+	_, cmd := model.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("Update(ctrl+c) returned no command, want tea.Interrupt")
+	}
+	if _, ok := cmd().(tea.InterruptMsg); !ok {
+		t.Fatalf("Update(ctrl+c) command message = %T, want tea.InterruptMsg", cmd())
 	}
 }
 

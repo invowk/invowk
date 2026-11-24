@@ -2972,6 +2972,8 @@ invowk tui spin --type globe --title "Downloading..." -- curl -O https://example
 # Available types: line, dot, minidot, jump, pulse, points, globe, moon, monkey, meter, hamburger, ellipsis
 ```
 
+spin exits with the wrapped command's status. Ctrl+C stops the command, prints what it wrote so far and exits `1`; a command killed by a signal also makes spin exit `1`.
+
 ### Pager
 
 Scroll through long content:

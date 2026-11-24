@@ -101,6 +101,13 @@ The spin command returns the exit code of the wrapped command:
 
 <Snippet id="tui/spin-exit-code" />
 
+Other outcomes:
+
+- **Ctrl+C.** Pressing Ctrl+C while the spinner shows stops the wrapped command, prints the output it produced so far, and exits with status `1`, the status any cancelled invowk command gives. Only the command spin started is stopped: processes that it started itself can keep running.
+- **A command that does not stop.** If the command has not ended 15 seconds after it was stopped, spin exits with status `1`, prints nothing from it, and says on stderr that it may still be running.
+- **A command killed by a signal.** A command that ends without an exit status, because a signal killed it, makes spin print its output and exit with status `1`.
+- **A spinner failure.** If the spinner cannot draw after the command started, the command keeps running. spin then prints its output and exits with its status, and the spinner error goes to stderr as a warning.
+
 ### In Scripts
 
 <Snippet id="tui/spin-script" />

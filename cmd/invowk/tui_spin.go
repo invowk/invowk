@@ -19,14 +19,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// tuiSpinCommandWaitDelay bounds Wait after the wrapped command was killed, so
+// a grandchild that holds the output pipe cannot keep spin alive. It must stay
+// below tui.SpinCancelWait, so that a cancelled command normally ends before
+// SpinWithAction stops waiting for it.
 const tuiSpinCommandWaitDelay = 10 * time.Second
+
+// errTUISpinNotRun reports a spin function that returned without running the
+// command and without an error; tui.SpinWithAction never does that.
+var errTUISpinNotRun = errors.New("spin: the command did not run")
 
 type (
 	tuiSpinRunner interface {
 		Run(context.Context, string, []string) tuiSpinRunResult
 	}
 
-	tuiSpinAction func(tui.SpinOptions, func()) error
+	tuiSpinAction func(context.Context, tui.SpinOptions, func(context.Context)) error
 
 	tuiSpinRunResult struct {
 		//goplint:ignore -- CLI adapter carries raw process output from exec.CombinedOutput.
@@ -87,10 +95,11 @@ func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunne
 	// Find the command to run (after --)
 	command := args[0]
 	cmdArgs := args[1:]
+	ctx := cmd.Context()
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiclient.NewClientFromEnv(); client != nil {
-		if clientErr := client.SpinContext(cmd.Context(), tuiwire.SpinRequest{
+		if clientErr := client.SpinContext(ctx, tuiwire.SpinRequest{
 			Title:   spinTitle,
 			Spinner: spinType,
 		}); clientErr != nil {
@@ -102,15 +111,30 @@ func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunne
 		return parseErr
 	}
 
-	var runResult tuiSpinRunResult
-	spinErr := spin(tui.SpinOptions{
+	// The result goes through a buffered channel: the send happens before the
+	// action ends, and SpinWithAction returns after it observed the end, so a
+	// non-blocking receive sees it on every path where the command ended.
+	results := make(chan tuiSpinRunResult, 1)
+	spinErr := spin(ctx, tui.SpinOptions{
 		Title: spinTitle,
 		Type:  parsedType,
-	}, func() {
-		runResult = runner.Run(cmd.Context(), command, cmdArgs)
+	}, func(actionCtx context.Context) {
+		results <- runner.Run(actionCtx, command, cmdArgs)
 	})
-	if spinErr != nil {
+	if errors.Is(spinErr, tui.ErrSpinActionStillRunning) {
+		// The command may still write its result: never read it.
 		return spinErr
+	}
+
+	var runResult tuiSpinRunResult
+	select {
+	case runResult = <-results:
+	default:
+		// The command never ran: the terminal could not be resolved.
+		if spinErr != nil {
+			return spinErr
+		}
+		return errTUISpinNotRun
 	}
 
 	// Print the command output
@@ -119,15 +143,43 @@ func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunne
 		_, _ = fmt.Fprintln(stdout)
 	}
 
-	if runResult.Err != nil {
-		return runResult.Err
+	if errors.Is(spinErr, tui.ErrSpinCancelled) {
+		return spinErr
 	}
-	if runResult.ExitCode != 0 {
+	if spinErr != nil {
+		// The spinner failed to draw, but the command ran: its status stands.
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: spinner failed: %v\n", spinErr)
+	}
+	return tuiSpinCommandError(ctx, cmd, runResult)
+}
+
+// tuiSpinCommandError maps the wrapped command's result to the error that
+// gives spin its exit status:
+//   - a failure after ctx, the cmd context, was cancelled (SIGINT) wraps
+//     context.Canceled, status 1;
+//   - a runner error is returned as is, status 1;
+//   - a status outside 0-255 (-1 when a signal killed the command) is an
+//     error with status 1, as a native `invowk cmd` gives;
+//   - any other non-zero status is forwarded through ExitError.
+func tuiSpinCommandError(ctx context.Context, cmd *cobra.Command, result tuiSpinRunResult) error {
+	failed := result.Err != nil || result.ExitCode != 0
+	if ctxErr := ctx.Err(); ctxErr != nil && failed {
+		return fmt.Errorf("spin: command cancelled: %w", ctxErr)
+	}
+	if result.Err != nil {
+		return result.Err
+	}
+	if result.ExitCode < 0 {
+		return fmt.Errorf("spin: command ended by a signal (exit status %d)", result.ExitCode)
+	}
+	if err := result.ExitCode.Validate(); err != nil {
+		return fmt.Errorf("spin: command exit status: %w", err)
+	}
+	if result.ExitCode != 0 {
 		cmd.SilenceErrors = true
 		cmd.SilenceUsage = true
-		return &ExitError{Code: runResult.ExitCode}
+		return &ExitError{Code: result.ExitCode}
 	}
-
 	return nil
 }
 

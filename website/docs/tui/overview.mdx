@@ -81,6 +81,7 @@ Components use exit codes to communicate:
 | choose | Option selected | Cancelled |
 | filter | Option selected | Cancelled |
 | pager | Exited normally | Error occurred |
+| spin | Command succeeded | Cancelled with Ctrl+C (other failures forward the command's own code) |
 
 Use in conditionals:
 
