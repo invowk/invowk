@@ -7,6 +7,7 @@ on:
     paths:
       - 'website/**'
       - 'docs/diagrams/rendered/**'
+      - 'scripts/ci-website-build.sh'
       - '.github/workflows/deploy-website.yml'
   # Allow manual trigger
   workflow_dispatch:
@@ -43,8 +44,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Bounded memory, a watchdog under the job timeout and memory samples:
+      # see the header of scripts/ci-website-build.sh.
       - name: Build website
-        run: npm run build
+        run: ../scripts/ci-website-build.sh
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

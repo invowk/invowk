@@ -19,7 +19,7 @@ jobs:
   version-docs:
     name: Version Documentation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -79,9 +79,11 @@ jobs:
       - name: Validate docs parity
         run: node scripts/validate-docs-parity.mjs --mode strict --all-locales
 
+      # See the header of scripts/ci-website-build.sh. Its default 600 s
+      # watchdog stays under this job's 15-minute timeout; release builds
+      # grow with every docs version (178 s at v0.14, 272 s at v0.17).
       - name: Verify website builds
-        working-directory: website
-        run: npm run build
+        run: ./scripts/ci-website-build.sh
 
       # Create a verified commit via the GitHub GraphQL API.
       # Direct git commits on the runner are unsigned and rejected by the
