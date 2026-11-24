@@ -9,6 +9,19 @@ import (
 	"mvdan.cc/sh/v3/interp"
 )
 
+// runnerHandlers returns the path-validating handlers of both virtual-sh
+// runner setups (RunShScript and ShRuntime.prepareShExec): open, read-dir,
+// stat and access, each around mvdan's default, and the `cd` call handler.
+func (v virtualPathValidator) runnerHandlers() []interp.RunnerOption {
+	return []interp.RunnerOption{
+		interp.OpenHandler(v.openHandler(interp.DefaultOpenHandler())),
+		interp.ReadDirHandler2(v.readDirHandler(interp.DefaultReadDirHandler2())),
+		interp.StatHandler(v.statHandler(interp.DefaultStatHandler())),
+		interp.AccessHandler(v.accessHandler(interp.DefaultAccessHandler())),
+		interp.CallHandler(v.cdCallHandler()),
+	}
+}
+
 // accessHandler returns the access handler of both virtual-sh runner setups:
 // `cd`'s access check and the -r, -w and -x tests (design D3, "The access
 // handler", of virtual-path-no-follow-operands).

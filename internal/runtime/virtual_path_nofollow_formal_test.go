@@ -45,9 +45,9 @@ func TestVirtualPathHarness_NoFollowOperands(t *testing.T) {
 	base := fstree.TempRoot(t)
 	root := mustMkdir(t, filepath.Join(base, "root"))
 	outside := mustMkdir(t, filepath.Join(base, "outside"))
-	mustWriteTestFile(t, filepath.Join(root, "target.txt"), "target")
-	mustWriteTestFile(t, filepath.Join(outside, "outfile"), "outside")
-	mustWriteTestFile(t, filepath.Join(outside, "name"), "outside")
+	writeTestFile(t, filepath.Join(root, "target.txt"), "target")
+	writeTestFile(t, filepath.Join(outside, "outfile"), "outside")
+	writeTestFile(t, filepath.Join(outside, "name"), "outside")
 	mustMkdir(t, filepath.Join(root, "sub"))
 	fstree.MustSymlink(t, "target.txt", filepath.Join(root, "live"))
 	fstree.MustSymlink(t, "missing.txt", filepath.Join(root, "stale"))
@@ -74,7 +74,7 @@ func TestVirtualPathHarness_NoFollowOperands(t *testing.T) {
 		jbase := fstree.TempRoot(t)
 		jroot := mustMkdir(t, filepath.Join(jbase, "root"))
 		jout := mustMkdir(t, filepath.Join(jbase, "outside"))
-		mustWriteTestFile(t, filepath.Join(jout, "f"), "outside")
+		writeTestFile(t, filepath.Join(jout, "f"), "outside")
 		fstree.MustJunction(t, jout, filepath.Join(jroot, "j"))
 		checkNoFollowHarnessCases(t, jroot, []noFollowHarnessCase{
 			{name: "junction to an outside directory", request: "j", want: filepath.Join(jroot, "j"), inside: true},

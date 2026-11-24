@@ -396,12 +396,8 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 		interp.StdIO(opts.Stdin, opts.Stdout, opts.Stderr),
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
 		interp.ExecHandlers(rt.execHandler(binaryPolicy, pathValidator)),
-		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
-		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
-		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
-		interp.AccessHandler(pathValidator.accessHandler(interp.DefaultAccessHandler())),
-		interp.CallHandler(pathValidator.cdCallHandler()),
 	}
+	runnerOpts = append(runnerOpts, pathValidator.runnerHandlers()...)
 	if opts.WorkDir != "" {
 		runnerOpts = append(runnerOpts, interp.Dir(opts.WorkDir))
 	}
@@ -454,12 +450,8 @@ func (r *ShRuntime) prepareShExec(ctx *ExecutionContext, stdIO interp.RunnerOpti
 		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
 		stdIO,
 		interp.ExecHandlers(r.execHandler(binaryPolicy, pathValidator)),
-		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
-		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
-		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
-		interp.AccessHandler(pathValidator.accessHandler(interp.DefaultAccessHandler())),
-		interp.CallHandler(pathValidator.cdCallHandler()),
 	}
+	opts = append(opts, pathValidator.runnerHandlers()...)
 
 	// Add positional parameters for shell access ($1, $2, etc.)
 	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"

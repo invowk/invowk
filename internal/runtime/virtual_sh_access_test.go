@@ -45,7 +45,7 @@ func TestVirtualShAccessCdThroughLinks(t *testing.T) {
 			fstree.Require(t, fstree.CapJunction)
 			work := mustMkdir(t, filepath.Join(fstree.TempRoot(t), "work"))
 			target := mustMkdir(t, filepath.Join(work, "tdir"))
-			mustWriteTestFile(t, filepath.Join(target, "file.txt"), "file")
+			writeTestFile(t, filepath.Join(target, "file.txt"), "file")
 			fstree.MustJunction(t, target, filepath.Join(work, "j"))
 			run := runVirtualShTest(t, work, "cd j && [ -f file.txt ] && echo in-target", access)
 			if run.exit != 0 || run.stdout != "in-target\n" {
@@ -126,9 +126,9 @@ func TestVirtualShAccessDeniedOutsideRoots(t *testing.T) {
 	root := mustMkdir(t, filepath.Join(base, "root"))
 	outside := mustMkdir(t, filepath.Join(base, "outside"))
 	outFile := filepath.Join(outside, "f")
-	mustWriteTestFile(t, outFile, "outside")
+	writeTestFile(t, outFile, "outside")
 	target := filepath.Join(root, "target.txt")
-	mustWriteTestFile(t, target, "inside")
+	writeTestFile(t, target, "inside")
 	fstree.MustSymlink(t, "target.txt", filepath.Join(root, "live"))
 	script := strings.Join([]string{
 		`[ -r ` + shQuote(outFile) + ` ] && echo r-out`,

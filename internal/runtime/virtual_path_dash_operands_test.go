@@ -34,13 +34,6 @@ func dashOperand(t *testing.T, work, target string) string {
 	return operand
 }
 
-func mustWriteTestFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
-}
-
 func assertPathExists(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Lstat(path); err != nil {
@@ -59,13 +52,13 @@ func TestVirtualPathDashOperandsDenied(t *testing.T) {
 	t.Parallel()
 	outside := outsideVirtualRootsDir(t)
 	secret := filepath.Join(outside, "secret")
-	mustWriteTestFile(t, secret, "outside-secret-content")
+	writeTestFile(t, secret, "outside-secret-content")
 	restricted := invowkfile.VirtualFilesystemAccessRestricted
 
 	t.Run("rm", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		mustWriteTestFile(t, filepath.Join(work, "keep"), "keep")
+		writeTestFile(t, filepath.Join(work, "keep"), "keep")
 		run := runVirtualShTest(t, work, "rm keep "+shQuote(dashOperand(t, work, secret)), restricted)
 		if run.exit == 0 || !strings.Contains(run.stderr, "virtual path denied") {
 			t.Errorf("rm = (exit %d, stderr %q), want the denial", run.exit, run.stderr)
@@ -76,7 +69,7 @@ func TestVirtualPathDashOperandsDenied(t *testing.T) {
 	t.Run("mv", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		mustWriteTestFile(t, filepath.Join(work, "a"), "a")
+		writeTestFile(t, filepath.Join(work, "a"), "a")
 		mustMkdir(t, filepath.Join(work, "b"))
 		run := runVirtualShTest(t, work, "mv a b "+shQuote(dashOperand(t, work, outside)), restricted)
 		if run.exit == 0 || !strings.Contains(run.stderr, "virtual path denied") {
@@ -89,7 +82,7 @@ func TestVirtualPathDashOperandsDenied(t *testing.T) {
 	t.Run("cat", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		mustWriteTestFile(t, filepath.Join(work, "a"), "a-content\n")
+		writeTestFile(t, filepath.Join(work, "a"), "a-content\n")
 		run := runVirtualShTest(t, work, "cat a "+shQuote(dashOperand(t, work, secret)), restricted)
 		if run.exit == 0 || !strings.Contains(run.stderr, "virtual path denied") {
 			t.Errorf("cat = (exit %d, stderr %q), want the denial", run.exit, run.stderr)
@@ -112,7 +105,7 @@ func TestVirtualPathDashOperandsDenied(t *testing.T) {
 	t.Run("lua cat", func(t *testing.T) {
 		t.Parallel()
 		work := t.TempDir()
-		mustWriteTestFile(t, filepath.Join(work, "a"), "a-content\n")
+		writeTestFile(t, filepath.Join(work, "a"), "a-content\n")
 		script := fmt.Sprintf(`
 local code, err = invowk.cmd.cat("a", %q)
 print("code=" .. tostring(code))
@@ -131,8 +124,8 @@ print("err=" .. tostring(err))
 func TestVirtualPathDashOperandsDoubleDash(t *testing.T) {
 	t.Parallel()
 	work := t.TempDir()
-	mustWriteTestFile(t, filepath.Join(work, "-x"), "x")
-	mustWriteTestFile(t, filepath.Join(work, "keep"), "keep")
+	writeTestFile(t, filepath.Join(work, "-x"), "x")
+	writeTestFile(t, filepath.Join(work, "keep"), "keep")
 	run := runVirtualShTest(t, work, "rm -- -x", invowkfile.VirtualFilesystemAccessRestricted)
 	if run.exit != 0 {
 		t.Fatalf("rm -- -x = (exit %d, stderr %q)", run.exit, run.stderr)
@@ -153,7 +146,7 @@ func TestVirtualPathDashOperandsGzipSuffixSeparator(t *testing.T) {
 		t.Run(string(access), func(t *testing.T) {
 			t.Parallel()
 			work := t.TempDir()
-			mustWriteTestFile(t, filepath.Join(work, "f"), "f")
+			writeTestFile(t, filepath.Join(work, "f"), "f")
 			mustMkdir(t, filepath.Join(work, "fx"))
 			run := runVirtualShTest(t, work, "gzip -k -S x/y f", access)
 			if run.exit == 0 || !strings.Contains(run.stderr, "-S") {

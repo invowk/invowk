@@ -34,9 +34,9 @@ func linkTestTree(t *testing.T) string {
 	t.Helper()
 	fstree.Require(t, fstree.CapSymlink)
 	work := mustMkdir(t, filepath.Join(fstree.TempRoot(t), "work"))
-	mustWriteTestFile(t, filepath.Join(work, "target.txt"), "target-content\n")
+	writeTestFile(t, filepath.Join(work, "target.txt"), "target-content\n")
 	mustMkdir(t, filepath.Join(work, "tdir"))
-	mustWriteTestFile(t, filepath.Join(work, "tdir", "file.txt"), "file")
+	writeTestFile(t, filepath.Join(work, "tdir", "file.txt"), "file")
 	mustMkdir(t, filepath.Join(work, "dir"))
 	fstree.MustSymlink(t, "target.txt", filepath.Join(work, "live"))
 	fstree.MustSymlink(t, "missing.txt", filepath.Join(work, "stale"))
@@ -134,8 +134,8 @@ func TestVirtualPathNoFollowRestricted(t *testing.T) {
 	restricted := invowkfile.VirtualFilesystemAccessRestricted
 	outside := outsideVirtualRootsDir(t)
 	outFile := filepath.Join(outside, "outfile")
-	mustWriteTestFile(t, outFile, "outside-content")
-	mustWriteTestFile(t, filepath.Join(outside, "name"), "name")
+	writeTestFile(t, outFile, "outside-content")
+	writeTestFile(t, filepath.Join(outside, "name"), "name")
 
 	t.Run("rm outlink keeps the outside file", func(t *testing.T) {
 		t.Parallel()

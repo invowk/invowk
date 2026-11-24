@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"unicode/utf8"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -132,7 +133,7 @@ func virtualPathNamesDirectory(path string) bool {
 	if endsInVirtualPathSeparator(path) {
 		return true
 	}
-	last := path[strings.LastIndexFunc(path, func(r rune) bool { return r < 0x80 && os.IsPathSeparator(uint8(r)) })+1:]
+	last := path[strings.LastIndexFunc(path, func(r rune) bool { return r < utf8.RuneSelf && os.IsPathSeparator(uint8(r)) })+1:]
 	return last == "." || last == virtualPathParent
 }
 
