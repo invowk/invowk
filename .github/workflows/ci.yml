@@ -519,9 +519,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          changed_files="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          # Three dots: the head's changes since its merge base with the base
+          # branch. Two dots would also list the base's own commits since the
+          # head forked, so a branch behind the base would see the base's
+          # hot-path changes as its own.
+          changed_files="$(git diff --name-only "$PR_BASE_SHA...$PR_HEAD_SHA")"
 
-          echo "Changed files between base and head:"
+          echo "Changed files since the merge base of base and head:"
           echo "$changed_files"
 
           hot_path_pattern='^(pkg/cueutil/|pkg/invowkfile/|pkg/invowkmod/|internal/discovery/)'
