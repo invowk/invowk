@@ -71,6 +71,11 @@ tool or a model.
      `Test…_FindingF<n>`, or by an abstraction note beginning
      `characterisation:` on the row that tables them. They never kill a
      mutant.
+   - A finding's re-run recipe that drops the current replay file into an
+     export of an older commit (formal/README.md, F19) works only while that
+     file defines its own helpers or uses ones that exist at that commit.
+     Moving its helpers into a shared test file breaks the recipe without
+     failing any gate, so run the recipe again after editing such a file.
    - Editing an `.als` table changes the model source hash, so run
      `make formal-golden` for that model afterwards.
 6. **Bind to code:**

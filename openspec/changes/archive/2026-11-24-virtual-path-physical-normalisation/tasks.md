@@ -5,7 +5,7 @@ Commit boundaries follow design D7: group 2 is the F18 commit, group 3 the F14 a
 ## 1. Preparation
 
 - [x] 1.1 Load the `formal-verification`, `windows-testing`, `testing` and `go` skills, and read design.md D1 to D8. Verify: `python3 scripts/formal.py correspondence` passes on the untouched branch.
-- [ ] 1.2 Run every locked command (`make test`, `make lint`, `make test-scripts`, `make check-baseline`, `make formal`, mutation targets, `git commit`) under `flock "$(git rev-parse --git-common-dir)/invowk-heavy.lock"`, in the background with an `rc=` line, and wait with Monitor. Verify: each log ends with `rc=0`.
+- [x] 1.2 Run every locked command (`make test`, `make lint`, `make test-scripts`, `make check-baseline`, `make formal`, mutation targets, `git commit`) under `flock "$(git rev-parse --git-common-dir)/invowk-heavy.lock"`, in the background with an `rc=` line, and wait with Monitor. Verify: each log ends with `rc=0`.
 
 ## 2. Commit 1: F18, junction-aware resolution
 
@@ -63,8 +63,8 @@ Commit boundaries follow design D7: group 2 is the F18 commit, group 3 the F14 a
 
 ## 5. Formal lane
 
-- [ ] 5.1 Run `python3 scripts/formal.py affected --event pull_request --base origin/main --head HEAD`; when it prints `run=true`, run `python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach`. Verify: all three pass, and no killer is reported as skipped.
-- [ ] 5.2 Run `make formal` (Java is installed) and `make test-scripts`. Verify: both logs end with `rc=0`; `VirtualPathHarness` shows `harnessContainedFixed` passing and three `mutantPreFix…` counterexamples.
+- [x] 5.1 Run `python3 scripts/formal.py affected --event pull_request --base origin/main --head HEAD`; when it prints `run=true`, run `python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach`. Verify: all three pass, and no killer is reported as skipped.
+- [x] 5.2 Run `make formal` (Java is installed) and `make test-scripts`. Verify: both logs end with `rc=0`; `VirtualPathHarness` shows `harnessContainedFixed` passing and three `mutantPreFix…` counterexamples.
 - [x] 5.3 Note for the fix stage, in the pull request body: the rewritten bound symbols are `normalizeExistingOrParent` and the new walk helper (`pathWithin` and `virtualPathValidator.validate` only if their bodies changed), so `formal_mutation.py symbols` is expected to say `refresh`. Verify: the pull request body lists them.
 
 ## 6. Push and platform evidence
@@ -74,14 +74,14 @@ Commit boundaries follow design D7: group 2 is the F18 commit, group 3 the F14 a
 
 ## 7. Completion gates (`.agents/rules/checklist.md`)
 
-- [ ] 7.1 `make tidy`, and `make license-check` for new Go files. Verify: no diff, no missing header.
-- [ ] 7.2 `make lint`. Verify: `rc=0`.
-- [ ] 7.3 `make test` (full suite). Verify: `rc=0`.
-- [ ] 7.4 `make check-baseline` and triage of any new goplint finding. Verify: `rc=0`.
-- [ ] 7.5 `make check-file-length`. Verify: every Go file stays under 1000 lines.
-- [ ] 7.6 `make sonar-local`. Verify: no new issue that code can fix; the two go:S8209 issues are gone.
-- [ ] 7.7 Conditional checks: `make test-scripts` (formal changed), `python3 scripts/formal.py correspondence` and `make formal`, `cd website && npm run build`, `make check-agent-docs`. Verify: each passes.
-- [ ] 7.8 Runtime mirrors: `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment` pass with the new exemption. Verify: `go test -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/`.
+- [x] 7.1 `make tidy`, and `make license-check` for new Go files. Verify: no diff, no missing header.
+- [x] 7.2 `make lint`. Verify: `rc=0`.
+- [x] 7.3 `make test` (full suite). Verify: `rc=0`.
+- [x] 7.4 `make check-baseline` and triage of any new goplint finding. Verify: `rc=0`.
+- [x] 7.5 `make check-file-length`. Verify: every Go file stays under 1000 lines.
+- [x] 7.6 `make sonar-local`. Verify: no new issue that code can fix; the two go:S8209 issues are gone.
+- [x] 7.7 Conditional checks: `make test-scripts` (formal changed), `python3 scripts/formal.py correspondence` and `make formal`, `cd website && npm run build`, `make check-agent-docs`. Verify: each passes.
+- [x] 7.8 Runtime mirrors: `TestShRuntimeMirrorCoverage` and `TestVirtualNativeCommandPathAlignment` pass with the new exemption. Verify: `go test -run 'TestShRuntimeMirrorCoverage|TestVirtualNativeCommandPathAlignment' ./tests/cli/`.
 
 ## Implementation status (implement stage, 2026-11-24)
 
