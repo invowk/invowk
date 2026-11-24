@@ -31,6 +31,19 @@ Display and optionally select from tabular data.
 
 <Snippet id="tui/table-examples" />
 
+### Redirected Output
+
+When stdout is not a terminal, a table without `--selectable` does not open. It prints the rows as plain text and exits 0, with or without a terminal:
+
+```bash
+$ printf 'name|age|city\nAlice|30|NYC\nBob|25|LA\n' | invowk tui table --separator '|' | cat
+name   age  city
+Alice  30   NYC
+Bob    25   LA
+```
+
+The first line holds the column titles (the header row or `--columns`), then one line per row. Cells are left-aligned and padded to the widest cell of their column, columns are separated by two spaces, and there is no border and no color. Every row is printed: `--height` and `--widths` do not apply. A selectable table still draws on the terminal, so `row=$(invowk tui table --selectable ...)` works as before.
+
 ### Selectable Tables
 
 <Snippet id="tui/table-selectable" />

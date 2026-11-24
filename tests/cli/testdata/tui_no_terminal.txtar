@@ -5,7 +5,9 @@
 # cannot open the developer's terminal. testscript gives it a non-terminal
 # stdin and captured stdout and stderr. `tuiaction` is a portable spin
 # command. Runs on Linux, macOS and Windows. Not a virtual test, so it needs
-# no native mirror.
+# no native mirror. Tests 5 and 6 cover the display-only rule of
+# tui-clean-terminal-path (N15): with stdout not a terminal, `pager` and a
+# non-selectable `table` write their content to stdout and exit 0.
 
 cd $WORK
 env NO_COLOR=1
@@ -41,7 +43,36 @@ exec notty invowk tui pager
 cmp stdout pager-input.txt
 ! stderr .
 
+# Test 5: pager with a title and line numbers still passes the bytes through.
+stdin pager-input.txt
+exec notty invowk tui pager --title Notes --line-numbers
+cmp stdout pager-input.txt
+! stderr .
+
+# Test 6: a non-selectable table prints aligned plain-text rows and exits 0,
+# from --file and from stdin with a custom separator.
+exec notty invowk tui table --file rows.csv
+cmp stdout want-table.txt
+! stderr .
+
+stdin rows-pipe.txt
+exec notty invowk tui table --separator '|'
+cmp stdout want-table.txt
+! stderr .
+
 -- want-count.log --
 run
 -- pager-input.txt --
 x
+-- rows.csv --
+name,age,city
+Alice,30,NYC
+Bob,25,LA
+-- rows-pipe.txt --
+name|age|city
+Alice|30|NYC
+Bob|25|LA
+-- want-table.txt --
+name   age  city
+Alice  30   NYC
+Bob    25   LA

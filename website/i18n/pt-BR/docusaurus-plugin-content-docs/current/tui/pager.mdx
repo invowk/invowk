@@ -24,6 +24,10 @@ Um visualizador de conteúdo rolável para logs, código e saídas longas.
 
 <Snippet id="tui/pager-options" />
 
+### Saída Redirecionada
+
+Quando stdout não é um terminal (`invowk tui pager notes.txt | grep TODO`, `> out.txt`), o pager não abre. Como o `less` num pipe, ele escreve o conteúdo sem alterações em stdout, sem o título nem os números de linha, e sai com 0. Isso vale também dentro de um comando em [modo interativo](/docs/advanced/interactive-mode).
+
 ## Navegação
 
 Enquanto visualiza conteúdo no pager:

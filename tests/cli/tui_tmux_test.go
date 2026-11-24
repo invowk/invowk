@@ -406,6 +406,29 @@ func TestTUI_Table(t *testing.T) {
 			t.Fatal("table command did not exit within timeout")
 		}
 	})
+
+	// With a terminal present and stdout piped, a non-selectable table prints
+	// plain-text rows and exits without a key press (tui-clean-terminal-path,
+	// N15).
+	t.Run("stdout_piped", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		csvPath := filepath.Join(tmpDir, "rows.csv")
+		outPath := filepath.Join(tmpDir, "out")
+		if err := os.WriteFile(csvPath, []byte("name,age,city\nAlice,30,NYC\nBob,25,LA\n"), 0o644); err != nil {
+			t.Fatalf("failed to create csv file: %v", err)
+		}
+
+		s := newTmuxSession(t, "table-piped")
+		command := fmt.Sprintf("%s tui table --file %s | cat > %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("piped table did not exit without a key press, pane:\n%s", s.capturePlain())
+		}
+		assertFileContent(t, outPath, "name   age  city\nAlice  30   NYC\nBob    25   LA\n")
+	})
 }
 
 // TestTUI_Spin exercises `invowk tui spin` end-to-end via tmux.
@@ -524,4 +547,41 @@ func TestTUI_Pager(t *testing.T) {
 			t.Errorf("expected zero exit marker in output, got:\n%s", output)
 		}
 	})
+
+	// With a terminal present and stdout redirected, the pager passes the
+	// content through like less and exits without a key press
+	// (tui-clean-terminal-path, N15).
+	t.Run("stdout_redirected", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		pagerPath := filepath.Join(tmpDir, "pager.txt")
+		outPath := filepath.Join(tmpDir, "out")
+		content := "Line 01\nLine 02\n"
+		if err := os.WriteFile(pagerPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to create pager file: %v", err)
+		}
+
+		s := newTmuxSession(t, "pager-redirected")
+		command := fmt.Sprintf("%s tui pager --title Notes --line-numbers %s > %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(pagerPath), shellQuote(outPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
+			t.Fatalf("redirected pager did not exit without a key press, pane:\n%s", s.capturePlain())
+		}
+		assertFileContent(t, outPath, content)
+	})
+}
+
+// assertFileContent fails unless the file at path holds exactly want.
+func assertFileContent(t *testing.T, path, want string) {
+	t.Helper()
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(got) != want {
+		t.Fatalf("%s = %q, want %q", filepath.Base(path), got, want)
+	}
 }

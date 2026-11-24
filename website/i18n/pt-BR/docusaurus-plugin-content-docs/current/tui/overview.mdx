@@ -60,15 +60,18 @@ Componentes TUI funcionam perfeitamente dentro de containers ao usar o modo inte
 
 Os componentes desenham a interface no seu terminal (`/dev/tty` no Unix, o console no Windows) e leem as teclas dele, não de stdin e stdout. stdout leva apenas o resultado, então `NAME=$(invowk tui input)` captura exatamente a resposta, sem sequências de controle. A interface continua visível quando stderr é redirecionado, e stdin fica livre para dados via pipe, como as opções do `filter` ou as linhas do `table`. `format` e `style` são a exceção: o texto estilizado é o resultado deles, então eles o escrevem em stdout.
 
+`pager` e uma `table` sem `--selectable` apenas exibem conteúdo. Quando o stdout deles não é um terminal, eles escrevem esse conteúdo em stdout e não abrem o terminal: o `pager` o repassa sem alterações, como o `less` num pipe, e a tabela mostra as linhas como texto simples.
+
 <Snippet id="tui/overview-piping" />
 
 ### Sem Terminal
 
 Se o terminal de controle não puder ser aberto, o componente desenha em stderr e lê as teclas de stdin quando ambos são terminais. Sem nenhum terminal, como num job de CI:
 
-- `input`, `write`, `choose`, `confirm`, `filter`, `file` e `table` saem com status 1, mostram um erro dizendo que o componente precisa de um terminal e deixam stdout vazio;
+- `input`, `write`, `choose`, `confirm`, `filter`, `file` e `table --selectable` saem com status 1, mostram um erro dizendo que o componente precisa de um terminal e deixam stdout vazio;
 - `spin` executa o comando uma vez, sem o spinner, e mantém a saída e o status de saída do comando;
-- `pager` escreve o conteúdo sem alterações em stdout e sai com 0.
+- `pager` escreve o conteúdo sem alterações em stdout e sai com 0;
+- uma `table` sem `--selectable` mostra as linhas como texto simples e sai com 0.
 
 ## Códigos de Saída
 
