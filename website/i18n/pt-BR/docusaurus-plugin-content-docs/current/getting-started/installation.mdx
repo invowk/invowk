@@ -30,7 +30,7 @@ A forma mais rápida de instalar no **Linux** ou **macOS**:
 
 <Snippet id="installation/shell-script" />
 
-Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instala em `~/.local/bin`.
+Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instala em `~/.local/bin`. Quando o [Cosign](https://github.com/sigstore/cosign) está no seu `PATH`, o script primeiro verifica a assinatura do `checksums.txt` (veja [Verificando Assinaturas de Release](#verificando-assinaturas-de-release)) e para se ela não for válida. Sem o Cosign, ele mostra um aviso e continua.
 
 **Personalizar a instalação:**
 
@@ -40,6 +40,7 @@ Isso baixa a versão mais recente do GitHub, verifica o checksum SHA256 e instal
 |----------|--------|-----------|
 | `INSTALL_DIR` | `~/.local/bin` | Onde instalar o binário |
 | `INVOWK_VERSION` | última estável | Instalar uma versão específica (ex: `v1.0.0`) |
+| `INVOWK_REQUIRE_SIGNATURE` | não definido | Defina como `1` para falhar quando o Cosign não estiver instalado, em vez de avisar |
 | `GITHUB_TOKEN` | não definido | Opcional; evita limitação de taxa da API |
 
   </TabItem>
@@ -138,15 +139,18 @@ Você deverá ver as informações de versão. Se receber um erro "command not f
 
 ### Verificando Assinaturas de Release
 
-Os artefatos de release são assinados com [Cosign](https://github.com/sigstore/cosign) (sem chave, via OIDC do GitHub Actions). Para verificar o arquivo de checksums baixado de um GitHub Release:
+Os artefatos de release são assinados com [Cosign](https://github.com/sigstore/cosign) (sem chave, via OIDC do GitHub Actions) pelo workflow de release, disparado pelo push da tag de release. Para verificar o arquivo de checksums baixado de um GitHub Release, troque `v0.17.0` pela versão que você baixou:
 
 ```bash
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
+  --certificate-identity='https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/v0.17.0' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
+  --certificate-github-workflow-trigger=push \
   checksums.txt
 ```
+
+Outros workflows do repositório também podem obter um token OIDC do GitHub, então fixe a identidade exata acima, e não um padrão que aceite qualquer workflow de `invowk/invowk`. O script de instalação shell faz essa verificação sozinho quando o Cosign está instalado.
 
 Em seguida, verifique os arquivos individuais contra o `checksums.txt`:
 

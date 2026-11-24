@@ -205,6 +205,97 @@ assert_exit_code "validate_version_format rejects empty string" 1 \
     validate_version_format ""
 
 # ---------------------------------------------------------------------------
+# Tests: signer_identity / verify_checksums_signature
+# ---------------------------------------------------------------------------
+
+assert_eq "signer_identity pins release.yml at the version tag" \
+    "https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/v1.2.3" \
+    "$(signer_identity v1.2.3)"
+
+_sig_tmp=$(mktemp -d)
+_sig_bin="$_sig_tmp/bin"
+mkdir -p "$_sig_bin"
+printf 'checksums\n' > "$_sig_tmp/checksums.txt"
+
+# Fake cosign: records its arguments one per line, exits with FAKE_COSIGN_RC.
+cat > "$_sig_bin/cosign" <<'FAKE'
+#!/bin/sh
+printf '%s\n' "$@" > "$FAKE_COSIGN_ARGS"
+exit "${FAKE_COSIGN_RC:-0}"
+FAKE
+chmod +x "$_sig_bin/cosign"
+FAKE_COSIGN_ARGS="$_sig_tmp/cosign-args"
+export FAKE_COSIGN_ARGS
+
+# Fake downloads: FAKE_SIG_ASSETS lists the signature suffixes that exist.
+download_to_file() {
+    case " ${FAKE_SIG_ASSETS:-} " in
+        *" ${1##*/checksums.txt} "*) printf 'sig\n' > "$2" ;;
+        *) return 22 ;;
+    esac
+}
+
+# A PATH without cosign (the function needs no other external command), and
+# one with the fake first.
+_no_cosign_path="$_sig_tmp/empty"
+mkdir -p "$_no_cosign_path"
+_fake_cosign_path="$_sig_bin:$PATH"
+
+# run_sig_case <require_signature> <path> <assets> <cosign_rc>; prints the exit code.
+run_sig_case() {
+    rm -f "$FAKE_COSIGN_ARGS"
+    _case_rc=0
+    # PATH and the settings change in the subshell only.
+    # shellcheck disable=SC2030
+    (
+        INVOWK_REQUIRE_SIGNATURE="$1"
+        PATH="$2"
+        FAKE_SIG_ASSETS="$3"
+        FAKE_COSIGN_RC="$4"
+        export INVOWK_REQUIRE_SIGNATURE FAKE_COSIGN_RC
+        verify_checksums_signature v1.2.3 "$_sig_tmp/checksums.txt"
+    ) >/dev/null 2>&1 || _case_rc=$?
+    printf '%s' "$_case_rc"
+}
+
+assert_eq "verify_checksums_signature warns and continues without cosign" "0" \
+    "$(run_sig_case "" "$_no_cosign_path" ".sigstore.json" 0)"
+
+assert_eq "verify_checksums_signature fails without cosign when required" "1" \
+    "$(run_sig_case 1 "$_no_cosign_path" ".sigstore.json" 0)"
+
+assert_eq "verify_checksums_signature passes a verified bundle" "0" \
+    "$(run_sig_case "" "$_fake_cosign_path" ".sigstore.json" 0)"
+assert_eq "verify_checksums_signature pins identity, issuer and trigger" \
+    "verify-blob
+--bundle
+$_sig_tmp/checksums.txt.sigstore.json
+--certificate-identity
+https://github.com/invowk/invowk/.github/workflows/release.yml@refs/tags/v1.2.3
+--certificate-oidc-issuer
+https://token.actions.githubusercontent.com
+--certificate-github-workflow-trigger
+push
+$_sig_tmp/checksums.txt" \
+    "$(cat "$FAKE_COSIGN_ARGS")"
+
+assert_eq "verify_checksums_signature fails closed when cosign rejects" "1" \
+    "$(run_sig_case "" "$_fake_cosign_path" ".sigstore.json" 1)"
+
+assert_eq "verify_checksums_signature falls back to a legacy signature" "0" \
+    "$(run_sig_case "" "$_fake_cosign_path" ".sig .pem" 0)"
+assert_eq "verify_checksums_signature passes the legacy signature and certificate" \
+    "--signature $_sig_tmp/checksums.txt.sig --certificate $_sig_tmp/checksums.txt.pem" \
+    "$(sed -n '2,5p' "$FAKE_COSIGN_ARGS" | tr '\n' ' ' | sed 's/ $//')"
+
+assert_eq "verify_checksums_signature fails closed without a signature" "1" \
+    "$(run_sig_case "" "$_fake_cosign_path" "" 0)"
+assert_exit_code "verify_checksums_signature does not run cosign without a signature" 1 \
+    test -e "$FAKE_COSIGN_ARGS"
+
+rm -rf "$_sig_tmp"
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 

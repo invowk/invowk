@@ -10,11 +10,16 @@
 #   INVOWK_VERSION  - Specific version to install (e.g., v1.0.0). Default: latest stable.
 #   INSTALL_DIR     - Installation directory. Default: ~/.local/bin.
 #   GITHUB_TOKEN    - GitHub API token for higher rate limits (optional).
+#   INVOWK_REQUIRE_SIGNATURE - Set to 1 to fail when cosign is not installed,
+#                     instead of warning and installing without verifying the
+#                     signature of checksums.txt.
 #
 # Requirements:
 #   - curl or wget
 #   - sha256sum (Linux) or shasum (macOS)
 #   - tar, gzip
+#   - cosign (optional, recommended): verifies the Sigstore signature of
+#     checksums.txt before the script trusts it
 #
 # Supported platforms:
 #   - Linux (amd64, arm64)
@@ -31,6 +36,14 @@ RELEASES_API_URL="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
 RELEASES_TAG_URL="https://api.github.com/repos/${GITHUB_REPO}/releases/tags"
 DOWNLOAD_BASE_URL="https://github.com/${GITHUB_REPO}/releases/download"
 BINARY_NAME="invowk"
+
+# The only signer accepted for checksums.txt: the release workflow, run by a
+# tag push, at the tag of the version being installed. Other workflows of the
+# repository can also obtain an OIDC token, so the identity is pinned to the
+# workflow file and the tag, never to the repository alone.
+SIGNER_IDENTITY_PREFIX="https://github.com/${GITHUB_REPO}/.github/workflows/release.yml@refs/tags/"
+SIGNER_OIDC_ISSUER="https://token.actions.githubusercontent.com"
+SIGNER_WORKFLOW_TRIGGER="push"
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -229,6 +242,71 @@ If this persists, report at https://github.com/${GITHUB_REPO}/issues"
 }
 
 # ---------------------------------------------------------------------------
+# Signature verification
+# ---------------------------------------------------------------------------
+
+# Print the certificate identity that must have signed a version's checksums.txt.
+signer_identity() {
+    printf '%s%s' "${SIGNER_IDENTITY_PREFIX}" "$1"
+}
+
+# Verify the Cosign signature of checksums.txt before it is trusted.
+# Arguments: version, path of the downloaded checksums.txt.
+# Without cosign on PATH, warn and return, unless INVOWK_REQUIRE_SIGNATURE=1.
+# With cosign, any failure is fatal: a missing signature, a download error or a
+# signature that does not verify against the pinned identity and issuer.
+verify_checksums_signature() {
+    _sig_version="$1"
+    _sig_checksums="$2"
+
+    if ! command -v cosign >/dev/null 2>&1; then
+        if [ "${INVOWK_REQUIRE_SIGNATURE:-}" = "1" ]; then
+            die "cosign not found, and INVOWK_REQUIRE_SIGNATURE=1 requires the signature of checksums.txt to be verified.
+Install cosign (https://docs.sigstore.dev/cosign/system_config/installation/) and try again."
+        fi
+        warn "cosign not found: the signature of checksums.txt was NOT verified; only the SHA256 checksum of the archive will be checked.
+Install cosign (https://docs.sigstore.dev/cosign/system_config/installation/) to verify it,
+or set INVOWK_REQUIRE_SIGNATURE=1 to make a missing cosign an error."
+        return 0
+    fi
+
+    _sig_identity=$(signer_identity "${_sig_version}")
+    _sig_url="${DOWNLOAD_BASE_URL}/${_sig_version}/checksums.txt"
+
+    log "Verifying the signature of checksums.txt..."
+    # Releases from v0.5.0 on publish a Sigstore bundle; earlier ones published
+    # a detached signature and certificate.
+    if download_to_file "${_sig_url}.sigstore.json" "${_sig_checksums}.sigstore.json" 2>/dev/null; then
+        set -- --bundle "${_sig_checksums}.sigstore.json"
+    elif download_to_file "${_sig_url}.sig" "${_sig_checksums}.sig" 2>/dev/null &&
+        download_to_file "${_sig_url}.pem" "${_sig_checksums}.pem" 2>/dev/null; then
+        set -- --signature "${_sig_checksums}.sig" --certificate "${_sig_checksums}.pem"
+    else
+        die "Could not download the signature of checksums.txt for ${_sig_version}.
+
+cosign is installed, so the installer will not continue without verifying it.
+Check your network connection and try again.
+If this persists, report at https://github.com/${GITHUB_REPO}/issues"
+    fi
+
+    if ! _sig_output=$(cosign verify-blob "$@" \
+        --certificate-identity "${_sig_identity}" \
+        --certificate-oidc-issuer "${SIGNER_OIDC_ISSUER}" \
+        --certificate-github-workflow-trigger "${SIGNER_WORKFLOW_TRIGGER}" \
+        "${_sig_checksums}" 2>&1); then
+        die "Signature verification of checksums.txt failed for ${_sig_version}.
+
+Expected signer: ${_sig_identity}
+Expected issuer: ${SIGNER_OIDC_ISSUER}
+cosign output:
+${_sig_output}
+
+Do not install this release. Report at https://github.com/${GITHUB_REPO}/issues"
+    fi
+    ok "Signature of checksums.txt verified."
+}
+
+# ---------------------------------------------------------------------------
 # Version resolution
 # ---------------------------------------------------------------------------
 
@@ -366,16 +444,17 @@ install() {
 The release asset may not exist for your platform (${_os}/${_arch}).
 Check available assets at: https://github.com/${GITHUB_REPO}/releases/tag/${_version}"
 
-    # Note: checksums.txt is not signature-verified by this script because cosign
-    # is not a standard system tool. For supply-chain verification, see:
-    # https://github.com/invowk/invowk#verifying-signatures
-    #
-    # The checksum file is downloaded to a mktemp directory (mode 0700), which
-    # mitigates TOCTOU race conditions between download and verification.
+    # The checksum file and its signature are downloaded to a mktemp directory
+    # (mode 0700), which mitigates TOCTOU race conditions between download and
+    # verification.
     log "Downloading checksums..."
     download_to_file "${_checksums_url}" "${_checksums_path}" || die "Failed to download checksums.txt.
 
 Cannot verify download integrity. Please try again."
+
+    # checksums.txt is trusted only after its signature verifies (when cosign
+    # is available; see verify_checksums_signature).
+    verify_checksums_signature "${_version}" "${_checksums_path}"
 
     # Extract expected checksum for our asset from checksums.txt.
     # Uses awk for exact field match — grep -F does substring matching which can
