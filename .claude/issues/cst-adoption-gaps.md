@@ -60,7 +60,7 @@ Decisions taken with the maintainer (2026-11-14):
 | N23 | DECIDE — product | lock-format questions: UTC `generated:`, and unknown CUE fields a no-op save no longer normalises (#186 follow-up; deferred) | S |
 | N24 | EVOLVE — security | native and container runtimes re-open `SelectedScriptFilePath()` after the contained read (TOCTOU residual; outside B1; not yet proposed) | S |
 | N25 | EVOLVE — CI | Dependabot reactivated 2026-11-19 (security updates enabled, version updates running again); merge gate added in `decide-only` mode (`ci/dependabot-gate`) | S |
-| N26 | EVOLVE — supply chain | website npm residuals: `tinypool` (critical), `serialize-javascript` (high) and `uuid` (moderate) pinned by Docusaurus 3.10.2, no fix inside Docusaurus 3 | S |
+| N26 | DONE — supply chain | website npm residuals `tinypool`, `serialize-javascript`, `uuid`: fixed by exact `overrides` (#205, 2026-11-24); remove them when the parents allow patched ranges | S |
 | N27 | EVOLVE — deps | `github.com/coder/acp-go-sdk` 0.20 migration (Dependabot PR #190 broke `internal/acpclient`; not yet proposed) | S–M |
 | N28 | EVOLVE — CI | Dependabot gate flip to `merge` mode, after it has judged real pull requests correctly (pending) | S |
 
@@ -454,12 +454,31 @@ guide ("set `TMPDIR` if needed").
   - `uuid` 8.3.2 (moderate, GHSA-w5hq-g745-h8pq, fixed in 11.1.1), through `sockjs`
     0.3.24 under `webpack-dev-server`, which `@docusaurus/core` requires.
 
-  None of the fixes is semver-compatible with its parent's range, so no `overrides`
-  entry; npm's only offer is `--force`, which would install `@docusaurus/core` 3.7.0.
+  None of the fixes is semver-compatible with its parent's range; npm's only offer is
+  `--force`, which would install `@docusaurus/core` 3.7.0.
   All three are build-time or dev-server only (the site is static). The other 19 flagged
   packages (the 14 critical Docusaurus packages, `@docusaurus/bundler`, the two webpack
   plugins, `sockjs`, `webpack-dev-server`) are flagged only through these three. Fix: the
   Docusaurus release that moves off them (4.x), or a later 3.x.
+
+  **Resolved 2026-11-24 (#205), reversing the "no overrides" note above.** `website/package.json`
+  `overrides` pins `tinypool` 2.1.2, `serialize-javascript` 7.1.3 and `uuid` 11.1.1, which clears
+  Dependabot alerts #17, #47, #48, #125, #126 and #152 (`npm audit`: 22 to 0). Each crosses its
+  parent's major, so the call sites were checked at the installed versions: `@docusaurus/core`
+  loads `tinypool` 2 through `import()` with options v2 still supports (the SSG pool runs in the
+  build); `sockjs` calls `require('uuid').v4`, which uuid 11's CommonJS path keeps (12 drops it);
+  the two webpack plugins call `serialize()` with the same API, and a round trip of
+  css-minimizer's serialized options through `new Function` returned the functions intact. With
+  `future.v4` on, Rspack and the `ws` dev server are used, so only the `tinypool` override is on
+  a live path today; the other two are a fallback if those flags are turned off.
+  - **Do not remove the overrides** while a parent still requires the vulnerable range.
+  - **Remove each one** when its parent allows a patched release (`@docusaurus/core` for
+    `tinypool`, `sockjs` or `webpack-dev-server` for `uuid`, `copy-webpack-plugin` and
+    `css-minimizer-webpack-plugin` for `serialize-javascript`, or Docusaurus 4), then re-run
+    `npm audit`. The exact pins freeze these packages until then (`tinypool` 2.2.0 and
+    `serialize-javascript` 7.1.4 exist).
+  - A Dependabot update of one of these packages has to edit `overrides`, so the Dependabot gate
+    holds it for a human: expected.
 - **N27 — `github.com/coder/acp-go-sdk` 0.20 migration.** Dependabot PR #190 (2026-11-23)
   moved the SDK from 0.13.5 to 0.20.0 inside the Go group; Dependabot labels the step
   semver-minor, but the 0.x API changed and `internal/acpclient` no longer builds (the four
