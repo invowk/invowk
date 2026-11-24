@@ -9,7 +9,8 @@ The Workflow runtime runs the script body as an async function, so the body may
     .mjs file and runs `node --check` on it (ES-module parse);
   - imports it under node with stub agent()/parallel()/phase()/log() hooks and
     drives dry-run, bad args, a full run, failed code-review lenses, guard
-    violations, a malformed lens selector, resume and fast-lane paths.
+    violations, a malformed lens selector, resume and fast-lane paths, and the
+    advisor policy of every agent prompt in every mode.
 
 It needs node; without node it skips locally and fails under CI (CI=true).
 """
@@ -62,9 +63,29 @@ function stubs(overrides) {
   return { calls, phases, logs, hooks: [agent, parallel, pipeline, (t) => phases.push(t), (m) => logs.push(m)] }
 }
 
+// Advisor policy (.agents/rules/agent-workflows.md, "Advisor"): only the spec
+// reviewer (every round) and the base reviewer may call the advisor, once;
+// every other agent prompt forbids it. go() checks every agent of every run.
+const ADVISOR_MAY = ['spec-review', 'spec-review-2', 'review:base']
+const ADVISOR_ALLOWED = 'Advisor: you may call the `advisor` tool at most once, as your final checkpoint'
+const ADVISOR_FORBIDDEN = 'Advisor: never call the `advisor` tool in this stage'
+const count = (text, needle) => text.split(needle).length - 1
+const advisorChecked = new Set()
+
+function checkAdvisor(calls, name) {
+  for (const c of calls) {
+    const may = ADVISOR_MAY.includes(c.label)
+    assert.equal(count(c.prompt, ADVISOR_ALLOWED), may ? 1 : 0, name + ' ' + c.label + ': the allowed-advisor sentence')
+    assert.equal(count(c.prompt, ADVISOR_FORBIDDEN), may ? 0 : 1, name + ' ' + c.label + ': the forbidden-advisor sentence')
+    assert.equal(count(c.prompt.toLowerCase(), 'advisor'), 2, name + ' ' + c.label + ': no other advisor instruction')
+    advisorChecked.add(c.label)
+  }
+}
+
 async function go(args, overrides) {
   const s = stubs(overrides || {})
   const result = await run(...s.hooks, args, { total: null }, async () => { throw new Error('no nested workflows') })
+  checkAdvisor(s.calls, args.mode + (args.from ? ':' + args.from : ''))
   return { result, ...s }
 }
 
@@ -375,6 +396,39 @@ for (const bad of [{ ...good, worktree: '/w/invowk/.' }, { ...good, worktree: '/
   const plain = await go({ ...good, mode: 'continue', from: 'simplify' }, { lenses: ineligible })
   assert.ok(!plain.calls.some((c) => c.label === 'spec-review'))
 }
+
+// advisor policy, mode by mode (go() has checked each prompt): the stages each
+// mode runs, which of them may call the advisor, and that every agent label the
+// template can spawn was checked at least once.
+{
+  const ineligible = () => ({ exit_code: 0, stdout: '{"lenses":[],"fast_lane_eligible":false,"reasons":{}}', guard })
+  const everyLens = () => ({ exit_code: 0, stdout: '{"lenses":["vibes"]}', guard })
+  const blockingOnce = () => {
+    let n = 0
+    return () => ({ blocking: n++ === 0, findings: [{ file: 'spec.md', severity: 'blocking', summary: 's', evidence: 'e' }], summary: 'gap', guard })
+  }
+  const may = async (args, overrides) => (await go(args, overrides)).calls.map((c) => c.label).filter((l) => ADVISOR_MAY.includes(l))
+  for (const mode of ['new', 'revise']) {
+    assert.deepEqual(await may({ ...good, mode }), ['spec-review', 'review:base'], mode)
+    const review = blockingOnce()
+    assert.deepEqual(await may({ ...good, mode }, { 'spec-review': review, 'spec-review-2': review }), ['spec-review', 'spec-review-2', 'review:base'], mode + ' with a fix round')
+  }
+  // fast-lane: the spec agent self-reviews and may not call it; the independent
+  // spec review that an ineligible change gets may.
+  const fast = await go({ ...good, mode: 'fast-lane' })
+  assert.ok(fast.calls.find((c) => c.label === 'spec-fast').prompt.includes('review them yourself'))
+  assert.deepEqual(fast.calls.map((c) => c.label).filter((l) => ADVISOR_MAY.includes(l)), ['review:base'])
+  assert.deepEqual(await may({ ...good, mode: 'fast-lane' }, { lenses: ineligible }), ['spec-review', 'review:base'])
+  assert.deepEqual(await may({ ...good, mode: 'fast-lane' }, { lenses: ineligible, 'spec-review': blockingOnce() }), ['spec-review', 'spec-review-2'])
+  assert.deepEqual(await may({ ...good, mode: 'continue', from: 'simplify', lane: 'fast' }, { lenses: ineligible }), ['spec-review', 'review:base'])
+  for (const from of ['implement', 'simplify', 'review']) assert.deepEqual(await may({ ...good, mode: 'continue', from }, { lenses: everyLens }), ['review:base'], from)
+  assert.deepEqual(await may({ ...good, mode: 'continue', from: 'fix', review_file: '/w/review.json' }), [])
+  assert.deepEqual(await may({ ...good, mode: 'finalize' }), [])
+  assert.deepEqual(await may({ ...good, mode: 'finalize', review_file: '/w/review.json' }), [])
+  const every = ['spec', 'spec-fast', 'spec-review', 'spec-fix', 'spec-review-2', 'implement', 'simplify', 'lenses', 'review:base', 'review:code-review',
+    ...['formal', 'windows', 'schema', 'ci', 'security', 'supply-chain', 'perf', 'architecture'].map((id) => 'review:' + id), 'fix']
+  assert.deepEqual([...advisorChecked].sort(), every.sort(), 'every agent label was checked for the advisor policy')
+}
 console.log('change-flow template harness: ok')
 """
 
@@ -416,6 +470,21 @@ class TemplateTest(unittest.TestCase):
 
     def test_no_session_paths(self) -> None:
         self.assertNotRegex(self.text, r"/var/home/|/home/[a-z]|/tmp/claude|/Users/")
+
+    def test_every_prompt_builder_decides_the_advisor(self) -> None:
+        # A builder added later is forbidden by default: it must carry one of the
+        # two constants, and only the spec reviewer and the base reviewer may
+        # carry the allowed one (.agents/rules/agent-workflows.md, "Advisor").
+        builders = dict(re.findall(r"(?ms)^function (\w+Prompt)\((.*?)^\}$", self.text))
+        self.assertGreaterEqual(len(builders), 10, sorted(builders))
+        allowed = {"specReviewPrompt", "baseLensPrompt"}
+        self.assertLessEqual(allowed, set(builders))
+        for name, body in builders.items():
+            with self.subTest(builder=name):
+                self.assertEqual(body.count("ADVISOR_ALLOWED"), 1 if name in allowed else 0)
+                self.assertEqual(body.count("ADVISOR_FORBIDDEN"), 0 if name in allowed else 1)
+        self.assertEqual(self.text.count("const ADVISOR_ALLOWED = "), 1)
+        self.assertEqual(self.text.count("const ADVISOR_FORBIDDEN = "), 1)
 
     def test_node_parse_and_harness(self) -> None:
         node = shutil.which("node")

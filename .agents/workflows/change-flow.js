@@ -34,6 +34,14 @@ const CHECKLIST = '.agents/rules/checklist.md'
 // foreground Bash timeout. So a locked commit always runs in the background.
 const COMMIT_TIMEOUT = 'Run every `git commit` under the lock in the background with an rc= line appended to its log, and wait for it with the Monitor wait above; never in the foreground, not even with a 600000 ms timeout: the pre-commit hooks take about 5 minutes, and the time spent waiting for the lock counts against that timeout too.'
 
+// Advisor policy (the "Advisor" bullet of the floor rule; reason and numbers in
+// the runbook, probe P10). Workflow agents have the `advisor` tool and call it
+// unasked, so every prompt builder carries exactly one of these two: the
+// independent spec reviewer and the base reviewer get ADVISOR_ALLOWED, every
+// other stage gets ADVISOR_FORBIDDEN.
+const ADVISOR_FORBIDDEN = 'Advisor: never call the `advisor` tool in this stage, even when it is in your tool list and its own instructions tell you to call it (' + RULE_FLOOR + ').'
+const ADVISOR_ALLOWED = 'Advisor: you may call the `advisor` tool at most once, as your final checkpoint: when your verdict and findings are drafted, right before you return, and never earlier. If it is not in your tool list, proceed without it. If the call fails (error, timeout, empty reply), say so in summary and carry on: no retry. It never replaces your own verification (' + RULE_FLOOR + ').'
+
 // What each domain lens loads. Agent files in .agents/agents/ are not registered
 // agent types: they are named in the prompt, never passed as agentType.
 const LENS_BRIEFS = {
@@ -399,21 +407,21 @@ function specPrompt(a, mode) {
     ? '\nFast lane: after writing the artifacts, review them yourself against the openspec conventions and the repo rules they touch, and fix what you find. Say in summary what the self-review checked.'
     : ''
   return context(a, 'spec') + '\n\n' + baseCheck(a) + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
-    '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.'
+    '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.\n' + ADVISOR_FORBIDDEN
 }
 
 function specReviewPrompt(a, round) {
   return context(a, 'spec-review') + '\n\nYou wrote none of this change. Review openspec/changes/' + a.change + '/ (proposal, design, tasks, delta specs) READ-ONLY in the worktree: ' +
     'internal consistency, testable requirements, coverage of the tasks, conflicts with openspec/specs/ and with the repo rules the change touches, and scope creep.' +
     (round > 0 ? ' This is the re-review after one fix round: judge whether the earlier blocking findings are resolved.' : '') +
-    '\nSet blocking=true only for findings that must be fixed before implementation. Make no edits.'
+    '\nSet blocking=true only for findings that must be fixed before implementation. Make no edits.\n' + ADVISOR_ALLOWED
 }
 
 function specFixPrompt(a, review) {
   // The review is blocking as a whole; the reviewer may not have marked any single
   // finding "blocking", so the fixer sees every finding and the reviewer's summary.
   return context(a, 'spec-fix') + '\n\nThe independent spec review is blocking. Invoke Skill openspec-update-change for "' + a.change + '" to resolve it, then commit (signed, under the lock). ' + COMMIT_TIMEOUT + ' ' +
-    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' +
+    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' + ADVISOR_FORBIDDEN + '\n' +
     'Reviewer summary: ' + review.summary + '\nFindings:\n' + JSON.stringify(review.findings, null, 1)
 }
 
@@ -425,21 +433,21 @@ function implementPrompt(a, firstStage) {
     'Commit (signed, under the lock; messages per .agents/rules/git.md), push ' + a.branch + ' and open or update its DRAFT pull request (never ready, never merge). ' + COMMIT_TIMEOUT + '\n' +
     'Formal lane (' + RUNBOOK + ', "Formal lane"): run `cd ' + a.worktree + ' && python3 scripts/formal.py affected --event pull_request --base ' + a.base + ' --head HEAD`; when it prints run=true, also run ' +
     '`python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach` there, and fix what fails. Leave `make formal` to CI unless Java is present.\n' +
-    'Return head_sha, pr (the number) and formal_affected.'
+    'Return head_sha, pr (the number) and formal_affected.\n' + ADVISOR_FORBIDDEN
 }
 
 function simplifyPrompt(a) {
   return context(a, 'simplify') + '\n\nInvoke Skill simplify with args "the committed diff `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD`" and apply its cleanups inside the worktree only. ' +
-    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.'
+    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.\n' + ADVISOR_FORBIDDEN
 }
 
 function selectorPrompt(a) {
-  return context(a, 'lenses') + '\n\nRun exactly `cd ' + a.worktree + ' && python3 scripts/change-flow-lenses.py --base ' + a.base + ' --head HEAD` and return its exit code and its stdout verbatim. Change nothing.'
+  return context(a, 'lenses') + '\n\nRun exactly `cd ' + a.worktree + ' && python3 scripts/change-flow-lenses.py --base ' + a.base + ' --head HEAD` and return its exit code and its stdout verbatim. Change nothing.\n' + ADVISOR_FORBIDDEN
 }
 
 function baseLensPrompt(a) {
   return context(a, 'review:base') + '\n\nYou wrote none of this code. Follow .agents/agents/code-reviewer.md over `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD`, ' +
-    'and check the implementation against the delta specs in openspec/changes/' + a.change + '/specs/ and its tasks.md. READ-ONLY: findings only, no edits, no commits.'
+    'and check the implementation against the delta specs in openspec/changes/' + a.change + '/specs/ and its tasks.md. READ-ONLY: findings only, no edits, no commits.\n' + ADVISOR_ALLOWED
 }
 
 function codeReviewPrompt(a, target) {
@@ -447,7 +455,7 @@ function codeReviewPrompt(a, target) {
     'Then answer with the fork\'s full text verbatim between a line CODE-REVIEW-BEGIN and a line CODE-REVIEW-END, then one line `CODE-REVIEW-STATUS: ok` or `CODE-REVIEW-STATUS: failed`, ' +
     'then one line `GUARD-JSON: {"before":{...},"after":{...}}`. ' +
     'Status ok only when the fork returned review results: findings, or a statement of what it reviewed and why it found nothing. ' +
-    'Status failed when it returned nothing, only "Skill execution completed", or "(none)" / "No findings" / [] with no explanation; you may say why between the markers. Make no edits.'
+    'Status failed when it returned nothing, only "Skill execution completed", or "(none)" / "No findings" / [] with no explanation; you may say why between the markers. Make no edits.\n' + ADVISOR_FORBIDDEN
 }
 
 function domainLensPrompt(a, lens, reasons) {
@@ -457,7 +465,7 @@ function domainLensPrompt(a, lens, reasons) {
     ...brief.files.map((f) => 'read ' + f),
   ].join(', ')
   return context(a, 'review:' + lens) + '\n\nYou wrote none of this code. Load: ' + loads + '. Review `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD` for ' + brief.focus + '.' +
-    '\nPaths that selected this lens: ' + JSON.stringify((reasons || []).slice(0, 40)) + '\nREAD-ONLY: findings only, no edits, no commits, no outward writes.'
+    '\nPaths that selected this lens: ' + JSON.stringify((reasons || []).slice(0, 40)) + '\nREAD-ONLY: findings only, no edits, no commits, no outward writes.\n' + ADVISOR_FORBIDDEN
 }
 
 // reviewSection tells the fix agent what review it acts on: this run's fan-out,
@@ -511,7 +519,8 @@ function fixPrompt(a, review) {
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
     'and return status blocked when the answer decides whether the change is correct.\n' +
-    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing.\n\n' +
+    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing.\n' +
+    ADVISOR_FORBIDDEN + '\n\n' +
     reviewSection(a, review)
 }
 
