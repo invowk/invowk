@@ -1,6 +1,6 @@
 # Squash Merge
 
-Merging into `main` is squash-only by project policy (`.agents/rules/git.md`). The repository settings still enable merge-commit and rebase merging (the "Safety" ruleset requires signatures, linear history and the `goplint consumer gates` check, not squash), so pick squash explicitly in the UI, or merge locally:
+Merging into `main` is squash-only by project policy (`.agents/rules/git.md`). The repository settings still enable merge-commit and rebase merging (the "Safety" ruleset requires signatures, linear history and three checks, `goplint consumer gates`, `Models, golden vectors, and correspondence` and `script tests (worktree-safety gate)`, not squash), so pick squash explicitly in the UI, or merge locally:
 
 ```bash
 git checkout main

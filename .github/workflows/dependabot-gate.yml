@@ -17,10 +17,13 @@
 #   Dependabot pushed it (the squash-merge commit of any Dependabot pull
 #   request has that shape), so the job condition and the script both require
 #   dependabot[bot], by user id, as the `actor` of the workflow runs.
-# - Which job reported a check is part of it too. A job with `checks: write`
-#   (ci.yml's test job) runs the updated dependency's code and can create a
-#   check with any name, so the script accepts a required check only when it
-#   is a job, with a runner, of the workflow run behind it.
+# - Which job reported a check is part of it too. Any token with
+#   `checks: write` can create a check with any name, so the script accepts a
+#   required check only when it is a job, with a runner, of the workflow run
+#   behind it. No job that runs pull request code may hold a write token
+#   (ci.yml publishes its JUnit reports from the `test-report` job, which runs
+#   none); scripts/test_dependabot_gate.py checks that and lists every
+#   exemption with its reason.
 #
 # GATE_MODE is a constant in this file, not a repository variable: moving from
 # `decide-only` to `merge` is a reviewed pull request.

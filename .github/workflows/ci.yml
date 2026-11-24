@@ -460,25 +460,36 @@ jobs:
         shell: bash
 
   # PGO profile sanity and freshness checks.
-  # On same-repo PRs: auto-regenerates default.pgo and pushes a verified fix
-  # commit via the GitHub GraphQL API (createCommitOnBranch).
-  # On fork PRs: warns but cannot auto-fix (GITHUB_TOKEN is read-only for forks).
+  # On same-repo PRs that change hot-path files without default.pgo: regenerates
+  # the profile, audits it and uploads it as the `pgo-profile` artifact; the
+  # pgo-commit job below commits it to the PR branch.
+  # On fork PRs: fails with instructions (nothing is committed to a fork).
   # On push/release: audit-only.
-  # Note: The auto-pushed commit uses GITHUB_TOKEN, so it will NOT re-trigger CI
-  # (GitHub's anti-recursion protection). This is acceptable because pgo-audit
-  # already validated the profile format in this same job run.
+  # This job runs the pull request's code (make, go and the scripts), so its
+  # token is read-only and is not persisted in .git/config.
   pgo-sanity:
     name: PGO Sanity
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: read
+    outputs:
+      needs_refresh: ${{ steps.pgo-check.outputs.needs_refresh }}
+      head_sha: ${{ steps.head.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref || '' }}
+          persist-credentials: false
+
+      # Recorded before any repository code runs: the commit job commits on
+      # top of exactly this head, and skips when the branch has moved since.
+      - name: Record checked-out head
+        id: head
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -544,27 +555,117 @@ jobs:
         if: steps.pgo-check.outputs.needs_refresh == 'true'
         run: make pgo-profile-parse-discovery
 
-      # Create a verified commit via the GitHub GraphQL API.
-      # Direct git commits on CI runners are unsigned and blocked by the
-      # required_signatures ruleset. The GraphQL createCommitOnBranch mutation
-      # produces GitHub-signed commits that satisfy the ruleset.
-      # Uses GITHUB_TOKEN (not an app token) to preserve anti-recursion:
-      # the commit will NOT re-trigger CI workflows.
-      - name: Commit PGO profile (verified)
+      - name: Audit regenerated PGO profile
         if: steps.pgo-check.outputs.needs_refresh == 'true'
+        run: make pgo-audit
+
+      - name: Upload regenerated PGO profile
+        if: steps.pgo-check.outputs.needs_refresh == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pgo-profile
+          path: default.pgo
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  # Commits the profile that pgo-sanity regenerated to the PR's own branch.
+  # It holds `contents: write`, so it executes no repository or pull request
+  # code: no checkout, no `run` step that calls make, go or a script, only the
+  # pinned download action and inline shell that checks the artifact and
+  # calls the GitHub API. It never pushes anywhere but the PR's head branch.
+  # The GraphQL createCommitOnBranch mutation creates a GitHub-signed commit
+  # (direct git commits on CI runners are unsigned and blocked by the
+  # required_signatures ruleset). It uses GITHUB_TOKEN, not an app token, so
+  # the commit does NOT re-trigger CI (GitHub's anti-recursion protection);
+  # pgo-sanity already audited the regenerated profile in this run.
+  # scripts/test_dependabot_gate.py checks these properties.
+  pgo-commit:
+    name: PGO Profile Commit
+    needs: pgo-sanity
+    if: >-
+      needs.pgo-sanity.outputs.needs_refresh == 'true'
+      && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download regenerated PGO profile
+        uses: actions/download-artifact@v8
+        with:
+          name: pgo-profile
+          path: ${{ runner.temp }}/pgo-profile
+
+      - name: Verify the artifact
+        shell: bash
+        env:
+          PROFILE_DIR: ${{ runner.temp }}/pgo-profile
+        run: |
+          set -euo pipefail
+
+          # Exactly one regular file named default.pgo, of a sane size, gzip
+          # compressed like every profile `go test -cpuprofile` writes.
+          entries="$(find "$PROFILE_DIR" -mindepth 1 -printf '%P\n')"
+          if [ "$entries" != "default.pgo" ]; then
+            echo "::error::The pgo-profile artifact must hold only default.pgo; it holds: $(echo "$entries" | tr '\n' ' ')"
+            exit 1
+          fi
+          profile="$PROFILE_DIR/default.pgo"
+          if [ -L "$profile" ] || [ ! -f "$profile" ]; then
+            echo "::error::default.pgo in the artifact is not a regular file."
+            exit 1
+          fi
+          size="$(stat -c %s "$profile")"
+          if [ "$size" -lt 1024 ] || [ "$size" -gt 8388608 ]; then
+            echo "::error::default.pgo is $size bytes; expected 1 KiB to 8 MiB."
+            exit 1
+          fi
+          magic="$(head -c 2 "$profile" | od -An -tx1 | tr -d ' \n')"
+          if [ "$magic" != "1f8b" ]; then
+            echo "::error::default.pgo is not gzip compressed (starts with $magic)."
+            exit 1
+          fi
+          echo "default.pgo: $size bytes"
+
+      - name: Commit PGO profile (verified)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_BRANCH: ${{ github.head_ref }}
+          EXPECTED_HEAD: ${{ needs.pgo-sanity.outputs.head_sha }}
+          PROFILE: ${{ runner.temp }}/pgo-profile/default.pgo
         run: |
           set -euo pipefail
 
-          HEAD_SHA=$(git rev-parse HEAD)
+          if ! [[ "$EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::PGO Sanity reported no checked-out head: '$EXPECTED_HEAD'"
+            exit 1
+          fi
+
+          # Commit only on top of the head the profile was generated from.
+          # A branch that moved since is skipped, never overwritten; the next
+          # run regenerates the profile for the new head.
+          # shellcheck disable=SC2016 # GraphQL variables, not shell ones
+          CURRENT_HEAD=$(gh api graphql \
+            -f query='query ($owner: String!, $name: String!, $ref: String!) {
+              repository(owner: $owner, name: $name) { ref(qualifiedName: $ref) { target { oid } } }
+            }' \
+            -f owner="${GITHUB_REPOSITORY%%/*}" \
+            -f name="${GITHUB_REPOSITORY#*/}" \
+            -f ref="refs/heads/$HEAD_BRANCH" \
+            --jq '.data.repository.ref.target.oid // ""')
+          if [ "$CURRENT_HEAD" != "$EXPECTED_HEAD" ]; then
+            echo "::notice::$HEAD_BRANCH is at ${CURRENT_HEAD:-nothing}, not $EXPECTED_HEAD where PGO Sanity ran; skipping the commit."
+            exit 0
+          fi
 
           # Base64-encode the regenerated PGO profile.
           B64_FILE=$(mktemp)
-          base64 -w 0 < default.pgo > "$B64_FILE"
+          base64 -w 0 < "$PROFILE" > "$B64_FILE"
 
+          # shellcheck disable=SC2016 # GraphQL variables, not shell ones
           QUERY='
             mutation ($input: CreateCommitOnBranchInput!) {
               createCommitOnBranch(input: $input) {
@@ -572,12 +673,14 @@ jobs:
               }
             }'
 
+          # expectedHeadOid makes GitHub refuse the commit if the branch
+          # moves between the check above and this call.
           RESULT=$(jq -n \
             --arg query "$QUERY" \
             --arg repo "$GITHUB_REPOSITORY" \
             --arg branch "$HEAD_BRANCH" \
             --arg headline "chore(pgo): auto-regenerate profile for hot-path changes" \
-            --arg oid "$HEAD_SHA" \
+            --arg oid "$EXPECTED_HEAD" \
             --rawfile contents "$B64_FILE" \
             '{
               query: $query,
@@ -597,6 +700,11 @@ jobs:
             }' | gh api graphql --input -)
 
           rm -f "$B64_FILE"
+          if [ "$(echo "$RESULT" | jq '.errors // [] | length')" != "0" ] \
+            || [ -z "$(echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit.oid // empty')" ]; then
+            echo "::error::createCommitOnBranch returned no commit: $RESULT"
+            exit 1
+          fi
           echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created verified commit \(.oid)\n\(.url)"'
 
   # License header check

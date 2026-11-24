@@ -36,11 +36,17 @@ that body with `jq`, keep the GraphQL query and variables separate, and fail if
 the response contains `.errors` or lacks `.data.createCommitOnBranch.commit.oid`.
 
 Live examples, to use only after verifying them against the six checks above:
-the `Commit PGO profile (verified)` step of the `PGO Sanity` job in
-`.github/workflows/ci.yml` (`github.token`, no downstream trigger) and the
-`Commit and push` step in `.github/workflows/version-docs.yml` (App token).
-Neither meets check 5 today: both only print
-`.data.createCommitOnBranch.commit` with `jq` and rely on `gh`'s exit status
-(the ci.yml step under `set -euo pipefail`, the version-docs.yml step under the
-default `bash -e` shell). Add the explicit `.errors`/empty-oid check rather than
-copying that gap.
+the `Commit PGO profile (verified)` step of the `PGO Profile Commit` job
+(`pgo-commit`) in `.github/workflows/ci.yml` (`github.token`, no downstream
+trigger; no checkout, so `expectedHeadOid` is the head the `PGO Sanity` job
+checked out, passed as a job output, and the step skips when the branch moved
+since) and the `Commit and push` step in `.github/workflows/version-docs.yml`
+(App token). The ci.yml step checks `.errors` and the oid. The version-docs.yml
+step does not meet check 5 today: it only prints
+`.data.createCommitOnBranch.commit` with `jq` and relies on `gh`'s exit status
+under the default `bash -e` shell. Add the explicit `.errors`/empty-oid check
+rather than copying that gap.
+
+A job that commits must not run repository or pull request code with its
+write token (`.agents/rules/ci-workflows.md`): generate the content in a
+read-only job and hand it over as an artifact.
