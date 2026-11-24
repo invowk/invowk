@@ -101,9 +101,12 @@ REASON_CHARACTERISATION_ONLY = "characterisation-only"
 TRIAGE_CLASSES = {"equivalent", "abstraction", "binding-gap", "model-gap", "defect"}
 # The placeholder `refresh` writes for a new survivor (mutation-partial-refresh
 # design D5). The class is not in TRIAGE_CLASSES, and `triage --check` rejects
-# either marker until a person writes the class and the reason.
+# either marker until a person writes the class and the reason. The reason ends
+# with UNTRIAGED_PROMPT, and the check also rejects a reason that still contains
+# it: in PR #188, 13 entries kept the placeholder with only the mark deleted.
 UNTRIAGED_CLASS = "untriaged"
 UNTRIAGED_MARK = "UNTRIAGED:"
+UNTRIAGED_PROMPT = "write the class and the reason"
 FOLLOW_UP_CLASSES = {"binding-gap", "model-gap", "defect"}
 SURVIVOR_KEYS = {"id", "file", "symbol", "model", "element", "class", "reason", "follow_up", "removed", "added", "context"}
 # The anchor fields (refresh-anchors-mutation-ledger design D1): the removed and
@@ -1171,8 +1174,10 @@ def base_manifest(base: str, read: Callable[[str], bytes] | None = None) -> dict
 
 def is_untriaged(survivor: dict) -> bool:
     """Whether a ledger entry still carries the placeholder `refresh` writes:
-    the class or the start of the reason (mutation-partial-refresh design D5)."""
-    return survivor.get("class") == UNTRIAGED_CLASS or str(survivor.get("reason", "")).startswith(UNTRIAGED_MARK)
+    the class, the start of the reason (mutation-partial-refresh design D5),
+    or the placeholder sentence anywhere in the reason."""
+    reason = str(survivor.get("reason", ""))
+    return survivor.get("class") == UNTRIAGED_CLASS or reason.startswith(UNTRIAGED_MARK) or UNTRIAGED_PROMPT in reason
 
 
 def evidence_failures(baseline: dict, reruns: list[dict]) -> tuple[list[str], dict[str, list[str]]]:
@@ -1904,7 +1909,7 @@ def refresh(
                 "id": mid, "file": function["file"], "symbol": row_spelling(rows, function, first["model"], first["element"]),
                 "model": first["model"], "element": first["element"], "class": UNTRIAGED_CLASS,
                 "reason": (f"{UNTRIAGED_MARK} {mutant.mutator} ({mutant.description or 'no description'}) survives "
-                           f"{', '.join(function['killers'])}; write the class and the reason{note}"),
+                           f"{', '.join(function['killers'])}; {UNTRIAGED_PROMPT}{note}"),
                 "follow_up": "", **anchor_of(mutant),
             }
             added[mid] = (key, entry, mutant)
@@ -2026,10 +2031,15 @@ def refresh(
     if awaiting:
         out.append(f"refresh: {len(awaiting)} id(s) need {REQUIRED_ESCAPED_RERUNS} escaped reruns at their evidence "
                    f"digest; run it twice: make mutation-formal-rerun MUTATION_MUTANT_ID={','.join(awaiting)}")
-        if paths.manifest in changed:
-            out.append("refresh: commit formal/manifest.toml first: the mutation wrapper refuses a dirty manifest")
+        # The wrapper (ensure_clean_tracked_worktree_for_mutation in
+        # scripts/mutation.sh) refuses any dirty tracked file outside
+        # dirty_path_is_allowed, not only the manifest this refresh may edit.
+        out.append("refresh: before the reruns, commit every tracked edit outside the mutation wrapper's allow-list "
+                   "(dirty_path_is_allowed in scripts/mutation.sh), such as formal/manifest.toml or a tasks/next/ note: "
+                   "the wrapper refuses to start while one is dirty; the refreshed baseline, ledger and reruns file "
+                   "may stay uncommitted")
     if untriaged:
-        out.append(f"refresh: write the class and the reason of the {untriaged} untriaged entr"
+        out.append(f"refresh: {UNTRIAGED_PROMPT} of the {untriaged} untriaged entr"
                    f"{'y' if untriaged == 1 else 'ies'}; `triage --check` rejects them until then")
     return out
 

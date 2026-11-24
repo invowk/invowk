@@ -257,13 +257,18 @@ mutation-partial-refresh):
    entries whose anchor fails (class and reason kept), drops the symbols' ids
    from `[triage] stale_survivors`, and leaves every other byte unchanged.
 3. Triage each placeholder as above: `triage --check` rejects the class
-   `untriaged` and a reason starting `UNTRIAGED:` until you write both. An id
-   moved between two chosen symbols comes back untriaged too.
+   `untriaged`, a reason starting `UNTRIAGED:` and a reason that still
+   contains the placeholder's "write the class and the reason", so replace the
+   whole reason, not only the mark. An id moved between two chosen symbols
+   comes back untriaged too.
 4. Run the `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line the refresh
-   printed twice (commit first when it changed `formal/manifest.toml`: the
-   wrapper refuses a dirty manifest, and any other tracked edit outside its
-   allow-list, such as a `tasks/next/formal-binding-gaps.md` update; the
-   refreshed ledger and baseline themselves may stay uncommitted). The reruns record evidence at the
+   printed twice. First commit every tracked edit outside the wrapper's
+   allow-list (`dirty_path_is_allowed` in `scripts/mutation.sh`: the two
+   mutation baselines, the formal-bindings ledger and reruns file, and
+   `artifacts/mutation/`): the wrapper refuses to start while any other tracked
+   file is dirty, such as a `formal/manifest.toml` the refresh changed or a
+   `tasks/next/formal-binding-gaps.md` update. The refreshed ledger and
+   baseline themselves may stay uncommitted. The reruns record evidence at the
    entries' own digest; no digest is copied by hand.
 5. `python3 scripts/formal_mutation.py triage --check` must pass. Remove the
    throwaway worktree.

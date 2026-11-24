@@ -34,6 +34,28 @@ const CHECKLIST = '.agents/rules/checklist.md'
 // foreground Bash timeout. So a locked commit always runs in the background.
 const COMMIT_TIMEOUT = 'Run every `git commit` under the lock in the background with an rc= line appended to its log, and wait for it with the Monitor wait above; never in the foreground, not even with a 600000 ms timeout: the pre-commit hooks take about 5 minutes, and the time spent waiting for the lock counts against that timeout too.'
 
+// A stage restarts after a usage-limit pause, and this same prompt runs again
+// (runbook, probe P11). Every WRITING stage (spec, spec-fix, implement, simplify,
+// fix) gets this, so it continues from its own earlier work instead of stopping
+// on it or starting over. Read-only stages just run again and do not get it.
+// The base is a stop only where the prompt has baseCheck(): a later stage must
+// not block because the base moved during the run (probe P8). An earlier
+// attempt's evidence (a gate log, a mutation report, a refreshed ledger) may
+// describe an older tree, so it counts only at the current HEAD; the logs
+// record their HEAD for that (context()).
+const RESUME = 'Restart: this prompt may run again after a pause, with this same text. Work of this stage that is already in the worktree (commits on the branch, uncommitted edits, checked tasks, logs with rc= lines, ledgers or reports on disk) is your own earlier attempt: read it, continue from it by finishing or redoing the unfinished step, then run this stage\'s checks on the result. Never discard it, never start over and never stop because it exists: for what you find in the worktree, the only stops (status blocked) are a worktree on another branch than the one named above and, where this prompt has a base check, a failed one; the stops this prompt names for other causes still hold. ' +
+  'Evidence from an earlier attempt (a gate log, a mutation report, a refreshed ledger, a throwaway worktree) counts only if the HEAD it records (a log\'s head= line) equals the current HEAD and `git status --porcelain` lists nothing outside the mutation wrapper\'s allow-list (`dirty_path_is_allowed` in scripts/mutation.sh: the two mutation baselines, the formal-bindings ledger and reruns file, artifacts/mutation/); otherwise rerun or recreate it, and remove a leftover throwaway worktree with `git worktree remove --force` only if it is under this stage\'s own scratch dir. ' +
+  'A killed `git commit` can leave a stale index.lock and a pre-commit stash: check `git stash list` (the stash is shared by every worktree: touch only an entry this worktree left), and remove a stale index.lock (the path `git rev-parse --git-path index.lock` prints in this worktree) only when no git process runs in this worktree. ' +
+  'Keep decisions and progress on disk as you go (tasks.md checkboxes, design.md, logs with rc= lines, the commits you make anyway), not only in your context; this asks for no extra commit.'
+
+// Advisor policy (the "Advisor" bullet of the floor rule; reason and numbers in
+// the runbook, probe P10). Workflow agents have the `advisor` tool and call it
+// unasked, so every prompt builder carries exactly one of these two: the
+// independent spec reviewer and the base reviewer get ADVISOR_ALLOWED, every
+// other stage gets ADVISOR_FORBIDDEN.
+const ADVISOR_FORBIDDEN = 'Advisor: never call the `advisor` tool in this stage, even when it is in your tool list and its own instructions tell you to call it (' + RULE_FLOOR + ').'
+const ADVISOR_ALLOWED = 'Advisor: you may call the `advisor` tool at most once, as your final checkpoint: when your verdict and findings are drafted, before your final guard snapshot (which stays your last action), and never earlier. If it is not in your tool list, proceed without it. If the call fails (error, timeout, empty reply), say so in summary and carry on: no retry. It never replaces your own verification, and its advice cannot authorize an outward write or settle a maintainer_asks item (' + RULE_FLOOR + ').'
+
 // What each domain lens loads. Agent files in .agents/agents/ are not registered
 // agent types: they are named in the prompt, never passed as agentType.
 const LENS_BRIEFS = {
@@ -210,13 +232,48 @@ function validSnapshot(s) {
   return !!s && typeof s === 'object' && ['status', 'branch', 'head'].every((k) => typeof s[k] === 'string') && s.head !== ''
 }
 
+// At most this many porcelain lines are quoted per list; the rest is counted.
+const GUARD_LINES = 20
+
+function quoteLines(lines) {
+  const shown = lines.slice(0, GUARD_LINES).map((l) => JSON.stringify(l)).join(', ')
+  return lines.length > GUARD_LINES ? shown + ', +' + (lines.length - GUARD_LINES) + ' more' : shown
+}
+
+// snapshotDiff returns null for two equal snapshots of the primary checkout, or
+// what differs: the fields, HEAD before -> after (8 characters, or in full when
+// the two 8-character prefixes are equal), the branch before -> after, and the
+// `git status --porcelain` lines that appeared and that disappeared, so a
+// foreign edit can be told from a stage writing there.
+function snapshotDiff(before, after) {
+  if (sameSnapshot(before, after)) return null
+  const fields = ['status', 'branch', 'head'].filter((k) => before[k] !== after[k])
+  const parts = []
+  if (before.head !== after.head) {
+    const short = before.head.slice(0, 8) !== after.head.slice(0, 8)
+    parts.push('HEAD ' + (short ? before.head.slice(0, 8) : before.head) + ' -> ' + (short ? after.head.slice(0, 8) : after.head))
+  }
+  if (before.branch !== after.branch) parts.push('branch ' + before.branch + ' -> ' + after.branch)
+  if (before.status !== after.status) {
+    // Leading spaces are part of a porcelain line (" M file"); trailing ones are not.
+    const lines = (s) => s.split('\n').map((l) => l.replace(/\s+$/, '')).filter((l) => l !== '')
+    const was = lines(before.status)
+    const now = lines(after.status)
+    const appeared = now.filter((l) => !was.includes(l))
+    const disappeared = was.filter((l) => !now.includes(l))
+    if (appeared.length) parts.push('appeared: ' + quoteLines(appeared))
+    if (disappeared.length) parts.push('disappeared: ' + quoteLines(disappeared))
+    if (!appeared.length && !disappeared.length) parts.push('the same porcelain lines in another order or spacing')
+  }
+  return '(' + fields.join(', ') + '): ' + parts.join('; ')
+}
+
 // guardChanged returns null when the primary checkout did not change during a
 // stage, or a description of the problem (missing guard counts as changed).
 function guardChanged(guard) {
   if (!guard || !validSnapshot(guard.before) || !validSnapshot(guard.after)) return 'missing or malformed guard'
-  if (sameSnapshot(guard.before, guard.after)) return null
-  const diff = ['status', 'branch', 'head'].filter((k) => guard.before[k] !== guard.after[k])
-  return 'primary checkout changed (' + diff.join(', ') + ')'
+  const diff = snapshotDiff(guard.before, guard.after)
+  return diff ? 'primary checkout changed ' + diff : null
 }
 
 // parseTextGuard reads the last "GUARD-JSON: {...}" line of a schemaless agent's text.
@@ -338,8 +395,17 @@ function selfChecks() {
 
   const snap = { status: '?? a.log', branch: 'main', head: 'abc' }
   expectEqual('guard.same', guardChanged({ before: snap, after: { ...snap } }), null)
-  expectEqual('guard.status', guardChanged({ before: snap, after: { ...snap, status: ' M x.go\n?? a.log' } }), 'primary checkout changed (status)')
-  expectEqual('guard.head', guardChanged({ before: snap, after: { ...snap, head: 'def' } }), 'primary checkout changed (head)')
+  expectEqual('guard.modified', guardChanged({ before: snap, after: { ...snap, status: ' M x.go\n?? a.log' } }), 'primary checkout changed (status): appeared: " M x.go"')
+  expectEqual('guard.untracked', guardChanged({ before: snap, after: { ...snap, status: '?? a.log\n?? notes.txt\n' } }), 'primary checkout changed (status): appeared: "?? notes.txt"')
+  expectEqual('guard.disappeared', guardChanged({ before: snap, after: { ...snap, status: '' } }), 'primary checkout changed (status): disappeared: "?? a.log"')
+  expectEqual('guard.head-clean', guardChanged({ before: { ...snap, status: '', head: 'abc1234567890' }, after: { ...snap, status: '', head: 'def4567890123' } }), 'primary checkout changed (head): HEAD abc12345 -> def45678')
+  expectEqual('guard.all', guardChanged({ before: snap, after: { status: 'M  x.go', branch: 'feat/x', head: 'def' } }),
+    'primary checkout changed (status, branch, head): HEAD abc -> def; branch main -> feat/x; appeared: "M  x.go"; disappeared: "?? a.log"')
+  expectEqual('guard.head-same-prefix', guardChanged({ before: { ...snap, head: 'abcdef0123' }, after: { ...snap, head: 'abcdef0199' } }), 'primary checkout changed (head): HEAD abcdef0123 -> abcdef0199')
+  expectEqual('guard.order', guardChanged({ before: { ...snap, status: '?? a\n?? b' }, after: { ...snap, status: '?? b\n?? a' } }), 'primary checkout changed (status): the same porcelain lines in another order or spacing')
+  const many = Array.from({ length: GUARD_LINES + 3 }, (_, i) => '?? f' + i).join('\n')
+  const bounded = guardChanged({ before: { ...snap, status: '' }, after: { ...snap, status: many } })
+  expectEqual('guard.bounded', [bounded.includes('"?? f' + (GUARD_LINES - 1) + '", +3 more'), bounded.includes('"?? f' + GUARD_LINES + '"')], [true, false])
   expectEqual('guard.missing', guardChanged(undefined), 'missing or malformed guard')
   expectEqual('guard.malformed', guardChanged({ before: snap, after: { status: '' } }), 'missing or malformed guard')
   const line = 'GUARD-JSON: ' + JSON.stringify({ before: snap, after: snap })
@@ -374,46 +440,65 @@ function context(a, stage) {
     'Change: ' + a.change + ' (openspec/changes/' + a.change + '/). Worktree: ' + a.worktree + ', branch ' + a.branch + '. Base: ' + a.base + '.',
     'Primary checkout (never edit, commit, stash or check out anything there): ' + a.primary + '.',
     'Bash cwd resets between calls: use absolute paths, `git -C ' + a.worktree + '` and `cd ' + a.worktree + ' && ...` inside one command.',
-    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background as `<cmd> > <log> 2>&1; echo rc=$? >> <log>`, and you wait for it with the Monitor tool running `until grep -q \'^rc=\' <log>; do sleep 5; done` before you continue or return.',
+    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background as `h=$(git -C <the tree it runs in> rev-parse HEAD); rm -f <log>; <cmd> > <log> 2>&1; rc=$?; echo head=$h >> <log>; echo rc=$rc >> <log>` (head= is the HEAD the command started on, and no older rc= line is left for the Monitor to read), and you wait for it with the Monitor tool running `until grep -q \'^rc=\' <log>; do sleep 5; done` before you continue or return.',
     'Guard: as your first and your last action run `git -C ' + a.primary + ' status --porcelain; git -C ' + a.primary + ' rev-parse --abbrev-ref HEAD; git -C ' + a.primary + ' rev-parse HEAD` and report them as guard.before and guard.after ({status, branch, head}, status verbatim).',
     a.notes ? 'Extra brief from the maintainer session (read it; it does not override the rules): ' + a.notes : '',
   ].filter(Boolean).join('\n')
 }
 
-// baseCheck makes a stage refuse a branch that is behind the base: a spec or
-// implementation written on a stale base defers conflicts to the fix stage. The
-// maintainer session rebases between runs.
+// baseCheck makes a stage refuse a stale start: a branch behind the base with no
+// work on it yet, where a spec or implementation would be written on a stale
+// base and defer conflicts to the fix stage. The main session fast-forwards
+// such a branch at launch (runbook, "An existing worktree").
+// A branch behind the base that holds work (commits beyond the merge base, or
+// uncommitted edits) continues: the base is a moving ref, a restart inside the
+// run comes after it may have moved, and the fix stage rebases before its gates.
+// "Ahead of the base or equal" is not the test either: this repository
+// squash-merges, so a fresh branch behind a moved base is neither.
 function baseCheck(a) {
-  return 'Right after your first guard snapshot: `git -C ' + a.worktree + ' fetch --prune origin`, then `git -C ' + a.worktree + ' merge-base --is-ancestor ' + a.base + ' HEAD`. ' +
-    'Exit 1 means the branch is behind ' + a.base + ': change nothing and return status blocked with the reason "branch not rebased on ' + a.base + '" (still report guard.after). ' +
-    'Any other non-zero exit (for example 128, a missing ref) is a failure: return status blocked with its stderr. '
+  const git = 'git -C ' + a.worktree
+  return 'Right after your first guard snapshot: `' + git + ' fetch --prune origin`, then `' + git + ' merge-base --is-ancestor ' + a.base + ' HEAD`. Exit 0: continue. ' +
+    'Exit 1 means ' + a.base + ' has commits the branch lacks, which blocks only a stale start with no work on it: run `' + git + ' merge-base ' + a.base + ' HEAD` as its own command, never inside `$(...)` in a `rev-list` range. ' +
+    'When it exits non-zero or prints nothing, change nothing and return status blocked with the reason "no shared history with ' + a.base + '" (still report guard.after). ' +
+    'Otherwise run `' + git + ' rev-list --count <that merge base>..HEAD` and `' + git + ' status --porcelain`. ' +
+    'When the count is 0 and the status prints nothing, change nothing and return status blocked with the reason "branch not rebased on ' + a.base + '" (still report guard.after). ' +
+    'Otherwise (commits beyond the merge base, or uncommitted edits) continue: the fix stage rebases on ' + a.base + ' before its gates. ' +
+    'Any other non-zero exit of `--is-ancestor` (for example 128, a missing ref) and any failure of the later commands is a failure: return status blocked with its stderr. '
 }
 
 function specPrompt(a, mode) {
-  const skill = mode === 'new'
-    ? 'Skill openspec-propose'
-    : mode === 'fast-lane'
-      ? 'Skill openspec-propose if openspec/changes/' + a.change + '/ does not exist in the worktree yet, otherwise Skill openspec-update-change,'
-      : 'Skill openspec-update-change'
+  // new and fast-lane: a restarted stage finds the change its earlier attempt
+  // created, and openspec-propose would ask whether to continue it. A change
+  // that already exists on the base is someone else's (a colliding id), never
+  // an earlier attempt: the stage refuses it instead of editing it. So is an
+  // archived copy on the base (a leftover branch already squash-merged).
+  const onBase = mode === 'revise'
+    ? ''
+    : 'Then `git -C ' + a.worktree + ' cat-file -e ' + a.base + ':openspec/changes/' + a.change + '`: exit 0 means the change already exists on ' + a.base + ', so it is not an earlier attempt of this stage: change nothing and return status blocked with the reason "change exists on the base: use revise" (still report guard.after). A non-zero exit means it is not on the base. ' +
+      'Then `git -C ' + a.worktree + ' ls-tree --name-only ' + a.base + ' openspec/changes/archive/`: when it lists `openspec/changes/archive/YYYY-MM-DD-' + a.change + '` exactly (a date, a hyphen, then this id with nothing after it; a suffix match is not a match), the change was already merged and archived on ' + a.base + ': change nothing and return status blocked with the reason "change already archived on the base: pick a new id" (still report guard.after). '
+  const skill = mode === 'revise'
+    ? 'Skill openspec-update-change'
+    : 'Skill openspec-propose if openspec/changes/' + a.change + '/ does not exist in the worktree yet, otherwise Skill openspec-update-change' +
+      (mode === 'new' ? ' (an earlier attempt of this stage created it: continue it, do not propose it again),' : ',')
   const own = mode === 'fast-lane'
     ? '\nFast lane: after writing the artifacts, review them yourself against the openspec conventions and the repo rules they touch, and fix what you find. Say in summary what the self-review checked.'
     : ''
-  return context(a, 'spec') + '\n\n' + baseCheck(a) + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
-    '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.'
+  return context(a, 'spec') + '\n\n' + baseCheck(a) + onBase + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
+    '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
 function specReviewPrompt(a, round) {
   return context(a, 'spec-review') + '\n\nYou wrote none of this change. Review openspec/changes/' + a.change + '/ (proposal, design, tasks, delta specs) READ-ONLY in the worktree: ' +
     'internal consistency, testable requirements, coverage of the tasks, conflicts with openspec/specs/ and with the repo rules the change touches, and scope creep.' +
     (round > 0 ? ' This is the re-review after one fix round: judge whether the earlier blocking findings are resolved.' : '') +
-    '\nSet blocking=true only for findings that must be fixed before implementation. Make no edits.'
+    '\nSet blocking=true only for findings that must be fixed before implementation. Make no edits.\n' + ADVISOR_ALLOWED
 }
 
 function specFixPrompt(a, review) {
   // The review is blocking as a whole; the reviewer may not have marked any single
   // finding "blocking", so the fixer sees every finding and the reviewer's summary.
   return context(a, 'spec-fix') + '\n\nThe independent spec review is blocking. Invoke Skill openspec-update-change for "' + a.change + '" to resolve it, then commit (signed, under the lock). ' + COMMIT_TIMEOUT + ' ' +
-    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' +
+    'Resolve every finding marked severity "blocking"; if none is marked, resolve the ones the summary names as blocking, or else every "major" one.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN + '\n' +
     'Reviewer summary: ' + review.summary + '\nFindings:\n' + JSON.stringify(review.findings, null, 1)
 }
 
@@ -425,21 +510,21 @@ function implementPrompt(a, firstStage) {
     'Commit (signed, under the lock; messages per .agents/rules/git.md), push ' + a.branch + ' and open or update its DRAFT pull request (never ready, never merge). ' + COMMIT_TIMEOUT + '\n' +
     'Formal lane (' + RUNBOOK + ', "Formal lane"): run `cd ' + a.worktree + ' && python3 scripts/formal.py affected --event pull_request --base ' + a.base + ' --head HEAD`; when it prints run=true, also run ' +
     '`python3 scripts/formal.py correspondence`, `python3 scripts/formal_mutation.py triage --check` and `make formal-reach` there, and fix what fails. Leave `make formal` to CI unless Java is present.\n' +
-    'Return head_sha, pr (the number) and formal_affected.'
+    'Return head_sha, pr (the number) and formal_affected.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
 function simplifyPrompt(a) {
   return context(a, 'simplify') + '\n\nInvoke Skill simplify with args "the committed diff `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD`" and apply its cleanups inside the worktree only. ' +
-    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.'
+    'Quality only: no behaviour changes. It runs single-pass here; that is expected. Run only the tests of the code you touched, then commit (signed, under the lock) and push ' + a.branch + '. ' + COMMIT_TIMEOUT + ' Return head_sha.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
 function selectorPrompt(a) {
-  return context(a, 'lenses') + '\n\nRun exactly `cd ' + a.worktree + ' && python3 scripts/change-flow-lenses.py --base ' + a.base + ' --head HEAD` and return its exit code and its stdout verbatim. Change nothing.'
+  return context(a, 'lenses') + '\n\nRun exactly `cd ' + a.worktree + ' && python3 scripts/change-flow-lenses.py --base ' + a.base + ' --head HEAD` and return its exit code and its stdout verbatim. Change nothing.\n' + ADVISOR_FORBIDDEN
 }
 
 function baseLensPrompt(a) {
   return context(a, 'review:base') + '\n\nYou wrote none of this code. Follow .agents/agents/code-reviewer.md over `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD`, ' +
-    'and check the implementation against the delta specs in openspec/changes/' + a.change + '/specs/ and its tasks.md. READ-ONLY: findings only, no edits, no commits.'
+    'and check the implementation against the delta specs in openspec/changes/' + a.change + '/specs/ and its tasks.md. READ-ONLY: findings only, no edits, no commits.\n' + ADVISOR_ALLOWED
 }
 
 function codeReviewPrompt(a, target) {
@@ -447,7 +532,7 @@ function codeReviewPrompt(a, target) {
     'Then answer with the fork\'s full text verbatim between a line CODE-REVIEW-BEGIN and a line CODE-REVIEW-END, then one line `CODE-REVIEW-STATUS: ok` or `CODE-REVIEW-STATUS: failed`, ' +
     'then one line `GUARD-JSON: {"before":{...},"after":{...}}`. ' +
     'Status ok only when the fork returned review results: findings, or a statement of what it reviewed and why it found nothing. ' +
-    'Status failed when it returned nothing, only "Skill execution completed", or "(none)" / "No findings" / [] with no explanation; you may say why between the markers. Make no edits.'
+    'Status failed when it returned nothing, only "Skill execution completed", or "(none)" / "No findings" / [] with no explanation; you may say why between the markers. Make no edits.\n' + ADVISOR_FORBIDDEN
 }
 
 function domainLensPrompt(a, lens, reasons) {
@@ -457,7 +542,7 @@ function domainLensPrompt(a, lens, reasons) {
     ...brief.files.map((f) => 'read ' + f),
   ].join(', ')
   return context(a, 'review:' + lens) + '\n\nYou wrote none of this code. Load: ' + loads + '. Review `git -C ' + a.worktree + ' diff ' + a.base + '...HEAD` for ' + brief.focus + '.' +
-    '\nPaths that selected this lens: ' + JSON.stringify((reasons || []).slice(0, 40)) + '\nREAD-ONLY: findings only, no edits, no commits, no outward writes.'
+    '\nPaths that selected this lens: ' + JSON.stringify((reasons || []).slice(0, 40)) + '\nREAD-ONLY: findings only, no edits, no commits, no outward writes.\n' + ADVISOR_FORBIDDEN
 }
 
 // reviewSection tells the fix agent what review it acts on: this run's fan-out,
@@ -476,11 +561,27 @@ function reviewSection(a, review) {
     'Do not describe the change as reviewed by this run; say in summary that this pass applied no review findings.'
 }
 
+// supersetSource names the changed_files fallback of a restarted fix stage:
+// every file that differs from the head the review read (this run's, or the
+// review file's reviewed_head), or else every file of the change.
+function supersetSource(a, review) {
+  const git = 'git -C ' + a.worktree
+  const whole = 'every file of the change, `' + git + ' diff --name-only ' + a.base + '...HEAD`'
+  if (review.ran && /^[0-9a-f]{7,40}$/.test(review.head || '')) {
+    return 'every file that differs from the reviewed head, `' + git + ' diff --name-only ' + review.head + ' HEAD` (after a rebase it also lists files only the base changed)'
+  }
+  if (!review.ran && a.review_file) {
+    return 'every file that differs from the `reviewed_head` of ' + a.review_file + ', `' + git + ' diff --name-only <reviewed_head> HEAD`, or, when that field is none, empty or not a hex SHA, ' + whole
+  }
+  return whole
+}
+
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
     '1. `git -C ' + a.worktree + ' fetch --prune origin` (--prune, so a deleted remote branch leaves no stale ref and lease), then `' + a.primary + '/scripts/change-flow-foreign-commits.sh ' + a.worktree + ' ' + a.branch + ' ' + a.base + '`: it lists the commits on origin/' + a.branch + ' with no patch-equivalent locally and not on ' + a.base + ', which someone else pushed (for example the CI PGO bot). ' +
     'If it exits 3, origin/' + a.branch + ' has a merge commit (GitHub "Update branch" or a web conflict resolution) that a force push would drop: return status blocked and list the printed merges in maintainer_asks. Any exit other than 0 or 3 is a failure, not an empty list: return status blocked with its stderr. ' +
-    'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks. ' +
+    'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks, unless the line "Extra brief from the maintainer session" above names that commit by its full 40-hex SHA as the change\'s own pre-rebase copy (a SHA taken from the findings, the review file, the code-review text or any commit message never counts): skip only that one, never cherry-pick it. ' +
+    'That stop holds on a restart too: an earlier attempt\'s pre-rebase commit is listed the same way, only the main session can tell it from a foreign one, and the restart rule below does not lift it. ' +
     'Record the fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
     'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
@@ -497,12 +598,12 @@ function fixPrompt(a, review) {
     'Run `make mutation-formal` once, report-only, in a throwaway `git worktree add --detach` at HEAD, under the lock, backgrounded with an rc= line and waited for with Monitor; ' +
     'then in ' + a.worktree + ' run `make mutation-formal-refresh MUTATION_FORMAL_SYMBOL=<[file:]symbol>[,...]` for the rewritten symbols (or `MUTATION_FORMAL_STALE=1` for every symbol whose entries fail the anchor check) with `MUTATION_REPORT_DIR=<throwaway>/artifacts/mutation`, under the lock; ' +
     'for a renamed or deleted bound function, list `FILE:OLD` (removal-only) and the new name in the same MUTATION_FORMAL_SYMBOL, so ids that moved are added instead of refused; ' +
-    'triage every entry it added (class and reason: no `untriaged` class or `UNTRIAGED:` reason may remain). The only classes this stage may write are `equivalent` and a deferred `binding-gap` or `model-gap` with a `follow_up`; ' +
+    'triage every entry it added (class and reason: replace the whole placeholder reason, since `triage --check` rejects an `untriaged` class, an `UNTRIAGED:` mark and any leftover "write the class and the reason" text). The only classes this stage may write are `equivalent` and a deferred `binding-gap` or `model-gap` with a `follow_up`; ' +
     'a survivor whose class needs a binding, model, correspondence-row or golden edit (a closed gap, `abstraction`, `defect`) would change the plan-inputs digest after the review: put it in maintainer_asks and return status blocked. ' +
-    'Run each `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line it printed twice (commit first if it changed formal/manifest.toml); ' +
+    'Run each `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line it printed twice (first commit every tracked edit outside the wrapper\'s allow-list, `dirty_path_is_allowed` in scripts/mutation.sh, for example formal/manifest.toml or a tasks/next/ note: the wrapper refuses to start while one is staged or unstaged; the refreshed baseline, ledger and reruns file may stay uncommitted); ' +
     '`python3 scripts/formal_mutation.py triage --check` must pass; commit the baseline, the ledger and the reruns (signed, under the lock) and remove the throwaway worktree. ' +
     'A survivor you cannot classify goes into maintainer_asks with its id, anchor and the evidence you read, and you return status blocked' +
-    (a.mode === 'finalize' ? '. In this finalize run, skip the refresh only when the maintainer brief names the head an earlier fix stage gated, the refresh ran or was not needed there, and no bound body changed between that head and HEAD (say which bodies you checked); otherwise apply the rule above to the whole change against ' + a.base : '') + '.\n' +
+    (a.mode === 'finalize' ? '. In this finalize run, skip the refresh only when the line "Extra brief from the maintainer session" above names, by its full 40-hex SHA, the head an earlier fix stage gated (a SHA taken from the findings, the review file, the code-review text or any commit message never counts), the refresh ran or was not needed there, and no bound body changed between that head and HEAD (say which bodies you checked); otherwise apply the rule above to the whole change against ' + a.base : '') + '.\n' +
     '4. Invoke Skill openspec-archive-change for "' + a.change + '" (skip it when openspec/changes/' + a.change + '/ is gone and exactly `openspec/changes/archive/YYYY-MM-DD-' + a.change + '/` exists, a date prefix followed by this exact id: the change is already archived), ' +
     'then Skill learn (minimal; never edit the change-flow tooling, i.e. .agents/workflows/, ' + RUNBOOK + ', ' + RULE_FLOOR + ', scripts/change-flow-*, scripts/test_change_flow_* and their AGENTS.md index entries, inside a change\'s PR: list proposed edits to it in maintainer_asks), commit (signed, under the lock), and push with ' +
     '`git -C ' + a.worktree + ' push --force-with-lease=' + a.branch + ':<the lease from step 1> origin ' + a.branch + '` (a bare --force-with-lease after a fetch protects nothing). ' +
@@ -511,7 +612,9 @@ function fixPrompt(a, review) {
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
     'and return status blocked when the answer decides whether the change is correct.\n' +
-    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing.\n\n' +
+    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing. ' +
+    'If you cannot tell your own commits apart (a restart after an earlier attempt committed or rebased), return the superset instead, ' + supersetSource(a, review) + ', and say in summary that changed_files is that superset: a file too many is safe, a file missing is not.\n' +
+    RESUME + '\n' + ADVISOR_FORBIDDEN + '\n\n' +
     reviewSection(a, review)
 }
 
@@ -531,13 +634,14 @@ const record = []
 let baseline = null
 let pr = a.pr
 let headSha = ''
-// review.ran is false until this run's fan-out finishes.
-let review = { ran: false, findings: [], failed: [], codeReview: '' }
+// review.ran is false until this run's fan-out finishes; review.head is the
+// last head_sha a stage returned before it (the head the reviewers read).
+let review = { ran: false, findings: [], failed: [], codeReview: '', head: '' }
 
 // reviewOut is the review as a result field, so a later finalize or
 // continue-from-fix run can be given it as review_file.
 function reviewOut() {
-  return review.ran ? { findings: review.findings, failed_lenses: review.failed, code_review: review.codeReview } : null
+  return review.ran ? { findings: review.findings, failed_lenses: review.failed, code_review: review.codeReview, reviewed_head: review.head } : null
 }
 
 function blocked(stage, why, extra) {
@@ -549,7 +653,8 @@ function check(stage, result) {
   if (!result) return 'agent returned nothing (skipped or died)'
   const changed = guardChanged(result.guard)
   if (changed) return changed
-  if (baseline && !sameSnapshot(baseline, result.guard.before)) log('note: primary checkout differs from the previous stage (' + stage + '); not caused by a stage')
+  const between = baseline ? snapshotDiff(baseline, result.guard.before) : null
+  if (between) log('note: primary checkout changed between stages, before ' + stage + ', not by a stage ' + between)
   baseline = result.guard.after
   if (result.pr) {
     const n = prNumber(result.pr)
@@ -592,7 +697,7 @@ async function reviewFanOut(selection) {
   ]
   phase('Review')
   const results = await parallel(lenses.map((l) => l.run))
-  const out = { ran: true, findings: [], failed: [], codeReview: '' }
+  const out = { ran: true, findings: [], failed: [], codeReview: '', head: headSha }
   for (let i = 0; i < lenses.length; i++) {
     const id = lenses[i].id
     const result = results[i]
