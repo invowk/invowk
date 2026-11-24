@@ -159,7 +159,6 @@ unresolved_elements = [
     "ModulePathContainment: hashSkipsLinks",
     "ModulePathContainment: unpackRejectsEscape",
     "ModulePathContainment: probeF16",
-    "VirtualPathHarness: normalize",
     "VirtualPathHarness: pathWithin",
     "VirtualPathHarness: allowedRoots",
     "VirtualPathHarness: anchors",
@@ -1534,8 +1533,8 @@ expect = "instance"
 name = "VirtualPathHarness"
 tool = "alloy"
 file = "formal/alloy/VirtualPathHarness.als"
-budget_seconds = 33  # 1.5 x 21.4s CI max (3 dispatch runs)
-budget_source = "ci"
+budget_seconds = 12  # ceil(3 x 3.7s), the local max: `make formal` 2026-11-24 (3.7s; standalone `scripts/formal.py alloy VirtualPathHarness` 1.0s, 0.8s, 0.9s); the CI figure (1.5 x 21.4s) predates the F18/F19 model
+budget_source = "local"
 scope = "6 but exactly 3 Req"  # default for every command below
 calibration = """2026-09-25: the golden replays (14580 instances then) and the rapid property \
 detect the seeded defects, and the unevaluated-vs-evaluated comparison is \
@@ -1572,7 +1571,9 @@ kind of link it crosses (none, Symlink, Junction), the golden scope is two \
 requests (1512 instances; a request reads only itself and H, so two requests \
 still show each of its 63 combinations), and the golden replay materialises \
 junction requests on Windows (1404 of 3024 requests, left out and counted \
-elsewhere). walkVirtualPath (row normalized) is bound to the golden replay and \
+elsewhere). These three figures are those of the intermediate F18 commit, \
+superseded by the F19 paragraph's below (2592 instances, 81 request shapes, \
+1836 of 5184 requests). walkVirtualPath (row normalized) is bound to the golden replay and \
 to TestVirtualPathHarness_WalkOverFakeFilesystem, which drives it over a fake \
 filesystem that fails the test when the walk looks below a link. Seeded and \
 reverted (go test -overlay): "the walk does not follow a junction-like entry" \
@@ -1602,7 +1603,42 @@ TestVirtualPathHarness_WalkOverFakeFilesystem, \
 TestVirtualPathHarness_DanglingLinkEscapeDenied (its two-link leg) and the \
 rapid property; (5) the junction seed above. Two more, in \
 normalizeExistingOrParent itself: dropping the walk's error and dropping the \
-empty-path error each fail the golden replay's resolution-error checks."""
+empty-path error each fail the golden replay's resolution-error checks. \
+2026-11-24 (virtual-path-no-follow-operands, design D7): the no-follow form \
+is a recorded abstraction, not a request kind: rows normalized \
+(virtualPathResolver.resolveNoFollow) and accepts \
+(virtualPathValidator.validateNoFollow; the existing validate element is on \
+the shrink-only unresolved list, so the new row names the model's \
+acceptance predicate) bind \
+TestVirtualPathHarness_NoFollowOperands, which builds trees with fstree and \
+compares the no-follow path and verdict under both access modes (a live, a \
+dangling and a cyclic link, a link to an outside file, a parent through an \
+escaping link, a missing name, the root itself, a link to the root, and on \
+Windows a junction subtest). The model and the golden vectors are unchanged; \
+the golden file was regenerated only because its fingerprint hashes the \
+whole .als, comments included, and the table changed. Seeded one at a time \
+and reverted (go test -overlay): "resolveNoFollow resolves the final name \
+too" fails TestVirtualPathHarness_NoFollowOperands (8 disagreements, among \
+them the live, dangling and cyclic links and the link to the root); \
+"resolveNoFollow resolves the parent lexically" fails it on the \
+escaping-parent case under both access modes. The walk's helpers are bound \
+for the first time (rows normalized, follow-up a), and each is calibrated by \
+a seed that sits in it, with the bindings that fail it: \
+virtualPathWalker.walk holds seed (3) above (WalkOverFakeFilesystem); \
+missingVirtualPathSuffix holds seed (4) (WalkOverFakeFilesystem, \
+DanglingLinkEscapeDenied, the rapid property); isVirtualPathLink holds the \
+junction seed (5) (WalkOverFakeFilesystem). New seeds, one per helper that \
+held none: virtualPathWalker.next "keep inLink when an own component is \
+taken" fails WalkOverFakeFilesystem; virtualPathWalker.enterVolume "keep the \
+current prefix once one is set" fails the golden replay, \
+WalkOverFakeFilesystem and NoFollowOperands; virtualPathWalker.follow "queue \
+a rooted target below the current prefix" fails the golden replay, \
+WalkOverFakeFilesystem and NoFollowOperands; virtualPathWalker.unresolvedLink \
+"drop the link's own name" fails WalkOverFakeFilesystem; virtualPathWalk.path \
+"drop the missing components" fails the golden replay; \
+normalizeVirtualPathForAccess "full access returns the cleaned path even \
+when the walk resolves" fails NoFollowOperands. The binding reach gate \
+reaches every new (row, killer, function) triple on Linux and skips none."""
 
 [model.golden]
 command = "golden"
