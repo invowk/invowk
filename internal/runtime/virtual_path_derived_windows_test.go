@@ -25,7 +25,7 @@ func TestVirtualPathDerivedPathsWindowsJunction(t *testing.T) {
 	tarSetup := func(t *testing.T, work string, entries ...derivedTarEntry) {
 		t.Helper()
 		derivedTarArchive(t, filepath.Join(work, "a.tar"), entries...)
-		derivedMkdir(t, filepath.Join(work, "ex"))
+		mustMkdir(t, filepath.Join(work, "ex"))
 	}
 	file := func(name string) derivedTarEntry {
 		return derivedTarEntry{name: name, typeflag: tar.TypeReg, mode: 0o644, body: "entry"}
@@ -45,7 +45,7 @@ func TestVirtualPathDerivedPathsWindowsJunction(t *testing.T) {
 			setup: func(t *testing.T, work string) {
 				t.Helper()
 				derivedCpSetup(t, work, t.TempDir())
-				derivedMkdir(t, filepath.Join(work, "dst", "src"))
+				mustMkdir(t, filepath.Join(work, "dst", "src"))
 			},
 			junction: "dst/src/sub", script: "cp -r src dst", inRoot: "y",
 		},
@@ -76,8 +76,8 @@ func TestVirtualPathDerivedPathsWindowsJunction(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			t.Run("target outside the roots is refused", func(t *testing.T) {
-				work := physicalDir(t, t.TempDir())
-				outside := physicalDir(t, outsideVirtualRootsDir(t))
+				work := harnessPhysicalDir(t, t.TempDir())
+				outside := harnessPhysicalDir(t, outsideVirtualRootsDir(t))
 				tc.setup(t, work)
 				fstree.MustJunction(t, outside, filepath.Join(work, filepath.FromSlash(tc.junction)))
 				before := derivedTreeSnapshot(t, outside)
@@ -88,10 +88,10 @@ func TestVirtualPathDerivedPathsWindowsJunction(t *testing.T) {
 				assertDerivedTreeUnchanged(t, before, derivedTreeSnapshot(t, outside))
 			})
 			t.Run("target inside the roots is allowed", func(t *testing.T) {
-				work := physicalDir(t, t.TempDir())
+				work := harnessPhysicalDir(t, t.TempDir())
 				tc.setup(t, work)
 				target := filepath.Join(work, "in")
-				derivedMkdir(t, target)
+				mustMkdir(t, target)
 				fstree.MustJunction(t, target, filepath.Join(work, filepath.FromSlash(tc.junction)))
 				run := runVirtualShTest(t, work, tc.script, restricted)
 				derivedAssertSuccess(t, run)

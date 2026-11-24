@@ -56,8 +56,8 @@ func runDerivedRuntimeCases(t *testing.T, cases []derivedRuntimeCase) {
 			fstree.Require(t, fstree.CapSymlink)
 			for _, access := range []invowkfile.VirtualFilesystemAccess{invowkfile.VirtualFilesystemAccessRestricted, invowkfile.VirtualFilesystemAccessFull} {
 				t.Run(string(access), func(t *testing.T) {
-					work := physicalDir(t, t.TempDir())
-					outside := physicalDir(t, outsideVirtualRootsDir(t))
+					work := harnessPhysicalDir(t, t.TempDir())
+					outside := harnessPhysicalDir(t, outsideVirtualRootsDir(t))
 					tc.setup(t, work, outside)
 					beforeWork, beforeOutside := derivedTreeSnapshot(t, work), derivedTreeSnapshot(t, outside)
 					run := runVirtualShTest(t, work, tc.script, access)
@@ -83,15 +83,6 @@ func runDerivedRuntimeCases(t *testing.T, cases []derivedRuntimeCase) {
 			}
 		})
 	}
-}
-
-func physicalDir(t *testing.T, dir string) string {
-	t.Helper()
-	resolved, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resolved
 }
 
 // derivedTreeSnapshot lists every entry below dir with its type and
@@ -155,24 +146,15 @@ func assertDerivedTreeUnchanged(t *testing.T, before, after map[string]string) {
 
 func derivedWrite(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	mustMkdir(t, filepath.Dir(path))
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func derivedMkdir(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(path, 0o755); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func derivedLink(t *testing.T, target, link string) {
 	t.Helper()
-	derivedMkdir(t, filepath.Dir(link))
+	mustMkdir(t, filepath.Dir(link))
 	fstree.MustSymlink(t, target, link)
 }
 
@@ -228,10 +210,10 @@ func derivedCpSetup(t *testing.T, work, outside string) {
 	derivedWrite(t, filepath.Join(work, "g"), "g-content")
 	derivedWrite(t, filepath.Join(work, "src", "x"), "x-content")
 	derivedWrite(t, filepath.Join(work, "src", "sub", "y"), "y-content")
-	derivedMkdir(t, filepath.Join(work, "d"))
-	derivedMkdir(t, filepath.Join(work, "dst"))
+	mustMkdir(t, filepath.Join(work, "d"))
+	mustMkdir(t, filepath.Join(work, "dst"))
 	derivedWrite(t, filepath.Join(outside, "t"), "outside-content")
-	derivedMkdir(t, filepath.Join(outside, "dir"))
+	mustMkdir(t, filepath.Join(outside, "dir"))
 }
 
 func TestVirtualPathDerivedPathsCp(t *testing.T) {
@@ -313,8 +295,8 @@ func TestVirtualPathDerivedPathsCp(t *testing.T) {
 				derivedCpSetup(t, work, outside)
 				derivedWrite(t, filepath.Join(work, "t2"), "old")
 				derivedLink(t, filepath.Join(work, "t2"), filepath.Join(work, "d", "f"))
-				derivedMkdir(t, filepath.Join(work, "in"))
-				derivedMkdir(t, filepath.Join(work, "dst", "src"))
+				mustMkdir(t, filepath.Join(work, "in"))
+				mustMkdir(t, filepath.Join(work, "dst", "src"))
 				derivedLink(t, filepath.Join(work, "in"), filepath.Join(work, "dst", "src", "sub"))
 				derivedWrite(t, filepath.Join(work, "t3"), "t3-content")
 				derivedLink(t, filepath.Join(work, "t3"), filepath.Join(work, "src", "l"))
@@ -340,7 +322,7 @@ func TestVirtualPathDerivedPathsCpPrediction(t *testing.T) {
 				derivedWrite(t, filepath.Join(work, filepath.FromSlash(name)), content)
 			}
 			for _, dir := range dirs {
-				derivedMkdir(t, filepath.Join(work, filepath.FromSlash(dir)))
+				mustMkdir(t, filepath.Join(work, filepath.FromSlash(dir)))
 			}
 		}
 	}
@@ -412,9 +394,9 @@ func TestVirtualPathDerivedPathsTar(t *testing.T) {
 		return func(t *testing.T, work, outside string) {
 			t.Helper()
 			derivedTarArchive(t, filepath.Join(work, "a.tar"), entries...)
-			derivedMkdir(t, filepath.Join(work, "ex"))
+			mustMkdir(t, filepath.Join(work, "ex"))
 			derivedWrite(t, filepath.Join(outside, "t"), "outside-content")
-			derivedMkdir(t, filepath.Join(outside, "dir"))
+			mustMkdir(t, filepath.Join(outside, "dir"))
 		}
 	}
 	withLink := func(setup func(t *testing.T, work, outside string), rel, outsideRel string) func(t *testing.T, work, outside string) {
@@ -478,7 +460,7 @@ func TestVirtualPathDerivedPathsTar(t *testing.T) {
 			setup: func(t *testing.T, work, outside string) {
 				t.Helper()
 				archive(file("l/f", "f", 0o644))(t, work, outside)
-				derivedMkdir(t, filepath.Join(work, "in"))
+				mustMkdir(t, filepath.Join(work, "in"))
 				derivedLink(t, filepath.Join(work, "in"), filepath.Join(work, "ex", "l"))
 			},
 			script: script,
@@ -506,8 +488,8 @@ func TestVirtualPathDerivedPathsLua(t *testing.T) {
 			t.Parallel()
 			for _, access := range []invowkfile.VirtualFilesystemAccess{invowkfile.VirtualFilesystemAccessRestricted, invowkfile.VirtualFilesystemAccessFull} {
 				for _, form := range []string{"capture", "cmd"} {
-					work := physicalDir(t, t.TempDir())
-					outside := physicalDir(t, outsideVirtualRootsDir(t))
+					work := harnessPhysicalDir(t, t.TempDir())
+					outside := harnessPhysicalDir(t, outsideVirtualRootsDir(t))
 					derivedWrite(t, filepath.Join(work, "f"), "f-content")
 					derivedTarArchive(t, filepath.Join(work, "a.tar"), derivedTarEntry{name: "f", typeflag: tar.TypeReg, mode: 0o644, body: "entry"})
 					derivedWrite(t, filepath.Join(outside, "t"), "outside-content")
