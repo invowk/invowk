@@ -1161,6 +1161,83 @@
       "digest": "83fa6108536c3b0f23016bfedc26845dfb0ffea528c246c7ab904e3149928135"
     },
     {
+      "id": "ea2a85e07d21205dc907fcfb66e02784",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "statement/return",
+      "line": 63,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "9b03c754fcc1340c254a8f76391b37ad",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "branch/if",
+      "line": 67,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "e93231af5869936068838cc391bccbc8",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "statement/return",
+      "line": 67,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "9e7a9b80410241ad049233a9da37f233",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "branch/if",
+      "line": 75,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "031466843c969ad9d5be565a82e52f9c",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "statement/remove",
+      "line": 75,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "7533d3edb7d4f0beeb64f5f75a8c3d89",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "statement/return",
+      "line": 76,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "d8bf67eeec253bb321ce5392d60818a2",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "statement/return",
+      "line": 76,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "cc87be715cb8339d1d2179705b9ae14d",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "loop/break",
+      "line": 109,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "59811827fe04e815d9c65f1cefc77340",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "expression/logical",
+      "line": 122,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "c4395e502cfb8909856c231fefc02d3c",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "expression/remove",
+      "line": 122,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "d5ae8094eea16b9273233f25d9ff35b9",
+      "file": "internal/runtime/virtual_path_nofollow.go",
+      "mutator": "expression/remove",
+      "line": 122,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
       "id": "f14cc04f004363e8fff6ea53d0bae953",
       "file": "internal/runtime/virtual_policy.go",
       "mutator": "branch/if",
@@ -1285,6 +1362,90 @@
       "mutator": "statement/return",
       "line": 530,
       "digest": "68150f08b5b428ffb9d15a4f361382f41f3c5ae41b6d25936be722b9de3518fe"
+    },
+    {
+      "id": "14646a6b4143b4dff8fb0111861410c3",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/case",
+      "line": 561,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "a05beefe6636cc59c78daf93882fd8e8",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/comparison",
+      "line": 590,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "ba92f84e8fe499001f466d1c890430d7",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "conditional/negated",
+      "line": 639,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "b812f973ea06235605afa6b8a4adab58",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/remove",
+      "line": 639,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "065f5d34661a47708c9b137fa3e46cd3",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/logical",
+      "line": 641,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "ad801f9b6cddbcde7f244d74303e6b06",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/remove",
+      "line": 641,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "c8c7861717109185c9012ab89d3b5ca5",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "conditional/negated",
+      "line": 642,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "225bb901bf5c2530d20c7c1809ad0a3b",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/if",
+      "line": 645,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "65a88e673ef6efafbf7208bb4fce9db7",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/error-guard",
+      "line": 647,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "1420322dd47b8fdb37c8872ef68a196c",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "branch/case",
+      "line": 651,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "2246504f200094b4a32c332abff3dfbe",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "expression/errorf-wrap",
+      "line": 651,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
+    },
+    {
+      "id": "3eec971fd0ba5d03c71cf7bdb6fc4b8e",
+      "file": "internal/runtime/virtual_policy.go",
+      "mutator": "statement/return",
+      "line": 651,
+      "digest": "256cc97b3aa267c6674019cc10c49afa78d7ecec6b6e9597b3d95d47ab261920"
     },
     {
       "id": "e04fea9e5f059dc2796bd8d270dcf0b4",
