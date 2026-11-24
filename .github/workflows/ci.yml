@@ -798,16 +798,19 @@ jobs:
           args: check
 
   # Release dry run: exercises the release-only path on every push/PR so
-  # compression hooks, signing setup, and GoReleaser packaging do not first
-  # meet CI on tag day. Release performance tracking is covered by the
-  # dedicated release workflow once a real tag exists.
+  # compression hooks and GoReleaser packaging do not first meet CI on tag
+  # day. Release performance tracking is covered by the dedicated release
+  # workflow once a real tag exists. The check (`Release Dry Run`) is
+  # required for Dependabot gomod updates: keep the name. The job builds the
+  # pull request's code, so it holds no write grant and skips signing on
+  # every event; release-signing.yml, which no pull request can start, runs
+  # the signed snapshot with `id-token: write`.
   release-dry-run:
     name: Release Dry Run
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -842,29 +845,11 @@ jobs:
           rm -rf /tmp/upx.tar.xz "/tmp/upx-${UPX_VERSION}-amd64_linux"
           upx --version
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.1.2
-        with:
-          cosign-release: v3.1.3
-
-      - name: Run GoReleaser release dry run (PR)
-        if: github.event_name == 'pull_request'
+      - name: Run GoReleaser release dry run (unsigned)
         uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2.16"
           args: release --clean --snapshot --skip=sign
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GORELEASER_CURRENT_TAG: v0.0.0-ci
-          HOMEBREW_TAP_TOKEN: "dry-run"
-          WINGET_TOKEN: "dry-run"
-
-      - name: Run GoReleaser release dry run (integration)
-        if: github.event_name != 'pull_request'
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          version: "~> v2.16"
-          args: release --clean --snapshot
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GORELEASER_CURRENT_TAG: v0.0.0-ci

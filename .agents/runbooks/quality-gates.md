@@ -44,8 +44,9 @@ Not covered by any hook (manual discipline): `make test`, `make tidy`, `make che
 
 | Workflow | Triggers | Purpose |
 |----------|----------|---------|
-| `ci.yml` | push/PR to main (path-filtered), release, dispatch | tests (Linux full; macOS/Windows short unit + CLI; PowerShell install-script tests on Windows), build verification, license check, all-module govulncheck, `pgo-sanity` |
+| `ci.yml` | push/PR to main (path-filtered), release, dispatch | tests (Linux full; macOS/Windows short unit + CLI; PowerShell install-script tests on Windows), build verification, license check, all-module govulncheck, `pgo-sanity`, unsigned GoReleaser dry run (`Release Dry Run`) |
 | `lint.yml` | push to main (path-filtered), every PR (no path filter), release, weekly schedule, dispatch | **required** (`goplint consumer gates` check): golangci-lint, formatter/config checks, agent-docs integrity, goplint consumer gates, `script tests (worktree-safety gate)` (`make test-scripts`) |
+| `release-signing.yml` | push to main (ci.yml's paths), release, dispatch; no pull request trigger | `Release Dry Run (signed)`: GoReleaser snapshot with Cosign keyless signing (`id-token: write`); `ci.yml`'s `release-dry-run` (`Release Dry Run`, required for gomod Dependabot PRs) runs the same snapshot tokenless with `--skip=sign` |
 | `release.yml` | tag push `v*`, dispatch | test, build and publish a release on a tag push; a dispatch is a dry run only and never pushes a tag (procedure: publish-release skill) |
 | `formal-verification.yml` | weekly schedule, dispatch, every PR (classified by `scripts/formal.py affected` against `[ci] paths`) | Alloy/TLA+ models, golden freshness, correspondence, trace validation, replay plan; required status check since 2026-11-14 (`make formal-promotion-gate` passed) |
 | `mutation-testing.yml` | dispatch only | curated mutation profiles (`target_set`: `root` or `formal-bindings`); see `mutation-testing.md` |
