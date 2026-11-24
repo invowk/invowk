@@ -262,10 +262,13 @@ mutation-partial-refresh):
    whole reason, not only the mark. An id moved between two chosen symbols
    comes back untriaged too.
 4. Run the `make mutation-formal-rerun MUTATION_MUTANT_ID=...` line the refresh
-   printed twice (commit first when it changed `formal/manifest.toml`: the
-   wrapper refuses a dirty manifest, and any other tracked edit outside its
-   allow-list, such as a `tasks/next/formal-binding-gaps.md` update; the
-   refreshed ledger and baseline themselves may stay uncommitted). The reruns record evidence at the
+   printed twice. First commit every tracked edit outside the wrapper's
+   allow-list (`dirty_path_is_allowed` in `scripts/mutation.sh`: the two
+   mutation baselines, the formal-bindings ledger and reruns file, and
+   `artifacts/mutation/`): the wrapper refuses to start while any other tracked
+   file is dirty, such as a `formal/manifest.toml` the refresh changed or a
+   `tasks/next/formal-binding-gaps.md` update. The refreshed ledger and
+   baseline themselves may stay uncommitted. The reruns record evidence at the
    entries' own digest; no digest is copied by hand.
 5. `python3 scripts/formal_mutation.py triage --check` must pass. Remove the
    throwaway worktree.

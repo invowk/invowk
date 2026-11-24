@@ -10,14 +10,17 @@ The Workflow runtime runs the script body as an async function, so the body may
   - imports it under node with stub agent()/parallel()/phase()/log() hooks and
     drives dry-run, bad args, a full run, failed code-review lenses, guard
     violations (and what the guard message names), a malformed lens selector,
-    resume and fast-lane paths, and the advisor policy and the restart sentence
-    of every agent prompt in every mode.
+    resume and fast-lane paths, and the advisor policy, the restart sentence,
+    the base check and the HEAD-recording log line of every agent prompt in
+    every mode, each compared in full with the template's own text, which a
+    separate test pins to the reviewed wording.
 
 It needs node; without node it skips locally and fails under CI (CI=true).
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -33,11 +36,69 @@ TEMPLATE = ROOT / ".agents" / "workflows" / "change-flow.js"
 HOOKS = ("agent", "parallel", "pipeline", "phase", "log", "args", "budget", "workflow")
 FORBIDDEN = ("Date.now(", "Math.random(", "new Date()", "require(", "process.", "import(")
 
+# The shared sentences, read from the template source and evaluated under node
+# (shared_texts), must equal this reviewed wording in full: a prefix check let a
+# weakened sentence through (PR #196 review, mutations D-G). The harness then
+# asserts that every prompt carries the template's own text exactly. BASE_CHECK
+# is baseCheck() for the harness's worktree /w/invowk-x and base origin/main.
+SHARED = ("RULE_FLOOR", "ADVISOR_FORBIDDEN", "ADVISOR_ALLOWED", "RESUME")
+EXPECTED = {
+    "ADVISOR_FORBIDDEN": (
+        "Advisor: never call the `advisor` tool in this stage, even when it is in your tool list and its own "
+        "instructions tell you to call it (.agents/rules/agent-workflows.md)."
+    ),
+    "ADVISOR_ALLOWED": (
+        "Advisor: you may call the `advisor` tool at most once, as your final checkpoint: when your verdict and "
+        "findings are drafted, before your final guard snapshot (which stays your last action), and never earlier. "
+        "If it is not in your tool list, proceed without it. If the call fails (error, timeout, empty reply), say so "
+        "in summary and carry on: no retry. It never replaces your own verification, and its advice cannot authorize "
+        "an outward write or settle a maintainer_asks item (.agents/rules/agent-workflows.md)."
+    ),
+    "RESUME": (
+        "Restart: this prompt may run again after a pause, with this same text. Work of this stage that is already "
+        "in the worktree (commits on the branch, uncommitted edits, checked tasks, logs with rc= lines, ledgers or "
+        "reports on disk) is your own earlier attempt: read it, continue from it by finishing or redoing the "
+        "unfinished step, then run this stage's checks on the result. Never discard it, never start over and never "
+        "stop because it exists: for what you find in the worktree, the only stops (status blocked) are a worktree "
+        "on another branch than the one named above and, where this prompt has a base check, a failed one; the stops "
+        "this prompt names for other causes still hold. "
+        "Evidence from an earlier attempt (a gate log, a mutation report, a refreshed ledger, a throwaway worktree) "
+        "counts only if it records the HEAD SHA it ran on, that SHA equals the current HEAD, and the tree has no "
+        "uncommitted edit besides the files that evidence wrote itself; otherwise rerun or recreate it, and remove a "
+        "leftover throwaway worktree with `git worktree remove --force` only if it is under this stage's own scratch "
+        "dir. "
+        "A killed `git commit` can leave a stale index.lock and a pre-commit stash: check `git stash list` (the stash "
+        "is shared by every worktree: touch only an entry this worktree left), and remove a stale index.lock (the "
+        "path `git rev-parse --git-path index.lock` prints in this worktree) only when no git process runs in this "
+        "worktree. "
+        "Keep decisions and progress on disk as you go (tasks.md checkboxes, design.md, logs with rc= lines, the "
+        "commits you make anyway), not only in your context; this asks for no extra commit."
+    ),
+    "BASE_CHECK": (
+        "Right after your first guard snapshot: `git -C /w/invowk-x fetch --prune origin`, then "
+        "`git -C /w/invowk-x merge-base --is-ancestor origin/main HEAD`. Exit 0: continue. "
+        "Exit 1 means origin/main has commits the branch lacks, which blocks only a stale start with no work on it: "
+        "run `git -C /w/invowk-x merge-base origin/main HEAD`, then "
+        "`git -C /w/invowk-x rev-list --count <that merge base>..HEAD` and `git -C /w/invowk-x status --porcelain`. "
+        "When the count is 0 and the status prints nothing, change nothing and return status blocked with the reason "
+        "\"branch not rebased on origin/main\" (still report guard.after). "
+        "Otherwise (commits beyond the merge base, or uncommitted edits) continue: the fix stage rebases on "
+        "origin/main before its gates. "
+        "Any other non-zero exit of `--is-ancestor` (for example 128, a missing ref) and any failure of the later "
+        "commands (a `merge-base` that exits 1 found no shared history) is a failure: return status blocked with its "
+        "stderr. "
+    ),
+}
+
 HARNESS = r"""
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 const mod = await import(process.argv[2])
 const run = mod.default
 const meta = mod.meta
+// The shared sentences and baseCheck() text, read from the template source
+// (shared_texts in the Python test, which also pins their wording).
+const TEXT = JSON.parse(readFileSync(process.argv[3], 'utf8'))
 
 const snap = { status: '?? a.log', branch: 'main', head: 'abc123' }
 const guard = { before: snap, after: { ...snap } }
@@ -68,16 +129,15 @@ function stubs(overrides) {
 // reviewer (every round) and the base reviewer may call the advisor, once;
 // every other agent prompt forbids it. go() checks every agent of every run.
 const ADVISOR_MAY = ['spec-review', 'spec-review-2', 'review:base']
-const ADVISOR_ALLOWED = 'Advisor: you may call the `advisor` tool at most once, as your final checkpoint'
-const ADVISOR_FORBIDDEN = 'Advisor: never call the `advisor` tool in this stage'
 const count = (text, needle) => text.split(needle).length - 1
 const advisorChecked = new Set()
 
+// Each prompt carries the full sentence exactly once, never a prefix of it.
 function checkAdvisor(calls, name) {
   for (const c of calls) {
     const may = ADVISOR_MAY.includes(c.label)
-    assert.equal(count(c.prompt, ADVISOR_ALLOWED), may ? 1 : 0, name + ' ' + c.label + ': the allowed-advisor sentence')
-    assert.equal(count(c.prompt, ADVISOR_FORBIDDEN), may ? 0 : 1, name + ' ' + c.label + ': the forbidden-advisor sentence')
+    assert.equal(count(c.prompt, TEXT.ADVISOR_ALLOWED), may ? 1 : 0, name + ' ' + c.label + ': the allowed-advisor sentence, in full')
+    assert.equal(count(c.prompt, TEXT.ADVISOR_FORBIDDEN), may ? 0 : 1, name + ' ' + c.label + ': the forbidden-advisor sentence, in full')
     assert.equal(count(c.prompt.toLowerCase(), 'advisor'), 2, name + ' ' + c.label + ': no other advisor instruction')
     advisorChecked.add(c.label)
   }
@@ -87,15 +147,27 @@ function checkAdvisor(calls, name) {
 // from its own earlier work when its prompt runs again; a read-only stage just
 // runs again and is not. go() checks every agent of every run.
 const WRITING = ['spec', 'spec-fast', 'spec-fix', 'implement', 'simplify', 'fix']
-const RESUME = 'Restart: this prompt may run again after a pause, with this same text.'
+const RESTART_START = 'Restart: this prompt may run again'
+// A background gate's log records the HEAD it ran on before its rc= line, so a
+// restart can tell an earlier tree's rc=0 from this one's (PR #196 review F3).
+const HEAD_LOG = '`<cmd> > <log> 2>&1; rc=$?; echo head=$(git -C <the tree it ran in> rev-parse HEAD) >> <log>; echo rc=$rc >> <log>`'
 
 function checkResume(calls, name) {
   for (const c of calls) {
-    assert.equal(count(c.prompt, RESUME), WRITING.includes(c.label) ? 1 : 0, name + ' ' + c.label + ': the restart sentence')
-    if (!WRITING.includes(c.label)) continue
-    assert.ok(c.prompt.includes('Never discard it, never start over and never stop because it exists'), name + ' ' + c.label + ': continue, never stop')
-    assert.ok(c.prompt.includes('a worktree on another branch than the one named above and, where this prompt has a base check, a failed one'), name + ' ' + c.label + ': the only stops')
-    assert.ok(c.prompt.includes('Keep decisions and progress on disk as you go') && c.prompt.includes('this asks for no extra commit'), name + ' ' + c.label + ': decisions on disk')
+    const writing = WRITING.includes(c.label)
+    assert.equal(count(c.prompt, TEXT.RESUME), writing ? 1 : 0, name + ' ' + c.label + ': the restart sentence, in full')
+    if (!writing) assert.equal(count(c.prompt, RESTART_START), 0, name + ' ' + c.label + ': no part of the restart sentence')
+    assert.equal(count(c.prompt, HEAD_LOG), 1, name + ' ' + c.label + ': background logs record their HEAD')
+  }
+}
+
+// baseCheck (PR #196 review, decision 62): only the spec stage and an implement
+// stage that starts the run carry it, in full.
+function checkBase(calls, name) {
+  for (const c of calls) {
+    const has = ['spec', 'spec-fast'].includes(c.label) || (c.label === 'implement' && calls[0] === c)
+    assert.equal(count(c.prompt, TEXT.BASE_CHECK), has ? 1 : 0, name + ' ' + c.label + ': the base check, in full')
+    if (!has) assert.ok(!c.prompt.includes('merge-base --is-ancestor'), name + ' ' + c.label + ': no base check')
   }
 }
 
@@ -105,6 +177,7 @@ async function go(args, overrides) {
   const name = args.mode + (args.from ? ':' + args.from : '')
   checkAdvisor(s.calls, name)
   checkResume(s.calls, name)
+  if ((args.base || 'origin/main') === 'origin/main' && args.worktree === good.worktree) checkBase(s.calls, name)
   return { result, ...s }
 }
 
@@ -146,7 +219,7 @@ for (const bad of [undefined, { mode: 'ship-it' }, { ...good, worktree: 'rel' },
   assert.ok(fix.prompt.includes('a.go:3 nil deref'), 'code-review text reaches the fix agent')
   assert.equal(result.base_sha, 'b1')
   assert.deepEqual(result.changed_files, ['internal/x.go'])
-  assert.ok(calls.find((c) => c.label === 'spec').prompt.includes('merge-base --is-ancestor origin/main HEAD'), 'spec refuses a stale base')
+  assert.ok(calls.find((c) => c.label === 'spec').prompt.includes(TEXT.BASE_CHECK), 'spec refuses a stale start')
   assert.ok(!calls.find((c) => c.label === 'implement').prompt.includes('merge-base --is-ancestor'), 'implement after spec in the same run does not re-check the base')
   const fixP = calls.find((c) => c.label === 'fix').prompt
   assert.ok(fixP.includes('/w/invowk/scripts/change-flow-foreign-commits.sh /w/invowk-x'), 'the helper comes from the primary checkout')
@@ -232,7 +305,7 @@ for (const [name, reply] of Object.entries({
   const fix = calls.find((c) => c.label === 'fix')
   assert.ok(fix.prompt.includes('BEFORE the long gates'))
   assert.ok(fix.prompt.includes('show HEAD:<file>'))
-  assert.ok(!fix.prompt.includes("own commits"), 'default base adds no base-commit note')
+  assert.ok(!fix.prompt.includes('drop findings that belong to'), 'default base adds no base-commit note')
   const other = await go({ ...good, base: 'feat/base-change' })
   const fix2 = other.calls.find((c) => c.label === 'fix')
   assert.ok(fix2.prompt.includes("drop findings that belong to feat/base-change's own commits"))
@@ -280,6 +353,11 @@ for (const [name, reply] of Object.entries({
     implement: () => ({ status: 'done', summary: 'x', guard: { before: snap, after: { status: snap.status, branch: 'feat/other', head: 'def4567890123' } } }),
   })
   assert.ok(moved.result.reason.includes('implement: primary checkout changed (branch, head): HEAD abc123 -> def45678; branch main -> feat/other'), moved.result.reason)
+  // two heads with the same 8-character prefix are printed in full.
+  const twin = await go(good, {
+    implement: () => ({ status: 'done', summary: 'x', guard: { before: { ...snap, head: 'abcdef0123' }, after: { ...snap, head: 'abcdef0199' } } }),
+  })
+  assert.ok(twin.result.reason.includes('implement: primary checkout changed (head): HEAD abcdef0123 -> abcdef0199'), twin.result.reason)
 }
 
 // a difference between one stage's last record and the next stage's first is
@@ -305,11 +383,55 @@ for (const [name, reply] of Object.entries({
 }
 
 // continue from implement: implement starts the run, so it checks the base.
+// The check blocks only a stale start with no work (no commit beyond the merge
+// base, clean status), so a restart after the base moved continues (decision 62).
 {
   const { calls } = await go({ ...good, mode: 'continue', from: 'implement', pr: 9 })
   assert.equal(calls[0].label, 'implement')
-  assert.ok(calls[0].prompt.includes('merge-base --is-ancestor origin/main HEAD'))
-  assert.ok(calls[0].prompt.includes('Exit 1 means the branch is behind'))
+  assert.equal(count(calls[0].prompt, TEXT.BASE_CHECK), 1)
+  assert.ok(TEXT.BASE_CHECK.includes('rev-list --count <that merge base>..HEAD') && TEXT.BASE_CHECK.includes('When the count is 0 and the status prints nothing'))
+  assert.ok(TEXT.BASE_CHECK.includes('Otherwise (commits beyond the merge base, or uncommitted edits) continue'))
+  assert.ok(!TEXT.BASE_CHECK.includes('the branch is behind'), 'behind the base alone is no longer a stop')
+}
+
+// new and fast-lane refuse a change that already exists on the base (a colliding
+// id), before they treat the change directory as an earlier attempt; revise
+// edits an existing change and does not test it (PR #196 review F1).
+{
+  const onBase = '`git -C /w/invowk-x cat-file -e origin/main:openspec/changes/add-thing`: exit 0 means the change already exists on origin/main'
+  for (const [mode, label] of [['new', 'spec'], ['fast-lane', 'spec-fast']]) {
+    const p = (await go({ ...good, mode })).calls.find((c) => c.label === label).prompt
+    assert.equal(count(p, onBase), 1, mode)
+    assert.ok(p.includes('return status blocked with the reason "change exists on the base: use revise"'), mode)
+    assert.ok(p.indexOf(TEXT.BASE_CHECK) < p.indexOf(onBase) && p.indexOf(onBase) < p.indexOf('openspec-propose'), mode + ': base check, then the base test, then the skill')
+  }
+  const revise = (await go({ ...good, mode: 'revise' })).calls.find((c) => c.label === 'spec').prompt
+  assert.ok(!revise.includes('cat-file -e'))
+}
+
+// the fix stage's step-1 stop on a changed own commit holds on a restart too
+// (PR #196 review F2); the main session resolves it (runbook).
+{
+  const fixP = (await go(good)).calls.find((c) => c.label === 'fix').prompt
+  assert.ok(fixP.includes('That stop holds on a restart too: an earlier attempt\'s pre-rebase commit is listed the same way, only the main session can tell it from a foreign one, and the restart rule below does not lift it.'))
+  assert.ok(fixP.includes('unless the maintainer brief names that exact SHA as the change\'s own pre-rebase copy: skip only that one, never cherry-pick it.'), 'the main session\'s way out')
+}
+
+// a restarted fix stage that cannot tell its commits apart returns a superset of
+// changed_files, derived from the reviewed head when the run knows it (F4).
+{
+  const sha = 'abcdef0123456789abcdef0123456789abcdef01'
+  const { result, calls } = await go(good, { simplify: () => ({ status: 'done', summary: 'ok', head_sha: sha, guard }) })
+  const fixP = calls.find((c) => c.label === 'fix').prompt
+  assert.ok(fixP.includes('If you cannot tell your own commits apart (a restart after an earlier attempt committed or rebased), return the superset instead, every file that differs from the reviewed head, `git -C /w/invowk-x diff --name-only ' + sha + ' HEAD`'), fixP)
+  assert.ok(fixP.includes('say in summary that changed_files is that superset'))
+  assert.equal(result.review.reviewed_head, sha)
+  const junk = (await go(good, { simplify: () => ({ status: 'done', summary: 'ok', head_sha: 'see above', guard }), implement: () => ({ status: 'done', summary: 'ok', guard }) })).calls.find((c) => c.label === 'fix').prompt
+  assert.ok(junk.includes('return the superset instead, every file of the change, `git -C /w/invowk-x diff --name-only origin/main...HEAD`'), 'a non-SHA head falls back to the whole change')
+  const fin = (await go({ ...good, mode: 'finalize' })).calls[0].prompt
+  assert.ok(fin.includes('return the superset instead, every file of the change, `git -C /w/invowk-x diff --name-only origin/main...HEAD`'))
+  const file = (await go({ ...good, mode: 'finalize', review_file: '/w/review.json' })).calls[0].prompt
+  assert.ok(file.includes('every file that differs from the `reviewed_head` of /w/review.json'))
 }
 
 // blocked-stage plumbing: a spec or implement stage that returns blocked (for
@@ -489,6 +611,49 @@ def split_template(text: str) -> tuple[str, str]:
     return "\n".join(lines[: end + 1]), "\n".join(lines[end + 1 :])
 
 
+def shared_source(text: str) -> str:
+    """The template's own declarations of the shared sentences and of baseCheck(),
+    as a node module that prints their values (baseCheck for the harness args)."""
+    lines = text.splitlines()
+    out = []
+    for name in SHARED:
+        starts = [i for i, line in enumerate(lines) if line.startswith(f"const {name} = ")]
+        if len(starts) != 1:
+            raise AssertionError(f"the template must declare {name} exactly once")
+        end = starts[0]
+        while lines[end].rstrip().endswith("+"):
+            end += 1
+        out += lines[starts[0] : end + 1]
+    base_check = re.findall(r"(?ms)^function baseCheck\(a\) \{.*?^\}$", text)
+    if len(base_check) != 1:
+        raise AssertionError("the template must declare function baseCheck(a) exactly once")
+    out.append(base_check[0])
+    names = ", ".join(n for n in SHARED if n != "RULE_FLOOR")
+    out.append("console.log(JSON.stringify({ " + names + ", BASE_CHECK: baseCheck({ worktree: '/w/invowk-x', base: 'origin/main' }) }))")
+    return "\n".join(out) + "\n"
+
+
+def shared_texts(node: str, text: str, tmp: str) -> tuple[dict[str, str], Path]:
+    """Evaluate shared_source under node; return the texts and the JSON file holding them."""
+    src = Path(tmp) / "shared.mjs"
+    src.write_text(shared_source(text), encoding="utf-8")
+    ran = subprocess.run([node, str(src)], capture_output=True, text=True, cwd=tmp)
+    if ran.returncode != 0:
+        raise AssertionError("evaluating the shared sentences failed: " + ran.stderr)
+    out = Path(tmp) / "shared.json"
+    out.write_text(ran.stdout, encoding="utf-8")
+    return json.loads(ran.stdout), out
+
+
+def need_node(test: unittest.TestCase) -> str:
+    node = shutil.which("node")
+    if node is None:
+        if os.environ.get("CI"):
+            test.fail("node is required in CI for the change-flow template self-test")
+        test.skipTest("node not found locally: skipping the ES-module parse and harness (CI runs them)")
+    return node
+
+
 class TemplateTest(unittest.TestCase):
     text = ""
 
@@ -543,12 +708,19 @@ class TemplateTest(unittest.TestCase):
                 self.assertEqual(body.count("RESUME"), 1 if name in writing else 0)
         self.assertEqual(self.text.count("const RESUME = "), 1)
 
+    def test_shared_sentences_keep_the_reviewed_wording(self) -> None:
+        # Full text, not a prefix: an appended "unless you are stuck", a dropped
+        # "run this stage's checks" or "still hold", or "retry until it answers"
+        # each fails here.
+        node = need_node(self)
+        with tempfile.TemporaryDirectory() as tmp:
+            got, _ = shared_texts(node, self.text, tmp)
+        for name, want in EXPECTED.items():
+            with self.subTest(sentence=name):
+                self.assertEqual(got[name], want)
+
     def test_node_parse_and_harness(self) -> None:
-        node = shutil.which("node")
-        if node is None:
-            if os.environ.get("CI"):
-                self.fail("node is required in CI for the change-flow template self-test")
-            self.skipTest("node not found locally: skipping the ES-module parse and harness (CI runs them)")
+        node = need_node(self)
         meta, body = split_template(self.text)
         module = meta + "\nexport default async function changeFlow(" + ", ".join(HOOKS) + ") {\n" + body + "\n}\n"
         with tempfile.TemporaryDirectory() as tmp:
@@ -556,9 +728,10 @@ class TemplateTest(unittest.TestCase):
             mjs.write_text(module, encoding="utf-8")
             harness = Path(tmp) / "harness.mjs"
             harness.write_text(HARNESS, encoding="utf-8")
+            _, shared = shared_texts(node, self.text, tmp)
             check = subprocess.run([node, "--check", str(mjs)], capture_output=True, text=True)
             self.assertEqual(check.returncode, 0, check.stderr)
-            ran = subprocess.run([node, str(harness), mjs.as_uri()], capture_output=True, text=True, cwd=tmp)
+            ran = subprocess.run([node, str(harness), mjs.as_uri(), str(shared)], capture_output=True, text=True, cwd=tmp)
             self.assertEqual(ran.returncode, 0, ran.stdout + ran.stderr)
             self.assertIn("harness: ok", ran.stdout)
 

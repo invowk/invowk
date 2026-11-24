@@ -2031,8 +2031,13 @@ def refresh(
     if awaiting:
         out.append(f"refresh: {len(awaiting)} id(s) need {REQUIRED_ESCAPED_RERUNS} escaped reruns at their evidence "
                    f"digest; run it twice: make mutation-formal-rerun MUTATION_MUTANT_ID={','.join(awaiting)}")
-        if paths.manifest in changed:
-            out.append("refresh: commit formal/manifest.toml first: the mutation wrapper refuses a dirty manifest")
+        # The wrapper (ensure_clean_tracked_worktree_for_mutation in
+        # scripts/mutation.sh) refuses any dirty tracked file outside
+        # dirty_path_is_allowed, not only the manifest this refresh may edit.
+        out.append("refresh: before the reruns, commit every tracked edit outside the mutation wrapper's allow-list "
+                   "(dirty_path_is_allowed in scripts/mutation.sh), such as formal/manifest.toml or a tasks/next/ note: "
+                   "the wrapper refuses to start while one is dirty; the refreshed baseline, ledger and reruns file "
+                   "may stay uncommitted")
     if untriaged:
         out.append(f"refresh: {UNTRIAGED_PROMPT} of the {untriaged} untriaged entr"
                    f"{'y' if untriaged == 1 else 'ies'}; `triage --check` rejects them until then")

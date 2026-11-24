@@ -2027,7 +2027,11 @@ class RefreshTests(Fixture):
         ids = ",".join(sorted({NEW.id, INSERTED.id}))
         self.assertIn(f"refresh: 2 id(s) need 2 escaped reruns at their evidence digest; run it twice: "
                       f"make mutation-formal-rerun MUTATION_MUTANT_ID={ids}", lines)
-        self.assertIn("refresh: commit formal/manifest.toml first: the mutation wrapper refuses a dirty manifest", lines)
+        self.assertIn("refresh: before the reruns, commit every tracked edit outside the mutation wrapper's allow-list "
+                      "(dirty_path_is_allowed in scripts/mutation.sh), such as formal/manifest.toml or a tasks/next/ note: "
+                      "the wrapper refuses to start while one is dirty; the refreshed baseline, ledger and reruns file "
+                      "may stay uncommitted", lines)
+        self.assertFalse(any("refuses a dirty manifest" in line for line in lines), "the manifest-only rule is gone")
         self.assertIn(f"added {NEW.id} Evaluate expression/remove :27", lines)
 
     def test_cli_needs_a_symbol_or_stale(self) -> None:

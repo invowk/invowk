@@ -53,7 +53,7 @@ A rule beats a skill or runbook unless the rule grants an exception. Memorials (
 When a file in `.agents/rules/` is added, renamed or removed, update this index in the same change; `make check-agent-docs` verifies it. Every rule, skill, agent, workflow and command appears here exactly once in bracketed form.
 
 - Always loaded:
-  - [`.agents/rules/agent-workflows.md`]: Workflow-agent floor (review, guard, outward writes, lock, advisor)
+  - [`.agents/rules/agent-workflows.md`]: Workflow-agent floor (review, guard, outward writes, lock, restart, advisor)
   - [`.agents/rules/checklist.md`]: completion gates
   - [`.agents/rules/commands.md`]: make targets, hidden internal commands
   - [`.agents/rules/general-rules.md`]: sources, code quality, scope

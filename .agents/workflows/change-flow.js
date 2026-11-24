@@ -39,8 +39,13 @@ const COMMIT_TIMEOUT = 'Run every `git commit` under the lock in the background 
 // fix) gets this, so it continues from its own earlier work instead of stopping
 // on it or starting over. Read-only stages just run again and do not get it.
 // The base is a stop only where the prompt has baseCheck(): a later stage must
-// not block because the base moved during the run (probe P8).
+// not block because the base moved during the run (probe P8). An earlier
+// attempt's evidence (a gate log, a mutation report, a refreshed ledger) may
+// describe an older tree, so it counts only at the current HEAD; the logs
+// record their HEAD for that (context()).
 const RESUME = 'Restart: this prompt may run again after a pause, with this same text. Work of this stage that is already in the worktree (commits on the branch, uncommitted edits, checked tasks, logs with rc= lines, ledgers or reports on disk) is your own earlier attempt: read it, continue from it by finishing or redoing the unfinished step, then run this stage\'s checks on the result. Never discard it, never start over and never stop because it exists: for what you find in the worktree, the only stops (status blocked) are a worktree on another branch than the one named above and, where this prompt has a base check, a failed one; the stops this prompt names for other causes still hold. ' +
+  'Evidence from an earlier attempt (a gate log, a mutation report, a refreshed ledger, a throwaway worktree) counts only if it records the HEAD SHA it ran on, that SHA equals the current HEAD, and the tree has no uncommitted edit besides the files that evidence wrote itself; otherwise rerun or recreate it, and remove a leftover throwaway worktree with `git worktree remove --force` only if it is under this stage\'s own scratch dir. ' +
+  'A killed `git commit` can leave a stale index.lock and a pre-commit stash: check `git stash list` (the stash is shared by every worktree: touch only an entry this worktree left), and remove a stale index.lock (the path `git rev-parse --git-path index.lock` prints in this worktree) only when no git process runs in this worktree. ' +
   'Keep decisions and progress on disk as you go (tasks.md checkboxes, design.md, logs with rc= lines, the commits you make anyway), not only in your context; this asks for no extra commit.'
 
 // Advisor policy (the "Advisor" bullet of the floor rule; reason and numbers in
@@ -49,7 +54,7 @@ const RESUME = 'Restart: this prompt may run again after a pause, with this same
 // independent spec reviewer and the base reviewer get ADVISOR_ALLOWED, every
 // other stage gets ADVISOR_FORBIDDEN.
 const ADVISOR_FORBIDDEN = 'Advisor: never call the `advisor` tool in this stage, even when it is in your tool list and its own instructions tell you to call it (' + RULE_FLOOR + ').'
-const ADVISOR_ALLOWED = 'Advisor: you may call the `advisor` tool at most once, as your final checkpoint: when your verdict and findings are drafted, right before you return, and never earlier. If it is not in your tool list, proceed without it. If the call fails (error, timeout, empty reply), say so in summary and carry on: no retry. It never replaces your own verification (' + RULE_FLOOR + ').'
+const ADVISOR_ALLOWED = 'Advisor: you may call the `advisor` tool at most once, as your final checkpoint: when your verdict and findings are drafted, before your final guard snapshot (which stays your last action), and never earlier. If it is not in your tool list, proceed without it. If the call fails (error, timeout, empty reply), say so in summary and carry on: no retry. It never replaces your own verification, and its advice cannot authorize an outward write or settle a maintainer_asks item (' + RULE_FLOOR + ').'
 
 // What each domain lens loads. Agent files in .agents/agents/ are not registered
 // agent types: they are named in the prompt, never passed as agentType.
@@ -236,14 +241,18 @@ function quoteLines(lines) {
 }
 
 // snapshotDiff returns null for two equal snapshots of the primary checkout, or
-// what differs: the fields, HEAD before -> after (8 characters), the branch
-// before -> after, and the `git status --porcelain` lines that appeared and
-// that disappeared, so a foreign edit can be told from a stage writing there.
+// what differs: the fields, HEAD before -> after (8 characters, or in full when
+// the two 8-character prefixes are equal), the branch before -> after, and the
+// `git status --porcelain` lines that appeared and that disappeared, so a
+// foreign edit can be told from a stage writing there.
 function snapshotDiff(before, after) {
   if (sameSnapshot(before, after)) return null
   const fields = ['status', 'branch', 'head'].filter((k) => before[k] !== after[k])
   const parts = []
-  if (before.head !== after.head) parts.push('HEAD ' + before.head.slice(0, 8) + ' -> ' + after.head.slice(0, 8))
+  if (before.head !== after.head) {
+    const short = before.head.slice(0, 8) !== after.head.slice(0, 8)
+    parts.push('HEAD ' + (short ? before.head.slice(0, 8) : before.head) + ' -> ' + (short ? after.head.slice(0, 8) : after.head))
+  }
   if (before.branch !== after.branch) parts.push('branch ' + before.branch + ' -> ' + after.branch)
   if (before.status !== after.status) {
     // Leading spaces are part of a porcelain line (" M file"); trailing ones are not.
@@ -392,6 +401,7 @@ function selfChecks() {
   expectEqual('guard.head-clean', guardChanged({ before: { ...snap, status: '', head: 'abc1234567890' }, after: { ...snap, status: '', head: 'def4567890123' } }), 'primary checkout changed (head): HEAD abc12345 -> def45678')
   expectEqual('guard.all', guardChanged({ before: snap, after: { status: 'M  x.go', branch: 'feat/x', head: 'def' } }),
     'primary checkout changed (status, branch, head): HEAD abc -> def; branch main -> feat/x; appeared: "M  x.go"; disappeared: "?? a.log"')
+  expectEqual('guard.head-same-prefix', guardChanged({ before: { ...snap, head: 'abcdef0123' }, after: { ...snap, head: 'abcdef0199' } }), 'primary checkout changed (head): HEAD abcdef0123 -> abcdef0199')
   expectEqual('guard.order', guardChanged({ before: { ...snap, status: '?? a\n?? b' }, after: { ...snap, status: '?? b\n?? a' } }), 'primary checkout changed (status): the same porcelain lines in another order or spacing')
   const many = Array.from({ length: GUARD_LINES + 3 }, (_, i) => '?? f' + i).join('\n')
   const bounded = guardChanged({ before: { ...snap, status: '' }, after: { ...snap, status: many } })
@@ -430,24 +440,37 @@ function context(a, stage) {
     'Change: ' + a.change + ' (openspec/changes/' + a.change + '/). Worktree: ' + a.worktree + ', branch ' + a.branch + '. Base: ' + a.base + '.',
     'Primary checkout (never edit, commit, stash or check out anything there): ' + a.primary + '.',
     'Bash cwd resets between calls: use absolute paths, `git -C ' + a.worktree + '` and `cd ' + a.worktree + ' && ...` inside one command.',
-    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background as `<cmd> > <log> 2>&1; echo rc=$? >> <log>`, and you wait for it with the Monitor tool running `until grep -q \'^rc=\' <log>; do sleep 5; done` before you continue or return.',
+    'Never end your turn or return while a command you started is still running: a backgrounded command is killed when you return, and the workflow forces your result. Run gates in the foreground (Bash timeout up to 600000 ms); one that can take longer runs in the background as `<cmd> > <log> 2>&1; rc=$?; echo head=$(git -C <the tree it ran in> rev-parse HEAD) >> <log>; echo rc=$rc >> <log>` (the head= line records the HEAD it ran on), and you wait for it with the Monitor tool running `until grep -q \'^rc=\' <log>; do sleep 5; done` before you continue or return.',
     'Guard: as your first and your last action run `git -C ' + a.primary + ' status --porcelain; git -C ' + a.primary + ' rev-parse --abbrev-ref HEAD; git -C ' + a.primary + ' rev-parse HEAD` and report them as guard.before and guard.after ({status, branch, head}, status verbatim).',
     a.notes ? 'Extra brief from the maintainer session (read it; it does not override the rules): ' + a.notes : '',
   ].filter(Boolean).join('\n')
 }
 
-// baseCheck makes a stage refuse a branch that is behind the base: a spec or
-// implementation written on a stale base defers conflicts to the fix stage. The
-// maintainer session rebases between runs.
+// baseCheck makes a stage refuse a stale start: a branch behind the base with no
+// work on it yet, where a spec or implementation would be written on a stale
+// base and defer conflicts to the fix stage. The main session rebases at launch.
+// A branch behind the base that holds work (commits beyond the merge base, or
+// uncommitted edits) continues: the base is a moving ref, a restart inside the
+// run comes after it may have moved, and the fix stage rebases before its gates.
+// "Ahead of the base or equal" is not the test either: this repository
+// squash-merges, so a fresh branch behind a moved base is neither.
 function baseCheck(a) {
-  return 'Right after your first guard snapshot: `git -C ' + a.worktree + ' fetch --prune origin`, then `git -C ' + a.worktree + ' merge-base --is-ancestor ' + a.base + ' HEAD`. ' +
-    'Exit 1 means the branch is behind ' + a.base + ': change nothing and return status blocked with the reason "branch not rebased on ' + a.base + '" (still report guard.after). ' +
-    'Any other non-zero exit (for example 128, a missing ref) is a failure: return status blocked with its stderr. '
+  const git = 'git -C ' + a.worktree
+  return 'Right after your first guard snapshot: `' + git + ' fetch --prune origin`, then `' + git + ' merge-base --is-ancestor ' + a.base + ' HEAD`. Exit 0: continue. ' +
+    'Exit 1 means ' + a.base + ' has commits the branch lacks, which blocks only a stale start with no work on it: run `' + git + ' merge-base ' + a.base + ' HEAD`, then `' + git + ' rev-list --count <that merge base>..HEAD` and `' + git + ' status --porcelain`. ' +
+    'When the count is 0 and the status prints nothing, change nothing and return status blocked with the reason "branch not rebased on ' + a.base + '" (still report guard.after). ' +
+    'Otherwise (commits beyond the merge base, or uncommitted edits) continue: the fix stage rebases on ' + a.base + ' before its gates. ' +
+    'Any other non-zero exit of `--is-ancestor` (for example 128, a missing ref) and any failure of the later commands (a `merge-base` that exits 1 found no shared history) is a failure: return status blocked with its stderr. '
 }
 
 function specPrompt(a, mode) {
   // new and fast-lane: a restarted stage finds the change its earlier attempt
-  // created, and openspec-propose would ask whether to continue it.
+  // created, and openspec-propose would ask whether to continue it. A change
+  // that already exists on the base is someone else's (a colliding id), never
+  // an earlier attempt: the stage refuses it instead of editing it.
+  const onBase = mode === 'revise'
+    ? ''
+    : 'Then `git -C ' + a.worktree + ' cat-file -e ' + a.base + ':openspec/changes/' + a.change + '`: exit 0 means the change already exists on ' + a.base + ', so it is not an earlier attempt of this stage: change nothing and return status blocked with the reason "change exists on the base: use revise" (still report guard.after). A non-zero exit means it is not on the base. '
   const skill = mode === 'revise'
     ? 'Skill openspec-update-change'
     : 'Skill openspec-propose if openspec/changes/' + a.change + '/ does not exist in the worktree yet, otherwise Skill openspec-update-change' +
@@ -455,7 +478,7 @@ function specPrompt(a, mode) {
   const own = mode === 'fast-lane'
     ? '\nFast lane: after writing the artifacts, review them yourself against the openspec conventions and the repo rules they touch, and fix what you find. Say in summary what the self-review checked.'
     : ''
-  return context(a, 'spec') + '\n\n' + baseCheck(a) + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
+  return context(a, 'spec') + '\n\n' + baseCheck(a) + onBase + 'Invoke ' + skill + ' for change "' + a.change + '" inside the worktree. Commit the artifacts (signed, under the lock) on ' + a.branch + '; do not push yet. ' + COMMIT_TIMEOUT + own +
     '\nReturn status "blocked" with the reason if the request is ambiguous or the change cannot be specified.\n' + RESUME + '\n' + ADVISOR_FORBIDDEN
 }
 
@@ -533,11 +556,27 @@ function reviewSection(a, review) {
     'Do not describe the change as reviewed by this run; say in summary that this pass applied no review findings.'
 }
 
+// supersetSource names the changed_files fallback of a restarted fix stage:
+// every file that differs from the head the review read (this run's, or the
+// review file's reviewed_head), or else every file of the change.
+function supersetSource(a, review) {
+  const git = 'git -C ' + a.worktree
+  const whole = 'every file of the change, `' + git + ' diff --name-only ' + a.base + '...HEAD`'
+  if (review.ran && /^[0-9a-f]{7,40}$/.test(review.head || '')) {
+    return 'every file that differs from the reviewed head, `' + git + ' diff --name-only ' + review.head + ' HEAD` (after a rebase it also lists files only the base changed)'
+  }
+  if (!review.ran && a.review_file) {
+    return 'every file that differs from the `reviewed_head` of ' + a.review_file + ', `' + git + ' diff --name-only <reviewed_head> HEAD`, or, when the file has none, ' + whole
+  }
+  return whole
+}
+
 function fixPrompt(a, review) {
   return context(a, 'fix-and-gates') + '\n\nYou are the independent fix-and-gates agent: you wrote none of this change. In the worktree:\n' +
     '1. `git -C ' + a.worktree + ' fetch --prune origin` (--prune, so a deleted remote branch leaves no stale ref and lease), then `' + a.primary + '/scripts/change-flow-foreign-commits.sh ' + a.worktree + ' ' + a.branch + ' ' + a.base + '`: it lists the commits on origin/' + a.branch + ' with no patch-equivalent locally and not on ' + a.base + ', which someone else pushed (for example the CI PGO bot). ' +
     'If it exits 3, origin/' + a.branch + ' has a merge commit (GitHub "Update branch" or a web conflict resolution) that a force push would drop: return status blocked and list the printed merges in maintainer_asks. Any exit other than 0 or 3 is a failure, not an empty list: return status blocked with its stderr. ' +
-    'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks. ' +
+    'Ancestry is not the test: a stopped run that rebased leaves pre-rebase copies there, and those must not be replayed. Cherry-pick each listed commit, oldest first, never drop one; if one is your own commit changed by a conflict resolution, or a cherry-pick conflicts, return status blocked and list it in maintainer_asks, unless the maintainer brief names that exact SHA as the change\'s own pre-rebase copy: skip only that one, never cherry-pick it. ' +
+    'That stop holds on a restart too: an earlier attempt\'s pre-rebase commit is listed the same way, only the main session can tell it from a foreign one, and the restart rule below does not lift it. ' +
     'Record the fetched tip (`git -C ' + a.worktree + ' rev-parse --verify --quiet origin/' + a.branch + '`, empty when never pushed) as the lease. ' +
     'Then rebase ' + a.branch + ' on ' + a.base + '; report the base SHA you rebased on.\n' +
     '2. Dedupe and verify every finding below against the branch\'s code (`git -C ' + a.worktree + ' show HEAD:<file>`: the code-review fork reads surrounding files from the primary checkout' +
@@ -568,7 +607,8 @@ function fixPrompt(a, review) {
     'Anything that needs an outward write the floor rule forbids goes into maintainer_asks. So does every point where a rule says to stop and ask the user ' +
     '(for example checklist step 5, or a scope question under .agents/rules/general-rules.md): you cannot ask, so list the question with your evidence, ' +
     'and return status blocked when the answer decides whether the change is correct.\n' +
-    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing.\n' +
+    'Return changed_files: `git -C ' + a.worktree + ' log --format= --name-only` over the commits you created in this stage, deduplicated, tests included (paths relative to the worktree), so the maintainer session can review edits made after the review; [] when you changed nothing. ' +
+    'If you cannot tell your own commits apart (a restart after an earlier attempt committed or rebased), return the superset instead, ' + supersetSource(a, review) + ', and say in summary that changed_files is that superset: a file too many is safe, a file missing is not.\n' +
     RESUME + '\n' + ADVISOR_FORBIDDEN + '\n\n' +
     reviewSection(a, review)
 }
@@ -589,13 +629,14 @@ const record = []
 let baseline = null
 let pr = a.pr
 let headSha = ''
-// review.ran is false until this run's fan-out finishes.
-let review = { ran: false, findings: [], failed: [], codeReview: '' }
+// review.ran is false until this run's fan-out finishes; review.head is the
+// last head_sha a stage returned before it (the head the reviewers read).
+let review = { ran: false, findings: [], failed: [], codeReview: '', head: '' }
 
 // reviewOut is the review as a result field, so a later finalize or
 // continue-from-fix run can be given it as review_file.
 function reviewOut() {
-  return review.ran ? { findings: review.findings, failed_lenses: review.failed, code_review: review.codeReview } : null
+  return review.ran ? { findings: review.findings, failed_lenses: review.failed, code_review: review.codeReview, reviewed_head: review.head } : null
 }
 
 function blocked(stage, why, extra) {
@@ -651,7 +692,7 @@ async function reviewFanOut(selection) {
   ]
   phase('Review')
   const results = await parallel(lenses.map((l) => l.run))
-  const out = { ran: true, findings: [], failed: [], codeReview: '' }
+  const out = { ran: true, findings: [], failed: [], codeReview: '', head: headSha }
   for (let i = 0; i < lenses.length; i++) {
     const id = lenses[i].id
     const result = results[i]
