@@ -46,6 +46,110 @@ func TestVirtualPathHarness_F14DeepSymlink(t *testing.T) {
 	}
 }
 
+// TestVirtualPathHarness_JunctionEscapeDenied replays the fixed finding F18 on
+// Windows: filepath.EvalSymlinks does not follow a junction, so the pre-fix
+// validator judged a path through a junction by the junction's own location
+// and admitted it (windows-latest, CI run 44523520503, job 135557989975). The
+// walk follows junctions, so an existing file and a new file below a junction
+// to an outside directory are denied and nothing is created outside. A
+// junction whose target is inside the root, and a root that is itself given
+// through a junction, keep working.
+//
+// It is required on Windows and skipped elsewhere by the capability policy, so
+// it is never a killer (the mutantPreFixF18JunctionNotFollowed row).
+func TestVirtualPathHarness_JunctionEscapeDenied(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+	base := fstree.TempRoot(t)
+	root := mustMkdir(t, filepath.Join(base, "root"))
+	inside := mustMkdir(t, filepath.Join(root, "inside"))
+	outside := mustMkdir(t, filepath.Join(base, "outside"))
+	sentinel := filepath.Join(outside, "secret.txt")
+	if err := os.WriteFile(sentinel, []byte("outside"), 0o600); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+	fstree.MustJunction(t, outside, filepath.Join(root, "j"))
+	fstree.MustJunction(t, inside, filepath.Join(root, "in"))
+	validator := virtualPathValidator{resolver: virtualPathResolver{
+		allowedRoots: normalizedRoots([]string{root}),
+		access:       invowkfile.VirtualFilesystemAccessRestricted,
+	}}
+
+	// An existing file below the junction: denied, so it cannot be read.
+	if normalized, err := validator.validate(root, filepath.Join(root, "j", "secret.txt")); err == nil {
+		content, readErr := os.ReadFile(normalized)
+		t.Errorf("existing file through the junction accepted as %q (read %q, err %v)", normalized, content, readErr)
+	}
+	// A new file directly below the junction: denied, so it cannot be created.
+	expectHarnessWriteDenied(t, validator, root, filepath.Join(root, "j", "new.txt"))
+	expectHarnessDirEntries(t, outside, "secret.txt")
+
+	// A junction whose target is inside the root is followed and accepted.
+	for _, path := range []string{
+		filepath.Join(root, "in"),
+		filepath.Join(root, "in", "new.txt"),
+	} {
+		if _, err := validator.validate(root, path); err != nil {
+			t.Errorf("path through the in-root junction denied: %s: %v", path, err)
+		}
+	}
+
+	// A root given through a junction is an allowed root, and a request
+	// written through that junction is accepted.
+	realDir := mustMkdir(t, filepath.Join(base, "real"))
+	alias := filepath.Join(base, "alias")
+	fstree.MustJunction(t, realDir, alias)
+	aliased := virtualPathValidator{resolver: virtualPathResolver{
+		allowedRoots: normalizedRoots([]string{alias}),
+		access:       invowkfile.VirtualFilesystemAccessRestricted,
+	}}
+	if len(aliased.resolver.allowedRoots) != 1 {
+		t.Fatalf("a root given through a junction was dropped: %v", aliased.resolver.allowedRoots)
+	}
+	for _, path := range []string{alias, filepath.Join(alias, "new.txt")} {
+		if _, err := aliased.validate(alias, path); err != nil {
+			t.Errorf("request through the root's junction denied: %s: %v", path, err)
+		}
+	}
+	if _, err := aliased.validate(alias, filepath.Join(root, "new.txt")); err == nil {
+		t.Error("a path outside the junctioned root was accepted")
+	}
+}
+
+// expectHarnessWriteDenied fails when the validator accepts path. An accepted
+// path is then written through, as a script would, so that the caller's check
+// of the outside directory shows where the write landed.
+func expectHarnessWriteDenied(t *testing.T, validator virtualPathValidator, cwd, path string) {
+	t.Helper()
+	normalized, err := validator.validate(cwd, path)
+	if err == nil {
+		t.Errorf("%s accepted as %s", path, normalized)
+		if mkErr := os.MkdirAll(filepath.Dir(normalized), 0o755); mkErr != nil {
+			t.Logf("mkdir for the accepted path: %v", mkErr)
+		}
+		if writeErr := os.WriteFile(normalized, []byte("escaped"), 0o600); writeErr != nil {
+			t.Logf("write through the accepted path: %v", writeErr)
+		}
+	}
+}
+
+// expectHarnessDirEntries fails unless dir holds exactly the named entries.
+func expectHarnessDirEntries(t *testing.T, dir string, want ...string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+	got := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		got = append(got, entry.Name())
+	}
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("%s holds %q, want %q", dir, got, want)
+	}
+}
+
 // TestVirtualPathHarness_F15WorkdirWidening records finding F15: under restricted
 // access a module-declared workdir outside the module is added to the allowed
 // roots, so an access below that workdir is accepted even though a workdir is a

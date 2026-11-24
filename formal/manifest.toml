@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 181
+command_count = 184
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -1565,7 +1565,21 @@ mode fails it (EffectiveAccess and outside probes); adding @home to the allowed 
 roots in newVirtualPathResolverForFilesystem fails it (4 disagreements: the \
 @home probe accepted under omitted and restricted access, with and without a \
 declared path); setting the @config anchor to the home directory itself in \
-standardVirtualAnchorsForOS fails it (the same 4 disagreements)."""
+standardVirtualAnchorsForOS fails it (the same 4 disagreements). \
+2026-11-24 (virtual-path-physical-normalisation, F18): a request records the \
+kind of link it crosses (none, Symlink, Junction), the golden scope is two \
+requests (1512 instances; a request reads only itself and H, so two requests \
+still show each of its 63 combinations), and the golden replay materialises \
+junction requests on Windows (1404 of 3024 requests, left out and counted \
+elsewhere). walkVirtualPath (row normalized) is bound to the golden replay and \
+to TestVirtualPathHarness_WalkOverFakeFilesystem, which drives it over a fake \
+filesystem that fails the test when the walk looks below a link. Seeded and \
+reverted (go test -overlay): "the walk does not follow a junction-like entry" \
+(isVirtualPathLink returning true only for ModeSymlink) fails \
+TestVirtualPathHarness_WalkOverFakeFilesystem on Linux in nine cases, among \
+them "existing file through a junction", "new file through a junction", \
+"deep new file through a junction" and "junction as the last component"; the \
+golden replay cannot see it off Windows, where no junction exists."""
 
 [model.golden]
 command = "golden"
@@ -1586,6 +1600,13 @@ expect = "instance"
 [[model.command]]
 name = "mutantNoParentEval"
 body = "harnessContained[NoParentEval, False]"
+expect = "counterexample"
+property = "harnessContained"
+mutant_of = "harnessContainedFixed"
+
+[[model.command]]
+name = "mutantPreFixF18JunctionNotFollowed"
+body = "harnessContained[PreFixF18Eval, False]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
@@ -1637,6 +1658,18 @@ expect = "instance"
 witness = true
 
 [[model.command]]
+name = "witJunctionAncestor"
+body = "witJunctionAncestor"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witInLocationLink"
+body = "witInLocationLink"
+expect = "instance"
+witness = true
+
+[[model.command]]
 name = "witDeepSymlinkEscape"
 body = "deepSymlinkEscape"
 expect = "instance"
@@ -1654,7 +1687,7 @@ body = """
 goldenScenario
 goldenDecisions
 noJunk"""
-scope = "exactly 3 Req, exactly 1 InReadRoot, exactly 1 InWorkdir, exactly 1 OutsideAll"
+scope = "exactly 2 Req, exactly 1 InReadRoot, exactly 1 InWorkdir, exactly 1 OutsideAll"
 expect = "instance"
 
 

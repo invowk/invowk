@@ -14,13 +14,15 @@ import (
 )
 
 // TestVirtualPathHarness_Property generates allowed roots, runtime-created
-// symlinks, and deep non-existent paths at larger scope than the golden, and
+// symlinks (and junctions on Windows), and deep non-existent paths at larger
+// scope than the golden, and
 // checks the real validator: under restricted access an accepted path resolves
 // physically inside an allowed root, unless the acceptance is the recorded F14
 // deep-missing-path-through-a-symlink hole.
 func TestVirtualPathHarness_Property(t *testing.T) {
 	t.Parallel()
 	fstree.Require(t, fstree.CapSymlink)
+	junctions := harnessJunctions(t)
 	root := fstree.TempRoot(t)
 
 	rapid.Check(t, func(rt *rapid.T) {
@@ -42,11 +44,18 @@ func TestVirtualPathHarness_Property(t *testing.T) {
 			access:       invowkfile.VirtualFilesystemAccessRestricted,
 		}}
 
-		// Optionally place an escaping symlink inside the allowed root.
+		// Optionally place an escaping link inside the allowed root: a symlink,
+		// or on a host with junctions (Windows) a symlink or a junction.
 		linkName := ""
 		if rapid.Bool().Draw(rt, "escapingLink") {
 			linkName = "x"
-			fstree.MustSymlink(rt, outside, filepath.Join(allowed, linkName))
+			if junctions && rapid.Bool().Draw(rt, "junction") {
+				// MustJunction creates its own link directory and needs the
+				// target to exist; outside does.
+				fstree.MustJunction(rt, outside, filepath.Join(allowed, linkName))
+			} else {
+				fstree.MustSymlink(rt, outside, filepath.Join(allowed, linkName))
+			}
 		}
 
 		// Build a requested path: optionally through the link, with a random
