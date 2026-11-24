@@ -42,6 +42,8 @@ Not covered by any hook (manual discipline): `make test`, `make tidy`, `make che
 
 ## CI workflows (`.github/workflows/`)
 
+Rulesets: "Safety" on `main` (pull request required with 0 approvals, signatures, linear history, the `goplint consumer gates`, `Models, golden vectors, and correspondence` and `script tests (worktree-safety gate)` checks; bypass: the `invowk-docs-bot` App) and "Release tags" (`refs/tags/v*` creation, update and deletion; bypass: the admin role). Details: `.agents/rules/git.md`, `.agents/runbooks/git-merge.md`.
+
 | Workflow | Triggers | Purpose |
 |----------|----------|---------|
 | `ci.yml` | push/PR to main (path-filtered), release, dispatch | tests (Linux full; macOS/Windows short unit + CLI; PowerShell install-script tests on Windows), build verification, license check, all-module govulncheck, `pgo-sanity`, unsigned GoReleaser dry run (`Release Dry Run`) |
