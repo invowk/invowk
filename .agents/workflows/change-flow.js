@@ -304,10 +304,18 @@ function prNumber(value) {
 // holds something besides skill boilerplate and bare "no findings" lines: no
 // markers, no or a non-ok status, an empty body, only "Skill execution
 // completed", or a "(none)" / "No findings." / "[]" result with no explanation
-// (probe P3 in the runbook).
+// (probe P3 in the runbook). The body runs to the LAST CODE-REVIEW-END line, which
+// the stage agent writes (the fork's text may quote the markers). Lines the agent
+// adds between it and the status line (a note on the target, say) are tolerated,
+// but every status line after it must read ok (optionally with a final period or a
+// parenthetical note), and there must be one: a
+// status line inside the body never counts.
 function reviewBody(text) {
-  const match = /CODE-REVIEW-BEGIN\n([\s\S]*?)\nCODE-REVIEW-END[ \t]*\n+CODE-REVIEW-STATUS:[ \t]*([A-Za-z]+)/.exec(String(text || ''))
-  if (!match || match[2].toLowerCase() !== 'ok') return null
+  const s = String(text || '')
+  const match = /CODE-REVIEW-BEGIN\n([\s\S]*)\nCODE-REVIEW-END[ \t]*(?:\n|$)/.exec(s)
+  if (!match) return null
+  const statuses = [...s.slice(match.index + match[0].length).matchAll(/^CODE-REVIEW-STATUS:[ \t]*(.*?)[ \t]*$/gm)]
+  if (!statuses.length || statuses.some((m) => !/^ok(?:[.!]|[ \t]*\(.*\))?$/i.test(m[1]))) return null
   const substantive = match[1]
     .replace(/^.*skill execution completed.*$/gim, '')
     .replace(/^\s*skill\s+"?[\w:.-]+"?\s+completed\b.*$/gim, '')
@@ -428,6 +436,16 @@ function selfChecks() {
   expectEqual('review.explained-failure', reviewBody(wrap('The skill returned nothing usable.', 'failed')), null)
   expectEqual('review.no-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\n'), null)
   expectEqual('review.no-markers', reviewBody('Skill execution completed'), null)
+  // a note between CODE-REVIEW-END and the status line (wf_baf9c44c-268 lost four findings to it)
+  expectEqual('review.note-before-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nNote (stage agent): the fork reviewed head d1bde6d9.\nCODE-REVIEW-STATUS: ok\nGUARD-JSON: {}\n'), '1. a.go:3 nil deref')
+  expectEqual('review.note-then-failed', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nNote.\nCODE-REVIEW-STATUS: failed\n'), null)
+  expectEqual('review.any-failed-status-fails', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\nCODE-REVIEW-STATUS: failed\n'), null)
+  expectEqual('review.status-only-in-body', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-STATUS: ok\nCODE-REVIEW-END\n'), null)
+  expectEqual('review.end-quoted-in-body', reviewBody('CODE-REVIEW-BEGIN\nQuoting the prompt:\nCODE-REVIEW-END\n1. a.go:3 nil deref\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\n'), 'Quoting the prompt:\nCODE-REVIEW-END\n1. a.go:3 nil deref')
+  expectEqual('review.late-ok-after-failed', reviewBody('CODE-REVIEW-BEGIN\nReviewed 3 files.\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: failed\nGUARD-JSON: {}\nEcho:\nCODE-REVIEW-STATUS: ok\n'), null)
+  expectEqual('review.fork-ok-agent-none', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\nCODE-REVIEW-END\n'), null)
+  expectEqual('review.ok-noted', [reviewBody(wrap('1. x', 'ok.')), reviewBody(wrap('1. x', 'ok (fork reviewed d1bde6d9)'))], ['1. x', '1. x'])
+  expectEqual('review.ok-ish', reviewBody(wrap('1. a.go:3 nil deref', 'ok-ish, the fork was empty')), null)
   return ['args', 'plan', 'lenses', 'guard', 'review']
 }
 
