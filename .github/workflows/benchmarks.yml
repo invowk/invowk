@@ -63,7 +63,7 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Install Bencher CLI
-        uses: bencherdev/bencher@v0.6.12
+        uses: bencherdev/bencher@v0.6.17
         with:
           version: 0.6.12
 
