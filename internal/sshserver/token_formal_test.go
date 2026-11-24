@@ -146,6 +146,7 @@ func TestHostCallbackToken_StopLeavesAuthenticatedConnectionOpen(t *testing.T) {
 	}
 	client := dialWithToken(t, srv, token.Value)
 	closed := closedSignal(client)
+	waitUntilServerTracksConn(t, client)
 
 	stopErr := srv.Stop()
 	if !errors.Is(stopErr, context.DeadlineExceeded) {
@@ -187,6 +188,21 @@ func dialWithToken(t *testing.T, srv *Server, token TokenValue) *gossh.Client {
 	}
 	t.Cleanup(func() { _ = client.Close() })
 	return client
+}
+
+// waitUntilServerTracksConn returns once the SSH server counts the client's
+// connection as open. Dial returns as soon as the client sees authentication
+// succeed, but the server's connection goroutine registers the connection
+// (charm.land/ssh trackConn, the set Shutdown waits for) only after its side
+// of the handshake returns. A Stop in that window finds nothing to wait for
+// and returns nil, which a slow CI runner hit once. The server reads global
+// requests only on a goroutine it starts after that registration, so any
+// reply, accepted or not, proves the connection is tracked.
+func waitUntilServerTracksConn(t *testing.T, client *gossh.Client) {
+	t.Helper()
+	if _, _, err := client.SendRequest("keepalive@openssh.com", true, nil); err != nil {
+		t.Fatalf("SendRequest(keepalive) error = %v, want a reply once the server tracks the connection", err)
+	}
 }
 
 // closedSignal returns a channel closed once the client's connection closed
