@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # Tests for scripts/ci-website-build.sh: exit-status passthrough, the memory
-# defaults, the watchdog's process-group kill, the sampler and its warnings.
+# defaults, the watchdog's process-group kill, signal forwarding, the sampler
+# and its warnings.
 
 set -euo pipefail
 
@@ -111,10 +112,44 @@ test_output_closes_promptly() {
 	fi
 }
 
+test_signal_stops_build_group() {
+	local sig want pid_file grandchild wrapper rc
+
+	for sig in TERM INT; do
+		want=143
+		[[ "$sig" == INT ]] && want=130
+		pid_file="$TMP_DIR/signal-$sig.pid"
+		rm -f "$pid_file"
+		# env --default-signal undoes the SIGINT ignore that a non-interactive
+		# shell gives background jobs; the runner signals a foreground step.
+		# shellcheck disable=SC2016 # expanded by the command under test
+		env --default-signal=INT WEBSITE_BUILD_DIR="$TMP_DIR" WEBSITE_BUILD_SAMPLE_SECS=1 \
+			WEBSITE_BUILD_KILL_AFTER_SECS=2 \
+			bash "$BUILD_SCRIPT" bash -c 'sleep 60 & echo $! > "$0"; wait' "$pid_file" \
+			>"$TMP_DIR/signal-$sig.out" 2>&1 &
+		wrapper=$!
+		for _ in $(seq 50); do
+			[[ -s "$pid_file" ]] && break
+			sleep 0.1
+		done
+		[[ -s "$pid_file" ]] || fail "$sig: the build never started" "$(cat "$TMP_DIR/signal-$sig.out")"
+		kill "-$sig" "$wrapper"
+		rc=0
+		wait "$wrapper" || rc=$?
+		assert_eq "$sig exit status" "$want" "$rc" "$(cat "$TMP_DIR/signal-$sig.out")"
+		grandchild="$(cat "$pid_file")"
+		if kill -0 "$grandchild" 2>/dev/null; then
+			kill "$grandchild" 2>/dev/null || true
+			fail "$sig left build process $grandchild running after the wrapper exited" "$(cat "$TMP_DIR/signal-$sig.out")"
+		fi
+	done
+}
+
 test_exit_status_passthrough
 test_runs_in_website_dir
 test_memory_defaults
 test_watchdog_kills_process_group
+test_signal_stops_build_group
 test_low_memory_warnings_are_capped
 test_output_closes_promptly
 
