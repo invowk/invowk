@@ -35,18 +35,29 @@ const (
 	harnessRequestShapes = 81
 )
 
-// harnessAncestor identifies one materialised request ancestor: the deepest
-// existing ancestor, or for a dangling request the link whose target is
-// missing.
-type harnessAncestor struct {
-	lex, phys, link string
-	dangling        bool
-}
+type (
+	// harnessAncestor identifies one materialised request ancestor: the
+	// deepest existing ancestor, or for a dangling request the link whose
+	// target is missing.
+	harnessAncestor struct {
+		lex, phys, link string
+		dangling        bool
+	}
+
+	// harnessBuilt is a materialised ancestor: the path a request starts
+	// from, and the path it resolves to (the canonical physical directory,
+	// joined for a dangling request with the link's missing target name).
+	harnessBuilt struct {
+		request, resolved string
+	}
+)
 
 // TestVirtualPathHarness_GoldenVectors replays every harness instance against a
 // directly built virtualPathResolver over materialised roots (design D5.4/D5.5):
 // the real validate decision must equal the model's fixed-evaluation decision
-// dAccepts on every request, with no finding carve-out. A request is
+// dAccepts on every request, with no finding carve-out, and an accepted
+// request must validate to its resolved physical path: the deepest existing
+// ancestor's physical directory joined with the missing names. A request is
 // materialised by its link kind: a plain directory, a symbolic link, on
 // Windows a junction, and for a dangling request a symbolic link to a missing
 // name, including links whose target stays in the same location.
@@ -82,7 +93,7 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 	expectHarnessResolutionErrors(t, validator, dirFor["InReadRoot"])
 	// Missing components are never created, so one ancestor per (lex, phys,
 	// link kind, dangling) serves every request.
-	ancestors := map[harnessAncestor]string{}
+	ancestors := map[harnessAncestor]harnessBuilt{}
 	locs := []string{"InReadRoot", "InWorkdir", "OutsideAll"}
 	depths := []string{"Zero", "One", "TwoPlus"}
 
@@ -112,11 +123,17 @@ func TestVirtualPathHarness_GoldenVectors(t *testing.T) {
 			if _, ok := ancestors[key]; !ok {
 				ancestors[key] = buildAncestor(t, dirFor[key.lex], dirFor[key.phys], key)
 			}
-			reqPath := requestPath(ancestors[key], depth, key.dangling)
-			_, err := validator.validate(base, reqPath)
-			if gotAccept, wantAccept := err == nil, slices.Contains(accepts, req); gotAccept != wantAccept {
+			built := ancestors[key]
+			reqPath := requestPath(built.request, depth, key.dangling)
+			validated, err := validator.validate(base, reqPath)
+			gotAccept, wantAccept := err == nil, slices.Contains(accepts, req)
+			if gotAccept != wantAccept {
 				report.Errorf("instance %d req %d (lex=%s phys=%s link=%q depth=%s dangling=%v): real accept=%v, model dAccepts=%v (err %v)",
 					i, n, key.lex, key.phys, key.link, depth, key.dangling, gotAccept, wantAccept, err)
+			}
+			if want := requestPath(built.resolved, depth, key.dangling); gotAccept && validated != want {
+				report.Errorf("instance %d req %d (lex=%s phys=%s link=%q depth=%s dangling=%v): validated %q, want the resolved path %q",
+					i, n, key.lex, key.phys, key.link, depth, key.dangling, validated, want)
 			}
 		}
 	}
@@ -187,8 +204,9 @@ func harnessLinkKind(inst alloygolden.Instance, req string) string {
 // link, otherwise a symlink or a junction under lexDir to a directory under
 // physDir (the same location for a link that stays inside). For a dangling
 // request the symlink points at a missing name in a directory under physDir,
-// so that directory is the deepest existing ancestor.
-func buildAncestor(t *testing.T, lexDir, physDir string, key harnessAncestor) string {
+// so that directory is the deepest existing ancestor. The resolved path is
+// computed from the directory the test made, never from the walk.
+func buildAncestor(t *testing.T, lexDir, physDir string, key harnessAncestor) harnessBuilt {
 	t.Helper()
 	tag := key.lex + "_" + key.phys
 	switch {
@@ -197,25 +215,40 @@ func buildAncestor(t *testing.T, lexDir, physDir string, key harnessAncestor) st
 			t.Fatalf("dangling request %s has the link kind %q; the model allows only a symlink", tag, key.link)
 		}
 		path := filepath.Join(lexDir, "dlnk_"+tag)
-		fstree.MustSymlink(t, filepath.Join(mustMkdir(t, filepath.Join(physDir, "dtgt_"+tag)), "missing"), path)
-		return path
+		target := mustMkdir(t, filepath.Join(physDir, "dtgt_"+tag))
+		fstree.MustSymlink(t, filepath.Join(target, "missing"), path)
+		return harnessBuilt{request: path, resolved: filepath.Join(harnessPhysicalDir(t, target), "missing")}
 	case key.link == harnessLinkNone:
 		if lexDir != physDir {
 			t.Fatalf("request %s moves between locations without a link; the model forbids it", tag)
 		}
-		return mustMkdir(t, filepath.Join(lexDir, "anc_"+tag))
+		dir := mustMkdir(t, filepath.Join(lexDir, "anc_"+tag))
+		return harnessBuilt{request: dir, resolved: harnessPhysicalDir(t, dir)}
 	case key.link == harnessLinkSymlink:
 		path := filepath.Join(lexDir, "lnk_"+tag)
-		fstree.MustSymlink(t, mustMkdir(t, filepath.Join(physDir, "tgt_"+tag)), path)
-		return path
+		target := mustMkdir(t, filepath.Join(physDir, "tgt_"+tag))
+		fstree.MustSymlink(t, target, path)
+		return harnessBuilt{request: path, resolved: harnessPhysicalDir(t, target)}
 	case key.link == harnessLinkJunction:
 		path := filepath.Join(lexDir, "jun_"+tag)
-		fstree.MustJunction(t, filepath.Join(physDir, "jtgt_"+tag), path)
-		return path
+		target := filepath.Join(physDir, "jtgt_"+tag)
+		fstree.MustJunction(t, target, path)
+		return harnessBuilt{request: path, resolved: harnessPhysicalDir(t, target)}
 	default:
 		t.Fatalf("request %s has the unknown link kind %q", tag, key.link)
-		return ""
+		return harnessBuilt{}
 	}
+}
+
+// harnessPhysicalDir returns the canonical form of a directory the test made,
+// which holds no link (macOS: /private/var; Windows: long names).
+func harnessPhysicalDir(t *testing.T, dir string) string {
+	t.Helper()
+	physical, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("canonical form of %s: %v", dir, err)
+	}
+	return physical
 }
 
 // requestPath appends the model's number of missing components. For a

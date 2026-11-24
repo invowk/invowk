@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,19 @@ func TestVirtualPathWindowsMissingDrive(t *testing.T) {
 	}
 	if roots := normalizedRoots([]string{drive + "root"}); len(roots) != 0 {
 		t.Errorf("a root on the missing drive was kept: %v", roots)
+	}
+}
+
+// TestVirtualPathWindowsMissingShare: a share that does not exist on a server
+// that answers (ERROR_BAD_NET_NAME, which Go does not map to fs.ErrNotExist)
+// is a missing volume too, refused with the error that says so.
+func TestVirtualPathWindowsMissingShare(t *testing.T) {
+	t.Parallel()
+	fake := newFakePathFS(t, nil, nil)
+	fake.entries[fakeRoot()] = fakePathEntry{mode: fs.ModeDir, lstatErr: errorBadNetName}
+	_, err := walkVirtualPath(fake.vfs(), fakePath("a"))
+	if !errors.Is(err, errVirtualPathNoExistingAncestor) {
+		t.Fatalf("error = %v, want errVirtualPathNoExistingAncestor", err)
 	}
 }
 

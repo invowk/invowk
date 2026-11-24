@@ -463,7 +463,9 @@ func normalizeVirtualPathForAccess(path, cwd string, access invowkfile.VirtualFi
 }
 
 // absoluteVirtualPath cleans path and makes it absolute against cwd, or
-// against the process working directory when cwd is empty.
+// against the process working directory when cwd is empty. A relative cwd is
+// itself taken against the process working directory, so the walk never reads
+// a relative path as one rooted at the volume root.
 //
 //goplint:ignore -- filesystem boundary helper: raw OS path strings in and out.
 func absoluteVirtualPath(path, cwd string) (string, error) {
@@ -481,7 +483,15 @@ func absoluteVirtualPath(path, cwd string) (string, error) {
 			return "", fmt.Errorf("get working directory: %w", err)
 		}
 	}
-	return filepath.Join(cwd, cleaned), nil
+	joined := filepath.Join(cwd, cleaned)
+	if filepath.IsAbs(joined) {
+		return joined, nil
+	}
+	absolute, err := filepath.Abs(joined)
+	if err != nil {
+		return "", fmt.Errorf("make path absolute: %w", err)
+	}
+	return absolute, nil
 }
 
 // hostVirtualPathFS reads the host filesystem.
@@ -593,7 +603,7 @@ func (w *virtualPathWalker) next() string {
 func (w *virtualPathWalker) enterVolume(volume string) error {
 	root := volume + string(filepath.Separator)
 	if _, err := w.fs.lstat(root); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
+		if isVirtualPathMissingVolume(err) {
 			return fmt.Errorf("%w: %s", errVirtualPathNoExistingAncestor, root)
 		}
 		return err

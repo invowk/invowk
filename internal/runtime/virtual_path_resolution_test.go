@@ -146,6 +146,15 @@ func TestVirtualPathWithoutLinkKeepsText(t *testing.T) {
 	if got, err := normalizeExistingOrParent(filepath.Join("b", "n1"), filepath.Join(root, "a")); err != nil || got != filepath.Join(existing, "n1") {
 		t.Errorf("normalizeExistingOrParent(relative) = (%q, %v), want %q", got, err, filepath.Join(existing, "n1"))
 	}
+	// A relative working directory is read from the process working
+	// directory, never from the volume root.
+	processDir, wdErr := os.Getwd()
+	if wdErr != nil {
+		t.Fatalf("getwd: %v", wdErr)
+	}
+	if got, err := absoluteVirtualPath("file", "."); err != nil || got != filepath.Join(processDir, "file") {
+		t.Errorf("absoluteVirtualPath(file, .) = (%q, %v), want %q", got, err, filepath.Join(processDir, "file"))
+	}
 	if _, err := normalizeExistingOrParent("  ", root); err == nil {
 		t.Error("normalizeExistingOrParent accepted an empty path")
 	}

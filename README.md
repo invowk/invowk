@@ -2401,11 +2401,12 @@ Under `"restricted"` access a path is resolved before it is checked:
 
 - Every symbolic link and every Windows junction on the path is followed, also when the last parts of the path do not exist yet, and the resolved path must be inside an allowed root.
 - A link that leaves the allowed roots is denied at any depth with `virtual path denied`, including a dangling link whose missing target is outside. A link or junction whose target stays inside an allowed root works.
-- Paths are reported in resolved form (`INVOWK_PATH_<NAME>`, `invowk.path` results, error messages), and a file operation on a link or junction acts on its target. On Windows, `rm -rf` of a junction removes the contents of the target directory.
 - A path that cannot be resolved (a link cycle, a missing drive or share) is refused, and a `virtual.filesystem.paths` entry that cannot be resolved fails the command before the script runs.
 - On Linux, `/dev/stdout`, `/dev/stderr` and `/dev/stdin` cannot be opened as paths when the stream is a pipe; use `>&2` or `>&1`.
 
 With `"full"` access there is no allowed-root check, and a path that cannot be resolved is passed to the operating system as it is.
+
+Under both access modes a path that resolves is used in its resolved form: `INVOWK_PATH_<NAME>` values, `invowk.path` results and error messages show it, and a file operation on a link or junction acts on its target. On Windows, `rm -rf` of a junction removes the target directory itself and leaves the junction entry, which then dangles; under `"full"` access that holds for a target outside the allowed roots too.
 
 Host binary policy remains runtime-scoped. `allowed_binaries` and `binary_lookup_mode` belong inside the selected `runtimes[]` entry and are not affected by filesystem access mode.
 

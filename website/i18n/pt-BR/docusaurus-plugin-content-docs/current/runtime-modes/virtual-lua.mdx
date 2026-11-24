@@ -28,18 +28,23 @@ Scripts Lua interagem com o Invowk por meio de uma tabela `invowk` somente leitu
 
 ## Caminhos E Arquivos
 
-A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state` e a raiz do script ou módulo.
+A E/S de arquivos Lua usa o validador de caminhos virtual do Invowk. Caminhos relativos são resolvidos a partir do diretório de trabalho do comando. Âncoras padrão são expostas como metadados, e as raízes implícitas de leitura/escrita são `@work`, `@tmp`, `@config`, `@data`, `@cache`, `@state`, a raiz do script ou módulo e `/tmp` (exceto no Windows).
 
 No acesso restrito (o padrão), o validador resolve o caminho antes de verificá-lo:
 
 - **Os links são seguidos primeiro.** Todo link simbólico e toda junction do Windows no caminho é resolvido, mesmo quando as últimas partes do caminho ainda não existem. O caminho resolvido precisa estar dentro de uma raiz permitida.
 - **Um link que sai das raízes permitidas é negado em qualquer profundidade**, com `virtual path denied`. Isso inclui um caminho novo vários diretórios abaixo desse link e um link quebrado cujo destino inexistente fica fora. Um link ou junction cujo destino fica dentro de uma raiz permitida funciona, assim como uma raiz permitida que é alcançada por um link (por exemplo `/tmp` no macOS).
-- **Os caminhos são informados na forma resolvida.** Os resultados de `invowk.path`, os valores de `INVOWK_PATH_*` e as mensagens `virtual path denied` mostram o destino do link ou da junction, não o link.
-- **Uma operação sobre um link ou junction atua no destino.** No Windows, remover uma junction com `invowk.cmd.rm("-rf", ...)` remove o conteúdo do diretório de destino e mantém a junction.
 - **Um caminho que não pode ser resolvido é recusado**: um ciclo de links, um destino de link que sobe com `..` a partir de um diretório que não existe, ou uma unidade ou compartilhamento inexistente. Uma entrada de `virtual.filesystem.paths` que não pode ser resolvida faz o comando falhar antes de o script rodar.
 - **`/dev/stdout`, `/dev/stderr` e `/dev/stdin` não são arquivos quando o stream é um pipe** (Linux), então não podem ser abertos como caminhos, mesmo com `/dev` declarado. Use `io.stdout` e `io.stderr`.
 
-Com `virtual.filesystem.access: "full"` não há verificação de raízes permitidas, e um caminho que o validador não consegue resolver é passado ao sistema operacional como está. Essa é uma política para as APIs de arquivo do próprio runtime. Um binário do host permitido roda como um processo normal do host e não tem seus caminhos verificados; use o [runtime container](./container) para isolamento.
+Com `virtual.filesystem.access: "full"` não há verificação de raízes permitidas, e um caminho que o validador não consegue resolver é passado ao sistema operacional como está.
+
+Nos dois modos de acesso, um caminho que pode ser resolvido é usado na forma resolvida:
+
+- **Os caminhos são informados na forma resolvida.** Os resultados de `invowk.path`, os valores de `INVOWK_PATH_*` e as mensagens `virtual path denied` mostram o destino do link ou da junction, não o link.
+- **Uma operação sobre um link ou junction atua no destino.** No Windows, remover uma junction com `invowk.cmd.rm("-rf", ...)` remove o próprio diretório de destino e mantém a entrada da junction, que fica quebrada. Com `access: "full"` isso vale também para um destino fora das raízes permitidas.
+
+Essa é uma política para as APIs de arquivo do próprio runtime. Um binário do host permitido roda como um processo normal do host e não tem seus caminhos verificados; use o [runtime container](./container) para isolamento.
 
 As bases das âncoras são sempre absolutas. Um `XDG_*_HOME`, `APPDATA` ou `LOCALAPPDATA` relativo é ignorado e o padrão baseado no diretório home é usado. Quando o próprio diretório home é relativo ou não está definido (e nenhum valor absoluto de `XDG_*`/AppData cobre a âncora), `@home`, `@config`, `@data`, `@cache` e `@state` ficam indisponíveis: suas variáveis `INVOWK_ANCHOR_*` ficam vazias, elas não são raízes permitidas, e `invowk.path("@config")` ou uma entrada de `virtual.filesystem.paths` como `"@home/.dotfiles"` falha com `virtual path anchor "@config" is unavailable`.
 

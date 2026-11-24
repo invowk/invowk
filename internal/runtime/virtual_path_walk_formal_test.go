@@ -21,10 +21,13 @@ import (
 const fakeJunctionMode = fs.ModeIrregular | 0o666
 
 type (
-	// fakePathEntry is one entry of fakePathFS. A link has a target or a
-	// readlinkErr; any entry may fail its own lstat with lstatErr.
+	// fakePathEntry is one entry of fakePathFS. A link has link set and a
+	// target or a readlinkErr; any entry may fail its own lstat with lstatErr.
+	// The fake decides what is a link from link, never from mode, so its
+	// guards do not follow a mutation of the walk's own link predicate.
 	fakePathEntry struct {
 		mode        fs.FileMode
+		link        bool
 		target      string
 		readlinkErr error
 		lstatErr    error
@@ -118,7 +121,7 @@ func (f *fakePathFS) checkAncestors(op, name string) error {
 		case !ok:
 			f.t.Errorf("%s %s: the walk looked below the missing entry %s", op, name, ancestor)
 			return fs.ErrNotExist
-		case isVirtualPathLink(entry.mode):
+		case entry.link:
 			f.t.Errorf("%s %s: the walk looked through the unresolved link %s", op, name, ancestor)
 			return fs.ErrNotExist
 		case !entry.mode.IsDir():
@@ -157,7 +160,7 @@ func (f *fakePathFS) readlink(name string) (string, error) {
 		return "", &fs.PathError{Op: "readlink", Path: name, Err: fs.ErrNotExist}
 	case entry.readlinkErr != nil:
 		return "", &fs.PathError{Op: "readlink", Path: name, Err: entry.readlinkErr}
-	case !isVirtualPathLink(entry.mode):
+	case !entry.link:
 		f.t.Errorf("readlink %s: the walk read a link target from an entry that is not a link", name)
 		return "", &fs.PathError{Op: "readlink", Path: name, Err: syscall.EINVAL}
 	}
@@ -181,7 +184,7 @@ func (f *fakePathFS) canonical(path string) (string, error) {
 	switch {
 	case !ok:
 		f.t.Errorf("canonical %s: the walk called a missing entry existing", path)
-	case isVirtualPathLink(entry.mode):
+	case entry.link:
 		f.t.Errorf("canonical %s: the walk left a link in the existing prefix", path)
 	}
 	if err := f.canonErr[cleaned]; err != nil {
@@ -223,8 +226,12 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 	t.Parallel()
 
 	errUnreadable := errors.New("unreadable")
-	link := func(target string) fakePathEntry { return fakePathEntry{mode: fs.ModeSymlink | 0o777, target: target} }
-	junction := func(target string) fakePathEntry { return fakePathEntry{mode: fakeJunctionMode, target: target} }
+	link := func(target string) fakePathEntry {
+		return fakePathEntry{mode: fs.ModeSymlink | 0o777, link: true, target: target}
+	}
+	junction := func(target string) fakePathEntry {
+		return fakePathEntry{mode: fakeJunctionMode, link: true, target: target}
+	}
 	file := fakePathEntry{mode: 0o644}
 
 	root := fakePath("root")
@@ -248,7 +255,7 @@ func TestVirtualPathHarness_WalkOverFakeFilesystem(t *testing.T) {
 		fakePath("root", "rooted"):          link(string(filepath.Separator) + rawLinkTarget("outside", "secret")),
 		fakePath("root", "j"):               junction(outside),
 		fakePath("root", "injunction"):      junction(fakePath("root", "in")),
-		fakePath("root", "app"):             {mode: fakeJunctionMode, readlinkErr: syscall.ENOENT},
+		fakePath("root", "app"):             {mode: fakeJunctionMode, link: true, readlinkErr: syscall.ENOENT},
 		fakePath("root", "cloud"):           {mode: fs.ModeDir | fs.ModeIrregular | 0o755},
 		fakePath("root", "cloud", "f"):      file,
 		fakePath("root", "sub"):             link(fakePath("elsewhere", "deep")),
