@@ -304,10 +304,15 @@ function prNumber(value) {
 // holds something besides skill boilerplate and bare "no findings" lines: no
 // markers, no or a non-ok status, an empty body, only "Skill execution
 // completed", or a "(none)" / "No findings." / "[]" result with no explanation
-// (probe P3 in the runbook).
+// (probe P3 in the runbook). Lines the stage agent adds between CODE-REVIEW-END
+// and the status line (a note on the target, say) are tolerated: the last status
+// line after CODE-REVIEW-END decides, and a status line inside the body never does.
 function reviewBody(text) {
-  const match = /CODE-REVIEW-BEGIN\n([\s\S]*?)\nCODE-REVIEW-END[ \t]*\n+CODE-REVIEW-STATUS:[ \t]*([A-Za-z]+)/.exec(String(text || ''))
-  if (!match || match[2].toLowerCase() !== 'ok') return null
+  const s = String(text || '')
+  const match = /CODE-REVIEW-BEGIN\n([\s\S]*?)\nCODE-REVIEW-END[ \t]*(?:\n|$)/.exec(s)
+  if (!match) return null
+  const statuses = [...s.slice(match.index + match[0].length).matchAll(/^CODE-REVIEW-STATUS:[ \t]*([A-Za-z]+)/gm)]
+  if (!statuses.length || statuses[statuses.length - 1][1].toLowerCase() !== 'ok') return null
   const substantive = match[1]
     .replace(/^.*skill execution completed.*$/gim, '')
     .replace(/^\s*skill\s+"?[\w:.-]+"?\s+completed\b.*$/gim, '')
@@ -428,6 +433,11 @@ function selfChecks() {
   expectEqual('review.explained-failure', reviewBody(wrap('The skill returned nothing usable.', 'failed')), null)
   expectEqual('review.no-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\n'), null)
   expectEqual('review.no-markers', reviewBody('Skill execution completed'), null)
+  // a note between CODE-REVIEW-END and the status line (wf_baf9c44c-268 lost four findings to it)
+  expectEqual('review.note-before-status', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nNote (stage agent): the fork reviewed head d1bde6d9.\nCODE-REVIEW-STATUS: ok\nGUARD-JSON: {}\n'), '1. a.go:3 nil deref')
+  expectEqual('review.note-then-failed', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nNote.\nCODE-REVIEW-STATUS: failed\n'), null)
+  expectEqual('review.last-status-wins', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-END\nCODE-REVIEW-STATUS: ok\nCODE-REVIEW-STATUS: failed\n'), null)
+  expectEqual('review.status-only-in-body', reviewBody('CODE-REVIEW-BEGIN\n1. a.go:3 nil deref\nCODE-REVIEW-STATUS: ok\nCODE-REVIEW-END\n'), null)
   return ['args', 'plan', 'lenses', 'guard', 'review']
 }
 
