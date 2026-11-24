@@ -474,6 +474,20 @@ guide ("set `TMPDIR` if needed").
   already seen. The flip is one reviewed PR that changes `GATE_MODE` in
   `.github/workflows/dependabot-gate.yml` to `merge` (and the pinned value in
   `scripts/test_dependabot_gate.py`); it is never a repository variable.
+  Known before the flip (security review of the gate, 2026-11-24):
+  - The gate holds a head that is behind `main` and looks again right before it merges, but
+    the ruleset does not require up-to-date branches, so two merges a second apart are not
+    excluded by GitHub itself. `strict_required_status_checks_policy: true` on the `main`
+    ruleset would close that; it is a maintainer setting.
+  - Socket and SonarCloud report on their own schedule and start no workflow. When one of
+    them reports after the last workflow of a pull request has completed, nothing re-runs
+    the gate; re-running any job of that pull request does.
+  - `create-github-app-token@v3` deprecates `app-id` for `client-id`. The workflow keeps
+    `app-id` (it still works); moving needs a new repository variable with the App's client
+    id.
+  - Grouped Go updates will mostly hold: their `go.mod` side effects usually include a 0.x
+    minor (all of `golang.org/x/*`), a pseudo-version or a new indirect module (#190 has
+    nine such changes besides `acp-go-sdk`).
 
 ## Why CST keeps its production paths out of invowk anyway
 

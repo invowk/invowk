@@ -4,10 +4,12 @@
 
 `.github/workflows/dependabot-gate.yml` runs this from `main` each time a
 workflow of a Dependabot pull request completes. The decision is a pure
-function of one JSON snapshot (the pull request, its commits, its changed
-files, and the check runs and commit statuses of its head commit) and the
-policy tables below; only the `gate` command talks to GitHub, through
-read-only `gh api` calls.
+function of one JSON snapshot and the policy tables below. The snapshot holds
+the pull request, its commits, how far its head is behind `main`, its changed
+files (with the base and head contents of go.mod, website/package.json and
+website/package-lock.json), the check runs and commit statuses of its head
+commit, and the workflow runs of that commit. Only the `gate` and
+`up-to-date` commands talk to GitHub, through read-only `gh api` calls.
 
 The gate FAILS CLOSED. Every rule appends a reason when its condition is not
 exactly the expected value; a missing field, an unknown value, a rule that
@@ -18,7 +20,9 @@ only when no rule left a reason. `merge` requires all of:
     this repository (no fork), open, not a draft, mergeable without conflict,
     no `do-not-merge` or `hold` label;
   - the head: the SHA the triggering workflow run tested is the pull
-    request's current head;
+    request's current head, and that head is not behind `main` (the `main`
+    ruleset does not require up-to-date branches, so GitHub never reports
+    "behind": the checks of a stale head tested an older `main`);
   - the commits: exactly one, the head, authored by dependabot[bot],
     committed by GitHub for it and with a verified signature (a push by
     anyone else, or a second commit the metadata does not describe, holds);
@@ -28,17 +32,36 @@ only when no rule left a reason. `merge` requires all of:
   - the ecosystem: gomod or npm, by head-branch prefix, and every changed
     file is one of that ecosystem's files (GitHub Actions updates never
     merge here: pins are major tags, and PR CI does not exercise
-    release.yml). The manifest's diff is read as well: go.mod may change
-    `require` lines only, package.json only the dependencies the metadata
-    names;
-  - the update types: semver-patch or semver-minor for every dependency; a
-    minor bump whose new version is 0.x is treated as breaking;
+    release.yml). A gomod update must change go.mod;
+  - the file contents, compared base against head by this script, because
+    nothing binds Dependabot's metadata to the files:
+      - go.mod: only requirement versions change. Each step is classified
+        here (update_problem): a major, a downgrade, a pre-release, a
+        pseudo-version, `+incompatible`, a minor bump of a 0.x version, any
+        0.0.z version, and an added or removed requirement all hold. A
+        changed direct requirement must be named in the metadata, and every
+        named module must be in go.mod at exactly the named version;
+      - website/package.json: only the dependency sections change, only for
+        dependencies the metadata names, from one plain semver range to
+        another with the same operator, classified the same way;
+      - website/package-lock.json: every entry that changes resolves from
+        registry.npmjs.org with a sha512 integrity, and none gains an
+        install script;
+  - the update types: semver-patch or semver-minor for every dependency in
+    the metadata as well; a minor bump whose new version is 0.x and any
+    0.0.z version are treated as breaking;
   - the deny list: no sync-pair dependency (DENY_GOMOD, DENY_NPM), neither
-    named in the metadata nor changed in the manifest as a side effect;
+    named in the metadata nor changed in go.mod or package.json as a side
+    effect;
   - the checks: every check run and commit status of the head commit is
     completed and successful (or skipped or neutral), except IGNORED_CHECKS,
     and every REQUIRED check of the ecosystem is there and successful, so a
-    check that never started cannot pass by its absence.
+    check that never started cannot pass by its absence;
+  - the provenance of those checks: the workflow run behind every required
+    GitHub Actions check was started by dependabot[bot] (by user id), on
+    `pull_request`, from the expected workflow file, for this head. A commit
+    identity alone does not prove Dependabot pushed the head: GitHub signs
+    the squash-merge commit of any Dependabot pull request the same way.
 
 Usage:
   dependabot-gate.py gate --repo OWNER/NAME (--head-sha SHA | --pr NUMBER)
@@ -46,13 +69,18 @@ Usage:
                           [--snapshot-out FILE]
   dependabot-gate.py decide SNAPSHOT.json [--mode MODE] [--summary FILE]
                           [--github-output FILE]
+  dependabot-gate.py up-to-date --repo OWNER/NAME --head-sha SHA
 
-Both print the verdict as JSON on stdout,
+`gate` and `decide` print the verdict as JSON on stdout,
 `{"decision": "merge"|"hold", "reasons": [...], "dependencies": [...], ...}`,
 and a readable summary on stderr. Exit 0 when a verdict was reached (merge or
 hold); 1 when GitHub could not be read (the verdict printed is `hold`); 2 on
 a usage error. Any other exit is a crash, and the workflow merges nothing
 then: its merge steps need `decision=merge` from a step that succeeded.
+
+`up-to-date` is the workflow's last look before it merges: exit 0 only when
+SHA is not behind `main` right now, 1 otherwise or when GitHub could not be
+read, 2 on a usage error.
 Stdlib only.
 """
 
@@ -75,15 +103,19 @@ sys.dont_write_bytecode = True
 # The bot user and GitHub's own committer, as the REST API reports them on
 # PRs #189, #190 and #191 (2026-11-23). Dependabot's commits are created by
 # GitHub: the author is the bot, the committer is `web-flow`, and GitHub's key
-# signs them.
+# signs them. No commit of those pull requests has the bot as committer, so
+# that form is not accepted.
 DEPENDABOT = ("dependabot[bot]", 49699333)
-COMMITTERS = (("web-flow", 19864447), DEPENDABOT)
+WEB_FLOW = ("web-flow", 19864447)
 BASE_BRANCH = "main"
 HOLD_LABELS = frozenset({"do-not-merge", "hold"})
 # `mergeable_state` depends on who asks (an anonymous reader saw "unstable"
 # where the maintainer's token saw "blocked"), so it only screens out what is
-# never mergeable: "dirty" (conflict), "behind", "draft", "unknown" and any
-# value not listed here. The conflict rule proper is `mergeable is true`.
+# never mergeable: "dirty" (conflict), "draft", "unknown" and any value not
+# listed here. The conflict rule proper is `mergeable is true`. It is NOT the
+# staleness rule: the `main` ruleset has `strict_required_status_checks_policy:
+# false`, so GitHub never reports "behind" here. rule_up_to_date reads the
+# compare of `main` with the head instead.
 MERGEABLE_STATES = frozenset({"clean", "unstable", "blocked", "has_hooks"})
 
 UPDATE_PATCH = "version-update:semver-patch"
@@ -124,9 +156,36 @@ class Required:
     """A check that must be present and successful, and the app reporting it."""
 
     name: str
-    workflow: str  # the `name:` of the workflow that produces it
+    # For a GitHub Actions check, the `name:` of the workflow that produces it
+    # (a key of WORKFLOW_FILES). For another app's check, the service.
+    workflow: str
     app: str = ACTIONS_APP
 
+
+# Workflow `name:` -> the file a run of it reports as `path`. A required
+# GitHub Actions check counts only when the workflow run behind it (matched by
+# check suite id) ran this file; see rule_check_provenance.
+WORKFLOW_FILES = {
+    "CI": ".github/workflows/ci.yml",
+    "Lint": ".github/workflows/lint.yml",
+    "Formal Verification": ".github/workflows/formal-verification.yml",
+    "CodeQL": ".github/workflows/codeql.yml",
+    "Test Website Build": ".github/workflows/test-website.yml",
+}
+
+SOCKET_APP = "socket-security"
+SONAR_APP = "sonarqubecloud"
+# The security checks other apps report. No workflow file produces them, so
+# nothing but this list makes their absence a hold. Names and app slugs read
+# from `gh api repos/invowk/invowk/commits/<sha>/check-runs` for the heads of
+# #189, #190 and #191 (2026-11-24): all three were there and successful on
+# each. `SonarCloud` is the code-scanning result of the SonarCloud analysis
+# (new alerts fail it), as `CodeQL` below is for the CodeQL analyses.
+REQUIRED_EXTERNAL = (
+    Required("Socket Security: Pull Request Alerts", "Socket Security", SOCKET_APP),
+    Required("SonarCloud Code Analysis", "SonarCloud", SONAR_APP),
+    Required("SonarCloud", "SonarCloud", CODE_SCANNING_APP),
+)
 
 # Reported on every pull request: lint.yml, formal-verification.yml and
 # codeql.yml have no `paths:` filter on `pull_request` and no job-level `if`.
@@ -134,7 +193,7 @@ class Required:
 # scripts/test_dependabot_gate.py re-checks each name, trigger and path filter
 # against the workflow files, so a renamed job fails the script tests instead
 # of leaving the gate on hold for good.
-REQUIRED_COMMON = (
+REQUIRED_COMMON = REQUIRED_EXTERNAL + (
     Required("normalized golangci-lint gates", "Lint"),
     Required("goplint consumer gates", "Lint"),
     Required("script tests (worktree-safety gate)", "Lint"),
@@ -188,7 +247,7 @@ REQUIRED_NPM = REQUIRED_COMMON + (Required("test-build", "Test Website Build"),)
 # keep in step, and `make test` exercises it); `github.com/coder/acp-go-sdk`
 # (no second pin: the 0.x rule holds its minor bumps, patches may merge); and
 # the Go toolchain, which is not a module: a changed `go` or `toolchain` line
-# in go.mod holds through the manifest rule instead.
+# in go.mod holds through check_go_mod instead.
 DENY_GOMOD: dict[str, str] = {
     "github.com/invowk/goplint": (
         "pinned in go.mod and as GOPLINT_VERSION in scripts/goplint.sh, which "
@@ -237,7 +296,11 @@ DENY_NPM: dict[str, str] = {
 class Ecosystem:
     name: str
     branch_prefix: str  # Dependabot's head-branch prefix
-    manifest: str  # the changed file whose diff is read
+    manifest: str
+    # Whether every update changes the manifest. A Go update always rewrites
+    # go.mod, which lists indirect requirements too; an npm update inside the
+    # declared range changes only the lockfile.
+    manifest_required: bool
     files: frozenset[str]  # every file such a pull request may change
     deny: dict[str, str]
     required: tuple[Required, ...]
@@ -245,11 +308,13 @@ class Ecosystem:
 
 # Only the root module and the website have a Dependabot entry, so only their
 # files are allowed (the one other go.mod in the tree is a test fixture).
+# CONTENT_RULES, further down, names the files whose contents are read.
 ECOSYSTEMS = (
     Ecosystem(
         "gomod",
         "dependabot/go_modules/",
         "go.mod",
+        True,
         frozenset({"go.mod", "go.sum"}),
         DENY_GOMOD,
         REQUIRED_GOMOD,
@@ -258,6 +323,7 @@ ECOSYSTEMS = (
         "npm",
         "dependabot/npm_and_yarn/",
         "website/package.json",
+        False,
         frozenset({"website/package.json", "website/package-lock.json"}),
         DENY_NPM,
         REQUIRED_NPM,
@@ -277,6 +343,10 @@ METADATA_KEYS = frozenset(
 _METADATA_LINE = re.compile(r"(- |  )([a-z-]+): (\S.*)")
 _PLAIN_SCALAR = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/:+~@-]*")
 _QUOTED_SCALAR = re.compile(r"'([^'\\]*)'|\"([^\"\\]*)\"")
+# What a quoted value may hold: a plain value, or one YAML makes Dependabot
+# quote (a leading `@`, a number). Nothing with a space: `'@docusaurus/core '`
+# would otherwise be a name the deny list does not know.
+_QUOTED_TEXT = re.compile(r"[A-Za-z0-9@][A-Za-z0-9._/:+~@-]*")
 # Plain scalars YAML would not read as strings; Dependabot quotes those.
 _YAML_NON_STRING = re.compile(
     r"[-+]?(\d[\d_]*)?\.?\d*([eE][-+]?\d+)?|0x[0-9a-fA-F]+|true|false|null|yes|no|on|off|y|n",
@@ -294,8 +364,8 @@ def _metadata_scalar(raw: str) -> str:
         raise MetadataError(f"value not understood: {raw!r}")
     if not value:
         raise MetadataError("empty value")
-    if not (value.isascii() and value.isprintable()):
-        raise MetadataError(f"value is not printable ASCII: {value!a}")
+    if not _QUOTED_TEXT.fullmatch(value):
+        raise MetadataError(f"value is not a plain name or version: {value!a}")
     return value
 
 
@@ -346,31 +416,117 @@ def parse_updated_dependencies(message: object) -> list[dict[str, str]]:
     return dependencies
 
 
-# ----------------------------------------------------------- manifest diffs
-
-_GOMOD_REQUIRE = re.compile(r"\t(\S+) v\S+( // indirect)?")
-_PACKAGE_JSON_ENTRY = re.compile(r'\s+"([^"\\]+)": "[^"\\]*",?')
+# ------------------------------------------------------------ file contents
 
 
-def changed_manifest_keys(manifest: str, patch: object) -> list[str]:
-    """The modules (go.mod) or packages (package.json) whose lines a diff changes.
+def update_problem(old: str, new: str) -> str | None:
+    """Why `old -> new` is not a patch or minor update, or None when it is one.
 
-    Raises ValueError on any other changed line: the `go` and `toolchain`
-    directives, `tool`, `replace`, a script, a key with a non-string value.
+    The classification is made here, from the versions in the files. The
+    update type in Dependabot's metadata covers only the dependencies it
+    names, and nothing binds it to what the files change.
     """
-    if not isinstance(patch, str) or not patch:
-        raise ValueError("GitHub returned no diff for it")
-    shape = _GOMOD_REQUIRE if manifest == "go.mod" else _PACKAGE_JSON_ENTRY
-    keys: list[str] = []
-    for line in patch.split("\n"):
-        if not line.startswith(("+", "-")):
+    before, after = VERSION_RE.fullmatch(old), VERSION_RE.fullmatch(new)
+    if after is None:
+        return "not an update to a released x.y.z version (a pre-release, a pseudo-version or `+incompatible`)"
+    if before is None:
+        return "an update from a version that is not a released x.y.z version"
+    was, now = tuple(map(int, before.groups())), tuple(map(int, after.groups()))
+    if now < was:
+        return "a downgrade"
+    if now == was:
+        return "not a version change"
+    if now[0] != was[0]:
+        return "a major update"
+    if now[:2] == (0, 0):
+        return "a change to a 0.0.z version, treated as breaking"
+    if now[0] == 0 and now[1] != was[1]:
+        return "a minor bump of a 0.x version, treated as breaking"
+    return None
+
+
+_GOMOD_REQUIRE = re.compile(r"(\S+) (v\S+)( // indirect)?")
+
+
+def parse_go_mod(text: str) -> tuple[dict[str, tuple[str, bool]], list[str]]:
+    """({module: (version, indirect)}, every other non-blank line) of a go.mod.
+
+    Requirements are read from `require ( ... )` blocks and one-line
+    `require` directives only. A line of the same shape in another block
+    (`exclude`) stays in the second value, with the `go`, `toolchain`, `tool`
+    and `replace` lines and the comments, so the caller can demand that
+    nothing there changes. Raises ValueError for a module required twice.
+    """
+    requirements: dict[str, tuple[str, bool]] = {}
+    others: list[str] = []
+    in_block = False
+    for line in text.split("\n"):
+        match = None
+        if in_block:
+            if line == ")":
+                in_block = False
+                continue
+            if line.startswith("\t"):
+                match = _GOMOD_REQUIRE.fullmatch(line[1:])
+        elif line == "require (":
+            in_block = True
             continue
-        match = shape.fullmatch(line[1:])
-        if not match:
-            raise ValueError(f"changed line is not a dependency entry: {_q(line)}")
-        if match.group(1) not in keys:
-            keys.append(match.group(1))
-    return keys
+        elif line.startswith("require "):
+            match = _GOMOD_REQUIRE.fullmatch(line[len("require ") :])
+        if match is None:
+            if line.strip():
+                others.append(line)
+            continue
+        module, version, indirect = match.groups()
+        if module in requirements:
+            raise ValueError(f"{module} is required twice")
+        requirements[module] = (version, indirect is not None)
+    if in_block:
+        raise ValueError("a require block is not closed")
+    return requirements, others
+
+
+def parse_json_object(text: str) -> dict:
+    """A JSON object, read strictly: a repeated key or a non-JSON number is an error.
+
+    npm keeps the last of two equal keys; a reader that kept another one
+    would compare a different file from the one npm installs.
+    """
+
+    def pairs(items: list[tuple[str, object]]) -> dict:
+        keys = [key for key, _ in items]
+        if len(keys) != len(set(keys)):
+            raise ValueError("a JSON object repeats a key")
+        return dict(items)
+
+    def constant(name: str) -> object:
+        raise ValueError(f"{name} is not JSON")
+
+    value = json.loads(text, object_pairs_hook=pairs, parse_constant=constant)
+    if not isinstance(value, dict):
+        raise ValueError("not a JSON object")
+    return value
+
+
+# The sections of a package.json (and of the root entry of a lockfile) that
+# hold dependency ranges. Everything else must be the same in base and head.
+DEPENDENCY_SECTIONS = ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies")
+# `^1.2.3`, `~1.2.3` or `1.2.3`: no URL, git or file reference, alias, tag,
+# wildcard or compound range.
+_NPM_RANGE = re.compile(r"([~^]?)((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))")
+_NPM_RESOLVED = re.compile(r"https://registry\.npmjs\.org/[A-Za-z0-9@._~/+-]+\.tgz")
+_NPM_INTEGRITY = re.compile(r"sha512-[A-Za-z0-9+/]{86}==")
+
+
+def split_dependency_sections(package: dict) -> tuple[dict[str, dict[str, str]], dict]:
+    """({section: {name: range}}, the other fields) of a package.json object."""
+    sections: dict[str, dict[str, str]] = {}
+    for section in DEPENDENCY_SECTIONS:
+        value = package.get(section, {})
+        if not isinstance(value, dict) or not all(isinstance(spec, str) for spec in value.values()):
+            raise ValueError(f"`{section}` is not a map of names to version ranges")
+        sections[section] = value
+    return sections, {key: value for key, value in package.items() if key not in DEPENDENCY_SECTIONS}
 
 
 # --------------------------------------------------------------------- rules
@@ -459,6 +615,21 @@ def rule_head_sha(ctx: Context) -> None:
         )
 
 
+def rule_up_to_date(ctx: Context) -> None:
+    """The head must contain all of `main`, or its checks tested an older base."""
+    behind = _dig(ctx.snapshot, "compare", "behind_by")
+    merge_base = _dig(ctx.snapshot, "compare", "merge_base_sha")
+    if type(behind) is not int:
+        ctx.hold(f"how far the head is behind {BASE_BRANCH} could not be read")
+    elif behind != 0:
+        ctx.hold(
+            f"the head is behind {BASE_BRANCH} (by {behind}), so its checks tested an older base: "
+            "wait for Dependabot's rebase or comment `@dependabot rebase`"
+        )
+    if not isinstance(merge_base, str) or not SHA_RE.fullmatch(merge_base):
+        ctx.hold(f"the merge base with {BASE_BRANCH} (where the base file contents are read) is not a commit SHA")
+
+
 def rule_commits(ctx: Context) -> None:
     commits = ctx.snapshot.get("commits")
     head = _dig(ctx.snapshot, "pull_request", "head", "sha")
@@ -471,7 +642,7 @@ def rule_commits(ctx: Context) -> None:
         sha = _q(_dig(commit, "sha"))
         if _identity(_dig(commit, "author")) != DEPENDABOT:
             ctx.hold(f"commit {sha} is authored by {_q(_dig(commit, 'author', 'login'))}, not dependabot[bot]")
-        if _identity(_dig(commit, "committer")) not in COMMITTERS:
+        if _identity(_dig(commit, "committer")) != WEB_FLOW:
             ctx.hold(
                 f"commit {sha} is committed by {_q(_dig(commit, 'committer', 'login'))}, "
                 "not by GitHub for dependabot[bot]"
@@ -511,26 +682,163 @@ def rule_ecosystem(ctx: Context) -> None:
         return
     if _dig(ctx.snapshot, "pull_request", "changed_files") != len(files):
         ctx.hold("the file list does not match the pull request's changed-file count")
-    named = {dependency["dependency-name"] for dependency in ctx.dependencies or []}
+    seen: set[object] = set()
     for entry in files:
         filename = _dig(entry, "filename")
         if filename not in eco.files:
             ctx.hold(f"changed file {_q(filename)} is not one a {eco.name} update may touch")
             continue
+        if filename in seen:
+            ctx.hold(f"{filename} is listed twice among the changed files")
+        seen.add(filename)
         if _dig(entry, "status") != "modified":
             ctx.hold(f"{filename} is {_q(_dig(entry, 'status'))}, not modified")
-        if filename != eco.manifest:
+    if eco.manifest_required and eco.manifest not in seen:
+        ctx.hold(f"{eco.manifest} is not among the changed files (a lockfile-only {eco.name} change never merges)")
+
+
+def check_go_mod(ctx: Context, eco: Ecosystem, filename: str, base: str, head: str) -> None:
+    """go.mod: requirement versions only, each step classified here.
+
+    go.sum is not read: the Go toolchain verifies every module against it and
+    the checksum database, so a wrong line fails the build and an extra line
+    selects nothing.
+    """
+    old, old_others = parse_go_mod(base)
+    new, new_others = parse_go_mod(head)
+    if old_others != new_others:
+        ctx.hold(
+            f"{filename} changes something other than a requirement's version "
+            "(a `go`, `toolchain`, `tool`, `replace` or `exclude` line, or a comment)"
+        )
+    named = {dependency["dependency-name"]: dependency for dependency in ctx.dependencies or []}
+    changed = [module for module in sorted(set(old) | set(new)) if old.get(module) != new.get(module)]
+    for module in changed:
+        if module in eco.deny:
+            ctx.hold(f"{filename} changes {module}, which is on the sync-pair deny list: {eco.deny[module]}")
+        if module not in old:
+            ctx.hold(f"{filename} adds the requirement {_q(module + ' ' + new[module][0])}")
+            continue
+        if module not in new:
+            ctx.hold(f"{filename} removes the requirement {_q(module + ' ' + old[module][0])}")
+            continue
+        (old_version, old_indirect), (new_version, new_indirect) = old[module], new[module]
+        if old_indirect != new_indirect:
+            ctx.hold(f"{filename} moves {_q(module)} between direct and indirect")
+        if old_version != new_version:
+            problem = update_problem(old_version, new_version)
+            if problem:
+                ctx.hold(f"{filename}: {_q(module)} {_q(old_version)} -> {_q(new_version)} is {problem}")
+        if not new_indirect and module not in named:
+            ctx.hold(f"{filename} changes the direct requirement {_q(module)}, which the dependency metadata does not name")
+    for name, dependency in named.items():
+        version = dependency.get("dependency-version", "")
+        if name not in changed or name not in new:
+            ctx.hold(f"the dependency metadata names {_q(name)}, but {filename} does not change its version")
+        elif new[name][0] != "v" + version.removeprefix("v"):
+            ctx.hold(f"the dependency metadata gives {_q(name)} {_q(version)}, but {filename} requires {_q(new[name][0])}")
+
+
+def check_package_json(ctx: Context, eco: Ecosystem, filename: str, base: str, head: str) -> None:
+    """package.json: only named dependencies change, from one plain range to another."""
+    old, old_others = split_dependency_sections(parse_json_object(base))
+    new, new_others = split_dependency_sections(parse_json_object(head))
+    if old_others != new_others:
+        ctx.hold(
+            f"{filename} changes something other than a dependency's version range "
+            "(a script, `overrides`, `engines` or another field)"
+        )
+    named = {dependency["dependency-name"] for dependency in ctx.dependencies or []}
+    for section in DEPENDENCY_SECTIONS:
+        before, after = old[section], new[section]
+        for name in sorted(set(before) | set(after)):
+            if before.get(name) == after.get(name):
+                continue
+            if name in eco.deny:
+                ctx.hold(f"{filename} changes {name}, which is on the sync-pair deny list: {eco.deny[name]}")
+            if name not in before or name not in after:
+                ctx.hold(f"{filename} adds or removes {_q(name)} in `{section}`")
+                continue
+            if name not in named:
+                ctx.hold(f"{filename} changes {_q(name)}, which the dependency metadata does not name")
+            was, now = _NPM_RANGE.fullmatch(before[name]), _NPM_RANGE.fullmatch(after[name])
+            if now is None or was is None:
+                ctx.hold(
+                    f"{filename}: {_q(name)} {_q(before[name])} -> {_q(after[name])} is not a change between "
+                    "plain semver ranges (a URL, a git or file reference, an alias or a tag never merges here)"
+                )
+                continue
+            if was.group(1) != now.group(1):
+                ctx.hold(f"{filename}: {_q(name)} {_q(before[name])} -> {_q(after[name])} changes the range operator")
+            problem = update_problem(was.group(2), now.group(2))
+            if problem:
+                ctx.hold(f"{filename}: {_q(name)} {_q(before[name])} -> {_q(after[name])} is {problem}")
+
+
+def check_package_lock(ctx: Context, eco: Ecosystem, filename: str, base: str, head: str) -> None:
+    """package-lock.json: what `npm ci` on main would install after the merge.
+
+    Only the entries that differ from the base are read: the others are on
+    main already. Each one must come from the npm registry with a sha512
+    integrity, and none may gain an install script, which would run in
+    deploy-website.yml.
+    """
+    old, new = parse_json_object(base), parse_json_object(head)
+    old_packages, new_packages = old.get("packages"), new.get("packages")
+    if not isinstance(old_packages, dict) or not isinstance(new_packages, dict):
+        ctx.hold(f"{filename} has no `packages` map (lockfileVersion 2 or 3)")
+        return
+    if {key: value for key, value in old.items() if key != "packages"} != {
+        key: value for key, value in new.items() if key != "packages"
+    }:
+        ctx.hold(f"{filename} changes a field outside `packages` (its name, version or lockfileVersion)")
+    for key in sorted(new_packages):
+        entry, before = new_packages[key], old_packages.get(key)
+        if entry == before:
+            continue
+        if not isinstance(entry, dict):
+            ctx.hold(f"{filename}: the entry {_q(key)} is not an object")
+        elif key == "":
+            # The project itself: its dependency sections mirror package.json.
+            if split_dependency_sections(entry)[1] != split_dependency_sections(before if isinstance(before, dict) else {})[1]:
+                ctx.hold(f"{filename}: the root entry changes something other than its dependency ranges")
+        else:
+            if not key.startswith("node_modules/"):
+                ctx.hold(f"{filename}: the entry {_q(key)} is not an installed package under node_modules/")
+            resolved, integrity = entry.get("resolved"), entry.get("integrity")
+            if not isinstance(resolved, str) or not _NPM_RESOLVED.fullmatch(resolved):
+                ctx.hold(f"{filename}: {_q(key)} resolves from {_q(resolved)}, not from https://registry.npmjs.org/")
+            if not isinstance(integrity, str) or not _NPM_INTEGRITY.fullmatch(integrity):
+                ctx.hold(f"{filename}: {_q(key)} has no sha512 integrity")
+            if entry.get("hasInstallScript", False) is not False and _dig(before, "hasInstallScript") is not True:
+                ctx.hold(f"{filename}: {_q(key)} gains an install script")
+
+
+# The changed files whose base and head contents are read, and by what.
+CONTENT_RULES: dict[str, Callable[[Context, Ecosystem, str, str, str], None]] = {
+    "go.mod": check_go_mod,
+    "website/package.json": check_package_json,
+    "website/package-lock.json": check_package_lock,
+}
+
+
+def rule_contents(ctx: Context) -> None:
+    eco = ctx.ecosystem
+    if eco is None:
+        ctx.hold("the file contents could not be evaluated without a known ecosystem")
+        return
+    for entry in _list(ctx.snapshot.get("files")):
+        filename = _dig(entry, "filename")
+        if filename not in eco.files or filename not in CONTENT_RULES:
+            continue
+        base, head = _dig(entry, "base"), _dig(entry, "head")
+        if not isinstance(base, str) or not isinstance(head, str) or not base or not head:
+            ctx.hold(f"the base and head contents of {filename} could not be read")
             continue
         try:
-            keys = changed_manifest_keys(eco.manifest, _dig(entry, "patch"))
+            CONTENT_RULES[filename](ctx, eco, filename, base, head)
         except ValueError as exc:
-            ctx.hold(f"the {filename} diff is not a plain dependency update: {exc}")
-            continue
-        for key in keys:
-            if key in eco.deny:
-                ctx.hold(f"{filename} changes {key}, which is on the sync-pair deny list: {eco.deny[key]}")
-            elif eco.name == "npm" and key not in named:
-                ctx.hold(f"{filename} changes {_q(key)}, which the dependency metadata does not name")
+            ctx.hold(f"{filename} is not a file this gate can read: {_q(str(exc))}")
 
 
 def rule_update_types(ctx: Context) -> None:
@@ -544,6 +852,8 @@ def rule_update_types(ctx: Context) -> None:
             ctx.hold(f"{name}: update type {_q(update_type)} is not semver-patch or semver-minor")
         if version is None:
             ctx.hold(f"{name}: new version {_q(dependency.get('dependency-version'))} is not a released x.y.z version")
+        elif version.group(1) == "0" and version.group(2) == "0":
+            ctx.hold(f"{name}: {dependency['dependency-version']} is a 0.0.z version, where any change is treated as breaking")
         elif version.group(1) == "0" and update_type == UPDATE_MINOR:
             ctx.hold(
                 f"{name}: a minor bump to {dependency['dependency-version']} is a 0.x release, "
@@ -569,8 +879,7 @@ def rule_checks(ctx: Context) -> None:
         ctx.hold("the check runs could not be read")
     if not isinstance(statuses, list):
         ctx.hold("the commit statuses could not be read")
-    successful: set[tuple[object, object]] = set()
-    present: dict[tuple[object, object], object] = {}
+    outcomes: dict[tuple[object, object], list[object]] = {}
     for run in _list(runs):
         name, app = _dig(run, "name"), _dig(run, "app", "slug")
         label = f"check {_q(name)} ({_q(app)})"
@@ -587,9 +896,7 @@ def rule_checks(ctx: Context) -> None:
             ctx.hold(f"{label} is not completed (status {_q(status)})")
         elif conclusion not in OK_CONCLUSIONS:
             ctx.hold(f"{label} concluded {_q(conclusion)}")
-        elif conclusion == "success":
-            successful.add((name, app))
-        present[(name, app)] = conclusion if status == "completed" else status
+        outcomes.setdefault((name, app), []).append(conclusion if status == "completed" else status)
     for status in _list(statuses):
         if _dig(status, "state") != "success":
             ctx.hold(f"commit status {_q(_dig(status, 'context'))} is {_q(_dig(status, 'state'))}")
@@ -597,22 +904,83 @@ def rule_checks(ctx: Context) -> None:
         ctx.hold("the required checks could not be evaluated without a known ecosystem")
         return
     for required in ctx.ecosystem.required:
-        key = (required.name, required.app)
-        if key not in present:
+        results = outcomes.get((required.name, required.app), [])
+        if not results:
             ctx.hold(f"required check {_q(required.name)} ({required.workflow}) has not run on the head commit")
-        elif key not in successful and present[key] in OK_CONCLUSIONS:
-            ctx.hold(f"required check {_q(required.name)} concluded {present[key]}; it must succeed")
+        # Every run of that name: a second one that was skipped proves nothing.
+        for outcome in results:
+            if outcome != "success" and outcome in OK_CONCLUSIONS:
+                ctx.hold(f"required check {_q(required.name)} concluded {outcome}; it must succeed")
+
+
+def rule_check_provenance(ctx: Context) -> None:
+    """Who started the workflow run behind each required GitHub Actions check.
+
+    Only what Dependabot does itself (opening the pull request, pushing to
+    its branch) makes dependabot[bot] the `actor` of a `pull_request` run.
+    Someone who force-pushes a Dependabot-authored, GitHub-signed commit onto
+    the branch (the squash-merge commit of another Dependabot pull request has
+    that shape) is the actor of the runs that push starts, and so is someone
+    who closes and reopens the pull request. A person who re-runs a job only
+    becomes `triggering_actor`, which is not read: the run still tested
+    Dependabot's push.
+    """
+    head = _dig(ctx.snapshot, "pull_request", "head", "sha")
+    runs = ctx.snapshot.get("workflow_runs")
+    if not isinstance(runs, list):
+        ctx.hold("the workflow runs could not be read")
+    by_suite: dict[int, list[dict]] = {}
+    for run in _list(runs):
+        suite, actor = _dig(run, "check_suite_id"), _dig(run, "actor", "id")
+        path, event = _dig(run, "path"), _dig(run, "event")
+        if type(suite) is not int or type(actor) is not int or not isinstance(path, str) or not isinstance(event, str):
+            ctx.hold(f"a workflow run of the head commit could not be read ({_q(path)})")
+        elif head is None or _dig(run, "head_sha") != head:
+            ctx.hold(f"the workflow run of {_q(path)} is not for the pull request head")
+        else:
+            by_suite.setdefault(suite, []).append(run)
+    for check in _list(ctx.snapshot.get("check_runs")):
+        if type(_dig(check, "check_suite", "id")) is not int:
+            ctx.hold(f"check {_q(_dig(check, 'name'))} has no check suite id")
+    if ctx.ecosystem is None:
+        ctx.hold("the origin of the required checks could not be evaluated without a known ecosystem")
+        return
+    for required in ctx.ecosystem.required:
+        if required.app != ACTIONS_APP:
+            continue  # reported by the app itself; its slug is part of the check key
+        expected = WORKFLOW_FILES[required.workflow]
+        for check in _list(ctx.snapshot.get("check_runs")):
+            if (_dig(check, "name"), _dig(check, "app", "slug")) != (required.name, required.app):
+                continue
+            suite = _dig(check, "check_suite", "id")
+            behind = by_suite.get(suite, []) if type(suite) is int else []
+            if len(behind) != 1:
+                ctx.hold(f"required check {_q(required.name)}: {len(behind)} workflow runs of the head commit stand behind it, not one")
+                continue
+            run = behind[0]
+            if run["actor"]["id"] != DEPENDABOT[1]:
+                ctx.hold(
+                    f"the workflow run of {_q(run['path'])} behind required checks was started by user id "
+                    f"{run['actor']['id']}, not by dependabot[bot] ({DEPENDABOT[1]})"
+                )
+            if run["event"] != "pull_request":
+                ctx.hold(f"the workflow run of {_q(run['path'])} behind required checks ran on {_q(run['event'])}, not on pull_request")
+            if run["path"] != expected:
+                ctx.hold(f"required check {_q(required.name)} was reported by a run of {_q(run['path'])}, not of {expected}")
 
 
 RULES: tuple[Callable[[Context], None], ...] = (
     rule_pull_request,
     rule_head_sha,
+    rule_up_to_date,
     rule_commits,
     rule_metadata,
     rule_ecosystem,
+    rule_contents,
     rule_update_types,
     rule_deny_list,
     rule_checks,
+    rule_check_provenance,
 )
 
 
@@ -658,27 +1026,36 @@ class GateError(RuntimeError):
     """GitHub could not be read; the caller prints a hold verdict and exits 1."""
 
 
-Api = Callable[[str], object]
+# api(path) returns the decoded JSON body; api(path, raw=True) the file text.
+Api = Callable[..., object]
 PER_PAGE = 100
 MAX_PAGES = 30
 MERGEABLE_ATTEMPTS = 5
 MERGEABLE_WAIT_SECONDS = 3
 
 
-def gh_api(path: str) -> object:
-    """One GET through the GitHub CLI (it reads GH_TOKEN)."""
+def gh_api(path: str, raw: bool = False) -> object:
+    """One GET through the GitHub CLI (it reads GH_TOKEN).
+
+    `raw` asks the contents API for the file itself, as text: the JSON form
+    carries no content for a file over 1 MB, and the lockfile is close to it.
+    """
+    accept = "application/vnd.github.raw+json" if raw else "application/vnd.github+json"
     try:
         proc = subprocess.run(
-            ["gh", "api", "--method", "GET", "-H", "Accept: application/vnd.github+json", path],
+            ["gh", "api", "--method", "GET", "-H", f"Accept: {accept}", path],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=120,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
         raise GateError(f"gh api {path}: {exc}") from exc
     if proc.returncode != 0:
         raise GateError(f"gh api {path} failed: {proc.stderr.strip()[:300]}")
+    if raw:
+        return proc.stdout
     try:
         return json.loads(proc.stdout)
     except ValueError as exc:
@@ -711,7 +1088,13 @@ def fetch_all(api: Api, path: str, key: str | None = None, *, check_total: bool 
 
 
 def resolve_pull_request(api: Api, repo: str, head_sha: str) -> tuple[int | None, str]:
-    """The one open pull request of this repository whose head is head_sha."""
+    """The one open Dependabot pull request of this repository whose head is head_sha.
+
+    Anyone can open a pull request from a fork with the same head commit. It
+    is not a candidate (the head repository is another one, the author is not
+    the bot, both by id), so it cannot make the count two and hold the real
+    pull request for good.
+    """
     pulls = fetch_all(api, f"repos/{repo}/commits/{head_sha}/pulls")
     numbers = [
         _dig(pull, "number")
@@ -719,9 +1102,15 @@ def resolve_pull_request(api: Api, repo: str, head_sha: str) -> tuple[int | None
         if _dig(pull, "state") == "open"
         and _dig(pull, "head", "sha") == head_sha
         and _dig(pull, "base", "repo", "full_name") == repo
+        and type(_dig(pull, "base", "repo", "id")) is int
+        and _dig(pull, "head", "repo", "id") == _dig(pull, "base", "repo", "id")
+        and _dig(pull, "user", "id") == DEPENDABOT[1]
     ]
     if len(numbers) != 1 or type(numbers[0]) is not int:
-        return None, f"expected exactly one open pull request with head {head_sha}, found {len(numbers)}"
+        return None, (
+            f"expected exactly one open Dependabot pull request of this repository with head {head_sha}, "
+            f"found {len(numbers)}"
+        )
     return numbers[0], ""
 
 
@@ -741,11 +1130,26 @@ def build_snapshot(api: Api, repo: str, number: int, head_sha: str | None) -> di
     pr_sha = _dig(pr, "head", "sha")
     if not isinstance(pr_sha, str) or not SHA_RE.fullmatch(pr_sha):
         raise GateError(f"pull request {number} has no head SHA")
+    # `behind_by` counts the commits of main the head lacks. With none, the
+    # merge base is main's tip, and the base file contents are main's.
+    compare = api(f"repos/{repo}/compare/{BASE_BRANCH}...{pr_sha}?per_page=1")
+    merge_base = _dig(compare, "merge_base_commit", "sha")
     commits = fetch_all(api, f"repos/{repo}/pulls/{number}/commits")
     files = fetch_all(api, f"repos/{repo}/pulls/{number}/files")
     runs = fetch_all(api, f"repos/{repo}/commits/{pr_sha}/check-runs?filter=latest", "check_runs", check_total=True)
-    statuses = fetch_all(api, f"repos/{repo}/commits/{pr_sha}/status", "statuses")
-    manifests = {eco.manifest for eco in ECOSYSTEMS}
+    statuses = fetch_all(api, f"repos/{repo}/commits/{pr_sha}/status", "statuses", check_total=True)
+    workflow_runs = fetch_all(api, f"repos/{repo}/actions/runs?head_sha={pr_sha}", "workflow_runs", check_total=True)
+
+    def contents(entry: object) -> dict:
+        """Base and head text of a file the content rules read."""
+        filename = _dig(entry, "filename")
+        if filename not in CONTENT_RULES or _dig(entry, "status") != "modified":
+            return {}
+        if not isinstance(merge_base, str) or not SHA_RE.fullmatch(merge_base):
+            return {}
+        path = f"repos/{repo}/contents/{filename}"
+        return {"base": api(f"{path}?ref={merge_base}", raw=True), "head": api(f"{path}?ref={pr_sha}", raw=True)}
+
     return {
         "repository": repo,
         "head_sha": head_sha if head_sha is not None else pr_sha,
@@ -760,6 +1164,7 @@ def build_snapshot(api: Api, repo: str, number: int, head_sha: str | None) -> di
             },
             "labels": [_pick(label, "name") for label in _list(pr.get("labels"))],
         },
+        "compare": {"behind_by": _dig(compare, "behind_by"), "merge_base_sha": merge_base},
         "commits": [
             {
                 "sha": _dig(commit, "sha"),
@@ -772,15 +1177,20 @@ def build_snapshot(api: Api, repo: str, number: int, head_sha: str | None) -> di
             }
             for commit in commits
         ],
-        "files": [
-            _pick(entry, "filename", "status", *(("patch",) if _dig(entry, "filename") in manifests else ()))
-            for entry in files
-        ],
+        "files": [{**_pick(entry, "filename", "status"), **contents(entry)} for entry in files],
         "check_runs": [
-            {**_pick(run, "name", "status", "conclusion", "head_sha"), "app": _pick(_dig(run, "app"), "slug")}
+            {
+                **_pick(run, "name", "status", "conclusion", "head_sha"),
+                "app": _pick(_dig(run, "app"), "slug"),
+                "check_suite": _pick(_dig(run, "check_suite"), "id"),
+            }
             for run in runs
         ],
         "statuses": [_pick(status, "context", "state") for status in statuses],
+        "workflow_runs": [
+            {**_pick(run, "path", "event", "head_sha", "check_suite_id"), "actor": _pick(_dig(run, "actor"), "id")}
+            for run in workflow_runs
+        ],
     }
 
 
@@ -859,6 +1269,28 @@ def run_gate(args: argparse.Namespace, api: Api | None = None) -> int:
     return 0
 
 
+def run_up_to_date(args: argparse.Namespace, api: Api | None = None) -> int:
+    """The workflow's last look before `gh pr merge`: is the head still not behind main?
+
+    The verdict was reached some seconds earlier, and another pull request
+    may have merged since (the workflow's concurrency group is per head).
+    """
+    api = api or gh_api
+    if not REPO_RE.fullmatch(args.repo) or not SHA_RE.fullmatch(args.head_sha):
+        print("error: --repo is not OWNER/NAME or --head-sha is not a commit SHA", file=sys.stderr)
+        return 2
+    try:
+        behind = _dig(api(f"repos/{args.repo}/compare/{BASE_BRANCH}...{args.head_sha}?per_page=1"), "behind_by")
+    except GateError as exc:
+        print(f"hold: GitHub could not be read: {exc}", file=sys.stderr)
+        return 1
+    if type(behind) is not int or behind != 0:
+        print(f"hold: {args.head_sha} is behind {BASE_BRANCH} (behind_by: {_q(behind)}); nothing is merged", file=sys.stderr)
+        return 1
+    print(f"{args.head_sha} is not behind {BASE_BRANCH}")
+    return 0
+
+
 def run_decide(args: argparse.Namespace) -> int:
     try:
         snapshot = json.loads(Path(args.snapshot).read_text(encoding="utf-8"))
@@ -884,8 +1316,11 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--mode", choices=sorted(MODES), help="the workflow's GATE_MODE, for the summary")
         command.add_argument("--summary", help="append the summary to this file (GITHUB_STEP_SUMMARY)")
         command.add_argument("--github-output", help="append decision, pr_number and head_sha (GITHUB_OUTPUT)")
+    current = commands.add_parser("up-to-date", help="exit 0 only when a head commit is not behind main")
+    current.add_argument("--repo", required=True, help="OWNER/NAME")
+    current.add_argument("--head-sha", required=True, help="the head SHA of the verdict")
     args = parser.parse_args(argv)
-    return run_gate(args) if args.command == "gate" else run_decide(args)
+    return {"gate": run_gate, "decide": run_decide, "up-to-date": run_up_to_date}[args.command](args)
 
 
 if __name__ == "__main__":

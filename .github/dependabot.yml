@@ -12,6 +12,19 @@
 #   gets its own pull request.
 # scripts/test_dependabot_gate.py fails when a deny-list entry is missing
 # from these excludes.
+#
+# `open-pull-requests-limit` counts version-update pull requests only
+# (security updates have their own fixed limit of 10). The dependencies kept
+# out of a group arrive one pull request each, and the gate never merges most
+# of them, so they stay open until a person acts. With the default of 5 they
+# would fill the limit and Dependabot would stop opening the group pull
+# request, the one the gate can merge. The limits below leave room for every
+# excluded dependency, the group and a few majors.
+#
+# `cooldown` (version updates only; it never delays a security update) makes
+# Dependabot wait 7 days after a release before proposing it, instead of its
+# default of 3: a release that is withdrawn or found malicious in its first
+# days is never proposed, and never merged by the gate.
 version: 2
 updates:
   # Go modules (main application)
@@ -22,7 +35,11 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    # 8 excluded modules (the 6 sync pairs never merge here) + the group +
+    # majors.
+    open-pull-requests-limit: 15
+    cooldown:
+      default-days: 7
     groups:
       go-dependencies:
         patterns:
@@ -60,7 +77,11 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    open-pull-requests-limit: 5
+    # 6 excluded Docusaurus packages (they never merge here) + the group +
+    # majors.
+    open-pull-requests-limit: 15
+    cooldown:
+      default-days: 7
     groups:
       npm-dependencies:
         patterns:
@@ -94,6 +115,8 @@ updates:
       time: "09:00"
       timezone: "UTC"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns:

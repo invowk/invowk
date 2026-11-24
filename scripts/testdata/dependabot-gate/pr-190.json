@@ -29,6 +29,10 @@
   },
   "labels": []
  },
+ "compare": {
+  "behind_by": 1,
+  "merge_base_sha": "f895970f71f3fedaa1dfdde78e6f19cde5ab9e1c"
+ },
  "commits": [
   {
    "sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
@@ -53,7 +57,8 @@
   {
    "filename": "go.mod",
    "status": "modified",
-   "patch": "@@ -4,34 +4,34 @@ go 1.27.4\n \n require (\n \tcharm.land/bubbles/v2 v2.2.1\n-\tcharm.land/bubbletea/v2 v2.0.9\n-\tcharm.land/lipgloss/v2 v2.0.6\n-\tcharm.land/log/v2 v2.0.0\n+\tcharm.land/bubbletea/v2 v2.1.2\n+\tcharm.land/lipgloss/v2 v2.1.1\n+\tcharm.land/log/v2 v2.0.1\n \tcharm.land/ssh v0.4.3\n-\tcharm.land/wish/v2 v2.0.3\n+\tcharm.land/wish/v2 v2.0.5\n \tcuelang.org/go v0.17.1\n-\tgithub.com/bmatcuk/doublestar/v4 v4.10.0\n+\tgithub.com/bmatcuk/doublestar/v4 v4.10.4\n \tgithub.com/charmbracelet/fang v1.0.0\n \tgithub.com/charmbracelet/glamour v1.0.0\n \tgithub.com/charmbracelet/keygen v0.5.4\n \tgithub.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834\n \tgithub.com/charmbracelet/x/xpty v0.1.4\n-\tgithub.com/coder/acp-go-sdk v0.13.5\n+\tgithub.com/coder/acp-go-sdk v0.20.0\n \tgithub.com/creack/pty v1.1.24\n \tgithub.com/fsnotify/fsnotify v1.10.1\n-\tgithub.com/go-git/go-git/v5 v5.19.2\n+\tgithub.com/go-git/go-git/v5 v5.19.3\n \tgithub.com/invowk/golua v0.3.0\n \tgithub.com/muesli/reflow v0.3.0\n-\tgithub.com/openai/openai-go/v3 v3.53.0\n+\tgithub.com/openai/openai-go/v3 v3.105.0\n \tgithub.com/rogpeppe/go-internal v1.16.0\n \tgithub.com/sahilm/fuzzy v0.1.3\n \tgithub.com/spf13/cobra v1.10.2\n-\tgithub.com/spf13/pflag v1.0.10\n+\tgithub.com/spf13/pflag v1.1.0\n \tgithub.com/u-root/u-root v0.16.0\n \tgolang.org/x/crypto v0.59.0\n \tgolang.org/x/sys v0.50.0\n \tgolang.org/x/term v0.48.0\n-\tmvdan.cc/sh/v3 v3.13.1\n+\tmvdan.cc/sh/v3 v3.14.1\n \tpgregory.net/rapid v1.3.0\n )\n \n@@ -58,7 +58,7 @@ require (\n \tgithub.com/Microsoft/go-winio v0.6.2 // indirect\n \tgithub.com/MirrexOne/unqueryvet v1.5.4 // indirect\n \tgithub.com/OpenPeeDeeP/depguard/v2 v2.2.1 // indirect\n-\tgithub.com/ProtonMail/go-crypto v1.4.1 // indirect\n+\tgithub.com/ProtonMail/go-crypto v1.5.2 // indirect\n \tgithub.com/alecthomas/chroma/v2 v2.27.0 // indirect\n \tgithub.com/alecthomas/go-check-sumtype v0.3.1 // indirect\n \tgithub.com/alexkohler/nakedret/v2 v2.0.6 // indirect\n@@ -88,8 +88,8 @@ require (\n \tgithub.com/cespare/xxhash/v2 v2.3.0 // indirect\n \tgithub.com/charithe/durationcheck v0.0.11 // indirect\n \tgithub.com/charmbracelet/colorprofile v0.4.3 // indirect\n-\tgithub.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect\n-\tgithub.com/charmbracelet/x/ansi v0.11.8 // indirect\n+\tgithub.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect\n+\tgithub.com/charmbracelet/x/ansi v0.11.9 // indirect\n \tgithub.com/charmbracelet/x/cellbuf v0.0.15 // indirect\n \tgithub.com/charmbracelet/x/conpty v0.2.0 // indirect\n \tgithub.com/charmbracelet/x/exp/charmtone v0.0.0-20260519012233-798e623c8447 // indirect\n@@ -101,10 +101,11 @@ require (\n \tgithub.com/ckaznocha/intrange v0.3.1 // indirect\n \tgithub.com/clipperhouse/displaywidth v0.11.0 // indirect\n \tgithub.com/clipperhouse/uax29/v2 v2.7.0 // indirect\n-\tgithub.com/cloudflare/circl v1.6.3 // indirect\n+\tgithub.com/cloudflare/circl v1.6.5 // indirect\n \tgithub.com/cockroachdb/apd/v3 v3.2.3 // indirect\n+\tgithub.com/coder/websocket v1.8.15 // indirect\n \tgithub.com/curioswitch/go-reassign v0.3.0 // indirect\n-\tgithub.com/cyphar/filepath-securejoin v0.6.1 // indirect\n+\tgithub.com/cyphar/filepath-securejoin v0.7.0 // indirect\n \tgithub.com/daixiang0/gci v0.13.7 // indirect\n \tgithub.com/dave/dst v0.27.3 // indirect\n \tgithub.com/denis-tingaikin/go-header v0.5.0 // indirect\n@@ -121,7 +122,7 @@ require (\n \tgithub.com/ghostiam/protogetter v0.3.21 // indirect\n \tgithub.com/go-critic/go-critic v0.14.4 // indirect\n \tgithub.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect\n-\tgithub.com/go-git/go-billy/v5 v5.9.0 // indirect\n+\tgithub.com/go-git/go-billy/v5 v5.9.2 // indirect\n \tgithub.com/go-logfmt/logfmt v0.6.1 // indirect\n \tgithub.com/go-toolsmith/astcast v1.1.0 // indirect\n \tgithub.com/go-toolsmith/astcopy v1.1.0 // indirect\n@@ -175,7 +176,6 @@ require (\n \tgithub.com/kisielk/errcheck v1.20.0 // indirect\n \tgithub.com/kkHAIKE/contextcheck v1.1.6 // indirect\n \tgithub.com/klauspost/compress v1.20.2 // indirect\n-\tgithub.com/klauspost/cpuid/v2 v2.3.0 // indirect\n \tgithub.com/klauspost/pgzip v1.2.6 // indirect\n \tgithub.com/kulti/thelper v0.7.1 // indirect\n \tgithub.com/kunwardeep/paralleltest v1.0.15 // indirect\n@@ -197,7 +197,7 @@ require (\n \tgithub.com/matoous/godox v1.1.0 // indirect\n \tgithub.com/mattn/go-colorable v0.1.15 // indirect\n \tgithub.com/mattn/go-isatty v0.0.22 // indirect\n-\tgithub.com/mattn/go-runewidth v0.0.28 // indirect\n+\tgithub.com/mattn/go-runewidth v0.0.30 // indirect\n \tgithub.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect\n \tgithub.com/mgechev/revive v1.15.0 // indirect\n \tgithub.com/microcosm-cc/bluemonday v1.0.27 // indirect\n@@ -219,8 +219,8 @@ require (\n \tgithub.com/pelletier/go-toml v1.9.5 // indirect\n \tgithub.com/pelletier/go-toml/v2 v2.4.3 // indirect\n \tgithub.com/pierrec/lz4/v4 v4.1.26 // indirect\n-\tgithub.com/pires/go-proxyproto v0.12.0 // indirect\n-\tgithub.com/pjbgf/sha1cd v0.6.0 // indirect\n+\tgithub.com/pires/go-proxyproto v0.15.0 // indirect\n+\tgithub.com/pjbgf/sha1cd v0.7.0 // indirect\n \tgithub.com/pkg/errors v0.9.1 // indirect\n \tgithub.com/prometheus/client_golang v1.12.1 // indirect\n \tgithub.com/prometheus/client_model v0.2.0 // indirect\n@@ -246,7 +246,7 @@ require (\n \tgithub.com/sergi/go-diff v1.4.0 // indirect\n \tgithub.com/sirupsen/logrus v1.10.1 // indirect\n \tgithub.com/sivchari/containedctx v1.0.3 // indirect\n-\tgithub.com/skeema/knownhosts v1.3.2 // indirect\n+\tgithub.com/skeema/knownhosts v1.3.3 // indirect\n \tgithub.com/sonatard/noctx v0.5.1 // indirect\n \tgithub.com/sourcegraph/go-diff v0.8.0 // indirect\n \tgithub.com/spf13/afero v1.15.0 // indirect\n@@ -260,7 +260,7 @@ require (\n \tgithub.com/subosito/gotenv v1.4.1 // indirect\n \tgithub.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae // indirect\n \tgithub.com/tetafro/godot v1.5.6 // indirect\n-\tgithub.com/tidwall/gjson v1.19.0 // indirect\n+\tgithub.com/tidwall/gjson v1.20.1 // indirect\n \tgithub.com/tidwall/match v1.2.0 // indirect\n \tgithub.com/tidwall/pretty v1.2.1 // indirect\n \tgithub.com/tidwall/sjson v1.2.5 // indirect\n@@ -276,7 +276,7 @@ require (\n \tgithub.com/uudashr/iface v1.5.0 // indirect\n \tgithub.com/xanzy/ssh-agent v0.3.3 // indirect\n \tgithub.com/xen0n/gosmopolitan v1.3.0 // indirect\n-\tgithub.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect\n+\tgithub.com/xo/terminfo v1.2.0 // indirect\n \tgithub.com/yagipy/maintidx v1.0.0 // indirect\n \tgithub.com/yeya24/promlinter v0.3.0 // indirect\n \tgithub.com/ykadowak/zerologlint v0.1.5 // indirect\n@@ -291,7 +291,7 @@ require (\n \tgo.uber.org/multierr v1.10.0 // indirect\n \tgo.uber.org/zap v1.27.0 // indirect\n \tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n-\tgolang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect\n+\tgolang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect\n \tgolang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect\n \tgolang.org/x/mod v0.42.0 // indirect\n \tgolang.org/x/net v0.62.0 // indirect"
+   "base": "module github.com/invowk/invowk\n\ngo 1.27.4\n\nrequire (\n\tcharm.land/bubbles/v2 v2.2.1\n\tcharm.land/bubbletea/v2 v2.0.9\n\tcharm.land/lipgloss/v2 v2.0.6\n\tcharm.land/log/v2 v2.0.0\n\tcharm.land/ssh v0.4.3\n\tcharm.land/wish/v2 v2.0.3\n\tcuelang.org/go v0.17.1\n\tgithub.com/bmatcuk/doublestar/v4 v4.10.0\n\tgithub.com/charmbracelet/fang v1.0.0\n\tgithub.com/charmbracelet/glamour v1.0.0\n\tgithub.com/charmbracelet/keygen v0.5.4\n\tgithub.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834\n\tgithub.com/charmbracelet/x/xpty v0.1.4\n\tgithub.com/coder/acp-go-sdk v0.13.5\n\tgithub.com/creack/pty v1.1.24\n\tgithub.com/fsnotify/fsnotify v1.10.1\n\tgithub.com/go-git/go-git/v5 v5.19.2\n\tgithub.com/invowk/golua v0.3.0\n\tgithub.com/muesli/reflow v0.3.0\n\tgithub.com/openai/openai-go/v3 v3.53.0\n\tgithub.com/rogpeppe/go-internal v1.16.0\n\tgithub.com/sahilm/fuzzy v0.1.3\n\tgithub.com/spf13/cobra v1.10.2\n\tgithub.com/spf13/pflag v1.0.10\n\tgithub.com/u-root/u-root v0.16.0\n\tgolang.org/x/crypto v0.59.0\n\tgolang.org/x/sys v0.50.0\n\tgolang.org/x/term v0.48.0\n\tmvdan.cc/sh/v3 v3.13.1\n\tpgregory.net/rapid v1.3.0\n)\n\nrequire (\n\t4d63.com/gocheckcompilerdirectives v1.4.0 // indirect\n\t4d63.com/gochecknoglobals v0.2.2 // indirect\n\tcodeberg.org/chavacava/garif v0.2.0 // indirect\n\tcodeberg.org/polyfloyd/go-errorlint v1.9.0 // indirect\n\tdario.cat/mergo v1.0.2 // indirect\n\tdev.gaijin.team/go/exhaustruct/v4 v4.0.0 // indirect\n\tdev.gaijin.team/go/exhaustruct/v5 v5.0.3 // indirect\n\tdev.gaijin.team/go/golib v0.8.1 // indirect\n\tgithub.com/4meepo/tagalign v1.4.3 // indirect\n\tgithub.com/Abirdcfly/dupword v0.1.8 // indirect\n\tgithub.com/AdminBenni/iota-mixing v1.0.0 // indirect\n\tgithub.com/AlwxSin/noinlineerr v1.0.6 // indirect\n\tgithub.com/Antonboom/errname v1.1.2 // indirect\n\tgithub.com/Antonboom/nilnil v1.1.2 // indirect\n\tgithub.com/Antonboom/testifylint v1.6.4 // indirect\n\tgithub.com/BurntSushi/toml v1.6.0 // indirect\n\tgithub.com/ClickHouse/clickhouse-go-linter v1.2.1 // indirect\n\tgithub.com/Djarvur/go-err113 v0.1.1 // indirect\n\tgithub.com/Masterminds/semver/v3 v3.5.0 // indirect\n\tgithub.com/Microsoft/go-winio v0.6.2 // indirect\n\tgithub.com/MirrexOne/unqueryvet v1.5.4 // indirect\n\tgithub.com/OpenPeeDeeP/depguard/v2 v2.2.1 // indirect\n\tgithub.com/ProtonMail/go-crypto v1.4.1 // indirect\n\tgithub.com/alecthomas/chroma/v2 v2.27.0 // indirect\n\tgithub.com/alecthomas/go-check-sumtype v0.3.1 // indirect\n\tgithub.com/alexkohler/nakedret/v2 v2.0.6 // indirect\n\tgithub.com/alexkohler/prealloc v1.1.0 // indirect\n\tgithub.com/alfatraining/structtag v1.0.0 // indirect\n\tgithub.com/alingse/asasalint v0.0.11 // indirect\n\tgithub.com/alingse/nilnesserr v0.2.0 // indirect\n\tgithub.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect\n\tgithub.com/arnodel/strftime v0.1.6 // indirect\n\tgithub.com/ashanbrown/forbidigo/v2 v2.3.1 // indirect\n\tgithub.com/ashanbrown/makezero/v2 v2.2.1 // indirect\n\tgithub.com/atotto/clipboard v0.1.4 // indirect\n\tgithub.com/avast/retry-go v3.0.0+incompatible // indirect\n\tgithub.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect\n\tgithub.com/aymerick/douceur v0.2.0 // indirect\n\tgithub.com/beorn7/perks v1.0.1 // indirect\n\tgithub.com/bkielbasa/cyclop v1.2.3 // indirect\n\tgithub.com/blizzy78/varnamelen v0.8.0 // indirect\n\tgithub.com/bombsimon/wsl/v4 v4.7.0 // indirect\n\tgithub.com/bombsimon/wsl/v5 v5.9.0 // indirect\n\tgithub.com/breml/bidichk v0.3.3 // indirect\n\tgithub.com/breml/errchkjson v0.4.1 // indirect\n\tgithub.com/butuzov/ireturn v0.4.1 // indirect\n\tgithub.com/butuzov/mirror v1.3.3 // indirect\n\tgithub.com/catenacyber/perfsprint v0.10.1 // indirect\n\tgithub.com/ccojocar/zxcvbn-go v1.0.4 // indirect\n\tgithub.com/cespare/xxhash/v2 v2.3.0 // indirect\n\tgithub.com/charithe/durationcheck v0.0.11 // indirect\n\tgithub.com/charmbracelet/colorprofile v0.4.3 // indirect\n\tgithub.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect\n\tgithub.com/charmbracelet/x/ansi v0.11.8 // indirect\n\tgithub.com/charmbracelet/x/cellbuf v0.0.15 // indirect\n\tgithub.com/charmbracelet/x/conpty v0.2.0 // indirect\n\tgithub.com/charmbracelet/x/exp/charmtone v0.0.0-20260519012233-798e623c8447 // indirect\n\tgithub.com/charmbracelet/x/exp/golden v0.0.0-20260519012233-798e623c8447 // indirect\n\tgithub.com/charmbracelet/x/exp/slice v0.0.0-20260519012233-798e623c8447 // indirect\n\tgithub.com/charmbracelet/x/term v0.2.2 // indirect\n\tgithub.com/charmbracelet/x/termios v0.1.1 // indirect\n\tgithub.com/charmbracelet/x/windows v0.2.2 // indirect\n\tgithub.com/ckaznocha/intrange v0.3.1 // indirect\n\tgithub.com/clipperhouse/displaywidth v0.11.0 // indirect\n\tgithub.com/clipperhouse/uax29/v2 v2.7.0 // indirect\n\tgithub.com/cloudflare/circl v1.6.3 // indirect\n\tgithub.com/cockroachdb/apd/v3 v3.2.3 // indirect\n\tgithub.com/curioswitch/go-reassign v0.3.0 // indirect\n\tgithub.com/cyphar/filepath-securejoin v0.6.1 // indirect\n\tgithub.com/daixiang0/gci v0.13.7 // indirect\n\tgithub.com/dave/dst v0.27.3 // indirect\n\tgithub.com/denis-tingaikin/go-header v0.5.0 // indirect\n\tgithub.com/dlclark/regexp2/v2 v2.2.1 // indirect\n\tgithub.com/dustin/go-humanize v1.0.1 // indirect\n\tgithub.com/elazarl/goproxy v1.8.3 // indirect\n\tgithub.com/emicklei/proto v1.14.3 // indirect\n\tgithub.com/emirpasic/gods v1.18.1 // indirect\n\tgithub.com/ettle/strcase v0.2.0 // indirect\n\tgithub.com/fatih/color v1.19.0 // indirect\n\tgithub.com/fatih/structtag v1.2.0 // indirect\n\tgithub.com/firefart/nonamedreturns v1.0.8 // indirect\n\tgithub.com/fzipp/gocyclo v0.6.0 // indirect\n\tgithub.com/ghostiam/protogetter v0.3.21 // indirect\n\tgithub.com/go-critic/go-critic v0.14.4 // indirect\n\tgithub.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect\n\tgithub.com/go-git/go-billy/v5 v5.9.0 // indirect\n\tgithub.com/go-logfmt/logfmt v0.6.1 // indirect\n\tgithub.com/go-toolsmith/astcast v1.1.0 // indirect\n\tgithub.com/go-toolsmith/astcopy v1.1.0 // indirect\n\tgithub.com/go-toolsmith/astequal v1.2.0 // indirect\n\tgithub.com/go-toolsmith/astfmt v1.1.0 // indirect\n\tgithub.com/go-toolsmith/astp v1.1.0 // indirect\n\tgithub.com/go-toolsmith/strparse v1.1.0 // indirect\n\tgithub.com/go-toolsmith/typep v1.1.0 // indirect\n\tgithub.com/go-viper/mapstructure/v2 v2.5.0 // indirect\n\tgithub.com/go-xmlfmt/xmlfmt v1.1.3 // indirect\n\tgithub.com/gobwas/glob v0.2.3 // indirect\n\tgithub.com/godoc-lint/godoc-lint v0.11.2 // indirect\n\tgithub.com/gofrs/flock v0.13.0 // indirect\n\tgithub.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect\n\tgithub.com/golang/protobuf v1.5.4 // indirect\n\tgithub.com/golangci/asciicheck v0.5.0 // indirect\n\tgithub.com/golangci/dupl v0.0.0-20260401084720-c99c5cf5c202 // indirect\n\tgithub.com/golangci/go-printf-func-name v0.1.1 // indirect\n\tgithub.com/golangci/gofmt v0.0.0-20260820135601-e84e05053792 // indirect\n\tgithub.com/golangci/golangci-lint/v2 v2.13.1 // indirect\n\tgithub.com/golangci/golines v0.15.0 // indirect\n\tgithub.com/golangci/misspell v0.8.0 // indirect\n\tgithub.com/golangci/plugin-module-register v0.1.2 // indirect\n\tgithub.com/golangci/revgrep v0.8.0 // indirect\n\tgithub.com/golangci/rowserrcheck v0.0.0-20260419091836-c5f79b8a11ba // indirect\n\tgithub.com/golangci/swaggoswag v0.0.0-20250504205917-77f2aca3143e // indirect\n\tgithub.com/golangci/unconvert v0.0.0-20250410112200-a129a6e6413e // indirect\n\tgithub.com/google/go-cmp v0.7.0 // indirect\n\tgithub.com/google/uuid v1.6.0 // indirect\n\tgithub.com/gordonklaus/ineffassign v0.2.0 // indirect\n\tgithub.com/gorilla/css v1.0.1 // indirect\n\tgithub.com/gostaticanalysis/analysisutil v0.7.1 // indirect\n\tgithub.com/gostaticanalysis/comment v1.5.0 // indirect\n\tgithub.com/gostaticanalysis/forcetypeassert v0.2.0 // indirect\n\tgithub.com/gostaticanalysis/nilerr v0.1.2 // indirect\n\tgithub.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect\n\tgithub.com/hashicorp/go-version v1.9.0 // indirect\n\tgithub.com/hashicorp/golang-lru/v2 v2.0.7 // indirect\n\tgithub.com/hashicorp/hcl v1.0.0 // indirect\n\tgithub.com/hexops/gotextdiff v1.0.3 // indirect\n\tgithub.com/inconshreveable/mousetrap v1.1.0 // indirect\n\tgithub.com/invowk/goplint v0.2.0 // indirect\n\tgithub.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect\n\tgithub.com/jessevdk/go-flags v1.5.0 // indirect\n\tgithub.com/jgautheron/goconst v1.11.0 // indirect\n\tgithub.com/jjti/go-spancheck v0.6.5 // indirect\n\tgithub.com/jonbaldie/go-mutesting/v2 v2.8.3 // indirect\n\tgithub.com/julz/importas v0.2.0 // indirect\n\tgithub.com/karamaru-alpha/copyloopvar v1.2.2 // indirect\n\tgithub.com/kevinburke/ssh_config v1.6.0 // indirect\n\tgithub.com/kisielk/errcheck v1.20.0 // indirect\n\tgithub.com/kkHAIKE/contextcheck v1.1.6 // indirect\n\tgithub.com/klauspost/compress v1.20.2 // indirect\n\tgithub.com/klauspost/cpuid/v2 v2.3.0 // indirect\n\tgithub.com/klauspost/pgzip v1.2.6 // indirect\n\tgithub.com/kulti/thelper v0.7.1 // indirect\n\tgithub.com/kunwardeep/paralleltest v1.0.15 // indirect\n\tgithub.com/lasiar/canonicalheader v1.1.2 // indirect\n\tgithub.com/ldez/exptostd v0.4.5 // indirect\n\tgithub.com/ldez/gomoddirectives v0.9.0 // indirect\n\tgithub.com/ldez/grignotin v0.10.1 // indirect\n\tgithub.com/ldez/structtags v0.6.1 // indirect\n\tgithub.com/ldez/tagliatelle v0.7.2 // indirect\n\tgithub.com/ldez/usetesting v0.5.0 // indirect\n\tgithub.com/leonklingele/grouper v1.1.2 // indirect\n\tgithub.com/lucasb-eyer/go-colorful v1.4.1 // indirect\n\tgithub.com/macabu/inamedparam v0.2.0 // indirect\n\tgithub.com/magiconair/properties v1.8.6 // indirect\n\tgithub.com/manuelarte/embeddedstructfieldcheck v0.4.0 // indirect\n\tgithub.com/manuelarte/funcorder v0.6.0 // indirect\n\tgithub.com/maratori/testableexamples v1.0.1 // indirect\n\tgithub.com/maratori/testpackage v1.1.2 // indirect\n\tgithub.com/matoous/godox v1.1.0 // indirect\n\tgithub.com/mattn/go-colorable v0.1.15 // indirect\n\tgithub.com/mattn/go-isatty v0.0.22 // indirect\n\tgithub.com/mattn/go-runewidth v0.0.28 // indirect\n\tgithub.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect\n\tgithub.com/mgechev/revive v1.15.0 // indirect\n\tgithub.com/microcosm-cc/bluemonday v1.0.27 // indirect\n\tgithub.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect\n\tgithub.com/mitchellh/go-homedir v1.1.0 // indirect\n\tgithub.com/mitchellh/go-wordwrap v1.0.1 // indirect\n\tgithub.com/mitchellh/mapstructure v1.5.0 // indirect\n\tgithub.com/moricho/tparallel v0.3.2 // indirect\n\tgithub.com/muesli/cancelreader v0.2.2 // indirect\n\tgithub.com/muesli/mango v0.2.0 // indirect\n\tgithub.com/muesli/mango-cobra v1.3.0 // indirect\n\tgithub.com/muesli/mango-pflag v0.2.0 // indirect\n\tgithub.com/muesli/roff v0.1.0 // indirect\n\tgithub.com/muesli/termenv v0.16.0 // indirect\n\tgithub.com/nakabonne/nestif v0.3.1 // indirect\n\tgithub.com/nishanths/exhaustive v0.12.0 // indirect\n\tgithub.com/nishanths/predeclared v0.2.2 // indirect\n\tgithub.com/nunnatsa/ginkgolinter v0.24.0 // indirect\n\tgithub.com/pelletier/go-toml v1.9.5 // indirect\n\tgithub.com/pelletier/go-toml/v2 v2.4.3 // indirect\n\tgithub.com/pierrec/lz4/v4 v4.1.26 // indirect\n\tgithub.com/pires/go-proxyproto v0.12.0 // indirect\n\tgithub.com/pjbgf/sha1cd v0.6.0 // indirect\n\tgithub.com/pkg/errors v0.9.1 // indirect\n\tgithub.com/prometheus/client_golang v1.12.1 // indirect\n\tgithub.com/prometheus/client_model v0.2.0 // indirect\n\tgithub.com/prometheus/common v0.32.1 // indirect\n\tgithub.com/prometheus/procfs v0.7.3 // indirect\n\tgithub.com/protocolbuffers/txtpbfmt v0.0.0-20260420112717-c39628bde8b5 // indirect\n\tgithub.com/quasilyte/go-ruleguard v0.4.5 // indirect\n\tgithub.com/quasilyte/go-ruleguard/dsl v0.3.23 // indirect\n\tgithub.com/quasilyte/gogrep v0.5.0 // indirect\n\tgithub.com/quasilyte/regex/syntax v0.0.0-20210819130434-b3f0c404a727 // indirect\n\tgithub.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect\n\tgithub.com/raeperd/recvcheck v0.3.0 // indirect\n\tgithub.com/rivo/uniseg v0.4.7 // indirect\n\tgithub.com/ryancurrah/gomodguard v1.4.1 // indirect\n\tgithub.com/ryancurrah/gomodguard/v2 v2.1.3 // indirect\n\tgithub.com/ryanrolds/sqlclosecheck v0.6.0 // indirect\n\tgithub.com/sanposhiho/wastedassign/v2 v2.1.0 // indirect\n\tgithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect\n\tgithub.com/sashamelentyev/interfacebloat v1.1.0 // indirect\n\tgithub.com/sashamelentyev/usestdlibvars v1.29.0 // indirect\n\tgithub.com/schollz/progressbar/v3 v3.14.2 // indirect\n\tgithub.com/securego/gosec/v2 v2.28.0 // indirect\n\tgithub.com/sergi/go-diff v1.4.0 // indirect\n\tgithub.com/sirupsen/logrus v1.10.1 // indirect\n\tgithub.com/sivchari/containedctx v1.0.3 // indirect\n\tgithub.com/skeema/knownhosts v1.3.2 // indirect\n\tgithub.com/sonatard/noctx v0.5.1 // indirect\n\tgithub.com/sourcegraph/go-diff v0.8.0 // indirect\n\tgithub.com/spf13/afero v1.15.0 // indirect\n\tgithub.com/spf13/cast v1.5.0 // indirect\n\tgithub.com/spf13/jwalterweatherman v1.1.0 // indirect\n\tgithub.com/spf13/viper v1.12.0 // indirect\n\tgithub.com/ssgreg/nlreturn/v2 v2.2.1 // indirect\n\tgithub.com/stbenjam/no-sprintf-host-port v0.3.1 // indirect\n\tgithub.com/stretchr/objx v0.5.3 // indirect\n\tgithub.com/stretchr/testify v1.12.1 // indirect\n\tgithub.com/subosito/gotenv v1.4.1 // indirect\n\tgithub.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae // indirect\n\tgithub.com/tetafro/godot v1.5.6 // indirect\n\tgithub.com/tidwall/gjson v1.19.0 // indirect\n\tgithub.com/tidwall/match v1.2.0 // indirect\n\tgithub.com/tidwall/pretty v1.2.1 // indirect\n\tgithub.com/tidwall/sjson v1.2.5 // indirect\n\tgithub.com/timakin/bodyclose v0.0.0-20260129054331-73d1f95b84b4 // indirect\n\tgithub.com/timonwong/loggercheck v0.11.0 // indirect\n\tgithub.com/tomarrell/wrapcheck/v2 v2.12.0 // indirect\n\tgithub.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect\n\tgithub.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect\n\tgithub.com/ulikunitz/xz v0.5.15 // indirect\n\tgithub.com/ultraware/funlen v0.2.0 // indirect\n\tgithub.com/ultraware/whitespace v0.2.0 // indirect\n\tgithub.com/uudashr/gocognit v1.2.1 // indirect\n\tgithub.com/uudashr/iface v1.5.0 // indirect\n\tgithub.com/xanzy/ssh-agent v0.3.3 // indirect\n\tgithub.com/xen0n/gosmopolitan v1.3.0 // indirect\n\tgithub.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect\n\tgithub.com/yagipy/maintidx v1.0.0 // indirect\n\tgithub.com/yeya24/promlinter v0.3.0 // indirect\n\tgithub.com/ykadowak/zerologlint v0.1.5 // indirect\n\tgithub.com/yuin/goldmark v1.8.2 // indirect\n\tgithub.com/yuin/goldmark-emoji v1.0.6 // indirect\n\tgithub.com/zimmski/osutil v1.6.1 // indirect\n\tgitlab.com/bosi/decorder v0.4.2 // indirect\n\tgo-simpler.org/musttag v0.14.0 // indirect\n\tgo-simpler.org/sloglint v0.12.0 // indirect\n\tgo.augendre.info/arangolint v0.4.0 // indirect\n\tgo.augendre.info/fatcontext v0.10.0 // indirect\n\tgo.uber.org/multierr v1.10.0 // indirect\n\tgo.uber.org/zap v1.27.0 // indirect\n\tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n\tgolang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect\n\tgolang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect\n\tgolang.org/x/mod v0.42.0 // indirect\n\tgolang.org/x/net v0.62.0 // indirect\n\tgolang.org/x/sync v0.25.0 // indirect\n\tgolang.org/x/text v0.44.0 // indirect\n\tgolang.org/x/tools v0.52.0 // indirect\n\tgoogle.golang.org/protobuf v1.36.11 // indirect\n\tgopkg.in/ini.v1 v1.67.0 // indirect\n\tgopkg.in/warnings.v0 v0.1.2 // indirect\n\tgopkg.in/yaml.v2 v2.4.0 // indirect\n\tgopkg.in/yaml.v3 v3.0.1 // indirect\n\thonnef.co/go/tools v0.8.0 // indirect\n\tmvdan.cc/gofumpt v0.11.0 // indirect\n\tmvdan.cc/unparam v0.0.0-20260818115549-3f964bcb5673 // indirect\n)\n\ntool (\n\tgithub.com/golangci/golangci-lint/v2/cmd/golangci-lint\n\tgithub.com/invowk/goplint\n\tgithub.com/invowk/goplint/cmd/benchmark-policy\n\tgithub.com/invowk/goplint/cmd/repository-audit\n\tgithub.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting\n)\n",
+   "head": "module github.com/invowk/invowk\n\ngo 1.27.4\n\nrequire (\n\tcharm.land/bubbles/v2 v2.2.1\n\tcharm.land/bubbletea/v2 v2.1.2\n\tcharm.land/lipgloss/v2 v2.1.1\n\tcharm.land/log/v2 v2.0.1\n\tcharm.land/ssh v0.4.3\n\tcharm.land/wish/v2 v2.0.5\n\tcuelang.org/go v0.17.1\n\tgithub.com/bmatcuk/doublestar/v4 v4.10.4\n\tgithub.com/charmbracelet/fang v1.0.0\n\tgithub.com/charmbracelet/glamour v1.0.0\n\tgithub.com/charmbracelet/keygen v0.5.4\n\tgithub.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834\n\tgithub.com/charmbracelet/x/xpty v0.1.4\n\tgithub.com/coder/acp-go-sdk v0.20.0\n\tgithub.com/creack/pty v1.1.24\n\tgithub.com/fsnotify/fsnotify v1.10.1\n\tgithub.com/go-git/go-git/v5 v5.19.3\n\tgithub.com/invowk/golua v0.3.0\n\tgithub.com/muesli/reflow v0.3.0\n\tgithub.com/openai/openai-go/v3 v3.105.0\n\tgithub.com/rogpeppe/go-internal v1.16.0\n\tgithub.com/sahilm/fuzzy v0.1.3\n\tgithub.com/spf13/cobra v1.10.2\n\tgithub.com/spf13/pflag v1.1.0\n\tgithub.com/u-root/u-root v0.16.0\n\tgolang.org/x/crypto v0.59.0\n\tgolang.org/x/sys v0.50.0\n\tgolang.org/x/term v0.48.0\n\tmvdan.cc/sh/v3 v3.14.1\n\tpgregory.net/rapid v1.3.0\n)\n\nrequire (\n\t4d63.com/gocheckcompilerdirectives v1.4.0 // indirect\n\t4d63.com/gochecknoglobals v0.2.2 // indirect\n\tcodeberg.org/chavacava/garif v0.2.0 // indirect\n\tcodeberg.org/polyfloyd/go-errorlint v1.9.0 // indirect\n\tdario.cat/mergo v1.0.2 // indirect\n\tdev.gaijin.team/go/exhaustruct/v4 v4.0.0 // indirect\n\tdev.gaijin.team/go/exhaustruct/v5 v5.0.3 // indirect\n\tdev.gaijin.team/go/golib v0.8.1 // indirect\n\tgithub.com/4meepo/tagalign v1.4.3 // indirect\n\tgithub.com/Abirdcfly/dupword v0.1.8 // indirect\n\tgithub.com/AdminBenni/iota-mixing v1.0.0 // indirect\n\tgithub.com/AlwxSin/noinlineerr v1.0.6 // indirect\n\tgithub.com/Antonboom/errname v1.1.2 // indirect\n\tgithub.com/Antonboom/nilnil v1.1.2 // indirect\n\tgithub.com/Antonboom/testifylint v1.6.4 // indirect\n\tgithub.com/BurntSushi/toml v1.6.0 // indirect\n\tgithub.com/ClickHouse/clickhouse-go-linter v1.2.1 // indirect\n\tgithub.com/Djarvur/go-err113 v0.1.1 // indirect\n\tgithub.com/Masterminds/semver/v3 v3.5.0 // indirect\n\tgithub.com/Microsoft/go-winio v0.6.2 // indirect\n\tgithub.com/MirrexOne/unqueryvet v1.5.4 // indirect\n\tgithub.com/OpenPeeDeeP/depguard/v2 v2.2.1 // indirect\n\tgithub.com/ProtonMail/go-crypto v1.5.2 // indirect\n\tgithub.com/alecthomas/chroma/v2 v2.27.0 // indirect\n\tgithub.com/alecthomas/go-check-sumtype v0.3.1 // indirect\n\tgithub.com/alexkohler/nakedret/v2 v2.0.6 // indirect\n\tgithub.com/alexkohler/prealloc v1.1.0 // indirect\n\tgithub.com/alfatraining/structtag v1.0.0 // indirect\n\tgithub.com/alingse/asasalint v0.0.11 // indirect\n\tgithub.com/alingse/nilnesserr v0.2.0 // indirect\n\tgithub.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect\n\tgithub.com/arnodel/strftime v0.1.6 // indirect\n\tgithub.com/ashanbrown/forbidigo/v2 v2.3.1 // indirect\n\tgithub.com/ashanbrown/makezero/v2 v2.2.1 // indirect\n\tgithub.com/atotto/clipboard v0.1.4 // indirect\n\tgithub.com/avast/retry-go v3.0.0+incompatible // indirect\n\tgithub.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect\n\tgithub.com/aymerick/douceur v0.2.0 // indirect\n\tgithub.com/beorn7/perks v1.0.1 // indirect\n\tgithub.com/bkielbasa/cyclop v1.2.3 // indirect\n\tgithub.com/blizzy78/varnamelen v0.8.0 // indirect\n\tgithub.com/bombsimon/wsl/v4 v4.7.0 // indirect\n\tgithub.com/bombsimon/wsl/v5 v5.9.0 // indirect\n\tgithub.com/breml/bidichk v0.3.3 // indirect\n\tgithub.com/breml/errchkjson v0.4.1 // indirect\n\tgithub.com/butuzov/ireturn v0.4.1 // indirect\n\tgithub.com/butuzov/mirror v1.3.3 // indirect\n\tgithub.com/catenacyber/perfsprint v0.10.1 // indirect\n\tgithub.com/ccojocar/zxcvbn-go v1.0.4 // indirect\n\tgithub.com/cespare/xxhash/v2 v2.3.0 // indirect\n\tgithub.com/charithe/durationcheck v0.0.11 // indirect\n\tgithub.com/charmbracelet/colorprofile v0.4.3 // indirect\n\tgithub.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect\n\tgithub.com/charmbracelet/x/ansi v0.11.9 // indirect\n\tgithub.com/charmbracelet/x/cellbuf v0.0.15 // indirect\n\tgithub.com/charmbracelet/x/conpty v0.2.0 // indirect\n\tgithub.com/charmbracelet/x/exp/charmtone v0.0.0-20260519012233-798e623c8447 // indirect\n\tgithub.com/charmbracelet/x/exp/golden v0.0.0-20260519012233-798e623c8447 // indirect\n\tgithub.com/charmbracelet/x/exp/slice v0.0.0-20260519012233-798e623c8447 // indirect\n\tgithub.com/charmbracelet/x/term v0.2.2 // indirect\n\tgithub.com/charmbracelet/x/termios v0.1.1 // indirect\n\tgithub.com/charmbracelet/x/windows v0.2.2 // indirect\n\tgithub.com/ckaznocha/intrange v0.3.1 // indirect\n\tgithub.com/clipperhouse/displaywidth v0.11.0 // indirect\n\tgithub.com/clipperhouse/uax29/v2 v2.7.0 // indirect\n\tgithub.com/cloudflare/circl v1.6.5 // indirect\n\tgithub.com/cockroachdb/apd/v3 v3.2.3 // indirect\n\tgithub.com/coder/websocket v1.8.15 // indirect\n\tgithub.com/curioswitch/go-reassign v0.3.0 // indirect\n\tgithub.com/cyphar/filepath-securejoin v0.7.0 // indirect\n\tgithub.com/daixiang0/gci v0.13.7 // indirect\n\tgithub.com/dave/dst v0.27.3 // indirect\n\tgithub.com/denis-tingaikin/go-header v0.5.0 // indirect\n\tgithub.com/dlclark/regexp2/v2 v2.2.1 // indirect\n\tgithub.com/dustin/go-humanize v1.0.1 // indirect\n\tgithub.com/elazarl/goproxy v1.8.3 // indirect\n\tgithub.com/emicklei/proto v1.14.3 // indirect\n\tgithub.com/emirpasic/gods v1.18.1 // indirect\n\tgithub.com/ettle/strcase v0.2.0 // indirect\n\tgithub.com/fatih/color v1.19.0 // indirect\n\tgithub.com/fatih/structtag v1.2.0 // indirect\n\tgithub.com/firefart/nonamedreturns v1.0.8 // indirect\n\tgithub.com/fzipp/gocyclo v0.6.0 // indirect\n\tgithub.com/ghostiam/protogetter v0.3.21 // indirect\n\tgithub.com/go-critic/go-critic v0.14.4 // indirect\n\tgithub.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect\n\tgithub.com/go-git/go-billy/v5 v5.9.2 // indirect\n\tgithub.com/go-logfmt/logfmt v0.6.1 // indirect\n\tgithub.com/go-toolsmith/astcast v1.1.0 // indirect\n\tgithub.com/go-toolsmith/astcopy v1.1.0 // indirect\n\tgithub.com/go-toolsmith/astequal v1.2.0 // indirect\n\tgithub.com/go-toolsmith/astfmt v1.1.0 // indirect\n\tgithub.com/go-toolsmith/astp v1.1.0 // indirect\n\tgithub.com/go-toolsmith/strparse v1.1.0 // indirect\n\tgithub.com/go-toolsmith/typep v1.1.0 // indirect\n\tgithub.com/go-viper/mapstructure/v2 v2.5.0 // indirect\n\tgithub.com/go-xmlfmt/xmlfmt v1.1.3 // indirect\n\tgithub.com/gobwas/glob v0.2.3 // indirect\n\tgithub.com/godoc-lint/godoc-lint v0.11.2 // indirect\n\tgithub.com/gofrs/flock v0.13.0 // indirect\n\tgithub.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect\n\tgithub.com/golang/protobuf v1.5.4 // indirect\n\tgithub.com/golangci/asciicheck v0.5.0 // indirect\n\tgithub.com/golangci/dupl v0.0.0-20260401084720-c99c5cf5c202 // indirect\n\tgithub.com/golangci/go-printf-func-name v0.1.1 // indirect\n\tgithub.com/golangci/gofmt v0.0.0-20260820135601-e84e05053792 // indirect\n\tgithub.com/golangci/golangci-lint/v2 v2.13.1 // indirect\n\tgithub.com/golangci/golines v0.15.0 // indirect\n\tgithub.com/golangci/misspell v0.8.0 // indirect\n\tgithub.com/golangci/plugin-module-register v0.1.2 // indirect\n\tgithub.com/golangci/revgrep v0.8.0 // indirect\n\tgithub.com/golangci/rowserrcheck v0.0.0-20260419091836-c5f79b8a11ba // indirect\n\tgithub.com/golangci/swaggoswag v0.0.0-20250504205917-77f2aca3143e // indirect\n\tgithub.com/golangci/unconvert v0.0.0-20250410112200-a129a6e6413e // indirect\n\tgithub.com/google/go-cmp v0.7.0 // indirect\n\tgithub.com/google/uuid v1.6.0 // indirect\n\tgithub.com/gordonklaus/ineffassign v0.2.0 // indirect\n\tgithub.com/gorilla/css v1.0.1 // indirect\n\tgithub.com/gostaticanalysis/analysisutil v0.7.1 // indirect\n\tgithub.com/gostaticanalysis/comment v1.5.0 // indirect\n\tgithub.com/gostaticanalysis/forcetypeassert v0.2.0 // indirect\n\tgithub.com/gostaticanalysis/nilerr v0.1.2 // indirect\n\tgithub.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect\n\tgithub.com/hashicorp/go-version v1.9.0 // indirect\n\tgithub.com/hashicorp/golang-lru/v2 v2.0.7 // indirect\n\tgithub.com/hashicorp/hcl v1.0.0 // indirect\n\tgithub.com/hexops/gotextdiff v1.0.3 // indirect\n\tgithub.com/inconshreveable/mousetrap v1.1.0 // indirect\n\tgithub.com/invowk/goplint v0.2.0 // indirect\n\tgithub.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect\n\tgithub.com/jessevdk/go-flags v1.5.0 // indirect\n\tgithub.com/jgautheron/goconst v1.11.0 // indirect\n\tgithub.com/jjti/go-spancheck v0.6.5 // indirect\n\tgithub.com/jonbaldie/go-mutesting/v2 v2.8.3 // indirect\n\tgithub.com/julz/importas v0.2.0 // indirect\n\tgithub.com/karamaru-alpha/copyloopvar v1.2.2 // indirect\n\tgithub.com/kevinburke/ssh_config v1.6.0 // indirect\n\tgithub.com/kisielk/errcheck v1.20.0 // indirect\n\tgithub.com/kkHAIKE/contextcheck v1.1.6 // indirect\n\tgithub.com/klauspost/compress v1.20.2 // indirect\n\tgithub.com/klauspost/pgzip v1.2.6 // indirect\n\tgithub.com/kulti/thelper v0.7.1 // indirect\n\tgithub.com/kunwardeep/paralleltest v1.0.15 // indirect\n\tgithub.com/lasiar/canonicalheader v1.1.2 // indirect\n\tgithub.com/ldez/exptostd v0.4.5 // indirect\n\tgithub.com/ldez/gomoddirectives v0.9.0 // indirect\n\tgithub.com/ldez/grignotin v0.10.1 // indirect\n\tgithub.com/ldez/structtags v0.6.1 // indirect\n\tgithub.com/ldez/tagliatelle v0.7.2 // indirect\n\tgithub.com/ldez/usetesting v0.5.0 // indirect\n\tgithub.com/leonklingele/grouper v1.1.2 // indirect\n\tgithub.com/lucasb-eyer/go-colorful v1.4.1 // indirect\n\tgithub.com/macabu/inamedparam v0.2.0 // indirect\n\tgithub.com/magiconair/properties v1.8.6 // indirect\n\tgithub.com/manuelarte/embeddedstructfieldcheck v0.4.0 // indirect\n\tgithub.com/manuelarte/funcorder v0.6.0 // indirect\n\tgithub.com/maratori/testableexamples v1.0.1 // indirect\n\tgithub.com/maratori/testpackage v1.1.2 // indirect\n\tgithub.com/matoous/godox v1.1.0 // indirect\n\tgithub.com/mattn/go-colorable v0.1.15 // indirect\n\tgithub.com/mattn/go-isatty v0.0.22 // indirect\n\tgithub.com/mattn/go-runewidth v0.0.30 // indirect\n\tgithub.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect\n\tgithub.com/mgechev/revive v1.15.0 // indirect\n\tgithub.com/microcosm-cc/bluemonday v1.0.27 // indirect\n\tgithub.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect\n\tgithub.com/mitchellh/go-homedir v1.1.0 // indirect\n\tgithub.com/mitchellh/go-wordwrap v1.0.1 // indirect\n\tgithub.com/mitchellh/mapstructure v1.5.0 // indirect\n\tgithub.com/moricho/tparallel v0.3.2 // indirect\n\tgithub.com/muesli/cancelreader v0.2.2 // indirect\n\tgithub.com/muesli/mango v0.2.0 // indirect\n\tgithub.com/muesli/mango-cobra v1.3.0 // indirect\n\tgithub.com/muesli/mango-pflag v0.2.0 // indirect\n\tgithub.com/muesli/roff v0.1.0 // indirect\n\tgithub.com/muesli/termenv v0.16.0 // indirect\n\tgithub.com/nakabonne/nestif v0.3.1 // indirect\n\tgithub.com/nishanths/exhaustive v0.12.0 // indirect\n\tgithub.com/nishanths/predeclared v0.2.2 // indirect\n\tgithub.com/nunnatsa/ginkgolinter v0.24.0 // indirect\n\tgithub.com/pelletier/go-toml v1.9.5 // indirect\n\tgithub.com/pelletier/go-toml/v2 v2.4.3 // indirect\n\tgithub.com/pierrec/lz4/v4 v4.1.26 // indirect\n\tgithub.com/pires/go-proxyproto v0.15.0 // indirect\n\tgithub.com/pjbgf/sha1cd v0.7.0 // indirect\n\tgithub.com/pkg/errors v0.9.1 // indirect\n\tgithub.com/prometheus/client_golang v1.12.1 // indirect\n\tgithub.com/prometheus/client_model v0.2.0 // indirect\n\tgithub.com/prometheus/common v0.32.1 // indirect\n\tgithub.com/prometheus/procfs v0.7.3 // indirect\n\tgithub.com/protocolbuffers/txtpbfmt v0.0.0-20260420112717-c39628bde8b5 // indirect\n\tgithub.com/quasilyte/go-ruleguard v0.4.5 // indirect\n\tgithub.com/quasilyte/go-ruleguard/dsl v0.3.23 // indirect\n\tgithub.com/quasilyte/gogrep v0.5.0 // indirect\n\tgithub.com/quasilyte/regex/syntax v0.0.0-20210819130434-b3f0c404a727 // indirect\n\tgithub.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect\n\tgithub.com/raeperd/recvcheck v0.3.0 // indirect\n\tgithub.com/rivo/uniseg v0.4.7 // indirect\n\tgithub.com/ryancurrah/gomodguard v1.4.1 // indirect\n\tgithub.com/ryancurrah/gomodguard/v2 v2.1.3 // indirect\n\tgithub.com/ryanrolds/sqlclosecheck v0.6.0 // indirect\n\tgithub.com/sanposhiho/wastedassign/v2 v2.1.0 // indirect\n\tgithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect\n\tgithub.com/sashamelentyev/interfacebloat v1.1.0 // indirect\n\tgithub.com/sashamelentyev/usestdlibvars v1.29.0 // indirect\n\tgithub.com/schollz/progressbar/v3 v3.14.2 // indirect\n\tgithub.com/securego/gosec/v2 v2.28.0 // indirect\n\tgithub.com/sergi/go-diff v1.4.0 // indirect\n\tgithub.com/sirupsen/logrus v1.10.1 // indirect\n\tgithub.com/sivchari/containedctx v1.0.3 // indirect\n\tgithub.com/skeema/knownhosts v1.3.3 // indirect\n\tgithub.com/sonatard/noctx v0.5.1 // indirect\n\tgithub.com/sourcegraph/go-diff v0.8.0 // indirect\n\tgithub.com/spf13/afero v1.15.0 // indirect\n\tgithub.com/spf13/cast v1.5.0 // indirect\n\tgithub.com/spf13/jwalterweatherman v1.1.0 // indirect\n\tgithub.com/spf13/viper v1.12.0 // indirect\n\tgithub.com/ssgreg/nlreturn/v2 v2.2.1 // indirect\n\tgithub.com/stbenjam/no-sprintf-host-port v0.3.1 // indirect\n\tgithub.com/stretchr/objx v0.5.3 // indirect\n\tgithub.com/stretchr/testify v1.12.1 // indirect\n\tgithub.com/subosito/gotenv v1.4.1 // indirect\n\tgithub.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae // indirect\n\tgithub.com/tetafro/godot v1.5.6 // indirect\n\tgithub.com/tidwall/gjson v1.20.1 // indirect\n\tgithub.com/tidwall/match v1.2.0 // indirect\n\tgithub.com/tidwall/pretty v1.2.1 // indirect\n\tgithub.com/tidwall/sjson v1.2.5 // indirect\n\tgithub.com/timakin/bodyclose v0.0.0-20260129054331-73d1f95b84b4 // indirect\n\tgithub.com/timonwong/loggercheck v0.11.0 // indirect\n\tgithub.com/tomarrell/wrapcheck/v2 v2.12.0 // indirect\n\tgithub.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect\n\tgithub.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect\n\tgithub.com/ulikunitz/xz v0.5.15 // indirect\n\tgithub.com/ultraware/funlen v0.2.0 // indirect\n\tgithub.com/ultraware/whitespace v0.2.0 // indirect\n\tgithub.com/uudashr/gocognit v1.2.1 // indirect\n\tgithub.com/uudashr/iface v1.5.0 // indirect\n\tgithub.com/xanzy/ssh-agent v0.3.3 // indirect\n\tgithub.com/xen0n/gosmopolitan v1.3.0 // indirect\n\tgithub.com/xo/terminfo v1.2.0 // indirect\n\tgithub.com/yagipy/maintidx v1.0.0 // indirect\n\tgithub.com/yeya24/promlinter v0.3.0 // indirect\n\tgithub.com/ykadowak/zerologlint v0.1.5 // indirect\n\tgithub.com/yuin/goldmark v1.8.2 // indirect\n\tgithub.com/yuin/goldmark-emoji v1.0.6 // indirect\n\tgithub.com/zimmski/osutil v1.6.1 // indirect\n\tgitlab.com/bosi/decorder v0.4.2 // indirect\n\tgo-simpler.org/musttag v0.14.0 // indirect\n\tgo-simpler.org/sloglint v0.12.0 // indirect\n\tgo.augendre.info/arangolint v0.4.0 // indirect\n\tgo.augendre.info/fatcontext v0.10.0 // indirect\n\tgo.uber.org/multierr v1.10.0 // indirect\n\tgo.uber.org/zap v1.27.0 // indirect\n\tgo.yaml.in/yaml/v3 v3.0.5 // indirect\n\tgolang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect\n\tgolang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect\n\tgolang.org/x/mod v0.42.0 // indirect\n\tgolang.org/x/net v0.62.0 // indirect\n\tgolang.org/x/sync v0.25.0 // indirect\n\tgolang.org/x/text v0.44.0 // indirect\n\tgolang.org/x/tools v0.52.0 // indirect\n\tgoogle.golang.org/protobuf v1.36.11 // indirect\n\tgopkg.in/ini.v1 v1.67.0 // indirect\n\tgopkg.in/warnings.v0 v0.1.2 // indirect\n\tgopkg.in/yaml.v2 v2.4.0 // indirect\n\tgopkg.in/yaml.v3 v3.0.1 // indirect\n\thonnef.co/go/tools v0.8.0 // indirect\n\tmvdan.cc/gofumpt v0.11.0 // indirect\n\tmvdan.cc/unparam v0.0.0-20260818115549-3f964bcb5673 // indirect\n)\n\ntool (\n\tgithub.com/golangci/golangci-lint/v2/cmd/golangci-lint\n\tgithub.com/invowk/goplint\n\tgithub.com/invowk/goplint/cmd/benchmark-policy\n\tgithub.com/invowk/goplint/cmd/repository-audit\n\tgithub.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting\n)\n"
   },
   {
    "filename": "go.sum",
@@ -68,6 +73,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -77,6 +85,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -86,6 +97,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -95,6 +109,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -104,6 +121,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "sonarqubecloud"
+   },
+   "check_suite": {
+    "id": 122165321103
    }
   },
   {
@@ -113,6 +133,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-advanced-security"
+   },
+   "check_suite": {
+    "id": 122165618384
    }
   },
   {
@@ -122,6 +145,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-advanced-security"
+   },
+   "check_suite": {
+    "id": 122165618384
    }
   },
   {
@@ -131,6 +157,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389302
    }
   },
   {
@@ -140,6 +169,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "socket-security"
+   },
+   "check_suite": {
+    "id": 122165321766
    }
   },
   {
@@ -149,6 +181,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "socket-security"
+   },
+   "check_suite": {
+    "id": 122165321766
    }
   },
   {
@@ -158,6 +193,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389302
    }
   },
   {
@@ -167,6 +205,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -176,6 +217,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -185,6 +229,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -194,6 +241,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -203,6 +253,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -212,6 +265,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -221,6 +277,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -230,6 +289,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -239,6 +301,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -248,6 +313,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -257,6 +325,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -266,6 +337,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -275,6 +349,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -284,6 +361,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389514
    }
   },
   {
@@ -293,6 +373,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389514
    }
   },
   {
@@ -302,6 +385,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389139
    }
   },
   {
@@ -311,6 +397,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389514
    }
   },
   {
@@ -320,6 +409,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389514
    }
   },
   {
@@ -329,6 +421,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389392
    }
   },
   {
@@ -338,6 +433,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -347,6 +445,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -356,6 +457,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -365,6 +469,9 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   },
   {
@@ -374,8 +481,58 @@
    "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
    "app": {
     "slug": "github-actions"
+   },
+   "check_suite": {
+    "id": 122165389091
    }
   }
  ],
- "statuses": []
+ "statuses": [],
+ "workflow_runs": [
+  {
+   "path": ".github/workflows/codeql.yml",
+   "event": "pull_request",
+   "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
+   "check_suite_id": 122165389514,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/benchmarks.yml",
+   "event": "pull_request",
+   "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
+   "check_suite_id": 122165389302,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "event": "pull_request",
+   "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
+   "check_suite_id": 122165389139,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/formal-verification.yml",
+   "event": "pull_request",
+   "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
+   "check_suite_id": 122165389392,
+   "actor": {
+    "id": 49699333
+   }
+  },
+  {
+   "path": ".github/workflows/lint.yml",
+   "event": "pull_request",
+   "head_sha": "862bccdff65c5b51281858c8c9c6b2f716c032b0",
+   "check_suite_id": 122165389091,
+   "actor": {
+    "id": 49699333
+   }
+  }
+ ]
 }

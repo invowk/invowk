@@ -12,6 +12,11 @@
 #   no ruleset bypass, so the `main` ruleset still applies to its merge). It is
 #   minted only in `merge` mode and only after a `merge` verdict.
 # - Every value that comes from the event reaches `run:` through `env:`.
+# - Who pushed the head is part of the boundary, here and in the script. A
+#   commit authored by dependabot[bot] and signed by GitHub does not prove
+#   Dependabot pushed it (the squash-merge commit of any Dependabot pull
+#   request has that shape), so the job condition and the script both require
+#   dependabot[bot], by user id, as the `actor` of the workflow runs.
 #
 # GATE_MODE is a constant in this file, not a repository variable: moving from
 # `decide-only` to `merge` is a reviewed pull request.
@@ -46,18 +51,23 @@ jobs:
   gate:
     # Keep the name: the script ignores its own check by this name.
     name: Dependabot merge gate
-    # A noise filter, not the security boundary: the script re-checks the
-    # author, the commits and the head from the API. A run that a person
-    # re-ran has that person as triggering_actor and is not evaluated; the
-    # next completion started by Dependabot is.
+    # Only runs that Dependabot's own push started, in this repository.
+    # 49699333 is the user id of dependabot[bot]; users and repositories are
+    # compared by id, not by name. The script checks the same `actor` again,
+    # from the API, for the run behind every required check, together with
+    # the author, the commits and the head. `triggering_actor` is not read: a
+    # maintainer who re-runs a flaky job keeps Dependabot as the actor, and
+    # the gate must evaluate that completion too.
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
-      github.event.workflow_run.triggering_actor.login == 'dependabot[bot]' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+      github.event.workflow_run.actor.id == 49699333 &&
+      github.event.workflow_run.head_repository.id == github.event.repository.id
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # actions: read lists the workflow runs of the head commit (who started
+    # each one); contents: read also serves the base and head file contents.
     permissions:
+      actions: read
       contents: read
       pull-requests: read
       checks: read
@@ -87,6 +97,10 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY" \
             --github-output "$GITHUB_OUTPUT"
 
+      # `app-id` is deprecated in create-github-app-token v3 in favour of
+      # `client-id` (action.yml: "Use 'client-id' instead."), but v3 still
+      # accepts it, and the repository has only the numeric App id variable.
+      # Moving to `client-id` needs a new variable with the App's client id.
       - name: Mint the merge App token
         id: app-token
         if: env.GATE_MODE == 'merge' && steps.decide.outputs.decision == 'merge'
@@ -98,7 +112,10 @@ jobs:
           permission-pull-requests: write
 
       # --match-head-commit: GitHub refuses the merge if the head moved after
-      # the decision.
+      # the decision. `up-to-date` is the same guard for main: the concurrency
+      # group is per head commit, so another pull request may have merged since
+      # the verdict, and the ruleset does not require up-to-date branches. The
+      # step stops there (the shell runs with -e) and nothing is merged.
       - name: Squash-merge the pull request
         if: env.GATE_MODE == 'merge' && steps.decide.outputs.decision == 'merge'
         env:
@@ -107,6 +124,10 @@ jobs:
           GATE_PR_NUMBER: ${{ steps.decide.outputs.pr_number }}
           GATE_HEAD_SHA: ${{ steps.decide.outputs.head_sha }}
         run: |
+          set -e
+          python3 -I scripts/dependabot-gate.py up-to-date \
+            --repo "$GATE_REPOSITORY" \
+            --head-sha "$GATE_HEAD_SHA"
           gh pr merge "$GATE_PR_NUMBER" \
             --repo "$GATE_REPOSITORY" \
             --squash \
