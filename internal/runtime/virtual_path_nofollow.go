@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,26 @@ import (
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+// virtualPathNotDirectoryError refuses a no-follow request that names a
+// directory by its form (a trailing separator, ".", "..") when its resolved
+// path exists and is not a directory. Its text is "<path>: not a directory"
+// on every platform, and it unwraps to syscall.ENOTDIR, whose own text is the
+// system's (on Windows "The system cannot find the path specified.").
+type virtualPathNotDirectoryError struct {
+	//goplint:ignore -- raw OS path of the refused request, used only in the error text.
+	path string
+}
+
+// Error returns "<path>: not a directory".
+func (e *virtualPathNotDirectoryError) Error() string {
+	return e.path + ": not a directory"
+}
+
+// Unwrap returns syscall.ENOTDIR.
+func (e *virtualPathNotDirectoryError) Unwrap() error {
+	return syscall.ENOTDIR
+}
 
 // resolveNoFollow resolves path for an operation that does not follow its
 // last component (rm operands, mv sources, ln's link name, the -L/-h tests;
@@ -80,7 +99,7 @@ func (v virtualPathValidator) validateNoFollow(cwd, path string) (string, error)
 		return resolved, nil
 	}
 	if info, statErr := os.Stat(resolved); statErr == nil && !info.IsDir() {
-		return "", fmt.Errorf("%s: %w", resolved, syscall.ENOTDIR)
+		return "", &virtualPathNotDirectoryError{path: resolved}
 	}
 	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
 		resolved += string(filepath.Separator)

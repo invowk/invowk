@@ -267,8 +267,11 @@ func TestVirtualPathNoFollowValidatorDirectoryCheck(t *testing.T) {
 	validator := pathTestValidator(invowkfile.VirtualFilesystemAccessRestricted, work)
 	target := filepath.Join(work, "target.txt")
 	_, err := validator.validateNoFollow(work, "live"+string(filepath.Separator))
-	if !errors.Is(err, syscall.ENOTDIR) || !strings.Contains(err.Error(), target) {
-		t.Errorf("validateNoFollow(live/) error = %v, want ENOTDIR naming %s", err, target)
+	// The text is "not a directory" on every platform: on Windows
+	// syscall.ENOTDIR's own text is "The system cannot find the path
+	// specified.".
+	if !errors.Is(err, syscall.ENOTDIR) || err.Error() != target+": not a directory" {
+		t.Errorf("validateNoFollow(live/) error = %v, want ENOTDIR as %q", err, target+": not a directory")
 	}
 	if got, err := validator.validateNoFollow(work, "dirlink"+string(filepath.Separator)); err != nil || got != filepath.Join(work, "tdir")+string(filepath.Separator) {
 		t.Errorf("validateNoFollow(dirlink/) = (%q, %v), want %q", got, err, filepath.Join(work, "tdir")+string(filepath.Separator))
