@@ -130,15 +130,15 @@ Under `restricted` access, before `tar -x` runs, the archive SHALL be read once 
 - **THEN** Invowk SHALL NOT read the archive ahead or check derived paths, and `tar` SHALL behave as the u-root command does
 
 ### Requirement: tar -x reads its archive ahead only from a regular file
-Under `restricted` access, `tar -x` SHALL refuse an archive whose resolved path exists and is not a regular file (for example a named pipe or a device), with `virtual path denied` and an error that names the archive, before anything is extracted, because its first reading would not be repeated by the second. The archive SHALL always be named by `-f`; `-f -` SHALL name the file `-` in the working directory, not standard input.
+Under `restricted` access, `tar -x` SHALL refuse an archive whose resolved path exists and is not a regular file (for example a named pipe or a device), with `virtual path denied` and an error that names the archive, before anything is extracted, because its first reading would not be repeated by the second. The archive SHALL always be a named file, never standard input: u-root's argument preprocessing drops a lone `-`, so `-f -` leaves `tar` without its operand, and `--file=-` names the file `-` in the working directory.
 
 #### Scenario: Archive that is a named pipe
 - **WHEN** a restricted virtual script runs `tar -x -f p ex`, where `p` is a named pipe inside an allowed root
 - **THEN** the command SHALL fail with `virtual path denied` and an error that names `p`, and nothing SHALL be extracted
 
 #### Scenario: Dash as the archive name
-- **WHEN** a virtual script runs `tar -x -f - ex` with a file named `-` in the working directory
-- **THEN** `tar` SHALL read that file, and SHALL NOT read standard input
+- **WHEN** a virtual script runs `tar -x -f - ex` or `tar -x --file=- ex`, with a file named `-` in the working directory
+- **THEN** `tar -x -f - ex` SHALL fail with the u-root command's usage error, `tar -x --file=- ex` SHALL read the file `-`, and neither SHALL read standard input
 
 ### Requirement: cp from virtual-lua gets the same checks
 virtual-lua's `invowk.cmd` and `invowk.capture` SHALL run `cp` through the same registry as virtual-sh, so every derived-path check above SHALL apply to them under the same access mode.

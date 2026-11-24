@@ -542,6 +542,7 @@ func (r *ShRuntime) tryUrootBuiltin(ctx context.Context, args []string, pathVali
 	handler := uroot.ExtractHandlerContext(ctx)
 	handler.ValidatePath = pathValidator.validate
 	handler.ValidateNoFollowPath = pathValidator.validateNoFollow
+	handler.FullAccess = pathValidator.fullAccess()
 	err := r.urootRegistry.Run(uroot.WithHandlerContext(ctx, handler), cmdName, args)
 	return true, err
 }

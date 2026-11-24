@@ -43,6 +43,12 @@ type (
 		// that acts on its last component itself and does not follow it: rm
 		// operands, mv sources and ln's link name (ResolveNoFollowPath).
 		ValidateNoFollowPath func(cwd, path string) (string, error)
+		// FullAccess is set by the embedding runtime when the virtual
+		// filesystem access is "full". It turns off the checks of the paths
+		// cp and tar -x derive from their operands (checkUrootDerivedPaths)
+		// and their prediction refusals. The zero value runs every check, so
+		// a validating context that does not set it fails closed.
+		FullAccess bool
 	}
 
 	// handlerContextKey is the context key for storing HandlerContext.

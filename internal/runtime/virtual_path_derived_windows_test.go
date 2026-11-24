@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MPL-2.0
+
+//go:build windows
+
+package runtime
+
+import (
+	"archive/tar"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/fstree"
+	"github.com/invowk/invowk/pkg/invowkfile"
+)
+
+// TestVirtualPathDerivedPathsWindowsJunction runs the directory-link rows of
+// the cp and tar -x derived-path checks with directory junctions: refused
+// under restricted access when the junction's target is outside the allowed
+// roots, with nothing changed there, and allowed when it is inside them.
+func TestVirtualPathDerivedPathsWindowsJunction(t *testing.T) {
+	t.Parallel()
+	fstree.Require(t, fstree.CapJunction)
+	restricted := invowkfile.VirtualFilesystemAccessRestricted
+	tarSetup := func(t *testing.T, work string, entries ...derivedTarEntry) {
+		t.Helper()
+		derivedTarArchive(t, filepath.Join(work, "a.tar"), entries...)
+		derivedMkdir(t, filepath.Join(work, "ex"))
+	}
+	file := func(name string) derivedTarEntry {
+		return derivedTarEntry{name: name, typeflag: tar.TypeReg, mode: 0o644, body: "entry"}
+	}
+	dir := func(name string) derivedTarEntry {
+		return derivedTarEntry{name: name, typeflag: tar.TypeDir, mode: 0o777}
+	}
+	for _, tc := range []struct {
+		name     string
+		setup    func(t *testing.T, work string)
+		junction string
+		script   string
+		inRoot   string
+	}{
+		{
+			name: "cp recursive destination below a junction",
+			setup: func(t *testing.T, work string) {
+				t.Helper()
+				derivedCpSetup(t, work, t.TempDir())
+				derivedMkdir(t, filepath.Join(work, "dst", "src"))
+			},
+			junction: "dst/src/sub", script: "cp -r src dst", inRoot: "y",
+		},
+		{
+			name: "cp recursive destination that is a junction",
+			setup: func(t *testing.T, work string) {
+				t.Helper()
+				derivedCpSetup(t, work, t.TempDir())
+			},
+			junction: "dst/src", script: "cp -r src dst", inRoot: "x",
+		},
+		{
+			name:     "tar entry onto a junction",
+			setup:    func(t *testing.T, work string) { t.Helper(); tarSetup(t, work, dir("l")) },
+			junction: "ex/l", script: "tar -x -f a.tar ex",
+		},
+		{
+			name:     "tar entry below a junction",
+			setup:    func(t *testing.T, work string) { t.Helper(); tarSetup(t, work, file("l/f")) },
+			junction: "ex/l", script: "tar -x -f a.tar ex", inRoot: "f",
+		},
+		{
+			name:     "tar entries nested below a junction",
+			setup:    func(t *testing.T, work string) { t.Helper(); tarSetup(t, work, dir("l/a/b"), file("l/a/b/f")) },
+			junction: "ex/l", script: "tar -x -f a.tar ex", inRoot: "a/b/f",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			t.Run("target outside the roots is refused", func(t *testing.T) {
+				work := physicalDir(t, t.TempDir())
+				outside := physicalDir(t, outsideVirtualRootsDir(t))
+				tc.setup(t, work)
+				fstree.MustJunction(t, outside, filepath.Join(work, filepath.FromSlash(tc.junction)))
+				before := derivedTreeSnapshot(t, outside)
+				run := runVirtualShTest(t, work, tc.script, restricted)
+				if run.exit == 0 || !strings.Contains(run.stderr, derivedDeniedText) {
+					t.Fatalf("run = (exit %d, stderr %q), want the denial", run.exit, run.stderr)
+				}
+				assertDerivedTreeUnchanged(t, before, derivedTreeSnapshot(t, outside))
+			})
+			t.Run("target inside the roots is allowed", func(t *testing.T) {
+				work := physicalDir(t, t.TempDir())
+				tc.setup(t, work)
+				target := filepath.Join(work, "in")
+				derivedMkdir(t, target)
+				fstree.MustJunction(t, target, filepath.Join(work, filepath.FromSlash(tc.junction)))
+				run := runVirtualShTest(t, work, tc.script, restricted)
+				derivedAssertSuccess(t, run)
+				if tc.inRoot != "" {
+					derivedAssertFile(t, filepath.Join(target, filepath.FromSlash(tc.inRoot)), map[string]string{
+						"x": "x-content", "y": "y-content", "f": "entry", "a/b/f": "entry",
+					}[tc.inRoot])
+				}
+			})
+		})
+	}
+}
