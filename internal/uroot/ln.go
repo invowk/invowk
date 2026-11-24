@@ -11,6 +11,11 @@ import (
 	"os"
 )
 
+// errLnLinkNameIsDirectory refuses a link name that names an existing
+// directory, in any form (`dir`, `dir/`, `dir/.`, `.`): ln never replaces a
+// directory.
+var errLnLinkNameIsDirectory = errors.New("cannot overwrite directory")
+
 // lnCommand implements the ln utility.
 // It creates hard or symbolic links between files.
 type lnCommand struct {
@@ -56,11 +61,25 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 	target := posArgs[0]
 	linkName := posArgs[1]
 
-	resolvedLinkName, err := hc.ResolvePath(linkName)
+	// The link name is the entry ln creates or, with -f, replaces: it is
+	// resolved without following its last component, so an existing link
+	// there is replaced and never its target.
+	resolvedLinkName, err := hc.ResolveNoFollowPath(linkName)
 	if err != nil {
 		return wrapError(c.name, err)
 	}
 	linkName = resolvedLinkName
+
+	// ln never replaces a directory: -f would remove an empty one. The check
+	// looks at the resolved entry itself (Lstat, not Stat), so it covers every
+	// form that names a directory, including `dir/.` and `.`, whose resolved
+	// form has no trailing separator, while a link to a directory named
+	// without a separator is still replaced as a link. It runs before
+	// anything is removed, and the -f removal below reuses its result.
+	existing, lstatErr := os.Lstat(linkName)
+	if lstatErr == nil && existing.IsDir() {
+		return wrapError(c.name, fmt.Errorf("%s: %w", linkName, errLnLinkNameIsDirectory))
+	}
 
 	// For hard links, resolve the target to an absolute path. For symlinks,
 	// preserve the user-provided target as-is because os.Symlink stores the
@@ -76,12 +95,12 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 
 	// Remove existing link destination if -f is specified
 	if *force {
-		if _, err := os.Lstat(linkName); err == nil {
+		if lstatErr == nil {
 			if removeErr := os.Remove(linkName); removeErr != nil {
 				return wrapError(c.name, fmt.Errorf("cannot remove %q: %w", linkName, removeErr))
 			}
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return wrapError(c.name, fmt.Errorf("cannot stat %q: %w", linkName, err))
+		} else if !errors.Is(lstatErr, os.ErrNotExist) {
+			return wrapError(c.name, fmt.Errorf("cannot stat %q: %w", linkName, lstatErr))
 		}
 	}
 

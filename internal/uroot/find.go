@@ -22,6 +22,7 @@ func newFindCommand() *findCommand {
 			{Name: "type", Description: "match file type (f, d, l)", TakesValue: true},
 			{Name: "mode", Description: "match file mode", TakesValue: true},
 			{Name: "l", Description: "long listing format"},
+			{Name: "d", Description: "enable debugging output"},
 		},
 	}
 }

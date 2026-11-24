@@ -5,7 +5,8 @@
     "virtual_args_subcommand_conflict.txtar": "CUE validation coverage only",
     "virtual_diagnostics_footer.txtar": "discovery diagnostics formatting",
     "virtual_anchor_relative_home.txtar": "path anchors are injected only by the virtual runtimes",
-    "virtual_anchor_relative_xdg.txtar": "path anchors are injected only by the virtual runtimes"
+    "virtual_anchor_relative_xdg.txtar": "path anchors are injected only by the virtual runtimes",
+    "virtual_path_link_escape.txtar": "restricted path denials exist only in the virtual runtimes"
   },
   "prefix": {
     "virtual_uroot_": "u-root commands are virtual-runtime built-ins"

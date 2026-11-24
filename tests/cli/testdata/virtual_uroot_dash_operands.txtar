@@ -1,0 +1,91 @@
+# Test: under restricted access the u-root built-ins classify their operands
+# the way each built-in parses them (virtual-runtime-sandbox, "Built-in
+# operands are found as the built-in parses them"):
+#   - a dash-prefixed operand after the first operand is validated like any
+#     other operand, so one that names a path outside every allowed root is
+#     denied, and nothing of the outside file is printed or created;
+#   - a "--" before the operands ends the options and is not handed on;
+#   - option values that are not paths reach the built-in as written.
+#
+# u-root built-ins are virtual-runtime commands, so this test has no native
+# mirror (the virtual_uroot_ prefix exemption).
+#
+# The outside entries must lie outside every allowed root. Off Windows /tmp is
+# always a root and $WORK is normally below it, so the test uses fixed entries
+# below /var/tmp, removed before every step.
+
+[!windows] env OUTSIDE=/var/tmp
+[windows] env OUTSIDE=$WORK/outside
+[windows] mkdir $WORK/outside
+env SECRET=$OUTSIDE/invowk-virtual-uroot-dash-operands-secret
+env CREATED=$OUTSIDE/invowk-virtual-uroot-dash-operands-created
+[!windows] env DASH_SECRET=-/../../../../../../../../../../../../../../../../../../../../var/tmp/invowk-virtual-uroot-dash-operands-secret
+[!windows] env DASH_CREATED=-/../../../../../../../../../../../../../../../../../../../../var/tmp/invowk-virtual-uroot-dash-operands-created
+[windows] env DASH_SECRET=-/../../outside/invowk-virtual-uroot-dash-operands-secret
+[windows] env DASH_CREATED=-/../../outside/invowk-virtual-uroot-dash-operands-created
+
+cd $WORK/proj
+
+# cat: the dash-prefixed operand after "a" is validated and denied
+rm $CREATED
+cp $WORK/secret.txt $SECRET
+! exec invowk cmd cat-dash
+stderr 'virtual path denied'
+! stdout 'outside-secret-content'
+rm $SECRET
+
+# touch: the dash-prefixed operand after "a" is validated; nothing is created
+rm $CREATED
+! exec invowk cmd touch-dash
+stderr 'virtual path denied'
+! exists $CREATED
+
+# cat -- -x reads the file -x in the working directory
+exec invowk cmd cat-dashdash
+stdout '^dash-x-content$'
+
+# mkdir -m 755 d: the mode reaches mkdir as written
+exec invowk cmd mkdir-mode
+exists d
+
+-- secret.txt --
+outside-secret-content
+-- proj/a --
+a-content
+-- proj/-x --
+dash-x-content
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name: "cat-dash"
+		implementations: [{
+			script: {content: "cat a \"$DASH_SECRET\""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "touch-dash"
+		implementations: [{
+			script: {content: "touch a \"$DASH_CREATED\""}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "cat-dashdash"
+		implementations: [{
+			script: {content: "cat -- -x"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name: "mkdir-mode"
+		implementations: [{
+			script: {content: "mkdir -m 755 d"}
+			runtimes: [{name: "virtual-sh"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

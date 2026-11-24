@@ -18,11 +18,12 @@ func newTarCommand() *tarCommand {
 	return &tarCommand{
 		name: "tar",
 		flags: []FlagInfo{
-			{Name: "c", Description: "create a new archive"},
-			{Name: "x", Description: "extract files from an archive"},
-			{Name: "t", Description: "list the contents of an archive"},
-			{Name: "f", Description: "use archive file", TakesValue: true},
-			{Name: "v", Description: "verbosely list files processed"},
+			{Name: "create", ShortName: "c", Description: "create a new archive"},
+			{Name: "extract", ShortName: "x", Description: "extract files from an archive"},
+			{Name: "list", ShortName: "t", Description: "list the contents of an archive"},
+			{Name: "file", ShortName: "f", Description: "use archive file", TakesValue: true},
+			{Name: "verbose", ShortName: "v", Description: "verbosely list files processed"},
+			{Name: "no-recursion", Description: "do not recurse into directories"},
 		},
 	}
 }

@@ -18,7 +18,7 @@ func newShasumCommand() *shasumCommand {
 	return &shasumCommand{
 		name: urootCommandShasum,
 		flags: []FlagInfo{
-			{Name: "a", Description: "hash algorithm (1, 256, 512)", TakesValue: true},
+			{Name: "algorithm", ShortName: "a", Description: "hash algorithm (1, 256, 512)", TakesValue: true},
 		},
 	}
 }

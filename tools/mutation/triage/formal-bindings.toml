@@ -3068,70 +3068,6 @@ added = '''
 '''
 
 [[survivor]]
-id = "e373a3eab97ff69c1b8c4c1d243ef4cb"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "loop/range_break (Removes a break statement inside a range loop) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = ''
-added = '''
-		break
-
-'''
-context = '	for _, name := range []string{virtualAnchorConfig, virtualAnchorData, virtualAnchorCache, virtualAnchorState, virtualAnchorWork} {'
-
-[[survivor]]
-id = "f432eb90bc9bd3aa6457febe4c45330e"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if path := anchors[name]; path != \"\" {` → `if path := anchors[name]; path == \"\" {`) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-		if path := anchors[name]; path != "" {
-'''
-added = '''
-		if path := anchors[name]; path == "" {
-'''
-
-[[survivor]]
-id = "6aee615e529b0e8ce65373aa8ff270cd"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "branch/if (Changes: `roots = append(roots, path)` → `_, _, _ = roots, roots, path`) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-			roots = append(roots, path)
-'''
-added = '''
-			_, _, _ = roots, roots, path
-'''
-
-[[survivor]]
-id = "74c6d920ce4eb27bb957fd7c25063305"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "statement/remove (Changes: `roots = append(roots, path)` → `_, _, _ = roots, roots, path`) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-		roots = append(roots, path)
-'''
-added = '''
-		_, _, _ = roots, roots, path
-'''
-
-[[survivor]]
 id = "d8c1b525fbc132fb2914cc2fdb14b112"
 file = "internal/runtime/virtual_policy.go"
 symbol = "newVirtualPathResolverForFilesystem"
@@ -3145,43 +3081,6 @@ removed = '''
 '''
 added = '''
 	_, _ = roots, roots
-'''
-
-[[survivor]]
-id = "545180ded235a4211cfd3a2a85da090c"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "statement/return (Replaces a return value with its zero value) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-	return virtualPathResolver{
-		anchors:      anchors,
-		paths:        paths,
-		allowedRoots: normalizedRoots(roots),
-		access:       filesystem.EffectiveAccess(),
-	}, nil
-'''
-added = '''
-	return virtualPathResolver{}, nil
-'''
-
-[[survivor]]
-id = "763664164f8f3fa0573395a58b0c9e01"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "composite/field-clear (Drops a keyed field from a composite literal, leaving it at its zero value) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-		anchors:      anchors,
-'''
-added = '''
-
 '''
 
 [[survivor]]
@@ -3201,42 +3100,6 @@ added = '''
 		anchors: anchors,
 
 '''
-
-[[survivor]]
-id = "afb3eb1401f9b4da12b6b42ee436b8c0"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "composite/field-clear (Drops a keyed field from a composite literal, leaving it at its zero value) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-		anchors:      anchors,
-		paths:        paths,
-		allowedRoots: normalizedRoots(roots),
-		access:       filesystem.EffectiveAccess(),
-'''
-added = '''
-		anchors: anchors,
-		paths:   paths,
-
-		access: filesystem.EffectiveAccess(),
-'''
-
-[[survivor]]
-id = "68468ae3df5a2d91b2a34e8669133fb3"
-file = "internal/runtime/virtual_policy.go"
-symbol = "newVirtualPathResolverForFilesystem"
-model = "VirtualPathHarness"
-element = "allowedRoots"
-class = "binding-gap"
-reason = "composite/field-clear (Drops a keyed field from a composite literal, leaving it at its zero value) survives TestVirtualPathHarness_GoldenVectors: the harness golden builds its validator over materialised roots directly and never calls the resolver constructor"
-follow_up = "tasks/next/formal-binding-gaps.md#newvirtualpathresolverforfilesystem"
-removed = '''
-		access:       filesystem.EffectiveAccess(),
-'''
-added = ''
 
 [[survivor]]
 id = "f0199139481c561d569d265945e762e2"
@@ -3352,227 +3215,6 @@ removed = '''
 '''
 added = '''
 		return "", nil
-'''
-
-[[survivor]]
-id = "2e5753fd2e7156d234c10f2dc73813aa"
-file = "internal/runtime/virtual_policy.go"
-symbol = "virtualPathValidator.validate"
-model = "VirtualPathHarness"
-element = "validate"
-class = "binding-gap"
-reason = "statement/return (Changes: `return normalized, nil` → `return \"\", nil`) survives TestVirtualPathHarness_GoldenVectors: error-message and early-return branches no golden instance reaches"
-follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidate"
-removed = '''
-			return normalized, nil
-'''
-added = '''
-			return "", nil
-'''
-
-[[survivor]]
-id = "f4becbedb1da1e13b1b1d17d8aa10003"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", errors.New(\"path must not be empty\")` → `_ = errors.New`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-		return "", errors.New("path must not be empty")
-'''
-added = '''
-		_ = errors.New
-'''
-
-[[survivor]]
-id = "64d6a9fe921e5bcee1bd15a768e6b2d3"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", errors.New(\"path must not be empty\")` → `return \"\", nil`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-		return "", errors.New("path must not be empty")
-'''
-added = '''
-		return "", nil
-'''
-
-[[survivor]]
-id = "a9cf438e6e90a16465ade68734092675"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-		if cwd == "" {
-			var err error
-			cwd, err = os.Getwd()
-			if err != nil {
-				return "", fmt.Errorf("get working directory: %w", err)
-			}
-		}
-		cleaned = filepath.Join(cwd, cleaned)
-'''
-added = '''
-		_, _, _, _, _, _, _, _ = cwd, cwd, os.Getwd, fmt.Errorf, cleaned, filepath.Join, cwd, cleaned
-
-'''
-
-[[survivor]]
-id = "fa124f29785a8ea4223d0131e605c584"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if cwd == \"\" {` → `if cwd != \"\" {`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-		if cwd == "" {
-'''
-added = '''
-		if cwd != "" {
-'''
-
-[[survivor]]
-id = "4c71ff50962791c78bfe5af875b43cc3"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-			var err error
-			cwd, err = os.Getwd()
-			if err != nil {
-				return "", fmt.Errorf("get working directory: %w", err)
-			}
-'''
-added = '''
-			_, _, _ = cwd, os.Getwd, fmt.Errorf
-
-'''
-
-[[survivor]]
-id = "d2151837dd2ae9304334fe8839fbaddb"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "statement/remove (Changes: `cwd, err = os.Getwd()` → `_, _, _ = cwd, err, os.Getwd`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-			cwd, err = os.Getwd()
-'''
-added = '''
-			_, _, _ = cwd, err, os.Getwd
-'''
-
-[[survivor]]
-id = "7a5241db236784ca8b6694fce8774ac8"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "conditional/negated (Changes: `if err != nil {` → `if err == nil {`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-			if err != nil {
-'''
-added = '''
-			if err == nil {
-'''
-
-[[survivor]]
-id = "e3a67aacf3792bd6a3f263faeabab54c"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "expression/error-guard (Changes: `if err != nil {` → `if false {`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-			if err != nil {
-'''
-added = '''
-			if false {
-'''
-
-[[survivor]]
-id = "b565927ee02fa6f02f80a7280d239814"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "branch/if (Changes: `return \"\", fmt.Errorf(\"get working directory: %w\", err)` → `_, _ = fmt.Errorf, err`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-				return "", fmt.Errorf("get working directory: %w", err)
-'''
-added = '''
-				_, _ = fmt.Errorf, err
-'''
-
-[[survivor]]
-id = "2d8cc6259cf4638e83fa4328fb6ff54d"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "expression/errorf-wrap (Changes: `return \"\", fmt.Errorf(\"get working directory: %w\", err)` → `return \"\", fmt.Errorf(\"get working directory: %v\", err)`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-				return "", fmt.Errorf("get working directory: %w", err)
-'''
-added = '''
-				return "", fmt.Errorf("get working directory: %v", err)
-'''
-
-[[survivor]]
-id = "f84b4ccb401feac8d4f31d0672d03f13"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "statement/return (Changes: `return \"\", fmt.Errorf(\"get working directory: %w\", err)` → `return \"\", nil`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-				return "", fmt.Errorf("get working directory: %w", err)
-'''
-added = '''
-				return "", nil
-'''
-
-[[survivor]]
-id = "99c4390a994b666b768e56fb6886ac7c"
-file = "internal/runtime/virtual_policy.go"
-symbol = "normalizeExistingOrParent"
-model = "VirtualPathHarness"
-element = "normalize"
-class = "binding-gap"
-reason = "statement/remove (Changes: `cleaned = filepath.Join(cwd, cleaned)` → `_, _, _, _ = cleaned, filepath.Join, cwd, cleaned`) survives TestVirtualPathHarness_GoldenVectors: golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached"
-follow_up = "tasks/next/formal-binding-gaps.md#normalizeexistingorparent"
-removed = '''
-		cleaned = filepath.Join(cwd, cleaned)
-'''
-added = '''
-		_, _, _, _ = cleaned, filepath.Join, cwd, cleaned
 '''
 
 [[survivor]]
@@ -3701,6 +3343,216 @@ removed = '''
 '''
 added = '''
 	return rel == "." || rel == "" || (!strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != "")
+'''
+
+[[survivor]]
+id = "1bca66a2bdd81ffa1ef3d94eba3c8776"
+file = "internal/runtime/virtual_policy.go"
+symbol = "walkVirtualPath"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return result, fmt.Errorf(\"canonical form of %q: %w\", walker.prefix, err)` → `return virtualPathWalk{}, fmt.Errorf(\"canonical form of %q: %w\", walker.prefix, err)`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: the mutant drops only unresolvedLink when the canonical step fails after the walk ended inside a link target; every strict caller denies on that error either way, and only the full-access fallback form (the link's own path instead of the cleaned path) changes, which no killer asserts on a canonical failure"
+follow_up = "tasks/next/formal-binding-gaps.md#walkvirtualpath"
+removed = '''
+		return result, fmt.Errorf("canonical form of %q: %w", walker.prefix, err)
+'''
+added = '''
+		return virtualPathWalk{}, fmt.Errorf("canonical form of %q: %w", walker.prefix, err)
+'''
+
+[[survivor]]
+id = "14646a6b4143b4dff8fb0111861410c3"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.walk"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "equivalent"
+reason = "branch/case (Replaces a switch case body with a noop, making that branch a no-op) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: with the case body gone, \"..\" falls through to the plain-component path: Join(prefix, \"..\") is Dir(prefix), whose Lstat succeeds and reports a directory that is not a link (the prefix is physical and every ancestor of it was searched on the way down), so the prefix becomes Dir(prefix) as in the original; only one extra Lstat runs, and it can fail only on a concurrent change of the tree"
+follow_up = ""
+removed = '''
+			w.prefix = filepath.Dir(w.prefix)
+			continue
+'''
+added = '''
+			_, _, _ = w.prefix, filepath.Dir, w.prefix
+
+'''
+
+[[survivor]]
+id = "a05beefe6636cc59c78daf93882fd8e8"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.next"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "equivalent"
+reason = "expression/comparison (Changes: `fromLink := len(w.queue) > w.own` → `fromLink := len(w.queue) >= w.own`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: own counts the request's own components left in the queue and is read only here. The first call always takes an own component with inLink still false; the mutant reads it as from a link and skips own--, so own stays one above the true count from then on, and `len(queue) >= own` with that offset equals `len(queue) > own` without it for every later call; inLink is false at the first call either way"
+follow_up = ""
+removed = '''
+	fromLink := len(w.queue) > w.own
+'''
+added = '''
+	fromLink := len(w.queue) >= w.own
+'''
+
+[[survivor]]
+id = "b812f973ea06235605afa6b8a4adab58"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "expression/remove (Changes: `rooted := rest != \"\" && os.IsPathSeparator(rest[0])` → `rooted := true && os.IsPathSeparator(rest[0])`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the mutant indexes an empty rest (a target that is a bare volume such as \"D:\") and panics"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+	rooted := rest != "" && os.IsPathSeparator(rest[0])
+'''
+added = '''
+	rooted := true && os.IsPathSeparator(rest[0])
+'''
+
+[[survivor]]
+id = "ba92f84e8fe499001f466d1c890430d7"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "conditional/negated (Changes: `rooted := rest != \"\" && os.IsPathSeparator(rest[0])` → `rooted := rest == \"\" && os.IsPathSeparator(rest[0])`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the mutant never sees a rooted target, which on Windows sends \"\\\\x\" down the relative branch"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+	rooted := rest != "" && os.IsPathSeparator(rest[0])
+'''
+added = '''
+	rooted := rest == "" && os.IsPathSeparator(rest[0])
+'''
+
+[[survivor]]
+id = "065f5d34661a47708c9b137fa3e46cd3"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "expression/logical (Changes: `case rooted || filepath.IsAbs(target):` → `case rooted && filepath.IsAbs(target):`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; on Windows a rooted target without a volume is not IsAbs, so the mutant reads it as relative"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+	case rooted || filepath.IsAbs(target):
+'''
+added = '''
+	case rooted && filepath.IsAbs(target):
+'''
+
+[[survivor]]
+id = "ad801f9b6cddbcde7f244d74303e6b06"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "expression/remove (Changes: `case rooted || filepath.IsAbs(target):` → `case rooted || false:`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the IsAbs disjunct only differs from rooted for Windows targets"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+	case rooted || filepath.IsAbs(target):
+'''
+added = '''
+	case rooted || false:
+'''
+
+[[survivor]]
+id = "c8c7861717109185c9012ab89d3b5ca5"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "conditional/negated (Changes: `if volume == \"\" {` → `if volume != \"\" {`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; with an empty volume the mutant keeps it empty, which off Windows is the link directory's volume anyway"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+		if volume == "" {
+'''
+added = '''
+		if volume != "" {
+'''
+
+[[survivor]]
+id = "225bb901bf5c2530d20c7c1809ad0a3b"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "branch/if (Changes: `volume = filepath.VolumeName(w.prefix)` → `_, _, _ = volume, filepath.VolumeName, w.prefix`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the removed assignment copies the link directory's volume, which off Windows is empty"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+			volume = filepath.VolumeName(w.prefix)
+'''
+added = '''
+			_, _, _ = volume, filepath.VolumeName, w.prefix
+'''
+
+[[survivor]]
+id = "65a88e673ef6efafbf7208bb4fce9db7"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "expression/error-guard (Changes: `if err := w.enterVolume(volume); err != nil {` → `if err := w.enterVolume(volume); false {`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; enterVolume fails only for a missing drive or UNC share in a link target, and off Windows the volume root / always exists"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+		if err := w.enterVolume(volume); err != nil {
+'''
+added = '''
+		if err := w.enterVolume(volume); false {
+'''
+
+[[survivor]]
+id = "1420322dd47b8fdb37c8872ef68a196c"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "branch/case (Changes: `return fmt.Errorf(\"%w: %s -> %s\", errVirtualPathLinkTarget, path, target)` → `_, _, _, _ = fmt.Errorf, errVirtualPathLinkTarget, path, target`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the case refuses a drive-relative target (\"D:x\"), which needs a volume name"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+		return fmt.Errorf("%w: %s -> %s", errVirtualPathLinkTarget, path, target)
+'''
+added = '''
+		_, _, _, _ = fmt.Errorf, errVirtualPathLinkTarget, path, target
+'''
+
+[[survivor]]
+id = "2246504f200094b4a32c332abff3dfbe"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "expression/errorf-wrap (Changes: `return fmt.Errorf(\"%w: %s -> %s\", errVirtualPathLinkTarget, path, target)` → `return fmt.Errorf(\"%v: %s -> %s\", errVirtualPathLinkTarget, path, target)`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the case refuses a drive-relative target (\"D:x\"), which needs a volume name, and no killer checks errors.Is on its error"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+		return fmt.Errorf("%w: %s -> %s", errVirtualPathLinkTarget, path, target)
+'''
+added = '''
+		return fmt.Errorf("%v: %s -> %s", errVirtualPathLinkTarget, path, target)
+'''
+
+[[survivor]]
+id = "3eec971fd0ba5d03c71cf7bdb6fc4b8e"
+file = "internal/runtime/virtual_policy.go"
+symbol = "virtualPathWalker.follow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return fmt.Errorf(\"%w: %s -> %s\", errVirtualPathLinkTarget, path, target)` → `return nil`) survives TestVirtualPathHarness_GoldenVectors, TestVirtualPathHarness_WalkOverFakeFilesystem: a Windows-only branch: off Windows filepath.VolumeName is always empty, so rest equals the target and a rooted target is exactly an absolute one; the formal-bindings lane runs on Linux, and no Linux killer can give a target with a volume name, a rooted target without one, or a bare volume; the case refuses a drive-relative target (\"D:x\"), which needs a volume name"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathwalkerfollow"
+removed = '''
+		return fmt.Errorf("%w: %s -> %s", errVirtualPathLinkTarget, path, target)
+'''
+added = '''
+		return nil
 '''
 
 [[survivor]]
@@ -6938,6 +6790,184 @@ removed = '''
 '''
 added = '''
 		return false, nil
+'''
+
+[[survivor]]
+id = "ea2a85e07d21205dc907fcfb66e02784"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return resolved, true, err` → `return resolved, true, nil`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a request that names a directory by its form (a final separator, \".\" or \"..\") and whose full resolution fails (an unknown anchor, an unresolvable path under restricted access); the mutant then returns an empty path with no error, which validateNoFollow denies under restricted access with a different error and, under full access, turns into the volume root when the request ended in a separator"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return resolved, true, err
+'''
+added = '''
+		return resolved, true, nil
+'''
+
+[[survivor]]
+id = "9b03c754fcc1340c254a8f76391b37ad"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "branch/if (Changes: `return \"\", false, err` → `_ = err`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a no-follow request whose anchor expansion fails; the mutant goes on with the empty expansion, which absoluteVirtualPath refuses with a different error"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return "", false, err
+'''
+added = '''
+		_ = err
+'''
+
+[[survivor]]
+id = "e93231af5869936068838cc391bccbc8"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return \"\", false, err` → `return \"\", false, nil`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a no-follow request whose anchor expansion fails; the mutant returns an empty path with no error, which validateNoFollow denies under restricted access and returns under full access"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return "", false, err
+'''
+added = '''
+		return "", false, nil
+'''
+
+[[survivor]]
+id = "031466843c969ad9d5be565a82e52f9c"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/remove (Changes: `resolved, err = normalizeVirtualPathForAccess(cleaned, \"\", r.access)` → `_, _, _, _ = resolved, err, cleaned, r.access`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a volume root (\"/\") as a no-follow request; the mutant returns an empty path for it"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		resolved, err = normalizeVirtualPathForAccess(cleaned, "", r.access)
+'''
+added = '''
+		_, _, _, _ = resolved, err, cleaned, r.access
+'''
+
+[[survivor]]
+id = "9e7a9b80410241ad049233a9da37f233"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "equivalent"
+reason = "branch/if (Removes an if-block body so the condition becomes a no-op) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: without the volume-root branch a request that is its own parent takes the general path: the parent is the same cleaned path, resolved by the same normalizeVirtualPathForAccess call with the same error, and Join(resolved, Base(cleaned)) is resolved itself, because Base of a volume root is a separator and the resolved path is already clean"
+follow_up = ""
+removed = '''
+		resolved, err = normalizeVirtualPathForAccess(cleaned, "", r.access)
+		return resolved, false, err
+'''
+added = '''
+		_, _, _, _, _, _ = resolved, err, cleaned, r.access, resolved, err
+
+'''
+
+[[survivor]]
+id = "7533d3edb7d4f0beeb64f5f75a8c3d89"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return resolved, false, err` → `return \"\", false, err`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a volume root (\"/\") as a no-follow request; the mutant returns an empty path for it"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return resolved, false, err
+'''
+added = '''
+		return "", false, err
+'''
+
+[[survivor]]
+id = "d8bf67eeec253bb321ce5392d60818a2"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathResolver.resolveNoFollow"
+model = "VirtualPathHarness"
+element = "normalized"
+class = "binding-gap"
+reason = "statement/return (Changes: `return resolved, false, err` → `return resolved, false, nil`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a volume root whose resolution fails (a missing drive or share, Windows only); the mutant drops that error"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathresolverresolvenofollow"
+removed = '''
+		return resolved, false, err
+'''
+added = '''
+		return resolved, false, nil
+'''
+
+[[survivor]]
+id = "cc87be715cb8339d1d2179705b9ae14d"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathValidator.validateNoFollow"
+model = "VirtualPathHarness"
+element = "accepts"
+class = "equivalent"
+reason = "loop/break (Changes: `break` → `continue`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: the loop only sets allowed to true and is left right after; with continue it visits the remaining roots and sets nothing else, so allowed and every return are the same"
+follow_up = ""
+removed = '''
+				break
+'''
+added = '''
+				continue
+'''
+
+[[survivor]]
+id = "59811827fe04e815d9c65f1cefc77340"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathValidator.validateNoFollow"
+model = "VirtualPathHarness"
+element = "accepts"
+class = "binding-gap"
+reason = "expression/logical (Changes: `if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {` → `if endsInVirtualPathSeparator(path) || !endsInVirtualPathSeparator(resolved) {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer checks the returned path of a request whose last element is \".\" or \"..\" (dirCheck without a final separator); the mutant appends a separator to it"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidatenofollow"
+removed = '''
+	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
+'''
+added = '''
+	if endsInVirtualPathSeparator(path) || !endsInVirtualPathSeparator(resolved) {
+'''
+
+[[survivor]]
+id = "c4395e502cfb8909856c231fefc02d3c"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathValidator.validateNoFollow"
+model = "VirtualPathHarness"
+element = "accepts"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {` → `if true && !endsInVirtualPathSeparator(resolved) {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer checks the returned path of a request whose last element is \".\" or \"..\" (dirCheck without a final separator); the mutant appends a separator to it"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidatenofollow"
+removed = '''
+	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
+'''
+added = '''
+	if true && !endsInVirtualPathSeparator(resolved) {
+'''
+
+[[survivor]]
+id = "d5ae8094eea16b9273233f25d9ff35b9"
+file = "internal/runtime/virtual_path_nofollow.go"
+symbol = "virtualPathValidator.validateNoFollow"
+model = "VirtualPathHarness"
+element = "accepts"
+class = "binding-gap"
+reason = "expression/remove (Changes: `if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {` → `if endsInVirtualPathSeparator(path) && true {`) survives TestVirtualPathHarness_NoFollowOperands, TestVirtualPathNoFollowValidatorDirectoryCheck: no killer gives a request whose resolved path already ends in a separator (a volume root written with its separator); the mutant appends a second one"
+follow_up = "tasks/next/formal-binding-gaps.md#virtualpathvalidatorvalidatenofollow"
+removed = '''
+	if endsInVirtualPathSeparator(path) && !endsInVirtualPathSeparator(resolved) {
+'''
+added = '''
+	if endsInVirtualPathSeparator(path) && true {
 '''
 
 [[closed]]

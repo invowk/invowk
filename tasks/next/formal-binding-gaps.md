@@ -19,7 +19,10 @@ replaced the 22 stale `standardVirtualAnchorsForOS` survivors with the 5 of its
 new body, which left 403 distinct ids in the ledger and in the baseline (no id
 is listed twice any more). The partial refresh of
 module-read-physical-containment (2026-11-19) removed 6 and added 35, so both
-now hold 432.
+held 432. The partial refresh of virtual-path-physical-normalisation
+(2026-11-24) removed 21 and added 1, so both held 412. The partial refresh of
+virtual-path-no-follow-operands (2026-11-24) removed none and added 23 (4
+`equivalent`, 19 deferred `binding-gap`), so both now hold 435.
 
 ## Rows whose binding does not reach the function
 
@@ -143,11 +146,27 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### newVirtualPathResolverForFilesystem
 
-`internal/runtime/virtual_policy.go`, 12 survivors. The harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
+`internal/runtime/virtual_policy.go`, 4 survivors (12 before virtual-path-physical-normalisation, 2026-11-24, whose refresh found 8 of them killed). The harness golden builds its validator over materialised roots directly and never calls the resolver constructor.
 
 ### normalizeExistingOrParent
 
-`internal/runtime/virtual_policy.go`, 12 survivors. Golden paths are absolute and non-empty, so the empty-path, cwd and os.Getwd branches are unreached.
+`internal/runtime/virtual_policy.go`, no survivors. virtual-path-physical-normalisation (2026-11-24) moved the resolution into `walkVirtualPath` and its helpers, so the 12 survivors of the old body were no longer generated and left the ledger.
+
+### walkVirtualPath
+
+`internal/runtime/virtual_policy.go`, 1 survivor, added by virtual-path-physical-normalisation (2026-11-24). Returning the zero walk when the canonical step fails drops `unresolvedLink`. Strict callers deny on that error either way; only the full-access fallback form changes, and no killer makes the canonical step fail after a walk that ended inside a link target. A `TestVirtualPathHarness_WalkOverFakeFilesystem` case with a `canonErr` on a dangling link's target directory that asserts `unresolvedLink` would close it.
+
+### virtualPathWalker.follow
+
+`internal/runtime/virtual_policy.go`, 10 survivors, added by virtual-path-no-follow-operands (2026-11-24), when the walk's helpers got rows of their own. Every one sits in a Windows-only branch: a link target with a volume name, a rooted target without one, a bare volume, a drive-relative target (refused), or a missing drive in a target. Off Windows `filepath.VolumeName` is always empty, so the formal-bindings lane, which runs on Linux, cannot generate those targets. `TestVirtualPathHarness_WalkOverFakeFilesystem` has a Windows-only drive-relative case; closing these needs a Windows mutation lane, or fake-filesystem cases whose volume handling does not depend on the host `filepath`.
+
+### virtualPathResolver.resolveNoFollow
+
+`internal/runtime/virtual_path_nofollow.go`, 6 deferred survivors and 1 equivalent, added by virtual-path-no-follow-operands (2026-11-24). No killer gives a no-follow request whose anchor expansion fails, a request that names a directory by its form and whose full resolution fails, or a volume root (`/`) as the request. A `TestVirtualPathNoFollowValidatorDirectoryCheck` or `TestVirtualPathHarness_NoFollowOperands` case for each (an unknown `@anchor`, `@unknown/`, and `/` under both access modes, asserting the error or the returned path) would close them. The removal of the whole volume-root branch is equivalent (the general path gives the same result).
+
+### virtualPathValidator.validateNoFollow
+
+`internal/runtime/virtual_path_nofollow.go`, 3 deferred survivors and 1 equivalent, added by virtual-path-no-follow-operands (2026-11-24). No killer checks the returned path of a request whose last element is `.` or `..`, or of one whose resolved path already ends in a separator (a volume root). Cases asserting `validateNoFollow(work, "dirlink/.")` returns the target with no separator, and `/` returns `/`, would close them.
 
 ### pathWithin
 
@@ -159,7 +178,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### virtualPathValidator.validate
 
-`internal/runtime/virtual_policy.go`, 3 survivors. Error-message and early-return branches no golden instance reaches.
+`internal/runtime/virtual_policy.go`, 2 survivors (3 before virtual-path-physical-normalisation, 2026-11-24, whose refresh found one killed). Error-message and early-return branches no golden instance reaches.
 
 ### Server.GenerateToken
 

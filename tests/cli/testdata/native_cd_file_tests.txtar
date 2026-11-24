@@ -1,0 +1,170 @@
+# Test: cd and the file tests in the native runtime. Mirrors
+# virtual_cd_file_tests.txtar with platform-split native implementations and
+# the same command paths. The native runtime has no path policy, so its
+# "-full" commands run the same scripts as the others, and cd outside the
+# allowed roots succeeds in both.
+
+[!windows] env OUTSIDE=/var/tmp
+[windows] env OUTSIDE=$WORK/outside
+[windows] mkdir $WORK/outside
+
+cd $WORK/proj
+
+exec invowk cmd cd-tests
+stdout '[/\\]sub\r?$'
+stdout '^test-f: yes\r?$'
+stdout '^e: yes\r?$'
+stdout '^d: yes\r?$'
+stdout '^dbl-f: yes\r?$'
+stdout '^e-missing: no\r?$'
+
+exec invowk cmd cd-tests-full
+stdout '[/\\]sub\r?$'
+stdout '^test-f: yes\r?$'
+stdout '^e-missing: no\r?$'
+
+# native: no path policy, so cd outside the virtual allowed roots succeeds
+exec invowk cmd cd-outside
+stdout '^after-cd\r?$'
+
+exec invowk cmd cd-outside-full
+stdout '^after-cd\r?$'
+
+# [ -L ] tests the link itself: true for a link, false for its target
+[symlink] symlink live -> target.txt
+[symlink] exec invowk cmd link-tests
+[symlink] stdout '^L-live: yes\r?$'
+[symlink] stdout '^L-target: no\r?$'
+
+-- proj/sub/file.txt --
+content
+-- proj/target.txt --
+target
+-- proj/invowkfile.cue --
+cmds: [
+	{
+		name: "cd-tests"
+		implementations: [
+			{
+				script: {content: """
+				cd sub
+				pwd
+				test -f file.txt && echo "test-f: yes"
+				[ -e file.txt ] && echo "e: yes"
+				[ -d ../sub ] && echo "d: yes"
+				[[ -f file.txt ]] && echo "dbl-f: yes"
+				[ -e missing ] || echo "e-missing: no"
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+				Set-Location sub
+				Write-Output (Get-Location).Path
+				if (Test-Path -LiteralPath file.txt -PathType Leaf) { Write-Output "test-f: yes" }
+				if (Test-Path -LiteralPath file.txt) { Write-Output "e: yes" }
+				if (Test-Path -LiteralPath ../sub -PathType Container) { Write-Output "d: yes" }
+				if (Test-Path -LiteralPath file.txt -PathType Leaf) { Write-Output "dbl-f: yes" }
+				if (-not (Test-Path -LiteralPath missing)) { Write-Output "e-missing: no" }
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "cd-tests-full"
+		implementations: [
+			{
+				script: {content: """
+				cd sub
+				pwd
+				test -f file.txt && echo "test-f: yes"
+				[ -e file.txt ] && echo "e: yes"
+				[ -d ../sub ] && echo "d: yes"
+				[[ -f file.txt ]] && echo "dbl-f: yes"
+				[ -e missing ] || echo "e-missing: no"
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+				Set-Location sub
+				Write-Output (Get-Location).Path
+				if (Test-Path -LiteralPath file.txt -PathType Leaf) { Write-Output "test-f: yes" }
+				if (Test-Path -LiteralPath file.txt) { Write-Output "e: yes" }
+				if (Test-Path -LiteralPath ../sub -PathType Container) { Write-Output "d: yes" }
+				if (Test-Path -LiteralPath file.txt -PathType Leaf) { Write-Output "dbl-f: yes" }
+				if (-not (Test-Path -LiteralPath missing)) { Write-Output "e-missing: no" }
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "cd-outside"
+		implementations: [
+			{
+				script: {content: """
+				cd "$OUTSIDE" || exit 1
+				echo after-cd
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+				Set-Location -LiteralPath $env:OUTSIDE -ErrorAction Stop
+				Write-Output after-cd
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "cd-outside-full"
+		implementations: [
+			{
+				script: {content: """
+				cd "$OUTSIDE" || exit 1
+				echo after-cd
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+				Set-Location -LiteralPath $env:OUTSIDE -ErrorAction Stop
+				Write-Output after-cd
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name: "link-tests"
+		implementations: [
+			{
+				script: {content: """
+				[ -L live ] && echo "L-live: yes"
+				[ -L target.txt ] || echo "L-target: no"
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: {content: """
+				if ((Get-Item -LiteralPath live -Force).LinkType -eq 'SymbolicLink') { Write-Output "L-live: yes" }
+				if ((Get-Item -LiteralPath target.txt -Force).LinkType -ne 'SymbolicLink') { Write-Output "L-target: no" }
+				"""}
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

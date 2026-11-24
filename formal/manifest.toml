@@ -88,7 +88,7 @@ measured_on = "2026-09-25"
 # budgets (Check models max 376 s, Trace validation 170 s, Replay 22 s, Deep
 # property tests 12 s).
 ci_runs = [36203072183, 36203079356, 36203087452]
-command_count = 181
+command_count = 186
 
 # Binding reach gate (`make formal-reach`, scripts/formal_mutation.py reach):
 # every killer test of every bound correspondence row must execute at least one
@@ -159,12 +159,10 @@ unresolved_elements = [
     "ModulePathContainment: hashSkipsLinks",
     "ModulePathContainment: unpackRejectsEscape",
     "ModulePathContainment: probeF16",
-    "VirtualPathHarness: normalize",
     "VirtualPathHarness: pathWithin",
     "VirtualPathHarness: allowedRoots",
     "VirtualPathHarness: anchors",
     "VirtualPathHarness: validate",
-    "VirtualPathHarness: findingF14",
     "VirtualPathHarness: findingF15",
     "ConcurrentModuleEdits: AddProg (add_add_same)",
     "ConcurrentModuleEdits: AddProg (sync_add)",
@@ -1535,18 +1533,20 @@ expect = "instance"
 name = "VirtualPathHarness"
 tool = "alloy"
 file = "formal/alloy/VirtualPathHarness.als"
-budget_seconds = 33  # 1.5 x 21.4s CI max (3 dispatch runs)
-budget_source = "ci"
+budget_seconds = 12  # ceil(3 x 3.7s), the local max: `make formal` 2026-11-24 (3.7s; standalone `scripts/formal.py alloy VirtualPathHarness` 1.0s, 0.8s, 0.9s); the CI figure (1.5 x 21.4s) predates the F18/F19 model
+budget_source = "local"
 scope = "6 but exactly 3 Req"  # default for every command below
-calibration = """2026-09-25: the golden replays (14580 instances) and the rapid property detect \
-the seeded defects: normalizeExistingOrParent skipping the parent evaluation is \
-caught (mutantNoParentEval and the one-level deny in the F14 replay), and the \
-unevaluated-vs-evaluated comparison is exercised by every escaping-ancestor \
-instance. The replay builds the resolver directly over materialised roots so \
-t.TempDir's enclosing roots do not make the check vacuous (design D5.4), and it \
-fails if no instance places a node outside every root. Findings F14 (deep \
-missing path through an escaping symlink) and F15 (workdir widening the allowed \
-roots under restricted access) reproduce with passing fixed configurations. \
+calibration = """2026-09-25: the golden replays (14580 instances then) and the rapid property \
+detect the seeded defects, and the unevaluated-vs-evaluated comparison is \
+exercised by every escaping-ancestor instance. mutantNoParentEval is the model \
+form of "return the unresolved path when any component is missing" (the walk \
+used only when nothing is missing), a superset of the F14 defect. The replay \
+builds the resolver directly over materialised roots so t.TempDir's enclosing \
+roots do not make the check vacuous (design D5.4), and it fails if no instance \
+places a node outside every root. Finding F15 (workdir widening the allowed \
+roots under restricted access) reproduces with a passing fixed configuration; \
+F14 (deep missing path through an escaping symlink) reproduced until \
+virtual-path-physical-normalisation fixed it (below). \
 2026-11-14 (harden-formal-instruments): the reach gate found allowedRoots \
 (newVirtualPathResolverForFilesystem), anchors (standardVirtualAnchorsForOS) and \
 access (EffectiveAccess) never executed by the golden. allowedRoots and access \
@@ -1565,7 +1565,94 @@ mode fails it (EffectiveAccess and outside probes); adding @home to the allowed 
 roots in newVirtualPathResolverForFilesystem fails it (4 disagreements: the \
 @home probe accepted under omitted and restricted access, with and without a \
 declared path); setting the @config anchor to the home directory itself in \
-standardVirtualAnchorsForOS fails it (the same 4 disagreements)."""
+standardVirtualAnchorsForOS fails it (the same 4 disagreements). \
+2026-11-24 (virtual-path-physical-normalisation, F18): a request records the \
+kind of link it crosses (none, Symlink, Junction), the golden scope is two \
+requests (1512 instances; a request reads only itself and H, so two requests \
+still show each of its 63 combinations), and the golden replay materialises \
+junction requests on Windows (1404 of 3024 requests, left out and counted \
+elsewhere). These three figures are those of the intermediate F18 commit, \
+superseded by the F19 paragraph's below (2592 instances, 81 request shapes, \
+1836 of 5184 requests). walkVirtualPath (row normalized) is bound to the golden replay and \
+to TestVirtualPathHarness_WalkOverFakeFilesystem, which drives it over a fake \
+filesystem that fails the test when the walk looks below a link. Seeded and \
+reverted (go test -overlay): "the walk does not follow a junction-like entry" \
+(isVirtualPathLink returning true only for ModeSymlink) fails \
+TestVirtualPathHarness_WalkOverFakeFilesystem on Linux in nine cases, among \
+them "existing file through a junction", "new file through a junction", \
+"deep new file through a junction" and "junction as the last component"; the \
+golden replay cannot see it off Windows, where no junction exists. \
+Same change, F14 and F19: normalizeExistingOrParent returns the deepest \
+existing ancestor joined with the missing components, with no fallback. A \
+request also records whether its link dangles; the golden has 2592 instances \
+of two requests (81 request shapes, which the replay requires without -short; \
+1836 of 5184 requests cross a junction) and is compared with the fixed \
+decision dAccepts; the replay takes about 0.1 s on Linux. The rapid property \
+has no finding exemption and compares both ways with an oracle built from the \
+tree (inside, outside, unresolvable). Seeded one at a time and reverted (go \
+test -overlay), with the bindings that fail: (1) "return the unresolved path \
+at two or more missing components" fails the golden replay, \
+TestVirtualPathHarness_DeepMissingPathThroughSymlinkDenied, \
+TestVirtualPathHarness_DanglingLinkEscapeDenied and the rapid property; (2) \
+"treat a link with a missing target as a missing name" (return the link's own \
+path) fails the golden replay, TestVirtualPathHarness_DanglingLinkEscapeDenied \
+and the rapid property; (3) "treat an lstat error other than not-exist as \
+missing" fails TestVirtualPathHarness_WalkOverFakeFilesystem; (4) "join a .. \
+that follows a missing component instead of refusing it" fails \
+TestVirtualPathHarness_WalkOverFakeFilesystem, \
+TestVirtualPathHarness_DanglingLinkEscapeDenied (its two-link leg) and the \
+rapid property; (5) the junction seed above. Two more, in \
+normalizeExistingOrParent itself: dropping the walk's error and dropping the \
+empty-path error each fail the golden replay's resolution-error checks. \
+2026-11-24 (virtual-path-no-follow-operands, design D7): the no-follow form \
+is a recorded abstraction, not a request kind: rows normalized \
+(virtualPathResolver.resolveNoFollow) and accepts \
+(virtualPathValidator.validateNoFollow; the existing validate element is on \
+the shrink-only unresolved list, so the new row names the model's \
+acceptance predicate) bind \
+TestVirtualPathHarness_NoFollowOperands, which builds trees with fstree and \
+compares the no-follow path and verdict under both access modes (a live, a \
+dangling and a cyclic link, a link to an outside file, a parent through an \
+escaping link, a missing name, the root itself, a link to the root, and on \
+Windows a junction subtest). The model and the golden vectors are unchanged; \
+the golden file was regenerated only because its fingerprint hashes the \
+whole .als, comments included, and the table changed. Seeded one at a time \
+and reverted (go test -overlay): "resolveNoFollow resolves the final name \
+too" fails TestVirtualPathHarness_NoFollowOperands (8 disagreements, among \
+them the live, dangling and cyclic links and the link to the root); \
+"resolveNoFollow resolves the parent lexically" fails it on the \
+escaping-parent case under both access modes. The walk's helpers are bound \
+for the first time (rows normalized, follow-up a), and each is calibrated by \
+a seed that sits in it, with the bindings that fail it: \
+virtualPathWalker.walk holds seed (3) above (WalkOverFakeFilesystem); \
+missingVirtualPathSuffix holds seed (4) (WalkOverFakeFilesystem, \
+DanglingLinkEscapeDenied, the rapid property); isVirtualPathLink holds the \
+junction seed (5) (WalkOverFakeFilesystem). New seeds, one per helper that \
+held none: virtualPathWalker.next "keep inLink when an own component is \
+taken" fails WalkOverFakeFilesystem; virtualPathWalker.enterVolume "keep the \
+current prefix once one is set" fails the golden replay, \
+WalkOverFakeFilesystem and NoFollowOperands; virtualPathWalker.follow "queue \
+a rooted target below the current prefix" fails the golden replay, \
+WalkOverFakeFilesystem and NoFollowOperands; virtualPathWalker.unresolvedLink \
+"drop the link's own name" fails WalkOverFakeFilesystem; virtualPathWalk.path \
+"drop the missing components" fails the golden replay; \
+normalizeVirtualPathForAccess "full access returns the cleaned path even \
+when the walk resolves" fails NoFollowOperands. The binding reach gate \
+reaches every new (row, killer, function) triple on Linux and skips none. \
+Same change, fix-stage review (PR #198): the full-access fallback forms of \
+normalizeVirtualPathForAccess bind TestVirtualPathFullAccessFallback, and the \
+not-a-directory branch of resolveNoFollow and validateNoFollow binds \
+TestVirtualPathNoFollowValidatorDirectoryCheck; validateNoFollow's \
+allowed-root check is written out in it, so its row covers it. Seeded one at \
+a time and reverted (go test -overlay), with the bindings that fail: \
+"full access ignores the outermost link's own path" and "full access \
+returns the walk's error instead of the cleaned path" fail \
+TestVirtualPathFullAccessFallback only; "resolveNoFollow ignores a request \
+that names a directory" and "validateNoFollow skips the not-a-directory \
+check" fail TestVirtualPathNoFollowValidatorDirectoryCheck only; \
+"validateNoFollow skips the allowed-root check" fails NoFollowOperands; \
+"validateNoFollow negates pathWithin" fails NoFollowOperands and \
+TestVirtualPathNoFollowValidatorDirectoryCheck."""
 
 [model.golden]
 command = "golden"
@@ -1591,9 +1678,22 @@ property = "harnessContained"
 mutant_of = "harnessContainedFixed"
 
 [[model.command]]
-name = "findingF14DeepSymlink"
-body = "harnessContained[CurrentEval, False]"
-finding = "F14"
+name = "mutantPreFixF18JunctionNotFollowed"
+body = "harnessContained[PreFixF18Eval, False]"
+expect = "counterexample"
+property = "harnessContained"
+mutant_of = "harnessContainedFixed"
+
+[[model.command]]
+name = "mutantPreFixF14ParentOnlyEval"
+body = "harnessContained[PreFixF14Eval, False]"
+expect = "counterexample"
+property = "harnessContained"
+mutant_of = "harnessContainedFixed"
+
+[[model.command]]
+name = "mutantPreFixF19DanglingLinkAsMissingName"
+body = "harnessContained[PreFixF19Eval, False]"
 expect = "counterexample"
 property = "harnessContained"
 mutant_of = "harnessContainedFixed"
@@ -1637,6 +1737,24 @@ expect = "instance"
 witness = true
 
 [[model.command]]
+name = "witJunctionAncestor"
+body = "witJunctionAncestor"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witInLocationLink"
+body = "witInLocationLink"
+expect = "instance"
+witness = true
+
+[[model.command]]
+name = "witDanglingLink"
+body = "witDanglingLink"
+expect = "instance"
+witness = true
+
+[[model.command]]
 name = "witDeepSymlinkEscape"
 body = "deepSymlinkEscape"
 expect = "instance"
@@ -1654,7 +1772,7 @@ body = """
 goldenScenario
 goldenDecisions
 noJunk"""
-scope = "exactly 3 Req, exactly 1 InReadRoot, exactly 1 InWorkdir, exactly 1 OutsideAll"
+scope = "exactly 2 Req, exactly 1 InReadRoot, exactly 1 InWorkdir, exactly 1 OutsideAll"
 expect = "instance"
 
 

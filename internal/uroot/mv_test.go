@@ -25,19 +25,19 @@ func TestMvCommand_SupportedFlags(t *testing.T) {
 	cmd := newMvCommand()
 	flags := cmd.SupportedFlags()
 
-	// Should have -f and -n flags at minimum
-	hasForce := false
+	// u-root mv defines -u and -n
+	hasUpdate := false
 	hasNoClobber := false
 	for _, f := range flags {
-		if f.Name == "f" || f.ShortName == "f" {
-			hasForce = true
+		if f.Name == "u" || f.ShortName == "u" {
+			hasUpdate = true
 		}
 		if f.Name == "n" || f.ShortName == "n" {
 			hasNoClobber = true
 		}
 	}
-	if !hasForce {
-		t.Error("SupportedFlags() should include -f flag")
+	if !hasUpdate {
+		t.Error("SupportedFlags() should include -u flag")
 	}
 	if !hasNoClobber {
 		t.Error("SupportedFlags() should include -n flag")

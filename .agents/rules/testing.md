@@ -55,6 +55,8 @@ All new test functions MUST call `t.Parallel()` unless they mutate global/proces
 
 Value-type path validators and resolvers that must behave identically across OSes are tested against the seven canonical vectors — UnixAbsolute (`/absolute/path`), WindowsDriveAbs (`C:\absolute\path`), WindowsRooted (`\absolute\path`), UNC (`\\server\share`), SlashTraversal (`a/../../escape`), BackslashTraversal (`a\..\..\escape`), ValidRelative (`tools`, `modules/tools`, `./tools`) — on every OS, using `internal/testutil/pathmatrix` (`Validator` / `Resolver`). This keeps Linux and macOS runs protective against Windows-only regressions.
 
+`TestPathMatrixSurfaces_AreCovered` finds path contracts by name, so a new production helper it lists that takes no path text (an error or file-mode classifier such as `isVirtualPathMissingVolume`) gets an exemption with its reason in `tests/coverage/pathmatrix_coverage_test.go`.
+
 ## Platform Coverage and Runtime Mirrors
 
 - **CRITICAL:** all user-facing features are tested on Linux, macOS AND Windows. CI: Linux runs the full suite (unit, integration, CLI, container); macOS and Windows run short unit tests plus CLI tests.

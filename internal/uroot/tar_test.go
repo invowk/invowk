@@ -34,13 +34,13 @@ func TestTarCommand_SupportedFlags(t *testing.T) {
 	hasExtract := false
 	hasFile := false
 	for _, f := range flags {
-		switch f.Name {
+		switch f.ShortName {
 		case "c":
 			hasCreate = true
 		case "x":
 			hasExtract = true
 		case "f":
-			hasFile = true
+			hasFile = f.TakesValue
 		}
 	}
 	if !hasCreate {
@@ -50,7 +50,7 @@ func TestTarCommand_SupportedFlags(t *testing.T) {
 		t.Error("SupportedFlags() should include -x flag")
 	}
 	if !hasFile {
-		t.Error("SupportedFlags() should include -f flag")
+		t.Error("SupportedFlags() should include -f, taking a value")
 	}
 }
 

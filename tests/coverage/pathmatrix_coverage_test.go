@@ -122,6 +122,14 @@ var (
 			testFile: "internal/runtime/lua_test.go",
 			reason:   "thin optional-value wrapper around the registered pkg/types.FilesystemPath.Validate path-dialect contract",
 		},
+		"internal/runtime.isVirtualPathLink": {
+			testFile: "internal/runtime/virtual_path_walk_formal_test.go",
+			reason:   "classifies an os.Lstat file mode as a link the virtual path walk follows; it takes no path text",
+		},
+		"internal/runtime.isVirtualPathMissingVolume": {
+			testFile: "internal/runtime/virtual_path_resolution_windows_test.go",
+			reason:   "classifies an os.Lstat error of a volume root as a missing drive or share; it takes no path text",
+		},
 		"internal/runtime.resolveVirtualFilesystemPaths": {
 			testFile: "internal/runtime/virtual_policy_test.go",
 			reason:   "virtual filesystem mappings are resolved by the virtual runtime policy and its configured path dialect",
@@ -138,25 +146,9 @@ var (
 			testFile: "internal/uroot/realpath_test.go",
 			reason:   "u-root resolution uses the virtual filesystem namespace and virtual working directory",
 		},
-		"internal/uroot.validateFindPathArgs": {
-			testFile: "internal/uroot/find_test.go",
-			reason:   "find arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validateNonOptionPathArgs": {
-			testFile: "internal/uroot/registry_preprocessing_test.go",
-			reason:   "utility arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validatePathArg": {
-			testFile: "internal/uroot/registry_preprocessing_test.go",
-			reason:   "single utility arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validateShasumPathArgs": {
-			testFile: "internal/uroot/shasum_test.go",
-			reason:   "shasum arguments are validated against the virtual filesystem policy",
-		},
-		"internal/uroot.validateTarPathArgs": {
-			testFile: "internal/uroot/tar_test.go",
-			reason:   "tar operands use archive and virtual-filesystem semantics",
+		"internal/uroot.HandlerContext.ResolveNoFollowPath": {
+			testFile: "internal/uroot/handler_nofollow_test.go",
+			reason:   "no-follow u-root resolution uses the virtual filesystem namespace and virtual working directory",
 		},
 		"internal/uroot.validateUrootCommandPathArgs": {
 			testFile: "internal/uroot/registry_preprocessing_test.go",

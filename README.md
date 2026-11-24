@@ -2397,6 +2397,19 @@ cmds: [
 
 `virtual.filesystem.access` defaults to `"restricted"`, which allows VM-controlled file operations only under implicit safe roots plus `virtual.filesystem.paths` roots. Set it to `"full"` only when those operations should be allowed to access normalized host filesystem paths after resolver checks. Path entries are named bridge handles: `virtual-sh` receives `INVOWK_PATH_<NAME>`, and `virtual-lua` resolves them with `invowk.path("<NAME>/file")`.
 
+Under `"restricted"` access a path is resolved before it is checked:
+
+- Every symbolic link and every Windows junction on the path is followed, also when the last parts of the path do not exist yet, and the resolved path must be inside an allowed root.
+- A link that leaves the allowed roots is denied at any depth with `virtual path denied`, including a dangling link whose missing target is outside. A link or junction whose target stays inside an allowed root works.
+- A path that cannot be resolved (a link cycle, a missing drive or share) is refused, and a `virtual.filesystem.paths` entry that cannot be resolved fails the command before the script runs.
+- On Linux, `/dev/stdout`, `/dev/stderr` and `/dev/stdin` cannot be opened as paths when the stream is a pipe; use `>&2` or `>&1`.
+
+With `"full"` access there is no allowed-root check, and a path that cannot be resolved is passed to the operating system as it is.
+
+Under both access modes a path that resolves is used in its resolved form: `INVOWK_PATH_<NAME>` values, `invowk.path` results and error messages show it, and most file operations on a link or junction follow it to its target, including `cd`, `cp` and the `mv` destination (a known difference from a host shell: `mv a link` with `link` pointing to a file replaces that file and keeps the link). The operations that act on the last component itself do not follow it: `rm` (also `-r`), the `mv` sources, `ln`'s link name, and the `-L` and `-h` tests, which are true for a symbolic link. `rm link` removes the link and keeps its target, also under `"restricted"` access when the target lies outside the allowed roots, and on Windows `rm -rf` of a junction removes the junction and keeps its target tree; their error messages name the link's own path. An operand of those operations that ends in a separator, `.` or `..` is resolved in full: `rm -r dirlink/` removes the target directory, and on a link to a file (`rm live/`, `mv live/ x`, `ln -sf t live/`) the command fails with `not a directory`, naming the resolved path; `ln` never replaces a directory: a link name that names one (`dir`, `dir/`, `dir/.`, `.`, or `link/` for a link to a directory) fails with `cannot overwrite directory` and removes nothing. On macOS a restricted `rm -r /tmp` is refused, because the link `/tmp` lies outside the allowed root `/private/tmp`.
+
+`cd` and the `-r`, `-w` and `-x` tests check access on the validated path, with links followed; under `"restricted"` access a path outside every allowed root makes those tests false, and `cd` to it fails with `cd: virtual path denied`. The built-in utilities find their operands the way each one parses its arguments: `--` ends the options, every operand is checked whatever it starts with, option values that name paths (such as `tar -f`) are checked, and so is the file `gzip` writes for each operand; `gzip -S` refuses a suffix that contains a path separator.
+
 Host binary policy remains runtime-scoped. `allowed_binaries` and `binary_lookup_mode` belong inside the selected `runtimes[]` entry and are not affected by filesystem access mode.
 
 ### Container Runtime

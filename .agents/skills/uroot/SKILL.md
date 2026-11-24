@@ -124,9 +124,49 @@ add avoidable unbounded heap growth.
 ## Path Policy
 
 - The runtime injects path validation for both virtual-sh and virtual-lua.
-- `Registry.Run()` pre-validates path arguments for upstream wrappers before dispatch.
+- `Registry.Run()` pre-validates path arguments for the validated upstream wrappers
+  (`base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`,
+  `touch`) before dispatch, in `urootCommandOperands` (`internal/uroot/registry_operands.go`).
+  It finds their operands as each wrapper's own parser does: the wrapper's preprocessing
+  (`unixflag.ArgsToGoArgs`, `find`'s `reorderArgs`, or none for `gzip`), then Go's `flag`
+  package with a flag set built from the wrapper's `FlagInfo`. A raw `--` before the
+  operands ends the options (the `ArgsToGoArgs` commands) and is not handed on. Every
+  operand is validated whatever it starts with, except `cat`'s lone `-` and the operands
+  of `tar` with only `-t`; `tar`'s `-f`/`-file` values and the file `gzip` writes for each
+  operand are validated too, and a `gzip -S` suffix with a path separator is refused.
+  Other option values pass as written. The wrapper receives the options, `--` and the
+  resolved operands, encoded so that its preprocessing gives them back; a re-read checks
+  that before it runs. A parse error hands the wrapper only the failing option.
+- Each validated wrapper's `FlagInfo` lists every option its u-root command defines, by its
+  Go `flag` name, with `TakesValue` exactly for the options that take a value.
+  `TestUrootFlagInfoMatchesUpstream` keeps the lists equal to u-root's, so a u-root bump that
+  changes an option fails it. A new validated upstream wrapper needs a row in
+  `urootOperandRules`, a full `FlagInfo` list, and a check of every path it derives from an
+  operand, as `gzip`'s output path has.
 - Custom commands that touch the filesystem should resolve user paths with
   `HandlerContext.ResolvePath` before `os.Open`, `os.Create`, `os.Link`, or similar calls.
+- `HandlerContext` has a second hook, `ValidateNoFollowPath`, read through
+  `ResolveNoFollowPath`, for an operand the command acts on itself without
+  following its last component: every `rm` operand, the `mv` sources (all but
+  the last of two or more operands) and `ln`'s link name. Use it for any new
+  operand that removes, renames or replaces the entry it names. A context
+  with only `ValidatePath` makes `ResolveNoFollowPath` refuse
+  (`errNoFollowValidatorMissing`), and one with only `ValidateNoFollowPath`
+  makes `ResolvePath` refuse (`errFollowValidatorMissing`); neither falls back
+  to the other form. A context with either hook goes through the operand
+  collector. Tests that drive `rm`, `mv` or `ln` under a validating context set
+  both hooks.
+- The no-follow hook puts back a trailing separator when the request named a
+  directory by its form (`dir/`). A command that removes or replaces the
+  entry must not rely on that separator alone: `dir/.` and `.` resolve to a
+  directory with no trailing separator. `ln` therefore refuses whenever
+  `os.Lstat` of the resolved link name is a directory (`dir`, `dir/`,
+  `dir/.`, `.`, `..`: "cannot overwrite directory") before its `-f` removal,
+  which would otherwise remove an empty directory. Lstat, not Stat: a link to
+  a directory named without a separator is still replaced as a link (PR #198
+  review).
+- The operand rules are chosen by the dispatched command's `Name()`, not by
+  `args[0]`, which is handed on as written.
 - The security boundary is normalized allowed-root validation, not symlink
   following by itself: following a symlink can expose its target path, and
   allowed-root validation decides whether that target may be accessed.
@@ -158,7 +198,7 @@ Combined short flags (`ln -sf`) are split centrally in `Registry.Run()` for cust
 
 - Register new custom commands in `BuildDefaultRegistry()` and do NOT embed `baseWrapper` in them; they then get combined-flag support automatically.
 - New upstream wrappers embed `baseWrapper` and skip central preprocessing.
-- Never call `unixflag.ArgsToGoArgs()` in an individual command, and never remove `baseWrapper` from an upstream wrapper (see Common Pitfalls).
+- Never call `unixflag.ArgsToGoArgs()` in an individual command, and never remove `baseWrapper` from an upstream wrapper (see Common Pitfalls). The registry's own `ArgsToGoArgs` call in the operand collector (Path Policy) only classifies a validated wrapper's arguments; the wrapper still preprocesses what it receives itself.
 
 ### Edge Cases
 
@@ -167,6 +207,8 @@ Combined short flags (`ln -sf`) are split centrally in `Registry.Run()` for cust
   That is not a valid POSIX end-of-options delimiter and must not be described
   as benign. If a custom command needs operands beginning with `-`, preserve
   and handle `--` before calling `ArgsToGoArgs`, and add an end-to-end test.
+  For the validated upstream wrappers under a validating context, the operand
+  collector already ends the options at a raw `--` (Path Policy).
 
 ---
 

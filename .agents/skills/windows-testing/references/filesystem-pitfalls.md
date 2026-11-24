@@ -223,7 +223,14 @@ Windows has two types of filesystem links:
   necessary privileges.
 - Tests that create symlinks should handle `os.IsPermission` errors and
   skip on Windows if needed.
-- `filepath.EvalSymlinks` works for both junction points and symlinks.
+- `filepath.EvalSymlinks` follows symlinks only. Since Go 1.23 a junction
+  (mount point) is `ModeIrregular` for `os.Lstat`, not `ModeSymlink` and not
+  `ModeDir`: `EvalSymlinks` returns a path that ends at a junction unchanged,
+  and fails for a path through one with an error that
+  `errors.Is(err, fs.ErrNotExist)` reports as true (windows-latest, CI run
+  44523520503). Never build containment on it. Resolve junctions with
+  `os.Lstat` plus `os.Readlink` per component (`walkVirtualPath` in
+  `internal/runtime/virtual_policy.go`), or read through `os.Root`.
 
 ### Mitigation
 
