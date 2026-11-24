@@ -399,6 +399,7 @@ func RunShScript(ctx context.Context, opts ShScriptOptions) error {
 		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
 		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
 		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
+		interp.CallHandler(pathValidator.cdCallHandler()),
 	}
 	if opts.WorkDir != "" {
 		runnerOpts = append(runnerOpts, interp.Dir(opts.WorkDir))
@@ -455,6 +456,7 @@ func (r *ShRuntime) prepareShExec(ctx *ExecutionContext, stdIO interp.RunnerOpti
 		interp.OpenHandler(pathValidator.openHandler(interp.DefaultOpenHandler())),
 		interp.ReadDirHandler2(pathValidator.readDirHandler(interp.DefaultReadDirHandler2())),
 		interp.StatHandler(pathValidator.statHandler(interp.DefaultStatHandler())),
+		interp.CallHandler(pathValidator.cdCallHandler()),
 	}
 
 	// Add positional parameters for shell access ($1, $2, etc.)
