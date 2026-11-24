@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -242,10 +243,12 @@ func TestClassifyModuleEnvFileError(t *testing.T) {
 
 // TestIsAbsoluteOnAnyOS: rooted and drive paths are absolute on every host,
 // relative names (a drive-like name without a separator included) are not.
-// Names such as "1:/x" are left out: the host fallback (filepath.IsAbs) treats
-// any volume letter as absolute on Windows and none on Unix.
+// Names with a non-letter volume ("1:/x", "::/x") follow the host fallback
+// (filepath.IsAbs): absolute on Windows, where any character before the colon
+// is a volume, and relative elsewhere.
 func TestIsAbsoluteOnAnyOS(t *testing.T) {
 	t.Parallel()
+	onWindows := runtime.GOOS == goosWindows
 	for path, want := range map[string]bool{
 		"":           false,
 		"/etc/x.env": true,
@@ -255,9 +258,11 @@ func TestIsAbsoluteOnAnyOS(t *testing.T) {
 		`c:\x.env`:   true,
 		"Z:/":        true,
 		"C:x.env":    false,
+		"1:/x.env":   onWindows,
 		"x.env":      false,
 		"sub/x.env":  false,
 		"./x.env":    false,
+		"::/x":       onWindows,
 	} {
 		if got := isAbsoluteOnAnyOS(path); got != want {
 			t.Errorf("isAbsoluteOnAnyOS(%q) = %v, want %v", path, got, want)

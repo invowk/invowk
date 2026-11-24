@@ -16,8 +16,10 @@ calibration). The remaining 419 distinct survivors were baselined as deferred
 mutated behaviour. No survivor was shown to be a product defect, so no finding
 id was allocated (F18 stays free). refresh-anchors-mutation-ledger (2026-11-19)
 replaced the 22 stale `standardVirtualAnchorsForOS` survivors with the 5 of its
-new body, so the ledger holds 402 (the baseline has 403 entries: one id,
-`e373a3eab97ff69c1b8c4c1d243ef4cb`, is listed twice).
+new body, which left 403 distinct ids in the ledger and in the baseline (no id
+is listed twice any more). The partial refresh of
+module-read-physical-containment (2026-11-19) removed 6 and added 35, so both
+now hold 432.
 
 ## Rows whose binding does not reach the function
 
@@ -27,8 +29,8 @@ it escaped. The binding reach gate (`make formal-reach`, harden-formal-instrumen
 `Server.ValidateToken`. Their status:
 
 - `Invowkfile.GetEffectiveWorkDir` (`pkg/invowkfile/invowkfile.go`, 20 survivors): **rebound** to `TestModulePathContainment_ContainerWorkDirGolden`, which calls it through `getContainerWorkDir`.
-- `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included. Calibration note (decision 11): the seeded defect "drop the `validateScriptPathContainment` call" survives, because it is redundant at this entry point, fully masked by `ScriptFilePath.Validate` (no input class is rejected only by `validateScriptPathContainment`; `TestModulePathContainment_ContainmentLayerGolden` binds that layer directly). The calibration seeds "resolve against the module's parent" instead, which the golden catches. This is not a ledger entry.
-- `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
+- `CustomCheckScript.ResolveWithFSAndModule` (`pkg/invowkfile/dependency.go`, 15 survivors until the 2026-11-19 refresh of module-read-physical-containment, 10 since): **rebound**; `TestModulePathContainment_GoldenVectors` replays it on every `ScriptRead` instance with a recording reader, F13 included. Calibration note (decision 11): the seeded defect "drop the `validateScriptPathContainment` call" survives, because it is redundant at this entry point, fully masked by `ScriptFilePath.Validate` (no input class is rejected only by `validateScriptPathContainment`; `TestModulePathContainment_ContainmentLayerGolden` binds that layer directly). The calibration seeds "resolve against the module's parent" instead, which the golden catches. This is not a ledger entry.
+- `LoadEnvFile` (`internal/runtime/dotenv.go`, 11 survivors until the 2026-11-19 refresh of module-read-physical-containment, 32 since): **rebound**; the golden calls it on every `EnvRead` instance of an admitted module that `ValidateEnvFilePath` accepts, F17 included.
 - `newVirtualPathResolverForFilesystem` (`internal/runtime/virtual_policy.go`, 12 survivors): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `VirtualFilesystemConfig.EffectiveAccess` (`pkg/invowkfile/virtual_filesystem.go`, 1 survivor): **rebound** to `TestVirtualPathHarness_RootConstruction`.
 - `validateDestinationPath` (`internal/app/moduleops/packaging.go`, 12 survivors): **unbound** (decision 5). The model's destination check, `unpackInside[destCheck]`, transcribes `normalizeZIPPath` followed by this function; alone it accepts an `AbsPath` name, and after `normalizeZIPPath` its rejection is unreachable on POSIX.
@@ -129,7 +131,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### LoadEnvFile
 
-`internal/runtime/dotenv.go`. Refreshed by module-read-physical-containment (2026-11-19): the golden replay calls LoadEnvFile with the module root on every admitted, validated `EnvRead` vector, so its verdict binds the contained read. Its remaining binding gaps are branches the golden never reaches: the absolute and lexical pre-checks (masked by `ValidateEnvFilePath`), the `filepath.Rel` failure, the `OpenRoot` error branches (the golden module roots always exist), the optional skip, and the read-error wrapping. `TestLoadEnvFile_ModuleContext`, `TestLoadEnvFile_ModuleRootMissing` and `TestLoadEnvFile_ModuleRootNotADirectory` kill most of them; binding them to the `readOp | LoadEnvFile` row would close the gaps (`TestLoadEnvFile_ModuleNoSearchPermission` would first need its skips moved to an fstree-style helper). The lexical pre-check mutants that os.Root's own escape rejection masks are `equivalent`.
+`internal/runtime/dotenv.go`, 32 survivors (11 before 2026-11-19). Refreshed by module-read-physical-containment (2026-11-19): the golden replay calls LoadEnvFile with the module root on every admitted, validated `EnvRead` vector, so its verdict binds the contained read. Its remaining binding gaps are branches the golden never reaches: the absolute and lexical pre-checks (masked by `ValidateEnvFilePath`), the `filepath.Rel` failure, the `OpenRoot` error branches (the golden module roots always exist), the optional skip, and the read-error wrapping. `TestLoadEnvFile_ModuleContext`, `TestLoadEnvFile_ModuleRootMissing` and `TestLoadEnvFile_ModuleRootNotADirectory` kill most of them; binding them to the `readOp | LoadEnvFile` row would close the gaps (`TestLoadEnvFile_ModuleNoSearchPermission` would first need its skips moved to an fstree-style helper). The lexical pre-check mutants are not equivalent: os.Root's own escape rejection masks them only while the module root opens. With a missing module root, or one that is not a directory, a leaving path (`..`, `../x`) or a `filepath.Rel` failure no longer returns `ErrEnvFileOutsideModule`: an optional file is skipped and a required one fails with a read error (a plain read error for both when the root is not a directory). No content is read, so this is verdict drift, not a leak. They stay deferred binding gaps until bound tests cover those cases: lexical-escape cases (`..` and `../x`, optional and required) for a missing module root and for a module root that is not a directory, and a `filepath.Rel`-failure case (a relative `basePath` under an absolute module root). The read-error wrapping mutant is already killed by `TestLoadEnvFile_ModuleContext/required_missing_file`, which the `readOp | LoadEnvFile` row does not name.
 
 ### readModuleEnvFileWith
 
@@ -181,7 +183,7 @@ explicit abstraction note (`I/O errors are not modelled`) on their rows.
 
 ### CustomCheckScript.ResolveWithFSAndModule
 
-`pkg/invowkfile/dependency.go`, 15 survivors. The golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function. Since harden-formal-instruments the golden replays it; its `validateScriptPathContainment` call is redundant at this entry point (fully masked by `ScriptFilePath.Validate`), so a mutant that drops it is expected to survive here and is caught only by the containment-layer golden.
+`pkg/invowkfile/dependency.go`, 10 survivors (15 before 2026-11-19). The golden replay never calls CustomCheckScript.ResolveWithFSAndModule (only the F13 characterisation test does), so the row's binding does not reach the function. Since harden-formal-instruments the golden replays it; its `validateScriptPathContainment` call is redundant at this entry point (fully masked by `ScriptFilePath.Validate`), so a mutant that drops it is expected to survive here and is caught only by the containment-layer golden.
 
 ### Implementation.ResolveScriptWithFSAndModule
 

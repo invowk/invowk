@@ -109,12 +109,14 @@ func rootStat(stat func(string) (fs.FileInfo, error), rel string) (fi fs.FileInf
 
 // judgeRootResolverPanic decides a path whose os.Root Stat panicked. The panic
 // only arises for a link that resolves to a directory inside the root, and a
-// directory yields no content, so the path is passed on (contained) when it is
-// a directory whose fully resolved path stays under the resolved module
-// directory; the reader then reports the read error, as it does on the other
-// platforms. Anything else, a directory outside the module included, fails
-// closed as an escape, so the verdict never rests on the reader rejecting
-// directories.
+// directory yields no content, so the path is passed on (contained) when
+// os.Stat reports a directory and filepath.EvalSymlinks places it under the
+// resolved module directory; the reader then reports the read error, as it does
+// on the other platforms. Anything else fails closed as an escape: a path that
+// is not a directory, a resolution error, a directory EvalSymlinks resolves
+// outside the module. A link EvalSymlinks may leave unresolved (a Windows
+// junction) is passed on by the os.Stat check alone, which is safe only
+// because a directory holds no content.
 func judgeRootResolverPanic(scriptPath, modulePath FilesystemPath, cause error) (absent bool, err error) {
 	if fi, statErr := os.Stat(string(scriptPath)); statErr == nil && fi.IsDir() && resolvesUnder(scriptPath, modulePath) {
 		return false, nil

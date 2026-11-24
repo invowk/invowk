@@ -104,10 +104,10 @@ func LoadEnvFile(env map[string]string, path, basePath, moduleRoot string) error
 
 // isAbsoluteOnAnyOS reports whether a module env path is absolute on any
 // platform: rooted with a slash or a backslash, a Windows drive path ("C:/x"
-// or its backslash form), or absolute on this host. A module env path comes
-// from CUE, so the verdict must not depend on the host (filepath.IsAbs alone
-// treats "/x" as relative on Windows); ValidateEnvFilePath applies the same
-// rule at parse time.
+// or its backslash form), or absolute on this host. The rooted and drive forms
+// get the same verdict on every host (filepath.IsAbs alone treats "/x" as
+// relative on Windows), as in ValidateEnvFilePath at parse time. The host
+// fallback adds what only this host calls absolute: "1:/x" on Windows.
 //
 //goplint:ignore -- path is the raw CUE env.files entry, already validated at parse time.
 func isAbsoluteOnAnyOS(path string) bool {
