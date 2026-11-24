@@ -11,6 +11,10 @@ import (
 	"os"
 )
 
+// errLnLinkNameIsDirectory refuses a link name that ends in a separator and
+// names an existing directory: ln never replaces a directory.
+var errLnLinkNameIsDirectory = errors.New("cannot overwrite directory")
+
 // lnCommand implements the ln utility.
 // It creates hard or symbolic links between files.
 type lnCommand struct {
@@ -64,6 +68,17 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 		return wrapError(c.name, err)
 	}
 	linkName = resolvedLinkName
+
+	// A link name that still ends in a separator names a directory: the
+	// no-follow validator refuses one that resolves to a file. ln never
+	// replaces a directory, since -f would remove an empty one and the link
+	// cannot be created at a path that ends in a separator, so it refuses
+	// before anything is removed.
+	if linkName != "" && os.IsPathSeparator(linkName[len(linkName)-1]) {
+		if info, statErr := os.Stat(linkName); statErr == nil && info.IsDir() {
+			return wrapError(c.name, fmt.Errorf("%s: %w", linkName, errLnLinkNameIsDirectory))
+		}
+	}
 
 	// For hard links, resolve the target to an absolute path. For symlinks,
 	// preserve the user-provided target as-is because os.Symlink stores the

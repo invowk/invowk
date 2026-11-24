@@ -51,6 +51,10 @@ func TestVirtualShAccessCdThroughLinks(t *testing.T) {
 			if run.exit != 0 || run.stdout != "in-target\n" {
 				t.Fatalf("cd j = %+v, want status 0 and the target's file", run)
 			}
+			run = runVirtualShTest(t, work, "[ -x j ] && [ -r j/file.txt ] && echo access-through-junction", access)
+			if run.stdout != "access-through-junction\n" {
+				t.Fatalf("[ -x j ] && [ -r j/file.txt ] = %+v, want true", run)
+			}
 		})
 	}
 }
@@ -71,6 +75,38 @@ func TestVirtualShAccessFileTestsOnLinks(t *testing.T) {
 			want := "r-live\nx-dirlink\nL-live\nL-dirlink\n"
 			if run.stdout != want {
 				t.Fatalf("file tests = %+v, want stdout %q", run, want)
+			}
+		})
+	}
+}
+
+// TestVirtualShAccessRunnerDeniesOutsideRoots runs the -r, -w and -x tests
+// through the real ShRuntime, so it fails when a runner setup does not
+// register the access handler: under restricted access a path outside every
+// allowed root tests false, and under full access it tests true.
+func TestVirtualShAccessRunnerDeniesOutsideRoots(t *testing.T) {
+	t.Parallel()
+	outside := outsideVirtualRootsDir(t)
+	outFile := filepath.Join(outside, "f")
+	writeTestFile(t, outFile, "outside")
+	script := strings.Join([]string{
+		`[ -r ` + shQuote(outFile) + ` ] && echo r-out`,
+		`[ -w ` + shQuote(outFile) + ` ] && echo w-out`,
+		`[ -x ` + shQuote(outside) + ` ] && echo x-out`,
+		`[ -r live ] && echo r-live`,
+	}, "\n")
+	for _, tt := range []struct {
+		access invowkfile.VirtualFilesystemAccess
+		want   string
+	}{
+		{invowkfile.VirtualFilesystemAccessRestricted, "r-live\n"},
+		{invowkfile.VirtualFilesystemAccessFull, "r-out\nw-out\nx-out\nr-live\n"},
+	} {
+		t.Run(string(tt.access), func(t *testing.T) {
+			t.Parallel()
+			work := linkTestTree(t)
+			if run := runVirtualShTest(t, work, script, tt.access); run.stdout != tt.want {
+				t.Errorf("file tests = %+v, want stdout %q", run, tt.want)
 			}
 		})
 	}

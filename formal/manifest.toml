@@ -1638,7 +1638,21 @@ WalkOverFakeFilesystem and NoFollowOperands; virtualPathWalker.unresolvedLink \
 "drop the missing components" fails the golden replay; \
 normalizeVirtualPathForAccess "full access returns the cleaned path even \
 when the walk resolves" fails NoFollowOperands. The binding reach gate \
-reaches every new (row, killer, function) triple on Linux and skips none."""
+reaches every new (row, killer, function) triple on Linux and skips none. \
+Same change, fix-stage review (PR #198): the full-access fallback forms of \
+normalizeVirtualPathForAccess bind TestVirtualPathFullAccessFallback, and the \
+not-a-directory branch of resolveNoFollow and validateNoFollow binds \
+TestVirtualPathNoFollowValidatorDirectoryCheck; validateNoFollow's \
+allowed-root check is written out in it, so its row covers it. Seeded one at \
+a time and reverted (go test -overlay), with the bindings that fail: \
+"full access ignores the outermost link's own path" and "full access \
+returns the walk's error instead of the cleaned path" fail \
+TestVirtualPathFullAccessFallback only; "resolveNoFollow ignores a request \
+that names a directory" and "validateNoFollow skips the not-a-directory \
+check" fail TestVirtualPathNoFollowValidatorDirectoryCheck only; \
+"validateNoFollow skips the allowed-root check" fails NoFollowOperands; \
+"validateNoFollow negates pathWithin" fails NoFollowOperands and \
+TestVirtualPathNoFollowValidatorDirectoryCheck."""
 
 [model.golden]
 command = "golden"

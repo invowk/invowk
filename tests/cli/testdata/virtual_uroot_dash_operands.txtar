@@ -12,8 +12,7 @@
 #
 # The outside entries must lie outside every allowed root. Off Windows /tmp is
 # always a root and $WORK is normally below it, so the test uses fixed entries
-# below /var/tmp, removed before every step. The dash-prefixed operand climbs
-# from the working directory to the outside directory.
+# below /var/tmp, removed before every step.
 
 [!windows] env OUTSIDE=/var/tmp
 [windows] env OUTSIDE=$WORK/outside

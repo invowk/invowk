@@ -17,6 +17,11 @@ import (
 // path exists and is not a directory. Its text is "<path>: not a directory"
 // on every platform, and it unwraps to syscall.ENOTDIR, whose own text is the
 // system's (on Windows "The system cannot find the path specified.").
+//
+// On Windows syscall.ENOTDIR is ERROR_PATH_NOT_FOUND, so errors.Is reports
+// this error as fs.ErrNotExist there, and not on Unix. A caller that
+// tolerates a missing path (rm -f) must therefore never see it: the registry
+// returns it before the built-in runs.
 type virtualPathNotDirectoryError struct {
 	//goplint:ignore -- raw OS path of the refused request, used only in the error text.
 	path string
@@ -93,8 +98,20 @@ func (v virtualPathValidator) validateNoFollow(cwd, path string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	if !v.withinAllowedRoots(resolved) {
-		return "", virtualPolicyDenyError(errVirtualPathDenied, resolved)
+	// The allowed-root check of validate, on the no-follow path. It is
+	// written out here, not shared with validate through a helper, so that the
+	// correspondence row of validateNoFollow covers it.
+	if v.resolver.access != invowkfile.VirtualFilesystemAccessFull {
+		allowed := false
+		for _, root := range v.resolver.allowedRoots {
+			if pathWithin(root, resolved) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return "", virtualPolicyDenyError(errVirtualPathDenied, resolved)
+		}
 	}
 	if !dirCheck {
 		return resolved, nil
@@ -106,22 +123,6 @@ func (v virtualPathValidator) validateNoFollow(cwd, path string) (string, error)
 		resolved += string(filepath.Separator)
 	}
 	return resolved, nil
-}
-
-// withinAllowedRoots reports whether path may be used: always under full
-// access, and under restricted access when it lies inside an allowed root.
-//
-//goplint:ignore -- raw OS path string.
-func (v virtualPathValidator) withinAllowedRoots(path string) bool {
-	if v.resolver.access == invowkfile.VirtualFilesystemAccessFull {
-		return true
-	}
-	for _, root := range v.resolver.allowedRoots {
-		if pathWithin(root, path) {
-			return true
-		}
-	}
-	return false
 }
 
 // virtualPathNamesDirectory reports whether a raw request names a directory

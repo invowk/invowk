@@ -203,6 +203,42 @@ func TestUrootCommandOperandsDashOperandDenied(t *testing.T) {
 	}
 }
 
+// TestUrootCommandOperandsKeyedOnTheDispatchedCommand: the rules follow the
+// command Registry.Run dispatches, not the program name in args[0], which is
+// handed on as written; an empty argument list is the bare command.
+func TestUrootCommandOperandsKeyedOnTheDispatchedCommand(t *testing.T) {
+	t.Parallel()
+	root, dir := operandTestRoot(t)
+	outside := filepath.Join(filepath.Dir(root), "outside", "x")
+	validator := &operandTestValidator{root: root}
+	r, wrapper := newRecordingRegistry("cat")
+	var stdout, stderr bytes.Buffer
+	ctx := WithHandlerContext(t.Context(), validator.handler(dir, &stdout, &stderr))
+	program := filepath.Join(string(filepath.Separator)+"bin", "cat")
+
+	err := r.Run(ctx, "cat", []string{program, "a", outside})
+	if !errors.Is(err, errOperandTestDenied) {
+		t.Fatalf("Run(cat, [%s a %s]) error = %v, want the denial", program, outside, err)
+	}
+	if _, called := wrapper.received(); called {
+		t.Fatal("cat ran after a denial")
+	}
+
+	if err := r.Run(ctx, "cat", []string{program, "a"}); err != nil {
+		t.Fatalf("Run(cat, [%s a]) = %v", program, err)
+	}
+	if received, _ := wrapper.received(); len(received) == 0 || received[0] != program {
+		t.Errorf("cat received %q, want the program name %s first", received, program)
+	}
+
+	if err := r.Run(ctx, "cat", nil); err != nil {
+		t.Fatalf("Run(cat, nil) = %v", err)
+	}
+	if received, _ := wrapper.received(); len(received) == 0 || received[0] != "cat" {
+		t.Errorf("cat with no arguments received %q, want the bare command", received)
+	}
+}
+
 func TestUrootCommandOperandsDoubleDash(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{urootCommandBase64, "cat", "cp", "ls", "mkdir", "mv", "rm", urootCommandShasum, "touch", "gzip"} {

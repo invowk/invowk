@@ -247,6 +247,21 @@ func TestVirtualPathNoFollowTrailingSeparator(t *testing.T) {
 				assertPathMissing(t, filepath.Join(work, "tdir"))
 				assertIsLink(t, filepath.Join(work, "dirlink"))
 			})
+			for _, linkName := range []string{"dir/", "emptylink/"} {
+				t.Run("ln -sf t "+linkName+" keeps the directory", func(t *testing.T) {
+					t.Parallel()
+					work := linkTestTree(t)
+					fstree.MustSymlink(t, "dir", filepath.Join(work, "emptylink"))
+					run := runVirtualShTest(t, work, "ln -sf target.txt "+linkName, access)
+					if run.exit == 0 || !strings.Contains(run.stderr, "cannot overwrite directory") {
+						t.Fatalf("ln -sf target.txt %s = %+v, want \"cannot overwrite directory\"", linkName, run)
+					}
+					if info, err := os.Lstat(filepath.Join(work, "dir")); err != nil || !info.IsDir() {
+						t.Errorf("dir after ln -sf target.txt %s: %v, %v; want the directory kept", linkName, info, err)
+					}
+					assertIsLink(t, filepath.Join(work, "emptylink"))
+				})
+			}
 			t.Run("[ -L live/ ] tests the cleaned operand", func(t *testing.T) {
 				t.Parallel()
 				work := linkTestTree(t)

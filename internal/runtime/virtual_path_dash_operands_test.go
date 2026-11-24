@@ -18,9 +18,8 @@ import (
 // (design D4, D8): each operand is classified the way the built-in parses it
 // and validated, whatever it starts with.
 
-// dashOperand returns a relative operand that starts with "-" and names
-// target from work: "-", then enough ".." to reach the volume root, then
-// target's path below its volume root. Cleaning drops the "-" component.
+// dashOperand returns a relative operand that starts with "-" and, read from
+// work, names target.
 func dashOperand(t *testing.T, work, target string) string {
 	t.Helper()
 	sep := string(filepath.Separator)

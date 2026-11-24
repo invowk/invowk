@@ -174,6 +174,10 @@ An `rm` operand, an `mv` source or `ln`'s link name that ends in a separator, `.
 - **WHEN** a virtual script runs `rm -r dirlink/`, where `dirlink` is a symbolic link to a directory inside the allowed roots
 - **THEN** the target directory and its contents SHALL be removed, and `dirlink` SHALL remain
 
+#### Scenario: ln with a trailing separator on a directory
+- **WHEN** a virtual script runs `ln -sf t dir/` or `ln -sf t emptylink/`, where `dir` is an empty directory and `emptylink` a symbolic link to it, under either access mode
+- **THEN** `ln` SHALL fail with a "cannot overwrite directory" error before it removes anything, and `dir` and `emptylink` SHALL remain
+
 #### Scenario: The mv destination and a hard-link target
 - **WHEN** a virtual script names the `mv` destination or a hard link's target with a trailing separator
 - **THEN** it SHALL keep full resolution with no not-a-directory check

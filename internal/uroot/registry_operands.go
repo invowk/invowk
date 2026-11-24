@@ -113,7 +113,11 @@ func (f recordingFlag) IsBoolFlag() bool { return f.isBool }
 
 // urootCommandOperands validates the path operands of a validated upstream
 // built-in (urootOperandRules) and returns the argument list the built-in
-// runs with. args holds the command name in args[0].
+// runs with. args holds the program name in args[0], which is handed on as it
+// is; the rules and hooks are chosen by cmd.Name(), the command Registry.Run
+// dispatches, so a program name that differs from it (a path-qualified name,
+// for example) never leaves a validated built-in's operands unvalidated. An
+// empty args list is read as the bare command.
 //
 // It reads the arguments as the built-in's own parser does: the built-in's
 // preprocessing (unixflag.ArgsToGoArgs, find's reorderArgs, or none for gzip),
@@ -133,18 +137,22 @@ func (f recordingFlag) IsBoolFlag() bool { return f.isBool }
 // arguments, the built-in receives only the option that failed, so it reports
 // its own error and no operand reaches it.
 func urootCommandOperands(hc *HandlerContext, cmd Command, args []string) ([]string, error) {
-	name := args[0]
+	name := cmd.Name()
 	preprocess, ok := urootOperandRules[name]
 	if !ok {
 		return args, nil
 	}
+	if len(args) == 0 {
+		args = []string{name}
+	}
+	program := args[0]
 	flags := cmd.SupportedFlags()
 	parsed, failing, err := readUrootArgs(preprocess, flags, args[1:], true)
 	if err != nil {
 		if failing == "" {
 			return nil, fmt.Errorf("%w: %w", errUrootParseFailure, err)
 		}
-		return []string{name, encodeUrootFailingOption(preprocess, failing)}, nil
+		return []string{program, encodeUrootFailingOption(preprocess, failing)}, nil
 	}
 	resolved, err := resolveUrootArgs(hc, name, parsed)
 	if err != nil {
@@ -159,7 +167,7 @@ func urootCommandOperands(hc *HandlerContext, cmd Command, args []string) ([]str
 	if err := checkUrootRebuild(preprocess, flags, rebuilt, resolved); err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	return append([]string{name}, rebuilt...), nil
+	return append([]string{program}, rebuilt...), nil
 }
 
 // readUrootArgs reads raw as a built-in with the given preprocessing reads it.

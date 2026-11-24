@@ -688,9 +688,12 @@ func missingVirtualPathSuffix(missing string, rest []string) ([]string, error) {
 }
 
 // isVirtualPathLink reports whether an entry is a link the walk follows: a
-// symbolic link, or an irregular entry that is not a directory. On Windows the
-// latter is a name-surrogate reparse point such as a junction, which os.Lstat
-// reports with neither ModeSymlink nor ModeDir.
+// symbolic link, or an irregular entry that is not a directory. On Windows
+// os.Lstat reports ModeIrregular, and neither ModeSymlink nor ModeDir, for a
+// name-surrogate reparse point such as a junction, and also for every other
+// reparse tag except SYMLINK, AF_UNIX and DEDUP (an AppExecLink alias, for
+// example). The walk treats all of them as links: one whose target os.Readlink
+// cannot read fails the walk, so it is refused under restricted access.
 func isVirtualPathLink(mode fs.FileMode) bool {
 	return mode&fs.ModeSymlink != 0 || (mode&fs.ModeIrregular != 0 && mode&fs.ModeDir == 0)
 }
