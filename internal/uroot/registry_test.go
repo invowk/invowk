@@ -257,6 +257,8 @@ func TestRegistry_Run_CommandError(t *testing.T) {
 func TestRegistry_Run_TarPathValidation(t *testing.T) {
 	t.Parallel()
 
+	// The registry rebuilds the list as options, "--" and operands, with one
+	// more "-" on each leading argument, which ArgsToGoArgs takes off again.
 	tests := []struct {
 		name string
 		args []string
@@ -265,27 +267,30 @@ func TestRegistry_Run_TarPathValidation(t *testing.T) {
 		{
 			name: "archive and create operands",
 			args: []string{"tar", "-cf", "archive.tar", "src"},
-			want: []string{"tar", "-cf", "/checked/archive.tar", "/checked/src"},
+			want: []string{"tar", "--c", "--f=/checked/archive.tar", "---", "/checked/src"},
 		},
 		{
-			name: "inline archive flag value",
+			// ArgsToGoArgs splits -cfarchive.tar into single letters (-f
+			// takes "-a" as its value, and -r is undefined), so the built-in
+			// itself rejects it; only the failing option reaches it.
+			name: "combined archive flag value",
 			args: []string{"tar", "-cfarchive.tar", "src"},
-			want: []string{"tar", "-cf/checked/archive.tar", "/checked/src"},
+			want: []string{"tar", "--r"},
 		},
 		{
 			name: "list archive does not rewrite member filters",
 			args: []string{"tar", "-tf", "archive.tar", "member.txt"},
-			want: []string{"tar", "-tf", "/checked/archive.tar", "member.txt"},
+			want: []string{"tar", "--t", "--f=/checked/archive.tar", "---", "member.txt"},
 		},
 		{
 			name: "long file flag",
 			args: []string{"tar", "--file", "archive.tar"},
-			want: []string{"tar", "--file", "/checked/archive.tar"},
+			want: []string{"tar", "--file=/checked/archive.tar", "---"},
 		},
 		{
 			name: "inline long file flag",
 			args: []string{"tar", "--file=archive.tar"},
-			want: []string{"tar", "--file=/checked/archive.tar"},
+			want: []string{"tar", "--file=/checked/archive.tar", "---"},
 		},
 	}
 
@@ -294,7 +299,7 @@ func TestRegistry_Run_TarPathValidation(t *testing.T) {
 			t.Parallel()
 
 			r := NewRegistry()
-			cmd := &nativePreprocessorMock{name: "tar"}
+			cmd := &nativePreprocessorMock{baseWrapper: newTarCommand().baseWrapper}
 			r.Register(cmd)
 			ctx := WithHandlerContext(t.Context(), &HandlerContext{
 				Dir: "/work",
@@ -317,7 +322,7 @@ func TestRegistry_Run_TarPathValidationRejectsArchive(t *testing.T) {
 	t.Parallel()
 
 	r := NewRegistry()
-	cmd := &nativePreprocessorMock{name: "tar"}
+	cmd := &nativePreprocessorMock{baseWrapper: newTarCommand().baseWrapper}
 	r.Register(cmd)
 	deniedErr := errors.New("denied")
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
@@ -349,7 +354,7 @@ func TestRegistry_Run_ShasumSkipsAlgorithmFlagValues(t *testing.T) {
 	t.Parallel()
 
 	r := NewRegistry()
-	cmd := &nativePreprocessorMock{name: "shasum"}
+	cmd := &nativePreprocessorMock{baseWrapper: newShasumCommand().baseWrapper}
 	r.Register(cmd)
 	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Dir: "/work",
@@ -362,7 +367,7 @@ func TestRegistry_Run_ShasumSkipsAlgorithmFlagValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	want := []string{"shasum", "-a", "256", "/checked/hello.txt"}
+	want := []string{"shasum", "--a=256", "---", "/checked/hello.txt"}
 	if strings.Join(cmd.args, "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("shasum args = %v, want %v", cmd.args, want)
 	}

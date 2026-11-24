@@ -34,6 +34,11 @@ func runVirtualShTest(t *testing.T, work, script string, access invowkfile.Virtu
 	if result.Error != nil && result.ExitCode == 0 {
 		t.Fatalf("virtual-sh run failed: %v", result.Error)
 	}
+	// A failing u-root built-in reports through the result's error, not
+	// through the script's standard error.
+	if result.Error != nil {
+		stderr.WriteString(result.Error.Error())
+	}
 	return virtualShTestRun{stdout: stdout.String(), stderr: stderr.String(), exit: int(result.ExitCode)}
 }
 

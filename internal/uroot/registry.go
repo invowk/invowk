@@ -7,20 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
 
 const (
-	tarFileLongFlagPrefix = "--file="
-	urootCommandBase64    = "base64"
-	urootCommandBasename  = "basename"
-	urootCommandDirname   = "dirname"
-	urootCommandMktemp    = "mktemp"
-	urootCommandRealpath  = "realpath"
-	urootCommandShasum    = "shasum"
+	urootCommandBase64   = "base64"
+	urootCommandBasename = "basename"
+	urootCommandDirname  = "dirname"
+	urootCommandMktemp   = "mktemp"
+	urootCommandRealpath = "realpath"
+	urootCommandShasum   = "shasum"
 )
 
 // ErrCommandNotFound indicates that a u-root command name is not registered.
@@ -32,13 +30,6 @@ type (
 	Registry struct {
 		mu       sync.RWMutex
 		commands map[string]Command
-	}
-
-	tarPathValidator struct {
-		args             []string
-		createMode       bool
-		fileValueIndexes map[int]struct{}
-		operandIndexes   []int
 	}
 )
 
@@ -112,7 +103,7 @@ func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 		args = append([]string{args[0]}, preprocessed...)
 	}
 	var validateErr error
-	args, validateErr = validateUrootCommandPathArgs(ctx, name, args)
+	args, validateErr = validateUrootCommandPathArgs(ctx, cmd, args)
 	if validateErr != nil {
 		return wrapError(name, validateErr)
 	}
@@ -120,233 +111,17 @@ func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 	return cmd.Run(ctx, args)
 }
 
-func validateUrootCommandPathArgs(ctx context.Context, name string, args []string) ([]string, error) {
+// validateUrootCommandPathArgs returns the arguments cmd runs with. Under a
+// validating context (pathValidatingHandlerContext) the operands of every
+// validated upstream built-in are found and resolved as urootCommandOperands
+// describes; otherwise, and for every other command, args are returned as
+// they are.
+func validateUrootCommandPathArgs(ctx context.Context, cmd Command, args []string) ([]string, error) {
 	hc, ok := pathValidatingHandlerContext(ctx)
 	if !ok {
 		return args, nil
 	}
-	switch name {
-	case urootCommandBase64, "cat", "cp", "gzip", "ls", "mkdir", "mv", "rm", urootCommandShasum, "touch":
-		if name == urootCommandShasum {
-			return validateShasumPathArgs(hc, args)
-		}
-		return validateNonOptionPathArgs(hc, args)
-	case "find":
-		return validateFindPathArgs(hc, args)
-	case "tar":
-		return validateTarPathArgs(hc, args)
-	default:
-		return args, nil
-	}
-}
-
-func validateNonOptionPathArgs(hc *HandlerContext, args []string) ([]string, error) {
-	validated := append([]string(nil), args...)
-	for i := 1; i < len(validated); i++ {
-		arg := validated[i]
-		switch {
-		case arg == "--":
-			for j := i + 1; j < len(validated); j++ {
-				if err := validatePathArg(hc, validated, j); err != nil {
-					return nil, err
-				}
-			}
-			return validated, nil
-		case arg == "-" || strings.HasPrefix(arg, "-"):
-			continue
-		default:
-			if err := validatePathArg(hc, validated, i); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return validated, nil
-}
-
-func validateFindPathArgs(hc *HandlerContext, args []string) ([]string, error) {
-	validated := append([]string(nil), args...)
-	for i := 1; i < len(validated); i++ {
-		arg := validated[i]
-		if arg == "--" {
-			continue
-		}
-		if strings.HasPrefix(arg, "-") || strings.ContainsAny(arg, `()!`) {
-			break
-		}
-		if err := validatePathArg(hc, validated, i); err != nil {
-			return nil, err
-		}
-	}
-	return validated, nil
-}
-
-func validateShasumPathArgs(hc *HandlerContext, args []string) ([]string, error) {
-	validated := append([]string(nil), args...)
-	for i := 1; i < len(validated); i++ {
-		arg := validated[i]
-		switch {
-		case arg == "--":
-			for j := i + 1; j < len(validated); j++ {
-				if err := validatePathArg(hc, validated, j); err != nil {
-					return nil, err
-				}
-			}
-			return validated, nil
-		case arg == "-a" || arg == "-algorithm" || arg == "--algorithm":
-			i++
-			continue
-		case strings.HasPrefix(arg, "-a="),
-			strings.HasPrefix(arg, "-algorithm="),
-			strings.HasPrefix(arg, "--algorithm="):
-			continue
-		case arg == "-" || strings.HasPrefix(arg, "-"):
-			continue
-		default:
-			if err := validatePathArg(hc, validated, i); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return validated, nil
-}
-
-func validateTarPathArgs(hc *HandlerContext, args []string) ([]string, error) {
-	validator := newTarPathValidator(args)
-	if err := validator.scan(hc); err != nil {
-		return nil, err
-	}
-	if err := validator.validateFileValues(hc); err != nil {
-		return nil, err
-	}
-	if err := validator.validateCreateOperands(hc); err != nil {
-		return nil, err
-	}
-	return validator.args, nil
-}
-
-func newTarPathValidator(args []string) tarPathValidator {
-	validated := append([]string(nil), args...)
-	return tarPathValidator{
-		args:             validated,
-		fileValueIndexes: make(map[int]struct{}),
-		operandIndexes:   make([]int, 0, len(validated)),
-	}
-}
-
-func (v *tarPathValidator) scan(hc *HandlerContext) error {
-	for i := 1; i < len(v.args); i++ {
-		next, done, err := v.scanArg(hc, i)
-		if err != nil {
-			return err
-		}
-		if done {
-			break
-		}
-		i = next
-	}
-	return nil
-}
-
-func (v *tarPathValidator) scanArg(hc *HandlerContext, index int) (next int, done bool, err error) {
-	arg := v.args[index]
-	switch {
-	case arg == "--":
-		v.addOperandIndexes(index + 1)
-		return index, true, nil
-	case arg == "--file":
-		return v.markNextFileValue(index), false, nil
-	case strings.HasPrefix(arg, tarFileLongFlagPrefix):
-		return index, false, v.resolveInlineLongFileFlag(hc, index)
-	case strings.HasPrefix(arg, "-") && arg != "-":
-		return v.scanShortFlags(hc, index)
-	default:
-		v.operandIndexes = append(v.operandIndexes, index)
-		return index, false, nil
-	}
-}
-
-func (v *tarPathValidator) addOperandIndexes(start int) {
-	for i := start; i < len(v.args); i++ {
-		v.operandIndexes = append(v.operandIndexes, i)
-	}
-}
-
-func (v *tarPathValidator) markNextFileValue(index int) int {
-	if index+1 < len(v.args) {
-		index++
-		v.fileValueIndexes[index] = struct{}{}
-	}
-	return index
-}
-
-func (v *tarPathValidator) resolveInlineLongFileFlag(hc *HandlerContext, index int) error {
-	value, _ := strings.CutPrefix(v.args[index], tarFileLongFlagPrefix)
-	resolved, err := hc.ResolvePath(value)
-	if err != nil {
-		return err
-	}
-	v.args[index] = tarFileLongFlagPrefix + resolved
-	return nil
-}
-
-func (v *tarPathValidator) scanShortFlags(hc *HandlerContext, index int) (next int, done bool, err error) {
-	flags := strings.TrimPrefix(v.args[index], "-")
-	for flagIndex, flag := range flags {
-		if flag == 'c' {
-			v.createMode = true
-		}
-		if flag != 'f' {
-			continue
-		}
-		return v.scanFileShortFlag(hc, index, flagIndex, flags)
-	}
-	return index, false, nil
-}
-
-func (v *tarPathValidator) scanFileShortFlag(hc *HandlerContext, index, flagIndex int, flags string) (next int, done bool, err error) {
-	value := flags[flagIndex+1:]
-	if value == "" {
-		return v.markNextFileValue(index), false, nil
-	}
-	resolved, err := hc.ResolvePath(value)
-	if err != nil {
-		return index, false, err
-	}
-	v.args[index] = "-" + flags[:flagIndex+1] + resolved
-	return index, false, nil
-}
-
-func (v *tarPathValidator) validateFileValues(hc *HandlerContext) error {
-	for index := range v.fileValueIndexes {
-		if err := validatePathArg(hc, v.args, index); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (v *tarPathValidator) validateCreateOperands(hc *HandlerContext) error {
-	if !v.createMode {
-		return nil
-	}
-	for _, index := range v.operandIndexes {
-		if err := validatePathArg(hc, v.args, index); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validatePathArg(hc *HandlerContext, args []string, index int) error {
-	if args[index] == "-" {
-		return nil
-	}
-	path, err := hc.ResolvePath(args[index])
-	if err != nil {
-		return err
-	}
-	args[index] = path
-	return nil
+	return urootCommandOperands(hc, cmd, args)
 }
 
 // BuildDefaultRegistry creates a new Registry pre-populated with all 28

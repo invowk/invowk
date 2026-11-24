@@ -18,11 +18,12 @@ func newCpCommand() *cpCommand {
 	return &cpCommand{
 		name: "cp",
 		flags: []FlagInfo{
-			{Name: "r", ShortName: "r", Description: "copy directories recursively"},
-			{Name: "R", Description: "same as -r"},
-			{Name: "f", ShortName: "f", Description: "force copy by removing destination file if needed"},
-			{Name: "n", ShortName: "n", Description: "do not overwrite an existing file"},
-			{Name: "P", Description: "never follow symbolic links"},
+			{Name: "recursive", ShortName: "r", Description: "copy directories recursively"},
+			{Name: "RECURSIVE", ShortName: "R", Description: "same as -r"},
+			{Name: "interactive", ShortName: "i", Description: "prompt before overwriting a file"},
+			{Name: "force", ShortName: "f", Description: "force copy by removing destination file if needed"},
+			{Name: "verbose", ShortName: "v", Description: "print each copied file"},
+			{Name: "no-dereference", ShortName: "P", Description: "never follow symbolic links"},
 		},
 	}
 }

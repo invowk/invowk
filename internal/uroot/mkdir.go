@@ -18,8 +18,9 @@ func newMkdirCommand() *mkdirCommand {
 	return &mkdirCommand{
 		name: "mkdir",
 		flags: []FlagInfo{
-			{Name: "p", Description: "create parent directories as needed"},
 			{Name: "m", Description: "set file mode", TakesValue: true},
+			{Name: "p", Description: "create parent directories as needed"},
+			{Name: "v", Description: "print each directory as it is made"},
 		},
 	}
 }

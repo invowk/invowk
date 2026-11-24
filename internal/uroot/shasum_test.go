@@ -31,12 +31,12 @@ func TestShasumCommand_SupportedFlags(t *testing.T) {
 
 	hasAlgorithm := false
 	for _, f := range flags {
-		if f.Name == "a" {
+		if f.ShortName == "a" && f.Name == "algorithm" && f.TakesValue {
 			hasAlgorithm = true
 		}
 	}
 	if !hasAlgorithm {
-		t.Error("SupportedFlags() should include -a flag")
+		t.Error("SupportedFlags() should include -algorithm/-a, taking a value")
 	}
 }
 

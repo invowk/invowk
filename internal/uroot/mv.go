@@ -18,8 +18,8 @@ func newMvCommand() *mvCommand {
 	return &mvCommand{
 		name: "mv",
 		flags: []FlagInfo{
-			{Name: "f", ShortName: "f", Description: "do not prompt before overwriting"},
-			{Name: "n", ShortName: "n", Description: "do not overwrite an existing file"},
+			{Name: "u", Description: "move only when the source is newer or the destination is missing"},
+			{Name: "n", Description: "do not overwrite an existing file"},
 		},
 	}
 }

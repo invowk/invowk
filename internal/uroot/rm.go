@@ -18,9 +18,11 @@ func newRmCommand() *rmCommand {
 	return &rmCommand{
 		name: "rm",
 		flags: []FlagInfo{
-			{Name: "r", ShortName: "r", Description: "remove directories and their contents recursively"},
+			{Name: "r", Description: "remove directories and their contents recursively"},
 			{Name: "R", Description: "same as -r"},
-			{Name: "f", ShortName: "f", Description: "ignore nonexistent files, never prompt"},
+			{Name: "f", Description: "ignore nonexistent files, never prompt"},
+			{Name: "i", Description: "prompt before every removal"},
+			{Name: "v", Description: "explain what is being done"},
 		},
 	}
 }
