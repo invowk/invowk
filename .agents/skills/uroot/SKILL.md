@@ -167,6 +167,35 @@ add avoidable unbounded heap growth.
   review).
 - The operand rules are chosen by the dispatched command's `Name()`, not by
   `args[0]`, which is handed on as written.
+- `cp` and `tar -x` derive paths from their operands, and `checkUrootDerivedPaths`
+  (`internal/uroot/registry_derived.go`) checks them after the operands. Two enumerators
+  compute, in u-root's order, what the command will touch: `cpDerivedPaths` (the
+  destination directory joined with each source's base name, and for `-r` a
+  `filepath.Walk` of the source joined as `CopyTree` joins it; without `-P` every
+  source entry that is neither a directory nor a regular file is a followed link) and
+  `tarDerivedPaths` (a first read of the archive, `upath.SafeFilepathJoin` per entry,
+  u-root's type switch). Each path goes through `HandlerContext.ResolvePath`. The checks
+  are not handed on: u-root derives the same paths again from the same resolved operands.
+- `HandlerContext.FullAccess` turns these checks off; the runtimes set it under
+  `access: "full"`. Its zero value checks, so an embedding or test that sets a validator
+  and forgets the flag fails closed. A test of u-root's own behaviour on a shape the rules
+  below refuse sets `FullAccess`.
+- The prediction rules keep the run equal to what was checked, each a sentinel whose text
+  begins with `virtual path denied`: a `cp` source operand after the first must exist
+  (`errCpSourceMissing`; a missing first source keeps u-root's error); with `-r` a
+  destination at or below a source operand, compared by `os.SameFile` of its existing
+  part, is refused unless it already is the source entry it copies (`errCpIntoSource`);
+  a `cp -P` link may only be the command's one destination (`errCpLinkWithOtherDestinations`,
+  which compares no names, because which names a volume treats as one entry cannot be
+  told from their spelling); a `tar -x` archive that exists must be a regular file
+  (`errTarArchiveNotRegular`).
+- When `Copy` fails, the enumerator never ends a source earlier than `CopyTree`: only a
+  walk error ends one, a failing entry yields its destination as a file write and the
+  walk goes on, and the pre-callback's skips are not evaluated. Checking more than u-root
+  touches fails closed.
+- A u-root bump that changes `pkg/core/cp` or `pkg/tarutil` must keep
+  `TestUrootDerivedPathsMatchUpstream` and `TestUrootDerivedPathsMatchUpstreamLinks`
+  passing; they compare the predicted paths with what u-root creates and writes.
 - The security boundary is normalized allowed-root validation, not symlink
   following by itself: following a symlink can expose its target path, and
   allowed-root validation decides whether that target may be accessed.
@@ -180,6 +209,7 @@ add avoidable unbounded heap growth.
 - `cp source dest` where `source` is a symlink → copies the target file content
 - `cp -r dir/ dest/` where `dir/` contains symlinks → copies target contents, not links
 - Symlink preservation requires the explicit `-P` flag
+- Under `"restricted"` access a `cp -P` that would create a link next to other destinations is refused, so `cp -P -r` of a tree that holds a link is refused there; `access: "full"` copies it (Path Policy)
 
 ### Symlink Creation (`ln -s`)
 
