@@ -475,21 +475,15 @@ jobs:
       contents: read
     outputs:
       needs_refresh: ${{ steps.pgo-check.outputs.needs_refresh }}
-      head_sha: ${{ steps.head.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.head_ref || '' }}
+          # The default ref (a pull request's merge commit). pgo-commit takes
+          # the head to commit on from the event, never from this job, so
+          # nothing this job's code writes can choose it.
           persist-credentials: false
-
-      # Recorded before any repository code runs: the commit job commits on
-      # top of exactly this head, and skips when the branch has moved since.
-      - name: Record checked-out head
-        id: head
-        shell: bash
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -635,13 +629,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_BRANCH: ${{ github.head_ref }}
-          EXPECTED_HEAD: ${{ needs.pgo-sanity.outputs.head_sha }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
           PROFILE: ${{ runner.temp }}/pgo-profile/default.pgo
         run: |
           set -euo pipefail
 
           if ! [[ "$EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::PGO Sanity reported no checked-out head: '$EXPECTED_HEAD'"
+            echo "::error::the event carries no pull request head: '$EXPECTED_HEAD'"
             exit 1
           fi
 

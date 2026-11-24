@@ -24,7 +24,7 @@ rg -n 'createCommitOnBranch|git commit|git push|git tag' .github/workflows
 For each commit-producing job, verify:
 
 1. The mutation targets the intended repository and branch.
-2. `expectedHeadOid` is the checked-out head.
+2. `expectedHeadOid` is the head the change was made for: the checked-out head, or for `pgo-commit` the event's `pull_request.head.sha`.
 3. Additions and deletions represent the complete intended change.
 4. Large content is passed through files/`--rawfile`, not shell arguments.
 5. The result is checked for GraphQL errors and a non-empty commit OID.

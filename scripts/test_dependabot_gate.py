@@ -3222,12 +3222,9 @@ class PolicyTableTests(unittest.TestCase):
         checkouts = [step for step in sanity["steps"] if str(step.get("uses", "")).startswith("actions/checkout@")]
         self.assertEqual(len(checkouts), 1)
         self.assertEqual(checkouts[0]["with"].get("persist-credentials"), "false")
-        self.assertEqual(sanity["steps"][1], {
-            "name": "Record checked-out head", "id": "head", "shell": "bash", "run": 'echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"',
-        })
-        self.assertEqual(sanity["outputs"], {
-            "needs_refresh": "${{ steps.pgo-check.outputs.needs_refresh }}", "head_sha": "${{ steps.head.outputs.sha }}",
-        })
+        # The default ref: no pull request head checkout, and no head output a job running that code could forge.
+        self.assertNotIn("ref", checkouts[0]["with"])
+        self.assertEqual(sanity["outputs"], {"needs_refresh": "${{ steps.pgo-check.outputs.needs_refresh }}"})
         (upload,) = [step for step in sanity["steps"] if str(step.get("uses", "")).startswith("actions/upload-artifact@")]
         self.assertEqual(upload["uses"], "actions/upload-artifact@v7")
         self.assertEqual(upload["if"], "steps.pgo-check.outputs.needs_refresh == 'true'")
@@ -3268,7 +3265,7 @@ class PolicyTableTests(unittest.TestCase):
         self.assertNotIn("GH_TOKEN", verify["env"])
         # The commit goes to the pull request's own head branch, on top of the head PGO Sanity checked out.
         self.assertEqual(write["env"]["HEAD_BRANCH"], "${{ github.head_ref }}")
-        self.assertEqual(write["env"]["EXPECTED_HEAD"], "${{ needs.pgo-sanity.outputs.head_sha }}")
+        self.assertEqual(write["env"]["EXPECTED_HEAD"], "${{ github.event.pull_request.head.sha }}")
         self.assertEqual(write["env"]["GH_TOKEN"], "${{ github.token }}")
         self.assertIn('if [ "$CURRENT_HEAD" != "$EXPECTED_HEAD" ]; then', write["run"])
         self.assertIn('additions: [{path: "default.pgo", contents: $contents}]', write["run"])
