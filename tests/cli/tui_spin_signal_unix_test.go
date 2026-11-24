@@ -46,14 +46,10 @@ func TestTUISpinSIGINTWithoutTerminal(t *testing.T) {
 		t.Fatalf("start invowk: %v", err)
 	}
 
-	deadline := time.Now().Add(20 * time.Second)
-	for _, statErr := os.Stat(pidPath); statErr != nil; _, statErr = os.Stat(pidPath) {
-		if time.Now().After(deadline) {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-			t.Fatalf("wrapped command did not start; stderr:\n%s", stderr.String())
-		}
-		time.Sleep(20 * time.Millisecond)
+	if !waitForPath(pidPath, 20*time.Second) {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		t.Fatalf("wrapped command did not start; stderr:\n%s", stderr.String())
 	}
 	// The new session makes invowk the leader of its own process group.
 	start := time.Now()

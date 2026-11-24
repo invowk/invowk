@@ -471,12 +471,8 @@ func TestTUI_Spin(t *testing.T) {
 		if !s.waitFor("SpinWait", tmuxWaitTimeout) {
 			t.Fatalf("spinner did not render within timeout, pane:\n%s", s.capturePlain())
 		}
-		deadline := time.Now().Add(tmuxWaitTimeout)
-		for _, err := os.Stat(pidPath); err != nil; _, err = os.Stat(pidPath) {
-			if time.Now().After(deadline) {
-				t.Fatal("wrapped command did not start within timeout")
-			}
-			time.Sleep(50 * time.Millisecond)
+		if !waitForPath(pidPath, tmuxWaitTimeout) {
+			t.Fatal("wrapped command did not start within timeout")
 		}
 		time.Sleep(tuiInputSettleDelay)
 		start := time.Now()
@@ -498,6 +494,19 @@ func TestTUI_Spin(t *testing.T) {
 			t.Errorf("the wrapped command is still running after Ctrl+C, pane:\n%s", s.capturePlain())
 		}
 	})
+}
+
+// waitForPath polls until path exists and reports whether it appeared within
+// timeout.
+func waitForPath(path string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for _, err := os.Stat(path); err != nil; _, err = os.Stat(path) {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return true
 }
 
 // paneHasLine reports whether a line of the captured pane, without trailing

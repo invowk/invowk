@@ -424,8 +424,9 @@ func TestSpinActionModel_CtrlCInterrupts(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("Update(ctrl+c) returned no command, want tea.Interrupt")
 	}
-	if _, ok := cmd().(tea.InterruptMsg); !ok {
-		t.Fatalf("Update(ctrl+c) command message = %T, want tea.InterruptMsg", cmd())
+	msg := cmd()
+	if _, ok := msg.(tea.InterruptMsg); !ok {
+		t.Fatalf("Update(ctrl+c) command message = %T, want tea.InterruptMsg", msg)
 	}
 }
 
